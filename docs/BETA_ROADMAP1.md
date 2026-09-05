@@ -1,0 +1,8909 @@
+# FRAZARO — THE MASTER ROADMAP
+
+*Strategy, not execution. This file holds the **shape** of the work: what kinds
+of debt exist, which order they must be paid in, and why. It is meant to stay
+terse and stable for a long time.*
+
+*Pass records — what shipped, what was predicted, what the machine said — belong
+in the **version ledger** (`ALPHA6_ROADMAP.md` today), not here. That split is
+deliberate: the reason the ledgers were growing alarmingly is that one document
+was carrying both a strategy and a diary. Strategy files should be small and
+change rarely; diaries should be append-only and get archived at version close.*
+
+> **CONSTRAINT, this version:** a human at a Windows box (throughput) and the
+> absence of any user but the owner (learning). Work that is at neither is, by
+> Goldratt's definition, waste this version. Re-name the constraint at every
+> version open; if it has not changed in three versions, that is itself a
+> finding.
+
+> **BETA, defined, because four gates in this file point at it:** *one named
+> person outside the project runs their own SOP, on their own machine, on a
+> Monday, with the owner unreachable.* Owner: the owner. Until that sentence is
+> true, "gates on first external user" is a deferral with good manners.
+
+---
+
+## THE MISSION, AND WHAT IT COSTS ARCHITECTURALLY
+
+> Whatever language a person prefers to think in should be the same language
+> their top-level source code is written in. Teaching computers to understand
+> human languages is a more efficient and sustainable path to automation than
+> the Sisyphean task of teaching every human to understand computer language.
+
+English is not the product. English is **the first phrasebook**. That single
+sentence reorders this roadmap, because it turns language-neutrality from a
+nice-to-have into a load-bearing property of the core — and load-bearing
+properties are cheap to install and ruinous to retrofit.
+
+**And VBA is not the machine. VBA is the first backend.** That sentence is the
+same sentence, rotated: the mission says nothing about spreadsheets, and nothing
+about Microsoft. Both neutralities are the removal of an assumption the core was
+built around while nobody was looking; both are cheap today and structural
+later; both are gated on the same two items (F.1, F.2). They are therefore one
+tranche, in two parts, at equal rank.
+
+**Audit result (measured, not assumed).** The pipeline is *structurally* ready
+for both and *lexically* not:
+
+| Layer | State | Verdict |
+|---|---|---|
+| Tier 4 — phrasebooks | Already pluggable; a rule set is data | **Ready by design.** This is the thing you got right early. |
+| Tier 4 — sentence machinery (`VLA_English.bas`) | English word order, prepositions, block words and comparators are hardcoded in the module | **Needs splitting**, so a second language is a *sibling module*, not a fork of 5,000 lines |
+| Tier 4 — templates | **61 of 102 rules reach the object model** (120 dot-forms); 11 name an `xl*`/`vb*` constant; 40 already read as named verbs | The 39% is F.1 working before it was declared. The 61 is the interpreter's cost function. |
+| Tier 1 — core forms | **63 English head words** hardcoded in emitter `Select Case` arms | Fixable at **one chokepoint** now; a hundred sites later |
+| Tier 1 — backend | One emitter, hardwired: `VlaTranspile` is source→VBA text, and nothing declares that VBA is a *choice* | **A second backend is a peer, not a port** — but only while the head dispatch is still one table |
+| Tier 3 — prelude | All names and docstrings English (`when`, `blank?`, `with-no-alerts`) | Becomes data the moment F.3 makes the prelude a file |
+| All tiers — refusals | Every message is a hand-written English string (169 raise sites) | **The user-facing half of the mission.** A Spanish user meeting an English refusal has no product |
+| All tiers — symbol identity | **102 `LCase` folds** (37 core, 65 English) key the macro table, doc table, and head dispatch | VBA's `LCase` is **locale-aware**: in a Turkish locale, `I`/`İ` fold inconsistently, so identifier identity silently changes with the user's Windows settings |
+| The substrate itself | Macro-enabled add-in + VBProject trust + injected modules, on a vendor surface under active narrowing | **Unpriced until now.** One configuration decision in Redmond zeroes the product; one IT policy zeroes each customer. |
+
+Conclusion: **both neutralities are architecturally reachable, and the window to
+make them cheap is now** — before the corpus triples, before a hundred more
+refusal strings are written by hand, and before another sixty templates grow
+dot-forms that a second backend would have to implement one at a time.
+
+---
+
+## HOW THIS ROADMAP IS ORDERED
+
+Three rules now. The first two are the same rule seen from different sides; the
+third is what the audit caught the first two failing to do.
+
+**Microscope before dissection.** Build the instrument before the operation.
+Everything that *observes, verifies, or constrains* comes before the thing it
+observes, verifies, or constrains.
+
+**Cost-of-delay curve.** Some debts are **flat** — documentation costs the same
+in month two or month twenty. Some are **rising** — every rule shipped makes a
+surface-compatibility policy more expensive; every refusal written by hand makes
+a message catalogue more expensive; every template makes an emitter-boundary
+rule more expensive. *Rising-cost work goes first, regardless of how unglamorous
+it is.*
+
+**Cost of delay is a rate, so it needs a denominator.** Every item below carries
+an appetite — `~hours`, `~days`, `~weeks` — and ranking is cost-of-delay ÷
+duration, not cost-of-delay alone. This is why one sentence of doctrine outranks
+a month of correct engineering, and it is also why the expensive half of a
+correct tranche can wait. **Buy the decision now; defer the artifact.** Most
+items in this file have both halves, and only one of them is urgent.
+
+Practical consequence: **sections are a gradient, not a queue — and this
+revision finally made the file say so.** The previous version wrote that sentence
+and then published fifteen numbered tranches, which is a queue no matter what the
+prose claims; readers infer order from numbers, because that is what numbers are
+for. **The numbers are gone.** Each section is now titled by the department
+accountable for it — **MACHINE**, **LANGUAGE**, **PRODUCT**, **COMMONS**,
+**PATIENT** — and their order on the page is a grouping by accountability,
+nothing more. There is no first section. *Spelled out rather than coded, because
+a file already carrying `F.`, `LX.`, `IN.`, `EN.`, `AS.`, `CO.`, `PF.`, `P-`,
+`G-`, `U.`, `LE.`, `IO.`, `DI.`, `AC.`, `DO.`, `GO.`, `PI.`, `L.`, `V.`, `DR`,
+`SEC.`, `SIG.` and `SD-` has no remaining capacity for two-letter prefixes
+that a reader must decode before they can read.* *(`L.` and `V.` added by
+F.12's audit — both were already live, at `L.11` and `V.1`, and missing
+from this sentence since before this file's own history begins; `DR` added
+the same way, still bare — see [`docs/ID_REGISTRY.md`](ID_REGISTRY.md).
+`SEC.` and `SIG.` are new with this pass and its own follow-up, each
+declared here at the moment of minting rather than found missing by a
+later audit — the L./V./DR gap's own lesson, applied instead of repeated.)*
+
+**The ordering mechanism is the betting table, and it is the only one.** At each
+version open, re-bet from the whole document rather than draining a section in
+order: pick the work whose cost-of-delay ÷ appetite is highest *right now*,
+subject to the gates, subject to SD-12's grammar floor. A section is a filing
+cabinet, not a queue position.
+
+What may not jump are the **gates** — marked 🔒 — and every gate now names both
+the observation that opens it *and the specific sections it blocks*. A gate
+stated at section granularity when it applies to four rules is not sequencing; it
+is a deferral wearing a lock icon, and this file was carrying several.
+
+**Later tranches are deliberately thin, and that is correct.** A tranche gets
+hydrated when it is two moves away, not before. Thin is discipline, not neglect.
+**The corollary the last revision missed:** a tranche written for a population
+that does not exist is fiction by the same argument, however detailed it is.
+Each tranche header carries `specimens: N` — real user sentences or incidents
+motivating it. Most read `0` today. The field is there to feel bad in the
+productive way.
+
+---
+
+## THE DEPARTMENTS
+
+Cut by **accountability** rather than subject, because that is what makes a
+department real: a different question it must answer, a different reviewer
+profile, a different definition of "done."
+
+### 🔧 THE MACHINE — *"It works, it's correct, it's fast, everywhere."*
+Fortifications · Environment · Assurance · Optimization · VLA · Performance
+Reviewer profile: compiler engineer. Done means: pinned, measured, reproducible.
+
+### 🗣 THE LANGUAGE — *"What can be said, and does it keep meaning what it meant?"*
+Linguistics · Compatibility · Grammar
+Reviewer profile: linguist / domain expert who has lived in spreadsheets.
+Done means: auditioned, proven, and promised. **This department is the moat.**
+Anyone can clone a compiler; nobody can clone a curated dialect plus a corpus
+of tested phrasings plus the judgment that shaped them.
+
+### 🪟 THE PRODUCT — *"Can a human find it, use it, install it?"*
+Interface · Learnability · Accessibility · Distribution
+Reviewer profile: designer. Done means: a stranger succeeded unaided.
+
+### 🌍 THE COMMONS — *"Can others join, extend, and coexist?"*
+Documentation · Governance · Interoperability
+Reviewer profile: maintainer. Done means: someone else did it without asking.
+
+### 🧑 THE PATIENT — *"Is anyone actually being helped, this week?"*
+Pilot · Acquisition · Gap reporting
+Reviewer profile: the user, who has not read this document and never will.
+Done means: their SOP ran on their machine, on a Monday, without you in the room.
+*Added late, which is the finding. The organizing metaphor of this file is
+microscope-before-dissection, and for fifteen tranches it had no patient in it.*
+
+### 🛡 THE ADVERSARY — *"What can a hostile author, a hostile program, or a hostile input do?"*
+Security
+Reviewer profile: someone trying to break it — a profile no other department seats.
+Done means: a threat model exists, the reachable object-model surface is default-deny,
+and a phrasebook cannot act beyond it without visible, revocable consent.
+*Added later than the Patient, for the identical reason. `docs/CONSULTANT.md` — an
+outside project-management assessment — read every department above and found the
+reviewer profile in each one friendly: a compiler engineer, a linguist, a designer, a
+maintainer, a user, never someone trying to break it. The gap this department exists
+to close is not a missing feature; it is a missing kind of reader.*
+
+### 🖋 THE SIGNATORY — *"What has to be true before someone with budget authority can say yes?"*
+Procurement · Licensing · Positioning
+Reviewer profile: the person who signs the form — the other reader no department here
+ever seated. Done means: a licence, an IT-facing security summary, support terms, a
+VPAT, and a one-page competitive positioning all exist as documents a stranger can
+download without asking.
+*The same outside assessment that proposed the Adversary proposed this department in
+the same breath, as its own addendum's second half: a security reviewer and a
+procurement officer are both readers this file never seated, and most of what each
+needs is a paragraph, not a feature — the file's own cheapest-lever finding (F.1's own
+one-sentence-doctrine argument), pointed at itself.*
+
+**The seventh thing, which is not a department: the Protocol.** It is the
+constitution every department works under, and it now has a register of its own
+below, because five noun phrases is not what "declare your standing decisions
+with their reasons attached" asks for.
+
+---
+
+## THE STANDING-DECISION REGISTER
+
+*Append-only. Numbered, dated, reasons attached. A decision costs a sentence
+today and a rewrite later; this is where the sentences live so the engineer of
+2031 can tell load-bearing doctrine from fossilized accident. Not a backlog —
+nothing here is "done," and nothing here is ever pruned.*
+
+- **SD-1 — VBA is a backend, not the language.** No Tier-1 form, no prelude
+  macro, and no phrasebook template may assume the VBA backend; anything that
+  must is a declared, listed exception in the runtime helpers. *Reason:* the
+  substrate is a single vendor's narrowing surface, and the architecture is
+  already ~90% compliant, so the decision is free today and a rewrite at 200
+  templates. *Pays into:* the whole of Part B below, other hosts, F.1.
+- **SD-2 — no refusal ships as a raw string.** Every refusal goes through
+  `Raise` with a stable ID and named parameters, even while the English text
+  lives inline. *Reason:* buys LX.2's discipline without LX.2's artifact; the
+  IDs accrete for free and the catalogue is later assembled from something that
+  already exists. **Not honored in practice, found while scoping LX.2:** no
+  `Raise` function exists and no current refusal site carries an ID (348
+  checked, zero hits) — including sites added well after this decision was
+  recorded (`VLA_Interpreter.bas`'s 64, from `IN.0.5`), so this is a standing
+  decision the codebase has been drifting away from rather than accreting
+  toward. Left as-is per this register's own "nothing is ever pruned" rule;
+  LX.2 is where the gap actually closes. **F.14 (scoped and built the same
+  session)** stops the drift itself in the meantime — a mechanical ratchet
+  that fails if any shipped module's raw-`Err.Raise` count rises above a
+  held ceiling — without waiting on LX.2's own artifact. Its own recount
+  found the "348" figure just above already one stale before the ink dried:
+  `VLA_IDE.bas` had grown from 15 to 16, the exact drift this decision
+  predicted, caught live by doing the recount rather than trusting the
+  number on the page.
+- **SD-3 — the audition checklist is append-only.** No rule ships without an
+  audition, and any audition decision not already covered by the checklist is
+  appended to the checklist that day. *Reason:* LX.7's spec accretes as a
+  byproduct of the work, with reasons attached, instead of being invented up
+  front for a grammar not yet discovered.
+- **SD-4 — a shipped spelling keeps its meaning.** A sentence that has ever
+  appeared in a shipped `instructions.txt` keeps its spelling, or is retired through
+  CO.1's refusal. *Reason:* the promise is the expensive part; the frozen file
+  is bookkeeping.
+- **SD-5 — every backend supports or explicitly refuses every core form.** A new
+  emitter case that the formula dialect and the interpreter neither support nor
+  refuse is a failing test. *Reason:* silent divergence between backends is the
+  bug class that makes multi-backend architectures unmaintainable, and it is
+  cheap to forbid while there are two backends rather than three.
+- **SD-6 — the corpus family is a fixture.** Absence of `instructions.txt` /
+  `english.vla` / `alonzo.vla` fails the suite. *Already in force; cited
+  here as the register's model entry.*
+- **SD-7 — no grammar section is scheduled without a sentence that needs it.**
+  A real sentence, from a real transcript. *Reason:* G-TAIL already says this
+  about itself; it is correct about the whole tranche. `pareto.txt` is a
+  prediction, and predictions are what specimens are for.
+- **SD-8 — identifiers are folded invariantly, and identity never depends on a
+  locale.** *Reason:* LX.3's discipline, held as a decision so the 103rd fold
+  site cannot be written innocently.
+- **SD-9 — IDs are never reused across documents, and a retired ID is never
+  re-minted.** *Reason:* this register's own founding incident — Alpha 1's `F1`
+  (interpreter mode) collided with this file's `F.1` (the grammar/emitter ABI)
+  during the promotion into strategy, and the item with the homograph is the one
+  that quietly failed to arrive. A naming policy would have caught it; judgment
+  did not.
+- **SD-10 — semantics are never a pricing boundary.** What a sentence *means*,
+  and whether it runs at all, never depends on what was paid. Price seats,
+  support, the phrasebook registry, governance, hosted services — never a core
+  form, never a backend, never a grammar section. *Reason:* the moment a form is
+  paywalled, a user meeting IN.5's export-only refusal hits a price where LX.8
+  promises a lesson, and the product's one voice starts selling instead of
+  teaching. Also the practical version: a tiered backend makes R9's parity rule a
+  commercial commitment, so every future core form is a pricing negotiation.
+  *Ruinous to retrofit* — a price list is the hardest thing in this document to
+  un-publish.
+- **SD-11 — demolish an assumption when its benefit re-expresses as an optional
+  feature; keep it when the benefit is structural.** *Reason:* "it came first" is
+  not a reason, and neither is "we already built it" — but neither is novelty.
+  This is the test that let IN.9 demote module injection honestly: self-contained
+  workbooks and compiled speed both survive intact as an export button, while the
+  trust requirement could not survive as anything but an install-time tax on
+  every user. Applied in the other direction it *protects* incumbents: an
+  assumption whose benefit has no optional form is load-bearing, and pulling it
+  is a rewrite wearing a refactor's clothes.
+- **SD-12 — every version ships at least one grammar slice, whatever else is
+  being paid down.** A floor, not a ceiling and not a licence. *Reason:* grammar
+  rules are the only work in this document that produces **specimens**, and the
+  constraint named at the top of this file is the absence of a user. A version
+  that pays down four fortifications and ships no sentences has, by its own
+  stated constraint, done nothing. *The counter-reason, stated so the floor is
+  not mistaken for a preference:* rules are the most *legible* work here — they
+  produce visible diffs and feel like progress — which is exactly the profile of
+  work that displaces the unglamorous item that was actually load-bearing. §8's
+  warm forge has a mirror image, and it is shipping features to avoid the
+  fortification you know is coming. **One slice is the obligation; more is a bet
+  that has to win the betting table like anything else.**
+- **SD-13 — no outbound network call, ever, without a dedicated re-litigation
+  of this decision.** DI.3's "version check" half is the first place this
+  would have mattered, and it stops there by default. *Reason (the owner's
+  own, argued live during DI.3's scoping):* a single outbound request
+  forfeits the same "no `.exe`-execution policy to trip over" posture DI.2
+  built the standalone path around — the moment Frazaro asks anything of the
+  network, it becomes exactly the kind of software a managed environment's
+  IT/network policy has to notice, whether or not the call is ever actually
+  blocked. The product argument runs alongside the security one, not behind
+  it: a downloaded release should stay exactly as capable and exactly as
+  trustworthy as the day it was downloaded; version-churn anxiety is a cost a
+  user did not ask to carry, and a user who wants what's new will go looking
+  for it. *Applies immediately, not just once hosting exists:* the earlier
+  framing of DI.3's network half as "blocked on there being nothing to check
+  against yet" undersold this — even after a release channel exists to check
+  against, this decision still says no by default. *How this could ever
+  change:* only by a dedicated future decision that confronts this reasoning
+  directly and states what changed, the same append-only discipline every
+  other SD in this register gets — not by a DI.3 sub-item quietly picking the
+  mechanism back up because the infrastructure finally showed up.
+- **SD-14 — `VLA_RELEASE_VERSION` is `MAJOR.MINOR.PATCH`, standard names,
+  project-specific triggers.** *Why the standard names, not a renamed
+  scheme:* `PROD.TEST.DEV` and `MAJOR.MINOR.INTERNAL` were both floated and
+  declined — the former answers a different question entirely (which
+  channel a build shipped through, not how much changed; that's what a
+  pre-release suffix like `-beta` is for, not one of the three numbers) and
+  the latter renames a well-understood vocabulary for no functional gain,
+  when `Frazaro.iss`'s `AppVersion`, Windows' own `DisplayVersion`, and any
+  future semver-aware tooling all already read `MAJOR.MINOR.PATCH`
+  correctly. The arbitrariness the owner rightly named belongs in the
+  *trigger rules*, not in reinventing the labels.
+
+  **What actually triggers each number, specific to what this project ships:**
+  - **PATCH — the default.** No observable change to what an existing
+    pilot's sentences do: bug fixes, fortifications, internal refactors,
+    docs, tooling. Most versions land here.
+  - **MINOR — adds something a user can now do or say that they couldn't
+    before, without changing what already worked.** A new grammar rule or
+    section, a new ribbon button, a new runtime capability (DI.2's
+    Uninstall button, DI.3's version display). This is where SD-12's
+    "at least one grammar slice every version" floor mostly lands.
+  - **MAJOR — SD-4 was actually invoked.** A sentence that ever shipped in
+    `instructions.txt` changed meaning or was retired through CO.1's
+    refusal path, or a comparable architectural break where an existing
+    pilot workbook's program could behave differently after upgrading.
+    Should be rare, and rightly alarming when it happens — this is the one
+    number this project has an existing doctrine (SD-4) to hang the
+    definition on, rather than inventing a new rule for it.
+  - **The crossing to `1.0.0` specifically is reserved for PI.6 passing** —
+    "their program runs unattended, on their machine, with the owner
+    unreachable," this file's own definition of graduating beta — not a
+    feature count or a vibes call. Every version before that stays honestly
+    `0.x` no matter how much functionality exists, which is also standard
+    semver's own convention for software with no compatibility promise yet.
+
+  **The starting number, `0.5.0` (not `0.1.0`), is the owner's own
+  deliberate choice** — a beta-status signal doubled as a homage to John
+  McCarthy's *LISP 1.5 Programmer's Manual*, this project's own most direct
+  ancestor in spirit. Targeted for the beta release on 2026-09-05.
+- **SD-15 — dynamic dispatch beyond the native, reviewed tier requires a
+  declared capability; the default is deny.** No form, macro, or phrasebook
+  rule may reach an object-model member, a file, a process, or the network
+  through open-ended late-bound dispatch (`CallByName` against a
+  caller-supplied or computed member name, `raw`'s opaque VBA splice, or the
+  equivalent under any future backend) unless that specific reach was
+  positively enumerated in advance and the caller has been granted it.
+  Everything else refuses in words, naming the capability that was missing —
+  the same shape IN.5's export-only surface already refuses rather than
+  diverges. *Reason:* found live, this session, while scoping a threat
+  model rather than a feature — the interpreter's own `CallByName` fallback
+  (`DynamicGet`/`DynamicCall`, `VLA_Interpreter.bas`) and `raw` (`VLA.bas`)
+  mean a phrasebook rule can plausibly reach `Application` and splice
+  arbitrary VBA under the "no-trust" default runtime, with no gate and no
+  consent anywhere — the opposite of what "zero-trust" is supposed to mean
+  to an IT reviewer, and not previously named because no department's
+  reviewer profile was ever someone trying to break it (see THE ADVERSARY,
+  above). *Why deny-by-default rather than a blocklist:* a form cannot be
+  classified safe-or-dangerous from its shape alone once dispatch is
+  dynamic — the member name may be computed at runtime — and `raw`'s
+  payload is opaque to the VLA-level reader by construction, the identical
+  evasion class every signature-based sandbox has eventually lost to. The
+  only tractable question is "was this specific, named reach enumerated,"
+  which is decidable because the reachable surface (`VLA_HeadTable`) is
+  already finite and named; classifying arbitrary behavior is not. *A
+  structural strength worth recording, not just a mitigation:* because
+  Frazaro has no first-class function value or closure to alias, an
+  ungranted capability cannot leak through composition — the name simply
+  fails to resolve, for any caller, not only the one that first reached for
+  it. This is the object-capability literature's hardest problem
+  (unforgeable references) solved by a design choice made for unrelated
+  reasons. *Pays into:* SEC.1 (the artifact), SEC.2 (`raw`'s own consent
+  gate), GO.3 (the phrasebook registry's supply-chain risk, now with a
+  mechanism instead of a named worry).
+- **SD-16 — the phrasebook's pattern language is the only sentence
+  grammar; no DCG, no backtracking parser, and no Prolog-shaped matcher
+  ever parses a sentence.** `TryPhrase`'s design is the contract: rules
+  tried in registration order, first match wins, every slot consumes
+  exactly one token (or one quoted string, or one G6 comma list) with
+  zero lookahead, and no backtracking inside a rule — a Definite Clause
+  Grammar with a cut after every clause, on purpose. That restriction is
+  what makes three product properties *provable* rather than hoped for:
+  the load-time shadow audit (`english-rule-shadow`) can expand every
+  branch and decide whether two rules overlap only because the pattern
+  language is finite — over a DCG the question is undecidable; the
+  teaching refusal ("I understood '...' — then expected X but found Y")
+  exists only because a deterministic scan always knows how far it got,
+  where a backtracking parser on failure knows only *false*; and "one
+  sentence, one meaning" is a promise (SD-4) only while no rule can have
+  a second reading. Prolog's whole strength at natural language —
+  enumerate the parses, let unification and search resolve the ambiguity
+  — is aimed at parsing *natural* language; Frazaro parses a *controlled*
+  one, where ambiguity is a bug the loader refuses, not a reading the
+  engine explores. *What this decision forbids, concretely:* a grammar
+  rule written as a clause with a body; a slot that recurses into another
+  rule (a nonterminal); any rule that can succeed by more than one path;
+  any matcher that re-enters a rule after a slot failed further in; and,
+  once `PROLOG()` ships, any use of that engine — or of the shared
+  unifier beneath it — to *recognize* a sentence. *What it deliberately
+  permits:* Prolog machinery *under* the surface — the two-sided unifier
+  as shared substrate (`VLA_Unify.bas`, see `PROLOG`'s own entry), the
+  rendering direction (G-RENDER already unifies a template against a
+  form, and is the model: it matches forms against forms and is never
+  handed a token stream), SOLVE's search — none of which ever decides
+  whether a sentence is accepted. *Reason, and why it is written
+  sternly:* the temptation is structural, not hypothetical — the day
+  `=PROLOG()` exists, the cheapest way to write a new grammar section
+  will look like a DCG "because the engine is right there," and every
+  such section would silently drop out of the audit, the refusal, and
+  the promise, with no failing test to say so. This is the same line
+  drawn one level down when `DATALOG` was kept a separate name from
+  `PROLOG` (restriction as the feature, checked at load time rather than
+  discovered live), and it is the wall between this project and every
+  free-parse system, LLM-backed or otherwise: a Frazaro program means one
+  thing, and the loader can prove it. If compositional references ("the
+  cell to the right of the last row of Sales") are ever wanted, that is
+  first an SD-3 dialect question and then a dedicated re-litigation of
+  this decision, in SD-13's own sense — never a grammar section that
+  quietly grows a recursive slot.
+- **SD-17 — blind spots are hunted on a cadence, not collected in a file:
+  every roadmap fork is preceded by one outside-persona review, the persona
+  must be one not yet used, and a review that mints or kills no roadmap item
+  is decoration.** The itch is hereby institutionalized. Three review
+  documents have each redirected this project's momentum — `AUDIT.md` (the
+  philosopher, reading the roadmap against its own doctrine), `CONSULTANT.md`
+  (the hostile hacker and the hostile exec, reading for completeness),
+  `REBUILD.md` (the architect, reading for shape) — and every one of them
+  happened because the owner felt an itch, not because anything required it.
+  A discipline that fires only when its author is in the mood is a mood with
+  a filing system. This decision makes the cadence structural: **at each
+  roadmap fork** (the `BETA_ROADMAP1.md` → `BETA_ROADMAP2.md` event, and every
+  successor), **one new review is commissioned, wearing a persona this shelf
+  has not yet seated.** Personas already used: philosopher, hacker, exec,
+  architect. Personas known to be waiting: the coroner (premortem), the
+  advocate (premise audit), the successor (continuity), the accountant
+  (viability), the platform historian (substrate). The list is not closed;
+  the non-repetition rule is the point — a repeated persona re-reads the
+  same blind spot, and the register already knows what it knows.
+  *The shape of a review, fixed by this decision:* a bounded, dated,
+  one-pass document in `CONSULTANT.md`'s mould — sources named, findings
+  ranked, "how this could be wrong" mandatory — never a standing ledger
+  that accretes. *The teeth:* each review must **mint or kill at least one
+  roadmap item** (mint into the governed set per SD-9/F.12; kill by ⛔ with
+  reasons, per this register's own habits), or it is decoration — REBUILD.md's
+  founding constitution ("a topology that cannot cite its debts is
+  architecture as decoration") applied to the reviews themselves. A review
+  whose findings are all already-minted IDs has failed the non-repetition
+  rule, not passed the completeness one. *Why a decision and not a
+  `BLINDSPOTS.md`:* a standing blind-spot file was considered and declined —
+  a blind spot, once written down, is a roadmap item, so a permanent file of
+  them is a duplicate ⬜ register with worse tooling; and a *standing* file
+  invites accretion where this register's whole design bets on bounded
+  documents with dates on them. What was actually missing was never a file;
+  it was the rule for when the next file gets written. *Reason (the
+  underlying one):* every blind spot found so far was found by seating a
+  reader whose job description did not previously exist — THE ADVERSARY's
+  own tranche preamble says exactly this ("no department above ever seated a
+  reader whose job was to look for this"). Departments are standing seats
+  for known questions; this decision is the standing seat for unknown ones.
+  *Guard, per the essay's own epigraph:* the metametamacro trap for a rule
+  like this is reviews about reviews — sufficiently advanced preparation,
+  indistinguishable from procrastination. The mint-or-kill requirement is
+  the tripwire: a review pays in ⬜ and ⛔ or it does not get a successor
+  persona. *First execution:* `PREMORTEM.md` (the coroner), commissioned
+  2026-08-31, the day this decision was recorded. *Pays into:* SIG.* credibility (a
+  buyer's diligence asks "who reviews this and on what schedule" — this is
+  the answer), and every future fork's opening bet.
+- **SD-18 — VBA remains the reference; a second-host engine (web,
+  desktop shell, or otherwise) follows the goldens, never leads them.**
+  Any future non-VBA translate host — a browser page, a Tauri/Electron
+  shell, whatever a later fork of `SUBSTRATE.md`'s watch-list names —
+  is judged against the same golden pairs the VBA engine already
+  produces (`scripts/instructions_golden.vla`/`.vba`, `AS.8`'s own
+  parity discipline extended to a second host instead of a second
+  backend). A grammar or emitter change lands in the VBA engine first;
+  a second host's job is to match the new goldens, never to originate
+  a divergent reading of a sentence that the VBA engine does not also
+  produce. *Reason (the owner's own, argued live while scoping a
+  future web runtime):* JS iterates faster than VBA — real debugger,
+  hot reload, millisecond test runs — and that speed differential
+  creates a standing temptation for grammar work to happen web-first
+  and get back-ported, which would silently make the faster engine the
+  *de facto* reference and demote the VBA engine to "the one that
+  catches up." Named now, before a second host exists, so the
+  temptation is refused in the same breath it becomes possible rather
+  than adjudicated the first time it's tempting. *Why this is cheap
+  today and expensive later:* identical to SD-4's own logic applied
+  one layer up — a reference-implementation reversal is trivial to
+  avoid by never doing it and a real rewrite of institutional habit
+  once two engines have both been "correct" for a while. *What this
+  does not forbid:* a second host may find and report bugs in the VBA
+  engine (a divergence is exactly the failure mode SD-5's own
+  backend-parity discipline exists to catch) — the fix still lands in
+  VBA first, the second host's fix is confirming it matches, not
+  originating the correction. *How this could ever change:* only by a
+  dedicated future decision naming what changed and why, SD-13's own
+  append-only discipline, never by a second host quietly shipping a
+  grammar feature the VBA engine doesn't have yet. *Infrastructure
+  this decision already has, built the same session it was recorded
+  (`PORT.1`–`PORT.3`):* the translate path (English → VLA → VBA) was
+  confirmed host-free except one seam (`VlaTranspile`'s prelude load),
+  which now has an explicit override (`VlaSetPreludeOverride`/
+  `VlaClearPreludeOverride`, `VLA.bas`) so a pure caller never touches
+  `ThisWorkbook`/`Dir$`/the embedded-sheet fallback at all; a
+  mechanical ratchet (`tools/check_translate_purity.ps1`) pins that
+  property against future drift, scanning the same functions a port
+  would call and failing if a host token appears in any of them beyond
+  one documented, harmless exception; and `docs/INTRINSICS.md` records
+  the VBA-specific string/array/comparison behaviors (hand-rolled
+  ASCII case-fold, `Val`/`Str$` over `CDbl`/`CStr`, `Collection`'s
+  1-based positional semantics, `Split`'s own 0-based exception to
+  VBA's usual 1-based indexing) a second host's translator must match
+  — three of the "new and cheap" preparations named when this decision
+  was scoped, each shipped the same day, none yet owner-tested. *Pays
+  into:* `SUBSTRATE.md`'s watch-list (a web port is the substrate
+  hedge that costs nothing while it sits unused), `AS.8`'s parity
+  discipline (extended, not replaced), and the VENTURE.md/README.md
+  discussion of query-and-logic-style stunts along the natural- vs.
+  programming-language axes this decision is a precondition for
+  attempting safely.
+
+---
+
+# 🛡 ADVERSARY · SECURITY
+*specimens: 1 — an audit finding, not a live exploit: this session's own
+read of `VLA_Interpreter.bas`/`VLA.bas` found `Application` plausibly
+reachable through the `CallByName` fallback with no capability gate, and
+`raw` splicing arbitrary VBA with no consent. Flagged for a live test, not
+yet confirmed as exploited — the same honesty this file already holds
+`AS.8`'s heuristics and `IN.11`'s parity claims to. This tranche exists
+because no department above ever seated a reader whose job was to look for
+this.*
+
+**What this tranche deliberately does not duplicate.** `docs/CONSULTANT.md`
+found several adjacent gaps that are not, on inspection, security items —
+they already have a home and are not repeated here: no licence (a
+governance/legal question — `GO.4`), no patch channel for a signed
+artifact (`DI.1`/`DI.3`), no defined acceptance criteria for `0.5.0`
+(`SD-14`'s own numbering doctrine, not a new item). Cross-referenced, not
+re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
+
+- ⬜ **SEC.0 — the threat model, written down.** What a program may reach;
+  what a phrasebook may reach; who is trusted at each layer (base corpus,
+  org phrasebook, community phrasebook, `raw`-bearing rule); what
+  "zero-trust runtime" (IN.9's own phrase) actually promises today versus
+  what an IT reviewer will assume it promises. *Why now:* every other item
+  in this tranche cites it, and it costs a document, not a feature. *Pays
+  into:* every `SEC.*` item below, `EN.1`'s capability probe, `DI.1`'s
+  trust-prompt precedent. `~hours`
+- ⬜ **SEC.1 — capability gating of dynamic dispatch.** SD-15 is the
+  decision; this is the artifact. *The adjudication, recorded so it is not
+  relitigated:* signature/pattern detection over forms — "does this form
+  look suspicious" — was considered and rejected. It is unsound for this
+  architecture specifically, not merely impractical: `CallByName`-style
+  dispatch means a form's danger depends on what its member-name argument
+  *resolves to* at runtime, which may be computed, looked up, or built from
+  a cell value — undecidable from the form's shape in general, the same
+  alias-analysis wall every reflection-capable sandbox (Java's
+  SecurityManager, Python `pickle` jails, JS `eval` sandboxes) has
+  eventually been broken through. `raw` defeats it by construction, not by
+  cleverness: its payload is opaque VBA text, exactly analogous to
+  `eval(base64_decode(...))` defeating a source scanner. And even where
+  detection *is* decidable, it is the wrong tool here: G-PIVOT/G-TABLES
+  already use dynamic dispatch throughout for entirely legitimate reasons,
+  so a pattern-matcher tuned to "reaches the object model dynamically"
+  would false-positive against the shipped corpus.
+
+  **The design chosen instead — closed-world capability enumeration, not
+  open-world intent classification.** Three tiers:
+  - **Tier 0 — native, vetted, fixed-signature.** The dispatch tiers `IN.2`
+    already built (`DynamicGet`/`DynamicCall`/`DynamicSet`'s native
+    fast-path cases, `TryRuntimeHelper`'s known helper set). Each is a
+    specific, reviewed function with a fixed signature — capability-safe by
+    construction, no new gate needed; this is the ground floor and it
+    already exists.
+  - **Tier 1 — permissioned, declared.** The small set of verbs with real
+    external effect — `vlasendmail` today; file I/O once G-FILES ships.
+    Each carries a `requires: capability:<name>` tag, `F.10`/`CO.3`'s own
+    `requires:` mechanism generalized from grammar-version dependency to
+    permission, checked at load against what the workbook/user has
+    granted, refused in words (LX.8's doctrine) when absent. *What stays
+    deliberately absent from the grammar entirely:* a process-spawn verb.
+    Not building one is itself the security property, not a gap to fill.
+  - **Tier 2 — `raw` and the `CallByName` fallback: the actual hole, closed
+    by subtraction, not detection.** See SEC.2 for `raw` specifically. The
+    `CallByName` fallback in `DynamicGet`/`DynamicCall` (confirmed live:
+    `CallByNameArgs`, `VLA_Interpreter.bas` ~line 2311, dispatches on a
+    caller-supplied member-name string with no gate) should be **removed
+    from shipped builds** so those functions only ever reach Tier 0;
+    anything not in the enumerated native set refuses in words instead of
+    falling through to arbitrary late-bound dispatch. This is the cheap,
+    concrete first cut: subtractive, not additive — shrinking the reachable
+    surface to what is already named and reviewed, rather than building a
+    classifier smart enough to judge arbitrary code. **Needs a live test
+    before being treated as settled**, in either direction: confirm
+    `Application` is actually reachable through the fallback today (this
+    session flagged it from reading, per SD-15's own note, and did not
+    exploit it), and confirm removing the fallback does not break a
+    corpus form that legitimately depends on it (a full `VerifyReport`
+    pass both ways is the acceptance test, same discipline as everywhere
+    else in this file).
+
+  *Why this is unusually cheap for this codebase specifically:* it is not
+  new machinery. `VLA_HeadTable` already enumerates the whole reachable
+  surface by name (F.1's own thesis — one chokepoint, not a hundred sites
+  — pointed at a fourth axis instead of readability); `SD-5`/`R9`/`IN.5`
+  already established "declare or refuse, never silently diverge" as house
+  style; `DI.1`'s "Trust all from publisher" flow is a working,
+  live-verified consent UX ready to be reused for "trust this phrasebook's
+  use of `raw`/mail" with different words. *Pays into:* IO.1/GO.3 (the
+  supply-chain risk gets a mechanism), the IT-facing security summary a
+  procurement reviewer will ask for. *Depends on:* SEC.0. `~days` for the
+  subtractive fix and its live test; `~weeks` for the `requires:`/consent
+  follow-through.
+- ⬜ **SEC.2 — `raw` behind explicit, per-phrasebook consent.** A
+  phrasebook using `raw` declares `requires: capability:raw`; loading it
+  shows the DI.1-shaped trust dialog, naming the phrasebook, before its
+  rules become reachable — not a new interaction pattern, the existing
+  VBProject-trust one pointed at a second question. Can ship ahead of
+  SEC.1's full tier/`requires:` generalization as a narrower interim step:
+  the only thing it needs is a boolean "does this phrasebook contain a
+  `raw` form" check at load time plus the reused dialog. *Why now:* `raw`
+  is the one form no future static analysis will ever be able to reason
+  about, by design (F.2's own text: "usable directly ... no macro
+  required" for `quote`, and `raw` is `quote`'s opposite — opaque, not
+  self-contained data). *Depends on:* SEC.0. `~days`
+- ⬜ **SEC.3 — phrasebook provenance for capability-requiring effects.**
+  Which *layer* — base corpus, org phrasebook, community phrasebook —
+  introduced a given `raw` splice or mail-send, attached to the emitted
+  code itself, not just to a load-time log line. Extends
+  `LISTOPS-PROVENANCE`'s existing `gen-row`/`at-row` tagging by one field
+  rather than building new machinery: that mechanism already answers "which
+  table row produced this rule"; the same answers "which trust layer
+  authorized this effect." *Why now:* GO.3 already names the phrasebook
+  registry "a supply chain" with no mechanism; this is the mechanism, and
+  it turns "who do I hold accountable for this effect" from an
+  investigation into a lookup. *Depends on:* SEC.1's tiers existing to have
+  something worth attributing. `~days`
+- ⬜ **SEC.4 — formula/CSV-injection guard.** A program-written cell value
+  beginning with `=` becomes a live formula; nothing sanitizes today —
+  the same class of bug CSV-export tooling has been bitten by industry-wide
+  for a decade. *Why now:* concrete, scoped, and cheap; a single guard at
+  the runtime helper that writes cell values. `~hours`–`~days`
+- ⬜ **SEC.5 — `SECURITY.md` and a disclosure contact.** A place a finder
+  is told to report to, and a stated response commitment — the minimum
+  credible artifact before any external pilot (`PI.*`) or public download.
+  *Honest tension, named rather than solved here:* `SD-13`'s no-network
+  stance means a disclosed vulnerability has no push-update path to the
+  people already running an affected build; this item does not resolve
+  that, it only makes sure a report has somewhere to land. `~hours`
+- 🔒 **SEC.6 — a security review before wide release.** Gated on SEC.0–SEC.2
+  landing and live-tested. *Expiry condition, G9-shaped:* opens the moment
+  the interpreter's default-runtime dispatch surface is default-deny and
+  `raw` is gated — not before, since reviewing a surface that is about to
+  change is reviewing the wrong thing. `~days`–`~weeks`
+
+---
+
+# 🖋 SIGNATORY · PROCUREMENT
+*specimens: 0 — no outside procurement conversation has happened yet, which
+is exactly the finding: none of these six items require one to start.
+Every one is a document, not a feature, and every one is blocking not
+because it is hard but because it has never been written.*
+
+- ⬜ **SIG.0 — the licence, the warranty disclaimer, and a data-handling
+  statement.** No `LICENSE` file exists anywhere in this repository today.
+  Unlicensed software is all-rights-reserved by default — a company cannot
+  legally run it, not "will not," *cannot* — which blocks procurement at
+  100% regardless of engineering quality, and is currently the cheapest,
+  highest-leverage open item in this entire file. One sentence of licence
+  choice, a plain-language warranty disclaimer, and a short statement of
+  what a program may do with data (mail, file writes) once SEC.1's
+  capability model exists to make that statement precise rather than
+  aspirational. *Why now:* every other item in this department is worthless
+  while this one stays open. `~hours`
+- ⬜ **SIG.1 — the IT-facing security and architecture summary.** A two-page
+  document a stranger can download: what Frazaro installs, what it can
+  reach (SEC.0/SEC.1's own answer), what it sends over a network (SD-13's
+  no-network stance, stated as a selling point, not an apology), how it
+  updates, how it is removed (DI.2's uninstall button — built, live-tested,
+  and worth citing here as evidence, not just in `DEPLOY.md`). *Why now:*
+  this is the actual artifact that gets software approved inside a
+  company, and nothing resembling it exists — `DEPLOY.md` is written for
+  the developer, not the reviewer who has to sign the exception. *Depends
+  on:* SEC.0. `~hours`, once SEC.0 exists.
+- ⬜ **SIG.2 — the competitive positioning one-pager.** Frazaro against
+  Copilot in Excel, Office Scripts, and Python in Excel — leading with the
+  three properties none of those has: determinism (`GENSYM`/`eval` vetoed
+  outright, the METAMETAMACRO LINE's own wall), offline/no-network (SD-13),
+  and auditability (the procedure a human reads is the procedure that
+  ran). *Why now:* the honest differentiators already exist and are simply
+  not written down anywhere a procurement conversation could point to.
+  *Pays into:* LE.7 — the AI bridge is the engineering answer to the same
+  competitive question; this is the one page that exists before LE.7
+  ships. `~hours`
+- ⬜ **SIG.3 — support terms and an incident-response process.** Where a
+  user reports a bug, what response they can expect, and a named security
+  contact — the ordinary-support half of SEC.5's `SECURITY.md`, which
+  covers only vulnerability disclosure. *Why now:* "Copy Feedback" onto a
+  clipboard is not a support channel, and a buyer will ask what one looks
+  like before the first invoice. *Depends on:* SEC.5. `~hours`
+- ⬜ **SIG.4 — the VPAT.** A public-sector or large-enterprise buyer will
+  ask for one. 🔒 *Expiry:* AC.1 shipping — filing this before AC.1's own
+  "two hours today" fix lands would just restate the gap it exists to
+  close; this item's real dependency is that two-hour fix, open across
+  multiple versions already, not new work of its own. `~days`, once AC.1
+  is done.
+- ⬜ **SIG.5 — `0.5.0`'s own acceptance criteria, written down.** SD-14
+  defines what a version *number* means; nothing states what the specific
+  `0.5.0` beta cutoff must satisfy to ship on its own targeted date —
+  which tranches, which known-open bug classes are acceptable to ship with,
+  what the release notes promise a downloader. *Why now:* a date with no
+  definition of done is the one thing this file otherwise never permits —
+  see SD-12's own floor, applied here to the release itself rather than to
+  a single version's grammar work. `~hours`
+
+---
+
+# 🧑 PATIENT · THE PILOT
+*specimens: 0 — which is the entire point of the tranche.*
+
+*Numbered below zero deliberately. The ground of this system was never in the
+document; it is the person holding it. Every gate in this file that mentions a
+first external user is unbound until this tranche runs, and an unbound symbol
+in a load-bearing position is the structural signature of a date that slips
+forever without anyone deciding to slip it.*
+
+- ⬜ **PI.0 — dogfood, honestly.** Has a real SOP *of the owner's own* been run
+  through Frazaro, start to finish, on a workbook that matters? If yes, the
+  specimen count is not zero and this tranche can be read at half strength. If
+  no, it is one afternoon and it comes first. `~hours`
+- ⬜ **PI.1 — name it.** One human, one SOP, one workbook, one date. Written
+  down. `~hours`
+- ⬜ **PI.2 — the transcript.** Their procedure in their words, verbatim, before
+  any grammar work. This file — not `pareto.txt` — is the corpus's true north.
+  `~days`
+- ⬜ **PI.3 — the concierge run.** Every sentence the corpus refuses gets its VLA
+  hand-written by the owner. The user gets a working automation on day one; the
+  project gets the **gap log**. *Why this one matters most:* it is the only item
+  in this document that acquires a specimen this month, and it converts "which
+  sentences matter" from an argument into a measurement. `~days`
+- ⬜ **PI.4 — the gap log ranks Grammar.** 🔒 SD-7 in force. `~hours`
+- ⬜ **PI.5 — kill criteria, written BEFORE the run.** What observation would
+  mean this product should not exist? Alpha 1's pair still stands: at least one
+  program still clicked after a month of Mondays; at least one user modified a
+  program alone. Both fail → the pre-chosen pivot. `~hours`
+- ⬜ **PI.6 — the Monday test.** Their program runs unattended, on their machine,
+  with the owner unreachable. **This is the beta definition, made concrete.**
+  `~days`
+- ⬜ **PI.7 — the trust reading.** During PI.1–PI.3, record what their IT
+  actually permits: macro-enabled add-ins, VBProject trust, signed publishers,
+  `.xlsm` in email. *Why here rather than in Distribution:* it is a
+  five-minute question that ranks the whole interpreter effort, and it can only be
+  asked of a real organization. `~hours`
+
+---
+
+# 🔧 MACHINE · FORTIFICATIONS
+*Structure over discipline. Every boundary is currently held by habit.
+specimens: 3 (three blind-fix incidents, one first-user Undo report).*
+
+- ✅ **F.11 — split the suite into pure / host-required halves.** *Promoted to
+  first on Theory-of-Constraints grounds, in this file's own words:* a human at
+  a Windows box is the velocity ceiling and the bus factor. If that is the
+  constraint, improvement anywhere else is waste by definition, and this item
+  spent a revision ranked eleventh. *Pays into:* every section, forever.
+  **Built:** a new module, `VLA_Tests_Host.bas`, now holds every test needing
+  a live workbook: `VerifyReport` (whole function, unchanged behavior -
+  it was already its own host-only entry point, just not yet its own file),
+  `TestRuntimeModule` + `DevModuleText` (whole subs - VBProject/CodeModule
+  reads need Trust access), and two extracted fragments that used to be the
+  host-dependent TAIL of an otherwise-pure test: `TestHelpers`' scratch-sheet
+  section (`VlaFindRow`/`VlaEnsureSheet`/range-backed `VlaCount`/`VlaItem`/
+  `VlaFirst`/`VlaLast`) is now `TestHelpersHost`, and `TestRuntimeTrace`'s
+  workbook-Name-persistence section is now `TestRuntimeTraceHost` - the pure
+  halves of both stayed under their original names in `VLA_Tests.bas`,
+  unchanged, still in `VlaSelfTest`'s dispatch list. A new dispatcher,
+  `VlaSelfTestHost`, mirrors `VlaSelfTest`'s shape with its own counters and
+  summary line - a genuinely separate run, not a size-only split like F.8's,
+  since the two halves are meant to run independently: `VlaSelfTest` wherever
+  VBA executes at all, `VlaSelfTestHost`/`VerifyReport` only at a Windows box
+  with the workbook live (and, for `TestRuntimeModule`, VBProject trust
+  granted). Report/CheckV are duplicated locally in the new module (R7 - a
+  real architectural boundary, not a size split, so counters do not cross
+  it) rather than reusing F.8's shared, promoted-`Public` copies. Every
+  classification was verified by grep sweep for Excel object-model calls
+  (`ThisWorkbook`/`ActiveWorkbook`/`Worksheets`/`Sheets`/`ActiveSheet`/
+  `VBProject`/`.Range`/`.Cells`/`.Activate`/`Names`/ribbon callbacks/etc.)
+  across both prior test modules - nothing pure was moved, nothing
+  host-required was left behind. Registered in `VLA_DevRig`'s reload list
+  and diagnostics printout. Verified by an unchanged `VlaSelfTest` pass/fail
+  count and an empty golden diff, same discipline as F.8. **What this does
+  not do:** `VLA_Tests.bas` and `VLA_Tests_Grammar.bas` still need SOME VBA
+  host to execute at all - that is unavoidable for a project written
+  entirely in VBA - but neither depends on worksheet/range/VBProject/ribbon
+  state a CI runner would have to fabricate; that narrower, meaningful sense
+  is what "pure" means here, matching REBUILD.md's own "`VLAT_HostRequired` -
+  everything needing a live Excel." `~days`
+- ✅ **F.1 — the grammar/emitter ABI.** Templates emit only prelude macros and
+  runtime helpers, never raw dot-forms. *Why now:* makes the prelude the stable
+  interface between Tier 4 and Tier 1. *Pays into:* all of Grammar (rules get
+  shorter), Performance (idioms change in one place), Linguistics (a phrasebook
+  in any language targets the same verb set), **phrasebook readability** (a file
+  a non-programmer can read is, to a close approximation, a file with no dots in
+  it), and **the interpreter — every dot-form in a template is a form a second
+  backend must implement one at a time.** *Measurable:* **the dot count**,
+  published and pinned (`VlaDotCount`/`TestDotCount`, `VLA_Tests.bas`). **Done,**
+  in two passes: every `(. …)` form and every bare-dotted call
+  (`thisworkbook.save`, `application.screenupdating`, `application.statusbar`,
+  and — closed in the second pass — the seven `application.worksheetfunction.*`
+  calls: sum/average/max/min/vlookup/sumif/countif) that lived directly in a
+  rule template or the `function:` word-mapping block has been converted to a
+  named macro — 66 macros now in `english.vla` in total (50 added across
+  both passes), all behavior-preserving by construction (each macro's body is
+  the exact dot-form the rule used to emit inline). The pinned dot count is
+  **0**; `VlaDotCount` now checks both categories (`(. ` and
+  `application.worksheetfunction.`) so the second category — left uncovered by
+  the metric between the two passes — can't silently regress. *Since
+  `prelude.vla` (F.3) does not exist yet, the dots currently live in
+  `english.vla`'s own `macro:` definitions* — the same mechanism 40 rules
+  already used before this work started; F.3 relocates them later without
+  changing this item's completion. 🔒 **Blocks: every section, and every rule
+  inside them.** The only truly universal gate in this file — a template
+  written before the ABI is a template rewritten after it, with no exceptions
+  and no cheap ones. Keep absolute; it is one sentence and it is free. `~days`
+- ✅ **F.6 — one raise site.** All refusals through `Raise(msg, at)`. *Why now:*
+  location formatting exists in four places, discovered the hard way; 169 raise
+  sites already exist. *Pays into:* LX.2 becomes a change at one function.
+  SD-2 is its decision half and is already in force. `~hours`
+  **Correction, found while scoping LX.2, checked against current code:**
+  this bullet overstates what shipped. There is no `Raise` function anywhere
+  in `src/` today and no refusal site carries a stable ID — SD-2 is not "in
+  force." What this item's own commit (`e3007bd`) actually delivered was
+  narrower and still real: `AtLineSuffix()`, deduplicating the "source line
+  N" location-tag suffix that three raise paths in `emitfail` had been
+  formatting separately. Worth keeping as ✅ for that — it's genuine, shipped
+  dedup — but LX.2's own entry should not be read as "a change at one
+  function" on the strength of this bullet; see LX.2's own note for the real
+  348-site footprint.
+- ✅ **F.3 — the prelude becomes `prelude.vla`.** Load it through P.L7's include
+  path. *Why now:* deletes the escape-stack bug class, gains lint coverage,
+  makes the bench editable by non-VBA contributors. *Built:* `PreludeMacros()`
+  was a 322-line VBA string builder in `VLA.bas` - every quote in every
+  docstring and macro body doubled to survive living inside a VBA string
+  literal, the escape-stack bug class named above. All 33 macros moved
+  verbatim to `scripts/prelude.vla`, a real, plain-text VLA file - their
+  surrounding design-rationale comments (the "why," not just the "what,"
+  for every predicate/binding-form/`with-`-bracket) preserved as VLA
+  `;`-comments, checked signature-for-signature and docstring-for-docstring
+  against the original before the old code was deleted. `PreludeMacros()` is
+  now ten lines: a file read. *Not literally routed through
+  `SpliceIncludes`/`ReadIncludeFile`* (P.L7's own mechanism) — that resolves
+  a bare filename `ActiveWorkbook`-relative, correct for a *user's own*
+  library include, wrong for the *engine's* prelude, which must resolve
+  `ThisWorkbook`-relative (the dev workbook, or the built add-in) regardless
+  of which workbook is active. New `PreludeVlaPath` reuses `DevFindFile`'s
+  two-candidate shape (flat beside `ThisWorkbook`, or its `scripts` folder)
+  instead — the same "read a file's text and splice it in" spirit P.L7
+  proved out, with the one path-resolution detail P.L7 gets right for a
+  different caller. `mLineOffset` (already computed as `CountLf(prelude) + 1`
+  at every call site, unchanged) absorbs whatever line count the file turns
+  out to have, so generated VBA's `' vla:N` tags are unaffected by the
+  prelude's size — **golden diff confirmed empty**, not assumed. `VLA_Build.bas`'s
+  existing phrasebook-audit gate transitively requires `prelude.vla` too (it
+  transpiles every `test:` line), so a missing file surfaces at build time
+  with `PreludeVlaPath`'s own clear error rather than a generic crash; ship
+  `prelude.vla` beside the built add-in the same way `english.vla`
+  already must be. *What "gains lint coverage" means today, honestly:* the
+  capability that a real file can be independently inspected exists now;
+  no new dedicated audit tool was built this pass — every compile already
+  parses and macro-expands it, which is the coverage that exists today.
+  *Pays into:* P-PRELUDE (subsumed), Linguistics (prelude names become
+  translatable data), **Tranche 1B** (a second backend implements the
+  prelude's verbs, and it can only do that if they are enumerable),
+  Governance. `~days`
+- ✅ **F.2 — English emits FORMS, not strings.** *Why now:* string-concatenated
+  VLA can be syntactically invalid, quoting is manual, refactors are text
+  refactors. *Pays into:* every Grammar pass, Linguistics (a second language
+  layer builds forms, not text), **rendering** (G-RENDER is unbuildable over
+  strings), and the AI bridge. 🔒 **Blocks: G-PIVOT, G-FILES, G-TABLES,
+  G-RENDER** — the composite sections whose templates nest and quote, where
+  string concatenation actually produces invalid VLA. **Does not block:**
+  G-FORMAT, G-STRUCT, G-ROWLOOP, G-TEXT, and every other thin rule, which
+  string-build correctly today and always have. *Expiry:* rule #175, or first
+  outside contributor. The pain is linear in rule count, not vertical — which is
+  why this gate was doing far too much work when it read "before Grammar."
+  **In progress, committed and live-verified:** `VLA.VlaReadForms`/
+  `VlaWriteForm` (the bare reader/writer halves of `VlaTranspile`'s own
+  pipeline, exposed standalone) plus a per-rule template form cache in
+  `VLA_English.bas` (`mPatForms`/`FormSubstitute`) - every phrase-rule
+  template that reaches the object model now splices bound values in as
+  forms, not `Replace()`-built text, including the `make-{d}`/`xl{d}`
+  compound-identifier idiom (LESSONS.md #9). `EnglishFormPathSelfCheck`
+  reruns the existing `test:`/`fail:` corpus with the mechanism on and off
+  as its own golden-diff gate (209 proofs, 110 of 110 loaded rules, zero
+  disagreements) and it is now the default. **First composite proof
+  landed, and a scoping correction it forced:** G-TABLES's rule #1 (see
+  its own line below) hit `f1`/`VlaDotCount`, this file's OWN test pinning
+  english.vla's raw-dot count at zero outside `macro:` lines - meaning a
+  PHRASE-RULE TEMPLATE can never legally carry the deep `.`-chain nesting
+  this entry's opening paragraph assumed it would need to. The real depth
+  lives in the `defmacro` body instead (static VLA text, parsed once,
+  never touched by `FormSubstitute` at all); the template itself stays a
+  flat macro call. F.2's mechanism is still what's proven safe here - two
+  slots, one a nested `(range ...)` sub-form - just at a shallower depth
+  than assumed, because F.1's own discipline already keeps templates
+  shallow everywhere the corpus follows it. **Correction to this entry's
+  own prior claim:** G-FILES does NOT have zero templates - a cross-check
+  against `english.vla` (prompted by the owner questioning this file's
+  bookkeeping) found six pareto.txt §15 surfaces already shipped and
+  already running through the F.2 mechanism (all 115 of 115 loaded rules
+  have a cached form, no exceptions): `open-workbook`, `save-workbook`
+  (as `save-current-workbook`), `save-as` (as `save-workbook-as`),
+  `save-copy` (as `save-copy-as`), `close-workbook` (a simplified
+  no-argument "close THIS workbook", not pareto's named-workbook form),
+  `export-sheet-pdf` (as `export-sheet-as-pdf`). None of them needed the
+  `{p:path}` slot type §15's own preamble calls for - each takes `{p:expr}`
+  bound to a pre-set variable ("Open workbook report-path.") rather than
+  an inline quoted literal, sidestepping G-PATH entirely. This file's
+  readiness table and the G-FILES bullet below were never updated when
+  these shipped, and said so incorrectly until this pass. **Still
+  genuinely open, and the actual gate on the 🔒 line above:** G-PIVOT and
+  G-RENDER both still have zero templates - G-PIVOT because pareto.txt
+  §10 marks every surface `!` (a Tier-2 helper) is a section-wide
+  recommendation, not a per-surface wall - the mechanism itself already
+  exists (`TryRuntimeHelper`'s `Application.Run` dispatch, proven
+  against real object-model state by `VlaEnsureSheet`), so `pivot-create`
+  shipped directly (see G-PIVOT's own entry below) rather than needing a
+  design pass first. G-RENDER is the one genuine holdout - it isn't a
+  corpus section at all (no pareto.txt surface list to write a template
+  against) and needs its own design pass, per the owner's own call,
+  before a first proof is attempted. `EnglishToVla`'s own surrounding
+  assembly (defines, sub bodies, block/click-handler joining) is still
+  text+indentation, untouched on purpose this pass.
+  **Owner's own closure bar (explicit call, not a default): MET.** F.2
+  stayed open until all four named sections had at least one template
+  shipped. Final count: G-TABLES ✅, G-FILES ✅, G-PIVOT ✅ (all six
+  `docs/TESTING.md` passes re-run clean: tests and goldens static, a
+  fresh workbook building real pivots through both the compile and
+  interpreter backends with no errors), **G-RENDER ✅** (its own design
+  pass done, a general mechanism shipped covering the whole loaded
+  corpus, not just one proof template - see its own entry below: 116
+  single-form rules, 115 round-tripped to an identical form live, the
+  one remaining case a pre-existing corpus bug unrelated to F.2's
+  mechanism, tracked under F.4 instead).
+  **The dual path is retired.** With the mechanism proven everywhere
+  it could fail, `VLA_English.bas`'s own safety net - `mPatTmpls`,
+  `TryPhrase`'s `Replace()`-based text splice (computed unconditionally
+  on every match, previously overwritten by the form path only when one
+  existed), and the `EnglishSetFormPath`/`EnglishFormPathEnabled` dev
+  toggle plus `EnglishFormPathSelfCheck`'s own on/off A-B proof - are
+  all deleted. `TryPhrase` now builds every statement through
+  `TryFormPath` alone, unconditionally. `TemplateForms` (the
+  registration-time template-to-form parser) no longer swallows a
+  parse failure into a silent empty Collection and a permanent fallback
+  to text; it raises immediately, with the template text in the
+  message, at the same load-time gate every other malformed-rule
+  refusal already goes through - a template that cannot become a form
+  is now a load-time bug, not a runtime degradation to fall back from.
+  `docs/TESTING.md`'s old Pass 2 (the on/off self-check) is retired
+  with it - ordinary vocabulary loading already re-verifies every
+  `test:`/`fail:` proof through the one remaining path on every load.
+  **This is the actual, literal answer to "rewrite `english.vla` into
+  pure VLA"** - not a text-level rewrite of the phrasebook file (its
+  templates already read as parenthetical VLA), but retiring the
+  mechanism that only ever *treated* them as text underneath. `~weeks`
+- ✅ **F.4 — rule-conflict analyzer.** *Why now:* nothing detects two rules
+  matching one sentence; the failure is silent. 🔒 **Blocks: nothing in the base
+  corpus.** At 102 rules with a load-time duplicate-shape audit already running,
+  a human can still audition by hand. **Blocks: the first org or community
+  phrasebook**, where silence becomes fatal because the colliding author is a
+  stranger. *Expiry, reworded (this session) - the triggering condition
+  already happened once against this project's own corpus, not a future
+  stranger's:* "the first time a second phrasebook runs live" (the
+  original "that phrasebook's arrival" pointed only at a hypothetical
+  outside org/community file; espanol.vla running live during LX.10 was
+  the actual first trip, and it found a real bug the analyzer needed to
+  catch). `~weeks`
+  **Shipped this session (shape 2 of 2 - the cheap half):**
+  `LintNoiseWordBeforeSlot` (`VLA_English.bas`, called from `LintRule`)
+  is a purely lexical check on the raw pattern string, before
+  `IsNoiseWord` strips "a"/"an"/"the"/"please" from it at registration -
+  no grammar reasoning needed, since the bug is that stripping itself
+  removing a token a slot's author was relying on staying put. Feeds the
+  existing `mLintWarnings`/`EnglishAuditText`/`EnglishAuditPhrasebook`
+  pipeline, same as every other lint warning; never blocks registration.
+  Synthetic regression pins plus the real `francais.vla:151` acceptance
+  target: `VLA_Tests_Grammar.bas`, `TestF4NoiseWordBeforeSlot`. **Live-run
+  once already (owner's own `VlaSelfTest`, same session):** confirmed the
+  detector's underlying premise for real - francais.vla:151's swallowed
+  "a" doesn't just mis-parse quietly the way espanol.vla's did, it's
+  loud enough to fail the rule's OWN test-success proof outright
+  (`EnglishLoadVocabulary` raises: "...then I expected 'avec' but found
+  '\"boss@co.com\"'"), because `EnglishAuditPhrasebook` runs a real load,
+  not audit mode - a failing test always raises before the audit ever
+  gets to return a warnings string, by the same three-gates-in-one-call
+  design `AuditWarnings`'s own header documents. The first version of
+  this test assumed the graceful warnings-string path and failed on
+  that wrong assumption, not on the detector; fixed to assert the raise
+  by name and confirm the lint warning fired at registration
+  independently via `EnglishLintReport()`. **Re-run live, clean:**
+  owner's own `VlaSelfTest` came back pure PASS 883/883, host PASS
+  119/119, with `VerifyReport` emitter/interpreter both 141/141 -
+  shape 2 is built, tested, and confirmed against the real engine.
+  **Shape 1 of 2 (the hard half) - scoped in full this session, owner
+  signed off on the full-generality option over two cheaper ones
+  (dynamic test-attribution only, or that plus synthesized sentences
+  for untested rules alone), built this session, NOT yet live-tested
+  (this session cannot execute Excel/VBA):**
+  cross-rule general-slot-swallows-specific-literal - detecting
+  whether a more specific rule's own literal continuation could ALSO
+  be validly parsed by an earlier, more general rule's `{:expr}`/
+  `{:cond}` slot, for EVERY branch/optional shape a rule can present,
+  independent of whether a test-success proof happens to exercise that
+  shape. `english.vla:517`'s own `show cell in column {c:column} row
+  {n:expr}` (shadowed by the core `show {e:expr}` rule) is the
+  concrete target.
+  **The design, made concrete by reading the real matcher rather than
+  reasoning abstractly (this is why it lands well under the original
+  `~weeks` guess):** `mLastRuleIdx` (`VLA_English.bas:438`) already
+  records which rule index a sentence actually dispatches to - it
+  already drives AS.1's per-rule firing counts and `EnglishTryRule`
+  (G5), a manual one-at-a-time dev-bench tool whose own verdict line
+  ("an EARLIER rule matched - '...' - the candidate never fired") is
+  exactly shape 1's question, just run by hand today instead of
+  automatically for the whole corpus. Shape 1 automates it:
+  1. Reuse `ExpandedSignatures(items)` (already built for G3's
+     duplicate check) to enumerate every alternation/optional shape a
+     rule can present, as pipe-joined literal-words-and-`{category}`
+     placeholders, in pattern order - full branch coverage for free,
+     not just one canonical shape per rule.
+  2. New `SignatureToSentence`: walk one such signature, substitute
+     each `{category}` placeholder with a representative concrete
+     token, leave literal pieces as-is, join into sentence text.
+     Placeholder table, confirmed against the real validators, not
+     guessed: `name`/`var` -> a bare word (`x`, colon-free, all
+     `WordAt` requires); `text`/`range`/`cell`/`column`/`sheet`/
+     `color` (+ `-list` forms) -> **one quoted string** (`"x"`) covers
+     all six, since `MatchRefToken` accepts any quoted string
+     unconditionally, bypassing `RefShapeOk`'s per-category shape
+     check entirely; `expr` -> `5` (bottoms out cleanly in
+     `ParseExpr`'s recursive descent); `cond` -> `5 is empty` (the one
+     nullary comparator `ParseCondSimple` accepts with no right-hand
+     value, cheapest valid `:cond`).
+  3. Tokenize the synthesized sentence through the same `EnTokenize`
+     real input uses, dispatch it through the real `ParseStmt`/
+     `TryPhrase` (not a reimplementation), read `mLastRuleIdx`, and
+     compare it to the rule's own index. A mismatch feeds
+     `mLintWarnings`, same message style as the existing
+     duplicate-shape warning, naming both patterns.
+  4. Runs as ONE post-load pass, `AuditCrossRuleShadow`, called from
+     `EnglishAuditText`/`EnglishAuditPhrasebook` after the corpus
+     finishes loading - not hooked into `AddPhraseRule` (see
+     *Performance*, below, for why that first instinct was wrong).
+     Walks every non-prelude rule against the FINISHED rule table,
+     which naturally includes every earlier rule as a dispatch
+     candidate (first-match-wins order, exactly as the real dispatcher
+     enforces it).
+  **Isolation, beyond existing precedent:** `RunVocabTest` already
+  runs bare `ParseStmt` calls at scale (~200+ per load) guarding only
+  `mDeclared`/`mAssigned`/`mUsageSuspended`, because its sentences are
+  real authored content. Shape 1's synthesized sentences are arbitrary
+  and more likely to fall through to the "bare call to an undefined
+  action" path, so its probe additionally snapshots/restores
+  `mCallNames`/`mCallTexts`/`mCallArgs`/`mCallLines` around each probe
+  - without this, a synthetic probe could pollute the real corpus's
+  call-vs-definition validation with a phantom call. A probe that
+  fails to parse at all is swallowed (`On Error Resume Next`) and
+  skipped, not treated as a finding - only a *successful* parse by the
+  wrong rule counts.
+  **Disclosed limitation, even at full-generality scope:** this proves
+  shadowing for the ONE representative value chosen per category, not
+  for every value `:expr`/`:cond` could ever accept - exhaustive proof
+  over an open-ended expression grammar isn't tractable. Low risk for
+  the six bounded reference categories (any valid quoted string
+  behaves identically under `MatchRefToken`); the residual gap is a
+  shadow that depends on an unusual expression shape the one chosen
+  representative doesn't happen to exercise.
+  **Performance - measured wrong the first time, then fixed:** the
+  first implementation hooked this straight into `AddPhraseRule`,
+  estimated (wrongly) at "the same order of cost `RunVocabTest`'s own
+  ~200 per-load probes already carry." That estimate only counted one
+  isolated load; it missed that a per-rule dispatch probe costs O(rule
+  count so far), so a full corpus load is O(N^2), AND that this ran on
+  EVERY `EnglishAddPhrase`/`EnglishLoadVocabulary` call across the
+  whole suite (most of which never audit anything), not once. Owner's
+  live `VlaSelfTest` run confirmed it concretely: ~9s to ~37s, a 4x
+  regression, immediately after this shipped. Fixed by moving the
+  entire check out of `AddPhraseRule` into `AuditCrossRuleShadow`, one
+  pass over the finished corpus, called only from
+  `EnglishAuditText`/`EnglishAuditPhrasebook` - the O(N^2) cost is
+  still real but now paid once, only where an audit is actually
+  requested (a handful of call sites: this item's own tests,
+  `VLA_Build.bas`'s pre-build audit), matching what shape 2 already
+  proved cheap enough to run everywhere and what this shape never was.
+  **Built:** `CategoryPlaceholderValue`/`SignatureToSentence`/
+  `AuditCrossRuleShadow` (`VLA_English.bas`, called from both audit
+  entry points, not from `AddPhraseRule`). **Acceptance test,
+  mirroring shape 2's own approach:** `VLA_Tests_Grammar.bas`'s
+  `TestF4CrossRuleShadow` - a synthetic pin needing no companion rule
+  at all (the built-in prelude `show {e:expr}` already survives every
+  `EnglishResetGrammar`, so registering just `english.vla:517`'s own
+  pattern text is enough to reproduce the shadow) and a clean-case
+  negative pin.
+  **Live-run, all green, `hello.vla` renamed to `alonzo.vla`
+  everywhere (a function loader - the old name didn't say what it
+  held; owner's own call, unrelated to F.4, done in the same pass):**
+  886/886. **But the audit-gating fix from above did not actually fix
+  the wall clock: 36820ms vs the prior regression's 37289ms, barely
+  moved.** Auditing showed why: gating stopped every ORDINARY load
+  from paying the O(N^2) cost, but `TestF4CrossRuleShadow` still ran
+  the real acceptance target - `EnglishAuditPhrasebook` against the
+  actual ~102-rule `english.vla` - on every single `VlaSelfTest` pass,
+  and THAT one call alone was carrying nearly the whole regression
+  (confirmed correct along the way: it surfaced four real shadow
+  instances, not just rule 517 - three more `set {v:var} to {e:expr}`
+  collisions the detector wasn't specifically built to predict but
+  correctly found anyway). Fixed two ways, both requested together:
+  **(1) split the test** - the real-corpus confirmation moved to its
+  own `TestF4RealCorpusShadow`, deliberately NOT wired into
+  `VlaSelfTest`, run by hand (Immediate window) when it matters -
+  after a phrasebook change, before a release - not on every pass;
+  `TestF4CrossRuleShadow` keeps only the cheap synthetic pins.
+  **(2) made `AuditCrossRuleShadow` itself faster**, for the cases
+  that still call it for real (`VLA_Build.bas`'s pre-build audit,
+  `TestF4RealCorpusShadow` itself): `SignatureLeadKey`/
+  `RecordDispatchKeys` skip the expensive tokenize-and-dispatch probe
+  whenever NO earlier rule could possibly claim a given shape -
+  provably correct (not a sampling shortcut), since it reuses the
+  identical ascending-index/first-key logic
+  `BuildDispatchIndex`/`TryPhrase` already enforce for real dispatch,
+  including the one narrow case that needed extra care: a rule whose
+  OWN pattern leads with a bare `:expr`/`:cond` slot still gets a real
+  key (its synthesized sentence's own placeholder word, e.g. "5"), not
+  just an "always probe" flag - otherwise an earlier LITERAL rule that
+  happened to start with that same word would be an undetectable
+  false negative, not merely a missed optimization. G3's own
+  duplicate-shape check (`LintRule`, `VLA_English.bas:2436`) - the
+  OTHER O(N^2) cost, always-on rather than audit-gated - was
+  deliberately NOT touched in this pass: no measurement yet shows it's
+  actually slow (its own per-comparison cost is a cheap `InStr`, not a
+  full sentence dispatch), and a correct fix there needs PERSISTENT
+  incremental state kept in sync across overrides/resets, real
+  correctness risk for a gain that's still theoretical. Worth
+  revisiting once corpus growth (the 10-20-more-languages plan) or an
+  actual measurement makes the case, not before. **Not yet re-run
+  live** - the split and the pre-filter should recover most of the
+  regression; next `VlaSelfTest` timing is the actual test of that.
+  **Owner's own follow-on catch:** splitting `TestF4RealCorpusShadow`
+  out fixed the timing but recreated exactly the failure mode F.4
+  itself exists to name - a real check that now has to be found and
+  run by a human who remembers its exact name, the identical shape as
+  a PRE-EXISTING gap this codebase had already solved once
+  (`mRunScaleTests`/`VlaSelfTestScale`, `VLA_Tests.bas` - the 5500-row
+  recursion-depth cases gated out of the routine suite for their own
+  cost, since TABLESPECSCALE.0). **Built in response:**
+  `VlaSelfTestsAll` (`VLA_Tests_Host.bas`) - one new convenience
+  function, `VlaSelfTests`'s own combined pure+host shape with
+  `mRunScaleTests` turned on (so the scale cases run too) plus an
+  explicit `TestF4RealCorpusShadow` call, so nothing excluded purely
+  for cost needs to be remembered by name. Deliberately does NOT sweep
+  in `VerifyReport`/`VerifyReportInterpreter` (need a prior manual Run
+  - a live Output sheet this function has no way to populate) or
+  `VlaLintCheck` (real disk I/O by design, a boundary
+  `VlaSelfTest`/`VlaSelfTests` deliberately hold) - those are excluded
+  for reasons OTHER than cost, and folding them in silently would
+  break a different, still-valid boundary while fixing this one.
+  **Owner's second catch, live (`VlaSelfTestsAll`'s first real run,
+  886->890 with the scale cases folded in): the PASS didn't prove what
+  it looked like it proved.** `TestF4RealCorpusShadow`'s own assertion
+  only checked that ONE substring ("show cell in column") appeared
+  anywhere in the audit text - a regression that silently dropped
+  three of the four known findings (exactly the risk a false-negative
+  bug in `SignatureLeadKey`/`RecordDispatchKeys`'s own pre-filter would
+  cause, since skipping a probe it shouldn't have looks like nothing at
+  all, never a loud failure) would still have passed. Traced the
+  pre-filter by hand against all four real cases before touching the
+  test: every one is shadowed by a PRELUDE rule (`set {v:var} to
+  {e:expr}` or `show {e:expr}`), and prelude rules are always recorded
+  into `seenKeys`/`anyUniversalSeen` before ANY real corpus rule is
+  ever checked (the `idx > mPreludeCount` guard only skips PROBING
+  prelude rules as subjects, never skips RECORDING their own keys as
+  candidates) - so the trace says all four should still be caught.
+  Strengthened the test to actually prove it rather than assert it:
+  counts every "claimed by an earlier rule" occurrence (`>= 4`, not
+  `= 4`, so a future fifth real find never fails this test) AND checks
+  all four patterns by name, plus prints the full audit text
+  unconditionally (not just on failure) so a live run shows the
+  findings directly.
+  **Re-run, proved rather than asserted: PASS, all four findings
+  printed and named.** `VlaSelfTestsAll` and goldens both clean on a
+  fresh workbook (no export-artifact drift). Both shapes shipped,
+  live-verified, and committed - **F.4 closed.** The four real shadows
+  this analyzer found in `english.vla` stay unfixed, deliberately -
+  this item's own scope was always detection, not correction (see its
+  header: "not fixed as part of this item unless asked... a
+  forward-grammar/corpus decision, not an analyzer one"); shape 1's
+  own residual limitation (one representative value per category, not
+  exhaustive) and G3's still-untouched O(N^2) duplicate check stay
+  open, tracked above, not blockers to closing this item.
+  **G3's own O(N^2) duplicate check, revisited and built this
+  session** (owner asked to scope it as a running start to
+  implementation, right after F.4 closed): `mSigOwner`
+  (`VLA_English.bas`) - one exact signature string -> the earliest
+  rule index that claims it, the same "first match always wins"
+  semantics real dispatch already enforces. Turns BOTH O(corpus size)
+  scans this file had (`LintRule`'s own duplicate-shape check, AND
+  the override-target-resolution scan in `AddPhraseRule` - the same
+  InStr-over-every-prior-signature shape, just answering a different
+  question) into O(this rule's own signature count) via
+  `AddSigOwner`/`CollHasKey` lookups. The correctness risk flagged
+  when this was deferred - "needs PERSISTENT incremental state kept
+  in sync across overrides/resets" - solved three ways: (1) the
+  override path captures `tgt`'s OLD signature lines from
+  `mPatSigs.Item(tgt)` before `ReplaceAt` overwrites them, removing
+  only entries `tgt` ITSELF still owns (never a signature it merely
+  shared with something else under `mAuditMode`'s own duplicate
+  tolerance) before re-adding its new ones; (2) `AddSigOwner` is
+  idempotent (never overwrites an existing owner), which is what
+  makes an `mAuditMode`-tolerated duplicate register safely - the
+  earlier rule keeps owning the shape in `mSigOwner`, exactly matching
+  what real dispatch would do; (3) `RestoreRules` (`EnglishTryRule`'s
+  own snapshot/discard flow) calls a new `RebuildSigOwner` - a full
+  rebuild from the just-restored table, the same reasoning its own
+  `mDspValid = False` line already established for the dispatch index,
+  since a candidate's temporary `mSigOwner` entries need discarding
+  along with everything else about it, not patching back out. One
+  documented, accepted cosmetic difference: a rule colliding with
+  multiple different earlier rules across different branches may
+  report them in signature order now rather than earlier-rule-index
+  order - same complete warning set either way, only the specific
+  message chosen for the raised error's summary text could differ, an
+  edge case already rare enough that no existing test depends on the
+  old ordering. **Verified against existing coverage, not new tests:**
+  `TestG1`'s own G3 pins already exercise every changed path -
+  duplicate-shape detection, "matches nothing," "matches several"
+  (the exact multi-branch-vs.-multiple-owners distinction
+  `AddPhraseRule`'s new dedupe-by-owner-index logic depends on: `fix
+  {w:cell|range} {r:range}` overriding two DIFFERENT prior rules
+  correctly still reports ambiguous, not silently collapsed to one),
+  "built-in not overridable," and the audit-mode-tolerated-duplicate
+  case - so a regression here surfaces as an existing `TestG1` failure,
+  not a silent gap.
+  **Live-run once: a real crash, not a `TestG1` failure - "regression
+  surfaces as an existing failure" turned out to be wrong about the
+  failure MODE, not the location.** `VlaSelfTests` hard-crashed,
+  run-time error 9 ("Subscript out of range") at `EnglishAuditText`'s
+  own re-raise line, inside `TestVlaExpand` right after its first
+  `EnglishAuditText` call (`VLA_Tests.bas:1261`) registers two rules
+  and its second (:1267-1269, "a clean phrasebook") tries to register
+  one more. Root cause: `EnglishResetGrammar` (`VLA_English.bas:6783`)
+  pops `mPatItems`/`mPatTexts`/`mPatSigs`/etc. back down to
+  `mPreludeCount` between every test - the actual reset every test in
+  the suite runs through, not `EnsureInit` (a true one-time-ever init,
+  a no-op on every call after the first) or `RestoreRules`
+  (`EnglishTryRule`'s own audition-and-discard flow) - and `mSigOwner`
+  was wired into both of THOSE but not into `EnglishResetGrammar`
+  itself, the one call site that actually matters for ordinary
+  between-test isolation. A stale `mSigOwner` entry from the first
+  audit call's own now-discarded rules (indices past the freshly-reset
+  table's real length) got looked up by the second call's own
+  duplicate check, and `mPatTexts.Item(thatStaleIndex)` subscripted
+  out of range against a table that didn't have that many rows yet.
+  Fixed: `EnglishResetGrammar` now calls `RebuildSigOwner` too, same
+  reasoning its own pre-existing `mDspValid = False` line already
+  states for the dispatch index - cheap even run between every test,
+  since it only ever walks back down to the small, fixed prelude.
+  Swept the whole file for every other `mPatItems`/`mPatSigs` mutation
+  site (`AddPhraseRule`'s append and override paths, `RestoreRules`)
+  to confirm no second instance of the same gap. **Re-run live, clean:
+  pure PASS (885/885), host PASS (119/119), `VerifyReport` emitter/
+  interpreter both 141/141 - crash gone, G3 optimization confirmed
+  correct.**
+  **Immediate next consequence, live, the same run: `VLA_Build.bas`'s
+  own Gate 1 refused a real build**, since it treats ANY non-empty
+  `EnglishAuditPhrasebook` report as a build-blocking authoring defect
+  (`Err.Raise`, `VLA_Build.bas:106-124`) and shape 1 now correctly
+  surfaces the four real shadows this session found in `english.vla`.
+  Owner's own call: fix the four rules rather than add a
+  known-issue/tolerance mechanism to Gate 1. **Fixed - all four
+  removed from `scripts/english.vla` as dead code**, each replaced
+  with a comment naming what was removed and why, not silently
+  deleted: three (`set {v:var} to cell {r:cell}`, `set {v:var} to cell
+  in column {c:column} row {n:expr}`, `set {v:var} to cell in column
+  number {c:expr} row {n:expr}`) produced BYTE-IDENTICAL output to
+  what the shadowing built-in prelude rule (`set {v:var} to {e:expr}`)
+  already provided via `ParsePrimCore`'s own "cell ..."/"cell in
+  column ..." `:expr` primaries - confirmed by reading `ParsePrimCore`
+  directly (`VLA_English.bas:4961-5014`), not assumed. The fourth
+  (`show cell in column {c:column} row {n:expr}`, rule 517 itself) was
+  NOT byte-identical - its own template said `(debug-print ...)`, but
+  it never once fired, and its own `test-success` line already
+  recorded `(msgbox ...)` (the shadowing `show {e:expr}` rule's real
+  output) as its "expected" value, from the original blind-authoring-
+  then-engine-verifies pass. `debug-print` was never real observed
+  "show" behavior anywhere in this corpus; `msgbox` is - removing the
+  dead rule lets the correct behavior through going forward rather
+  than preserving a template nobody could ever reach. Lost no test
+  coverage for the underlying `:expr` productions: they already have
+  direct engine-level tests independent of `english.vla`
+  (`VLA_Tests_Grammar.bas:1836`, a loop-variable-composition case).
+  **`TestF4RealCorpusShadow`'s own job changed as a result** - it used
+  to assert these four specific bugs stayed detected (a real
+  acceptance target while the bugs existed); now that they're fixed,
+  there's nothing left in the real corpus to find, so it asserts the
+  audit is CLEAN instead - a regression guard against a FUTURE
+  phrasebook edit reintroducing a cross-rule shadow, not proof the
+  detector works (that proof stays entirely in `TestF4CrossRuleShadow`'s
+  own synthetic pins, untouched by whatever `english.vla` contains).
+  `scripts/english_expanded.vla`/`english_coverage.txt` are generated
+  artifacts (their own header: "do not hand-edit, re-export... if the
+  source changes") - now stale relative to `english.vla`'s new size;
+  re-export via the IDE's own "Export Expanded Phrasebook" action
+  before trusting them again. Not yet re-run live.
+  **A live, concrete instance found (not hypothetical) - G-RENDER's own
+  self-check surfaced it as a side effect:** `show cell in column
+  {c:column} row {n:expr}` (`english.vla:517` - cited as `:382` when
+  first found; re-verified this session, line drifted as the corpus
+  grew) can never actually fire.
+  A core built-in rule, `show {e:expr}` → `(msgbox {e})` (registered
+  before `english.vla` loads at all, so it is always tried first), wins
+  every single time - because `"cell in column X row Y"` is ALSO a
+  valid `:expr` primary, the general rule's wildcard slot swallows the
+  specific rule's own literal phrase whole. Rule 382's own template
+  (`(debug-print (cells {n} {c}))`) is dead: no English sentence can
+  ever reach it, and its own `test:` line (384-385) silently proves the
+  CORE rule's behavior instead, not rule 382's - the corpus's own
+  test-passing gate cannot catch this, because the wrong rule firing
+  still produces byte-identical output to what the test expects.
+  **This is a DIFFERENT shadowing mechanism than G3's existing
+  load-time duplicate-shape audit catches** - G3 audits identical
+  PATTERN-WORD sequences; this is a specific rule's literal phrase
+  being a strict subset of what a more general rule's `:expr` slot can
+  parse, which is invisible to a word-sequence comparison entirely.
+  Whatever F.4 becomes should catch this shape of collision too, not
+  just literal duplicates. Not fixed as part of G-RENDER (out of
+  scope - a forward-grammar/corpus decision, not a rendering one):
+  rule 382 could be deleted, reworded to something the core rule
+  can't swallow, or the core rule narrowed; that's a call for whoever
+  picks this up, not a rendering-side patch.
+  **A second live instance, and a reason to revisit *Expiry* itself
+  (found closing LX.10, 2026-08-27):** `espanol.vla`'s own
+  `"envia un correo a {who:expr} ..."` rule silently mis-parsed for as
+  long as the file existed - a *different* mechanism from rule 382's
+  above (not two rules competing; `AddPhraseRule`'s own noise-word
+  strip drops a bare `"a"`, and the adjacent `{who:expr}` slot then
+  swallows the sentence's own leftover `"a"` token, since expr/name/var
+  slots never call `SkipArticles` the way literal/alternation matches
+  do), but the same FAMILY this item exists to name: **a slot silently
+  eating text a rule's author believed was pinned down, no error, no
+  warning, wrong output that still looks plausible.** `francais.vla` has
+  the identical shape, unconfirmed. This item's own *Expiry* line reads
+  "that phrasebook's arrival" - meaning a stranger's - but the actual
+  first victim was this project's own blind-authored demo file, caught
+  only because LX.10 finally ran it. Worth a look at whether the expiry
+  condition should read "arrival" at all, or "first time anyone
+  actually runs a second phrasebook live" - which, as of this session,
+  already happened.
+- ✅ **F.5 — a compilation context** (`push`/`pop` state). *Why now:* the
+  compiler is not reentrant; test isolation is implicit; 79 module-level
+  variables carry the state. *Pays into:* Assurance, Interface, Performance, and
+  **the interpreter** (an evaluator needs frames, and frames want a context to live
+  in). **Built, scoped to VLA.bas's own share (18 of the 79 — REBUILD.md's
+  own count, confirmed by reading the module's declaration block directly):**
+  `VlaFrame.cls` — the project's first class module, per an explicit owner
+  decision (REBUILD.md's own Layer-0 adjudication flagged "class or record"
+  as undecided; asked rather than assumed) — is a plain 18-field data bag,
+  no behavior of its own (VBA classes cannot read another module's `Private`
+  variables, so the copying lives in `VLA.bas`, which owns the fields).
+  Two new `VLA.bas` entry points, `VlaPushContext`/`VlaPopContext`, snapshot
+  and restore all eighteen onto a new `mContextStack`, plus `VlaContextDepth`
+  for a caller to assert balance. **Deliberately does not reset state on
+  push:** `VlaTranspile`/`VlaCompileToForms` already reset what each needs
+  at their own top (`Set mMacros = New Collection`, confirmed by reading
+  both before writing this, not assumed) — Push only needs to save what was
+  there before a nested call, not reproduce every function's own reset
+  logic, which the mid-file comment on `VlaMacroDoc` independently confirms
+  ("the macro table rebuilds on every parse"). Collection-typed fields
+  captured by reference (`Set`), safe specifically because every reset site
+  reassigns a fresh `Collection` rather than clearing one in place, so a
+  popped frame's Collection is never the same object a nested call mutated.
+  **Proof, not just plumbing:** two new pins in `VLA_Tests.bas`
+  (`TestContextPushPop`, `TestContextUnderflow`, dispatched from
+  `VlaSelfTest`) — the first transpiles two programs that each define a
+  differently-named macro around a push/pop pair and checks the *content*
+  through the existing `VlaMacroDoc`, not just that `VlaContextDepth`
+  returns to 0 — an outer macro must survive a nested compile's different
+  one and come back exactly as it was; the second checks that an
+  unbalanced `VlaPopContext` raises rather than silently no-opping. Both
+  guarded the AS.6 way: a raise reports FAIL under the pin's own name
+  instead of killing the suite. **Self-verified mechanically:** every field
+  `VlaFrame.cls` declares is read AND written by both `VlaPushContext` and
+  `VlaPopContext` (grep-diffed against each other, symmetric, empty diff)
+  and `Set` appears on exactly the seven `Collection`-typed fields in both
+  directions, none of the eleven value-typed ones. **What this does not
+  do:** touch `VLA_English.bas`'s own 63 module-level variables (the
+  English grammar/parsing engine's state) — a separate, later item, the
+  same "first cut sized to the actual crossed threshold" scoping F.1/F.8/
+  F.11 already used, not REBUILD.md's full `VLA_Context` target; wire
+  push/pop into `VlaSelfTest`'s own per-test isolation or into the
+  interpreter's frames — both real future callers, neither this pass's
+  job. Also touched, both purely mechanical: `VLA_DevRig.bas`'s reload
+  list and `VLA_Build.bas`'s shipped-module list both hardcoded `.bas`;
+  both now resolve `VlaFrame.cls`'s extension correctly (a disk-existence
+  probe in DevRig, the live component's own `.Type` in Build, since Build
+  exports from a live component rather than reading a file already on
+  disk) — every existing entry in both lists is unaffected. `~days`, as
+  scoped.
+- ⬜ **F.7 — the formula dialect as a declared subset.** One operator table, plus
+  a test that fails when the VBA emitter gains a case the formula dialect
+  neither supports nor refuses. *Now generalized by SD-5 to cover every
+  backend.* `~days`
+- ✅ **F.8 — split `VLA_Tests.bas`** by concern before ~5,000 lines. It reached
+  4,945 (F.9's own new tests pushed it there). **Built:** a new sibling module,
+  `VLA_Tests_Grammar.bas`, now holds every grammar/phrasebook feature pin (the
+  G1-G12/L4-L18/V7-V8/PL1-PL7 series plus `TestAlonzoLib` - ~2,500 lines, the
+  largest and fastest-growing concern in the old file). `VLA_Tests.bas` keeps
+  `VlaSelfTest` (the dispatcher - unchanged, since VBA calls a `Public Sub` in
+  another standard module by bare name), the shared assertion/report
+  primitives (`Report`/`CheckFrags`/`CheckV`/`Norm`/`AssertVla`/
+  `AssertEnglish`/`TryTranspile`/`TryEnglish`/`AssertErrLine`/`AssertClaim`/
+  `AssertClaimRefusal`/`CountOcc`/`FindDevFile`, all promoted `Private`->
+  `Public` so the new module can call them), `VerifyReport`, the goldens
+  machinery, and the core-mechanics pins. Registered in `VLA_DevRig`'s reload
+  list and diagnostics printout, same treatment as `VLA_HeadTable`/
+  `VLA_Interpreter` got. A pure move - no test logic touched - verified by an
+  unchanged `VlaSelfTest` pass/fail count and an empty golden diff. **What
+  this does not do:** this is a first cut sized to the actual crossed
+  threshold, not REBUILD.md SS3's full eight-module Layer-5 target
+  (`VLAT_Harness`/`VLAT_CoreLanguage`/`VLAT_Sentences`/`VLAT_Phrasebooks`/
+  `VLAT_HostRequired`/`VLAT_Goldens`/`VLAT_BackendParity`/`VLAT_Coverage`) -
+  REBUILD.md's own build sequence places that finer split near the *end* of a
+  much longer migration (after Layer 0-4 exist and the interpreter/backend-
+  parity work lands), not as a standalone move today. Both halves are still
+  well above REBUILD's 1,200-line budget (2,406 and 2,600 lines); the `VLAT_`
+  prefix itself is R3's manifest-derivation convention, which has no
+  build/reload machinery behind it yet, so this module keeps the project's
+  current `VLA_` + descriptive-suffix naming instead of adopting a prefix
+  nothing else honors yet. `~days`, as scoped.
+- ✅ **F.9 — stable section markers in the goldens.** *Pays into:* every future
+  golden prediction; diffs attribute themselves. **Built:** `VlaWriteGoldens`
+  (`VLA_Tests.bas`) now splices one `(raw "' ---- instructions.txt:N label ----")`
+  line into the translated `.vla` text before the first statement of every
+  blank-line-delimited paragraph — `instructions.txt`'s own documented structural
+  unit ("blank line ends a block") — so a change anywhere in the corpus
+  reads, in either golden or in a `git diff`'s surrounding context, as "this
+  named section changed" rather than a bare `' vla:N` tag a reader has to
+  decode by hand. *How, without touching the real pipeline:* pure text-level
+  post-processing on `EnglishToVla`'s already-correct output, anchored on the
+  `(at-line N` marker every statement already carries — `EnglishToVla` and
+  `VlaTranspile` are unmodified, and `(raw ...)` is an existing, already-
+  proven core form (untagged by design, the same "not user-authored"
+  treatment `begin`/`at-line` already get), so nothing a real user's program
+  compiles through changes; this is confined to the dev-only golden writer.
+  *Stable, not merely present:* a marker names its paragraph's own starting
+  line and first sentence, not a sequential "Section 3" counter — inserting
+  a new paragraph earlier in the corpus does not relabel or renumber any
+  marker after it, only add its own. **Correctness pinned independent of the
+  (much larger) real corpus:** `TestSectionMarkers` (`VLA_Tests.bas`) proves
+  boundary detection, placement, and quote-escaping (`Log "two" now.`-style
+  labels round-trip through the `\"`-escaped `(raw ...)` form correctly) on
+  a small, hand-built three-paragraph sample whose expectations do not drift
+  every time a corpus sentence is added or reworded. **Honest scope note:**
+  this pass is not itself golden-diff-empty — the goldens necessarily grow
+  the new marker lines throughout, a declared, one-time contract change to
+  the goldens' own text (the *behavior* the generated VBA runs is
+  unaffected: `raw` forms emit a comment, nothing more). `~hours`
+- ⬜ **F.10 — `requires:` in phrasebooks.** *Pays into:* Compatibility and
+  Governance directly. `~days`
+- ✅ **F.12 — the ID policy.** SD-9 made mechanical: one namespace for item IDs
+  across all roadmaps and ledgers, a retired ID never re-minted, and a check at
+  version-close that no promoted item lost its ID to a homograph. *Why now:* it
+  costs an afternoon and it has already cost this project the interpreter for
+  five versions. **Built:** [`docs/ID_REGISTRY.md`](ID_REGISTRY.md) — the
+  policy (normalize by stripping `.`/`-`, uppercase, compare; a retired ID's
+  exact spelling is never reused) plus a dated, measured snapshot — and
+  [`tools/check_id_registry.ps1`](../tools/check_id_registry.ps1), the version-close
+  check itself: scans the governed set (this file + every `ALPHA*_ROADMAP.md`)
+  for bullet-defined IDs, prints the next free ID per prefix family, and fails
+  if a punctuation-variant collision, an in-file duplicate definition, or a
+  re-minted retired ID is found. Run today: **clean** — 0 of all three, across
+  every ID this file and `ALPHA6_ROADMAP.md` currently carry. Same sibling
+  relationship to REBUILD.md's R11 + Appendix D that SD-9 already names in
+  prose (R11/Appendix D is this discipline for `.bas` module names; F.12 is it
+  for item IDs) — Appendix D's own founding case, `VLA_Ctx` vs `VlaContext`,
+  is cited there as "SD-9's homograph failure reproduced," so the two were
+  already the same idea before this item made the second half mechanical.
+  **A genuine finding, not just plumbing:** the audit that built the registry
+  caught this file's own prefix inventory (the "ordering" section, just above
+  THE DEPARTMENTS) silently omitting two prefixes it had already been using for
+  a while — `L.` (`L.11`) and `V.` (`V.1`) — plus one, `DR` (`DR1`/`DR2`, on
+  `ALPHA6_ROADMAP.md`), that was never declared anywhere; fixed inline, both
+  places. **What this does not do:** rename or renumber anything in
+  REBUILD.md, LESSONS.md, AUDIT.md, or PROJECT_BRIEF.md — each keeps its own
+  internal numbering for its own purpose, out of scope for an `~hours` item;
+  the checker reports (but does not police) where a governed ID also surfaces
+  in one of those, which is advisory context for a human, not an error. No
+  `.bas` file touched by this pass — a docs/tooling item, so no
+  `VLA_xxx_VERSION` bump applies. `~hours`
+  **Follow-up (2026-08-27), found incidentally while scoping F.14/LX.2's own
+  follow-ups, not a new run of this item:** the checker flagged **P-PROBE**
+  (MACHINE + OPTIMIZATION's own entry) as defined three times
+  (`BETA_ROADMAP.md`, its own real definition plus two lines from
+  LISTOPS-BUDGET's and TABLESPEC's own entries). Read against the actual
+  text, not trusted: both extra lines are explicitly labeled
+  `**P-PROBE cross-reference:**` — a callout pointing at the real
+  definition, not a second one — so this was a false positive in Pass 1's
+  own detection, not an SD-9 collision needing a rename. Scoped as options
+  (fix the checker / reword the two docs bullets / leave as a documented
+  false positive); owner chose fixing the checker, since this callout
+  phrasing is this document's own recurring convention and will very
+  likely recur for other ids. `check_id_registry.ps1`'s Pass 1 now excludes
+  any `**TOKEN cross-reference` bullet from the definition scan, reporting
+  what it excluded under a new `CROSS-REFERENCE MENTIONS` section rather
+  than silently dropping it. Re-run: clean, exit 0 (`DUPLICATE DEFINITIONS`
+  and `CHECK` both back to the "0 issues" state this entry's own bullet
+  above already claimed as normal).
+- ✅ **F.14 — the raw-`Err.Raise` ratchet.** SD-2's enforcement, sized far
+  below LX.2's own full migration. *Reason:* SD-2 declared "no refusal ships
+  as a raw string" and the codebase has been drifting away from it rather
+  than toward it ever since (SD-2's own note, above) — LX.2 (the catalogue,
+  filed A2, correctly deferred past beta per its own scoping note) closes
+  the gap fully, but nothing stops the drift in the meantime. This buys the
+  "stop getting worse" half cheaply — the same "buy the decision now, defer
+  the artifact" move `docs/AUDIT.md` names for this exact item.
+  **Scoped this session (recount + three adjudications, owner-confirmed):**
+  `VLA_Build.bas`'s `mods` array (the shipped-module authority, not a guess)
+  gives 13 components; a fresh count of textual `Err.Raise` across them found
+  LX.2's own "348 sites" figure already one stale — `VLA_IDE.bas` had grown
+  from 15 to 16 between that note and this recount, a real new raw site
+  landing after SD-2 was on record, caught by literally doing the recount
+  rather than trusting the prior number. Comment-only lines merely mentioning
+  the text "Err.Raise" (6 found, across `VLA_English.bas`/
+  `VLA_Interpreter.bas`/`VLA_Runtime.bas`) are real noise a naive scan would
+  both over-count today and false-fail on tomorrow if someone only edited a
+  comment — excluded from the real count. Corrected per-module total:
+  `VLA.bas` 141, `VLA_English.bas` 97, `VLA_Interpreter.bas` 61,
+  `VLA_Runtime.bas` 23, `VLA_IDE.bas` 16, `VLA_Loader.bas` 3, `VLA_Lint.bas`
+  2 — **343**, not 348. Three mechanism questions, resolved by matching
+  existing precedent rather than picking fresh: **(1) where it lives** —
+  `tools/` as a PowerShell script, the same shape as
+  `check_id_registry.ps1`/`check_rule_coverage.ps1`/`check_backend_parity.ps1`
+  (F.12/AS.1/AS.8), not a `VLA_Tests.bas` function beside `VlaLintCheck`, so
+  it runs without a live Excel host like its three siblings. **(2) where the
+  ceiling lives** — hardcoded in the script itself, the same shape as
+  `check_id_registry.ps1`'s own hand-maintained `$retired` array: bumping it
+  is a visible, reviewable one-line git diff, not a workbook Name
+  (`VlaTimeIt`'s `DevNameGet`/`DevNameSet` precedent, `VLA_DevRig.bas`) —
+  that pattern is built for ephemeral per-machine timing numbers and
+  produces no readable diff (`VLA.xlsm` is binary, even though, unusually,
+  it IS the one `.xlsm` this repo tracks). **(3) gate timing** — a manual,
+  version-close check, never wired into `VlaSelfTest`, matching AS.8's own
+  stated reasoning for `check_backend_parity.ps1` ("a version-close step a
+  human runs, not a per-run gate") and `VlaLintCheck`/`VlaGoldens`/
+  `VlaWriteGoldens`'s shared norm that `VlaSelfTest` does no real multi-file
+  disk I/O. **Built:**
+  [`tools/check_raise_ratchet.ps1`](../tools/check_raise_ratchet.ps1) — reads
+  `VLA_Build.bas`'s `mods` array by regex (same move `check_backend_parity.ps1`
+  uses for `VLA_HeadTable.bas`'s `AddRow` rows, so the ratchet can't silently
+  drift from what actually ships), counts non-comment `Err.Raise` lines per
+  shipped module (all 13, not just the 7 with a nonzero count today — a
+  first raw site in a currently-clean module is exactly the case most worth
+  catching), fails if any module exceeds its hardcoded ceiling, and reports
+  (never gates) any module that has dropped below its ceiling so a real
+  cleanup prompts tightening the number in the same PR rather than leaving
+  slack forever. **What this does not do:** exempt calls already routed
+  through a `Raise`/`RaiseMsg` wrapper — no such function exists anywhere in
+  `src/` today (grepped directly), so every site is raw by definition and
+  there is nothing yet to exempt; revisit only if an interim wrapper lands
+  before LX.2 itself. **Run 2026-08-27 (owner):** clean — all 13 shipped
+  modules at or under their held ceiling. `~hours`
+- ✅ **F.13 — the vocabulary-grammar migration: `english.vla`'s own outer
+  syntax becomes real VLA.** *Why now:* F.2 made phrase-rule TEMPLATES
+  real forms instead of text that merely looked parenthetical; the
+  vocabulary FILE FORMAT wrapping those templates - `pattern => template`,
+  `test:`, `fail:`, `macro:`, `function:` - is still a bespoke,
+  hand-rolled line-oriented DSL, not VLA at all. This is that second,
+  separate half: read via `VLA.VlaReadForms` like everything else,
+  dispatched by head symbol, no custom line scanner. **Scoped, not
+  built** (owner + assistant design pass, one evening, argued out loud
+  - see `docs/LESSONS.md`'s Beta addendum for the naming debate's own
+  story, not just its conclusion). Only `english.vla` is in scope -
+  `prelude.vla` and `alonzo.vla` already load through VLA's own
+  `include`/library path as plain `(defmacro ...)`/`(sub ...)` forms,
+  never through the directive DSL this item replaces.
+
+  **The grammar, decided:**
+
+  | Old | New |
+  |---|---|
+  | `pattern => template` | `(english-vla "pattern" (template-form))` - or `deutsche-vla`, `espanol-vla`, any `<lingua>-vla`, freely mixed per rule, no one-language-per-file constraint (deliberate - see below) |
+  | `override: pattern => template` | `(english-vla-override "pattern" (template-form))` |
+  | `test: sentence => expected` | `(test-success "sentence" (expected-form))` |
+  | `fail: sentence => fragment` | `(test-fail "sentence" "fragment text")` - fragment stays a string, it's prose, never VLA |
+  | `macro: (defmacro ...)` | `(defmacro ...)` - bare, no wrapper; already valid VLA |
+  | `function: word [of] => target` | `(english-function "word [of]" target)` - a direct rename of today's mechanism, same word(+"of")-to-target mapping, no new capability. The phrase is quoted (English prose, same as every other pattern/sentence argument); `target` is a bare atom, not a string - it plays the exact role `english-vla`'s own template argument plays (a reference to VLA, never prose), caught live by the owner reviewing the converter's first real output before it was corrected |
+  | `#`/`'` comments | `;` comments |
+
+  **`<lingua>-vla` naming, decided over `template-rule`:** the source
+  language rides in the directive's own head, deliberately repeated on
+  every single rule rather than declared once - a marketing choice, not
+  an information-density one (own words: "I want people to think 'I'm
+  converting my native tongue into VLA' every time they write a rule").
+  The constant suffix (`-vla`, on every directive, in every file,
+  forever) is what unifies every future dialect into one project, the
+  same way `en.wikipedia.org`/`de.wikipedia.org` share `.wikipedia.org`;
+  the varying prefix is what makes it *theirs*. `test-success`/
+  `test-fail`/`english-function` stay generic on purpose - a deliberate
+  foreground/background split: the directive every contributor writes
+  constantly, the creative act of translating a tongue into VLA, gets
+  the flag; the proof and utility machinery underneath does not.
+
+  **Polyglot files are explicitly allowed, not merely tolerated:** no
+  per-file "one language" constraint is enforced, on purpose - each
+  `<lingua>-vla` directive is independently self-describing, so the
+  loader never needs file-level language state at all. (A tempting
+  "require one prefix per file, catch a mixed-language typo for free"
+  check was proposed and explicitly declined - the owner wants polyglot
+  files kept open as a real, not hypothetical, future option.)
+
+  **Comment convention split, and the actual reason it's safe** (not
+  just "different file types, different vibes" - see `docs/LESSONS.md`'s
+  Beta addendum for the full reasoning): `.vla` files move to `;`
+  (VLA's own convention, already proven in `prelude.vla`/`alonzo.vla`);
+  `instructions.txt` and every English PROGRAM file keep `#`, unchanged.
+  The split holds because `.vla` directives wrap all their English
+  content in quoted strings (comment-safe by construction, in any
+  reasonable tokenizer), while `instructions.txt`'s sentences are raw,
+  unquoted prose - the semicolon-ambiguity risk Alpha 1 debated project-
+  wide was only ever real for the latter.
+
+  **Line numbers - the one real technical risk, and a fix that shipped
+  broken on the first try.** Reading the whole file through
+  `VLA.VlaReadForms` in one call would silently lose per-directive line
+  numbers (every current error message depends on them). First attempt:
+  a bare `Public Function VlaFormLine(v As Variant) As Long` wrapping
+  the existing `Private FormLine`, reasoned as "the reader already
+  tags every form internally, just expose it" - live-tested immediately
+  (`? VLA.VlaFormLine(VLA.VlaReadForms("(set! x 1)").Item(1))`, expected
+  `1`, got `0`), and the reasoning had missed something real:
+  `VlaReadForms`'s own `VlaPushContext`/`VlaPopContext` discipline
+  (F5.0, what makes nested compiles safe) builds a FRESH `mFormLines`
+  for the read, then restores `mFormLines` to whatever it held BEFORE
+  the call the instant `VlaReadForms` returns - so the tags a read just
+  computed are already gone before any caller can look one up. A
+  lookup-after-the-fact can never work here, by the existing
+  machinery's own design. **Fixed, not patched:** `VLA.VlaReadFormsWithLines(text,
+  ByRef outLines)` - a form reader that captures every top-level form's
+  line WHILE `mFormLines` is still the fresh one, before the pop
+  restores the old one out from under it. Deliberately duplicates
+  `VlaReadForms`'s own small body rather than modifying a function
+  every existing caller (`TemplateForms` included) already trusts
+  unchanged.
+
+  **Migration path:** a throwaway, unshipped converter (reads the *old*
+  format with the existing line-oriented logic, unchanged; emits the
+  *new* form) - not a hand rewrite of 1113 lines. Acceptance criterion
+  is not separate from existing discipline: the corpus's own 210
+  `test:`/5 `fail:` proofs migrate with the rules they prove, and a
+  clean load with every proof passing plus an empty `VlaGoldens()` diff
+  *is* the verification. The loader is replaced outright - no dual-
+  format support kept alive "just in case," same call as F.2's own
+  dual-path retirement.
+
+  **Build order, all steps shipped and live-verified:** `VlaReadFormsWithLines`
+  in `VLA.bas` → the converter (`tools/VLA_VocabMigrate.bas`), run once,
+  hand-reviewed on a sample before trusting it at scale → the new loader
+  (`VLA.VlaReadFormsWithLines` + head-symbol dispatch, replacing
+  `EnglishLoadVocabularyText`'s body entirely) → `scripts/english.vla`
+  swapped for the converted file (105 rules, 210 `test-success`, 5
+  `test-fail`, 77 `defmacro`, 5 `english-function`) → `VocabParensClosed`/
+  `VocabMacroName` deleted, orphaned. **Two real bugs found live, not
+  just at handoff** (both fixed, both logged in full in the shipping
+  commit): a crash on a bare top-level atom (old-format text parses as
+  one under the new reader, not a syntax error - now a clean, teaching
+  refusal), and a pre-existing latent bug in `EnglishAuditText`'s error
+  handler this migration's own error path was the first thing to
+  actually trigger. Every self-test hardcoding old-format vocab text as
+  its own fixture (a dozen-plus `Sub`s across `VLA_Tests.bas`/
+  `VLA_Tests_Grammar.bas`) rewritten into the new grammar, same
+  assertions; `VlaDotCount` (F.1's own pinned gate) rewritten to
+  recognize a macro body structurally instead of by its old `"macro:"`
+  line prefix. **Final state:** `VlaSelfTests` 673/673, `VerifyReports`
+  clean both backends, a freshly built add-in compiles and interprets
+  without errors, `instructions_golden.vba` (the actual compiled
+  output) byte-for-byte unchanged.
+
+  **Explicitly deferred, not part of this item - logged so it isn't
+  lost, not so it gets built by accident:** N-arity `<lingua>-function`
+  words with typed, arbitrarily-positioned slot capture inside
+  EXPRESSION position (`(english-function "{d:int} days from now"
+  (date-delta 'today :days {d}))` was the owner's own illustrative
+  example) - a real, coherent, *separate* feature idea, structurally
+  `TryPhrase`'s whole slot-matching machinery rebuilt to fire inside
+  `ParseExpr`/`ParsePrimCore` instead of at statement level, needing
+  its own ambiguity policy (the parsing-side twin of G-RENDER's own
+  `CandidateShapeOk`) and a decision on whether `:int` becomes a real,
+  validated slot category. Today's `function:`/`english-function`
+  mechanism is one word, optionally `+ "of"`, one fixed argument
+  position, no typing - genuinely narrower, and this item's rename does
+  not expand it. Needs its own scoping pass before anyone builds it.
+  `~weeks`
+
+- ⬜ **F.15 — the two hardcoded module manifests, cross-checked.**
+  `VLA_Build.bas`'s `mods` array and `VLA_DevRig.bas`'s reload list must
+  agree and are not checked against each other — `REBUILD.md`'s own R3
+  names this, and `LX.2`'s own session was bitten by it live the same day
+  (`VLA_Messages` missing from `VlaDevReload`'s own list, surfacing only
+  as a "Variable not defined" compile error on a fresh workbook). *Why
+  now:* cheap and mechanical, the exact shape of bug this project's own
+  tooling already catches for other pairs (`F.12`'s ID checker, `AS.8`'s
+  parity checker) — a `tools/*.ps1` script comparing the two lists is an
+  afternoon, not a redesign, and the failure mode it prevents has already
+  fired once live. `~hours`
+
+---
+
+# 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES
+*The mission's section, in two co-equal parts and one appendix. Part A removes
+the assumption that the language is English. Part B removes the assumption that
+the machine is VBA. They are the same move — an assumption baked into a core
+that is still small enough to unbake it — and they are ranked together because
+delaying either one converts a chokepoint into a hundred sites.
+specimens: 0 for Part A, 0 for Part B until PI.7.*
+
+**The split that governs both parts:** each item below is either a **chokepoint**
+(hours-to-days, irreversible, do now) or a **catalogue** (weeks, reversible,
+defer past beta). The previous revision bundled them, which is how a tranche
+elevated on rising-cost grounds ended up carrying its own most expensive and
+least urgent work at the front.
+
+## Part A — language-neutrality
+
+**A1 — the chokepoints (do now)**
+
+- ✅ **LX.3 — locale-safe symbol identity.** Replace locale-aware `LCase` with an
+  invariant ASCII fold wherever it decides *identity*; keep `vbTextCompare`
+  only where user-facing text comparison is meant. *Why now:* 102 fold sites,
+  and this is a **live silent correctness bug** — identifier identity currently
+  depends on the user's Windows locale. SD-8 is its decision half. `~hours`
+- ✅ **LX.4 — head-symbol alias table.** One lookup before the emitter's `Select
+  Case`, so `(fijar! …)` can mean `(set! …)`. *Why now:* one chokepoint today,
+  63 sites later. *Pays into:* the whole mission — and **the interpreter, which needs
+  the same table for a different reason**, so build it once with both consumers
+  in view. **Built:** `VLA_HeadTable.bas`'s Aliases column, wired but empty
+  since `IN.1`, now carries one alias each on three rows (`set!`/`fijar!`,
+  `if`/`si`, `debug-print`/`depurar`) — a working chokepoint, not a
+  translation table; a real vocabulary is a separate, later item (`LX.5` or a
+  dedicated i18n item), not this one's job. New `VlaHeadTableAliasMap()`
+  builds a folded-alias → canonical-symbol `Collection`, **keyed for O(1)
+  lookup** — deliberately not `VlaHeadTableRow`'s own alias match, which is a
+  linear scan over 65 rows: fine for the occasional catalog lookup that
+  function was built for, wrong for a call on every node of every emit.
+  `VLA.bas` gained `ResolveHeadAlias`, consulted at the top of all **four**
+  Select Case dispatchers (`EmitTop`/`EmitStmt`/`EmitExpr`/`EmitFormula`)
+  instead of the raw folded head — "one lookup before the emitter's `Select
+  Case`," literally, not a second dispatch table beside it. The alias map is
+  built once per compile (a new module-level `mHeadAliases`, set fresh at the
+  top of `VlaTranspile`/`VlaCompileToForms`, same S3.1-safe discipline as
+  `mMacros` — never module-level *cached*, since a recompile drops module
+  state). **Proven at the emitter, not just the catalog:** `VLA_Tests.bas`'s
+  `TestHeadAlias` asserts `VlaTranspile` of an aliased program
+  (`fijar!`/`si`/`depurar`) emits **byte-identical VBA** to its canonical
+  spelling — the goldens are untouched (the existing corpus uses only
+  canonical spellings, so `ResolveHeadAlias` is a no-op there; purely
+  additive, opt-in). **What this does not do:** wire the interpreter
+  (`VLA_Interpreter.bas`'s own `ExecStmt`/`EvalExpr` dispatch, `IN.0.5`) to
+  the same alias map — deliberately out of scope. `IN.0.5` is explicitly "no
+  parity," and the interpreter's own alias support is `IN.2`'s job, per this
+  item's own text ("the interpreter... needs the same table for a *different*
+  reason"). `~days`
+- ✅ **LX.6 — identifier policy for non-ASCII.** Is `cantidad-máxima` a legal
+  name, and how does `SymName` mangle it into a VBA-safe identifier? A paragraph
+  today; silently corrupting a user's own words is the worst possible first
+  impression in a non-English market. **Ratified, with a finding:** checked
+  against current code, `SymName` (`VLA.bas`) does nothing but replace hyphens
+  with underscores — `cantidad-máxima` becomes `cantidad_máxima` and is passed
+  straight into generated VBA source untouched. VBA identifiers are ASCII-only,
+  so this is not a theoretical risk: it is a live path to exactly the
+  compile-error class `LESSONS.md` Part II says the English layer exists to
+  prevent, for the first non-English word a user ever names something with.
+  **Decided, and shipped:** non-ASCII letters transliterate to their closest
+  ASCII equivalent (á→a, ñ→n, and so on) rather than refusing outright — an
+  accented word is still the user's word, degraded gracefully, not rejected;
+  a name that transliterates to nothing legal (no ASCII letters survive)
+  refuses in words, naming the original. Covers Latin-1 Supplement and the
+  common Latin Extended-A letters (Western/Central European scripts); a
+  different script entirely (Cyrillic, CJK, ...) has no mapping and is
+  dropped rather than guessed at, triggering the refusal if nothing else in
+  the name survives. `~hours`
+- ✅ **LX.1 — the neutrality audit, as a decision list.** Enumerate every English
+  assumption in the core and English layer; classify each *keep* / *alias* /
+  *data*. *Written as a list of decisions, not as an audit project* — half the
+  value is deciding which bias is acceptable rather than removing all of it.
+  **Audited and ratified, against current code, not assumed:** `VLA.bas`,
+  `VLA_English.bas`, `VLA_Identity.bas` read in full or by targeted grep for
+  every assumption-shaped pattern (keyword dispatch, error-message text,
+  case-folding, number/ordinal vocabulary, article-handling, capitalization,
+  reserved-word lists). `VLA_Identity.bas`: no findings — already the LX.3
+  fix, single-purpose, clean. **Core (`VLA.bas`) ratified *keep*,
+  permanently — not English bias at all:** `EmitFormula`'s `UCase$(h)`
+  turning `and`/`or` into Excel's `AND(`/`OR(` and `VLA_English.bas`'s
+  `IsReservedName` VBA-keyword list are *target-format* facts (Excel's
+  `.xlsx` formula storage and VBA's own reserved words are English
+  regardless of either program's authoring language), the same category as
+  decisions already closed elsewhere in this document. Also ratified
+  *keep*: numeric-literal handling (`Val`/`Str$`, never `CDbl`/`CStr`) is a
+  *regional-format* fix (decimal separators), not a language one — already
+  correctly built, no gap. The core's other two English-couplings were
+  already filed, not new: ~150+ `Err.Raise` prose sites are **data** (LX.2's
+  own scope, confirmed at real scale) and the four emitter dispatchers'
+  keyword literals (`dim`/`if`/`for`/`cond`/...) are **alias**, already
+  mechanized by LX.4's `ResolveHeadAlias`, awaiting only a populated table
+  (LX.5's job). **`VLA_English.bas` ratified *keep*, as designed:**
+  article/filler-word handling (`IsNoiseWord`, `SkipArticles`), `NumberWord`/
+  `OrdinalWord`, and `ExprOpWord` are legitimate English vocabulary for the
+  file whose whole job is being English — kept for now, filed as **data**
+  candidates under LX.5's eventual split (a sibling language needs its own
+  tables, same shape). Sentence-render capitalization
+  (`UCase$(Left$(r,1))`) is a minor Latin-script convenience, **keep**. The
+  stem/suffix morphology mechanism (`SurfaceMatch`, e.g. `ascend/ing`) is
+  already correctly **data** — a rule-author-written spec string, not a
+  hardcoded inflection algorithm; cited as a positive precedent, not a gap.
+  **The one finding that sharpens a later item's scope:** the
+  Oxford-comma-required list grammar (`"and"` consumed as a no-op only
+  immediately after an already-consumed comma) is **keep**, but structural,
+  not vocabulary — it cannot be swapped through a table the way the
+  vocabulary items above can. A concrete instance of what LX.5's own scope
+  note already named ("`if`/`repeat`/`while`/`show` as literal parser
+  comparisons... the product side... untouched") — see LX.5's own updated
+  note below. **Pays into:** LX.5 (scope sharpened), LX.2 (scope confirmed
+  at scale); LX.9/LX.10 unaffected, both keep their existing A2 filing.
+  `~days`
+- ✅ **LX.10 — the falsification test: a minimal second phrasebook.** Twenty
+  sentences in one non-English language, shipped as a corpus-family fixture.
+  *This is Part A's experiment, and it should run before Part A's expensive
+  half is funded.* The belief under test is "a non-English market exists and is
+  reachable"; this is the only honest way to be wrong about it cheaply.
+  **Session evidence, not a closing:** seven `<lingua>-vla` demo phrasebooks
+  (`pirate.vla`/`latin.vla`/`espanol.vla`/`deutsche.vla`/`esperanto.vla`/
+  `francais.vla`/`dansk.vla`, ~19 rules and ~130 `test-success` proofs apiece,
+  committed to `scripts/`) ran this item's own experiment informally, several
+  times over — each rides the existing English-named macro layer with zero
+  engine changes needed. Consistent with the belief under test, but not a
+  substitute for the item: demo-quality (diacritics dropped for ASCII safety,
+  no native-speaker review), unverified against the live engine (this
+  project's own blind-write discipline), and every rule stays at the
+  phrase-rule layer — none exercises structural grammar (see LX.5's own note
+  below). Owner's call whether this counts toward closing the item. `~days`
+  **Correction, found while closing this item, checked against the actual
+  files rather than trusted:** "~130 `test-success` proofs apiece" is wrong -
+  counted fresh, all seven files carry exactly 19 rules and 20 `test-success`
+  proofs each (~133 total across all seven, likely what "~130" actually
+  meant, misread as per-file). Twenty per file, not ~130, is also why one of
+  them was the exact right size for this item's own "twenty sentences" ask
+  below, unmodified.
+  **Closed this session (2026-08-27) - owner chose "build it now":** the
+  real gap was never a missing phrasebook (seven already existed, LX.5's
+  session finding above already used them as evidence) - it was that none
+  of the seven was ever wired into `VlaSelfTest`, only ever run informally,
+  by hand. `espanol.vla` (19 rules, 20 `test-success` proofs, already
+  ASCII-safe) is now that wiring: new `TestLx10NonEnglishFixture`
+  (`VLA_Tests_Grammar.bas`, dispatched from `VlaSelfTest` right after
+  `TestAlonzoLib`) resets the grammar, loads `english.vla` (the base layer
+  `espanol.vla`'s own header already says must load first), then loads
+  `espanol.vla` - `EnglishLoadVocabularyText`'s own loader raises
+  (`english-test-failed`/`english-test-failed-to-translate`) the instant
+  any of the 20 proofs' claimed translation drifts, so a clean load IS this
+  item's falsification test passing, not a proxy for it - the same
+  corpus-family shape SD-6/AS.6 already established for
+  `instructions.txt`/`english.vla`/`alonzo.vla` (a missing or failing fixture
+  fails the suite, named, not a silent skip), guarded with the identical
+  `FindDevFile`/`On Error Resume Next` idiom `TestAlonzoLib`/`TestDotCount`
+  already use so a missing file reports as a failed assertion rather than
+  crashing the run. No engine change, no new vocabulary written blind -
+  exactly LX.5's own finding that the demo side is cheap, now made a
+  standing, protected fact instead of an informal one.
+  **Owner ran it live (2026-08-27): the falsification test worked exactly
+  as designed and caught a real bug on its first run**, not a wiring
+  problem - `pure FAIL (878/879)`, the one failure named
+  `lx10: espanol.vla's 20 non-English test-success proofs all pass`,
+  reporting "Pon hoy en la celda D1." translating to
+  `(set! (range "d1") hoy)` instead of the claimed `(set! (range "d1")
+  (date))`. Root cause, found by reading `VLA_English.bas` rather than
+  guessed at: phrase rules are tried "in registration order, first match
+  wins" (~line 3908), and `espanol.vla` had registered the general
+  `"pon {e:expr} en la celda {r:cell}"` rule BEFORE the literal
+  `"pon hoy en la celda {r:cell}"` rule - the `{e:expr}` slot swallowed
+  the bare word "hoy" as an atom before the literal rule ever got a
+  turn. This is a known ambiguity class this project already named and
+  already solved once: `VLA_English.bas`'s own comments call it
+  "put-today/put-expr's literal-vs-wildcard overlap," and `english.vla`
+  itself (~line 79) registers its literal `"put today into|in cell
+  {r:cell}"` rule BEFORE the general `"put {e:expr} into|in cell
+  {r:cell}"` rule for exactly this reason - `espanol.vla`'s twin simply
+  had the two rules in the wrong relative order. **Fixed:** the two
+  rules swapped in `scripts/espanol.vla` to match `english.vla`'s own
+  established order, with a note on the fix (and its root cause) added
+  to the file's own Spanish-language header, matching this file's own
+  convention. **A systemic finding, not just this one file's bug:**
+  grepped the other six dialect twins for the same shape (their own
+  literal "today" rule's line number vs. their own general `{e:expr}`
+  cell rule's line number) - all six (`pirate`/`latin`/`deutsche`/
+  `esperanto`/`francais`/`dansk`) show the identical mis-ordering,
+  meaning their own "put today"-equivalent rule has likely never been
+  reachable either, in any of them, since the day each was written -
+  invisible until now because none was ever wired into an automated
+  test before this item did it for `espanol.vla` alone. Found, not
+  fixed - none of the other six is gated by a test today, and fixing
+  six more files un-verified against the live engine was not this
+  pass's scope; worth a look together with LX.5's own "wiring more than
+  one" question. **Re-run needed:** the fix above has not yet been
+  live-confirmed; owner re-running `VlaSelfTest` is still the last step
+  before this item can move past ⬜.
+  **Owner re-ran it live: the falsification test caught a SECOND, deeper
+  bug on the very next run, the ordering fix's own re-run.** `"Envia un
+  correo a {who:expr} con asunto ..."` failed to translate at all -
+  `"I understood 'envia un correo a' - then I expected 'con' but found
+  '\"boss@co.com\"'"` - as if `{who:expr}` had consumed nothing. Root
+  cause, traced through `VLA_English.bas` rather than guessed: every
+  phrase pattern is registered with `"a"`/`"an"`/`"the"`/`"please"`
+  stripped ENTIRELY (`AddPhraseRule`'s own `IsNoiseWord`, ~line 2499) -
+  a bare `"a"` never survives as a pattern item, in any dialect. When
+  `"a"` sits before a LITERAL word, `SkipArticles` (called before every
+  literal/alternation match, ~line 4223) quietly absorbs the sentence's
+  leftover `"a"` and everything realigns - which is exactly why this
+  same file's `"agrega un borde a la region ..."` rule (`"a"` before the
+  literal `"la"`) already worked. But `TryPhrase`'s `expr`/`name`/`var`/
+  reference-category slot branches (~line 4090 onward) never call
+  `SkipArticles` before parsing - so `"a"` sitting directly before a
+  SLOT gets swallowed by the slot itself as a one-word bare atom, and
+  everything after it comes out of alignment. **Not a bug in this file -
+  an English-only assumption baked into the base engine**, the same
+  species of finding LX.5 already named for structural grammar
+  (`if`/`repeat`/`while` as literal parser comparisons), just surfacing
+  here at the scale of a single function word rather than a whole
+  control-flow form. **Fixed without touching the engine**, at the
+  vocabulary layer this item exists to prove is cheap: `"a"` ->
+  `"para"` (equally natural Spanish) in the one rule where `"a"`
+  preceded a slot directly; the fix and its full root-cause trace are
+  now in `espanol.vla`'s own header, in the same Spanish-language
+  convention the rest of the file already uses. **A third systemic
+  finding:** `francais.vla` has the identical shape
+  (`"envoie un courriel a {who:expr} ..."`, ~line 151) and almost
+  certainly the same bug - found by re-grepping all seven siblings for
+  a bare `"a"` sitting directly before a slot, not fixed there (that
+  file isn't gated by any test either, same as the other five). **This
+  item's evidence has sharpened, not weakened, twice over:** the
+  vocabulary layer really is cheap to fix (two real bugs, two one-line
+  vocabulary-level corrections, zero engine changes) - but "the demo
+  side is cheap" was never actually TRUE until something ran it live;
+  both bugs sat invisible in committed, informally-blessed files for as
+  long as they've existed. **Re-run needed again:** neither fix above is
+  live-confirmed yet; owner re-running `VlaSelfTest` one more time is
+  still the last step before this item can move past ⬜.
+  **Closed (2026-08-27): owner-confirmed clean.** Tests and goldens pass;
+  `espanol.vla` loads and all 20 test-success proofs verify against the
+  real engine. Committed alongside the `VLA_Runtime.bas` and
+  `check_id_registry.ps1` follow-ups (`097e29f`). Meets this file's own
+  ✅ bar. The other six dialect siblings remain unwired and, per the
+  "a"-before-slot finding above, `francais.vla` at least almost
+  certainly carries the identical latent bug - a real, scoped, unbuilt
+  option for whoever extends this fixture next, not silently dropped.
+
+**A2 — the catalogues (defer past beta)**
+
+- ✅ **LX.2 — the message catalogue.** Every refusal becomes an ID plus
+  parameters; English is the default catalogue. *SD-2 already banks the
+  rising-cost half; this is the artifact.* Depends on F.6. **Session note:**
+  this is the one Part A item the LX.10 dialect-file evidence above didn't
+  touch at all — every non-English `test-success` proof in those seven files
+  still fails, if it fails, in English. Worth a look as the actual next lever
+  if full non-English UX (not just phrase-rule authoring) stays a live goal —
+  unlike LX.5 below, it needs no structural-grammar work first. **LX.1's own
+  audit confirms this at scale:** ~150+ `Err.Raise` prose sites in `VLA.bas`
+  alone (not counting `VLA_English.bas`'s own refusals), all English text
+  baked directly into the raise call — this item's real footprint, checked
+  against current code rather than assumed.
+  **Scoped as a running start to implementation (discussion only, no file
+  touched but this one — a second session may be mid-edit on engine files):**
+  first, a correction to this item's own stated dependency. F.6 is ✅ and its
+  bullet claims "all refusals through `Raise(msg, at)`" with SD-2 ("every
+  refusal goes through `Raise` with a stable ID") "already in force" as its
+  decision half. **Neither is true of current code, checked rather than
+  assumed:** there is no function named `Raise` anywhere in `src/` (grepped
+  for `Function Raise`/`Sub Raise` and every `Raise(`-shaped call — zero
+  hits), and not one of the current refusal sites carries a stable ID. Read
+  against its own implementation commit (`e3007bd`, "LX.3 + F.6"), F.6's
+  actual delivered scope was narrower than its bullet still reads today:
+  `AtLineSuffix()` deduplicated the *location-tag* suffix ("source line N")
+  that three raise paths in `emitfail` used to format separately — real
+  work, but a formatting dedup, not the general refusal-routing chokepoint
+  "LX.2 becomes a change at one function" promised. **So LX.2 cannot start
+  from "flip one function"; it starts from touching every call site.**
+  Counted, not estimated: 348 `Err.Raise` sites across the modules
+  `VLA_Build.bas`'s own shipped `mods` array actually ships (`VLA.bas` 141,
+  `VLA_English.bas` 99, `VLA_Interpreter.bas` 64, `VLA_Runtime.bas` 24,
+  `VLA_IDE.bas` 15, `VLA_Loader.bas` 3, `VLA_Lint.bas` 2) — a real user can
+  reach every one of them. 13 more sites in dev-only modules (`VLA_Tests.bas`
+  5, `VLA_DevRig.bas` 5, `VLA_Build.bas` 3) are out of scope: never in the
+  shipped `mods` list, never seen by an end user. **A concrete risk this
+  scoping surfaces:** 90 existing test assertions (`VLA_Tests.bas` 11,
+  `VLA_Tests_Grammar.bas` 79) substring-match specific English words inside
+  `Err.Description` (e.g. `InStr(1, Err.Description, "braces", ...)`) — the
+  catalogue's rendered English text has to stay byte-identical to whatever
+  those 90 assertions check, the same "golden diff empty" discipline F.6's
+  own commit already used, or those assertions get updated in lockstep as
+  part of this item, not discovered as breakage afterward. **Proposed
+  mechanism, sized against this project's own precedent, not designed from
+  scratch:** a new Layer-0/1 module (`VLA_Messages.bas`, matching
+  `VLA_Identity.bas`'s single-purpose-module precedent) holding an ID →
+  English-template lookup built once into a `Collection` (the same lazy,
+  build-once shape `VlaHeadTableAliasMap` already proved for LX.4), plus one
+  `RaiseMsg(id, ...)`-shaped entry point every one of the 348 sites migrates
+  to. Named-parameter substitution should reuse the `{slotName}` curly-brace
+  convention `VLA_English.bas`'s own phrase-rule slots already established,
+  rather than inventing a second templating syntax the codebase would then
+  carry two of. `Err.Number`/`Err.Source` semantics stay exactly as today
+  (53 keeps meaning "file not found," `"VLA"` vs `"VLA-English"` source
+  tagging is preserved) — the ID is new information added alongside, not a
+  replacement for what the raise already carries. IDs should be semantic
+  slugs (`car-expected-list`, not an opaque number), matching this project's
+  own naming aesthetic and staying greppable in review; treat them with the
+  same never-reused, never-re-minted discipline SD-9 already holds for
+  section IDs, just at message-ID scale. New module gets added to
+  `VLA_Build.bas`'s shipped `mods` array (currently line ~162) when
+  implementation actually starts — not done here. **Estimate:** unchanged at
+  `~weeks` — this scoping doesn't shrink it, it grounds it: 348 real sites
+  and 90 coupled test assertions confirm weeks-scale rather than the
+  one-function-change F.6's bullet had implied. `~weeks`
+  **Session note, implementation started (2026-08-27):** first batch built
+  and migrated — a running start becomes real code, not just a design on
+  paper. [`VLA_Messages.bas`](../src/VLA_Messages.bas) (new, Layer 0, added
+  to `VLA_Build.bas`'s `mods` array) holds the catalogue and the one
+  chokepoint, `RaiseMsg(id, ParamArray kv)`; `VLA_Loader.bas`'s 3 sites and
+  `VLA_Lint.bas`'s 2 migrated first (5 of the 343 real sites F.14's own
+  recount found — see F.14's entry above; the "348" this item counted is
+  itself one of the stale figures that recount corrected), chosen as the
+  two smallest files to prove the mechanism before scaling to the other
+  five. Rendered `Err.Description` text and `Err.Number`/`Err.Source`
+  verified byte-identical to pre-migration by manual trace for all 5 sites
+  — not by a live run: this session cannot execute Excel/VBA directly;
+  owner verification with `VlaSelfTest` is still needed before trusting
+  this beyond the trace. **One correction to this item's own prior
+  scoping, checked rather than trusted:** the proposed mechanism above
+  describes `VlaHeadTableAliasMap` as "the same lazy, build-once shape" —
+  reading that function's actual body (`VLA_HeadTable.bas`) shows the
+  opposite: it rebuilds fresh on every call, on purpose, specifically
+  because a VBA recompile drops module-level state mid-session
+  (`LESSONS.md` XXXII). `VLA_Messages.Catalogue()` follows the code, not
+  the description: no module-level cache, rebuilt every `RaiseMsg` call —
+  cheap, since a refusal is never a hot path, and safer against exactly
+  the stale-cache-after-recompile failure mode `VlaHeadTableAliasMap` was
+  already built to avoid. **F.14 interaction, working as designed:** the
+  ratchet's own held ceilings dropped with the migration (`VLA_Loader`
+  3→0, `VLA_Lint` 2→0) and gained an entry for the new module
+  (`VLA_Messages` at 4 — not 0, since `RaiseMsg`'s own chokepoint call and
+  three internal consistency checks are legitimate raw sites that cannot
+  route through themselves without depending on the very mechanism that
+  just failed; see that script's own updated comment). Re-run clean.
+  **Remaining:** 338 sites across `VLA.bas` (141), `VLA_English.bas` (97),
+  `VLA_Interpreter.bas` (61), `VLA_Runtime.bas` (23), `VLA_IDE.bas` (16) —
+  the large files this first batch deliberately did not touch yet. Status
+  held at 🟡, not ✅: user-tested-and-committed is this file's own bar for
+  closing an item, and this is 5 of 343 sites with no live-Excel
+  confirmation yet.
+  **Session note, batch 1 live-confirmed, batch 2 built (2026-08-27,
+  same day):** owner ran the handoff live. Two real bugs surfaced and
+  were fixed, neither in the migration's actual logic: (1) a new shipped
+  module has to be registered in *two* independent hardcoded lists, not
+  one — `VLA_Build.bas`'s `mods` array (which this item's own scoping
+  note named) and a second, wholly separate one inside
+  `VLA_DevRig.bas`'s `VlaDevReload`, whose own comment already warned
+  "left off this list would mean `VlaDevReload` silently never
+  refreshes them" for three prior items: missed anyway, live-caught as a
+  "Variable not defined" compile error with `VLA_Messages` unresolved,
+  fixed by adding it there too. (2) VBA does not allow forwarding a
+  `ParamArray` identifier into another call's array parameter —
+  "Invalid ParamArray use," a real language rule, not a project
+  convention — live-caught as a second compile error; fixed by copying
+  the ParamArray into a plain `Variant` before forwarding it from
+  `RaiseMsg` to `SubstituteSlots`, the standard VBA workaround, and
+  changing the two downstream helper signatures from `kv() As Variant`
+  to `kv As Variant` to match. After both fixes: clean compile,
+  `VlaSelfTest` unchanged pass/fail, and all 4 handoff checks matched
+  expected text exactly (one, `VlaImportFile("x.vla", "VLA")`, actually
+  exercised the file-not-found branch rather than the protected-name
+  branch intended — `x.vla` isn't a real file either, and that check
+  runs first in both the old and new code, so this confirms rather than
+  complicates correctness; the protected-name branch's own byte-identical
+  trace already stands on its own). **Batch 2, same session, same
+  discipline:** `VLA_IDE.bas` (15 of 16 migrated — the 16th, `ReadWordFile`'s
+  cleanup-block `Err.Raise Err.Number, Err.Source, Err.Description`, is a
+  bare re-raise of an already-caught error, not an origination of new
+  English text, and stays raw by design, same category as
+  `VLA_Messages`'s own three internal checks) and `VLA_Runtime.bas` (23
+  of 23). 43 of 343 real sites now migrated; F.14's ratchet re-run clean
+  after each file. Batch 2 live-confirmed the same session: compile
+  clean, `VlaSelfTest` unchanged, both spot-check modals matched exactly
+  (one prompted a genuinely useful correction — `VlaCheckRangeName`'s
+  refusal for a space is right for Excel *defined names*, which cannot
+  contain one at all; Excel *sheet* names are a separate, more
+  permissive naming system, unrelated to that call - noted, not acted
+  on, since `VLA_Runtime.bas`'s `bad` character list predates this
+  migration and any correction to which characters get refused is a
+  separate item from LX.2's own job of ROUTING refusals, not auditing
+  them). **Batch 3, same session:** `VLA_Interpreter.bas`, 60 of 61
+  migrated — the 61st (`ExecStmtTrapped`, ~line 1199) is the same
+  bare-re-raise category as `VLA_IDE.bas`'s own exception, stays raw.
+  The largest, most structurally repetitive file so far: several ids are
+  deliberately shared across 2-3 call sites where the rendered English
+  text is byte-identical from more than one place (the goto/resume-
+  label-not-found refusal fires from 3 separate sites in this file
+  alone) - one id per refusal, per this item's own naming intent, not
+  one per call site. 103 of 343 real sites now migrated (30%); ratchet
+  re-run clean. Batch 3 live-confirmed the same session: modal matched
+  exactly, `VlaSelfTest` unchanged at 878/878 pure + 119/119 host.
+  **Batch 4, same session:** `VLA_English.bas`, 96 of 97 migrated - the
+  97th (`EnglishAuditText`'s cleanup, ~line 7606) is the same
+  bare-re-raise category as the other three files' own exceptions. The
+  largest and most text-heavy file yet, with a genuinely new wrinkle:
+  several of its messages embed LITERAL curly braces in their static
+  English text, since this file's whole domain is slot syntax, which
+  writes `{name}`/`{name:category}` literally as user-facing examples -
+  those had to be passed as ordinary string VALUES rather than typed
+  into the catalogue template text, or `RaiseMsg`'s own `{slot}` scanner
+  would misread the example as an unfulfilled substitution and fail
+  loudly on a refusal that was never broken. Several ids again shared
+  across 2-3 call sites with byte-identical text (the "Program file not
+  found" and "extra words after the first statement" refusals each fire
+  from 2-3 places). 199 of 343 real sites now migrated (58%); ratchet
+  re-run clean. Batch 4 live-confirmed the same session: modal matched
+  exactly, `VlaSelfTest` unchanged at 878/878 + 119/119. **Batch 5, same
+  session — the migration's last file:** `VLA.bas`, 134 of 141 migrated.
+  The emitter's own re-raise exception is more elaborate than the other
+  three files' single bare line: `VlaTranspile`'s `emitfail` handler
+  (~563/565/568/570) re-raises an already-caught error across 4
+  branches, appending a "(near ... line N)" location suffix to
+  `Err.Description` before re-raising - `Err.Number`/`Source` and the
+  substance of `Description` still come from whatever inner call
+  actually failed (often already carrying its own id), so this is
+  annotation, not origination, and all 4 branches stay raw, joined by
+  two more `VlaReadForms`-family `fail:` handlers (~688, ~1084) and
+  `VlaExpandStepText`'s `restoreBudget` (~2185) - 7 raw sites total, the
+  most of any file, matching that it is also the file with the most
+  re-raise plumbing. Two catalogue design points worth naming: (1)
+  "vla-defmacro-reserved-name" collapses 22 near-identical call sites
+  (every primitive name `defmacro` refuses as a macro name) into one id
+  with two named slots rather than 22 entries that would only ever
+  differ by which word and which description; (2) one entry,
+  "vla-interpreter-only-handler", has to preserve `VLA_ERR_INTERPRETER_ONLY`
+  (this module's own named non-5 error number) - done via a
+  fully-qualified `VLA.VLA_ERR_INTERPRETER_ONLY` reference from
+  `VLA_Messages.bas`, the one deliberate exception to that module's own
+  "Layer 0, no dependencies" header, updated to say so rather than leave
+  a false claim standing (`VLA_Tests_Host.bas` already references the
+  same constant the same fully-qualified way, so this is an existing
+  cross-module contract, not a new one). Site count cross-checked
+  against a fresh `Err.Raise` grep (141, matching F.14's own recount)
+  and every one of the 141 lines individually mapped to either a
+  catalogue id or the re-raise exception before any edit was made, not
+  counted by hand after the fact. 343 of 343 real sites migrated
+  (100%) at this point; ratchet clean across all 14 shipped modules.
+  **Correction, live-caught the same session, before any of batch 5
+  was live-confirmed:** the owner found a fresh, previously-untested
+  workbook crashing on "Compile and Trace" ("Variable not defined",
+  `VLA_Messages` unresolved) inside `Frazaro_EN_Runtime` -
+  `VLA_Runtime.bas`'s own injected copy of itself, placed into every
+  user workbook so compiled programs run without the add-in installed
+  (V5.3's own reason this module exists at all). `VLA_Runtime.bas` has
+  a real, pre-existing, DOCUMENTED constraint LX.2 missed: an
+  `EN_RUNTIME INJECT BOUNDARY` (~line 1126) marks the exact text copied
+  verbatim into that injected module, and code above it cannot call
+  any other add-in-only module - `Fold` (~line 406) is a hand-
+  duplicated, self-contained copy of `VLA_Identity.Fold` for exactly
+  this reason, predating LX.2 entirely (R7/rule-12's own "self-
+  contained, no cross-module Private calls" discipline). Batch 4's own
+  23-site migration of this file put `VLA_Messages.RaiseMsg` calls into
+  22 sites above that boundary, breaking every fresh compile - the
+  `Interpret and Trace` path never hit it because interpretation runs
+  entirely inside the add-in's own VBA project, where `VLA_Messages`
+  already coexists; only `Compile`'s injected, standalone copy is
+  missing it. **Fixed the same session:** all 22 above-boundary sites
+  reverted to their original raw `Err.Raise` text (byte-identical to
+  pre-migration, since the original text was still on record from
+  batch 4's own cataloguing); the corresponding 22 catalogue entries
+  removed from `VLA_Messages.bas`. Only 1 of `VLA_Runtime.bas`'s 23
+  sites stays migrated - `runtime-helpers-unreadable`, inside
+  `VlaInjectRuntime` itself, add-in-side only, never shipped standalone.
+  F.14's ratchet ceiling for `VLA_Runtime` raised back from 0 to 22 to
+  match, with the boundary constraint recorded in the script's own
+  comment so a future migration attempt on this file doesn't repeat the
+  mistake. **Net count, corrected: 311 of 343 real sites migrated
+  (91%)** - 32 sites now legitimately stay raw across the whole
+  codebase (1 each in `VLA_IDE`/`VLA_Interpreter`/`VLA_English`, 7 in
+  `VLA.bas`, 22 in `VLA_Runtime.bas`), not the 10 this entry claimed
+  before the correction. Closing this file's own remaining 22 sites
+  would need a structurally different approach - a second, self-
+  contained mini-catalogue duplicated above the boundary, mirroring
+  `Fold`'s own precedent - not attempted here; named as a real,
+  scoped-but-unbuilt option for a future pass, not silently dropped.
+  **Second correction, same session, live-caught by `VlaSelfTestHost`
+  itself:** the revert's own new header comment named the below-
+  boundary injector Sub BY IDENTIFIER while sitting ABOVE the boundary
+  - exactly the mistake `VLA_Runtime.bas`'s own older comment (next to
+  the boundary marker) already named as a fence-check failure mode
+  ("must never name the injector Sub by identifier... a same-session
+  lesson, not a hypothetical") - and `TestRuntimeModule`
+  (`VLA_Tests_Host.bas`) caught it exactly as designed:
+  `"runtime: inject text is fenced (no machinery, not empty)"` failed,
+  scanning injectable text for the literal string and finding it in
+  the new comment. Fixed by rephrasing the comment to describe that
+  Sub functionally instead of naming it - re-checked directly: the
+  identifier now appears exactly once in the file, below the boundary,
+  at its own declaration. A second, smaller instance of the same root
+  lesson as the first correction: this file's injection-boundary
+  discipline is real, load-bearing, and specifically NOT caught by the
+  ratchet (F.14) or by compiling - only by this one host-only test.
+  **Closed, same session:** owner-confirmed - `VlaSelfTest`/goldens
+  clean, `VlaSelfTestHost`'s fence check clean (the second correction's
+  own target), and the fresh-workbook `Compile and Trace` crash gone
+  (the first correction's own target) - and committed (`a67df6b`).
+  **Final scope, stated plainly:** 311 of 343 real refusal sites route
+  through `RaiseMsg` with a stable id; 32 stay raw by documented
+  design (10 re-raises across four files, 22 in `VLA_Runtime.bas`
+  above its inject boundary) rather than by omission - each one named,
+  with a reason, in this entry and in the file that holds it. Meets
+  this file's own ✅ bar (user-tested and committed); does not mean
+  literally every refusal in the codebase carries an id - LX.2's own
+  header sentence should be read against this note, not in isolation.
+  SD-2's own standing-decision entry (above, in this register) is now
+  substantially - not fully - honored; that entry's own "not honored
+  in practice" line is stale and worth a look, not rewritten here per
+  this register's own nothing-is-ever-pruned rule.
+  **Follow-up session (2026-08-27): the 22-site `VLA_Runtime.bas` gap
+  closed.** Scoped as two options rather than picked silently - a
+  second, self-contained mini-catalogue duplicated above the inject
+  boundary (mirroring `Fold`'s own precedent), or leaving the 22 sites
+  raw permanently, already a legitimate documented state - and a thin
+  id-tag-only middle option besides; owner chose the full mini-
+  catalogue. Built: `RaiseRuntimeMsg`/`RuntimeCatalogue`/
+  `RuntimeAddEntries`/`RuntimeAddMsg`/`RuntimeSubstituteSlots`/
+  `RuntimeSlotValue` (`VLA_Runtime.bas`, right after `Fold`), same
+  id-plus-`{slotName}`-template shape as `VLA_Messages.RaiseMsg`, same
+  rebuild-every-call reasoning, but its own table and its own
+  chokepoint - nothing above the boundary may call `VLA_Messages`. 22
+  new `rt-`-prefixed ids (distinct from `VLA_Messages`'s own namespace,
+  checked for collisions, not assumed clear), all 22 call sites
+  migrated, rendered text hand-verified byte-identical to pre-migration
+  for every site (not yet live-run - this session cannot execute
+  Excel/VBA; owner verification with `VlaSelfTest`/`VlaSelfTestHost`
+  still needed). F.14's ratchet ceiling for `VLA_Runtime` drops 22->4,
+  the same 4-internal-check shape `VLA_Messages` already set the
+  precedent for (duplicate-id check, unknown-id fallback, chokepoint
+  call, missing-slot fallback) - ratchet re-run clean across all 14
+  shipped modules. Not marked closed here pending that live
+  confirmation; this file's own ✅ bar is user-tested and committed.
+  **Confirmed live (2026-08-27):** a fresh workbook's `Compile and Trace`
+  succeeded with no `Variable not defined` crash (the exact failure the
+  first LX.2 attempt hit), goldens and self-tests passed clean, and the
+  migrated `rt-workbook-name-bad-char` refusal rendered its expected
+  text on an actual invalid workbook name. Committed (`097e29f`)
+  alongside the `check_id_registry.ps1` fix and LX.10's closing.
+- ⬜ **LX.5 — split `VLA_English.bas`** into language-neutral sentence machinery
+  and English-specific rules. *Why it still matters:* it decides whether
+  `VLA_Spanish.bas` is a sibling or a fork. *Why it can wait:* a fork is only
+  expensive once a second language exists, and LX.10 will say whether one
+  should. **Session finding:** the LX.10 dialect-file evidence above measures
+  exactly this item's own distinction (REBUILD.md Layer 3: "a Spanish
+  phrasebook translates the verbs and not the sentences, which is a demo
+  rather than a product") — phrase-rule translation cost nothing, proving the
+  demo side cheap; the product side (`if`/`repeat`/`while`/`show` as literal
+  parser comparisons) is untouched and still the whole of this item's
+  remaining scope. Doesn't change the estimate, narrows what it's actually
+  buying. **LX.1's own audit sharpens this further:** the vocabulary layer
+  (articles, number words, operator words) is cheap — swap-through-a-table
+  work, the same shape LX.4 already proved — while the Oxford-comma-required
+  list grammar (`VLA_English.bas`'s own list-parsing, `"and"` consumed only
+  immediately after a comma) is a concrete instance of the structural cost
+  this item's estimate was always really about. Not a new estimate, a
+  confirmed one. `~weeks`
+- ⬜ **LX.9 — surface-audition checklist as a lint.** *SD-3 banks the discipline;
+  this is the tooling.* `~weeks`
+- ⬜ **LX.12 — the product's own chrome is not covered by LX.2.** LX.2's
+  catalogue covers refusal *text*; the ribbon captions, dialog text, sheet
+  names (`Output`, `Trace`, `Known Sentences`), and column headers are
+  hardcoded English with no equivalent mechanism. A Spanish-phrasebook
+  user meeting an English ribbon is only half the mission delivered. *Why
+  now:* named, not scoped — a real gap the falsification test (`LX.10`)
+  never touched, because `LX.10` tested vocabulary, not chrome. `~days` to
+  scope, `~weeks` to build — a second, UI-shaped catalogue, the same
+  `VLA_Messages` shape `LX.2` already proved out.
+
+## Part B — target-neutrality: the interpreter as the runtime
+
+*Restored from `ALPHA1_ROADMAP.md` Phase F, where it was specified in full and
+then lost to a homograph (SD-9). Renumbered `IN.*` so it can never collide with
+F.1 again. Alpha 1's evaluator design is preserved verbatim; its **ordering** is
+not — Alpha 1 filed the interpreter as "a toggle beside the transpiler," and
+IN.9 below revises that to default-and-export, with reasons.*
+
+**Why this is Part A's peer and not a backlog item:** the transpiler requires
+*Trust access to the VBA project object model* — the one Excel setting managed IT
+departments routinely disable, and the setting that makes Frazaro an add-in that
+rewrites your workbook's code rather than one that reads it. That is not a
+distribution problem with a signing solution; it is an architecture with a policy
+dependency. DI.1 calls it "the gate to every enterprise conversation" and then
+treats it as a signature. Signing answers *is this from someone real*. It does
+not answer *why does this need to write code into my file*.
+
+**B0 — measure before committing (do first)**
+
+- ✅ **IN.0.5 — the walking skeleton.** Ten core forms, one sentence end to end,
+  no error handling, no parity, dev-rig only. *Why first, ahead of every other
+  item in Part B including the adjudication:* IN.2's cost is currently an
+  estimate derived from a dot count, and this project refuses estimates
+  everywhere else it can measure instead. The skeleton converts "how expensive is
+  the evaluator" into a number in days rather than a conviction. It is also the
+  dogfood test's only honest answer here — the builder leaning on the thing
+  before ranking it. **Built:** `VLA_Interpreter.bas` (new, dev-rig only — not
+  in `VLA_Build.bas`'s shipped module list), reusing REBUILD.md's own eventual
+  name for `IN.2` on purpose: this is an early, incomplete draft of that same
+  module, not a different thing beside it. `ExecStmt`/`EvalExpr` dispatch on
+  ten forms (`dim`, `set!`, `if`, `for`, `while`, `begin`, `debug-print`, `+`,
+  `-`, `>`) against a frame built from `VLA_Runtime`'s existing `VlaDict`
+  family (no new dictionary type invented). `VLA.bas` gained one new Public
+  entry point, `VlaCompileToForms` — the same Tokenize/ParseAll/ExpandMacros
+  pipeline `VlaTranspile` runs, stopped one step short of `EmitTop`, so the
+  skeleton interprets the *exact same forms* the emitter would have compiled,
+  not a re-parse. `VlaInterpretDemo` runs a real, unmodified `english.vla`
+  corpus program (`Create a number called total.` / `Set total to 0.` /
+  `Increase total by 5.` / `If total is greater than 3, log "over three".` /
+  `Repeat 3 times, log total.`) end to end — English text in, a live
+  `Debug.Print` effect out, no VBA ever generated, compiled, or written to any
+  module. One deterministic pin (`VLA_Tests.bas`'s `TestInterpreterSkeleton`)
+  exercises all ten forms against a hand-written VLA snippet. **Measured, not
+  estimated:** the ten-form control-flow/arithmetic core came together in
+  `VLA_Interpreter.bas` at 372 lines total (259 non-comment/non-blank - the
+  rest is the module-header convention `VLA_Identity.bas`/`VLA_HeadTable.bas`
+  already set, plus per-form doc comments), well inside the `~days` appetite -
+  the "easy 80%" this document already expected. **The sharper finding the
+  skeleton was built to surface:** the dot count was never the right
+  denominator for `IN.2`'s real cost. `english.vla`'s dot count is 0
+  (`F.1`), but that counts raw dot-forms *in the phrasebook* — it says nothing
+  about the size of the non-core "everything else" surface the interpreter
+  itself must dispatch: `MsgBox`, `InputBox`, and every `WorksheetFunction.*`
+  call are free VBA functions/statements with no object receiver, so
+  `CallByName` — the mechanism `IN.2`'s own design leans on for member
+  dispatch — cannot reach them at all; each needs its own hand-written branch,
+  one at a time, forever. The skeleton deliberately avoided this cost rather
+  than hide it: `debug-print` (core) was chosen over `msgbox` (non-core) for
+  output, and `set!`'s "place" is scoped to a plain variable name, not a
+  computed range or object member — both genuine, common shapes in real
+  programs (`Show total.`, `Put X into cell B2.`) that this pass does not
+  price. **Revised scoreboard for `IN.2`:** the ten-form core is cheap and
+  confirmed; the open cost question is the non-core dispatch surface, sized by
+  counting distinct non-core call heads across `english.vla`'s macros
+  and the `function:` word table — a different, sharper number than the dot
+  count, and the next thing to measure before `IN.2` is estimated again.
+
+**B1 — the chokepoints (do now; these are the "on par" half)**
+
+- ✅ **IN.0 — the adjudication, recorded.** SD-1 is the sentence; this is its
+  ratification and the naming of what it forbids. *Why now:* it costs a paragraph
+  and it governs every template written afterwards. **Ratified:** SD-1 governs
+  Part B without exception — no row of `VLA_HeadTable` (IN.1), no template, and
+  no phrasebook rule may special-case which backend is running; a backend is
+  named only inside a Layer-1 module (R10), and today that means only
+  `VLA_HeadTable`'s own columns. Concretely forbidden: an `If IsInterpreter
+  Then ... Else ...` branch anywhere above Layer 1, a phrasebook directive
+  naming "the transpiler" or "the interpreter," and a Tier-1 form whose VBA
+  and interpreter behavior are allowed to silently diverge — R9's job, once
+  IN.2 exists to diverge from. `~hours`
+- ✅ **IN.1 — the backend interface.** The head table (LX.4's table, one build)
+  gains a column per backend: VBA routine, interpreter routine, formula-subset
+  membership, transpiler-only flag. *Why now:* while dispatch is one `Select
+  Case` this is a data change; after Grammar opens it is 63 sites twice over.
+  **This is the item that makes Part B "on par" — not the evaluator.** 🔒
+  **Blocks: any new Tier-1 core form, and the emitter rewrite.** *Does not
+  block a single phrase rule* — phrasebook rules target the declared verb set
+  (F.1) and never touch head dispatch, so this gate was mis-stated as "before
+  Grammar" in the previous revision. `~days`
+- ✅ **IN.5 — the declared export-only surface.** `raw` runs only through the
+  emitter, and so does anything else that cannot be evaluated; under the
+  interpreter each refuses **in words, naming the reason and the alternative**,
+  never diverging silently and never behind a price. SD-5 and SD-10 in force.
+  *Why now:* the list is short today and unbounded after Grammar. **Built:**
+  `VLA_HeadTable.bas`'s `Export-Only` column (IN.1's own catalog, populated
+  as a first-pass draft and explicitly marked "treat this as a draft, not a
+  verdict") is now that verdict — every one of its 65 rows checked against
+  the actual emitter code, not the draft's own prose. **The finding:** 9 of
+  the draft's 12 `True` rows were wrong — `sub`/`function`/`type`/`enum`/
+  `public`/`private`/`include`/`at-line`/`doc` all have a direct interpreted
+  reading (a name→body dispatch for procedures; a name→default-value
+  template for type/enum, the same idea `ExecDim` already applies one level
+  down; visibility as a no-op with no other modules to be visible to;
+  `include` already resolved identically for both backends before either
+  one's dispatch runs, checked directly — `VlaCompileToForms` calls the same
+  `SpliceIncludes` `VlaTranspile` does; `at-line` is, by its own emitter
+  comment, "a zero-runtime annotation"; `doc` turned out on inspection not to
+  be an annotation at all — it compiles to a live `Debug.Print` of a macro's
+  docstring, computable today through the existing `VlaMacroDoc` accessor).
+  **The declared export-only surface is 3 forms, not 12:** `raw` (splices
+  opaque VBA text — nothing to evaluate), `deflambda` (compiles through
+  `EmitFormula` into Excel LAMBDA syntax, a serialization target the
+  interpreter has no bridge to), `lambda` (by its own row's own VBA-routine
+  column, has no meaning outside `EmitFormula` even in the emitter today).
+  **Pinned**, not just declared: `TestHeadTableExportOnly` (`VLA_Tests.bas`)
+  checks the exact 3-symbol set and the nine corrected rows by name, so a
+  future accidental edit to the column fails loudly. **What this does not
+  do:** build the refusal wording into `IN.0.5`'s walking skeleton — it is
+  explicitly throwaway, replaced by `IN.2`, not a thing to keep extending;
+  "refuses in words, naming the reason and the alternative" is `IN.2`'s own
+  job once it exists to dispatch through this table, per `IN.1`'s own
+  precedent of declaring a column before the fork it describes exists.
+  `~days`, as scoped.
+- ✅ **IN.9 — which backend is default. RESOLVED: the interpreter is the runtime;
+  module injection is an export.** *The revision this item exists to record.*
+  Injection's two real benefits — a self-contained workbook that outlives the
+  add-in, and compiled speed — are both re-expressible as a deliberate one-time
+  act ("Export this workbook to standalone"), which is what licenses demolishing
+  the assumption rather than preserving it (SD-11). What does **not** survive as
+  an optional feature is the trust requirement, because it is paid at install by
+  every user for every run. *The market reading that decided it:* injection's
+  headline benefit is emailing a working `.xlsm` to a colleague — which serves a
+  two-person bookkeeping firm on unmanaged laptops, and is precisely what an
+  enterprise's DLP and mark-of-the-web policy exists to quarantine. **Enterprise
+  needs the interpreter and is hostile to injection's benefit; small shops are
+  the reverse.** Any pricing scheme that assumed the opposite had it inverted.
+  **Ratified, checked rather than assumed:** every place in this file that reads
+  differently under this decision already reads that way — `EN.1`, `EN.6`, the
+  Interoperability tranche's own intro, and Performance's "note the interaction
+  with IN.9" all carry consistent "Revised by IN.9" framing today, re-read one
+  by one for this ratification, not taken on faith. `IN.6` (the no-trust default
+  path) was written assuming this resolution outright and needed no tag.
+  **Concretely settled, going forward:** no item in this file may treat module
+  injection as the default path, or as anything but a deliberate, user-
+  triggered export; `VlaCompileToModule` (`VLA.bas`) is, by construction, only
+  ever reachable from that export path already — the interpreter's own
+  `VlaInterpret` never calls it — so nothing in the existing implementation
+  needed to change for this ratification, only the roadmap's own claim on it.
+  *Confirm against:* PI.7's trust reading and IN.0.5's measured cost — **the
+  second half is now satisfied** (IN.0.5 measured, not estimated, and its
+  numbers informed F.5/IN.2's own sizing). The first half is unmet and stays
+  unmet until a pilot exists; ratifying now, not after, is what this file's own
+  "first bet" text already says to do — **"PI.7 becomes confirmation rather
+  than the deciding vote"** once this item resolves, not a precondition for
+  resolving it. `~hours`
+
+**B2 — the evaluator (weeks; the runtime, so no longer contingent)**
+
+- ✅ **IN.2 — the evaluator core.** `ExecStmt`/`EvalExpr` mirroring the emitter's
+  own form-by-form semantics: the ten-form control-flow/arithmetic core, plus
+  `for-each`/`do-until`/`select`/`exit-for`/`exit-do`, plus dynamic member
+  dispatch for everything Excel's own object model exposes. *Depends on:* F.1,
+  F.3, F.5.
+  **What it dispatches through, and how:** a bounded, hand-written tier for
+  VBA's receiverless builtins (`msgbox`/`len`/`trim`/`round`/...) and Excel's
+  own named constants (`xlYes`, `vbRed`, ...); `Application.Run` against
+  `VLA_Runtime.bas` by name for every project-owned helper (`CallByName`
+  cannot reach a standard-module function, only an object's own members); and
+  three `CallByName`-based cores — `DynamicGet`/`DynamicCall`/`DynamicSet` —
+  for `(. obj member ...)` and dotted-global chains
+  (`application.worksheetfunction.sum`, `activesheet.name`), each with a
+  **native fast path for every member this codebase has ever actually
+  measured**, `CallByName` kept only as an unproven fallback for whatever
+  hasn't been reached yet. `set!` accepts a computed place
+  (`(range "a1")`, `(. obj member)`), not just a plain variable; `obj-set!`
+  is `set!`'s `Set`-semantics sibling for an object-valued place. Named
+  (`:key value`) arguments get their own dispatch table (`DynamicNamedCall`),
+  routed through early-bound typed locals rather than `CallByName`, which has
+  no keyword mechanism for any object.
+  **Named non-goals, not hidden:** `with` (zero real corpus uses, checked
+  directly); `on-error`/`goto`/`label`/`resume` (built later, `IN3.6`);
+  named-arg calls to **user-defined** procedures (needed `IN.10`'s own call
+  frame to exist first); a general Excel-constant catalogue (only the
+  corpus's own measured names are resolved, one at a time, same discipline
+  as everything else in this item).
+  *The real cost of this item, and the two live-run findings that turned a
+  clean-looking `CallByName` heuristic into a fully audited native-dispatch
+  tier, are in [`TRENCHES.md`](TRENCHES.md) — "The dot count was the wrong
+  denominator" and "`CallByName`'s silent lie."*
+- ✅ **IN.3 — the dual-mode parity harness.** `instructions.txt` produces **identical
+  Output sheets under both backends** — the goal stated all the way back in
+  Alpha 1's `VerifyReport`, finally reached the long way.
+  **The instrument, current shape:** `VerifyReportInterpreter`
+  (`VLA_Tests_Host.bas`) compiles `instructions.txt` itself (step tracking off),
+  runs it through `VlaInterpret` against a freshly-recreated Output sheet,
+  and checks it against the same hand-computed expected values
+  `VerifyReport` already checks the emitter's own real Run against —
+  `VerifyReportChecks(ws)` shared by both, not a cell-by-cell A-vs-B diff, so
+  a shared misunderstanding upstream can't manufacture a false agreement.
+  Manual, like `VerifyReport`, on purpose — both mutate the real, active
+  workbook. `VerifyReports` runs both in the load-bearing order (emitter
+  first; the interpreter's own run deletes and rebuilds the sheet the first
+  half read). Widened incrementally as `IN.2` gave the interpreter more to
+  check — a probe-cell harness for `if`/`for`/`while`/computed `set!`
+  (`IN3.2`), then `for-each`/`do-until`/`select`/`exit-for`/`exit-do`
+  (`IN2.4`) — before finally reaching the real corpus.
+  **Read its own limits honestly, same as day one:** parity proves the two
+  backends *agree*, not that either is *correct* — a shared mis-parse
+  upstream reaches both identically and passes. Every probe is checked
+  two-sided, against a hand-computed expected value, not just against the
+  other backend, to close exactly that gap.
+  **What whole-corpus parity actually took, once attempted for real:** module
+  scope (a called procedure reading a true top-level `const` — `mModuleFrame`,
+  a read-only fallback, no write-back); a missing `const` statement form; the
+  full `on-error`/`goto`/`label`/`resume` mechanism `Try:` compiles to
+  unconditionally (`mErrMode`, `ExecStmtTrapped`, `Err.Source` distinguishing
+  a real program error from this interpreter's own internal signaling); and —
+  the largest single cost — an extended, live-run-by-live-run audit of every
+  member `DynamicGet`/`DynamicSet` ever reach through `CallByName`'s
+  generic Let/Set/Get heuristic, which broke on nearly every real member it
+  was ever actually tried against and was eventually converted wholesale to
+  native dispatch rather than patched one crash at a time. `IN.11` is this
+  same effort's own second act, closing the corpus's remaining "breadth
+  pass" statements once the on-error boundary stopped blocking them.
+  **Named non-goals:** a handler that survives a call into a user
+  procedure (nothing in today's corpus needs it — real future work, named
+  in `mErrMode`'s own header note); a general `CallByName` dual-try
+  heuristic fixed for every member rather than the ones this corpus
+  actually reaches.
+  *The full story — three real members breaking the same heuristic in a
+  row, the owner's own "is patching the next crash still right, or should
+  the heuristic stop being trusted" question, and the on-error mechanism's
+  own build — is in [`TRENCHES.md`](TRENCHES.md): "`CallByName`'s silent
+  lie," "Parity that doesn't lie to itself," "The trust question, answered
+  by counting," "Module scope, found by trying it," and "The on-error
+  build."*
+- ✅ **IN.10 — user-procedure call/return.** `ExecTop` used to inline a
+  top-level `(sub ...)` body rather than making it genuinely callable — a
+  gap three separate items (`exit-sub`/`exit-function`, named-arg calls to
+  user-defined actions, and `IN.3`'s own whole-corpus goal) each ran into
+  and filed as "not this item's job."
+  **Built:** a proc table (`mProcs`) is populated by a first pass over every
+  top-level `(sub ...)`/`(function ...)` form before anything executes;
+  `ExecTop` now inlines only the form literally named `main`, every other
+  declared procedure staying dormant until something actually calls it.
+  Calls dispatch through `CallUserProc`, checked ahead of the generic
+  positional-argument path so a named-arg call reaches its own binder
+  first. Both binding styles are built — positional (`BindPositionalArgs`)
+  and named-with-defaults (`BindNamedArgs`, reusing `IN2.5`'s own keyword-
+  argument evaluator) — because the corpus's own real call sites need
+  both, not just one: English's single-parameter "X of Y" form compiles
+  positionally, its multi-parameter "using X of Y and Z of W" form compiles
+  with keywords. `return`/`exit-sub`/`exit-function` mirror the emitter's
+  own `EmitReturn` semantics exactly (assign-and-unwind, not merely a
+  value-producing form) via `mProcReturn`/`mProcReturnValue` — `mLoopBreak`'s
+  own bubbling shape, scoped to the nearest enclosing call frame instead of
+  the nearest enclosing loop.
+  **Named non-goals:** the emitter's own self-recursive tail-call
+  optimization is not replicated — real recursion via a real call stack is
+  correct without it, merely depth-limited the way any non-TCO interpreter
+  is (`IN.8`'s territory, not this item's); a call frame is fresh and
+  ISOLATED, with no visibility into the caller's/module's own top-level
+  bindings (real VBA module scope) — closed later, read-only, once `IN.3`
+  actually needed it.
+  *The scoping pass's own two live findings before a line was built — a
+  latent "every top-level procedure runs once, param-blind" bug the naming
+  pass itself surfaced, and the real corpus measurement that corrected
+  "named-arg binding can wait" — are in [`TRENCHES.md`](TRENCHES.md): "Buy
+  the decision now."*
+- ✅ **IN.3.5 — the effect-log golden.** Every runtime effect the interpreter
+  performs, in order, as text — the interpreter's own `VlaWriteGoldens`. *Why it
+  is a named item and not a footnote:* `instructions_golden.vba` is the whole-corpus
+  behaviour-preservation witness and it exists **only on the emitter path**.
+  Making the interpreter the runtime demotes the primary golden with it, and
+  nothing in this roadmap replaced it. This is that replacement, and it makes
+  IN.3's parity check a text diff rather than a cell-by-cell comparison.
+  **Built:** `VLA_Interpreter.bas` gained an effect log (`mEffectLog`,
+  reset at the top of every `VlaInterpret` call — never module-level
+  *cached* across calls, the same S3.1-safe discipline `mMacros`/
+  `mHeadAliases` already use) that `ExecDebugPrint` appends to — `debug-print`
+  is the only externally observable effect the ten-form skeleton can produce
+  today; `dim`/`set!` only mutate the in-memory frame, the same distinction
+  `VerifyReport`'s own cell reads already draw for the emitter (checking what
+  a program left behind, not every assignment along the way). New
+  `VlaInterpreterEffectLog` reads it back as text; new
+  `VLA_Tests.bas.VlaWriteInterpreterGoldens` writes it to
+  `scripts/interpreter_golden.txt`, same "commit deliberately, empty git diff
+  is the pass" discipline as `instructions_golden.vla`/`.vba`. **Scoped honestly,
+  same reasoning as IN.3:** the golden covers the walking skeleton's own demo
+  program (`VLA_Interpreter.VlaSkeletonDemoVla` — factored out of
+  `VlaInterpretDemo`, unchanged text, so the demo and the golden-writer share
+  one source of truth instead of two copies drifting apart), not
+  `instructions.txt` — the interpreter cannot run the real corpus until IN.2
+  exists, and a golden's whole point is to witness code that actually runs,
+  not an aspiration. New pin `TestInterpreterEffectLog` (dispatched from
+  `VlaSelfTest`, right after `TestInterpreterSkeleton`) proves the log's
+  content on a small, hand-built program independent of the demo, the same
+  "expectations that do not drift" discipline F.9's `TestSectionMarkers`
+  already established. `~days`, as scoped.
+- ⬜ **IN.4 — "Show me the VBA," and the export.** Two features under one ID;
+  the first is shipped, the second is scoped and waiting on the owner's own
+  design calls. **"Show me the VBA": done.** `EnglishIdeShowVba` (`VLA_IDE.bas`)
+  reuses `VlaTranspile` - already pure text, already Mac-safe, no new compile
+  machinery - and writes the result to a "Generated VBA" sheet (gridlines off,
+  monospace, `NumberFormat "@"`), the same rendering shape `RenderTraceReport`
+  already established. Deliberately shows the code WITH step-tracking
+  instrumentation intact (unlike `InterpretProgram`'s own `EnglishStepTracking
+  False` bracket) - an auditor should see the real thing Compile would inject,
+  not a cleaned-up stand-in. Registered as a Frazaro-owned sheet name
+  (`IsFrazaroSheetName`) so a user's own program can't be told to write over
+  it - noting in passing, not fixing, that "Trace" has this same pre-existing
+  gap and always has. Wired into all three UI surfaces plus the ribbon's own
+  id-count pin (twelve → thirteen), folded into the Compiler group for now,
+  a placement explicitly left movable pending Export's own group question
+  below. **The export mechanism: proven, walking-skeleton style, not wired to
+  any UI yet** - `EnglishIdeExportSkeleton` (`VLA_IDE.bas`, Immediate-window
+  only) and a host test (`TestExportSkeleton`, `VLA_Tests_Host.bas`) that
+  exports, reopens, and runs a compiled module from the copy alone, exactly
+  IN.0.5's own "measure before committing" precedent applied here on purpose -
+  the real unproven claim was never any of the three UX decisions below, it
+  was whether an injected copy actually runs with the add-in closed. Confirmed
+  by hand (owner-verified) and by the automated test as far as a test running
+  inside the same host process can prove it. Mechanics: `hb.SaveCopyAs` to a
+  new path (never touches the live session), `Workbooks.Open` on the copy,
+  then `VlaInjectRuntime`/`VlaCompileToModule` against it - both already took
+  an arbitrary target workbook, so no new injection logic was needed, only a
+  new caller. The flagship case is confirmed real: exporting a `.xlsm` from a
+  no-trust `.xlsx` host is exactly IN.9's own "email it to a colleague on a
+  machine without the add-in" pitch, and Excel silently drops VBA on save to
+  `.xlsx`, so the export path must always be `.xlsm` regardless of the host's
+  own format. **One real bug found proving it, fixed at the source, not
+  worked around in the test:** `VlaInjectRuntime`'s own collision guard
+  (`Maiden-run incident #2`) checked object identity (`targetWb Is
+  ThisWorkbook`) to detect "the runtime is already in-project, don't inject a
+  second copy" - correct for the add-in reinjecting into itself, blind to a
+  *different* workbook object that inherited the same modules via
+  `SaveCopyAs`, which is exactly what exporting FROM the owner's own dev/test
+  workbook produces (it carries `VLA_Runtime.bas` as one of its own
+  components). Surfaced as "Ambiguous name detected: VlaEnsureSheet" - two
+  same-named modules in one project - the moment the walking skeleton first
+  ran for real. Fixed by checking for an existing `VLA_Runtime` component BY
+  NAME as well as by identity, the same self-heal-and-skip the identity check
+  already did. A real end-user's host workbook never has this problem (it
+  never carries the engine's own source), but testing Export from the
+  workbook every other feature in this project has been tested from was never
+  a rare path to leave broken. **One more open question, folded into (3)
+  below rather than answered:** the exported copy inherits whatever the host's
+  Output sheet already held at export time (`SaveCopyAs` snapshots current
+  live state, not a blank slate) - not a bug, `SaveCopyAs` doing exactly what
+  it says, but genuinely undecided whether the real export should reset
+  Output first for a "click and it visibly runs" feel, or preserve current
+  state as a faithful snapshot (arguably a feature - "a fully worked example,
+  already computed" - if there is no run button). Four open decisions now,
+  the owner's to make, not defaulted: (1) does Show VBA/Export get its own
+  ribbon group, or stay folded into Compiler; (2) does Export prompt for a
+  save location (`GetSaveAsFilename`) or auto-name a file next to the host;
+  (3) does the exported copy get a plain worksheet button wired to the
+  compiled module's `main` AND, bundled with that same call, does Output get
+  reset before the snapshot - the Frazaro ribbon is add-in UI and will not
+  follow the file, so without a run button "self-contained" would still
+  require VBE knowledge to actually run, and whether a stale pre-run Output
+  sheet reads as confusing or as a feature depends on which way this goes.
+  *Why it matters:* the audit story — the procedure she wrote is the
+  procedure the auditor reads — must not depend on which backend ran, and the
+  self-containment property survives
+  as a button rather than as an architecture. `~days`
+- ✅ **IN.6 — the no-trust default path, shipped.** Plain `.xlsx`, no VBProject
+  trust, no injected modules, nothing of the user's project touched - IN.9's
+  ratified decision ("the interpreter is the runtime") made real in the actual
+  product for the first time; everything from IN.0.5 through IN.11 had zero
+  product presence until this. **Shipped as an explicit choice, not an
+  auto-detected fallback** (the owner's own call, weighed against this file's
+  earlier draft of a silent trust-probe branch): two new ribbon sections,
+  **Interpreter** (Interpret Instructions / Interpret and Trace) beside
+  **Compiler** (Compile Instructions / Compile and Trace, the renamed Run/Run
+  & Trace) - deliberately plain, developer-facing names for now, on the
+  owner's own reasoning: an ugly name that can be improved later beats
+  hiding a real capability behind friendly-but-ambiguous wording before the
+  product has users to react to it. All three UI surfaces (ribbon, sheet
+  buttons, legacy menu) updated in lockstep, plus a project-wide "Sentences"
+  → "Instructions" rename for the user's own program lines - deliberately
+  **not** applied to "Known Sentences" or the vocabulary's own rule count,
+  a different concept (the language's catalog, not the user's instructions),
+  and not to one legacy-workbook migration check that specifically detects
+  the *old* caption on pre-rename files. Compile gets a new, worded SD-10
+  refusal when VBProject trust is absent, naming Interpret as the
+  alternative, instead of surfacing whatever COM error injection would hit.
+  **Three real bugs found getting from "compiles" to "actually runs,"** none
+  guessable from reading the roadmap, each caught live: (1) `VLA_Interpreter.bas`
+  was never added to `VLA_Build.bas`'s shipped-module list - left off since
+  IN.0.5's own throwaway-skeleton days, never revisited as it grew into the
+  real evaluator; a fresh add-in build failed `Debug > Compile` the moment
+  `VLA_IDE.bas` became the first *shipped* module to reference it, the same
+  failure shape `F5.0`/`LX3.0`/`IN1.0` already hit for the same root cause.
+  (2) The interpreter had never been run against real, step-tracked VLA -
+  `VerifyReportInterpreter` always explicitly disabled `EnglishStepTracking`
+  first, for exactly this reason, and `InterpretProgram` was the first real
+  caller that didn't; fixed by matching that same discipline. (3) `"thisworkbook"`
+  resolved to the *add-in* rather than the user's workbook - correct nowhere
+  it had ever been tested (dev-rig, where they are the same object) and
+  wrong the moment the interpreter ran in the real add-in-plus-host topology;
+  three real macros (`save-workbook-as`/`close-workbook`/`save-current-workbook`)
+  were silently affected, none exercised by `instructions.txt`, which is exactly
+  why whole-corpus parity never caught it. Fixed by giving `VlaInterpret` an
+  explicit host-workbook parameter and proving it with a new host test
+  (`TestInterpreterHostWorkbook`) that deliberately opens a *second* workbook
+  - the only way to actually distinguish "fixed" from "silently still using
+  the add-in," since a same-workbook dev-rig check could not tell the
+  difference. **Found and left alone, on purpose:** a real, pre-existing
+  code-duplication cleanup between `VlaTranspile` and `VlaCompileToForms`
+  (`VLA.bas`) that a stale comment had deferred until "IN.2 gets built" -
+  true now, but risky enough (`VlaTranspile`'s golden-diff-empty invariant)
+  to deserve its own scoped pass rather than a rider on this one; the
+  comment's own false premise was corrected so it stops arguing from a
+  condition that no longer holds. *Verified:* `VlaSelfTests` clean (host and
+  pure), a fresh `VlaBuildAddin` compiling clean, and Interpret
+  Instructions/Interpret and Trace running `instructions.txt` to completion in a
+  genuinely fresh workbook - the actual claim this item exists to prove,
+  checked the only way that counts. *Pays into:* IO.1/IO.2/IO.3 have no
+  surface to defend on the default path; IN.4 and IN.7 both build on
+  "running no longer implies injection" now being true in the product, not
+  just the roadmap. `~days`, though the three live bugs cost more than the
+  wiring itself did - honestly reflected here rather than in the original
+  estimate.
+- ✅ **IN.7 — events, interpreter-native.** `When the sheet changes:` / `When this
+  button is clicked:`. Alpha 1 filed events as needing Tier 2 class-module
+  emission and noted they were "possibly interpreter-simulated earlier" — that
+  aside is now the plan. *Why it is Part B's flagship:* under the emitter, events
+  multiply exactly the injection surface D1 was built to harden; under the
+  interpreter they are a handler registration. **Both `When the sheet changes:`
+  and `When this button is clicked:` built and live-verified.** Grammar: a new top-level-only
+  declaration (`AtSheetChangeEvent`'s exact 4-token lookahead, gated before
+  `Case "when"`'s existing choices form ever sees it), compiling to
+  `(sub on:sheet-change () ...)` - the same declaration shape a `To ...:`
+  action already gets, registered but dormant until called. Interpreter:
+  `VlaInterpret`'s hardcoded "run only main" check generalized into
+  `PrepareInterpret` (compile+reset+register, shared) plus `VlaInterpretEntry`
+  (run one already-declared proc by NAME, from OUTSIDE any running program -
+  the seam an external event needs) and `VlaHasProc` (a generic "did this run
+  declare X" query) - the interpreter itself stays event-agnostic; it has no
+  idea "sheet-change" exists. Registry: `VLA_Events.bas`, a durable
+  workbook -> source table (object identity, not name), written by
+  `VLA_IDE.bas`'s `InterpretProgram` the moment a run declares a handler,
+  read by `VLA_EventSink.cls` - this project's first `WithEvents` usage,
+  `WithEvents Application` living in the add-in's own `ThisWorkbook` for the
+  whole session (owned by `Workbook_Open`/`BeforeClose`, the same hook
+  `VlaAddinMenu` already used) so no class is ever injected into the user's
+  workbook - L-TIER2's own injection surface, avoided exactly as that item's
+  entry already argued. `VlaDispatchSheetChange` brackets the call in
+  `Application.EnableEvents = False`/restore (a handler that writes even one
+  cell would otherwise re-fire itself forever) and traps errors to
+  `Debug.Print` rather than letting a broken handler crash Excel's event
+  pump. **Four real things found live, none guessable from the roadmap:**
+  (1) both new files (`VLA_Events.bas`, `VLA_EventSink.cls`) were written
+  with LF-only line endings - every other file in this repo, and what VBA's
+  own `VBComponents.Import` actually requires, is CRLF; with LF the importer
+  fails to recognize a `.cls` file's `VERSION 1.0 CLASS`/`BEGIN`/`END` header
+  as component metadata at all and dumps it into the code pane as literal
+  statements, a compile error on the word `CLASS` itself - not scoped to
+  this item, a hazard for any future new module, now a standing rule to
+  normalize new files to CRLF before handoff. (2) `VLA_DevRig.bas`'s own
+  well-documented self-reload limitation ("a module cannot replace itself
+  while running") bit on the very first real use of a change to its own
+  `mods` array - `VlaDevReload` kept silently skipping both new files until
+  `VLA_DevRig.bas` itself was manually re-imported once. (3) two
+  test-authoring bugs chasing an "(no effects)" effect-log mystery across
+  two live runs: `VlaInterpretEntry`'s handler runs through `CallUserProc`,
+  exactly like any user-defined action - its locals live in `CallUserProc`'s
+  own ISOLATED call frame, never the outer frame the caller gets back
+  (IN.10's own documented non-goal, not a new gap; reading the wrong frame
+  raised "there is nothing stored at key 'probe'" rather than silently
+  passing) - and separately, a PLAIN variable `set!` never calls `LogEffect`
+  at all (only a dotted-global-receiver place, a `.` member set, or a
+  computed place does); only `debug-print` logs unconditionally, so that is
+  what an observing test (or a future handler body wanting a cheap trace)
+  should reach for, not `set!`. (4) the first live manual test used `Say
+  "..."` , not a real verb anywhere in the phrasebook or core grammar -
+  `Show "..."` is the one that reaches `(msgbox ...)`; not a bug, but a real
+  point of confusion on the very first hand-typed attempt, worth naming so
+  the next person doesn't repeat it. *Verified:* `VlaSelfTests`/
+  `VlaSelfTestHost` clean, the registry proven end-to-end against two
+  genuinely separate host workbooks (IN.6's own discipline: register/
+  dispatch/unregister, real object identity, an unregistered workbook a
+  provable no-op) - AND a real live run in the actual built, closed-and-
+  reopened `Frazaro.xlam`: `When the sheet changes:` / `Show "Sheet
+  changed.".`, Interpret and Trace correctly dormant (`(no effects)` - the
+  handler had not fired yet, by design), then a real cell edit popped the
+  `MsgBox` - the actual claim this item exists to prove, checked the only
+  way that counts. **Confirmed scope, live, not just assumed:** the handler
+  fires for ANY sheet change anywhere in the registered WORKBOOK
+  (`Application.SheetChange`, filtered only by workbook identity) - editing
+  Output, Trace, or any other sheet in that workbook all fire the same
+  handler. `When the sheet changes:` means the workbook, today, not one
+  named sheet - a real limitation, owner-confirmed harmless for now.
+  A future `When the <name> sheet changes:` refinement is a natural,
+  demand-driven follow-up (SD's real-options discipline: build it when a
+  real sentence wants it, the same restraint L.11/L-SHEET-HELPERS already
+  model), not spent here on suspicion.
+
+  **`When this button is clicked:` - the deferred half, built and live-
+  verified in a later pass.** Two real UX calls, decided with the owner
+  rather than guessed (AskUserQuestion, not assumption): the button's
+  visible caption doubles as its reference name (no separate identifier
+  to invent or keep in sync), and placement is an explicit `at cell <ref>`
+  clause. Grammar splits into two independent sentences, matching the
+  item's own original framing: `make a button {c:text} at cell {r:cell}`
+  is an ordinary phrasebook rule (english.vla), compiling to
+  `(make-button {c} (range {r}))`, a native `EvalDynamicHead` primitive
+  (`VLA_Interpreter.bas`'s `MakeVlaButton`) at the same tier as
+  `range`/`cells` - no `CallByName` path reaches `Buttons.Add` any more
+  than it reaches Application's own parameterized default members.
+  `When "<caption>" is clicked:` is `AtSheetChangeEvent`'s own top-level-
+  only gate generalized to a 5-token lookahead (a quoted string in the
+  second slot), compiling to a numbered `(sub on:click:N ...)` per
+  handler - multiple named buttons per program, unlike sheet-change's
+  single program-wide flag. Registry: `VLA_Events.bas`'s existing table
+  generalized from workbook-keyed to (workbook, button-name)-keyed; no
+  new `WithEvents` sink needed this time - a Form Control's `.OnAction`
+  is Excel calling a macro by name already, so one fixed add-in-resident
+  macro (`VlaButtonClickDispatch`) reads `Application.Caller`/
+  `ActiveWorkbook` and delegates to a directly-testable
+  `VlaDispatchButtonClick`. The same IN.6/IN.7 gotcha guarded against
+  explicitly this time: `MakeVlaButton`'s `.OnAction` string names the
+  add-in's own `ThisWorkbook`, never `mHostWorkbook`.
+
+  **A second, unplanned finding closed in the same pass:** neither event
+  form was ever refused by Compile - it silently transpiled to VBA that
+  would fail with an untrappable compile modal the first time anyone
+  actually clicked Compile on a program using either feature (a colon in
+  a `Sub` name; a call to an undefined `make_button`). Closed with a
+  distinct error number (`VLA.VLA_ERR_INTERPRETER_ONLY`) raised from
+  `EmitProc`'s colon-name guard and `EmitStmt`'s new `make-button` case,
+  plus one exemption in `VLA_IDE.bas`'s `DoCheck` so the same refusal
+  that now blocks Compile does not also block Check - live-verified
+  against a fresh build: Check passes for both event forms, Compile
+  refuses both with words instead of a modal, and the interpreter runs
+  both end to end.
+
+  **Compiled parity scoped, not built, for both.** Button-click's
+  compiled path is a small, bounded follow-up: `SymName` folding `:` to
+  `_` plus a real `EmitStmt` case wiring `.OnAction` straight to the
+  compiled module - no registry needed at all under this path, since
+  Excel's own name-based dispatch does the work an add-in-resident
+  registry exists to fake for the interpreter. Sheet-change's compiled
+  path is a real design question, not just effort:
+  `Application.SheetChange` has no name-based dispatch, only
+  `WithEvents`, which under the compiled model means injecting a class
+  module into the user's own workbook - reopening exactly the L-TIER2/D1
+  surface this item exists to avoid, not a harder implementation of the
+  same idea.
+  *Pays into:* L-TIER2's own "argument for IN.7, against L-TIER2" is now
+  something a real, live-tested workbook can point to, not just a
+  roadmap claim. 🔒 *Expiry (compiled parity, either half):* a real pilot
+  need for a program surviving Compile/export with the add-in closed.
+  `~weeks`
+- ✅ **IN.13 — the CLI: `Ctrl+Shift+`` opens one modeless dialog onto the same
+  pipeline `Interpret Instructions` already runs.** Not bet through this file's
+  own ordering mechanism above - an owner side-quest, done out of band, filed
+  here after the fact because it *is* IN.6/IN.7's payoff made literal: the whole
+  claim of those two items is that a program is text going straight into
+  `VLA_Interpreter.VlaInterpret`, no sheet, no VBProject, required - a REPL is
+  what that claim looks like with the workspace sheet actually removed. One
+  entry point for whatever `instructions.txt` or `english.vla` already accept,
+  not a third dialect. *Why a real hotkey, not the Windows-API `RegisterHotKey`/
+  window-subclassing route the idea started from:* `Application.OnKey` needs no
+  `Declare`, no `AddressOf` callback wired into `SetWindowLong` (the exact
+  primitive AMSI/Defender heuristics flag in real malicious macros, and the
+  literal reason the originally-proposed VBA snippet would not even have worked -
+  `RegisterHotKey`'s `WM_HOTKEY` has no VBA event to land in without one), and it
+  dispatches by macro NAME, which is why it keeps firing across every open
+  workbook the always-loaded add-in sees rather than one window. **Built:**
+  `VLA_IDE.VlaOpenCli` (shows `frmCLI` modeless - modeless on purpose, so
+  clicking a cell to reference it mid-command still works) and `VLA_IDE.VlaCliRun`
+  (`TryTranslate` then `VLA_Interpreter.VlaInterpret`, `InterpretProgram`'s own
+  pipeline minus the sheet coupling: no row marking, nothing to mark; no
+  Output-sheet activation, a one-off runs against whatever is already active;
+  no Undo snapshot, `TakeRunSnapshot` is keyed to a workspace sheet's own tag
+  and a CLI command has none - a known gap, not an oversight, same as a command
+  reading `Work on sheet Frazaro.` not being refused the way a workspace
+  program's own Check refuses it, `ForbiddenSheetTarget` having no sheet here
+  to scan). `Application.OnKey "^+`", "VlaOpenCli"` registered/unregistered in
+  the same `Workbook_Open`/`BeforeClose` bracket `VlaAddinMenu` and the IN.7
+  event sink already use, so nothing this add-in hooks outlives the add-in.
+  **`frmCLI` is this project's first UserForm, and its own build problem: a
+  `.frm`'s paired `.frx` is genuinely binary, not something to hand-author the
+  way every other module here is.** Solved the same way `VlaBuildAddin` already
+  solves "the dev machine has VBOM trust, the end user never needs it" -
+  [`tools/build_cli_form.ps1`](../tools/build_cli_form.ps1), a one-time COM-
+  automation script run once against a throwaway hidden Excel instance (never
+  the dev workbook), builds the form and `Export`s the real `.frm`/`.frx` pair
+  Excel itself generates. Only the *layout* needs that script re-run; everything
+  past `Attribute VB_Name` in `frmCLI.frm` is plain text, hand-editable like any
+  `.bas`. `VLA_Build.bas`'s shipped module list, its export/import extension
+  switch, and `VLA_DevRig.bas`'s own `VlaDevReload` all gained the one new
+  `.frm` case this required. **Verified without touching the real dev
+  workbook, first:** every shipped module plus `frmCLI` imports and force-
+  compiles clean in a throwaway COM-driven workbook, and the exact generated
+  `Workbook_Open`/`BeforeClose` text (the nested-quoting layer - a VBA string
+  literal building another module's VBA source) was separately transcribed
+  and compile-checked too. **Then live, in the real workbook, the way that
+  actually counts:** Ctrl+Shift+` popped the dialog over a real open
+  workbook; a translated-English command ran and actually wrote a cell (this
+  is what caught the real bug below); a genuinely multi-line raw VLA form -
+  a `defmacro` plus a `(msgbox ...)` call, typed straight into the textarea -
+  ran end to end with the correct result, `VlaCliRun`'s own raw-VLA branch
+  skipping `EnglishToVla` entirely for text starting with `(`, the same
+  reader `english.vla`/`prelude.vla` are read through; Esc closed it clean.
+  **One real bug found live, not by inspection:** `VlaCliRun` initially
+  skipped the `EnglishStepTracking False`/`True` bracket `InterpretProgram`
+  already wraps its own translate call in - without it, `EnglishToVla`'s
+  default step-tracking wrapper (built for the emitter's "Compile and
+  Trace") reached the interpreter, which evaluates a step-wrapped
+  statement's inner form as an expression and chokes resolving `set!`'s
+  head as a generic call. Fixed by matching the existing bracket exactly.
+  `~hours`
+- ✅ **IN.8 — performance honesty, published.** An evaluator walking forms is
+  slower than compiled VBA, by a factor this item measures rather than estimates.
+  Name the workloads where the interpreter is unacceptable — those are the
+  workloads the export exists for — and let the choice be informed. *Why here and
+  not in PERFORMANCE:* an unmeasured backend claim is exactly what this project
+  refuses everywhere else. **First scoping pass wrongly deferred this behind "the
+  pilot's use demands it" (the Do-Next list's own summary sentence, not a gate
+  this item's own bullet ever carried — unlike IN.4's export half and IN.7,
+  neither of which has an `Expiry:` line here) — caught on push-back, not by this
+  file's own discipline catching itself.** The distinction that matters: IN.4's
+  export and IN.7's events are gated because their expensive artifact needs
+  information only a real pilot can supply (UX shape, sentence forms); IN.8's
+  workloads need no such input — a synthetic corpus, chosen to isolate specific
+  mechanisms, is not weaker evidence than one arbitrary SOP, it is *better*
+  evidence, since one SOP's internal logic is uncorrelated with any other's and
+  proves nothing beyond itself. And the cost-of-delay cuts the other way: IN.9
+  already traded compiled speed for a zero-trust default, and every corpus item
+  that ships under the interpreter before that trade is ever measured is this
+  file's own *rising*-cost case (p.76), not the flat one deferral would imply.
+  **Built:** `VLA_DevRig.bas` gains `VlaTimeItInterpreter` — `VlaTimeIt`'s own
+  interpreter-side counterpart (the `VerifyReport`/`VerifyReportInterpreter`
+  shape, applied to timing instead of correctness), running the same
+  `instructions.txt` corpus through the same vocab-load/translate legs and diverging
+  only where the backends do: `VlaCompileToForms` in place of `VlaTranspile`,
+  `VlaInterpret` in place of inject-then-`Application.Run` (no module ever
+  created on this leg — IN.9's architecture, visible in the timing itself). It
+  reads `VlaTimeIt`'s own already-stored "run (full)" Name and prints IN.8's
+  headline ratio directly — measured, not estimated, the moment both dials have
+  been run once in a real workbook. Also built: `VlaBenchmarkLoop`, a pure
+  dispatch-overhead microbenchmark (IN.0.5's ten-core-form shape only — no
+  object model, no corpus, no worksheet) run through both backends at a few
+  loop sizes, isolating the walking-forms tax itself from `instructions.txt`'s own
+  fixed corpus weight — the number that actually answers "which workloads are
+  unacceptable," since a single mixed-corpus ratio at one size cannot
+  distinguish "2x, ship it" from "50x at 100k rows, that's what export is
+  for." Compiled leg reuses `VlaTry`'s own inject/run/delete idiom under a
+  separate module name (`VLA_Bench`) so a concurrent `VlaTry` session is never
+  touched. **First real run, first real bug, caught live, not guessed:**
+  `VlaTimeItInterpreter` crashed its maiden run (`Err 5`: `'begin' is not a
+  form, place helper, dotted global, built-in, or VLA_Runtime helper this
+  interpreter can reach yet`) — a precondition this sub missed that
+  `VerifyReportInterpreter`/`VlaSkeletonDemoVla` had already documented and
+  established: step tracking (default on) wraps every statement in the
+  emitter's own `vlatraceon`/`vlatracestep` trace scaffold, which the
+  interpreter's dispatch surface does not implement at all (`VlaInterpreterEffectLog`
+  is the interpreter's own, separate tracing) — every OTHER interpreter-targeting
+  caller in the codebase already turns tracking off first; this one didn't.
+  Fixed: `EnglishStepTracking False`/`True` now brackets every `EnglishToVla`
+  call this sub makes, restored immediately after translation and before
+  `VlaInterpret` ever runs, so a genuine future interpreter failure during
+  execution can never leave tracking stuck off for the rest of the session.
+  **Second real finding, from `VlaBenchmarkLoop`'s own maiden run (measured, not
+  estimated):** the interpreter's pure per-iteration dispatch cost (no object
+  model, just `dim`/`set!`/`for`/`+`/`debug-print`) is roughly 1–2 ms/iteration
+  against compiled VBA's near-zero cost at these sizes — **N=1,000: 973 ms
+  interpreted vs 0 ms compiled; N=10,000: 10,746 ms vs 4 ms (2,751×); N=50,000:
+  90,676 ms vs 0 ms** — three to five orders of magnitude, not the "an
+  evaluator is somewhat slower" framing this item's own opening line might
+  suggest, and exactly the kind of workload this item exists to name as
+  unacceptable for the default runtime. This also surfaced a second, real
+  problem in the tool itself: that sweep silently froze Excel for roughly 100
+  seconds with zero warning printed first (no `DoEvents` inside the
+  interpreter's own loop, so nothing appears until the whole call returns) —
+  fixed by shrinking the default sweep to 300/1,000/3,000 (sub-second) and
+  adding an estimated-duration warning, using this session's own 2 ms/iteration
+  ceiling, before running any larger custom `sizes` argument. A second sweep
+  (300/1,000/3,000, post-fix) added two more points to the curve: 305 ms and
+  2,836 ms, both compiled reading 0 ms under Timer resolution — per-iteration
+  cost holds fairly steady at ~0.95–1.1 ms up through N=10,000, then rises to
+  ~1.8 ms by N=50,000 (a real, if secondary, observation — some part of the
+  interpreter's own per-iteration bookkeeping is not perfectly flat — named
+  here, not chased further this pass).
+  **Third real finding, the one that actually answers this item's own
+  question, and the one a single "the interpreter is slower" framing would
+  have hidden entirely:** re-run after the step-tracking fix,
+  `VlaTimeItInterpreter`'s `instructions.txt` "interpret (full)" leg read **1,180
+  ms — FASTER than `VlaTimeIt`'s own compiled "run (full)"** (1,840 ms and
+  1,848 ms across two runs, ~1,844 ms average): the interpreter finished the
+  *entire* corpus, end to end, in roughly 64% of the compiled path's time, not
+  some multiple slower. **Why, reconciled against the loop numbers above
+  rather than contradicting them:** `VlaTimeIt`'s "run (full)" leg pays a cost
+  the interpreter's own architecture never does — writing instructions.txt's
+  compiled VBA into a real module and letting VBA's own Compile-on-Demand JIT
+  it on the first `Application.Run` (IN.9's own trade, now measured rather
+  than assumed). For a script that runs once, that inject-and-compile tax
+  dominates the compiled leg's total and the interpreter wins outright, module
+  creation being zero by construction. For a tight loop, the inject/compile
+  tax is paid once regardless of iteration count while the interpreter's own
+  per-iteration dispatch cost is paid every time — so it is the loop-shaped
+  workload, not the mixed one-shot corpus, where the interpreter loses by
+  orders of magnitude. **The workload-dependent answer this item exists to
+  produce, stated plainly:** the interpreter is faster than compiled VBA for
+  an ordinary, run-once business script (`instructions.txt`'s own shape — the
+  overwhelming majority of what a non-programmer's Frazaro program looks
+  like), and 100×–2,700×+ slower, worsening with N, for loop-shaped work over
+  more than a few thousand iterations — which is exactly, and only, the shape
+  PF.4 already named and the shape the export exists for. IN.9's zero-trust
+  default was not a speed sacrifice for the common case; it was a sacrifice
+  scoped narrowly to large loops, now named instead of assumed.
+  **Follow-up, built and run next session:** `VlaBenchmarkRowLoop` — the
+  row-loop workload named above but not built when this item first closed.
+  Same compiled-vs-interpreted shape as `VlaBenchmarkLoop`, but each iteration
+  is a late-bound `(set! (. (cells i 1) value) i)` — `WalkMemberSet`'s
+  `CallByName` dispatch, a genuinely different mechanism from `EvalExpr`'s own
+  per-call arithmetic tax, and PF.4's exact shape. Runs on a dedicated,
+  disposable sheet in `ThisWorkbook` (created and deleted around each leg,
+  `VerifyReportInterpreter`'s own "never coast on a prior run's leftover
+  cells" discipline), so it needs no "aim" step and never touches the active
+  workbook. **Result, and a wrong hypothesis corrected by it:** this sub's own
+  defaults were kept small on the guess that late-bound member dispatch would
+  be *heavier* per iteration than the pure-arithmetic number already in hand —
+  measured instead at **N=50: 55 ms interpreted / 0 ms compiled; N=200: 203 ms
+  / 8 ms (26×); N=500: 484 ms / 8 ms (62×)**, which is ~1.0 ms/iteration
+  interpreted at every size — statistically the SAME per-iteration cost as
+  the pure-arithmetic loop, not heavier. Late-bound `CallByName` dispatch is
+  cheap relative to the interpreter's own tree-walking machinery; it is not
+  the bottleneck the guess assumed. **The sharper, corrected rule of thumb
+  this produces:** the interpreter's per-statement tax reads as a roughly
+  FLAT ~1 ms regardless of what the statement actually does — what moves the
+  measured *factor* between workloads is almost entirely how cheap the
+  equivalent operation is compiled, not how the interpreter handles it.
+  Compiled arithmetic is nearly free (near-zero at every size tested, hence
+  the arithmetic loop's 2,751×+ factor); a compiled cell write costs a little
+  real Excel-side work of its own (screen/dependency tracking, ~0.02–0.04
+  ms/iteration here), so the same ~1 ms interpreter tax against a slightly
+  less trivial denominator reads as "only" 26×–62× — smaller, but rising with
+  N for the same reason the arithmetic factor rises: a fixed per-iteration gap
+  against a workload whose own iteration count is the only thing scaling.
+  This is the actionable number for future grammar/feature work: budget
+  ~1 ms per statement executed under the interpreter, independent of what
+  that statement is, then compare against whatever the equivalent costs
+  compiled. **Published:** this entry, with real, converged numbers — vocab
+  load 797–810 ms, translate 57–61 ms across both backends, compiled
+  transpile 754–793 ms vs interpreter compile-to-forms 86 ms, compiled run
+  (full) ~1,844 ms vs interpreted run (full) 1,180 ms, loop-dispatch cost
+  ~1–1.8 ms/iteration rising with N — and the PERFORMANCE table's `Speed` row
+  below, whose forward reference these numbers now close out. `~days`, though
+  three real findings (a missed precondition, a tool that silently froze
+  Excel, and a headline result opposite the item's own opening-line framing)
+  cost more than the harness itself did — honestly reflected here rather than
+  in the original estimate.
+- ✅ **IN.12 — stray `Sheet2xx`/`Sheet3xx` sheets appearing during `instructions.txt`
+  runs, root-caused and closed.** **Root cause:** `add-sheet-called`'s macro
+  (`english.vla`) expanded to two separate statements —
+  `Worksheets.Add` (unnamed, so Excel assigns its own default name) followed
+  by `ActiveSheet.Name = s` — and `instructions.txt:219-220`'s own `Try:` block
+  around `Add sheet called "Q1 Data".` exists specifically because a rerun's
+  rename fails on the duplicate name. The rename failing is *after* the
+  blank sheet already exists, and nothing ever cleaned it up; every rerun on
+  either backend (one shared macro) left one more stray default-named sheet
+  behind, forever climbing Excel's own default-name counter. **Fix, part
+  one:** a new pre-flight check, `VLA_Runtime.VlaCheckSheetAbsent`, wired
+  into the macro before `Worksheets.Add` runs, so the duplicate is refused
+  before anything is created — same style as the existing
+  `VlaCheckSheetName`. **Fix, part two, found only by chasing why the first
+  fix's own refusal wasn't being caught by `Try:` under the interpreter:**
+  two separate, previously-latent interpreter bugs, neither ever exercised
+  live before this item, because no `VLA_Runtime.bas` validation raise had
+  ever fired inside a live `Try:` block until `VlaCheckSheetAbsent` became
+  the first. (1) `ExecStmtTrapped`'s `IsOwnDiagnosticSource` treated *any*
+  raise sourced from `VLA-Runtime`/`VLA-English` as "this interpreter's own
+  bug signaling," which must escape a user's `Try:` uncaught — correct for
+  `VLA-Interpreter`'s own dispatch-completeness raises (checked, all ~50
+  sites), wrong for `VLA_Runtime.bas`'s deliberate, catchable SD-10
+  refusals, which the emitter already catches uniformly (no `Err.Source`
+  concept there at all). Narrowed to `"VLA-Interpreter"` alone. (2) Deeper,
+  and the one that actually explained the crash: `TryRuntimeHelper` reaches
+  `VLA_Runtime.bas` helpers via `Application.Run`, wrapped in its own local
+  `On Error Resume Next` — and `Application.Run` does **not** propagate a
+  target macro's own `Err.Raise` back to the caller's `On Error Resume
+  Next` at all, confirmed with a standalone, zero-dependency repro
+  ([`tools/VLA_Diag2.bas`](../tools/VLA_Diag2.bas)) whose *simplest*
+  scenario — one `Sub`, one raise, one level of `Resume Next` — already
+  breaks straight through to an unhandled VBA error. Every `VLA_Runtime`
+  raise ever routed through this path has had this bug; `VlaCheckSheetName`
+  just never fired live before. Fixed with a native dispatch tier in
+  `TryRuntimeHelper` for the three "validate and maybe raise" helpers
+  (`VlaCheckSheetName`/`VlaCheckSheetAbsent`/`VlaCheckRangeName`) — direct
+  `Call`s, no `Application.Run`, so a raise propagates normally, the same
+  precedent `IN.11`'s own native dispatch already set. **Named, not fixed:**
+  every *other* `VLA_Runtime.bas`/`VLA_English.bas` raise reachable through
+  `TryRuntimeHelper` (`VlaColor`, `VlaDictGet`, the email helper) is the
+  same latent class and not yet known to have fired live — a real follow-up
+  count (`TRENCHES.md` IV's own precedent: "is patching the next crash
+  still the right response... or should the heuristic simply stop being
+  trusted") deliberately left out of this item's scope. Verified: golden
+  diff is the expected one-line insertion in both `instructions_golden.vla` and
+  `.vba` (`(vlachecksheetabsent s)` / `Call vlachecksheetabsent("Q1 Data")`
+  ahead of the `Add`), `VlaSelfTests` clean, `VerifyReports` clean twice in
+  the same session — the second run is the one that actually exercises the
+  duplicate-name path. `~hours`, as scoped for the first fix; the deeper
+  interpreter bug it surfaced cost more, honestly reflected in the finding
+  above rather than the original estimate.
+- ✅ **IN.11 — native dispatch for the breadth pass (statement-position `.`
+  calls).** Found while verifying `IN3.6`: once `on-error`/`goto`/`label`/
+  `resume` stopped blocking whole-corpus parity, `VerifyReportInterpreter`
+  ran past all three `Try:` blocks and reached territory the interpreter had
+  never been run against before — `instructions.txt`'s own "breadth pass" (~30
+  styling/rows-columns/sort-filter statements the file's own comment names
+  as existing "on its own merits"), failing with a bare, unwrapped native
+  VBA error from a call site none of this session's own dispatch tiers had
+  wrapped in their own `Err.Raise`.
+  **Built:** `DynamicGet` gets native `Case`s for the first intermediate
+  chain segments this corpus ever reaches beyond `font` (`borders`/`tab`/
+  `entirecolumn` — direct late-bound reads, no `CallByName`); `DynamicCall`
+  gets a full zero-argument native `Select Case`, read from
+  `english.vla`'s own macros line by line (`activate`/`clearcontents`/
+  `clearformats`/`merge`/`unmerge`/`delete`/`insert`/`autofit`/`copy`/
+  `showalldata`/`select`/`filldown`/`fillright`) ahead of its `CallByName`
+  fallback. `DynamicNamedCall` was already fully native from `IN2.5`'s own
+  work — checked directly before "fixing" it, not assumed broken.
+  `ExecSet` now coerces an object-valued RHS through its own default member
+  when the place is a plain variable and the head is `set!` (not `obj-set!`)
+  — the same implicit coercion real VBA's own `x = Range(...)` performs,
+  needed for `"Set X to value in cell Y."`'s own real shape.
+  `EvalExpr`'s atom base case gained a fallback for a bare, undotted global
+  receiver name used as an ordinary expression (`"activewindow"` alone, not
+  fused into a longer dotted token) — checked only after both frames miss,
+  so a real corpus variable always wins. `JoinKwArgs`/`JoinArgs` (log-text
+  formatting only) now check `IsObject` and use `TypeName` instead of
+  calling `CStr` directly on a value that might be an object.
+  **`VerifyReportInterpreter` now runs `instructions.txt` to completion**,
+  cell-identical to the emitter — `IN.3`'s original opening line, met.
+  **Named non-goal, found along the way, not fixed here:**
+  `DynamicGet`/`DynamicCall`'s own generic `CallByName` dual-try heuristic
+  can, for a member that still goes through it, re-report a genuine runtime
+  failure under this interpreter's own diagnostic source instead of the
+  real failure's native one — checked directly against today's actual
+  corpus (costs nothing; the real `Try:` failure never reaches that tier),
+  but a real, pre-existing sharp edge, left as found.
+  *This item's own build was clean. Reaching this state, from the first
+  live run to the last, was not — a census that missed a real member twice,
+  a log-formatting bug chased for seven straight live runs, and a final
+  cell mismatch that survived roughly twenty rounds, three "confirmed"
+  fixes, and the owner's own direct pushback on the investigation itself
+  before a standalone, zero-dependency reproduction finally isolated it.
+  The full account, including the two fixes that turned out wrong and why
+  they were kept anyway, is in [`TRENCHES.md`](TRENCHES.md): "Whole-corpus
+  parity, second act" and "Twenty rounds, a wrong turn, and the question
+  that cracked it."*
+
+| | Interpreter *(the runtime)* | Emitter *(the export)* |
+|---|---|---|
+| Install | macro-enabled add-in only | same add-in, **+ VBProject trust at export time only** |
+| Workbook | plain `.xlsx`, untouched | `.xlsm` with injected modules, produced deliberately |
+| After uninstall | program stops; the add-in is required | **program still runs** — the exported workbook is self-contained |
+| Speed | **faster** for a one-shot script (IN.8: 1.18s vs 1.84s on `instructions.txt` — no inject/compile tax paid); 100×–2,700×+ **slower**, worsening with N, on loop-shaped work past a few thousand iterations | compiled VBA; PERFORMANCE's pitch, and where the loop-shaped workload above actually goes |
+| Auditability | IN.4's "Show me the VBA" | the VBA is right there |
+| Events | IN.7 | needs class-module injection (L-TIER2) |
+| Who it serves | everyone at install; enterprise especially | the colleague who receives the file; the 200k-row job |
+
+**Both ship, and both ship free** (SD-10). What changed is which one a user meets
+without asking, and therefore which one every other decision in this file is
+written against.
+
+- ⬜ **IN.14 — cancel and progress in the interpreter's execution loop.**
+  `IN.8`'s own numbers: a loop-shaped program can run 100×–2,700×+ slower
+  than compiled VBA, worsening with N, and the interpreter has no
+  `DoEvents` inside its statement loop — `IN.8`'s own benchmark run
+  already froze Excel for roughly 100 seconds with zero warning before
+  this was worked around by shrinking the *benchmark's* own sizes, not by
+  fixing the interpreter itself. A real user's long-running program hangs
+  Excel with no progress indication and no escape; the only recovery today
+  is a task-kill, which a prior session's own memory records as capable of
+  corrupting session state. *Why now:* this is a data-loss risk, not a
+  performance nit — the interpreter is the default runtime (IN.9), so
+  every user meets this loop eventually, not just an edge case. Minimum:
+  `DoEvents` plus an Esc/cancel check inside `EvalExpr`/`ExecStmt`'s own
+  loop bodies, and a progress indication past roughly two seconds. Cheap
+  and independent of the larger frame-lookup/lexical-addressing
+  performance work named in `docs/CONTEMPLATIONS.md`'s own interpreter-
+  performance discussion — this item is about the escape hatch, not the
+  constant factor. `~hours`
+
+## Part C — the dialect (the style guide)
+
+- ⬜ **LX.7 — the Business English dialect spec.** The constrained sentence forms
+  Frazaro accepts. *SD-3 accretes it; this is the write-up.* *Pays into:*
+  Grammar (authors have a target), F.4, Learnability, Governance, **and the AI
+  bridge — a model can be constrained to a published finite grammar and cannot
+  be constrained to a mood.** `~weeks`
+- ⬜ **LX.8 — the refusal-message style guide.** Name the problem, teach the fix,
+  never blame, never expose internals. Refusals are the most-read prose in the
+  product. `~days`
+- ⬜ **LX.11 — the comment-syntax adjudication.** `#` (status quo) vs
+  `[bracketed asides]` (Inform 7 precedent, multi-line free, unclosed brackets
+  error loudly) vs `Note:` paragraphs. *Carried from Alpha 1's E1, where it was
+  correctly filed as needing pilot parse-failure evidence.* `!` and `;` were
+  explored and vetoed with reasons — recorded, not reopened. 🔒 *Expiry:* first
+  pilot transcript; it is a **surface** decision, so it must land before contact
+  or CO.1 inherits it. `~hours`
+
+---
+
+# 🔧 MACHINE · ENVIRONMENT
+*The machine the user actually has, not the one you develop on. specimens: 1.*
+
+- ⬜ **EN.1 — capability probe at load.** Excel version, LAMBDA/dynamic-array
+  support, bitness, locale, VBProject trust — detected once, reported in words.
+  **Revised by IN.9:** the probe no longer picks a runtime — there is one. It
+  reports what the machine permits, which decides whether the *export* is
+  available and what to say if it is not. `~days`
+- ⬜ **EN.2 — formula locale policy.** `.Formula` vs `.FormulaLocal`. Choose one,
+  document it, pin it. `~days`
+- ⬜ **EN.3 — number-format locale policy.** Named formats resolve to
+  locale-correct patterns. 🔒 **Blocks: G-FORMAT's number-format rules — about
+  twelve of them.** Nothing in G-STRUCT, G-ROWLOOP, G-TEXT, or the rest of
+  G-FORMAT needs a locale-correct currency pattern. *The previous revision read
+  "before Grammar §6" and was taken as blocking seventy rules to protect twelve.*
+  *Expiry:* first non-US-locale user. `~days`
+- ⬜ **EN.4 — decimal and thousands separators in the reader.** A silently wrong
+  number is the worst class of bug a spreadsheet tool can ship. `~days`
+- ⬜ **EN.5 — date literal and date-format policy.** `~days`
+- ⬜ **EN.6 — honest platform refusal.** Mac Excel has no VBProject object model.
+  **Revised by IN.9:** Mac is no longer a refusal at all — it runs the default
+  runtime and cannot export. EN.6 stops being an apology and becomes one honest
+  sentence about a missing button, which is the first concrete dividend of SD-1.
+  `~hours`
+- ⬜ **EN.7 — the environment matrix.** Versions × locales × bitness ×
+  **backend**. `~weeks`
+- ⬜ **EN.8 — 64-bit declaration discipline** (`PtrSafe`) as a lint rule. `~hours`
+
+---
+
+# 🔧 MACHINE · ASSURANCE
+*Coverage of the coverage. specimens: 0.*
+
+**The audience split, made explicit so it stops being re-litigated per
+item (AS.1 and AS.2 both got this question turn) - check every new AS.*
+item against this before scoping its delivery shape:** Frazaro has two
+real audiences. A phrasebook author (anyone writing a `.vla` file,
+including a future stranger, per F.4's own "first org or community
+phrasebook" framing) never touches `VLA.bas`/`VLA_Interpreter.bas` and
+can't act on a finding about them - a report that's only actionable by
+someone editing the core engine belongs in `tools/` as a static,
+no-live-host script, the same shape `check_backend_parity.ps1`/
+`check_id_registry.ps1` already prove out, run by hand at version-close,
+never wired into `VlaSelfTest`. A report about a phrasebook's OWN content
+- rules, templates, test density - is actionable by that wider audience
+and belongs shipped IN Frazaro: a VBA function plus a ribbon action,
+the shape `EnglishRuleCoverageReport`/"Phrasebook Test Coverage" set for
+AS.1. **The test is not "which tool is easier to write" - it's "who
+could act on what this finds."** AS.1 (phrasebook test density) ships in
+the product. AS.2 (core `Select Case` dispatch coverage) stays a script -
+no phrasebook author can add or fix a dispatch arm. AS.8 (core-form
+backend parity) stays a script by the same logic, but its OWN findings
+are a live-borrowed input to a phrasebook-facing question no item has
+built yet: which of the core forms a GIVEN phrasebook actually uses have
+a known parity gap - AS.8's existing output, filtered to one author's own
+usage, not a new scan. Named here so whoever scopes it doesn't have to
+re-derive the connection.
+
+- ✅ **AS.1 — proof-coverage report.** Which rules have no `test-success`;
+  which have only one. **Built this session:
+  [`tools/check_rule_coverage.ps1`](../tools/check_rule_coverage.ps1),** the
+  same static, grep-style, no-live-host shape as `check_backend_parity.ps1`
+  — reads `scripts/english_expanded.vla` (G-EXPANDER's own artifact,
+  produced today via the "Export Expanded Vocabulary" ribbon action, per
+  that item's own GEXPANDER.1 reversal — not written automatically on every
+  load), never `english.vla` itself, for the reason scoped earlier: a
+  static scan of the hand-written source sees a generator's CALL, never its
+  output — three live `table-property-family` calls
+  (`english.vla:963,969,975`) already proved this wasn't hypothetical.
+  **Flat vs. pretty-printed — adjudicated this session, resolved by fixing
+  the artifact instead of the scanner.** The owner read the real
+  `english_expanded.vla`, flagged it as needlessly hard to read (one form
+  per line, forever — `BuildExpandedBlob`'s own choice, made because
+  `VLA.VlaWriteForm` already existed, not because AS.1 ever asked for
+  flatness), and stood firm on a standing preference: every `.vla` file
+  this project writes should be linted by default. A "delinter" to flatten
+  pretty text back down before AS.1 reads it was floated and rejected as
+  unnecessary — `VLA_Lint.bas`'s own house style keeps every TOP-LEVEL form
+  flush at column 0 regardless of how its arguments verticalize, so a
+  scanner built to be column-0-anchored and multi-line-body-tolerant (walk
+  to the next line starting with `(` at column 0; whatever sits between is
+  that form's full body, one line or twenty) reads either shape unchanged
+  — confirmed live, not just reasoned: `check_rule_coverage.ps1` was run
+  against a hand-built synthetic fixture exercising a verticalized
+  multi-line `defmacro`, two verticalized `english-vla`/`test-success`
+  pairs, an `; row:` tag, a `test-fail`, an orphan `test-success`, and an
+  unrecognized top-level form — every bucket landed correctly. **Fixed the
+  artifact, not the scanner:** `EnglishExpandedVocabularyText` now pipes
+  through `VLA_Lint.VlaLintFormat` (`GEXPANDERLINT.0`, VLA_LINT/Translate
+  entry above) — **not yet owner-verified**, so today's *committed*
+  `scripts/english_expanded.vla` is still `GEXPANDER.0`'s flat rendering;
+  `check_rule_coverage.ps1` was validated against it as-is (below) as
+  proof the scanner tolerates either shape, not as proof the pretty
+  rendering itself is correct — that needs a live `TestGExpander` run plus
+  a real re-export.
+  **Run against the real, currently-flat `scripts/english_expanded.vla`:**
+  105 rules (102 hand-written + 3 from `table-property-family`, matching
+  F.4's own "102 rules" citation and this session's earlier count exactly).
+  **32/105 have 2+ tests, 72 have exactly one, 1 has zero** (`paint cell
+  {r:text}` — spot-checked by hand against `english.vla:1552`, the file's
+  own last rule, confirmed genuinely test-less, not a scanner artifact). 0
+  orphan test-success, 0 unrecognized forms — the staleness gate passed
+  (source-size stamp matched the live `english.vla` on disk) and was also
+  verified to REFUSE correctly against a deliberately mismatched fixture.
+  **A live, concrete confirmation of this item's own stated limit, found
+  by running the real tool, not asserted in the abstract:** `show cell in
+  column {c:column} row {n:expr}` — F.4's own found shadowing instance,
+  already proven to never actually fire — shows up in the "exactly one
+  test" bucket here, because it DOES have a positionally-attached test;
+  AS.1 reports density, F.4 reports correctness, and this rule is the
+  proof the two numbers can disagree on the same rule for good reason.
+  `test-fail` (5 proofs today, all in one
+  dedicated negative-proofs block, none positionally adjacent to the rule
+  they'd need to be attributed to) is counted separately, never attributed
+  to a rule — attributing it positionally would misreport (checked
+  directly: the block sits right after `make-button`, which none of the
+  five actually test). **What this item does NOT attempt, named explicitly
+  rather than left ambiguous:** proximity in the expanded file (a test
+  sitting after rule R) is evidence a human or generator INTENDED it to
+  prove R, never proof it actually fired R — that's F.4's shadowing-bug
+  shape (`show cell in column...`, F.4's own found instance), a semantic
+  question needing the real matcher, not a text position. F.4 stays the
+  owner of general (not corpus-bound) shadowing detection; AS.1 reports
+  density, not correctness.
+  **Shovel-ready algorithm, checked against the real, now-committed
+  `scripts/english_expanded.vla` rather than assumed:**
+  1. *Staleness gate, run before anything else counts.* Line 1 of the
+     artifact matches `from (\S+\.vla)` (today: `english.vla`); line 2
+     matches `source-size:\s*(\d+)\s*bytes` (today: `70727`) — both are the
+     literal header G-EXPANDER's `WriteExpandedSibling` already writes, read
+     directly rather than assumed. Resolve the named source next to the
+     artifact, compare its live byte length against the stamped value;
+     missing file or a mismatch refuses loudly (non-zero exit, no partial
+     report) — the same fail-loud-over-silent-misreport instinct AS.6/F.12
+     hold elsewhere, applied to this tool's own input rather than the
+     grammar's.
+  2. *Form-boundary scan.* A line matching `^\(([A-Za-z][\w-]*)` opens a new
+     top-level form of that head symbol; everything through the line before
+     the next such match is its body. Column-0-anchored, multi-line-
+     tolerant by design, confirmed live against both today's flat artifact
+     and a hand-built pretty-printed fixture (above) — needs no changes
+     either way GEXPANDERLINT.0 lands. A line matching
+     `^;\s*row:\s*(.+)$` immediately above a form is captured as that
+     form's provenance label, confirmed live against `TestGExpander`'s own
+     "row 7" pin.
+  3. *Attribution walk, in form order.* `english-vla`/`-override` becomes
+     `currentRule` (fresh 0 count, pattern text + row-tag captured for
+     display). `test-success` increments `currentRule`'s count, or logs to
+     a named orphan bucket if none exists yet (defensive — should always be
+     empty; non-empty means a real bug in G-EXPANDER or this scanner, not a
+     grammar problem, and is reported as exactly that). `test-fail`
+     increments one file-level counter, never attributed to a rule.
+     `defmacro`/`english-function` are skipped, never reset `currentRule` —
+     `set-formula` sitting before its own `english-vla` rule
+     (`english_expanded.vla:4-5`) is the confirmed real shape this walks
+     over correctly.
+  4. *Report:* zero-test rules listed by pattern (+ row-tag when
+     generated); exactly-one-test rules listed the same way; 2+-test rules
+     counted only, not listed, mirroring AS.8's own tiered detail; the
+     file-level `test-fail` total; the orphan bucket, expected empty; one
+     summary line, `X/N rules have 2+ tests`.
+  **A display-text assumption checked, and corrected, by actually reading
+  `PpForm` rather than the header comment describing it:** earlier scoping
+  guessed a rule's pattern text would move to a second line under
+  pretty-printing, since `english-vla`/`test-success` "always split their
+  own first and second argument onto two lines." Tracing `PpForm`'s real
+  verticalize branch shows the functor and FIRST argument always stay on
+  one line — only the second argument onward drops to its own line — so a
+  rule's pattern text and a test's own sentence text both stay on the
+  form's first line regardless of flat vs. pretty rendering.
+  `check_rule_coverage.ps1`'s pattern/sentence regexes need no
+  format-dependent branch at all.
+  **RULECOVERAGE.0 — the VBA-native answer, built this session in
+  response to the owner's own challenge: "every functionality that gets
+  written in Perl/PowerShell is de facto not a feature that could be
+  shipped with Frazaro."** Right challenge - `check_rule_coverage.ps1`
+  was modeled on AS.8's shape without checking whether AS.1's own
+  audience matches AS.8's. It doesn't: AS.8 checks `VLA.bas`'s own
+  dispatch parity, relevant only to a core-engine contributor; AS.1
+  measures a PHRASEBOOK's own test density, and per F.13/METAVOCAB any
+  phrasebook author can already produce their own `_expanded.vla`
+  through the shipped "Export Expanded Phrasebook" action - the exact
+  audience F.4 was named for ("the first org or community phrasebook").
+  **Strictly stronger than the script it replaces, not just more
+  shippable:** `EnglishRuleCoverageReport(vocabPath)` (`VLA_English.bas`)
+  does the same fresh `EnglishResetGrammar`+`EnglishLoadVocabulary`
+  contract `EnglishExpandedVocabularyText` already uses (no staleness is
+  even possible - nothing is cached), then buckets every rule by a new
+  `mRuleTestCounts` (populated in `RunVocabTest` from `mLastRuleIdx` -
+  the REAL rule `TryPhrase` matched, not a text-position guess). This
+  closes the exact gap the script's own header names as its limit: a
+  shadowed rule whose "own" test-success actually fires an earlier, more
+  general rule (F.4's own found instance, `show cell in column...`)
+  reports a genuine 0 here, where the positional script - reading only
+  where the text sits - still shows 1. `mRuleTestCounts` reuses
+  `BumpUsage`'s own "Collections can't update in place, remove and
+  re-add" counting idiom, minus its `mUsageSuspended` gate (a proof
+  firing is never suspended, unlike real-program usage counting).
+  Bucketing walks only the phrasebook's OWN rules (`index > mPreludeCount`),
+  the same convention `EnglishVocabStats` already uses to exclude the
+  always-present core built-ins from "loaded: N rules" - caught in
+  review before any live test ran, not after. `CoverageReportPath`
+  (`.txt`, never `.vla` - a report is prose, not re-importable source)
+  and `EnglishIdeRuleCoverageReport` (`VLA_IDE.bas`, same Save-As shape
+  as Export Expanded Phrasebook) wire it to a new "Phrasebook Test
+  Coverage" ribbon button and legacy-menu entry (`VLA_Build.bas`'s
+  `VlaRuleCoverage` id, nineteenth of nineteen now -
+  `TestBuildRibbon`'s own count updated to match). `TestRuleCoverage`
+  (`VLA_Tests_Grammar.bas`, 7 assertions, wired into `VlaSelfTest` right
+  after `TestGExpander`) pins all three buckets plus `test-fail`'s
+  file-level count plus the structural-proof remainder in one small
+  fixture. `VLA_ENGLISH_VERSION` bumped to `RULECOVERAGE.0`.
+  `tools/check_rule_coverage.ps1` is not retired - still genuinely
+  useful as a fast, no-Excel-needed density check for the repo's own
+  version-close workflow - it just stops being AS.1's shipped answer.
+  **Owner-verified: `VlaSelfTest` clean (`TestRuleCoverage`'s 7
+  assertions, `TestBuildRibbon`'s updated 19-id count), goldens pass,
+  fresh-workbook build interprets and compiles `instructions.txt`
+  without errors. Committed (`2a076a1`).** Run against the real corpus:
+  **105 rules, 5 zero/67 one/33 two-plus**, 5 `test-fail`, 9 structural-
+  form proofs. **The predicted divergence confirmed live, and it found
+  more than expected:** `show cell in column {c:column} row {n:expr}`
+  (F.4's own found shadowing instance) reports a genuine 0, where
+  `check_rule_coverage.ps1`'s positional scan showed 1 - and three more
+  rules in the identical "cell in column" family (`set {v:var} to cell
+  {r:cell}`, `set {v:var} to cell in column {c:column} row {n:expr}`,
+  `set {v:var} to cell in column number {c:expr} row {n:expr}`) turned
+  out to have the same problem, surfaced empirically rather than by
+  hand. **Named, not fixed, deliberately - F.4's own job, not this
+  item's:** whether these three are the same wildcard-swallowing shape
+  F.4 already documented, a different collision, or three separate
+  near-duplicate rules competing for the same sentences is a question
+  for whoever picks up F.4 next, with four concrete leads instead of
+  one. `~days`
+- ✅ **AS.2 — emitter-case coverage.** Which `Select Case` arms no pin exercises
+  — **per backend**. The suite's 557 is a number without a denominator.
+  **No longer gated on IN.1 — that item is ✅ (above): the per-backend head
+  table (`VLA_HeadTable.bas`'s `AddRow` catalog) it was waiting on already
+  shipped and is already load-bearing for AS.8's own scan. Stale wording,
+  corrected; not a live blocker.**
+  **Built:** [`tools/check_emitter_coverage.ps1`](../tools/check_emitter_coverage.ps1),
+  same no-live-host static shape as every other Assurance tool, duplicating
+  (not sharing - the two scripts aren't set up as a library)
+  `check_backend_parity.ps1`'s own blob-building logic (`AssertVla`/
+  `TryTranspile`/`VlaTranspile` for the emitter, `VlaInterpret`/
+  `VlaEvalExpression` for the interpreter, over `VLA_Tests*.bas`). The new
+  piece is the denominator: not `VLA_HeadTable.bas`'s catalog (AS.8's own
+  source, ~65 rows, not 1:1 with `Select Case` arms), but the literal
+  arms read directly from each dispatch function's own bounded source
+  text - real function-boundary detection (next `Private`/`Public
+  Function`/`Sub` declaration), not a hand-picked line range. A blind
+  `Case "` search returns 125 hits in `VLA.bas`, 175 in
+  `VLA_Interpreter.bas` - almost entirely noise; excluded by name:
+  tokenizer character dispatch, the LISTOPS/quasiquote sub-dispatch
+  inside `Substitute` (macro-expansion-time, a different subsystem),
+  `ResolveExcelConstant`'s own lookup table (`xlleft` → `-4131`, a data
+  table not a coverage question), small helpers (`OpDisplay`,
+  `EmitParams`'s byval/byref modifiers), and `EmitFormula` (mostly a
+  REFUSAL list - success-path coverage doesn't apply the same way,
+  mirrors AS.1's own `test-fail`-is-separate precedent).
+  **A real scoping mistake, caught by the script's own logic before it
+  shipped, not hidden after:** this item's own first pass hand-bounded
+  `EvalDynamicHead` at 79 arms via a manually-typed line range; that range
+  was wrong - it silently absorbed two sibling dispatch functions,
+  `TryEvalBuiltin` and `TryRuntimeHelper`, that happen to sit between
+  `EvalDynamicHead`'s real end and the next unrelated function. The
+  script's own boundary detection (driven by real declarations, not a
+  typed range) caught the seam immediately - both were added as their own
+  entries once found. **A third sibling in that same span,
+  `ResolveGlobalReceiver`, was checked and deliberately excluded, not
+  added:** its own four call sites (checked directly) all slice its
+  argument out of a dotted STRING (`Left$(plainName, dotAt-1)`), never
+  read it from a form's own head position - the head-position heuristic
+  is structurally wrong for it, not merely imprecise, and would report
+  false negatives across its whole arm list rather than real gaps. A
+  genuine denominator for it would need a different heuristic (a bare
+  dotted-atom scan), scoped separately if ever needed.
+  **The real, verified denominator, run against the live corpus:**
+
+  | Backend | Function | Arms | Uncovered |
+  |---|---|---|---|
+  | Emitter | `EmitTop` | 11 | 5 |
+  | Emitter | `EmitStmt` | 35 | 21 |
+  | Emitter | `EmitExpr` | 13 | 7 |
+  | Interpreter | `ExecTop` | **0 - not a `Select Case` at all** | — |
+  | Interpreter | `ExecStmt` | 20 | 0 |
+  | Interpreter | `EvalExpr` | 13 | 6 |
+  | Interpreter | `EvalDynamicHead` | 14 | 11 |
+  | Interpreter | `TryEvalBuiltin` | 14 | 8 |
+  | Interpreter | `TryRuntimeHelper` | 3 | 3 |
+
+  **SUMMARY: 62/123 dispatch arms have a pin.** **A real architecture
+  asymmetry, found by trying to name the denominator, not assumed:** the
+  emitter splits module-level declarations (`EmitTop`) from statement
+  execution (`EmitStmt`); the interpreter's `ExecTop` has no `Select Case`
+  of its own at all. **An independent cross-validation, not a coincidence:**
+  `TryEvalBuiltin`'s own comment already documents `msgbox`/`inputbox` as
+  "deliberately never exercised by the automated test suite" (a modal
+  dialog mid-`VlaSelfTest` would hang the run) - the script found exactly
+  those two uncovered, unprompted, confirming the heuristic surfaces real,
+  already-understood gaps rather than noise.
+  **Two heuristic risks stated up front, AS.8-style:** `ResolveHeadAlias`
+  remaps some spellings before the `Select Case` ever runs - a pin using
+  an alias spelling could head-position-match text that never literally
+  contains the canonical arm string, a possible false negative.
+  Head-position text matching a symbol doesn't strictly prove the arm
+  executed at runtime (the same caveat AS.8 already states about itself)
+  - good enough for a report, not a tight bound. **What this does not do,
+  honestly, same as AS.8's own note:** coverage that comes through
+  English sentences (most of Grammar's own pins) never produces
+  head-position VLA text for this scan to find - the uncovered counts
+  above are an upper bound, not a tight one. Not wired into `VlaSelfTest`
+  - a version-close step a human runs by hand, same as `check_backend_
+  parity.ps1`. `~days`
+- ✅ **AS.8 — backend-parity coverage.** Which core forms have a pin under one
+  backend and not the other. SD-5's enforcement; IN.3's generalization from one
+  corpus file to the whole grammar. *Scoped honestly:* parity detects
+  implementation divergence, never a shared upstream error — its deeper payoff is
+  that implementing each form twice forces the project to state what the form
+  means. **Built:** [`tools/check_backend_parity.ps1`](../tools/check_backend_parity.ps1),
+  the same shape as F.12's `check_id_registry.ps1` — a static, grep-style scan,
+  runnable without a live Excel host, reporting rather than fixing. Reads the
+  canonical 65-row form list directly from `VLA_HeadTable.bas`'s own `AddRow`
+  calls (so the script and the catalog can never silently drift apart), then
+  scans `VLA_Tests.bas`/`VLA_Tests_Grammar.bas`/`VLA_Tests_Host.bas` for a
+  form's own head symbol in head-position text (`"(if "`, `"(if)"`) inside a
+  logical statement (VBA line-continuations joined) that calls a known
+  emitter-path helper (`AssertVla`/`TryTranspile`/`VlaTranspile`) or a known
+  interpreter-path one (`VlaInterpret`/`VlaEvalExpression`). A heuristic, not a
+  parser — stated as plainly as `DynamicGet`/`DynamicCall`/`DynamicSet` already
+  state it about themselves — so it can miss a form buried inside a helper
+  macro, or over-count a coincidental head-position match; good enough for a
+  coverage *report*, the same tolerance `check_id_registry.ps1`'s own token
+  regex already has.
+  **Run 2026-08-19: 11 of 65 forms have a direct pin under both backends.**
+  Three buckets, not one, because collapsing them would misreport a settled
+  decision as an open gap: 3 forms (`raw`/`deflambda`/`lambda`) are IN.5's own
+  adjudicated export-only set — no interpreter pin is correct there, not
+  missing. 10 forms have an emitter pin and no interpreter one (`sub`/
+  `function`/`include`/`return`/`quote`/`at-line`/`doc`/`*`/`=`/`<=`). 9 have
+  an interpreter pin and no emitter one (`obj-set!`/`for`/`for-each`/`while`/
+  `do-until`/`select`/`exit-do`/`case`/`case-else`) — `obj-set!` is the
+  sharpest of these: `VLA.bas` genuinely implements it (`Case "obj-set!"`,
+  confirmed by reading the emitter directly), so this is a real pin gap, not
+  an unsupported form, exactly the asymmetry SD-5 exists to catch. 32 forms
+  have neither a direct pin under this scan — **not proof they are
+  untested**, see the honesty note below, but proof no isolated, hand-written
+  VLA-level pin exists for them under either backend today.
+  **The finding this instrument was built to surface, not fix — and the
+  reason AS.8 outranked a smaller-scoped task once it existed:** of the 21
+  operator rows in the catalog (`+`/`-`/`*`/`&`/`/`/`\`/`=`/`<>`/`<`/`>`/
+  `<=`/`>=`/`and`/`or`/`xor`/`mod`/`is`/`like`/`imp`/`eqv`/`not`), a direct
+  read of `VLA_Interpreter.bas`'s own `EvalExpr` (not the scan — the actual
+  `Select Case`) shows only **three are interpreter-dispatched at all: `+`,
+  `-`, `>`.** Every other comparison and boolean operator — `<`, `<=`, `>=`,
+  `<>`, `=`, `and`, `or`, `not`, `xor`, `mod`, `is`, `like`, `imp`, `eqv` —
+  falls through to `EvalDynamicHead`, which has no case for any of them
+  either (grepped directly), so each would raise a generic "unresolved head"
+  error rather than IN.5's promised worded refusal — none of the 14 are in
+  the Export-Only column, so this is not a declared boundary, it is an
+  unnoticed one. Every existing interpreter test that needs a comparison
+  (IN2.3's `do-until`/`while` pins included) happens to use `>` — not because
+  `>` was chosen for a reason, but because it is the only comparison that has
+  ever worked, which is exactly how a gap like this stays invisible until an
+  instrument like this one is pointed at it. **A second, independent
+  corroboration of IN.10's own finding, by a completely different method:**
+  this scan flagged `return` as emitter-only with zero interpreter evidence;
+  a direct grep of `VLA_Interpreter.bas` for `"return"` (done while scoping
+  IN.10, not this item) independently found zero mentions anywhere in the
+  file — two unrelated methods agreeing is exactly the kind of confirmation
+  AS.8's own text promises ("implementing each form twice forces the project
+  to state what the form means"). **Named, not built, and deliberately not
+  this item's job:** the operator gap above is a real, load-bearing hole in
+  the interpreter's core language — a program testing `if x is less than 5`
+  fails today — but AS.8 is an instrument, not a fix; whether it becomes its
+  own IN.* item (a `~days`-or-less chokepoint, most likely — the emitter's
+  `EmitChain` already shows exactly what each operator lowers to) is a
+  separate bet for the next betting-table round, per this file's own "buy
+  the decision now, defer the artifact" rule once someone actually spends the
+  paragraph naming it. **Resolved (IN2.7), same session:** new `EvalOpChain`
+  (`VLA_Interpreter.bas`) gives all 18 of the missing operators one shared
+  mechanism, mirroring `EmitChain`'s own — native VBA operators on the raw
+  Variant, a literal left-to-right fold matching `EmitChain`'s generated text
+  exactly, not mathematical range-chaining (`(< 3 2 1)` is `True`, not
+  `False` — pinned deliberately so the fold model reads as intended, not a
+  bug). `>` was folded into the same mechanism, closing a second, smaller
+  gap this pass found in passing: its old bespoke Case only ever read its
+  first two operands, silently dropping a third where `EmitChain`'s own text
+  supports N-ary chains. `is` has no pure pin (needs real object identity,
+  deferred to a live-host test, same "not exhaustive" precedent
+  msgbox/inputbox already set for this suite). Re-running this item's own
+  scan afterward confirms it: 11/65 → **14/65** forms now pinned under both
+  backends (`*`/`=`/`<=` moved into the shared bucket; the other 15 show as
+  "interpreter-only" because no *emitter*-side raw-VLA pin exists for them
+  either — a real but separate, lower-priority AS.1/AS.2-shaped gap, not
+  touched here). **Named, not fixed, because it is unrelated:** an operator
+  in statement position (a bare `(+ 1 2).` as a whole sentence) is refused
+  at transpile time by the emitter's own guard but silently
+  evaluated-and-discarded by this interpreter's `ExecStmt` fallback — true
+  before this pass for `+`/`-`/`>` and still true after it for all 21.
+  **What this pass does not do, honestly:** count
+  coverage that comes through `instructions.txt`/`AssertEnglish`/`TryEnglish` —
+  those calls carry English sentences and expected-fragment strings, not raw
+  VLA source, so a form exercised only via an English rule (most of Grammar's
+  own 500+ pins) never produces head-position VLA text for this scan to find;
+  the 32-form "neither" bucket is therefore an upper bound on the real gap,
+  not a tight one, and is reported as such rather than overclaimed. Not
+  wired into `VlaSelfTest` — same reasoning F.12 gave for
+  `check_id_registry.ps1`: a version-close step a human runs, not a per-run
+  gate. `~days`, as scoped.
+- ⬜ **AS.3 — mutation testing.** Break the emitter in N known ways; assert the
+  suite notices each. The only way to learn whether pins are load-bearing.
+  `~weeks`
+- ⬜ **AS.4 — property tests.** Round-trip, expansion idempotence, "no program
+  crashes the reader." *Note, updated 2026-08-29:* the round-trip half is no
+  longer a seed — G-RENDER shipped it as `EnglishRenderSelfCheck` (116/116
+  single-form rules rendered, 115 round-tripped to the identical form).
+  Remaining scope: expansion idempotence and reader robustness, plus one
+  upgrade once `VLA_Unify.bas` exists (see `PROLOG` v1): the round-trip
+  assertion becomes a unifier identity (one-way-match the re-parsed form
+  against the original, zero free variables) instead of a separate
+  form-equality walk, so the property test and the product feature share
+  one prover. `~weeks`
+- ⬜ **AS.5 — reader fuzzing.** Refuse in words, never crash, never hang.
+  `~weeks`
+- ✅ **AS.6 — corpus-family contract in CI.** *Already SD-6.* **Built:** SD-6
+  claimed absence of `instructions.txt`/`english.vla`/`alonzo.vla` "already"
+  failed the suite; auditing every corpus-file touch in `VlaSelfTest`'s
+  dispatch chain found that was true for none of the three under a genuine
+  absence. `english.vla`'s absence crashed the suite mid-run
+  (`TestDotCount`'s bare `VlaDotCount` call - `FindDevFile` raises loudly on
+  a miss, and VBA has no try/catch, so the unguarded raise propagated out of
+  `VlaSelfTest` entirely, the same hazard class as L2.1/L2.2).
+  `alonzo.vla`'s absence ALSO crashed it (`TestAlonzoLib`, caught only by this
+  pass's own adversarial verification, not by the first read of that Sub -
+  its `FindDevFile` call was equally bare, and the `Dir$` recheck
+  immediately after it was dead code, since `FindDevFile` never returns ""
+  on a miss, only raises). `instructions.txt` was never checked by `VlaSelfTest`
+  at all - only by the separately-invoked, already-guarded `VlaWriteGoldens`.
+  New: `VlaCorpusFamilyOk` (`VLA_Tests.bas` - one function, checks all three
+  via `FindDevFile`, names every missing file, not just the first) and
+  `TestCorpusFamily` (dispatched FIRST in `VlaSelfTest`, so a missing corpus
+  file is named immediately instead of surfacing as an unrelated failure -
+  or a crash - later in the run). Both `TestDotCount` and `TestAlonzoLib` now
+  guard their `FindDevFile`-reaching calls with the same `On Error Resume
+  Next` / capture `Err.Description` / `On Error GoTo 0` idiom `TryTranspile`/
+  `TryEnglish` already established elsewhere in this file. Verified by an
+  adversarial-verification workflow (independent agents auditing crash-safety
+  and SD-6 completeness against the live diff) that caught the `TestAlonzoLib`
+  gap a solo read had missed and confirmed the fix as written; a third,
+  convention-compliance pass hit a session limit before completing and was
+  not re-run, so that angle rests on this session's own established-idiom
+  match rather than an independent check. **What this does not do:** "CI"
+  here means `VlaSelfTest` itself, this project's de facto unattended gate
+  (host-independent since F.11) - there is no separate GitHub-Actions-style
+  pipeline; wiring one up, if ever wanted, is a distinct, unscoped future
+  item. `~hours`
+- ✅ **AS.7 — suite runtime budget.** **Built:** `VlaTimeItSelfTest`
+  (`VLA_DevRig.bas`, AS7.0) — `VlaTimeIt`'s own suite-runtime counterpart,
+  same shape (workbook-Name baselines, `CURRENT` printed next to
+  `PREVIOUS`), not anything wired into `VlaSelfTest` itself. Two legs,
+  each run once (a multi-second suite pass, unlike `VlaTimeIt`'s small
+  legs averaged over reps): pure (`VLA_Tests.VlaSelfTest`) and host
+  (`VLA_Tests_Host.VlaSelfTestHost`). First live baseline, owner-run:
+  pure 8957 ms, host 6703 ms. **What this is actually for, honestly:**
+  the motivating concern is AS.3 (below) — a mutant that turns a loop
+  infinite looks, from the VBE, identical to one that's merely slow,
+  since VBA has no per-statement timeout. This tool cannot watch a run
+  WHILE it hangs — if the suite never returns, `Timer` never reports
+  and nothing prints, the same limit `VlaTimeIt`'s own Run leg has
+  always had. What it gives instead is the number to hold in your head
+  going into AS.3: "ordinary is ~9s pure / ~7s host," so a VBE still
+  frozen at 10x that reads as stuck, not slow. No self-test pin, no
+  automated pass/fail threshold on the numbers themselves — same
+  reasoning already on record for `VlaTimeIt`: a threshold could only
+  fire AFTER a hang a human already has to kill by hand, so it adds
+  noise on a slower dev machine, never real signal. **Related, same
+  session, not itself part of AS.7's scope:** `VlaSelfTests` and
+  `VerifyReports` (`VLA_Tests_Host.bas`, AS7.1/AS7.2) both gained a
+  comprehensive final summary — counts and full failure text for both
+  of their halves, printed together at the very end instead of a bare
+  binary verdict — an owner request surfaced while scoping AS.7, plus
+  two correctness fixes to `VerifyReport`'s "no Output sheet" early
+  exit and a Collection the three host-side checks used to share
+  without resetting. Owner-verified live (all four counts above are
+  from that run). `~hours`
+
+- ⬜ **AS.9 — grammar coverage against real external text.** `AS.1`
+  measures test density per rule; nothing measures what fraction of a
+  *real* procedure Frazaro's corpus can express. A fixed sample of
+  external SOP text (public procedure manuals, help-forum questions, a
+  recorded-macro corpus) run through Check, with the refusal rate
+  published alongside the existing test counts. *Why now:* the moat is
+  described as "a curated dialect plus a corpus of tested phrasings"; at
+  122 rules that claim is currently unmeasured, and this is the instrument
+  that would measure it, the same family as `AS.1`/`AS.2`/`AS.8`. `~days`
+
+---
+
+# 🗣 LANGUAGE · COMPATIBILITY
+*Keeping promises to files you cannot see. specimens: 1 (the first-user Undo
+report — the standing override's founding incident).*
+
+**Split, because Hyrum's Law arrives AT the beta, not after it.** The previous
+revision gated the whole tranche on first contact and then placed its only
+before-contact item behind the gate.
+
+**Before contact (policy, hours):**
+
+- ✅ **CO.1 — surface deprecation policy.** Retired spellings refuse with *"that
+  spelling was retired; write X instead"* rather than "I don't understand."
+  *One refusal path.* It must exist **at** first contact, not be scheduled from
+  it — it is the difference between a migration and an abandonment. **Ratified,
+  mechanism named:** until LX.2's catalogue exists, a retired spelling's
+  refusal is a plain, hand-written message routed through the same
+  consolidated location-formatting F.6 just built (`VLA.bas`'s `LabeledLine`/
+  `AtLineSuffix`, `VLA_English.bas`'s `LineTag`) — not a new mechanism, just a
+  new message text the day a first spelling is ever retired. No spelling has
+  been retired yet, so nothing fires today; the policy exists so the first one
+  isn't invented under pressure. `~hours`
+- ⬜ **CO.2 — the frozen compatibility corpus.** *SD-4 is the promise and is in
+  force now; the file is bookkeeping.* `~days`
+
+**After contact (tooling, weeks):**
+
+- ⬜ **CO.3 — `requires:` in phrasebooks** plus a version stamp **and a backend
+  stamp** inside generated modules, so a support question is answerable from the
+  workbook alone. `~days`
+- ⬜ **CO.4 — grammar semantic versioning.** `~days`
+- ⬜ **CO.5 — the migration tool.** Worthless until there is history to migrate,
+  but CO.1 must exist first or there is nothing to migrate *to*. `~weeks`
+
+---
+
+# 🗣 LANGUAGE · GRAMMAR
+*The corpus. The moat, and the reason everything else exists. It has no
+position in this file, because under SD-12 it never stops. specimens: 0 until
+PI.2.*
+
+**This section does not "open."** The previous revision carried a blanket gate —
+*opens only after F.1, F.2, F.4, IN.1, LX.7 and EN.3* — and that gate was wrong
+in a way worth naming, because it is the single line that made the corpus read
+as dessert. Audited section by section, those six items block **twelve rules of
+G-FORMAT and four composite sections**, and nothing else. F.2 does not block a
+thin rule. F.4 blocks no rule anybody here writes. IN.1 blocks no phrase rule at
+all. EN.3 blocks number formats. A gate stated at tranche granularity postpones
+seventy rules to protect twelve, and it compounds every version it survives.
+
+**What is genuinely blocked, and by what:**
+
+| Section | Blocked by | Free to ship today |
+|---|---|---|
+| G-FORMAT (number formats, ~12 rules) | F.1, EN.3 | — |
+| G-FORMAT (the rest, ~58 rules) | F.1 | ✅ |
+| G-STRUCT, G-ROWLOOP, G-TEXT, G-SORTFILTER | F.1 | ✅ |
+| G7, G8, G11r, G-PATH | F.1 | ✅ |
+| G6, G-TABS | F.1 | ✅ |
+| G-PIVOT, G-FILES, G-TABLES, G-RENDER | F.1, F.2 (+ G6, L-PIVOT-HELPERS for pivots) | — |
+| G9 | pilot evidence | — |
+
+*Correction to the row above:* none of G-PIVOT, G-FILES, G-TABLES, or
+G-RENDER is blocked any more - 5/8, 6/16, and 1/13 surfaces
+respectively already shipped through F.2 for the first three (see each
+section's own entry below for the detail - L-PIVOT-HELPERS in particular
+turned out not to be a distinct thing to build at all, just this
+codebase's existing `VLA_Runtime.bas`/`TryRuntimeHelper` mechanism,
+already proven), and G-RENDER shipped a general rendering mechanism
+covering the whole loaded corpus (its own entry below has the detail).
+F.2 itself is now ✅ - its own closure bar (all four sections shipping
+at least one template) is met.
+
+**F.1 is the one universal prerequisite, and it is one sentence of doctrine.**
+Everything else is a section-level dependency. That is the whole correction.
+
+🔒 **SD-7 governs sequencing.** The `pareto.txt` order below is a *prediction*
+and is superseded, section by section, by PI.4's gap log the moment one exists.
+G-TAIL always said this about itself; it is true of the whole tranche.
+
+- ✅ **G11r** — functor carry-through revision. Alpha 5's own definition,
+  recovered from ALPHA5_ROADMAP.md once the Alpha ledgers were copied
+  into this repo: the template-face remainder G11 explicitly deferred —
+  `wraptext`/`hidden`/the `numberformat` family — as carried functors,
+  by exactly G11's fired-only lockstep method (rule template and its
+  `test:` line rewritten by the same textual substitution, so they
+  cannot drift). **Built:** four paired rules (`wrap`/`unwrap text`,
+  `hide`/`unhide row`, `hide`/`unhide column`, `format cell as
+  currency|percent|date`) folded into four alternation rules on G11's
+  own `{d:merge|unmerge}` precedent, minting nine single-purpose
+  functors (`wrap-text`, `unwrap-text`, `hide-row`, `unhide-row`,
+  `hide-column`, `unhide-column`, `format-as-currency`,
+  `format-as-percent`, `format-as-date`) whose bodies bake in the
+  literal the old generic macros (`set-wrap-text`, `set-row-hidden`,
+  `set-column-hidden`, `set-number-format`) took as a parameter; those
+  four generic macros are retired (nothing else in the corpus called
+  them). `scripts/english.vla` only — `instructions.txt` never
+  exercises these phrases, so `instructions_golden.vla`/`.vba` are expected
+  to stay byte-identical; `TestG11r` (`VLA_Tests_Grammar.bas`) pins the
+  antonym-pair functor (proving `{d}` selects the right macro *body*,
+  not just the right member name) and the three-way `format-as`
+  functor. Awaiting VlaSelfTest + golden-diff verification.
+- ✅ **G7** — slot defaults. *Pays into:* nearly every rule with an optional `on
+  sheet {s}` clause; shipping it late means editing hundreds of rules.
+  **Built:** `{name:category=text}` in `VLA_English.bas` — `IsSlotTok`
+  splits an optional `=text` off the category (pure substitution, never
+  re-parsed); `TryPhrase`'s slot matcher now soft-fails into the default
+  instead of a hard `NoteFail` when one exists, and every parser it can
+  fall back through (`ParseExpr`/`ParseCond`/`RefShapeOk`/alternation)
+  already leaves position untouched on its own failure, so falling back
+  costs no token; `ExpandedSignatures` grows a `""` (absent) branch for
+  a defaulted slot, the same present/absent duality `IsOptTok` gets, so
+  it audits as one rule, not two. `BuildDispatchIndex` needed no change
+  — any typed slot already forces a rule universal, the same bucket a
+  default would otherwise earn. **Shipped example** (the roadmap's own):
+  `insert row [at] {n:expr=1}` — `[at]` rides G1's existing optional-
+  literal machinery so the whole clause can vanish together, not just
+  the number: "Insert row at 5." and "Insert a row." (→ row 1) both
+  match one rule. `TestG7` (`VLA_Tests_Grammar.bas`) pins present-wins-
+  over-default and both-absent-uses-default. `instructions.txt` never says
+  "insert row", so no golden is expected to move. Awaiting VlaSelfTest
+  + golden-diff verification.
+- ✅ **G8** — number words and ordinals. **Built:** `NumberWord`
+  (`VLA_English.bas`'s tokenizer table) extended from zero–twelve to
+  zero–twenty — safe unconditionally, checked against the whole vocab
+  first, none of the eight new words claimed anywhere else. Ordinals
+  (first–twentieth) are deliberately **not** at the tokenizer: `"first"`
+  is already reserved by `mFnOf`'s `"first of X"` list-accessor idiom
+  (`first of found-items` → `vlafirst`) and by a shipped pattern-literal
+  rule (`"first {n} letters of"`); a blanket rewrite the way cardinals
+  get one would silently break both every time "first" appeared
+  anywhere. New `OrdinalWord` is instead checked only inside
+  `ParsePrimCore`'s expr grammar, reached only once the existing
+  `"<word> of <value>"` check has already failed — so `"first of X"`
+  keeps first claim whenever `"of"` actually follows, and the
+  pattern-literal rule (never routed through this expr grammar at all)
+  is unaffected regardless. **Shipped example:** a second `delete-row`
+  rule, `delete {n:expr} row`, alongside the existing `delete row
+  {n:expr}` — genuinely different word orders (quantity-after-noun vs.
+  ordinal-before-noun), so two rules sharing one macro, not an
+  alternation on one; `"the"` is a dropped noise word either way, so it
+  has no place in the pattern. `TestG8` (`VLA_Tests_Grammar.bas`) pins
+  a cardinal past twelve, a bare ordinal, and — the pin that actually
+  justifies the design — `"first of X"` still resolving to `vlafirst`
+  rather than being shadowed by ordinal `"first"` → 1. Awaiting
+  VlaSelfTest + golden-diff verification.
+- ✅ **G6** — list-valued slots. 🔒 *Pays into:* pivots, multi-column sorts,
+  dropdown items - not hypothetical: `G-PIVOT`'s own still-open
+  `pivot-rows`/`pivot-columns`/`pivot-filters` and `L-PIVOT-HELPERS`
+  both name this as their blocker, `dropdown-list` is `!~` for the same
+  reason, and `pareto.txt` section 10 deliberately sequences its whole
+  pivot corpus *after* G6 ("the composite sentence is unwritable
+  without them, and building it twice is a waste"). Also lets
+  `sort-two`'s own hard-coded two-column special case generalize to N
+  columns instead of a `sort-three`/... proliferation.
+
+  **Scoped this session, code written, not yet owner-verified live.**
+  Traced against the real code before proposing anything, the way
+  every scoping pass on this document is supposed to: needs ZERO
+  `ExpandMacros`/LISTOPS engine involvement. LISTOPS's own `list`/`car`/
+  `cdr` operate on macro-expand-time quote-literal data only and never
+  become a runtime value (LISTOPS-STDLIB's own "different family from
+  the runtime accessors" line) - a pivot's field list is the opposite,
+  a real value the emitted/interpreted PROGRAM needs at Excel-
+  automation time, so conflating the two would breach the exact
+  LISTOPS-PURITY wall this document keeps warning future sessions away
+  from. This is Tier-1 grammar-plus-runtime-expression work instead,
+  nowhere near the METAMETAMACRO LINE.
+
+  **The mechanism, two halves:** (1) `TryPhrase`'s own per-category
+  slot dispatch (`VLA_English.bas`) already produced the same output
+  shape - a quoted VBA string literal - for every one of `text`/
+  `range`/`cell`/`column`/`sheet`/`color`, differing only in which
+  shape-check (`RefShapeOk`) ran first; that per-item logic was
+  extracted into `MatchRefToken` so a new `{name:cat-list}` case can
+  loop it, comma-separated, instead of duplicating it. (2) A new tiny
+  runtime primitive, `array`, given an explicit case in both backends'
+  own head-dispatch `Select Case` (`EmitExpr`, `VLA.bas` → a real VBA
+  `Array(...)` literal; `EvalExpr`, `VLA_Interpreter.bas` → a real
+  Variant array) - explicit rather than leaning on the compile side's
+  generic function-call fallback (which would happen to also work,
+  VBA being case-insensitive), the same class of implicit-fallthrough
+  risk AS.8's own operator-gap finding already priced.
+
+  **Separator design, adjudicated directly rather than resolved by
+  guessing:** Oxford comma REQUIRED, owner's own ruling, which turned
+  out to make the parser strictly simpler, not just grammatically
+  correct - "and" is only ever consumed as a silent no-op immediately
+  following an already-consumed comma, never as a standalone
+  separator, so there is no lookahead against the surrounding pattern's
+  own next literal anywhere in this design. `pareto.txt` section 10's
+  own illustrative sentence, "with rows of A, B and columns of C",
+  proves the point live: the rows list stops cleanly at "B" (no comma
+  precedes "and"), and "and columns of" falls straight through to the
+  sentence's own next clause with zero special-casing. A genuinely
+  dropped Oxford comma on a real 3-item list produces the ordinary "I
+  understood '...' - then expected X but found 'and'" refusal every
+  other slot failure already gives, not a silent misparse - the missing-
+  comma teaching moment falls out of existing machinery, not new code.
+
+  **Item typing, also adjudicated directly:** generic `<category>-list`
+  (`{c:column-list}` reuses `{c:column}`'s own `RefShapeOk` check
+  unchanged), not a single hardcoded `field-list` name - owner's own
+  call, weighing the marginal implementation cost against error-message
+  clarity for a real second named consumer (multi-column sort wants
+  column-shaped items, not text-shaped). Deliberately does NOT cover
+  `expr`/`cond` list items - those don't produce a plain string `val`
+  the way the six `RefShapeOk`-checkable categories do, so a list of
+  those needs genuinely different plumbing; no named consumer needs it
+  today, so it is named as a boundary here rather than built on
+  suspicion. **Housekeeping:** `pareto.txt`'s own design prose says
+  `{f:field-list}` - the real future rule spelling under this mechanism
+  is `{f:text-list}`, a one-line prose correction when pivots ship, not
+  a functional change.
+
+  **Tested, not yet live-verified:** `TestG6` (`VLA_Tests_Grammar.bas`)
+  pins both item categories (text-shaped, column-shaped), the two-item
+  and Oxford-comma three-item forms, a single-item list, the real
+  two-clause disambiguation sentence from `pareto.txt` itself, a
+  dropped-Oxford-comma refusal, and a bad column-list item still
+  shape-checking per item. `TestArrayPrimitive` (`VLA_Tests.bas`) pins
+  `array` directly against both backends (structurally on the
+  interpreter side - `CStr` on a VBA array raises Type mismatch, so
+  `CheckV` can't be used there), independent of whether `TestG6`
+  happens to exercise a given shape. `VLA_CORE_VERSION`/
+  `VLA_ENGLISH_VERSION`/`VLA_TESTS_VERSION`/`VLA_TESTS_GRAMMAR_VERSION`
+  all bumped to `G6.0`. No real caller wired into the corpus yet -
+  shipped as infrastructure, matching how LISTOPS-STDLIB's own
+  functions shipped ahead of any real caller too.
+
+  **First live run: crashed immediately, mid-`VlaSelfTest`, on `TestG6`'s
+  own vocabulary load - a real bug, not caught by tracing `TryPhrase`
+  beforehand.** `ValidateRuleItems` (`VLA_English.bas`) is a SEPARATE,
+  registration-time gate with its own hardcoded category whitelist -
+  "G1: registration-time validation... refuses at load, where the
+  test: gates already live" - completely independent of `TryPhrase`'s
+  own matching-time `Select Case cat`, and missed entirely by this
+  session's own trace, which only followed the matching path. Every
+  new `{name:cat-list}` rule failed to even LOAD: "pattern 'list fields
+  {f:text-list}': unknown slot category ':text-list'." Fixed by adding
+  the six new categories to this whitelist too. **Named while fixing
+  it, not yet fixed - three further places share this bug's shape,
+  confirmed live-unreachable today rather than assumed safe:**
+  `CandidateShapeOk` and `RenderSlotValue` (both G-RENDER's own
+  forms-back-to-sentences direction) and `BuildSyntheticBindings`
+  (G-RENDER's own round-trip self-check) each have their own
+  category dispatch that doesn't know about the six list categories -
+  `RenderSlotValue`'s own `Case Else` would raise "no renderer for slot
+  category" outright if ever reached. None is reachable by anything in
+  the current corpus or self-test (no real rule uses a list category
+  yet, and `TestG6`'s own synthetic rules are loaded and reset within
+  one Sub, never seen by a later render pass) - deferred rather than
+  fixed blind, the same "don't build past what's load-bearing"
+  discipline this document holds everywhere else, but named here so a
+  future session adding a real `{f:text-list}` corpus rule (pivots)
+  finds this note before it finds the crash.
+  **Second live run, owner-verified: tests and goldens pass clean.**
+  `~days`
+- ✅ **G-PATH** — the `{p:path}` slot type. **Built and owner-verified
+  live** (`VLA SELF-TESTS: pure PASS (889/889), host PASS (119/119)`;
+  `VERIFY REPORTS: emitter PASS (141/141), interpreter PASS
+  (141/141)`): `MatchPathToken` (`VLA_English.bas`) rides the existing
+  G2 typed-ref-slot machinery rather than a bespoke per-rule parser
+  (G12's `Use library "..."`. precedent) - a quoted literal is
+  accepted as opaque string content, an unquoted bareword as a
+  variable reference (matching the six already-shipped `{:expr}`-based
+  file rules' own ergonomics on the six file rules that shipped ahead
+  of this - see G-FILES below - not migrated this pass).
+  `StrayCharHint` also gained a dedicated backslash hint, since a real
+  unquoted Windows path dies at tokenization - before any slot ever
+  sees it - not at the slot matcher's own colon-lookahead refusal.
+  Test coverage: `TestGPath`, against a synthetic probe rule (no real
+  corpus rule uses `{:path}` yet - that's G-FILES's own remaining
+  scope, not this item's; this entry is closed once the SLOT TYPE
+  itself works, which it now does).
+  *Security note, from `docs/CONSULTANT.md`'s own audit, not yet acted
+  on and NOT resolved by this entry:* whatever calls `{:path}`'s bound
+  value against the real file system must resolve relative paths
+  safely against the active workbook, refuse UNC/traversal patterns a
+  user did not intend, and respect Windows' long-path limits - that's
+  runtime/Tier-2 territory, not grammar/slot territory, so it's G-FILES's
+  bar to clear when it builds real file-I/O helpers against this slot
+  type, not this entry's. Named here so the first Tier-2 implementation
+  attempt does not have to rediscover it live. See `SEC.0`'s own threat
+  model for where this fits.
+- ⬜ **G-FORMAT** — formatting and number-format sections (~70 rules, mostly
+  thin). Pure Tier-1, no new plumbing, and where a beta looks thin or finished.
+  `~weeks`
+- ✅ **G-STRUCT** — rows/columns/copy/paste/clear (~24 rules: hide/unhide,
+  group/ungroup, insert/delete rows, move-column, freeze-panes, seven
+  copy/paste variants, clear/delete-shift, band-rows, header-row,
+  fill-series). Highest per-rule value in real SOPs. Real-state
+  regression coverage wired into `instructions.txt`/
+  `VerifyReportChecks` rather than one-time manual testing (the
+  session's own TER-3 finding, banked in TERRARIUM, was exactly the
+  gap this closes for G-STRUCT specifically). **Owner-verified live:
+  `VERIFY REPORTS: emitter PASS (141/141), interpreter PASS
+  (141/141)`.** Surfaced and closed TER-4 along the way - a
+  column-structural-delete bug (`VlaTrimSheet`) that had nothing to do
+  with G-STRUCT's own new rules; full incident in `docs/TRENCHES.md`
+  Part Two, lesson banked in `docs/LESSONS.md`. G-FORMAT and G-PATH,
+  scoped alongside G-STRUCT in the same session, were not reached -
+  still ⬜ below, unstarted.
+- ✅ **G-ROWLOOP** — the row-loop family. *Underrated:* most SOPs are one of
+  four shapes with the middle filled in. **A finding before anything shipped:**
+  a first draft invented a new sentence surface, `For each row from <a> to
+  <b> [step <s>]:` / `... down to <b>:`, sharing the core `(for ...)` form —
+  written, self-verified, and only then checked against the live corpus,
+  where `instructions.txt` (the file's own "true north," PI.2's words) turned out
+  to already demonstrate `Count <name> [down] from <a> to <b>:`
+  (`VLA_English.bas`'s `Case "count"`), which covers ascending and the safe
+  bottom-up descending shape under different phrasing for the same
+  `(for ...)` form. Shipping both would have meant two spellings for one
+  loop — exactly the promise-proliferation SD-4/CO.1 exist to prevent — so
+  the new surface was reverted whole rather than kept alongside it. **What
+  was actually missing, and what shipped:** a custom step, for skip-N row
+  loops ("every other row," bottom-up in twos) — `Case "count"` gained an
+  optional `step <s>` clause; a `down` step is negated in the emitted form,
+  `(- 0 s)`, rather than asking the user to spell a negative number, since
+  this grammar has no unary minus in words. **Needed no emitter or
+  interpreter change:** both `EmitFor` (`VLA.bas`) and `ExecFor`
+  (`VLA_Interpreter.bas`) already evaluate the step slot as an arbitrary
+  expression, not just a literal — F.1's grammar/emitter ABI paying for
+  itself exactly as designed. **Composes for free, checked not assumed:**
+  the loop variable (commonly named `row`) is picked up directly by the
+  pre-existing `cell in column {c} row {n:expr}` expression grammar
+  (`ParsePrimCore`) and by `Set X to last filled row of column C.` for the
+  upper bound — neither needed a single line of new plumbing, confirmed by
+  reading both call paths, not by assumption. **Five pins**
+  (`TestGRowLoop`, `VLA_Tests_Grammar.bas`, dispatched from `VlaSelfTest`
+  right after `TestG8`): plain ascending and plain descending as
+  no-regression checks, ascending-with-step, descending-with-step (proving
+  the auto-negation), and the column-row composition. Two corpus examples
+  added to `instructions.txt` (a stripe pattern ascending, a skip-2 descending
+  walk), both reusing the file's own existing `f-last` variable. Awaiting
+  `VlaSelfTest` + golden-diff verification. `~days`
+- ✅ **G-RENDER** — **the rendering direction: forms back to sentences.**
+  *New, and the one genuinely missing capability the audit found.* A dependency
+  of four separate horizons — the no-source-language program (write in Spanish,
+  read in Japanese, same workbook), legacy import, readable diffs of a
+  procedure, and the audit story — and it appeared nowhere in this file, half
+  implied by AS.4's round-trip property test and filed as assurance rather than
+  as a thing the product can do. *Depends on:* F.2. `~weeks`
+  **Scoped, not built** — a design pass against the actual code (`mPatForms`/
+  `mPatItems`/`mPatTexts` in `VLA_English.bas`, all three parallel-indexed
+  per rule already) and the `make-table` rule (line 671-673 of
+  `english.vla`), no implementation written this pass. The round-trip is
+  symmetric at the macro-call layer, not the fully-expanded VBA layer, so
+  rendering never has to reason about `defmacro` expansion — confirmed by
+  F.2's own note that a template's real nesting depth lives in the
+  `defmacro` body, never the template, because F.1's discipline keeps every
+  template shallow.
+  **The mechanism:** a new `UnifyForm(templateForm, concreteForm)` — the
+  literal inverse of `FormSubstitute` — walks both forms in parallel: a
+  template atom that reads exactly `{name}` binds `name` to the whole
+  concrete subform, unconditionally (mirrors `FormSubstitute`'s own
+  bare-brace case); a template atom with `{name}` GLUED onto literal text
+  (the `make-{d}`/`xl{d}`/`format-as-{d}` idiom, ~11 spots in
+  `english.vla`) requires the concrete atom to be a non-list string whose
+  known prefix/suffix strips clean, with the remainder checked against
+  that slot's alternation branches (read from `mPatItems`, which already
+  carries category/branch info `mPatForms` does not); a literal atom must
+  match text-for-text; two lists must match length-for-length,
+  element-by-element. Once matched, rendering re-scans `mPatItems(idx)`
+  (the SAME slot scan `TryPhrase` already does forward) to find where each
+  `{name:category}` sits in `mPatTexts(idx)`'s English pattern, and splices
+  each binding in per its category.
+  **Two real design questions, now resolved with corpus evidence, not
+  guesses:** (1) *Ambiguity* is not hypothetical — it is already shipped.
+  `delete row {n:expr}` and `delete {n:expr} row` (lines 222-239) produce
+  the byte-identical template form `(delete-row {n})`: two rules, zero
+  wildcard difference, genuinely tied. Worse, `put today into cell
+  {r:cell}` → `(set! (range {r}) (date))` (line 73) and `put {e:expr} into
+  cell {r:cell}` → `(set! (range {r}) {e})` (line 80) structurally overlap
+  by construction — the second ALWAYS also matches anything the first
+  matches, because a bare `{e}` slot unifies with any subform, including a
+  literal `(date)` call. (`set!` alone heads 86 of ~111 rules in
+  `english.vla`, so this is not an edge case — a plain head-symbol lookup
+  is not a valid pre-filter; every candidate needs full unification.)
+  **Policy:** score each matching candidate by how many of its template's
+  leaf atoms are literal text (no braces) — most-specific-match-wins; true
+  ties (the `delete-row` pair, where both templates are identical) fall
+  back to first-loaded-rule-wins, the same registration-order precedent
+  G3's own duplicate-shape audit already uses elsewhere in this file.
+  (2) *Per-slot rendering* splits cleanly: `:range`/`:cell`/`:column`/
+  `:sheet`/`:text`/`:var` all bind a single atom and strip/format in
+  place (ranges canonicalize to uppercase on render — a readability
+  choice, NOT restoration: `VLA_Identity.Fold` lowercases every bareword
+  at English-tokenize time, line 1973, before any binding exists, so
+  original casing is provably, permanently gone — confirmed by hand-tracing
+  `instructions_golden.vla`'s own `SalesTable` → stored `"salestable"` →
+  rendered `"salestable"`, never `"SalesTable"`). A bare alternation slot
+  (`{d:bold|italic}`) binds the matched STEM, not the matched surface, so
+  render prints the stem as-is (always legal VLA, occasionally less fluent
+  English — `"ascend"` for a stem/suffix branch like `ascend/ing`, and
+  there is no way to know which surface the writer actually typed).
+  Optional literals (`[key]`, `[at]`) and bindless bare alternations
+  (`into|in`) are dropped from the form entirely by design, so render
+  never prints them — shortest legal reading, always. `:expr`/`:cond`
+  slots are the one case needing a SECOND, separate mechanism: their own
+  small recursive form-to-English unparser mirroring `ParseSum`/
+  `ParseProd`/`ParseCond`'s operator table in reverse (`+`/`-`/`*`/`/`/`&`
+  and the comparisons) — not optional polish, since `:expr` slots appear
+  throughout the corpus, not just in a few rules. Two surface words can
+  parse to the same operator (`"times"` and `"multiplied by"` both read as
+  `*`) so render commits to one canonical word per operator; anything
+  outside the known operator set falls back to `VLA.VlaWriteForm`'s raw
+  flat VLA text spliced into the sentence — always legal-looking output,
+  never a rendering failure.
+  **v1 scope, deliberately deferred:** one top-level template form only
+  (multi-statement/composite rules wait until the single-form case is
+  proven); no whole-procedure assembly (indentation, `defmacro` bodies,
+  multi-statement joining stay text+indentation, same as `EnglishToVla`
+  today per F.2's own entry) — this is ONE form → ONE sentence, matching
+  F.2's own form-path scope exactly.
+  **Suggested build order for whoever picks this up:** `UnifyForm` proven
+  by hand against `make-table` alone (no self-test yet) → the ambiguity
+  policy proven against the two named collisions above (`delete-row`,
+  `put-today`/`put-expr`) → slot-category rendering for the ~85% of slots
+  that are not `:expr`/`:cond` → the standalone expr/cond unparser → a
+  render/re-parse round-trip self-check in `EnglishFormPathSelfCheck`'s own
+  spirit (assert re-parsing the rendered sentence reproduces the identical
+  FORM, never assert text identity — case loss is expected, not a bug) →
+  only then multi-statement templates.
+  **Shipped and live-verified.** The full v1 mechanism is in
+  `VLA_English.bas`: `UnifyForm` (the `FormSubstitute` inverse),
+  `FindRenderRule` (specificity scoring + first-loaded tiebreak) gated
+  by `CandidateShapeOk` (see below), `RenderSlotValue`/`RenderExprForm`
+  (per-category splicing, the expr/cond unparser),
+  `EnglishRenderForm`/`EnglishRenderText` (the public entry points), and
+  `EnglishRenderSelfCheck` (the corpus-wide prover: synthesizes a legal
+  instance of every single-form rule's own template, renders it, and -
+  when the render didn't fall back to raw VLA text for an
+  out-of-scope `:expr`/`:cond` shape - re-parses the sentence and
+  asserts it reproduces the identical form). Live run against the full
+  loaded corpus: **116 single-form rules, 116 rendered, 115
+  round-tripped to an identical form, 0 fell back to raw VLA text, 1
+  failed** - and that one is not a G-RENDER defect (see below).
+  **Two real bugs live verification found, both fixed before this
+  result:**
+  1. A crash (VBA error 450, "wrong number of arguments") on any
+     candidate whose glued-slot head (`{d}-sheet`) matched but whose
+     NEXT literal atom then got compared against a concrete LIST -
+     `UnifyForm`'s literal-atom branch read
+     `(Not IsObject(concreteForm)) And (CStr(concreteForm) = s)`, and
+     VBA's `And` does not short-circuit, so `CStr()` ran on the list
+     regardless - exactly the hazard this file's own `EmbeddedSlotText`
+     comment already named elsewhere, walked into anyway. Fixed to an
+     explicit `If IsObject(...) Then Exit Function` before the `CStr()`.
+  2. A genuine, previously-unscoped ambiguity class: `TemplateSpecificity`
+     scores by brace-count alone, blind to a slot's DECLARED category -
+     `put into cell {r:cell}` and `put into range {r:range}` compile to
+     the byte-identical form and tie every time, as do
+     `...column {c:column}...` and `...column number {c:expr}...`. The
+     tie-break was picking a rule whose own category didn't actually fit
+     the bound value (`"a1:b2"` isn't a valid `:cell`; a bare `1` isn't
+     valid `:column` letters), rendering a sentence that couldn't
+     re-parse. Fixed with a new `CandidateShapeOk` gate that re-runs
+     each candidate's own typed slots through the same `RefShapeOk`
+     check the forward grammar already enforces, disqualifying a
+     candidate outright when its own category doesn't fit.
+  **The one remaining failure is a pre-existing corpus bug, not a
+  G-RENDER defect - see F.4's own entry for the full finding:** rule
+  382's `show cell in column {c:column} row {n:expr}` is permanently
+  shadowed by a core built-in `show {e:expr}` rule and can never
+  actually fire. G-RENDER's self-check found this only as a side
+  effect of re-parsing its own rendered sentence through the real
+  grammar; fixing it is a forward-grammar decision, out of scope here.
+  **Known, accepted v1 gap, not investigated further:** rendered
+  English drops the noise words `mPatItems` already strips at
+  registration (`a`/`the`/`an`/`please`) - `make-table` renders as
+  *"Turn J1:K3 into table called salestable."*, missing the article "a"
+  a human would write. Same policy family as dropping optionals and
+  bare-alternation words (shortest legal reading, always).
+- ⬜ **G-SORTFILTER**, ⬜ **G-TABS**, ⬜ **G-FORMULA**,
+  ⬜ **G-TEXT** — the workhorse middle. `~weeks` each
+- 🟡 **G-FILES — workbooks and files.** Scoped in `scripts/pareto.txt`
+  section 15 (16 surfaces) - this file previously (wrongly) claimed zero
+  templates existed for this section; a cross-check found six already
+  shipped and already running through F.2's mechanism: `open-workbook`,
+  `save-workbook` (as `save-current-workbook`), `save-as` (as
+  `save-workbook-as`), `save-copy` (as `save-copy-as`), `close-workbook`
+  (simplified - closes THIS workbook, not pareto's named-workbook form),
+  `export-sheet-pdf` (as `export-sheet-as-pdf`). None needed the
+  `{p:path}` slot §15's own preamble calls for - each takes `{p:expr}`
+  bound to a pre-set variable rather than an inline quoted literal.
+  **Still open:** `new-workbook`, `export-pdf` (the range variant),
+  `export-csv`, `sheet-to-workbook`, `import-csv`, `import-csv-delim`,
+  `file-exists`, `each-file`, `workbook-folder`, `workbook-name` - the
+  first four of those and the `import-csv` pair carry pareto's own `!`
+  markers (Tier-2 helper) or `?`/`~` (semantic decision / grammar
+  feature), so they're not free wins the way the shipped six were.
+  **G-PATH shipped separately (now ✅, see its own entry above)** - the
+  `{p:path}` slot the section's own preamble called for exists now, so
+  every surface above is blocked on a real Tier-2 COM helper (and, for
+  `import-csv`, its own unresolved `?` adjudication: "Workbooks.Open+
+  copy vs QueryTables vs line I/O + Split"), not on missing grammar.
+  `file-exists` is the cheapest real proof (`Dir(p) <> ""`, no COM
+  state to manage) - the natural next surface to build, and the one
+  that will actually exercise `{:path}` against a live Tier-2 helper
+  for the first time. Whichever surface goes first must also clear
+  G-PATH's own carried-forward security note: resolve relative paths
+  safely against the active workbook, refuse UNC/traversal patterns a
+  user did not intend, respect Windows' long-path limits (`SEC.0`).
+  `~weeks`
+- ✅ **G-PIVOT — pivot tables.** Every surface in `scripts/pareto.txt`
+  section 10 is marked `!` (a Tier-2 helper), which this file previously
+  read as "the convention doesn't exist yet, design it first." Wrong -
+  the convention already exists and is proven: `VLA_Interpreter.bas`'s
+  `TryRuntimeHelper` dispatches any `VLA_Runtime.bas` function by name
+  through `Application.Run` on the interpreter side, plain direct calls
+  on the compile side - one mechanism, already used for real
+  object-model side effects (`VlaEnsureSheet`), not just pure-value
+  helpers. **Shipped:** `pivot-create` - *"Make a pivot table from
+  {r:range} at {b:cell} called {n:text}."* (renamed from "Create a pivot
+  table..." - it collided with the core `Create`-declaration keyword, same
+  class of collision "Create a button called ..." hit earlier) - a new
+  `VLA_Runtime.VlaPivotCreate`
+  (`PivotCaches.Create` + `.CreatePivotTable`, two statements, which is
+  why this one is a Tier-2 helper rather than a `defmacro`: it doesn't
+  reduce to one nested `.` expression the way `make-table`'s single
+  `.Add` call did). Its own `~` marker turned out to describe the
+  section's *other* verbs (`pivot-rows`/`-columns`/`-filters`, which
+  genuinely need G6's `{f:field-list}`), not this one - `pivot-create`'s
+  own slots (`{r:range}`, `{b:cell}`, `{n:text}`) are all grammar the
+  corpus already has. `instructions.txt` now builds a real pivot table
+  from real data and `VerifyReportChecks` asserts it exists under the
+  right name (`PivotTables(name)` raises rather than returning `Nothing`
+  for a miss, unlike `Range.ListObject` - guarded with `On Error Resume
+  Next`, same as the rest of this file's lookups). **Live-verified:** all
+  six `docs/TESTING.md` passes re-run clean - tests and goldens static,
+  a fresh workbook building real pivots through both the compile and
+  interpreter backends with no errors.
+
+  **`pivot-rows`/`-columns`/`-filters`/`-full`: scoped against the real
+  API before any code was written, then built, the same discipline G6
+  itself got.** The API is inherently a per-field-name LOOP -
+  `.PivotFields(name).Orientation = xl...Field` has no "set N fields at
+  once" call - and that loop is genuine Excel-automation-TIME work over
+  a runtime list (G6's own `array` value), not an expand-time one -
+  TABLESPEC-SCALE's own finding that a runtime list needs a runtime
+  loop, never a macro one, applies here directly. **One shared Tier-2
+  helper, not three:** `VlaPivotSetOrientation(tableName, fields, kind)`
+  (`VLA_Runtime.bas`) - `kind` is a plain string (`"row"`/`"column"`/
+  `"filter"`), not the raw XL constant, so the `xl*Field` mapping
+  happens once, inside real host VBA, and never crosses into the VLA
+  layer or the interpreter's own constant table at all (traced
+  `ResolveExcelConstant`'s actual table first - it does not have these
+  three today, and adding them would have been unnecessary work this
+  design avoids entirely). Each of the three verbs is an ordinary
+  `defmacro` baking in its own `kind` literal (`pivot-create`'s own
+  Tier-2-helper-wrapper shape, reused unchanged). **One new plumbing
+  gap, not previously named, found by tracing rather than assumed
+  safe:** none of these sentences name a sheet, and Excel has no
+  `Workbook.PivotTables` - only a per-worksheet one - so a new
+  `FindPivotTableByName` (`VLA_Runtime.bas`) searches every worksheet's
+  own `.PivotTables`, guarding each per-sheet probe the same way the
+  existing G-PIVOT host check already does (`PivotTables(name)` raises
+  rather than returning `Nothing` on a miss).
+
+  **`pivot-full`'s own fork, adjudicated:** its "values of" clause
+  needs `PivotTable.AddDataField` (a genuinely different API from
+  `.Orientation`, per pareto.txt's own `pivot-values-sum`/`-count`/
+  `-avg` split by aggregation), so composing it properly would pull
+  three more unscoped verbs into this pass. Capped to sum-only for v1
+  instead - `VlaPivotAddValues` (`VLA_Runtime.bas`) is `pivot-full`'s
+  own internal plumbing, not exposed as its own English sentence, so
+  this doesn't foreclose a richer per-field-aggregation grammar for the
+  standalone verbs later. Built via an ordinary `defmacro` whose own
+  body is a `begin`-splice of the four parts (`pivot-create`/
+  `pivot-rows`/`pivot-columns`/`vlapivotaddvalues`) - the already-proven
+  mechanism (LISTOPS-BUDGET's own "many independent, never-chained
+  calls carry no depth risk at any count" finding covers this exactly),
+  a deliberately different choice from `TryFormPath`'s own multi-top-
+  level-form join (this bullet's own prior text floated it as a
+  candidate) - that mechanism remains entirely unexercised by any real
+  rule; this pass chose the lower-risk, already-proven path instead of
+  being the first to exercise new engine surface.
+  Checked directly against `TryPhrase`'s own end-of-sentence gate
+  (`VLA_English.bas`) before shipping, not assumed: `pivot-full`'s
+  sentence shares its ENTIRE opening clause with `pivot-create`'s own
+  shorter one ("make a pivot table from... called..."), and `TryPhrase`
+  requires the next token to be the sentence's own terminating `.` to
+  succeed at all - a partial match never counts, so the dispatch loop
+  correctly falls through `pivot-create`'s own (shorter, earlier-
+  registered) rule to `pivot-full`'s own (longer) one for the composite
+  sentence, no ordering hazard.
+
+  **Owner-verified, live: tests and goldens pass, a fresh workbook
+  builds, compiles, and interprets without error.**
+
+  **`instructions.txt` hydrated into a real pivot-construction SOP, not
+  left at a token-sized proof, on the owner's own reasoning: pivoting a
+  data table is arguably the single most common real-world Excel
+  analysis, so this section should be as bulletproof as the rest of
+  the corpus.** The old two-column stand-in is replaced with a real
+  six-column sales dataset (Region/Product/Segment/Channel/Units/
+  Revenue, 6 rows) wide enough that rows/columns/filters/values each
+  have somewhere genuine to point. `SalesPivot` exercises rows/columns/
+  filters as three separate sentences (a 2-item row list, 1-item column
+  and filter lists); `FullPivot` is a second, independent pivot built
+  from the same source data in one composite sentence, using a genuine
+  **3-item Oxford-comma row list** ("Region, Product, and Channel") -
+  the trickiest part of G6's own design, now proven against a real
+  sentence in the real corpus, not just `TestG6`'s synthetic one - plus
+  a 2-item values list, both fields summed. `VerifyReportChecks`
+  (`VLA_Tests_Host.bas`, shared by both backends' own live-run
+  verification, so this covers compile AND interpret automatically)
+  gained real state assertions: every field's actual `.Orientation` on
+  both pivots, and `FullPivot`'s own `.DataFields` checked by
+  `.SourceName` (identity) rather than `.Name` (the auto-generated
+  "Sum of Revenue" caption) - confirming both value fields are
+  genuinely summed, not just that the sentences didn't crash. One real
+  assumption this proved rather than left traced-only: a field name
+  passed as a bare, tokenizer-lowercased word ("region") correctly
+  addresses a `PivotFields` entry whose real header is "Region" -
+  Excel's own case-insensitive name lookup, confirmed live.
+
+  **`pivot-values-sum`/`-count`/`-avg`: scoped, then built, code not
+  yet live-verified.** `VlaPivotAddValues` (`VLA_Runtime.bas`) gained a
+  `func` parameter (`"sum"`/`"count"`/`"average"`, the exact plain-
+  string convention `VlaPivotSetOrientation`'s own `kind` already
+  established), so the three verbs share one helper, same shape as
+  rows/columns/filters. **Generalized past pareto.txt's own pre-G6
+  single-field draft to `{f:text-list}`, owner's own adjudicated call**
+  ("collapsing the semantics of two sentences into one is always a win
+  for brevity") - `"Add Revenue, Cost to pivot X as a sum."` adds both
+  in one sentence. Three separate rules, not one `{d:sum|count|
+  average}` functor (G11r's own precedent would allow it) - also the
+  owner's own call, matching the shape the three orientation verbs
+  already shipped in. **Deliberately left unguarded**, owner's own
+  explicit call: `AddDataField`'s native behavior (calling it twice for
+  the same field adds a second, distinctly-captioned data field, never
+  a silent replace) stands exactly as Excel gives it - "users are
+  allowed to abuse Excel to their own detriment, as always." One real,
+  necessary consequence of the generalization, named rather than
+  glossed over: `pivot-full`'s own already-committed call site needed
+  its one-line update (`"sum"` passed explicitly) to keep its existing
+  v1 behavior unchanged - done as part of this same pass, not left
+  dangling. `instructions.txt` exercises all three functions AND the
+  no-guard decision deliberately: `SalesPivot` gets Revenue summed,
+  Revenue-and-Units counted (proving the multi-field list), and Units
+  averaged - Revenue therefore appears in two data fields (summed and
+  counted) as the live proof that decision is genuinely safe.
+  `VerifyReportChecks` checks by `(SourceName, Function)` pair, since
+  `SourceName` alone can't distinguish Revenue's two entries.
+
+  **Owner-verified, live: tests and goldens pass, a fresh workbook
+  builds, compiles, and interprets without error.**
+
+  **`pivot-refresh`/`-refresh-all`/`-delete`/`-collapse`/`-expand`:
+  scoped, then built, code not yet live-verified.** New
+  `RequirePivotTableByName` (`VLA_Runtime.bas`) factors the lookup-or-
+  raise pair out once it was about to be duplicated a 5th time -
+  `VlaPivotSetOrientation`/`VlaPivotAddValues` refactored to use it too,
+  no behavior change, extensibility over a coin-toss per the owner's
+  own standing default. **`pivot-refresh-all` built as a genuinely
+  narrower alternative to the already-shipped `"Refresh everything."`**
+  (`refresh-everything` → `ActiveWorkbook.RefreshAll`) - a real
+  technical distinction (pivots only, never an external data
+  connection/query), not a decision made on pareto.txt's own say-so;
+  pareto.txt is not treated as an implementation authority here or
+  anywhere in this pass, only as evidence when its own recommendation
+  happens to be independently correct. `pivot-collapse`/`pivot-expand`
+  ship as a pair - this grammar's own standing antonym convention
+  (`hide`/`unhide`, `wrap`/`unwrap`, `merge`/`unmerge`: any action that
+  can be undone should be undoable) - even though pareto.txt names only
+  `pivot-collapse`. Not built via `bool-antonym-family` (that generator
+  assumes one directly-addressable target/property with no loop and no
+  workbook-wide search; this needs both) and named `pivot-expand`, not
+  the generator's own `un-`-prefixing convention, since "expand" is the
+  real word. `{f:text-list}` throughout (`pivot-collapse`/`-expand` can
+  each take several fields in one sentence), matching the same brevity
+  call already made for the rest of G-PIVOT.
+
+  `instructions.txt` exercises all five: `SalesPivot`'s own Region
+  field ends collapsed (a real, distinguishing change from Excel's own
+  `True` default); `FullPivot`'s own Product field is collapsed then
+  expanded, proving the round trip runs end to end, though - named
+  honestly, not overclaimed - the final value alone can't distinguish
+  "reversed" from "never touched," a real limit of checking end-state
+  rather than a trace; a throwaway `TempPivot` proves `pivot-delete`
+  actually removes the `PivotTable` object, `TempTable`'s own
+  precedent. `pivot-refresh`/`-refresh-all` have no new source data to
+  refresh into, so their own proof is necessarily thinner - the call
+  succeeds, not a visible state change - the same limit
+  `VlaPivotCreate`'s own original live-proof comment already accepted.
+
+  **First live run: crashed at `VerifyReport`, run-time error 1004,
+  "Application-defined or object-defined error" - a real bug, not
+  caught by tracing.** `PivotField.ShowDetail`, read or set directly on
+  the field, is unreliable under Compact Form - the DEFAULT row layout
+  `CreatePivotTable` leaves in place, which nothing in this pass ever
+  overrides - because Compact Form's own expand/collapse is actually
+  driven per PIVOT ITEM (the real "+"/"-" control the UI shows), not
+  per field. Fixed in both directions: `VlaPivotSetShowDetail`
+  (`VLA_Runtime.bas`) now loops every `PivotItem` of each named field
+  rather than setting the field directly, and `VerifyReportChecks`
+  (`VLA_Tests_Host.bas`) checks the same way - every item, not the
+  field-level property. Caught before either version was ever
+  committed, in the same live run.
+
+  **Second live run, owner-verified: tests and goldens pass clean, a
+  fresh workbook builds, compiles, and interprets `instructions.txt`
+  without error.**
+
+  **`pivot-layout`, scoped with the owner before any code was written,
+  the same discipline as everything else in this section - pareto.txt's
+  own `.RowAxisLayout xlTabularRow` hint treated as a hypothesis to
+  verify, not a decision already made.** Real forks found and put to
+  the owner directly: (1) which of `XlLayoutRowType`'s three values to
+  expose - **all three** (compact/tabular/outline), the owner's own
+  call, since it's the enum's full range at no extra authoring cost,
+  not just pareto's own "tabular"; (2) verb-authoring shape - hand-
+  typed triplet (`pivot-rows`/`-columns`/`-filters`'s own precedent) vs
+  the `{d:...}` functor (G11r's own precedent, available but passed
+  over twice already in this section for the sibling verb families).
+  Put to the owner as "why was three-separate-verbs preferred," the
+  honest answer traced from G11r's own definition
+  (`method-antonym-family`/`bool-antonym-family`'s hand-written
+  siblings, `format-as-{d}`'s three hand-written macros dispatched by
+  one glued-identifier rule): **the two mechanisms are runtime-
+  identical** - a functor just mechanically mints the same N single-
+  purpose macros a hand-typed triplet would, so the prior "three
+  verbs" choice was a source-consistency preference, not a technical
+  constraint. **Owner's call, once that was clear: use the functor, and
+  retrofit `pivot-rows`/`-columns`/`-filters` and `pivot-values-sum`/
+  `-count`/`-avg` onto it too** - "source brevity is also a selling
+  point, which is the whole 'Lisp macros save time' argument from the
+  very core." Both retrofits are pure source-shape changes, zero
+  runtime behavior change: the underlying macros (`pivot-rows` etc.)
+  are untouched, only the `english-vla` sentence reaching them
+  collapsed from three to one. `pivot-values-avg` renamed to
+  `pivot-values-average` as the one real, necessary consequence, named
+  rather than glossed over - the matched word ("average," what every
+  sentence and `pivot-full`'s own call site already say) has to equal
+  the macro-name suffix for the glue (`pivot-values-{d}`) to resolve,
+  and "avg" didn't; `pivot-full`'s own call site passes the plain
+  string `"average"` to `VlaPivotAddValues` directly and was never
+  touched. (3) scope - whether `pivot-layout` should stay narrowly
+  row-axis form or widen to cover other real report-layout knobs found
+  while tracing the pivot object model: **the owner chose to widen it**,
+  shipping two more genuine, distinct per-field properties in this same
+  pass - `PivotField.Subtotals` (`pivot-subtotals-hide`/`-show`) and
+  `PivotField.LayoutBlankLine` (`pivot-blank-line-add`/`-remove`) -
+  neither named in pareto.txt at all. Three new `VLA_Runtime.bas`
+  helpers (`VlaPivotSetRowLayout`/`VlaPivotSetSubtotals`/
+  `VlaPivotSetBlankLine`), the same shared-Tier-2-helper-plus-thin-
+  defmacro shape as every other pivot verb; `RowAxisLayout` is the one
+  genuine outlier in the whole family - table-WIDE, not per-field, and
+  with no `PivotTable`-level readback of its own (confirming it worked
+  means reading `PivotField.LayoutForm` on a row field afterward).
+  **A specific, named, not-yet-live-verified risk, not glossed over:**
+  `RowAxisLayout` re-forms every row field in the table at once, which
+  is exactly the kind of table-wide side effect that could disturb an
+  already-collapsed field's per-`PivotItem` `ShowDetail` state under
+  Compact Form - the same class of interaction that broke
+  `VlaPivotSetShowDetail`'s first version, caught live twice already in
+  this exact feature area. `instructions.txt` and `VerifyReportChecks`
+  deliberately exercise this: `SalesPivot`'s own already-collapsed
+  Region field gets its row layout switched (tabular, then compact)
+  and its `ShowDetail` state re-read fresh afterward, rather than
+  assumed to have survived untouched. Subtotals and blank-row each get
+  one real distinguishing-change proof (`SalesPivot`/Region) plus one
+  hide-then-show or add-then-remove round trip (`FullPivot`/Product),
+  matching collapse/expand's own honestly-named limit: end-state alone
+  can't distinguish "reversed" from "never touched."
+
+  **First live run (Pass 1, `VlaSelfTests`): crashed, run-time error 5,
+  "I understood 'add revenue to pivot salespivot as a' - then I
+  expected one of 'a'/'an' but found 'sum'" - a real bug, not caught by
+  tracing.** The `pivot-values-{d}` retrofit's first version wrote
+  `"... as a|an {d:sum|count|average}"`, spelling the article out as
+  its own bare alternation. Wrong: `IsNoiseWord` (`VLA_English.bas`)
+  strips a bare literal `a`/`an` out of a PATTERN entirely at
+  registration - that's how the three original literals ("as a sum",
+  "as an average") always worked, the compiled pattern never actually
+  contained the word - but `a|an` is an ALTERNATION token (it has a
+  pipe), so it survives registration as real content requiring a real
+  match, and `SkipArticles` unconditionally skips the input's own
+  `a`/`an` immediately before any literal or alternation match is even
+  attempted, consuming the very token the alternation needed to see.
+  Fixed by deleting the article from the pattern entirely -
+  `SkipArticles` already skips whatever the user did or didn't type
+  immediately before the `{d:...}` slot, the same mechanism the three
+  original rules relied on without ever needing to spell out `a|an`
+  themselves. Caught before this pass was ever committed, on the
+  owner's own first `VlaSelfTests` run.
+
+  **Second live run (Pass 4, `VerifyReport`/`VerifyReportInterpreter`):
+  both `pivot-layout` state checks FAILED, `got 1` on both - a real bug
+  in the CHECK, not the verb, but a real bug regardless, not caught by
+  tracing.** `VerifyReportChecks`'s first version read
+  `PivotField.LayoutForm` on Region/Product expecting it to mirror
+  `RowAxisLayout`'s own compact/tabular/outline state, and
+  `VlaPivotSetRowLayout`'s own header note made the identical wrong
+  assumption. Both readings came back `1` regardless of which layout
+  had actually been set, which is what sent this to Microsoft's own
+  reference rather than another guess: `PivotField.LayoutForm` is type
+  `XlLayoutFormType` - **`xlOutline`/`xlTabular` only, no compact
+  option at all, defaulting to `xlTabular`** - a different, older
+  per-field property with no relationship to `RowAxisLayout`'s own
+  `XlLayoutRowType` parameter. Microsoft's own `RowAxisLayout`
+  reference confirms there is **no object-model readback for
+  `XlLayoutRowType` state at all**. Fixed by removing both checks
+  outright rather than hunting for a substitute that doesn't exist -
+  `pivot-layout`'s own live proof is necessarily thinner than every
+  other pivot verb's, the same honestly-named limit `pivot-refresh`'s
+  own comment already accepts (the call succeeds, not a visible state
+  change). The one check that WAS real and stays: `SalesPivot`'s own
+  Region field's `ShowDetail` re-checked fresh after two `RowAxisLayout`
+  calls - unaffected by the `LayoutForm` mistake, still the named,
+  not-yet-confirmed-either-way risk this section flagged before
+  writing any code.
+
+  **Owner-verified, live, past both caught-and-fixed bugs: `VlaSelfTests`
+  clean, goldens regenerated and diffed (every changed line accounted
+  for - the rename, the new rules, and the expected cascading step/line
+  renumbering from inserting earlier in `instructions.txt`), and
+  `VerifyReports` `0 failed` in the dev workbook - Region's `ShowDetail`
+  genuinely survives the row-layout switch. Committed.** (Noted in
+  passing, not a gap this pass introduced: `VerifyReport`/
+  `VerifyReportInterpreter` are dev-workbook-only test harness, never
+  built into `Frazaro.xlam` - the same dev-only-vs-shipped split
+  `docs/TESTING.md`'s own Pass 6 already documents for every other
+  verification function in this project.)
+
+  **G-PIVOT round 1 is fully ✅.**
+
+  **Round 2: the fresh-eyes CRUD survey's own five findings
+  (`pivot-rename`, `pivot-source`, `pivot-sort`, `pivot-clear`,
+  `pivot-remove-field`), on the owner's own explicit instruction: "pivot
+  CRUD should be extensively hydrated and tested with
+  instructions.txt."** Every one scoped against the real API before any
+  code was written - two real corrections found doing that, not
+  assumed safe on pareto.txt-era instinct:
+
+  - **`pivot-source`**: the obvious-looking approach
+    (`PivotCache.SourceData = newRange`) is widely reported as
+    unreliable in practice. The robust, documented path is a fresh
+    `PivotCaches.Create` swapped in via `PivotTable.ChangePivotCache`.
+    **Owner's call: auto-refresh** after repointing, rather than require
+    a separate `"Refresh pivot X."` sentence - leaving a just-repointed
+    pivot showing stale data would surprise anyone.
+  - **`pivot-sort`**: Microsoft's own `AutoSort` reference is internally
+    *self-contradictory* - its prose says the `Field` parameter takes a
+    field's `SourceName`; its own example passes a data field's
+    rendered CAPTION instead. Reconciled as two genuinely different
+    cases, not a docs typo to route around: a field sorted by its own
+    labels uses `SourceName`; sorted by a value field, it needs that
+    value field's caption. That collides directly with
+    `VlaPivotAddValues`'s own deliberately-unguarded design -
+    `SalesPivot`'s own Revenue is already two data fields (summed and
+    counted). **Owner's call: raise an explicit, named error** on that
+    ambiguity rather than silently guess an aggregation - and since
+    this grammar has no caption-aware slot to let a sentence resolve it,
+    the error is a genuine, honestly-named dead end today, not a
+    resolvable one. **Owner's second call, after the trade-off was
+    explained: both alphabetical and value-field sort, not just the
+    value-field "top N" headline case** - mechanically the same
+    `AutoSort` call either way (only the `Field` string differs), so
+    the marginal cost of covering both was low. Implemented as **two**
+    `english-vla` rules sharing one `VlaPivotSort` helper, not one rule
+    with an omissible "by" clause - checked against `VLA_English.bas`'s
+    own optional-literal mechanism first: `[optional]` covers one bare
+    word, never a multi-word literal phrase carrying its own slot, so
+    two ordinary rules (`pivot-create`/`pivot-full`'s own "same opening
+    clause, different length" shape) is the proven-safe alternative, not
+    a new one.
+  - **`pivot-rename`**: plain `PivotTable.Name =`, names unique
+    WORKBOOK-wide. **No friendly duplicate-name guard** - checked
+    whether N1.0's `VlaCheckSheetName`/`VlaCheckRangeName` precedent
+    actually transfers here, and it doesn't: that guard exists because
+    Excel's naming SYNTAX validation is stricter than VLA's own text
+    slots, not because of duplicate-name COLLISIONS - `pivot-create`
+    itself (same `TableName` parameter, same collision surface) has
+    never gotten one either, and adding one only to rename would be new
+    asymmetry, not consistency.
+  - **`pivot-clear`**: plain `PivotTable.ClearTable` - a real, distinct
+    verb from `pivot-delete` (empties the layout, keeps the object and
+    cache alive).
+  - **`pivot-remove-field`**: the missing inverse of `pivot-rows`/
+    `-columns`/`-filters`, reusing `VlaPivotSetOrientation` unchanged
+    with a 4th `"hidden"` kind. **Deliberately scoped to row/column/
+    filter fields only, not value fields** - extending it further would
+    inherit `pivot-sort`'s own ambiguity problem AND a deeper, wholly
+    unverified question (whether `Orientation = xlHidden` can even
+    target ONE of several same-source data-field instances, or only
+    removes them as a block) - filed rather than guessed at, the same
+    discipline as everything else in this round.
+
+  `instructions.txt` hydrated with one dedicated throwaway pivot per
+  destructive/identity-changing verb (`RenameMePivot`/`RenamedPivot`,
+  `ClearMePivot`, `RemoveFieldMePivot`, `SourceTestPivot`) so none of
+  these proofs could collide with `SalesPivot`'s or `FullPivot`'s own
+  already-established checks - placed at row 200+, not sideways in a
+  nearby column, since `SalesPivot`'s own destination cell already
+  carries enough data fields that a "nearby column" guess isn't safe.
+  `pivot-sort`/`pivot-sort-by-value` run against `SalesPivot`/Region and
+  `FullPivot`/Product instead (both fields provably unambiguous), each
+  sorted descending then ascending so the final, checkable state is a
+  real transition, not "untouched." `pivot-source`'s own proof adds a
+  genuinely new eighth data row (`West`, absent from the original six)
+  after `SourceTestPivot` is built, then repoints it wider - `West`
+  actually appearing as a `Region` `PivotItem` afterward is the real
+  proof data was pulled in, not just re-read. The one deliberately
+  unexercised path: `pivot-sort`'s own ambiguity error has no home in
+  `instructions.txt` (which must run clean end-to-end) or in
+  `english.vla`'s `test-fail` mechanism (which only checks compile-time
+  refusals, not a runtime `Err.Raise`) - reasoned through and
+  documented, not live-proven.
+
+  **First live run (Pass 1, `VlaSelfTests`): crashed, run-time error 5,
+  `got (pivot-sort "salespivot" "region" descending)` - `descending` a
+  bare, unquoted symbol where `VlaPivotSort` expected the string
+  `"descending"` - a real bug, not caught by tracing.** `pivot-sort`'s
+  first version passed `{d}` straight through as a plain VALUE argument
+  (`(pivot-sort {n} {f} {d})`). Wrong, and a genuinely new mistake, not
+  a repeat of the earlier `a|an` one: every OTHER `{d:...}` use in this
+  file glues the matched word into an IDENTIFIER (`pivot-layout-{d}`,
+  `pivot-{d}`, `xl{d}`) - none of them had ever passed `{d}` through as
+  a bare value, so this was the first time that specific usage was
+  tried, and it doesn't work the way passing an ordinary `{n:text}` slot
+  does. Fixed onto the exact shape `pivot-layout-{d}` already proved:
+  one small macro per branch, each baking in its own QUOTED literal,
+  dispatched by gluing `{d}` into the macro name - `pivot-sort-ascending`/
+  `-descending` and `pivot-sort-by-value-ascending`/`-descending`, four
+  macros now instead of two, still sharing one `VlaPivotSort` helper
+  underneath (its own contract never changed - only how `english.vla`
+  reaches it did). Caught before this round was ever committed, on the
+  owner's own first `VlaSelfTests` run.
+
+  **Owner-verified, live, past the caught-and-fixed bug: `VlaSelfTests`
+  clean, goldens regenerated and diffed clean (every changed line
+  accounted for - the four new verbs, the four-macro sort-dispatch fix,
+  and the expected cascading step/line renumbering), and `VerifyReports`
+  clean in the dev workbook. Committed.**
+
+  **G-PIVOT, both rounds, is fully ✅.**
+- ✅ **G-TABLES — Excel Tables (`ListObject`s).** Named in the F.2 🔒 line
+  and the readiness table above; already scoped in `scripts/pareto.txt`
+  section 9 ("Tables (ListObjects) — P1", 8 surfaces with their target
+  operations) - a pre-existing backlog this file's own bullet didn't
+  cite until this pass found it. *Depends on:* F.1 (✅), F.2 (🟡 - this
+  section is F.2's own dogfood target). *Sort/filter is NOT a ninth
+  surface here* - pareto.txt's own section 8 scopes sorting/filtering
+  once, over `{r:range}`, and a `ListObject`'s `.Range`/`.DataBodyRange`
+  is a range like any other, so the question this file used to carry
+  open ("does G-TABLES need its own verb set") reads as already decided
+  by the earlier pass, just never written down here.
+  **Shipped (rule #1, unmarked in pareto.txt - no Tier-2 helper needed):**
+  `make-table` — *"Turn {r:range} into a table called {n:text}."* The
+  nesting F.2 needed to prove lives in the `defmacro` body (`set!` →
+  `.` → keyword-arg `.Add`), not the phrase-rule template - `english.vla`'s
+  own `f1`/`VlaDotCount` test pins raw dots at zero outside `macro:`
+  lines, so a template this deep was never going to be legal; the macro
+  layer is where F.1's own doctrine already puts this complexity.
+  **In progress:** the four remaining unmarked surfaces — `table-style`,
+  `table-totals-on`, `table-totals-off`, `table-to-range` — each a
+  `defmacro` that resolves the table by name on the active sheet
+  (`(activesheet.listobjects n)`, the same bare-dotted-head-plus-
+  positional-arg call already proven by `activate-sheet`/`set-tab-color`'s
+  own `(worksheets s)` idiom elsewhere in `english.vla`), then reads or
+  writes exactly one property/method (`.TableStyle`, `.ShowTotals`,
+  `.Unlist`) — no new grammar, no Tier-2 helper, same shallow template
+  shape as `make-table`. `EnglishFormPathSelfCheck` PASSED (214 proofs,
+  115/115 rules, zero disagreements) — but that only proves the English
+  transpiles to the right VLA text, not that the VLA does the right thing
+  against a real `ListObject`; the owner asked, correctly, why that
+  second half was still a manual per-change Excel click-through instead
+  of an automated regression. Answer: it wasn't a hard requirement, just
+  an omission — `instructions.txt` now builds three real tables
+  (`SalesTable`, `QuietTable`, `TempTable`) exercising all five shipped
+  G-TABLES surfaces, and `VerifyReportChecks` (shared by `VerifyReport`
+  and `VerifyReportInterpreter`, so both backends get it for free) now
+  asserts real `ListObject` state — style name, `ShowTotals` after a
+  genuine show-then-hide transition (not just its own False default),
+  and that `table-to-range` actually removes the `ListObject` rather than
+  no-op'ing. **Live-verified:** fresh workbook add-in ran `instructions.txt`
+  clean through both the compile and interpret backends, no errors;
+  goldens regenerated and committed. `TableStyle`'s case-normalization on
+  read-back and `Range.ListObject` returning `Nothing` for a non-table
+  range both behaved as assumed. All five shipped surfaces are now
+  committed (`899c0e7`) with live-backed regression coverage, not just
+  static `test:`/`fail:` proofs.
+  **The three surfaces named above as still open are now shipped too -
+  all 8 of pareto.txt section 9's surfaces are complete.** `table-add-row`/
+  `table-delete-row`/`table-column` landed as the one-off `defmacro`s the
+  rescoping below already designed, unchanged: a chained indexed access
+  (`.ListObjects(n).ListRows`/`.ListColumns`), one level deeper than
+  `table-property-family`'s shape but still ONE nested `(. ...)` form
+  each. `table-column` needed `obj-set!` (VBA `Set`), not `set!` (VBA
+  `Let`) - it binds a `Range`, and the rescoping's own draft had missed
+  that, caught while implementing rather than assumed correct from the
+  sketch. Exercised via a new `EditTable` in `instructions.txt` (kept
+  separate from `SalesTable` so the row-count assertions don't entangle
+  with its existing style/totals checks); `VerifyReportChecks` gained
+  real state assertions - row count nets to 2 after add-then-delete, row
+  1 is genuinely `Nut` (proving the actual first row, `Bolt`, was
+  deleted, not just a count decrement), and the appended row reads
+  blank. **Owner-verified live and committed:** `VlaSelfTests`,
+  `VlaGoldens` (diff is the expected cascading step/line renumbering
+  plus the new forms, nothing else), `EnglishRunProgram` compile+run
+  clean, `VerifyReport` and `VerifyReportInterpreter` both pass, visual
+  spot-check on the Output sheet confirms the table looks right.
+  **G-TABLES is fully ✅.**
+
+  **Rescoped for implementation (not yet built - the owner asked for a
+  running start, not a green light to edit engine files, since another
+  session may be touching them concurrently).** The paragraph above is
+  now stale on its own central claim and is left in place only as the
+  historical record of what this file used to believe, not as current
+  guidance:
+
+  **Correction, found by checking rather than inheriting the old
+  belief: none of these three need a Tier-2 helper at all**, despite
+  pareto.txt's own `!` marker on all three - the exact same "the marker
+  describes something else" pattern G-PIVOT's own `pivot-create` entry
+  already found once for `~` (pareto.txt is evidence here, never an
+  implementation authority, the standing rule this whole section has
+  followed since). `!` means "the COM sequence is too long or too
+  stateful to inline" (pareto.txt's own legend) - none of these three
+  are: `.ListRows.Add`, `.ListRows(r).Delete`, and
+  `.ListColumns(c).DataBodyRange` are each ONE COM statement, the exact
+  shape `make-table`/`table-to-range` already prove a plain `defmacro`
+  handles via nested `(. ...)` forms - `table-to-range`'s own body,
+  `(. (activesheet.listobjects n) unlist)`, is already one level of
+  this. What these three need that the five shipped surfaces didn't is
+  a SECOND level: `.ListObjects(n).ListRows(r)` or `.ListObjects(n)
+  .ListColumns(c)` - a chained INDEXED access, not just an indexed
+  access followed by a bare property. Checked directly against both
+  backends' own dot-form implementations, not assumed safe: `VLA.bas`'s
+  `EmitDotText` and `VLA_Interpreter.bas`'s `EvalDotForm` both treat
+  `(. obj member arg...)` as "emit/evaluate obj.member(args) if any
+  args, else obj.member" GENERICALLY - there is no special-casing by
+  member name or nesting depth, and `last-filled-row`
+  (`scripts/english.vla`, already shipped) is concrete, already-live
+  proof this exact shape works: `(. (. (cells rows.count c) end xlup)
+  row)` chains an indexed call (`cells rows.count c`), a one-argument
+  method call (`end xlup`), and a bare property read (`row`) three
+  deep. Three ordinary one-off `defmacro`s (not `table-property-family`
+  - none of the three share that generator's one-property/one-value
+  shape; `table-to-range` is the closer precedent, also a one-off):
+
+  ```
+  (defmacro (table-add-row n)
+      "append a blank row to an Excel Table"
+      (. (. (activesheet.listobjects n) listrows) add))
+  (defmacro (table-delete-row n r)
+      "delete a row from an Excel Table by its own row number"
+      (. (. (activesheet.listobjects n) listrows r) delete))
+  (defmacro (table-column v n c)
+      "bind a variable to one column's data (header excluded) in an Excel Table"
+      (set! v (. (. (activesheet.listobjects n) listcolumns c) databodyrange)))
+  ```
+
+  **`table-delete-row`'s own `{r:expr}` is table-relative (`ListRows`'
+  own index, matching pareto.txt's own target `.ListRows(r).Delete`
+  directly), not a worksheet row number** - the old paragraph's own
+  named worry ("translating a worksheet row number into a table-relative
+  index") turns out not to be a real problem: no translation belongs
+  here at all. The English sentence's own wording already carries the
+  distinction from the existing, unrelated `"delete row {n:expr}"`
+  verb (a real worksheet row, shipped earlier in this file) - "row
+  {r:expr} OF TABLE {n:text}" reads, in plain English, as the table's
+  own row, not the sheet's; checked directly for a grammar collision
+  between the two rules (different total shape - `"delete row
+  {n:expr}"` ends at the number, `"delete row {r:expr} of table
+  {n:text}"` continues past it - `TryPhrase`'s own end-of-sentence gate
+  disambiguates them exactly the way `pivot-create`/`pivot-full` already
+  proved for a shared opening clause), not assumed clear from the
+  wording alone.
+
+  **Two things that stay genuinely open, named rather than glossed
+  over, both first-of-a-kind for this exact shape and worth a live
+  check once building starts, not assumed safe from `last-filled-row`'s
+  own (real, but not identical) precedent:** (1) whether
+  `ListColumns(c)` looks up a column by its header text case-
+  insensitively the way `PivotFields(name)` was confirmed to live
+  (G-PIVOT's own proof) - plausible by analogy (Excel's named-collection
+  lookups generally are), not yet independently confirmed for this
+  specific collection; (2) `DataBodyRange` returns `Nothing` for a
+  table with zero data rows (a documented Excel behavior) - binding a
+  VLA variable to `Nothing` would surface as a later, less clear error
+  wherever that variable next gets used as a range, rather than an
+  immediate one. Recommending NO guard for this, matching
+  `pivot-rename`'s own precedent (Excel's own error, un-prettified, is
+  the default posture in this grammar unless a SYNTAX-validity gap like
+  N1.0's specifically calls for one) - but naming it rather than
+  silently deciding it.
+
+  **Deliberately NOT widened past pareto.txt's own three targets in
+  this scoping pass** (unlike G-PIVOT's own CRUD survey, which did
+  survey wider): `table-add-row` stays append-only, matching
+  `.ListRows.Add`'s own no-argument target exactly, not extended to a
+  chosen position or pre-filled values; no fresh-eyes survey of the
+  wider `ListObject`/`ListColumn` object model for other missing Table
+  CRUD was done this pass. Worth doing once these three are live and
+  the owner wants another CRUD-completeness pass, the same way G-PIVOT
+  got one after its own floor shipped - not bundled in here.
+
+  **Implementation plan, once given the green light:** three
+  `VLA_Runtime.bas`-free `defmacro`s in `scripts/english.vla` (shown
+  above) plus their `english-vla` sentences and `test-success` proofs;
+  extend `instructions.txt`'s own `SalesTable` (or a fresh dedicated
+  table, TempTable's own "throwaway object" precedent, if any of these
+  three would disturb `SalesTable`'s already-established checks) with a
+  row added, a row deleted, and a column bound to a variable and read
+  back; extend `VerifyReportChecks` with real state assertions (row
+  count before/after add and delete, the bound variable's actual
+  values) - the same "state, not just non-crash" discipline every
+  G-PIVOT verb got. Then the standard `docs/TESTING.md` Pass 1/3/4 run.
+  `~days`, not `~weeks` (the old estimate assumed a Tier-2 helper had
+  to be designed from scratch, which is no longer true).
+- 🔒 **G9** — conjoined predicates. STAYS GATED on pilot evidence. *The
+  best-formed gate in this document: it names the observation that opens it.*
+- ⬜ **G-TAIL** — charts, printing, validation, dates, email. Reordered by real
+  sentence-gap reports, not by this file.
+
+---
+
+# 🪟 PRODUCT · PERFORMANCE
+*Emitted-code speed AND authoring-time latency - both what the user
+experiences, distinct from OPTIMIZATION's compiler-internals speed.
+Owner-caught gap (2026-09-03): PF.1-PF.6 below only ever covered the
+first half - how fast a COMPILED program runs against a big workbook
+- never the second: how long Check/Compile/vocab-load itself takes
+for the person AUTHORING the SOP, felt on every edit-test cycle
+regardless of whether that SOP ever touches a 200k-row workbook.
+"Loading an SOP cannot take 5-10 seconds - that feels broken to any
+user" is exactly the product concern this section's own tagline
+already claimed to cover and didn't. PF.7-PF.9 are that missing half,
+found during P-TOK's own "what's next" pass (same session P-TOK
+closed a real, measured instance of this exact shape - compiler
+latency this time, not authoring latency, but the identical
+accidentally-quadratic-loop mechanism) - not a new tranche.
+specimens: 0.*
+
+The strategic point: **a compiler can apply expert VBA idioms automatically, and
+a non-programmer cannot.** "Your program is fast because the compiler knows what
+an expert knows" is a stronger claim than any single grammar feature — it is the
+answer to "why not just record a macro?" *Note the interaction with IN.9:
+this claim belongs to the **export**, which is where the heavy workloads go by
+design; IN.8 is where the honesty about the default runtime lives. The pitch is
+unchanged and its address moved.*
+
+- ⬜ **PF.1 — the benchmark corpus.** A representative 200k-row workbook and a
+  timing harness. Everything below cites it. `~days`
+- ⬜ **PF.2 — automatic environment bracketing.** Screen-updating and calculation
+  bracketed automatically. The single largest constant-factor win in VBA.
+  `~days`
+- ⬜ **PF.3 — never emit `.Select`.** Recorded macros are full of it; generated
+  code has no excuse. *Pays into:* correctness too. `~hours`
+- ✅ **PF.4 — array slabs for range reads/writes, owner-verified live (2026-09-04).** Two orders of
+  magnitude on row loops.
+  **Scoped (2026-09-03), owner-caught doctrinal wall before any code
+  changed:** this bullet's own original "invisible to the user, which
+  is the point" framing meant an automatic compiler rewrite - detect a
+  `for`-loop touching `Cells`/`Range` and silently substitute a bulk
+  array-read/native-loop/bulk-write-back shape. The owner asked
+  directly whether that's still "pencil-traceable," or pierces the
+  same veil `gensym` would have. Checked against the actual doctrine
+  (`docs/CONSULTANT.md`: "`gensym` and `eval` vetoed, expansion
+  mechanically traceable... 'every emitted line is derivable by hand
+  from visible source' is a sellable property") and the answer is no -
+  worse than `gensym` would have been, not equivalent: `gensym` would
+  only ever have affected internal NAMES, always deterministic, always
+  visible verbatim in the emitted text. An automatic rewrite requires
+  the compiler to pattern-match a loop body against "provably safe to
+  batch" shapes and prove an ABSENCE (nothing else touches the range
+  mid-loop) - whether that proof succeeds for a given piece of source
+  becomes a fact about the compiler's own internal analysis, not
+  something visible in the source text itself. It is also a genuine
+  correctness hazard, not just a doctrinal one: a batched write-back
+  defers when Excel's dependency graph sees a change, so a workbook
+  with a formula elsewhere reading the same range would behave
+  differently under the "optimized" version than the literal one - an
+  auditor would need workbook-wide dependency knowledge, not just
+  their own English/VLA sentence, to know which behavior they got.
+  Traced against `EmitExpr`'s own `Case Else` (VLA.bas) confirming
+  `Cells`/`Range` are not compiler primitives at all today - they fall
+  through the exact same generic function-call path as any other call,
+  meaning this would also be the compiler's first-ever notion of
+  Excel-object-awareness for optimization purposes, not a small
+  addition to existing machinery. **Automatic rewrite rejected on
+  these grounds, by owner's own explicit call, not assumed.**
+  **Landing instead as one new, explicit, deterministic VLA form**,
+  the only design consistent with the doctrine: `(for-each-row (row
+  range) body...)`, paralleling `(for-each (x collection) body...)`
+  exactly - one fixed head symbol, one fixed emission template, every
+  use compiles the same way every time, no pattern-matching, no
+  safety-proving, identical auditability shape to every other VLA
+  form. **Absorbs `P-BULK`** (MACHINE · OPTIMIZATION's own duplicate
+  filing, self-flagged there as "really PF.4 wearing an Optimization
+  badge" - confirmed during this scoping pass, not just repeated:
+  OPTIMIZATION is compiler-internals speed the user never sees
+  (`P-TOK`/`P-NTH`/`P-DICT`/`P-PROBE` territory); "array-slab RUNTIME
+  helpers" is code a compiled PROGRAM runs, squarely this item's own
+  "emitted-code speed" domain. Wrong tranche, one item, not two.
+  **Design settled (2026-09-03), five questions the owner asked to be
+  adjudicated rather than decided unilaterally, each closed:**
+  (1) the per-row body is in-place read/modify/write only - plain
+  positional indexing (`(row 2)`), no raw `Cells`/`Range` calls inside
+  it; map-to-a-new-range is a real, compatible follow-on, not scoped
+  here. (2) every physical row is kept, blanks included - unlike
+  `VLA_Relation.RangeToRows`' own convention (silently skips blank
+  rows, correct for query/fact semantics, wrong here since write-back
+  needs positional alignment with the range's real row offsets) - this
+  needs its own read behavior, not that function verbatim, even though
+  both build on the same underlying bulk-read pattern. (3) commit
+  timing is all-or-nothing at the loop's end, one fixed contract:
+  `break` commits everything computed up to and including the break (a
+  deliberate, ordinary exit); a raised error discards everything,
+  matching this project's existing "loud error, no partial state"
+  convention elsewhere. (4) named `for-each-row`; named-column access
+  (a header-row lookup, the same shape `VLA_Relation.RangeColumnNames`
+  already gives DATALOG for real Excel Tables) is real scope on its
+  own, deferred, not blocking the positional-index MVP. (5) the two
+  backends are never left asymmetric, even mid-project (R9/SD-5) - the
+  work is sequenced so the one truly shared primitive is proven equal
+  on both before anything is built on top of it, not shipped
+  compiled-only with the interpreter catching up later.
+  **Split into three testable sub-items, per that sequencing:**
+  - ✅ **`PF.4a`, owner-verified live (2026-09-03) - array-element
+    `set!`/read parity.** A real, load-bearing gap this scoping pass
+    found reading `VLA_Interpreter.ExecSet`/`EvalDynamicHead`, both
+    directions: `(set! (arr i) v)` and `(arr i)` already worked
+    compiled today, for free, via plain text substitution in
+    `EmitStmt`'s/`EmitExpr`'s generic `Case Else` - but the interpreter
+    had neither. `ExecSet` had no case for a plain array-index place at
+    all (only a `.`-member place or a bare-Object-with-a-default-member
+    place; evaluating `(arr i)` yields a plain number, fails `IsObject`,
+    raises `interp-set-place-not-object`). `EvalDynamicHead` had no tier
+    that ever checked "is this head a local variable bound to a plain
+    array" (every tier requires the head to match something specific;
+    reading `(arr i)` fell all the way through to `interp-head-
+    unresolved`). Nothing in the existing corpus ever needed either
+    direction before, so neither gap was previously exercised. Both
+    fixed as new, purely-additive fallback tiers - array-place detection
+    in `ExecSet` ahead of its existing Object-place fallback, array-read
+    detection in `EvalDynamicHead` after every existing tier has already
+    failed to claim the head - so neither can shadow anything that
+    already worked. `VlaDictGet` copies an array out (a Variant-boxed
+    SafeArray copies on assignment in VBA, unlike an object reference),
+    so `ExecSet`'s write re-stores the mutated copy under its own name
+    via `VlaDictSet` rather than relying on any in-place aliasing. Only
+    1-D indexing - the only shape `PF.4c`'s own for-each-row will need.
+    **A real bug caught by the owner's own first live run, not reasoned
+    through in advance:** both tiers' first draft called `VLA_Runtime.
+    VlaDictGet` directly to test "is this bound to an array" - but
+    `VlaDictGet` is deliberately loud on a miss (`RaiseRuntimeMsg
+    "rt-dict-key-missing"`, `VLA_Runtime.bas`'s own documented "loud
+    step error" contract), not a safe try-get returning Empty. A plain
+    `(range "a1")` place also has `Count = 2`, and "range" was never a
+    stored VLA variable, so the unconditional `VlaDictGet` call raised
+    "there is nothing stored at key 'range'" for every ordinary bare-
+    place Range assignment (IN.2/IN.11's own shape) - 10 host failures,
+    all either `TestStmtParity`'s own cases (every one ends by writing
+    its answer to `(range "A1")`) or the one dedicated IN.2 bare-place
+    test, never the pure suite - the pattern that made the root cause
+    obvious once traced. Fixed by guarding both tiers with `VlaDictHas`
+    (`VLA_Runtime.bas`) first - a non-raising existence check already
+    built for exactly this "test before falling back" shape, whose own
+    header names this interpreter's module-scope read fallback as its
+    intended first caller, a precedent this should have followed from
+    the start. `VLA_INTERPRETER_VERSION` bumped to `PF4A.0`. Parity
+    proven the standard way (`VLA_Tests_Host.TestStmtParity`,
+    `CheckStmtParity` running the same program under both backends
+    against a hand-computed expected value): `VlaSelfTestsAll` 910/910
+    pure, 125/125 host, clean on the second run.
+  - ✅ **`PF.4b`, owner-verified live (2026-09-04) - bulk
+    read/write-back runtime helpers.** `VLA_Runtime.VlaSlabRead`/
+    `VlaSlabWrite` - one `Range.Value` read/write regardless of row
+    count, instead of one `Cells(i, j)` COM call per cell, the same
+    shape PF.7's own `VlaEmbeddedText` fix already proved for a sheet-
+    column read. **A real design correction caught before landing, not
+    after:** the first plan was delegating to `VLA_Relation.
+    SourceToArray`'s already-correct bulk-read pattern (promoting it
+    `Private` -> `Public`) - reverted after re-reading `VLA_Runtime.
+    bas`'s own EN_RUNTIME INJECT BOUNDARY, which documents that
+    everything above it is copied VERBATIM into a standalone user
+    workbook with NO other add-in module available there (not even
+    `VLA_Identity`/`VLA_Messages`) - exactly the V5.3 problem this
+    module was split out to solve in the first place ("a program
+    compiled into the USER's workbook cannot call a Public helper that
+    lives only in the (locked) add-in"). A call out to `VLA_Relation`
+    from above that boundary would raise "Sub or Function not defined"
+    the moment the add-in isn't present - and per IN.9's own text, the
+    export/standalone case is exactly where PF.4's performance claim
+    lives ("this claim belongs to the export, which is where the heavy
+    workloads go by design"), not just interactive add-in use, so this
+    would have silently failed on the one case the feature most needs
+    to work. Built self-contained instead, above the boundary, the same
+    R7 "duplicate across the injection boundary" precedent this
+    module's own private `Fold` (duplicated from `VLA_Identity`) already
+    uses. `VLA_Relation.bas` itself: touched then fully reverted once
+    the boundary issue surfaced - `SourceToArray` stays `Private`,
+    unchanged. Neither new function is ListObject-aware or strips a
+    header row - that's a SQL/DATALOG-specific convention (a header row
+    isn't a "fact"), not a general one; for-each-row reads exactly the
+    physical range it's given, matching what a hand-written per-cell
+    loop over that same range would have iterated. `.Value` throughout,
+    not `.Value2` (`VLA_Relation`'s own choice) - this needs to behave
+    exactly like the `Cells(i, j).Value` loop it replaces (real Date/
+    Currency typing preserved), not merely fast. The 1-cell scalar quirk
+    (checked via `Cells.Count = 1`) is wrapped on read, the same fix
+    `VlaEmbeddedText` already uses; write-back needs no such case -
+    assigning a 2-D array (even 1x1) to a range whose cell count matches
+    its element count is unambiguous, only reading a single cell
+    collapses the dimension. `VLA_RUNTIME_VERSION` bumped to `PF4B.0`.
+    Tests: `TestArraySlabHelpers` (`VLA_Tests_Host.bas`) - multi-row/col
+    round-trip with a genuine mutate-then-verify (an unchanged echo
+    could pass even if write-back silently did nothing), 1x1, 1-row/
+    N-col, N-row/1-col. Owner verification of `VlaSelfTestsAll` still
+    outstanding.
+  - ✅ **`PF.4c`, owner-verified live (2026-09-04) - the
+    `for-each-row` form itself.** One new `EmitStmt` case
+    (`EmitForEachRow`, `VLA.bas`) and one new `ExecStmt` case
+    (`ExecForEachRow`, `VLA_Interpreter.bas`), wired to `PF.4a` and
+    `PF.4b`. Compiled: bulk-read the range once, loop over rows as an
+    in-memory array (the row read/written via plain array indexing,
+    `PF.4a`'s own mechanism), one bulk write-back after the loop.
+    **Hidden bookkeeping variables needed a real design answer, not an
+    afterthought:** the bulk array, the captured range, and the row/
+    column indices have no caller-supplied name to borrow, the exact
+    territory the no-gensym doctrine (`docs/LESSONS.md` XVII: "every
+    label and temporary is a caller-supplied parameter... VBA's own
+    compile step is the collision detector") already has an answer for
+    - a FIXED name, never a random one - but a literal fixed name alone
+    would collide with itself the moment `for-each-row` is used TWICE
+    in the same `Sub` (`Dim vlaSlabArr As Variant` declared twice is a
+    genuine VBA compile error, not a hypothetical). Resolved with a
+    monotonic per-transpile counter (`mSlabCounter`, reset alongside
+    `mEmitLine`/`mAtLine`/`mGenRow` at every `VlaTranspile`/
+    `VlaCompileToForms`/`VlaExpandText` entry point) - one increment per
+    `for-each-row` form actually emitted, so the suffix sequence is
+    fully deterministic and reader-predictable ("the Nth `for-each-row`
+    in this file gets suffix N"), not an opaque gensym'd symbol. `row`
+    itself gets NO `Dim` from `EmitForEachRow` at all - re-reading
+    `EmitFor`/`EmitForEach` confirmed neither of THEM `Dim`s its own
+    loop variable either; the user is expected to `(dim row)` first
+    (every existing `for`/`for-each` corpus example already does this),
+    so reusing the same row-variable name across two separate `for-
+    each-row` blocks in the same `Sub` is just two `ReDim`s against one
+    already-declared `Variant`, never a duplicate `Dim`.
+    **All-or-nothing commit falls out of the emission shape itself, not
+    a special case:** `VlaSlabWrite` is the only place anything reaches
+    the live sheet, called exactly once, after the loop. `exit-for`
+    only escapes the row `For` loop, still falling through to that same
+    write-back call - "break commits everything computed up to the
+    break," proven live, not merely argued. **A real cross-backend
+    asymmetry caught and fixed during scoping, not assumed symmetric
+    from the shape alone:** `return` does NOT get the same treatment -
+    `EmitReturn` (`VLA.bas`, already-existing code, unchanged) emits a
+    bare `Exit Sub`/`Exit Function`, unconditionally leaving the WHOLE
+    procedure and skipping `EmitForEachRow`'s own write-back no matter
+    how deep the nesting, so a `(return ...)` inside a `for-each-row`
+    body discards everything on the compiled side, the SAME as an
+    error, never "up to the return" the way break does. `ExecForEachRow`
+    checks `mProcReturn`/`mGotoLabel` FIRST and skips its own
+    `VlaSlabWrite` to match that exactly, before ever checking
+    `mLoopBreak` - had this gone unchecked, interpreted `return` would
+    have silently committed what compiled `return` discards, a genuine
+    R9/SD-5 violation.
+    **The "a raised error discards everything" half of the same
+    contract was argued from this identical construction first -
+    `VlaSlabWrite` unreached whenever anything above it fails to
+    return normally, on either backend - then owner-confirmed LIVE
+    (2026-09-03), not left resting on the argument alone:** a
+    deliberately triggered out-of-bounds error mid-loop (`(row 99)`
+    against a single-column range, fired on the third row after the
+    first two were already mutated in memory) reported cleanly via the
+    product's own error dialog on both **Run** and **Interpret**, and
+    the target range read back fully unchanged (10/20/30, never
+    20/40/30) after dismissing it, on a real workbook, not just the
+    self-test harness. The redesign's own correctness held under a
+    genuinely different failure shape than the break test alone
+    exercises.
+    New message: `interp-for-each-row-needs-range` (`VLA_Messages.bas`).
+    Tests: `VLA_Tests_Host.TestStmtParity` gains a full round-trip case
+    (doubles a column in place; verified via a plain `.`-dot `Value`
+    read, not through `for-each-row` again, so it proves write-back
+    actually reached the live sheet) and a break-commits-partial case
+    (breaks right after row 2 is mutated; row 3 must survive untouched
+    in the final write-back - `20 + 40 + 30 = 90`, not `20 + 40 + 60 =
+    120`).
+    **Two real bugs caught live on the owner's own first reload
+    (Debug > Compile), not reasoned through in advance - the exact
+    kind of thing static reading alone can miss:** (1) one of
+    `EmitForEachRow`'s five hidden bookkeeping variable names was
+    `cVar` - which collides with `CVar`, a genuine VBA intrinsic
+    function (Convert-to-Variant). VBA identifiers are case-
+    insensitive, so `Dim cVar As String`, entirely alone on its own
+    line with nothing else nearby, was a real "Syntax error" - isolated
+    by elimination (comma-joined `Dim`s and a long multi-line
+    continuation were suspected and ruled out first, each confirmed
+    innocent by careful re-reading, before the true cause was found by
+    noticing only `cVar`'s own declaration, not `rngVar`/`arrVar`/
+    `iVar`/`colsVar`'s otherwise-identical ones, was ever flagged).
+    Renamed to `jVar`, an ordinary i/j index-pair name with no such
+    collision. (2) While chasing (1), `EmitForEachRow`'s own string-
+    building was reshaped from one 18-line/17-continuation `Let`
+    statement into separate `r = r & ...` appends - not confirmed as a
+    second real cause, but matching `EmitFor`/`EmitForEach`/`EmitIf`/
+    `EmitSelect`'s own established style exactly (none of them build
+    output via one giant continued expression), so a real, if
+    unconfirmed, risk removed regardless and the right shape to have
+    used from the start.
+    **(3) The real design flaw, found by the owner's own next
+    `VlaSelfTestsAll` run, not by (1)/(2)'s own fix:** the break-
+    commits-partial case (above) failed for real - `emitter got 70,
+    wanted 90` - while the interpreter agreed with the expected value
+    (`90`) on the same program. Traced to the row-array design (1)/(2)
+    left untouched: each row was sliced into its own small array,
+    `row(1 To cols)`, the body ran, THEN a separate loop copied the
+    (possibly mutated) row back into the bulk array - placed AFTER the
+    body in emission order. A bare `exit-for` inside the body jumps
+    straight past that trailing copy-back loop, so the row WHERE the
+    break fires loses its own mutation - not "up to and including the
+    break," up to but NOT including it (`20 + 20 + 30 = 70`: row 1's
+    doubling landed, row 2's own doubling never reached `arr` before
+    the break skipped its copy-back, row 3 correctly never touched).
+    **Not patched, redesigned:** rather than teach `exit-for` to route
+    through the copy-back correctly (a real option - compile it, only
+    inside a `for-each-row` body, to a flag-set-then-`GoTo` into the
+    copy-back instead of a bare `Exit For` - but one needing dynamic-
+    extent tracking threaded through every OTHER loop-emitting function
+    too, so a nested plain `for`/`for-each`/`while`/`do-until`'s own
+    `exit-for` still means "exit that loop," not this one), the
+    separate row array was removed entirely. `(row i)`/`(set! (row i)
+    v)` now compile DIRECTLY to `arr(iVar, i)` - a dynamic-extent
+    substitution in `EmitExpr` itself (`mSlabRowVar`/`mSlabArrVar`/
+    `mSlabIVar`, save/restored around the body exactly like `mAtLine`/
+    `mGenRow` already are), checked ahead of `EmitExpr`'s own normal
+    dispatch. With nothing ever deferred into a separate buffer, a bare
+    `exit-for` - unchanged, no special-casing anywhere - correctly
+    leaves everything mutated so far already sitting in `arr` the
+    moment it fires; the whole bug class is deleted along with the
+    mechanism that caused it, not patched around. Also simpler and
+    faster than the design it replaced: no more `ReDim`, no more two
+    `For`-column copy loops per row - `arr(iVar, i)` IS the row's own
+    storage, not a separate copy of it. **Owner-verified (2026-09-04):**
+    `VlaSelfTestsAll` 910/910 pure, 138/138 host, PASS - both `for-each-
+    row` cases agreeing between backends this time, not just the
+    interpreter alone. The "a raised error discards everything" half of
+    the commit contract, previously argued from the shape alone, was
+    ALSO confirmed live separately (this item's own top-level entry has
+    the full account): a deliberately triggered out-of-bounds error mid-
+    loop left the target range fully unchanged after both Run and
+    Interpret, on a real workbook.
+  `~weeks`
+- ⬜ **PF.5 — loop-invariant hoisting.** `~weeks`
+- ⬜ **PF.6 — published numbers, pinned.** The performance claim becomes a test
+  that fails when a change makes generated code slower. `~days`
+- ✅ **PF.7 — `VlaEmbeddedText`'s own O(n²) string-build.** Found live
+  during P-TOK's own "what's next" pass. `VlaEmbeddedText` (`VLA.bas`)
+  - the reader half of every embedded-sheet load, meaning Check/
+  Compile's own vocabulary/prelude text AND `IdeLoadVocab`'s embedded
+  chain both go through it - built its result with `s = s &
+  CStr(sh.Cells(i, 1).Value) & vbCrLf` inside `For i = 1 To n`, the
+  classic VBA string-concatenation antipattern: each `&` reallocates
+  the whole growing string, so total cost is O(n²) in row count, not
+  O(n). Read cell-by-cell via COM (`sh.Cells(i, 1)`) rather than one
+  bulk `Range.Value` array call, a second, separate per-call-overhead
+  cost stacked on top of the first. Same bug SHAPE as P-TOK's own
+  finding, one lifecycle stage earlier (load-time text assembly
+  instead of positional token access).
+  **Scoped (2026-09-03) before any code changed, owner-requested
+  P-TOK-precedent depth - every caller traced, not assumed:** three
+  real call sites, not two - `PreludeMacros` (`VLAp_Source`,
+  `prelude.vla`, 686 lines), `IdeLoadVocab`'s own embedded chain
+  (`VLAe_Source`/`VLAe_Source2`/..., `english.vla`, 2,849 lines), and
+  a third the roadmap hadn't named: `IdeVocabFileName` (`VLAe_Name`,
+  EDITIONMANIFEST.4's own single-line-filename reader), called from
+  every `IdeVocabPath()` call, i.e. every Check. That third site has
+  different correctness requirements, confirmed by reading its own
+  header history, not assumed: real n is always 1, so a bulk-read fix
+  buys it nothing (O(1) either way) - it only needs to stay correct,
+  not get faster. **A sharper "specimens: 0" than P-TOK/P-PROBE had:**
+  traced `PreludeVlaPath`/`IdeVocabPath` and confirmed the dev
+  workbook's own external `prelude.vla`/`scripts/polyglotta/
+  english.vla` are always found FIRST there, so `VlaEmbeddedText`'s
+  loop body never ran in `VlaSelfTestsAll` at all before this pass -
+  not "ran but small," genuinely unreachable except through the
+  existing 2-row `TestEmbeddedTextFallback` case. Only a built
+  `.xlam`'s own embedded sheets (`VLA_Build.EmbedTextAsSheet`'s
+  output) ever reached it. PF.8 checked against this shape and left
+  separate, not folded in, per the same question P-TOK's own scoping
+  asked about `TokAt`/`TokRawLine`: `RegisterVocabMacro`'s
+  `mVocabMacros` accumulates across many separate calls over a
+  vocabulary load (no single call ever has all the content upfront,
+  unlike a sheet read), and is itself re-read as raw text and
+  re-parsed on every metavocab macro call during translation
+  (`ExpandVocabMacroCall`, `VLA_SentenceEngine.bas` -  a related cost
+  PF.8's own bullet doesn't currently name) - a genuinely different
+  mechanical shape, not this fix repeated.
+  **Fixed, both stacked costs in one pass, per owner adjudication
+  (2026-09-03):** one bulk `Range.Value` read (one COM round-trip
+  regardless of n, replacing n separate `sh.Cells(i, 1)` calls)
+  flattened into a 1-D `String` array, then one `Join` - genuinely
+  O(n), verified against the real mechanism rather than assumed by
+  shape alone (P-TOK's own mid-session lesson: a materialized ARRAY is
+  O(1) indexed, unlike a `Collection`'s own `Item(k)` - not the same
+  trap). `Join(...)` alone drops the trailing terminator
+  `TestEmbeddedTextFallback` already pins as contractual (every row,
+  including the last, ends in `vbCrLf`) - restored with an explicit
+  `& vbCrLf` after `Join`. n=1 branched separately, not merged into
+  the bulk path, because `Range.Value` on a single-cell range returns
+  a bare scalar, not a 2-D array - confirmed against `IdeVocabFileName`'s
+  own real call shape, the exact case named above. `n =
+  sh.Cells(...).End(xlUp).Row` left untouched, on purpose: it's the
+  line that makes today's round-trip correct despite
+  `EmbedTextAsSheet`'s own writer (`VLA_Build.bas`) producing a
+  spurious trailing blank row whenever the source text ends in
+  `vbCrLf` (`Range.Value = ""` genuinely clears a cell in VBA, so
+  `End(xlUp)` already skips that phantom row) - touching it would have
+  reopened a bug this pass didn't need to touch at all.
+  **Test coverage added alongside the fix, per owner adjudication, not
+  left to the existing 910/119 gate alone** (that gate runs in the dev
+  workbook, which per the finding above never reaches the real
+  embedded-sheet path either): `TestEmbeddedTextFallback`
+  (`VLA_Tests_Host.bas`) gains n=1 (`IdeVocabFileName`'s own shape),
+  n=1-with-a-never-written cell (`End(xlUp)` returns row 1, never row
+  0, on a wholly blank column - the real shape "no content" takes,
+  confirmed by reading, not assumed), and an `mRunScaleTests`-gated
+  2,849-row round-trip (`english.vla`'s own real line count) - the
+  only repeatable, dev-side way to exercise this loop body's real
+  scale without a full build+install cycle, matching
+  `TestVocabMacroProbe`'s own scale-case discipline (elapsed ms
+  printed for a human to read, never pinned as a hard assertion).
+  `VLA_CORE_VERSION` bumped to `PF7.0`, `VLA_TESTS_HOST_VERSION` to
+  the same. `VlaSelfTestsAll` (dev workbook): 910/910 pure, 122/122
+  host (119 baseline + the 3 new PF.7 cases above), no regression.
+  **First-pass mistake, corrected against the owner's own report, not
+  assumed:** this entry originally read "closed without a live
+  built-edition number" on the assumption the owner's live test ran in
+  the dev workbook, where `PreludeMacros`/`IdeVocabPath` both resolve
+  externally and never reach `VlaEmbeddedText`'s embedded-sheet
+  branch - a real, previously-confirmed fact about the DEV workbook,
+  wrongly generalized to the owner's actual test. **Owner-verified
+  live against a real built edition (2026-09-03), re-checked and
+  confirmed correct this time:** `Frazaro_English.xlam` loaded as an
+  add-in into a FRESH workbook, not the dev workbook - `ThisWorkbook`
+  resolves to the installed `.xlam` there (VBA's own semantics: the
+  code-hosting workbook, regardless of which is active), with no
+  external `prelude.vla`/`english.vla` beside either it or the fresh
+  workbook. Re-traced all three call sites against this exact
+  configuration: `PreludeVlaPath` finds neither candidate beside the
+  installed `.xlam`, so `PreludeMacros` hits `VlaEmbeddedText
+  ("VLAp_Source")` for real; `IdeVocabPath`'s four candidates (two
+  against the fresh workbook's path, two against the installed
+  `.xlam`'s) all miss, so `IdeVocabFileName`'s `VlaEmbeddedText
+  ("VLAe_Name")` and `IdeLoadVocab`'s own embedded-chain
+  `VlaEmbeddedText("VLAe_Source")` both fire too - confirmed against
+  `VLA_Build.bas`'s own edition-embed step that every successful build
+  embeds all three (`VLAp_Source`, `VLAe_Name`, `VLAe_Source`)
+  unconditionally, so a built English edition never lacks any of them.
+  This is exactly the configuration the scoping pass named as the only
+  place this fix's real cost lived - not a dev-workbook artifact.
+  Loading `scripts/instructions.txt` there now feels "closer to
+  instant (~1s)" - genuine live evidence the fix helps in the one
+  place it was built to, the real built-edition confirmation this item
+  was waiting on. `~hours`
+- ⬜ **PF.8 — `RegisterVocabMacro`'s own O(macros²) string-build of
+  `mVocabMacros`.** **Not** the finding **P-PROBE** already closed
+  (✅, MACHINE · OPTIMIZATION) - verified against current code before
+  filing, not assumed: P-PROBE's fix removed the re-TRANSPILE of the
+  accumulated macro corpus on every registration (`VLA.VlaProbeMacroForm`
+  now validates only the new macro's own text). This is a separate,
+  still-live cost in the same function: `mVocabMacros = mVocabMacros &
+  IIf(Len(mVocabMacros) > 0, vbCrLf, "") & macText`
+  (`VLA_SentenceEngine.bas`) appends via `&` once per macro registered
+  - the identical string-concatenation antipattern PF.7 names for
+  `VlaEmbeddedText`, just accumulating vocabulary source text instead
+  of sheet-cell text. Unmeasured - may already be dwarfed by other
+  costs at today's corpus size (P-PROBE's own real-corpus number,
+  586 ms post-fix, doesn't obviously show it dominating), real risk as
+  a vocabulary corpus keeps growing, same "flat-looking now, a cliff
+  later" shape P-TOK's own opening quote already named once for
+  `TokAt`. `~hours`
+- ⬜ **PF.9 — `IdeLoadVocab`'s own multi-file embedded-sheet loop.**
+  Lowest-confidence of the three - flagged for completeness, not a
+  known live cost. `IdeLoadVocab` (`VLA_IDE.bas`) loops `n = 1 To 8`
+  reading `VLAe_Source`, `VLAe_Source2`, ... via `VlaEmbeddedText`
+  each iteration; the ceiling is small and fixed (its own comment: "no
+  edition needs more than a couple of overlay files today"), so this
+  loop itself is probably fine - its real cost, if any, is likely just
+  PF.7's own per-call cost multiplied by however many chain files an
+  edition actually carries, not a new quadratic shape of its own.
+  Worth a look only once PF.7 lands and this gets re-measured; may
+  close itself. `~hours`
+
+---
+
+# 🔧 MACHINE · THE MIDDLE LAYER
+*The middle layer. Grows only as Grammar demands — never speculatively.
+The model tranche: demand-driven by construction. specimens: n/a.*
+
+- ⬜ **L.11** — runtime `@doc:` annotations surfacing through apropos. `~days`
+- ⬜ **L-SHEET-HELPERS** — tab create/copy/move/rename. Smallest surface,
+  unblocks G-TABS. `~days`
+- ⬜ **L-FILE-HELPERS** — CSV/text import. **Adjudicate the mechanism on the
+  ledger first** (Workbooks.Open vs QueryTables vs line I/O). `~days`
+- ⬜ **L-PIVOT-HELPERS** — pivot plumbing behind honest one-call verbs. Wants G6
+  first or the sentences are unwritable. `~weeks`
+- ✅ **L0.2** — multi-row raw forms in the IDE. Owner-triggered by IN.13's
+  own CLI textarea hitting exactly this: a real multi-line `defmacro`,
+  typed as VLA, refused with L0's original one-row message. That message
+  already named its own unblocking condition (`VLA_English.bas`'s
+  `EnTokenize`, the L0 comment): the one-row rule existed only because
+  the OLD progressive-prefix Check could show false-red on a still-
+  incomplete form, and V1's translate-once Check already retired that
+  failure mode - so the widening this item names was sitting unblocked,
+  not merely unbuilt. **Built:** the raw-VLA-row branch no longer exits
+  at the first line break inside an open form - it swallows the newline
+  and keeps reading (advancing `lineNo` so every token after the form
+  keeps reporting its true row - the real regression risk, not the
+  spanning form itself), stopping only when parens balance or the
+  program truly runs out of text. A narrow, deliberate exception:
+  a double-quoted string that itself breaks across a row boundary still
+  ends the row unchanged - spanning rows mid-string is a much odder
+  thing to author than spanning rows between forms, out of scope here.
+  The old "keep one complete form per row" refusal text is retired (it
+  is simply wrong now) for "this VLA form never closes... by the end of
+  the program," reachable only by a genuinely unterminated form.
+  **Proof, not just the change:** three new pins in `TestRawVlaRows`
+  (`VLA_Tests.bas`) - a form now spanning rows, a still-never-closed
+  form still refusing at its start row, and the line-number-drift case
+  named above, pinned directly rather than trusted by inspection. **Full
+  regression run, not a smoke test:** `VlaSelfTest`'s entire corpus -
+  870 assertions across every existing Test* sub, engine through
+  interpreter through every shipped grammar family - run clean, 870
+  passed / 0 failed, via the same throwaway-COM-instance technique
+  IN.13 used, never touching the dev workbook. Getting that run itself
+  correct surfaced two real, unrelated gaps in the verification
+  technique, not the language: `TestBuildRibbon` and `TestVlaTry` each
+  crashed the automation outright (not a catchable VBA error - a
+  reference to a Public Function in a module simply never imported into
+  the throwaway project, discovered only when that code path actually
+  ran, because VBA compiles lazily per call path - the same trap
+  `DEPLOY.md`'s own build instructions already warn about) until
+  `VLA_Build.bas` (`VlaRibbonXml`) and `VLA_DevRig.bas` (`VlaTryBuild`)
+  joined the harness; once both real dependencies were present the run
+  went start to finish clean. **Then live, in the real Frazaro workspace
+  sheet - the way that actually counts:** a scratch `Add Program` sheet,
+  three checked results, not one. A `(set! (. (range "A1") value) (+ 1
+  2))` form typed across three rows of column A Checked clean (all three
+  rows green) and Interpreted for real (`Output!A1` = `3`) - the form
+  spanning rows AND actually running, not just parsing. A fourth,
+  deliberately-unrecognized row added after it Checked with the refusal
+  landing on row 4 specifically, not row 2 or 3 - the exact line-number-
+  drift regression this item's own test pin exists to catch, now
+  confirmed in the product surface it was built for, not just the test
+  harness. Removing that row and one closing paren from the form itself
+  Checked with the refusal back on row 1, the form's own start row, as a
+  genuinely unterminated multi-row form should. `~days`
+- ⬜ **L-TIER2** — classes and `defprop`. *Carried from Alpha 1's Phase C owner
+  question, with its recommendation intact: hold the ordering.* Tier 2 changes
+  `VlaTranspile`'s contract from text→text to source→*component set*, rippling
+  through the compile path, the IDE, and the build, and it multiplies the
+  injection surface D1 exists to harden. **Revised by the interpreter:** its payoff
+  (events) is now reachable via IN.7 without any of that, which is an argument
+  for IN.7 and against L-TIER2, not merely a reordering. 🔒 *Expiry:* a pilot
+  sentence that needs a class and cannot be served by IN.7. `~weeks`
+- ⬜ **L-TIER3** — self-hosting: port the phrasebook loader to VLA. *Reframed
+  honestly on the Alpha 1 ledger:* VLA declines procedural macros, gensym, and
+  eval, so this is dogfooding and middle-layer inspectability, **not** homoiconic
+  flattening. `~weeks`
+- ⛔ **DR2** — the reload consolidation, parked after DR1's crash.
+
+---
+
+# 🗣🔧 LANGUAGE + MACHINE · THE METAMETAMACRO LINE
+*Vocabulary as computable, inspectable data - the F.13 claim ("english.vla
+is real VLA now") pushed as far as one session's worth of scoped passes
+could push it. Ordered by dependency, house style: each shipped item is
+what made the next one cheap, not just next on a list. The line's own
+constitution, adjudicated this session and binding on everything below
+it: determinism is the wall between this project and "the Wild West of
+LLMs" (the owner's own words) - `gensym` breaches it by inventing values
+from nothing and is vetoed outright; `car`/`cdr`/`cons`-style recursion
+over `quote` data does NOT breach it, provided it never reads anything
+but the literal, finite source text being compiled - the same wall,
+guarding a different door. "Harder to trace by hand" is not, on its own,
+a violation of anything - `VlaExpandStep` already makes expansion
+mechanically traceable at any granularity, which is what actually answers
+that objection, not a ban. specimens: 7 shipped and owner-verified
+(VOCABDIFF, APROPOSPLUS, METAVOCAB, TABLE-FAMILY, COLOR-FAMILY,
+QUASIQUOTE, LISTOPS); the determinism gate's all four items closed and
+owner-verified (PURITY, PROVENANCE, BUDGET, CONFLUENCE). LISTOPS
+shipped this session - 9 primitives, the roadmap's own 8 plus
+`quote-if`, found necessary and owner-gated separately - see its own
+entry below, including the depth-guard finding that keeps
+LISTOPS-BUDGET's own depth-chain problem open rather than closed.*
+
+**Shipped, owner-verified, this session:**
+
+- ✅ **VOCABDIFF** — structural diff between two vocabulary sources, keyed
+  by rule/macro/test identity rather than line position, so a reflow or a
+  reorder reports zero changes (proven live against the
+  43d4277→88103a0 reflow commit). Reuses the reader
+  (`VLA.VlaReadFormsWithLines`) and the writer (`VLA.VlaWriteForm`) only -
+  no new equality walker. *Why first:* the acceptance-test tool every
+  later item on this list needs before it can be trusted.
+  `EnglishDiffVocabularyText`/`EnglishDiffVocabulary`, VLA_English.bas.
+- ✅ **APROPOSPLUS** — apropos gains the English-sentence tier
+  (`VlaAproposCarry`'s new second channel, threaded through
+  `VlaPushContext`/`VlaPopContext` via `VlaFrame`'s new field): a search
+  for a macro name now surfaces the sentence that reaches it, and a word
+  that lives only in a sentence's own wording is found too. *Why second:*
+  the inspection tool METAVOCAB's own generated rules needed to be
+  visible without a separate viewer. VLA.bas + VLA_English.bas.
+- ✅ **METAVOCAB** — Design B: the vocabulary loader's own dispatch tries
+  macro-expansion (`VLA.VlaExpandText`, the exact machinery
+  `RegisterVocabMacro` already runs as a probe on every `defmacro` - no
+  new engine) before refusing an unrecognized directive, splicing a
+  generator's `(begin ...)` output back through itself recursively. A
+  generated rule is provably indistinguishable from a hand-written one -
+  same tests, same apropos hit, same diff visibility. Two stated limits,
+  not hidden: cannot glue a bound value into part of a new identifier
+  (whole-value substitution only), and inherits no `test-success` proofs
+  a generator's own body doesn't itself emit. `DispatchVocabForm`/
+  `ExpandVocabMacroCall`, VLA_English.bas.
+
+**Vetoed — kept on the ledger so this is never relitigated from scratch:**
+
+- ⛔ **GENSYM** — hygienic-macro identifier invention. **Vetoed by the
+  owner, this session, in these words:** *"gensym is off the table,
+  because determinism is the Chinese wall between this project and the
+  Wild West of LLMs."* Not a style objection - a gensym'd name appears
+  directly in emitted VBA with no trace to anything a person wrote, and
+  its determinism across recompiles/reorderings cannot be guaranteed the
+  way every other identifier in the pipeline already is. Confirms
+  L-TIER3's own earlier "declines... gensym" rather than reopening it.
+  `eval` was never proposed and stays off the table by the identical
+  reasoning - runtime-arbitrary-code-execution is the same wall's other,
+  more obvious breach. Kept here, permanently, precisely so a future
+  session doesn't re-propose it without this context.
+
+**Doable now — no new primitive, METAVOCAB alone is sufficient:**
+
+- ✅ **TABLE-FAMILY** — a property-table generator for G-TABLES' own
+  `table-style`/`table-totals-on`/`table-totals-off` shape (three
+  independent macro names, no glued identifier anywhere - a bare symbol
+  passed as a whole argument into a *nested* `(defmacro (nameparam n)
+  ...)` already works, verified by reading `ExpandMacros`'s own walk).
+  `table-property-family` (`scripts/english.vla`) generates all three
+  from one generator. The three do NOT share one arity (`table-style`'s
+  value is a second user-supplied slot; `table-totals-on`/`-off`'s is a
+  fixed true/false with no second slot) - threaded via the macro
+  engine's own existing `& rest` splice (already used by
+  `with-fast-excel`/`dotimes`), not a new primitive, and never
+  surfacing in any generated macro's own signature. Every generated
+  macro/rule/test is byte-for-byte what the hand-written macros used to
+  emit - confirmed live, not just predicted:
+  `scripts/instructions_golden.vla`'s own regenerated diff shows only
+  `table-property-family`'s own carried definition added, the
+  `table-style`/`table-totals-on`/`-off` lines untouched.
+  `VLA_ENGLISH_VERSION` bumped to `TABLEFAMILY.0`; `TestTableFamily` (4
+  assertions) wired into `VlaSelfTest` right after `TestMetaVocab`.
+  Owner-verified: self-test 695/0, host self-test 114/0, both VERIFY
+  passes 58/0, VerifyReport clean, fresh-workbook add-in interprets and
+  compiles instructions.txt without errors.
+  `~hours`
+- ✅ **COLOR-FAMILY** — complete `{d:red|yellow}`'s own alternation to
+  VBA's full eight named colors; the two-branch version only ever existed
+  because six more branches wasn't worth hand-typing for a demo rule.
+  Owner-verified: tests and goldens pass clean, fresh-workbook add-in
+  interprets and compiles instructions.txt without errors. No engine
+  change at all, since the
+  glued-identifier substitution (`vb{d}`) and 3+-branch alternations
+  both already work elsewhere in `scripts/english.vla` (`format ...
+  as {d:currency|percent|date}`) - pure vocabulary data, six new
+  `test-success` proofs (one per new color) added alongside the
+  existing two. No version bump, no new Test Sub: each `test-success`
+  is itself the proof, exercised for real the same way every other
+  vocabulary rule already is, by the host self-test's own load of the
+  real file - so self-test/host self-test counts are predicted
+  unchanged (695/0, 114/0) rather than growing. *Considered and
+  rejected this pass:* a true `color-vocab-family (list "black" "red"
+  ...)` generator, deriving the alternation string and all eight
+  `test-success` proofs from one list. Not buildable today for the
+  same reason ANTONYM-SWEEP/TABLESPEC are filed Plausible rather than
+  Doable-now - it needs both gluing list items into the alternation
+  text with `|` (QUASIQUOTE's `(symbol ...)` job) and walking a list to
+  emit a variable number of forms (LISTOPS' job, itself gated on the
+  four determinism-gate items). Filed here, not just decided in
+  conversation, so a future session doesn't re-propose it without this
+  context.
+  `~hours`
+- ✅ **G-EXPANDER** — an audit artifact, not just a report: every phrasebook
+  load writes a fully macro-expanded sibling (`scripts/english_expanded.vla`
+  for `english.vla`) — every `english-vla`/`test-success`/`defmacro` form in
+  registration order, generated or hand-written, byte-for-byte what METAVOCAB
+  already proves indistinguishable at load time, made visible as literal
+  text instead of staying implicit in a generator's own call site. **Why
+  now:** scoped while answering a narrower question — how AS.1 (below) could
+  possibly stay a static, no-live-host scanner once a growing share of the
+  grammar is generator-produced (TABLE-FAMILY already is; the trend only
+  goes one direction, and a static scanner's own coverage share shrinks
+  every version a generator ships). A static scan of `english.vla`'s own
+  text sees a generator's CALL, never its output —
+  `(table-property-family table-style ...)` is one line; the rule and test
+  it expands to don't exist as text anywhere a scanner can read them.
+  Fixing the scanner can't close that gap (no shared schema across
+  generators' own argument orders to hang a heuristic on, and a future
+  generator could read its row count from a live workbook, per WORKBOOK-SPEC
+  below — not recoverable from text at all, live host or not). Fixing the
+  INPUT does: expand once, at the point the engine already computes the
+  answer in full, and let every downstream tool — AS.1 included — go back to
+  being a dumb, static reader of plain text.
+  **Provenance, folded in per the owner's own framing this session
+  ("pre-tracing the generators with a digital pencil") — in scope from the
+  start, not deferred to a later pass:** each expanded form carries its
+  LISTOPS-PROVENANCE `gen-row`/`at-row` label as a source-line comment when
+  one exists (already-shipped machinery, `ATROW.0`), so a human reading the
+  expanded file sees which table row produced which rule without
+  re-deriving it by hand; a hand-written form carries none, same as today.
+  **Mechanism:** `VLA.VlaWriteForm` (already load-bearing for VOCABDIFF's
+  own diff) serializes each stored form back to text — no new writer needed.
+  The write happens in `EnglishLoadVocabulary`'s own orchestration, strictly
+  after expansion/registration/tests finish — never inside `ExpandMacros`/
+  `VlaExpandText` itself, which stays pure by LISTOPS-PURITY's own wall (no
+  I/O reachable from inside expansion, verified by that item's own grep).
+  **Staleness is a named risk, not an oversight:** the artifact is only as
+  fresh as its last load — edit the source, don't reopen the workbook, and a
+  checker reading the stale expanded file would misreport with no signal.
+  The writer must stamp a source hash/mtime it read so a consumer can refuse
+  loudly on mismatch, the same fail-loud-over-silent-misreport instinct
+  AS.6/F.12 already hold elsewhere in this file.
+  **A further extension, named but explicitly not this pass's job:** the
+  loader already knows, per test, which rule actually fired (`RunVocabTest`'s
+  own `mLastRuleIdx`, today only surfacing as one worked example via
+  `mRuleExamples`) — annotating each expanded test with that alongside its
+  generation-order position would let a diff between the two catch
+  F.4-shaped shadowing empirically, for every test in the corpus, for free
+  on every ordinary load. Real upside, but a second pass once the plain
+  expansion artifact is proven, not bundled into this scope.
+  **Scoped this session (owner + assistant design pass, conversation only —
+  see F.13's identical framing for the precedent), not built:** blocked by
+  the same parallel edit as everything else touching `VLA.bas`/
+  `VLA_English.bas` this session (LISTOPS work, active). Needs no new
+  primitive — METAVOCAB and LISTOPS-PROVENANCE are both already ✅ and
+  sufficient. 🔒 **Blocks:** AS.1 (below), which is now scoped to read this
+  artifact instead of the hand-written source. `~hours`
+  **Built and shipped, then substantially reworked - full history below,
+  final design first:** `EnglishExpandedVocabularyText(vocabPath)`
+  (`VLA_English.bas`) always reloads fresh (`EnglishResetGrammar` +
+  `EnglishLoadVocabulary`) and returns the stamped, fully macro-expanded
+  text - `DispatchVocabForm` threads two parallel Collections
+  (`expTexts`/`expTags`, the same pattern `testSents`/.../`testRowTags`
+  already use) and records one entry - via `RecordExpandedForm` - at
+  each of its six real-directive branches (override/english-vla/
+  test-success/test-fail/defmacro/english-function), never at the two
+  structural wrappers (`begin`/`at-row`) themselves, so a generator's
+  splice is recorded flattened and post-expansion, never as its own
+  one-line call. `BuildExpandedBlob` (`AproposRulesBlob`'s own
+  walk-and-join precedent) joins them via `VLA.VlaWriteForm`, an at-row
+  label printing as its own `; row: <label>` comment directly above the
+  form it tags. Header stamps `FileLen` (not `FileDateTime` - git
+  doesn't preserve mtimes across a checkout, so it would only ever be
+  reliable in the exact directory that wrote it) and the source's bare
+  filename (`Dir$(filePath)`, not its absolute path - both dropped by
+  owner correction, "semi-irrelevant... if the source is right next to
+  the expanded artifact").
+  **GEXPANDER.1, owner reversal:** the ORIGINAL design (this whole
+  mechanism above ran automatically, inside `EnglishLoadVocabulary`,
+  on every single phrasebook load) was adjudicated overkill after
+  shipping - "99.99% of loads never want one" - and is gone from
+  `EnglishLoadVocabulary`. Getting there took three corrections worth
+  keeping on record: a write failure went from silently swallowed
+  (`VlaRefreshBetaCopy`'s "never fails the build" precedent taken too
+  literally) → a lint warning (fail-loud-over-silent-misreport,
+  AS.6/F.12) → raising outright (the expanded form IS the grammar, not
+  a separate artifact, so its own failure is the grammar's failure) -
+  before the owner stepped back and asked whether automatic-on-every-
+  load was the right trigger AT ALL, and reversed it. Now: a
+  deliberate, occasional, human-triggered export only - "Export
+  Expanded Vocabulary" (ribbon, `VlaExportExpanded` id, `VLA_Build.bas`;
+  `EnglishIdeExportExpandedVocabulary`, `VLA_IDE.bas`) pops
+  `Application.GetSaveAsFilename` on EVERY click (correct here,
+  unlike the abandoned automatic path, since nothing unattended - no
+  self-test, no `VlaWriteGoldens` run - could ever trip over a
+  human-only action), suggesting `<source>_expanded.vla` in the
+  source's own directory via `ExpandedSiblingPath` (widened to
+  `Public`), with an explicit `Dir$`-check-and-`MsgBox` overwrite
+  confirmation (`ConfirmOverwrite`) since `GetSaveAsFilename` neither
+  saves anything itself nor reliably prompts on an existing file -
+  confirmed empirically: it did not, exporting over an existing
+  `english_expanded.vla`.
+  `TestGExpander` (`VLA_Tests_Grammar.bas`) shrank from 10 assertions to
+  **7** in the reversal - the "written to disk" and both write-failure
+  pins no longer apply (nothing automatic left to fail); the remaining
+  pins now call `EnglishExpandedVocabularyText` directly and check its
+  RETURNED text (flattening, ordering, provenance comments, staleness
+  stamp), same fixture (`table-property-family`'s own already-shipped
+  substituted-whole-value shape) as before. `scripts/english_expanded.vla`
+  is TRACKED (owner: "Ship of Theseus" - same rules, different form,
+  genuinely new information no other tracked file carries - the closer
+  precedent is `VlaWriteGoldens`'s own committed goldens, not
+  `Frazaro.xlam`'s build output) but is now a snapshot from whenever
+  someone last clicked the button, not an always-fresh artifact - live-
+  verified end to end (`VlaSelfTest` clean, the file diffs as expected
+  after a real click-through).
+  **Superseded in part by GEXPANDER.1 (see VLA_LINT/Translate entry,
+  below) - recorded here rather than rewritten, per this file's own
+  history-over-tidiness convention:** the automatic every-load write
+  described above was reversed after shipping ("99.99% of loads never
+  want one") - `EnglishLoadVocabulary` no longer calls it at all.
+  `EnglishExpandedVocabularyText(vocabPath)` is now the sole entry
+  point (returns text, does not write), driven by a deliberate,
+  human-triggered "Export Expanded Vocabulary" ribbon action. Every
+  mechanism point above (the six-directive attribution, `; row:`
+  provenance, `source-size` staleness stamp, bare-filename-only header)
+  carried over unchanged - only the trigger moved from automatic to
+  occasional-and-explicit.
+  **Deliberately does NOT cover `prelude.vla`:** that file never routes
+  through `EnglishLoadVocabulary`/`DispatchVocabForm` at all - it's read
+  fresh on every compile by `VLA.bas`'s own `PreludeMacros`/
+  `PreludeVlaPath` and fed straight into `VlaExpandText`/`VlaTranspile`,
+  a wholly separate mechanism. Not just unwired but a conceptual
+  mismatch: G-EXPANDER solves "a generator call site is one line, its
+  output doesn't exist as text anywhere," which needs a file that mixes
+  generator-macro DEFINITIONS with CALLS to them at load time
+  (`english.vla`'s own `table-property-family` pattern) - `prelude.vla`
+  is pure macro definitions, no `english-vla`/`test-success` forms, and
+  (as far as checked) no macro-calling-macro AT LOAD TIME either, so
+  AS.1 - the actual motivating consumer - has nothing to miscount there
+  regardless. A `prelude_expanded.vla` showing the standard library's
+  own fully-expanded macros could still have standalone documentation
+  value, but that's a different feature (no natural "registration
+  order" to walk, since nothing in `prelude.vla` self-invokes) - flagged
+  for a scoping decision, not silently added or silently skipped.
+- ✅ **VLA_LINT / Translate to VLA+VBA** — two related pieces born from
+  the same conversation: `tools/vla_lint.pl`'s house-style pretty-
+  printer (width-fit flat-vs-vertical at 100 cols replacing an arg-count
+  cutoff; `defmacro` and the six real-directive shapes each get a fixed,
+  unconditional multi-line layout) promoted from an external Perl script
+  to a native `src/VLA_Lint.bas` module (`VlaLintFormat`, reusing
+  `VLA.VlaReadForms`/`VLA.VlaWriteForm` rather than a new tokenizer) so
+  linting can run from inside VBA at all - owner's own framing:
+  "I'm going to insist that all vla files are linted by default."
+  `VlaLintCheck` (`VLA_Tests.bas`) is the standing verification gate for
+  the two hand-edited corpus files (`english.vla`/`prelude.vla`, NOT
+  `english_expanded.vla` - deliberately excluded, same reasoning as
+  G-EXPANDER's own artifact above), modeled on `VlaCorpusFamilyOk`,
+  run by hand like `VlaGoldens` rather than added to `VlaSelfTest`'s
+  dispatch (that list does no real disk I/O today). One real bug caught
+  by the self-test before it ever touched the real corpus: `PpForm`'s
+  atom branch used bare `CStr(node)` instead of `VLA.VlaWriteForm(node)`,
+  silently dropping the closing quote off every string-literal argument
+  rendered on its own (`"hi."` → `"hi.`) - a live self-test failure
+  (`TestVlaLint`, 7 pins) caught it before any real file was ever
+  reformatted by it.
+  New "Translate to VLA"/"Translate to VBA" ribbon actions
+  (`EnglishTranslateToVla`/`EnglishTranslateToVba`, `VLA_English.bas`;
+  `VlaTranslateVla`/`VlaTranslateVba` ids) give file-based English
+  programs (`instructions.txt`-shaped, not `alonzo.vla` - a raw-VLA
+  `(include ...)` library with no `main`) the same auditability
+  G-EXPANDER gave vocabulary files: `EnglishRunProgram` compiles and
+  RUNS with no readable trace left behind; these two translate and
+  WRITE, never execute. Named "Translate", not "Export" (owner
+  correction): the pipeline never touches workbook content - a picked
+  SOURCE file becomes an OUTPUT file, purely external - unlike Export
+  Expanded Vocabulary, which genuinely exports the live, currently-
+  loaded grammar state. Two more owner-caught gaps, fixed live: (1) the
+  first cut only showed an Open dialog (to pick the source) and
+  silently auto-wrote the output with no dialog at all - reasonable
+  for a workbook's own button wired directly to
+  `EnglishTranslateToVla`/`Vba` (unchanged, still dialog-free), wrong
+  for the interactive ribbon flow, where typing a new output name into
+  an Open dialog (which enforces existence) hit Windows' own native
+  "file not found" refusal; fixed by adding a real Save-As dialog for
+  the output, `outPathOverride` threaded through as a required (not
+  Optional - VBA disallows Optional before a `ParamArray` at all,
+  confirmed live as a compile error) parameter between `programPath`
+  and the `ParamArray`; (2) `GetSaveAsFilename` neither saves anything
+  nor reliably prompts on an existing file, same gap as Export Expanded
+  Vocabulary's own, fixed with the same shared `ConfirmOverwrite`.
+  Live-verified: `VlaSelfTest`/goldens pass, a real `instructions.txt`
+  → `scripts/instructions.vla`/`instructions.vba` click-through
+  produced correctly house-style-linted output.
+  **GEXPANDERLINT.0, this session - the one gap the "linted by default"
+  principle above still had:** `VlaLintCheck`'s own exclusion of
+  `english_expanded.vla` is about the CHECK gate being pointless for a
+  file nobody hand-edits (G-EXPANDER's own artifact contract already
+  says so) - it was never a decision that the EXPORT itself shouldn't
+  produce house-style text, and the owner confirmed that reading
+  directly, this session ("I stand firm that all VLA files should be
+  linted / pretty-printed by default"), scoping AS.1 (Assurance
+  department). `EnglishExpandedVocabularyText` (`VLA_English.bas`) now
+  returns `stamp & VLA_Lint.VlaLintFormat(mLastExpandedBlob)` instead of
+  the raw flat blob - a straight reuse of the same `VlaLintFormat`
+  `TestVlaLint`'s own 7 pins already trust, not a second formatter;
+  `GEXPANDER.0`'s flat one-line-per-directive text is already valid
+  house-style INPUT (`SplitSegments` reads a comment or a balanced-paren
+  form per line regardless of original formatting), so this re-flows
+  forms already built rather than re-deriving them. `VLA_ENGLISH_VERSION`
+  bumped to `GEXPANDERLINT.0`.
+  **Hand-derived against `PpForm` directly, not assumed:**
+  `english-vla`/`test-success` are both `IsDirectiveShaped`, so both
+  ALWAYS verticalize regardless of width - but functor and first
+  argument stay on the SAME line under `PpForm`'s own verticalize
+  branch (only the second argument onward drops to its own line), so a
+  rule's pattern text and a test's sentence text both stay on the
+  form's own first line either way - **this corrects AS.1's own earlier
+  scoping note below**, which assumed (without reading `PpForm`) that
+  pretty-printing would push display text to a second line.
+  `TestGExpander`'s three text-shape assertions rewritten to match (two
+  exact multi-line matches, hand-traced column-by-column - 13 spaces for
+  `english-vla`'s 12-char prefix, 14 for `test-success`'s 13-char one -
+  plus an explicit assertion that the OLD flat one-line rendering is now
+  ABSENT, so a spacing mistake here fails loud rather than silently
+  passing a weaker check). **Not yet owner-verified - needs a live run**
+  (`TestGExpander` in `VlaSelfTest`, then Export Expanded Vocabulary
+  against the real `scripts/english.vla` to regenerate a real,
+  pretty-printed `scripts/english_expanded.vla` - today's committed copy
+  is still `GEXPANDER.0`'s flat rendering).
+  **Correction, this session: `tools/vla_lint.pl` is retired.** Moved to
+  `archive/vla_lint.pl` (owner's own call: "VLA_Lint.bas is the new
+  linter") - every reference above to the Perl tool as this pass's
+  ancestor is historically accurate and left as-is, but the path is now
+  stale; the archived copy is not maintained and carries neither rule
+  below.
+  **Two more owner-requested house rules, `VLA_LINT_VERSION` 1.0 → 1.1,
+  `VLA_Lint.bas`'s own addition (no Perl-tool ancestor):** (1) a bare
+  top-level `(defmacro ...)` form is always followed by a blank line
+  before whatever comes next - inserted when missing, not duplicated
+  when already present ("(english-vla ...) on the very next line after a
+  defmacro form" was the owner's own complaint); (2) `VlaLintFormat`'s
+  output always ends with exactly two blank lines (three trailing line
+  breaks), so appending a new form at the end of a linted file never
+  needs more than one press of Enter first. **Corrected mid-session -
+  the owner's own first ask said "two newline" and was then revised to
+  "three newline (two blank lines)."** `TestVlaLint` grew from 7
+  pins to 9 - the existing 7 updated for the new trailing blank line,
+  plus two new ones (insert-when-missing, don't-duplicate-when-present)
+  for the defmacro rule specifically. **Not yet owner-verified** - the
+  owner runs Frazaro's own tests by hand; implemented and reasoned
+  through carefully since this session had no live Excel access.
+  **New this session: a "Lint VLA" ribbon button.** `english_expanded.vla`
+  and Translate to VLA/VBA's own output already go through
+  `VlaLintFormat` automatically; `english.vla`/`prelude.vla` are hand-
+  typed and never did. `EnglishIdeLintVla` (`VLA_IDE.bas`) picks any
+  `.vla` file (`GetOpenFilename`), then a Save-As dialog defaulting to
+  that SAME path (`GetSaveAsFilename`'s `InitialFileName`) so accepting
+  the default overwrites the original in place - typing a different
+  name keeps the original and writes the linted copy alongside it.
+  `ConfirmOverwrite` still fires unconditionally, matching every other
+  Save-As flow here. Wired on all three surfaces the ribbon contract
+  requires (`VlaRibbonXml`, `VlaRibbonAction`, the legacy `VlaAddinMenu`)
+  so they cannot drift; `TestBuildRibbon`'s pins moved from nineteen
+  buttons to twenty (`VlaLintVla` added to the id array, both count
+  assertions bumped). **Owner-verified live** (ran it against
+  `english.vla`/`prelude.vla` directly, plus re-derived
+  `english_expanded.vla`/`instructions.vla`) - and that run is exactly
+  what caught the bug below, which a live run was always going to catch
+  sooner than a static pin would have.
+  **Bug found by that live run, fixed same session: the two-blank-
+  lines-at-EOF rule was not idempotent.** It appended three trailing
+  line breaks unconditionally, on top of whatever the source ALREADY
+  had (each of the source's own trailing blank lines survives the main
+  loop as its own verbatim segment before the trailing rule ever runs) -
+  so a file with one pre-existing trailing blank line came back with
+  four, and `english.vla`/`prelude.vla` (open-ended prior whitespace)
+  came back with six and four respectively. Caught by the owner's own
+  live click-through, not by `TestVlaLint` - none of its 9 pins fed the
+  formatter an input that already ended in blank lines, so the gap was
+  real and specific to exactly the property `VlaLintCheck` most needs to
+  hold. Fixed: `VlaLintFormat` now strips every trailing CRLF pair down
+  to zero before appending exactly three, making the rule idempotent
+  (relinting an already-canonical file is a byte-for-byte no-op).
+  `TestVlaLint` grew from 9 pins to 11 - one pinning the collapse
+  (five trailing blanks in, exactly two out), one pinning idempotence
+  directly. **The four files this bug actually touched -
+  `english.vla`, `prelude.vla`, `english_expanded.vla`,
+  `instructions.vla` - were reverted (`git restore`) rather than hand-
+  patched**, since hand-editing the corpus to work around the tool's own
+  bug would be exactly backwards; they need re-linting (Lint VLA /
+  Export Expanded Phrasebook / Translate to VLA) against this fix,
+  which is the owner's own next live-verification step, not done here.
+
+  **Three corrections, caught by the owner reading the freshly-linted
+  `english.vla` itself, not by a pin:**
+  1. **The vertical layout, settled across three rounds.** First: a
+     directive-shaped form's first argument stayed inline with its
+     functor - the same shape an ordinary call used, never the intent
+     for a form asserting a pairing. Fixed with a dedicated directive
+     layout. Second: the owner pointed at `table-property-family`
+     itself (a real, wide, ordinary call) and named the actual
+     complaint - a long functor name leaves "a giant square of wasted
+     space" to the left of every argument once only the first stays
+     fused to it. Generalized the directive layout (`PpVerticalize`) to
+     every verticalized form, retiring the old generic-verticalize
+     branch entirely. **Third, immediately after, checking the result
+     before committing caught the overreach:** that same full-split
+     shape applied to VLA's own control-flow and definition keywords
+     too - `if`, `begin`, `quote-if`, `deflambda`, `sub`, and the rest -
+     which read as alien Lisp once a two-or-three-character keyword
+     stands alone on its own line with nothing beside it (found live in
+     `prelude.vla`'s own `quote-if`/`if`/`begin` forms and `alonzo.vla`'s
+     `deflambda`/`sub` definitions, not by a pin - none of `TestVlaLint`'s
+     inputs at the time used a short, real control-flow functor).
+     Settled on a length boundary (`MAX_INLINE_FUNCTOR = 12`, owner's own
+     choice of the two options offered): a directive-shaped node still
+     always gets `PpVerticalize`'s full split, unconditional on length;
+     otherwise the functor's own length decides - at or under the
+     boundary, the restored original shape (`PpVerticalizeInline`,
+     functor and first argument share the opening line, matching every
+     one of VLA's own short keywords); longer, `PpVerticalize`'s full
+     split (matching `table-property-family`, `tablespec-row`, and any
+     future generator-shaped name). `TestVlaLint` grew three more pins
+     (a short functor staying inline, a long one splitting, and the `if`
+     regression case specifically) alongside the corrected expected2/
+     expected5; `TestGExpander`'s two checks needed no change (both are
+     directive-shaped, unconditional either way).
+  2. **The blank-line-after-defmacro rule never reached a NESTED body
+     position, and deflambda needed it too.** `alonzo.vla`'s own
+     `register-bricks` - a `sub` whose body is five back-to-back
+     `deflambda`s - had no separation between any of them: the rule
+     lived entirely in `VlaLintFormat`'s own TOP-LEVEL segment loop, so
+     it only ever fired between top-level forms, never inside a
+     rendered body list. New `IntroducesDefinition` predicate (head is
+     `defmacro` OR `deflambda` - deliberately looser than
+     `IsDefmacroShaped`'s own arity check, since this decides spacing
+     only, never layout) is now called from all three body-rendering
+     loops - `PpDefmacro`'s own body loop, `PpVerticalize`'s argument
+     loop, and `PpVerticalizeInline`'s (both its special first-argument
+     slot, a real shape - `table-property-family`'s own generated
+     `(begin (defmacro ...) (english-vla ...) (test-success ...))`
+     puts a `defmacro` exactly there - and its own remaining-argument
+     loop). Two new `TestVlaLint` pins: one exact-match trace of a
+     nested `defmacro` (`(begin (defmacro ...) (g x))`, hand-derived in
+     full), one `InStr`-based check confirming `deflambda` specifically
+     triggers the same rule without re-deriving a second full layout by
+     hand. 15 pins total now.
+  3. **`table-property-family`/`tablespec-row`'s own parameter names,
+     `testsentence`/`testcall`, never took a hyphen** - inconsistent
+     with every other multi-word identifier in this codebase
+     (`test-success`, `english-vla`, `obj-set!`, ...). Not a technical
+     limitation: `VLA.bas`'s own tokenizer treats `-` as an ordinary
+     atom character with no special casing anywhere, confirmed by
+     reading it directly rather than inferred from usage alone. Renamed
+     to `test-sentence`/`test-call` in both `defmacro`s and their own
+     surrounding comments (`scripts/english.vla`) - pure local macro-
+     parameter renames, no external reference exists to either spelling
+     (checked: the only other occurrences are derived artifacts that
+     regenerate from this file, and independent test fixtures in
+     `VLA_Tests.bas`/`VLA_Tests_Grammar.bas` that reproduce this same
+     shape for unrelated reasons - synthetic examples, not required to
+     track this file's own spelling, left alone rather than
+     over-scoped).
+  **`english.vla` owner-verified live against `PpVerticalize`'s new
+  shape** - `table-property-family`'s own call sites (the actual
+  complaint) now read as functor-alone-then-every-argument-its-own-line,
+  confirmed directly in the relinted file.
+
+  **New this session: Lint VLA also lints a whole folder, not just one
+  file.** `EnglishIdeLintVla` now asks once, up front (`vbYesNoCancel`),
+  which the click means, then routes to `LintVlaOneFile` (unchanged) or
+  the new `LintVlaFolder` - `Application.FileDialog(4)` (the folder-
+  picker type, referenced by its literal value so this project takes on
+  no Office library reference for one constant, the same precedent
+  `VLA_Build.bas`'s own `vbext_ct_ClassModule` literal already set),
+  every `.vla` file directly inside (non-recursive - "select A
+  directory," not a whole tree), `ConfirmOverwrite` firing per file on
+  purpose (owner's own call: clicking through a folder's worth is cheap
+  enough for now; no bulk-skip flag). Refuses in words on Mac -
+  `Application.FileDialog` is a Windows-only Office API with no folder-
+  picker equivalent there, matching this codebase's existing `VlaOnMac`
+  refusal doctrine (`RunProgram`'s own Compile refusal is the
+  precedent) rather than failing on a missing member. One real
+  correctness trap avoided, not hit live: `Dir$` is not reentrant (one
+  process-wide search cursor) and `ConfirmOverwrite` itself calls `Dir$`
+  for its own existence check, so the folder's file list is fully
+  drained into an array BEFORE any `ConfirmOverwrite` call, rather than
+  interleaving `Dir$()` "find next" calls with it mid-loop, which would
+  have silently skipped or repeated names. Not yet owner-verified - no
+  live Excel access here.
+
+**The determinism gate — decided this session, front-loaded here because
+it binds LISTOPS *and* every List feature built on top of it, not LISTOPS
+alone. All four required before LISTOPS is scoped, not just before it
+ships; TABLESPEC and anything later inherits the same four unchanged:**
+
+- ✅ **LISTOPS-PURITY** — LISTOPS may only ever operate on `quote`
+  literals written in the `.vla` source text being compiled - never a
+  file read, a workbook read, the clock, or anything else that could
+  differ between two compiles of identical source. This is the wall
+  GENSYM was vetoed for breaching, drawn around a different door;
+  WORKBOOK-SPEC below is flagged explicitly as the one idea that WOULD
+  breach it if the two were ever combined. Enforced by construction (no
+  file-read primitive attached to LISTOPS at all), not by convention.
+  **Verified this pass, by reading - this item's own criterion is a
+  static property, not a behavior only Excel can show:**
+  (1) today's entire macro-expansion path (`ExpandMacros`/`ExpandOne`/
+  `Substitute`/`DefineMacro`, `VLA.bas`) has no `eval` step at all -
+  only Collection copying and string/symbol comparison; grepped
+  `VLA.bas`/`VLA_English.bas` for `Application.Run`/`Shell`/
+  `CreateObject`/`Environ`/`Now`/`Rnd`/`Timer` and confirmed every hit
+  is either a comment describing the COMPILED PROGRAM's own later
+  runtime, `VocabReadFile`'s `CreateObject("ADODB.Stream")` (reading
+  the `.vla` SOURCE text itself - the compiler's actual input, not an
+  out-of-band read), or `EnglishCompileToModule`'s dev-convenience
+  `Application.Run` (executing the ALREADY-COMPILED module, strictly
+  after expansion finishes) - none reachable from inside expansion.
+  (2) The complete proposed LISTOPS bundle (`car`/`cdr`/`cddr`/`cons`/
+  `list`/`null?`/`eq?`/`equal?`) is, by its own nature, pure structural
+  navigation/comparison over data already in hand - none has any
+  legitimate reason to need I/O, so purity is achievable by simply
+  never adding one; WORKBOOK-SPEC stays the one deliberately-excluded
+  idea that would breach it. (3) `mBudgetOn`/`mExpandBudget` (the one
+  other piece of cross-call mutable state touching expansion) is
+  already disciplined about not leaking between compiles -
+  `VlaExpandStepText` restores `mBudgetOn` to `False` on every exit,
+  error path included (`VLA.bas` ~L1891-1899) - existing precedent that
+  this codebase already takes cross-call determinism seriously, not a
+  new discipline LISTOPS would have to invent. (4) One concrete PAST
+  bug is the actual reason this gate exists, not a hypothetical: S3.1
+  found template-copied lists inheriting a stale `ObjPtr`-keyed line
+  tag from a dead form at the same heap address - a real, if narrow
+  (comment/line-attribution only, never program behavior), instance of
+  exactly the class of non-determinism LISTOPS-PURITY worries about,
+  already caught and fixed (`Substitute`'s own `TagLine outc, 0`) and
+  pinned live (`TestGoldens`'s "map: template statements are
+  deliberately untagged"). **Binding note for whoever scopes LISTOPS:**
+  `cons`/`list` will build NEW Collections the same way `Substitute`'s
+  own `outc` does - they MUST call `TagLine ..., 0` (or equivalent) on
+  every new list they construct, never inherit a tag from an operand's
+  address, or the S3.1 bug reopens in a new place. PROVENANCE/BUDGET/
+  CONFLUENCE below remain open and need real design/a written test/a
+  proof respectively - PURITY was never asking for one.
+- ✅ **LISTOPS-PROVENANCE** — a rule a generator produces from row N of a
+  table must be traceable to row N, not just to the generator's own call
+  site. Today every spliced form inherits the call site's line only
+  (`DispatchVocabForm`'s `startLine` rides through unchanged); fine for
+  a five-line antonym pair, not fine for fifty rules from one call. Needs
+  real design, not just a wider error string. Two halves, load-time
+  then emitted-code, the second added on owner follow-up once the first
+  proved traceability alone wasn't the actual bar - an auditor reading
+  generated code six months later, with zero context, needs the trace
+  IN the code, not just in a load-time error nobody's still looking at.
+  Load-time half: a new `(at-row label form)` directive joins `"begin"`
+  as a second transparent wrapper `DispatchVocabForm` recognizes
+  structurally, threading `rowTag` everywhere `startLine` already rides
+  (`ExpandVocabMacroCall`/`RegisterVocabMacro`/`RunVocabTest`/
+  `RunVocabFailTest` all take it too now); `ProvLoc` (new helper)
+  appends `"(label)"` to every failure inside that form - a proof
+  failure, a macro's own arity mismatch, its own reserved-name refusal,
+  an unrecognized directive. `test-success`/`test-fail` are QUEUED at
+  dispatch time and RUN later, well after dispatch unwinds, so `rowTag`
+  is captured into a new parallel collection (`testRowTags`) the same
+  moment `testLines.Add startLine` already is - a *global* "current
+  row" would already be stale by failure time, same reason `startLine`
+  itself was never a global. Emitted-code half: `Substitute` stamps
+  every macro-template copy's line-tag to 0 by design (the S3.1 fix,
+  `TestGoldens`'s own "deliberately untagged" pin) - macro-expanded
+  statements carry no `vla:N` comment at all today, so a NEW,
+  independent tag was the only option, deliberately avoiding
+  `TagLine`/`ObjPtr` entirely so it can never reopen that exact bug.
+  `RegisterVocabMacro` now rewraps a row-tagged macro's own template
+  (signature/docstring untouched) in `(gen-row "label" ...)`; `EmitStmt`
+  (`VLA.bas`) recognizes it alongside `at-line`, tagging every statement
+  inside with a separate `mGenRow`-driven `vla-row:label` field on
+  EVERY future call to that macro, in any program - not just at the
+  vocabulary file's own load. `mGenRow` joins `mAtLine` in `VlaFrame`'s
+  reentrancy snapshot (twenty fields now, was nineteen). Neither half
+  is LISTOPS-only - both work today, by hand, independent of LISTOPS
+  ever landing: `TestAtRow`'s own generator-emitted pin and `TestGenRow`
+  both prove the actual future shape (a table-walker's own multi-row
+  output) works without LISTOPS existing, because the mechanism only
+  cares about splicing/dispatch/emission, never about how the forms
+  were generated. `VLA_ENGLISH_VERSION` bumped to `ATROW.0`; `TestAtRow`
+  (9 assertions) and `TestGenRow` (2 assertions) wired into
+  `VlaSelfTest` right after `TestTableFamily`. Owner-verified: tests and
+  goldens pass clean, fresh-workbook add-in interprets and compiles
+  instructions.txt without errors.
+- ✅ **LISTOPS-BUDGET** — verify, don't assume, that `mExpandBudget`/
+  `mExpandFired` (sized for substitution-only workloads) fails LOUDLY
+  under realistic LISTOPS-scale expansion volume rather than silently
+  handing back a partial, truncated-but-plausible-looking rule set. A
+  written test against a large synthetic table, not a read of the code.
+  Written, not yet owner-verified: LISTOPS itself doesn't exist yet (no
+  `car`/`cdr` to walk a table with), but the actual risk doesn't need it
+  to - a table-walker written the natural recursive way (each step
+  consumes one row, calls itself on the rest) is a CHAIN of macro
+  re-expansions at one position, exactly what `ExpandMacros`'s own
+  `depth` counts today, with ordinary substitution-only `defmacro`. A
+  150-link and a 250-link chain (each built by a VBA loop, never hand-
+  typed) are the actual test: **finding, stated so it isn't
+  rediscovered by surprise later** - the guard (`depth > 200`) DOES fail
+  loudly, never silently (the good half); but 200 sequential steps is
+  not a large number for a real spreadsheet table (a 250-row pricing
+  sheet is entirely ordinary), so a naive recursive LISTOPS table-walker
+  would hit this ceiling on a table smaller than "large" by any normal
+  measure. Two options for whoever scopes LISTOPS, not decided here:
+  raise the constant, or steer LISTOPS's own walking convention away
+  from one long recursive chain. Separately confirmed: the stepper's
+  own budget counters (`mExpandBudget`/`mExpandFired`, this item's own
+  literal namesakes) stay correct at scale, parking exactly on the
+  right partial state, not one off in either direction; and volume
+  alone - many INDEPENDENT, never-chained macro calls, the
+  `(begin call1 call2 ...)` shape splicing already produces today -
+  carries no depth risk at all regardless of row count, only the naive-
+  recursive shape does. `TestListopsBudget` (`VLA_Tests.bas`, 4
+  assertions) wired into `VlaSelfTest` right after `TestGenRow`. No
+  production code changed - this is a verification pass, the loud/safe
+  failure mode already existed; the finding is the ceiling's size, not
+  a bug. One bug surfaced and fixed in the pin itself, not the engine:
+  `On Error GoTo 0` resets `Err.Number` to 0, so a `Report` reading it
+  live after that statement can't tell a real success from a masked
+  failure - fixed by capturing `Err.Number` to a local first, the same
+  discipline `Err.Description` already got everywhere else (`LESSONS.md`,
+  Beta §4). Owner-verified: tests and goldens pass clean, fresh-workbook
+  add-in interprets and compiles instructions.txt without errors.
+  **Cross-reference, found while answering the owner's own
+  follow-up on this item:** MACHINE · OPTIMIZATION's own **P-PROBE**
+  (below) is a SEPARATE, already-documented, still-open cost that
+  hits the same LISTOPS-scale-generation scenario from a different
+  angle - `RegisterVocabMacro`'s own probe re-transpiles ALL previously
+  accumulated macro text on every new macro registration, confirmed
+  still O(macros²) in the current code, unchanged since
+  `ALPHA5_ROADMAP.md` first flagged it using "a 200-macro dialect
+  library" as its own illustrative case - the same number this item
+  arrived at independently, from a completely different mechanism
+  (registration-time re-parsing volume, not expansion-time recursion
+  depth). The two costs are independent: a wide, non-chained generator
+  (this item's own safe shape) still pays P-PROBE's quadratic
+  registration cost purely from macro COUNT, regardless of depth.
+  Whoever scopes LISTOPS should read both entries together, not just
+  this one.
+- ✅ **LISTOPS-CONFLUENCE** — prove `ExpandMacros`'s walk produces the
+  same result regardless of sibling-expansion order for
+  recursive-over-recursive expansion specifically - a property the
+  engine has never had to guarantee before, because nothing before
+  LISTOPS forced two arbitrary recursive expansions to interact.
+  Closed the same way LISTOPS-PURITY
+  was - by reading, backed here by a concrete test, not asserted from
+  the read alone. **The structural argument:** `depth` is `ByVal` (no
+  cross-call mutation - VBA value semantics, not a convention);
+  `mMacros` is fully populated in pass 1, before any expansion begins,
+  and never written again during the walk (`VlaTranspile`'s own
+  two-pass shape); and `Substitute` (re-read for this pass) touches
+  ONLY its own four parameters plus pure helpers - no module-level
+  state at all, not `mExpandFired`, not `mAtLine`. A macro's own
+  expansion result is therefore a pure function of its own template
+  and the arguments explicitly bound to it - there is no channel
+  through which one sibling's expansion could observably affect
+  another's, regardless of which one a walk touches first. Order is
+  already fixed today (VBA Collections iterate in insertion order, no
+  randomization possible), so a test cannot literally vary order - it
+  proves the CONSEQUENCE order-independence predicts instead:
+  `TestListopsConfluence` (`VLA_Tests.bas`, 3 assertions) builds two
+  unrelated, independently-recursive 50-deep macro chains, brought
+  together as siblings by one combining macro - both resolve to their
+  own correct fixpoint with no cross-contamination, in either argument
+  order (swapping the call's own argument order swaps the output
+  order cleanly, ruling out "which chain was defined first" as an
+  accidental factor) - plus a THIRD, structurally different case this
+  item's own wording also names: recursive-INTO-recursive, not just
+  recursive-BESIDE-recursive - a value threaded through one recursive
+  macro family that hands off, mid-chain, into a second independent
+  recursive family arrives at the far terminal uncorrupted, proving
+  argument bindings stay isolated across a nested recursive handoff
+  too. Wired into `VlaSelfTest` right after `TestListopsBudget`. No
+  production code changed - a verification pass, like PURITY and
+  BUDGET before it. Owner-verified: tests and goldens pass clean,
+  fresh-workbook add-in interprets and compiles instructions.txt
+  without errors. **All four determinism-gate items now closed.**
+
+**Doable next — each needs exactly one new, narrowly-scoped primitive:**
+
+- ✅ **QUASIQUOTE** — the full bundle: `(quasiquote ...)`, `(unquote
+  ...)`, `(unquote-splicing ...)` (splice a list's own contents into a
+  surrounding list, the third classical primitive alongside quote and
+  unquote), and a `(symbol ...)` fusion primitive (`(symbol "make-" d)`
+  → the atom `make-bold`) - generalizing what G11's `make-{d}` and the
+  English matcher's own `FormSubstitute` already do in miniature, in one
+  place, for one caller only. Closes METAVOCAB's own stated limit.
+  **Scoping pass complete, adjudicated this session, no code written
+  yet:**
+  - **Owner gate, adjudicated:** this item's own "almost certainly
+    compatible with L-TIER3... but the owner's own reading is the
+    actual gate" hedge was put to the owner directly, first message,
+    before any scoping detail - same category of question GENSYM got
+    a full veto on, for a different reason. Ruling: reads as richer
+    *substitution* vocabulary, not procedural - green-lit to scope and
+    implement.
+  - **Sole implementation site: `Substitute` (`VLA.bas`, confirmed by
+    reading - not `VLA_English.bas`).** `unquote`'s bound-name lookup
+    needs the exact `bindings`/`restName`/`restItems` table an
+    enclosing `defmacro`'s `Substitute` call already threads, so all
+    three of `quasiquote`/`unquote`/`unquote-splicing` are new
+    special-cased heads inside `Substitute`'s existing recursive walk,
+    gated by one new `Optional ByVal inQuasi As Boolean = False`
+    parameter. The sole existing call site (`ExpandOne`, `VLA.bas`
+    ~L2055) needs zero changes - the default `False` preserves every
+    template's current behavior byte-for-byte. `VLA_CORE_VERSION`
+    (currently `APROPOSPLUS.0`) is the version to bump, on this
+    module, not `VLA_ENGLISH_VERSION`.
+  - **Why `quasiquote`/`unquote`/`unquote-splicing` stay confined to a
+    `defmacro` template - not an arbitrary scoping choice.** `quote`
+    is self-contained data and needs no ambient context, which is why
+    it's legitimately general (recognized in three places: `ExpandMacros`'s
+    skip, `EmitTop`'s statement-position refusal, `EmitExpr`'s emission
+    - usable directly via `VlaTryValue`, no macro required). `unquote`'s
+    entire job is to look a name up in an ambient environment; in real
+    Lisp that environment is whatever's lexically in scope, resolved by
+    full *evaluation* - the same capability GENSYM/`eval` were vetoed
+    for. VLA's expand-time has no evaluator at all, by design - the
+    only environment that exists is the specific bindings table one
+    macro's own `Substitute` call builds from its declared parameters.
+    Outside of one macro's expansion there is nothing for `(unquote x)`
+    to mean - not merely unsupported, architecturally undefined. So
+    `ExpandMacros` gets an explicit guard (mirroring `quote`'s own P.L5
+    skip-check) recognizing `quasiquote`/`unquote`/`unquote-splicing`
+    when reached *outside* a macro template and refusing loudly -
+    *"quasiquote/unquote only have meaning inside a defmacro's own
+    template - there is no substitution environment outside one"* -
+    instead of falling through to a confusing generic emit-time error.
+  - **`(symbol ...)` is the one primitive of the four recognized
+    generally, not just inside `Substitute` - decided this session.**
+    Unlike `unquote`, `symbol`'s arguments don't require the ambient
+    bindings table: pure string/number-literal arguments need nothing
+    looked up, and even a bare symbol argument that isn't found in an
+    (empty) table already has defined behavior in `Substitute` today -
+    it passes through as itself (`VLA.bas` ~L2079). So `symbol` is
+    recognized both inside `Substitute` (macro templates) and inside
+    `ExpandMacros`'s own general walk (ordinary program code,
+    `VlaTryValue`, anywhere) - a deliberately asymmetric scope from its
+    three siblings, justified because it's architecturally *capable* of
+    standing alone, not merely because standing alone seemed
+    convenient. `(symbol X)`, single-argument, is explicitly legal too
+    (not a refused arity) - it falls out of the same fusion loop with
+    no special-casing, and has real non-identity meaning when X is a
+    string literal (string-literal → symbol coercion), even though
+    it's a true no-op when X is already a symbol.
+  - **Nested quasiquote: deferred, on the record, not a stack-safety
+    concern.** `Substitute` already recurses over arbitrarily nested
+    template structure today with no depth guard of its own (the
+    `depth > 200` counter belongs to `ExpandMacros`'s macro-expansion
+    *chain*, a different recursion entirely) - a nested quasiquote
+    wouldn't blow any stack an ordinary deeply-nested template
+    wouldn't already risk. The real reason is a data-structure
+    mismatch: a single `Boolean` (`inQuasi`) can express "shielded or
+    not" but not *depth*, and correct nested-quasiquote semantics need
+    depth - an inner quasiquote must re-shield its own unquote holes
+    from the outer pass unless doubly-unquoted. Shipping the boolean
+    version and letting nesting fall through unguarded would silently
+    produce *wrong* output, not a crash, so a nested `(quasiquote ...)`
+    raises loudly instead (`Err.Raise`: "nested quasiquote is not
+    supported") - same "fail loud, never silent" discipline as
+    LISTOPS-BUDGET's depth guard. No known caller needs it (nothing in
+    the acceptance corpus generates code that itself contains a
+    quasiquote meant for a later pass); building the depth-tracked
+    version speculatively would ship code with no exerciser to verify
+    it against. Filed for later, same treatment LISPIMPORT gives
+    `apply`.
+  - **`unquote-splicing`'s operand: no `(quote ...)` auto-unwrap,
+    deferred, not built speculatively.** Real Lisp's `,@` never faces
+    this ambiguity because its operand is *evaluated* - a source-level
+    `quote` wrapper is already stripped by the time a real value comes
+    back. VLA's `Substitute` never evaluates, only copies raw call-site
+    syntax - so a param bound to a `(quote (1 2 3))`-wrapped argument
+    stays the 2-element form `[quote, [1 2 3]]`, not a bare 3-element
+    list, and naive splicing of it would produce `quote` and a nested
+    sublist as two spliced elements, not three numbers. Not
+    auto-unwrapped, because nothing in the current corpus passes a
+    quote-wrapped list argument with splice-intent: `restName`'s own
+    binding (`restItems`) is built directly by `ExpandOne` and is never
+    quote-wrapped, so the one real in-scope use today - explicit
+    rest-splicing inside a quasiquote-shielded template, replacing the
+    *implicit* bare-restName-splice this bundle suppresses inside a
+    shield - needs no unwrap logic at all. Revisit once LISTOPS makes
+    computed lists real, or once a concrete caller hits it.
+  - **Acceptance-test target, once built (not this pass's job to
+    build):** `table-property-family`'s own three call sites
+    (`scripts/english.vla` ~L963-978) require the caller to spell the
+    full generated macro name explicitly (`table-style`,
+    `table-totals-on`, `table-totals-off`) even though it's redundant
+    with `property` in one case and unrelated in the shared-property
+    case (`table-totals-on`/`-off` share `property` `showtotals` but
+    need two different names). A redesigned generator could take a
+    short per-row fragment instead and derive the name via
+    `(symbol "table-" fragment)`, eliminating the redundant explicit
+    name argument - the concrete test for whether this primitive
+    actually does what METAVOCAB's limit needed, not a claim the
+    existing generator already proves it today.
+  - **Reserved names:** `quasiquote`, `unquote`, `unquote-splicing`,
+    `symbol` all refused as macro names in `DefineMacro`, same
+    treatment `quote` already gets (`VLA.bas` ~L1512).
+  - **Test wiring:** `TestQuasiquote` (`VLA_Tests.bas`, 20 assertions)
+    wired into `VlaSelfTest` right after `TestListopsConfluence`. Every
+    assertion mirrors a live-verified `VlaExpandStep` check from this
+    build session, now pinned as a permanent regression - `symbol` at
+    both call sites, all four reserved-name refusals, quasiquote's
+    shield/unquote's punch-through in one template (same param name
+    both roles), unquote-splicing, an explicit backward-compatibility
+    pin (ordinary templates unaffected by `inQuasi`'s existence), and
+    every guard rail (nesting, wrong context, wrong arity, non-list
+    splice operand). A new shared `CheckExpandErr` helper
+    (`VLA_Tests.bas`, beside `CheckFrags`/`CheckV`) factors out the
+    "expect `VlaExpandText` to raise, check the message" pattern
+    `TestVlaExpand` used inline once - reused here across every guard
+    assertion. **Predicted, not yet human-verified:** self-test
+    695 → 733 (+9 ATROW +2 TestGenRow +4 BUDGET +3 CONFLUENCE +20
+    QUASIQUOTE = 713 before this item, 733 after), 0 failures; host
+    self-test unchanged at 114/0 (compiler-only surface, no host-side
+    change). `VLA_CORE_VERSION` bumped to `QUASIQUOTE.0`.
+  - **Owner-verified:** tests and goldens pass clean, fresh-workbook
+    add-in interprets and compiles instructions.txt without errors.
+  `~weeks`
+- ✅ **LISTOPS** — **gated on LISTOPS-PURITY/-PROVENANCE/-BUDGET/
+  -CONFLUENCE above, all four, before scoping starts.** The complete
+  expand-time data bundle, not just the two headline primitives: `car`,
+  `cdr`, `cddr` (representative of the cxr family - only added past
+  cddr if a real macro needs one), `cons`, `list` (build a list from N
+  given items - the natural constructor alongside cons/car/cdr), `null?`
+  (an empty-list test at expand time, distinct from the existing runtime
+  `empty?`), and `eq?`/`equal?` (structural comparison at expand time -
+  needed by almost any real recursive macro for deduplication or
+  matching, and conspicuously absent from the original scoping of this
+  item). All of it distinct from the existing runtime list accessors
+  (`vlafirst`/`first of` stay runtime - naming needs to keep that
+  unambiguous on both sides). Verified gap, not a guess: no `& rest`-
+  param macro anywhere in prelude.vla destructures its own list today -
+  `when`/`dotimes`/`with-fast-excel`/all of them splice whole or as
+  siblings only. **This is the item that actually reopens L-TIER3's
+  declined question** - recursive macros walking data via car/cdr is
+  expand-time branching-and-looping, which is what "procedural macros"
+  names. Reopened deliberately this session, not by momentum: the owner's
+  own read is that the gate is real determinism (LISTOPS-PURITY), not
+  legibility - `VlaExpandStep` already answers the legibility objection
+  on its own.
+
+  **Scoping pass complete, adjudicated this session, code written,
+  not yet human-verified:**
+  - **Owner gate, adjudicated in two rounds, both before any scoping
+    detail.** Round 1, the L-TIER3 question this entry itself poses:
+    put to the owner directly, first message - does a recursive
+    expand-time walker over quoted data read as acceptable, now that
+    determinism is proven sound (all four gate items closed) and
+    proceduralism is the live question rather than legibility. Ruling:
+    yes, green-lit to scope. Round 2, found only once reading began:
+    the named 8-primitive bundle above has no way to make a self-
+    recursive macro STOP - checked both places `if` is recognized
+    (`EmitStmt`'s `Case "if"` -> `EmitIf`, a runtime VBA `If`;
+    `EmitFormula`'s `Case "if"` -> Excel `IF()`) and both are emit-time,
+    reached only after expansion finishes; `mMacros`/`GetMacro`/
+    `DefineMacro` key macros by name only, no arity-based dispatch to
+    branch on argument shape either. Put to the owner as its own
+    decision (add a 9th primitive this pass, defer it, or stop and
+    scope it separately) - ruling: add it this pass.
+  - **The ninth primitive: `quote-if`.** `(quote-if test then-form
+    else-form)`, exactly 3 arguments - the one SPECIAL FORM in the
+    bundle (like `quasiquote`/`unquote`, not an eager primitive): only
+    the SELECTED branch's form is ever resolved via `Substitute`; the
+    untaken branch is never touched, never evaluated - what actually
+    lets a self-recursive macro terminate instead of eagerly evaluating
+    its own recursive call at the base case too. `test` must resolve to
+    exactly the symbol `true` or `false` (strict, not heuristic - P.L5's
+    own "quote skip is exact" precedent) - anything else raises,
+    including a list operand (checked via `IsObject` first, matching
+    `SymText`/`StrLitContent`'s own convention, since `CStr` on an
+    Object raises its own unrelated type-mismatch error that would mask
+    the intended message - caught while writing the tests, not assumed
+    safe).
+  - **Sole implementation site, mirroring QUASIQUOTE's own shape:**
+    all nine share one dispatcher, `EvalListopsPrim` (`VLA.bas`),
+    called from both recognition sites - `Substitute`'s own per-
+    template walk (the enclosing macro's real `bindings`/`restName`/
+    `restItems`, same machinery every primitive resolves its own
+    arguments through - no new evaluation model) and `ExpandMacros`'s
+    standalone walk (empty tables) - the same dual-site treatment
+    `symbol` already got under QUASIQUOTE.
+  - **The quote-unwrapping finding, caught before any test was
+    written.** `car`/`cdr`/etc.'s arguments are ordinary macro-template
+    forms; `(quote (1 2 3))` does NOT unwrap to the literal `(1 2 3)`
+    just by being resolved through `Substitute` - `Substitute` has no
+    special case for bare `quote` at all (only `ExpandMacros` treats it
+    as a skip, and that skip preserves the form verbatim, exactly what
+    P.L5 needs for ordinary templates reaching emission). A naive `car`
+    would have returned the symbol `quote` itself. Fixed with a new
+    shared helper, `ResolveListopsArg`, local to LISTOPS's own argument
+    resolution only (not a change to `Substitute`'s general behavior):
+    resolves through `Substitute` first, then unwraps exactly one
+    top-level `(quote X)` wrapper if present, never recursively into
+    nested elements. Composes correctly through recursion for free: an
+    argument that's already-computed raw list data (the output of a
+    prior `cdr`/`car`/`cons` call, no `quote` wrapper) simply isn't
+    quote-headed, so `ResolveListopsArg` passes it through unchanged -
+    verified by tracing a full recursive walk by hand before writing
+    the acceptance test, not assumed.
+  - **Quasiquote interaction, decided differently from `symbol`.** None
+    of the nine are recognized while `inQuasi` is `True` - a shielded
+    `(car x)` stays ordinary shielded list data, reachable only via an
+    explicit `(unquote (car x))`. `symbol`'s own exemption doesn't
+    generalize here: an unbound symbol argument is always a safe
+    passthrough, but `car` on arbitrary shielded template data is not.
+    **Honest caveat, found while scoping the tests, not swept under the
+    rug:** this gate is local to `Substitute`'s own walk - a shielded-
+    but-never-unquoted `(car x)` that becomes a macro's own final
+    template OUTPUT is still subject to `ExpandMacros`'s ordinary post-
+    expansion re-walk, same as any macro result already gets,
+    unconditional and pre-existing. Since none of the nine have any
+    `EmitExpr`/`EmitStmt` case at all, a shielded call left unquoted was
+    always a dead end either way regardless of this gate - the only
+    choice is which of two errors fires, never a silent wrong result.
+    The real, intended pattern is always an explicit `(unquote (car
+    ...))`, proven by its own test.
+  - **The depth-chain problem (LISTOPS-BUDGET): the first-round
+    decision (raise, not redesign) was tried, live-tested, and
+    disproven - NOT solved by this pass.** First round: `ExpandMacros`'s
+    guard raised 200 -> 1000, reasoned as a measured ~5x (peak VBA
+    stack traced by hand to scale roughly 1:1 with `depth`, not per-
+    level overhead compounding - each application's own `Substitute`
+    sub-tree fully unwinds before the next `ExpandMacros(r, depth+1)`
+    call). That scaling argument was correct about the SHAPE of the
+    risk and wrong that there was headroom to move it: the first live
+    host run came back 768/3 failed, all three the identical cause -
+    VBA's actual native stack exhausts somewhere between 150 (still
+    safe) and 250 (`"Out of stack space"`), meaning 200 was already
+    sitting at the real ceiling, and 1000 just replaced a clean
+    `"too deep"` error with a raw crash, breaking the pre-existing
+    250-deep `TestListopsBudget` pin that had passed at 200 for years.
+    **Reverted to 200**, its prior, already-validated value.
+    `TestListopsDepthSafety` no longer asserts a specific large
+    row-count is safe (that claim is exactly what just went wrong) -
+    it checks a small, confidently-safe chain (20 rows) expands
+    completely, and that a chain past 200 fails loudly with NO partial
+    output, accepting either the semantic guard or a native crash as
+    the (equally honest, equally non-silent) failure mode. **The actual
+    consequence, stated plainly:** a naive one-row-per-frame LISTOPS
+    walker has real headroom for roughly 150-190 rows - BELOW "a
+    250-row pricing sheet is entirely ordinary," this item's own
+    illustrative case. LISTOPS-BUDGET's depth-chain problem remains
+    open. Steering LISTOPS's own walking convention away from one long
+    chain (the BUDGET item's other option, never attempted) is the real
+    fix, left for whoever picks this up next - out of scope for this
+    pass to redesign on top of an already-shipped primitive bundle.
+  - **P-PROBE cross-reference:** acknowledged, not fixed here - a
+    one-macro-per-row generator (TABLESPEC's own eventual shape) pays
+    `RegisterVocabMacro`'s separately-documented O(macros²) re-transpile
+    cost independent of the depth-chain fix, from macro COUNT alone.
+    The acceptance test below stays a small, fixed row count (5)
+    specifically so this doesn't matter for the proof; a real TABLESPEC
+    ship at scale still needs P-PROBE done first.
+  - **Naming:** the classic Lisp names, no collision - verified against
+    `vlafirst`/`vlalast`/`"first of"`/`empty?` (`VLA_Runtime.bas`/
+    `VLA_English.bas`, runtime, English-flavored, emitted into VBA) vs.
+    the nine (expand-time only, vanish during compilation, never
+    emitted, never reachable from a runtime English sentence). The one
+    `"list"` hit found by grep in `VLA_English.bas` is an unrelated
+    English-parser noun-kind switch (`Create a list called Foo`), not a
+    VLA head symbol - checked, not assumed clear.
+  - **Reserved names:** all nine refused in `DefineMacro`, same
+    treatment `quote`/`quasiquote`/`unquote`/`unquote-splicing`/`symbol`
+    already get.
+  - **Binding note honored:** `cdr`/`cddr`/`cons`/`list` all build NEW
+    Collections and all call `TagLine ..., 0` on every one, per
+    LISTOPS-PURITY's own binding note - never inheriting a tag from an
+    operand's own address, so the S3.1 stale-`ObjPtr`-tag bug cannot
+    reopen through one of these.
+  - **Acceptance-test target, built this pass, not deferred:** a
+    minimal TABLESPEC-shaped generator - `walk-rows`, a self-terminating
+    recursive `defmacro` walking a 5-element quoted list via
+    `quote-if`/`null?`/`car`/`cdr`, emitting one `debug-print` per row -
+    proof the bundle composes the way TABLESPEC's own entry predicts
+    ("falls out of an ordinary recursive macro over car/cdr/cons"), not
+    a TABLESPEC ship. Base case is bare `(begin)`, not `(quote
+    (begin))` - `quote-if`'s branches are CODE (resolved by plain
+    `Substitute`), not data, and `EmitStmt`'s own "quote is an
+    expression, not a statement" refusal would have fired otherwise, a
+    mistake caught by tracing the recursion by hand before writing it
+    into the test.
+  - **Test wiring:** `TestListops` (38 assertions) and
+    `TestListopsDepthSafety` (2 assertions) wired into `VlaSelfTest`
+    right after `TestQuasiquote`. `VLA_CORE_VERSION` bumped to
+    `LISTOPS.0`.
+  - **First live run: 768/3 failed** - all three the depth-guard raise
+    (see above), not three separate bugs; the pre-existing
+    `TestListopsBudget` 250-deep pin regressed alongside both of
+    `TestListopsDepthSafety`'s own new assertions. Fixed by reverting
+    the guard and rewriting the depth-safety test to stop asserting an
+    unverified large row-count is physically safe. **Second round,
+    predicted, not yet human-verified:** self-test 733 -> 771, 0
+    failures; host self-test unchanged at 114/0.
+  - **Owner-verified:** tests and goldens pass clean, fresh-workbook
+    add-in interprets and compiles instructions.txt without errors -
+    confirmed live, second round, after the depth-guard revert.
+    Interactive confirmation too: all nine primitives and the
+    self-terminating `walk` recursion run correctly from the Immediate
+    window via the new `lisp` command, output matching prediction
+    exactly on every line, including the subtle one (`quote-if`'s
+    taken branch staying `(quote survived)`, not unwrapped - proof
+    branches are resolved as code, not data, the distinction that
+    keeps `EmitStmt`'s "quote is an expression, not a statement"
+    refusal from ever firing on a walker's own base case). Committed
+    (`1ec87d1`).
+  `~weeks`
+- ✅ **LISTOPS-STDLIB** — not itself a pre-scoped item, requested live
+  once LISTOPS shipped: `quote-map`/`quote-reduce`/`length`/`reverse`/
+  `append`/`cadr`/`caddr`/`identity` as ordinary `defmacro`s in
+  `prelude.vla`, the METAMETAMACRO LINE's own name taken literally one
+  layer deeper - a small standard library written IN VLA, over the nine
+  LISTOPS primitives, not a new engine capability. Expand-time, like
+  LISTOPS itself - operates on quoted literal data only, a different
+  family from `vlafirst`/`vlalast`/"first of" (the runtime accessors),
+  same unambiguous-naming requirement LISTOPS's own entry already
+  stated. Named `quote-map`/`quote-reduce`, not the bare `map`/`reduce`
+  first shipped - see the naming-collision finding below; this is the
+  corrected, second-round set of names throughout this entry.
+
+  **`filter` was requested and is deliberately NOT here - a real
+  architectural limit, found by tracing before writing anything, not a
+  style choice.** `quote-if`'s own test position requires its value
+  already resolved to the literal symbol `true`/`false`, synchronously,
+  within one `Substitute` pass. `Substitute` only eagerly resolves what
+  it directly recognizes (car/cdr/cons/etc., or a bound template
+  parameter) - never an arbitrary ORDINARY macro call. `(pred (car
+  lst))`, with `pred` bound to some predicate's name, sits as an
+  un-expanded call form at the exact moment `quote-if` inspects it,
+  fails its own strict `IsObject`/`IsSym` check immediately, and there
+  is no later re-walk that can rescue it - the error fires before
+  control ever returns to the outer expansion loop that would
+  otherwise catch it (that outer loop - `ExpandMacros`'s own "no macro
+  at the head: rebuild with expanded elements" fallback - is what DOES
+  correctly rescue an un-expanded call sitting in a merely-opaque
+  position, like `map`'s own call to `f`; it is not that no rescue
+  mechanism exists, only that `quote-if`'s test position is consumed
+  and inspected before that mechanism ever gets a turn). A real
+  `filter` needs a new engine primitive - something that can force
+  synchronous ordinary-macro expansion inside `quote-if`'s own test
+  resolution - which is its own scoping pass, gated the same way
+  `quote-if` itself was, not a line added to `prelude.vla`.
+
+  **A second, quieter hazard found and designed around, not merely
+  documented:** the naive shape a first draft reaches for - `(cons (f
+  (car lst)) (quote-map f (cdr lst)))`, `cons`'s own SECOND argument
+  holding a literal, un-expanded recursive call written directly in the
+  template - is actively wrong, not merely unsafe: `EvalCons`'s own
+  second-argument handling (`ListTail`'s same `For Each` shape)
+  ITERATES OVER its argument's own elements, treating them as the
+  tail's real data - an un-expanded call form's own syntactic pieces
+  (the macro's own name, its own arguments) get spliced in as if they
+  were list items, silently corrupting the result rather than merely
+  failing to expand. `cons`'s FIRST argument has no such problem (added
+  as one opaque value, `outc.Add`, never iterated), which is why
+  `quote-map`/`append`/`reverse` below are all written accumulator-
+  style - the recursive call is always the whole `quote-if` branch,
+  never an argument to `cons`, and `cons`'s own iterated second argument
+  is always a bound parameter referencing an already-real, previously-
+  constructed list, never a literal call form written in the template
+  itself. `quote-reduce` needed no such redesign - its own call to `f`
+  sits as an ordinary argument to `quote-reduce`'s own next recursive
+  call (opaque, not iterated), and unwinds correctly, if lazily, once
+  the whole nested tree surfaces at the base case.
+
+  `length` cannot bake down to a compile-time constant - no expand-time
+  arithmetic exists in this bundle (only structural/comparison
+  primitives were ever scoped), so it produces a RUNTIME sum of 1s,
+  correct but not a literal number, stated as an honest limit rather
+  than left for someone to discover. *See LISTOPS-EXPAND (LANGUAGE +
+  MACHINE's own speculative list, filed directly below) for a concrete
+  mechanism that would close this - raised out of this closed item to
+  its own entry rather than left as an addendum here.*
+
+  **First live run: 781/2 failed - both real bugs, neither caught by
+  tracing beforehand, both in the ORIGINAL version of this entry's own
+  content.**
+
+  **(1) `append` was genuinely wrong, not just theoretically unsafe.**
+  The first version called `(append-onto (reverse a) b)` - passing
+  `reverse`'s own UN-EXPANDED call form as `append-onto`'s `rev-a`
+  argument. Unlike `quote-map`'s safe `(reverse acc)` (the WHOLE return
+  value of a `quote-if` branch, which the general re-walk properly
+  expands before anything else ever sees it), THIS `(reverse a)` was
+  bound to `append-onto`'s own parameter and immediately inspected by
+  `append-onto`'s own `null?`/`car`/`cdr` - all within the SAME
+  `Substitute` pass that received it, before any re-walk ever got a
+  turn. Confirmed live: `(append (quote (1 2)) (quote (3 4)))` produced
+  `((1 2) reverse 3 4)`, not `(1 2 3 4)` - `car` of the fake "list"
+  `[reverse, a]` returned the SYMBOL `reverse` itself. The general
+  rule, sharpened by this bug past the "cons's second argument"
+  framing above: **any value that null?/car/cdr/eq?/equal?/quote-if's
+  own test will inspect must already be real data - safe only as (a) a
+  literal `quote` form, (b) the result of a LISTOPS primitive resolved
+  within the same `Substitute` pass, or (c) a bound parameter whose
+  value, across every recursive step, is always (a) or (b) - never a
+  fresh call to a DIFFERENT, ordinary macro, even one sitting at the
+  very head of what gets passed.** Fixed by fusing the reversal and the
+  append into one continuation-passing recursion
+  (`append-reverse-onto`): it walks `a`, accumulating its reverse
+  exactly like `reverse-onto` does, and only at ITS OWN base case -
+  once `acc` is genuinely, already real data - does it hand off to
+  `append-onto`, as `append-reverse-onto`'s own WHOLE return value (the
+  same safe pattern `quote-map`'s `(reverse acc)` already uses).
+  `append-onto` itself was never the problem; it only ever needed real
+  data, and now it always gets it. Verified correct by hand, step by
+  step, before shipping the fix - not just re-run and hoped.
+
+  **(2) `map`/`reduce` were already taken - a live naming collision,
+  not a tracing-catchable hazard.** Excel's own native dynamic-array
+  functions MAP/REDUCE/SCAN were already in real, shipped use inside
+  `alonzo.vla`'s own `deflambda` bodies (e.g. `(map rng (lambda (v) (*
+  v 2)))` - Excel's own argument order, a runtime meaning, nothing like
+  this bundle's `(map f lst)`). Macro expansion runs before the
+  formula-dialect emitter ever sees a `deflambda` body (L14's own
+  design, needed so predicates like `even?` reach a formula as `MOD(n,
+  2)=0`), so a global `map`/`reduce` macro of this bundle's own shape
+  silently intercepted BOTH calls and broke `TestAlonzoLib`, a
+  previously-passing, unrelated test - "expected a symbol, got a list"
+  near `alonzo.vla` line 26, `car` of an un-expanded `(lambda ...)` form
+  landing on the literal symbol `lambda`. Renamed to `quote-map`/
+  `quote-reduce`, the same disambiguating prefix `quote-if`'s own name
+  already established. The rest of the bundle was checked against the
+  whole corpus too (`filter`/`length`/`reverse`/`append`/`identity`/
+  `cadr`/`caddr`) and does not collide - only `map`/`reduce`, Excel's
+  own dynamic-array family, did; `scan`/`filter`/`byrow`/`bycol`/
+  `sort`/`unique` (the rest of that same Excel family) were never
+  built, so carry no equivalent risk today.
+
+  `TestListopsStdlib` (8 assertions, `VLA_Tests.bas`) wired into
+  `VlaSelfTest` right after `TestAntonymSweep` - tested directly via
+  `VlaExpandText`, the same as LISTOPS's own primitives, since
+  `prelude.vla` is prepended to every compile and needs no vocabulary/
+  English layer to reach; the `append` assertion is now also a
+  regression pin for the exact call that produced garbage, and
+  `TestAlonzoLib` (a separate, pre-existing pin, unrelated to this
+  bundle until the naming collision) now passes again too. **Owner-
+  verified, second round:** all self-tests pass (predicted 777 -> 785
+  confirmed). `~hours`
+
+  **`length` rewritten, this session, closing its own stated limit the
+  moment `LISTOPS-EXPAND` made it possible:** the original entry above
+  candidly named this bundle's own gap - "no expand-time arithmetic
+  exists in this bundle... it produces a RUNTIME sum of 1s." `+expand`
+  (`LISTOPS-EXPAND`, above) is exactly that missing arithmetic, and
+  `COND`'s own accumulator tracing this session (`length`'s question,
+  asked directly: "is anything else needed before length can reach its
+  full potential" - answer, checked rather than assumed: no) confirmed
+  the rewrite needs no new primitive at all. `length` -> `length-onto`,
+  accumulator-style like `reverse-onto`/`append-onto` already are -
+  `acc` is always already-folded literal data by the time `+expand`
+  sees it, the same "never a raw unexpanded call sitting in a
+  primitive's own argument position" invariant those two already rely
+  on, just for arithmetic instead of `cons`. `(length (quote (a b c)))`
+  now folds ALL THE WAY to the bare literal atom `3` - no wrapping form
+  survives at all, traced by hand before the pin was rewritten, not
+  guessed. Same recursion shape as before (one macro application per
+  element) - `+expand` changes what gets computed at each step, not the
+  chain's own cost, so no new `LISTOPS-BUDGET` exposure. Honest limit
+  carried into the new docstring rather than left implicit: `+expand`
+  folds through a VBA `Double`, so a quoted list past 2^53 elements
+  would exceed exact-integer precision - not a real constraint for any
+  literal quoted list that will ever exist in a `.vla` file, said
+  plainly anyway. `TestListopsStdlib`'s own `length` pin rewritten to
+  match (the OLD pin hard-coded the runtime-sum shape as literal text -
+  checked, not assumed, before editing), plus one new arity-regression
+  pin proving the rewrite didn't change `length`'s own call signature;
+  8 assertions -> 9. Grepped the whole corpus for other real callers of
+  `(length ...)` before touching it (LISTOPS-STDLIB's own naming-
+  collision discipline, applied to a behavior change instead of a
+  name) - none outside this test and `prelude.vla`'s own definition, so
+  the blast radius is exactly the one macro plus the one pin.
+  **Owner-verified live:** twelve Immediate-pane forms, increasingly
+  complex, every one matching its traced prediction exactly - including
+  the composition failure (`length` inside `+expand`'s own argument
+  position, refused for the same reason `(length (reverse ...))` is)
+  caught, explained, and corrected live (plain `+` instead, which DOES
+  fully expand each child first) rather than shipped wrong.
+
+**Plausible — real, but blocked on both items above landing first:**
+
+- ✅ **ANTONYM-SWEEP** — refactor the five hand-copied verb-antonym
+  families (`hide|unhide column`, `wrap|unwrap text in range`,
+  `merge|unmerge range`, `protect|unprotect [this] sheet`, `hide|unhide
+  row`) through a real `verb-antonym-family` generator taking a bare verb
+  pair. **Not worth doing before QUASIQUOTE** - G1's own alternation
+  syntax already compressed these about as far as whole-value
+  substitution can take them; building it today would mean rewriting it
+  again the day QUASIQUOTE lands.
+
+  **Built, not yet owner-verified.** Turned out to need only
+  QUASIQUOTE, never LISTOPS - a generator called once per pair,
+  TABLE-FAMILY's own shape (not a table-walking recursive one), pure
+  vocabulary work (`scripts/english.vla`), zero VBA engine change.
+  **The five didn't share one shape**, found by reading each pair's
+  actual body before writing anything: three are a boolean-property
+  flip (`hide-column`/`hide-row` wrap their param in a call first,
+  `wrap-text` doesn't - `target` is supplied as a whole caller-built
+  form specifically so both fit one generator without forcing a
+  wrapper-function abstraction that doesn't exist); one
+  (`merge-range`) is two distinct METHOD names, no boolean at all - a
+  structurally different shape, not a variation of the first; one
+  (`protect-sheet`) adds a keyword-argument tail plus an extra
+  parameter on top of the method-name shape - genuinely doesn't fit
+  either family without meaningfully more complexity than the two
+  hand-written macros it would replace. **Two generators shipped**,
+  matching that split exactly: `bool-antonym-family` (`hide-column`,
+  `wrap-text`, `hide-row` - 3 of 5) and `method-antonym-family`
+  (`merge-range` - 1 of 5), both deriving the negative macro's own
+  name via QUASIQUOTE's `(symbol "un" name)` fusion - the caller never
+  spells out the second name. `protect-sheet`/`unprotect-sheet` (1 of
+  5) **stays hand-written on purpose**, `table-to-range`'s own
+  precedent (TABLE-FAMILY's entry, above) applied honestly rather than
+  forcing a shape that doesn't fit it just to claim "all five."
+  Neither `english-vla` rule nor `test-success` proof for any of the
+  five pairs was touched - G11r's own pre-existing
+  `{d:hide|unhide}`-style glued-identifier dispatch already reaches
+  whichever macro name results, hand-written or generated, so only the
+  macro PAIR itself needed replacing; every generated macro is
+  therefore byte-for-byte what the hand-written pair used to emit,
+  same acceptance bar TABLE-FAMILY set. `TestAntonymSweep` (6
+  assertions, `VLA_Tests_Grammar.bas`) wired into `VlaSelfTest` right
+  after `TestListopsDepthSafety` - a synthetic demo vocabulary (not the
+  real corpus names), same convention `TestTableFamily` already uses,
+  proving both generators AND their composition with the existing
+  glued-identifier rule mechanism, not just that `english.vla` happens
+  to load. `VLA_ENGLISH_VERSION` bumped to `ANTONYMSWEEP.0`.
+  **Owner-verified:** all self-tests pass (predicted 771 -> 777
+  confirmed).
+- ✅ **TABLESPEC** — macro-time table-driven generation ("walk a quoted
+  spec, emit one rule per row"). *Not a new primitive to build* once
+  LISTOPS exists - it falls out of an ordinary recursive macro over
+  car/cdr/cons, the same self-composition METAVOCAB's own "one generator
+  calling another" test case already proved works, applied to list
+  destructuring instead of splicing. Inherits all four determinism-gate
+  items above unchanged - it does not get to re-litigate them just for
+  being a consequence rather than a primitive.
+
+  **Scoping pass complete, code written and owner-verified this
+  session:**
+  - **The load-bearing finding, from reading `ExpandMacros` (`VLA.bas`
+    ~L2120-2238) and `DispatchVocabForm`/`ExpandVocabMacroCall`
+    (`VLA_English.bas` ~L5111-5310), not assumed from the roadmap's own
+    framing above: LISTOPS-BUDGET's "begin-splice carries no depth risk
+    regardless of row count" is true only for calls that are ALREADY
+    siblings in already-resolved source text before any recursive walk
+    happens - TABLE-FAMILY's three hand-typed calls; `DispatchVocabForm`'s
+    own post-expansion splice, whose separate nesting-only depth counter
+    (capped at 20, unrelated to `ExpandMacros`'s own) increments by one
+    flat step for an entire wide `begin`, never once per sibling.
+    `ExpandMacros`'s `depth+1` (line 2209) fires exactly once per macro
+    self-application, regardless of what shape the accumulator being
+    built is - a naive `cons` walk and a begin-splice walk both wrap
+    their recursive step in one `quote-if`-selected branch handed back
+    to `ExpandMacros`, so both cost identically: one `depth` unit per
+    row. **TABLESPEC, built as literally "an ordinary recursive macro
+    over car/cdr/cons," inherits `walk-rows`'s own ~150-190-row real
+    ceiling (LISTOPS-BUDGET) regardless of which of that item's two
+    named options is picked** - "steer to begin-splice" does not, on its
+    own, change this; `walk-rows` itself was kept to 5 rows this pass
+    for exactly this reason. Put to the owner directly, adjudicated:
+    ship a capped v1 now rather than block TABLESPEC on an unscoped
+    future primitive.
+  - **v1 scope, decided:** a per-call row-count ceiling, tested and
+    documented rather than discovered. `TestTablespecDepthSafety`
+    (`VLA_Tests.bas`) proves 20 rows - not the 100 this entry originally
+    proposed before code was written - expands cleanly: tablespec does
+    MORE work per row than `walk-rows` (seven field accessors plus a
+    `tablespec-row` call, not one `debug-print`), so claiming a larger
+    number without a live test would repeat LISTOPS-BUDGET's own
+    first-round mistake (guessing 900 rows was safe, disproven by a real
+    host run) in miniature. 20 is `walk-rows`'s own already-proven-safe
+    number, reused rather than guessed upward. The existing `depth > 200`
+    guard is inherited completely unchanged, no engine change, fails
+    loud past the cap exactly like every other LISTOPS consumer
+    (`TestTablespecDepthSafety`'s own 250-row case proves this). A table
+    bigger than the tested-safe range is the author's to split across
+    multiple hand-typed `(tablespec ...)` calls, each within it -
+    genuinely free once they're separate top-level forms, TABLE-FAMILY's
+    own three-calls shape again, not a workaround. No internal auto-
+    chunking: splitting a spec into groups still visits every row once
+    via the same self-recursive mechanism, so it only moves where the
+    identical O(N) cost is paid, never removes it - the safe/unsafe
+    boundary is forced by there being no expand-time loop primitive
+    besides a macro calling itself, and can only be crossed in the
+    SOURCE TEXT, by a human, not inside the engine. Stated here so a
+    future session doesn't rediscover this by trying to be clever.
+    **Reversible by construction:** the cap is an implementation detail
+    of this v1, not a commitment in the row-spec format - a future
+    bounded-iteration primitive (see TABLESPEC-SCALE, filed directly
+    below, adjudicated separately) could raise or remove it later
+    without changing how an existing table is written.
+  - **Row-walk mechanism, built - simpler than first proposed, and
+    lower-risk.** The original sketch of this entry (before any code was
+    written) called for `unquote` to place a computed field value into a
+    nested `defmacro`'s own head position - flagged at the time as
+    genuinely untested ground. Tracing it further before writing VBA
+    found that ground unnecessary to enter at all: `walk-rows` already
+    proves LISTOPS primitives resolve as an ORDINARY CALL ARGUMENT with
+    no quasiquote involved at all (`(debug-print (car lst))`), so
+    `tablespec` uses that exact shape - `car`/`cdr`/`cadr`/`caddr`
+    (`LISTOPS-STDLIB`, already shipped) pull each of a row's seven
+    fields (name/doc/body/pattern/call/test-sentence/test-call - `body`
+    generalizing table-property-family's own property/value pair to one
+    whole caller-supplied form) and pass them as seven ordinary
+    arguments to a new intermediate macro, `tablespec-row` - itself an
+    ORDINARY `defmacro` with named parameters, so `name` substitutes
+    into its own nested `defmacro`'s head position via the exact bound-
+    parameter mechanism `table-property-family`'s own `name` already
+    uses, never a computed value in that position at all. `tablespec`
+    walks via `quote-if`/`null?`/`car`/`cdr`, exactly `walk-rows`'s own
+    shape, generalized from "one `debug-print` per row" to "one
+    `tablespec-row` call per row": `(quote-if (null? spec) (begin)
+    (begin (tablespec-row <seven field accessors>) (tablespec (cdr
+    spec))))` - base case bare `(begin)`, `walk-rows`'s own precedent
+    (code position, not data; a quoted `(begin)` would trip `EmitStmt`'s
+    statement-vs-expression refusal otherwise). No quasiquote/unquote
+    anywhere in the final design, and no `unquote-splicing` either (the
+    riskier "dispatch to an arbitrary existing generator" idea
+    considered and dropped during scoping) - every composition used is
+    now either `table-property-family`'s own proven bound-parameter-
+    into-head-position substitution, or `walk-rows`'s own proven
+    LISTOPS-primitive-as-call-argument resolution. Defined in
+    `scripts/english.vla`, right after `table-to-range`; proven by
+    `TestTablespec` (`VLA_Tests_Grammar.bas`), synthetic 3-row vocab,
+    `TestTableFamily`/`TestAntonymSweep`'s own convention. No real
+    caller in the corpus yet - shipped as infrastructure, matching how
+    LISTOPS-STDLIB's own functions shipped ahead of any real caller too.
+    `VLA_ENGLISH_VERSION` bumped to `TABLESPEC.0`.
+  - **P-PROBE cross-reference, acknowledged not fixed, same as LISTOPS's
+    own entry:** a bounded-row TABLESPEC still pays `RegisterVocabMacro`'s
+    separately-documented O(macros²) re-transpile cost from macro COUNT
+    alone, independent of everything above.
+  - **Test wiring:** `TestTablespecDepthSafety` (`VLA_Tests.bas`, 2
+    assertions) wired into `VlaSelfTest` right after `TestListopsStdlib`;
+    `TestTablespec` (`VLA_Tests_Grammar.bas`, 4 assertions) wired
+    directly after it.
+  - **First live import failed before self-test ever ran:** "Method
+    'Import' of object '_VBComponents' failed" reloading
+    `VLA_Tests_Grammar` - not a content bug, a VBA-hard-limit bug: one
+    `EnglishLoadVocabularyText` call's own vocab-text string was built as
+    a single logical statement with roughly 31 consecutive `& vbLf & _`
+    continuations, over VBA's own undocumented-until-you-hit-it ceiling
+    of 24 ("Too many line continuations" - `VBComponents.Import` can't
+    surface VBA's normal compile-error dialog for a parse failure like
+    this, so it degrades to the generic COM error instead). Fixed by
+    building the string in three pieces (7/13/11 continuations) and
+    concatenating them, the documented fix for this exact VBA limit.
+    Nothing else in this session's edits was close to the ceiling.
+  - **First live self-test run: 803/2 failed - both bugs in the NEW
+    test itself, not in tablespec/tablespec-row (`TestTablespec`'s own 4
+    assertions, exercising the real generator, passed clean).**
+    (1) The 20-row check searched for the literal substring
+    `"debug-print 20"`, but `VlaExpandText` renders through `WritePretty`
+    (`VLA.bas`), which line-wraps any list whose flat form exceeds 90
+    columns (indent included) - a 20-row nested-`begin` tree trips that
+    well before row 20, splitting `debug-print` and `20` across a line
+    break regardless of whether the walk itself was correct. Fixed by
+    stripping whitespace before searching. (2) The 250-row check reused
+    the 20-row call's own `t` variable - when the second call raises
+    (the expected, desired outcome), the assignment never happens, so
+    `t` silently kept the FIRST call's 10420-character result, failing
+    the "no partial output" check on a genuinely clean failure. Fixed by
+    clearing `t` before the second call. Both are the exact class of
+    bug this session's own house style holds test CODE to the same
+    fail-loud, no-stale-state standard as engine code - caught live, not
+    by tracing, same as LISTOPS-STDLIB's own `append`/naming-collision
+    bugs were.
+  - **Owner-verified, second round:** self-test and goldens pass clean
+    (two new macros - `tablespec-row`/`tablespec` - appear in the
+    expanded-vocabulary golden, expected since they are now part of the
+    loaded vocabulary even with no real caller yet); fresh-workbook
+    add-in interprets and compiles `instructions.txt` without errors.
+  `~hours`
+- ✅ **TABLESPEC-SCALE** — closes the question TABLESPEC's own v1 scoping
+  pass explicitly declined to solve: is there ANY shape for walking an
+  arbitrary-length quoted list that does not cost one `ExpandMacros`
+  `depth` unit per row? **Yes, for the cost that actually threatened a
+  crash** - see the live finding below for the related cost that
+  doesn't close.
+
+  **The fix, found once the owner asked directly whether tail-call
+  optimization could sidestep this whole discussion.** VBA has no TCO at
+  any layer of this stack - but `ExpandMacros`'s own head-resolution
+  chain (a macro expands to a list still headed by another macro name;
+  substitute; check again; repeat) is a textbook tail call by hand -
+  nothing happens to a chain link's own result except returning it -
+  which made it hand-trampolineable: a `Do` loop reassigning one local
+  (`cur`), never a recursive call, so it costs zero VBA stack frames
+  regardless of chain length. `begin` is treated as a transparent
+  tail-position wrapper inside the same loop, gated on `FormLine(cur) =
+  0` (template-substituted output only - never an ordinary hand-written
+  `begin`, which keeps its own real source line untouched), since
+  `walk-rows`/`tablespec`'s actual shape - `(begin <side content>
+  (self-call (cdr lst)))` - puts the self-call one level inside a
+  `begin`, not at a macro's own head position. **The first version of
+  this fix was wrong in exactly that way** - caught by re-tracing before
+  any live run, not by a failure - trampolining only the head-chain
+  shape and silently disarming `depth`'s own safety net for the
+  begin-wrapped shape with no warning, which would have turned a large
+  table into a raw, uncontrolled "Out of stack space" crash instead of a
+  clean error. `depth` itself is untouched by any of this, still meaning
+  genuine VBA call-stack nesting exactly as before; a new, separate
+  `chainLen` counter (local to each call, capped at 5000 - twenty times
+  LISTOPS-BUDGET's own "250-row pricing sheet" illustrative case) catches
+  a genuinely non-terminating macro, purely as a logical guard now, no
+  longer tied to any hardware risk. `VLA_CORE_VERSION` bumped to
+  `TABLESPECSCALE.0`.
+
+  **Owner-verified, live - full `VlaSelfTestScale` run: 810 passed, 0
+  failed, 5-10 minutes.** `TestListopsBudget`/`TestListopsDepthSafety`/
+  `TestTablespecDepthSafety` (`VLA_Tests.bas`) extended with 2000-row and
+  5500-row cases alongside the pre-existing 20/250/900-row ones: the
+  250-row case - TABLESPEC-SCALE's own original "a 250-row pricing sheet
+  is entirely ordinary" motivating claim - now expands cleanly instead
+  of failing, and the new 5500-row cases prove the trampoline's own 5000
+  cap still fires loudly, never a silent partial expansion, for the
+  heavier `walk-rows`/`tablespec` shapes too, not just the lighter bare
+  chain.
+
+  **A second, real finding surfaced by this same pass, deliberately NOT
+  closed here - filed rather than left implicit.** The trampoline
+  removes STACK cost per chain link; it does not touch algorithmic TIME
+  cost, which turned out to be separately quadratic. `cdr`/`ListTail`
+  (VLA.bas) copies the ENTIRE remaining tail into a new `Collection` on
+  every call, so a full `walk-rows`/`tablespec` walk of length N costs
+  ~N²/2 element copies regardless of the trampoline; `GetMacro`'s own
+  registry lookup against `mMacros` shares the same shape (P-DICT's own
+  "registry lookups off `Collection` error-traps"), so a long chain of
+  distinct macros pays a related, independent per-step cost too.
+  Invisible below ~1000 rows; confirmed live at several minutes for a
+  5500-row walk while proving the fix above at scale - exactly why those
+  specific cases are now gated behind a new `mRunScaleTests` flag/
+  `VlaSelfTestScale` wrapper (`VLA_Tests.bas`) rather than run on every
+  ordinary `VlaSelfTest`, which is back to its original ~10-15 second
+  runtime. Not fixed here - this is real, separate engine work in
+  MACHINE + OPTIMIZATION's own P-DICT/P-NTH family, gated on P-PROF's
+  before-numbers same as everything else there, not something to do
+  under time pressure while closing this item. See the addendum filed
+  under P-DICT below for the fuller writeup and a ready-made repro.
+  `~days`
+
+**Speculative — real ideas, deliberately not scoped, filed so they aren't
+lost or mistaken for closer than they are:**
+
+- ⬜ **DIALECT-REGEN** — regenerate `pirate.vla`/`latin.vla`/etc.
+  mechanically from `english.vla`'s own loaded `mPatForms`/`mPatTexts`
+  (real data already) plus a glossary table, rather than hand-translated
+  as this session's seven files were. The seven hand-built files become
+  the acceptance corpus for this generator, not artifacts to maintain by
+  hand forever.
+- ⬜ **VOCAB-MIGRATE** — version a generation spec, diff the rules it
+  produces against what's currently loaded (VOCABDIFF), and report the
+  delta - schema migrations for a spoken grammar. No known precedent to
+  crib from; scoping this means designing close to first principles.
+- ⬜ **PARETO-SPEC** — *correcting an overclaim made out loud this
+  session, not proposing something new*: `pareto.txt` is prose with its
+  own marker convention, not VLA - no generator can read it directly,
+  ever, without a from-scratch parser for a format that was never meant
+  to be parsed. The only real path is a human translating its rows into
+  a VLA-syntax spec by hand, at which point it is a new artifact, not
+  "pareto.txt, compiled." Filed to keep the corrected version on the
+  record, not the first one.
+- ⬜ **WORKBOOK-SPEC** — a generator reading its own row list from a live
+  Excel range at build time. Thematically inevitable for a project this
+  spreadsheet-native; collides directly with "the assistant writes VBA
+  blind, no Excel available," and - stated plainly, not discovered later
+  - is the one idea on this whole list that WOULD breach LISTOPS-PURITY's
+  own wall if anyone ever wired the two together. Needs a human in the
+  loop in a way nothing else on this list does, and its own scoping
+  conversation before a line of it gets written.
+- ⬜ **LISPIMPORT** — catalogue, not a chokepoint: once QUASIQUOTE and
+  LISTOPS both exist and have real use behind them, survey further Lisp
+  primitives worth porting against friction the shipped items above
+  actually hit, not against "Lisps have this." `apply` (expand-time
+  variadic calls) is the one candidate on the table; `gensym` is not -
+  see the veto above - and `eval` never was.
+- ✅ **LISTOPS-EXPAND** — *raised out of LISTOPS-STDLIB's own closed
+  entry above, surfaced during TABLESPEC-SCALE's own Lisp-
+  implementation-lore tangent. Scoped and ADJUDICATED against the
+  determinism/auditability wall this session (owner + assistant design
+  pass, conversation only - GEXPANDER.1's own framing for what "scoped,
+  not built" means), not built.*
+
+  **The proposal, precisely:** LISTOPS-STDLIB's own `length` cannot bake
+  down to a compile-time constant - no expand-time arithmetic exists in
+  the shipped bundle, only structural/comparison primitives, so it
+  produces a RUNTIME sum of 1s. The classic compiler answer is partial
+  evaluation / constant folding: fold a pure operation over already-in-
+  hand LITERAL data at compile time instead of deferring it to runtime.
+  A narrow family - `+expand`/`-expand`/`*expand` and `>expand`/`<expand`/
+  `>=expand`/`<=expand`/`=expand`, each restricted to operands that are
+  ALREADY resolved numeric literals within one `Substitute` pass - covers
+  both `length`'s own gap and gives an expand-time `COND` (below)
+  something beyond `null?`/`eq?`/`equal?` to test.
+
+  **Adjudicated against LISTOPS-PURITY explicitly, since that item's own
+  wall is what GENSYM was vetoed for breaching and this proposal sits
+  closer to it than anything else on this list:**
+  - PURITY's own text: "never a file read, a workbook read, the clock,
+    or anything else that could differ between two compiles of
+    identical source." `+expand`/`>expand`/etc., by construction, touch
+    NONE of those - pure functions of two operands ALREADY sitting in
+    the source text as literals, the identical construction `car`/
+    `cdr`/`cons`/`eq?`/`equal?` already use. **Verdict: does not breach
+    PURITY**, provided the operand requirement below is enforced
+    strictly, not assumed.
+  - The anti-gensym doctrine's deeper concern isn't only "same input,
+    same output across compiles" - it's AUDITABILITY: a human reading
+    generated code should be able to re-derive why a value is what it
+    is. `gensym` fails this by construction (an invented name has no
+    principled derivation a reader can redo by hand without re-running
+    the compiler). Arithmetic/comparison folding is the opposite in
+    KIND, not just degree: `(>expand 5 0)` -> `true` is something any
+    reader re-derives instantly from the visible source text, exactly
+    as `(eq? (quote a) (quote a))` -> `true` already is today. **Verdict:
+    does not breach the auditability doctrine either** - constant
+    folding, the same thing a C++ `constexpr` or a Lisp compiler's own
+    peephole optimizer does, not hidden computation. The entire class
+    `eval` was vetoed for (running code the reader can't see the shape
+    of in advance) is absent: nothing here takes a value not already
+    fully visible in the source and "runs" it.
+
+  **The real, narrow risk - a DIFFERENT determinism axis than PURITY,
+  found by checking the existing tokenizer rather than assumed:** VBA's
+  `IsNumeric` (and the numeric/string classification it drives) can be
+  LOCALE-SENSITIVE on some regional Windows settings - the one way "the
+  same source text" could genuinely fold to a DIFFERENT literal result
+  on two machines, which is precisely what PURITY's own definition
+  forbids. Checked, not assumed: this is ALREADY a property of the WHOLE
+  LANGUAGE today, not something `LISTOPS-EXPAND` introduces -
+  `FormulaQuote` (`VLA.bas` ~L3995) already uses `IsNumeric` to classify
+  a P.L5 datum as a number vs. a string for ordinary `(quote ...)`
+  emission, with no locale audit on record anywhere. **Recommendation,
+  not a blocker for this item specifically:** `LISTOPS-EXPAND` should
+  REUSE whatever numeric-literal classification the reader/tokenizer
+  already applies (consistency with the rest of the compiler), not
+  invent a second parse path - a real locale audit is owed to the
+  LANGUAGE as a whole and should be its own item, not smuggled in here
+  as a side effect of scoping arithmetic primitives.
+
+  **Guardrails the proposal must ship under, or it stops being
+  `car`/`cdr`-shaped and starts drifting toward `eval` - the same
+  boundary `filter`'s own entry drew, restated here for this family:**
+  1. Operands must ALREADY be resolved literal numbers within the SAME
+     `Substitute` pass - never trigger further expansion of an
+     unresolved macro call to get there (`filter`'s own forbidden move,
+     restated for arithmetic instead of a predicate).
+  2. Strict, not heuristic: a non-numeric operand RAISES, exactly like
+     `eq?`'s atom-only requirement and `quote-if`'s own strict
+     true/false requirement - no silent coercion, no "smoothing" (the
+     project's own recurring value, stated from `blank?`'s own comment
+     onward).
+  3. No accompanying `and`/`or`/boolean-combinator primitives in the
+     same pass - that widens the family from "fold a fixed arithmetic
+     operator over two literals" toward "evaluate an open-ended boolean
+     expression tree," the actual slope `eval` sits at the bottom of.
+     If ever wanted, that is its own later, separately-adjudicated
+     proposal, not a rider on this one.
+
+  **One more finding, surfaced by scoping `COND`'s own expand-time half
+  (below) against this same item, stated precisely so a future session
+  doesn't conflate the two:** the "only reliable when nested inside an
+  enclosing macro's own template" limit that half hit is NOT a property
+  of `LISTOPS-EXPAND`'s own primitives. If `+expand`/`>expand`/etc. are
+  added the SAME way `car`/`cdr`/`null?` already are (hardcoded into
+  `ExpandMacros`/`Substitute`'s own recognized-head dispatch, evaluated
+  wherever they appear, standalone or nested, with fresh bindings when
+  standalone), they work EVERYWHERE, exactly as `car`/`cdr` do today -
+  confirmed by the same test (`VLA_Tests.bas`) that already pins
+  `(quote-if (null? (quote (1))) ...)` working at the top level with no
+  enclosing macro at all. The limitation belongs entirely to an ORDINARY
+  macro trying to FORWARD such a test through its own bound parameter
+  (exactly what a `defmacro`-shaped `cond` would be), not to these
+  primitives themselves.
+
+  **Verdict: SAFE to build under the three guardrails above - a
+  constant-folder in the exact lineage of the nine primitives already
+  shipped, not a step toward `eval`.** Does NOT touch `filter`'s own
+  separate, harder gap (forcing eager resolution of something NOT yet
+  literal - a different problem, already distinguished in LISTOPS-
+  STDLIB's own entry). Not built. `~hours`, once someone commits to the
+  guardrails above as the shipped scope, not a looser one.
+
+  **Pre-flight technical scope, added this session for a running start
+  - implementation detail on TOP of the adjudication above, not a
+  restatement of it. Still not implemented: another session may be
+  making concurrent engine edits to `VLA.bas` right now, so this stays a
+  plan, not a diff, until that clears.**
+  - **Minimal shipped set, small-verbs discipline:** `+expand` (unblocks
+    `length`) plus six comparisons - `=expand`/`<>expand`/`>expand`/
+    `<expand`/`>=expand`/`<=expand` (unblocks `COND`'s own expand-time
+    half with a test vocabulary once THAT half is committed to). Defer
+    `-expand`/`*expand`/`/expand` until a real caller needs one - the
+    same "add a verb when demanded" discipline the rest of `prelude.vla`
+    already
+    follows, not a speculative complete arithmetic suite.
+  - **Numeric representation, checked rather than assumed:** every atom
+    in this system - symbol, number, everything but a string literal -
+    is stored as a plain STRING (`IsSym`, VLA.bas ~L1520, draws the ONLY
+    distinction the reader makes: "does it start with a quote
+    character," nothing number-specific). There is no separate reader-
+    time number type to reuse - this CORRECTS last pass's own
+    recommendation to "reuse the tokenizer's numeric classification":
+    no such classification exists at read time; `FormulaQuote`'s
+    `IsNumeric` (~L3995) is an EMIT-time convenience, not a reader
+    concept, and inherits VBA's own locale-sensitivity for exactly that
+    reason.
+  - **The locale fix, concrete, not "audit later":** use `Val()` to
+    parse an operand and `Str$()` (trimmed of its leading sign space) to
+    re-emit a result - both are documented by Microsoft as LOCALE-
+    INVARIANT (always a period decimal separator), unlike `CDbl`/`CStr`/
+    `IsNumeric`, which respect `Application.International`/regional
+    Windows settings. Classify an operand as a valid literal with a
+    hand-rolled check (optional leading `-`, digits, optional single
+    `.`, digits - reject anything else) rather than `IsNumeric` itself,
+    since `IsNumeric`'s OWN acceptance criteria can also vary by locale
+    (accepting a different decimal/thousands separator), making it
+    unsuitable as the strict gate guardrail 2 (above) requires. This is
+    a genuine correction to this item's own first-pass text, not just an
+    elaboration - "reuse `IsNumeric`" was the wrong fix once the
+    string-only atom representation was actually checked, not assumed.
+  - **Exact touch points, mirroring how `quote-if`/LISTOPS.0 itself was
+    wired in, for whoever picks this up:** `DefineMacro`'s reserved-name
+    refusal (`VLA.bas` ~L1660-1669) gets the new names; `ExpandMacros`'s
+    standalone-recognition `Select Case` (~L2274) and `Substitute`'s own
+    inline-dispatch `Select Case` (~L2470) both get the new heads, the
+    same two sites LISTOPS.0 touched for the original nine; `Eval-
+    ListopsPrim`'s own dispatch (~L2567) gets new cases. One shared
+    `EvalArithExpand(op, lst, ...)` resolving both operands then
+    switching on `op` is likely cleaner than seven near-identical
+    functions, but that is an implementation-shape suggestion, not a
+    contract.
+  - **No `TagLine` concern:** unlike `cons`/`list` (LISTOPS-PURITY's own
+    binding note), these primitives return a SCALAR (a number or a
+    boolean symbol), never a new `Collection` - nothing to tag.
+  - **Test coverage, and an honest limit on what a test CAN prove here:**
+    arity errors, non-numeric-operand raises (the strict gate), correct
+    results for each operator, following `TestListops`'s own pattern.
+    What a single-locale CI run CANNOT prove is true cross-locale
+    invariance (that needs `Application.International` actually
+    switched, not practical to automate) - the test suite can only
+    confirm the CANONICAL format round-trips correctly and that a
+    non-canonical one (e.g. a comma-decimal string) is REJECTED, not
+    silently misparsed; the `Val`/`Str$` choice above is what carries
+    the real cross-locale guarantee, not the test.
+
+  **Built this session** (`VLA.bas`/`VLA_Tests.bas`), following the
+  pre-flight plan above exactly - the minimal seven-primitive set, one
+  shared `EvalArithExpand`, `IsNumericLiteralText`/`Val`/`Str$` in place
+  of `IsNumeric`/`CDbl`/`CStr` throughout, all three touch points
+  (`DefineMacro`'s reserved-name list, `ExpandMacros`'s standalone
+  `Select Case`, `Substitute`'s inline dispatch), and `TestListopsExpand`
+  (19 assertions, `VLA_Tests.bas`) wired into `VlaSelfTest` right after
+  `TestListops`, covering arity, the strict-gate raises, the
+  IsNumericLiteralText-vs-IsNumeric distinction (a thousands-separator
+  literal explicitly rejected), reserved-name refusal, and both
+  recognition sites (standalone AND nested inside a `defmacro`).
+  `VLA_CORE_VERSION` bumped to `LISTOPSEXPAND.0`. `length` deliberately
+  left unrewritten - this pass shipped the primitive family as
+  infrastructure, not bundled with a caller-facing change, so the two
+  can be reviewed separately. **Owner-verified:** tests and goldens
+  pass clean, export artifacts identical.
+- ✅ **COND** — *inadvertently omitted from this section; flagged live by
+  the owner, scoped, REVISED, and BUILT this session (owner + assistant
+  design pass, then implementation, conversation only, GEXPANDER.1's own
+  framing for the scoping half). The full history is kept on record
+  below rather than silently edited away, because each correction
+  changed the actual shape of what got built - a future session should
+  read them in order, not just the final design.*
+
+  **History, in order:**
+  1. First pass split `cond` into two proposals with very different
+     costs - a runtime half (`(cond ((> x 0) …) (else …))`, deferring
+     the test to runtime, sugar over nested `if`) and an expand-time
+     half (LISTOPS-domain, folding a test at compile time, generalizing
+     `quote-if`). Scoped as two side-by-side roadmap entries (`COND` and
+     `LISTOPS-COND`) once the expand-time half turned out to need
+     engine-primitive status to work standalone, not just nested.
+  2. Consolidated back into ONE item once that read as two names for
+     one feature rather than two features - the owner's own correction.
+  3. **At the moment of actually implementing both, a real conflict
+     surfaced that neither pass had caught: they can't share the name
+     `cond`.** The runtime half's own design deliberately never
+     resolves the test at expand time; the expand-time half's own
+     design REQUIRES the test to resolve to literal true/false or
+     raises. One global macro/primitive namespace, `DefineMacro`
+     refuses shadowing outright - registering both under `cond` would
+     mean whichever loaded second silently could never fire, the exact
+     `map`/`reduce` collision class this project has already been
+     burned by twice, this time self-inflicted rather than found by a
+     live run. Surfaced to the owner rather than resolved unilaterally
+     (a public-naming decision, not an implementation detail) - three
+     options offered (split the name `cond`/`cond-expand`; unify into
+     one smart primitive; ship runtime only, drop the primitive).
+     **Owner chose: unify into one smart primitive named `cond`.**
+
+  **The unified design, traced before writing, not assumed:** each
+  clause tries EXPAND-TIME resolution first, exactly the way
+  `quote-if`'s own test does (`ResolveListopsArg`, the same eager fold
+  `car`/`cdr`/`null?`/etc. already get wherever they appear). A test
+  that resolves to the literal symbol `true`/`false` is folded
+  immediately, at compile time - `true` returns that clause's form as
+  the WHOLE result right there; `false` skips to the next clause; the
+  untaken side is never touched, the same purity property `quote-if`'s
+  own test already proves (an untaken branch that would raise if it
+  were ever resolved - `TestCond`'s own first two pins). **UNLIKE
+  `quote-if`, a test that does NOT resolve to true/false is not an
+  error here** - it is treated as a genuine RUNTIME expression (`(> x
+  0)`, `x` a real variable), and `cond` defers: the raw, unresolved
+  test is spliced verbatim into a native `(if test (then form) (else
+  <remaining clauses, recursed>))`, emitted and evaluated at RUNTIME
+  exactly like a hand-written `if` - real Lisp `cond` semantics for the
+  traditional use, no special casing needed for it. Every later clause
+  still gets its OWN independent chance to fold or defer - deferring on
+  clause 2 does not force deferring on clause 3, so a later clause that
+  DOES fold true is hoisted directly into the enclosing `else` slot
+  rather than wrapped in another redundant `if` (`TestCond`'s own "not
+  re-wrapped" pin, checking `"If True Then"` never appears in the
+  emitted VBA).
+  `else` is a SYNTACTIC keyword position (`IsSym`/`Fold`, the same way
+  `EmitIf`'s own `Select Case` already recognizes `then`/`elseif`/
+  `else` - NOT a LISTOPS predicate call, `eq?`/`equal?` compare DATA,
+  `else` here is syntax) and must be the LAST clause or `EvalCond`
+  raises - a misplaced `else` silently shadowing later clauses is
+  exactly the class of mistake this project's strictness-over-smoothing
+  value catches loudly instead of letting ride. No match and no `else`
+  expands to `(begin)`, a deliberate no-op, not an error - mirrors
+  `walk-rows`'s own established base-case convention and real Lisp
+  `cond`'s own unspecified-when-nothing-matches behavior, falling out
+  of the recursion's own base case for free (an empty clause list or a
+  clause list where every test folds false both simply reach it, no
+  separate arity-minimum check needed).
+  **Shared limitation with `quote-if`, not a new one introduced here,
+  stated plainly rather than hidden:** a test that is ITSELF a bare
+  bound template parameter (not a literal LISTOPS call written directly
+  in the clause) can't be re-resolved through that indirection - the
+  same "raw argument, no re-walk" property `quote-if`'s own test
+  already has (a bare-symbol reference returns its bound value
+  directly, without recursively re-examining that value's own internal
+  structure). Only the WHOLE test position needs to be a literal call
+  for the fold to fire - never previously exercised for `quote-if`
+  either, not a regression `cond` introduces.
+
+  **Built this session** (`VLA.bas`/`VLA_Tests.bas`): `EvalCond`/
+  `EvalCondFrom` (VLA.bas, beside `EvalArithExpand`), reserved-name
+  refusal (`DefineMacro`), both recognition sites (`ExpandMacros`'s
+  standalone `Select Case`, `Substitute`'s inline dispatch), and
+  `EvalListopsPrim`'s dispatcher all extended the same way LISTOPS.0
+  wired its own nine in originally - seventeen primitives now.
+  `VLA_CORE_VERSION`/`VLA_TESTS_VERSION` bumped to `COND.0`.
+  `TestCond` (12 assertions, `VLA_Tests.bas`) wired into `VlaSelfTest`
+  right after `TestListopsExpand`: expand-time folding with the untaken
+  branch never touched, the standalone compound-test case that broke
+  the ORIGINAL naive `defmacro`-based attempt (the entire reason `cond`
+  needed primitive status in the first place), runtime deferral into a
+  native `If`/`Else` (checked against the ACTUAL emitted VBA via
+  `VlaTranspile`, not just the expanded form), the later-clause hoisting
+  optimization, the no-match-no-else no-op, a misplaced `else`, a
+  malformed clause, reserved-name refusal, and nesting inside an
+  ordinary `defmacro`.
+
+  **Naming check, done before shipping, not assumed clear:** `check`/
+  `check=` already use `cond` as a TEMPLATE PARAMETER name
+  (`prelude.vla`) - a different namespace from a global macro/primitive
+  head, confirmed non-colliding by grepping the whole corpus (the same
+  discipline `quote-map`/`quote-reduce` learned from twice already) -
+  clean.
+
+  **Owner-verified:** tests and goldens pass clean. Neither the runtime
+  path nor the expand-time path touches gensym or eval; the
+  unification itself was the owner's own explicit choice among three
+  offered options, not something decided unilaterally.
+- ✅ **REPL-EVAL** — *requested live as dessert, the same session COND.0
+  shipped: an `eval` verb in the Immediate pane beside `expand`, so the
+  REPL finally has its E - `expand` shows what a form EXPANDS to,
+  `eval` shows what it YIELDS. Adjudicated in conversation before a
+  line was written, built this session, not yet owner-verified live.
+  `expand` is itself `lisp`, renamed the same session - see the
+  addendum at this entry's own end.*
+
+  **The adjudication, on the record because the name is radioactive:**
+  this is NOT the `eval` the roadmap vetoed. The veto (LISPIMPORT:
+  "`eval` never was [on the table]") targets an EXPANSION-TIME
+  primitive - a computed value flowing back into emitted code, breaking
+  pencil-auditability. The Immediate-pane verb runs strictly AFTER
+  expansion finishes; its output is ink read by a human, never compiler
+  input - nothing it computes can change what the compiler emits. The
+  wall's own text already carved this exact exemption once:
+  LISTOPS-PURITY's verification pass blessed `EnglishCompileToModule`'s
+  dev-convenience `Application.Run` because it executes the
+  ALREADY-COMPILED module, "strictly after expansion finishes - none
+  reachable from inside expansion." Same side of the wall, same
+  reasoning. Standing rule, stated in the code comment itself: `eval`
+  lives in `VLA_DevRig.bas`, is not a recognized head in `VLA.bas`, and
+  must never become one - the moment a macro can CALL it, it is the
+  vetoed primitive.
+
+  **Implementation - mostly discovery, barely construction:** the hard
+  part already existed. `VLA_Interpreter.VlaEvalExpression` (IN3_5.0,
+  already pinned by `TestExprParity`) does the whole
+  expand-then-interpret pipeline: `VlaCompileToForms` loads the
+  prelude, consumes `defmacro`s (so `eval "(defmacro (double x) (+ x
+  x)) (double 21)"` prints 42), fully expands, then `EvalExpr` computes
+  on a fresh frame. The new Sub is a `Debug.Print` wrapper over it,
+  `expand`'s own four-line shape. Expressions only, one body form - a
+  statement belongs to `VlaTry`; a compiled-VBA answer with `*1`/`*2`/
+  `*3` recall belongs to `VlaTryValue`, the pre-existing heavy sibling
+  (L6, scratch-module injection, `Application.Run`, module state
+  wiped - discovered mid-build, positioned rather than duplicated:
+  three answer-verbs now, expand/interpret/compile, each labeled with
+  whose answer it prints). **Whose answer, stated in the comment:** the
+  INTERPRETER's, not compiled VBA's - one semantics by intent,
+  `TestExprParity` hunts divergence, but on any disagreement `eval`
+  prints the interpreter's side and `VlaTryValue` the compiled side.
+
+  **`VlaEvalDisplay`, the one real new piece:** the interpreter returns
+  quote data as real VBA arrays, and `Debug.Print` on an array raises
+  Type mismatch - so `eval` needed a display formatter, and
+  `VlaTryValueLit` (the obvious reuse) was REFUSED after reading its
+  contract, not assumed reusable: its output must be RE-PARSEABLE
+  source text for `*1` recall, which is exactly why it refuses arrays -
+  and arrays are half of what `eval` exists to print. `VlaEvalDisplay`
+  is display-only and Lisp-flavored: arrays as parenthesized lists,
+  recursively; Booleans as VLA's own source literals `true`/`false`;
+  numbers via `Trim$(Str$())`, the locale-proof period
+  (`VlaTryValueLit`'s own precedent); strings re-quoted with the
+  tokenizer's escapes so a string never masquerades as a number or
+  symbol. Branch order load-bearing twice, stated in its comment:
+  Boolean before IsNumeric (`IsNumeric(True)` is True in VBA), String
+  before IsNumeric (a numeric-looking string stays quoted).
+
+  **Naming check, the lisp/vla/vlae tax paid up front this time:** bare
+  `eval` claimed by no module, procedure, or Excel-VBA builtin
+  (Access's `Eval` function does not exist in Excel VBA) - grepped and
+  checked against the reserved-word list before writing, the check
+  that cost `expand` two renames on its own way to a name, before this
+  session's third.
+
+  `TestEvalDisplay` (6 assertions, `VLA_Tests_Grammar.bas`, right after
+  L6's own formatter pins) wired into `VlaSelfTest` right after
+  `TestL6`; the `eval` Sub itself follows `expand`'s own precedent -
+  interactive verification, since a `Debug.Print` wrapper's output
+  lands where only a human can read it. `VLA_DEVRIG_VERSION` bumped to
+  `REPLEVAL.0`. One charming data point already banked: the owner's own
+  request transcript hypothesized `eval "(length (quote (a b c d)))"`
+  printing 5 - a 4-element list. The real verb prints 4, which is the
+  entire argument for having the verb.
+
+  **Found live, `eval`'s own first real use, third example off the
+  dessert plate: a genuine, pre-existing parity hole in
+  `VLA_Interpreter.bas`, not a bug in `eval`/`expand`/`COND`.**
+  `eval "(quote (1 2 3))"` raised `"'1' is not a form ..."` instead of
+  yielding an array. Traced, not guessed: `EvalExpr`'s own `Select
+  Case` (arithmetic/comparison chains, `not`, `.`, `new`, `array`) had
+  no `"quote"` arm at all, so the unrecognized head fell to
+  `EvalDynamicHead`, which tried to CALL `quote` and evaluate its
+  argument `(1 2 3)` AS CODE - a list headed by the number `1`, not a
+  form, hence the error. `VLA.bas`'s own `EmitExpr`/`EmitQuote` has
+  always had this right (P.L5: quote is a DATA context); the
+  interpreter simply never grew the matching case, because nothing
+  before this session's own `eval` verb ever asked it to evaluate a
+  BARE `(quote ...)` expression on its own - LISTOPS's own uses are
+  expand-time only and never reach the interpreter, and every other
+  `(quote ...)` in the existing corpus sits inside a larger form some
+  other `Case` already handles structurally. Exactly the class of hole
+  `TestExprParity` exists to catch, simply never previously exercised
+  on this shape - owner offered the choice (fix now / file and defer),
+  chose fix now.
+  **Fixed** (`VLA_Interpreter.bas`): a new `Case "quote"` plus
+  `EvalQuoteDatum`, mirroring `VLA.bas`'s own `QuoteDatum` line for
+  line, with the one necessary difference stated in its own comment -
+  `QuoteDatum` builds VBA SOURCE TEXT to compile; `EvalQuoteDatum`
+  builds the REAL VBA VALUE directly, since the interpreter has no
+  separate compile step to hand text to. Never calls `EvalExpr` on any
+  element - quote's whole point is that its datum is DATA, not code to
+  run. A list becomes a real array, recursively; a string literal
+  unwraps to its own content; a number becomes a Double (`IsNumeric`/
+  `CDbl`, this interpreter's OWN pre-existing atom convention, used two
+  cases up in the same `Select Case` - not re-litigating
+  `LISTOPS-EXPAND`'s own `Val`/`Str$` locale guardrail here, since that
+  was scoped for a NEW expand-time primitive family, not this
+  interpreter's already-established one); any other bare symbol
+  becomes that string verbatim - quoting a symbol yields a STRING at
+  runtime here exactly as it does in compiled VBA, never a distinct
+  "symbol" value.
+  `TestInterpreterQuote` (`VLA_Tests.bas`, 6 assertions, wired into
+  `VlaSelfTest` right after `TestInterpreterOperators`) follows
+  `TestArrayPrimitive`'s own precedent exactly: an array result checked
+  structurally (`IsArray`/`LBound`/`UBound`/elements), never `CStr`'d -
+  the same Type-mismatch hazard that test's own header note already
+  names. Covers the array case, the quoted-bare-symbol-becomes-string
+  case, a string literal staying itself, mixed-element data (number/
+  string/symbol in one list, each converted by its own rule), the
+  empty-list-is-a-real-zero-length-array case, and the one-datum arity
+  check.
+
+  **`lisp` renamed to `expand`, same session, owner's own insistence:**
+  once `eval` existed as its sibling, `lisp` stopped pulling its
+  weight - a cute name doesn't tell a reader what it does, and the
+  pair only reads correctly at a glance if both names are actions.
+  `expand` shows what a form EXPANDS to; `eval` shows what it YIELDS.
+  This is `lisp`'s THIRD rename, not its first - "vla" collided with
+  the VLA module itself (VBA's case-insensitive identifier lookup
+  resolves a module before a Sub of the same bare name); "vlae"
+  sidestepped that but read as an abbreviation, not a word; "lisp"
+  lived one whole session before losing to the same clarity argument
+  that named `eval` in the first place. Renamed in `VLA_DevRig.bas`
+  (the `Public Sub` itself, its own standing comment - extended in
+  place to add `lisp` as a third retired name rather than deleting the
+  `vla`/`vlae` history, and its usage examples corrected - and every
+  reference in `eval`'s own comment and this roadmap entry). The
+  historical `LISTOPS.0` entry elsewhere in `VLA_DevRig.bas`, from the
+  session `lisp` actually shipped in, is left untouched - it accurately
+  records what the command was called then, the same convention this
+  ledger's own dated entries already follow.
+
+  **Owner-verified live:** the full dessert plate, six for six in the
+  Immediate pane, `eval "(quote (1 2 3))"` printing `(1 2 3)` instead
+  of raising - both `eval` and the interpreter's own `quote` fix
+  confirmed working together, not just compiling.
+
+---
+
+# 🔧 MACHINE · OPTIMIZATION
+*Compiler speed. Under the hood; the user never sees it directly. specimens: 0.*
+
+**All of it gated on P-PROF's before-numbers.** Nothing below is worth doing on
+suspicion, and under the current constraint most of it is not worth doing at
+all this version.
+
+- ✅ **P-PROF** — per-phase timing behind one switch. The instrument the
+  rest of this tranche is gated on, scoped first (grounded in
+  `VlaTranspile`'s own Pass 1/Pass 2 structure, `EnglishToVla`, and
+  `VLA_DevRig.bas`'s existing `VlaTimeIt` family, the same way LX.5 and
+  EDITION-MANIFEST both got a scoping pass before any code changed),
+  then built the same session on the owner's own go-ahead. **Six
+  buckets, one switch (`VLA.mProfileOn`, a bare Public Boolean,
+  `VLA_Tests.mRunScaleTests`'s own shape):** compile-side tokenize/
+  parse/expand/emit, timed inside `VlaTranspile`'s existing Pass 1/
+  Pass 2 seam (VLA.bas) - Pass 1's `DefineMacro` collection folds into
+  "parse" (P-PROF's own archived four-phase list, ALPHA6_ROADMAP.md,
+  never carved out a fifth, and DefineMacro's cost is a different
+  question from Pass 2's own per-lookup `GetMacro` cost, P-DICT's real
+  target); expand/emit are timed per top form inside the Pass 2 loop.
+  **Scope grew mid-session, owner-directed:** the archived phase list
+  was compile-side only, but P-TOK's own named hotspot (`TokAt`'s
+  positional `Collection` indexing, `VLA_SentenceEngine.bas` - read
+  and confirmed still present, unfixed) lives on the TRANSLATE side,
+  inside `EnglishToVla`, which the compile-side phase list never
+  covered. Added a translate-side split behind the same switch:
+  trans-tokenize / trans-build (`EnglishToVla` has no clean expand/
+  emit seam of its own - it builds VLA source text while it parses,
+  fused, not staged - so everything past tokenize is one bucket).
+  **Failure-path honesty, not just the happy path:** the 5500-deep
+  `TestListopsBudget` case is SUPPOSED to fail once `ExpandMacros`'
+  trampoline cap fires - losing that call's own expand-phase time
+  would have hidden exactly the cost this instrument exists to show.
+  A `profPhase` flag (VLA.bas) lets `VlaTranspile`'s existing `emitfail`
+  handler credit whichever phase was mid-flight before its own
+  existing error-augmentation logic runs, unchanged - Err.Number/
+  Source/Description and every existing raised message are untouched;
+  the accumulation happens before, never inside, that logic. No
+  equivalent exists on the translate side (`EnglishToVla` has no
+  shared error handler to hook) - an honest, recorded limit, not
+  fixed: a mid-loop translate failure loses its own trans-build time,
+  acceptable since that side's corpus (the suite's own real vocabulary/
+  instructions.txt) is expected to translate cleanly, unlike the
+  compile side's deliberately-failing 5500 case. **Zero cost when off
+  (the default, every ordinary Check/Compile/Run path):** every Timer
+  read and accumulator add is gated behind `mProfileOn`/
+  `VLA.mProfileOn`; when False, Timer is never called at all - the
+  golden-diff-empty invariant `VlaTranspile`'s own IN.0.5 comment
+  already calls "a real, proven-fragile thing to risk" is untouched by
+  construction, not just by care. **The dial:**
+  `VlaProfileAll` (VLA_DevRig.bas), `VlaTimeIt`'s own house
+  style throughout - workbook Names (`VLAt_Prof*`), CURRENT printed
+  next to PREVIOUS, Immediate window, dev-rig only, no self-test pin
+  (the printed numbers ARE the verification, `VlaTimeIt`'s own
+  precedent) - run against `VLA_Tests_Host.VlaSelfTestsAll` specifically
+  (owner's own call, not `instructions.txt`): the full pure+host suite
+  with `mRunScaleTests` forced on internally, so the 2000/5500-deep
+  `TestListopsBudget`/`TestListopsDepthSafety`/`TestTablespecDepthSafety`
+  cases (already confirmed live at several minutes at 5500 rows by
+  wall clock alone) actually run and dominate the accumulated sums -
+  the real cost this tranche's own gating rule asks for, not a
+  synthetic worst case measured in isolation. The switch is restored
+  to `False` on every exit path, including a mid-run failure (`On
+  Error GoTo cleanup`), so it can never leak a stale profiling cost
+  into an ordinary session afterward. **Owner-verified, live
+  (2026-09-03):** `VlaProfileAll` run against the real
+  scale-included suite (no Excel host in this environment for the
+  build itself - this environment's own P-PROBE precedent - but the
+  owner ran it for real). Suite: 910/910 pure, 119/119 host, PASS
+  overall, wall time 175,219 ms (~2.9 min - the 2000/5500-deep cases
+  dominate, as expected). **The actual before-number, 228 `VlaTranspile`
+  calls:** tokenize 543 ms (0.9%), parse 16,098 ms (27.6%), expand
+  41,512 ms (**71.3%**), emit 98 ms (0.2%) - `expand` dominates exactly
+  as P-DICT/P-NTH suspected, real confirmation rather than a wall-clock
+  guess. Translate side (260 `EnglishToVla` calls): trans-tokenize
+  27 ms, trans-build 74 ms - negligible in THIS corpus, which says
+  nothing against P-TOK's own premise (`TokAt`'s cost needs one very
+  long token stream to show up, not many short sentences; this suite's
+  own translate-side calls are all short) - only that this particular
+  run didn't stress it.
+  **A new finding, this instrument's own first real payoff, not
+  scoped or adjudicated:** `parse`'s own 27.6%/16 s share is far larger
+  than `tokenize`'s (0.9%) or `emit`'s (0.2%) for the identical 228
+  calls - disproportionate enough to investigate rather than assume
+  `DefineMacro` registration cost, and reading `ParseForm`/`TokRawLine`
+  found why: the same positional-`Collection`-index cost P-TOK already
+  names for `TokAt`, a second instance, this one compile-side. Full
+  writeup under P-TOK's own entry below, P-DICT's own cross-reference
+  precedent for a finding outside an item's literal scope. **Closing
+  the item:** both correctness (the suite result) and the real
+  before-numbers this tranche is gated on are owner-confirmed live, not
+  assumed - committed. `~days`
+- ✅ **P-DICT** — registry lookups off `Collection` error-traps.
+  **A concrete cost, confirmed live during TABLESPEC-SCALE's own new
+  large-scale test cases, not scoped or adjudicated:** `GetMacro`
+  (VLA.bas) looks up `mMacros` by key on every `ExpandMacros` chain step,
+  so a long chain resolving through a growing macro table pays this
+  lookup cost once per step - part of why `TestListopsBudget`'s own
+  2000/5500-deep chain cases (`VLA_Tests.bas`, gated behind the new
+  `mRunScaleTests`/`VlaSelfTestScale` for exactly this reason) run
+  noticeably slower than chain length alone would suggest. **A separate,
+  larger contributor found alongside it - outside this item's own
+  literal scope, but the same family, filed here rather than split
+  across two searches (see P-NTH too):** `cdr`/`ListTail` (VLA.bas)
+  copies the ENTIRE remaining tail into a new `Collection` on every
+  call, so a full `walk-rows`/`tablespec` walk of length N costs ~N²/2
+  element copies regardless of `mMacros` - the dominant cost in
+  `TestListopsDepthSafety`/`TestTablespecDepthSafety`'s own gated
+  2000/5500-row cases, several minutes at 5500 rows. Neither is fixed by
+  TABLESPEC-SCALE's own trampoline (LANGUAGE + MACHINE, above), which
+  removed VBA-stack cost per chain link, not algorithmic time cost - the
+  two are independent axes, confirmed live rather than assumed.
+  Whoever picks up P-DICT (or P-NTH, for the `cdr`/`ListTail` half)
+  should start from the three gated test cases above as ready-made
+  repros at real, measured cost, not a fresh profiling pass.
+  **Built (2026-09-03), scope deliberately limited to this item's own
+  literal target per the owner's own call - `cdr`/`ListTail` stays
+  P-NTH's, scoped next, not bundled in:** `mMacros` (VLA.bas) swapped
+  from a `Collection` to a late-bound `Scripting.Dictionary` (no
+  project reference, Alpha 5's own already-decided mechanism -
+  `.Exists` is throw-free and hashed, `Collection.Item(key)` has no
+  hash table at all, a linear scan). Six touch points, all fully
+  enumerated before touching anything: the declaration, four
+  independent reset sites (`VlaTranspile`/`VlaCompileToForms`/
+  `VlaProbeMacroForm`/`VlaExpandText`, each its own from-scratch
+  tokenize+parse+collect entry point), `DefineMacro`'s write, `GetMacro`'s
+  read, the Apropos listing's iteration (`mMacros.Items`, not a bare
+  `For Each` - a Dictionary walks keys by default, not values), plus
+  `VlaFrame.cls`'s own typed `Macros` field (the F5.0 push/pop context
+  snapshot, one of its nineteen saved fields). `GetMacro`'s own contract
+  (returns the macro's record `Collection`, or `Nothing`) is unchanged,
+  so its four callers needed no changes.
+  **A second, related cost fixed for free, found while reading
+  `DefineMacro`'s own write side rather than assumed:** the old
+  `On Error Resume Next: mMacros.Remove key` before every `Add` ("allow
+  redefinition") paid a real exception-throw cost on EVERY ordinary
+  first-time registration, not just actual redefinitions - `Remove`
+  always missed there. **The write shape itself was a real choice, put
+  to the owner rather than decided alone:** keep the closest-to-today
+  Remove/`.Exists`-guard shape, or a direct Dictionary-item overwrite
+  (Dictionary's own keyed assignment already replaces-or-inserts with
+  no error either way). Owner's own call: direct overwrite - redefinition
+  is the rare case in a growing phrasebook, not the common one, and the
+  old shape got WORSE the larger a corpus grew, exactly the direction
+  corpora are headed, not a one-time saving to protect. `DefineMacro`
+  now does `Set mMacros.Item(key) = rec` directly, no `Remove` at all.
+  **Correctness risks checked, not assumed:** every key is already
+  passed through `VLA_Identity.Fold` before touching `mMacros`, both
+  read and write sides, so `Dictionary`'s default `vbBinaryCompare`
+  mode (case-sensitive) is correct as-is - no `.CompareMode` change
+  needed. `Collection` guarantees insertion order; `Dictionary`'s own
+  iteration order is a long-standing implementation detail, not a
+  documented guarantee - the only order-sensitive consumer is the
+  Apropos listing, and `TestAproposPlus` (`VLA_Tests_Grammar.bas`)
+  asserts via `InStr` substring checks, never exact order, so nothing
+  pins order today; a cosmetic-only risk, recorded rather than ignored.
+  **A sibling pattern found, not touched:** `VLA_Interpreter.bas`'s own
+  `mProcs`/`RegisterProc`/`LookupProc` (IN.10) is a full twin of the old
+  `mMacros`/`DefineMacro`/`GetMacro` shape, deliberately modeled on it at
+  the time (its own comments said so, now corrected to note the
+  divergence) - still a Collection, still Remove-then-Add, still
+  On-Error-Resume-Next. Not evidenced hot by anything P-PROF measured
+  (VlaProfileAll never touches the interpreter path; the interpreter's
+  own scaling axis - declared-procedure COUNT, not macro-chain depth -
+  is a different, unmeasured question), so deliberately left alone
+  rather than fixed on the strength of a family resemblance alone - a
+  candidate for the identical fix if it's ever evidenced, not scoped
+  here. **Owner-verified, live (2026-09-03):** `VlaSelfTestsAll` clean
+  both sides of the change - 910/910 pure, 119/119 host, PASS - the
+  emitted VBA stayed byte-identical, exactly what a pure speed change
+  must do. **The performance number, read honestly rather than spun:**
+  `VlaProfileAll` after showed `expand` essentially FLAT (41,512 →
+  42,918 ms) and `parse` up ~10% (16,098 → 17,727 ms, `Set mMacros =
+  CreateObject("Scripting.Dictionary")` sits inside that timed window -
+  a real per-call COM-instantiation cost, four reset sites, ~228+
+  calls) - no clean win on this corpus. Not spun as one: the untouched
+  translate side moved by a similar margin in the SAME run
+  (trans-tokenize 27→16 ms, trans-build 74→94 ms, code this fix never
+  touches at all) - real host-run-to-run noise on this order, so
+  `parse`'s own ~10% shift can't be cleanly separated from noise versus
+  `CreateObject`'s own real cost; both are plausible, in some mix.
+  **The actual diagnostic value:** `expand` barely moving despite
+  `GetMacro` going from an O(n) linear scan to an O(1) hash lookup
+  means `GetMacro` was never the majority of that 41-42 second bucket -
+  confirms, live, what scoping suspected: `cdr`/`ListTail`'s own cost
+  (`TestListopsDepthSafety`/`TestTablespecDepthSafety`'s row-walks, not
+  `TestListopsBudget`'s bare chain `GetMacro` actually targets) is the
+  real dominant share of `expand`, and P-NTH - scoped next - is where
+  the real remaining number lives, not a second guess at this item.
+  **A live cost worth naming, not fixing here:** creating a fresh
+  `Dictionary` on every one of the four reset sites is itself an
+  avoidable cost if it ever matters enough to chase - reusing one
+  instance via `.RemoveAll` instead of a fresh `CreateObject` would
+  save it, but checked and NOT safe as-is: `VlaPushContext`/
+  `VlaPopContext`'s own documented invariant depends on every reset
+  producing a genuinely fresh object, specifically so a popped outer
+  frame can never see an inner compile's mutations - reuse-and-clear
+  would break that isolation. A real idea, filed here rather than
+  acted on. Correctness confirmed, the fix is still the right shape for
+  the mechanism it actually targets (a macro-registration-heavy corpus
+  with many distinct names, not this suite's own `cdr`/`ListTail`-
+  dominated row-walks) even though this particular run's own aggregate
+  number doesn't show it cleanly. Committed. `~days`
+- ✅ **P-NTH** — `Nth`'s Collection walk on hot paths. Named for `Nth`
+  (VLA.bas), but P-DICT's own cross-reference had already filed the
+  ACTUAL evidenced target here: `cdr`/`ListTail`'s own O(n²) full-copy
+  walk, confirmed the real remaining cost by P-DICT's own live before/
+  after (`expand` staying flat, 41,512 → 42,918 ms, despite `GetMacro`
+  going O(n) → O(1) - `cdr`/`ListTail` was carrying the majority all
+  along, not `GetMacro`). **The owner's own call, stated plainly:**
+  the real fix, not a band-aid capping the trampoline's existing 5000
+  guard lower - "if it's the right move in the long run... surgery
+  would take more time to heal now than amputation would cost down
+  the line." **What "the real fix" turned out to mean, found by
+  tracing actual call chains before writing anything, not assumed from
+  the roadmap's own one-line title:** `ListTail`'s comment already
+  named the reason a naive fix couldn't just share objects outright -
+  S3.1, a real, named prior incident where a freed list's memory
+  address (`ObjPtr`, `TagLine`'s own lookaside key) got reused by a
+  later, unrelated list, corrupting source-line attribution; `cdr`/
+  `cddr`/`cons`/`list` all build fresh Collections and explicitly
+  tag them 0 specifically to keep that closed. A structural-sharing
+  fix had to be designed around that constraint, not just past it.
+  **New class `VlaSlice.cls`** - a read-only, O(1) VIEW over the tail
+  of an existing Collection (`Backing` + `Offset`), never copies, never
+  nests (a slice of a slice flattens to point at the SAME root
+  `Backing` with an adjusted `Offset`, so `.Item`/`.Count` stay O(1)
+  regardless of chain length - a naive wrap-the-wrapper design would
+  only have moved the O(n) cost into recursive indirection instead).
+  S3.1-safe by construction, not by luck: every `ListTail` call still
+  constructs a genuinely FRESH `VlaSlice` object and `TagLine`s it 0,
+  the same discipline that already protected the old Collection-copy
+  result - the hazard S3.1 named was a freed address reused by an
+  unrelated list, never a live, still-referenced object shared on
+  purpose, and nothing here ever tags `Backing` itself, only each
+  view's own distinct identity. Deliberately a flat VIEW, not a
+  general cons-cell chain: `cdr`/`cddr` (repeated tail-walking) is the
+  evidenced hot path; `cons` (prepending) is not, and a flat view
+  cannot represent "one element prepended ahead of a shared tail"
+  without a real cons-cell chain - `EvalCons` (VLA.bas) still copies,
+  unchanged, only widened to accept a `VlaSlice` tail without crashing
+  (`(cons x (cdr lst))` is an entirely ordinary shape). **Touch points,
+  all traced by reading actual call chains rather than assumed safe by
+  category:** `Nth`/`TagLine` widened `Collection` → `Object` (zero-
+  risk - a `Collection` passed where `Object` is expected always
+  works); `ListTail` rewritten to build a `VlaSlice`; the full LISTOPS
+  dispatch chain a computed value can flow through -
+  `EvalCar`/`EvalCdr`/`EvalCddr`/`EvalCons`/`EvalList`/`EvalNullQ`/
+  `EvalEq`/`EvalEqual`/`EvalQuoteIf`/`EvalArithExpand`/`EvalCond`/
+  `EvalCondFrom`, `EvalListopsPrim`, `FuseSymbol`, `ResolveListopsArg`,
+  `ListHeadIs`, `DeepEqual`, `NthList`, `ExpandOne` - each widened on
+  its own "value being read" parameter; `ExpandMacros`' and
+  `ExpandOnePass`'s own trampolines widened too, since a macro whose
+  ENTIRE body is a bare `cdr`/`cddr` call can hand a `VlaSlice` back to
+  the dispatch loop itself, not just to a listops sub-call - an
+  unusual shape, but one that would otherwise crash rather than
+  degrade. `WriteDatum`/`WritePretty` (the debug/Apropos text-
+  rendering path `VlaExpandText`'s own output rides) also widened -
+  found by checking, not assumed exempt, since a computed value can
+  legitimately reach printing too. Several `For Each` loops (the
+  unquote-splicing splice in `Substitute`, `WriteDatum`, both
+  trampolines' own final rebuild) converted to indexed access -
+  `VlaSlice` has no enumerator, deliberately: a custom VBA
+  `NewEnum`/`IEnumVARIANT` is real complexity bought for nothing, since
+  every consumer already only ever needed `.Count`/`.Item(i)`.
+  **A real, live regression, caught and fixed the same session, not
+  papered over:** the first owner reload hit "Variable not defined" on
+  `ExpandMacros`' own final `pendingHead` combine loop
+  (`For Each e In pendingHead`) - that loop had always shared its `e`
+  with the OTHER `For Each e In cur` loop this item converted to
+  indexed access; removing the `cur` loop's own `Dim e As Variant`
+  (believed scoped to it alone) silently broke the pendingHead loop
+  too, since VBA `Dim` is function-scoped, not block-scoped. Fixed:
+  `e` re-declared immediately before the loop that still needs it,
+  with a comment naming why it moved. A second-round compile came back
+  clean.
+  **Owner-verified, live (2026-09-03) - unambiguous this time, unlike
+  P-DICT's own wash:** `VlaSelfTestsAll` clean, 910/910 pure, 119/119
+  host, PASS. `VlaProfileAll`'s own before/after: `expand` **42,918 →
+  1,012 ms - a 97.6% drop.** `cdr`/`ListTail` really was carrying the
+  overwhelming majority of that cost, confirmed decisively, not a
+  suspicion and not `GetMacro`. Wall time 193,707 → 149,984 ms (down
+  ~22.6%). tokenize/emit/translate-side all sat within the same noise
+  band the untouched translate-side numbers already established
+  (trans-tokenize/trans-build moved by a similar few-ms margin with
+  nothing touching that code at all) - real signal only where the
+  mechanism this item actually targeted lives.
+  **The diagnostic payoff, exactly as P-DICT's own before/after set up:**
+  with `expand` collapsed, `parse` is now unmistakably the dominant
+  remaining share - 91.4% of compile-side time, 19,461 ms (barely
+  moved in absolute terms, 17,727 → 19,461 ms; its SHARE jumped only
+  because the other bucket emptied out under it). This is the exact
+  `TokRawLine`/`mTokLines` positional-`Collection`-index cost already
+  filed under P-TOK during the P-PROF work - now showing a far
+  starker, cleaner before-number than it had then, not a new finding.
+  Committed. `~days` (read honestly against the touch-point count
+  above: closer to real days of careful tracing than the roadmap's own
+  one-liner implied, the same lesson P-DICT's own scoping pass already
+  taught once this session).
+- ✅ **P-TOK** — single-scan tokenizer buffer. Named for the TRANSLATE
+  side originally (`TokAt`, `VLA_SentenceEngine.bas` - positional
+  `Collection` indexing, confirmed still present, unfixed). **A second,
+  COMPILE-side instance, found live by P-PROF's own first real run
+  (2026-09-03), not scoped or adjudicated:** `ParseForm` (VLA.bas) calls
+  `TokRawLine(pos)` once per token, and `TokRawLine` does
+  `mTokLines.Item(pos)` - the identical positional-`Collection` shape,
+  just inside the reader instead of the emitter. Measured contribution:
+  `VlaProfileAll`'s own "parse" bucket (`VlaTranspile`'s Pass 1 +
+  `ParseAll`) came back 27.6% of compile-side time (16,098 ms of
+  58,251 ms) against the scale-included suite, disproportionate next to
+  tokenize's 0.9% and emit's 0.2% for the identical 228 calls - the
+  live number that sent the search to `ParseForm`/`TokRawLine` rather
+  than assuming `DefineMacro`'s own registration cost. `mTokLines`
+  (VLA.bas, built by `Tokenize`) is appended strictly in order and read
+  back in strictly increasing `pos` order during parsing - this item's
+  own proposed fix (copy the token stream to a String ARRAY once, O(1)
+  indexing forever) applies to it directly, no new design needed.
+  Whoever picks up P-TOK should treat `TokRawLine`/`mTokLines` as in
+  scope alongside `TokAt`, not a separate item - P-DICT's own "outside
+  this item's own literal scope... filed here rather than split across
+  two searches" precedent, a fourth site in the same already-documented
+  cost family (`TokAt`, `Nth`, `TokRawLine`), not a new one.
+  **Sharpened, not superseded, by P-NTH's own live before/after
+  (2026-09-03):** fixing `cdr`/`ListTail` collapsed `expand` from
+  42,918 to 1,012 ms, and with that bucket emptied, `parse` (where
+  `TokRawLine` lives) now reads 91.4% of compile-side time, 19,461 ms -
+  the same mechanism, a cleaner and larger before-number than the
+  27.6%/16,098 ms it first showed at, no longer partly obscured by
+  `expand`'s own now-fixed cost sitting alongside it.
+  **Built and owner-verified live (2026-09-03), scope executed exactly
+  as above, plus one more site found during the scoping pass itself:**
+  `TokLine` (`VLA_SentenceEngine.bas`), read once or twice per
+  statement from `ParseTracked`'s own step-tracking bookkeeping - same
+  `mTokLines` cost family, never separately named, folded in rather
+  than filed apart (`P-DICT`'s own precedent). All four sites -
+  `TokAt`'s `toks`, `TokRawLine`/`ParseForm`'s `toks.Item`, `TokLine`'s
+  `mTokLines`, and VLA.bas's own `mTokLines` - landed together, one
+  combined pass per owner direction rather than sequenced: `Tokenize`/
+  `EnTokenize` untouched internally, materializing into 1-based
+  `String()`/`Long()` arrays once at the end instead of leaving
+  `Collection`s to be positionally indexed forever after.
+  `CanonicalizeStructuralWords` (`VLA_English.bas`, LX5.1's own
+  keyword-alias seam) converted too, per owner approval - the one site
+  needing more than a type swap: it used to alias the same `Collection`
+  by reference (`Set CanonicalizeStructuralWords = toks`, then mutate
+  after), but array assignment copies by value, so an early return-
+  value copy would have snapshotted the token stream BEFORE its own
+  rewrite loop applied - reordered to mutate first, copy out last.
+  **Two real bugs caught live, not reasoned through in advance:**
+  (1) `VlaFrame.cls`'s new `TokLines` field, first written as a bare
+  `Long()` array, refused to compile - VBA disallows arrays as
+  `Public` members of a class/object module outright (a genuine VBA
+  limitation, not a typo); fixed by boxing it in a `Variant`, the
+  standard workaround, with array-copy-not-reference semantics either
+  direction (harmless - `VLA.bas`'s own `mTokLines` is never mutated
+  in place after a `Tokenize` call builds it, the same "reset always
+  reassigns fresh" discipline this class's header already relies on
+  for every other field). (2) The materialize step itself, first
+  written as `For k = 1 To .Count: x = .Item(k)`, is ITSELF O(n^2) - a
+  `Collection`'s own `Item(k)` re-walks from the head on every indexed
+  call, so an indexed copy loop just relocates the exact cost this
+  item exists to remove, rather than eliminating it. Caught by
+  re-profiling immediately after, not assumed correct: `parse`
+  collapsed as intended (18,695 ms) but `tokenize` exploded to
+  29,309 ms - taking on almost exactly the cost that used to live in
+  `ParseForm`. Fixed in both `Tokenize` (VLA.bas) and `EnTokenize`
+  (`VLA_SentenceEngine.bas`) by switching to `For Each`, which walks a
+  `Collection` via its own real enumerator - genuinely O(n) for a full
+  copy, unlike indexed access. `VlaSelfTestsAll` clean throughout both
+  bugs and after (910/910 pure, 119/119 host, PASS every time -
+  correctness never regressed even while the performance fix itself
+  briefly regressed).
+  **The number, unmasked twice over:** P-NTH's own fix left `parse` at
+  91.4% of compile-side time (19,461 ms), wall time 149,984 ms. After
+  the real fix (not the interim regression above), compile-side is
+  flat and no longer dominated by any one phase - tokenize 625 ms
+  (23.0%), parse 973 ms (35.8%), expand 984 ms (36.2%, `P-DICT`/
+  `P-NTH`'s own territory, now the largest share by a hair instead of
+  an order of magnitude), emit 137 ms (5.0%); translate-side
+  trans-tokenize 20 ms, trans-build 70 ms. Suite wall time
+  149,984 → 22,004 ms. Committed. `~days`
+- ⬜ **P-PRELUDE** — *largely subsumed by F.3.* `~hours`
+- ✅ **P-PROBE** — batched/cached load-time probes. *Pays into:* Grammar — a
+  corpus that takes a minute to load throttles authoring. *Also pays
+  into:* LANGUAGE + MACHINE's own **LISTOPS-BUDGET** - `RegisterVocabMacro`'s
+  probe (`VlaTranspile mVocabMacros & macText & ...`) re-transpiles ALL
+  previously accumulated macro text on every new registration, O(macros²),
+  confirmed still present when LISTOPS-BUDGET's own written test was
+  built - independent of that item's own `depth`-recursion finding
+  (this is registration-COUNT cost, not expansion-time chain depth), so
+  a LISTOPS table-walker generating many macros pays both costs
+  separately regardless of whether its own walk is chained or flat.
+  **A concrete mechanism, surfaced during TABLESPEC-SCALE's own Lisp-
+  implementation-lore tangent, not scoped or adjudicated:** the O(macros²)
+  cost is a RE-PARSING cost, not an inherent re-expansion one -
+  `RegisterVocabMacro`'s probe re-tokenizes and re-parses `mVocabMacros`'s
+  own accumulated TEXT from scratch on every new `defmacro`, the exact
+  failure shape real Lisp/Scheme implementations hit when a growing
+  `(load ...)` re-reads a file as a string instead of caching the READ
+  result. The classic fix carries over directly: keep the ALREADY-PARSED
+  FORMS (a `Collection`, incrementally extended) instead of concatenated
+  text, and re-parse only the one NEW macro on each registration, never
+  the whole accumulated corpus. Not verified against `RegisterVocabMacro`'s
+  own actual call shape (`VlaTranspile mVocabMacros & macText & ...`) in
+  enough detail to know if the probe's OWN job - checking the new macro
+  composes validly with everything already carried - can be satisfied by
+  parsing forms alone, or still needs SOME transpile-shaped step; filed
+  here as the shape of the fix, not a finished design.
+  **Fixed (2026-09-01), scoped and built same-day ahead of a live demo,
+  not a redesign:** the "still needs SOME transpile-shaped step"
+  question above is answered - yes, but only over the ONE new macro's
+  own text, never the accumulated corpus. Read against
+  `RegisterVocabMacro`'s and `VlaTranspile`'s actual code (VLA.bas):
+  `VlaTranspile` resets `mMacros` to a fresh `Collection` at the top of
+  every call regardless of what's fed in, and `DefineMacro`'s own Pass
+  1 collection step allows silent redefinition (`mMacros.Remove` then
+  `Add`, no collision error) - so feeding in every macro registered so
+  far never cross-checked the new one against anything; it only
+  re-ran, on every prior macro, the exact same reserved-name/param/
+  template checks that macro already passed on ITS OWN registration.
+  The probe's real job - "does this new macro's own form stand, and
+  does its `VlaWriteForm` text round-trip through the reader" - is
+  entirely local to `macText`; name collisions were already caught
+  earlier in `RegisterVocabMacro` (`mVocabMacroNames`), before the
+  probe ever ran. Fix: `VlaTranspile macText & vbLf & "(sub
+  vla-macro-check ())"` - the corpus argument dropped, everything else
+  unchanged - turning registration-time cost from O(macros) re-parsed
+  per registration (O(macros²) total) into O(1) re-parsed per
+  registration (O(macros) total). `mVocabMacros` itself (the
+  accumulated string) is untouched - `VlaExpandText`'s own metavocab
+  call-expansion path and `VlaAproposCarry` still need the real
+  corpus and still get it; only the registration-time PROBE stopped
+  re-consuming it. Proven by reading, not by a live Timer number (no
+  Excel host in this environment - the owner runs that leg): at
+  `scripts/instructions_golden.vla`'s own real scale (134 defmacros,
+  ~121 KB), the old probe re-tokenized/re-parsed roughly 134·135/2 ≈
+  9,045 macro-text-units' worth of characters across the load; the fix
+  re-parses 134 - each macro once, matching the file's own read
+  volume. Test coverage: `TestVocabMacroProbe` (`VLA_Tests_Grammar.
+  bas`), wired into `VlaSelfTest` right after `TestMetaVocab` - a fast
+  always-on case (a malformed macro registered THIRD, after two valid
+  ones, still fails) plus an `mRunScaleTests`-gated case (150 valid
+  macros register in one load, matching `instructions_golden.vla`'s
+  own order of magnitude, elapsed ms printed for a human to read via
+  `VlaSelfTestScale`; a malformed 151st macro loaded after them still
+  fails correctly - the exact case the old full-corpus feed used to
+  cover and this fix no longer relies on it for). `VLA_ENGLISH_VERSION`
+  bumped to `P-PROBE.0`. Owner-verification and the real before/after
+  timing number are still outstanding - flip to ✅ only after both are
+  confirmed and this is committed.
+  **Round 2 (2026-09-01), same day, owner-driven:** round 1's own fix
+  was owner-verified correct (`VlaSelfTestScale` green, printed "150
+  macros registered in 1273 ms" once isolated from the suite's own
+  897-test scrollback) but the OWNER reported a real corpus load
+  (`scripts/english.vla` - 147 rules, 134 macros, 268 tests) "not
+  noticeably faster." Two live Timer numbers, both owner-run in the
+  actual host, settled it rather than guessing: a single bare
+  `VlaTranspile "(sub t () (debug-print 1))"` call cost 15.625 ms (one
+  Timer tick - the codebase's own documented ~16 ms resolution, so a
+  lower bound, not exact), and the 150-macro scale case averaged
+  ~8.5 ms/registration - both consistent with a FIXED per-call cost
+  dominating, not the O(macros²) term round 1 removed. Traced to
+  `VlaTranspile` itself (VLA.bas): every call - the probe's included -
+  splices in `PreludeMacros()` (`prelude.vla`, 34 KB, 46 of its own
+  `defmacro` forms, MIScounted as near-zero in round 1's own
+  reconnaissance - the file spreads `(defmacro` and its signature
+  across two lines, which a same-line grep missed) and re-registers
+  all 46 via `DefineMacro`, on EVERY probe call, independent of and
+  unfixed by round 1. New entry point `VLA.VlaProbeMacroForm`
+  (VLA.bas, placed beside `VlaReadForms` - same F.2/F5.0 shape,
+  context pushed/popped) runs exactly `DefineMacro`'s own check with
+  no prelude splice and no Pass 2 at all - the old probe's trailing
+  `"(sub vla-macro-check ())"` wrapper is gone too, confirmed (not
+  assumed) to have validated nothing macro-specific: its body called
+  nothing, so Pass 2/`EmitTop` never exercised anything the new macro
+  itself determines. `RegisterVocabMacro`'s own probe call is now
+  `VLA.VlaProbeMacroForm macText` - no prelude, no accumulated corpus,
+  no trailing check-sub. `VLA_ENGLISH_VERSION` bumped to `P-PROBE.1`.
+  Both fixes together are what should be re-verified against the real
+  corpus's own load time before flipping to ✅ - round 1 alone was
+  confirmed correct but is NOT the number to judge "noticeably
+  faster" against.
+  **Round 2b (2026-09-01), a real regression caught by the owner's own
+  live suite run, not by this pass's own review:** `VlaSelfTests`
+  (both suites) came back 889/890 pure, one failure - `l17: a
+  vocabulary-carried docstring survives the probe and reads back`.
+  Root cause, confirmed by reading `VlaMacroDoc`'s own declaration
+  comment (VLA.bas) before patching anything: "the macro table
+  rebuilds on every parse... vocabulary-carried macros are visible
+  here after any load or translation, because their probe-transpile
+  and every subsequent parse carry them through this same table" - a
+  DOCUMENTED, load-bearing contract. The OLD per-macro probe called
+  `VlaTranspile` directly, un-pushed, so `mMacros` (VLA.bas) was left
+  holding prelude + every accumulated macro after the LAST
+  registration - an accidental-looking but explicitly relied-upon
+  side effect. Round 2's `VlaProbeMacroForm` context-pushes/pops
+  (correctly, for its own narrower job), which stopped that leak and
+  silently broke the contract - a case for "provably correct" meaning
+  proven against every documented consumer, not just the one this
+  item's own diagnosis named. Fixed: `EnglishLoadVocabularyText`
+  (VLA_English.bas) now does, ONCE per load rather than once per
+  macro, exactly what the old per-macro probe did as an unintentional
+  side effect - one un-pushed `VLA.VlaCompileToForms mVocabMacros`
+  call republishing prelude + the full accumulated vocabulary into
+  `mMacros` after the dispatch loop. O(1) per load, not O(macros) -
+  the quadratic cost stays gone. `VLA_ENGLISH_VERSION` bumped to
+  `P-PROBE.2`. Separately noted, not chased further: the owner's
+  first run of the reloaded suite hard-crashed Excel with no error
+  message; the retry ran clean and produced the one failure above,
+  with no repeat crash - consistent with this project's own prior
+  VBIDE-reload-flakiness precedent (a clean restart, not a code
+  patch, was the fix last time) rather than a logic bug, but flagged
+  here in case it recurs.
+  **Owner-verified (2026-09-01):** reloaded suite clean - `VlaSelfTests`
+  890/890 pure PASS, 119/119 host PASS, no crash on the re-run. Real
+  corpus load (`scripts/english.vla` - 147 rules, 134 macros, 268
+  tests), `VLA-IDE: Check timing`'s own `vocabulary` leg: 1773 ms
+  (round 1 only) → 586 ms (both rounds) - a 67% reduction, ~3x, on
+  the exact number the owner judged round 1 against as "not
+  noticeably faster." Both correctness and speed confirmed live, not
+  assumed - closing the item.
+  `~days`
+- ~~**P-BULK** — array-slab runtime helpers.~~ Retired (2026-09-03):
+  confirmed, not just repeated, during PF.4's own scoping pass -
+  MACHINE · OPTIMIZATION is compiler-internals speed the user never
+  sees; "array-slab RUNTIME helpers" is code a compiled program runs,
+  squarely PRODUCT · PERFORMANCE's own "emitted-code speed" domain.
+  Absorbed into PF.4 (see that item's own entry for the full design,
+  including the automatic-rewrite-vs-explicit-form doctrinal question
+  this pass settled). Wrong tranche, one item, not two.
+
+---
+
+# 🔧 MACHINE · QUERY AND LOGIC
+*Aspirational, not demand-driven — the opposite contract from THE MIDDLE
+LAYER above. specimens: 1 (owner's own long-standing want, stated live
+2026-08-28 — "you have no idea how long I've wanted both a SQL function and
+a PROLOG function inside Excel" — not corpus demand, so this tranche stays
+thin and appetite-boxed rather than hydrated). Buy the decision now; defer
+the artifact.*
+
+- ⬜ **`SQL(table, query)`** — a relational query engine as a real worksheet
+  function, prompted by `scripts/spreadsheet.lisp`'s own `SELECTFROM`/
+  `SELECTROWS` (an Excel-native `LAMBDA`+`BYROW`+`FILTER` implementation)
+  crashing on large tables. **The one binding architectural decision:** it
+  must be declared `function`, never `deflambda` — `deflambda` compiles to
+  exactly one native Excel `LAMBDA` formula expression, so it inherits
+  `BYROW`'s per-row recalculation ceiling no matter how the query is
+  worded; a straight port of the Lisp version's approach would hit the
+  identical wall. `function` gives a real imperative VBA UDF: one
+  `Range.Value2` read into a Variant array, one native loop, one array
+  write-back — the standard high-performance Excel/VBA pattern, and the
+  actual fix.
+  - **MVP** (`~weeks`): `SELECT`/`WHERE`/`ORDER BY`/`LIMIT` over a single
+    table. WHERE is a real recursive-descent parse (AND/OR, parens,
+    comparators) into a small expression tree, not `EXTRACTOPERATOR`'s
+    string-`FIND` heuristics — those can't handle precedence or nesting.
+    Column names resolved once via a `Dictionary`, keyed through
+    `VLA_Identity.Fold` (reusing the existing fold rather than a second
+    `LCase`, so this doesn't reintroduce the Turkish-`I` locale bug the
+    neutrality audit already flags elsewhere in this file). Matched rows
+    collected into a manually-doubled buffer, never `ReDim Preserve` per
+    row (that's the O(n²) trap that would silently reintroduce the exact
+    performance problem this item exists to fix).
+  - **Full relational** (`~months`, staged): multi-table `JOIN` (always a
+    hash join — build a `Dictionary` on the smaller side, probe with the
+    larger; nested-loop join is not an acceptable implementation at any
+    table size), `GROUP BY`/`HAVING`/aggregates, subqueries and `WITH`
+    CTEs, `UNION`/`INTERSECT`/`EXCEPT`, window functions, computed
+    `SELECT` expressions.
+  - **Ceiling**: a persistent index cache keyed by (range address,
+    dimensions, a cheap content checksum), surviving across recalcs so
+    repeat queries against the same big table don't re-scan; `EXPLAIN`
+    returning the parsed logical plan instead of executing it, matching
+    this project's existing auditability-before-procedural-power stance
+    rather than shipping a bigger black box.
+  - **Explicit non-goal:** `INSERT`/`UPDATE`/`DELETE`. A worksheet function
+    mutating cells outside its own return value is the exact anti-pattern
+    Excel's calc engine exists to prevent — real DML would have to live as
+    an imperative `sub`/macro command (the `latin.vla` style), never as
+    part of this `function`.
+
+- ⬜ **`PROLOG(knowledgebase, query)`** — the existing toy (`_1_is_2.`,
+  `_Is_1_2?`, `QUESTION`/`STATEMENT` in `scripts/spreadsheet.lisp`) grown
+  from sentence-string pattern matching into real unification and
+  backtracking over structured facts/rules. **Free-form English-to-query
+  translation is explicitly out of scope for this item** — not a technical
+  deferral, the owner's own call, this session: Frazaro's whole premise is
+  that one deterministic phrasing keeps translation cheap, so if a natural-
+  language front end is ever wanted here it is a phrasebook problem (new
+  `{slot:type}` grammar rows targeting `(fact ...)`/`(rule ...)` forms,
+  F.4-checked like every other rule), never a free-parse problem, and
+  shares no design risk with the engine below. **This engine's contract is
+  general unification plus backtracking search — not guaranteed to
+  terminate**, by design (that's what full Prolog is); the restricted,
+  always-terminating fragment is `DATALOG`'s job, below, on purpose kept as
+  a separate name rather than an auto-detected mode of this one — see that
+  item for why.
+  - **v0** (`~weeks`): facts only (`(fact (parent tom bob))`), conjunctive
+    queries, no rules, no KB-side variables. Reuses VLA's own S-expression
+    reader to parse `(fact ...)` forms straight out of a cell range — no
+    second parser needed, the one architectural gift this item gets for
+    free from already being a Lisp.
+  - **v1** (`~weeks` more): `(rule head body...)` forms, unification with a
+    `Dictionary`-backed substitution environment, depth-first SLD
+    resolution with backtracking, no cut. All-solutions surfaced as a
+    spilled array — one row per solution, one column per free query
+    variable — the same shape `SELECTROWS` already uses, not a lazy stream
+    (VBA has none).
+  - **v1's unifier is substrate, not engine-private** (scoped 2026-08-29;
+    full text in `BETA_ROADMAP2.md`'s own entry): built as `VLA_Unify.bas`,
+    `VLA_Relation.bas`'s sibling, with two modes from one walker — one-way
+    match (ground on one side; G-RENDER's already-shipped `UnifyForm` in
+    `VLA_English.bas` is exactly this case and becomes a thin client,
+    keeping only its English-specific glued-slot branch as an atom-level
+    hook) and two-way unify (Prolog proper, occurs check refused by name,
+    `prolog-occurs-check`, never skipped for speed). Pays into G-RENDER v2
+    (multi-statement templates are the unifier's list case), SOLVE's
+    grounding, and SD-16 — the unifier matches forms against forms and is
+    never handed a token stream.
+  - **v2** (`~weeks` more): cut, `is`/arithmetic, negation-as-failure,
+    `findall`/aggregation.
+  - **Ceiling** (`~months`): first-argument clause indexing (the Prolog
+    twin of `SQL`'s hash-join law — don't scan every clause per call);
+    tabling/memoized resolution (SLG), which is what actually terminates
+    the textbook `ancestor(X,Y) :- ancestor(X,Z), parent(Z,Y)` recursive
+    case rather than infinite-looping, and is the difference between a toy
+    backtracker and something that survives a real KB; an `EXPLAIN` that
+    returns the proof tree (which facts/rules fired, in order) for the
+    same auditability reason as `SQL`'s. **Constraint/CSP solving is
+    explicitly not this engine's job** — that instinct belongs to `SOLVE`
+    below (Answer Set Programming), which is a purpose-built generate-
+    and-test notation for "many valid worlds, pick the best," not a
+    repurposed proof engine wearing an `in`/`all_different` costume.
+
+- ⬜ **`DATALOG(tables, rules)`** — the guaranteed-terminating third engine,
+  scoped out explicitly rather than folded into either function above.
+  **The grammar itself refuses any rule containing a compound term as an
+  argument** (no `f(g(X))` nesting — variables and constants only),
+  enforced at parse time, not detected at runtime. That restriction is the
+  entire feature: it's what makes every `DATALOG()` query provably
+  terminate, the same way stratified negation below is checked and refused
+  at parse time rather than discovered live. **Considered and rejected:**
+  letting `PROLOG()` auto-detect a function-free ruleset and silently run
+  it bottom-up instead of backtracking. Rejected because that trades a
+  visible contract for an invisible one — a query that loses its
+  termination guarantee the moment one rule happens to use a compound
+  term, with no signal to the author that anything changed, is the exact
+  opposite of this project's own auditability-before-procedural-power
+  instinct (169 hand-written refusal strings and F.4's conflict analyzer
+  both refuse loudly and specifically rather than silently working
+  around).
+  - **The killer case, concretely:** facts don't require a `(fact ...)` KB
+    block — they can be **an existing worksheet range, read directly**.
+    An `Employees` table with a `manager_id` column *is* a
+    `reports_to(employee, manager)` relation with no authoring step at
+    all; two rules (`indirect_report(X,Y) :- reports_to(X,Y).` /
+    `indirect_report(X,Y) :- reports_to(X,Z), indirect_report(Z,Y).`)
+    compute the full org chart's transitive closure over live data. Same
+    shape for bill-of-materials explosion (`part_of`), dependency
+    closure — any "everything transitively under this row" question,
+    which is the one query shape neither `SQL()`'s MVP (no recursion) nor
+    `PROLOG()` (unification/backtracking overhead, no termination
+    guarantee) answers well.
+  - **MVP** (`~weeks`): function-free Horn clauses only (parse-time
+    refusal of anything else), facts sourced from a range or a
+    `(fact ...)` block, semi-naive bottom-up fixpoint evaluation reusing
+    `SQL`'s hash-join/indexed-relation substrate directly, results as a
+    spilled array — same output shape as `SQL`/`PROLOG`.
+  - **Stretch** (`~weeks` more): stratified negation (`not`, safe only
+    because stratifiability — no predicate negatively depending on
+    itself — is checked and refused at parse time) and grouped
+    aggregation (`count`/`sum` per group, the Datalog analogue of `SQL`'s
+    `GROUP BY`).
+  - **Sequencing note:** the smallest of the three engines — no
+    compound-term unification, no backtracking, no cut — and it exercises
+    the shared indexed-relation substrate directly. Worth building
+    **before** `SQL`'s full-relational tier or `PROLOG`'s ceiling tier: it
+    proves the shared-substrate bet cheaply instead of discovering its
+    problems mid-way through a bigger engine.
+
+- ⬜ **`SOLVE(facts, program)`** — Answer Set Programming, the fourth and
+  last of this family, complementary rather than competing: the other
+  three all answer some version of "what follows from what I know"; this
+  one answers "what are all the self-consistent ways this could be, and
+  which is best." Written like `DATALOG` (facts, rules) plus two new
+  ingredients — **choice rules** (`{ assign(S,P) : eligible(P,S) } = 2 :-
+  shift(S).`, "generate every possible way to pick 2 eligible people per
+  shift") and **integrity constraints** (`:- assign(S,P),
+  on_vacation(P,S).`, "discard any candidate world containing this") — so
+  the program describes a whole space of candidate worlds and the solver
+  hands back the ones that survive every constraint: an **answer set**.
+  Not `ASP()` — a real, not hypothetical, collision with "average selling
+  price" in finance spreadsheets, and the same naming-collision discipline
+  `GO.1` already applies elsewhere in this file.
+  - **The killer case, concretely:** staff scheduling, seating charts,
+    resource allocation — "assign each person to a shift such that
+    everyone works exactly 5 days, nobody works two in a row, every shift
+    has at least 2 people, nobody's scheduled during their vacation days,
+    total overtime is minimized." The thing people currently fight
+    Excel's Solver add-in over, except Solver is a numeric black box with
+    no way to ask why this answer and not another, and `SOLVE` is built
+    from the same named, inspectable facts as the other three. (Sudoku/
+    N-Queens are the honest hello-world, not the pitch.)
+  - **MVP** (`~weeks`, the heaviest MVP of the four): choice rules,
+    integrity constraints, `DATALOG`'s stratified-negation rules reused
+    as-is. The hard part is the solver, not the syntax — grounding
+    (substituting concrete facts for variables, the same operation
+    `DATALOG` already needs) followed by real backtracking search with
+    constraint propagation, since unlike `DATALOG` this can't be solved
+    by one monotone fixpoint pass. Returns the first answer set found, or
+    an explicit "no valid answer set exists" — a first-class, auditable
+    result, not a crash.
+  - **Stretch** (`~weeks` more): all-answer-sets mode (spilled,
+    `LIMIT`-capped — the count can be combinatorially huge), and
+    `#minimize`/`#maximize` — turning "a valid schedule" into "the best
+    one," the single most business-valuable mode this engine has.
+  - **Ceiling** (`~months`, honestly research-grade): real conflict-driven
+    search (CDCL-style, not naive backtracking) to stay responsive at
+    real problem sizes inside a live calc engine; disjunctive rule heads
+    for full theoretical ASP expressiveness, flagged as probably never
+    needed for anything spreadsheet-shaped; an `EXPLAIN` showing which
+    choices and constraints were binding — arguably more valuable here
+    than for the other three, since "why is this the optimal schedule" is
+    exactly what a human scheduler needs to trust this over Solver.
+  - **Substrate relationship:** shares grounding with `DATALOG` (same
+    range-to-facts machinery) and shares search/backtracking lineage with
+    `PROLOG` (real combinatorial exploration, not a fixpoint) — sitting at
+    the genuine intersection of both rather than a separate engine.
+
+**Shared substrate, not four engines.** All four converge on the same
+machinery at the ceiling: a recursive `PROLOG` query, a recursive `SQL`
+`WITH` CTE, `DATALOG`'s fixpoint evaluation, and `SOLVE`'s grounded search
+are the same underlying computation wearing four different contracts
+(unrestricted and possibly-nonterminating; recursive-and-relational;
+restricted-and-guaranteed; generate-and-test), built from the same
+indexed-relation primitives (hash join, group-by, projection, plus
+`SOLVE`'s own backtracking search over the grounded result). Building any
+one's engine makes the others meaningfully cheaper — which is also the
+argument for building `DATALOG` first: it is the smallest possible proof
+of the shared bet, not a fourth thing competing for a turn — `SOLVE` earns
+that description honestly instead.
+
+---
+
+# 🪟 PRODUCT · INTERFACE
+*The panel. The thing a user actually touches. specimens: 4 (owner catches, S3).*
+
+- ⬜ **U.15 — lazy vocabulary self-heal** after state wipes. Small, removes a
+  daily papercut. `~hours`
+- ⬜ **V.1 — `verify:` rows.** The users' own harness: a program that checks
+  itself. *Why high:* it extends the project's core philosophy — proof
+  accompanies capability — from the compiler *to the user's programs*, which is
+  the most Frazaro-shaped feature on this roadmap, and it is the difference
+  between an automation that breaks silently and one that refuses in words on
+  the morning someone upstream changes a column. `~weeks`
+- ⬜ **U1 · U3 · U2 · U5** — the panel wave, in the owner's recorded order.
+- ⬜ **U.12 — apropos in the panel** (three tiers plus worksheet functions).
+- ⬜ **U.14 — `VlaTryTranspile`.** Retires the modal class from expected-error
+  smokes. `~days`
+- ⬜ **U.16 — the backend switch, in words.** Where the user sees which backend
+  is running, why, and how to change it. *Depends on:* IN.4, IN.6, EN.1. `~days`
+- ⬜ **U.13 · U.11 · U.6 · U.7 · U.8** — exploration rig and the remaining items.
+
+- ⬜ **U.17 — snapshot-before-run on every path.** `TakeRunSnapshot`
+  already exists and already runs for the workspace-sheet flow; the CLI
+  (`IN.13`'s own documented gap: "no Undo snapshot, `TakeRunSnapshot` is
+  keyed to a workspace sheet's own tag and a CLI command has none") and
+  any future non-sheet entry point have no equivalent. A program that
+  fails partway through — `IN.12`'s own `add-sheet-called` incident is the
+  proof this is not hypothetical — should never leave a workbook in an
+  unrecoverable, half-mutated state on *any* path. *Why now:* the cheap
+  half of the transactional story; `V.1` (above) is the expensive half.
+  `~days`
+- ⬜ **U.18 — a per-run log, user-facing.** `IN.3.5`'s effect-log golden
+  already exists but is a dev-side test artifact regenerated by
+  `VlaWriteGoldens`, not a persisted, per-run record a user or auditor
+  ever sees. The auditability pitch — "the procedure she wrote is the
+  procedure the auditor reads," `docs/AUDIT.md` Part III — currently has
+  no artifact behind it: no timestamp, no user, no program hash, no
+  effect list survives a run. *Why now:* the single feature that turns
+  "auditable automation" from a slogan into something a compliance
+  reviewer can actually inspect, and the machinery it needs — the effect
+  log — already exists; this is wiring, not invention. Reasonable shape: a
+  hidden sheet or workbook `Name` per run, keyed to the same hash SEC.3's
+  provenance tagging would use, so an auditor reads a rendering
+  (`docs/CONTEMPLATIONS.md`'s own "the sheet is a view, not the truth")
+  and signs a hash. `~days`
+
+---
+
+# 🪟 PRODUCT · LEARNABILITY
+*Not documentation. Documentation answers "how do I do X." Learnability answers
+**"what can I say?"** — the actual first-contact problem. specimens: 0.*
+
+- ⬜ **LE.1 — the sentence palette.** A browsable, searchable catalogue of every
+  rule with a runnable example, generated from the corpus so it cannot go stale.
+  *Reference by construction (Diátaxis), which is why it can be built early
+  while the user guide correctly waits.* `~weeks`
+- ✅ **LE.2 — "did you mean," closed.** Near-miss matching on a refused
+  sentence — **owner framing, IN.7's live button-click work:** arguably the
+  single most important feature for user adoption/retention, so the bar was
+  comprehensive and bulletproof, not "usually helpful." **Found live, not
+  read, chasing IN.7's own "make a button" near-misses:** two DISCONNECTED
+  mechanisms shared the job. `mBestProgress`/`mBestExpect` (`VLA_English.bas`,
+  fed by every rule's own `NoteFail` call as `TryPhrase` walks it) correctly
+  tracked the furthest token position any rule reached and named the exact
+  remaining clause in `BuildParseError`'s "I understood '...' - then I
+  expected X but found Y" sentence — proven live on `Make a button "Clicky".`
+  missing `at cell {r:cell}`. But `DidYouMean` (fed only the sentence's bare
+  first word) was a SEPARATE function with no connection to that tracking: it
+  walked `mPatItems` in file-registration order and returned the first three
+  rules whose first word matched, full stop — a correct diagnosis immediately
+  followed by unrelated suggestions, in one message.
+  **The plumbing fix:** `NoteFail` now takes the rule index (`idx` from
+  `TryPhrase`, already in scope at every call site; `dspLast + 1` from the
+  dispatch loop's own simulated-skip call) alongside the position and
+  description, so `DidYouMean` can lead with the rule that actually earned
+  the best progress before falling back to its first-word scan.
+  **The two questions this rescope left open, both resolved:** (1) *ties* —
+  `mBestProgress` was a single scalar with no way to hold more than one
+  candidate; a sentence where two rules share an identical prefix and diverge
+  on the very next literal (`grow cell {r:cell} by ...` vs `... to ...`) both
+  fail at the exact same token, and only the earlier-registered one used to
+  surface. `NoteFail` now grows a capped (3) `mBestTieIdx` collection past
+  that one leader whenever a later rule ties the current furthest position
+  exactly, deduplicated; `DidYouMean` offers every tied rule before its
+  first-word fallback fills any remaining slots. The "I understood... expected
+  X" sentence itself is unchanged — it still leads with the earliest-
+  registered tied rule's description, deliberately, so the already-proven-
+  live diagnostic sentence never became a merged, harder-to-read multi-
+  expectation sentence. Proven with a synthetic tie and a synthetic non-tie
+  (`VLA_Tests_Grammar.bas`, `TestLE2`). (2) *the F.4 dependency* — false,
+  formally decoupled: F.4 is unbuilt (⬜) static, load-time,
+  whole-table conflict detection (do two rules match one hypothetical
+  sentence); LE.2 is dynamic, refusal-time, single-sentence near-miss ranking
+  riding `TryPhrase`'s own per-parse progress tracking. They share no code and
+  no data structure — only the observation, superficial, that both happen to
+  walk `mPatItems`. LE.2 depends on nothing F.4 builds.
+- ⬜ **LE.3 — in-sheet autocomplete.** A constrained language is an
+  autocompletable one. `~weeks`
+- ⬜ **LE.4 — the first-run tutorial workbook.** Runnable, not readable. `~days`
+- ⬜ **LE.5 — progressive disclosure.** A new user meets 40 verbs, not 340.
+  `~days`
+- ⬜ **LE.6 — worked SOP templates.** *Acquisition instrument, not
+  documentation — belongs in the pilot bundle.* `~days`
+- ⬜ **LE.7 — the AI drafting bridge.** *Carried from Alpha 1's F2, and
+  independently rediscovered by the audit's Part III.* "Describe what you want"
+  → the phrase catalogue as the constraint → candidate sentences into column A →
+  Check validates deterministically → red rows drive retry. *Why it is
+  strategically large:* an LLM writing VBA produces code the person who asked
+  cannot read, verify, or sign. An LLM writing Frazaro sentences produces output
+  in a published finite grammar, refused mechanically when malformed, readable
+  by the requester, testable by the corpus protocol, and failing as refusals
+  with directions. **Frazaro becomes the safe target language for AI-generated
+  spreadsheet automation** — the layer that makes a model's output auditable by
+  the person who has to sign it. *Depends on:* LX.7, LE.1, F.4, LX.8. `~weeks`
+- ⬜ **LE.8 — the phrasebook's own readability pass.** Five metasyntaxes is four
+  too many: `=>` → `means`, `test:` → `example:`, `fail:` → `never:`,
+  `{r:cell}` → `{a cell}`, `into|in` → `into (or in)`; rule rationale moves from
+  `#` comments to a machine-visible `note:` line so LE.1 can show the best prose
+  in the file, which is currently invisible to the product. `~days`
+- ⬜ **LE.9 — split `kernel.vocab` out.** Macros, function mappings, and any rule
+  that must touch a dot-form move to `kernel.vocab`; `english.vla` keeps
+  the rest and contains **no dots at all**. The readability policy made
+  physical: *if you are editing a file with parentheses in it, you are in the
+  wrong file, and the filename says so.* *Depends on:* F.1. `~days`
+- ⬜ **LE.10 — author the phrasebook in a workbook.** `english.vla` becomes
+  a build artifact generated from a sheet — still the file of record, still
+  diffable, still what CI checks, no longer what a human edits. The `example:`
+  column is filled by the same act that writes the rule; the "Proven" column is
+  live because the loader already refuses vocabularies whose tests fail; and
+  **LE.1 is the read-only view of the identical table.** On-brand to the point
+  of being slightly embarrassing that it is not already true. `~weeks`
+
+---
+
+# 🌍 COMMONS · INTEROPERABILITY
+*Coexisting with everything already in the user's workbook. specimens: 0.
+**Revised by IN.9:** this tranche now defends the export path only. On the
+default runtime there is no module to collide and no project to lock, so what
+was infrastructure-wide risk is now scoped to a deliberate act — which is most
+of the reason IN.9 went the way it did.*
+
+- ✅ **IO.1 — name-collision policy.** What happens when the host workbook
+  already has a `main`, or a module named `EN_Sheet`. *The first thing that
+  breaks on a real enterprise machine, and the fix is a policy.* **A pilot
+  prerequisite.** **Ratified, with a finding, and implemented:** checked
+  against current code, `VlaCompileToModule` (`VLA.bas`) unconditionally
+  overwrote any existing module named `EN_Sheet` (or an `EN_<tag>` program
+  module) with no check for whether it was Frazaro's own prior output — a
+  pre-existing, unrelated module or macro sharing that name was silently
+  destroyed on the first Run. **Shipped:** every module `VlaCompileToModule`
+  writes now carries a marker comment; overwriting an existing module checks
+  for the marker (or, for modules compiled before the marker existed, the
+  `' vla:N` source-map tag already on nearly every emitted line) and refuses
+  in words, naming the colliding module, if neither is present — pointing at
+  the VBA editor, not "use a different program name," since the default
+  program's module name (`EN_Sheet`) is Frazaro's own choice, not the user's,
+  and offering an option that doesn't exist would be exactly the kind of
+  message `LESSONS.md` already calls a bug in its own right. `~hours`
+- ⬜ **IO.2 — locked/signed VBProject handling.** Refuse in words, name the
+  reason — **or switch backends** (IN.6). `~days`
+- ⬜ **IO.3 — existing macros, Power Query, connections** left demonstrably
+  untouched. `~days`
+- ⬜ **IO.4 — shared/co-authored workbook reality check.** `~days`
+  **Three concrete findings this item inherits, from `docs/CONSULTANT.md`'s
+  own audit, not yet acted on:** (1) the table macros
+  (`table-add-row`/`table-delete-row`/`table-column`, and G-TABLES
+  generally) resolve their target via `(activesheet.listobjects n)` — a
+  program's meaning depends on which sheet happened to be active when it
+  ran, a race condition by design, the exact class `PF.3` ("never emit
+  `.Select`") already polices for emitted code but not for the grammar's
+  own macros. (2) `IN.9`'s own flagship export pitch — email a
+  self-contained `.xlsm` to a colleague — fights Windows' Mark-of-the-Web
+  default (macro-blocked-by-default for internet-sourced files) on
+  unmanaged home machines too, not only managed ones; the pitch needs a
+  caveat or a companion "how to unblock this file" note, not a rewrite.
+  (3) SharePoint/OneDrive co-authoring with AutoSave on has never been
+  tested against any Frazaro-generated module or the interpreter's own
+  workbook writes.
+- ⬜ **IO.5 — other add-ins** in the same session. `~days`
+- ✅ **IO.6 — generated-module namespacing.** Complements `IO.1`'s guard with
+  *prevention*: rename the `EN_` prefix Frazaro gives every module it writes
+  into a user's workbook (`EN_Sheet`, `EN_<tag>`, the injected `EN_Runtime`
+  helper zoo, `VLA_DevRig`'s `EN_TimeIt`) to something distinctly Frazaro's,
+  so a collision is less likely to happen at all rather than only being caught
+  when it does. *Owner-proposed as `VLA_EN_Sheet`* — one adjustment recorded
+  before it shipped: `VLA_`/`VLAX_`/`VLAT_` are already `REBUILD.md`'s own
+  prefix taxonomy (R3) for the *engine's* modules specifically, which ship
+  *inside the add-in* — reusing `VLA_` for *generated, user-workbook* content
+  would blur that distinction the day someone reads `VLA_EN_Sheet` in the VBE
+  and can't tell engine from output. **Shipped instead as** the product's own
+  name, not its internal codename — `Frazaro_EN_Sheet`, `Frazaro_EN_<tag>`,
+  `Frazaro_EN_Runtime`, `Frazaro_EN_TimeIt`. *Done:* `VLA_IDE.bas`'s
+  `OUT_MODULE` constant and its tag derivation (was `"EN_" & tag`, now
+  `"Frazaro_EN_" & tag`), `VLA_Runtime.bas`'s `RT_MODULE` constant plus the
+  `Application.Run "'...'!EN_Runtime..."` call sites in `VLA_IDE.bas` that
+  reference it by string literal, `VLA_DevRig.bas`'s hardcoded `"EN_TimeIt"`,
+  and `VLA_Tests.bas`'s `TestIdeNaming` pins (a declared contract change, not
+  a surprise diff) — all updated, plus every explanatory comment naming the
+  old identifiers across `VLA.bas`/`VLA_English.bas`/`VLA_IDE.bas`/
+  `VLA_Runtime.bas`/`VLA_DevRig.bas`. The `EN_RUNTIME INJECT BOUNDARY` marker
+  `VLA_Runtime.bas` self-scans for is unchanged by design — a build-internal
+  sentinel string, not the module's actual name; renaming it bought nothing
+  and risked breaking `TrimAtBoundary`'s `InStr` match for no reason. *Does
+  not cover:* `VLA_Loader.bas`'s `ModuleNameFromPath`, which derives a module
+  name from an imported `.vla` file's own basename with no prefix at all
+  today — a third, independent collision surface `IO.1`'s guard is currently
+  the only thing defending. Worth the same treatment, but a separate design
+  question (auto-prefixing a name a `.vla` author chose deliberately needs its
+  own answer, not this item's). *Consequence, not just cost:* clean cutover,
+  not a migration — no external pilot workbook exists yet with `EN_Sheet`
+  baked into its history, so nothing needed converting, but a workbook run
+  under the old name (rare - dev-only, this session) gets a fresh
+  `Frazaro_EN_Sheet` module on its next Run and the old module is simply left
+  behind, orphaned. *Pays into:* IO.1 (belt and suspenders — reduces how often
+  the guard ever has to fire), pilot-readiness. `~days`
+
+---
+
+# 🪟 PRODUCT · DISTRIBUTION
+*Getting it onto a machine, and keeping it current. specimens: 0.*
+
+- ✅ **DI.1 — code signing.** Without it, an unknown macro-enabled add-in is a
+  non-starter in any managed environment. *Revised, then confirmed by building
+  it:* signing is necessary and no longer sufficient-by-itself for the trust
+  conversation, because IN.6 removes the harder half of the ask — Interpret
+  needs no signature at all; only Compile's VBOM setting remains genuinely
+  unsignable-around (SD-10 territory, not a signing problem). **Built as two
+  genuinely separate signatures, not one** — the first attempt conflated them
+  and the distinction turned out to be load-bearing:
+  1. **The `.xlam` itself cannot be Authenticode-signed, at all.** Tried
+     directly (`Set-AuthenticodeSignature` on a real `.xlam`) and found,
+     empirically, not assumed: *"The form specified for the subject is not one
+     supported or known by the specified trust provider."* Structural, not a
+     missing-cert problem — Office's OOXML package format has no registered
+     Authenticode Subject Interface Package on Windows; confirmed by the same
+     mechanism signing a plain `.ps1` cleanly on the same machine.
+  2. **Signing moved to the installer executable** (`installer/sign_installer.ps1`,
+     self-signed, `CN=Frazaro Dev Signing`, reused across builds by subject
+     match) — a `.exe` is a standard Authenticode target. Buys installer
+     identity continuity and one class of tampering-in-transit protection;
+     does **not** touch Excel's own macro-trust story, and a self-signed cert
+     still shows "Unknown Publisher" to Windows SmartScreen.
+  3. **VBA-project signing is the lever that actually matters for the add-in a
+     user opens** — a wholly different mechanism (the VBE's own *Tools →
+     Digital Signature*, governed by Excel's macro-security model, not
+     Authenticode) with no COM/scriptable surface at all: confirmed by
+     enumerating `VBProject`'s live interface directly (`Application`,
+     `BuildFileName`, `Collection`, `Description`, `FileName`,
+     `HelpContextID`, `HelpFile`, `MakeCompiledFile`, `Mode`, `Name`,
+     `Parent`, `Protection`, `References`, `SaveAs`, `Saved`, `Type`, `VBE` —
+     nothing else), the identical "VBA offers no API for this" limitation
+     already known for project locking. Certificate generation is scripted
+     (`tools/generate_vba_signing_cert.ps1`, self-signed, `CN=Frazaro VBA
+     Signing` — deliberately a *different* certificate from the installer's,
+     since the two answer different trust questions and sharing one would
+     blur which); selecting it in the VBE and actually signing stays a
+     manual, once-per-release step, documented in DEPLOY.md, not automated.
+  **Owner-verified live, all three trust states in sequence** (the actual
+  claim this item exists to prove, checked the only way that counts):
+  unsigned `Frazaro.xlam` under "Disable with notification" shows a plain
+  security modal with no trust option; signed-but-not-yet-trusted shows the
+  same modal now reporting the signature valid and offering **"Trust all
+  from publisher"**; after clicking it, a third open shows no dialog at
+  all — trust persists, not just for one session. Presented as a modal with
+  a dedicated button on this Excel build, not the ribbon-style bar assumed
+  from documentation before this was tested — the underlying mechanism was
+  right, the specific widget wasn't. The one genuine blocker found along the
+  way: a dev machine's own `VBAWarnings` registry value is typically `1`
+  ("Enable all macros"), which suppresses any trust prompt regardless of
+  signing and made the mechanism untestable on the very machine that builds
+  it — solved with `tools/toggle_vba_warning_level.ps1` (flip to "Disable
+  with notification," saving the prior value; `-Restore` to revert), not by
+  requiring a second machine as first assumed. **Self-signed, deliberately,
+  for both signatures:** a purchased certificate is real money spent on spec
+  before a pilot's IT policy (`PI.7`) is known — exactly the kind of decision
+  this file's own cost-of-delay discipline (and `METAMETALISP4.md`'s) says to
+  defer until the option is actually expiring. Full narrative, including the
+  dead ends, lives in `DEPLOY.md`'s "Code signing" section. `~days`
+- ✅ **DI.2 — install path.** Registration, per-user vs machine, and an
+  uninstall that actually removes things. **Built: two distribution paths,
+  with a doctrine deciding which to lead with, not just two options left for
+  a user to guess between.** `DEPLOY.md`'s "Which download should I use?" is
+  written to be reusable near-verbatim as future website/repo download copy:
+  the standalone `.xlam` is the universal default (it is an Office document,
+  not a program — no `.exe`-execution policy to trip over, the actual
+  failure mode on a managed machine); the Inno Setup installer
+  (`installer/Frazaro.iss`, per-user, `PrivilegesRequired=lowest`, no admin
+  rights) is the opt-in convenience for someone who already knows their
+  machine allows installers. **Per-user only** — DI.2's original "per-user
+  vs machine" question resolved in favor of per-user across the board,
+  since it fully sidesteps the admin-rights question the "machine" option
+  would have reopened, and nothing in the pilot-unknown present (`PI.7`
+  still unmet) argues for the added complexity of a machine-wide path.
+  Four sub-mechanisms, each owner-verified live, not just written:
+  - **Bundling (F.1-adjacent, new).** `prelude.vla`/`english.vla` embed into
+    `Frazaro.xlam` as very-hidden sheets (`VLA_Build.EmbedTextAsSheet`, the
+    same trick V5.3 already used for `VLA_Runtime`'s injectable text) —
+    external files still override, unchanged, so a user's or org's own
+    vocabulary always wins. Reduces the standalone path to one file, not
+    three. Verified across all three failure combinations by renaming
+    external files away one at a time on a real workbook (prelude-fallback
+    alone; both fallbacks simultaneously; vocab-fallback alone with prelude
+    restored) — clean Interpret and Compile in every state.
+  - **Registration.** The installer writes the add-in's path into Excel's
+    own `OPEN`/`OPENn` registry slots under `HKCU\...\Excel\Options` — the
+    exact mechanism the Add-Ins dialog itself writes when a user ticks a
+    box — live-verified via a fresh Excel COM launch confirming
+    `Application.AddIns` picks it up with `Installed=True`. The same
+    mechanism was then ported into the running add-in itself as a
+    **"Register for Auto-Load" ribbon button** (`VLA_IDE.VlaRegisterForAutoLoad`),
+    so the standalone path never needs the Add-Ins dialog at all — one click
+    from inside the product. `Application.Version` names the one Office
+    version that matters directly (no enumeration needed) since this code
+    runs inside the Excel that will load it, unlike the installer, which
+    cannot know that in advance.
+  - **Uninstall.** An in-ribbon **"Uninstall Frazaro"** button
+    (`VLA_IDE.VlaIdeUninstall`) completes the exit-door symmetry: confirms,
+    deregisters (`VlaUnregisterAutoLoad`), hands off to the real Windows
+    uninstaller if exe-installed, or genuinely deletes itself for a
+    standalone install — not a "delete this by hand" deferral. Went through
+    three live-caught corrections, each answering the previous one and
+    surfacing the next, recorded in full in `VLA_IDE.bas`'s own header and
+    `DEPLOY.md`: (1) manual-deletion instruction, correctly challenged as no
+    real answer for a non-technical user; (2) a detached PowerShell process
+    on a fixed delay, correctly challenged as fragile against anything that
+    slows Excel's close; (3) a 500ms-retry loop launched *before* an
+    informational dialog the user could sit on indefinitely, which let the
+    whole retry window expire while the workbook was still open — fixed
+    structurally (one confirm dialog with everything up front, nothing
+    blocking after Yes, the actual delete launching from inside the
+    deferred-close step itself) rather than by widening the window again.
+    Owner-verified with a deliberate 60-second pause on the confirm dialog
+    before clicking Yes — tab removed, file deleted shortly after,
+    unaffected by how long the dialog sat open.
+  - **Dev convenience** (not part of the product, but built alongside it):
+    `VlaRefreshBetaCopy` (`VLA_Build.bas`) keeps an opt-in, separately-named
+    test copy (e.g. `Frazaro_Beta.xlam`) registered for auto-load current on
+    every build — closes it first if open in the same session, not because
+    the file would otherwise be locked (live-tested: Office holds no
+    exclusive lock on an open `.xlam`, a bare file copy succeeds regardless)
+    but because overwriting the bytes under an already-loaded session
+    doesn't retroactively update that session's own in-memory VBA.
+  **A real, general finding surfaced twice along the way, worth stating on
+  its own:** Office `.xlam` files use their own advisory `~$`-style
+  lock-file convention, not an exclusive OS handle — a bare file copy or
+  delete succeeds even while the file is open in the same Excel session.
+  Every design in this item that looked like a file-locking problem at
+  first (the build-output trap, the self-delete question) turned out, once
+  tested rather than assumed, to actually be a *sequencing* problem — code
+  or a background process racing against a close that hadn't finished yet,
+  not a locked handle refusing to yield. `~days`, though the uninstall
+  button's three corrections cost more live-debugging time than the wiring
+  itself did — honestly reflected here rather than in the original
+  estimate.
+- ✅ **DI.3 — update mechanism and version check.** Scoped, then built, in
+  the same pass — matching DI.1/DI.2's own "read the real code before
+  proposing anything" discipline throughout. Read fresh, not assumed: every
+  one of the 15 `VLA_xxx_VERSION` constants across the `.bas` modules
+  (`VLA_BUILD_VERSION`, `VLA_ENGLISH_VERSION`, etc.) names *the roadmap item
+  that last touched that module* — a provenance tag, not a release number,
+  and nothing aggregated them into "what build is this."
+  `installer/Frazaro.iss`'s `AppVersion "1.0"` was confirmed hardcoded and
+  genuinely untouched since the file was created — the predictable result of
+  there being no shared place to read a real version from, the same failure
+  shape DI.2's bundling work fixed for `prelude.vla`/`english.vla` staying in
+  sync by hand.
+
+  **Split into three pieces, no network, no new infrastructure — built:**
+  - **A shared release-version source of truth. Built.** `VLA_RELEASE_VERSION`
+    (`VLA.bas`, currently `"0.1.0"`) — orthogonal to the 15 existing
+    per-module provenance tags, not a replacement. *Correction to this
+    item's own scoping note:* proposed for `VLA_Identity.bas` at scoping
+    time; that module's own header is explicit that nothing beyond its two
+    comparison verbs belongs there (REBUILD.md SS4, "no VLA_Utilities") —
+    caught by rereading the module before writing to it, not assumed from
+    the earlier note. `VLA_Build.bas`'s new `VlaWriteInstallerVersion`
+    (called from `VlaBuildAddin`, soft-failure doctrine like
+    `VlaInjectRibbon`) writes it to `installer\version.iss`
+    (`#define MyAppVersion "..."`, gitignored — a build artifact, same
+    split as `Frazaro.xlam`), which `Frazaro.iss` now `#include`s instead of
+    carrying its own literal.
+  - **Inno Setup upgrade behavior. Built and live-verified**, install →
+    upgrade → uninstall, on this machine: installed silently to a scratch
+    directory at `0.1.0` (`OPEN` registry slot and Windows Uninstall entry
+    both confirmed written, `DisplayVersion 0.1.0`); rebuilt at `0.1.1`
+    (same `AppId`) and reinstalled over the same location — exactly one
+    `OPEN` slot afterward, not two (`RegisterExcelAddin`'s existing-value
+    check held), exactly one Uninstall entry, `DisplayVersion` correctly
+    updated to `0.1.1`; uninstalled — both the registry entry and the
+    `OPEN` slot were confirmed gone, install directory fully removed.
+    **A genuine, unrelated finding surfaced along the way:** this machine
+    has Windows 11's Smart App Control **On**, which silently blocked
+    launching the freshly-rebuilt (`0.1.1`), completely unsigned installer
+    outright — *"An Application Control policy has blocked this file,"* no
+    dialog — even though an earlier build of the identical tool, moments
+    before, ran fine. Self-signing it first (`installer/sign_installer.ps1`,
+    DI.1's existing self-signed cert, still no CA chain) was enough to let
+    it launch. Full narrative in `DEPLOY.md`'s installer-build section — a
+    real argument, independent of DI.1's own SmartScreen reasoning, for
+    signing the installer as a standard release step rather than an
+    optional one, since an unsigned rebuild may simply fail to launch on a
+    Smart App Control machine with no actionable message to the user.
+  - **Standalone version display. Built**, not yet live-tested (needs
+    Excel): `VLA_RELEASE_VERSION` is now stamped into "Copy Feedback"'s
+    header (`VLA_IDE.EnglishIdeCopyFeedback`, alongside the existing
+    `VLA_ENGLISH_VERSION` line, kept rather than replaced — still genuinely
+    useful to a maintainer diagnosing a phrasebook issue, just not a release
+    number) and folded into the Known Sentences sheet's own header
+    (`EnglishIdeShowPhrases`, "Frazaro `<version>` understands:", owner-
+    revised from a separate two-line header) — the closest thing this
+    product already has to an About surface, so no new UI was built for it.
+    **Owner-tested live, all three surfaces: pass.**
+
+  **The other half of this item's own title — checking whether a newer
+  version exists — stays out of scope, on purpose.** 🔒 **SD-13 governs:**
+  no outbound network call, ever, without a dedicated decision that
+  confronts SD-13's own reasoning directly. The owner's own case: a single
+  network call forfeits the entire "no IT audit required" posture the
+  standalone path was built around, whether or not the request is ever
+  blocked — and the product does not need it either, since a stable,
+  unchurning release is worth more to most users than knowing a newer one
+  exists, and anyone who wants the newest build will go looking for it.
+  **Owner-tested live, all three pieces: pass.** `Debug > Compile` clean,
+  `VlaBuildAddin` produced a correct `installer\version.iss`, Copy Feedback's
+  header reads "Frazaro 0.5.0" beside the engine/vocabulary line, and Known
+  Sentences reads "Frazaro 0.5.0 understands:" (revised from a separate
+  two-line header during testing — one line reads cleaner). Committed.
+  `~hours` for the shared version constant and standalone display;
+  `~hours-days` for the Inno upgrade verification, in line with the
+  original estimate. The network half is out of scope, not merely deferred.
+- ⬜ **DI.4 — offline/air-gapped install.** Many finance environments are.
+  `~days`
+- ⬜ **DI.5 — licensing enforcement points**, if and where a commercial layer
+  exists. 🔒 **SD-10 governs:** enforcement may gate seats, support, registry
+  access, and hosted services — never a core form, a backend, or a grammar
+  section. *The tempting inversion, named so it is not rediscovered:* module
+  injection looks like an enterprise feature and is very nearly the opposite —
+  enterprises block the trust it needs and quarantine the `.xlsm` it produces,
+  while small unmanaged shops want exactly that file in exactly that email.
+  `~weeks`
+
+---
+
+# 🪟 PRODUCT · ACCESSIBILITY
+*Thin by design, with one item that is not optional. specimens: 0.*
+
+- ⬜ **AC.1 — status must not be colour-only.** Roughly 1 in 12 men has a
+  colour-vision deficiency; this is both an accessibility failure and, in some
+  jurisdictions, a procurement blocker. **Two hours today, a UI refactor after
+  the panel wave.** `~hours`
+- ⬜ **AC.2 — keyboard-only operation.** `~days`
+- ⬜ **AC.3 — screen-reader labelling.** `~days`
+- ⬜ **AC.4 — font scaling and high contrast.** `~days`
+
+---
+
+# 🌍 COMMONS · DOCUMENTATION
+*Deliberately deferred — with one carve-out. specimens: 0.*
+
+Two artifacts filed under "documentation" are not descriptions at all — they are
+**commitments**, and commitments belong upstream of the work they constrain.
+*(Diátaxis, borrowed: LE.1 and DO.2 are reference and are generated, which is
+why they can be built early and never go stale; DO.3 is explanation and is
+correctly deferred.)*
+
+- ⬜ **DO.1 — the dialect spec** *(lives in Linguistics as LX.7)*.
+- ⬜ **DO.2 — the message catalogue** *(lives in Linguistics as LX.2; it is the
+  error reference by construction)*.
+- ⬜ **DO.3 — the user guide.** Post-alpha, as planned. `~weeks`
+- ⬜ **DO.4 — the phrasebook authoring guide.** 🔒 *Expiry:* first outside
+  contributor. `~weeks`
+- ⬜ **DO.5 — whitepaper/onboarding refresh** at beta cutoff. `~days`
+- ⬜ **DO.6 — the SOP cookbook.** *Acquisition instrument; belongs in the pilot
+  bundle with LE.6.* `~weeks`
+
+---
+
+# 🌍 COMMONS · GOVERNANCE
+*Thin on purpose. Extract only the decisions that are load-bearing on time.
+specimens: 0.*
+
+- ✅ **GO.1 — phrasebook namespacing and precedence.** When an org phrasebook, a
+  community phrasebook, and the base corpus all match a sentence, which wins —
+  and can a user see why? **Rising-cost and structural**, the F.4 problem in
+  social form. A paragraph now; a breaking change to everyone's phrasebooks
+  later. **Ratified**, extending G3's existing single-file precedent
+  (`override:` replaces exactly one earlier same-shape rule, provenance
+  recorded, `Explain` names which file won, built-ins never overridable) to
+  multiple phrasebook sources: **last-loaded wins, provenance is always
+  visible, and nothing overrides silently.** Load order is base corpus, then
+  org phrasebook, then community phrasebook (each declared layer may override
+  the one before it, never the reverse); a same-shape rule with no `override:`
+  directive is a load-time refusal exactly as G3 already does within one file
+  — collision between sources is not resolved by source rank alone, only by an
+  explicit, provenance-recorded override. F.4's conflict analyzer (not yet
+  built) is what makes this survive a stranger's phrasebook; today it is a
+  decision a human still audits by hand. `~hours`
+- ⬜ **GO.2 — contribution ladder and review standards.** `~weeks`
+- ⬜ **GO.3 — a community phrasebook registry and its trust model.** Vocabulary
+  rules emit code; the registry is a supply chain. `~weeks`
+- ⬜ **GO.4 — licensing split, CLA, trademark.** `~weeks`
+- ⬜ **GO.5 — the escalation path** for a disputed surface. `~hours`
+
+---
+
+# 🪴 TERRARIUM · DEFERRED, NON-CRITICAL BUGS
+*A parking lot, not a department - owner-created after L0.2's own live
+regression turned up two real bugs neither one was looking for. The point of
+writing them down here instead of chasing them on the spot: finding a bug
+while doing something else is not itself a mandate to fix it right now, and
+without a place to put it, "just this one small fix" is exactly how a
+regression run for one item turns into three. Deliberately outside F.12's ID
+namespace - these are found, not planned, and triaging them properly (real
+repro, root cause, a fix) is itself real work, owed its own turn rather than
+squeezed in as a rider on whatever else was already in flight. Picked up
+after the roadmap above is closed out, not before; nothing here blocks
+anything above it.*
+
+- ⬜ **TER-1 — `Check Instructions` appears to re-run a prior `Compile and
+  Trace`.** Owner-found live, 2026-08-27, during L0.2's regression: `Compile
+  and Trace` run successfully, then `Check Instructions` clicked right
+  after - it visibly re-ran, as if it were another Compile/Trace, not a
+  translate-only Check. A second `Check Instructions` click immediately
+  after does NOT repeat this - only the first click after a run does. Root
+  cause not yet investigated; a plausible lead, not a diagnosis: leftover
+  armed trace/step-tracking state (`VLA_IDE.bas`'s `ArmTrace`) surviving
+  from the Compile/Trace run into `DoCheck`'s own transpile probe - the
+  same class of leftover-armed-state fragility the S5.3/S5.5/S5.6 history
+  already documents once, for a different pair of callers.
+- ⬜ **TER-2 — stale row-error marks survive a Check after the row's
+  content is deleted.** Owner-found live, 2026-08-27, during L0.2's
+  regression, root cause checked against the code, not just observed:
+  `ClearMarks` (`VLA_IDE.bas`) only clears `B1:B<lastRow>`, and `lastRow`
+  is `IdeLastRow(ws)` recomputed fresh on every call - if the row carrying
+  the failing mark was the sheet's last non-empty row, deleting that row's
+  content shrinks `lastRow` itself, so the clear range no longer reaches
+  the very cell holding the stale mark it needs to erase. Fix direction,
+  not yet built: `ClearMarks` needs to clear against the sheet's prior
+  extent (or a safely-large fixed bound), not the freshly-recomputed one.
+- ⬜ **TER-3 — audit `instructions.txt`/`VerifyReportChecks` coverage in both
+  directions.** Owner-created 2026-08-27, prompted by this session's G-STRUCT
+  pass: building real `VerifyReportChecks` assertions for G-STRUCT's own new
+  `GStruct` sheet caught a genuine argument-order bug in `make {a} look like
+  {b}` (copied the wrong direction) that a `test-success` proof could never
+  have caught, and the SAME pass found the `Demo` sheet's entire "prelude
+  vocabulary" block (styling, rows/columns, sort/filter/dedupe on a small
+  table, sheet protect/unprotect) has run on every regression pass since it
+  was written but has never once had a single `Report`/`CheckV` assertion -
+  a wrong constant or reversed argument there currently shows up as nothing
+  worse than "the script didn't crash." Two audits, not one, both owed their
+  own turn rather than done piecemeal as a rider on whatever feature is in
+  flight:
+  1. Which shipped VLA/Frazaro features have NO sentence anywhere in
+     `instructions.txt` at all - zero corpus exercise means zero regression
+     coverage of any kind, no matter how thorough `VerifyReportChecks` gets.
+  2. Of the sentences that ARE in `instructions.txt`, which produce checkable
+     state with no corresponding assertion in `VerifyReportChecks` - `Demo`
+     is the known instance, not necessarily the only one.
+  Not scoped or fixed this session.
+- ✅ **TER-4 — a column Cut+Insert followed, later in the same run, by any
+  column-structural Delete reverts PasteSpecial/Cut-mediated formatting
+  elsewhere on the sheet.** Owner-found live, 2026-08-28, during G-STRUCT's
+  own `VerifyReportChecks` pass - the single most protracted live bug this
+  project has chased: `move-column` ("Move column B before column D.")
+  and seven unrelated rules (`copy-formats`, `copy-style`, `copy-formulas`,
+  `paste-transposed`, `cut-range`, `delete-shift-left`) all reported
+  "failing" in `VerifyReports`, every one of them standing alone and
+  reproducing cleanly in isolation (a standalone repro Sub, run directly,
+  via `Application.Run`, and again right after a real Compile-and-Trace
+  populated the whole workbook - every variant passed). The actual cause
+  took bisecting `instructions.txt` itself down to one operation
+  (`trim-sheet`, `VLA_Runtime.VlaTrimSheet`) and then bisecting THAT
+  Sub's own two delete loops: `EntireColumn.Delete` alone reproduces it;
+  `EntireRow.Delete` alone does not; neither does `Find` alone; a
+  bounded delete margin (short of the sheet's absolute edge) did not
+  fix it; clearing `Application.CutCopyMode` first did not fix it;
+  deleting one column at a time instead of one bulk call did not fix
+  it. Confirmed with `Debug.Print` that the affected cell is correctly
+  formatted immediately after its own `PasteSpecial` call, then already
+  reverted by the end of the same `main` Sub, with `trim-sheet` sitting
+  between those two points. **Correction, same night: reordering
+  `move-column` to run AFTER `trim-sheet` instead of before (tried as
+  the fix) did NOT resolve it** - C60/C62 still reverted. This disproves
+  the "Cut+Insert-before-Delete ordering" theory the isolation work
+  pointed to; the column-delete/row-delete asymmetry is still real and
+  confirmed, but WHY it fires - whether `move-column` running anywhere
+  in the same execution is even required, or whether `EntireColumn.
+  Delete` alone is sufficient regardless of `move-column` - was never
+  actually isolated before the session ended. Root mechanism remains
+  genuinely unknown. **Not fixed.** `scripts/instructions.txt` has
+  since been reverted back to its original order (`move-column` before
+  `trim-sheet`, matching `gstruct.txt`) - the disproven reorder is no
+  longer present in either file, corrected 2026-08-28. Next real
+  diagnostic step, formerly "not yet tried," now scaffolded and
+  awaiting a live run: `scripts/bisect_f_baseline.txt` (same-session
+  control, run first) plus five single-variable variants -
+  `bisect_a_no_hide.txt`, `bisect_b_no_group.txt`,
+  `bisect_c_no_insert_delete.txt`, `bisect_d_no_move_column.txt`,
+  `bisect_e_no_freeze.txt` - each an exact copy of `gstruct.txt` with
+  exactly one earlier structural operation (hide/unhide, group/
+  ungroup, row insert/delete, `move-column`, freeze-panes) omitted,
+  everything else including the C60/C62 copy-formatting setup and the
+  trailing `trim-sheet` delete held constant. Whichever variant(s) come
+  out with C60/C62 correctly bold+red (instead of reverted) name the
+  actual precondition(s); update this entry with the result the next
+  time these are run. Still worth a real investigation afterward
+  (ideally a minimal, non-VLA repro handed to Microsoft or searched
+  against known issues) once the precondition is pinned down, rather
+  than another live-debugging marathon the next time it surfaces.
+  **Result, 2026-08-28: all five came back C60/C62 plain.** None of
+  hide/unhide, group/ungroup, row insert/delete, `move-column`, or
+  freeze-panes is individually necessary - pulling any one of them
+  out alone does not stop the revert. This rules out the original
+  leading theory entirely (it was never "move-column specifically,"
+  or any other single earlier op). It also sharpens the gap that was
+  sitting unexamined the whole time: every real Compile-and-Trace run
+  through the IDE fails; every hand-typed repro Sub
+  (`gstruct_repro.bas`/`gstruct_repro2.bas`), run via F5 and
+  separately via same-workbook `Application.Run`, always passed
+  clean. `scripts/bisect_g_minimal.txt` now tests the next split:
+  strip all five candidates at once and run through the real
+  pipeline - if C60/C62 still come out plain, none of the five matter
+  even collectively, and the real divergence is something about the
+  real pipeline invocation itself (trace hooks, the cross-workbook
+  `Application.Run "'wbname'!Module.main"` call form used by real
+  runs vs. the repro's simpler invocation) rather than any GStruct
+  sentence at all; if they come out correctly formatted, some
+  interaction of 2+ of the five is the real precondition and pairwise
+  testing is next.
+  **Result, 2026-08-28: `bisect_g_minimal.txt` (all five omitted at
+  once) came back C60/C62 correctly bold+red - clean.** Combined with
+  every single-removal (`bisect_a`..`e`) failing to fix it, the only
+  pattern that explains both is that the five candidates are
+  INDEPENDENTLY SUFFICIENT, not jointly necessary: any one of them
+  left in is enough on its own, which is why removing any single one
+  never helped - the other four were still enough. This reframes the
+  bug away from "`move-column` (or any one op) does something
+  special" and toward "any prior structural change to the sheet -
+  hide, group, insert/delete, cut+insert, freeze - is enough to set
+  up the later bulk `EntireColumn.Delete` revert." `scripts/
+  bisect_h_only_hide.txt` / `bisect_i_only_group.txt` / `bisect_j_
+  only_insert_delete.txt` / `bisect_k_only_move_column.txt` /
+  `bisect_l_only_freeze.txt` test each candidate ALONE (the
+  complement of bisect_a..e) to confirm whether all five are
+  individually sufficient or only a subset is - `bisect_j` in
+  particular shares an API family (`Rows.Insert`/`Delete`) with
+  `trim-sheet`'s own delete loops and is worth watching closely.
+  **Result, 2026-08-28: confounded, and surfaced a second, distinct,
+  fully-understood bug in the process.** `bisect_h/i/l` (only-hide,
+  only-group, only-freeze) came back clean, but for a trivial reason:
+  those three variants have no `Put` statements anywhere, so there is
+  no real VALUE on the sheet at all - `Find(What:="*",
+  LookIn:=xlFormulas)` finds nothing, `lastCell Is Nothing`, and
+  `VlaTrimSheet`'s own `Exit Sub` guard skips the delete loop
+  entirely. Those results prove the delete never ran, not that
+  hide/group/freeze are harmless. `bisect_j/k` (only-insert-delete,
+  only-move-column) came back with **A60 itself blank for the first
+  time** (previously always immune - it's set directly, never via
+  PasteSpecial) - a different failure mode entirely. Those two
+  variants do have real content, but only at low rows
+  ("before-insert"/"before-delete"/marker-b/c/d, rows ~20-50), so
+  `Find` computed `lastRow ~ 40` and treated row 60 - which has only
+  formatting, no value - as trailing/empty, then `EntireRow.Delete`d
+  the whole row, taking A60 down with C60/C62. **This is a real,
+  separate, well-understood bug, arguably worse than the original**:
+  `VlaTrimSheet`'s content-only `Find` can mistake a currently-
+  formatted row/column for empty and delete it outright, whenever the
+  sheet's last real VALUE happens to sit before the last real
+  FORMATTING. Worth its own fix independent of the older mystery -
+  candidate approaches: take the trim boundary as the max of the
+  content-based `Find` and a formatting-aware `Find`
+  (`SearchFormat:=True` with `Application.FindFormat` set to non-
+  default), or scan trailing rows/columns for non-default formatting
+  before deleting them. Not yet fixed. `scripts/bisect_h2_only_
+  hide.txt` / `bisect_i2_only_group.txt` / `bisect_j2_only_
+  insert_delete.txt` / `bisect_k2_only_move_column.txt` /
+  `bisect_l2_only_freeze.txt` redo this round with a `Put 1 into cell
+  F300.` anchor added, so `Find`'s own lastRow/lastCol always lands
+  safely past row 60/column C regardless of which candidate is
+  present - reproducing the ORIGINAL bug's actual conditions (A60
+  unaffected, only C60/C62 revert) instead of triggering either
+  confound above. Not yet run.
+  **Fixed, 2026-08-28 (this specific sub-bug only): `VlaTrimSheet`'s
+  bound detection**, `VLA_Runtime.bas`. Content-only `Find` is now one
+  of six Find calls - content and format-only (bold, interior fill),
+  each run in both row-order and column-order - with `lastRow`/
+  `lastCol` taken as the max across all six via a new private
+  `VlaTrimExtendBounds` helper. Also fixes a second, previously-latent
+  bug in the same code: a single row-order Find was never a reliable
+  way to get the rightmost used COLUMN either (it returns the cell
+  with the highest ROW number, not necessarily the one furthest
+  right) - the new column-order Find covers that. **Caveat worth
+  noting: `bisect_g_minimal.txt`'s earlier "clean" control result (no
+  `Put` statements anywhere on its sheet) may have been this exact
+  bug in disguise, the same way `bisect_h/i/l` v1 were - worth a
+  re-run once the `bisect_*2_*.txt` round finishes, to confirm the
+  "independently sufficient" theory above still holds now that the
+  bound-detection bug it was partly diagnosed against is fixed.** The
+  ORIGINAL mystery (EntireColumn.Delete reverting PasteSpecial'd
+  formatting on cells that are NOT anywhere near the deleted rows/
+  columns) is UNCHANGED and still unresolved - this fix only stops
+  trim-sheet from misjudging its own delete boundary, it does not
+  touch why EntireColumn.Delete reverts distant formatting once that
+  boundary is correct.
+  **RESOLVED, 2026-08-28 - the "ORIGINAL mystery" above was this same
+  bug the whole time, not a separate one.** `bisect_f_baseline.txt`
+  (the unmodified full `GStruct` block) re-run against the fixed
+  `VlaTrimSheet`: A60, C60, C62 all correctly bold+red. The actual
+  mechanism, now fully understood: the OLD code used a single
+  row-order `Find` for BOTH `lastRow` and `lastCol`. `fill-series`
+  writes real values down to row 203 but ONLY in column A; other real
+  content (the transposed copy at row 68, row 90's shifted data) sits
+  in columns up to E, but at SHALLOWER rows. Row-order `Find` locks
+  onto `A203` (highest row wins), reporting `lastCol = 1` - so the
+  column-delete loop ran from `colCap` down to column 2, deleting
+  essentially every column from B through 200, INCLUDING column C,
+  where C60/C62 live. Column A was never touched, because it WAS the
+  (wrong) boundary - which is exactly why A60 was safe for the entire
+  investigation while C60/C62 always reverted: they weren't reverting
+  at all, column C was being deleted outright and blank content from
+  far to the right shifted in to replace it. This also explains why no
+  single earlier op (hide/group/insert-delete/move-column/freeze)
+  ever fixed it (none of them touch the column-content layout that
+  caused the miscalculation) and why seven "unrelated" rules failed
+  together in `VerifyReports` (`copy-formats`, `copy-style`,
+  `copy-formulas`, `paste-transposed`, `cut-range`, `delete-shift-
+  left` - every one writes into columns B-E). The bound-detection fix
+  above (row-order AND column-order Find, both content and
+  format-only) was already the real fix; it just wasn't recognized as
+  THE fix for TER-4 until this confirmation run.
+  **Full `VerifyReports` after both fixes: emitter 139/141, interpreter
+  137/141** (up from 128/141 and 126/141 at the start of this incident).
+  Two remaining failures, shared by both backends, were a stale test
+  script, not a code bug: `scripts/instructions.txt` used "Clear range
+  Z500." (= `clear-contents`, `ClearContents` only) before "Remove
+  trailing empty rows and columns.", leaving Z500 genuinely still bold
+  - which the fixed `VlaTrimSheet` now correctly refuses to delete.
+  Changed to "Clear everything from Z500." (a real `.Clear`, matching
+  what the test's own comment always said it meant to exercise).
+  The interpreter's two additional failures (`cut-range`: nothing
+  arrives at the destination, source never clears) were a real,
+  separate bug in `VLA_Interpreter.bas`'s `DynamicNamedCall` "cut"
+  Case: `cutDest = KwArgOptional(kwArgs, "destination", Empty)` used a
+  plain `=` instead of `AssignVar` - since `destination` is a Range
+  object, the bare assignment took its default member (`.Value`)
+  instead of the reference, so a currently-empty destination cell read
+  back as `Empty`, `IsEmpty(cutDest)` went True, and `.Cut` ran with NO
+  Destination at all (arms the clipboard, never pastes) even though
+  one was passed. This is the exact failure mode IN.11's own comments
+  earlier in the same file already diagnosed once, just not caught
+  here when the "cut" Case was added. Fixed with `AssignVar` - **this
+  part was correct**, confirmed by a live diagnostic probe added
+  after the fix alone didn't resolve it
+  (`TypeName(cutDest)="Range"`, `IsObject(cutDest)=True`) - but it
+  wasn't the whole bug: `emitter` hit 141/141 immediately, `cut-range`
+  alone kept failing in the interpreter even after a full
+  `VlaDevReload` + recompile. The rest of it, found by that same
+  probe: `If IsEmpty(cutDest) Then` - `IsEmpty()` on an OBJECT
+  argument invokes its DEFAULT MEMBER (`Range.Value`) instead of
+  testing whether a reference is present. C72 is genuinely blank at
+  the point `cutDest` is checked (nothing's landed there yet, that's
+  the whole point of the cut), so `.Value` reads Empty and
+  `IsEmpty(cutDest)` came back True even though `cutDest` held a
+  perfectly real `Range` - taking the no-destination branch every
+  time regardless of what was actually passed. Fixed by testing
+  `Not IsObject(cutDest)` instead, which asks what `cutDest` IS
+  rather than what its default property currently evaluates to. Two
+  real, distinct interpreter bugs stacked on the same three lines -
+  `AssignVar` was necessary but not sufficient.
+  **CLOSED, 2026-08-28: `VERIFY REPORTS: emitter PASS (141/141),
+  interpreter PASS (141/141)`.** Confirmed live after `VlaDevReload` +
+  recompile on the exact reload the diagnostic probe itself was
+  verified against. Full incident writeup: `docs/TRENCHES.md` Part
+  Two, entry XI. Lesson banked: `docs/LESSONS.md`, Beta section, item
+  6. `scripts/gstruct.txt` and every `scripts/bisect_*.txt` file moved
+  to `archive/gstruct/` (gitignored) - the diagnostic scaffolding did
+  its job and doesn't need to stay in `scripts/`.
+
+---
+
+## THE SHORT ANSWER, IF YOU READ NOTHING ELSE
+
+**Do next, in this order:**
+**IN.0.5** (days — the walking skeleton, first because it replaces the one number
+this plan is currently guessing) → **F.1** (one sentence, largest expansion
+count, and the dot count is its scoreboard) → **LX.3** (hours, live correctness
+bug) → **F.6** (hours) → **IN.0 + IN.1 + IN.5 + IN.9** (days — the seam, and the
+adjudication the skeleton just informed) → **PI.0–PI.3 + PI.7** (name a human,
+transcribe their SOP, run it concierge, ask what their IT permits) → **the twelve
+standing decisions above**, if they are not already ratified (an afternoon) →
+**IN.2 + IN.3 + IN.3.5** (the runtime, now on the critical path rather than
+contingent) → **the grammar slice the gap log names** (probably G-FORMAT /
+G-STRUCT / G-ROWLOOP, appetite-boxed) → **CO.1 + IO.1 + DI.1 + DI.2** (the four
+things that break on a real machine at a real company) → **PI.6, the Monday
+test.**
+
+**Read this as a first bet, not a queue.** Every arrow below is re-bet at the
+next version open, and **SD-12's floor applies regardless**: whatever else is on
+this list, one grammar slice ships. This is not vegetables-then-dessert —
+G-STRUCT and G-ROWLOOP are blocked by F.1 alone, one sentence of doctrine, so
+corpus work starts in week one *alongside* the plumbing rather than behind it.
+
+**Note what moved and why.** IN.2–IN.8 were previously ranked *by* PI.7's trust
+reading — the evaluator waited to see whether anyone needed it. IN.9 resolves
+that: the interpreter is the runtime, so it stops being contingent and PI.7
+becomes confirmation rather than the deciding vote. The one thing still genuinely
+gated is the **export** (IN.4's standalone `.xlsm`), which waits for a pilot who
+needs to hand a colleague a file.
+
+**Then, and only then:** F.2 and F.4 at their expiry conditions, IN.4/IN.6/IN.7/
+IN.8 as the pilot's use demands them, LX.10's twenty sentences as the mission's
+falsification test, the rest
+of Grammar as the gap log re-ranks it, Assurance, Optimization.
+
+**Deferred with a clean conscience** (real-options: defer everything whose
+option is not expiring): every catalogue, every matrix, every second-language
+artifact, and the whole of OPTIMIZATION.
+
+**Extract these paragraph-sized decisions now, even though their tranches are
+years away:** SD-1 (backend plurality — this one costs a sentence and buys a
+market), GO.1 (phrasebook precedence), CO.1 (deprecation policy), EN.2/EN.3
+(locale policy), LX.6 (non-ASCII identifiers), LX.11 (comment syntax), AC.1
+(colour-only status). Each is a paragraph today and a rewrite later.
+
+**And the correction this revision exists to record.** The interpreter was on
+the roadmap in Alpha 1, fully specified, and it fell off across five promotions
+while the engine got better. That is not a scheduling error; it is §8's warm
+forge, and it is legible in the artifact: fifteen tranches, ~100 items, and —
+before this revision — **zero items whose "done" required another human being.**
+The fix is not more roadmap. The fix is PI.1: one human, one SOP, one date.
+
+**And the second correction, which is this revision's own.** A roadmap inherits
+its predecessor's *shape* even when it revises the contents, and shape is
+load-bearing: fifteen numbered sections with the corpus at position five told
+every reader — including the people writing it — that the moat was something you
+reach after the plumbing. Nobody decided that. It was carried, three revisions
+running, by a layout. The audit named the fix (re-bet from the whole document,
+never drain in order); the last revision quoted the sentence and kept the
+numbers. **Quoting a correction is not applying it.**
+
+> **The microscope is not a phase you finish — it is the habit of asking, before
+> every cut, what would have to be true for this cut to be reversible.** The
+> habit has two failure modes and this document has been in both: asking the
+> question about the cuts and never about the patient — and never asking it of
+> the document's own structure, which is itself a standing decision, expanding
+> at every reader, forever.

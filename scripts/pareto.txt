@@ -1,0 +1,498 @@
+# pareto.vocabulary — the beta coverage backlog
+
+**What this file is.** A specification corpus of ~240 single-operation English
+sentences chosen to cover the great majority of what real spreadsheet SOPs
+actually do, with the VBA/COM operation each one must reach. It is the input to
+the wiring work, not the output of it.
+
+**What this file is NOT: a loadable `.vocab` file.** Two project laws forbid
+that, and both are load-bearing:
+
+1. **Pins and templates come from verified emission.** Every template below
+   would be a blind guess at emitted VBA. The wiring chat must write each
+   template, run it, read the actual bytes, and only then pin them.
+2. **A rule without proofs cannot ship.** Each rule needs `test:` (and where the
+   surface has a refusal, `fail:`) lines, and those must be produced against a
+   running machine or the loader will reject the phrasebook.
+
+So: take a section at a time, design the rules, build any Tier-2 helper it
+needs, write the proofs from real output, and ship it as a pass with predicted
+golden shapes. This file supplies the *surfaces* and the *targets* — the two
+things that are safe to decide away from the machine.
+
+---
+
+## How to read an entry
+
+```
+  id                    | English surface                                   | target operation
+  set-row-height        | Set height of row {r:expr} to {n:expr}.           | .RowHeight = n
+```
+
+**Slot types are the seven the corpus already uses**: `cell`, `range`, `column`,
+`sheet`, `text`, `var`, `expr`. Numbers ride `{n:expr}`. Where a section wants a
+*new* slot type (a file path, a pivot field list), it says so in its preamble —
+those are grammar decisions, not rule decisions, and they belong on the roadmap
+before the rules that need them.
+
+**Markers**
+
+| | meaning |
+|---|---|
+| `!` | needs a **Tier-2 runtime helper** — the COM sequence is too long or too stateful to inline |
+| `~` | needs a **grammar feature first** (G6 list slots, G7 defaults, G8 number words) |
+| `^` | should be wrapped in an L13 bracket (`with-no-alerts`, `with-screen-off`) — Excel prompts or flickers otherwise |
+| `?` | **semantic decision required** before design: note in the entry says what |
+
+**Priorities.** `P0` = a beta without it looks unfinished; appears in most SOPs.
+`P1` = common, expected by month two. `P2` = real but narrower. Ship P0 across
+all sections before any P1 — breadth beats depth for a corpus whose purpose is
+to stop users hitting walls.
+
+---
+
+## 1. Selection, references, and naming — P0
+
+*No new plumbing. Mostly thin wrappers over existing range resolution.*
+
+```
+select-range          | Select range {r:range}.                             | .Select
+select-cell           | Select cell {r:cell}.                               | .Select
+name-range            | Name range {r:range} as {n:text}.                   | Names.Add Name:=n, RefersTo:=rng
+delete-name           | Remove the name {n:text}.                           | Names(n).Delete
+goto-name             | Go to {n:text}.                                     | Range(n).Select
+last-column           | Set {v:var} to last filled column of row {r:expr}.  | .End(xlToLeft).Column
+last-cell             | Set {v:var} to last filled cell of column {c:column}. | .End(xlUp)
+used-range            | Set {v:var} to the used range.                      | .UsedRange
+row-count             | Set {v:var} to number of rows in {r:range}.         | .Rows.Count
+column-count          | Set {v:var} to number of columns in {r:range}.      | .Columns.Count
+is-empty-range        | If range {r:range} is empty, ...                    | WorksheetFunction.CountA(rng) = 0
+```
+
+## 2. Rows and columns — P0
+
+*Structure edits. All inline; `^` where Excel repaints heavily.*
+
+```
+insert-row            | Insert a row at row {r:expr}.                        | Rows(r).Insert xlShiftDown
+insert-rows       ~   | Insert {n:expr} rows at row {r:expr}.               | Rows(r).Resize(n).Insert
+delete-row            | Delete row {r:expr}.                                | Rows(r).Delete
+delete-rows       ~   | Delete rows {a:expr} through {b:expr}.              | Rows(a & ":" & b).Delete
+insert-column         | Insert a column at column {c:column}.               | Columns(c).Insert xlShiftToRight
+delete-column         | Delete column {c:column}.                           | Columns(c).Delete
+hide-row              | Hide row {r:expr}.                                  | .Hidden = True
+unhide-row            | Show row {r:expr}.                                  | .Hidden = False
+hide-column           | Hide column {c:column}.                             | .Hidden = True
+unhide-column         | Show column {c:column}.                             | .Hidden = False
+unhide-all            | Show all rows and columns.                          | Cells.EntireRow/.EntireColumn.Hidden = False
+row-height            | Set height of row {r:expr} to {n:expr}.             | .RowHeight = n
+autofit-rows          | Fit row {r:expr}.                                   | .AutoFit
+autofit-all       ^   | Fit every column.                                   | Cells.EntireColumn.AutoFit
+group-rows            | Group rows {a:expr} through {b:expr}.               | .Group
+ungroup-rows          | Ungroup rows {a:expr} through {b:expr}.             | .Ungroup
+move-column       !   | Move column {c:column} before column {d:column}.    | Cut + Insert (helper: keeps formats)
+freeze-panes      ?   | Freeze the first {n:expr} rows.                     | ActiveWindow.FreezePanes — window state, not sheet state; decide whether it follows the active window or refuses off-screen
+unfreeze-panes        | Unfreeze the panes.                                 | ActiveWindow.FreezePanes = False
+```
+
+## 3. Copy, paste, and fill — P0
+
+*The single most common SOP family. Paste-special is the workhorse.*
+
+```
+copy-range            | Copy range {a:range} to {b:cell}.                    | .Copy Destination:=
+copy-values           | Copy values of {a:range} to {b:cell}.               | .Copy + .PasteSpecial xlPasteValues
+copy-formats          | Copy formatting of {a:range} to {b:range}.          | xlPasteFormats
+copy-formulas         | Copy formulas of {a:range} to {b:cell}.             | xlPasteFormulas
+copy-widths           | Copy column widths of {a:range} to {b:range}.       | xlPasteColumnWidths
+paste-transposed      | Copy range {a:range} to {b:cell} transposed.        | .PasteSpecial Transpose:=True
+cut-range             | Move range {a:range} to {b:cell}.                    | .Cut Destination:=
+fill-down             | Fill down from {r:cell} to row {n:expr}.            | .FillDown
+fill-right            | Fill right from {r:cell} to column {c:column}.      | .FillRight
+fill-series       ?   | Fill {r:range} with a series starting at {n:expr}.  | .DataSeries — decide step/type surface
+values-only           | Replace formulas in {r:range} with their values.    | .Value = .Value
+duplicate-row         | Copy row {r:expr} to row {n:expr}.                  | Rows(r).Copy Rows(n)
+```
+
+## 4. Clearing and removing — P0
+
+```
+clear-contents        | Clear contents of {r:range}.                         | .ClearContents
+clear-formats         | Clear formatting of {r:range}.                       | .ClearFormats
+clear-all             | Clear everything from {r:range}.                      | .Clear
+delete-shift-up       | Delete {r:range} and shift cells up.                 | .Delete xlShiftUp
+delete-shift-left     | Delete {r:range} and shift cells left.               | .Delete xlShiftToLeft
+remove-duplicates ~   | Remove duplicate rows from {r:range} by column {c:column}. | .RemoveDuplicates Columns:=, Header:=xlYes
+delete-blank-rows !   | Delete blank rows in {r:range}.                       | SpecialCells(xlCellTypeBlanks) — helper: guard the no-blanks error
+trim-sheet        !   | Remove trailing empty rows and columns.              | helper: shrink UsedRange
+```
+
+## 5. Formatting — the cosmetic layer — P0
+
+*Highest volume, lowest risk. If a beta looks thin, it is usually here.*
+
+```
+italic                | Make {r:range} italic.                               | .Font.Italic = True
+not-italic            | Make {r:range} not italic.                           | .Font.Italic = False
+not-bold              | Make {r:range} not bold.                             | .Font.Bold = False
+underline             | Underline {r:range}.                                 | .Font.Underline = xlUnderlineStyleSingle
+strikethrough         | Strike through {r:range}.                            | .Font.Strikethrough = True
+font-name             | Set font of {r:range} to {n:text}.                   | .Font.Name = n
+font-size-range       | Set font size of {r:range} to {n:expr}.              | .Font.Size = n
+wrap-text             | Wrap text in {r:range}.                              | .WrapText = True
+no-wrap               | Stop wrapping text in {r:range}.                     | .WrapText = False
+merge-cells       ^   | Merge {r:range}.                                     | .Merge
+unmerge-cells         | Unmerge {r:range}.                                   | .UnMerge
+align-left            | Align {r:range} left.                                | .HorizontalAlignment = xlLeft
+align-right           | Align {r:range} right.                               | .HorizontalAlignment = xlRight
+align-center          | Center {r:range}.                                    | .HorizontalAlignment = xlCenter
+align-top             | Align {r:range} to the top.                          | .VerticalAlignment = xlTop
+align-middle          | Align {r:range} to the middle.                       | .VerticalAlignment = xlCenter
+align-bottom          | Align {r:range} to the bottom.                       | .VerticalAlignment = xlBottom
+indent                | Indent {r:range} by {n:expr}.                        | .IndentLevel = n
+rotate-text           | Rotate text in {r:range} by {n:expr} degrees.        | .Orientation = n
+border-all            | Put borders around every cell in {r:range}.          | .Borders.LineStyle = xlContinuous
+border-outline        | Put a border around {r:range}.                       | .BorderAround xlContinuous
+border-bottom         | Put a bottom border on {r:range}.                    | .Borders(xlEdgeBottom)
+border-none           | Remove borders from {r:range}.                       | .Borders.LineStyle = xlNone
+border-color          | Set border color of {r:range} to {n:text}.           | .Borders.Color
+fill-color-range      | Make {r:range} {n:text}.                             | .Interior.Color  (extends the existing colour verb to ranges)
+no-fill               | Remove the fill from {r:range}.                      | .Interior.Pattern = xlNone
+font-color-range      | Set font color of {r:range} to {n:text}.             | .Font.Color
+copy-style        !   | Make {a:range} look like {b:range}.                  | helper: paste formats only
+banded-rows       !   | Band every other row of {r:range} {n:text}.          | helper: loop or conditional format
+header-style      !   | Make row {r:expr} a header row.                      | helper: bold + fill + freeze + filter (an opinionated composite — audition carefully)
+```
+
+## 6. Number formats — P0
+
+*Format strings are the sharp edge: they are locale-sensitive and users say them
+in plain words. Prefer named formats over raw pattern strings in the surface.*
+
+```
+format-currency       | Format {r:range} as currency.                        | .NumberFormat = "$#,##0.00"
+format-currency-dp ~  | Format {r:range} as currency with {n:expr} decimals. | built pattern
+format-percent        | Format {r:range} as a percentage.                    | "0.00%"
+format-percent-dp ~   | Format {r:range} as a percentage with {n:expr} decimals. | built pattern
+format-comma          | Format {r:range} with thousands separators.          | "#,##0"
+format-decimals   ~   | Show {n:expr} decimal places in {r:range}.           | built pattern
+format-date           | Format {r:range} as a date.                          | "yyyy-mm-dd"
+format-date-style ?   | Format {r:range} as a {n:text} date.                 | named styles (short/long/month-year) — decide the vocabulary of names
+format-time           | Format {r:range} as a time.                          | "hh:mm"
+format-text           | Format {r:range} as text.                            | "@"
+format-general        | Format {r:range} as general.                         | "General"
+format-accounting     | Format {r:range} as accounting.                      | "_($* #,##0.00_)..."
+format-custom         | Format {r:range} using {n:text}.                     | .NumberFormat = n  (escape hatch; document it)
+```
+
+## 7. Conditional formatting — P1
+
+*`!` throughout: the FormatConditions API is verbose and stateful enough that
+raw emission would be unreadable in the VLA layer.*
+
+```
+cf-greater        !   | Highlight cells in {r:range} greater than {n:expr} in {c:text}. | FormatConditions.Add(xlCellValue, xlGreater)
+cf-less           !   | Highlight cells in {r:range} less than {n:expr} in {c:text}.    | xlLess
+cf-between        !   | Highlight cells in {r:range} between {a:expr} and {b:expr} in {c:text}. | xlBetween
+cf-equal          !   | Highlight cells in {r:range} equal to {n:expr} in {c:text}.     | xlEqual
+cf-contains       !   | Highlight cells in {r:range} containing {n:text} in {c:text}.   | xlTextString
+cf-duplicates     !   | Highlight duplicate values in {r:range} in {c:text}.            | xlUniqueValues (DupeUnique:=xlDuplicate)
+cf-blanks         !   | Highlight blank cells in {r:range} in {c:text}.                 | xlBlanksCondition
+cf-top-n          !   | Highlight the top {n:expr} values in {r:range} in {c:text}.     | AddTop10
+cf-color-scale    !   | Add a color scale to {r:range}.                                 | AddColorScale(3)
+cf-data-bars      !   | Add data bars to {r:range}.                                     | AddDatabar
+cf-formula        !   | Highlight {r:range} where {n:text} in {c:text}.                 | xlExpression (power-user escape hatch)
+cf-clear              | Remove conditional formatting from {r:range}.                   | .FormatConditions.Delete
+```
+
+## 8. Sorting and filtering — P0
+
+```
+sort-asc              | Sort {r:range} by column {c:column}.                  | .Sort Key1:=, Order1:=xlAscending, Header:=xlYes
+sort-desc             | Sort {r:range} by column {c:column} descending.       | xlDescending
+sort-two          ~   | Sort {r:range} by column {c:column} then column {d:column}. | Sort object, two keys
+sort-sheet            | Sort the used range by column {c:column}.             | as above over UsedRange
+filter-on             | Add filters to {r:range}.                             | .AutoFilter
+filter-by             | Filter {r:range} where column {c:column} is {n:expr}. | .AutoFilter Field:=, Criteria1:=
+filter-contains       | Filter {r:range} where column {c:column} contains {n:text}. | Criteria1:="*x*"
+filter-greater        | Filter {r:range} where column {c:column} is greater than {n:expr}. | Criteria1:=">10"
+filter-clear          | Clear the filters.                                    | .ShowAllData  (guard: errors when nothing filtered)
+filter-off            | Remove the filters.                                   | .AutoFilter (toggle off)
+filter-copy       !   | Copy the visible rows of {r:range} to {b:cell}.       | SpecialCells(xlCellTypeVisible).Copy
+```
+
+## 9. Tables (ListObjects) — P1
+
+```
+make-table            | Turn {r:range} into a table called {n:text}.          | ListObjects.Add(xlSrcRange, rng, , xlYes)
+table-style           | Set style of table {n:text} to {s:text}.              | .TableStyle
+table-totals-on       | Show the total row of table {n:text}.                 | .ShowTotals = True
+table-totals-off      | Hide the total row of table {n:text}.                 | .ShowTotals = False
+table-add-row     !   | Add a row to table {n:text}.                          | .ListRows.Add
+table-delete-row  !   | Delete row {r:expr} of table {n:text}.                | .ListRows(r).Delete
+table-to-range        | Turn table {n:text} back into a range.                | .Unlist
+table-column      !   | Set {v:var} to column {c:text} of table {n:text}.     | .ListColumns(c).DataBodyRange
+```
+
+## 10. Pivot tables — P0 for beta credibility
+
+*Owner-flagged as a headline gap. Every entry is `!`: pivots are a cache plus a
+table plus field orientation, and the VLA must stay readable. Recommended
+design: one Tier-2 helper per verb, and a `{f:field-list}` slot from G6 so that
+"with rows of A, B and columns of C" is one sentence rather than four.*
+
+```
+pivot-create      !~  | Create a pivot table from {r:range} at {b:cell} called {n:text}. | PivotCaches.Create + CreatePivotTable
+pivot-rows        !~  | Add rows of {f:expr} to pivot {n:text}.               | .PivotFields(f).Orientation = xlRowField
+pivot-columns     !~  | Add columns of {f:expr} to pivot {n:text}.            | xlColumnField
+pivot-filters     !~  | Add filters of {f:expr} to pivot {n:text}.            | xlPageField
+pivot-values-sum  !   | Add {f:text} to pivot {n:text} as a sum.              | AddDataField(..., xlSum)
+pivot-values-count!   | Add {f:text} to pivot {n:text} as a count.            | xlCount
+pivot-values-avg  !   | Add {f:text} to pivot {n:text} as an average.         | xlAverage
+pivot-full        !~  | Create pivot from {r:range} with rows of {a:expr} and columns of {b:expr} and values of {c:expr}. | the composite sentence the owner asked for; build it from the parts above
+pivot-refresh     !   | Refresh pivot {n:text}.                                | .RefreshTable
+pivot-refresh-all !   | Refresh every pivot table.                             | loop PivotTables
+pivot-delete      !^  | Delete pivot {n:text}.                                 | .TableRange2.Clear
+pivot-layout      !?  | Show pivot {n:text} in tabular form.                   | .RowAxisLayout xlTabularRow — decide which layout names to expose
+pivot-collapse    !   | Collapse pivot {n:text}.                               | .PivotFields(...).ShowDetail = False
+```
+
+## 11. Formulas and calculation — P0
+
+```
+formula-range         | Put formula {n:text} into {r:range}.                   | .Formula = n
+formula-fill      !   | Put formula {n:text} into {r:cell} and fill down to the last row. | .Formula + .FillDown to last row
+formula-r1c1      ?   | Put formula {n:text} into {r:range} using R1C1.         | .FormulaR1C1 — decide whether to expose at all
+calc-manual           | Turn off automatic calculation.                        | Application.Calculation = xlCalculationManual
+calc-auto             | Turn on automatic calculation.                         | xlCalculationAutomatic
+recalculate           | Recalculate the workbook.                              | Application.Calculate
+recalc-sheet          | Recalculate this sheet.                                | .Calculate
+sumif             !   | Set {v:var} to sum of {a:range} where {b:range} is {n:expr}. | WorksheetFunction.SumIf
+countif           !   | Set {v:var} to count of {r:range} where it is {n:expr}. | CountIf
+averageif         !   | Set {v:var} to average of {a:range} where {b:range} is {n:expr}. | AverageIf
+lookup            !   | Set {v:var} to the {c:expr} value in {r:range} matching {n:expr}. | Application.VLookup with error handling — the try-else shape
+count-nonempty        | Set {v:var} to count of filled cells in {r:range}.     | CountA
+count-blank           | Set {v:var} to count of empty cells in {r:range}.      | CountBlank
+median                | Set {v:var} to median of {r:range}.                    | WorksheetFunction.Median
+stdev                 | Set {v:var} to standard deviation of {r:range}.        | StDev
+subtotal          !~  | Add subtotals to {r:range} grouped by column {c:column}. | .Subtotal
+```
+
+## 12. Text handling — P0
+
+```
+trim-spaces           | Remove extra spaces from {r:range}.                    | Trim over cells
+upper-case            | Make {r:range} upper case.                             | UCase
+lower-case            | Make {r:range} lower case.                             | LCase
+proper-case           | Capitalize {r:range}.                                  | WorksheetFunction.Proper
+text-before        !  | Set {v:var} to the text before {n:text} in {e:expr}.   | Left/InStr
+text-after         !  | Set {v:var} to the text after {n:text} in {e:expr}.    | Mid/InStr
+first-characters      | Set {v:var} to the first {n:expr} characters of {e:expr}. | Left
+last-characters       | Set {v:var} to the last {n:expr} characters of {e:expr}.  | Right
+replace-in-text       | Set {v:var} to {e:expr} with {a:text} replaced by {b:text}. | Replace
+pad-left           !  | Set {v:var} to {e:expr} padded to {n:expr} characters. | String + concatenation
+split-column       !~ | Split column {c:column} by {n:text}.                   | .TextToColumns
+join-range         !  | Set {v:var} to {r:range} joined with {n:text}.         | helper: loop + delimiter
+contains-text         | If {e:expr} contains {n:text}, ...                     | (already partly covered — extend to ranges)
+starts-with           | If {e:expr} starts with {n:text}, ...                  | InStr = 1
+ends-with             | If {e:expr} ends with {n:text}, ...                    | Right comparison
+clean-text            | Remove non-printing characters from {r:range}.         | WorksheetFunction.Clean
+```
+
+## 13. Find and replace — P0
+
+```
+replace-in-range      | Replace {a:text} with {b:text} in {r:range}.           | .Replace What:=, Replacement:=
+replace-in-sheet      | Replace {a:text} with {b:text} on this sheet.          | Cells.Replace
+find-cell          !  | Set {v:var} to the first cell in {r:range} containing {n:text}. | .Find (returns Nothing — the when-let shape)
+find-row           !  | Set {v:var} to the row of the first {n:text} in column {c:column}. | .Find(...).Row
+count-occurrences  !  | Set {v:var} to how many cells in {r:range} contain {n:text}. | CountIf with wildcards
+replace-formulas   ?  | Replace {a:text} with {b:text} in formulas of {r:range}. | LookIn:=xlFormulas — decide whether the default surface means values or formulas (a real footgun)
+```
+
+## 14. Sheets — P0
+
+```
+rename-sheet          | Rename sheet {s:sheet} to {n:text}.                    | .Name = n
+delete-sheet      ^   | Delete sheet {s:sheet}.                                | .Delete inside with-no-alerts
+copy-sheet            | Copy sheet {s:sheet}.                                  | .Copy After:=
+copy-sheet-named  !   | Copy sheet {s:sheet} and call it {n:text}.             | .Copy + rename
+move-sheet-after      | Move sheet {s:sheet} after sheet {t:sheet}.            | .Move After:=
+move-sheet-before     | Move sheet {s:sheet} before sheet {t:sheet}.           | .Move Before:=
+add-sheet-after       | Add sheet called {n:text} after sheet {s:sheet}.       | .Add After:=  (the owner's G-TABS sentence)
+add-sheet-before      | Add sheet called {n:text} before sheet {s:sheet}.      | .Add Before:=
+hide-sheet            | Hide sheet {s:sheet}.                                  | .Visible = xlSheetHidden
+unhide-sheet          | Show sheet {s:sheet}.                                  | xlSheetVisible
+sheet-exists       !  | If sheet {s:sheet} exists, ...                         | helper: loop names (the try-else / when-let shape)
+each-sheet         !  | For each sheet in this workbook, ...                   | For Each ws In Worksheets
+sheet-count           | Set {v:var} to the number of sheets.                   | Worksheets.Count
+sheet-name            | Set {v:var} to the name of this sheet.                 | .Name
+protect-sheet         | Protect sheet {s:sheet} with password {n:text}.        | .Protect Password:=  (L13 bracket already exists)
+unprotect-sheet       | Unprotect sheet {s:sheet} with password {n:text}.      | .Unprotect
+clear-sheet           | Clear everything from sheet {s:sheet}.                 | .Cells.Clear
+tab-color             | Make the tab of sheet {s:sheet} {n:text}.              | .Tab.Color
+```
+
+## 15. Workbooks and files — P0/P1
+
+*Needs a new `{p:path}` slot type (quoted, period-safe — the G12 rule already
+solved exactly this problem for library names; reuse that decision).*
+
+```
+new-workbook       !  | Create a new workbook.                                 | Workbooks.Add
+open-workbook      !  | Open the workbook at {p:text}.                         | Workbooks.Open
+save-workbook         | Save this workbook.                                    | .Save
+save-as            !  | Save this workbook as {p:text}.                        | .SaveAs
+save-copy          !  | Save a copy of this workbook as {p:text}.              | .SaveCopyAs
+close-workbook     ^  | Close the workbook {n:text}.                           | .Close SaveChanges:=
+export-pdf         !  | Save {r:range} as a PDF at {p:text}.                   | .ExportAsFixedFormat xlTypePDF
+export-sheet-pdf   !  | Save sheet {s:sheet} as a PDF at {p:text}.             | as above
+export-csv         !  | Save sheet {s:sheet} as a CSV at {p:text}.             | .Copy to new book + SaveAs xlCSV
+sheet-to-workbook  !  | Save sheet {s:sheet} as its own workbook at {p:text}.  | .Copy + SaveAs
+import-csv         !? | Copy the contents of {p:text} into sheet {s:sheet}.    | **adjudicate**: Workbooks.Open+copy (simple, flickers, honours Excel's parsing) vs QueryTables (configurable, leaves a connection) vs line I/O + Split (no Excel parsing surprises, most code). The owner's G-FILES sentence.
+import-csv-delim   !~ | Copy the contents of {p:text} into sheet {s:sheet} separated by {n:text}. | as above, delimiter given
+file-exists        !  | If the file {p:text} exists, ...                        | Dir(p) <> ""
+each-file          !~ | For each file in {p:text} matching {n:text}, ...        | Dir loop — the folder-batch SOP shape
+workbook-folder       | Set {v:var} to this workbook's folder.                  | .Path
+workbook-name         | Set {v:var} to this workbook's name.                    | .Name
+```
+
+## 16. Charts — P1
+
+```
+chart-create       !  | Create a chart from {r:range} on sheet {s:sheet}.       | Shapes.AddChart2
+chart-type         !  | Make chart {n:text} a {t:text} chart.                   | .ChartType (bar/line/pie/scatter name map)
+chart-title        !  | Set the title of chart {n:text} to {t:text}.            | .ChartTitle.Text
+chart-axis-title   !  | Set the {a:text} axis title of chart {n:text} to {t:text}. | .Axes(...).AxisTitle
+chart-move         !  | Move chart {n:text} to cell {r:cell}.                   | .Top/.Left from range
+chart-delete       !  | Delete chart {n:text}.                                  | .Delete
+chart-export       !  | Save chart {n:text} as an image at {p:text}.            | .Export
+```
+
+## 17. Printing and page setup — P1
+
+*Every one of these is slow in Excel (PageSetup round-trips to the printer
+driver). Worth a note in the docs and possibly a batched Tier-2 helper.*
+
+```
+print-area            | Set the print area to {r:range}.                        | .PageSetup.PrintArea
+clear-print-area      | Clear the print area.                                  | PrintArea = ""
+landscape             | Print sheet {s:sheet} sideways.                        | .Orientation = xlLandscape
+portrait              | Print sheet {s:sheet} upright.                         | xlPortrait
+fit-one-page          | Fit sheet {s:sheet} on one page.                       | .Zoom=False, FitToPagesWide/Tall = 1
+fit-one-wide          | Fit sheet {s:sheet} to one page wide.                  | FitToPagesWide = 1, Tall = False
+repeat-header-rows    | Repeat row {r:expr} on every printed page.             | .PrintTitleRows
+page-margins       ~  | Set the margins of sheet {s:sheet} to {n:expr} inches. | .TopMargin etc via InchesToPoints
+header-text           | Set the page header of sheet {s:sheet} to {t:text}.    | .CenterHeader
+footer-page-numbers   | Put page numbers in the footer.                        | .CenterFooter = "Page &P of &N"
+print-sheet        ^  | Print sheet {s:sheet}.                                  | .PrintOut
+```
+
+## 18. Validation, protection, comments, links — P1
+
+```
+dropdown-list      !~ | Add a dropdown to {r:range} with {n:expr}.             | Validation.Add xlValidateList
+dropdown-from-range!  | Add a dropdown to {r:range} from {b:range}.            | Formula1:="=Sheet!$A$1:$A$9"
+validate-number    !  | Only allow numbers between {a:expr} and {b:expr} in {r:range}. | xlValidateWholeNumber
+validate-clear        | Remove validation from {r:range}.                       | .Validation.Delete
+lock-cells            | Lock {r:range}.                                        | .Locked = True
+unlock-cells          | Unlock {r:range}.                                      | .Locked = False
+protect-workbook      | Protect the workbook structure with password {n:text}. | .Protect Structure:=True
+add-comment           | Add the note {n:text} to cell {r:cell}.                | .AddComment / NoteText
+clear-comments        | Remove the notes from {r:range}.                       | .ClearComments
+add-hyperlink         | Link cell {r:cell} to {p:text}.                        | Hyperlinks.Add
+clear-hyperlinks      | Remove the links from {r:range}.                       | .Hyperlinks.Delete
+```
+
+## 19. Dates and time — P1
+
+```
+now-value             | Set {v:var} to right now.                              | Now
+add-days              | Set {v:var} to {e:expr} plus {n:expr} days.            | DateAdd("d", n, e)
+add-months            | Set {v:var} to {e:expr} plus {n:expr} months.          | DateAdd("m", ...)
+days-between          | Set {v:var} to the days between {a:expr} and {b:expr}. | DateDiff("d", a, b)
+month-of              | Set {v:var} to the month of {e:expr}.                  | Month
+year-of               | Set {v:var} to the year of {e:expr}.                   | Year
+day-of                | Set {v:var} to the day of {e:expr}.                    | Day
+weekday-name          | Set {v:var} to the weekday name of {e:expr}.           | WeekdayName(Weekday(e))
+month-name            | Set {v:var} to the month name of {e:expr}.             | MonthName
+end-of-month          | Set {v:var} to the end of the month of {e:expr}.       | DateSerial(Year, Month+1, 0)
+is-weekend            | If {e:expr} is a weekend, ...                          | Weekday in (1,7)
+```
+
+## 20. Row-loop idioms — P0
+
+*The SOP workhorse: "walk the rows and do something conditional." Most SOPs are
+one of these four shapes with the middle filled in. Worth designing as a family
+so the surfaces stay parallel.*
+
+```
+each-row           !  | For each row in {r:range}, ...                          | For r = first To last
+each-row-where     !  | For each row in {r:range} where column {c:column} is {n:expr}, ... | loop + test
+copy-matching-rows !  | Copy rows of {r:range} where column {c:column} is {n:expr} to sheet {s:sheet}. | loop + append
+delete-matching-rows!^| Delete rows of {r:range} where column {c:column} is {n:expr}. | reverse loop (must iterate upward-down — a classic bug; the helper should own it)
+count-matching-rows!  | Set {v:var} to how many rows of {r:range} have column {c:column} equal to {n:expr}. | CountIf
+current-row           | Set {v:var} to the current row number.                 | the loop variable (naming decision)
+value-in-row          | Set {v:var} to column {c:column} of the current row.   | Cells(row, c)
+```
+
+## 21. Interaction and workflow — P1
+
+```
+ask-for-text       !  | Ask the user for {n:text} and put it in {v:var}.        | InputBox
+ask-for-file       !  | Ask the user to pick a file and put it in {v:var}.     | Application.GetOpenFilename
+ask-to-confirm     !  | If the user confirms {n:text}, ...                     | MsgBox vbYesNo
+status-message        | Show {n:text} in the status bar.                       | Application.StatusBar
+clear-status          | Clear the status bar.                                  | Application.StatusBar = False
+wait-seconds          | Wait {n:expr} seconds.                                 | Application.Wait
+beep-once             | Beep.                                                  | Beep
+stop-run              | Stop.                                                  | Exit Sub (naming: must not collide with "stop the loop")
+timer-start        !  | Start the timer.                                       | Timer
+timer-report       !  | Set {v:var} to the seconds since the timer started.    | Timer difference
+```
+
+## 22. Email — P2 (but the single most-requested "last mile")
+
+*Late binding only; no reference required. Flag clearly in docs that this drives
+Outlook and inherits its security prompts.*
+
+```
+email-send         !  | Send an email to {a:text} with subject {b:text} and body {c:text}. | Outlook.Application CreateItem
+email-attach       !  | Send an email to {a:text} with subject {b:text} attaching {p:text}. | .Attachments.Add
+email-draft        !  | Draft an email to {a:text} with subject {b:text} and body {c:text}. | .Display instead of .Send
+email-this-workbook!  | Send this workbook to {a:text}.                         | SaveCopyAs + attach
+```
+
+---
+
+## Sequencing recommendation
+
+The corpus above is roughly 240 entries. Do **not** work down it in order — work
+in the order that removes walls fastest:
+
+1. **§5 + §6 + §1 + §2 (formatting, number formats, references, structure).**
+   Almost pure Tier-1, no new plumbing, and it is where a beta looks thin or
+   looks finished. Probably 60+ rules in a handful of passes.
+2. **§3 + §4 (copy/paste/clear).** Highest per-rule value in real SOPs.
+3. **§20 (row loops) + §8 (sort/filter).** These two turn the grammar from "cell
+   operations" into "table operations," which is the owner's stated gap.
+4. **§14 + §15 (sheets, files).** The G-TABS and G-FILES passes already on the
+   Alpha 6 roadmap; §15 needs the `{p:path}` slot decision first.
+5. **§11 + §12 + §13 (formulas, text, find/replace).**
+6. **§10 (pivots).** Deliberately after G6 list slots exist — the composite
+   sentence is unwritable without them, and building it twice is a waste.
+7. **§7, §9, §16–§19, §21, §22** as demand dictates; the sentence-gap issues
+   from real users should reorder this tail, not this file.
+
+**Grammar prerequisites worth extracting before the rules that need them:**
+`{p:path}` slots (reuse the G12 quoted-name decision), G6 list slots (pivot
+fields, multi-column sorts, dropdown items), G7 defaults (nearly every optional
+`on sheet {s:sheet}` clause), G8 number words ("Insert three rows"), and a
+decision on whether every range verb accepts a bare cell (it should — `Make cell
+A1 bold` and `Make A1:C9 bold` want one rule, not two).
+
+**Estimated shape of the finished corpus:** ~340 rules total (102 today + ~240
+here), which on the session's observed density is 700–900 `test:` proofs. That
+is a large but very mechanical body of work — and every one of those proofs is
+re-run at every load, which is exactly the property that makes a corpus this
+size safe to own.

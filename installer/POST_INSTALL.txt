@@ -1,0 +1,19 @@
+Frazaro is installed and registered with Excel. Open (or restart) Excel
+and the Frazaro ribbon tab should already be there.
+
+One step remains, only if you plan to use Compile (the export path, for
+a self-contained workbook or a large loop):
+
+  File -> Options -> Trust Center -> Trust Center Settings -> Macro
+  Settings -> check "Trust access to the VBA project object model."
+
+Interpret (the default) needs neither this nor a macro-enabled
+workbook -- it runs every program directly, with nothing written into
+your file. This is the one setting no installer can flip for you; see
+DEPLOY.md for why, and for the full story on Interpret vs. Compile.
+
+One more thing, because this is a beta: three security items from the
+project's own threat model are still open (SEC.1, SEC.2, SEC.3). What
+they mean for you is stated in plain words in README.md under "Known
+open security items." Until they close, load phrasebooks only from
+people you would accept a macro-enabled workbook from.

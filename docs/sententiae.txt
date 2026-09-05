@@ -1,0 +1,108 @@
+==========
+Version 3:
+==========
+
+
+
+
+
+==========
+Version 2:
+==========
+
+
+FORTY FRAZARO FORMULAE
+
+or, Sententiae
+
+The language a person thinks in should be the language their work is written in. The alternative has been tried at scale for sixty years, and the machine has yet to meet anyone halfway.
+Everyone who uses a spreadsheet is a programmer who was never given the word. They ship to production daily, without review, and would be alarmed to hear it put that way.
+It is cheaper to teach one machine many tongues than many people one. The second course has an enrolment of four billion and a completion rate nobody publishes.
+English is not the product. English is the first phrasebook. A tool that can only be addressed in English has not solved the problem; it has relocated it.
+A procedure nobody can read is a procedure nobody can audit. It will still be audited. Simply not before the loss.
+Constrain a language and the machine can finish the sentence. A language that permits everything can predict nothing, which is why it offers a blinking cursor and wishes you luck.
+A vocabulary nobody can list is a vocabulary nobody can learn. Where the list is missing, the user substitutes guessing, and the guessing is later called a learning curve.
+Show a stranger forty words, not four hundred. Four hundred is not generosity. It is the shape of a decision nobody wanted to make.
+The question is not how a thing is done. The question is what may be said. Documentation answers the first and leaves the newcomer looking at an empty line.
+Every spelling shipped is a promise made. It is a promise whether or not it was intended as one, and it will be collected.
+Retire a word aloud, or it will be missed in silence. A sentence that simply stops working teaches nothing except that the tool has changed hands.
+A rule that reaches past its layer drags the layer behind it. One such rule is a shortcut. Sixty-two of them are an architecture.
+Every dot in the wrong file is a dot somebody must move. That somebody is you, later, with less patience and more rules.
+A new rung is not a new floor. Adding one is how a ladder becomes tall without ever becoming a building.
+A rule that cannot use itself is a step, not a stair. The interval beneath a single step is exactly as empty as it was before the step.
+Expand one step and look. Then expand again. The window is the fastest route to the ground floor and remains, for reasons everyone accepts, unpopular.
+Four turns return you to the first row, and only the count has changed. Those who mistake the count for the position spend their lives climbing a carousel.
+Some debts hold their price. Others compound. Pay the compounding first — the flat ones are patient and will wait, which is precisely what makes them so easy to pay first.
+A decision costs a sentence now or a rewrite later. The sentence is available today at a price that will never be lower.
+Buy the decision; the artifact can wait. Most of what a document promises can be promised before the document exists.
+Rank a thing by what it unlocks, not by what it resembles. Filed by subject, the most important item in a plan will sit eleventh and look comfortable there.
+An estimate with no denominator is a mood. Two columns and ten items will tell you your own multiplier, which is rarely one.
+A lock with no condition for opening is a delay wearing a lock. Name the observation that opens it and the gate can be argued with, which is the entire purpose of gates.
+Build the microscope before the dissection. The instrument is always cheaper before the patient is open.
+A microscope with no specimen is furniture. It can be polished indefinitely, and frequently is.
+Measure before cutting, or you have not cut but hoped. Optimisation without a prior number is decoration that costs a fortnight.
+A number nobody checked is an opinion. It will be presented as a fact, in a meeting, by someone who did not calculate it.
+Say the assumption aloud, or it will say itself later, at a worse hour. The celebrated disasters were not errors of arithmetic. They were errors with nowhere to be written down.
+The error message is the most-read page of the manual. It is also the only page written in a hurry, by whoever happened to be nearest.
+A refusal decides who was the fool. Choose yourself. The other choice costs nothing to make and is remembered for years.
+Say what broke, say what to do, and stop. A third clause has never once rescued the first two.
+Near money, say less. There is no arrangement of words that improves a number somebody is about to sign.
+A character you cannot see is still a character. It arrived in the paste, it will not appear on the screen, and it will be blamed on the user.
+The first ninety seconds cannot be tested on your own machine. Your machine agreed to everything years ago and no longer mentions it.
+The install is the first cliff, and most of the fall. Features are compared by the people who got past it; the people who did not are not in the comparison.
+Guessing what a person will say is a month's work. Asking one is an afternoon. The month produces a document. The afternoon produces a fact.
+Consent cannot be gathered afterwards. Everything else in a plan can be reordered; this one item has a direction.
+The moment a sentence is refused is the moment a person decides whether to stay. They will not write in to say which way they decided.
+Publish the failure before somebody finds it. Published, it is evidence of method. Found, it is evidence of something else.
+Whoever volunteers for the fall cannot be pushed. Requesting the push is not volunteering. It is a third thing, and everyone can see it.
+
+
+==========
+Version 1:
+==========
+
+
+SENTENTIAE
+
+or, Forty Formulae
+
+Everyone who uses a spreadsheet is a programmer who was never given the word.
+The language a person thinks in should be the language their work is written in.
+It is cheaper to teach one machine many tongues than many people one.
+English is not the product. English is the first phrasebook.
+A procedure nobody can read is a procedure nobody can audit.
+Constrain a language and the machine can finish the sentence.
+A vocabulary nobody can list is a vocabulary nobody can learn.
+Show a stranger forty words, not four hundred.
+The question is not how a thing is done. The question is what may be said.
+Every spelling shipped is a promise made.
+Retire a word aloud, or it will be missed in silence.
+A rule that reaches past its layer drags the layer behind it.
+Every dot in the wrong file is a dot somebody must move.
+A new rung is not a new floor.
+A rule that cannot use itself is a step, not a stair.
+Expand one step and look. Then expand again.
+Four turns return you to the first row, and only the count has changed.
+Some debts hold their price. Others compound. Pay the compounding first.
+A decision costs a sentence now or a rewrite later.
+Buy the decision; the artifact can wait.
+Rank a thing by what it unlocks, not by what it resembles.
+An estimate with no denominator is a mood.
+A lock with no condition for opening is a delay wearing a lock.
+Build the microscope before the dissection.
+A microscope with no specimen is furniture.
+Measure before cutting, or you have not cut but hoped.
+A number nobody checked is an opinion.
+Say the assumption aloud, or it will say itself later, at a worse hour.
+The error message is the most-read page of the manual.
+A refusal decides who was the fool. Choose yourself.
+Say what broke, say what to do, and stop.
+Near money, say less.
+A character you cannot see is still a character.
+The first ninety seconds cannot be tested on your own machine.
+The install is the first cliff, and most of the fall.
+Guessing what a person will say is a month's work. Asking one is an afternoon.
+Consent cannot be gathered afterwards.
+The moment a sentence is refused is the moment a person decides whether to stay.
+Publish the failure before somebody finds it.
+Whoever volunteers for the fall cannot be pushed.

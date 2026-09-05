@@ -1,0 +1,39 @@
+; alonzo.vla - the evergreen import-regression library (owner-adopted
+; alongside english.vla and instructions.txt: the third corpus file;
+; renamed from hello.vla - a function loader, and now named for one).
+; It accretes worksheet-function BRICKS - each deflambda below is a
+; named Excel LAMBDA registered when a program calls
+; (register-bricks), imported via  Use library "alonzo.vla".  or a raw
+; (include ...), and pinned by the core suite (TestAlonzoLib), so any
+; future feature that breaks importing, formula emission, inner
+; lambdas, or the P-layer-on-sheets breaks a test, not a workbook.
+; The bricks are the iteration-shaped escapes from LAMBDA's recursion
+; ceiling: REDUCE / SCAN / MAP over SEQUENCE consume no stack, so a
+; 200,000-row fold is a formula, not a crash.
+; Multi-line forms ON PURPOSE: the VLA reader is line-agnostic in
+; files - only the IDE's raw rows are one-form-per-row.
+
+(sub register-bricks
+     ()
+     "registers the worksheet-function bricks from alonzo.vla"
+     (deflambda sum-to
+                (n)
+                "the sum 1..n by REDUCE over SEQUENCE - iteration, not recursion"
+                (reduce 0 (sequence n) (lambda (acc i) (+ acc i))))
+
+     (deflambda running-total
+                (rng)
+                "partial sums down a range, by SCAN"
+                (scan 0 rng (lambda (acc v) (+ acc v))))
+
+     (deflambda double-all (rng) "every cell doubled, by MAP" (map rng (lambda (v) (* v 2))))
+
+     (deflambda count-positive
+                (rng)
+                "how many cells are positive - the P-layer answering from a sheet"
+                (sum (map rng (lambda (v) (if (positive? v) 1 0)))))
+
+     (deflambda clamp (x lo hi) "x pinned into the closed range lo..hi" (min hi (max lo x))))
+
+
+

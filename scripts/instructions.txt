@@ -1,0 +1,785 @@
+# instructions.txt - regression test for VLA English prose ergonomics.
+# Comments start with #. A blank line ends a block (paragraph = block).
+# Done. is still legal: it closes ONE inner block so the outer block
+# can continue in the same paragraph. Short bodies can use a comma.
+# Show/Say pop a message box; Log writes to the technical log - this
+# test file logs so a Run never stops for clicks.
+
+Define hot-pink as "#FF69B4".
+
+# Every unqualified cell reference below - and the one deliberately
+# qualified "Output!H16" probe further down, proving that syntax too -
+# assumes the active sheet is called Output. That was never actually
+# guaranteed by anything in this file; it only worked because whatever
+# workbook got tested against already happened to have the sheet, out
+# of band. "Work on sheet" (unlike "Go to sheet") creates it if
+# missing and then activates it, so a fresh workbook with no prior
+# state runs this file correctly too.
+Work on sheet Output.
+
+Turn off screen updating.
+Create a number called total.
+Set total to 0.
+Put "Test Report" into cell A1.
+Make cell A1 bold.
+Set font size of cell A1 to 14.
+Put today into cell D1.
+
+Repeat 5 times:
+  Increase total by counter.
+  If counter is divisible by 2, log "even step " joined with counter.
+
+Put total into cell B2.
+Put formula "=B2*2" into cell B3.
+# The next two sentences are the same construct in both spellings on
+# purpose: quoted keeps case ("B2:B3"), bare lowercases in transit
+# (b2:b3) - quotes are never REQUIRED unless the name has a space.
+Put sum of range "B2:B3" into cell B4.
+Set grand to sum of range B2:B3.
+Log "grand is " joined with grand.
+
+# The inner Repeat is closed by Done. so the If continues; the blank
+# line before Otherwise separates the branches without ending the If.
+If grand is greater than 40:
+  Put "PASS" into cell C4.
+  Repeat 2 times:
+    Log "pass check " joined with counter.
+  Done.
+  Make cell C4 bold.
+
+Otherwise:
+  Put "CHECK" into cell C4.
+
+If grand is at least 45, make cell C4 yellow.
+Create a text called label.
+Set label to "Total: " joined with total.
+Put label into cell A6.
+Set font-color of cell A6 to hot-pink.
+Remember range B2:B4 as results.
+For each r in results, log r.
+Set biggest to largest of results.
+Log "largest result is " joined with biggest joined with ", label length " joined with length of label.
+
+# Computed references: loops can address cells by row number.
+Repeat 3 times:
+  Put counter times 10 into column E row counter.
+
+Set probe to cell in column E row 2.
+Create a text called num-col-check.
+If cell in column number 5 row 2 is 20, set num-col-check to "yes".
+Create a text called value-word-check.
+If value in column number 5 row 3 is 30, set value-word-check to "ok".
+Put "bang" into cell Output!H16.
+Center cell A1.
+Set width of column D to 24.
+Set round-check to 3.14159 rounded to 2 decimals.
+Log "rounded is " joined with round-check.
+Set thousand-check to 1,000 plus 500.
+Log "thousands read as " joined with thousand-check.
+Log "probe is " joined with probe.
+
+Create a number called countdown.
+Set countdown to 3.
+While countdown is greater than 0:
+  Log "countdown " joined with countdown.
+  Decrease countdown by 1.
+
+# Parameterized actions: "of" gives a default (making the parameter
+# optional); call sites name their arguments. Literals stay quoted.
+To stamp, with row-number of 1 and value of "ok":
+  Put value into column F row row-number.
+
+Stamp.
+Stamp with row-number of 2 and value of "beta".
+Set f-last to last filled row of column F.
+Log "column F filled to row " joined with f-last.
+Count echo-row from 1 to f-last, log "echo " joined with echo-row.
+Count check-row from 1 to f-last:
+  If cell in column F row check-row contains "ok", make cell in column F row check-row bold.
+
+# G-ROWLOOP: a custom step for skip-N row loops - the one shape
+# "Count ... from ... to ..." didn't already cover. "down" negates the
+# step automatically; the sentence itself never needs a negative number.
+Count stripe-row from 1 to f-last step 2:
+  Make cell in column F row stripe-row bold.
+
+Count back-row down from f-last to 1 step 2:
+  Log "back-row " joined with back-row.
+
+# (The loop variable here was originally "seek" - a VBA reserved word,
+# now refused at Check time with a message instead of crashing.)
+Count search-row from 1 to 10:
+  If search-row is 3, stop the loop.
+
+Log "stopped at " joined with search-row.
+
+# B1: lists. A program that doesn't know its data in advance collects
+# values as it goes, then walks and counts what it kept. Counters 3
+# and 4 pass the test, so the list holds 300 and 400 - count is 2.
+Create a list called found-items.
+Repeat 4 times:
+  If counter is greater than 2, append counter times 100 to found-items.
+
+For each f in found-items, log "found " joined with f.
+Set list-count to count of found-items.
+Log "list holds " joined with list-count.
+
+# B2: branching completeness. A three-way Otherwise-if chain (grand
+# is 45, so the middle branch wins), a When choices block (region is
+# "South", caught by the or-joined case), and Repeat until (fuel 3
+# counts down to 0 in three passes).
+Create a text called verdict.
+If grand is greater than 100:
+  Set verdict to "huge".
+
+Otherwise, if grand is greater than 40:
+  Set verdict to "solid".
+
+Otherwise:
+  Set verdict to "small".
+
+Create a text called region-label.
+Set region to "South".
+When region is "North":
+  Set region-label to "cold".
+
+When it is "South" or "East":
+  Set region-label to "warm".
+
+Otherwise:
+  Set region-label to "unknown".
+
+Log "verdict " joined with verdict joined with ", region " joined with region-label.
+
+Create a number called until-count.
+Set fuel to 3.
+Repeat until fuel is 0:
+  Decrease fuel by 1.
+  Increase until-count by 1.
+
+Log "repeat-until ran " joined with until-count joined with " times".
+
+# B3: error tolerance. The first Try fails at the missing sheet and
+# runs its recovery instead (the sentence after the failure never
+# executes); the second Try succeeds, so its recovery is skipped and
+# the step handler carries on normally afterwards.
+Create a text called rescue.
+Try:
+  Go to sheet Nowhere-Land.
+  Set rescue to "unreachable".
+
+If that fails:
+  Log "the problem was " joined with the problem.
+  If the problem is not empty, set rescue to "rescued".
+
+Create a number called risk-free.
+Try:
+  Set risk-free to 7.
+
+If that fails:
+  Set risk-free to -1.
+
+Log "rescue " joined with rescue joined with ", risk-free " joined with risk-free.
+
+# B4: value-returning actions. "Tax" is defined once, then composes
+# like any function word - in Set and, crucially, inside a condition.
+To tax of amount:
+  Give back amount times 0.08.
+
+Set fee to tax of 100.
+Log "fee is " joined with fee.
+Create a text called fee-size.
+If tax of 50 is greater than 3:
+  Set fee-size to "big".
+
+Otherwise:
+  Set fee-size to "small".
+
+To tidy-up:
+  Fit column A.
+  Fit column B.
+  Set font-color of cell A1 to hot-pink.
+
+# B6: named parameters with defaults. "Get" is optional sugar in the
+# header and at call sites; omitted parameters take their defaults.
+To get commission using sale of 1000 and rate of 5%:
+  Give back sale times rate.
+
+Set full-commission to commission using sale of 2000 and rate of 10%.
+Set default-commission to get commission using sale of 600.
+Log "commissions " joined with full-commission joined with " / " joined with default-commission.
+
+# B5.3: Excel's spaced-sheet syntax, bare. The Try makes reruns safe
+# (the second time, the sheet already exists and Add fails politely).
+# Add activates the new sheet, so Go to sheet Output restores the
+# workspace before the unqualified probes below. Since D1.2, Undo
+# REMOVES a sheet the run created (a tombstone marker is left at
+# snapshot time for named targets that don't exist yet) - so on a
+# fresh workbook, Undo after this program makes Q1 Data vanish.
+Try:
+  Add sheet called "Q1 Data".
+
+Go to sheet Output.
+Put "spaced" into cell 'Q1 Data'!A1.
+Create a text called spaced-check.
+Set spaced-check to value in cell 'Q1 Data'!A1.
+
+# B7.2: a nullary value action - defined once, a value everywhere,
+# here composing with the percent postfix (vat-rate is 0.2).
+To get vat-rate:
+  Give back 20%.
+
+# B7/B7.4: the multiplicative verbs and their idiomatic spellings.
+# A simple % share after Increase/Decrease/Add means grow/shrink
+# (B7.4, owner revision); a % blended into arithmetic still refuses
+# at Check - that refusal is pinned in the self-test, not runnable
+# here. Chain: 200 *1.1 *1.5 *2 *0.25 = 165 lands in H21.
+Create a number called growth-check.
+Set growth-check to 200.
+Grow growth-check by 10%.
+Increase growth-check by 50%.
+Add 100 percent to growth-check.
+Decrease growth-check by 75%.
+Set pick-check to item 2 of found-items.
+Log "grew to " joined with growth-check joined with ", picked " joined with pick-check joined with ", first " joined with first of found-items.
+Create a text called quote-check.
+Set quote-check to "He said ""ok""".
+
+# V3: keyed memory. A lookup stores values at keys - the "prices by
+# part number" shape. (The verb is V3.2's owner revision: Remember
+# binds names, Store fills containers; "at key" and "under" are the
+# two spellings of one template, both exercised below.) Storing at
+# an existing key REPLACES (and keeps the key's first spelling);
+# keys are case-insensitive like every text comparison here, so
+# "AX-7" finds "ax-7". Reads compose anywhere a value goes - Set,
+# arithmetic, conditions - and "keys of" walks the keys in the
+# order they were first stored. V3.1 (owner revision): "For each
+# pair in prices:" walks the ENTRIES - "key of pair" / "value of
+# pair" read each one, so a filter never re-looks-up what it is
+# standing on.
+Create a lookup called prices.
+Store 100 at key "ax-7" in prices.
+Store 250 under "bx-2" in prices.
+Store 120 at key "AX-7" in prices.
+Set ax-price to prices for "ax-7".
+Set key-count to count of keys of prices.
+Set price-sum to prices for "ax-7" plus prices for "bx-2".
+Create a text called key-list.
+For each k in keys of prices:
+  Set key-list to key-list joined with k.
+
+Create a text called price-verdict.
+If prices for "bx-2" is greater than 200, set price-verdict to "steep".
+Create a text called pair-trace.
+For each pair in prices:
+  If value of pair is greater than 200, set pair-trace to pair-trace joined with key of pair.
+
+Log "lookup: ax " joined with ax-price joined with ", keys " joined with key-list joined with ", pairs " joined with pair-trace.
+
+# G-TABLES: pareto.txt section 9's five currently-shipped surfaces
+# (make-table, table-style, table-totals-on/-off, table-to-range),
+# exercised on real cells so a wrong property name or wrong backend
+# dispatch surfaces here automatically - VerifyReportChecks below
+# asserts real ListObject state, not just "the script didn't crash".
+Put "Item" into cell J1.
+Put "Amount" into cell K1.
+Put "Widget" into cell J2.
+Put 10 into cell K2.
+Put "Gadget" into cell J3.
+Put 20 into cell K3.
+Turn J1:K3 into a table called SalesTable.
+Set style of table SalesTable to TableStyleMedium9.
+Show the total row of table SalesTable.
+
+# A second table proves table-totals-off is a real transition (show,
+# then hide) rather than coasting on ShowTotals's own False default.
+Put "X" into cell J5.
+Put "Y" into cell J6.
+Turn J5:J6 into a table called QuietTable.
+Show the total row of table QuietTable.
+Hide the total row of table QuietTable.
+
+# A third, disposable table proves table-to-range actually removes the
+# ListObject rather than silently doing nothing.
+Put "A" into cell J8.
+Put "B" into cell J9.
+Turn J8:J9 into a table called TempTable.
+Turn table TempTable back into a range.
+
+# A fourth table exercises table-add-row/table-delete-row/table-column -
+# kept separate from SalesTable so the row-count assertions below aren't
+# entangled with SalesTable's own style/totals checks.
+Put "Item" into cell J11.
+Put "Qty" into cell K11.
+Put "Bolt" into cell J12.
+Put 5 into cell K12.
+Put "Nut" into cell J13.
+Put 8 into cell K13.
+Turn J11:K13 into a table called EditTable.
+Add a row to table EditTable.
+Delete row 1 of table EditTable.
+Set qty-values to column Qty of table EditTable.
+For each q in qty-values, log q.
+
+# G-PIVOT: pareto.txt section 10's full surface, now that G6 (BETA_
+# ROADMAP.md) ships list-valued slots. Pivoting on a data table is
+# arguably the single most common real-world Excel analysis, so this
+# section is written to be as bulletproof as the rest of the corpus,
+# not a minimal smoke test - a real six-column sales dataset, wide
+# enough that rows/columns/filters/values each have somewhere genuine
+# to point, replaces the old two-column stand-in this section used
+# before pivot-rows/-columns/-filters existed.
+Put "Region" into cell N1.
+Put "Product" into cell O1.
+Put "Segment" into cell P1.
+Put "Channel" into cell Q1.
+Put "Units" into cell R1.
+Put "Revenue" into cell S1.
+Put "North" into cell N2.
+Put "Widget" into cell O2.
+Put "Retail" into cell P2.
+Put "Online" into cell Q2.
+Put 10 into cell R2.
+Put 500 into cell S2.
+Put "North" into cell N3.
+Put "Gadget" into cell O3.
+Put "Wholesale" into cell P3.
+Put "Store" into cell Q3.
+Put 5 into cell R3.
+Put 200 into cell S3.
+Put "South" into cell N4.
+Put "Widget" into cell O4.
+Put "Wholesale" into cell P4.
+Put "Online" into cell Q4.
+Put 20 into cell R4.
+Put 900 into cell S4.
+Put "South" into cell N5.
+Put "Gadget" into cell O5.
+Put "Retail" into cell P5.
+Put "Store" into cell Q5.
+Put 8 into cell R5.
+Put 300 into cell S5.
+Put "East" into cell N6.
+Put "Widget" into cell O6.
+Put "Retail" into cell P6.
+Put "Online" into cell Q6.
+Put 12 into cell R6.
+Put 600 into cell S6.
+Put "East" into cell N7.
+Put "Gadget" into cell O7.
+Put "Wholesale" into cell P7.
+Put "Store" into cell Q7.
+Put 6 into cell R7.
+Put 250 into cell S7.
+
+# The base pivot: VlaPivotCreate's own live proof (a real, stateful COM
+# sequence, not a single property set, so a crash or a misnamed result
+# surfaces here automatically) plus the three field-orientation verbs
+# G6 unblocked - a two-item row list (no Oxford comma needed at two
+# items - VLA_English.bas's own G6.0 header note has the full
+# reasoning), a one-item column list, and a one-item filter list.
+Make a pivot table from N1:S7 at U1 called SalesPivot.
+Add rows of Region, Product to pivot SalesPivot.
+Add columns of Segment to pivot SalesPivot.
+Add filters of Channel to pivot SalesPivot.
+
+# The per-field aggregation choice (pivot-values-sum/-count/-avg) -
+# real proof across all three functions and both single- and
+# multi-field lists, deliberately including the same field (Revenue)
+# summed AND counted at once: VlaPivotAddValues has no guard against
+# it, by owner's own explicit call, so this is the live proof that
+# choice is genuinely safe, not just untested.
+Add Revenue to pivot SalesPivot as a sum.
+Add Revenue, Units to pivot SalesPivot as a count.
+Add Units to pivot SalesPivot as an average.
+
+# The composite sentence pareto.txt itself names as the whole reason
+# for G6 ("the composite sentence is unwritable without them, and
+# building it twice is a waste") - one sentence building a complete,
+# second, independent pivot from the same source data (Excel allows
+# more than one PivotTable per cache): a genuine three-item row list
+# WITH the required Oxford comma (Region, Product, and Channel - not
+# just proven in TestG6's own synthetic rule, proven here against a
+# real sentence in the real corpus), a one-item column list, and a
+# two-item values list, both fields summed (VlaPivotAddValues's own
+# v1 sum-only cap).
+Make a pivot table from N1:S7 at N20 called FullPivot with rows of Region, Product, and Channel and columns of Segment and values of Revenue, Units.
+
+# Refresh/collapse/expand: real, checkable field state, not just "the
+# sentence didn't crash." Collapse ends SalesPivot's own Region field
+# collapsed (a real, distinguishing change from Excel's own True
+# default) - honestly, a mere refresh has no new source data to pull
+# in, so it can only prove the call succeeds, not a visible state
+# change, same limit VlaPivotCreate's own original live-proof comment
+# already accepted for a "crash or misnamed result" style check.
+Refresh pivot SalesPivot.
+Refresh every pivot table.
+Collapse Region in pivot SalesPivot.
+
+# Collapse-then-expand on a DIFFERENT pivot (FullPivot) and field
+# (Product, nested under Region, with Channel nested under it) proves
+# the round trip actually runs end to end - genuinely exercising both
+# code paths - even though the FINAL value alone (True, matching the
+# untouched default) can't by itself distinguish "collapsed then
+# correctly reversed" from "never touched"; that is a real limit of
+# checking end-state rather than a trace, named here rather than
+# quietly overclaimed.
+Collapse Product in pivot FullPivot.
+Expand Product in pivot FullPivot.
+
+# G-PIVOT close-out: pivot-layout/pivot-subtotals/pivot-blank-line, the
+# three report-layout knobs scoped and adjudicated with the owner
+# before writing any code. RowAxisLayout is table-WIDE (no field named)
+# and applied to SalesPivot - the same table whose Region field is
+# already collapsed above - deliberately, not by accident: it re-forms
+# every row field at once, the same class of Compact-Form/per-item
+# interaction that broke VlaPivotSetShowDetail's first version, so this
+# is the live proof that switching layout does (or does not) disturb
+# an already-collapsed field's state, not an assumption either way.
+# SalesPivot goes tabular-then-compact (a genuine transition, not
+# "untouched"); FullPivot's own Product field (already expanded above)
+# goes straight to outline, a real, distinguishing state from the
+# default Compact form.
+Show pivot SalesPivot in tabular form.
+Show pivot SalesPivot in compact form.
+Show pivot FullPivot in outline form.
+
+# Subtotals and blank-row-per-group: two more real, distinct per-field
+# report-layout properties (PivotField.Subtotals, PivotField.
+# LayoutBlankLine), independent of Orientation/ShowDetail/LayoutForm.
+# SalesPivot/Region gets one real distinguishing change each; FullPivot/
+# Product gets a hide-then-show / add-then-remove round trip, the same
+# collapse/expand precedent's shape.
+Hide subtotals for Region in pivot SalesPivot.
+Hide subtotals for Product in pivot FullPivot.
+Show subtotals for Product in pivot FullPivot.
+
+Add a blank row after Region in pivot SalesPivot.
+Add a blank row after Product in pivot FullPivot.
+Remove a blank row after Product in pivot FullPivot.
+
+# G-PIVOT round 2 (pivot-sort/pivot-sort-by-value): scoped and
+# adjudicated with the owner (docs/BETA_ROADMAP.md's G-PIVOT entry has
+# the full conversation, including the real ambiguity this deliberately
+# avoids). SalesPivot's own Region field (North/South/East) proves
+# alphabetical sort both directions - ascending restores Excel's own
+# default order, a real transition back from the descending sort just
+# before it, not "untouched". FullPivot's own Product field (Widget:
+# 500+900+600=2000, Gadget: 200+300+250=750, both summed - the ONLY
+# value fields on FullPivot, so no ambiguity) proves the value-field
+# sort both directions. Deliberately NOT exercised here: sorting by a
+# field with more than one aggregation (SalesPivot's own Revenue and
+# Units both qualify) - that path raises by design (VlaPivotSort's own
+# header note), and instructions.txt has to run clean end to end, so
+# the ambiguity error has no home in this file's own test mechanism;
+# it is reasoned through and documented, not live-proven.
+Sort Region in pivot SalesPivot descending.
+Sort Region in pivot SalesPivot ascending.
+Sort Product in pivot FullPivot descending by Revenue.
+Sort Product in pivot FullPivot ascending by Revenue.
+
+# G-PIVOT round 2 (pivot-rename/pivot-clear/pivot-remove-field/
+# pivot-source): the CRUD-completeness survey's own findings, each on
+# its own dedicated pivot so none of these destructive/identity-
+# changing proofs can collide with SalesPivot's or FullPivot's own
+# already-established checks above. Placed at row 200+, not sideways
+# in a nearby column, on purpose - SalesPivot's own U1 destination
+# already carries 4 data fields across up to 3 segment-column groups
+# and could plausibly reach into a "nearby column" guess; there's no
+# guessing possible this far below every other object in this file.
+Make a pivot table from N1:S7 at N200 called RenameMePivot.
+Rename pivot RenameMePivot to RenamedPivot.
+
+Make a pivot table from N1:S7 at N220 called ClearMePivot.
+Add rows of Region to pivot ClearMePivot.
+Add Revenue to pivot ClearMePivot as a sum.
+Clear pivot ClearMePivot.
+
+Make a pivot table from N1:S7 at N240 called RemoveFieldMePivot.
+Add rows of Region, Product to pivot RemoveFieldMePivot.
+Remove Product from pivot RemoveFieldMePivot.
+
+# A new eighth data row - West, not among the original six rows' North/
+# South/East - proves pivot-source actually pulls in genuinely new
+# data, not just re-reading the same range. SourceTestPivot is built
+# from N1:S7 (missing West on purpose), then repointed to N1:S8.
+Put "West" into cell N8.
+Put "Widget" into cell O8.
+Put "Retail" into cell P8.
+Put "Online" into cell Q8.
+Put 15 into cell R8.
+Put 700 into cell S8.
+
+Make a pivot table from N1:S7 at N260 called SourceTestPivot.
+Add rows of Region to pivot SourceTestPivot.
+Change the source of pivot SourceTestPivot to N1:S8.
+
+# A third, disposable pivot proves pivot-delete actually removes the
+# PivotTable object, the same "throwaway object for the removal proof"
+# shape table-to-range's own TempTable already uses above.
+Make a pivot table from N1:S7 at N40 called TempPivot.
+Delete pivot TempPivot.
+
+# Machine-verification probes: VerifyReport (VLA_Tests) reads these.
+Put grand into cell H1.
+Put biggest into cell H2.
+Put round-check into cell H3.
+Put thousand-check into cell H4.
+Put search-row into cell H5.
+Put f-last into cell H6.
+Put list-count into cell H7.
+Put verdict into cell H8.
+Put region-label into cell H9.
+Put until-count into cell H10.
+Put rescue into cell H11.
+Put risk-free into cell H12.
+Put fee into cell H13.
+Put fee-size into cell H14.
+Put num-col-check into cell H15.
+Put value-word-check into cell H17.
+Put spaced-check into cell H18.
+Put full-commission into cell H19.
+Put default-commission into cell H20.
+Put growth-check into cell H21.
+Put pick-check into cell H22.
+Put quote-check into cell H23.
+Put vat-rate into cell H24.
+Put ax-price into cell H26.
+Put key-count into cell H27.
+Put key-list into cell H28.
+Put price-sum into cell H29.
+Put price-verdict into cell H30.
+Put pair-trace into cell H31.
+
+# L0: raw VLA rows - the middle layer is a first-class citizen. A row
+# that BEGINS with "(" is VLA verbatim: parentheses are the terminator
+# (no period needed, one form per row), and parentheses in comments
+# (like these) stay prose. The form below writes probe H25 directly
+# in VLA; the loop shows a raw row composing inside an English block.
+(set! (range "h25") "vla-row")
+Repeat 2 times:
+  (debug-print counter)
+
+# The prelude vocabulary: the ~100 well-known, every-day Excel actions
+# (styling, rows/columns, sheets, sorting/filtering) that the corpus
+# should demonstrate on its own merits, not gate behind a pilot
+# transcript - SD-7/PI.2 govern which NEW, unbuilt grammar sections to
+# prioritize next; they say nothing about exercising rules that are
+# already built and already shipped. All of it runs on one throwaway
+# sheet so that row/column insert-delete-hide operations - which shift
+# EVERYTHING below them on a sheet - can never disturb the probe cells
+# above. "Work on sheet" (unlike "Go to sheet") creates the sheet if
+# it's missing (VlaEnsureSheet) and then activates it, so this one
+# sentence is rerun-safe on its own - no Try guard needed, unlike the
+# Q1 Data block above which uses the create-only "Add sheet called".
+# Left in place afterward, same as Q1 Data: Undo removes it.
+Work on sheet Demo.
+
+# Cell and range styling.
+Make cell A1 italic.
+Make cell A2 red.
+Make cell A3 yellow.
+Set font-color of cell A4 to hot-pink.
+Set fill-color of cell A5 to "#FF69B4".
+Clear color of cell A5.
+Add border to range A1:E10.
+Format cell B1 as currency.
+Format cell B2 as percent.
+Format cell B3 as date.
+Center cell A1.
+Center range A1:E1.
+Align range A2:A5 left.
+Align cell A6 center.
+Wrap text in range C1:C5.
+Unwrap text in range C1:C5.
+Merge range D1:D3.
+Unmerge range D1:D3.
+
+# Rows and columns - G7's default slot and G8's ordinal both land here
+# ("Insert a row." and "Delete the third row."), alongside the
+# longer-shipped forms.
+Set height of row 1 to 30.
+Set width of column A to 20.
+Insert column before B.
+Hide column C.
+Unhide column C.
+Delete column B.
+Insert row at 5.
+Insert a row.
+Delete row 2.
+Delete the third row.
+Hide row 10.
+Unhide row 10.
+Freeze top row.
+Unfreeze panes.
+Fit column A.
+Fit all columns.
+
+# A small real table, so sort/filter/dedupe/replace have something to
+# act on rather than an empty range.
+Put "Region" into cell G1.
+Put "Amount" into cell H1.
+Put "Notes" into cell I1.
+Put "West" into cell G2.
+Put 100 into cell H2.
+Put "ok" into cell I2.
+Put "East" into cell G3.
+Put 250 into cell H3.
+Put "ok" into cell I3.
+Put "West" into cell G4.
+Put 100 into cell H4.
+Put "dup" into cell I4.
+Sort range G1:I4 by column H1 descending.
+Keep only rows of range G1:I4 where column 1 is "West".
+Show all rows.
+Replace "dup" with "ok" in range G1:I4.
+Remove duplicates from range G1:I4 by column 1.
+Replace "ok" with "fine" in column I.
+Convert range G1:I4 to values.
+Clear formatting of range G1:I4.
+Name range G1:I4 as demo_table.
+Copy range G1:I4 to range K1:M4.
+
+# Sheet-level actions. Protect immediately pairs with Unprotect using
+# the same password, so no protected-sheet residue survives the run.
+Set tab-color of sheet Demo to hot-pink.
+Protect this sheet with password "demo123".
+Unprotect this sheet with password "demo123".
+
+# G-STRUCT: pareto.txt sections 2-5, exercised for real state, not just
+# the test-success template-substitution proofs already in
+# english.vla - a passing test-success proof only proves the SHAPE a
+# sentence substitutes to, never that the underlying VBA actually does
+# the right thing against real Excel data (this session's own two
+# hazards - registration-order shadowing and a noise word silently
+# swallowing a slot - could both pass test-success and still be wrong
+# live). Its own dedicated throwaway sheet, same reasoning as Demo
+# above: row/column insert-delete-group-move operations shift
+# EVERYTHING below them on a sheet, so they can never safely share a
+# sheet with Output's own fixed-address probes or G-TABLES/G-PIVOT's
+# own absolute references. VerifyReportChecks (VLA_Tests_Host.bas)
+# reads this sheet's real end state below.
+#
+# Owner-caught live: "Work on sheet" only creates a sheet if it's
+# missing - it does NOT clear one that already exists. Row/column
+# insert-delete-group operations are NOT idempotent (a second "Group
+# rows 10 through 12." on an already-grouped range nests a level
+# deeper instead of no-opping), so a second Run on the same workbook
+# silently compounded state and produced a wrong-but-plausible outline
+# level - caught only because a runtime error partway through an
+# earlier Interpret-and-Trace attempt left a partial prior run's
+# structural changes in place. Delete-then-recreate makes this section
+# safe to re-run any number of times, unlike Demo/Q1 Data above (whose
+# own "left in place, Undo removes it" convention is fine for THEM
+# because nothing there re-inserts/re-deletes/re-groups rows).
+Try:
+  Delete sheet GStruct.
+
+Work on sheet GStruct.
+
+Hide row 3.
+Hide column B.
+Unhide all rows and columns.
+
+Set font size of cell A6 to 36.
+Fit row 6.
+
+Group rows 10 through 12.
+Group rows 14 through 16.
+Ungroup rows 14 through 16.
+
+Put "before-insert" into cell A20.
+Insert 3 rows at row 20.
+
+Put "before-delete" into cell A40.
+Delete rows 38 through 39.
+
+Put "marker-b" into cell B50.
+Put "marker-c" into cell C50.
+Put "marker-d" into cell D50.
+Move column B before column D.
+
+Freeze the first 2 rows.
+
+# Copy, paste, and moving data around.
+Make cell A60 bold.
+Make cell A60 red.
+Copy formatting of A60:A60 to C60:C60.
+Make C62:C62 look like A60:A60.
+
+Put formula "=5*2" into cell B64.
+Copy formulas of B64 to D64.
+
+Set width of column F to 33.
+Copy column widths of F1:F1 to H1:H1.
+
+Put 1 into cell A68.
+Put 2 into cell A69.
+Put 3 into cell A70.
+Copy range A68:A70 to C68 transposed.
+
+Put "cutme" into cell A72.
+Move range A72:A72 to C72.
+
+Put "rowdata" into cell A74.
+Copy row 74 to row 76.
+
+# Clearing and removing.
+Put "clearme" into cell A80.
+Make cell A80 bold.
+Make cell A80 red.
+Clear everything from A80:B80.
+
+Put "m1" into cell A84.
+Put "m2" into cell A85.
+Put "m3" into cell A86.
+Put "m4" into cell A87.
+Put "m5" into cell A88.
+Delete A84:A86 and shift cells up.
+
+Put "x1" into cell B90.
+Put "x2" into cell C90.
+Put "x3" into cell D90.
+Put "rightdata" into cell E90.
+Delete B90:D90 and shift cells left.
+
+Put 1 into cell A94.
+Put 2 into cell B94.
+Put 3 into cell A95.
+Put 5 into cell A96.
+Put 6 into cell B96.
+Delete blank rows in A94:B96.
+
+# Banded rows and header styling.
+Put 1 into cell A150.
+Put 2 into cell A151.
+Put 3 into cell A152.
+Put 4 into cell A153.
+Band every other row of A150:D153 "#D9D9D9".
+Make row 165 a header row.
+
+# fill-series, both kinds (linear/growth), with and without a step.
+Fill A170:A179 with a series starting at 1.
+Fill A180:A184 with a series starting at 1 with step 2.
+Fill A190:A194 with a growth series starting at 2.
+Fill A200:A203 with a growth series starting at 2 with step 3.
+
+# trim-sheet: inflate the used range far beyond any real GStruct data,
+# then shrink it back - a formatted-then-emptied cell is exactly the
+# case UsedRange itself gets wrong (VLA_Runtime.VlaTrimSheet's own
+# header note: it remembers cells that were ever formatted, even after
+# their contents are cleared). "Clear range" is clear-contents only
+# (ClearContents) - it leaves Z500's own bold behind, which is real,
+# current formatting VlaTrimSheet is now correct to protect (TER-4's
+# own fix), not a stale ghost to shrink past. "Clear everything from"
+# is a full .Clear (content AND formatting) - that's the actual case
+# this section means to exercise.
+Make cell Z500 bold.
+Clear everything from Z500.
+Remove trailing empty rows and columns.
+
+Go to sheet Output.
+
+Tidy-up.
+Turn on screen updating.
+Log "report finished".

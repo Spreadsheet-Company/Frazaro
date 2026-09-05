@@ -1,0 +1,1001 @@
+; SPDX-License-Identifier: MPL-2.0
+; espanol.vla - el gemelo en espanol de pirate.vla/latin.vla, las
+; mismas macros, la misma cobertura, una tercera prueba de que los
+; dialectos <lingua>-vla son puro texto de superficie sobre una sola
+; capa compartida de plantillas y macros. Carga english.vla PRIMERO
+; para que estas macros existan, luego carga este archivo.
+;
+; Los acentos (formula, region, boton, envia...) se omiten a favor de
+; la ortografia en ASCII simple - una decision practica de higiene
+; para un archivo de texto que vive dentro de VBA, no una afirmacion
+; de que la ortografia sin acentos sea el espanol estandar.
+;
+; {d:bold|italic}, {d:red|yellow}, {d:hide|unhide} siguen siendo las
+; palabras literales en ingles - se enlazan directamente al nombre de
+; la macro (make-{d}, vb{d}, {d}-column) igual que en pirate.vla/
+; latin.vla; solo la frase portadora esta en espanol.
+;
+; LX.10 (2026-08-27): ahora verificado contra el motor real -
+; VLA_Tests_Grammar.bas's TestLx10NonEnglishFixture carga este archivo
+; en cada VlaSelfTest. Esa primera corrida en vivo encontro un error
+; real de orden de reglas: "pon {e:expr} en la celda" (general) estaba
+; registrada ANTES que "pon hoy en la celda" (literal), y las reglas de
+; frase se prueban en orden de registro, primera coincidencia gana
+; (VLA_English.bas, ~linea 3908) - el slot {e:expr} capturaba "hoy"
+; como un atomo antes de que la regla literal tuviera su turno. Mismo
+; problema, misma solucion que english.vla ya usa para "put today"
+; contra "put {e:expr}" (~linea 79 de scripts/english.vla): la regla
+; literal debe registrarse PRIMERO. Corregido aqui invirtiendo las dos
+; reglas de abajo; probablemente el mismo error existe en los otros
+; seis dialectos hermanos (pirate/latin/deutsche/esperanto/francais/
+; dansk), que aun no estan conectados a ninguna prueba automatica -
+; encontrado, no corregido, fuera del alcance de este pase.
+;
+; LX.10, segunda corrida en vivo: un SEGUNDO error real, mas profundo -
+; "Envia un correo a {who:expr} ..." fallaba con "expected 'con' but
+; found the quoted email", como si {who:expr} nunca hubiera consumido
+; nada. Causa real, no adivinada: AddPhraseRule (VLA_English.bas
+; ~linea 1260) descarta "a"/"an"/"the"/"please" del patron ENTERO al
+; registrarlo (IsNoiseWord, ~linea 2499) - "a" nunca sobrevive como
+; item, en NINGUN dialecto. Cuando "a" precede una palabra literal,
+; SkipArticles (llamado antes de cada literal/alternacion) absorbe la
+; "a" sobrante de la oracion y todo cuadra por coincidencia - por eso
+; "agrega un borde A LA region ..." arriba SI funciona ("a" precede el
+; literal "la"). Pero las ramas expr/name/var/referencia de TryPhrase
+; (VLA_English.bas ~linea 4154 en adelante) NUNCA llaman SkipArticles
+; antes de intentar el slot - asi que cuando "a" precede un SLOT en vez
+; de un literal, el slot mismo se traga la "a" sobrante como un atomo
+; de una palabra, y todo lo que sigue queda desalineado. Esto no es un
+; bug de ESTE archivo - es una asuncion English-only en el motor base
+; (el mismo tipo de hallazgo que LX.5 ya nombro para la gramatica
+; estructural, aqui a nivel de una sola palabra de function). Arreglado
+; SIN tocar el motor, al nivel de vocabulario que este item existe para
+; probar barato: "a" -> "para" (tambien valido, tambien natural) en la
+; unica regla de este archivo donde "a" precedia un slot directamente.
+; francais.vla tiene la MISMA forma exacta ("envoie un courriel a
+; {who:expr} ...", ~linea 151) y casi seguro el mismo bug - encontrado
+; al revisar los seis hermanos por este patron, no corregido alli,
+; fuera del alcance de este pase (ese archivo tampoco esta conectado a
+; ninguna prueba todavia).
+;
+; LX5.3: tres nuevas pruebas (if/repeat/while) y cinco (keyword-alias
+; ...) - la primera vez que un dialecto de este proyecto reescribe
+; una palabra de CONTROL DE FLUJO, no solo vocabulario de frases. Ver
+; el comentario justo antes de esas reglas, mas abajo, para el
+; mecanismo y para "para cada ... en ..." (for each), encontrado
+; pero deliberadamente fuera de este primer corte.
+;
+; EDITIONMANIFEST.2 (decision del propietario): al final de este
+; archivo, un envoltorio (defmacro ...) en espanol por cada macro de
+; accion de english.vla - vocabulario para quien ESCRIBE una nueva
+; regla (espanol-vla ...), no solo para quien la ejecuta. Ver el
+; comentario propio de esa seccion para el alcance y el mecanismo.
+
+(espanol-vla
+    "pon la formula {f:text} en la celda {r:cell}"
+    (set-formula (range {r}) {f}))
+(test-success
+    "Pon la formula \"=B2*2\" en la celda B3."
+    (set-formula (range "b3") "=B2*2"))
+
+(espanol-vla
+    "pon hoy en la celda {r:cell}"
+    (set! (range {r}) (date)))
+(test-success
+    "Pon hoy en la celda D1."
+    (set! (range "d1") (date)))
+
+(espanol-vla
+    "pon {e:expr} en la celda {r:cell}"
+    (set! (range {r}) {e}))
+(test-success
+    "Pon 5 en la celda B2."
+    (set! (range "b2") 5))
+
+(espanol-vla
+    "haz la celda {r:cell} {d:bold|italic}"
+    (make-{d} (range {r})))
+(test-success
+    "Haz la celda A1 bold."
+    (make-bold (range "a1")))
+
+(espanol-vla
+    "pinta la celda {r:cell} {d:red|yellow}"
+    (set-fill-color (range {r}) vb{d}))
+(test-success
+    "Pinta la celda C4 red."
+    (set-fill-color (range "c4") vbred))
+
+(espanol-vla
+    "borra la fila {n:expr}"
+    (delete-row {n}))
+(test-success
+    "Borra la fila 5."
+    (delete-row 5))
+
+(espanol-vla
+    "borra la columna {c:column}"
+    (delete-column {c}))
+(test-success
+    "Borra la columna C."
+    (delete-column "c"))
+
+(espanol-vla
+    "{d:hide|unhide} la columna {c:column}"
+    ({d}-column {c}))
+(test-success
+    "Hide la columna C."
+    (hide-column "c"))
+(test-success
+    "Unhide la columna C."
+    (unhide-column "c"))
+
+(espanol-vla
+    "limpia la celda|region {r:range}"
+    (clear-contents (range {r})))
+(test-success
+    "Limpia la region \"A1:C10\"."
+    (clear-contents (range "A1:C10")))
+
+(espanol-vla
+    "agrega un borde a la region {r:range}"
+    (add-border (range {r})))
+(test-success
+    "Agrega un borde a la region \"A1:C10\"."
+    (add-border (range "A1:C10")))
+
+(espanol-vla
+    "ordena la region {r:range} por la columna {k:cell} descendente"
+    (sort-range-by (range {r}) (range {k}) xldescending))
+(test-success
+    "Ordena la region \"A1:C50\" por la columna B1 descendente."
+    (sort-range-by (range "A1:C50") (range "b1") xldescending))
+
+(espanol-vla
+    "trabaja en la hoja {s:sheet}"
+    (begin (vlaensuresheet {s}) (activate-sheet {s})))
+(test-success
+    "Trabaja en la hoja Results."
+    (begin (vlaensuresheet "results") (activate-sheet "results")))
+
+(espanol-vla
+    "agrega una hoja llamada {s:sheet}"
+    (add-sheet-called {s}))
+(test-success
+    "Agrega una hoja llamada \"Tesoro\"."
+    (add-sheet-called "Tesoro"))
+
+(espanol-vla
+    "haz un boton llamado {c:text} en la celda {r:cell}"
+    (make-button {c} (range {r})))
+(test-success
+    "Haz un boton llamado \"Recalculate Totals\" en la celda D3."
+    (make-button "Recalculate Totals" (range "d3")))
+
+(espanol-vla
+    "pon {e:expr} en la barra de estado"
+    (set-status-bar {e}))
+(test-success
+    "Pon \"listo\" en la barra de estado."
+    (set-status-bar "listo"))
+
+(espanol-vla
+    "limpia la barra de estado"
+    (set-status-bar false))
+(test-success
+    "Limpia la barra de estado."
+    (set-status-bar false))
+
+(espanol-vla
+    "espera {n:expr} segundos"
+    (wait-seconds {n}))
+(test-success
+    "Espera 2 segundos."
+    (wait-seconds 2))
+
+(espanol-vla
+    "cierra este libro"
+    (close-workbook))
+(test-success
+    "Cierra este libro."
+    (close-workbook))
+
+(espanol-vla
+    "envia un correo para {who:expr} con asunto {s:expr} y mensaje {m:expr}"
+    (vlasendmail {who} {s} {m}))
+(test-success
+    "Envia un correo para \"boss@co.com\" con asunto \"Report\" y mensaje \"Attached.\"."
+    (vlasendmail "boss@co.com" "Report" "Attached."))
+
+; LX5.3: (keyword-alias ...) - las primeras palabras de CONTROL DE
+; FLUJO en espanol, probando el mecanismo LX5.1/LX5.2
+; (BETA_ROADMAP2.md, CanonicalizeStructuralWords) mas alla del
+; vocabulario de frases de arriba: hasta ahora, cada regla de este
+; archivo es una PLANTILLA (espanol-vla), nunca una palabra que
+; ParseStmt reconoce por si misma (if/repeat/while/for, literales en
+; VLA_SentenceEngine.bas). Estas cinco son las primeras.
+;
+; "para cada ... en ..." (for each) queda deliberadamente FUERA de
+; este primer corte, encontrado durante esta sesion, no adivinado:
+; "en" y "para" ya son vocabulario ORDINARIO en este mismo archivo
+; ("... en la celda", "... en la barra de estado", "envia un correo
+; PARA ..." arriba) - y CanonicalizeStructuralWords reescribe cada
+; token del flujo de entrada GLOBALMENTE, no solo en posicion
+; estructural, asi que alias-ar cualquiera de las dos palabras aqui
+; romperia esas reglas ya existentes en este mismo archivo. Mismo
+; tipo de colision de vocabulario que este archivo ya documento
+; arriba para "a"/SkipArticles - no una limitacion nueva. Arreglo
+; real (nombrado, no construido aqui): canonicalizar solo cuando el
+; token anterior ya resolvio a una palabra estructural que espera
+; una segunda (p. ej. solo despues de "for", nunca en cualquier
+; posicion) - trabajo de una sesion futura con una razon real ya
+; encontrada, no hipotetica.
+(keyword-alias
+    "si"
+    "if")
+(keyword-alias
+    "es"
+    "is")
+(keyword-alias
+    "repetir"
+    "repeat")
+(keyword-alias
+    "veces"
+    "times")
+(keyword-alias
+    "mientras"
+    "while")
+
+(test-success
+    "Si 5 es 5, pon 1 en la barra de estado."
+    (if (= 5 5) (then (set-status-bar 1))))
+(test-success
+    "Repetir 3 veces, pon 1 en la barra de estado."
+    (dotimes counter 3 (set-status-bar 1)))
+(test-success
+    "Mientras 5 es 5, pon 1 en la barra de estado."
+    (while (= 5 5) (set-status-bar 1)))
+
+; ===========================================================================
+; VOCABULARIO DE MACROS EN ESPANOL - un envoltorio delgado por cada macro de
+; accion de english.vla, para que un autor de frases en espanol pueda escribir
+; el CUERPO de una nueva regla (espanol-vla ...) enteramente en espanol, no
+; solo el patron de texto. Decision del propietario, esta sesion: cada macro
+; de aqui simplemente reenvia sus mismos argumentos a su macro en ingles
+; correspondiente - CERO logica propia, para que no exista una segunda
+; implementacion que pueda desviarse (drift) de la original con el tiempo.
+; english.vla ya se carga PRIMERO en la cadena de esta edicion (ver el
+; comentario al inicio de este archivo), asi que cada macro en ingles ya
+; existe y esta probada antes de que estas alias siquiera se registren.
+;
+; Cobertura: las 123 formas (defmacro ...) de english.vla, menos los cinco
+; generadores de macros (table-property-family, tablespec-row, tablespec,
+; method-antonym-family, bool-antonym-family - no son verbos de accion, son
+; herramientas de autoria que EMITEN otras macros) y vla-stamp-cell (la macro
+; de demostracion de L4, no una macro de producto), mas las once macros que
+; esos generadores SI producen en tiempo de carga (table-style, table-totals-
+; on/off, merge-range/unmerge-range, hide-column/unhide-column, wrap-text/
+; unwrap-text, hide-row/unhide-row) - confirmadas leyendo su propia prueba
+; test-success, no adivinadas, porque la forma (defmacro (name n extras) ...)
+; de table-property-family por si sola no deja clara la aridad real de
+; llamada (el "valor" que fija viene fijo desde afuera, no como argumento).
+;
+; Los nombres de los PARAMETROS abajo (r, n, s, c, ...) se copian tal cual de
+; la macro en ingles - son variables de expansion, invisibles para quien
+; escribe una regla; solo el nombre de la propia macro es vocabulario real.
+;
+; No verificado con una corrida en vivo por esta sesion (ninguna prueba
+; test-success existente ejercita un alias de macro sin patron de frase
+; propio) - revisar con `expand`/`lisp` en el REPL del dev-rig, o con
+; VlaSelfTest tras VlaAuditDuplicates, antes de confiar en esta seccion en
+; produccion.
+
+; ---- tablas -------------------------------------------------------------
+(defmacro
+    (crea-tabla region nombre)
+    "crear una Tabla de Excel desde un rango y nombrarla"
+    (make-table region nombre))
+
+(defmacro
+    (estilo-tabla tabla estilo)
+    "fijar el estilo de una Tabla de Excel"
+    (table-style tabla estilo))
+
+(defmacro
+    (activa-totales-tabla tabla)
+    "mostrar la fila de totales de una Tabla de Excel"
+    (table-totals-on tabla))
+
+(defmacro
+    (desactiva-totales-tabla tabla)
+    "ocultar la fila de totales de una Tabla de Excel"
+    (table-totals-off tabla))
+
+(defmacro
+    (tabla-a-rango tabla)
+    "convertir una Tabla de Excel de nuevo en un rango comun"
+    (table-to-range tabla))
+
+(defmacro
+    (agrega-fila-tabla tabla)
+    "agregar una fila en blanco a una Tabla de Excel"
+    (table-add-row tabla))
+
+(defmacro
+    (borra-fila-tabla tabla fila)
+    "borrar una fila de una Tabla de Excel por su numero"
+    (table-delete-row tabla fila))
+
+(defmacro
+    (columna-tabla variable tabla columna)
+    "vincular una variable a los datos de una columna de una Tabla de Excel"
+    (table-column variable tabla columna))
+
+; ---- tablas dinamicas -----------------------------------------------------
+(defmacro
+    (crea-dinamica region celda-destino nombre)
+    "crear una tabla dinamica desde un rango en una celda destino"
+    (pivot-create region celda-destino nombre))
+
+(defmacro
+    (filas-dinamica dinamica campo)
+    "agregar campos al area de filas de una tabla dinamica"
+    (pivot-rows dinamica campo))
+
+(defmacro
+    (columnas-dinamica dinamica campo)
+    "agregar campos al area de columnas de una tabla dinamica"
+    (pivot-columns dinamica campo))
+
+(defmacro
+    (filtros-dinamica dinamica campo)
+    "agregar campos al area de filtros de una tabla dinamica"
+    (pivot-filters dinamica campo))
+
+(defmacro
+    (quita-campo-dinamica dinamica campo)
+    "quitar campos del diseno de una tabla dinamica por completo"
+    (pivot-remove-field dinamica campo))
+
+(defmacro
+    (dinamica-completa region celda-destino nombre campos-fila campos-columna campos-valor)
+    "la oracion compuesta de tabla dinamica - crear, luego filas/columnas, luego valores"
+    (pivot-full region celda-destino nombre campos-fila campos-columna campos-valor))
+
+(defmacro
+    (valores-suma-dinamica dinamica campo)
+    "agregar campos al area de valores de una tabla dinamica, sumados"
+    (pivot-values-sum dinamica campo))
+
+(defmacro
+    (valores-cuenta-dinamica dinamica campo)
+    "agregar campos al area de valores de una tabla dinamica, contados"
+    (pivot-values-count dinamica campo))
+
+(defmacro
+    (valores-promedio-dinamica dinamica campo)
+    "agregar campos al area de valores de una tabla dinamica, promediados"
+    (pivot-values-average dinamica campo))
+
+(defmacro
+    (actualiza-dinamica dinamica)
+    "actualizar una tabla dinamica desde su origen de datos"
+    (pivot-refresh dinamica))
+
+(defmacro
+    (actualiza-todas-dinamicas)
+    "actualizar cada tabla dinamica del libro, y nada mas"
+    (pivot-refresh-all))
+
+(defmacro
+    (borra-dinamica dinamica)
+    "borrar una tabla dinamica por su nombre"
+    (pivot-delete dinamica))
+
+(defmacro
+    (colapsa-dinamica dinamica campo)
+    "colapsar campos en una tabla dinamica, ocultando su detalle"
+    (pivot-collapse dinamica campo))
+
+(defmacro
+    (expande-dinamica dinamica campo)
+    "expandir campos en una tabla dinamica, mostrando su detalle"
+    (pivot-expand dinamica campo))
+
+(defmacro
+    (dinamica-diseno-compacto dinamica)
+    "mostrar los campos de fila de una tabla dinamica en forma compacta"
+    (pivot-layout-compact dinamica))
+
+(defmacro
+    (dinamica-diseno-tabular dinamica)
+    "mostrar los campos de fila de una tabla dinamica en forma tabular"
+    (pivot-layout-tabular dinamica))
+
+(defmacro
+    (dinamica-diseno-esquema dinamica)
+    "mostrar los campos de fila de una tabla dinamica en forma de esquema"
+    (pivot-layout-outline dinamica))
+
+(defmacro
+    (oculta-subtotales-dinamica dinamica campo)
+    "ocultar los subtotales de campos en una tabla dinamica"
+    (pivot-subtotals-hide dinamica campo))
+
+(defmacro
+    (muestra-subtotales-dinamica dinamica campo)
+    "mostrar (restaurar) los subtotales de campos en una tabla dinamica"
+    (pivot-subtotals-show dinamica campo))
+
+(defmacro
+    (agrega-linea-en-blanco-dinamica dinamica campo)
+    "insertar una fila en blanco tras cada elemento de campos en una tabla dinamica"
+    (pivot-blank-line-add dinamica campo))
+
+(defmacro
+    (quita-linea-en-blanco-dinamica dinamica campo)
+    "quitar la fila en blanco tras cada elemento de campos en una tabla dinamica"
+    (pivot-blank-line-remove dinamica campo))
+
+(defmacro
+    (renombra-dinamica dinamica nombre-nuevo)
+    "renombrar una tabla dinamica"
+    (pivot-rename dinamica nombre-nuevo))
+
+(defmacro
+    (limpia-dinamica dinamica)
+    "limpiar una tabla dinamica a un diseno vacio, conservando la tabla misma"
+    (pivot-clear dinamica))
+
+(defmacro
+    (origen-dinamica dinamica region)
+    "apuntar una tabla dinamica a un nuevo rango de origen y actualizarla"
+    (pivot-source dinamica region))
+
+(defmacro
+    (ordena-dinamica-ascendente dinamica campo)
+    "ordenar los elementos de un campo dinamico ascendente, por sus propias etiquetas"
+    (pivot-sort-ascending dinamica campo))
+
+(defmacro
+    (ordena-dinamica-descendente dinamica campo)
+    "ordenar los elementos de un campo dinamico descendente, por sus propias etiquetas"
+    (pivot-sort-descending dinamica campo))
+
+(defmacro
+    (ordena-dinamica-por-valor-ascendente dinamica campo campo-valor)
+    "ordenar los elementos de un campo dinamico ascendente por los numeros de un campo de valores"
+    (pivot-sort-by-value-ascending dinamica campo campo-valor))
+
+(defmacro
+    (ordena-dinamica-por-valor-descendente dinamica campo campo-valor)
+    "ordenar los elementos de un campo dinamico descendente por los numeros de un campo de valores"
+    (pivot-sort-by-value-descending dinamica campo campo-valor))
+
+; ---- filas y columnas -----------------------------------------------------
+(defmacro
+    (muestra-todas-filas-columnas)
+    "mostrar cada fila y columna oculta de la hoja activa"
+    (unhide-all-rows-columns))
+
+(defmacro
+    (autoajusta-fila fila)
+    "ajustar automaticamente la altura de una fila a su contenido"
+    (fit-row fila))
+
+(defmacro
+    (agrupa-filas desde hasta)
+    "agrupar un tramo de filas para poder colapsarlas"
+    (group-rows desde hasta))
+
+(defmacro
+    (desagrupa-filas desde hasta)
+    "desagrupar un tramo de filas agrupado previamente"
+    (ungroup-rows desde hasta))
+
+(defmacro
+    (inserta-n-filas-en fila cantidad)
+    "insertar varias filas en blanco a partir de un numero de fila, desplazando las filas existentes hacia abajo"
+    (insert-n-rows-at fila cantidad))
+
+(defmacro
+    (borra-filas-rango desde hasta)
+    "borrar un tramo contiguo de filas completas"
+    (delete-rows-range desde hasta))
+
+(defmacro
+    (mueve-columna columna destino)
+    "mover una columna completa antes de otra columna, conservando su formato"
+    (move-column columna destino))
+
+(defmacro
+    (congela-primeras-filas cantidad)
+    "congelar el numero dado de filas en la parte superior de la ventana activa"
+    (freeze-first-rows cantidad))
+
+(defmacro
+    (oculta-columna columna)
+    "ocultar una columna"
+    (hide-column columna))
+
+(defmacro
+    (muestra-columna columna)
+    "mostrar una columna oculta"
+    (unhide-column columna))
+
+(defmacro
+    (inserta-columna columna)
+    "insertar una columna en blanco"
+    (insert-column columna))
+
+(defmacro
+    (autoajusta-columna columna)
+    "ajustar automaticamente el ancho de una columna a su contenido"
+    (fit-column columna))
+
+(defmacro
+    (autoajusta-todas-columnas)
+    "ajustar automaticamente el ancho de cada columna a su contenido"
+    (fit-all-columns))
+
+(defmacro
+    (congela-fila-superior)
+    "congelar la fila de encabezado de la hoja"
+    (freeze-top-row))
+
+(defmacro
+    (descongela-paneles)
+    "quitar cualquier fila o columna congelada"
+    (unfreeze-panes))
+
+(defmacro
+    (fija-altura-fila fila altura)
+    "fijar la altura de una fila en puntos"
+    (set-row-height fila altura))
+
+(defmacro
+    (oculta-fila fila)
+    "ocultar una fila"
+    (hide-row fila))
+
+(defmacro
+    (muestra-fila fila)
+    "mostrar una fila oculta"
+    (unhide-row fila))
+
+(defmacro
+    (fija-ancho-columna columna ancho)
+    "fijar el ancho de una columna en caracteres"
+    (set-column-width columna ancho))
+
+(defmacro
+    (borra-fila fila)
+    "borrar una fila completa"
+    (delete-row fila))
+
+(defmacro
+    (inserta-fila fila)
+    "insertar una fila en blanco"
+    (insert-row-at fila))
+
+(defmacro
+    (borra-columna columna)
+    "borrar una columna completa"
+    (delete-column columna))
+
+; ---- copiar, pegar, limpiar, rellenar --------------------------------------
+(defmacro
+    (copia-solo-formatos origen destino)
+    "copiar solo el formato de un rango a otro, sin tocar valores ni formulas"
+    (copy-formats-only origen destino))
+
+(defmacro
+    (copia-solo-formulas origen destino)
+    "copiar solo las formulas de un rango a otro"
+    (copy-formulas-only origen destino))
+
+(defmacro
+    (copia-solo-anchos origen destino)
+    "copiar solo los anchos de columna de un rango a otro"
+    (copy-widths-only origen destino))
+
+(defmacro
+    (pega-transpuesto origen destino)
+    "copiar un rango a otro lugar con filas y columnas intercambiadas"
+    (paste-transposed origen destino))
+
+(defmacro
+    (corta-rango origen destino)
+    "mover las celdas de un rango a otro lugar, dejando el origen vacio"
+    (cut-range origen destino))
+
+(defmacro
+    (duplica-fila fila fila-destino)
+    "copiar el contenido y formato de una fila completa a otra fila"
+    (duplicate-row fila fila-destino))
+
+(defmacro
+    (limpia-todo-de region)
+    "limpiar los valores, formulas y formato de un rango por completo"
+    (clear-everything-from region))
+
+(defmacro
+    (borra-desplaza-arriba region)
+    "borrar un rango y desplazar hacia arriba las celdas debajo"
+    (delete-shift-up region))
+
+(defmacro
+    (borra-desplaza-izquierda region)
+    "borrar un rango y desplazar hacia la izquierda las celdas a su derecha"
+    (delete-shift-left region))
+
+(defmacro
+    (borra-filas-en-blanco region)
+    "borrar cada fila que tenga una celda en blanco dentro de un rango"
+    (delete-blank-rows region))
+
+(defmacro
+    (recorta-esta-hoja)
+    "quitar cada fila y columna vacia sobrante mas alla de la extension real de la hoja"
+    (trim-this-sheet))
+
+(defmacro
+    (alterna-color-filas region color)
+    "sombrear filas alternas de un rango con un color de relleno"
+    (band-rows region color))
+
+(defmacro
+    (haz-fila-encabezado region)
+    "hacer que una fila se vea como encabezado de tabla: texto en negrita y relleno claro"
+    (make-header-row region))
+
+(defmacro
+    (rellena-serie region inicio paso tipo)
+    "rellenar un rango con una serie lineal o de crecimiento"
+    (fill-series region inicio paso tipo))
+
+(defmacro
+    (limpia-contenido region)
+    "borrar los valores de un rango, conservando su formato"
+    (clear-contents region))
+
+(defmacro
+    (rellena-abajo region)
+    "copiar la fila superior de un rango hacia abajo a traves de el"
+    (fill-down region))
+
+(defmacro
+    (rellena-derecha region)
+    "copiar la columna izquierda de un rango hacia la derecha a traves de el"
+    (fill-right region))
+
+(defmacro
+    (copia-rango-a origen destino)
+    "copiar las celdas de un rango en otro rango"
+    (copy-range-to origen destino))
+
+(defmacro
+    (pega-valores origen destino)
+    "copiar solo los valores de un rango - sin formato ni formulas - a otro rango"
+    (paste-values origen destino))
+
+(defmacro
+    (limpia-color region)
+    "quitar el color de relleno de un rango"
+    (clear-color region))
+
+(defmacro
+    (limpia-formato region)
+    "quitar todo el formato de un rango, conservando sus valores"
+    (clear-formatting region))
+
+(defmacro
+    (reemplaza-en buscar reemplazo objetivo)
+    "buscar y reemplazar texto dentro de un rango o columna"
+    (replace-in buscar reemplazo objetivo))
+
+(defmacro
+    (quita-duplicados region columnas)
+    "quitar filas duplicadas de un rango, segun una o mas columnas"
+    (remove-duplicates region columnas))
+
+(defmacro
+    (copia-rango-a-hoja origen hoja direccion)
+    "copiar un rango a la misma direccion en otra hoja"
+    (copy-range-to-sheet origen hoja direccion))
+
+; ---- formato ----------------------------------------------------------
+(defmacro
+    (haz-negrita region)
+    "poner en negrita la fuente de un rango"
+    (make-bold region))
+
+(defmacro
+    (haz-cursiva region)
+    "poner en cursiva la fuente de un rango"
+    (make-italic region))
+
+(defmacro
+    (protege-hoja hoja contrasena)
+    "proteger una hoja con una contrasena"
+    (protect-sheet hoja contrasena))
+
+(defmacro
+    (desprotege-hoja hoja contrasena)
+    "quitar la proteccion de una hoja"
+    (unprotect-sheet hoja contrasena))
+
+(defmacro
+    (fija-alineacion region alineacion)
+    "fijar la alineacion horizontal de un rango"
+    (set-alignment region alineacion))
+
+(defmacro
+    (pinta-celda region color)
+    "fijar el color de relleno de fondo de un rango"
+    (set-fill-color region color))
+
+(defmacro
+    (fija-color-fuente region color)
+    "fijar el color de fuente de un rango"
+    (set-font-color region color))
+
+(defmacro
+    (fija-tamano-fuente region tamano)
+    "fijar el tamano de fuente de un rango, en puntos"
+    (set-font-size region tamano))
+
+(defmacro
+    (formato-moneda region)
+    "aplicar un formato de numero de moneda a un rango"
+    (format-as-currency region))
+
+(defmacro
+    (formato-porcentaje region)
+    "aplicar un formato de numero de porcentaje a un rango"
+    (format-as-percent region))
+
+(defmacro
+    (formato-fecha region)
+    "aplicar un formato de numero de fecha a un rango"
+    (format-as-date region))
+
+(defmacro
+    (agrega-borde region)
+    "agregar un borde de linea continua alrededor de un rango"
+    (add-border region))
+
+(defmacro
+    (combina-rango region)
+    "combinar un rango en una sola celda"
+    (merge-range region))
+
+(defmacro
+    (separa-rango region)
+    "separar un rango combinado de vuelta en celdas"
+    (unmerge-range region))
+
+(defmacro
+    (fija-color-pestana hoja color)
+    "fijar el color de la pestana de una hoja"
+    (set-tab-color hoja color))
+
+(defmacro
+    (ajusta-texto region)
+    "activar el ajuste de texto de un rango"
+    (wrap-text region))
+
+(defmacro
+    (no-ajusta-texto region)
+    "desactivar el ajuste de texto de un rango"
+    (unwrap-text region))
+
+; ---- ordenar, filtrar, nombrar --------------------------------------------
+(defmacro
+    (ordena-region-por region columna-clave orden)
+    "ordenar un rango por una columna"
+    (sort-range-by region columna-clave orden))
+
+(defmacro
+    (filtra-filas region campo criterio)
+    "ocultar cada fila de un rango cuya columna no coincida"
+    (filter-rows region campo criterio))
+
+(defmacro
+    (quita-filtro)
+    "quitar cualquier filtro activo, mostrando de nuevo cada fila"
+    (show-all-rows))
+
+(defmacro
+    (nombra-rango region nombre)
+    "dar a un rango un nombre de nivel de libro, utilizable en formulas"
+    (name-range region nombre))
+
+(defmacro
+    (ultima-fila-con-datos columna)
+    "el numero de la ultima fila no vacia de una columna"
+    (last-filled-row columna))
+
+; ---- hojas y libro ----------------------------------------------------
+(defmacro
+    (activa-hoja hoja)
+    "hacer que una hoja sea la hoja activa - falla si no existe"
+    (activate-sheet hoja))
+
+(defmacro
+    (agrega-hoja-llamada nombre)
+    "agregar una hoja nueva con un nombre dado"
+    (add-sheet-called nombre))
+
+(defmacro
+    (borra-hoja hoja)
+    "borrar una hoja sin el aviso de confirmacion"
+    (delete-sheet hoja))
+
+(defmacro
+    (abre-libro ruta)
+    "abrir un archivo de libro"
+    (open-workbook ruta))
+
+(defmacro
+    (guarda-libro-como ruta)
+    "guardar este libro en una nueva ruta"
+    (save-workbook-as ruta))
+
+(defmacro
+    (cierra-libro)
+    "cerrar este libro, guardando los cambios"
+    (close-workbook))
+
+(defmacro
+    (actualiza-todo)
+    "actualizar cada conexion de datos y tabla dinamica"
+    (refresh-everything))
+
+(defmacro
+    (imprime-esta-hoja)
+    "abrir la vista previa de impresion de esta hoja"
+    (print-this-sheet))
+
+(defmacro
+    (exporta-hoja-como-pdf ruta)
+    "exportar esta hoja como un archivo PDF"
+    (export-sheet-as-pdf ruta))
+
+(defmacro
+    (guarda-copia-como ruta)
+    "guardar una copia de este libro sin modificar el archivo abierto"
+    (save-copy-as ruta))
+
+(defmacro
+    (guarda-libro-actual)
+    "guardar este libro"
+    (save-current-workbook))
+
+(defmacro
+    (pon-en-celda-de-hoja valor celda hoja)
+    "escribir un valor en una celda de otra hoja"
+    (put-into-cell-of-sheet valor celda hoja))
+
+(defmacro
+    (celda-de-hoja celda hoja)
+    "leer el valor de una celda de otra hoja"
+    (cell-of-sheet celda hoja))
+
+; ---- varios -------------------------------------------------------------
+(defmacro
+    (espera-segundos cantidad)
+    "pausar por un numero de segundos"
+    (wait-seconds cantidad))
+
+(defmacro
+    (fija-actualizacion-pantalla activar)
+    "activar o desactivar el redibujado de pantalla de Excel"
+    (set-screen-updating activar))
+
+(defmacro
+    (pon-en-barra-de-estado texto)
+    "mostrar texto en la barra de estado, o false para limpiarla"
+    (set-status-bar texto))
+
+; ---- funciones de hoja de calculo ------------------------------------------
+(defmacro
+    (suma-de region)
+    "la suma de un rango o lista de numeros"
+    (sum-of region))
+
+(defmacro
+    (promedio-de region)
+    "el promedio de un rango o lista de numeros"
+    (average-of region))
+
+(defmacro
+    (mayor-de region)
+    "el mayor valor de un rango o lista"
+    (largest-of region))
+
+(defmacro
+    (menor-de region)
+    "el menor valor de un rango o lista"
+    (smallest-of region))
+
+(defmacro
+    (busca-de valor region columna)
+    "buscar un valor en la primera columna de un rango, leyendo hacia otra columna - falla si no se encuentra"
+    (lookup-of valor region columna))
+
+(defmacro
+    (suma-de-donde region region-criterio criterio)
+    "la suma de las celdas de un rango donde un rango correspondiente cumple una condicion"
+    (sum-of-where region region-criterio criterio))
+
+(defmacro
+    (cuenta-coincidentes region criterio)
+    "contar las celdas de un rango que coinciden con una condicion"
+    (count-matching region criterio))
+
+; ---- identificadores de VBA que pasan directo, no macros de english.vla --
+; Distincion real, no cosmetica: range/cells/rows/columns/worksheets/now/
+; timeserial no son macros de english.vla en absoluto - no tienen su
+; propio (defmacro ...) alli. Son identificadores que la propia VBA ya
+; reconoce (Range, Cells, Rows, Columns, Worksheets, Now, TimeSerial);
+; el emisor de VLA simplemente los deja pasar tal cual cuando no
+; reconoce la cabeza de una llamada como ninguna otra forma - el mismo
+; camino por defecto que produce una llamada VBA de cualquier nombre no
+; reconocido. Mecanicamente son del mismo tipo que las macros de arriba
+; (una cabeza que se puede envolver con un alias en espanol), asi que
+; el mismo truco de envoltorio delgado aplica sin mecanismo nuevo -
+; confirmado contando cada uso real en english.vla, no adivinado: range
+; (198x, siempre 1 argumento), cells (2 argumentos en cada llamada con
+; parentesis), rows/columns/worksheets (siempre 1 argumento), now
+; (siempre 0 argumentos), timeserial (siempre 3).
+;
+; NO los nueve candidatos originales de esta sesion se pudieron envolver
+; asi - dos se descartaron, encontrado por lectura directa del archivo,
+; no adivinado: "activesheet" y "application" NUNCA aparecen en
+; english.vla como una LLAMADA con parentesis - siempre son un simbolo
+; suelto dentro de una ruta con punto (activesheet.listobjects,
+; application.worksheetfunction.sum). Un (defmacro ...) solo intercepta
+; la forma (nombre argumentos...); un simbolo suelto dentro de una ruta
+; con punto nunca dispara la expansion de macros, sin importar que
+; nombre tenga. Envolverlos necesitaria un mecanismo distinto
+; (reescritura a nivel del propio emisor de rutas con punto), no
+; construido aqui - encontrado, no resuelto, con la razon real ya
+; identificada en vez de hipotetica.
+(defmacro
+    (rango direccion)
+    "un rango de celdas, por su direccion"
+    (range direccion))
+
+(defmacro
+    (celdas fila columna)
+    "una celda por su numero de fila y columna - 'celdas' porque asi se llama Cells en VBA, no porque esta llamada en particular devuelva mas de una"
+    (cells fila columna))
+
+(defmacro
+    (filas numero)
+    "una o mas filas, por numero o por un rango de numeros"
+    (rows numero))
+
+(defmacro
+    (columnas letra)
+    "una o mas columnas, por letra o por un rango de letras"
+    (columns letra))
+
+(defmacro
+    (hojas nombre)
+    "una hoja del libro, por su nombre"
+    (worksheets nombre))
+
+(defmacro
+    (ahora)
+    "la fecha y hora actuales"
+    (now))
+
+(defmacro
+    (hora-serie horas minutos segundos)
+    "una hora como valor de serie, a partir de horas, minutos y segundos"
+    (timeserial horas minutos segundos))
+
+
+

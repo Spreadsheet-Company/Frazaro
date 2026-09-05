@@ -1,0 +1,21 @@
+# Line endings, made deterministic for every clone regardless of the
+# cloner's core.autocrlf. The repository stores LF; the working copy gets
+# what each consumer needs:
+#   - VBA's VBComponents.Import requires CRLF to recognize a .cls file's
+#     VERSION/BEGIN/END header (with LF the header lands in the code pane
+#     as literal statements - a live, thrice-repeated incident). .bas/.frm
+#     get the same treatment so the whole src/ tree imports uniformly.
+#   - .vla phrasebooks and the prelude are read by VBA's own line reader,
+#     which treats a bare LF as text, not a line break.
+# Everything else is ordinary text (LF in the repo, platform default on
+# checkout) or binary.
+* text=auto
+*.bas text eol=crlf
+*.cls text eol=crlf
+*.frm text eol=crlf
+*.vla text eol=crlf
+*.frx binary
+*.xlsm binary
+*.xlam binary
+*.docx binary
+*.exe binary

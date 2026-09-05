@@ -1,0 +1,86 @@
+# instrucciones.txt - lo que Frazaro_Espanol.xlam entiende HOY, en
+# espanol, y nada mas. Es el companero exacto de instructions.txt: la
+# BRECHA entre ambos archivos ES el trabajo pendiente de EDITION-
+# ESPANOL (docs/BETA_ROADMAP2.md) - cada linea de instructions.txt que
+# NO tiene una version aqui es, por definicion, una frase que Frazaro
+# todavia no entiende en espanol. Esta corrida ejercita, con una
+# prueba real, exactamente los 19 patrones (espanol-vla ...) y las 5
+# palabras de control (keyword-alias) que scripts/polyglotta/
+# espanol.vla registra hoy - ni una frase mas.
+#
+# Honestidad, no adorno: tres de esos patrones NO son espanol puro
+# todavia - sus opciones {d:bold|italic}, {d:red|yellow} y
+# {d:hide|unhide} siguen siendo las palabras literales en ingles (la
+# misma decision que pirate.vla/latin.vla ya tomaron, documentada en
+# la cabecera de espanol.vla). "Haz la celda A1 bold." y "Hide la
+# columna Z." abajo estan escritas asi a proposito, no por error.
+#
+# Deliberadamente SIN variables, declaraciones, ni funciones de hoja
+# de calculo (suma, promedio...) dentro de una oracion: ninguna de
+# esas formas tiene todavia una frase en espanol - solo obtuvieron un
+# ALIAS DE MACRO esta sesion (EDITION-MACROS), vocabulario para quien
+# ESCRIBE una regla nueva, no para quien escribe una oracion.
+#
+# "Mientras" (while) no aparece como una linea que se ejecute, por la
+# misma razon de fondo: sin una variable que pueda cambiar de valor,
+# cualquier condicion literal como "5 es 5" nunca se vuelve falsa - un
+# bucle asi colgaria Excel de verdad si esto se compila y corre
+# (IN.14, docs/BETA_ROADMAP2.md, ya nombra este riesgo para el
+# interprete). La propia prueba test-success de "mientras" en
+# espanol.vla ya cubre esa palabra de forma segura - solo traduccion,
+# nunca ejecucion. Repetirlo aqui como una linea que SI se ejecuta
+# seria negligente, no un descuido.
+#
+# Enviar-un-correo y cerrar-este-libro quedan comentados mas abajo por
+# una razon practica, no de cobertura: abren un borrador de Outlook de
+# verdad, o cierran el libro activo de verdad. Ninguna de las dos
+# deberia dispararse solo porque alguien presiono "Compile and Run" en
+# una corrida de rutina - descomentalas para probarlas aparte, a
+# proposito. Enviar un correo nunca envia nada por si solo (SD-13: sin
+# llamadas de red salientes), pero SI abre la ventana de redaccion.
+#
+# Nota practica para quien vuelva a correr esto mas de una vez: "Agrega
+# una hoja llamada" se niega si esa hoja ya existe (vlachecksheetabsent,
+# scripts/polyglotta/english.vla) - borra la hoja "Reporte" a mano
+# antes de una segunda corrida, o comenta esa linea.
+
+Trabaja en la hoja Output.
+
+Pon la formula "=B2*2" en la celda B3.
+Pon hoy en la celda D1.
+Pon 5 en la celda B2.
+
+Haz la celda A1 bold.
+Pinta la celda C4 red.
+
+Agrega una hoja llamada "Reporte".
+Trabaja en la hoja Output.
+
+Agrega un borde a la region "A1:C10".
+Ordena la region "A1:C50" por la columna B1 descendente.
+
+Haz un boton llamado "Recalcular" en la celda D3.
+
+Pon "listo" en la barra de estado.
+Limpia la barra de estado.
+
+Espera 2 segundos.
+
+Borra la fila 20.
+Borra la columna Z.
+Hide la columna Z.
+Unhide la columna Z.
+
+Limpia la celda B2.
+Limpia la region "A1:C1".
+
+Si 5 es 5, pon "ok" en la barra de estado.
+Repetir 3 veces, pon "vuelta" en la barra de estado.
+
+# Enviar un correo abre un borrador de verdad (no lo envia - SD-13 -
+# pero SI abre Outlook). Descomenta para probarlo aparte:
+# Envia un correo para "boss@co.com" con asunto "Reporte" y mensaje "Adjunto.".
+
+# Cerrar este libro cierra de verdad el libro activo. Descomenta para
+# probarlo aparte, nunca como parte de una corrida de rutina:
+# Cierra este libro.

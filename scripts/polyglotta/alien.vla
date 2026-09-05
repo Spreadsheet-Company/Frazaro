@@ -1,0 +1,132 @@
+; SPDX-License-Identifier: MPL-2.0
+; alien.vla - >*< |~~~| ~o~ <*> ~o~ |~~~| >*<
+;             (first contact, in parentheses)
+;
+; The easter egg: Alien Lisp. The dialect phrasebooks (espanol.vla,
+; esperanto.vla, latin.vla, pirate.vla, ...) proved the SENTENCE
+; layer's surface is replaceable text over one shared macro layer.
+; This file walks the other direction entirely: the VLA layer itself,
+; with every name a glyph. No human language at all - the only words
+; left are the two scaffolding heads the engine itself owns (defmacro,
+; and the sub a transmission expands into) plus the docstrings, which
+; are this file's Rosetta stone.
+;
+; Why it works - two real properties of the engine, no parser tricks:
+;   - VLA.bas's Tokenize reads a symbol as ANY run of characters that
+;     is not whitespace, '(', ')', ';' or '"' - so =|> and |~~~| are
+;     symbols exactly as legal as set!.
+;   - every glyph below is a MACRO name or a macro parameter, and
+;     macros expand away before code generation, so the emitted VBA
+;     never contains a single glyph and still compiles. The one name
+;     that must survive into VBA - the sub that (|~~~| ...) expands
+;     into - is spelled in leetspeak instead, because VBA identifiers
+;     cannot wear glyphs: x3n0-h41l0 emits as x3n0_h41l0.
+; The glyphs are pure ASCII on purpose - the same ASCII-hygiene
+; decision every dialect file already made about its own accents. And
+; they could never ride in SENTENCES: EnTokenize's IsWordChar is
+; [A-Za-z0-9_-] and a stray character refuses loudly, by design. So
+; the egg lives at exactly the one layer whose reader welcomes it:
+; Alien Lisp, not Alien English.
+;
+; Lexicon:
+;   =~=   land             - ensure a sheet exists, step onto it
+;   =|>   inscribe         - put a value in a cell
+;   =%>   inscribe-rite    - put a living formula in a cell
+;   *!*   embolden         - bold a range
+;   ~@~   tint-the-ground  - a range's fill color
+;   ^@^   tint-the-voice   - a range's font color
+;   <|>   stretch          - a column's width
+;   ^v^   transmit         - speak into the Immediate window
+;   *~*   light-beacon     - put words on the status bar
+;   x~x   dark-beacon      - put the status bar out
+;   |~~~| transmission     - wrap a body into the sub x3n0-h41l0
+;   !!!   wake             - call the transmission
+; (the parameters are glyphs too: ~o~ a place, <*> a payload, =^= a
+; color, ~~~ the transmission's rest-bound body)
+;
+; Run it from a program:
+;   Use library "alien.vla".
+;   (!!!)
+; then read sheet ~x3n0~ (cell B7 decodes itself on arrival), the
+; Immediate window, and the status bar - a raw (x~x) row puts the
+; beacon back out.
+;
+; Untested against the living machine (blind-writing discipline,
+; esperanto.vla's own tradition) - Check/Run is the true trial.
+
+(defmacro
+    (=~= ~o~)
+    "=~= : land - ensure the sheet ~o~ exists and step onto it"
+    (begin (vlaensuresheet ~o~) (. (worksheets ~o~) activate)))
+
+(defmacro
+    (=|> ~o~ <*>)
+    "=|> : inscribe - put the payload <*> in the cell ~o~"
+    (set! (range ~o~) <*>))
+
+(defmacro
+    (=%> ~o~ <*>)
+    "=%> : inscribe-rite - put the living formula <*> in the cell ~o~"
+    (set! (. (range ~o~) formula) <*>))
+
+(defmacro
+    (*!* ~o~)
+    "*!* : embolden - turn the range ~o~ bold"
+    (set! (. (range ~o~) font.bold) true))
+
+(defmacro
+    (~@~ ~o~ =^=)
+    "~@~ : tint-the-ground - fill the range ~o~ with the color =^="
+    (set! (. (range ~o~) interior.color) =^=))
+
+(defmacro
+    (^@^ ~o~ =^=)
+    "^@^ : tint-the-voice - color the range ~o~'s font =^="
+    (set! (. (range ~o~) font.color) =^=))
+
+(defmacro
+    (<|> ~o~ <*>)
+    "<|> : stretch - set the column ~o~'s width to <*> characters"
+    (set! (. (columns ~o~) columnwidth) <*>))
+
+(defmacro
+    (^v^ ~o~)
+    "^v^ : transmit - speak ~o~ into the Immediate window"
+    (debug-print ~o~))
+
+(defmacro
+    (*~* ~o~)
+    "*~* : light-beacon - put ~o~ on the status bar"
+    (set! application.statusbar ~o~))
+
+(defmacro
+    (x~x)
+    "x~x : dark-beacon - put the status bar out"
+    (set! application.statusbar false))
+
+(defmacro
+    (|~~~| & ~~~)
+    "|~~~| : transmission - the body becomes the sub x3n0-h41l0"
+    (sub x3n0-h41l0 () "the alien.vla transmission - lands on sheet ~x3n0~ and writes home" ~~~))
+
+(defmacro
+    (!!!)
+    "!!! : wake - call the transmission"
+    (x3n0-h41l0))
+
+(|~~~| (=~= "~x3n0~")
+       (<|> "b" 46)
+       (=|> "b2" "|~~~| ~o~ <*> =^= <*> ~o~ |~~~|")
+       (=|> "b3" "^v^ :: ~@~ ~@~ ~@~ :: ^v^")
+       (=|> "b4" "~o~ ~o~ ~o~ >*< ~o~ ~o~ ~o~")
+       (=|> "b5" "* ~ * ~ * ~ * ~ * ~ *")
+       (=%> "b7"
+            "=CHAR(84)&CHAR(65)&CHAR(75)&CHAR(69)&CHAR(32)&CHAR(85)&CHAR(83)&CHAR(32)&CHAR(84)&CHAR(79)&CHAR(32)&CHAR(89)&CHAR(79)&CHAR(85)&CHAR(82)&CHAR(32)&CHAR(80)&CHAR(65)&CHAR(82)&CHAR(83)&CHAR(69)&CHAR(82)")
+       (~@~ "b2:b7" vbblack)
+       (^@^ "b2:b7" vbgreen)
+       (*!* "b2")
+       (*~* ">*< |~~~| >*<")
+       (^v^ "^v^ ~o~ <*> |~~~| x3n0 |~~~| <*> ~o~ ^v^"))
+
+
+

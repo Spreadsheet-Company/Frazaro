@@ -1,0 +1,46 @@
+# REUSE.toml - the licence map (reuse.software, specification 3.3).
+#
+# One repository, four licence territories, no directory moves: path globs
+# resolve every file to one SPDX identifier, and tools/check_spdx.ps1
+# verifies the map against the tree. Later [[annotations]] tables win when
+# more than one matches a file, so the specific entries sit below the
+# general ones. The reasoning is docs/CUTS.md section 4 (Bucket 2, decided
+# 2026-09-04): Apache-2.0 engine, MPL-2.0 phrasebooks (file-scoped, so an
+# organization's own phrasebook file stays its own), 0BSD on the one module
+# copied into customers' workbooks, CC-BY-4.0 documentation. Generated
+# output is covered by OUTPUT-EXCEPTION.md, not by any entry here.
+
+version = 1
+SPDX-PackageName = "Frazaro"
+SPDX-PackageSupplier = "Spreadsheet Company <english@spreadsheet.company>"
+SPDX-PackageDownloadLocation = "https://github.com/Spreadsheet-Company/frazaro"
+
+# The engine, its prelude, the corpus fixtures and goldens, the dev tooling,
+# the installer, and this map itself.
+[[annotations]]
+path = ["src/**", "scripts/**", "tools/**", "installer/**", "web/**", "archive/**", "REUSE.toml", ".gitignore"]
+SPDX-FileCopyrightText = "2026 Spreadsheet Company"
+SPDX-License-Identifier = "Apache-2.0"
+
+# The phrasebooks: the base corpus and every edition or dialect beside it.
+# MPL-2.0 is per file - see PHRASEBOOK-TERMS.md for what that means for a
+# phrasebook you write yourself (it is yours).
+[[annotations]]
+path = ["scripts/polyglotta/**"]
+SPDX-FileCopyrightText = "2026 Spreadsheet Company"
+SPDX-License-Identifier = "MPL-2.0"
+
+# The runtime helper zoo. Its text above the EN_RUNTIME INJECT BOUNDARY is
+# copied verbatim into customers' workbooks as Frazaro_EN_Runtime, so it
+# carries the lightest terms in the repository and its own in-file header
+# travels with it.
+[[annotations]]
+path = ["src/VLA_Runtime.bas"]
+SPDX-FileCopyrightText = "2026 Spreadsheet Company"
+SPDX-License-Identifier = "0BSD"
+
+# Documentation, including the governance files at the repository root.
+[[annotations]]
+path = ["docs/**", "*.md", "NOTICE"]
+SPDX-FileCopyrightText = "2026 Spreadsheet Company"
+SPDX-License-Identifier = "CC-BY-4.0"

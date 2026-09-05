@@ -1,0 +1,160 @@
+; SPDX-License-Identifier: MPL-2.0
+; dansk.vla - den danske tvilling af pirate.vla/latin.vla/espanol.vla/
+; deutsche.vla/esperanto.vla/francais.vla, de samme makroer, samme
+; daekning, endnu et bevis paa at <lingua>-vla-dialekter er rent
+; overfladetekst over et enkelt faelles lag af skabeloner og makroer.
+; Indlaes english.vla FOERST, saa disse makroer findes, indlaes saa
+; denne fil.
+;
+; ae, oe og aa staar her for de danske bogstaver ae, o-skraa og
+; a-ring - den samme ASCII-hygiejne-beslutning som de andre dialekt-
+; filer traeffer for deres egne specialtegn. Kierkegaard ville nok
+; foretraekke de rigtige bogstaver, men filen skal kunne laeses paa
+; enhver maskine.
+;
+; {d:bold|italic}, {d:red|yellow}, {d:hide|unhide} forbliver de
+; bogstavelige engelske ord - de bindes direkte til makronavnet
+; (make-{d}, vb{d}, {d}-column) ligesom i de andre dialektfiler; kun
+; baeresaetningen er dansk.
+;
+; Ikke testet mod den koerende motor (disciplinen med at skrive blindt)
+; - Check Sentences / Reload Vocabulary er den rigtige proeve.
+
+(dansk-vla
+    "saet formlen {f:text} i cellen {r:cell}"
+    (set-formula (range {r}) {f}))
+(test-success
+    "Saet formlen \"=B2*2\" i cellen B3."
+    (set-formula (range "b3") "=B2*2"))
+
+(dansk-vla
+    "saet {e:expr} i cellen {r:cell}"
+    (set! (range {r}) {e}))
+(test-success
+    "Saet 5 i cellen B2."
+    (set! (range "b2") 5))
+
+(dansk-vla
+    "saet dags dato i cellen {r:cell}"
+    (set! (range {r}) (date)))
+(test-success
+    "Saet dags dato i cellen D1."
+    (set! (range "d1") (date)))
+
+(dansk-vla
+    "goer cellen {r:cell} {d:bold|italic}"
+    (make-{d} (range {r})))
+(test-success
+    "Goer cellen A1 bold."
+    (make-bold (range "a1")))
+
+(dansk-vla
+    "mal cellen {r:cell} {d:red|yellow}"
+    (set-fill-color (range {r}) vb{d}))
+(test-success
+    "Mal cellen C4 red."
+    (set-fill-color (range "c4") vbred))
+
+(dansk-vla
+    "slet raekken {n:expr}"
+    (delete-row {n}))
+(test-success
+    "Slet raekken 5."
+    (delete-row 5))
+
+(dansk-vla
+    "slet kolonnen {c:column}"
+    (delete-column {c}))
+(test-success
+    "Slet kolonnen C."
+    (delete-column "c"))
+
+(dansk-vla
+    "{d:hide|unhide} kolonnen {c:column}"
+    ({d}-column {c}))
+(test-success
+    "Hide kolonnen C."
+    (hide-column "c"))
+(test-success
+    "Unhide kolonnen C."
+    (unhide-column "c"))
+
+(dansk-vla
+    "ryd cellen|omraadet {r:range}"
+    (clear-contents (range {r})))
+(test-success
+    "Ryd omraadet \"A1:C10\"."
+    (clear-contents (range "A1:C10")))
+
+(dansk-vla
+    "tilfoej en ramme til omraadet {r:range}"
+    (add-border (range {r})))
+(test-success
+    "Tilfoej en ramme til omraadet \"A1:C10\"."
+    (add-border (range "A1:C10")))
+
+(dansk-vla
+    "sorter omraadet {r:range} efter kolonnen {k:cell} faldende"
+    (sort-range-by (range {r}) (range {k}) xldescending))
+(test-success
+    "Sorter omraadet \"A1:C50\" efter kolonnen B1 faldende."
+    (sort-range-by (range "A1:C50") (range "b1") xldescending))
+
+(dansk-vla
+    "arbejd paa arket {s:sheet}"
+    (begin (vlaensuresheet {s}) (activate-sheet {s})))
+(test-success
+    "Arbejd paa arket Results."
+    (begin (vlaensuresheet "results") (activate-sheet "results")))
+
+(dansk-vla
+    "opret et ark ved navn {s:sheet}"
+    (add-sheet-called {s}))
+(test-success
+    "Opret et ark ved navn \"Skat\"."
+    (add-sheet-called "Skat"))
+
+(dansk-vla
+    "opret en knap ved navn {c:text} ved cellen {r:cell}"
+    (make-button {c} (range {r})))
+(test-success
+    "Opret en knap ved navn \"Recalculate Totals\" ved cellen D3."
+    (make-button "Recalculate Totals" (range "d3")))
+
+(dansk-vla
+    "saet {e:expr} i statuslinjen"
+    (set-status-bar {e}))
+(test-success
+    "Saet \"klar\" i statuslinjen."
+    (set-status-bar "klar"))
+
+(dansk-vla
+    "ryd statuslinjen"
+    (set-status-bar false))
+(test-success
+    "Ryd statuslinjen."
+    (set-status-bar false))
+
+(dansk-vla
+    "vent {n:expr} sekunder"
+    (wait-seconds {n}))
+(test-success
+    "Vent 2 sekunder."
+    (wait-seconds 2))
+
+(dansk-vla
+    "luk denne projektmappe"
+    (close-workbook))
+(test-success
+    "Luk denne projektmappe."
+    (close-workbook))
+
+(dansk-vla
+    "send en mail til {who:expr} med emne {s:expr} og besked {m:expr}"
+    (vlasendmail {who} {s} {m}))
+(test-success
+    "Send en mail til \"boss@co.com\" med emne \"Report\" og besked \"Attached.\"."
+    (vlasendmail "boss@co.com" "Report" "Attached."))
+
+
+

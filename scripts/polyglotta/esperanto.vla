@@ -1,0 +1,158 @@
+; SPDX-License-Identifier: MPL-2.0
+; esperanto.vla - la esperanta gefratino de pirate.vla/latin.vla/
+; espanol.vla/deutsche.vla, samaj makrooj, sama amplekso, plia pruvo
+; ke <lingua>-vla-dialektoj estas pura surfaca teksto super unu
+; komuna tavolo de shablonoj kaj makrooj. Shargu unue english.vla,
+; por ke chi tiuj makrooj ekzistu, poste shargu chi tiun dosieron.
+;
+; La supersignitaj literoj de Esperanto (c^, g^, h^, j^, s^, u-brevo)
+; skribighas chi-tie per la oficiala anstatau-sistemo "h" (ch, gh, hh,
+; jh, sh, u) - la sama ASCII-higiena decido kiun la aliaj dialektaj
+; dosieroj faras pri siaj propraj supersignoj.
+;
+; {d:bold|italic}, {d:red|yellow}, {d:hide|unhide} restas la lauliteraj
+; anglaj vortoj - ili ligighas rekte al la makronomo (make-{d}, vb{d},
+; {d}-column) same kiel en la aliaj dialektaj dosieroj; nur la portanta
+; frazo estas esperanta.
+;
+; Netestita kontrau la vivanta mashino (disciplino de blinda skribado)
+; - Check Sentences / Reload Vocabulary estas la vera provo.
+
+(esperanto-vla
+    "metu la formulon {f:text} en la chelon {r:cell}"
+    (set-formula (range {r}) {f}))
+(test-success
+    "Metu la formulon \"=B2*2\" en la chelon B3."
+    (set-formula (range "b3") "=B2*2"))
+
+(esperanto-vla
+    "metu {e:expr} en la chelon {r:cell}"
+    (set! (range {r}) {e}))
+(test-success
+    "Metu 5 en la chelon B2."
+    (set! (range "b2") 5))
+
+(esperanto-vla
+    "metu hodiau en la chelon {r:cell}"
+    (set! (range {r}) (date)))
+(test-success
+    "Metu hodiau en la chelon D1."
+    (set! (range "d1") (date)))
+
+(esperanto-vla
+    "faru la chelon {r:cell} {d:bold|italic}"
+    (make-{d} (range {r})))
+(test-success
+    "Faru la chelon A1 bold."
+    (make-bold (range "a1")))
+
+(esperanto-vla
+    "pentru la chelon {r:cell} {d:red|yellow}"
+    (set-fill-color (range {r}) vb{d}))
+(test-success
+    "Pentru la chelon C4 red."
+    (set-fill-color (range "c4") vbred))
+
+(esperanto-vla
+    "forigu la vicon {n:expr}"
+    (delete-row {n}))
+(test-success
+    "Forigu la vicon 5."
+    (delete-row 5))
+
+(esperanto-vla
+    "forigu la kolumnon {c:column}"
+    (delete-column {c}))
+(test-success
+    "Forigu la kolumnon C."
+    (delete-column "c"))
+
+(esperanto-vla
+    "{d:hide|unhide} la kolumnon {c:column}"
+    ({d}-column {c}))
+(test-success
+    "Hide la kolumnon C."
+    (hide-column "c"))
+(test-success
+    "Unhide la kolumnon C."
+    (unhide-column "c"))
+
+(esperanto-vla
+    "purigu la chelon|regionon {r:range}"
+    (clear-contents (range {r})))
+(test-success
+    "Purigu la regionon \"A1:C10\"."
+    (clear-contents (range "A1:C10")))
+
+(esperanto-vla
+    "aldonu limon al la regiono {r:range}"
+    (add-border (range {r})))
+(test-success
+    "Aldonu limon al la regiono \"A1:C10\"."
+    (add-border (range "A1:C10")))
+
+(esperanto-vla
+    "ordigu la regionon {r:range} lau kolumno {k:cell} malkreske"
+    (sort-range-by (range {r}) (range {k}) xldescending))
+(test-success
+    "Ordigu la regionon \"A1:C50\" lau kolumno B1 malkreske."
+    (sort-range-by (range "A1:C50") (range "b1") xldescending))
+
+(esperanto-vla
+    "laboru en folio {s:sheet}"
+    (begin (vlaensuresheet {s}) (activate-sheet {s})))
+(test-success
+    "Laboru en folio Results."
+    (begin (vlaensuresheet "results") (activate-sheet "results")))
+
+(esperanto-vla
+    "kreu folion nomitan {s:sheet}"
+    (add-sheet-called {s}))
+(test-success
+    "Kreu folion nomitan \"Trezoro\"."
+    (add-sheet-called "Trezoro"))
+
+(esperanto-vla
+    "kreu butonon nomitan {c:text} che la chelo {r:cell}"
+    (make-button {c} (range {r})))
+(test-success
+    "Kreu butonon nomitan \"Recalculate Totals\" che la chelo D3."
+    (make-button "Recalculate Totals" (range "d3")))
+
+(esperanto-vla
+    "metu {e:expr} en la statuslinion"
+    (set-status-bar {e}))
+(test-success
+    "Metu \"preta\" en la statuslinion."
+    (set-status-bar "preta"))
+
+(esperanto-vla
+    "purigu la statuslinion"
+    (set-status-bar false))
+(test-success
+    "Purigu la statuslinion."
+    (set-status-bar false))
+
+(esperanto-vla
+    "atendu {n:expr} sekundojn"
+    (wait-seconds {n}))
+(test-success
+    "Atendu 2 sekundojn."
+    (wait-seconds 2))
+
+(esperanto-vla
+    "fermu chi tiun laborlibron"
+    (close-workbook))
+(test-success
+    "Fermu chi tiun laborlibron."
+    (close-workbook))
+
+(esperanto-vla
+    "sendu retmesaghon al {who:expr} kun temo {s:expr} kaj mesagho {m:expr}"
+    (vlasendmail {who} {s} {m}))
+(test-success
+    "Sendu retmesaghon al \"boss@co.com\" kun temo \"Report\" kaj mesagho \"Attached.\"."
+    (vlasendmail "boss@co.com" "Report" "Attached."))
+
+
+

@@ -1,0 +1,2966 @@
+; SPDX-License-Identifier: MPL-2.0
+; english.vla - the 40 vocabulary rules from SENTENCES.md,
+; each shipped with its proof: a "test:" line the loader verifies
+; after registration. A vocabulary does not load unless its tests
+; pass, so this file is its own regression suite.
+;
+; Load with:
+;   EnglishResetGrammar
+;   EnglishLoadVocabulary ThisWorkbook.Path & "\english.vla"
+;   Debug.Print EnglishLintReport()
+;
+; References: bare for cells, columns, sheets, AND ranges (cell B2,
+; column C, sheet Data, range A1:C50); quotes only when a reference
+; contains spaces ("Q1 Data") or when creating a sheet whose name's
+; case matters. Bare references lowercase in transit.
+;
+; G1: patterns may use alternation slots and optional literals.
+;   {d:left|right}  matches one of the words; the MATCHED word binds
+;                   into the template ({d} -> left), so xl{d} becomes
+;                   xlleft - one rule where surface spellings differ.
+;   [key]           optional literal: matched when present, free when
+;                   absent, never fails the rule. One word only; for
+;                   a multi-word spelling, compose the two features -
+;                   "at|under [key]" accepts at / at key / under /
+;                   under key, which is exactly how Store reads below.
+;   into|in         G10: a BARE alternation - no braces, no name -
+;                   matches one branch and binds nothing. The rule
+;                   is now simple: BRACES CAPTURE (the matched word
+;                   travels into the template, as in {d:left|right}
+;                   -> xl{d}); bare words just match. Bare tokens
+;                   may carry / surfaces too (sort/ed), and an
+;                   optional may hold an alternation ([in|into]).
+;   center/ed       G1.1: a branch (or optional) may carry ONE slash
+;                   - stem/suffix - accepting both surfaces while the
+;                   STEM binds, so xl{d} stays xlcenter whether the
+;                   writer typed center or centered.
+; The load-time audit expands every branch, surface, and include/omit
+; when checking duplicate shapes, so a collapsed rule cannot silently
+; shadow (or be shadowed by) a plain one.
+;
+; G3: dialect layering. Load order is the contract: THIS base file
+; first, then dialect phrasebooks alphabetically (E2's plan). A
+; dialect rule with the same shape as an earlier rule REFUSES to
+; load unless marked - "override: <pattern> => <template>" - and the
+; marker must be earned: it must replace exactly one earlier
+; phrasebook rule (matching nothing, matching several, or matching
+; the built-in core all refuse with directions). Explain names which
+; file won every sentence ("[from dialect.vocab (overrides
+; english.vla)]").
+;
+; G2: typed reference slots - :range :cell :column :sheet :color -
+; are :text plus a Check-time SHAPE check with a teaching refusal
+; ("Sort range banana ..." now refuses at Check instead of dying at
+; runtime). A QUOTED reference always asserts past the check: quotes
+; are the door for named ranges and spaced sheet names, exactly as
+; the quoting doctrine above already reads. :sheet checks no shape
+; (any word can name a sheet); it exists so the rule declares what
+; it touches - ?EnglishListRefSlots prints that declaration, the
+; surface U1's Rehearse will consume.
+
+; ---- 11-20: putting values in and getting them out --------------------
+; G10: the template face hides the dot behind a carried macro - the
+; dot stays first-class in VLA (it IS member access), but a template
+; author writes what the action is called, not how VBA spells it.
+(defmacro
+    (set-formula r f)
+    "write a formula string into a range"
+    (set! (. r formula) f))
+
+(english-vla
+    "put formula {f:text} into|in cell {r:cell}"
+    (set-formula (range {r}) {f}))
+(test-success
+    "Put formula \"=B2*2\" into cell B3."
+    (set-formula (range "b3") "=B2*2"))
+(test-success
+    "Put formula \"=B2*2\" in cell B3."
+    (set-formula (range "b3") "=B2*2"))
+
+(english-vla
+    "put today into|in cell {r:cell}"
+    (set! (range {r}) (date)))
+(test-success
+    "Put today into cell D1."
+    (set! (range "d1") (date)))
+(test-success
+    "Put today in cell D1."
+    (set! (range "d1") (date)))
+
+(english-vla
+    "put {e:expr} into|in cell {r:cell}"
+    (set! (range {r}) {e}))
+(test-success
+    "Put 5 into cell B2."
+    (set! (range "b2") 5))
+(test-success
+    "Put total plus 1 into cell \"B2\"."
+    (set! (range "B2") (+ total 1)))
+(test-success
+    "Put 1 in cell A2."
+    (set! (range "a2") 1))
+
+; G1 day-1: fill a whole range with one value - the range twin the
+; cell rule never had.
+(english-vla
+    "put {e:expr} into|in range {r:range}"
+    (set! (range {r}) {e}))
+(test-success
+    "Put 0 into range A1:B5."
+    (set! (range "a1:b5") 0))
+(test-success
+    "Put 0 in range A1:B5."
+    (set! (range "a1:b5") 0))
+
+; F.4 (shape 1): "set {v:var} to cell {r:cell}" removed here - it was
+; dead code, always shadowed by the built-in "set {v:var} to {e:expr}"
+; (VLA_English.bas's own prelude), since ParsePrimCore's "cell {ref}"
+; expression primary already parses to (range {ref}), byte-identical
+; to what this rule's own template produced. The general rule has
+; always actually handled "Set price to cell B2." -> (set! price
+; (range "b2")); this specific rule never fired even once.
+
+(english-vla
+    "copy cell {a:cell} to cell {b:cell}"
+    (set! (range {b}) (range {a})))
+(test-success
+    "Copy cell A1 to cell C1."
+    (set! (range "c1") (range "a1")))
+
+(english-vla
+    "copy range {a:range} to range {b:range}"
+    (copy-range-to (range {a}) (range {b})))
+(test-success
+    "Copy range \"A1:A5\" to range \"C1:C5\"."
+    (copy-range-to (range "A1:A5") (range "C1:C5")))
+
+(english-vla
+    "paste values of range {a:range} into range {b:range}"
+    (paste-values (range {a}) (range {b})))
+(test-success
+    "Paste values of range \"A1:A5\" into range \"C1\"."
+    (paste-values (range "A1:A5") (range "C1")))
+
+(english-vla
+    "clear cell|range {r:range}"
+    (clear-contents (range {r})))
+(test-success
+    "Clear cell B2."
+    (clear-contents (range "b2")))
+(test-success
+    "Clear range \"A1:C10\"."
+    (clear-contents (range "A1:C10")))
+(test-success
+    "Clear range A1:C10."
+    (clear-contents (range "a1:c10")))
+
+(english-vla
+    "remember range {r:range} as {v:var}"
+    (obj-set! {v} (range {r})))
+(test-success
+    "Remember range \"B2:B4\" as results."
+    (obj-set! results (range "B2:B4")))
+(test-success
+    "Remember range B2:B4 as results."
+    (obj-set! results (range "b2:b4")))
+
+; V3.2 (owner revision): keyed memory's store verb. V3.0 shipped
+; "Remember ... under ... in ..." beside "Remember ... as ..." and
+; defended it as one everyday verb with two tails; the owner's ear
+; caught what that defense papered over - a discipline-6 violation:
+; Remember-as binds a NAME to a thing, the keyed form puts an entry
+; INTO a container, and those are two mechanisms, which one verb may
+; never carry. "Store" is idiomatic English's container verb
+; (entries are stored in lookups; lookups do not "remember" - they
+; lack the sentience), so Remember keeps its single meaning
+; (naming) and Store takes the other. Two spellings, one template,
+; the Show/Say precedent: the canonical "at key" and the filing
+; idiom "under". Storing at an existing key REPLACES (the key keeps
+; its first spelling); keys are case-insensitive; the split between
+; Excel's two representations lives in VlaDictSet. Reading back is
+; expression syntax, not a sentence: "prices for part-code" is a
+; value anywhere (a loud step error on a missing key); "keys of
+; prices" walks the keys; "For each pair in prices" walks entries.
+; The lookup slot is :var deliberately, the Append precedent:
+; storing into a name never Created surfaces as a step-numbered
+; runtime message at YOUR sentence, not a VBA compile error.
+; G1: "at key" and "under" were two rules; the alternation plus an
+; optional [key] makes them one, and buys "at" and "under key" free -
+; four natural spellings, one template.
+(english-vla
+    "store {e:expr} at|under [key] {k:expr} in {d:var}"
+    (vladictset {d} {k} {e}))
+(test-success
+    "Store 100 at key \"ax-7\" in prices."
+    (vladictset prices "ax-7" 100))
+(test-success
+    "Store 250 under \"bx-2\" in prices."
+    (vladictset prices "bx-2" 250))
+(test-success
+    "Store 7 at \"cx-1\" in prices."
+    (vladictset prices "cx-1" 7))
+(test-success
+    "Store 9 under key \"dx-4\" in prices."
+    (vladictset prices "dx-4" 9))
+
+; ---- 21-30: making it look right --------------------------------------
+; G1: the matched style word IS the font property name.
+(english-vla
+    "make cell {r:cell} {d:bold|italic}"
+    (make-{d} (range {r})))
+(test-success
+    "Make cell A1 bold."
+    (make-bold (range "a1")))
+(test-success
+    "Make cell A1 italic."
+    (make-italic (range "a1")))
+
+; G1: the matched color word completes the vb constant. COLOR-FAMILY:
+; widened from the original two-branch demo to VBA's full eight named
+; colors (BETA_ROADMAP.md's COLOR-FAMILY entry) - no engine change at
+; all, since the glued-identifier substitution (vb{d}) and 3+-branch
+; alternations both already work elsewhere in this file (format-as's
+; own {d:currency|percent|date}); this is pure vocabulary data.
+(english-vla
+    "make cell {r:cell} {d:red|yellow|black|blue|cyan|green|magenta|white}"
+    (set-fill-color (range {r}) vb{d}))
+(test-success
+    "Make cell C4 red."
+    (set-fill-color (range "c4") vbred))
+(test-success
+    "Make cell C4 yellow."
+    (set-fill-color (range "c4") vbyellow))
+(test-success
+    "Make cell C4 black."
+    (set-fill-color (range "c4") vbblack))
+(test-success
+    "Make cell C4 blue."
+    (set-fill-color (range "c4") vbblue))
+(test-success
+    "Make cell C4 cyan."
+    (set-fill-color (range "c4") vbcyan))
+(test-success
+    "Make cell C4 green."
+    (set-fill-color (range "c4") vbgreen))
+(test-success
+    "Make cell C4 magenta."
+    (set-fill-color (range "c4") vbmagenta))
+(test-success
+    "Make cell C4 white."
+    (set-fill-color (range "c4") vbwhite))
+
+(english-vla
+    "set font-color of cell {r:cell} to {e:expr}"
+    (set-font-color (range {r}) (vlacolor {e})))
+(test-success
+    "Set font-color of cell A2 to hot-pink."
+    (set-font-color (range "a2") (vlacolor hot-pink)))
+
+(english-vla
+    "set fill-color of cell {r:cell} to {e:expr}"
+    (set-fill-color (range {r}) (vlacolor {e})))
+(test-success
+    "Set fill-color of cell A2 to \"#FF69B4\"."
+    (set-fill-color (range "a2") (vlacolor "#FF69B4")))
+
+(english-vla
+    "clear color of cell {r:cell}"
+    (clear-color (range {r})))
+(test-success
+    "Clear color of cell C4."
+    (clear-color (range "c4")))
+
+(english-vla
+    "set font size of cell {r:cell} to {n:expr}"
+    (set-font-size (range {r}) {n}))
+(test-success
+    "Set font size of cell A1 to 14."
+    (set-font-size (range "a1") 14))
+
+; G11r: the matched format word IS the method name (G11's name-
+; substitution doctrine, folding what were three separate rules).
+(english-vla
+    "format cell {r:cell} as {d:currency|percent|date}"
+    (format-as-{d} (range {r})))
+(test-success
+    "Format cell B2 as currency."
+    (format-as-currency (range "b2")))
+(test-success
+    "Format cell B2 as percent."
+    (format-as-percent (range "b2")))
+(test-success
+    "Format cell B2 as date."
+    (format-as-date (range "b2")))
+
+(english-vla
+    "add border to range {r:range}"
+    (add-border (range {r})))
+(test-success
+    "Add border to range \"A1:C10\"."
+    (add-border (range "A1:C10")))
+
+; ---- 31-40: rows, columns, and structure ------------------------------
+(english-vla
+    "delete row {n:expr}"
+    (delete-row {n}))
+(test-success
+    "Delete row 5."
+    (delete-row 5))
+
+; G8: ordinal position, not quantity - "row 5" and "the third row" are
+; genuinely different word orders, so this is a second rule sharing
+; delete-row, not an alternation on the first. "the" is a dropped noise
+; word (never a token either way, present or not in the sentence), so
+; it has no place in the pattern itself. {n:expr} picks up ordinal
+; words transparently (ParsePrimCore, VLA_English.bas) with no
+; vocab-side change of its own.
+(english-vla
+    "delete {n:expr} row"
+    (delete-row {n}))
+(test-success
+    "Delete the third row."
+    (delete-row 3))
+(test-success
+    "Delete the fifteenth row."
+    (delete-row 15))
+
+; G7: {n:expr=1} is an omissible slot - present, its value binds;
+; absent, "1" (already valid VLA text) substitutes instead. [at] rides
+; G1's existing optional-literal machinery so the whole clause, not
+; just the number, can vanish: "Insert a row." means row 1.
+(english-vla
+    "insert row [at] {n:expr=1}"
+    (insert-row-at {n}))
+(test-success
+    "Insert row at 5."
+    (insert-row-at 5))
+(test-success
+    "Insert a row."
+    (insert-row-at 1))
+
+(english-vla
+    "delete column {c:column}"
+    (delete-column {c}))
+(test-success
+    "Delete column C."
+    (delete-column "c"))
+
+; G11r: the matched verb IS the method name.
+(english-vla
+    "{d:hide|unhide} column {c:column}"
+    ({d}-column {c}))
+(test-success
+    "Hide column C."
+    (hide-column "c"))
+(test-success
+    "Unhide column C."
+    (unhide-column "c"))
+
+(english-vla
+    "fit column {c:column}"
+    (fit-column {c}))
+(test-success
+    "Fit column A."
+    (fit-column "a"))
+(test-success
+    "Fit column B."
+    (fit-column "b"))
+
+(english-vla
+    "fit all columns"
+    (fit-all-columns))
+(test-success
+    "Fit all columns."
+    (fit-all-columns))
+
+(english-vla
+    "freeze top row"
+    (freeze-top-row))
+(test-success
+    "Freeze top row."
+    (freeze-top-row))
+
+(english-vla
+    "sort range {r:range} by column {k:cell} descending"
+    (sort-range-by (range {r}) (range {k}) xldescending))
+(test-success
+    "Sort range \"A1:C50\" by column B1 descending."
+    (sort-range-by (range "A1:C50") (range "b1") xldescending))
+
+; G1 day-1: the explicit "ascending" was refused before - the word
+; is now legal (and optional; the bare spelling stays the default).
+(english-vla
+    "sort range {r:range} by column {k:cell} [ascending]"
+    (sort-range-by (range {r}) (range {k}) xlascending))
+(test-success
+    "Sort range \"A1:C50\" by column B1 ascending."
+    (sort-range-by (range "A1:C50") (range "b1") xlascending))
+(test-success
+    "Sort range \"A1:C50\" by column B1."
+    (sort-range-by (range "A1:C50") (range "b1") xlascending))
+(test-success
+    "Sort range A1:C50 by column B1."
+    (sort-range-by (range "a1:c50") (range "b1") xlascending))
+
+; ---- 41-50: sheets, calculations, and asking the user -----------------
+(english-vla
+    "work on sheet {s:sheet}"
+    (begin (vlaensuresheet {s}) (activate-sheet {s})))
+(test-success
+    "Work on sheet Results."
+    (begin (vlaensuresheet "results") (activate-sheet "results")))
+
+(english-vla
+    "go to sheet {s:sheet}"
+    (activate-sheet {s}))
+(test-success
+    "Go to sheet Data."
+    (activate-sheet "data"))
+
+(english-vla
+    "add [new] sheet called {s:sheet}"
+    (add-sheet-called {s}))
+(test-success
+    "Add sheet called \"Report\"."
+    (add-sheet-called "Report"))
+(test-success
+    "Add new sheet called \"Scratch\"."
+    (add-sheet-called "Scratch"))
+
+(english-vla
+    "delete sheet {s:sheet}"
+    (delete-sheet {s}))
+(test-success
+    "Delete sheet Old."
+    (delete-sheet "old"))
+
+(english-vla
+    "save this workbook"
+    (save-current-workbook))
+(test-success
+    "Save this workbook."
+    (save-current-workbook))
+
+(english-vla
+    "put sum of range {r:range} into|in cell {c:cell}"
+    (set! (range {c}) (sum-of (range {r}))))
+(test-success
+    "Put sum of range \"B2:B3\" into cell B4."
+    (set! (range "b4") (sum-of (range "B2:B3"))))
+(test-success
+    "Put sum of range \"B2:B3\" in cell B5."
+    (set! (range "b5") (sum-of (range "B2:B3"))))
+
+(english-vla
+    "set {v:var} to sum of range {r:range}"
+    (set! {v} (sum-of (range {r}))))
+(test-success
+    "Set grand to sum of range \"B2:B3\"."
+    (set! grand (sum-of (range "B2:B3"))))
+
+(english-vla
+    "set {v:var} to average of range {r:range}"
+    (set! {v} (average-of (range {r}))))
+(test-success
+    "Set avg to average of range \"A1:A9\"."
+    (set! avg (average-of (range "A1:A9"))))
+
+; B5 decision, blessed: "put answer into <name>" keeps its "into" even
+; though Put normally targets places and Set targets names - the whole
+; sentence is one ask-and-store idiom, and this is the phrasing people
+; reach for when dictating it. Migration would break the natural form
+; for a consistency only implementers notice. (Recorded so nobody
+; re-litigates it from the Set/Put rule alone.)
+(english-vla
+    "ask {q:expr} and put answer into {v:var}"
+    (set! {v} (inputbox {q})))
+(test-success
+    "Ask \"Your name?\" and put answer into who."
+    (set! who (inputbox "Your name?")))
+
+(english-vla
+    "turn off screen updating"
+    (set-screen-updating false))
+(test-success
+    "Turn off screen updating."
+    (set-screen-updating false))
+
+(english-vla
+    "turn on screen updating"
+    (set-screen-updating true))
+(test-success
+    "Turn on screen updating."
+    (set-screen-updating true))
+
+; ---- 51-55: computed references ---------------------------------------
+; Cells(row, column) is VBA's computed addressing: the column is a
+; letter, the row is any expression. These rules make loop-driven
+; cell access sayable: "Put total into column B row counter."
+(english-vla
+    "put {e:expr} into|in column {c:column} row {n:expr}"
+    (set! (cells {n} {c}) {e}))
+(test-success
+    "Put total into column B row counter."
+    (set! (cells counter "b") total))
+(test-success
+    "Put counter times 10 into column E row counter."
+    (set! (cells counter "e") (* counter 10)))
+(test-success
+    "Put 9 in column E row 3."
+    (set! (cells 3 "e") 9))
+
+; F.4 (shape 1): two rules removed here, both dead code, both always
+; shadowed by built-in prelude rules whose {:expr} slot already parses
+; "cell in column X row Y" (ParsePrimCore) to byte-identical output:
+;   "set {v:var} to cell in column {c:column} row {n:expr}" - shadowed
+;   by "set {v:var} to {e:expr}"; both produced (set! {v} (cells {n}
+;   {c})).
+;   "show cell in column {c:column} row {n:expr}" - shadowed by "show
+;   {e:expr}". NOT byte-identical: this rule's own template said
+;   (debug-print ...), but it never once fired - the general rule's
+;   (msgbox ...) is what "Show cell in column E row 2." has always
+;   actually produced, and this rule's own test-success line already
+;   recorded that as its "expected" output (blind-authoring-then-
+;   engine-verifies proving the WRONG rule's behavior, undetectable
+;   until F.4 shape 1 existed to say which rule actually fired).
+;   debug-print was never real user-facing behavior for a "show"
+;   sentence anywhere else in this corpus - msgbox is the established,
+;   correct meaning of "show", and removing the dead rule lets the
+;   general one provide it going forward instead of a shape nobody
+;   could ever reach.
+(english-vla
+    "clear cell in column {c:column} row {n:expr}"
+    (clear-contents (cells {n} {c})))
+(test-success
+    "Clear cell in column E row 9."
+    (clear-contents (cells 9 "e")))
+
+(english-vla
+    "make cell in column {c:column} row {n:expr} bold"
+    (make-bold (cells {n} {c})))
+(test-success
+    "Make cell in column A row counter bold."
+    (make-bold (cells counter "a")))
+
+; ---- 56-68: the expansion pack ----------------------------------------
+; Reaching the data: the last-filled-row idiom, computed row ranges.
+(english-vla
+    "set {v:var} to last filled row of column {c:column}"
+    (set! {v} (last-filled-row {c})))
+(test-success
+    "Set last-row to last filled row of column A."
+    (set! last-row (last-filled-row "a")))
+
+(english-vla
+    "remember rows {a:expr} to {b:expr} of column {c:column} as {v:var}"
+    (obj-set! {v} (range (& {c} {a} ":" {c} {b}))))
+(test-success
+    "Remember rows 2 to 9 of column A as data-cells."
+    (obj-set! data-cells (range (& "a" 2 ":" "a" 9))))
+
+; Text surgery.
+(english-vla
+    "set {v:var} to {t:expr} with {a:expr} replaced by {b:expr}"
+    (set! {v} (replace {t} {a} {b})))
+(test-success
+    "Set cleaned to msg with \"x\" replaced by \"y\"."
+    (set! cleaned (replace msg "x" "y")))
+
+(english-vla
+    "set {v:var} to trimmed {t:expr}"
+    (set! {v} (trim {t})))
+(test-success
+    "Set tidy to trimmed raw-text."
+    (set! tidy (trim raw-text)))
+
+(english-vla
+    "set {v:var} to first {n:expr} letters of {t:expr}"
+    (set! {v} (left {t} {n})))
+(test-success
+    "Set prefix to first 3 letters of code."
+    (set! prefix (left code 3)))
+
+(english-vla
+    "set {v:var} to last {n:expr} letters of {t:expr}"
+    (set! {v} (right {t} {n})))
+(test-success
+    "Set suffix to last 2 letters of code."
+    (set! suffix (right code 2)))
+
+(english-vla
+    "set {v:var} to position of {a:expr} in {t:expr}"
+    (set! {v} (instr {t} {a})))
+(test-success
+    "Set dash-at to position of \"-\" in code."
+    (set! dash-at (instr code "-")))
+
+; Finding things (0 means not found - test with: If found-row is 0, ...).
+(english-vla
+    "set {v:var} to row of {e:expr} in column {c:column}"
+    (set! {v} (vlafindrow {e} {c})))
+(test-success
+    "Set found-row to row of \"Widget\" in column A."
+    (set! found-row (vlafindrow "Widget" "a")))
+
+; Reports out the door.
+(english-vla
+    "export this sheet as pdf {p:expr}"
+    (export-sheet-as-pdf {p}))
+(test-success
+    "Export this sheet as pdf report-path."
+    (export-sheet-as-pdf report-path))
+
+(english-vla
+    "save a copy as {p:expr}"
+    (save-copy-as {p}))
+(test-success
+    "Save a copy as backup-path."
+    (save-copy-as backup-path))
+
+; Email (opens an Outlook DRAFT for review - nothing sends itself).
+(english-vla
+    "email {who:expr} with subject {s:expr} and message {m:expr} and attachment {p:expr}"
+    (vlasendmail {who} {s} {m} {p}))
+(test-success
+    "Email \"a@b.c\" with subject \"Hi\" and message \"See file.\" and attachment report-path."
+    (vlasendmail "a@b.c" "Hi" "See file." report-path))
+
+(english-vla
+    "email {who:expr} with subject {s:expr} and message {m:expr}"
+    (vlasendmail {who} {s} {m}))
+(test-success
+    "Email \"boss@co.com\" with subject \"Report\" and message \"Attached.\"."
+    (vlasendmail "boss@co.com" "Report" "Attached."))
+
+; Filtering (field is the column's position within the range: 1, 2, 3...).
+(english-vla
+    "keep only rows of range {r:range} where column {f:expr} is {v:expr}"
+    (filter-rows (range {r}) {f} {v}))
+(test-success
+    "Keep only rows of range \"A1:D50\" where column 3 is \"West\"."
+    (filter-rows (range "A1:D50") 3 "West"))
+
+(english-vla
+    "show all rows"
+    (show-all-rows))
+(test-success
+    "Show all rows."
+    (show-all-rows))
+
+; ---- 69-95: the breadth pass (everyday Excel verbs) -------------------
+; Find and replace.
+(english-vla
+    "replace {a:expr} with {b:expr} in range {r:range}"
+    (replace-in {a} {b} (range {r})))
+(test-success
+    "Replace \"N/A\" with 0 in range A1:D50."
+    (replace-in "N/A" 0 (range "a1:d50")))
+
+(english-vla
+    "replace {a:expr} with {b:expr} in column {c:column}"
+    (replace-in {a} {b} (columns {c})))
+(test-success
+    "Replace \"N/A\" with 0 in column C."
+    (replace-in "N/A" 0 (columns "c")))
+
+; Alignment and layout.
+(english-vla
+    "center cell|range {r:range}"
+    (set-alignment (range {r}) xlcenter))
+(test-success
+    "Center cell A1."
+    (set-alignment (range "a1") xlcenter))
+(test-success
+    "Center range A1:D1."
+    (set-alignment (range "a1:d1") xlcenter))
+
+; G1: four rules folded into one - the matched direction binds into
+; the template (xl{d}), and cell/range is one alternation. "center"
+; joins the direction list as the day-1 third branch.
+(english-vla
+    "align cell|range {r:range} {d:left|right|center/ed}"
+    (set-alignment (range {r}) xl{d}))
+(test-success
+    "Align range A2:A9 left."
+    (set-alignment (range "a2:a9") xlleft))
+(test-success
+    "Align range B2:B9 right."
+    (set-alignment (range "b2:b9") xlright))
+(test-success
+    "Align cell A1 left."
+    (set-alignment (range "a1") xlleft))
+(test-success
+    "Align cell D2 center."
+    (set-alignment (range "d2") xlcenter))
+(test-success
+    "Align range C1:C9 centered."
+    (set-alignment (range "c1:c9") xlcenter))
+
+; G11r: the matched verb IS the method name.
+(english-vla
+    "{d:wrap|unwrap} text in range {r:range}"
+    ({d}-text (range {r})))
+(test-success
+    "Wrap text in range A1:A10."
+    (wrap-text (range "a1:a10")))
+(test-success
+    "Unwrap text in range A1:A10."
+    (unwrap-text (range "a1:a10")))
+
+; G1: the matched verb IS the method name.
+(english-vla
+    "{d:merge|unmerge} range {r:range}"
+    ({d}-range (range {r})))
+(test-success
+    "Merge range A1:D1."
+    (merge-range (range "a1:d1")))
+(test-success
+    "Unmerge range A1:D1."
+    (unmerge-range (range "a1:d1")))
+
+(english-vla
+    "set height of row {n:expr} to {h:expr}"
+    (set-row-height {n} {h}))
+(test-success
+    "Set height of row 2 to 30."
+    (set-row-height 2 30))
+
+(english-vla
+    "set width of column {c:column} to {w:expr}"
+    (set-column-width (columns {c}) {w}))
+(test-success
+    "Set width of column A to 20."
+    (set-column-width (columns "a") 20))
+
+(english-vla
+    "set tab-color of sheet {s:sheet} to {e:expr}"
+    (set-tab-color {s} (vlacolor {e})))
+(test-success
+    "Set tab-color of sheet Data to \"#FF69B4\"."
+    (set-tab-color "data" (vlacolor "#FF69B4")))
+
+(english-vla
+    "unfreeze panes"
+    (unfreeze-panes))
+(test-success
+    "Unfreeze panes."
+    (unfreeze-panes))
+
+(english-vla
+    "insert column before {c:column}"
+    (insert-column {c}))
+(test-success
+    "Insert column before C."
+    (insert-column "c"))
+
+; G11r: the matched verb IS the method name.
+(english-vla
+    "{d:hide|unhide} row {n:expr}"
+    ({d}-row {n}))
+(test-success
+    "Hide row 5."
+    (hide-row 5))
+(test-success
+    "Unhide row 5."
+    (unhide-row 5))
+
+(english-vla
+    "clear formatting of range {r:range}"
+    (clear-formatting (range {r})))
+(test-success
+    "Clear formatting of range A1:D50."
+    (clear-formatting (range "a1:d50")))
+
+; Moving data around.
+(test-success
+    "Copy range A1:D10 to range F1:I10."
+    (copy-range-to (range "a1:d10") (range "f1:i10")))
+
+(english-vla
+    "copy range {r:range} to sheet {s:sheet}"
+    (copy-range-to-sheet (range {r}) {s} {r}))
+(test-success
+    "Copy range A1:D10 to sheet Archive."
+    (copy-range-to-sheet (range "a1:d10") "archive" "a1:d10"))
+
+(english-vla
+    "convert range {r:range} to values"
+    (paste-values (range {r}) (range {r})))
+(test-success
+    "Convert range B2:B9 to values."
+    (paste-values (range "b2:b9") (range "b2:b9")))
+
+; G1: the matched direction completes the method name.
+(english-vla
+    "fill {d:down|right} range {r:range}"
+    (fill-{d} (range {r})))
+(test-success
+    "Fill down range C2:C90."
+    (fill-down (range "c2:c90")))
+(test-success
+    "Fill right range B2:F2."
+    (fill-right (range "b2:f2")))
+
+(english-vla
+    "remove duplicates from range {r:range} by column {k:expr}"
+    (remove-duplicates (range {r}) {k}))
+(test-success
+    "Remove duplicates from range A1:C50 by column 2."
+    (remove-duplicates (range "a1:c50") 2))
+
+(english-vla
+    "remove duplicates from range {r:range}"
+    (remove-duplicates (range {r}) 1))
+(test-success
+    "Remove duplicates from range A1:A50."
+    (remove-duplicates (range "a1:a50") 1))
+
+; Lookups and conditional math (errors if not found - by design, so the
+; step message names the sentence).
+(english-vla
+    "set {v:var} to lookup of {e:expr} in range {r:range} column {k:expr}"
+    (set! {v} (lookup-of {e} (range {r}) {k})))
+(test-success
+    "Set price to lookup of part-code in range A2:C90 column 3."
+    (set! price (lookup-of part-code (range "a2:c90") 3)))
+
+(english-vla
+    "set {v:var} to sum of range {r:range} where range {c:range} matches {e:expr}"
+    (set! {v} (sum-of-where (range {r}) (range {c}) {e})))
+(test-success
+    "Set west-total to sum of range B2:B90 where range A2:A90 matches \"West\"."
+    (set! west-total (sum-of-where (range "b2:b90") (range "a2:a90") "West")))
+
+(english-vla
+    "set {v:var} to count of range {c:range} matching {e:expr}"
+    (set! {v} (count-matching (range {c}) {e})))
+(test-success
+    "Set west-count to count of range A2:A90 matching \"West\"."
+    (set! west-count (count-matching (range "a2:a90") "West")))
+
+(english-vla
+    "set {v:var} to {e:expr} rounded to {n:expr} decimals"
+    (set! {v} (round {e} {n})))
+(test-success
+    "Set price to total rounded to 2 decimals."
+    (set! price (round total 2)))
+(test-success
+    "Set round-check to 3.14159 rounded to 2 decimals."
+    (set! round-check (round 3.14159 2)))
+(test-success
+    "If price is greater than 9.5, log \"expensive\"."
+    (if (> price 9.5) (then (debug-print "expensive"))))
+(test-success
+    "Set budget to 1,000,000."
+    (set! budget 1000000))
+(test-success
+    "Set price to 1,234.56 plus 1."
+    (set! price (+ 1234.56 1)))
+(test-success
+    "If total is greater than 1,000, log \"big\"."
+    (if (> total 1000) (then (debug-print "big"))))
+
+; Named ranges (workbook names - usable in formulas afterwards).
+(english-vla
+    "name range {r:range} as {n:text}"
+    (name-range (range {r}) {n}))
+(test-success
+    "Name range A1:B10 as prices."
+    (name-range (range "a1:b10") "prices"))
+
+; G-TABLES rule #1 (BETA_ROADMAP.md F.2's own composite proof): create an
+; Excel Table (a ListObject) from a range and name it, in one sentence.
+; Surface and target both taken from pareto.txt's own section 9 ("Tables
+; (ListObjects) - P1") - "make-table | Turn {r:range} into a table called
+; {n:text}. | ListObjects.Add(xlSrcRange, rng, , xlYes)", unmarked there
+; (no !/~/^/? - no Tier-2 helper, no new grammar, no bracket, no semantic
+; decision needed), matching the plain defmacro built below.
+; The nesting - a keyword-argument .Add call nested inside a "." property
+; read, nested inside the PLACE of a set! - lives in the macro body below,
+; not the phrase-rule template: f1 (VLA_Tests.bas, VlaDotCount) pins this
+; file's raw-dot count at ZERO outside macro: lines, on purpose (F.1's own
+; "the dots live in prelude.vla / today the phrasebook's own macro:
+; definitions" doctrine) - a first, live-caught proof that F.1's discipline
+; already keeps every PHRASE-RULE template shallow, whatever raw object-
+; model complexity a feature needs living one layer down instead. Unlike
+; several existing rules above (sort-range-by, add-border, copy-range-to -
+; real names with no defmacro/runtime sub backing them anywhere in this
+; repo, the F.1 audit's "41 rules that don't yet reach the object model"),
+; this one is fully self-contained and actually compiles - live-verified
+; through BOTH backends, not just traced by hand: compile-and-trace built
+; the real table first try; interpret-and-trace initially raised "IN.2:
+; this interpreter's dynamic dispatch supports up to 4 positional
+; arguments; got 6" because the first draft wrote the .Add call as a bare
+; dotted-symbol head with keyword args glued on (activesheet.listobjects.
+; add :sourcetype ...) - valid to the EMITTER (SymName preserves dots,
+; EmitArgs handles the keyword pairs regardless of head shape) but
+; invisible to VLA_Interpreter.bas's own keyword-routing (IN2.5,
+; WalkMemberNamedCall), which only fires for the EXPLICIT "." form -
+; a bare dotted head falls through to positional CallByName dispatch
+; instead, where three keyword PAIRS count as six raw positional slots
+; against a hand-written 4-argument dynamic-dispatch ceiling. Rewritten
+; below as (. activesheet.listobjects add :sourcetype ...) - same final
+; VBA text either way (EmitDotText joins obj & "." & member & args
+; identically), but now the explicit head the interpreter's own keyword
+; path is written to recognize. (VlaDotCount, VLA_Tests.bas, skips
+; COMMENT lines too now - this paragraph tripped it once as a plain
+; line-scan before that fix landed.)
+(defmacro
+    (make-table r n)
+    "create an Excel Table from a range and name it"
+    (set! (. (. activesheet.listobjects
+                add
+                :sourcetype
+                xlsrcrange
+                :source
+                r
+                :xllistobjecthasheaders
+                xlyes)
+             name)
+          n))
+
+(english-vla
+    "turn {r:range} into a table called {n:text}"
+    (make-table (range {r}) {n}))
+(test-success
+    "Turn A1:D10 into a table called Sales."
+    (make-table (range "a1:d10") "sales"))
+
+; G-TABLES's remaining unmarked pareto.txt section-9 surfaces (table-style,
+; table-totals-on/-off, table-to-range) - same shape as make-table above:
+; find the table by name on the active sheet ((activesheet.listobjects n),
+; the bare-dotted-head-plus-positional-arg call already proven by
+; activate-sheet/set-tab-color's own (worksheets s) idiom above), then
+; read or write ONE property/method on it. No Tier-2 helper, no new
+; grammar slot - the pareto.txt markers already say so.
+;
+; TABLE-FAMILY: table-style/table-totals-on/table-totals-off are the
+; identical shape one level deeper than the paragraph above already
+; says - not just "find the table, touch one property," but the exact
+; same (set! (. (activesheet.listobjects n) PROPERTY) VALUE) with only
+; PROPERTY and VALUE varying (table-style's VALUE is a second
+; user-supplied slot, {s:text}; table-totals-on/-off's is a fixed
+; true/false, no second slot at all - the three do NOT share one
+; arity, so the generator threads it rather than assuming it). One
+; generator, table-property-family, produces all three: METAVOCAB
+; (VLA_English.bas's DispatchVocabForm/ExpandVocabMacroCall) splices
+; its (begin (defmacro ...) (english-vla ...) (test-success ...))
+; output back through the loader exactly as if a person had typed the
+; defmacro/english-vla/test-success below by hand - same tests, same
+; apropos hit, same diff visibility (BETA_ROADMAP.md's TABLE-FAMILY
+; entry). `name` (a bare macro-name symbol, e.g. table-style) and
+; `property` (a bare member-name symbol, e.g. tablestyle) each
+; substitute as a WHOLE value into the nested defmacro's own head
+; position and its set!'s member-access position - no gluing anywhere.
+; The arity difference rides the macro engine's OWN existing rest-
+; parameter splice (already used elsewhere, e.g. with-fast-excel/
+; dotimes) - not a new primitive, and never surfaced in any GENERATED
+; macro's own signature: table-property-family's trailing `& extras`
+; collects zero or more bare param names (here, "s" once, or nothing)
+; and splices them, in order, as extra positional params after `n` in
+; the generated (defmacro (name n extras) ...) - zero items vanishes
+; cleanly, no dangling "&". `value` is separately bound to whatever
+; the generator's own call passes for it - the bare symbol `s` (so it
+; reads the very extra param `extras` just spliced in) for table-style,
+; or the literal true/false for table-totals-on/-off, which never adds
+; a param at all. Every generated macro, call template, and test-
+; success form below is therefore byte-for-byte what the hand-written
+; macros used to emit - scripts/instructions_golden.vla's own
+; table-style/table-totals-on/-off lines stay unchanged. table-to-range
+; below stays hand-written on purpose: its own shape (a method call,
+; `unlist`, no property/value pair at all) does not fit this family.
+(defmacro
+    (table-property-family name property doc pattern call testsentence testcall value & extras)
+    "generate a table-name/value-setting macro, its english-vla rule, and its test-success proof"
+    (begin (defmacro
+               (name n extras)
+               doc
+               (set! (. (activesheet.listobjects n) property) value))
+
+           (english-vla
+               pattern
+               call)
+           (test-success
+               testsentence
+               testcall)))
+
+(table-property-family
+    table-style
+    tablestyle
+    "set an Excel Table's style"
+    "set style of table {n:text} to {s:text}"
+    (table-style {n} {s})
+    "Set style of table Sales to TableStyleMedium2."
+    (table-style "sales" "tablestylemedium2")
+    s
+    s)
+
+(table-property-family
+    table-totals-on
+    showtotals
+    "show an Excel Table's total row"
+    "show the total row of table {n:text}"
+    (table-totals-on {n})
+    "Show the total row of table Sales."
+    (table-totals-on "sales")
+    true)
+
+(table-property-family
+    table-totals-off
+    showtotals
+    "hide an Excel Table's total row"
+    "hide the total row of table {n:text}"
+    (table-totals-off {n})
+    "Hide the total row of table Sales."
+    (table-totals-off "sales")
+    false)
+
+(defmacro
+    (table-to-range n)
+    "convert an Excel Table back into a plain range"
+    (. (activesheet.listobjects n) unlist))
+
+(english-vla
+    "turn table {n:text} back into a range"
+    (table-to-range {n}))
+(test-success
+    "Turn table Sales back into a range."
+    (table-to-range "sales"))
+
+; G-TABLES's last three pareto.txt section-9 surfaces (table-add-row,
+; table-delete-row, table-column) - one level deeper than the family
+; above: a chained indexed access (.ListObjects(n).ListRows/.ListColumns)
+; rather than an indexed access followed by a bare property, but still
+; ONE nested (. ...) form each, the same shape last-filled-row already
+; proved safe three levels deep. One-off defmacros, not
+; table-property-family (none of the three share its one-property/
+; one-value arity) - table-to-range above is the closer precedent.
+(defmacro
+    (table-add-row n)
+    "append a blank row to an Excel Table"
+    (. (. (activesheet.listobjects n) listrows) add))
+
+(english-vla
+    "add a row to table {n:text}"
+    (table-add-row {n}))
+(test-success
+    "Add a row to table Sales."
+    (table-add-row "sales"))
+
+; {r:expr} is table-relative - ListRows' own index, not a worksheet row
+; number. "row {r:expr} OF TABLE {n:text}" continues past the number,
+; so TryPhrase's end-of-sentence gate keeps this distinct from the
+; existing worksheet-row "delete row {n:expr}" above (different total
+; shape, same disambiguation pivot-create/pivot-full already proved for
+; a shared opening clause).
+(defmacro
+    (table-delete-row n r)
+    "delete a row from an Excel Table by its own row number"
+    (. (. (activesheet.listobjects n) listrows r) delete))
+
+(english-vla
+    "delete row {r:expr} of table {n:text}"
+    (table-delete-row {n} {r}))
+(test-success
+    "Delete row 1 of table Sales."
+    (table-delete-row "sales" 1))
+
+(defmacro
+    (table-column v n c)
+    "bind a variable to one column's data (header excluded) in an Excel Table"
+    (obj-set! v (. (. (activesheet.listobjects n) listcolumns c) databodyrange)))
+
+(english-vla
+    "set {v:var} to column {c:text} of table {n:text}"
+    (table-column {v} {n} {c}))
+(test-success
+    "Set qty-values to column Qty of table Sales."
+    (table-column qty-values "sales" "qty"))
+
+; TABLESPEC (BETA_ROADMAP.md's own entry, THE METAMETAMACRO LINE):
+; table-property-family above generates one triple per HAND-TYPED call
+; (three calls, three triples); tablespec generalizes that to an
+; arbitrary-length WALKED list - one call, N triples, read off a quoted
+; spec instead of typed by a person. Not table-property-family's own
+; property/value split specifically (that stays table-property-family's
+; job) - tablespec-row's BODY field is a whole caller-supplied form, so
+; any single-parameter macro shape fits, table properties included, if
+; a real table ever needs exactly that shape.
+;
+; Mechanism, composed entirely from already-shipped pieces - nothing
+; new needed once the design was actually traced (an earlier sketch of
+; this entry, before code was written, called for quasiquote/unquote;
+; that turned out to be unnecessary complexity, dropped once tracing
+; showed the plain shape below already suffices, same discipline
+; LISTOPS-STDLIB's own append rewrite already used): tablespec-row is
+; an ordinary defmacro - table-property-family's own arity (one
+; parameter, always literally "n") minus the property/value split,
+; generalized to one whole BODY field - so name/doc/body/pattern/call/
+; testsentence/testcall substitute via the exact same bound-parameter
+; mechanism table-property-family's own name/property already use,
+; nothing new there. tablespec itself is walk-rows' own shape
+; (BETA_ROADMAP.md's TABLESPEC entry, LISTOPS.0's acceptance test) -
+; quote-if/null?/car/cdr driving a self-terminating recursive walk -
+; generalized from "one debug-print per row" to "one tablespec-row CALL
+; per row," each field pulled off the current row via car/cadr/caddr
+; (LISTOPS-STDLIB, already shipped) exactly the way walk-rows already
+; pulls (car lst) as an ORDINARY ARGUMENT to another call - never a
+; computed value dropped into a head position, which would have been
+; new, untested ground. Base case bare (begin), same reason walk-rows'
+; own is: quote-if's branches are CODE, not data.
+;
+; DEPTH CEILING - tested, not assumed (BETA_ROADMAP.md's TABLESPEC
+; entry has the full trace of why begin-splice does NOT dodge this,
+; contrary to this line's own LISTOPS-BUDGET entry's optimistic
+; framing): tablespec is a self-recursive macro, so it inherits
+; ExpandMacros's own depth>200 guard exactly like walk-rows already
+; does - unchanged, no engine work here. TestTablespecDepthSafety
+; (VLA_Tests.bas) proves a 20-row chain (walk-rows' own already-proven
+; number, not a larger guessed one - this shape does more work per row
+; than walk-rows, so claiming more without evidence would be the same
+; mistake LISTOPS-BUDGET's own first-round "raise to 1000" guess
+; already made once) expands completely, and a 250-row chain
+; (TestListopsBudget's own number) fails LOUDLY, never a silent partial
+; result. A table bigger than the tested-safe range is the author's to
+; split across multiple (tablespec ...) calls, each within it - see
+; TABLESPEC-SCALE, filed directly after TABLESPEC in BETA_ROADMAP.md,
+; for why no cleverer internal fix exists today. No real caller in this
+; corpus yet (no table in scripts/english.vla is currently big enough
+; to need it) - shipped as infrastructure, proven by TestTablespec's
+; own synthetic vocab, same as LISTOPS-STDLIB's functions were.
+(defmacro
+    (tablespec-row name doc body pattern call testsentence testcall)
+    "emit one single-parameter defmacro/english-vla/test-success triple - table-property-family's own arity, BODY supplied whole instead of derived from a property/value pair"
+    (begin (defmacro
+               (name n)
+               doc
+               body)
+
+           (english-vla
+               pattern
+               call)
+           (test-success
+               testsentence
+               testcall)))
+
+(defmacro
+    (tablespec spec)
+    "walk a quoted list of (name doc body pattern call testsentence testcall) rows, calling tablespec-row once per row - see this file's own TABLESPEC comment above for the depth ceiling this inherits"
+    (quote-if (null? spec)
+              (begin)
+              (begin (tablespec-row
+                         (car (car spec))
+                         (cadr (car spec))
+                         (car (cddr (car spec)))
+                         (cadr (cddr (car spec)))
+                         (caddr (cddr (car spec)))
+                         (cadr (cddr (cddr (car spec))))
+                         (caddr (cddr (cddr (car spec)))))
+                     (tablespec (cdr spec)))))
+
+; G-PIVOT rule #1 (pareto.txt section 10): every surface there is marked
+; ! (a Tier-2 helper, VLA_Runtime.VlaPivotCreate - PivotCaches.Create is
+; two statements, not one nested expression, so it can't reduce to a
+; defmacro's own "." nesting the way make-table's single .Add call did),
+; but pareto.txt's own {r:range}/{b:cell}/{n:text} slots for THIS surface
+; are all ones the grammar already has - the ~ marker on it turns out to
+; describe the SECTION's other verbs (pivot-rows/-columns/-filters, which
+; do need G6's {f:field-list}), not this one, the same "the marker was a
+; section-wide recommendation, not a per-surface requirement" gap the
+; BETA_ROADMAP.md G-FILES correction already found once. pareto.txt's
+; own surface text starts with "Create", but that word is the built-in
+; Create-declaration keyword's own reserved first word (VLA_English.bas's
+; Case "create" always intercepts a sentence starting with it, before
+; any phrase rule is even tried, the same collision "Create a button
+; called ..." hit earlier) - "Make a pivot table ..." below, one level
+; indirect from pareto's own wording, same escape hatch as make-button.
+(defmacro
+    (pivot-create r b n)
+    "create a pivot table from a range at a destination cell"
+    (vlapivotcreate r b n))
+
+(english-vla
+    "make a pivot table from {r:range} at {b:cell} called {n:text}"
+    (pivot-create (range {r}) (range {b}) {n}))
+(test-success
+    "Make a pivot table from A1:C10 at F1 called SalesPivot."
+    (pivot-create (range "a1:c10") (range "f1") "salespivot"))
+
+; G-PIVOT rules #2-4 (pareto.txt section 10): the three field-
+; orientation verbs, unblocked now that G6 (BETA_ROADMAP.md) ships
+; {name:text-list}. One shared Tier-2 helper, VlaPivotSetOrientation
+; (VLA_Runtime.bas) - ".PivotFields(name).Orientation = xl...Field" is
+; the same per-field-name loop regardless of which orientation, so each
+; DEFMACRO below just bakes in its own "row"/"column"/"filter" literal
+; rather than three separate helpers or any new XL-constant plumbing at
+; this layer - see that helper's own header note for the full reasoning
+; (including why it does NOT reach the interpreter's own constant
+; table at all: only the plain kind string crosses the VLA boundary).
+(defmacro
+    (pivot-rows n f)
+    "add field names to a pivot table's row area"
+    (vlapivotsetorientation n f "row"))
+
+(defmacro
+    (pivot-columns n f)
+    "add field names to a pivot table's column area"
+    (vlapivotsetorientation n f "column"))
+
+(defmacro
+    (pivot-filters n f)
+    "add field names to a pivot table's filter (page) area"
+    (vlapivotsetorientation n f "filter"))
+
+; G-PIVOT (close-out pass): retrofitted onto the {d:...} functor
+; convention on the owner's own instruction - three hand-typed
+; english-vla sentences collapsed into one, matching G11r's own
+; glued-identifier dispatch (format-as-{d}, {d}-column) rather than
+; three separate sentences that only differed by one word. No runtime
+; behavior change: pivot-rows/-columns/-filters above are untouched,
+; still three separate macros each baking in its own "kind" literal -
+; only the ENGLISH sentence that reaches them is now one rule instead
+; of three, since the functor and hand-typed-triplet shapes compile to
+; the exact same thing (there is no technical difference between them,
+; only which one is less text in this file - confirmed with the owner
+; before retrofitting already-shipped, already-verified rules).
+(english-vla
+    "add {d:rows|columns|filters} of {f:text-list} to pivot {n:text}"
+    (pivot-{d} {n} {f}))
+(test-success
+    "Add rows of Region, Product to pivot SalesPivot."
+    (pivot-rows "salespivot" (array "region" "product")))
+(test-success
+    "Add columns of Segment to pivot SalesPivot."
+    (pivot-columns "salespivot" (array "segment")))
+(test-success
+    "Add filters of Region, Segment to pivot SalesPivot."
+    (pivot-filters "salespivot" (array "region" "segment")))
+
+; G-PIVOT close-out, round 2 (pivot-remove-field): the missing inverse
+; of the three verbs above, found during the CRUD-completeness survey
+; and scoped with the owner - there was previously no way to take a
+; field back OUT of a pivot's layout at all. Reuses
+; VlaPivotSetOrientation unchanged, just a 4th "hidden" kind (that
+; helper's own header note has the full reasoning) - not part of the
+; {d:rows|columns|filters} functor above, since removing a field names
+; no orientation at all.
+(defmacro
+    (pivot-remove-field n f)
+    "remove field names from a pivot table's layout entirely"
+    (vlapivotsetorientation n f "hidden"))
+
+(english-vla
+    "remove {f:text-list} from pivot {n:text}"
+    (pivot-remove-field {n} {f}))
+(test-success
+    "Remove Product from pivot SalesPivot."
+    (pivot-remove-field "salespivot" (array "product")))
+
+; G-PIVOT rule #5, the composite sentence pareto.txt itself names as
+; the whole reason for G6 ("the composite sentence is unwritable
+; without them, and building it twice is a waste") - built from the
+; four parts above via an ordinary begin-splice (TABLE-FAMILY's own
+; "three hand-typed calls" precedent, LISTOPS-BUDGET's own finding that
+; many independent, never-chained calls carry no depth risk at any
+; count), not a new monolithic helper. Its own "values of" clause
+; stays sum-only (passing "sum" explicitly to VlaPivotAddValues, which
+; gained a real per-call aggregation choice below) - a deliberate v1
+; cap on the COMPOSITE sentence specifically, not a limit of the
+; underlying mechanism; pivot-values-sum/-count/-avg below expose that
+; choice as their own standalone verbs instead.
+(defmacro
+    (pivot-full r destcell n rowfields colfields valfields)
+    "the composite pivot sentence - create, then set rows/columns, then add value fields (sum-only)"
+    (begin (pivot-create r destcell n)
+           (pivot-rows n rowfields)
+           (pivot-columns n colfields)
+           (vlapivotaddvalues n valfields "sum")))
+
+(english-vla
+    "make a pivot table from {r:range} at {b:cell} called {n:text} with rows of {a:text-list} and columns of {c:text-list} and values of {v:text-list}"
+    (pivot-full (range {r}) (range {b}) {n} {a} {c} {v}))
+(test-success
+    "Make a pivot table from A1:C10 at F1 called SalesPivot with rows of Region, Product and columns of Segment and values of Revenue."
+    (pivot-full (range "a1:c10")
+                (range "f1")
+                "salespivot"
+                (array "region" "product")
+                (array "segment")
+                (array "revenue")))
+
+; G-PIVOT rules #6-8: the per-field aggregation CHOICE pareto.txt's own
+; pivot-values-sum/-count/-avg name, unblocked the same way rows/
+; columns/filters were - one shared helper, VlaPivotAddValues
+; (VLA_Runtime.bas), each DEFMACRO baking in its own function literal.
+; Generalized past pareto.txt's own pre-G6 single-field draft to
+; {f:text-list} (owner's own call: "collapsing the semantics of two
+; sentences into one is always a win for brevity") - "Add Revenue,
+; Cost to pivot X as a sum." adds both in one sentence. Three separate
+; rules, not one {d:sum|count|average} functor (G11r's own precedent
+; would allow it) - owner's own call, matching the shape pivot-rows/
+; -columns/-filters already shipped in. No guard against re-adding an
+; already-present field/function pair - AddDataField's own native
+; behavior (a second, distinctly-captioned data field) is left exactly
+; as Excel gives it, owner's own explicit call: users are allowed to
+; abuse Excel to their own detriment, same as everywhere else in this
+; project.
+(defmacro
+    (pivot-values-sum n f)
+    "add field names to a pivot table's values area, summed"
+    (vlapivotaddvalues n f "sum"))
+
+(defmacro
+    (pivot-values-count n f)
+    "add field names to a pivot table's values area, counted"
+    (vlapivotaddvalues n f "count"))
+
+; Renamed from pivot-values-avg (G-PIVOT close-out pass) so the
+; matched word ("average") glues cleanly into the macro name below -
+; the one real, necessary consequence of the functor retrofit named
+; rather than glossed over, since "average" (the English word every
+; sentence and pivot-full's own call site already use) and "avg" (the
+; old macro name) don't glue to the same identifier. Body unchanged.
+(defmacro
+    (pivot-values-average n f)
+    "add field names to a pivot table's values area, averaged"
+    (vlapivotaddvalues n f "average"))
+
+; G-PIVOT (close-out pass): retrofitted onto the {d:...} functor
+; convention, same reasoning as pivot-rows/-columns/-filters above.
+; FIRST VERSION wrote "as a|an {d:sum|count|average}", explicitly
+; spelling out the article as a bare alternation - crashed live
+; (run-time error 5, "I expected one of 'a'/'an' but found 'sum'"),
+; not caught by tracing. IsNoiseWord strips a bare literal "a"/"an"
+; out of a PATTERN entirely at registration (that's how the original
+; three rules' own "as a sum"/"as an average" literals always worked -
+; the compiled pattern never actually contained "a"), but "a|an" is an
+; ALTERNATION token (it has a pipe), so it survives registration as
+; real content requiring a real match - and SkipArticles unconditionally
+; skips the input's "a"/"an" before ANY literal or alternation is even
+; attempted (VLA_English.bas's TryPhrase), consuming the very token the
+; alternation needed to see. No article at all belongs in this pattern -
+; SkipArticles already skips whatever the user typed (or didn't type)
+; immediately before the {d:...} slot below, exactly as it always did
+; for the three original literals; "Add Revenue to pivot SalesPivot as
+; sum." (no article) matches too, same as it always could have.
+(english-vla
+    "add {f:text-list} to pivot {n:text} as {d:sum|count|average}"
+    (pivot-values-{d} {n} {f}))
+(test-success
+    "Add Revenue to pivot SalesPivot as a sum."
+    (pivot-values-sum "salespivot" (array "revenue")))
+(test-success
+    "Add Revenue, Units to pivot SalesPivot as a count."
+    (pivot-values-count "salespivot" (array "revenue" "units")))
+(test-success
+    "Add Units to pivot SalesPivot as an average."
+    (pivot-values-average "salespivot" (array "units")))
+
+; G-PIVOT rules #9-13: refresh/delete/collapse/expand - VlaPivotRefresh/
+; VlaPivotRefreshAll/VlaPivotDelete/VlaPivotSetShowDetail (VLA_Runtime.
+; bas). pivot-refresh-all is a genuinely narrower alternative to the
+; already-shipped "Refresh everything." (refresh-everything, below) -
+; pivots only, never an external data connection - built on that real
+; technical distinction, not because pareto.txt happened to name it.
+(defmacro
+    (pivot-refresh n)
+    "refresh one pivot table from its source data"
+    (vlapivotrefresh n))
+
+(english-vla
+    "refresh pivot {n:text}"
+    (pivot-refresh {n}))
+(test-success
+    "Refresh pivot SalesPivot."
+    (pivot-refresh "salespivot"))
+
+(defmacro
+    (pivot-refresh-all)
+    "refresh every pivot table in the workbook, and nothing else"
+    (vlapivotrefreshall))
+
+(english-vla
+    "refresh every pivot table"
+    (pivot-refresh-all))
+(test-success
+    "Refresh every pivot table."
+    (pivot-refresh-all))
+
+(defmacro
+    (pivot-delete n)
+    "delete a pivot table by name"
+    (vlapivotdelete n))
+
+(english-vla
+    "delete pivot {n:text}"
+    (pivot-delete {n}))
+(test-success
+    "Delete pivot SalesPivot."
+    (pivot-delete "salespivot"))
+
+; pivot-collapse/pivot-expand: an antonym pair (this grammar's own
+; standing convention - hide/unhide, wrap/unwrap, merge/unmerge - any
+; action that can be undone should be undoable), not built via
+; bool-antonym-family (that generator assumes one directly-addressable
+; target/property with no loop and no workbook-wide search; this needs
+; both), and named "expand," not the generator's own "un-" prefixing
+; convention, since "expand" is the real word for this and
+; "uncollapse" is not.
+(defmacro
+    (pivot-collapse n f)
+    "collapse field names in a pivot table, hiding their detail"
+    (vlapivotsetshowdetail n f false))
+
+(english-vla
+    "collapse {f:text-list} in pivot {n:text}"
+    (pivot-collapse {n} {f}))
+(test-success
+    "Collapse Region, Product in pivot SalesPivot."
+    (pivot-collapse "salespivot" (array "region" "product")))
+
+(defmacro
+    (pivot-expand n f)
+    "expand field names in a pivot table, showing their detail"
+    (vlapivotsetshowdetail n f true))
+
+(english-vla
+    "expand {f:text-list} in pivot {n:text}"
+    (pivot-expand {n} {f}))
+(test-success
+    "Expand Region in pivot SalesPivot."
+    (pivot-expand "salespivot" (array "region")))
+
+; G-PIVOT close-out (pivot-layout): scoped with the owner before
+; writing any code. RowAxisLayout is a real, table-WIDE method - unlike
+; every other pivot verb here, it names no field at all, matching
+; pareto.txt's own "Show pivot {n:text} in tabular form." (only the
+; table is named). All three real XlLayoutRowType values are exposed
+; (compact/tabular/outline), not just pareto's own "tabular" - the
+; owner's own call, since it's the enum's full range at no extra cost.
+; Three hand-typed macros, one {d:...} functor dispatch - the same
+; authoring convention just retrofitted onto pivot-rows/-columns/
+; -filters above, applied fresh here rather than three separate
+; sentences differing by one word each.
+(defmacro
+    (pivot-layout-compact n)
+    "show a pivot table's row fields in Excel's default compact form"
+    (vlapivotsetrowlayout n "compact"))
+
+(defmacro
+    (pivot-layout-tabular n)
+    "show a pivot table's row fields in tabular form (one column per field)"
+    (vlapivotsetrowlayout n "tabular"))
+
+(defmacro
+    (pivot-layout-outline n)
+    "show a pivot table's row fields in outline form"
+    (vlapivotsetrowlayout n "outline"))
+
+(english-vla
+    "show pivot {n:text} in {d:compact|tabular|outline} form"
+    (pivot-layout-{d} {n}))
+(test-success
+    "Show pivot SalesPivot in tabular form."
+    (pivot-layout-tabular "salespivot"))
+(test-success
+    "Show pivot SalesPivot in compact form."
+    (pivot-layout-compact "salespivot"))
+(test-success
+    "Show pivot FullPivot in outline form."
+    (pivot-layout-outline "fullpivot"))
+
+; G-PIVOT close-out (pivot-subtotals-hide/-show): a genuine second
+; report-layout knob beyond row-axis form, found while surveying the
+; real pivot object model and adjudicated with the owner before
+; building - PivotField.Subtotals, a per-field property distinct from
+; both Orientation and ShowDetail. Antonym pair, not bool-antonym-
+; family (same reason pivot-collapse/-expand isn't: this needs a
+; workbook-wide table search plus a loop, not one directly-addressable
+; target/property), dispatched via the {d:...} functor like every
+; other pivot verb this pass touches.
+(defmacro
+    (pivot-subtotals-hide n f)
+    "hide subtotals for field names in a pivot table"
+    (vlapivotsetsubtotals n f false))
+
+(defmacro
+    (pivot-subtotals-show n f)
+    "show (restore automatic) subtotals for field names in a pivot table"
+    (vlapivotsetsubtotals n f true))
+
+(english-vla
+    "{d:hide|show} subtotals for {f:text-list} in pivot {n:text}"
+    (pivot-subtotals-{d} {n} {f}))
+(test-success
+    "Hide subtotals for Region in pivot SalesPivot."
+    (pivot-subtotals-hide "salespivot" (array "region")))
+(test-success
+    "Show subtotals for Region in pivot SalesPivot."
+    (pivot-subtotals-show "salespivot" (array "region")))
+
+; G-PIVOT close-out (pivot-blank-line-add/-remove): a third report-
+; layout knob, same discovery and adjudication as pivot-subtotals -
+; PivotField.LayoutBlankLine, independent of Orientation, ShowDetail,
+; AND Subtotals. Antonym pair, same not-bool-antonym-family reasoning,
+; same {d:...} functor dispatch. "a" (not "the") on both sides keeps
+; one shared template legal on both branches ("Remove a blank row..."
+; reads fine, same deliberate looseness as pivot-values' "a|an").
+(defmacro
+    (pivot-blank-line-add n f)
+    "insert a blank row after each item of field names in a pivot table"
+    (vlapivotsetblankline n f true))
+
+(defmacro
+    (pivot-blank-line-remove n f)
+    "remove the blank row after each item of field names in a pivot table"
+    (vlapivotsetblankline n f false))
+
+(english-vla
+    "{d:add|remove} a blank row after {f:text-list} in pivot {n:text}"
+    (pivot-blank-line-{d} {n} {f}))
+(test-success
+    "Add a blank row after Region in pivot SalesPivot."
+    (pivot-blank-line-add "salespivot" (array "region")))
+(test-success
+    "Remove a blank row after Region in pivot SalesPivot."
+    (pivot-blank-line-remove "salespivot" (array "region")))
+
+; G-PIVOT round 2: pivot-rename/pivot-clear/pivot-source/pivot-sort -
+; the CRUD-completeness survey's own findings, scoped and adjudicated
+; with the owner (docs/BETA_ROADMAP.md's G-PIVOT entry has the full
+; conversation) before writing any of this.
+(defmacro
+    (pivot-rename n m)
+    "rename a pivot table"
+    (vlapivotrename n m))
+
+(english-vla
+    "rename pivot {n:text} to {m:text}"
+    (pivot-rename {n} {m}))
+(test-success
+    "Rename pivot SalesPivot to RegionalPivot."
+    (pivot-rename "salespivot" "regionalpivot"))
+
+(defmacro
+    (pivot-clear n)
+    "clear a pivot table back to a blank layout, keeping the table itself"
+    (vlapivotclear n))
+
+(english-vla
+    "clear pivot {n:text}"
+    (pivot-clear {n}))
+(test-success
+    "Clear pivot SalesPivot."
+    (pivot-clear "salespivot"))
+
+; "Change the source of pivot ... to ..." rather than pareto.txt-style
+; terse phrasing, since this needed a real, human sentence for a real
+; two-part action (repoint the cache, then refresh) that VlaPivotChange
+; Source's own header note explains doesn't reduce to a single simple
+; property set the way it might first look.
+(defmacro
+    (pivot-source n r)
+    "point a pivot table at a new source range and refresh it"
+    (vlapivotchangesource n r))
+
+(english-vla
+    "change the source of pivot {n:text} to {r:range}"
+    (pivot-source {n} (range {r})))
+(test-success
+    "Change the source of pivot SalesPivot to A1:C20."
+    (pivot-source "salespivot" (range "a1:c20")))
+
+; pivot-sort/pivot-sort-by-value: TWO english-vla rules, not one with
+; an omissible "by" clause - VlaPivotSort's own header note has the
+; full reasoning (G1's [optional] syntax only covers a single bare
+; word, never a multi-word literal phrase carrying its own slot).
+; FIRST VERSION passed {d} straight through as a bare argument
+; ((pivot-sort {n} {f} {d})) - crashed live (run-time error 5, "got
+; (pivot-sort ... descending)" - a bare, unquoted symbol, not the
+; string "descending" VlaPivotSort actually needs). Wrong: every OTHER
+; {d:...} use in this file glues the matched word into an IDENTIFIER
+; (pivot-layout-{d}, pivot-{d}, xl{d}) - none of them pass {d} through
+; as a plain value argument, and this is the first place that was ever
+; tried. Fixed onto the same proven shape pivot-layout-{d} already
+; uses: one small macro per branch, each baking in its own QUOTED
+; literal, dispatched by gluing {d} into the macro name instead of
+; passing it as a value.
+(defmacro
+    (pivot-sort-ascending n f)
+    "sort a pivot field's items alphabetically ascending, by its own labels"
+    (vlapivotsort n f "ascending" ""))
+
+(defmacro
+    (pivot-sort-descending n f)
+    "sort a pivot field's items alphabetically descending, by its own labels"
+    (vlapivotsort n f "descending" ""))
+
+(english-vla
+    "sort {f:text} in pivot {n:text} {d:ascending|descending}"
+    (pivot-sort-{d} {n} {f}))
+(test-success
+    "Sort Region in pivot SalesPivot descending."
+    (pivot-sort-descending "salespivot" "region"))
+(test-success
+    "Sort Region in pivot SalesPivot ascending."
+    (pivot-sort-ascending "salespivot" "region"))
+
+(defmacro
+    (pivot-sort-by-value-ascending n f v)
+    "sort a pivot field's items ascending by a value field's numbers"
+    (vlapivotsort n f "ascending" v))
+
+(defmacro
+    (pivot-sort-by-value-descending n f v)
+    "sort a pivot field's items descending by a value field's numbers"
+    (vlapivotsort n f "descending" v))
+
+(english-vla
+    "sort {f:text} in pivot {n:text} {d:ascending|descending} by {v:text}"
+    (pivot-sort-by-value-{d} {n} {f} {v}))
+(test-success
+    "Sort Product in pivot FullPivot descending by Revenue."
+    (pivot-sort-by-value-descending "fullpivot" "product" "revenue"))
+(test-success
+    "Sort Product in pivot FullPivot ascending by Revenue."
+    (pivot-sort-by-value-ascending "fullpivot" "product" "revenue"))
+
+; One-sentence cross-sheet reaches (context switching still works too).
+(english-vla
+    "put {e:expr} into|in cell {r:cell} of sheet {s:sheet}"
+    (put-into-cell-of-sheet {e} {r} {s}))
+(test-success
+    "Put 5 into cell B2 of sheet Data."
+    (put-into-cell-of-sheet 5 "b2" "data"))
+(test-success
+    "Put 5 in cell B2 of sheet Data."
+    (put-into-cell-of-sheet 5 "b2" "data"))
+
+(english-vla
+    "set {v:var} to cell {r:cell} of sheet {s:sheet}"
+    (set! {v} (cell-of-sheet {r} {s})))
+(test-success
+    "Set remote to cell B2 of sheet Data."
+    (set! remote (cell-of-sheet "b2" "data")))
+
+; Columns chosen by the program (numeric column index).
+(english-vla
+    "put {e:expr} into|in column number {c:expr} row {n:expr}"
+    (set! (cells {n} {c}) {e}))
+(test-success
+    "Put 5 into column number 3 row 2."
+    (set! (cells 2 3) 5))
+(test-success
+    "Put 5 in column number 3 row 2."
+    (set! (cells 2 3) 5))
+
+; F.4 (shape 1): "set {v:var} to cell in column number {c:expr} row
+; {n:expr}" removed here - dead code, shadowed by "set {v:var} to
+; {e:expr}" the same way its sibling above was: ParsePrimCore's "cell
+; in column number X row Y" branch already parses to byte-identical
+; (set! {v} (cells {n} {c})) output.
+
+; Workbook-level verbs. Close saves by default; Print opens the
+; preview (nothing irreversible happens without the user watching).
+(english-vla
+    "open workbook {p:expr}"
+    (open-workbook {p}))
+(test-success
+    "Open workbook report-path."
+    (open-workbook report-path))
+
+(english-vla
+    "save this workbook as {p:expr}"
+    (save-workbook-as {p}))
+(test-success
+    "Save this workbook as backup-path."
+    (save-workbook-as backup-path))
+
+(english-vla
+    "close this workbook"
+    (close-workbook))
+(test-success
+    "Close this workbook."
+    (close-workbook))
+
+; G1: the matched verb IS the method name, on both the this-sheet
+; and the named-sheet spellings.
+(english-vla
+    "{d:protect|unprotect} this sheet with password {p:expr}"
+    ({d}-sheet activesheet {p}))
+(test-success
+    "Protect this sheet with password \"abc\"."
+    (protect-sheet activesheet "abc"))
+(test-success
+    "Unprotect this sheet with password \"abc\"."
+    (unprotect-sheet activesheet "abc"))
+
+(english-vla
+    "{d:protect|unprotect} sheet {s:sheet} with password {p:expr}"
+    ({d}-sheet (worksheets {s}) {p}))
+(test-success
+    "Protect sheet Data with password \"abc\"."
+    (protect-sheet (worksheets "data") "abc"))
+(test-success
+    "Unprotect sheet Data with password \"abc\"."
+    (unprotect-sheet (worksheets "data") "abc"))
+
+(english-vla
+    "refresh everything"
+    (refresh-everything))
+(test-success
+    "Refresh everything."
+    (refresh-everything))
+
+(english-vla
+    "print this sheet"
+    (print-this-sheet))
+(test-success
+    "Print this sheet."
+    (print-this-sheet))
+
+(english-vla
+    "wait {n:expr} seconds"
+    (wait-seconds {n}))
+(test-success
+    "Wait 2 seconds."
+    (wait-seconds 2))
+
+(english-vla
+    "put {e:expr} in status bar"
+    (set-status-bar {e}))
+(test-success
+    "Put \"working\" in status bar."
+    (set-status-bar "working"))
+
+(english-vla
+    "clear status bar"
+    (set-status-bar false))
+(test-success
+    "Clear status bar."
+    (set-status-bar false))
+
+; ---- G-STRUCT: rows, columns, copy/paste, clearing -------------------
+; BETA_ROADMAP.md's G-STRUCT entry, scoped against pareto.txt sections
+; 2-5 and signed off with the owner before writing any rule below (four
+; real forks; the owner's own choice is named at each). What pareto.txt
+; itself already covers under a DIFFERENT surface this file already
+; shipped (insert-row, delete-row, insert/delete-column, hide/unhide
+; row and column, row-height, fit-column, freeze-top-row,
+; unfreeze-panes, copy-range, paste-values, fill-down/right,
+; remove-duplicates, clear-formatting) is deliberately NOT re-added
+; here under pareto's own wording - two spellings for one operation is
+; exactly the promise-proliferation G-ROWLOOP's own entry already
+; reverted once (BETA_ROADMAP.md).
+;
+; copy-style (pareto section 5) and copy-formats (section 3) turned out
+; to be the identical .PasteSpecial xlPasteFormats call under two
+; natural-English surfaces, not two features - one shared defmacro
+; backs both below, no Tier-2 helper despite copy-style's own "!"
+; marker (the same "the marker described something else" correction
+; G-PIVOT's own pivot-create entry made once already). header-style
+; likewise needs no Tier-2 helper - three flat property sets, not a
+; stateful/looping COM sequence.
+
+; ---- rows and columns ---------------------------------------------
+(defmacro
+    (unhide-all-rows-columns)
+    "show every hidden row and column on the active sheet"
+    (begin (set! (. cells entirerow.hidden) false) (set! (. cells entirecolumn.hidden) false)))
+
+(english-vla
+    "unhide all rows and columns"
+    (unhide-all-rows-columns))
+(test-success
+    "Unhide all rows and columns."
+    (unhide-all-rows-columns))
+
+(defmacro
+    (fit-row n)
+    "autofit a row's height to its contents"
+    (. (rows n) autofit))
+
+(english-vla
+    "fit row {r:expr}"
+    (fit-row {r}))
+(test-success
+    "Fit row 3."
+    (fit-row 3))
+
+(defmacro
+    (group-rows a b)
+    "group a span of rows so they can be collapsed"
+    (. (rows (& a ":" b)) group))
+
+(defmacro
+    (ungroup-rows a b)
+    "ungroup a previously-grouped span of rows"
+    (. (rows (& a ":" b)) ungroup))
+
+(english-vla
+    "group rows {a:expr} through {b:expr}"
+    (group-rows {a} {b}))
+(test-success
+    "Group rows 2 through 10."
+    (group-rows 2 10))
+
+(english-vla
+    "ungroup rows {a:expr} through {b:expr}"
+    (ungroup-rows {a} {b}))
+(test-success
+    "Ungroup rows 2 through 10."
+    (ungroup-rows 2 10))
+
+; IN.2 (owner-caught live, interpret-and-trace): DynamicNamedCall
+; (VLA_Interpreter.bas) had no "resize" Case at all - a genuine gap in
+; the interpreter's own named-argument dispatch, not a grammar issue,
+; fixed there rather than routed around here. :rowsize now works on
+; both backends.
+(defmacro
+    (insert-n-rows-at r n)
+    "insert several blank rows starting at a row number, pushing existing rows down"
+    (. (. (rows r) resize :rowsize n) insert))
+
+(english-vla
+    "insert {n:expr} rows at row {r:expr}"
+    (insert-n-rows-at {r} {n}))
+(test-success
+    "Insert 3 rows at row 5."
+    (insert-n-rows-at 5 3))
+
+(defmacro
+    (delete-rows-range a b)
+    "delete a contiguous span of whole rows"
+    (. (rows (& a ":" b)) delete))
+
+(english-vla
+    "delete rows {a:expr} through {b:expr}"
+    (delete-rows-range {a} {b}))
+(test-success
+    "Delete rows 4 through 9."
+    (delete-rows-range 4 9))
+
+; move-column (!, pareto section 2): VLA_Runtime.VlaMoveColumn - Cut
+; then Insert(Shift:=xlToRight) is a single atomic Excel operation that
+; keeps formats and needs no manual index-shift math (that Sub's own
+; header note has the full reasoning); self-move is a silent no-op.
+(defmacro
+    (move-column c d)
+    "move a whole column to sit before another column, keeping its formatting"
+    (vlamovecolumn c d))
+
+(english-vla
+    "move column {c:column} before column {d:column}"
+    (move-column {c} {d}))
+(test-success
+    "Move column B before column D."
+    (move-column "b" "d"))
+
+; freeze-panes (?, pareto section 2 - resolved with the owner: follow
+; the active window, same shape as the already-shipped freeze-top-row,
+; but guard the degenerate n<=0 case (VLA_Runtime.VlaFreezePanes)
+; rather than silently doing nothing.
+(defmacro
+    (freeze-first-rows n)
+    "freeze the given number of rows at the top of the active window"
+    (vlafreezepanes n))
+
+(english-vla
+    "freeze the first {n:expr} rows"
+    (freeze-first-rows {n}))
+(test-success
+    "Freeze the first 3 rows."
+    (freeze-first-rows 3))
+
+; ---- copy, paste, and moving data around -----------------------------
+(defmacro
+    (copy-formats-only a b)
+    "copy only the formatting from one range onto another, leaving values and formulas untouched"
+    (begin (. a copy) (. b pastespecial :paste xlpasteformats) (set! application.cutcopymode false)))
+
+(english-vla
+    "copy formatting of {a:range} to {b:range}"
+    (copy-formats-only (range {a}) (range {b})))
+(test-success
+    "Copy formatting of A1:A5 to C1:C5."
+    (copy-formats-only (range "a1:a5") (range "c1:c5")))
+
+; NOTE the swapped argument order versus the rule above: copy-formats-
+; only(a, b) copies FROM a TO b, but "Make {a} look like {b}" means a
+; is the one being CHANGED and b is the model - a is the destination
+; here, not the source, so b must be passed first.
+(english-vla
+    "make {a:range} look like {b:range}"
+    (copy-formats-only (range {b}) (range {a})))
+(test-success
+    "Make C1:C5 look like A1:A5."
+    (copy-formats-only (range "a1:a5") (range "c1:c5")))
+
+(defmacro
+    (copy-formulas-only a b)
+    "copy only the formulas from one range into another"
+    (begin (. a copy)
+           (. b pastespecial :paste xlpasteformulas)
+           (set! application.cutcopymode false)))
+
+(english-vla
+    "copy formulas of {a:range} to {b:cell}"
+    (copy-formulas-only (range {a}) (range {b})))
+(test-success
+    "Copy formulas of B2:B9 to D2."
+    (copy-formulas-only (range "b2:b9") (range "d2")))
+
+(defmacro
+    (copy-widths-only a b)
+    "copy only the column widths from one range onto another"
+    (begin (. a copy)
+           (. b pastespecial :paste xlpastecolumnwidths)
+           (set! application.cutcopymode false)))
+
+(english-vla
+    "copy column widths of {a:range} to {b:range}"
+    (copy-widths-only (range {a}) (range {b})))
+(test-success
+    "Copy column widths of A1:C1 to E1:G1."
+    (copy-widths-only (range "a1:c1") (range "e1:g1")))
+
+(defmacro
+    (paste-transposed a b)
+    "copy a range into another location with rows and columns swapped"
+    (begin (. a copy) (. b pastespecial :transpose true) (set! application.cutcopymode false)))
+
+(english-vla
+    "copy range {a:range} to {b:cell} transposed"
+    (paste-transposed (range {a}) (range {b})))
+(test-success
+    "Copy range A1:A5 to C1 transposed."
+    (paste-transposed (range "a1:a5") (range "c1")))
+
+; IN.2: DynamicNamedCall had no "cut" Case either (same underlying gap
+; insert-n-rows-at's own note documents) - fixed there.
+(defmacro
+    (cut-range a b)
+    "move a range's cells to another location, leaving the source empty"
+    (. a cut :destination b))
+
+(english-vla
+    "move range {a:range} to {b:cell}"
+    (cut-range (range {a}) (range {b})))
+(test-success
+    "Move range A1:A5 to C1."
+    (cut-range (range "a1:a5") (range "c1")))
+
+(defmacro
+    (duplicate-row r n)
+    "copy one whole row's contents and formatting onto another row"
+    (. (rows r) copy :destination (rows n)))
+
+(english-vla
+    "copy row {r:expr} to row {n:expr}"
+    (duplicate-row {r} {n}))
+(test-success
+    "Copy row 5 to row 12."
+    (duplicate-row 5 12))
+
+; ---- clearing and removing --------------------------------------------
+; clear-contents (pareto section 4) is already shipped under a
+; different surface - "Clear cell|range {r:range}." (this file's own
+; 11-20 block, line 143) already reaches .ClearContents - not re-added
+; here under pareto's own wording, same policy as this section's own
+; header comment states.
+(defmacro
+    (clear-everything-from r)
+    "clear a range's values, formulas, and formatting entirely"
+    (. r clear))
+
+(english-vla
+    "clear everything from {r:range}"
+    (clear-everything-from (range {r})))
+(test-success
+    "Clear everything from A1:D50."
+    (clear-everything-from (range "a1:d50")))
+
+; IN.2: DynamicNamedCall had no "delete" Case either (same underlying
+; gap insert-n-rows-at's/cut-range's own notes document) - fixed there.
+(defmacro
+    (delete-shift-up r)
+    "delete a range and shift the cells below it up"
+    (. r delete :shift xlshiftup))
+
+(defmacro
+    (delete-shift-left r)
+    "delete a range and shift the cells to its right left"
+    (. r delete :shift xlshifttoleft))
+
+(english-vla
+    "delete {r:range} and shift cells up"
+    (delete-shift-up (range {r})))
+(test-success
+    "Delete A1:A5 and shift cells up."
+    (delete-shift-up (range "a1:a5")))
+
+(english-vla
+    "delete {r:range} and shift cells left"
+    (delete-shift-left (range {r})))
+(test-success
+    "Delete A1:A5 and shift cells left."
+    (delete-shift-left (range "a1:a5")))
+
+; delete-blank-rows (!, pareto section 4): VLA_Runtime.VlaDeleteBlankRows
+; guards SpecialCells' own "no cells were found" error - nothing blank
+; is a silent no-op, not a refusal.
+(defmacro
+    (delete-blank-rows r)
+    "delete every row that has a blank cell within a range"
+    (vladeleteblankrows r))
+
+(english-vla
+    "delete blank rows in {r:range}"
+    (delete-blank-rows (range {r})))
+(test-success
+    "Delete blank rows in A1:D50."
+    (delete-blank-rows (range "a1:d50")))
+
+; trim-sheet (!, pareto section 4): VLA_Runtime.VlaTrimSheet. No slot -
+; operates on the active sheet, same implicit-target convention as the
+; already-shipped "fit all columns"/"refresh everything".
+(defmacro
+    (trim-this-sheet)
+    "remove every trailing empty row and column past the sheet's real used extent"
+    (vlatrimsheet))
+
+(english-vla
+    "remove trailing empty rows and columns"
+    (trim-this-sheet))
+(test-success
+    "Remove trailing empty rows and columns."
+    (trim-this-sheet))
+
+; ---- banded rows and header styling (pareto section 5, swept into
+; G-STRUCT's own scoping pass per the roadmap item) ---------------------
+; banded-rows (!, owner's choice: a static one-time loop, not a live
+; Conditional Formatting rule - no cf-* machinery exists yet, pareto's
+; own section 7 is a later, unstarted pass, and a static fill is what
+; clear-formats/clear-all already know how to undo).
+; VLA_Runtime.VlaBandRows shades every OTHER row starting at the
+; range's own 2nd row (leaves row 1 - often a header - unbanded).
+; pareto.txt's own {n:text} target is widened here to {n:expr}, the
+; same slot category and (vlacolor {e}) wrapping set-fill-color/
+; set-font-color/set-tab-color already use and already proved (a bare
+; :text slot has no runtime path to a color value - VlaColor only
+; resolves a hex string or a numeric constant, never an English color
+; name - so a bare color word here would raise rt-color-invalid at
+; runtime with no warning at Check time).
+(defmacro
+    (band-rows r c)
+    "shade every other row of a range with a fill color, starting at the range's own 2nd row"
+    (vlabandrows r c))
+
+(english-vla
+    "band every other row of {r:range} {n:expr}"
+    (band-rows (range {r}) (vlacolor {n})))
+(test-success
+    "Band every other row of A2:D50 \"#D9D9D9\"."
+    (band-rows (range "a2:d50") (vlacolor "#D9D9D9")))
+
+; header-style (!, owner's choice: bold + fill only - "an opinionated
+; composite, audition carefully" per pareto's own note. Freezing the
+; row and turning on filters are each already their own sentence
+; ("Freeze the first {n} rows.", "Add filters to {r}." - the latter
+; still unbuilt, filed under G-SORTFILTER) - documented here as the
+; two-sentence idiom rather than folded into this verb's own side
+; effects. No Tier-2 helper: bold + one fill-color set!, the same
+; shape make-bold/set-fill-color already prove independently.
+(defmacro
+    (make-header-row r)
+    "make a row read as a table header: bold text and a light fill - freeze or filter it with their own separate sentences if wanted"
+    (begin (make-bold (rows r)) (set-fill-color (rows r) (vlacolor "#D9D9D9"))))
+
+(english-vla
+    "make row {r:expr} a header row"
+    (make-header-row {r}))
+(test-success
+    "Make row 1 a header row."
+    (make-header-row 1))
+
+; ---- fill-series (?, pareto section 3 - owner's choice: design the
+; fuller step/type surface now rather than deferring it). Two axes
+; (linear/growth, with/without an explicit step) as four plain rules,
+; the same shape sort-range-by's own ascending/descending/bare-default
+; trio already uses, rather than a defaulted alternation slot - "with a
+; {t:linear|growth} series" would put the noise word "a" directly
+; before a slot, exactly the silent-swallow hazard this pass was
+; warned to check for (IsNoiseWord strips "a"/"an" before a LITERAL
+; safely; before a SLOT it eats the slot's own leftover article
+; instead). Four full-sentence patterns of different lengths need no
+; such trick and cannot ambiguously overlap - TryPhrase requires a
+; rule to consume the WHOLE sentence, so the step-less rules simply
+; fail (unconsumed trailing tokens) on a sentence that names a step,
+; regardless of registration order.
+; DataSeries has no "starting value" argument of its own - the value
+; has to be written into the range's first cell before it runs
+; (VLA_Runtime.VlaFillSeries's own header note).
+(defmacro
+    (fill-series r n s kind)
+    "fill a range with a linear or growth series starting at a value, with an optional step"
+    (vlafillseries r n s kind))
+
+(english-vla
+    "fill {r:range} with a series starting at {n:expr}"
+    (fill-series (range {r}) {n} 1 "linear"))
+(test-success
+    "Fill A1:A10 with a series starting at 1."
+    (fill-series (range "a1:a10") 1 1 "linear"))
+
+(english-vla
+    "fill {r:range} with a series starting at {n:expr} with step {s:expr}"
+    (fill-series (range {r}) {n} {s} "linear"))
+(test-success
+    "Fill A1:A10 with a series starting at 1 with step 2."
+    (fill-series (range "a1:a10") 1 2 "linear"))
+
+; owner-caught live: this rule's own default step was wrongly shared
+; with the linear rule above (literal 1) - a growth series with ratio
+; 1 is degenerate (every cell equals the start value, no growth at
+; all), diagnosed but not actually fixed the first time this session -
+; caught only when VerifyReports kept reporting it. 2 (doubling) is
+; the natural default for "growth" the way +1 is for "linear".
+(english-vla
+    "fill {r:range} with a growth series starting at {n:expr}"
+    (fill-series (range {r}) {n} 2 "growth"))
+(test-success
+    "Fill A1:A10 with a growth series starting at 1."
+    (fill-series (range "a1:a10") 1 2 "growth"))
+
+(english-vla
+    "fill {r:range} with a growth series starting at {n:expr} with step {s:expr}"
+    (fill-series (range {r}) {n} {s} "growth"))
+(test-success
+    "Fill A1:A10 with a growth series starting at 2 with step 3."
+    (fill-series (range "a1:a10") 2 3 "growth"))
+
+; ---- G11: the template face --------------------------------------
+; Friendly functors hiding the dot (VBA member access) from template
+; authors. The dot stays first-class in VLA - these are carried
+; macros, one expansion deep, each probe-validated at load. Where a
+; rule binds a style word ({d:bold|italic}), the ENGLISH layer
+; computes the macro NAME by text substitution - (make-{d} ...)
+; becomes (make-bold ...) before the reader ever sees it, the same
+; move as xl{d}. Emitted VBA is unchanged to the byte.
+(defmacro
+    (clear-contents r)
+    "erase a range's values, keep its formatting"
+    (. r clearcontents))
+
+(defmacro
+    (fill-down r)
+    "copy the top row of a range down through it"
+    (. r filldown))
+
+(defmacro
+    (fill-right r)
+    "copy the left column of a range right through it"
+    (. r fillright))
+
+(defmacro
+    (make-bold r)
+    "turn a range's font bold"
+    (set! (. r font.bold) true))
+
+(defmacro
+    (make-italic r)
+    "turn a range's font italic"
+    (set! (. r font.italic) true))
+
+; ANTONYM-SWEEP: method-antonym-family is bool-antonym-family's twin
+; (defined near hide-column, scripts/english.vla) for the shape a
+; boolean flip doesn't fit - the antonym pair IS two distinct method
+; names on one target, not one property's two values. protect-sheet/
+; unprotect-sheet below stay hand-written on purpose, table-to-range's
+; own precedent (BETA_ROADMAP.md's TABLE-FAMILY entry): their shape
+; adds a keyword-argument tail (:password pw) AND an extra parameter -
+; neither family can splice into a signature and a call site with two
+; different subsets of the same rest-bound name at once without real
+; new complexity, so this stays a genuine exception, not a shortcut
+; forced onto a shape that doesn't fit it.
+(defmacro
+    (method-antonym-family name param target pos-method neg-method doc-pos doc-neg)
+    "generate a method-call antonym pair sharing one target-and-method shape, no extra arguments"
+    (begin (defmacro
+               (name param)
+               doc-pos
+               (. target pos-method))
+
+           (defmacro
+               ((symbol "un" name) param)
+               doc-neg
+               (. target neg-method))))
+
+(method-antonym-family
+    merge-range
+    r
+    r
+    merge
+    unmerge
+    "merge a range into one cell"
+    "split a merged range back into cells")
+(defmacro
+    (protect-sheet ws pw)
+    "protect a worksheet with a password"
+    (. ws protect :password pw))
+
+(defmacro
+    (set-alignment r a)
+    "set a range's horizontal alignment (xl constant)"
+    (set! (. r horizontalalignment) a))
+
+(defmacro
+    (set-column-width c w)
+    "set a column's width in characters"
+    (set! (. c columnwidth) w))
+
+(defmacro
+    (set-fill-color r c)
+    "set a range's background fill color"
+    (set! (. r interior.color) c))
+
+(defmacro
+    (set-font-color r c)
+    "set a range's font color"
+    (set! (. r font.color) c))
+
+(defmacro
+    (set-font-size r n)
+    "set a range's font size in points"
+    (set! (. r font.size) n))
+
+(defmacro
+    (unprotect-sheet ws pw)
+    "remove a worksheet's password protection"
+    (. ws unprotect :password pw))
+
+; ---- F.1: the grammar/emitter ABI --------------------------------------
+; The dot count. Every rule below used to reach the object model
+; directly; each now targets one of these named verbs instead, so a
+; second backend (IN.2) has a table of verbs to implement rather than
+; a phrasebook of raw dot-forms to reverse-engineer one at a time.
+; Behavior-preserving by construction: each macro's body is the exact
+; dot-form the rule used to emit inline, so expansion produces
+; byte-identical VBA - this is why the golden diff for this pass is
+; expected to be non-empty ONLY in the .vla file (template text
+; changed) and empty in the .vba file (emitted code did not).
+(defmacro
+    (copy-range-to a b)
+    "copy a range's cells into another range"
+    (. a copy :destination b))
+
+(defmacro
+    (paste-values a b)
+    "copy a range's values only - no formatting or formulas - into another range"
+    (begin (. a copy) (. b pastespecial :paste xlpastevalues) (set! application.cutcopymode false)))
+
+(defmacro
+    (clear-color r)
+    "remove a range's fill color"
+    (set! (. r interior.colorindex) xlnone))
+
+(defmacro
+    (format-as-currency r)
+    "apply a currency number-format to a range"
+    (set! (. r numberformat) "$#,##0.00"))
+
+(defmacro
+    (format-as-percent r)
+    "apply a percent number-format to a range"
+    (set! (. r numberformat) "0.0%"))
+
+(defmacro
+    (format-as-date r)
+    "apply a date number-format to a range"
+    (set! (. r numberformat) "mm/dd/yyyy"))
+
+(defmacro
+    (add-border r)
+    "add a continuous-line border around a range"
+    (set! (. r borders.linestyle) xlcontinuous))
+
+(defmacro
+    (delete-row n)
+    "delete a whole row"
+    (. (rows n) delete))
+
+(defmacro
+    (insert-row-at n)
+    "insert a blank row"
+    (. (rows n) insert))
+
+(defmacro
+    (delete-column c)
+    "delete a whole column"
+    (. (columns c) delete))
+
+; ANTONYM-SWEEP: bool-antonym-family generates a boolean-property
+; on/off macro pair from one shared target-and-property shape - `name`
+; sets `property` true on `target`; `(symbol "un" name)` sets it false.
+; `target` is a whole caller-supplied FORM (e.g. (columns c) below, or
+; the bare param itself with no wrapper call at all, as wrap-text
+; further down needs) - substituted as one whole value, unexamined,
+; the same way TABLE-FAMILY's own `call`/`testcall` arguments already
+; work; `param` is written by the caller in two places (once naming
+; the generated macro's own parameter, once inside `target`
+; referencing it) by convention, not magic - Substitute never touches
+; the symbol inside an already-whole-value-substituted form a second
+; time. Every generated macro is therefore byte-for-byte what the
+; hand-written pair used to emit - the english-vla rule and
+; test-success proofs for each antonym pair stay exactly where they
+; already were, untouched: they were ALREADY maximally compressed via
+; G11r's own {d:hide|unhide}-style glued-identifier dispatch
+; (({d}-column {c}) below), which reaches whichever macro name results
+; regardless of whether it was hand-written or generated - only the
+; macro PAIR itself was hand-duplicated, and that's what this
+; generator removes. Used again below for wrap-text/unwrap-text and
+; hide-row/unhide-row.
+(defmacro
+    (bool-antonym-family name param target property doc-pos doc-neg)
+    "generate a boolean-property on/off macro pair sharing one target-and-property shape"
+    (begin (defmacro
+               (name param)
+               doc-pos
+               (set! (. target property) true))
+
+           (defmacro
+               ((symbol "un" name) param)
+               doc-neg
+               (set! (. target property) false))))
+
+(bool-antonym-family hide-column c (columns c) hidden "hide a column" "show a hidden column")
+(defmacro
+    (insert-column c)
+    "insert a blank column"
+    (. (columns c) insert))
+
+(defmacro
+    (fit-column c)
+    "autofit a column's width to its contents"
+    (. (columns c) autofit))
+
+(defmacro
+    (fit-all-columns)
+    "autofit every column's width to its contents"
+    (. cells entirecolumn.autofit))
+
+(defmacro
+    (freeze-top-row)
+    "freeze the sheet's header row"
+    (begin (. (rows 2) select) (set! activewindow.freezepanes true)))
+
+(defmacro
+    (unfreeze-panes)
+    "remove any frozen rows or columns"
+    (set! (. activewindow freezepanes) false))
+
+(defmacro
+    (sort-range-by r k order)
+    "sort a range by one column"
+    (. r sort :key1 k :order1 order :header xlyes))
+
+(defmacro
+    (activate-sheet s)
+    "make a sheet the active sheet - fails if it does not exist"
+    (. (worksheets s) activate))
+
+(defmacro
+    (add-sheet-called s)
+    "add a new sheet with a given name"
+    (begin (vlachecksheetname s) (vlachecksheetabsent s) (worksheets.add) (set! activesheet.name s)))
+
+(defmacro
+    (delete-sheet s)
+    "delete a sheet without the confirmation prompt"
+    (begin (set! application.displayalerts false)
+           (. (worksheets s) delete)
+           (set! application.displayalerts true)))
+
+(defmacro
+    (open-workbook p)
+    "open a workbook file"
+    (. workbooks open p))
+
+(defmacro
+    (save-workbook-as p)
+    "save this workbook to a new path"
+    (. thisworkbook saveas p))
+
+(defmacro
+    (close-workbook)
+    "close this workbook, saving changes"
+    (. thisworkbook close :savechanges true))
+
+(defmacro
+    (refresh-everything)
+    "refresh every data connection and pivot table"
+    (. activeworkbook refreshall))
+
+(defmacro
+    (print-this-sheet)
+    "open the print preview for this sheet"
+    (. activesheet printout :preview true))
+
+(defmacro
+    (wait-seconds n)
+    "pause for a number of seconds"
+    (. application wait (+ (now) (timeserial 0 0 n))))
+
+; ANTONYM-SWEEP: bool-antonym-family (scripts/english.vla, defined near
+; hide-column above) - target is the bare param `r` itself, no wrapper
+; call, unlike hide-column's (columns c).
+(bool-antonym-family
+    wrap-text
+    r
+    r
+    wraptext
+    "turn on a range's text wrapping"
+    "turn off a range's text wrapping")
+(defmacro
+    (replace-in a b target)
+    "find and replace text within a range or column"
+    (. target replace :what a :replacement b))
+
+(defmacro
+    (clear-formatting r)
+    "remove all formatting from a range, keeping its values"
+    (. r clearformats))
+
+(defmacro
+    (set-row-height n h)
+    "set a row's height in points"
+    (set! (. (rows n) rowheight) h))
+
+; ANTONYM-SWEEP: bool-antonym-family (scripts/english.vla, defined near
+; hide-column above) - same shape as hide-column, (rows n) instead of
+; (columns c).
+(bool-antonym-family hide-row n (rows n) hidden "hide a row" "show a hidden row")
+(defmacro
+    (set-tab-color s c)
+    "set a sheet tab's color"
+    (set! (. (worksheets s) tab.color) c))
+
+(defmacro
+    (copy-range-to-sheet rExpr s rRef)
+    "copy a range into the same address on another sheet"
+    (. rExpr copy :destination (. (worksheets s) range rRef)))
+
+(defmacro
+    (remove-duplicates r cols)
+    "remove duplicate rows from a range, keyed by one or more columns"
+    (. r removeduplicates :columns cols :header xlyes))
+
+(defmacro
+    (name-range r n)
+    "give a range a workbook-level name, usable in formulas"
+    (begin (vlacheckrangename n) (set! (. r name) n)))
+
+(defmacro
+    (put-into-cell-of-sheet e r s)
+    "write a value into a cell on another sheet"
+    (set! (. (worksheets s) range r) e))
+
+(defmacro
+    (cell-of-sheet r s)
+    "read a cell's value from another sheet"
+    (. (worksheets s) range r))
+
+(defmacro
+    (filter-rows r field criteria)
+    "hide every row of a range whose column doesn't match"
+    (. r autofilter :field field :criteria1 criteria))
+
+(defmacro
+    (show-all-rows)
+    "remove any active filter, showing every row again"
+    (begin (on-error resume-next) (. activesheet showalldata) (on-error goto 0)))
+
+(defmacro
+    (last-filled-row c)
+    "the row number of the last non-empty cell in a column"
+    (. (. (cells rows.count c) end xlup) row))
+
+(defmacro
+    (export-sheet-as-pdf p)
+    "export this sheet as a PDF file"
+    (. activesheet exportasfixedformat :type xltypepdf :filename p))
+
+(defmacro
+    (save-copy-as p)
+    "save a copy of this workbook without changing the open file"
+    (. activeworkbook savecopyas p))
+
+(defmacro
+    (save-current-workbook)
+    "save this workbook"
+    (. thisworkbook save))
+
+(defmacro
+    (set-screen-updating on)
+    "turn Excel's screen redraw on or off"
+    (set! application.screenupdating on))
+
+(defmacro
+    (set-status-bar text)
+    "show text in the status bar, or false to clear it"
+    (set! application.statusbar text))
+
+; F.1 residual: the seven WorksheetFunction calls (sum/average/max/min/
+; vlookup/sumif/countif) - a distinct, lower-risk category than the
+; above (computing a value, not mutating sheet/range state), left out
+; of the main pass and closed here. Same rule as everywhere else in
+; this block: each macro's body is the exact bare-dotted call the rule
+; or function: word used to emit inline, so expansion is byte-
+; identical VBA. Parameter order matches the calling rule's English
+; sentence, not the WorksheetFunction signature (sum-of-where reorders
+; internally, same move as put-into-cell-of-sheet above).
+(defmacro
+    (sum-of r)
+    "the sum of a range or list of numbers"
+    (application.worksheetfunction.sum r))
+
+(defmacro
+    (average-of r)
+    "the average of a range or list of numbers"
+    (application.worksheetfunction.average r))
+
+(defmacro
+    (largest-of r)
+    "the largest value in a range or list"
+    (application.worksheetfunction.max r))
+
+(defmacro
+    (smallest-of r)
+    "the smallest value in a range or list"
+    (application.worksheetfunction.min r))
+
+(defmacro
+    (lookup-of e r k)
+    "look up a value in a range's first column, reading across to another column - fails if not found"
+    (application.worksheetfunction.vlookup e r k false))
+
+(defmacro
+    (sum-of-where r c e)
+    "the sum of one range's cells where a matching range meets a condition"
+    (application.worksheetfunction.sumif c e r))
+
+(defmacro
+    (count-matching c e)
+    "count a range's cells that match a condition"
+    (application.worksheetfunction.countif c e))
+
+; ---- L4: a phrasebook-carried macro ----------------------------------
+; macro: carries a (defmacro ...) form, validated at load (probe-
+; transpiled through the engine's own gates) and APPENDED to every
+; translation - bottom, not top, so the transpiler's ' vla:N source
+; map never shifts when macros change (L4.2). The rule below emits
+; the macro CALL; the transpiler expands it. NOTE: this block
+; changes the .vla golden by exactly the appended defmacro at the
+; tail - an intentional, reviewed contract change; the .vba golden
+; must not move at all (defmacros emit nothing, no corpus sentence
+; calls this one, and appending shifts no line numbers).
+(defmacro
+    (vla-stamp-cell r v)
+    "write a value into a cell and make it bold - the phrasebook demo macro"
+    (begin (set! (range r) v) (make-bold (range r))))
+
+(english-vla
+    "stamp {e:expr} into|in cell {r:cell}"
+    (vla-stamp-cell {r} {e}))
+(test-success
+    "Stamp 5 into cell B2."
+    (vla-stamp-cell "b2" 5))
+(test-success
+    "Stamp total in cell C3."
+    (vla-stamp-cell "c3" total))
+
+; ---- IN.7 (button-click half): interpreter-native UI ------------------
+; make-button is NOT a macro to a dot-form like every rule above it -
+; it is a native interpreter primitive (VLA_Interpreter.bas's own
+; EvalDynamicHead, the same tier "range"/"cells" are dispatched at and
+; for the same reason: no CallByName path reaches a Form Control
+; button's .Add/.Name/.OnAction any more than it reaches Application's
+; own parameterized default members). Check and Interpret both accept
+; this rule; Compile/Compile and Trace now compile it for real too
+; (compiled parity, a later pass - EmitStmt's own "make-button" case
+; wires straight to the matching "When ... is clicked:" handler, no
+; registry involved). The caption doubles as the button's reference
+; name (IN.7's own naming decision) - see "When ... is clicked:" below.
+; [called] is optional (G1's own bracket syntax) - "add sheet called
+; {s:sheet}" above already reads that way, and an owner-typed sentence
+; ("Make a button called ""Clicky"" at cell C3.") reached for the same
+; shape by analogy and got a confusing near-miss instead: without the
+; bracket, {c:text} greedily accepted the bare word "called" itself as
+; the caption (a :text slot's own documented permissiveness, G2 above -
+; nothing wrong with it in isolation), then failed one token later
+; expecting "at" - a hard-to-diagnose error that named the wrong
+; problem. Both phrasings now mean the same thing.
+(english-vla
+    "make a button [called] {c:text} at cell {r:cell}"
+    (make-button {c} (range {r})))
+(test-success
+    "Make a button \"Recalculate Totals\" at cell D3."
+    (make-button "Recalculate Totals" (range "d3")))
+(test-success
+    "Make a button called \"Recalculate Totals\" at cell D3."
+    (make-button "Recalculate Totals" (range "d3")))
+
+; ---- G4: negative proofs ---------------------------------------------
+; fail: asserts a sentence REFUSES and that the refusal keeps its
+; wording (fragment match, case- and whitespace-blind). These protect
+; this file's own G1/G2 refusal decisions and two hardest-won engine
+; refusals its sentences rely on; the load dies if any sentence below
+; starts translating, or any message drifts.
+(test-fail
+    "Sort range banana by column B1."
+    "a range (like")
+(test-fail
+    "Put 1 onto cell A2."
+    "one of 'into'/'in'")
+(test-fail
+    "Fit column banana."
+    "a column letter")
+(test-fail
+    "Increase total by 5 plus 5%."
+    "mixes % into a longer amount")
+(test-fail
+    "Set label to don't."
+    "I don't understand the character")
+
+
+; ---- function words: expression-level vocabulary ----------------------
+; V3: the walkable key list of a lookup (a plain Collection under
+; either representation, insertion-ordered - deterministic walks).
+(english-function
+    "keys of"
+    vladictkeys)
+(english-function
+    "largest of"
+    largest-of)
+(english-function
+    "smallest of"
+    smallest-of)
+(english-function
+    "sum of"
+    sum-of)
+(english-function
+    "average of"
+    average-of)
+; count of moved into the core language in B1: it is a built-in word
+; backed by VlaCount, which answers lists (Collections) as well as
+; ranges (where it still counts numbers, exactly as before). Do not
+; re-add it here - a redefinition would silently break lists.
+
+; ---- core-grammar regression tests (no rules: structural + prelude) ---
+(test-success
+    "Show total."
+    (msgbox total))
+(test-success
+    "Show cell B2."
+    (msgbox (range "b2")))
+(test-success
+    "Log total."
+    (debug-print total))
+(test-success
+    "Log cell B2."
+    (debug-print (range "b2")))
+(test-success
+    "Log \"step \" joined with counter."
+    (debug-print (& "step " counter)))
+(test-success
+    "Set total to 0."
+    (set! total 0))
+(test-success
+    "Increase total by 5."
+    (add! total 5))
+(test-success
+    "Create a number called total."
+    (dim total Double))
+(test-success
+    "If total is greater than 5, show \"big\"."
+    (if (> total 5) (then (msgbox "big"))))
+(test-success
+    "If counter is divisible by 2, show \"even\"."
+    (if (zero? (mod counter 2)) (then (msgbox "even"))))
+(test-success
+    "Repeat 2 times, show counter."
+    (dotimes counter 2 (msgbox counter)))
+(test-success
+    "Count k from 2 to 9, show k."
+    (for (k 2 9) (msgbox k)))
+(test-success
+    "Count k down from 9 to 2, show k."
+    (for (k 9 2 -1) (msgbox k)))
+(test-success
+    "For each r in results, show r."
+    (for-each (r results) (msgbox r)))
+(test-success
+    "While countdown is greater than 0, decrease countdown by 1."
+    (while (> countdown 0) (set! countdown (- countdown 1))))
+(test-success
+    "If code contains \"x\", show \"hit\"."
+    (if (positive? (instr 1 code "x" vbtextcompare)) (then (msgbox "hit"))))
+(test-success
+    "If code does not contain \"x\", show \"clean\"."
+    (if (zero? (instr 1 code "x" vbtextcompare)) (then (msgbox "clean"))))
+(test-success
+    "If code starts with \"AB\", show \"ab\"."
+    (if (= (instr 1 code "AB" vbtextcompare) 1) (then (msgbox "ab"))))
+(test-success
+    "If code ends with \"z\", show \"zed\"."
+    (if (= (lcase (right code (len "z"))) (lcase "z")) (then (msgbox "zed"))))
+(test-success
+    "If cell B2 is empty, show \"blank\"."
+    (if (blank? (range "b2")) (then (msgbox "blank"))))
+(test-success
+    "If cell in column C row k contains \"West\", make cell in column A row k bold."
+    (if (positive? (instr 1 (cells k "c") "West" vbtextcompare)) (then (make-bold (cells k "a")))))
+(test-success
+    "Set v to cell B2 plus 1."
+    (set! v (+ (range "b2") 1)))
+(test-success
+    "Repeat 9 times, stop the loop."
+    (dotimes counter 9 (exit-for)))
+(test-success
+    "While total is greater than 0, stop the loop."
+    (while (> total 0) (exit-do)))
+(test-success
+    "Count k from 1 to 5, stop the loop."
+    (for (k 1 5) (exit-for)))
+(test-success
+    "Set n to length of code."
+    (set! n (len code)))
+(test-success
+    "Set shout to uppercase of name-part."
+    (set! shout (ucase name-part)))
+(test-success
+    "Set m to month of today."
+    (set! m (month (date))))
+(test-success
+    "Set stamp-day to day of now."
+    (set! stamp-day (day (now))))
+(test-success
+    "Set l to length of cell B2."
+    (set! l (len (range "b2"))))
+(test-success
+    "If length of code is greater than 5, show \"long\"."
+    (if (> (len code) 5) (then (msgbox "long"))))
+(test-success
+    "Put now into cell B1."
+    (set! (range "b1") (now)))
+(test-success
+    "Set big to largest of data-cells."
+    (set! big (largest-of data-cells)))
+(test-success
+    "Set small to smallest of data-cells."
+    (set! small (smallest-of data-cells)))
+(test-success
+    "Set s to sum of results."
+    (set! s (sum-of results)))
+(test-success
+    "Set c to count of results."
+    (set! c (vlacount results)))
+(test-success
+    "Create a list called found-items."
+    (begin (dim found-items Collection) (obj-set! found-items (new Collection))))
+(test-success
+    "Append 5 to found-items."
+    (. found-items add 5))
+(test-success
+    "Append counter times 100 to found-items."
+    (. found-items add (* counter 100)))
+(test-success
+    "Set n to count of found-items."
+    (set! n (vlacount found-items)))
+(test-success
+    "For each f in found-items, log f."
+    (for-each (f found-items) (debug-print f)))
+(test-success
+    "Repeat until countdown is 0, decrease countdown by 1."
+    (do-until (= countdown 0) (set! countdown (- countdown 1))))
+(test-success
+    "Repeat until fuel is 5, stop the loop."
+    (do-until (= fuel 5) (exit-do)))
+(test-success
+    "If cell in column number 3 row 2 is 5, log \"hit\"."
+    (if (= (cells 2 3) 5) (then (debug-print "hit"))))
+; The row expression is greedy - "row 2 plus 1" is row 3, matching the
+; spoken reading "the cell in row two-plus-one". To add to the VALUE,
+; name it first (Set v to ...; Increase v by 1.). Blessed after the
+; golden asked; the lettered form has always bound the same way.
+(test-success
+    "Set x to cell in column number 3 row 2 plus 1."
+    (set! x (cells (+ 2 1) 3)))
+(test-success
+    "If value in column number 3 row 2 is 5, log \"hit\"."
+    (if (= (cells 2 3) 5) (then (debug-print "hit"))))
+(test-success
+    "Set v to value in cell B2."
+    (set! v (range "b2")))
+(test-success
+    "Put 5 into cell Data!B2."
+    (set! (range "data!b2") 5))
+(test-success
+    "Put 5 into cell 'Q1 Data'!B2."
+    (set! (range "'Q1 Data'!B2") 5))
+(test-success
+    "Set x to 15%."
+    (set! x (/ 15 100)))
+(test-success
+    "Set x to 10 percent."
+    (set! x (/ 10 100)))
+(test-success
+    "Grow total by 10%."
+    (set! total (* total (+ 1 (/ 10 100)))))
+(test-success
+    "Shrink total by 25%."
+    (set! total (* total (- 1 (/ 25 100)))))
+(test-success
+    "Set x to first of found-items."
+    (set! x (vlafirst found-items)))
+(test-success
+    "Set x to last of found-items."
+    (set! x (vlalast found-items)))
+(test-success
+    "Set x to item 3 of found-items."
+    (set! x (vlaitem found-items 3)))
+(test-success
+    "Set msg to \"total is \" joined with total."
+    (set! msg (& "total is " total)))
+(test-success
+    "Tidy-up."
+    (tidy-up))
+(test-success
+    "Stamp with row of 2 and value of \"beta\"."
+    (stamp :row 2 :value "beta"))
+(test-success
+    "Fill with width of counter plus 1."
+    (fill :width (+ counter 1)))
+
+(english-vla
+    "paint cell {r:text}"
+    (vlacolr {r}))
+
+; ---- G-DATALOG: sentence templates targeting DATALOG(rulesText, tables) --
+; BETA_ROADMAP2.md's own SQL.1 "Two refinements" text settled this whole
+; query family's architecture already: these rows are RECOGNIZERS, not
+; generators - an English sentence is matched and parsed INTO a target
+; query representation (here, DATALOG's own S-expression program text,
+; canonical and auditor-visible), never the reverse. Two ordinary
+; {slot:type} pattern/template pairs below, nothing DCG-shaped.
+;
+; Two spellings, one template, G1's own precedent (Store's "at key" /
+; "under" reused, one level up): the owner weighed a terser, query-like
+; register ("every Name in Staffing with Salary over 80000") against the
+; original's more conversational one ("every Staffing name whose salary
+; is over 80000") and found neither objectively better. Rather than pick
+; a winner, both patterns below compile through the SAME defmacro -
+; datalog-filter-place is the one template; the two english-vla rows are
+; its two spellings, exactly as "at|under [key]" is one rule rather than
+; two for Store.
+;
+; Bare (unquoted) {..:text} words fold to lowercase in transit (this
+; file's own header note) - which is exactly right here, never a loss:
+; DATALOG's own predicate/column names are matched through the identical
+; fold (VLA_Identity.Fold, DATALOG.5's own header), so a folded "Staffing"
+; and the live Table's own ListObject name resolve identically.
+; L-INTERPOLATE: was ten-plus alternating literal/variable pieces
+; through bare "&" (legible only because that session hand-traced every
+; piece character-by-character against the target string before
+; trusting it) - now one named-hole template, read straight against the
+; =DATALOG(...) shape it produces. alias and table each appear twice
+; in the template; interpolate's own named holes give that back for
+; free (each value supplied once, referenced as often as the template
+; needs) - the exact reason this primitive uses named holes rather
+; than positional {0}/{1}. Named "interpolate", not CL's "format" -
+; this file's own format-as-currency/-percent/-date (above) already
+; own "format" for visual cell styling.
+(defmacro
+    (datalog-filter-place table shown filtercol op val alias r)
+    "write a =DATALOG(...) named-column filter query as a live formula"
+    (set-formula r
+        (interpolate
+            "=DATALOG(\"(rule ({alias} X) ({table} ({shown} X) ({filtercol} S)) ({op} S {val})) (query {alias})\", {table})"
+            :alias
+            alias
+            :table
+            table
+            :shown
+            shown
+            :filtercol
+            filtercol
+            :op
+            op
+            :val
+            val)))
+
+(english-vla
+    "show every {table:text} {shown:text} whose {filtercol:text} is over {val:expr} as {alias:text} in cell {r:cell}"
+    (datalog-filter-place {table} {shown} {filtercol} ">" {val} {alias} (range {r})))
+(test-success
+    "Show every Staffing name whose salary is over 80000 as rich in cell E2."
+    (datalog-filter-place "staffing" "name" "salary" ">" 80000 "rich" (range "e2")))
+
+(english-vla
+    "show every {shown:text} in {table:text} with {filtercol:text} over {val:expr} as {alias:text} in cell {r:cell}"
+    (datalog-filter-place {table} {shown} {filtercol} ">" {val} {alias} (range {r})))
+(test-success
+    "Show every Name in Staffing with Salary over 80000 as Rich in cell E2."
+    (datalog-filter-place "staffing" "name" "salary" ">" 80000 "rich" (range "e2")))
+
+; Reachability - Datalog's own differentiator (BETA_ROADMAP2.md's
+; G-DATALOG entry names this the natural second wave). One template,
+; one anchored transitive-closure shape: a two-column table read
+; positionally (X reports to Y - DATALOG's own header comment's own
+; "(rule (reports_to X Y) (Employees X Y))" precedent for a plain
+; positional rename), closed transitively over an internal predicate
+; (vlachain - a name the sentence never surfaces, so it cannot collide
+; with a real predicate the phrasebook itself chose), then narrowed to
+; just the rows reaching one named anchor.
+;
+; The anchor MUST be quoted ({person:expr}, not a bare {..:text}): a
+; bare word would fold to lowercase like every other bare reference in
+; this file, but DATALOG's own tuple comparison is case-SENSITIVE
+; (VLA_Relation's tuple-identity discipline, DATALOG.4/.5's own header
+; notes) - "alice" would silently never match a real "Alice" row. This
+; is G2's own quoting doctrine ("quotes are the door") applied to a
+; query constant instead of a reference. Because the anchor's own quotes
+; must survive two more layers of quoting - Excel's formula-string
+; escape (a literal " doubles to "") wrapping DATALOG's own quoted-
+; constant syntax - the macro below doubles them itself; a phrasebook
+; author never has to.
+; L-INTERPOLATE: same hand-spliced-"&" -> interpolate refactor as
+; datalog-filter-place, above - table appears three times and alias
+; twice in this one template. person's own doubled quotes (this
+; comment block's own "the macro below doubles them itself" line,
+; just above) are plain template TEXT here, not a hole - interpolate's
+; "{{"/"}}" escape is for a literal brace, never needed for a quote
+; character, so \"\" passes through unescaped exactly as it did in the
+; original "&" chain.
+(defmacro
+    (datalog-chain-place table person alias r)
+    "write a =DATALOG(...) transitive two-column reachability query as a live formula"
+    (set-formula r
+        (interpolate
+            "=DATALOG(\"(rule (vlachain X Y) ({table} X Y)) (rule (vlachain X Y) ({table} X Z) (vlachain Z Y)) (rule ({alias} X) (vlachain X \"\"{person}\"\")) (query {alias})\", {table})"
+            :table
+            table
+            :person
+            person
+            :alias
+            alias)))
+
+(english-vla
+    "show everyone who reports to {person:expr} directly or not in {table:text} as {alias:text} in cell {r:cell}"
+    (datalog-chain-place {table} {person} {alias} (range {r})))
+(test-success
+    "Show everyone who reports to \"Alice\" directly or not in Reports as team in cell E2."
+    (datalog-chain-place "reports" "Alice" "team" (range "e2")))
+
+
+

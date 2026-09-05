@@ -1,0 +1,687 @@
+; SPDX-License-Identifier: Apache-2.0
+; =====================================================================
+;  prelude.vla - the language's own standard library, written IN VLA.
+;  F.3: this file used to be VLA.bas's PreludeMacros() function, a
+;  322-line VBA string built one "s = s & ""..."" " line at a time -
+;  every embedded quote doubled to survive being inside a VBA string
+;  literal (the escape-stack bug class this move deletes), no lint
+;  coverage of its own, and un-editable by anyone who does not already
+;  read VBA. Loaded fresh on every compile (VlaTranspile/
+;  VlaCompileToForms read this file's text and prepend it to the
+;  user's source, exactly as PreludeMacros()'s return value used to
+;  be) - not cached, not injected, the same discipline every other
+;  per-compile table in this engine already follows (LESSONS.md
+;  XXXII: a recompile drops module state, so nothing here may depend
+;  on surviving one).
+;
+;  Every defmacro below is a template macro, not a procedure: pure
+;  syntactic substitution, no gensym, no eval. The caller names every
+;  binding (the anti-gensym doctrine) - two uses of a binding template
+;  in one procedure that share a name collide at VBA's own compile
+;  step, which is the loud failure this project chooses over a hidden
+;  hygiene mechanism.
+; =====================================================================
+
+; L3 / P.L0: the earliest control-flow spellings.
+(defmacro
+    (when test & body)
+    "run the body when the test is true"
+    (if test (then body)))
+
+(defmacro
+    (unless test & body)
+    "run the body when the test is false"
+    (if (not test) (then body)))
+
+(defmacro
+    (dotimes v n & body)
+    "count v from 1 to n, running the body each time"
+    (for (v 1 n) body))
+
+(defmacro
+    (inc! x)
+    "add 1 to a variable"
+    (set! x (+ x 1)))
+
+(defmacro
+    (dec! x)
+    "subtract 1 from a variable"
+    (set! x (- x 1)))
+
+(defmacro
+    (add! x n)
+    "add an amount to a variable"
+    (set! x (+ x n)))
+
+; -----------------------------------------------------------------
+; P.L1 (P-PRED): the predicate prelude - Lisp's ?-suffix naming,
+; legal here because '?' is an ordinary symbol character to the
+; tokenizer and a predicate call expands away before any identifier
+; reaches VBA. These are the prelude's first EXPRESSION-shaped
+; macros: the expansion walk rebuilds every list element (ExpandMacros'
+; no-macro-at-head path), so a predicate expands identically in a
+; condition, a set!, or an argument position - no statement-position
+; privilege exists to lose. One-line templates, trivially past the
+; four questions: one fixed parameter, no rest, no iteration, no
+; decisions. 1:1 semantics, stated where VBA has edges:
+;   even?/odd?  ride VBA's Mod, which coerces fractional operands to
+;               whole numbers first (banker's rounding) - whatever
+;               Mod says, the predicate says.
+;   empty?      VBA's IsEmpty verbatim: an uninitialized Variant, an
+;               unwritten cell's Value.
+;   blank?      the spreadsheet-flavored cousin - Empty, Null, "" and
+;               whitespace-only all read blank, via (& x "") coercion
+;               (Null & "" is "" by VBA's own & rule), then Trim and
+;               Len. A multi-cell range value inside blank? type-
+;               mismatches at run time exactly as the raw VBA would -
+;               nothing smoothed.
+; Bucket-3 note: the vocabulary's condition templates read through
+; these ((if (blank? (range {r})) ...)) - the ledger's stated purpose
+; for shipping P-PRED first.
+; -----------------------------------------------------------------
+(defmacro
+    (zero? x)
+    "true when the value is 0"
+    (= x 0))
+
+(defmacro
+    (positive? x)
+    "true when the value is greater than 0"
+    (> x 0))
+
+(defmacro
+    (negative? x)
+    "true when the value is less than 0"
+    (< x 0))
+
+(defmacro
+    (even? x)
+    "true when the value divides by 2 evenly"
+    (= (mod x 2) 0))
+
+(defmacro
+    (odd? x)
+    "true when the value does not divide by 2 evenly"
+    (<> (mod x 2) 0))
+
+(defmacro
+    (empty? x)
+    "true for an uninitialized value - VBA's IsEmpty"
+    (isempty x))
+
+(defmacro
+    (blank? x)
+    "true when the value reads as empty text - Empty, Null, or whitespace"
+    (= (len (trim (& x ""))) 0))
+
+; -----------------------------------------------------------------
+; P.L2 (P-WHENLET): binding-conditionals, Clojure school. The "if the
+; cell has a value, use it" pattern that costs three forms (dim, set,
+; if) costs one and reads as intent:
+;   (when-let x expr & body)             body only when x is something
+;   (if-let x expr then-body else-form)  one branch either way;
+;                                        then-body and else-form are
+;                                        ONE form each - wrap multiple
+;                                        statements in (begin ...)
+; C1 doctrine throughout: the caller names the binding, the template
+; dims it (let-one's precedent), so two uses sharing a name in one
+; procedure collide at VBA's compile step - the loud failure the
+; doctrine promises. Values only, like let-one - binding an object
+; needs Set semantics, so write (dim)/(obj-set!)/(if ...) by hand.
+; Dim is procedure-scoped, so the binding OUTLIVES the body - a
+; feature here: after a when-let, x still holds the value (or Empty)
+; for later statements, exactly as the expansion says it does.
+; "Something" means precisely (not (isempty x)) - VBA's Empty: an
+; unwritten cell's Value, an uninitialized Variant. Null is NOT Empty
+; (a Null database field IS something here), and 0 and "" are
+; something too. A caller wanting the broader blank? gate writes the
+; if by hand - one form, one meaning, deliberately. The templates
+; consume P.L1's empty? - the P-layer building on itself; the stepper
+; (VlaExpandStep) shows the intermediate frame with the predicate
+; still folded.
+; -----------------------------------------------------------------
+(defmacro
+    (when-let x expr & body)
+    "bind a value and run the body only when it is not empty"
+    (begin (dim x) (set! x expr) (if (not (empty? x)) (then body))))
+
+(defmacro
+    (if-let x expr then-body else-form)
+    "bind a value and pick the branch by whether it is empty"
+    (begin (dim x) (set! x expr) (if (not (empty? x)) (then then-body) (else else-form))))
+
+; -----------------------------------------------------------------
+; P.L3 (P-TRYELSE): the ignore-errors-with-default idiom - the
+; Lisper's (or (ignore-errors x) default), the spreadsheet automator's
+; "the cell's number, or 0" - as one form:
+;   (try-else tmp expr fallback)
+; Six moves: dim, arm resume-next, try the set, check err.number,
+; clear-and-fall-back, disarm. C1 doctrine: the caller names the
+; binding, the template dims it, duplicate-Dim is the loud collision;
+; values only, like its siblings.
+; 1:1 facts the template leans on: arming ANY On Error form clears Err
+; (VBA's own rule - with-fast-excel's comment records it), which is
+; what makes the err.number check honest when expr succeeds.
+; Honest limits, stated:
+;   - the FALLBACK runs under the same Resume Next blanket, so a
+;     failing fallback leaves the binding Empty and never raises -
+;     keep fallbacks simple (a literal, a bound name).
+;   - On Error state is procedure-scoped, not lexical: the closing
+;     (on-error goto 0) disarms ANY enclosing handler for the rest of
+;     the procedure (with-fast-excel's recorded physics, same
+;     statement) - inside with-error-handler, re-arm after the form
+;     or keep the two apart.
+; -----------------------------------------------------------------
+(defmacro
+    (try-else tmp expr fallback)
+    "bind an expression's value, or a fallback when it errors"
+    (begin (dim tmp)
+           (on-error resume-next)
+           (set! tmp expr)
+           (if (<> err.number 0) (then (err.clear) (set! tmp fallback)))
+           (on-error goto 0)))
+
+; -----------------------------------------------------------------
+; L16: the small-verbs batch. Templates only, C1's temporary-as-
+; parameter doctrine throughout: the caller names tmp, the template
+; dims it (let-one's precedent), and two uses sharing a name in one
+; procedure collide at VBA's compile step - the loud failure the
+; doctrine promises. Values only, like let-one.
+; (dec!, the definition's third verb, already lives above - L3
+; shipped it beside inc!; discovered at L16 time, pinned since.)
+;   swap!     the classic three-move swap
+;   returning CL's prog1 in statement clothes: compute the answer
+;             FIRST, tidy up, then return the saved value. Ends in
+;             (return tmp), so a use inside a Sub meets the emitter's
+;             own trappable teaching refusal - loud and worded, never
+;             a compile modal.
+; -----------------------------------------------------------------
+(defmacro
+    (swap! a b tmp)
+    "swap two values through a caller-named temporary"
+    (begin (dim tmp) (set! tmp a) (set! a b) (set! b tmp)))
+
+(defmacro
+    (returning tmp expr & body)
+    "compute the answer first, tidy up, then return the saved value"
+    (begin (dim tmp) (set! tmp expr) body (return tmp)))
+
+; -----------------------------------------------------------------
+; L7: (time ...) and (trace-form ...) - V6's spirit at VLA level, as
+; templates. C1 throughout: time's start-stamp is a caller-named
+; temporary (the definition's C1 clause licenses the extra parameter
+; over its shorthand signature); trace-form needs no temporary at all
+; - the label IS the trace, entry and exit.
+; Honest limits, stated: Timer granularity is ~16 ms and wraps at
+; midnight (a run across it prints negative) - single-shot times are
+; for the macro scale; micro-benchmarks compose the reps themselves:
+; (time "1000 adds" t1 (dotimes i 1000 (add! x 1))).
+;   (time label tmp & body)    label: "...": <seconds> s
+;   (trace-form label & body)  >> label ... body ... << label
+; -----------------------------------------------------------------
+(defmacro
+    (time label tmp & body)
+    "print how many seconds the body took, labeled"
+    (begin (dim tmp) (set! tmp (timer)) body (debug-print (& label ": " (- (timer) tmp) " s"))))
+
+(defmacro
+    (trace-form label & body)
+    "print entry and exit brackets around the body"
+    (begin (debug-print (& ">> " label)) body (debug-print (& "<< " label))))
+
+; -----------------------------------------------------------------
+; L8: the check family - unit tests written IN VLA, runnable via
+; VlaTry, embeddable as raw rows. Templates on the L7 pattern: the
+; caller supplies the label, so no expansion-time stringification
+; exists anywhere near the four questions. The definition's "etc."
+; resolved to the two workhorses (more verbs are one-line adds when
+; demanded - the small-verbs doctrine).
+; Honest limit, stated: check='s operands appear in BOTH the
+; comparison and the failure message, so they re-evaluate when the
+; check FAILS - bind a side-effecting expression with let-one first.
+; A passing check evaluates each operand once.
+; -----------------------------------------------------------------
+(defmacro
+    (check label cond)
+    "raise unless the condition holds, labeled"
+    (if (not cond) (then (err.raise 5 "check" (& "check failed: " label)))))
+
+(defmacro
+    (check= label expected expr)
+    "raise unless expected equals the expression, showing both"
+    (if (<> expected expr)
+        (then (err.raise 5
+                         "check"
+                         (& "check failed: " label " - expected " expected " but got " expr)))))
+
+; -----------------------------------------------------------------
+; L3: binding forms and control spellings. Templates only, like
+; everything here - the user names every binding (the anti-gensym
+; doctrine), so two let-ones sharing a name in one procedure collide
+; at VBA's compile step, the loud failure C1 promises.
+; -----------------------------------------------------------------
+
+; let-one: the roadmap's expansion verbatim. The binding is a Variant
+; (VBA's own untyped default - 1:1, nothing smoothed); let-one-as
+; names the type when it matters. Dim is procedure-scoped in VBA, not
+; block-scoped: the binding outlives the body, exactly as the
+; expansion says it does. Values only - binding an object needs Set
+; semantics, so write (dim)/(obj-set!) by hand.
+(defmacro
+    (let-one x expr & body)
+    "dim a variable, set it, and run the body with it"
+    (begin (dim x) (set! x expr) body))
+
+(defmacro
+    (let-one-as x type expr & body)
+    "let-one with a named type"
+    (begin (dim x type) (set! x expr) body))
+
+; if-not / while-not: the roadmap's own names, and twin spellings of
+; forms already spoken - if-not is unless letter for letter (readers
+; arriving from VBA's "If Not ... Then" reach for one name, Lispers
+; the other; the vocabulary layer keeps two spellings of one template
+; on the same grounds), and while-not is do-until's Do While Not
+; cousin. Cheap on purpose: a synonym template costs one line and no
+; semantics.
+(defmacro
+    (if-not test & body)
+    "run the body when the test is false - unless, in VBA accent"
+    (if (not test) (then body)))
+
+(defmacro
+    (while-not test & body)
+    "loop the body while the test is false"
+    (while (not test) body))
+
+; comment: expands to (begin), which emits nothing - for disabling
+; CODE. The content must still read as balanced forms (the reader
+; sees it before the expander drops it), so prose stays in ; comments,
+; which never reach the reader at all.
+(defmacro
+    (comment & junk)
+    "expand to nothing - disable balanced forms"
+    (begin))
+
+; -----------------------------------------------------------------
+; C1: the with- library. These are template macros like everything
+; above, so every label and temporary is a caller-supplied parameter -
+; the documented price of having no gensym. Two uses in one procedure
+; therefore need two distinct names; VBA's own compile step catches a
+; collision (duplicate label / duplicate Dim), which is the loud
+; failure we want.
+; -----------------------------------------------------------------
+
+; with-fast-excel: screen updating and calculation off around the
+; body, restored on BOTH exits. Normal completion falls through the
+; label with Err.Number = 0 (arming On Error cleared it), so the
+; re-raise guard stays quiet and the trailing (on-error goto 0)
+; disarms the label for the rest of the procedure. A body error jumps
+; to the label, restores, and re-raises - the handler is active by
+; then, so the raise cannot be re-trapped here and propagates to the
+; caller, which is exactly the contract: guaranteed restore, error
+; still reported. Restores to Excel's defaults (True /
+; xlCalculationAutomatic) rather than saved prior state, deliberately
+; - the same contract as the English sentence "Turn on screen
+; updating.", and saving prior state would cost a second temporary
+; parameter for a mode nobody runs in.
+(defmacro
+    (with-fast-excel restore-label & body)
+    "screen and calc off around the body, restored on both exits"
+    (set! application.screenupdating false)
+    (set! application.calculation xlcalculationmanual)
+    (on-error goto restore-label)
+    body
+    (label restore-label)
+    (set! application.screenupdating true)
+    (set! application.calculation xlcalculationautomatic)
+    (if (<> err.number 0) (then (err.raise err.number err.source err.description)))
+    (on-error goto 0))
+
+; with-error-handler: the classic procedure-tail idiom, verbatim.
+;   (with-error-handler <label> <handler-form> <body>...)
+; arms the handler, runs the body, and exits before the label. The
+; exit is (return), not (exit-sub) - EmitReturn already knows whether
+; it is inside a Sub or a Function, so one macro serves both. Wrap the
+; whole procedure body: anything written after this form is handler
+; territory, exactly as in the hand-written original. Multiple handler
+; statements wrap in one (begin ...). The handler runs with the trap
+; still active - VBA semantics preserved: an error inside it
+; propagates to the caller.
+(defmacro
+    (with-error-handler handler-label handler & body)
+    "arm a handler label around the body, the procedure-tail idiom"
+    (on-error goto handler-label)
+    body
+    (return)
+    (label handler-label)
+    handler)
+
+; with-sheet: run the body with the named sheet active, then hand the
+; previously active sheet back. Navigation semantics - a missing sheet
+; fails loudly, rhyming with the English "Go to sheet" (VlaEnsureSheet
+; / "Work on sheet" is the create-if-missing verb, and it lives one
+; layer up on purpose - the prelude depends on nothing outside this
+; module). <prior> is the caller-named temporary that remembers the
+; departure point; it is declared Object, not Worksheet, so a chart
+; sheet being active cannot type-mismatch the save. Restore happens on
+; normal completion; for a guaranteed way back through failures, wrap
+; the whole form in with-error-handler and re-activate there.
+(defmacro
+    (with-sheet ws prior & body)
+    "run the body on a sheet, restoring the prior sheet after"
+    (dim prior Object)
+    (obj-set! prior activesheet)
+    (. (worksheets ws) activate)
+    body
+    (. prior activate))
+
+; -----------------------------------------------------------------
+; L13: the with- family growth - three more brackets, each on
+; with-fast-excel's proven restore-label pattern VERBATIM (arm, body,
+; fall through the label, restore, re-raise guard, disarm) and each a
+; G5-auditioned English verb candidate staged for the grammar bucket.
+; C1 throughout: the caller names the label; two brackets in one
+; procedure need two names, and VBA's duplicate-label compile error is
+; the loud collision.
+;   with-screen-off      the single-knob sibling of with-fast-excel -
+;                        screen only, calc untouched. Restores to True
+;                        (Excel's default), the with-fast-excel
+;                        contract.
+;   with-no-alerts       DisplayAlerts off around the body - the
+;                        delete-without-prompts bracket. Restores to
+;                        True on both exits: leaving alerts globally
+;                        off is the classic automation injury, which
+;                        is the whole reason this is a bracket.
+;   with-protected-sheet work on a protected sheet: unprotect, body,
+;                        RE-protect on both exits - the keyword
+;                        mechanism (P.L4) riding inside a prelude
+;                        template (:password pairs at both call
+;                        sites). Honest limit, the check= clause's own
+;                        class: ws and pw each appear TWICE in the
+;                        expansion (unprotect and protect), so a
+;                        side-effecting expression there evaluates
+;                        twice - bind with let-one first. An error
+;                        while RE-protecting propagates raw (the
+;                        handler is already active), with-fast-excel's
+;                        inherited contract.
+; Adjudicated refusal, recorded: with-existing-sheet via try-else was
+; considered and REFUSED - try-else is values-only by its own record
+; (set! cannot bind a Worksheet), and bending it would smooth what the
+; doctrine says to state. The P-layer's binding forms compose INSIDE
+; bracket bodies instead (pinned).
+; -----------------------------------------------------------------
+(defmacro
+    (with-screen-off restore-label & body)
+    "screen updating off around the body, restored on both exits"
+    (set! application.screenupdating false)
+    (on-error goto restore-label)
+    body
+    (label restore-label)
+    (set! application.screenupdating true)
+    (if (<> err.number 0) (then (err.raise err.number err.source err.description)))
+    (on-error goto 0))
+
+(defmacro
+    (with-no-alerts restore-label & body)
+    "display alerts off around the body, restored on both exits"
+    (set! application.displayalerts false)
+    (on-error goto restore-label)
+    body
+    (label restore-label)
+    (set! application.displayalerts true)
+    (if (<> err.number 0) (then (err.raise err.number err.source err.description)))
+    (on-error goto 0))
+
+(defmacro
+    (with-protected-sheet ws pw restore-label & body)
+    "unprotect a sheet around the body, re-protected on both exits"
+    (. ws unprotect :password pw)
+    (on-error goto restore-label)
+    body
+    (label restore-label)
+    (. ws protect :password pw)
+    (if (<> err.number 0) (then (err.raise err.number err.source err.description)))
+    (on-error goto 0))
+
+; -----------------------------------------------------------------
+; LISTOPS.0 follow-up: a small standard library over the nine
+; expand-time list primitives (car/cdr/cddr/cons/list/null?/eq?/
+; equal?/quote-if, VLA.bas) - written IN VLA, the same claim every
+; other macro in this file already makes, now literally true one
+; layer deeper: these are the METAMETAMACRO LINE's own name, taken at
+; face value. EXPAND-TIME, not runtime - unlike everything else in
+; this file, these operate on quoted LITERAL data (LISTOPS-PURITY's
+; own wall: quote text in the source being compiled, nothing else),
+; never on a live Range/Collection - vlafirst/vlalast/"first of"
+; (VLA_Runtime.bas) stay the runtime family, a different namespace
+; entirely, unambiguous by construction (LISTOPS's own roadmap entry
+; already required this).
+;
+; filter is deliberately NOT here. Traced by hand before writing
+; anything: quote-if's own test position requires its value to already
+; be the literal symbol true/false, resolved SYNCHRONOUSLY within one
+; Substitute pass - Substitute only eagerly resolves what it directly
+; recognizes (car/cdr/cons/etc., or a bound template parameter), never
+; an arbitrary ordinary macro call. (pred (car lst)), with pred bound
+; to some predicate name, sits as an UN-EXPANDED call form at the
+; moment quote-if inspects it, fails quote-if's own strict IsObject/
+; IsSym check immediately, and there is no later re-walk that can
+; rescue it - the error fires before control ever returns to the
+; outer expansion loop that would otherwise catch it. quote-map/
+; quote-reduce below survive the same hazard only because every call to
+; f sits in a non-conditional, OPAQUE position (an argument passed
+; through, never inspected by a LISTOPS primitive) - never as a
+; quote-if test, and never as cons's own SECOND argument, which is
+; iterated over element by element (ListTail/EvalCons's own
+; `For Each`), not treated as one opaque value, so it must already be
+; real, resolved data - the reason quote-map/append/reverse below are
+; all written accumulator-style, never as the naive
+; (cons (f (car lst)) (quote-map f (cdr lst))) shape a first draft
+; reaches for. A real filter needs a new engine primitive (forcing
+; synchronous ordinary-macro expansion inside quote-if's own test
+; resolution) - its own scoping pass, not a line here.
+;
+; Two more findings, both from the first live host run, neither caught
+; by tracing beforehand - recorded here so a reader sees them before
+; reading the individual macros: (1) append's own FIRST version was
+; genuinely wrong, not just unsafe in theory - a real call produced
+; garbage data, traced and fixed below, at append's own entry. (2) this
+; bundle originally named two of its own members "map" and "reduce" -
+; already the names of Excel's own native dynamic-array functions,
+; already in real, shipped use inside alonzo.vla's own deflambda bodies
+; (a different signature, a different meaning, runtime not expand-
+; time) - a global macro of the same name silently intercepted them
+; and broke a previously-passing test. Renamed to "quote-map"/
+; "quote-reduce", detailed at their own entries below.
+; -----------------------------------------------------------------
+
+; identity: works at any layer, expand-time or runtime alike - whatever
+; x is, at any point, is already its own answer. The trivial base case
+; every other primitive-composition macro can lean on without a real
+; wrapper-function abstraction existing.
+(defmacro
+    (identity x)
+    "return the argument unchanged"
+    x)
+
+; cadr/caddr: the classic cxr shorthands, one and two cars past the
+; first cdr - LISTOPS's own roadmap entry named cddr the representative
+; of this family and left the rest for whenever a real macro needs one.
+; Both car and cdr are always eagerly resolved by Substitute wherever
+; they appear (LISTOPS.0's own dispatch, VLA.bas), so nesting them
+; costs nothing extra and carries none of the filter hazard above.
+(defmacro
+    (cadr lst)
+    "the second element of a quoted list - (car (cdr lst))"
+    (car (cdr lst)))
+
+(defmacro
+    (caddr lst)
+    "the third element of a quoted list - (car (cddr lst))"
+    (car (cddr lst)))
+
+; length: COND.0/LISTOPS-EXPAND follow-up - now folds to a genuine
+; compile-time literal, closing this macro's own original limit
+; ("no expand-time arithmetic exists in this bundle") the moment
+; +expand shipped. Accumulator-style, not the naive (+ 1 (length (cdr
+; lst))) shape this macro used to be (a RUNTIME sum of 1s, correct but
+; never a constant) - length-onto's own acc is always already-folded
+; literal data by the time +expand sees it (each step's fold happens
+; BEFORE the next recursive call, never a raw unexpanded call form
+; sitting in +expand's own argument position), the same invariant
+; reverse-onto's own acc already relies on, just for arithmetic instead
+; of cons. Same recursion shape as before - one macro application per
+; element, no new LISTOPS-BUDGET exposure - +expand only changes WHAT
+; gets computed at each step, not the chain's own shape. Honest limit,
+; stated rather than hidden: +expand folds through a VBA Double, so a
+; quoted list past 2^53 elements would exceed exact-integer precision -
+; not a real constraint for anything that will ever be a literal
+; quoted list in a .vla file, but true, so said plainly rather than
+; left for someone to discover.
+(defmacro
+    (length lst)
+    "count of a quoted list's elements - a compile-time literal, folded via +expand"
+    (length-onto lst 0))
+
+(defmacro
+    (length-onto lst acc)
+    "internal: count lst onto an accumulator, folding as it goes"
+    (quote-if (null? lst) acc (length-onto (cdr lst) (+expand acc 1))))
+
+; reverse: accumulator-style, not the naive (append (reverse (cdr
+; lst)) (list (car lst))) shape - that shape nests append INSIDE
+; reverse's own recursion, and LISTOPS-BUDGET's own depth guard (200,
+; reverted from a first pass's failed attempt at 1000 - see VLA.bas's
+; own LISTOPS.0 comment) counts total nested macro-application depth,
+; not list length: two recursions compounding multiplies the applications
+; needed per element instead of adding one. reverse-onto is one flat
+; recursion, one macro application per element - car/cdr always eagerly
+; resolve, and acc (a bound parameter, always an already-constructed
+; real list from a prior cons - never a literal un-expanded call form
+; written directly in this template) is always safe as cons's own
+; iterated second argument.
+(defmacro
+    (reverse lst)
+    "reverse a quoted list"
+    (reverse-onto lst (quote ())))
+
+(defmacro
+    (reverse-onto lst acc)
+    "internal: reverse lst onto an accumulator"
+    (quote-if (null? lst) acc (reverse-onto (cdr lst) (cons (car lst) acc))))
+
+; append: concatenate two quoted lists. LIVE BUG, found by a real host
+; run, not by review: the first version called (append-onto (reverse a)
+; b) - passing reverse's own UN-EXPANDED call form as append-onto's
+; rev-a argument. That argument gets bound and immediately inspected
+; by append-onto's own null?/car/cdr, all within the SAME Substitute
+; pass that received it - Substitute never expands an ordinary macro
+; call (only ExpandMacros's own later re-walk does, and only for
+; something that's already fully surfaced as a return value), so
+; car/cdr/null? were operating on the LITERAL SYNTAX of "(reverse a)"
+; (the symbol reverse, the argument a) as if it were real list data.
+; Confirmed live: (append (quote (1 2)) (quote (3 4))) produced
+; ((1 2) reverse 3 4), not (1 2 3 4) - car of the fake "list" [reverse,
+; a] returned the SYMBOL reverse itself. The general re-walk mechanism
+; DOES safely expand an un-expanded call sitting as the WHOLE return
+; value of a quote-if branch (map-onto's own (reverse acc) below relies
+; on exactly this, correctly) - the bug is specific to handing an
+; un-expanded call to a DIFFERENT macro's own argument position that
+; then inspects it immediately, before any re-walk ever gets a turn.
+; Fixed by fusing the reversal and the append into one continuation-
+; passing recursion: append-reverse-onto walks a, accumulating its
+; reverse exactly like reverse-onto does, and only at ITS OWN base
+; case - once acc is genuinely, already real data, built by real prior
+; cons calls, never a literal nested call form - does it hand off to
+; append-onto, as append-reverse-onto's own WHOLE return value (the
+; safe pattern, same as map-onto's (reverse acc)). append-onto itself
+; is unchanged and was never the problem; it only ever needed real
+; data, and now it always gets it.
+(defmacro
+    (append a b)
+    "concatenate two quoted lists"
+    (append-reverse-onto a (quote ()) b))
+
+(defmacro
+    (append-reverse-onto lst acc tail)
+    "internal: reverse lst onto acc, then hand off to append-onto - fused into one pass so append-onto never receives an un-expanded call as its own argument"
+    (quote-if (null? lst)
+              (append-onto acc tail)
+              (append-reverse-onto (cdr lst) (cons (car lst) acc) tail)))
+
+(defmacro
+    (append-onto rev-a b)
+    "internal: cons rev-a's items onto b, one at a time (rev-a already reversed, always real data by construction)"
+    (quote-if (null? rev-a) b (append-onto (cdr rev-a) (cons (car rev-a) b))))
+
+; quote-map: NAMED "quote-map", not the bare "map" this bundle first
+; shipped with - a live host run found "map" already meant something
+; in this codebase: alonzo.vla's own deflambda bodies call Excel's
+; native dynamic-array MAP (and REDUCE, and SCAN) directly, e.g.
+; (map rng (lambda (v) (* v 2))) - a completely different signature
+; and meaning (runtime, over a Range, Excel's own argument order), but
+; macro expansion runs before the formula-dialect emitter ever sees a
+; deflambda body, so a global "map" macro of this bundle's own shape
+; silently intercepted it and broke a shipped, previously-passing test
+; (TestAlonzoLib). Not a hazard the quote-if/cons tracing this file
+; already does would ever catch - a pure naming collision, found only
+; by a live run touching alonzo.vla. "quote-map"/"quote-reduce" below
+; both carry the same disambiguating prefix quote-if's own name
+; already established: this operates on quote-time data, never on a
+; live Range, and is never what a bare "map"/"reduce" inside a
+; deflambda body means. filter/length/reverse/append/identity/cadr/
+; caddr were checked against the whole corpus too and do not collide -
+; only map and reduce, Excel's own dynamic-array family, did.
+;
+; f must name an existing macro or function taking one argument - there
+; is no lambda/anonymous function in this language (deflambda registers
+; an EXCEL WORKSHEET FUNCTION, a different, heavier mechanism entirely,
+; not a closure). Accumulator-style like reverse above, for the same
+; depth reason: (f (car lst)) sits as cons's own OPAQUE first argument
+; (never inspected, never iterated - safe even though it is itself an
+; un-expanded call at the moment cons builds the list around it; the
+; general expansion walk properly re-expands it once the result
+; surfaces, the same way any macro's own nested call already does), and
+; acc carries the growing result exactly as reverse-onto's own acc
+; does. The result comes out reversed by construction, so the base case
+; un-reverses it once at the end - one call, not a second per-element
+; recursion, and (reverse acc) here is the SAFE pattern (the whole
+; return value of a quote-if branch, not an argument a different macro
+; immediately inspects) - append's own bug, above, is the unsafe
+; version of this same move.
+(defmacro
+    (quote-map f lst)
+    "apply f to every element of a quoted list, building a new list"
+    (quote-map-onto f lst (quote ())))
+
+(defmacro
+    (quote-map-onto f lst acc)
+    "internal: map f over lst onto an accumulator"
+    (quote-if (null? lst) (reverse acc) (quote-map-onto f (cdr lst) (cons (f (car lst)) acc))))
+
+; quote-reduce: NAMED "quote-reduce", not "reduce" - the same live
+; collision quote-map's own comment explains (alonzo.vla's deflambda
+; bodies call Excel's native REDUCE directly, runtime, a different
+; signature and meaning entirely). f must name an existing two-argument
+; macro or function (an accumulator and one element), same lambda
+; limitation as quote-map's own comment. Already accumulator-style by
+; its own classic shape - no depth-compounding risk the way the naive
+; map/append/reverse shapes had, so it needed no redesign. Honest note
+; on WHAT it proves, not just that it works: (f init (car lst)) sits as
+; an ordinary argument to quote-reduce's own next recursive call, never
+; eagerly evaluated at that step - it stays an un-expanded call, gets
+; bound to init on the next application untouched, and nests one layer
+; deeper each step. Only once the base case returns init as the WHOLE
+; result does the general expansion walk unwind the entire nested
+; (f (f (f init a) b) c) tree, all at once, in one pass - correct, but
+; lazier than it looks reading the recursion alone; VlaExpandStep/the
+; lisp Immediate-window command (VLA_DevRig.bas) show this literally if
+; it's ever worth seeing.
+(defmacro
+    (quote-reduce f init lst)
+    "fold f over a quoted list, left to right, starting from init"
+    (quote-if (null? lst) init (quote-reduce f (f init (car lst)) (cdr lst))))
+
+
+
