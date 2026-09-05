@@ -65,9 +65,11 @@ If grand is greater than 40:
 
 That is not pseudocode. It is a working excerpt from this repository's
 regression corpus: you type sentences like these into a worksheet,
-press **Check Sentences** to have every row validated (errors land on
-their exact row, in words), then **Run Sentences** to execute — with a
-snapshot taken first and an **Undo Last Run** button behind it.
+press **Check Instructions** to have every row validated (errors land on
+their exact row, in words), then **Interpret Instructions** to execute —
+with a snapshot taken first and an **Undo Last Run** button behind it.
+(**Compile Instructions** does the same through generated VBA, when you
+want the artifact.)
 
 ---
 
@@ -220,7 +222,7 @@ it should barely change; this one should.*
 
 - **Works now, owner-verified:** the full
   English → VLA → interpret/compile pipeline; the worksheet IDE
-  (Check / Run / Undo / Known Sentences); control flow, value
+  (Check / Interpret / Compile / Undo / Known Sentences); control flow, value
   actions, lookups, list and range operations; the four-layer error
   model; `=SQL()`, `=DATALOG()`, and `=PROLOG()`; the build that
   produces the distributable add-in and refuses defective
