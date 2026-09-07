@@ -8613,6 +8613,42 @@ specimens: 0.*
   rules emit code; the registry is a supply chain. `~weeks`
 - ⬜ **GO.4 — licensing split, CLA, trademark.** `~weeks`
 - ⬜ **GO.5 — the escalation path** for a disputed surface. `~hours`
+- ⬜ **GO.6 — a Load Phrasebook button.** Found live, not assumed, while
+  hand-verifying SEC.2: there is no discoverable way for an ordinary
+  phrasebook author — an org admin, a community contributor — to get
+  their own phrasebook into a running copy of Frazaro today. The ribbon
+  carries no "load a phrasebook" or "import" command. The one file-based
+  mechanism that technically works, `VLA_IDE.IdeVocabPath`'s four
+  candidate paths (`<workbook folder>\scripts\<edition file>`,
+  `<workbook folder>\<edition file>`, and the add-in-relative pair),
+  is undocumented anywhere a user would see it (grepped `README.md`,
+  `DEPLOY.md`: no mention) and is a full REPLACEMENT of the base
+  corpus by exact filename match, not an ADDITION alongside it — built
+  for internal edition/dev purposes (`EDITIONMANIFEST.*`), never
+  intended or exposed as an end-user feature. Practical consequence:
+  `THREAT_MODEL.md`'s own "org phrasebook"/"community phrasebook"
+  tiers, and everything `SEC.2` now gates, currently protect a door
+  with no visible handle — real, forward-looking, and correctly built,
+  but exercising it today means a developer calling
+  `EnglishLoadVocabulary` directly from the Immediate window, not
+  anything a real user could do. **Not a `SEC.2` defect** — `SEC.2`
+  gates the actual load-bearing chokepoint any future loading UI must
+  call through regardless, so this item inherits that protection for
+  free the day it ships; scoping it is `GO.6`'s own job, not a rework
+  of `SEC.2`. **Open questions for whoever scopes this, not resolved
+  here:** does loading ADD a phrasebook alongside the base corpus or
+  REPLACE it (`GO.1`'s own ratified multi-source precedence rules
+  assume multiple sources can coexist — the current override mechanism
+  assumes exactly one wins outright, a different shape); does the
+  loaded path persist across sessions (so the workbook reloads it
+  automatically next time, matching `IdeLoadVocab`'s own override
+  behavior) or is it session-only; does a user ever need to see or
+  remove what they've loaded. *Why now:* the practical, no-code-changed
+  argument for prioritizing this over `GO.3`'s own full registry/trust
+  model — a registry is worthless while there is no button to load
+  what it would point at. *Depends on:* `GO.1` (precedence rules to
+  build against), `SEC.2` (already gates the mechanism this must
+  reuse). `~days`
 
 ---
 

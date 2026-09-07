@@ -600,6 +600,7 @@ download without asking.
 - 🟡 **GO.4 — licensing split, CLA, trademark.** The split and the trademark policy landed with SIG.0 (2026-09-04; `docs/CUTS.md` §4.5–4.7): engine Apache-2.0, phrasebooks MPL-2.0, `TRADEMARK.md`. The CLA was deliberately *not* built — permissive inbound under the DCO (`CONTRIBUTING.md`) gives the owner every relicensing option a CLA would, with none of the paperwork, and `CUTS.md` §4.4 records why. Still open here: registering the mark, and the second repository for fair-source services (`FSL-1.1-ALv2`) once any exist. `~weeks`
 
 - ⬜ **GO.5 — the escalation path** for a disputed surface. `~hours`
+- ⬜ **GO.6 — a Load Phrasebook button.** Found live while hand-verifying SEC.2: no ribbon command exists for an ordinary phrasebook author to load their own phrasebook. The one working mechanism (`VLA_IDE.IdeVocabPath`'s four candidate override paths) is undocumented, dev/edition-internal, and a full replacement of the base corpus, not an addition alongside it — so THREAT_MODEL.md's "org/community phrasebook" tiers, and everything SEC.2 now gates, currently protect a door with no visible handle. Not a SEC.2 defect - SEC.2 gates the real chokepoint any future loading UI must call through regardless, so this inherits that protection for free. *(more: BETA_ROADMAP1.md)* *Why now:* the practical case for this ahead of GO.3's full registry - a registry is worthless with no button to load what it points at. *Depends on:* GO.1, SEC.2. `~days`
 
 ---
 
