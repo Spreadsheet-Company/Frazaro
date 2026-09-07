@@ -6,17 +6,6 @@
 
 ### What changed
 
-- **The one `AS.1` gap closed: `paint cell {r:text}`.**
-  `check_rule_coverage.ps1`'s first real report (after `GEXPANDERLINT.0`
-  verticalized the phrasebook artifact) found a rule with zero
-  test-success proofs. It had never worked: the rule called `vlacolr`
-  (no "o"), a name that resolves nowhere in the shipped modules, and
-  had no cell/range slot in its pattern at all, so it could never have
-  painted a cell even with the spelling fixed. Corrected to the
-  `set-fill-color` idiom every sibling color rule already uses
-  (`pirate.vla`'s own "paint cell" rule confirmed the intended
-  semantics) and given its missing test. 150/150 phrasebook rules now
-  carry at least one proof.
 - **`SEC.2` — `raw` behind explicit, per-phrasebook consent, built and
   owner-verified live.** A phrasebook using `raw` (literal VBA,
   previously unconsented) now shows a modal, naming the file, before it
@@ -32,6 +21,17 @@
   passed the purity ratchet on a technicality, caught before it
   shipped. No test-bypass toggle anywhere in the mechanism, by design.
   Full mechanism: `docs/BETA_ROADMAP1.md`'s own SEC.2 entry.
+- **The one `AS.1` gap closed: `paint cell {r:text}`.**
+  `check_rule_coverage.ps1`'s first real report (after `GEXPANDERLINT.0`
+  verticalized the phrasebook artifact) found a rule with zero
+  test-success proofs. It had never worked: the rule called `vlacolr`
+  (no "o"), a name that resolves nowhere in the shipped modules, and
+  had no cell/range slot in its pattern at all, so it could never have
+  painted a cell even with the spelling fixed. Corrected to the
+  `set-fill-color` idiom every sibling color rule already uses
+  (`pirate.vla`'s own "paint cell" rule confirmed the intended
+  semantics) and given its missing test. 150/150 phrasebook rules now
+  carry at least one proof.
 
 ### Known open security items
 
