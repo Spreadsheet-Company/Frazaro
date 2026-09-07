@@ -598,8 +598,8 @@ becomes the expander's file — the territories become directories and
 before.
 
 *Built 2026-09-04:* the repository skeletons now exist as `../Delta/`
-beside this tree, one folder per future GitHub repository (`frazaro`,
-`frazaro-phrasebooks`, `frazaro-org-phrasebook-template`,
+beside this tree, one folder per future GitHub repository (`Frazaro`,
+`Frazaro-Phrasebooks`, `Frazaro-Org-Phrasebook-Template`,
 `Frazaro-Services`), each with its own licence, governance files, and a
 `HYDRATE.md` naming which `Beta/` files fill it; `Delta/README.md` is the
 map and the hydration order.
