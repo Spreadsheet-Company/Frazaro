@@ -1461,8 +1461,28 @@ Public Sub TestGExpander()
     Report "gexpander: only the at-row-tagged form gets a provenance comment - exactly one, not zero or two", _
            rowCommentCount = 1, "count: " & rowCommentCount
 
-    Report "gexpander: the artifact stamps the source file's size for a downstream staleness check", _
-           InStr(1, expText, "source-size:", vbTextCompare) > 0, "got: " & Left$(expText, 200)
+    Report "gexpander: the artifact stamps a whitespace-insensitive hash of the source for a downstream staleness check", _
+           InStr(1, expText, "source-hash:", vbTextCompare) > 0 And _
+           InStr(1, expText, "source-size:", vbTextCompare) = 0, "got: " & Left$(expText, 200)
+
+    ' 0.5.1: the stamp ignores whitespace by construction - re-indenting the
+    ' source (what Lint VLA does) must leave it unchanged, and a one-byte
+    ' token edit must not. Pinned directly on EnglishSourceHash so the
+    ' property is proven, not just described in the header.
+    Dim hashProbe As String, h1 As String
+    hashProbe = WriteTempLib("vla_gexpander_hash_probe.vla", "(defmacro (a b)" & vbCrLf & "  (set! b 1))")
+    h1 = EnglishSourceHash(hashProbe)
+    hashProbe = WriteTempLib("vla_gexpander_hash_probe.vla", "(defmacro" & vbTab & "(a b)   (set! b 1))" & vbLf & vbLf)
+    Report "gexpander: source-hash ignores indentation, tabs and line endings", _
+           EnglishSourceHash(hashProbe) = h1, h1 & " vs " & EnglishSourceHash(hashProbe)
+    hashProbe = WriteTempLib("vla_gexpander_hash_probe.vla", "(defmacro (a b)" & vbCrLf & "  (set! b 2))")
+    Report "gexpander: source-hash changes on a one-byte token edit", _
+           EnglishSourceHash(hashProbe) <> h1, h1
+    Report "gexpander: source-hash has the stamped shape (8 hex digits over N bytes)", _
+           h1 Like "[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F] over 22 non-whitespace bytes", h1
+    On Error Resume Next
+    Kill hashProbe
+    On Error GoTo 0
 
     Report "gexpander: the header names the source by its bare filename, never a machine-specific absolute path", _
            InStr(1, expText, "from vla_gexpander_vocab.vla", vbTextCompare) > 0 And _

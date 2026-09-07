@@ -2,14 +2,16 @@
 check_raise_ratchet.ps1 - F.14's mechanical check.
 
 SD-2 ("no refusal ships as a raw string - every refusal goes through `Raise`
-with a stable ID and named parameters") is not honored anywhere in `src/`
-today: no `Raise`/`RaiseMsg` function exists, and no refusal site carries an
-ID. LX.2 (the message catalogue) is the full fix, but it is genuinely weeks
-of work, correctly deferred past beta. This script buys the cheap half of
-that decision in the meantime: it does not migrate anything, it only stops
-the raw-`Err.Raise` count from silently climbing higher while LX.2 waits -
-the same "buy the decision now, defer the artifact" move `docs/AUDIT.md`
-names for this exact item.
+with a stable ID and named parameters") is enforced by `VLA_Messages.RaiseMsg`
+(LX.2, the message catalogue - one `AddMsg` per id, `{slot}` templates) and,
+above `VLA_Runtime.bas`'s inject boundary, by its self-contained twin
+`RaiseRuntimeMsg` (LX2.1). This script is the ratchet that keeps every
+shipped module at or under its held count of raw `Err.Raise` sites, so a
+new refusal cannot land as an inline string without a deliberate, reviewed
+ceiling bump. When this file was first written no wrapper existed at all
+and the ceilings were the whole enforcement; today the ceilings are small
+and mostly name re-raises (a `fail:` handler propagating an error it did
+not originate) that have no id to carry.
 
 SHIPPED SET: read directly from `VLA_Build.bas`'s own `mods` array (the same
 move `check_backend_parity.ps1` uses for `VLA_HeadTable.bas`'s `AddRow`
@@ -137,8 +139,19 @@ function Get-RawRaiseCount([string]$path) {
 # one raw site, unchanged in kind, just relocated). VLA_English's own entry
 # below is gone rather than zeroed, matching this script's own "absent =
 # implicit 0" convention.
+# 0.5.1 pre-flight (2026-09-07): VLA 7->8. The eighth site is
+# VlaProbeMacroForm's own fail: handler (P-PROBE round 2, 2026-09-01) - the
+# third VlaReadForms-family cleanup re-raise (VlaReadForms,
+# VlaReadFormsWithLines, VlaProbeMacroForm), same category as the other
+# seven: a caught error propagated after VlaPopContext, no new English
+# text, nothing an id could name. It landed after LX.2 set the 7 and this
+# script was never re-run at a version close until tools/release.ps1
+# started running it - 0.5.0 shipped past a red ratchet. The same
+# pre-flight routed the four genuinely raw refusals that had accumulated
+# in VLA_Relation (1) and VLA_Sql (3) through RaiseMsg instead of
+# bumping their ceilings, so both stay at the implicit 0.
 $ceilings = @{
-    'VLA'                = 7
+    'VLA'                = 8
     'VLA_SentenceEngine' = 1
     'VLA_Interpreter'    = 1
     'VLA_Runtime'        = 4
@@ -182,6 +195,6 @@ if ($failed.Count -eq 0) {
     Write-Output '=== CHECK: clean - no shipped module raised its raw Err.Raise count above its held ceiling ==='
 } else {
     Write-Output "=== CHECK: $($failed.Count) module(s) exceeded their ceiling - $($failed -join ', ') ==="
-    Write-Output "A raw Err.Raise site was added. No Raise()/RaiseMsg() wrapper exists yet, so every refusal is still raw by SD-2's own standing decision - if this addition was intentional, bump that module's number in `$ceilings above and say why in the commit message. If it wasn't, that's the drift this ratchet exists to catch."
+    Write-Output "A raw Err.Raise site was added. A refusal belongs in VLA_Messages.bas's catalogue (AddMsg an id, then VLA_Messages.RaiseMsg at the site - or RaiseRuntimeMsg above VLA_Runtime.bas's inject boundary). Only a bare re-raise of an already-caught error has no id to carry - if that is what this is, bump that module's number in `$ceilings above and say why in the comment and the commit message. If it wasn't intentional, that's the drift this ratchet exists to catch."
 }
 exit ([Math]::Min($failed.Count, 1))

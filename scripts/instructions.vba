@@ -178,7 +178,7 @@ Public Sub main()
     If vlatraceon() Then ' vla:145
         Call vlatracestep(13, vla_step_text(13)) ' vla:145
     End If
-    range("b3").formula = "=B2*2"
+    range("b3").Formula2 = "=B2*2"
     vla_step = 14 ' vla:148
     If vlatraceon() Then ' vla:149
         Call vlatracestep(14, vla_step_text(14)) ' vla:149
@@ -2092,7 +2092,7 @@ vla_tryd_4: ' vla:1544 src:675
     If vlatraceon() Then ' vla:1635
         Call vlatracestep(382, vla_step_text(382)) ' vla:1635
     End If
-    range("b64").formula = "=5*2"
+    range("b64").Formula2 = "=5*2"
     vla_step = 383 ' vla:1638
     If vlatraceon() Then ' vla:1639
         Call vlatracestep(383, vla_step_text(383)) ' vla:1639

@@ -427,7 +427,7 @@ Private Function SourceToArray(ByVal src As Variant) As Variant
     On Error GoTo 0
     If Not lo Is Nothing Then
         If rng.Areas.Count > 1 Then
-            Err.Raise 5, "VLA-Relation", "a table argument spanning multiple disjoint areas is not supported - select one contiguous block of the table's own columns instead."
+            VLA_Messages.RaiseMsg "relation-table-noncontiguous-areas"
         End If
         Dim tableColCount As Long
         tableColCount = lo.ListColumns.Count

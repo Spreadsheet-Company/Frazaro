@@ -2678,5 +2678,35 @@
     "write a value into a cell and make it bold - the phrasebook demo macro"
     (begin (set! (range r) v) (make-bold (range r))))
 
+(defmacro
+    (datalog-filter-place table shown filtercol op val alias r)
+    "write a =DATALOG(...) named-column filter query as a live formula"
+    (set-formula r
+                 (interpolate "=DATALOG(\"(rule ({alias} X) ({table} ({shown} X) ({filtercol} S)) ({op} S {val})) (query {alias})\", {table})"
+                              :alias
+                              alias
+                              :table
+                              table
+                              :shown
+                              shown
+                              :filtercol
+                              filtercol
+                              :op
+                              op
+                              :val
+                              val)))
+
+(defmacro
+    (datalog-chain-place table person alias r)
+    "write a =DATALOG(...) transitive two-column reachability query as a live formula"
+    (set-formula r
+                 (interpolate "=DATALOG(\"(rule (vlachain X Y) ({table} X Y)) (rule (vlachain X Y) ({table} X Z) (vlachain Z Y)) (rule ({alias} X) (vlachain X \"\"{person}\"\")) (query {alias})\", {table})"
+                              :table
+                              table
+                              :person
+                              person
+                              :alias
+                              alias)))
+
 
 

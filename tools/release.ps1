@@ -74,7 +74,12 @@ if (Test-Path $notesPath) {
         $end = $lines.Count
         for ($j = $start + 1; $j -lt $lines.Count; $j++) { if ($lines[$j] -match '^## ') { $end = $j; break } }
         $notes = $lines[($start + 1)..($end - 1)]
-        if (($notes -join '').Trim().Length -lt 40) { $fail.Add("the '## $Version' section in docs/RELEASES.md is empty") }
+        $body = ($notes -join "`n").Trim()
+        # The placeholder RELEASES.md keeps for the next version ("*(next: write
+        # this before running the release)*") is longer than the emptiness
+        # floor, so it is refused by name - otherwise it would publish as the
+        # release's own notes.
+        if ($body.Length -lt 40 -or $body -match '\(next:') { $fail.Add("the '## $Version' section in docs/RELEASES.md is empty or still the placeholder - write the notes first") }
     }
 } else { $fail.Add('docs/RELEASES.md missing') }
 

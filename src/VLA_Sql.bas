@@ -2237,7 +2237,7 @@ Private Function ResolveAggPos(ByVal node As Collection, ByVal colMap As Object)
     Dim key As String
     key = AggSignature(node)
     If Not VLA_Runtime.VlaDictHas(colMap, key) Then
-        Err.Raise 5, "VLA-Sql", "internal: aggregate '" & key & "' not registered in the grouped colMap"
+        VLA_Messages.RaiseMsg "sql-internal-aggregate-unregistered", "key", key
     End If
     ResolveAggPos = CLng(VLA_Runtime.VlaDictGet(colMap, key))
 End Function
@@ -2281,7 +2281,7 @@ Private Function EvalScalar(ByVal node As Collection, ByVal colMap As Object, By
         ' this ever runs).
         EvalScalar = row(ResolveAggPos(node, colMap))
     Case Else
-        Err.Raise 5, "VLA-Sql", "internal: EvalScalar called on a non-scalar AST node"
+        VLA_Messages.RaiseMsg "sql-internal-scalar-node-shape"
     End Select
 End Function
 
@@ -2334,7 +2334,7 @@ Private Function EvalBool(ByVal node As Collection, ByVal colMap As Object, ByRe
     Case NK_NOT
         EvalBool = Not EvalBool(NodeNotOperand(node), colMap, row)
     Case Else
-        Err.Raise 5, "VLA-Sql", "internal: EvalBool called on a non-boolean AST node"
+        VLA_Messages.RaiseMsg "sql-internal-bool-node-shape"
     End Select
 End Function
 

@@ -2884,20 +2884,19 @@
     (datalog-filter-place table shown filtercol op val alias r)
     "write a =DATALOG(...) named-column filter query as a live formula"
     (set-formula r
-        (interpolate
-            "=DATALOG(\"(rule ({alias} X) ({table} ({shown} X) ({filtercol} S)) ({op} S {val})) (query {alias})\", {table})"
-            :alias
-            alias
-            :table
-            table
-            :shown
-            shown
-            :filtercol
-            filtercol
-            :op
-            op
-            :val
-            val)))
+                 (interpolate "=DATALOG(\"(rule ({alias} X) ({table} ({shown} X) ({filtercol} S)) ({op} S {val})) (query {alias})\", {table})"
+                              :alias
+                              alias
+                              :table
+                              table
+                              :shown
+                              shown
+                              :filtercol
+                              filtercol
+                              :op
+                              op
+                              :val
+                              val)))
 
 (english-vla
     "show every {table:text} {shown:text} whose {filtercol:text} is over {val:expr} as {alias:text} in cell {r:cell}"
@@ -2946,14 +2945,13 @@
     (datalog-chain-place table person alias r)
     "write a =DATALOG(...) transitive two-column reachability query as a live formula"
     (set-formula r
-        (interpolate
-            "=DATALOG(\"(rule (vlachain X Y) ({table} X Y)) (rule (vlachain X Y) ({table} X Z) (vlachain Z Y)) (rule ({alias} X) (vlachain X \"\"{person}\"\")) (query {alias})\", {table})"
-            :table
-            table
-            :person
-            person
-            :alias
-            alias)))
+                 (interpolate "=DATALOG(\"(rule (vlachain X Y) ({table} X Y)) (rule (vlachain X Y) ({table} X Z) (vlachain Z Y)) (rule ({alias} X) (vlachain X \"\"{person}\"\")) (query {alias})\", {table})"
+                              :table
+                              table
+                              :person
+                              person
+                              :alias
+                              alias)))
 
 (english-vla
     "show everyone who reports to {person:expr} directly or not in {table:text} as {alias:text} in cell {r:cell}"

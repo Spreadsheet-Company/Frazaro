@@ -65,21 +65,39 @@ function Get-LeadingNumber([string]$tok) {
 }
 
 # --- Pass 1: definition-site tokens in the governed set ------------------
-# A "definition" is a bold token on a bullet line: "- <glyph?> **TOKEN".
-# Multi-token lines exist today (ALPHA6_ROADMAP.md's "U1 . U3 . U2 . U5"),
-# so every ** on a bullet line counts, not just the first.
+# A "definition" is a bold token at the HEAD of a bullet line:
+# "- <glyph?> **TOKEN". A token is at the head when nothing but bullet
+# glyphs, other bold ids and punctuation precede it on the line - so a
+# multi-item bullet ("- ⬜ **G-SORTFILTER**, ⬜ **G-TABS**, ⬜ **G-FORMULA**"
+# defines all three, and "**U1 · U3 · U2 · U5**" is one bold span either
+# way). A bold token that follows any prose - any lowercase letter once
+# the ids themselves are stripped from the prefix - is a cross-reference
+# to another item, reported under CROSS-REFERENCE MENTIONS rather than
+# counted as a definition.
 #
-# EXCLUSION, added after a real false positive (P-PROBE, found while
-# scoping F.14/LX.2's own follow-ups): a nested sub-bullet that POINTS AT
-# another item's id rather than restating its own definition uses this
-# doc's own recurring callout phrasing, "**TOKEN cross-reference:**"
+# Why (2026-09-07, 0.5.1's pre-flight): BETA_ROADMAP2.md's one-paragraph-
+# per-item style bolds ids mid-sentence when an item points at another -
+# "absorbed into **PF.4**", "🔒 **SD-10 governs:**", "**Not** the finding
+# **P-PROBE** already closed", "**LE.1 is the read-only view of the
+# identical table.**" - and every one of those read as a second definition
+# of an id defined once, higher up the file: four false DUPLICATE
+# DEFINITIONS, the same false-collision shape the earlier exclusion below
+# was added for, now in a phrasing that exclusion cannot see. A first
+# draft of this rule took only the line's FIRST bold span as the head;
+# a before/after diff of this script's own output caught that it dropped
+# G-TABS/G-FORMULA/G-TEXT from the multi-item line above, hence "no prose
+# before it" rather than "first on the line".
+#
+# EXCLUSION, added after an earlier real false positive (P-PROBE, found
+# while scoping F.14/LX.2's own follow-ups) and kept: a nested sub-bullet
+# that POINTS AT another item's id rather than restating its own definition
+# uses this doc's own recurring callout phrasing, "**TOKEN cross-reference:**"
 # (BETA_ROADMAP.md's LISTOPS-BUDGET and TABLESPEC entries both cross-
-# reference P-PROBE this way). That bolded token satisfies the same
-# "- **TOKEN" shape a real definition does, so naively it counted as one -
-# two cross-references to the same real definition then read as "defined
-# 3 times," a false SD-9 collision. Excluded by the literal word
-# immediately following the token, not by file/line - the phrasing is the
-# signal, the same way "cross-reference" reads to a person skimming.
+# reference P-PROBE this way). That bolded token sits at the head of its
+# own sub-bullet, so the head-position rule alone would still count it -
+# excluded by the literal word immediately following the token, not by
+# file/line - the phrasing is the signal, the same way "cross-reference"
+# reads to a person skimming.
 $defined   = New-Object System.Collections.Generic.List[object]
 $crossRefs = New-Object System.Collections.Generic.List[object]
 foreach ($f in $governedPaths) {
@@ -91,7 +109,11 @@ foreach ($f in $governedPaths) {
         foreach ($m in $ms) {
             $tailStart = $m.Index + $m.Length
             $tail = $line.Substring($tailStart, [Math]::Min(20, $line.Length - $tailStart))
-            if ($tail -match '^\s+cross-reference\b') {
+            # Head position: strip every bold id from the prefix, then any
+            # lowercase letter left is prose, and this token follows it.
+            $prefix = $line.Substring(0, $m.Index) -replace "\*\*$tokenPattern", ''
+            $atHead = ($prefix -cnotmatch '[a-z]')
+            if (-not $atHead -or $tail -match '^\s+cross-reference\b') {
                 $crossRefs.Add([pscustomobject]@{
                     File = $f.Name
                     Line = $lineNo

@@ -563,6 +563,14 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "datalog-unknown-column", 5, "VLA-Datalog", "'{column}' isn't a column of '{predicate}' - its own columns are: {columns}."
     AddMsg m, "datalog-keyed-column-repeated", 5, "VLA-Datalog", "'{column}' is keyed more than once in the same '{predicate}' atom - each column name may appear at most once per (predicate (col val) ...) form."
 
+    ' VLA_Relation.bas - the shared table substrate SQL/DATALOG/PROLOG all
+    ' read ranges through. Each engine refuses a non-contiguous selection
+    ' by its own name first (sql-/datalog-/prolog-table-noncontiguous-
+    ' columns); this is the substrate's own last-line guard, for a caller
+    ' that reached SourceToArray without one. Migrated from a raw Err.Raise
+    ' at 0.5.1's pre-flight (2026-09-07), where F.14's ratchet caught it.
+    AddMsg m, "relation-table-noncontiguous-areas", 5, "VLA-Relation", "a table argument spanning multiple disjoint areas is not supported - select one contiguous block of the table's own columns instead."
+
     AddMsg m, "sql-table-not-a-range", 5, "VLA-Sql", "SQL's table argument must be a cell range - pass a reference like Employees, not a computed value."
     AddMsg m, "sql-table-noncontiguous-columns", 5, "VLA-Sql", "a table argument spanning multiple disjoint areas (a Ctrl-selected, non-contiguous range) isn't supported - select one contiguous block of the table's own columns instead."
     AddMsg m, "sql-table-needs-a-name", 5, "VLA-Sql", "this range has no name SQL can use as a table - make it an Excel Table (Ctrl+T) or give it a defined name, then reference that name in the formula."
@@ -618,6 +626,16 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "sql-cte-recursive-step-single-reference", 5, "VLA-Sql", "'{name}''s own step references '{name}' more than once (e.g. joining the recursive CTE against itself) - not supported; a recursive step may reference the CTE being defined exactly once."
     AddMsg m, "sql-cte-recursive-no-order-by-limit", 5, "VLA-Sql", "'{name}' is a recursive CTE and can't have its own ORDER BY/LIMIT inside its own definition - per-round ordering has no defined meaning here; ORDER BY/LIMIT the query that USES '{name}' instead."
     AddMsg m, "sql-cte-round-ceiling", 5, "VLA-Sql", "'{name}' didn't converge within {rounds} rounds - a self-referencing step over data with a cycle can keep producing new rows forever; check whether '{name}''s own step is really supposed to still be finding new rows this far in."
+
+    ' Internal consistency checks, not user refusals: each names a state
+    ' the SQL evaluator's own earlier passes are supposed to make
+    ' unreachable. Catalogued anyway - SD-2 has no "internal" exemption,
+    ' and F.14's ratchet caught all three raw at 0.5.1's pre-flight
+    ' (2026-09-07) - so if one ever fires live, the report carries a
+    ' stable id to search for rather than a one-off string.
+    AddMsg m, "sql-internal-aggregate-unregistered", 5, "VLA-Sql", "internal: aggregate '{key}' not registered in the grouped colMap"
+    AddMsg m, "sql-internal-scalar-node-shape", 5, "VLA-Sql", "internal: EvalScalar called on a non-scalar AST node"
+    AddMsg m, "sql-internal-bool-node-shape", 5, "VLA-Sql", "internal: EvalBool called on a non-boolean AST node"
 End Sub
 
 Private Sub AddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _

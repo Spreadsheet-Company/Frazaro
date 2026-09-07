@@ -206,7 +206,24 @@ End Function
 ' "pass"). The polyglotta candidate moved to IdeLoadVocab below, as a
 ' true last resort AFTER the embedded chain - it must never be able to
 ' outrank an edition's own embedded phrasebook again.
-Private Function IdeVocabPath() As String
+'
+' EDITION-VOCABPATH (2026-09-07): that move left three ribbon buttons
+' with nothing to find. Translate to VLA/VBA (TranslateViaRibbon), Export
+' Expanded Phrasebook and Phrasebook Test Coverage each need a REAL disk
+' path to point at and never go through IdeLoadVocab's embedded chain, so
+' in the dev workbook - no embedded sheets, and nothing flat at
+' scripts\english.vla since the polyglotta reorg - all three reported
+' "vocabulary file on disk... none found" from the day of that reorg
+' until this pass (found live, P-TOK's own verification click-through).
+' Re-adding the polyglotta candidate to the shared list would reopen
+' EDITIONMANIFEST.5's regression, since IdeLoadVocab calls this same
+' function first. So the two kinds of caller see different candidate
+' sets: includePolyglotta:=True appends the polyglotta path as a FIFTH
+' candidate, after the four override locations; it defaults to False, so
+' IdeLoadVocab's own pre-check is byte-for-byte unchanged. The path
+' itself lives in IdeDevPolyglottaPath, shared with IdeLoadVocab's last
+' resort, so the two can never drift apart.
+Private Function IdeVocabPath(Optional ByVal includePolyglotta As Boolean = False) As String
     ' V5 (Mac spike): paths built with Application.PathSeparator -
     ' the one hard-coded-backslash site in the codebase, found by
     ' the portability inventory. Costless on Windows, correct on
@@ -246,6 +263,15 @@ Private Function IdeVocabPath() As String
             End If
         End If
     Next
+    ' EDITION-VOCABPATH: the dev workbook's own source file, for the
+    ' ribbon callers that need a real file and have no embedded chain to
+    ' fall back through (see the header). Never reached by IdeLoadVocab.
+    If includePolyglotta And hasAddinPath Then
+        If SafeFileExists(IdeDevPolyglottaPath()) Then
+            IdeVocabPath = IdeDevPolyglottaPath()
+            Exit Function
+        End If
+    End If
     ' Best candidate for the error message only (never passed to Dir$
     ' again) - prefer one with a real base path over cands(1), which is
     ' a driveless "\scripts\<fn>" and actively misleading when hb.Path
@@ -258,6 +284,18 @@ Private Function IdeVocabPath() As String
     Else
         IdeVocabPath = cands(1)
     End If
+End Function
+
+' The dev workbook's own phrasebook source, scripts\polyglotta\<edition
+' file>, beside the add-in (ThisWorkbook - the dev workbook itself, or a
+' built .xlam saved beside the repo). One definition, two readers:
+' IdeLoadVocab's last resort after the embedded chain (EDITIONMANIFEST.5)
+' and IdeVocabPath's fifth candidate for the ribbon buttons that need a
+' real file (EDITION-VOCABPATH).
+Private Function IdeDevPolyglottaPath() As String
+    Dim sep As String
+    sep = Application.PathSeparator
+    IdeDevPolyglottaPath = ThisWorkbook.Path & sep & "scripts" & sep & "polyglotta" & sep & IdeVocabFileName()
 End Function
 
 ' =====================================================================
@@ -1124,10 +1162,12 @@ Private Sub TranslateViaRibbon(ByVal kind As String)
 
     ' IdeVocabPath always returns ITS OWN best-guess candidate, real or
     ' not (by design - "for the error message", per its own comment) -
-    ' every other caller checks Dir$ before trusting it, same here.
+    ' every other caller checks it exists before trusting it, same here.
+    ' includePolyglotta: this button needs a real file and has no
+    ' embedded chain to fall back through (EDITION-VOCABPATH).
     Dim vocab As String
-    vocab = IdeVocabPath()
-    If Len(Dir$(vocab)) = 0 Then
+    vocab = IdeVocabPath(includePolyglotta:=True)
+    If Not SafeFileExists(vocab) Then
         VlaShowError "Translate needs a vocabulary file on disk - Check/Compile still work from " & _
             "this add-in's own built-in copy, but Translate to VLA/VBA needs a real file to point at."
         Exit Sub
@@ -1311,8 +1351,8 @@ Public Sub EnglishIdeExportExpandedVocabulary()
     On Error GoTo failed
     CaptureHost
     Dim vocab As String
-    vocab = IdeVocabPath()
-    If Len(Dir$(vocab)) = 0 Then
+    vocab = IdeVocabPath(includePolyglotta:=True)   ' EDITION-VOCABPATH: needs a real file, has no embedded chain
+    If Not SafeFileExists(vocab) Then
         VlaShowError "Export Expanded Phrasebook needs a vocabulary file on disk - none found."
         Exit Sub
     End If
@@ -1344,8 +1384,8 @@ Public Sub EnglishIdeRuleCoverageReport()
     On Error GoTo failed
     CaptureHost
     Dim vocab As String
-    vocab = IdeVocabPath()
-    If Len(Dir$(vocab)) = 0 Then
+    vocab = IdeVocabPath(includePolyglotta:=True)   ' EDITION-VOCABPATH: needs a real file, has no embedded chain
+    If Not SafeFileExists(vocab) Then
         VlaShowError "Phrasebook Test Coverage needs a vocabulary file on disk - none found."
         Exit Sub
     End If
@@ -1782,8 +1822,7 @@ Private Sub IdeLoadVocab()
             ' file and silently skip the edition's real, embedded,
             ' correctly-chained phrasebook.
             Dim devFallback As String
-            devFallback = ThisWorkbook.Path & Application.PathSeparator & "scripts" & _
-                Application.PathSeparator & "polyglotta" & Application.PathSeparator & IdeVocabFileName()
+            devFallback = IdeDevPolyglottaPath()
             If SafeFileExists(devFallback) Then
                 EnglishLoadVocabulary devFallback
                 anyLoaded = True
