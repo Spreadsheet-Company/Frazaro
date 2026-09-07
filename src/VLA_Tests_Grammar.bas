@@ -1553,6 +1553,119 @@ Public Sub TestRuleCoverage()
     Kill vocabPath
 End Sub
 
+' SEC.2: raw behind explicit, per-phrasebook consent - see
+' VLA_SentenceEngine.bas's own header just above EnglishLoadVocabularyText
+' for the full design (gated at EnglishLoadVocabulary, the file-path
+' loader, specifically NOT at EnglishLoadVocabularyText - that shared
+' primitive is what VLA_Browser.bas's already-shipped, host-free
+' translate API calls directly and documents as never showing a
+' dialog), and especially why no test-bypass toggle exists anywhere in
+' this mechanism. This proves the one safely automatable DEVICE-scope
+' path: content already consented at device scope (SaveSetting
+' pre-seeded with the exact EnglishSourceHash a real "Yes, remember for
+' every workbook on this device" click would have stored) skips both
+' prompts and loads normally - the real production code path, no
+' shortcut. TestRawConsentWorkbookScope, just below, proves the sibling
+' WORKBOOK-scope path the same way. The live prompt-and-decline/accept
+' interaction, including the second (which-scope) dialog, is
+' owner-verified manually, DI.1's own precedent for an interactive
+' security dialog in this codebase - deliberately never exercised
+' here, since doing so would either hang on a real MsgBox or require
+' the very kind of bypass toggle this design has none of.
+Public Sub TestRawConsentDeviceScope()
+    Dim vocabPath As String
+    vocabPath = WriteTempLib("vla_rawconsent_device_vocab.vla", _
+        "(english-vla ""scorch cell {r:cell}"" (raw ""Debug.Print 1""))")
+
+    Dim contentHash As String
+    contentHash = EnglishSourceHash(vocabPath)
+
+    On Error Resume Next
+    DeleteSetting "Frazaro", "SEC2RawConsent", contentHash
+    On Error GoTo 0
+    SaveSetting "Frazaro", "SEC2RawConsent", contentHash, "granted"
+
+    EnglishResetGrammar
+    Dim n As Long
+    On Error Resume Next
+    Err.Clear
+    n = EnglishLoadVocabulary(vocabPath)
+    Report "sec2: a raw-bearing phrasebook already consented at DEVICE scope loads with no prompt", _
+           Err.Number = 0 And n = 1, "err: " & Err.Description & " n=" & n
+    On Error GoTo 0
+
+    EnglishResetGrammar
+    On Error Resume Next
+    DeleteSetting "Frazaro", "SEC2RawConsent", contentHash
+    On Error GoTo 0
+    Kill vocabPath
+End Sub
+
+' SEC.2, continued: the WORKBOOK-scope sibling of TestRawConsentDeviceScope
+' above - content already consented at workbook scope (a
+' CustomDocumentProperty on ActiveWorkbook, keyed the same way a real
+' "Yes, remember for this workbook only" click would have stored it)
+' also skips both prompts and loads normally. Proves EnglishLoadVocabulary
+' checks ActiveWorkbook, not ThisWorkbook - this test runs from
+' whatever workbook is active when VlaSelfTest runs, exactly the
+' production shape (VLA_IDE.bas's own CaptureHost precedent: "add-ins
+' never appear [as ActiveWorkbook], which is why [it] was never
+' ThisWorkbook").
+Public Sub TestRawConsentWorkbookScope()
+    Dim vocabPath As String
+    vocabPath = WriteTempLib("vla_rawconsent_workbook_vocab.vla", _
+        "(english-vla ""char cell {r:cell}"" (raw ""Debug.Print 3""))")
+
+    Dim contentHash As String
+    contentHash = EnglishSourceHash(vocabPath)
+    Dim propName As String
+    propName = "SEC2RawConsent " & contentHash
+
+    On Error Resume Next
+    ActiveWorkbook.CustomDocumentProperties(propName).Delete
+    On Error GoTo 0
+    ActiveWorkbook.CustomDocumentProperties.Add Name:=propName, LinkToContent:=False, Type:=4, Value:="granted"
+
+    EnglishResetGrammar
+    Dim n As Long
+    On Error Resume Next
+    Err.Clear
+    n = EnglishLoadVocabulary(vocabPath)
+    Report "sec2: a raw-bearing phrasebook already consented at WORKBOOK scope loads with no prompt", _
+           Err.Number = 0 And n = 1, "err: " & Err.Description & " n=" & n
+    On Error GoTo 0
+
+    EnglishResetGrammar
+    On Error Resume Next
+    ActiveWorkbook.CustomDocumentProperties(propName).Delete
+    On Error GoTo 0
+    Kill vocabPath
+End Sub
+
+' SEC.2, continued: EnglishLoadVocabularyText itself (the primitive
+' VLA_Browser.bas's host-free EnglishTranslateTextToVla/ToVba call
+' directly) must NEVER show the raw-consent prompt or touch
+' SaveSetting/GetSetting at all - the gate lives one level up, in the
+' file-based EnglishLoadVocabulary, specifically so this stays true.
+' Proven by loading a raw-bearing phrasebook as TEXT (no file, no
+' consent record seeded anywhere) and confirming it registers with no
+' error - if the gate had leaked into this function, this call would
+' either hang on a live MsgBox (fatal for an automated suite) or raise
+' the decline message, neither of which happens.
+Public Sub TestRawConsentTextPathUngated()
+    EnglishResetGrammar
+    Dim n As Long
+    On Error Resume Next
+    Err.Clear
+    n = EnglishLoadVocabularyText( _
+        "(english-vla ""char cell {r:cell}"" (raw ""Debug.Print 2""))", _
+        "rawconsent-textpath-vocab")
+    Report "sec2: EnglishLoadVocabularyText stays host-free - a raw-bearing TEXT load never prompts, matching VLA_Browser.bas's documented contract", _
+           Err.Number = 0 And n = 1, "err: " & Err.Description & " n=" & n
+    On Error GoTo 0
+    EnglishResetGrammar
+End Sub
+
 ' ---------------------------------------------------------------------
 '  G5: the rule scratchpad. TryRule PRINTS its audition (Immediate
 '  window - the authoring channel), which no pin can read, so these

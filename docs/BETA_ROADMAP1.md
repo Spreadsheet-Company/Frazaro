@@ -614,18 +614,68 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   procurement reviewer will ask for. *Depends on:* SEC.0. `~days` for the
   subtractive fix and its live test; `~weeks` for the `requires:`/consent
   follow-through.
-- ⬜ **SEC.2 — `raw` behind explicit, per-phrasebook consent.** A
-  phrasebook using `raw` declares `requires: capability:raw`; loading it
-  shows the DI.1-shaped trust dialog, naming the phrasebook, before its
-  rules become reachable — not a new interaction pattern, the existing
-  VBProject-trust one pointed at a second question. Can ship ahead of
-  SEC.1's full tier/`requires:` generalization as a narrower interim step:
-  the only thing it needs is a boolean "does this phrasebook contain a
-  `raw` form" check at load time plus the reused dialog. *Why now:* `raw`
-  is the one form no future static analysis will ever be able to reason
-  about, by design (F.2's own text: "usable directly ... no macro
-  required" for `quote`, and `raw` is `quote`'s opposite — opaque, not
-  self-contained data). *Depends on:* SEC.0. `~days`
+- ✅ **SEC.2 — `raw` behind explicit, per-phrasebook consent.** Built
+  and **owner-verified live** (VLA_SELF-TESTS pure 936/936, host
+  143/143; a full manual click-through of every path below, including
+  the compiled `raw` statement actually printing to the Immediate
+  window). A phrasebook using `raw` shows a modal, naming the
+  phrasebook, before its rules become reachable — not a new interaction
+  pattern, the existing VBProject-trust one pointed at a second
+  question. **Correction found during a purity-ratchet check, not
+  assumed clean:** the gate cannot live in `EnglishLoadVocabularyText`
+  itself — `VLA_Browser.bas` (`PORT.1`, already shipped) documents its
+  own host-free `EnglishTranslateTextToVla`/`ToVba` as callers that
+  "never touch a file, never show a MsgBox," and calls that exact
+  function directly with in-memory phrasebook text; a raw-bearing
+  phrasebook passed through it would have popped a live dialog from a
+  function explicitly promised never to show one. Gated instead at
+  `EnglishLoadVocabulary` (the file-path loader one level up, already
+  doing file I/O and not one of `check_translate_purity.ps1`'s tracked
+  functions) — covers exactly the real "org phrasebook"/"community
+  phrasebook" tiers (files on disk), while the shipped base corpus's
+  embedded-sheet path and `VLA_Browser.bas`'s text-based path stay
+  genuinely host-free, not just past the ratchet's own textual scan.
+  **Two remembered scopes, owner-requested over a single blanket
+  "remember," each an explicit, disclosed choice rather than a silent
+  default:** *this workbook only* (a `CustomDocumentProperty` on the
+  captured `ActiveWorkbook`, never `ThisWorkbook` — inside a built
+  `.xlam`, `ThisWorkbook` is the add-in itself, which would have
+  silently turned "this workbook" into "every workbook this add-in
+  ever serves" — forging it needs write access to that one file) or
+  *every workbook on this device* (`SaveSetting`/`GetSetting`, scoped
+  only by a public app-name string and a public hash algorithm — any
+  code able to run as the same Windows user could forge it for a
+  phrasebook of its own choosing, named as such in the prompt itself,
+  not glossed over as a free convenience). Consent is keyed by
+  `EnglishSourceHash(filePath)` (reused, not reinvented) rather than
+  path or name, so any edit re-prompts. **Deliberately no test-bypass
+  toggle** anywhere in the mechanism — a settable "skip the real
+  prompt" surface is itself a standing backdoor; the automated
+  self-test instead pre-seeds the exact state a real click of either
+  scope would leave, proving the real code path with no shortcut
+  built in, and a third test proves `EnglishLoadVocabularyText` itself
+  stays un-gated. Two chained stock `MsgBox` dialogs, not one custom
+  UserForm — VBA cannot relabel a `MsgBox` button, and this codebase's
+  one existing custom form (`frmCLI.frm`) carries its own documented
+  dev-reload fragility. **Owner correction to the second dialog's own
+  wording, this session:** an earlier version asked "remember this
+  approval?" with Yes=workbook/No=device, which read as simply
+  re-confirming the first dialog's own "yes" rather than a distinct
+  choice; reworded as a pure escalation ("also approve for every
+  workbook on this device?", Yes=device/No=workbook) so the answer
+  that requires no further action also matches the safer outcome.
+  **A live compile lesson, found the hard way and worth recording:**
+  VBA requires every bare module-level `Const`/`Dim`/`Enum`/`Type` to
+  live together in the module's own top-of-file Declarations block,
+  before the first `Sub`/`Function`/`Property` — not merely "declared
+  above its own first use" elsewhere in the file, which three
+  consecutive live compiles (an `Enum`, then a misplaced `Const` trio,
+  twice) demonstrated does not compile, contrary to the general
+  expectation that VBA doesn't care about declaration order. *Why
+  now:* `raw` is the one form no future static analysis will ever be
+  able to reason about, by design (F.2's own text: "usable directly
+  ... no macro required" for `quote`, and `raw` is `quote`'s opposite
+  — opaque, not self-contained data). *Depends on:* SEC.0. `~days`
 - ⬜ **SEC.3 — phrasebook provenance for capability-requiring effects.**
   Which *layer* — base corpus, org phrasebook, community phrasebook —
   introduced a given `raw` splice or mail-send, attached to the emitted

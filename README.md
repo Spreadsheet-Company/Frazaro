@@ -273,12 +273,12 @@ want to evaluate the engineering culture before the code, start with
 ## Known open security items
 
 Frazaro's own threat model ([docs/THREAT_MODEL.md](docs/THREAT_MODEL.md))
-is public, and three of its findings are still open in this beta. They
-are listed here by roadmap ID so a downloader hears it from this page
-rather than from the repository. Frazaro does not update itself and
-makes no network call, so a copy you download today stays as it is
-until you come back; check this section or the roadmap to see when
-each closes.
+is public. Two of its three original findings are still open in this
+beta. They are listed here by roadmap ID so a downloader hears it from
+this page rather than from the repository. Frazaro does not update
+itself and makes no network call, so a copy you download today stays
+as it is until you come back; check this section or the roadmap to see
+when each closes.
 
 - **SEC.1 — dynamic dispatch is not yet capability-gated.** A member
   reference the interpreter does not recognize falls through to VBA's
@@ -286,14 +286,15 @@ each closes.
   roughly what a macro in a workbook you open could reach. That is not
   a new exposure compared to a macro-enabled workbook, but it is not
   gated yet.
-- **SEC.2 — `raw` rules run without a consent prompt.** A phrasebook
-  rule marked `raw` contains literal VBA. The default Interpret path
-  refuses it; it executes only through Compile/Export, behind Excel's
-  own VBA-project trust prompt. A per-phrasebook consent dialog is the
-  fix, and it is the first item scheduled after this upload.
 - **SEC.3 — generated code does not yet carry phrasebook provenance.**
   Emitted VBA says what it does, not which phrasebook layer introduced
   each line.
+
+**SEC.2 closed:** a phrasebook rule marked `raw` (literal VBA) now
+shows an explicit consent dialog, naming the phrasebook, before it
+loads from disk — declining refuses the whole phrasebook, not just the
+`raw`-bearing rules. See `docs/BETA_ROADMAP1.md`'s own SEC.2 entry for
+the full mechanism.
 
 Until these close: **load phrasebooks only from people you would accept
 a macro-enabled workbook from.** The phrasebooks embedded in the

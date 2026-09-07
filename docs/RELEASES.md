@@ -4,7 +4,48 @@
 
 ## 0.5.2
 
-*(next: write this before running the release - this section stays at the top, and is the only one that may be empty)*
+### What changed
+
+- **The one `AS.1` gap closed: `paint cell {r:text}`.**
+  `check_rule_coverage.ps1`'s first real report (after `GEXPANDERLINT.0`
+  verticalized the phrasebook artifact) found a rule with zero
+  test-success proofs. It had never worked: the rule called `vlacolr`
+  (no "o"), a name that resolves nowhere in the shipped modules, and
+  had no cell/range slot in its pattern at all, so it could never have
+  painted a cell even with the spelling fixed. Corrected to the
+  `set-fill-color` idiom every sibling color rule already uses
+  (`pirate.vla`'s own "paint cell" rule confirmed the intended
+  semantics) and given its missing test. 150/150 phrasebook rules now
+  carry at least one proof.
+- **`SEC.2` — `raw` behind explicit, per-phrasebook consent, built and
+  owner-verified live.** A phrasebook using `raw` (literal VBA,
+  previously unconsented) now shows a modal, naming the file, before it
+  loads from disk; declining refuses the whole phrasebook, not just the
+  `raw`-bearing rules. Two remembered scopes, an explicit choice rather
+  than a silent default: *this workbook only* (safer — forging it needs
+  write access to that one file) or *every workbook on this device*
+  (more convenient, a wider target, named as such in the prompt
+  itself). Gated at the file-path loader specifically, not the shared
+  `EnglishLoadVocabularyText` primitive `VLA_Browser.bas`'s
+  already-shipped host-free translate API calls directly and documents
+  as never showing a dialog — an early draft got this wrong and only
+  passed the purity ratchet on a technicality, caught before it
+  shipped. No test-bypass toggle anywhere in the mechanism, by design.
+  Full mechanism: `docs/BETA_ROADMAP1.md`'s own SEC.2 entry.
+
+### Known open security items
+
+- **SEC.1** — dynamic dispatch is not yet capability-gated: a phrasebook you
+  load can reach roughly what a macro in a workbook you open could reach.
+- **SEC.3** — generated code does not yet carry phrasebook provenance.
+
+`SEC.2` closed this release — see above.
+
+Until these close: **load phrasebooks only from people you would accept a
+macro-enabled workbook from.** Frazaro makes no network call and does not
+update itself; check the README's *Known open security items* when you
+return for a newer build. Vulnerability reports: `docs/SECURITY.md`.
+Everything else: `docs/SUPPORT.md`.
 
 ## 0.5.1 — 2026-09-07
 

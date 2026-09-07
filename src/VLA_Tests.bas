@@ -330,6 +330,9 @@ Public Function VlaSelfTest() As Boolean
     TestAtRow
     TestGExpander
     TestRuleCoverage
+    TestRawConsentDeviceScope
+    TestRawConsentWorkbookScope
+    TestRawConsentTextPathUngated
     TestGenRow
     TestListopsBudget
     TestListopsConfluence

@@ -285,6 +285,8 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "english-translate-vba-overwrite", 5, "VLA-English", "Translate to VBA: refusing to overwrite the source file ({path}) - point this at a .txt/.en program, not an already-.vba file."
     AddMsg m, "english-define-needs-fixed-value", 5, "VLA-English", "Define needs a fixed value - quoted text (""#FF69B4""), a number, or an earlier alias - near: '{context}'"
     AddMsg m, "english-function-word-not-one-word", 5, "VLA-English", "{context}: a function word is one word, optionally followed by 'of'"
+    ' SEC.2: raw behind explicit, per-phrasebook consent.
+    AddMsg m, "english-vocab-raw-consent-declined", 5, "VLA-English", "'{source}' was not loaded - it contains a (raw ...) form, which runs unrestricted VBA once a program using it runs, and consent for it was declined"
     ' VLA.bas (134 of 141 - lines ~563/565/568/570 (VlaTranspile's
     ' emitfail handler), ~688 and ~1084 (VlaReadForms/a second parse
     ' path's own fail: handlers), and ~2186 (VlaExpandStepText's

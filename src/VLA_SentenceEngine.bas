@@ -1,6 +1,20 @@
 Attribute VB_Name = "VLA_SentenceEngine"
 Option Explicit
 Public Const VLA_SENTENCEENGINE_VERSION As String = "PPROF.0"
+
+' SEC.2: EnglishLoadVocabulary's raw-consent gate result codes. Plain
+' Long + Const, not an Enum - this codebase's own 27 modules use Enum
+' nowhere else. Declared HERE, in the module's own top-of-file
+' Declarations block, not near where they're used (EnglishLoadVocabulary,
+' far below) - three live compiles (owner-caught) demonstrated in
+' sequence that VBA requires every bare module-level Const/Dim/Enum/Type
+' declaration to live together in this one block, before the first
+' Sub/Function/Property in the module, full stop - not merely "declared
+' above its own first use," which is what the second attempt (still
+' misplaced, just relocated to a different mid-file spot) got wrong.
+Private Const RawConsentDeclined As Long = 0
+Private Const RawConsentWorkbook As Long = 1
+Private Const RawConsentDevice As Long = 2
 ' PPROF.0: EnglishToVla gains the translate-side half of P-PROF's
 ' per-phase timing (VLA.bas's own PPROF.0 note has the full mechanism
 ' and gating reasoning) - trans-tokenize/trans-build, behind the same
@@ -5548,7 +5562,45 @@ Public Function EnglishLoadVocabulary(ByVal filePath As String) As Long
     If Len(Dir$(filePath)) = 0 Then
         VLA_Messages.RaiseMsg "english-vocab-file-not-found", "path", filePath
     End If
-    EnglishLoadVocabulary = EnglishLoadVocabularyText(VocabReadFile(filePath), filePath)
+    Dim text As String
+    text = VocabReadFile(filePath)
+
+    ' SEC.2: gate BEFORE a single rule from this file registers - see
+    ' the raw-consent block above EnglishLoadVocabularyText for the
+    ' full design and why this is the right chokepoint, not that
+    ' shared, documented-host-free function.
+    If VocabTextHasRawForm(text) Then
+        Dim contentHash As String
+        contentHash = EnglishSourceHash(filePath)
+
+        ' D1-shaped capture (VLA_IDE.bas's own CaptureHost): ActiveWorkbook,
+        ' never ThisWorkbook - inside a built .xlam, ThisWorkbook is the
+        ' add-in itself ("add-ins never appear [as ActiveWorkbook], which
+        ' is why [CaptureHost] was never ThisWorkbook" - that function's
+        ' own comment). Using ThisWorkbook here would silently turn
+        ' "approve for this workbook" into "approve for every workbook
+        ' this add-in ever serves," defeating the whole point of the
+        ' narrower option. Captured once, before the prompt below, not
+        ' re-read after - a live dialog round-trip is exactly the kind of
+        ' pause a focus change could land in.
+        Dim hostWb As Workbook
+        Set hostWb = ActiveWorkbook
+
+        If Not VlaRawConsentGranted(contentHash, hostWb) Then
+            Dim choice As Long
+            choice = VlaAskRawConsent(filePath)
+            Select Case choice
+                Case RawConsentWorkbook
+                    VlaRawConsentRecordWorkbook contentHash, hostWb
+                Case RawConsentDevice
+                    VlaRawConsentRecordDevice contentHash
+                Case Else
+                    VLA_Messages.RaiseMsg "english-vocab-raw-consent-declined", "source", filePath
+            End Select
+        End If
+    End If
+
+    EnglishLoadVocabulary = EnglishLoadVocabularyText(text, filePath)
 End Function
 
 ' GEXPANDER.1: owner reversal of GEXPANDER.0's own original design -
@@ -5998,6 +6050,269 @@ expandFailed:
     errDesc = Err.Description
     VLA_Messages.RaiseMsg "english-vocab-macro-expansion-failed", "loc", ProvLoc(sourceName, startLine, rowTag), "head", head, "detail", errDesc
 End Sub
+
+' =====================================================================
+'  SEC.2: raw behind explicit, per-phrasebook consent. THREAT_MODEL.md
+'  SS1.4: a (raw "...") form splices its own string content verbatim
+'  into the emitted VBA module - full VBA privilege, a gap "no static
+'  analysis can ever bound... by design," so it is gated by consent
+'  instead.
+'
+'  Gated at EnglishLoadVocabulary (the FILE-path loader, below) rather
+'  than the shared EnglishLoadVocabularyText primitive both this file's
+'  file-based loaders AND VLA_Browser.bas's host-free translate API
+'  call - checked, not assumed, and it matters: VLA_Browser.bas
+'  (PORT.1, already shipped) documents EnglishTranslateTextToVla/ToVba
+'  as callers that "never touch a file, never show a MsgBox," and
+'  tools/check_translate_purity.ps1 (PORT.2) pins EnglishLoadVocabularyText
+'  itself as one of the tracked host-free functions. A first draft of
+'  this gate lived inside EnglishLoadVocabularyText and only APPEARED
+'  to pass that ratchet because the MsgBox sat in a sibling function
+'  outside the line range the script scans - a loophole, not real
+'  compliance, and a real regression against VLA_Browser.bas's own
+'  documented contract (it calls EnglishLoadVocabularyText directly,
+'  with phrasebook TEXT it already holds in memory - a raw-bearing
+'  phrasebook passed through it would have popped a live dialog from
+'  a function explicitly promised never to show one). EnglishLoadVocabulary
+'  already does file I/O (Dir$/Open, both already "host" operations by
+'  this codebase's own definition) and is NOT one of PORT.2's tracked
+'  functions, so a consent prompt belongs there instead - it also
+'  means only FILE-based loads are gated (the real "org phrasebook" /
+'  "community phrasebook" tiers THREAT_MODEL.md SS2 describes are
+'  files on disk), while the shipped base corpus's embedded-sheet path
+'  (VLA_IDE.IdeLoadVocab's embedded-chain fallback) and VLA_Browser.bas's
+'  text-based path stay exactly as host-free as documented - correct,
+'  not merely convenient: embedded/shipped content is THREAT_MODEL's
+'  own tier-1 "trusted by construction" tier, and a host-free caller
+'  has no dialog to show in the first place.
+'
+'  Declining means the WHOLE phrasebook does not load - not just its
+'  raw-bearing rules - so "before its rules become reachable" (SEC.2's
+'  own roadmap wording) is exactly true: a partial load would leave a
+'  program author unable to tell, from one missing rule alone, whether
+'  that was a security refusal or a bug.
+'
+'  Consent is remembered per exact CONTENT, not per path - keyed by
+'  EnglishSourceHash(filePath) (already-audited, already used for the
+'  Expanded Phrasebook's own staleness stamp) rather than a new hash
+'  function, since a real file path is always available here. A path
+'  can be reused across different content, and THREAT_MODEL.md SS2
+'  already found no provenance tag distinguishes phrasebooks today, so
+'  editing the phrasebook at all - even a comment - invalidates prior
+'  consent and re-prompts, deliberately stricter than a path-keyed
+'  record.
+'
+'  TWO REMEMBER SCOPES, an owner-requested refinement over a single
+'  blanket "remember" - offered as an explicit, disclosed choice, not
+'  a silent default:
+'    - WORKBOOK scope (CustomDocumentProperties on the captured
+'      ActiveWorkbook, keyed by the same content hash): forging this
+'      approval needs write access to that one specific file. An
+'      attacker who already has that could just as easily inline the
+'      payload directly - so this buys real containment, not
+'      obscurity.
+'    - DEVICE scope (SaveSetting/GetSetting, "Frazaro"/"SEC2RawConsent",
+'      unchanged from the mechanism's first draft): ANY code able to
+'      run as this Windows user can read or WRITE this exact registry
+'      location - it is scoped only by the app-name string "Frazaro",
+'      which is public (this project is open source), and the content
+'      hash is a public, documented, easily-reproduced algorithm. A
+'      forged device-scope grant does not require ever having run
+'      Frazaro, still less this phrasebook - only some unrelated
+'      foothold on the same Windows account, staged separately from
+'      the phrasebook itself. This is a REAL, named limitation, not
+'      hidden from the person choosing it - VlaAskRawConsent's own
+'      prompt text says exactly this, in plain language, so "device"
+'      is something a user opts INTO informed, not something they
+'      silently inherit as the only option.
+'  Neither scope defends against an attacker who ALREADY has arbitrary
+'  code execution as this Windows user, or against raw VBA that has
+'  ALREADY run once with full privilege writing a future consent
+'  record itself - no persisted secret written by same-process VBA can
+'  be made unforgeable by more privileged same-process VBA; nothing
+'  here claims otherwise. What workbook-scope changes is the SHAPE of
+'  the remaining risk: a forged grant then affects one artifact a
+'  person can watch (this file), not every Frazaro use by this Windows
+'  account forever.
+'
+'  ActiveWorkbook, never ThisWorkbook, for the workbook-scoped record -
+'  see EnglishLoadVocabulary's own comment at the capture site.
+'
+'  Deliberately NO test-bypass toggle anywhere in this mechanism - a
+'  settable "skip the real prompt" surface, however narrowly scoped,
+'  is itself a standing backdoor (any other code in the project, or a
+'  forgotten debug leftover, could set it and silently defeat consent
+'  for the rest of the session with no audit trail). The "already
+'  consented" path is instead tested by pre-seeding the exact state a
+'  real click would have left, for EACH scope (see this section's own
+'  tests), which exercises the real code path with no shortcut built
+'  in. The live prompt-and-decline/accept interaction itself is
+'  owner-verified manually, the same precedent DI.1's own trust dialog
+'  already set in this codebase (BETA_ROADMAP1.md DI.1: "Owner-verified
+'  live, all three trust states in sequence" - never folded into the
+'  automated VlaSelfTestsAll suite).
+'
+'  TWO CHAINED STOCK MsgBox DIALOGS, not one custom UserForm - VBA's
+'  MsgBox cannot relabel its own buttons ("Approve for this workbook"
+'  is not an available caption for any MsgBox button set), and this
+'  codebase's one existing custom UserForm (frmCLI.frm) carries its own
+'  documented dev-reload fragility (a prior "Can't move focus" VBIDE
+'  error traced to corrupted import/reload state, not a code bug) -
+'  not worth risking, or worth an artifact this text-based house style
+'  cannot review as plainly as everything else here, for a two-question
+'  flow two ordinary dialogs already answer cleanly. MsgBox is
+'  otherwise used only in VLA_IDE.bas; it appears here as a deliberate,
+'  narrow exception - a callback indirection into the IDE layer would
+'  only add a second settable bypass surface for no real safety gain.
+' =====================================================================
+
+' Does this vocabulary TEXT carry a (raw ...) form anywhere - top-level
+' (VLA.bas's EmitTop) or nested inside a statement body (VLA.bas's
+' EmitStmt) both dispatch "raw" verbatim into the emitted module, so
+' detection walks every paren's own head symbol rather than trusting a
+' substring search, which would false-positive on a rule whose own
+' English sentence text or a nearby comment merely contains the word
+' "raw" (this file has several). Comment-aware (";" to end of line, the
+' real .vla comment rule - VLA.bas's own reader, ~line 2725), string-
+' literal-aware (backslash-escaped, same as every other reader in this
+' codebase) character walk - the same shape EnglishResolveCheck already
+' uses for the identical reason, over the phrasebook's raw source text
+' rather than an already-parsed form tree (Nth/IsList are Private to
+' VLA.bas - not reachable from this module).
+Private Function VocabTextHasRawForm(ByVal text As String) As Boolean
+    Dim n As Long
+    n = Len(text)
+    Dim inLit As Boolean
+    Dim i As Long
+    i = 1
+    Do While i <= n
+        Dim c As String
+        c = Mid$(text, i, 1)
+        If inLit Then
+            If c = "\" Then
+                i = i + 2
+            ElseIf c = """" Then
+                inLit = False
+                i = i + 1
+            Else
+                i = i + 1
+            End If
+        ElseIf c = """" Then
+            inLit = True
+            i = i + 1
+        ElseIf c = ";" Then
+            Do While i <= n
+                If Mid$(text, i, 1) = vbCr Or Mid$(text, i, 1) = vbLf Then Exit Do
+                i = i + 1
+            Loop
+        ElseIf c = "(" Then
+            Dim j As Long
+            j = i + 1
+            Do While j <= n And Mid$(text, j, 1) = " "
+                j = j + 1
+            Loop
+            Dim hEnd As Long
+            hEnd = j
+            Do While hEnd <= n
+                If InStr(" ()" & vbCr & vbLf & vbTab, Mid$(text, hEnd, 1)) > 0 Then Exit Do
+                hEnd = hEnd + 1
+            Loop
+            If VLA_Identity.Fold(Mid$(text, j, hEnd - j)) = "raw" Then
+                VocabTextHasRawForm = True
+                Exit Function
+            End If
+            i = hEnd
+        Else
+            i = i + 1
+        End If
+    Loop
+End Function
+
+' hostWb may be Nothing (no active workbook at the moment of a raw-
+' bearing load - rare, but not impossible, e.g. a dev-rig context with
+' nothing open) - workbook-scope simply has nowhere to check in that
+' case, so only device-scope can ever answer True for it.
+Private Function VlaRawConsentGranted(ByVal contentHash As String, ByVal hostWb As Workbook) As Boolean
+    If GetSetting("Frazaro", "SEC2RawConsent", contentHash, "") = "granted" Then
+        VlaRawConsentGranted = True
+        Exit Function
+    End If
+    If hostWb Is Nothing Then Exit Function
+    Dim v As String
+    On Error Resume Next
+    v = hostWb.CustomDocumentProperties(RawConsentPropName(contentHash)).Value
+    On Error GoTo 0
+    VlaRawConsentGranted = (v = "granted")
+End Function
+
+Private Function RawConsentPropName(ByVal contentHash As String) As String
+    RawConsentPropName = "SEC2RawConsent " & contentHash
+End Function
+
+Private Sub VlaRawConsentRecordDevice(ByVal contentHash As String)
+    SaveSetting "Frazaro", "SEC2RawConsent", contentHash, "granted"
+End Sub
+
+' No workbook to scope to (hostWb Is Nothing) is not fatal - this
+' load already succeeded via the live prompt; only a FUTURE load would
+' have benefited from the record, so it silently no-ops and the next
+' load simply asks again.
+Private Sub VlaRawConsentRecordWorkbook(ByVal contentHash As String, ByVal hostWb As Workbook)
+    If hostWb Is Nothing Then Exit Sub
+    Dim propName As String
+    propName = RawConsentPropName(contentHash)
+    On Error Resume Next
+    hostWb.CustomDocumentProperties(propName).Value = "granted"
+    If Err.Number <> 0 Then
+        Err.Clear
+        hostWb.CustomDocumentProperties.Add Name:=propName, LinkToContent:=False, Type:=4, Value:="granted"   ' 4 = msoPropertyTypeString - the literal, not the named Office constant, so this compiles with no dependency on the Office Object Library being a checked reference
+    End If
+    On Error GoTo 0
+End Sub
+
+' The DI.1-shaped prompt SEC.2 asks for, as two chained stock dialogs
+' (see this section's own header for why not one custom dialog): names
+' the specific phrasebook, states the actual capability in plain
+' language rather than a generic "trust this file" (DI.1's own finding
+' was that a generic trust rubber-stamp is not what a reviewer should
+' be asked to click), then - only if the first answer was yes - asks
+' ONE further, purely escalating question: also remember this for
+' every workbook, not just this one. Owner correction to this pin,
+' this session: an earlier wording asked "remember this approval?"
+' with Yes=workbook/No=device, which read as the second dialog merely
+' re-confirming the first "yes" (both answered "Yes") rather than as a
+' distinct choice - a user skimming two Yes/No dialogs in a row could
+' misread which scope they landed on. The load itself is ALREADY
+' settled by the first dialog; workbook-scope is what "yes, load it"
+' already implies at minimum, so the second dialog now asks only
+' whether to go further, with Yes=the broader, riskier scope and
+' No=the default, narrower one - the answer that matches "no further
+' action" also matches the safer outcome, so skimming past this dialog
+' can no longer land on the riskier choice by mis-reading Yes/Yes as
+' agreement twice. Fails toward the SAFER, narrower scope on any
+' answer that is not unambiguously "yes, go wider" - never toward the
+' broader one.
+Private Function VlaAskRawConsent(ByVal sourceName As String) As Long
+    Dim loadPrompt As String
+    loadPrompt = "'" & sourceName & "' wants to load a rule that runs unrestricted VBA - file access, other applications, anything VBA itself can do, not just Excel actions." & vbCrLf & vbCrLf & _
+                 "Only allow this if you trust where this phrasebook came from." & vbCrLf & vbCrLf & _
+                 "Load it anyway?"
+    If MsgBox(loadPrompt, vbYesNoCancel Or vbExclamation Or vbDefaultButton2, "Frazaro - phrasebook needs raw VBA access") <> vbYes Then
+        VlaAskRawConsent = RawConsentDeclined
+        Exit Function
+    End If
+
+    Dim scopePrompt As String
+    scopePrompt = "This loads into THIS workbook, and that approval is remembered here either way." & vbCrLf & vbCrLf & _
+                  "Also approve it for EVERY workbook on this device, so you are never asked again anywhere?" & vbCrLf & vbCrLf & _
+                  "Yes - more convenient, but a wider target: any other code able to run as you on this computer could forge this approval for a phrasebook of its own choosing." & vbCrLf & vbCrLf & _
+                  "No - keep it to this workbook only. Safer: forging this approval would require tampering with this specific file."
+    If MsgBox(scopePrompt, vbYesNo Or vbQuestion Or vbDefaultButton2, "Frazaro - approve for every workbook on this device?") = vbYes Then
+        VlaAskRawConsent = RawConsentDevice
+    Else
+        VlaAskRawConsent = RawConsentWorkbook
+    End If
+End Function
 
 ' F.13: load rules from a string of real VLA - read whole via
 ' VLA.VlaReadFormsWithLines (so every directive keeps a precise source
