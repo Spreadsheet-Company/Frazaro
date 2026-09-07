@@ -13,7 +13,7 @@
 version = 1
 SPDX-PackageName = "Frazaro"
 SPDX-PackageSupplier = "Spreadsheet Company <english@spreadsheet.company>"
-SPDX-PackageDownloadLocation = "https://github.com/Spreadsheet-Company/frazaro"
+SPDX-PackageDownloadLocation = "https://github.com/Spreadsheet-Company/Frazaro"
 
 # The engine, its prelude, the corpus fixtures and goldens, the dev tooling,
 # the installer, and this map itself.

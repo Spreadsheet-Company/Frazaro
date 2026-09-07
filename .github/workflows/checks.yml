@@ -1,0 +1,31 @@
+# The static ratchets, on every push and pull request.
+#
+# Every tools/check_*.ps1 is host-independent by design (no Excel, no COM),
+# which is exactly what makes it runnable here. The goldens, the self-tests
+# and the live pass still need Excel and stay the owner's job; this workflow
+# is the mechanical half of review, so a pull request from anyone has run
+# the ratchets before a human reads it. tools/release.ps1 runs the same
+# scripts locally before it will tag a release.
+name: checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  ratchets:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: run every tools/check_*.ps1
+        shell: pwsh
+        run: |
+          $failed = @()
+          foreach ($chk in Get-ChildItem tools -Filter 'check_*.ps1' | Sort-Object Name) {
+            Write-Host "::group::$($chk.Name)"
+            & powershell -NoProfile -ExecutionPolicy Bypass -File $chk.FullName
+            $code = $LASTEXITCODE
+            Write-Host "::endgroup::"
+            if ($code -ne 0) { $failed += "$($chk.Name) (exit $code)" }
+          }
+          if ($failed.Count -gt 0) { Write-Host "FAILED: $($failed -join ', ')"; exit 1 }
+          Write-Host "all ratchets clean"

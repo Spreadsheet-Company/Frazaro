@@ -31,6 +31,20 @@ The `.bas`/`.cls` files remain the source of truth in version control; the `.xla
 
 **Dev convenience — a `Frazaro_Beta.xlam` test copy stays current on its own, including being created.** `VlaBuildAddin` creates and refreshes a `Frazaro_Beta.xlam` copy beside the dev workbook on every build, unconditionally — register it once for auto-load (the ribbon button, see above) and forget it exists. First shipped opt-in (only refresh a copy that already existed, so "a fresh checkout never sees it appear on its own"); corrected immediately after it met the Uninstall Frazaro button in practice — Uninstall's own successful self-delete removes this file entirely, and the opt-in gate then meant the convenience died silently and permanently the moment that happened, recoverable only by manually redoing the exact copy/rename step it exists to eliminate. Since this module never ships (it's not in `VlaBuildAddin`'s own module list), the cost of "an extra file might surprise someone" was never as high as "this silently stops working the first time its two features are actually used together." It closes the copy first if this same Excel session has it open, not because the file would otherwise be locked (a bare file copy succeeds over an open `.xlam` regardless — live-tested; Office uses its own advisory `~$` lock-file convention, not an exclusive OS handle) but because overwriting the bytes under an already-loaded session doesn't retroactively update that session's own in-memory code. If that copy happens to be open in a *different* Excel process, this can't reach it at all and says so in the build report.
 
+## Releasing (daily patch, weekly minor)
+
+The working loop is **Scope → Implement → Test → Build → Push**, and since the `0.5.0` public import (2026-09-05) the last step is a release, not just a push. Cadence, an owner decision of 2026-09-07 that fixes SD-14's tempo without changing its numbering: a **`0.5.N` patch release at the end of each working day** and a **`0.N.0` minor release at the end of each week**, with security and safety fixes front-loaded into the patches and larger feature additions landing in the minors. The `.xlam` editions are release assets, never tracked files; `README.md`'s download links resolve to whatever release is newest.
+
+`tools\release.ps1` is the Push step, one command:
+
+```powershell
+powershell -File tools\release.ps1 -Version 0.5.1 -Locked          # add -DryRun to rehearse
+```
+
+It refuses to touch the remote unless all of the following hold, and says which one failed: on `main`, clean, not behind origin; `VLA_RELEASE_VERSION` in `VLA.bas` equals the version asked for (bumped by hand, at release, per DI.3a); the tag is not taken; `docs/RELEASES.md` has a `## <version>` section (notes are written *before* the release); every `tools\check_*.ps1` exits 0; both edition `.xlam` files exist beside the repository root and are newer than every file under `src/` and `scripts/` (the build ran after the last edit); and `-Locked` was passed, the owner's attestation that step 4 above was done for both editions, since VBA offers no API to check it. Then it pushes `main`, tags `v<version>`, pushes the tag, and publishes the GitHub release with the two `.xlam` assets and the notes section. Release tags are immutable on GitHub (a ruleset forbids deleting or moving `v*`), so a wrong release is fixed by the next patch number, never by rewriting. The same `check_*.ps1` scripts run in CI on every push and pull request (`.github/workflows/checks.yml`).
+
+Day-end sequence, then: bump `VLA_RELEASE_VERSION`, reload, self-tests and goldens, `VlaBuildAddin`, lock both projects, write the `## <version>` section, run the script.
+
 ## Code signing (DI.1)
 
 Two genuinely separate signatures, on two different artifacts, answering two different trust questions — kept apart deliberately rather than glossed as one "signing" step.

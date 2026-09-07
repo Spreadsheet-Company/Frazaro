@@ -247,11 +247,11 @@ Two paths, both documented in [docs/DEPLOY.md](docs/DEPLOY.md):
 - **Standalone add-in** — the universal default; it is an Office
   document, not a program, so it works wherever Excel does, including
   managed machines. Download the latest build directly:
-  [Frazaro_English.xlam](https://github.com/Spreadsheet-Company/frazaro/releases/latest/download/Frazaro_English.xlam)
+  [Frazaro_English.xlam](https://github.com/Spreadsheet-Company/Frazaro/releases/latest/download/Frazaro_English.xlam)
   or
-  [Frazaro_Espanol.xlam](https://github.com/Spreadsheet-Company/frazaro/releases/latest/download/Frazaro_Espanol.xlam)
+  [Frazaro_Espanol.xlam](https://github.com/Spreadsheet-Company/Frazaro/releases/latest/download/Frazaro_Espanol.xlam)
   (every release is listed under
-  [Releases](https://github.com/Spreadsheet-Company/frazaro/releases)).
+  [Releases](https://github.com/Spreadsheet-Company/Frazaro/releases)).
 - **Installer** (`FrazaroSetup.exe`) — one-click setup with a normal
   Windows uninstall entry, for machines you control. English edition
   only, and not part of the `0.5.0` release; it returns with the next

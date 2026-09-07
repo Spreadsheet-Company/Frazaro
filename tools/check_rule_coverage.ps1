@@ -78,9 +78,14 @@ if (-not $fromMatch.Success -or -not $sizeMatch.Success) {
 }
 $sourceName = $fromMatch.Groups[1].Value
 $expectedSize = [long]$sizeMatch.Groups[1].Value
-$sourcePath = Join-Path (Split-Path -Parent $ArtifactPath) $sourceName
-if (-not (Test-Path -LiteralPath $sourcePath)) {
-    Write-Error "$ArtifactPath names its source as $sourceName, which isn't next to it at $sourcePath - can't verify freshness; re-export."
+# The source may sit beside the artifact (the layout when G-EXPANDER was
+# written) or under polyglotta (EDITION-MANIFEST moved every phrasebook
+# there on 2026-09-01). Try both; the artifact header names only the file.
+$artifactDir = Split-Path -Parent $ArtifactPath
+$sourceCandidates = @((Join-Path $artifactDir $sourceName), (Join-Path (Join-Path $artifactDir 'polyglotta') $sourceName))
+$sourcePath = $sourceCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if (-not $sourcePath) {
+    Write-Error "$ArtifactPath names its source as $sourceName, which is at neither $($sourceCandidates -join ' nor ') - can't verify freshness; re-export."
 }
 $actualSize = (Get-Item -LiteralPath $sourcePath).Length
 if ($actualSize -ne $expectedSize) {
