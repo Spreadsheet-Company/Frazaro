@@ -2843,8 +2843,11 @@
     (fill :width (+ counter 1)))
 
 (english-vla
-    "paint cell {r:text}"
-    (vlacolr {r}))
+    "paint cell {r:cell} {e:expr}"
+    (set-fill-color (range {r}) (vlacolor {e})))
+(test-success
+    "Paint cell A1 hot-pink."
+    (set-fill-color (range "a1") (vlacolor hot-pink)))
 
 ; ---- G-DATALOG: sentence templates targeting DATALOG(rulesText, tables) --
 ; BETA_ROADMAP2.md's own SQL.1 "Two refinements" text settled this whole
