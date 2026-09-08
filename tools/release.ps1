@@ -23,14 +23,26 @@ What it verifies before touching the remote, in order:
   7. -Locked was passed: the owner's attestation that both .xlam VBA
      projects were locked in the VBE (DEPLOY.md, "Building the add-in",
      step 4). VBA offers no API to check this, so the switch IS the check.
+  8. -Signed was passed: the same kind of attestation, that both .xlam VBA
+     projects were signed in the VBE (DEPLOY.md, "Building the add-in",
+     step 5). Signing joined the standard sequence on 2026-09-08 (owner
+     decision) because it is the only step that changes what a DOWNLOADER
+     sees - unsigned gives them a bare Enable/Disable Macros modal, signed
+     offers "Trust all from publisher" and every later launch is silent.
+     Deliberately a SECOND switch rather than folding into -Locked: they
+     are two distinct manual acts on the same two files, and one flag
+     standing for both would let attesting to one silently attest to the
+     other. VBProject's COM interface carries no signing member either
+     (enumerated live, DEPLOY.md), so this is a record, not a check.
 
 Usage:
-  powershell -File tools\release.ps1 -Version 0.5.1 -Locked
-  powershell -File tools\release.ps1 -Version 0.5.1 -Locked -DryRun
+  powershell -File tools\release.ps1 -Version 0.5.3 -Locked -Signed
+  powershell -File tools\release.ps1 -Version 0.5.3 -Locked -Signed -DryRun
 #>
 param(
     [Parameter(Mandatory = $true)][string]$Version,
     [switch]$Locked,
+    [switch]$Signed,
     [switch]$DryRun,
     [string]$Repo = 'Spreadsheet-Company/Frazaro'
 )
@@ -110,6 +122,12 @@ foreach ($a in $assets) {
 
 # 7. the lock attestation
 if (-not $Locked) { $fail.Add('pass -Locked once both .xlam VBA projects are locked in the VBE (DEPLOY.md, Building the add-in, step 4); VBA has no API to verify this, so the switch is the record') }
+
+# 8. the signing attestation. Separate from -Locked on purpose - see the
+# header. Both are per-EDITION: signing only Frazaro_English.xlam and
+# shipping Frazaro_Espanol.xlam unsigned is the exact failure the stale
+# singular "the built Frazaro.xlam" wording in DEPLOY.md used to invite.
+if (-not $Signed) { $fail.Add('pass -Signed once both .xlam VBA projects are signed in the VBE (DEPLOY.md, Building the add-in, step 5) - Tools > Digital Signature, once per edition; VBA has no API to verify this, so the switch is the record') }
 
 if ($fail.Count -gt 0) {
     Write-Host "NOT RELEASED - $($fail.Count) problem(s):"
