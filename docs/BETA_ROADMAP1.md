@@ -1057,14 +1057,38 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   valid `.docm` past its ZIP central directory is the reliable way, and
   keeps the `PK` header so Word cannot sniff it as text and "succeed".)*
 
-  **Adjacent, NOT fixed here, no evidence of harm yet:** `ReadWordFile`
-  sets neither `Visible` nor `DisplayAlerts` on an instance it creates,
-  so a Word that chose to *prompt* about a bad document rather than
-  return an error would do it on an invisible window and appear to hang
-  Excel. It did not happen on the (b)/(c) runs, so this is a reasoned
-  hazard rather than an observed defect — filed as an observation here
-  rather than fixed, because `DisplayAlerts` is robustness, not this
-  item's security scope.
+  **Adjacent robustness follow-on — fixed 2026-09-08 at owner request,
+  ✅ owner-verified live:** `ReadWordFile` set neither `Visible`
+  nor `DisplayAlerts` on an instance it creates, so a Word that chose to
+  *prompt* about a bad document rather than return an error would do it
+  on an invisible window and appear to hang Excel. It did not fire on
+  the (b)/(c) runs above, so this was a reasoned hazard, not an observed
+  defect. Now `wordApp.DisplayAlerts = 0` (`wdAlertsNone` — the literal,
+  Word being late-bound here too, same reasoning as the `3`) immediately
+  after `CreateObject`, on an instance we **created** only. Deliberately
+  not on an attached one: that instance is visible, so its dialogs are
+  clickable, and silencing alerts in an application we do not own would
+  fail **open** — the opposite of the `AutomationSecurity` restore's
+  fail-safe direction, and the same "do not touch what we do not own"
+  principle reaching the opposite conclusion because the direction of
+  failure is reversed. Leaving it untouched also means nothing needs
+  capturing or restoring on this path at all. A failure to set it is
+  tolerated, not refused: this is robustness, not a security guard, and
+  must not block an import on its own. No ratchet — there is no
+  invisible security property here to pin, and the raw-raise ratchet is
+  untouched. No id minted: `SD-9` keeps that the owner's call.
+
+  *Owner-tested 2026-09-08, all three steps green. The attached-instance
+  step read `-2` (`wdAlertsMessageBox`) both before and after the import,
+  not the `-1` (`wdAlertsAll`) the test step predicted — the assertion this
+  test makes is UNCHANGED, not any particular value, and the ambient level
+  on a real Word varies. Recorded because it exposes a trap avoided by
+  accident of good design: `WdAlertLevel` is `{0, -1, -2}`, so `0` is a
+  VALID value here — unlike `msoAutomationSecurity`, whose `{1, 2, 3}` is what
+  makes the `0`-means-never-captured sentinel legitimate a few lines up.
+  Had this path copied that capture-and-restore idiom, a Word sitting at
+  `wdAlertsNone` would have been indistinguishable from one never read.
+  Not capturing at all is what sidesteps it.*
 
   The fixture is a recipe, not a committed binary — a macro-bearing
   `.docm` does not belong in a public repo, and a generator script would

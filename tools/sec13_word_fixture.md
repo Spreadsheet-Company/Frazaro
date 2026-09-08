@@ -61,10 +61,72 @@ Build it once; keep it outside the repo (Desktop is fine).
    opening it through automation, where no prompt is shown at all and the
    macro simply runs or does not.
 
-## What a correct result looks like
+## The second fixture: a document Word refuses to open
 
-Frazaro imports the three lines of text into the sheet, and **neither
-message box ever appears**. Before the fix, one of them would.
+Two of the tests below need a file that *exists* but that Word cannot open.
+It cannot be a missing file: `GetOpenFilename` will not return a nonexistent
+path, and `EnglishIdeReload` pre-checks with `Dir$` and raises
+`ide-program-file-moved` before `ImportFromPath` is reached — so
+`Documents.Open` cannot be made to fail with a missing file at all.
 
-The numbered live-test steps that use this fixture are in the handoff for
-`SEC.13` (and in `docs/RELEASES.md`'s `0.5.3` notes).
+Truncating a valid `.docm` past its ZIP central directory (which lives at the
+*end* of the file) is the reliable way. It keeps the `PK` header, so Word
+cannot sniff the file as plain text and "succeed" with garbage:
+
+```powershell
+$src = "$env:USERPROFILE\Desktop\sec13-fixture.docm"
+$dst = "$env:USERPROFILE\Desktop\sec13-corrupt.docm"
+$b = [IO.File]::ReadAllBytes($src)
+[IO.File]::WriteAllBytes($dst, $b[0..([int]($b.Length/2))])
+```
+
+## The live tests
+
+Re-run these whenever `ReadWordFile` or its callers are touched. None is
+reachable without launching Word, so none is automatable; the static pin
+(`tools/check_word_automation_security.ps1`) proves only that the guard is
+*present*.
+
+Run test 3 before test 4b: in 3 the Word instance is visible, so if Word
+does put up a dialog it is clickable.
+
+1. **Macro suppressed, text still imports, on an instance Frazaro started.**
+   Close Word entirely. *Import Program File…* → `sec13-fixture.docm`.
+   **Expect:** no message box of any kind; the three program lines land in
+   the sheet and Check runs clean. **Fail =** either fixture MsgBox appears.
+
+2. **Plain Word documents unaffected.** Save a normal `.docx` holding the
+   same three lines; import it. **Expect:** an ordinary successful import.
+
+3. **Macro suppressed on your own attached Word, and its security setting
+   comes back.** Open Word by hand. Alt+F11 → Ctrl+G →
+   `?Application.AutomationSecurity` → Enter; **write the number down**.
+   Leave Word open; import `sec13-fixture.docm`. **Expect:** no message box,
+   text imports. Re-run `?Application.AutomationSecurity`. **Expect the same
+   number.** **Fail =** a MsgBox appeared, or the value is now `3`.
+
+4. **The error path restores it too.** This is the test that exercises the
+   restore line in `cleanup:`, and it only works with Word **attached** —
+   that line is guarded by `Not createdNew`, so with Word closed it is a
+   deliberate no-op and the test would pass without proving anything.
+
+   - **4a (attached).** With Word open and its `AutomationSecurity` noted,
+     import `sec13-corrupt.docm`. **Expect:** a refusal box beginning
+     *"Could not read the Word document (is Word installed?):"* — the text
+     after the colon is Word's own wording and varies. Then re-read
+     `?Application.AutomationSecurity`: **expect the noted number**, not `3`.
+     Your Word must still be open — Frazaro must not quit what it did not
+     start.
+   - **4b (created).** Close Word entirely, import `sec13-corrupt.docm`.
+     **Expect:** the same refusal, and **no `WINWORD.EXE`** left in Task
+     Manager afterwards.
+
+5. **Your Word's alert level is never touched.** Open Word by hand.
+   Alt+F11 → Ctrl+G → `?Application.DisplayAlerts`; **note the number.**
+   `WdAlertLevel` is `wdAlertsNone = 0`, `wdAlertsAll = -1`,
+   `wdAlertsMessageBox = -2`; all three are legitimate and the ambient value
+   varies between machines (`-2` observed on the owner's, 2026-09-08). Leave
+   Word open, import `sec13-fixture.docm`, re-read it. **Expect the same
+   number you noted** — the assertion is *unchanged*, not any particular
+   value. **Fail =** it now reads `0`, meaning the `DisplayAlerts` suppression
+   leaked out of the created-instance branch into an attached instance.

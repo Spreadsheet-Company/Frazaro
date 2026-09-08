@@ -3239,6 +3239,19 @@ Private Function ReadWordFile(ByVal path As String) As String
     If wordApp Is Nothing Then
         Set wordApp = CreateObject("Word.Application")
         createdNew = True
+        ' An instance we created is invisible, so a modal Word chose to
+        ' show (a corrupt document, a file-conversion prompt) would have
+        ' no clickable window and would appear to hang Excel. Suppress
+        ' alerts on OUR instance only: it is Quit below, so nothing needs
+        ' restoring. An ATTACHED instance is deliberately left alone - it
+        ' is visible, so its dialogs are clickable, and silencing alerts
+        ' in an application we do not own would fail OPEN, costing the
+        ' user warnings they should see. Failure here is tolerated: this
+        ' is robustness, not the SEC.13 security guard below, and must
+        ' not refuse an import on its own.
+        On Error Resume Next
+        wordApp.DisplayAlerts = 0   ' 0 = wdAlertsNone - the literal, not the named Word constant, so this compiles with no dependency on the Word Object Library being a checked reference
+        On Error GoTo 0
     End If
     ' Capture before we change it: GetObject above frequently attaches to
     ' the USER'S OWN live Word, an application we do not own and must hand

@@ -39,6 +39,26 @@
   still does not *ask* you before opening a document you point it at.
   Consent prompts are `SEC.7`/`SEC.8`'s subject and remain open.
 
+- **Importing a Word document can no longer appear to hang Excel.** When
+  Frazaro starts its own copy of Word to read a document (rather than
+  reusing one you already have open), that copy is invisible. If Word
+  decided to *ask* you something about the file rather than simply fail
+  — a damaged document, a file-conversion prompt — the question appeared
+  on a window you could not see or click, and Excel looked frozen with no
+  way forward but Task Manager. Frazaro now tells the copy it starts not
+  to raise alerts, so a document Word dislikes comes back as the ordinary
+  refusal message instead of a hidden prompt.
+
+  A copy of Word you already had open is deliberately left alone. Its
+  windows are visible, so its questions are answerable — and silencing
+  alerts in an application Frazaro did not start would cost you warnings
+  you should see. That is the opposite direction of failure from the
+  macro guard above, which is why the two are treated differently.
+
+  Found while writing the live test for `SEC.13` rather than from a
+  report: it never actually fired during testing. It is fixed as a
+  hazard, not as an observed fault.
+
 - **A new release check: `tools/check_word_automation_security.ps1`.**
   The self-test suite does no Office automation at all, so nothing in it
   could ever have caught this or its return. A static check now runs at
