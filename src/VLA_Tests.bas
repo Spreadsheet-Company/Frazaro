@@ -409,6 +409,7 @@ Public Function VlaSelfTest() As Boolean
     TestSectionMarkers
     TestContextPushPop
     TestContextUnderflow
+    TestCo4VersionSemver
     TestVlaLint
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
@@ -5113,6 +5114,131 @@ End Sub
 
 
 
+
+' CO.4 - grammar semantic versioning. VLA.bas's own CO.4 banner carries
+' the decision (the grammar's compatibility version IS
+' VLA_RELEASE_VERSION under SD-14's triggers; no second axis); these
+' pins hold the ORDERING and the REFUSAL that decision leans on.
+'
+' The pin that matters most is "0.9.0 is older than 0.10.0": a string
+' compare gets that backwards, and it is the one wrong answer that
+' would silently mis-gate a phrasebook's `requires: version:` for real
+' once minor numbers reach double digits. It is pinned first, and on
+' purpose, rather than left to be noticed at 0.10.0.
+Private Sub TestCo4VersionSemver()
+    Dim mj As Long, mn As Long, pt As Long
+    Dim ok As Boolean
+    Dim d As String
+
+    ' --- parse: the shapes that must read ---
+    ok = VlaVersionParse("0.5.1", mj, mn, pt)
+    Report "co4: 0.5.1 parses to 0/5/1", _
+           ok And mj = 0 And mn = 5 And pt = 1, _
+           "got ok=" & ok & " " & mj & "/" & mn & "/" & pt
+    ok = VlaVersionParse("  0.5.1  ", mj, mn, pt)
+    Report "co4: surrounding whitespace is trimmed", _
+           ok And mj = 0 And mn = 5 And pt = 1, _
+           "got ok=" & ok & " " & mj & "/" & mn & "/" & pt
+    ok = VlaVersionParse("999999999.0.0", mj, mn, pt)
+    Report "co4: a 9-digit part still parses (Long headroom)", _
+           ok And mj = 999999999, "got ok=" & ok & " major=" & mj
+
+    ' --- parse: the shapes that must NOT read, each for its own reason ---
+    Report "co4: empty text is not a version", _
+           Not VlaVersionParse("", mj, mn, pt), "empty text parsed"
+    Report "co4: two numbers is not a version", _
+           Not VlaVersionParse("1.2", mj, mn, pt), "1.2 parsed"
+    Report "co4: four numbers is not a version", _
+           Not VlaVersionParse("1.2.3.4", mj, mn, pt), "1.2.3.4 parsed"
+    Report "co4: an empty part is not a number", _
+           Not VlaVersionParse("1..3", mj, mn, pt), "1..3 parsed"
+    Report "co4: a trailing dot is not a version", _
+           Not VlaVersionParse("1.2.", mj, mn, pt), "1.2. parsed"
+    Report "co4: words are not a version", _
+           Not VlaVersionParse("banana", mj, mn, pt), "banana parsed"
+    ' The deliberate scope line, pinned so a future author who adds
+    ' pre-release ordering has to change a test that states the reason.
+    Report "co4: a -beta suffix does not parse (no ordering defined)", _
+           Not VlaVersionParse("0.5.1-beta", mj, mn, pt), "0.5.1-beta parsed"
+    Report "co4: a signed part is not a version", _
+           Not VlaVersionParse("-1.2.3", mj, mn, pt), "-1.2.3 parsed"
+    Report "co4: a 10-digit part is refused, not overflowed", _
+           Not VlaVersionParse("1234567890.0.0", mj, mn, pt), "1234567890.0.0 parsed"
+
+    ' A failed parse leaves the out-params at 0, never half-filled.
+    mj = 7: mn = 7: pt = 7
+    VlaVersionParse "1.2", mj, mn, pt
+    Report "co4: a failed parse zeroes its out-params", _
+           mj = 0 And mn = 0 And pt = 0, "got " & mj & "/" & mn & "/" & pt
+
+    ' --- ordering ---
+    Report "co4: 0.9.0 is OLDER than 0.10.0 (numeric, not string, order)", _
+           VlaVersionCompare("0.9.0", "0.10.0") = -1, _
+           "got " & VlaVersionCompare("0.9.0", "0.10.0") & " - a string compare would say +1 here"
+    Report "co4: 0.10.0 is NEWER than 0.9.0", _
+           VlaVersionCompare("0.10.0", "0.9.0") = 1, _
+           "got " & VlaVersionCompare("0.10.0", "0.9.0")
+    Report "co4: equal versions compare 0", _
+           VlaVersionCompare("0.5.1", "0.5.1") = 0, _
+           "got " & VlaVersionCompare("0.5.1", "0.5.1")
+    Report "co4: MAJOR outranks MINOR and PATCH", _
+           VlaVersionCompare("1.0.0", "0.99.99") = 1, _
+           "got " & VlaVersionCompare("1.0.0", "0.99.99")
+    Report "co4: MINOR outranks PATCH", _
+           VlaVersionCompare("0.6.0", "0.5.99") = 1, _
+           "got " & VlaVersionCompare("0.6.0", "0.5.99")
+    Report "co4: PATCH breaks the tie", _
+           VlaVersionCompare("0.5.2", "0.5.1") = 1, _
+           "got " & VlaVersionCompare("0.5.2", "0.5.1")
+
+    ' --- the refusal: malformed compares as nothing, on either side ---
+    d = ""
+    On Error Resume Next
+    VlaVersionCompare "banana", "0.5.1"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "co4: a malformed LEFT side refuses in words", _
+           InStr(d, "not a version this build can compare") > 0, _
+           "expected the vla-version-malformed refusal, got: " & IIf(Len(d) > 0, d, "(no error)")
+
+    d = ""
+    On Error Resume Next
+    VlaVersionCompare "0.5.1", "banana"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "co4: a malformed RIGHT side refuses in words", _
+           InStr(d, "not a version this build can compare") > 0, _
+           "expected the vla-version-malformed refusal, got: " & IIf(Len(d) > 0, d, "(no error)")
+
+    ' --- VlaVersionAtLeast, against the real running VLA_RELEASE_VERSION ---
+    Report "co4: this build is at least 0.0.0", _
+           VlaVersionAtLeast("0.0.0"), _
+           "VLA_RELEASE_VERSION=" & VLA_RELEASE_VERSION & " did not clear 0.0.0"
+    Report "co4: this build is at least its own version", _
+           VlaVersionAtLeast(VLA_RELEASE_VERSION), _
+           "VLA_RELEASE_VERSION=" & VLA_RELEASE_VERSION & " did not clear itself"
+    Report "co4: this build is NOT at least 999.0.0", _
+           Not VlaVersionAtLeast("999.0.0"), _
+           "VLA_RELEASE_VERSION=" & VLA_RELEASE_VERSION & " claimed to clear 999.0.0"
+
+    ' A typo'd requires: line refuses; it does not quietly read as unmet.
+    d = ""
+    On Error Resume Next
+    VlaVersionAtLeast "0.5"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "co4: a typo'd minimum refuses rather than reading as unmet", _
+           InStr(d, "not a version this build can compare") > 0, _
+           "expected the vla-version-malformed refusal, got: " & IIf(Len(d) > 0, d, "(no error)")
+
+    ' The shipped constant itself must be readable by the very scheme
+    ' that now depends on it - the pin that would fire the day someone
+    ' hand-edits VLA_RELEASE_VERSION into a shape release.ps1's regex
+    ' still accepts but this ordering cannot read.
+    Report "co4: VLA_RELEASE_VERSION itself parses as MAJOR.MINOR.PATCH", _
+           VlaVersionParse(VLA_RELEASE_VERSION, mj, mn, pt), _
+           "VLA_RELEASE_VERSION=" & VLA_RELEASE_VERSION & " is not readable by CO.4's own ordering"
+End Sub
 
 ' L2.1: transpile that cannot crash the suite - a raise reports FAIL
 ' under the pin's own name and returns "", so the caller skips its

@@ -409,6 +409,13 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-operator-needs-two-operands", 5, "VLA", "operator '{op}' needs at least two operands"
     AddMsg m, "vla-name-no-plain-letters", 5, "VLA", "'{value}' has no plain letters or digits once its accented characters are converted - give it a name with at least one a-z letter in it"
 
+    ' CO.4 - the one refusal grammar semantic versioning needs. A
+    ' version that cannot be read is never treated as satisfied AND
+    ' never quietly treated as unmet: either alone would hide the typo
+    ' that caused it. Names the shape wanted, not just the value
+    ' rejected (LX.8's doctrine).
+    AddMsg m, "vla-version-malformed", 5, "VLA", "'{value}' is not a version this build can compare. A version is three whole numbers separated by dots, like 0.5.1 - MAJOR.MINOR.PATCH (SD-14). A suffix such as '-beta' is not read here. Fix the version text: a version that cannot be read is never treated as satisfied."
+
     ' PROLOG.1 - VLA_Unify.bas's own refusal: a malformed glued-slot
     ' atom (two embedded slots in one atom) is a template/program-
     ' authoring defect regardless of which DSL is calling, so this

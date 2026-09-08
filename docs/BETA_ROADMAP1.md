@@ -755,16 +755,20 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   this item's own outcome:* a process-spawn verb — not building one is
   itself the security property, not a gap for this item to fill. Four real
   open questions, resolved with the owner during scoping:
-  1. *`requires: capability:<name>` now, or wait for `F.10`/`CO.3` to
-     generalize `requires:` first?* Neither `F.10` nor `CO.3` is built yet
-     (`BETA_ROADMAP2.md`, both ⬜). **Decided: build a minimal, general
-     `F.10` first** — `requires:` is one syntax construct; a general
-     `requires: <namespace>:<value>` tag (namespace `version` for
-     `F.10`/`CO.3`'s own grammar-dependency use, `capability` for this
-     item's), parsed and checked at load by one shared function, avoids a
-     second `requires:` syntax to reconcile later, and question 3 below
-     already commits to a shared-mechanism shape anyway. *Depends on:*
-     `F.10` landing first, sized similarly (`~days`), with this item as
+  1. *`requires: capability:<name>` now, or wait for `F.10` to build the
+     general mechanism first?* `F.10` is not built yet (`BETA_ROADMAP2.md`,
+     ⬜) — and, found while scoping this item, `CO.3`'s own text used to
+     restate "`requires:` in phrasebooks" as if it were a second thing to
+     build; it has since been corrected to cite `F.10` directly and scope
+     down to just its version/backend stamps, so there is only ever one
+     `requires:` mechanism to build, not two to reconcile. **Decided: build
+     a minimal, general `F.10` first** — `requires:` is one syntax
+     construct; a general `requires: <namespace>:<value>` tag (namespace
+     `version` for `CO.3`'s own grammar-dependency use, `capability` for
+     this item's), parsed and checked at load by one shared function, and
+     question 3 below already commits to a shared-mechanism shape anyway.
+     *Depends on:* `F.10` landing first, sized similarly (`~days`), with
+     this item as
      its first real consumer.
   2. *Consent UX — `DI.1`'s "Trust all from publisher" modal, or `SEC.2`'s
      own two-scope (this workbook / this device) consent?* **Decided: this
@@ -1603,8 +1607,24 @@ specimens: 3 (three blind-fix incidents, one first-user Undo report).*
   the new marker lines throughout, a declared, one-time contract change to
   the goldens' own text (the *behavior* the generated VBA runs is
   unaffected: `raw` forms emit a comment, nothing more). `~hours`
-- ⬜ **F.10 — `requires:` in phrasebooks.** *Pays into:* Compatibility and
-  Governance directly. `~days`
+- ⬜ **F.10 — `requires:` in phrasebooks.** The generic mechanism: a
+  `requires: <namespace>:<value>` tag, parsed and checked at phrasebook
+  load time, refused in words (LX.8's doctrine) when unmet. Two known
+  namespaces to design against so the syntax isn't invented for one and
+  bent to fit the other later: `version` (grammar/engine dependency,
+  `CO.3`'s own use) and `capability` (permissioned effects like
+  `vlasendmail`, `SEC.7`'s own use). **The `version` namespace now has
+  something concrete to check against:** `CO.4` (✅) decided that a
+  declared minimum compares against `VLA_RELEASE_VERSION` under `SD-14`'s
+  triggers, and built the verbs — `VlaVersionParse` for validating a
+  `requires:` line without an error handler, `VlaVersionAtLeast` for the
+  check itself. So this item parses and routes the tag; it does not
+  decide what a version means or how two of them order. *Pays into:*
+  Compatibility (`CO.3`,
+  scoped down to just its own version/backend stamps once this exists)
+  and Governance (`SEC.7`) directly — both cite this item rather than
+  restating it, the roadmap-hygiene fix found while scoping `SEC.7`.
+  `~days`
 - ✅ **F.12 — the ID policy.** SD-9 made mechanical: one namespace for item IDs
   across all roadmaps and ledgers, a retired ID never re-minted, and a check at
   version-close that no promoted item lost its ID to a homograph. *Why now:* it
@@ -3863,10 +3883,133 @@ before-contact item behind the gate.
 
 **After contact (tooling, weeks):**
 
-- ⬜ **CO.3 — `requires:` in phrasebooks** plus a version stamp **and a backend
-  stamp** inside generated modules, so a support question is answerable from the
-  workbook alone. `~days`
-- ⬜ **CO.4 — grammar semantic versioning.** `~days`
+- ⬜ **CO.3 — a version stamp and a backend stamp inside generated
+  modules**, so a support question is answerable from the workbook
+  alone. *Roadmap-hygiene correction, found while scoping `SEC.7`:* this
+  item's own text used to restate "`requires:` in phrasebooks" as if it
+  were its own thing to build — it is `F.10`'s own mechanism, cited here
+  rather than duplicated. This item's real, distinct scope is just the
+  two stamps: a version marker (which grammar/engine version compiled
+  this module) and a backend marker (interpreter vs. compiled emitter —
+  no new scheme needed, the two backends already have names).
+  **The version half is now answered, not a choice this item still has
+  to make:** `CO.4` (✅) settled it — the stamp's value is
+  `VLA_RELEASE_VERSION` under `SD-14`'s triggers, with no second version
+  axis, and `VLA.bas`'s `VlaVersionCompare`/`VlaVersionAtLeast` are what
+  make it orderable rather than opaque. This item stamps the value and
+  names the backend; it neither picks a scheme nor writes a comparison.
+  *Depends on:* `F.10` for the `requires:` half of what a phrasebook can
+  declare; `CO.4` (✅) for the ordering, already built. `~days`
+- ✅ **CO.4 — grammar semantic versioning.** *The scoping pass was the
+  item.* This entry was a one-line stub; scoping it answered one
+  question — **does a new versioning scheme need to be invented at all,
+  or does one already exist that this item just needs to wire up?** —
+  and the answer collapsed the estimate from `~days` to `~hours`.
+  **Decided (owner, 2026-09-07): the grammar's compatibility version IS
+  `VLA_RELEASE_VERSION`, under `SD-14`'s already-decided triggers. No
+  second version axis.** `SD-14`'s rules turn out to be already
+  grammar-shaped, and they close the one gap that would break reuse —
+  a release that changes grammar-visible behavior without the number
+  moving enough to notice:
+  - `PATCH` is *defined* as "no observable change to what an existing
+    pilot's sentences do," so a release that changed grammar-visible
+    behavior is not a `PATCH` at all — it has already become `MINOR` or
+    `MAJOR` before the question gets asked.
+  - `MINOR` is "adds something a user can now do or say that they
+    couldn't before," and its own first worked example is *"a new
+    grammar rule or section"* — precisely the event `F.10`'s
+    `requires: version:` exists to test for.
+  - `MAJOR` is `SD-4` invoked, **or** "a comparable architectural break
+    where an existing pilot workbook's program could behave differently
+    after upgrading" — broader than `SD-4` alone, so a break in the
+    phrasebook DSL itself is covered even when no shipped
+    `instructions.txt` sentence changed meaning.
+
+  A separate grammar number would restate all three rules and then need
+  its own doctrine for when the two disagree. This project has already
+  been burned once by inventing a second scheme where one covered the
+  need — `F.10`/`CO.3`'s near-duplication, corrected this same session —
+  and that is the specific mistake this decision declines to repeat.
+
+  **The finding that made the answer clear, and it corrects this item's
+  own framing:** `VLA_CORE_VERSION` was carried into scoping as the
+  natural candidate for "the grammar's own version," a per-engine-feature
+  tag bumped as primitives land (`QUASIQUOTE.0`, `LISTOPSEXPAND.0`,
+  `LINTERPOLATE.0`, …). A full census of every `VLA_*_VERSION` constant
+  shows it is **not a version at all, and not special**: there are 25
+  such constants, and 24 of them are the same kind of thing — a tag
+  naming the *roadmap item that last touched that module*
+  (`PORT.1`, `DATALOG.5`, `LX5.2`, `SQL.7`, `G6.0`, …).
+  `VLA_CORE_VERSION` is simply `VLA.bas`'s own instance of that
+  house convention. The decisive evidence: **three modules carry
+  `LINTERPOLATE.0` simultaneously right now** (`VLA`, `VLA_Interpreter`,
+  `VLA_Messages`) because one item touched all three — which is not
+  something a version axis can do. `VLA.bas`'s own header said so all
+  along ("orthogonal to every `VLA_xxx_VERSION` constant in this project
+  … which each name the roadmap item that last touched THAT module, not
+  a release number"); the stub outlived the fact. **It is left exactly
+  as-is** — an opaque, human-readable, per-module changelog tag with no
+  ordering contract — and a `requires: version:` check never reads it.
+
+  **Built** (`VLA.bas`, beside the constant whose meaning they
+  interpret, under a banner carrying the reasoning above):
+  `VlaVersionParse` (pure predicate — returns `False` on anything
+  malformed, never raises, so `F.10` can validate a `requires:` line
+  without an error handler; leaves its out-params at `0` rather than
+  half-filled), `VlaVersionCompare` (`-1`/`0`/`+1`, refusing in words on
+  either side being malformed), and `VlaVersionAtLeast` — the one verb
+  `F.10` and `CO.3` actually call. Ordering is plain numeric
+  `MAJOR.MINOR.PATCH`, left to right: **deliberately not full semver.**
+  Pre-release suffixes have never been needed here, and one would flow
+  straight into the `v<version>` git tag `tools/release.ps1` builds, into
+  `Frazaro.iss`'s `AppVersion`, and into Windows' own `DisplayVersion` —
+  none of which has ever seen a suffix. `0.5.1-beta` therefore does not
+  parse, pinned as a test that states the reason, so adding pre-release
+  ordering later has to be a deliberate edit rather than a silent one.
+  One new message (`VLA_Messages.bas`): `vla-version-malformed`. A
+  version that cannot be read is **never treated as satisfied and never
+  quietly treated as unmet** — either alone would hide the typo.
+
+  **The census discipline `SEC.1`'s own live test just taught:** this
+  constant's *value* is parsed and embedded well outside `VLA.bas`, so a
+  full-repo sweep preceded any change to its meaning —
+  `tools/release.ps1` (a regex on the exact `Public Const … As String =
+  "…"` line shape, then exact string equality against `-Version` and the
+  tag), `VLA_Build.bas`'s `VlaWriteInstallerVersion` →
+  `installer\version.iss` → `Frazaro.iss`'s `AppVersion`, and
+  `VLA_IDE.bas`'s understands-sheet and Copy Feedback. **Nothing about
+  that line's shape or its value's format changed**, on purpose — this
+  item adds verbs that read the constant, it does not restate it.
+
+  **26 new pins** (`VLA_Tests.bas`, `TestCo4VersionSemver`). The one
+  that matters most is pinned first and on purpose: **`0.9.0` is older
+  than `0.10.0`** — a string compare gets that backwards, and it is the
+  one wrong answer that would silently mis-gate a real
+  `requires: version:` once minor numbers reach double digits, rather
+  than being noticed at `0.10.0`. A last pin asserts that
+  `VLA_RELEASE_VERSION` *itself* still parses under this ordering — it
+  fires the day someone hand-edits it into a shape `release.ps1`'s regex
+  still accepts but this ordering cannot read.
+
+  **Owner-verified live in Excel (2026-09-07):** `VlaSelfTest` pure
+  **973/973** (947 baseline + the 26 new pins), host **143/143**;
+  `VerifyReports` emitter **141/141**, interpreter **141/141** — both
+  backends diff-empty, as an item that adds no grammar and changes no
+  emission must be. The three verbs were also exercised directly in the
+  Immediate window rather than only through their own pins:
+  `VlaVersionCompare("0.9.0","0.10.0")` → `-1` and the reverse → `1`
+  (the ordering a string compare gets backwards),
+  `VlaVersionAtLeast("0.5.1")` → `True`,
+  `VlaVersionAtLeast("999.0.0")` → `False`, and
+  `VlaVersionCompare("banana","0.5.1")` → run-time error 5 carrying the
+  full `vla-version-malformed` text. *Unblocks:* `CO.3`'s version stamp
+  (now comparable rather than opaque) and `F.10`'s `version` namespace
+  (now has something orderable to check against). *Sized* `~hours`, not
+  the stub's `~days` — the difference is entirely the decision above.
+  *Found while scoping, not built here:* a version number alone is a
+  loose gate, since `SD-14`'s `MINOR` fires for a new ribbon button as
+  readily as for a new grammar rule — the per-form record that would
+  make it tight is `CO.6`. `~hours`
 - ⬜ **CO.5 — the migration tool.** Worthless until there is history to migrate,
   but CO.1 must exist first or there is nothing to migrate *to*. `~weeks`
 

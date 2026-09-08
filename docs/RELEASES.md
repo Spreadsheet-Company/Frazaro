@@ -78,6 +78,32 @@
   (`pirate.vla`'s own "paint cell" rule confirmed the intended
   semantics) and given its missing test. 150/150 phrasebook rules now
   carry at least one proof.
+- **`CO.4` — versions are now something Frazaro can compare, not just
+  print.** Groundwork, with no button and nothing new to say yet: it is
+  what a future phrasebook will be checked against when it declares a
+  minimum version (`requires: version:0.5.1`), and what a generated
+  module's own version stamp will mean once it carries one. The
+  decision behind it is the substance. **The grammar's compatibility
+  version is the release version you already see** — the one in Copy
+  Feedback and in Add/Remove Programs — under the `MAJOR.MINOR.PATCH`
+  rules this project already wrote down (`SD-14`). There is no second,
+  separate "grammar version" to learn, and deliberately so: `PATCH` is
+  *defined* as no observable change to what your existing sentences do,
+  `MINOR` means something new became sayable, and `MAJOR` means a
+  sentence that once shipped changed meaning or a program could behave
+  differently after upgrading. Those rules already say everything a
+  compatibility check needs, so inventing a parallel number would only
+  create two things to keep in step. Scoping also corrected a
+  long-standing internal misreading: `VLA_CORE_VERSION` looked like a
+  grammar version and is not one — it, and 23 sibling constants, name
+  the work item that last touched each module, and three modules
+  legitimately share one value today. It is unchanged, and no
+  compatibility check reads it. Ordering is plain numeric
+  `MAJOR.MINOR.PATCH`, so `0.9.0` correctly sorts *before* `0.10.0`
+  rather than after it the way plain text comparison would; a version
+  that cannot be read (`banana`, or a `-beta` suffix, which this
+  project has never used) is refused in words rather than being quietly
+  treated as either satisfied or unmet, since both hide the typo.
 
 ### Known open security items
 

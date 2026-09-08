@@ -815,6 +815,142 @@ Private Const FRAZARO_MODULE_MARKER As String = _
 '  Public API
 ' =====================================================================
 
+' =====================================================================
+'  CO.4 - grammar semantic versioning. THE DECISION FIRST, because the
+'  code below is small only because of it: the grammar's compatibility
+'  version IS VLA_RELEASE_VERSION, under SD-14's already-decided
+'  triggers. No second version axis was invented. Scoped by reading
+'  what actually depends on this item - CO.3's compiled-in version
+'  stamp, F.10's `requires: version:X` - before designing anything.
+'
+'  WHY REUSE IS SOUND, not merely convenient. The one thing that would
+'  break it is a release that changes grammar-visible behavior without
+'  the version number moving enough to notice. SD-14 already
+'  forecloses that, by its own definitions:
+'    PATCH is DEFINED as "no observable change to what an existing
+'      pilot's sentences do" - so a release that changed
+'      grammar-visible behavior is not a PATCH at all; it has already
+'      become MINOR or MAJOR before this question gets asked.
+'    MINOR is "adds something a user can now do or say that they
+'      couldn't before", and its own first worked example is "a new
+'      grammar rule or section" - precisely the event a phrasebook's
+'      `requires: version:` exists to test for.
+'    MAJOR is SD-4 invoked, OR "a comparable architectural break where
+'      an existing pilot workbook's program could behave differently
+'      after upgrading" - broader than SD-4 alone, so a break in the
+'      phrasebook DSL itself is covered even when no shipped
+'      instructions.txt sentence changed meaning.
+'  A separate grammar number would restate all three rules and then
+'  need its own doctrine for when the two disagree. This project has
+'  already been burned once by inventing a second scheme where one
+'  covered the need (F.10/CO.3's near-duplication, corrected the same
+'  session this item was scoped); not repeated here.
+'
+'  WHAT VLA_CORE_VERSION IS NOT: it is not this, and a
+'  `requires: version:` check must never read it. It and the 23 other
+'  VLA_xxx_VERSION constants each name the ROADMAP ITEM that last
+'  touched THAT module - this file's own header, line 3, says so
+'  outright. Three modules carry "LINTERPOLATE.0" simultaneously right
+'  now (VLA, VLA_Interpreter, VLA_Messages) because one item touched
+'  all three, which is not something a version axis can do. It stays
+'  exactly as it is: an opaque, human-readable, per-module changelog
+'  tag with no ordering contract, serving a different purpose.
+'
+'  ORDERING is plain numeric MAJOR.MINOR.PATCH, left to right - every
+'  value this project has ever shipped, and no more. Deliberately NOT
+'  full semver: pre-release suffixes have never been needed here, and
+'  one would flow straight into the `v<version>` git tag that
+'  tools/release.ps1 builds, into Frazaro.iss's AppVersion, and into
+'  Windows' own DisplayVersion in Add/Remove Programs - none of which
+'  has ever seen a suffix. A malformed version REFUSES IN WORDS (LX.8)
+'  rather than comparing as anything at all: "banana" must never
+'  quietly satisfy a requirement, and must never quietly fail one
+'  either, since both hide the typo that caused it.
+'
+'  Consumers to keep in step - a full-repo census, because this
+'  constant's VALUE is parsed and embedded well outside this module:
+'  tools/release.ps1 (a regex on the exact `Public Const ... As String
+'  = "..."` line shape, then exact string equality against -Version and
+'  the v<version> tag), VLA_Build.bas's VlaWriteInstallerVersion ->
+'  installer\version.iss -> Frazaro.iss's AppVersion, and VLA_IDE.bas's
+'  understands-sheet and Copy Feedback. Nothing below changes that
+'  line's shape or its value's format, on purpose.
+' =====================================================================
+
+' Parse "MAJOR.MINOR.PATCH" into its three numbers. A PURE PREDICATE:
+' returns False on anything malformed and never raises, so a caller
+' validating text a user typed (F.10's `requires:` line) can ask the
+' question without an error handler around it. VlaVersionCompare is
+' the raising verb; this is the asking verb. On False the three
+' out-params are left at 0 rather than half-filled - a partial parse
+' is not a version.
+Public Function VlaVersionParse(ByVal s As String, ByRef major As Long, _
+                                ByRef minor As Long, ByRef patch As Long) As Boolean
+    major = 0
+    minor = 0
+    patch = 0
+    Dim parts() As String
+    ' Guarded before Split rather than relying on UBound(-1) over the
+    ' zero-length array Split("") returns: that is safe VBA, but this
+    ' is the one path a caller reaches with genuinely empty text, and
+    ' an explicit exit says so without depending on the subtlety.
+    If Len(Trim$(s)) = 0 Then Exit Function
+    parts = Split(Trim$(s), ".")
+    If UBound(parts) <> 2 Then Exit Function
+    Dim n(0 To 2) As Long
+    Dim i As Long, j As Long, p As String, c As Long
+    For i = 0 To 2
+        p = parts(i)
+        ' Len > 9 cannot overflow a Long (max 2147483647, 10 digits);
+        ' an empty part ("1..3", "1.2.") is not a number at all.
+        If Len(p) = 0 Or Len(p) > 9 Then Exit Function
+        For j = 1 To Len(p)
+            c = AscW(Mid$(p, j, 1))
+            ' Digits only - this also rejects a leading "+"/"-" and any
+            ' pre-release suffix, which is the point: neither has a
+            ' defined order here, so neither may parse.
+            If c < 48 Or c > 57 Then Exit Function
+        Next j
+        n(i) = CLng(p)
+    Next i
+    major = n(0)
+    minor = n(1)
+    patch = n(2)
+    VlaVersionParse = True
+End Function
+
+' -1 / 0 / +1 as `a` is older than / the same as / newer than `b`.
+' Refuses in words if either side is malformed: a version that cannot
+' be read has no place in an ordering, and silently answering 0
+' ("same") would let a `requires:` typo pass review unnoticed.
+Public Function VlaVersionCompare(ByVal a As String, ByVal b As String) As Long
+    Dim aMaj As Long, aMin As Long, aPat As Long
+    Dim bMaj As Long, bMin As Long, bPat As Long
+    If Not VlaVersionParse(a, aMaj, aMin, aPat) Then
+        VLA_Messages.RaiseMsg "vla-version-malformed", "value", a
+    End If
+    If Not VlaVersionParse(b, bMaj, bMin, bPat) Then
+        VLA_Messages.RaiseMsg "vla-version-malformed", "value", b
+    End If
+    If aMaj <> bMaj Then
+        VlaVersionCompare = Sgn(aMaj - bMaj)
+    ElseIf aMin <> bMin Then
+        VlaVersionCompare = Sgn(aMin - bMin)
+    ElseIf aPat <> bPat Then
+        VlaVersionCompare = Sgn(aPat - bPat)
+    End If
+End Function
+
+' The verb F.10's `requires: version:X` and CO.3's compiled-in stamp
+' both actually want: is the running build at least `minimum`?
+' Compares against VLA_RELEASE_VERSION - DI.3a's own "this one
+' constant is what 'what build is this' actually means". Raises
+' through VlaVersionCompare if `minimum` is malformed, which is the
+' refusal a phrasebook with a typo'd requires: line should get.
+Public Function VlaVersionAtLeast(ByVal minimum As String) As Boolean
+    VlaVersionAtLeast = (VlaVersionCompare(VLA_RELEASE_VERSION, minimum) >= 0)
+End Function
+
 ' PPROF.0: Rule-12 duplicate of VLA_DevRig.bas's own Private DevMs (not
 ' visible across modules) - same midnight-wrap handling, kept beside the
 ' phase vars it feeds rather than promoting DevMs to Public for one
