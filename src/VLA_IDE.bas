@@ -14,9 +14,10 @@ Public Const VLA_IDE_VERSION As String = "EDITIONMANIFEST.1"
 ' header for why (a non-English edition's own overlay phrasebook).
 ' LX2.0: this module's 15 of 16 raw Err.Raise refusal sites now route
 ' through VLA_Messages.RaiseMsg with a stable id - SD-2/LX.2. The 16th
-' (line ~1972, ReadWordFile's cleanup) is a bare re-raise of an already-
-' caught error, not an origination of new English text, and stays raw
-' by design. Rendered text and Err.Number/Err.Source are unchanged.
+' (TakeRunSnapshot's cleanup, ~line 2343 - NOT ReadWordFile's, which this
+' note misnamed until SEC.13's pass corrected it) is a bare re-raise of an
+' already-caught error, not an origination of new English text, and stays
+' raw by design. Rendered text and Err.Number/Err.Source are unchanged.
 ' DI3.2: DI.3c - the standalone path has no installer AppVersion for a
 ' user to compare, so the running add-in now shows VLA.VLA_RELEASE_VERSION
 ' itself: the Known Sentences sheet's own header (EnglishIdeShowPhrases,
@@ -3218,9 +3219,19 @@ End Sub
 
 ' Word documents via late-bound automation: reuse a running Word if
 ' there is one, otherwise start (and afterwards quit) a hidden one.
+'
+' SEC.13: Word's AutomationSecurity default under automation is
+' msoAutomationSecurityLow, so without the guard below Documents.Open
+' runs a .docm's AutoOpen/Document_Open the instant Frazaro reads the
+' file - and ImportFromPath routes .doc/.docx/.docm here straight off
+' the "Import Program File..." menu item and ribbon button, so this is a
+' one-click path, not a hypothetical one. The guard is set AFTER
+' "On Error GoTo cleanup" on purpose: if it cannot be set, we refuse
+' through cleanup rather than open the document unguarded.
 Private Function ReadWordFile(ByVal path As String) As String
     Dim wordApp As Object, doc As Object
     Dim createdNew As Boolean
+    Dim priorSecurity As Long
     Dim d As String
     On Error Resume Next
     Set wordApp = GetObject(, "Word.Application")
@@ -3229,16 +3240,34 @@ Private Function ReadWordFile(ByVal path As String) As String
         Set wordApp = CreateObject("Word.Application")
         createdNew = True
     End If
+    ' Capture before we change it: GetObject above frequently attaches to
+    ' the USER'S OWN live Word, an application we do not own and must hand
+    ' back as we found it. 0 is not a valid msoAutomationSecurity value,
+    ' so it doubles as "never captured - do not restore".
+    On Error Resume Next
+    priorSecurity = wordApp.AutomationSecurity
+    On Error GoTo 0
     On Error GoTo cleanup
+    wordApp.AutomationSecurity = 3   ' 3 = msoAutomationSecurityForceDisable - the literal, not the named Office constant, so this compiles with no dependency on the Office Object Library being a checked reference
     Set doc = wordApp.Documents.Open(path, ReadOnly:=True, AddToRecentFiles:=False)
     ReadWordFile = doc.Content.Text
     doc.Close False
+    ' Restore only on an instance we ATTACHED to - one we created is quit
+    ' just below, so its setting dies with it. Wrapped in a Resume Next of
+    ' its own so a failed restore cannot discard a read that already
+    ' succeeded, and left deliberately silent: a restore that fails leaves
+    ' the user's Word MORE restrictive than we found it, never less.
+    On Error Resume Next
+    If (Not createdNew) And (priorSecurity <> 0) Then wordApp.AutomationSecurity = priorSecurity
+    Err.Clear
+    On Error GoTo cleanup
     If createdNew Then wordApp.Quit False
     Exit Function
 cleanup:
     d = Err.Description
     On Error Resume Next
     If Not doc Is Nothing Then doc.Close False
+    If (Not createdNew) And (priorSecurity <> 0) Then wordApp.AutomationSecurity = priorSecurity
     If createdNew Then wordApp.Quit False
     On Error GoTo 0
     VLA_Messages.RaiseMsg "ide-word-read-failed", "detail", d

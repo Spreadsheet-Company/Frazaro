@@ -950,27 +950,127 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   the interpreter already does at dispatch. *Overlaps:* `SEC.1` (this is its
   compile-side mirror). `~days`
 
-- ⬜ **SEC.13 — Word automation opens untrusted documents with macros
-  enabled (one line).** **CONFIRMED, `VLA_IDE.bas:3219`–`3241`
-  (`ReadWordFile`, `SOP.1`'s intake path):** `Documents.Open` runs with no
-  `Application.AutomationSecurity` set, and Word's default under automation
-  is `msoAutomationSecurityLow` — so a `.docm` SOP with an `AutoOpen`/
-  `Document_Open` macro executes silently the moment Frazaro reads it; and
-  `GetObject(, "Word.Application")` attaches to the *user's live Word*,
-  inheriting whatever it already had open. `SOP.1`'s own roadmap entry
-  named this exact hazard ("a document carrying its own macros must never
-  have them triggered by this path") and the code shipped without the
-  guard. *Fix, one line plus a restore:* set
-  `wordApp.AutomationSecurity = msoAutomationSecurityForceDisable` (3)
-  before `Open`, restoring the prior value on an attached instance.
-  **Reachable today, not gated on `SOP.1`:** *Import Program File…* is on
-  both the menu (`AddMenuBtn`, `VLA_IDE.bas:3010`) and the ribbon
-  (`Case "VlaImport"`, `~3042`); its file filter already lists
-  `*.docx;*.doc`, and `ImportFromPath` routes those extensions through
-  `ReadWordFile`. So this is a live, one-click path in every shipped
-  edition, not a future one — which is why it ranks above the
-  compile-path-only findings below it despite being the cheapest fix in
-  the tranche. `~hours`
+- ✅ **SEC.13 — Word automation opens untrusted documents with macros
+  enabled (one line).** Built and owner-verified live 2026-09-08
+  (`VLA_SELF-TESTS` pure 985/985, host 143/143; `VerifyReports` emitter
+  141/141, interpreter 141/141) and committed.
+  **CONFIRMED, and re-confirmed against the code at build time —
+  `VLA_IDE.bas`'s `ReadWordFile`:** `Documents.Open` ran with no
+  `Application.AutomationSecurity` set, and Word's default under
+  automation is `msoAutomationSecurityLow`, so a `.docm` with an
+  `AutoOpen`/`Document_Open` macro executed silently the moment Frazaro
+  read it; and `GetObject(, "Word.Application")` attaches to the *user's
+  live Word*, inheriting whatever it already had open. `SOP.1`'s own
+  roadmap entry named this exact hazard ("a document carrying its own
+  macros must never have them triggered by this path") and the code
+  shipped without the guard. A repo-wide grep confirmed
+  `AutomationSecurity` appeared nowhere in `src/` before this fix.
+
+  **Reachability re-verified, not taken on the roadmap's word:** *Import
+  Program File…* is on both the menu (`AddMenuBtn`, `~3010`) and the
+  ribbon (`Case "VlaImport"`, `~3042`); `EnglishIdeImport`'s
+  `GetOpenFilename` filter lists `*.docx;*.doc` **and** an *All files
+  (\*.\*)* arm; and `ImportFromPath`'s extension test is
+  `ext = "docx" Or ext = "doc" Or ext = "docm"` — it routes `.docm`
+  **explicitly**, which is slightly worse than this entry originally
+  said. One click, every shipped edition.
+
+  **Fixed** in `ReadWordFile` only, and deliberately nowhere else:
+
+  - *The guard.* `wordApp.AutomationSecurity = 3` before `Documents.Open`.
+    The literal `3`, not `msoAutomationSecurityForceDisable`, with the
+    reason in an inline comment — Word here is late-bound
+    (`GetObject`/`CreateObject` return `Object`), so the named Office
+    constant would not resolve without the Office Object Library as a
+    checked reference. Exact house precedent:
+    `VlaRawConsentRecordWorkbook`'s `4 = msoPropertyTypeString`
+    (`VLA_SentenceEngine.bas`), whose comment shape this matches.
+  - *Fail-closed.* The guard is set **after** `On Error GoTo cleanup`, so
+    a failure to set it refuses through `cleanup` rather than opening the
+    document unguarded. Setting it before the handler was armed would have
+    made an unsettable guard fall through to exactly the vulnerability.
+  - *Capture-and-restore, attached instances only.* The prior value is
+    captured under its own `On Error Resume Next` before the change,
+    because `GetObject` frequently drives an application we do not own and
+    must hand back as we found it. `0` is not a valid
+    `msoAutomationSecurity` value, so it doubles as "never captured — do
+    not restore". Restore is guarded by `Not createdNew`: an instance we
+    created is `Quit` anyway, so its setting dies with it, and restoring
+    it would be theatre.
+  - *The restore is deliberately silent, on both paths, and needs no
+    message id.* On the success path it sits inside a `Resume Next` of its
+    own so a failed restore cannot discard a read that already succeeded;
+    on the `cleanup` path it runs inside the handler's existing
+    `Resume Next`, before the refusal, so it cannot mask the original
+    error. Silence is the right answer here because the failure mode is
+    fail-safe: a restore that fails leaves the user's Word **more**
+    restrictive than we found it, never less — an annoyance that a Word
+    restart clears, not an exposure. So `ide-word-read-failed` is reused
+    as-is and no id was minted; `tools/check_raise_ratchet.ps1` holds
+    `VLA_IDE` at exactly 1 raw site and still reads 1.
+
+  **Scope, stated rather than expanded:** this is the automation-security
+  flag and nothing else. *Asking* the user before opening a document at
+  all is a consent surface, and consent surfaces are `SEC.7`/`SEC.8`
+  territory — not this item's, and not smuggled in here.
+
+  **How it is pinned — deliberate choice:** a new static ratchet,
+  `tools/check_word_automation_security.ps1`, in the house
+  `tools/*.ps1` shape (PowerShell, host-independent, hand-maintained
+  reviewable baseline, **not** wired into `VlaSelfTest`). Every
+  non-comment `Documents.Open` under `src/` must sit in a procedure that
+  also sets `AutomationSecurity = 3` on an earlier non-comment line in
+  that *same* procedure — same-procedure because a guard in a caller can
+  be bypassed by a second caller, earlier-line because a guard after the
+  Open is no guard. It was mutation-tested both ways (commenting the
+  guard out turns it red with the fix named; restoring it turns it green).
+  `tools/release.ps1` already globs `check_*.ps1`, so it joined the
+  release gate with no edit. A ratchet is arguably overkill for one line
+  and one call site, and that was weighed: what tips it is that the pure
+  suite does **no** COM and this property therefore has *zero* automated
+  coverage otherwise, and that `SOP.1` is a filed item that adds more Word
+  intake — this is the first of a family of call sites, not one line
+  forever.
+
+  **Coverage gap, stated the way `F.10` stated its own:** the ratchet
+  proves the guard is *present*; it cannot prove it *works*. Three
+  behaviours have no automated coverage and rest on one live test each,
+  all four run and passed by the owner 2026-09-08 — (a) a `.docm`'s
+  `AutoOpen`/`Document_Open` does not fire while its text still imports,
+  on a Word instance Frazaro started; (b) the same on the owner's own
+  attached Word, which gets its prior `AutomationSecurity` back
+  afterwards; (c) the `cleanup:` path restores it too, proven by feeding
+  a deliberately truncated `.docm` to an *attached* Word and reading the
+  value back. None is reachable without launching Word, so all three
+  must be re-run by hand whenever this path is touched.
+
+  *(c) is worth recording because the first draft of its test was wrong:
+  it specified Word CLOSED, which makes the `cleanup:` restore line a
+  no-op under its own `Not createdNew` guard — the test would have passed
+  without ever exercising the line it existed to prove. Caught by the
+  owner asking for the test to be explained before signing off on it. Two
+  related dead ends found while correcting it: `GetOpenFilename` will not
+  return a nonexistent path, and `EnglishIdeReload` pre-checks with
+  `Dir$` and raises `ide-program-file-moved` before `ImportFromPath` is
+  reached — so `Documents.Open` cannot be made to fail with a MISSING
+  file at all. The file must exist and be one Word refuses; truncating a
+  valid `.docm` past its ZIP central directory is the reliable way, and
+  keeps the `PK` header so Word cannot sniff it as text and "succeed".)*
+
+  **Adjacent, NOT fixed here, no evidence of harm yet:** `ReadWordFile`
+  sets neither `Visible` nor `DisplayAlerts` on an instance it creates,
+  so a Word that chose to *prompt* about a bad document rather than
+  return an error would do it on an invisible window and appear to hang
+  Excel. It did not happen on the (b)/(c) runs, so this is a reasoned
+  hazard rather than an observed defect — filed as an observation here
+  rather than fixed, because `DisplayAlerts` is robustness, not this
+  item's security scope.
+
+  The fixture is a recipe, not a committed binary — a macro-bearing
+  `.docm` does not belong in a public repo, and a generator script would
+  need *Trust access to the VBA project object model* switched on, which
+  is weakening a security setting to run a security test. Recipe:
+  `tools/sec13_word_fixture.md`. `~hours`
 
 - ⬜ **SEC.14 — no step budget or cancel in the interpreter; unbounded
   reader recursion.** **CONFIRMED:** the interpreter's loop primitives

@@ -286,7 +286,9 @@ recognize now refuses in words instead of falling through to VBA's own
 late-bound dispatch. SEC.2: a phrasebook rule marked `raw` (literal VBA)
 shows an explicit consent dialog, naming the phrasebook, before it loads
 from disk — declining refuses the whole phrasebook, not just the
-`raw`-bearing rules.
+`raw`-bearing rules. SEC.13 (`0.5.3`): *Import Program File…* now opens
+Word documents with macros force-disabled, so a document that carries an
+`AutoOpen` macro no longer runs it when Frazaro reads the text out.
 
 **Open from the original threat model:**
 
@@ -299,9 +301,10 @@ from disk — declining refuses the whole phrasebook, not just the
   for you, never sent silently) — with no consent prompt.
 
 **Open from the project's own code review of 2026-09-08 — SEC.8 through
-SEC.17, ranked most-severe first.** These are audit findings read from
-the code, not exploits anyone has run; each one's file, line, and fix is
-in [docs/BETA_ROADMAP1.md](docs/BETA_ROADMAP1.md). In plain words:
+SEC.17 (less SEC.13, closed in `0.5.3` — above), ranked most-severe
+first.** These are audit findings read from the code, not exploits anyone
+has run; each one's file, line, and fix is in
+[docs/BETA_ROADMAP1.md](docs/BETA_ROADMAP1.md). In plain words:
 
 - **SEC.8** — a workbook from the internet can carry a Frazaro program in
   its cells, and Frazaro does not yet check where a workbook came from
@@ -318,9 +321,6 @@ in [docs/BETA_ROADMAP1.md](docs/BETA_ROADMAP1.md). In plain words:
 - **SEC.12** — on the Compile path only, a phrasebook can name any VBA
   function and the generated module will call it, with no `raw` consent
   dialog.
-- **SEC.13** — *Import Program File…* accepts Word documents and opens
-  them in Word with macros enabled. Until this closes, import only Word
-  files you wrote yourself, or paste the text instead.
 - **SEC.14** — a runaway program has no step limit; Excel's own
   Ctrl+Break is the only way out.
 - **SEC.15** — formulas a program writes are not screened for functions

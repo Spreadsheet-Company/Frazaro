@@ -1,6 +1,82 @@
-# Releases
+﻿# Releases
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Keep the *Known open security items* block in every section until the items close.*
+
+## 0.5.3
+
+### What changed
+
+- **`SEC.13` — Word documents are no longer opened with macros enabled.**
+  *Import Program File…* accepts Word documents, and it opened them
+  through Word automation without setting Word's own
+  `AutomationSecurity`. Word's default in that mode is *Low*, so a
+  `.docm` carrying an `AutoOpen` or `Document_Open` macro ran that macro
+  silently the instant Frazaro read the text out — no Trust Center
+  prompt, because a document opened by automation does not get one. This
+  was a live, one-click path in every shipped edition, on the menu and
+  the ribbon both, and worse than the audit first recorded: the import
+  router matches `.docm` by name, not only `.docx`/`.doc`.
+
+  Frazaro now force-disables macros for the duration of the read, and the
+  guard is deliberately set *after* the error handler is armed, so if it
+  cannot be set the import refuses rather than opening the document
+  unguarded. Because Frazaro reuses a copy of Word you already have open
+  rather than always starting its own, it captures your Word's previous
+  setting and puts it back afterwards — an application it does not own is
+  handed back as it was found. If that restore should ever fail it stays
+  quiet on purpose: the failure leaves Word *more* cautious than before,
+  never less, and a Word restart clears it.
+
+  Word documents still import exactly as they did — the text, the
+  typography cleanup, everything. The only thing that changed is that a
+  document's own macros no longer get to run on the way in.
+
+  If you followed the previous advice in the README (*"import only Word
+  files you wrote yourself, or paste the text instead"*), you no longer
+  need to. That advice has been removed.
+
+  **Not in scope, and named so it is not mistaken for shipped:** Frazaro
+  still does not *ask* you before opening a document you point it at.
+  Consent prompts are `SEC.7`/`SEC.8`'s subject and remain open.
+
+- **A new release check: `tools/check_word_automation_security.ps1`.**
+  The self-test suite does no Office automation at all, so nothing in it
+  could ever have caught this or its return. A static check now runs at
+  every release and fails it if any code that opens a Word document does
+  not force-disable macros first, in that same procedure, before the
+  open. It is mutation-tested in both directions rather than assumed to
+  work. What it cannot do is prove the guard *functions* — only Word can
+  do that, so that rests on a live test, with a reproducible fixture
+  recipe recorded in `tools/sec13_word_fixture.md`.
+
+### Known open security items
+
+- **SEC.3** — generated code does not yet carry phrasebook provenance.
+- **SEC.7** — a small set of verbs with real external effect (`vlasendmail`
+  today) still runs with no permission check: a phrasebook you load can
+  send mail with no consent prompt, the same as before this release.
+- **SEC.8–SEC.12, SEC.14–SEC.17** — the project's own code review of
+  2026-09-08. In plain words: a workbook from the internet can carry a
+  program in its cells and Frazaro does not yet check where the workbook
+  came from (`SEC.8`); grammar and phrasebook files beside a workbook or
+  the add-in load ahead of the built-in ones without asking and without
+  an integrity check (`SEC.9`, `SEC.16`); the remembered-consent record
+  lives inside the workbook and its fingerprint is forgeable (`SEC.10`,
+  `SEC.11`); on the Compile path a phrasebook can name any VBA function
+  and a created defined name could be one Excel runs on open (`SEC.12`,
+  `SEC.17`); a runaway program has no step limit (`SEC.14`); and formulas
+  a program writes are not screened for functions that reach the network
+  or the shell (`SEC.15`). Each one's file, line and fix is in
+  [`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md).
+
+`SEC.13` closed this release — see above.
+
+Until these close: **load phrasebooks only from people you would accept a
+macro-enabled workbook from — and treat a workbook someone sent you the
+same way before you press Interpret.** Frazaro makes no network call and
+does not update itself; check the README's *Known open security items*
+when you return for a newer build. Vulnerability reports:
+`docs/SECURITY.md`. Everything else: `docs/SUPPORT.md`.
 
 ## 0.5.2
 
