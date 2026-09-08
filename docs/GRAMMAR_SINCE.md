@@ -111,7 +111,8 @@ extra row is legal.
 
 ## Snapshot
 
-Taken 2026-09-07 at `0.5.2` (unreleased; `0.5.0` and `0.5.1` are tagged).
+Taken 2026-09-07, during `0.5.2`'s development — `0.5.0` and `0.5.1` were
+the tagged releases at the time.
 **150 phrasebook rules, 128 core dispatch arms, 278 rows.** Every entry
 below was present at `v0.5.0` except the one marked `0.5.2`.
 
