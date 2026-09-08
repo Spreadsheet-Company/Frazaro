@@ -61,10 +61,36 @@ project. Good enough for a coverage REPORT, not a parser.
 Usage:  pwsh -File tools/check_emitter_coverage.ps1
 #>
 
+param(
+    # CO.6 additions, both off by default. With neither passed this
+    # script prints and exits exactly as it always has - the ratchet's
+    # own behaviour is untouched, and that was verified by diffing a
+    # full run against a baseline captured before this param block
+    # existed.
+    #
+    # -ListArms       print EVERY dispatch arm, one per line, as
+    #                 "<function><TAB><arm>", instead of the coverage
+    #                 report. CO.6's grammar-since seed needs the arm
+    #                 INVENTORY, not the uncovered subset, and reusing
+    #                 this file's own Get-CaseArmGroups is the whole
+    #                 point: a second copy of that parsing in a seeder
+    #                 script is exactly the divergence this project
+    #                 keeps getting burned by.
+    # -SourceDir      read VLA.bas / VLA_Interpreter.bas from here
+    #                 instead of <repo>/src, so the same parser can be
+    #                 pointed at a historical tag extracted to a temp
+    #                 directory and date each arm. Named SourceDir, NOT
+    #                 SrcDir: PowerShell variables are case-insensitive,
+    #                 so a -SrcDir parameter would silently BE the
+    #                 existing $srcDir rather than override it.
+    [switch]$ListArms,
+    [string]$SourceDir
+)
+
 $ErrorActionPreference = 'Stop'
 
 $repoRoot    = Split-Path -Parent $PSScriptRoot
-$srcDir      = Join-Path $repoRoot 'src'
+$srcDir      = if ($SourceDir) { $SourceDir } else { Join-Path $repoRoot 'src' }
 $emitterFile = Join-Path $srcDir 'VLA.bas'
 $interpFile  = Join-Path $srcDir 'VLA_Interpreter.bas'
 $testFiles   = @('VLA_Tests.bas', 'VLA_Tests_Grammar.bas', 'VLA_Tests_Host.bas') |
@@ -184,7 +210,9 @@ $dispatchFuncs = @(
     @{ Name = 'TryRuntimeHelper';      File = 'VLA_Interpreter.bas'; Lines = $interpLines; Blob = $interpBlob }
 )
 
-Write-Output '=== EMITTER-CASE COVERAGE (heuristic, head-position text scan) ==='
+if (-not $ListArms) {
+    Write-Output '=== EMITTER-CASE COVERAGE (heuristic, head-position text scan) ==='
+}
 Write-Output ''
 
 $totalArms = 0
@@ -193,6 +221,17 @@ foreach ($fn in $dispatchFuncs) {
     $body = Get-FunctionLines $fn.Lines $fn.Name
     $logical = Get-LogicalStatements $body
     $groups = Get-CaseArmGroups $logical
+
+    if ($ListArms) {
+        # Inventory mode: every arm, covered or not. A comma-grouped arm
+        # stays ONE line joined by " | ", the same way this script
+        # already reports it - the ledger dates a code path, not a
+        # spelling.
+        foreach ($group in $groups) {
+            Write-Output ("{0}`t{1}" -f $fn.Name, ($group -join ' | '))
+        }
+        continue
+    }
 
     if ($groups.Count -eq 0) {
         Write-Output "--- $($fn.Name) ($($fn.File)): no Select Case dispatch found (0 arms) ---"
@@ -217,5 +256,7 @@ foreach ($fn in $dispatchFuncs) {
     Write-Output ''
 }
 
-$totalCovered = $totalArms - $totalUncovered
-Write-Output "=== SUMMARY: $totalCovered/$totalArms dispatch arms have a pin (per-function breakdown above) ==="
+if (-not $ListArms) {
+    $totalCovered = $totalArms - $totalUncovered
+    Write-Output "=== SUMMARY: $totalCovered/$totalArms dispatch arms have a pin (per-function breakdown above) ==="
+}

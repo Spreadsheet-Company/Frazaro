@@ -4012,6 +4012,79 @@ before-contact item behind the gate.
   make it tight is `CO.6`. `~hours`
 - ⬜ **CO.5 — the migration tool.** Worthless until there is history to migrate,
   but CO.1 must exist first or there is nothing to migrate *to*. `~weeks`
+- 🟡 **CO.6 — the grammar since-ledger.** *Found while scoping `CO.4`, and
+  it is the gap `CO.4` deliberately did not close.* `CO.4` made versions
+  orderable and `SD-14` says what each number means, but neither says
+  **when any particular thing you can say became sayable** — so an author
+  writing `F.10`'s `requires: version:X` has to guess at X. Worse, a
+  version alone is a *loose* gate: `SD-14`'s `MINOR` fires for a new
+  ribbon button (`GO.6`) exactly as readily as for a new grammar rule, so
+  "this build is ≥ `0.6.0`" implies nothing about any specific form. A
+  second version axis would not have fixed this either — it is a
+  per-form record, not a numbering question, which is why it is its own
+  item rather than a correction to `CO.4`.
+
+  **Built:** [`docs/GRAMMAR_SINCE.md`](GRAMMAR_SINCE.md) — the policy plus
+  a dated, measured snapshot, the same shape `F.12` gave
+  [`ID_REGISTRY.md`](ID_REGISTRY.md). **278 rows: 150 phrasebook rules and
+  128 core dispatch arms, 277 at `0.5.0` and one at `0.5.2`.** Three
+  decisions, taken with the owner:
+  - **It records when a form first WORKED, not when it was first
+    spelled.** The founding case is in the seed: `paint cell {r:text}`
+    shipped in `0.5.0` and `0.5.1` and never worked once — it called
+    `vlacolr`, which resolves nowhere, and carried no cell slot at all
+    (`AS.1`'s own finding). It is recorded at `0.5.2`, where the
+    corrected `paint cell {r:cell} {e:expr}` first did something.
+    Recording `0.5.0` would tell an author their phrasebook runs on
+    `0.5.0`, which is false, and answering exactly that is the file's
+    only job. `SD-4` is untouched — it governs what a shipped spelling
+    may become, a different question from what a compatibility check
+    should report.
+  - **Append-only**, `SD-9`'s never-re-mint discipline at form scale. A
+    wrong `since:` is frozen, and it makes a `requires:` gate reject
+    builds that would have run the phrasebook fine.
+  - **Both surfaces, not just rules** — a phrasebook rule can call a core
+    form directly, so the 128 dispatch arms are dated too.
+
+  **Two traps found while seeding, either of which would have frozen
+  wrong dates into an append-only file.** Both are why this was not the
+  one-line job the `CO.4` scoping pass predicted:
+  1. **The generated rule artifact is unsafe for historical seeding.**
+     `english_expanded.vla` carried 147 rules at `v0.5.0` and 150 at
+     `v0.5.1`, which reads as three rules added in `0.5.1`. It is not:
+     `english.vla`'s own rule membership is **identical** between those
+     tags. The `v0.5.0` artifact was simply stale — `0.5.1`'s own notes
+     record both the re-export and the staleness stamp that had been
+     ignoring whitespace. Seeding from `git show <tag>:…` would have
+     stamped three `show every …` rules `since: 0.5.1` when they were
+     sayable in `0.5.0`, permanently. **The inventory comes from the
+     artifact; the dates come from source.**
+  2. **Source alone undercounts** — three rules (`hide`/`show the total
+     row of table`, `set style of table`) are generator-emitted and
+     appear in no source file — which is why the inventory cannot come
+     from source either. Neither half is sufficient alone; that is the
+     whole method.
+
+  **Reuse over duplication, deliberately:** the arm inventory comes from
+  `check_emitter_coverage.ps1 -ListArms`, a switch added to that script
+  rather than copying its `Get-CaseArmGroups` into a seeder — a second
+  copy of subtle parsing is the divergence this project keeps paying for.
+  A `-SourceDir` override points the same parser at a tag extracted to a
+  temp directory, which is how the historical columns were taken (named
+  `SourceDir`, not `SrcDir`: PowerShell variables are case-insensitive,
+  so `-SrcDir` would silently *be* the script's existing `$srcDir`
+  rather than override it). Both are off by default, and the default
+  run's output was diffed byte-for-byte against a baseline captured
+  before the param block existed: identical, exit 0.
+
+  *Remaining, and deliberately deferred:* `tools/check_grammar_since.ps1`,
+  the ratchet that fails when an inventory entry has no row — `SD-7` says
+  work is not scheduled without something that needs it, and nothing
+  reads these dates until `F.10` exists. **The seed was taken now because
+  it is the perishable half:** the whole history is two tags today and
+  gets harder every release. *Depends on:* nothing. *Unblocks:* `F.10`'s
+  `version` namespace being a tight gate rather than a loose one.
+  `~hours`
 
 ---
 
