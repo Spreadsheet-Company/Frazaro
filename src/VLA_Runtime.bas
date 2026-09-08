@@ -874,6 +874,17 @@ End Function
 ' both safer and avoids Outlook's programmatic-send security prompts.
 Public Sub VlaSendMail(ByVal toAddr As Variant, ByVal subject As Variant, _
                        ByVal body As Variant, Optional ByVal attachPath As Variant = "")
+    ' SEC.8: gated on the provenance of the workbook carrying the
+    ' program. The draft is displayed, never sent (see the comment
+    ' above), so a human click still stands between this and any mail
+    ' leaving - but the draft arrives pre-addressed, pre-written, and
+    ' able to attach ANY local file the program can name, which is
+    ' exactly the shape of an exfiltration primitive that only needs
+    ' one careless click. Guarded at the top of this Sub rather than at
+    ' the dispatch site because this is a VLA_Runtime helper reachable
+    ' by name, so the Sub itself is the only true chokepoint.
+    VLA_Provenance.VlaProvenanceGuardCaptured "email something out of Excel"
+
     Dim ol As Object, m As Object
     On Error Resume Next
     Set ol = GetObject(, "Outlook.Application")

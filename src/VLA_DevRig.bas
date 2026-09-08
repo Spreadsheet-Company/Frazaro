@@ -153,7 +153,16 @@ Public Sub VlaDevReload(Optional ByVal folder As String = "")
     ' type (VLA.bas's own ListTail), F5.0's own ".cls fallback (tries
     ' .bas first, falls back to .cls, unchanged for every existing
     ' entry)" precedent covers it with no loop change needed.
-    mods = Array("VLA_Identity", "VLA_Messages", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_IDE", "VLA_Build", "VLA_Lint", "VLA_Tests", "VLA_Tests_Grammar", "VLA_Tests_Host", "VLA_Tests_Query", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Browser", "frmCLI")
+    ' SEC.8: VLA_Provenance added - and this list's own warning above
+    ' came true a SIXTH time on the way in, in the exact shape LX2.0
+    ' recorded for VLA_Messages: added to VLA_Build.bas's mods array,
+    ' missed here, so the module sat on disk unimported and the first
+    ' live compile of a call site referencing it failed with "Variable
+    ' not defined" - live-caught by the owner, not found by inspection,
+    ' again. Two independent arrays that must agree, with nothing
+    ' mechanical holding them together, is the actual defect; the
+    ' repeated comments are a workaround for it, not a fix.
+    mods = Array("VLA_Identity", "VLA_Messages", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_IDE", "VLA_Build", "VLA_Lint", "VLA_Tests", "VLA_Tests_Grammar", "VLA_Tests_Host", "VLA_Tests_Query", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Browser", "frmCLI")
     Dim i As Long
     Dim fp As String
     Dim comp As Object

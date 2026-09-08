@@ -156,6 +156,13 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "interp-head-unresolved", 5, "VLA-Interpreter", "'{head}' is not a form, place helper, dotted global, built-in, or VLA_Runtime helper this interpreter can reach yet - IN.2's remaining hand-work"
     AddMsg m, "interp-make-button-not-cell", 5, "VLA-Interpreter", "IN.7: 'make-button' needs a cell for its place, got {type}"
     AddMsg m, "interp-dynamic-member-refused", 5, "VLA-Interpreter", "SEC.1: '{member}' is not in this interpreter's native dynamic-dispatch allowlist - refused, not attempted via CallByName (Tier 2's own subtractive fix removed that fallback; a real, legitimate use belongs in VLA_Interpreter.bas's own DynamicGet/DynamicCall/DynamicSet, reviewed and added by name)"
+    ' SEC.8: provenance, not verb. SEC.1's refusal above asks "is this
+    ' member reachable at all"; this one asks "may the workbook CARRYING
+    ' this program reach outside the workbook". The remedy named in the
+    ' text is Windows' own Unblock deliberately - SEC.8 keeps no trust
+    ' store of its own, so there is nothing for Frazaro to offer here
+    ' and nothing a hostile workbook can pre-fill. See VLA_Provenance.
+    AddMsg m, "sec8-untrusted-workbook-effect", 5, "VLA-Provenance", "SEC.8: '{verb}' would have an effect outside this workbook, and {why} - so it is refused. The workbook is {path}. If you trust it: close it, right-click the file in File Explorer, choose Properties, tick Unblock, then reopen it. (Frazaro deliberately has no button of its own for this - a workbook that arrives from outside must not be able to carry its own permission slip.)"
     AddMsg m, "interp-member-chain-not-object", 5, "VLA-Interpreter", "IN.2: '{segment}' in '{path}' did not return an object - cannot continue the member chain"
     AddMsg m, "interp-positional-args-too-many", 5, "VLA-Interpreter", "IN.2: this interpreter's dynamic dispatch supports up to 4 positional arguments; got {n}"
     AddMsg m, "interp-named-args-not-supported-here", 5, "VLA-Interpreter", "IN.2: named arguments ({tok} ...) are not supported here - a statement-position '.' call where EVERY argument is a keyword pair goes through IN2.5's named-argument dispatch instead; this one either mixes positional and named arguments, or is in expression position, neither of which is supported yet"

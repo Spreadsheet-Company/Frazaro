@@ -2300,6 +2300,41 @@ Private Function TryRuntimeHelper(ByVal h As String, ByVal argVals As Variant, B
             VLA_Runtime.VlaCheckRangeName CStr(ArgAt(argVals, 0))
             handled = True
             Exit Function
+        ' SEC.8: a FOURTH native Case, and it joins the three above for
+        ' precisely the reason IN.12's comment gives for them - this
+        ' helper can now raise. Before SEC.8, VlaSendMail only ever
+        ' displayed a draft or reported a missing attachment; the
+        ' provenance guard at the top of it made "validate and maybe
+        ' raise" part of its job, which is exactly the shape the generic
+        ' Application.Run mechanism below is PROVEN to break
+        ' (tools/VLA_Diag2.bas scenario 1). Live-caught, owner-run,
+        ' 2026-09-08: the refusal surfaced as a raw "Run-time error '5'"
+        ' VBE dialog with a Debug button instead of Frazaro's own modal,
+        ' while the identical refusal on protect/unprotect (raised
+        ' inline in DynamicNamedCall) presented correctly. Both of the
+        ' generic path's possible outcomes are wrong here: the raise
+        ' breaks through unhandled, and had it NOT, the
+        ' "If Err.Number <> 0 Then handled = False" below would have
+        ' swallowed the refusal and mis-reported it as
+        ' interp-head-unresolved ("'vlasendmail' is not a form..."). A
+        ' direct Sub call puts the raise back on the normal VBA call
+        ' stack, where InterpretProgram's own handler catches it and
+        ' LX.8's refuse-in-words doctrine actually holds.
+        Case "vlasendmail"
+            Select Case ArgCount(argVals)
+                Case 3
+                    VLA_Runtime.VlaSendMail ArgAt(argVals, 0), ArgAt(argVals, 1), ArgAt(argVals, 2)
+                Case 4
+                    VLA_Runtime.VlaSendMail ArgAt(argVals, 0), ArgAt(argVals, 1), ArgAt(argVals, 2), ArgAt(argVals, 3)
+                Case Else
+                    ' Any other arity is not this helper - fall through
+                    ' to EvalDynamicHead's own clean refusal, the same
+                    ' answer the generic path's Case Else gives.
+                    handled = False
+                    Exit Function
+            End Select
+            handled = True
+            Exit Function
     End Select
 
     Dim target As String
@@ -2537,9 +2572,24 @@ Private Sub DynamicCall(ByVal obj As Object, ByVal member As String, ByVal argVa
         ' exactly one argument.
         Select Case VLA_Identity.Fold(member)
             Case "add": obj.Add ArgAt(argVals, 0): Exit Sub
-            Case "open": obj.Open ArgAt(argVals, 0): Exit Sub
-            Case "saveas": obj.SaveAs ArgAt(argVals, 0): Exit Sub
-            Case "savecopyas": obj.SaveCopyAs ArgAt(argVals, 0): Exit Sub
+            ' SEC.8: the three members here that reach OUTSIDE this
+            ' workbook - a file read, and two file writes to a path the
+            ' program chooses. Each is gated on the provenance of the
+            ' workbook that CARRIED this program, captured once at
+            ' VLA_IDE.CaptureHost. The guard is inside each Case rather
+            ' than once at the top of this Sub deliberately: "add" and
+            ' "wait" are not external effect and must stay ungated, and
+            ' a per-Case guard is what check_sec8_provenance_gate.ps1
+            ' can actually verify site by site.
+            Case "open"
+                VLA_Provenance.VlaProvenanceGuardCaptured "open a workbook"
+                obj.Open ArgAt(argVals, 0): Exit Sub
+            Case "saveas"
+                VLA_Provenance.VlaProvenanceGuardCaptured "save a workbook under a new name"
+                obj.SaveAs ArgAt(argVals, 0): Exit Sub
+            Case "savecopyas"
+                VLA_Provenance.VlaProvenanceGuardCaptured "save a copy of a workbook"
+                obj.SaveCopyAs ArgAt(argVals, 0): Exit Sub
             Case "wait": obj.Wait ArgAt(argVals, 0): Exit Sub
         End Select
     End If
@@ -3218,23 +3268,38 @@ Private Function DynamicNamedCall(ByVal obj As Object, ByVal member As String, k
                                    Source:=KwArg(kwArgs, "source"), _
                                    XlListObjectHasHeaders:=KwArg(kwArgs, "xllistobjecthasheaders"))
             Set DynamicNamedCall = newLo
+        ' SEC.8: five gated members in this Sub. Two kinds, and the
+        ' roadmap entry names them separately rather than blurring them:
+        ' printout and exportasfixedformat are EGRESS (content leaves,
+        ' to a printer or to a file at a path the program picks), while
+        ' close-with-save and protect/unprotect are DESTRUCTIVE to data
+        ' already on this machine - no attacker-chosen path, but a
+        ' password-protect an internet-sourced program applies is a
+        ' person locked out of their own sheet. Gating both widens SEC.8
+        ' from "provenance gates egress" to "provenance gates external
+        ' AND destructive effect", which is a deliberate scope call.
         Case "protect"
+            VLA_Provenance.VlaProvenanceGuardCaptured "protect a sheet with a password"
             Dim wsProtect As Worksheet
             Set wsProtect = obj
             wsProtect.Protect Password:=KwArg(kwArgs, "password")
         Case "unprotect"
+            VLA_Provenance.VlaProvenanceGuardCaptured "remove a sheet's password protection"
             Dim wsUnprotect As Worksheet
             Set wsUnprotect = obj
             wsUnprotect.Unprotect Password:=KwArg(kwArgs, "password")
         Case "close"
+            VLA_Provenance.VlaProvenanceGuardCaptured "close a workbook"
             Dim wbClose As Workbook
             Set wbClose = obj
             wbClose.Close SaveChanges:=KwArg(kwArgs, "savechanges")
         Case "printout"
+            VLA_Provenance.VlaProvenanceGuardCaptured "print a sheet"
             Dim wsPrintOut As Worksheet
             Set wsPrintOut = obj
             wsPrintOut.PrintOut Preview:=KwArg(kwArgs, "preview")
         Case "exportasfixedformat"
+            VLA_Provenance.VlaProvenanceGuardCaptured "export a sheet to a PDF or XPS file"
             Dim wsExport As Worksheet
             Set wsExport = obj
             wsExport.ExportAsFixedFormat Type:=KwArg(kwArgs, "type"), Filename:=KwArg(kwArgs, "filename")

@@ -312,6 +312,7 @@ Public Function VlaSelfTest() As Boolean
     TestGoldens
     TestRuleUsage
     TestMessageSeam
+    TestSec8Provenance
     TestResolveCheck
     TestRuntimeTrace
     TestVlaTry
@@ -1351,6 +1352,132 @@ End Sub
 ' ---------------------------------------------------------------------
 '  Helper units.
 ' ---------------------------------------------------------------------
+' =====================================================================
+'  SEC.8 - the provenance gate's PURE half.
+'
+'  What this can and cannot cover, stated plainly because SEC.8's own
+'  roadmap entry promises the same honesty SEC.13 and F.10 gave their
+'  coverage gaps: the pure suite does no COM and cannot fabricate a
+'  Mark-of-the-Web, so NOTHING here proves that a real internet-marked
+'  workbook is actually refused - that is a live test the owner runs,
+'  plus check_sec8_provenance_gate.ps1's static pin on the call sites.
+'  What IS covered here is the whole of the DECISION: the stream parse,
+'  the path classification, the policy that combines them, and the
+'  guard's own refusal, each exercised through the memo seam so no file
+'  is needed. Every assertion below fails if the line it targets is
+'  removed - checked by writing each one to distinguish the real
+'  behaviour from the most plausible wrong one, not merely to pass.
+' =====================================================================
+Private Sub TestSec8Provenance()
+    ' --- the stream parse ---
+    Report "SEC.8 parses ZoneId=3 (CRLF, the real stream's own form)", _
+           VlaParseZoneIdentifier("[ZoneTransfer]" & vbCrLf & "ZoneId=3" & vbCrLf) = VlaZoneInternet, _
+           "got " & VlaParseZoneIdentifier("[ZoneTransfer]" & vbCrLf & "ZoneId=3" & vbCrLf)
+    Report "SEC.8 parses ZoneId=3 with bare LF too", _
+           VlaParseZoneIdentifier("[ZoneTransfer]" & vbLf & "ZoneId=3") = VlaZoneInternet, _
+           "bare-LF stream did not parse"
+    Report "SEC.8 parses ZoneId=0 as local machine, not as 'no mark'", _
+           VlaParseZoneIdentifier("ZoneId=0") = VlaZoneLocalMachine, _
+           "got " & VlaParseZoneIdentifier("ZoneId=0")
+    Report "SEC.8 ignores ReferrerUrl (attacker-supplied text, never a decision input)", _
+           VlaParseZoneIdentifier("[ZoneTransfer]" & vbCrLf & _
+                                  "ReferrerUrl=https://evil.invalid/ZoneId=0" & vbCrLf & _
+                                  "ZoneId=3") = VlaZoneInternet, _
+           "a ReferrerUrl containing 'ZoneId=0' changed the verdict"
+    Report "SEC.8 reads an absent ZoneId line as unreadable", _
+           VlaParseZoneIdentifier("[ZoneTransfer]" & vbCrLf & "HostUrl=x") = VlaZoneUnreadable, _
+           "a stream with no ZoneId did not read as unreadable"
+    Report "SEC.8 reads an empty stream as unreadable", _
+           VlaParseZoneIdentifier("") = VlaZoneUnreadable, "empty stream was not unreadable"
+    ' The rounding trap: IsNumeric+CLng alone would turn "3.7" into 4
+    ' (VlaZoneRestricted) - a decimal must never land on a zone id it
+    ' does not name. Fails if AllDigits is dropped for a bare IsNumeric.
+    Report "SEC.8 refuses a decimal ZoneId rather than rounding it onto a real zone", _
+           VlaParseZoneIdentifier("ZoneId=3.7") = VlaZoneUnreadable, _
+           "got " & VlaParseZoneIdentifier("ZoneId=3.7") & " - a decimal rounded onto a zone id"
+    ' The stream's bytes travel WITH the file, so its content is
+    ' attacker-authored. An all-digit value too big for a Long would
+    ' overflow CLng and raise error 6 out of a function this module
+    ' calls pure and total. Fails if the length cap is dropped.
+    Dim overflowed As Boolean
+    On Error Resume Next
+    Err.Clear
+    Report "SEC.8 reads an oversized ZoneId as unreadable", _
+           VlaParseZoneIdentifier("ZoneId=99999999999999") = VlaZoneUnreadable, _
+           "an oversized ZoneId did not read as unreadable"
+    overflowed = (Err.Number <> 0)
+    On Error GoTo 0
+    Report "SEC.8 does not raise on an oversized ZoneId (no CLng overflow escapes)", _
+           Not overflowed, "parsing an oversized ZoneId raised an error"
+    ' A number that is not one of the six real zones is not a zone.
+    Report "SEC.8 reads a ZoneId outside the real zone range as unreadable", _
+           VlaParseZoneIdentifier("ZoneId=7") = VlaZoneUnreadable, _
+           "got " & VlaParseZoneIdentifier("ZoneId=7") & " - an unknown zone number was accepted"
+    Report "SEC.8 refuses a negative ZoneId", _
+           VlaParseZoneIdentifier("ZoneId=-1") = VlaZoneUnreadable, _
+           "a negative ZoneId was accepted"
+
+    ' --- the path classification ---
+    Report "SEC.8 counts a drive-letter path as demonstrably local", _
+           VlaPathIsDemonstrablyLocal("C:\Users\someone\book.xlsx"), "C:\ path was not local"
+    Report "SEC.8 does NOT count a UNC share as demonstrably local", _
+           Not VlaPathIsDemonstrablyLocal("\\server\share\book.xlsx"), "UNC path counted as local"
+    Report "SEC.8 does NOT count an https:// (WebDAV/SharePoint) path as local", _
+           Not VlaPathIsDemonstrablyLocal("https://contoso.sharepoint.com/x/book.xlsx"), _
+           "https path counted as local"
+    Report "SEC.8 does NOT count an http:// path as local", _
+           Not VlaPathIsDemonstrablyLocal("http://host/book.xlsx"), "http path counted as local"
+    Report "SEC.8 counts a never-saved workbook (empty path) as local", _
+           VlaPathIsDemonstrablyLocal(""), "unsaved workbook was not treated as local"
+
+    ' --- the policy ---
+    Report "SEC.8 refuses a workbook positively marked internet-zone", _
+           VlaProvenanceRefuses(VlaZoneInternet, True), "ZoneId=3 on a local path was allowed"
+    Report "SEC.8 refuses a workbook marked restricted-zone", _
+           VlaProvenanceRefuses(VlaZoneRestricted, True), "ZoneId=4 was allowed"
+    Report "SEC.8 allows a workbook positively marked local-machine", _
+           Not VlaProvenanceRefuses(VlaZoneLocalMachine, True), "ZoneId=0 was refused"
+    Report "SEC.8 allows an intranet-marked workbook", _
+           Not VlaProvenanceRefuses(VlaZoneIntranet, True), "ZoneId=1 was refused"
+    ' The two halves of the forced positive-only answer. An unreadable
+    ' mark is safe ONLY where a mark could have been stored and was not.
+    Report "SEC.8 allows an unreadable mark on a demonstrably local path", _
+           Not VlaProvenanceRefuses(VlaZoneUnreadable, True), _
+           "an ordinary local file with no mark was refused - this would break every normal workbook"
+    Report "SEC.8 refuses an unreadable mark where no mark could have been stored", _
+           VlaProvenanceRefuses(VlaZoneUnreadable, False), _
+           "unknown provenance on a UNC/URL path was allowed"
+
+    ' --- the guard itself, through the memo seam (no file, no COM) ---
+    Dim refused As Boolean
+    VlaProvenanceResetMemo
+    VlaProvenanceSeedMemoForTest "C:\Users\someone\mailed.xlsx", VlaZoneInternet
+    On Error Resume Next
+    Err.Clear
+    VlaProvenanceGuardCaptured "email something out of Excel"
+    refused = (Err.Number <> 0)
+    Dim msg As String
+    msg = Err.Description
+    On Error GoTo 0
+    Report "SEC.8 guard refuses an external effect on an internet-marked workbook", _
+           refused, "the guard allowed the call"
+    Report "SEC.8 refusal names the verb the program actually tried", _
+           InStr(msg, "email something out of Excel") > 0, "verb missing from: " & msg
+    Report "SEC.8 refusal tells the person how to grant it (Windows' own Unblock)", _
+           InStr(msg, "Unblock") > 0, "no Unblock instruction in: " & msg
+
+    VlaProvenanceResetMemo
+    VlaProvenanceSeedMemoForTest "C:\Users\someone\mine.xlsx", VlaZoneLocalMachine
+    On Error Resume Next
+    Err.Clear
+    VlaProvenanceGuardCaptured "email something out of Excel"
+    refused = (Err.Number <> 0)
+    On Error GoTo 0
+    Report "SEC.8 guard allows the same effect on a local-marked workbook", _
+           Not refused, "an ordinary local workbook was refused"
+    VlaProvenanceResetMemo
+End Sub
+
 Private Sub TestHelpers()
     ' The BGR swap: naive CLng("&HFF69B4") would be 16738740; the
     ' correct VBA color for hot pink is RGB(255,105,180).

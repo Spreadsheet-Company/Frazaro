@@ -406,4 +406,5 @@ tag, not assumed.*
 0.5.0  TryRuntimeHelper   vlacheckrangename
 0.5.0  TryRuntimeHelper   vlachecksheetabsent
 0.5.0  TryRuntimeHelper   vlachecksheetname
+0.5.0  TryRuntimeHelper   vlasendmail
 ```

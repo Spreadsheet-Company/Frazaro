@@ -864,26 +864,266 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   it; several overlap `SEC.7`'s capability layer and say so. Ranked
   most-severe first, which is also their ID order.
 
-- ⬜ **SEC.8 — programs in cells bypass Office's own macro policy
+- ✅ **SEC.8 — programs in cells bypass Office's own macro policy
   (Mark-of-the-Web is never read).** The architectural finding of the
-  tranche. A plain `.xlsx` mailed from outside carries its program in cells,
-  not in a VBA project; after the ordinary "Enable Editing" click the
-  interpreter runs it with the *add-in's* privilege, and that privilege
-  includes real external effect: `Workbooks.Open`/`SaveAs`/`SaveCopyAs`
-  (`VLA_Interpreter.bas:2540`–`2542`), `ExportAsFixedFormat`
-  (`~3237`), and Outlook (`VLA_Runtime.VlaSendMail`). **CONFIRMED by
-  absence:** no `Zone.Identifier`, `ProtectedView`, or Mark-of-the-Web read
-  exists anywhere in `src/` (grepped). Microsoft's 2022 default blocks
-  macros originating from the internet; an installed Frazaro reintroduces
+  tranche. Built and **owner-verified live 2026-09-08** — all eight live
+  tests passed (`VLA_SELF-TESTS` pure 1011/1011, host 143/143;
+  `VerifyReports` emitter 141/141, interpreter 141/141; the `.xlam`
+  builds and passes `Debug > Compile`). The empirical question that could
+  have invalidated the whole approach was answered first and it holds — see
+  below. A plain
+  `.xlsx` mailed from outside carries its program in cells, not in a VBA
+  project; after the ordinary "Enable Editing" click the interpreter
+  runs it with the *add-in's* privilege, and that privilege includes
+  real external effect. **CONFIRMED by absence, re-grepped at build
+  time:** no `Zone.Identifier`, `ProtectedView`, or Mark-of-the-Web read
+  existed anywhere in `src/`. Microsoft's 2022 default blocks macros
+  originating from the internet; an installed Frazaro reintroduced
   exactly that capability for any cell-carried program, with none of the
-  provenance gating Office added. *Fix:* read the host workbook's zone (the
-  `Zone.Identifier` alternate stream, via the same ADODB idiom
-  `VLA_Loader.bas` already uses to read bytes) and refuse external-effect
-  forms on an internet-zone workbook until the user marks it trusted —
-  Office's own model, applied at Frazaro's own dispatch. *Overlaps:* `SEC.7`
-  gates the *verbs*; this gates by *provenance of the workbook running
-  them*, a distinct axis SEC.7 does not cover. *(pairs with `SEC.15`, the
-  formula-write egress.)* `~days`–`~weeks`
+  provenance gating Office added.
+
+  *What shipped:* a new `VLA_Provenance.bas` reads the host workbook's
+  `Zone.Identifier` alternate data stream (the same ADODB idiom
+  `VLA_Loader.ReadTextFile` uses for bytes), classifies it, and refuses
+  external-effect members carried by an internet- or restricted-zone
+  workbook. `VLA_IDE.CaptureHost` captures the zone once per command;
+  nine dispatch sites consult the memo.
+
+  **THE ONE THING THAT COULD HAVE INVALIDATED THIS ITEM — ANSWERED LIVE,
+  2026-09-08, and it holds.** The open question was whether Excel STRIPS
+  the `Zone.Identifier` stream when the person clicks "Enable Editing"
+  out of Protected View. If it did, there would be no mark left to read
+  by the time any Frazaro code runs, every guard would fall through to
+  "unreadable + local path = allow", and the gate would be inert —
+  correct, but reading a signal no longer there. **It does not strip it.**
+  Owner-run: `C:\Users\prest\Downloads\sec8_egress.xlsx`, marked
+  `ZoneId=3`, opened, "Enable Editing" clicked, then *Interpret and
+  Trace* — and the guard refused the email verb by name. The refusal is
+  itself the proof: it can only be produced by positively reading and
+  parsing zone 3 AFTER Protected View was cleared, which is exactly the
+  state the interpreter runs in. Two further things fell out of the same
+  run: the mark also survives an ordinary Excel save-and-reopen (the file
+  came back with the PROTECTED VIEW banner), and the path was on `C:`,
+  so the refusal came from the POSITIVE zone read and not from the
+  unknown-provenance branch — the stronger form of the test.
+  *Contingency now retired:* had the mark not survived, the policy, the
+  path classification, the memo, the guards and the pin would all have
+  stayed exactly as they are, with only `ReadZoneStream`'s *source*
+  changing (Protected View state, or the Trusted Documents registry).
+  Recorded because that is the shape of the item's real risk, and it is
+  worth knowing it was bounded rather than lucky.
+
+  *Measured while scoping, and load-bearing for the design:* an absent
+  `Zone.Identifier` and an unreadable one (non-NTFS volume) fail with
+  the **same** error, `0x800A0BBA "File could not be opened."` There is
+  no way to distinguish "not from the internet" from "cannot tell" by
+  the error. Also measured: .NET's `FileStream` and PowerShell's
+  `Test-Path` both *reject* an ADS path outright ("The given path's
+  format is not supported"), while ADODB opens it — so the house idiom
+  is necessary here, not merely convenient.
+
+  *Six design questions, resolved during scoping (question 2 with the
+  owner, who asked for the most-secure option in each case):*
+  1. *Where does the gate sit — one coarse workbook-level check, or a
+     per-form check at each dispatch?* **Decided: both halves, split.**
+     The zone is READ once per command at `VLA_IDE.CaptureHost` — D1's
+     own read-the-ambient-world-once chokepoint, and provenance is
+     ambient state like any other — and the REFUSAL happens per site, so
+     the message names the verb the program actually tried. One ADS read
+     per command; precise refusals; no prompt at all for a program that
+     never reaches outside the workbook.
+  2. *Where does "marked trusted" live — the trap this item was most
+     likely to fall into?* **Decided: nowhere. SEC.8 keeps no trust store
+     of any kind.** `SEC.10` exists because a consent record kept inside
+     a workbook arrives already granted from a workbook someone sends
+     you; `SEC.11` exists because the hash such a record is keyed to is
+     forgeable. A store is attack surface, so this item has none: the
+     only way to grant is Windows' own out-of-band Unblock (file
+     Properties → Unblock, or a Trusted Location), a channel no workbook
+     content can reach, pre-fill, or collide with. Consequence worth
+     stating plainly: **SEC.8 does NOT depend on `SEC.10`/`SEC.11`
+     landing first**, and must never grow a store of its own — doing so
+     would re-import both bugs at once. `VLA_Provenance.bas`'s header
+     says so at the point where a future edit would be tempted.
+  3. *What happens when the zone cannot be read — fail-closed or
+     fail-open?* **Neither: the question is settled by measurement, not
+     preference.** Since absent and unreadable are indistinguishable
+     (above), fail-closed would refuse every ordinary local workbook and
+     is not available. So the signal is **positive-only** — a refusal
+     rests on a zone id positively read and parsed — plus the third
+     answer this item's own scoping asked for: `VlaPathIsDemonstrablyLocal`
+     treats an unreadable mark as safe **only** where a mark could have
+     been stored and was not (a drive-letter path, or a never-saved
+     workbook). A UNC share or an `http(s)://` WebDAV path can silently
+     carry no stream at all, so an unreadable mark there is unknown
+     provenance and refuses. *Known false-positive class, recorded
+     deliberately:* a workbook opened straight from an `https://`
+     SharePoint URL refuses external effect. A OneDrive-**synced** folder
+     is an ordinary `C:\` path and is unaffected, which is the common
+     case; the workaround for the rare one is to save a local copy.
+  4. *Whose zone — the workbook holding the program, or also the
+     workbooks it opens and writes?* **Decided: only the workbook holding
+     the program**, captured at `CaptureHost`. A locally authored program
+     opening an internet-sourced DATA file is a different axis and stays
+     with `SEC.15`. **This is also a correctness requirement, not only a
+     scope choice, and the obvious implementation gets it wrong:** having
+     each dispatch site read `ActiveWorkbook` would be unsound, because
+     `activate` is itself a dispatchable member (`VLA_Interpreter.bas`,
+     the one-positional-argument census) — so a program carried by a
+     marked workbook could activate an innocent local one and have its
+     next external-effect call read the innocent one's provenance. That
+     is provenance laundering, and the captured memo is what forecloses
+     it.
+  5. *Which forms count as external-effect?* **Decided: this item defines
+     its own list, because `SEC.7` has none to lend** — `SEC.7` is
+     unbuilt, blocked behind an unbuilt `F.10`, and gates
+     phrasebook-declared capabilities at LOAD time, a different
+     chokepoint on a different axis. The list, re-derived by reading
+     `DynamicCall`/`DynamicNamedCall` rather than copied from this
+     document's own earlier draft (which listed four of them and missed
+     four more): **egress** — `Workbooks.Open`, `SaveAs`, `SaveCopyAs`,
+     `ExportAsFixedFormat`, `PrintOut`, and `VLA_Runtime.VlaSendMail`;
+     **destructive to local data** — `Close SaveChanges:=`, `Protect`,
+     `Unprotect`. Nine sites. Including the second group widens this item
+     from "provenance gates egress" to "provenance gates external AND
+     destructive effect" — a deliberate scope call made with the owner,
+     on the reasoning that a password-protect applied by an
+     internet-sourced program locks a person out of their own sheet.
+     *When `SEC.7` is built it should adopt this list as its seed rather
+     than mint a second one*; two lists that drift is a future bug, and
+     `check_sec8_provenance_gate.ps1`'s baseline is the shared artifact
+     to grow.
+     **Correction to this entry's own earlier text:** it described the
+     Outlook path as sending mail. `VlaSendMail` calls `m.Display`, not
+     `m.Send` — the draft is shown and a human clicks Send. It is still
+     gated (it arrives pre-addressed, pre-written, and can attach any
+     local file the program names, which needs only one careless click),
+     but the entry overstated it and the README wording was corrected to
+     match.
+  6. *How is it pinned?* **Two mechanisms, and one honest gap.**
+     (a) `VlaSelfTest`'s own `TestSec8Provenance` covers the whole
+     DECISION with no COM and no file — stream parse (including the
+     `ZoneId=3.7` rounding trap, which a bare `IsNumeric`+`CLng` would
+     turn into zone 4; a `ReferrerUrl` containing `ZoneId=0`, which must
+     not sway the verdict; and an oversized `ZoneId=99999999999999`, which
+     would overflow `CLng` and raise error 6 out of a function this module
+     documents as pure and total — the stream's bytes travel WITH the file,
+     so its content is attacker-authored and the parse is length-capped and
+     range-checked accordingly), path classification, the policy table,
+     and the guard's own refusal through a deliberate memo seam.
+     (b) `tools/check_sec8_provenance_gate.ps1`, in the
+     `check_word_automation_security.ps1` house shape (PowerShell,
+     host-independent, hardcoded reviewable baseline, **not** wired into
+     `VlaSelfTest`), pins the two properties no test can reach: every
+     known external-effect site is guarded *inside its own `Case`*, and
+     `CaptureHost` still captures. The no-intervening-`Case` rule is the
+     load-bearing one — without it a single guard at the top of
+     `DynamicNamedCall` would vouch for all five of its gated members.
+     Mutation-tested red and green at build time on four mutations:
+     removing one `Case`'s guard, removing the capture, dropping
+     `VLA_Provenance` from `VLA_Build.bas`'s `mods` array, and replacing
+     the five per-`Case` guards with one procedure-wide guard (all four
+     red; tree green after restore). *The gap, stated the way `SEC.13`
+     and `F.10` stated theirs:* the pure suite cannot fabricate a
+     `Zone.Identifier`, so **nothing automated proves a real marked
+     workbook is refused** — that is live-test-only. And a scan working
+     from a baseline cannot discover an external-effect member nobody
+     ever added to it; the list in question 5 is human judgement,
+     re-derived once, not something the pin can find for itself. Fixture
+     recipe for the live tests: `tools/sec8_motw_fixture.md`, the same shape
+     as `SEC.13`'s own. The pin
+     did, however, find a tenth site on its first run
+     (`VLA_IDE::EnglishIdeExportSkeleton`'s `Close`), which is exempted
+     with its reason in the script's own `$exempt` table: it is a menu
+     command only a person can invoke, and it already sits behind
+     `VlaHasVbProjectTrust()`, a strictly stronger gate.
+
+  *One residual, deliberately left and marked in the code:*
+  `UncapturedRefuses` in `VLA_Provenance.bas` is `False`, so an
+  external-effect call reached with no captured workbook (the Immediate
+  window, the host test rig) is allowed rather than refused. `True` is
+  strictly safer and is the intended end state; it is held `False` only
+  until a live host pass confirms nothing in `VLA_Tests_Host` routes an
+  external-effect member through dispatch without a capture first. As of
+  this scoping read nothing does — `close`/`printout`/`exportasfixedformat`
+  are deliberately unexercised there, and the suite's own `SaveCopyAs`
+  and `Close` calls are direct VBA in the harness, not dispatch. It is
+  not a silent hole either way: the pin fails if `CaptureHost` stops
+  capturing, which is what makes the memo dependable on every path a
+  person can actually reach.
+
+  *Found while building this item, and fixed here — a ninth recurrence of
+  a defect this project has been documenting in comments since `F5.0`:*
+  the module name lists in `VLA_Build.bas` (what a built add-in ships) and
+  `VLA_DevRig.bas` (what `VlaDevReload` refreshes) are independent, with
+  nothing mechanical holding them together. Adding `VLA_Provenance` to the
+  first and not the second reproduced `LX2.0`'s exact failure — the module
+  sat on disk unimported and the owner's first live `Debug > Compile` hit
+  "Variable not defined", live-caught, not found by inspection.
+  `tools/check_devrig_mods_parity.ps1` now pins both directions, and was
+  red on its first run for a SECOND reason: **`VlaSlice` has been missing
+  from the SHIPPED list since `0.5.0`'s initial import**, while `VLA.bas`'s
+  own `ListTail` names it as a type (`Dim sl As New VlaSlice`) — word for
+  word `F5.0`'s stated rationale for shipping `VlaFrame`. That is the
+  more dangerous direction of the same bug: the dev workbook compiles
+  because the rig loaded the class, so nothing shows until someone builds
+  a fresh add-in and compiles it. Fixed in the same pass; **needs a real
+  build + `Debug > Compile` of the produced `.xlam` to confirm**, which is
+  the owner's to run and is live test 8 in this item's handoff.
+  *A second bug found by building this item, live-caught by the owner, and
+  it is NOT SEC.8's own:* the provenance guard placed at the top of
+  `VLA_Runtime.VlaSendMail` surfaced its refusal as a raw
+  `Run-time error '5'` VBE dialog with a Debug button, while the identical
+  refusal on `protect`/`unprotect` (raised inline in `DynamicNamedCall`)
+  presented correctly in Frazaro's own modal. Cause: the interpreter
+  reaches `vlasendmail` through `TryRuntimeHelper`'s generic
+  `Application.Run` mechanism, and `IN.12`'s own comment there already
+  records — with a standalone repro, `tools/VLA_Diag2.bas` scenario 1 —
+  that **`Application.Run` does not propagate a target macro's `Err.Raise`
+  to the caller's handler at all**. The guard was placed on the wrong side
+  of a boundary this codebase had already mapped. Both of the generic
+  path's outcomes are wrong here: the raise breaks through unhandled, and
+  had it not, `TryRuntimeHelper`'s own `If Err.Number <> 0 Then handled
+  = False` would have swallowed the refusal and mis-reported it as
+  `interp-head-unresolved`. *Fixed* with a fourth native `Case` —
+  direct Sub call, no `Application.Run` — exactly the remedy `IN.12`
+  applied to the three `VlaCheck*` helpers, and for its stated reason
+  ("whose whole job is to validate and maybe raise"), which SEC.8's guard
+  made true of `VlaSendMail` for the first time.
+  **The finding is older and wider than SEC.8, and that is the part worth
+  keeping:** the raise that exposed it live was `rt-mail-outlook-unavailable`
+  — *pre-existing*, nothing to do with this item. Every user without Outlook
+  who ever ran an email sentence got the VBE debugger instead of "Could not
+  start Outlook to create the email"; same for `rt-mail-attachment-not-found`
+  on a bad attachment path. `IN.12` hedged that the rest of the class was
+  "not yet known to have hit this live". It is now known. A census taken at
+  fix time found **eight more public `VLA_Runtime` helpers that can raise
+  and are still on the `Application.Run` path** — `VlaColor`
+  (`rt-color-invalid`, a bad colour in a sentence), `VlaDictGet`
+  (`rt-dict-key-missing`, the interpreter's own documented "loud step
+  error" contract), `VlaFillSeries`, `VlaFreezePanes`, and four
+  `VlaPivot*` helpers. All reach a person as `Run-time error '5'` with a
+  Debug button, which is a direct violation of `LX.8`'s refuse-in-words
+  doctrine. **Deliberately NOT fixed here** — it is not SEC.8's scope, the
+  three mail raises are fixed only because this item made one of them its
+  own problem, and the remaining eight want their own item and their own
+  decision (eight more native `Case`s, or retiring the `Application.Run`
+  mechanism entirely, which is the direction `IN.11`/`IN.12` have been
+  walking incrementally). Filed as a finding, not fixed blindly, matching
+  this project's own "count before patching the next crash" lesson
+  (`TRENCHES.md` IV) that `IN.12`'s comment cites for the same reason.
+  *Landable stages, since this was sized `~days`–`~weeks` and should not
+  be one commit:* **A** — this scoping record plus README/`RELEASES.md`
+  (docs only). **B** — `VLA_Provenance.bas` and its pure tests (inert; no
+  call site wired). **C** — the nine guards, the capture, and the
+  message id. **D** — the static pin and its mutation test. A–D are built
+  and green together here; the split is recorded so that a revert can
+  take D, C, or B off without disturbing what remains.
+
+  *Overlaps:* `SEC.7` gates the *verbs*; this gates by *provenance of the
+  workbook running them*, a distinct axis `SEC.7` does not cover.
+  *(pairs with `SEC.15`, the formula-write egress.)* *Does NOT depend on*
+  `SEC.10`/`SEC.11` — see question 2. `~days`–`~weeks`
 
 - ⬜ **SEC.9 — phrasebook search-order hijack, and silent replay of
   workbook-stored paths.** Two loaders that trust the workbook's own

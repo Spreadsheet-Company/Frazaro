@@ -461,7 +461,33 @@ Private Sub CaptureHost()
     On Error Resume Next
     Set mHostSheet = mHost.ActiveSheet
     On Error GoTo 0
+
+    ' SEC.8: read the host workbook's Mark-of-the-Web ONCE per command,
+    ' here, for exactly D1's own reason - this is the moment the ambient
+    ' world becomes a held reference, and provenance is ambient state
+    ' like any other. Every external-effect dispatch site then consults
+    ' the memo instead of re-reading. Deliberately does NOT refuse
+    ' anything: capturing is not gating, a program that never reaches
+    ' outside the workbook must run unimpeded no matter where the file
+    ' came from, and the refusal belongs at the site that names the verb.
+    ' FullName on a never-saved workbook is the bare name with no path;
+    ' VlaPathIsDemonstrablyLocal reads that as local, which it is.
+    On Error Resume Next
+    VLA_Provenance.VlaProvenanceCapture HostFullPath()
+    On Error GoTo 0
 End Sub
+
+' SEC.8: the host workbook's path as the provenance gate needs it -
+' "" when the workbook has never been saved (Path is empty, and
+' FullName is then just the display name, which is not a path and must
+' not be treated as one). Kept beside CaptureHost so the one place
+' that reads this ambient fact is the one place that captures it.
+Private Function HostFullPath() As String
+    On Error Resume Next
+    If mHost Is Nothing Then Exit Function
+    If Len(mHost.Path) = 0 Then Exit Function
+    HostFullPath = mHost.FullName
+End Function
 
 ' The captured handle. The lazy path serves Immediate-window calls
 ' that arrive without a command entry, and re-captures if the held

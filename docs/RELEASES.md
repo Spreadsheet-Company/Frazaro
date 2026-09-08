@@ -6,6 +6,114 @@
 
 ### What changed
 
+- **`SEC.8` — a workbook from the internet can no longer reach outside
+  itself.** Office has blocked macros in files that came from the
+  internet since 2022. That block reads the Mark-of-the-Web that Windows
+  puts on a downloaded or emailed file, and it applies to macros — VBA
+  code. A Frazaro program is not a macro: it lives in the cells. So a
+  plain `.xlsx` someone mails you could carry a complete program, and
+  after the ordinary "Enable Editing" click Frazaro would run it with the
+  add-in's own privileges. Office's protection had never applied to it,
+  because from Office's point of view there was nothing there to protect
+  you from.
+
+  Frazaro now reads that same mark itself, and refuses the things that
+  reach outside the workbook: opening or saving a file, saving a copy,
+  printing, exporting a PDF, composing an Outlook email, and
+  password-protecting or unprotecting a sheet. Everything else runs
+  normally — reading and writing cells, formatting, formulas, loops, the
+  whole ordinary business of a program. A workbook from the internet
+  still opens, still calculates, and can still be edited exactly as
+  before. It just cannot reach off the page.
+
+  The refusal names the thing the program tried to do, so you find out
+  what a workbook wanted rather than only that something was blocked.
+
+  **Clicking "Enable Editing" does not grant this.** Excel shows its own
+  yellow banner on a file from the internet — that bar is Excel's, not
+  Frazaro's, and it governs whether you can type in the sheet. Frazaro's
+  check is separate and happens later, when a program actually tries to
+  reach outside the workbook. Enabling editing leaves the file's origin
+  mark exactly where it was, which is why the two decisions stay
+  independent: you can read and edit a workbook someone sent you without
+  also agreeing that its program may email, print, or save files. Only
+  unblocking the file in Windows does that.
+
+  **To allow it, you unblock the file in Windows** — close the workbook,
+  right-click the file in File Explorer, choose Properties, tick
+  *Unblock*, then reopen it. Frazaro deliberately offers no button of its
+  own for this. That is the whole point of the design: a workbook that
+  arrives from outside must not be able to carry its own permission slip,
+  and anything Frazaro stored could be forged or shipped inside the
+  workbook itself. Windows' own checkbox is the one channel a mailed file
+  cannot reach.
+
+  Two limits worth knowing, both deliberate. A workbook opened straight
+  from a `https://` SharePoint address refuses external effect too:
+  Windows cannot record an origin mark in that kind of location, so
+  Frazaro cannot tell where the file came from, and it does not guess.
+  (A OneDrive folder that syncs to your own disk is an ordinary local
+  folder and is not affected — that is the common case.) The workaround
+  is to save a local copy. And a file with no mark at all is treated as
+  local, because an ordinary file you made yourself has no mark either
+  and the two are genuinely indistinguishable — the protection comes from
+  the mark being *present*, never from it being absent.
+
+- **A new release check: `tools/check_sec8_provenance_gate.ps1`.** The
+  self-test suite does no Office automation and cannot manufacture a file
+  that claims to be from the internet, so it can check every part of the
+  *decision* but never the call sites. This static check runs at every
+  release and fails it if any of the nine external-effect sites loses its
+  guard, or if the one line that reads the workbook's origin goes
+  missing. It is mutation-tested in both directions rather than assumed
+  to work, and it found a site the audit had missed on its first run.
+  What it cannot do is prove the guard *functions* against a real marked
+  workbook — only Excel can do that, so that rests on a live test.
+
+- **Email problems now tell you what went wrong instead of dropping you
+  into the code editor.** If Outlook was not available, or an attachment
+  path did not exist, an email sentence did not report that — it stopped
+  the program with Visual Basic's own `Run-time error '5'` dialog, the one
+  with a *Debug* button. The message Frazaro meant to show you ("Could not
+  start Outlook to create the email") existed the whole time and never got
+  the chance to appear. This affected every release that has had the email
+  sentence, and needing no Outlook installed is all it took to trigger it.
+
+  The cause is a VBA quirk this project had already documented and proved
+  with a standalone test: the mechanism the interpreter used to reach that
+  particular helper does not carry an error back to the code that would
+  have caught and displayed it. The email helper now uses a direct call
+  instead, so its messages arrive the way every other refusal in Frazaro
+  does.
+
+  **Not fixed in this release, and named so it is not mistaken for
+  shipped:** eight other helpers still reach you the same wrong way when
+  they fail — an unrecognised colour, a missing key, and six pivot-table
+  and worksheet operations with an unrecognised option. Those show
+  Visual Basic's dialog rather than a Frazaro message. Only the email
+  helper is fixed here, because only it was in the way of `SEC.8`; the
+  rest are recorded in
+  [`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md) with the full list rather
+  than fixed in a hurry alongside a security change.
+
+- **A build defect found by a new release check: `VlaSlice` was never
+  shipped.** Frazaro keeps two lists of modules — one for what a built
+  add-in contains, one for what the development workbook reloads — and
+  nothing had ever checked that they agree. `VlaSlice`, a small internal
+  class the language core names directly, was in the second list and not
+  the first, so a freshly built add-in would not have contained it at
+  all. It has been in that state since `0.5.0`. It is now in both lists.
+
+  This is the ninth time this project has made the same mistake, and the
+  first time a machine caught it rather than a person hitting the
+  resulting error. `tools/check_devrig_mods_parity.ps1` now runs at every
+  release and fails it if either list is missing something the other has,
+  in either direction — the more dangerous direction being a module the
+  development workbook compiles happily while a built add-in would not,
+  which is exactly what stayed hidden here. Modules that genuinely should
+  not ship (the test suites, the builder itself) are listed in the check
+  with a reason beside each. It is mutation-tested in both directions.
+
 - **`SEC.13` — Word documents are no longer opened with macros enabled.**
   *Import Program File…* accepts Word documents, and it opened them
   through Word automation without setting Word's own
@@ -74,14 +182,16 @@
 - **SEC.3** — generated code does not yet carry phrasebook provenance.
 - **SEC.7** — a small set of verbs with real external effect (`vlasendmail`
   today) still runs with no permission check: a phrasebook you load can
-  send mail with no consent prompt, the same as before this release.
-- **SEC.8–SEC.12, SEC.14–SEC.17** — the project's own code review of
-  2026-09-08. In plain words: a workbook from the internet can carry a
-  program in its cells and Frazaro does not yet check where the workbook
-  came from (`SEC.8`); grammar and phrasebook files beside a workbook or
-  the add-in load ahead of the built-in ones without asking and without
-  an integrity check (`SEC.9`, `SEC.16`); the remembered-consent record
-  lives inside the workbook and its fingerprint is forgeable (`SEC.10`,
+  send mail with no consent prompt. `SEC.8` above narrows this but does
+  not close it — it gates on where the *workbook* came from, not on what
+  a phrasebook asked permission to do, so a phrasebook loaded into a
+  workbook of your own still reaches these verbs unprompted.
+- **SEC.9–SEC.12, SEC.14–SEC.17** — the project's own code review of
+  2026-09-08. In plain words: grammar and phrasebook files beside a
+  workbook or the add-in load ahead of the built-in ones without asking
+  and without an integrity check (`SEC.9`, `SEC.16`); the
+  remembered-consent record lives inside the workbook and its
+  fingerprint is forgeable (`SEC.10`,
   `SEC.11`); on the Compile path a phrasebook can name any VBA function
   and a created defined name could be one Excel runs on open (`SEC.12`,
   `SEC.17`); a runaway program has no step limit (`SEC.14`); and formulas
@@ -89,7 +199,7 @@
   or the shell (`SEC.15`). Each one's file, line and fix is in
   [`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md).
 
-`SEC.13` closed this release — see above.
+`SEC.8` and `SEC.13` closed this release — see above.
 
 Until these close: **load phrasebooks only from people you would accept a
 macro-enabled workbook from — and treat a workbook someone sent you the
@@ -267,7 +377,10 @@ when you return for a newer build. Vulnerability reports:
 - **SEC.3** — generated code does not yet carry phrasebook provenance.
 - **SEC.7** — a small set of verbs with real external effect (`vlasendmail`
   today) still runs with no permission check: a phrasebook you load can
-  send mail with no consent prompt, the same as before this release.
+  send mail with no consent prompt. `SEC.8` above narrows this but does
+  not close it — it gates on where the *workbook* came from, not on what
+  a phrasebook asked permission to do, so a phrasebook loaded into a
+  workbook of your own still reaches these verbs unprompted.
 
 `SEC.1`, `SEC.2` closed this release — see above.
 

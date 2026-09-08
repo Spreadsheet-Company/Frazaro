@@ -289,6 +289,14 @@ from disk — declining refuses the whole phrasebook, not just the
 `raw`-bearing rules. SEC.13 (`0.5.3`): *Import Program File…* now opens
 Word documents with macros force-disabled, so a document that carries an
 `AutoOpen` macro no longer runs it when Frazaro reads the text out.
+SEC.8 (`0.5.3`): a workbook that Windows has marked as having come from
+the internet can still be read and edited as usual, but a program in its
+cells is now refused when it tries to reach OUTSIDE the workbook —
+opening or saving files, printing, exporting a PDF, composing an email,
+or password-protecting a sheet. To allow it, unblock the file
+in Windows first (right-click the file, Properties, tick Unblock);
+Frazaro deliberately has no button of its own for this, so that a
+workbook arriving from outside cannot carry its own permission slip.
 
 **Open from the original threat model:**
 
@@ -301,15 +309,11 @@ Word documents with macros force-disabled, so a document that carries an
   for you, never sent silently) — with no consent prompt.
 
 **Open from the project's own code review of 2026-09-08 — SEC.8 through
-SEC.17 (less SEC.13, closed in `0.5.3` — above), ranked most-severe
-first.** These are audit findings read from the code, not exploits anyone
+SEC.17 (less SEC.8 and SEC.13, both closed in `0.5.3` — above), ranked
+most-severe first.** These are audit findings read from the code, not exploits anyone
 has run; each one's file, line, and fix is in
 [docs/BETA_ROADMAP1.md](docs/BETA_ROADMAP1.md). In plain words:
 
-- **SEC.8** — a workbook from the internet can carry a Frazaro program in
-  its cells, and Frazaro does not yet check where a workbook came from
-  before running one. Office blocks macros from the internet by default;
-  a program in cells is not a macro, so that block does not apply to it.
 - **SEC.9** — a grammar file placed beside a workbook, or a phrasebook
   path a workbook remembers, is loaded ahead of the built-in grammar
   without asking.

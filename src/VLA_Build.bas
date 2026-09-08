@@ -368,7 +368,27 @@ Private Function VlaBuildOneEdition(ByVal edition As String, ByRef note As Strin
     ' LX2.0: VLA_Messages ships too - a Layer-0 module (no dependencies,
     ' same as VLA_Identity beside it) so it sits with VLA_Identity ahead
     ' of everything that will come to call it.
-    mods = Array("VLA_Identity", "VLA_Messages", "VLA_HeadTable", "VLA", "VlaFrame", "VLA_Loader", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_IDE", "VLA_Lint", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Browser", "frmCLI")
+    ' SEC.8: VLA_Provenance sits next to VLA_Loader, whose ADODB
+    ' byte-reading idiom it reuses to read the Mark-of-the-Web. Standard
+    ' modules have no load order in VBA, so its position here is for a
+    ' reader, not the compiler - but it MUST be in this list: the shipped
+    ' set is read straight from this array by check_raise_ratchet.ps1,
+    ' and an add-in built without it would dispatch external effect with
+    ' the provenance gate silently absent.
+    ' PNTH.0 (found 2026-09-08, latent since 0.5.0's initial import):
+    ' VlaSlice ships too, and always should have. It is the NINTH
+    ' instance of the exact failure this comment block has been
+    ' documenting since F5.0, and the first one found mechanically
+    ' rather than by a person hitting a compile error - by
+    ' tools/check_devrig_mods_parity.ps1, written for the SEC.8
+    ' recurrence and red on its first run. VlaSlice was in
+    ' VLA_DevRig.bas's array but not this one, so the dev workbook
+    ' compiled it while a freshly built add-in would not have had the
+    ' class at all - and VLA.bas's own ListTail names it as a type
+    ' ("Dim sl As New VlaSlice", "Dim srcSlice As VlaSlice"), which is
+    ' word-for-word F5.0's rationale for shipping VlaFrame. It sits
+    ' beside VlaFrame here for the same reason it does there.
+    mods = Array("VLA_Identity", "VLA_Messages", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_IDE", "VLA_Lint", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Browser", "frmCLI")
 
     ' Export the current, in-project versions - the build always ships
     ' exactly what the dev workbook contains. (VLA_English and its
