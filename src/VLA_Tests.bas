@@ -410,6 +410,7 @@ Public Function VlaSelfTest() As Boolean
     TestContextPushPop
     TestContextUnderflow
     TestCo4VersionSemver
+    TestF10Requires
     TestVlaLint
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
@@ -5238,6 +5239,203 @@ Private Sub TestCo4VersionSemver()
     Report "co4: VLA_RELEASE_VERSION itself parses as MAJOR.MINOR.PATCH", _
            VlaVersionParse(VLA_RELEASE_VERSION, mj, mn, pt), _
            "VLA_RELEASE_VERSION=" & VLA_RELEASE_VERSION & " is not readable by CO.4's own ordering"
+End Sub
+
+' F.10 - (requires-<namespace> "<value>") in phrasebooks. The parse is
+' shared; the ENFORCEMENT deliberately is not, and several of these
+' pins exist to keep that split from being quietly collapsed later.
+'
+' The two that matter most:
+'   - "version is checked before any other tag" holds the owner's own
+'     unknown-namespace decision together. Refusing an unknown
+'     namespace is only humane because a phrasebook that declares its
+'     version gets the precise message instead of the vague one, and
+'     that is purely a matter of evaluation order, which nothing else
+'     would catch if it regressed.
+'   - "capability is NOT checked on the host-free text path" is
+'     SEC.2's own trap, pinned so it cannot be re-learned live: that
+'     path is VLA_Browser.bas's, documented as never showing a dialog
+'     and tracked by name in check_translate_purity.ps1.
+Private Sub TestF10Requires()
+    Dim v As String
+    Dim d As String
+    Dim got As String
+
+    ' --- met, unmet, and the two malformed shapes ---
+    EnglishResetGrammar
+    v = "(requires-version ""0.0.0"")" & vbLf & _
+        "(english-vla ""zzmet cell {r:text}"" (set! (range {r}) 1))"
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText v, "selftest-vocab"
+    d = Err.Description
+    On Error GoTo 0
+    Report "f10: a met version requirement loads normally", Err.Number = 0, d
+
+    EnglishResetGrammar
+    v = "(requires-version ""999.0.0"")"
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText v, "selftest-vocab"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "f10: an unmet version requirement refuses, naming both versions", _
+           InStr(d, "needs Frazaro 999.0.0") > 0 And InStr(d, VLA_RELEASE_VERSION) > 0, _
+           "expected the unmet-version refusal naming 999.0.0 and " & VLA_RELEASE_VERSION & ", got: " & IIf(Len(d) > 0, d, "(no error)")
+
+    ' A typo'd version must refuse AS a typo - never read as merely
+    ' unmet, which would tell an author to upgrade Frazaro to fix a
+    ' spelling mistake. CO.4's VlaVersionParse is what makes this
+    ' checkable with no error handler around it.
+    EnglishResetGrammar
+    v = "(requires-version ""banana"")"
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText v, "selftest-vocab"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "f10: a malformed version refuses as malformed, not as unmet", _
+           InStr(d, "is not a version") > 0, _
+           "expected the malformed-version refusal, got: " & IIf(Len(d) > 0, d, "(no error)")
+
+    EnglishResetGrammar
+    v = "(requires-version)"
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText v, "selftest-vocab"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "f10: a requirement with no value refuses", _
+           InStr(d, "names no value") > 0, _
+           "expected the missing-value refusal, got: " & IIf(Len(d) > 0, d, "(no error)")
+
+    ' --- the unknown-namespace policy, and what makes it humane ---
+    EnglishResetGrammar
+    v = "(requires-signature ""acme"")"
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText v, "selftest-vocab"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "f10: an unknown namespace refuses rather than being ignored", _
+           InStr(d, "is not a kind of requirement") > 0, _
+           "expected the unknown-namespace refusal, got: " & IIf(Len(d) > 0, d, "(no error)")
+
+    ' VERSION-FIRST ORDERING. The unknown tag is written FIRST here on
+    ' purpose: file order must not decide which refusal an author
+    ' sees. Without the ordering rule this reports "unknown
+    ' requirement 'signature'" and the author never learns the one
+    ' fact that would have told them what to do.
+    EnglishResetGrammar
+    v = "(requires-signature ""acme"")" & vbLf & _
+        "(requires-version ""999.0.0"")"
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText v, "selftest-vocab"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "f10: version is checked before any other tag, whatever the file order", _
+           InStr(d, "needs Frazaro 999.0.0") > 0, _
+           "expected the version refusal to win over the unknown-namespace one, got: " & IIf(Len(d) > 0, d, "(no error)")
+
+    ' --- the two-site split (SEC.2's trap, pinned) ---
+    EnglishResetGrammar
+    v = "(requires-capability ""sendmail"")" & vbLf & _
+        "(english-vla ""zzcap cell {r:text}"" (set! (range {r}) 1))"
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText v, "selftest-vocab"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "f10: capability is NOT checked on the host-free text path", _
+           Len(d) = 0, _
+           "the host-free path enforced a consent-shaped namespace, which is SEC.2's own correction undone: " & d
+
+    ' --- form: recognized, refused, not silently passed ---
+    EnglishResetGrammar
+    v = "(requires-form ""paint cell"")"
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText v, "selftest-vocab"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "f10: form is understood but refuses as not-yet-enforceable", _
+           InStr(d, "not yet enforceable") > 0, _
+           "expected the form-unsupported refusal, got: " & IIf(Len(d) > 0, d, "(no error)")
+
+    ' --- the scan is lexical: comments and string literals are not
+    '     declarations (VocabTextHasRawForm's own reason, same shape) ---
+    EnglishResetGrammar
+    v = "; (requires-version ""999.0.0"")" & vbLf & _
+        "(english-vla ""zzcomment cell {r:text}"" (set! (range {r}) 1))"
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText v, "selftest-vocab"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "f10: a requirement inside a comment is not a requirement", _
+           Len(d) = 0, "a commented-out declaration gated the load: " & d
+
+    EnglishResetGrammar
+    v = "(english-vla ""zzsay cell {r:text}""" & vbLf & _
+        "    (set! (range {r}) ""(requires-version \""999.0.0\"")""))"
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText v, "selftest-vocab"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "f10: a requirement inside a string literal is not a requirement", _
+           Len(d) = 0, "a declaration quoted inside string data gated the load: " & d
+
+    ' --- refuses BEFORE anything registers, wherever the tag sits ---
+    ' The declaration is written BELOW the rule deliberately: the
+    ' pre-pass reads the whole file before dispatch begins, so
+    ' position cannot change what loads. A dispatch-time arm would
+    ' have registered this rule first and then refused.
+    EnglishResetGrammar
+    v = "(english-vla ""zzlate cell {r:text}"" (set! (range {r}) 1))" & vbLf & _
+        "(requires-version ""999.0.0"")"
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText v, "selftest-vocab"
+    On Error GoTo 0
+    got = ""
+    On Error Resume Next
+    Err.Clear
+    got = EnglishToVla("Zzlate cell B2.")
+    On Error GoTo 0
+    Report "f10: an unmet requirement refuses before a single rule registers", _
+           Len(got) = 0, _
+           "a rule from a refused phrasebook registered anyway: " & got
+
+    ' --- a generator cannot smuggle one in ---
+    ' The pre-pass reads raw source text, so a declaration that only
+    ' exists after macro expansion was never checked. Honouring it
+    ' would be honouring an unchecked requirement.
+    EnglishResetGrammar
+    v = "(defmacro (zzgen) ""g"" (requires-version ""0.0.0""))" & vbLf & _
+        "(zzgen)"
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText v, "selftest-vocab"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "f10: a requirement produced by expansion refuses rather than counting", _
+           InStr(d, "produced by a generator's expansion") > 0, _
+           "expected the from-expansion refusal, got: " & IIf(Len(d) > 0, d, "(no error)")
+
+    ' --- the shipped corpus declares nothing, and must keep loading ---
+    EnglishResetGrammar
 End Sub
 
 ' L2.1: transpile that cannot crash the suite - a raise reports FAIL

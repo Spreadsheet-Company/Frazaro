@@ -5539,16 +5539,23 @@ End Function
 ' =====================================================================
 '  Vocabulary files: load many phrase rules from a standalone file.
 '
-'  File format - one definition is a sentence line ending in =>,
-'  with the VLA on the following line(s); the template ends where its
-'  parentheses balance, so no continuation marks are ever needed:
-'      # comment (also: lines starting with ')
-'      put {e:expr} into cell {r:text} =>
-'          (set! (range {r}) {e})
-'  The inline form "pattern => template" is also accepted.
-'  function: lines are always inline (their right side is a name,
-'  not a form). Rules register in file order, after the prelude and
-'  anything loaded earlier.
+'  File format - every directive is a parenthesized form, and ";"
+'  starts a comment. (Corrected while building F.10: this header
+'  still described the "pattern =>" line format that F.13 RETIRED -
+'  see EnglishLoadVocabularyText's own note, "No custom line/paren
+'  scanning left here at all - forms are the only path." Nothing
+'  reads the old shape any more, so the example below is the real
+'  one.)
+'      ; a comment
+'      (english-vla
+'          "put {e:expr} into cell {r:cell}"
+'          (set! (range {r}) {e}))
+'  A rule's own source language rides in the head (english-vla,
+'  espanol-vla, ...); english-function's target is a bare atom,
+'  because it names a function rather than English prose. Rules
+'  register in file order, after the prelude and anything loaded
+'  earlier. A phrasebook may declare its own preconditions with
+'  (requires-version "X") - see this module's F.10 section.
 '
 '  Typical setup for a reload button:
 '      EnglishResetGrammar
@@ -5564,6 +5571,17 @@ Public Function EnglishLoadVocabulary(ByVal filePath As String) As Long
     End If
     Dim text As String
     text = VocabReadFile(filePath)
+
+    ' F.10: both requires- gates run BEFORE SEC.2's raw prompt, so a
+    ' phrasebook this build cannot run is refused outright rather than
+    ' being refused only after the user has been asked to approve raw
+    ' VBA access for it. The pure half runs first (version-first
+    ' ordering holds across both sites, not just within one), then the
+    ' consent-shaped half. EnglishLoadVocabularyText re-runs the pure
+    ' half below - it is idempotent, and that is where the host-free
+    ' translate path gets its own gate.
+    VocabRequiresCheckPure text, filePath
+    VocabRequiresCheckCapability text, filePath
 
     ' SEC.2: gate BEFORE a single rule from this file registers - see
     ' the raw-consent block above EnglishLoadVocabularyText for the
@@ -5977,6 +5995,27 @@ Private Sub DispatchVocabForm(fl As Variant, ByVal startLine As Long, ByVal rowT
         ' CanonicalizeStructuralWords for the consumer.
         RecordExpandedForm expTexts, expTags, flc, rowTag   ' GEXPANDER.0
         RegisterKeywordAlias StripQuoteSigil(CStr(flc.Item(2))), StripQuoteSigil(CStr(flc.Item(3)))
+    ElseIf Len(head) > 9 And Left$(head, 9) = "requires-" Then
+        ' F.10: the tag was already read, checked and (if unmet)
+        ' refused by the lexical pre-pass, long before this dispatch
+        ' pass started - see this module's F.10 section. Reaching it
+        ' here at top level therefore means it PASSED, and this arm
+        ' exists only so a legitimately-placed declaration isn't
+        ' reported as an unrecognized directive.
+        '
+        ' depth > 0 means it arrived spliced out of a (begin ...) or
+        ' produced by a generator's expansion - which the pre-pass,
+        ' reading raw source text, could not have seen and therefore
+        ' never checked. Honouring it here would be honouring an
+        ' unchecked requirement; ignoring it silently would let a
+        ' generator emit a declaration that does nothing while
+        ' looking, to a reader, exactly like one that does. Refused
+        ' instead, naming why.
+        If depth > 0 Then
+            VLA_Messages.RaiseMsg "english-vocab-requires-from-expansion", _
+                "loc", ProvLoc(sourceName, startLine, rowTag), "head", head
+        End If
+        RecordExpandedForm expTexts, expTags, flc, rowTag   ' GEXPANDER.0
     ElseIf allowExpansion Then
         ExpandVocabMacroCall flc, head, sourceName, startLine, rowTag, count, testSents, testExps, testLines, testKinds, testRowTags, expTexts, expTags, depth
     Else
@@ -6314,6 +6353,316 @@ Private Function VlaAskRawConsent(ByVal sourceName As String) As Long
     End If
 End Function
 
+' =====================================================================
+'  F.10: (requires-<namespace> "<value>") - a phrasebook's own
+'  declared preconditions, parsed and checked BEFORE a single rule
+'  from the file registers.
+'
+'  SYNTAX. The namespace rides in the HEAD, not in an argument:
+'      (requires-version "0.5.2")
+'      (requires-capability "sendmail")
+'      (requires-form "paint cell")
+'  BETA_ROADMAP.md's own F.10 entry spells this "requires:
+'  <namespace>:<value>", which is prose predating F.13's migration to
+'  an all-forms file format - there is no line-oriented "key: value"
+'  syntax left in a .vla file for it to be. Head-carried namespace is
+'  this format's dominant pattern already (english-vla/espanol-vla -
+'  "the source language rides in the head on purpose"; english-
+'  function; -vla-override), and it is the only spelling that reads
+'  correctly: a BARE atom in argument position names a FUNCTION here
+'  ((english-function "keys of" vladictkeys) - that directive's own
+'  comment: "a bare atom, never quoted - it names a VLA/VBA function"),
+'  so (requires version "0.5.2") would claim `version` is a function.
+'  The Lisp answer, (requires 'version "0.5.2"), is unavailable: this
+'  dialect has no quote sigil at all (StripQuoteSigil strips a leading
+'  double-quote and nothing else), and inventing one for a single
+'  directive is a language change, not a tag.
+'
+'  WHY A LEXICAL PRE-PASS, not a DispatchVocabForm arm. Dispatch runs
+'  in FILE ORDER, so a (requires-...) sitting below a rule would be
+'  read only after that rule had already registered - SEC.2's gate,
+'  the precedent this follows, fires "BEFORE a single rule from this
+'  file registers." So the check walks the raw source text, in
+'  VocabTextHasRawForm's exact shape (comment-aware, string-literal-
+'  aware) and for the same reason: a substring search would false-
+'  positive on prose. Being lexical and PRE-expansion also closes a
+'  real hole - a phrasebook cannot disguise a requirement by defining
+'  a macro of the same name, which ExpandVocabMacroCall would
+'  otherwise happily expand into something else entirely. The
+'  pre-pass is authoritative; DispatchVocabForm's own requires- arm
+'  below is a no-op that exists only so a legitimately-placed tag
+'  isn't reported as an unrecognized directive, and refuses outright
+'  if one arrives from a generator's expansion (which the pre-pass,
+'  reading raw text, could never have seen).
+'
+'  WHERE EACH NAMESPACE IS CHECKED - one parser, deliberately TWO
+'  enforcement sites, because refusing and asking are not the same
+'  act:
+'    - version / form / unknown are pure yes-or-no refusals. They
+'      touch no host object, so they belong in
+'      EnglishLoadVocabularyText - which is also the only way
+'      VLA_Browser.bas's host-free translate path gets gated at all.
+'      A phrasebook that genuinely needs 0.7.0 is genuinely unusable
+'      there too, and saying so raises a message; it opens no dialog.
+'    - capability has to ASK (SEC.7's own two-scope consent UX), and
+'      a MsgBox in EnglishLoadVocabularyText is precisely the trap
+'      SEC.2 was corrected for: VLA_Browser.bas documents its own
+'      callers as functions that "never touch a file, never show a
+'      MsgBox," and check_translate_purity.ps1 tracks that function
+'      by name. So capability is checked one level up, in
+'      EnglishLoadVocabulary, beside SEC.2's raw gate.
+'  This is NOT the F.10/CO.3 near-duplication that had to be
+'  corrected: that was two SYNTAXES for one idea. Here one syntax and
+'  one parser feed two sites that genuinely differ.
+'
+'  VERSION-FIRST ORDERING (owner decision, with the unknown-namespace
+'  policy below). Every requires-version tag is evaluated before any
+'  other tag, regardless of where it sits in the file. This is what
+'  makes deny-by-default humane: a phrasebook written for a newer
+'  build that declares its version gets "needs 0.7.0, this is 0.5.1"
+'  - the precise, actionable message - instead of a vague complaint
+'  about whatever unknown tag happened to come first.
+'
+'  UNKNOWN NAMESPACE: REFUSE (owner decision). Deny-by-default is
+'  SD-15's posture, but the deciding argument is narrower and does
+'  not depend on it. First, the head word settles it semantically:
+'  every requires- tag is a PRECONDITION by construction - there is
+'  no advisory one - so a requirement this build cannot understand is
+'  a requirement it cannot confirm was met, and ignoring it is
+'  loading a phrasebook whose stated precondition was never checked.
+'  Second, and decisively, the forward-compatibility cost is ALREADY
+'  PAID everywhere else in this format: DispatchVocabForm already
+'  refuses any unrecognized top-level directive head, so an 0.5 build
+'  already refuses an 0.7 phrasebook that uses any new directive.
+'  Ignoring unknown namespaces would make requires- uniquely more
+'  permissive than every other directive in the language - failing
+'  open in the one construct whose whole job is gating. The namespace
+'  set is closed and grows only by release.
+'
+'  ONE CORNER, STATED RATHER THAN HIDDEN: the pre-pass walks every
+'  paren, not only top-level ones, so a (requires-...) written inside
+'  a defmacro BODY is seen and checked even though it is not a
+'  top-level declaration. That is conservative in the right direction
+'  and never silently wrong: if its requirement holds, the dispatch
+'  arm below still refuses the form the moment the generator is
+'  actually called; if it does not hold, the file refuses earlier,
+'  with the unmet message rather than the from-expansion one. Either
+'  way a requirement inside a macro body is an error, and either way
+'  it is reported - only the wording differs by which check reaches it
+'  first.
+' =====================================================================
+
+' One parsed (requires-...) tag per entry, in file order. Returns the
+' count. Namespaces come back folded; values come back with their
+' string escapes resolved, exactly as the reader would have.
+Private Function VocabRequiresScan(ByVal text As String, ByRef nsOut As Collection, _
+                                    ByRef valOut As Collection, ByRef posOut As Collection) As Long
+    Set nsOut = New Collection
+    Set valOut = New Collection
+    Set posOut = New Collection
+
+    Dim n As Long
+    n = Len(text)
+    Dim inLit As Boolean
+    Dim i As Long
+    i = 1
+    Do While i <= n
+        Dim c As String
+        c = Mid$(text, i, 1)
+        If inLit Then
+            If c = "\" Then
+                i = i + 2
+            ElseIf c = """" Then
+                inLit = False
+                i = i + 1
+            Else
+                i = i + 1
+            End If
+        ElseIf c = """" Then
+            inLit = True
+            i = i + 1
+        ElseIf c = ";" Then
+            Do While i <= n
+                If Mid$(text, i, 1) = vbCr Or Mid$(text, i, 1) = vbLf Then Exit Do
+                i = i + 1
+            Loop
+        ElseIf c = "(" Then
+            Dim headStart As Long
+            headStart = i + 1
+            Do While headStart <= n And Mid$(text, headStart, 1) = " "
+                headStart = headStart + 1
+            Loop
+            Dim hEnd As Long
+            hEnd = headStart
+            Do While hEnd <= n
+                If InStr(" ()" & vbCr & vbLf & vbTab, Mid$(text, hEnd, 1)) > 0 Then Exit Do
+                hEnd = hEnd + 1
+            Loop
+            Dim head As String
+            head = VLA_Identity.Fold(Mid$(text, headStart, hEnd - headStart))
+            If Len(head) > 9 And Left$(head, 9) = "requires-" Then
+                nsOut.Add Mid$(head, 10)
+                valOut.Add RequiresReadValue(text, hEnd)
+                posOut.Add i
+            End If
+            i = hEnd
+        Else
+            i = i + 1
+        End If
+    Loop
+    VocabRequiresScan = nsOut.Count
+End Function
+
+' The quoted value directly after a requires- head. Returns "" when
+' there isn't one (a bare (requires-version) or (requires-version
+' 0.5.2) with the quotes forgotten) - the caller turns that into the
+' missing-value refusal, so this stays a pure reader and never raises.
+Private Function RequiresReadValue(ByVal text As String, ByVal fromPos As Long) As String
+    Dim n As Long
+    n = Len(text)
+    Dim i As Long
+    i = fromPos
+    Do While i <= n
+        Dim c As String
+        c = Mid$(text, i, 1)
+        If c = """" Then Exit Do
+        ' Anything but whitespace before the opening quote means there
+        ' is no quoted value to read - stop rather than skipping over
+        ' the rest of the form hunting for an unrelated string.
+        If InStr(" " & vbCr & vbLf & vbTab, c) = 0 Then Exit Function
+        i = i + 1
+    Loop
+    If i > n Then Exit Function
+
+    i = i + 1
+    Dim r As String
+    Do While i <= n
+        Dim d As String
+        d = Mid$(text, i, 1)
+        If d = "\" Then
+            r = r & Mid$(text, i + 1, 1)
+            i = i + 2
+        ElseIf d = """" Then
+            RequiresReadValue = r
+            Exit Function
+        Else
+            r = r & d
+            i = i + 1
+        End If
+    Loop
+End Function
+
+' 1-based line number of a character position, counted the way every
+' other message in this module counts them. Called only when a tag
+' actually needs to be named in a refusal, so walking the prefix is
+' free in practice.
+' lineNo, never `line`: Line is a VBA keyword (Line Input #, and the
+' Line method on a drawing surface), and this codebase has already
+' been bitten once by a local whose name collided with a VBA
+' intrinsic.
+Private Function RequiresLineOf(ByVal text As String, ByVal pos As Long) As Long
+    Dim lineNo As Long
+    lineNo = 1
+    Dim i As Long
+    For i = 1 To pos - 1
+        If Mid$(text, i, 1) = vbLf Then lineNo = lineNo + 1
+    Next
+    RequiresLineOf = lineNo
+End Function
+
+' The host-free half: version, form, and the unknown-namespace
+' refusal. Safe to call from EnglishLoadVocabularyText (and therefore
+' from VLA_Browser.bas's host-free translate path) because every exit
+' is a RaiseMsg, never a dialog. Idempotent and cheap, which is why
+' the file-path loader calls it too rather than reordering the gates.
+Private Sub VocabRequiresCheckPure(ByVal text As String, ByVal sourceName As String)
+    Dim ns As Collection, vals As Collection, poss As Collection
+    If VocabRequiresScan(text, ns, vals, poss) = 0 Then Exit Sub
+
+    ' Pass 1 - every version tag, before anything else in the file is
+    ' considered. See VERSION-FIRST ORDERING above.
+    Dim i As Long
+    For i = 1 To ns.Count
+        If CStr(ns.Item(i)) = "version" Then
+            RequiresCheckVersion CStr(vals.Item(i)), text, CLng(poss.Item(i)), sourceName
+        End If
+    Next
+
+    ' Pass 2 - everything else this site owns, in file order.
+    For i = 1 To ns.Count
+        Dim nm As String
+        nm = CStr(ns.Item(i))
+        Select Case nm
+            Case "version", "capability"
+                ' version done above; capability belongs to the
+                ' consent-shaped site, not this one.
+            Case "form"
+                ' CO.6 built docs/GRAMMAR_SINCE.md, which is what a
+                ' per-form gate would have to read, but the ledger is
+                ' a repo document and nothing carries it into a
+                ' running add-in yet. The namespace is RECOGNIZED
+                ' here on purpose - so the syntax was designed
+                ' against it rather than bent to fit later - and
+                ' refuses in words as not-yet-implemented, which is
+                ' honest, rather than passing silently.
+                VLA_Messages.RaiseMsg "english-vocab-requires-form-unsupported", _
+                    "loc", ProvLoc(sourceName, RequiresLineOf(text, CLng(poss.Item(i))), ""), _
+                    "form", CStr(vals.Item(i))
+            Case Else
+                VLA_Messages.RaiseMsg "english-vocab-requires-unknown-namespace", _
+                    "loc", ProvLoc(sourceName, RequiresLineOf(text, CLng(poss.Item(i))), ""), _
+                    "namespace", nm, "have", VLA.VLA_RELEASE_VERSION
+        End Select
+    Next
+End Sub
+
+Private Sub RequiresCheckVersion(ByVal wanted As String, ByVal text As String, _
+                                  ByVal pos As Long, ByVal sourceName As String)
+    Dim loc As String
+    loc = ProvLoc(sourceName, RequiresLineOf(text, pos), "")
+    If Len(wanted) = 0 Then
+        VLA_Messages.RaiseMsg "english-vocab-requires-missing-value", "loc", loc, "namespace", "version"
+    End If
+    ' CO.4 built VlaVersionParse as a pure predicate that never raises
+    ' precisely so this line can validate user-typed text with no
+    ' error handler around it.
+    ' vMaj/vMin/vPat, matching CO.4's own aMaj/aMin/aPat naming rather
+    ' than the bare min/max spellings a reader could mistake for
+    ' intrinsics.
+    Dim vMaj As Long, vMin As Long, vPat As Long
+    If Not VLA.VlaVersionParse(wanted, vMaj, vMin, vPat) Then
+        VLA_Messages.RaiseMsg "english-vocab-requires-version-malformed", "loc", loc, "wanted", wanted
+    End If
+    If Not VLA.VlaVersionAtLeast(wanted) Then
+        VLA_Messages.RaiseMsg "english-vocab-requires-version-unmet", "loc", loc, _
+            "wanted", wanted, "have", VLA.VLA_RELEASE_VERSION
+    End If
+End Sub
+
+' The consent-shaped half. Today every capability refuses: SEC.7 owns
+' the grant side (its own two-scope, hash-keyed consent UX, reused
+' from SEC.2 rather than DI.1's blanket per-publisher trust), and
+' until it exists nothing can grant anything - so "refuse, naming the
+' capability" is the correct and complete answer, not a placeholder.
+' SEC.7 replaces the refusal below with its ask; the parse, the
+' syntax, and this call site all stay exactly as they are.
+Private Sub VocabRequiresCheckCapability(ByVal text As String, ByVal sourceName As String)
+    Dim ns As Collection, vals As Collection, poss As Collection
+    If VocabRequiresScan(text, ns, vals, poss) = 0 Then Exit Sub
+    Dim i As Long
+    For i = 1 To ns.Count
+        If CStr(ns.Item(i)) = "capability" Then
+            Dim loc As String
+            loc = ProvLoc(sourceName, RequiresLineOf(text, CLng(poss.Item(i))), "")
+            If Len(CStr(vals.Item(i))) = 0 Then
+                VLA_Messages.RaiseMsg "english-vocab-requires-missing-value", "loc", loc, "namespace", "capability"
+            End If
+            VLA_Messages.RaiseMsg "english-vocab-requires-capability-ungranted", _
+                "loc", loc, "capability", CStr(vals.Item(i))
+        End If
+    Next
+End Sub
+
 ' F.13: load rules from a string of real VLA - read whole via
 ' VLA.VlaReadFormsWithLines (so every directive keeps a precise source
 ' line for its own error messages, the same way the old line-oriented
@@ -6325,6 +6674,14 @@ End Function
 Public Function EnglishLoadVocabularyText(ByVal text As String, _
                                           Optional ByVal sourceName As String = "vocabulary") As Long
     EnsureInit
+
+    ' F.10: the phrasebook's own declared preconditions, checked
+    ' before a single rule registers - the host-free namespaces only
+    ' (see this module's F.10 section for why capability cannot be
+    ' checked from here). This is the gate VLA_Browser.bas's host-free
+    ' translate path gets, and it opens no dialog to get it.
+    VocabRequiresCheckPure text, sourceName
+
     mLoadSource = sourceName   ' G3: provenance for every rule this load registers
 
     Dim forms As Collection, formLines As Collection

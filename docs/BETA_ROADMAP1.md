@@ -1607,30 +1607,144 @@ specimens: 3 (three blind-fix incidents, one first-user Undo report).*
   the new marker lines throughout, a declared, one-time contract change to
   the goldens' own text (the *behavior* the generated VBA runs is
   unaffected: `raw` forms emit a comment, nothing more). `~hours`
-- ⬜ **F.10 — `requires:` in phrasebooks.** The generic mechanism: a
-  `requires: <namespace>:<value>` tag, parsed and checked at phrasebook
-  load time, refused in words (LX.8's doctrine) when unmet. Two known
-  namespaces to design against so the syntax isn't invented for one and
-  bent to fit the other later: `version` (grammar/engine dependency,
-  `CO.3`'s own use) and `capability` (permissioned effects like
-  `vlasendmail`, `SEC.7`'s own use). **The `version` namespace now has
-  something concrete to check against:** `CO.4` (✅) decided that a
-  declared minimum compares against `VLA_RELEASE_VERSION` under `SD-14`'s
-  triggers, and built the verbs — `VlaVersionParse` for validating a
-  `requires:` line without an error handler, `VlaVersionAtLeast` for the
-  check itself. So this item parses and routes the tag; it does not
-  decide what a version means or how two of them order. **It also carries
-  `CO.6`'s deferred half:** `tools/check_grammar_since.ps1`, the ratchet
-  that fails when an inventory entry has no `docs/GRAMMAR_SINCE.md` row,
-  lands with this item — it was scoped out of `CO.6` under `SD-7`
-  precisely because this item is its first consumer, and a
-  `requires: version:` gate is only as trustworthy as the dates it reads.
-  *Pays into:*
-  Compatibility (`CO.3`,
-  scoped down to just its own version/backend stamps once this exists)
-  and Governance (`SEC.7`) directly — both cite this item rather than
-  restating it, the roadmap-hygiene fix found while scoping `SEC.7`.
-  `~days`
+- ✅ **F.10 — `requires:` in phrasebooks.** A phrasebook declares its
+  own preconditions; they are
+  parsed and checked before a single rule registers, and refused in
+  words (`LX.8`'s doctrine) when unmet.
+
+  **The syntax is not what this entry used to specify, and finding that
+  out was the item's first real result.** `requires: <namespace>:<value>`
+  is prose written before `F.13` migrated phrasebooks to an all-forms
+  file format. There is no line-oriented `key: value` syntax left in a
+  `.vla` file for it to be — `EnglishLoadVocabularyText`'s own note:
+  *"No custom line/paren scanning left here at all - forms are the only
+  path."* Built instead as **`(requires-version "0.5.2")`**, with the
+  namespace riding in the head. That is not a compromise but this
+  format's dominant pattern: `english-vla`/`espanol-vla` (`F.13`: *"the
+  source language rides in the head on purpose"*), `english-function`,
+  `-vla-override`. **Owner's own catch while scoping, and the reason it
+  is not `(requires version "0.5.2")`:** a bare atom in argument
+  position *names a function* in this dialect — `(english-function
+  "keys of" vladictkeys)`, and that directive's own comment says so in
+  as many words — so that spelling would assert `version` is a
+  function. The Lisp answer, `(requires 'version "0.5.2")`, is
+  unavailable: there is no quote sigil in this reader at all
+  (`StripQuoteSigil` strips a leading double-quote and nothing else),
+  and inventing one for a single directive is a language change, not a
+  tag.
+
+  **The central question this item existed to answer — one parser or
+  two? — resolved explicitly: the shared part is the PARSE, not the
+  check.** `version` is a pure yes-or-no refusal that touches no host
+  object, so it is enforced *inside* `EnglishLoadVocabularyText`, which
+  is also the only way `VLA_Browser.bas`'s host-free translate path
+  gets gated at all (a phrasebook that genuinely needs `0.7.0` is
+  genuinely unusable there too, and saying so raises a message rather
+  than opening a dialog). `capability` has to **ask** — `SEC.7`'s
+  two-scope consent UX — and a `MsgBox` in that function is exactly the
+  trap `SEC.2` was corrected for: `check_translate_purity.ps1` tracks
+  `EnglishLoadVocabularyText` **by name**, and that ratchet is
+  body-only, not transitive, so its green light was verified by reading
+  the call graph rather than trusted (`VocabRequiresCheckCapability` has
+  exactly one call site, in the file loader). So `capability` is checked
+  one level up in `EnglishLoadVocabulary`, beside `SEC.2`'s own raw
+  gate, and both `requires-` gates run *before* the raw prompt so a
+  phrasebook this build cannot run is never refused only after the user
+  has been asked to approve raw VBA for it. One syntax, one parser, two
+  enforcement sites that genuinely differ — explicitly **not** the
+  `F.10`/`CO.3` near-duplication this project was corrected for once
+  already, which was two *syntaxes* for one idea.
+
+  **Why a lexical pre-pass rather than a `DispatchVocabForm` arm:**
+  dispatch runs in file order, so a declaration below a rule would be
+  read only after that rule had registered, while `SEC.2`'s precedent
+  fires *"BEFORE a single rule from this file registers."* Being
+  pre-expansion also closes a real hole — a phrasebook cannot disguise
+  a requirement by defining a macro of the same name, which
+  `ExpandVocabMacroCall` would otherwise expand into something else —
+  and a declaration that only appears *after* expansion is refused
+  outright, since the pre-pass could never have checked it.
+
+  **Three decisions taken with the owner.**
+  1. *Unknown namespace refuses,* with **version-first ordering**:
+     every `requires-version` is evaluated before any other tag,
+     whatever the file order. That pairing is what makes
+     deny-by-default humane — a phrasebook written for a newer build
+     that declares its version gets *"needs Frazaro 0.7.0; this is
+     0.5.1"* rather than a vague complaint about whichever unknown tag
+     happened to come first. The deciding argument was **not** `SD-15`
+     but that the forward-compatibility cost is *already paid*:
+     `DispatchVocabForm` already refuses any unrecognized top-level
+     directive head, so an `0.5` build already refuses an `0.7`
+     phrasebook using any new directive. Ignoring unknown namespaces
+     would make `requires-` uniquely more permissive than every other
+     directive in the language — failing open in the one construct
+     whose entire job is gating. Secondary and independent: the head
+     word settles it semantically, since every `requires-` tag is a
+     precondition by construction and there is no advisory one.
+  2. *Both namespaces designed against now,* so the syntax was not
+     invented for one and bent to fit the other later — this entry's
+     own long-standing warning. `capability` parses and validates but
+     can only refuse, because nothing grants a capability until
+     `SEC.7`; that is the correct and complete answer today, not a
+     placeholder, and `SEC.7` replaces one branch rather than
+     reopening the syntax.
+  3. *`form` recognized and refused as not-yet-enforceable.* `CO.6`
+     makes `(requires-form "paint cell")` meaningful — and strictly
+     tighter than a version, since `SD-14`'s `MINOR` fires for a ribbon
+     button as readily as for a grammar rule — but `GRAMMAR_SINCE.md`
+     is a repo document and nothing carries it into a running add-in
+     yet. Refusing in words is honest; passing silently would not be.
+
+  **Carried `CO.6`'s deferred half:**
+  [`tools/check_grammar_since.ps1`](../tools/check_grammar_since.ps1),
+  house ratchet shape (host-independent, reviewable baseline of `0`
+  undated, never wired into `VlaSelfTest`). It re-derives neither
+  inventory: rules come from a new `-ListRules` switch on
+  `check_rule_coverage.ps1`, arms from `CO.6`'s own `-ListArms` — the
+  same "one copy, in the script that owns it" discipline, and each
+  script's default output was diffed byte-for-byte against a
+  pre-change baseline. Run today: **clean at 150/150 rules and 128/128
+  arms with zero extra rows**, which independently confirms `CO.6`'s
+  seed still matches the live grammar exactly; and confirmed to
+  actually fail by running it against a deliberately holed ledger,
+  where it named both missing forms and exited 1. Rows with no live
+  form are reported, never failed on — a retired form keeps its row
+  and gains an `until:` (the ledger's rule 3), and retirement is
+  `CO.1`'s item.
+
+  Seven new message ids, every refusal through `VLA_Messages.RaiseMsg`
+  (`VLA_SentenceEngine`'s raw-`Err.Raise` ceiling is 1 and unmoved).
+
+  **Owner-verified live in Excel (2026-09-07):** pure **985/985**
+  (973 + 12 new pins), host **143/143**, `VerifyReports` emitter
+  **141/141** and interpreter **141/141** — both backends diff-empty,
+  as an item adding no grammar must be — plus a click-through of every
+  `requires-` behaviour through the real file loader: a met
+  requirement loading silently, an unmet version, an unknown
+  namespace, version-first ordering proved with the unknown tag
+  written *first* in the file, and the shipped corpus reloading
+  untouched. **Two of those the automated suite structurally cannot
+  reach, and they were the point of testing live:** a `capability`
+  refusal (checked only on the file path, never on the host-free text
+  path — that split is the item's central design decision) and the
+  gate-order claim against `SEC.2`, verified in both directions — an
+  unmet version refuses with **no** raw-consent dialog shown, and the
+  same phrasebook with its `requires-version` line deleted still
+  raises SEC.2's dialog normally. *An honest coverage note, since a
+  green marker should not imply more than it earned:* those two
+  behaviours have **no automated pin** and cannot get one without a
+  test that either writes a real file or opens a real dialog — the
+  ten host-free behaviours are pinned in `TestF10Requires`, the two
+  host-shaped ones are covered by review and this live pass only.
+
+  *Fixed in passing, found by reading rather than assuming:*
+  `EnglishLoadVocabulary`'s own header comment still documented
+  `F.13`'s retired `pattern =>` line format, describing a shape nothing
+  has read for months. *Pays into:* Compatibility (`CO.3`, scoped down
+  to just its own version/backend stamps now this exists) and
+  Governance (`SEC.7`) directly — both cite this item rather than
+  restating it. `~days`
 - ✅ **F.12 — the ID policy.** SD-9 made mechanical: one namespace for item IDs
   across all roadmaps and ledgers, a retired ID never re-minted, and a check at
   version-close that no promoted item lost its ID to a homograph. *Why now:* it

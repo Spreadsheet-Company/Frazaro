@@ -129,6 +129,43 @@
   `0.5.0` and the artifact had simply been stale, the same staleness the
   `0.5.1` notes below record fixing.
 
+- **`F.10` — a phrasebook can now state what it needs, and is refused
+  politely when it doesn't have it.** Write a line like
+  `(requires-version "0.5.2")` at the top of a phrasebook and Frazaro
+  checks it *before* loading anything from that file. If the build is too
+  old you get a plain sentence — a phrasebook asking for `0.9.0` on this
+  build is refused with "this phrasebook needs Frazaro 0.9.0 or newer;
+  this is 0.5.2" — instead of rules that load and then mysteriously do
+  the wrong thing. This is what
+  [`docs/GRAMMAR_SINCE.md`](GRAMMAR_SINCE.md) above exists to be checked
+  against: it tells a phrasebook author which version number to write.
+
+  Nothing loads part-way. The check happens before the first rule is
+  registered, so a phrasebook is either fully in or fully refused —
+  and it does not matter where in the file the line sits.
+
+  Two other kinds of requirement are understood and both currently
+  **refuse**, on purpose rather than by omission.
+  `(requires-capability "...")` is the permission system that is not
+  built yet (`SEC.7`, below): since nothing can grant a capability, the
+  honest answer to a phrasebook asking for one is no. `(requires-form
+  "...")` — needing one specific sentence rather than a whole version —
+  is understood but cannot be checked yet, because the record above
+  lives in the source repository and is not carried inside Frazaro
+  itself. A requirement Frazaro doesn't recognise at all is also
+  refused: it cannot confirm the requirement is met, so it does not
+  pretend to. Note this is a phrasebook *declaring* what it needs; it is
+  not yet a restriction on what the verbs themselves may do — see the
+  `SEC.7` item below, which is unchanged by this release.
+
+  Because a version requirement is only as good as the record it is
+  written against, the release checks now also refuse to let a form
+  reach a release with no row in
+  [`docs/GRAMMAR_SINCE.md`](GRAMMAR_SINCE.md). If you are writing a
+  phrasebook, that means the version number you look up there covers
+  every sentence Frazaro understands, not just the ones someone
+  remembered to record.
+
 ### Known open security items
 
 - **SEC.3** — generated code does not yet carry phrasebook provenance.

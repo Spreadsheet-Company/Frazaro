@@ -52,7 +52,24 @@ Usage:  pwsh -File tools/check_rule_coverage.ps1 [-ArtifactPath <path>]
 #>
 
 param(
-    [string]$ArtifactPath
+    [string]$ArtifactPath,
+    # F.10 addition, off by default. With it not passed this script
+    # prints and exits exactly as it always has - verified by diffing a
+    # full run against a baseline captured before this param existed,
+    # the same discipline CO.6 applied when it added -ListArms to
+    # check_emitter_coverage.ps1.
+    #
+    # -ListRules   print EVERY phrase rule's pattern, one per line,
+    #              instead of the coverage report. check_grammar_since.ps1
+    #              needs the rule INVENTORY rather than the
+    #              under-tested subset, and it must come from THIS
+    #              script's own reader: the pattern extraction below is
+    #              subtle (the artifact is verticalized, so the pattern
+    #              is on a later line than its head - a fact that
+    #              silently broke this very script for two weeks), and a
+    #              second copy of it in a checker is precisely the
+    #              divergence CO.6's own -ListArms note warns about.
+    [switch]$ListRules
 )
 
 $ErrorActionPreference = 'Stop'
@@ -216,6 +233,15 @@ for ($li = 0; $li -lt $lines.Count; $li++) {
         '^test-fail$' {
             $testFailCount++
         }
+        '^requires-' {
+            # F.10: a phrasebook's own declared precondition. Not a
+            # phrase rule and not an owner of the tests after it -
+            # same non-owner treatment as defmacro below. Listed
+            # explicitly so a phrasebook that carries one is not
+            # reported as an unknown form; english.vla carries none
+            # today, which is why adding this branch leaves the
+            # default report byte-identical.
+        }
         '^(defmacro|english-function|keyword-alias)$' {
             # not owners - never reset currentRule (a defmacro helper can
             # sit before the rule it supports, e.g. set-formula ahead of
@@ -228,6 +254,15 @@ for ($li = 0; $li -lt $lines.Count; $li++) {
         }
     }
     $pendingRowTag = ''
+}
+
+if ($ListRules) {
+    # Inventory mode: every rule's pattern, in registration order, and
+    # nothing else - no header, no counts, so a caller can read the
+    # list without parsing around a report. Ordering is the artifact's
+    # own, which is registration order (G-EXPANDER's contract).
+    foreach ($r in $rules) { Write-Output $r.Pattern }
+    exit 0
 }
 
 # --- Report -------------------------------------------------------------

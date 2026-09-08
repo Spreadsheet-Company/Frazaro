@@ -80,18 +80,32 @@ dates into an append-only file:**
 
 ## Maintenance
 
-Today this file is maintained by hand at release time, and that is a
-deliberate, temporary choice: `F.10` is not built, so nothing yet reads
-these dates, and `SD-7` says work is not scheduled without something that
-needs it. The seed is the perishable half — it gets harder every release,
-which is why it was taken now, while the whole history is two tags.
+This file is maintained by hand at release time: **adding a form means
+adding its row in the same commit.** That discipline is no longer
+enforced by review alone —
+[`tools/check_grammar_since.ps1`](../tools/check_grammar_since.ps1)
+(`F.10`, which is this ledger's first real consumer) fails when a live
+form has no row here, so a new form cannot reach a release undated.
 
-When `F.10` lands, `tools/check_grammar_since.ps1` should follow the
-house ratchet shape (`tools/*.ps1`, host-independent, reviewable
-baseline, never wired into `VlaSelfTest`): fail when an inventory entry
-has no row here, so a new form cannot reach a release undated. Until
-then, adding a form means adding its row in the same commit — the same
-discipline, enforced by review instead of by a script.
+It takes both inventories from the scripts that already own that
+parsing rather than re-deriving either: `check_rule_coverage.ps1
+-ListRules` for the 150 phrase rules and `check_emitter_coverage.ps1
+-ListArms` for the 128 dispatch arms. `-ListArms` was added for the
+seed above; `-ListRules` was added for the checker, and both for the
+same stated reason — a second copy of subtle parsing is the divergence
+this project keeps paying for, and the rule-pattern reader had already
+been silently broken for two weeks by exactly that class of drift.
+Each script's default output was diffed byte-for-byte against a
+pre-change baseline when its switch was added.
+
+**What the ratchet does not do**, because nothing can: check that a
+date is *correct*. That is why the seed was verified against source
+history rather than the generated artifact, and why rule 2 above makes
+these rows append-only. It answers one question — does every live form
+have a row — and its baseline is `0` undated, a ceiling with no honest
+reason to rise. Rows with no live form are *reported and not failed
+on*: a retired form keeps its row and gains an `until:` (rule 3), so an
+extra row is legal.
 
 ---
 
