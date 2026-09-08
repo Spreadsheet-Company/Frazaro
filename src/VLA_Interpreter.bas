@@ -2376,23 +2376,102 @@ Private Function DynamicGet(ByVal obj As Object, ByVal member As String, ByVal a
         Case "borders": AssignVar DynamicGet, obj.Borders: Exit Function
         Case "tab": AssignVar DynamicGet, obj.Tab: Exit Function
         Case "entirecolumn": AssignVar DynamicGet, obj.EntireColumn: Exit Function
+        ' SEC.1 Tier 2: promoted from the CallByName fallback removed
+        ' below, after a full-repo census (every "(. obj member...)" and
+        ' bare dotted-global shape across scripts/*.vla, scripts/
+        ' polyglotta/*.vla, and the src/*.bas test suites) of every
+        ' member currently reached only through it. Each of these
+        ' already ran, silently, through late-bound CallByName before
+        ' this pass - nothing here is new capability, only a new fixed,
+        ' audited line of VBA for a member real shipped macros or the
+        ' green host-test suite already exercise (found-items/for-each's
+        ' own ".value" read, G-TABLES's own listobjects/listrows/
+        ' listcolumns chain, "font."/"interior."/"entirerow." as
+        ' intermediate DescendToParent hops, "rows.count"/".row" for
+        ' last-filled-row, "worksheets.add", cell-of-sheet's own
+        ' "(worksheets s) range r").
+        Case "value": AssignVar DynamicGet, obj.Value: Exit Function
+        ' SEC.1 Tier 2 correction (found live, host self-test): every
+        ' member below was ALREADY native for SET, before this pass ever
+        ' started - DynamicSet's own IN.3 census only ever covered the
+        ' write direction ((set! (. r member) v)). Reading the SAME
+        ' member back ((. r member) as an expression, or a bare dotted-
+        ' global like activesheet.name/thisworkbook.name) was NEVER
+        ' native on the get side and so, like "value" above before its
+        ' own fix, silently rode the CallByName fallback the whole time
+        ' - invisible until that fallback came out. The corpus-and-test
+        ' census this pass ran caught "value" specifically because a
+        ' host test read it explicitly; it did not generalize to "every
+        ' Set-native property is presumably also Get-native somewhere,"
+        ' which the same host suite's own "activesheet.name"/
+        ' "font.bold"/"thisworkbook.name" pins then caught live. Fixed
+        ' by mirroring DynamicSet's own list wholesale rather than
+        ' waiting for each to fail individually - the same "once a tier
+        ' is this unaudited, close it in one pass" lesson IN.11 already
+        ' recorded for DynamicCall's own zero-arg census.
+        Case "size": AssignVar DynamicGet, obj.Size: Exit Function
+        Case "color": AssignVar DynamicGet, obj.Color: Exit Function
+        Case "formula": AssignVar DynamicGet, obj.Formula2: Exit Function
+        Case "bold": AssignVar DynamicGet, obj.Bold: Exit Function
+        Case "italic": AssignVar DynamicGet, obj.Italic: Exit Function
+        Case "horizontalalignment": AssignVar DynamicGet, obj.HorizontalAlignment: Exit Function
+        Case "columnwidth": AssignVar DynamicGet, obj.ColumnWidth: Exit Function
+        Case "colorindex": AssignVar DynamicGet, obj.ColorIndex: Exit Function
+        Case "numberformat": AssignVar DynamicGet, obj.NumberFormat: Exit Function
+        Case "linestyle": AssignVar DynamicGet, obj.LineStyle: Exit Function
+        Case "hidden": AssignVar DynamicGet, obj.Hidden: Exit Function
+        Case "rowheight": AssignVar DynamicGet, obj.RowHeight: Exit Function
+        Case "name": AssignVar DynamicGet, obj.Name: Exit Function
+        Case "freezepanes": AssignVar DynamicGet, obj.FreezePanes: Exit Function
+        Case "wraptext": AssignVar DynamicGet, obj.WrapText: Exit Function
+        Case "calculation": AssignVar DynamicGet, obj.Calculation: Exit Function
+        Case "cutcopymode": AssignVar DynamicGet, obj.CutCopyMode: Exit Function
+        Case "displayalerts": AssignVar DynamicGet, obj.DisplayAlerts: Exit Function
+        Case "screenupdating": AssignVar DynamicGet, obj.ScreenUpdating: Exit Function
+        Case "statusbar": AssignVar DynamicGet, obj.StatusBar: Exit Function
+        Case "tablestyle": AssignVar DynamicGet, obj.TableStyle: Exit Function
+        Case "showtotals": AssignVar DynamicGet, obj.ShowTotals: Exit Function
+        Case "range"
+            If ArgCount(argVals) = 1 Then
+                AssignVar DynamicGet, obj.Range(ArgAt(argVals, 0))
+                Exit Function
+            End If
+        Case "entirerow": AssignVar DynamicGet, obj.EntireRow: Exit Function
+        Case "font": AssignVar DynamicGet, obj.Font: Exit Function
+        Case "interior": AssignVar DynamicGet, obj.Interior: Exit Function
+        Case "row": AssignVar DynamicGet, obj.Row: Exit Function
+        Case "count": AssignVar DynamicGet, obj.Count: Exit Function
+        Case "databodyrange": AssignVar DynamicGet, obj.DataBodyRange: Exit Function
+        Case "add": AssignVar DynamicGet, obj.Add: Exit Function
+        Case "listobjects"
+            If ArgCount(argVals) = 0 Then
+                AssignVar DynamicGet, obj.ListObjects
+            Else
+                AssignVar DynamicGet, obj.ListObjects(ArgAt(argVals, 0))
+            End If
+            Exit Function
+        Case "listrows"
+            If ArgCount(argVals) = 0 Then
+                AssignVar DynamicGet, obj.ListRows
+            Else
+                AssignVar DynamicGet, obj.ListRows(ArgAt(argVals, 0))
+            End If
+            Exit Function
+        Case "listcolumns"
+            If ArgCount(argVals) = 1 Then
+                AssignVar DynamicGet, obj.ListColumns(ArgAt(argVals, 0))
+                Exit Function
+            End If
     End Select
-    On Error Resume Next
-    Err.Clear
-    AssignVar DynamicGet, CallByNameArgs(obj, member, VbGet, argVals)
-    If Err.Number <> 0 Then
-        Dim d1 As String
-        d1 = Err.Description
-        Err.Clear
-        AssignVar DynamicGet, CallByNameArgs(obj, member, VbMethod, argVals)
-        If Err.Number <> 0 Then
-            Dim d2 As String
-            d2 = Err.Description
-            On Error GoTo 0
-            VLA_Messages.RaiseMsg "interp-dynamicget-neither", "member", member, "getErr", d1, "methodErr", d2
-        End If
-    End If
-    On Error GoTo 0
+    ' SEC.1 Tier 2: the CallByName fallback that used to sit here is
+    ' removed - anything not in the Select Case above is refused in
+    ' words (LX.8's doctrine), not attempted via arbitrary late-bound
+    ' dispatch against whatever obj happens to be at runtime. This
+    ' closes THREAT_MODEL.md SS1.2's own finding. A real, legitimate new
+    ' member belongs in the Select Case above, reviewed and added by
+    ' name, the same way every member already there got there (IN.3/
+    ' IN.11's own history).
+    VLA_Messages.RaiseMsg "interp-dynamic-member-refused", "member", member
 End Function
 
 ' Statement position: try Method, then Get (a bare '.' call is almost
@@ -2435,24 +2514,40 @@ Private Sub DynamicCall(ByVal obj As Object, ByVal member As String, ByVal argVa
             Case "select": obj.Select: Exit Sub
             Case "filldown": obj.FillDown: Exit Sub
             Case "fillright": obj.FillRight: Exit Sub
+            ' SEC.1 Tier 2: promoted from the CallByName fallback
+            ' (removed below) - table-to-range/table-add-row/clear-
+            ' everything-from/refresh-everything/save-current-workbook/
+            ' group-rows/ungroup-rows/(new Collection)'s own zero-arg
+            ' ".add" all already reached these natively-absent members
+            ' through late-bound dispatch before this.
+            Case "unlist": obj.Unlist: Exit Sub
+            Case "add": obj.Add: Exit Sub
+            Case "clear": obj.Clear: Exit Sub
+            Case "refreshall": obj.RefreshAll: Exit Sub
+            Case "save": obj.Save: Exit Sub
+            Case "group": obj.Group: Exit Sub
+            Case "ungroup": obj.Ungroup: Exit Sub
+        End Select
+    ElseIf ArgCount(argVals) = 1 Then
+        ' SEC.1 Tier 2: the one-positional-argument statement-call
+        ' census - open-workbook/save-workbook-as/save-copy-as/
+        ' wait-seconds, plus (new Collection)'s own one-arg ".add"
+        ' (IN.11's own "Set pick-check to item 2 of found-items." pin),
+        ' each previously reaching CallByName's VbMethod path with
+        ' exactly one argument.
+        Select Case VLA_Identity.Fold(member)
+            Case "add": obj.Add ArgAt(argVals, 0): Exit Sub
+            Case "open": obj.Open ArgAt(argVals, 0): Exit Sub
+            Case "saveas": obj.SaveAs ArgAt(argVals, 0): Exit Sub
+            Case "savecopyas": obj.SaveCopyAs ArgAt(argVals, 0): Exit Sub
+            Case "wait": obj.Wait ArgAt(argVals, 0): Exit Sub
         End Select
     End If
-    On Error Resume Next
-    Err.Clear
-    CallByNameArgsVoid obj, member, VbMethod, argVals
-    If Err.Number <> 0 Then
-        Dim d1 As String
-        d1 = Err.Description
-        Err.Clear
-        CallByNameArgsVoid obj, member, VbGet, argVals
-        If Err.Number <> 0 Then
-            Dim d2 As String
-            d2 = Err.Description
-            On Error GoTo 0
-            VLA_Messages.RaiseMsg "interp-dynamiccall-neither", "member", member, "methodErr", d1, "getErr", d2
-        End If
-    End If
-    On Error GoTo 0
+    ' SEC.1 Tier 2: the CallByName fallback that used to sit here is
+    ' removed - anything not in the Select Case above is refused in
+    ' words (LX.8's doctrine), not attempted via arbitrary late-bound
+    ' dispatch. This closes THREAT_MODEL.md SS1.2's own finding.
+    VLA_Messages.RaiseMsg "interp-dynamic-member-refused", "member", member
 End Sub
 
 ' Write position: NATIVE fast paths, not a CallByName heuristic - and,
@@ -2478,14 +2573,13 @@ End Sub
 ' size/colorindex/numberformat/linestyle/hidden/rowheight/name/
 ' freezepanes/wraptext - 15 members, not 3), all switched to this same
 ' native shape in one pass rather than waiting for each to crash on its
-' own reload. CallByName's Let/Set path below is kept only as a fallback
-' for a member no real corpus use has reached yet - genuinely unproven,
-' not "probably fine": every member this project has ever actually
-' tried through it has failed, one way or another (silently for Value,
-' loudly for Size/Color), so a future crash or silent-wrong-value there
-' is the expected outcome of hitting unproven ground, not a surprise to
-' re-litigate from scratch - extend this Select Case the same way, not
-' by re-arguing whether the heuristic can be trusted.
+' own reload. CallByName's Let/Set path used to sit below as a fallback
+' for a member no real corpus use had reached yet - genuinely unproven,
+' not "probably fine": every member this project ever actually tried
+' through it failed, one way or another (silently for Value, loudly for
+' Size/Color). SEC.1 Tier 2 later removed that fallback entirely (see
+' this Sub's own tail below) once a full-repo census confirmed every
+' member still reaching it by name, promoting each the same way.
 ' IN.3 (the very next host run, same audit, an incomplete count rather
 ' than a new failure mode): TestInterpreterObjectDispatch's own new
 ' application.screenupdating pin FAILED - "still True" - not a crash,
@@ -2627,99 +2721,18 @@ Private Sub DynamicSet(ByVal obj As Object, ByVal member As String, ByVal v As V
         Case "displayalerts": obj.DisplayAlerts = v: Exit Sub
         Case "screenupdating": obj.ScreenUpdating = v: Exit Sub
         Case "statusbar": obj.StatusBar = v: Exit Sub
+        ' SEC.1 Tier 2: promoted from the CallByName fallback (removed
+        ' below) - table-style/table-totals-on/table-totals-off's own
+        ' two members, previously reaching CallByName's VbLet path.
+        Case "tablestyle": obj.TableStyle = v: Exit Sub
+        Case "showtotals": obj.ShowTotals = v: Exit Sub
     End Select
 
-    Dim tmp(0 To 0) As Variant
-    AssignVar tmp(0), v
-    Dim argVals As Variant
-    argVals = tmp
-    On Error Resume Next
-    Err.Clear
-    CallByNameArgsVoid obj, member, VbLet, argVals
-    If Err.Number <> 0 Then
-        Dim d1 As String
-        d1 = Err.Description
-        Err.Clear
-        CallByNameArgsVoid obj, member, VbSet, argVals
-        If Err.Number <> 0 Then
-            Dim d2 As String
-            d2 = Err.Description
-            On Error GoTo 0
-            VLA_Messages.RaiseMsg "interp-dynamicset-failed", "member", member, "letErr", d1, "setErr", d2
-        End If
-    End If
-    On Error GoTo 0
-End Sub
-
-' The one place that actually calls VBA's CallByName - VBA's ParamArray
-' Args() is positional, with no way to "splat" a dynamically-sized
-' array into it, so up to 4 positional arguments are spelled out
-' explicitly. Every real use in today's corpus fits comfortably; a
-' form needing more refuses in words, naming the member and the count.
-' IN.11: the real root cause behind "Set pick-check to item 2 of
-' found-items."'s own raw-pointer garbage, isolated by a standalone,
-' zero-shared-state reproduction (a throwaway VLA_Diag.bas module, not
-' kept in this project) after two earlier theories (an undefined
-' CallByName return for a void Sub target; ByVal vs. ByRef on argVals
-' itself) both turned out real but NOT the actual cause. The precise
-' trigger, confirmed by direct A/B: indexing an array-valued Variant
-' PARAMETER inline, as part of a CallByName(...) call's own argument
-' list (`argVals(0)`, exactly what this function did), when that
-' parameter arrived via two or more levels of Sub-to-Sub forwarding -
-' corrupts what CallByName actually receives. A local scalar carried
-' through the same depth of hops: fine, every time. The same array,
-' indexed with zero hops in the scope that built it: also fine - only
-' the combination (array + multi-hop forwarding + inline indexing at
-' the call site) breaks. Fixed by never indexing argVals inline in the
-' CallByName call itself: each element is read into a plain local
-' Variant first (an ordinary assignment, not an inline index
-' expression), and CallByName is called against the locals.
-Private Function CallByNameArgs(ByVal obj As Object, ByVal member As String, ByVal ct As VbCallType, ByVal argVals As Variant) As Variant
-    Dim n As Long
-    n = ArgCount(argVals)
-    Dim a0 As Variant, a1 As Variant, a2 As Variant, a3 As Variant
-    If n >= 1 Then AssignVar a0, argVals(0)
-    If n >= 2 Then AssignVar a1, argVals(1)
-    If n >= 3 Then AssignVar a2, argVals(2)
-    If n >= 4 Then AssignVar a3, argVals(3)
-    Select Case n
-        Case 0: AssignVar CallByNameArgs, CallByName(obj, member, ct)
-        Case 1: AssignVar CallByNameArgs, CallByName(obj, member, ct, a0)
-        Case 2: AssignVar CallByNameArgs, CallByName(obj, member, ct, a0, a1)
-        Case 3: AssignVar CallByNameArgs, CallByName(obj, member, ct, a0, a1, a2)
-        Case 4: AssignVar CallByNameArgs, CallByName(obj, member, ct, a0, a1, a2, a3)
-        Case Else
-            VLA_Messages.RaiseMsg "interp-dispatch-too-many-args", "member", member, "n", n
-    End Select
-End Function
-
-' IN.11: this Sub's own original justification - "Collection.Add is a
-' void Sub, and CallByName's undefined return for a void target can
-' read uninitialized memory when captured via an expression" - was
-' real but turned out NOT to be the actual cause of the bug that led
-' here; CallByNameArgs's own header note (above) has the real
-' mechanism and the fix both functions now share. Kept anyway, for the
-' same reason DynamicSet's own trust-question audit already
-' established once: never asking VBA to interpret a return value at
-' all, for a genuinely void target, is still the more defensible shape
-' than capturing one nobody uses, at zero cost either way.
-Private Sub CallByNameArgsVoid(ByVal obj As Object, ByVal member As String, ByVal ct As VbCallType, ByVal argVals As Variant)
-    Dim n As Long
-    n = ArgCount(argVals)
-    Dim a0 As Variant, a1 As Variant, a2 As Variant, a3 As Variant
-    If n >= 1 Then AssignVar a0, argVals(0)
-    If n >= 2 Then AssignVar a1, argVals(1)
-    If n >= 3 Then AssignVar a2, argVals(2)
-    If n >= 4 Then AssignVar a3, argVals(3)
-    Select Case n
-        Case 0: CallByName obj, member, ct
-        Case 1: CallByName obj, member, ct, a0
-        Case 2: CallByName obj, member, ct, a0, a1
-        Case 3: CallByName obj, member, ct, a0, a1, a2
-        Case 4: CallByName obj, member, ct, a0, a1, a2, a3
-        Case Else
-            VLA_Messages.RaiseMsg "interp-dispatch-too-many-args", "member", member, "n", n
-    End Select
+    ' SEC.1 Tier 2: the CallByName fallback that used to sit here is
+    ' removed - anything not in the Select Case above is refused in
+    ' words (LX.8's doctrine), not attempted via arbitrary late-bound
+    ' dispatch. This closes THREAT_MODEL.md SS1.2's own finding.
+    VLA_Messages.RaiseMsg "interp-dynamic-member-refused", "member", member
 End Sub
 
 ' Walks all but the last dot-separated segment of memberPath via

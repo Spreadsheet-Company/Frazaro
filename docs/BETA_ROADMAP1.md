@@ -549,7 +549,7 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   in this tranche cites it, and it costs a document, not a feature. *Pays
   into:* every `SEC.*` item below, `EN.1`'s capability probe, `DI.1`'s
   trust-prompt precedent. `~hours`
-- ⬜ **SEC.1 — capability gating of dynamic dispatch.** SD-15 is the
+- ✅ **SEC.1 — capability gating of dynamic dispatch.** SD-15 is the
   decision; this is the artifact. *The adjudication, recorded so it is not
   relitigated:* signature/pattern detection over forms — "does this form
   look suspicious" — was considered and rejected. It is unsound for this
@@ -568,52 +568,85 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   would false-positive against the shipped corpus.
 
   **The design chosen instead — closed-world capability enumeration, not
-  open-world intent classification.** Three tiers:
+  open-world intent classification.** Three tiers, named here so the split
+  below stays legible against the original adjudication:
   - **Tier 0 — native, vetted, fixed-signature.** The dispatch tiers `IN.2`
     already built (`DynamicGet`/`DynamicCall`/`DynamicSet`'s native
     fast-path cases, `TryRuntimeHelper`'s known helper set). Each is a
     specific, reviewed function with a fixed signature — capability-safe by
     construction, no new gate needed; this is the ground floor and it
-    already exists.
-  - **Tier 1 — permissioned, declared.** The small set of verbs with real
-    external effect — `vlasendmail` today; file I/O once G-FILES ships.
-    Each carries a `requires: capability:<name>` tag, `F.10`/`CO.3`'s own
-    `requires:` mechanism generalized from grammar-version dependency to
-    permission, checked at load against what the workbook/user has
-    granted, refused in words (LX.8's doctrine) when absent. *What stays
-    deliberately absent from the grammar entirely:* a process-spawn verb.
-    Not building one is itself the security property, not a gap to fill.
+    already existed before this item.
+  - **Tier 1 — permissioned, declared.** *Scoped, not built here — see
+    `SEC.7`, its own follow-on item, for the design and the owner's own
+    answers to its four real open questions.*
   - **Tier 2 — `raw` and the `CallByName` fallback: the actual hole, closed
     by subtraction, not detection.** See SEC.2 for `raw` specifically. The
-    `CallByName` fallback in `DynamicGet`/`DynamicCall` (confirmed live:
-    `CallByNameArgs`, `VLA_Interpreter.bas` ~line 2311, dispatches on a
-    caller-supplied member-name string with no gate) should be **removed
-    from shipped builds** so those functions only ever reach Tier 0;
-    anything not in the enumerated native set refuses in words instead of
-    falling through to arbitrary late-bound dispatch. This is the cheap,
-    concrete first cut: subtractive, not additive — shrinking the reachable
-    surface to what is already named and reviewed, rather than building a
-    classifier smart enough to judge arbitrary code. **Needs a live test
-    before being treated as settled**, in either direction: confirm
-    `Application` is actually reachable through the fallback today (this
-    session flagged it from reading, per SD-15's own note, and did not
-    exploit it), and confirm removing the fallback does not break a
-    corpus form that legitimately depends on it (a full `VerifyReport`
-    pass both ways is the acceptance test, same discipline as everywhere
-    else in this file).
+    `CallByName` fallback in `DynamicGet`/`DynamicCall`/`DynamicSet`
+    (confirmed live: `CallByNameArgs`/`CallByNameArgsVoid`, dispatching on a
+    caller-supplied member-name string with no gate — the file has moved
+    since SEC.0's own ~line-2311 citation; re-grep, don't trust a cached
+    line number) is **removed from shipped builds** so those functions only
+    ever reach Tier 0; anything not in the enumerated native set refuses in
+    words instead of falling through to arbitrary late-bound dispatch. This
+    is the cheap, concrete first cut: subtractive, not additive — shrinking
+    the reachable surface to what is already named and reviewed, rather than
+    building a classifier smart enough to judge arbitrary code.
+
+  **This item's own scope is Tier 0 + Tier 2 only — built, and
+  owner-verified live** (`VLA_SELF-TESTS` pure 947/947, host 143/143;
+  `VerifyReports` emitter 141/141, interpreter 141/141). Tier 1 is a
+  separate, unbuilt item (`SEC.7`) — this line item does not wait on it,
+  the same way `SEC.2` shipped without waiting on `SEC.1`. Not a pure
+  deletion, and the real shape is worth recording: a full-repo census of
+  every `(. obj member...)` and bare dotted-global shape across
+  `scripts/*.vla`, `scripts/polyglotta/*.vla`, and the `src/*.bas` test
+  suites found **25 distinct members** reached only through the fallback,
+  not merely the G-PIVOT/G-TABLES surface this item's own text
+  anticipated — G-PIVOT, checked directly, never touches this mechanism at
+  all (dedicated `VLA_Runtime.bas` Subs), and keyword-argument calls
+  (`DynamicNamedCall`) already had no fallback to begin with. The real
+  dependents were G-TABLES's `listobjects`/`listrows`/`listcolumns`/
+  `databodyrange`/`tablestyle`/`showtotals`/`unlist` chain, `font.`/
+  `interior.`/`entirerow.` as intermediate `DescendToParent` hops,
+  `rows.count`/`.row` (`last-filled-row`), `worksheets.add`, several
+  housekeeping macros (`clear-everything-from`, `refresh-everything`,
+  `save-current-workbook`, `group-rows`/`ungroup-rows`, `open-workbook`,
+  `save-workbook-as`, `save-copy-as`, `wait-seconds`), plain cell-`.value`
+  reads, and cross-sheet `.range` lookups — the last two missed by a
+  corpus-only first pass and only caught by also sweeping the test suites,
+  since they are core interpreter behavior exercised by the green
+  host-test suite (`VLA_Tests_Host.bas`'s own `for-each`/parity pins)
+  rather than literal `.vla` corpus text. Each was promoted to its own
+  fixed, audited native `Select Case` arm — Tier 0 by the same definition
+  as every member already there, added the same way `DynamicSet`'s own
+  three prior census-then-native passes did — before the fallback itself
+  was removed. **Correction found during the owner's own first live run,
+  not assumed clean:** the first pass promoted every member the census
+  found in *read* or *write* position as used, but missed that a property
+  already native for `set!` (`name`, `bold`, `size`, `color`, and the rest
+  of `DynamicSet`'s pre-existing 20-member list) is generally also read
+  elsewhere — `activesheet.name`/`thisworkbook.name`/`font.bold` all read
+  clean in the corpus's own write-heavy usage but broke live the moment a
+  host test read one of them back, the exact same shape `.value`'s own fix
+  had already hit and should have generalized from. Fixed by mirroring
+  `DynamicSet`'s entire native list into `DynamicGet` in one pass rather
+  than chasing each read direction individually. A new regression pin
+  (`TestInterpreterSec1DynamicMemberRefused`, `VLA_Tests.bas`) proves the
+  fallback is actually gone, not merely that one already-audited member
+  was never reached: `Collection.Remove` is real, host-free, and was
+  perfectly `CallByName`-resolvable before this fix, so its refusal now is
+  direct evidence the generic path is closed, not a coincidence of what
+  happened to be in scope.
 
   *Why this is unusually cheap for this codebase specifically:* it is not
   new machinery. `VLA_HeadTable` already enumerates the whole reachable
   surface by name (F.1's own thesis — one chokepoint, not a hundred sites
   — pointed at a fourth axis instead of readability); `SD-5`/`R9`/`IN.5`
   already established "declare or refuse, never silently diverge" as house
-  style; `DI.1`'s "Trust all from publisher" flow is a working,
-  live-verified consent UX ready to be reused for "trust this phrasebook's
-  use of `raw`/mail" with different words. *Pays into:* IO.1/GO.3 (the
-  supply-chain risk gets a mechanism), the IT-facing security summary a
-  procurement reviewer will ask for. *Depends on:* SEC.0. `~days` for the
-  subtractive fix and its live test; `~weeks` for the `requires:`/consent
-  follow-through.
+  style. *Pays into:* IO.1/GO.3 (the supply-chain risk gets a mechanism
+  once `SEC.7` lands), the IT-facing security summary a procurement
+  reviewer will ask for, `SEC.6` (its own expiry condition — default-deny
+  dispatch plus `raw` gated — is now met). *Depends on:* SEC.0.
 - ✅ **SEC.2 — `raw` behind explicit, per-phrasebook consent.** Built
   and **owner-verified live** (VLA_SELF-TESTS pure 936/936, host
   143/143; a full manual click-through of every path below, including
@@ -700,11 +733,64 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   stance means a disclosed vulnerability has no push-update path to the
   people already running an affected build; this item does not resolve
   that, it only makes sure a report has somewhere to land. `~hours`
-- 🔒 **SEC.6 — a security review before wide release.** Gated on SEC.0–SEC.2
-  landing and live-tested. *Expiry condition, G9-shaped:* opens the moment
-  the interpreter's default-runtime dispatch surface is default-deny and
-  `raw` is gated — not before, since reviewing a surface that is about to
-  change is reviewing the wrong thing. `~days`–`~weeks`
+- ⬜ **SEC.6 — a security review before wide release.** Gated on SEC.0–SEC.2
+  landing and live-tested. *Expiry condition, G9-shaped, now met:* opens
+  the moment the interpreter's default-runtime dispatch surface is
+  default-deny and `raw` is gated — `SEC.1`'s own Tier 2 (default-deny,
+  owner-verified live, committed) and `SEC.2` (`raw` gated,
+  owner-verified live, committed) both landed, so this item is unlocked,
+  not itself done. *Not gated on `SEC.7`* (Tier 1's own permission layer)
+  — a review of the dispatch surface's own soundness doesn't need a
+  consent UX for `vlasendmail` to exist first, though `SEC.7`'s findings
+  are worth folding in before this one closes if both are in flight
+  together. `~days`–`~weeks`
+- ⬜ **SEC.7 — Tier 1: permissioned, declared capabilities.** `SEC.1`'s own
+  three-tier design named a small set of verbs with real external effect
+  — `vlasendmail` today; file I/O once G-FILES ships — each meant to carry
+  a `requires: capability:<name>` tag, checked at load, refused in words
+  (LX.8's doctrine) when the workbook/user hasn't granted it. Scoped this
+  session, not built — `SEC.1`'s own Tier 0/Tier 2 split shipped without
+  waiting on this, the same way `SEC.2` shipped without waiting on `SEC.1`.
+  *What stays deliberately absent from the grammar entirely regardless of
+  this item's own outcome:* a process-spawn verb — not building one is
+  itself the security property, not a gap for this item to fill. Four real
+  open questions, resolved with the owner during scoping:
+  1. *`requires: capability:<name>` now, or wait for `F.10`/`CO.3` to
+     generalize `requires:` first?* Neither `F.10` nor `CO.3` is built yet
+     (`BETA_ROADMAP2.md`, both ⬜). **Decided: build a minimal, general
+     `F.10` first** — `requires:` is one syntax construct; a general
+     `requires: <namespace>:<value>` tag (namespace `version` for
+     `F.10`/`CO.3`'s own grammar-dependency use, `capability` for this
+     item's), parsed and checked at load by one shared function, avoids a
+     second `requires:` syntax to reconcile later, and question 3 below
+     already commits to a shared-mechanism shape anyway. *Depends on:*
+     `F.10` landing first, sized similarly (`~days`), with this item as
+     its first real consumer.
+  2. *Consent UX — `DI.1`'s "Trust all from publisher" modal, or `SEC.2`'s
+     own two-scope (this workbook / this device) consent?* **Decided: this
+     item's own two-scope pattern** — `DI.1`'s flow is a *per-publisher*
+     blanket trust (grant it once, every capability that publisher's
+     phrasebooks ever request — including ones added in a later update —
+     is silently covered with no fresh prompt); `SEC.2`'s own flow is
+     *per-capability* and hash-keyed (a new capability, or any phrasebook
+     edit, always re-prompts). This item exists specifically to answer
+     "who do I hold accountable for this effect" (`SEC.3`'s own framing)
+     capability-by-capability; a blanket-trust UX undermines that the
+     moment a trusted publisher's phrasebook quietly starts using a new
+     capability. Reuse: same modal chain, same hash-keyed scoping, same
+     "no test-bypass toggle" discipline, capability name substituted for
+     `raw`.
+  3. *Generic machinery now, or single-purpose to `vlasendmail`?*
+     **Decided: generic** — the next capability (file I/O, once G-FILES
+     ships) becomes a trivial follow-on rather than a rewrite.
+  4. *Checked at phrasebook LOAD time, or at dispatch time?* **Decided:
+     load time** — matches `SEC.2`'s own chokepoint precedent
+     (`EnglishLoadVocabulary`, not the shared host-free
+     `EnglishLoadVocabularyText` primitive).
+
+  *Pays into:* IO.1/GO.3 (the supply-chain risk gets its mechanism),
+  `SEC.3` (needs this item's tiers to have something to attribute).
+  *Depends on:* `SEC.1`, `F.10`. `~weeks`.
 
 ---
 

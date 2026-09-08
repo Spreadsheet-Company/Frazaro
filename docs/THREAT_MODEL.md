@@ -72,6 +72,24 @@ VBA someone wrote and can audit. It is also, honestly, the smallest tier.
 
 ### 1.2 The `CallByName` fallback (unbounded — the real finding)
 
+**STATUS UPDATE (SEC.1 Tier 2, this session, awaiting the owner's own
+live verification before this finding is called closed):** the fallback
+described below has been removed from `DynamicGet`/`DynamicCall`/
+`DynamicSet` (`VLA_Interpreter.bas`). A full-repo census (every
+`(. obj member...)` and bare dotted-global shape across `scripts/*.vla`,
+`scripts/polyglotta/*.vla`, and the `src/*.bas` test suites) found 25
+distinct members still reached only through it — not only the G-TABLES
+surface SEC.1's own text anticipated, but also plain cell-`.value` reads
+and cross-sheet `.range` lookups the census almost missed because they
+appear mainly in the host-test suite, not the shipped corpus text. Each
+was promoted to its own fixed, audited native `Select Case` arm (Tier 0
+by the same definition as every member already there); anything still
+unmatched now refuses in words instead of reaching arbitrary late-bound
+dispatch. The audit narrative below is preserved as-is — it is still an
+accurate account of how this hole was found and why detection-based
+alternatives don't work here, and everything in it up to the removal
+itself remains true history.
+
 **CONFIRMED, this is the audit finding the roadmap's own `SEC` section
 intro names, verified by reading the code rather than trusted on the
 intro's own word:** any member name reaching `DynamicGet`/`DynamicSet`/

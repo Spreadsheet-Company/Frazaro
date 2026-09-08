@@ -404,6 +404,7 @@ Public Function VlaSelfTest() As Boolean
     TestInterpreterCallReturn
     TestInterpreterModuleScope
     TestInterpreterNewCollection
+    TestInterpreterSec1DynamicMemberRefused
     TestInterpreterOnError
     TestSectionMarkers
     TestContextPushPop
@@ -4874,6 +4875,32 @@ Private Sub TestInterpreterNewCollection()
     Set rawColl = VLA_Runtime.VlaDictGet(frame3, "c")
     CheckV "in.11: appending a number to a (new Collection), read back via real VBA .Item (bypassing this interpreter's own read dispatch entirely)", _
            rawColl.Item(2), 400
+End Sub
+
+' SEC.1 Tier 2: the CallByName fallback that used to sit at the bottom
+' of DynamicGet/DynamicCall/DynamicSet is gone - anything not in their
+' own native Select Case now refuses in words instead of reaching
+' arbitrary late-bound dispatch. Collection.Remove is real, host-free
+' (no Excel needed, unlike almost every other member this pass
+' touched), and was perfectly resolvable through the old CallByName
+' fallback - a plain method, none of the parameterized-default-property
+' sharp edges IN.3/IN.11 hit elsewhere - so proving it is refused now
+' proves the fallback itself is gone, not merely that this one member
+' was never reached before. Pre-seeded real state (a genuine
+' (new Collection) with one real element), not a bypass toggle -
+' SEC.2's own "no test-bypass toggle" discipline, applied here too.
+Private Sub TestInterpreterSec1DynamicMemberRefused()
+    Dim raised As Boolean
+    Dim desc As String
+    On Error Resume Next
+    Err.Clear
+    VLA_Interpreter.VlaInterpret "(begin (dim c) (obj-set! c (new Collection)) (. c add 5) (. c remove 1))"
+    raised = (Err.Number <> 0)
+    desc = Err.Description
+    On Error GoTo 0
+    Report "sec.1 tier 2: '.remove' on a real Collection (real, CallByName-resolvable before this fix) is refused in words, not silently dispatched", _
+           raised And InStr(1, desc, "native dynamic-dispatch allowlist", vbTextCompare) > 0, _
+           "wanted a SEC.1 refusal naming the allowlist, got: raised=" & raised & " desc=" & desc
 End Sub
 
 ' IN3.6: on-error/goto/label/resume - pinned directly against raw VLA

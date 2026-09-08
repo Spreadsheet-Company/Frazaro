@@ -6,6 +6,32 @@
 
 ### What changed
 
+- **`SEC.1` — the `CallByName` reflection fallback removed from dynamic
+  dispatch, built and owner-verified live.** Previously, any `.`-member
+  name the interpreter didn't recognize natively fell through to VBA's
+  own `CallByName`, reaching the real Excel object model with whatever
+  name and arguments a phrasebook rule supplied — a heuristic, not a
+  capability gate. A full-repo census found 25 members reached only
+  through it, well beyond the G-TABLES surface this item's own design
+  anticipated: plain cell `.value` reads, cross-sheet `.range` lookups,
+  the `listobjects`/`listrows`/`listcolumns` chain, and several
+  housekeeping macros. Each got its own fixed, audited native case before
+  the fallback itself came out, so anything not on that list now refuses
+  in words instead of reaching arbitrary late-bound dispatch. Two
+  corrections found live, not assumed clean: a corpus-only first census
+  missed `.value`/`.range` entirely (caught only because the host-test
+  suite reads them, not the shipped phrasebook text), and a second pass
+  then found every property already native for *writing* (`name`,
+  `bold`, `size`, and 17 others) had never been native for *reading* —
+  fixed by mirroring the write-side list into the read side in one pass
+  rather than chasing each individually. `VLA_SELF-TESTS` pure 947/947,
+  host 143/143; `VerifyReports` emitter 141/141, interpreter 141/141,
+  both live in Excel. G-PIVOT never used this mechanism at all (it
+  dispatches through dedicated runtime helpers); keyword-argument calls
+  already had no fallback to begin with. Permissioned, declared
+  capabilities with real external effect (`vlasendmail` today) are a
+  separate, still-open item — see `SEC.7`. Full mechanism:
+  `docs/BETA_ROADMAP1.md`'s own SEC.1 entry.
 - **`SEC.2` — `raw` behind explicit, per-phrasebook consent, built and
   owner-verified live.** A phrasebook using `raw` (literal VBA,
   previously unconsented) now shows a modal, naming the file, before it
@@ -55,11 +81,12 @@
 
 ### Known open security items
 
-- **SEC.1** — dynamic dispatch is not yet capability-gated: a phrasebook you
-  load can reach roughly what a macro in a workbook you open could reach.
 - **SEC.3** — generated code does not yet carry phrasebook provenance.
+- **SEC.7** — a small set of verbs with real external effect (`vlasendmail`
+  today) still runs with no permission check: a phrasebook you load can
+  send mail with no consent prompt, the same as before this release.
 
-`SEC.2` closed this release — see above.
+`SEC.1`, `SEC.2` closed this release — see above.
 
 Until these close: **load phrasebooks only from people you would accept a
 macro-enabled workbook from.** Frazaro makes no network call and does not
