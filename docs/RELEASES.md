@@ -21,6 +21,26 @@
   passed the purity ratchet on a technicality, caught before it
   shipped. No test-bypass toggle anywhere in the mechanism, by design.
   Full mechanism: `docs/BETA_ROADMAP1.md`'s own SEC.2 entry.
+- **`GO.6` — a working Load Phrasebook button, owner live-tested.**
+  Found live while hand-verifying `SEC.2`: the only mechanism that
+  technically loaded an external phrasebook (`VLA_IDE.IdeVocabPath`'s
+  four candidate paths) was undocumented, built for internal
+  edition/dev purposes, and REPLACED the base corpus by exact filename
+  match rather than adding to it — no ribbon command existed for an
+  org admin or community contributor to load their own. The new "Load
+  Phrasebook" button calls `EnglishLoadVocabulary` directly, so it
+  inherits `SEC.2`'s raw-consent gate and `G3`'s same-shape-collision
+  refusal automatically, no second loading path. ADDS rather than
+  replaces — `G3`'s existing cross-file override mechanism already
+  resolves collisions between sources, `GO.1`'s ratified precedence,
+  no interpreter change needed — persists per workbook (one
+  `VLA_LoadedPhrasebooks` custom document property, an unbounded
+  vbLf-joined list; no cap, the same as a source file's own import
+  statements), and shows what's currently loaded after every load
+  (`EnglishLoadedSourcesReport`). A moved or deleted remembered
+  phrasebook is skipped with a note rather than blocking every other
+  command; a genuine content collision still refuses, unchanged. Full
+  mechanism: `docs/BETA_ROADMAP1.md`'s own GO.6 entry.
 - **The one `AS.1` gap closed: `paint cell {r:text}`.**
   `check_rule_coverage.ps1`'s first real report (after `GEXPANDERLINT.0`
   verticalized the phrasebook artifact) found a rule with zero

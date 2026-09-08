@@ -8613,7 +8613,7 @@ specimens: 0.*
   rules emit code; the registry is a supply chain. `~weeks`
 - ⬜ **GO.4 — licensing split, CLA, trademark.** `~weeks`
 - ⬜ **GO.5 — the escalation path** for a disputed surface. `~hours`
-- ⬜ **GO.6 — a Load Phrasebook button.** Found live, not assumed, while
+- ✅ **GO.6 — a Load Phrasebook button.** Found live, not assumed, while
   hand-verifying SEC.2: there is no discoverable way for an ordinary
   phrasebook author — an org admin, a community contributor — to get
   their own phrasebook into a running copy of Frazaro today. The ribbon
@@ -8649,6 +8649,31 @@ specimens: 0.*
   what it would point at. *Depends on:* `GO.1` (precedence rules to
   build against), `SEC.2` (already gates the mechanism this must
   reuse). `~days`
+  **Session note (2026-09-07), scoped then built:** owner resolved all
+  three open questions - ADDS (never resets; G3's existing cross-file
+  override mechanism already handled the multi-source case with no
+  interpreter changes needed), PERSISTS per workbook (one
+  `VLA_LoadedPhrasebooks` `CustomDocumentProperty`, a vbLf-joined list
+  with no cap - owner correction, same session, over a first draft
+  that numbered slots 1..8: this list is the same kind of thing as a
+  source file's own import statements, and no language caps those -
+  same `CustomDocumentProperties` mechanism as `SEC.2`'s own
+  workbook-scope consent record, replayed by `IdeLoadVocab` on every
+  command via the new `ReplayPersistedPhrasebooks`),
+  and SHOWS what's loaded now (`EnglishLoadedSourcesReport`, printed
+  after every load). New ribbon button "Load Phrasebook" calls
+  `EnglishLoadVocabulary` directly, inheriting `SEC.2`'s raw-consent
+  gate and `G3`'s collision refusal for free, exactly as this entry's
+  own text predicted. A moved/deleted remembered phrasebook is skipped
+  with a `Debug.Print` note rather than raised, so one missing file
+  never blocks every other command - a genuine content collision
+  (override-no-match, rule-shadow) still raises, unchanged. Two new
+  automated tests (`TestPhrasebookPersistence`,
+  `TestPhrasebookReplayAddsNotReplaces`, `VLA_Tests_Grammar.bas`)
+  follow `SEC.2`'s own pre-seeded-real-state shape. **Owner live-tested
+  in Excel, 2026-09-07: `VlaSelfTestsAll` pure PASS (946/946), host PASS
+  (143/143), ribbon button confirmed functional, and committed** - this
+  file's own bar for closing an item, both halves now met.
 
 ---
 

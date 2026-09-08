@@ -1642,6 +1642,118 @@ Public Sub TestRawConsentWorkbookScope()
     Kill vocabPath
 End Sub
 
+' GO.6: VLA_IDE.PersistPhrasebookPath/LoadedPhrasebookPaths/
+' PhrasebookAlreadyLoaded, proven the same way SEC.2's own workbook-
+' scope consent tests are above - real ActiveWorkbook.CustomDocument-
+' Properties round-tripped through the real functions, no bypass
+' toggle. Fake paths are enough here (these three never touch the
+' filesystem, only the property store); ReplayPersistedPhrasebooks
+' (which DOES read real files) gets its own test just below.
+Public Sub TestPhrasebookPersistence()
+    On Error Resume Next
+    ActiveWorkbook.CustomDocumentProperties("VLA_LoadedPhrasebooks").Delete
+    On Error GoTo 0
+
+    PersistPhrasebookPath ActiveWorkbook, "C:\fake\one_go6.vla"
+    PersistPhrasebookPath ActiveWorkbook, "C:\fake\two_go6.vla"
+
+    Dim paths As Collection
+    Set paths = LoadedPhrasebookPaths(ActiveWorkbook)
+    Report "go6: two distinct paths persist in load order", _
+           paths.Count = 2 And CStr(paths.Item(1)) = "C:\fake\one_go6.vla" And CStr(paths.Item(2)) = "C:\fake\two_go6.vla", _
+           "count=" & paths.Count
+
+    Report "go6: PhrasebookAlreadyLoaded finds an already-persisted path", _
+           PhrasebookAlreadyLoaded(ActiveWorkbook, "C:\fake\one_go6.vla"), "n/a"
+    Report "go6: PhrasebookAlreadyLoaded is case-insensitive, matching Windows paths", _
+           PhrasebookAlreadyLoaded(ActiveWorkbook, "C:\FAKE\ONE_GO6.vla"), "n/a"
+    Report "go6: an unrelated path is correctly reported as not loaded", _
+           Not PhrasebookAlreadyLoaded(ActiveWorkbook, "C:\fake\three_go6.vla"), "n/a"
+
+    PersistPhrasebookPath ActiveWorkbook, "C:\fake\one_go6.vla"   ' re-persisting a known path must not add a duplicate entry
+    Set paths = LoadedPhrasebookPaths(ActiveWorkbook)
+    Report "go6: persisting an already-known path is a no-op, not a new entry", _
+           paths.Count = 2, "count=" & paths.Count
+
+    ' GO.1's own "no cap on how many sources" correction: a dozen
+    ' distinct paths all persist and read back, unbounded - the same
+    ' shape as a source file's own import list, no ceiling anywhere.
+    Dim n As Long
+    For n = 3 To 14
+        PersistPhrasebookPath ActiveWorkbook, "C:\fake\many_go6_" & n & ".vla"
+    Next n
+    Set paths = LoadedPhrasebookPaths(ActiveWorkbook)
+    Report "go6: persisting well beyond a handful of phrasebooks is not capped", _
+           paths.Count = 14, "count=" & paths.Count
+
+    On Error Resume Next
+    ActiveWorkbook.CustomDocumentProperties("VLA_LoadedPhrasebooks").Delete
+    On Error GoTo 0
+End Sub
+
+' GO.6, continued: ReplayPersistedPhrasebooks (VLA_IDE.bas), reached
+' by every real command through IdeLoadVocab, proven end to end - a
+' real temp phrasebook file persisted exactly as EnglishIdeLoadPhrasebook
+' would leave it, plus a second remembered path naming a file that no
+' longer exists (the moved/deleted case the header comment says must
+' be skipped, never fatal). Confirms the ADD semantics GO.1 ratified: a
+' rule already loaded from elsewhere (test-base, loaded directly here
+' to stand in for "whatever IdeLoadVocab's base-corpus block already
+' loaded") survives the replay side by side with the replayed
+' phrasebook's own rule - neither one resets the other.
+Public Sub TestPhrasebookReplayAddsNotReplaces()
+    Dim vocabPath As String
+    vocabPath = WriteTempLib("vla_go6_replay_vocab.vla", _
+        "(english-vla ""frobnicate cell {r:cell}"" (raw ""Debug.Print 9""))")
+
+    Dim contentHash As String
+    contentHash = EnglishSourceHash(vocabPath)
+    On Error Resume Next
+    DeleteSetting "Frazaro", "SEC2RawConsent", contentHash
+    On Error GoTo 0
+    SaveSetting "Frazaro", "SEC2RawConsent", contentHash, "granted"
+
+    On Error Resume Next
+    ActiveWorkbook.CustomDocumentProperties("VLA_LoadedPhrasebooks").Delete
+    On Error GoTo 0
+    ' pre-seeds two remembered paths directly (bypassing PersistPhrasebookPath's
+    ' own dedupe) - the real one this test loads plus a second, already-gone
+    ' one, exactly what a workbook that remembers a moved file would hold
+    ActiveWorkbook.CustomDocumentProperties.Add Name:="VLA_LoadedPhrasebooks", LinkToContent:=False, _
+        Type:=4, Value:=vocabPath & vbLf & "C:\nonexistent\ghost_go6.vla"
+
+    EnglishResetGrammar
+    EnglishLoadVocabularyText "(english-vla ""already here cell {r:cell}"" (set! (range {r}) 1))", "test-base"
+
+    Dim errNum As Long
+    On Error Resume Next
+    Err.Clear
+    ReplayPersistedPhrasebooks
+    errNum = Err.Number
+    On Error GoTo 0
+    Report "go6: replaying a moved/deleted phrasebook slot does not raise", errNum = 0, "err=" & errNum
+
+    Dim rpt As String
+    rpt = EnglishLoadedSourcesReport()
+    Report "go6: replay ADDS the phrasebook onto the already-loaded base - both provenances visible", _
+           InStr(rpt, "test-base") > 0 And InStr(rpt, vocabPath) > 0, rpt
+
+    Dim got1 As String, got2 As String
+    got1 = EnglishToVla("Already here cell A1.")
+    got2 = EnglishToVla("Frobnicate cell A1.")
+    Report "go6: the base rule loaded before replay still resolves after it", InStr(got1, "range") > 0, got1
+    Report "go6: the replayed phrasebook's own rule resolves too", Len(got2) > 0, got2
+
+    EnglishResetGrammar
+    On Error Resume Next
+    ActiveWorkbook.CustomDocumentProperties("VLA_LoadedPhrasebooks").Delete
+    On Error GoTo 0
+    On Error Resume Next
+    DeleteSetting "Frazaro", "SEC2RawConsent", contentHash
+    On Error GoTo 0
+    Kill vocabPath
+End Sub
+
 ' SEC.2, continued: EnglishLoadVocabularyText itself (the primitive
 ' VLA_Browser.bas's host-free EnglishTranslateTextToVla/ToVba call
 ' directly) must NEVER show the raw-consent prompt or touch

@@ -333,6 +333,8 @@ Public Function VlaSelfTest() As Boolean
     TestRawConsentDeviceScope
     TestRawConsentWorkbookScope
     TestRawConsentTextPathUngated
+    TestPhrasebookPersistence
+    TestPhrasebookReplayAddsNotReplaces
     TestGenRow
     TestListopsBudget
     TestListopsConfluence
@@ -1559,6 +1561,7 @@ End Sub
 '  Auto-Load, and DI.2 Pass 4's Uninstall Frazaro) must ride the one
 '  callback. Twenty as of this session's Lint VLA button (owner
 '  request - VLA_Lint.VlaLintFormat, on demand, over any .vla file).
+'  Twenty-two with GO.6's own Load Phrasebook button.
 '  (Requires VLA_Build in
 '  the dev project, which the build flow already assumes.)
 ' ---------------------------------------------------------------------
@@ -1589,16 +1592,16 @@ Private Sub TestBuildRibbon()
     Dim ids As Variant
     ids = Array("VlaSetup", "VlaRegister", "VlaAddProgram", "VlaImport", "VlaReload", "VlaUninstall", _
                 "VlaCheck", "VlaInterpret", "VlaInterpretTrace", "VlaRun", "VlaRunTrace", "VlaShowVba", _
-                "VlaTranslateVla", "VlaTranslateVba", "VlaUndo", "VlaPhrases", "VlaExportExpanded", _
-                "VlaRuleCoverage", "VlaLintVla", "VlaFeedback", "VlaOpenCli")
+                "VlaTranslateVla", "VlaTranslateVba", "VlaUndo", "VlaPhrases", "VlaLoadPhrasebook", _
+                "VlaExportExpanded", "VlaRuleCoverage", "VlaLintVla", "VlaFeedback", "VlaOpenCli")
     Dim i As Long
     Dim missing As String
     For i = LBound(ids) To UBound(ids)
         If InStr(x, "id=" & Chr$(34) & ids(i) & Chr$(34)) = 0 Then missing = missing & " " & ids(i)
     Next
-    Report "ribbon: all twenty-one command ids present", Len(missing) = 0, "missing:" & missing
+    Report "ribbon: all twenty-two command ids present", Len(missing) = 0, "missing:" & missing
     Report "ribbon: every button rides the one callback", _
-           CountOcc(x, "onAction=" & Chr$(34) & "VlaRibbonAction" & Chr$(34)) = 21, _
+           CountOcc(x, "onAction=" & Chr$(34) & "VlaRibbonAction" & Chr$(34)) = 22, _
            "got " & CountOcc(x, "onAction=" & Chr$(34) & "VlaRibbonAction" & Chr$(34))
 End Sub
 

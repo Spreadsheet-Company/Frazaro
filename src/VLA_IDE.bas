@@ -127,6 +127,11 @@ Private mHost As Workbook
 Private mHostSheet As Object       ' V2: the sheet active at invocation
                                    ' (Object - could be a chart sheet)
 
+' GO.6: every persisted phrasebook path, vbLf-joined, one workbook-
+' scoped CustomDocumentProperty - see PersistPhrasebookPath's own
+' header, further down, for the full design.
+Private Const PHRASEBOOK_LIST_PROP As String = "VLA_LoadedPhrasebooks"
+
 ' EDITIONMANIFEST.7 (owner-caught, live, the real root cause behind
 ' three straight "Bad file name or number" rounds - the first two
 ' fixes were real bugs too, just not THIS one): Dir$ is a local-
@@ -297,6 +302,130 @@ Private Function IdeDevPolyglottaPath() As String
     sep = Application.PathSeparator
     IdeDevPolyglottaPath = ThisWorkbook.Path & sep & "scripts" & sep & "polyglotta" & sep & IdeVocabFileName()
 End Function
+
+' =====================================================================
+'  GO.6: persisted, workbook-scoped phrasebook list. EnglishIdeLoadPhrasebook
+'  ADDS a phrasebook the user picks on top of whatever IdeVocabPath/the
+'  embedded chain already loaded (GO.1's ratified "last-loaded wins,
+'  provenance always visible" multi-source precedence, via G3's existing
+'  cross-file override mechanism in VLA_SentenceEngine.AddPhraseRule -
+'  nothing new needed there), then remembers the file's path here so
+'  IdeLoadVocab replays it on every future command in THIS workbook -
+'  the owner's own call on GO.6's "does it persist" open question.
+'
+'  UNBOUNDED by design (owner correction, same session as the first
+'  draft): this list is the same kind of thing as a source file's own
+'  import statements - "base" alone is already prelude+english+espanol,
+'  "org" could mean company-wide/department-wide/team-wide phrasebooks
+'  stacked, and "community" is bottomless (pirate.vla, alien.vla, ...).
+'  No programming language caps how many imports a file may declare;
+'  this list does not either. One CustomDocumentProperty
+'  (VLA_LoadedPhrasebooks) holds every path, vbLf-joined, in load
+'  order - not numbered slots with a ceiling (that first draft copied
+'  IdeLoadVocab's embedded-chain loop's bound without noticing that
+'  loop is bounded for its OWN reason, a "does the next one exist"
+'  probe over a small fixed set of workbook-embedded sheets, which does
+'  not apply to a user's own open-ended, explicitly-chosen list).
+'
+'  Same CustomDocumentProperties mechanism as SEC.2's own workbook-
+'  scope raw-consent record (VLA_SentenceEngine.VlaRawConsentRecordWorkbook).
+'  Public, not a test-bypass toggle: VlaIdeProgramTag/VlaIdeModuleFor/
+'  VlaIdeScanTargets already set the precedent of a real, reusable IDE
+'  helper that is also directly unit-tested with pre-seeded state, same
+'  as SEC.2's own workbook-scope test does for
+'  ActiveWorkbook.CustomDocumentProperties.
+' =====================================================================
+
+' Every persisted phrasebook path for hb, in the order they were
+' loaded.
+Public Function LoadedPhrasebookPaths(hb As Workbook) As Collection
+    Dim r As New Collection
+    Dim raw As String
+    raw = ""
+    On Error Resume Next
+    raw = CStr(hb.CustomDocumentProperties(PHRASEBOOK_LIST_PROP).Value)
+    On Error GoTo 0
+    If Len(raw) = 0 Then
+        Set LoadedPhrasebookPaths = r
+        Exit Function
+    End If
+    Dim parts() As String
+    parts = Split(raw, vbLf)
+    Dim i As Long
+    For i = LBound(parts) To UBound(parts)
+        If Len(parts(i)) > 0 Then r.Add parts(i)
+    Next i
+    Set LoadedPhrasebookPaths = r
+End Function
+
+' Case-insensitive: the same real file reached through two differently-
+' cased path strings (Windows paths are not case-sensitive) must count
+' as the one already-loaded phrasebook, not a second one.
+Public Function PhrasebookAlreadyLoaded(hb As Workbook, ByVal path As String) As Boolean
+    Dim existing As Collection
+    Set existing = LoadedPhrasebookPaths(hb)
+    Dim e As Variant
+    For Each e In existing
+        If StrComp(CStr(e), path, vbTextCompare) = 0 Then
+            PhrasebookAlreadyLoaded = True
+            Exit Function
+        End If
+    Next
+End Function
+
+' Remembers path for hb, unless it is already remembered (a no-op, not
+' a duplicate entry - EnglishIdeLoadPhrasebook's own caller already
+' checked PhrasebookAlreadyLoaded before ever calling this, but a
+' second, independent guard here costs nothing and keeps this function
+' safe to call on its own).
+Public Sub PersistPhrasebookPath(hb As Workbook, ByVal path As String)
+    If PhrasebookAlreadyLoaded(hb, path) Then Exit Sub
+    Dim existing As Collection
+    Set existing = LoadedPhrasebookPaths(hb)
+    Dim joined As String
+    Dim e As Variant
+    For Each e In existing
+        joined = joined & CStr(e) & vbLf
+    Next
+    joined = joined & path
+    On Error Resume Next
+    hb.CustomDocumentProperties(PHRASEBOOK_LIST_PROP).Value = joined
+    If Err.Number <> 0 Then
+        Err.Clear
+        hb.CustomDocumentProperties.Add Name:=PHRASEBOOK_LIST_PROP, LinkToContent:=False, Type:=4, Value:=joined   ' 4 = msoPropertyTypeString, the literal - see VlaRawConsentRecordWorkbook's own identical note
+    End If
+    On Error GoTo 0
+End Sub
+
+' Called from IdeLoadVocab, on every command, right after the base
+' corpus is settled (whichever of its three sources supplied it) -
+' layers every remembered phrasebook on top, ADD semantics, in the
+' order they were originally loaded. A moved or deleted file is a
+' benign environmental problem, not a content bug - skipped with a
+' Debug.Print note (IdeLoadVocab's own trailing diagnostics are
+' already Debug.Print, never a live dialog, since this runs inside
+' every Check/Interpret/Run, not just at file open) rather than a hard
+' raise, so losing one phrasebook file never blocks every other
+' command in the workbook. A genuine CONTENT collision - an override
+' that no longer matches after the base corpus changed, a same-shape
+' rule with no override: marker - still raises exactly as it always
+' has; that is real, human-attention-worthy grammar state, not an
+' environmental hiccup, and swallowing it here would hide the exact
+' bug G3/GO.1 exist to surface.
+Public Sub ReplayPersistedPhrasebooks()
+    Dim hb As Workbook
+    Set hb = HostBook()
+    Dim paths As Collection
+    Set paths = LoadedPhrasebookPaths(hb)
+    Dim p As Variant
+    For Each p In paths
+        If SafeFileExists(CStr(p)) Then
+            EnglishLoadVocabulary CStr(p)
+        Else
+            Debug.Print "GO.6: remembered phrasebook not found, skipped: " & CStr(p)
+        End If
+    Next
+End Sub
 
 ' =====================================================================
 '  D1: ambient-state capture. The workbook the person is working in
@@ -1832,6 +1961,7 @@ Private Sub IdeLoadVocab()
             VLA_Messages.RaiseMsg "ide-vocab-not-found", "path", IdeVocabPath()
         End If
     End If
+    ReplayPersistedPhrasebooks   ' GO.6: every user-loaded phrasebook, ADDED on top
     Debug.Print EnglishLintReport()
     Debug.Print EnglishVocabStats()       ' U.10: the counters line
 End Sub
@@ -2922,6 +3052,7 @@ Public Sub VlaRibbonAction(control As IRibbonControl)
         Case "VlaTranslateVba": EnglishIdeTranslateVba
         Case "VlaUndo": EnglishIdeUndo
         Case "VlaPhrases": EnglishIdeShowPhrases
+        Case "VlaLoadPhrasebook": EnglishIdeLoadPhrasebook
         Case "VlaExportExpanded": EnglishIdeExportExpandedVocabulary
         Case "VlaRuleCoverage": EnglishIdeRuleCoverageReport
         Case "VlaLintVla": EnglishIdeLintVla
@@ -2960,6 +3091,58 @@ End Sub
 '  Instructions" re-reads it after every edit - the daily loop is
 '  edit, save, Reload, Interpret (or Compile).
 ' =====================================================================
+
+' GO.6: the button an ordinary phrasebook author - an org admin, a
+' community contributor - actually needs. VLA_IDE.IdeVocabPath's own
+' four candidate paths were never that: undocumented anywhere a user
+' would see them, built for internal edition/dev purposes
+' (EDITIONMANIFEST.*), and a full REPLACEMENT of the base corpus by
+' exact filename match, never an ADDITION alongside it. This button
+' calls EnglishLoadVocabulary directly - the same file-path loader
+' Translate to VLA/VBA already uses - so it inherits SEC.2's raw-
+' consent gate and G3's override/same-shape-collision refusal for
+' free, exactly as GO.6's own roadmap entry says it must.
+'
+' IdeLoadVocab runs FIRST, unconditionally: it settles the base corpus
+' and replays every phrasebook already remembered from a prior click
+' (ReplayPersistedPhrasebooks), so the file picked here is always
+' loaded against the CURRENT full stack, not just the bare base corpus
+' - correct override resolution and an accurate "already loaded" check
+' both depend on that. If the chosen file is already remembered, the
+' replay just performed already loaded it: loading it a SECOND time
+' here would re-register the same rules with no override: marker and
+' raise a same-shape-collision refusal, so PhrasebookAlreadyLoaded
+' short-circuits before that ever happens.
+Public Sub EnglishIdeLoadPhrasebook()
+    On Error GoTo failed
+    CaptureHost
+    IdeLoadVocab
+
+    Dim f As Variant
+    f = Application.GetOpenFilename( _
+        "Phrasebooks (*.vla),*.vla,All files (*.*),*.*", _
+        , "Load Phrasebook")
+    If VarType(f) = vbBoolean Then Exit Sub   ' cancelled
+
+    Dim path As String
+    path = CStr(f)
+    Dim hb As Workbook
+    Set hb = HostBook()
+
+    If PhrasebookAlreadyLoaded(hb, path) Then
+        VlaShowInfo "Already loaded: " & Dir$(path) & vbCrLf & vbCrLf & EnglishLoadedSourcesReport()
+        Exit Sub
+    End If
+
+    Dim added As Long
+    added = EnglishLoadVocabulary(path)
+    PersistPhrasebookPath hb, path
+    VlaShowInfo "Loaded: " & Dir$(path) & " (" & added & " rule" & IIf(added = 1, "", "s") & " added)" & _
+                vbCrLf & vbCrLf & EnglishLoadedSourcesReport()
+    Exit Sub
+failed:
+    VlaShowError Err.Description
+End Sub
 
 Public Sub EnglishIdeImport()
     On Error GoTo failed

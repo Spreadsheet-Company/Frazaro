@@ -6792,6 +6792,63 @@ Public Function EnglishVocabStats() As String
     EnglishVocabStats = r
 End Function
 
+' GO.6: one line per distinct phrasebook source currently registered
+' (the built-in prelude excluded), in first-load order, with a rule
+' count - the "can a user see what they've loaded" visibility GO.6's
+' own open question #3 asked for, alongside the ADD-not-replace
+' semantics EnglishIdeLoadPhrasebook (VLA_IDE.bas) actually uses.
+' AddPhraseRule's own override provenance format is "newSrc (overrides
+' oldSrc)" - only the part before " (overrides" names who currently
+' OWNS the rule, so that is the bucket key here; the full string still
+' prints per rule wherever Explain already shows it (RuleSourceOf) -
+' this report only answers "which files are active", not "who
+' overrode whom". Linear same-name scan, not a keyed lookup: the
+' number of distinct sources is always tiny (a base corpus plus a
+' handful of loaded phrasebooks, per PersistPhrasebookPath's own
+' 8-slot ceiling), so an O(n^2) scan over n sources costs nothing a
+' human would notice - matching EnglishLintReport's own simplicity.
+Public Function EnglishLoadedSourcesReport() As String
+    EnsureInit
+    Dim names As New Collection
+    Dim counts() As Long
+    ReDim counts(1 To mPatSources.Count + 1)
+    Dim distinctCount As Long
+    distinctCount = 0
+    Dim i As Long
+    For i = mPreludeCount + 1 To mPatSources.Count
+        Dim src As String
+        src = CStr(mPatSources.Item(i))
+        Dim cut As Long
+        cut = InStr(src, " (overrides ")
+        If cut > 0 Then src = Left$(src, cut - 1)
+        Dim foundAt As Long
+        foundAt = 0
+        Dim j As Long
+        For j = 1 To distinctCount
+            If CStr(names.Item(j)) = src Then
+                foundAt = j
+                Exit For
+            End If
+        Next j
+        If foundAt = 0 Then
+            distinctCount = distinctCount + 1
+            names.Add src
+            foundAt = distinctCount
+            counts(foundAt) = 0
+        End If
+        counts(foundAt) = counts(foundAt) + 1
+    Next i
+    If distinctCount = 0 Then
+        EnglishLoadedSourcesReport = "No phrasebook loaded beyond the built-in grammar."
+        Exit Function
+    End If
+    Dim r As String
+    For j = 1 To distinctCount
+        r = r & CStr(names.Item(j)) & " - " & counts(j) & " rule" & IIf(counts(j) = 1, "", "s") & vbCrLf
+    Next j
+    EnglishLoadedSourcesReport = r
+End Function
+
 ' Translate one test sentence and compare against the expected VLA
 ' (whitespace-normalized). Failures raise loudly with file and line:
 ' a vocabulary does not load unless its proofs hold.

@@ -691,6 +691,10 @@ Public Function VlaRibbonXml() As String
     ' type?" - front-loaded right beside the two creation buttons, in
     ' first-person voice on purpose (curiosity-driven, not a spec doc).
     x = x & RibbonBtn("VlaPhrases", "What can I say?")
+    ' GO.6: the phrasebook-loading button, grouped beside its own
+    ' "what can I say?" - both phrasebook-facing, distinct from the two
+    ' program-facing buttons (Load/Reload Instructions) just below.
+    x = x & RibbonBtn("VlaLoadPhrasebook", "Load Phrasebook")
     x = x & RibbonBtn("VlaImport", "Load Instructions")
     x = x & RibbonBtn("VlaReload", "Reload Instructions")
     x = x & "      </group>" & vbLf
