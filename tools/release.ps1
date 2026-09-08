@@ -34,6 +34,16 @@ What it verifies before touching the remote, in order:
      standing for both would let attesting to one silently attest to the
      other. VBProject's COM interface carries no signing member either
      (enumerated live, DEPLOY.md), so this is a record, not a check.
+  9. installer\output\FrazaroSetup.exe exists, is newer than
+     Frazaro_English.xlam (it embeds that file), installer\version.iss
+     declares -Version, and the .exe carries a CN=Frazaro Dev Signing
+     Authenticode signature. Unlike 7 and 8 this is a CHECK, not a record -
+     an .exe signature is readable, so a switch here would be a needless
+     weakening. Added 2026-09-08 after 0.5.0, 0.5.1 and 0.5.2 all shipped
+     the add-ins alone: the installer was not named in the day-end
+     sequence and this script did not know it existed, so it could not
+     miss it. installer\build_installer.ps1 is the one command that
+     satisfies this check; the installer is uploaded as a third asset.
 
 Usage:
   powershell -File tools\release.ps1 -Version 0.5.3 -Locked -Signed
@@ -120,6 +130,34 @@ foreach ($a in $assets) {
     }
 }
 
+# 9. the installer - a CHECK, not an attestation (see the header). Every
+# failure names installer\build_installer.ps1, the one command that fixes it.
+$installer   = Join-Path $root 'installer\output\FrazaroSetup.exe'
+$versionIss  = Join-Path $root 'installer\version.iss'
+$englishXlam = Join-Path $root 'Frazaro_English.xlam'
+if (-not (Test-Path $installer)) {
+    $fail.Add("missing installer: $installer - run installer\build_installer.ps1 (after VlaBuildAddin, lock, and sign)")
+} else {
+    $exe = Get-Item $installer
+    if ((Test-Path $englishXlam) -and $exe.LastWriteTime -lt (Get-Item $englishXlam).LastWriteTime) {
+        $fail.Add("FrazaroSetup.exe ($($exe.LastWriteTime)) is older than Frazaro_English.xlam ($((Get-Item $englishXlam).LastWriteTime)) - it embeds that file; rerun installer\build_installer.ps1")
+    }
+    $issVer = ''
+    if (Test-Path $versionIss) {
+        $m = [regex]::Match((Get-Content $versionIss -Raw), '#define MyAppVersion "([^"]+)"')
+        if ($m.Success) { $issVer = $m.Groups[1].Value }
+    }
+    if ($issVer -ne $Version) {
+        $fail.Add("installer\version.iss declares '$issVer', not '$Version' - VlaBuildAddin writes it; rebuild the add-in, then rerun installer\build_installer.ps1")
+    }
+    $sig  = Get-AuthenticodeSignature $installer
+    $subj = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { '' }
+    if ($sig.Status -eq 'NotSigned' -or $sig.Status -eq 'HashMismatch' -or $subj -ne 'CN=Frazaro Dev Signing') {
+        $fail.Add("FrazaroSetup.exe is not signed by CN=Frazaro Dev Signing (status $($sig.Status), signer '$subj') - rerun installer\build_installer.ps1")
+    }
+}
+$assets += $installer
+
 # 7. the lock attestation
 if (-not $Locked) { $fail.Add('pass -Locked once both .xlam VBA projects are locked in the VBE (DEPLOY.md, Building the add-in, step 4); VBA has no API to verify this, so the switch is the record') }
 
@@ -140,7 +178,7 @@ $notesFile = Join-Path $env:TEMP "frazaro-release-notes-$Version.md"
 Set-Content -Path $notesFile -Value ($notes -join "`n") -Encoding UTF8
 
 if ($DryRun) {
-    Write-Host "DRY RUN - would: git push origin main; git tag -a $tag; git push origin $tag; gh release create $tag <assets> --notes-file $notesFile"
+    Write-Host "DRY RUN - would: git push origin main; git tag -a $tag; git push origin $tag; gh release create $tag $(($assets | ForEach-Object { Split-Path $_ -Leaf }) -join ' ') --notes-file $notesFile"
     exit 0
 }
 

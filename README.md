@@ -254,8 +254,10 @@ Two paths, both documented in [docs/DEPLOY.md](docs/DEPLOY.md):
   [Releases](https://github.com/Spreadsheet-Company/Frazaro/releases)).
 - **Installer** (`FrazaroSetup.exe`) — one-click setup with a normal
   Windows uninstall entry, for machines you control. English edition
-  only, and not part of the `0.5.0` release; it returns with the next
-  release that rebuilds and signs it.
+  only. `0.5.0`–`0.5.2` shipped the standalone add-ins alone; from
+  `0.5.3` the release script refuses to publish without a freshly built,
+  signed installer, so it is a release asset beside them:
+  [FrazaroSetup.exe](https://github.com/Spreadsheet-Company/Frazaro/releases/latest/download/FrazaroSetup.exe).
 
 Either way, removal is one honest in-product button.
 

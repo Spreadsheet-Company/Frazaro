@@ -54,10 +54,11 @@ concrete and most are a day or less.
    first ten minutes; the fix is an hour, and it converts a liability into
    the single most persuasive thing on the page ("we filed ten findings
    against ourselves this week; here they are").
-2. **`README.md` *Install* still says the installer "returns with the next
-   release that rebuilds and signs it."** Two releases have shipped without
-   it. Either ship `FrazaroSetup.exe` with `0.5.3` or reword to "standalone
-   add-in only, for now."
+2. **The installer ships with `0.5.3`.** `0.5.0`–`0.5.2` went out without
+   it because nothing in the release pipeline named it; as of 2026-09-08
+   `release.ps1` refuses to publish without a built, signed
+   `FrazaroSetup.exe` and the README says so. Nothing left to do here but
+   cut the release.
 3. **Sign the `.xlam` VBA projects** (`0.5.3` — signing joined the release
    sequence 2026-09-08). Unsigned, a downloader gets a bare *Enable Macros*
    modal with no trust option; signed, they get *Trust all from publisher*
@@ -1107,8 +1108,12 @@ Filed here so it is not lost; each belongs in a Week 0 commit.
   the same day this file was written.
 - ~~`DEPLOY.md` "Before either download": names `SEC.1`/`SEC.2` as open.~~
   **Fixed 2026-09-08.**
-- `README.md` *Install*: the installer "returns with the next release that
-  rebuilds and signs it" — two releases on, it has not.
+- ~~`README.md` *Install*: the installer "returns with the next release that
+  rebuilds and signs it" — two releases on, it has not.~~ **Fixed
+  2026-09-08:** the installer was missing from the release pipeline itself,
+  not just the prose; `release.ps1` now refuses to publish without a built,
+  signed `FrazaroSetup.exe` (`installer\build_installer.ps1`), and it ships
+  from `0.5.3`.
 - `VENTURE.md` §9: "`=SQL()` through INNER JOIN" — now through recursive
   `WITH`; `=PROLOG()` unmentioned. Dated 2026-08-31, so honest, but the
   investor-facing status line should move when the product does.
