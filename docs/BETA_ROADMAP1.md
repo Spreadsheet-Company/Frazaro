@@ -1619,7 +1619,13 @@ specimens: 3 (three blind-fix incidents, one first-user Undo report).*
   triggers, and built the verbs — `VlaVersionParse` for validating a
   `requires:` line without an error handler, `VlaVersionAtLeast` for the
   check itself. So this item parses and routes the tag; it does not
-  decide what a version means or how two of them order. *Pays into:*
+  decide what a version means or how two of them order. **It also carries
+  `CO.6`'s deferred half:** `tools/check_grammar_since.ps1`, the ratchet
+  that fails when an inventory entry has no `docs/GRAMMAR_SINCE.md` row,
+  lands with this item — it was scoped out of `CO.6` under `SD-7`
+  precisely because this item is its first consumer, and a
+  `requires: version:` gate is only as trustworthy as the dates it reads.
+  *Pays into:*
   Compatibility (`CO.3`,
   scoped down to just its own version/backend stamps once this exists)
   and Governance (`SEC.7`) directly — both cite this item rather than
@@ -4012,7 +4018,7 @@ before-contact item behind the gate.
   make it tight is `CO.6`. `~hours`
 - ⬜ **CO.5 — the migration tool.** Worthless until there is history to migrate,
   but CO.1 must exist first or there is nothing to migrate *to*. `~weeks`
-- 🟡 **CO.6 — the grammar since-ledger.** *Found while scoping `CO.4`, and
+- ✅ **CO.6 — the grammar since-ledger.** *Found while scoping `CO.4`, and
   it is the gap `CO.4` deliberately did not close.* `CO.4` made versions
   orderable and `SD-14` says what each number means, but neither says
   **when any particular thing you can say became sayable** — so an author
@@ -4077,14 +4083,19 @@ before-contact item behind the gate.
   run's output was diffed byte-for-byte against a baseline captured
   before the param block existed: identical, exit 0.
 
-  *Remaining, and deliberately deferred:* `tools/check_grammar_since.ps1`,
-  the ratchet that fails when an inventory entry has no row — `SD-7` says
-  work is not scheduled without something that needs it, and nothing
-  reads these dates until `F.10` exists. **The seed was taken now because
-  it is the perishable half:** the whole history is two tags today and
-  gets harder every release. *Depends on:* nothing. *Unblocks:* `F.10`'s
-  `version` namespace being a tight gate rather than a loose one.
-  `~hours`
+  **Owner-reviewed and accepted (2026-09-07):** the seed itself, which is
+  the part that matters — entries are never edited afterwards, so the
+  dates were the thing to get right before anything trusted them.
+  **Scoped out of this item on purpose, and given a home rather than left
+  as debt under a green marker:** `tools/check_grammar_since.ps1`, the
+  ratchet that fails when an inventory entry has no row, is named in
+  `F.10`'s own scope — `SD-7` says work is not scheduled without
+  something that needs it, and nothing reads these dates until `F.10`
+  exists, so the ratchet lands with its first consumer instead of
+  guarding an unread file. **The seed was taken now because it is the
+  perishable half:** the whole history is two tags today and gets harder
+  every release. *Depends on:* nothing. *Unblocks:* `F.10`'s `version`
+  namespace being a tight gate rather than a loose one. `~hours`
 
 ---
 
