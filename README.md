@@ -110,11 +110,11 @@ Three layers, each one honest about what it is:
    template:
 
    ```text
-   "make cell {r:cell} {d:bold|italic}"   →   (make-{d} (range "a1"))
+   "make cell {r:cell} {d:bold|italic}"   →   (make-{d} (range {r}))
    ```
 
    So `Make cell A1 bold.` translates mechanically — no statistics,
-   no model, no temperature.
+   no generative black box.
 
 2. **VLA** — the middle layer the templates emit: s-expression VBA
    with strictly 1:1 semantics ("VBA wearing parentheses"). No
@@ -273,34 +273,67 @@ want to evaluate the engineering culture before the code, start with
 ## Known open security items
 
 Frazaro's own threat model ([docs/THREAT_MODEL.md](docs/THREAT_MODEL.md))
-is public. Two of its three original findings are still open in this
-beta. They are listed here by roadmap ID so a downloader hears it from
-this page rather than from the repository. Frazaro does not update
-itself and makes no network call, so a copy you download today stays
-as it is until you come back; check this section or the roadmap to see
-when each closes.
+is public, and so is the list of what it has not closed yet. Items are
+listed here by roadmap ID so a downloader hears it from this page rather
+than from the repository. Frazaro does not update itself and makes no
+network call, so a copy you download today stays as it is until you come
+back; check this section or the roadmap to see when each closes.
 
-- **SEC.1 — dynamic dispatch is not yet capability-gated.** A member
-  reference the interpreter does not recognize falls through to VBA's
-  own late-bound dispatch. In practice: a phrasebook you load can reach
-  roughly what a macro in a workbook you open could reach. That is not
-  a new exposure compared to a macro-enabled workbook, but it is not
-  gated yet.
+**Closed.** SEC.1 (`0.5.2`): a member reference the interpreter does not
+recognize now refuses in words instead of falling through to VBA's own
+late-bound dispatch. SEC.2: a phrasebook rule marked `raw` (literal VBA)
+shows an explicit consent dialog, naming the phrasebook, before it loads
+from disk — declining refuses the whole phrasebook, not just the
+`raw`-bearing rules.
+
+**Open from the original threat model:**
+
 - **SEC.3 — generated code does not yet carry phrasebook provenance.**
   Emitted VBA says what it does, not which phrasebook layer introduced
   each line.
+- **SEC.7 — verbs with real external effect are not yet permissioned.**
+  A phrasebook you load can open or save workbooks to a path it names,
+  export a sheet to PDF, and compose an Outlook email (it is displayed
+  for you, never sent silently) — with no consent prompt.
 
-**SEC.2 closed:** a phrasebook rule marked `raw` (literal VBA) now
-shows an explicit consent dialog, naming the phrasebook, before it
-loads from disk — declining refuses the whole phrasebook, not just the
-`raw`-bearing rules. See `docs/BETA_ROADMAP1.md`'s own SEC.2 entry for
-the full mechanism.
+**Open from the project's own code review of 2026-09-08 — SEC.8 through
+SEC.17, ranked most-severe first.** These are audit findings read from
+the code, not exploits anyone has run; each one's file, line, and fix is
+in [docs/BETA_ROADMAP1.md](docs/BETA_ROADMAP1.md). In plain words:
+
+- **SEC.8** — a workbook from the internet can carry a Frazaro program in
+  its cells, and Frazaro does not yet check where a workbook came from
+  before running one. Office blocks macros from the internet by default;
+  a program in cells is not a macro, so that block does not apply to it.
+- **SEC.9** — a grammar file placed beside a workbook, or a phrasebook
+  path a workbook remembers, is loaded ahead of the built-in grammar
+  without asking.
+- **SEC.10** — the "remember my consent for this workbook" record is
+  stored inside the workbook, so a workbook someone sends you can arrive
+  with consent already granted.
+- **SEC.11** — the fingerprint that consent is keyed to is weak enough to
+  forge.
+- **SEC.12** — on the Compile path only, a phrasebook can name any VBA
+  function and the generated module will call it, with no `raw` consent
+  dialog.
+- **SEC.13** — *Import Program File…* accepts Word documents and opens
+  them in Word with macros enabled. Until this closes, import only Word
+  files you wrote yourself, or paste the text instead.
+- **SEC.14** — a runaway program has no step limit; Excel's own
+  Ctrl+Break is the only way out.
+- **SEC.15** — formulas a program writes are not screened for functions
+  that reach the network or the shell (`WEBSERVICE`, DDE).
+- **SEC.16** — grammar files placed beside the add-in override the
+  built-in ones with no integrity check.
+- **SEC.17** — on the Compile path only, a defined name a program creates
+  could be one Excel runs on open.
 
 Until these close: **load phrasebooks only from people you would accept
-a macro-enabled workbook from.** The phrasebooks embedded in the
-downloads are audited at build time; a `.vla` file someone sends you is
-not. Found something? [docs/SECURITY.md](docs/SECURITY.md) says where to
-report it and what response to expect.
+a macro-enabled workbook from — and treat a workbook someone sent you
+the same way before you press Interpret.** The phrasebooks embedded in
+the downloads are audited at build time; a `.vla` file someone sends you
+is not. Found something? [docs/SECURITY.md](docs/SECURITY.md) says where
+to report it and what response to expect.
 
 ## License and status
 
