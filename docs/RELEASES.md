@@ -104,6 +104,30 @@
   that cannot be read (`banana`, or a `-beta` suffix, which this
   project has never used) is refused in words rather than being quietly
   treated as either satisfied or unmet, since both hide the typo.
+- **`CO.6` — a written record of when each thing you can say became
+  sayable.** New file, and unlike `CO.4` above this one is meant to be
+  read: [`docs/GRAMMAR_SINCE.md`](GRAMMAR_SINCE.md) lists every phrasebook
+  rule and every core form with the release it first **worked** in — 278
+  entries, almost all of them `0.5.0`. It answers the question `CO.4`
+  leaves open. Knowing that versions compare correctly does not tell you
+  *which* version you need, and the version number alone is a loose
+  answer: a release can go up because a ribbon button was added, which
+  tells you nothing about whether a particular sentence will work. This
+  file is the precise answer, and the thing a future `requires:`
+  declaration will be checked against.
+
+  **It records when a form first worked, not when it was first spelled** —
+  a distinction with a real case in it. `paint cell` appears here at
+  `0.5.2`, not `0.5.0`, even though the words shipped in `0.5.0`: as the
+  `AS.1` entry above describes, that rule never once painted a cell. Dating
+  it `0.5.0` would tell you a phrasebook using it runs on `0.5.0`, which is
+  false. Entries are never edited afterwards, so a date that went in wrong
+  would stay wrong — which is why the seed was checked against the actual
+  release tags rather than taken from the generated phrasebook artifact.
+  That check earned its keep: the artifact looked like it gained three
+  rules in `0.5.1`, and it had not — those three were already sayable in
+  `0.5.0` and the artifact had simply been stale, the same staleness the
+  `0.5.1` notes below record fixing.
 
 ### Known open security items
 
