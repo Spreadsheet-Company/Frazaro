@@ -1039,6 +1039,74 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   prefix (`THREAT_MODEL.md` §1.3); and `PROLOG`/`DATALOG` terminate by
   construction or by their named ceilings.
 
+- ⬜ **SEC.18 — the effect ledger: a declared effect class for every
+  reachable form.** *Found while scoping the `SEC.8`–`SEC.17` tranche
+  (2026-09-08); filed as substrate rather than folded into any one
+  consumer, on `METAMETALISP4`'s own scheduling rule.*
+
+  **The finding, confirmed by absence:** nothing anywhere in the codebase
+  records whether a form can reach outside the sheet. Grepped
+  `VLA_HeadTable.bas` and `VLA_Interpreter.bas` for `tier`, `capability`,
+  `effect`, `external`, `side-effect` — **zero hits in either**. `SEC.1`'s
+  three tiers exist as *prose in this roadmap* and as the shape of a
+  hand-written `Select Case`; they are nowhere in the program as data. The
+  head table already carries adjacent per-form metadata (`arity`,
+  `interpRoutine`, `vbaRoutine`, `formulaSupport`, `exportOnly` — eight
+  columns on `AddRow`), so the row shape to extend already exists; what is
+  missing is the one column that answers *what can this reach*.
+
+  **Why now, and why not inside `SEC.7`:** three separate open items are
+  each about to derive the same classification by hand. `SEC.7` needs it to
+  know which verbs require a declared capability; `SEC.8` needs it to know
+  what to refuse when the host workbook came from the internet; `SEC.15`
+  needs it to know a formula write is network-class (`WEBSERVICE`) rather
+  than sheet-local. Three hand-built copies of one table is the exact
+  divergence this project keeps paying for — `CO.6`'s own `-ListArms` note,
+  and `F.10`/`CO.3`'s corrected near-duplication, are the same lesson twice
+  already. Build the table once, in the program, and let all three read it.
+
+  **Build:** a ninth `effect` column on `AddRow` (`VLA_HeadTable.bas`),
+  valued from a **closed set** — `none` / `host-ui` / `formula-write` /
+  `file` / `mail` / `process` (the vocabulary is the one genuinely
+  irreversible decision here — see the caveat below). A census across the
+  three surfaces that actually dispatch: **65 head-table rows**, **128 core
+  dispatch arms** (from `check_emitter_coverage.ps1 -ListArms`, reused
+  rather than re-parsed, `CO.6`'s precedent), and **55 `VLA_Runtime`
+  `Public` procedures** (`TryRuntimeHelper`'s whole bounded surface,
+  `THREAT_MODEL.md` §1.3). Then `tools/check_effect_ledger.ps1` in the
+  house ratchet shape — PowerShell, host-independent, a reviewable baseline
+  of **0 unclassified**, never wired into `VlaSelfTest` — so a new form
+  cannot reach a release without an effect class, exactly as
+  `check_grammar_since.ps1` refuses one without a date. `CO.6`'s pattern,
+  one axis over: that ledger says *when a form started working*, this one
+  says *what it can reach*.
+
+  **This is a standing decision, not a tool** (`METAMETALISP4` §1's own
+  load-bearing distinction): the ratchet expands uninvoked into every future
+  form, including forms added by someone who never reads this entry. Run
+  against the essay's three tests, since it asks that of anything claiming to
+  be frontloading: *rising-cost* — every form added before the ledger exists
+  is a form that must be re-audited afterwards, and the closed set itself
+  goes vertical the moment `SEC.7` ships `requires-capability` names derived
+  from it, because those names then live in phrasebooks in the wild;
+  *proportion* — one column and one script, smaller than any one of its
+  three consumers; *dogfood* — `SEC.15` reads it the day after it lands.
+  Three out of three.
+
+  **The caveat, stated because it is the irreversible half:** the effect
+  vocabulary is an interface. `SEC.7`'s `requires-capability "<name>"` will
+  almost certainly draw its names from this set, and a phrasebook that
+  declares one is a file someone else wrote. Choose the vocabulary
+  deliberately, at the start, with the same care `F.10` gave its namespace
+  set — and record the reasoning, since a set chosen for today's six
+  categories is the set a stranger inherits.
+
+  *Pays into:* `SEC.7` (the gate reads it), `SEC.8` (refusal by workbook
+  provenance reads it), `SEC.15` (formula-write classification reads it),
+  and `SEC.6` — it is the first artifact an external reviewer asks for,
+  since "what can this reach" becomes a table to read rather than a
+  codebase to audit. *Depends on:* nothing. `~days`
+
 ---
 
 # 🖋 SIGNATORY · PROCUREMENT
