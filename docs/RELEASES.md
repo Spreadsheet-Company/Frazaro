@@ -177,15 +177,68 @@
   do that, so that rests on a live test, with a reproducible fixture
   recipe recorded in `tools/sec13_word_fixture.md`.
 
+- **`SEC.11` — the fingerprint that remembers your consent is now a real
+  one.** When a phrasebook contains `raw` — VBA written directly into a
+  grammar file — Frazaro asks before loading it, and can remember your
+  answer. What it remembers is tied to a fingerprint of that file's exact
+  contents, so that editing the phrasebook at all asks you again.
+
+  The fingerprint was too weak for the job. It was a simple arithmetic
+  checksum, and checksums of that kind can be *aimed*: someone who wanted
+  a different phrasebook to carry your fingerprint could adjust a couple
+  of characters inside a comment until the numbers matched. Your "yes" to
+  a file you had read could then have been silently inherited by a file
+  you had never seen. It is now SHA-256, the same standard used for
+  software signatures, where aiming at an existing fingerprint is not
+  something anyone knows how to do.
+
+  **You will be asked once more for phrasebooks you had already
+  approved.** Old answers were filed under the old fingerprint and cannot
+  be matched to the new one. Being asked again is the safe direction to
+  fail, so nothing tries to convert them; the old entries are simply left
+  alone and ignored.
+
+  Two things deliberately did *not* change. The fingerprint still ignores
+  spaces, tabs and line breaks, so re-indenting a phrasebook, or opening
+  one that was saved on a different operating system, still counts as the
+  same file rather than sending you back through the question. Changing
+  what a phrasebook *says*, by even one character, still does.
+
+  And exported *Expanded Phrasebook* files you already have keep
+  working. The freshness check reads the older form, confirms the file is
+  current, and tells you the next export will upgrade it. A re-exported
+  file carries the new form, written out as `sha256:` followed by the
+  digest so the two generations can never be mistaken for one another.
+  Nothing you already have needs regenerating.
+
+  Built without depending on anything being installed. The obvious route
+  was to borrow Windows' own cryptography through .NET. Measured on the
+  development machine, that turned out to fail outright — the component
+  is registered against a version of .NET that Windows 11 no longer
+  installs by default — so a phrasebook would have become unloadable on
+  an ordinary machine. Frazaro now computes SHA-256 itself, in about 150
+  lines, which works the same everywhere and can be checked completely by
+  the self-test suite against the published standard test values.
+
+- **A new release check: `tools/check_hash_twin.ps1`.** The fingerprint is
+  computed in two places — in Frazaro itself, and in the release script
+  that verifies an exported phrasebook is current. The two must agree
+  exactly, and until now the only thing keeping them in step was a comment
+  saying so. This project has been bitten nine times by that same shape.
+  Both sides are now pinned to the same published test values, so either
+  one drifting fails a release rather than being noticed later. The two
+  were also checked against each other on the real 89,446-byte English
+  phrasebook and produce the identical fingerprint.
+
 ### Known open security items
 
-**Closed this release:** `SEC.8` and `SEC.13` — see above.
+**Closed this release:** `SEC.8`, `SEC.11` and `SEC.13` — see above.
 
-**Still open:** `SEC.3`, `SEC.7`, and four from the 2026-09-08 code
-review — `SEC.9`, `SEC.10`, `SEC.11` and `SEC.15`. In plain words:
+**Still open:** `SEC.3`, `SEC.7`, and three from the 2026-09-08 code
+review — `SEC.9`, `SEC.10` and `SEC.15`. In plain words:
 grammar and phrasebook files beside a workbook load ahead of the built-in
-ones without asking (`SEC.9`); the remembered-consent record lives inside
-the workbook and its fingerprint is forgeable (`SEC.10`, `SEC.11`);
+ones without asking (`SEC.9`); the remembered-consent record still lives
+inside the workbook (`SEC.10`);
 formulas a program writes are not screened for functions that reach the
 network (`SEC.15`); and effects like sending mail still run without a
 permission prompt (`SEC.7`). `SEC.8` narrows that last one — it gates on

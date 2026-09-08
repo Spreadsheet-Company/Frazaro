@@ -1143,8 +1143,74 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   nothing; *pairs with* `SEC.10` (the two chain into a no-dialog `raw`
   load). `~days`
 
+  **📋 SCOPED 2026-09-08 — no code written. Stages and open questions
+  below; this remains ⬜.**
+
+  **The tranche's framing is now wrong for this item, and the correction
+  matters more than the scoping.** `README.md` says of the open set: *"These
+  are audit findings read from the code, not exploits anyone has run."* That
+  sentence is **no longer true of `SEC.9`**. The mechanism was **OBSERVED
+  LIVE on 2026-09-08**, benignly and by accident: a stale `english.vla`
+  sitting in the owner's **Downloads** folder was loaded *ahead of the
+  add-in's own copy*, because the host workbook happened to be there. It
+  failed loudly only by luck — that copy was old enough not to know `put`,
+  so it errored. **A merely *different* grammar would have loaded silently
+  and changed what every sentence means, with no error at all.** No
+  attacker, no crafted file, no privilege: an ordinary Downloads folder and
+  an ordinary double-click. Sentence corrected in `README.md` in the same
+  edit. This is the strongest evidence in the tranche and it argues `SEC.9`
+  should outrank the rest of the open set.
+
+  **Q1 — does removing the host-workbook-directory candidate break a
+  legitimate workflow?** *Partly, and the answer is not "just delete
+  candidates 1 and 2."* `IdeVocabPath` (`VLA_IDE.bas` ~232) orders four
+  candidates: `<host dir>\scripts\`, `<host dir>\`, `<add-in dir>\scripts\`,
+  `<add-in dir>\`. The first two are the hijack, but they are also the only
+  mechanism by which **a project ships its own grammar beside its
+  workbook** — a real and intended use (`EDITIONMANIFEST` exists because
+  editions differ). Killing it outright removes a feature; keeping it as-is
+  keeps the vulnerability. *Proposed replacement:* keep the candidate,
+  **demote it from silent to consented** — the host-directory hit becomes a
+  one-time prompt naming the **full path** and the **digest**, remembered
+  device-side under `SEC.11`'s new key. Ordinary use pays one dialog the
+  first time; the Downloads-folder accident above becomes a question
+  instead of a silent substitution.
+
+  **Q2 — is consent here hash-keyed, and does it therefore depend on
+  `SEC.11`?** **Yes, and that is why `SEC.11` was built first.** A grant for
+  "this grammar file" keyed to a forgeable digest is worth approximately
+  nothing: an attacker who can drop a file beside a workbook can also make
+  it collide under `h*31+b`. With `SEC.11` landed the grant means what it
+  says. Note the key must be **(digest, absolute path)**, not digest alone —
+  approving a grammar file must not silently approve the same bytes
+  appearing in a different directory later. `SEC.10` should land in the
+  same tranche so the record cannot live inside the workbook that benefits
+  from it; the three items are one story told in three entries.
+
+  **Q3 — how does a UNC/URL refusal present?** Through
+  `VLA_Messages.RaiseMsg` with a stable id, never a raw `Err.Raise`
+  (`VLA_IDE` holds at **exactly 1** on `check_raise_ratchet.ps1` — a new
+  refusal there must go through the catalogue). The refusal must fire
+  **before** any file-existence probe: `SafeFileExists` on
+  `\\attacker\share\x.vla` is *itself* the NTLM leak, so a check that
+  refuses after probing has already lost. That ordering is the single most
+  important implementation detail in this item and is easy to get wrong.
+
+  **Proposed landable stages, smallest first — each shippable alone:**
+  **(S1)** refuse UNC (`\\`) and URL (`http://`, `https://`, `file://`)
+  paths in `ReplayPersistedPhrasebooks` *before* touching the filesystem —
+  pure string policy, pure-testable, closes the credential leak, and does
+  not depend on `SEC.11`. **(S2)** gate the replay of workbook-carried
+  absolute paths behind a one-time consent naming the file. **(S3)** gate
+  the host-workbook-directory candidates in `IdeVocabPath` behind the same
+  consent, keyed `(digest, path)`. S1 is `~hours` and is worth landing on
+  its own; S2/S3 are the `~days`. *A pure `VlaPhrasebookPathRefused(path)`
+  predicate should carry the whole S1 policy so `VlaSelfTest` can cover it
+  with no file and no host* — the same split that gave `SEC.8` its only
+  automated coverage.
+
 - ⬜ **SEC.10 — workbook-scoped `raw` consent is attacker-fillable.**
-  **CONFIRMED:** `SEC.2`'s workbook-scope grant is a `SEC2RawConsent <hash>`
+  **CONFIRMED:** `SEC.2`'s workbook-scope grant is a `SEC2RawConsentV2 <hash>` (renamed by `SEC.11`)
   entry in the *host workbook's* `CustomDocumentProperties`
   (`VlaRawConsentRecordWorkbook`, `VLA_SentenceEngine.bas`) — but in the
   hostile-workbook threat model the attacker *authored that workbook*, so it
@@ -1156,7 +1222,7 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   path)`, so a grant cannot travel *inside* the thing it authorizes; or drop
   the workbook scope and keep only device scope. `~hours`–`~days`
 
-- ⬜ **SEC.11 — the consent hash is a 32-bit polynomial, forgeable by
+- ✅ **SEC.11 — the consent hash is a 32-bit polynomial, forgeable by
   design.** **CONFIRMED, `VLA_SentenceEngine.bas:5693`
   (`EnglishSourceHash`):** the key that `SEC.2` consent and
   `check_rule_coverage.ps1` staleness both trust is `h = h*31 + b mod 2³²`
@@ -1164,12 +1230,129 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   polynomial, not a cryptographic digest. Second preimages are trivial to
   construct (flip two bytes of a `;` comment to restore the value), so even
   a *device-scope* grant, or a "this phrasebook is unchanged" staleness
-  check, transfers cleanly to a crafted phrasebook. *Fix:* SHA-256 via
-  `CreateObject("System.Security.Cryptography.SHA256Managed")` — .NET is
-  COM-visible from VBA with no network call, so `SD-13` is untouched. The
-  twin `Get-SourceHash` in `check_rule_coverage.ps1`
-  (`tools/check_grammar_since.ps1` reads it too) changes byte-for-byte in
-  the same commit. `~hours`
+  check, transfers cleanly to a crafted phrasebook. *Depends on:* nothing;
+  `SEC.9`'s consent is hash-keyed, so this landing first is what makes that
+  item's grant worth anything. `~hours`
+
+  **✅ BUILT AND OWNER-VERIFIED LIVE 2026-09-08 — nine live tests, all
+  passed.**
+  `VLA_SELF-TESTS` pure **1024/1024** (up from 1011: +11 from
+  `TestSec11Digest`, +2 net in `TestGexpander`), host **143/143**;
+  `VerifyReports` emitter **141/141**, interpreter **141/141**; both `.xlam`
+  files build and compile clean. The consent modal fired for a
+  `raw`-bearing phrasebook, stayed silent after a whitespace-only edit, and
+  **returned** after a one-character token edit — the three behaviours the
+  key exists to produce, each with positive visible evidence rather than an
+  absence.
+
+  **The twins were then checked against each other on REAL data, which the
+  vector pin alone cannot do.** VBA stamped
+  `sha256:93A3978B…BCEAFD over 89446 non-whitespace bytes` into the exported
+  artifact; PowerShell's `Get-SourceHash`, lifted out of the shipped
+  checker, produces **the identical 64 hex digits and the identical count**
+  for `english.vla`. Two independent implementations, two languages, one
+  89,446-byte real phrasebook, same answer. Separately,
+  `Get-SourceHashLegacy32` reproduces **`F972F88B`** — the exact value that
+  had actually been stamped in the artifact since `0.5.1` — so the
+  migration reader is verified against a real historical stamp, not against
+  a reconstruction of one. And the byte count is **89446 under both
+  generations**, confirming the hashed byte stream genuinely did not change
+  when the algorithm did.
+
+  **The migration was observed in both states.** Before re-export the
+  checker reported `source-hash F972F88B … legacy 32-bit stamp` plus the
+  upgrade note; after re-export, `source-hash sha256:93A3978B…` and the
+  note gone. No exported artifact broke at any point.
+
+  **The minted fix did not survive contact, and that is the headline.**
+  This entry proposed
+  `CreateObject("System.Security.Cryptography.SHA256Managed")`. **MEASURED
+  on the owner's own development machine, from a real COM host (`cscript`,
+  no Office object anywhere), in both bitnesses: that `CreateObject`
+  FAILS, `0x80131700`.** The registry says why — the ProgID resolves to a
+  CLSID whose `InprocServer32` is `mscoree.dll` with `Assembly =
+  "mscorlib, Version=2.0.0.0"`, the .NET Framework **2.0** shim; only `v4`
+  is installed, and there is no `v2.0.50727` key at all. That is the
+  Windows 11 default, not an unusual box: .NET Framework 3.5 ships as an
+  optional feature, switched off. So the proposed mechanism was not merely
+  "not guaranteed everywhere" — it was unavailable on the very machine
+  Frazaro is developed on, and shipping it would have made every
+  `raw`-bearing phrasebook **unloadable here**. CAPICOM is not registered
+  either (same probe). A `bcrypt.dll` P/Invoke would work but spends
+  `SUBSTRATE.md` H.4's one-`Declare` census — a new bitness-sensitive
+  surface bought with a security fix, in exactly the direction that census
+  was taken to prevent.
+
+  ***Built instead:*** `VLA_Digest.bas` — **SHA-256 in ~150 lines of pure
+  VBA**, no COM, no `Declare`, no fallback path to test, identical on every
+  machine and both bitnesses. Words as signed `Long`s carrying the unsigned
+  bit pattern; every overflow-capable step folds through
+  `UnsignedOf`/`WordOf` on a `Double` (exact to 2⁵³, and `ShiftLeft` masks
+  *before* multiplying so no intermediate exceeds 2³²). The K and H tables
+  are two hex strings rather than 72 literals — VBA caps a statement at 25
+  line continuations, and one string diffs against FIPS 180-4's printed
+  table. Added to **both** `mods` arrays in the same edit
+  (`check_devrig_mods_parity.ps1` now makes that mechanical).
+
+  **Owner decisions, taken deliberately rather than discovered.**
+  *(1) What is hashed:* the **same whitespace-stripped byte stream** (skip
+  tab/LF/CR/space), not the raw file. That filter is load-bearing, not
+  inherited by accident — `.gitattributes` checks `.bas`/`.vla` out as CRLF
+  while the repo stores LF, so a raw-byte digest would give one phrasebook
+  two identities on two machines, silently invalidating consent and marking
+  every export stale. It costs nothing cryptographically: an attacker
+  hunting a second preimage was always free to vary the non-whitespace
+  bytes, which is the whole space SHA-256 is hard over. *(2) Existing
+  grants:* **namespaced, not migrated and not deleted** — device scope moves
+  to registry section `SEC2RawConsentV2` and workbook scope to a matching
+  property prefix, so old and new keys cannot collide even in principle and
+  the re-prompt is guaranteed rather than merely likely. Re-prompting is the
+  fail-safe direction, and `SEC.10` is about to move workbook-scope consent
+  device-side anyway, so migration machinery here would be thrown away
+  before it paid for itself. *(3) Stamp format:* `sha256:<64 hex> over N
+  non-whitespace bytes`, with an explicit prefix so a generation is read,
+  never inferred from digest length. `check_rule_coverage.ps1` now reads
+  **three** generations and writes only the newest — exactly the pattern
+  `0.5.1` established when it retired the byte-size stamp. **No exported
+  artifact breaks:** `english_expanded.vla` still carries its `0.5.1` stamp
+  and still verifies, against `Get-SourceHashLegacy32`, with a printed note
+  that the next re-export upgrades it.
+
+  **Question 5 answered with a mechanism, not a promise.** The two hashers
+  were held together only by a comment reading *"change one side and you
+  must change the other"* — the exact shape that has bitten this project
+  nine times through the module arrays. New **`tools/check_hash_twin.ps1`**
+  (a 12th check) pins *both* sides to the same hardcoded vectors: it lifts
+  the **real** `Get-SourceHash` out of `check_rule_coverage.ps1` by name and
+  evaluates it (no third twin to drift), verifies it reproduces the
+  baseline, and verifies the pure test modules assert the *same digest
+  strings character for character*. Neither side can be "fixed" by editing
+  its own expectation without the other going red, and a shared bug cannot
+  cancel out because the expected values come from **FIPS 180-4**, not from
+  either implementation.
+
+  ***Coverage, stated plainly the way `SEC.8`/`SEC.13` stated theirs:*** the
+  digest is a **pure function**, so unlike those items this one has **no
+  coverage gap to confess** — `TestSec11Digest` pins the published `abc` and
+  448-bit vectors, the empty message, and the padding boundaries (55/56/64/65
+  bytes) that a miscounted length word fails on; `TestGexpander` pins the
+  stamp shape and asserts the retired 8-hex shape **absent**. What
+  `check_hash_twin.ps1` deliberately does *not* do is execute VBA, so it
+  proves the VBA side is asserted against the right answers, not that it
+  computes them — that is `VlaSelfTest`'s job. *Verified without Excel:* the
+  module was transliterated to PowerShell (tables read out of the `.bas`
+  itself) and matched .NET's own SHA-256 on all 11 vectors including every
+  block boundary.
+
+  ***Found while building, and fixed:*** `Get-NonWhitespaceBytes` returned a
+  bare array, and PowerShell unrolls those on return — an all-whitespace
+  file yielded `$null` and a one-byte file a scalar, breaking `ComputeHash`
+  overload resolution. Caught by the twin pin's own empty vector. Separately,
+  the new "your stamp is an old generation" note would have been printed
+  into `-ListRules` output, where `check_grammar_since.ps1` treats **every
+  non-blank line as a live phrase rule** — it is held and printed after the
+  inventory-mode exit instead. That second one was a latent trap in the
+  existing byte-size path too, not something this item introduced.
 
 - 🛡️ **SEC.12 — the compile path emits a call to any unknown head, and
   `english-function` accepts any target.** **CONFIRMED, `VLA.bas`
@@ -4396,6 +4579,82 @@ written against.
   performance work named in `docs/CONTEMPLATIONS.md`'s own interpreter-
   performance discussion — this item is about the escape hatch, not the
   constant factor. `~hours`
+
+- ⬜ **IN.15 — the eight `VLA_Runtime` helpers still on the broken
+  `Application.Run` path refuse with a VBE crash dialog.** The follow-up
+  count `IN.12` deliberately left out of its own scope, now taken.
+  **Not a security item** — a correctness and UX bug that hits **every user
+  today, with no attacker involved.**
+
+  **📋 SCOPED 2026-09-08 — no code written.**
+
+  **CONFIRMED live 2026-09-08, and already reproduced standalone.**
+  `Application.Run` does not propagate a target macro's `Err.Raise` to the
+  caller's handler; `tools/VLA_Diag2.bas` scenario 1 proves it with zero
+  project state on the stack, and `VLA_Interpreter.bas` ~2246 records the
+  live catch. So a refusal raised inside a `VLA_Runtime` helper reaches the
+  user as **"Run-time error '5'" with a Debug button** instead of a Frazaro
+  modal — a direct violation of `LX.8`'s refuse-in-words doctrine. Four
+  helpers already have native `Case`s in `TryRuntimeHelper`
+  (`vlachecksheetname`, `vlachecksheetabsent`, `vlacheckrangename`,
+  `vlasendmail`). **Eight remain on the broken path:** `VlaColor`
+  (`rt-color-invalid` — a bad colour in a sentence, trivially reachable),
+  `VlaDictGet` (`rt-dict-key-missing` — the interpreter's own documented
+  "loud step error" contract), `VlaFillSeries`, `VlaFreezePanes`,
+  `VlaPivotAddValues`, `VlaPivotSetOrientation`, `VlaPivotSetRowLayout`,
+  `VlaPivotSort`.
+
+  **Both of the current path's outcomes are wrong, and a fix must replace
+  both.** Outcome one is today's: the raise escapes as a VBE break. Outcome
+  two is the trap waiting underneath it — `TryRuntimeHelper`'s own
+  `If Err.Number <> 0 Then handled = False` would, *if* `Application.Run`
+  ever did propagate, **swallow a deliberate refusal and mis-report it as
+  `interp-head-unresolved`** ("'vlacolor' is not a form…"). A user told the
+  wrong thing confidently is worse than a crash. The replacement for that
+  line is a **name-resolution decision made before the call, not an error
+  check after it**: "is this a real helper?" and "did the helper refuse?"
+  are two different questions that this one line currently conflates.
+
+  **THE QUESTION THAT DECIDES THE SIZE — answered: eight native `Case`s,
+  *not* retiring `Application.Run`.** Measured, not assumed: `VLA_Runtime`
+  exposes **55 public procedures**, of which roughly 45 are
+  interpreter-reachable. Retiring the mechanism means a native branch —
+  with per-arity dispatch — for **every one of them**, which is five times
+  the work of eight branches and grows with every helper added. The
+  hoped-for "a dispatch table is smaller" does **not** hold here, and the
+  reason is worth recording: VBA has no first-class function pointers for
+  standard-module procedures, so a "dispatch table" in this language *is*
+  a `Select Case` — there is no smaller form hiding behind the idea.
+  `CallByName` cannot help either (it dispatches on **objects**; these are
+  standard-module `Function`s), which is the same constraint that put
+  `Application.Run` here originally. **`IN.11`/`IN.12` have been walking
+  away from the mechanism one helper at a time, and that is the right
+  gradient** — each step is small, independently verifiable, and pays for
+  itself the moment that helper can refuse.
+
+  **The principle that makes it eight and not forty-five:** a helper needs
+  a native `Case` exactly when **it can raise**. A helper that only computes
+  and returns is served correctly by the generic path today. So the boundary
+  is not arbitrary — it is "does this procedure validate?" — and it should
+  be *pinned*, not remembered, or the count silently grows again.
+
+  **Proposed landable stages:** **(S1)** a `tools/check_runtime_raise_
+  dispatch.ps1` in the house static-scan shape — cross-reference every
+  `VLA_Runtime` procedure that can raise (a `RaiseMsg`/`Err.Raise` site in
+  its body) against `TryRuntimeHelper`'s native `Case` list, and fail on any
+  that can raise without one. **Written first, it goes red listing exactly
+  these eight**, which converts this entry's hand-count into a mechanical
+  one and prevents the ninth. **(S2)** add the eight `Case`s, `VlaColor` and
+  `VlaDictGet` first (most reachable). **(S3)** replace the
+  `If Err.Number <> 0 Then handled = False` line with a manifest lookup —
+  `VlaHelperManifest` (`VLA_Runtime.bas` ~1733) **already enumerates every
+  `Vla*` public procedure by name**, so "not a real helper" can be decided
+  by string membership *before* the call, leaving no error-swallowing step
+  to mis-report a refusal. S1 is `~hours` and worth landing alone; S2 is
+  `~hours`; S3 is the one that needs care, because `VlaHelperManifest`
+  soft-fails to an empty string when it cannot read its source and that
+  path must mean "fall back", never "nothing is a helper". Total `~days`,
+  and materially smaller than the retirement it replaces.
 
 **B3 — a second host, prepared (SD-18's own infrastructure; target-neutrality
   applied one substrate further than IN.\* ever needed to)**

@@ -310,21 +310,27 @@ workbook arriving from outside cannot carry its own permission slip.
 
 **Open from the project's own code review of 2026-09-08.** The review found
 ten items, SEC.8 through SEC.17. Two are fixed (SEC.8 and SEC.13, both in
-`0.5.3` — above). Four were assessed and **accepted** rather than fixed,
+`0.5.3` — above). One more, **SEC.11**, is built and verified:
+the fingerprint that consent is keyed to was weak enough to forge, and is
+now SHA-256. Four were assessed and **accepted** rather than fixed,
 with the mitigating control written down and a stated condition that reopens
-each — see *Assessed and accepted* below. Four remain open and are listed
-here, most-severe first. These are audit findings read from the code, not
-exploits anyone has run; each one's file, line, and fix is in
+each — see *Assessed and accepted* below. Three remain open and are listed
+here, most-severe first. Most are audit findings read from the code rather
+than exploits anyone has run — **`SEC.9` is the exception, and its mechanism
+has now been seen happening**. Each one's file, line, and fix is in
 [docs/BETA_ROADMAP1.md](docs/BETA_ROADMAP1.md). In plain words:
 
 - **SEC.9** — a grammar file placed beside a workbook, or a phrasebook
   path a workbook remembers, is loaded ahead of the built-in grammar
-  without asking.
+  without asking. **Observed live on 2026-09-08, harmlessly and by
+  accident:** an old `english.vla` left in a Downloads folder was loaded
+  ahead of the add-in's own copy. It happened to fail loudly, because that
+  copy was too old to know a word the program used — a merely *different*
+  grammar would have loaded silently and quietly changed what the sentences
+  meant. No attacker was involved; an ordinary Downloads folder was enough.
 - **SEC.10** — the "remember my consent for this workbook" record is
   stored inside the workbook, so a workbook someone sends you can arrive
   with consent already granted.
-- **SEC.11** — the fingerprint that consent is keyed to is weak enough to
-  forge.
 - **SEC.15** — formulas a program writes are not screened for functions
   that reach the network or the shell (`WEBSERVICE`, DDE).
 

@@ -58,6 +58,13 @@ Public Const VLA_BUILD_VERSION As String = "EDITIONMANIFEST.2"
 ' PROLOG entry), placed beside its sibling VLA_Relation - both ship in
 ' the add-in from day one, unlike VLA_Datalog/VLA_Sql's still-
 ' aspirational tranche.
+' SEC11.0: mods array gains VLA_Digest (SEC.11's pure SHA-256 - the
+' consent key stopped being a 32-bit polynomial). Placed early, right
+' after VLA_Messages, because VLA_SentenceEngine's EnglishSourceHash
+' calls into it. No new test module: TestSec11Digest landed in
+' VLA_Tests.bas beside TestSec8Provenance, its nearest sibling in kind.
+' Added to VLA_DevRig.bas's own array in the SAME edit -
+' tools/check_devrig_mods_parity.ps1 now fails the build if it is not.
 ' LX2.0: mods array gains VLA_Messages (SD-2/LX.2's new catalogue module).
 ' DI3.1: VlaWriteInstallerVersion - writes VLA.VLA_RELEASE_VERSION out to
 ' installer\version.iss (an #include Frazaro.iss now reads its AppVersion
@@ -388,7 +395,7 @@ Private Function VlaBuildOneEdition(ByVal edition As String, ByRef note As Strin
     ' ("Dim sl As New VlaSlice", "Dim srcSlice As VlaSlice"), which is
     ' word-for-word F5.0's rationale for shipping VlaFrame. It sits
     ' beside VlaFrame here for the same reason it does there.
-    mods = Array("VLA_Identity", "VLA_Messages", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_IDE", "VLA_Lint", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Browser", "frmCLI")
+    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_IDE", "VLA_Lint", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Browser", "frmCLI")
 
     ' Export the current, in-project versions - the build always ships
     ' exactly what the dev workbook contains. (VLA_English and its

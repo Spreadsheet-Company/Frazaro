@@ -12,6 +12,10 @@ Public Const VLA_DEVRIG_VERSION As String = "PPROF.0"
 ' trans-tokenize/trans-build translate-side) against PREVIOUS. See its
 ' own header comment, right above the Sub, for the full mechanism and
 ' gating reasoning.
+' SEC11.0: mods array gains VLA_Digest (SEC.11's pure SHA-256). Added to
+' VLA_Build.bas's own array in the SAME edit, which is now mechanically
+' required rather than merely remembered - tools/check_devrig_mods_
+' parity.ps1 pins the two lists against each other.
 ' PROLOG.3: mods array gains VLA_Prolog (ships - the first real
 ' =PROLOG(...) worksheet function). Test pin (TestProlog) lands in
 ' VLA_Tests_Query.bas, no new test module - the same "one file per
@@ -162,7 +166,7 @@ Public Sub VlaDevReload(Optional ByVal folder As String = "")
     ' again. Two independent arrays that must agree, with nothing
     ' mechanical holding them together, is the actual defect; the
     ' repeated comments are a workaround for it, not a fix.
-    mods = Array("VLA_Identity", "VLA_Messages", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_IDE", "VLA_Build", "VLA_Lint", "VLA_Tests", "VLA_Tests_Grammar", "VLA_Tests_Host", "VLA_Tests_Query", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Browser", "frmCLI")
+    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_IDE", "VLA_Build", "VLA_Lint", "VLA_Tests", "VLA_Tests_Grammar", "VLA_Tests_Host", "VLA_Tests_Query", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Browser", "frmCLI")
     Dim i As Long
     Dim fp As String
     Dim comp As Object

@@ -1478,8 +1478,23 @@ Public Sub TestGExpander()
     hashProbe = WriteTempLib("vla_gexpander_hash_probe.vla", "(defmacro (a b)" & vbCrLf & "  (set! b 2))")
     Report "gexpander: source-hash changes on a one-byte token edit", _
            EnglishSourceHash(hashProbe) <> h1, h1
-    Report "gexpander: source-hash has the stamped shape (8 hex digits over N bytes)", _
-           h1 Like "[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F] over 22 non-whitespace bytes", h1
+    ' 0.5.3 (SEC.11): the stamp is SHA-256, prefixed. The prefix is
+    ' load-bearing rather than decorative - it is how
+    ' check_rule_coverage.ps1 tells a 0.5.3 stamp from the 0.5.1 one it
+    ' still reads, instead of inferring the generation from digest
+    ' length. The retired shape is asserted ABSENT beside it, so a
+    ' regression to the polynomial fails loudly here rather than
+    ' silently downgrading every consent key.
+    Dim hexPart As String
+    hexPart = Mid$(h1, 8, 64)
+    Report "gexpander: source-hash carries the explicit sha256: prefix", _
+           Left$(h1, 7) = "sha256:", h1
+    Report "gexpander: source-hash has the stamped shape (64 hex digits over N bytes)", _
+           Len(h1) = 71 + Len(" over 22 non-whitespace bytes") And _
+           Mid$(h1, 72) = " over 22 non-whitespace bytes" And _
+           Not (hexPart Like "*[!0-9A-F]*"), h1
+    Report "gexpander: source-hash no longer has the retired 8-hex shape", _
+           Not (h1 Like "[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F] over*"), h1
     On Error Resume Next
     Kill hashProbe
     On Error GoTo 0
@@ -1580,10 +1595,20 @@ Public Sub TestRawConsentDeviceScope()
     Dim contentHash As String
     contentHash = EnglishSourceHash(vocabPath)
 
+    ' The literal "SEC2RawConsentV2" here (and at every other seed/clean
+    ' site in this module) MIRRORS VLA_SentenceEngine's own
+    ' RAW_CONSENT_SECTION, which is Private and so cannot be referenced
+    ' from here. It must move whenever that constant moves. SEC.11
+    ' renamed it from "SEC2RawConsent" precisely so pre-0.5.3 grants
+    ' could not collide with SHA-256-keyed ones - and these seeds went
+    ' stale in that same edit: a seed written under the OLD name leaves
+    ' the engine finding no grant, which in a test run means a live
+    ' consent MsgBox with nobody to click it. If this suite ever hangs
+    ' on a dialog here, that is the first thing to check.
     On Error Resume Next
-    DeleteSetting "Frazaro", "SEC2RawConsent", contentHash
+    DeleteSetting "Frazaro", "SEC2RawConsentV2", contentHash
     On Error GoTo 0
-    SaveSetting "Frazaro", "SEC2RawConsent", contentHash, "granted"
+    SaveSetting "Frazaro", "SEC2RawConsentV2", contentHash, "granted"
 
     EnglishResetGrammar
     Dim n As Long
@@ -1596,7 +1621,7 @@ Public Sub TestRawConsentDeviceScope()
 
     EnglishResetGrammar
     On Error Resume Next
-    DeleteSetting "Frazaro", "SEC2RawConsent", contentHash
+    DeleteSetting "Frazaro", "SEC2RawConsentV2", contentHash
     On Error GoTo 0
     Kill vocabPath
 End Sub
@@ -1619,7 +1644,7 @@ Public Sub TestRawConsentWorkbookScope()
     Dim contentHash As String
     contentHash = EnglishSourceHash(vocabPath)
     Dim propName As String
-    propName = "SEC2RawConsent " & contentHash
+    propName = "SEC2RawConsentV2 " & contentHash
 
     On Error Resume Next
     ActiveWorkbook.CustomDocumentProperties(propName).Delete
@@ -1709,9 +1734,9 @@ Public Sub TestPhrasebookReplayAddsNotReplaces()
     Dim contentHash As String
     contentHash = EnglishSourceHash(vocabPath)
     On Error Resume Next
-    DeleteSetting "Frazaro", "SEC2RawConsent", contentHash
+    DeleteSetting "Frazaro", "SEC2RawConsentV2", contentHash
     On Error GoTo 0
-    SaveSetting "Frazaro", "SEC2RawConsent", contentHash, "granted"
+    SaveSetting "Frazaro", "SEC2RawConsentV2", contentHash, "granted"
 
     On Error Resume Next
     ActiveWorkbook.CustomDocumentProperties("VLA_LoadedPhrasebooks").Delete
@@ -1749,7 +1774,7 @@ Public Sub TestPhrasebookReplayAddsNotReplaces()
     ActiveWorkbook.CustomDocumentProperties("VLA_LoadedPhrasebooks").Delete
     On Error GoTo 0
     On Error Resume Next
-    DeleteSetting "Frazaro", "SEC2RawConsent", contentHash
+    DeleteSetting "Frazaro", "SEC2RawConsentV2", contentHash
     On Error GoTo 0
     Kill vocabPath
 End Sub

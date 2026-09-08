@@ -313,6 +313,7 @@ Public Function VlaSelfTest() As Boolean
     TestRuleUsage
     TestMessageSeam
     TestSec8Provenance
+    TestSec11Digest
     TestResolveCheck
     TestRuntimeTrace
     TestVlaTry
@@ -1476,6 +1477,91 @@ Private Sub TestSec8Provenance()
     Report "SEC.8 guard allows the same effect on a local-marked workbook", _
            Not refused, "an ordinary local workbook was refused"
     VlaProvenanceResetMemo
+End Sub
+
+' SEC.11 - VLA_Digest is a PURE function, so unlike SEC.8 (which cannot
+' fabricate a Mark-of-the-Web and says so) this item has no coverage gap
+' to confess. Known input, known digest, no host object, no file.
+'
+' The expected values are the published FIPS 180-4 vectors and their
+' companions, NOT values read back out of this implementation - a digest
+' that agrees only with itself proves nothing. The same strings are held
+' in tools/check_hash_twin.ps1, which fails if this baseline and the
+' PowerShell twin's ever separate; that is the mechanical half of the
+' "change one side and you must change the other" rule that used to be a
+' comment and nothing else.
+Private Sub TestSec11Digest()
+    Dim counted As Long
+
+    ' --- the published vectors ---
+    Report "SEC.11 SHA-256('abc') matches the FIPS 180-4 one-block vector", _
+           VlaSha256HexOfAsciiText("abc") = _
+           "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD", _
+           "got " & VlaSha256HexOfAsciiText("abc")
+    Report "SEC.11 SHA-256 matches the FIPS 180-4 two-block (448-bit) vector", _
+           VlaSha256HexOfAsciiText("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq") = _
+           "248D6A61D20638B8E5C026930C3E6039A33CE45964FF2167F6ECEDD419DB06C1", _
+           "got " & VlaSha256HexOfAsciiText("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq")
+    Report "SEC.11 SHA-256 of the empty message is the published value", _
+           VlaSha256HexOfAsciiText("") = _
+           "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855", _
+           "got " & VlaSha256HexOfAsciiText("")
+
+    ' --- the padding boundaries ---
+    ' 55 is the last length that fits its own length word in one block;
+    ' 56 forces a second block that is pure padding; 64 and 65 straddle
+    ' the block size itself. An implementation that miscounts the
+    ' padding or writes the bit-length in the wrong byte order passes
+    ' "abc" and fails precisely here, which is why these are pinned
+    ' rather than trusted.
+    Report "SEC.11 SHA-256 is correct at 55 bytes (last single-block length)", _
+           VlaSha256HexOfAsciiText(String$(55, "x")) = _
+           "D5E285683CD4EFC02D021A5C62014694958901005D6F71E89E0989FAC77E4072", _
+           "got " & VlaSha256HexOfAsciiText(String$(55, "x"))
+    Report "SEC.11 SHA-256 is correct at 56 bytes (forces an all-padding second block)", _
+           VlaSha256HexOfAsciiText(String$(56, "x")) = _
+           "04C26261370EE7541549D16DEE320C723E3FD14671E66A099AFE0A377C16888E", _
+           "got " & VlaSha256HexOfAsciiText(String$(56, "x"))
+    Report "SEC.11 SHA-256 is correct at exactly one block (64 bytes)", _
+           VlaSha256HexOfAsciiText(String$(64, "x")) = _
+           "7CE100971F64E7001E8FE5A51973ECDFE1CED42BEFE7EE8D5FD6219506B5393C", _
+           "got " & VlaSha256HexOfAsciiText(String$(64, "x"))
+    Report "SEC.11 SHA-256 is correct just past one block (65 bytes)", _
+           VlaSha256HexOfAsciiText(String$(65, "x")) = _
+           "9537C5FDF120482F7D58D25E9ED583F52C02B4E304EA814DB1633AD565AED7E9", _
+           "got " & VlaSha256HexOfAsciiText(String$(65, "x"))
+
+    ' --- the whitespace-skip property, which is what makes the key
+    '     portable across a CRLF checkout and an LF one ---
+    Dim crlfSpelling As String, lfSpelling As String
+    Dim crlfHash As String, lfHash As String, crlfCount As Long, lfCount As Long
+    crlfSpelling = "(say" & vbTab & """hello"")" & vbCrLf
+    lfSpelling = " ( say ""hello"" ) " & vbLf
+    crlfHash = VlaSha256HexOfAsciiTextSkippingWhitespace(crlfSpelling, crlfCount)
+    lfHash = VlaSha256HexOfAsciiTextSkippingWhitespace(lfSpelling, lfCount)
+    Report "SEC.11 the same phrasebook line hashes the same with CRLF+tabs as with LF+spaces", _
+           crlfHash = lfHash, crlfHash & " vs " & lfHash
+    Report "SEC.11 the whitespace-skipped digest is the digest of the packed bytes", _
+           crlfHash = "F5885BDE1D136B3F76E2F8392A31D8EBF4F84AEA0445CF23F251B9F27A98A728", _
+           "got " & crlfHash
+    Report "SEC.11 the byte count reports only the bytes that took part", _
+           crlfCount = 12 And lfCount = 12, _
+           "CRLF counted " & crlfCount & ", LF counted " & lfCount
+
+    ' A one-character token edit must move the digest. This is the
+    ' property consent actually rests on: it is why editing a phrasebook
+    ' re-prompts. Whitespace is skipped; MEANING is not.
+    Report "SEC.11 a one-character token edit changes the digest", _
+           VlaSha256HexOfAsciiTextSkippingWhitespace("(say ""hello"")", counted) <> _
+           VlaSha256HexOfAsciiTextSkippingWhitespace("(say ""hellp"")", counted), _
+           "a token edit left the digest unchanged"
+
+    ' The stamp FORMAT (the "sha256:" prefix and the shape of the string
+    ' EnglishSourceHash returns) is pinned next to the 0.5.1 assertions
+    ' it replaces, in VLA_Tests_Grammar.bas's TestGexpander - that is
+    ' where the temp-file probe already lives, and keeping the old and
+    ' new shape assertions side by side is what makes the migration
+    ' legible.
 End Sub
 
 Private Sub TestHelpers()
