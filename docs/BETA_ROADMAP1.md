@@ -1171,7 +1171,7 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   (`tools/check_grammar_since.ps1` reads it too) changes byte-for-byte in
   the same commit. `~hours`
 
-- ⬜ **SEC.12 — the compile path emits a call to any unknown head, and
+- 🛡️ **SEC.12 — the compile path emits a call to any unknown head, and
   `english-function` accepts any target.** **CONFIRMED, `VLA.bas`
   (`EmitExpr`'s `Case Else`):** an unrecognized head is emitted as
   `SymName(h) & "(" & args & ")"` — a literal VBA call to whatever the name
@@ -1189,6 +1189,25 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   `-function` target outside that set, refuses in words at emit time the way
   the interpreter already does at dispatch. *Overlaps:* `SEC.1` (this is its
   compile-side mirror). `~days`
+
+  **🛡️ ACCEPTED RISK, 2026-09-08, with the mitigating control named.** Not
+  fixed, and deliberately so. *The control:* this is the Compile path only,
+  and `RunProgram` (`VLA_IDE.bas:698`) refuses outright without
+  `VlaHasVbProjectTrust()`. *Trust access to the VBA project object model*
+  is **off by default in every Office install** and, in that code's own
+  words, "the one Excel setting managed IT departments routinely disable".
+  Interpret — the default path, and the one the hostile-workbook threat
+  model in `SEC.8` actually runs through — touches no VBProject at all,
+  and `SEC.1` already refuses both of this item's shapes at dispatch.
+  *Verified, not assumed:* the trust gate was re-read at triage time, and
+  `README.md` was checked to confirm Frazaro does not instruct ordinary
+  users to enable the setting (it does not; only `VLA_Loader.bas`'s
+  dev-facing header mentions it, for `VlaRunFile`). *So the exposed
+  population is:* someone who has deliberately enabled a setting Office
+  ships off, then uses Compile rather than Interpret, on a phrasebook they
+  did not write. *Revisit when:* Compile stops requiring VBProject trust,
+  or a shipped edition starts telling users to enable it — either change
+  invalidates this acceptance and reopens the item.
 
 - ✅ **SEC.13 — Word automation opens untrusted documents with macros
   enabled (one line).** Built and owner-verified live 2026-09-08
@@ -1336,7 +1355,7 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   is weakening a security setting to run a security test. Recipe:
   `tools/sec13_word_fixture.md`. `~hours`
 
-- ⬜ **SEC.14 — no step budget or cancel in the interpreter; unbounded
+- 🛡️ **SEC.14 — no step budget or cancel in the interpreter; unbounded
   reader recursion.** **CONFIRMED:** the interpreter's loop primitives
   (`ExecWhile`/`while`/`until`/`repeat`, `VLA_Interpreter.bas:1063`–`1182`)
   have no iteration ceiling, nothing in the interpreter sets
@@ -1350,6 +1369,24 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   the way `prolog-step-ceiling` already is; a nesting cap in the reader. The
   user-facing half (cancel, progress past ~2s) is `IN.14`'s own scope —
   cite it, build the security half here. `~days`
+
+  **🛡️ ACCEPTED RISK, 2026-09-08, with the mitigating control named — and
+  one half of it honestly uncovered.** *The control, for the loop half:*
+  nothing in `src/` sets `Application.EnableCancelKey` (grepped at triage
+  time), so it stays at VBA's default `xlInterrupt` and **Ctrl+Break
+  interrupts a runaway program**. That is a real escape hatch, not a
+  theoretical one. *What the control does NOT cover, stated plainly rather
+  than glossed:* `ParseForm`'s unbounded recursion is a VBA **stack
+  overflow**, which is a hard crash — Ctrl+Break cannot catch it, and
+  unsaved work in other open workbooks can be lost. *Why it is still
+  accepted:* the outcome is availability and data loss, not compromise — no
+  code executes, nothing leaves the machine, nothing persists — and a
+  workbook that crashes Excel on open is self-defeating as an attack. This
+  is a robustness item wearing a security label; `IN.14` owns the
+  user-facing half and is the better home for the fix. *Revisit when:*
+  `IN.14` is built (fold the reader depth cap in with it), or if a crash
+  is ever shown to leave exploitable state behind rather than just losing
+  work.
 
 - ⬜ **SEC.15 — formula writes are an ungoverned egress channel.**
   **CONFIRMED:** `SEC.4`'s `NeutralizeFormulaInjection` guards only the
@@ -1366,7 +1403,38 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   capability. *Overlaps:* `SEC.4` (same class, the sink SEC.4 deliberately
   left open), `SEC.7` (the capability home). `~days`
 
-- ⬜ **SEC.16 — trusted code loads from user-writable locations with no
+  **⬜ DELIBERATELY NOT ACCEPTED, 2026-09-08 — the one item of the five
+  reviewed for acceptance that stays open, and the reasoning is recorded so
+  the decision is not re-litigated from scratch.** The triage pass that
+  accepted `SEC.12`/`SEC.14`/`SEC.16`/`SEC.17` proposed accepting
+  this one too. It should not be, for a reason that only became visible
+  once `SEC.8` shipped: **`SEC.8` deliberately does NOT gate formula
+  writes.** Its scope answer (question 4) draws the line at the workbook
+  carrying the program and hands formula-write egress to this item by name.
+  So the exact scenario `SEC.8` was built for — a workbook mailed in from
+  outside, running its program after "Enable Editing" — can still plant a
+  `WEBSERVICE`/`FILTERXML` formula, and every external-effect verb being
+  refused around it does not touch that path. This is the remaining hole in
+  `SEC.8`'s own story, which is a different standing from the four
+  accepted items, all of which need a precondition the default install does
+  not meet.
+  *What is NOT claimed as a control, because it was not verified:* Excel's
+  own external-content handling very likely governs whether a planted
+  `WEBSERVICE` actually fetches, and modern Office disables DDE by
+  default. Both are plausible and neither was tested here, so neither is
+  recorded as a mitigation — an unverified control is worse than no control,
+  because it reads as one.
+  *What IS confirmed:* `SD-13`'s "Frazaro makes no outbound network call"
+  is a property of Frazaro's own code and not of a formula Frazaro writes,
+  so this item is also a truth-in-advertising question about a claim already
+  made publicly, in the same way `SEC.11` is.
+  *Re-sized down from `~days`:* the fix is a denylist at ONE sink — the
+  `.Formula` write, sibling to `SEC.4`'s existing
+  `NeutralizeFormulaInjection` at `VLA_Interpreter.bas:2682` — not the
+  general capability work `SEC.7` would need. Closer to `~hours`. Ranked
+  after `SEC.9` and `SEC.11` but ahead of everything accepted above.
+
+- 🛡️ **SEC.16 — trusted code loads from user-writable locations with no
   integrity check.** **CONFIRMED, `VLA.bas:1798`–`1809` (`PreludeVlaPath`)
   and `IdeVocabPath`:** an external `prelude.vla`/`english.vla` sitting
   beside the add-in overrides the embedded, build-audited copies, and in a
@@ -1380,7 +1448,26 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   (`SEC.11`'s real digest, once it lands) before letting a sibling file win.
   `~days`
 
-- ⬜ **SEC.17 — emitted `Names.Add` with a program-controlled `RefersTo`.**
+  **🛡️ ACCEPTED RISK, 2026-09-08, with the mitigating control named.** *The
+  control:* every route to this requires an attacker to already be running
+  code as the user — writing a file next to the add-in, or into
+  `%AppData%`, is not something a mailed workbook can do, and Frazaro is
+  not the weakest thing on a machine where it is possible. This is a
+  **persistence** mechanism, not an entry point: it makes a compromise
+  durable, it does not create one. *Why accepted rather than fixed:* the fix
+  as written depends on `SEC.11`'s real digest landing first, and hashing
+  a grammar file to defend against an attacker who can also edit the thing
+  doing the hashing is close to circular — the honest version of this
+  defence is OS-level (a non-user-writable install location), which is an
+  installer decision, not a code one. *Not the same item as* `SEC.9`:
+  that one is a mailed workbook's OWN directory winning the search order
+  with no privilege at all, which is why `SEC.9` stays open and severe
+  while this stays accepted. *Revisit when:* an installer variant ships to a
+  non-user-writable location (the acceptance gets stronger, and the item can
+  close), or if a route is found that does not presuppose local code
+  execution (the acceptance is void).
+
+- 🛡️ **SEC.17 — emitted `Names.Add` with a program-controlled `RefersTo`.**
   **CONFIRMED, `VLA.bas:5126`:** the emitter writes
   `ThisWorkbook.Names.Add Name:=…, RefersTo:=…` with both halves derived
   from program text. A defined name called `Auto_Open` whose `RefersTo` is
@@ -1390,6 +1477,20 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   (`Auto_Open`, `Auto_Close`, `Workbook_Open`, …) and any non-formula
   `RefersTo` at the emit site. *Overlaps:* `SEC.12` (both are compile-path
   emit-time gates; build them together). `~hours`
+
+  **🛡️ ACCEPTED RISK, 2026-09-08, with the mitigating control named — and
+  it is the same control as** `SEC.12`**'s, which is why they are
+  accepted together.** *The control:* Compile path only, gated by
+  `VlaHasVbProjectTrust()` at `VLA_IDE.bas:698`, a setting Office ships
+  off and managed environments disable. The interpreter never emits a
+  `Names.Add` at all. *Sharpened at triage:* this is the narrowest item in
+  the tranche and its `~hours` estimate is honest — an `Auto_Open`
+  denylist at the emit site is genuinely small. It is accepted rather than
+  done only because doing it alone would land a security change on a path
+  no default-configured user can reach, while `SEC.9` — reachable by
+  anyone who opens a workbook — stays open. *Revisit when:* `SEC.12` is
+  built (build both, they share the emit-site gate), or the VBProject-trust
+  precondition stops holding.
 
 - **Audited this pass and found sound, recorded so the next audit doesn't
   re-walk them:** `ScheduleSelfDelete` escapes its target path correctly

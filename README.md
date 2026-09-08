@@ -308,10 +308,13 @@ workbook arriving from outside cannot carry its own permission slip.
   export a sheet to PDF, and compose an Outlook email (it is displayed
   for you, never sent silently) — with no consent prompt.
 
-**Open from the project's own code review of 2026-09-08 — SEC.8 through
-SEC.17 (less SEC.8 and SEC.13, both closed in `0.5.3` — above), ranked
-most-severe first.** These are audit findings read from the code, not exploits anyone
-has run; each one's file, line, and fix is in
+**Open from the project's own code review of 2026-09-08.** The review found
+ten items, SEC.8 through SEC.17. Two are fixed (SEC.8 and SEC.13, both in
+`0.5.3` — above). Four were assessed and **accepted** rather than fixed,
+with the mitigating control written down and a stated condition that reopens
+each — see *Assessed and accepted* below. Four remain open and are listed
+here, most-severe first. These are audit findings read from the code, not
+exploits anyone has run; each one's file, line, and fix is in
 [docs/BETA_ROADMAP1.md](docs/BETA_ROADMAP1.md). In plain words:
 
 - **SEC.9** — a grammar file placed beside a workbook, or a phrasebook
@@ -322,17 +325,28 @@ has run; each one's file, line, and fix is in
   with consent already granted.
 - **SEC.11** — the fingerprint that consent is keyed to is weak enough to
   forge.
-- **SEC.12** — on the Compile path only, a phrasebook can name any VBA
-  function and the generated module will call it, with no `raw` consent
-  dialog.
-- **SEC.14** — a runaway program has no step limit; Excel's own
-  Ctrl+Break is the only way out.
 - **SEC.15** — formulas a program writes are not screened for functions
   that reach the network or the shell (`WEBSERVICE`, DDE).
-- **SEC.16** — grammar files placed beside the add-in override the
-  built-in ones with no integrity check.
-- **SEC.17** — on the Compile path only, a defined name a program creates
-  could be one Excel runs on open.
+
+**Assessed and accepted — deliberately not fixed, and why.** Each of these
+needs a precondition an ordinary install does not meet. The full reasoning,
+and the condition that would reopen each one, is in
+[docs/BETA_ROADMAP1.md](docs/BETA_ROADMAP1.md); in short:
+
+- **SEC.12** and **SEC.17** — both are on the *Compile* path, which refuses
+  to run at all unless you have turned on Excel's *Trust access to the VBA
+  project object model*. That setting is off in every Office install by
+  default, and managed IT departments routinely disable it outright.
+  Frazaro never asks you to turn it on, and *Interpret* — the ordinary way
+  to run a program — does not touch it.
+- **SEC.14** — a runaway program can hang Excel, and Ctrl+Break stops it.
+  A deeply nested program can instead overflow VBA's stack and crash Excel,
+  which Ctrl+Break cannot stop and which can lose unsaved work. Accepted
+  because the worst outcome is a lost session rather than a compromise:
+  nothing runs, nothing leaves the machine, nothing persists.
+- **SEC.16** — replacing the grammar files beside the add-in requires
+  already being able to run programs on your machine as you. It makes an
+  existing compromise durable; it does not create one.
 
 Until these close: **load phrasebooks only from people you would accept
 a macro-enabled workbook from — and treat a workbook someone sent you

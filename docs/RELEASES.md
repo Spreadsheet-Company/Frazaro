@@ -1,6 +1,6 @@
 ﻿# Releases
 
-*Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Keep the *Known open security items* block in every section until the items close.*
+*Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_ROADMAP1.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
 ## 0.5.3
 
@@ -179,27 +179,29 @@
 
 ### Known open security items
 
-- **SEC.3** — generated code does not yet carry phrasebook provenance.
-- **SEC.7** — a small set of verbs with real external effect (`vlasendmail`
-  today) still runs with no permission check: a phrasebook you load can
-  send mail with no consent prompt. `SEC.8` above narrows this but does
-  not close it — it gates on where the *workbook* came from, not on what
-  a phrasebook asked permission to do, so a phrasebook loaded into a
-  workbook of your own still reaches these verbs unprompted.
-- **SEC.9–SEC.12, SEC.14–SEC.17** — the project's own code review of
-  2026-09-08. In plain words: grammar and phrasebook files beside a
-  workbook or the add-in load ahead of the built-in ones without asking
-  and without an integrity check (`SEC.9`, `SEC.16`); the
-  remembered-consent record lives inside the workbook and its
-  fingerprint is forgeable (`SEC.10`,
-  `SEC.11`); on the Compile path a phrasebook can name any VBA function
-  and a created defined name could be one Excel runs on open (`SEC.12`,
-  `SEC.17`); a runaway program has no step limit (`SEC.14`); and formulas
-  a program writes are not screened for functions that reach the network
-  or the shell (`SEC.15`). Each one's file, line and fix is in
-  [`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md).
+**Closed this release:** `SEC.8` and `SEC.13` — see above.
 
-`SEC.8` and `SEC.13` closed this release — see above.
+**Still open:** `SEC.3`, `SEC.7`, and four from the 2026-09-08 code
+review — `SEC.9`, `SEC.10`, `SEC.11` and `SEC.15`. In plain words:
+grammar and phrasebook files beside a workbook load ahead of the built-in
+ones without asking (`SEC.9`); the remembered-consent record lives inside
+the workbook and its fingerprint is forgeable (`SEC.10`, `SEC.11`);
+formulas a program writes are not screened for functions that reach the
+network (`SEC.15`); and effects like sending mail still run without a
+permission prompt (`SEC.7`). `SEC.8` narrows that last one — it gates on
+where the *workbook* came from — but does not close it: a phrasebook loaded
+into a workbook of your own still reaches those verbs unprompted.
+
+**Assessed and accepted, not fixed:** `SEC.12`, `SEC.14`, `SEC.16` and
+`SEC.17`. Each needs a precondition an ordinary install does not meet —
+mostly an Excel setting that ships off and that Frazaro never asks you to
+turn on. The reasoning for each, and what would reopen it, is written down
+rather than left implied.
+
+The authoritative lists, kept current in one place instead of copied into
+every release: [`README.md`](../README.md) in plain words, and
+[`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md) with the file, line, fix and
+disposition for each.
 
 Until these close: **load phrasebooks only from people you would accept a
 macro-enabled workbook from — and treat a workbook someone sent you the
