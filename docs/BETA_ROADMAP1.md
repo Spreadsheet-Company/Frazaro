@@ -13302,6 +13302,114 @@ now carries one summary paragraph per engine and points here.*
     the check would cover all four modules. Filed here because this is
     where it surfaced; re-home it to a test-infrastructure family if one
     is ever minted. *Blocks nothing; blocked by nothing.* `~days`.
+  - ✅ **PROLOG.21 — `(list a b c)`, the shorthand `PROLOG.13` filed and
+    deliberately did not take.** SHIPPED 2026-09-09; owner-verified live.
+    `TestDSLs` 602 → **624/624** (22 new assertions, 21 rendering pins
+    re-pointed); pure 1047/1047, host 143/143 and `VerifyReports`
+    141/141 emitter and 141/141 interpreter all unmoved, exactly as
+    predicted; all 16 `tools/check_*.ps1` green. The predicted count was
+    exact, and this time so was the pin sweep — no stale pin survived to
+    the live run, which is what the mechanical re-point below was for.
+    Owner-confirmed in cells: a bag rendering `(list red green blue)`;
+    `(list a b c)` unifying with its own cons chain; a list written in a
+    fact and measured; an improper `(cons a b)` printing as itself; both
+    refusals, with the reserved-name message now naming
+    `is/not/findall/!/between/list`; nested `(list (list a 1) (list b 2))`
+    from a findall template; and `nil` still rendering as `nil`.
+
+    **NOT A NEW REPRESENTATION.** Cons cells are unchanged and remain the
+    only list this engine has; every `PROLOG.13` pin about `(cons H T)`
+    still passes untouched. What changes is the two ENDS — how a list is
+    READ and how it is WRITTEN — and they change together, because
+    either alone would be a display that lies.
+
+    **THE OBJECTION `PROLOG.13` DEFERRED THIS FOR WAS WRONG, and it was
+    my own.** That entry reasoned: sugar makes `list` vanish at parse
+    time, so `list` would have to be reserved (or a user could write
+    `(fact (list a b))` and have it silently rewritten) while never being
+    dispatched — the exact defect
+    `tools/check_prolog_reserved_names.ps1`'s rule C exists to catch — so
+    the item could only be admitted by widening that check, which is the
+    wrong direction. The error is in "vanish": sugar expands a **DATA**
+    position only. In a **GOAL** position nothing rewrites it, so
+    `(query (list a b))` reaches `SolveGoalList` intact with `predName`
+    `"list"`, where it is dispatched to a refusal saying a list is a
+    value and not a goal. **Reserved AND dispatched, rules C and D
+    satisfied honestly, and no check widened.** It is `PROLOG.9`'s own
+    bare-ISO-spelling shape reused: a name whose dispatch always raises,
+    because teaching the spelling *is* what it does.
+
+    **THE GOAL/DATA SPLIT IS `PROLOG.11`'s, REUSED**, and rests on the
+    same measured fact: the only nested goal positions in this language
+    are `not`'s argument and `findall`'s Goal. So
+    `(findall (list X) (p X) B)` expands its Template and its Bag and
+    leaves its Goal alone — pinned in **both** directions, because
+    getting it backwards would either eat a goal or strand a `(list ...)`
+    in a data position where nothing would ever expand it. Both nested
+    positions are re-checked against their own arity rather than assumed,
+    so a malformed `(not A B)` is left for `ValidateBodyItem` to refuse
+    rather than being quietly reinterpreted as a negation.
+
+    **ORDERING THAT IS NOT ARBITRARY:** expansion runs BEFORE
+    `DesugarBodyItem`, because `PROLOG.6`'s keyed-atom classifier reads a
+    2-element compound argument as a `(column value)` pair — and
+    `(list a)` is a 2-element compound. Left until after, a one-element
+    list would be read as a keyed atom naming a column called `list`.
+    Expanding first turns it into the 3-element `(cons a nil)`, which
+    that classifier cannot mistake for a pair.
+
+    **CONTRACTION IS A TERM-TO-TERM REWRITE, NOT A SECOND WRITER**, and
+    that is load-bearing rather than tidy: the rewritten term is handed
+    to the EXISTING `VLA.VlaWriteForm`, so quoting, escaping and spacing
+    stay byte-identical and cannot drift. `PROLOG.6`'s keyed-atom pin —
+    whose whole subject is that a marked leaf inside a compound is
+    RE-QUOTED — is what proves it, and that pin has now survived the bag
+    spelling moving three times (`("alice" "carol")`, the cons chain,
+    `(list "alice" "carol")`) without its own point changing once.
+
+    **ONLY A PROPER LIST CONTRACTS**, and the terminator is checked
+    rather than assumed. Proved load-bearing by mutation before import:
+    dropping the "ends in `nil`" test makes an improper `(cons a b)`
+    print as `(list a)`, which reads back as `(cons a nil)` — a display
+    that has **silently discarded the b**. That is precisely the class of
+    failure the round-trip law exists to forbid, and it is why the pair
+    (improper prints as itself / proper contracts) sits in the tests.
+
+    **THE LAW, AND IT IS RUN LIVE RATHER THAN ARGUED.**
+    `Expand(Contract(t)) = t` for every term the engine can hold —
+    transliterated over 19 term shapes before import, and then pinned
+    against the real engine by a test that takes a bag's own RENDERED
+    TEXT, splices it into the source of a second `PROLOG()` call, and
+    asserts it unifies with the bag itself. Its discriminating twin
+    changes one element of that same text and asserts it does NOT unify,
+    so the round trip cannot pass merely because `=` succeeds against
+    anything. No amount of one-directional testing would catch rendering
+    and reading drifting apart; this does.
+
+    **THE COST `PROLOG.13` PAID AND THIS REFUNDS, measured:** a
+    three-element bag rendered 39 characters as a cons chain and renders
+    21 as a list; ten elements go from 94 characters to 27. That is the
+    verbosity the owner saw in cells the day `PROLOG.13` shipped, and it
+    was the item's one real regression.
+
+    **`RELEASES.md` IS REWRITTEN, NOT APPENDED TO.** `0.5.4` is still
+    unreleased, so a reader will only ever see the shipped state — two
+    bullets that described the cons display as final are replaced by one
+    coherent account of `(list ...)` to write and `(cons ...)` to
+    destructure, rather than left as a history of two items inside one
+    release. The reserved-name count in those notes goes six → seven.
+
+    **The 21 rendering pins were re-pointed MECHANICALLY**, not by hand:
+    a script parsed every expected literal in a result assertion and
+    rewrote it with the same contraction algorithm the transliteration
+    proved, listing each change for review. That is a direct answer to
+    `PROLOG.13`'s own miss, where a hand grep for known literals left two
+    stale pins for the owner's run to find. Program TEXT in the tests is
+    deliberately left written in `cons`, so the suite keeps proving the
+    underlying representation still works.
+
+    *Blocks nothing; blocked by nothing.* *Named follow-up left open:*
+    `append` over partial lists, inherited from `PROLOG.13`.
   - **Stated ceiling, carried forward from `BETA_ROADMAP1.md`, not built
     here:** first-argument clause indexing (`SQL`'s own hash-join law,
     `PROLOG`'s own twin — don't scan every clause per call); tabling/memoized

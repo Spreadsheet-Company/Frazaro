@@ -1,6 +1,69 @@
 Attribute VB_Name = "VLA_Prolog"
 Option Explicit
-Public Const VLA_PROLOG_VERSION As String = "PROLOG.13"
+Public Const VLA_PROLOG_VERSION As String = "PROLOG.21"
+'
+' PROLOG.21: `(list a b c)` - the compact spelling PROLOG.13 filed as its
+' own named follow-up, and the one it deliberately did not take because
+' the representation had to be settled first. NOT a new representation:
+' cons cells are unchanged and remain the only list this engine has. What
+' changes is the two ends - how a list is READ and how it is WRITTEN -
+' and the two are changed TOGETHER, because either alone would be a lie.
+'
+'   READ:   ExpandListSugarInto rewrites `(list a b c)` into
+'           `(cons a (cons b (cons c nil)))` at parse time, so nothing
+'           downstream of ParseProgram ever sees a `list` functor.
+'   WRITE:  ContractListsInto rewrites a proper cons chain back into
+'           `(list a b c)` just before rendering.
+'
+' THE LAW THAT MAKES IT A SHORTHAND RATHER THAN A DISPLAY: for every term
+' this engine can hold, Expand(Contract(t)) = t. What a cell PRINTS reads
+' back as exactly the term it printed. `RELEASES.md` promised precisely
+' this when PROLOG.13 shipped ("a genuine shorthand rather than a
+' different-looking display"), and it is pinned both by a transliteration
+' over 19 term shapes before import and by a LIVE test that renders a bag
+' and feeds the rendered text back into a second PROLOG call.
+'
+' THE COST PROLOG.13 PAID AND THIS REFUNDS, measured: a three-element bag
+' rendered 39 characters as a cons chain and renders 21 as a list; ten
+' elements go from 94 characters to 27.
+'
+' WHY `list` CAN BE RESERVED AND DISPATCHED, which is what PROLOG.13
+' thought impossible and is the whole reason it deferred this. That entry
+' reasoned that sugar makes `list` vanish at parse time, leaving a name
+' reserved but never dispatched - the defect
+' tools/check_prolog_reserved_names.ps1's own rule C exists to catch, so
+' the item could only have been admitted by widening that check. The
+' reasoning was wrong, and specifically it was wrong about "vanish
+' everywhere": sugar expands a DATA position only. In a GOAL position
+' nothing rewrites it, so `(query (list a b))` arrives at SolveGoalList
+' intact with predName "list" - where it is dispatched to a refusal that
+' says a list is a value and not a goal. Reserved AND dispatched, exactly
+' PROLOG.9's bare-ISO-spelling shape, and **no check needed widening**.
+'
+' THE GOAL/DATA SPLIT IS NOT NEW EITHER. It is the same distinction
+' PROLOG.11 established for CollectVars, and it rests on the same
+' measured fact: the only nested GOAL positions in this language are
+' `not`'s own argument and `findall`'s own Goal. Everything else below a
+' predicate application is data. So `(findall (list X) (p X) B)` expands
+' its Template and its Bag and leaves its Goal alone - pinned in both
+' directions, because getting it backwards would either eat a goal or
+' leave a `(list ...)` sitting in a data position where nothing would
+' ever expand it.
+'
+' CONTRACTION IS A TERM-TO-TERM REWRITE, NOT A SECOND WRITER, and that is
+' load-bearing rather than tidy: the rewritten term is handed to the
+' EXISTING VLA.VlaWriteForm, so quoting, escaping and spacing stay
+' byte-identical to what they already were and cannot drift. A marked
+' string leaf inside a list is still re-quoted by WriteDatum exactly as
+' PROLOG.6's own keyed-atom pin asserts.
+'
+' ONLY A PROPER LIST CONTRACTS. An improper `(cons a b)` or a partial
+' `(cons a T)` prints as itself. Proved load-bearing by mutation before
+' import: dropping the "ends in nil" test makes `(cons a b)` print as
+' `(list a)`, which reads back as `(cons a nil)` - a display that
+' silently DISCARDS the b. That is the exact class of failure the law
+' above exists to forbid, and it is why the terminator is checked rather
+' than assumed.
 ' (This constant read "PROLOG.7" until PROLOG.9. PROLOG.8 documented
 ' itself at each site and added no header block of its own, and the bump
 ' went with it. Nothing reads this constant - it is a marker for whoever
@@ -1588,11 +1651,29 @@ End Function
 ' six are unaffected by that difference.
 Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
     Select Case predName
-    Case "is", "not", "findall", "!", "between"
+    Case "is", "not", "findall", "!", "between", "list"
         ' PROLOG.9: `between` is a literal arm rather than a table of its
         ' own because it is ONE name - the shape is/not/findall already
         ' have. Its six type-test siblings arrive by table below, since
         ' they are six.
+        '
+        ' PROLOG.21: `list` joins as a literal for the same one-name
+        ' reason - and it is the only reserved name here that is not a
+        ' goal at all. It is the LIST SUGAR marker: in a data position
+        ' ExpandListSugarInto rewrites `(list a b c)` into a cons chain
+        ' at parse time, so the name never survives to be solved. It is
+        ' reserved because a user could otherwise write
+        ' `(fact (list a b))` and have it silently rewritten into
+        ' something that is not a fact, and it is DISPATCHED because a
+        ' `(list ...)` in GOAL position is never expanded and does reach
+        ' SolveGoalList, where it is refused by name. Reserved and
+        ' dispatched both, so rule C is satisfied honestly rather than by
+        ' exemption - see this module's own PROLOG.21 header for why
+        ' PROLOG.13 wrongly believed that impossible.
+        '
+        ' `cons` and `nil` remain UNRESERVED, unchanged: those are a
+        ' functor and an atom, ordinary data with nothing to dispatch.
+        ' Only the sugar marker needs a name of its own.
         IsReservedPredicateName = True
     Case Else
         ' PROLOG.7: the six comparison names are not repeated here. They
@@ -2497,19 +2578,32 @@ Private Sub ParseProgram(ByVal clausesText As String, ByVal clauseDict As Object
         Select Case head
         Case "fact"
             If lst.Count <> 2 Then VLA_Messages.RaiseMsg "prolog-fact-bad-shape"
+            ' PROLOG.21: list sugar is expanded FIRST, and every later
+            ' step reads the expanded term - the arity recorded, the
+            ' ground check, and the clause actually stored. Passing True
+            ' keeps the fact's own head a predicate application, so
+            ' `(fact (list a b))` still reaches the reserved-name
+            ' refusal below instead of being quietly rewritten into a
+            ' cons chain that is not a fact at all.
+            Dim factTerm As Variant
+            ExpandListSugarInto factTerm, lst.Item(2), True
             Dim predName As String
-            predName = TermPredName(lst.Item(2), "a fact", predArity)
+            predName = TermPredName(factTerm, "a fact", predArity)
             If IsReservedPredicateName(predName) Then VLA_Messages.RaiseMsg "prolog-reserved-predicate-name", "name", predName
             Dim varName As String
             varName = ""
-            If TermHasVariable(lst.Item(2), varName) Then
+            If TermHasVariable(factTerm, varName) Then
                 VLA_Messages.RaiseMsg "prolog-fact-has-variable", "predicate", predName, "var", varName
             End If
-            GetOrCreateClauseList(clauseDict, predName).Add MakeClause(lst.Item(2), New Collection)
+            GetOrCreateClauseList(clauseDict, predName).Add MakeClause(factTerm, New Collection)
         Case "rule"
             If lst.Count < 3 Then VLA_Messages.RaiseMsg "prolog-rule-needs-body"
+            ' PROLOG.21: the head, expanded as a predicate application
+            ' for the reason the fact branch above states.
+            Dim ruleHeadTerm As Variant
+            ExpandListSugarInto ruleHeadTerm, lst.Item(2), True
             Dim rulePredName As String
-            rulePredName = TermPredName(lst.Item(2), "a rule head", predArity)
+            rulePredName = TermPredName(ruleHeadTerm, "a rule head", predArity)
             If IsReservedPredicateName(rulePredName) Then VLA_Messages.RaiseMsg "prolog-reserved-predicate-name", "name", rulePredName
             ' Fresh `Set ... New Collection` EVERY time this Case runs,
             ' not `Dim ... As New` - the exact As-New-in-a-loop trap
@@ -2525,8 +2619,15 @@ Private Sub ParseProgram(ByVal clausesText As String, ByVal clauseDict As Object
                 ' PROLOG.6: desugared BEFORE validation - a keyed atom's
                 ' own arity (once resolved) must be what ValidateBodyItem/
                 ' TermPredName actually see, never the raw key-pair count.
+                ' PROLOG.21: expanded BEFORE DesugarBodyItem, never
+                ' after - a one-element `(list a)` is a 2-element
+                ' compound and PROLOG.6's keyed-atom classifier would
+                ' read it as a `(column value)` pair naming a column
+                ' called "list". See ExpandListSugarInto's own header.
+                Dim expandedBody As Variant
+                ExpandListSugarInto expandedBody, lst.Item(bi), True
                 Dim desugaredBody As Variant
-                DesugarBodyItem desugaredBody, lst.Item(bi), "VlaAnonB", bi, headerMap
+                DesugarBodyItem desugaredBody, expandedBody, "VlaAnonB", bi, headerMap
                 ' NOT CollectVars here - a rule body's own variables are
                 ' LOCAL to that clause (freshened per invocation,
                 ' SolveGoalList's own job), never a free OUTPUT column
@@ -2536,15 +2637,19 @@ Private Sub ParseProgram(ByVal clausesText As String, ByVal clauseDict As Object
                 ValidateBodyItem desugaredBody, "a rule body", predArity
                 bodyItems.Add desugaredBody
             Next bi
-            GetOrCreateClauseList(clauseDict, rulePredName).Add MakeClause(lst.Item(2), bodyItems)
+            GetOrCreateClauseList(clauseDict, rulePredName).Add MakeClause(ruleHeadTerm, bodyItems)
         Case "query"
             If lst.Count < 2 Then VLA_Messages.RaiseMsg "prolog-query-bad-shape"
             queryCount = queryCount + 1
             If queryCount > 1 Then VLA_Messages.RaiseMsg "prolog-query-ambiguous", "count", queryCount
             Dim qi As Long
             For qi = 2 To lst.Count
+                ' PROLOG.21: expanded before desugaring, exactly as the
+                ' rule-body branch above and for the same reason.
+                Dim expandedQuery As Variant
+                ExpandListSugarInto expandedQuery, lst.Item(qi), True
                 Dim desugaredQuery As Variant
-                DesugarBodyItem desugaredQuery, lst.Item(qi), "VlaAnonQ", qi, headerMap
+                DesugarBodyItem desugaredQuery, expandedQuery, "VlaAnonQ", qi, headerMap
                 ValidateBodyItem desugaredQuery, "a query", predArity
                 CollectVars desugaredQuery, freeVarNames, True
                 queryConjuncts.Add desugaredQuery
@@ -3086,6 +3191,30 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
         SolveListGoal goals.Item(1), ListGoalKindFor(predName), rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
         Exit Sub
+    End If
+
+    ' PROLOG.21: `(list ...)` in GOAL position. This arm is the whole
+    ' reason `list` can be reserved at all without tripping
+    ' check_prolog_reserved_names.ps1's rule C, and it is reached exactly
+    ' when the sugar did NOT fire: ExpandListSugarInto rewrites a data
+    ' `(list a b c)` into a cons chain at parse time, so a `list` functor
+    ' arriving here can only have come from a goal position, where a list
+    ' is not a thing that can be proved.
+    '
+    ' Like PROLOG.9's six bare ISO spellings, this arm never solves
+    ' anything - it always raises, and that IS its job. Below the
+    ' clauseDict lookup an unknown predicate is a SILENT dead end, so
+    ' left undispatched `(query (list a b))` would answer "no rows" and
+    ' explain nothing, which is the confidently-wrong-answer class this
+    ' project holds to be worse than a crash. No step is charged, because
+    ' no resolution work happens.
+    '
+    ' Solve-time rather than parse-time, the identical choice PROLOG.9
+    ' documents for its own spelling refusal: refusing in ValidateBodyItem
+    ' as well would make this arm dead code, and the user sees the
+    ' refusal in the cell either way.
+    If predName = "list" Then
+        VLA_Messages.RaiseMsg "prolog-list-is-not-a-goal"
     End If
 
     If Not VLA_Runtime.VlaDictHas(clauseDict, predName) Then Exit Sub   ' no candidates - dead end, not an error
@@ -3899,6 +4028,170 @@ Private Function ListTermToItems(ByVal term As Variant, envN As Collection, envT
     Loop
 End Function
 
+' PROLOG.21: READ TIME. `(list a b c)` -> the cons chain it is sugar for,
+' recursively, everywhere a term can appear. Run over every fact, every
+' rule head, every rule body item and every query conjunct in
+' ParseProgram, BEFORE TermPredName and before DesugarBodyItem, so that
+' nothing downstream of parsing ever sees a `list` functor in a data
+' position.
+'
+' BEFORE DesugarBodyItem SPECIFICALLY, and that ordering is not
+' arbitrary: PROLOG.6's keyed-atom desugaring reads a 2-element compound
+' argument as a `(column value)` pair, and `(list a)` is a 2-element
+' compound. Left until after, a one-element list would be read as a keyed
+' atom naming a column called "list". Expanding first turns it into the
+' 3-element `(cons a nil)`, which that classifier cannot mistake for a
+' pair.
+'
+' isGoalPosition marks a PREDICATE APPLICATION - position 1 is a functor
+' there and must never be read as the list marker. It is the same flag,
+' resting on the same measured fact, that PROLOG.11 gave CollectVars: the
+' ONLY nested goal positions in this language are `not`'s own argument
+' and `findall`'s own Goal, so every other recursive call passes False.
+' Both are re-checked here against their own arity rather than assumed,
+' since a malformed `(not A B)` is ValidateBodyItem's to refuse later and
+' must not be silently treated as a negation in the meantime.
+'
+' A Sub with a ByRef dest out param, not a Function - the result may be
+' an object (a cons cell, or any compound) or NOT (the atom nil, for an
+' empty `(list)`), which is exactly the ambiguity EnvWalkInto's own
+' header documents and exactly when a bare assignment would risk
+' invoking a Collection's default member.
+Private Sub ExpandListSugarInto(ByRef dest As Variant, ByVal term As Variant, ByVal isGoalPosition As Boolean)
+    If Not IsObject(term) Then
+        dest = term
+        Exit Sub
+    End If
+    Dim lst As Collection
+    Set lst = term
+    If lst.Count = 0 Then
+        Set dest = lst
+        Exit Sub
+    End If
+
+    ' IsObject checked in its own guarding If before Fold(CStr(...)) -
+    ' position 1 may itself be a nested list for an arbitrary compound
+    ' argument, and VBA's And does not short-circuit. CollectVars' own
+    ' PROLOG.11 arm makes the identical check for the identical reason.
+    Dim headWord As String
+    If Not IsObject(lst.Item(1)) Then headWord = VLA_Identity.Fold(CStr(lst.Item(1)))
+
+    If Not isGoalPosition Then
+        If headWord = "list" Then
+            Dim items As Collection
+            Set items = New Collection
+            Dim k As Long
+            For k = 2 To lst.Count
+                Dim itemExpanded As Variant
+                ExpandListSugarInto itemExpanded, lst.Item(k), False
+                items.Add itemExpanded
+            Next k
+            MakeListTermInto dest, items
+            Exit Sub
+        End If
+    End If
+
+    Dim outLst As Collection
+    Set outLst = New Collection
+    outLst.Add lst.Item(1)
+    Dim i As Long
+    For i = 2 To lst.Count
+        ' The two nested goal positions, and nothing else. Checked
+        ' against arity as well as head word so a malformed form is left
+        ' for ValidateBodyItem to refuse by name rather than being
+        ' quietly reinterpreted here.
+        Dim childIsGoal As Boolean
+        childIsGoal = False
+        If isGoalPosition Then
+            If headWord = "not" And lst.Count = 2 And i = 2 Then childIsGoal = True
+            If headWord = "findall" And lst.Count = 4 And i = 3 Then childIsGoal = True
+        End If
+        Dim childExpanded As Variant
+        ExpandListSugarInto childExpanded, lst.Item(i), childIsGoal
+        outLst.Add childExpanded
+    Next i
+    Set dest = outLst
+End Sub
+
+' PROLOG.21: is this term a PROPER list - a cons chain terminating in the
+' atom nil? Display-time only, which is why it takes no environment,
+' unlike ListTermToItems (above), which must dereference at every step
+' because a tail is routinely a variable. Everything reaching here has
+' already been through ResolveTermDeep, so there is nothing left to
+' dereference and asking for an env would be a false promise.
+'
+' The terminator really is checked rather than assumed, and that is
+' load-bearing: without it an improper `(cons a b)` would contract to
+' `(list a)`, which reads back as `(cons a nil)` and has silently thrown
+' the b away. Proved by mutation before import.
+Private Function IsProperConsListTerm(ByVal term As Variant) As Boolean
+    Dim w As Variant
+    If IsObject(term) Then Set w = term Else w = term
+    Do
+        If Not IsObject(w) Then
+            IsProperConsListTerm = (CStr(w) = PROLOG_NIL)
+            Exit Function
+        End If
+        Dim lst As Collection
+        Set lst = w
+        If lst.Count <> 3 Then Exit Function
+        If IsObject(lst.Item(1)) Then Exit Function
+        If CStr(lst.Item(1)) <> "cons" Then Exit Function
+        If IsObject(lst.Item(3)) Then Set w = lst.Item(3) Else w = lst.Item(3)
+    Loop
+End Function
+
+' PROLOG.21: WRITE TIME - the inverse of ExpandListSugarInto. Every
+' proper cons chain anywhere in the term becomes `(list a b c)`.
+'
+' A TERM-TO-TERM rewrite handed to the EXISTING VLA.VlaWriteForm, never a
+' second writer of its own: quoting, escaping and spacing therefore stay
+' byte-identical to what they already were and cannot drift apart from
+' the rest of the language. A marked string leaf inside a list is still
+' re-quoted by WriteDatum exactly as PROLOG.6's own keyed-atom pin
+' asserts.
+'
+' Every position is walked, 1 To Count, including position 1 - which is
+' a no-op for a functor (a string contracts to itself) and costs nothing,
+' and which keeps this function's contract "rewrite every list in
+' whatever you are handed" rather than one resting on an invariant
+' enforced somewhere else. ResolveTermDeep's own header takes the same
+' position for the same reason.
+Private Sub ContractListsInto(ByRef dest As Variant, ByVal term As Variant)
+    If Not IsObject(term) Then
+        dest = term
+        Exit Sub
+    End If
+    Dim lst As Collection
+    Set lst = term
+    Dim outLst As Collection
+    Set outLst = New Collection
+
+    If IsProperConsListTerm(term) Then
+        outLst.Add "list"
+        Dim w As Variant
+        Set w = lst
+        Do While IsObject(w)
+            Dim cell As Collection
+            Set cell = w
+            Dim elemContracted As Variant
+            ContractListsInto elemContracted, cell.Item(2)
+            outLst.Add elemContracted
+            If IsObject(cell.Item(3)) Then Set w = cell.Item(3) Else w = cell.Item(3)
+        Loop
+        Set dest = outLst
+        Exit Sub
+    End If
+
+    Dim i As Long
+    For i = 1 To lst.Count
+        Dim childContracted As Variant
+        ContractListsInto childContracted, lst.Item(i)
+        outLst.Add childContracted
+    Next i
+    Set dest = outLst
+End Sub
+
 ' PROLOG.13: a list goal's own written spelling, for the two shared
 ' refusals' {form}. Taken from the goal term's own position 1 and folded,
 ' so it names what the user actually wrote - the identical shape
@@ -4463,9 +4756,24 @@ Private Function LeafText(ByVal raw As Variant) As String
     End If
 End Function
 
+' PROLOG.21: the ONE choke point where a term becomes text, so it is the
+' one place list contraction has to happen - every caller wants it. A
+' cell gets `(list red green blue)` rather than
+' `(cons red (cons green (cons blue nil)))`, and so does every refusal
+' that quotes an offending value, which is right: a message showing a
+' value in a spelling the user cannot type back would be its own small
+' lie.
+'
+' Contraction runs on the OBJECT branch only. A bare leaf has no cons
+' chain in it by definition, and the empty list is the atom `nil`, which
+' LeafText already renders as itself - so `nil` stays `nil` rather than
+' becoming an empty `(list)`. Both spellings read back to the same term,
+' and the atom is both shorter and the thing the term actually is.
 Private Function RenderBoundValue(ByVal v As Variant) As String
     If IsObject(v) Then
-        RenderBoundValue = VLA.VlaWriteForm(v)
+        Dim contracted As Variant
+        ContractListsInto contracted, v
+        RenderBoundValue = VLA.VlaWriteForm(contracted)
     Else
         RenderBoundValue = LeafText(v)
     End If

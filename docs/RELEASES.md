@@ -197,8 +197,8 @@
 
   `(append A B C)` is the one that goes furthest. Given two lists it
   joins them. Given the *result* and either half, it hands back the
-  other half — so `(append (cons a nil) Rest Whole)` drops a known
-  prefix, and `(append Front (cons z nil) Whole)` drops a known suffix.
+  other half — so `(append (list a) Rest Whole)` drops a known prefix,
+  and `(append Front (list z) Whole)` drops a known suffix.
   Given only the result, it produces **every way the list could be split
   in two**, one row per split, both ends included. None of that is extra
   machinery; it is the same goal read in different directions, which is
@@ -208,43 +208,54 @@
   with all three blank has nothing to join and nothing to split, and is
   refused by name rather than left to find nothing.
 
-- **How a list is written, and why it is not `[a, b, c]`.** Frazaro
-  writes a list as `(cons Head Tail)`, and the empty list as `nil`. So
-  the list *a, b, c* is `(cons a (cons b (cons c nil)))`.
+- **How a list is written, and why it is not `[a, b, c]`.** Write a list
+  as `(list a b c)`. The empty list is `nil`.
 
-  That is more typing than the square brackets Prolog uses, and the
-  reason is worth knowing rather than guessing at: Frazaro's reader
-  treats `[`, `]` and `|` as ordinary letters, exactly like `a` or `x`.
-  Writing `[H|T]` would not produce a list — it would produce one long
-  word spelled `[H|T]`. Teaching the reader about brackets means
-  changing it for all five of Frazaro's languages at once, which is a
-  much larger change than this one, so it is not done here.
+  Square brackets are not available, and the reason is worth knowing
+  rather than guessing at: Frazaro's reader treats `[`, `]` and `|` as
+  ordinary letters, exactly like `a` or `x`. Writing `[H|T]` would not
+  produce a list — it would produce one long word spelled `[H|T]`.
+  Teaching the reader about brackets means changing it for all five of
+  Frazaro's languages at once, which is a far larger change than this
+  one.
 
-  What you get in exchange is that lists are not a special case. A list
-  is an ordinary term, so everything that already worked on terms works
-  on lists with no new rules to learn — including taking one apart:
+  Underneath, a list is built from pairs — `(cons Head Tail)` — and
+  `(list a b c)` is shorthand for `(cons a (cons b (cons c nil)))`. You
+  can write either; they are the same list, not two kinds of list. The
+  long form is what makes **taking a list apart** possible, because a
+  pair is an ordinary term and matching is what this language already
+  does:
 
   ```
   (query (findall X (color X) Bag) (= Bag (cons First Rest)))
   ```
 
   `First` is the first colour and `Rest` is everything after it. The same
-  works in a rule's head, so you can write a rule that only matches
-  non-empty lists.
+  works in a rule's head, so a rule can be written to match only
+  non-empty lists. That is the whole trade: `(list …)` to write one down,
+  `(cons …)` to pull one apart.
+
+  One thing `(list …)` is not is a goal. It builds a value, so it belongs
+  in an argument. Writing `(query (list a b))` on its own stops and says
+  so rather than quietly finding nothing.
 
 - **This changes what a `findall` bag looks like in a cell.** A bag of
   three colours used to display as `(red green blue)`. It now displays as
-  `(cons red (cons green (cons blue nil)))`. If you have a sheet that
-  reads a bag as text, that text has changed.
+  `(list red green blue)`. If you have a sheet that reads a bag as text,
+  that text has changed.
 
-  The old display was shorter and it was also a small lie: you could not
-  paste `(red green blue)` back into a program and get the same list —
-  Frazaro would read it as a *thing called red with two parts*. The new
-  form reads back as exactly what it prints. A shorter way to write the
-  same list is planned, and it will be a genuine shorthand rather than a
-  different-looking display.
+  The old display was shorter by two characters and was also a small lie:
+  you could not paste `(red green blue)` back into a program and get the
+  same list — Frazaro would read it as *a thing called red with two
+  parts*. The new display reads back as exactly the list it prints, which
+  is the property the old one lacked.
 
-- **The empty list is now `nil`, and that fixed an old wrong answer.**
+  A list is only ever displayed this way when it really is a list. A pair
+  whose tail is not a list — `(cons a b)`, which is a perfectly legal
+  term and not a list at all — displays as itself, so the display can
+  never make something look like a list that is not one.
+
+- **The empty list is `nil`, and that fixed an old wrong answer.**
   A `findall` that finds nothing used to hand back `()`, and asking
   `(compound? Bag)` about it answered *yes* — because internally it was
   an empty structure. Standard Prolog says the empty list is a simple
@@ -270,12 +281,14 @@
   Frazaro deliberately refuses, because a query that quietly finds
   nothing is indistinguishable from one that correctly found nothing.
 
-  Six names are now reserved and cannot be used for your own predicates:
-  `length`, `member`, `nth`, `append`, `reverse` and `sum-list`. `member`
-  is the one worth flagging, since it is a natural name for a fact about
-  people. `cons` and `nil` are **not** reserved — they are ways of
-  writing data, not goals, so a predicate of your own may still be called
-  `cons`.
+  Seven names are now reserved and cannot be used for your own
+  predicates: `length`, `member`, `nth`, `append`, `reverse`,
+  `sum-list` — and `list`, which is reserved because it is the shorthand
+  marker rather than because it is a goal. `member` is the one worth
+  flagging, since it is a natural name for a fact about people.
+
+  `cons` and `nil` are **not** reserved. They are ways of writing data,
+  so a predicate of your own may still be called `cons`.
 
 ### Known open security items
 

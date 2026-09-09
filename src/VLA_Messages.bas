@@ -499,7 +499,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' message that still enumerated only four would be quietly wrong about
     ' which names it had just refused, which is the same class of
     ' confidently-wrong answer the {form} rewrite above exists to remove.
-    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, the six type tests var? nonvar? atom? number? atomic? compound?, the six list goals length member nth append reverse sum-list, and the six ISO spellings var nonvar atom number atomic compound - those last six reserved only so PROLOG can point you at the question-mark form instead of failing silently) and can't be used as a predicate name in a (fact ...) or (rule ...)."
+    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between/list, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, the six type tests var? nonvar? atom? number? atomic? compound?, the six list goals length member nth append reverse sum-list, and the six ISO spellings var nonvar atom number atomic compound - those last six reserved only so PROLOG can point you at the question-mark form instead of failing silently) and can't be used as a predicate name in a (fact ...) or (rule ...)."
     ' `prolog-cut-not-yet-supported` (PROLOG.5.1-5.3-era: "cut (!) isn't
     ' supported yet.") is retired at PROLOG.5.4 - cut is real now, no
     ' code path can raise it anymore, and this project's own precedent
@@ -617,6 +617,17 @@ Private Sub AddEntries(ByVal m As Collection)
     ' some of those; this engine says so instead, because the
     ' alternative is a query that quietly finds nothing and cannot be
     ' told apart from one that correctly found nothing.
+    ' PROLOG.21 - a list written where a GOAL belongs. The sugar expands
+    ' a list in a DATA position at parse time, so a `list` functor can
+    ' only reach the solver from a goal position, where a list is not a
+    ' thing that can be proved. Reserved AND dispatched to this refusal,
+    ' which is what lets `list` satisfy check_prolog_reserved_names.ps1's
+    ' rule C honestly rather than by exemption - PROLOG.9's own
+    ' bare-ISO-spelling shape, reused.
+    '
+    ' Names no {form}: there is exactly one form this can ever be about,
+    ' so it can spell that form in its own text without ever being wrong.
+    AddMsg m, "prolog-list-is-not-a-goal", 5, "VLA-Prolog", "(list ...) builds a list, it is not something PROLOG can prove - so it belongs in an argument, not where a goal goes. To ask something ABOUT a list, use a list goal: (member X L), (length L N), (nth N L X), (append A B C), (reverse L R) or (sum-list L N)."
     AddMsg m, "prolog-list-not-a-list", 5, "VLA-Prolog", "{form} needs a list, but found '{value}'. A list is built with cons and ends in nil - (cons a (cons b nil)) is the list a, b - and the empty list is written nil. A findall bag is already one."
     AddMsg m, "prolog-between-bad-shape", 5, "VLA-Prolog", "(between ...) needs exactly three arguments - a low bound, a high bound, and the value to generate or test, like (between 1 10 X)."
     ' Raised for a bound OR for a bound third argument, since the answer
