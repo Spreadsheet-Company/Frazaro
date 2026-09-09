@@ -369,7 +369,64 @@
   The six symbols are now reserved, so they can't be used as your own
   predicate names — the same rule that already applies to `is`, `not`,
   `findall` and `!`. Unification (`=`) and structural equality (`==`) are a
-  separate, still-unbuilt item; `=:=` here is numeric equality only.
+  separate item, built next (below); `=:=` here is numeric equality only.
+
+- **`PROLOG.8` — you can now match two things against each other in a
+  rule.** Until now a variable only ever picked up a value one way: by
+  lining a goal up against a stored fact. There was no way to say, in the
+  middle of a rule, "let X be this" or "only if these two are different".
+  Four goals now do that:
+
+  ```
+  (rule (corner C) (= C (point 0 0)))
+  (rule (rival A B) (player A) (player B) (\= A B))
+  ```
+
+  `=` **matches, and fills in blanks while it does.** `(= X 1)` gives X the
+  value 1. It works in both directions and reaches inside structures, so
+  `(= (point X 7) (point 3 Y))` sets X to 3 and Y to 7 in one step.
+
+  `\=` **succeeds when two things do NOT match** — the usual way to say
+  "these must be different". It fills nothing in, whichever way it turns
+  out.
+
+  `==` **and** `\==` **ask a stricter question: are these already the same
+  thing?** They never fill anything in. `(== X 1)` is false when X is still
+  blank — X *could* become 1, but it isn't 1 yet — where `(= X 1)` would
+  make it so. That difference is the whole reason both exist: use `=` when
+  you want to set something up, `==` when you want to check it without
+  changing anything.
+
+  **These are not the number comparisons.** `(= 2.0 2)` is false: `=`
+  matches things as written, and `2.0` is not written the same way as `2`.
+  If you mean "the same number", that is `=:=` from `PROLOG.7`. The same
+  goes for `==`.
+
+  **Refusals name the goal you actually wrote.** Writing `(\= 1)` tells you
+  about `(\= ...)` — not about `(= ...)`, `(not ...)` or `(is ...)`. `\=`
+  means the same thing as "not equal to", and the shortest way to build it
+  would have been to quietly rewrite it into `(not (= ...))`, but then your
+  mistake would have been reported against a form you never typed. It is
+  built directly instead, so the message can name what you wrote. This is
+  the same principle `PROLOG.7` applied to the shared arithmetic messages.
+
+  **Matching text that came from a table: quote it.** A word in a cell is
+  stored as *text*, and a bare word in a query is a *name* — they are not
+  the same thing, so they do not match. If your table has a `Dept` column
+  reading `eng`, write `(== D "eng")`, with the quotes. Without them the
+  test quietly succeeds on every row for `\=`, and on none for `==`, and
+  both answers are technically right — you asked about a name, not about
+  the text in the cell. Numbers need no quotes; this applies to text only.
+  The rule is not new — it is what stops a cell reading `Alice` being
+  mistaken for a blank waiting to be filled in — but these four goals are
+  the first ones that make comparing against a written-out value an
+  everyday thing to do, so it is worth saying here.
+
+  All four symbols are now reserved and can't be used as your own predicate
+  names, and the refusal that says so lists them. A release check now holds
+  three things to agreeing about that list: what is refused as a name, what
+  the solver actually runs, and what the message tells you — so a name
+  can't end up forbidden but inert, or advertised but not really reserved.
 
 ### Known open security items
 

@@ -12069,8 +12069,10 @@ now carries one summary paragraph per engine and points here.*
     reason `HarvestFindallBag` already was. The six names live in exactly
     one place, `ComparisonOpFor`'s table, which
     `IsReservedPredicateName` now asks rather than repeating.
-    `PROLOG.8`'s `=`/`\=`/`==`/`\==` are deliberately still unreserved and
-    unimplemented, pinned by a test. The reader needed no change (verified:
+    `PROLOG.8`'s `=`/`\=`/`==`/`\==` were deliberately left unreserved and
+    unimplemented here, pinned by a test asserting `(query (= 1 1))` FALSE
+    so that `=:=` could not quietly leak into `=`; `PROLOG.8` re-pointed
+    that pin rather than deleting it. The reader needed no change (verified:
     `Tokenize`'s symbol arm already accepts all six spellings, and `\` is
     an escape only inside a string literal); `docs/GRAMMAR_SINCE.md` needed
     no row (verified: zero Prolog rows — its ledger is phrase rules and
@@ -12100,8 +12102,156 @@ now carries one summary paragraph per engine and points here.*
     table-column names by name, the same way `!` already is. `~days`. *Pays
     into:* `G-PROLOG`'s own sentence templates, which want "is greater
     than"/"is at least" phrasings the moment this exists to target.
-  - ⬜ **PROLOG.8 — `=`/`\=` (unification/dis-unification) and `==`/`\==`
-    (structural equality) as ordinary goals.** A real gap in `SolveGoalList`'s
+  - ✅ **PROLOG.8 — `=`/`\=` (unification/dis-unification) and `==`/`\==`
+    (structural equality) as ordinary goals.** SHIPPED 2026-09-08;
+    owner-verified live. New dispatch in `SolveGoalList`, sibling to
+    `is`/`not`/`findall`/comparison, plus `VLA_Unify.TermsIdentical`,
+    `UnificationOpFor`'s four-name table and a `CollectVars` skip-shape.
+    `TestDSLs` 378 → **430/430** via a new `TestPrologUnification` (49
+    assertions) plus two pinning the quoted-string convention the live pass
+    turned up and one from splitting `PROLOG.7`'s re-pointed tripwire; pure
+    1047/1047, host 143/143 and `VerifyReports` 141/141 emitter and
+    141/141 interpreter all unmoved, as predicted — nothing outside
+    `VLA_Prolog`/`VLA_Unify` and the query suite is touched, and no test
+    iterates the message catalogue. Owner-confirmed in cells: `=` binds and
+    spills where `==` returns FALSE on the same shape; `(= 2.0 2)` FALSE
+    beside `(=:= 2.0 2)` TRUE; the phantom-column skip yielding one column,
+    not two; the occurs-check refusal; `(\= 1)` naming `(\= ...)`; the
+    fourteen-name reserved list; two-way unification into a compound; and,
+    over a live Table, `\=` and `==` partitioning the same three rows
+    complementarily.
+
+    **This entry was STALE in three ways, all caught mechanically rather
+    than by reading.** It described the dispatch as a three-arm `is`/`not`/
+    `findall` chain that `IsReservedPredicateName` "already reserves four
+    names for". As of `PROLOG.7` there were FOUR predName-keyed arms (the
+    comparison table joined them) and cut makes five, though cut is
+    dispatched ABOVE `GoalPredName` on a non-object test and so is not
+    predName-keyed at all; and the reserved set was TEN names, not four —
+    four literal `Case` arms plus six delegated to `ComparisonOpFor` from
+    `Case Else`. `tools/check_prolog_reserved_names.ps1` was written FIRST,
+    for exactly this reason, and its first green run against `HEAD` printed
+    the real set: ten. This is the third consecutive item (`IN.15`,
+    `PROLOG.7`, this) whose own hand count was wrong and whose check,
+    written before the code, is the only reason it was caught.
+
+    **The entry's proposed `\=` desugaring was REJECTED, deliberately.**
+    `(\= X Y)` is indeed definitionally `(not (= X Y))`, but desugaring it
+    to that in `DesugarBodyItem` would hand `ValidateBodyItem` and every
+    refusal beneath it a `(not …)`/`(= …)` the user never wrote — precisely
+    the misattribution `PROLOG.7` spent an item and
+    `check_prolog_form_attribution.ps1` removing. It would also route a test
+    that needs one `UnifyTwoWay` through a whole isolated sub-proof
+    (`SolveIsolated`: an env clone, a goal list, a solutions collection, a
+    recursive `SolveGoalList`) and charge a second step against
+    `PROLOG_MAX_STEPS`. The equivalence is honoured by running the same
+    unification and inverting the answer in `SolveUnification`, where the
+    form the user actually wrote is still known. Pinned by a test asserting
+    that `(query (\= 1))` names `(\= ...)` and mentions neither `(not ...)`
+    nor `(is ...)`.
+
+    **THE BINDING FORK, which this entry never mentioned and which
+    `UnifyTwoWay`'s own contract makes non-optional.** That function
+    "returns False with `envN`/`envT` left however far the walk got", so a
+    failed `(= X Y)` run directly against the caller's environment leaves a
+    partial walk's bindings behind. `=` and `\=` therefore BOTH clone;
+    `=` threads its clone into the continuation on success (like `is`),
+    `\=` discards it either way and threads the caller's own environment
+    unchanged (like `not`), and `==`/`\==` never bind at all. The clone is
+    contract-driven rather than symptom-driven: with the candidates loop
+    already re-cloning per candidate and every arm deterministic, no
+    currently-reachable query can observe the leak — which is exactly why
+    it is written down here rather than left to a test that cannot see it.
+
+    **A PHANTOM-COLUMN BUG the entry did not anticipate.** `CollectVars`
+    descends generically, so `(query (\== X Y))` — which SUCCEEDS, two
+    distinct free variables not being identical — would have collected X and
+    Y as output columns and rendered their own raw atom names `"X"` and
+    `"Y"` into the spilled cells as though they were values found. That is
+    `PROLOG.5.2`'s own finding reached by a new route, and it gets
+    `PROLOG.5.2`'s own remedy: a skip-shape over the THREE non-binding
+    operators, with `=` deliberately excepted because it genuinely binds
+    outward. The fork is `UnificationBindsOutward`, asked rather than
+    re-derived — and it is `kind = "unify"` ALONE, not "runs the binding
+    primitive": `\=` runs `UnifyTwoWay` but keeps nothing, and reading it
+    the other way puts `\=`'s variables straight back into the columns.
+
+    **`==` needed a new function, not a switched-off `UnifyTwoWay`.** The
+    entry called it "`UnifyTwoWay`'s own generic four-case shape with
+    binding switched off", which is the shape but not the semantics: `==`
+    must dereference at EVERY node, since `(= X 1) (== X 1)` has to succeed
+    and `(== (f X) (f Y))` has to succeed when both are bound to 1. The
+    existing private `FormsEqual` compares written forms and answers False
+    to both, so `VLA_Unify.TermsIdentical` is new. It was transliterated to
+    PowerShell and run against 22 cases BEFORE import, with `FormsEqual`
+    alongside as the control — six of the 22 are cases `FormsEqual` gets
+    wrong, which is what proves the dereference load-bearing.
+
+    **OCCURS CHECK — decided, not left to fall out.** `(\= X (f X))` RAISES
+    `prolog-occurs-check`, identically to `(= X (f X))`. The refusal is
+    about the TERM being unrepresentable — an infinite term "can never
+    render, spill to a worksheet, or be audited", `PROLOG.1`'s standing
+    decision — and that is equally true whichever operator encloses it;
+    answering True instead would need a `RaiseMsg` wrapped in `On Error
+    Resume Next`. `==`/`\==` never reach a bind, so they never
+    occurs-check: `(== X (f X))` is an ordinary False and `(\== X (f X))`
+    an ordinary True. The asymmetry is pinned by four tests.
+
+    **FOUND DURING THE LIVE PASS — a sharp edge, not a defect.** The first
+    table-backed check written for this item, `(query (staff N D) (\= D
+    eng))` over a Table whose `Dept` cell reads `eng`, returned EVERY row;
+    its `==` twin returned none. Both answers are correct:
+    `TableCellToTerm` stores a TEXT cell as `Chr$(34) & value` (the
+    string-literal marker `LeafText` strips again for display) while a
+    NUMERIC cell becomes a bare number, so a bare `eng` written in a query
+    is a genuinely different atom from the `"eng` sitting in the fact, and
+    the query must write `"eng"` quoted to mean the cell's own value. That
+    convention is `PROLOG.6`'s and deliberate — it is what stops a
+    capitalized text cell like `Alice` being read as a variable — and
+    `TestPrologHostTable` already depended on it, but only incidentally, by
+    quoting `"Alice"` with no test saying why it had to. `PROLOG.8` pins it
+    at the unification level, where the pure suite can reach it: a quoted
+    string does not unify with a bare symbol of the same letters, and two
+    quoted strings with the same text are identical. Worth stating plainly
+    because `PROLOG.8` is the first item that makes "compare a variable to
+    a literal" an everyday thing to write, so this is the first item whose
+    users will routinely meet it. *`PROLOG.9`, or a `G-PROLOG` phrasing,
+    should consider whether a bare symbol ought to match a text cell —
+    changing it is a `PROLOG.6` decision, not a `PROLOG.8` one, and is NOT
+    taken here.*
+
+    Also built: one shared `{form}`-templated `prolog-unification-bad-shape`
+    for all four (kept SEPARATE from the comparison id — a comparison's
+    operands are NUMBERS, these are arbitrary TERMS, and one text true of
+    both would help neither), added to `check_prolog_form_attribution.ps1`'s
+    `$multiFormIds`; an explicit `DesugarBodyItem` pass-through, which —
+    corrected after this entry first overstated it — changes NO observable
+    behaviour and is a guarantee rather than a fix. The tempting
+    justification, that a term operand like `(name Alice)` would otherwise
+    be rewritten into a keyed-column atom whenever `name` was a table, is
+    simply false: `DesugarPredicateAtom` folds `lst.Item(1)` only — the
+    body item's own head word, always one of the four here — and exits the
+    moment that is not a table name, never descending into arguments; and
+    none of the four can ever BE a table name, since `PROLOG()` runs
+    `IsReservedPredicateName` over every table argument first. The arm is
+    the same kind of incidental-pass-through-made-explicit as `PROLOG.7`'s
+    comparison arm, no more. **A live test was drafted for it and then
+    withdrawn on this finding** — it could not have discriminated anything,
+    and running it would have manufactured false confidence. Operands
+    deliberately NOT put through `ValidateArithExpr` or `TermPredName`
+    (a term is not an arithmetic expression and not a predicate call —
+    `findall`'s own Template distinction); and three guarded test helpers,
+    after the header-only result shape this item first produced turned out
+    to crash `ResultDescribe` on `result(2, 1)`. The reader needed no change
+    (re-verified independently: `Tokenize`'s `Case Else` arm consumes any
+    run of non-delimiter characters and `\` is an escape only inside the
+    string-literal arm, so all four spellings survive as single atoms; and
+    `VLA_Identity.Fold` only lowercases A–Z); `docs/GRAMMAR_SINCE.md` needed
+    no row (re-verified: still zero Prolog rows). *Pays into:* `PROLOG.9`,
+    whose type tests are the same cheap-shape-check shape, and `G-PROLOG`'s
+    own sentence templates, which want "is the same as"/"is not" phrasings.
+
+    *Original entry, for the record:* A real gap in `SolveGoalList`'s
     own dispatch (`VLA_Prolog.bas`, the flat `If predName = "is" Then` /
     `"not"` / `"findall"` chain `IsReservedPredicateName` already reserves
     four names for) — there is currently no way to unify two terms as a GOAL

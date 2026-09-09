@@ -328,6 +328,58 @@ Public Function UnifyTwoWay(ByVal a As Variant, ByVal b As Variant, envN As Coll
     UnifyTwoWay = True
 End Function
 
+' PROLOG.8: structural identity - real Prolog's own `==`, the strict twin
+' of UnifyTwoWay (above). True iff the two terms are ALREADY the same
+' term, with no binding of any kind performed to make them so. Where
+' UnifyTwoWay would bind a free variable to whatever faces it and answer
+' True, this simply answers False; where UnifyTwoWay occurs-checks and
+' REFUSES, this cannot, because it never reaches a bind at all - so
+' TermsIdentical(X, (f X)) is an ordinary False, never a
+' prolog-occurs-check (VLA_Prolog.bas's own PROLOG.8 header records that
+' asymmetry and why it is correct rather than an oversight).
+'
+' NOT VLA_Unify's own FormsEqual (above), which is the shape this looks
+' like but not the function this needs: FormsEqual compares two terms as
+' WRITTEN, and `==` must compare what they currently MEAN. Both sides are
+' therefore dereferenced through envN/envT at EVERY node, not only at the
+' top - after `(= X 1)`, `(== X 1)` must succeed, and `(== (f X) (f Y))`
+' must succeed when X and Y are both bound to 1, which a written-form
+' compare gets wrong in both cases. Two still-FREE variables dereference
+' to their own names, so `(== X X)` is True and `(== X Y)` is False,
+' exactly real Prolog's "are these the same variable" test.
+'
+' Element indices run 1 To Count - position 1 included, deliberately
+' matching UnifyTwoWay's own list recursion rather than FreshenTerm's
+' 2 To Count. `==` and `=` are asked about the same two terms and must
+' never disagree about which parts of them are being compared.
+'
+' IsObject is checked in its own guarding If, never combined with a
+' same-value CStr() in one boolean expression - VBA's And does not
+' short-circuit, the live-caught 450 trap UnifyTwoWay's own G0 comment
+' above names in full.
+Public Function TermsIdentical(ByVal a As Variant, ByVal b As Variant, envN As Collection, envT As Collection) As Boolean
+    Dim aw As Variant, bw As Variant
+    EnvWalkInto aw, a, envN, envT
+    EnvWalkInto bw, b, envN, envT
+
+    If IsObject(aw) <> IsObject(bw) Then Exit Function
+
+    If Not IsObject(aw) Then
+        TermsIdentical = (CStr(aw) = CStr(bw))
+        Exit Function
+    End If
+
+    Dim la3 As Collection, lb3 As Collection
+    Set la3 = aw
+    Set lb3 = bw
+    If la3.Count <> lb3.Count Then Exit Function
+    Dim i3 As Long
+    For i3 = 1 To la3.Count
+        If Not TermsIdentical(la3.Item(i3), lb3.Item(i3), envN, envT) Then Exit Function
+    Next i3
+    TermsIdentical = True
+End Function
+
 ' Dereferences term through envN/envT: while term is a bare variable
 ' atom with an existing binding, follow it (a variable bound to another
 ' variable chains through, union-find style); stops at either a still-

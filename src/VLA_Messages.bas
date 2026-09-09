@@ -499,7 +499,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' message that still enumerated only four would be quietly wrong about
     ' which names it had just refused, which is the same class of
     ' confidently-wrong answer the {form} rewrite above exists to remove.
-    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/! and the six comparisons < > =< >= =:= =\= are all reserved - for arithmetic, negation, aggregation, cut, and numeric comparison) and can't be used as a predicate name in a (fact ...) or (rule ...)."
+    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!, the six comparisons < > =< >= =:= =\=, and the four term-matching goals = \= == \== are all reserved - for arithmetic, negation, aggregation, cut, numeric comparison, unification, and structural identity) and can't be used as a predicate name in a (fact ...) or (rule ...)."
     ' `prolog-cut-not-yet-supported` (PROLOG.5.1-5.3-era: "cut (!) isn't
     ' supported yet.") is retired at PROLOG.5.4 - cut is real now, no
     ' code path can raise it anymore, and this project's own precedent
@@ -533,6 +533,19 @@ Private Sub AddEntries(ByVal m As Collection)
     ' form-SPECIFIC and correctly so: each is raised by exactly one arm,
     ' about exactly one form, and can therefore name it.
     AddMsg m, "prolog-comparison-bad-shape", 5, "VLA-Prolog", "{form} needs exactly two arguments - the two numbers to compare, like (> Salary 80000)."
+    ' PROLOG.8 - the four term-matching goals, on the identical terms: ONE
+    ' id for all four, {form}-templated because it serves four forms and
+    ' cannot know which is running, and carried in the same script's own
+    ' multi-form baseline. Kept SEPARATE from the comparison id above even
+    ' though both say "exactly two arguments": what the two arguments ARE
+    ' differs, and that is the part a user who got the shape wrong needs.
+    ' A comparison's operands are NUMBERS - arithmetic expressions the
+    ' evaluator will reduce to two Doubles - whereas these four take any
+    ' two TERMS at all, atoms and compounds included, and never evaluate
+    ' them. Folding the two into one message would have to drop that
+    ' distinction to stay true of both, which would make it useless to
+    ' both.
+    AddMsg m, "prolog-unification-bad-shape", 5, "VLA-Prolog", "{form} needs exactly two arguments - the two terms to match, like (= X 1)."
     ' PROLOG.7: {form}, not a hard-coded "(is ...)". These five refusals
     ' are raised by ValidateArithExpr/EvalArithTerm, which from PROLOG.7
     ' onward serve TWO callers - `(is Var Expr)` and each of the six

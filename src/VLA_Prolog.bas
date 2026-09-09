@@ -972,6 +972,41 @@ Private Sub CollectVars(ByVal term As Variant, freeVarNames As Collection)
             If VLA_Identity.Fold(CStr(lst.Item(1))) = "not" Then Exit Sub
         End If
     End If
+    ' PROLOG.8: `(\= A B)`, `(== A B)` and `(\== A B)` - the THREE of the
+    ' four term-matching goals that bind nothing - are skipped on exactly
+    ' the reasoning `not` (above) is skipped on, and `(= A B)`, the one
+    ' that DOES bind, is deliberately not.
+    '
+    ' The hazard is real and not hypothetical: `(query (\== X Y))`
+    ' SUCCEEDS - two distinct free variables are trivially not identical -
+    ' so without this skip X and Y would be collected as output columns
+    ' and then resolve to nothing, rendering their own raw atom names "X"
+    ' and "Y" into the spilled cells as though those were values the
+    ' query had found. That is PROLOG.5.2's own phantom-column finding,
+    ' reached by a different route.
+    '
+    ' `=` is the deliberate exception because it genuinely binds in the
+    ' shared, non-discarded environment - the same property that earns
+    ' `is`'s own target variable and findall's own Bag their columns.
+    ' `\=` is NOT an exception despite running the same binding primitive:
+    ' it succeeds only when that unification fails, and runs it against a
+    ' throwaway clone regardless, so it has nothing to contribute either.
+    ' The fork is UnificationBindsOutward (below), asked rather than
+    ' re-derived, so this skip and the dispatch's own clone-or-thread
+    ' decision can never disagree about which of the four keep what they
+    ' bind. Descending is the default: only a head word that table knows
+    ' is ever skipped, and a variable that ALSO appears in an ordinary
+    ' conjunct is still collected from THAT occurrence, exactly as with
+    ' `not`.
+    If lst.Count = 3 Then
+        If Not IsObject(lst.Item(1)) Then
+            Dim unifyKind As String
+            unifyKind = UnificationOpFor(VLA_Identity.Fold(CStr(lst.Item(1))))
+            If unifyKind <> "" Then
+                If Not UnificationBindsOutward(unifyKind) Then Exit Sub
+            End If
+        End If
+    End If
     ' PROLOG.5.3: `(findall Template Goal Bag)` - the same reasoning as
     ' `not` above, applied to TWO argument positions instead of one:
     ' Template's own variables only ever matter INSIDE the isolated
@@ -1133,7 +1168,19 @@ Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
         ' from the first, and a name reserved but not dispatched (or the
         ' reverse) is precisely the silent failure this module's own
         ' forward-reservation discipline exists to prevent.
-        IsReservedPredicateName = (ComparisonOpFor(predName) <> "")
+        '
+        ' PROLOG.8: its own four names join on the identical terms, from
+        ' their own table. Or, not OrElse-style short-circuiting - VBA has
+        ' none - but both operands are pure lookups over a frozen Select
+        ' Case, so evaluating the second when the first already answered
+        ' True costs a jump and can have no effect of its own.
+        '
+        ' tools/check_prolog_reserved_names.ps1 reads the delegated table
+        ' names straight out of this expression, then holds all three
+        ' places that spell the reserved set - here, SolveGoalList's own
+        ' dispatch, and prolog-reserved-predicate-name's own text - to
+        ' naming the same predicates.
+        IsReservedPredicateName = (ComparisonOpFor(predName) <> "" Or UnificationOpFor(predName) <> "")
     End Select
 End Function
 
@@ -1161,6 +1208,61 @@ Private Function ComparisonOpFor(ByVal predName As String) As String
     Case "=:=": ComparisonOpFor = "="
     Case "=\=": ComparisonOpFor = "<>"
     End Select
+End Function
+
+' PROLOG.8: a unification goal's own predicate name -> the KIND of test it
+' performs, or "" if predName is not one of the four at all. The exact
+' single-source shape ComparisonOpFor (above) established, and for the
+' identical reason: IsReservedPredicateName, ValidateBodyItem,
+' DesugarBodyItem, CollectVars and SolveGoalList's own dispatch all ask
+' this function rather than repeating the list, so reserving a name and
+' dispatching it can never disagree about which four they are.
+'
+' A KIND rather than an operator spelling, unlike its comparison sibling.
+' These four do not reduce to one shared operation with a parameter the
+' way the six comparisons reduce to CompareValues plus a spelling: they
+' fork on two independent axes, and the caller needs both.
+'
+'   BINDING     - "unify"/"notunify" run UnifyTwoWay, which BINDS free
+'                 variables; "identical"/"notidentical" run TermsIdentical,
+'                 which never binds anything at all.
+'   POLARITY    - "notunify"/"notidentical" are the negated twins.
+'
+' The binding axis is the one that matters most outside this table.
+' `(= X 1)` genuinely binds X in the shared, non-discarded environment -
+' so, alone among the four, its variables ARE real query output columns
+' (CollectVars, above, descends into it and skips the other three), and
+' its dispatch must thread a FRESH env clone into the continuation the way
+' `is` does rather than the caller's own the way `not` does. Getting that
+' fork backwards leaks a failed attempt's bindings into a sibling goal, or
+' loses a successful one's.
+Private Function UnificationOpFor(ByVal predName As String) As String
+    Select Case predName
+    Case "=":   UnificationOpFor = "unify"
+    Case "\=":  UnificationOpFor = "notunify"
+    Case "==":  UnificationOpFor = "identical"
+    Case "\==": UnificationOpFor = "notidentical"
+    End Select
+End Function
+
+' PROLOG.8: True for the ONE of the four whose bindings survive into the
+' rest of the query - the single predicate every caller that cares about
+' that asks, so the judgement is written down once rather than re-derived
+' from a kind string at each site.
+'
+' "Outward" is the load-bearing word, and the reason this is not simply
+' `kind = "unify" Or kind = "notunify"`. TWO of the four run UnifyTwoWay,
+' the binding primitive - but `\=` succeeds precisely when that
+' unification FAILS, and it runs the attempt against a throwaway clone
+' either way, so nothing it binds ever reaches the continuation. Only `=`
+' both binds and keeps what it bound. Reading this predicate as "runs the
+' binding primitive" instead of "keeps its bindings" would put `\=`'s
+' variables back into the query's own output columns as the phantom
+' names CollectVars (above) exists to keep out, and would tell
+' SolveGoalList to thread a clone forward from a goal that must not
+' change the environment at all.
+Private Function UnificationBindsOutward(ByVal kind As String) As Boolean
+    UnificationBindsOutward = (kind = "unify")
 End Function
 
 ' An `is`-expression's own STATIC shape, checked recursively at parse
@@ -1287,6 +1389,34 @@ Private Sub ValidateBodyItem(ByVal item As Variant, ByVal ctx As String, predAri
                 ValidateArithExpr lst.Item(2), "(" & headWord & " ...)"
                 ValidateArithExpr lst.Item(3), "(" & headWord & " ...)"
                 Exit Sub
+            ElseIf UnificationOpFor(headWord) <> "" Then
+                ' PROLOG.8: exactly two operands, and - unlike the
+                ' comparison arm directly above - NOTHING else checked
+                ' about them. That difference is the whole distinction
+                ' between the two families. A comparison's operands are
+                ' arithmetic EXPRESSIONS, so ValidateArithExpr can hold
+                ' them to the frozen +/-/*// operator set at parse time.
+                ' These four take arbitrary TERMS: `(= X (f Y))` unifies
+                ' against the compound term `(f Y)`, which is ordinary
+                ' data, and running an arithmetic shape check over it
+                ' would refuse a correct program for using an operator
+                ' that was never meant to be arithmetic in the first
+                ' place.
+                '
+                ' For the same reason the operands are NOT put through
+                ' TermPredName either, so a compound operand's own head
+                ' word records no arity: `(f Y)` here is a term being
+                ' matched, not a call to a predicate named f, and letting
+                ' it constrain the real f/N would be findall's own
+                ' Template mistake (CollectTemplateVars, above, exists
+                ' as a separate collector for exactly this reason).
+                '
+                ' An empty () operand needs no guard of its own - it
+                ' reaches UnifyTwoWay/TermsIdentical as a zero-length
+                ' Collection and simply fails to match anything that is
+                ' not also one, no crash and no special case.
+                If lst.Count <> 3 Then VLA_Messages.RaiseMsg "prolog-unification-bad-shape", "form", "(" & headWord & " ...)"
+                Exit Sub
             End If
         End If
     End If
@@ -1381,6 +1511,30 @@ Private Sub DesugarBodyItem(ByRef dest As Variant, ByVal item As Variant, ByVal 
                 ' it along today, but only INCIDENTALLY - because it bails
                 ' when the head word is not a known table name - and an
                 ' incidental pass-through is not a guarantee.
+                Set dest = item
+                Exit Sub
+            ElseIf UnificationOpFor(headWord) <> "" Then
+                ' PROLOG.8: passed through untouched, stated as its own
+                ' arm for exactly the reason the comparison arm above
+                ' states - DesugarPredicateAtom would also pass it along
+                ' today, but only INCIDENTALLY, and an incidental
+                ' pass-through is not a guarantee.
+                '
+                ' Incidental is ALL it is, and the honest reason is worth
+                ' recording, because the tempting justification is wrong.
+                ' A term-matching operand IS data - `(= X (name Alice))`
+                ' unifies X against the compound term `(name Alice)`, not
+                ' against a table - but DesugarPredicateAtom could never
+                ' have rewritten that operand anyway: it folds
+                ' `lst.Item(1)` ONLY, the body item's own head word, which
+                ' for these four is always =/\=/==/\==, and Exit Subs the
+                ' moment that is not a table name. It never descends into
+                ' arguments. Nor can one of the four ever BE a table
+                ' name - PROLOG() runs IsReservedPredicateName over every
+                ' table argument before it is loaded. So this arm changes
+                ' no behaviour that any program can observe; it fixes the
+                ' guarantee in place so a later change to
+                ' DesugarPredicateAtom cannot quietly start reaching in.
                 Set dest = item
                 Exit Sub
             ElseIf headWord = "not" Then
@@ -1976,6 +2130,40 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         Exit Sub
     End If
 
+    ' PROLOG.8: the four term-matching goals (=, \=, ==, \==) - dispatched
+    ' here, the identical unambiguous-by-construction reasoning every arm
+    ' above already uses, since IsReservedPredicateName forbids ever
+    ' DEFINING a predicate with one of these names. Deterministic like
+    ' those (exactly one outcome, no candidate enumeration, no
+    ' backtracking - real Prolog's own =/2, \=/2, ==/2 and \==/2 are all
+    ' semi-deterministic), still counted against PROLOG_MAX_STEPS.
+    '
+    ' It must sit ABOVE the clauseDict lookup below for the reason
+    ' PROLOG.7's arm states: an unknown predicate there is a silent dead
+    ' end rather than an error, so one of these reaching it would quietly
+    ' yield no rows instead of matching anything. That is not a
+    ' hypothetical - it is precisely the behaviour PROLOG.7 PINNED, with
+    ' `(query (= 1 1))` asserted FALSE, to catch =:= leaking into `=`
+    ' before this item existed. That pin is re-pointed at real
+    ' unification here.
+    '
+    ' Unlike every arm above, the continuation's environment is NOT fixed
+    ' by which arm ran: `=` threads a fresh clone forward the way `is`
+    ' does, the other three thread the caller's own the way `not` does,
+    ' and SolveUnification (below) decides which and hands it back through
+    ' uniN/uniT. Those two are the only locals this arm declares - the
+    ' evaluation itself lives in that function, for the live-caught
+    ' stack-frame reason findall's own dispatch documents above.
+    If UnificationOpFor(predName) <> "" Then
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        Dim uniN As Collection, uniT As Collection
+        If SolveUnification(goals.Item(1), UnificationOpFor(predName), envN, envT, uniN, uniT) Then
+            SolveGoalList rest, clauseDict, uniN, uniT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        End If
+        Exit Sub
+    End If
+
     If Not VLA_Runtime.VlaDictHas(clauseDict, predName) Then Exit Sub   ' no candidates - dead end, not an error
 
     Dim candidates As Collection
@@ -2127,6 +2315,89 @@ Private Function SolveComparison(ByVal goalTerm As Variant, ByVal predName As St
     lv = EvalArithTerm(lst.Item(2), envN, envT, formLabel)
     rv = EvalArithTerm(lst.Item(3), envN, envT, formLabel)
     SolveComparison = VLA_Relation.CompareValues(ComparisonOpFor(predName), lv, rv, True)
+End Function
+
+' PROLOG.8: answers one term-matching goal - True iff it succeeds - and
+' hands back the environment the continuation must run under. Factored out
+' of SolveGoalList's own dispatch for the reason that dispatch states: its
+' locals live in this frame, entered once per goal, instead of bloating
+' the frame SolveGoalList pays on EVERY resolution step.
+'
+' Takes no clauseDict and no stepsTaken. This is where the entry's own
+' proposed shortcut was rejected: `(\= A B)` IS definitionally `(not (= A
+' B))`, but DESUGARING it to that - rewriting the term at parse time, the
+' way the roadmap suggested - would hand ValidateBodyItem and every
+' refusal beneath it a `(not ...)` / `(= ...)` the user never wrote, which
+' is exactly the misattribution PROLOG.7 spent an item and a check
+' removing. It would also route a test that needs one UnifyTwoWay through
+' a whole isolated sub-proof (SolveIsolated: an env clone, a goal list, a
+' solutions collection and a recursive SolveGoalList), charging a second
+' step against PROLOG_MAX_STEPS for it. The equivalence is real; it is
+' honoured by running the same unification and inverting the answer, right
+' here, where the form the user wrote is still known.
+'
+' THE ENVIRONMENT FORK, which is the whole reason this returns an env
+' rather than a bare Boolean. `=` BINDS: on success its bindings must
+' reach the rest of the query, so outN/outT come back as the fresh clone
+' it bound into. The other three bind nothing outward and hand back the
+' caller's own environment untouched, the shape `not` already has. The
+' clone is not optional for either unifying operator, and not merely
+' hygiene: UnifyTwoWay's own contract is that it "returns False with
+' envN/envT left however far the walk got", so a FAILED `(= X Y)` run
+' directly against envN/envT would leave that partial walk's bindings
+' behind for the next sibling goal to inherit.
+'
+' `\=` clones for that reason and then discards the clone whichever way
+' the attempt went - it reports only whether unification was possible,
+' never what it would have bound.
+'
+' OCCURS CHECK - decided here, not inherited by accident. `(\= X (f X))`
+' RAISES prolog-occurs-check, identically to `(= X (f X))`, because
+' UnifyTwoWay raises it and nothing here catches it. That is deliberate:
+' the refusal is about the TERM being unrepresentable - an infinite term
+' "can never render, spill to a worksheet, or be audited", PROLOG.1's own
+' standing decision - and that is equally true of `(f X)` whichever
+' operator encloses it. Answering True instead would require wrapping a
+' RaiseMsg in On Error Resume Next, and would make `=` and `\=` disagree
+' about a program neither can actually represent. `==`/`\==` never reach
+' a bind at all, so they never occurs-check: `(== X (f X))` is an
+' ordinary False and `(\== X (f X))` an ordinary True. That asymmetry is
+' correct, not an oversight - it falls out of the binding fork above.
+Private Function SolveUnification(ByVal goalTerm As Variant, ByVal kind As String, _
+                                   envN As Collection, envT As Collection, _
+                                   ByRef outN As Collection, ByRef outT As Collection) As Boolean
+    Dim lst As Collection
+    Set lst = goalTerm
+
+    ' The default for three of the four, and for every failure path: the
+    ' continuation runs under the caller's own environment, unchanged.
+    Set outN = envN
+    Set outT = envT
+
+    Select Case kind
+    Case "identical"
+        SolveUnification = VLA_Unify.TermsIdentical(lst.Item(2), lst.Item(3), envN, envT)
+        Exit Function
+    Case "notidentical"
+        SolveUnification = Not VLA_Unify.TermsIdentical(lst.Item(2), lst.Item(3), envN, envT)
+        Exit Function
+    End Select
+
+    Dim tryN As Collection, tryT As Collection
+    VLA_Unify.UnifyEnvClone envN, envT, tryN, tryT
+    Dim unified As Boolean
+    unified = VLA_Unify.UnifyTwoWay(lst.Item(2), lst.Item(3), tryN, tryT)
+
+    If kind = "notunify" Then
+        SolveUnification = Not unified
+        Exit Function          ' clone discarded: `\=` reports possibility, never bindings
+    End If
+
+    SolveUnification = unified
+    If unified Then
+        Set outN = tryN
+        Set outT = tryT
+    End If
 End Function
 
 ' PROLOG.5.3: findall's own harvest, factored OUT of SolveGoalList's own

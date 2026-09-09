@@ -68,8 +68,14 @@ $scannedProcs = @(
 # not/findall siblings - and those are correctly form-specific, each
 # raised by one arm about one form. Scanning the whole procedure would
 # flag them wrongly; naming this id keeps the distinction deliberate.
+#
+# prolog-unification-bad-shape joins on the identical terms at PROLOG.8:
+# raised by ValidateBodyItem's own term-matching arm, which serves all
+# four of =, \=, == and \== from one Case, and correspondingly unable to
+# name a form of its own.
 $multiFormIds = @(
-    'prolog-comparison-bad-shape'
+    'prolog-comparison-bad-shape',
+    'prolog-unification-bad-shape'
 )
 
 $formToken          = '{form}'

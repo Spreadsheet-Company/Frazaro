@@ -354,6 +354,7 @@ Public Function TestDSLs() As Boolean
     TestPrologRules
     TestPrologArithmetic
     TestPrologComparison
+    TestPrologUnification
     TestPrologNegation
     TestPrologFindall
     TestPrologCut
@@ -2105,12 +2106,20 @@ Private Sub TestPrologComparison()
     Report "prolog.7: =:= compares numerically, so 2.0 =:= 2", _
            VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
 
-    ' PROLOG.8's own operators are deliberately NOT implemented here.
-    ' `=` is unification and must still be an ordinary unknown predicate
-    ' (a silent dead end), never an alias for =:= - this pin is what
-    ' would catch =:= leaking into `=`. PROLOG.8 will update it.
+    ' PROLOG.8 re-points this pin rather than retiring it. It was planted
+    ' to catch =:= leaking into `=` while `=` was still unimplemented, and
+    ' it asserted FALSE because an unknown predicate is a silent dead end.
+    ' `=` is real now, so the ASSERTION flips to TRUE - but the thing being
+    ' guarded has not changed, and the case below it is the guard that now
+    ' does the real work: `=` is UNIFICATION, so it compares terms
+    ' structurally and 2.0 is not the same term as 2, where =:= (numeric)
+    ' says they are equal. If the two ever became aliases, that second
+    ' assertion is what breaks.
     result = VLA_Prolog.PROLOG("(query (= 1 1))")
-    Report "prolog.7: `=` is NOT a comparison - unification is PROLOG.8's, still unimplemented", _
+    Report "prolog.8: `=` unifies two identical ground terms", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (= 2.0 2))")
+    Report "prolog.7/8: `=` is NOT =:= - unification is structural, so 2.0 does not unify with 2", _
            VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
 
     ' `<=` is not a Prolog spelling at all (real Prolog writes =<), so it
@@ -2225,6 +2234,330 @@ Private Sub TestPrologComparison()
     r = CStr(VLA_Prolog.PROLOG("(fact (> a b)) (query (p X))"))
     Report "prolog.7: the reserved-word refusal names the comparison operators among the reserved set", _
            InStr(1, r, "=:=", vbTextCompare) > 0, "got: " & r
+End Sub
+
+' ---------------------------------------------------------------------
+'  PROLOG.8: VLA_Prolog.PROLOG - the four term-matching goals, `=`, `\=`,
+'  `==` and `\==`, as ordinary goals in their own right.
+'
+'  THE DISCRIMINATION PROBLEM, inherited verbatim from PROLOG.7's own
+'  header and worth restating because it shapes every case below. An
+'  unknown predicate in SolveGoalList is a SILENT dead end, not an error -
+'  so a query naming an unimplemented goal simply yields no solutions, and
+'  a test asserting "this fails" would pass against NO implementation at
+'  all. Every failure case here is therefore twinned with a ground case
+'  asserting TRUE, or written as a strict NON-EMPTY subset of a real
+'  backtracking search. Deleting any part of the dispatch must break
+'  something, not quietly satisfy it.
+'
+'  THE PAIR THAT CARRIES THE MOST WEIGHT is `(= X 1)` against `(== X 1)`:
+'  the same shape, opposite answers, and they can only both be right if
+'  `=` binds a free variable and `==` refuses to. Two more - `(= X 1)
+'  (== X 1)` and `(= X 1) (= Y 1) (== X Y)` - pin the DEREFERENCE, the
+'  step that separates VLA_Unify.TermsIdentical from the FormsEqual it
+'  otherwise resembles: a written-form compare answers False to both.
+'
+'  Also covered: the full ground truth table for all four; `=` binding
+'  forward into a later goal, backward as a filter over real
+'  backtracking, into a compound term, through a variable-to-variable
+'  chain, and inside a rule body across freshening; `\=` as a filter
+'  contributing no output column; the phantom-column skip (a variable
+'  appearing ONLY inside a non-binding goal must not surface as a query
+'  column - PROLOG.5.2's own finding, reached by a new route);
+'  structural-not-numeric equality for both `=` and `==`, which is what
+'  keeps them distinct from `=:=`; the occurs-check decision (`\=`
+'  inherits `=`'s refusal, `==`/`\==` never reach a bind and so answer
+'  ordinarily); an operand that is NOT arithmetic-validated, proving
+'  these four take arbitrary terms where a comparison takes numbers;
+'  every named shape refusal naming the form the user actually wrote -
+'  never `(is ...)` and never a desugared `(not ...)`, which is the whole
+'  reason the roadmap's proposed `\=`-as-`(not (= ...))` desugaring was
+'  rejected; and all four refused as user-defined predicate names.
+' ---------------------------------------------------------------------
+Private Sub TestPrologUnification()
+    Dim result As Variant
+    Dim r As String
+
+    ' ---- the ground truth table. Each FALSE sits beside its own TRUE
+    ' twin, so neither an absent dispatch (everything fails) nor an
+    ' always-true one can satisfy the pair.
+    result = VLA_Prolog.PROLOG("(query (= bob bob))")
+    Report "prolog.8: (= bob bob) succeeds", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (= bob ann))")
+    Report "prolog.8: (= bob ann) fails", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (\= bob ann))")
+    Report "prolog.8: (\= bob ann) succeeds - the two do not unify", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (\= bob bob))")
+    Report "prolog.8: (\= bob bob) fails - they do unify", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (== bob bob))")
+    Report "prolog.8: (== bob bob) succeeds", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (== bob ann))")
+    Report "prolog.8: (== bob ann) fails", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (\== bob ann))")
+    Report "prolog.8: (\== bob ann) succeeds", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (\== bob bob))")
+    Report "prolog.8: (\== bob bob) fails", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' ---- THE HEADLINE: `=` BINDS. An unknown predicate yields a Boolean
+    ' FALSE, so asserting a spilled ARRAY with a real value in it is what
+    ' separates a working dispatch from no dispatch at all.
+    result = VLA_Prolog.PROLOG("(query (= X 1))")
+    Report "prolog.8: (= X 1) BINDS X and spills it as a real output column", _
+           ResultRowCount(result) = 2 And ResultColCount(result) = 1 _
+           And ResultCellIs(result, 1, 1, "X") And ResultCol1Is(result, "1"), _
+           "got: " & ResultDescribe(result)
+
+    ' ---- ...and `==` does NOT. Identical shape, opposite answer. This
+    ' pair is the single most discriminating test in this Sub: it can only
+    ' come out right if the two operators differ in exactly the way the
+    ' item exists to provide. `==` also contributes no column at all, so
+    ' the result collapses to a bare Boolean rather than a spill.
+    result = VLA_Prolog.PROLOG("(query (== X 1))")
+    Report "prolog.8: (== X 1) FAILS - `==` never binds, so a free X is not identical to 1", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' ---- the DEREFERENCE, at the top node: once `=` has bound X, `==`
+    ' must compare what X now MEANS, not the variable atom as written. A
+    ' written-form compare (VLA_Unify's own FormsEqual, which this
+    ' otherwise resembles) answers False here.
+    result = VLA_Prolog.PROLOG("(query (= X 1) (== X 1))")
+    Report "prolog.8: `==` sees through a binding `=` already made (dereference, not written form)", _
+           ResultCol1Is(result, "1"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (= X 1) (\== X 1))")
+    Report "prolog.8: ...and its twin (\== X 1) correctly finds no solution once X is bound to 1", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+
+    ' ---- the DEREFERENCE, at a NESTED node: two variables separately
+    ' bound to the same value are identical. Both are still bare atoms as
+    ' written, so this is the second case a written-form compare fails.
+    result = VLA_Prolog.PROLOG("(query (= X 1) (= Y 1) (== X Y))")
+    Report "prolog.8: two variables bound to the same value ARE identical", _
+           ResultColCount(result) = 2 _
+           And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 2, 2, "1"), _
+           "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (= X 1) (= Y 2) (== X Y))")
+    Report "prolog.8: ...and two bound to DIFFERENT values are not", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+
+    ' ---- "the same variable" - real Prolog's own use for `==`, and the
+    ' case that needs no binding at all to answer correctly.
+    result = VLA_Prolog.PROLOG("(query (== X X))")
+    Report "prolog.8: (== X X) succeeds - a free variable is identical to itself", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (== X Y))")
+    Report "prolog.8: (== X Y) fails - two DISTINCT free variables are not the same variable", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' ---- `=` binding FORWARD into a later goal, and BACKWARD as a filter
+    ' over a real backtracking search. The second is a strict, non-empty
+    ' subset of two facts, so an always-succeeding `=` would return two
+    ' rows and an absent one would return none.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (p 2)) (query (= X 2) (p X))")
+    Report "prolog.8: a binding made by `=` is visible to a LATER goal", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "2"), _
+           "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (p 2)) (query (p X) (= X 2))")
+    Report "prolog.8: `=` filters a real backtracking search to a strict subset", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "2"), _
+           "got: " & ResultDescribe(result)
+
+    ' ---- unification is STRUCTURAL and TWO-WAY: it reaches inside a
+    ' compound term and binds a variable found there, which is the whole
+    ' capability `(= X (f Y))` was scoped for.
+    result = VLA_Prolog.PROLOG("(query (= X (f 1)))")
+    Report "prolog.8: `=` binds a variable to a whole COMPOUND term", _
+           ResultCol1Is(result, "(f 1)"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (= (f X) (f 7)))")
+    Report "prolog.8: `=` unifies INTO a compound term, binding X from inside it", _
+           ResultCol1Is(result, "7"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (= (f 1) (g 1)))")
+    Report "prolog.8: two compounds with different heads do not unify", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (== (f 1 2) (f 1 2)))")
+    Report "prolog.8: (== (f 1 2) (f 1 2)) succeeds - structural identity recurses", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (== (f 1 2) (f 1)))")
+    Report "prolog.8: ...and differing arity is not identical", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' ---- a variable-to-variable chain: X = Y first, then Y bound by a
+    ' fact, must resolve X through the chain (EnvWalkInto's own union-find
+    ' walk, exercised through the new arm).
+    result = VLA_Prolog.PROLOG("(fact (p 5)) (query (= X Y) (p Y))")
+    Report "prolog.8: `=` chains variable to variable, so a later binding resolves both", _
+           ResultColCount(result) = 2 _
+           And ResultCellIs(result, 2, 1, "5") And ResultCellIs(result, 2, 2, "5"), _
+           "got: " & ResultDescribe(result)
+
+    ' ---- STRUCTURAL, NEVER NUMERIC - what keeps all four distinct from
+    ' PROLOG.7's `=:=`, asserted here beside the =:= that DOES say equal.
+    result = VLA_Prolog.PROLOG("(query (== 2.0 2))")
+    Report "prolog.8: (== 2.0 2) fails - `==` is structural, unlike =:=", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (=:= 2.0 2))")
+    Report "prolog.8: ...while (=:= 2.0 2) still succeeds - the two are not aliases", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+
+    ' ---- A QUOTED STRING IS NOT A BARE SYMBOL, even with identical
+    ' letters. Found live, on PROLOG.8's own first table-backed test:
+    ' `TableCellToTerm` stores a TEXT cell as Chr$(34) & value (the
+    ' string-literal marker LeafText strips for display), while a NUMERIC
+    ' cell becomes a bare number. So `(\= D eng)` against a table whose
+    ' Dept cell reads "eng" succeeds on EVERY row, and `(== D eng)` fails
+    ' on every row - both correct for the operands, both surprising, and
+    ' the query has to write "eng" quoted to mean the cell's own value.
+    ' That convention is PROLOG.6's, deliberate (it is what stops a
+    ' capitalized text cell being read as a variable), and these two pin
+    ' it at the unification level where the pure suite can reach it -
+    ' TestPrologHostTable already depends on it, but only incidentally,
+    ' by quoting "Alice" without a test saying why it must.
+    result = VLA_Prolog.PROLOG("(query (= " & Chr$(34) & "eng" & Chr$(34) & " eng))")
+    Report "prolog.8: a quoted string does NOT unify with a bare symbol of the same letters", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (== " & Chr$(34) & "eng" & Chr$(34) & " " & Chr$(34) & "eng" & Chr$(34) & "))")
+    Report "prolog.8: ...while two quoted strings with the same text ARE identical", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+
+    ' ---- `\=` as a filter, and the column it must NOT contribute.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (p 2)) (query (p X) (\= X 1))")
+    Report "prolog.8: `\=` filters a real backtracking search to a strict subset", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "2"), _
+           "got: " & ResultDescribe(result)
+    Report "prolog.8: `\=` contributes no output column (it binds nothing outward)", _
+           ResultColCount(result) = 1, _
+           "got columns: " & ResultDescribe(result)
+
+    ' ---- THE PHANTOM-COLUMN SKIP. Y appears ONLY inside a non-binding
+    ' goal, and that goal SUCCEEDS - so without CollectVars' own PROLOG.8
+    ' skip, Y would be collected as an output column and then resolve to
+    ' nothing, rendering the literal atom name "Y" into the sheet as
+    ' though it were a value the query had found. Exactly one column, and
+    ' it is X's.
+    result = VLA_Prolog.PROLOG("(fact (p 7)) (query (p X) (\== Y bob))")
+    Report "prolog.8: a variable appearing ONLY in a non-binding goal is not a phantom output column", _
+           ResultColCount(result) = 1 And ResultCellIs(result, 1, 1, "X") _
+           And ResultCol1Is(result, "7"), _
+           "got: " & ResultDescribe(result)
+    ' ...and the deliberate exception: `=` DOES bind outward, so a
+    ' variable appearing only there IS a real column. Same shape as the
+    ' case above, opposite expectation - the fork must land on the
+    ' binding line, not on "is it one of the four".
+    result = VLA_Prolog.PROLOG("(fact (p 7)) (query (p X) (= Y bob))")
+    Report "prolog.8: ...but a variable bound by `=` alone IS a real column - the fork is binding, not family", _
+           ResultColCount(result) = 2 _
+           And ResultCellIs(result, 2, 1, "7") And ResultCellIs(result, 2, 2, "bob"), _
+           "got: " & ResultDescribe(result)
+
+    ' ---- inside a RULE BODY, surviving per-invocation freshening the way
+    ' every other rule-body variable already does.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (p 2)) (rule (q X) (p X) (\= X 1)) (query (q Y))")
+    Report "prolog.8: `\=` in a rule body survives freshening and filters correctly", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "2"), _
+           "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(rule (r X) (= X 7)) (query (r Y))")
+    Report "prolog.8: a binding `=` makes in a rule body reaches the caller's own variable", _
+           ResultCol1Is(result, "7"), "got: " & ResultDescribe(result)
+
+    ' ---- composes with `not`, whose isolated sub-proof must see the new
+    ' arm exactly as it sees is/findall.
+    result = VLA_Prolog.PROLOG("(query (not (= bob ann)))")
+    Report "prolog.8: `=` composes with `not`", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (not (= bob bob)))")
+    Report "prolog.8: ...and its twin correctly fails", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' ---- AN OPERAND IS AN ARBITRARY TERM, NOT AN ARITHMETIC EXPRESSION.
+    ' This is the one behaviour that separates ValidateBodyItem's new arm
+    ' from the comparison arm directly above it: `foo` is not one of the
+    ' frozen +/-/*// operators, so if these operands were put through
+    ' ValidateArithExpr the way a comparison's are, this correct program
+    ' would be refused at parse time.
+    result = VLA_Prolog.PROLOG("(query (= X (foo 1 2)))")
+    Report "prolog.8: an operand is an arbitrary TERM - never arithmetic-validated the way a comparison's is", _
+           ResultCol1Is(result, "(foo 1 2)"), "got: " & ResultDescribe(result)
+
+    ' ---- THE OCCURS CHECK, decided rather than inherited by accident.
+    ' `\=` raises exactly what `=` raises: the refusal is about the TERM
+    ' being unrepresentable, which is equally true whichever operator
+    ' encloses it.
+    r = CStr(VLA_Prolog.PROLOG("(query (= X (f X)))"))
+    Report "prolog.8: (= X (f X)) is refused by the occurs check", _
+           InStr(1, r, "contains itself", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (\= X (f X)))"))
+    Report "prolog.8: (\= X (f X)) inherits that SAME refusal - the decided behaviour, not a silent True", _
+           InStr(1, r, "contains itself", vbTextCompare) > 0, "got: " & r
+    ' `==`/`\==` never reach a bind, so they never occurs-check. A refusal
+    ' would come back as a String, so asserting a real Boolean is what
+    ' distinguishes "answered ordinarily" from "raised".
+    result = VLA_Prolog.PROLOG("(query (== X (f X)))")
+    Report "prolog.8: (== X (f X)) is an ordinary False - `==` never binds, so it never occurs-checks", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (\== X (f X)))")
+    Report "prolog.8: ...and (\== X (f X)) an ordinary True - the asymmetry with `\=` is deliberate", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+
+    ' ---- shape refusals. The one-argument case also pins that the arity
+    ' check runs BEFORE any Item(2)/Item(3) access, which would otherwise
+    ' raise a raw "Subscript out of range" instead of a worded refusal.
+    r = CStr(VLA_Prolog.PROLOG("(query (= 1))"))
+    Report "prolog.8: a one-argument `=` is refused by name, not by a subscript crash", _
+           InStr(1, r, "exactly two arguments", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (== 1 2 3))"))
+    Report "prolog.8: a three-argument `==` is refused", _
+           InStr(1, r, "exactly two arguments", vbTextCompare) > 0, "got: " & r
+
+    ' THE MISATTRIBUTION GUARD, and the reason the roadmap's proposed
+    ' `\=`-as-`(not (= X Y))` desugaring was rejected: a user who wrote
+    ' `(\= ...)` must be told about `(\= ...)`. A parse-time desugaring
+    ' would have made this refusal name `(not ...)` or `(= ...)` - a form
+    ' they never typed - which is precisely what PROLOG.7 spent an item
+    ' and tools/check_prolog_form_attribution.ps1 removing.
+    r = CStr(VLA_Prolog.PROLOG("(query (\= 1))"))
+    Report "prolog.8: that refusal names (\= ...) - not (= ...), not (not ...), not (is ...)", _
+           InStr(1, r, "(\= ...)", vbTextCompare) > 0 _
+           And InStr(1, r, "(not ...)", vbTextCompare) = 0 _
+           And InStr(1, r, "(is ...)", vbTextCompare) = 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (\== 1))"))
+    Report "prolog.8: ...and (\== ...) names itself too, distinctly from its near-twin", _
+           InStr(1, r, "(\== ...)", vbTextCompare) > 0, "got: " & r
+
+    ' The term-matching refusal must talk about TERMS, not the NUMBERS a
+    ' comparison's own same-arity refusal talks about - the reason the two
+    ' ids were kept separate rather than folded into one.
+    r = CStr(VLA_Prolog.PROLOG("(query (= 1))"))
+    Report "prolog.8: the shape refusal says `terms`, where a comparison's says `numbers`", _
+           InStr(1, r, "terms", vbTextCompare) > 0, "got: " & r
+
+    ' ---- all four refused as user-defined predicate names, the same
+    ' forward-reservation rule is/not/findall/! and the six comparisons
+    ' already follow.
+    Dim opName As Variant
+    For Each opName In Array("=", "\=", "==", "\==")
+        r = CStr(VLA_Prolog.PROLOG("(fact (" & opName & " a b)) (query (p X))"))
+        Report "prolog.8: '" & opName & "' is refused as a predicate name in a (fact ...)", _
+               InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+    Next opName
+
+    ' The refusal must also LIST the four, not just the ten it named
+    ' before - a message still enumerating only is/not/findall/! and the
+    ' comparisons would be quietly wrong about which names it had just
+    ' refused. Pinned mechanically as well, in both directions, by
+    ' tools/check_prolog_reserved_names.ps1.
+    r = CStr(VLA_Prolog.PROLOG("(fact (== a b)) (query (p X))"))
+    Report "prolog.8: the reserved-word refusal names the term-matching operators among the reserved set", _
+           InStr(1, r, "\==", vbTextCompare) > 0, "got: " & r
 End Sub
 
 ' ---------------------------------------------------------------------
@@ -2915,9 +3248,48 @@ End Sub
 ' already taught the hard way, live, in TestPrologRules - reused here as
 ' a shared helper specifically so it never has to be re-derived (or
 ' re-broken) inline at each new call site.
+' PROLOG.8: a row count, a column count and a single-cell compare that are
+' all SAFE on a result that is not an array at all.
+'
+' VBA's And does not short-circuit - this module's own long-standing trap -
+' so an assertion written "IsArray(result) And UBound(result, 1) = 2"
+' evaluates UBound on whatever result actually IS. When a PROLOG query
+' returns a Boolean where a spill was expected - which is exactly what a
+' missing or broken dispatch arm produces, since an unknown predicate is a
+' silent dead end - that raises a type mismatch INSIDE the condition, and
+' the run dies at the moment it was about to report the failure. These
+' three answer -1 or False instead, so a wrong expectation stays a legible
+' failed assertion with its own detail string intact.
+Private Function ResultRowCount(ByVal result As Variant) As Long
+    ResultRowCount = -1
+    If IsArray(result) Then ResultRowCount = UBound(result, 1)
+End Function
+
+Private Function ResultColCount(ByVal result As Variant) As Long
+    ResultColCount = -1
+    If IsArray(result) Then ResultColCount = UBound(result, 2)
+End Function
+
+Private Function ResultCellIs(ByVal result As Variant, ByVal rowIx As Long, ByVal colIx As Long, ByVal expected As String) As Boolean
+    If Not IsArray(result) Then Exit Function
+    If rowIx < LBound(result, 1) Then Exit Function
+    If rowIx > UBound(result, 1) Then Exit Function
+    If colIx < LBound(result, 2) Then Exit Function
+    If colIx > UBound(result, 2) Then Exit Function
+    ResultCellIs = (CStr(result(rowIx, colIx)) = expected)
+End Function
+
 Private Function ResultCol1Is(ByVal result As Variant, ByVal expected As String) As Boolean
+    ' PROLOG.8: the row count is checked before row 2 is touched. A query
+    ' with free variables but NO solutions spills a HEADER-ONLY array
+    ' (BuildSpilledArray's own ReDim to nRows + 1, which is 1 when nRows
+    ' is 0) - the one result shape no test had produced until this item's
+    ' own `(= X 1) (\== X 1)` case, and one that made this line raise
+    ' "Subscript out of range" mid-run rather than fail an assertion.
     If IsArray(result) Then
-        ResultCol1Is = (CStr(result(2, 1)) = expected)
+        If UBound(result, 1) >= 2 Then
+            ResultCol1Is = (CStr(result(2, 1)) = expected)
+        End If
     End If
 End Function
 
@@ -2930,7 +3302,16 @@ End Function
 ' new tests almost got wrong twice while being written.
 Private Function ResultDescribe(ByVal result As Variant) As String
     If IsArray(result) Then
-        ResultDescribe = "array, row2col1=" & CStr(result(2, 1))
+        ' PROLOG.8: the header-only shape (free variables, zero solutions)
+        ' is described rather than indexed into - see ResultCol1Is above
+        ' for the same guard and the case that found it. A DETAIL string
+        ' that crashes is worse than one that says little: it destroys the
+        ' run that was about to tell the owner what actually broke.
+        If UBound(result, 1) < 2 Then
+            ResultDescribe = "array, header row only (" & UBound(result, 2) & " column(s), 0 solutions)"
+        Else
+            ResultDescribe = "array, " & UBound(result, 1) - 1 & " row(s), row2col1=" & CStr(result(2, 1))
+        End If
     Else
         ResultDescribe = TypeName(result) & " " & CStr(result)
     End If
