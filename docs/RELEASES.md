@@ -337,6 +337,40 @@
   directions rather than assumed to work. It is what found the eight the
   hand count missed.
 
+- **`PROLOG.7` — you can now compare two numbers in a rule.** PROLOG could
+  already *calculate* — `(is Total (+ X Y))` works out a value and gives it
+  a name. What it could not do was *test* one number against another. There
+  was no way to write "salary over 80000", so the staffing example in the
+  README had to match an exact department instead of a threshold, which is
+  not what anyone actually wants to ask.
+
+  The six comparisons now work as goals in their own right: `<`, `>`, `=<`,
+  `>=`, `=:=` (equal) and `=\=` (not equal). You write them like any other
+  goal in a rule body or a query:
+
+  ```
+  (rule (well-paid Name) (employee Name Salary) (> Salary 80000))
+  ```
+
+  A comparison is a question, not a calculation. It either succeeds and the
+  search carries on, or it fails and that row simply isn't in the answer —
+  it never invents a value or fills in a variable. Both sides can be
+  arithmetic, so `(> (+ Base Bonus) 80000)` is fine.
+
+  **A refusal now names the form you actually wrote.** Comparisons share
+  the machinery that `(is ...)` uses to work out each side, and that shared
+  code used to say "(is ...)" in every complaint it made. So a program
+  containing `(> Salary 80000)` and no `(is ...)` at all could be told its
+  problem was with `(is ...)` — pointing at a form the author never typed.
+  Five separate messages did this. They now name whichever form is really
+  running, and a check runs on every release to keep it that way. Nothing
+  about the wording changed for `(is ...)` itself.
+
+  The six symbols are now reserved, so they can't be used as your own
+  predicate names — the same rule that already applies to `is`, `not`,
+  `findall` and `!`. Unification (`=`) and structural equality (`==`) are a
+  separate, still-unbuilt item; `=:=` here is numeric equality only.
+
 ### Known open security items
 
 **Closed this release:** `SEC.8`, `SEC.9`, `SEC.11` and `SEC.13` — see above.

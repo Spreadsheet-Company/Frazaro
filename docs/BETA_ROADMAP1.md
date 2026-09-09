@@ -12010,8 +12010,73 @@ now carries one summary paragraph per engine and points here.*
     column rendering locale-invariantly, a capitalized text column and a
     capitalized Table name both round-tripping correctly, and named-column
     syntax through the real `=PROLOG(...)` function).
-  - ⬜ **PROLOG.7 — comparison operators (`<`, `>`, `=<`, `>=`, `=:=`, `=\=`)
-    as goals, not folded into `(is ...)`.** A real, owner-flagged gap:
+  - ✅ **PROLOG.7 — comparison operators (`<`, `>`, `=<`, `>=`, `=:=`, `=\=`)
+    as goals, not folded into `(is ...)`.** SHIPPED 2026-09-08 —
+    `VLA_Prolog.bas` (`ComparisonOpFor`, `SolveComparison`, new arms in
+    `SolveGoalList`/`ValidateBodyItem`/`DesugarBodyItem`),
+    `VLA_Messages.bas`, `VLA_Tests_Query.bas`
+    (`TestPrologComparison`, 43 new proofs) and a new ratchet,
+    `tools/check_prolog_form_attribution.ps1`. Owner-verified live: all
+    fifteen in-cell steps passed, `TestDSLs` 335 → **378/378**, and the
+    three untouched baselines held exactly (pure 1047/1047, host 143/143,
+    VerifyReports emitter and interpreter 141/141 each) — the byte-identical
+    `(is ...)` rendering below is why they did not move. Two claims in this entry's
+    own original text were **wrong**, found by reading the code before
+    building and recorded here rather than silently corrected:
+    - It said each side is evaluated "the way `(is ...)`'s own right-hand
+      side already is (`ComputeArithmetic`, recursively)". Wrong entry
+      point. `(is ...)`'s RHS is evaluated by **`EvalArithTerm`** — the
+      recursive walker that dereferences through the env and refuses an
+      unbound or non-numeric leaf by name; it delegates only its innermost
+      binary op to `VLA_Relation.ComputeArithmetic`, which never walks an
+      env. `EvalArithTerm` is what a comparison calls, once per side.
+    - It said `prolog-arith-unbound-variable`/`prolog-arith-not-numeric`
+      "fire identically" — true, and precisely the problem it did not
+      name: their TEXT was hard-coded to say `(is ...)`, so a user who
+      wrote `(> Salary 80000)` would be told about a form they never
+      wrote. That is the same confidently-wrong-answer defect `IN.15`
+      closed. **The entry counted two such messages; there are five** —
+      it missed `prolog-arith-divide-by-zero` and both parse-time
+      refusals (`prolog-arith-unknown-operator`, `prolog-arith-wrong-arity`),
+      which a comparison reaches as soon as its operands are validated the
+      way `(is ...)`'s already are. A sixth text,
+      `prolog-reserved-predicate-name`, enumerated "is/not/findall/!" and
+      would have become quietly wrong about what it had just refused.
+      The undercount was caught by writing
+      `tools/check_prolog_form_attribution.ps1` FIRST and running it red —
+      the same discipline, and the same result, as `IN.15`'s own hand
+      count being off by eight of sixteen.
+
+    **Resolved as a `{form}`-templated rewrite, not generalized siblings.**
+    Siblings would have duplicated five texts and left the copies free to
+    drift; `ValidateArithExpr`/`EvalArithTerm` now take a `formLabel` the
+    caller supplies and every refusal names it through `{form}`. Rendering
+    with `form = "(is ...)"` reproduces all five prior texts **byte for
+    byte**, verified by transliterating `SubstituteSlots` against `HEAD`,
+    which is why the existing suites did not move. **`DATALOG.6` inherits
+    this shape** for `datalog-sum-needs-one-value-variable`, whose own
+    entry records the identical `sum`-specific-text problem.
+
+    Built as scoped: reuses `VLA_Relation.CompareValues` with
+    `bothNumeric:=True` (Prolog `=<` → `<=`, `=:=`/`=\=` → `=`/`<>`; two
+    `Double`s enter, so its own `AsInvariantDouble` is an identity step and
+    no locale question arises), threads `envN`/`envT` into the continuation
+    **unchanged** like `not` rather than cloning like `is` (a comparison
+    binds nothing), and sits ABOVE the `clauseDict` lookup — below it, an
+    unknown predicate is a *silent dead end*, so a comparison would have
+    quietly returned no rows instead of comparing. `SolveComparison` is
+    factored out of the dispatch for the same live-caught stack-frame
+    reason `HarvestFindallBag` already was. The six names live in exactly
+    one place, `ComparisonOpFor`'s table, which
+    `IsReservedPredicateName` now asks rather than repeating.
+    `PROLOG.8`'s `=`/`\=`/`==`/`\==` are deliberately still unreserved and
+    unimplemented, pinned by a test. The reader needed no change (verified:
+    `Tokenize`'s symbol arm already accepts all six spellings, and `\` is
+    an escape only inside a string literal); `docs/GRAMMAR_SINCE.md` needed
+    no row (verified: zero Prolog rows — its ledger is phrase rules and
+    core interpreter dispatch arms).
+
+    *Original entry, for the record:* A real, owner-flagged gap:
     PROLOG.5.1 shipped arithmetic (`+`/`-`/`*`/`/`) strictly as an `(is Var
     Expr)` *binding* form, and nothing since has added a way to *test* two
     numbers against each other — the README's own staffing example (PROLOG.6)
@@ -12338,7 +12403,14 @@ now carries one summary paragraph per engine and points here.*
     aggregate form"), and `datalog-sum-needs-one-value-variable`'s own
     single-unbound-variable RULE applied to all three, though its own message
     text is `sum`-specific and would need a generalized sibling (or a
-    `{form}`-templated rewrite) rather than a bare reuse. `~days`–`~weeks`.
+    `{form}`-templated rewrite) rather than a bare reuse. **`PROLOG.7` has
+    since settled that fork: it chose the `{form}`-templated rewrite** —
+    one text, a `formLabel` passed by the caller, no sibling free to drift
+    from its twin — and proved it byte-identical for the original form, so
+    this item should follow that shape rather than re-decide it. Its
+    ratchet (`tools/check_prolog_form_attribution.ps1`) already carries a
+    second baseline list for exactly this kind of multi-form id.
+    `~days`–`~weeks`.
   - ⬜ **Avoiding a full re-parse/re-fixpoint on every recalc — profiled first,
     not yet built.** `DATALOG()` re-parses `rulesText` and reruns
     `RunStratifiedFixpoint` from scratch every time Excel calls it. Worth

@@ -494,7 +494,12 @@ Private Sub AddEntries(ByVal m As Collection)
     ' words - forward-declared for PROLOG.5.2-5.4 too, even though only
     ' `is` is built this item, so a knowledge base written against 5.1
     ' alone can never be silently broken once the other three ship.
-    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/! are all reserved, for arithmetic, negation, aggregation, and cut) and can't be used as a predicate name in a (fact ...) or (rule ...)."
+    ' PROLOG.7 extends the same list, and this text with it: the six
+    ' comparison operators are reserved on the identical precedent. A
+    ' message that still enumerated only four would be quietly wrong about
+    ' which names it had just refused, which is the same class of
+    ' confidently-wrong answer the {form} rewrite above exists to remove.
+    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/! and the six comparisons < > =< >= =:= =\= are all reserved - for arithmetic, negation, aggregation, cut, and numeric comparison) and can't be used as a predicate name in a (fact ...) or (rule ...)."
     ' `prolog-cut-not-yet-supported` (PROLOG.5.1-5.3-era: "cut (!) isn't
     ' supported yet.") is retired at PROLOG.5.4 - cut is real now, no
     ' code path can raise it anymore, and this project's own precedent
@@ -516,11 +521,39 @@ Private Sub AddEntries(ByVal m As Collection)
     ' already established).
     AddMsg m, "prolog-findall-bad-shape", 5, "VLA-Prolog", "(findall ...) needs exactly three arguments - a template, a goal, and a target list, like (findall X (likes bob X) Bag)."
     AddMsg m, "prolog-is-bad-shape", 5, "VLA-Prolog", "(is ...) needs exactly two arguments - a target and an arithmetic expression, like (is Total (+ X Y))."
-    AddMsg m, "prolog-arith-unknown-operator", 5, "VLA-Prolog", "'{op}' isn't an arithmetic operator PROLOG recognizes inside (is ...) - only +, -, *, and / are supported."
-    AddMsg m, "prolog-arith-wrong-arity", 5, "VLA-Prolog", "'{op}' inside (is ...) needs exactly two operands, like (+ X Y)."
-    AddMsg m, "prolog-arith-unbound-variable", 5, "VLA-Prolog", "(is ...) can't compute a value that still has an unbound variable ({var}) in it."
-    AddMsg m, "prolog-arith-not-numeric", 5, "VLA-Prolog", "(is ...) expected a number but found '{value}', which isn't one."
-    AddMsg m, "prolog-arith-divide-by-zero", 5, "VLA-Prolog", "(is ...) tried to divide by zero."
+
+    ' PROLOG.7 - the six comparison goals. ONE id for all six, not a
+    ' sibling each: the shape rule is identical, so six texts would be six
+    ' chances to drift. It is {form}-templated for the same reason the
+    ' arithmetic refusals above are - it serves six forms and cannot know
+    ' which one is running - and is pinned by the same script, which reads
+    ' its own second baseline list for ids that serve more than one form
+    ' without being raised from inside the shared evaluator.
+    ' `prolog-is-bad-shape` (above) and its not/findall siblings stay
+    ' form-SPECIFIC and correctly so: each is raised by exactly one arm,
+    ' about exactly one form, and can therefore name it.
+    AddMsg m, "prolog-comparison-bad-shape", 5, "VLA-Prolog", "{form} needs exactly two arguments - the two numbers to compare, like (> Salary 80000)."
+    ' PROLOG.7: {form}, not a hard-coded "(is ...)". These five refusals
+    ' are raised by ValidateArithExpr/EvalArithTerm, which from PROLOG.7
+    ' onward serve TWO callers - `(is Var Expr)` and each of the six
+    ' comparison goals - so neither procedure can know which form the
+    ' user actually wrote. Naming the wrong one is a confidently wrong
+    ' answer, which this project holds to be worse than a crash (IN.15).
+    ' The caller passes the form label it already knows; a {form}-
+    ' templated text was chosen over generalized per-form siblings
+    ' precisely so the two wordings cannot drift apart, the same
+    ' single-source-of-truth reasoning ValidateArithExpr's own header
+    ' already uses for not re-checking numeric-ness at parse time.
+    ' tools/check_prolog_form_attribution.ps1 holds this mechanically:
+    ' every refusal these two procedures raise must carry {form} and must
+    ' not spell a form into its own text. DATALOG.6 inherits this shape
+    ' for `datalog-sum-needs-one-value-variable`, whose text is
+    ' `sum`-specific for the identical reason.
+    AddMsg m, "prolog-arith-unknown-operator", 5, "VLA-Prolog", "'{op}' isn't an arithmetic operator PROLOG recognizes inside {form} - only +, -, *, and / are supported."
+    AddMsg m, "prolog-arith-wrong-arity", 5, "VLA-Prolog", "'{op}' inside {form} needs exactly two operands, like (+ X Y)."
+    AddMsg m, "prolog-arith-unbound-variable", 5, "VLA-Prolog", "{form} can't compute a value that still has an unbound variable ({var}) in it."
+    AddMsg m, "prolog-arith-not-numeric", 5, "VLA-Prolog", "{form} expected a number but found '{value}', which isn't one."
+    AddMsg m, "prolog-arith-divide-by-zero", 5, "VLA-Prolog", "{form} tried to divide by zero."
 
     ' `prolog-tables-not-yet-supported` (PROLOG.3-5.4-era: "table-sourced
     ' facts aren't supported yet...") is retired at PROLOG.6 - tables are

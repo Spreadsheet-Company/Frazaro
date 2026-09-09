@@ -353,6 +353,7 @@ Public Function TestDSLs() As Boolean
     TestProlog
     TestPrologRules
     TestPrologArithmetic
+    TestPrologComparison
     TestPrologNegation
     TestPrologFindall
     TestPrologCut
@@ -2027,6 +2028,203 @@ Private Sub TestPrologArithmetic()
     r = CStr(VLA_Prolog.PROLOG("(fact (! a)) (query (p X))"))
     Report "prolog.5.1: '!' is refused as a predicate name - reserved for PROLOG.5.4", _
            InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+End Sub
+
+' ---------------------------------------------------------------------
+'  PROLOG.7: VLA_Prolog.PROLOG - the six comparison operators as goals.
+'  Covers: each of the six succeeding AND failing as a ground query;
+'  every boundary case that would survive a wrong spelling-translation
+'  (=< and >= at equality, =:= and =\= as NUMERIC equality); the
+'  threshold filter the README's own staffing example wanted and could
+'  not write; a comparison never contributing an output column; nested
+'  arithmetic on either side; a comparison inside a rule body (freshened
+'  per invocation) and inside `not`; every refusal naming the form the
+'  user actually wrote rather than `(is ...)`; and all six refused as
+'  predicate names.
+'
+'  DISCRIMINATION NOTE, and it decided how several of these are written.
+'  An unknown predicate in SolveGoalList is a SILENT dead end, not an
+'  error - so if this whole item were deleted, `(> S 80000)` would simply
+'  yield no solutions. A bare "this comparison fails" test would then
+'  still pass against no implementation at all, proving nothing. Every
+'  failure case below is therefore either a ground query asserting
+'  Boolean FALSE next to its own TRUE twin (deletion collapses both to
+'  False, so the pair discriminates), or a filter asserting a strict,
+'  named, NON-EMPTY subset (deletion yields an empty one).
+' ---------------------------------------------------------------------
+Private Sub TestPrologComparison()
+    Dim result As Variant
+    Dim r As String
+
+    ' ---- each operator, succeeding then failing. The True of each pair
+    ' is the discriminator (deleting the dispatch arm turns it False);
+    ' the False proves the operator is not vacuously succeeding.
+    result = VLA_Prolog.PROLOG("(query (< 1 2))")
+    Report "prolog.7: (< 1 2) succeeds", VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (< 2 1))")
+    Report "prolog.7: (< 2 1) fails", VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (> 2 1))")
+    Report "prolog.7: (> 2 1) succeeds", VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (> 1 2))")
+    Report "prolog.7: (> 1 2) fails", VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (=< 1 2))")
+    Report "prolog.7: (=< 1 2) succeeds", VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (=< 2 1))")
+    Report "prolog.7: (=< 2 1) fails", VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (>= 2 1))")
+    Report "prolog.7: (>= 2 1) succeeds", VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (>= 1 2))")
+    Report "prolog.7: (>= 1 2) fails", VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (=:= 2 2))")
+    Report "prolog.7: (=:= 2 2) succeeds", VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (=:= 2 3))")
+    Report "prolog.7: (=:= 2 3) fails", VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (=\= 2 3))")
+    Report "prolog.7: (=\= 2 3) succeeds", VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (=\= 2 2))")
+    Report "prolog.7: (=\= 2 2) fails", VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' ---- the boundary cases a wrong spelling-translation would survive.
+    ' =< must be <= and not <; >= must be >= and not >. Without these,
+    ' mapping =< to "<" would pass every test above.
+    result = VLA_Prolog.PROLOG("(query (=< 2 2))")
+    Report "prolog.7: =< is inclusive at equality (it is <=, not <)", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (>= 2 2))")
+    Report "prolog.7: >= is inclusive at equality (it is >=, not >)", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+
+    ' =:= is NUMERIC equality, so two different spellings of one number
+    ' are equal - which text comparison would get wrong.
+    result = VLA_Prolog.PROLOG("(query (=:= 2.0 2))")
+    Report "prolog.7: =:= compares numerically, so 2.0 =:= 2", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+
+    ' PROLOG.8's own operators are deliberately NOT implemented here.
+    ' `=` is unification and must still be an ordinary unknown predicate
+    ' (a silent dead end), never an alias for =:= - this pin is what
+    ' would catch =:= leaking into `=`. PROLOG.8 will update it.
+    result = VLA_Prolog.PROLOG("(query (= 1 1))")
+    Report "prolog.7: `=` is NOT a comparison - unification is PROLOG.8's, still unimplemented", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' `<=` is not a Prolog spelling at all (real Prolog writes =<), so it
+    ' must stay an ordinary unknown predicate rather than be accepted.
+    result = VLA_Prolog.PROLOG("(query (<= 1 2))")
+    Report "prolog.7: `<=` is not a Prolog operator and is not accepted as one", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' ---- the motivating case: a THRESHOLD filter, which PROLOG.6's own
+    ' README example had to route around. Strict non-empty subset, so
+    ' deleting the dispatch arm empties it rather than merely reordering.
+    result = VLA_Prolog.PROLOG("(fact (emp alice 90000)) (fact (emp bob 70000)) (query (emp N S) (> S 80000))")
+    Report "prolog.7: a comparison filters a real backtracking search to a strict subset", _
+           IsArray(result) And UBound(result, 1) = 2 And ResultCol1Is(result, "alice"), _
+           "got: " & ResultDescribe(result)
+
+    ' A comparison NEVER binds, so it contributes no output column: the
+    ' query above has exactly two, N and S, not a third for the goal.
+    Report "prolog.7: a comparison goal contributes no output column (it never binds)", _
+           IsArray(result) And UBound(result, 2) = 2, _
+           "got columns: " & UBound(result, 2)
+
+    ' The complement, proving the filter is a real test and not a
+    ' constant: the same program with the comparison inverted selects the
+    ' OTHER employee, so neither row is being dropped for another reason.
+    result = VLA_Prolog.PROLOG("(fact (emp alice 90000)) (fact (emp bob 70000)) (query (emp N S) (< S 80000))")
+    Report "prolog.7: inverting the comparison selects the complementary row", _
+           IsArray(result) And UBound(result, 1) = 2 And ResultCol1Is(result, "bob"), _
+           "got: " & ResultDescribe(result)
+
+    ' ---- nested arithmetic on either side, proving EvalArithTerm's own
+    ' recursion is reached through a comparison and not only through is.
+    result = VLA_Prolog.PROLOG("(query (> (+ 2 3) 4))")
+    Report "prolog.7: a nested arithmetic expression evaluates on the left side", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (> 10 (* 2 3)))")
+    Report "prolog.7: a nested arithmetic expression evaluates on the right side", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+
+    ' ---- a comparison inside a RULE body, so the goal is freshened per
+    ' invocation before it is dispatched (FreshenTerm keeps position 1 -
+    ' the operator - verbatim and rewrites only the argument variables).
+    result = VLA_Prolog.PROLOG("(fact (emp alice 90000)) (fact (emp bob 70000)) (rule (rich N) (emp N S) (> S 80000)) (query (rich N))")
+    Report "prolog.7: a comparison in a rule body survives freshening and filters correctly", _
+           IsArray(result) And UBound(result, 1) = 2 And ResultCol1Is(result, "alice"), _
+           "got: " & ResultDescribe(result)
+
+    ' ---- a comparison nested inside `not`, proving the dispatch is
+    ' reached through SolveIsolated's own bounded sub-call too.
+    result = VLA_Prolog.PROLOG("(fact (emp alice 90000)) (fact (emp bob 70000)) (query (emp N S) (not (> S 80000)))")
+    Report "prolog.7: a comparison composes with `not`", _
+           IsArray(result) And UBound(result, 1) = 2 And ResultCol1Is(result, "bob"), _
+           "got: " & ResultDescribe(result)
+
+    ' ---- refusals. Each asserts BOTH that the right reason is given AND
+    ' that the named form is the one the user actually wrote - the second
+    ' half is the whole point of this item's {form} rewrite, and would
+    ' pass vacuously if only the reason were checked.
+    r = CStr(VLA_Prolog.PROLOG("(query (> X 1))"))
+    Report "prolog.7: an unbound variable in a comparison is refused", _
+           InStr(1, r, "unbound variable", vbTextCompare) > 0, "got: " & r
+    Report "prolog.7: that refusal names (> ...), NOT (is ...) - the form the user actually wrote", _
+           InStr(1, r, "(> ...)", vbTextCompare) > 0 And InStr(1, r, "(is ...)", vbTextCompare) = 0, "got: " & r
+
+    r = CStr(VLA_Prolog.PROLOG("(fact (label hello)) (query (label Y) (=< Y 1))"))
+    Report "prolog.7: a non-numeric value reaching a comparison is refused", _
+           InStr(1, r, "isn't one", vbTextCompare) > 0, "got: " & r
+    Report "prolog.7: that refusal names (=< ...), not (is ...)", _
+           InStr(1, r, "(=< ...)", vbTextCompare) > 0 And InStr(1, r, "(is ...)", vbTextCompare) = 0, "got: " & r
+
+    r = CStr(VLA_Prolog.PROLOG("(query (>= 1 (/ 1 0)))"))
+    Report "prolog.7: divide-by-zero inside a comparison operand is refused", _
+           InStr(1, r, "divide by zero", vbTextCompare) > 0, "got: " & r
+    Report "prolog.7: that refusal names (>= ...), not (is ...)", _
+           InStr(1, r, "(>= ...)", vbTextCompare) > 0 And InStr(1, r, "(is ...)", vbTextCompare) = 0, "got: " & r
+
+    r = CStr(VLA_Prolog.PROLOG("(query (< 1 (mod 5 2)))"))
+    Report "prolog.7: an unrecognized operator inside a comparison operand is refused at parse time", _
+           InStr(1, r, "isn't an arithmetic operator", vbTextCompare) > 0, "got: " & r
+    Report "prolog.7: that refusal names (< ...), not (is ...)", _
+           InStr(1, r, "(< ...)", vbTextCompare) > 0 And InStr(1, r, "(is ...)", vbTextCompare) = 0, "got: " & r
+
+    r = CStr(VLA_Prolog.PROLOG("(query (=\= 1 (+ 1 2 3)))"))
+    Report "prolog.7: a wrong operand count inside a comparison operand is refused", _
+           InStr(1, r, "exactly two operands", vbTextCompare) > 0, "got: " & r
+    Report "prolog.7: that refusal names (=\= ...), not (is ...)", _
+           InStr(1, r, "(=\= ...)", vbTextCompare) > 0 And InStr(1, r, "(is ...)", vbTextCompare) = 0, "got: " & r
+
+    ' Malformed comparison shapes - too few and too many arguments. The
+    ' one-argument case also pins that the arity check runs BEFORE any
+    ' Item(2)/Item(3) access, which would otherwise raise a raw
+    ' "Subscript out of range" instead of a worded refusal.
+    r = CStr(VLA_Prolog.PROLOG("(query (> 1))"))
+    Report "prolog.7: a one-argument comparison is refused by name, not by a subscript crash", _
+           InStr(1, r, "exactly two arguments", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (> 1 2 3))"))
+    Report "prolog.7: a three-argument comparison is refused", _
+           InStr(1, r, "exactly two arguments", vbTextCompare) > 0, "got: " & r
+
+    ' ---- all six refused as user-defined predicate names, the same
+    ' forward-reservation rule is/not/findall/! already follow.
+    Dim opName As Variant
+    For Each opName In Array("<", ">", "=<", ">=", "=:=", "=\=")
+        r = CStr(VLA_Prolog.PROLOG("(fact (" & opName & " a b)) (query (p X))"))
+        Report "prolog.7: '" & opName & "' is refused as a predicate name in a (fact ...)", _
+               InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+    Next opName
+
+    ' The refusal must also LIST the six, not just the original four -
+    ' a message still enumerating is/not/findall/! would be quietly wrong
+    ' about which names it had just refused.
+    r = CStr(VLA_Prolog.PROLOG("(fact (> a b)) (query (p X))"))
+    Report "prolog.7: the reserved-word refusal names the comparison operators among the reserved set", _
+           InStr(1, r, "=:=", vbTextCompare) > 0, "got: " & r
 End Sub
 
 ' ---------------------------------------------------------------------

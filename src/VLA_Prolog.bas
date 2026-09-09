@@ -1,6 +1,54 @@
 Attribute VB_Name = "VLA_Prolog"
 Option Explicit
-Public Const VLA_PROLOG_VERSION As String = "PROLOG.6"
+Public Const VLA_PROLOG_VERSION As String = "PROLOG.7"
+' PROLOG.7: the six comparison operators (<, >, =<, >=, =:=, =\=) as
+' goals in their own right. PROLOG.5.1 shipped arithmetic strictly as the
+' BINDING form `(is Var Expr)`, so there was no way to TEST two numbers
+' against each other - the README's own staffing example had to key on an
+' exact dept/cert match rather than a threshold, precisely because there
+' was no `(> Salary 80000)` to write.
+'
+' A comparison is a GOAL, not an expression: it succeeds or fails, and it
+' never binds. That single sentence decides the whole shape. It is new
+' dispatch in SolveGoalList's own chain, sibling to not/findall/!, and NOT
+' a new case inside any arithmetic function - there is no value to produce
+' and nothing to unify a result against, so envN/envT are threaded into
+' the continuation UNCHANGED, exactly as `not` already does and unlike
+' `is`, which must clone (isN/isT) because it does bind.
+'
+' Each side is evaluated by EvalArithTerm - the same recursive walker
+' `(is ...)`'s own right-hand side already uses, which dereferences
+' through the env and refuses an unbound or non-numeric leaf by name.
+' NOT VLA_Relation.ComputeArithmetic directly: that is the shared leaf
+' substrate EvalArithTerm itself delegates its innermost binary op to,
+' it never walks an env, and reaching for it here would have re-
+' implemented the walk rather than reused it.
+'
+' The comparison itself reuses VLA_Relation.CompareValues with
+' bothNumeric:=True - this project's own shared six-operator vocabulary,
+' already carrying SQL's and DATALOG's comparisons. Only the SPELLING
+' differs, so ComparisonOpFor (below) is a pure translation table:
+' Prolog's =< is that vocabulary's <=, and =:= / =\= are its = / <>. Two
+' Doubles enter it, so its own AsInvariantDouble is an identity step and
+' no text round-trip or locale question arises.
+'
+' =:= and =\= are NUMERIC equality only. `=`/`\=` (unification) and
+' `==`/`\==` (structural identity) are PROLOG.8's, deliberately untouched
+' here and deliberately still unreserved - see IsReservedPredicateName.
+'
+' Two disciplines inherited rather than re-decided: the six names join
+' IsReservedPredicateName (so they refuse as predicate or table-column
+' names, the forward-reservation precedent PROLOG.5.1 set for the other
+' four), and the refusals EvalArithTerm raises now carry {form} so a user
+' who wrote (> Salary 80000) is never told about (is ...) - a form they
+' did not write. tools/check_prolog_form_attribution.ps1 holds that
+' mechanically; VLA_Messages.bas's own PROLOG.7 note has the reasoning.
+'
+' SolveComparison is factored OUT of the dispatch for the identical live-
+' caught reason HarvestFindallBag already was: every local declared
+' directly in SolveGoalList bloats its per-step recursive stack frame.
+' The dispatch arm therefore declares none of its own.
+'
 ' PROLOG.6: table-sourced and named-column facts. Reuses DATALOG.3's
 ' column-scoped table-argument resolution (VLA_Relation.TableArgResolve)
 ' and DATALOG.5's named-column-atom desugaring PATTERN directly, per
@@ -1050,15 +1098,68 @@ Private Function MakeClause(ByVal headTerm As Variant, ByVal bodyItems As Collec
     Set MakeClause = rec
 End Function
 
-' `is`/`not`/`findall`/`!` may never be a predicate's own NAME - checked
-' at every (fact ...)/(rule ...) DEFINITION site, never at a body item
-' or query conjunct's own USE site, where each has its own special
-' meaning instead (ValidateBodyItem, below). All four reserved now, per
-' this module's own header, even though only `is` (PROLOG.5.1) is built.
+' `is`/`not`/`findall`/`!` and PROLOG.7's own six comparison operators may
+' never be a predicate's own NAME - checked at every (fact ...)/(rule ...)
+' DEFINITION site, never at a body item or query conjunct's own USE site,
+' where each has its own special meaning instead (ValidateBodyItem,
+' below). The four word-shaped names were reserved together at PROLOG.5.1
+' even though only `is` was built then, so a knowledge base written
+' against 5.1 could never be silently broken once the others shipped; the
+' six operators are reserved here on exactly that precedent, one stage
+' before SolveGoalList learns to dispatch them.
+'
+' Reserving them is also what turns DesugarBodyItem's own pass-through
+' from an accident into a guarantee. A comparison goal survives desugaring
+' today only because DesugarPredicateAtom bails when the head word is not
+' a known table name - so without this, a predicate genuinely named ">"
+' could capture a comparison goal instead of the dispatch arm getting it.
+'
+' Matched case-sensitively (this module sets no Option Compare Text),
+' which is exact for the six - none of them contains a letter - and
+' correct for the four word-shaped names at the (fact ...)/(rule ...)
+' sites, where TermPredName has already folded predName before it arrives.
+' The table-argument site (PROLOG, below) passes TableArgResolve's own raw
+' name instead, but an Excel Table cannot be named "<" or "=:=", so the
+' six are unaffected by that difference.
 Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
     Select Case predName
     Case "is", "not", "findall", "!"
         IsReservedPredicateName = True
+    Case Else
+        ' PROLOG.7: the six comparison names are not repeated here. They
+        ' live in exactly one place - ComparisonOpFor's own table, below -
+        ' so reserving them and dispatching them can never disagree about
+        ' which six they are. A second literal list would be free to drift
+        ' from the first, and a name reserved but not dispatched (or the
+        ' reverse) is precisely the silent failure this module's own
+        ' forward-reservation discipline exists to prevent.
+        IsReservedPredicateName = (ComparisonOpFor(predName) <> "")
+    End Select
+End Function
+
+' PROLOG.7: a comparison goal's own predicate name -> the operator spelling
+' VLA_Relation.CompareValues already understands, or "" if predName is not
+' one of the six at all. A pure translation table, and the SINGLE place the
+' six names are written down: IsReservedPredicateName (above),
+' ValidateBodyItem, DesugarBodyItem and SolveGoalList's own dispatch all
+' ask this function rather than repeating the list.
+'
+' Only the spelling differs between the two vocabularies. Prolog writes
+' `=<` where this project's shared comparison substrate writes `<=` (real
+' Prolog's own spelling, chosen so `=<` cannot be misread as an arrow),
+' and Prolog's `=:=`/`=\=` are that substrate's ordinary `=`/`<>` - the
+' NUMERIC equality pair, never `=`/`\=`, which are unification and belong
+' to PROLOG.8. `<` and `>` coincide in both and are still routed through
+' here rather than passed straight along, so no caller has to know which
+' of the six happen to need translating.
+Private Function ComparisonOpFor(ByVal predName As String) As String
+    Select Case predName
+    Case "<":   ComparisonOpFor = "<"
+    Case ">":   ComparisonOpFor = ">"
+    Case "=<":  ComparisonOpFor = "<="
+    Case ">=":  ComparisonOpFor = ">="
+    Case "=:=": ComparisonOpFor = "="
+    Case "=\=": ComparisonOpFor = "<>"
     End Select
 End Function
 
@@ -1070,7 +1171,17 @@ End Function
 ' solving actually reaches this goal, so numeric-ness is a RUNTIME-only
 ' question (EvalArithTerm, below) - checking it twice would risk the two
 ' checks drifting out of sync, not add real safety.
-Private Sub ValidateArithExpr(ByVal term As Variant)
+'
+' PROLOG.7: formLabel is the form the CALLER is validating on behalf of -
+' "(is ...)" from ValidateBodyItem's own `is` arm, "(> ...)" and its five
+' siblings from the comparison arm. It exists only to be substituted into
+' this procedure's own refusals: an operand expression is shape-identical
+' whichever form encloses it, so nothing about the checking changes, but a
+' user who wrote (> Salary 80000) must not be told about (is ...), a form
+' they never wrote. Passed down every recursive call so a refusal from an
+' arbitrarily nested operand still names the outermost form the user
+' actually typed. Pinned by tools/check_prolog_form_attribution.ps1.
+Private Sub ValidateArithExpr(ByVal term As Variant, ByVal formLabel As String)
     If Not IsObject(term) Then Exit Sub
     Dim lst As Collection
     Set lst = term
@@ -1078,23 +1189,23 @@ Private Sub ValidateArithExpr(ByVal term As Variant)
     ' empty () operand (real input a careless author could write, e.g.
     ' (is X (+ () 3))) would otherwise raise a raw "Subscript out of
     ' range" the instant Item(1) is touched.
-    If lst.Count < 1 Then VLA_Messages.RaiseMsg "prolog-arith-wrong-arity", "op", "()"
+    If lst.Count < 1 Then VLA_Messages.RaiseMsg "prolog-arith-wrong-arity", "op", "()", "form", formLabel
     ' IsObject-first, never CStr on a value that might be one - this
     ' project's own documented trap (feedback_vba_error_and_loop_gotchas
     ' gotcha 5), applied here since an operator position could itself be
     ' a nested form (a genuinely malformed expression, not a real term).
-    If IsObject(lst.Item(1)) Then VLA_Messages.RaiseMsg "prolog-arith-unknown-operator", "op", "(a nested form)"
+    If IsObject(lst.Item(1)) Then VLA_Messages.RaiseMsg "prolog-arith-unknown-operator", "op", "(a nested form)", "form", formLabel
     Dim op As String
     op = CStr(lst.Item(1))
     Select Case op
     Case "+", "-", "*", "/"
         ' recognized
     Case Else
-        VLA_Messages.RaiseMsg "prolog-arith-unknown-operator", "op", op
+        VLA_Messages.RaiseMsg "prolog-arith-unknown-operator", "op", op, "form", formLabel
     End Select
-    If lst.Count <> 3 Then VLA_Messages.RaiseMsg "prolog-arith-wrong-arity", "op", op
-    ValidateArithExpr lst.Item(2)
-    ValidateArithExpr lst.Item(3)
+    If lst.Count <> 3 Then VLA_Messages.RaiseMsg "prolog-arith-wrong-arity", "op", op, "form", formLabel
+    ValidateArithExpr lst.Item(2), formLabel
+    ValidateArithExpr lst.Item(3), formLabel
 End Sub
 
 ' Validates ONE body item / query conjunct - both are the same kind of
@@ -1149,7 +1260,7 @@ Private Sub ValidateBodyItem(ByVal item As Variant, ByVal ctx As String, predAri
             headWord = VLA_Identity.Fold(CStr(lst.Item(1)))
             If headWord = "is" Then
                 If lst.Count <> 3 Then VLA_Messages.RaiseMsg "prolog-is-bad-shape"
-                ValidateArithExpr lst.Item(3)
+                ValidateArithExpr lst.Item(3), "(is ...)"
                 Exit Sub
             ElseIf headWord = "not" Then
                 If lst.Count <> 2 Then VLA_Messages.RaiseMsg "prolog-not-bad-shape"
@@ -1158,6 +1269,23 @@ Private Sub ValidateBodyItem(ByVal item As Variant, ByVal ctx As String, predAri
             ElseIf headWord = "findall" Then
                 If lst.Count <> 4 Then VLA_Messages.RaiseMsg "prolog-findall-bad-shape"
                 ValidateBodyItem lst.Item(3), ctx, predArity
+                Exit Sub
+            ElseIf ComparisonOpFor(headWord) <> "" Then
+                ' PROLOG.7: exactly two operands, each validated as an
+                ' arithmetic expression by the SAME ValidateArithExpr
+                ' `is` already uses on its own right-hand side - an
+                ' operand is shape-identical whichever form encloses it.
+                ' A bare variable or number operand is left alone (that
+                ' function returns immediately on a non-Collection),
+                ' since numeric-ness is a RUNTIME question here for
+                ' exactly the reason it is for `is`: an operand may be a
+                ' variable that is still unbound at parse time.
+                ' formLabel is this goal's own head word, so every
+                ' refusal from either side names the comparison the user
+                ' actually wrote rather than `(is ...)`.
+                If lst.Count <> 3 Then VLA_Messages.RaiseMsg "prolog-comparison-bad-shape", "form", "(" & headWord & " ...)"
+                ValidateArithExpr lst.Item(2), "(" & headWord & " ...)"
+                ValidateArithExpr lst.Item(3), "(" & headWord & " ...)"
                 Exit Sub
             End If
         End If
@@ -1241,6 +1369,18 @@ Private Sub DesugarBodyItem(ByRef dest As Variant, ByVal item As Variant, ByVal 
             Dim headWord As String
             headWord = VLA_Identity.Fold(CStr(lst.Item(1)))
             If headWord = "is" Then
+                Set dest = item
+                Exit Sub
+            ElseIf ComparisonOpFor(headWord) <> "" Then
+                ' PROLOG.7: passed through untouched, exactly as `is` is
+                ' just above. A comparison's two operands are arithmetic
+                ' expressions, never predicate applications, so there is
+                ' no keyed atom in there to resolve against headerMap.
+                ' Stated as its own arm rather than left to fall through
+                ' to DesugarPredicateAtom: that function would also pass
+                ' it along today, but only INCIDENTALLY - because it bails
+                ' when the head word is not a known table name - and an
+                ' incidental pass-through is not a guarantee.
                 Set dest = item
                 Exit Sub
             ElseIf headWord = "not" Then
@@ -1580,7 +1720,14 @@ End Function
 ' unbound variable, a non-numeric ground value, or a divide-by-zero all
 ' refuse by name (RaiseMsg) rather than producing a wrong number -
 ' exactly real Prolog's own `is/2`, which raises on all three too.
-Private Function EvalArithTerm(ByVal term As Variant, envN As Collection, envT As Collection) As Double
+'
+' PROLOG.7: formLabel carries the enclosing form's own spelling, exactly
+' as ValidateArithExpr's (above) does and for the identical reason - this
+' evaluator serves `(is ...)` and all six comparison goals, so it cannot
+' know which one is running and must be told rather than guess. Threaded
+' through both recursive calls so a refusal raised deep inside a nested
+' operand still names the form the user actually wrote.
+Private Function EvalArithTerm(ByVal term As Variant, envN As Collection, envT As Collection, ByVal formLabel As String) As Double
     Dim w As Variant
     VLA_Unify.EnvWalkInto w, term, envN, envT
     If Not IsObject(w) Then
@@ -1593,12 +1740,12 @@ Private Function EvalArithTerm(ByVal term As Variant, envN As Collection, envT A
         ' once its own marker is gone, misreporting a real string value
         ' as an unbound variable.
         If Left$(raw, 1) <> Chr$(34) And VLA_Unify.IsVarAtom(raw) Then
-            VLA_Messages.RaiseMsg "prolog-arith-unbound-variable", "var", raw
+            VLA_Messages.RaiseMsg "prolog-arith-unbound-variable", "var", raw, "form", formLabel
         End If
         Dim s As String
         s = LeafText(raw)
         If Not VLA_Relation.IsInvariantNumericString(s) Then
-            VLA_Messages.RaiseMsg "prolog-arith-not-numeric", "value", s
+            VLA_Messages.RaiseMsg "prolog-arith-not-numeric", "value", s, "form", formLabel
         End If
         EvalArithTerm = VLA_Relation.InvariantVal(s)
         Exit Function
@@ -1617,23 +1764,23 @@ Private Function EvalArithTerm(ByVal term As Variant, envN As Collection, envT A
     ' worded refusal.
     Dim lst As Collection
     Set lst = w
-    If lst.Count <> 3 Then VLA_Messages.RaiseMsg "prolog-arith-not-numeric", "value", RenderBoundValue(w)
-    If IsObject(lst.Item(1)) Then VLA_Messages.RaiseMsg "prolog-arith-not-numeric", "value", RenderBoundValue(w)
+    If lst.Count <> 3 Then VLA_Messages.RaiseMsg "prolog-arith-not-numeric", "value", RenderBoundValue(w), "form", formLabel
+    If IsObject(lst.Item(1)) Then VLA_Messages.RaiseMsg "prolog-arith-not-numeric", "value", RenderBoundValue(w), "form", formLabel
     Dim op As String
     op = CStr(lst.Item(1))
     Select Case op
     Case "+", "-", "*", "/"
         ' recognized
     Case Else
-        VLA_Messages.RaiseMsg "prolog-arith-not-numeric", "value", RenderBoundValue(w)
+        VLA_Messages.RaiseMsg "prolog-arith-not-numeric", "value", RenderBoundValue(w), "form", formLabel
     End Select
     Dim l As Double, r As Double
-    l = EvalArithTerm(lst.Item(2), envN, envT)
-    r = EvalArithTerm(lst.Item(3), envN, envT)
+    l = EvalArithTerm(lst.Item(2), envN, envT, formLabel)
+    r = EvalArithTerm(lst.Item(3), envN, envT, formLabel)
     Dim ok As Boolean, reason As String
     Dim computed As Variant
     computed = VLA_Relation.ComputeArithmetic(op, l, r, True, ok, reason)
-    If Not ok Then VLA_Messages.RaiseMsg "prolog-arith-divide-by-zero"
+    If Not ok Then VLA_Messages.RaiseMsg "prolog-arith-divide-by-zero", "form", formLabel
     EvalArithTerm = CDbl(computed)
 End Function
 
@@ -1738,7 +1885,7 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         Dim isGoal As Collection
         Set isGoal = goals.Item(1)
         Dim computedVal As Double
-        computedVal = EvalArithTerm(isGoal.Item(3), envN, envT)
+        computedVal = EvalArithTerm(isGoal.Item(3), envN, envT, "(is ...)")
         Dim isN As Collection, isT As Collection
         VLA_Unify.UnifyEnvClone envN, envT, isN, isT
         If VLA_Unify.UnifyTwoWay(isGoal.Item(2), CStr(computedVal), isN, isT) Then
@@ -1798,6 +1945,33 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         VLA_Unify.UnifyEnvClone envN, envT, bagN, bagT
         If VLA_Unify.UnifyTwoWay(findallGoal.Item(4), HarvestFindallBag(findallGoal, clauseDict, envN, envT, stepsTaken), bagN, bagT) Then
             SolveGoalList rest, clauseDict, bagN, bagT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        End If
+        Exit Sub
+    End If
+
+    ' PROLOG.7: the six comparison goals - dispatched here, the identical
+    ' unambiguous-by-construction reasoning is/not/findall (above) already
+    ' use, since IsReservedPredicateName forbids ever DEFINING a predicate
+    ' with one of these names. Deterministic like those three (exactly one
+    ' outcome, no candidate enumeration, no backtracking), still counted
+    ' against PROLOG_MAX_STEPS.
+    '
+    ' envN/envT are threaded into the continuation UNCHANGED - never a
+    ' fresh clone the way `is` produces one. A comparison binds nothing:
+    ' it is a test, so there are no new bindings to carry forward, exactly
+    ' the shape `not` (above) already has. It must also sit ABOVE the
+    ' clauseDict lookup below: an unknown predicate there is a silent dead
+    ' end rather than an error, so a comparison reaching it would quietly
+    ' yield no rows instead of comparing anything.
+    '
+    ' No locals declared in this arm at all - the whole evaluation lives
+    ' in SolveComparison (below), factored out for the same live-caught
+    ' stack-frame reason findall's own dispatch documents above.
+    If ComparisonOpFor(predName) <> "" Then
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If SolveComparison(goals.Item(1), predName, envN, envT) Then
+            SolveGoalList rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
         End If
         Exit Sub
     End If
@@ -1924,6 +2098,35 @@ Private Function SolveNegation(ByVal goal As Variant, clauseDict As Object, _
                                 ByRef stepsTaken As Long) As Boolean
     Dim noFreeVars As New Collection
     SolveNegation = (SolveIsolated(goal, clauseDict, envN, envT, noFreeVars, stepsTaken).Count > 0)
+End Function
+
+' PROLOG.7: answers one comparison goal - True iff it succeeds. Factored
+' out of SolveGoalList's own dispatch for the reason that dispatch states:
+' its four locals live in this frame, entered once per comparison, instead
+' of bloating the frame SolveGoalList pays on EVERY resolution step.
+'
+' Takes no clauseDict and no stepsTaken: unlike not/findall there is no
+' sub-proof to run here, so nothing can recurse and nothing further needs
+' counting - the dispatch already counted this goal's own step. envN/envT
+' are read-only in practice; EvalArithTerm only ever WALKS them (it
+' dereferences variables and never binds), so no clone is needed to keep
+' this test from leaking bindings - there are none to leak.
+'
+' Both sides are evaluated BEFORE either is compared, so a refusal from
+' the right-hand side is raised even when the left already decided the
+' answer. That is deliberate: `(> 5 UnboundVar)` is a broken program
+' whichever way the numbers fall, and short-circuiting would make whether
+' the user hears about it depend on the left operand's value.
+Private Function SolveComparison(ByVal goalTerm As Variant, ByVal predName As String, _
+                                  envN As Collection, envT As Collection) As Boolean
+    Dim lst As Collection
+    Set lst = goalTerm
+    Dim formLabel As String
+    formLabel = "(" & predName & " ...)"
+    Dim lv As Double, rv As Double
+    lv = EvalArithTerm(lst.Item(2), envN, envT, formLabel)
+    rv = EvalArithTerm(lst.Item(3), envN, envT, formLabel)
+    SolveComparison = VLA_Relation.CompareValues(ComparisonOpFor(predName), lv, rv, True)
 End Function
 
 ' PROLOG.5.3: findall's own harvest, factored OUT of SolveGoalList's own
