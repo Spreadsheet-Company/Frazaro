@@ -12267,21 +12267,271 @@ now carries one summary paragraph per engine and points here.*
     without the side effect `=` has — a straightforward recursive structural
     walk, `VLA_Unify.UnifyTwoWay`'s own generic four-case shape with binding
     switched off. `IsReservedPredicateName` grows all four. `~days`–`~weeks`.
-  - ⬜ **PROLOG.9 — type-checking goals
-    (`var`/`nonvar`/`atom`/`number`/`atomic`/`compound`) and `between/3`.**
-    None of the six ISO type-test predicates exist today (confirmed: no trace
-    of `var`/`nonvar`/`atom`/`number`/`atomic`/`compound` anywhere in
+  - ✅ **PROLOG.9 — type-checking goals
+    (`var?`/`nonvar?`/`atom?`/`number?`/`atomic?`/`compound?`) and
+    `between/3`.** SHIPPED 2026-09-09; owner-verified live. Three new arms
+    in `SolveGoalList` — not one — plus `TypeTestKindFor`'s six-name
+    table, `TypeTestIsoSpellingFor`'s six, `LeafIsNumberTerm`,
+    `NumberToTerm`, `SolveTypeTest`, `SolveBetween`, a `CollectVars`
+    skip-shape, six new refusals, and a fourth rule in
+    `tools/check_prolog_reserved_names.ps1`. `TestDSLs` 430 → **506/506**
+    via a new `TestPrologTypeTests` (49 assertions) and
+    `TestPrologBetween` (27); pure 1047/1047, host 143/143 and
+    `VerifyReports` 141/141 emitter and 141/141 interpreter all unmoved,
+    as predicted — nothing outside `VLA_Prolog`/`VLA_Messages` and the
+    query suite is touched, and no test iterates the message catalogue.
+    **The item was verified TWICE against a running Excel**: an
+    intermediate build at the bare ISO spelling came in at 492/492 with
+    every other baseline unmoved, and the final question-mark spelling at
+    506/506, so the rename rests on a green run rather than a prediction.
+    Owner-confirmed in cells: each type test succeeding beside its own
+    failing twin; `(var? X)` returning a bare Boolean rather than a
+    phantom column headed `X`; `number?` seeing through a binding `=`
+    already made; `(number? "42")` FALSE beside `(atom? "42")` TRUE;
+    `(between 1 3 X)` spilling 1, 2, 3; the mode asymmetry
+    (`(between 1 1000000 5)` TRUE, the same range refused when
+    generating); the empty range yielding a header and no rows; `!`
+    pruning the generator to one row where the cut-free twin gives five;
+    a generated value matching a stored numeric fact; and the bare ISO
+    `(atom X)` refusing WITH the `(atom? ...)` spelling rather than
+    silently finding nothing.
+
+    **THE SPELLING — owner-raised late, and the late raise was right.**
+    The item was built as `(atom X)` and renamed to `(atom? X)` before
+    landing. The owner's instinct was that `(atom bob)` "feels more like a
+    coercion than a type-check functor", and that is not a matter of taste:
+    in an S-EXPRESSION language `(atom bob)` is **visually identical to a
+    compound DATA term**, and this module's own tests classify `(f a)` as
+    data two lines from where they classify with `atom?`. Real Prolog has
+    no such ambiguity because its grammar separates a goal from a term by
+    position; ours does not, so the NAME has to carry the distinction.
+    **Decisive evidence, found by grep rather than argued:** `VLA.bas`'s
+    macro layer already reserves `car`, `cdr`, `cons`, `list`, `null?`,
+    `eq?` and `equal?` — and the three carrying `?` are exactly the three
+    that ask a yes/no question. So the convention was **already house
+    style, unstated**, and `(atom bob)` was the *inconsistent* spelling,
+    not the Prolog-faithful one. The rule now stated: **an alphabetic goal
+    that asks a question about one term ends in `?`; one that produces a
+    value does not** — which is also why `between` correctly keeps none
+    (it generates, like `cons` and `list`), and why the operators `<`,
+    `=`, `\==` keep none (Scheme does not put `?` on those either). The
+    reader needed **no change**: `Tokenize`'s delimiter set is exactly
+    `( ) space tab CR LF ; "`, so `?` is inert and `atom?` was already one
+    atom; `IsVarAtom` and `Fold` are unaffected. Timing was the whole
+    argument for deciding at once — nothing was committed or released, so
+    the cost was zero; after `0.5.4` it would have been a breaking change.
+
+    **THE COST THAT HAD TO BE PAID FOR IT, and was.** A Prolog author's
+    first instinct is `(atom X)`, and an unreserved `(atom X)` is an
+    unknown predicate — which in `SolveGoalList` is a **SILENT dead end**,
+    zero rows and no explanation. That is the exact confidently-wrong-
+    answer class this item spent its whole test design avoiding, met by a
+    user instead of a test. So the six bare ISO names are **reserved AND
+    dispatched to a refusal that names the `?` form**
+    (`TypeTestIsoSpellingFor`, `prolog-type-test-iso-spelling`) — the same
+    move `IN.15` and `PROLOG.7` made, and the one `PROLOG.10`'s
+    recommended option D proposes. Reserved as well as dispatched, not
+    merely dispatched: the guidance arm sits above the `clauseDict`
+    lookup, so leaving the names unreserved would let a user define
+    `(fact (atom a))` and have it silently shadowed — precisely the defect
+    **rule D** (below) was written to catch, caught here on the very next
+    item. Rejected alternatives: renaming and letting the bare names fail
+    silently (cheapest, but manufactures the silent dead end deliberately);
+    and accepting **both** spellings as aliases (one concept, two names,
+    forever — this project consistently prefers one spelling plus a
+    refusal that teaches it). **The reserved set is therefore 27 names**,
+    twelve of them from this family: six that solve, six that teach.
+
+    **THEY ARE TWO SHAPES, AND THE ENTRY'S ONE BULLET HID IT.** The six
+    type tests are DETERMINISTIC — one outcome, bind nothing, thread
+    `envN`/`envT` through unchanged, exactly `not`'s shape. `between/3` is
+    a **GENERATOR, the first in this dispatch**: it binds X to each value
+    and backtracks, so it recurses into `SolveGoalList` once per *value*
+    the way the candidates loop does, not once per *goal* the way every
+    other arm does. That is why `SolveBetween` takes `rest`, `clauseDict`,
+    `freeVarNames`, `solutions` and the cut signal, which no other
+    dispatch arm passes on. Building them as one arm would have given the
+    type tests machinery they do not need and `between` a shape that
+    cannot enumerate.
+
+    **This entry was STALE in three ways, one of them substantive.** (i)
+    The sequencing advice — "lower priority than `PROLOG.7`/`PROLOG.8` …
+    cheap enough to build alongside them" — was spent; both shipped. (ii)
+    The "no trace of the six" claim was substantively TRUE but a naive
+    grep is a trap: `var` returns two hits in `VLA_Prolog.bas`, both
+    `RaiseMsg` **slot** names (`prolog-fact-has-variable`,
+    `prolog-arith-unbound-variable`), with two more decoys next door in
+    `VLA_Unify.bas` (a `var` slot on `prolog-occurs-check`, an `atom` slot
+    on `unify-glue-multiple-slots`). (iii) **The substantive one, and the
+    same undercount shape `PROLOG.8`'s entry had:** "each type-test is a
+    cheap shape check … already-distinguished by
+    `IsVarAtom`/`TermHasVariable`'s own existing classification" is
+    **false**. `IsVarAtom` is `first char is A–Z` and answers `var?`/
+    `nonvar?` and nothing else; `TermHasVariable` answers a *different
+    question altogether* ("does any sub-term contain a variable"), which
+    none of the six asks. `IsObject` covers `compound?` and half of
+    `atomic?`. **`atom?` and `number?` needed numeric classification the
+    entry never mentions** — `VLA_Relation.IsInvariantNumericString` — and
+    that is precisely the half that collides with `PROLOG.10`.
+
+    **THE `PROLOG.10` COLLISION, ANSWERED LOCALLY AND NOT CLOSED.** A TEXT
+    cell becomes `Chr$(34) & value`, a NUMERIC cell a bare number, so
+    `(number X)` over a cell reading `42` is exactly `PROLOG.10`'s open
+    question. **`PROLOG.9`'s local reading: the marker is
+    identity-bearing, so a marked leaf is an ATOM, never a number.**
+    `(atom? "42")` TRUE, `(number? "42")` FALSE, both `atomic?`. The reason
+    is coherence, not taste: `PROLOG.8` shipped `"42 \== 42` (pinned), so
+    a TRUE here would file a term under a class holding no term it is
+    identical to. **Both engines that could have answered were consulted,
+    and they disagree** — `EvalArithTerm` STRIPS the marker before testing
+    numeric-ness, so `(is X "42")` computes 42 and `(> "42" 41)` succeeds
+    *today*, while `UnifyTwoWay`/`TermsIdentical` compare marker-included.
+    Arithmetic already says "same", identity already says "different", and
+    `PROLOG.9` sides with identity because classification is an identity
+    question. **This is a new datum for `PROLOG.10`'s own open
+    sub-question** ("should a text `42` and a numeric `42` be the same
+    term?"): the engine already answers it *both ways* depending on which
+    family is asked. The reading sits on option **A**, so option **D**
+    changes nothing here; option **B** reverses it. **The blast radius was
+    measured, not guessed:** a transliteration of the classifier run over
+    25 term shapes × 6 predicates (150 answers) plus four coherence laws
+    per shape, before a single import, showed option B moves **exactly
+    two** cases — a marked leaf whose stripped text parses as a number
+    (`"42`, `"-3.5`). It never touches `var?`/`nonvar?`/`atomic?`/`compound?`,
+    and both readings agree the term is `atomic?`. Only the atom/number
+    split moves, and the two tests that would flip are labelled
+    `prolog.9/10` so whoever adopts B finds them. The judgement is written
+    down ONCE, in `LeafIsNumberTerm`, on `UnificationBindsOutward`'s
+    precedent; `atom?`, `number?`, `atomic?` **and `between`** all ask it, so
+    `between` cannot drift into a second reading of the same marker.
+
+    **`between`'s three decisions the entry does not settle.** *Mode:* X
+    unbound generates; X bound to a whole number TESTS (`(between 1 10 5)`
+    succeeds); X bound to a non-number or a non-integer is **refused by
+    name**, not failed — a bare FALSE would be indistinguishable from an
+    in-range miss, and refusing is what keeps testing and generating the
+    *same relation*. `Low`/`High` go through `EvalArithTerm`, so they may
+    be expressions and inherit the two existing `{form}`-templated
+    arithmetic refusals attributed to `(between ...)`. *Empty range:* `Low
+    > High` **fails**, never errors — `(between 1 N X)` with `N` = 0 must
+    yield no rows. *Bounding:* **measured.** `PROLOG_MAX_STEPS` is 120 and
+    is a TOTAL-WORK ceiling charged per candidate, so charging one step
+    per generated value already makes `(between 1 1000000 X)` terminate —
+    but into `prolog-step-ceiling`, whose text blames "a rule that
+    recurses without ever reaching a base case", a **confidently wrong
+    answer** for a user whose rules are fine. So the range is ALSO refused
+    up front, against the same ceiling, with **no private budget invented**
+    — a second ceiling would let a query spend 120 steps on everything
+    else plus an unrelated allowance on enumeration. **An off-by-one found
+    while writing the tests:** the dispatch charges one step for the goal
+    *before* enumerating, so the check is `PROLOG_MAX_STEPS - 1`; at
+    `PROLOG_MAX_STEPS` a range would pass the up-front check and die at the
+    step ceiling a value later, silently restoring the exact defect the
+    check exists to remove. **The honest cost, stated rather than hidden:
+    `between`'s usable range is capped at 119.** That is a limit of the
+    engine's ceiling, not of this item; `PROLOG_MAX_STEPS` was tuned
+    against a genuinely non-terminating rule and its own comment demands
+    real profiling before it moves, so raising it to flatter a feature is
+    exactly the trade that comment forbids and **is not done here**. Note
+    the deliberate asymmetry, pinned by a test: `(between 1 1000000 5)`
+    SUCCEEDS, because test mode enumerates nothing.
+
+    **CUT, which the entry does not mention at all.** `between`'s loop
+    sits between a cut's origin and its firing site, so it must stop
+    generating the moment `cutActive` returns True, and must **never
+    absorb** the signal — absorption belongs only to the loop that selected
+    the clause the `!` is inside (`myStep = cutTargetBarrier`), and
+    `between` selects no clause and creates no barrier. Without that one
+    line `!` silently fails to prune a generator; the pinning pair reads
+    2 rows and 6 rows, and would read 6 and 6 if it were missing.
+
+    **A TRIPWIRE HOLE FOUND AND CLOSED FIRST, before any feature code.**
+    `check_prolog_reserved_names.ps1`'s header names three defects it
+    exists to catch, but rules A–C only ever walked the reserved set
+    *outward*; nothing walked the dispatch *back*. Verified by mutation: a
+    `predName = "bogusundeclared"` arm spliced into `SolveGoalList` passed
+    the whole script **clean, exit 0** — defect #2 from its own header
+    ("dispatched but not reserved", so a user may define that predicate and
+    have it silently shadowed). Nothing shipped was wrong, but `PROLOG.9`
+    adds two arms at once and would have walked straight through it. **Rule
+    D** closes it in both arm shapes, is proven to bite on both, and
+    refuses to scan nothing if the chain is restructured (also proven). It
+    was built and run green against the old 14 names **before a line of
+    `PROLOG.9` existed**, and is staged to land as its own commit ahead of
+    the feature. **The reserved set is now 27 names** (5 literal +
+    6 + 4 + 6 + 6), and `'type tests' = 'TypeTestKindFor'` was registered
+    in `$countPhrases` and `prolog-type-test-bad-shape` in
+    `$multiFormIds` **before** either existed, so both checks ran red first;
+    rule B is proven to bite on a deliberately wrong count word. The
+    rename added `'ISO spellings' = 'TypeTestIsoSpellingFor'` and
+    `prolog-type-test-iso-spelling`, and taught one thing worth recording
+    about rule B: its count word must sit **immediately** before the group
+    noun, because it matches `<word> <noun>`. "their six bare ISO
+    spellings" would have found "bare" in front of the noun, reported "not
+    a count word", and silently checked nothing — a check that passes by
+    not looking. The phrasing is "the six ISO spellings", and the trap is
+    now written into the script's own baseline comment.
+
+    **Smaller findings, recorded rather than left to be rediscovered.** The
+    phantom-column hazard hits a THIRD time (`PROLOG.5.2` via `not`,
+    `PROLOG.8` via `\==`): `(query (var? X))` SUCCEEDS, so without a
+    `CollectVars` skip the very first query anyone types while learning the
+    predicate would spill a column headed `X` containing the text `"X"`.
+    That skip carries a **known limit, inherited not introduced** — it is
+    keyed on shape alone, so a compound used as DATA whose functor is one
+    of these names (`(query (likes X (atom? Y)))`) drops `Y` from the
+    output columns though it genuinely binds; `not` and the three
+    non-binding term-matching operators already behave this way. **The
+    question-mark rename all but closes this one**: the entry originally
+    recorded it as a limit `PROLOG.9` *widened*, because `atom` and
+    `number` are plausible data functors — but almost nobody writes a data
+    functor called `atom?`, so the six names added here are now among the
+    *least* likely to collide rather than the most. An unplanned second
+    dividend of the spelling, and the reason this paragraph shrank rather
+    than grew. Fixing it properly still means
+    tracking goal-versus-data position the way `CollectTemplateVars`
+    already does — its own item, not a fold-in. `between` deliberately gets
+    **no** `CollectVars` arm: it is the one goal here that binds outward, so
+    the default descend is already right, and a comment says so rather than
+    an arm that would do nothing. A representation edge is **pinned rather
+    than special-cased**: this engine has no list type, so `findall`'s empty
+    Bag is a zero-length `Collection` and `(compound EmptyBag)` is TRUE
+    here where ISO's `[]` is atomic. `NumberToTerm` duplicates
+    `TableCellToTerm`'s `Trim$(Str$(…))` **on purpose** — a generated value
+    must be the same TEXT a numeric cell becomes, or `(between 1 3 X)
+    (emp X)` would silently match nothing; `Str$` not `CStr`, which follows
+    the machine locale. Both new `Solve*` functions take `ByVal … As
+    Variant` and `Set` into a typed local, matching `SolveComparison`/
+    `SolveUnification` rather than inventing a third way around this
+    project's own recorded Variant-into-typed-parameter trap. Since nothing
+    here can compile VBA, a structural balance scanner was run over every
+    edited module and **proven to bite by deleting an `End If` from a
+    copy**. `VLA_PROLOG_VERSION` read `"PROLOG.7"` — `PROLOG.8` documented
+    itself at each site, added no header block, and left the bump; nothing
+    reads the constant, so it cost nothing, and it is corrected here rather
+    than left to grow. No new module, so `VLA_Build.bas`/`VLA_DevRig.bas`
+    are untouched; `VLA_Prolog` stays at **0 raw `Err.Raise`** sites;
+    `docs/GRAMMAR_SINCE.md` needs no row — **re-verified mechanically, not
+    assumed**: its inventory comes from `check_rule_coverage -ListRules`
+    and `check_emitter_coverage -ListArms`, and neither reads
+    `VLA_Prolog.bas`. *Pays into:* `DATALOG`/`PROLOG` consistency, and
+    `PROLOG.10`, which now has a measured blast radius and a named dependent
+    instead of an open question.
+
+    *Original entry, for the record:* None of the six ISO type-test
+    predicates exist today (confirmed: no trace of
+    `var`/`nonvar`/`atom`/`number`/`atomic`/`compound` anywhere in
     `VLA_Prolog.bas`'s dispatch or reserved-name list), and neither does
-    `between(Low, High, X)`, real Prolog's ordinary bounded generate-and-test
-    predicate (the direct complement to `findall`'s own harvest — "for each X
-    between 1 and 10" has no expression today short of hand-authoring ten
-    facts). Each type-test is a single, cheap runtime check against a resolved
-    term's own shape (already-distinguished by `IsVarAtom`/`TermHasVariable`'s
-    own existing classification, `VLA_Prolog.bas`) rather than new solving
-    machinery — lower priority than `PROLOG.7`/`PROLOG.8` since nothing
-    downstream currently needs a guard clause, but genuinely baseline, and
-    cheap enough to build alongside them rather than as its own separate push.
-    `~days`.
+    `between(Low, High, X)`, real Prolog's ordinary bounded
+    generate-and-test predicate (the direct complement to `findall`'s own
+    harvest — "for each X between 1 and 10" has no expression today short
+    of hand-authoring ten facts). Each type-test is a single, cheap runtime
+    check against a resolved term's own shape (already-distinguished by
+    `IsVarAtom`/`TermHasVariable`'s own existing classification,
+    `VLA_Prolog.bas`) rather than new solving machinery — lower priority
+    than `PROLOG.7`/`PROLOG.8` since nothing downstream currently needs a
+    guard clause, but genuinely baseline, and cheap enough to build
+    alongside them rather than as its own separate push. `~days`.
   - ⬜ **PROLOG.10 — ADJUDICATE: is the quoted-string marker part of a term's
     IDENTITY, or only a note about how it was written?** A DECISION item
     first and a build item second — filed deliberately rather than settled as
@@ -12366,9 +12616,35 @@ now carries one summary paragraph per engine and points here.*
 
     **An open sub-question either way, to be answered deliberately rather
     than as a side effect:** should a TEXT cell and a NUMERIC cell both
-    holding `42` be the same term? `A` says no, `B` says yes.
+    holding `42` be the same term? `A` says no, `B` says yes. **`PROLOG.9`
+    supplied a datum this entry did not have: the engine ALREADY answers
+    it both ways, depending on which family is asked.** `EvalArithTerm`
+    strips the marker before testing numeric-ness, so `(is X "42")`
+    computes 42 and `(> "42" 41)` succeeds *today*, while
+    `UnifyTwoWay`/`TermsIdentical` compare marker-included and hold `"42`
+    and `42` distinct. Arithmetic says "same"; identity says "different".
+    Whichever way this item goes, one of those two is currently wrong and
+    should be named as such rather than left as an accident.
 
-    *Blocks nothing; blocked by nothing.* `PROLOG.9` can ship first. `~days`
+    **A DEPENDENT, added by `PROLOG.9` and not a closure of this item.**
+    `atom?`/`number?`/`atomic?` could not be built without reading the
+    marker, so `PROLOG.9` took an explicit LOCAL reading — the marker is
+    identity-bearing, a marked leaf is an ATOM and never a number — and
+    said so in its own entry rather than adjudicating here by accident.
+    It sits on **A**, so **D** costs nothing; **B** reverses it. The blast
+    radius on `PROLOG.9` was **measured before import**, over 25 term
+    shapes × 6 predicates: **B moves exactly two cases** — a marked leaf
+    whose stripped text parses as a number (`"42`, `"-3.5`). It never
+    touches `var?`/`nonvar?`/`atomic?`/`compound?`, and both readings agree
+    such a term is `atomic?`; only the atom/number split moves. So the B
+    column below should read **three** shipped tests flipped, not one: the
+    `PROLOG.8` unification test plus the two `PROLOG.9` tests deliberately
+    labelled `prolog.9/10` so this item's eventual adjudicator finds them
+    by grep. `between/3` reads the marker through the same single
+    `LeafIsNumberTerm`, so it moves with them rather than separately.
+
+    *Blocks nothing; blocked by nothing.* `PROLOG.9` shipped first, as
+    predicted, and narrowed this item rather than pre-empting it. `~days`
     for `D`, `~week` for `B` with its own live pass. *Pays into:* `DATALOG`/
     `PROLOG` consistency, and any future `G-PROLOG` phrasing that has to
     render "is the same as" over table-sourced values.

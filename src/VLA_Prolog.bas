@@ -1,6 +1,147 @@
 Attribute VB_Name = "VLA_Prolog"
 Option Explicit
-Public Const VLA_PROLOG_VERSION As String = "PROLOG.7"
+Public Const VLA_PROLOG_VERSION As String = "PROLOG.9"
+' (This constant read "PROLOG.7" until PROLOG.9. PROLOG.8 documented
+' itself at each site and added no header block of its own, and the bump
+' went with it. Nothing reads this constant - it is a marker for whoever
+' opens the module - so the staleness cost nothing; it is corrected here
+' rather than left to grow.)
+'
+' PROLOG.9: the six ISO type-test goals - written `var?`, `nonvar?`,
+' `atom?`, `number?`, `atomic?`, `compound?` - and `between/3`. The
+' roadmap lists them in one bullet. They are TWO DIFFERENT SHAPES and
+' are built as two arms:
+'
+'   the six type tests - DETERMINISTIC. Exactly one outcome, bind
+'       nothing, thread envN/envT into the continuation UNCHANGED. The
+'       shape `not` and the six comparisons already have.
+'   between/3         - a GENERATOR, and the FIRST one in this dispatch.
+'       It binds X to each value in turn and BACKTRACKS, so it recurses
+'       into SolveGoalList once per value the way the candidates loop
+'       does, not once per goal the way every other arm does.
+'
+' Lumping them together would have given the type tests machinery they
+' do not need and `between` a shape that cannot enumerate.
+'
+' WHAT `atom`/`number` HAD TO DECIDE, AND WHAT IT DID NOT.
+' A TEXT cell becomes Chr$(34) & value (TableCellToTerm, below); a
+' NUMERIC cell becomes a bare number. So `(number X)` where X came from
+' a cell reading 42, and `(atom X)` where X is `"eng`, are questions
+' about whether the quoted-string marker is part of a term's IDENTITY -
+' which is exactly what PROLOG.10 exists to adjudicate and has NOT yet
+' answered.
+'
+' THE QUESTION MARK, decided late and on purpose: `(atom bob)` in an
+' S-expression language is visually identical to a compound DATA term,
+' and this codebase's macro layer (VLA.bas) already reserves null?, eq?
+' and equal? alongside car/cdr/cons/list - a question mark on exactly the
+' primitives that ask a question. TypeTestKindFor (below) carries the
+' full reasoning, and TypeTestIsoSpellingFor (below it) is why writing
+' the bare ISO `(atom X)` gets a refusal naming the right spelling
+' instead of the silent dead end an unknown predicate would be.
+'
+' PROLOG.9's LOCAL READING, which does NOT close PROLOG.10: the marker
+' is identity-bearing, so a marked leaf is an ATOM, never a number.
+' `(atom? "eng)` is True, `(number? "42)` is False, and both are
+' `atomic?`.
+' The reason is coherence with what already shipped, not a preference
+' about strings: PROLOG.8 shipped `"42 \== 42` (pinned by two tests), so
+' a `number("42)` answering True would classify a term into a class that
+' holds no term it is identical to. Every other engine that could have
+' answered was consulted rather than assumed - and they DISAGREE, which
+' is the whole reason PROLOG.10 is open:
+'
+'   EvalArithTerm (below) STRIPS the marker before testing numeric-ness,
+'       so `(is X "42")` computes 42 and `(> "42" 41)` succeeds today.
+'   UnifyTwoWay/TermsIdentical compare marker-INCLUDED, so `"42` and 42
+'       are different terms today.
+'
+' Arithmetic already says "same", identity already says "different", and
+' PROLOG.9 sides with IDENTITY because classification is an identity
+' question, not an arithmetic one. This reading sits on PROLOG.10's
+' option A, which is the base its own recommendation (D on top of A) is
+' built on, so option D changes nothing here. Option B WOULD reopen it,
+' and the blast radius was measured rather than guessed: a
+' transliteration of this classifier run over 25 term shapes x 6
+' predicates before a single import showed option B moves EXACTLY TWO
+' cases - a marked leaf whose stripped text parses as a number (`"42`,
+' `"-3.5`). It never touches var/nonvar/atomic/compound, and both
+' readings agree the term is `atomic`. Only the atom/number split moves.
+'
+' The marker is read in ONE place, LeafIsNumberTerm (below), for the
+' reason UnificationBindsOutward (below) exists: a cross-cutting
+' judgement written down once cannot be re-derived three ways by three
+' callers and drift. `atom`, `number` and `atomic` all ask it.
+'
+' Classification runs on the RAW text, before LeafText strips anything -
+' EvalArithTerm's own already-documented discipline. A capitalised
+' quoted string like `"Hello` must never reach IsVarAtom with its marker
+' gone, or a real string value is misreported as an unbound variable.
+'
+' `between`'s THREE decisions the roadmap does not settle:
+'
+'   MODE. X unbound -> generate. X bound to a whole number -> TEST, the
+'       way real Prolog's between/3 is semi-deterministic in that mode
+'       (`(between 1 10 5)` succeeds). Low and High must both resolve to
+'       numbers; they go through EvalArithTerm, so they may be
+'       EXPRESSIONS (consistent with the comparison family) and an
+'       unbound or non-numeric bound inherits the two existing
+'       {form}-templated arithmetic refusals, attributed to
+'       "(between ...)". X bound to a non-number, or to a number that is
+'       not whole, is refused BY NAME rather than failed: `(between 1 10
+'       2.5)` answering a bare False would be indistinguishable from
+'       `(between 1 10 25)` answering False, and the user could not tell
+'       "out of range" from "not the kind of thing between talks about".
+'       Refusing is also what keeps test mode and generate mode the SAME
+'       relation - test mode succeeds exactly on values generate mode
+'       would produce.
+'   EMPTY RANGE. Low > High simply FAILS - zero solutions, no error. It
+'       is an empty range, exactly like an empty candidate list, and
+'       `(between 1 N X)` with N bound to 0 must yield no rows rather
+'       than stopping the query.
+'   BOUNDING. Measured, not assumed. PROLOG_MAX_STEPS is 120 and is a
+'       TOTAL-RESOLUTION-WORK ceiling (SolveIsolated's own header says
+'       so), charged once per candidate by the loop below. So every
+'       generated value is charged one step, exactly as a candidate is,
+'       and `between` gets NO private budget of its own - a second
+'       ceiling would let a query spend 120 steps on everything else
+'       plus an unrelated allowance on enumeration. That alone already
+'       makes `(between 1 1000000 X)` terminate, but it would terminate
+'       into prolog-step-ceiling, whose text blames "a rule that
+'       recurses without ever reaching a base case" - a confidently
+'       wrong answer for a user whose rules are all fine. So the range
+'       is ALSO checked UP FRONT, before a single value is generated,
+'       and refused by its own name against the same ceiling.
+'
+'       The honest cost, stated rather than hidden: `between`'s usable
+'       range is therefore capped at 120, which is small, and that is a
+'       limit of the ENGINE'S ceiling rather than of this item.
+'       PROLOG_MAX_STEPS was tuned against a genuinely non-terminating
+'       rule and its own declaration comment demands real profiling data
+'       before it moves; raising it to make a feature look better is
+'       exactly the trade that comment forbids, so it is NOT raised
+'       here. Note the asymmetry this creates, which is correct and is
+'       pinned by a test: `(between 1 1000000 5)` SUCCEEDS, because test
+'       mode enumerates nothing and so has no range to refuse.
+'
+' CUT, which the roadmap does not mention at all. `between`'s loop is a
+' loop between a cut's own origin and its firing site, so it must stop
+' generating the moment cutActive comes back True - the candidates loop
+' below documents why every such loop must. It never ABSORBS the signal
+' (never clears it): absorption belongs only to the loop that selected
+' the clause the `!` sits inside, identified by myStep = cutTargetBarrier,
+' and `between` selects no clause and creates no barrier. So it is
+' exactly the "any other loop leaves it set" case already described
+' there. Without this, `!` silently fails to prune a generator.
+'
+' A representation edge, pinned rather than special-cased: this engine
+' has no list type, so findall's own Bag is a Collection and an EMPTY
+' bag is a zero-length one. `(compound EmptyBag)` is therefore True
+' here, where ISO's `[]` is atomic. Classifying by representation is the
+' honest reading when the representation is all there is; inventing a
+' special case for zero-length would make `compound` mean something the
+' rest of the module does not.
+'
 ' PROLOG.7: the six comparison operators (<, >, =<, >=, =:=, =\=) as
 ' goals in their own right. PROLOG.5.1 shipped arithmetic strictly as the
 ' BINDING form `(is Var Expr)`, so there was no way to TEST two numbers
@@ -967,9 +1108,52 @@ Private Sub CollectVars(ByVal term As Variant, freeVarNames As Collection)
     ' compound-term argument CollectVars recurses into (e.g. a fact's own
     ' `(color red)`-shaped argument), never assumed to be a plain symbol
     ' just because a `not`-headed term happens to be 2 long.
+    ' PROLOG.9: the six type tests join this same 2-long skip, on exactly
+    ' the reasoning `not` is skipped on. They bind NOTHING - every one of
+    ' them is a test - so a variable appearing only inside one can never
+    ' resolve to anything, and collecting it would spill its own raw atom
+    ' name into the cells as though it were a value the query had found.
+    '
+    ' The hazard is real and not hypothetical, and it is sharper here
+    ' than for `not`: `(query (var X))` SUCCEEDS - a free X is exactly
+    ' what `var` is true of - so without this skip the one query most
+    ' likely to be typed while learning the predicate would answer with a
+    ' single column headed X containing the text "X". That is PROLOG.5.2's
+    ' own phantom-column finding and PROLOG.8's own `(query (\== X Y))`
+    ' repeat, reached a third time by a third route.
+    '
+    ' A variable that ALSO appears in an ordinary conjunct is still
+    ' collected from THAT occurrence - `(query (emp N S) (number S))`
+    ' reports both columns, because this skip only ever declines to
+    ' DESCEND into the type test, it never removes an already-collected
+    ' name.
+    '
+    ' KNOWN LIMIT, inherited rather than introduced: this skip is keyed on
+    ' shape alone, so a compound term used as DATA whose functor happens
+    ' to be one of these names - `(query (likes X (atom? Y)))` against a
+    ' fact storing an `(atom? foo)` argument - has its Y dropped from the
+    ' output columns though it genuinely binds. `not` and the three
+    ' non-binding term-matching operators already behave this way.
+    '
+    ' The trailing question mark all but closes it for THESE six. Written
+    ' bare, `atom` and `number` would have been plausible data functors
+    ' and PROLOG.9 would have widened this limit measurably; `atom?` is
+    ' not a name anyone reaches for when inventing data, so the six added
+    ' here are now among the least likely of the reserved set to collide
+    ' rather than the most. An unplanned second dividend of the spelling
+    ' decision, recorded because the first version of this comment
+    ' claimed the opposite and would otherwise have stayed wrong.
+    '
+    ' Fixing it properly still means tracking goal-versus-data position
+    ' here the way CollectTemplateVars (below) already does for findall's
+    ' Template, which is a change to this function's contract and to
+    ' `not`'s long-shipped behaviour - its own item, not a fold-in.
     If lst.Count = 2 Then
         If Not IsObject(lst.Item(1)) Then
-            If VLA_Identity.Fold(CStr(lst.Item(1))) = "not" Then Exit Sub
+            Dim headTwo As String
+            headTwo = VLA_Identity.Fold(CStr(lst.Item(1)))
+            If headTwo = "not" Then Exit Sub
+            If TypeTestKindFor(headTwo) <> "" Then Exit Sub
         End If
     End If
     ' PROLOG.8: `(\= A B)`, `(== A B)` and `(\== A B)` - the THREE of the
@@ -1015,6 +1199,19 @@ Private Sub CollectVars(ByVal term As Variant, freeVarNames As Collection)
     ' discarded exactly like `not`'s own Goal. Only Bag - the one
     ' argument genuinely bound in the shared, non-discarded outer env,
     ' exactly like `is`'s own target Var - is descended into here.
+    '
+    ' PROLOG.9: `(between Low High X)` is ALSO 4 long and deliberately
+    ' gets NO arm here - it wants the default descend below, and stating
+    ' why is worth more than an arm that would do nothing. `between` is
+    ' the one goal PROLOG.9 adds that genuinely BINDS in the shared,
+    ' non-discarded environment, so X is a real output column exactly the
+    ' way `is`'s own target variable and findall's own Bag are, and the
+    ' default already collects it. Low and High are contributed only when
+    ' they are variables, which is harmless in both directions: bound
+    ' elsewhere, they were already collected from that occurrence and
+    ' VarAlreadyCollected dedupes; never bound at all, EvalArithTerm
+    ' refuses the goal by name before any row is produced, so no phantom
+    ' column can survive to be rendered.
     If lst.Count = 4 Then
         If Not IsObject(lst.Item(1)) Then
             If VLA_Identity.Fold(CStr(lst.Item(1))) = "findall" Then
@@ -1158,7 +1355,11 @@ End Function
 ' six are unaffected by that difference.
 Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
     Select Case predName
-    Case "is", "not", "findall", "!"
+    Case "is", "not", "findall", "!", "between"
+        ' PROLOG.9: `between` is a literal arm rather than a table of its
+        ' own because it is ONE name - the shape is/not/findall already
+        ' have. Its six type-test siblings arrive by table below, since
+        ' they are six.
         IsReservedPredicateName = True
     Case Else
         ' PROLOG.7: the six comparison names are not repeated here. They
@@ -1175,12 +1376,24 @@ Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
         ' Case, so evaluating the second when the first already answered
         ' True costs a jump and can have no effect of its own.
         '
+        ' PROLOG.9: its own six type-test names join on the identical
+        ' terms, from their own table. Three delegated tables now, and
+        ' the same non-short-circuit note applies unchanged - all three
+        ' are pure lookups over frozen Select Cases, so evaluating a
+        ' later one after an earlier already answered True costs a jump
+        ' and can have no effect of its own.
+        '
         ' tools/check_prolog_reserved_names.ps1 reads the delegated table
         ' names straight out of this expression, then holds all three
         ' places that spell the reserved set - here, SolveGoalList's own
         ' dispatch, and prolog-reserved-predicate-name's own text - to
-        ' naming the same predicates.
-        IsReservedPredicateName = (ComparisonOpFor(predName) <> "" Or UnificationOpFor(predName) <> "")
+        ' naming the same predicates. PROLOG.9 taught it to walk the
+        ' dispatch BACK to this function as well (its own rule D): before
+        ' that it only ever walked outward from here, so an arm added to
+        ' SolveGoalList without a matching reservation right here passed
+        ' clean - verified by mutation, and precisely the mistake two new
+        ' families at once invites.
+        IsReservedPredicateName = (ComparisonOpFor(predName) <> "" Or UnificationOpFor(predName) <> "" Or TypeTestKindFor(predName) <> "" Or TypeTestIsoSpellingFor(predName) <> "")
     End Select
 End Function
 
@@ -1263,6 +1476,133 @@ End Function
 ' change the environment at all.
 Private Function UnificationBindsOutward(ByVal kind As String) As Boolean
     UnificationBindsOutward = (kind = "unify")
+End Function
+
+' PROLOG.9: a type-test goal's own predicate name -> the kind of question
+' it asks, or "" if predName is not one of the six at all. The same
+' single-source shape ComparisonOpFor and UnificationOpFor (above)
+' established, and for the identical reason: IsReservedPredicateName,
+' ValidateBodyItem, DesugarBodyItem, CollectVars and SolveGoalList's own
+' dispatch all ask this function rather than repeating the list, so
+' reserving a name and dispatching it can never disagree about which six
+' they are.
+'
+' A TRANSLATION table, exactly like ComparisonOpFor - the written name
+' carries a trailing "?" that the internal kind does not, so `atom?` maps
+' to the kind `atom`. SolveTypeTest (below) therefore never sees a
+' question mark at all and its Select Case is spelled in kinds, which is
+' what keeps the naming decision confined to this one table.
+'
+' WHY THE QUESTION MARK, since real Prolog writes `atom(X)`. This engine
+' is an S-EXPRESSION language, and in one of those `(atom bob)` is
+' visually identical to a compound DATA term - `(color red)`, `(f a)`,
+' `(name Alice)` are all ordinary data in exactly that shape, and this
+' module's own tests classify `(f a)` as data two lines from where they
+' classify with `atom?`. Real Prolog has no such ambiguity because its
+' syntax separates a goal from a term by position; ours does not, so the
+' name has to carry the distinction instead.
+'
+' It is also this codebase's OWN existing convention rather than an
+' import: VLA.bas's macro layer reserves car, cdr, cons, list, null?,
+' eq? and equal?, and the three that end in "?" are exactly the three
+' that ask a yes/no question. The rule already in force here is that an
+' alphabetic primitive asking a question ends in "?" and one that
+' produces a value does not - which is also why `between` (below) keeps
+' no question mark: it GENERATES, like cons and list, and only tests as
+' a second mode.
+'
+' The six bare ISO spellings are reserved too, and dispatched to a
+' refusal that names the "?" form - TypeTestIsoSpellingFor, below. A
+' Prolog author's first instinct is `(atom X)`, and an unreserved
+' `(atom X)` would be an unknown predicate, which in SolveGoalList is a
+' SILENT dead end - zero rows and no explanation, the exact
+' confidently-wrong-answer class this project holds to be worse than a
+' crash. So the ISO spelling teaches instead of failing.
+'
+' tools/check_prolog_reserved_names.ps1 reads this table's own Case arms
+' to count the set it must find advertised.
+Private Function TypeTestKindFor(ByVal predName As String) As String
+    Select Case predName
+    Case "var?":      TypeTestKindFor = "var"
+    Case "nonvar?":   TypeTestKindFor = "nonvar"
+    Case "atom?":     TypeTestKindFor = "atom"
+    Case "number?":   TypeTestKindFor = "number"
+    Case "atomic?":   TypeTestKindFor = "atomic"
+    Case "compound?": TypeTestKindFor = "compound"
+    End Select
+End Function
+
+' PROLOG.9: a bare ISO type-test name -> the spelling this engine
+' actually uses, or "" if predName is not one of the six. Reserved and
+' dispatched exactly like a real goal, but its dispatch RAISES rather
+' than solves: `(atom X)` is refused by name and told to write
+' `(atom? X)`.
+'
+' This table exists so that being wrong about the spelling is LOUD.
+' Without it the six bare names would be ordinary unknown predicates,
+' and an unknown predicate is a silent dead end by design (see
+' SolveGoalList's own clauseDict lookup) - so a Prolog author writing
+' the spelling their own language taught them would get an empty result
+' and nothing to read. That is the same move IN.15 and PROLOG.7 already
+' made, and the same one PROLOG.10's recommended option D proposes.
+'
+' Reserved as well as dispatched, not merely dispatched: a name the
+' solver acts on but the parser does not reserve is a predicate a user
+' can DEFINE and then have silently shadowed - the defect
+' tools/check_prolog_reserved_names.ps1's own rule D exists to catch, and
+' the reason these six appear in IsReservedPredicateName's Case Else
+' alongside the other three tables.
+Private Function TypeTestIsoSpellingFor(ByVal predName As String) As String
+    Select Case predName
+    Case "var":      TypeTestIsoSpellingFor = "var?"
+    Case "nonvar":   TypeTestIsoSpellingFor = "nonvar?"
+    Case "atom":     TypeTestIsoSpellingFor = "atom?"
+    Case "number":   TypeTestIsoSpellingFor = "number?"
+    Case "atomic":   TypeTestIsoSpellingFor = "atomic?"
+    Case "compound": TypeTestIsoSpellingFor = "compound?"
+    End Select
+End Function
+
+' PROLOG.9: THE one place this module decides whether a ground leaf is a
+' NUMBER or an ATOM - which is to say, the one place PROLOG.9 reads the
+' quoted-string marker at all. `atom`, `number` and `atomic` all ask it,
+' so the judgement is written down once rather than re-derived at three
+' sites, exactly the reason UnificationBindsOutward (above) exists.
+'
+' A leaf carrying the marker is an ATOM, never a number, whatever its
+' text says. `(number "42)` is False even though the 42 is right there.
+' This module's own PROLOG.9 header has the full reasoning and the
+' measured blast radius; the short version is that PROLOG.8 shipped
+' `"42 \== 42`, so answering True here would classify a term into a class
+' containing no term it is identical to. It is PROLOG.9's LOCAL reading
+' of a question PROLOG.10 owns and has not answered, compatible with
+' PROLOG.10's options A and D and reopened by its option B.
+'
+' raw, never LeafText(raw): the marker is the whole signal, so stripping
+' it first would destroy exactly the thing being tested. EvalArithTerm
+' (below) makes the opposite choice deliberately and documents it there -
+' it strips, because arithmetic wants the value; this asks about
+' identity, and identity is what the marker carries.
+Private Function LeafIsNumberTerm(ByVal raw As String) As Boolean
+    If Left$(raw, 1) = Chr$(34) Then Exit Function
+    LeafIsNumberTerm = VLA_Relation.IsInvariantNumericString(raw)
+End Function
+
+' PROLOG.9: a Double -> the ground numeric leaf this engine represents it
+' as. Str$, never CStr: Str$ is genuinely locale-invariant in VBA (always
+' "." for the decimal point, plus a leading space for a non-negative
+' number that Trim$ removes), where CStr follows the machine's locale and
+' would produce "3,5" on a comma-decimal machine.
+'
+' This is TableCellToTerm's own expression (below), deliberately, and the
+' duplication is the point rather than a missed hoist: a value `between`
+' generates must be the SAME TEXT a numeric table cell of that value
+' becomes, or `(between 1 3 X) (emp X)` would silently match nothing
+' against a table whose id column holds 1, 2 and 3. Two spellings of a
+' number are two different ground atoms to UnifyTwoWay, which compares
+' atoms text-for-text.
+Private Function NumberToTerm(ByVal v As Double) As String
+    NumberToTerm = Trim$(Str$(v))
 End Function
 
 ' An `is`-expression's own STATIC shape, checked recursively at parse
@@ -1417,6 +1757,58 @@ Private Sub ValidateBodyItem(ByVal item As Variant, ByVal ctx As String, predAri
                 ' not also one, no crash and no special case.
                 If lst.Count <> 3 Then VLA_Messages.RaiseMsg "prolog-unification-bad-shape", "form", "(" & headWord & " ...)"
                 Exit Sub
+            ElseIf TypeTestKindFor(headWord) <> "" Then
+                ' PROLOG.9: exactly ONE operand, and - like the
+                ' term-matching arm directly above, and unlike the
+                ' comparison arm above that - nothing else checked about
+                ' it. A type test takes an arbitrary TERM and asks what
+                ' shape it is; running ValidateArithExpr over it would
+                ' refuse `(compound (f Y))` for using an operator that
+                ' was never meant to be arithmetic, which is the whole
+                ' point of the form.
+                '
+                ' Nor is the operand put through TermPredName: `(f Y)`
+                ' inside `(compound (f Y))` is a term being CLASSIFIED,
+                ' not a call to a predicate named f, and letting it
+                ' constrain the real f/N would be findall's own Template
+                ' mistake a second time.
+                '
+                ' One shared refusal for all six, so it cannot name a
+                ' form of its own - it takes {form} from the head word
+                ' the user actually wrote, exactly as the comparison and
+                ' term-matching arms do. Pinned by
+                ' tools/check_prolog_form_attribution.ps1, whose
+                ' multi-form baseline this id was added to BEFORE the
+                ' code existed, and which failed on it until it did.
+                If lst.Count <> 2 Then VLA_Messages.RaiseMsg "prolog-type-test-bad-shape", "form", "(" & headWord & " ...)"
+                Exit Sub
+            ElseIf headWord = "between" Then
+                ' PROLOG.9: `(between Low High X)` - four elements, so
+                ' the same arity check every sibling arm makes, but with
+                ' its two halves validated DIFFERENTLY, which is the
+                ' whole shape of the form.
+                '
+                ' Low and High are arithmetic EXPRESSIONS - they go
+                ' through the same ValidateArithExpr `(is ...)` and the
+                ' six comparisons already use, so `(between 1 (+ N 1) X)`
+                ' is legal and a malformed bound is refused at parse time
+                ' naming "(between ...)" rather than a form the user
+                ' never wrote.
+                '
+                ' X is NOT, and must not be. It is the term to bind or
+                ' test, so ValidateArithExpr over it would refuse a
+                ' perfectly ordinary `(between 1 10 X)`'s own bare
+                ' variable's compound sibling - and, worse, would report
+                ' an ARITHMETIC complaint about a position that holds no
+                ' expression. Whether X is usable is a RUNTIME question
+                ' (it may be unbound now and bound later, or unbound on
+                ' purpose because generating is the point), decided in
+                ' SolveBetween below - the identical reasoning `is`'s own
+                ' target variable already gets.
+                If lst.Count <> 4 Then VLA_Messages.RaiseMsg "prolog-between-bad-shape"
+                ValidateArithExpr lst.Item(2), "(between ...)"
+                ValidateArithExpr lst.Item(3), "(between ...)"
+                Exit Sub
             End If
         End If
     End If
@@ -1535,6 +1927,26 @@ Private Sub DesugarBodyItem(ByRef dest As Variant, ByVal item As Variant, ByVal 
                 ' no behaviour that any program can observe; it fixes the
                 ' guarantee in place so a later change to
                 ' DesugarPredicateAtom cannot quietly start reaching in.
+                Set dest = item
+                Exit Sub
+            ElseIf TypeTestKindFor(headWord) <> "" Or TypeTestIsoSpellingFor(headWord) <> "" Or headWord = "between" Then
+                ' PROLOG.9: both new families passed through untouched,
+                ' one arm because the reason is one reason - and stated
+                ' rather than left to fall through, exactly as PROLOG.7's
+                ' and PROLOG.8's arms above are, because
+                ' DesugarPredicateAtom would pass them along today only
+                ' INCIDENTALLY (it folds lst.Item(1) alone and bails the
+                ' moment that is not a table name) and an incidental
+                ' pass-through is not a guarantee.
+                '
+                ' There is nothing for headerMap to resolve in either.
+                ' A type test's single operand is a term being
+                ' classified, and `between`'s three are two arithmetic
+                ' expressions and a variable - no keyed atom in any of
+                ' them. Nor can one of these seven names ever BE a table
+                ' name: PROLOG() runs IsReservedPredicateName over every
+                ' table argument before it is loaded, and all seven are
+                ' reserved as of this item.
                 Set dest = item
                 Exit Sub
             ElseIf headWord = "not" Then
@@ -2164,6 +2576,92 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         Exit Sub
     End If
 
+    ' PROLOG.9: the six type-test goals - dispatched here, the identical
+    ' unambiguous-by-construction reasoning every arm above already uses,
+    ' since IsReservedPredicateName forbids ever DEFINING a predicate with
+    ' one of these names. Deterministic like all of them (exactly one
+    ' outcome, no candidate enumeration, no backtracking), still counted
+    ' against PROLOG_MAX_STEPS.
+    '
+    ' envN/envT are threaded into the continuation UNCHANGED - never a
+    ' fresh clone the way `is` and `=` produce one. A type test binds
+    ' nothing whatsoever: it looks at a term and answers, so there is
+    ' nothing to carry forward, exactly the shape `not` and the six
+    ' comparisons have. That is also why CollectVars (above) skips them.
+    '
+    ' It must sit ABOVE the clauseDict lookup below for the reason
+    ' PROLOG.7's arm states: an unknown predicate there is a SILENT dead
+    ' end rather than an error, so a type test reaching it would quietly
+    ' answer "no rows" instead of classifying anything - and since half of
+    ' these six are naturally written as goals expected to FAIL, that
+    ' failure would be indistinguishable from a correct answer. This arm
+    ' existing is what makes the difference observable.
+    '
+    ' No locals declared in this arm at all - the whole evaluation lives
+    ' in SolveTypeTest (below), factored out for the same live-caught
+    ' stack-frame reason findall's own dispatch documents above.
+    If TypeTestKindFor(predName) <> "" Then
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If SolveTypeTest(goals.Item(1), TypeTestKindFor(predName), envN, envT) Then
+            SolveGoalList rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        End If
+        Exit Sub
+    End If
+
+    ' PROLOG.9: the six BARE ISO spellings - `(atom X)` where this engine
+    ' writes `(atom? X)`. Dispatched here, above the clauseDict lookup,
+    ' for a reason sharper than any arm above it: BELOW that lookup an
+    ' unknown predicate is a SILENT dead end, and these six names are
+    ' precisely the ones a Prolog author will type first. Left
+    ' undispatched they would answer "no rows" and explain nothing, which
+    ' is the confidently-wrong-answer class this project holds to be
+    ' worse than a crash.
+    '
+    ' This arm never solves anything - it always raises. That is the
+    ' whole point, and it is why the check that holds reserved names to
+    ' being dispatched is satisfied honestly rather than by exemption:
+    ' the name IS reached, and what it does when reached is teach the
+    ' spelling. No step is charged, because no resolution work happens.
+    '
+    ' Deliberately NOT also refused in ValidateBodyItem at parse time,
+    ' which would make this arm dead code. Solve-time is where every
+    ' other reserved name is dispatched, and the user sees the refusal in
+    ' the cell either way.
+    If TypeTestIsoSpellingFor(predName) <> "" Then
+        VLA_Messages.RaiseMsg "prolog-type-test-iso-spelling", _
+            "form", "(" & predName & " ...)", "fixed", "(" & TypeTestIsoSpellingFor(predName) & " ...)"
+    End If
+
+    ' PROLOG.9: `(between Low High X)` - dispatched here on the same
+    ' unambiguous-by-construction reasoning, and above the clauseDict
+    ' lookup for the same silent-dead-end reason, but STRUCTURALLY UNLIKE
+    ' every arm above it. All of those are deterministic: they decide
+    ' once and call SolveGoalList at most once. `between` in its
+    ' generating mode is a CHOICE POINT - it must bind X to each value in
+    ' turn and let the continuation run for every one - so it recurses
+    ' once PER VALUE, which is the candidates loop's shape, not `is`'s.
+    '
+    ' That is why it hands SolveBetween (below) the things no other
+    ' dispatch arm passes on: `rest`, clauseDict, freeVarNames, solutions
+    ' and the cut signal. The enumeration cannot be done here and the
+    ' continuation resumed afterwards, the way `is` unifies and then
+    ' calls on; the two are interleaved.
+    '
+    ' The cut signal is threaded ByRef into that loop and honoured there,
+    ' not here - this module's own PROLOG.9 header explains why a
+    ' generator's loop must stop on cutActive and must never absorb it.
+    ' The step this arm charges is for the GOAL; SolveBetween charges one
+    ' more per value generated, so enumeration is counted as the real
+    ' resolution work it is rather than riding free on a single goal's
+    ' step.
+    If predName = "between" Then
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        SolveBetween goals.Item(1), rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        Exit Sub
+    End If
+
     If Not VLA_Runtime.VlaDictHas(clauseDict, predName) Then Exit Sub   ' no candidates - dead end, not an error
 
     Dim candidates As Collection
@@ -2399,6 +2897,207 @@ Private Function SolveUnification(ByVal goalTerm As Variant, ByVal kind As Strin
         Set outT = tryT
     End If
 End Function
+
+' PROLOG.9: answers one type-test goal - True iff the term is of the kind
+' asked about - and binds nothing at all, so it takes envN/envT to
+' dereference through and hands nothing back. Factored out of
+' SolveGoalList's own dispatch for the live-caught stack-frame reason
+' findall's dispatch documents.
+'
+' EnvWalkInto FIRST, always. Classification is a question about what a
+' term IS, and an unresolved variable is not a term but a reference to
+' one: without the walk, `(= X 1) (number X)` would look at the atom "X"
+' and answer False, misclassifying a term already known to be 1. The
+' walk chases a variable-to-variable chain all the way to whatever it is
+' ultimately bound to, or back to itself if still free - so a var atom
+' surviving the walk is GENUINELY unbound, which is precisely what `var`
+' asks and the only reason this function can answer it by inspection.
+'
+' Then exactly three cases, in this order:
+'
+'   IsObject   - a Collection, this engine's only compound term. nonvar
+'                and compound; never atomic, atom, number or var.
+'   IsVarAtom  - a still-free variable. `var` alone. Checked on the RAW
+'                text (see LeafIsNumberTerm above): a marked string like
+'                `"Hello` must never be asked this question with its
+'                marker stripped, or a real text value is reported as an
+'                unbound variable - EvalArithTerm's own documented trap.
+'   otherwise  - a ground leaf. nonvar and atomic always; then atom
+'                versus number, the ONE question that needed deciding,
+'                delegated whole to LeafIsNumberTerm so this function
+'                holds no opinion about the marker of its own.
+'
+' The last two arms are each other's exact negation by construction
+' rather than by a second lookup - atom is Not number for a ground leaf,
+' which is what makes "every atomic term is an atom or a number, never
+' both and never neither" true by construction here rather than by
+' agreement between two tables that could drift.
+' goalTerm is a Variant and is Set into a typed local, never declared As
+' Collection in the signature - SolveComparison's and SolveUnification's
+' own established shape (above). goals.Item(1) is a Variant, and handing
+' one straight to a typed parameter is this project's own recorded VBA
+' trap; the two sibling functions already route around it and this does
+' not invent a third way.
+Private Function SolveTypeTest(ByVal goalTerm As Variant, ByVal kind As String, _
+                                envN As Collection, envT As Collection) As Boolean
+    Dim lst As Collection
+    Set lst = goalTerm
+    Dim w As Variant
+    VLA_Unify.EnvWalkInto w, lst.Item(2), envN, envT
+
+    If IsObject(w) Then
+        Select Case kind
+        Case "nonvar", "compound": SolveTypeTest = True
+        End Select
+        Exit Function
+    End If
+
+    Dim raw As String
+    raw = CStr(w)
+
+    If VLA_Unify.IsVarAtom(raw) Then
+        SolveTypeTest = (kind = "var")
+        Exit Function
+    End If
+
+    Select Case kind
+    Case "nonvar", "atomic": SolveTypeTest = True
+    Case "number":           SolveTypeTest = LeafIsNumberTerm(raw)
+    Case "atom":             SolveTypeTest = Not LeafIsNumberTerm(raw)
+    End Select
+End Function
+
+' PROLOG.9: `(between Low High X)`. The one goal in this module that
+' ENUMERATES, so unlike every sibling Solve* function it does not return
+' a Boolean for the dispatch to act on - it drives the continuation
+' itself, once per value, and therefore needs everything the candidates
+' loop needs. Factored out of SolveGoalList for the same stack-frame
+' reason as its siblings, which matters more here than anywhere: this
+' function declares the most locals of any of them, and every one would
+' otherwise be paid on EVERY recursive resolution step rather than once
+' per between goal.
+'
+' Low and High through EvalArithTerm - the same walker `(is ...)` and the
+' six comparisons use - so they may be expressions, and an unbound or
+' non-numeric bound raises the existing {form}-templated arithmetic
+' refusals naming "(between ...)" rather than a form the user never
+' wrote. Whole numbers are then required of both: between counts, and a
+' fractional bound has no next value.
+'
+' THE RANGE IS CHECKED BEFORE A SINGLE VALUE IS GENERATED, and only in
+' generating mode. See this module's own PROLOG.9 header for why the
+' ceiling is PROLOG_MAX_STEPS itself rather than a private budget, and
+' why the up-front refusal exists even though the per-value step charge
+' below already guarantees termination: without it `(between 1 1000000
+' X)` stops with prolog-step-ceiling blaming a runaway rule the user does
+' not have.
+' betweenGoal is a Variant Set into a typed local for the reason
+' SolveTypeTest (above) states. `rest` stays typed: it is SolveGoalList's
+' own real Collection local, passed to SolveGoalList itself the same way
+' already.
+Private Sub SolveBetween(ByVal betweenGoal As Variant, ByVal rest As Collection, _
+                          clauseDict As Object, envN As Collection, envT As Collection, _
+                          freeVarNames As Collection, solutions As Collection, _
+                          ByRef stepsTaken As Long, _
+                          ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    Dim lst As Collection
+    Set lst = betweenGoal
+    Dim lowV As Double, highV As Double
+    lowV = EvalArithTerm(lst.Item(2), envN, envT, "(between ...)")
+    highV = EvalArithTerm(lst.Item(3), envN, envT, "(between ...)")
+    If lowV <> Int(lowV) Then VLA_Messages.RaiseMsg "prolog-between-not-whole-number", "value", NumberToTerm(lowV)
+    If highV <> Int(highV) Then VLA_Messages.RaiseMsg "prolog-between-not-whole-number", "value", NumberToTerm(highV)
+
+    ' The third argument decides the MODE, so it is resolved before
+    ' anything else is done with the range. EnvWalkInto, not a bare read:
+    ' `(is N 5) (between 1 10 N)` must test 5, not look at the atom "N"
+    ' and mistake a bound variable for a free one.
+    Dim w As Variant
+    VLA_Unify.EnvWalkInto w, lst.Item(4), envN, envT
+
+    ' ---- TEST MODE: X already bound. Deterministic, enumerates nothing,
+    ' and therefore has no range to refuse - `(between 1 1000000 5)`
+    ' succeeds where the generating form of the same range would be
+    ' refused. That asymmetry is deliberate and is pinned by a test.
+    If IsObject(w) Then VLA_Messages.RaiseMsg "prolog-between-not-a-number", "value", RenderBoundValue(w)
+    Dim rawX As String
+    rawX = CStr(w)
+    If Not VLA_Unify.IsVarAtom(rawX) Then
+        ' A marked leaf is an ATOM, never a number - LeafIsNumberTerm
+        ' (above) is asked rather than IsInvariantNumericString directly,
+        ' so `between` cannot quietly adopt a different reading of the
+        ' quoted-string marker from the one `number`/`atom` use. A text
+        ' cell reading 5 is not the number 5 here, and says so by name.
+        If Not LeafIsNumberTerm(rawX) Then VLA_Messages.RaiseMsg "prolog-between-not-a-number", "value", LeafText(rawX)
+        Dim xv As Double
+        xv = VLA_Relation.InvariantVal(rawX)
+        If xv <> Int(xv) Then VLA_Messages.RaiseMsg "prolog-between-not-whole-number", "value", LeafText(rawX)
+        If xv >= lowV And xv <= highV Then
+            SolveGoalList rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        End If
+        Exit Sub
+    End If
+
+    ' ---- GENERATING MODE: X free. An empty range (Low > High) simply
+    ' produces nothing - zero solutions, never an error, exactly as a
+    ' predicate with no matching candidate does. `(between 1 N X)` with N
+    ' bound to 0 must yield no rows rather than stopping the query.
+    If highV < lowV Then Exit Sub
+    ' PROLOG_MAX_STEPS - 1, not PROLOG_MAX_STEPS: the dispatch above
+    ' already charged ONE step for this goal before calling here, so a
+    ' range of exactly the ceiling cannot fit and would fall through this
+    ' check only to die at the step ceiling a value later - producing the
+    ' misleading "a rule that recurses without ever reaching a base case"
+    ' text that this refusal exists to replace. Off by one here would
+    ' therefore not be a rounding detail; it would silently restore the
+    ' exact defect. The largest range that fits is PROLOG_MAX_STEPS - 1.
+    If (highV - lowV + 1) > (PROLOG_MAX_STEPS - 1) Then
+        VLA_Messages.RaiseMsg "prolog-between-range-too-wide", _
+            "low", NumberToTerm(lowV), "high", NumberToTerm(highV), _
+            "count", NumberToTerm(highV - lowV + 1), "max", PROLOG_MAX_STEPS
+    End If
+
+    Dim v As Double
+    For v = lowV To highV
+        ' Charged per value, exactly as the candidates loop charges per
+        ' candidate: a generated value IS a unit of resolution work, and
+        ' PROLOG_MAX_STEPS is a total-work ceiling for the whole query
+        ' (SolveIsolated's own header). The up-front range check above
+        ' cannot replace this - it bounds THIS goal's enumeration, while
+        ' this bounds the whole query, including several between goals
+        ' nested inside each other, each individually under the range
+        ' ceiling and together far over the work ceiling.
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+
+        ' A FRESH clone per value, never one threaded through the loop -
+        ' the identical discipline the candidates loop follows for the
+        ' identical reason. X binds to this value only; the next value
+        ' must find X free again, and a continuation that binds other
+        ' variables while exploring THIS value must not leak them into
+        ' the next. UnifyTwoWay is used rather than a direct env write so
+        ' the binding goes through the one primitive that owns the
+        ' occurs check and the env representation.
+        Dim betN As Collection, betT As Collection
+        VLA_Unify.UnifyEnvClone envN, envT, betN, betT
+        If VLA_Unify.UnifyTwoWay(rawX, NumberToTerm(v), betN, betT) Then
+            SolveGoalList rest, clauseDict, betN, betT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        End If
+
+        ' The cut signal, honoured exactly as every loop between a cut's
+        ' own origin and its firing site must (the candidates loop below
+        ' has the hand-traced reasoning). Stop generating unconditionally
+        ' when it is active, and NEVER absorb it: absorption belongs only
+        ' to the loop that selected the clause the `!` fired inside,
+        ' identified by myStep = cutTargetBarrier, and this loop selects
+        ' no clause and creates no barrier of its own. So it is the "any
+        ' other loop leaves it set" case, letting the signal keep
+        ' propagating to its true origin further up the stack. Without
+        ' this, `!` after a between goal would fail to prune the
+        ' generator and the cut would silently do nothing.
+        If cutActive Then Exit For
+    Next v
+End Sub
 
 ' PROLOG.5.3: findall's own harvest, factored OUT of SolveGoalList's own
 ' dispatch deliberately - see that dispatch's own comment for the live-

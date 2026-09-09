@@ -2,6 +2,138 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_ROADMAP1.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.5.4
+
+### What changed
+
+- **PROLOG can now ask what kind of thing a value is.** Six new goals —
+  `var?`, `nonvar?`, `atom?`, `number?`, `atomic?` and `compound?` — each
+  take one term and succeed or fail depending on its shape.
+  `(number? Salary)` succeeds when `Salary` has been bound to a number,
+  `(var? X)` succeeds only while `X` is still unfilled, `(compound? T)`
+  when `T` is a structure like `(name Alice)` rather than a single value.
+  They are the ordinary Prolog guards, and until now a rule had no way to
+  check that what it received was the kind of thing it knew how to
+  handle.
+
+  They never change anything — a type test looks at a value and answers.
+  It cannot fill in a blank, so it adds no column to your results.
+
+  **The question mark is deliberate, and it is not decoration.** In
+  Prolog you write `atom(X)`, but Frazaro's PROLOG is written in
+  parentheses, where `(atom bob)` looks exactly like a piece of *data* —
+  `(color red)`, `(name Alice)` and `(f a)` are all ordinary data written
+  in that same shape. Prolog doesn't have that problem because its
+  grammar tells a question apart from a value; ours doesn't, so the name
+  has to. The question mark also matches what Frazaro already does
+  elsewhere: its macro layer has long spelled its questions `null?`,
+  `eq?` and `equal?` beside `car`, `cdr`, `cons` and `list`. A name that
+  asks something ends in `?`; a name that produces something doesn't —
+  which is why `between` below has none.
+
+  **If you write the Prolog spelling, Frazaro tells you.** `(atom X)`
+  doesn't quietly find nothing; it stops and says that this type test is
+  spelled `(atom? X)`. All six work that way, and none of the six bare
+  names can be used for a predicate of your own, so the advice can never
+  be wrong.
+
+- **`(between Low High X)` counts.** With `X` unfilled it produces every
+  whole number from `Low` to `High` in turn, so a query can range over
+  1 to 10 without ten hand-written facts. With `X` already filled it
+  tests instead: `(between 1 10 5)` simply succeeds. Both bounds may be
+  arithmetic, so `(between 1 (+ N 1) X)` works.
+
+  If `Low` is greater than `High` the range is empty and the goal finds
+  nothing — that is an ordinary "no rows", not an error, so a range
+  computed from your data can safely come out empty.
+
+  **A limit worth knowing before you meet it: the range can span at most
+  119 values.** A whole query gets a fixed budget of resolution steps,
+  and each generated value spends one. Ask for more and Frazaro refuses
+  up front and tells you the range was too wide — deliberately, so that
+  a wide range never gets reported as the *other* thing that exhausts
+  that budget, a rule that calls itself forever. Those are different
+  mistakes and now have different messages. Testing a single value is
+  not affected, so `(between 1 1000000 5)` succeeds normally.
+
+- **What the two are for, together.** A rule can now check what it was
+  handed before doing arithmetic on it, and a query can feed it a range
+  instead of a table:
+
+  ```
+  (rule (halved N H) (number? N) (is H (/ N 2)))
+  (query (between 1 5 X) (halved X Y))
+  ```
+
+  That spills five rows — 1 through 5 beside their halves. The guard is
+  what makes the rule safe to call with anything at all: without
+  `(number? N)`, asking for `(halved eng H)` stops the entire query with
+  an arithmetic refusal, because `eng` cannot be divided. With the guard,
+  that call simply doesn't match, and the rest of the query carries on.
+  That is what a type test is *for*, and until this release there was no
+  way to write one.
+
+- **Text that looks like a number is still text, and now says so.** A
+  cell containing `42` typed as text is not the number 42 in PROLOG, and
+  never has been — `=` and `==` have always treated the two as different
+  values. The new goals follow that same rule rather than inventing a
+  second one: `(atom? "42")` succeeds and `(number? "42")` does not, and
+  `(between 1 10 "5")` is refused with a message that says plainly that
+  a text cell reading 5 is not the number 5.
+
+  This is worth stating because Frazaro is not yet consistent about it.
+  Arithmetic goes the other way: `(is X "42")` computes 42, because
+  arithmetic wants the value. Which of those two behaviours is right is
+  a real open question, written up as its own decision item rather than
+  settled quietly in either direction. The new goals were built to match
+  `=` and `==` — the goals about what a value *is* — so that whichever
+  way the question is eventually answered, they move together with the
+  rest rather than having to be argued about separately.
+
+- **A release check learned to look both ways.** PROLOG refuses to let
+  you define a predicate with a reserved name, and a static check has
+  been holding three places to agreeing on which names those are. It
+  turned out to be checking only one direction — it would catch a name
+  that was reserved but did nothing, and miss a name the solver acted on
+  without ever reserving it, which would let you define a predicate that
+  is then silently ignored. Nothing shipped had that fault; the check
+  simply could not have caught it. It now checks both directions, and
+  was verified by deliberately introducing the fault to confirm it is
+  caught.
+
+### Known open security items
+
+**Closed this release:** none — 0.5.4 is a feature release and touches no
+security item.
+
+**Still open:** `SEC.3`, `SEC.7`, and two from the 2026-09-08 code
+review — `SEC.10` and `SEC.15`. In plain words:
+the remembered raw-VBA consent record still lives inside the workbook
+(`SEC.10`);
+formulas a program writes are not screened for functions that reach the
+network (`SEC.15`); and effects like sending mail still run without a
+permission prompt (`SEC.7`). `SEC.8` narrows that last one — it gates on
+where the *workbook* came from — but does not close it: a phrasebook loaded
+into a workbook of your own still reaches those verbs unprompted.
+
+**Assessed and accepted, not fixed:** `SEC.12`, `SEC.14`, `SEC.16` and
+`SEC.17`. Each needs a precondition an ordinary install does not meet —
+mostly an Excel setting that ships off and that Frazaro never asks you to
+turn on. The reasoning for each, and what would reopen it, is written down
+rather than left implied.
+
+The authoritative lists, kept current in one place instead of copied into
+every release: [`README.md`](../README.md) in plain words, and
+[`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md) with the file, line, fix and
+disposition for each.
+
+Until these close: **load phrasebooks only from people you would accept a
+macro-enabled workbook from — and treat a workbook someone sent you the
+same way before you press Interpret.** Frazaro makes no network call and
+does not update itself; check the README's *Known open security items*
+when you return for a newer build. Vulnerability reports:
+`docs/SECURITY.md`. Everything else: `docs/SUPPORT.md`.
+
 ## 0.5.3
 
 ### What changed

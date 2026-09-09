@@ -355,6 +355,8 @@ Public Function TestDSLs() As Boolean
     TestPrologArithmetic
     TestPrologComparison
     TestPrologUnification
+    TestPrologTypeTests
+    TestPrologBetween
     TestPrologNegation
     TestPrologFindall
     TestPrologCut
@@ -2558,6 +2560,337 @@ Private Sub TestPrologUnification()
     r = CStr(VLA_Prolog.PROLOG("(fact (== a b)) (query (p X))"))
     Report "prolog.8: the reserved-word refusal names the term-matching operators among the reserved set", _
            InStr(1, r, "\==", vbTextCompare) > 0, "got: " & r
+End Sub
+
+' ---------------------------------------------------------------------
+'  PROLOG.9: VLA_Prolog.PROLOG - the six ISO type-test goals, written
+'  var?, nonvar?, atom?, number?, atomic? and compound? - plus the six
+'  bare ISO spellings, reserved and dispatched to a refusal that names
+'  the question-mark form rather than failing silently.
+'
+'  THE DISCRIMINATION PROBLEM THIS SUB IS BUILT AROUND. An unknown
+'  predicate in SolveGoalList is a SILENT dead end, so a query asserting
+'  "this goal fails" passes against NO implementation at all - and half
+'  of these six are naturally written as goals expected to fail, which
+'  makes them the worst family in the module for that trap. Every FALSE
+'  below therefore sits beside its own TRUE twin over the same predicate,
+'  so neither an absent dispatch (everything fails) nor an always-true
+'  one can satisfy the pair. Delete SolveTypeTest and the TRUE half of
+'  every pair goes red.
+'
+'  The classifier was also checked BEFORE import, PROLOG.8's own
+'  precedent: a transliteration of SolveTypeTest/LeafIsNumberTerm run
+'  over 25 term shapes x 6 predicates, plus four coherence laws per
+'  shape. These tests pin the answers that transliteration predicted.
+' ---------------------------------------------------------------------
+Private Sub TestPrologTypeTests()
+    Dim result As Variant
+    Dim r As String
+
+    ' ---- the ground truth table, each FALSE beside its own TRUE twin.
+    result = VLA_Prolog.PROLOG("(query (var? X))")
+    Report "prolog.9: (var? X) succeeds - X is free", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (var? bob))")
+    Report "prolog.9: (var? bob) fails - a ground atom is not a variable", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (nonvar? bob))")
+    Report "prolog.9: (nonvar? bob) succeeds", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (nonvar? X))")
+    Report "prolog.9: (nonvar? X) fails - X is free", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (atom? bob))")
+    Report "prolog.9: (atom? bob) succeeds", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom? 42))")
+    Report "prolog.9: (atom? 42) fails - 42 is a number, not an atom", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (number? 42))")
+    Report "prolog.9: (number? 42) succeeds", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (number? bob))")
+    Report "prolog.9: (number? bob) fails", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (atomic? bob))")
+    Report "prolog.9: (atomic? bob) succeeds - an atom is atomic", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic? 42))")
+    Report "prolog.9: (atomic? 42) succeeds - a number is atomic too", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic? (f a)))")
+    Report "prolog.9: (atomic? (f a)) fails - a compound term is not atomic", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (compound? (f a)))")
+    Report "prolog.9: (compound? (f a)) succeeds", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (compound? bob))")
+    Report "prolog.9: (compound? bob) fails", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (compound? 42))")
+    Report "prolog.9: (compound? 42) fails", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' ---- THE PHANTOM COLUMN. `(query (var? X))` SUCCEEDS, so without
+    ' CollectVars' own PROLOG.9 skip X would be collected as an output
+    ' column, resolve to nothing, and render the literal text "X" into
+    ' the cell as though it were a value the query had found. A Boolean
+    ' result is the proof the skip is in place: any array here at all is
+    ' the bug. PROLOG.5.2 found this shape with `not`, PROLOG.8 with
+    ' `\==`; this is the third route to it.
+    result = VLA_Prolog.PROLOG("(query (var? X))")
+    Report "prolog.9: a type test contributes NO output column - (var? X) is a bare Boolean, never a phantom column headed X", _
+           Not IsArray(result), "got: " & ResultDescribe(result)
+
+    ' ---- THE DEREFERENCE, and the single most discriminating pair here.
+    ' Classification must ask what X MEANS, not what it is written as.
+    ' Without EnvWalkInto, SolveTypeTest sees the atom "X", IsVarAtom
+    ' answers True, and `number` answers False for a term already known
+    ' to be 1 - so this pair comes out right only if the walk happens.
+    result = VLA_Prolog.PROLOG("(query (= X 1) (number? X))")
+    Report "prolog.9: `number` sees through a binding `=` already made (dereference, not written form)", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "1"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (= X 1) (var? X))")
+    Report "prolog.9: ...and its twin (var? X) correctly finds nothing once X is bound", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (= X (f a)) (compound? X))")
+    Report "prolog.9: `compound` sees a compound term X was bound to", _
+           ResultRowCount(result) = 2, "got: " & ResultDescribe(result)
+
+    ' ---- THE PROLOG.10 FAULT LINE, pinned as PROLOG.9's own LOCAL
+    ' reading and nothing more. A source string literal carries the
+    ' reader's leading-Chr$(34) marker exactly as a TEXT cell does, so
+    ' these four are the pure-test equivalent of classifying a text cell.
+    ' PROLOG.9 reads the marker as identity-bearing: a marked leaf is an
+    ' ATOM, never a number, whatever its text says. That is compatible
+    ' with PROLOG.10's options A and D and is REVERSED by its option B -
+    ' if B is ever adopted, these two `"42"` rows are the tests it flips,
+    ' and they are meant to be found by whoever adopts it.
+    result = VLA_Prolog.PROLOG("(query (number? ""42""))")
+    Report "prolog.9/10: (number? ""42"") FAILS - the quoted-string marker is part of the term, so a text 42 is not the number 42", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom? ""42""))")
+    Report "prolog.9/10: ...and (atom? ""42"") SUCCEEDS - it is an atom, which is the same judgement seen from the other side", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic? ""42""))")
+    Report "prolog.9/10: (atomic? ""42"") succeeds - both readings agree it is atomic; only the atom/number split is at stake", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom? ""eng""))")
+    Report "prolog.9/10: (atom? ""eng"") succeeds - a marked string is an atom, capitalisation or not", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (var? ""Hello""))")
+    Report "prolog.9/10: (var? ""Hello"") FAILS - a capitalised STRING is not an unbound variable (the marker is read on the RAW text)", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' ---- the coherence law the transliteration asserted 100 times, run
+    ' once here against the real engine: every atomic term is an atom or
+    ' a number, never both and never neither.
+    result = VLA_Prolog.PROLOG("(query (atomic? bob) (atom? bob) (nonvar? bob))")
+    Report "prolog.9: bob is atomic AND an atom AND nonvar, all three together", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic? 42) (number? 42) (nonvar? 42))")
+    Report "prolog.9: 42 is atomic AND a number AND nonvar, all three together", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+
+    ' ---- the shared shape refusal, and the form attribution that keeps
+    ' it honest across all six.
+    r = CStr(VLA_Prolog.PROLOG("(query (atom? X Y))"))
+    Report "prolog.9: (atom? X Y) is refused - a type test takes exactly one term", _
+           InStr(1, r, "exactly one argument", vbTextCompare) > 0, "got: " & r
+    Report "prolog.9: the type-test shape refusal names the form the user WROTE, not (is ...)", _
+           InStr(1, r, "(atom? ...)", vbTextCompare) > 0 And InStr(1, r, "(is ...)", vbTextCompare) = 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (compound? X Y))"))
+    Report "prolog.9: ...and the same one id names (compound? ...) when that is what was written", _
+           InStr(1, r, "(compound? ...)", vbTextCompare) > 0, "got: " & r
+
+    ' ---- all six refused as user-defined predicate names, the same
+    ' forward-reservation rule every reserved name already follows.
+    Dim tName As Variant
+    For Each tName In Array("var?", "nonvar?", "atom?", "number?", "atomic?", "compound?")
+        r = CStr(VLA_Prolog.PROLOG("(fact (" & tName & " a)) (query (p X))"))
+        Report "prolog.9: '" & tName & "' is refused as a predicate name in a (fact ...)", _
+               InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+    Next tName
+
+    r = CStr(VLA_Prolog.PROLOG("(fact (atom? a)) (query (p X))"))
+    Report "prolog.9: the reserved-word refusal LISTS the six type tests among the reserved set", _
+           InStr(1, r, "nonvar?", vbTextCompare) > 0 And InStr(1, r, "atomic?", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE BARE ISO SPELLINGS. This engine writes a type test with a
+    ' trailing question mark - VLA's own macro layer already spells its
+    ' predicates null?/eq?/equal? beside car/cdr/cons/list - but a Prolog
+    ' author's first instinct is `(atom X)`. Reserved AND dispatched, so
+    ' that instinct meets a refusal naming the right spelling instead of
+    ' the SILENT dead end an unknown predicate would be.
+    '
+    ' This is the one family here where the "assert FALSE proves nothing"
+    ' trap would be total: leave these six unreserved and `(query (atom
+    ' X))` yields a bare Boolean FALSE, which is exactly what a test
+    ' asserting failure would have accepted. So every assertion below
+    ' checks the REFUSAL TEXT, which no absent implementation can produce.
+    Dim isoName As Variant
+    For Each isoName In Array("var", "nonvar", "atom", "number", "atomic", "compound")
+        r = CStr(VLA_Prolog.PROLOG("(query (" & isoName & " bob))"))
+        Report "prolog.9: the bare ISO '" & isoName & "' is REFUSED with guidance, never silently failed", _
+               InStr(1, r, "question mark", vbTextCompare) > 0, "got: " & r
+        Report "prolog.9: ...and that refusal names both the form written and '" & isoName & "?' to write instead", _
+               InStr(1, r, "(" & isoName & " ...)", vbTextCompare) > 0 _
+               And InStr(1, r, "(" & isoName & "? ...)", vbTextCompare) > 0, "got: " & r
+    Next isoName
+
+    ' The ISO names are RESERVED as well as dispatched. Without that, a
+    ' user could define `(fact (atom a))` and have the guidance arm above
+    ' - which sits above the clauseDict lookup - silently shadow their own
+    ' facts. That is the "dispatched but not reserved" defect
+    ' tools/check_prolog_reserved_names.ps1's rule D exists to catch.
+    r = CStr(VLA_Prolog.PROLOG("(fact (atom a)) (query (p X))"))
+    Report "prolog.9: the bare ISO 'atom' is also RESERVED, so it can never be defined and then silently shadowed", _
+           InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+    Report "prolog.9: the reserved-word refusal lists the six ISO spellings too, distinct from the six question-mark forms", _
+           InStr(1, r, "ISO spellings", vbTextCompare) > 0, "got: " & r
+End Sub
+
+' ---------------------------------------------------------------------
+'  PROLOG.9: VLA_Prolog.PROLOG - `between/3`, the FIRST generator in this
+'  engine's dispatch. Every other arm is deterministic; this one binds
+'  its third argument to each value in turn and backtracks, so its tests
+'  are about enumeration, modes, bounding and CUT rather than about a
+'  single answer.
+'
+'  Discrimination, as above: the headline generating test asserts a
+'  spilled ARRAY with real values in it, which no absent dispatch can
+'  produce (an unknown predicate yields a bare Boolean False), and every
+'  refusal test asserts the refusal's own wording rather than merely
+'  that something went wrong.
+' ---------------------------------------------------------------------
+Private Sub TestPrologBetween()
+    Dim result As Variant
+    Dim r As String
+
+    ' ---- THE HEADLINE: it ENUMERATES. An unknown predicate would give a
+    ' bare Boolean False here, so asserting three real rows in order is
+    ' what separates a working generator from no dispatch at all.
+    result = VLA_Prolog.PROLOG("(query (between 1 3 X))")
+    Report "prolog.9: (between 1 3 X) generates three solutions, one column", _
+           ResultRowCount(result) = 4 And ResultColCount(result) = 1, "got: " & ResultDescribe(result)
+    Report "prolog.9: ...and they are 1, 2, 3 in ascending order under the header X", _
+           ResultCellIs(result, 1, 1, "X") And ResultCellIs(result, 2, 1, "1") _
+           And ResultCellIs(result, 3, 1, "2") And ResultCellIs(result, 4, 1, "3"), _
+           "got: " & ResultDescribe(result)
+
+    ' ---- TEST MODE: X already bound. Semi-deterministic, binds nothing,
+    ' enumerates nothing - real Prolog's own second mode.
+    result = VLA_Prolog.PROLOG("(query (between 1 10 5))")
+    Report "prolog.9: (between 1 10 5) succeeds - a bound third argument is a TEST", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (between 1 10 50))")
+    Report "prolog.9: (between 1 10 50) fails - out of range", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (between 1 10 1))")
+    Report "prolog.9: (between 1 10 1) succeeds - the low bound is INCLUSIVE", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (between 1 10 10))")
+    Report "prolog.9: (between 1 10 10) succeeds - the high bound is INCLUSIVE", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (between 1 10 11))")
+    Report "prolog.9: (between 1 10 11) fails - one past the high bound", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' ---- an EMPTY range is not an error. `(between 1 N X)` with N bound
+    ' to 0 must yield no rows rather than stopping the query. Free
+    ' variables but zero solutions spills the header-only shape.
+    result = VLA_Prolog.PROLOG("(query (between 5 1 X))")
+    Report "prolog.9: (between 5 1 X) yields NO solutions and does not refuse - an empty range is not an error", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+
+    ' ---- THE MODE ASYMMETRY, deliberate and easy to get wrong: the same
+    ' enormous range is refused when GENERATING and succeeds when
+    ' TESTING, because testing enumerates nothing and so has no range to
+    ' bound. A range check written in the wrong place breaks exactly one
+    ' of this pair.
+    result = VLA_Prolog.PROLOG("(query (between 1 1000000 5))")
+    Report "prolog.9: (between 1 1000000 5) SUCCEEDS - test mode enumerates nothing, so a huge range is free", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    r = CStr(VLA_Prolog.PROLOG("(query (between 1 1000000 X))"))
+    Report "prolog.9: ...but (between 1 1000000 X) is REFUSED rather than hanging or grinding to the step ceiling", _
+           InStr(1, r, "would generate", vbTextCompare) > 0, "got: " & r
+    Report "prolog.9: the range refusal names the range and the ceiling, and does NOT blame a runaway rule", _
+           InStr(1, r, "1000000", vbTextCompare) > 0 And InStr(1, r, "base case", vbTextCompare) = 0, "got: " & r
+
+    ' ---- the ceiling boundary, both sides. The dispatch charges one
+    ' step for the goal itself before a single value is generated, so the
+    ' largest range that fits is PROLOG_MAX_STEPS - 1 = 119. One more
+    ' must produce the RANGE refusal, never the step-ceiling one - that
+    ' off-by-one is the whole reason the up-front check exists.
+    result = VLA_Prolog.PROLOG("(query (between 1 119 X))")
+    Report "prolog.9: (between 1 119 X) is the largest range that fits - 119 rows plus a header", _
+           ResultRowCount(result) = 120, "got: " & ResultDescribe(result)
+    r = CStr(VLA_Prolog.PROLOG("(query (between 1 120 X))"))
+    Report "prolog.9: (between 1 120 X) is one too many, and says so as a RANGE problem not a runaway-rule one", _
+           InStr(1, r, "would generate", vbTextCompare) > 0 And InStr(1, r, "base case", vbTextCompare) = 0, "got: " & r
+
+    ' ---- the bounds are arithmetic EXPRESSIONS, the same ones (is ...)
+    ' and the six comparisons accept, evaluated by the same walker.
+    result = VLA_Prolog.PROLOG("(query (between 1 (+ 1 2) X))")
+    Report "prolog.9: a bound may be an arithmetic expression - (between 1 (+ 1 2) X) generates three", _
+           ResultRowCount(result) = 4, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is N 3) (between 1 N X))")
+    Report "prolog.9: a bound may be a variable an earlier conjunct bound", _
+           ResultRowCount(result) = 4 And ResultColCount(result) = 2, "got: " & ResultDescribe(result)
+
+    ' ---- the refusals, each asserted on its own wording.
+    r = CStr(VLA_Prolog.PROLOG("(query (between L 3 X))"))
+    Report "prolog.9: an UNBOUND bound is refused by name", _
+           InStr(1, r, "unbound variable", vbTextCompare) > 0, "got: " & r
+    Report "prolog.9: ...and that inherited arithmetic refusal names (between ...), never (is ...)", _
+           InStr(1, r, "(between ...)", vbTextCompare) > 0 And InStr(1, r, "(is ...)", vbTextCompare) = 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (between 1 3.5 X))"))
+    Report "prolog.9: a fractional bound is refused - between counts in whole numbers", _
+           InStr(1, r, "whole numbers", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (between 1 10 2.5))"))
+    Report "prolog.9: a fractional third argument is REFUSED, not silently failed", _
+           InStr(1, r, "whole numbers", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (between 1 10 bob))"))
+    Report "prolog.9: a non-numeric third argument is refused by name", _
+           InStr(1, r, "isn't one", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (between 1 10 ""5""))"))
+    Report "prolog.9/10: a TEXT ""5"" is refused too - between reads the quoted-string marker the same way `number?` does", _
+           InStr(1, r, "text cell", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (between 1 3))"))
+    Report "prolog.9: (between 1 3) is refused - it needs exactly three arguments", _
+           InStr(1, r, "exactly three arguments", vbTextCompare) > 0, "got: " & r
+
+    ' ---- it BINDS OUTWARD, unlike every other goal PROLOG.9 adds. The
+    ' generated value must be the same TEXT a numeric fact holds, or this
+    ' filter silently matches nothing - a strict non-empty subset, so it
+    ' cannot pass by everything failing OR by everything succeeding.
+    result = VLA_Prolog.PROLOG("(fact (foo 2)) (fact (foo 5)) (query (between 1 3 X) (foo X))")
+    Report "prolog.9: a generated value matches a stored numeric fact - exactly one of 1,2,3 is a foo", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "2"), "got: " & ResultDescribe(result)
+
+    ' ---- CUT, which the roadmap entry does not mention at all.
+    ' `between`'s loop sits between a cut's own origin and its firing
+    ' site, so it must stop generating the moment the signal comes back.
+    ' Without that one line the cut silently does nothing and this pair
+    ' reads 6 and 6 instead of 2 and 6.
+    result = VLA_Prolog.PROLOG("(rule (p X) (between 1 5 X) !) (query (p X))")
+    Report "prolog.9: `!` after a between goal PRUNES the generator - exactly one solution, not five", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "1"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(rule (p X) (between 1 5 X)) (query (p X))")
+    Report "prolog.9: ...and the identical rule WITHOUT the cut still generates all five", _
+           ResultRowCount(result) = 6, "got: " & ResultDescribe(result)
+
+    ' ---- reserved, like every other dispatched name.
+    r = CStr(VLA_Prolog.PROLOG("(fact (between a b c)) (query (p X))"))
+    Report "prolog.9: 'between' is refused as a predicate name in a (fact ...)", _
+           InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+    Report "prolog.9: the reserved-word refusal names 'between' among the reserved set", _
+           InStr(1, r, "between", vbTextCompare) > 0, "got: " & r
 End Sub
 
 ' ---------------------------------------------------------------------

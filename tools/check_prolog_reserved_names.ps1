@@ -110,9 +110,15 @@ $structuralDispatch = @{
 # ---- baseline: count words in the refusal, and the table each describes -
 # Key is the group noun as it appears in the text; value is the table
 # function whose size the preceding count word must equal.
+# NOTE on phrasing: the count word must sit IMMEDIATELY before the group
+# noun, because rule B matches '<word> <noun>'. "the six ISO spellings"
+# is checked; "their six bare ISO spellings" would find "bare" in front
+# of the noun, report "not a count word", and silently check nothing.
 $countPhrases = @{
     'comparisons'          = 'ComparisonOpFor'
     'term-matching goals'  = 'UnificationOpFor'
+    'type tests'           = 'TypeTestKindFor'
+    'ISO spellings'        = 'TypeTestIsoSpellingFor'
 }
 
 $numberWords = @{

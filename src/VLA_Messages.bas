@@ -499,7 +499,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' message that still enumerated only four would be quietly wrong about
     ' which names it had just refused, which is the same class of
     ' confidently-wrong answer the {form} rewrite above exists to remove.
-    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!, the six comparisons < > =< >= =:= =\=, and the four term-matching goals = \= == \== are all reserved - for arithmetic, negation, aggregation, cut, numeric comparison, unification, and structural identity) and can't be used as a predicate name in a (fact ...) or (rule ...)."
+    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, the six type tests var? nonvar? atom? number? atomic? compound?, and the six ISO spellings var nonvar atom number atomic compound - those last six reserved only so PROLOG can point you at the question-mark form instead of failing silently) and can't be used as a predicate name in a (fact ...) or (rule ...)."
     ' `prolog-cut-not-yet-supported` (PROLOG.5.1-5.3-era: "cut (!) isn't
     ' supported yet.") is retired at PROLOG.5.4 - cut is real now, no
     ' code path can raise it anymore, and this project's own precedent
@@ -546,6 +546,49 @@ Private Sub AddEntries(ByVal m As Collection)
     ' distinction to stay true of both, which would make it useless to
     ' both.
     AddMsg m, "prolog-unification-bad-shape", 5, "VLA-Prolog", "{form} needs exactly two arguments - the two terms to match, like (= X 1)."
+    ' PROLOG.9 - the six type tests, the widest fan-out of the three: ONE
+    ' id for all six, {form}-templated for the same reason and carried in
+    ' the same script's own multi-form baseline (added to it BEFORE this
+    ' message existed, so the check failed on it until it did). Kept
+    ' separate from both ids above on the identical reasoning: these take
+    ' ONE argument rather than two, and what that argument is - any term
+    ' at all, classified rather than compared or evaluated - is exactly
+    ' what a user who wrote (atom X Y) needs told.
+    AddMsg m, "prolog-type-test-bad-shape", 5, "VLA-Prolog", "{form} needs exactly one argument - the term to classify, like (number? Salary)."
+    ' PROLOG.9 - the six BARE ISO spellings. This engine writes a type
+    ' test with a trailing question mark, the convention VLA's own macro
+    ' layer already uses for null?/eq?/equal?, so a Prolog author's first
+    ' instinct - (atom X) - would otherwise be an unknown predicate, and
+    ' an unknown predicate in PROLOG is a SILENT dead end: no rows, no
+    ' explanation. One id for all six, {form}-templated for the same
+    ' reason its five siblings above are, and carried in the same
+    ' script's multi-form baseline. It is the only refusal in this module
+    ' whose entire job is to name a spelling.
+    AddMsg m, "prolog-type-test-iso-spelling", 5, "VLA-Prolog", "{form} isn't how PROLOG spells this type test - all six of them end in a question mark, so write {fixed} instead, like (number? Salary)."
+    ' PROLOG.9 - between's own four refusals. All four name "(between
+    ' ...)" in their own text, and that is CORRECT rather than the defect
+    ' the {form} rewrite above removes: this form is the only caller of
+    ' any of them, so naming it can never tell a user about a form they
+    ' did not write. The three ids above are templated because they serve
+    ' six, four and six forms respectively; these serve one.
+    AddMsg m, "prolog-between-bad-shape", 5, "VLA-Prolog", "(between ...) needs exactly three arguments - a low bound, a high bound, and the value to generate or test, like (between 1 10 X)."
+    ' Raised for a bound OR for a bound third argument, since the answer
+    ' is the same in both cases and so is the fix: between counts, and a
+    ' fractional value has no next value to count to.
+    AddMsg m, "prolog-between-not-whole-number", 5, "VLA-Prolog", "(between ...) counts in whole numbers, but '{value}' isn't one."
+    ' Deliberately a refusal and not a quiet failure. Answering FALSE here
+    ' would be indistinguishable from an in-range miss, so a user could
+    ' not tell 'out of range' from 'not the kind of thing between talks
+    ' about' - and it is what keeps testing and generating the SAME
+    ' relation, since testing then succeeds on exactly the values
+    ' generating would produce.
+    AddMsg m, "prolog-between-not-a-number", 5, "VLA-Prolog", "(between ...) generates or tests numbers, but its third argument is '{value}', which isn't one - note that a text cell reading 5 is not the number 5."
+    ' The range ceiling IS the query's own step ceiling, not a second
+    ' budget - see VLA_Prolog.bas's own PROLOG.9 header. This message
+    ' exists because without it the same query stops with
+    ' prolog-step-ceiling, which blames a runaway rule the user does not
+    ' have.
+    AddMsg m, "prolog-between-range-too-wide", 5, "VLA-Prolog", "(between {low} {high} ...) would generate {count} values, and a whole query gets {max} resolution steps - narrow the range, or bind the third argument to test one value instead of generating them all."
     ' PROLOG.7: {form}, not a hard-coded "(is ...)". These five refusals
     ' are raised by ValidateArithExpr/EvalArithTerm, which from PROLOG.7
     ' onward serve TWO callers - `(is Var Expr)` and each of the six

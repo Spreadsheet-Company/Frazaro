@@ -73,9 +73,21 @@ $scannedProcs = @(
 # raised by ValidateBodyItem's own term-matching arm, which serves all
 # four of =, \=, == and \== from one Case, and correspondingly unable to
 # name a form of its own.
+# prolog-type-test-bad-shape joins on the identical terms at PROLOG.9:
+# raised by ValidateBodyItem's own type-test arm, which serves all SIX of
+# var, nonvar, atom, number, atomic and compound from one Case. Six forms
+# through one raise site is the widest fan-out of the three, so naming a
+# form in its own text would be wrong five times out of six.
+#
+# prolog-type-test-iso-spelling serves the six BARE ISO spellings from
+# one raise site in SolveGoalList - it exists to tell a Prolog author
+# that (atom X) is written (atom? X) here - so it too must take the form
+# from its caller rather than naming one of the six.
 $multiFormIds = @(
     'prolog-comparison-bad-shape',
-    'prolog-unification-bad-shape'
+    'prolog-unification-bad-shape',
+    'prolog-type-test-bad-shape',
+    'prolog-type-test-iso-spelling'
 )
 
 $formToken          = '{form}'
