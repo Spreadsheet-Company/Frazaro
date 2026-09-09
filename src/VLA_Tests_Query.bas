@@ -357,6 +357,7 @@ Public Function TestDSLs() As Boolean
     TestPrologUnification
     TestPrologTypeTests
     TestPrologBetween
+    TestPrologQuotedVersusBare
     TestPrologNegation
     TestPrologFindall
     TestPrologCut
@@ -2424,9 +2425,19 @@ Private Sub TestPrologUnification()
     ' it at the unification level where the pure suite can reach it -
     ' TestPrologHostTable already depends on it, but only incidentally,
     ' by quoting "Alice" without a test saying why it must.
-    result = VLA_Prolog.PROLOG("(query (= " & Chr$(34) & "eng" & Chr$(34) & " eng))")
-    Report "prolog.8: a quoted string does NOT unify with a bare symbol of the same letters", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    ' PROLOG.10 RE-POINTED THIS PIN rather than retiring it, the same move
+    ' PROLOG.8 made to PROLOG.7's own `(= 1 1)` tripwire. It was written
+    ' to record that a quoted string and a bare symbol are DIFFERENT
+    ' TERMS, and they still are - `(== "eng" "eng")` below is untouched,
+    ' and nothing about unification changed. What changed is that saying
+    ' so silently was itself the defect: this exact comparison is the
+    ' confusable case PROLOG.10 exists to stop being silent, so the
+    ' assertion moves from "answers False" to "says why".
+    r = CStr(VLA_Prolog.PROLOG("(query (= " & Chr$(34) & "eng" & Chr$(34) & " eng))"))
+    Report "prolog.8/10: a quoted string still does not unify with a bare symbol - and now REFUSES rather than answering a silent False", _
+           InStr(1, r, "different things", vbTextCompare) > 0, "got: " & r
+    Report "prolog.8/10: ...naming the shared text and calling the bare side a NAME", _
+           InStr(1, r, "the name eng", vbTextCompare) > 0, "got: " & r
     result = VLA_Prolog.PROLOG("(query (== " & Chr$(34) & "eng" & Chr$(34) & " " & Chr$(34) & "eng" & Chr$(34) & "))")
     Report "prolog.8: ...while two quoted strings with the same text ARE identical", _
            VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
@@ -2582,6 +2593,14 @@ End Sub
 '  precedent: a transliteration of SolveTypeTest/LeafIsNumberTerm run
 '  over 25 term shapes x 6 predicates, plus four coherence laws per
 '  shape. These tests pin the answers that transliteration predicted.
+'
+'  PROLOG.11's own six assertions live at the END of this Sub rather
+'  than in one of their own: they are about CollectVars mistaking a
+'  goal-shaped DATA term for a goal, and the terms that shape most
+'  plausibly is a type test, so they read against these. Both halves of
+'  that pin are here together - the two that recover a dropped column,
+'  and the four that hold the goal-position skips in place - because a
+'  fix satisfying either half alone is a different bug.
 ' ---------------------------------------------------------------------
 Private Sub TestPrologTypeTests()
     Dim result As Variant
@@ -2753,6 +2772,167 @@ Private Sub TestPrologTypeTests()
            InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
     Report "prolog.9: the reserved-word refusal lists the six ISO spellings too, distinct from the six question-mark forms", _
            InStr(1, r, "ISO spellings", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE WORKED EXAMPLE docs/RELEASES.md PRINTS. Every behaviour it
+    ' relies on was pinned individually above, but the COMPOSITION was
+    ' not, and a worked example in release notes is a promise to a reader
+    ' who will paste it verbatim. Pinned here so the notes cannot drift
+    ' from the engine.
+    result = VLA_Prolog.PROLOG("(rule (halved N H) (number? N) (is H (/ N 2))) (query (between 1 5 X) (halved X Y))")
+    Report "prolog.9: the RELEASES.md worked example spills five rows and two columns", _
+           ResultRowCount(result) = 6 And ResultColCount(result) = 2, "got: " & ResultDescribe(result)
+    Report "prolog.9: ...headed X and Y, with 1 halving to 0.5 and 5 to 2.5", _
+           ResultCellIs(result, 1, 1, "X") And ResultCellIs(result, 1, 2, "Y") _
+           And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 2, 2, "0.5") _
+           And ResultCellIs(result, 6, 1, "5") And ResultCellIs(result, 6, 2, "2.5"), _
+           "got: " & ResultDescribe(result)
+
+    ' ---- and the CLAIM the notes make ABOUT that example: the guard is
+    ' what makes the rule safe to call with anything. This pair is the
+    ' discriminating one - the guarded rule SKIPS a non-numeric row and
+    ' keeps going, while the identical rule without the guard stops the
+    ' whole query with an arithmetic refusal. Remove `(number? N)` from
+    ' the first and it produces the second's refusal instead of rows.
+    result = VLA_Prolog.PROLOG("(fact (thing eng)) (fact (thing 4)) (rule (halved N H) (number? N) (is H (/ N 2))) (query (thing T) (halved T Y))")
+    Report "prolog.9: the guard lets a non-numeric row FAIL TO MATCH rather than stop the query - only 4 survives", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "4") And ResultCellIs(result, 2, 2, "2"), _
+           "got: " & ResultDescribe(result)
+    r = CStr(VLA_Prolog.PROLOG("(fact (thing eng)) (fact (thing 4)) (rule (halved N H) (is H (/ N 2))) (query (thing T) (halved T Y))"))
+    Report "prolog.9: ...and WITHOUT the guard the same query dies on 'eng', which is what the guard is for", _
+           InStr(1, r, "expected a number", vbTextCompare) > 0 And InStr(1, r, "eng", vbTextCompare) > 0, "got: " & r
+
+    ' ---- PROLOG.11: a goal-shaped name used as DATA. CollectVars' own
+    ' skip-shapes are statements about GOALS, and used to fire at every
+    ' nesting depth - so a compound term whose functor happened to be
+    ' spelled `not` or `atom?` had its variables dropped from the output
+    ' columns even though they genuinely bind against a stored fact.
+    '
+    ' Both assertions below fail against the pre-PROLOG.11 code by
+    ' reporting ONE column where two are due, which is the whole defect:
+    ' a query that silently returns fewer columns than it found. Asserting
+    ' the column COUNT and the recovered VALUE together is what makes them
+    ' discriminating - a dropped column is not an error, just a quieter
+    ' wrong answer.
+    result = VLA_Prolog.PROLOG("(fact (holds a (atom? bob))) (query (holds A (atom? W)))")
+    Report "prolog.11: a nested `(atom? W)` used as DATA keeps its column - W binds to bob", _
+           ResultColCount(result) = 2 And ResultRowCount(result) = 2 _
+           And ResultCellIs(result, 2, 1, "a") And ResultCellIs(result, 2, 2, "bob"), _
+           "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(fact (holds b (not bob))) (query (holds A (not W)))")
+    Report "prolog.11: ...and so does a nested `(not W)`, the shape that was always reachable and always wrong", _
+           ResultColCount(result) = 2 And ResultRowCount(result) = 2 _
+           And ResultCellIs(result, 2, 1, "b") And ResultCellIs(result, 2, 2, "bob"), _
+           "got: " & ResultDescribe(result)
+
+    ' ---- and the REGRESSION half: the same skip-shapes must still fire
+    ' at the top of a query conjunct, where the term really is a goal.
+    ' A fix that simply deleted the skips would pass the two above and
+    ' fail all four below, so they are the other half of the same pin.
+    result = VLA_Prolog.PROLOG("(query (var? X))")
+    Report "prolog.11: at GOAL position `(var? X)` still contributes no column - a bare Boolean", _
+           Not IsArray(result), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (\== X Y))")
+    Report "prolog.11: at GOAL position `(\== X Y)` still contributes no column", _
+           Not IsArray(result), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(fact (foo 1)) (query (not (foo 2)))")
+    Report "prolog.11: at GOAL position `(not (foo 2))` still contributes no column", _
+           Not IsArray(result), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(fact (foo 1)) (fact (foo 2)) (query (findall X (foo X) Bag))")
+    Report "prolog.11: at GOAL position `findall` still contributes ONLY its Bag, never its Template or Goal", _
+           ResultColCount(result) = 1 And ResultCellIs(result, 1, 1, "Bag"), "got: " & ResultDescribe(result)
+End Sub
+
+' ---------------------------------------------------------------------
+'  PROLOG.10: VLA_Prolog.PROLOG - the quoted-string marker adjudicated.
+'  A text cell reading eng is the term `"eng`, and a bare eng written in
+'  a query is a DIFFERENT term. That does not change here. What changes
+'  is that COMPARING the two stops being silent, because `(\= D eng)`
+'  succeeding on every row of a table is a confidently wrong answer.
+'
+'  Scoped to the four explicit comparison goals and NOT to clause
+'  matching - see RefuseIfQuotedVersusBare's own header for the four
+'  reasons. The tests below pin BOTH halves of that scope, because the
+'  scope is the decision: the ones that must refuse, and the ones that
+'  must stay silent.
+' ---------------------------------------------------------------------
+Private Sub TestPrologQuotedVersusBare()
+    Dim result As Variant
+    Dim r As String
+
+    ' ---- THE REPORTED DEFECT, all four operators. Each of these used to
+    ' answer silently; each now says why. `\=` and `\==` are the ones
+    ' that were actively wrong - they answered TRUE on every row.
+    r = CStr(VLA_Prolog.PROLOG("(query (= " & Chr$(34) & "eng" & Chr$(34) & " eng))"))
+    Report "prolog.10: `=` refuses a quoted-versus-bare comparison instead of answering False", _
+           InStr(1, r, "different things", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (\= " & Chr$(34) & "eng" & Chr$(34) & " eng))"))
+    Report "prolog.10: `\=` refuses too - this is the one that answered TRUE on every row of a table", _
+           InStr(1, r, "different things", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (== " & Chr$(34) & "eng" & Chr$(34) & " eng))"))
+    Report "prolog.10: `==` refuses", _
+           InStr(1, r, "different things", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (\== " & Chr$(34) & "eng" & Chr$(34) & " eng))"))
+    Report "prolog.10: `\==` refuses - the other one that answered TRUE on every row", _
+           InStr(1, r, "different things", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE OPEN SUB-QUESTION, answered in the wording rather than
+    ' papered over: the same near-miss happens between a TEXT 42 and a
+    ' NUMERIC 42, where calling 42 a "name" would be wrong.
+    r = CStr(VLA_Prolog.PROLOG("(query (= " & Chr$(34) & "42" & Chr$(34) & " 42))"))
+    Report "prolog.10: a TEXT 42 against a NUMERIC 42 refuses, and calls the bare side a NUMBER, not a name", _
+           InStr(1, r, "the number 42", vbTextCompare) > 0, "got: " & r
+
+    ' ---- NARROW BY CONSTRUCTION. Two genuinely different values must
+    ' still compare silently, whichever side carries a marker. Without
+    ' these the refusal could be firing on every mismatch and the tests
+    ' above would not notice.
+    result = VLA_Prolog.PROLOG("(query (= " & Chr$(34) & "eng" & Chr$(34) & " " & Chr$(34) & "sales" & Chr$(34) & "))")
+    Report "prolog.10: two QUOTED strings that genuinely differ still answer False, no refusal", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (= eng sales))")
+    Report "prolog.10: two BARE symbols that genuinely differ still answer False, no refusal", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (p 2)) (query (p X) (\= X 1))")
+    Report "prolog.10: an ordinary non-marker mismatch still filters silently - `\=` keeps working", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "2"), "got: " & ResultDescribe(result)
+
+    ' ---- THE DIAGNOSIS MUST NOT MIS-BLAME. `(f "eng")` versus `(g eng)`
+    ' contains a marker-only pair AND a real functor difference; the
+    ' reason they do not unify is f versus g, so blaming the marker would
+    ' be exactly the confidently-wrong-diagnosis this refusal exists to
+    ' remove, reintroduced one level up. Class 2 beats class 1.
+    result = VLA_Prolog.PROLOG("(query (= (f " & Chr$(34) & "eng" & Chr$(34) & ") (g eng)))")
+    Report "prolog.10: a marker difference alongside a REAL difference is not blamed on the marker - silent False", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    r = CStr(VLA_Prolog.PROLOG("(query (= (f " & Chr$(34) & "eng" & Chr$(34) & ") (f eng)))"))
+    Report "prolog.10: ...but the SAME functor with a marker-only argument does refuse, nested", _
+           InStr(1, r, "different things", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE SCOPE DECISION, pinned. Clause matching must stay SILENT,
+    ' and this is the half that would break if the refusal were moved
+    ' into UnifyTwoWay: adding a non-matching fact would turn a working
+    ' query into an error, which no definite-clause program may do.
+    result = VLA_Prolog.PROLOG("(fact (color " & Chr$(34) & "red" & Chr$(34) & ")) (fact (color red)) (query (color red))")
+    Report "prolog.10: MONOTONICITY - a near-miss against another clause never aborts a query that has a real match", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    ' The HEADER-ONLY shape, not a bare Boolean: N is a free variable, so
+    ' this query has a column even with no rows to put in it, and only a
+    ' query with NO free variables collapses to a scalar. Asserting the
+    ' array shape is also what makes this discriminating in the direction
+    ' that matters - a refusal would return the STRING "#PROLOG! ...",
+    ' for which ResultRowCount answers -1, so this fails loudly if the
+    ' scope decision ever leaks into clause matching.
+    result = VLA_Prolog.PROLOG("(fact (emp ann " & Chr$(34) & "eng" & Chr$(34) & ")) (query (emp N eng))")
+    Report "prolog.10: a plain query that merely finds nothing still finds nothing, silently - zero rows is a CORRECT answer, not a refusal", _
+           ResultRowCount(result) = 1 And ResultColCount(result) = 1, "got: " & ResultDescribe(result)
+
+    ' ---- and the convention itself is UNCHANGED. Only the silence went.
+    result = VLA_Prolog.PROLOG("(query (== " & Chr$(34) & "eng" & Chr$(34) & " " & Chr$(34) & "eng" & Chr$(34) & "))")
+    Report "prolog.10: two quoted strings with the same text are still identical - the semantics did not move", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(fact (emp ann " & Chr$(34) & "eng" & Chr$(34) & ")) (query (emp N " & Chr$(34) & "eng" & Chr$(34) & "))")
+    Report "prolog.10: and the documented workaround still works - quoting the query matches the text cell", _
+           ResultCol1Is(result, "ann"), "got: " & ResultDescribe(result)
 End Sub
 
 ' ---------------------------------------------------------------------

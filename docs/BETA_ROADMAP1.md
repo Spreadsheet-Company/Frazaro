@@ -12274,7 +12274,7 @@ now carries one summary paragraph per engine and points here.*
     table, `TypeTestIsoSpellingFor`'s six, `LeafIsNumberTerm`,
     `NumberToTerm`, `SolveTypeTest`, `SolveBetween`, a `CollectVars`
     skip-shape, six new refusals, and a fourth rule in
-    `tools/check_prolog_reserved_names.ps1`. `TestDSLs` 430 → **506/506**
+    `tools/check_prolog_reserved_names.ps1`. `TestDSLs` 430 → **510/510** (506 at owner verification, plus four added straight after to pin `RELEASES.md`'s own worked example, which was the one claim in the notes standing on reasoning rather than a test)
     via a new `TestPrologTypeTests` (49 assertions) and
     `TestPrologBetween` (27); pure 1047/1047, host 143/143 and
     `VerifyReports` 141/141 emitter and 141/141 interpreter all unmoved,
@@ -12532,8 +12532,91 @@ now carries one summary paragraph per engine and points here.*
     than `PROLOG.7`/`PROLOG.8` since nothing downstream currently needs a
     guard clause, but genuinely baseline, and cheap enough to build
     alongside them rather than as its own separate push. `~days`.
-  - ⬜ **PROLOG.10 — ADJUDICATE: is the quoted-string marker part of a term's
-    IDENTITY, or only a note about how it was written?** A DECISION item
+  - ✅ **PROLOG.10 — ADJUDICATE: is the quoted-string marker part of a term's
+    IDENTITY, or only a note about how it was written?** **ADJUDICATED and
+    SHIPPED 2026-09-09; owner-verified live. THE ANSWER: yes, the marker is
+    identity-bearing — option A stands — and option D is built on top of
+    it, SCOPED TO THE FOUR EXPLICIT COMPARISON GOALS.** Nothing about
+    unification, matching or rendering changes; `"eng` and `eng` remain
+    different terms and `(== "eng" "eng")` remains true. What changes is
+    that COMPARING the two stops being silent. `TestDSLs` 516 → **531/531**
+    via a new `TestPrologQuotedVersusBare` (14) and one re-pointed
+    `PROLOG.8` pin; pure 1047/1047, host 143/143 and `VerifyReports`
+    141/141 emitter and 141/141 interpreter all unmoved. Owner-confirmed
+    in cells: all four operators refusing on `"eng` versus `eng`; the
+    numeric variant saying "the number 42" rather than "name"; two
+    genuinely different values still comparing silently; a marker
+    difference alongside a real one NOT blamed on the marker; and the
+    monotonicity case, where a near-miss against one clause leaves a query
+    that has a real match alone.
+
+    **WHY SCOPED, when this entry's own draft of D was unscoped.** Asked
+    for an objective criterion rather than a coin-toss, four independent
+    ones were found and they agree:
+      - **CORRECTNESS CLASS — the load-bearing one.** `(\= D eng)`
+        returning EVERY row is *wrong*: a false statement about the user's
+        data. A plain `(query (emp N eng))` returning ZERO rows is
+        *right* — there is no term `eng` in that program — merely
+        unhelpful. This project's doctrine is about confidently WRONG
+        answers, and it reaches the first and not the second. Unscoped D
+        would have converted a correct-but-terse answer into an error.
+      - **MONOTONICITY.** Raising during clause matching lets a
+        NON-MATCHING clause decide a query's fate: adding
+        `(fact (color "red"))` beside `(fact (color red))` would turn a
+        working `(query (color red))` into an error. Adding a fact must
+        never remove a solution. This engine is already non-monotonic
+        exactly where the user WRITES a non-monotonic operator — `not`,
+        `\=`, `\==`, `!` — and has never been so implicitly. Pinned by a
+        test.
+      - **PRECEDENT.** `PROLOG.9` ruled on this same distinction three
+        times one item earlier: `(between 1 10 "5")` refuses (explicit
+        goal, unusable value), `(number? "42")` answers False (a question
+        whose job is to answer), clause matching stays silent.
+      - **REVERSIBILITY.** The scoped reading is a strict SUBSET, so it
+        can be widened later — silence into a message is the compatible
+        direction. The unscoped one could only be narrowed by retracting
+        an error class.
+
+    **TWO THINGS THIS ENTRY GOT WRONG, both found by re-reading the code
+    rather than the entry.** (i) "**D … narrow by construction, so no
+    false positives on genuinely different values**" is true about
+    *values* and misses the real hazard, which is a false positive on a
+    *successful query* — the monotonicity case above. (ii) The entry
+    attributes shipped-test flipping to option **B** alone. **D flips one
+    too**, and it could hardly not: `(query (= "eng" eng))` was pinned
+    FALSE by `PROLOG.8` precisely because it is the confusable case, so D
+    necessarily re-points it. Re-pointed rather than retired, the same
+    move `PROLOG.8` made to `PROLOG.7`'s `(= 1 1)` tripwire.
+
+    **A DIAGNOSIS THAT CANNOT MIS-BLAME.** The obvious implementation —
+    "is there a marker-only pair anywhere in these two terms" — is wrong,
+    and wrong in this item's own failure mode. `(= (f "eng") (g eng))`
+    contains a marker-only pair AND a real functor difference; the reason
+    those two do not unify is `f` versus `g`, so blaming the marker would
+    be a confidently wrong DIAGNOSIS, the very defect being removed,
+    reintroduced one level up. So `QuotedVersusBareClass` answers three
+    ways — identical / marker-only / otherwise-different — and fires only
+    on the middle one. Transliterated over 16 term-pair shapes before a
+    single import; that run surfaced an **undocumented contract** its own
+    author had not noticed, that `outText` is written speculatively and is
+    meaningful only when the class is 1, now recorded at the function.
+
+    **The open sub-question, answered in the wording rather than papered
+    over:** a TEXT `42` and a NUMERIC `42` are *not* the same term (option
+    A, unchanged) — and the refusal now says so, calling the bare side a
+    "number" rather than a "name", because the same near-miss fires there
+    and `the name 42` would be wrong.
+
+    **DELIBERATELY LEFT OPEN, not half-built:** a plain
+    `(query (emp N eng))` over a text column still returns zero rows
+    silently. That is the entry's stated motivation and it is *not*
+    served by the scoped reading. It is correct-but-unhelpful rather than
+    wrong, so it does not clear the bar the four criteria set; if it bites
+    in practice the deferred mechanism (record the near-miss, refuse only
+    when the query found no solutions at all) adds on top without changing
+    any semantics, since it only converts silence into a message.
+
+    *Original entry, for the record:* A DECISION item
     first and a build item second — filed deliberately rather than settled as
     a footnote to `PROLOG.8`, which is where it surfaced, because it is a
     question about what "the same term" MEANS in this language and Prolog
@@ -12637,7 +12720,7 @@ now carries one summary paragraph per engine and points here.*
     whose stripped text parses as a number (`"42`, `"-3.5`). It never
     touches `var?`/`nonvar?`/`atomic?`/`compound?`, and both readings agree
     such a term is `atomic?`; only the atom/number split moves. So the B
-    column below should read **three** shipped tests flipped, not one: the
+    column below should read **three** shipped tests flipped, not one (and D flips a fourth, the `(= "eng" eng)` pin, which this entry also missed): the
     `PROLOG.8` unification test plus the two `PROLOG.9` tests deliberately
     labelled `prolog.9/10` so this item's eventual adjudicator finds them
     by grep. `between/3` reads the marker through the same single
@@ -12648,6 +12731,61 @@ now carries one summary paragraph per engine and points here.*
     for `D`, `~week` for `B` with its own live pass. *Pays into:* `DATALOG`/
     `PROLOG` consistency, and any future `G-PROLOG` phrasing that has to
     render "is the same as" over table-sourced values.
+  - ✅ **PROLOG.11 — `CollectVars` applied its goal-shaped skips to DATA.**
+    SHIPPED 2026-09-09; owner-verified live. A query returned FEWER
+    OUTPUT COLUMNS than it had actually found, silently, whenever a
+    compound term used as ordinary data happened to be spelled like a
+    goal. `(query (holds A (not W)))` against a stored `(holds b (not
+    bob))` bound `W` to `bob` correctly and then dropped `W` from the
+    result — one column where two were due, no error, no signal. Filed
+    during `PROLOG.9` (its own entry recorded it as a known limit) and
+    built here rather than folded in, because it changes `not`'s
+    long-shipped behaviour in the nested case.
+
+    **The defect in one sentence:** every skip-shape in `CollectVars` is a
+    statement about a GOAL — "negation discards its bindings", "`\==`
+    never binds", "a type test binds nothing" — and all of them fired at
+    every nesting depth, where there are no goals at all. Below the top of
+    a query conjunct every position this procedure can reach is DATA, and
+    data has no `not`; it has a compound term whose functor is spelled
+    that way, whose variables bind against a stored fact like any other
+    argument's and are real output columns.
+
+    **The fix is a flag, not a depth counter, and the reason is a
+    measurement rather than a preference:** the only nested GOAL positions
+    this language has are `not`'s own argument and `findall`'s own Goal,
+    and *both are skipped outright rather than descended into* — so no
+    recursive call from `CollectVars` can ever land on a goal, and every
+    one of them passes `False` unconditionally. The question is never "how
+    deep" but "is this a goal", and below the top the answer is always no.
+    `CollectTemplateVars` is deliberately **left alone** rather than
+    folded into the new data path it now resembles: it does not skip
+    `VlaAnon` names and must not start, since a `findall` Template's
+    anonymous variable is a real substitution target.
+
+    **Pinned in BOTH directions, which is the whole risk here.** A "fix"
+    that simply deleted the skips would satisfy the two new
+    nested-as-data tests and break four regression tests asserting the
+    skips still fire at goal position — `(var? X)`, `(\== X Y)` and `(not
+    (foo 2))` each still contributing NO column, and `findall` still
+    contributing only its Bag. Both halves ship together because either
+    half alone is a different bug. The two new tests are discriminating by
+    asserting the column COUNT *and* the recovered VALUE together: a
+    dropped column raises nothing, so asserting only that the query
+    "worked" would have passed against the defect.
+
+    **Scope, honestly bounded:** this fixes column COLLECTION only.
+    Nothing about solving, binding or rendering changes, and no goal
+    behaves differently — `(query (not G))` at goal position is
+    byte-identical. This item's six assertions are part of the
+    **531/531** owner-verified alongside `PROLOG.10`; the 510 → 516
+    intermediate was never run on its own, and is recorded as arithmetic
+    rather than as a witnessed result. They landed in the same live pass
+    because splitting them would have manufactured an intermediate commit
+    nobody had run, and nothing here can execute VBA to stand in. Every other
+    baseline expected unmoved, since nothing outside `VLA_Prolog` and the
+    query suite is touched. *Pays into:* `PROLOG.10`, which is about to
+    add another judgement that must not leak from goal position into data.
   - **Stated ceiling, carried forward from `BETA_ROADMAP1.md`, not built
     here:** first-argument clause indexing (`SQL`'s own hash-join law,
     `PROLOG`'s own twin — don't scan every clause per call); tabling/memoized

@@ -81,14 +81,46 @@
   `(between 1 10 "5")` is refused with a message that says plainly that
   a text cell reading 5 is not the number 5.
 
-  This is worth stating because Frazaro is not yet consistent about it.
-  Arithmetic goes the other way: `(is X "42")` computes 42, because
-  arithmetic wants the value. Which of those two behaviours is right is
-  a real open question, written up as its own decision item rather than
-  settled quietly in either direction. The new goals were built to match
-  `=` and `==` — the goals about what a value *is* — so that whichever
-  way the question is eventually answered, they move together with the
-  rest rather than having to be argued about separately.
+- **Comparing a text cell to an unquoted name no longer answers
+  silently.** This is the one behaviour change in this release that can
+  affect a program that used to run.
+
+  A text cell reading `eng` and the bare word `eng` written in a query
+  are different values in PROLOG — that has always been true, and it is
+  still true. The problem was that nothing said so. Asking
+  `(\= Dept eng)` — "is this department something other than eng" —
+  answered **yes for every row of the table**, because the cell's value
+  and the word you typed were never the same thing to begin with. The
+  answer was correct about the values and useless as an answer, and
+  there was no way to tell that had happened.
+
+  Those four comparisons — `=`, `\=`, `==`, `\==` — now stop and explain
+  when the only difference between the two things being compared is the
+  quoting:
+
+  ```
+  the text "eng" and the name eng are different things in PROLOG - a
+  text cell keeps its quotes, so if you meant the cell's own value
+  write it as "eng".
+  ```
+
+  It is deliberately narrow. Two values that genuinely differ still
+  compare quietly, exactly as before, so ordinary filtering is
+  untouched. And it applies **only** where you explicitly asked whether
+  two things are the same — never while Frazaro is matching rules
+  against facts, because a query that finds a real answer must never be
+  stopped by a near-miss against some *other* fact it was not asking
+  about. A query that simply finds nothing still simply finds nothing.
+
+  The same message appears for a text `42` against a numeric `42`, where
+  it says "number" rather than "name".
+
+- **A query no longer loses a column when your data is shaped like a
+  goal.** If a fact stored a value such as `(not bob)` or `(atom? bob)` —
+  ordinary data that happens to be written in the same shape as a
+  Frazaro goal — a query reading it bound the value correctly and then
+  left it out of the result. One column where two were due, with nothing
+  reported. Fixed; both columns now appear.
 
 - **A release check learned to look both ways.** PROLOG refuses to let
   you define a predicate with a reserved name, and a static check has

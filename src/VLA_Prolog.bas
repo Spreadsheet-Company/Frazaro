@@ -1069,7 +1069,7 @@ End Function
 ' variable list, and this program's own output column order (SD-4's
 ' frozen contract: header row first, one column per free query
 ' variable).
-Private Sub CollectVars(ByVal term As Variant, freeVarNames As Collection)
+Private Sub CollectVars(ByVal term As Variant, freeVarNames As Collection, ByVal isGoalPosition As Boolean)
     If Not IsObject(term) Then
         Dim s As String
         s = CStr(term)
@@ -1091,138 +1091,167 @@ Private Sub CollectVars(ByVal term As Variant, freeVarNames As Collection)
     End If
     Dim lst As Collection
     Set lst = term
-    ' PROLOG.5.2: `(not Goal)` - Goal's own variables are never collected
-    ' as query output columns here. Negation-as-failure discards every
-    ' binding made while proving Goal regardless of success or failure
-    ' (SolveNegation, below), so a variable appearing ONLY inside a
-    ' negated goal can never resolve to anything meaningful outside it -
-    ' collecting it would surface its own unresolved atom name as a
-    ' phantom output column instead of a real value (hand-traced in this
-    ' module's own PROLOG.5.2 header). A variable that ALSO appears in an
-    ' ordinary, non-negated conjunct elsewhere in the query is still
-    ' collected correctly, from THAT other occurrence - this case only
-    ' ever skips descending into `not`'s own argument, it never removes
-    ' an already-collected name. IsObject(lst.Item(1)) checked before
-    ' Fold(CStr(...)) - this module's own IsObject-first discipline,
-    ' since lst.Item(1) may itself be a nested list for an arbitrary
-    ' compound-term argument CollectVars recurses into (e.g. a fact's own
-    ' `(color red)`-shaped argument), never assumed to be a plain symbol
-    ' just because a `not`-headed term happens to be 2 long.
-    ' PROLOG.9: the six type tests join this same 2-long skip, on exactly
-    ' the reasoning `not` is skipped on. They bind NOTHING - every one of
-    ' them is a test - so a variable appearing only inside one can never
-    ' resolve to anything, and collecting it would spill its own raw atom
-    ' name into the cells as though it were a value the query had found.
+
+    ' PROLOG.11: EVERY skip-shape below is a statement about a GOAL, and
+    ' therefore applies only where a goal actually is - the top of a query
+    ' conjunct. Below that, every position this procedure can reach is
+    ' DATA, and data has no `not`, no `\==` and no `atom?`; it has a
+    ' compound term whose functor happens to be spelled that way, whose
+    ' variables bind like any other argument's and are real output
+    ' columns. Skipping them there dropped a column the query genuinely
+    ' produced.
     '
-    ' The hazard is real and not hypothetical, and it is sharper here
-    ' than for `not`: `(query (var X))` SUCCEEDS - a free X is exactly
-    ' what `var` is true of - so without this skip the one query most
-    ' likely to be typed while learning the predicate would answer with a
-    ' single column headed X containing the text "X". That is PROLOG.5.2's
-    ' own phantom-column finding and PROLOG.8's own `(query (\== X Y))`
-    ' repeat, reached a third time by a third route.
+    ' The reason "below here is always data" holds, checked rather than
+    ' assumed: the only nested GOAL positions in this language are `not`'s
+    ' own argument and `findall`'s own Goal, and both are skipped outright
+    ' rather than descended into - so no recursive call from here can ever
+    ' land on a goal. That is why every one of them passes False, and why
+    ' this needs a flag rather than a depth counter: it is not "how deep"
+    ' but "is this a goal", and the answer below the top is always no.
     '
-    ' A variable that ALSO appears in an ordinary conjunct is still
-    ' collected from THAT occurrence - `(query (emp N S) (number S))`
-    ' reports both columns, because this skip only ever declines to
-    ' DESCEND into the type test, it never removes an already-collected
-    ' name.
-    '
-    ' KNOWN LIMIT, inherited rather than introduced: this skip is keyed on
-    ' shape alone, so a compound term used as DATA whose functor happens
-    ' to be one of these names - `(query (likes X (atom? Y)))` against a
-    ' fact storing an `(atom? foo)` argument - has its Y dropped from the
-    ' output columns though it genuinely binds. `not` and the three
-    ' non-binding term-matching operators already behave this way.
-    '
-    ' The trailing question mark all but closes it for THESE six. Written
-    ' bare, `atom` and `number` would have been plausible data functors
-    ' and PROLOG.9 would have widened this limit measurably; `atom?` is
-    ' not a name anyone reaches for when inventing data, so the six added
-    ' here are now among the least likely of the reserved set to collide
-    ' rather than the most. An unplanned second dividend of the spelling
-    ' decision, recorded because the first version of this comment
-    ' claimed the opposite and would otherwise have stayed wrong.
-    '
-    ' Fixing it properly still means tracking goal-versus-data position
-    ' here the way CollectTemplateVars (below) already does for findall's
-    ' Template, which is a change to this function's contract and to
-    ' `not`'s long-shipped behaviour - its own item, not a fold-in.
-    If lst.Count = 2 Then
-        If Not IsObject(lst.Item(1)) Then
-            Dim headTwo As String
-            headTwo = VLA_Identity.Fold(CStr(lst.Item(1)))
-            If headTwo = "not" Then Exit Sub
-            If TypeTestKindFor(headTwo) <> "" Then Exit Sub
+    ' Found while writing PROLOG.9, which widened the fault by adding six
+    ' more names to skip on, and filed then rather than folded in because
+    ' it changes `not`'s long-shipped behaviour in the nested case. The
+    ' question mark PROLOG.9 later took made a data functor named `atom?`
+    ' implausible, but `(likes X (not Y))` was always reachable and always
+    ' wrong.
+    If isGoalPosition Then
+        ' PROLOG.5.2: `(not Goal)` - Goal's own variables are never collected
+        ' as query output columns here. Negation-as-failure discards every
+        ' binding made while proving Goal regardless of success or failure
+        ' (SolveNegation, below), so a variable appearing ONLY inside a
+        ' negated goal can never resolve to anything meaningful outside it -
+        ' collecting it would surface its own unresolved atom name as a
+        ' phantom output column instead of a real value (hand-traced in this
+        ' module's own PROLOG.5.2 header). A variable that ALSO appears in an
+        ' ordinary, non-negated conjunct elsewhere in the query is still
+        ' collected correctly, from THAT other occurrence - this case only
+        ' ever skips descending into `not`'s own argument, it never removes
+        ' an already-collected name. IsObject(lst.Item(1)) checked before
+        ' Fold(CStr(...)) - this module's own IsObject-first discipline,
+        ' since lst.Item(1) may itself be a nested list for an arbitrary
+        ' compound-term argument CollectVars recurses into (e.g. a fact's own
+        ' `(color red)`-shaped argument), never assumed to be a plain symbol
+        ' just because a `not`-headed term happens to be 2 long.
+        ' PROLOG.9: the six type tests join this same 2-long skip, on exactly
+        ' the reasoning `not` is skipped on. They bind NOTHING - every one of
+        ' them is a test - so a variable appearing only inside one can never
+        ' resolve to anything, and collecting it would spill its own raw atom
+        ' name into the cells as though it were a value the query had found.
+        '
+        ' The hazard is real and not hypothetical, and it is sharper here
+        ' than for `not`: `(query (var X))` SUCCEEDS - a free X is exactly
+        ' what `var` is true of - so without this skip the one query most
+        ' likely to be typed while learning the predicate would answer with a
+        ' single column headed X containing the text "X". That is PROLOG.5.2's
+        ' own phantom-column finding and PROLOG.8's own `(query (\== X Y))`
+        ' repeat, reached a third time by a third route.
+        '
+        ' A variable that ALSO appears in an ordinary conjunct is still
+        ' collected from THAT occurrence - `(query (emp N S) (number S))`
+        ' reports both columns, because this skip only ever declines to
+        ' DESCEND into the type test, it never removes an already-collected
+        ' name.
+        '
+        ' KNOWN LIMIT, inherited rather than introduced: this skip is keyed on
+        ' shape alone, so a compound term used as DATA whose functor happens
+        ' to be one of these names - `(query (likes X (atom? Y)))` against a
+        ' fact storing an `(atom? foo)` argument - has its Y dropped from the
+        ' output columns though it genuinely binds. `not` and the three
+        ' non-binding term-matching operators already behave this way.
+        '
+        ' The trailing question mark all but closes it for THESE six. Written
+        ' bare, `atom` and `number` would have been plausible data functors
+        ' and PROLOG.9 would have widened this limit measurably; `atom?` is
+        ' not a name anyone reaches for when inventing data, so the six added
+        ' here are now among the least likely of the reserved set to collide
+        ' rather than the most. An unplanned second dividend of the spelling
+        ' decision, recorded because the first version of this comment
+        ' claimed the opposite and would otherwise have stayed wrong.
+        '
+        ' Fixing it properly still means tracking goal-versus-data position
+        ' here the way CollectTemplateVars (below) already does for findall's
+        ' Template, which is a change to this function's contract and to
+        ' `not`'s long-shipped behaviour - its own item, not a fold-in.
+        If lst.Count = 2 Then
+            If Not IsObject(lst.Item(1)) Then
+                Dim headTwo As String
+                headTwo = VLA_Identity.Fold(CStr(lst.Item(1)))
+                If headTwo = "not" Then Exit Sub
+                If TypeTestKindFor(headTwo) <> "" Then Exit Sub
+            End If
         End If
-    End If
-    ' PROLOG.8: `(\= A B)`, `(== A B)` and `(\== A B)` - the THREE of the
-    ' four term-matching goals that bind nothing - are skipped on exactly
-    ' the reasoning `not` (above) is skipped on, and `(= A B)`, the one
-    ' that DOES bind, is deliberately not.
-    '
-    ' The hazard is real and not hypothetical: `(query (\== X Y))`
-    ' SUCCEEDS - two distinct free variables are trivially not identical -
-    ' so without this skip X and Y would be collected as output columns
-    ' and then resolve to nothing, rendering their own raw atom names "X"
-    ' and "Y" into the spilled cells as though those were values the
-    ' query had found. That is PROLOG.5.2's own phantom-column finding,
-    ' reached by a different route.
-    '
-    ' `=` is the deliberate exception because it genuinely binds in the
-    ' shared, non-discarded environment - the same property that earns
-    ' `is`'s own target variable and findall's own Bag their columns.
-    ' `\=` is NOT an exception despite running the same binding primitive:
-    ' it succeeds only when that unification fails, and runs it against a
-    ' throwaway clone regardless, so it has nothing to contribute either.
-    ' The fork is UnificationBindsOutward (below), asked rather than
-    ' re-derived, so this skip and the dispatch's own clone-or-thread
-    ' decision can never disagree about which of the four keep what they
-    ' bind. Descending is the default: only a head word that table knows
-    ' is ever skipped, and a variable that ALSO appears in an ordinary
-    ' conjunct is still collected from THAT occurrence, exactly as with
-    ' `not`.
-    If lst.Count = 3 Then
-        If Not IsObject(lst.Item(1)) Then
-            Dim unifyKind As String
-            unifyKind = UnificationOpFor(VLA_Identity.Fold(CStr(lst.Item(1))))
-            If unifyKind <> "" Then
-                If Not UnificationBindsOutward(unifyKind) Then Exit Sub
+        ' PROLOG.8: `(\= A B)`, `(== A B)` and `(\== A B)` - the THREE of the
+        ' four term-matching goals that bind nothing - are skipped on exactly
+        ' the reasoning `not` (above) is skipped on, and `(= A B)`, the one
+        ' that DOES bind, is deliberately not.
+        '
+        ' The hazard is real and not hypothetical: `(query (\== X Y))`
+        ' SUCCEEDS - two distinct free variables are trivially not identical -
+        ' so without this skip X and Y would be collected as output columns
+        ' and then resolve to nothing, rendering their own raw atom names "X"
+        ' and "Y" into the spilled cells as though those were values the
+        ' query had found. That is PROLOG.5.2's own phantom-column finding,
+        ' reached by a different route.
+        '
+        ' `=` is the deliberate exception because it genuinely binds in the
+        ' shared, non-discarded environment - the same property that earns
+        ' `is`'s own target variable and findall's own Bag their columns.
+        ' `\=` is NOT an exception despite running the same binding primitive:
+        ' it succeeds only when that unification fails, and runs it against a
+        ' throwaway clone regardless, so it has nothing to contribute either.
+        ' The fork is UnificationBindsOutward (below), asked rather than
+        ' re-derived, so this skip and the dispatch's own clone-or-thread
+        ' decision can never disagree about which of the four keep what they
+        ' bind. Descending is the default: only a head word that table knows
+        ' is ever skipped, and a variable that ALSO appears in an ordinary
+        ' conjunct is still collected from THAT occurrence, exactly as with
+        ' `not`.
+        If lst.Count = 3 Then
+            If Not IsObject(lst.Item(1)) Then
+                Dim unifyKind As String
+                unifyKind = UnificationOpFor(VLA_Identity.Fold(CStr(lst.Item(1))))
+                If unifyKind <> "" Then
+                    If Not UnificationBindsOutward(unifyKind) Then Exit Sub
+                End If
+            End If
+        End If
+        ' PROLOG.5.3: `(findall Template Goal Bag)` - the same reasoning as
+        ' `not` above, applied to TWO argument positions instead of one:
+        ' Template's own variables only ever matter INSIDE the isolated
+        ' harvest sub-search (SolveIsolated, below - a fresh, separate
+        ' collection, CollectTemplateVars, feeds THAT), and Goal's are
+        ' discarded exactly like `not`'s own Goal. Only Bag - the one
+        ' argument genuinely bound in the shared, non-discarded outer env,
+        ' exactly like `is`'s own target Var - is descended into here.
+        '
+        ' PROLOG.9: `(between Low High X)` is ALSO 4 long and deliberately
+        ' gets NO arm here - it wants the default descend below, and stating
+        ' why is worth more than an arm that would do nothing. `between` is
+        ' the one goal PROLOG.9 adds that genuinely BINDS in the shared,
+        ' non-discarded environment, so X is a real output column exactly the
+        ' way `is`'s own target variable and findall's own Bag are, and the
+        ' default already collects it. Low and High are contributed only when
+        ' they are variables, which is harmless in both directions: bound
+        ' elsewhere, they were already collected from that occurrence and
+        ' VarAlreadyCollected dedupes; never bound at all, EvalArithTerm
+        ' refuses the goal by name before any row is produced, so no phantom
+        ' column can survive to be rendered.
+        If lst.Count = 4 Then
+            If Not IsObject(lst.Item(1)) Then
+                If VLA_Identity.Fold(CStr(lst.Item(1))) = "findall" Then
+                    CollectVars lst.Item(4), freeVarNames, False
+                    Exit Sub
+                End If
             End If
         End If
     End If
-    ' PROLOG.5.3: `(findall Template Goal Bag)` - the same reasoning as
-    ' `not` above, applied to TWO argument positions instead of one:
-    ' Template's own variables only ever matter INSIDE the isolated
-    ' harvest sub-search (SolveIsolated, below - a fresh, separate
-    ' collection, CollectTemplateVars, feeds THAT), and Goal's are
-    ' discarded exactly like `not`'s own Goal. Only Bag - the one
-    ' argument genuinely bound in the shared, non-discarded outer env,
-    ' exactly like `is`'s own target Var - is descended into here.
-    '
-    ' PROLOG.9: `(between Low High X)` is ALSO 4 long and deliberately
-    ' gets NO arm here - it wants the default descend below, and stating
-    ' why is worth more than an arm that would do nothing. `between` is
-    ' the one goal PROLOG.9 adds that genuinely BINDS in the shared,
-    ' non-discarded environment, so X is a real output column exactly the
-    ' way `is`'s own target variable and findall's own Bag are, and the
-    ' default already collects it. Low and High are contributed only when
-    ' they are variables, which is harmless in both directions: bound
-    ' elsewhere, they were already collected from that occurrence and
-    ' VarAlreadyCollected dedupes; never bound at all, EvalArithTerm
-    ' refuses the goal by name before any row is produced, so no phantom
-    ' column can survive to be rendered.
-    If lst.Count = 4 Then
-        If Not IsObject(lst.Item(1)) Then
-            If VLA_Identity.Fold(CStr(lst.Item(1))) = "findall" Then
-                CollectVars lst.Item(4), freeVarNames
-                Exit Sub
-            End If
-        End If
-    End If
+    ' False on every recursive call, without exception - see the
+    ' PROLOG.11 note above for why no position reachable from here is
+    ' ever a goal.
     Dim i As Long
     For i = 2 To lst.Count
-        CollectVars lst.Item(i), freeVarNames
+        CollectVars lst.Item(i), freeVarNames, False
     Next i
 End Sub
 
@@ -2169,7 +2198,7 @@ Private Sub ParseProgram(ByVal clausesText As String, ByVal clauseDict As Object
                 Dim desugaredQuery As Variant
                 DesugarBodyItem desugaredQuery, lst.Item(qi), "VlaAnonQ", qi, headerMap
                 ValidateBodyItem desugaredQuery, "a query", predArity
-                CollectVars desugaredQuery, freeVarNames
+                CollectVars desugaredQuery, freeVarNames, True
                 queryConjuncts.Add desugaredQuery
             Next qi
         Case Else
@@ -2872,12 +2901,24 @@ Private Function SolveUnification(ByVal goalTerm As Variant, ByVal kind As Strin
     Set outN = envN
     Set outT = envT
 
+    ' PROLOG.10: each of the four consults RefuseIfQuotedVersusBare
+    ' (below) at exactly one moment - when the underlying match FAILED,
+    ' whichever answer that failure produces. That single rule covers all
+    ' four uniformly: `=` and `==` answer False on a failed match, `\=`
+    ' and `\==` answer True on one, so "the answer was decided by a
+    ' mismatch" is the same condition in every case and is checked in the
+    ' same place. Never on a SUCCESSFUL match, where there is nothing
+    ' confusable to report.
     Select Case kind
-    Case "identical"
-        SolveUnification = VLA_Unify.TermsIdentical(lst.Item(2), lst.Item(3), envN, envT)
-        Exit Function
-    Case "notidentical"
-        SolveUnification = Not VLA_Unify.TermsIdentical(lst.Item(2), lst.Item(3), envN, envT)
+    Case "identical", "notidentical"
+        Dim same As Boolean
+        same = VLA_Unify.TermsIdentical(lst.Item(2), lst.Item(3), envN, envT)
+        If Not same Then RefuseIfQuotedVersusBare lst.Item(2), lst.Item(3), envN, envT
+        If kind = "identical" Then
+            SolveUnification = same
+        Else
+            SolveUnification = Not same
+        End If
         Exit Function
     End Select
 
@@ -2885,6 +2926,13 @@ Private Function SolveUnification(ByVal goalTerm As Variant, ByVal kind As Strin
     VLA_Unify.UnifyEnvClone envN, envT, tryN, tryT
     Dim unified As Boolean
     unified = VLA_Unify.UnifyTwoWay(lst.Item(2), lst.Item(3), tryN, tryT)
+
+    ' envN/envT, never tryN/tryT: the clone may carry half-finished
+    ' bindings left behind by the walk that just failed (UnifyTwoWay's own
+    ' documented "returns False with envN/envT left however far the walk
+    ' got"), and this report must describe the terms the USER compared,
+    ' not the wreckage of the attempt.
+    If Not unified Then RefuseIfQuotedVersusBare lst.Item(2), lst.Item(3), envN, envT
 
     If kind = "notunify" Then
         SolveUnification = Not unified
@@ -2896,6 +2944,150 @@ Private Function SolveUnification(ByVal goalTerm As Variant, ByVal kind As Strin
         Set outN = tryN
         Set outT = tryT
     End If
+End Function
+
+' PROLOG.10: the adjudication, built. `(\= D eng)` succeeding on EVERY row
+' of a table whose Dept column reads eng is a confidently wrong answer -
+' the marker makes `"eng` and `eng` different terms, correctly, but the
+' user who wrote it meant the cell. Option D on top of option A: the
+' semantics do not change (they ARE different terms, and `(== "eng" eng)`
+' is still not true), only the SILENCE does.
+'
+' SCOPED TO THE FOUR EXPLICIT COMPARISON GOALS, and not to clause
+' matching, which the entry's own draft would also have covered. Four
+' independent reasons, all pointing the same way:
+'
+'   CORRECTNESS CLASS. `(\= D eng)` returning every row is WRONG. A plain
+'       `(query (emp N eng))` returning zero rows is RIGHT - there is no
+'       term `eng` in that program - merely unhelpful. This project's
+'       doctrine is about confidently wrong answers, and it reaches the
+'       first case and not the second.
+'   MONOTONICITY. Raising during clause matching would let a
+'       NON-MATCHING clause decide a query's fate: adding
+'       `(fact (color "red"))` beside `(fact (color red))` would turn a
+'       working `(query (color red))` into an error. Adding a fact must
+'       never remove a solution. This engine is already non-monotonic
+'       exactly where the user WRITES a non-monotonic operator - not,
+'       \=, \==, ! - and has never been so implicitly.
+'   PRECEDENT. PROLOG.9 already ruled on this distinction three times:
+'       `(between 1 10 "5")` refuses (an explicit goal handed a value it
+'       cannot use), `(number? "42")` answers False (a question whose job
+'       is to answer), and clause matching stays silent. This is that
+'       rule applied unchanged.
+'   REVERSIBILITY. This is a strict subset of the wider reading, so it
+'       can be widened later - silence into a message is the compatible
+'       direction. The wider one could only be narrowed by retracting an
+'       error class.
+'
+' The plain-query half stays deliberately open, recorded in the roadmap
+' rather than half-built.
+Private Sub RefuseIfQuotedVersusBare(ByVal a As Variant, ByVal b As Variant, _
+                                      envN As Collection, envT As Collection)
+    Dim sameText As String
+    sameText = ""
+    If QuotedVersusBareClass(a, b, envN, envT, sameText) <> 1 Then Exit Sub
+    ' `number` or `name` for the bare side. LeafIsNumberTerm is asked
+    ' rather than IsInvariantNumericString directly, so this refusal and
+    ' PROLOG.9's own atom?/number? can never disagree about what counts
+    ' as a number - and sameText is already marker-free, so it takes the
+    ' plain numeric branch of that function by construction.
+    Dim kindWord As String
+    If LeafIsNumberTerm(sameText) Then
+        kindWord = "number"
+    Else
+        kindWord = "name"
+    End If
+    VLA_Messages.RaiseMsg "prolog-quoted-versus-bare", "text", sameText, "kind", kindWord
+End Sub
+
+' PROLOG.10: how two terms differ, as one of three answers -
+'   0  identical
+'   1  differ ONLY by the quoted-string marker, at one or more leaves
+'   2  differ in some other way as well
+'
+' The three-way answer is the whole point, and a two-way "is there a
+' marker-only pair anywhere" test would have been wrong. `(= (f "eng")
+' (g eng))` contains a marker-only pair at position 2 AND a genuine
+' functor difference at position 1; the real reason those two do not
+' unify is `f` versus `g`, so blaming the marker would be a confidently
+' wrong DIAGNOSIS - the same defect class this refusal exists to remove,
+' reintroduced one level up. Class 2 wins over class 1 for exactly that
+' reason, and the walk stops as soon as it is reached.
+'
+' outText keeps the FIRST marker-only text found, so a term differing at
+' several leaves names one of them rather than the last one looked at.
+'
+' CONTRACT, surfaced by the pre-import transliteration rather than by
+' reading: outText is meaningful ONLY when this function returns 1. It is
+' written SPECULATIVELY, the moment a marker-only leaf pair is seen, and
+' a later position may then push the answer to 2 - `(f "eng a)` versus
+' `(f eng b)` correctly returns 2 while leaving "eng" behind in outText.
+' Harmless because the one caller tests the class before reading it, and
+' recorded here so a second caller cannot quietly assume otherwise.
+Private Function QuotedVersusBareClass(ByVal a As Variant, ByVal b As Variant, _
+                                        envN As Collection, envT As Collection, _
+                                        ByRef outText As String) As Long
+    Dim aw As Variant, bw As Variant
+    VLA_Unify.EnvWalkInto aw, a, envN, envT
+    VLA_Unify.EnvWalkInto bw, b, envN, envT
+
+    If IsObject(aw) <> IsObject(bw) Then
+        QuotedVersusBareClass = 2
+        Exit Function
+    End If
+
+    If Not IsObject(aw) Then
+        Dim x As String, y As String
+        x = CStr(aw)
+        y = CStr(bw)
+        If x = y Then Exit Function          ' 0 - identical leaves
+        Dim t As String
+        If LeavesDifferOnlyByMarker(x, y, t) Then
+            If Len(outText) = 0 Then outText = t
+            QuotedVersusBareClass = 1
+        Else
+            QuotedVersusBareClass = 2
+        End If
+        Exit Function
+    End If
+
+    Dim la As Collection, lb As Collection
+    Set la = aw
+    Set lb = bw
+    If la.Count <> lb.Count Then
+        QuotedVersusBareClass = 2
+        Exit Function
+    End If
+    Dim worst As Long
+    Dim i As Long
+    For i = 1 To la.Count
+        Dim c As Long
+        c = QuotedVersusBareClass(la.Item(i), lb.Item(i), envN, envT, outText)
+        If c > worst Then worst = c
+        If worst = 2 Then Exit For
+    Next i
+    QuotedVersusBareClass = worst
+End Function
+
+' PROLOG.10: True iff exactly one of the two leaves carries the
+' quoted-string marker AND removing it makes them the same text - so
+' `"eng` versus `eng` qualifies, `"eng` versus `"sales` does not (both
+' marked), and `eng` versus `sales` does not (neither). Narrow by
+' construction: two genuinely different values can never reach it.
+Private Function LeavesDifferOnlyByMarker(ByVal x As String, ByVal y As String, _
+                                           ByRef outText As String) As Boolean
+    Dim xMarked As Boolean, yMarked As Boolean
+    xMarked = (Left$(x, 1) = Chr$(34))
+    yMarked = (Left$(y, 1) = Chr$(34))
+    If xMarked = yMarked Then Exit Function
+    If xMarked Then
+        If Mid$(x, 2) <> y Then Exit Function
+        outText = y
+    Else
+        If Mid$(y, 2) <> x Then Exit Function
+        outText = x
+    End If
+    LeavesDifferOnlyByMarker = True
 End Function
 
 ' PROLOG.9: answers one type-test goal - True iff the term is of the kind

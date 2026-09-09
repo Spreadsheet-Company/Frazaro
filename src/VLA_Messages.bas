@@ -565,6 +565,20 @@ Private Sub AddEntries(ByVal m As Collection)
     ' script's multi-form baseline. It is the only refusal in this module
     ' whose entire job is to name a spelling.
     AddMsg m, "prolog-type-test-iso-spelling", 5, "VLA-Prolog", "{form} isn't how PROLOG spells this type test - all six of them end in a question mark, so write {fixed} instead, like (number? Salary)."
+    ' PROLOG.10 - the adjudication. A text cell reading eng becomes the
+    ' term ""eng, and a bare eng written in a query is a DIFFERENT term;
+    ' that stays true, and this message does not change it. What changes
+    ' is that comparing the two no longer answers silently - (\= D eng)
+    ' succeeding on every row of a table was a confidently wrong answer.
+    ' Raised ONLY from the four explicit comparison goals, never from
+    ' clause matching, so a query that found a real answer is never
+    ' aborted by a near-miss against some other clause; VLA_Prolog.bas's
+    ' RefuseIfQuotedVersusBare carries the four reasons for that scope.
+    ' {kind} is "name" or "number" because the same near-miss happens
+    ' between a TEXT 42 and a NUMERIC 42, where calling 42 a name would
+    ' be wrong - PROLOG.10's own open sub-question, surfacing in the
+    ' wording rather than being papered over.
+    AddMsg m, "prolog-quoted-versus-bare", 5, "VLA-Prolog", "the text ""{text}"" and the {kind} {text} are different things in PROLOG - a text cell keeps its quotes, so if you meant the cell's own value write it as ""{text}""."
     ' PROLOG.9 - between's own four refusals. All four name "(between
     ' ...)" in their own text, and that is CORRECT rather than the defect
     ' the {form} rewrite above removes: this form is the only caller of
