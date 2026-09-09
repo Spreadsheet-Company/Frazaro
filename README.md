@@ -179,26 +179,30 @@ address table columns *by header name*, so `(staffing (name X)
 
 ```text
 =PROLOG("(rule (can-cover Shift Who)
-           (shifts (shift Shift) (needs Cert))
-           (staff (name Who) (cert Cert))
+           (shifts (shift Shift) (needs Cert) (minlevel Min))
+           (staff (name Who) (cert Cert) (level Level))
+           (>= Level Min)
            (not (leave (name Who) (shift Shift))))
          (query (can-cover Shift Who))", Shifts, Staff, Leave)
 ```
 
 Full unification with backtracking, so the question can be *shaped
-like the policy*. Three ordinary Excel Tables — the shifts and the
-certification each one needs, who holds which certifications, who is
-on leave when — become facts, and one rule states the staffing policy
-in the same words a supervisor would: a person can cover a shift if
-they hold the certification it needs and are not on leave that day.
+like the policy*. Three ordinary Excel Tables — the shifts, with the
+certification and the seniority each one needs; who holds which
+certification, and at what level; who is on leave when — become facts,
+and one rule states the staffing policy in the same words a supervisor
+would: a person can cover a shift if they hold the certification it
+needs, are cleared to at least the level it asks for, and are not on
+leave that day.
 The result spills as a roster of every legal pairing, one row per
 solution, in derivation order. Swap the last line for
 `(query (shifts (shift Shift) (needs C)) (findall Who (can-cover
 Shift Who) Bag))` and you get one row per shift with the candidates
 gathered into a list. Negation-as-failure, arithmetic via `(is ...)`,
-cut, and `findall` are all in; an infinite rule is stopped by a step
-ceiling and refused by name, never left spinning. `SOLVE()` (answer
-set programming) is scoped and coming.
+numeric comparison (`<`, `>`, `=<`, `>=`, `=:=`, `=\=`) as goals in
+their own right, cut, and `findall` are all in; an infinite rule is
+stopped by a step ceiling and refused by name, never left spinning.
+`SOLVE()` (answer set programming) is scoped and coming.
 
 ## Phrasebooks all the way down
 
