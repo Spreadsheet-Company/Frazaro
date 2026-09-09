@@ -12215,10 +12215,11 @@ now carries one summary paragraph per engine and points here.*
     quoted strings with the same text are identical. Worth stating plainly
     because `PROLOG.8` is the first item that makes "compare a variable to
     a literal" an everyday thing to write, so this is the first item whose
-    users will routinely meet it. *`PROLOG.9`, or a `G-PROLOG` phrasing,
-    should consider whether a bare symbol ought to match a text cell —
-    changing it is a `PROLOG.6` decision, not a `PROLOG.8` one, and is NOT
-    taken here.*
+    users will routinely meet it. *Whether a bare symbol ought to match a
+    text cell is now filed as its own decision item — see `PROLOG.10`, which
+    carries the mechanism, the `IsVarAtom` constraint that rules out copying
+    `DATALOG`'s answer, four options with their costs, and a recommendation
+    on file. It is NOT taken here.*
 
     Also built: one shared `{form}`-templated `prolog-unification-bad-shape`
     for all four (kept SEPARATE from the comparison id — a comparison's
@@ -12281,6 +12282,96 @@ now carries one summary paragraph per engine and points here.*
     downstream currently needs a guard clause, but genuinely baseline, and
     cheap enough to build alongside them rather than as its own separate push.
     `~days`.
+  - ⬜ **PROLOG.10 — ADJUDICATE: is the quoted-string marker part of a term's
+    IDENTITY, or only a note about how it was written?** A DECISION item
+    first and a build item second — filed deliberately rather than settled as
+    a footnote to `PROLOG.8`, which is where it surfaced, because it is a
+    question about what "the same term" MEANS in this language and Prolog
+    people will expect it adjudicated rather than drifted into.
+
+    **The mechanism.** `Tokenize` tags every string literal with a leading
+    `Chr$(34)` — source `"eng"` becomes the internal atom `"eng`, bare `eng`
+    stays `eng`. This is the READER's own convention, not a Prolog one:
+    `VLA.bas`, `VLA_Interpreter.bas`, `VLA_SentenceEngine.bas`,
+    `VLA_Datalog.bas` and `VLA_Prolog.bas` all read it. `TableCellToTerm`
+    reuses it for cell values — a TEXT cell becomes `Chr$(34) & value`, a
+    NUMERIC cell a bare number — and `UnifyTwoWay` compares atoms by exact
+    text, marker included. So a `Dept` column reading `eng` holds `"eng`,
+    the bare `eng` in a query is a different atom, and `(\= D eng)` succeeds
+    on EVERY row while `(== D eng)` succeeds on none. Both answers are
+    correct for the operands; neither is what the author meant. Found live
+    on `PROLOG.8`'s first table-backed check.
+
+    **THE CONSTRAINT that makes this a real decision and not an oversight.**
+    `VLA_Datalog.bas` does not have this problem: its `AtomText` asks
+    `IsVariableAtom` on the RAW token, then STRIPS the marker and stores the
+    bare text, so `"eng"` and `eng` are one constant. `PROLOG` cannot copy
+    that, because the two DSLs classify at different times. DATALOG
+    classifies ONCE at parse time and stores into a typed relation. PROLOG
+    RE-ASKS constantly — `IsVarAtom` runs on stored fact arguments every
+    time `EnvWalkInto`, `UnifyTwoWay` or `FreshenTerm` walks them — so a
+    cell reading `Alice`, stripped to the bare atom `Alice`, would be
+    re-classified as a FREE VARIABLE on the next walk and the stored fact
+    would silently become a wildcard. The marker must persist ON THE TERM,
+    not merely survive parsing. "Be like DATALOG" is therefore NOT available
+    without changing how terms are represented.
+
+    **ISO conformance does not settle it, either way.** VLA's `"` does duty
+    for two different Prolog things at once. Read `"eng"` as Prolog's
+    `'eng'` — a quoted ATOM — and today's behaviour is wrong, since a quoted
+    atom and a bare atom are the same atom in ISO Prolog. Read it as
+    Prolog's `"eng"` — a STRING, a distinct type — and today's behaviour is
+    right. Do not let a conformance argument decide this on its own; the
+    argument runs both ways and whoever cites it has picked a reading.
+
+    **What actually motivates the item:** a user has no way to write an
+    unquoted reference to a text cell's value, gets no signal when they get
+    it wrong, and the sibling DSL in the same product answers the other way.
+
+    **The options, with the costs that are real:**
+      - **A — status quo, "quote your text."** Zero change, zero risk,
+        already documented in `RELEASES.md` and pinned by two pure tests.
+        The trap stays, silent, and `DATALOG` still disagrees.
+      - **B — marker-insensitive comparison.** Keep the marker on the term
+        (so `IsVarAtom` still works) but strip it when comparing two ATOMS,
+        in `UnifyTwoWay` and `TermsIdentical` only. Blast radius is smaller
+        than it looks and should be re-measured, not assumed: those two are
+        called from `VLA_Prolog.bas` ALONE — the sentence engine uses
+        `UnifyOneWay`, a separate function with its own `FormsEqual`, and is
+        untouched. Cost: `(= "42" 42)` becomes TRUE, erasing a text-versus-
+        number distinction a spreadsheet product may want to keep, and it
+        flips one shipped `PROLOG.8` test. This is the ambitious answer and
+        wants its own live pass, never a fold-in.
+      - **C — normalize in `TableCellToTerm`** (bare atom when the text is
+        "symbol-safe", marker otherwise). **Argued against, on the record:**
+        matching would become VALUE-DEPENDENT — `eng` matches a bare symbol,
+        `Eng` does not — so renaming a cell silently breaks a query. An
+        unlearnable rule is worse than a strict one.
+      - **D — refuse the confusable case.** Keep the semantics; in the
+        atom-mismatch branch, refuse by name when two ground atoms differ
+        ONLY by the marker: *"the text `"eng"` and the name `eng` are
+        different things — if you meant the cell's text, write it in
+        quotes."* Narrow by construction, so no false positives on genuinely
+        different values. Cost: a check on the hottest path in the solver
+        (atom mismatch is the common backtracking outcome), so scope it to
+        fire only when exactly one side carries a marker.
+
+    **The recommendation on file, NOT yet adjudicated: D on top of A.** Given
+    the `IsVarAtom` constraint the marker has to be identity-bearing, so the
+    honest fix is not to change what the answer means but to stop the mistake
+    being SILENT — the same move `IN.15` and `PROLOG.7` already made, and a
+    direct application of this project's own standing position that a
+    confidently wrong answer is worse than a crash. `(\= D eng)` returning
+    every row is exactly a confidently wrong answer.
+
+    **An open sub-question either way, to be answered deliberately rather
+    than as a side effect:** should a TEXT cell and a NUMERIC cell both
+    holding `42` be the same term? `A` says no, `B` says yes.
+
+    *Blocks nothing; blocked by nothing.* `PROLOG.9` can ship first. `~days`
+    for `D`, `~week` for `B` with its own live pass. *Pays into:* `DATALOG`/
+    `PROLOG` consistency, and any future `G-PROLOG` phrasing that has to
+    render "is the same as" over table-sourced values.
   - **Stated ceiling, carried forward from `BETA_ROADMAP1.md`, not built
     here:** first-argument clause indexing (`SQL`'s own hash-join law,
     `PROLOG`'s own twin — don't scan every clause per call); tabling/memoized
