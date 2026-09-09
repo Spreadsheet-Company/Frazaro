@@ -616,3 +616,267 @@ of it, which is the only version of "extensible in both directions" a
 solo developer can afford.
 
 ---
+
+## Contemplation 4 — Event Horizons *(2026-09-08)*
+
+*The owner's question, 2026-09-08, filed the next day. Take the Excel
+add-in as Frazaro's proof of concept. Then, in the owner's proposed
+order: an Office Scripts runtime for future-proofing; a web interface or
+fat client so translation is decoupled from any one environment; Google
+Sheets via Apps Script; Apple's spreadsheet; Apache OpenOffice Calc. Then
+orthogonally: English to SQL, for database administration and inside
+Joomla. And the real question: what are the implications of Frazaro/VLA
+not yet considered, and what does it unlock, beyond spreadsheets and
+databases, when people can code deterministically — safely, reliably —
+in their native tongue?*
+
+*Sources read in full before answering: `README.md`, `SUBSTRATE.md`,
+`VENTURE.md`, `VIABILITY.md`, `THREAT_MODEL.md`, `SECURITY.md`,
+`ADVOCATUS.md`, `METAMETAMETALISP.md`, and Contemplations 1–3 above.
+Read in part: `BETA_ROADMAP1.md` (the mission, the ordering rules, the
+standing-decision register, the two-neutralities preamble, the closing
+short answer, `LE.7`, `GO.3`, `PORT.1`–`PORT.3`), `BETA_ROADMAP2.md`'s
+preamble, `CONSULTANT.md` §0–§2.6, `PREMORTEM.md` through D.2,
+`MARKETING.md` §0–§3.2, `INTRINSICS.md`'s scope and first intrinsics,
+`GRAMMAR_SINCE.md`'s rule, `LESSONS.md`'s opening, and `sententiae.txt`.
+The shelf already holds the hourglass (Contemplation 3),
+programs-as-forms (Contemplation 2), the AI drafting bridge (`LE.7`),
+and the accidental object-capability property (`SD-15`); this
+contemplation builds on those rather than restating them. Everything
+below is what the shelf did not yet say. Like its three predecessors it
+is speculation, not commitment: nothing here is an item until the
+betting table says so.*
+
+### The platform sequence, corrected by the architecture it stands on
+
+**Six platforms is two engines.** The VBA emitter that exists today
+already reaches LibreOffice Calc, because LibreOffice Basic runs a VBA
+compatibility mode when a module opens with `Option VBASupport 1`. Apache
+OpenOffice receives maintenance releases only, so LibreOffice is the
+living target and OpenOffice comes along behind it. The other engine is
+the JavaScript port of the translator — and eventually the interpreter —
+that `SD-18` and `PORT.1`–`PORT.3` already anticipate. Office Scripts is
+TypeScript, Apps Script is JavaScript, and a browser is JavaScript, so
+the "web interface" step, the "Office Scripts runtime" step, and the
+"Google Sheets" step are one engineering step with three bindings.
+Whether each binding then interprets or emits — TypeScript for Office
+Scripts, JavaScript for Apps Script — is a per-binding choice, and the
+emitter route is the cheap one, as it is for the database below. Apple's
+spreadsheet is Numbers, its automation surface is AppleScript and
+Shortcuts, and it is the thinnest of the six. It belongs last, not
+fourth.
+
+**The fat client dissolves the ark objection.** `SUBSTRATE.md` H.3
+declined a speculative JavaScript backend because it would be an ark
+built from a forecast. A local-first web translator gives the same
+engine a user-facing reason to exist, so the hedge and the product
+coincide. That reorders the list: the JavaScript engine as the web
+client comes second, and Office Scripts and Sheets fall out of it as
+bindings.
+
+**Cloud hosts invert the no-network pitch.** Apps Script runs on Google's
+servers, and `VENTURE.md` §8 calls Python-in-Excel a non-starter for
+exactly that reason. On cloud-native hosts the sentence changes from "no
+network" to "no *additional* network — the procedure runs where the data
+already lives." That is a doctrine amendment in `SD-13`'s own append-only
+style, and it should be written before the port rather than discovered
+by a reviewer after it.
+
+**Capabilities are per binding, and spellings are forever.** Office
+Scripts cannot touch the file system or mail on its own, so half of
+`SEC.7` is solved by that host and none of it by Excel. The portability
+measure from Contemplation 3 should therefore count capabilities as well
+as forms. And because `SD-4` freezes every shipped spelling, an
+Excel-only rule written today — anything about pivot caches or freeze
+panes — is a spelling that will be carried into Sheets, where it must
+refuse. Prefer intersection-profile rules now and mark Excel-only rules
+as extensions at authoring time, not at porting time.
+
+**The real product of the fat client is a file format.** Once the program
+of record is forms with provenance and a hash (Contemplation 2), the
+natural container is a host-neutral, language-neutral, signed procedure
+document. Nothing like it exists: BPMN draws processes, RPA vendors hoard
+proprietary formats, and no format lets the same procedure open in
+Excel, Sheets, and Calc and render in the reader's language. An
+interchange format for procedures is the standards-shaped artifact, and
+the fat client is where it gets born. The same client gives exact
+dry-run: because semantics are deterministic, "what would this do?" can
+produce the effect list in English before anything runs, on every host.
+
+### The database is not orthogonal; it is a homecoming
+
+SQL was born at IBM as SEQUEL, the Structured English Query Language, in
+1974. English-to-SQL is the second attempt at this idea, and the first
+attempt became a priesthood. The warning that follows is specific: the
+user of an English-to-SQL Frazaro is not the DBA, who already speaks the
+priesthood's language, but the person who has to ask the DBA. Pitch and
+phrasebook accordingly, or rebuild SQL.
+
+What the database gives for free is everything being built by hand for
+Excel:
+
+- **Undo is a transaction.** Snapshot sheets become `BEGIN` and `ROLLBACK`.
+- **Slot types are the schema.** A column's declared type is the
+  `{n:number}` annotation, and a foreign key is a relationship word.
+- **Refusal-before-run is a constraint.** A `CHECK` constraint is a
+  `fail:` proof the DBA wrote years ago.
+- **The capability model is `GRANT`.** `SEC.7`'s permission problem,
+  unsolved in Excel because Excel has no permission model, maps onto
+  row-level security and role grants the host already enforces.
+- **There is no interpreter to write.** The query planner is the
+  deterministic interpreter. Frazaro on a database is emitter-only, which
+  makes it cheaper than the spreadsheet host, not more expensive.
+- **Dry-run is `EXPLAIN` plus an affected-row count.** "This will delete
+  rows from Customers; proceed?" is the same feature as the effect list
+  above.
+
+**Schema introspection writes the org phrasebook.** Every table and column
+name is a noun the organization already chose. The concierge stream that
+today needs founder hours to grow a vocabulary from an SOP can, for a
+database, read `information_schema` and draft most of the phrasebook
+mechanically. The DBA authored the corpus without knowing it.
+
+**Joomla is the administration profile in miniature.** Its ACL is a
+capability system, its language packs are per-community phrasebooks, its
+User Actions Log is the run log `U.18` wants, and its REST API means the
+JavaScript engine in the admin's browser needs no PHP port. A site admin
+in Lisbon writes "Unpublish every article in category News older than a
+year" in Portuguese, and the CMS profile has articles, categories, users,
+and permissions as its finite object model. That profile is the first one
+that is not a spreadsheet, and it will teach what the spreadsheet profile
+smuggled into the core.
+
+**The blast radius changes.** A deterministic wrong sentence in Excel
+damages one workbook with an undo button behind it. The same sentence
+over a production database is reliably wrong at scale, in one
+transaction, with a commit. Dry-run with counts is therefore a core form
+of the language, not an Excel convenience, and it should be designed
+before the database emitter, not after.
+
+### The deep horizon: what falls out when administration becomes legible
+
+The interlingua-of-actions insight (Contemplation 3) bounds the horizon
+honestly: deterministic native-language coding works wherever the domain
+has a finite object model. The reframing is that most administrative
+work already has one — forms, ledgers, eligibility rules, schedules,
+tariffs, permits, compliance checks. That is the bureaucratic layer of
+civilization, it is most white-collar labor, and it is exactly what LLM
+agents are being pointed at. The counter-future is one where the rules
+that run people's lives are readable, in their language, and either run
+or refuse. Concretely:
+
+1. **English stops being a prerequisite for computation.** Nearly every
+   programming language keywords in English, so a bookkeeper in Lagos
+   learns English before logic. Language-neutrality is not localization
+   of a ribbon. It is the removal of a gate in front of most of humanity.
+
+2. **Legible automation becomes due process.** GDPR Article 22, together
+   with its "meaningful information about the logic involved" provisions,
+   amounts to a right to explanation of automated decisions, and the only
+   automation that satisfies it trivially is one where the explanation
+   *is* the sentence. Catala already compiles French tax law from a
+   controlled language, and the Bank of England piloted machine-readable
+   regulation. The `DATALOG` and `PROLOG` engines are the formalism
+   computational law uses. What legislative drafting lacks is the shadow
+   audit that refuses overlapping rules at load and the refusals that
+   teach, because today contradictory clauses are discovered in court.
+
+3. **Policy about procedures, written in the same language.** Because
+   there is no open-ended dynamic dispatch (`SD-15`, `SEC.1`), a
+   program's effects are statically enumerable. "No procedure may clear
+   the Ledger sheet" or "no procedure may email outside our domain" is
+   itself a checked sentence that Check enforces over every other
+   program. That is the compliance pack's real form: user-authored policy
+   over user-authored procedures, provable before a run. Nobody can do
+   that over VBA or over model-generated code.
+
+4. **The consent layer between AI and the world.** `LE.7` makes Frazaro
+   the safe target for AI-written spreadsheet automation. Generalized, a
+   Frazaro profile is a human-readable tool schema: the sentence the
+   model emits is the sentence the human approves, and
+   one-sentence-one-meaning means the approval is of the actual action.
+   The interpreter is a sandbox by accident, with no network and no
+   first-class functions to smuggle a capability through. Every
+   agent-actuated domain needs this layer, and none of them has it.
+
+5. **Programming by voice, reliably.** A finite grammar is the only kind a
+   speech recognizer can be constrained to, and constrained recognition
+   is near-exact where open dictation is not. That opens programming to
+   blind and motor-impaired users and to anyone whose hands are busy on a
+   warehouse floor. It is the accessibility story the mission sentence
+   already implies.
+
+6. **A verified natural-language surface.** A core small enough to
+   implement in a weekend, plus a grammar with no backtracking (`SD-16`),
+   is small enough to verify formally, the way CompCert verified a C
+   compiler. A machine-checked interpreter would make Frazaro the first
+   natural-language-surface language with proven semantics, and that is
+   the entry ticket to clinical order sets, batch recipes, and
+   safety-rated procedures. Home automation is the low-stakes trainer for
+   the same shape.
+
+7. **Cross-lingual institutions.** The European Union treats every
+   official-language version of a law as equally authentic and needs
+   court doctrine to reconcile them when they diverge. Forms-as-record
+   makes the form authentic and the languages renderings, which is the
+   answer that body never had. For a multinational: Madrid writes the
+   procedure, Osaka reads it, London audits it, and all three sign one
+   hash. That is the end of English as the mandatory language of
+   operations.
+
+8. **Procedures that outlive platforms, people, and dialects.** VBA from
+   1997 still runs; Python 2 scripts no longer run on a current
+   interpreter. A procedure stored as forms under a constitution renders
+   into the English of fifty years from now. The same property makes
+   spreadsheet science reproducible, which the Reinhart–Rogoff error and
+   the gene names Excel silently turned into dates both argue is overdue.
+
+9. **Change control in sentences.** A semantic diff of two form trees
+   renders as "this version now also clears column C." Managers and
+   change boards approve diffs they can read, and the procedure's history
+   is a readable ledger rather than a macro's binary blob.
+
+10. **Standardization is the sixth destiny.** SQL, HTML, and C won when
+    the specification escaped the vendor and competitors implemented it.
+    `VIABILITY.md`'s five destinies stop at the Register; the end-state
+    beyond it is one where Excel, Sheets, and Calc implement the core
+    natively and Frazaro is the trademark on the reference
+    implementation. That flips the sequence from "we port to six hosts"
+    to "six hosts implement the spec."
+
+11. **A new profession.** The automation role bifurcates into the
+    procedure author, who is the operator, and the phrasebook
+    lexicographer, who is a linguist-programmer nobody currently trains.
+    Contemplation 1's curator-as-editor is the first job description for
+    it.
+
+### The uncomfortable implications, so the scales fall both ways
+
+- **A shared phrasebook is a systemic risk.** One wrong base rule at
+  month-end in a thousand organizations is a library vulnerability
+  wearing a dictionary's clothes. `SD-4` protects spellings, not
+  meanings, and `OUTPUT-EXCEPTION.md` covers generated code, not the rule
+  that generated it. The Register needs a CVE process for grammar rules
+  and a written liability position.
+- **Meaning disputes migrate to translation.** When Madrid and Osaka
+  disagree about what a form means, that is a treaty problem, not a
+  compiler problem, and someone must own canonical meaning.
+- **Determinism is not correctness.** A reliably wrong procedure is worse
+  than an unreliably wrong one at scale. Dry-run and
+  policy-over-procedures are the mitigations, and they belong in the
+  core.
+- **The boundary is real.** Finite object models cover most
+  administration and almost none of thought. The horizon is the
+  self-executing bureaucracy that citizens can read, not a general
+  programming language for everything.
+
+### One doctrinal note on the sequence itself
+
+`SD-7`'s spirit, as `SUBSTRATE.md` H.3 applies it to backends, says no
+backend without a user who needs it, and `SD-18` says a second host
+follows the goldens rather than leading them. "Office Scripts for
+future-proofing" is therefore the one item in the proposed sequence the
+register argues against — and the fat client is what turns it into an
+item the register allows.
+
+---
