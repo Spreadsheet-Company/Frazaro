@@ -499,7 +499,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' message that still enumerated only four would be quietly wrong about
     ' which names it had just refused, which is the same class of
     ' confidently-wrong answer the {form} rewrite above exists to remove.
-    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, the six type tests var? nonvar? atom? number? atomic? compound?, and the six ISO spellings var nonvar atom number atomic compound - those last six reserved only so PROLOG can point you at the question-mark form instead of failing silently) and can't be used as a predicate name in a (fact ...) or (rule ...)."
+    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, the six type tests var? nonvar? atom? number? atomic? compound?, the six list goals length member nth append reverse sum-list, and the six ISO spellings var nonvar atom number atomic compound - those last six reserved only so PROLOG can point you at the question-mark form instead of failing silently) and can't be used as a predicate name in a (fact ...) or (rule ...)."
     ' `prolog-cut-not-yet-supported` (PROLOG.5.1-5.3-era: "cut (!) isn't
     ' supported yet.") is retired at PROLOG.5.4 - cut is real now, no
     ' code path can raise it anymore, and this project's own precedent
@@ -593,6 +593,31 @@ Private Sub AddEntries(ByVal m As Collection)
     ' any of them, so naming it can never tell a user about a form they
     ' did not write. The three ids above are templated because they serve
     ' six, four and six forms respectively; these serve one.
+    ' PROLOG.13 - the six list goals' own shared SHAPE refusal. The
+    ' widest fan-out of any id in this module: one raise site serving
+    ' length, member, nth, append, reverse and sum-list, and the first
+    ' family whose members do not even agree on an arity - length,
+    ' reverse and sum-list take two arguments, nth and append three. So
+    ' it takes {count} from the caller as well as {form}, and naming
+    ' either in its own text would be wrong five times out of six.
+    ' Carried in tools/check_prolog_form_attribution.ps1's multi-form
+    ' baseline, added there BEFORE this message existed, and the check
+    ' failed on it until it did.
+    AddMsg m, "prolog-list-bad-shape", 5, "VLA-Prolog", "{form} needs exactly {count} arguments. The six list goals are (length L N), (member X L), (nth N L X), (append A B C), (reverse L R) and (sum-list L N)."
+    ' PROLOG.13 - and their shared refusal for an argument that is not a
+    ' PROPER LIST. Its whole job is to teach the spelling, because a
+    ' list is the one term in PROLOG whose written form a user cannot
+    ' guess: there is no [a,b,c] here, since the reader treats [ ] and |
+    ' as ordinary letters. So the message shows a real list rather than
+    ' describing one. {form}-templated for the same reason as its
+    ' sibling above, and in the same baseline.
+    '
+    ' It fires for a partial list - (cons a T) with T unbound - as well
+    ' as for an outright non-list, deliberately. Real Prolog would solve
+    ' some of those; this engine says so instead, because the
+    ' alternative is a query that quietly finds nothing and cannot be
+    ' told apart from one that correctly found nothing.
+    AddMsg m, "prolog-list-not-a-list", 5, "VLA-Prolog", "{form} needs a list, but found '{value}'. A list is built with cons and ends in nil - (cons a (cons b nil)) is the list a, b - and the empty list is written nil. A findall bag is already one."
     AddMsg m, "prolog-between-bad-shape", 5, "VLA-Prolog", "(between ...) needs exactly three arguments - a low bound, a high bound, and the value to generate or test, like (between 1 10 X)."
     ' Raised for a bound OR for a bound third argument, since the answer
     ' is the same in both cases and so is the fix: between counts, and a

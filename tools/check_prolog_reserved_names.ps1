@@ -119,6 +119,7 @@ $countPhrases = @{
     'term-matching goals'  = 'UnificationOpFor'
     'type tests'           = 'TypeTestKindFor'
     'ISO spellings'        = 'TypeTestIsoSpellingFor'
+    'list goals'           = 'ListGoalKindFor'
 }
 
 $numberWords = @{

@@ -164,6 +164,119 @@
   was verified by deliberately introducing the fault to confirm it is
   caught.
 
+- **PROLOG has lists, and `findall` stops being a dead end.** Until now
+  `findall` handed you a bag of answers and there was nothing you could
+  do with it. You could put it in a cell and read it. You could not count
+  it, add it up, pick the third one out of it, or ask whether something
+  was in it. That was the largest missing piece in the engine, and it is
+  the piece that made `findall` — the goal that gathers everything
+  matching a pattern — worth much less than it looks.
+
+  Six new goals: `(length L N)`, `(member X L)`, `(nth N L X)`,
+  `(append A B C)`, `(reverse L R)` and `(sum-list L N)`. The one most
+  people will reach for first:
+
+  ```
+  (fact (sale north 10)) (fact (sale north 20)) (fact (sale south 30))
+  (query (findall Amount (sale north Amount) Bag) (sum-list Bag Total))
+  ```
+
+  That gathers every northern sale and totals it — 30 — in one query,
+  which simply could not be written before.
+
+- **Most of these goals run in more than one direction.** That is the
+  part worth knowing, because it is what makes them worth having rather
+  than being six functions with awkward spelling.
+
+  `(member X L)` **tests** membership when `X` is already filled in, and
+  **produces one row per element** when it is not. `(nth N L X)` picks
+  the `N`th element when you name a position, and walks the whole list,
+  position beside element, when you leave `N` blank. `(length L N)` and
+  `(sum-list L N)` compute a count or a total when `N` is blank and
+  **check** one when it is not.
+
+  `(append A B C)` is the one that goes furthest. Given two lists it
+  joins them. Given the *result* and either half, it hands back the
+  other half — so `(append (cons a nil) Rest Whole)` drops a known
+  prefix, and `(append Front (cons z nil) Whole)` drops a known suffix.
+  Given only the result, it produces **every way the list could be split
+  in two**, one row per split, both ends included. None of that is extra
+  machinery; it is the same goal read in different directions, which is
+  what a logic language is for.
+
+  What it will not do is work backwards from nothing. `(append A B C)`
+  with all three blank has nothing to join and nothing to split, and is
+  refused by name rather than left to find nothing.
+
+- **How a list is written, and why it is not `[a, b, c]`.** Frazaro
+  writes a list as `(cons Head Tail)`, and the empty list as `nil`. So
+  the list *a, b, c* is `(cons a (cons b (cons c nil)))`.
+
+  That is more typing than the square brackets Prolog uses, and the
+  reason is worth knowing rather than guessing at: Frazaro's reader
+  treats `[`, `]` and `|` as ordinary letters, exactly like `a` or `x`.
+  Writing `[H|T]` would not produce a list — it would produce one long
+  word spelled `[H|T]`. Teaching the reader about brackets means
+  changing it for all five of Frazaro's languages at once, which is a
+  much larger change than this one, so it is not done here.
+
+  What you get in exchange is that lists are not a special case. A list
+  is an ordinary term, so everything that already worked on terms works
+  on lists with no new rules to learn — including taking one apart:
+
+  ```
+  (query (findall X (color X) Bag) (= Bag (cons First Rest)))
+  ```
+
+  `First` is the first colour and `Rest` is everything after it. The same
+  works in a rule's head, so you can write a rule that only matches
+  non-empty lists.
+
+- **This changes what a `findall` bag looks like in a cell.** A bag of
+  three colours used to display as `(red green blue)`. It now displays as
+  `(cons red (cons green (cons blue nil)))`. If you have a sheet that
+  reads a bag as text, that text has changed.
+
+  The old display was shorter and it was also a small lie: you could not
+  paste `(red green blue)` back into a program and get the same list —
+  Frazaro would read it as a *thing called red with two parts*. The new
+  form reads back as exactly what it prints. A shorter way to write the
+  same list is planned, and it will be a genuine shorthand rather than a
+  different-looking display.
+
+- **The empty list is now `nil`, and that fixed an old wrong answer.**
+  A `findall` that finds nothing used to hand back `()`, and asking
+  `(compound? Bag)` about it answered *yes* — because internally it was
+  an empty structure. Standard Prolog says the empty list is a simple
+  value, not a structure. Now that it is `nil`, `(compound? Bag)` answers
+  *no* and `(atomic? Bag)` answers *yes*, which is the standard answer.
+  Nothing in the type tests changed to make that happen.
+
+- **These goals do their work in one step, on purpose.** A whole query
+  gets a fixed budget of resolution steps. Written the traditional way —
+  as Prolog rules that call themselves — `length` and `append` would
+  spend one step per element and run out of budget on a list of about a
+  hundred, which is exactly the size a real `findall` bag reaches. So
+  they are built into the engine instead: counting, reversing and summing
+  a list cost one step no matter how long it is. `member`, `nth` and
+  `append` still cost one step per answer they hand back, because each of
+  those really is a separate answer.
+
+- **When something is not a list, Frazaro says so rather than finding
+  nothing.** `(length (color red) N)` does not quietly return no rows; it
+  stops and tells you it needs a list, and shows you what a list looks
+  like. That includes a half-built list — `(cons a T)` where `T` has not
+  been filled in yet — which some Prologs would complete for you and
+  Frazaro deliberately refuses, because a query that quietly finds
+  nothing is indistinguishable from one that correctly found nothing.
+
+  Six names are now reserved and cannot be used for your own predicates:
+  `length`, `member`, `nth`, `append`, `reverse` and `sum-list`. `member`
+  is the one worth flagging, since it is a natural name for a fact about
+  people. `cons` and `nil` are **not** reserved — they are ways of
+  writing data, not goals, so a predicate of your own may still be called
+  `cons`.
+
 ### Known open security items
 
 **Closed this release:** none — 0.5.4 is a feature release and touches no

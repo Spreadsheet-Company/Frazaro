@@ -1,11 +1,164 @@
 Attribute VB_Name = "VLA_Prolog"
 Option Explicit
-Public Const VLA_PROLOG_VERSION As String = "PROLOG.9"
+Public Const VLA_PROLOG_VERSION As String = "PROLOG.13"
 ' (This constant read "PROLOG.7" until PROLOG.9. PROLOG.8 documented
 ' itself at each site and added no header block of its own, and the bump
 ' went with it. Nothing reads this constant - it is a marker for whoever
 ' opens the module - so the staleness cost nothing; it is corrected here
-' rather than left to grow.)
+' rather than left to grow. PROLOG.10/.11/.12 documented themselves at
+' their own sites likewise and left it reading "PROLOG.9"; this item
+' changes the module's TERM VOCABULARY, which is the one kind of change
+' a reader opening this file most needs the marker to announce, so it is
+' bumped again here.)
+'
+' PROLOG.13: LIST TERMS. This engine had no list type. `findall` has
+' shipped a Bag since PROLOG.5.3 and there was no way to take one apart,
+' which made findall a terminal operation rather than a composable one.
+' The item is the REPRESENTATION decision; the six goals that follow are
+' the easy part after it.
+'
+' THE REPRESENTATION: CONS CELLS. A list is `(cons Head Tail)`, and the
+' empty list is the ATOM `nil`. So [a, b, c] is
+' `(cons a (cons b (cons c nil)))`. Two constraints decided this, both
+' measured against the code rather than assumed:
+'
+'   (i)  THE READER CANNOT SPELL `[H|T]`. VLA.bas's own Tokenize
+'        delimits on exactly ( ) space tab CR LF ; " - so `[`, `]` and
+'        `|` are ORDINARY SYMBOL CHARACTERS and `[H|T]` arrives as one
+'        atom. Real list syntax therefore needs a READER change, which
+'        is shared by all five DSLs and is a far bigger blast radius
+'        than a VLA_Prolog item. An S-expression spelling needs none.
+'   (ii) A HEADLESS LIST CANNOT BE WRITTEN DOWN. In an S-expression
+'        language `(f a)` is always a compound term whose functor is f.
+'        A headless `(a b c)` is therefore indistinguishable from the
+'        compound term a(b, c) - so the old Bag shape could be rendered
+'        but never READ, and `(red green blue)` read back is a term
+'        whose functor is `red`.
+'
+' WHY CONS AND NOT A TAGGED VECTOR `(list a b c)`, which would have kept
+' the old compact rendering. Three reasons, in order of weight. A cons
+' cell DESTRUCTURES BY UNIFICATION - `(= L (cons H T))` splits a list
+' with no new machinery at all, and a user can write their own recursive
+' list rule; a fixed-arity vector can never be pattern-matched, so every
+' list operation would have to stay native forever. The empty list
+' becomes an ATOM, which is the ISO answer and fixes the edge case
+' PROLOG.9 recorded below. And `list` would have had to be RESERVED (a
+' user could otherwise define `list/3` and have it silently shadowed)
+' while never being DISPATCHED, which tools/check_prolog_reserved_names
+' .ps1's own rule C forbids - it could only have been admitted by
+' widening that check, which is the wrong direction.
+'
+' THE COST, STATED PLAINLY BECAUSE THE OWNER SEES IT IN A CELL: findall's
+' bag used to render `(red green blue)` and now renders
+' `(cons red (cons green (cons blue nil)))`. That is verbose, and it is
+' the honest form - it re-reads as exactly the term it prints, which the
+' old rendering did not. Real Prolog solves this by PRINTING `[a,b]` for
+' a term it stores as '[|]'(a,'[|]'(b,[])), and the same relief is open
+' here as `(list a b c)` READER SUGAR expanded to a cons chain at parse
+' time. That is a pure addition on top of this representation - which is
+' exactly why the representation had to be settled first - and it is
+' filed as this item's own named follow-up rather than folded in, since
+' it would reserve `list` and hit the rule C problem above.
+'
+' `cons` and `nil` are NOT reserved predicate names, deliberately. They
+' are a functor and an atom - DATA, not goals - so there is nothing to
+' dispatch, and reserving them would trip rule C exactly as `list` would.
+' Real Prolog reserves neither either.
+'
+' THE FUNCTOR IS COMPARED CASE-SENSITIVELY (`CStr(...) = "cons"`, never
+' VLA_Identity.Fold), unlike a GOAL name, which GoalPredName folds. That
+' is not an inconsistency, it is the only self-consistent choice:
+' UnifyTwoWay compares two ground atoms with VBA's Option Compare Binary,
+' so a folded reader here would classify `(Cons a nil)` as a list that
+' then unifies with no list this module can build. It is worse than that
+' - `Cons` starts with a capital, so IsVarAtom calls it a VARIABLE, and
+' folding would admit a "list" with an unbound variable in functor
+' position. Proved by mutation before import: flipping the comparison to
+' case-insensitive makes the transliteration accept exactly that term.
+'
+' EVERYTHING GENERIC IS INHERITED, VERIFIED RATHER THAN ASSUMED. A cons
+' cell is an ordinary compound term, so UnifyTwoWay (VLA_Unify.bas,
+' recursing 1 To Count), FreshenTerm, CollectVars, TermHasVariable,
+' CollectTemplateVars and SubstituteTemplate (all 2 To Count, position 1
+' preserved as a functor) and ResolveTermDeep (1 To Count, a same-string
+' no-op on the lowercase atom `cons`) all handle lists correctly with no
+' change whatsoever. Not one of those functions is touched by this item.
+'
+' AND IT CLOSES A LATENT BUG THE ROADMAP DID NOT NAME. Those 2-To-Count
+' walkers SKIP POSITION 1 because position 1 of a compound term is a
+' functor - true of every term in this engine EXCEPT the old headless
+' Bag, where position 1 was an ordinary element. So a variable sitting in
+' element 1 of a headless list was invisible to FreshenTerm, CollectVars
+' and TermHasVariable alike. Reachable today by writing a literal list in
+' a rule body. Under cons every position-1 really is a functor again, so
+' the exception disappears rather than needing a carve-out - which is
+' also why ResolveTermDeep's and UnifyArgsOnly's own headers, both of
+' which justified themselves by citing "findall's functor-less Bag," are
+' corrected below: that structure no longer exists.
+'
+' THE LIBRARY IS NATIVE, NOT PROLOG RULES, and this is the fork the
+' roadmap entry does not pose. PROLOG_MAX_STEPS is 120 and is a TOTAL-
+' work ceiling charged once per candidate. `append/3`, `member/2` and
+' `length/2` written as Prolog RULES are recursive and generate, so a
+' rule-based library would spend the entire budget on a list of ~100 -
+' and the length of a real findall bag would be uncomputable, which is
+' precisely the case the item exists to serve. Raising the ceiling is not
+' available: PROLOG.9 already declined to, and PROLOG_MAX_STEPS's own
+' declaration comment demands real profiling data first. Native arms cost
+' ONE step for a deterministic goal regardless of list length (the walk
+' is a primitive, exactly as `is` walks an arbitrary expression tree for
+' one step), and one step per candidate for a generator, which is the
+' real resolution work. Native is also the more auditable answer: one
+' reviewable function per goal with a refusal that names itself, rather
+' than an emergent recursion whose failure mode is a step-ceiling message
+' blaming a runaway rule the user never wrote.
+'
+' THE SIX, and their modes. All six take a step for the goal; the three
+' generators take one more per candidate.
+'
+'   (length L N)     DETERMINISTIC. L must be a proper list; N unifies
+'                    with its count.
+'   (reverse L R)    DETERMINISTIC.
+'   (sum-list L N)   DETERMINISTIC. Every element must be a number, and
+'                    a non-number reuses prolog-arith-not-numeric with
+'                    {form} naming (sum-list ...) - the same shared,
+'                    form-attributed refusal `is` and the six comparisons
+'                    already raise.
+'   (member X L)     GENERATOR. Unifies X against each element in turn.
+'   (nth N L X)      1-BASED, and a generator when N is unbound. With N
+'                    bound out of range it FAILS - an ordinary no-rows,
+'                    ISO nth1/3's own behaviour - rather than refusing,
+'                    because an index that does not exist is a correct
+'                    negative answer, not a malformed program.
+'   (append A B C)   Two modes. A and B proper lists -> C (deterministic).
+'                    A unbound and C a proper list -> enumerates the
+'                    len(C)+1 SPLITS (generator).
+'
+' Three generators, and every one of them obeys the rule SolveBetween's
+' own header states: a generator's loop must STOP the moment cutActive
+' comes back True, and must NEVER absorb the signal - absorption belongs
+' only to the candidates loop that selected the clause the `!` sits
+' inside, and none of these selects a clause or creates a barrier.
+'
+' WHY NO UP-FRONT RANGE REFUSAL, unlike `between`. `between`'s range is
+' computed from arithmetic and can be astronomically wide at no cost, so
+' it must refuse before generating. A list's length is bounded by what is
+' already in memory, and a findall bag is SELF-BOUNDING: harvesting it
+' charged a step per solution against the same 120, so no bag can be
+' longer than the ceiling. A hand-written literal list long enough to
+' matter is one the user typed.
+'
+' KNOWN LIMIT, pinned as behaviour rather than left as prose: a PARTIAL
+' list - `(cons a T)` with T still unbound - is not a proper list and is
+' refused by name. ISO would solve some of these; refusing says exactly
+' what is wrong, and the alternative is a silent wrong answer.
+'
+' `prolog-list-bad-shape` and `prolog-list-not-a-list` are both
+' {form}-templated and serve all six goals from one raise site each. The
+' six do not even share an arity, so the shape refusal takes its COUNT
+' from the caller too. Both were added to
+' tools/check_prolog_form_attribution.ps1's multi-form baseline BEFORE
+' the code existed, and it failed on them until it did.
 '
 ' PROLOG.9: the six ISO type-test goals - written `var?`, `nonvar?`,
 ' `atom?`, `number?`, `atomic?`, `compound?` - and `between/3`. The
@@ -134,13 +287,29 @@ Public Const VLA_PROLOG_VERSION As String = "PROLOG.9"
 ' exactly the "any other loop leaves it set" case already described
 ' there. Without this, `!` silently fails to prune a generator.
 '
-' A representation edge, pinned rather than special-cased: this engine
-' has no list type, so findall's own Bag is a Collection and an EMPTY
-' bag is a zero-length one. `(compound EmptyBag)` is therefore True
-' here, where ISO's `[]` is atomic. Classifying by representation is the
-' honest reading when the representation is all there is; inventing a
-' special case for zero-length would make `compound` mean something the
-' rest of the module does not.
+' A representation edge, CLOSED BY PROLOG.13 - and the paragraph that
+' stood here was wrong about itself in a way worth recording. It read:
+' "a representation edge, PINNED rather than special-cased." It was not
+' pinned. It was prose in this header and nothing else - no test in
+' VLA_Tests_Query.bas combined findall with a type test, so the claim
+' had never once been executed. The judgement it recorded was sound; the
+' word "pinned" was not, and a header that says a thing is held when
+' nothing holds it is worse than one that says nothing.
+'
+' What it recorded: PROLOG.9's engine had no list type, so findall's Bag
+' was a Collection and an EMPTY bag a zero-length one, which made
+' `(compound? EmptyBag)` True where ISO's `[]` is atomic. Classifying by
+' representation was the honest reading when the representation was all
+' there was, and inventing a special case for zero-length would have made
+' `compound?` mean something the rest of the module did not.
+'
+' PROLOG.13 gives lists a real nil, so the edge answers the ISO way
+' without a special case of any kind: an empty list is now the ATOM
+' `nil`, SolveTypeTest takes its non-object branch unchanged, and
+' `(compound? EmptyBag)` is False while `(atomic? EmptyBag)` and
+' `(atom? EmptyBag)` are True. Not one line of SolveTypeTest moved - the
+' representation changed underneath it and the classification followed.
+' NOW it is pinned, by tests written with this item.
 '
 ' PROLOG.7: the six comparison operators (<, >, =<, >=, =:=, =\=) as
 ' goals in their own right. PROLOG.5.1 shipped arithmetic strictly as the
@@ -798,6 +967,16 @@ Public Const VLA_PROLOG_VERSION As String = "PROLOG.9"
 ' "profile first, don't build the cache speculatively" doctrine applied
 ' to a ceiling instead of a cache.
 Private Const PROLOG_MAX_STEPS As Long = 120
+' PROLOG.13: the empty list. An ordinary lowercase ATOM, not a Collection
+' and not a sentinel object - which is the whole reason `(atomic? nil)`
+' and `(compound? nil)` come out the ISO way with no change to
+' SolveTypeTest at all. Written down once here so the reader, the
+' builder (MakeListTermInto) and every goal that terminates a walk on it
+' can never disagree about its spelling. Compared case-sensitively
+' everywhere, exactly as UnifyTwoWay compares any other ground atom -
+' `NIL` and `Nil` both start with a capital and are therefore VARIABLES
+' to IsVarAtom, never this.
+Private Const PROLOG_NIL As String = "nil"
 ' PROLOG.4: `(rule head body...)` forms, unification-driven SLD
 ' resolution with backtracking, no cut - docs/BETA_ROADMAP2.md's own
 ' PROLOG.4 entry. One predicate may now be defined by facts AND rules
@@ -1237,6 +1416,31 @@ Private Sub CollectVars(ByVal term As Variant, freeVarNames As Collection, ByVal
         ' VarAlreadyCollected dedupes; never bound at all, EvalArithTerm
         ' refuses the goal by name before any row is produced, so no phantom
         ' column can survive to be rendered.
+        '
+        ' PROLOG.13: the SIX LIST GOALS get no arm here either, and for the
+        ' same kind of reason `between` gets none - stating it is worth more
+        ' than an arm that would do nothing. All six BIND in the shared,
+        ' non-discarded environment (SolveListGoal threads a fresh clone
+        ' forward the way `is` does, never the caller's own the way `not`
+        ' does), so every variable in one is a real output column and the
+        ' default descend already collects it.
+        '
+        ' The phantom-column hazard PROLOG.5.2, PROLOG.8 and PROLOG.9 each
+        ' met cannot arise here, and it is worth saying WHY rather than
+        ' noting that it does not: a phantom column needs a goal that
+        ' SUCCEEDS while leaving a collected variable unbound. Every list
+        ' goal takes a list argument, and an unbound list argument is
+        ' refused by name before a single row is produced - so a query like
+        ' `(query (length L N))` stops rather than spilling a column headed
+        ' L containing the text "L". The refusal is what closes it.
+        '
+        ' Nor do the six collide with the shape-keyed skips above. `(length
+        ' L N)`, `(reverse L R)` and `(sum-list L N)` are 3 long and reach
+        ' the 3-long check, which skips only on a UnificationOpFor hit;
+        ' `(nth N L X)` and `(append A B C)` are 4 long and reach the 4-long
+        ' check, which skips only on `findall`. None of the five names
+        ' matches, so all five fall through to the default descend as
+        ' intended - checked against those arms rather than assumed.
         If lst.Count = 4 Then
             If Not IsObject(lst.Item(1)) Then
                 If VLA_Identity.Fold(CStr(lst.Item(1))) = "findall" Then
@@ -1422,7 +1626,17 @@ Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
         ' SolveGoalList without a matching reservation right here passed
         ' clean - verified by mutation, and precisely the mistake two new
         ' families at once invites.
-        IsReservedPredicateName = (ComparisonOpFor(predName) <> "" Or UnificationOpFor(predName) <> "" Or TypeTestKindFor(predName) <> "" Or TypeTestIsoSpellingFor(predName) <> "")
+        '
+        ' PROLOG.13: its own six list-goal names join on the identical
+        ' terms, from their own table - a FIFTH delegated table now, and
+        ' the same non-short-circuit note applies unchanged, all five
+        ' being pure lookups over frozen Select Cases.
+        '
+        ' `cons` and `nil` are deliberately NOT here. They are a functor
+        ' and an atom - data, never goals - so there is nothing to
+        ' dispatch them to, and rule C would correctly call a name
+        ' reserved-but-inert a defect. See ListGoalKindFor's own header.
+        IsReservedPredicateName = (ComparisonOpFor(predName) <> "" Or UnificationOpFor(predName) <> "" Or TypeTestKindFor(predName) <> "" Or TypeTestIsoSpellingFor(predName) <> "" Or ListGoalKindFor(predName) <> "")
     End Select
 End Function
 
@@ -1589,6 +1803,67 @@ Private Function TypeTestIsoSpellingFor(ByVal predName As String) As String
     Case "number":   TypeTestIsoSpellingFor = "number?"
     Case "atomic":   TypeTestIsoSpellingFor = "atomic?"
     Case "compound": TypeTestIsoSpellingFor = "compound?"
+    End Select
+End Function
+
+' PROLOG.13: a list goal's own predicate name -> the kind of operation it
+' performs, or "" if predName is not one of the six at all. The same
+' single-source shape ComparisonOpFor, UnificationOpFor and
+' TypeTestKindFor (above) established, and for the identical reason:
+' IsReservedPredicateName, ValidateBodyItem, DesugarBodyItem and
+' SolveGoalList's own dispatch all ask this function rather than
+' repeating the list, so reserving a name and dispatching it can never
+' disagree about which six they are.
+'
+' Only `sum-list` translates; the other five map to their own spelling.
+' The kind is what SolveListGoal's own Select Case is written in, so a
+' rename of the written name never reaches that function.
+'
+' NO QUESTION MARKS, and that follows PROLOG.9's own stated rule rather
+' than departing from it: a name that ASKS something ends in "?", a name
+' that PRODUCES something does not. All six of these produce - a count, a
+' reversed list, a sum, an element, a join - which is the same reason
+' `between` has none. The one list predicate that really is a question,
+' `is-list?`, belongs to PROLOG.15 and will carry the mark.
+'
+' `cons` and `nil` are deliberately absent. They are DATA - a functor and
+' an atom - not goals, so there is nothing to dispatch; a name reserved
+' but not dispatched is exactly the defect
+' tools/check_prolog_reserved_names.ps1's own rule C exists to catch.
+' This module's own PROLOG.13 header has the full reasoning, including
+' why the compact `(list a b c)` spelling would have had the same problem
+' and is filed as sugar rather than adopted here.
+'
+' tools/check_prolog_reserved_names.ps1 reads this table's own Case arms
+' to count the set it must find advertised, and its rule B holds the
+' phrase "the six list goals" in prolog-reserved-predicate-name's text to
+' this table's real size.
+Private Function ListGoalKindFor(ByVal predName As String) As String
+    Select Case predName
+    Case "length":   ListGoalKindFor = "length"
+    Case "member":   ListGoalKindFor = "member"
+    Case "nth":      ListGoalKindFor = "nth"
+    Case "append":   ListGoalKindFor = "append"
+    Case "reverse":  ListGoalKindFor = "reverse"
+    Case "sum-list": ListGoalKindFor = "sum"
+    End Select
+End Function
+
+' PROLOG.13: how many elements a list goal's own term has, functor
+' included - so `(length L N)` is 3 and `(nth N L X)` is 4. The six are
+' the first reserved family that does NOT share one arity, which is why
+' this exists at all: the shared shape refusal cannot name a count of its
+' own any more than it can name a form of its own, and takes both from
+' the caller.
+'
+' Keyed on the KIND, not the written name, so it answers the same for
+' `(SUM-LIST ...)` as for `(sum-list ...)` without folding anything
+' itself - ValidateBodyItem has already folded the head word before it
+' reaches ListGoalKindFor.
+Private Function ListGoalArity(ByVal kind As String) As Long
+    Select Case kind
+    Case "nth", "append": ListGoalArity = 4
+    Case Else:            ListGoalArity = 3
     End Select
 End Function
 
@@ -1838,6 +2113,51 @@ Private Sub ValidateBodyItem(ByVal item As Variant, ByVal ctx As String, predAri
                 ValidateArithExpr lst.Item(2), "(between ...)"
                 ValidateArithExpr lst.Item(3), "(between ...)"
                 Exit Sub
+            ElseIf ListGoalKindFor(headWord) <> "" Then
+                ' PROLOG.13: the six list goals. Arity is the ONLY thing
+                ' checked here, and - unlike every sibling arm above -
+                ' the six do not agree on what that arity is
+                ' (length/reverse/sum-list take two arguments, nth and
+                ' append three), so it is asked of ListGoalArity rather
+                ' than written as a literal. That is also why the shared
+                ' refusal carries {count} beside {form}: one raise site
+                ' serving six forms of two different shapes can name
+                ' neither of them itself.
+                '
+                ' Nothing else is checked, exactly as the term-matching
+                ' and type-test arms above check nothing else. Every
+                ' argument here is an arbitrary TERM - a list, an
+                ' element, an index - and running ValidateArithExpr over
+                ' any of them would refuse `(member X (cons a nil))` for
+                ' using an operator that was never meant to be
+                ' arithmetic. Whether an argument really IS a list, or a
+                ' usable index, is a RUNTIME question by construction: a
+                ' list argument is normally a variable at parse time,
+                ' bound later by the findall this item exists to make
+                ' composable. SolveListGoal decides it, and refuses by
+                ' name when it cannot - the identical reasoning `is`'s
+                ' own target variable and `between`'s own X already get.
+                '
+                ' Nor are the arguments put through TermPredName: a
+                ' `(cons a nil)` here is a term being consumed, not a
+                ' call to a predicate named cons, and letting it
+                ' constrain a real cons/2 would be findall's own
+                ' Template mistake a third time.
+                ' A block If, not the one-line `If ... Then RaiseMsg ...`
+                ' every sibling arm above uses - the arity is asked for
+                ' twice here (once to compare, once to report), and a
+                ' one-liner carrying two calls plus a concatenation
+                ' across continuations is the shape that hides a
+                ' mistake. wantedCount is computed once so the number
+                ' compared and the number reported cannot differ.
+                Dim wantedCount As Long
+                wantedCount = ListGoalArity(ListGoalKindFor(headWord))
+                If lst.Count <> wantedCount Then
+                    VLA_Messages.RaiseMsg "prolog-list-bad-shape", _
+                        "form", "(" & headWord & " ...)", _
+                        "count", CStr(wantedCount - 1)
+                End If
+                Exit Sub
             End If
         End If
     End If
@@ -1976,6 +2296,34 @@ Private Sub DesugarBodyItem(ByRef dest As Variant, ByVal item As Variant, ByVal 
                 ' name: PROLOG() runs IsReservedPredicateName over every
                 ' table argument before it is loaded, and all seven are
                 ' reserved as of this item.
+                Set dest = item
+                Exit Sub
+            ElseIf ListGoalKindFor(headWord) <> "" Then
+                ' PROLOG.13: the six list goals passed through untouched,
+                ' stated as its own arm for the reason PROLOG.7's,
+                ' PROLOG.8's and PROLOG.9's arms above state -
+                ' DesugarPredicateAtom would pass them along today only
+                ' INCIDENTALLY (it folds lst.Item(1) alone and bails the
+                ' moment that is not a table name) and an incidental
+                ' pass-through is not a guarantee.
+                '
+                ' Its OWN arm rather than joining the PROLOG.9 arm above,
+                ' because the reason is a different reason and this item
+                ' is the first to make it bite. A list goal's arguments
+                ' are the first reserved-family arguments that are
+                ' routinely COMPOUND - `(member X (cons a (cons b nil)))`
+                ' carries a nested term three deep - so if
+                ' DesugarPredicateAtom ever learned to descend into
+                ' arguments (which is exactly the shape of change a later
+                ' keyed-atom item would make), a cons cell is what it
+                ' would reach into first. There is nothing in one for
+                ' headerMap to resolve: a cons cell is data, and its
+                ' elements are terms, never keyed column atoms.
+                '
+                ' Nor can one of these six ever BE a table name: PROLOG()
+                ' runs IsReservedPredicateName over every table argument
+                ' before it is loaded, and all six are reserved as of
+                ' this item.
                 Set dest = item
                 Exit Sub
             ElseIf headWord = "not" Then
@@ -2246,8 +2594,16 @@ End Function
 ' application terms of already-EQUAL arity (clauseDict's own folded-key
 ' lookup, plus RecordArity's own cross-definition consistency check) -
 ' not a general-purpose replacement for UnifyTwoWay, which must stay
-' fully generic for findall's own functor-less Bag (ResolveTermDeep's
-' own header has why).
+' fully generic.
+'
+' PROLOG.13: that last clause used to read "fully generic for findall's
+' own functor-less Bag." The Bag is a cons chain now and has a functor,
+' so the example is gone - but the requirement is not, and it is now
+' broader than the example ever was. UnifyTwoWay recurses 1 To Count,
+' which is exactly what makes `(cons H T)` unify with a list at all:
+' matching a cons cell means matching the functor position too. A
+' UnifyTwoWay that skipped position 1 the way this function does would
+' unify `(cons a nil)` with `(pair a nil)`.
 Private Function UnifyArgsOnly(ByVal goalTerm As Variant, ByVal headTerm As Variant, envN As Collection, envT As Collection) As Boolean
     Dim gLst As Collection, hLst As Collection
     Set gLst = goalTerm
@@ -2688,6 +3044,47 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         stepsTaken = stepsTaken + 1
         If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
         SolveBetween goals.Item(1), rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        Exit Sub
+    End If
+
+    ' PROLOG.13: the six list goals - dispatched here on the same
+    ' unambiguous-by-construction reasoning every arm above uses, and
+    ' above the clauseDict lookup for the same silent-dead-end reason.
+    ' That reason is sharper for these six than for any family before
+    ' them: `member` and `nth` are names a business knowledge base
+    ' genuinely reaches for, so left undispatched they would not merely
+    ' fail quietly - they would fail quietly for a user who had every
+    ' reason to think they had defined them.
+    '
+    ' ONE arm for all six even though three are deterministic and three
+    ' GENERATE, unlike PROLOG.9, which split its two families into two
+    ' arms. The split there was forced: a type test cannot bind and
+    ' `between` must drive the continuation itself, so they could not
+    ' share a call shape. Here they can - every list goal may bind, so
+    ' every one of them needs the fresh clone `is` threads forward, and
+    ' the generators simply do it once per candidate instead of once.
+    ' SolveListGoal (below) owns the whole call and drives the
+    ' continuation itself, exactly the shape SolveBetween has, which is
+    ' why it is handed `rest`, clauseDict, freeVarNames, solutions and
+    ' the cut signal - the things no deterministic arm passes on.
+    '
+    ' The step this arm charges is for the GOAL. Each generator charges
+    ' one more per candidate, so enumeration is counted as the real
+    ' resolution work it is rather than riding free on a single goal's
+    ' step - SolveBetween's own rule. A DETERMINISTIC list goal charges
+    ' nothing further however long the list is, deliberately: walking a
+    ' cons chain is a primitive, no more resolution work than `is`
+    ' walking an arbitrary arithmetic tree for its own one step, and
+    ' charging per element would make `(length Bag N)` unaffordable on
+    ' exactly the bags this item exists to open.
+    '
+    ' No locals declared in this arm at all - the whole evaluation lives
+    ' in SolveListGoal, factored out for the same live-caught stack-frame
+    ' reason findall's own dispatch documents above.
+    If ListGoalKindFor(predName) <> "" Then
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        SolveListGoal goals.Item(1), ListGoalKindFor(predName), rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
         Exit Sub
     End If
 
@@ -3394,6 +3791,515 @@ Private Sub SolveBetween(ByVal betweenGoal As Variant, ByVal rest As Collection,
     Next v
 End Sub
 
+' ---------------------------------------------------------------------
+'  PROLOG.13: list terms
+' ---------------------------------------------------------------------
+
+' PROLOG.13: an ordinary Collection of terms -> the cons-cell LIST TERM
+' this engine represents them as. Folded from the RIGHT, so the empty
+' list is the base case (PROLOG_NIL) and every non-empty list is a
+' 3-element compound term `(cons Head Tail)`.
+'
+' A Sub with a ByRef dest out param, not a Function - EnvWalkInto's and
+' ResolveTermDeep's own precedent, the identical reason: the result is
+' either an object (a cons cell) or not (the atom nil), genuinely
+' ambiguous at the point of assignment, so a bare `x = MakeListTerm(...)`
+' at a call site would risk invoking a Collection's own default member
+' instead of copying the reference on whichever branch actually ran.
+'
+' `Set cell = New Collection` on every iteration, never `Dim cell As New
+' Collection` - the As-New-in-a-loop trap this module has been bitten by
+' twice already (ParseProgram's own bodyItems, and the candidates loop's
+' own newGoals, which was live-caught as a runtime 13 masquerading as a
+' step-ceiling refusal). `As New` auto-instantiates only once, so every
+' iteration after the first would keep appending onto the FIRST cell and
+' build one long flat term instead of a chain.
+Private Sub MakeListTermInto(ByRef dest As Variant, ByVal items As Collection)
+    Dim acc As Variant
+    acc = PROLOG_NIL
+    Dim i As Long
+    For i = items.Count To 1 Step -1
+        Dim cell As Collection
+        Set cell = New Collection
+        cell.Add "cons"
+        cell.Add items.Item(i)
+        cell.Add acc
+        Set acc = cell
+    Next i
+    If IsObject(acc) Then
+        Set dest = acc
+    Else
+        dest = acc
+    End If
+End Sub
+
+' PROLOG.13: the inverse - walks a cons chain and appends each element to
+' outItems, answering False the moment the term is not a PROPER list.
+' Every one of the six list goals starts here, so this is the single
+' place "is this a list" is decided.
+'
+' ON FALSE, outItems IS NOT TO BE READ. Elements are appended AS the walk
+' proceeds, so a term that turns out to be improper five cells in leaves
+' five elements behind it - a half-list that is not a prefix of anything
+' meaningful. Stated rather than defended against (no clearing, no second
+' pass to validate first) because every caller either raises on False or
+' does not touch the collection, and a walk that validated before
+' collecting would traverse every list twice for a guarantee no caller
+' needs. SolveListAppend is the one caller that keeps a False result
+' around at all, and it reads only the two collections whose own walks
+' returned True.
+'
+' DEREFERENCED AT EVERY STEP, not just at the top, and that is
+' load-bearing rather than defensive: a tail is routinely a variable
+' bound to the rest of the chain (`L` -> `(cons a T)`, `T` -> `(cons b
+' nil)` is what an ordinary rule body produces), so a walk that
+' dereferenced only its argument would stop at T and call a perfectly
+' proper list improper. Proved by mutation before import - removing the
+' inner EnvWalkInto makes the transliterated matrix answer "not a list"
+' for exactly that shape.
+'
+' THE ELEMENTS COME BACK UNDEREFERENCED, deliberately. Every caller
+' either unifies against an element (member, nth, append, and unification
+' dereferences both sides itself) or rebuilds a list from them, so
+' resolving here would gain nothing and would replace a live variable
+' with a snapshot of what it happened to be bound to at walk time,
+' destroying the sharing that makes `(member X L)` bind X rather than a
+' copy of X.
+'
+' THE FUNCTOR IS COMPARED CASE-SENSITIVELY - CStr(...) = "cons", never
+' VLA_Identity.Fold, unlike GoalPredName, which folds a GOAL name. This
+' module's own PROLOG.13 header has the full reasoning; the short version
+' is that UnifyTwoWay compares ground atoms under Option Compare Binary,
+' so a folded reader here would admit `(Cons a nil)` as a list that then
+' unifies with no list MakeListTermInto can build - and `Cons` is a
+' CAPITAL, which IsVarAtom calls a variable, so that "list" would carry
+' an unbound variable in functor position. Proved by mutation.
+'
+' Every guard is its own If, never one combined And expression - VBA's
+' And does not short-circuit, and `lst.Count = 3 And Not IsObject(lst
+' .Item(1))` would evaluate the second operand on a 2-element term and
+' raise a raw, unworded error. UnifyTwoWay's own G0 fix documents the
+' identical live-caught trap.
+Private Function ListTermToItems(ByVal term As Variant, envN As Collection, envT As Collection, _
+                                  ByVal outItems As Collection) As Boolean
+    Dim w As Variant
+    VLA_Unify.EnvWalkInto w, term, envN, envT
+    Do
+        If Not IsObject(w) Then
+            ListTermToItems = (CStr(w) = PROLOG_NIL)
+            Exit Function
+        End If
+        Dim lst As Collection
+        Set lst = w
+        If lst.Count <> 3 Then Exit Function
+        If IsObject(lst.Item(1)) Then Exit Function
+        If CStr(lst.Item(1)) <> "cons" Then Exit Function
+        outItems.Add lst.Item(2)
+        VLA_Unify.EnvWalkInto w, lst.Item(3), envN, envT
+    Loop
+End Function
+
+' PROLOG.13: a list goal's own written spelling, for the two shared
+' refusals' {form}. Taken from the goal term's own position 1 and folded,
+' so it names what the user actually wrote - the identical shape
+' ValidateBodyItem's comparison, term-matching and type-test arms already
+' build. Safe without an IsObject guard for the reason GoalPredName is:
+' TermPredName already refused a non-symbol predicate name at parse time.
+Private Function ListGoalFormLabel(ByVal lst As Collection) As String
+    ListGoalFormLabel = "(" & VLA_Identity.Fold(CStr(lst.Item(1))) & " ...)"
+End Function
+
+' PROLOG.13: the offending term's own display text for prolog-list-not-a
+' -list's {value}. Resolved first (ResolveTermDeep, so a variable reports
+' what it is BOUND to rather than its own raw name, which is the whole
+' point of showing it) and then rendered by the same RenderBoundValue
+' that puts a term into a cell - so the text in the refusal is the text
+' the user would have seen had the query succeeded.
+Private Function ListMessageValue(ByVal term As Variant, envN As Collection, envT As Collection) As String
+    Dim resolvedTerm As Variant
+    ResolveTermDeep resolvedTerm, term, envN, envT
+    ListMessageValue = RenderBoundValue(resolvedTerm)
+End Function
+
+' PROLOG.13: outItems <- items in reverse. A Sub over a caller-owned
+' Collection rather than a Function returning one, matching this
+' module's own house shape for a builder whose result is then handed
+' straight to MakeListTermInto.
+Private Sub ReverseItemsInto(ByVal items As Collection, ByVal outItems As Collection)
+    Dim i As Long
+    For i = items.Count To 1 Step -1
+        outItems.Add items.Item(i)
+    Next i
+End Sub
+
+' PROLOG.13: `(sum-list L N)`'s own total. Each element goes through
+' EvalArithTerm - the SAME recursive walker `(is ...)`, the six
+' comparisons and `between`'s own bounds already use - so an element may
+' itself be an arithmetic expression, a variable bound to a number
+' resolves correctly, and a non-numeric element raises the existing
+' {form}-templated prolog-arith-not-numeric naming "(sum-list ...)"
+' rather than a form the user never wrote. Reusing that refusal rather
+' than minting a sum-list-specific one is the whole reason
+' tools/check_prolog_form_attribution.ps1 holds those texts form-neutral.
+'
+' An empty list sums to 0, which is the identity and not a special case.
+Private Function SumOfListItems(ByVal items As Collection, envN As Collection, envT As Collection, _
+                                 ByVal formLabel As String) As Double
+    Dim total As Double
+    Dim i As Long
+    For i = 1 To items.Count
+        total = total + EvalArithTerm(items.Item(i), envN, envT, formLabel)
+    Next i
+    SumOfListItems = total
+End Function
+
+' PROLOG.13: the six list goals' own router, and the owner of the whole
+' call - it drives the continuation itself rather than answering a
+' Boolean for the dispatch to act on, exactly as SolveBetween does,
+' because three of the six GENERATE and the dispatch cannot resume a
+' continuation that has to run once per candidate.
+'
+' Factored out of SolveGoalList for the stack-frame reason every sibling
+' Solve* function documents, which matters more here than for any of
+' them: this family declares the most locals of the lot, and every one
+' would otherwise be paid on EVERY recursive resolution step rather than
+' once per list goal.
+'
+' The three DETERMINISTIC goals share one tail, and it is worth naming
+' why they can: length, reverse and sum-list all take exactly one list at
+' position 2 and one target at position 3, all three compute a single
+' term from that list, and all three then unify it against the target in
+' a FRESH clone - `is`'s own isN/isT shape, needed because unlike a
+' comparison or a type test these genuinely BIND. So the fork between
+' them is one term-building step and nothing else.
+Private Sub SolveListGoal(ByVal listGoal As Variant, ByVal kind As String, ByVal rest As Collection, _
+                           clauseDict As Object, envN As Collection, envT As Collection, _
+                           freeVarNames As Collection, solutions As Collection, _
+                           ByRef stepsTaken As Long, _
+                           ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    ' listGoal is a Variant Set into a typed local for the reason
+    ' SolveTypeTest and SolveBetween (above) both state.
+    Dim lst As Collection
+    Set lst = listGoal
+
+    ' The three generators own their own loop, their own per-candidate
+    ' step charge and their own cut handling, so they are handed
+    ' everything and return.
+    If kind = "member" Then
+        SolveListMember lst, rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        Exit Sub
+    End If
+    If kind = "nth" Then
+        SolveListNth lst, rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        Exit Sub
+    End If
+    If kind = "append" Then
+        SolveListAppend lst, rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        Exit Sub
+    End If
+
+    Dim items As Collection
+    Set items = New Collection
+    If Not ListTermToItems(lst.Item(2), envN, envT, items) Then
+        VLA_Messages.RaiseMsg "prolog-list-not-a-list", _
+            "form", ListGoalFormLabel(lst), "value", ListMessageValue(lst.Item(2), envN, envT)
+    End If
+
+    ' computed is a Variant because reverse produces a TERM (an object,
+    ' or the atom nil for an empty list) while length and sum-list
+    ' produce a ground numeric leaf. MakeListTermInto is a Sub with a
+    ' ByRef out param precisely so this assignment never has to guess -
+    ' see its own header.
+    Dim computed As Variant
+    If kind = "reverse" Then
+        Dim reversedItems As Collection
+        Set reversedItems = New Collection
+        ReverseItemsInto items, reversedItems
+        MakeListTermInto computed, reversedItems
+    ElseIf kind = "length" Then
+        ' NumberToTerm, never CStr(items.Count) - this module's own one
+        ' place a Double becomes the ground numeric leaf it represents,
+        ' so a count renders and compares exactly as a number produced
+        ' by `is` or `between` does rather than by a second convention.
+        computed = NumberToTerm(CDbl(items.Count))
+    Else
+        computed = NumberToTerm(SumOfListItems(items, envN, envT, ListGoalFormLabel(lst)))
+    End If
+
+    Dim listN As Collection, listT As Collection
+    VLA_Unify.UnifyEnvClone envN, envT, listN, listT
+    If VLA_Unify.UnifyTwoWay(lst.Item(3), computed, listN, listT) Then
+        SolveGoalList rest, clauseDict, listN, listT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+    End If
+End Sub
+
+' PROLOG.13: `(member X L)`. L must be a proper list; X is unified
+' against each element in turn and the continuation runs for every
+' element that unifies - so with X free it enumerates the list, and with
+' X bound it tests. A CHOICE POINT, shaped exactly like SolveBetween's
+' own loop and obeying its three rules: a FRESH env clone per candidate
+' (X binds to this element only, and the next candidate must find X free
+' again), a step charged per candidate, and the cut signal honoured by
+' stopping and never absorbed.
+Private Sub SolveListMember(ByVal lst As Collection, ByVal rest As Collection, _
+                             clauseDict As Object, envN As Collection, envT As Collection, _
+                             freeVarNames As Collection, solutions As Collection, _
+                             ByRef stepsTaken As Long, _
+                             ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    Dim items As Collection
+    Set items = New Collection
+    If Not ListTermToItems(lst.Item(3), envN, envT, items) Then
+        VLA_Messages.RaiseMsg "prolog-list-not-a-list", _
+            "form", ListGoalFormLabel(lst), "value", ListMessageValue(lst.Item(3), envN, envT)
+    End If
+
+    Dim i As Long
+    For i = 1 To items.Count
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        Dim memN As Collection, memT As Collection
+        VLA_Unify.UnifyEnvClone envN, envT, memN, memT
+        If VLA_Unify.UnifyTwoWay(lst.Item(2), items.Item(i), memN, memT) Then
+            SolveGoalList rest, clauseDict, memN, memT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        End If
+        If cutActive Then Exit For
+    Next i
+End Sub
+
+' PROLOG.13: `(nth N L X)`, ONE-BASED. Two modes on N, and the fork is
+' whether N dereferences to a still-free variable.
+'
+' N BOUND is deterministic: the index either names a position or it does
+' not. An index outside 1..Count - or a fractional one, which names no
+' position at all - simply FAILS. That is deliberate and it is ISO
+' nth1/3's own behaviour: an index that does not exist is a correct
+' negative answer about the list, not a malformed program, and refusing
+' would make `(nth N L X)` unusable as a test. A NON-NUMERIC bound N is a
+' different thing entirely - it is not an index at all - and raises the
+' existing {form}-templated prolog-arith-not-numeric naming "(nth ...)".
+'
+' N FREE generates, pairing each index with its element, so
+' `(nth N L X)` with both free enumerates the whole list positionally.
+' The index is bound through UnifyTwoWay like any other value rather than
+' written into the env directly, so the occurs check and the env
+' representation stay owned by the one primitive that owns them.
+Private Sub SolveListNth(ByVal lst As Collection, ByVal rest As Collection, _
+                          clauseDict As Object, envN As Collection, envT As Collection, _
+                          freeVarNames As Collection, solutions As Collection, _
+                          ByRef stepsTaken As Long, _
+                          ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    Dim items As Collection
+    Set items = New Collection
+    If Not ListTermToItems(lst.Item(3), envN, envT, items) Then
+        VLA_Messages.RaiseMsg "prolog-list-not-a-list", _
+            "form", ListGoalFormLabel(lst), "value", ListMessageValue(lst.Item(3), envN, envT)
+    End If
+
+    Dim rawN As Variant
+    VLA_Unify.EnvWalkInto rawN, lst.Item(2), envN, envT
+
+    ' IsObject in its own guarding If, never combined with a same-value
+    ' CStr() - VBA's And does not short-circuit (UnifyTwoWay's own G0
+    ' trap). A compound term in the index position is not a variable and
+    ' not a number, so it falls through to the not-numeric refusal.
+    Dim indexIsFree As Boolean
+    If Not IsObject(rawN) Then indexIsFree = VLA_Unify.IsVarAtom(CStr(rawN))
+
+    Dim lo As Long, hi As Long
+    If indexIsFree Then
+        lo = 1
+        hi = items.Count
+    Else
+        If IsObject(rawN) Then
+            VLA_Messages.RaiseMsg "prolog-arith-not-numeric", _
+                "form", ListGoalFormLabel(lst), "value", ListMessageValue(lst.Item(2), envN, envT)
+        End If
+        If Not LeafIsNumberTerm(CStr(rawN)) Then
+            VLA_Messages.RaiseMsg "prolog-arith-not-numeric", _
+                "form", ListGoalFormLabel(lst), "value", ListMessageValue(lst.Item(2), envN, envT)
+        End If
+        ' InvariantVal, exactly as SolveBetween converts its own already
+        ' -LeafIsNumberTerm-checked bound - AsInvariantDouble is Private
+        ' to VLA_Relation and is not this module's to call.
+        Dim askedFor As Double
+        askedFor = VLA_Relation.InvariantVal(CStr(rawN))
+        ' THE RANGE IS CHECKED WHILE THE INDEX IS STILL A DOUBLE, and all
+        ' three of these are an Exit Sub - the goal finds nothing - not a
+        ' refusal, on the one uniform rule this function's own header
+        ' states: the positions of a list are 1..Count, and an index
+        ' outside that set is a correct negative answer about the list.
+        '
+        ' A fractional index names no position, and is never rounded to
+        ' one - CLng(1.5) is 2, which would answer confidently about a
+        ' position the user did not ask for.
+        '
+        ' AND THE ORDER IS NOT COSMETIC. CLng below OVERFLOWS on a large
+        ' index, and `(nth 99999999999 L X)` is an ordinary typo - a raw,
+        ' unworded runtime error 6 is exactly the crash this module
+        ' refuses to hand anyone. Bounding against items.Count first, in
+        ' Double arithmetic, makes the conversion safe by construction
+        ' rather than by hoping the index is small.
+        If askedFor <> Int(askedFor) Then Exit Sub
+        If askedFor < 1 Then Exit Sub
+        If askedFor > items.Count Then Exit Sub
+        lo = CLng(askedFor)
+        hi = lo
+    End If
+
+    ' Both branches above establish lo..hi INSIDE 1..items.Count, so this
+    ' loop needs no bounds guard of its own - and an empty list gives
+    ' 1 To 0, which simply does not run. No defensive re-check, on
+    ' purpose: a guard that can never fire is dead code that reads like a
+    ' live invariant.
+    Dim i As Long
+    For i = lo To hi
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        Dim nthN As Collection, nthT As Collection
+        VLA_Unify.UnifyEnvClone envN, envT, nthN, nthT
+        ' Both unifications share ONE clone: an index and its element are
+        ' two halves of a single answer, so an element that fails to
+        ' unify must discard the index binding with it - the identical
+        ' reasoning SolveListAppend's own split branch uses.
+        If VLA_Unify.UnifyTwoWay(lst.Item(2), NumberToTerm(CDbl(i)), nthN, nthT) Then
+            If VLA_Unify.UnifyTwoWay(lst.Item(4), items.Item(i), nthN, nthT) Then
+                SolveGoalList rest, clauseDict, nthN, nthT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+            End If
+        End If
+        If cutActive Then Exit For
+    Next i
+End Sub
+
+' PROLOG.13: `(append A B C)`. Three branches, tried in this order, and
+' between them they cover every mode this engine can answer.
+'
+'   1. A AND B BOTH PROPER LISTS - deterministic. C unifies with A ++ B,
+'      so this both BUILDS a join and CHECKS one.
+'   2. C A PROPER LIST - generates. Enumerates all len(C)+1 ways to split
+'      C and unifies A and B against each pair in turn.
+'   3. otherwise - refused by name.
+'
+' BRANCH 2 IS KEYED ON C, NOT ON A, and that is the correction worth
+' recording because the first version of this function keyed it on "A is
+' a still-free variable" and was wrong. Under that guard
+' `(append nil B (cons a nil))` - a perfectly ordinary "drop this prefix
+' and tell me the rest" - fell straight through to the refusal, because A
+' WAS a proper list (nil) and so never reached the generator, while B was
+' unbound and so failed branch 1. Keyed on C instead, one branch answers
+' every mode with C known: A given (drop a prefix), B given (drop a
+' suffix), neither given (all splits), and both given (a check).
+'
+' Branch 1 is kept ahead of it rather than folded in, purely for COST. It
+' is a strict subset of what branch 2 can do whenever C is also a list -
+' but branch 2 charges a step per split, so a fully ground check against
+' a hundred-element list would spend a hundred steps proving something
+' branch 1 settles in none. Ordering them this way makes the common case
+' cheap without making the general case unavailable.
+'
+' A PARTIAL list - `(cons a T)` with T unbound - reaches branch 3 and is
+' refused. Real Prolog would solve some of those by binding T; this
+' engine says so instead, because the alternative to a loud refusal is a
+' query that quietly finds nothing and cannot be told apart from one that
+' correctly found nothing. Pinned as behaviour.
+'
+' The refusal names the FIRST of A, B, C that is not a proper list, so
+' `(append (cons a nil) foo C)` complains about foo rather than about the
+' argument that happens to be checked first by the code.
+'
+' The generating branch unifies A and B in ONE clone rather than two -
+' they are two halves of a single candidate split, so a B that fails to
+' unify must discard A's binding with it, exactly as branch 1 discards
+' everything on a failed C.
+Private Sub SolveListAppend(ByVal lst As Collection, ByVal rest As Collection, _
+                             clauseDict As Object, envN As Collection, envT As Collection, _
+                             freeVarNames As Collection, solutions As Collection, _
+                             ByRef stepsTaken As Long, _
+                             ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    ' ---- branch 1: A and B both proper lists -> build/check C.
+    Dim frontItems As Collection, backItems As Collection
+    Set frontItems = New Collection
+    Set backItems = New Collection
+    Dim frontOk As Boolean, backOk As Boolean
+    frontOk = ListTermToItems(lst.Item(2), envN, envT, frontItems)
+    ' Each walk is its own statement and its own If - never `frontOk And
+    ' backOk` in one expression, since VBA's And does not short-circuit
+    ' and the second walk must still run to be reported on below.
+    backOk = ListTermToItems(lst.Item(3), envN, envT, backItems)
+    If frontOk Then
+        If backOk Then
+            Dim joined As Collection
+            Set joined = New Collection
+            Dim k As Long
+            For k = 1 To frontItems.Count
+                joined.Add frontItems.Item(k)
+            Next k
+            For k = 1 To backItems.Count
+                joined.Add backItems.Item(k)
+            Next k
+            Dim joinedTerm As Variant
+            MakeListTermInto joinedTerm, joined
+            Dim appN As Collection, appT As Collection
+            VLA_Unify.UnifyEnvClone envN, envT, appN, appT
+            If VLA_Unify.UnifyTwoWay(lst.Item(4), joinedTerm, appN, appT) Then
+                SolveGoalList rest, clauseDict, appN, appT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+            End If
+            Exit Sub
+        End If
+    End If
+
+    ' ---- branch 2: C a proper list -> enumerate its splits. Keyed on C
+    ' rather than on A - see this function's own header for the mode this
+    ' function used to refuse when it was keyed the other way.
+    Dim wholeItems As Collection
+    Set wholeItems = New Collection
+    If Not ListTermToItems(lst.Item(4), envN, envT, wholeItems) Then
+        ' ---- branch 3: nothing to join and nothing to split. Report the
+        ' FIRST of the three that is not a proper list, so the message
+        ' points at the argument the user has to change.
+        If Not frontOk Then
+            VLA_Messages.RaiseMsg "prolog-list-not-a-list", _
+                "form", ListGoalFormLabel(lst), "value", ListMessageValue(lst.Item(2), envN, envT)
+        End If
+        If Not backOk Then
+            VLA_Messages.RaiseMsg "prolog-list-not-a-list", _
+                "form", ListGoalFormLabel(lst), "value", ListMessageValue(lst.Item(3), envN, envT)
+        End If
+        VLA_Messages.RaiseMsg "prolog-list-not-a-list", _
+            "form", ListGoalFormLabel(lst), "value", ListMessageValue(lst.Item(4), envN, envT)
+    End If
+
+    Dim splitAt As Long
+    For splitAt = 0 To wholeItems.Count
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+
+        Dim leftItems As Collection, rightItems As Collection
+        Set leftItems = New Collection
+        Set rightItems = New Collection
+        Dim j As Long
+        For j = 1 To wholeItems.Count
+            If j <= splitAt Then
+                leftItems.Add wholeItems.Item(j)
+            Else
+                rightItems.Add wholeItems.Item(j)
+            End If
+        Next j
+
+        Dim leftTerm As Variant, rightTerm As Variant
+        MakeListTermInto leftTerm, leftItems
+        MakeListTermInto rightTerm, rightItems
+
+        Dim splN As Collection, splT As Collection
+        VLA_Unify.UnifyEnvClone envN, envT, splN, splT
+        If VLA_Unify.UnifyTwoWay(lst.Item(2), leftTerm, splN, splT) Then
+            If VLA_Unify.UnifyTwoWay(lst.Item(3), rightTerm, splN, splT) Then
+                SolveGoalList rest, clauseDict, splN, splT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+            End If
+        End If
+        If cutActive Then Exit For
+    Next splitAt
+End Sub
+
 ' PROLOG.5.3: findall's own harvest, factored OUT of SolveGoalList's own
 ' dispatch deliberately - see that dispatch's own comment for the live-
 ' caught reason (every local declared directly in SolveGoalList bloats
@@ -3406,9 +4312,28 @@ End Sub
 ' itself wraps), and substitutes each returned solution tuple back into
 ' Template's own structure (SubstituteTemplate, above) to produce one
 ' harvested list element.
+'
+' PROLOG.13: RETURNS A LIST TERM, not a headless Collection - the one
+' behaviour change this item makes to a shipped feature, and the reason
+' the representation had to be decided before any library predicate was
+' written. A bag of three used to be a Collection whose position 1 was
+' the first SOLUTION, where every other compound term in this engine
+' carries a functor there. That asymmetry was invisible for as long as
+' nothing destructured a bag; it becomes the first thing that breaks the
+' moment something does. It is now `(cons a (cons b (cons c nil)))` and
+' an empty bag is the atom `nil` rather than a zero-length Collection.
+' The findall tests that assert bag rendering are RE-POINTED at those
+' spellings rather than deleted - the fourth marker pin to move, after
+' PROLOG.8 re-pointed PROLOG.7's, PROLOG.10 re-pointed PROLOG.8's and
+' PROLOG.12 re-pointed PROLOG.10's.
+'
+' Returns Variant rather than Collection because an empty bag is now an
+' ATOM. The call site is unchanged in shape: it hands the result straight
+' to UnifyTwoWay's ByVal Variant parameter, exactly as the candidates
+' loop already hands it FreshenTerm's own possibly-object Variant return.
 Private Function HarvestFindallBag(ByVal findallGoal As Collection, clauseDict As Object, _
                                     envN As Collection, envT As Collection, _
-                                    ByRef stepsTaken As Long) As Collection
+                                    ByRef stepsTaken As Long) As Variant
     ' IsObject-branched, never a bare "template = findallGoal.Item(2)" -
     ' this module's own already-documented trap (EnvWalkInto's own
     ' header): a plain Variant assignment from an expression that MIGHT
@@ -3439,7 +4364,23 @@ Private Function HarvestFindallBag(ByVal findallGoal As Collection, clauseDict A
     For Each tup In harvestedTuples
         bag.Add SubstituteTemplate(template, templateVars, tup)
     Next tup
-    Set HarvestFindallBag = bag
+    ' PROLOG.13: the harvested elements are folded into a cons chain here
+    ' rather than in the loop above, deliberately - the harvest and the
+    ' representation are two separate decisions, and keeping the fold in
+    ' one call to MakeListTermInto means findall shares the SAME builder
+    ' every list goal uses, so a bag and a hand-written list can never be
+    ' two different shapes. Assigned through a local rather than into the
+    ' function name, because MakeListTermInto's dest is ByRef and a
+    ' function's own return pseudo-variable is not a thing to pass that
+    ' way; the IsObject branch that follows is this module's standing
+    ' guard against a bare assignment invoking a default member.
+    Dim bagTerm As Variant
+    MakeListTermInto bagTerm, bag
+    If IsObject(bagTerm) Then
+        Set HarvestFindallBag = bagTerm
+    Else
+        HarvestFindallBag = bagTerm
+    End If
 End Function
 
 ' PROLOG.5.3: fully resolves term through envN/envT, recursively - not
@@ -3464,21 +4405,27 @@ End Function
 '
 ' Deliberately does NOT follow FreshenTerm/CollectVars/SubstituteTemplate
 ' 's own "position 1 is a functor, never touched" convention - reasoned
-' through explicitly, not copied by reflex, because that convention's
-' own justification (position 1 of a compound TERM, as PARSED from
-' program text, is ALWAYS a predicate/functor symbol, enforced at parse
-' time by TermPredName/ValidateBodyItem) does not hold for every value
-' this function may be asked to walk: findall's own harvested Bag
-' (below) is a genuinely NEW kind of structure this engine did not have
-' before PROLOG.5.3 - a plain, functor-less LIST where EVERY position,
-' including the first, is an ordinary element, not a keyword. Recursing
-' into position 1 unconditionally costs nothing extra for an ordinary
-' functor-headed term (EnvWalkInto on a lowercase, non-variable atom
-' like "color" or "pair" is a same-string no-op) and removes the need to
-' reason about whether a Bag element could ever legitimately need
-' resolving in that specific position - simpler and strictly safer than
-' carving out a position-1 exception that would only be correct by
-' relying on Bag always arriving here already fully resolved.
+' through explicitly, not copied by reflex.
+'
+' PROLOG.5.3's ORIGINAL justification is now HISTORY, and saying so
+' matters more than quietly leaving it: it argued that the convention's
+' own basis (position 1 of a compound TERM, as PARSED from program text,
+' is ALWAYS a predicate/functor symbol, enforced at parse time by
+' TermPredName/ValidateBodyItem) did not hold for findall's harvested
+' Bag, which was a plain, functor-less LIST where every position
+' including the first was an ordinary element. PROLOG.13 abolished that
+' structure. A bag is a cons chain now, so position 1 is a functor again
+' and this engine no longer has any term for which the convention fails.
+'
+' The choice stands anyway, on a reason that never depended on the Bag.
+' Recursing into position 1 unconditionally costs nothing for a
+' functor-headed term - EnvWalkInto on a lowercase, non-variable atom
+' like "color", "pair" or "cons" is a same-string no-op - and it keeps
+' this function's contract "resolve every position of whatever you are
+' handed" rather than "resolve every position except one, on the strength
+' of an invariant enforced somewhere else." A carve-out would be correct
+' only for as long as that invariant held, and PROLOG.5.3 is the proof
+' that this module can grow a term shape for which it does not.
 Private Sub ResolveTermDeep(ByRef dest As Variant, ByVal term As Variant, envN As Collection, envT As Collection)
     Dim w As Variant
     VLA_Unify.EnvWalkInto w, term, envN, envT

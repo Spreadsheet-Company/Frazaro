@@ -83,11 +83,22 @@ $scannedProcs = @(
 # one raise site in SolveGoalList - it exists to tell a Prolog author
 # that (atom X) is written (atom? X) here - so it too must take the form
 # from its caller rather than naming one of the six.
+#
+# prolog-list-bad-shape and prolog-list-not-a-list join at PROLOG.13, and
+# they are the widest fan-out yet: both are raised for all SIX list goals
+# (length, member, nth, append, reverse, sum-list) from one site each -
+# ValidateBodyItem's own list arm for the arity refusal, ListTermToItems
+# for the not-a-proper-list one. The six do not even share an arity
+# (length/2, member/2, nth/3, append/3, reverse/2, sum-list/2), so the
+# arity message must take BOTH its form and its count from the caller;
+# naming a form in either text would be wrong five times out of six.
 $multiFormIds = @(
     'prolog-comparison-bad-shape',
     'prolog-unification-bad-shape',
     'prolog-type-test-bad-shape',
-    'prolog-type-test-iso-spelling'
+    'prolog-type-test-iso-spelling',
+    'prolog-list-bad-shape',
+    'prolog-list-not-a-list'
 )
 
 $formToken          = '{form}'

@@ -12842,30 +12842,271 @@ now carries one summary paragraph per engine and points here.*
     **`PROLOG.10`'s "plain query stays silent" pin is re-pointed**, the
     third marker pin to move; the silent case does not vanish, it moves to
     an empty result with no near-miss in it.
-  - ⬜ **PROLOG.13 — LIST TERMS, and the bag you cannot currently open.**
-    The largest real gap in the engine. `findall` hands back a bag and
-    there is **no way to take it apart** — no head/tail, no `length`, no
-    `member`, no `nth`, no `append`, no `reverse`, no `sum_list`. A
-    program can produce a list and render it to cells and can do nothing
-    else with it, which makes `findall` a terminal operation rather than a
-    composable one.
+  - ✅ **PROLOG.13 — LIST TERMS, and the bag you could not open.**
+    SHIPPED 2026-09-09; owner-verified live. `TestDSLs` 536 → **602/602**
+    (62 new assertions in a new `TestPrologLists`, 4 new in
+    `TestPrologFindall`, and **six** existing findall pins re-pointed
+    rather than deleted); pure 1047/1047, host 143/143 and
+    `VerifyReports` 141/141 emitter and 141/141 interpreter all unmoved,
+    exactly as predicted. All 16 `tools/check_*.ps1` green.
+    Owner-confirmed in cells: the cons rendering; `nil` for an empty bag;
+    a findall bag summed to a derived total; a hundred-element bag
+    measured inside the step budget; `member` enumerating; all three
+    `append` splits plus the drop-a-prefix mode; `nth`; destructuring by
+    unification; the empty bag failing `compound?`; and both refusals.
 
-    **Two hard constraints, both measured rather than assumed.** (i) The
-    reader cannot spell `[H|T]`: `Tokenize`'s delimiter set is exactly
-    `( ) space tab CR LF ; "`, so `[`, `]` and `|` are ordinary symbol
-    characters and `[H|T]` arrives as ONE atom. List syntax therefore
-    needs a READER change, which is shared by all five DSLs and is a far
-    bigger blast radius than a `VLA_Prolog` item — or an S-expression
-    spelling instead (`(cons H T)` / `nil`), which needs no reader change
-    at all and is almost certainly the right answer here. (ii)
-    **`findall`'s bag is HEADLESS** — `HarvestFindallBag` builds a
-    `Collection` whose position 1 is the first SOLUTION, where every other
-    compound term in this engine carries a functor there. So a bag of
-    three renders as `(x y z)` and reads back as a term whose functor is
-    `x`. That asymmetry is invisible today because nothing destructures a
-    bag; the moment something does, it is the first thing that breaks.
-    Deciding the representation is therefore the item, and the library is
-    the easy part after it. *Blocks:* any real use of `findall`. `~week`.
+    **THE PREDICTED COUNT WAS EXACT AND THE PIN SWEEP WAS NOT.** 602 was
+    right to the assertion. But the first live run came back **600
+    passed, 2 failed**, and both failures were stale findall-bag pins
+    living OUTSIDE `TestPrologFindall` — one in `TestPrologCut`, one in
+    `TestPrologKeyedAtoms` — each asserting a bag rendering from a Sub
+    whose subject is not `findall` at all. The engine was right in both
+    cases; the pins were stale. The cause is worth recording because it
+    is a named error this line already has a rule against: the sweep
+    grepped for the literals already KNOWN (`(red green blue)`,
+    `(alice bob)`) instead of enumerating the CLASS, which is the same
+    mistake as a hand count. The corrected sweep is mechanical — every
+    parenthesised expected literal in a `ResultCol1Is`/`ResultCellIs`/
+    `CStr(result(` assertion, flagged when it lacks `cons`/`nil` — and it
+    returns exactly four hits, all genuine compound terms from
+    unification tests with no `findall` near them. **Six pins moved, not
+    four.**
+
+    One of the two also carried the non-short-circuit `And` defect, so it
+    would have KILLED the run rather than reported it, had the cut
+    opacity it guards ever actually broken; it was moved onto the guarded
+    helpers while being re-pointed. Its two siblings in the same Sub have
+    the identical hazard and were deliberately left alone so the diff
+    stayed the change — filed as **`PROLOG.20`**, which measured **37**
+    such assertions across the four test modules.
+
+    The largest real gap in the engine, and it closes. `findall` has
+    shipped a bag since `PROLOG.5.3` and there was **no way to take one
+    apart** — no head/tail, no `length`, `member`, `nth`, `append`,
+    `reverse` or `sum_list` — so a program could produce a list, render
+    it to cells, and do nothing else with it. `findall` was a terminal
+    operation rather than a composable one.
+
+    **BOTH OF THE ENTRY'S MEASURED CONSTRAINTS SURVIVED RE-CHECKING.**
+    (i) `Tokenize` (`VLA.bas`) delimits on exactly `( ) space tab CR LF
+    ; "`, so `[`, `]` and `|` really are ordinary symbol characters and
+    `[H|T]` really does arrive as ONE atom — real list syntax needs a
+    READER change shared by all five DSLs. (ii) `HarvestFindallBag`
+    really did build a HEADLESS `Collection` whose position 1 was the
+    first SOLUTION, where every other compound term in this engine
+    carries a functor there.
+
+    **ONE CLAIM DID NOT SURVIVE, and it is `PROLOG.9`'s, not this
+    entry's.** `PROLOG.9`'s own module header said `(compound EmptyBag)`
+    was "**pinned** rather than special-cased" as True. It was not
+    pinned. It was prose in that header and nothing else — no test in
+    `VLA_Tests_Query.bas` ever combined `findall` with a type test, so
+    the claim had never once been executed. The judgement it recorded
+    was sound for the representation it had; the word "pinned" was
+    false, and a header asserting that something is held when nothing
+    holds it is worse than one that says nothing. Corrected in place,
+    and pinned for real by this item.
+
+    **THE REPRESENTATION DECISION IS THE ITEM, and the answer is CONS
+    CELLS.** A list is `(cons Head Tail)`; the empty list is the ATOM
+    `nil`. So `[a, b, c]` is `(cons a (cons b (cons c nil)))`, and
+    `findall`'s bag renders that way where it used to render the
+    headless `(a b c)`.
+
+    **WHY NOT THE TAGGED VECTOR `(list a b c)`**, which would have kept
+    the old compact rendering and which position-1-is-a-functor makes
+    just as compatible with every generic walker. Three reasons, in
+    order of weight. A cons cell **DESTRUCTURES BY UNIFICATION** —
+    `(= L (cons H T))` splits a list with no new machinery at all, and a
+    cons cell in a RULE HEAD unifies and freshens correctly with no code
+    whatsoever; both are pinned, deliberately, with no list goal
+    involved, because that is the claim the representation rests on. A
+    fixed-arity vector can never be pattern-matched, so every list
+    operation would have to stay native forever and a user could never
+    write a list rule of their own. Second, the empty list becomes an
+    ATOM, which is the ISO answer. Third, and decisively for this
+    codebase: `list` would have had to be RESERVED — a user could
+    otherwise define `list/3` and have it silently shadowed — while
+    never being DISPATCHED, and
+    `tools/check_prolog_reserved_names.ps1`'s own **rule C** forbids
+    exactly that. It could only have been admitted by widening that
+    check, which is the wrong direction.
+
+    **THE COST, STATED PLAINLY BECAUSE THE OWNER SEES IT IN A CELL.**
+    A three-colour bag used to read `(red green blue)` and now reads
+    `(cons red (cons green (cons blue nil)))`. That is verbose. It is
+    also the honest form: it re-reads as exactly the term it prints,
+    which the old rendering could not — `(red green blue)` written down
+    reads back as a term whose functor is `red`. Real Prolog solves this
+    by PRINTING `[a,b]` for a term it stores as `'[|]'(a,'[|]'(b,[]))`,
+    and the same relief is open here as **`(list a b c)` READER SUGAR**
+    expanded to a cons chain at parse time. That is a pure addition on
+    top of this representation — which is precisely why the
+    representation had to be settled first — and it is filed as this
+    item's own named follow-up rather than folded in, since it would
+    reserve `list` and hit the rule C problem above.
+
+    **EVERYTHING GENERIC IS INHERITED, VERIFIED RATHER THAN TRUSTED.**
+    A cons cell is an ordinary compound term, so `UnifyTwoWay`
+    (`VLA_Unify.bas`, recursing `1 To Count` — which is what lets
+    `(cons H T)` match a list at all, since the functor position must
+    match too), `FreshenTerm`, `CollectVars`, `TermHasVariable`,
+    `CollectTemplateVars` and `SubstituteTemplate` (all `2 To Count`,
+    position 1 preserved as a functor) and `ResolveTermDeep` (`1 To
+    Count`, a same-string no-op on the lowercase atom `cons`) all handle
+    lists correctly with **no change whatsoever**. Not one of those
+    functions is touched by this item. Each was read, not assumed.
+
+    **AND IT CLOSES A LATENT BUG NEITHER ROADMAP NAMED.** Those
+    `2 To Count` walkers skip position 1 because position 1 of a
+    compound term is a functor — true of every term in this engine
+    EXCEPT the old headless Bag, where position 1 was an ordinary
+    element. So a variable sitting in element 1 of a headless list was
+    invisible to `FreshenTerm`, `CollectVars` and `TermHasVariable`
+    alike, reachable today by writing a literal list in a rule body.
+    Under cons every position 1 really is a functor again, so the
+    exception disappears rather than needing a carve-out. Two headers
+    that justified themselves by citing "findall's own functor-less Bag"
+    — `ResolveTermDeep`'s and `UnifyArgsOnly`'s — are corrected rather
+    than left standing over a structure that no longer exists.
+
+    **THE LIBRARY IS NATIVE, NOT PROLOG RULES — the fork the entry did
+    not pose.** `PROLOG_MAX_STEPS` is 120 and is a TOTAL-work ceiling
+    charged once per candidate. `append/3`, `member/2` and `length/2`
+    written as Prolog RULES are recursive and generate, so a rule-based
+    library would spend the entire budget on a list of ~100 — and the
+    length of a real `findall` bag would be uncomputable, which is
+    exactly the case this item exists to serve. Raising the ceiling was
+    not available: `PROLOG.9` already declined to, and
+    `PROLOG_MAX_STEPS`'s own declaration comment demands real profiling
+    data first. A native deterministic goal charges **ONE step whatever
+    the list's length** — walking a cons chain is a primitive, no more
+    resolution work than `is` walking an arbitrary arithmetic tree for
+    its own one step — and a generator charges one per candidate, which
+    is the real work. Native is also the more auditable answer: one
+    reviewable function per goal with a refusal that names itself,
+    rather than an emergent recursion whose failure mode is a
+    step-ceiling message blaming a runaway rule the user never wrote.
+    **Pinned rather than argued:** a 100-element bag built by `between`
+    is measured inside the budget (1 for findall + 1 for the between
+    goal + 100 values + 1 for length = 103 of 120).
+
+    **NO UP-FRONT RANGE REFUSAL, unlike `between`,** and the asymmetry is
+    principled. `between`'s range is computed from arithmetic and can be
+    astronomically wide at no cost, so it must refuse before generating.
+    A list's length is bounded by what is already in memory, and a
+    `findall` bag is SELF-BOUNDING: harvesting it charged a step per
+    solution against the same 120, so no bag can be longer than the
+    ceiling.
+
+    **THE SIX, through one new delegated table `ListGoalKindFor` (a
+    FIFTH, taking the reserved set 27 → 33) and one new dispatch arm.**
+    `(length L N)`, `(reverse L R)` and `(sum-list L N)` are
+    deterministic and share one tail — they all take a list at position
+    2 and a target at position 3, and all unify a computed term against
+    it in a fresh clone, `is`'s own shape, because unlike a comparison
+    or a type test these genuinely BIND. `(member X L)`, `(nth N L X)`
+    and `(append A B C)` generate. ONE arm serves all six, unlike
+    `PROLOG.9`, which needed two: the split there was forced because a
+    type test cannot bind and `between` must drive the continuation,
+    whereas every list goal may bind and the generators simply drive it
+    once per candidate. All three generators obey `SolveBetween`'s rule
+    — stop the moment `cutActive` returns True, never absorb the signal
+    — pinned by a `!`-after-`member` pair reading 1 and 3.
+
+    **NO QUESTION MARKS, and that follows `PROLOG.9`'s stated rule
+    rather than departing from it:** a name that ASKS ends in `?`, a
+    name that PRODUCES does not, which is why `between` has none. All
+    six produce. `is-list?` is a genuine question and belongs to
+    `PROLOG.15`, which this item unblocks.
+
+    **`cons` AND `nil` ARE NOT RESERVED, deliberately and pinned.** They
+    are a functor and an atom — DATA, not goals — so there is nothing to
+    dispatch, and reserving them would trip rule C exactly as `list`
+    would. Real Prolog reserves neither. A user may still define a
+    predicate named `cons`, and a test holds that open.
+
+    **THE FUNCTOR IS COMPARED CASE-SENSITIVELY** (`CStr(...) = "cons"`,
+    never `VLA_Identity.Fold`), unlike a GOAL name, which `GoalPredName`
+    folds. Not an inconsistency — the only self-consistent choice:
+    `UnifyTwoWay` compares ground atoms under Option Compare Binary, so
+    a folded reader would classify `(Cons a nil)` as a list that then
+    unifies with no list this module can build; and `Cons` starts with a
+    capital, so `IsVarAtom` calls it a VARIABLE, meaning a folded reader
+    would admit a "list" carrying an unbound variable in functor
+    position. Proved by mutation before import: flipping the comparison
+    to case-insensitive makes the transliterated matrix accept exactly
+    that term.
+
+    **TWO THINGS WERE BUILT WRONG FIRST AND CAUGHT BEFORE IMPORT.**
+    `append`'s split branch was keyed on "A is a still-free variable",
+    which refused `(append nil B (cons a nil))` — an ordinary "drop this
+    prefix and tell me the rest" — because a proper `A` was precisely
+    what disqualified it. Keyed on **C** instead, one branch answers
+    every mode with C known: a known prefix, a known suffix, neither,
+    or both. The deterministic branch is kept ahead of it purely for
+    COST, since the split branch charges a step per split and would
+    spend a hundred proving what the join branch settles in none. And
+    `nth` had a real crash path: `CLng` OVERFLOWS on a large index, so
+    `(nth 99999999999 L X)` — an ordinary typo — produced a raw,
+    unworded runtime error 6. Fixed by bounding the range in Double
+    arithmetic **before** the conversion, making it safe by construction
+    rather than by hoping the index is small. Both are pinned.
+
+    **MODES AND EDGES, decided rather than defaulted.** `nth` is
+    ONE-BASED, and an index outside `1..Count` — including a fractional
+    one, never rounded — FAILS rather than refusing, on one uniform
+    rule: the positions of a list are `1..Count`, and an index outside
+    that set is a correct negative answer about the list, ISO `nth1/3`'s
+    own behaviour, and refusing would make `(nth N L X)` unusable as a
+    test. A NON-NUMERIC index is a different thing — not an index at all
+    — and raises. A PARTIAL list (`(cons a T)` with `T` unbound) is
+    refused by name; real Prolog would solve some of those, and this
+    engine says so instead, because the alternative to a loud refusal is
+    a query that quietly finds nothing and cannot be told apart from one
+    that correctly found nothing. Pinned as behaviour, beside the bound
+    twin that makes the refusal discriminating.
+
+    **THE `PROLOG.9` EDGE CASE FINALLY ANSWERS THE ISO WAY, with no code
+    change at all.** `nil` is an atom, so `SolveTypeTest` takes its
+    non-object branch: `(compound? EmptyBag)` is False and
+    `(atomic? EmptyBag)` and `(atom? EmptyBag)` are True. **Not one line
+    of `SolveTypeTest` moved** — the representation changed underneath
+    it and the classification followed, which is the strongest available
+    evidence that the classification was written against the right
+    question. Four new pins run the bag through a REAL `findall` rather
+    than writing `nil` literally, since a literal would prove only that
+    `nil` is an atom, and a fifth holds the discriminating twin: a
+    NON-empty bag is still compound.
+
+    **TWO SHARED, `{form}`-TEMPLATED REFUSALS**, both registered in
+    `tools/check_prolog_form_attribution.ps1`'s multi-form baseline
+    BEFORE the code existed, and both failing until it did.
+    `prolog-list-not-a-list` teaches the cons spelling, because a list
+    is the one term in PROLOG whose written form a user cannot guess.
+    `prolog-list-bad-shape` is the widest fan-out of any id in the
+    module: the six do not even share an arity, so it takes `{count}`
+    from the caller as well as `{form}`. `sum-list` reuses the existing
+    `prolog-arith-not-numeric` rather than minting its own, which is the
+    whole reason `PROLOG.7` made those texts form-neutral.
+    `VLA_Prolog.bas` stays at a raw `Err.Raise` ceiling of **0**.
+
+    **MECHANICAL CHECKS WRITTEN FIRST AND RUN RED**, per this line's own
+    discipline: the count phrase `the six list goals` was registered in
+    `check_prolog_reserved_names.ps1`'s `$countPhrases` and the two ids
+    in `check_prolog_form_attribution.ps1`'s `$multiFormIds` before any
+    feature code, and both checks failed on exactly the work to do.
+    Neither check was widened. The pure functions were transliterated
+    and run over the round-trip law, twelve list shapes, twelve
+    not-a-list shapes and every mode of all six goals before import,
+    with two mutations proving the per-step dereference and the
+    case-sensitive functor comparison both load-bearing. A structural
+    balance scanner was run over every edited module and proved to bite
+    by deleting an `End If` from a copy.
+
+    *Blocks:* `PROLOG.15`'s `is-list?` and `PROLOG.16`'s list-returning
+    half are both unblocked by this. *Named follow-up:* `(list a b c)`
+    reader sugar, and `append` over partial lists.
   - ⬜ **PROLOG.14 — DISJUNCTION and IF-THEN-ELSE.** There is no way to
     write "or" inside a rule body; the only disjunction available is
     writing two rules with the same head, which is fine for facts and
@@ -12950,6 +13191,117 @@ now carries one summary paragraph per engine and points here.*
     never". `~days`. *(This is the item the deterministic-and-auditable
     framing exists for; it is a decision about what this engine refuses to
     be, not a feature.)*
+  - ⬜ **PROLOG.20 — AUDIT THE TEST SUITE ITSELF: 37 assertions that
+    would KILL the run instead of reporting the failure they exist to
+    catch.** Found during `PROLOG.13`'s own live pass, and filed rather
+    than fixed in place because the fix touches three modules this item
+    had no business editing. **Measured, not estimated** — the counts
+    below come from a scan, and the scan's own blind spot is stated at
+    the end.
+
+    **THE DEFECT. VBA's `And` does not short-circuit.** So an assertion
+    written as one combined expression evaluates *every* operand, however
+    the earlier ones answered:
+
+    ```
+    ok = (UBound(result, 1) = 3 And CStr(result(2, 1)) = "a" _
+                                And CStr(result(3, 1)) = "b")
+    ```
+
+    While the test PASSES this is harmless. The moment it genuinely
+    FAILS — the query returns one solution instead of two, so `UBound` is
+    2 — `result(3, 1)` is still evaluated and raises **"Subscript out of
+    range"**. The run dies at the exact moment it was about to tell the
+    owner what broke, and every remaining test in the module never runs.
+    **An assertion that cannot survive its own failure is not a test.**
+
+    **This is not hypothetical and it is not new.** `PROLOG.8`'s own
+    header on `ResultCol1Is` records it happening live: a query with free
+    variables and zero solutions spills a HEADER-ONLY array, and the
+    line raised "Subscript out of range" mid-run rather than failing an
+    assertion. The guarded helpers — `ResultRowCount`, `ResultColCount`,
+    `ResultCellIs`, `ResultCol1Is` — were introduced **precisely to fix
+    this**, and each returns `-1`/`False` rather than raising. What never
+    happened is the migration: they were used for new tests and the
+    existing ones were left as they were. This item is finishing that.
+
+    **THE MEASUREMENT.** Two shapes, both run-killing, counted over all
+    four test modules with line continuations joined:
+
+    | | shape | failure mode | count |
+    |---|---|---|---|
+    | A | a later operand INDEXES an array the same statement bounds-checks | `Subscript out of range` | **30** |
+    | B | `IsArray(r)` first, then `UBound(r, …)` in a later operand | `Type mismatch` when the result is a scalar | **7** |
+
+    By module: **`VLA_Tests_Query.bas` 32**, `VLA_Tests.bas` 4,
+    `VLA_Tests_Host.bas` 1, `VLA_Tests_Grammar.bas` 0. The concentration
+    is not an accident — `PROLOG()` is the function with two result
+    shapes (a spilled array, or a bare Boolean when the query has no free
+    variables), so it is the one whose tests routinely mix a bound check
+    with an index.
+
+    **Shape B is worth separating because it fails EARLIER and WORSE.**
+    `IsArray(result) And UBound(result, 1) = 2 And …` looks like a guard
+    and is not one: when the result is a Boolean — which is exactly what
+    a missing or broken dispatch arm produces, since an unknown predicate
+    is a silent dead end — `UBound` raises a type mismatch on a value
+    `IsArray` has already answered `False` about. Five of the seven are in
+    `PROLOG.7`'s comparison tests, one family away from the arms most
+    likely to regress.
+
+    **THE SECOND HALF: STALE PINS, and this one has a confirmed
+    incident.** `PROLOG.13` changed how a `findall` bag renders and
+    re-pointed the pins that asserted the old spelling. Six needed
+    moving; a grep for the literals already known found four, and the
+    **other two were found only by the owner running the suite** — one in
+    `TestPrologCut`, one in `TestPrologKeyedAtoms`, both asserting a bag
+    rendering from a Sub whose subject is not `findall` at all. Searching
+    for the literals expected rather than enumerating the class is the
+    same error as a hand count, and it is the error this line has a
+    standing rule against. A mechanical sweep exists now — every
+    parenthesised expected literal in a `ResultCol1Is`/`ResultCellIs`/
+    `CStr(result(` assertion, flagged when it does not look like the
+    current representation — and it should become a `tools/check_*.ps1`
+    rather than a thing each item re-invents under pressure.
+
+    **THE THIRD HALF, NOT YET COUNTED: non-discriminating tests.** An
+    unknown predicate fails SILENTLY, so a pin asserting "this goal
+    fails" passes against **no implementation at all**. The standing rule
+    is that every failure test is a ground query asserting FALSE beside
+    its own TRUE twin, or a filter asserting a strict non-empty subset.
+    How many existing pins violate it is **not measured** — it needs
+    semantics, not a regex, so the honest thing is to name the class and
+    count it as its own piece of work rather than quote a number this
+    item cannot stand behind.
+
+    **WHAT THIS SCAN DOES NOT SEE, stated so the 37 is not read as a
+    ceiling.** It works statement by statement, so an assertion that
+    indexes `result(2, 1)` with **no bound check in the statement at
+    all** is invisible to it — and many of those are legitimate, guarded
+    by an `If IsArray(result) Then` on a previous line, which a
+    statement-level scan cannot distinguish from an unguarded one. The 37
+    is a floor for the run-killing class and an exact count for the two
+    shapes named.
+
+    **RECOMMENDED SHAPE, following this line's own precedent.** Write the
+    mechanical check FIRST and run it red — `tools/check_test_assertion_
+    safety.ps1`, house style (PowerShell 5.1, host-independent,
+    hard-coded reviewable baseline, never wired into `VlaSelfTest`) —
+    then migrate module by module, `VLA_Tests_Query.bas` first since it
+    holds 32 of the 37. The check then holds the line, which is the part
+    that matters: this defect is invisible in a green run **by
+    construction**, so nothing but a static check can stop it coming
+    back. Two known instances are already sitting in `TestPrologCut` at
+    `VLA_Tests_Query.bas:3802` (`boundaryOk`) and `:3820`
+    (`notOpaqueOk`), left deliberately untouched by `PROLOG.13` so the
+    diff stayed the change.
+
+    **SCOPE NOTE, since this sits in the PROLOG section.** It was found
+    here and PROLOG owns 32 of the 37, but the defect is not PROLOG's —
+    `VLA_Tests.bas` and `VLA_Tests_Host.bas` carry 5 between them, and
+    the check would cover all four modules. Filed here because this is
+    where it surfaced; re-home it to a test-infrastructure family if one
+    is ever minted. *Blocks nothing; blocked by nothing.* `~days`.
   - **Stated ceiling, carried forward from `BETA_ROADMAP1.md`, not built
     here:** first-argument clause indexing (`SQL`'s own hash-join law,
     `PROLOG`'s own twin — don't scan every clause per call); tabling/memoized

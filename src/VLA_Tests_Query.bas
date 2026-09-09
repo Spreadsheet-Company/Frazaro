@@ -359,6 +359,7 @@ Public Function TestDSLs() As Boolean
     TestPrologBetween
     TestPrologQuotedVersusBare
     TestPrologNegation
+    TestPrologLists
     TestPrologFindall
     TestPrologCut
     TestPrologKeyedAtoms
@@ -3238,6 +3239,319 @@ Private Sub TestPrologNegation()
 End Sub
 
 ' ---------------------------------------------------------------------
+'  PROLOG.13: VLA_Prolog.PROLOG - LIST TERMS and the six list goals.
+'  Covers: the cons representation itself, destructured by ordinary
+'  unification and in a RULE HEAD with no list goal involved at all
+'  (which is the claim that cons inherits UnifyTwoWay and FreshenTerm for
+'  free, run against the real engine rather than trusted); a literal list
+'  stored in a fact and read back; each of length/member/nth/append/
+'  reverse/sum-list in every mode it has, each failure case beside its
+'  own TRUE twin; the composition the whole item exists for - measuring
+'  and summing a findall bag, including a 100-element one that no
+'  rule-based length could reach inside the step budget; the per-step
+'  dereference that makes a chained tail a proper list; the partial-list
+'  refusal beside the bound twin that makes it discriminating; cut
+'  pruning a list generator; and every named refusal.
+'
+'  TWO SHAPE RULES THIS SUB OBEYS THROUGHOUT, because getting either
+'  wrong turns a failing assertion into a dead run. A query with ANY free
+'  variable ALWAYS spills - as a header-only array when it finds nothing
+'  - and only a query with NO free variables collapses to a Boolean. So
+'  "found nothing" is written as ResultRowCount = 1 where a variable is
+'  in play and as result = False where none is. And every check goes
+'  through the guarded helpers rather than an IsArray/UBound expression,
+'  because VBA's And does not short-circuit.
+' ---------------------------------------------------------------------
+Private Sub TestPrologLists()
+    Dim result As Variant
+    Dim r As String
+
+    ' ---- THE REPRESENTATION, before any goal touches it. A cons cell is
+    ' an ordinary compound term, so `=` splits one with no new machinery
+    ' whatsoever - this is the property that decided the representation,
+    ' and it is asserted here against the engine rather than reasoned
+    ' about in a header.
+    result = VLA_Prolog.PROLOG("(query (= (cons H T) (cons a (cons b nil))))")
+    Report "prolog.13: a cons cell destructures by ordinary unification - H is the head, T the tail", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "a") And ResultCellIs(result, 2, 2, "(cons b nil)"), _
+           "got: " & ResultDescribe(result)
+
+    ' ...and in a RULE HEAD, which is the sharper half of the same claim:
+    ' the head is FRESHENED before it is matched, so this passes only if
+    ' FreshenTerm treats a cons cell's position 1 as a functor and its
+    ' 2..N as ordinary arguments. The body is a trivially-true fact
+    ' lookup because a (rule ...) needs at least one body goal.
+    result = VLA_Prolog.PROLOG("(fact (ok yes)) (rule (firstof (cons H T) H) (ok yes)) (query (firstof (cons x (cons y nil)) F))")
+    Report "prolog.13: a cons cell in a RULE HEAD unifies and freshens correctly - no list goal involved", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "x"), "got: " & ResultDescribe(result)
+
+    ' A literal list stored in a FACT, read back and walked. Facts must be
+    ' ground, and a list of ground elements is ground - TermHasVariable
+    ' walks into every cons cell and finds none.
+    result = VLA_Prolog.PROLOG("(fact (colors (cons red (cons green nil)))) (query (colors L) (member X L))")
+    Report "prolog.13: a literal list written in a (fact ...) is stored, retrieved and walked", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 2, "red") And ResultCellIs(result, 3, 2, "green"), _
+           "got: " & ResultDescribe(result)
+
+    ' ---- LENGTH.
+    result = VLA_Prolog.PROLOG("(query (length (cons a (cons b (cons c nil))) N))")
+    Report "prolog.13: (length L N) counts a three-element list", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "3"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (length nil N))")
+    Report "prolog.13: (length nil N) is 0 - the empty list has a length, it is not an error", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "0"), "got: " & ResultDescribe(result)
+    ' The ground pair. Neither of these has a free variable, so both are
+    ' Booleans, and the FALSE one is only meaningful beside the TRUE one -
+    ' an unknown predicate fails silently, so a lone "this fails" pin
+    ' passes against no implementation at all.
+    result = VLA_Prolog.PROLOG("(query (length (cons a nil) 1))")
+    Report "prolog.13: (length L N) TESTS a length when N is already bound", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (length (cons a nil) 2))")
+    Report "prolog.13: ...and its twin, a wrong length, fails", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' ---- MEMBER, in both modes.
+    result = VLA_Prolog.PROLOG("(query (member X (cons a (cons b nil))))")
+    Report "prolog.13: (member X L) with X free ENUMERATES the list, one solution per element", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "a") And ResultCellIs(result, 3, 1, "b"), _
+           "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (member b (cons a (cons b nil))))")
+    Report "prolog.13: (member X L) with X bound TESTS membership", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (member z (cons a (cons b nil))))")
+    Report "prolog.13: ...and its twin, an element that is not there, fails", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (member a nil))")
+    Report "prolog.13: nothing is a member of the empty list - an ordinary no, not an error", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' A FILTER, asserting a strict non-empty SUBSET. Three elements in,
+    ' two out - so this cannot pass against an engine that enumerates
+    ' everything, nor against one that enumerates nothing.
+    result = VLA_Prolog.PROLOG("(query (member X (cons a (cons b (cons c nil)))) (\== X b))")
+    Report "prolog.13: member composes with a filter - a strict, non-empty subset of the list", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "a") And ResultCellIs(result, 3, 1, "c"), _
+           "got: " & ResultDescribe(result)
+
+    ' ---- NTH, one-based, in both modes.
+    result = VLA_Prolog.PROLOG("(query (nth 2 (cons a (cons b (cons c nil))) X))")
+    Report "prolog.13: (nth N L X) picks the Nth element, counting from 1", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "b"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (nth N (cons a (cons b nil)) X))")
+    Report "prolog.13: (nth N L X) with N free enumerates position and element together", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 2, 2, "a") _
+           And ResultCellIs(result, 3, 1, "2"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (nth 1 (cons a nil) a))")
+    Report "prolog.13: (nth N L X) fully ground TESTS a position", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    ' The three ways an index can name no position all FAIL rather than
+    ' refuse, and that is one uniform rule rather than three cases: the
+    ' positions of a list are 1..Count, and an index outside that set is a
+    ' correct negative answer about the list, exactly as ISO nth1/3 has
+    ' it. Refusing would make (nth N L X) unusable as a test.
+    result = VLA_Prolog.PROLOG("(query (nth 2 (cons a nil) a))")
+    Report "prolog.13: ...and an index past the end fails", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (nth 0 (cons a nil) a))")
+    Report "prolog.13: ...and 0 fails, because nth counts from 1", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (nth 1.5 (cons a nil) a))")
+    Report "prolog.13: ...and a fractional index fails - it names no position, and is never rounded to one", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    ' An index far past what a Long can hold. It must FAIL like any other
+    ' out-of-range index, not crash: the range is bounded in Double
+    ' arithmetic before the conversion, so CLng never sees this number.
+    ' Without that ordering this is a raw, unworded overflow.
+    result = VLA_Prolog.PROLOG("(query (nth 99999999999 (cons a nil) a))")
+    Report "prolog.13: ...and an index too large for a Long fails rather than overflowing into a raw error", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' ---- APPEND, both modes.
+    result = VLA_Prolog.PROLOG("(query (append (cons a nil) (cons b nil) C))")
+    Report "prolog.13: (append A B C) joins two lists", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "(cons a (cons b nil))"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (append nil (cons a nil) C))")
+    Report "prolog.13: nil is append's identity on the left", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "(cons a nil)"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (append (cons a nil) nil C))")
+    Report "prolog.13: ...and on the right", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "(cons a nil)"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (append (cons a nil) (cons b nil) (cons a (cons b nil))))")
+    Report "prolog.13: (append A B C) fully ground CHECKS a join", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (append (cons a nil) (cons b nil) (cons b (cons a nil))))")
+    Report "prolog.13: ...and its twin, a join in the wrong order, fails", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' The SPLIT mode - A free, C known. A list of two has three splits,
+    ' and both ends are included, which is what distinguishes a real split
+    ' generator from one that quietly skips the empty prefix.
+    result = VLA_Prolog.PROLOG("(query (append A B (cons a (cons b nil))))")
+    Report "prolog.13: (append A B C) with A free enumerates every way to SPLIT C - both ends included", _
+           ResultRowCount(result) = 4 And ResultCellIs(result, 2, 1, "nil") _
+           And ResultCellIs(result, 2, 2, "(cons a (cons b nil))") _
+           And ResultCellIs(result, 3, 1, "(cons a nil)") And ResultCellIs(result, 3, 2, "(cons b nil)") _
+           And ResultCellIs(result, 4, 2, "nil"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (append A B nil))")
+    Report "prolog.13: ...and the empty list has exactly one split, nil and nil", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "nil") And ResultCellIs(result, 2, 2, "nil"), _
+           "got: " & ResultDescribe(result)
+
+    ' THE MODES THAT DECIDED HOW BRANCH 2 IS KEYED. The split branch tests
+    ' whether C is a list, NOT whether A is free - so a KNOWN A with a
+    ' free B is "drop this prefix", and a known B with a free A is "drop
+    ' this suffix". The first version keyed it on "A is free" and refused
+    ' both of these, with a proper A being exactly what disqualified it.
+    result = VLA_Prolog.PROLOG("(query (append nil B (cons a nil)))")
+    Report "prolog.13: (append A B C) with A KNOWN and B free drops a prefix - here the empty one", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "(cons a nil)"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (append (cons a nil) B (cons a (cons b nil))))")
+    Report "prolog.13: ...and a real one - (append (a) B (a b)) leaves B as (b)", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "(cons b nil)"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (append A (cons b nil) (cons a (cons b nil))))")
+    Report "prolog.13: ...and the mirror, a known SUFFIX leaving A as the prefix", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "(cons a nil)"), "got: " & ResultDescribe(result)
+    ' The discriminating twin for all three: a prefix that is NOT there
+    ' finds nothing. B is free, so this spills header-only rather than
+    ' collapsing to a Boolean.
+    result = VLA_Prolog.PROLOG("(query (append (cons a nil) B (cons b (cons c nil))))")
+    Report "prolog.13: ...and a prefix the list does not have finds nothing, rather than inventing a split", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+
+    ' ---- REVERSE.
+    result = VLA_Prolog.PROLOG("(query (reverse (cons a (cons b (cons c nil))) R))")
+    Report "prolog.13: (reverse L R) reverses a list", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "(cons c (cons b (cons a nil)))"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (reverse nil R))")
+    Report "prolog.13: reversing the empty list gives the empty list", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "nil"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (reverse (cons a (cons b nil)) (cons b (cons a nil))))")
+    Report "prolog.13: (reverse L R) fully ground CHECKS a reversal", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (reverse (cons a (cons b nil)) (cons a (cons b nil))))")
+    Report "prolog.13: ...and its twin, an unreversed list, fails", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+
+    ' ---- SUM-LIST.
+    result = VLA_Prolog.PROLOG("(query (sum-list (cons 1 (cons 2 (cons 3 nil))) N))")
+    Report "prolog.13: (sum-list L N) adds a list of numbers", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "6"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sum-list nil N))")
+    Report "prolog.13: the empty list sums to 0 - the identity, not a special case", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "0"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sum-list (cons 1 (cons 2 nil)) 3))")
+    Report "prolog.13: (sum-list L N) fully ground CHECKS a total", _
+           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sum-list (cons 1 (cons 2 nil)) 4))")
+    Report "prolog.13: ...and its twin, a wrong total, fails", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    ' Elements go through the SAME EvalArithTerm `is` and the comparisons
+    ' use, so an element may itself be an expression.
+    result = VLA_Prolog.PROLOG("(query (sum-list (cons (+ 1 2) (cons 4 nil)) N))")
+    Report "prolog.13: a sum-list element may be an arithmetic expression, the same walker `is` uses", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "7"), "got: " & ResultDescribe(result)
+
+    ' ---- THE DEREFERENCE, at every step of the chain rather than only at
+    ' the top. The pair is what makes it discriminating: the FIRST refuses
+    ' because T is still free and (cons a T) is a partial list; the SECOND
+    ' is the identical term with T bound, and must be a proper list of
+    ' one. A walk that dereferenced only its argument would refuse both.
+    r = CStr(VLA_Prolog.PROLOG("(query (length (cons a T) N))"))
+    Report "prolog.13: a PARTIAL list - (cons a T) with T unbound - is refused by name, not answered", _
+           InStr(1, r, "needs a list", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (= T nil) (length (cons a T) N))")
+    Report "prolog.13: ...and the same term with T BOUND is a proper list - the tail is dereferenced at every step", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 2, "1"), "got: " & ResultDescribe(result)
+
+    ' ---- THE COMPOSITION THE WHOLE ITEM EXISTS FOR: findall's bag is no
+    ' longer a dead end.
+    result = VLA_Prolog.PROLOG("(fact (color red)) (fact (color green)) (fact (color blue)) (query (findall X (color X) Bag) (length Bag N))")
+    Report "prolog.13: a findall bag can be MEASURED - findall stops being a terminal operation", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 2, "3"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(fact (sale 10)) (fact (sale 20)) (fact (sale 30)) (query (findall X (sale X) Bag) (sum-list Bag Total))")
+    Report "prolog.13: ...and SUMMED, which is the derived-total idiom a spreadsheet actually wants", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 2, "60"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(fact (color red)) (fact (color green)) (query (findall X (color X) Bag) (member green Bag))")
+    Report "prolog.13: ...and searched, with member over a bag the query itself derived", _
+           ResultRowCount(result) = 2, "got: " & ResultDescribe(result)
+
+    ' THE BUDGET CLAIM, run rather than argued. A hundred-element bag:
+    ' findall's own dispatch charges 1, the between goal 1, its hundred
+    ' values 100, and length exactly 1 more however long the list is -
+    ' 103 against a ceiling of 120. A length written as a recursive Prolog
+    ' RULE would charge one step per element on top of the harvest and
+    ' could never finish this, which is why the six goals are native.
+    result = VLA_Prolog.PROLOG("(query (findall X (between 1 100 X) Bag) (length Bag N))")
+    Report "prolog.13: a HUNDRED-element bag can be measured inside the step budget - one step, not one per element", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 2, "100"), "got: " & ResultDescribe(result)
+
+    ' ---- CUT. member's loop sits between a cut's own origin and its
+    ' firing site, so it must stop generating the moment the signal comes
+    ' back and must never absorb it - SolveBetween's own rule, which this
+    ' pair holds for a list generator. Without that line the two read 3
+    ' and 3 instead of 1 and 3.
+    result = VLA_Prolog.PROLOG("(rule (p X) (member X (cons a (cons b (cons c nil)))) !) (query (p X))")
+    Report "prolog.13: `!` after a member goal PRUNES the generator - exactly one solution, not three", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "a"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(rule (p X) (member X (cons a (cons b (cons c nil))))) (query (p X))")
+    Report "prolog.13: ...and the identical rule WITHOUT the cut still generates all three", _
+           ResultRowCount(result) = 4, "got: " & ResultDescribe(result)
+
+    ' ---- REFUSALS. Every one is visible in a cell as "#PROLOG! ..." so
+    ' none of these needs a live workbook to observe.
+    r = CStr(VLA_Prolog.PROLOG("(query (length foo N))"))
+    Report "prolog.13: a non-list argument is refused by name, and the refusal TEACHES the cons spelling", _
+           InStr(1, r, "needs a list", vbTextCompare) > 0 And InStr(1, r, "(cons a (cons b nil))", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (member X (pair a b)))"))
+    Report "prolog.13: ...and a compound term that is not a cons cell is refused the same way", _
+           InStr(1, r, "needs a list", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (append A B C))"))
+    Report "prolog.13: (append A B C) with everything free is refused - there is nothing to split", _
+           InStr(1, r, "needs a list", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (sum-list (cons 1 (cons b nil)) N))"))
+    Report "prolog.13: a non-numeric element in sum-list reuses the shared arithmetic refusal, naming (sum-list ...)", _
+           InStr(1, r, "(sum-list ...)", vbTextCompare) > 0 And InStr(1, r, "isn't one", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (nth foo (cons a nil) X))"))
+    Report "prolog.13: a non-numeric INDEX is refused, naming (nth ...) - unlike an out-of-range one, which fails", _
+           InStr(1, r, "(nth ...)", vbTextCompare) > 0, "got: " & r
+
+    ' The shared SHAPE refusal, and the two arities it has to tell apart -
+    ' one raise site serving six forms of two different shapes, so both
+    ' the form and the count come from the caller.
+    r = CStr(VLA_Prolog.PROLOG("(query (length (cons a nil)))"))
+    Report "prolog.13: (length ...) with one argument is refused, naming its own form and count", _
+           InStr(1, r, "(length ...)", vbTextCompare) > 0 And InStr(1, r, "exactly 2 arguments", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (nth 1 (cons a nil)))"))
+    Report "prolog.13: ...and (nth ...) with two is refused with the OTHER count, from the same message", _
+           InStr(1, r, "(nth ...)", vbTextCompare) > 0 And InStr(1, r, "exactly 3 arguments", vbTextCompare) > 0, "got: " & r
+
+    ' Reserved, like every other dispatched name - forward declaration, so
+    ' a knowledge base written today cannot be broken by a goal that ships
+    ' later.
+    Dim listName As Variant
+    For Each listName In Array("length", "member", "nth", "append", "reverse", "sum-list")
+        r = CStr(VLA_Prolog.PROLOG("(fact (" & listName & " a b c)) (query (p X))"))
+        Report "prolog.13: '" & listName & "' is refused as a predicate name in a (fact ...)", _
+               InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+    Next listName
+
+    ' ...and the refusal must ENUMERATE them, not merely refuse. A message
+    ' still listing only the sets that existed before this item would be
+    ' quietly wrong about what a user may name a predicate.
+    r = CStr(VLA_Prolog.PROLOG("(fact (member a b c)) (query (p X))"))
+    Report "prolog.13: ...and the refusal names the six list goals, so the advice can never be wrong", _
+           InStr(1, r, "six list goals", vbTextCompare) > 0 And InStr(1, r, "sum-list", vbTextCompare) > 0, "got: " & r
+
+    ' `cons` and `nil` are deliberately NOT reserved - they are data, a
+    ' functor and an atom, and this pins that decision rather than leaving
+    ' it to prose. A user may still define a predicate called cons.
+    result = VLA_Prolog.PROLOG("(fact (cons a b)) (query (cons a Y))")
+    Report "prolog.13: `cons` is NOT reserved - it is a functor, not a goal, so a user may still define it", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "b"), "got: " & ResultDescribe(result)
+End Sub
+
+' ---------------------------------------------------------------------
 '  PROLOG.5.3: VLA_Prolog.PROLOG - `findall`. Covers: a bare-variable
 '  Template harvesting every solution into a list, in derivation order;
 '  zero solutions collapsing to an empty list; a COMPOUND Template,
@@ -3256,15 +3570,29 @@ Private Sub TestPrologFindall()
 
     ' A bare-variable Template, every solution harvested into a list, in
     ' derivation (candidate) order.
+    ' PROLOG.13 RE-POINTS THIS PIN, and the three below it, and the two
+    ' at the end of this Sub. The bag is a CONS CHAIN now, not a headless
+    ' Collection - `(cons red (cons green (cons blue nil)))` where this
+    ' used to read `(red green blue)`. Re-pointed rather than deleted,
+    ' the fourth marker pin to move (PROLOG.8 moved PROLOG.7's,
+    ' PROLOG.10 moved PROLOG.8's, PROLOG.12 moved PROLOG.10's): the
+    ' behaviour being pinned - every solution harvested, in derivation
+    ' order - has not changed at all, only how the resulting list is
+    ' spelled, so deleting the pin would lose a property that still
+    ' holds. See VLA_Prolog.bas's own PROLOG.13 header for why the
+    ' representation changed and what the old headless shape could not do.
     result = VLA_Prolog.PROLOG("(fact (color red)) (fact (color green)) (fact (color blue)) (query (findall X (color X) Bag))")
-    Report "prolog.5.3: findall harvests every solution into a list, in derivation order", _
-           ResultCol1Is(result, "(red green blue)"), "got: " & ResultDescribe(result)
+    Report "prolog.5.3/13: findall harvests every solution into a list, in derivation order", _
+           ResultCol1Is(result, "(cons red (cons green (cons blue nil)))"), "got: " & ResultDescribe(result)
 
     ' Zero solutions collapses to an empty list, never an error - real
-    ' findall's own signature behavior (unlike bagof/setof).
+    ' findall's own signature behavior (unlike bagof/setof). PROLOG.13:
+    ' the empty list is now the ATOM `nil`, where it used to be a
+    ' zero-length Collection rendering as `()`. That single change is
+    ' what lets the ISO type-test edge case below answer correctly.
     result = VLA_Prolog.PROLOG("(query (findall X (nonexistent X) Bag))")
-    Report "prolog.5.3: findall over a goal with no solutions binds Bag to an empty list, not an error", _
-           ResultCol1Is(result, "()"), "got: " & ResultDescribe(result)
+    Report "prolog.5.3/13: findall over a goal with no solutions binds Bag to the empty list nil, not an error", _
+           ResultCol1Is(result, "nil"), "got: " & ResultDescribe(result)
 
     ' A COMPOUND Template - proves SubstituteTemplate's own
     ' reconstruction of Template's structure per solution, not just a
@@ -3272,8 +3600,8 @@ Private Sub TestPrologFindall()
     result = VLA_Prolog.PROLOG( _
         "(fact (person alice 30)) (fact (person bob 25)) " & _
         "(query (findall (pair Name Age) (person Name Age) Bag))")
-    Report "prolog.5.3: a compound Template is reconstructed per solution, not flattened", _
-           ResultCol1Is(result, "((pair alice 30) (pair bob 25))"), "got: " & ResultDescribe(result)
+    Report "prolog.5.3/13: a compound Template is reconstructed per solution, not flattened", _
+           ResultCol1Is(result, "(cons (pair alice 30) (cons (pair bob 25) nil))"), "got: " & ResultDescribe(result)
 
     ' findall composing with an OUTER already-bound variable across real
     ' backtracking - the classic "group by" idiom: for each department
@@ -3283,23 +3611,42 @@ Private Sub TestPrologFindall()
         "(fact (dept eng)) (fact (dept sales)) " & _
         "(fact (employee alice eng)) (fact (employee bob eng)) (fact (employee carol sales)) " & _
         "(query (dept D) (findall E (employee E D) Bag))")
+    ' PROLOG.13 re-points the two bag spellings here AND rewrites the
+    ' assertion itself onto the guarded helpers. The original built one
+    ' combined expression - UBound(result, 1) = 3 And CStr(result(2, 1))
+    ' = ... - and VBA's And does not short-circuit, so on a HEADER-ONLY
+    ' result (free variables, zero solutions, UBound 1) every one of
+    ' those indexes still evaluated and the run would have died with
+    ' "Subscript out of range" at the exact moment it was about to report
+    ' the failure. It never fired because the test passed; a failing
+    ' assertion written that way kills the run instead of reporting it,
+    ' which is what ResultRowCount/ResultCellIs exist to prevent.
     Dim groupByOk As Boolean
-    If IsArray(result) Then
-        groupByOk = (UBound(result, 1) = 3 And CStr(result(2, 1)) = "eng" And CStr(result(2, 2)) = "(alice bob)" _
-                     And CStr(result(3, 1)) = "sales" And CStr(result(3, 2)) = "(carol)")
-    End If
-    Report "prolog.5.3: findall composes with an outer already-bound variable across real backtracking (group-by)", _
+    groupByOk = (ResultRowCount(result) = 3)
+    If groupByOk Then groupByOk = ResultCellIs(result, 2, 1, "eng")
+    If groupByOk Then groupByOk = ResultCellIs(result, 2, 2, "(cons alice (cons bob nil))")
+    If groupByOk Then groupByOk = ResultCellIs(result, 3, 1, "sales")
+    If groupByOk Then groupByOk = ResultCellIs(result, 3, 2, "(cons carol nil)")
+    Report "prolog.5.3/13: findall composes with an outer already-bound variable across real backtracking (group-by)", _
            groupByOk, "got: " & ResultDescribe(result)
 
     ' An already-bound Bag argument is genuinely CHECKED via unification,
     ' not just always bound fresh - both the matching and mismatching
     ' case.
-    result = VLA_Prolog.PROLOG("(fact (color red)) (fact (color green)) (query (findall X (color X) (red green)))")
-    Report "prolog.5.3: an already-bound Bag matching the harvested list succeeds", _
+    ' PROLOG.13: both re-pointed at cons spellings. This pair is the one
+    ' that proves the representation change is real rather than cosmetic
+    ' - the Bag argument is now WRITTEN as a cons chain in the program
+    ' text and unified against the harvested one, so a bag and a
+    ' hand-written list have to be the same term for the first pin to
+    ' pass, and the old headless `(red green)` would fail both. It is
+    ' also the round trip the old shape could never do: `(red green)`
+    ' written down reads back as a term whose functor is `red`.
+    result = VLA_Prolog.PROLOG("(fact (color red)) (fact (color green)) (query (findall X (color X) (cons red (cons green nil))))")
+    Report "prolog.5.3/13: an already-bound Bag matching the harvested list succeeds", _
            VarType(result) = vbBoolean And result = True, "got " & TypeName(result) & " " & result
 
-    result = VLA_Prolog.PROLOG("(fact (color red)) (fact (color green)) (query (findall X (color X) (green red)))")
-    Report "prolog.5.3: an already-bound Bag NOT matching the harvested list (wrong order) fails", _
+    result = VLA_Prolog.PROLOG("(fact (color red)) (fact (color green)) (query (findall X (color X) (cons green (cons red nil))))")
+    Report "prolog.5.3/13: an already-bound Bag NOT matching the harvested list (wrong order) fails", _
            VarType(result) = vbBoolean And result = False, "got " & TypeName(result) & " " & result
 
     ' The shared step ceiling, run to real exhaustion inside findall's
@@ -3325,8 +3672,8 @@ Private Sub TestPrologFindall()
     ' skipped X, since (not X) also happens to match CollectVars' own
     ' negation skip-shape check).
     result = VLA_Prolog.PROLOG("(fact (thing a)) (query (findall (not X) (thing X) Bag))")
-    Report "prolog.5.3: a Template containing a literal (not X)-shaped sub-term still has its own variable collected correctly", _
-           ResultCol1Is(result, "((not a))"), "got: " & ResultDescribe(result)
+    Report "prolog.5.3/13: a Template containing a literal (not X)-shaped sub-term still has its own variable collected correctly", _
+           ResultCol1Is(result, "(cons (not a) nil)"), "got: " & ResultDescribe(result)
 
     ' Refusals.
     r = CStr(VLA_Prolog.PROLOG("(fact (foo a)) (query (findall X (foo X)))"))
@@ -3347,8 +3694,45 @@ Private Sub TestPrologFindall()
     ' this case simple; TestPrologCut, below, is where cut's own opacity
     ' inside findall's isolated sub-search is actually proven.
     result = VLA_Prolog.PROLOG("(query (findall done ! Bag))")
-    Report "prolog.5.3: a bare ! as findall's own goal is legal (PROLOG.5.4) and harvests exactly one Template instantiation", _
-           ResultCol1Is(result, "(done)"), "got: " & ResultDescribe(result)
+    Report "prolog.5.3/13: a bare ! as findall's own goal is legal (PROLOG.5.4) and harvests exactly one Template instantiation", _
+           ResultCol1Is(result, "(cons done nil)"), "got: " & ResultDescribe(result)
+
+    ' ---- PROLOG.13: THE ISO EDGE CASE PROLOG.9 RECORDED AND NEVER
+    ' PINNED. PROLOG.9's own header claimed `(compound EmptyBag)` was
+    ' "pinned rather than special-cased" as True. It was not pinned at
+    ' all - no test in this module ever combined findall with a type
+    ' test, so the claim had never once been executed. It was also the
+    ' non-ISO answer, forced by representation: an empty bag was a
+    ' zero-length Collection, and SolveTypeTest classifies by IsObject.
+    '
+    ' PROLOG.13's nil is an ATOM, so the same unchanged SolveTypeTest now
+    ' gives ISO's answer. Not one line of it moved. These four run the
+    ' bag through a REAL findall rather than writing nil literally,
+    ' deliberately - a literal would prove only that `nil` is an atom,
+    ' which was never in doubt; what needs pinning is that findall's own
+    ' empty bag IS that atom.
+    ' NOT a bare Boolean, and the distinction is the one that caught the
+    ' previous session three times: `Bag` is a FREE variable, and a query
+    ' with a free variable ALWAYS spills - as a HEADER-ONLY array when it
+    ' finds nothing. Only a query with no free variables at all collapses
+    ' to a Boolean. So "this goal failed" is spelled here as a row count
+    ' of 1 (the header alone), never as result = False.
+    result = VLA_Prolog.PROLOG("(query (findall X (nonexistent X) Bag) (compound? Bag))")
+    Report "prolog.13: (compound? EmptyBag) is now FALSE - the ISO answer, where PROLOG.9's representation forced True", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (findall X (nonexistent X) Bag) (atomic? Bag))")
+    Report "prolog.13: ...and (atomic? EmptyBag) is TRUE - the same judgement seen from the other side", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "nil"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (findall X (nonexistent X) Bag) (atom? Bag))")
+    Report "prolog.13: ...and (atom? EmptyBag) is TRUE - nil is an ordinary atom, not a number and not a variable", _
+           ResultRowCount(result) = 2, "got: " & ResultDescribe(result)
+
+    ' THE DISCRIMINATING TWIN, without which the three above would pass
+    ' against an engine that answered False to every type test: a
+    ' NON-empty bag is still compound, because it really is a cons cell.
+    result = VLA_Prolog.PROLOG("(fact (color red)) (query (findall X (color X) Bag) (compound? Bag))")
+    Report "prolog.13: ...while a NON-empty bag IS compound - the twin that makes the three above discriminating", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "(cons red nil)"), "got: " & ResultDescribe(result)
 End Sub
 
 ' ---------------------------------------------------------------------
@@ -3439,18 +3823,28 @@ Private Sub TestPrologCut()
 
     ' The identical opacity proof for findall's own isolated sub-search:
     ' grab/1 reaches a cut after its first thing-fact, so grab(Z) always
-    ' harvests exactly (1), regardless of Y - if the internal cut leaked,
-    ' the outer p(Y) loop would wrongly stop after Y=a.
+    ' harvests exactly one element, regardless of Y - if the internal cut
+    ' leaked, the outer p(Y) loop would wrongly stop after Y=a.
+    '
+    ' PROLOG.13 re-points the two bag spellings - `(1)` became
+    ' `(cons 1 nil)` - and rewrites the assertion onto the guarded
+    ' helpers while it is here. The original built one combined
+    ' expression, and VBA's And does not short-circuit, so the moment
+    ' this test genuinely FAILED - a leaked cut gives 1 solution, not 2 -
+    ' `result(3, 1)` would still have been evaluated and raised
+    ' "Subscript out of range", killing the run instead of reporting the
+    ' leak it exists to catch. It never fired only because it passed.
     result = VLA_Prolog.PROLOG( _
         "(fact (p a)) (fact (p b)) (fact (thing 1)) (fact (thing 2)) " & _
         "(rule (grab X) (thing X) !) " & _
         "(query (p Y) (findall Z (grab Z) Bag))")
     Dim findallOpaqueOk As Boolean
-    If IsArray(result) Then
-        findallOpaqueOk = (UBound(result, 1) = 3 And CStr(result(2, 1)) = "a" And CStr(result(2, 2)) = "(1)" _
-                           And CStr(result(3, 1)) = "b" And CStr(result(3, 2)) = "(1)")
-    End If
-    Report "prolog.5.4: a cut fired inside findall's own isolated goal never leaks out to prune the outer query's own unrelated choice point", _
+    findallOpaqueOk = (ResultRowCount(result) = 3)
+    If findallOpaqueOk Then findallOpaqueOk = ResultCellIs(result, 2, 1, "a")
+    If findallOpaqueOk Then findallOpaqueOk = ResultCellIs(result, 2, 2, "(cons 1 nil)")
+    If findallOpaqueOk Then findallOpaqueOk = ResultCellIs(result, 3, 1, "b")
+    If findallOpaqueOk Then findallOpaqueOk = ResultCellIs(result, 3, 2, "(cons 1 nil)")
+    Report "prolog.5.4/13: a cut fired inside findall's own isolated goal never leaks out to prune the outer query's own unrelated choice point", _
            findallOpaqueOk, "got: " & ResultDescribe(result)
 
     ' Multiple cuts in ONE clause body compose without double-firing or
@@ -3650,8 +4044,15 @@ Private Sub TestPrologKeyedAtoms()
     result = VLA_Prolog.PrologRun( _
         staffingFacts & "(query (findall Name (staffing (dept " & q & "eng" & q & ") (name Name)) Bag))", _
         clauseDict, headerMap)
-    Report "prolog.6: keyed-atom desugaring reaches inside findall's own Goal", _
-           ResultCol1Is(result, "(" & q & "alice" & q & " " & q & "carol" & q & ")"), "got: " & ResultDescribe(result)
+    ' PROLOG.13 re-points the bag spelling here too. The QUOTING point
+    ' this pin was written to make is unchanged and is why it survives
+    ' rather than being simplified: the harvested elements are still
+    ' marked atoms, and RenderBoundValue's compound branch still
+    ' RE-QUOTES them, so the expectation is still built from `q` rather
+    ' than written as plain text. Only the list spelling around them
+    ' moved, from `("alice" "carol")` to the cons chain.
+    Report "prolog.6/13: keyed-atom desugaring reaches inside findall's own Goal", _
+           ResultCol1Is(result, "(cons " & q & "alice" & q & " (cons " & q & "carol" & q & " nil))"), "got: " & ResultDescribe(result)
 End Sub
 
 ' PROLOG.6: table-sourced facts, necessarily host-required (RangeToRows/

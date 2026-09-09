@@ -198,9 +198,12 @@ The result spills as a roster of every legal pairing, one row per
 solution, in derivation order. Swap the last line for
 `(query (shifts (shift Shift) (needs C)) (findall Who (can-cover
 Shift Who) Bag))` and you get one row per shift with the candidates
-gathered into a list. Negation-as-failure, arithmetic via `(is ...)`,
-numeric comparison (`<`, `>`, `=<`, `>=`, `=:=`, `=\=`) as goals in
-their own right, cut, and `findall` are all in; an infinite rule is
+gathered into a list — and that list can then be counted, added up,
+searched or taken apart, with `length`, `member`, `nth`, `append`,
+`reverse` and `sum-list`. Negation-as-failure, arithmetic via
+`(is ...)`, numeric comparison (`<`, `>`, `=<`, `>=`, `=:=`, `=\=`) as
+goals in their own right, type tests (`atom?`, `number?`, …), `between`,
+cut, and `findall` are all in; an infinite rule is
 stopped by a step ceiling and refused by name, never left spinning.
 `SOLVE()` (answer set programming) is scoped and coming.
 
