@@ -75,8 +75,8 @@ want the artifact.)
 
 ## The idea
 
-> Whatever language a person prefers to think in should be the same
-> language their top-level source code is written in.
+> The language in which a person thinks (source thought) should be
+> the same language in which a person works (source code).
 
 Everyone who lives in spreadsheets has procedures — month-end
 checklists, report formatting, data cleanup — that they can *describe

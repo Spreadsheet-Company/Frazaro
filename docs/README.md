@@ -1,4 +1,4 @@
-# The shelf
+# The docshelf
 
 *An index, not a document. The files here are written for three readers
 who rarely need each other's: someone **using** Frazaro, someone
