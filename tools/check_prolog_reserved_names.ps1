@@ -57,6 +57,26 @@ WHAT IT CHECKS.
      the one name dispatched structurally rather than by predName, through
      the baseline exemption recorded in $structuralDispatch below.
 
+  D. Dispatch legitimacy - rule C read the other way round. Every
+     predName-keyed arm SolveGoalList actually HAS must belong to the
+     reserved set: a `predName = "..."` arm whose name no code path
+     reserves, or a `<Table>(predName) <> ""` arm over a table
+     IsReservedPredicateName does not delegate to, is the second of the
+     three defects named above - dispatched but not reserved, so a user
+     may DEFINE that predicate, have their definition silently shadowed
+     by the solver, and never be told.
+
+     PROLOG.9 added this. Rules A-C as PROLOG.8 shipped them walked the
+     reserved set outward to the other two places and never walked the
+     dispatch back, so the direction was unguarded despite the header
+     above having always claimed it: a `predName = "bogusundeclared"` arm
+     spliced into SolveGoalList passed the whole script clean, exit 0,
+     verified by mutation before this rule was written. Nothing in the
+     shipped code was wrong - every arm was reserved - but PROLOG.9 adds
+     two arms at once (the six type tests through their own table, and
+     `between` as a literal name), which is exactly the change that would
+     have walked through the gap.
+
 The baselines below are lists of NAMES, not patterns: a table that joins
 the reserved set must be added here on purpose, and a rename breaks the
 run loudly rather than silently scanning nothing.
@@ -321,6 +341,44 @@ if ($null -eq $solveBody) {
         } else {
             Write-Output ("  {0,-22} UNDISPATCHED" -f $n)
             $failures.Add("'$n' is reserved but SolveGoalList never dispatches it - the name is forbidden as a predicate AND does nothing")
+        }
+    }
+
+    # ---- rule D: and nothing BUT a reserved name may be dispatched ------
+    # The two arm shapes are read straight out of SolveGoalList's own text
+    # and matched back against the sets rule C walked outward from. An
+    # assignment (`predName = GoalPredName(...)`) cannot match: the pattern
+    # requires a quoted literal on the right-hand side. The empty string is
+    # skipped so a defensive `If predName = "" Then` guard, should one ever
+    # be added, is not reported as an undeclared predicate name.
+    Write-Output ''
+    Write-Output '--- rule D: and every arm SolveGoalList has must be a reserved one ---'
+
+    $dispatchedLiterals = @([regex]::Matches($solveText, 'predName\s*=\s*"([^"]*)"') |
+        ForEach-Object { $_.Groups[1].Value } | Where-Object { $_.Length -gt 0 } | Sort-Object -Unique)
+    $dispatchedTables = @([regex]::Matches($solveText, '([A-Za-z_]\w*)\s*\(\s*predName\s*\)\s*<>\s*""') |
+        ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+
+    if ($dispatchedLiterals.Count -eq 0 -and $dispatchedTables.Count -eq 0) {
+        $failures.Add('SolveGoalList has no predName-keyed dispatch arm of either shape - the chain this rule reads has been restructured, so update this check deliberately rather than letting it scan nothing')
+        Write-Output '  NO ARMS FOUND - the dispatch chain no longer has the shape this rule reads'
+    }
+
+    foreach ($t in $dispatchedTables) {
+        if ($tableNames -contains $t) {
+            Write-Output ("  {0,-22} ok         table arm, delegated to by IsReservedPredicateName" -f $t)
+        } else {
+            Write-Output ("  {0,-22} UNRESERVED" -f $t)
+            $failures.Add("SolveGoalList dispatches table '$t' but IsReservedPredicateName does not delegate to it - every name that table holds can be DEFINED by a user and is then silently shadowed by the solver")
+        }
+    }
+
+    foreach ($n in $dispatchedLiterals) {
+        if ($reservedSorted -contains $n) {
+            Write-Output ("  {0,-22} ok         reserved (from {1})" -f $n, $sourceOf[$n])
+        } else {
+            Write-Output ("  {0,-22} UNRESERVED" -f $n)
+            $failures.Add("SolveGoalList dispatches '$n' but no code path reserves it - a user may define that predicate, and their own facts are then silently unreachable")
         }
     }
 }
