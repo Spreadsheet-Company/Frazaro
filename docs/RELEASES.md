@@ -110,17 +110,48 @@
   two things are the same — never while Frazaro is matching rules
   against facts, because a query that finds a real answer must never be
   stopped by a near-miss against some *other* fact it was not asking
-  about. A query that simply finds nothing still simply finds nothing.
+  about.
 
   The same message appears for a text `42` against a numeric `42`, where
   it says "number" rather than "name".
 
+- **And a query that finds nothing at all now tells you why, if the
+  reason is that quoting.** The same mistake shows up a second way: not
+  as a comparison that answers oddly, but as a query that just comes back
+  empty. `(query (emp N eng))` against a table whose department column is
+  text used to return nothing and say nothing, and an empty result is the
+  hardest thing to debug because it looks the same whatever caused it.
+
+  Frazaro now checks, **only when a query found no rows whatsoever**,
+  whether one of the things you asked for differs from something it
+  stored by nothing but the quoting — and if so, says that instead of
+  handing back a blank.
+
+  It runs after the search, never during, so it cannot affect a query
+  that works: if your query finds even one row, this check does not
+  happen at all. Adding a fact that matches makes the message disappear.
+  And an empty result with no such near-miss in it stays exactly as it
+  was — empty, and silent, because sometimes the honest answer is that
+  there is nothing there.
+
+  Two cases it does not catch, worth knowing so the silence is not
+  mistaken for a clean bill of health: a mismatch that only exists inside
+  a rule's body, and one that only appears after an earlier part of the
+  query has filled in a variable. Both need bookkeeping during the search
+  that would slow down every query to help a few, so they are left for a
+  later release.
+
 - **A query no longer loses a column when your data is shaped like a
   goal.** If a fact stored a value such as `(not bob)` or `(atom? bob)` —
   ordinary data that happens to be written in the same shape as a
-  Frazaro goal — a query reading it bound the value correctly and then
-  left it out of the result. One column where two were due, with nothing
-  reported. Fixed; both columns now appear.
+  Frazaro goal — a query reading it found the value correctly and then
+  left it out of the result. One column where two were due.
+
+  This one is worth calling out because of how it failed: nothing was
+  reported, and the answer that came back was not empty or wrong-looking,
+  just *narrower* than it should have been. A missing row is obvious; a
+  missing column is easy to read straight past. Fixed, and both columns
+  now appear.
 
 - **A release check learned to look both ways.** PROLOG refuses to let
   you define a predicate with a reserved name, and a static check has

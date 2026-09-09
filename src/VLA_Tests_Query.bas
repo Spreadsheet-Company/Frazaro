@@ -2915,15 +2915,23 @@ Private Sub TestPrologQuotedVersusBare()
     result = VLA_Prolog.PROLOG("(fact (color " & Chr$(34) & "red" & Chr$(34) & ")) (fact (color red)) (query (color red))")
     Report "prolog.10: MONOTONICITY - a near-miss against another clause never aborts a query that has a real match", _
            VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
-    ' The HEADER-ONLY shape, not a bare Boolean: N is a free variable, so
-    ' this query has a column even with no rows to put in it, and only a
-    ' query with NO free variables collapses to a scalar. Asserting the
-    ' array shape is also what makes this discriminating in the direction
-    ' that matters - a refusal would return the STRING "#PROLOG! ...",
-    ' for which ResultRowCount answers -1, so this fails loudly if the
-    ' scope decision ever leaks into clause matching.
-    result = VLA_Prolog.PROLOG("(fact (emp ann " & Chr$(34) & "eng" & Chr$(34) & ")) (query (emp N eng))")
-    Report "prolog.10: a plain query that merely finds nothing still finds nothing, silently - zero rows is a CORRECT answer, not a refusal", _
+    ' PROLOG.12 RE-POINTED THIS PIN. It was written to record that the
+    ' plain-query half was deliberately left open - a query that merely
+    ' finds nothing was silent, because zero rows is a correct answer.
+    ' PROLOG.12 closes that half post hoc, so this exact query now
+    ' explains itself. The assertion moves rather than being deleted,
+    ' because the case it guards is the same one; only the verdict on it
+    ' changed, and the reasoning is in PROLOG.12's own entry.
+    '
+    ' The SILENT half of the scope decision has not gone away - it moves
+    ' to the case below, where there is no near-miss to report. Keeping a
+    ' silent case is what stops the diagnosis quietly firing on every
+    ' empty result.
+    r = CStr(VLA_Prolog.PROLOG("(fact (emp ann " & Chr$(34) & "eng" & Chr$(34) & ")) (query (emp N eng))"))
+    Report "prolog.10/12: a plain query that finds nothing now says WHY, post hoc, instead of an unexplained empty result", _
+           InStr(1, r, "found no rows at all", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(fact (emp ann " & Chr$(34) & "eng" & Chr$(34) & ")) (query (emp N sales))")
+    Report "prolog.10/12: ...but an empty result with NO near-miss is still silent - the header-only shape, not a refusal", _
            ResultRowCount(result) = 1 And ResultColCount(result) = 1, "got: " & ResultDescribe(result)
 
     ' ---- and the convention itself is UNCHANGED. Only the silence went.
@@ -2933,6 +2941,34 @@ Private Sub TestPrologQuotedVersusBare()
     result = VLA_Prolog.PROLOG("(fact (emp ann " & Chr$(34) & "eng" & Chr$(34) & ")) (query (emp N " & Chr$(34) & "eng" & Chr$(34) & "))")
     Report "prolog.10: and the documented workaround still works - quoting the query matches the text cell", _
            ResultCol1Is(result, "ann"), "got: " & ResultDescribe(result)
+
+    ' ---- PROLOG.12: the post-hoc half. It runs ONLY when the whole
+    ' query found nothing, so it can never break a query that works - the
+    ' monotonicity property PROLOG.10 refused to give up.
+    r = CStr(VLA_Prolog.PROLOG("(fact (emp ann " & Chr$(34) & "42" & Chr$(34) & ")) (query (emp N 42))"))
+    Report "prolog.12: the numeric variant is diagnosed too, and says NUMBER rather than name", _
+           InStr(1, r, "found no rows at all", vbTextCompare) > 0 _
+           And InStr(1, r, "the number 42", vbTextCompare) > 0, "got: " & r
+
+    ' MONOTONICITY, the property that made the post-hoc placement the only
+    ' acceptable one: a query that finds a real answer is never touched,
+    ' however many near-misses sit beside it. Same knowledge base as the
+    ' refusing case above, one matching fact added.
+    result = VLA_Prolog.PROLOG("(fact (emp ann " & Chr$(34) & "eng" & Chr$(34) & ")) (fact (emp bob eng)) (query (emp N eng))")
+    Report "prolog.12: adding a fact that MATCHES silences the diagnosis entirely - it only ever runs on a total miss", _
+           ResultCol1Is(result, "bob"), "got: " & ResultDescribe(result)
+
+    ' ---- THE TWO KNOWN LIMITS, pinned as behaviour so they cannot drift
+    ' into being quietly fixed or quietly widened. Both need the near-miss
+    ' recorded DURING solving, which is the threading this design exists
+    ' to avoid, so both are silent by construction rather than by
+    ' accident.
+    result = VLA_Prolog.PROLOG("(rule (p X) (q X)) (fact (q " & Chr$(34) & "eng" & Chr$(34) & ")) (query (p eng))")
+    Report "prolog.12: LIMIT - a near-miss reachable only through a RULE BODY is not diagnosed, and stays silent", _
+           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(fact (dept " & Chr$(34) & "eng" & Chr$(34) & ")) (fact (emp ann eng)) (query (dept D) (emp N D))")
+    Report "prolog.12: LIMIT - a near-miss that only appears AFTER an earlier conjunct binds is not diagnosed either", _
+           ResultRowCount(result) = 1 And ResultColCount(result) = 2, "got: " & ResultDescribe(result)
 End Sub
 
 ' ---------------------------------------------------------------------

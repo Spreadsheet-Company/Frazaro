@@ -579,6 +579,14 @@ Private Sub AddEntries(ByVal m As Collection)
     ' be wrong - PROLOG.10's own open sub-question, surfacing in the
     ' wording rather than being papered over.
     AddMsg m, "prolog-quoted-versus-bare", 5, "VLA-Prolog", "the text ""{text}"" and the {kind} {text} are different things in PROLOG - a text cell keeps its quotes, so if you meant the cell's own value write it as ""{text}""."
+    ' PROLOG.12 - the same mistake, found the other way round. This one is
+    ' raised POST HOC, only when the whole query found nothing at all, so
+    ' it opens by saying so: the user is looking at an empty result and
+    ' needs to know the empty result is the symptom, not the subject.
+    ' Never raised while a query is still solving, and never when it found
+    ' anything, so it can only ever turn an empty answer into an explained
+    ' one - it cannot break a query that works.
+    AddMsg m, "prolog-quoted-versus-bare-no-rows", 5, "VLA-Prolog", "this query found no rows at all, and the likeliest reason is a quoting mismatch: the text ""{text}"" and the {kind} {text} are different things in PROLOG. A text cell keeps its quotes, so if you meant the cell's own value write it as ""{text}""."
     ' PROLOG.9 - between's own four refusals. All four name "(between
     ' ...)" in their own text, and that is CORRECT rather than the defect
     ' the {form} rewrite above removes: this form is the only caller of

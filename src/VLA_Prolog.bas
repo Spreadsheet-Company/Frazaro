@@ -2985,19 +2985,90 @@ Private Sub RefuseIfQuotedVersusBare(ByVal a As Variant, ByVal b As Variant, _
                                       envN As Collection, envT As Collection)
     Dim sameText As String
     sameText = ""
-    If QuotedVersusBareClass(a, b, envN, envT, sameText) <> 1 Then Exit Sub
-    ' `number` or `name` for the bare side. LeafIsNumberTerm is asked
-    ' rather than IsInvariantNumericString directly, so this refusal and
-    ' PROLOG.9's own atom?/number? can never disagree about what counts
-    ' as a number - and sameText is already marker-free, so it takes the
-    ' plain numeric branch of that function by construction.
+    ' freeVarUnifies:=False - an explicit comparison is being asked about
+    ' the terms AS THEY STAND. `(== X 1)` with X free fails for a reason
+    ' that has nothing to do with markers, and must not be reported as
+    ' though it did.
+    If QuotedVersusBareClass(a, b, envN, envT, sameText, False) <> 1 Then Exit Sub
+    RaiseQuotedVersusBare "prolog-quoted-versus-bare", sameText
+End Sub
+
+' PROLOG.12: PROLOG.10 closed the half where a comparison ANSWERED
+' wrongly and left open the half where a plain query merely found
+' nothing. This closes it, and does so without any of the four costs that
+' ruled out doing it inside the solver.
+'
+' THE ARGUMENT THAT CHANGED. PROLOG.10 declined this on the ground that
+' zero rows is a CORRECT answer, and that remains true - but "correct"
+' was doing less work in that sentence than it looked. A query that found
+' nothing AND contains a term differing from a stored one by only the
+' quoting is not a user who wanted zero rows; it is a user who wrote the
+' one mistake this engine's own conventions make easiest to write. The
+' decisive objection to the unscoped version was MONOTONICITY, and it
+' does not apply here: this can never turn a success into a failure,
+' because it only ever runs when there were no solutions at all. Adding a
+' fact that matches makes it go away.
+'
+' THE RESIDUAL COST, stated rather than buried: it can turn an empty
+' result into an error. That is a real change and the price of closing
+' the hole - but it is the benign direction (empty to explained), never
+' the direction that breaks a working program.
+'
+' KNOWN LIMIT, by construction rather than oversight: this compares each
+' QUERY conjunct against the stored clauses of its own predicate, so it
+' sees a near-miss the user could have spotted by reading their own
+' query. It does NOT see one that only appears after an earlier conjunct
+' binds a variable, nor one inside a rule body - both would need the
+' near-miss recorded during solving, which is exactly the threading this
+' design exists to avoid. Pinned by tests that assert those cases stay
+' silent, so the limit is recorded as behaviour rather than as a comment
+' that could drift.
+Private Sub DiagnoseQuotedVersusBare(ByVal queryConjuncts As Collection, clauseDict As Object)
+    ' An EMPTY environment on purpose: solving is over and its bindings
+    ' are gone, so every variable here reads as free - which is precisely
+    ' the reading freeVarUnifies wants, since a variable position is one
+    ' that would have unified rather than one that went wrong.
+    Dim emptyN As New Collection, emptyT As New Collection
+    Dim conj As Variant
+    For Each conj In queryConjuncts
+        ' IsObject first: a cut atom is the one non-object a query
+        ' conjunct can be, and GoalPredName assumes a Collection.
+        If IsObject(conj) Then
+            Dim predName As String
+            predName = GoalPredName(conj)
+            ' A reserved goal - is/not/findall/a comparison/a type test -
+            ' is never in clauseDict, so this loop skips all of them
+            ' without needing to know their names.
+            If VLA_Runtime.VlaDictHas(clauseDict, predName) Then
+                Dim candidates As Collection
+                Set candidates = VLA_Runtime.VlaDictGet(clauseDict, predName)
+                Dim clauseRec As Variant
+                For Each clauseRec In candidates
+                    Dim sameText As String
+                    sameText = ""
+                    If QuotedVersusBareClass(conj, clauseRec.Item(1), emptyN, emptyT, sameText, True) = 1 Then
+                        RaiseQuotedVersusBare "prolog-quoted-versus-bare-no-rows", sameText
+                    End If
+                Next clauseRec
+            End If
+        End If
+    Next conj
+End Sub
+
+' PROLOG.10/PROLOG.12: the shared raise. `number` or `name` for the bare
+' side, decided ONCE for both refusals so they can never disagree about
+' what a number is. LeafIsNumberTerm is asked rather than
+' IsInvariantNumericString directly, so this and PROLOG.9's own
+' atom?/number? cannot drift apart either - and sameText is already
+' marker-free, so it takes the plain numeric branch by construction.
+Private Sub RaiseQuotedVersusBare(ByVal msgId As String, ByVal sameText As String)
     Dim kindWord As String
     If LeafIsNumberTerm(sameText) Then
         kindWord = "number"
     Else
         kindWord = "name"
     End If
-    VLA_Messages.RaiseMsg "prolog-quoted-versus-bare", "text", sameText, "kind", kindWord
+    VLA_Messages.RaiseMsg msgId, "text", sameText, "kind", kindWord
 End Sub
 
 ' PROLOG.10: how two terms differ, as one of three answers -
@@ -3024,14 +3095,42 @@ End Sub
 ' `(f eng b)` correctly returns 2 while leaving "eng" behind in outText.
 ' Harmless because the one caller tests the class before reading it, and
 ' recorded here so a second caller cannot quietly assume otherwise.
+' PROLOG.12: freeVarUnifies picks which QUESTION is being asked, and the
+' two callers genuinely ask different ones.
+'
+'   False - "how do these two terms, as they stand, differ?" An explicit
+'           `=`/`\=`/`==`/`\==` compares what is written, so a free
+'           variable facing a ground atom is a real difference.
+'   True  - "would these two have unified, but for the quoting?" Clause
+'           matching binds, so a variable position is one that would have
+'           SUCCEEDED and must not count as a difference at all.
+'
+' The True reading is an approximation in the safe direction: it ignores
+' that binding one variable twice can still fail - `(p X X)` against
+' `(p a b)` reads as "would unify" here and does not. That can only ever
+' SUPPRESS a report, never manufacture one, which is the right way round
+' for a diagnostic that fires on an already-empty result.
 Private Function QuotedVersusBareClass(ByVal a As Variant, ByVal b As Variant, _
                                         envN As Collection, envT As Collection, _
-                                        ByRef outText As String) As Long
+                                        ByRef outText As String, _
+                                        ByVal freeVarUnifies As Boolean) As Long
     Dim aw As Variant, bw As Variant
     VLA_Unify.EnvWalkInto aw, a, envN, envT
     VLA_Unify.EnvWalkInto bw, b, envN, envT
 
     If IsObject(aw) <> IsObject(bw) Then
+        ' A free variable unifies with a compound term too, so the
+        ' mismatched-shape case needs the same exemption as the leaf case
+        ' below. Nested Ifs, never a combined And - VBA does not
+        ' short-circuit, and CStr on the Collection side would raise 450.
+        If freeVarUnifies Then
+            If Not IsObject(aw) Then
+                If VLA_Unify.IsVarAtom(CStr(aw)) Then Exit Function      ' 0
+            End If
+            If Not IsObject(bw) Then
+                If VLA_Unify.IsVarAtom(CStr(bw)) Then Exit Function      ' 0
+            End If
+        End If
         QuotedVersusBareClass = 2
         Exit Function
     End If
@@ -3041,6 +3140,10 @@ Private Function QuotedVersusBareClass(ByVal a As Variant, ByVal b As Variant, _
         x = CStr(aw)
         y = CStr(bw)
         If x = y Then Exit Function          ' 0 - identical leaves
+        If freeVarUnifies Then
+            If VLA_Unify.IsVarAtom(x) Then Exit Function                 ' 0
+            If VLA_Unify.IsVarAtom(y) Then Exit Function                 ' 0
+        End If
         Dim t As String
         If LeavesDifferOnlyByMarker(x, y, t) Then
             If Len(outText) = 0 Then outText = t
@@ -3062,7 +3165,7 @@ Private Function QuotedVersusBareClass(ByVal a As Variant, ByVal b As Variant, _
     Dim i As Long
     For i = 1 To la.Count
         Dim c As Long
-        c = QuotedVersusBareClass(la.Item(i), lb.Item(i), envN, envT, outText)
+        c = QuotedVersusBareClass(la.Item(i), lb.Item(i), envN, envT, outText, freeVarUnifies)
         If c > worst Then worst = c
         If worst = 2 Then Exit For
     Next i
@@ -3524,6 +3627,21 @@ Public Function PrologRun(ByVal clausesText As String, ByVal clauseDict As Objec
     Dim stepsTaken As Long
     Dim cutActive As Boolean, cutTargetBarrier As Long
     SolveGoalList queryConjuncts, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+
+    ' PROLOG.12: only when the whole query found NOTHING. This is the
+    ' half PROLOG.10 deliberately left open, closed the one way that does
+    ' not cost anything on a query that works: the scan runs POST HOC,
+    ' after solving, so a successful query never pays for it and the
+    ' solver itself is untouched - no state threaded through
+    ' SolveGoalList, no growth in the recursive frame that PROLOG.5.3's
+    ' own stack-overflow incident made expensive, and nothing at all on
+    ' the backtracking hot path.
+    '
+    ' Bounded by construction: a query that completes with zero solutions
+    ' has by definition stayed under PROLOG_MAX_STEPS, so there is no
+    ' large-table case here - one that really did scan ten thousand rows
+    ' raised the step ceiling long before reaching this line.
+    If solutions.Count = 0 Then DiagnoseQuotedVersusBare queryConjuncts, clauseDict
 
     PrologRun = BuildSpilledArray(freeVarNames, solutions)
 End Function

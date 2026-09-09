@@ -12786,6 +12786,170 @@ now carries one summary paragraph per engine and points here.*
     baseline expected unmoved, since nothing outside `VLA_Prolog` and the
     query suite is touched. *Pays into:* `PROLOG.10`, which is about to
     add another judgement that must not leak from goal position into data.
+  - ✅ **PROLOG.12 — the half `PROLOG.10` left open: a query that finds
+    NOTHING now says why.** SHIPPED 2026-09-09; owner-verified live.
+    `TestDSLs` 531 → **536/536**; pure 1047/1047, host 143/143 and
+    `VerifyReports` 141/141 emitter and 141/141 interpreter all unmoved.
+    Owner-confirmed in cells: the empty query explaining itself; an empty
+    result with NO near-miss staying silent; a matching fact silencing the
+    diagnosis entirely; the numeric variant saying "the number 42"; and
+    the rule-body limit staying quiet by design. `PROLOG.10` closed the half
+    where a comparison ANSWERED wrongly and deliberately left the half
+    where a plain `(query (emp N eng))` merely returned zero rows, on the
+    ground that zero rows is a CORRECT answer. That is still true, and it
+    was doing less work in that sentence than it looked: a query that
+    found nothing AND contains a term differing from a stored one by only
+    the quoting is not a user who wanted zero rows, it is a user who made
+    the one mistake this engine's own conventions make easiest to make.
+
+    **WHY THIS IS NOT THE THING `PROLOG.10` REFUSED TO DO.** The decisive
+    objection there was MONOTONICITY — raising during clause matching lets
+    a NON-MATCHING clause break a query that has a real answer. This
+    cannot: it runs **post hoc**, in `PrologRun`, only when
+    `solutions.Count = 0`. Adding a fact that matches makes it disappear.
+    It can never turn a success into a failure; it can only turn an empty
+    result into an explained one, which is the benign direction and is
+    pinned by a test that adds a matching fact and watches the diagnosis
+    go away.
+
+    **The placement is what makes it free.** Post hoc means the solver is
+    untouched — no near-miss state threaded through `SolveGoalList`, no
+    growth in the recursive frame `PROLOG.5.3`'s own stack-overflow
+    incident made expensive, nothing whatsoever on the backtracking hot
+    path, and no cost at all on a query that works. It is also bounded by
+    construction: a query that completes with zero solutions has by
+    definition stayed under `PROLOG_MAX_STEPS`, so the ten-thousand-row
+    case cannot arise — one that really scanned a big table raised the
+    step ceiling long before reaching this line.
+
+    **One flag, two questions.** `QuotedVersusBareClass` gains
+    `freeVarUnifies`, because the two callers genuinely ask different
+    things: an explicit `==` compares terms AS WRITTEN (a free variable
+    facing a ground atom is a real difference), while clause matching
+    BINDS (a variable position is one that would have succeeded). The
+    True reading is an approximation in the safe direction — it treats
+    `(p X X)` against `(p a b)` as "would unify", which can only SUPPRESS
+    a report, never manufacture one. Transliterated over 12 goal/head
+    shapes before import, plus an explicit check that the flag is
+    load-bearing rather than decorative.
+
+    **Two known limits, pinned as behaviour rather than left as prose:**
+    a near-miss reachable only through a RULE BODY, and one that only
+    appears after an earlier conjunct BINDS a variable, are both invisible
+    to a post-hoc scan of query conjuncts against stored heads. Both would
+    need the near-miss recorded during solving — the threading this design
+    exists to avoid — so both have tests asserting they stay silent.
+    **`PROLOG.10`'s "plain query stays silent" pin is re-pointed**, the
+    third marker pin to move; the silent case does not vanish, it moves to
+    an empty result with no near-miss in it.
+  - ⬜ **PROLOG.13 — LIST TERMS, and the bag you cannot currently open.**
+    The largest real gap in the engine. `findall` hands back a bag and
+    there is **no way to take it apart** — no head/tail, no `length`, no
+    `member`, no `nth`, no `append`, no `reverse`, no `sum_list`. A
+    program can produce a list and render it to cells and can do nothing
+    else with it, which makes `findall` a terminal operation rather than a
+    composable one.
+
+    **Two hard constraints, both measured rather than assumed.** (i) The
+    reader cannot spell `[H|T]`: `Tokenize`'s delimiter set is exactly
+    `( ) space tab CR LF ; "`, so `[`, `]` and `|` are ordinary symbol
+    characters and `[H|T]` arrives as ONE atom. List syntax therefore
+    needs a READER change, which is shared by all five DSLs and is a far
+    bigger blast radius than a `VLA_Prolog` item — or an S-expression
+    spelling instead (`(cons H T)` / `nil`), which needs no reader change
+    at all and is almost certainly the right answer here. (ii)
+    **`findall`'s bag is HEADLESS** — `HarvestFindallBag` builds a
+    `Collection` whose position 1 is the first SOLUTION, where every other
+    compound term in this engine carries a functor there. So a bag of
+    three renders as `(x y z)` and reads back as a term whose functor is
+    `x`. That asymmetry is invisible today because nothing destructures a
+    bag; the moment something does, it is the first thing that breaks.
+    Deciding the representation is therefore the item, and the library is
+    the easy part after it. *Blocks:* any real use of `findall`. `~week`.
+  - ⬜ **PROLOG.14 — DISJUNCTION and IF-THEN-ELSE.** There is no way to
+    write "or" inside a rule body; the only disjunction available is
+    writing two rules with the same head, which is fine for facts and
+    unusable inside a longer body. Real Prolog spells these `;` and `->`.
+    **`;` IS NOT AVAILABLE HERE:** `Tokenize` treats it as a
+    comment-to-end-of-line, so a `;` in a rule body silently deletes the
+    rest of the line — the worst possible failure mode, and the reason
+    this item must pick a different spelling (`or` and `if`, most likely)
+    rather than follow ISO. `->` tokenizes cleanly and could be kept.
+    Note that if-then-else is **cut-adjacent**: `(-> C T E)` commits to
+    the first branch whose condition succeeds, which is a local cut, and
+    `PROLOG.5.4`'s barrier machinery is what it must be built on rather
+    than beside. `\+` (ISO negation) belongs here too, as a reserved name
+    dispatched to `not` or refused with guidance, `PROLOG.10`'s own
+    spelling precedent. `~days`.
+  - ⬜ **PROLOG.15 — the REST of the ISO type-test family.** `PROLOG.9`
+    shipped six of roughly eleven. Missing: **`integer?`**, **`float?`**
+    (this engine has only Doubles, so the two need a decision before they
+    need code — see `PROLOG.17`), **`callable?`**, **`is-list?`**
+    (blocked by `PROLOG.13`, since it has nothing to be true of yet), and
+    **`ground?`**, which is the notable omission because `TermHasVariable`
+    **already exists and already computes exactly it** — `PROLOG.9` cited
+    that function while implementing none of the questions it answers.
+    `ground?` is close to free and should not wait for the rest. All join
+    `TypeTestKindFor`'s table and their ISO spellings join
+    `TypeTestIsoSpellingFor`, so the reserved set and both refusals follow
+    mechanically. `~days`.
+  - ⬜ **PROLOG.16 — STANDARD ORDER OF TERMS: `@<`/`@=<`/`@>`/`@>=`,
+    `compare/3`, `msort`/`sort`, `setof`/`bagof`.** `PROLOG.7` gave
+    NUMERIC comparison and `PROLOG.8` gave structural EQUALITY; there is
+    still no way to ORDER two terms that are not both numbers, so a
+    program cannot sort anything it derived. Every item in the chain
+    depends on one decision — a total order over var/number/atom/compound,
+    which for an auditable engine must be **deterministic and documented**
+    rather than inherited from whatever VBA's `StrComp` does under the
+    machine's locale (`VLA_Identity` already draws this distinction and is
+    the right substrate). `setof` is `findall` plus sort-and-dedup and is
+    nearly free once the order exists; `bagof`'s free-variable grouping is
+    the genuinely hard half and may be worth refusing by name rather than
+    approximating. Blocked by `PROLOG.13` for anything returning a list.
+    `~week`.
+  - ⬜ **PROLOG.17 — ARITHMETIC BREADTH, and the integer question.**
+    `ValidateArithExpr` freezes the operator set at **four** — `+ - * /` —
+    so there is no `mod`, no integer division, no `abs`, `min`, `max`, no
+    rounding family (`truncate`/`round`/`ceiling`/`floor`), no `**` and no
+    `sqrt`. `mod` and integer division are the ones a spreadsheet user
+    reaches for first and neither exists. Underneath sits a decision this
+    engine has never taken: **it has only Doubles**, so `(is X (/ 7 2))`
+    gives 3.5 and there is no integer type for `PROLOG.15`'s `integer?` to
+    be true of, nor for `between/3` to be honest about. Deciding
+    integer-vs-float is the item; the operators are a table after it. Note
+    `ComputeArithmetic` is shared substrate, so this pays into `SQL` and
+    `DATALOG` too and must not be done privately inside `VLA_Prolog`.
+    `~week`.
+  - ⬜ **PROLOG.18 — ATOM AND TEXT builtins.** `atom_length`,
+    `atom_concat`, `sub_atom`, `atom_number`, `upcase`/`downcase`,
+    `split`. A spreadsheet language whose whole subject is cell values
+    cannot currently take one apart or put two together inside PROLOG — a
+    gap that is much stranger here than it would be in a general-purpose
+    Prolog. `PROLOG.10`'s marker is load-bearing throughout: every one of
+    these has to decide whether it operates on the marked term or the bare
+    text and say so, and `atom_number` in particular sits exactly on
+    `PROLOG.10`'s open sub-question. `~days`, and the highest
+    value-per-day of anything on this list for an ordinary spreadsheet
+    user. Blocked by `PROLOG.13` only where a result is a list.
+  - ⬜ **PROLOG.19 — DECIDE: `assert`/`retract`, and the answer is
+    probably NO.** Standard Prolog mutates its own database at runtime.
+    **A worksheet function must be deterministic**: Excel recalculates a
+    cell whenever it feels like it, in an order it does not promise, and
+    may do so many times for one edit. A `PROLOG()` call whose answer
+    depended on how many times it had already run would be a
+    confidently-wrong-answer generator of the purest kind, and would
+    break the property this whole engine is built to have — that a cell's
+    value is a function of its inputs. **Recommendation on file, not yet
+    adjudicated: refuse both by name, permanently, with a message that
+    explains the reason rather than implying they are merely unbuilt** —
+    `IN.15`/`PROLOG.7`/`PROLOG.10`'s own move, applied to a feature that
+    should never arrive. The names would join the reserved set and be
+    dispatched to that refusal, exactly as `PROLOG.10`'s ISO spellings
+    are. Worth doing precisely BECAUSE a Prolog author will try it, and
+    silence would read as "not implemented yet" rather than "deliberately
+    never". `~days`. *(This is the item the deterministic-and-auditable
+    framing exists for; it is a decision about what this engine refuses to
+    be, not a feature.)*
   - **Stated ceiling, carried forward from `BETA_ROADMAP1.md`, not built
     here:** first-argument clause indexing (`SQL`'s own hash-join law,
     `PROLOG`'s own twin — don't scan every clause per call); tabling/memoized
