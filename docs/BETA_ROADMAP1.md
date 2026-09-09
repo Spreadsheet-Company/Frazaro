@@ -4761,13 +4761,32 @@ written against.
   performance discussion — this item is about the escape hatch, not the
   constant factor. `~hours`
 
-- ⬜ **IN.15 — the eight `VLA_Runtime` helpers still on the broken
-  `Application.Run` path refuse with a VBE crash dialog.** The follow-up
-  count `IN.12` deliberately left out of its own scope, now taken.
+- ✅ **IN.15 — the ~~eight~~ SIXTEEN `VLA_Runtime` helpers still on the
+  broken `Application.Run` path refuse with a VBE crash dialog.** The
+  follow-up count `IN.12` deliberately left out of its own scope, now taken.
   **Not a security item** — a correctness and UX bug that hits **every user
   today, with no attacker involved.**
 
-  **📋 SCOPED 2026-09-08 — no code written.**
+  **✅ BUILT, OWNER-TESTED LIVE AND COMMITTED 2026-09-08 — S1, S2 and S3 all
+  landed.** Live evidence, owner-run:
+  a bad colour, a missing dictionary key, and a misspelled pivot table name
+  each produced the Frazaro modal with its own wording — no VBE break, no
+  Debug button. The pivot one (`no pivot table named 'nosuchpivot' in this
+  workbook.`) is the direct proof of the sixteen-not-eight finding: it
+  reaches its refusal only through `RequirePivotTableByName`, so it crashes
+  on the code this entry replaced. An unknown head
+  (`(vlanosuchthing 1)`) and a real helper at the wrong arity (`(vlacolor)`)
+  both still gave the clean `interp-head-unresolved` refusal, so the
+  manifest gate did not trade one wrong answer for the other. Suites at
+  baseline, unmoved: pure 1047/1047, host 143/143, VerifyReports emitter
+  141/141 and interpreter 141/141 — and that last one is what covers the
+  generic tier under the new gate, since it runs the whole
+  `instructions.txt` corpus, which reaches non-native manifest members
+  (`instructions.txt:265` alone gives
+  `(vlacount (vladictkeys prices))`). What was built is
+  recorded under *What landed* at the end of this entry; the scoping text
+  between here and there is kept as written on 2026-09-08, including the
+  count it got wrong, because the correction is the entry's main lesson.
 
   **CONFIRMED live 2026-09-08, and already reproduced standalone.**
   `Application.Run` does not propagate a target macro's `Err.Raise` to the
@@ -4836,6 +4855,111 @@ written against.
   soft-fails to an empty string when it cannot read its source and that
   path must mean "fall back", never "nothing is a helper". Total `~days`,
   and materially smaller than the retirement it replaces.
+
+  ---
+
+  **WHAT LANDED, 2026-09-08.** All three stages, in order, S1 first and
+  red before S2 existed.
+
+  **The count was wrong, and the check is why we know.** This entry says
+  *eight* above. It is **sixteen**. The eight named were the helpers with a
+  raise site **in their own body**; `tools/check_runtime_raise_dispatch.ps1`
+  computes the **transitive** closure and found eight more —
+  `VlaPivotRefresh`, `VlaPivotDelete`, `VlaPivotClear`, `VlaPivotRename`,
+  `VlaPivotChangeSource`, `VlaPivotSetShowDetail`, `VlaPivotSetSubtotals`,
+  `VlaPivotSetBlankLine` — which raise only through the private
+  `RequirePivotTableByName` and its `rt-pivot-not-found`. A misspelled
+  pivot table name is as reachable as any refusal in the module. Every one
+  of those eight would have kept crashing after a "complete" fix, and the
+  hand-count that missed them is exactly the reading a person does down a
+  list. **This is the case for writing the pin first, and it is now this
+  item's main lesson**, ahead of the fix itself.
+
+  **S1 — `tools/check_runtime_raise_dispatch.ps1`.** House static-scan
+  shape (PowerShell, host-independent, hand-maintained reviewable
+  `$baseline`, not wired into `VlaSelfTest`). Governed set is public `Vla*`
+  procedures **above the `EN_RUNTIME INJECT BOUNDARY`** — not a convenience
+  but the same horizon `VlaHelperManifest` itself uses, since it reads
+  `RuntimeSourceText()`, which trims there. `VlaInjectRuntime` raises and is
+  public, and is correctly reported as out of scope by that rule rather than
+  by an exemption someone had to remember. Mutation-tested in both
+  directions before being trusted: red on the real tree listing exactly the
+  sixteen; red when an existing `Case` is removed (`vlasendmail` flipped to
+  FAIL); red on a newly-added ninth raising helper, which also reported
+  baseline drift; and the identical helper moved **below** the fence dropped
+  out of the governed set into the informational report, proving the
+  boundary rule gates rather than decorates. Green only after S2.
+
+  **S2 — sixteen native `Case`s in `TryRuntimeHelper`.** Arguments are
+  passed exactly as `Application.Run` passed them — `CStr` where the helper
+  declares `String` (the four existing `Case`s' own shape), the raw
+  `Variant` everywhere else (`vlasendmail`'s shape for its `Variant`
+  parameters) — so the change is **only** about where the error goes. Arity
+  is guarded through one new `ArityIs` predicate rather than sixteen copies
+  of the same four-line `If`; a mismatched arity takes the same exit an
+  unknown name takes, which is the answer `vlasendmail`'s own `Case Else`
+  already gave.
+
+  **S3 — the manifest lookup, and what it must NOT break.** The
+  `If Err.Number <> 0 Then handled = False` line is gone; membership is
+  decided before the call against `VlaHelperManifest`, normalized by a
+  `HelperKey` copied deliberately from `VLA_SentenceEngine`'s
+  `EnglishResolveCheck` so the two cannot drift about what a helper is
+  called. Three things needed care and each was checked, not assumed:
+  **(a)** the soft-fail. An unreadable manifest sets `manifestUsable =
+  False`, which skips the gate **and** restores the exact pre-`IN.15`
+  behaviour after the call — so a locked-project host degrades to what it
+  did yesterday rather than refusing every helper in the language.
+  **(b)** the cache. `VlaHelperManifest` re-reads and folds the whole
+  ~1600-line module per call, and this sits in the per-expression dispatch
+  path where `IN.8` already measured 100×–2,700× slower than compiled;
+  `HelperManifestCached` reads once per session (`VLA_SentenceEngine`'s own
+  `mManifestCache` precedent) and deliberately does **not** cache a failed
+  read, so a transient failure cannot pin the interpreter into fallback for
+  the session. **(c)** the regression risk that a gate creates by existing.
+  `VlaHelperManifest` was transliterated to PowerShell and run against every
+  `vla*` head in head position across the whole `.vla` corpus: of the four
+  that are not manifest members, two are corpus-defined (`sub
+  vla-report-error`, `function vla-step-text`), one is a `defmacro`
+  (`vla-stamp-cell`), and one (`vlachain`) is a Datalog predicate inside a
+  `=DATALOG(...)` string literal — none reach `TryRuntimeHelper` at all,
+  because every one resolves in an earlier tier. **The gate refuses nothing
+  the corpus calls**, established mechanically rather than by reasoning
+  about it.
+
+  **One new message id**, `interp-runtime-helper-call-failed`
+  (`VLA_Messages.bas`, via `RaiseMsg` — no raw `Err.Raise`, both ceilings
+  untouched). It exists because deleting the old line left a real question
+  unanswered: after the manifest has vouched for a name, a non-zero `Err`
+  can no longer mean "unknown name", and silently returning a garbage value
+  with `handled = True` would have been worse than what it replaced. It
+  names the helper and the underlying error instead.
+
+  **Visible in a built add-in, traced end to end** (`SEC.9`'s lesson, twice
+  earned): the refusal raises through `RaiseRuntimeMsg`, propagates up the
+  ordinary VBA stack — which is the entire point of a direct call —
+  to `InterpretProgram`'s `failed:` handler (`VLA_IDE.bas`), which reads
+  `Err.Description` and calls `VLA_Runtime.VlaShowError`, a `MsgBox` titled
+  *Frazaro*. Nothing on that path lives in `VLA_DevRig.bas`, so this is not
+  a dev-rig-only improvement.
+
+  **Ledger note:** the sixteen new dispatch arms are dated `0.5.0` in
+  `docs/GRAMMAR_SINCE.md`, not `0.5.3`, and that is rule 1 read in the other
+  direction — they *worked* at `0.5.0` through the generic tier, which
+  returns a value perfectly well; only refusal was broken. Verified against
+  the immutable `v0.5.0` tag. Dating them `0.5.3` would freeze a `since:`
+  that rejects phrasebooks which ran fine, which is the failure rule 2
+  exists to prevent. The reasoning is recorded in the ledger's own
+  *Maintenance* section, since a future reader would otherwise read it as a
+  mistake.
+
+  **Not done, and deliberately:** fifteen of the sixteen new arms have no
+  test pin in `check_emitter_coverage.ps1` (`vlaitem` remains the one pinned
+  arm on this tier). Every one of them needs a live pivot table, range or
+  dictionary, so they are host tests, not pure ones, and this pass did not
+  invent host tests it could not run. The refusal *paths* are what
+  `check_runtime_raise_dispatch.ps1` now guarantees exist; that they produce
+  the right words is what the owner's live pass checks.
 
 **B3 — a second host, prepared (SD-18's own infrastructure; target-neutrality
   applied one substrate further than IN.\* ever needed to)**

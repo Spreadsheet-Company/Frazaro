@@ -303,6 +303,14 @@ Private mCaughtErrNum As Long
 Private mCaughtErrSrc As String
 Private mCaughtErrDesc As String
 
+' IN.15: TryRuntimeHelper's manifest cache - see HelperManifestCached
+' for why it exists (VlaHelperManifest re-reads and folds the whole
+' VLA_Runtime source on every call, and the lookup it feeds sits in the
+' per-expression dispatch path). Module memory is wiped by any Run or
+' scratch injection (S5.1), which simply costs one re-read.
+Private mHelperManifest As String
+Private mHelperManifestRead As Boolean
+
 Public Sub VlaInterpretDemo()
     Dim english As String
     Dim vla As String
@@ -2335,7 +2343,153 @@ Private Function TryRuntimeHelper(ByVal h As String, ByVal argVals As Variant, B
             End Select
             handled = True
             Exit Function
+
+        ' IN.15: the remaining SIXTEEN. IN.11/IN.12/SEC.8 each added a
+        ' native Case after a crash was reported, one helper at a time;
+        ' this closes the class instead, and pins it with
+        ' tools/check_runtime_raise_dispatch.ps1 so a seventeenth cannot
+        ' arrive unnoticed. The rule the pin enforces is the one those
+        ' three items were each following by hand: a helper needs a
+        ' native Case exactly when IT CAN RAISE, because a raise routed
+        ' through Application.Run below does not reach any caller's
+        ' handler at all (this function's own header, and
+        ' tools/VLA_Diag2.bas scenario 1).
+        '
+        ' SIXTEEN, NOT EIGHT, and the eight-way difference is the whole
+        ' argument for mechanizing the count. Scoping this item by hand
+        ' found the eight helpers with a raise site in their own body.
+        ' The other eight raise only THROUGH RequirePivotTableByName,
+        ' whose rt-pivot-not-found fires on a misspelled pivot table
+        ' name - as reachable as any refusal in the module, and invisible
+        ' to a scan that reads each helper's body alone.
+        '
+        ' Arguments are passed exactly as the generic path passed them -
+        ' CStr where the helper declares String (the shape the four
+        ' Cases above already use), the raw Variant everywhere else (the
+        ' shape vlasendmail uses for its own Variant parameters). This
+        ' change is about WHERE the error goes, and deliberately changes
+        ' nothing about what the helper receives.
+        Case "vlacolor"
+            If Not ArityIs(argVals, 1, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaColor(ArgAt(argVals, 0))
+            handled = True
+            Exit Function
+        Case "vladictget"
+            If Not ArityIs(argVals, 2, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaDictGet(ArgAt(argVals, 0), ArgAt(argVals, 1))
+            handled = True
+            Exit Function
+        Case "vlafreezepanes"
+            If Not ArityIs(argVals, 1, handled) Then Exit Function
+            VLA_Runtime.VlaFreezePanes ArgAt(argVals, 0)
+            handled = True
+            Exit Function
+        Case "vlafillseries"
+            If Not ArityIs(argVals, 4, handled) Then Exit Function
+            VLA_Runtime.VlaFillSeries ArgAt(argVals, 0), ArgAt(argVals, 1), ArgAt(argVals, 2), CStr(ArgAt(argVals, 3))
+            handled = True
+            Exit Function
+        Case "vlapivotrefresh"
+            If Not ArityIs(argVals, 1, handled) Then Exit Function
+            VLA_Runtime.VlaPivotRefresh CStr(ArgAt(argVals, 0))
+            handled = True
+            Exit Function
+        Case "vlapivotdelete"
+            If Not ArityIs(argVals, 1, handled) Then Exit Function
+            VLA_Runtime.VlaPivotDelete CStr(ArgAt(argVals, 0))
+            handled = True
+            Exit Function
+        Case "vlapivotclear"
+            If Not ArityIs(argVals, 1, handled) Then Exit Function
+            VLA_Runtime.VlaPivotClear CStr(ArgAt(argVals, 0))
+            handled = True
+            Exit Function
+        Case "vlapivotrename"
+            If Not ArityIs(argVals, 2, handled) Then Exit Function
+            VLA_Runtime.VlaPivotRename CStr(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1))
+            handled = True
+            Exit Function
+        Case "vlapivotsetrowlayout"
+            If Not ArityIs(argVals, 2, handled) Then Exit Function
+            VLA_Runtime.VlaPivotSetRowLayout CStr(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1))
+            handled = True
+            Exit Function
+        Case "vlapivotchangesource"
+            If Not ArityIs(argVals, 2, handled) Then Exit Function
+            VLA_Runtime.VlaPivotChangeSource CStr(ArgAt(argVals, 0)), ArgAt(argVals, 1)
+            handled = True
+            Exit Function
+        Case "vlapivotsetorientation"
+            If Not ArityIs(argVals, 3, handled) Then Exit Function
+            VLA_Runtime.VlaPivotSetOrientation CStr(ArgAt(argVals, 0)), ArgAt(argVals, 1), CStr(ArgAt(argVals, 2))
+            handled = True
+            Exit Function
+        Case "vlapivotaddvalues"
+            If Not ArityIs(argVals, 3, handled) Then Exit Function
+            VLA_Runtime.VlaPivotAddValues CStr(ArgAt(argVals, 0)), ArgAt(argVals, 1), CStr(ArgAt(argVals, 2))
+            handled = True
+            Exit Function
+        Case "vlapivotsetshowdetail"
+            If Not ArityIs(argVals, 3, handled) Then Exit Function
+            VLA_Runtime.VlaPivotSetShowDetail CStr(ArgAt(argVals, 0)), ArgAt(argVals, 1), ArgAt(argVals, 2)
+            handled = True
+            Exit Function
+        Case "vlapivotsetsubtotals"
+            If Not ArityIs(argVals, 3, handled) Then Exit Function
+            VLA_Runtime.VlaPivotSetSubtotals CStr(ArgAt(argVals, 0)), ArgAt(argVals, 1), ArgAt(argVals, 2)
+            handled = True
+            Exit Function
+        Case "vlapivotsetblankline"
+            If Not ArityIs(argVals, 3, handled) Then Exit Function
+            VLA_Runtime.VlaPivotSetBlankLine CStr(ArgAt(argVals, 0)), ArgAt(argVals, 1), ArgAt(argVals, 2)
+            handled = True
+            Exit Function
+        Case "vlapivotsort"
+            If Not ArityIs(argVals, 4, handled) Then Exit Function
+            VLA_Runtime.VlaPivotSort CStr(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1)), CStr(ArgAt(argVals, 2)), CStr(ArgAt(argVals, 3))
+            handled = True
+            Exit Function
     End Select
+
+    ' IN.15 (S3): "is this a real helper?" is answered HERE, BEFORE the
+    ' call, by name. It used to be inferred AFTER the call from "did an
+    ' error happen" - the "If Err.Number <> 0 Then handled = False" line
+    ' that used to sit at the bottom of this function - and that one line
+    ' conflated two unrelated questions: whether the name is a helper at
+    ' all, and whether a helper that IS real deliberately refused. The
+    ' first is a name-resolution fact, knowable before any code runs; the
+    ' second is a result. Answering the first with the second is what made
+    ' a refusal capable of surfacing as "'vlacolor' is not a form...",
+    ' which is a confident wrong answer - worse than a crash.
+    '
+    ' VlaHelperManifest is the same list VLA_SentenceEngine's own
+    ' EnglishResolveCheck already trusts for exactly this question, and
+    ' HelperKey below reuses that function's own normalization so the two
+    ' cannot drift into disagreeing about what a helper is called.
+    '
+    ' SOFT-FAILURE IS DELIBERATE AND MUST STAY THIS DIRECTION. The
+    ' manifest returns "" when it cannot read its own source - no
+    ' VBProject trust, no VLAr_Source sheet. Empty means "cannot verify,
+    ' so fall back to trying the call", NEVER "nothing is a helper": the
+    ' latter would refuse every runtime helper in the language on a host
+    ' where the project is locked. manifestUsable carries that distinction
+    ' past the call, so the recovery below can tell "a known helper
+    ' failed" from "we never knew in the first place".
+    Dim manifest As String
+    On Error Resume Next
+    manifest = HelperManifestCached()
+    On Error GoTo 0
+    Dim manifestUsable As Boolean
+    manifestUsable = (Len(Trim$(manifest)) > 0)
+    If manifestUsable Then
+        If InStr(manifest, " " & HelperKey(h) & " ") = 0 Then
+            ' Not a helper. A name-resolution answer, given without
+            ' running anything - EvalDynamicHead's own clean
+            ' interp-head-unresolved refusal names it.
+            handled = False
+            Exit Function
+        End If
+    End If
 
     Dim target As String
     target = "'" & ThisWorkbook.Name & "'!VLA_Runtime." & MangleIdent(h)
@@ -2351,10 +2505,82 @@ Private Function TryRuntimeHelper(ByVal h As String, ByVal argVals As Variant, B
         Case 3: AssignVar TryRuntimeHelper, Application.Run(target, ArgAt(argVals, 0), ArgAt(argVals, 1), ArgAt(argVals, 2))
         Case 4: AssignVar TryRuntimeHelper, Application.Run(target, ArgAt(argVals, 0), ArgAt(argVals, 1), ArgAt(argVals, 2), ArgAt(argVals, 3))
         Case Else
+            ' Arity this mechanism cannot express. Still a resolution
+            ' answer, not a refusal - unchanged.
             handled = False
     End Select
-    If Err.Number <> 0 Then handled = False
+    ' IN.15 (S3): what is left here is NOT "was this a helper" - the
+    ' manifest settled that above. Per this function's own header, a
+    ' target's Err.Raise never arrives here at all (it breaks straight
+    ' through), and after the sixteen Cases above no helper that can
+    ' raise reaches this tier anyway. So a non-zero Err at this point
+    ' means the call itself could not be made against a name the manifest
+    ' vouched for - VBA's 1004 "cannot run the macro", or an argument
+    ' VBA would not coerce. That is worth saying plainly instead of
+    ' claiming the name was never a helper.
+    Dim failNum As Long
+    Dim failDesc As String
+    failNum = Err.Number
+    failDesc = Err.Description
+    ' Read BOTH before clearing the handler: On Error GoTo 0 resets Err.
     On Error GoTo 0
+    If failNum <> 0 Then
+        If Not manifestUsable Then
+            ' The manifest could not be read, so this error is the only
+            ' evidence available and it means what it always meant:
+            ' probably not a helper. Exactly the pre-IN.15 behaviour, kept
+            ' for exactly the path that still needs it.
+            handled = False
+            Exit Function
+        End If
+        VLA_Messages.RaiseMsg "interp-runtime-helper-call-failed", _
+                              "head", h, "num", CStr(failNum), "desc", failDesc
+    End If
+End Function
+
+' IN.15: the arity guard the sixteen native Cases above share. A call
+' whose shape does not match the helper's own signature is not that
+' helper - so it takes the same exit an unknown name takes (handled =
+' False, then EvalDynamicHead's clean refusal), which is the answer
+' vlasendmail's own Case Else and the generic path's Case Else both
+' already give. Factored out because sixteen copies of the same
+' four-line If is not clearer than one named predicate, and a predicate
+' can be read once and trusted sixteen times.
+Private Function ArityIs(ByVal argVals As Variant, ByVal n As Long, ByRef handled As Boolean) As Boolean
+    If ArgCount(argVals) = n Then
+        ArityIs = True
+    Else
+        ArityIs = False
+        handled = False
+    End If
+End Function
+
+' IN.15: VlaHelperManifest's own key shape. Copied deliberately from
+' VLA_SentenceEngine's EnglishResolveCheck rather than invented here -
+' the manifest strips underscores when it builds its names, so a lookup
+' that did not strip them too would miss, and silently answer "not a
+' helper" for a helper that exists. Both punctuation forms are removed
+' for the same reason that function removes both.
+Private Function HelperKey(ByVal s As String) As String
+    HelperKey = VLA_Identity.Fold(Replace(Replace(s, "-", ""), "_", ""))
+End Function
+
+' IN.15: one manifest read per session, VLA_SentenceEngine's own
+' mManifestCache precedent (its "V8: one manifest read per session"
+' note) and for the same reason, which matters more here than there:
+' VlaHelperManifest reads and folds the whole ~1600-line VLA_Runtime
+' source every call, and this function sits in the interpreter's
+' per-expression dispatch path, where IN.8 already measured 100x-2700x
+' slower than compiled. Reading it per dispatch would be a real
+' regression. An unreadable manifest is NOT cached as a result - the
+' attempt simply repeats next time, so a transient failure cannot pin
+' the interpreter into fallback mode for the rest of the session.
+Private Function HelperManifestCached() As String
+    If Not mHelperManifestRead Then
+        mHelperManifest = VLA_Runtime.VlaHelperManifest()
+        If Len(Trim$(mHelperManifest)) > 0 Then mHelperManifestRead = True
+    End If
+    HelperManifestCached = mHelperManifest
 End Function
 
 ' ---------------------------------------------------------------------

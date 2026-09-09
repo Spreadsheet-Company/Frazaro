@@ -98,6 +98,22 @@ been silently broken for two weeks by exactly that class of drift.
 Each script's default output was diffed byte-for-byte against a
 pre-change baseline when its switch was added.
 
+**A new ARM is not the same as a new FORM** — `IN.15`, `0.5.3`, is the
+case that shows it, and it is rule 1 read in the other direction.
+Sixteen `TryRuntimeHelper` arms (`vlacolor`, `vladictget`, and the
+fourteen pivot helpers) appeared in the live inventory that release and
+are dated **`0.5.0`**, not `0.5.3`. They are dated to the release they
+first *worked* in, and every one of them worked in `0.5.0`: they were
+reachable then through `TryRuntimeHelper`'s generic `Application.Run`
+tier, which returns a helper's value perfectly well. What `IN.15`
+changed is where a *refusal* goes — `Application.Run` never propagated
+one — so what gained a date here is the dispatch mechanism, not the
+sayability of the form. Dating them `0.5.3` would tell an author their
+phrasebook needs `0.5.3` when it ran on `0.5.0`, which is precisely the
+frozen-wrong-`since:` failure rule 2 exists to prevent. Verified, not
+assumed: all sixteen are present as `Public` procedures in
+`VLA_Runtime.bas` at the immutable `v0.5.0` tag.
+
 **What the ratchet does not do**, because nothing can: check that a
 date is *correct*. That is why the seed was verified against source
 history rather than the generated artifact, and why rule 2 above makes
@@ -406,5 +422,21 @@ tag, not assumed.*
 0.5.0  TryRuntimeHelper   vlacheckrangename
 0.5.0  TryRuntimeHelper   vlachecksheetabsent
 0.5.0  TryRuntimeHelper   vlachecksheetname
+0.5.0  TryRuntimeHelper   vlacolor
+0.5.0  TryRuntimeHelper   vladictget
+0.5.0  TryRuntimeHelper   vlafillseries
+0.5.0  TryRuntimeHelper   vlafreezepanes
+0.5.0  TryRuntimeHelper   vlapivotaddvalues
+0.5.0  TryRuntimeHelper   vlapivotchangesource
+0.5.0  TryRuntimeHelper   vlapivotclear
+0.5.0  TryRuntimeHelper   vlapivotdelete
+0.5.0  TryRuntimeHelper   vlapivotrefresh
+0.5.0  TryRuntimeHelper   vlapivotrename
+0.5.0  TryRuntimeHelper   vlapivotsetblankline
+0.5.0  TryRuntimeHelper   vlapivotsetorientation
+0.5.0  TryRuntimeHelper   vlapivotsetrowlayout
+0.5.0  TryRuntimeHelper   vlapivotsetshowdetail
+0.5.0  TryRuntimeHelper   vlapivotsetsubtotals
+0.5.0  TryRuntimeHelper   vlapivotsort
 0.5.0  TryRuntimeHelper   vlasendmail
 ```

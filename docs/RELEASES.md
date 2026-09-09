@@ -291,6 +291,52 @@
   while leaving every visible behaviour, and every test, exactly as it was.
   It is mutation-tested in both directions rather than assumed to work.
 
+- **Sixteen things a program can get wrong now say so, instead of dropping
+  you into the code editor.** Type a colour Frazaro does not recognise, ask
+  for a key that was never stored, or name a pivot table that is not there,
+  and until now Excel's own *Run-time error '5'* box appeared, with a
+  **Debug** button that opened the VBA editor at a line of Frazaro's
+  internals. Frazaro had written a perfectly clear explanation for each of
+  these — it just never reached the screen. You now get the ordinary Frazaro
+  message saying what was wrong with what you wrote: *'notacolor' is not a
+  color - use "#RRGGBB", like "#FF69B4"*, or *there is nothing stored at key
+  'no-such-key'*, or *no pivot table named 'nosuchpivot' in this workbook.*
+
+  The cause was one mechanism, not sixteen separate bugs. Frazaro reaches
+  most of its built-in helpers through a general-purpose Excel facility
+  that, it turns out, does not carry an error back to the code that asked
+  for it. Any helper whose job includes saying no was therefore unable to
+  say no. The helpers that only compute something were unaffected, which is
+  why this took so long to notice: the failure was invisible until you made
+  a mistake.
+
+  Eight of the sixteen were found by hand. The other eight were found by the
+  release check below, and had been missed — they refuse a misspelled pivot
+  table name through a shared piece of code rather than in their own, which
+  is exactly the kind of thing a person reading down a list does not see.
+
+- **A second fix underneath it: Frazaro no longer decides whether something
+  is one of its helpers by trying it and seeing what happens.** It now checks
+  the name against the list of helpers first. The old approach could not tell
+  "that is not a helper at all" apart from "that is a helper, and it is
+  refusing" — so a deliberate refusal could have been reported as *"'vlacolor'
+  is not a form..."*, naming the wrong problem with complete confidence. Being
+  told the wrong thing firmly is worse than being told nothing, and this
+  removes the possibility rather than making it less likely. A genuinely
+  unknown name still gets exactly the same "not a form, place helper, dotted
+  global, built-in, or VLA_Runtime helper" message it always did.
+
+- **A new release check: `tools/check_runtime_raise_dispatch.ps1`.** The
+  boundary this fix relies on — a helper that can refuse must be called the
+  direct way — was being kept in someone's head, and had already slipped
+  three times, each time found by a user hitting the crash. The check now
+  works it out from the source: it reads every helper, follows the shared
+  code they call, and fails the release if any helper that can refuse is
+  still reached the broken way. It was written before the fix, so its first
+  run listed exactly the work to do, and it is mutation-tested in both
+  directions rather than assumed to work. It is what found the eight the
+  hand count missed.
+
 ### Known open security items
 
 **Closed this release:** `SEC.8`, `SEC.9`, `SEC.11` and `SEC.13` — see above.

@@ -162,6 +162,15 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "interp-sumif-arity", 5, "VLA-Interpreter", "IN.3: 'sumif' takes 3 arguments, got {n}"
     AddMsg m, "interp-vlookup-arity", 5, "VLA-Interpreter", "IN.3: 'vlookup' takes 4 arguments, got {n}"
     AddMsg m, "interp-head-unresolved", 5, "VLA-Interpreter", "'{head}' is not a form, place helper, dotted global, built-in, or VLA_Runtime helper this interpreter can reach yet - IN.2's remaining hand-work"
+    ' IN.15: the OTHER half of the question interp-head-unresolved used to
+    ' answer alone. TryRuntimeHelper now settles "is this a real helper"
+    ' by name against VlaHelperManifest BEFORE calling anything, so an
+    ' error after the call can no longer mean "unknown name" - it means a
+    ' helper the manifest vouched for could not be called with these
+    ' arguments. Saying that is the point: reporting it as "not a form"
+    ' was a confident wrong answer, which this project holds to be worse
+    ' than a crash.
+    AddMsg m, "interp-runtime-helper-call-failed", 5, "VLA-Interpreter", "IN.15: '{head}' is a runtime helper, but this call to it could not be completed - Excel reported error {num}: {desc}. Check the number and kind of values being passed to it."
     AddMsg m, "interp-make-button-not-cell", 5, "VLA-Interpreter", "IN.7: 'make-button' needs a cell for its place, got {type}"
     AddMsg m, "interp-dynamic-member-refused", 5, "VLA-Interpreter", "SEC.1: '{member}' is not in this interpreter's native dynamic-dispatch allowlist - refused, not attempted via CallByName (Tier 2's own subtractive fix removed that fallback; a real, legitimate use belongs in VLA_Interpreter.bas's own DynamicGet/DynamicCall/DynamicSet, reviewed and added by name)"
     ' SEC.8: provenance, not verb. SEC.1's refusal above asks "is this
