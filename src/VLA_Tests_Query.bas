@@ -356,6 +356,7 @@ Public Function TestDSLs() As Boolean
     TestPrologComparison
     TestPrologUnification
     TestPrologTypeTests
+    TestPrologTypeTestsRest
     TestPrologBetween
     TestPrologQuotedVersusBare
     TestPrologNegation
@@ -2844,6 +2845,455 @@ Private Sub TestPrologTypeTests()
 End Sub
 
 ' ---------------------------------------------------------------------
+'  PROLOG.15: VLA_Prolog.PROLOG - the REST of the ISO type-test family.
+'  `callable?`, `is-list?` and `ground?` join TypeTestKindFor; `integer?`
+'  and `float?` are reserved and REFUSED, because this engine has only
+'  Doubles and there is nothing for them to be true of.
+'
+'  A separate Sub from TestPrologTypeTests rather than an extension of
+'  it, on PROLOG.13's own precedent: one Sub per item keeps a failing
+'  name saying which item broke.
+'
+'  THE DISCRIMINATION TRAP GOVERNS EVERY ASSERTION HERE, and it is
+'  sharper for this item than for PROLOG.9's. An unknown predicate in
+'  SolveGoalList is a SILENT dead end - zero rows, no explanation - so a
+'  test asserting "this goal fails" passes against NO IMPLEMENTATION AT
+'  ALL. Four of these five predicates are naturally written as goals
+'  expected to fail. So every failure assertion below is either a GROUND
+'  query asserting FALSE beside its own TRUE twin (both Booleans, and an
+'  absent implementation cannot produce the TRUE), or a filter asserting
+'  a strict non-empty subset, or an assertion on REFUSAL TEXT, which no
+'  absent implementation can produce either.
+'
+'  Booleans go through ResultBoolIs, never `VarType(r) = vbBoolean And
+'  r = True`: VBA's And does not short-circuit, so a FAILING assertion
+'  written that way kills the run instead of reporting it. PROLOG.20
+'  measured 37 of those already in this suite; this item adds none.
+' ---------------------------------------------------------------------
+Private Sub TestPrologTypeTestsRest()
+    Dim result As Variant
+    Dim r As String
+
+    ' =================================================================
+    '  ground?
+    ' =================================================================
+
+    ' ---- the ground truth pair, both Booleans, neither producible by an
+    ' absent implementation (the TRUE half is the discriminating one).
+    result = VLA_Prolog.PROLOG("(query (ground? bob))")
+    Report "prolog.15: (ground? bob) succeeds - a ground atom has no variable in it", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (ground? X))")
+    Report "prolog.15: ...and its twin (ground? X) fails - X is free", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (ground? 42))")
+    Report "prolog.15: (ground? 42) succeeds - a number is ground", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (ground? nil))")
+    Report "prolog.15: (ground? nil) succeeds - the empty list is an atom, and an atom is ground", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+
+    ' ---- THE DEREFERENCE, and the single most discriminating pair in
+    ' this item. The roadmap entry said TermHasVariable "already computes
+    ' exactly this". It does not: it takes NO ENVIRONMENT, so it computes
+    ' ground-AS-WRITTEN rather than ground-AS-MEANT, and would answer
+    ' FALSE here about a term already known to be 1. This is PROLOG.9's
+    ' own `number? sees through a binding = already made` pin, one item
+    ' later, about the function that item cited.
+    result = VLA_Prolog.PROLOG("(query (= X 1) (ground? X))")
+    Report "prolog.15: `ground?` sees through a binding `=` already made (dereference, not written form)", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "1"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (= X Y) (ground? X))")
+    Report "prolog.15: ...and its twin, X bound only to another FREE variable, correctly finds nothing", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+
+    ' ---- DEEP, not just top-level. A one-step EnvWalkInto answers the
+    ' pair above correctly and this one wrongly: it would see the object
+    ' `(f Y)` and stop. Both halves are needed, because either alone is
+    ' satisfiable by an implementation that is wrong about the other.
+    result = VLA_Prolog.PROLOG("(query (ground? (f a)))")
+    Report "prolog.15: (ground? (f a)) succeeds - a compound of ground parts is ground", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (ground? (f Y)))")
+    Report "prolog.15: ...and (ground? (f Y)) fails - a variable ANYWHERE inside is enough", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (= Y b) (ground? (f Y)))")
+    Report "prolog.15: ...and once Y is bound the SAME term is ground - the walk dereferences at every node, not just the top", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "b"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (ground? (f (g (h Z)))))")
+    Report "prolog.15: ...and a variable three levels down is still found", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    ' ---- POSITION 1, which is the SECOND independent reason
+    ' TermHasVariable is the wrong substrate and one no entry named.
+    ' That function walks `2 To Count`, skipping position 1 on this
+    ' module's "position 1 is a functor" convention - true of terms as
+    ' PARSED, false of an arbitrary DATA argument. `(Z a)` is writable
+    ' and has a variable in position 1, and ResolveTermDeep (which walks
+    ' `1 To Count`) SUBSTITUTES it at render time. A ground? carrying the
+    ' carve-out would call this term ground and then print it with the Z
+    ' showing.
+    '
+    ' The pair is the whole pin: lowercase `z` is an ATOM and must stay
+    ' ground, so an implementation that simply refused every 2-element
+    ' compound would fail the twin.
+    result = VLA_Prolog.PROLOG("(query (ground? (Z a)))")
+    Report "prolog.15: (ground? (Z a)) FAILS - a variable in FUNCTOR position is still a variable", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (ground? (z a)))")
+    Report "prolog.15: ...and its twin (ground? (z a)) succeeds - lowercase z is an atom, so the term really is ground", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+
+    ' ---- a real list, and a real findall bag, are ground when their
+    ' elements are. Run through the engine rather than written literally,
+    ' so this pins the bag and not just the atom nil.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (p 2)) (query (findall X (p X) B) (ground? B))")
+    Report "prolog.15: a findall bag of ground elements is ground", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "(list 1 2)"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (ground? (cons a (cons W nil))))")
+    Report "prolog.15: ...and a list with a free variable in it is NOT ground", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    ' ---- ground? as the GUARD it exists to be: a strict, non-empty
+    ' subset. This is the filter shape, and it is discriminating in a way
+    ' a bare FALSE is not - an absent implementation gives ZERO rows,
+    ' never two of three.
+    '
+    ' The non-ground row comes from a RULE HEAD carrying a variable its
+    ' body never binds, not from a fact: facts must be ground
+    ' (prolog-fact-has-variable), so `(fact (thing (f Q)))` would be
+    ' REFUSED and this test would measure the refusal instead of the
+    ' filter. Found while writing it.
+    Dim prog As String
+    prog = "(fact (thing a)) (fact (thing 7)) (fact (anchor yes)) " & _
+           "(rule (item X) (thing X)) (rule (item (f Y)) (anchor yes)) "
+    result = VLA_Prolog.PROLOG(prog & "(query (item T))")
+    Report "prolog.15: the unfiltered twin finds THREE items, one of them not ground", _
+           ResultRowCount(result) = 4, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG(prog & "(query (item T) (ground? T))")
+    Report "prolog.15: ...and ground? filters it to a strict non-empty subset - a and 7 survive, (f Y) does not", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "a") And ResultCellIs(result, 3, 1, "7"), _
+           "got: " & ResultDescribe(result)
+
+    ' =================================================================
+    '  is-list?
+    ' =================================================================
+
+    result = VLA_Prolog.PROLOG("(query (is-list? nil))")
+    Report "prolog.15: (is-list? nil) succeeds - the empty list is a list", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is-list? (cons a nil)))")
+    Report "prolog.15: (is-list? (cons a nil)) succeeds - a one-cell chain terminating in nil", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is-list? (list a b c)))")
+    Report "prolog.15: ...and so does the same list written with PROLOG.21's own (list ...) sugar", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+
+    ' ---- THE TERMINATOR, and the pair that proves it is checked rather
+    ' than assumed. `(cons a b)` is an improper list - the same term
+    ' PROLOG.21 proved must not CONTRACT to (list a) - and it must not
+    ' answer True here either, for the same reason.
+    result = VLA_Prolog.PROLOG("(query (is-list? (cons a b)))")
+    Report "prolog.15: (is-list? (cons a b)) FAILS - an improper list ends in b, not nil", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is-list? bob))")
+    Report "prolog.15: (is-list? bob) fails - a bare atom that is not nil is no list", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is-list? 42))")
+    Report "prolog.15: (is-list? 42) fails", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is-list? X))")
+    Report "prolog.15: (is-list? X) fails - a free variable is not a list, and asking does not bind it to one", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is-list? (f a)))")
+    Report "prolog.15: (is-list? (f a)) fails - an ordinary compound is not a cons cell", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    ' ---- THE PER-STEP DEREFERENCE, and the most important assertion in
+    ' this item. PROLOG.21's IsProperConsListTerm takes NO env by design:
+    ' it runs at DISPLAY time, after ResolveTermDeep. A GOAL runs before
+    ' display, and a list's tail is routinely a variable bound to the
+    ' rest of the chain - so `is-list?` goes through PROLOG.13's
+    ' ListTermToItems instead.
+    '
+    ' Built on the display-time walker this pair reads 1 row and 1 row.
+    ' Built correctly it reads 2 and 1. The twin - a tail bound to
+    ' something that is NOT a list - is what stops the first passing on
+    ' an implementation that simply answers True for any cons cell.
+    result = VLA_Prolog.PROLOG("(query (= T (cons b nil)) (is-list? (cons a T)))")
+    Report "prolog.15: `is-list?` dereferences the TAIL at every step - a chain whose tail is a BOUND variable is still a list", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "(list b)"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (= T zzz) (is-list? (cons a T)))")
+    Report "prolog.15: ...and its twin, a tail bound to something that is NOT a list, correctly finds nothing", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+
+    ' ---- A PARTIAL LIST ANSWERS, WHERE A LIST GOAL RAISES, and the
+    ' asymmetry is decided rather than inherited. PROLOG.13 refuses
+    ' `(cons a T)` by name because a goal that must USE a list cannot
+    ' proceed without one; a type test only ASKS, so False is the correct
+    ' answer and is ISO is_list/1's own. The refusing twin is what makes
+    ' this pair discriminating: it proves the engine really does
+    ' distinguish the two cases rather than answering False everywhere.
+    result = VLA_Prolog.PROLOG("(query (is-list? (cons a T)))")
+    Report "prolog.15: a PARTIAL list ANSWERS False - a type test never raises", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    r = CStr(VLA_Prolog.PROLOG("(query (length (cons a T) N))"))
+    Report "prolog.15: ...while PROLOG.13's (length ...) still REFUSES the identical term, which is the asymmetry", _
+           InStr(1, r, "#PROLOG!", vbTextCompare) > 0, "got: " & r
+
+    ' ---- a real findall bag is a real list, empty one included. Run
+    ' through the engine, never written literally, so this pins the
+    ' representation and not the spelling of nil.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (p 2)) (query (findall X (p X) B) (is-list? B))")
+    Report "prolog.15: a findall bag is a list", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "(list 1 2)"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (query (findall X (q X) B) (is-list? B))")
+    Report "prolog.15: ...and so is an EMPTY findall bag, which is the atom nil", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "nil"), "got: " & ResultDescribe(result)
+
+    ' ---- is-list? as a GUARD over a table: a strict, non-empty subset.
+    result = VLA_Prolog.PROLOG("(fact (v (list a b))) (fact (v plain)) (fact (v (cons x y))) (query (v L) (is-list? L))")
+    Report "prolog.15: is-list? filters to a strict non-empty subset - the proper list survives, the atom and the improper cell do not", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "(list a b)"), "got: " & ResultDescribe(result)
+
+    ' =================================================================
+    '  callable?
+    ' =================================================================
+
+    ' ---- ISO callable/1 is "an atom or a compound term". The
+    ' discriminating case is the NUMBER: an implementation that simply
+    ' reused `nonvar?` passes every other assertion here and fails this
+    ' one, which is why the pair sits first.
+    result = VLA_Prolog.PROLOG("(query (callable? bob))")
+    Report "prolog.15: (callable? bob) succeeds - an atom is callable", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (callable? 42))")
+    Report "prolog.15: (callable? 42) FAILS - a number is nonvar but NOT callable, which is what makes it more than nonvar?", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (nonvar? 42))")
+    Report "prolog.15: ...and its twin (nonvar? 42) still SUCCEEDS, so the two are genuinely different questions", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (callable? (f a)))")
+    Report "prolog.15: (callable? (f a)) succeeds - a compound term is callable", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (callable? X))")
+    Report "prolog.15: (callable? X) fails - a free variable is not callable", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (callable? nil))")
+    Report "prolog.15: (callable? nil) succeeds - the empty list is an atom", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (= X (f a)) (callable? X))")
+    Report "prolog.15: `callable?` sees through a binding `=` already made", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "(f a)"), "got: " & ResultDescribe(result)
+
+    ' ---- THE PROLOG.10 FAULT LINE, one item on. `callable?` reads the
+    ' quoted-string marker through the SAME LeafIsNumberTerm `atom?` and
+    ' `number?` already ask, so PROLOG.9's local reading is still written
+    ' down exactly once and cannot drift. A marked "42 is an atom, so it
+    ' is callable - which is the same judgement seen from a third side.
+    ' If PROLOG.10's option B is ever adopted, this row flips with the
+    ' two labelled prolog.9/10 and is meant to be found alongside them.
+    result = VLA_Prolog.PROLOG("(query (callable? ""42""))")
+    Report "prolog.15/10: (callable? ""42"") succeeds - a marked leaf is an atom, so it is callable, the same reading as (atom? ""42"")", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+
+    ' =================================================================
+    '  the coherence laws, run live rather than argued
+    ' =================================================================
+
+    ' The transliterated matrix asserted these on all 28 shapes before
+    ' import. These run the two corners that are easiest to get wrong
+    ' against the real engine: nil, which is an atom AND a list AND
+    ' callable AND ground all at once, and a cons cell, which is a
+    ' compound and a list and neither atomic nor callable-by-accident.
+    result = VLA_Prolog.PROLOG("(query (atom? nil) (atomic? nil) (is-list? nil) (callable? nil) (ground? nil))")
+    Report "prolog.15: nil is an atom AND atomic AND a list AND callable AND ground, all five together", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (compound? (list a b)) (is-list? (list a b)) (callable? (list a b)) (ground? (list a b)))")
+    Report "prolog.15: a list is compound AND a list AND callable AND ground, all four together", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic? (list a b)))")
+    Report "prolog.15: ...and its twin, a list is NOT atomic, so the four above are not all trivially true", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    ' =================================================================
+    '  integer? / float? - RESERVED AND REFUSED
+    ' =================================================================
+
+    ' This engine has only Doubles. NumberToTerm is Trim$(Str$(v)), so
+    ' 3.0 and 3 are the SAME ground atom "3" and no function looking at a
+    ' term can recover which was meant; the only implementable `integer?`
+    ' is "whole-valued", a question about a VALUE under the name of a
+    ' question about a TYPE, and ISO's own float(3.0) is TRUE where that
+    ' reading is FALSE. PROLOG.17 owns the decision. Shipping the name
+    ' now would mint one PROLOG.17 has to BREAK.
+    '
+    ' EVERY assertion here checks REFUSAL TEXT, and that is the whole
+    ' design: if these four names were simply left unreserved,
+    ' `(query (integer? 42))` would answer a bare Boolean FALSE - which
+    ' is exactly what an assertion of failure would have accepted. Only
+    ' the text distinguishes "refused on purpose" from "never built".
+    Dim numName As Variant
+    For Each numName In Array("integer?", "float?", "integer", "float")
+        r = CStr(VLA_Prolog.PROLOG("(query (" & numName & " 42))"))
+        Report "prolog.15: '" & numName & "' is REFUSED with an explanation, never silently failed", _
+               InStr(1, r, "one kind of number", vbTextCompare) > 0, "got: " & r
+        Report "prolog.15: ...and that refusal names the form '" & numName & "' the user actually wrote", _
+               InStr(1, r, "(" & numName & " ...)", vbTextCompare) > 0, "got: " & r
+        r = CStr(VLA_Prolog.PROLOG("(fact (" & numName & " a)) (query (p X))"))
+        Report "prolog.15: ...and '" & numName & "' is RESERVED too, so it can never be defined and then silently shadowed", _
+               InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+    Next numName
+
+    ' ---- the bare ISO spellings land on the SAME refusal in ONE hop,
+    ' rather than being bounced through the question-mark refusal first
+    ' and then told the question-mark form does not work either.
+    r = CStr(VLA_Prolog.PROLOG("(query (integer 42))"))
+    Report "prolog.15: the bare `integer` reaches the number-type refusal directly, not the question-mark one", _
+           InStr(1, r, "one kind of number", vbTextCompare) > 0 _
+           And InStr(1, r, "isn't how PROLOG spells", vbTextCompare) = 0, "got: " & r
+    Report "prolog.15: ...and it still teaches the question-mark spelling (integer? ...) in the same message", _
+           InStr(1, r, "(integer? ...)", vbTextCompare) > 0, "got: " & r
+
+    ' ---- and the test that DOES exist is named as the alternative, so
+    ' the refusal is advice rather than only a wall.
+    Report "prolog.15: the number-type refusal points at (number? X), the test that does exist", _
+           InStr(1, r, "(number? X)", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (number? 42))")
+    Report "prolog.15: ...and that advice is true - (number? 42) really does succeed", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+
+    ' =================================================================
+    '  reservation and the bare ISO spellings, for the three that SOLVE
+    ' =================================================================
+
+    Dim tName As Variant
+    For Each tName In Array("callable?", "is-list?", "ground?")
+        r = CStr(VLA_Prolog.PROLOG("(fact (" & tName & " a)) (query (p X))"))
+        Report "prolog.15: '" & tName & "' is refused as a predicate name in a (fact ...)", _
+               InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+    Next tName
+
+    ' ---- THE BARE ISO SPELLINGS. `is_list` is the one name in the
+    ' family whose ISO spelling is not simply the house spelling minus
+    ' the question mark: ISO writes an UNDERSCORE where this engine
+    ' writes a hyphen. TypeTestIsoSpellingFor maps from what a Prolog
+    ' author actually types, so it maps from `is_list` and points at
+    ' `is-list?` - and this pin is what holds that decision.
+    ' Two Variant arrays assigned to locals first, never Array(...)(k)
+    ' inline: VBA's own indexing of a function result is a shape this
+    ' suite does not use anywhere else, and a test module that fails to
+    ' COMPILE takes every other assertion down with it.
+    Dim isoNames As Variant, wantNames As Variant
+    Dim isoName As Variant, wantName As Variant
+    Dim k As Long
+    isoNames = Array("callable", "is_list", "ground")
+    wantNames = Array("callable?", "is-list?", "ground?")
+    For k = 0 To 2
+        isoName = isoNames(k)
+        wantName = wantNames(k)
+        r = CStr(VLA_Prolog.PROLOG("(query (" & isoName & " bob))"))
+        Report "prolog.15: the bare ISO '" & isoName & "' is REFUSED with guidance, never silently failed", _
+               InStr(1, r, "question mark", vbTextCompare) > 0, "got: " & r
+        Report "prolog.15: ...and that refusal names both (" & isoName & " ...) and (" & wantName & " ...) to write instead", _
+               InStr(1, r, "(" & isoName & " ...)", vbTextCompare) > 0 _
+               And InStr(1, r, "(" & wantName & " ...)", vbTextCompare) > 0, "got: " & r
+        r = CStr(VLA_Prolog.PROLOG("(fact (" & isoName & " a)) (query (p X))"))
+        Report "prolog.15: ...and the bare ISO '" & isoName & "' is RESERVED as well as dispatched", _
+               InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+    Next k
+
+    ' ---- the underscore spelling is reserved and the HYPHEN-without-
+    ' question-mark one is deliberately NOT. `is-list` is a house-
+    ' convention slip rather than an ISO import, and admitting it would
+    ' make TypeTestIsoSpellingFor's contract "every near-miss anyone
+    ' might type" instead of "every bare ISO name". Pinned so the
+    ' decision is visible rather than accidental - and so whoever takes
+    ' the hyphen/underscore alias follow-up finds the test that changes.
+    '
+    ' Asserted on the RESULT, not on the absence of the word "reserved"
+    ' in a string: PROLOG returns a spilled ARRAY here, and CStr() of an
+    ' array raises a type mismatch that would kill the run. Proving the
+    ' predicate actually WORKS is the stronger claim anyway.
+    result = VLA_Prolog.PROLOG("(fact (is-list a)) (query (is-list X))")
+    Report "prolog.15: `is-list` (hyphen, no question mark) is NOT reserved - a user may still define it, deliberately", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "a"), "got: " & ResultDescribe(result)
+
+    ' ---- the reserved-word refusal must enumerate what it refuses from.
+    r = CStr(VLA_Prolog.PROLOG("(fact (ground? a)) (query (p X))"))
+    Report "prolog.15: the reserved-word refusal LISTS the three new type tests", _
+           InStr(1, r, "callable?", vbTextCompare) > 0 _
+           And InStr(1, r, "is-list?", vbTextCompare) > 0 _
+           And InStr(1, r, "ground?", vbTextCompare) > 0, "got: " & r
+    Report "prolog.15: ...and their bare ISO spellings, is_list with its underscore", _
+           InStr(1, r, "is_list", vbTextCompare) > 0, "got: " & r
+    Report "prolog.15: ...and the four number-type names it reserves in order to refuse them", _
+           InStr(1, r, "number-type names", vbTextCompare) > 0 _
+           And InStr(1, r, "integer?", vbTextCompare) > 0 _
+           And InStr(1, r, "float", vbTextCompare) > 0, "got: " & r
+
+    ' =================================================================
+    '  the phantom column, a fourth and fifth and sixth time
+    ' =================================================================
+
+    ' `(query (ground? X))` SUCCEEDS in the sense that it returns an
+    ' answer, and `(query (is-list? X))` and `(query (callable? X))` do
+    ' too. Without CollectVars' 2-long skip each would spill a column
+    ' headed X containing the literal text "X". The three new tests
+    ' inherit that skip for free BECAUSE it asks TypeTestKindFor rather
+    ' than naming the six PROLOG.9 shipped - which is the whole reason
+    ' that skip was written as a table lookup, and these three are the
+    ' first evidence it was written right.
+    result = VLA_Prolog.PROLOG("(query (ground? X))")
+    Report "prolog.15: (ground? X) contributes NO output column - a bare Boolean, never a phantom column headed X", _
+           Not IsArray(result), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is-list? X))")
+    Report "prolog.15: ...and neither does (is-list? X)", _
+           Not IsArray(result), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (callable? X))")
+    Report "prolog.15: ...and neither does (callable? X)", _
+           Not IsArray(result), "got: " & ResultDescribe(result)
+
+    ' ---- and PROLOG.11's other half: at DATA position the same shape
+    ' must still keep its column. A fix that deleted the skip would pass
+    ' the three above only by breaking this one.
+    result = VLA_Prolog.PROLOG("(fact (holds a (ground? bob))) (query (holds A (ground? W)))")
+    Report "prolog.11/15: a nested `(ground? W)` used as DATA keeps its column - W binds to bob", _
+           ResultColCount(result) = 2 And ResultRowCount(result) = 2 _
+           And ResultCellIs(result, 2, 1, "a") And ResultCellIs(result, 2, 2, "bob"), _
+           "got: " & ResultDescribe(result)
+
+    ' =================================================================
+    '  the shared shape refusal still covers the new arms
+    ' =================================================================
+
+    r = CStr(VLA_Prolog.PROLOG("(query (ground? X Y))"))
+    Report "prolog.15: (ground? X Y) is refused - a type test takes exactly one term", _
+           InStr(1, r, "exactly one argument", vbTextCompare) > 0, "got: " & r
+    Report "prolog.15: ...and that one shared refusal names (ground? ...), the form the user WROTE", _
+           InStr(1, r, "(ground? ...)", vbTextCompare) > 0 And InStr(1, r, "(is ...)", vbTextCompare) = 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (is-list? A B C))"))
+    Report "prolog.15: ...and names (is-list? ...) when that is what was written", _
+           InStr(1, r, "(is-list? ...)", vbTextCompare) > 0, "got: " & r
+
+    ' =================================================================
+    '  the guard these exist to be, composed
+    ' =================================================================
+
+    ' The point of a type test is to make a rule safe to call with
+    ' anything. This is PROLOG.9's own RELEASES.md pair, in the new
+    ' family: the guarded rule SKIPS the row it cannot handle and keeps
+    ' going, and the unguarded twin stops the whole query. Without the
+    ' second half the first proves only that something returned rows.
+    result = VLA_Prolog.PROLOG("(fact (box (list 1 2 3))) (fact (box plain)) (rule (total B N) (is-list? B) (sum-list B N)) (query (box B) (total B N))")
+    Report "prolog.15: (is-list? B) guards sum-list - the proper list totals 6 and the atom row is skipped, not fatal", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 2, "6"), "got: " & ResultDescribe(result)
+    r = CStr(VLA_Prolog.PROLOG("(fact (box (list 1 2 3))) (fact (box plain)) (rule (total B N) (sum-list B N)) (query (box B) (total B N))"))
+    Report "prolog.15: ...and WITHOUT the guard the identical query dies on `plain`, which is what the guard is for", _
+           InStr(1, r, "#PROLOG!", vbTextCompare) > 0, "got: " & r
+End Sub
+
+' ---------------------------------------------------------------------
 '  PROLOG.10: VLA_Prolog.PROLOG - the quoted-string marker adjudicated.
 '  A text cell reading eng is the term `"eng`, and a bare eng written in
 '  a query is a DIFFERENT term. That does not change here. What changes
@@ -4352,6 +4802,28 @@ Private Function ResultCellIs(ByVal result As Variant, ByVal rowIx As Long, ByVa
     If colIx < LBound(result, 2) Then Exit Function
     If colIx > UBound(result, 2) Then Exit Function
     ResultCellIs = (CStr(result(rowIx, colIx)) = expected)
+End Function
+
+' PROLOG.15: the guarded way to assert a BARE BOOLEAN result, the shape a
+' query with no free variables collapses to.
+'
+' The suite's long-standing spelling is `VarType(result) = vbBoolean And
+' result = True`, and it is a trap of exactly the kind ResultCol1Is
+' (below) documents: VBA's `And` does not short-circuit, so when the
+' engine returns an ARRAY - which is precisely what a broken type test
+' would do, by leaking a phantom column - `result = True` is evaluated
+' anyway and raises a type mismatch. A FAILING assertion written that way
+' KILLS the run instead of reporting, so the one test that could have
+' explained the defect is the one that destroys the evidence.
+'
+' PROLOG.20 measured 37 assertions already carrying that shape and is the
+' item that fixes them; this function is what stops the count reaching
+' 38, and is what PROLOG.20 should move them onto. Guarded by early Exit
+' rather than by a combined expression, for the reason above.
+Private Function ResultBoolIs(ByVal result As Variant, ByVal expected As Boolean) As Boolean
+    If IsArray(result) Then Exit Function
+    If VarType(result) <> vbBoolean Then Exit Function
+    ResultBoolIs = (CBool(result) = expected)
 End Function
 
 Private Function ResultCol1Is(ByVal result As Variant, ByVal expected As String) As Boolean

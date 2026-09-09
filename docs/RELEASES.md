@@ -2,6 +2,115 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_ROADMAP1.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.5.5
+
+### What changed
+
+- **PROLOG's type tests are finished.** `0.5.4` gave six — `var?`,
+  `nonvar?`, `atom?`, `number?`, `atomic?` and `compound?`. Three more
+  join them, and they are the three a real program actually reaches for.
+
+  **`(ground? T)`** succeeds when `T` is completely filled in — no blanks
+  anywhere inside it, however deep. `(ground? (order alice Qty))` fails
+  while `Qty` is still unfilled and succeeds once it isn't. *Completely*
+  is the word to read twice: one blank anywhere inside, at any depth, is
+  enough to fail. This is the guard to write before anything that needs a
+  finished value: printing it, storing it, comparing it.
+
+  **`(callable? T)`** succeeds when `T` is a name or a structure —
+  anything that could stand where a goal stands. A number can't, so
+  `(callable? 42)` fails where `(nonvar? 42)` succeeds. That is the whole
+  difference between the two, and it is the reason `callable?` exists.
+
+  **`(is-list? L)`** succeeds when `L` really is a list — a chain that
+  ends properly rather than trailing off. `(is-list? (list a b c))`
+  succeeds; `(is-list? (cons a b))`, which ends in `b` instead of the
+  empty list, does not; and neither does a list that is still half
+  unfilled.
+
+- **A type test answers; it never stops the query.** This is worth
+  stating because the list *operations* behave differently on purpose. If
+  you hand `(sum-list L N)` something that is not a list, it stops and
+  says so — it cannot do its job without one. `(is-list? L)` on the same
+  value simply answers *no*. That is what makes it usable as a guard:
+
+  ```
+  (fact (box (list 1 2 3)))
+  (fact (box plain))
+  (rule (total B N) (is-list? B) (sum-list B N))
+  (query (box B) (total B N))
+  ```
+
+  gives one row — `(list 1 2 3)` and `6`. The `plain` row is skipped
+  quietly instead of stopping the whole query, which is exactly what
+  happens if you delete the `(is-list? B)` guard and run it again.
+
+- **They see what a value *is*, not how it was written.** After
+  `(= X 1)`, `(ground? X)` succeeds — it follows the value X was given
+  rather than reading the letter `X`. The same is true all the way down:
+  a list whose tail was filled in somewhere else is still a list.
+
+- **`(integer? X)` and `(float? X)` are reserved, and Frazaro tells you
+  why rather than failing quietly.** PROLOG has one kind of number
+  today. `3` and `3.0` are not merely equal, they are the same value
+  written down, so there is no honest answer to "is this one an integer".
+  Rather than ship a test that would give a confident wrong answer — and
+  one whose meaning would have to change later — the two names are
+  reserved now and refused with an explanation pointing at `(number? X)`,
+  the test that does exist. Reserving them today means a program you
+  write now keeps working on the day the distinction arrives.
+
+- **If you write the Prolog spelling, Frazaro still tells you.**
+  `(ground X)`, `(callable X)` and `(is_list X)` each stop and name the
+  spelling to use instead. Note the last one: Prolog writes `is_list`
+  with an underscore, Frazaro writes `is-list?` with a hyphen and a
+  question mark, and typing the Prolog form gets you the Frazaro form
+  rather than silence.
+
+- **More reserved words.** Ten names join the reserved set, which is what
+  lets Frazaro's advice about them always be right: `callable?`,
+  `is-list?`, `ground?`, `integer?` and `float?`, plus the Prolog
+  spellings `callable`, `is_list`, `ground`, `integer` and `float`. If a
+  knowledge base of yours uses one of those as a predicate name, it will
+  need renaming — `ground`, `integer` and `float` are the plausible ones.
+
+  `is-list` — hyphen, no question mark — is **not** reserved, and that is
+  deliberate rather than an oversight: a predicate of your own may still
+  be called that. So may `cons` and `nil`, unchanged from `0.5.4`.
+
+### Known open security items
+
+**Closed this release:** none — 0.5.5 is a feature release and touches no
+security item.
+
+**Still open:** `SEC.3`, `SEC.7`, and two from the 2026-09-08 code
+review — `SEC.10` and `SEC.15`. In plain words:
+the remembered raw-VBA consent record still lives inside the workbook
+(`SEC.10`);
+formulas a program writes are not screened for functions that reach the
+network (`SEC.15`); and effects like sending mail still run without a
+permission prompt (`SEC.7`). `SEC.8` narrows that last one — it gates on
+where the *workbook* came from — but does not close it: a phrasebook loaded
+into a workbook of your own still reaches those verbs unprompted.
+
+**Assessed and accepted, not fixed:** `SEC.12`, `SEC.14`, `SEC.16` and
+`SEC.17`. Each needs a precondition an ordinary install does not meet —
+mostly an Excel setting that ships off and that Frazaro never asks you to
+turn on. The reasoning for each, and what would reopen it, is written down
+rather than left implied.
+
+The authoritative lists, kept current in one place instead of copied into
+every release: [`README.md`](../README.md) in plain words, and
+[`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md) with the file, line, fix and
+disposition for each.
+
+Until these close: **load phrasebooks only from people you would accept a
+macro-enabled workbook from — and treat a workbook someone sent you the
+same way before you press Interpret.** Frazaro makes no network call and
+does not update itself; check the README's *Known open security items*
+when you return for a newer build. Vulnerability reports:
+`docs/SECURITY.md`. Everything else: `docs/SUPPORT.md`.
+
 ## 0.5.4
 
 ### What changed

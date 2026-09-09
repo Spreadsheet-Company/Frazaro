@@ -499,7 +499,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' message that still enumerated only four would be quietly wrong about
     ' which names it had just refused, which is the same class of
     ' confidently-wrong answer the {form} rewrite above exists to remove.
-    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between/list, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, the six type tests var? nonvar? atom? number? atomic? compound?, the six list goals length member nth append reverse sum-list, and the six ISO spellings var nonvar atom number atomic compound - those last six reserved only so PROLOG can point you at the question-mark form instead of failing silently) and can't be used as a predicate name in a (fact ...) or (rule ...)."
+    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between/list, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, the nine type tests var? nonvar? atom? number? atomic? compound? callable? is-list? ground?, the six list goals length member nth append reverse sum-list, the nine ISO spellings var nonvar atom number atomic compound callable is_list ground - reserved only so PROLOG can point you at the question-mark form instead of failing silently - and the four number-type names integer? float? integer float, reserved now but refused until PROLOG tells one kind of number from another) and can't be used as a predicate name in a (fact ...) or (rule ...)."
     ' `prolog-cut-not-yet-supported` (PROLOG.5.1-5.3-era: "cut (!) isn't
     ' supported yet.") is retired at PROLOG.5.4 - cut is real now, no
     ' code path can raise it anymore, and this project's own precedent
@@ -546,25 +546,59 @@ Private Sub AddEntries(ByVal m As Collection)
     ' distinction to stay true of both, which would make it useless to
     ' both.
     AddMsg m, "prolog-unification-bad-shape", 5, "VLA-Prolog", "{form} needs exactly two arguments - the two terms to match, like (= X 1)."
-    ' PROLOG.9 - the six type tests, the widest fan-out of the three: ONE
-    ' id for all six, {form}-templated for the same reason and carried in
-    ' the same script's own multi-form baseline (added to it BEFORE this
-    ' message existed, so the check failed on it until it did). Kept
+    ' PROLOG.9 - the type tests, the widest fan-out of the three: ONE
+    ' id for every one of them, {form}-templated for the same reason and
+    ' carried in the same script's own multi-form baseline (added to it
+    ' BEFORE this message existed, so the check failed on it until it
+    ' did). PROLOG.15 took the family from six to nine and this text did
+    ' not have to move, which is what taking the form from the caller is
+    ' for. Kept
     ' separate from both ids above on the identical reasoning: these take
     ' ONE argument rather than two, and what that argument is - any term
     ' at all, classified rather than compared or evaluated - is exactly
     ' what a user who wrote (atom X Y) needs told.
     AddMsg m, "prolog-type-test-bad-shape", 5, "VLA-Prolog", "{form} needs exactly one argument - the term to classify, like (number? Salary)."
-    ' PROLOG.9 - the six BARE ISO spellings. This engine writes a type
+    ' PROLOG.9 - the BARE ISO spellings. This engine writes a type
     ' test with a trailing question mark, the convention VLA's own macro
     ' layer already uses for null?/eq?/equal?, so a Prolog author's first
     ' instinct - (atom X) - would otherwise be an unknown predicate, and
     ' an unknown predicate in PROLOG is a SILENT dead end: no rows, no
-    ' explanation. One id for all six, {form}-templated for the same
-    ' reason its five siblings above are, and carried in the same
+    ' explanation. One id for every one of them, {form}-templated for the
+    ' same reason its five siblings above are, and carried in the same
     ' script's multi-form baseline. It is the only refusal in this module
     ' whose entire job is to name a spelling.
-    AddMsg m, "prolog-type-test-iso-spelling", 5, "VLA-Prolog", "{form} isn't how PROLOG spells this type test - all six of them end in a question mark, so write {fixed} instead, like (number? Salary)."
+    '
+    ' PROLOG.15: the text said "all six of them end in a question mark"
+    ' and there are nine. A count word standing in prose is a hand count,
+    ' and this one sat where NO check could see it - rule B of
+    ' tools/check_prolog_reserved_names.ps1 reads
+    ' prolog-reserved-predicate-name and nothing else. Rewritten with no
+    ' count at all rather than with a corrected one, which is the only
+    ' version that cannot go stale again.
+    AddMsg m, "prolog-type-test-iso-spelling", 5, "VLA-Prolog", "{form} isn't how PROLOG spells this type test - every one of them ends in a question mark, so write {fixed} instead, like (number? Salary)."
+    ' PROLOG.15 - the two number-type tests this engine cannot honestly
+    ' answer, and the ONE id that refuses all four of their spellings.
+    '
+    ' PROLOG has only Doubles. NumberToTerm is Trim$(Str$(v)), so 3.0 and
+    ' 3 are the SAME ground atom "3" and no amount of looking at a term
+    ' can recover which one was meant. So (integer? X) could only ever be
+    ' answered as "is this number whole-valued", which is a question about
+    ' a VALUE wearing the name of a question about a TYPE - and ISO's own
+    ' float(3.0) is TRUE where that reading says FALSE. Shipping it would
+    ' mint a name whose meaning PROLOG.17 then has to BREAK.
+    '
+    ' Reserved AND dispatched, PROLOG.9's own bare-ISO shape and
+    ' PROLOG.21's own `list` shape: the alternative is a silent dead end
+    ' for the name a Prolog author reaches for first. All four spellings
+    ' land here in ONE hop rather than being bounced through the
+    ' question-mark refusal first, which is why integer and float are in
+    ' this table and not in TypeTestIsoSpellingFor.
+    '
+    ' {fixed} names the question-mark form deliberately, even though it
+    ' refuses too: a reader who typed (integer X) learns BOTH that the
+    ' spelling here has a question mark and that the test is not
+    ' available, in one message instead of two.
+    AddMsg m, "prolog-type-test-number-type", 5, "VLA-Prolog", "{form} isn't available: PROLOG has one kind of number, so nothing here tells an integer from a float - ask (number? X) instead. {fixed} stays reserved, and so does the spelling without the question mark, so a program you write today keeps working if PROLOG ever tells the two apart."
     ' PROLOG.10 - the adjudication. A text cell reading eng becomes the
     ' term ""eng, and a bare eng written in a query is a DIFFERENT term;
     ' that stays true, and this message does not change it. What changes

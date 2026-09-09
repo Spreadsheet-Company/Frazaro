@@ -13122,18 +13122,329 @@ now carries one summary paragraph per engine and points here.*
     than beside. `\+` (ISO negation) belongs here too, as a reserved name
     dispatched to `not` or refused with guidance, `PROLOG.10`'s own
     spelling precedent. `~days`.
-  - ⬜ **PROLOG.15 — the REST of the ISO type-test family.** `PROLOG.9`
-    shipped six of roughly eleven. Missing: **`integer?`**, **`float?`**
-    (this engine has only Doubles, so the two need a decision before they
-    need code — see `PROLOG.17`), **`callable?`**, **`is-list?`**
-    (blocked by `PROLOG.13`, since it has nothing to be true of yet), and
-    **`ground?`**, which is the notable omission because `TermHasVariable`
-    **already exists and already computes exactly it** — `PROLOG.9` cited
-    that function while implementing none of the questions it answers.
-    `ground?` is close to free and should not wait for the rest. All join
-    `TypeTestKindFor`'s table and their ISO spellings join
-    `TypeTestIsoSpellingFor`, so the reserved set and both refusals follow
-    mechanically. `~days`.
+  - ✅ **PROLOG.15 — the REST of the ISO type-test family.** SHIPPED
+    2026-09-09; owner-verified live. `TestDSLs` 624 → **707/707** (83
+    new assertions in a new `TestPrologTypeTestsRest`, **no existing
+    assertion re-pointed** — nothing this item does changes a rendered
+    or asserted value, and the sweep that established that is described
+    below); pure 1047/1047, host 143/143 and `VerifyReports` 141/141
+    emitter and 141/141 interpreter all unmoved, exactly as predicted —
+    nothing outside `VLA_Prolog`, `VLA_Messages` and the query suite is
+    touched, and no test iterates the message catalogue. All 16
+    `tools/check_*.ps1` green. **The predicted count was exact, and this
+    time so was the pin sweep** — there was nothing to re-point, and the
+    mechanical sweep is what established that rather than the absence of
+    an idea. Owner-confirmed in cells, all 24 handed-off steps: each new
+    test succeeding beside its own failing twin; `ground?` seeing
+    through a binding `=` already made; `(ground? (Z a))` FALSE beside
+    `(ground? (z a))` TRUE; `(callable? 42)` FALSE beside
+    `(nonvar? 42)` TRUE; a cons chain with a BOUND tail answering TRUE;
+    a PARTIAL list answering False beside `(length ...)` still refusing
+    the identical term; the `is-list?` guard letting a non-list row be
+    skipped where the unguarded twin stops the query; both number-type
+    spellings reaching the same refusal in one hop; `(is_list ...)`
+    pointing at `(is-list? ...)`; the reserved-word refusal naming the
+    nine type tests; and `is-list` still usable as a predicate of the
+    user's own.
+
+    **THE SPELLING WAS RAISED BY THE OWNER MID-PASS, and held.** The
+    question was why `is_list`/`is-list?` rather than `list`/`list?`.
+    Two different answers. The bare `list` is not available at all —
+    `PROLOG.21` reserved and dispatched it as the sugar marker, so
+    `(query (list a b))` is already a refusal saying a list is a value
+    and not a goal. `list?` genuinely was available (nothing reserves
+    it, and `?` is inert to `Tokenize`), so the house name was a real
+    choice, and it had been pre-committed by `PROLOG.13`'s own
+    `ListGoalKindFor` header before this item existed. Held on two
+    reasons: the list family ALREADY transliterates SWI underscore names
+    to hyphens (`sum_list` → `sum-list` shipped at `PROLOG.13`), so
+    `is_list` → `is-list?` is that same rule and `list?` would make one
+    member of the family draw its name from Scheme while the other six
+    draw from SWI; and, decisively, `list` and `list?` would sit ONE
+    CHARACTER APART meaning entirely different things — both reserved,
+    one a data marker refused in goal position, one a type test — which
+    is exactly the adjacency that produces a confidently wrong reading.
+    The counter-argument is recorded rather than buried: the `?`
+    convention itself was justified at `PROLOG.9` by pointing at the
+    MACRO layer's `null?`/`eq?`/`equal?`, which is Scheme, and Scheme
+    spells this one `list?`. Raised at the only moment it was free —
+    nothing committed, `0.5.5` unreleased — which is `PROLOG.9`'s own
+    `atom` → `atom?` timing exactly.
+
+    **THE THREE THAT SHIP:** `callable?`, `is-list?` and `ground?`, all
+    joining `TypeTestKindFor`, with `callable`, `is_list` and `ground`
+    joining `TypeTestIsoSpellingFor`. **THE TWO THAT DO NOT:** `integer?`
+    and `float?`, reserved and refused through a new sixth delegated
+    table.
+
+    **THE ENTRY WAS OLD, AND TWO OF ITS CLAIMS WERE FALSE. Both were
+    re-confirmed against the code rather than taken on trust, and one of
+    them turned out to be false for a SECOND reason nobody had named.**
+
+    (i) "`TermHasVariable` **already exists and already computes exactly
+    it**" is FALSE **twice over**. First, and as the brief already knew:
+    that function takes **no environment at all** — no `envN`, no `envT`
+    — so it cannot dereference, and computes ground-AS-WRITTEN rather
+    than ground-AS-MEANT. After `(= X 1)` it would call `X` a variable
+    and answer False about a term already known to be `1`. That is
+    precisely the mistake `PROLOG.9`'s own entry made about `IsVarAtom`,
+    repeated one item later, and `PROLOG.9`'s pin — "`number` sees
+    through a binding `=` already made" — is the standard this had to
+    meet. **The transliterated matrix measured it: a no-env `ground?`
+    gets SEVEN of 28 shapes wrong.**
+
+    **The second reason is this item's own finding and no document had
+    it.** `TermHasVariable` walks `2 To Count`, skipping position 1 on
+    this module's "position 1 is a functor, never a variable"
+    convention. That convention is a statement about terms as PARSED and
+    is **not true of an arbitrary DATA argument**: `(Z a)` is a
+    perfectly writable term with a variable in functor position, and
+    `ResolveTermDeep` — which walks `1 To Count` — **substitutes it at
+    render time**. A `ground?` carrying the carve-out would answer True
+    about a term the user then sees printed with a variable showing: a
+    classification and a display disagreeing about one term, which is
+    exactly the class `PROLOG.21`'s round-trip law exists to forbid. Two
+    more shapes wrong, measured by the same matrix and proved by its own
+    mutation. So `ground?` gets **`TermIsGroundDeep`**: env-aware,
+    `1 To Count`, dereferencing at every node. `TermHasVariable` is left
+    untouched — it answers a PARSE-TIME question about written form,
+    which is the question its own two callers actually ask, and this
+    item does not widen its contract to borrow it.
+
+    (ii) "`is-list?` blocked by `PROLOG.13`" is UNBLOCKED, **and the
+    obvious substrate is the wrong one, which is the mirror of (i).**
+    `IsProperConsListTerm` (`PROLOG.21`) takes no env **by design**: it
+    runs at DISPLAY time, after `ResolveTermDeep`, when there is nothing
+    left to dereference, and its own header says asking for an env would
+    be a false promise. A GOAL runs before display, and a list's tail is
+    routinely a variable bound to the rest of the chain, so `is-list?`
+    goes through **`ListTermToItems`**, which takes `envN`/`envT` and
+    whose per-step dereference `PROLOG.13` already proved load-bearing.
+    Re-proved here by the same mutation: the display-time walker calls a
+    perfectly proper list improper the moment its tail is a bound
+    variable. `ListTermToItems`' own header calls it "the single place
+    'is this a list' is decided"; this adds a **seventh caller rather
+    than a second walker**, so that stays true.
+
+    **`is-list?` ANSWERS WHERE THE LIST GOALS RAISE, and the asymmetry
+    is decided rather than inherited.** `PROLOG.13` refuses a PARTIAL
+    list `(cons a T)` by name, because a goal that must USE a list
+    cannot proceed without one. A type test does not use anything — it
+    ASKS — so a partial list is a correct FALSE, which is also ISO
+    `is_list/1`'s own answer, and refusing would make the test useless
+    as the guard it exists to be. **No type test in this module has ever
+    raised and this item does not make one start.** Pinned as a pair:
+    `(is-list? (cons a T))` answers False beside `(length (cons a T) N)`
+    still refusing the identical term, so the tests prove the engine
+    distinguishes the two cases rather than answering False everywhere.
+
+    **`callable?` IS `atom?` OR `compound?`** — nonvar and not a number
+    — and it **shares `atom?`'s own arm** rather than repeating the
+    negation, so `LeafIsNumberTerm` stays the ONE place `PROLOG.9`'s
+    local reading of `PROLOG.10` is written down and `callable?` cannot
+    drift into a second reading of the same marker. `(callable? "42")`
+    is True for the same reason `(atom? "42")` is, and that row is
+    labelled `prolog.15/10` so whoever adopts `PROLOG.10`'s option B
+    finds it beside the two `PROLOG.9` already labelled. The
+    discriminating pin is the NUMBER: `(callable? 42)` FALSE beside
+    `(nonvar? 42)` TRUE, which is the whole of what `callable?` adds
+    over `nonvar?` and the one assertion an implementation that simply
+    reused `nonvar?` would fail.
+
+    **THE DECISION THE ITEM CONTAINED, TAKEN RATHER THAN LET RIDE:
+    `integer?` and `float?` ARE RESERVED AND REFUSED.** This engine has
+    only Doubles. `NumberToTerm` is `Trim$(Str$(v))` — deliberately the
+    same expression `TableCellToTerm` uses — so `3.0` and `3` are the
+    **same ground atom** `"3"` and the distinction cannot be recovered
+    from a term at all. The only implementable reading is `integer?` =
+    whole-valued, which is a question about a **VALUE** wearing the name
+    of a question about a **TYPE**, and ISO contradicts it directly:
+    ISO's `float(3.0)` is True where that reading is False. **The
+    decisive argument is not the wrongness but the timing:** shipping
+    `integer?` now mints a name whose meaning `PROLOG.17` would then
+    have to BREAK, in programs already written against it. Refusing it
+    leaves `PROLOG.17` free to define it. Reserved as well as refused,
+    on the forward-reservation discipline this module has followed since
+    `PROLOG.7` — a knowledge base written today must not silently break
+    the day the decision lands. Rejected alternative: shipping
+    `integer?` alone as whole-valued, which is implementable and useful,
+    but leaves the pair incoherent — a user who has `integer?` will
+    expect `float?` to be its complement, and under the value reading
+    `(float? 3.0)` is FALSE where real Prolog says TRUE.
+
+    **WHAT WOULD REOPEN IT**, recorded the way `PROLOG.9` recorded its
+    own local reading of `PROLOG.10`'s open question: `PROLOG.17`
+    deciding the integer question. If it introduces a **distinct integer
+    representation** — anything that makes `3.0` render differently from
+    `3` — the two become ordinary `TypeTestKindFor` entries and
+    `TypeTestDeferredFor` is deleted whole. If it fixes Doubles-only
+    permanently, the honest move is to keep these refused and give the
+    whole-valued question a name that **promises no type**, `whole?`
+    rather than `integer?`. Either way the refusal is what a user reads
+    in the meantime, which silence would not be.
+
+    **ALL FOUR SPELLINGS LAND ON ONE REFUSAL IN ONE HOP**, and that is
+    why `integer`/`float` are in the new table rather than in
+    `TypeTestIsoSpellingFor`. That table's refusal says "write the
+    question-mark form instead" — and here the question-mark form
+    refuses too, so a user who wrote `(integer X)` would be told to
+    write `(integer? X)` and then told THAT is unavailable: two refusals
+    for one mistake, the second contradicting the first's advice. The
+    single message names the question-mark spelling anyway, so nothing
+    is lost. `TypeTestDeferredFor` gets no `ValidateBodyItem` arity arm
+    and no `CollectVars` skip, both deliberate and both `PROLOG.21`'s
+    `list` precedent: the answer is the same at every arity, and nothing
+    that always raises can contribute an output column, so either would
+    be dead code.
+
+    **THE `is_list` SPELLING, decided rather than defaulted.** ISO
+    writes `is_list` with an UNDERSCORE; this engine spells with hyphens
+    (`sum-list`) and marks questions with `?`. `TypeTestIsoSpellingFor`
+    maps FROM **the name a Prolog author types first** — that is its
+    whole documented job — so it maps from `is_list` and points at
+    `is-list?`. `is-list` (hyphen, no question mark) is deliberately NOT
+    reserved: it is a house-convention slip rather than an ISO import,
+    and admitting it would make that table's contract "every near-miss
+    anyone might type" instead of "every bare ISO name", a rule with no
+    edge. **Pinned in both directions** — the underscore refuses with
+    guidance, and `is-list` is shown still usable as a predicate of the
+    user's own — so the decision is visible rather than accidental.
+    **A pre-existing instance of the same class, found and NOT
+    half-fixed:** `sum_list` is SWI's own spelling of `PROLOG.13`'s
+    `sum-list` and is not reserved either, so it is a silent dead end
+    today. Filed whole as a named follow-up, because a hyphen/underscore
+    alias policy is one decision about one class and belongs to whoever
+    takes it, not to a type-test item that happens to contain one
+    instance of it.
+
+    **THE RESERVED SET IS NOW 44 NAMES** (6 literal + 6 + 4 + 9 + 9 + 6
+    + 4) across SIX delegated tables, up from 34. Every site the brief
+    named was **verified rather than assumed, and every one held**:
+    `IsReservedPredicateName` needed only the sixth table added to its
+    `Case Else`; `CollectVars`' 2-long skip asks `TypeTestKindFor` and
+    so inherited all three new tests **for free** — the first evidence
+    that writing it as a table lookup rather than naming `PROLOG.9`'s
+    six was right; `DesugarBodyItem`'s `PROLOG.9` arm took the sixth
+    table alongside the other two; and `ValidateBodyItem`'s arity check
+    via `prolog-type-test-bad-shape` covered the new arms with no edit
+    at all, `{form}` doing exactly what it was built for.
+
+    **THE MECHANICAL CHECKS WERE WRITTEN FIRST AND RUN RED, and one of
+    them taught something about ITSELF.** `prolog-type-test-number-type`
+    was registered in `check_prolog_form_attribution.ps1`'s
+    `$multiFormIds` before the code existed and the check failed on it
+    immediately ("named in this script's multi-form baseline but raised
+    nowhere"). `check_prolog_reserved_names.ps1`'s rule B did **not**
+    run red on a bare registration, and that is worth recording: rule B
+    only fires once the message text NAMES the group noun, so a
+    `$countPhrases` entry for a table that does not exist yet is
+    **inert**. The order that actually runs it red is message-first,
+    code-second — which is what was done, producing three failures
+    naming exactly the three tables. All three count phrases were then
+    **proved to bite by mutation** (deliberately wrong count words on
+    each), and the file restored byte-exactly. **Neither check was
+    widened.** The new group noun is `number-type names` and the choice
+    is not cosmetic: rule B matches `<word> <noun>` and returns the
+    FIRST match anywhere in the text, so `deferred type tests` would
+    have contained `type tests`, matched with `deferred` in front of it,
+    reported "not a count word", and **silently checked
+    `TypeTestKindFor`'s real size against nothing** — the same
+    pass-by-not-looking trap `PROLOG.9` recorded, reached from the other
+    side. The note is now in the script's own baseline.
+
+    **A HAND COUNT NO CHECK COULD SEE, found by enumerating the class.**
+    `prolog-type-test-iso-spelling` read "all **six** of them end in a
+    question mark" and there are nine. Rule B never looks at that
+    message — it reads `prolog-reserved-predicate-name` and nothing else
+    — so a count with **no group noun at all** defeats it completely.
+    Found by a two-pass sweep over `src/`, `tools/`, `docs/` and
+    `README.md` (a count word in front of a family noun; and a bare
+    count on a line whose SUBJECT is one of these families) rather than
+    by grepping for the "six"s already known, which is `PROLOG.13`'s own
+    recorded miss. **41 hits, 16 of them live claims and the rest
+    correctly frozen history**; every live one is fixed, and the fix is
+    to remove the count rather than correct it, which is the only
+    version that cannot go stale again. `docs/RELEASES.md`'s `0.5.4`
+    section was deliberately **left alone**: `0.5.4` is released, so
+    those notes are history and are true of what shipped, unlike
+    `PROLOG.21`, which rewrote them only because `0.5.4` was still
+    unreleased.
+
+    **NOTHING RENDERED OR ASSERTED MOVED, and that was established
+    mechanically rather than hoped for.** This item adds no term shape,
+    changes no writer and touches neither `ResolveTermDeep` nor
+    `ContractListsInto`, so no existing pin could shift — the sweep
+    above is what confirms it, and it is why the assertion delta is
+    purely additive where `PROLOG.13` moved six pins and `PROLOG.21`
+    moved 21.
+
+    **THE PURE FUNCTIONS WERE TRANSLITERATED AND RUN BEFORE IMPORT**,
+    per this line's own discipline: `IsVarAtom`, `EnvWalkInto`,
+    `IsInvariantNumericString`, `LeafIsNumberTerm`, `ListTermToItems`,
+    `IsProperConsListTerm` and the whole of `SolveTypeTest`, over **28
+    term shapes × 9 predicates = 252 answers**, each against a
+    hand-written expectation, plus **eight coherence laws checked on
+    every row** (var/nonvar complementary; atomic ⟺ atom or number,
+    never both; var/atomic/compound a partition; callable ⟺ atom or
+    compound; a list is callable and never a variable; ground implies
+    nonvar; a number is ground). Control green at 252/252 and 0
+    violations. **Four mutations, each proving one guard load-bearing
+    and each biting in exactly the predicted place**: `ground?` without
+    the environment (7 wrong), `ground?` with `TermHasVariable`'s
+    position-1 carve-out (2 wrong, both a variable in functor position),
+    `is-list?` on the display-time walker (1 wrong, the bound tail), and
+    `callable?` written as `nonvar?` (3 wrong, all numbers, plus 3 law
+    violations). A **structural balance scanner** was run over every
+    edited module and **proved to bite twice** — by deleting an `End If`
+    and by deleting a `Next` from a copy, both located inside the new
+    function. The predicted assertion count was computed by a script
+    that walks the new Sub and multiplies each `Report` site by its
+    enclosing loops' trip counts, because seven of the 66 sites sit
+    inside `For` loops and 66 is not 83.
+
+    **THREE THINGS WERE BUILT WRONG FIRST AND CAUGHT BEFORE IMPORT**,
+    all three in the tests rather than the engine. A `ground?` filter
+    test stored `(fact (thing (f Q)))` — but facts must be ground, so
+    `prolog-fact-has-variable` would have refused it and the test would
+    have measured the refusal instead of the filter; rebuilt on a RULE
+    HEAD carrying a variable its body never binds, which is the only way
+    this engine produces a non-ground answer. An assertion did
+    `CStr(PROLOG(...))` on a query that **spills an array**, which
+    raises a type mismatch and would have killed the run rather than
+    failed; rewritten onto the guarded helpers, and it asserts the
+    stronger thing anyway. And `Array("a","b")(k)` was written inline —
+    a shape this suite uses nowhere else, and a test module that fails
+    to COMPILE takes every other assertion down with it; assigned to
+    Variant locals first.
+
+    **`ResultBoolIs`, a new guarded helper, and it is a payment into
+    `PROLOG.20`.** This suite's long-standing spelling for a Boolean
+    result is `VarType(r) = vbBoolean And r = True` — and VBA's `And`
+    does not short-circuit, so when the engine returns an ARRAY (which
+    is exactly what a broken type test does, by leaking a phantom
+    column) `r = True` is evaluated anyway and raises. **A failing
+    assertion written that way kills the run instead of reporting it**,
+    so the one test that could explain the defect is the one that
+    destroys the evidence. `PROLOG.20` measured 37 of those already
+    present; this item **adds none**, and leaves `PROLOG.20` a function
+    to move the 37 onto rather than 37 bespoke rewrites.
+
+    **HOUSE DISCIPLINE.** All refusals through `VLA_Messages.RaiseMsg`;
+    `VLA_Prolog` stays at a raw `Err.Raise` ceiling of **0**. No new
+    module, so `VLA_Build.bas`/`VLA_DevRig.bas` are untouched.
+    `docs/GRAMMAR_SINCE.md` needs no row — **re-verified mechanically,
+    not assumed**: `check_rule_coverage -ListRules` and
+    `check_emitter_coverage -ListArms` return **zero** `VLA_Prolog`
+    mentions between them, and the file itself contains no Prolog row.
+    `VLA_PROLOG_VERSION` bumped `PROLOG.21` → `PROLOG.15`.
+
+    *Blocks nothing.* *Named follow-ups left open:* the
+    hyphen/underscore alias class (`is-list`, `sum_list`, and whatever
+    else `PROLOG.16` adds); `append` over partial lists, inherited from
+    `PROLOG.13`. *Pays into:* `PROLOG.17`, which now has the integer
+    question stated as a decision with a named dependent and a written
+    reopening condition rather than as an aside; and `PROLOG.20`, which
+    now has its helper.
   - ⬜ **PROLOG.16 — STANDARD ORDER OF TERMS: `@<`/`@=<`/`@>`/`@>=`,
     `compare/3`, `msort`/`sort`, `setof`/`bagof`.** `PROLOG.7` gave
     NUMERIC comparison and `PROLOG.8` gave structural EQUALITY; there is

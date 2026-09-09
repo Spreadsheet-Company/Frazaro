@@ -74,15 +74,16 @@ $scannedProcs = @(
 # four of =, \=, == and \== from one Case, and correspondingly unable to
 # name a form of its own.
 # prolog-type-test-bad-shape joins on the identical terms at PROLOG.9:
-# raised by ValidateBodyItem's own type-test arm, which serves all SIX of
-# var, nonvar, atom, number, atomic and compound from one Case. Six forms
-# through one raise site is the widest fan-out of the three, so naming a
-# form in its own text would be wrong five times out of six.
+# raised by ValidateBodyItem's own type-test arm, which serves every name
+# in TypeTestKindFor from one Case - var, nonvar, atom, number, atomic and
+# compound at PROLOG.9, plus callable, is-list and ground at PROLOG.15.
+# That was the widest fan-out of the three and is wider now, so naming a
+# form in its own text would be wrong eight times out of nine.
 #
-# prolog-type-test-iso-spelling serves the six BARE ISO spellings from
-# one raise site in SolveGoalList - it exists to tell a Prolog author
-# that (atom X) is written (atom? X) here - so it too must take the form
-# from its caller rather than naming one of the six.
+# prolog-type-test-iso-spelling serves the BARE ISO spellings from one
+# raise site in SolveGoalList - it exists to tell a Prolog author that
+# (atom X) is written (atom? X) here - so it too must take the form from
+# its caller rather than naming one of them.
 #
 # prolog-list-bad-shape and prolog-list-not-a-list join at PROLOG.13, and
 # they are the widest fan-out yet: both are raised for all SIX list goals
@@ -92,13 +93,19 @@ $scannedProcs = @(
 # (length/2, member/2, nth/3, append/3, reverse/2, sum-list/2), so the
 # arity message must take BOTH its form and its count from the caller;
 # naming a form in either text would be wrong five times out of six.
+# prolog-type-test-number-type joins at PROLOG.15. It serves all FOUR
+# spellings of the two number-type tests this engine cannot yet answer -
+# integer?, float? and their bare ISO forms integer and float - from one
+# raise site in SolveGoalList, so naming a form in its own text would be
+# wrong three times out of four.
 $multiFormIds = @(
     'prolog-comparison-bad-shape',
     'prolog-unification-bad-shape',
     'prolog-type-test-bad-shape',
     'prolog-type-test-iso-spelling',
     'prolog-list-bad-shape',
-    'prolog-list-not-a-list'
+    'prolog-list-not-a-list',
+    'prolog-type-test-number-type'
 )
 
 $formToken          = '{form}'

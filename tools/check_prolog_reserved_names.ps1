@@ -111,15 +111,31 @@ $structuralDispatch = @{
 # Key is the group noun as it appears in the text; value is the table
 # function whose size the preceding count word must equal.
 # NOTE on phrasing: the count word must sit IMMEDIATELY before the group
-# noun, because rule B matches '<word> <noun>'. "the six ISO spellings"
-# is checked; "their six bare ISO spellings" would find "bare" in front
+# noun, because rule B matches '<word> <noun>'. "the nine ISO spellings"
+# is checked; "their nine bare ISO spellings" would find "bare" in front
 # of the noun, report "not a count word", and silently check nothing.
+#
+# PROLOG.15 found the OTHER half of that hole, and it is worse: a count
+# with no group noun at all. prolog-type-test-iso-spelling read "all six
+# of them end in a question mark" and there were nine, in a message this
+# rule never looks at - rule B reads prolog-reserved-predicate-name and
+# nothing else. That text now carries no count at all, which is the only
+# version that cannot go stale; the same treatment is the right fix
+# anywhere else a bare count turns up in prose.
+# NOTE on collision: rule B matches '<word> <noun>' and Regex.Match returns
+# the FIRST hit anywhere in the text, so a group noun that CONTAINS another
+# group noun would silently steal its check. PROLOG.15's own deferred family
+# is therefore called 'number-type names' and not, say, 'deferred type
+# tests' - the latter contains 'type tests', would match "deferred type
+# tests" with 'deferred' in front of it, report "not a count word", and
+# check TypeTestKindFor's real size against nothing at all.
 $countPhrases = @{
     'comparisons'          = 'ComparisonOpFor'
     'term-matching goals'  = 'UnificationOpFor'
     'type tests'           = 'TypeTestKindFor'
     'ISO spellings'        = 'TypeTestIsoSpellingFor'
     'list goals'           = 'ListGoalKindFor'
+    'number-type names'    = 'TypeTestDeferredFor'
 }
 
 $numberWords = @{

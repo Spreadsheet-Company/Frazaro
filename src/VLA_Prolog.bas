@@ -1,6 +1,109 @@
 Attribute VB_Name = "VLA_Prolog"
 Option Explicit
-Public Const VLA_PROLOG_VERSION As String = "PROLOG.21"
+Public Const VLA_PROLOG_VERSION As String = "PROLOG.15"
+'
+' PROLOG.15: the REST of the ISO type-test family. PROLOG.9 shipped six
+' of eleven; this finishes the set, and the finishing turns out to be
+' three questions the engine can answer, two it cannot, and one function
+' that looked like it already answered one of them and did not.
+'
+'   SHIPPED, joining TypeTestKindFor: `callable?`, `is-list?`, `ground?`
+'   RESERVED AND REFUSED, in the new TypeTestDeferredFor: `integer?`,
+'   `float?` (and their bare `integer`/`float`)
+'
+' THE DEREFERENCE IS THE WHOLE RISK, and it is where the entry was wrong.
+' Every one of these questions can be answered correctly about a term's
+' WRITTEN form and wrongly about what it MEANS, and this module has
+' shipped one function per item that looked like it already answered the
+' question and did not. PROLOG.9's entry said that about `IsVarAtom`;
+' this item's entry said it about `TermHasVariable`, in the very next
+' item, about `ground?`.
+'
+' `TermHasVariable` IS THE WRONG SUBSTRATE FOR `ground?`, IN TWO
+' INDEPENDENT WAYS, and both were MEASURED before a line was imported.
+'
+'   (i) It takes NO ENVIRONMENT - no envN, no envT - so it cannot
+'       dereference anything. It computes ground-AS-WRITTEN, not
+'       ground-AS-MEANT: after `(= X 1)`, `(ground? X)` would answer
+'       False about a term already known to be 1. That is precisely the
+'       defect PROLOG.9's own pin ("`number` sees through a binding `=`
+'       already made") exists to forbid, and the transliterated matrix
+'       says a no-env `ground?` gets SEVEN of 28 shapes wrong.
+'
+'  (ii) It walks `2 To Count`, skipping position 1 on this module's
+'       "position 1 is a functor, never a variable" convention. That
+'       convention is a statement about terms as PARSED, and it is not
+'       true of an arbitrary DATA argument: `(Z a)` has a variable in
+'       position 1, and ResolveTermDeep (which walks `1 To Count`)
+'       SUBSTITUTES it at render time. A `ground?` carrying the carve-out
+'       would answer True about a term the user then sees printed with a
+'       variable in it - a display and a classification disagreeing about
+'       the same term, which is the round-trip class PROLOG.21 forbids.
+'       Two more shapes wrong, measured by the same matrix.
+'
+' So `ground?` gets TermIsGroundDeep (below): its own walker, env-aware,
+' `1 To Count`, dereferencing at EVERY node. TermHasVariable is left
+' exactly as it is - it answers a parse-time question about written form,
+' which is the question its two callers actually ask.
+'
+' `is-list?` HAS THE MIRROR TRAP, and the obvious substrate is also the
+' wrong one. PROLOG.21's IsProperConsListTerm takes no env BY DESIGN: it
+' runs at DISPLAY time, after ResolveTermDeep, when there is nothing left
+' to dereference. A GOAL is not display time. A list's tail is routinely
+' a variable bound to the rest of the chain, so `is-list?` goes through
+' ListTermToItems, which takes envN/envT and whose per-step dereference
+' PROLOG.13 already proved load-bearing by mutation. Re-proved here: the
+' no-env walker calls a perfectly proper list improper the moment its
+' tail is a bound variable. ListTermToItems' own header calls itself "the
+' single place 'is this a list' is decided"; this item keeps that true by
+' adding a seventh caller rather than a second walker.
+'
+' `is-list?` ANSWERS WHERE THE LIST GOALS REFUSE, and the asymmetry is
+' the point. PROLOG.13 refuses a partial list `(cons a T)` by name,
+' because a goal that must USE a list cannot proceed without one. A type
+' test does not use anything - it ASKS - so a partial list is a correct
+' FALSE, ISO's own answer for is_list/1, and refusing would make the test
+' unusable as the guard it exists to be. No type test in this module has
+' ever raised, and this item does not make one start.
+'
+' `callable?` IS `atom?` OR `compound?`, which is to say nonvar and not a
+' number, and it reads the quoted-string marker through LeafIsNumberTerm
+' like its three siblings - so PROLOG.9's LOCAL reading of PROLOG.10 is
+' still written down exactly once and `callable?` cannot drift into a
+' second reading of the same marker.
+'
+' `integer?` AND `float?` ARE RESERVED AND REFUSED, and that is this
+' item's real decision rather than a detail it let ride.
+' This engine has only Doubles. NumberToTerm is Trim$(Str$(v)), so `3.0`
+' and `3` are the SAME ground atom "3" and the distinction cannot be
+' recovered from a term at all. The only implementable reading is
+' `integer?` = whole-valued - a question about a VALUE wearing the name
+' of a question about a TYPE, and one ISO contradicts directly, since
+' ISO's `float(3.0)` is True where that reading says False. Shipping it
+' would mint a name whose meaning PROLOG.17 then has to BREAK; refusing
+' it leaves PROLOG.17 free to define it. Reserved as well as refused, so
+' a knowledge base written today cannot be silently broken when the
+' decision lands - the forward-reservation discipline this module has
+' followed since PROLOG.7.
+'
+' WHAT WOULD REOPEN IT, recorded the way PROLOG.9 recorded its own local
+' reading of PROLOG.10: PROLOG.17 deciding the integer question. If it
+' introduces a DISTINCT integer representation - anything that makes 3.0
+' render differently from 3 - the two become ordinary TypeTestKindFor
+' entries and TypeTestDeferredFor is deleted whole. If it fixes
+' Doubles-only permanently, the honest move is to keep these refused and
+' give the whole-valued question a name that promises no type, `whole?`
+' rather than `integer?`. Either way the refusal is what a user reads in
+' the meantime, which silence would not be.
+'
+' THE RESERVED SET IS NOW 44 NAMES (6 literal + 6 + 4 + 9 + 9 + 6 + 4)
+' across SIX delegated tables. `tools/check_prolog_reserved_names.ps1`
+' already registered 'type tests' and 'ISO spellings' in its $countPhrases,
+' so both count words in prolog-reserved-predicate-name went stale the
+' moment a name was added and the check said so before any code existed.
+' The sixth table's own count phrase and the new refusal id were
+' registered in the two checks FIRST and both ran RED on exactly the work
+' to do. Neither check was widened.
 '
 ' PROLOG.21: `(list a b c)` - the compact spelling PROLOG.13 filed as its
 ' own named follow-up, and the one it deliberately did not take because
@@ -223,12 +326,14 @@ Public Const VLA_PROLOG_VERSION As String = "PROLOG.21"
 ' tools/check_prolog_form_attribution.ps1's multi-form baseline BEFORE
 ' the code existed, and it failed on them until it did.
 '
-' PROLOG.9: the six ISO type-test goals - written `var?`, `nonvar?`,
-' `atom?`, `number?`, `atomic?`, `compound?` - and `between/3`. The
+' PROLOG.9: the ISO type-test goals - written `var?`, `nonvar?`,
+' `atom?`, `number?`, `atomic?`, `compound?`, with PROLOG.15 adding
+' `callable?`, `is-list?` and `ground?` to the same table - and
+' `between/3`. The
 ' roadmap lists them in one bullet. They are TWO DIFFERENT SHAPES and
 ' are built as two arms:
 '
-'   the six type tests - DETERMINISTIC. Exactly one outcome, bind
+'   the type tests    - DETERMINISTIC. Exactly one outcome, bind
 '       nothing, thread envN/envT into the continuation UNCHANGED. The
 '       shape `not` and the six comparisons already have.
 '   between/3         - a GENERATOR, and the FIRST one in this dispatch.
@@ -1375,7 +1480,7 @@ Private Sub CollectVars(ByVal term As Variant, freeVarNames As Collection, ByVal
         ' compound-term argument CollectVars recurses into (e.g. a fact's own
         ' `(color red)`-shaped argument), never assumed to be a plain symbol
         ' just because a `not`-headed term happens to be 2 long.
-        ' PROLOG.9: the six type tests join this same 2-long skip, on exactly
+        ' PROLOG.9: the type tests join this same 2-long skip, on exactly
         ' the reasoning `not` is skipped on. They bind NOTHING - every one of
         ' them is a test - so a variable appearing only inside one can never
         ' resolve to anything, and collecting it would spill its own raw atom
@@ -1654,8 +1759,10 @@ Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
     Case "is", "not", "findall", "!", "between", "list"
         ' PROLOG.9: `between` is a literal arm rather than a table of its
         ' own because it is ONE name - the shape is/not/findall already
-        ' have. Its six type-test siblings arrive by table below, since
-        ' they are six.
+        ' have. Its type-test siblings arrive by table below, since they
+        ' are many - and the count is deliberately not written down here,
+        ' because PROLOG.15 took that family from six to nine and every
+        ' place that HAD written it down went stale at once.
         '
         ' PROLOG.21: `list` joins as a literal for the same one-name
         ' reason - and it is the only reserved name here that is not a
@@ -1690,7 +1797,7 @@ Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
         ' Case, so evaluating the second when the first already answered
         ' True costs a jump and can have no effect of its own.
         '
-        ' PROLOG.9: its own six type-test names join on the identical
+        ' PROLOG.9: its own type-test names join on the identical
         ' terms, from their own table. Three delegated tables now, and
         ' the same non-short-circuit note applies unchanged - all three
         ' are pure lookups over frozen Select Cases, so evaluating a
@@ -1717,7 +1824,16 @@ Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
         ' and an atom - data, never goals - so there is nothing to
         ' dispatch them to, and rule C would correctly call a name
         ' reserved-but-inert a defect. See ListGoalKindFor's own header.
-        IsReservedPredicateName = (ComparisonOpFor(predName) <> "" Or UnificationOpFor(predName) <> "" Or TypeTestKindFor(predName) <> "" Or TypeTestIsoSpellingFor(predName) <> "" Or ListGoalKindFor(predName) <> "")
+        '
+        ' PROLOG.15: a SIXTH delegated table, TypeTestDeferredFor, and the
+        ' first whose names are reserved in order to be REFUSED rather
+        ' than solved - integer?/float? and their bare ISO forms, which
+        ' this engine cannot honestly answer while it has only Doubles.
+        ' Reserving them is the point: PROLOG.17 owns the decision, and a
+        ' knowledge base written today must not silently break the day it
+        ' lands. The same non-short-circuit note applies unchanged, all
+        ' six being pure lookups over frozen Select Cases.
+        IsReservedPredicateName = (ComparisonOpFor(predName) <> "" Or UnificationOpFor(predName) <> "" Or TypeTestKindFor(predName) <> "" Or TypeTestIsoSpellingFor(predName) <> "" Or ListGoalKindFor(predName) <> "" Or TypeTestDeferredFor(predName) <> "")
     End Select
 End Function
 
@@ -1835,7 +1951,7 @@ End Function
 ' no question mark: it GENERATES, like cons and list, and only tests as
 ' a second mode.
 '
-' The six bare ISO spellings are reserved too, and dispatched to a
+' The bare ISO spellings are reserved too, and dispatched to a
 ' refusal that names the "?" form - TypeTestIsoSpellingFor, below. A
 ' Prolog author's first instinct is `(atom X)`, and an unreserved
 ' `(atom X)` would be an unknown predicate, which in SolveGoalList is a
@@ -1853,6 +1969,20 @@ Private Function TypeTestKindFor(ByVal predName As String) As String
     Case "number?":   TypeTestKindFor = "number"
     Case "atomic?":   TypeTestKindFor = "atomic"
     Case "compound?": TypeTestKindFor = "compound"
+    ' PROLOG.15: the three PROLOG.9 left, on identical terms. `callable?`
+    ' and `is-list?` keep the ISO word; `is-list?` is the one name in this
+    ' table whose bare ISO spelling is NOT itself minus the question mark
+    ' (ISO writes `is_list`, with an underscore, where this engine spells
+    ' with hyphens - see TypeTestIsoSpellingFor for what that table maps
+    ' from and why).
+    '
+    ' The KIND, never the written name, is what SolveTypeTest's own Select
+    ' Case is written in, so "islist" rather than "is-list?" here: a
+    ' rename of the spelling never reaches that function. Same reason
+    ' ListGoalKindFor maps `sum-list` to "sum".
+    Case "callable?": TypeTestKindFor = "callable"
+    Case "is-list?":  TypeTestKindFor = "islist"
+    Case "ground?":   TypeTestKindFor = "ground"
     End Select
 End Function
 
@@ -1884,6 +2014,72 @@ Private Function TypeTestIsoSpellingFor(ByVal predName As String) As String
     Case "number":   TypeTestIsoSpellingFor = "number?"
     Case "atomic":   TypeTestIsoSpellingFor = "atomic?"
     Case "compound": TypeTestIsoSpellingFor = "compound?"
+    ' PROLOG.15: the three new tests' own bare ISO names.
+    '
+    ' `is_list` WITH AN UNDERSCORE, and the spelling is decided rather
+    ' than defaulted. This table maps FROM the name a Prolog author types
+    ' FIRST - that is its whole job, stated in the header above - and what
+    ' a Prolog author types is `is_list`, because that is what their own
+    ' language calls it. The house spelling is `is-list?`, with this
+    ' engine's hyphen (`sum-list`) and this engine's question mark, and it
+    ' is what this arm points at.
+    '
+    ' `is-list` - hyphen, no question mark - is deliberately NOT here. It
+    ' is a plausible near-miss, but it is a HOUSE-CONVENTION slip and not
+    ' an ISO import, and admitting it would make this table's contract
+    ' "every near-miss anyone might type" rather than "every bare ISO
+    ' name", which is a rule with no edge. The same near-miss class is
+    ' already open elsewhere and untouched by this item: `sum_list` is
+    ' SWI's own spelling of PROLOG.13's `sum-list` and is not reserved
+    ' either. Filed whole as a named follow-up rather than half-fixed
+    ' here - a hyphen/underscore alias policy is one decision about one
+    ' class, and it belongs to whoever takes it, not to a type-test item
+    ' that happens to contain one instance.
+    Case "callable": TypeTestIsoSpellingFor = "callable?"
+    Case "is_list":  TypeTestIsoSpellingFor = "is-list?"
+    Case "ground":   TypeTestIsoSpellingFor = "ground?"
+    End Select
+End Function
+
+' PROLOG.15: the two number-type tests this engine cannot honestly
+' answer, and the four spellings that reach the one refusal that says so.
+' Returns the question-mark form the refusal points at, or "" if predName
+' is none of the four.
+'
+' A SIXTH delegated table, and the first whose every name is refused
+' rather than solved. That is PROLOG.9's bare-ISO shape and PROLOG.21's
+' `list` shape reused a third time: reserved AND dispatched, so
+' tools/check_prolog_reserved_names.ps1's rules C and D are both
+' satisfied honestly rather than by exemption. What the dispatch DOES is
+' teach, and teaching is a real thing for a dispatch to do.
+'
+' WHY A TABLE OF ITS OWN RATHER THAN TypeTestKindFor. This engine has
+' only Doubles, so there is nothing for these to be true OF. NumberToTerm
+' is Trim$(Str$(v)) - the same expression TableCellToTerm uses - so 3.0
+' and 3 are the SAME ground atom "3", and no function looking at a term
+' can recover which was meant. The only implementable `integer?` is
+' "whole-valued", a question about a VALUE under the name of a question
+' about a TYPE, and ISO's own float(3.0) is True where that reading is
+' False. This module's own PROLOG.15 header has the full reasoning and,
+' more importantly, what would REOPEN it.
+'
+' WHY ALL FOUR SPELLINGS LAND HERE rather than `integer`/`float` going to
+' TypeTestIsoSpellingFor. That table's refusal says "write the
+' question-mark form instead" - and here the question-mark form refuses
+' too, so a user who wrote `(integer X)` would be told to write
+' `(integer? X)` and then told THAT is not available: two refusals for
+' one mistake, the second contradicting the first's advice. One hop, one
+' message, which names the question-mark spelling anyway.
+'
+' No ValidateBodyItem arity arm and no CollectVars skip, both deliberate.
+' The answer is the same for any arity, so an arity refusal would only
+' delay the real one; and nothing that always raises can ever contribute
+' an output column, so a skip would be dead code. `list` (PROLOG.21) sets
+' both precedents and for the same reason.
+Private Function TypeTestDeferredFor(ByVal predName As String) As String
+    Select Case predName
+    Case "integer?", "integer": TypeTestDeferredFor = "integer?"
+    Case "float?", "float":     TypeTestDeferredFor = "float?"
     End Select
 End Function
 
@@ -2359,7 +2555,7 @@ Private Sub DesugarBodyItem(ByRef dest As Variant, ByVal item As Variant, ByVal 
                 ' DesugarPredicateAtom cannot quietly start reaching in.
                 Set dest = item
                 Exit Sub
-            ElseIf TypeTestKindFor(headWord) <> "" Or TypeTestIsoSpellingFor(headWord) <> "" Or headWord = "between" Then
+            ElseIf TypeTestKindFor(headWord) <> "" Or TypeTestIsoSpellingFor(headWord) <> "" Or TypeTestDeferredFor(headWord) <> "" Or headWord = "between" Then
                 ' PROLOG.9: both new families passed through untouched,
                 ' one arm because the reason is one reason - and stated
                 ' rather than left to fall through, exactly as PROLOG.7's
@@ -3066,7 +3262,7 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         Exit Sub
     End If
 
-    ' PROLOG.9: the six type-test goals - dispatched here, the identical
+    ' PROLOG.9: the type-test goals - dispatched here, the identical
     ' unambiguous-by-construction reasoning every arm above already uses,
     ' since IsReservedPredicateName forbids ever DEFINING a predicate with
     ' one of these names. Deterministic like all of them (exactly one
@@ -3099,7 +3295,7 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         Exit Sub
     End If
 
-    ' PROLOG.9: the six BARE ISO spellings - `(atom X)` where this engine
+    ' PROLOG.9: the BARE ISO spellings - `(atom X)` where this engine
     ' writes `(atom? X)`. Dispatched here, above the clauseDict lookup,
     ' for a reason sharper than any arm above it: BELOW that lookup an
     ' unknown predicate is a SILENT dead end, and these six names are
@@ -3121,6 +3317,29 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     If TypeTestIsoSpellingFor(predName) <> "" Then
         VLA_Messages.RaiseMsg "prolog-type-test-iso-spelling", _
             "form", "(" & predName & " ...)", "fixed", "(" & TypeTestIsoSpellingFor(predName) & " ...)"
+    End If
+
+    ' PROLOG.15: `integer?`, `float?` and their bare `integer`/`float` -
+    ' the two number-type tests this engine cannot honestly answer, all
+    ' four spellings refused from one site. Dispatched here, above the
+    ' clauseDict lookup, on exactly the reasoning the arm above it states:
+    ' below that lookup an unknown predicate is a SILENT dead end, and a
+    ' user who asks whether something is an integer and gets zero rows has
+    ' been told, wrongly and confidently, that it is not one.
+    '
+    ' Like the arm above, this never solves - it always raises, and that
+    ' is what makes reserving these names honest rather than an exemption
+    ' from check_prolog_reserved_names.ps1's rule C. Teaching the state of
+    ' the question IS what the dispatch does. No step is charged, because
+    ' no resolution work happens.
+    '
+    ' WHY THERE IS NOTHING TO SOLVE: this engine has only Doubles, so 3.0
+    ' and 3 are the same ground atom and the distinction is not in the
+    ' term to be found. TypeTestDeferredFor's own header and this module's
+    ' PROLOG.15 header carry the decision and what would reopen it.
+    If TypeTestDeferredFor(predName) <> "" Then
+        VLA_Messages.RaiseMsg "prolog-type-test-number-type", _
+            "form", "(" & predName & " ...)", "fixed", "(" & TypeTestDeferredFor(predName) & " ...)"
     End If
 
     ' PROLOG.9: `(between Low High X)` - dispatched here on the same
@@ -3201,7 +3420,7 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' arriving here can only have come from a goal position, where a list
     ' is not a thing that can be proved.
     '
-    ' Like PROLOG.9's six bare ISO spellings, this arm never solves
+    ' Like PROLOG.9's bare ISO spellings, this arm never solves
     ' anything - it always raises, and that IS its job. Below the
     ' clauseDict lookup an unknown predicate is a SILENT dead end, so
     ' left undispatched `(query (list a b))` would answer "no rows" and
@@ -3763,12 +3982,33 @@ Private Function SolveTypeTest(ByVal goalTerm As Variant, ByVal kind As String, 
                                 envN As Collection, envT As Collection) As Boolean
     Dim lst As Collection
     Set lst = goalTerm
+
+    ' PROLOG.15: the two DEEP questions, answered before the shallow walk
+    ' below and not through it. Every kind PROLOG.9 shipped is a question
+    ' about the term's own TOP-LEVEL shape, so one EnvWalkInto settles it.
+    ' `ground?` and `is-list?` are questions about the whole term, and a
+    ' single top-level walk answers neither: it would call `(f V)` ground
+    ' and would stop at the first tail that is a variable. Each therefore
+    ' delegates to its own walker, which dereferences at EVERY node.
+    If kind = "ground" Then
+        SolveTypeTest = TermIsGroundDeep(lst.Item(2), envN, envT)
+        Exit Function
+    End If
+    If kind = "islist" Then
+        SolveTypeTest = TermIsProperListDeep(lst.Item(2), envN, envT)
+        Exit Function
+    End If
+
     Dim w As Variant
     VLA_Unify.EnvWalkInto w, lst.Item(2), envN, envT
 
     If IsObject(w) Then
+        ' PROLOG.15: `callable?` joins the compound branch. ISO's
+        ' callable/1 is "an atom or a compound term", so every compound
+        ' term is one whatever its functor - `(cons a nil)` and `(f a)`
+        ' alike.
         Select Case kind
-        Case "nonvar", "compound": SolveTypeTest = True
+        Case "nonvar", "compound", "callable": SolveTypeTest = True
         End Select
         Exit Function
     End If
@@ -3781,11 +4021,113 @@ Private Function SolveTypeTest(ByVal goalTerm As Variant, ByVal kind As String, 
         Exit Function
     End If
 
+    ' PROLOG.15: `callable?` shares `atom?`'s arm exactly, which is the
+    ' whole of its leaf case - callable is nonvar AND NOT a number, and
+    ' for a leaf "not a number" IS atom. Sharing the arm rather than
+    ' repeating the negation is what keeps `callable?` from drifting into
+    ' a SECOND reading of the quoted-string marker: LeafIsNumberTerm is
+    ' still the one place PROLOG.9's local reading of PROLOG.10 is
+    ' written down, and `(callable? "42")` is True for the same reason
+    ' `(atom? "42")` is.
     Select Case kind
-    Case "nonvar", "atomic": SolveTypeTest = True
-    Case "number":           SolveTypeTest = LeafIsNumberTerm(raw)
-    Case "atom":             SolveTypeTest = Not LeafIsNumberTerm(raw)
+    Case "nonvar", "atomic":  SolveTypeTest = True
+    Case "number":            SolveTypeTest = LeafIsNumberTerm(raw)
+    Case "atom", "callable":  SolveTypeTest = Not LeafIsNumberTerm(raw)
     End Select
+End Function
+
+' PROLOG.15: is this term GROUND - does it contain no variable anywhere,
+' after everything the environment knows has been substituted?
+'
+' NOT TermHasVariable, and the difference is TWO independent defects
+' rather than one, both measured over a 28-shape matrix before import.
+'
+' (i) TermHasVariable TAKES NO ENVIRONMENT. It cannot dereference, so it
+'     computes ground-AS-WRITTEN: after `(= X 1)` it would call X a
+'     variable and answer False about a term already known to be 1. That
+'     is the exact defect PROLOG.9's own pin forbids for `number?`
+'     ("sees through a binding `=` already made"), and the matrix says a
+'     no-env version gets SEVEN of 28 shapes wrong. Proved by mutation.
+'
+' (ii) TermHasVariable walks `2 To Count`, skipping position 1 on this
+'     module's "position 1 is a functor" convention. That convention is
+'     about terms as PARSED and is not true of an arbitrary DATA
+'     argument - `(Z a)` is a perfectly writable term with a variable in
+'     position 1 - and ResolveTermDeep walks `1 To Count`, so it
+'     SUBSTITUTES that position at render time. A `ground?` carrying the
+'     carve-out would call a term ground and then print it with a
+'     variable showing: a classification and a display disagreeing about
+'     one term, which is the class PROLOG.21's round-trip law exists to
+'     forbid. Two more shapes wrong, also proved by mutation.
+'
+' So this walks `1 To Count` and dereferences at every node, exactly
+' ResolveTermDeep's own contract - "answer about every position of
+' whatever you are handed" rather than one resting on an invariant
+' enforced somewhere else. TermHasVariable is deliberately left alone: it
+' answers a PARSE-TIME question about written form, which is the question
+' its own two callers ask.
+'
+' An empty () is ground, and correctly: it has no position to hold a
+' variable. The loop simply does not run.
+'
+' No cycle guard, and none is needed: UnifyTwoWay occurs-checks before
+' binding (VLA_Unify.bas, prolog-occurs-check), so no environment this
+' engine can build contains a term that reaches itself. ListTermToItems
+' and IsProperConsListTerm already rest on the same guarantee.
+Private Function TermIsGroundDeep(ByVal term As Variant, envN As Collection, envT As Collection) As Boolean
+    Dim w As Variant
+    VLA_Unify.EnvWalkInto w, term, envN, envT
+    If Not IsObject(w) Then
+        TermIsGroundDeep = Not VLA_Unify.IsVarAtom(CStr(w))
+        Exit Function
+    End If
+    Dim lst As Collection
+    Set lst = w
+    Dim i As Long
+    For i = 1 To lst.Count
+        If Not TermIsGroundDeep(lst.Item(i), envN, envT) Then Exit Function
+    Next i
+    TermIsGroundDeep = True
+End Function
+
+' PROLOG.15: is this term a PROPER list - a cons chain terminating in the
+' atom nil - as the environment currently has it?
+'
+' THROUGH ListTermToItems, NOT IsProperConsListTerm, and picking the
+' wrong one of those two is the single most likely way to get this item
+' wrong. They look interchangeable and are not:
+'
+'   IsProperConsListTerm (PROLOG.21) takes NO env, deliberately. It runs
+'       at DISPLAY time, after ResolveTermDeep, when nothing is left to
+'       dereference and asking for an env would be a false promise. Its
+'       own header says so.
+'   ListTermToItems (PROLOG.13) takes envN/envT and dereferences at
+'       EVERY step, because a tail is routinely a variable bound to the
+'       rest of the chain - `L` -> `(cons a T)`, `T` -> `(cons b nil)` is
+'       what an ordinary rule body produces.
+'
+' A GOAL runs before display, so it must have the second. Re-proved by
+' mutation before import: swapping in the display-time walker makes the
+' matrix call exactly that shape "not a list".
+'
+' ListTermToItems' own header calls it "the single place 'is this a list'
+' is decided". This adds a seventh caller rather than a second walker, so
+' that stays true - and it is why this is a wrapper rather than a fourth
+' cons-chain loop. The collection it fills is discarded: this asks, it
+' does not use. Kept out of SolveTypeTest's own frame on purpose, the
+' same stack-frame reason every sibling Solve* helper was factored out.
+'
+' IT ANSWERS FALSE WHERE THE LIST GOALS RAISE, and that asymmetry is
+' decided, not inherited. PROLOG.13 refuses a PARTIAL list `(cons a T)`
+' by name because a goal that must USE a list cannot proceed without one.
+' A type test does not use anything - it asks - so a partial list is a
+' correct False, which is also ISO is_list/1's own answer, and refusing
+' would make the test useless as the guard it exists to be. No type test
+' in this module has ever raised and this one does not start.
+Private Function TermIsProperListDeep(ByVal term As Variant, envN As Collection, envT As Collection) As Boolean
+    Dim discard As Collection
+    Set discard = New Collection
+    TermIsProperListDeep = ListTermToItems(term, envN, envT, discard)
 End Function
 
 ' PROLOG.9: `(between Low High X)`. The one goal in this module that
