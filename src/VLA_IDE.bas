@@ -133,6 +133,13 @@ Private mHostSheet As Object       ' V2: the sheet active at invocation
 ' header, further down, for the full design.
 Private Const PHRASEBOOK_LIST_PROP As String = "VLA_LoadedPhrasebooks"
 
+' SEC.9: the registry section holding this DEVICE's answer to "may
+' that phrasebook load?" - one value per path, "<digest>|granted" or
+' "<digest>|denied". The workbook property above is the REQUEST; this
+' is the ANSWER, and only the answer is trusted. Full design in the
+' SEC.9 header block further down, beside the gate itself.
+Private Const PHRASEBOOK_CONSENT_SECTION As String = "SEC9PhrasebookPath"
+
 ' EDITIONMANIFEST.7 (owner-caught, live, the real root cause behind
 ' three straight "Bad file name or number" rounds - the first two
 ' fixes were real bugs too, just not THIS one): Dir$ is a local-
@@ -229,7 +236,16 @@ End Function
 ' IdeLoadVocab's own pre-check is byte-for-byte unchanged. The path
 ' itself lives in IdeDevPolyglottaPath, shared with IdeLoadVocab's last
 ' resort, so the two can never drift apart.
-Private Function IdeVocabPath(Optional ByVal includePolyglotta As Boolean = False) As String
+' SEC.9: mayPrompt = False means "tell me which file you WOULD use, but
+' do not stop to ask anyone about it." Two callers need that and neither
+' loads any grammar: VlaIdeInfo, which builds a one-line diagnostics
+' string, and the "vocabulary not found" message, which is assembling
+' the text of an error that is already being raised. A status report
+' that pops a consent dialog is a defect however good the consent is -
+' found by reading the call sites after the owner's first live pass, not
+' by the checker, which pins the two LOADING sites rather than these.
+Private Function IdeVocabPath(Optional ByVal includePolyglotta As Boolean = False, _
+                              Optional ByVal mayPrompt As Boolean = True) As String
     ' V5 (Mac spike): paths built with Application.PathSeparator -
     ' the one hard-coded-backslash site in the codebase, found by
     ' the portability inventory. Costless on Windows, correct on
@@ -264,8 +280,39 @@ Private Function IdeVocabPath(Optional ByVal includePolyglotta As Boolean = Fals
     For i = 1 To 4
         If (i <= 2 And hasHostPath) Or (i >= 3 And hasAddinPath) Then
             If SafeFileExists(cands(i)) Then
-                IdeVocabPath = cands(i)
-                Exit Function
+                ' SEC.9: candidates 1 and 2 live in the HOST WORKBOOK's
+                ' own directory and are chosen ahead of the add-in's own
+                ' copy - the search-order hijack, and the half of SEC.9
+                ' that was observed happening. They now need this
+                ' device's approval; 3 and 4 are the add-in's own files
+                ' and are trusted by construction.
+                '
+                ' A decline FALLS THROUGH to the next candidate rather
+                ' than refusing, and that is the right shape here: the
+                ' question being answered is "should the file sitting
+                ' next to this workbook win over the built-in grammar?",
+                ' and "no" has a complete, safe answer sitting one line
+                ' further down the list. Nothing is lost by declining
+                ' except the override.
+                '
+                ' Existence is probed BEFORE the gate here, unlike the
+                ' replay loop, and the difference is deliberate: this
+                ' path is the workbook's own folder, which Excel already
+                ' opened the workbook from, so looking at it discloses
+                ' nothing that opening the file has not already
+                ' disclosed. The replay loop's paths are attacker-chosen
+                ' strings pointing anywhere at all, which is a different
+                ' question with a different answer.
+                Dim useIt As Boolean
+                useIt = True
+                If i <= 2 And mayPrompt Then
+                    useIt = PhrasebookPathApproved(cands(i), _
+                        "This file sits next to the workbook you are working in, and Frazaro would use it INSTEAD of its own built-in grammar.")
+                End If
+                If useIt Then
+                    IdeVocabPath = cands(i)
+                    Exit Function
+                End If
             End If
         End If
     Next
@@ -336,6 +383,257 @@ End Function
 '  as SEC.2's own workbook-scope test does for
 '  ActiveWorkbook.CustomDocumentProperties.
 ' =====================================================================
+
+' =====================================================================
+'  SEC.9: which phrasebook paths this DEVICE has agreed to load.
+'
+'  THE HOLE THIS CLOSES, and it is not hypothetical. Two loaders
+'  trusted the workbook's own account of what grammar to use:
+'  IdeVocabPath put <host workbook dir>\scripts\<edition>.vla and
+'  <host workbook dir>\<edition>.vla AHEAD of the add-in's own copy - a
+'  DLL-search-order hijack wearing a .vla extension - and
+'  ReplayPersistedPhrasebooks replayed absolute paths out of the
+'  workbook's VLA_LoadedPhrasebooks property with no prompt at all.
+'  Grammar decides what every sentence MEANS, so whoever supplies it
+'  decides what the program does. OBSERVED LIVE 2026-09-08, benignly
+'  and by accident: a stale english.vla in the owner's Downloads
+'  folder was loaded ahead of the add-in's own copy, because the
+'  workbook happened to be there too. It failed loudly only by luck -
+'  that copy was old enough not to know "put", so it errored. A merely
+'  DIFFERENT grammar would have loaded in silence. No attacker, no
+'  crafted file, no privilege: an ordinary Downloads folder.
+'
+'  WHY THE RECORD LIVES ON THE DEVICE, not in the workbook. The
+'  workbook is precisely the thing not being trusted here, so a
+'  permission slip carried inside it would be written by the same hand
+'  that wrote the request - SEC.10's whole finding about SEC.2's
+'  workbook-scope grant, not repeated here by choice. The workbook's
+'  VLA_LoadedPhrasebooks property keeps its old job, which is a
+'  REQUEST ("this program wants these phrasebooks"); this registry
+'  section is the ANSWER, and only the answer is trusted.
+'
+'  KEYED BY (path, digest), both halves load-bearing. Path alone would
+'  let an approved location be swapped underneath the approval; digest
+'  alone would let bytes approved in one directory authorize the same
+'  bytes appearing somewhere else later. The digest is SEC.11's
+'  EnglishSourceHash - which is why SEC.11 was built first: a grant
+'  keyed to a forgeable fingerprint is worth about nothing, since an
+'  attacker who can drop a file beside a workbook could also make it
+'  collide under the old 32-bit polynomial.
+'
+'  THE ORDER OF OPERATIONS IS THE SECURITY PROPERTY, and it is easy to
+'  get backwards. A path out of the workbook is an arbitrary
+'  attacker-chosen string, and \\attacker\share\x.vla leaks this
+'  machine's Windows credentials to that server the moment ANYTHING
+'  touches it - Dir$ included. So a path with no recorded decision is
+'  never touched at all: not hashed, not probed for existence, not
+'  even asked about by name-that-exists. It is described to the person
+'  as text and nothing more. Only once a decision exists for that path
+'  does reading it become authorized, and only then is it hashed. That
+'  is also why the lookup cannot simply be "hash it and see" - the
+'  hash is exactly the thing that requires permission first.
+'
+'  DECLINING IS RECORDED TOO, deliberately, and this is a departure
+'  from SEC.2's shape rather than an oversight. SEC.2 raises when raw
+'  consent is refused, because a half-loaded phrasebook is
+'  indistinguishable from a bug. Here a decline has a safe, complete,
+'  obvious answer - the built-in grammar - so refusing loudly on every
+'  command afterwards would trap a person in an error with no UI to
+'  clear it (nothing in this codebase removes an entry from
+'  VLA_LoadedPhrasebooks). A recorded "denied" is skipped quietly
+'  thereafter and reported through the ordinary loaded-sources channel.
+'  Changing the file re-opens the question either way, because the
+'  record is content-keyed.
+' =====================================================================
+' (PHRASEBOOK_CONSENT_SECTION itself is declared at the top of this
+' module, with the other module-level Consts - VBA requires every bare
+' module-level declaration to sit in that one block before the first
+' procedure, a rule VLA_SentenceEngine.bas's own SEC.2 constants
+' record three live compiles learning.)
+
+' PURE, and Public for exactly the reason LoadedPhrasebookPaths and
+' VlaIdeProgramTag are: VlaSelfTest pins this directly, with no file,
+' no workbook and no dialog. It is a string predicate and nothing else
+' - deliberately, because the whole point is to reach a verdict on a
+' path WITHOUT touching it.
+'
+' "Remote" means UNC (\\server\share, and the \\?\ / \\.\ prefixed
+' forms, which start the same way) or anything carrying a URL scheme.
+' The "://" test is the general one: no Windows local path can contain
+' it, because a drive letter is a bare colon with no slashes. Forward
+' slashes are treated like backslashes throughout, since Windows
+' accepts // as a UNC introducer too and a stored path is whatever the
+' workbook chose to write.
+'
+' NOT detected, and stated rather than implied: a mapped drive letter
+' (Z:\x.vla) that resolves to a share. Telling those apart needs a
+' host call, which would defeat the purpose of a pure predicate, and
+' the mapping was made by this user on this machine rather than named
+' by the workbook. It still passes through the consent gate below like
+' any other path.
+Public Function VlaPhrasebookPathIsRemote(ByVal path As String) As Boolean
+    Dim p As String
+    p = Replace(Trim$(path), "/", "\")
+    If Len(p) = 0 Then Exit Function
+    If Left$(p, 2) = "\\" Then
+        VlaPhrasebookPathIsRemote = True
+        Exit Function
+    End If
+    ' Scheme test on the ORIGINAL text: "://" survives the slash
+    ' normalization above as ":\\", so look for either spelling rather
+    ' than depending on which one ran first.
+    If InStr(path, "://") > 0 Or InStr(p, ":\\") > 0 Then
+        VlaPhrasebookPathIsRemote = True
+    End If
+End Function
+
+' PURE. Is path inside dir - the add-in's own folder, whose contents
+' ship with Frazaro and are trusted by construction, exactly as
+' SEC.16's own accepted-risk note assumes (anything able to write
+' there is already running as this user).
+'
+' Case-insensitive because Windows paths are, and the separator is
+' appended before comparing so that a sibling directory whose name
+' merely STARTS with the trusted one - C:\Frazaro-evil next to
+' C:\Frazaro - cannot pass as being inside it. That prefix trap is the
+' reason this is a named, tested function rather than an inline
+' InStr.
+Public Function VlaPhrasebookPathIsUnderDir(ByVal path As String, ByVal trustedDir As String) As Boolean
+    ' trustedDir rather than the obvious "dir": Dir is a VBA intrinsic,
+    ' and a parameter of that name shadows it for the whole procedure -
+    ' harmless here only because nothing below calls it, which is
+    ' exactly how that trap stays invisible until someone edits this.
+    If Len(trustedDir) = 0 Or Len(path) = 0 Then Exit Function
+    Dim d As String, p As String
+    d = Replace(Trim$(trustedDir), "/", "\")
+    p = Replace(Trim$(path), "/", "\")
+    If Right$(d, 1) <> "\" Then d = d & "\"
+    If Len(p) <= Len(d) Then Exit Function
+    VlaPhrasebookPathIsUnderDir = (StrComp(Left$(p, Len(d)), d, vbTextCompare) = 0)
+End Function
+
+' The gate. True means "load it"; False means "do not", and the caller
+' decides whether that is a fallback or a refusal.
+'
+' whyAsked names the situation in the person's own terms - the two
+' callers are genuinely different questions ("this file sits next to
+' your workbook" vs "your workbook remembers this path"), and a prompt
+' that cannot say which is a prompt nobody can answer well.
+Private Function PhrasebookPathApproved(ByVal path As String, ByVal whyAsked As String) As Boolean
+    ' Trusted by construction: anything inside the add-in's own folder
+    ' ships with Frazaro, and something able to write there is already
+    ' running as this user - SEC.16's accepted-risk reasoning, applied
+    ' rather than restated. Checked FIRST so the dev workbook's own
+    ' scripts\polyglotta\english.vla, and any add-in-folder phrasebook a
+    ' person once picked deliberately, never turn into a dialog on
+    ' every Check.
+    If VlaPhrasebookPathIsUnderDir(path, ThisWorkbook.Path) Then
+        PhrasebookPathApproved = True
+        Exit Function
+    End If
+
+    Dim rec As String
+    rec = GetSetting("Frazaro", PHRASEBOOK_CONSENT_SECTION, LCase$(Trim$(path)), "")
+
+    If Len(rec) = 0 Then
+        ' No decision has ever been made about this path, so nothing
+        ' here may touch it - see the header's order-of-operations
+        ' note. Ask about the text alone.
+        PhrasebookPathApproved = AskAndRecordPhrasebookPath(path, whyAsked)
+        Exit Function
+    End If
+
+    ' A decision exists, so reading this path is authorized now.
+    Dim storedDigest As String, decision As String
+    Dim bar As Long
+    bar = InStr(rec, "|")
+    If bar > 0 Then
+        storedDigest = Left$(rec, bar - 1)
+        decision = Mid$(rec, bar + 1)
+    Else
+        decision = rec
+    End If
+
+    ' An empty stored digest means the decision was reached WITHOUT ever
+    ' reading the file - the only honest outcome for a path that was
+    ' declined, or for a remote one that was never contacted. There are
+    ' no bytes it can be compared against, so the decision stands as
+    ' given. Getting this wrong is not academic: the first version
+    ' hashed only on approval and then compared that empty digest
+    ' against a real one, so a "no" never matched itself and the gate
+    ' asked again on every single command. Live-caught by the owner on
+    ' the first pass - "denying the sibling english.vla both times".
+    If Len(storedDigest) = 0 Then
+        PhrasebookPathApproved = (decision = "granted")
+        Exit Function
+    End If
+
+    If Not SafeFileExists(path) Then Exit Function   ' gone: nothing to load, nothing to ask
+
+    Dim current As String
+    current = EnglishSourceHash(path)
+    If current = storedDigest Then
+        PhrasebookPathApproved = (decision = "granted")
+        Exit Function
+    End If
+
+    ' Same path, different contents. The old answer was about bytes
+    ' that are no longer there, so it does not carry over - in either
+    ' direction.
+    PhrasebookPathApproved = AskAndRecordPhrasebookPath(path, whyAsked & vbCrLf & vbCrLf & _
+        "(This file has changed since you last answered for it.)")
+End Function
+
+Private Function AskAndRecordPhrasebookPath(ByVal path As String, ByVal whyAsked As String) As Boolean
+    Dim prompt As String
+    prompt = "Load grammar rules from this file?" & vbCrLf & vbCrLf & _
+             path & vbCrLf & vbCrLf & _
+             whyAsked & vbCrLf & vbCrLf & _
+             "A phrasebook defines what your sentences MEAN, so a different one can silently change what a program does. Only load one you trust."
+    If VlaPhrasebookPathIsRemote(path) Then
+        prompt = prompt & vbCrLf & vbCrLf & _
+                 "This is a network or web location. Frazaro has not contacted it - opening it would hand your Windows sign-in to that server."
+    End If
+
+    Dim answer As Long
+    answer = MsgBox(prompt, vbYesNo Or vbExclamation Or vbDefaultButton2, "Frazaro - load this phrasebook?")
+
+    ' Record the answer keyed to the bytes it was given about, so that
+    ' editing the file re-opens the question. The digest is computed
+    ' whenever reading the path is legitimate: after a yes (they just
+    ' authorized it), or for any LOCAL path, since reading local bytes
+    ' to fingerprint them is not the hazard - the hazard is contacting a
+    ' server the workbook named, which is why a declined REMOTE path is
+    ' the one case that stays unhashed and records an empty digest.
+    '
+    ' Hashing only on yes, which is what the first version did, meant a
+    ' "no" stored an empty digest that could never match the real one,
+    ' so the gate re-asked on every command forever. Owner-caught live.
+    Dim digest As String
+    If answer = vbYes Or Not VlaPhrasebookPathIsRemote(path) Then
+        On Error Resume Next
+        digest = EnglishSourceHash(path)
+        On Error GoTo 0
+    End If
+
+    SaveSetting "Frazaro", PHRASEBOOK_CONSENT_SECTION, LCase$(Trim$(path)), _
+                digest & "|" & IIf(answer = vbYes, "granted", "denied")
+    AskAndRecordPhrasebookPath = (answer = vbYes)
+End Function
+
+' Records a grant for a path the person chose themselves in a file
+' dialog. Picking a file in an Open dialog IS the decision the gate
+' above would otherwise stop to ask for, so asking again immediately
+' would be theatre - but the RECORD still has to exist, or the replay
+' on the next Check would ask about a file they just deliberately
+' opened.
+Private Sub GrantPhrasebookPath(ByVal path As String)
+    Dim digest As String
+    On Error Resume Next
+    digest = EnglishSourceHash(path)
+    On Error GoTo 0
+    SaveSetting "Frazaro", PHRASEBOOK_CONSENT_SECTION, LCase$(Trim$(path)), digest & "|granted"
+End Sub
 
 ' Every persisted phrasebook path for hb, in the order they were
 ' loaded.
@@ -420,10 +718,29 @@ Public Sub ReplayPersistedPhrasebooks()
     Set paths = LoadedPhrasebookPaths(hb)
     Dim p As Variant
     For Each p In paths
-        If SafeFileExists(CStr(p)) Then
-            EnglishLoadVocabulary CStr(p)
+        ' SEC.9: the gate comes FIRST, before SafeFileExists - and that
+        ' order is the whole point, not a style preference. These paths
+        ' are arbitrary strings out of a document property the workbook's
+        ' author wrote, and Dir$ on \\attacker\share\x.vla hands this
+        ' machine's Windows credentials to that server before it ever
+        ' returns an answer. A "does it exist?" check placed above this
+        ' line would have already lost. PhrasebookPathApproved touches
+        ' nothing until a decision for the path exists.
+        If PhrasebookPathApproved(CStr(p), _
+               "This workbook remembers this phrasebook and is asking to load it again.") Then
+            If SafeFileExists(CStr(p)) Then
+                EnglishLoadVocabulary CStr(p)
+            Else
+                Debug.Print "GO.6: remembered phrasebook not found, skipped: " & CStr(p)
+            End If
         Else
-            Debug.Print "GO.6: remembered phrasebook not found, skipped: " & CStr(p)
+            ' Skipped, not raised. The built-in grammar is a complete and
+            ' safe answer here, and nothing in this codebase can remove an
+            ' entry from VLA_LoadedPhrasebooks - so refusing loudly on
+            ' every command would trap a person in an error they have no
+            ' way to clear. The decision is recorded, so this is silent on
+            ' the second pass rather than a prompt per command.
+            Debug.Print "SEC.9: phrasebook not approved on this device, skipped: " & CStr(p)
         End If
     Next
 End Sub
@@ -1985,7 +2302,7 @@ Private Sub IdeLoadVocab()
             End If
         End If
         If Not anyLoaded Then
-            VLA_Messages.RaiseMsg "ide-vocab-not-found", "path", IdeVocabPath()
+            VLA_Messages.RaiseMsg "ide-vocab-not-found", "path", IdeVocabPath(mayPrompt:=False)
         End If
     End If
     ReplayPersistedPhrasebooks   ' GO.6: every user-loaded phrasebook, ADDED on top
@@ -3084,6 +3401,7 @@ Public Sub VlaRibbonAction(control As IRibbonControl)
         Case "VlaRuleCoverage": EnglishIdeRuleCoverageReport
         Case "VlaLintVla": EnglishIdeLintVla
         Case "VlaFeedback": EnglishIdeCopyFeedback
+        Case "VlaForgetPhrasebooks": EnglishIdeForgetPhrasebookApprovals
         Case "VlaOpenCli": VlaOpenCli
         Case Else
             VlaShowError "Unknown ribbon command: " & control.ID
@@ -3156,8 +3474,36 @@ Public Sub EnglishIdeLoadPhrasebook()
     Dim hb As Workbook
     Set hb = HostBook()
 
+    ' SEC.9: picking this file in an Open dialog IS the approval the gate
+    ' would otherwise stop to ask for, so record it rather than asking
+    ' again a half-second later. Recorded BEFORE the load, so the replay
+    ' on the next Check finds a decision already there and stays silent
+    ' about a file the person just deliberately opened.
+    '
+    ' And recorded ABOVE the already-remembered check, which is the whole
+    ' point rather than a tidy-up. This dialog is the ONLY way inside the
+    ' product to reverse a previous "no" - but a declined phrasebook is
+    ' still in this workbook's remembered list, so PhrasebookAlreadyLoaded
+    ' says True and the early exit below used to run before any approval
+    ' was recorded. The one route out of a decline was closed to exactly
+    ' the files that needed it. Owner-caught live, second pass.
+    GrantPhrasebookPath path
+
     If PhrasebookAlreadyLoaded(hb, path) Then
-        VlaShowInfo "Already loaded: " & Dir$(path) & vbCrLf & vbCrLf & EnglishLoadedSourcesReport()
+        ' "Remembered" and "loaded" are not the same state, and saying
+        ' the wrong one is what made the dead end above invisible: a
+        ' declined phrasebook is remembered and NOT loaded. The
+        ' loaded-sources report is the authority on which it is, and it
+        ' is already being read here, so ask it rather than assume.
+        Dim rpt As String
+        rpt = EnglishLoadedSourcesReport()
+        If InStr(1, rpt, path, vbTextCompare) > 0 Then
+            VlaShowInfo "Already loaded: " & Dir$(path) & vbCrLf & vbCrLf & rpt
+        Else
+            VlaShowInfo "Approved: " & Dir$(path) & vbCrLf & vbCrLf & _
+                "This workbook already remembered this phrasebook, but it was not loaded - it had been declined. " & _
+                "Picking it here approves it, and it will load from the next Check." & vbCrLf & vbCrLf & rpt
+        End If
         Exit Sub
     End If
 
@@ -3379,7 +3725,7 @@ End Function
 Public Function VlaIdeInfo() As String
     Dim r As String
     On Error Resume Next
-    r = "vocab path: " & IdeVocabPath()
+    r = "vocab path: " & IdeVocabPath(mayPrompt:=False)   ' SEC.9: a diagnostics string must never stop to ask a question
     Dim hb As Workbook
     Set hb = HostBook()                       ' D1: lazy capture, never ambient
     If Not hb Is Nothing Then
@@ -3399,9 +3745,113 @@ Public Function VlaIdeInfo() As String
             Next
         End If
     End If
+    r = r & VlaPhrasebookApprovalsReport()
     On Error GoTo 0
     VlaIdeInfo = r
 End Function
+
+' SEC.9: every phrasebook decision this device has recorded, in plain
+' words, for VlaDiagnostics.
+'
+' WHY THIS EXISTS, and it is not decoration. A recorded "no" makes a
+' phrasebook stop loading, silently and on every command thereafter -
+' which is the correct security behaviour and a terrible debugging
+' experience, because the only symptom is a sentence that no longer
+' resolves. The owner hit exactly that on SEC.9's first live pass: a
+' stale "denied" left by an earlier build meant the gate never asked
+' again, and from outside the product that is indistinguishable from
+' the gate having vanished. A decision a person cannot SEE is a
+' decision they cannot correct.
+'
+' Deliberately read-only. Clearing an approval is a separate action
+' with its own consequences (it re-opens a security question), and
+' inventing a button for it here would be scope this item did not
+' scope. Naming the registry location is what lets a person - or a
+' support conversation - act on it today.
+Public Function VlaPhrasebookApprovalsReport() As String
+    Dim s As Variant
+    On Error Resume Next
+    s = GetAllSettings("Frazaro", PHRASEBOOK_CONSENT_SECTION)
+    On Error GoTo 0
+    If IsEmpty(s) Then Exit Function
+
+    Dim r As String, i As Long
+    r = vbCrLf & "phrasebook approvals (this device; SEC.9) - registry: " & _
+        "HKCU\Software\VB and VBA Program Settings\Frazaro\" & PHRASEBOOK_CONSENT_SECTION
+    For i = LBound(s, 1) To UBound(s, 1)
+        Dim v As String, decision As String, bar As Long
+        v = CStr(s(i, 1))
+        bar = InStr(v, "|")
+        If bar > 0 Then decision = Mid$(v, bar + 1) Else decision = v
+        r = r & vbCrLf & "  " & decision & ": " & CStr(s(i, 0))
+        ' An empty digest means the answer was reached without reading
+        ' the file - a declined remote path, or a record left by the
+        ' pre-fix build. Those never re-ask on their own, so say so
+        ' rather than leaving a person to wonder why editing the file
+        ' changes nothing.
+        If bar <= 1 Then r = r & "   (remembered regardless of the file's contents - editing it will not re-ask)"
+    Next i
+    VlaPhrasebookApprovalsReport = r
+End Function
+
+' SEC.9: the way back out of a "no".
+'
+' WHY A BUTTON, and why this one rather than a cleverer mechanism. A
+' recorded decline is permanent and content-keyed, which is the right
+' security shape - the file never loads, and there is no repeating
+' dialog to train someone into clicking Yes without reading it. But the
+' first version shipped that permanence with no route back, and the two
+' routes it CLAIMED to have both turned out not to work for the case
+' that matters. Load Phrasebook ADDS a phrasebook on top of the loaded
+' base, while a sibling override REPLACES that base, so re-picking a
+' denied sibling english.vla refuses with a macro-name collision rather
+' than re-approving it - correctly, but uselessly. Editing the file does
+' re-open the question, because the record is content-keyed, and nobody
+' would ever guess that. Owner-caught across two live passes.
+'
+' Clears BOTH answers, deliberately, rather than only the declines. A
+' person who wants to review what their machine has agreed to should not
+' have to trust that this button kept the convenient half; and every
+' grant it drops costs exactly one prompt to restore, on a dialog that
+' names the file. Erring toward asking again is the safe direction.
+Public Sub EnglishIdeForgetPhrasebookApprovals()
+    On Error GoTo failed
+    CaptureHost
+
+    Dim s As Variant
+    On Error Resume Next
+    s = GetAllSettings("Frazaro", PHRASEBOOK_CONSENT_SECTION)
+    On Error GoTo failed
+    If IsEmpty(s) Then
+        VlaShowInfo "No phrasebook approvals are recorded on this device yet." & vbCrLf & vbCrLf & _
+            "Frazaro asks before using a phrasebook that did not come with it - a grammar file sitting " & _
+            "next to your workbook, or one a workbook remembers. Your answers would be listed here."
+        Exit Sub
+    End If
+
+    Dim n As Long
+    n = UBound(s, 1) - LBound(s, 1) + 1
+    If MsgBox("Forget every phrasebook answer recorded on this device?" & vbCrLf & vbCrLf & _
+              VlaPhrasebookApprovalsReport() & vbCrLf & vbCrLf & _
+              "Frazaro will ask again, naming the file, the next time any of these is used. " & _
+              "Nothing is deleted from your workbooks and no phrasebook file is changed.", _
+              vbYesNo Or vbQuestion Or vbDefaultButton2, _
+              "Frazaro - forget phrasebook approvals?") <> vbYes Then Exit Sub
+
+    ' DeleteSetting with only the section name removes the whole section
+    ' in one call. Guarded because it raises 5 when the section is
+    ' already gone - a second click, or another Excel instance having
+    ' just cleared it.
+    On Error Resume Next
+    DeleteSetting "Frazaro", PHRASEBOOK_CONSENT_SECTION
+    On Error GoTo failed
+
+    VlaShowInfo "Forgotten " & n & " phrasebook answer" & IIf(n = 1, "", "s") & "." & vbCrLf & vbCrLf & _
+        "Frazaro will ask again, naming the file, the next time one of them is used."
+    Exit Sub
+failed:
+    VlaShowError Err.Description
+End Sub
 
 ' =====================================================================
 '  Feedback export: the parse-failure log as one pasteable block -
@@ -3439,6 +3889,15 @@ Public Sub EnglishIdeCopyFeedback()
         End If
     Next
     On Error GoTo failed
+    ' SEC.9: the recorded phrasebook decisions belong in the SHIPPED
+    ' report, not only in VlaDiagnostics - that Sub lives in
+    ' VLA_DevRig.bas, which is not in the build's module list, so a
+    ' person running a built add-in could never reach it. Owner-caught:
+    ' "'visible' is a strong word". This is the right surface for a
+    ' second reason: a declined phrasebook makes sentences stop
+    ' resolving, which is exactly what fills the unknown-instruction log
+    ' this report needs before it will run at all.
+    t = t & VlaPhrasebookApprovalsReport() & vbCrLf
     t = t & "-----" & vbCrLf
     Dim i As Long
     For i = 2 To last

@@ -230,15 +230,75 @@
   were also checked against each other on the real 89,446-byte English
   phrasebook and produce the identical fingerprint.
 
+- **`SEC.9` — a phrasebook has to be approved on this computer before it
+  can replace the built-in grammar.** A phrasebook decides what your
+  sentences *mean*. Frazaro used to prefer a grammar file sitting next to
+  the workbook you had open over its own built-in copy, and it would
+  silently reload any phrasebook path a workbook remembered — including
+  paths on other machines. Between them, a workbook could quietly decide
+  what every sentence in it did.
+
+  This was not theoretical. On 2026-09-08 an old `english.vla` left over in
+  a Downloads folder was picked up ahead of the add-in's own copy, simply
+  because the workbook being opened was in that folder too. It failed
+  noisily, but only by luck: that copy was old enough not to know a word the
+  program used. A phrasebook that was merely *different* rather than *older*
+  would have loaded without a word and changed what the program did.
+
+  Frazaro now asks, once, naming the file, before using a phrasebook that
+  did not come with it. Your answer is remembered **on this computer**,
+  not inside the workbook — a workbook someone sends you cannot arrive with
+  its own permission already granted, because the permission was never
+  something a workbook could carry. Choosing a phrasebook yourself through
+  *Load Phrasebook* counts as the answer, so picking a file never asks you
+  about it a second time.
+
+  Saying no is safe and is not a dead end: Frazaro simply uses its own
+  built-in grammar, which is complete. The answer is remembered either way,
+  so you are not asked again on every command — and if the file itself
+  changes later, you are asked again, because the answer was about the file
+  you were shown, not about its name.
+
+  **Network and web locations are described, never quietly contacted.** If a
+  workbook asks for a phrasebook on a network share, the question says so
+  and warns that opening it would hand your Windows sign-in to that server.
+  Nothing touches the location until you say yes — not even a check for
+  whether the file exists, which is itself enough to leak that sign-in.
+
+  **Changing your mind: *Forget Phrasebook Approvals*,** in the Utilities
+  group. It lists every answer this computer has recorded and clears them
+  all, so the next time each phrasebook is used you are asked again. Your
+  answers are otherwise kept for good, which is deliberate — a phrasebook
+  you declined stays declined rather than asking you the same question
+  every time you open Excel, because a dialog that keeps reappearing is one
+  people learn to click through without reading.
+
+  Your recorded answers also appear in *Copy Diagnostic Report*, so if a
+  sentence stops being understood you can see whether a phrasebook it
+  needed was declined. That matters because the symptom on its own is
+  indistinguishable from a typo: without it, Frazaro would just say it does
+  not understand the sentence and never mention the phrasebook.
+
+- **A new release check: `tools/check_sec9_phrasebook_gate.ps1`.** The
+  self-test suite can check the whole decision — whether a path is remote,
+  whether it belongs to Frazaro itself — but it cannot click a dialog or
+  read the saved answers, so the places that *call* the check are where this
+  could quietly stop working. A static check now runs at every release and
+  fails it if either loader loses its gate, if the two decision functions
+  are removed, or if the approval is ever moved to run after the
+  file-existence probe rather than before it. That last one is the one that
+  matters: reordering those two lines would restore the credential leak
+  while leaving every visible behaviour, and every test, exactly as it was.
+  It is mutation-tested in both directions rather than assumed to work.
+
 ### Known open security items
 
-**Closed this release:** `SEC.8`, `SEC.11` and `SEC.13` — see above.
+**Closed this release:** `SEC.8`, `SEC.9`, `SEC.11` and `SEC.13` — see above.
 
-**Still open:** `SEC.3`, `SEC.7`, and three from the 2026-09-08 code
-review — `SEC.9`, `SEC.10` and `SEC.15`. In plain words:
-grammar and phrasebook files beside a workbook load ahead of the built-in
-ones without asking (`SEC.9`); the remembered-consent record still lives
-inside the workbook (`SEC.10`);
+**Still open:** `SEC.3`, `SEC.7`, and two from the 2026-09-08 code
+review — `SEC.10` and `SEC.15`. In plain words:
+the remembered raw-VBA consent record still lives inside the workbook
+(`SEC.10`);
 formulas a program writes are not screened for functions that reach the
 network (`SEC.15`); and effects like sending mail still run without a
 permission prompt (`SEC.7`). `SEC.8` narrows that last one — it gates on

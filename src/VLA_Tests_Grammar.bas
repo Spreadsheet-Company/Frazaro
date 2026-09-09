@@ -1738,6 +1738,22 @@ Public Sub TestPhrasebookReplayAddsNotReplaces()
     On Error GoTo 0
     SaveSetting "Frazaro", "SEC2RawConsentV2", contentHash, "granted"
 
+    ' SEC.9: the replay is now gated on a DEVICE-side approval per path,
+    ' so both remembered paths need a record here or this test stops on a
+    ' live MsgBox with nobody to answer it - fatal for an automated suite,
+    ' exactly the hazard the SEC.2 note at the bottom of this module
+    ' warns about. Seeding is not a bypass: this is byte-for-byte what a
+    ' real "yes" leaves behind, the same way the SEC2RawConsentV2 seeds
+    ' above stand in for a real raw-consent click. The ghost path gets a
+    ' record too - without one it would be the thing that prompts, and
+    ' its whole purpose is to prove a MISSING file is skipped quietly.
+    On Error Resume Next
+    DeleteSetting "Frazaro", "SEC9PhrasebookPath", LCase$(vocabPath)
+    DeleteSetting "Frazaro", "SEC9PhrasebookPath", LCase$("C:\nonexistent\ghost_go6.vla")
+    On Error GoTo 0
+    SaveSetting "Frazaro", "SEC9PhrasebookPath", LCase$(vocabPath), contentHash & "|granted"
+    SaveSetting "Frazaro", "SEC9PhrasebookPath", LCase$("C:\nonexistent\ghost_go6.vla"), "|granted"
+
     On Error Resume Next
     ActiveWorkbook.CustomDocumentProperties("VLA_LoadedPhrasebooks").Delete
     On Error GoTo 0
@@ -1775,6 +1791,78 @@ Public Sub TestPhrasebookReplayAddsNotReplaces()
     On Error GoTo 0
     On Error Resume Next
     DeleteSetting "Frazaro", "SEC2RawConsentV2", contentHash
+    DeleteSetting "Frazaro", "SEC9PhrasebookPath", LCase$(vocabPath)
+    DeleteSetting "Frazaro", "SEC9PhrasebookPath", LCase$("C:\nonexistent\ghost_go6.vla")
+    On Error GoTo 0
+    Kill vocabPath
+End Sub
+
+' SEC.9: the gate actually gates. The sibling test above proves an
+' APPROVED path still replays; this one proves a DENIED one does not,
+' through the same real loader, with no dialog anywhere - a recorded
+' "no" is exactly what makes that possible, and is why declining is
+' persisted rather than merely acted on once.
+'
+' Designed so it would fail if the gate were removed: the phrasebook is
+' real, present, and readable, and its rule is one nothing else defines.
+' With the gate gone, ReplayPersistedPhrasebooks loads it and the
+' sentence resolves. The pass condition is therefore a POSITIVE
+' observation - "this specific sentence does not resolve, and the report
+' does not name this file" - rather than the absence of a prompt, which
+' is not evidence of anything on a machine that would not have prompted.
+Public Sub TestSec9DeniedPhrasebookIsNotReplayed()
+    Dim vocabPath As String
+    vocabPath = WriteTempLib("vla_sec9_denied_vocab.vla", _
+        "(english-vla ""zorblat cell {r:cell}"" (set! (range {r}) 7))")
+
+    Dim contentHash As String
+    contentHash = EnglishSourceHash(vocabPath)
+    On Error Resume Next
+    DeleteSetting "Frazaro", "SEC9PhrasebookPath", LCase$(vocabPath)
+    On Error GoTo 0
+    ' Exactly what clicking "No" leaves behind.
+    SaveSetting "Frazaro", "SEC9PhrasebookPath", LCase$(vocabPath), contentHash & "|denied"
+
+    On Error Resume Next
+    ActiveWorkbook.CustomDocumentProperties("VLA_LoadedPhrasebooks").Delete
+    On Error GoTo 0
+    ActiveWorkbook.CustomDocumentProperties.Add Name:="VLA_LoadedPhrasebooks", LinkToContent:=False, _
+        Type:=4, Value:=vocabPath
+
+    EnglishResetGrammar
+    EnglishLoadVocabularyText "(english-vla ""already here cell {r:cell}"" (set! (range {r}) 1))", "test-base"
+
+    Dim errNum As Long
+    On Error Resume Next
+    Err.Clear
+    ReplayPersistedPhrasebooks
+    errNum = Err.Number
+    On Error GoTo 0
+    Report "sec9: a denied phrasebook is skipped without raising (no error, no dialog)", _
+           errNum = 0, "err=" & errNum
+
+    Dim rpt As String
+    rpt = EnglishLoadedSourcesReport()
+    Report "sec9: the denied phrasebook does not appear in the loaded-sources report", _
+           InStr(rpt, vocabPath) = 0, rpt
+    Report "sec9: the base grammar loaded before the replay is untouched", _
+           InStr(rpt, "test-base") > 0, rpt
+
+    ' The load-bearing one: its rule must NOT be reachable.
+    Dim got As String
+    On Error Resume Next
+    Err.Clear
+    got = EnglishToVla("Zorblat cell A1.")
+    Dim resolveErr As Long
+    resolveErr = Err.Number
+    On Error GoTo 0
+    Report "sec9: a sentence that needs the denied phrasebook's rule does not resolve", _
+           resolveErr <> 0 Or InStr(got, "range") = 0, "got: " & got & " err=" & resolveErr
+
+    EnglishResetGrammar
+    On Error Resume Next
+    ActiveWorkbook.CustomDocumentProperties("VLA_LoadedPhrasebooks").Delete
+    DeleteSetting "Frazaro", "SEC9PhrasebookPath", LCase$(vocabPath)
     On Error GoTo 0
     Kill vocabPath
 End Sub

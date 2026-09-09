@@ -1125,7 +1125,7 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   *(pairs with `SEC.15`, the formula-write egress.)* *Does NOT depend on*
   `SEC.10`/`SEC.11` — see question 2. `~days`–`~weeks`
 
-- ⬜ **SEC.9 — phrasebook search-order hijack, and silent replay of
+- ✅ **SEC.9 — phrasebook search-order hijack, and silent replay of
   workbook-stored paths.** Two loaders that trust the workbook's own
   directory. **CONFIRMED, `VLA_IDE.bas:243`–`244`:** `IdeVocabPath`'s
   candidate order puts `<host workbook dir>\scripts\english.vla` and
@@ -1143,8 +1143,189 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   nothing; *pairs with* `SEC.10` (the two chain into a no-dialog `raw`
   load). `~days`
 
-  **📋 SCOPED 2026-09-08 — no code written. Stages and open questions
-  below; this remains ⬜.**
+  **✅ BUILT AND OWNER-VERIFIED LIVE 2026-09-08 — nine live tests across
+  four passes, all passing.** `VLA_SELF-TESTS` pure **1047/1047** (up from
+  1024: +19 `TestSec9PhrasebookPaths`, +4
+  `TestSec9DeniedPhrasebookIsNotReplayed`), host **143/143**;
+  `VerifyReports` emitter **141/141**, interpreter **141/141**; both `.xlam`
+  build and compile clean. Scoped and built in the same session; the scoping
+  below is kept as written because the questions it answers are what the
+  build rests on, with the outcome of each recorded inline.
+
+  **The security mechanism was right on the first pass; everything AROUND
+  the refusal was not, and that is this item's real lesson.** Gate-before-
+  probe, the device-side record and `(path, digest)` keying all held from
+  the start. What failed, four times running and every time caught live
+  rather than in review, was *remembering* a decision, *showing* it, and
+  *undoing* it. A gate is not finished when it refuses correctly.
+
+  ***Built:*** one gate, `PhrasebookPathApproved` (`VLA_IDE.bas`), on the
+  two — and only two — loaders that derive a phrasebook path from something
+  the *workbook* controls: `ReplayPersistedPhrasebooks` and `IdeVocabPath`'s
+  candidates 1 and 2. The decision is recorded **device-side**
+  (`SEC9PhrasebookPath` in the registry), keyed by **(path, digest)**. Both
+  halves are load-bearing: path alone lets an approved location be swapped
+  underneath its approval; digest alone lets bytes approved in one directory
+  authorize the same bytes appearing elsewhere later. The workbook's
+  `VLA_LoadedPhrasebooks` property keeps its old job as the *request*; the
+  registry is the *answer*, and only the answer is trusted — which is also
+  why nothing here repeats `SEC.10`'s mistake of storing the permission
+  slip inside the artifact it authorizes.
+
+  ***The order of operations IS the security property.*** In the replay
+  loop the gate runs **before** `SafeFileExists`, because `Dir$` on
+  `\\attacker\share\x.vla` hands this machine's Windows credentials to that
+  server before it returns anything. A path with no recorded decision is
+  therefore never touched at all — not probed, not hashed, not tested for
+  existence — and is described to the person as text only. Only once a
+  decision exists does reading become authorized, and only then is it
+  hashed. That is also why the lookup cannot be "hash it and see": the hash
+  is precisely the thing that needs permission first.
+  `IdeVocabPath` deliberately probes before gating, and the asymmetry is the
+  design: its candidates sit in the workbook's own folder, which Excel
+  already opened the workbook from, so looking there discloses nothing that
+  opening the file has not already disclosed.
+
+  ***Q1 answered as scoped:*** the host-directory candidate is **kept and
+  demoted**, not deleted — a project shipping its own grammar beside its
+  workbook is a real workflow (`EDITION-MANIFEST` exists because editions
+  differ). A decline **falls through to the next candidate** rather than
+  refusing, so "no" lands on the built-in grammar, which is a complete and
+  safe answer. ***Q2 answered:*** yes, hash-keyed, which is exactly why
+  `SEC.11` was built first — a grant keyed to a forgeable fingerprint is
+  worth nothing against an attacker who can drop a file beside a workbook.
+  ***Q3 answered:*** a remote path is never refused *by raising*; it is
+  described in the prompt, with the credential consequence spelled out, and
+  never contacted before the answer.
+
+  ***One deliberate departure from `SEC.2`'s shape:*** declining is
+  **recorded and skipped quietly**, not raised. `SEC.2` raises because a
+  half-loaded phrasebook is indistinguishable from a bug; here a decline has
+  an obvious safe answer, and **nothing in this codebase can remove an entry
+  from `VLA_LoadedPhrasebooks`**, so refusing loudly on every command would
+  trap a person in an error they have no way to clear. Content-keying means
+  changing the file re-opens the question in either direction.
+
+  ***Coverage, and the gap stated the way `SEC.8` and `SEC.13` stated
+  theirs.*** The whole *decision* is two pure string predicates —
+  `VlaPhrasebookPathIsRemote` and `VlaPhrasebookPathIsUnderDir` — pinned by
+  `TestSec9PhrasebookPaths` with no file, no workbook and no dialog (19
+  assertions, including the `C:\Frazaro-evil` vs `C:\Frazaro` prefix trap
+  and the OneDrive `https://` host path `EDITIONMANIFEST.7` found live).
+  `TestSec9DeniedPhrasebookIsNotReplayed` proves the gate *gates*, through
+  the real loader, by pinning that a denied phrasebook's rule does **not**
+  resolve — a positive observation, not the absence of a prompt.
+  **`tools/check_sec9_phrasebook_gate.ps1`** (13th check) pins the call
+  sites: both loaders gated, the predicates still `Public`, and — the one
+  that matters — **the approval precedes the probe**, so a later "tidy-up"
+  that hoists the existence check to the top of the loop reintroduces the
+  credential leak and goes red instead of passing silently. Mutation-tested
+  green on the control and **red on all five** mutations. ***What stays
+  uncovered:*** the registry record and the dialog itself, because both need
+  a person; and a declined phrasebook is reported only through `Debug.Print`
+  and the ordinary loaded-sources report, so a user who declines and later
+  writes a sentence needing that grammar sees "I don't understand this
+  sentence" without being told why — accepted rather than fixed, because the
+  alternative traps them in an unclearable error.
+
+  ***Found while building:*** `TestPhrasebookReplayAddsNotReplaces` seeds
+  remembered paths and calls the replay directly, so the new gate would have
+  stopped the suite on a live `MsgBox` with nobody to answer it — the exact
+  hazard that test file's own `SEC.2` note warns about. Both its paths now
+  carry a seeded record, byte-for-byte what a real answer leaves behind.
+
+  ***Found by the owner's first live pass, 2026-09-08 — two real defects,
+  both fixed.*** *(1) A "no" was never remembered.* The first version hashed
+  the file only on approval, then compared that empty digest against a real
+  one on the next lookup, so a decline could never match itself and the gate
+  asked again on **every command, forever**. Caught as "denying the sibling
+  `english.vla` both times". The digest is now taken whenever *reading* the
+  path is legitimate — after a yes, or for any **local** path, since reading
+  local bytes to fingerprint them was never the hazard; the hazard is
+  contacting a server the workbook named, so a declined **remote** path is
+  the one case that stays unhashed and records an empty digest, which is
+  read as "this decision stands unconditionally". *(2) A diagnostics string
+  could pop a security dialog.* `VlaIdeInfo` builds a one-line environment
+  summary and calls `IdeVocabPath`; so does the `ide-vocab-not-found`
+  message while assembling text for an error already being raised. Neither
+  loads any grammar. Both now pass `mayPrompt:=False`, and
+  `check_sec9_phrasebook_gate.ps1` gained a fourth property pinning it
+  (mutation-tested red both ways). The checker had pinned the two *loading*
+  sites and was blind to the *resolving* ones — a real limit of the scan,
+  now closed.
+
+  ***Second live pass, 2026-09-08 — the fix to (1) surfaced two more, both
+  fixed.*** The gate stopped asking at all, which read as "the gate
+  vanished" and was in fact the gate obeying a **stale record**: the
+  registry held `c:\...\downloads\english.vla -> |denied`, an empty-digest
+  decline written by the pre-fix build, and an empty digest is now
+  (correctly) read as "this decision stands unconditionally". Confirmed by
+  reading `HKCU\...\Frazaro\SEC9PhrasebookPath` directly rather than
+  inferred. Two real defects behind it:
+  *(3) A decision was invisible.* A recorded "no" makes a phrasebook stop
+  loading silently and forever, and the only symptom is a sentence that no
+  longer resolves — correct security behaviour, terrible diagnosis, and
+  indistinguishable from a broken gate. `VlaPhrasebookApprovalsReport` now
+  lists every recorded decision in `VlaDiagnostics`, names the registry
+  location, and flags the records that will never re-ask because they carry
+  no digest.
+  *(4) The only in-product way to reverse a "no" was closed to exactly the
+  files that needed it.* A declined phrasebook is still in the workbook's
+  remembered list, so `EnglishIdeLoadPhrasebook`'s `PhrasebookAlreadyLoaded`
+  early-exit ran **before** the approval was recorded — picking the file
+  again reported "Already loaded" (of something that was not loaded) and
+  granted nothing. The grant now runs first, and that branch consults the
+  loaded-sources report instead of assuming, so "remembered" and "loaded"
+  stop being conflated.
+
+  ***Third live pass corrected two claims made above, and the correction is
+  the finding.*** *(a) "Load Phrasebook is the escape hatch" is only true
+  for the REPLAY half.* Picking a denied sibling `english.vla` refuses with
+  `english-vocab-macro-name-collision` — and correctly so: Load Phrasebook
+  **adds** a phrasebook on top of the loaded base, while an
+  `IdeVocabPath` sibling override **replaces** that base. They are different
+  operations, and the one route out of a denial was written as though they
+  were the same. So a denied *sibling override* has **no discoverable way
+  back**: the only mechanism that works is editing the file, since the
+  record is content-keyed (owner-verified — editing the neighbouring
+  `english.vla` does re-prompt). "Edit the file to be asked again" is real
+  but nobody would guess it. *(b) "Visible" was too strong* —
+  `VlaPhrasebookApprovalsReport` first landed only in `VlaDiagnostics`,
+  which lives in `VLA_DevRig.bas` and is **not in the build's module
+  list**, so no one running a built add-in could ever see it. It is now in
+  the shipped *Copy Diagnostic Report* as well, which is also the surface a
+  person reaches precisely when a denied phrasebook has started making
+  sentences fail.
+
+  ***Resolved by the owner, 2026-09-08: an explicit "forget approvals"
+  action***, over session-scoped denials and over documenting the file-edit
+  route. A **23rd ribbon button, *Forget Phrasebook Approvals***, in the
+  Utilities group: it lists every recorded answer, asks once, and clears the
+  registry section. Denials therefore stay **permanent and content-keyed**,
+  which is the more secure half of the trade — a permanent "no" means the
+  file never loads, and there is no repeating dialog to train someone into
+  clicking Yes without reading it, the failure mode session-scoping would
+  have introduced. It clears **grants as well as declines**, deliberately: a
+  person auditing what their machine has agreed to should not have to trust
+  that the button kept the convenient half, and every dropped grant costs
+  exactly one prompt that names the file. `TestBuildRibbon`'s hardcoded
+  button inventory moved 22 → 23 in the same edit, and ribbon ids and
+  dispatch `Case`s were re-checked for parity (23 and 23, no orphans).
+
+  ***Also reported, not reproduced, and not attributed here:*** one Excel
+  crash during Import on that pass, preceded by a "clear contents … failed"
+  dialog. The owner could not re-create it. `DoCheck` runs `ClearMarks`
+  **before** `IdeLoadVocab`, so the reported error comes from a line that
+  executes *earlier* in that chain than anything SEC.9 added; combined with
+  its not reproducing, the evidence points at post-dev-reload session state,
+  which this project has mistaken for a code defect once before. Recorded
+  rather than explained away — if it returns, it wants a standalone repro,
+  not another guess.
+
+  *Stages as scoped, all three landed together rather than separately —
+  S1 (refuse/describe remote before any probe), S2 (gate the replay), S3
+  (gate the host-directory candidates) — because they share one gate and
+  splitting them would have shipped a partial policy.*
 
   **The tranche's framing is now wrong for this item, and the correction
   matters more than the scoping.** `README.md` says of the open set: *"These

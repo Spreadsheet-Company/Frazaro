@@ -762,6 +762,11 @@ Public Function VlaRibbonXml() As String
     x = x & RibbonBtn("VlaRegister", "Register for Auto-Load")
     x = x & RibbonBtn("VlaUninstall", "Uninstall Frazaro")
     x = x & RibbonBtn("VlaFeedback", "Copy Diagnostic Report")
+    ' SEC.9: the way back out of a declined phrasebook. Lives here rather
+    ' than beside Load Phrasebook because it is not part of the write ->
+    ' test -> run loop - it is a "what has this machine agreed to?"
+    ' question, which is what this group is for.
+    x = x & RibbonBtn("VlaForgetPhrasebooks", "Forget Phrasebook Approvals")
     x = x & "      </group>" & vbLf
     x = x & "    </tab>" & vbLf
     x = x & "  </tabs></ribbon>" & vbLf

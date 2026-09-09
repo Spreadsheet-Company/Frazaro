@@ -309,25 +309,18 @@ workbook arriving from outside cannot carry its own permission slip.
   for you, never sent silently) — with no consent prompt.
 
 **Open from the project's own code review of 2026-09-08.** The review found
-ten items, SEC.8 through SEC.17. Two are fixed (SEC.8 and SEC.13, both in
-`0.5.3` — above). One more, **SEC.11**, is built and verified:
-the fingerprint that consent is keyed to was weak enough to forge, and is
-now SHA-256. Four were assessed and **accepted** rather than fixed,
+ten items, SEC.8 through SEC.17. **Four are fixed**, all in `0.5.3` —
+above: SEC.8, SEC.13, **SEC.11** (the fingerprint your consent is keyed to
+was weak enough to forge, and is now SHA-256) and **SEC.9** (a grammar file
+beside a workbook, or a path a workbook remembers, now needs this computer's
+approval before it can override the built-in grammar). Four were assessed
+and **accepted** rather than fixed,
 with the mitigating control written down and a stated condition that reopens
-each — see *Assessed and accepted* below. Three remain open and are listed
-here, most-severe first. Most are audit findings read from the code rather
-than exploits anyone has run — **`SEC.9` is the exception, and its mechanism
-has now been seen happening**. Each one's file, line, and fix is in
+each — see *Assessed and accepted* below. Two remain open and are listed
+here, most-severe first. Both are audit findings read from the code rather
+than exploits anyone has run. Each one's file, line, and fix is in
 [docs/BETA_ROADMAP1.md](docs/BETA_ROADMAP1.md). In plain words:
 
-- **SEC.9** — a grammar file placed beside a workbook, or a phrasebook
-  path a workbook remembers, is loaded ahead of the built-in grammar
-  without asking. **Observed live on 2026-09-08, harmlessly and by
-  accident:** an old `english.vla` left in a Downloads folder was loaded
-  ahead of the add-in's own copy. It happened to fail loudly, because that
-  copy was too old to know a word the program used — a merely *different*
-  grammar would have loaded silently and quietly changed what the sentences
-  meant. No attacker was involved; an ordinary Downloads folder was enough.
 - **SEC.10** — the "remember my consent for this workbook" record is
   stored inside the workbook, so a workbook someone sends you can arrive
   with consent already granted.

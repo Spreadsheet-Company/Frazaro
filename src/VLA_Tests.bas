@@ -314,6 +314,7 @@ Public Function VlaSelfTest() As Boolean
     TestMessageSeam
     TestSec8Provenance
     TestSec11Digest
+    TestSec9PhrasebookPaths
     TestResolveCheck
     TestRuntimeTrace
     TestVlaTry
@@ -337,6 +338,7 @@ Public Function VlaSelfTest() As Boolean
     TestRawConsentTextPathUngated
     TestPhrasebookPersistence
     TestPhrasebookReplayAddsNotReplaces
+    TestSec9DeniedPhrasebookIsNotReplayed
     TestGenRow
     TestListopsBudget
     TestListopsConfluence
@@ -1556,12 +1558,91 @@ Private Sub TestSec11Digest()
            VlaSha256HexOfAsciiTextSkippingWhitespace("(say ""hellp"")", counted), _
            "a token edit left the digest unchanged"
 
+    ' (SEC.9's own pure pins are in TestSec9PhrasebookPaths, below.)
+
     ' The stamp FORMAT (the "sha256:" prefix and the shape of the string
     ' EnglishSourceHash returns) is pinned next to the 0.5.1 assertions
     ' it replaces, in VLA_Tests_Grammar.bas's TestGexpander - that is
     ' where the temp-file probe already lives, and keeping the old and
     ' new shape assertions side by side is what makes the migration
     ' legible.
+End Sub
+
+' SEC.9 - the path policy, pinned where it is decidable: as pure string
+' predicates, with no file, no workbook and no dialog. Same split SEC.8
+' used, and for the same reason - the part that can be tested properly
+' is separated from the part that cannot, rather than the whole thing
+' being left to a live pass.
+'
+' What these DO cover: whether a path is remote (the credential-leak
+' class) and whether it is inside the add-in's own folder (the
+' trusted-by-construction class). Those two predicates are the entire
+' security decision; everything around them is bookkeeping.
+'
+' What they deliberately do NOT cover, stated the way SEC.8 and SEC.13
+' stated theirs: the consent record itself and the dialog around it,
+' because both need a registry and a person. Those rest on the live
+' pass.
+Private Sub TestSec9PhrasebookPaths()
+    ' --- remote detection: the paths that must never be touched ---
+    Report "SEC.9 a UNC path is remote", _
+           VlaPhrasebookPathIsRemote("\\attacker\share\english.vla"), "UNC not detected"
+    Report "SEC.9 a forward-slash UNC path is remote too (Windows accepts // as an introducer)", _
+           VlaPhrasebookPathIsRemote("//attacker/share/english.vla"), "// form not detected"
+    Report "SEC.9 the \\?\ extended-length prefix is remote-shaped and refused", _
+           VlaPhrasebookPathIsRemote("\\?\UNC\attacker\share\x.vla"), "\\?\ form not detected"
+    Report "SEC.9 an http URL is remote", _
+           VlaPhrasebookPathIsRemote("http://evil.invalid/x.vla"), "http not detected"
+    Report "SEC.9 an https URL is remote", _
+           VlaPhrasebookPathIsRemote("https://evil.invalid/x.vla"), "https not detected"
+    Report "SEC.9 a file:// URL is remote", _
+           VlaPhrasebookPathIsRemote("file://server/x.vla"), "file:// not detected"
+    ' The OneDrive shape is real, not invented: EDITIONMANIFEST.7 caught
+    ' hb.Path coming back as an https URL for a OneDrive-stored workbook.
+    Report "SEC.9 a OneDrive-style https workbook path is remote", _
+           VlaPhrasebookPathIsRemote("https://d.docs.live.net/abc/Documents/english.vla"), _
+           "OneDrive URL not detected"
+
+    ' --- and the ordinary local paths that must NOT be swept up ---
+    Report "SEC.9 an ordinary drive path is not remote", _
+           Not VlaPhrasebookPathIsRemote("C:\Users\me\english.vla"), "false positive on a drive path"
+    Report "SEC.9 a drive path with forward slashes is not remote", _
+           Not VlaPhrasebookPathIsRemote("C:/Users/me/english.vla"), "false positive on forward slashes"
+    Report "SEC.9 a mapped drive letter is not treated as remote (stated limit, not an oversight)", _
+           Not VlaPhrasebookPathIsRemote("Z:\team\english.vla"), "mapped drive flagged"
+    Report "SEC.9 an empty path is not remote", _
+           Not VlaPhrasebookPathIsRemote(""), "empty flagged"
+    ' A single leading backslash is a root-relative local path, not UNC.
+    ' Getting this wrong in the other direction would refuse a legitimate
+    ' path, so it is pinned rather than assumed.
+    Report "SEC.9 one leading backslash is not UNC", _
+           Not VlaPhrasebookPathIsRemote("\scripts\english.vla"), "single backslash read as UNC"
+
+    ' --- trusted-by-construction: the add-in's own folder ---
+    Report "SEC.9 a file inside the add-in folder is under it", _
+           VlaPhrasebookPathIsUnderDir("C:\Frazaro\scripts\english.vla", "C:\Frazaro"), _
+           "not recognised as inside"
+    Report "SEC.9 the check is case-insensitive, as Windows paths are", _
+           VlaPhrasebookPathIsUnderDir("c:\frazaro\SCRIPTS\English.vla", "C:\Frazaro"), _
+           "case difference broke the match"
+    Report "SEC.9 a trailing separator on the folder makes no difference", _
+           VlaPhrasebookPathIsUnderDir("C:\Frazaro\x.vla", "C:\Frazaro\"), _
+           "trailing separator broke the match"
+    ' The prefix trap, and the reason this is a named function rather
+    ' than an inline InStr: a sibling folder whose name merely STARTS
+    ' with the trusted one must not inherit its trust.
+    Report "SEC.9 a sibling folder with a longer name is NOT inside the trusted one", _
+           Not VlaPhrasebookPathIsUnderDir("C:\Frazaro-evil\english.vla", "C:\Frazaro"), _
+           "C:\Frazaro-evil passed as inside C:\Frazaro"
+    Report "SEC.9 an unrelated folder is not inside", _
+           Not VlaPhrasebookPathIsUnderDir("C:\Downloads\english.vla", "C:\Frazaro"), _
+           "unrelated path passed as inside"
+    Report "SEC.9 the folder itself is not 'inside' itself", _
+           Not VlaPhrasebookPathIsUnderDir("C:\Frazaro", "C:\Frazaro"), _
+           "the directory matched as its own child"
+    Report "SEC.9 an empty folder never confers trust", _
+           Not VlaPhrasebookPathIsUnderDir("C:\anything\x.vla", ""), _
+           "an empty trusted-dir matched everything"
 End Sub
 
 Private Sub TestHelpers()
@@ -1809,15 +1890,16 @@ Private Sub TestBuildRibbon()
     ids = Array("VlaSetup", "VlaRegister", "VlaAddProgram", "VlaImport", "VlaReload", "VlaUninstall", _
                 "VlaCheck", "VlaInterpret", "VlaInterpretTrace", "VlaRun", "VlaRunTrace", "VlaShowVba", _
                 "VlaTranslateVla", "VlaTranslateVba", "VlaUndo", "VlaPhrases", "VlaLoadPhrasebook", _
-                "VlaExportExpanded", "VlaRuleCoverage", "VlaLintVla", "VlaFeedback", "VlaOpenCli")
+                "VlaExportExpanded", "VlaRuleCoverage", "VlaLintVla", "VlaFeedback", "VlaOpenCli", _
+                "VlaForgetPhrasebooks")
     Dim i As Long
     Dim missing As String
     For i = LBound(ids) To UBound(ids)
         If InStr(x, "id=" & Chr$(34) & ids(i) & Chr$(34)) = 0 Then missing = missing & " " & ids(i)
     Next
-    Report "ribbon: all twenty-two command ids present", Len(missing) = 0, "missing:" & missing
+    Report "ribbon: all twenty-three command ids present", Len(missing) = 0, "missing:" & missing
     Report "ribbon: every button rides the one callback", _
-           CountOcc(x, "onAction=" & Chr$(34) & "VlaRibbonAction" & Chr$(34)) = 22, _
+           CountOcc(x, "onAction=" & Chr$(34) & "VlaRibbonAction" & Chr$(34)) = 23, _
            "got " & CountOcc(x, "onAction=" & Chr$(34) & "VlaRibbonAction" & Chr$(34))
 End Sub
 

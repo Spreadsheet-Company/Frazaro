@@ -103,6 +103,14 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "ide-autoload-no-slot", 5, "VLA-IDE", "Could not register for auto-load - no free OPEN slot found in 50 tries ({key})."
     AddMsg m, "ide-program-file-moved", 53, "VLA-IDE", "The program file has moved: {path} - use Import to pick it again"
     AddMsg m, "ide-word-read-failed", 5, "VLA-IDE", "Could not read the Word document (is Word installed?): {detail}"
+    ' SEC.9 deliberately adds NO id here. Every refusal it can produce is
+    ' a decision the person just made in a dialog, not a fault to report
+    ' back to them - the gate skips and records rather than raising, so
+    ' that a declined phrasebook cannot trap them in an error on every
+    ' command (nothing in this codebase removes an entry from
+    ' VLA_LoadedPhrasebooks). See VLA_IDE.bas's SEC.9 header for why that
+    ' departs from SEC.2's raise-on-decline shape, and the roadmap entry
+    ' for the reporting gap it accepts.
     ' LX2.0 correction, same session: 22 VLA_Runtime.bas entries that
     ' briefly lived here (runtime-not-a-color through
     ' runtime-pivot-sort-ambiguous-field) were removed after a live
