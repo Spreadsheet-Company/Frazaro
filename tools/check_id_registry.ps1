@@ -48,19 +48,53 @@ $advisoryPaths = $advisoryNames | ForEach-Object { Join-Path $docsDir $_ } |
 # Three token shapes, tried in this order: SD-N; word-suffix (G-PIVOT,
 # P-PROF, L-FILE-HELPERS); numeric, dot optional before the first digit
 # group so F.12 and F1 are the same shape (IN.0.5, S3.1, G11r all included).
-$tokenPattern = '(?<tok>SD-\d+|[A-Z]{1,4}-[A-Z][A-Z0-9-]*|[A-Z]{1,4}\.?\d+(?:\.\d+)*[a-z]?)'
+#
+# The numeric arm's prefix bound was {1,4} until 2026-09-09, and that cap
+# was a SILENT HOLE, found while minting PROLOG.10. Three whole families
+# have prefixes longer than four letters - PROLOG (6), DATALOG (7) and
+# SOLVE (5) - so none of PROLOG.1-.10, DATALOG.6 or SOLVE.1-.9 was ever
+# governed: 24 ids over which SD-9's "never reused, never re-minted"
+# guarantee simply did not apply, while the check reported clean. Nothing
+# had gone wrong yet; the point is that nothing WOULD HAVE BEEN CAUGHT.
+#
+# Raised to {1,8} - DATALOG's seven plus one spare - rather than to
+# [A-Z]+, deliberately: an unbounded prefix would start matching ordinary
+# prose tokens of the same shape (SHA256, UTF8, ISO8601, RFC4180) if one
+# ever appeared bolded at the head of a bullet, and an explicit reviewable
+# bound is this file's own house style. Measured before landing: widening
+# 4 -> 8 ADDS exactly those 24 ids and REMOVES nothing, with collisions
+# and duplicate definitions both still zero.
+#
+# Only the NUMERIC arm moved. The word-suffix arm keeps {1,4} because
+# every named form in use fits it (G-*, L-*, P-*, REPL-EVAL) and widening
+# an arm with no demonstrated gap would trade a real hole for a
+# speculative false-positive surface.
+$tokenPattern = '(?<tok>SD-\d+|[A-Z]{1,4}-[A-Z][A-Z0-9-]*|[A-Z]{1,8}\.?\d+(?:\.\d+)*[a-z]?)'
 
 function Get-Normalized([string]$tok) {
     ($tok.ToUpperInvariant() -replace '[.\-]', '')
 }
 
+# {1,8}, matching $tokenPattern's numeric arm above - all three bounds are
+# one decision and must move together. Widening only the matcher left
+# PROLOG/DATALOG/SOLVE governed for COLLISION purposes but still invisible
+# to the high-water report: Get-LeadingNumber failed on "PROLOG.10" (it
+# consumed at most PROL, then wanted a digit and found OG), so the token
+# reported no series number and fell through to the named-forms bucket
+# instead - which is exactly where DATALOG.6 was seen sitting, one edit
+# short of the fix. Caught before landing; the lesson is that this cap was
+# written down in three places, not one.
+#
+# [A-Z] never matches a digit, so a greedy {1,8} still stops correctly at
+# the prefix boundary: PROLOG10 -> PROLOG, G11R -> G, DR2 -> DR, PORT3 ->
+# PORT.
 function Get-Prefix([string]$tok) {
-    if ($tok -match '^([A-Z]{1,4})') { return $Matches[1] }
+    if ($tok -match '^([A-Z]{1,8})') { return $Matches[1] }
     return $tok
 }
 
 function Get-LeadingNumber([string]$tok) {
-    if ($tok -match '^[A-Z]{1,4}\.?(\d+)') { return [int]$Matches[1] }
+    if ($tok -match '^[A-Z]{1,8}\.?(\d+)') { return [int]$Matches[1] }
     return $null
 }
 
