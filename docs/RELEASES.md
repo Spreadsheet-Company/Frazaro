@@ -67,6 +67,29 @@
   question mark, and typing the Prolog form gets you the Frazaro form
   rather than silence.
 
+- **A new release check: `tools/check_test_assertion_safety.ps1`.** VBA
+  evaluates *every* part of an `And`, even when an earlier part has
+  already answered no. So a test written as one expression — check the
+  answer has three rows, then read the third row — still reads that third
+  row when there are only two, and stops with a raw error instead of
+  reporting the failure. Harmless every day the test passes; on the one
+  day it finds something, the run dies at the exact moment it was about
+  to say what broke, and every later test never runs.
+
+  This is invisible in a passing test suite by construction, so nothing
+  but a static check can find it. **154 assertions across all four test
+  files were carrying it**, and all 154 are fixed. The check now runs at
+  every release and holds each file at zero — and fails just as loudly if
+  a file comes in *under* its recorded number without the number being
+  lowered too, so the ground gained cannot quietly be given back.
+
+  Nothing here changes what Frazaro does. It changes what happens on the
+  day something else goes wrong: you get told, instead of the report
+  being destroyed by the test that was about to make it. The rewrite was
+  checked against VBA's own rules for every shape a result can take,
+  proving each replacement means exactly what it replaced, and both the
+  check and that proof were mutation-tested rather than assumed to work.
+
 - **More reserved words.** Ten names join the reserved set, which is what
   lets Frazaro's advice about them always be right: `callable?`,
   `is-list?`, `ground?`, `integer?` and `float?`, plus the Prolog

@@ -4697,7 +4697,7 @@ Private Sub TestInterpreterQuote()
     Dim ok As Boolean, detail As String
     If IsArray(arr) Then
         ok = (LBound(arr) = 0) And (UBound(arr) = 2) _
-             And (arr(0) = 1) And (arr(1) = 2) And (arr(2) = 3)
+             And Arr1DItemIs(arr, 0, "1") And Arr1DItemIs(arr, 1, "2") And Arr1DItemIs(arr, 2, "3")
         detail = "array, length " & (UBound(arr) - LBound(arr) + 1)
     Else
         detail = "not an array: " & CStr(arr)
@@ -4738,7 +4738,7 @@ Private Sub TestInterpreterQuote()
     Dim emptyArr As Variant
     emptyArr = VLA_Interpreter.VlaEvalExpression("(quote ())")
     Report "repl-eval: (quote ()) is a real zero-length array, not an error", _
-           IsArray(emptyArr) And (UBound(emptyArr) < LBound(emptyArr)), "got: " & TypeName(emptyArr)
+           Arr1DIsEmpty(emptyArr), "got: " & TypeName(emptyArr)
 
     ' Arity: exactly one datum, same message EmitQuote's own compile-side
     ' check raises (VLA.bas) - checked directly against the interpreter,
@@ -4782,7 +4782,7 @@ Private Sub TestArrayPrimitive()
     Dim arrOk As Boolean, arrDetail As String
     If IsArray(arrResult) Then
         arrOk = (LBound(arrResult) = 0) And (UBound(arrResult) = 2) _
-                And (arrResult(0) = "a") And (arrResult(1) = "b") And (arrResult(2) = "c")
+                And Arr1DItemIs(arrResult, 0, "a") And Arr1DItemIs(arrResult, 1, "b") And Arr1DItemIs(arrResult, 2, "c")
         arrDetail = "array, length " & (UBound(arrResult) - LBound(arrResult) + 1)
     Else
         arrDetail = "not an array: " & CStr(arrResult)
@@ -4798,7 +4798,7 @@ Private Sub TestArrayPrimitive()
     Dim arrEmpty As Variant
     arrEmpty = VLA_Interpreter.VlaEvalExpression("(array)")
     Dim emptyOk As Boolean
-    emptyOk = IsArray(arrEmpty) And (UBound(arrEmpty) < LBound(arrEmpty))
+    emptyOk = Arr1DIsEmpty(arrEmpty)
     Report "g6-array: (array) with no items is a real zero-length array, not an error", _
            emptyOk, "got: " & TypeName(arrEmpty)
 End Sub
@@ -5826,6 +5826,66 @@ Public Sub CheckExpandErr(ByVal name As String, ByVal source As String, ByVal wa
     On Error GoTo 0
     Report name, InStr(1, d, wantFrag, vbTextCompare) > 0, "got: " & d
 End Sub
+
+' ---------------------------------------------------------------------
+'  PROLOG.20 stage 2: the guarded assertion helpers, for the same reason
+'  VLA_Tests_Query.bas has its own set.
+'
+'  VBA's `And` does not short-circuit, so an assertion written as one
+'  expression evaluates every operand however the earlier ones answered:
+'  `IsArray(a) And UBound(a) = 2 And a(2) = 3` still reads a(2) on a
+'  two-element array and raises "Subscript out of range" - on exactly the
+'  run where the test had something to report, killing it instead. An
+'  assertion that cannot survive its own failure is not a test.
+'
+'  Each of these answers False for a shape it cannot read, rather than
+'  raising, so a failing assertion FAILS. tools/check_test_assertion
+'  _safety.ps1 holds every test module to using them.
+'
+'  PUBLIC, beside Report and for the identical reason: VLA_Tests_Grammar
+'  .bas has no Report of its own and resolves the unqualified call to
+'  this module, so this is already the suite's shared-helper home.
+'  VLA_Tests_Host.bas and VLA_Tests_Query.bas each keep PRIVATE copies,
+'  matching the isolation they already chose for Report itself and for
+'  ReadTextFileUtf8 - a deliberate duplication, not an oversight.
+' ---------------------------------------------------------------------
+
+' A 1-D array with no elements at all - what `(quote ())` and `(array)`
+' must evaluate to. Never `IsArray(a) And UBound(a) < LBound(a)`, which
+' calls UBound on the very scalar IsArray just answered False about.
+Public Function Arr1DIsEmpty(ByVal a As Variant) As Boolean
+    If Not IsArray(a) Then Exit Function
+    Arr1DIsEmpty = (UBound(a) < LBound(a))
+End Function
+
+' One element of a 1-D array, compared as TEXT - the same convention
+' VLA_Tests_Query.bas's own ResultCellIs uses, so a numeric 1 and the
+' text "1" are one assertion rather than two spellings of it.
+'
+' The index is bounds-checked against the array's OWN LBound/UBound
+' rather than assumed 0-based: these arrays come from the interpreter,
+' and its base is the thing under test in some of these very tests.
+Public Function Arr1DItemIs(ByVal a As Variant, ByVal ix As Long, ByVal expected As String) As Boolean
+    If Not IsArray(a) Then Exit Function
+    If ix < LBound(a) Then Exit Function
+    If ix > UBound(a) Then Exit Function
+    If IsObject(a(ix)) Then Exit Function
+    Arr1DItemIs = (CStr(a(ix)) = expected)
+End Function
+
+' One item of a Collection. `c.Count = 2 And CStr(c.Item(2)) = "x"` is the
+' array defect in a different container: Item(2) on a one-element
+' Collection raises, on precisely the run where the count was wrong.
+'
+' IsObject checked before CStr - an item may be a nested Collection, and
+' CStr of an object raises a type mismatch of its own.
+Public Function CollItemIs(ByVal c As Collection, ByVal ix As Long, ByVal expected As String) As Boolean
+    If c Is Nothing Then Exit Function
+    If ix < 1 Then Exit Function
+    If ix > c.Count Then Exit Function
+    If IsObject(c.Item(ix)) Then Exit Function
+    CollItemIs = (CStr(c.Item(ix)) = expected)
+End Function
 
 Public Sub Report(ByVal name As String, ByVal ok As Boolean, ByVal detail As String)
     If ok Then

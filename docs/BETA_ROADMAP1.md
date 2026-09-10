@@ -13502,21 +13502,29 @@ now carries one summary paragraph per engine and points here.*
     never". `~days`. *(This is the item the deterministic-and-auditable
     framing exists for; it is a decision about what this engine refuses to
     be, not a feature.)*
-  - 🟡 **PROLOG.20 — AUDIT THE TEST SUITE ITSELF: assertions that would
+  - ✅ **PROLOG.20 — AUDIT THE TEST SUITE ITSELF: assertions that would
     KILL the run instead of reporting the failure they exist to catch.**
     STAGE 1 SHIPPED 2026-09-09; owner-verified live (pure 1047/1047,
     host 143/143, `TestDSLs` 707/707, `VerifyReports` 141/141 + 141/141,
     every one identical to before the item, which is the result this
-    stage was predicting). STAGE 2 is scoped below and not yet built, so
-    the item stays amber.
-    `VLA_Tests_Query.bas` goes **146 → 0** and now holds at a ceiling of
-    zero; the other three modules hold at what they measure today (4, 1,
-    3) and land as stage 2. New `tools/check_test_assertion_safety.ps1`
-    — the seventeenth check. `TestDSLs` **707/707 unchanged**, and
-    unchanged is the whole point: this item rewrites 154 assertions and
-    must not move a single count. Pure 1047/1047, host 143/143 and
-    `VerifyReports` 141/141 + 141/141 all untouched — stage 1 edits one
-    test module and one new script, nothing else.
+    stage was predicting). **STAGE 2 SHIPPED 2026-09-09**, owner-verified on
+    its own pass with the same four numbers again: the check now holds
+    **all four** test modules at a ceiling of ZERO. Across both stages
+    **154 assertions were rewritten and not one count moved**, which is
+    the only result this item could have wanted.
+    `VLA_Tests_Query.bas` went **146 → 0** in stage 1, with the other
+    three held at 4/1/3 by the ratchet; stage 2 took those to zero too,
+    so all four now hold at a ceiling of ZERO. New
+    `tools/check_test_assertion_safety.ps1` — the seventeenth check.
+    `TestDSLs` **707/707 unchanged**, and unchanged is the whole point:
+    this item rewrites 154 assertions and must not move a single count.
+    Pure 1047/1047, host 143/143 and `VerifyReports` 141/141 + 141/141
+    likewise unmoved across both stages. **No engine module is touched
+    by either stage** — only the four test modules, the new script, and
+    the docs. `docs/RELEASES.md` carries a `0.5.5` bullet on the check
+    itself, following the file's own established shape for one ("A new
+    release check: …", five times already); nothing else here is visible
+    to a user.
 
     **THE ENTRY'S 37 WAS EXACTLY RIGHT AND THE CLASS IS 154.** Its own
     scan, written independently, found 30 + 7; this item's found 29 + 8
@@ -13650,15 +13658,70 @@ now carries one summary paragraph per engine and points here.*
     is untouched and still unmeasured, exactly as filed: it needs
     semantics, not a regex.
 
-    **STAGE 2, scoped and not started:** eight assertions across
-    `VLA_Tests.bas` (4), `VLA_Tests_Host.bas` (3) and
-    `VLA_Tests_Grammar.bas` (1). They need helpers of their own in each
-    module — those three have no result-shape helpers at all — and they
-    touch the modules `VlaSelfTest` runs, so they carry a different
-    verification (pure 1047/1047 and host 143/143 rather than
-    `TestDSLs`). The split is genuinely free, unlike `PROLOG.15`'s: the
-    two stages edit DISJOINT files, so nothing is written twice and the
-    ratchet keeps the check green in between.
+    **STAGE 2, BUILT: the other three modules go to zero too.** Eight
+    assertions — `VLA_Tests.bas` (4), `VLA_Tests_Host.bas` (3),
+    `VLA_Tests_Grammar.bas` (1) — and the split was genuinely free,
+    unlike `PROLOG.15`'s: the two stages edit DISJOINT files, so nothing
+    is written twice and the ratchet kept the check green in between.
+
+    **HELPERS RATHER THAN NESTED `If`s, and the choice is not
+    stylistic.** A nested `If ok Then ok = (...)` short-circuits and is
+    perfectly safe — but it is INVISIBLE to the check, so the same
+    assertion could regress later with nothing to catch it. Worse, the
+    check currently tells anyone editing those modules to "move onto the
+    guarded helpers", and until this stage **no such helpers existed
+    there**, so the advice was unactionable. Helpers make the fix
+    check-verifiable and the advice true.
+
+    **WHERE THEY LIVE FOLLOWS WHAT THE SUITE ALREADY DOES, verified
+    rather than invented.** `Report` is **Public** in `VLA_Tests.bas` and
+    `VLA_Tests_Grammar.bas` has none of its own — it resolves the
+    unqualified call across modules — so that module already IS the
+    suite's shared-helper home, and `Arr1DIsEmpty`/`Arr1DItemIs`/
+    `CollItemIs` go there Public. `VLA_Tests_Host.bas` and
+    `VLA_Tests_Query.bas` each keep PRIVATE copies, matching the
+    isolation they already chose for `Report` **and** for
+    `ReadTextFileUtf8`, which is duplicated between those two modules
+    today. A deliberate duplication on an existing precedent, not an
+    oversight.
+
+    **THE ONE REAL VBA OBSTACLE:** `gotLines` was `Dim gotLines() As
+    String`, and a typed array cannot be relied on to bind to a
+    `ByVal … As Variant` parameter. Declared `As Variant` instead —
+    `Split` returns a Variant array either way and the local is used
+    nowhere else in the procedure. `Arr2DItemIs` wraps its `LBound`/
+    `UBound` in `On Error` so a 1-D array handed to a 2-D reader answers
+    False rather than raising, with `Err.Number` checked BEFORE
+    `On Error GoTo 0`, which resets it — this project's own recorded
+    trap.
+
+    **A `Report` DETAIL needed a helper of its own.** `", first=" &
+    gotLines(LBound(gotLines))` is evaluated on every call, pass or fail,
+    so `Arr1DText` reports `<above UBound>` instead of raising: a detail
+    string that crashes destroys the run that was about to explain
+    itself. Pinned by mutation — putting the raw index back in the DETAIL
+    ALONE turns the check red.
+
+    **FIVE MUTATIONS ACROSS THE THREE MODULES, all biting**: reverting to
+    `IsArray`+`UBound`, to a raw index, to `.Item` after `.Count`, the
+    slab 1×1 assertion, and the detail-only case above. The equivalence
+    transliteration gained three laws and three mutations (`Arr1DIsEmpty`
+    unguarded, `Arr1DItemIs` unbounded, `Arr2DItemIs` assuming rank 2) —
+    **nine mutations now, all biting.** One law had to be SCOPED rather
+    than passed: `UBound(a) = 2 And Arr1DItemIs(a, 2, "3")` sits inside
+    an enclosing `If IsArray(arr) Then`, so its unchanged first operand
+    is never asked about a scalar, and scoring it against one failed L1
+    on an operand this rewrite neither introduced nor claimed to fix.
+
+    **A LINE-ENDING FALSE ALARM, checked rather than assumed.**
+    `VLA_Tests.bas` reads CRLF where the two other edited modules read
+    LF. It was already CRLF: the repo genuinely holds a mixed set (six
+    CRLF files — `VLA.bas`, `VLA_Digest`, `VLA_Events`, `VLA_Messages`,
+    `VLA_Provenance`, `VLA_Tests`), `git diff --numstat` reports 64/4 on
+    that file rather than the ~5,920 a flip would show, and git emits its
+    "LF will be replaced" warning for only the two LF files. Recorded
+    because the next person to touch that module will see the same thing
+    and should not have to re-derive it.
 
     *Blocks nothing; blocked by nothing.* *Named follow-ups:* the eight
     dataflow-guarded indexes above; the stale-pin check when there is a

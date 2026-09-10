@@ -106,18 +106,22 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # The defect is not PROLOG's - it is a property of VBA's And - so all four
 # test modules are governed, not just the one where it was found.
 #
-# PROLOG.20 STAGE 1 took VLA_Tests_Query.bas from 146 to 0. The other
-# three hold at what they measure today, because their fixes need helpers
-# of their own in each module and land as stage 2 - and because a check
-# stuck red across a staged migration cannot tell a NEW defect from the
-# backlog, which is the whole point of ratcheting rather than gating.
-# Every number here is a debt that may only shrink: the check fails just
-# as loudly if a module comes in UNDER its ceiling without the ceiling
-# being lowered in the same diff.
+# PROLOG.20 STAGE 1 took VLA_Tests_Query.bas from 146 to 0 and held the
+# other three at 4/1/3; STAGE 2 took those to 0 as well. The whole
+# baseline is zero now, and the ratchet is what it is FOR from here on:
+# every number may only shrink, and the check fails just as loudly if a
+# module comes in UNDER its ceiling without the ceiling being lowered in
+# the same diff, so a gain cannot be silently given back.
+#
+# The staging mattered while it lasted: a check that can only say
+# all-clean-or-all-broken sits red across a whole migration, and nobody
+# can then tell a NEW defect from the backlog. Ratcheting rather than
+# gating is what let stage 1 land green with stage 2's work still
+# outstanding and visible.
 $ceilings = [ordered]@{
-    'src\VLA_Tests.bas'         = 4
-    'src\VLA_Tests_Grammar.bas' = 1
-    'src\VLA_Tests_Host.bas'    = 3
+    'src\VLA_Tests.bas'         = 0
+    'src\VLA_Tests_Grammar.bas' = 0
+    'src\VLA_Tests_Host.bas'    = 0
     'src\VLA_Tests_Query.bas'   = 0
 }
 
@@ -128,7 +132,10 @@ $ceilings = [ordered]@{
 $guardedHelpers = @(
     'ResultRowCount', 'ResultColCount', 'ResultCellIs', 'ResultCol1Is',
     'ResultBoolIs', 'ResultDescribe', 'JoinColumn',
-    'ResultTextIs', 'ResultTextStartsWith', 'CollItemIs'
+    'ResultTextIs', 'ResultTextStartsWith', 'CollItemIs',
+    # PROLOG.20 stage 2: the same shapes for the other three modules -
+    # 1-D and 2-D arrays, and a Collection.
+    'Arr1DIsEmpty', 'Arr1DItemIs', 'Arr1DText', 'Arr2DItemIs'
 )
 
 # An operand that asks what shape V is. Touching V after one of these has
@@ -159,7 +166,7 @@ $guardedHelpers = @(
 $guardKinds = @(
     @{ Kind = 'Exists'; Form = '\bIsArray\s*\(\s*{0}\s*\)' },
     @{ Kind = 'Exists'; Form = '\bVarType\s*\(\s*{0}\s*\)' },
-    @{ Kind = 'Exists'; Form = '\bResult(?:RowCount|ColCount|CellIs|Col1Is|BoolIs|TextIs|TextStartsWith)\s*\(\s*{0}\s*[,)]' },
+    @{ Kind = 'Exists'; Form = '\b(?:Result(?:RowCount|ColCount|CellIs|Col1Is|BoolIs|TextIs|TextStartsWith)|Arr1D(?:IsEmpty|ItemIs|Text)|Arr2DItemIs|CollItemIs)\s*\(\s*{0}\s*[,)]' },
     @{ Kind = 'Extent'; Form = '\b(?:UBound|LBound)\s*\(\s*{0}\s*[,)]' },
     @{ Kind = 'Count';  Form = '\b{0}\s*\.\s*Count\b' }
 )
@@ -230,7 +237,7 @@ foreach ($rel in $ceilings.Keys) {
         # Every variable this statement asks the shape of.
         $vars = @([regex]::Matches($code, '\b(?:IsArray|UBound|LBound|VarType)\s*\(\s*([A-Za-z_]\w*)') |
                   ForEach-Object { $_.Groups[1].Value }) +
-                @([regex]::Matches($code, '\bResult(?:RowCount|ColCount|CellIs|Col1Is|BoolIs|TextIs|TextStartsWith)\s*\(\s*([A-Za-z_]\w*)') |
+                @([regex]::Matches($code, '\b(?:Result(?:RowCount|ColCount|CellIs|Col1Is|BoolIs|TextIs|TextStartsWith)|Arr1D(?:IsEmpty|ItemIs|Text)|Arr2DItemIs|CollItemIs)\s*\(\s*([A-Za-z_]\w*)') |
                   ForEach-Object { $_.Groups[1].Value }) +
                 @([regex]::Matches($code, '\b([A-Za-z_]\w*)\s*\.\s*Count\b') |
                   ForEach-Object { $_.Groups[1].Value })

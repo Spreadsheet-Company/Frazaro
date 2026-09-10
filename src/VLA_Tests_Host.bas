@@ -720,14 +720,18 @@ Private Sub TestEmbeddedTextFallback()
         Debug.Print "  pf7 scale: " & scaleN & "-row embedded sheet read in " & _
                     Format$(msElapsed, "0") & " ms"
 
-        Dim gotLines() As String
+        ' PROLOG.20: declared As Variant rather than As String() so it can
+        ' reach Arr1DItemIs, whose parameter is ByVal Variant. Split
+        ' returns a Variant array either way, and this local is used
+        ' nowhere else in the procedure.
+        Dim gotLines As Variant
         gotLines = Split(gotScale, vbCrLf)
         Report "embedtext scale: round-trips " & scaleN & " rows correctly", _
                (UBound(gotLines) - LBound(gotLines) = scaleN) And _
-               gotLines(LBound(gotLines)) = "embedded scale line 1" And _
-               gotLines(LBound(gotLines) + scaleN - 1) = "embedded scale line " & scaleN, _
+               Arr1DItemIs(gotLines, LBound(gotLines), "embedded scale line 1") And _
+               Arr1DItemIs(gotLines, LBound(gotLines) + scaleN - 1, "embedded scale line " & scaleN), _
                "row count " & (UBound(gotLines) - LBound(gotLines) + 1) & _
-               ", first=" & gotLines(LBound(gotLines))
+               ", first=" & Arr1DText(gotLines, LBound(gotLines))
 
         Application.DisplayAlerts = False
         shScale.Delete
@@ -783,7 +787,7 @@ Private Sub TestArraySlabHelpers()
     Dim one As Variant
     one = VLA_Runtime.VlaSlabRead(sh.Cells(5, 1))
     Report "slab: 1x1 read wraps the scalar quirk into a real array", _
-           IsArray(one) And one(1, 1) = 42, "IsArray=" & IsArray(one)
+           Arr2DItemIs(one, 1, 1, "42"), "IsArray=" & IsArray(one)
     one(1, 1) = 99
     VLA_Runtime.VlaSlabWrite one, sh.Cells(5, 1)
     Report "slab: 1x1 write-back lands correctly", sh.Cells(5, 1).Value = 99, sh.Cells(5, 1).Value
@@ -1980,8 +1984,8 @@ Private Sub TestInterpreterButtonClickEvent()
     Next
     Report "in.7: EnglishClickHandlerNames/Procs report both handlers, in order", _
            clkNames.Count = 2 And clkProcs.Count = 2 And _
-           CStr(clkNames.Item(1)) = "Go" And CStr(clkProcs.Item(1)) = "on:click:Go" And _
-           CStr(clkNames.Item(2)) = "Stop" And CStr(clkProcs.Item(2)) = "on:click:Stop", _
+           CollItemIs(clkNames, 1, "Go") And CollItemIs(clkProcs, 1, "on:click:Go") And _
+           CollItemIs(clkNames, 2, "Stop") And CollItemIs(clkProcs, 2, "on:click:Stop"), _
            "got names: " & clkDebug & "(count " & clkNames.Count & "/" & clkProcs.Count & ")"
 
     Dim d2 As String, frame As Object
@@ -3394,6 +3398,81 @@ End Function
 Private Sub CheckV(ByVal name As String, ByVal got As Variant, ByVal want As Variant)
     Report name, CStr(got) = CStr(want), "got '" & got & "', wanted '" & want & "'"
 End Sub
+
+' ---------------------------------------------------------------------
+'  PROLOG.20 stage 2: the guarded assertion helpers.
+'
+'  VBA's `And` does not short-circuit, so `IsArray(one) And one(1, 1) =
+'  42` still reads one(1, 1) on the very scalar IsArray just answered
+'  False about - and a scalar is exactly what that test's own subject,
+'  the 1x1 slab-read quirk, would produce if it regressed. The assertion
+'  would raise instead of reporting, killing the run at the point it was
+'  about to explain itself.
+'
+'  PRIVATE copies rather than VLA_Tests.bas's Public ones, matching the
+'  isolation this module already chose for Report and ReadTextFileUtf8 -
+'  a deliberate duplication, not an oversight. tools/check_test_assertion
+'  _safety.ps1 holds every test module to using them.
+' ---------------------------------------------------------------------
+
+' One element of a 1-D array, compared as text, bounds-checked against
+' the array's own LBound/UBound rather than an assumed base.
+Private Function Arr1DItemIs(ByVal a As Variant, ByVal ix As Long, ByVal expected As String) As Boolean
+    If Not IsArray(a) Then Exit Function
+    If ix < LBound(a) Then Exit Function
+    If ix > UBound(a) Then Exit Function
+    If IsObject(a(ix)) Then Exit Function
+    Arr1DItemIs = (CStr(a(ix)) = expected)
+End Function
+
+' One element of a 1-D array as DISPLAY TEXT, for a Report's detail
+' argument. The detail is evaluated on EVERY call, pass or fail, so a raw
+' index there kills the run on exactly the failing case the assertion was
+' just made safe for - the half-fix hole tools/check_test_assertion
+' _safety.ps1 exists to keep closed. Says what went wrong instead of
+' raising, because a detail string that crashes destroys the run that was
+' about to explain itself.
+Private Function Arr1DText(ByVal a As Variant, ByVal ix As Long) As String
+    If Not IsArray(a) Then Arr1DText = "<not an array>": Exit Function
+    If ix < LBound(a) Then Arr1DText = "<below LBound>": Exit Function
+    If ix > UBound(a) Then Arr1DText = "<above UBound>": Exit Function
+    If IsObject(a(ix)) Then Arr1DText = "<object>": Exit Function
+    Arr1DText = CStr(a(ix))
+End Function
+
+' One cell of a 2-D array - VlaSlabRead's own shape. BOTH dimensions are
+' bounds-checked, and the array's rank is not assumed: a 1-D array
+' reaching here answers False rather than raising, which is the whole
+' contract.
+Private Function Arr2DItemIs(ByVal a As Variant, ByVal r As Long, ByVal c As Long, ByVal expected As String) As Boolean
+    If Not IsArray(a) Then Exit Function
+    Dim r1 As Long, r2 As Long, c1 As Long, c2 As Long
+    On Error Resume Next
+    r1 = LBound(a, 1): r2 = UBound(a, 1)
+    c1 = LBound(a, 2): c2 = UBound(a, 2)
+    ' Err checked BEFORE `On Error GoTo 0`, which resets Err.Number -
+    ' this project's own recorded VBA trap.
+    If Err.Number <> 0 Then
+        Err.Clear
+        On Error GoTo 0
+        Exit Function
+    End If
+    On Error GoTo 0
+    If r < r1 Or r > r2 Then Exit Function
+    If c < c1 Or c > c2 Then Exit Function
+    If IsObject(a(r, c)) Then Exit Function
+    Arr2DItemIs = (CStr(a(r, c)) = expected)
+End Function
+
+' One item of a Collection - Item(n) past the end raises, on precisely
+' the run where the count was wrong.
+Private Function CollItemIs(ByVal c As Collection, ByVal ix As Long, ByVal expected As String) As Boolean
+    If c Is Nothing Then Exit Function
+    If ix < 1 Then Exit Function
+    If ix > c.Count Then Exit Function
+    If IsObject(c.Item(ix)) Then Exit Function
+    CollItemIs = (CStr(c.Item(ix)) = expected)
+End Function
 
 Private Sub Report(ByVal name As String, ByVal ok As Boolean, ByVal detail As String)
     If ok Then

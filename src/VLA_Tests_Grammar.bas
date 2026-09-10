@@ -1685,7 +1685,7 @@ Public Sub TestPhrasebookPersistence()
     Dim paths As Collection
     Set paths = LoadedPhrasebookPaths(ActiveWorkbook)
     Report "go6: two distinct paths persist in load order", _
-           paths.Count = 2 And CStr(paths.Item(1)) = "C:\fake\one_go6.vla" And CStr(paths.Item(2)) = "C:\fake\two_go6.vla", _
+           paths.Count = 2 And CollItemIs(paths, 1, "C:\fake\one_go6.vla") And CollItemIs(paths, 2, "C:\fake\two_go6.vla"), _
            "count=" & paths.Count
 
     Report "go6: PhrasebookAlreadyLoaded finds an already-persisted path", _
