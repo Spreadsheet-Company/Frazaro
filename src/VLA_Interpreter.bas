@@ -1819,6 +1819,19 @@ Private Function ResolveExcelConstant(ByVal folded As String, ByRef found As Boo
         Case "xlpastecolumnwidths": ResolveExcelConstant = 8    ' XlPasteType
         Case "xlshiftup": ResolveExcelConstant = -4162          ' XlDeleteShiftDirection (same number as xlup/XlDirection above - one Long value, two different enum types, both real)
         Case "xlshifttoleft": ResolveExcelConstant = -4159      ' XlDeleteShiftDirection
+        ' G-FORMAT slice 1: exactly the constants english.vla's own
+        ' cosmetic-layer macros pass, same one-name-at-a-time discipline.
+        ' Vertical alignment's two ends (middle is xlcenter, above),
+        ' the single/none underline styles, and the four outer edges
+        ' add-edge-border indexes Borders(...) by.
+        Case "xltop": ResolveExcelConstant = -4160              ' XlVAlign
+        Case "xlbottom": ResolveExcelConstant = -4107           ' XlVAlign
+        Case "xlunderlinestylesingle": ResolveExcelConstant = 2 ' XlUnderlineStyle
+        Case "xlunderlinestylenone": ResolveExcelConstant = -4142   ' XlUnderlineStyle
+        Case "xledgeleft": ResolveExcelConstant = 7             ' XlBordersIndex
+        Case "xledgetop": ResolveExcelConstant = 8              ' XlBordersIndex
+        Case "xledgebottom": ResolveExcelConstant = 9           ' XlBordersIndex
+        Case "xledgeright": ResolveExcelConstant = 10           ' XlBordersIndex
         Case Else
             found = False
     End Select
@@ -1837,11 +1850,22 @@ End Function
 ' measured, not a general VBA-constant catalogue: vbred/vbyellow
 ' (english.vla's "make cell ... red|yellow") and vbtextcompare
 ' (english.vla's contains/starts-with tests, "instr ... vbtextcompare").
+' G-FORMAT slice 1: the other six of the eight colors english.vla's
+' "make cell ... {d:red|...|white}" rule has offered since COLOR-FAMILY
+' widened it - that rule translated all eight, but only red and yellow
+' ever ran under Interpret, because instructions.txt never said the
+' others. Found by reading, while adding that rule's range twin.
 Private Function ResolveVbConstant(ByVal folded As String, ByRef found As Boolean) As Double
     found = True
     Select Case folded
         Case "vbred": ResolveVbConstant = vbRed
         Case "vbyellow": ResolveVbConstant = vbYellow
+        Case "vbblack": ResolveVbConstant = vbBlack
+        Case "vbblue": ResolveVbConstant = vbBlue
+        Case "vbcyan": ResolveVbConstant = vbCyan
+        Case "vbgreen": ResolveVbConstant = vbGreen
+        Case "vbmagenta": ResolveVbConstant = vbMagenta
+        Case "vbwhite": ResolveVbConstant = vbWhite
         Case "vbtextcompare": ResolveVbConstant = vbTextCompare
         Case Else
             found = False
@@ -2634,7 +2658,20 @@ Private Function DynamicGet(ByVal obj As Object, ByVal member As String, ByVal a
                 AssignVar DynamicGet, obj.End(CLng(ArgAt(argVals, 0)))
                 Exit Function
             End If
-        Case "borders": AssignVar DynamicGet, obj.Borders: Exit Function
+        ' G-FORMAT slice 1: Borders(index), one outer edge. Until now
+        ' this Case ignored argVals entirely, so (. r borders xledgebottom)
+        ' silently came back as EVERY border and the caller then styled
+        ' all of them - add-edge-border is the first corpus shape that
+        ' passes an index. More than one argument is not a Borders call
+        ' at all, so it falls through to the refusal below.
+        Case "borders"
+            If ArgCount(argVals) = 0 Then
+                AssignVar DynamicGet, obj.Borders
+                Exit Function
+            ElseIf ArgCount(argVals) = 1 Then
+                AssignVar DynamicGet, obj.Borders(CLng(ArgAt(argVals, 0)))
+                Exit Function
+            End If
         Case "tab": AssignVar DynamicGet, obj.Tab: Exit Function
         Case "entirecolumn": AssignVar DynamicGet, obj.EntireColumn: Exit Function
         ' SEC.1 Tier 2: promoted from the CallByName fallback removed
@@ -2692,6 +2729,14 @@ Private Function DynamicGet(ByVal obj As Object, ByVal member As String, ByVal a
         Case "statusbar": AssignVar DynamicGet, obj.StatusBar: Exit Function
         Case "tablestyle": AssignVar DynamicGet, obj.TableStyle: Exit Function
         Case "showtotals": AssignVar DynamicGet, obj.ShowTotals: Exit Function
+        ' G-FORMAT slice 1: DynamicSet's five new members, mirrored here
+        ' in the same pass - the SEC.1 correction above is the record of
+        ' what waiting for each read to fail on its own cost.
+        Case "underline": AssignVar DynamicGet, obj.Underline: Exit Function
+        Case "strikethrough": AssignVar DynamicGet, obj.Strikethrough: Exit Function
+        Case "verticalalignment": AssignVar DynamicGet, obj.VerticalAlignment: Exit Function
+        Case "indentlevel": AssignVar DynamicGet, obj.IndentLevel: Exit Function
+        Case "orientation": AssignVar DynamicGet, obj.Orientation: Exit Function
         Case "range"
             If ArgCount(argVals) = 1 Then
                 AssignVar DynamicGet, obj.Range(ArgAt(argVals, 0))
@@ -3002,6 +3047,17 @@ Private Sub DynamicSet(ByVal obj As Object, ByVal member As String, ByVal v As V
         ' two members, previously reaching CallByName's VbLet path.
         Case "tablestyle": obj.TableStyle = v: Exit Sub
         Case "showtotals": obj.ShowTotals = v: Exit Sub
+        ' G-FORMAT slice 1: the five members english.vla's cosmetic-layer
+        ' macros set that no earlier macro did - Font.Underline/
+        ' Strikethrough, Range.VerticalAlignment/IndentLevel/Orientation.
+        ' Each is a formatting property with no effect outside the cell
+        ' it styles; added by name after reading the macros, the way
+        ' every member above got here.
+        Case "underline": obj.Underline = v: Exit Sub
+        Case "strikethrough": obj.Strikethrough = v: Exit Sub
+        Case "verticalalignment": obj.VerticalAlignment = v: Exit Sub
+        Case "indentlevel": obj.IndentLevel = v: Exit Sub
+        Case "orientation": obj.Orientation = v: Exit Sub
     End Select
 
     ' SEC.1 Tier 2: the CallByName fallback that used to sit here is

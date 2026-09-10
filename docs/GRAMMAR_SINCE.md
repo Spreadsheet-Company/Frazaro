@@ -132,14 +132,25 @@ the tagged releases at the time.
 **150 phrasebook rules, 128 core dispatch arms, 278 rows.** Every entry
 below was present at `v0.5.0` except the one marked `0.5.2`.
 
+*Appended since the snapshot:* seventeen phrasebook rows marked `0.5.6`
+— `G-FORMAT`'s first slice (`pareto.txt` §5, the cosmetic layer), added
+in the same change as the rules themselves, per *Maintenance* above. Two
+of them (`add borders to every cell in …`, `clear fill-color of …`) are
+`SD-19` siblings of vague shipped spellings, which keep their own `0.5.0`
+rows unchanged: the sibling is a new form, not a re-dating of the old.
+
 ### Phrasebook rules
 
 ```
 0.5.0  add [new] sheet called {s:sheet}
 0.5.0  add a row to table {n:text}
+0.5.6  add border around cell|range {r:range}
 0.5.0  add border to range {r:range}
+0.5.6  add borders to every cell in [range] {r:range}
 0.5.0  add {d:rows|columns|filters} of {f:text-list} to pivot {n:text}
+0.5.6  add {d:top|bottom|left|right} border to cell|range {r:range}
 0.5.0  add {f:text-list} to pivot {n:text} as {d:sum|count|average}
+0.5.6  align cell|range {r:range} to {d:top|middle|bottom}
 0.5.0  align cell|range {r:range} {d:left|right|center/ed}
 0.5.0  ask {q:expr} and put answer into {v:var}
 0.5.0  band every other row of {r:range} {n:expr}
@@ -149,6 +160,7 @@ below was present at `v0.5.0` except the one marked `0.5.2`.
 0.5.0  clear cell|range {r:range}
 0.5.0  clear color of cell {r:cell}
 0.5.0  clear everything from {r:range}
+0.5.6  clear fill-color of cell|range {r:range}
 0.5.0  clear formatting of range {r:range}
 0.5.0  clear pivot {n:text}
 0.5.0  clear status bar
@@ -191,6 +203,7 @@ below was present at `v0.5.0` except the one marked `0.5.2`.
 0.5.0  go to sheet {s:sheet}
 0.5.0  group rows {a:expr} through {b:expr}
 0.5.0  hide the total row of table {n:text}
+0.5.6  indent cell|range {r:range} by {n:expr}
 0.5.0  insert column before {c:column}
 0.5.0  insert row [at] {n:expr=1}
 0.5.0  insert {n:expr} rows at row {r:expr}
@@ -201,6 +214,9 @@ below was present at `v0.5.0` except the one marked `0.5.2`.
 0.5.0  make cell in column {c:column} row {n:expr} bold
 0.5.0  make cell {r:cell} {d:bold|italic}
 0.5.0  make cell {r:cell} {d:red|yellow|black|blue|cyan|green|magenta|white}
+0.5.6  make cell|range {r:range} not {d:bold|italic}
+0.5.6  make range {r:range} {d:bold|italic}
+0.5.6  make range {r:range} {d:red|yellow|black|blue|cyan|green|magenta|white}
 0.5.0  make row {r:expr} a header row
 0.5.0  make {a:range} look like {b:range}
 0.5.0  move column {c:column} before column {d:column}
@@ -227,16 +243,22 @@ below was present at `v0.5.0` except the one marked `0.5.2`.
 0.5.0  remove duplicates from range {r:range}
 0.5.0  remove duplicates from range {r:range} by column {k:expr}
 0.5.0  remove trailing empty rows and columns
+0.5.6  remove {d:underline|strikethrough|borders} from cell|range {r:range}
 0.5.0  remove {f:text-list} from pivot {n:text}
 0.5.0  rename pivot {n:text} to {m:text}
 0.5.0  replace {a:expr} with {b:expr} in column {c:column}
 0.5.0  replace {a:expr} with {b:expr} in range {r:range}
+0.5.6  rotate text in cell|range {r:range} by {n:expr} degrees
 0.5.0  save a copy as {p:expr}
 0.5.0  save this workbook
 0.5.0  save this workbook as {p:expr}
 0.5.0  set fill-color of cell {r:cell} to {e:expr}
+0.5.6  set fill-color of range {r:range} to {e:expr}
+0.5.6  set font of cell|range {r:range} to {n:text}
 0.5.0  set font size of cell {r:cell} to {n:expr}
+0.5.6  set font size of range {r:range} to {n:expr}
 0.5.0  set font-color of cell {r:cell} to {e:expr}
+0.5.6  set font-color of range {r:range} to {e:expr}
 0.5.0  set height of row {n:expr} to {h:expr}
 0.5.0  set style of table {n:text} to {s:text}
 0.5.0  set tab-color of sheet {s:sheet} to {e:expr}
@@ -268,10 +290,12 @@ below was present at `v0.5.0` except the one marked `0.5.2`.
 0.5.0  sort {f:text} in pivot {n:text} {d:ascending|descending} by {v:text}
 0.5.0  stamp {e:expr} into|in cell {r:cell}
 0.5.0  store {e:expr} at|under [key] {k:expr} in {d:var}
+0.5.6  strike through cell|range {r:range}
 0.5.0  turn off screen updating
 0.5.0  turn on screen updating
 0.5.0  turn table {n:text} back into a range
 0.5.0  turn {r:range} into a table called {n:text}
+0.5.6  underline cell|range {r:range}
 0.5.0  unfreeze panes
 0.5.0  ungroup rows {a:expr} through {b:expr}
 0.5.0  unhide all rows and columns

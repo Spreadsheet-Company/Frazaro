@@ -778,6 +778,65 @@ Make cell Z500 bold.
 Clear everything from Z500.
 Remove trailing empty rows and columns.
 
+# G-FORMAT slice 1: pareto.txt section 5, real end state on its own
+# GFormat sheet (delete-then-recreate, the GStruct reason: a second Run
+# must not inherit the first one's borders and fonts).
+#
+# Every "undo" sentence below undoes only PART of what the sentence
+# before it did, so the end state tells both apart - A8 stays bold
+# while C8 is un-bolded, and so on. Undoing the whole range would end
+# at Excel's own default and could not tell "undone" from "never
+# done" (the limit the pivot collapse/expand check names). Every range
+# rule is read back at its LAST cell, C: a rule that only reached the
+# first cell would pass a check on A.
+Try:
+  Delete sheet GFormat.
+
+Work on sheet GFormat.
+
+# Range twins of the cell-only rules, plus "Clear fill-color of" -
+# SD-19's explicit sibling of the shipped "Clear color of cell".
+Make range A1:C1 bold.
+Make range A2:C2 italic.
+Make range A3:C3 blue.
+Set font-color of range A4:C4 to "#FF0000".
+Set fill-color of range A5:C5 to "#00FF00".
+Make range A6:C6 yellow.
+Clear fill-color of range B6:C6.
+Set font size of range A7:C7 to 16.
+
+# Font: the antonyms, underline, strikethrough, typeface.
+Make range A8:C8 bold.
+Make range B8:C8 not bold.
+Make range A9:C9 italic.
+Make cell C9 not italic.
+Underline range A10:C10.
+Strike through range A11:C11.
+Underline range A12:C12.
+Remove underline from range B12:C12.
+Strike through range A13:C13.
+Remove the strikethrough from cell C13.
+Set font of range A14:C14 to "Courier New".
+
+# Alignment, indent, rotation. Bottom is Excel's default vertical
+# alignment, so it is only distinguishable as top-then-bottom.
+Align range A15:C15 to the top.
+Align range A16:C16 to the middle.
+Align range A17:C17 to the top.
+Align range B17:C17 to the bottom.
+Indent range A18:C18 by 2.
+Rotate text in range A19:C19 by 45 degrees.
+
+# Borders: the outline, one edge, every cell, and removal.
+# "Add borders to every cell in" is SD-19's explicit sibling of the
+# shipped "Add border to range" ("Add border to range A1:E10." above,
+# which keeps its meaning under SD-4); new lines use the explicit one.
+Add a border around range B21:D23.
+Add a bottom border to range B25:D25.
+Add borders to every cell in range B27:D29.
+Add borders to every cell in range B31:D33.
+Remove borders from range C31:D33.
+
 Go to sheet Output.
 
 Tidy-up.

@@ -62,7 +62,13 @@ called directly as native VBA, never through reflection:
   `DisplayAlerts`/`ScreenUpdating`/`StatusBar` — `VLA_Interpreter.bas`
   ~2301 onward) — census-built from real corpus usage, not designed
   up front (`IN.3`'s own history note names the exact live incidents that
-  grew this list one member at a time).
+  grew this list one member at a time). `G-FORMAT` slice 1 added five,
+  each a formatting property with no effect beyond the cell it styles:
+  `Underline`, `Strikethrough`, `VerticalAlignment`, `IndentLevel`,
+  `Orientation` (mirrored on the read side), and taught the existing
+  `Borders` read to honour its one index argument instead of ignoring
+  it. No method was added — the outline border is four edge writes, not
+  `Range.BorderAround`.
 - `NeutralizeFormulaInjection` (`SEC.4`, shipped) now guards the one
   member in this tier with a real injection risk (`Value`) against a
   leading `=`/`+`/`-`/`@`.

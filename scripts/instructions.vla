@@ -1434,16 +1434,124 @@
      (at-line 779 (trim-this-sheet))
      (set! vla-step 428)
      (if (vlatraceon) (then (vlatracestep 428 (vla-step-text 428))))
-     (at-line 781 (activate-sheet "output"))
-     (set! vla-step 429)
-     (if (vlatraceon) (then (vlatracestep 429 (vla-step-text 429))))
-     (at-line 783 (tidy-up))
+     (at-line 792
+              (on-error goto vla-tryf-5)
+              (set! vla-step 429)
+              (if (vlatraceon) (then (vlatracestep 429 (vla-step-text 429))))
+              (at-line 793 (delete-sheet "gformat"))
+              (goto vla-tryd-5)
+              (label vla-tryf-5)
+              (set! vla-problem err.description)
+              (resume vla-tryr-5)
+              (label vla-tryr-5)
+              (on-error goto vla-fail)
+              (label vla-tryd-5)
+              (on-error goto vla-fail))
      (set! vla-step 430)
      (if (vlatraceon) (then (vlatracestep 430 (vla-step-text 430))))
-     (at-line 784 (set-screen-updating true))
+     (at-line 795 (begin (vlaensuresheet "gformat") (activate-sheet "gformat")))
      (set! vla-step 431)
      (if (vlatraceon) (then (vlatracestep 431 (vla-step-text 431))))
-     (at-line 785 (debug-print "report finished"))
+     (at-line 799 (make-bold (range "a1:c1")))
+     (set! vla-step 432)
+     (if (vlatraceon) (then (vlatracestep 432 (vla-step-text 432))))
+     (at-line 800 (make-italic (range "a2:c2")))
+     (set! vla-step 433)
+     (if (vlatraceon) (then (vlatracestep 433 (vla-step-text 433))))
+     (at-line 801 (set-fill-color (range "a3:c3") vbblue))
+     (set! vla-step 434)
+     (if (vlatraceon) (then (vlatracestep 434 (vla-step-text 434))))
+     (at-line 802 (set-font-color (range "a4:c4") (vlacolor "#FF0000")))
+     (set! vla-step 435)
+     (if (vlatraceon) (then (vlatracestep 435 (vla-step-text 435))))
+     (at-line 803 (set-fill-color (range "a5:c5") (vlacolor "#00FF00")))
+     (set! vla-step 436)
+     (if (vlatraceon) (then (vlatracestep 436 (vla-step-text 436))))
+     (at-line 804 (set-fill-color (range "a6:c6") vbyellow))
+     (set! vla-step 437)
+     (if (vlatraceon) (then (vlatracestep 437 (vla-step-text 437))))
+     (at-line 805 (clear-color (range "b6:c6")))
+     (set! vla-step 438)
+     (if (vlatraceon) (then (vlatracestep 438 (vla-step-text 438))))
+     (at-line 806 (set-font-size (range "a7:c7") 16))
+     (set! vla-step 439)
+     (if (vlatraceon) (then (vlatracestep 439 (vla-step-text 439))))
+     (at-line 809 (make-bold (range "a8:c8")))
+     (set! vla-step 440)
+     (if (vlatraceon) (then (vlatracestep 440 (vla-step-text 440))))
+     (at-line 810 (make-not-bold (range "b8:c8")))
+     (set! vla-step 441)
+     (if (vlatraceon) (then (vlatracestep 441 (vla-step-text 441))))
+     (at-line 811 (make-italic (range "a9:c9")))
+     (set! vla-step 442)
+     (if (vlatraceon) (then (vlatracestep 442 (vla-step-text 442))))
+     (at-line 812 (make-not-italic (range "c9")))
+     (set! vla-step 443)
+     (if (vlatraceon) (then (vlatracestep 443 (vla-step-text 443))))
+     (at-line 813 (underline-text (range "a10:c10")))
+     (set! vla-step 444)
+     (if (vlatraceon) (then (vlatracestep 444 (vla-step-text 444))))
+     (at-line 814 (strike-through-text (range "a11:c11")))
+     (set! vla-step 445)
+     (if (vlatraceon) (then (vlatracestep 445 (vla-step-text 445))))
+     (at-line 815 (underline-text (range "a12:c12")))
+     (set! vla-step 446)
+     (if (vlatraceon) (then (vlatracestep 446 (vla-step-text 446))))
+     (at-line 816 (remove-underline (range "b12:c12")))
+     (set! vla-step 447)
+     (if (vlatraceon) (then (vlatracestep 447 (vla-step-text 447))))
+     (at-line 817 (strike-through-text (range "a13:c13")))
+     (set! vla-step 448)
+     (if (vlatraceon) (then (vlatracestep 448 (vla-step-text 448))))
+     (at-line 818 (remove-strikethrough (range "c13")))
+     (set! vla-step 449)
+     (if (vlatraceon) (then (vlatracestep 449 (vla-step-text 449))))
+     (at-line 819 (set-font-name (range "a14:c14") "Courier New"))
+     (set! vla-step 450)
+     (if (vlatraceon) (then (vlatracestep 450 (vla-step-text 450))))
+     (at-line 823 (align-top (range "a15:c15")))
+     (set! vla-step 451)
+     (if (vlatraceon) (then (vlatracestep 451 (vla-step-text 451))))
+     (at-line 824 (align-middle (range "a16:c16")))
+     (set! vla-step 452)
+     (if (vlatraceon) (then (vlatracestep 452 (vla-step-text 452))))
+     (at-line 825 (align-top (range "a17:c17")))
+     (set! vla-step 453)
+     (if (vlatraceon) (then (vlatracestep 453 (vla-step-text 453))))
+     (at-line 826 (align-bottom (range "b17:c17")))
+     (set! vla-step 454)
+     (if (vlatraceon) (then (vlatracestep 454 (vla-step-text 454))))
+     (at-line 827 (set-indent (range "a18:c18") 2))
+     (set! vla-step 455)
+     (if (vlatraceon) (then (vlatracestep 455 (vla-step-text 455))))
+     (at-line 828 (set-text-rotation (range "a19:c19") 45))
+     (set! vla-step 456)
+     (if (vlatraceon) (then (vlatracestep 456 (vla-step-text 456))))
+     (at-line 834 (add-outline-border (range "b21:d23")))
+     (set! vla-step 457)
+     (if (vlatraceon) (then (vlatracestep 457 (vla-step-text 457))))
+     (at-line 835 (add-edge-border (range "b25:d25") xledgebottom))
+     (set! vla-step 458)
+     (if (vlatraceon) (then (vlatracestep 458 (vla-step-text 458))))
+     (at-line 836 (add-border (range "b27:d29")))
+     (set! vla-step 459)
+     (if (vlatraceon) (then (vlatracestep 459 (vla-step-text 459))))
+     (at-line 837 (add-border (range "b31:d33")))
+     (set! vla-step 460)
+     (if (vlatraceon) (then (vlatracestep 460 (vla-step-text 460))))
+     (at-line 838 (remove-borders (range "c31:d33")))
+     (set! vla-step 461)
+     (if (vlatraceon) (then (vlatracestep 461 (vla-step-text 461))))
+     (at-line 840 (activate-sheet "output"))
+     (set! vla-step 462)
+     (if (vlatraceon) (then (vlatracestep 462 (vla-step-text 462))))
+     (at-line 842 (tidy-up))
+     (set! vla-step 463)
+     (if (vlatraceon) (then (vlatracestep 463 (vla-step-text 463))))
+     (at-line 843 (set-screen-updating true))
+     (set! vla-step 464)
+     (if (vlatraceon) (then (vlatracestep 464 (vla-step-text 464))))
+     (at-line 844 (debug-print "report finished"))
      (exit-sub)
      (label vla-fail)
      (vla-report-error))
@@ -1937,10 +2045,43 @@
                   (case (425) (return "Make cell Z500 bold. [line 777]"))
                   (case (426) (return "Clear everything from Z500. [line 778]"))
                   (case (427) (return "Remove trailing empty rows and columns. [line 779]"))
-                  (case (428) (return "Go to sheet Output. [line 781]"))
-                  (case (429) (return "Tidy-up. [line 783]"))
-                  (case (430) (return "Turn on screen updating. [line 784]"))
-                  (case (431) (return "Log \"report finished\". [line 785]"))
+                  (case (428) (return "Try: [line 792]"))
+                  (case (429) (return "Delete sheet GFormat. [line 793]"))
+                  (case (430) (return "Work on sheet GFormat. [line 795]"))
+                  (case (431) (return "Make range A1:C1 bold. [line 799]"))
+                  (case (432) (return "Make range A2:C2 italic. [line 800]"))
+                  (case (433) (return "Make range A3:C3 blue. [line 801]"))
+                  (case (434) (return "Set font-color of range A4:C4 to \"#FF0000\". [line 802]"))
+                  (case (435) (return "Set fill-color of range A5:C5 to \"#00FF00\". [line 803]"))
+                  (case (436) (return "Make range A6:C6 yellow. [line 804]"))
+                  (case (437) (return "Clear fill-color of range B6:C6. [line 805]"))
+                  (case (438) (return "Set font size of range A7:C7 to 16. [line 806]"))
+                  (case (439) (return "Make range A8:C8 bold. [line 809]"))
+                  (case (440) (return "Make range B8:C8 not bold. [line 810]"))
+                  (case (441) (return "Make range A9:C9 italic. [line 811]"))
+                  (case (442) (return "Make cell C9 not italic. [line 812]"))
+                  (case (443) (return "Underline range A10:C10. [line 813]"))
+                  (case (444) (return "Strike through range A11:C11. [line 814]"))
+                  (case (445) (return "Underline range A12:C12. [line 815]"))
+                  (case (446) (return "Remove underline from range B12:C12. [line 816]"))
+                  (case (447) (return "Strike through range A13:C13. [line 817]"))
+                  (case (448) (return "Remove the strikethrough from cell C13. [line 818]"))
+                  (case (449) (return "Set font of range A14:C14 to \"Courier New\". [line 819]"))
+                  (case (450) (return "Align range A15:C15 to the top. [line 823]"))
+                  (case (451) (return "Align range A16:C16 to the middle. [line 824]"))
+                  (case (452) (return "Align range A17:C17 to the top. [line 825]"))
+                  (case (453) (return "Align range B17:C17 to the bottom. [line 826]"))
+                  (case (454) (return "Indent range A18:C18 by 2. [line 827]"))
+                  (case (455) (return "Rotate text in range A19:C19 by 45 degrees. [line 828]"))
+                  (case (456) (return "Add a border around range B21:D23. [line 834]"))
+                  (case (457) (return "Add a bottom border to range B25:D25. [line 835]"))
+                  (case (458) (return "Add borders to every cell in range B27:D29. [line 836]"))
+                  (case (459) (return "Add borders to every cell in range B31:D33. [line 837]"))
+                  (case (460) (return "Remove borders from range C31:D33. [line 838]"))
+                  (case (461) (return "Go to sheet Output. [line 840]"))
+                  (case (462) (return "Tidy-up. [line 842]"))
+                  (case (463) (return "Turn on screen updating. [line 843]"))
+                  (case (464) (return "Log \"report finished\". [line 844]"))
                   (case-else (return "an unknown step"))))
 
 ; ---- carried by phrasebooks (L4) ----
@@ -2299,6 +2440,84 @@
     (fill-series r n s kind)
     "fill a range with a linear or growth series starting at a value, with an optional step"
     (vlafillseries r n s kind))
+
+(defmacro
+    (make-not-bold r)
+    "turn a range's bold off"
+    (set! (. r font.bold) false))
+
+(defmacro
+    (make-not-italic r)
+    "turn a range's italic off"
+    (set! (. r font.italic) false))
+
+(defmacro
+    (underline-text r)
+    "give a range's text a single underline"
+    (set! (. r font.underline) xlunderlinestylesingle))
+
+(defmacro
+    (strike-through-text r)
+    "draw a line through a range's text"
+    (set! (. r font.strikethrough) true))
+
+(defmacro
+    (remove-underline r)
+    "take the underline off a range's text"
+    (set! (. r font.underline) xlunderlinestylenone))
+
+(defmacro
+    (remove-strikethrough r)
+    "take the strikethrough line off a range's text"
+    (set! (. r font.strikethrough) false))
+
+(defmacro
+    (remove-borders r)
+    "remove every border line from a range, edges and inside lines alike"
+    (set! (. r borders.linestyle) xlnone))
+
+(defmacro
+    (set-font-name r n)
+    "set a range's typeface by name"
+    (set! (. r font.name) n))
+
+(defmacro
+    (align-top r)
+    "align a range's contents to the top of each cell"
+    (set! (. r verticalalignment) xltop))
+
+(defmacro
+    (align-middle r)
+    "align a range's contents to the middle of each cell"
+    (set! (. r verticalalignment) xlcenter))
+
+(defmacro
+    (align-bottom r)
+    "align a range's contents to the bottom of each cell"
+    (set! (. r verticalalignment) xlbottom))
+
+(defmacro
+    (set-indent r n)
+    "indent a range's contents by a number of levels"
+    (set! (. r indentlevel) n))
+
+(defmacro
+    (set-text-rotation r n)
+    "rotate a range's text by an angle in degrees"
+    (set! (. r orientation) n))
+
+(defmacro
+    (add-edge-border r edge)
+    "draw a continuous line along one edge of a range"
+    (set! (. (. r borders edge) linestyle) xlcontinuous))
+
+(defmacro
+    (add-outline-border r)
+    "draw a box around the outside of a range, leaving its inside lines alone"
+    (begin (add-edge-border r xledgetop)
+           (add-edge-border r xledgebottom)
+           (add-edge-border r xledgeleft)
+           (add-edge-border r xledgeright)))
 
 (defmacro
     (clear-contents r)

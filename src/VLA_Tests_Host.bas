@@ -3159,6 +3159,81 @@ Private Sub VerifyReportChecks(ws As Worksheet)
                wsG.UsedRange.Column + wsG.UsedRange.Columns.Count - 1 < 15, _
                "got last column " & (wsG.UsedRange.Column + wsG.UsedRange.Columns.Count - 1)
     End If
+
+    ' G-FORMAT slice 1: pareto.txt section 5, real end state on
+    ' instructions.txt's own GFormat sheet. Every range rule is read at
+    ' its range's LAST cell (column C, or D for the borders), since a
+    ' rule that only reached the first cell would pass a check on A;
+    ' every undo is read on both sides of a partial undo (A kept, C
+    ' undone), since undoing a whole range ends at Excel's own default
+    ' and cannot tell "undone" from "never done". Single cells only -
+    ' a multi-cell Font/Interior read returns Null when the cells
+    ' disagree, and CStr(Null) would raise inside CheckV instead of
+    ' reporting.
+    Dim wsF As Worksheet
+    On Error Resume Next
+    Set wsF = ActiveWorkbook.Worksheets("GFormat")
+    On Error GoTo 0
+    Report "GFormat sheet exists", Not (wsF Is Nothing), "no GFormat sheet - Run the program first"
+    If Not wsF Is Nothing Then
+        Report "range twin, bold: reaches C1", wsF.Range("C1").Font.Bold = True, "not bold"
+        Report "range twin, italic: reaches C2", wsF.Range("C2").Font.Italic = True, "not italic"
+        CheckV "range twin, named color (vbblue, newly resolvable by the interpreter): C3", _
+               wsF.Range("C3").Interior.Color, vbBlue
+        CheckV "range twin, font-color: C4 is #FF0000", wsF.Range("C4").Font.Color, RGB(255, 0, 0)
+        CheckV "range twin, fill-color: C5 is #00FF00", wsF.Range("C5").Interior.Color, RGB(0, 255, 0)
+        CheckV "clear fill-color (SD-19 sibling): A6 keeps its yellow (the fill ran)", wsF.Range("A6").Interior.Color, vbYellow
+        CheckV "clear fill-color (SD-19 sibling): C6 has no fill", wsF.Range("C6").Interior.ColorIndex, xlNone
+        CheckV "range twin, font size: C7", wsF.Range("C7").Font.Size, 16
+
+        Report "not bold: A8 still bold (the bold ran)", wsF.Range("A8").Font.Bold = True, "not bold"
+        Report "not bold: C8 no longer bold", wsF.Range("C8").Font.Bold = False, "still bold"
+        Report "not italic, cell form: A9 still italic (the italic ran)", wsF.Range("A9").Font.Italic = True, "not italic"
+        Report "not italic, cell form: C9 no longer italic", wsF.Range("C9").Font.Italic = False, "still italic"
+        CheckV "underline: C10 has a single underline", wsF.Range("C10").Font.Underline, xlUnderlineStyleSingle
+        Report "strike through: C11 is struck through", wsF.Range("C11").Font.Strikethrough = True, "not struck through"
+        CheckV "remove underline: A12 still underlined (the underline ran)", wsF.Range("A12").Font.Underline, xlUnderlineStyleSingle
+        CheckV "remove underline: C12 has no underline", wsF.Range("C12").Font.Underline, xlUnderlineStyleNone
+        Report "remove strikethrough, cell form: A13 still struck (the strike ran)", _
+               wsF.Range("A13").Font.Strikethrough = True, "not struck through"
+        Report "remove strikethrough, cell form: C13 no longer struck", _
+               wsF.Range("C13").Font.Strikethrough = False, "still struck through"
+        Report "set font: C14 is Courier New", _
+               StrComp(CStr(wsF.Range("C14").Font.Name), "Courier New", vbTextCompare) = 0, _
+               "got " & wsF.Range("C14").Font.Name
+
+        CheckV "align to top: C15", wsF.Range("C15").VerticalAlignment, xlTop
+        CheckV "align to middle: C16 (xlCenter - Excel has no xlMiddle)", wsF.Range("C16").VerticalAlignment, xlCenter
+        CheckV "align to bottom: A17 still top (the top ran)", wsF.Range("A17").VerticalAlignment, xlTop
+        CheckV "align to bottom: C17 moved to the bottom", wsF.Range("C17").VerticalAlignment, xlBottom
+        CheckV "indent: C18 is 2 levels in", wsF.Range("C18").IndentLevel, 2
+        CheckV "rotate text: C19 is at 45 degrees", wsF.Range("C19").Orientation, 45
+
+        ' The outline is four add-edge-border calls, so its four corners
+        ' prove all four xlEdge* constants under both backends; the
+        ' middle cell proves the inside was left alone - the one thing
+        ' that tells "around" from the shipped "Add border to".
+        CheckV "border around: B21 top edge", wsF.Range("B21").Borders(xlEdgeTop).LineStyle, xlContinuous
+        CheckV "border around: B23 left edge", wsF.Range("B23").Borders(xlEdgeLeft).LineStyle, xlContinuous
+        CheckV "border around: D23 bottom edge", wsF.Range("D23").Borders(xlEdgeBottom).LineStyle, xlContinuous
+        CheckV "border around: D21 right edge", wsF.Range("D21").Borders(xlEdgeRight).LineStyle, xlContinuous
+        CheckV "border around: the inside is left alone (C22 bottom edge)", _
+               wsF.Range("C22").Borders(xlEdgeBottom).LineStyle, xlNone
+        CheckV "bottom border: D25 bottom edge", wsF.Range("D25").Borders(xlEdgeBottom).LineStyle, xlContinuous
+        ' The interpreter's own Borders(index) bug, pinned: before this
+        ' pass its "borders" member ignored the index, so "a bottom
+        ' border" drew every edge. The top edge staying off is the proof.
+        CheckV "bottom border: D25 top edge stays off (one edge, not every border)", _
+               wsF.Range("D25").Borders(xlEdgeTop).LineStyle, xlNone
+        ' "Every cell in" (SD-19's sibling of the shipped "Add border to
+        ' range") is read at an INSIDE edge - the one thing that tells it
+        ' from "around", which leaves C22's matching edge off above.
+        CheckV "borders to every cell: C28's inside bottom edge is drawn (grid, not outline)", _
+               wsF.Range("C28").Borders(xlEdgeBottom).LineStyle, xlContinuous
+        CheckV "remove borders: B31 left edge untouched (the add ran)", _
+               wsF.Range("B31").Borders(xlEdgeLeft).LineStyle, xlContinuous
+        CheckV "remove borders: D33 bottom edge gone", wsF.Range("D33").Borders(xlEdgeBottom).LineStyle, xlNone
+    End If
 End Sub
 
 ' ---------------------------------------------------------------------

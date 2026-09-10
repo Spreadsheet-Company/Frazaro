@@ -28,7 +28,7 @@ rebuilds it in three steps:
    modules, the classes, and `frmCLI` — then **Debug → Compile VBAProject**.
 
 That is the whole lab bench. Everything the passes below need beyond code
-(`Output`, `Demo`, `GStruct`, the `VLA_Log` sheet) is created by the runs
+(`Output`, `Demo`, `GStruct`, `GFormat`, the `VLA_Log` sheet) is created by the runs
 themselves. Building the distributable add-ins from it is `DEPLOY.md`'s
 "Building the add-in" section.
 

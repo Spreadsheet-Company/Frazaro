@@ -4590,6 +4590,26 @@ Private Sub TestInterpreterExcelConstants()
     CheckV "in2.6: resolution is case-insensitive, like every other head symbol", _
            VLA_Interpreter.VlaEvalExpression("XlAscending"), 1
 
+    ' G-FORMAT slice 1: every constant that pass added, not a sample -
+    ' an edge index typed one off still draws A border, just the wrong
+    ' one, so the live GFormat check alone could pass a swapped pair.
+    CheckV "g-format: xltop resolves to -4160 (XlVAlign)", _
+           VLA_Interpreter.VlaEvalExpression("xltop"), -4160
+    CheckV "g-format: xlbottom resolves to -4107 (XlVAlign)", _
+           VLA_Interpreter.VlaEvalExpression("xlbottom"), -4107
+    CheckV "g-format: xlunderlinestylesingle resolves to 2 (XlUnderlineStyle)", _
+           VLA_Interpreter.VlaEvalExpression("xlunderlinestylesingle"), 2
+    CheckV "g-format: xlunderlinestylenone resolves to -4142 (XlUnderlineStyle)", _
+           VLA_Interpreter.VlaEvalExpression("xlunderlinestylenone"), -4142
+    CheckV "g-format: xledgeleft resolves to 7 (XlBordersIndex)", _
+           VLA_Interpreter.VlaEvalExpression("xledgeleft"), 7
+    CheckV "g-format: xledgetop resolves to 8 (XlBordersIndex)", _
+           VLA_Interpreter.VlaEvalExpression("xledgetop"), 8
+    CheckV "g-format: xledgebottom resolves to 9 (XlBordersIndex)", _
+           VLA_Interpreter.VlaEvalExpression("xledgebottom"), 9
+    CheckV "g-format: xledgeright resolves to 10 (XlBordersIndex)", _
+           VLA_Interpreter.VlaEvalExpression("xledgeright"), 10
+
     ' Regression: a bound variable takes priority over nothing, because a
     ' name outside the 13-constant table was never touched by this pass -
     ' still just a frame lookup.
@@ -4614,6 +4634,21 @@ Private Sub TestInterpreterVbConstants()
            VLA_Interpreter.VlaEvalExpression("vbtextcompare"), 1
     CheckV "in.3: resolution is case-insensitive, like every other head symbol", _
            VLA_Interpreter.VlaEvalExpression("VbYellow"), 65535
+    ' G-FORMAT slice 1: the other six colors "make cell ... {d:red|...}"
+    ' offered but the interpreter could not resolve. Literal numbers, not
+    ' vbBlack etc., so the pin and the table are two independent sources.
+    CheckV "g-format: vbblack resolves to 0", _
+           VLA_Interpreter.VlaEvalExpression("vbblack"), 0
+    CheckV "g-format: vbblue resolves to 16711680", _
+           VLA_Interpreter.VlaEvalExpression("vbblue"), 16711680
+    CheckV "g-format: vbcyan resolves to 16776960", _
+           VLA_Interpreter.VlaEvalExpression("vbcyan"), 16776960
+    CheckV "g-format: vbgreen resolves to 65280", _
+           VLA_Interpreter.VlaEvalExpression("vbgreen"), 65280
+    CheckV "g-format: vbmagenta resolves to 16711935", _
+           VLA_Interpreter.VlaEvalExpression("vbmagenta"), 16711935
+    CheckV "g-format: vbwhite resolves to 16777215", _
+           VLA_Interpreter.VlaEvalExpression("vbwhite"), 16777215
 
     ' Regression: an ordinary variable is unaffected by the constant table.
     Dim frame As Object

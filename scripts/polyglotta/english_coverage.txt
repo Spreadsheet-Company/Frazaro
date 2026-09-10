@@ -1,10 +1,9 @@
 === PHRASEBOOK TEST COVERAGE: english.vla ===
-Rules: 150
+Rules: 167
 
---- Zero tests, 1 rule(s) ---
-  paint cell {r:text} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+--- Zero tests, 0 rule(s) ---
 
---- Exactly one test, 109 rule(s) ---
+--- Exactly one test, 117 rule(s) ---
   copy cell {a:cell} to cell {b:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   paste values of range {a:range} into range {b:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   set font-color of cell {r:cell} to {e:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
@@ -111,6 +110,14 @@ Rules: 150
   fill {r:range} with a series starting at {n:expr} with step {s:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   fill {r:range} with a growth series starting at {n:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   fill {r:range} with a growth series starting at {n:expr} with step {s:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  set font-color of range {r:range} to {e:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  set fill-color of range {r:range} to {e:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  set font size of range {r:range} to {n:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  strike through cell|range {r:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  indent cell|range {r:range} by {n:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  rotate text in cell|range {r:range} by {n:expr} degrees [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  add border around cell|range {r:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  paint cell {r:cell} {e:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   show every {table:text} {shown:text} whose {filtercol:text} is over {val:expr} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   show every {shown:text} in {table:text} with {filtercol:text} over {val:expr} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   show everyone who reports to {person:expr} directly or not in {table:text} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
@@ -118,4 +125,4 @@ Rules: 150
 test-fail proofs (file-level, never attributed to a rule): 5
 test-success proofs for a structural form, not a phrase rule: 9
 
-=== SUMMARY: 40/150 rules have 2+ tests; 109 have exactly one; 1 have zero ===
+=== SUMMARY: 50/167 rules have 2+ tests; 117 have exactly one; 0 have zero ===

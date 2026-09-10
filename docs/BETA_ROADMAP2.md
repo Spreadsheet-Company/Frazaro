@@ -95,6 +95,7 @@ download without asking.
 - **SD-16 — the phrasebook's pattern language is the only sentence grammar; no DCG, no backtracking parser, and no Prolog-shaped matcher ever parses a sentence.**
 - **SD-17 — blind spots are hunted on a cadence, not collected in a file: every roadmap fork is preceded by one outside-persona review, the persona must be one not yet used, and a review that mints or kills no roadmap item is decoration.**
 - **SD-18 — VBA remains the reference; a second-host engine (web, desktop shell, or otherwise) follows the goldens, never leads them.**
+- **SD-19 — where Excel has neighbouring operations, each sentence names the one it performs.**
 
 ---
 
@@ -298,6 +299,7 @@ download without asking.
 
 - ⬜ **CO.5 — the migration tool.** Worthless until there is history to migrate, but CO.1 must exist first or there is nothing to migrate *to*. `~weeks`
 - ✅ **CO.6 — the grammar since-ledger.** `docs/GRAMMAR_SINCE.md`: 278 rows (150 rules + 128 dispatch arms) dating each form to the release it first *worked* in, append-only. Two seeding traps found: the generated artifact was stale at v0.5.0 (inventory from the artifact, dates from source), and source alone undercounts (three generator-emitted rules). Owner-accepted seed; its ratchet, `check_grammar_since.ps1`, landed with F.10. *(more: BETA_ROADMAP1.md)* `~hours`
+- ⬜ **CO.7 — the shipped corpus, audited under SD-19.** Every shipped rule read against SD-19's test (could a speaker expect a sibling operation?); each failure gains an explicit sibling and becomes a documented legacy spelling (SD-4 keeps it working). Known candidates: `Add border to range` and `Clear color of cell` (both given siblings in G-FORMAT slice 1), `Clear cell|range` (not yet). **Note, engine finding:** the refusals SD-19 creates teach the wrong rule — the near-miss ranking favours whichever rule an open slot (`{f:text-list}`, `{v:var}`) carried furthest, so `Remove the border from range …` suggests the pivot rule and `Set border-color of …` suggests `set {v:var} to {e:expr}`. Correct refusals, wrong lesson; the fix is LX.8's ranking, not this audit's. *(more: BETA_ROADMAP1.md)* `~days`
 
 ---
 
@@ -305,7 +307,9 @@ download without asking.
 
 *The corpus. The moat, and the reason everything else exists. It has no position in this file, because under SD-12 it never stops. specimens: 0 until PI.2.*
 
-- ⬜ **G-FORMAT** — formatting and number-format sections (~70 rules, mostly thin). Pure Tier-1, no new plumbing, and where a beta looks thin or finished. `~weeks`
+- 🟡 **G-FORMAT** — formatting and number-format sections: `pareto.txt` §5 + §6, 43 entries (recounted 2026-09-10; the old "~70" was an estimate). Pure Tier-1, no new plumbing, and where a beta looks thin or finished. ✅ when §6 ships. **✅ Slice 1, §5 the cosmetic layer — owner-tested and committed:** 17 rules: five range twins of shipped cell-only rules, plus not-bold/italic, underline, strikethrough, one shared remove verb, typeface, vertical alignment, indent, rotation, one-edge, outline and every-cell borders, clear fill-color. The founding case of SD-19: every-cell borders and clear fill-color are the explicit siblings of two vague shipped spellings; border colour was withdrawn when a live read showed `Borders.Color` draws the lines it colours. Live end state on a new `GFormat` sheet in `instructions.txt`. **Left:** ⬜ §6 number formats (13 entries; EN.3 gates ten, three are locale-neutral) and ⬜ §5's border colour. *(more: BETA_ROADMAP1.md)* `~weeks`
+
+- ⬜ **G-CONDFORMAT** — conditional formatting, `pareto.txt` §7 (12 entries). Split from G-FORMAT 2026-09-10: every entry but one needs a Tier-2 helper and pareto files it P1, so it is different work from G-FORMAT's one-property macros and would have held that item open. *(more: BETA_ROADMAP1.md)* `~weeks`
 
 - ⬜ **G-SORTFILTER**, ⬜ **G-TABS**, ⬜ **G-FORMULA**, ⬜ **G-TEXT** — the workhorse middle. `~weeks` each
 

@@ -520,6 +520,41 @@ nothing here is "done," and nothing here is ever pruned.*
   discussion of query-and-logic-style stunts along the natural- vs.
   programming-language axes this decision is a precondition for
   attempting safely.
+- **SD-19 — where Excel has neighbouring operations, each sentence names
+  the one it performs.** If a reasonable speaker could expect a sibling
+  operation from a sentence — outline vs every cell, fill vs font colour,
+  contents vs everything — the sentence carries the word that decides it:
+  *around*, *every cell in*, *fill-color*. A new rule never ships the
+  undecided spelling. A shipped one keeps its meaning under SD-4 and gains
+  an explicit sibling, which becomes the spelling the corpus, examples and
+  docs use from then on. A rule with no neighbour stays short: specificity
+  is owed where a second reading exists, not everywhere. *Reason:* an
+  undecided spelling runs, succeeds, and does the other thing — a
+  confidently-wrong result with no refusal to warn anyone. SD-16 makes a
+  sentence mean one thing to the parser; this makes it mean one thing to
+  the person typing it. The two are different guarantees: a sentence can
+  have exactly one parse and still be read as its neighbour. *Relation to
+  the verb audits* (`LESSONS.md` IV, XXIX — "one verb never carries two
+  mechanisms"): that rule stops a verb from meaning two things; this one
+  stops two things from sharing an unmarked sentence. *Founding case (the
+  owner's ear, live, G-FORMAT slice 1):* "Add border to range" draws every
+  cell's lines, where English hears a box — made visible only when "Add a
+  border around" shipped beside it and the pair was read aloud. *Second
+  case, the same day, and the first caught by live test rather than by
+  ear:* a draft "Set border-color of range" said recolour, but
+  `Range.Borders.Color` also draws every line it colours — withdrawn from
+  the slice before commit (G-FORMAT's own entry has the read). A sentence
+  can fail this rule through a side effect as well as through its words,
+  so the audition includes the effect, not just the sentence. *Why keep,
+  not retire, the shipped spelling:* retiring through CO.1 invokes SD-4,
+  which SD-14 makes a MAJOR, and `1.0.0` is reserved for PI.6 — so before
+  1.0 the explicit sibling is the only honest path, and a vague shipped
+  sentence is a documented legacy spelling, not a refusal. *Test, for an
+  audition:* read the sentence to someone who has not seen the rule and ask
+  what they expect Excel to do; if a sibling operation is a plausible
+  answer, the distinguishing word is missing. *Pays into:* `CO.7` (the
+  audit of the shipped corpus under this rule), LX.9 (a candidate lint
+  check), and every grammar slice from G-FORMAT on.
 
 ---
 
@@ -5799,6 +5834,51 @@ before-contact item behind the gate.
   perishable half:** the whole history is two tags today and gets harder
   every release. *Depends on:* nothing. *Unblocks:* `F.10`'s `version`
   namespace being a tight gate rather than a loose one. `~hours`
+- ⬜ **CO.7 — the shipped corpus, audited under SD-19.** Every shipped
+  phrase rule read against SD-19's test — *could a reasonable speaker
+  expect a sibling operation from this sentence?* — and each one that
+  fails gains an explicit sibling (SD-4 keeps the original working; it
+  becomes a documented legacy spelling, and the sibling becomes the one
+  the corpus, examples and docs use). **Known candidates, from the
+  founding session, not yet the audit itself:** `Add border to range`
+  (draws every cell's lines, reads as a box — already given its sibling,
+  `Add borders to every cell in …`, in G-FORMAT slice 1), `Clear color of
+  cell` (clears the fill, leaves font colour — sibling `Clear fill-color of
+  …` shipped in the same slice), and `Clear cell|range` (contents only,
+  beside `Clear everything from` — not yet given one). *Output:* a list of
+  every shipped rule with a verdict and, for each failure, its sibling
+  rule; the legacy spellings recorded where CO.1/CO.2 will find them. *Why
+  CO and not a grammar slice:* it is about what shipped spellings promise,
+  which is this section's whole subject. *Depends on:* SD-19. *Unblocks:*
+  LX.9's first concrete check. `~days`
+
+  **Note — an engine finding for this audit's refusals, not a rule verdict
+  (owner-run, live, G-FORMAT slice 1, 2026-09-10).** SD-19 turns undecided
+  spellings into refusals, and the refusal's "did you mean" list then
+  teaches the wrong rule. The near-miss ranking prefers whichever rule got
+  furthest into the sentence, and an open slot — `{f:text-list}`,
+  `{v:var}` — swallows the word a literal alternation would have rejected,
+  so the rule with the open slot always outscores the one the writer
+  meant. Two specimens:
+  - `Remove the border from range A1:C3.` → *"I understood 'remove border
+    from' - then I expected 'pivot' but found 'range'"*, suggesting the
+    pivot and remove-duplicates rules. The rule meant, `remove
+    {d:underline|strikethrough|borders} from cell|range …`, is not listed:
+    it failed one word in, at `border`.
+  - `Set border-color of range B2:D4 to "#0000FF".` (the withdrawn
+    border-colour sentence) → *"I understood 'set border-color' - then I
+    expected 'to' but found 'of'"*, suggesting `set {v:var} to {e:expr}`
+    and two siblings — `border-color` taken as a variable name.
+
+  Both refuse correctly — nothing ran — so this is a teaching defect, not
+  a safety one. It matters to this audit specifically because every
+  legacy spelling CO.7 declines to widen, and every singular/plural or
+  near-synonym SD-19 leaves out, lands in exactly this refusal. *Not
+  scoped here:* the fix belongs to the refusal ranking (probably weighting
+  a literal-alternation miss above an open slot's extra progress, or
+  listing the closest literal match alongside the furthest-progress one),
+  which is LX.8's teaching territory; this note exists so the audit does
+  not ship twenty new refusals that each point at the pivot rule.
 
 ---
 
@@ -5822,6 +5902,13 @@ seventy rules to protect twelve, and it compounds every version it survives.
 |---|---|---|
 | G-FORMAT (number formats, ~12 rules) | F.1, EN.3 | — |
 | G-FORMAT (the rest, ~58 rules) | F.1 | ✅ |
+| G-CONDFORMAT (split from G-FORMAT, 12 entries) | F.1 | ✅ |
+
+*Correction to the two G-FORMAT rows above (recounted 2026-09-10):* the
+counts were estimates. `pareto.txt` §5 is 30 entries, §6 is 13 (of which
+`text`, `general` and a custom pattern are locale-neutral, so EN.3 gates
+ten), and §7 — conditional formatting — is 12 and is now `G-CONDFORMAT`.
+§5 is covered (G-FORMAT slice 1, one entry withdrawn under SD-19).
 | G-STRUCT, G-ROWLOOP, G-TEXT, G-SORTFILTER | F.1 | ✅ |
 | G7, G8, G11r, G-PATH | F.1 | ✅ |
 | G6, G-TABS | F.1 | ✅ |
@@ -6051,9 +6138,82 @@ G-TAIL always said this about itself; it is true of the whole tranche.
   type, not this entry's. Named here so the first Tier-2 implementation
   attempt does not have to rediscover it live. See `SEC.0`'s own threat
   model for where this fits.
-- ⬜ **G-FORMAT** — formatting and number-format sections (~70 rules, mostly
-  thin). Pure Tier-1, no new plumbing, and where a beta looks thin or finished.
-  `~weeks`
+- 🟡 **G-FORMAT** — formatting and number-format sections: `pareto.txt` §5
+  and §6, **43 entries**. Pure Tier-1, no new plumbing, and where a beta looks
+  thin or finished. `~weeks`
+  *Recounted 2026-09-10, owner-asked:* the "~70 rules" this entry carried was
+  an estimate no grouping of the real sections reproduces (§5 is 30 entries,
+  §6 is 13, §7 is 12; even all three make 55). §7, conditional formatting, is
+  now its own item, `G-CONDFORMAT`, below — the owner's call, so this one has a
+  closing condition: **G-FORMAT is ✅ when §6 ships.** Slices:
+  1. ✅ §5, the cosmetic layer — below. 29 of 30 entries covered.
+  2. ⬜ §6, number formats — 13 entries; three exist only in narrow form
+     (`format cell … as currency|percent|date`: cell-only, US patterns). EN.3
+     gates the locale-sensitive ones; `text`, `general` and a custom pattern
+     are locale-neutral.
+  3. ⬜ §5's one remainder, border colour — withdrawn from slice 1 (below),
+     with two designs named.
+  - ✅ **Slice 1 — `pareto.txt` §5, the cosmetic layer.** Owner-tested and
+    committed 2026-09-10. Appetite-boxed to one section (`AUDIT.md` I.11's Shape Up
+    note: an unbounded G-FORMAT produces seventy immaculate rules and no user).
+    **17 rules** in `english.vla`'s new G-FORMAT block. *Five range twins* — a
+    shipped `{r:cell}` rule refuses `A1:C3` at Check, so bold/italic, the named
+    colors, font-color, fill-color and font size each gain a `range` sibling
+    spelled word-for-word like the cell rule, reusing its macro; the cell rule
+    is untouched (SD-4). *Ten new verbs*, each on `cell|range {r:range}`:
+    not bold/italic, underline, strike through, one `remove
+    {underline|strikethrough|borders}` undo verb, typeface, vertical alignment
+    (top/middle/bottom — Excel has no `xlMiddle`, so the word names a macro, not
+    a glued constant), indent, rotation, one named edge border, the outline
+    border (four edge writes, not `BorderAround` — no new interpreter
+    method). **Border colour withdrawn**, SD-19's audition failing it live: a
+    draft `Set border-color of … to …` was `Range.Borders.Color`, which *draws*
+    every edge and inside line it colours — an outlined B2:D4 came back with its
+    inside lines drawn (owner's Immediate-window read: D3's bottom and C4's left
+    edge both `LineStyle` 1, drawn by no sentence). Two designs named in the
+    block for a later slice: recolour only existing lines (a Tier-2 walk), or
+    colour inside the drawing sentence (`Add a border around … in blue.`).
+    *Two SD-19 siblings* — this slice is SD-19's founding case
+    (the owner's ear, after live test): `Add borders to every cell in …` beside
+    the shipped `Add border to range` (which draws the grid but reads as a
+    box), and `Clear fill-color of …` beside the shipped `Clear color of cell`
+    (which clears the fill and leaves font colour) — the latter replacing a
+    first-draft `clear color of range` twin that copied the vague spelling. The
+    same reading dropped the removal verb's singular (`Remove the border from
+    range …` reads as the outline, and it removes the inside lines too).
+    **Not re-added**, because the file already says them: wrap, merge,
+    horizontal alignment, copy-style, banded-rows, header-style.
+    **Two interpreter defects surfaced and fixed on the way**, both invisible to
+    `test-success` (which proves only the substituted shape): (1) `DynamicGet`'s
+    `borders` member ignored its index, so any `Borders(xlEdgeBottom)` would have
+    styled *every* border under Interpret; (2) `ResolveVbConstant` knew only
+    `vbred`/`vbyellow`, so the shipped `make cell … {d:red|…|white}` rule's other
+    six colors translated and then raised under Interpret — `instructions.txt`
+    never said them. Five members added to the SEC.1 allowlist by name
+    (`THREAT_MODEL.md` §1.1). Proof: pure pins for all 14 new constants; a live
+    `GFormat` sheet in `instructions.txt` read by `VerifyReportChecks`, every
+    range rule checked at its last cell and every undo checked on both sides of
+    a partial undo. **First live run (17-rule draft): `VlaSelfTests` pure
+    1061/1061, host 143/143; `VerifyReports` emitter and interpreter both
+    177/177; both interpreter fixes confirmed by hand. Second (18-rule SD-19
+    revision): pure 1061/1061, host 143/143; both backends 178/178. Final
+    (17 rules, border colour withdrawn): pure 1061/1061, host 143/143; both
+    backends 177/177.**
+- ⬜ **G-CONDFORMAT** — conditional formatting, `pareto.txt` §7: **12 entries**
+  (highlight greater/less/between/equal/containing, duplicates, blanks, top N,
+  colour scale, data bars, a formula escape hatch, and clearing them). *Split
+  from G-FORMAT 2026-09-10, the owner's call*, because it is different work:
+  every entry but `cf-clear` is marked `!` (a Tier-2 helper — the
+  FormatConditions API is verbose and stateful enough that raw emission would
+  be unreadable), where G-FORMAT's rules are one-property macros; and pareto
+  files it P1 where §5/§6 are P0. Keeping it inside G-FORMAT would have held
+  that item open behind twelve helpers the beta does not need. *Carries
+  forward:* SD-19 applies with force here — "Highlight cells in A1:A9 greater
+  than 5 in red" names both the test and the effect, but a conditional rule is
+  also *live* (it re-evaluates as values change), which a static fill is not,
+  so the sentence must not read like `Make range … red` (G-STRUCT's banded-rows
+  note already chose static over conditional once, for exactly this reason).
+  *Depends on:* F.1 only (G-FORMAT's own gate-table row). `~weeks`
 - ✅ **G-STRUCT** — rows/columns/copy/paste/clear (~24 rules: hide/unhide,
   group/ungroup, insert/delete rows, move-column, freeze-panes, seven
   copy/paste variants, clear/delete-shift, band-rows, header-row,

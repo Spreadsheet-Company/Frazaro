@@ -2139,6 +2139,360 @@
     "Fill A1:A10 with a growth series starting at 2 with step 3."
     (fill-series (range "a1:a10") 2 3 "growth"))
 
+; ---- G-FORMAT slice 1: the cosmetic layer (pareto section 5) ----------
+; BETA_ROADMAP.md's G-FORMAT entry, appetite-boxed to pareto.txt section
+; 5 only. Section 6 (number formats) waits on EN.3's locale policy - the
+; roadmap's own gate table names exactly those rules and nothing else -
+; and section 7 (conditional formatting) is its own later pass.
+;
+; What pareto section 5 lists that this file ALREADY says, and is
+; therefore not re-added under pareto's wording (one spelling per
+; operation - G-STRUCT's own header policy): wrap/no-wrap, merge/
+; unmerge, align left/right/center, copy-style, banded-rows and
+; header-style.
+;
+; SD-19 (BETA_ROADMAP.md's standing-decision register, founded on this
+; block): where Excel has neighbouring operations, each sentence names
+; the one it performs. The test, at audition: read the sentence to
+; someone who has not seen the rule - if a sibling operation is a
+; plausible answer to "what will Excel do?", the deciding word is
+; missing. A new rule never ships the undecided spelling; a shipped one
+; keeps its meaning (SD-4) and gains an explicit sibling.
+;
+; Three kinds of rule follow.
+;   RANGE TWINS - a shipped rule typed {r:cell}, which refuses A1:C3 at
+;   Check (G2's shape check), gains a "range" sibling. The twin is the
+;   cell sentence with "cell" replaced by "range", word for word, and
+;   reuses the cell rule's own macro - the "put ... into range" twin at
+;   the top of this file is the precedent. The shipped cell rule is left
+;   untouched: widening it to "cell|range" would change a shipped
+;   spelling (SD-4), and the duplicate-shape audit would refuse the two
+;   side by side anyway. A cell rule SD-19 finds vague gets no twin -
+;   copying it would ship the vague spelling a second time.
+;   SD-19 SIBLINGS - the explicit spelling beside a vague shipped one:
+;   "Add borders to every cell in" beside "Add border to range" (grid,
+;   heard as a box), "Clear fill-color of" beside "Clear color of cell"
+;   (fill only, font colour untouched). The shipped spelling keeps
+;   working; the sibling is the one the corpus uses from here on.
+;   NEW VERBS - no shipped predecessor, so they take "cell|range
+;   {r:range}" (the breadth pass's center/align/clear convention),
+;   saying both at once.
+;
+; Every antonym pair ("any action that can be undone should be
+; undoable", the pivot-collapse/expand note) is shipped together:
+; bold/not bold, italic/not italic, underline/remove underline, strike
+; through/remove strikethrough, add border/remove borders.
+
+; ---- range twins of the shipped cell-only formatting rules ------------
+(english-vla
+    "make range {r:range} {d:bold|italic}"
+    (make-{d} (range {r})))
+(test-success
+    "Make range A1:C1 bold."
+    (make-bold (range "a1:c1")))
+(test-success
+    "Make range A1:C1 italic."
+    (make-italic (range "a1:c1")))
+
+; The eight vb color constants: before this pass the interpreter
+; resolved only vbred and vbyellow (VLA_Interpreter.ResolveVbConstant),
+; so the SHIPPED cell rule's other six colors translated fine and then
+; raised "nothing stored at key 'vbblack'" under Interpret - instructions.txt
+; only ever said red and yellow. Closed there alongside this twin.
+(english-vla
+    "make range {r:range} {d:red|yellow|black|blue|cyan|green|magenta|white}"
+    (set-fill-color (range {r}) vb{d}))
+(test-success
+    "Make range A1:C1 blue."
+    (set-fill-color (range "a1:c1") vbblue))
+(test-success
+    "Make range A1:C1 white."
+    (set-fill-color (range "a1:c1") vbwhite))
+
+(english-vla
+    "set font-color of range {r:range} to {e:expr}"
+    (set-font-color (range {r}) (vlacolor {e})))
+(test-success
+    "Set font-color of range A1:C1 to hot-pink."
+    (set-font-color (range "a1:c1") (vlacolor hot-pink)))
+
+(english-vla
+    "set fill-color of range {r:range} to {e:expr}"
+    (set-fill-color (range {r}) (vlacolor {e})))
+(test-success
+    "Set fill-color of range A1:C1 to \"#FF69B4\"."
+    (set-fill-color (range "a1:c1") (vlacolor "#FF69B4")))
+
+; SD-19 sibling, not a twin: the shipped "Clear color of cell" clears
+; the FILL and leaves font colour alone, where "color" could mean
+; either. Its explicit spelling names the fill, pairing with "Set
+; fill-color of", and takes cell|range so the vague cell rule is never
+; copied. Same macro as the shipped rule, so the two stay one operation.
+(english-vla
+    "clear fill-color of cell|range {r:range}"
+    (clear-color (range {r})))
+(test-success
+    "Clear fill-color of range A1:C1."
+    (clear-color (range "a1:c1")))
+(test-success
+    "Clear fill-color of cell A1."
+    (clear-color (range "a1")))
+
+(english-vla
+    "set font size of range {r:range} to {n:expr}"
+    (set-font-size (range {r}) {n}))
+(test-success
+    "Set font size of range A1:C1 to 14."
+    (set-font-size (range "a1:c1") 14))
+
+; ---- font: not bold/italic, underline, strikethrough, typeface --------
+(defmacro
+    (make-not-bold r)
+    "turn a range's bold off"
+    (set! (. r font.bold) false))
+
+(defmacro
+    (make-not-italic r)
+    "turn a range's italic off"
+    (set! (. r font.italic) false))
+
+; G11r: the matched style word completes the macro name, the same move
+; as "make cell {r:cell} {d:bold|italic}" -> (make-{d} ...).
+(english-vla
+    "make cell|range {r:range} not {d:bold|italic}"
+    (make-not-{d} (range {r})))
+(test-success
+    "Make range A1:C1 not bold."
+    (make-not-bold (range "a1:c1")))
+(test-success
+    "Make cell A1 not italic."
+    (make-not-italic (range "a1")))
+
+; Underline is not a boolean in Excel - Font.Underline takes an
+; XlUnderlineStyle - so "single" is the one style said here; double and
+; accounting underlines are a later, separate decision if anyone asks.
+(defmacro
+    (underline-text r)
+    "give a range's text a single underline"
+    (set! (. r font.underline) xlunderlinestylesingle))
+
+(defmacro
+    (strike-through-text r)
+    "draw a line through a range's text"
+    (set! (. r font.strikethrough) true))
+
+(english-vla
+    "underline cell|range {r:range}"
+    (underline-text (range {r})))
+(test-success
+    "Underline range A1:C1."
+    (underline-text (range "a1:c1")))
+(test-success
+    "Underline cell A1."
+    (underline-text (range "a1")))
+
+(english-vla
+    "strike through cell|range {r:range}"
+    (strike-through-text (range {r})))
+(test-success
+    "Strike through range A1:C1."
+    (strike-through-text (range "a1:c1")))
+
+; The undo verb for three different marks, one rule: the matched noun IS
+; the macro name (G11r). "borders" is plural only, under SD-19: "Remove
+; the border from range B2:D4" reads as taking the box off, but the
+; macro removes the inside lines too - the plural says "every line".
+(defmacro
+    (remove-underline r)
+    "take the underline off a range's text"
+    (set! (. r font.underline) xlunderlinestylenone))
+
+(defmacro
+    (remove-strikethrough r)
+    "take the strikethrough line off a range's text"
+    (set! (. r font.strikethrough) false))
+
+(defmacro
+    (remove-borders r)
+    "remove every border line from a range, edges and inside lines alike"
+    (set! (. r borders.linestyle) xlnone))
+
+(english-vla
+    "remove {d:underline|strikethrough|borders} from cell|range {r:range}"
+    (remove-{d} (range {r})))
+(test-success
+    "Remove underline from range A1:C1."
+    (remove-underline (range "a1:c1")))
+(test-success
+    "Remove the strikethrough from cell A1."
+    (remove-strikethrough (range "a1")))
+(test-success
+    "Remove borders from range B2:D4."
+    (remove-borders (range "b2:d4")))
+(test-success
+    "Remove the borders from cell B2."
+    (remove-borders (range "b2")))
+
+; A font name is best quoted ("quotes are the door"): quoting keeps it
+; exactly as written, a bare word lowercases in transit, and "Courier
+; New" unquoted is two tokens and refuses.
+(defmacro
+    (set-font-name r n)
+    "set a range's typeface by name"
+    (set! (. r font.name) n))
+
+(english-vla
+    "set font of cell|range {r:range} to {n:text}"
+    (set-font-name (range {r}) {n}))
+(test-success
+    "Set font of range A1:C1 to \"Courier New\"."
+    (set-font-name (range "a1:c1") "Courier New"))
+(test-success
+    "Set font of cell A1 to arial."
+    (set-font-name (range "a1") "arial"))
+
+; ---- alignment, indent, rotation --------------------------------------
+; Vertical alignment beside the shipped horizontal rule. Not a glued
+; xl{d}, unlike the horizontal one: Excel has no xlMiddle - middle is
+; xlCenter - so the matched word names a macro instead (G11r), and each
+; macro carries its own constant. "the" is dropped from input at
+; tokenize time, so "to the top" and "to top" are one sentence.
+(defmacro
+    (align-top r)
+    "align a range's contents to the top of each cell"
+    (set! (. r verticalalignment) xltop))
+
+(defmacro
+    (align-middle r)
+    "align a range's contents to the middle of each cell"
+    (set! (. r verticalalignment) xlcenter))
+
+(defmacro
+    (align-bottom r)
+    "align a range's contents to the bottom of each cell"
+    (set! (. r verticalalignment) xlbottom))
+
+(english-vla
+    "align cell|range {r:range} to {d:top|middle|bottom}"
+    (align-{d} (range {r})))
+(test-success
+    "Align range A1:C1 to the top."
+    (align-top (range "a1:c1")))
+(test-success
+    "Align cell A1 to the middle."
+    (align-middle (range "a1")))
+(test-success
+    "Align range A1:C1 to bottom."
+    (align-bottom (range "a1:c1")))
+
+; Excel refuses an indent outside 0-15 itself, as a step-numbered
+; runtime error at this sentence - no guard added in front of it.
+(defmacro
+    (set-indent r n)
+    "indent a range's contents by a number of levels"
+    (set! (. r indentlevel) n))
+
+(english-vla
+    "indent cell|range {r:range} by {n:expr}"
+    (set-indent (range {r}) {n}))
+(test-success
+    "Indent range A1:C1 by 2."
+    (set-indent (range "a1:c1") 2))
+
+; Orientation in degrees, -90 to 90; outside that Excel refuses at
+; runtime, same as indent above.
+(defmacro
+    (set-text-rotation r n)
+    "rotate a range's text by an angle in degrees"
+    (set! (. r orientation) n))
+
+(english-vla
+    "rotate text in cell|range {r:range} by {n:expr} degrees"
+    (set-text-rotation (range {r}) {n}))
+(test-success
+    "Rotate text in range A1:C1 by 45 degrees."
+    (set-text-rotation (range "a1:c1") 45))
+
+; ---- borders -----------------------------------------------------------
+; Three extents, each named in its sentence (SD-19): every cell's lines,
+; the outline ("around"), and one named edge.
+;
+; Every cell - SD-19's founding case. The shipped "Add border to range"
+; draws every line, inside and out, while English hears a box. It keeps
+; that meaning (SD-4); this is its explicit sibling, same macro, and the
+; spelling the corpus uses from here on. "[range]" is optional because
+; "every cell in cell A1" is not English, and a lone cell's borders are
+; its outline anyway - "Add a border around cell A1" says that.
+(english-vla
+    "add borders to every cell in [range] {r:range}"
+    (add-border (range {r})))
+(test-success
+    "Add borders to every cell in range A1:C3."
+    (add-border (range "a1:c3")))
+(test-success
+    "Add borders to every cell in A1:C3."
+    (add-border (range "a1:c3")))
+
+; add-edge-border takes the edge as an xlEdge* constant, glued from the
+; matched word (xledge{d} -> xledgebottom), the xl{d} move again.
+; Borders(index) is the first INDEXED Borders read this corpus makes;
+; the interpreter's own "borders" member used to ignore its index and
+; hand back all of them, which would have drawn every edge for "Add a
+; bottom border" - fixed in VLA_Interpreter.DynamicGet, and the live
+; check on the GFormat sheet reads the top edge back to prove it stayed
+; off.
+(defmacro
+    (add-edge-border r edge)
+    "draw a continuous line along one edge of a range"
+    (set! (. (. r borders edge) linestyle) xlcontinuous))
+
+(english-vla
+    "add {d:top|bottom|left|right} border to cell|range {r:range}"
+    (add-edge-border (range {r}) xledge{d}))
+(test-success
+    "Add a bottom border to range B5:D5."
+    (add-edge-border (range "b5:d5") xledgebottom))
+(test-success
+    "Add top border to cell B5."
+    (add-edge-border (range "b5") xledgetop))
+(test-success
+    "Add left border to range B5:B9."
+    (add-edge-border (range "b5:b9") xledgeleft))
+(test-success
+    "Add right border to range D5:D9."
+    (add-edge-border (range "d5:d9") xledgeright))
+
+; The outline is the four edges, not Range.BorderAround: one mechanism
+; already proved above, four readable lines of emitted VBA, and no new
+; method on the interpreter's member allowlist (SEC.1).
+(defmacro
+    (add-outline-border r)
+    "draw a box around the outside of a range, leaving its inside lines alone"
+    (begin (add-edge-border r xledgetop)
+           (add-edge-border r xledgebottom)
+           (add-edge-border r xledgeleft)
+           (add-edge-border r xledgeright)))
+
+(english-vla
+    "add border around cell|range {r:range}"
+    (add-outline-border (range {r})))
+(test-success
+    "Add a border around range B2:D4."
+    (add-outline-border (range "b2:d4")))
+
+; Border colour (pareto's border-color) is deliberately NOT in this
+; slice. A first draft shipped "Set border-color of ... to ..." as
+; (set! (. r borders.color) c), and SD-19's audition failed it live:
+; Range.Borders.Color DRAWS every edge and inside line it colours, so
+; an outlined B2:D4 came back with its inside lines drawn too (the
+; owner's Immediate-window read: D3's bottom edge and C4's left edge
+; both LineStyle 1, neither drawn by any sentence). "Set border-color"
+; says recolour; the call also draws. Two honest designs, for a later
+; slice with a sentence that needs one (SD-7): recolour only lines that
+; exist (a Tier-2 walk over every cell's four edges - slow on a whole
+; column), or put the colour in the drawing sentence ("Add a border
+; around range B2:D4 in blue.") so the sentence says it draws.
+
 ; ---- G11: the template face --------------------------------------
 ; Friendly functors hiding the dot (VBA member access) from template
 ; authors. The dot stays first-class in VLA - these are carried
