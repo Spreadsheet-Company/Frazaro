@@ -13307,15 +13307,22 @@ now carries one summary paragraph per engine and points here.*
     and admitting it would make that table's contract "every near-miss
     anyone might type" instead of "every bare ISO name", a rule with no
     edge. **Pinned in both directions** — the underscore refuses with
-    guidance, and `is-list` is shown still usable as a predicate of the
-    user's own — so the decision is visible rather than accidental.
+    guidance, and `is-list` was shown still usable as a predicate of the
+    user's own — so the decision was visible rather than accidental.
     **A pre-existing instance of the same class, found and NOT
     half-fixed:** `sum_list` is SWI's own spelling of `PROLOG.13`'s
-    `sum-list` and is not reserved either, so it is a silent dead end
-    today. Filed whole as a named follow-up, because a hyphen/underscore
+    `sum-list` and was not reserved either, so it was a silent dead end
+    too. Filed whole as a named follow-up, because a hyphen/underscore
     alias policy is one decision about one class and belongs to whoever
     takes it, not to a type-test item that happens to contain one
     instance of it.
+
+    **THAT FOLLOW-UP LANDED AND REVERSED THIS PARAGRAPH — see the alias
+    section below.** `is-list` and `sum_list` ARE reserved now, so the
+    two sentences above describe the state this item shipped in and not
+    the state today; they are kept in the past tense rather than deleted,
+    because the pin that changed is easier to find from the decision that
+    set it.
 
     **THE RESERVED SET IS NOW 44 NAMES** (6 literal + 6 + 4 + 9 + 9 + 6
     + 4) across SIX delegated tables, up from 34. Every site the brief
@@ -13773,9 +13780,54 @@ now carries one summary paragraph per engine and points here.*
     and one law came out CONSTANT until a shape with a numeric cell was
     added, which its own L3 caught.
 
-    *Blocks nothing; blocked by nothing.* *Named follow-ups left open:*
-    the stale-pin check, when there is a second representation change to
-    generalise from; the non-discriminating-test audit, still unmeasured.
+    **BOTH REMAINING HALVES CLOSED 2026-09-09, and both defect sets came
+    back EMPTY - which is the finding, not an absence of one.**
+
+    *The stale-pin half is BUILT*, as **rule G** rather than an
+    eighteenth script: rules A-F catch a test that cannot survive its own
+    FAILURE, G catches one that has already failed permanently by
+    expecting a rendering the writer can no longer emit. Both are tests
+    wrong about THEMSELVES rather than about the code, so they share a
+    script. `$retiredRenderings` holds each retired spelling with what
+    retired it, and that list ONLY EVER GROWS - a rendering that stopped
+    being emitted is a fact about the past, so no entry can go wrong
+    later. This was the objection that deferred it twice ("current"
+    changes with every representation change); keying on what is RETIRED
+    rather than on what is current dissolves it. An item changing a
+    rendering now adds its line BEFORE changing the writer, and the check
+    names exactly the pins to re-point - which is what `PROLOG.13` had to
+    do from memory, and got wrong by two.
+
+    **RULE G SHIPPED BROKEN AND THE MUTATION CAUGHT IT.** Its extraction
+    ran PAST the expected value and captured `got: ` out of the DETAIL
+    argument, so it inspected the wrong string and reported clean. The
+    only reason that surfaced is that the mutation which was supposed to
+    turn it red *didn't*. Fixed with a lazy quantifier, and the rule now
+    **counts what it examined** (227 literals) and fails if that
+    collapses - proved by a second mutation that breaks the extraction
+    and drops it to 27. A rule that looks at nothing passes by not
+    looking, and this one had already done it once.
+
+    *The non-discriminating half is MEASURED and DELIBERATELY NOT
+    CHECKED.* `PROLOG.20` said the count "is not measured"; it is now.
+    **78 failure-asserting pins across `TestProlog*`, and all 78 have a
+    discriminating twin** - a TRUE twin, a strict non-empty subset, or a
+    refusal-text assertion no absent implementation could produce. Zero
+    violations. The suite already follows the rule.
+
+    **NO CHECK IS BUILT FOR IT, and that is a decision rather than a
+    deferral.** Twin-detection is necessarily a HEURISTIC - adjacency
+    within a window - and two failure pins sitting next to an unrelated
+    passing assertion would satisfy it while being non-discriminating.
+    A heuristic wearing the authority of a green check is worse than
+    nothing in a repo where checks are trusted: the first false positive
+    gets it widened until it stops noticing, which is the failure mode
+    every other rule here is written to avoid. The rule stays what it has
+    been all along - a standard applied when tests are WRITTEN, stated in
+    each item's own test header - and the measurement above is the
+    evidence it is being met.
+
+    *Blocks nothing; blocked by nothing.* **No follow-ups left open.**
   - ✅ **PROLOG.21 — `(list a b c)`, the shorthand `PROLOG.13` filed and
     deliberately did not take.** SHIPPED 2026-09-09; owner-verified live.
     `TestDSLs` 602 → **624/624** (22 new assertions, 21 rendering pins

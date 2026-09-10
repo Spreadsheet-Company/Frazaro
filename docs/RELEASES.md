@@ -115,6 +115,12 @@
   reading past the end of it where it *reports* the answer — and the
   report is built every single time, pass or fail.
 
+  And it catches the opposite mistake: a test that expects an answer
+  Frazaro can no longer give. When a value's printed form changes, every
+  test naming the old form has to change with it — that happened once and
+  two were missed by hand. The check now knows which forms are retired,
+  so it lists them instead of leaving it to memory.
+
   Nothing here changes what Frazaro does. It changes what happens on the
   day something else goes wrong: you get told, instead of the report
   being destroyed by the test that was about to make it. The rewrite was

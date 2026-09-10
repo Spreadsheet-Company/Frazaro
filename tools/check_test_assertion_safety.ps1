@@ -91,6 +91,27 @@ false positive - a loop index over a local Array() literal - is exempted
 BY NAME in $rawIndexExempt with its reason, rather than by loosening the
 rule.
 
+RULE G - AN ASSERTION THAT CANNOT PASS, which is the other half of the
+same idea. Rules A-F catch a test that cannot survive its own FAILURE;
+G catches one that has already failed permanently, because it expects a
+rendering the writer can no longer emit. Both are tests that are wrong
+about THEMSELVES rather than about the code, which is why they share a
+script.
+
+PROLOG.13 is the incident: it changed how a findall bag renders,
+re-pointed the pins it REMEMBERED, and two stale ones reached the owner's
+live run. $retiredRenderings holds each retired spelling with what
+retired it. That list only ever grows - a rendering that stopped being
+emitted is a fact about the past - so an item changing a rendering adds
+its line BEFORE changing the writer, and the check then names exactly the
+pins to re-point instead of leaving it to memory.
+
+G COUNTS WHAT IT EXAMINED and fails if that collapses, because this rule
+shipped broken once: its extraction ran past the expected value and
+captured `got: ` out of the DETAIL argument, so it inspected the wrong
+string and reported clean. Only the mutation that failed to turn it red
+revealed it. A rule that looks at nothing passes by not looking.
+
 The module list and ceilings below are the reviewable baseline -
 deliberately NAMES and NUMBERS, not a glob: a new test module must be
 added on purpose, and a rename breaks the run loudly rather than
@@ -132,6 +153,23 @@ $ceilings = [ordered]@{
     'src\VLA_Tests_Host.bas'    = 0
     'src\VLA_Tests_Query.bas'   = 0
 }
+
+# ---- baseline: RETIRED RENDERINGS - rule G ------------------------------
+# An expected literal spelling a rendering the writer can no longer emit is
+# a test that CANNOT PASS, whatever the code does. PROLOG.13 hit this for
+# real: it changed how a findall bag renders, re-pointed the pins it
+# remembered, and TWO stale ones survived to the owner's live run.
+#
+# Each entry is a regex over the expected literal, plus what retired it.
+# The list only ever grows: a rendering that stops being emitted is a fact
+# about the past, so no entry here can go wrong later. An item that
+# changes a rendering adds its own line BEFORE changing the writer, and
+# the check then lists exactly the pins to re-point - which is what
+# PROLOG.13 had to do by memory.
+$retiredRenderings = @(
+    @{ Pattern = '^\(\s*cons\b.*\bnil\s*\)*\s*$'
+       Why     = 'a PROPER cons chain; PROLOG.21 contracts those to (list ...) at write time, so no result can equal this' }
+)
 
 # ---- baseline: raw subscripts accepted as safe, with the reason --------
 # Rule E flags a raw subscript of a bare local inside an And-joined
@@ -410,6 +448,54 @@ foreach ($rel in $ceilings.Keys) {
     }
 }
 
+# ======================================================================
+#  Rule G - AN ASSERTION THAT CANNOT PASS.
+#
+#  Rules A-F are about an assertion that cannot survive its own FAILURE.
+#  This one is the other way round: an assertion that expects a value the
+#  engine can no longer produce has already failed, permanently, and no
+#  amount of correct code will satisfy it. Same family - a test that is
+#  wrong about ITSELF rather than about the code - which is why it lives
+#  in this script rather than an eighteenth one.
+#
+#  PROLOG.13's own live pass is the incident: it changed a rendering,
+#  re-pointed the pins it REMEMBERED, and two stale ones reached the
+#  owner. Searching for the literals you expect rather than enumerating
+#  the class is the same error as a hand count.
+# ======================================================================
+#  THE EXTRACTION IS LAZY, NOT GREEDY, and that was a live bug in this
+#  very rule. Written `\([^,]+,(?:[^,]+,){0,2}\s*"(...)"` the optional
+#  argument group ran PAST the expected value and captured `got: ` out of
+#  the DETAIL argument instead - so the rule examined the wrong string and
+#  reported clean. Caught only because the mutation that was supposed to
+#  turn it red did not. A lazy `*?` stops at the first string literal,
+#  which is the expected value in every one of these helpers.
+$staleLiterals = New-Object System.Collections.ArrayList
+$literalsSeen  = 0
+$expectedArg = '(?:ResultCol1Is|ResultCellIs|ResultCellNumIs|ResultCellText|ResultTextIs|ResultTextStartsWith|Arr1DItemIs|Arr2DItemIs|CollItemIs)\s*\(\s*[A-Za-z_]\w*\s*,(?:\s*[^,"]+,){0,8}?\s*"((?:[^"]|"")*)"'
+foreach ($rel in $ceilings.Keys) {
+    $raw = Get-Content -LiteralPath (Join-Path $repoRoot $rel)
+    for ($i = 0; $i -lt $raw.Count; $i++) {
+        if ($raw[$i] -match "^\s*'") { continue }
+        foreach ($m in [regex]::Matches($raw[$i], $expectedArg)) {
+            $lit = $m.Groups[1].Value
+            $literalsSeen++
+            foreach ($r in $retiredRenderings) {
+                if ($lit -match $r.Pattern) {
+                    [void]$staleLiterals.Add([pscustomobject]@{
+                        Module = $rel; Line = $i + 1; Lit = $lit; Why = $r.Why })
+                }
+            }
+        }
+    }
+}
+# A rule that examined nothing would report "clean" forever. The suite has
+# hundreds of these assertions, so zero means the extraction broke - which
+# is exactly what happened once already.
+if ($literalsSeen -lt 50) {
+    $failures.Add("rule G examined only $literalsSeen expected literal(s) - the extraction has broken, and a rule that looks at nothing passes by not looking")
+}
+
 # One statement can offend for more than one variable; report it once, so
 # the count is a count of ASSERTIONS rather than of pattern hits.
 $unique = @($findings | Group-Object { "$($_.Module)|$($_.Line)" } | ForEach-Object { $_.Group[0] })
@@ -444,6 +530,21 @@ if ($List -and $unique.Count -gt 0) {
 
 Write-Output ''
 Write-Output ("  TOTAL unsafe assertions: {0}" -f $unique.Count)
+
+Write-Output ''
+Write-Output '--- rule G: no assertion may expect a rendering the writer cannot emit ---'
+foreach ($r in $retiredRenderings) {
+    Write-Output ("  retired: {0}" -f $r.Why)
+}
+Write-Output ("  examined: {0} expected literal(s)" -f $literalsSeen)
+if ($staleLiterals.Count -eq 0) {
+    Write-Output '  none - every expected literal is a rendering the engine can still produce'
+} else {
+    foreach ($s in $staleLiterals) {
+        Write-Output ("  {0}:{1}  STALE  {2}" -f $s.Module, $s.Line, $s.Lit)
+        $failures.Add("$($s.Module):$($s.Line) expects '$($s.Lit)' - $($s.Why)")
+    }
+}
 Write-Output ''
 if ($failures.Count -eq 0) {
     Write-Output '=== CHECK: clean - every combined assertion survives its own failure ==='
