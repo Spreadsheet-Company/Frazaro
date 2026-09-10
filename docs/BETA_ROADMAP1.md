@@ -13502,117 +13502,168 @@ now carries one summary paragraph per engine and points here.*
     never". `~days`. *(This is the item the deterministic-and-auditable
     framing exists for; it is a decision about what this engine refuses to
     be, not a feature.)*
-  - ⬜ **PROLOG.20 — AUDIT THE TEST SUITE ITSELF: 37 assertions that
-    would KILL the run instead of reporting the failure they exist to
-    catch.** Found during `PROLOG.13`'s own live pass, and filed rather
-    than fixed in place because the fix touches three modules this item
-    had no business editing. **Measured, not estimated** — the counts
-    below come from a scan, and the scan's own blind spot is stated at
-    the end.
+  - 🟡 **PROLOG.20 — AUDIT THE TEST SUITE ITSELF: assertions that would
+    KILL the run instead of reporting the failure they exist to catch.**
+    STAGE 1 SHIPPED 2026-09-09; owner-verified live (pure 1047/1047,
+    host 143/143, `TestDSLs` 707/707, `VerifyReports` 141/141 + 141/141,
+    every one identical to before the item, which is the result this
+    stage was predicting). STAGE 2 is scoped below and not yet built, so
+    the item stays amber.
+    `VLA_Tests_Query.bas` goes **146 → 0** and now holds at a ceiling of
+    zero; the other three modules hold at what they measure today (4, 1,
+    3) and land as stage 2. New `tools/check_test_assertion_safety.ps1`
+    — the seventeenth check. `TestDSLs` **707/707 unchanged**, and
+    unchanged is the whole point: this item rewrites 154 assertions and
+    must not move a single count. Pure 1047/1047, host 143/143 and
+    `VerifyReports` 141/141 + 141/141 all untouched — stage 1 edits one
+    test module and one new script, nothing else.
 
-    **THE DEFECT. VBA's `And` does not short-circuit.** So an assertion
-    written as one combined expression evaluates *every* operand, however
-    the earlier ones answered:
+    **THE ENTRY'S 37 WAS EXACTLY RIGHT AND THE CLASS IS 154.** Its own
+    scan, written independently, found 30 + 7; this item's found 29 + 8
+    for the identical total, one instance classified differently where a
+    statement matches both shapes. Two scans agreeing to the assertion on
+    a number neither could see the other compute is the strongest
+    available evidence both were counting the real thing. **But the entry
+    said so itself** — "the 37 is a floor for the run-killing class and
+    an exact count for the two shapes named" — and the floor is where the
+    interest is:
 
-    ```
-    ok = (UBound(result, 1) = 3 And CStr(result(2, 1)) = "a" _
-                                And CStr(result(3, 1)) = "b")
-    ```
+    | shape | failure | count |
+    |---|---|---|
+    | A `UBound` guarded, then indexed | Subscript out of range | 29 |
+    | B `IsArray` guarded, then `UBound`/indexed | Type mismatch on a scalar | 8 |
+    | **C `VarType(r) = vbBoolean` guarded, then `r = True`** | **Type mismatch on an ARRAY** | **111** |
+    | D `.Count` guarded, then `.Item(n)` | Subscript out of range | 6 |
 
-    While the test PASSES this is harmless. The moment it genuinely
-    FAILS — the query returns one solution instead of two, so `UBound` is
-    2 — `result(3, 1)` is still evaluated and raises **"Subscript out of
-    range"**. The run dies at the exact moment it was about to tell the
-    owner what broke, and every remaining test in the module never runs.
-    **An assertion that cannot survive its own failure is not a test.**
+    **SHAPE C IS THE ITEM, and no document had it.** `VarType(result) =
+    vbBoolean And result = True` is this suite's long-standing spelling
+    for a bare-Boolean result — 111 of them — and `result = True` on a
+    spilled ARRAY raises. A PROLOG query returns an array or a Boolean
+    depending on whether it has free variables, so the shape that raises
+    is exactly the shape a broken dispatch arm or a leaked phantom column
+    produces. Every one of those 111 would have died rather than reported
+    on precisely the regression it was written to catch. `PROLOG.15` had
+    already built `ResultBoolIs` for this and pinned 30 new assertions to
+    it; **that item's own note said "PROLOG.20 measured 37 of those",
+    which conflated shape C with A+B and is corrected here** — the 37
+    never included C.
 
-    **This is not hypothetical and it is not new.** `PROLOG.8`'s own
-    header on `ResultCol1Is` records it happening live: a query with free
-    variables and zero solutions spills a HEADER-ONLY array, and the
-    line raised "Subscript out of range" mid-run rather than failing an
-    assertion. The guarded helpers — `ResultRowCount`, `ResultColCount`,
-    `ResultCellIs`, `ResultCol1Is` — were introduced **precisely to fix
-    this**, and each returns `-1`/`False` rather than raising. What never
-    happened is the migration: they were used for new tests and the
-    existing ones were left as they were. This item is finishing that.
+    **THE RULE WAS RESTATED, AND THE RESTATEMENT IS THE CHECK'S REAL
+    CONTRIBUTION.** The first version paired each guard with the specific
+    risk it had been seen alongside — `UBound` with indexing, `IsArray`
+    with `UBound`, `VarType` with `=`. It missed two live instances,
+    `VarType(a) = vbString And CStr(a) = ""`, because `CStr` was not on
+    the risk list; a list of risks is a list that can be incomplete. The
+    shipped rule is one sentence with nothing to enumerate: **if an
+    operand guards a variable, no later operand may touch that variable
+    except through another guard or a guarded helper.** Asking what shape
+    something is IS the admission that it might be the other shape.
 
-    **THE MEASUREMENT.** Two shapes, both run-killing, counted over all
-    four test modules with line continuations joined:
+    **GUARDS COME IN TWO STRENGTHS, and conflating them was a hole this
+    check had for one revision of its own.** `IsArray(a) And UBound(a) <
+    LBound(a)` raises on the very scalar `IsArray` just answered False
+    about, so after an existence guard NOTHING may touch the variable —
+    not even `UBound`. After an EXTENT guard (`UBound`, `.Count`) a
+    second extent question is genuinely safe, because it would already
+    have raised in the first operand. Caught by noticing a real instance
+    silently drop out of the count between two runs.
 
-    | | shape | failure mode | count |
-    |---|---|---|---|
-    | A | a later operand INDEXES an array the same statement bounds-checks | `Subscript out of range` | **30** |
-    | B | `IsArray(r)` first, then `UBound(r, …)` in a later operand | `Type mismatch` when the result is a scalar | **7** |
+    **THE HALF-FIX HOLE, found by reading the migration's own dry run
+    before applying it.** Rewriting `UBound(r,1) = 2 And CStr(r(2,1)) =
+    "a", "got: " & r(2, 1)` fixes the ASSERTION and leaves the DETAIL
+    argument raw-indexing — and a `Report` detail is evaluated on every
+    call, pass or fail, so the run still dies on exactly the failing
+    case. Worse, the statement would **stop being flagged** the moment it
+    was half-fixed, because the guard it used to have was the thing being
+    replaced. Closed by making the guarded helpers themselves count as
+    guards, so a statement that starts using them must use them
+    throughout. Pinned by mutation.
 
-    By module: **`VLA_Tests_Query.bas` 32**, `VLA_Tests.bas` 4,
-    `VLA_Tests_Host.bas` 1, `VLA_Tests_Grammar.bas` 0. The concentration
-    is not an accident — `PROLOG()` is the function with two result
-    shapes (a spilled array, or a bare Boolean when the query has no free
-    variables), so it is the one whose tests routinely mix a bound check
-    with an index.
+    **A RATCHET, NOT A CLIFF**, on `check_raise_ratchet.ps1`'s own
+    precedent, and it is what makes staging honest. A check that could
+    only say all-clean-or-all-broken would sit red across the whole
+    migration, and nobody could tell a NEW defect from the backlog. Each
+    module holds a ceiling; exceeding it fails, and **coming in UNDER it
+    also fails**, with instructions to lower it — so a gain cannot be
+    silently given back. All three directions proved by mutation.
 
-    **Shape B is worth separating because it fails EARLIER and WORSE.**
-    `IsArray(result) And UBound(result, 1) = 2 And …` looks like a guard
-    and is not one: when the result is a Boolean — which is exactly what
-    a missing or broken dispatch arm produces, since an unknown predicate
-    is a silent dead end — `UBound` raises a type mismatch on a value
-    `IsArray` has already answered `False` about. Five of the seven are in
-    `PROLOG.7`'s comparison tests, one family away from the arms most
-    likely to regress.
+    **THE MIGRATION WAS SCRIPTED, NOT TYPED, and driven by the check's
+    own line list.** 111 shape-C rewrites are near-identical and were
+    done by literal replacement; the rest by a script that reads
+    `-List`'s output and rewrites only flagged lines. **Driving it from
+    the check rather than by global search-and-replace is load-bearing:**
+    `ResultRowCount`'s own body IS `UBound(result, 1)`, so a global
+    rewrite of that pattern would have turned the helper into infinite
+    recursion.
 
-    **THE SECOND HALF: STALE PINS, and this one has a confirmed
-    incident.** `PROLOG.13` changed how a `findall` bag renders and
-    re-pointed the pins that asserted the old spelling. Six needed
-    moving; a grep for the literals already known found four, and the
-    **other two were found only by the owner running the suite** — one in
-    `TestPrologCut`, one in `TestPrologKeyedAtoms`, both asserting a bag
-    rendering from a Sub whose subject is not `findall` at all. Searching
-    for the literals expected rather than enumerating the class is the
-    same error as a hand count, and it is the error this line has a
-    standing rule against. A mechanical sweep exists now — every
-    parenthesised expected literal in a `ResultCol1Is`/`ResultCellIs`/
-    `CStr(result(` assertion, flagged when it does not look like the
-    current representation — and it should become a `tools/check_*.ps1`
-    rather than a thing each item re-invents under pressure.
+    **THE REAL RISK WAS NOT THE RAISE, IT WAS SILENT WEAKENING.** A
+    rewrite that quietly asserts less still passes, and the suite total
+    does not move, so nothing in a green run would reveal it. Answered by
+    an equivalence transliteration of VBA's own semantics — including
+    which operations raise — over every result shape the engine can
+    return, checking three laws per rewrite: the new expression NEVER
+    raises; wherever the old one does not raise, old equals new; and the
+    new one still discriminates. Six rewrites × ten result shapes, plus
+    two Collection rewrites × five Collection shapes. **Six mutations,
+    all biting** — and the mutations earned their keep twice: two of them
+    passed on the first attempt, revealing that the harness SWALLOWED a
+    raise coming out of a helper, and that no shape had a right row-count
+    with a wrong cell. Both gaps fixed before a line was migrated.
 
-    **THE THIRD HALF, NOT YET COUNTED: non-discriminating tests.** An
-    unknown predicate fails SILENTLY, so a pin asserting "this goal
-    fails" passes against **no implementation at all**. The standing rule
-    is that every failure test is a ground query asserting FALSE beside
-    its own TRUE twin, or a filter asserting a strict non-empty subset.
-    How many existing pins violate it is **not measured** — it needs
-    semantics, not a regex, so the honest thing is to name the class and
-    count it as its own piece of work rather than quote a number this
-    item cannot stand behind.
+    **THREE NEW HELPERS, and one of them found a real equivalence bug
+    while being written.** `ResultTextIs`, `ResultTextStartsWith` and
+    `CollItemIs` (the Collection twin of `ResultCellIs`). The bug:
+    `ResultTextIs` must keep the `VarType = vbString` test rather than
+    simplify to "not an array", because **`CStr(Empty)` is `""` in VBA**,
+    so the simpler version answers True for an Empty result where the
+    expression it replaces answers False. Caught by reasoning, then
+    PINNED in the transliteration with its own mutation rather than left
+    as an argument.
 
-    **WHAT THIS SCAN DOES NOT SEE, stated so the 37 is not read as a
-    ceiling.** It works statement by statement, so an assertion that
-    indexes `result(2, 1)` with **no bound check in the statement at
-    all** is invisible to it — and many of those are legitimate, guarded
-    by an `If IsArray(result) Then` on a previous line, which a
-    statement-level scan cannot distinguish from an unguarded one. The 37
-    is a floor for the run-killing class and an exact count for the two
-    shapes named.
+    **WHAT THE CHECK DELIBERATELY DOES NOT SEE, and why it was not
+    fixed.** Eight assertions index a container guarded by a count
+    computed on an EARLIER line (`okAll = (nRowsAll = 4) And
+    (CStr(arrAll(r0, c0)) = "Name")`). Real, but telling one of those
+    from a safe loop index over an `Array()` literal needs dataflow, not
+    a regex — and **fixing what the check cannot hold is precisely how
+    the backlog this item exists to drain was created**: the guarded
+    helpers were introduced at `PROLOG.8` to fix this exact defect and
+    then never migrated onto. Filed whole rather than half-fixed. They
+    are named in the script by VARIABLE (`arrNarrow`, `arrAll`,
+    `arrJoin`, `arrGroup`, `arrOrder`, `arrCompound`, `arrChain`, and
+    `arr` in `VLA_Tests_Host.bas`) and **not by line number**, because a
+    line number in a comment goes stale on the next edit and this file
+    shifted 43 lines during this very item — the trap `PROLOG.15` hit
+    when the entry's own cited lines 3802/3820 had become 4375/4393.
 
-    **RECOMMENDED SHAPE, following this line's own precedent.** Write the
-    mechanical check FIRST and run it red — `tools/check_test_assertion_
-    safety.ps1`, house style (PowerShell 5.1, host-independent,
-    hard-coded reviewable baseline, never wired into `VlaSelfTest`) —
-    then migrate module by module, `VLA_Tests_Query.bas` first since it
-    holds 32 of the 37. The check then holds the line, which is the part
-    that matters: this defect is invisible in a green run **by
-    construction**, so nothing but a static check can stop it coming
-    back. Two known instances are already sitting in `TestPrologCut` at
-    `VLA_Tests_Query.bas:3802` (`boundaryOk`) and `:3820`
-    (`notOpaqueOk`), left deliberately untouched by `PROLOG.13` so the
-    diff stayed the change.
+    **THE ENTRY'S OTHER TWO HALVES, answered rather than quietly
+    dropped.** Its *stale-pin sweep as a permanent check* is **not
+    built**, deliberately: what such a check must assert is "this
+    expected literal does not look like the current representation", and
+    "current" changes with every representation change, so the check
+    would need rewriting by the same item that would have needed it. The
+    generalisable part is a PROCEDURE — enumerate the class, never grep
+    the literals you already know — which `PROLOG.21` and `PROLOG.15`
+    both executed with a script. Worth minting as a check on the next
+    representation change, when there is a second data point to
+    generalise from rather than one. Its *non-discriminating tests* half
+    is untouched and still unmeasured, exactly as filed: it needs
+    semantics, not a regex.
 
-    **SCOPE NOTE, since this sits in the PROLOG section.** It was found
-    here and PROLOG owns 32 of the 37, but the defect is not PROLOG's —
-    `VLA_Tests.bas` and `VLA_Tests_Host.bas` carry 5 between them, and
-    the check would cover all four modules. Filed here because this is
-    where it surfaced; re-home it to a test-infrastructure family if one
-    is ever minted. *Blocks nothing; blocked by nothing.* `~days`.
+    **STAGE 2, scoped and not started:** eight assertions across
+    `VLA_Tests.bas` (4), `VLA_Tests_Host.bas` (3) and
+    `VLA_Tests_Grammar.bas` (1). They need helpers of their own in each
+    module — those three have no result-shape helpers at all — and they
+    touch the modules `VlaSelfTest` runs, so they carry a different
+    verification (pure 1047/1047 and host 143/143 rather than
+    `TestDSLs`). The split is genuinely free, unlike `PROLOG.15`'s: the
+    two stages edit DISJOINT files, so nothing is written twice and the
+    ratchet keeps the check green in between.
+
+    *Blocks nothing; blocked by nothing.* *Named follow-ups:* the eight
+    dataflow-guarded indexes above; the stale-pin check when there is a
+    second representation change to generalise from; the
+    non-discriminating-test audit, still unmeasured.
   - ✅ **PROLOG.21 — `(list a b c)`, the shorthand `PROLOG.13` filed and
     deliberately did not take.** SHIPPED 2026-09-09; owner-verified live.
     `TestDSLs` 602 → **624/624** (22 new assertions, 21 rendering pins

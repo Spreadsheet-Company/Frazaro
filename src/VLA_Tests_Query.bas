@@ -407,7 +407,7 @@ Private Sub TestDatalog()
     Dim arrHeadless As Variant
     arrHeadless = VLA_Relation.RelToSpilledArray(rel, , CBool(result.Item(4)))
     Report "datalog: headless output has exactly N rows, no header row", _
-           UBound(arrHeadless, 1) = VLA_Relation.RelCount(rel) And (CStr(arrHeadless(1, 1)) = "tom" Or CStr(arrHeadless(1, 1)) = "bob"), _
+           ResultRowCount(arrHeadless) = VLA_Relation.RelCount(rel) And (ResultCellIs(arrHeadless, 1, 1, "tom") Or ResultCellIs(arrHeadless, 1, 1, "bob")), _
            "shape mismatch"
 
     Set result = VLA_Datalog.DatalogRun("(headless) (rule (nothing_here X) (never_true X)) (query nothing_here)")
@@ -415,7 +415,7 @@ Private Sub TestDatalog()
     Dim arrEmpty As Variant
     arrEmpty = VLA_Relation.RelToSpilledArray(rel, , CBool(result.Item(4)))
     Report "datalog: a zero-row headless result is a safe blank scalar, not a crash", _
-           VLA_Relation.RelCount(rel) = 0 And VarType(arrEmpty) = vbString And CStr(arrEmpty) = "", _
+           VLA_Relation.RelCount(rel) = 0 And ResultTextIs(arrEmpty, ""), _
            "got " & TypeName(arrEmpty)
 
     Set result = VLA_Datalog.DatalogRun( _
@@ -461,7 +461,7 @@ Private Sub TestDatalog()
     Dim arr2 As Variant
     arr2 = VLA_Relation.RelToSpilledArray(rel, Array("A", "B"))
     Report "datalog: spilled array has a header row plus N data rows", _
-           (UBound(arr2, 1) = VLA_Relation.RelCount(rel) + 1) And CStr(arr2(1, 1)) = "A" And CStr(arr2(1, 2)) = "B", _
+           (ResultRowCount(arr2) = VLA_Relation.RelCount(rel) + 1) And ResultCellIs(arr2, 1, 1, "A") And ResultCellIs(arr2, 1, 2, "B"), _
            "shape mismatch"
 
     Dim raised As Boolean
@@ -1268,7 +1268,7 @@ Private Sub TestUnify()
     Set bn = New Collection: Set bv = New Collection
     ok = VLA_Unify.UnifyOneWay("{x}", "hello", bn, bv)
     Report "unify: bare slot matches and binds", _
-           ok And bn.Count = 1 And CStr(bn.Item(1)) = "x" And CStr(bv.Item(1)) = "hello", "got ok=" & ok
+           ok And bn.Count = 1 And CollItemIs(bn, 1, "x") And CollItemIs(bv, 1, "hello"), "got ok=" & ok
 
     ' Bare slot binds a whole LIST subform, not just an atom.
     Dim lst As New Collection
@@ -1429,7 +1429,7 @@ Private Sub TestUnifyTwoWay()
     Set envN = New Collection: Set envT = New Collection
     ok = VLA_Unify.UnifyTwoWay("X", "a", envN, envT)
     Report "unify2: a free variable binds to a ground constant", _
-           ok And envN.Count = 1 And CStr(envN.Item(1)) = "X" And CStr(envT.Item(1)) = "a", "got ok=" & ok
+           ok And envN.Count = 1 And CollItemIs(envN, 1, "X") And CollItemIs(envT, 1, "a"), "got ok=" & ok
 
     ' The SAME variable, dereferenced, must agree with itself and
     ' disagree with a conflicting constant - proves EnvWalkInto actually
@@ -1547,51 +1547,51 @@ Private Sub TestProlog()
     ' Single conjunct, one free variable, one solution.
     result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (fact (parent bob liz)) (query (parent tom X))")
     Report "prolog: single-conjunct query returns a header row plus one solution row", _
-           UBound(result, 1) = 2 And UBound(result, 2) = 1 And CStr(result(1, 1)) = "X" And CStr(result(2, 1)) = "bob", _
+           ResultRowCount(result) = 2 And ResultColCount(result) = 1 And ResultCellIs(result, 1, 1, "X") And ResultCellIs(result, 2, 1, "bob"), _
            "got shape/contents mismatch"
 
     ' Two conjuncts sharing a variable - the whole point of a
     ' conjunctive query - must intersect bindings across both.
     result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (fact (parent bob liz)) (query (parent tom Y) (parent Y Z))")
     Report "prolog: two conjuncts sharing a variable intersect bindings correctly", _
-           UBound(result, 1) = 2 And UBound(result, 2) = 2 And CStr(result(2, 1)) = "bob" And CStr(result(2, 2)) = "liz", _
-           "got: Y=" & result(2, 1) & " Z=" & result(2, 2)
+           ResultRowCount(result) = 2 And ResultColCount(result) = 2 And ResultCellIs(result, 2, 1, "bob") And ResultCellIs(result, 2, 2, "liz"), _
+           "got: Y=" & ResultDescribe(result) & " Z=" & ResultDescribe(result)
 
     ' Multiple solutions, in fact-authored order (a bag, not a set).
     result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (fact (parent tom ann)) (query (parent tom X))")
     Report "prolog: multiple matching facts produce multiple solution rows, in authored order", _
-           UBound(result, 1) = 3 And CStr(result(2, 1)) = "bob" And CStr(result(3, 1)) = "ann", _
-           "got " & UBound(result, 1) - 1 & " rows"
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "bob") And ResultCellIs(result, 3, 1, "ann"), _
+           "got " & ResultRowCount(result) - 1 & " rows"
 
     ' Bag semantics: the SAME fact authored twice produces two identical
     ' rows - real Prolog's own behavior, not deduped the way DATALOG's
     ' fixpoint-derived relations are.
     result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (fact (parent tom bob)) (query (parent tom X))")
     Report "prolog: a fact authored twice produces two identical solution rows (bag, not set)", _
-           UBound(result, 1) = 3 And CStr(result(2, 1)) = "bob" And CStr(result(3, 1)) = "bob", _
-           "got " & UBound(result, 1) - 1 & " rows"
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "bob") And ResultCellIs(result, 3, 1, "bob"), _
+           "got " & ResultRowCount(result) - 1 & " rows"
 
     ' A query with no free variables at all collapses to a boolean
     ' scalar - TRUE when at least one solution exists, FALSE otherwise.
     result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (query (parent tom bob))")
     Report "prolog: a fully-ground query with no free variables returns TRUE, not an array", _
-           VarType(result) = vbBoolean And result = True, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, True), "got " & TypeName(result) & " " & result
 
     result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (query (parent tom ann))")
     Report "prolog: a fully-ground query that matches nothing returns FALSE", _
-           VarType(result) = vbBoolean And result = False, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, False), "got " & TypeName(result) & " " & result
 
     ' A compound-term argument (the boundary DATALOG stays clear of) -
     ' bound and rendered back through VLA.VlaWriteForm.
     result = VLA_Prolog.PROLOG("(fact (likes tom (color red))) (query (likes tom X))")
     Report "prolog: a variable bound to a compound term renders via VlaWriteForm", _
-           UBound(result, 1) = 2 And CStr(result(2, 1)) = "(color red)", "got: " & result(2, 1)
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "(color red)"), "got: " & ResultDescribe(result)
 
     ' A predicate with zero arguments (nullary) is legal here - unlike
     ' DATALOG, this engine never sizes an array off arity.
     result = VLA_Prolog.PROLOG("(fact (raining)) (query (raining))")
     Report "prolog: a nullary (zero-argument) predicate is legal and answers TRUE", _
-           VarType(result) = vbBoolean And result = True, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, True), "got " & TypeName(result) & " " & result
 
     ' Refusals, all parse-time (or, for the one worksheet-signature
     ' check, before parsing even starts). PROLOG (the worksheet
@@ -1677,14 +1677,14 @@ Private Sub TestPrologRules()
         "(rule (grandparent X Z) (parent X Y) (parent Y Z)) " & _
         "(query (grandparent tom liz))")
     Report "prolog.4: a non-recursive rule proves a fully-ground query TRUE", _
-           VarType(result) = vbBoolean And result = True, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, True), "got " & TypeName(result) & " " & result
 
     result = VLA_Prolog.PROLOG( _
         "(fact (parent tom bob)) (fact (parent bob liz)) " & _
         "(rule (grandparent X Z) (parent X Y) (parent Y Z)) " & _
         "(query (grandparent tom Z))")
     Report "prolog.4: a non-recursive rule's own free variable resolves through its body", _
-           UBound(result, 1) = 2 And CStr(result(2, 1)) = "liz", "got: " & result(2, 1)
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "liz"), "got: " & ResultDescribe(result)
 
     ' A predicate defined by a FACT and a RULE together - both fire, in
     ' written order, with no special-casing needed anywhere in the
@@ -1694,9 +1694,9 @@ Private Sub TestPrologRules()
         "(rule (likes X sushi) (foodie X)) " & _
         "(query (likes X Y))")
     Report "prolog.4: a predicate defined by both a fact and a rule tries both, in written order", _
-           UBound(result, 1) = 3 And CStr(result(2, 1)) = "tom" And CStr(result(2, 2)) = "pizza" _
-           And CStr(result(3, 1)) = "ann" And CStr(result(3, 2)) = "sushi", _
-           "got " & (UBound(result, 1) - 1) & " rows"
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "tom") And ResultCellIs(result, 2, 2, "pizza") _
+           And ResultCellIs(result, 3, 1, "ann") And ResultCellIs(result, 3, 2, "sushi"), _
+           "got " & (ResultRowCount(result) - 1) & " rows"
 
     ' Real recursion: the classic ancestor/parent transitive closure over
     ' a 3-fact chain (tom -> bob -> liz -> ann). Asserted against every
@@ -1711,8 +1711,8 @@ Private Sub TestPrologRules()
         "(rule (ancestor X Y) (parent X Z) (ancestor Z Y)) " & _
         "(query (ancestor tom Y))")
     Report "prolog.4: recursive ancestor/parent finds every generation, in derivation order", _
-           UBound(result, 1) = 4 And CStr(result(2, 1)) = "bob" And CStr(result(3, 1)) = "liz" And CStr(result(4, 1)) = "ann", _
-           "got " & (UBound(result, 1) - 1) & " rows: " & JoinColumn(result, 1)
+           ResultRowCount(result) = 4 And ResultCellIs(result, 2, 1, "bob") And ResultCellIs(result, 3, 1, "liz") And ResultCellIs(result, 4, 1, "ann"), _
+           "got " & (ResultRowCount(result) - 1) & " rows: " & JoinColumn(result, 1)
 
     ' A negative case over the SAME recursive program - tom is not his
     ' own ancestor, and the search must terminate (not loop forever)
@@ -1723,7 +1723,7 @@ Private Sub TestPrologRules()
         "(rule (ancestor X Y) (parent X Z) (ancestor Z Y)) " & _
         "(query (ancestor tom tom))")
     Report "prolog.4: a fully-ground recursive query that doesn't hold terminates and returns FALSE", _
-           VarType(result) = vbBoolean And result = False, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, False), "got " & TypeName(result) & " " & result
 
     ' Refusals.
     Report "prolog.4: a (rule ...) with no body at all is refused - that's just a fact", _
@@ -1796,8 +1796,8 @@ Private Sub TestPrologRules()
     result = VLA_Prolog.PROLOG( _
         "(fact (num 7)) (rule (r X (box X)) (num X)) (query (r Y Z))")
     Report "prolog.4 REGRESSION: a free variable resolving to a compound term with a still-unresolved nested variable renders the real value, not the raw variable name", _
-           UBound(result, 1) = 2 And CStr(result(2, 1)) = "7" And CStr(result(2, 2)) = "(box 7)", _
-           "got: Y=" & result(2, 1) & " Z=" & result(2, 2)
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "7") And ResultCellIs(result, 2, 2, "(box 7)"), _
+           "got: Y=" & ResultDescribe(result) & " Z=" & ResultDescribe(result)
 End Sub
 
 ' ---------------------------------------------------------------------
@@ -1826,15 +1826,15 @@ Private Sub TestPrologArithmetic()
     ' A rule computing a fresh variable through a fact -> is chain.
     result = VLA_Prolog.PROLOG("(fact (base 10)) (rule (double X Y) (base X) (is Y (* X 2))) (query (double X Y))")
     Report "prolog.5.1: is computes a fresh variable through a rule body chain", _
-           UBound(result, 1) = 2 And CStr(result(2, 1)) = "10" And CStr(result(2, 2)) = "20", _
-           "got: X=" & result(2, 1) & " Y=" & result(2, 2)
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "10") And ResultCellIs(result, 2, 2, "20"), _
+           "got: X=" & ResultDescribe(result) & " Y=" & ResultDescribe(result)
 
     ' Nested arithmetic, evaluated bottom-up in a pure query - the shape
     ' DATALOG's own flat (let Z (op X Y)) structurally can't express at
     ' all, since DATALOG forbids compound terms entirely.
     result = VLA_Prolog.PROLOG("(query (is X (+ (* 2 3) 4)))")
     Report "prolog.5.1: nested arithmetic evaluates bottom-up", _
-           UBound(result, 1) = 2 And CStr(result(2, 1)) = "10", "got: " & result(2, 1)
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "10"), "got: " & ResultDescribe(result)
 
     ' is checking an ALREADY-bound target via ordinary unification - real
     ' Prolog's own is/2 semantics, free from reusing UnifyTwoWay rather
@@ -1842,17 +1842,17 @@ Private Sub TestPrologArithmetic()
     ' variable and cannot express this at all.
     result = VLA_Prolog.PROLOG("(query (is 10 (+ 4 6)))")
     Report "prolog.5.1: is against an already-ground target succeeds when the value matches", _
-           VarType(result) = vbBoolean And result = True, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, True), "got " & TypeName(result) & " " & result
 
     result = VLA_Prolog.PROLOG("(query (is 10 (+ 4 5)))")
     Report "prolog.5.1: is against an already-ground target fails when the value doesn't match", _
-           VarType(result) = vbBoolean And result = False, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, False), "got " & TypeName(result) & " " & result
 
     ' Two chained is calls in ONE rule body - the first call's own result
     ' must be visible to the second through the same threaded env.
     result = VLA_Prolog.PROLOG("(rule (twice-plus-one X Y) (is Temp (* X 2)) (is Y (+ Temp 1))) (query (twice-plus-one 5 Y))")
     Report "prolog.5.1: two chained is calls in one rule body share the same threaded bindings", _
-           UBound(result, 1) = 2 And CStr(result(2, 1)) = "11", "got: " & result(2, 1)
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "11"), "got: " & ResultDescribe(result)
 
     ' Refusals.
     Dim r As String
@@ -1954,7 +1954,7 @@ Private Sub TestPrologArithmetic()
         "(rule (doubled-is-180 X) (score X S) (is 180 (* S 2))) " & _
         "(query (doubled-is-180 X))")
     Dim doubledOk As Boolean
-    If IsArray(result) Then doubledOk = (UBound(result, 1) = 2 And CStr(result(2, 1)) = "alice")
+    If IsArray(result) Then doubledOk = (ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "alice"))
     Report "prolog.5.1: is composes with backtracking as a computed filter over multiple candidates", _
            doubledOk, "got: " & ResultDescribe(result)
 
@@ -2066,50 +2066,50 @@ Private Sub TestPrologComparison()
     ' is the discriminator (deleting the dispatch arm turns it False);
     ' the False proves the operator is not vacuously succeeding.
     result = VLA_Prolog.PROLOG("(query (< 1 2))")
-    Report "prolog.7: (< 1 2) succeeds", VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    Report "prolog.7: (< 1 2) succeeds", ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (< 2 1))")
-    Report "prolog.7: (< 2 1) fails", VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    Report "prolog.7: (< 2 1) fails", ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     result = VLA_Prolog.PROLOG("(query (> 2 1))")
-    Report "prolog.7: (> 2 1) succeeds", VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    Report "prolog.7: (> 2 1) succeeds", ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (> 1 2))")
-    Report "prolog.7: (> 1 2) fails", VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    Report "prolog.7: (> 1 2) fails", ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     result = VLA_Prolog.PROLOG("(query (=< 1 2))")
-    Report "prolog.7: (=< 1 2) succeeds", VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    Report "prolog.7: (=< 1 2) succeeds", ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (=< 2 1))")
-    Report "prolog.7: (=< 2 1) fails", VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    Report "prolog.7: (=< 2 1) fails", ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     result = VLA_Prolog.PROLOG("(query (>= 2 1))")
-    Report "prolog.7: (>= 2 1) succeeds", VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    Report "prolog.7: (>= 2 1) succeeds", ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (>= 1 2))")
-    Report "prolog.7: (>= 1 2) fails", VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    Report "prolog.7: (>= 1 2) fails", ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     result = VLA_Prolog.PROLOG("(query (=:= 2 2))")
-    Report "prolog.7: (=:= 2 2) succeeds", VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    Report "prolog.7: (=:= 2 2) succeeds", ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (=:= 2 3))")
-    Report "prolog.7: (=:= 2 3) fails", VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    Report "prolog.7: (=:= 2 3) fails", ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     result = VLA_Prolog.PROLOG("(query (=\= 2 3))")
-    Report "prolog.7: (=\= 2 3) succeeds", VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+    Report "prolog.7: (=\= 2 3) succeeds", ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (=\= 2 2))")
-    Report "prolog.7: (=\= 2 2) fails", VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+    Report "prolog.7: (=\= 2 2) fails", ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' ---- the boundary cases a wrong spelling-translation would survive.
     ' =< must be <= and not <; >= must be >= and not >. Without these,
     ' mapping =< to "<" would pass every test above.
     result = VLA_Prolog.PROLOG("(query (=< 2 2))")
     Report "prolog.7: =< is inclusive at equality (it is <=, not <)", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (>= 2 2))")
     Report "prolog.7: >= is inclusive at equality (it is >=, not >)", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
 
     ' =:= is NUMERIC equality, so two different spellings of one number
     ' are equal - which text comparison would get wrong.
     result = VLA_Prolog.PROLOG("(query (=:= 2.0 2))")
     Report "prolog.7: =:= compares numerically, so 2.0 =:= 2", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
 
     ' PROLOG.8 re-points this pin rather than retiring it. It was planted
     ' to catch =:= leaking into `=` while `=` was still unimplemented, and
@@ -2122,61 +2122,61 @@ Private Sub TestPrologComparison()
     ' assertion is what breaks.
     result = VLA_Prolog.PROLOG("(query (= 1 1))")
     Report "prolog.8: `=` unifies two identical ground terms", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (= 2.0 2))")
     Report "prolog.7/8: `=` is NOT =:= - unification is structural, so 2.0 does not unify with 2", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' `<=` is not a Prolog spelling at all (real Prolog writes =<), so it
     ' must stay an ordinary unknown predicate rather than be accepted.
     result = VLA_Prolog.PROLOG("(query (<= 1 2))")
     Report "prolog.7: `<=` is not a Prolog operator and is not accepted as one", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' ---- the motivating case: a THRESHOLD filter, which PROLOG.6's own
     ' README example had to route around. Strict non-empty subset, so
     ' deleting the dispatch arm empties it rather than merely reordering.
     result = VLA_Prolog.PROLOG("(fact (emp alice 90000)) (fact (emp bob 70000)) (query (emp N S) (> S 80000))")
     Report "prolog.7: a comparison filters a real backtracking search to a strict subset", _
-           IsArray(result) And UBound(result, 1) = 2 And ResultCol1Is(result, "alice"), _
+           IsArray(result) And ResultRowCount(result) = 2 And ResultCol1Is(result, "alice"), _
            "got: " & ResultDescribe(result)
 
     ' A comparison NEVER binds, so it contributes no output column: the
     ' query above has exactly two, N and S, not a third for the goal.
     Report "prolog.7: a comparison goal contributes no output column (it never binds)", _
-           IsArray(result) And UBound(result, 2) = 2, _
-           "got columns: " & UBound(result, 2)
+           IsArray(result) And ResultColCount(result) = 2, _
+           "got columns: " & ResultColCount(result)
 
     ' The complement, proving the filter is a real test and not a
     ' constant: the same program with the comparison inverted selects the
     ' OTHER employee, so neither row is being dropped for another reason.
     result = VLA_Prolog.PROLOG("(fact (emp alice 90000)) (fact (emp bob 70000)) (query (emp N S) (< S 80000))")
     Report "prolog.7: inverting the comparison selects the complementary row", _
-           IsArray(result) And UBound(result, 1) = 2 And ResultCol1Is(result, "bob"), _
+           IsArray(result) And ResultRowCount(result) = 2 And ResultCol1Is(result, "bob"), _
            "got: " & ResultDescribe(result)
 
     ' ---- nested arithmetic on either side, proving EvalArithTerm's own
     ' recursion is reached through a comparison and not only through is.
     result = VLA_Prolog.PROLOG("(query (> (+ 2 3) 4))")
     Report "prolog.7: a nested arithmetic expression evaluates on the left side", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (> 10 (* 2 3)))")
     Report "prolog.7: a nested arithmetic expression evaluates on the right side", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
 
     ' ---- a comparison inside a RULE body, so the goal is freshened per
     ' invocation before it is dispatched (FreshenTerm keeps position 1 -
     ' the operator - verbatim and rewrites only the argument variables).
     result = VLA_Prolog.PROLOG("(fact (emp alice 90000)) (fact (emp bob 70000)) (rule (rich N) (emp N S) (> S 80000)) (query (rich N))")
     Report "prolog.7: a comparison in a rule body survives freshening and filters correctly", _
-           IsArray(result) And UBound(result, 1) = 2 And ResultCol1Is(result, "alice"), _
+           IsArray(result) And ResultRowCount(result) = 2 And ResultCol1Is(result, "alice"), _
            "got: " & ResultDescribe(result)
 
     ' ---- a comparison nested inside `not`, proving the dispatch is
     ' reached through SolveIsolated's own bounded sub-call too.
     result = VLA_Prolog.PROLOG("(fact (emp alice 90000)) (fact (emp bob 70000)) (query (emp N S) (not (> S 80000)))")
     Report "prolog.7: a comparison composes with `not`", _
-           IsArray(result) And UBound(result, 1) = 2 And ResultCol1Is(result, "bob"), _
+           IsArray(result) And ResultRowCount(result) = 2 And ResultCol1Is(result, "bob"), _
            "got: " & ResultDescribe(result)
 
     ' ---- refusals. Each asserts BOTH that the right reason is given AND
@@ -2288,31 +2288,31 @@ Private Sub TestPrologUnification()
     ' always-true one can satisfy the pair.
     result = VLA_Prolog.PROLOG("(query (= bob bob))")
     Report "prolog.8: (= bob bob) succeeds", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (= bob ann))")
     Report "prolog.8: (= bob ann) fails", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     result = VLA_Prolog.PROLOG("(query (\= bob ann))")
     Report "prolog.8: (\= bob ann) succeeds - the two do not unify", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (\= bob bob))")
     Report "prolog.8: (\= bob bob) fails - they do unify", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     result = VLA_Prolog.PROLOG("(query (== bob bob))")
     Report "prolog.8: (== bob bob) succeeds", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (== bob ann))")
     Report "prolog.8: (== bob ann) fails", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     result = VLA_Prolog.PROLOG("(query (\== bob ann))")
     Report "prolog.8: (\== bob ann) succeeds", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (\== bob bob))")
     Report "prolog.8: (\== bob bob) fails", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' ---- THE HEADLINE: `=` BINDS. An unknown predicate yields a Boolean
     ' FALSE, so asserting a spilled ARRAY with a real value in it is what
@@ -2330,7 +2330,7 @@ Private Sub TestPrologUnification()
     ' the result collapses to a bare Boolean rather than a spill.
     result = VLA_Prolog.PROLOG("(query (== X 1))")
     Report "prolog.8: (== X 1) FAILS - `==` never binds, so a free X is not identical to 1", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' ---- the DEREFERENCE, at the top node: once `=` has bound X, `==`
     ' must compare what X now MEANS, not the variable atom as written. A
@@ -2359,10 +2359,10 @@ Private Sub TestPrologUnification()
     ' case that needs no binding at all to answer correctly.
     result = VLA_Prolog.PROLOG("(query (== X X))")
     Report "prolog.8: (== X X) succeeds - a free variable is identical to itself", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (== X Y))")
     Report "prolog.8: (== X Y) fails - two DISTINCT free variables are not the same variable", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' ---- `=` binding FORWARD into a later goal, and BACKWARD as a filter
     ' over a real backtracking search. The second is a strict, non-empty
@@ -2388,13 +2388,13 @@ Private Sub TestPrologUnification()
            ResultCol1Is(result, "7"), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (= (f 1) (g 1)))")
     Report "prolog.8: two compounds with different heads do not unify", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (== (f 1 2) (f 1 2)))")
     Report "prolog.8: (== (f 1 2) (f 1 2)) succeeds - structural identity recurses", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (== (f 1 2) (f 1)))")
     Report "prolog.8: ...and differing arity is not identical", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' ---- a variable-to-variable chain: X = Y first, then Y bound by a
     ' fact, must resolve X through the chain (EnvWalkInto's own union-find
@@ -2409,10 +2409,10 @@ Private Sub TestPrologUnification()
     ' PROLOG.7's `=:=`, asserted here beside the =:= that DOES say equal.
     result = VLA_Prolog.PROLOG("(query (== 2.0 2))")
     Report "prolog.8: (== 2.0 2) fails - `==` is structural, unlike =:=", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (=:= 2.0 2))")
     Report "prolog.8: ...while (=:= 2.0 2) still succeeds - the two are not aliases", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
 
     ' ---- A QUOTED STRING IS NOT A BARE SYMBOL, even with identical
     ' letters. Found live, on PROLOG.8's own first table-backed test:
@@ -2442,7 +2442,7 @@ Private Sub TestPrologUnification()
            InStr(1, r, "the name eng", vbTextCompare) > 0, "got: " & r
     result = VLA_Prolog.PROLOG("(query (== " & Chr$(34) & "eng" & Chr$(34) & " " & Chr$(34) & "eng" & Chr$(34) & "))")
     Report "prolog.8: ...while two quoted strings with the same text ARE identical", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
 
     ' ---- `\=` as a filter, and the column it must NOT contribute.
     result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (p 2)) (query (p X) (\= X 1))")
@@ -2488,10 +2488,10 @@ Private Sub TestPrologUnification()
     ' arm exactly as it sees is/findall.
     result = VLA_Prolog.PROLOG("(query (not (= bob ann)))")
     Report "prolog.8: `=` composes with `not`", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (not (= bob bob)))")
     Report "prolog.8: ...and its twin correctly fails", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' ---- AN OPERAND IS AN ARBITRARY TERM, NOT AN ARITHMETIC EXPRESSION.
     ' This is the one behaviour that separates ValidateBodyItem's new arm
@@ -2518,10 +2518,10 @@ Private Sub TestPrologUnification()
     ' distinguishes "answered ordinarily" from "raised".
     result = VLA_Prolog.PROLOG("(query (== X (f X)))")
     Report "prolog.8: (== X (f X)) is an ordinary False - `==` never binds, so it never occurs-checks", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (\== X (f X)))")
     Report "prolog.8: ...and (\== X (f X)) an ordinary True - the asymmetry with `\=` is deliberate", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
 
     ' ---- shape refusals. The one-argument case also pins that the arity
     ' check runs BEFORE any Item(2)/Item(3) access, which would otherwise
@@ -2611,51 +2611,51 @@ Private Sub TestPrologTypeTests()
     ' ---- the ground truth table, each FALSE beside its own TRUE twin.
     result = VLA_Prolog.PROLOG("(query (var? X))")
     Report "prolog.9: (var? X) succeeds - X is free", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (var? bob))")
     Report "prolog.9: (var? bob) fails - a ground atom is not a variable", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     result = VLA_Prolog.PROLOG("(query (nonvar? bob))")
     Report "prolog.9: (nonvar? bob) succeeds", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (nonvar? X))")
     Report "prolog.9: (nonvar? X) fails - X is free", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     result = VLA_Prolog.PROLOG("(query (atom? bob))")
     Report "prolog.9: (atom? bob) succeeds", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (atom? 42))")
     Report "prolog.9: (atom? 42) fails - 42 is a number, not an atom", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     result = VLA_Prolog.PROLOG("(query (number? 42))")
     Report "prolog.9: (number? 42) succeeds", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (number? bob))")
     Report "prolog.9: (number? bob) fails", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     result = VLA_Prolog.PROLOG("(query (atomic? bob))")
     Report "prolog.9: (atomic? bob) succeeds - an atom is atomic", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (atomic? 42))")
     Report "prolog.9: (atomic? 42) succeeds - a number is atomic too", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (atomic? (f a)))")
     Report "prolog.9: (atomic? (f a)) fails - a compound term is not atomic", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     result = VLA_Prolog.PROLOG("(query (compound? (f a)))")
     Report "prolog.9: (compound? (f a)) succeeds", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (compound? bob))")
     Report "prolog.9: (compound? bob) fails", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (compound? 42))")
     Report "prolog.9: (compound? 42) fails", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' ---- THE PHANTOM COLUMN. `(query (var? X))` SUCCEEDS, so without
     ' CollectVars' own PROLOG.9 skip X would be collected as an output
@@ -2694,29 +2694,29 @@ Private Sub TestPrologTypeTests()
     ' and they are meant to be found by whoever adopts it.
     result = VLA_Prolog.PROLOG("(query (number? ""42""))")
     Report "prolog.9/10: (number? ""42"") FAILS - the quoted-string marker is part of the term, so a text 42 is not the number 42", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (atom? ""42""))")
     Report "prolog.9/10: ...and (atom? ""42"") SUCCEEDS - it is an atom, which is the same judgement seen from the other side", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (atomic? ""42""))")
     Report "prolog.9/10: (atomic? ""42"") succeeds - both readings agree it is atomic; only the atom/number split is at stake", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (atom? ""eng""))")
     Report "prolog.9/10: (atom? ""eng"") succeeds - a marked string is an atom, capitalisation or not", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (var? ""Hello""))")
     Report "prolog.9/10: (var? ""Hello"") FAILS - a capitalised STRING is not an unbound variable (the marker is read on the RAW text)", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' ---- the coherence law the transliteration asserted 100 times, run
     ' once here against the real engine: every atomic term is an atom or
     ' a number, never both and never neither.
     result = VLA_Prolog.PROLOG("(query (atomic? bob) (atom? bob) (nonvar? bob))")
     Report "prolog.9: bob is atomic AND an atom AND nonvar, all three together", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (atomic? 42) (number? 42) (nonvar? 42))")
     Report "prolog.9: 42 is atomic AND a number AND nonvar, all three together", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
 
     ' ---- the shared shape refusal, and the form attribution that keeps
     ' it honest across all six.
@@ -3339,10 +3339,10 @@ Private Sub TestPrologQuotedVersusBare()
     ' above would not notice.
     result = VLA_Prolog.PROLOG("(query (= " & Chr$(34) & "eng" & Chr$(34) & " " & Chr$(34) & "sales" & Chr$(34) & "))")
     Report "prolog.10: two QUOTED strings that genuinely differ still answer False, no refusal", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (= eng sales))")
     Report "prolog.10: two BARE symbols that genuinely differ still answer False, no refusal", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (p 2)) (query (p X) (\= X 1))")
     Report "prolog.10: an ordinary non-marker mismatch still filters silently - `\=` keeps working", _
            ResultRowCount(result) = 2 And ResultCol1Is(result, "2"), "got: " & ResultDescribe(result)
@@ -3354,7 +3354,7 @@ Private Sub TestPrologQuotedVersusBare()
     ' remove, reintroduced one level up. Class 2 beats class 1.
     result = VLA_Prolog.PROLOG("(query (= (f " & Chr$(34) & "eng" & Chr$(34) & ") (g eng)))")
     Report "prolog.10: a marker difference alongside a REAL difference is not blamed on the marker - silent False", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     r = CStr(VLA_Prolog.PROLOG("(query (= (f " & Chr$(34) & "eng" & Chr$(34) & ") (f eng)))"))
     Report "prolog.10: ...but the SAME functor with a marker-only argument does refuse, nested", _
            InStr(1, r, "different things", vbTextCompare) > 0, "got: " & r
@@ -3365,7 +3365,7 @@ Private Sub TestPrologQuotedVersusBare()
     ' query into an error, which no definite-clause program may do.
     result = VLA_Prolog.PROLOG("(fact (color " & Chr$(34) & "red" & Chr$(34) & ")) (fact (color red)) (query (color red))")
     Report "prolog.10: MONOTONICITY - a near-miss against another clause never aborts a query that has a real match", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     ' PROLOG.12 RE-POINTED THIS PIN. It was written to record that the
     ' plain-query half was deliberately left open - a query that merely
     ' finds nothing was silent, because zero rows is a correct answer.
@@ -3388,7 +3388,7 @@ Private Sub TestPrologQuotedVersusBare()
     ' ---- and the convention itself is UNCHANGED. Only the silence went.
     result = VLA_Prolog.PROLOG("(query (== " & Chr$(34) & "eng" & Chr$(34) & " " & Chr$(34) & "eng" & Chr$(34) & "))")
     Report "prolog.10: two quoted strings with the same text are still identical - the semantics did not move", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(fact (emp ann " & Chr$(34) & "eng" & Chr$(34) & ")) (query (emp N " & Chr$(34) & "eng" & Chr$(34) & "))")
     Report "prolog.10: and the documented workaround still works - quoting the query matches the text cell", _
            ResultCol1Is(result, "ann"), "got: " & ResultDescribe(result)
@@ -3416,7 +3416,7 @@ Private Sub TestPrologQuotedVersusBare()
     ' accident.
     result = VLA_Prolog.PROLOG("(rule (p X) (q X)) (fact (q " & Chr$(34) & "eng" & Chr$(34) & ")) (query (p eng))")
     Report "prolog.12: LIMIT - a near-miss reachable only through a RULE BODY is not diagnosed, and stays silent", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(fact (dept " & Chr$(34) & "eng" & Chr$(34) & ")) (fact (emp ann eng)) (query (dept D) (emp N D))")
     Report "prolog.12: LIMIT - a near-miss that only appears AFTER an earlier conjunct binds is not diagnosed either", _
            ResultRowCount(result) = 1 And ResultColCount(result) = 2, "got: " & ResultDescribe(result)
@@ -3454,19 +3454,19 @@ Private Sub TestPrologBetween()
     ' enumerates nothing - real Prolog's own second mode.
     result = VLA_Prolog.PROLOG("(query (between 1 10 5))")
     Report "prolog.9: (between 1 10 5) succeeds - a bound third argument is a TEST", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (between 1 10 50))")
     Report "prolog.9: (between 1 10 50) fails - out of range", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (between 1 10 1))")
     Report "prolog.9: (between 1 10 1) succeeds - the low bound is INCLUSIVE", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (between 1 10 10))")
     Report "prolog.9: (between 1 10 10) succeeds - the high bound is INCLUSIVE", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (between 1 10 11))")
     Report "prolog.9: (between 1 10 11) fails - one past the high bound", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' ---- an EMPTY range is not an error. `(between 1 N X)` with N bound
     ' to 0 must yield no rows rather than stopping the query. Free
@@ -3482,7 +3482,7 @@ Private Sub TestPrologBetween()
     ' of this pair.
     result = VLA_Prolog.PROLOG("(query (between 1 1000000 5))")
     Report "prolog.9: (between 1 1000000 5) SUCCEEDS - test mode enumerates nothing, so a huge range is free", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     r = CStr(VLA_Prolog.PROLOG("(query (between 1 1000000 X))"))
     Report "prolog.9: ...but (between 1 1000000 X) is REFUSED rather than hanging or grinding to the step ceiling", _
            InStr(1, r, "would generate", vbTextCompare) > 0, "got: " & r
@@ -3584,12 +3584,12 @@ Private Sub TestPrologNegation()
     ' A directly-ground goal, negated: succeeds (no matching fact).
     result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (query (not (parent tom liz)))")
     Report "prolog.5.2: not succeeds when the negated ground goal has no solution", _
-           VarType(result) = vbBoolean And result = True, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, True), "got " & TypeName(result) & " " & result
 
     ' A directly-ground goal, negated: fails (a matching fact exists).
     result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (query (not (parent tom bob)))")
     Report "prolog.5.2: not fails when the negated ground goal has a solution", _
-           VarType(result) = vbBoolean And result = False, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, False), "got " & TypeName(result) & " " & result
 
     ' The correct, intended NAF usage pattern: X is bound by an EARLIER,
     ' ordinary conjunct (real backtracking over three candidates), then
@@ -3621,8 +3621,8 @@ Private Sub TestPrologNegation()
         "(rule (orphan X) (person X) (not (parent P X))) " & _
         "(query (orphan X))")
     Report "prolog.5.2: not inside a rule body filters correctly with its own freshened existential variable", _
-           UBound(result, 1) = 3 And CStr(result(2, 1)) = "tom" And CStr(result(3, 1)) = "liz", _
-           "got " & (UBound(result, 1) - 1) & " rows: " & JoinColumn(result, 1)
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "tom") And ResultCellIs(result, 3, 1, "liz"), _
+           "got " & (ResultRowCount(result) - 1) & " rows: " & JoinColumn(result, 1)
 
     ' The real design fork, hand-traced rather than assumed: a variable
     ' appearing ONLY inside a negated goal (foo/1 doesn't even exist, so
@@ -3631,7 +3631,7 @@ Private Sub TestPrologNegation()
     ' scalar shape as any other query with no real free variables.
     result = VLA_Prolog.PROLOG("(query (not (foo X)))")
     Report "prolog.5.2: a variable appearing only inside a negated goal is never collected as a free output column", _
-           VarType(result) = vbBoolean And result = True, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, True), "got " & TypeName(result) & " " & result
 
     ' The shared step ceiling, run to real exhaustion inside a negated
     ' goal - proving PROLOG_MAX_STEPS is one running total the whole
@@ -3653,17 +3653,17 @@ Private Sub TestPrologNegation()
     ' (5 <> 4), so its negation succeeds.
     result = VLA_Prolog.PROLOG("(query (not (is 5 (+ 2 2))))")
     Report "prolog.5.2: not composes with a failing is goal", _
-           VarType(result) = vbBoolean And result = True, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, True), "got " & TypeName(result) & " " & result
 
     ' Nested (double) negation, both ways - proving the recursive
     ' dispatch survives nesting with no special-casing needed anywhere.
     result = VLA_Prolog.PROLOG("(fact (p a)) (query (not (not (p a))))")
     Report "prolog.5.2: double negation of a goal that holds is TRUE", _
-           VarType(result) = vbBoolean And result = True, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, True), "got " & TypeName(result) & " " & result
 
     result = VLA_Prolog.PROLOG("(fact (p a)) (query (not (not (p b))))")
     Report "prolog.5.2: double negation of a goal that doesn't hold is FALSE", _
-           VarType(result) = vbBoolean And result = False, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, False), "got " & TypeName(result) & " " & result
 
     ' Refusals.
     r = CStr(VLA_Prolog.PROLOG("(query (not))"))
@@ -3685,7 +3685,7 @@ Private Sub TestPrologNegation()
     ' an ordinary trivially-succeeding goal, so (not !) is FALSE.
     result = VLA_Prolog.PROLOG("(fact (p a)) (query (not !))")
     Report "prolog.5.2: a bare ! as not's own goal is legal (PROLOG.5.4) and trivially succeeds, so (not !) is FALSE", _
-           VarType(result) = vbBoolean And result = False, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, False), "got " & TypeName(result) & " " & result
 End Sub
 
 ' ---------------------------------------------------------------------
@@ -3756,10 +3756,10 @@ Private Sub TestPrologLists()
     ' passes against no implementation at all.
     result = VLA_Prolog.PROLOG("(query (length (cons a nil) 1))")
     Report "prolog.13: (length L N) TESTS a length when N is already bound", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (length (cons a nil) 2))")
     Report "prolog.13: ...and its twin, a wrong length, fails", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' ---- MEMBER, in both modes.
     result = VLA_Prolog.PROLOG("(query (member X (cons a (cons b nil))))")
@@ -3768,13 +3768,13 @@ Private Sub TestPrologLists()
            "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (member b (cons a (cons b nil))))")
     Report "prolog.13: (member X L) with X bound TESTS membership", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (member z (cons a (cons b nil))))")
     Report "prolog.13: ...and its twin, an element that is not there, fails", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (member a nil))")
     Report "prolog.13: nothing is a member of the empty list - an ordinary no, not an error", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' A FILTER, asserting a strict non-empty SUBSET. Three elements in,
     ' two out - so this cannot pass against an engine that enumerates
@@ -3794,7 +3794,7 @@ Private Sub TestPrologLists()
            And ResultCellIs(result, 3, 1, "2"), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (nth 1 (cons a nil) a))")
     Report "prolog.13: (nth N L X) fully ground TESTS a position", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     ' The three ways an index can name no position all FAIL rather than
     ' refuse, and that is one uniform rule rather than three cases: the
     ' positions of a list are 1..Count, and an index outside that set is a
@@ -3802,20 +3802,20 @@ Private Sub TestPrologLists()
     ' it. Refusing would make (nth N L X) unusable as a test.
     result = VLA_Prolog.PROLOG("(query (nth 2 (cons a nil) a))")
     Report "prolog.13: ...and an index past the end fails", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (nth 0 (cons a nil) a))")
     Report "prolog.13: ...and 0 fails, because nth counts from 1", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (nth 1.5 (cons a nil) a))")
     Report "prolog.13: ...and a fractional index fails - it names no position, and is never rounded to one", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     ' An index far past what a Long can hold. It must FAIL like any other
     ' out-of-range index, not crash: the range is bounded in Double
     ' arithmetic before the conversion, so CLng never sees this number.
     ' Without that ordering this is a raw, unworded overflow.
     result = VLA_Prolog.PROLOG("(query (nth 99999999999 (cons a nil) a))")
     Report "prolog.13: ...and an index too large for a Long fails rather than overflowing into a raw error", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' ---- APPEND, both modes.
     result = VLA_Prolog.PROLOG("(query (append (cons a nil) (cons b nil) C))")
@@ -3829,10 +3829,10 @@ Private Sub TestPrologLists()
            ResultRowCount(result) = 2 And ResultCol1Is(result, "(list a)"), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (append (cons a nil) (cons b nil) (cons a (cons b nil))))")
     Report "prolog.13: (append A B C) fully ground CHECKS a join", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (append (cons a nil) (cons b nil) (cons b (cons a nil))))")
     Report "prolog.13: ...and its twin, a join in the wrong order, fails", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' The SPLIT mode - A free, C known. A list of two has three splits,
     ' and both ends are included, which is what distinguishes a real split
@@ -3878,10 +3878,10 @@ Private Sub TestPrologLists()
            ResultRowCount(result) = 2 And ResultCol1Is(result, "nil"), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (reverse (cons a (cons b nil)) (cons b (cons a nil))))")
     Report "prolog.13: (reverse L R) fully ground CHECKS a reversal", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (reverse (cons a (cons b nil)) (cons a (cons b nil))))")
     Report "prolog.13: ...and its twin, an unreversed list, fails", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' ---- SUM-LIST.
     result = VLA_Prolog.PROLOG("(query (sum-list (cons 1 (cons 2 (cons 3 nil))) N))")
@@ -3892,10 +3892,10 @@ Private Sub TestPrologLists()
            ResultRowCount(result) = 2 And ResultCol1Is(result, "0"), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (sum-list (cons 1 (cons 2 nil)) 3))")
     Report "prolog.13: (sum-list L N) fully ground CHECKS a total", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (sum-list (cons 1 (cons 2 nil)) 4))")
     Report "prolog.13: ...and its twin, a wrong total, fails", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     ' Elements go through the SAME EvalArithTerm `is` and the comparisons
     ' use, so an element may itself be an expression.
     result = VLA_Prolog.PROLOG("(query (sum-list (cons (+ 1 2) (cons 4 nil)) N))")
@@ -4012,16 +4012,16 @@ Private Sub TestPrologLists()
     ' of "same term" in this engine.
     result = VLA_Prolog.PROLOG("(query (= (list a b c) (cons a (cons b (cons c nil)))))")
     Report "prolog.21: (list a b c) and the cons chain are the SAME TERM, proved by unifying them", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (= (list) nil))")
     Report "prolog.21: ...and an empty (list) is the atom nil", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     ' The discriminating twin: sugar that expanded WRONG would still
     ' unify with something, so a pin that only ever succeeds proves
     ' little. This one must FAIL.
     result = VLA_Prolog.PROLOG("(query (= (list a b) (cons a (cons b (cons c nil)))))")
     Report "prolog.21: ...and a list of two is NOT the chain of three - the sugar is not merely 'some list'", _
-           VarType(result) = vbBoolean And result = False, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
     ' ---- WRITING. The rendering is where the owner feels this item.
     result = VLA_Prolog.PROLOG("(fact (color red)) (fact (color green)) (fact (color blue)) (query (findall X (color X) Bag))")
@@ -4112,7 +4112,7 @@ Private Sub TestPrologLists()
            ResultRowCount(result) = 2 And ResultCol1Is(result, "x"), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (member b (list a b c)))")
     Report "prolog.21: ...and as an argument to a list goal, which is where it will mostly be typed", _
-           VarType(result) = vbBoolean And result = True, "got: " & ResultDescribe(result)
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
     result = VLA_Prolog.PROLOG("(query (append (list a) (list b) C))")
     Report "prolog.21: ...on both sides of an append, rendering the join in the same spelling", _
            ResultRowCount(result) = 2 And ResultCol1Is(result, "(list a b)"), "got: " & ResultDescribe(result)
@@ -4216,11 +4216,11 @@ Private Sub TestPrologFindall()
     ' written down reads back as a term whose functor is `red`.
     result = VLA_Prolog.PROLOG("(fact (color red)) (fact (color green)) (query (findall X (color X) (cons red (cons green nil))))")
     Report "prolog.5.3/13: an already-bound Bag matching the harvested list succeeds", _
-           VarType(result) = vbBoolean And result = True, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, True), "got " & TypeName(result) & " " & result
 
     result = VLA_Prolog.PROLOG("(fact (color red)) (fact (color green)) (query (findall X (color X) (cons green (cons red nil))))")
     Report "prolog.5.3/13: an already-bound Bag NOT matching the harvested list (wrong order) fails", _
-           VarType(result) = vbBoolean And result = False, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, False), "got " & TypeName(result) & " " & result
 
     ' The shared step ceiling, run to real exhaustion inside findall's
     ' own Goal - the identical sub-call microscope `not` already proves
@@ -4340,7 +4340,7 @@ Private Sub TestPrologCut()
     ' extra rows 3/4 - the exact gap a weaker assertion here would miss).
     result = VLA_Prolog.PROLOG("(fact (p a)) (fact (p b)) (fact (p c)) (query (p X) !)")
     Dim commitOk As Boolean
-    If IsArray(result) Then commitOk = (UBound(result, 1) = 2 And CStr(result(2, 1)) = "a")
+    If IsArray(result) Then commitOk = (ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "a"))
     Report "prolog.5.4: cut commits to the first matching clause, pruning every later candidate of the same predicate", _
            commitOk, "got: " & ResultDescribe(result)
 
@@ -4356,7 +4356,7 @@ Private Sub TestPrologCut()
         "(rule (test X Y) (p X) (q Y) !) " & _
         "(query (test X Y))")
     Dim scopeOk As Boolean
-    If IsArray(result) Then scopeOk = (UBound(result, 1) = 2 And CStr(result(2, 1)) = "a" And CStr(result(2, 2)) = "1")
+    If IsArray(result) Then scopeOk = (ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "a") And ResultCellIs(result, 2, 2, "1"))
     Report "prolog.5.4: cut prunes EARLIER goals in the same clause body, not just its own predicate's remaining clauses (4 possible solutions collapse to 1)", _
            scopeOk, "got: " & ResultDescribe(result)
 
@@ -4372,8 +4372,8 @@ Private Sub TestPrologCut()
         "(query (q X) (r Y))")
     Dim boundaryOk As Boolean
     If IsArray(result) Then
-        boundaryOk = (UBound(result, 1) = 3 And CStr(result(2, 1)) = "a" And CStr(result(2, 2)) = "1" _
-                      And CStr(result(3, 1)) = "a" And CStr(result(3, 2)) = "2")
+        boundaryOk = (ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "a") And ResultCellIs(result, 2, 2, "1") _
+                      And ResultCellIs(result, 3, 1, "a") And ResultCellIs(result, 3, 2, "2"))
     End If
     Report "prolog.5.4: cut does not escape its own clause to prune a caller's later choice point, and goals to cut's own right keep full backtracking", _
            boundaryOk, "got: " & ResultDescribe(result)
@@ -4390,7 +4390,7 @@ Private Sub TestPrologCut()
         "(rule (blocked) (thing W) ! (nonexistent Z)) " & _
         "(query (p Y) (not (blocked)))")
     Dim notOpaqueOk As Boolean
-    If IsArray(result) Then notOpaqueOk = (UBound(result, 1) = 3 And CStr(result(2, 1)) = "a" And CStr(result(3, 1)) = "b")
+    If IsArray(result) Then notOpaqueOk = (ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "a") And ResultCellIs(result, 3, 1, "b"))
     Report "prolog.5.4: a cut fired inside not's own isolated goal never leaks out to prune the outer query's own unrelated choice point", _
            notOpaqueOk, "got: " & ResultDescribe(result)
 
@@ -4429,7 +4429,7 @@ Private Sub TestPrologCut()
         "(rule (r X Y) (a X) ! (b Y) !) " & _
         "(query (r X Y))")
     Dim multiCutOk As Boolean
-    If IsArray(result) Then multiCutOk = (UBound(result, 1) = 2 And CStr(result(2, 1)) = "1" And CStr(result(2, 2)) = "10")
+    If IsArray(result) Then multiCutOk = (ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 2, 2, "10"))
     Report "prolog.5.4: two cuts in one clause body compose correctly, sharing one barrier, without double-firing", _
            multiCutOk, "got: " & ResultDescribe(result)
 
@@ -4501,7 +4501,7 @@ Private Sub TestPrologKeyedAtoms()
         staffingFacts & "(query (staffing (dept " & q & "eng" & q & ") (name Name)))", _
         clauseDict, headerMap)
     Report "prolog.6: a fully-keyed query resolves against the header, in derivation order", _
-           UBound(result, 1) = 3 And CStr(result(2, 1)) = "alice" And CStr(result(3, 1)) = "carol", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "alice") And ResultCellIs(result, 3, 1, "carol"), _
            "got: " & ResultDescribe(result)
 
     ' A predicate NOT in headerMap - its own 2-element-list arguments in
@@ -4517,7 +4517,7 @@ Private Sub TestPrologKeyedAtoms()
     result = VLA_Prolog.PrologRun( _
         "(fact (widget (box 1) (box 2))) (query (widget (box X) (box Y)))", clauseDict, headerMap)
     Report "prolog.6: a non-table-sourced predicate's own list-shaped query arguments are never desugared, ordinary compound terms", _
-           UBound(result, 1) = 2 And CStr(result(2, 1)) = "1" And CStr(result(2, 2)) = "2", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 2, 2, "2"), _
            "got: " & ResultDescribe(result)
 
     ' Refusals - all against the KNOWN table-sourced "staffing". PrologRun
@@ -4580,7 +4580,7 @@ Private Sub TestPrologKeyedAtoms()
         staffingFacts & "(rule (eng-staff Name) (staffing (dept " & q & "eng" & q & ") (name Name))) (query (eng-staff Name))", _
         clauseDict, headerMap)
     Report "prolog.6: a rule body's own fully-keyed atom composes with real backtracking", _
-           UBound(result, 1) = 3 And CStr(result(2, 1)) = "alice" And CStr(result(3, 1)) = "carol", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "alice") And ResultCellIs(result, 3, 1, "carol"), _
            "got: " & ResultDescribe(result)
 
     ' DISCRIMINATING proof - desugaring reaches inside not's own Goal.
@@ -4598,7 +4598,7 @@ Private Sub TestPrologKeyedAtoms()
         staffingFacts & "(query (not (staffing (dept " & q & "sales" & q & ") (name " & q & "bob" & q & "))))", _
         clauseDict, headerMap)
     Report "prolog.6: keyed-atom desugaring reaches inside not's own Goal (a real bob/sales row makes the negation FALSE, not vacuously TRUE)", _
-           VarType(result) = vbBoolean And result = False, "got " & TypeName(result) & " " & result
+           ResultBoolIs(result, False), "got " & TypeName(result) & " " & result
 
     ' DISCRIMINATING proof - desugaring reaches inside findall's own
     ' Goal, identical reasoning: an undesugared 2-argument keyed atom
@@ -4695,7 +4695,7 @@ Private Sub TestPrologHostTable()
         "(query (employeeshosttest1 " & Chr$(34) & "Alice" & Chr$(34) & " S D))", loEmployees.Range)
     Dim ok2 As Boolean, detail2 As String
     If IsArray(arr2) Then
-        ok2 = (UBound(arr2, 1) = 2 And CStr(arr2(2, 1)) = "90000" And CStr(arr2(2, 2)) = "eng")
+        ok2 = (ResultRowCount(arr2) = 2 And ResultCellIs(arr2, 2, 1, "90000") And ResultCellIs(arr2, 2, 2, "eng"))
         detail2 = "got S=" & arr2(2, 1) & " D=" & arr2(2, 2)
     Else
         detail2 = "got " & TypeName(arr2) & " = " & CStr(arr2)
@@ -4739,7 +4739,7 @@ Private Sub TestPrologHostTable()
         "(query (employeeshosttest1 (dept " & Chr$(34) & "eng" & Chr$(34) & ") (name Name)))", loEmployees.Range)
     Dim ok4 As Boolean, detail4 As String
     If IsArray(arr4) Then
-        ok4 = (UBound(arr4, 1) = 2 And CStr(arr4(2, 1)) = "Alice")
+        ok4 = (ResultRowCount(arr4) = 2 And ResultCellIs(arr4, 2, 1, "Alice"))
         detail4 = "got: " & ResultDescribe(arr4)
     Else
         detail4 = "got " & TypeName(arr4) & " = " & CStr(arr4)
@@ -4824,6 +4824,49 @@ Private Function ResultBoolIs(ByVal result As Variant, ByVal expected As Boolean
     If IsArray(result) Then Exit Function
     If VarType(result) <> vbBoolean Then Exit Function
     ResultBoolIs = (CBool(result) = expected)
+End Function
+
+' PROLOG.20: the same guarded shape for a result that is TEXT rather than
+' a Boolean or an array - a "#SQL!"/"#PROLOG!" refusal, or DATALOG's own
+' blank scalar for a zero-row headless result.
+'
+' The VarType test is kept rather than simplified to "not an array", and
+' that is not tidiness: `CStr(Empty)` is "" in VBA, so a version that only
+' excluded arrays would answer True for an EMPTY result where the
+' expression it replaces answers False. Caught by the equivalence
+' transliteration, which pins the Empty row for exactly this reason.
+Private Function ResultTextIs(ByVal result As Variant, ByVal expected As String) As Boolean
+    If IsArray(result) Then Exit Function
+    If VarType(result) <> vbString Then Exit Function
+    ResultTextIs = (CStr(result) = expected)
+End Function
+
+' PROLOG.20: the prefix form, for the refusals whose text continues past
+' the marker. Len(prefix) rather than a hard-coded 5, so the assertion
+' cannot drift from the marker it is checking for.
+Private Function ResultTextStartsWith(ByVal result As Variant, ByVal prefix As String) As Boolean
+    If IsArray(result) Then Exit Function
+    If VarType(result) <> vbString Then Exit Function
+    If Len(prefix) = 0 Then Exit Function
+    ResultTextStartsWith = (Left$(CStr(result), Len(prefix)) = prefix)
+End Function
+
+' PROLOG.20: the Collection twin of ResultCellIs. `bn.Count = 1 And
+' CStr(bn.Item(1)) = "x"` is the array defect in a different container -
+' Item(2) on a one-element Collection raises "Subscript out of range" on
+' precisely the run where the count was wrong, which is the run that had
+' something to report.
+'
+' IsObject checked before CStr: an element may be a nested Collection,
+' and CStr of an object raises a type mismatch of its own - this
+' project's own recorded trap, and the reason this is not one combined
+' expression either.
+Private Function CollItemIs(ByVal c As Collection, ByVal ix As Long, ByVal expected As String) As Boolean
+    If c Is Nothing Then Exit Function
+    If ix < 1 Then Exit Function
+    If ix > c.Count Then Exit Function
+    If IsObject(c.Item(ix)) Then Exit Function
+    CollItemIs = (CStr(c.Item(ix)) = expected)
 End Function
 
 Private Function ResultCol1Is(ByVal result As Variant, ByVal expected As String) As Boolean
@@ -5583,8 +5626,8 @@ Private Sub TestSqlJoin()
     Dim noTableResult As Variant
     noTableResult = VLA_Sql.SQL("SELECT * FROM staff")
     Report "sql join: calling SQL() with no table arguments at all is refused, not a raw crash", _
-           VarType(noTableResult) = vbString And Left$(CStr(noTableResult), 5) = "#SQL!", _
-           "got " & TypeName(noTableResult) & " = " & CStr(noTableResult)
+           ResultTextStartsWith(noTableResult, "#SQL!"), _
+           "got " & TypeName(noTableResult) & " = " & ResultDescribe(noTableResult)
 End Sub
 
 ' SQL.6: UNION / UNION ALL / INTERSECT / EXCEPT, entirely pure -
