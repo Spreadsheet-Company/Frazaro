@@ -71,6 +71,8 @@ add-in on a managed machine wants [THREAT_MODEL.md](THREAT_MODEL.md) and
   capital, and carrying its own edit-before-distributing warning at the top.
 - **[MARKETING.md](MARKETING.md)** — The operating manual for finding the
   people who will break the beta.
+- **[VOX_POPS.md](VOX_POPS.md)** — Invented man-on-the-street reactions,
+  filed as predictions to be replaced by real ones, verbatim, as they arrive.
 - **[CONTEMPLATIONS.md](CONTEMPLATIONS.md)** — Append-only thought
   experiments: the questions that are not yet items and the arguments that
   are not yet decisions.

@@ -880,3 +880,625 @@ register argues against — and the fat client is what turns it into an
 item the register allows.
 
 ---
+
+## Contemplation 5 — A Theory of Categories *(2026-09-09)*
+
+*The owner's question, 2026-09-09, filed the same day. Out of sheer
+curiosity: what other orthogonal functions could Frazaro include in the
+vein that produced `DATALOG`, `SQL` and `PROLOG`, with `SOLVE` scoped
+behind them? A sentential API over an underlying DSL democratizes a whole
+domain of programming — set theory, logic programming — by templating the
+questions that can be asked of a set of data structures, and thinking in
+category-theory terms (a field the owner has admired from afar) suggests
+other domains could be exposed the same way. Or is that vertical thinking
+where lateral is wanted? Frazaro began as English-to-VBA because
+procedural macros were the obvious win, but "manager SOPs" —
+sanity-checking values, querying workbook diffs, explaining* why *a number
+changed by tracing formula logic — are a dollar-per-hour more important
+automation the analyst never thinks about. And what about CFO and
+executive SOPs: what auditing, high-level questions could an executive
+ask in a Frazaro SOP that today are answered by clicking through large
+workbooks?*
+
+*Read in full before answering: `README.md`, Contemplations 1–4 above,
+`BETA_ROADMAP2.md`'s QUERY AND LOGIC tranche, its standing-decision
+register, THE MIDDLE LAYER, THE METAMETAMACRO LINE, THE EDITION LINE,
+`U.18` and `SOP.1`–`SOP.5`; `MARKETING.md` §3.8–§3.11 and §4;
+`VENTURE.md` §6; `sententiae.txt`; `PHRASEBOOK-TERMS.md`; the headers of
+`VLA_Provenance.bas`, `VLA_Digest.bas` and `VLA_Identity.bas`; the
+procedure lists of `VLA_Relation.bas` and `VLA_Datalog.bas`. Read by
+section header only: `CUTS.md`, `SUBSTRATE.md`, the rest of `VENTURE.md`
+and `MARKETING.md`. Measured, not assumed, because the reflection
+candidate below depends on it: the engine can read and write ONE cell's
+formula through the member form `(. obj formula)` (`Formula2` in both
+backends), and `deflambda` emits one, but nothing walks a workbook's
+formulas as data — a grep over `src/` finds no reference to
+`Precedents`, `Dependents` or `HasFormula` at all — and `english.vla` has
+no rule whose surface is an audit verb (precedent, dependent, explain,
+compare, reconcile, variance, verify). Like its four predecessors this is
+speculation, not commitment: nothing here is an item until the betting
+table says so.*
+
+The four engines are not four random picks, and that is why "what else"
+feels both obvious and hard. They are the classic rungs of one ladder.
+The genuinely orthogonal directions are not further up that ladder; they
+are sideways — change what an *answer* is, or change what is being
+*asked about*, and keep the evaluators already built. The owner is not
+overshooting with category theory: there are exactly three places where
+it earns its keep here, named below rather than waved at.
+
+### Where the orthogonality actually is
+
+**The vertical is mostly climbed.** Descriptive complexity classifies
+query languages by expressive power. First-order logic is SQL without
+recursion. Add least fixpoint and you have Datalog, which stays in
+polynomial time. Add guess-and-check and you have answer set programming,
+the NP rung. Add unbounded recursion over terms and you have Prolog,
+which is everything computable. Frazaro has one engine per rung, with
+`SOLVE` the only one unbuilt. Above Prolog is undecidability, which the
+refusal doctrine cannot price. So the fifth engine should not be "a
+stronger logic."
+
+**Axis two is the codomain: what an answer is.** This is the
+category-theory handle that is both real and implementable on the
+relation substrate. Green, Karvounarakis and Tannen (*Provenance
+Semirings*, PODS 2007) showed that relational and Datalog evaluation is
+parametric in a semiring: join multiplies annotations, union adds them,
+and the same evaluator yields a different kind of answer depending on
+the semiring plugged in. Booleans give set semantics. Counts give bag
+semantics. Sets of input-row identities give *why* a row is in the
+answer. Polynomials give *how* it was derived, every path. The tropical
+semiring gives shortest paths and minimum cost. `VLA_Relation` is the
+evaluator; provenance is one extra column on every tuple and a few lines
+in `RelJoin` and the union step. One evaluator, many products — and the
+most valuable product for a manager is *why*, because that is the
+question asked after every exception report. One caveat a Datalog person
+will raise first: recursion needs the finite semirings. The
+how-polynomial is infinite on a cycle, so that one is refused or
+truncated by name, never left spinning — the step-ceiling doctrine
+again.
+
+**Axis three is the domain: what is being asked about.** Every engine
+today reads a Table. But a workbook contains other relational structures
+nobody has exposed as tables: which cells hold formulas, which cells
+each formula reads, what names exist, which sheets are hidden, what the
+last snapshot held, what a program's effect list was. Expose those as
+tables and every existing engine answers questions about the workbook
+itself. `DATALOG` over a precedents relation is "every cell that
+ultimately depends on the tax-rate input," recursion included, at zero
+engine cost. Spivak's functorial data migration (*Information and
+Computation*, 2012) is the honest categorical handle here: a schema is a
+category, an instance is a functor into sets, and a change of layout
+between two months is a functor between schemas. That matters for
+reconciliation across layout changes, below.
+
+So there are three ways to add a question. A new logic, of which two are
+worth having. A new answer type: provenance, verdicts, diffs,
+attributions. A new source: the workbook about itself. The second and
+third are where the manager and executive questions live, and both are
+cheaper than a fifth logic. The one earned category-theory sentence: the
+engines are functors, and you can change the object they are applied to
+or the semiring they are valued in without touching the functor.
+
+### The candidates
+
+| Candidate | The formal thing | The question it answers | What it reuses | Shape |
+|---|---|---|---|---|
+| **Reflection** | the workbook as relations | what is hardcoded in a formula column; what depends on this input | all four engines, unchanged | ribbon action, not a worksheet function |
+| **Check** | integrity constraints with witnesses | does every subtotal foot; is every invoice number unique; is this column monotone | the `SQL` and `DATALOG` evaluators; the new part is a verdict result type carrying counterexample rows | either |
+| **Diff and reconcile** | key-matched symmetric difference; matching under a tolerance relation | what changed since last month; which bank lines match which ledger lines | `RelJoin`; the snapshots Undo already takes | either |
+| **Why** | semiring provenance | why is this row in the answer | the relation substrate | worksheet function |
+| **Attribute** | sequential attribution over a formula graph; Shapley is the exact version | why did this cell change, by input, as a bridge table | reflection, snapshots, the host's own recalculation | ribbon action |
+| **Row patterns** | regular expressions over rows, Kleene algebra; SQL:2016's `MATCH_RECOGNIZE` | three consecutive declining months; a spike then a reversal | relation rows plus a small automaton | worksheet function |
+| **Decide** | decision tables with a hit policy, DMN semantics | which tier, which discount, which approver | the load-time shadow audit, which is already a uniqueness hit-policy check | worksheet function |
+
+Notes on the ones with a catch:
+
+- **Reflection cannot be a worksheet function.** A function recalculates
+  when its arguments change, and Excel does not treat a formula elsewhere
+  as an argument. Making it volatile only makes the answer depend on when
+  Excel last recalculated — the exact objection `PROLOG.19` is about to
+  record for `assert`. So reflection engines take the Check and Interpret
+  shape, or take an explicit snapshot as their argument. Worth stating
+  before building. The real cost is small: `Range.Precedents` stops at
+  the sheet boundary, so a tiny reference tokenizer over formula text
+  does the cross-sheet half.
+- **Attribute needs the host.** Recomputing with one input swapped at a
+  time means copying the sheet, setting inputs, reading outputs. It is
+  deterministic only when no formula on the path is volatile or
+  external, and reflection can detect those and refuse by name — the
+  screen `SEC.15` already wants, widened to volatility. A waterfall is
+  order-dependent, so the sentence must state the order; Shapley removes
+  the dependence at exponential cost, affordable for the handful of
+  inputs a real bridge has.
+- **Two whys share one word.** *Why is this row in the result* is
+  provenance. *Why is this value in this cell* is precedents plus
+  attribution. The sentence layer will receive both and should refuse
+  the ambiguous one.
+- **Check is on the path to `SOLVE`, not a detour.** `SOLVE.2` checks
+  constraints against one derived world and reports "no answer set."
+  Check is that same step with zero choices, pointed at the data,
+  rendering the violating rows instead of a verdict. Build it first and
+  `SOLVE.2` inherits it.
+- **Decide is where the shadow audit becomes a product.** Business
+  people already write decision tables in Excel. What they cannot do is
+  prove a table complete and non-overlapping, and over interval
+  conditions that is a sweep, not a satisfiability problem.
+- **Row patterns are the purer of the two new logics, and cheap.** A
+  deterministic automaton with a stated policy — leftmost,
+  non-overlapping — and no backtracking. It parses rows rather than
+  sentences, so it sits inside `SD-16`'s spirit.
+
+### Manager and executive SOPs
+
+The manager's review, as engines:
+
+- **Plug hunting.** A hardcoded number in a formula column. Reflection
+  plus one Check sentence. One of the most common findings in the
+  spreadsheet-risk literature.
+- **Footing and cross-footing.** Subtotals equal their rows; the summary
+  page equals the detail. Check.
+- **Structure drift.** Is this the same model as last month with only
+  inputs changed? Diff the formulas and expect nothing; diff the values
+  and expect something. Reflection plus Diff.
+- **Reconciliation.** Bank to ledger, subledger to general ledger,
+  intercompany. Diff with a stated tolerance and a stated first-match
+  rule, so the matching is auditable rather than fuzzy.
+- **The change question.** Why did gross margin move? Attribute, as a
+  bridge table.
+- **Sign-off with evidence.** The verdicts and the diff are the
+  evidence; `U.18`'s run log is where they persist.
+
+The executive does not open the workbook. Their SOP is a questionnaire
+the workbook answers itself, and nearly every question is a manager
+engine with a policy sentence on top:
+
+- **Does every number on the summary page trace to a source sheet with
+  no manual override on the path?** `DATALOG` reachability over
+  precedents, joined to the plug table.
+- **What are the top drivers of variance to budget?** Attribute.
+- **Which assumptions is the forecast most sensitive to?** Attribute over
+  hypothetical deltas, one input at a time.
+- **Are we compliant with our own rules?** Contemplation 4's
+  policy-over-procedures for programs, plus Check for data.
+- **What are the staffing options and which is cheapest?** `SOLVE`, as
+  already scoped.
+- **What would it take to hit the target?** Goal seek: deterministic root
+  finding, but approximate, so it would state its tolerance the way
+  `PROLOG` states its step ceiling.
+
+The pattern is that executive questions are not new engines. They are
+the manager's engines under a policy sentence, rendered as one page of
+verdicts. That page is the compliance pack of `VENTURE.md` §6.3, with an
+artifact behind it at last.
+
+### Refusals, and the order that pays
+
+What should be refused by name, in `PROLOG.19`'s shape — a message
+giving the reason, never implying "not yet": probabilistic logic,
+because the brand is certainty; random sampling without a stated seed;
+anything with a model in the loop.
+
+Ranked by what each unlocks, the house rule: reflection first, because
+it turns four engines loose on the workbook itself for almost nothing.
+Check second, because it is the manager's engine and `SOLVE.2`'s base
+case at once. Diff third; then Attribute as the distinctive one; then
+row patterns and Decide as the two cheap new logics. None of this is an
+item: `SD-7` wants a sentence that needs each, and the QUERY AND LOGIC
+tranche's own contract is aspirational and appetite-boxed. What this
+contemplation buys is the direction that decides, when a lateral ask
+arrives, whether it is a fifth engine, a fifth answer type, or a fifth
+table — and the bet is that it is almost never the first.
+
+---
+
+## Contemplation 6 — Notes from the Coffee Grounds *(2026-09-09)*
+
+*The owner's question, 2026-09-09, filed the same day, in the owner's
+own framing: for yet another dash of characteristic meta-self-awareness,
+what questions should the owner be asking about this project that have
+not been asked, as evidenced by the copious documentation? Existential,
+orthogonal, observational, marketable, or otherwise useful questions
+that do not quite fit the mental filters `docs/` has set up for itself.*
+
+*The title is the owner's, and it is doing at least four jobs: the
+underground it echoes is Dostoevsky's, whose narrator is the patron
+saint of the question; the grounds are what a filter keeps out of the
+cup, which is precisely what was asked for; they are also what a
+fortune-teller reads the future in, the coroner's own trade; and they
+are the ground the project stands on, which the historian already
+surveyed.*
+
+*Correction, appended 2026-09-09, same day, at the owner's prompting:
+the count was low. "Notes" are also what a taster reports in the cup,
+so the contemplation is an aromatic experience — and the one place the
+text below smells anything is Hermans' spreadsheet smells, cited as the
+manager's own checks. Five jobs, not four. The paragraph above stands
+as written, per the house rule against editing oneself wiser after the
+fact.*
+
+*Filed as a contemplation rather than as a sixth execution of SD-17,
+deliberately: it occupies no persona's seat, it proposes seats, and its
+one concrete proposal (the collector, below) is a candidate for the
+roadmap and is not minted here. Like its predecessors it is speculation
+until the betting table says otherwise — with one difference the reader
+should hold onto: the first section is not speculation but a
+measurement, and it is the reason the rest was worth writing.*
+
+*Read in full before answering: `PREMORTEM.md`, `ADVOCATUS.md`,
+`CONTINUITY.md`, `VIABILITY.md`, `SUBSTRATE.md`, `CONSULTANT.md`
+(including its addendum), `THREAT_MODEL.md`, `TESTING.md`,
+`SECURITY.md`, `SUPPORT.md`, `docs/README.md`, the root `README.md`,
+and Contemplations 1–5 above. Read in part: `BETA_ROADMAP2.md` (the
+departments, the standing-decision register, SIGNATORY, PATIENT, SOP
+IMPORT, ENVIRONMENT, THE MIDDLE LAYER through QUERY AND LOGIC, and
+INTERFACE through the closing short answer); `AUDIT.md` (I.0–I.4 and
+Part III); `MARKETING.md` (§0–§2, §3.8–§3.11, §4, §7–§8); `VENTURE.md`
+(§2, §6, §8, §11–§13); `LESSONS.md` (the chapter headings, X and XVI);
+`RELEASES.md` (the head); `ID_REGISTRY.md` (the prefix table);
+`TRENCHES.md` and the `metameta/` essays by heading only. Everything
+counted below was counted by grep over the working tree on 2026-09-09,
+and the last section says how to count it again.*
+
+The shelf asks harder questions of itself than most funded teams ever
+do, so the gap is not rigor. It is shape. Every file on the shelf has a
+slot for a decision, an item, an incident, a death, or a speculation.
+Three kinds of question fit none of those slots: questions whose answer
+is a fact about the world rather than a thing to build, questions only a
+third party can answer, and the question of whether the questions
+already asked were ever answered. The third has a measurement behind it,
+so it goes first.
+
+### The question the shelf cannot ask about itself
+
+The five reviews of 2026-08-31 each ended with a register, and every
+register said the same thing in its own voice: the fork is collections
+day, and an uncollected register is death by documentation in costume.
+The collection was checked on 2026-09-09, nine days and five tagged
+releases later, by grepping each proposed candidate ID against both
+roadmap files.
+
+| Proposed | By | Where it stands on 2026-09-09 |
+|---|---|---|
+| `SIG.6`, one practicing auditor's verbatim reaction | ADVOCATUS | Not minted. Cited as if real twice in `VENTURE.md` (§6.3, §7) and once in `MARKETING.md` (§3.10). `ID_REGISTRY.md` still lists it as the SIG family's next free slot. |
+| `SIG.7`, the win condition with an expiry | VIABILITY | Not minted. `VENTURE.md` was written afterward and also declines to choose. |
+| `EN.9`, the substrate watch-list | PREMORTEM, hydrated by SUBSTRATE | The ID was spent on a different item — `Workbook.Path` as a cloud URL breaking `Dir$` checks. The watch-list, its contents already written, has no home. |
+| `EN.10`, the factory's trust dependencies | SUBSTRATE | Not minted. |
+| `CN.1`, the bus drill with a pass bar | PREMORTEM, CONTINUITY | Not minted. |
+| `CN.2`, the second address | CONTINUITY | Done in substance: `git remote -v` now names an origin. No ID. |
+| `CN.3`, the owner's cold-start brief | CONTINUITY | Not minted, and no file plays the role. |
+| `DZ.1`, the drizzle ledger | PREMORTEM | Not minted. TERRARIUM is the nearest thing and demands a repro and a root cause — the opposite of a shrug, by its own design note. |
+| `DO.7`, the front door | VIABILITY | Done in substance: the root `README.md` exists. No ID. |
+
+Neither `RELEASES.md` nor `BETA_ROADMAP2.md` contains the words
+"premortem", "drizzle", or "receivable"; the roadmap's single
+"tripwire" is `PROLOG.9`'s own name for a PowerShell check, not a
+re-read of the coroner's. `PREMORTEM.md`'s Ω predicted exactly this
+fate for itself — filed, read once with interest, never reopened, its
+tripwires unmonitored — and the prediction came true inside nine days.
+It is also `AUDIT.md` I.2's unbound-symbol finding recurring one level
+up: `SIG.6` is referenced in two outward-facing documents and defined
+nowhere, the precise shape "first external user" had before THE PATIENT
+was seated.
+
+So the first unasked question is **who collects?** The shelf has a
+minting discipline, a review cadence, and an ID registry, and no
+mechanism that reads a review's register against the roadmap at the
+next fork. The house-style answer is one more check in `tools/`, the
+shape the eighteen existing ones already take: for every "proposed
+mint — candidate X" in a review, X is minted in the roadmap, or done
+under another ID with a pointer back, or declined with a written reason.
+Anything else is red. It would have been red every day since the beta
+shipped. Call it the collector; it is a check, not a persona, and it is
+the only proposal in this contemplation.
+
+The second is structural. **Where do open questions live?** The
+register holds decisions. `LESSONS.md` holds incidents.
+`CONTEMPLATIONS.md` holds speculation. The roadmap holds things to
+build. `ADVOCATUS.md` invented the right shape — a claim, the evidence
+that would settle it, and who must produce it — used it six times, and
+never gave it a file. The owner's question of 2026-09-09 has no home on
+the shelf, which is why it had to be asked in a chat window.
+
+### Questions with no seat
+
+**Existential.**
+
+- **Who has the incentive to write the procedure down?** `VENTURE.md`
+  §2 names the manager's want as procedures that survive people. The
+  person asked to author the procedure is the person it makes
+  survivable without. `ADVOCATUS.md` A.5 asks whether the clerk wants to
+  program; nobody asks whether the clerk wants to encode their own moat.
+  The answer changes who the tutorial is for.
+- **What is a number?** `PROLOG.17` made doubles permanent for host
+  parity — but `VLA_Relation.CompareValues` compares two numerics with
+  VBA's exact `=`, and so does the interpreter's own equals. In VBA,
+  `0.1 + 0.2 = 0.3` is False, by construction. Excel's own `=` is
+  widely documented to forgive the last bit, so a cell computing a tenth
+  plus two tenths equals three tenths in the formula bar and may not in
+  a `SQL()` `WHERE` or an `is equal to`. No document on the shelf
+  mentions floating point, epsilon, or tolerance. For a finance-first
+  checked language that is the founding question, and it is one cell
+  away from being measured.
+- **Does automating a spreadsheet promote it into a heavier control
+  regime?** Under model-risk and end-user-computing policies, a
+  spreadsheet that produces reporting numbers by rule can be
+  reclassified from "EUC" to "application" or "model", which brings
+  validation, change control, and a named owner. The compliance pitch
+  assumes automation lowers the buyer's burden. It may raise it at
+  exactly the buyer it targets. "Model risk" appears nowhere on the
+  shelf.
+- **Which destiny?** Asked by the accountant, never minted, never
+  answered. `VENTURE.md` §13 repeats the question rather than the
+  answer.
+
+**Orthogonal.**
+
+- **The field that studied this user for thirty years is absent.**
+  Nardi's *A Small Matter of Programming* argues spreadsheet users
+  succeed because the formula language is task-specific and hides the
+  general machinery. Blackwell's attention-investment model prices the
+  analyst's decision to automate — the exact decision A.5 speculates
+  about. Panko's error-rate studies are the denominator that
+  `sententiae.txt` says every estimate needs. Hermans' spreadsheet
+  smells are Contemplation 5's manager checks, already catalogued.
+  Hermans and Panko appear once each on the shelf, as audiences to sell
+  to; Nardi, Blackwell, Burnett, Ko, and the phrase "end-user
+  programming" appear zero times.
+- **Cucumber is the closest living relative and is not on the shelf.**
+  Gherkin is a checked English whose step definitions are phrasebook
+  rules by another name, with an "undefined step" refusal and nearly two
+  decades of published post-mortems: step sprawl, the
+  imperative-versus-declarative wars, and the non-technical authors who
+  did not, in the end, write the steps. That is a premortem someone else
+  already paid for. Zero mentions.
+- **The landlord's own natural-language record is unread.**
+  `SUBSTRATE.md`'s exhibits are all about VBA. Excel shipped
+  natural-language labels in formulas in 1997 and removed them in 2007;
+  Analyze Data answers English questions over a table inside Excel
+  today and is Contemplation 5's executive question box with
+  Microsoft's name on it; Flash Fill is programming by example. What
+  Microsoft learned and abandoned about English in cells is the exhibit
+  the historian did not pull.
+
+**Observational.** The repository holds no observation of a human using
+the product: no screenshot, recording, transcript, or timed session
+(`MARKETING.md` §1 already notes the absence of any image). Every
+document reasons from other documents and from code. Five instruments
+need no user:
+
+- **The reader test.** Five strangers, one program, ten minutes each,
+  asked to say what it does. The claim that a reviewer can read what ran
+  has never met a reviewer; `ADVOCATUS.md` A.2 asked only for a
+  stranger's *writing* hand, and reading is cheaper and is the pitch.
+- **The acceptance benchmark, asked once and never run.**
+  `CONSULTANT.md` §2.13 proposed measuring the refusal rate against
+  external text. Forum question titles are a free corpus of what people
+  want to say to Excel, in their own words. A day of work, and the first
+  coverage number that is not a prediction.
+- **Engine capacity.** `PROLOG_MAX_STEPS` is a total budget of 120,
+  charged per candidate, and `PROLOG.9`'s own entry records the usable
+  range of a single `between` goal as 119. No document says what size of
+  real table each engine answers before refusing. A rota with fifty
+  shifts and twenty staff may already be over the line.
+- **The number experiment.** One cell holding `=0.1+0.2`, one `SQL()`
+  comparing it to `0.3`, one formula doing the same. One minute. It
+  settles the existential item above.
+- **The judgment step as evidence.** The grammar can ask (`Ask … and
+  put answer into …`), branch, and `Stop.`, so a "check with Priya"
+  step can be composed today. Nothing records that Priya said yes: the
+  run log (`U.18`) is unbuilt, and an auditor's question about a manual
+  step is who approved it and when, not whether the program paused.
+
+Two more observations are about the shelf itself, and both are counts:
+
+| Measured over `docs/*.md`, 2026-09-09 | Count |
+|---|---|
+| Occurrences of "the owner" | 237 |
+| Occurrences of "the user" | 117 |
+| Occurrences of "the pilot" | 43 |
+| Lines in `docs/*.md` | 27,948 |
+| Lines in `src/*.bas` and `src/*.cls` | 66,510 |
+| Lines in `english.vla` plus `prelude.vla` | 3,654 |
+
+The owner appears twice as often as the user, and every review is in one
+voice, written by the dyad under review — which `ADVOCATUS.md`'s Ω
+confessed and `VENTURE.md` §11 presents as diligence. **Has any human
+other than the owner read the shelf, and how long did it take them?**
+`CONTINUITY.md` assumed the shelf explains itself. That is a forecast
+with no reader behind it, and the docs' own specimen count is therefore
+the same number as the product's.
+
+**Marketable.**
+
+- **Positioning by exclusion.** `MARKETING.md` serves fifteen
+  audiences, `VENTURE.md` three constituencies, `VIABILITY.md` five
+  destinies. No document names an audience the project refuses to serve
+  this year. A beta that says yes to everyone has not said who it is
+  for.
+- **Two products in one box.** The English SOP tool and the query and
+  logic engines share a download and do not share a buyer: the
+  accountant did not ask for Prolog and the Prolog person did not ask
+  for month-end. Whether the box is the product or the confusion is
+  unasked.
+- **Whimsy and the signatory.** The pirate and alien phrasebooks
+  recruit engineers and ship in the same file as the SOX control.
+  Whether the edition a CFO installs should carry them is a question
+  about the buyer, not about taste.
+- **Where the moat is thickest.** Against Copilot the edge is largest
+  where English is weakest, because Copilot emits English-keyword code
+  and Frazaro renders in the reader's language. The beta is
+  English-first — aiming, on this reading, at the market where the
+  differentiator is thinnest.
+
+### Seats SD-17 has not filled
+
+The rule demands a persona nobody has used, and `SUBSTRATE.md`'s Ω
+already said the cheap seats are taken. The questions above imply these,
+each with the finding it would own:
+
+- **The labor economist**, for the incentive inversion and the
+  attention-investment arithmetic.
+- **The end-user-programming researcher**, to read Nardi, Blackwell,
+  Panko, and Hermans against the shelf and say which premise they
+  already falsified.
+- **The reader** — a stranger handed one program and a stopwatch. Not a
+  user. The pitch is about readers.
+- **The model-risk officer**, for the reclassification paradox and for
+  what "a control" means to the people who define the word.
+- **The competitor's product manager**, who knows why natural-language
+  labels were removed and what Analyze Data taught Redmond.
+
+And one that is not a persona but a check: the collector. If only one
+thing in this contemplation becomes work, it should be that check,
+because it is what keeps every other review — this one included — from
+becoming a monument.
+
+### The numbers, and how to re-run them
+
+All counts above come from the working tree on 2026-09-09; no Excel is
+needed, and every line below is a plain shell command:
+
+```
+# Which proposed mints exist as roadmap items (bold ID at bullet head)?
+for id in SIG.6 SIG.7 EN.9 EN.10 CN.1 CN.2 CN.3 DZ.1 DO.7; do
+  printf '%-6s %s %s\n' "$id" \
+    "$(grep -c "\*\*$id\b" docs/BETA_ROADMAP2.md)" \
+    "$(grep -c "\*\*$id\b" docs/BETA_ROADMAP1.md)"; done
+# Where are they referenced at all?
+grep -n "SIG\.6\|SIG\.7\|CN\.[123]\b\|DZ\.1\|EN\.10" docs/*.md README.md
+# Did any fork re-read the coroner?
+grep -nic "premortem\|drizzle\|receivable" docs/RELEASES.md docs/BETA_ROADMAP2.md
+# The shelf's vocabulary
+for t in "the owner" "the user" "the pilot"; do grep -roi "$t" docs/*.md | wc -l; done
+# The literature, and the landlord's own record
+for t in Nardi Blackwell Burnett "end-user programming" Panko Hermans \
+         Gherkin Cucumber "Analyze Data" "natural language label" \
+         "Flash Fill" epsilon floating "model risk"; do
+  printf '%-24s %s\n' "$t" "$(grep -rli -- "$t" docs/ README.md | wc -l)"; done
+# Any observation of a human?
+find . -iname '*.png' -o -iname '*.gif' -o -iname '*.mp4' -o -iname '*transcript*'
+```
+
+---
+
+## Contemplation 7 — Bergson's Burger *(2026-09-10)*
+
+*The owner's question, 2026-09-10, after three rounds of `VOX_POPS.md`:
+why were the vox pops funny, and how is that humor replicated in future
+contexts — a specific combination of constraints, or a happy accident?
+The answer given in conversation, re-summarized here at the owner's
+request. The title is the owner's. Bergson's essay on laughter holds
+that we laugh at the mechanical encrusted upon the living; a burger is
+the layered thing this contemplation ends with, a recipe stacked in a
+fixed order. Both readings are used below.*
+
+*Source: `VOX_POPS.md` itself — seventy-two invented quotations in three
+rounds, written 2026-09-09 and 2026-09-10 — and the session that
+produced them. Like every contemplation this is a mental model, not a
+commitment; unlike most, it has its specimen already on the shelf.*
+
+### Not an accident: four constraints
+
+**The question was a machine.** "If you could program spreadsheets in
+English, what would you do?" is a fixed frame with one free slot, the
+persona. Everyone answers from their own job, so every joke has the same
+shape — the gap between what the tool promises and what that job
+actually wants — and a new persona yields a new joke for free. The frame
+does not deplete, which is why round three was as strong as round one.
+
+**The product is a straight man.** Frazaro's defining behaviour is that
+it says no, and a tool that refuses is a deadpan partner. Most of the
+quotes are built on it: the persona asks for the thing they really want,
+which is impossible or dishonest — "Make Q3 look better," "Allocate
+overhead fairly," "Approve everyone who looks fine" — and the refusal
+reveals the person. Nobody invented the punchline mechanism. The refusal
+doctrine supplied it, and a refusal that teaches is already a comic
+form.
+
+**The material was pre-loaded with true tensions.** The jokes were
+written after a day inside the shelf, and the funniest lines are
+compressed findings: the warehouse supervisor is "determinism is not
+correctness," the senior accountant is Contemplation 6's incentive
+inversion, Cabo is the bus factor, the helpdesk technician is the install
+cliff. Comedy is the shortest route to an uncomfortable true sentence,
+and `sententiae.txt` is already joke-shaped — "Near money, say less" is
+a punchline with a moral. The jokes were the dividend on the reading;
+without it they would have been jokes about spreadsheets in general,
+which exist in bulk and are worse.
+
+**The form mirrored the product.** A Frazaro program is a list of
+sentences run in order, and the best quotes are exactly that: "Undo
+whatever Kevin did. Find out what Kevin did." "Balance the drawer. Find
+the eleven cents. Stop looking for the eleven cents." The last command
+reveals the person. The product's core metaphor handed the jokes their
+native rhythm.
+
+### Bergson, applied
+
+Bergson's thesis is that laughter answers *the mechanical encrusted upon
+the living*: a person behaving like a mechanism, rigid where life should
+be supple. The vox pops run the thesis in both directions at once. The
+tool is the mechanism and the persona is the living thing that wants —
+that is the straight-man structure above. But the sharpest lines are the
+ones where the *person* has become the procedure: the branch manager who
+cannot stop looking for eleven cents, the owner of The Master
+Spreadsheet whose whole system is two tabs named DO NOT DELETE, the
+payroll clerk standing very still. The joke is a human who already runs
+in sentences, meeting a tool that finally does too.
+
+Two more of Bergson's clauses explain two of the rules below. Laughter
+is a *social gesture*, a corrective: the cynic who concedes the pitch
+while mocking it — "wrong the same way every time; we call that a
+process" — is the audience correcting the marketing and agreeing with it
+in the same breath, which is the only form in which a product's argument
+is safe to post. And laughter needs *a momentary anesthesia of the
+heart*: momentary, not permanent — which is why the jokes may punch at
+situations and never at competence. The actuary's spreadsheet is right.
+The adjuster's own claim is lying. The person is never the fool; the
+doctrine already decided who is.
+
+### The recipe, stacked in order
+
+- **Write the tag as a scene, in five words.** "Bank branch manager,
+  after close." The tag carries the context so the quote can start
+  mid-thought and end on the punch.
+- **Replace every abstraction with the one noun the persona would say.**
+  Not "the person who knows the spreadsheet" but "She's in Cabo." Doreen,
+  4B, Gary, the red truck, DO NOT DELETE 2. Specificity is where
+  "written" turns into "overheard."
+- **Get the in-group tell right.** The SRE is four words long. The
+  consultant speaks in slide numbers and a fee. The IB analyst says
+  "Buddy." If the quote could be said by anyone, the tag is doing
+  nothing.
+- **Let one in six reject the premise.** "Program it to do what? Like,
+  emotionally?" Without those the list is a brochure with jokes in it.
+- **Concede the pitch while mocking it.** The move that makes the humor
+  postable.
+- **Never lie about the product inside a joke.** The compliance
+  officer's run log does not exist yet, and the field notes say so. Jokes
+  may exaggerate people; they may not exaggerate the tool, or the brand's
+  one asset goes with them.
+- **Punch at situations, not competence.** Bergson's anesthesia,
+  momentary.
+- **Ration the callbacks.** Kevin once per round. A running gag rewards
+  reading the whole list; a mascot ends it.
+- **Cut to the shortest version and end on the concrete word.** "Ours is
+  called Thursday." "'Assume a spreadsheet.'"
+- **Make a fifth of them secretly findings, and write the notes.** The
+  field-notes section is what makes the jokes feel earned, and it is how
+  a reader learns the doctrine without being taught it.
+
+### To get it again
+
+Three inputs and a register. The fixed question; a list of jobs with a
+native grievance; and the domain's true tensions, either as a document
+to read or as one sentence each. The register set in the prompt matters
+as much: "guerrilla journalism" and "man on the street" granted
+permission for irreverence, and the pirate enthusiast would not have
+appeared under "write marketing copy." The one part honestly owed to
+luck is that the writer had been inside the shelf's voice for hours, and
+that voice is understatement. Understatement is most of comedy, and the
+shelf has been rehearsing it for a year without meaning to.
+
+---
