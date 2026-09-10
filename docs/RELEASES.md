@@ -57,8 +57,15 @@
   Rather than ship a test that would give a confident wrong answer — and
   one whose meaning would have to change later — the two names are
   reserved now and refused with an explanation pointing at `(number? X)`,
-  the test that does exist. Reserving them today means a program you
-  write now keeps working on the day the distinction arrives.
+  the test that does exist.
+
+  **That question is now settled, in the same release.** One kind of
+  number is permanent, not a gap waiting to be filled, so `integer?` and
+  `float?` stay refused for good rather than pending. What a person
+  actually wanted when they reached for `integer?` — "has this got a
+  fractional part?" — ships instead as **`(whole? X)`**, under a name
+  that promises no type. `(whole? 3)` and `(whole? 3.0)` both succeed;
+  `(whole? 3.5)` fails. The refusal now points at it by name.
 
 - **If you write the Prolog spelling, Frazaro still tells you.**
   `(ground X)`, `(callable X)` and `(is_list X)` each stop and name the
@@ -93,6 +100,53 @@
   looks like a near-miss for `nth` and is not one — Prolog's `nth0` and
   `nth1` count from different places, so guessing which you meant would
   be worse than saying nothing.
+
+- **Arithmetic grew from four operators to seventeen, in all three
+  query languages at once.** Until now PROLOG, SQL and DATALOG could add,
+  subtract, multiply and divide, and nothing else — no remainder, no
+  integer division, no rounding. There is now `mod`, `rem`, `//`
+  (integer division), `min`, `max`, `**`, `abs`, `sign`, `sqrt`,
+  `truncate`, `round`, `ceiling` and `floor`.
+
+  In PROLOG they are written the way the existing four are:
+  `(is X (mod 7 3))`, `(is X (round 2.5))`. In DATALOG they go inside
+  `let`: `(let S (abs A))`. SQL spells them as functions —
+  `MOD(Salary, 7)`, `ABS(Salary - 95000)`, `ROUND(x)`, `POWER(2, 10)`,
+  `DIV(a, b)`. The scalar two-argument minimum and maximum are
+  **`LEAST`** and **`GREATEST`** in SQL, not `MIN`/`MAX`: those two are
+  already aggregate functions there, and quietly changing what `MIN(x)`
+  means would have altered the meaning of queries people have already
+  written.
+
+- **`mod` and `rem` both ship, because they disagree and you should not
+  have to guess which one you got.** They are identical whenever the two
+  numbers share a sign. When the signs differ they part company:
+  `(mod -7 3)` is `2` and `(rem -7 3)` is `-1`. `mod` follows the sign of
+  the number you divide *by*; `rem` follows the sign of the number you
+  divide *into*. Shipping only one under the name `mod` would have been
+  right half the time and silently wrong the other half.
+
+- **`round` rounds halves away from zero.** `ROUND(2.5)` is `3`, not `2`.
+  Worth stating because the rounding built into the underlying platform
+  rounds halves to the nearest *even* number, which would have made
+  `ROUND(2.5)` and `ROUND(3.5)` both `4`.
+
+- **Arithmetic that has no answer now says so instead of guessing.**
+  The square root of a negative, a negative number raised to a fractional
+  power, a remainder or integer division by zero, and a result too large
+  to represent are each refused by name, in whichever of the three
+  languages you were writing. Previously several of these could surface
+  as a raw platform error rather than an explanation.
+
+- **A new release check: `tools/check_prolog_arith_operators.ps1`.** The
+  code that actually performs arithmetic is shared by all three query
+  languages, and each language separately decides which operators it will
+  accept. That is an arrangement where an operator can be added in one
+  place and forgotten in another — and the result would not be an error
+  message but a *wrong number in a cell*, which looks like an answer.
+  This check holds the one operator list, both refusal messages that
+  advertise it, both computing functions, and SQL's own function-name
+  map against each other, and fails the build if any of them disagree.
 
 - **A new release check: `tools/check_test_assertion_safety.ps1`.** VBA
   evaluates *every* part of an `And`, even when an earlier part has

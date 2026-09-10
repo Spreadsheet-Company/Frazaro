@@ -1006,27 +1006,36 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
                 End If
                 Dim biAtom As Collection
                 Set biAtom = ParseAtom(atomForm, "a rule body")
-                If kind = BI_CMP Or kind = BI_LET Then
-                    ' Both of DATALOG.4's own new shapes take EXACTLY two
-                    ' operands - (> X 50000), (+ X Y) - the one example
-                    ' the roadmap itself ever gives either shape; ParseAtom
-                    ' alone only enforces "at least one", so the exact
-                    ' count is checked here, once, for both kinds.
+                If kind = BI_CMP Then
+                    ' A COMPARISON is still exactly two operands - all six
+                    ' of </<=/>/>=/=/<> are binary and none of PROLOG.17's
+                    ' widening touches them. ParseAtom alone only enforces
+                    ' "at least one", so the exact count is checked here.
                     If AtomArity(biAtom) <> 2 Then
-                        VLA_Messages.RaiseMsg "datalog-builtin-needs-two-operands", "operator", AtomPred(biAtom), "count", AtomArity(biAtom)
+                        VLA_Messages.RaiseMsg "datalog-builtin-needs-two-operands", "operator", AtomPred(biAtom), "count", AtomArity(biAtom), "expected", "two operands", "example", "(> X 50000) or (+ X Y)"
                     End If
-                    If kind = BI_LET Then
-                        ' The frozen arithmetic operator set - the standard
-                        ' four, symmetric with comparison's own frozen six
-                        ' (</<=/>/>=/=/<>) - refused by name, never guessed,
-                        ' the identical discipline datalog-compound-term
-                        ' already established for this whole engine.
-                        Select Case AtomPred(biAtom)
-                        Case "+", "-", "*", "/"
-                            ' recognized
-                        Case Else
-                            VLA_Messages.RaiseMsg "datalog-unknown-arithmetic-operator", "operator", AtomPred(biAtom)
-                        End Select
+                ElseIf kind = BI_LET Then
+                    ' PROLOG.17: the operator set is no longer written
+                    ' here. VLA_Relation.ArithOpArity is asked instead -
+                    ' the SAME table PROLOG asks and the same one
+                    ' ComputeArithmetic's own Case arms are checked
+                    ' against - so DATALOG cannot drift into recognizing a
+                    ' different set of operators from the substrate that
+                    ' computes them. Refused by name, never guessed, the
+                    ' identical discipline datalog-compound-term already
+                    ' established for this whole engine.
+                    '
+                    ' ARITY COMES FROM THE OPERATOR, not from the shape:
+                    ' this arm used to share the flat "exactly two" test
+                    ' above with BI_CMP, which is why (let Z (abs X)) was
+                    ' unwritable rather than merely unimplemented.
+                    Dim wantArgsLet As Long
+                    wantArgsLet = VLA_Relation.ArithOpArity(AtomPred(biAtom))
+                    If wantArgsLet = 0 Then
+                        VLA_Messages.RaiseMsg "datalog-unknown-arithmetic-operator", "operator", AtomPred(biAtom)
+                    End If
+                    If AtomArity(biAtom) <> wantArgsLet Then
+                        VLA_Messages.RaiseMsg "datalog-builtin-needs-two-operands", "operator", AtomPred(biAtom), "count", AtomArity(biAtom), "expected", ArithArityWordsFor(wantArgsLet), "example", ArithArityExampleFor(wantArgsLet)
                     End If
                 End If
                 bodyAtoms.Add MakeBodyItem(kind, biAtom, resultVarName)
@@ -1470,6 +1479,29 @@ End Function
 ' fire on a hand-written fact - VLA_Relation.bas's own DATALOG.4 header
 ' note has the fuller reasoning for why this is a second, deliberate
 ' policy rather than a bug to reconcile with SQL's.
+' PROLOG.17: the operand-count phrase and worked example a `let` refusal
+' shows, given the arity VLA_Relation.ArithOpArity reported. Two small
+' functions rather than one message per arity, so that
+' datalog-builtin-needs-two-operands stays ONE id serving the comparison
+' shape and both arithmetic shapes - and so that its BINARY rendering is
+' byte-identical to DATALOG.4's own original text, which is what keeps
+' this widening invisible to every test that already existed.
+Private Function ArithArityWordsFor(ByVal wantArgs As Long) As String
+    If wantArgs = 1 Then
+        ArithArityWordsFor = "one operand"
+    Else
+        ArithArityWordsFor = "two operands"
+    End If
+End Function
+
+Private Function ArithArityExampleFor(ByVal wantArgs As Long) As String
+    If wantArgs = 1 Then
+        ArithArityExampleFor = "(abs X)"
+    Else
+        ArithArityExampleFor = "(+ X Y)"
+    End If
+End Function
+
 Private Function BuiltinOperandIsNumeric(ByVal v As Variant) As Boolean
     If VLA_Relation.ValueIsNumericType(v) Then
         BuiltinOperandIsNumeric = True
@@ -1573,18 +1605,43 @@ Private Function EvalRuleBody(ByVal headAtom As Collection, ByVal bodyItems As C
             For Each tLet In VLA_Relation.RelTuples(accum)
                 arrLet = tLet
                 Dim lValL As Variant, rValL As Variant
-                lValL = ResolveOperand(AtomArgAt(atom, 1), colOf, arrLet)
-                rValL = ResolveOperand(AtomArgAt(atom, 2), colOf, arrLet)
                 Dim okArith As Boolean, reasonArith As String
                 Dim computedVal As Variant
-                computedVal = VLA_Relation.ComputeArithmetic(AtomPred(atom), lValL, rValL, _
-                        BuiltinOperandIsNumeric(lValL) And BuiltinOperandIsNumeric(rValL), okArith, reasonArith)
+                ' PROLOG.17: unary and binary dispatch off the SAME shared
+                ' table the parse-time gate above consulted, so the two
+                ' cannot disagree about an operator's arity.
+                If VLA_Relation.ArithOpArity(AtomPred(atom)) = 1 Then
+                    lValL = ResolveOperand(AtomArgAt(atom, 1), colOf, arrLet)
+                    computedVal = VLA_Relation.ComputeArithmeticUnary(AtomPred(atom), lValL, _
+                            BuiltinOperandIsNumeric(lValL), okArith, reasonArith)
+                Else
+                    lValL = ResolveOperand(AtomArgAt(atom, 1), colOf, arrLet)
+                    rValL = ResolveOperand(AtomArgAt(atom, 2), colOf, arrLet)
+                    computedVal = VLA_Relation.ComputeArithmetic(AtomPred(atom), lValL, rValL, _
+                            BuiltinOperandIsNumeric(lValL) And BuiltinOperandIsNumeric(rValL), okArith, reasonArith)
+                End If
+                ' PROLOG.17: EVERY reason is mapped, not only the two this
+                ' site used to be able to receive. The substrate now
+                ' returns "domain-error", "overflow" and
+                ' "unknown-operator" as well, and the old two-branch shape
+                ' would have reported a (sqrt -1) as a NON-NUMERIC OPERAND
+                ' - a confidently wrong explanation of a real refusal. The
+                ' final Else keeps its original meaning as the
+                ' not-numeric case AND catches any reason added later,
+                ' which is refused rather than computed.
                 If Not okArith Then
-                    If reasonArith = "divide-by-zero" Then
+                    Select Case reasonArith
+                    Case "divide-by-zero"
                         VLA_Messages.RaiseMsg "datalog-division-by-zero"
-                    Else
+                    Case "domain-error"
+                        VLA_Messages.RaiseMsg "datalog-arithmetic-domain-error", "operator", AtomPred(atom)
+                    Case "overflow"
+                        VLA_Messages.RaiseMsg "datalog-arithmetic-overflow", "operator", AtomPred(atom)
+                    Case "unknown-operator"
+                        VLA_Messages.RaiseMsg "datalog-unknown-arithmetic-operator", "operator", AtomPred(atom)
+                    Case Else
                         VLA_Messages.RaiseMsg "datalog-arithmetic-non-numeric-operand", "operator", AtomPred(atom)
-                    End If
+                    End Select
                 End If
                 Dim ntLet() As Variant
                 ReDim ntLet(1 To inArityLet + 1)

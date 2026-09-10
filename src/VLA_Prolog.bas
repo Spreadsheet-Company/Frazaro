@@ -1983,6 +1983,23 @@ Private Function TypeTestKindFor(ByVal predName As String) As String
     Case "callable?": TypeTestKindFor = "callable"
     Case "is-list?":  TypeTestKindFor = "islist"
     Case "ground?":   TypeTestKindFor = "ground"
+    ' PROLOG.17: `whole?` is the whole-valued question PROLOG.15 refused
+    ' to call `integer?`, arriving under a name that PROMISES NO TYPE -
+    ' that item's own recorded terms for this branch, taken rather than
+    ' let ride. This engine has one kind of number and PROLOG.17 fixed
+    ' that permanently (see this module's own PROLOG.17 header for why a
+    ' distinct integer representation was rejected), so `integer?` and
+    ' `float?` STAY refused in TypeTestDeferredFor and that table is NOT
+    ' deleted. `whole?` asks about a VALUE and says so in its name: it is
+    ' True of 3 and of 3.0 alike, because those are the same ground atom
+    ' here, and a user reading the name is not told otherwise.
+    '
+    ' NOT an invention: `SolveBetween` already computes exactly this test
+    ' (`lowV <> Int(lowV)`, refusing a fractional bound by name), so this
+    ' names a question the engine has always answered rather than minting
+    ' a new one. `whole?` is the predicate a user reaches for to ask
+    ' `between` its own question BEFORE handing it a bound.
+    Case "whole?":    TypeTestKindFor = "whole"
     End Select
 End Function
 
@@ -2222,6 +2239,34 @@ Private Function LeafIsNumberTerm(ByVal raw As String) As Boolean
     LeafIsNumberTerm = VLA_Relation.IsInvariantNumericString(raw)
 End Function
 
+' PROLOG.17: is this leaf a number with NO FRACTIONAL PART - `whole?`'s
+' whole kernel. Asks LeafIsNumberTerm rather than IsInvariantNumericString
+' directly, for the reason that function's own header gives: it stays the
+' ONE place PROLOG.9's local reading of PROLOG.10's quoted-string marker
+' is written down, so `whole?` cannot drift into a second reading of it.
+' `(whole? "3")` is therefore False for exactly the reason `(number? "3")`
+' is - a text cell reading 3 is not the number 3 here.
+'
+' Int(), NOT Fix(), to be the SAME EXPRESSION SolveBetween already uses
+' for the identical question (`lowV <> Int(lowV)`). The two cannot differ
+' on a whole-number test - Int floors and Fix truncates, and they agree
+' wherever the value is already whole, measured over a 27-leaf matrix
+' before import - so this is a consistency choice, not a correctness one,
+' and is recorded as such rather than dressed up as the latter.
+'
+' Sequential, not one combined `And` expression: VBA's `And` does not
+' short-circuit, so the combined form would call InvariantVal on a leaf
+' already known not to be numeric. Honesty about what that buys - Val()
+' never raises and returns 0 for junk, so the combined form would still
+' answer correctly; this shape avoids needless work and matches house
+' style, and the matrix did NOT show it load-bearing.
+Private Function LeafIsWholeNumberTerm(ByVal raw As String) As Boolean
+    If Not LeafIsNumberTerm(raw) Then Exit Function
+    Dim v As Double
+    v = VLA_Relation.InvariantVal(raw)
+    LeafIsWholeNumberTerm = (v = Int(v))
+End Function
+
 ' PROLOG.9: a Double -> the ground numeric leaf this engine represents it
 ' as. Str$, never CStr: Str$ is genuinely locale-invariant in VBA (always
 ' "." for the decimal point, plus a leading space for a non-negative
@@ -2257,6 +2302,30 @@ End Function
 ' they never wrote. Passed down every recursive call so a refusal from an
 ' arbitrarily nested operand still names the outermost form the user
 ' actually typed. Pinned by tools/check_prolog_form_attribution.ps1.
+' PROLOG.17: the operand-count phrase and the worked example a refusal
+' shows for an operator of this arity. Split out so the wrong-arity text
+' can stay ONE message across both arities: rendered for a binary
+' operator it reproduces PROLOG.5.1's own wording BYTE FOR BYTE ("needs
+' exactly two operands, like (+ X Y)"), which is why three long-standing
+' assertions in VLA_Tests_Query.bas did not have to move. A {count} that
+' rendered a DIGIT would have read "exactly 2 operands" and broken all
+' three for no gain.
+Private Function ArithArityPhraseFor(ByVal wantArgs As Long) As String
+    If wantArgs = 1 Then
+        ArithArityPhraseFor = "one operand"
+    Else
+        ArithArityPhraseFor = "two operands"
+    End If
+End Function
+
+Private Function ArithArityExampleFor(ByVal wantArgs As Long) As String
+    If wantArgs = 1 Then
+        ArithArityExampleFor = "(abs X)"
+    Else
+        ArithArityExampleFor = "(+ X Y)"
+    End If
+End Function
+
 Private Sub ValidateArithExpr(ByVal term As Variant, ByVal formLabel As String)
     If Not IsObject(term) Then Exit Sub
     Dim lst As Collection
@@ -2265,7 +2334,16 @@ Private Sub ValidateArithExpr(ByVal term As Variant, ByVal formLabel As String)
     ' empty () operand (real input a careless author could write, e.g.
     ' (is X (+ () 3))) would otherwise raise a raw "Subscript out of
     ' range" the instant Item(1) is touched.
-    If lst.Count < 1 Then VLA_Messages.RaiseMsg "prolog-arith-wrong-arity", "op", "()", "form", formLabel
+    '
+    ' PROLOG.17 re-pointed this from the wrong-arity refusal to the
+    ' unknown-operator one, deliberately and visibly rather than silently:
+    ' arity is now PER-OPERATOR, and `()` has no operator to look one up
+    ' for, so "needs exactly two operands" was both unanswerable and never
+    ' quite true - an empty form is not a binary operator with the wrong
+    ' number of arguments, it is a form with no operator at all. Its test
+    ' is re-pointed rather than deleted, so the change is visible in the
+    ' diff.
+    If lst.Count < 1 Then VLA_Messages.RaiseMsg "prolog-arith-unknown-operator", "op", "()", "form", formLabel
     ' IsObject-first, never CStr on a value that might be one - this
     ' project's own documented trap (feedback_vba_error_and_loop_gotchas
     ' gotcha 5), applied here since an operator position could itself be
@@ -2273,15 +2351,21 @@ Private Sub ValidateArithExpr(ByVal term As Variant, ByVal formLabel As String)
     If IsObject(lst.Item(1)) Then VLA_Messages.RaiseMsg "prolog-arith-unknown-operator", "op", "(a nested form)", "form", formLabel
     Dim op As String
     op = CStr(lst.Item(1))
-    Select Case op
-    Case "+", "-", "*", "/"
-        ' recognized
-    Case Else
-        VLA_Messages.RaiseMsg "prolog-arith-unknown-operator", "op", op, "form", formLabel
-    End Select
-    If lst.Count <> 3 Then VLA_Messages.RaiseMsg "prolog-arith-wrong-arity", "op", op, "form", formLabel
-    ValidateArithExpr lst.Item(2), formLabel
-    ValidateArithExpr lst.Item(3), formLabel
+    Dim wantArgs As Long
+    wantArgs = VLA_Relation.ArithOpArity(op)
+    If wantArgs = 0 Then VLA_Messages.RaiseMsg "prolog-arith-unknown-operator", "op", op, "form", formLabel
+    If lst.Count <> wantArgs + 1 Then
+        VLA_Messages.RaiseMsg "prolog-arith-wrong-arity", "op", op, _
+            "count", ArithArityPhraseFor(wantArgs), _
+            "example", ArithArityExampleFor(wantArgs), "form", formLabel
+    End If
+    ' Every operand, not a hard-coded two: a unary operator has one, and
+    ' recursing over positions 2 and 3 unconditionally would both miss
+    ' nothing and read a position that is not there.
+    Dim ai As Long
+    For ai = 2 To lst.Count
+        ValidateArithExpr lst.Item(ai), formLabel
+    Next ai
 End Sub
 
 ' Validates ONE body item / query conjunct - both are the same kind of
@@ -3069,23 +3153,59 @@ Private Function EvalArithTerm(ByVal term As Variant, envN As Collection, envT A
     ' worded refusal.
     Dim lst As Collection
     Set lst = w
-    If lst.Count <> 3 Then VLA_Messages.RaiseMsg "prolog-arith-not-numeric", "value", RenderBoundValue(w), "form", formLabel
+    If lst.Count < 1 Then VLA_Messages.RaiseMsg "prolog-arith-not-numeric", "value", RenderBoundValue(w), "form", formLabel
     If IsObject(lst.Item(1)) Then VLA_Messages.RaiseMsg "prolog-arith-not-numeric", "value", RenderBoundValue(w), "form", formLabel
     Dim op As String
     op = CStr(lst.Item(1))
-    Select Case op
-    Case "+", "-", "*", "/"
-        ' recognized
-    Case Else
-        VLA_Messages.RaiseMsg "prolog-arith-not-numeric", "value", RenderBoundValue(w), "form", formLabel
-    End Select
-    Dim l As Double, r As Double
-    l = EvalArithTerm(lst.Item(2), envN, envT, formLabel)
-    r = EvalArithTerm(lst.Item(3), envN, envT, formLabel)
+    ' PROLOG.17: VLA_Relation.ArithOpArity, never a second literal list -
+    ' see that function's own header for why this module used to carry
+    ' the set twice and what that cost. Both the unknown-operator case
+    ' and the wrong-arity case land on prolog-arith-not-numeric here
+    ' rather than on the parse-time refusals, and that is deliberate and
+    ' unchanged from before: reaching this point means a VARIABLE
+    ' dereferenced to an arbitrary compound term (e.g. Y bound to
+    ' (color red) by an unrelated fact), which ValidateArithExpr never
+    ' saw. The user did not write a malformed operator; they wrote a
+    ' variable that turned out not to hold a number.
+    Dim wantArgs As Long
+    wantArgs = VLA_Relation.ArithOpArity(op)
+    If wantArgs = 0 Then VLA_Messages.RaiseMsg "prolog-arith-not-numeric", "value", RenderBoundValue(w), "form", formLabel
+    If lst.Count <> wantArgs + 1 Then VLA_Messages.RaiseMsg "prolog-arith-not-numeric", "value", RenderBoundValue(w), "form", formLabel
+
     Dim ok As Boolean, reason As String
     Dim computed As Variant
-    computed = VLA_Relation.ComputeArithmetic(op, l, r, True, ok, reason)
-    If Not ok Then VLA_Messages.RaiseMsg "prolog-arith-divide-by-zero", "form", formLabel
+    Dim l As Double, r As Double
+    If wantArgs = 1 Then
+        l = EvalArithTerm(lst.Item(2), envN, envT, formLabel)
+        computed = VLA_Relation.ComputeArithmeticUnary(op, l, True, ok, reason)
+    Else
+        l = EvalArithTerm(lst.Item(2), envN, envT, formLabel)
+        r = EvalArithTerm(lst.Item(3), envN, envT, formLabel)
+        computed = VLA_Relation.ComputeArithmetic(op, l, r, True, ok, reason)
+    End If
+
+    ' EVERY reason is mapped, not just the one this call site expects.
+    ' Before PROLOG.17 this read `If Not ok Then RaiseMsg
+    ' "prolog-arith-divide-by-zero"` - correct then, because divide-by-
+    ' zero was the only refusal the substrate could return once
+    ' bothNumeric was True. The substrate now returns four, and a caller
+    ' that kept the old line would tell a user their (sqrt -1) was a
+    ' division by zero: a confidently wrong explanation of a real
+    ' refusal. Case Else raises the unknown-operator refusal rather than
+    ' falling through silently, so a reason added to VLA_Relation without
+    ' a mapping here is still REFUSED rather than computed as Empty.
+    If Not ok Then
+        Select Case reason
+        Case "divide-by-zero"
+            VLA_Messages.RaiseMsg "prolog-arith-divide-by-zero", "form", formLabel
+        Case "domain-error"
+            VLA_Messages.RaiseMsg "prolog-arith-domain-error", "op", op, "form", formLabel
+        Case "overflow"
+            VLA_Messages.RaiseMsg "prolog-arith-overflow", "op", op, "form", formLabel
+        Case Else
+            VLA_Messages.RaiseMsg "prolog-arith-unknown-operator", "op", op, "form", formLabel
+        End Select
+    End If
     EvalArithTerm = CDbl(computed)
 End Function
 
@@ -4103,9 +4223,14 @@ Private Function SolveTypeTest(ByVal goalTerm As Variant, ByVal kind As String, 
     ' still the one place PROLOG.9's local reading of PROLOG.10 is
     ' written down, and `(callable? "42")` is True for the same reason
     ' `(atom? "42")` is.
+    ' PROLOG.17: `whole?` is a NARROWING of `number?`, never a sibling of
+    ' `atom?` - every whole? leaf is a number? leaf, so the two arms are
+    ' deliberately written in terms of the same LeafIsNumberTerm rather
+    ' than each testing numeric-ness its own way.
     Select Case kind
     Case "nonvar", "atomic":  SolveTypeTest = True
     Case "number":            SolveTypeTest = LeafIsNumberTerm(raw)
+    Case "whole":             SolveTypeTest = LeafIsWholeNumberTerm(raw)
     Case "atom", "callable":  SolveTypeTest = Not LeafIsNumberTerm(raw)
     End Select
 End Function

@@ -353,6 +353,7 @@ Public Function TestDSLs() As Boolean
     TestProlog
     TestPrologRules
     TestPrologArithmetic
+    TestPrologArithmeticBreadth
     TestPrologComparison
     TestPrologUnification
     TestPrologTypeTests
@@ -796,6 +797,56 @@ Private Sub TestDatalogBuiltins()
     Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
     probe1(1) = 2.5
     Report "datalog let: (/ 10 4) = 2.5", VLA_Relation.RelContainsTuple(rel, probe1), "2.5 not found"
+
+    ' ---- PROLOG.17: the widened operator set reaches DATALOG through the
+    ' SAME VLA_Relation.ArithOpArity table and the same two compute
+    ' functions PROLOG uses. These assert the VALUE, because a wrong
+    ' operator here produces a plausible NUMBER in a cell rather than an
+    ' error - the failure this whole item is shaped around.
+    Set result = VLA_Datalog.DatalogRun( _
+        "(fact (pair -7 3)) (rule (modded S) (pair A B) (let S (mod A B))) (query modded)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    probe1(1) = 2
+    Report "datalog let: (mod -7 3) = 2 - FLOORED here exactly as in PROLOG, not VBA's own truncating Mod (which gives -1)", _
+           VLA_Relation.RelContainsTuple(rel, probe1), "2 not found"
+
+    Set result = VLA_Datalog.DatalogRun( _
+        "(fact (pair -7 3)) (rule (remmed S) (pair A B) (let S (rem A B))) (query remmed)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    probe1(1) = -1
+    Report "datalog let: (rem -7 3) = -1 - the twin, so DATALOG cannot have collapsed mod and rem into one", _
+           VLA_Relation.RelContainsTuple(rel, probe1), "-1 not found"
+
+    Set result = VLA_Datalog.DatalogRun( _
+        "(fact (pair 7 2)) (rule (idiv S) (pair A B) (let S (// A B))) (query idiv)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    probe1(1) = 3
+    Report "datalog let: (// 7 2) = 3 - integer division, where (/ 7 2) is 3.5", _
+           VLA_Relation.RelContainsTuple(rel, probe1), "3 not found"
+
+    Set result = VLA_Datalog.DatalogRun( _
+        "(fact (pair 3 7)) (rule (mx S) (pair A B) (let S (max A B))) (query mx)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    probe1(1) = 7
+    Report "datalog let: (max 3 7) = 7", VLA_Relation.RelContainsTuple(rel, probe1), "7 not found"
+
+    ' ---- THE UNARY SHAPE, which DATALOG could not express at all before
+    ' this item: its `let` arm shared a flat "exactly two operands" check
+    ' with comparisons, so (let Z (abs X)) was unwritable rather than
+    ' merely unimplemented.
+    Set result = VLA_Datalog.DatalogRun( _
+        "(fact (val -4)) (rule (absd S) (val A) (let S (abs A))) (query absd)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    probe1(1) = 4
+    Report "datalog let: (abs -4) = 4 - a UNARY let, which this engine's arity check made impossible before PROLOG.17", _
+           VLA_Relation.RelContainsTuple(rel, probe1), "4 not found"
+
+    Set result = VLA_Datalog.DatalogRun( _
+        "(fact (val 2.5)) (rule (rnd S) (val A) (let S (round A))) (query rnd)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    probe1(1) = 3
+    Report "datalog let: (round 2.5) = 3 - half AWAY FROM ZERO, where VBA's own Round gives 2", _
+           VLA_Relation.RelContainsTuple(rel, probe1), "3 not found"
 
     ' A RECURSIVE rule accumulating (let ...) across semi-naive rounds -
     ' path length over a 3-edge chain (a-b-c-d, weight 1 each). This is
@@ -1869,9 +1920,28 @@ Private Sub TestPrologArithmetic()
     Report "prolog.5.1: divide-by-zero is refused", _
            InStr(1, r, "divide by zero", vbTextCompare) > 0, "got: " & r
 
-    r = CStr(VLA_Prolog.PROLOG("(query (is X (mod 5 2)))"))
+    ' PROLOG.17 RE-POINTED THIS, and the re-point is the point. It read
+    ' `(mod 5 2)` and was correct for four items - until PROLOG.17 made
+    ' `mod` a real operator, at which point it asserted that a WORKING
+    ' operator does not work. Nothing about it looked stale: the expected
+    ' text is still perfectly emittable, and only the INPUT had changed
+    ' meaning underneath it. That class is not what rule G of
+    ' check_test_assertion_safety.ps1 covers (rule G is about a RENDERING
+    ' the writer can no longer emit), so PROLOG.17 added rule E to
+    ' tools/check_prolog_arith_operators.ps1 to catch it mechanically -
+    ' run RED against this very line before it was changed.
+    '
+    ' `%` is the replacement because it is a spelling a spreadsheet user
+    ' plausibly reaches for and this engine deliberately does NOT have.
+    r = CStr(VLA_Prolog.PROLOG("(query (is X (% 5 2)))"))
     Report "prolog.5.1: an unrecognized arithmetic operator is refused at parse time", _
            InStr(1, r, "isn't an arithmetic operator", vbTextCompare) > 0, "got: " & r
+    ' ...and the twin that makes the re-point honest rather than a pin
+    ' that quietly vanished: the operator it USED to name now computes,
+    ' and the VALUE is asserted, not merely the success.
+    result = VLA_Prolog.PROLOG("(query (is X (mod 5 2)))")
+    Report "prolog.17: ...while (mod 5 2), which this test used to cite as unrecognized, now gives exactly 1", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "1"), "got: " & ResultDescribe(result)
 
     r = CStr(VLA_Prolog.PROLOG("(query (is X (+ 1 2 3)))"))
     Report "prolog.5.1: an arithmetic operator with the wrong number of operands is refused", _
@@ -1997,8 +2067,37 @@ Private Sub TestPrologArithmetic()
     Report "prolog.5.1 REGRESSION: a variable bound to a 3-item term with a NESTED first element inside is is refused, not crashed", _
            InStr(1, r, "isn't one", vbTextCompare) > 0, "got: " & r
 
-    r = CStr(VLA_Prolog.PROLOG("(fact (thing (mod 5 2))) (rule (compute X) (thing Y) (is X (+ Y 1))) (query (compute X))"))
-    Report "prolog.5.1 REGRESSION: a variable bound to a 3-item term with an unrecognized operator symbol inside is is refused, not crashed", _
+    ' PROLOG.17 RE-POINTED THE INPUT `mod` -> `%`, AND THIS ONE REACHED A
+    ' LIVE RUN AND KILLED IT. Recorded in full because the failure mode is
+    ' the interesting part, not the fix.
+    '
+    ' This test exercises EvalArithTerm's THIRD runtime guard: a variable
+    ' that dereferences to a 3-item term whose operator symbol is not an
+    ' operator at all. It used `(mod 5 2)` and was correct for four items.
+    ' The moment PROLOG.17 made `mod` real, `(mod 5 2)` stopped being an
+    ' unrecognized symbol and became a VALID SUB-EXPRESSION: it computed
+    ' 1, `(+ 1 1)` computed 2, the query SUCCEEDED, and PROLOG returned a
+    ' SPILLED ARRAY. `CStr(anArray)` then raised a type mismatch, which
+    ' KILLED THE WHOLE RUN instead of failing one assertion - so every
+    ' test after this line went unreported.
+    '
+    ' Two lessons, both mechanized rather than remembered. (1) `CStr(...)`
+    ' around a PROLOG call is safe ONLY while the query genuinely refuses;
+    ' when the input stops refusing it stops being a failing assertion and
+    ' becomes a crash. (2) The tell was in this test's own DESCRIPTION -
+    ' the word "unrecognized" - not in the message it asserts, which is
+    ' the not-numeric refusal ("isn't one") and is still perfectly
+    ' emittable. Rule E of tools/check_prolog_arith_operators.ps1 keyed
+    ' only on the refusal TEXT and so could not see this; it now also
+    ' triggers on that word, and is narrowed to assertions genuinely about
+    ' the refusal string so a POSITIVE twin mentioning the history is not
+    ' flagged for mentioning it.
+    '
+    ' `%` is the replacement for the same reason as elsewhere in this
+    ' file: a spelling a spreadsheet user plausibly reaches for and this
+    ' engine deliberately does not have.
+    r = CStr(VLA_Prolog.PROLOG("(fact (thing (% 5 2))) (rule (compute X) (thing Y) (is X (+ Y 1))) (query (compute X))"))
+    Report "prolog.5.1/17 REGRESSION: a variable bound to a 3-item term with an unrecognized operator symbol inside is is refused, not crashed", _
            InStr(1, r, "isn't one", vbTextCompare) > 0, "got: " & r
 
     ' REGRESSION: the non-short-circuit `And` fix in ValidateBodyItem - a
@@ -2018,9 +2117,27 @@ Private Sub TestPrologArithmetic()
 
     ' An empty () operand inside an is-expression - ValidateArithExpr's
     ' own lst.Count < 1 guard, checked before touching lst.Item(1).
+    ' PROLOG.17 RE-POINTED THE EXPECTED MESSAGE, not the input. Arity is
+    ' now PER-OPERATOR, and `()` has no operator to look an arity up for,
+    ' so "needs exactly two operands" was both unanswerable and never
+    ' quite true: an empty form is not a binary operator with the wrong
+    ' number of arguments, it is a form with no operator at all. The
+    ' guard being tested - lst.Count < 1, checked BEFORE any Item(1)
+    ' access - is unchanged, and so is what this line exists to prove:
+    ' that the empty operand is REFUSED rather than crashing on a
+    ' subscript.
+    '
+    ' Worth recording how this was caught: by walking the change, NOT by
+    ' a check. Rule E of tools/check_prolog_arith_operators.ps1 reads
+    ' only assertions on the unknown-operator text; this one pinned the
+    ' WRONG-ARITY text for an input whose refusal moved to a different
+    ' message, which is a third class again and is not mechanically
+    ' covered by rule E or by rule G.
     r = CStr(VLA_Prolog.PROLOG("(query (is X (+ () 3)))"))
-    Report "prolog.5.1: an empty () arithmetic operand is refused, not crashed", _
-           InStr(1, r, "exactly two operands", vbTextCompare) > 0, "got: " & r
+    Report "prolog.5.1/17: an empty () arithmetic operand is refused as having no operator, not crashed", _
+           InStr(1, r, "isn't an arithmetic operator", vbTextCompare) > 0, "got: " & r
+    Report "prolog.17: ...and the refusal names the empty form '()' itself", _
+           InStr(1, r, "'()'", vbTextCompare) > 0, "got: " & r
 
     ' A nested form sitting in the OPERATOR position - ValidateArithExpr's
     ' own IsObject(lst.Item(1)) guard.
@@ -2201,11 +2318,22 @@ Private Sub TestPrologComparison()
     Report "prolog.7: that refusal names (>= ...), not (is ...)", _
            InStr(1, r, "(>= ...)", vbTextCompare) > 0 And InStr(1, r, "(is ...)", vbTextCompare) = 0, "got: " & r
 
-    r = CStr(VLA_Prolog.PROLOG("(query (< 1 (mod 5 2)))"))
+    ' PROLOG.17 re-pointed `mod` to `%` here for the reason recorded at
+    ' the sibling assertion in TestPrologArithmetic above - `mod` became a
+    ' real operator and this line would otherwise have claimed it was not.
+    ' The form-attribution half of the pair is untouched and is what this
+    ' assertion actually exists for.
+    r = CStr(VLA_Prolog.PROLOG("(query (< 1 (% 5 2)))"))
     Report "prolog.7: an unrecognized operator inside a comparison operand is refused at parse time", _
            InStr(1, r, "isn't an arithmetic operator", vbTextCompare) > 0, "got: " & r
     Report "prolog.7: that refusal names (< ...), not (is ...)", _
            InStr(1, r, "(< ...)", vbTextCompare) > 0 And InStr(1, r, "(is ...)", vbTextCompare) = 0, "got: " & r
+    ' ...and the operator that USED to be the example now works inside the
+    ' very same comparison form, asserted as a Boolean because a
+    ' comparison binds nothing.
+    result = VLA_Prolog.PROLOG("(query (< 0 (mod 5 2)))")
+    Report "prolog.17: ...while (< 0 (mod 5 2)) now succeeds - mod computes 1 inside a comparison operand too", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
 
     r = CStr(VLA_Prolog.PROLOG("(query (=\= 1 (+ 1 2 3)))"))
     Report "prolog.7: a wrong operand count inside a comparison operand is refused", _
@@ -2870,6 +2998,265 @@ End Sub
 '  written that way kills the run instead of reporting it. PROLOG.20
 '  measured 37 of those already in this suite; this item adds none.
 ' ---------------------------------------------------------------------
+' =====================================================================
+'  PROLOG.17 - ARITHMETIC BREADTH
+'
+'  THE DISCRIMINATION PROBLEM IS UNUSUALLY SHARP HERE, and it shapes
+'  every assertion below. An unknown predicate fails SILENTLY in this
+'  engine, so a test asserting "this goal fails" passes against NO
+'  implementation at all. Arithmetic is worse than that: a WRONG
+'  operator produces a plausible NUMBER rather than a failure. So every
+'  assertion here pins the VALUE, and wherever two readings of an
+'  operator are both defensible, the twin's value DIFFERS under the
+'  other reading.
+'
+'  The clearest case is `mod` on negative operands, which is why it has
+'  the most rows. ISO's `mod` FLOORS (the result takes the sign of the
+'  DIVISOR) and ISO's `rem` TRUNCATES (sign of the DIVIDEND). VBA's own
+'  `Mod` operator truncates - so an implementation that reached for the
+'  obvious VBA operator would ship `rem` under the name `mod` and be
+'  wrong ONLY on mixed-sign operands, silently, in three engines. Both
+'  ship here so a user never has to guess which one a bare `mod` meant.
+'
+'  A query with a free variable ALWAYS spills, so the `is` rows assert
+'  through ResultRowCount/ResultCol1Is; a comparison binds nothing and
+'  collapses to a bare Boolean. Both shapes appear below deliberately.
+' =====================================================================
+Private Sub TestPrologArithmeticBreadth()
+    Dim result As Variant
+    Dim r As String
+
+    ' =================================================================
+    '  mod - FLOORED, and the four sign cases
+    ' =================================================================
+
+    result = VLA_Prolog.PROLOG("(query (is X (mod 7 3)))")
+    Report "prolog.17: (mod 7 3) is 1", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "1"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (mod 6 3)))")
+    Report "prolog.17: (mod 6 3) is 0 - an exact division leaves nothing", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "0"), "got: " & ResultDescribe(result)
+
+    ' ---- THE TWO ROWS THAT DECIDE WHICH `mod` SHIPPED. Under the
+    ' truncating reading these are -1 and 1; under the floored reading
+    ' they are 2 and -2. Nothing else in the suite distinguishes them.
+    result = VLA_Prolog.PROLOG("(query (is X (mod -7 3)))")
+    Report "prolog.17: (mod -7 3) is 2 - FLOORED, so the result takes the sign of the DIVISOR (a truncating mod would give -1)", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "2"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (mod 7 -3)))")
+    Report "prolog.17: (mod 7 -3) is -2 - same law, other sign (a truncating mod would give 1)", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "-2"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (mod -7 -3)))")
+    Report "prolog.17: (mod -7 -3) is -1 - mod and rem AGREE when the signs match", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "-1"), "got: " & ResultDescribe(result)
+
+    ' =================================================================
+    '  rem - TRUNCATING, and it must DISAGREE with mod
+    ' =================================================================
+
+    result = VLA_Prolog.PROLOG("(query (is X (rem 7 3)))")
+    Report "prolog.17: (rem 7 3) is 1 - same as mod when both operands are positive", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "1"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (rem -7 3)))")
+    Report "prolog.17: (rem -7 3) is -1, where (mod -7 3) is 2 - the two are NOT aliases", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "-1"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (rem 7 -3)))")
+    Report "prolog.17: (rem 7 -3) is 1, where (mod 7 -3) is -2 - sign of the DIVIDEND, not the divisor", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "1"), "got: " & ResultDescribe(result)
+
+    ' ---- both refuse a zero divisor by name rather than returning 0
+    r = CStr(VLA_Prolog.PROLOG("(query (is X (mod 5 0)))"))
+    Report "prolog.17: (mod 5 0) is refused as a division by zero, never silently 0", _
+           InStr(1, r, "divide by zero", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (is X (rem 5 0)))"))
+    Report "prolog.17: (rem 5 0) likewise", _
+           InStr(1, r, "divide by zero", vbTextCompare) > 0, "got: " & r
+
+    ' =================================================================
+    '  // - integer division, TRUNCATING toward zero
+    ' =================================================================
+
+    result = VLA_Prolog.PROLOG("(query (is X (// 7 2)))")
+    Report "prolog.17: (// 7 2) is 3 - integer division, and NOT the 3.5 that / gives", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "3"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (/ 7 2)))")
+    Report "prolog.17: ...while (/ 7 2) is still 3.5 - adding // did not quietly make / integer division", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "3.5"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (// -7 2)))")
+    Report "prolog.17: (// -7 2) is -3 - truncates TOWARD ZERO, so not the -4 that flooring would give", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "-3"), "got: " & ResultDescribe(result)
+    r = CStr(VLA_Prolog.PROLOG("(query (is X (// 5 0)))"))
+    Report "prolog.17: (// 5 0) is refused as a division by zero", _
+           InStr(1, r, "divide by zero", vbTextCompare) > 0, "got: " & r
+
+    ' =================================================================
+    '  min / max
+    ' =================================================================
+
+    result = VLA_Prolog.PROLOG("(query (is X (min 3 7)))")
+    Report "prolog.17: (min 3 7) is 3", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "3"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (max 3 7)))")
+    Report "prolog.17: (max 3 7) is 7 - the twin, so min and max cannot both be the same function", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "7"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (min -3 -7)))")
+    Report "prolog.17: (min -3 -7) is -7 - smaller means more negative, not smaller in magnitude", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "-7"), "got: " & ResultDescribe(result)
+
+    ' =================================================================
+    '  ** - power, and the two edges VBA would have raised on
+    ' =================================================================
+
+    result = VLA_Prolog.PROLOG("(query (is X (** 2 10)))")
+    Report "prolog.17: (** 2 10) is 1024", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "1024"), "got: " & ResultDescribe(result)
+    ' ---- a fractional exponent on a POSITIVE base, which proves the
+    ' domain guard below does not over-refuse. Asserted as BOUNDS rather
+    ' than as the exact rendering "3": whether VBA's own `^` returns
+    ' 9 ^ 0.5 bit-exactly as 3 or one ulp under it is a property of the C
+    ' runtime's pow, not of this engine, and nothing here can run VBA to
+    ' find out. Pinning the exact string would make this test a bet on
+    ' that; pinning the bounds tests what the item actually claims.
+    result = VLA_Prolog.PROLOG("(query (< 2.999 (** 9 0.5)) (> 3.001 (** 9 0.5)))")
+    Report "prolog.17: (** 9 0.5) is 3 to within a rounding step - a fractional exponent is a root", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (** 2 0)))")
+    Report "prolog.17: (** 2 0) is 1", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "1"), "got: " & ResultDescribe(result)
+    ' ---- a negative base to a FRACTIONAL power has no real answer.
+    ' Refused by name; VBA's own ^ would have raised a raw runtime error
+    ' out of a module whose raw-raise ceiling is ZERO.
+    r = CStr(VLA_Prolog.PROLOG("(query (is X (** -8 0.5)))"))
+    Report "prolog.17: (** -8 0.5) is refused - a negative base to a fractional power is not a real number", _
+           InStr(1, r, "isn't a real number", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (is X (** -8 2)))")
+    Report "prolog.17: ...but (** -8 2) is 64 - a negative base to a WHOLE power is fine, so the guard is not just refusing negatives", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "64"), "got: " & ResultDescribe(result)
+    r = CStr(VLA_Prolog.PROLOG("(query (is X (** 2 10000)))"))
+    Report "prolog.17: (** 2 10000) is refused as too large, never a raw VBA overflow escaping the shared substrate", _
+           InStr(1, r, "larger than any number", vbTextCompare) > 0, "got: " & r
+
+    ' =================================================================
+    '  the UNARY family - the arity change is the real work in this item
+    ' =================================================================
+
+    result = VLA_Prolog.PROLOG("(query (is X (abs -3.5)))")
+    Report "prolog.17: (abs -3.5) is 3.5 - a UNARY operator, which no operator could be before this item", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "3.5"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (sign -9)))")
+    Report "prolog.17: (sign -9) is -1", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "-1"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (sign 0)))")
+    Report "prolog.17: (sign 0) is 0 - the twin that separates sign from a mere negativity test", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "0"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (sqrt 9)))")
+    Report "prolog.17: (sqrt 9) is 3", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "3"), "got: " & ResultDescribe(result)
+    r = CStr(VLA_Prolog.PROLOG("(query (is X (sqrt -1)))"))
+    Report "prolog.17: (sqrt -1) is refused, not NaN and not a raw VBA error", _
+           InStr(1, r, "isn't a real number", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE ROUNDING FAMILY, whose four members agree on 3 and part
+    ' company everywhere else. Each row below would be WRONG under at
+    ' least one of the other three readings, which is the only way to
+    ' pin four functions that are so easily confused for one another.
+    result = VLA_Prolog.PROLOG("(query (is X (truncate 3.7)))")
+    Report "prolog.17: (truncate 3.7) is 3", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "3"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (truncate -3.7)))")
+    Report "prolog.17: (truncate -3.7) is -3 - toward ZERO (floor would give -4)", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "-3"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (floor -3.7)))")
+    Report "prolog.17: (floor -3.7) is -4 - toward MINUS INFINITY, the twin that separates floor from truncate", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "-4"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (ceiling 3.2)))")
+    Report "prolog.17: (ceiling 3.2) is 4", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "4"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (ceiling -3.2)))")
+    Report "prolog.17: (ceiling -3.2) is -3 - ceiling of a negative moves TOWARD zero", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "-3"), "got: " & ResultDescribe(result)
+
+    ' ---- ROUND IS HALF AWAY FROM ZERO, and this is the single most
+    ' likely quiet defect in the unary family: VBA's own Round() rounds
+    ' half to EVEN, so VBA would answer 2 here and 4 on the next row.
+    ' Both rows are needed - banker's rounding gets 3.5 RIGHT by
+    ' coincidence, so a suite that tested only 3.5 would not notice.
+    result = VLA_Prolog.PROLOG("(query (is X (round 2.5)))")
+    Report "prolog.17: (round 2.5) is 3 - HALF AWAY FROM ZERO (VBA's own Round would give 2)", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "3"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (round 3.5)))")
+    Report "prolog.17: (round 3.5) is 4 - which banker's rounding also gives, so the row above is the discriminating one", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "4"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (round -2.5)))")
+    Report "prolog.17: (round -2.5) is -3 - away from zero in the negative direction too", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "-3"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (round 2.4)))")
+    Report "prolog.17: (round 2.4) is 2 - and ordinary rounding still rounds down", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "2"), "got: " & ResultDescribe(result)
+
+    ' =================================================================
+    '  ARITY IS NOW PER-OPERATOR - both directions
+    ' =================================================================
+
+    r = CStr(VLA_Prolog.PROLOG("(query (is X (abs 1 2)))"))
+    Report "prolog.17: a unary operator given two operands is refused, and asks for ONE", _
+           InStr(1, r, "exactly one operand", vbTextCompare) > 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (is X (mod 5)))"))
+    Report "prolog.17: ...and a binary operator given one is refused, and asks for TWO", _
+           InStr(1, r, "exactly two operands", vbTextCompare) > 0, "got: " & r
+    ' ---- the worked example must match the arity being complained about,
+    ' or the advice contradicts the complaint.
+    r = CStr(VLA_Prolog.PROLOG("(query (is X (sqrt 1 2)))"))
+    Report "prolog.17: the unary arity refusal shows a UNARY example, not (+ X Y)", _
+           InStr(1, r, "(abs X)", vbTextCompare) > 0 And InStr(1, r, "(+ X Y)", vbTextCompare) = 0, "got: " & r
+
+    ' =================================================================
+    '  the unknown-operator refusal no longer claims only four exist
+    ' =================================================================
+
+    r = CStr(VLA_Prolog.PROLOG("(query (is X (% 5 2)))"))
+    Report "prolog.17: the unknown-operator refusal advertises mod, not 'only +, -, *, and /'", _
+           InStr(1, r, "mod", vbTextCompare) > 0 And InStr(1, r, "only +, -, *, and /", vbTextCompare) = 0, "got: " & r
+
+    ' =================================================================
+    '  THE SHARED SUBSTRATE, reached through a COMPARISON rather than
+    '  through `is` - the whole reason PROLOG.7 made these texts
+    '  {form}-templated. A new operator must work in every form that
+    '  evaluates an arithmetic expression, not only in the one it was
+    '  developed against.
+    ' =================================================================
+
+    result = VLA_Prolog.PROLOG("(query (=:= (mod -7 3) 2))")
+    Report "prolog.17: mod works inside a comparison operand, with the same floored answer", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (=:= (abs -4) 4))")
+    Report "prolog.17: a UNARY operator works inside a comparison operand too", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    r = CStr(VLA_Prolog.PROLOG("(query (> 1 (sqrt -1)))"))
+    Report "prolog.17: a domain refusal raised inside a comparison names (> ...), not (is ...)", _
+           InStr(1, r, "(> ...)", vbTextCompare) > 0 And InStr(1, r, "(is ...)", vbTextCompare) = 0, "got: " & r
+    r = CStr(VLA_Prolog.PROLOG("(query (between 1 (abs -3 -4) X))"))
+    Report "prolog.17: ...and a unary arity refusal inside (between ...) names that form", _
+           InStr(1, r, "(between ...)", vbTextCompare) > 0 And InStr(1, r, "(is ...)", vbTextCompare) = 0, "got: " & r
+
+    ' =================================================================
+    '  NESTING, and the interaction with PROLOG.17's own whole?
+    ' =================================================================
+
+    result = VLA_Prolog.PROLOG("(query (is X (abs (- 3 10))))")
+    Report "prolog.17: a unary operator nests over a binary one - (abs (- 3 10)) is 7", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "7"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (max (mod 7 3) (mod -7 3))))")
+    Report "prolog.17: ...and a binary over two unaries - (max 1 2) is 2, which only holds if mod FLOORS", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "2"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (// 7 2)) (whole? X))")
+    Report "prolog.17: (// 7 2) yields a WHOLE number, so whole? succeeds on it", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "3"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (/ 7 2)) (whole? X))")
+    Report "prolog.17: ...and its twin (/ 7 2) does not, so whole? yields no solution row", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+End Sub
+
 Private Sub TestPrologTypeTestsRest()
     Dim result As Variant
     Dim r As String
@@ -3125,8 +3512,17 @@ Private Sub TestPrologTypeTestsRest()
     ' term can recover which was meant; the only implementable `integer?`
     ' is "whole-valued", a question about a VALUE under the name of a
     ' question about a TYPE, and ISO's own float(3.0) is TRUE where that
-    ' reading is FALSE. PROLOG.17 owns the decision. Shipping the name
-    ' now would mint one PROLOG.17 has to BREAK.
+    ' reading is FALSE. PROLOG.17 owned the decision.
+    '
+    ' PROLOG.17 HAS NOW TAKEN IT, and these tests are UNCHANGED because
+    ' of which way it went: Doubles-only is PERMANENT, so `integer?` and
+    ' `float?` stay reserved and refused for good rather than becoming
+    ' ordinary type tests. The whole-valued question ships instead under
+    ' a name that promises no type - `whole?`, tested below - which is
+    ' precisely the branch PROLOG.15 wrote down for this outcome. The one
+    ' thing that DID change is the refusal's advice: it now names
+    ' `(whole? X)` as well as `(number? X)`, and the assertion that the
+    ' advice is TRUE is directly below.
     '
     ' EVERY assertion here checks REFUSAL TEXT, and that is the whole
     ' design: if these four names were simply left unreserved,
@@ -3161,6 +3557,141 @@ Private Sub TestPrologTypeTestsRest()
            InStr(1, r, "(number? X)", vbTextCompare) > 0, "got: " & r
     result = VLA_Prolog.PROLOG("(query (number? 42))")
     Report "prolog.15: ...and that advice is true - (number? 42) really does succeed", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+
+    ' =================================================================
+    '  PROLOG.17: whole? - the whole-valued question, under a name that
+    '  promises no type
+    ' =================================================================
+
+    ' EVERY PAIR HERE IS A DISCRIMINATING ONE, because `whole?` sits in a
+    ' place where two wrong implementations both look plausible: an alias
+    ' of `number?` (too wide) and an alias of `atom?`'s negation (wider
+    ' still). A test asserting only that `(whole? 3)` succeeds passes
+    ' against BOTH. The FALSE half beside each TRUE half is what makes
+    ' the assertion mean anything - and since an unknown predicate fails
+    ' SILENTLY, the TRUE half is also what proves the predicate exists at
+    ' all.
+
+    ' ---- THE NARROWING PAIR: the single most discriminating assertion
+    ' in this item. An implementation that simply reused `number?` passes
+    ' the first two and fails the third.
+    result = VLA_Prolog.PROLOG("(query (whole? 3))")
+    Report "prolog.17: (whole? 3) succeeds", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (number? 3.5))")
+    Report "prolog.17: (number? 3.5) succeeds - 3.5 IS a number", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (whole? 3.5))")
+    Report "prolog.17: ...but (whole? 3.5) FAILS - whole? is a strict NARROWING of number?, not an alias of it", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    ' ---- THE DECISION ITSELF, made visible, and stated CAREFULLY. It is
+    ' tempting to say "3.0 and 3 are the same ground atom here" - that is
+    ' PROLOG.15's sentence and it is true only of a NumberToTerm-COMPUTED
+    ' value. A source literal `3.0` is a DIFFERENT term from `3`, which
+    ' this suite already pins: `(= 2.0 2)` and `(== 2.0 2)` are both
+    ' FALSE. Checked before this comment was written, because the wrong
+    ' version of it reads plausibly.
+    '
+    ' That makes the pair below SHARPER, not weaker. `whole?` answers True
+    ' for BOTH spellings although they are not the same term - which is
+    ' exactly what it means for it to ask about a VALUE rather than about
+    ' a type or about term identity. It is also why the name is not
+    ' `integer?`: ISO's float(3.0) is TRUE, so a name promising a TYPE
+    ' would be wrong on this very line.
+    result = VLA_Prolog.PROLOG("(query (whole? 3.0))")
+    Report "prolog.17: (whole? 3.0) succeeds - it asks about the VALUE, and 3.0 has no fractional part", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (== 3.0 3))")
+    Report "prolog.17: ...even though (== 3.0 3) FAILS - the two are different TERMS, and whole? is not a question about terms", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    ' ---- negatives, where a floor/truncate confusion would show. Int()
+    ' floors and Fix() truncates and they DISAGREE on -3.5, but they
+    ' agree wherever the value is already whole, so both halves must hold.
+    result = VLA_Prolog.PROLOG("(query (whole? -3))")
+    Report "prolog.17: (whole? -3) succeeds - a negative whole number is whole", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (whole? -3.5))")
+    Report "prolog.17: ...and (whole? -3.5) FAILS - rounding a negative toward zero must not make it whole", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (whole? 0))")
+    Report "prolog.17: (whole? 0) succeeds - zero is whole", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+
+    ' ---- the three NON-numbers, each against the TRUE half above.
+    result = VLA_Prolog.PROLOG("(query (whole? bob))")
+    Report "prolog.17: (whole? bob) fails - an atom is not a number", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (whole? X))")
+    Report "prolog.17: (whole? X) fails - an unbound variable is not a number (and collapses to a BOOLEAN, since CollectVars skips a type test's argument)", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (whole? (f a)))")
+    Report "prolog.17: (whole? (f a)) fails - a compound term is not a number", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    ' ---- THE QUOTED-STRING MARKER, the reading `whole?` must SHARE with
+    ' `number?` rather than invent its own of. A text cell reading 3 is
+    ' not the number 3, and `whole?` asks LeafIsNumberTerm rather than
+    ' IsInvariantNumericString precisely so it cannot drift on this.
+    result = VLA_Prolog.PROLOG("(query (whole? " & Chr$(34) & "3" & Chr$(34) & "))")
+    Report "prolog.17: (whole? " & Chr$(34) & "3" & Chr$(34) & ") FAILS - a quoted string is an atom, exactly as number? already reads it", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    ' ---- DEREFERENCE through a binding `=` already made. Note the shape
+    ' change: `=` genuinely binds, so X IS collected as an output column
+    ' and the result SPILLS - where every assertion above collapsed to a
+    ' bare Boolean because a type test's own argument is skipped. The
+    ' failing twin spills a HEADER-ONLY array (one row), not a Boolean.
+    result = VLA_Prolog.PROLOG("(query (= X 4) (whole? X))")
+    Report "prolog.17: `whole?` sees through a binding `=` already made", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "4"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (= X 4.5) (whole? X))")
+    Report "prolog.17: ...and its twin (= X 4.5) (whole? X) yields NO solution row", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+
+    ' ---- A TYPE TEST DOES NOT EVALUATE ARITHMETIC, pinned as a pair so
+    ' the boundary cannot move silently: `(/ 6 2)` handed to `whole?` is
+    ' a COMPOUND TERM, not the number 3.
+    result = VLA_Prolog.PROLOG("(query (whole? (/ 6 2)))")
+    Report "prolog.17: (whole? (/ 6 2)) FAILS - whole? asks about a term, it never evaluates one", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    ' ---- ...and the same expression through `is`, which DOES evaluate.
+    ' THE VALUE IS ASSERTED, not merely the success: a wrong operator here
+    ' would produce a plausible NUMBER, so the twin's value must differ.
+    ' This pair is also where the integer decision is visible from the
+    ' outside - 7/2 is 3.5 and NOT 3, because this engine has one kind of
+    ' number and division never silently became integer division.
+    result = VLA_Prolog.PROLOG("(query (is X (/ 6 2)) (whole? X))")
+    Report "prolog.17: (is X (/ 6 2)) gives exactly 3, and (whole? X) then succeeds", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "3"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (/ 7 2)))")
+    Report "prolog.17: (is X (/ 7 2)) gives exactly 3.5 - division is NOT integer division here", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "3.5"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (/ 7 2)) (whole? X))")
+    Report "prolog.17: ...so (whole? X) yields NO solution row for it", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+
+    ' ---- RESERVED as well as dispatched, the discipline every name in
+    ' this module follows: a name the solver acts on but the parser does
+    ' not reserve is one a user can define and then have silently shadowed.
+    r = CStr(VLA_Prolog.PROLOG("(fact (whole? a)) (query (p X))"))
+    Report "prolog.17: `whole?` is RESERVED, so it can never be defined and then silently shadowed", _
+           InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+    Report "prolog.17: ...and the refusal enumerates it by name among the type tests", _
+           InStr(1, r, "whole?", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE REFUSAL'S NEW ADVICE IS TRUE, which is the whole point of
+    ' shipping `whole?` in the same item that closes `integer?`. The
+    ' message tells a user to ask (whole? X) instead; this asserts that
+    ' the thing it recommends actually answers.
+    r = CStr(VLA_Prolog.PROLOG("(query (integer? 42))"))
+    Report "prolog.17: the number-type refusal now points at (whole? X), not only (number? X)", _
+           InStr(1, r, "(whole? X)", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (whole? 42))")
+    Report "prolog.17: ...and that advice is true - (whole? 42) really does succeed", _
            ResultBoolIs(result, True), "got: " & ResultDescribe(result)
 
     ' =================================================================
@@ -5199,6 +5730,91 @@ Private Sub TestSql()
     Set result = VLA_Sql.SqlRun("SELECT Name AS full_name FROM staff", "staff", colNames, rows)
     Report "sql.2: AS also renames a bare column reference", _
            HeaderAt(result, 1) = "full_name", "got """ & HeaderAt(result, 1) & """"
+
+    ' =================================================================
+    '  PROLOG.17: SCALAR FUNCTIONS. SQL reaches the same shared
+    '  substrate PROLOG and DATALOG do, through the same one operator
+    '  table - but spells the names its own way, because MIN( and MAX(
+    '  were already AGGREGATE keywords here and have been since SQL.4.
+    '  Every value is asserted, never merely the row count: a wrong
+    '  operator in a SELECT list produces a plausible NUMBER in a cell,
+    '  which is the failure this whole item is shaped around.
+    '
+    '  All values below are integer-valued and therefore exactly
+    '  representable in binary, so none needs the tolerance the
+    '  Salary * 1.1 case above documents.
+    ' =================================================================
+
+    ' 90000 = 7 * 12857 + 1, so both MOD and DIV are pinned off the same
+    ' division and a confusion between them cannot pass both.
+    Set result = VLA_Sql.SqlRun("SELECT Name, MOD(Salary, 7) AS m FROM staff", "staff", colNames, rows)
+    Report "prolog.17/sql: MOD(Salary, 7) computes 1 for alice's 90000", _
+           CDbl(ValueAt(result, 1, 2)) = 1, "got " & ValueAt(result, 1, 2)
+    Set result = VLA_Sql.SqlRun("SELECT Name, DIV(Salary, 7) AS q FROM staff", "staff", colNames, rows)
+    Report "prolog.17/sql: DIV(Salary, 7) computes 12857 - integer division, the twin of the MOD above", _
+           CDbl(ValueAt(result, 1, 2)) = 12857, "got " & ValueAt(result, 1, 2)
+
+    ' A UNARY function wrapping a BINARY expression, which is the shape
+    ' that proves NK_UNARY nests over ordinary arithmetic rather than
+    ' only over a bare column.
+    Set result = VLA_Sql.SqlRun("SELECT Name, ABS(Salary - 95000) AS d FROM staff", "staff", colNames, rows)
+    Report "prolog.17/sql: ABS(Salary - 95000) computes 5000 for alice - a unary function over a computed operand", _
+           CDbl(ValueAt(result, 1, 2)) = 5000, "got " & ValueAt(result, 1, 2)
+
+    ' LEAST/GREATEST are the scalar pair, spelled standard-SQL style
+    ' precisely because MIN/MAX are taken. The two rows are twins: an
+    ' implementation that mapped both to the same operator fails one.
+    Set result = VLA_Sql.SqlRun("SELECT Name, LEAST(Salary, 70000) AS lo FROM staff", "staff", colNames, rows)
+    Report "prolog.17/sql: LEAST(Salary, 70000) computes 70000 for alice's 90000", _
+           CDbl(ValueAt(result, 1, 2)) = 70000, "got " & ValueAt(result, 1, 2)
+    Set result = VLA_Sql.SqlRun("SELECT Name, GREATEST(Salary, 70000) AS hi FROM staff", "staff", colNames, rows)
+    Report "prolog.17/sql: GREATEST(Salary, 70000) computes 90000 for the same row", _
+           CDbl(ValueAt(result, 1, 2)) = 90000, "got " & ValueAt(result, 1, 2)
+
+    Set result = VLA_Sql.SqlRun("SELECT Name, POWER(2, 10) AS p FROM staff", "staff", colNames, rows)
+    Report "prolog.17/sql: POWER(2, 10) computes 1024", _
+           CDbl(ValueAt(result, 1, 2)) = 1024, "got " & ValueAt(result, 1, 2)
+    Set result = VLA_Sql.SqlRun("SELECT Name, ROUND(2.5) AS r FROM staff", "staff", colNames, rows)
+    Report "prolog.17/sql: ROUND(2.5) computes 3 - half away from zero, the same reading PROLOG and DATALOG use", _
+           CDbl(ValueAt(result, 1, 2)) = 3, "got " & ValueAt(result, 1, 2)
+
+    ' ---- THE COLLISION THAT DECIDED THE SPELLING. MIN( must still be
+    ' the AGGREGATE, over the whole 4-row bag, and not a scalar function
+    ' of one argument. Without this, adding a scalar MIN would have
+    ' silently changed the meaning of every existing MIN( in a query.
+    Set result = VLA_Sql.SqlRun("SELECT MIN(Salary) AS lo FROM staff", "staff", colNames, rows)
+    Report "prolog.17/sql: MIN(Salary) is STILL the aggregate - 60000 over the whole bag, not a scalar function", _
+           CDbl(ValueAt(result, 1, 1)) = 60000, "got " & ValueAt(result, 1, 1)
+    Report "prolog.17/sql: ...and it collapses the bag to one row, which a scalar function would not have done", _
+           CountRows(result) = 1, "got " & CountRows(result)
+
+    ' ---- the refusals, each naming what it refused
+    raised = False
+    On Error Resume Next
+    Err.Clear
+    VLA_Sql.SqlRun "SELECT Name, SQRT(0 - 1) AS s FROM staff", "staff", colNames, rows
+    If Err.Number <> 0 Then raised = True
+    On Error GoTo 0
+    Report "prolog.17/sql: SQRT of a negative is refused, not returned as an error value in the cell", _
+           raised, "no error raised"
+
+    raised = False
+    On Error Resume Next
+    Err.Clear
+    VLA_Sql.SqlRun "SELECT Name, ABS(1, 2) AS a FROM staff", "staff", colNames, rows
+    If Err.Number <> 0 Then raised = True
+    On Error GoTo 0
+    Report "prolog.17/sql: a unary function given two arguments is refused by name, not by a bare 'expected )'", _
+           raised, "no error raised"
+
+    raised = False
+    On Error Resume Next
+    Err.Clear
+    VLA_Sql.SqlRun "SELECT Name, MOD(Salary) AS m FROM staff", "staff", colNames, rows
+    If Err.Number <> 0 Then raised = True
+    On Error GoTo 0
+    Report "prolog.17/sql: ...and a binary function given one argument likewise", _
+           raised, "no error raised"
 
     raised = False
     On Error Resume Next

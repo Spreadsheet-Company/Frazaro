@@ -13488,18 +13488,234 @@ now carries one summary paragraph per engine and points here.*
     the genuinely hard half and may be worth refusing by name rather than
     approximating. Blocked by `PROLOG.13` for anything returning a list.
     `~week`.
-  - ⬜ **PROLOG.17 — ARITHMETIC BREADTH, and the integer question.**
-    `ValidateArithExpr` freezes the operator set at **four** — `+ - * /` —
-    so there is no `mod`, no integer division, no `abs`, `min`, `max`, no
-    rounding family (`truncate`/`round`/`ceiling`/`floor`), no `**` and no
-    `sqrt`. `mod` and integer division are the ones a spreadsheet user
-    reaches for first and neither exists. Underneath sits a decision this
-    engine has never taken: **it has only Doubles**, so `(is X (/ 7 2))`
-    gives 3.5 and there is no integer type for `PROLOG.15`'s `integer?` to
-    be true of, nor for `between/3` to be honest about. Deciding
-    integer-vs-float is the item; the operators are a table after it. Note
-    `ComputeArithmetic` is shared substrate, so this pays into `SQL` and
-    `DATALOG` too and must not be done privately inside `VLA_Prolog`.
+  - ✅ **PROLOG.17 — ARITHMETIC BREADTH, and the integer question.**
+    SHIPPED 2026-09-09; owner-verified live. Four stages, all 18
+    `tools/check_*.ps1` green (a new one is this item's), every module
+    structurally balance-scanned. **EVERY BASELINE LANDED ON ITS
+    PREDICTION:** pure 1047/1047, host 143/143 and `VerifyReports`
+    141/141 + 141/141 all UNMOVED, and `TestDSLs` 720 → **812/812** — the
+    predicted count exactly (+92 net: 74 `prolog.17`, 12
+    `prolog.17/sql`, 6 `datalog`, and TWO existing assertions renamed
+    `prolog.5.1` → `prolog.5.1/17`; **no assertion deleted**, FOUR
+    re-pointed in place). All **46 in-cell steps passed**, including the
+    three the handoff flagged as decisive: `(mod -7 3)` = 2 (floored, not
+    VBA's truncating `Mod`), `(round 2.5)` = 3 (half away from zero, not
+    banker's), and `MIN(Salary)` still the AGGREGATE at 60000 on ONE row
+    — the assertion guarding the `LEAST`/`GREATEST` spelling decision,
+    and the one that would have meant every existing `MIN(` in a user's
+    query had silently changed meaning.
+
+    **IT TOOK TWO LIVE PASSES.** The first returned pure 1047/1047 and
+    host 143/143 exactly as predicted and then CRASHED `TestDSLs`
+    mid-run on a stale `PROLOG.5.1` regression pin this item had
+    invalidated — the full incident is below and is the most instructive
+    failure in the item. The three baselines the shared substrate could
+    have moved were therefore confirmed unmoved TWICE, before and after
+    that fix.
+
+    **THE INTEGER QUESTION, TAKEN: DOUBLES-ONLY IS PERMANENT.**
+    `PROLOG.15` recorded two branches and this is the second.
+    `integer?`/`float?` stay RESERVED AND REFUSED, `TypeTestDeferredFor`
+    is NOT deleted, and the whole-valued question ships under a name that
+    promises no type — **`whole?`**, a tenth `TypeTestKindFor` entry
+    (reserved set 47 → **48**). The decisive fact is not that a tagged
+    integer would be hard but that `NumberToTerm` is *deliberately*
+    byte-identical to `TableCellToTerm`: a distinct integer rendering
+    breaks the property that a generated number is the same ground atom a
+    numeric table cell becomes, so `(between 1 3 X) (emp X)` would
+    silently match nothing. Below that, the HOST has no integer type
+    either — SQL and DATALOG read Excel `Value2`, which is a Double — so
+    inventing one in the DSL layer would be an invention, not fidelity.
+    `whole?` is not new machinery: `SolveBetween` already computes
+    `lowV <> Int(lowV)`, so this NAMES a question the engine always
+    answered. The refusal now points at `(whole? X)` and a test asserts
+    that the advice is TRUE.
+
+    **THE ENTRY WAS WRONG TWICE, both found by reading the code first.**
+    (i) It said "the operators are a table after it" — false for half the
+    list it names. Both `ValidateArithExpr` AND `EvalArithTerm`
+    hard-coded `lst.Count <> 3`, so every operator was BINARY BY
+    CONSTRUCTION; `abs`/`sqrt`/the rounding family are unary and needed an
+    ARITY CHANGE, which is the real structural work. (ii) It said there is
+    no integer type "for `between/3` to be honest about" — false.
+    `SolveBetween` already refuses a fractional bound by name
+    (`prolog-between-not-whole-number`). **And the entry undercounted the
+    duplication:** the operator set was spelled THREE times, not two —
+    `EvalArithTerm` has its own `Select Case op` the entry never mentions.
+
+    **THE MISSING `Case Else` WAS LATENT, NOT LIVE — and this item is
+    exactly what would have made it live.** `ComputeArithmetic` set
+    `ok = True` unconditionally after a `Select Case` with no `Case
+    Else`, so an unknown operator returned EMPTY and reported SUCCESS.
+    Verified unreachable in all three engines first: SQL's set is closed
+    by its own PARSER (`ParseAddExpr`/`ParseMulExpr` build a node for
+    nothing else), DATALOG gates on an explicit `Select Case`, PROLOG
+    checked twice. So no wrong number was ever produced — the defect was
+    a trap armed for the next widening, which is this one.
+
+    **ONE TABLE, IN THE SHARED MODULE.** `VLA_Relation.ArithOpArity` is
+    now the only place the set is written, deliberately beside the two
+    functions that implement it rather than privately inside
+    `VLA_Prolog`: all three engines gate their own arithmetic, so a
+    per-engine copy would be three more places to forget. Ten binary
+    (`+ - * / mod rem // min max **`) and seven unary
+    (`abs sign sqrt truncate round ceiling floor`).
+    `ComputeArithmeticUnary` is a SIBLING of `ComputeArithmetic`, never a
+    widened signature — that is what leaves all three existing call sites
+    byte-identical.
+
+    **`mod` FLOORS AND `rem` TRUNCATES, and both ship.** ISO's own split.
+    They agree on same-sign operands and disagree on every mixed-sign
+    pair — `(mod -7 3)` is 2, `(rem -7 3)` is -1. VBA's own `Mod` is used
+    NOWHERE, for two independent reasons: it truncates (so it IS `rem`)
+    and it coerces operands to `Long`, so it is not a Double operation at
+    all. `round` is HALF AWAY FROM ZERO; VBA's `Round` is BANKER'S, so
+    `Round(2.5)` would have been 2. Both proved by mutation over a
+    66-case matrix transliterated before import: `mod-truncates` fails
+    exactly the two mixed-sign rows plus the mod/rem disagreement law,
+    `round-bankers` fails exactly 2.5 and -2.5, `no-case-else` returns
+    `ok=True` with an EMPTY value, `no-overflow-guard` fails 3.
+
+    **SQL SPELLS THEM DIFFERENTLY, AND HAD TO.** `MIN(`/`MAX(` have been
+    AGGREGATE keywords since `SQL.4`, so the scalar two-argument pair
+    takes standard SQL's own names for exactly this collision — `LEAST`
+    and `GREATEST`. Overloading `MIN` on argument count was rejected: it
+    would decide a node's KIND by lookahead in a grammar whose aggregate
+    arm already commits on seeing `MIN(`, and would silently change what
+    every existing `MIN(x)` means. `//` becomes `DIV(a,b)`, `**` becomes
+    `POWER(a,b)`, `rem` becomes `REMAINDER`. Binary functions build an
+    ordinary `NK_ARITH`, so `EvalScalar` needed NO new case for them; only
+    unary needed `NK_UNARY`, plus an arm in each of the four AST walks
+    (`NodeContainsAggregate`, `ExprSignature`, `CollectAggregateNodes`,
+    `ValidateScalarColumns`) — enumerated by grepping the kind, not
+    recalled.
+
+    **EVERY CALLER NOW MAPS EVERY REASON.** The substrate returns five
+    (`not-numeric`, `divide-by-zero`, `domain-error`, `overflow`,
+    `unknown-operator`) where it used to return two. All three engines had
+    a two-branch shape that would have reported `(sqrt -1)` as a
+    NON-NUMERIC OPERAND — a confidently wrong explanation of a real
+    refusal, in a message a user would act on by checking column types.
+    Each now has a `Select Case` whose `Case Else` refuses rather than
+    computes. `VLA_Relation`'s raw-raise ceiling is 0 and stays 0: `**`
+    guards negative-base-fractional-power, zero-to-a-negative-power AND
+    OVERFLOW *before* operating, because VBA's `^` raises on each.
+
+    **RESERVED NAMES NEEDED NO CHANGE FOR OPERATORS — CHECKED, NOT
+    ASSUMED.** An operator inside `(is ...)` sits at position 1 of a
+    NESTED EXPRESSION, never in goal position; `ValidateArithExpr`
+    recurses only into itself and never consults `GoalPredName` or
+    `IsReservedPredicateName`. Proved mechanically: the check's own
+    printed reserved set contains no `+`, `-`, `*` or `/`. Only `whole?`,
+    a real predicate name, moved the count.
+
+    **NEW: `tools/check_prolog_arith_operators.ps1`, the EIGHTEENTH
+    check**, six rules, each proved load-bearing by mutation and each
+    counting what it examined. A: both refusal prose lists match the
+    table (the old text said "only +, -, *, and / are supported" and
+    NOTHING would have caught that going stale — `check_prolog_reserved_names`
+    reads a different message and its `$operatorShaped` pattern matches
+    none of those four). B: no second literal list in `VLA_Prolog`. **C:
+    every tabled operator has a `Case` in the shared substrate** — the
+    rule worth more than the rest of the file put together. D: both
+    `Case Else`s survive. E: no TEST uses a tabled operator as its example
+    of an unknown one. F: SQL's keyword map lands in the table.
+
+    **RULE E EXISTS BECAUSE OF A REAL STALE PIN, AND IT IS A CLASS RULE G
+    DOES NOT COVER.** Two long-standing assertions used `(mod 5 2)` as
+    their example of an *unrecognized* operator; the moment `mod` became
+    real they asserted that a WORKING operator does not work. Rule G in
+    `check_test_assertion_safety.ps1` catches an expected RENDERING the
+    writer can no longer emit — here the expected text was still
+    perfectly emittable and only the INPUT changed meaning, so nothing
+    looked stale. Found by enumerating, then mechanized and run RED
+    against those very lines before they were changed; it turned up a
+    third hit that is a genuine false positive (`((+ 1 2) 3 4)` tests a
+    nested form in operator position) and is exempted BY NAME with its
+    reason, the `$rawIndexExempt` precedent. Both real pins are
+    RE-POINTED to `%` and given twins asserting the value `mod` now
+    computes, so the reversal shows in the diff rather than vanishing.
+
+    **A THIRD STALE PIN, AND NO CHECK CAUGHT IT.** `(is X (+ () 3))`
+    asserted "exactly two operands", and this item re-pointed the
+    EMPTY-OPERAND refusal from the wrong-arity message to the
+    unknown-operator one (arity is now per-operator, and `()` has no
+    operator to look an arity up FOR, so "needs exactly two operands" was
+    unanswerable and never quite true). That is a THIRD class again: rule
+    G watches a RENDERING the writer can no longer emit, rule E watches
+    an INPUT that changed meaning, and this is an input whose refusal
+    MOVED TO A DIFFERENT MESSAGE while both messages stayed perfectly
+    emittable. Found by walking the change rather than by any check.
+    `(+ () 3)` needed a rule E exemption too, its `+` being the valid
+    OUTER operator.
+
+    **A FOURTH REACHED THE OWNER'S LIVE RUN AND KILLED IT — the most
+    instructive failure in the item.** The first live pass returned pure
+    1047/1047 and host 143/143 exactly as predicted, then `TestDSLs`
+    CRASHED mid-run with **run-time error 13, type mismatch**, at a
+    `PROLOG.5.1` REGRESSION test:
+    `(fact (thing (mod 5 2))) (rule (compute X) (thing Y) (is X (+ Y 1)))`.
+    That test exercises `EvalArithTerm`'s THIRD runtime guard — a
+    variable dereferencing to a 3-item term whose operator symbol is not
+    an operator — and it used `(mod 5 2)` to be that non-operator. Once
+    `mod` was real the term became a VALID SUB-EXPRESSION: it computed 1,
+    `(+ 1 1)` computed 2, the query SUCCEEDED, and `PROLOG` returned a
+    SPILLED ARRAY. The test's own `CStr(...)` then raised on the array.
+
+    **The severity is the shape, not the operator.** A wrong answer would
+    have failed one assertion; this KILLED THE RUN, so every test after
+    that line went unreported — the precise outcome `PROLOG.20` spent a
+    whole item eliminating, arriving through a door that item did not
+    cover. `CStr(PROLOG(...))` is the suite's ordinary idiom for a
+    refusal test and is safe *only while the query genuinely refuses*;
+    when the input stops refusing, the assertion stops being a failing
+    assertion and becomes a crash. **It also survived rule E**, because
+    rule E keyed on the refusal TEXT and this test asserts a DIFFERENT
+    message (`isn't one`, the not-numeric refusal) that is still
+    perfectly emittable. The tell was in the test's own DESCRIPTION —
+    the word "unrecognized".
+
+    **Rule E now triggers on that word too, and is narrowed to
+    assertions genuinely about the refusal string** (`InStr(1, r, ...)`
+    on the trigger line or the next), so a POSITIVE twin whose prose
+    mentions the history — the one asserting `mod` NOW COMPUTES — is not
+    flagged for mentioning it. Run RED against the crashing line before
+    it was changed. The whole class was then re-swept mechanically in
+    both directions: all 25 `CStr(PROLOG(...))` tests containing a tabled
+    operator (24 still refuse for their own reasons — divide-by-zero,
+    wrong arity, non-numeric — and one was this defect), and all 49
+    engine calls using one of the 13 NEW operators (every one of them in
+    this item's own new tests or its two deliberate twins). Four stale
+    pins total, all re-pointed in place, none deleted.
+
+    **BYTE-IDENTICAL RENDERING WHERE IT COULD BE.** `prolog-arith-wrong-arity`
+    takes `{count}` as a NOUN PHRASE ("two operands" / "one operand"),
+    not a digit: a digit would have rendered "exactly 2 operands" and
+    broken three long-standing assertions for no gain.
+    `datalog-builtin-needs-two-operands` keeps its id (renaming a stable
+    id for cosmetic reasons is forbidden) and gains `{expected}`/`{example}`
+    on the same terms. `docs/GRAMMAR_SINCE.md` needs no row, re-confirmed
+    mechanically for all FOUR DSL modules now that SQL and DATALOG are in
+    scope (`-ListRules` 151 lines, `-ListArms` 147, zero mentions of any
+    of them).
+
+    **THREE THINGS THE MATRIX REFUSED TO CONFIRM, recorded rather than
+    claimed.** The `whole?` mutants showed only the fraction test is
+    load-bearing: `combined-and` is GREEN because VBA's `False And
+    anything` is still False, so the sequential shape is house style and
+    not correctness; `drop-quote-guard` is GREEN because
+    `LeafIsNumberTerm` passes the marker THROUGH to
+    `IsInvariantNumericString`, which rejects `"` anyway, making that
+    guard redundant today (pre-existing, deliberate, left alone); and
+    `Int` vs `Fix` cannot differ on a whole-number test, so using `Int` is
+    a consistency choice with `SolveBetween`, not a correctness one. An
+    early harness bug is also recorded: it modelled `Val()` with
+    `[double]::Parse`, which RAISES where `Val` returns 0, inventing a
+    crash VBA cannot have and nearly proving a guard load-bearing that is
+    not. One assertion is deliberately BOUNDED rather than exact —
+    `(** 9 0.5)` — because whether VBA's `^` returns bit-exactly 3 is a
+    property of the C runtime's `pow`, not of this engine, and nothing
+    here can run VBA to find out.
     `~week`.
   - ⬜ **PROLOG.18 — ATOM AND TEXT builtins.** `atom_length`,
     `atom_concat`, `sub_atom`, `atom_number`, `upcase`/`downcase`,

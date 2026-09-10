@@ -1026,15 +1026,75 @@ Public Function CompareValues(ByVal op As String, ByVal l As Variant, ByVal r As
     End If
 End Function
 
-' The mechanical half of DATALOG.4's own (let Z (op X Y)) - the four
-' basic arithmetic operators (+, -, *, /), given two operands ALREADY
-' decided to both be numeric (bothNumeric, the identical caller-decided
-' verdict CompareValues above takes). Never raises (this module's own
-' LAYER 0.5 contract, TableArgResolve's own header - refusal WORDING
-' stays each engine's own job): ok=False and reason "not-numeric" when
-' bothNumeric is False, or "divide-by-zero" for op="/" when r evaluates
-' to exactly 0 - never a silent 0, never VBA's own raw runtime
-' "Division by zero" error leaking out undressed.
+' PROLOG.17: an arithmetic operator's own OPERAND COUNT - 2 for a binary
+' operator, 1 for a unary one, 0 for a symbol that is not an operator at
+' all. THE ONE PLACE THE OPERATOR SET IS WRITTEN DOWN, for every engine.
+'
+' It lives HERE, beside the two functions that implement the operators,
+' rather than privately inside VLA_Prolog, and that placement is the
+' whole lesson of this item. The set was already spelled out THREE times
+' before PROLOG.17 - ValidateArithExpr, EvalArithTerm and
+' ComputeArithmetic - and the roadmap entry that scoped the work knew
+' about only two of them. PROLOG, SQL and DATALOG each gate their own
+' arithmetic, so a per-engine copy of this list would be three more
+' places to forget, in exactly the substrate whose failure mode is a
+' wrong NUMBER in a cell rather than an error. All three ask this.
+'
+' ARITY IS PER-OPERATOR, which is the actual structural work: every
+' engine's gate used to hard-code two operands, so a unary operator could
+' not be expressed at all and `abs`, `sqrt` and the rounding family had
+' no way in that a table entry alone would have opened.
+'
+' Held against ComputeArithmetic's and ComputeArithmeticUnary's own Case
+' arms, and against the refusal texts that advertise the set, by
+' tools/check_prolog_arith_operators.ps1.
+Public Function ArithOpArity(ByVal op As String) As Long
+    Select Case op
+    Case "+", "-", "*", "/", "mod", "rem", "//", "min", "max", "**"
+        ArithOpArity = 2
+    Case "abs", "sign", "sqrt", "truncate", "round", "ceiling", "floor"
+        ArithOpArity = 1
+    End Select
+End Function
+
+' The mechanical half of DATALOG.4's own (let Z (op X Y)) - the BINARY
+' arithmetic operators, given two operands ALREADY decided to both be
+' numeric (bothNumeric, the identical caller-decided verdict CompareValues
+' above takes). Never raises (this module's own LAYER 0.5 contract,
+' TableArgResolve's own header - refusal WORDING stays each engine's own
+' job): ok=False plus a reason, never a silent 0, never VBA's own raw
+' runtime error leaking out undressed. The reasons are "not-numeric",
+' "divide-by-zero", "domain-error", "overflow" and "unknown-operator";
+' every caller must map ALL of them, since a caller that maps only the
+' ones it expects reports the wrong refusal for the rest.
+'
+' PROLOG.17 WIDENED THE SET from the original four (+ - * /) to ten, and
+' the widening is what made the next paragraph urgent rather than
+' theoretical.
+'
+' >>> THE `Case Else` IS THE MOST IMPORTANT LINE IN THIS FUNCTION. <<<
+' Before PROLOG.17 there was none, and `ok = True` was set unconditionally
+' after the Select Case - so an operator reaching here without a Case
+' returned EMPTY and reported SUCCESS. That was latent rather than live,
+' verified in all three engines: SQL's operator set is closed by its own
+' PARSER (ParseAddExpr/ParseMulExpr build a node for nothing else),
+' DATALOG gates on an explicit Select Case, and PROLOG checks twice. So
+' no engine could reach it - until an item added an operator to one gate
+' and not to this table, which is exactly what PROLOG.17 does. The failure
+' it would have caused is a wrong NUMBER in a SQL or DATALOG cell, which
+' LOOKS LIKE AN ANSWER; this project holds that worse than a crash.
+'
+' `mod` IS FLOORED AND `rem` IS TRUNCATING, ISO's own split, and BOTH
+' ship so that a user never has to guess which one a single `mod` meant.
+' They agree whenever the operands share a sign and DISAGREE on every
+' mixed-sign pair: (mod -7 3) is 2 where (rem -7 3) is -1. VBA's own `Mod`
+' operator is used NOWHERE here, for two independent reasons - it
+' truncates (so it is `rem`, not `mod`) and it coerces both operands to
+' Long before operating, which is not a Double operation at all. Measured
+' over a 66-case matrix before import, with a mutant that makes `mod`
+' truncate: it fails the two mixed-sign rows and the mod/rem disagreement
+' law, and nothing else, which is precisely the blast radius of getting
+' this wrong quietly.
 Public Function ComputeArithmetic(ByVal op As String, ByVal l As Variant, ByVal r As Variant, ByVal bothNumeric As Boolean, ByRef ok As Boolean, ByRef reason As String) As Variant
     ok = False
     reason = ""
@@ -1054,6 +1114,115 @@ Public Function ComputeArithmetic(ByVal op As String, ByVal l As Variant, ByVal 
             Exit Function
         End If
         ComputeArithmetic = ln / rn
+    Case "mod"
+        ' FLOORED: the result takes the sign of the DIVISOR. Int() floors
+        ' toward -infinity in VBA, which is the whole of the difference
+        ' from `rem` below - do not "simplify" this to Fix().
+        If rn = 0 Then
+            reason = "divide-by-zero"
+            Exit Function
+        End If
+        ComputeArithmetic = ln - rn * Int(ln / rn)
+    Case "rem"
+        ' TRUNCATING: the result takes the sign of the DIVIDEND. Fix()
+        ' truncates toward zero.
+        If rn = 0 Then
+            reason = "divide-by-zero"
+            Exit Function
+        End If
+        ComputeArithmetic = ln - rn * Fix(ln / rn)
+    Case "//"
+        ' Integer division, truncating toward zero - so (// -7 2) is -3,
+        ' NOT -4. Pinned by the matrix in both signs.
+        If rn = 0 Then
+            reason = "divide-by-zero"
+            Exit Function
+        End If
+        ComputeArithmetic = Fix(ln / rn)
+    Case "min"
+        If ln <= rn Then ComputeArithmetic = ln Else ComputeArithmetic = rn
+    Case "max"
+        If ln >= rn Then ComputeArithmetic = ln Else ComputeArithmetic = rn
+    Case "**"
+        ' Three guards, all BEFORE the operation, because VBA's `^` raises
+        ' a raw runtime error on each and this module may not raise.
+        If ln < 0 And Int(rn) <> rn Then
+            ' a negative base to a fractional power is not a real number
+            reason = "domain-error"
+            Exit Function
+        End If
+        If ln = 0 And rn < 0 Then
+            reason = "divide-by-zero"
+            Exit Function
+        End If
+        If ln <> 0 Then
+            ' Log(1.79E308) is about 709.78. Checked rather than caught:
+            ' `(** 2 10000)` is a one-liner anyone can type, where the
+            ' identical exposure on +, - and * needs 1E308-scale operands
+            ' and is left alone deliberately - it is pre-existing, and
+            ' changing all four is its own concern in shared substrate.
+            If rn * Log(Abs(ln)) > 709 Then
+                reason = "overflow"
+                Exit Function
+            End If
+        End If
+        ComputeArithmetic = ln ^ rn
+    Case Else
+        reason = "unknown-operator"
+        Exit Function
+    End Select
+    ok = True
+End Function
+
+' PROLOG.17's UNARY half - abs, sign, sqrt and the rounding family.
+'
+' A SEPARATE FUNCTION rather than a dummy second operand on
+' ComputeArithmetic above, and that is the load-bearing choice in this
+' whole stage: ComputeArithmetic has three callers across three engines
+' (VLA_Prolog, VLA_Sql, VLA_Datalog) and its signature is therefore shared
+' substrate. Widening it would have edited all three call sites to pass a
+' value they do not have, for operators two of them may not even offer.
+' A sibling leaves every existing call BYTE-IDENTICAL and unmoved.
+'
+' `round` IS HALF-AWAY-FROM-ZERO, ISO's own reading, and VBA's own
+' Round() is deliberately NOT used: VBA rounds half to EVEN (banker's
+' rounding), so VBA's Round(2.5) is 2 where this returns 3. Proved by a
+' mutant that swaps in banker's rounding - it fails 2.5 and -2.5 and
+' nothing else, which is exactly the kind of quiet, plausible, wrong
+' number this engine exists not to produce.
+'
+' The rounding family is spelled out rather than folded: `truncate` is
+' Fix (toward zero), `floor` is Int (toward -infinity), and `ceiling` is
+' -Int(-v) because VBA has no Ceiling of its own. They agree on positive
+' whole values and part company everywhere else, which is why each has its
+' own matrix rows in both signs.
+Public Function ComputeArithmeticUnary(ByVal op As String, ByVal v As Variant, ByVal isNumeric As Boolean, ByRef ok As Boolean, ByRef reason As String) As Variant
+    ok = False
+    reason = ""
+    If Not isNumeric Then
+        reason = "not-numeric"
+        Exit Function
+    End If
+    Dim vn As Double
+    vn = AsInvariantDouble(v)
+    Select Case op
+    Case "abs":      ComputeArithmeticUnary = Abs(vn)
+    Case "sign":     ComputeArithmeticUnary = Sgn(vn)
+    Case "sqrt"
+        If vn < 0 Then
+            reason = "domain-error"
+            Exit Function
+        End If
+        ComputeArithmeticUnary = Sqr(vn)
+    Case "truncate": ComputeArithmeticUnary = Fix(vn)
+    Case "floor":    ComputeArithmeticUnary = Int(vn)
+    Case "ceiling":  ComputeArithmeticUnary = -Int(-vn)
+    Case "round":    ComputeArithmeticUnary = Sgn(vn) * Int(Abs(vn) + 0.5)
+    Case Else
+        ' The same Case Else as ComputeArithmetic above, present from this
+        ' function's FIRST line rather than added after an incident.
+        reason = "unknown-operator"
+        Exit Function
     End Select
     ok = True
 End Function

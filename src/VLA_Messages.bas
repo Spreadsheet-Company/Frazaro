@@ -499,7 +499,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' message that still enumerated only four would be quietly wrong about
     ' which names it had just refused, which is the same class of
     ' confidently-wrong answer the {form} rewrite above exists to remove.
-    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between/list, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, the nine type tests var? nonvar? atom? number? atomic? compound? callable? is-list? ground?, the six list goals length member nth append reverse sum-list, the nine ISO spellings var nonvar atom number atomic compound callable is_list ground - reserved only so PROLOG can point you at the question-mark form instead of failing silently - the four number-type names integer? float? integer float, reserved now but refused until PROLOG tells one kind of number from another, and the three alias spellings is-list is_list? sum_list, reserved only so PROLOG can point you at the spelling it does use) and can't be used as a predicate name in a (fact ...) or (rule ...)."
+    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between/list, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, the ten type tests var? nonvar? atom? number? atomic? compound? callable? is-list? ground? whole?, the six list goals length member nth append reverse sum-list, the nine ISO spellings var nonvar atom number atomic compound callable is_list ground - reserved only so PROLOG can point you at the question-mark form instead of failing silently - the four number-type names integer? float? integer float, reserved now but refused until PROLOG tells one kind of number from another, and the three alias spellings is-list is_list? sum_list, reserved only so PROLOG can point you at the spelling it does use) and can't be used as a predicate name in a (fact ...) or (rule ...)."
     ' `prolog-cut-not-yet-supported` (PROLOG.5.1-5.3-era: "cut (!) isn't
     ' supported yet.") is retired at PROLOG.5.4 - cut is real now, no
     ' code path can raise it anymore, and this project's own precedent
@@ -598,7 +598,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' refuses too: a reader who typed (integer X) learns BOTH that the
     ' spelling here has a question mark and that the test is not
     ' available, in one message instead of two.
-    AddMsg m, "prolog-type-test-number-type", 5, "VLA-Prolog", "{form} isn't available: PROLOG has one kind of number, so nothing here tells an integer from a float - ask (number? X) instead. {fixed} stays reserved, and so does the spelling without the question mark, so a program you write today keeps working if PROLOG ever tells the two apart."
+    AddMsg m, "prolog-type-test-number-type", 5, "VLA-Prolog", "{form} isn't available: PROLOG has one kind of number, so nothing here tells an integer from a float - 3 and 3.0 are the same value here, and that is settled rather than pending. Ask (number? X) for 'is this a number at all', or (whole? X) for 'is this a number with no fractional part' - the question {fixed} was reaching for, under a name that promises no type. {fixed} stays reserved, and so does the spelling without the question mark, so a program you write today keeps working."
     ' PROLOG.15's alias follow-up - the NEAR-MISS spellings of a name that
     ' does exist. `is-list`, `is_list?` and `sum_list` are each one small
     ' slip away from a real predicate, and an unknown predicate in PROLOG
@@ -714,8 +714,20 @@ Private Sub AddEntries(ByVal m As Collection)
     ' not spell a form into its own text. DATALOG.6 inherits this shape
     ' for `datalog-sum-needs-one-value-variable`, whose text is
     ' `sum`-specific for the identical reason.
-    AddMsg m, "prolog-arith-unknown-operator", 5, "VLA-Prolog", "'{op}' isn't an arithmetic operator PROLOG recognizes inside {form} - only +, -, *, and / are supported."
-    AddMsg m, "prolog-arith-wrong-arity", 5, "VLA-Prolog", "'{op}' inside {form} needs exactly two operands, like (+ X Y)."
+    ' PROLOG.17: the operator list here is held against VLA_Prolog's own
+    ' ArithOpArityFor table by tools/check_prolog_arith_operators.ps1.
+    ' Before that check, this text said "only +, -, *, and / are
+    ' supported" and NOTHING would have noticed it going stale the moment
+    ' an operator was added - the reserved-name check reads a different
+    ' message and its own operator pattern matches none of these symbols.
+    AddMsg m, "prolog-arith-unknown-operator", 5, "VLA-Prolog", "'{op}' isn't an arithmetic operator PROLOG recognizes inside {form} - the ones it knows are + - * / mod rem // min max ** abs sign sqrt truncate round ceiling floor."
+    ' {count} carries the whole noun phrase ("two operands" / "one
+    ' operand") rather than a digit, so this renders BYTE FOR BYTE as
+    ' PROLOG.5.1's own text for a binary operator - which is why three
+    ' long-standing assertions on "exactly two operands" did not move.
+    AddMsg m, "prolog-arith-wrong-arity", 5, "VLA-Prolog", "'{op}' inside {form} needs exactly {count}, like {example}."
+    AddMsg m, "prolog-arith-domain-error", 5, "VLA-Prolog", "{form} can't compute '{op}' of that value - the answer isn't a real number. The square root of a negative, or a negative raised to a fractional power, has no answer PROLOG can give."
+    AddMsg m, "prolog-arith-overflow", 5, "VLA-Prolog", "{form} can't compute '{op}' of those values - the answer is larger than any number PROLOG can represent."
     AddMsg m, "prolog-arith-unbound-variable", 5, "VLA-Prolog", "{form} can't compute a value that still has an unbound variable ({var}) in it."
     AddMsg m, "prolog-arith-not-numeric", 5, "VLA-Prolog", "{form} expected a number but found '{value}', which isn't one."
     AddMsg m, "prolog-arith-divide-by-zero", 5, "VLA-Prolog", "{form} tried to divide by zero."
@@ -784,9 +796,17 @@ Private Sub AddEntries(ByVal m As Collection)
     ' DATALOG.4 - comparison filters ((> X 50000) and the rest of the
     ' </<=/>/>=/=/<> set) and the (let Z (+ X Y)) arithmetic binding
     ' form, both new rule-body shapes.
-    AddMsg m, "datalog-builtin-needs-two-operands", 5, "VLA-Datalog", "'{operator}' needs exactly two operands, like (> X 50000) or (+ X Y) - found {count}."
+    ' PROLOG.17: {expected} and {example} carry the whole noun phrase and
+    ' the worked form, so this one message serves a binary comparison, a
+    ' binary let and a UNARY let. Rendered for the binary case it
+    ' reproduces DATALOG.4's own text byte for byte. The id keeps its
+    ' "two-operands" name deliberately - renaming it would retire a
+    ' stable id for a cosmetic reason, which SD-9 forbids.
+    AddMsg m, "datalog-builtin-needs-two-operands", 5, "VLA-Datalog", "'{operator}' needs exactly {expected}, like {example} - found {count}."
     AddMsg m, "datalog-builtin-unsafe-variable", 5, "VLA-Datalog", "in '{operator}', the variable '{var}' hasn't been given a value by any body predicate written before it - a comparison or arithmetic built-in can't evaluate a value it doesn't already know; move a predicate that binds '{var}' earlier in the rule's body."
-    AddMsg m, "datalog-unknown-arithmetic-operator", 5, "VLA-Datalog", "'{operator}' isn't one of DATALOG's own arithmetic built-ins (+, -, *, /) - refused by name rather than guessed."
+    AddMsg m, "datalog-unknown-arithmetic-operator", 5, "VLA-Datalog", "'{operator}' isn't one of DATALOG's own arithmetic built-ins - refused by name rather than guessed. The ones it knows are + - * / mod rem // min max ** abs sign sqrt truncate round ceiling floor."
+    AddMsg m, "datalog-arithmetic-domain-error", 5, "VLA-Datalog", "'{operator}' has no real answer for those operands - the square root of a negative, or a negative raised to a fractional power."
+    AddMsg m, "datalog-arithmetic-overflow", 5, "VLA-Datalog", "'{operator}' gives an answer larger than any number DATALOG can represent."
     AddMsg m, "datalog-let-bad-shape", 5, "VLA-Datalog", "(let ...) takes exactly a result variable then an arithmetic expression, like (let Z (+ X Y))."
     AddMsg m, "datalog-let-result-not-a-variable", 5, "VLA-Datalog", "(let ...)'s first argument must be a bare variable (a word starting with a capital letter) - the name that will hold the result, not the expression itself."
     AddMsg m, "datalog-let-result-reused", 5, "VLA-Datalog", "'{var}' is already bound earlier in this rule's body - a (let ...) result variable must be a brand-new name, not one already in use."
@@ -827,6 +847,10 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "sql-computed-column-needs-alias", 5, "VLA-Sql", "a computed SELECT expression needs its own alias (AS name) - only a bare column reference can be selected without one, since GROUP BY/ORDER BY and the output header both need a real name to refer back to."
     AddMsg m, "sql-arithmetic-non-numeric-operand", 5, "VLA-Sql", "'{operator}' needs two numeric operands - at least one side wasn't a real number (a text column that merely looks numeric is never silently promoted)."
     AddMsg m, "sql-division-by-zero", 5, "VLA-Sql", "'/' would divide by zero."
+    AddMsg m, "sql-arithmetic-domain-error", 5, "VLA-Sql", "'{operator}' has no real answer for those operands - the square root of a negative, or a negative raised to a fractional power."
+    AddMsg m, "sql-arithmetic-overflow", 5, "VLA-Sql", "'{operator}' gives an answer larger than any number SQL can represent."
+    AddMsg m, "sql-arithmetic-unknown-operator", 5, "VLA-Sql", "'{operator}' isn't an arithmetic operator SQL can compute - refused by name rather than guessed."
+    AddMsg m, "sql-scalar-function-arity", 5, "VLA-Sql", "{function} takes exactly {expected}. ABS, SIGN, SQRT, TRUNCATE, FLOOR, CEILING and ROUND take one; MOD, REMAINDER, DIV, LEAST, GREATEST and POWER take two."
 
     ' SQL.3 - INNER JOIN ... ON, multiple tables folded left-to-right.
     AddMsg m, "sql-needs-at-least-one-table", 5, "VLA-Sql", "SQL needs at least one table argument (found {count})."

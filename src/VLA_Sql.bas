@@ -736,6 +736,15 @@ Private Const NK_OR As Long = 5
 Private Const NK_NOT As Long = 6
 Private Const NK_ARITH As Long = 7
 Private Const NK_AGG As Long = 8
+' PROLOG.17: a UNARY scalar function call - ABS(x), ROUND(x) and their
+' five siblings. A kind of its own rather than an NK_ARITH with a dummy
+' second operand, for the same reason VLA_Relation gained a separate
+' ComputeArithmeticUnary rather than a widened ComputeArithmetic: every
+' existing NK_ARITH walk keeps assuming two operands and none of them
+' had to change shape. The BINARY functions need no new kind at all -
+' MOD(a, b) builds an ordinary NK_ARITH whose op is "mod", so EvalScalar's
+' own NK_ARITH case computes it with no change whatsoever.
+Private Const NK_UNARY As Long = 9
 
 ' ---- SQL.5: ORDER BY item kinds - a 1-based ordinal position into the
 '      output header list, or a fold-compared name matching one of
@@ -1101,6 +1110,61 @@ End Function
 
 Private Function NodeArithOp(ByVal n As Collection) As String
     NodeArithOp = n.Item(2)
+End Function
+
+' PROLOG.17: the unary scalar-function node. `op` is the SHARED operator
+' name VLA_Relation.ComputeArithmeticUnary understands ("abs", "round"),
+' never the SQL keyword the user typed - ScalarFuncOpFor below does that
+' translation once, at parse time, so nothing downstream has to know that
+' SQL spells `min` as LEAST.
+Private Function NodeUnary(ByVal op As String, ByVal operand As Collection) As Collection
+    Dim n As New Collection
+    n.Add NK_UNARY
+    n.Add op
+    n.Add operand
+    Set NodeUnary = n
+End Function
+
+Private Function NodeUnaryOp(ByVal n As Collection) As String
+    NodeUnaryOp = n.Item(2)
+End Function
+
+Private Function NodeUnaryOperand(ByVal n As Collection) As Collection
+    Set NodeUnaryOperand = n.Item(3)
+End Function
+
+' PROLOG.17: a SQL scalar-function keyword (already folded) -> the shared
+' operator name VLA_Relation knows it by, or "" if it is not one.
+'
+' THE SPELLINGS DIFFER FROM PROLOG'S DELIBERATELY, and only where SQL
+' already has an opinion. `min`/`max` are SQL AGGREGATE keywords here -
+' AggKindForKeyword owns MIN( and MAX( and has since SQL.4 - so the
+' two-argument scalar pair takes standard SQL's own names for exactly
+' this collision, LEAST and GREATEST. Overloading MIN on argument count
+' was rejected: it would make `MIN(x)` and `MIN(x, y)` different KINDS of
+' node decided by a lookahead, in a grammar where the aggregate arm
+' already commits on seeing `MIN(`.
+'
+' `//` has no SQL spelling at all, so it arrives as DIV(a, b); `**`
+' arrives as POWER(a, b), which is the standard SQL name. CEIL is
+' accepted alongside CEILING because both are common and neither is
+' ambiguous.
+Private Function ScalarFuncOpFor(ByVal kw As String) As String
+    Select Case kw
+    Case "abs": ScalarFuncOpFor = "abs"
+    Case "sign": ScalarFuncOpFor = "sign"
+    Case "sqrt": ScalarFuncOpFor = "sqrt"
+    Case "truncate": ScalarFuncOpFor = "truncate"
+    Case "floor": ScalarFuncOpFor = "floor"
+    Case "ceiling", "ceil": ScalarFuncOpFor = "ceiling"
+    Case "round": ScalarFuncOpFor = "round"
+    Case "mod": ScalarFuncOpFor = "mod"
+    Case "remainder": ScalarFuncOpFor = "rem"
+    Case "div": ScalarFuncOpFor = "//"
+    Case "least": ScalarFuncOpFor = "min"
+    Case "greatest": ScalarFuncOpFor = "max"
+    Case "power": ScalarFuncOpFor = "**"
+    End Select
 End Function
 
 Private Function NodeArithLeft(ByVal n As Collection) As Collection
@@ -1969,6 +2033,50 @@ Private Function ParsePrimary(ByVal toks As Collection, ByRef pos As Long) As Co
         ' genuinely named "count" (never followed by '(') is completely
         ' unaffected. This file's own SQL.4 header note has the full
         ' grammar/AST reasoning.
+        ' PROLOG.17: a SCALAR function call - ABS/ROUND/MOD/POWER and
+        ' their siblings - checked on exactly the aggregate arm's own
+        ' keyword-in-context terms below: a name followed IMMEDIATELY by
+        ' '(', so a column genuinely named "round" (never followed by
+        ' '(') is completely unaffected. Placed BEFORE the aggregate
+        ' lookup only for symmetry of reading; the two name sets are
+        ' disjoint by construction, which ScalarFuncOpFor's own header
+        ' explains (MIN/MAX stay aggregates, and the scalar pair is
+        ' spelled LEAST/GREATEST for that reason).
+        Dim scalarOp As String
+        scalarOp = ScalarFuncOpFor(VLA_Identity.Fold(TokText(t)))
+        If scalarOp <> "" And AtOp(toks, pos + 1, "(") Then
+            Dim fnName As String
+            fnName = UCase$(TokText(t))
+            pos = pos + 2   ' consume the function name and '('
+            Dim wantArgsSql As Long
+            wantArgsSql = VLA_Relation.ArithOpArity(scalarOp)
+            Dim argOne As Collection
+            Set argOne = ParseAddExpr(toks, pos)
+            ' The arity refusal is worded rather than left to ExpectOp,
+            ' which would report a bare "expected )" and name neither the
+            ' function nor how many arguments it wanted.
+            If wantArgsSql = 1 Then
+                If Not AtOp(toks, pos, ")") Then
+                    VLA_Messages.RaiseMsg "sql-scalar-function-arity", "function", fnName, "expected", "one argument"
+                End If
+                ExpectOp toks, pos, ")"
+                Set ParsePrimary = NodeUnary(scalarOp, argOne)
+                Exit Function
+            End If
+            ' A binary function builds an ordinary NK_ARITH, so every
+            ' existing walk over arithmetic nodes - EvalScalar,
+            ' ExprSignature, CollectAggregateNodes - handles it with no
+            ' new case at all.
+            If Not AtOp(toks, pos, ",") Then
+                VLA_Messages.RaiseMsg "sql-scalar-function-arity", "function", fnName, "expected", "two arguments"
+            End If
+            ExpectOp toks, pos, ","
+            Dim argTwo As Collection
+            Set argTwo = ParseAddExpr(toks, pos)
+            ExpectOp toks, pos, ")"
+            Set ParsePrimary = NodeArith(scalarOp, argOne, argTwo)
+            Exit Function
+        End If
         Dim aggKind As Long
         aggKind = AggKindForKeyword(VLA_Identity.Fold(TokText(t)))
         If aggKind <> -1 And AtOp(toks, pos + 1, "(") Then
@@ -2060,6 +2168,8 @@ Private Function NodeContainsAggregate(ByVal node As Collection) As Boolean
         NodeContainsAggregate = True
     Case NK_ARITH
         NodeContainsAggregate = NodeContainsAggregate(NodeArithLeft(node)) Or NodeContainsAggregate(NodeArithRight(node))
+    Case NK_UNARY
+        NodeContainsAggregate = NodeContainsAggregate(NodeUnaryOperand(node))
     Case NK_CMP
         NodeContainsAggregate = NodeContainsAggregate(NodeCmpLeft(node)) Or NodeContainsAggregate(NodeCmpRight(node))
     Case NK_AND, NK_OR
@@ -2089,6 +2199,12 @@ Private Function ExprSignature(ByVal node As Collection) As String
         ExprSignature = "'" & NodeStringValue(node) & "'"
     Case NK_ARITH
         ExprSignature = "(" & ExprSignature(NodeArithLeft(node)) & NodeArithOp(node) & ExprSignature(NodeArithRight(node)) & ")"
+    Case NK_UNARY
+        ' The op is separated from its operand by a space, so that a
+        ' unary signature can never collide with a binary one: without it
+        ' "(abs" & "(x)" would be indistinguishable from a two-operand
+        ' form whose left operand rendered as the empty string.
+        ExprSignature = "(" & NodeUnaryOp(node) & " " & ExprSignature(NodeUnaryOperand(node)) & ")"
     Case NK_AGG
         ExprSignature = AggSignature(node)
     End Select
@@ -2166,6 +2282,8 @@ Private Sub CollectAggregateNodes(ByVal node As Collection, ByVal seen As Object
     Case NK_ARITH
         CollectAggregateNodes NodeArithLeft(node), seen, outAgg
         CollectAggregateNodes NodeArithRight(node), seen, outAgg
+    Case NK_UNARY
+        CollectAggregateNodes NodeUnaryOperand(node), seen, outAgg
     Case NK_CMP
         CollectAggregateNodes NodeCmpLeft(node), seen, outAgg
         CollectAggregateNodes NodeCmpRight(node), seen, outAgg
@@ -2242,6 +2360,40 @@ Private Function ResolveAggPos(ByVal node As Collection, ByVal colMap As Object)
     ResolveAggPos = CLng(VLA_Runtime.VlaDictGet(colMap, key))
 End Function
 
+' PROLOG.17: one place SQL turns a shared-substrate refusal reason into a
+' SQL refusal, called by both the binary and the unary arithmetic arms.
+'
+' EVERY reason is mapped, not only the two this engine used to be able to
+' receive. Before this item the binary site read `If reason =
+' "divide-by-zero" ... Else non-numeric-operand`, which was correct while
+' those were the only two possible; the substrate now also returns
+' "domain-error", "overflow" and "unknown-operator", and the old shape
+' would have reported SQRT(-1) as a NON-NUMERIC OPERAND - a confidently
+' wrong explanation of a real refusal, in a message a user would then act
+' on by checking their column types. The final Else keeps its original
+' meaning AND catches any reason added later, so a new one is refused
+' rather than silently computed.
+'
+' Factored out rather than repeated at both sites for the ordinary
+' reason: two copies of a five-branch mapping are two things to keep in
+' step, and the whole subject of this item is what happens when copies of
+' one list drift apart.
+Private Sub RaiseSqlArithRefusal(ByVal ok As Boolean, ByVal reason As String, ByVal op As String)
+    If ok Then Exit Sub
+    Select Case reason
+    Case "divide-by-zero"
+        VLA_Messages.RaiseMsg "sql-division-by-zero"
+    Case "domain-error"
+        VLA_Messages.RaiseMsg "sql-arithmetic-domain-error", "operator", op
+    Case "overflow"
+        VLA_Messages.RaiseMsg "sql-arithmetic-overflow", "operator", op
+    Case "unknown-operator"
+        VLA_Messages.RaiseMsg "sql-arithmetic-unknown-operator", "operator", op
+    Case Else
+        VLA_Messages.RaiseMsg "sql-arithmetic-non-numeric-operand", "operator", op
+    End Select
+End Sub
+
 Private Function EvalScalar(ByVal node As Collection, ByVal colMap As Object, ByRef row() As Variant) As Variant
     Select Case NodeKind(node)
     Case NK_COLUMN
@@ -2264,13 +2416,18 @@ Private Function EvalScalar(ByVal node As Collection, ByVal colMap As Object, By
         Dim okArith As Boolean, reasonArith As String
         EvalScalar = VLA_Relation.ComputeArithmetic(NodeArithOp(node), al, ar, _
             VLA_Relation.ValueIsNumericType(al) And VLA_Relation.ValueIsNumericType(ar), okArith, reasonArith)
-        If Not okArith Then
-            If reasonArith = "divide-by-zero" Then
-                VLA_Messages.RaiseMsg "sql-division-by-zero"
-            Else
-                VLA_Messages.RaiseMsg "sql-arithmetic-non-numeric-operand", "operator", NodeArithOp(node)
-            End If
-        End If
+        RaiseSqlArithRefusal okArith, reasonArith, NodeArithOp(node)
+    Case NK_UNARY
+        ' PROLOG.17: a unary scalar function - ABS(x) and its siblings.
+        ' SQL's own numeric-ness policy stays STRICT (ValueIsNumericType
+        ' alone), identical to the binary case above: a text column that
+        ' merely looks numeric is never silently promoted.
+        Dim au As Variant
+        au = EvalScalar(NodeUnaryOperand(node), colMap, row)
+        Dim okUn As Boolean, reasonUn As String
+        EvalScalar = VLA_Relation.ComputeArithmeticUnary(NodeUnaryOp(node), au, _
+            VLA_Relation.ValueIsNumericType(au), okUn, reasonUn)
+        RaiseSqlArithRefusal okUn, reasonUn, NodeUnaryOp(node)
     Case NK_AGG
         ' SQL.4: an aggregate call is a scalar VALUE, exactly like a
         ' column or a number - reached only when colMap/row are
@@ -2301,6 +2458,8 @@ Private Sub ValidateScalarColumns(ByVal node As Collection, ByVal colMap As Obje
     Case NK_ARITH
         ValidateScalarColumns NodeArithLeft(node), colMap
         ValidateScalarColumns NodeArithRight(node), colMap
+    Case NK_UNARY
+        ValidateScalarColumns NodeUnaryOperand(node), colMap
     Case NK_AGG
         ' SQL.4: validates that THIS node resolves against colMap - the
         ' aggregate's own OPERAND is deliberately NOT walked here (unlike
