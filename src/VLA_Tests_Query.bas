@@ -364,6 +364,7 @@ Public Function TestDSLs() As Boolean
     TestPrologLists
     TestPrologFindall
     TestPrologCut
+    TestPrologControl
     TestPrologKeyedAtoms
     TestPrologHostTable
     TestSql
@@ -5047,6 +5048,287 @@ End Sub
 '  fire would flip the assertion's own expected TRUTH VALUE, not just
 '  produce an incidentally-matching result.
 ' ---------------------------------------------------------------------
+' ---------------------------------------------------------------------
+'  PROLOG.14: VLA_Prolog.PROLOG - disjunction `(or ...)` and if-then-else
+'  `(if ...)`. Covers: both branches of a disjunction contributing; the
+'  case where the FIRST branch fails and the second carries the answer
+'  (an unknown predicate fails SILENTLY, so a disjunction test whose
+'  first branch already succeeds proves nothing about the second);
+'  neither branch succeeding; cut transparency through both forms;
+'  if-then-else committing to its condition's first solution; the else
+'  running only when the condition never succeeded - never when the
+'  condition succeeded and the then-branch failed; both `if` arities;
+'  the phantom-column rule (a variable is an output column only if every
+'  success path binds it); the ISO spellings `->` and `\+` reaching a
+'  refusal that names the house form; every shape refusal and every
+'  reserved-name refusal; and the PROLOG.5.4-era cut-signal defect this
+'  item found and repaired, with the control that isolates it.
+' ---------------------------------------------------------------------
+Private Sub TestPrologControl()
+    Dim result As Variant
+    Dim r As String
+    Dim facts As String
+    facts = "(fact (p 1)) (fact (p 2)) (fact (q a)) (fact (q b)) "
+
+    ' ---- DISJUNCTION -------------------------------------------------
+    ' Both branches are explored, in written order, and the continuation
+    ' runs under each. Four solutions from two two-fact predicates.
+    result = VLA_Prolog.PROLOG(facts & "(rule (both X) (or (p X) (q X))) (query (both X))")
+    Dim bothOk As Boolean
+    If IsArray(result) Then
+        bothOk = (ResultRowCount(result) = 5 And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 3, 1, "2") _
+                  And ResultCellIs(result, 4, 1, "a") And ResultCellIs(result, 5, 1, "b"))
+    End If
+    Report "prolog.14: (or ...) explores every branch, in written order - two two-fact predicates give four solutions", _
+           bothOk, "got: " & ResultDescribe(result)
+
+    ' THE DISCRIMINATION CASE. An unknown predicate fails SILENTLY here,
+    ' so a disjunction whose FIRST branch already succeeds would pass
+    ' against an implementation that never looked at the second one at
+    ' all. This is the shape that cannot: the first branch is a predicate
+    ' with no facts, so every row below comes from the second.
+    result = VLA_Prolog.PROLOG(facts & "(rule (f X) (or (nosuch X) (p X))) (query (f X))")
+    Dim secondOk As Boolean
+    If IsArray(result) Then
+        secondOk = (ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 3, 1, "2"))
+    End If
+    Report "prolog.14: when the FIRST branch fails, the second carries the whole answer", _
+           secondOk, "got: " & ResultDescribe(result)
+
+    ' ...and its twin, so the test above cannot be passing because the
+    ' rule matches everything: with BOTH branches unknown there are no
+    ' rows at all, and a query with a free variable still spills its
+    ' header row, so this is 1 rather than 0.
+    result = VLA_Prolog.PROLOG(facts & "(rule (g X) (or (nosuch X) (alsonosuch X))) (query (g X))")
+    Report "prolog.14: ...and with BOTH branches failing there are no rows, only the header", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+
+    ' Cut is TRANSPARENT through a disjunction: the bare ! written as the
+    ' first branch cuts the ENCLOSING clause, so p's own second fact is
+    ' pruned and the second branch is never tried. Without transparency
+    ' this would be four rows (X = 1 and 2, each with Y = a and b); the
+    ' row count is asserted explicitly because that is the whole
+    ' difference.
+    result = VLA_Prolog.PROLOG(facts & "(rule (cutor X Y) (p X) (or ! (q Y)) (q Y)) (query (cutor X Y))")
+    Dim cutOrOk As Boolean
+    If IsArray(result) Then
+        cutOrOk = (ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 2, 2, "a") _
+                   And ResultCellIs(result, 3, 1, "1") And ResultCellIs(result, 3, 2, "b"))
+    End If
+    Report "prolog.14: a bare ! inside a branch cuts the enclosing clause - cut is transparent through (or ...)", _
+           cutOrOk, "got: " & ResultDescribe(result)
+
+    ' ---- THE PHANTOM COLUMN ------------------------------------------
+    ' The defect this item's own design exists to avoid, and PROLOG.5.2's
+    ' finding reached by a fourth route. X is bound only by the first
+    ' branch and Y only by the second, so on any given solution one of
+    ' them is free - collecting either would render its own raw name into
+    ' a spilled cell as though it were a value. Neither is a column, so
+    ' the query has no free variables at all and collapses to a BOOLEAN.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (q a)) (query (or (p X) (q Y)))")
+    Report "prolog.14: (or (p X) (q Y)) binds X on one branch and Y on the other, so NEITHER is an output column - a boolean, not two phantom columns", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+
+    ' ...and the twin that proves the rule is not simply "never collect
+    ' from a disjunction": a variable EVERY branch binds is a real column
+    ' and does spill, one row per branch that succeeds.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (q a)) (query (or (p X) (q X)))")
+    Dim sharedOk As Boolean
+    If IsArray(result) Then
+        sharedOk = (ResultRowCount(result) = 3 And ResultColCount(result) = 1 _
+                    And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 3, 1, "a"))
+    End If
+    Report "prolog.14: ...but a variable EVERY branch binds is a real column and spills", _
+           sharedOk, "got: " & ResultDescribe(result)
+
+    ' A branch is a GOAL, not data, so `not`'s own skip still applies
+    ' inside one: the negated branch binds nothing, so X is not a column
+    ' and this is a boolean. Collected as data it would put X back.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (q a)) (query (or (not (p X)) (q X)))")
+    Report "prolog.14: a branch is collected as a GOAL - not's own skip still applies inside one, so X is no column here", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+
+    ' ---- IF-THEN-ELSE ------------------------------------------------
+    ' The condition COMMITS to its first solution: p has two facts but
+    ' only p(1) is ever used, so this is two rows and not four.
+    result = VLA_Prolog.PROLOG(facts & "(rule (ite X Y) (if (p X) (q Y) (nope Y))) (query (ite X Y))")
+    Dim iteOk As Boolean
+    If IsArray(result) Then
+        iteOk = (ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 2, 2, "a") _
+                 And ResultCellIs(result, 3, 1, "1") And ResultCellIs(result, 3, 2, "b"))
+    End If
+    Report "prolog.14: (if ...) commits to the condition's FIRST solution - p's two facts give two rows, not four", _
+           iteOk, "got: " & ResultDescribe(result)
+
+    ' THE DECISIVE PAIR, and the one most easily got backwards. Both are
+    ' GROUND queries, so both are booleans and neither can pass by
+    ' spilling something. The condition succeeds and the then-goal FAILS:
+    ' the whole form fails, and the else-goal - which would have
+    ' succeeded - must NOT run.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (q a)) (query (if (p 1) (nosuch 1) (q a)))")
+    Report "prolog.14: condition succeeds, then-goal fails - the whole (if ...) FAILS and the else-goal never runs", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (q a)) (query (if (p 9) (nosuch 1) (q a)))")
+    Report "prolog.14: ...and its twin - when the condition never succeeds, the SAME else-goal does run and the form is TRUE", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+
+    ' The two-argument form. No else-goal, so a failed condition simply
+    ' fails; asserted FALSE beside its own TRUE twin so neither can be
+    ' passing for want of an implementation.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (query (if (p 9) (p 1)))")
+    Report "prolog.14: (if C T) with no else - a failed condition just fails", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (query (if (p 1) (p 1)))")
+    Report "prolog.14: ...and succeeds when the condition does", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+
+    ' The condition's own bindings survive into the then-goal - which is
+    ' what makes the form worth having - and the column rule is visible
+    ' in the same query: W and M are bound only on the then-path, T on
+    ' both, so T alone is a column. Committing to link(a b) is also why
+    ' there is ONE row: without the commit, link(c d) would give a second.
+    result = VLA_Prolog.PROLOG( _
+        "(fact (link a b)) (fact (link c d)) (fact (tag b yes)) (fact (tag d no)) " & _
+        "(query (if (link W M) (tag M T) (nope T)))")
+    Dim bindOk As Boolean
+    If IsArray(result) Then
+        bindOk = (ResultRowCount(result) = 2 And ResultColCount(result) = 1 And ResultCellIs(result, 2, 1, "yes"))
+    End If
+    Report "prolog.14: the condition's bindings reach the then-goal, and only the variable BOTH paths bind is a column", _
+           bindOk, "got: " & ResultDescribe(result)
+
+    ' The else-less form has only one success path, so nothing is
+    ' intersected away and the condition's own variable IS a column -
+    ' two columns here where the three-argument form above gave one.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (q a)) (query (if (p X) (q Y)))")
+    Dim twoColOk As Boolean
+    If IsArray(result) Then
+        twoColOk = (ResultRowCount(result) = 2 And ResultColCount(result) = 2 _
+                    And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 2, 2, "a"))
+    End If
+    Report "prolog.14: (if C T) has one success path, so the condition's own variable is a column too", _
+           twoColOk, "got: " & ResultDescribe(result)
+
+    ' ---- THE CUT SIGNAL, which if-then-else is built on ---------------
+    ' A PROLOG.5.4-era defect this item found and repaired: a cut inside
+    ' a CALLED predicate used to overwrite the caller's own cut while it
+    ' was still travelling outward, so the caller's ! silently pruned
+    ' nothing. Real Prolog answers 1 alone here.
+    result = VLA_Prolog.PROLOG("(rule (a X) (g X) !) (fact (a 9)) (rule (g 1) !) (fact (g 2)) (query (a X))")
+    Dim nestedCutOk As Boolean
+    If IsArray(result) Then nestedCutOk = (ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "1"))
+    Report "prolog.14: a cut inside a called predicate no longer swallows the caller's own cut - (a X) answers 1 alone, not 1 and 9", _
+           nestedCutOk, "got: " & ResultDescribe(result)
+
+    ' The control that isolates it: the SAME program with the callee's
+    ' own cut removed, which was correct before this repair and after.
+    ' The two must agree; before the repair they did not.
+    result = VLA_Prolog.PROLOG("(rule (a X) (g X) !) (fact (a 9)) (fact (g 1)) (fact (g 2)) (query (a X))")
+    Dim controlCutOk As Boolean
+    If IsArray(result) Then controlCutOk = (ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "1"))
+    Report "prolog.14: ...and the control, the same program without the callee's cut, answers 1 as it always did", _
+           controlCutOk, "got: " & ResultDescribe(result)
+
+    ' The same signal, seen from the other side: a ! written to the RIGHT
+    ' of an (if ...) in the same body must still prune that clause, so
+    ' the second (m ...) fact is never reached. If the if-then-else
+    ' absorbed the signal instead of letting it pass, this would be two
+    ' rows.
+    result = VLA_Prolog.PROLOG(facts & "(rule (m X Y) (if (p X) (q Y) (nope Y)) !) (fact (m 9 9)) (query (m X Y))")
+    Dim rightCutOk As Boolean
+    If IsArray(result) Then
+        rightCutOk = (ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 2, 2, "a"))
+    End If
+    Report "prolog.14: a ! to the RIGHT of an (if ...) still prunes its own clause - the form passes the signal on rather than absorbing it", _
+           rightCutOk, "got: " & ResultDescribe(result)
+
+    ' ---- A BRANCH IS A GOAL POSITION AT PARSE TIME TOO ----------------
+    ' List sugar must NOT fire inside a branch: a (list ...) there is in
+    ' goal position, where a list is not something that can be proved.
+    ' Expanded as data it would become a cons chain, quietly become an
+    ' unknown predicate, and fail in silence instead of saying so.
+    r = CStr(VLA_Prolog.PROLOG("(fact (p 1)) (query (or (list a b) (p 1)))"))
+    Report "prolog.14: a (list ...) inside a branch is still a GOAL - it reaches the 'not something PROLOG can prove' refusal, not the sugar", _
+           InStr(1, r, "not something PROLOG can prove", vbTextCompare) > 0, "got: " & r
+
+    ' ---- SHAPE REFUSALS ----------------------------------------------
+    r = CStr(VLA_Prolog.PROLOG("(fact (p 1)) (query (or (p 1)))"))
+    Report "prolog.14: (or ...) with a single branch is refused by name", _
+           InStr(1, r, "at least two goals", vbTextCompare) > 0, "got: " & r
+
+    r = CStr(VLA_Prolog.PROLOG("(fact (p 1)) (query (if (p 1)))"))
+    Report "prolog.14: (if ...) with only a condition is refused by name", _
+           InStr(1, r, "condition and a then-goal", vbTextCompare) > 0, "got: " & r
+
+    r = CStr(VLA_Prolog.PROLOG("(fact (p 1)) (query (if (p 1) (p 1) (p 1) (p 1)))"))
+    Report "prolog.14: (if ...) with four arguments is refused - there is no else-if chain", _
+           InStr(1, r, "condition and a then-goal", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE ISO SPELLINGS -------------------------------------------
+    ' `->` and `\+` are what a Prolog author types first. Below the
+    ' clause lookup an unknown predicate is a SILENT dead end, so both
+    ' are reserved and dispatched to a refusal that names the house form.
+    r = CStr(VLA_Prolog.PROLOG("(fact (p 1)) (query (-> (p 1) (p 1) (p 1)))"))
+    Report "prolog.14: ISO's (-> ...) is refused with the spelling this engine uses", _
+           InStr(1, r, "(if ...)", vbTextCompare) > 0, "got: " & r
+
+    ' The `;` guidance rides on this refusal, because `;` can never be
+    ' reserved - VLA.Tokenize eats it as a comment before any reader sees
+    ' it - so this is the only place an author reaching for ISO
+    ' if-then-else can be told what it does here.
+    Report "prolog.14: ...and the same refusal says what a ';' does here, since ';' can never be a reserved name", _
+           InStr(1, r, "comment", vbTextCompare) > 0, "got: " & r
+
+    r = CStr(VLA_Prolog.PROLOG("(fact (p 1)) (query (\+ (p 1)))"))
+    Report "prolog.14: ISO's (\+ ...) is refused and points at (not ...) - it would otherwise FAIL silently, which reads as a successful negation", _
+           InStr(1, r, "(not ...)", vbTextCompare) > 0, "got: " & r
+
+    ' ---- RESERVED AS PREDICATE NAMES ---------------------------------
+    ' A name the solver acts on but the parser does not reserve is a
+    ' predicate a user can define and have silently shadowed.
+    r = CStr(VLA_Prolog.PROLOG("(fact (or a b)) (query (p X))"))
+    Report "prolog.14: 'or' is refused as a predicate name in a (fact ...)", _
+           InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+
+    r = CStr(VLA_Prolog.PROLOG("(rule (if X) (p X)) (query (p X))"))
+    Report "prolog.14: 'if' is refused as a predicate name in a (rule ...)", _
+           InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+
+    r = CStr(VLA_Prolog.PROLOG("(fact (-> a b)) (query (p X))"))
+    Report "prolog.14: '->' is refused as a predicate name, so it cannot be defined and then shadowed", _
+           InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+
+    r = CStr(VLA_Prolog.PROLOG("(fact (\+ a)) (query (p X))"))
+    Report "prolog.14: '\+' is refused as a predicate name on the same terms", _
+           InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+
+    ' ---- KEYED TABLE ATOMS INSIDE A BRANCH ---------------------------
+    ' Desugaring must recurse into a branch exactly as it does into
+    ' `not`'s goal: un-desugared, a keyed atom simply would not match,
+    ' which is a silent wrong answer rather than a refusal.
+    Dim q As String
+    q = Chr$(34)
+    Dim headerMap As Object
+    Set headerMap = VLA_Runtime.VlaDictNew()
+    Dim cols As New Collection
+    Dim cName As New Collection: cName.Add "name": cName.Add "Name": cols.Add cName
+    Dim cDept As New Collection: cDept.Add "dept": cDept.Add "Dept": cols.Add cDept
+    VLA_Runtime.VlaDictSet headerMap, "staffing", cols
+    Dim clauseDict As Object
+    Set clauseDict = VLA_Runtime.VlaDictNew()
+    result = VLA_Prolog.PrologRun( _
+        "(fact (staffing " & q & "alice" & q & " " & q & "eng" & q & ")) " & _
+        "(fact (staffing " & q & "bob" & q & " " & q & "ops" & q & ")) " & _
+        "(query (or (staffing (dept " & q & "zzz" & q & ") (name Name)) (staffing (dept " & q & "ops" & q & ") (name Name))))", _
+        clauseDict, headerMap)
+    Dim keyedOk As Boolean
+    If IsArray(result) Then keyedOk = (ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "bob"))
+    Report "prolog.14: a keyed table atom inside a branch is desugared - and the FIRST branch matches nothing, so the row comes from the second", _
+           keyedOk, "got: " & ResultDescribe(result)
+End Sub
+
 Private Sub TestPrologKeyedAtoms()
     Dim q As String
     q = Chr$(34)

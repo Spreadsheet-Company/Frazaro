@@ -499,7 +499,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' message that still enumerated only four would be quietly wrong about
     ' which names it had just refused, which is the same class of
     ' confidently-wrong answer the {form} rewrite above exists to remove.
-    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between/list, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, the ten type tests var? nonvar? atom? number? atomic? compound? callable? is-list? ground? whole?, the six list goals length member nth append reverse sum-list, the nine ISO spellings var nonvar atom number atomic compound callable is_list ground - reserved only so PROLOG can point you at the question-mark form instead of failing silently - the four number-type names integer? float? integer float, reserved now but refused until PROLOG tells one kind of number from another, and the three alias spellings is-list is_list? sum_list, reserved only so PROLOG can point you at the spelling it does use) and can't be used as a predicate name in a (fact ...) or (rule ...)."
+    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between/list/or/if, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, the ten type tests var? nonvar? atom? number? atomic? compound? callable? is-list? ground? whole?, the six list goals length member nth append reverse sum-list, the nine ISO spellings var nonvar atom number atomic compound callable is_list ground - reserved only so PROLOG can point you at the question-mark form instead of failing silently - the four number-type names integer? float? integer float, reserved now but refused until PROLOG tells one kind of number from another, the three alias spellings is-list is_list? sum_list, reserved only so PROLOG can point you at the spelling it does use, and the two control spellings -> \+, reserved the same way so PROLOG can point you at the word it writes instead) and can't be used as a predicate name in a (fact ...) or (rule ...)."
     ' `prolog-cut-not-yet-supported` (PROLOG.5.1-5.3-era: "cut (!) isn't
     ' supported yet.") is retired at PROLOG.5.4 - cut is real now, no
     ' code path can raise it anymore, and this project's own precedent
@@ -521,6 +521,27 @@ Private Sub AddEntries(ByVal m As Collection)
     ' already established).
     AddMsg m, "prolog-findall-bad-shape", 5, "VLA-Prolog", "(findall ...) needs exactly three arguments - a template, a goal, and a target list, like (findall X (likes bob X) Bag)."
     AddMsg m, "prolog-is-bad-shape", 5, "VLA-Prolog", "(is ...) needs exactly two arguments - a target and an arithmetic expression, like (is Total (+ X Y))."
+
+    ' PROLOG.14 - disjunction and if-then-else. Two shape refusals, each
+    ' naming its own form, so neither is {form}-templated: unlike the
+    ' comparison/type-test/list families there are only two forms here and
+    ' they do not share an arity rule, so one shared text could not say
+    ' anything useful about either. A malformed BRANCH is not their
+    ' business - ValidateBodyItem recurses into each one, so a bad branch
+    ' reuses whatever refusal it earns on its own, the reuse `not` and
+    ' `findall` already established.
+    AddMsg m, "prolog-or-bad-shape", 5, "VLA-Prolog", "(or ...) needs at least two goals to choose between, like (or (parent X) (guardian X)) - one alternative on its own is almost always a branch that was deleted by mistake. PROLOG writes disjunction as (or ...) rather than the ';' real Prolog uses, because a ';' here starts a comment that runs to the end of the line."
+    AddMsg m, "prolog-if-bad-shape", 5, "VLA-Prolog", "(if ...) needs a condition and a then-goal, and may take an else-goal after them - like (if (member X L) (found X) (missing X)), or (if (member X L) (found X)) with no else. PROLOG has no else-if chain: write a further (if ...) as the else-goal."
+
+    ' PROLOG.14 - the ISO control spellings. ONE id for both, so it is
+    ' {form}/{fixed}-templated exactly like its type-test sibling above and
+    ' is held to that by tools/check_prolog_form_attribution.ps1, whose
+    ' multi-form baseline this id joins. The ';' sentence is carried here
+    ' deliberately: ';' can never be reserved (VLA.Tokenize eats it as a
+    ' comment before any reader sees it), so the only place its guidance
+    ' can reach an author is the refusal for the arrow they typed beside
+    ' it.
+    AddMsg m, "prolog-control-iso-spelling", 5, "VLA-Prolog", "{form} is how real Prolog spells this; PROLOG writes {fixed} instead, with the control word first like every other form here. Note that ';' cannot separate alternatives in PROLOG at all - it starts a comment that runs to the end of the line, so a ';' in a rule body quietly changes the rule rather than splitting it."
 
     ' PROLOG.7 - the six comparison goals. ONE id for all six, not a
     ' sibling each: the shape rule is identical, so six texts would be six

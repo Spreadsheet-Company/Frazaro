@@ -13107,21 +13107,226 @@ now carries one summary paragraph per engine and points here.*
     *Blocks:* `PROLOG.15`'s `is-list?` and `PROLOG.16`'s list-returning
     half are both unblocked by this. *Named follow-up:* `(list a b c)`
     reader sugar, and `append` over partial lists.
-  - ⬜ **PROLOG.14 — DISJUNCTION and IF-THEN-ELSE.** There is no way to
-    write "or" inside a rule body; the only disjunction available is
-    writing two rules with the same head, which is fine for facts and
-    unusable inside a longer body. Real Prolog spells these `;` and `->`.
-    **`;` IS NOT AVAILABLE HERE:** `Tokenize` treats it as a
-    comment-to-end-of-line, so a `;` in a rule body silently deletes the
-    rest of the line — the worst possible failure mode, and the reason
-    this item must pick a different spelling (`or` and `if`, most likely)
-    rather than follow ISO. `->` tokenizes cleanly and could be kept.
-    Note that if-then-else is **cut-adjacent**: `(-> C T E)` commits to
-    the first branch whose condition succeeds, which is a local cut, and
-    `PROLOG.5.4`'s barrier machinery is what it must be built on rather
-    than beside. `\+` (ISO negation) belongs here too, as a reserved name
-    dispatched to `not` or refused with guidance, `PROLOG.10`'s own
-    spelling precedent. `~days`.
+  - ✅ **PROLOG.14 — DISJUNCTION and IF-THEN-ELSE.** SHIPPED 2026-09-09;
+    owner-verified live. `(or A B ...)` and `(if C T E)` / `(if C T)`,
+    plus `->` and `\+` reserved and dispatched to refusals naming the
+    house form. `TestDSLs` 812 → **841/841** (29 new assertions in a new
+    `TestPrologControl`, **no existing assertion re-pointed** —
+    established mechanically, see below). Pure 1047/1047, host 143/143
+    and `VerifyReports` 141/141 emitter / 141/141 interpreter all
+    UNMOVED, **and this time by construction rather than by hope**:
+    nothing outside `VLA_Prolog`, `VLA_Messages` and the query suite is
+    touched at all. **The predicted count was exact, and so was the
+    blast radius.** All 18 `tools/check_*.ps1` green.
+
+    Owner-confirmed in cells, all ten handed-off steps: a disjunction
+    over two two-fact predicates spilling all four solutions in written
+    order; the condition-succeeds-then-goal-fails case answering FALSE
+    beside its own TRUE twin over the SAME else-goal; `(or (p X) (q Y))`
+    collapsing to a single boolean cell with no phantom `X`/`Y` columns
+    beside `(or (p X) (q X))` spilling one real column; the if-then-else
+    binding case returning ONE row of ONE column (`T` = `yes`), which is
+    the commit and the column rule proved in the same cell; the repaired
+    nested cut answering `1` alone; both ISO spellings reaching their
+    refusals, the `->` one carrying the `;` guidance; and the
+    reserved-word refusal naming the full set.
+
+    **THE SPELLING, decided rather than inherited.** `;` is not
+    available and cannot be made available: `VLA.Tokenize` consumes it as
+    a comment to end of line before any reader sees it, so it never
+    becomes a token that could be reserved. The entry's claim that this
+    "silently deletes the rest of the line" was **checked by
+    transliterating `Tokenize`'s own `Select Case` and running it**, and
+    it is TRUE BUT CONDITIONAL — the distinction matters and the entry
+    did not have it. A SINGLE-LINE rule whose closing paren sits on that
+    same line loses the paren and refuses LOUDLY as
+    `vla-unbalanced-parens`. The ordinary MULTI-LINE layout still closes,
+    and is the silent case: `(rule (p X)` / `  (q X) ;` / `  (r X))`
+    tokenizes **identically to the same rule with no `;` in it at all**,
+    so an author who wrote a disjunction gets a CONJUNCTION. A
+    single-line test would have "proved" the hazard was loud and safe.
+
+    `or`/`if` were the entry's guess and are kept, but on a reason the
+    entry did not give: they are **this codebase's own control
+    vocabulary** — `VLA.bas`'s macro and statement layer already spells
+    them `if`, `or`, `and`, `not`, `cond` — and PROLOG has already drawn
+    on that vocabulary once for exactly this purpose, when `PROLOG.5.2`
+    named negation `not` rather than ISO's `\+`. This is that decision
+    applied to the neighbouring form, which is also `PROLOG.9`'s own
+    argument for the question mark. `->` tokenizes cleanly and is still
+    NOT used: in ISO it is an INFIX arrow whose else-half is delimited by
+    the one character this reader cannot see, so in prefix position it is
+    a name wearing the costume of syntax.
+
+    **`;` IS NOT CLOSED BY THIS ITEM, and cannot be reserved.** Its
+    guidance rides on the `->` refusal's own text (reachable, since an
+    author reaching for ISO if-then-else types both in the same breath),
+    which is honest but partial: someone who types only `;` still gets a
+    silently different rule. Closing it means changing `VLA.Tokenize`,
+    the shared reader for the macro layer, the English layer, SQL and
+    DATALOG — a different blast radius entirely, and independent of
+    whether disjunction ever shipped. **Filed as its own item.**
+
+    **IF-THEN-ELSE IS BUILT ON THE CUT, NOT BESIDE IT.** `(if C T E)`
+    splices a REAL cut atom carrying its own barrier between C and T —
+    `C , !#<barrier> , T , ...rest` — and hands the whole list to
+    `SolveGoalList`. Everything else follows from machinery `PROLOG.5.4`
+    already shipped: the cut arm explores T and the continuation first,
+    then raises the signal, so every choice point inside C is pruned as
+    the stack unwinds, which IS "commit to C's first solution". The
+    barrier is the step the dispatch already charged, read back rather
+    than charged again — that is where its uniqueness comes from, the
+    same guarantee the candidates loop's own `myStep` relies on. No
+    second commit mechanism exists.
+
+    **A REAL PROLOG.5.4-ERA DEFECT, FOUND AND REPAIRED.** The cut arm's
+    signal assignment was an unconditional overwrite, so a cut in a
+    CALLEE clobbered a caller's cut that was still propagating outward
+    and the caller's `!` silently pruned nothing:
+    `(rule (a X) (g X) !) (fact (a 9)) (rule (g 1) !) (fact (g 2))`
+    answered 1 AND 9 where real Prolog answers 1 alone. Found by
+    transliterating `SolveGoalList` and running it — not by reading —
+    while chasing a mutation that came back green. Repaired with an
+    `If Not cutActive Then` guard ("a signal already propagating is not
+    re-targeted"), which is correct rather than merely quieting: the
+    already-set signal is always the OUTER one, since rightward in the
+    flat merged goal list is outward and an outer activation carries the
+    smaller barrier. `PROLOG.5.4`'s own two-cuts-in-one-body test could
+    not see this — same clause, same suffix, same barrier. Pinned now
+    with the failing case AND the control that isolates it (the same
+    program with the callee's cut removed), which must agree and did not
+    before.
+
+    **THE PHANTOM COLUMN, and the third possible answer.** `CollectVars`
+    decides output columns, and `(or (p X) (q Y))` binds X on one branch
+    and Y on the other, so on any solution one of them is free and would
+    render its own raw atom name into a spilled cell — `PROLOG.5.2`'s
+    finding reached by a FOURTH route after `not`, `\==` (`PROLOG.8`) and
+    the type tests (`PROLOG.9`). Both obvious answers are wrong here.
+    Descending naively spills the phantom; skipping the form outright —
+    `not`'s own remedy — would make `(query (or (parent X) (guardian X)))`
+    a bare boolean, useless in the form's commonest use, because unlike
+    `not` a disjunction genuinely DOES bind outward. So the rule is
+    per-variable rather than per-form: **a variable is a column only if
+    EVERY success path binds it.** For `or`, one path per branch. For
+    `(if C T E)`, TWO paths that are not the three arguments — C and T
+    TOGETHER (a successful condition's bindings survive into the
+    then-branch) against E ALONE (reaching E means C failed and bound
+    nothing) — so a variable mentioned only in C is not a column. For
+    `(if C T)`, one path, so nothing is intersected away.
+
+    **THIS ITEM IS THE FIRST TO BREAK `PROLOG.11`'s INVARIANT**, and it
+    is corrected in place rather than left to be rediscovered:
+    `CollectVars`' own comment said the only nested goal positions are
+    `not`'s and `findall`'s and both are skipped, so "no recursive call
+    from here can ever land on a goal." `or` and `if` hold goals in every
+    argument and are DESCENDED into, with `isGoalPosition` still True —
+    which is what keeps `not`'s skip alive INSIDE a branch, so
+    `(or (not (p X)) (q X))` contributes no X. The generic descent still
+    passes False without exception; the control arm is a second,
+    deliberate entry point beside it.
+
+    **`ExpandListSugarInto` NEEDED THE SAME ARM, and it is the one that
+    would have been forgotten.** It carries its own goal/data flag and
+    names "the two nested goal positions" explicitly. Left alone, a
+    `(list a b)` written in goal position inside a branch would have been
+    silently rewritten into a cons chain instead of reaching
+    `PROLOG.21`'s "a list is not a goal" refusal — the sugar firing
+    exactly where the refusal exists to prevent it. `DesugarBodyItem`
+    needed an arm too, or a keyed table atom inside a branch would simply
+    not match. Both are pinned by tests rather than by comment.
+
+    **MEASURED, NOT ASSUMED: the step budget.** `PROLOG_MAX_STEPS` is 120
+    and total, and a disjunction explores branches, so the entry's worry
+    was real. Measured over a recursive walker with and without control
+    forms in its body: a plain body reached depth 8 (90 steps), the same
+    body with an `(or ...)` reached depth 8 (117 steps) — about a third
+    more work for the SAME reachable depth — and, unexpectedly, the same
+    body with an `(if ...)` reached depth **10** (108 steps), FURTHER
+    than the plain one, because committing prunes alternatives that
+    would otherwise be charged for. If-then-else is a budget saver.
+    `PROLOG_MAX_STEPS` left at 120; both new procedures are separate
+    functions, so `SolveGoalList`'s own frame does not grow
+    (`PROLOG.5.3`'s live-caught stack rule).
+
+    **THE PROLOG.17 EXPOSURE, closed mechanically rather than by
+    inspection.** This item makes words MEANINGFUL that are ordinary
+    unknown predicates today, and an unknown predicate FAILS SILENTLY —
+    the identical shape that let `PROLOG.17` ship a stale pin whose
+    `CStr(...)` on a newly-spilled array killed a live run. Every string
+    literal in `src/*.bas` was swept (18,112 of them, 2,539 classified as
+    PROLOG program text) for `or`, `if`, `->`, `\+` and `;` as WHOLE
+    TOKENS in any position: **zero occurrences in `VLA_Tests_Query.bas`**,
+    so no existing `CStr(VLA_Prolog.PROLOG(...))` pin can become a
+    spilled array and nothing needed re-pointing. The 53 apparent hits
+    were all English test-DESCRIPTION strings.
+
+    **A REAL HOLE IN `check_prolog_reserved_names.ps1`, found and closed
+    BEFORE walking through it.** Rule A asked whether a reserved name
+    appears as a whole token ANYWHERE in the refusal text — and that text
+    ends "...in a `(fact ...)` or `(rule ...)`". That trailing `or` is
+    ordinary English, so the moment `or` became reserved the refusal
+    would have been credited with advertising a name it says nothing
+    about. Verified before the fix (`or` occurred once in the text, zero
+    times in the catalogue) and proved load-bearing by mutation after:
+    unscoped reports 3 MISSING, scoped reports 4. Rule A is now scoped to
+    the parenthesised catalogue by paren-matching, reports how many
+    tokens it examined, and fails if that collapses. The hazard was
+    already live for the sixteen-odd reserved names that are ordinary
+    English words (`is`, `not`, `list`, `between`, `length`, `member`,
+    `number`, `atom`, `ground`, …), not introduced by this item.
+
+    An EIGHTH delegated table, `ControlIsoSpellingFor` (`->`, `\+`),
+    registered in `$countPhrases` as "control spellings" — deliberately
+    not "ISO control spellings", which CONTAINS the existing key "ISO
+    spellings" and would have silently stolen its check. Reserved set 48
+    → **52**; `docs/RELEASES.md`'s own count updated from fourteen to
+    **eighteen** names added since `0.5.4`, verified by enumerating the
+    set at the `v0.5.4` tag (34) and diffing against HEAD (52) rather
+    than by hand — the count no check covers, and the one that went stale
+    at `PROLOG.17`.
+
+    **METHOD.** The resolution core was transliterated to PowerShell and
+    run before anything was written to `VLA_Prolog.bas`, with a CONTROL
+    that reproduces `PROLOG.5.4`'s own shipped flagship exactly (four
+    solutions without cut, two with cut after the first goal, one with
+    cut at body end) — it FAILED first, on a driver bug, and was fixed
+    before any of its verdicts were trusted. Twelve semantic cases and
+    thirteen `CollectVars` cases pass; **twelve mutations, all RED**,
+    each with a named test that catches it. Four came back GREEN on the
+    first pass and were NOT kept as claims: two exposed the missing
+    discrimination cases now in the suite, one exposed the cut defect
+    above, and one — a per-branch environment clone — was found to be
+    genuinely NOT load-bearing (`SolveGoalList` never mutates the env it
+    is handed; every binding site clones for itself) and was REMOVED
+    rather than kept and described as a guard. Structural balance and
+    duplicate-`Dim` scanners were run over all three edited modules and
+    proved to bite by injecting a deleted `End If`, a deleted `Next`, a
+    duplicated `Dim` and a deleted `End Select`; both were also checked
+    against the shapes that made earlier versions of them lie
+    (colon-packed `For …: … : Next`, `Dim t As Collection: Set t = f(a,
+    b, c)`, one-line `If … Then`, colon-`Case`, and a string containing
+    `:`, `'` and the text "End If"). A separate scanner balanced the
+    parens of all 28 new PROLOG program strings and caught a real
+    one-paren error in the `\+` test before it reached the owner.
+
+    **A DELIBERATE ISO DIVERGENCE, recorded rather than buried.** Cut is
+    TRANSPARENT in all three positions of `(if ...)`, where ISO makes the
+    CONDITION opaque. Making C opaque needs a second, private cut state
+    for the condition alone — the very second mechanism this design
+    exists to avoid — and the divergence is reachable only by writing a
+    bare `!` AS the condition, since a cut inside a called predicate is
+    absorbed by that predicate's own candidates loop long before it
+    arrives. One rule statable in a sentence was judged worth more than
+    ISO's split.
+
+    *Named follow-ups:* the `;` hazard as its own item (it needs
+    `VLA.Tokenize`, not `VLA_Prolog`); an else-if chain, deliberately
+    absent — `(if C T E)` with four arguments is refused BY NAME rather
+    than reinterpreted, because it is the shape someone will try; and
+    `VLA_PROLOG_VERSION`, which still reads `"PROLOG.15"`, is unused and
+    untouched since the initial import — stale before this item and left
+    alone by it.
   - ✅ **PROLOG.15 — the REST of the ISO type-test family.** SHIPPED
     2026-09-09; owner-verified live. `TestDSLs` 624 → **707/707** (83
     new assertions in a new `TestPrologTypeTestsRest`, **no existing

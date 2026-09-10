@@ -1456,6 +1456,23 @@ Private Sub CollectVars(ByVal term As Variant, freeVarNames As Collection, ByVal
     ' this needs a flag rather than a depth counter: it is not "how deep"
     ' but "is this a goal", and the answer below the top is always no.
     '
+    ' PROLOG.14 BREAKS THAT LAST SENTENCE, and it is the first item to do
+    ' so, which is why it is corrected here rather than left to be
+    ' rediscovered. `or` and `if` hold goals in every argument and are
+    ' DESCENDED into rather than skipped, so a recursive call from here
+    ' CAN now land on a goal - it just cannot do so through the `For i`
+    ' loop at the bottom, which still passes False without exception. The
+    ' control forms take their own arm above and re-enter with True
+    ' explicitly. Read the invariant as "every position reachable from the
+    ' generic descent is data", which is what it was always protecting;
+    ' the control arm is a second, deliberate entry point beside it.
+    '
+    ' The distinction is load-bearing, not editorial: a branch collected
+    ' as data would lose `not`'s own skip inside it, so
+    ' `(or (not (p X)) (q X))` would put X back into the output columns
+    ' as the phantom name the skip exists to keep out. Proved by mutation
+    ' before import rather than argued.
+    '
     ' Found while writing PROLOG.9, which widened the fault by adding six
     ' more names to skip on, and filed then rather than folded in because
     ' it changes `not`'s long-shipped behaviour in the nested case. The
@@ -1463,6 +1480,28 @@ Private Sub CollectVars(ByVal term As Variant, freeVarNames As Collection, ByVal
     ' implausible, but `(likes X (not Y))` was always reachable and always
     ' wrong.
     If isGoalPosition Then
+        ' PROLOG.14: `(or ...)` and `(if ...)` - the control forms, taken
+        ' FIRST and keyed on the head word alone rather than on a count,
+        ' because they are the only forms here whose arity varies. Taking
+        ' them first also keeps them clear of the count-keyed arms below:
+        ' `(or A B)` and `(if C T)` are both 3 long and would otherwise
+        ' reach the term-matching check, and `(if C T E)` is 4 long and
+        ' would reach findall's.
+        '
+        ' They are neither skipped nor naively descended into. Both would
+        ' be wrong, in opposite directions, and the fork is the whole
+        ' substance of this arm - see CollectControlVars (below), which
+        ' owns the rule and the reasoning.
+        If lst.Count >= 1 Then
+            If Not IsObject(lst.Item(1)) Then
+                Dim ctlHead As String
+                ctlHead = VLA_Identity.Fold(CStr(lst.Item(1)))
+                If ctlHead = "or" Or ctlHead = "if" Then
+                    CollectControlVars lst, ctlHead, freeVarNames
+                    Exit Sub
+                End If
+            End If
+        End If
         ' PROLOG.5.2: `(not Goal)` - Goal's own variables are never collected
         ' as query output columns here. Negation-as-failure discards every
         ' binding made while proving Goal regardless of success or failure
@@ -1637,6 +1676,113 @@ End Sub
 ' legitimate real-Prolog idiom) must still have every one of its own
 ' variables collected honestly - the same position-1-is-never-a-variable
 ' rule CollectVars itself still follows, otherwise unchanged.
+' PROLOG.14: which of a control form's own variables are real query
+' OUTPUT COLUMNS. This is the item's sharpest hazard and the one place
+' the answer is decided.
+'
+' THE RULE: a variable is a column only if EVERY success path binds it.
+'
+' WHY NOT THE OBVIOUS TWO. Descending naively - the default this arm
+' exists to prevent - collects a variable that only one branch binds, and
+' on a solution produced by any OTHER branch that variable resolves to
+' nothing and renders its own raw atom name into the spilled cell as
+' though it were a value the query had found. `(query (or (p X) (q Y)))`
+' would report two columns headed X and Y, one of which always contains
+' the literal text of its own name. That is PROLOG.5.2's phantom-column
+' finding reached by a FOURTH route, after `not`, `\==` (PROLOG.8) and
+' the type tests (PROLOG.9).
+'
+' Skipping the form outright - `not`'s own remedy, the other obvious
+' move - is worse here rather than merely conservative. `not` binds
+' NOTHING, so skipping it loses nothing; a disjunction over one shared
+' variable is the main reason to write one at all, and
+' `(query (or (parent X) (guardian X)))` collapsing to a bare True/False
+' would make the form useless in exactly its commonest use.
+'
+' So the fork the other families never faced - some of a form's variables
+' genuinely bind outward and some cannot - is answered per variable
+' instead of per form, by intersecting the paths.
+'
+' THE PATHS, which differ between the two forms and are not guessable:
+'   `(or A B C)`   - one path per branch. A variable must appear in all
+'                    of them.
+'   `(if C T E)`   - TWO paths, and they are not the three arguments.
+'                    The THEN path is C AND T together, because a
+'                    successful condition's bindings survive into the
+'                    then-branch and out the far side (that is what makes
+'                    `(if (link W M) (tag M T) ...)` work at all). The
+'                    ELSE path is E ALONE, because reaching E means C
+'                    FAILED and bound nothing. So a variable mentioned
+'                    only in C is not a column: it is bound on one path
+'                    and free on the other.
+'   `(if C T)`     - ONE path, C and T together. With no else there is no
+'                    second way to succeed, so nothing is intersected
+'                    away and both contribute.
+'
+' Each path is collected by re-entering CollectVars with isGoalPosition
+' TRUE, which is what makes a `not` or a type test INSIDE a branch keep
+' its own skip - `(or (not (p X)) (q X))` contributes nothing from the
+' first branch and therefore no X at all, which is right, because the
+' negated branch never binds X.
+'
+' The order of the FIRST path is the column order, so the columns come
+' out in the order the author wrote them in the branch they wrote first.
+'
+' A KNOWN LIMIT, stated rather than left to be discovered: this is a
+' STATIC rule over written form, not a promise about any one solution. A
+' variable every branch mentions is a column even if a particular
+' solution's branch left it unbound for some other reason - the same
+' shape-keyed approximation `not` and the type tests already carry, and
+' for the same reason (position, not proof, is all that is known here).
+Private Sub CollectControlVars(ByVal lst As Collection, ByVal ctlHead As String, freeVarNames As Collection)
+    Dim paths As Collection
+    Set paths = New Collection
+    Dim p As Collection
+    Dim i As Long
+
+    If ctlHead = "or" Then
+        If lst.Count < 3 Then Exit Sub   ' malformed - ValidateBodyItem refuses it by name
+        For i = 2 To lst.Count
+            ' Set ... New Collection inside the loop, never Dim ... As New -
+            ' the As-New-in-a-loop trap this module has been bitten by
+            ' three times; one path per branch is exactly what it breaks.
+            Set p = New Collection
+            CollectVars lst.Item(i), p, True
+            paths.Add p
+        Next i
+    Else
+        If lst.Count < 3 Or lst.Count > 4 Then Exit Sub
+        Set p = New Collection
+        CollectVars lst.Item(2), p, True      ' the condition...
+        CollectVars lst.Item(3), p, True      ' ...and the then-branch share one path
+        paths.Add p
+        If lst.Count = 4 Then
+            Set p = New Collection
+            CollectVars lst.Item(4), p, True  ' the else-branch is a path of its own
+            paths.Add p
+        End If
+    End If
+
+    If paths.Count = 0 Then Exit Sub
+    Dim firstPath As Collection
+    Set firstPath = paths.Item(1)
+    Dim nm As Variant
+    Dim k As Long
+    Dim inAll As Boolean
+    For Each nm In firstPath
+        inAll = True
+        For k = 2 To paths.Count
+            If Not VarAlreadyCollected(paths.Item(k), CStr(nm)) Then
+                inAll = False
+                Exit For
+            End If
+        Next k
+        If inAll Then
+            If Not VarAlreadyCollected(freeVarNames, CStr(nm)) Then freeVarNames.Add CStr(nm)
+        End If
+    Next nm
+End Sub
+
 Private Sub CollectTemplateVars(ByVal term As Variant, freeVarNames As Collection)
     If Not IsObject(term) Then
         If VLA_Unify.IsVarAtom(CStr(term)) Then
@@ -1756,7 +1902,7 @@ End Function
 ' six are unaffected by that difference.
 Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
     Select Case predName
-    Case "is", "not", "findall", "!", "between", "list"
+    Case "is", "not", "findall", "!", "between", "list", "or", "if"
         ' PROLOG.9: `between` is a literal arm rather than a table of its
         ' own because it is ONE name - the shape is/not/findall already
         ' have. Its type-test siblings arrive by table below, since they
@@ -1781,6 +1927,41 @@ Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
         ' `cons` and `nil` remain UNRESERVED, unchanged: those are a
         ' functor and an atom, ordinary data with nothing to dispatch.
         ' Only the sugar marker needs a name of its own.
+        '
+        ' PROLOG.14: `or` and `if` join as literals on the same one-name
+        ' reasoning, and the SPELLING is the decision this item contains,
+        ' so it is recorded here rather than left to the roadmap's guess.
+        '
+        ' Real Prolog spells these `;` and `->`. `;` is not available at
+        ' any price: VLA.Tokenize treats it as a comment running to the
+        ' end of the line, so it cannot even become a token to be
+        ' reserved. What made that decisive rather than merely awkward is
+        ' HOW it fails, measured rather than assumed - a single-line rule
+        ' whose closing paren sits on that same line loses it and refuses
+        ' loudly as vla-unbalanced-parens, but the ordinary multi-line
+        ' formatting still closes, and quietly yields a DIFFERENT VALID
+        ' RULE: `(rule (p X) (q X) ;` + `(r X))` tokenizes identically to
+        ' the same rule with no `;` in it at all, so an author who wrote a
+        ' disjunction gets a CONJUNCTION and is never told.
+        '
+        ' `or` and `if` are not an arbitrary substitute. They are this
+        ' codebase's OWN control vocabulary - VLA.bas's macro and
+        ' statement layer already spells them `if`, `or`, `and`, `not`
+        ' and `cond` - and PROLOG has already drawn on it once for
+        ' exactly this reason: PROLOG.5.2 named negation `not` rather
+        ' than ISO's `\+`. So this is that decision applied a second time
+        ' to the neighbouring form, not a new convention. It is also
+        ' PROLOG.9's own argument for the question mark, which was
+        ' justified by pointing at the same macro layer's `null?`/`eq?`.
+        '
+        ' `->` is available and tokenizes cleanly, and is still not used:
+        ' in ISO it is an INFIX arrow, `( C -> T ; E )`, whose else-half
+        ' is delimited by the one character this reader cannot see. In
+        ' prefix position `(-> C T E)` the arrow points at nothing and is
+        ' a name wearing the costume of syntax. It is reserved and
+        ' dispatched to a refusal naming `(if ...)` instead -
+        ' ControlIsoSpellingFor, below, PROLOG.10's own spelling
+        ' precedent.
         IsReservedPredicateName = True
     Case Else
         ' PROLOG.7: the six comparison names are not repeated here. They
@@ -1833,7 +2014,17 @@ Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
         ' knowledge base written today must not silently break the day it
         ' lands. The same non-short-circuit note applies unchanged, all
         ' six being pure lookups over frozen Select Cases.
-        IsReservedPredicateName = (ComparisonOpFor(predName) <> "" Or UnificationOpFor(predName) <> "" Or TypeTestKindFor(predName) <> "" Or TypeTestIsoSpellingFor(predName) <> "" Or ListGoalKindFor(predName) <> "" Or TypeTestDeferredFor(predName) <> "" Or AliasSpellingFor(predName) <> "")
+        '
+        ' PROLOG.14: an EIGHTH delegated table, ControlIsoSpellingFor -
+        ' the ISO spellings of the two control forms this engine writes
+        ' with words, `->` for `(if ...)` and `\+` for `(not ...)`. Like
+        ' TypeTestIsoSpellingFor (and unlike the tables that solve
+        ' something) its names exist in order to be REFUSED with the
+        ' house spelling attached, which is what makes reserving them
+        ' honest rather than an exemption from rule C. The same
+        ' non-short-circuit note applies unchanged, all eight being pure
+        ' lookups over frozen Select Cases.
+        IsReservedPredicateName = (ComparisonOpFor(predName) <> "" Or UnificationOpFor(predName) <> "" Or TypeTestKindFor(predName) <> "" Or TypeTestIsoSpellingFor(predName) <> "" Or ListGoalKindFor(predName) <> "" Or TypeTestDeferredFor(predName) <> "" Or AliasSpellingFor(predName) <> "" Or ControlIsoSpellingFor(predName) <> "")
     End Select
 End Function
 
@@ -2153,6 +2344,45 @@ Private Function AliasSpellingFor(ByVal predName As String) As String
     End Select
 End Function
 
+' PROLOG.14: an ISO CONTROL spelling -> the name this engine actually
+' uses, or "" if predName is not one of the two. The same single-source
+' shape every table above established, and the same purpose
+' TypeTestIsoSpellingFor has: these names are reserved so that they can
+' be REFUSED with the house spelling attached, never solved.
+'
+'   `->`  is ISO's if-then-else arrow          -> `(if ...)`
+'   `\+`  is ISO's negation-as-failure         -> `(not ...)`
+'
+' Both are what a Prolog author types first, and below SolveGoalList's
+' own clauseDict lookup an unknown predicate is a SILENT dead end - zero
+' rows and no explanation - so leaving either unreserved would answer a
+' correctly-reasoned query with a confidently wrong "no".
+'
+' `\+` is here rather than beside `not` because it is a SPELLING
+' question, not a negation question: `not` has been the house name since
+' PROLOG.5.2 and nothing about it changes. This item is simply the first
+' one that had a reason to write the ISO alternative down.
+'
+' `;` IS DELIBERATELY ABSENT, and it is the one name in this family that
+' cannot be here. Reserving a name means recognising a token, and
+' VLA.Tokenize never produces `;` as one - it consumes the rest of the
+' line as a comment before any reader sees it (VLA.bas's own `Case ";"`).
+' So there is no predName for this table to match, and no arm
+' SolveGoalList could dispatch. Its guidance has to arrive by another
+' road or not at all, and the road chosen is the `->` refusal's own text,
+' which says what `;` does here - reachable because `->` is what an
+' author reaching for ISO if-then-else types in the same breath. That is
+' honest but partial, and worth naming as such: someone who types only
+' `;` and never `->` still gets a silently different rule, which is why
+' the module header files that as its own item rather than claiming this
+' one closed it.
+Private Function ControlIsoSpellingFor(ByVal predName As String) As String
+    Select Case predName
+    Case "->":  ControlIsoSpellingFor = "if"
+    Case "\+":  ControlIsoSpellingFor = "not"
+    End Select
+End Function
+
 ' PROLOG.13: a list goal's own predicate name -> the kind of operation it
 ' performs, or "" if predName is not one of the six at all. The same
 ' single-source shape ComparisonOpFor, UnificationOpFor and
@@ -2429,6 +2659,57 @@ Private Sub ValidateBodyItem(ByVal item As Variant, ByVal ctx As String, predAri
             ElseIf headWord = "findall" Then
                 If lst.Count <> 4 Then VLA_Messages.RaiseMsg "prolog-findall-bad-shape"
                 ValidateBodyItem lst.Item(3), ctx, predArity
+                Exit Sub
+            ElseIf headWord = "or" Then
+                ' PROLOG.14: `(or A B ...)` - two branches at least, and
+                ' no maximum. N-ary rather than the strictly binary `;`
+                ' ISO has, because the macro layer this spelling comes
+                ' from is already n-ary and because `(or A B C)` is the
+                ' shape an author writes; nesting binary ors to say it
+                ' would be a syntax tax with nothing behind it.
+                '
+                ' TWO is the floor rather than one, deliberately.
+                ' `(or A)` has an unambiguous reading - it is just A -
+                ' but nobody writes it on purpose; it is what a deleted
+                ' branch leaves behind, and reading it charitably would
+                ' turn an edit accident into a silently narrower rule.
+                '
+                ' Every branch is recursed into as a BODY ITEM, exactly
+                ' as `not` (above) recurses into its own Goal: a branch
+                ' IS a goal, so a malformed one must be refused by name
+                ' here rather than reaching the solver. That recursion
+                ' is also what makes nesting, and `or` composing with
+                ' `not`/`is`/a comparison, fall out with no extra code -
+                ' `not`'s own arm has always worked this way.
+                If lst.Count < 3 Then VLA_Messages.RaiseMsg "prolog-or-bad-shape"
+                Dim orIdx As Long
+                For orIdx = 2 To lst.Count
+                    ValidateBodyItem lst.Item(orIdx), ctx, predArity
+                Next orIdx
+                Exit Sub
+            ElseIf headWord = "if" Then
+                ' PROLOG.14: `(if C T E)` and `(if C T)` - both arities
+                ' are real, and this is the one arm in the module that
+                ' accepts two.
+                '
+                ' The else-less form is not a convenience: ISO has both
+                ' `( C -> T ; E )` and a bare `( C -> T )`, and without
+                ' the second there would be no way to write "commit to
+                ' the first C and then do T, or fail" - the else-half
+                ' would have to be spelled as a goal that deliberately
+                ' fails, and this engine has no such goal to offer.
+                '
+                ' Both bounds are checked, so `(if C)` and
+                ' `(if C T E F)` are refused by name rather than
+                ' quietly reinterpreted. That matters more here than in
+                ' a fixed-arity arm: a four-argument `if` looks enough
+                ' like an else-if chain that someone will try it, and
+                ' PROLOG.14 deliberately does not have one.
+                If lst.Count < 3 Or lst.Count > 4 Then VLA_Messages.RaiseMsg "prolog-if-bad-shape"
+                Dim ifIdx As Long
+                For ifIdx = 2 To lst.Count
+                    ValidateBodyItem lst.Item(ifIdx), ctx, predArity
+                Next ifIdx
                 Exit Sub
             ElseIf ComparisonOpFor(headWord) <> "" Then
                 ' PROLOG.7: exactly two operands, each validated as an
@@ -2764,6 +3045,47 @@ Private Sub DesugarBodyItem(ByRef dest As Variant, ByVal item As Variant, ByVal 
                     Set dest = outFindall
                 Else
                     Set dest = item
+                End If
+                Exit Sub
+            ElseIf headWord = "or" Or headWord = "if" Then
+                ' PROLOG.14: every argument of a control form is a GOAL,
+                ' so every one of them is desugared, exactly as `not`
+                ' and `findall` (above) desugar the goal arguments they
+                ' have. Without this a keyed table atom inside a branch -
+                ' `(or (emp (name N)) (contractor (name N)))` - would
+                ' reach the solver un-desugared and simply not match,
+                ' which is a silent wrong answer rather than a refusal.
+                '
+                ' ONE arm for both, unlike the two arms above, because
+                ' the two forms differ only in how many goals they hold
+                ' and this rebuild does not care: it copies the head word
+                ' and desugars everything after it. The arity is not
+                ' checked here at all - ValidateBodyItem owns that, and
+                ' runs AFTER this (ParseProgram's own order: expand,
+                ' desugar, validate) - so the only guard needed is the
+                ' one that keeps a malformed shape from crashing on its
+                ' way to being refused by name.
+                '
+                ' `Set outCtl = New Collection`, never `Dim ... As New` -
+                ' this is a LOOP, and As New auto-instantiates once, so
+                ' every iteration after the first would keep appending
+                ' onto the first one. The trap this module has already
+                ' been bitten by three times (ParseProgram's bodyItems,
+                ' the candidates loop's newGoals, MakeListTermInto's
+                ' cell).
+                If lst.Count >= 3 Then
+                    Dim outCtl As Collection
+                    Set outCtl = New Collection
+                    outCtl.Add lst.Item(1)
+                    Dim ctlIdx As Long
+                    For ctlIdx = 2 To lst.Count
+                        Dim innerCtl As Variant
+                        DesugarBodyItem innerCtl, lst.Item(ctlIdx), anonPrefix, itemIndex, headerMap
+                        outCtl.Add innerCtl
+                    Next ctlIdx
+                    Set dest = outCtl
+                Else
+                    Set dest = item   ' malformed shape - ValidateBodyItem's own job to refuse
                 End If
                 Exit Sub
             End If
@@ -3288,8 +3610,42 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         Dim cutBarrier As Long
         cutBarrier = CutBarrierOf(CStr(goals.Item(1)))
         SolveGoalList rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
-        cutActive = True
-        cutTargetBarrier = cutBarrier
+        ' PROLOG.14: a signal ALREADY propagating is not re-targeted. This
+        ' guard is new, and it repairs a real PROLOG.5.4-era defect found
+        ' while building if-then-else on this machinery - found by
+        ' transliterating this procedure and running it, not by reading.
+        '
+        ' THE DEFECT. `rest` is a FLAT merged list, so goals to the right
+        ' of this cut routinely belong to an OUTER clause body, and a cut
+        ' among them fires while this arm's own call is still unwinding.
+        ' The assignment below used to be unconditional, so this cut then
+        ' overwrote the outer cut's barrier with its own - and the outer
+        ' loop that would have absorbed the outer barrier never saw it,
+        ' while THIS loop absorbed the signal and stopped it dead. The
+        ' outer `!` silently pruned nothing.
+        '
+        '   a(X) :- g(X), !.        g(1) :- !.
+        '   a(9).                   g(2).
+        '
+        ' `(query (a X))` answered 1 AND 9; real Prolog answers 1 alone.
+        ' The control that isolates it is the same program with g's own
+        ' cut removed, which was correct before and after.
+        '
+        ' WHY "FIRST WINS" IS THE RIGHT RULE rather than merely a way to
+        ' stop the clobbering. One scalar can carry one barrier, and when
+        ' two cuts fire together the signal must name the OUTERMOST of
+        ' them, since pruning out to there subsumes the inner pruning and
+        ' every loop in between stops on the way regardless. The
+        ' already-set signal is always the outer one: it came from further
+        ' RIGHT in the merged list, rightward is outward, and an outer
+        ' clause activation was selected earlier and so carries the
+        ' SMALLER stepsTaken barrier. Two cuts in ONE body are unaffected
+        ' either way - same clause invocation, same suffix, same barrier -
+        ' which is why PROLOG.5.4's own two-cuts test could not see this.
+        If Not cutActive Then
+            cutActive = True
+            cutTargetBarrier = cutBarrier
+        End If
         Exit Sub
     End If
 
@@ -3604,6 +3960,72 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
         SolveListGoal goals.Item(1), ListGoalKindFor(predName), rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
         Exit Sub
+    End If
+
+    ' PROLOG.14: `(or A B ...)` - dispatched here on the same
+    ' unambiguous-by-construction reasoning every arm above uses, and
+    ' above the clauseDict lookup for the same silent-dead-end reason.
+    '
+    ' STRUCTURALLY it is SolveBetween's shape, not `is`'s: a disjunction
+    ' is a CHOICE POINT, so it must run the continuation once per branch
+    ' rather than deciding something and calling on afterwards. That is
+    ' why SolveDisjunction is handed `rest`, clauseDict, freeVarNames,
+    ' solutions and the cut signal - the things no deterministic arm
+    ' passes on.
+    '
+    ' The step this arm charges is for the GOAL; SolveDisjunction charges
+    ' one more per branch entered, so exploring an alternative is counted
+    ' as the resolution work it is rather than riding free - SolveBetween's
+    ' own per-value rule. Measured rather than assumed: a recursive rule
+    ' with an `(or ...)` in its body costs about a third more steps than
+    ' the same rule without one, and reached the same depth inside 120.
+    '
+    ' No locals declared in this arm at all - the house rule every arm
+    ' above follows, for findall's own live-caught stack-frame reason.
+    If predName = "or" Then
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        SolveDisjunction goals.Item(1), rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        Exit Sub
+    End If
+
+    ' PROLOG.14: `(if C T E)` / `(if C T)` - dispatched here on the same
+    ' reasoning, and, like `or` above, owning its own continuation.
+    '
+    ' The step this arm charges is ALSO this if-then-else's own BARRIER
+    ' IDENTITY - SolveIfThenElse reads stepsTaken back rather than
+    ' charging again. That is not a saving, it is where the uniqueness
+    ' comes from: stepsTaken only ever increases and every charge yields a
+    ' value no other charge can produce, which is the identical guarantee
+    ' the candidates loop's own myStep relies on. A barrier that was not
+    ' unique could be absorbed by the wrong loop.
+    If predName = "if" Then
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        SolveIfThenElse goals.Item(1), rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        Exit Sub
+    End If
+
+    ' PROLOG.14: the ISO CONTROL spellings - `(-> C T E)` where this
+    ' engine writes `(if C T E)`, and `(\+ Goal)` where it writes
+    ' `(not Goal)`. Dispatched here, above the clauseDict lookup, on
+    ' exactly the reasoning PROLOG.9's own bare-ISO arm states: below that
+    ' lookup an unknown predicate is a SILENT dead end, and these two are
+    ' precisely what a Prolog author types first.
+    '
+    ' `\+` is the sharper of the two, and the reason this arm is not
+    ' cosmetic: `(\+ (p X))` left undispatched is an unknown predicate,
+    ' which FAILS - and a negation that fails is indistinguishable from a
+    ' negation that correctly found its goal provable. The user would read
+    ' a confidently wrong answer with no sign anything went wrong.
+    '
+    ' Like PROLOG.9's arm this never solves anything; it always raises,
+    ' and that is what makes reserving these two honest rather than an
+    ' exemption from rule C. No step is charged, because no resolution
+    ' work happens.
+    If ControlIsoSpellingFor(predName) <> "" Then
+        VLA_Messages.RaiseMsg "prolog-control-iso-spelling", _
+            "form", "(" & predName & " ...)", "fixed", "(" & ControlIsoSpellingFor(predName) & " ...)"
     End If
 
     ' PROLOG.21: `(list ...)` in GOAL position. This arm is the whole
@@ -4461,6 +4883,179 @@ Private Sub SolveBetween(ByVal betweenGoal As Variant, ByVal rest As Collection,
     Next v
 End Sub
 
+' PROLOG.14: `(or A B ...)` - try each branch in turn, running the WHOLE
+' continuation under each. SolveBetween's own generating shape (above),
+' and for the same reason: a disjunction is a choice point, so the branch
+' and what follows it are interleaved rather than sequential.
+'
+' Each branch is spliced in FRONT of `rest` and the merged list handed to
+' SolveGoalList - the identical move the candidates loop makes with a
+' clause body. That is what makes a branch behave like any other goal:
+' it may bind, may backtrack, may itself be an `or`, and needs no code
+' here for any of it.
+'
+' THE ENVIRONMENT IS PASSED THROUGH UNCHANGED, not cloned per branch,
+' and that is deliberate and was checked rather than copied. SolveBetween
+' and SolveListGoal clone because THEY unify - they bind a value into the
+' environment themselves before calling on. This procedure binds nothing
+' of its own; every site that does bind (the candidates loop, `is`, `=`,
+' `between`, the list goals) already clones for itself, so envN/envT are
+' never mutated by the call below and a clone here would protect against
+' nothing. `not`'s own dispatch arm passes the caller's environment
+' through for exactly this reason. Stated because the first version DID
+' clone, and mutating that clone away changed no test - which is the
+' honest evidence that it was never load-bearing.
+'
+' THE CUT SIGNAL is honoured exactly as every loop between a cut's origin
+' and its firing site must be: stop generating unconditionally when it is
+' active, and NEVER absorb it. This loop selects no clause and creates no
+' barrier of its own, so it is the "any other loop leaves it set" case,
+' and the signal keeps propagating to its true origin further up. Both
+' halves are proved by mutation: without the stop, `!` inside a branch
+' fails to prune the disjunction; with an absorb added, a cut inside a
+' branch stops pruning the enclosing clause and the query gains rows.
+'
+' Cut is therefore TRANSPARENT through a disjunction - a `!` written as
+' or inside a branch cuts the enclosing clause, real Prolog's own rule -
+' and it needs no work at all: FreshenTerm already rewrites a bare `!`
+' anywhere inside the term, branches included, to carry the enclosing
+' clause's own barrier.
+Private Sub SolveDisjunction(ByVal orGoal As Variant, ByVal rest As Collection, _
+                             clauseDict As Object, envN As Collection, envT As Collection, _
+                             freeVarNames As Collection, solutions As Collection, _
+                             ByRef stepsTaken As Long, _
+                             ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    Dim lst As Collection
+    Set lst = orGoal
+    Dim bi As Long, ri As Long
+    Dim branchGoals As Collection
+    For bi = 2 To lst.Count
+        ' Charged per branch, exactly as the candidates loop charges per
+        ' candidate and SolveBetween per value: entering an alternative
+        ' IS a unit of resolution work, and PROLOG_MAX_STEPS is a
+        ' total-work ceiling for the whole query.
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+
+        ' Set ... New Collection per branch, never Dim ... As New - the
+        ' As-New-in-a-loop trap this module has been bitten by three
+        ' times, and this is the same shape that bit the candidates loop
+        ' (a merged goal list rebuilt once per alternative).
+        Set branchGoals = New Collection
+        branchGoals.Add lst.Item(bi)
+        For ri = 1 To rest.Count
+            branchGoals.Add rest.Item(ri)
+        Next ri
+        SolveGoalList branchGoals, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        If cutActive Then Exit For
+    Next bi
+End Sub
+
+' PROLOG.14: `(if C T E)` and `(if C T)` - prove C, COMMIT to its first
+' solution, then run T; run E only if C never succeeded at all.
+'
+' THE COMMIT IS A CUT, AND IS BUILT AS ONE. Committing to the first
+' solution of a condition is precisely what `!` already does to a choice
+' point, so this procedure does not invent a second mechanism to do it -
+' it splices a real cut atom into the goal list between C and T, carrying
+' this if-then-else's own barrier:
+'
+'         C , !#<myBarrier> , T , ...rest
+'
+' and hands the whole thing to SolveGoalList. Everything then follows
+' from machinery PROLOG.5.4 already shipped and PROLOG.5.4's own tests
+' already cover. When C reaches its first solution the goal list has
+' reduced to the cut and what follows; the cut arm explores T and the
+' continuation FIRST, recording every solution they produce, and only
+' then raises the signal - so as the stack unwinds, every choice point
+' opened inside C is pruned, which is exactly "commit to the first
+' solution of C". A second, parallel commit mechanism would have had to
+' re-derive all of that and could disagree with `!` about any of it.
+'
+' myBarrier is the step the DISPATCH charged, read back rather than
+' charged again - see that arm for why that value is unique, and note
+' that a non-unique barrier is absorbed by the wrong loop, which mutation
+' shows as a lost outer cut rather than as anything local.
+'
+' HOW THE THREE OUTCOMES ARE TOLD APART, which is the whole of the logic
+' below and is not guessable from the signal alone:
+'
+'   signal raised, barrier is MINE  - C succeeded. The commit fired. T
+'                                     has already run and recorded
+'                                     whatever it found. Absorb the
+'                                     signal (it has done its work and
+'                                     must not prune the caller) and
+'                                     return WITHOUT running E.
+'   signal raised, barrier is NOT   - an outer cut fired inside C or T
+'                                     and is still travelling. C
+'                                     succeeded, so E must not run
+'                                     either; leave the signal set so it
+'                                     reaches its own origin.
+'   no signal at all                - the commit never fired, so C never
+'                                     produced a solution. This is the
+'                                     only path on which E runs.
+'
+' The middle case is why the barrier is compared rather than the signal
+' merely tested: absorbing unconditionally swallows a caller's `!`, and
+' the failure that exposes it is a query GAINING rows from a clause the
+' cut should have pruned - `(if ...)` followed by `!` in the same body.
+' That case, and the pre-existing cut-arm defect it depends on, are both
+' pinned by tests.
+'
+' E RUNS ONLY WHEN C NEVER SUCCEEDED - never when C succeeded and T
+' failed. That is real Prolog's own if-then-else and it is easy to get
+' backwards; the arrangement above gets it right for free, because the
+' commit fires on C's success regardless of what T then does. Pinned by
+' the one test whose expected answer is zero solutions beside a twin that
+' answers two.
+'
+' Cut is TRANSPARENT in all three positions here, which is a deliberate
+' and stated divergence from ISO (where the condition alone is opaque).
+' Making C opaque needs a second, private cut state for the condition
+' only - the very second mechanism this design exists to avoid - and the
+' divergence is reachable only by writing a bare `!` AS the condition,
+' since a cut inside a called predicate is absorbed by that predicate's
+' own candidates loop long before it reaches here. One uniform rule that
+' can be stated in a sentence was judged worth more than ISO's split.
+Private Sub SolveIfThenElse(ByVal ifGoal As Variant, ByVal rest As Collection, _
+                            clauseDict As Object, envN As Collection, envT As Collection, _
+                            freeVarNames As Collection, solutions As Collection, _
+                            ByRef stepsTaken As Long, _
+                            ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    Dim lst As Collection
+    Set lst = ifGoal
+    Dim myBarrier As Long
+    myBarrier = stepsTaken
+    Dim ri As Long
+    Dim branchGoals As Collection
+
+    Set branchGoals = New Collection
+    branchGoals.Add lst.Item(2)                        ' the condition
+    branchGoals.Add "!#" & CStr(myBarrier)             ' the commit
+    branchGoals.Add lst.Item(3)                        ' the then-branch
+    For ri = 1 To rest.Count
+        branchGoals.Add rest.Item(ri)
+    Next ri
+    SolveGoalList branchGoals, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+
+    If cutActive Then
+        If cutTargetBarrier = myBarrier Then cutActive = False
+        Exit Sub
+    End If
+
+    ' Reached only when the commit never fired, so the condition never
+    ' succeeded. `(if C T)` simply fails here - with no else there is no
+    ' second way to succeed, and lst.Item(4) must not be touched.
+    If lst.Count < 4 Then Exit Sub
+
+    Set branchGoals = New Collection
+    branchGoals.Add lst.Item(4)
+    For ri = 1 To rest.Count
+        branchGoals.Add rest.Item(ri)
+    Next ri
+    SolveGoalList branchGoals, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+End Sub
+
 ' ---------------------------------------------------------------------
 '  PROLOG.13: list terms
 ' ---------------------------------------------------------------------
@@ -4637,15 +5232,30 @@ Private Sub ExpandListSugarInto(ByRef dest As Variant, ByVal term As Variant, By
     outLst.Add lst.Item(1)
     Dim i As Long
     For i = 2 To lst.Count
-        ' The two nested goal positions, and nothing else. Checked
-        ' against arity as well as head word so a malformed form is left
-        ' for ValidateBodyItem to refuse by name rather than being
-        ' quietly reinterpreted here.
+        ' The nested goal positions, and nothing else. Checked against
+        ' arity as well as head word so a malformed form is left for
+        ' ValidateBodyItem to refuse by name rather than being quietly
+        ' reinterpreted here.
+        '
+        ' PROLOG.14: `or` and `if` join, and unlike the two above them
+        ' EVERY argument they have is a goal, so there is no single
+        ' position to name - hence `i >= 2` rather than a fixed index.
+        '
+        ' This arm is not optional bookkeeping. Left out, a branch would
+        ' be walked as DATA, and a `(list a b)` written in goal position
+        ' inside a branch would be silently rewritten into a cons chain
+        ' instead of reaching PROLOG.21's own "a list is not a goal"
+        ' refusal - the sugar firing exactly where the refusal exists to
+        ' say it must not. That is the same class of quiet
+        ' reinterpretation the arity checks here guard against, and it is
+        ' pinned by a test rather than left to this comment.
         Dim childIsGoal As Boolean
         childIsGoal = False
         If isGoalPosition Then
             If headWord = "not" And lst.Count = 2 And i = 2 Then childIsGoal = True
             If headWord = "findall" And lst.Count = 4 And i = 3 Then childIsGoal = True
+            If headWord = "or" And lst.Count >= 3 And i >= 2 Then childIsGoal = True
+            If headWord = "if" And (lst.Count = 3 Or lst.Count = 4) And i >= 2 Then childIsGoal = True
         End If
         Dim childExpanded As Variant
         ExpandListSugarInto childExpanded, lst.Item(i), childIsGoal

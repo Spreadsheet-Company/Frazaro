@@ -137,6 +137,15 @@ $countPhrases = @{
     'list goals'           = 'ListGoalKindFor'
     'number-type names'    = 'TypeTestDeferredFor'
     'alias spellings'      = 'AliasSpellingFor'
+    # PROLOG.14's own table. Called 'control spellings' and deliberately
+    # NOT 'ISO control spellings', which would contain the existing key
+    # 'ISO spellings' and, per the collision note above, silently steal
+    # its check - the scan would match "...ISO spellings" inside it, find
+    # 'control' sitting in front of the noun, report "not a count word",
+    # and hold TypeTestIsoSpellingFor's real size against nothing at all.
+    # Checked for containment against all seven existing keys, both
+    # directions, before choosing it.
+    'control spellings'    = 'ControlIsoSpellingFor'
 }
 
 $numberWords = @{
@@ -277,16 +286,69 @@ if ($null -eq $msgText) {
     $failures.Add("$reservedMsgId is not defined in VLA_Messages.bas")
     Write-Output '  UNDEFINED'
 } else {
+    # PROLOG.14: the scan is scoped to the PARENTHESISED CATALOGUE - the
+    # "(is/not/findall/... spelling it does use)" span - and not to the
+    # whole sentence, which is prose either side of it.
+    #
+    # This is not tidiness; it closes a real hole that PROLOG.14 was about
+    # to walk straight through. Rule A's forward direction asks whether a
+    # reserved name appears as a whole token ANYWHERE in the text, and the
+    # sentence ends "...can't be used as a predicate name in a (fact ...)
+    # or (rule ...)". That trailing `or` is ordinary English, but it is
+    # also a whole token - so the moment `or` became a reserved name, the
+    # refusal would have been credited with advertising it while saying
+    # nothing about it at all. Verified before the fix: `or` occurred once
+    # in the text and zero times in the catalogue.
+    #
+    # It is a live hazard rather than a one-off, because a good half of the
+    # reserved set is already made of ordinary English words - is, not,
+    # list, between, length, member, append, reverse, number, atom, ground,
+    # var, callable, compound, integer, float - any of which a future
+    # sentence could mention in passing and silently satisfy this rule.
+    #
+    # The catalogue is found by matching the first "(" to its own closing
+    # ")", so a name written with parentheses inside it stays inside, and
+    # the "(fact ...)" the sentence ends on stays outside.
+    $catOpen = $msgText.IndexOf('(')
+    $catClose = -1
+    if ($catOpen -ge 0) {
+        $depth = 0
+        for ($j = $catOpen; $j -lt $msgText.Length; $j++) {
+            if ($msgText[$j] -eq '(') { $depth++ }
+            elseif ($msgText[$j] -eq ')') {
+                $depth--
+                if ($depth -eq 0) { $catClose = $j; break }
+            }
+        }
+    }
+    if ($catOpen -lt 0 -or $catClose -lt 0) {
+        $failures.Add("$reservedMsgId has no parenthesised catalogue to read - rule A would otherwise scan the whole sentence, where ordinary prose words silently satisfy it")
+        $catalogue = ''
+    } else {
+        $catalogue = $msgText.Substring($catOpen + 1, $catClose - $catOpen - 1)
+    }
+
     # Tokens are split on whitespace and on the "/" the text uses to run
     # short names together ("is/not/findall/!"); surrounding prose
     # punctuation is trimmed from each end. A name is advertised only if it
     # survives as a WHOLE token - a bare Contains() would let "<" pass on
     # the strength of any "=<" already in the sentence.
-    $rawTokens = $msgText -split '[\s/]+'
+    $rawTokens = $catalogue -split '[\s/]+'
     $tokens = New-Object System.Collections.Generic.List[string]
     foreach ($t in $rawTokens) {
         $trimmed = $t.Trim(",.;()'`"")
         if ($trimmed.Length -gt 0) { $tokens.Add($trimmed) }
+    }
+
+    # A rule that looks at nothing passes by not looking. The catalogue has
+    # carried well over a hundred tokens since PROLOG.13, so a scan that
+    # collapses to a handful means the extraction above found the wrong
+    # span, not that the refusal got shorter - and every name would then
+    # report MISSING rather than the check quietly passing. Reported
+    # either way, so the number is visible in a green run too.
+    Write-Output ("  catalogue: {0} char(s), {1} token(s) examined" -f $catalogue.Length, $tokens.Count)
+    if ($tokens.Count -lt 40) {
+        $failures.Add("rule A examined only $($tokens.Count) token(s) of $reservedMsgId - the catalogue span looks wrong, and a scan this small cannot have checked the reserved set")
     }
 
     foreach ($n in $reservedSorted) {

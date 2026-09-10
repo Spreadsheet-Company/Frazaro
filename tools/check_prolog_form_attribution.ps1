@@ -104,7 +104,14 @@ $scannedProcs = @(
 # integer?, float? and their bare ISO forms integer and float - from one
 # raise site in SolveGoalList, so naming a form in its own text would be
 # wrong three times out of four.
+#
+# prolog-control-iso-spelling joins at PROLOG.14. It serves BOTH ISO
+# control spellings - `->` for `(if ...)` and `\+` for `(not ...)` - from
+# one raise site in SolveGoalList, and the two do not even belong to the
+# same form family (one is if-then-else, the other negation), so naming a
+# form in its own text would be wrong half the time.
 $multiFormIds = @(
+    'prolog-control-iso-spelling',
     'prolog-comparison-bad-shape',
     'prolog-unification-bad-shape',
     'prolog-type-test-bad-shape',

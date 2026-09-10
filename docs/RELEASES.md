@@ -87,14 +87,104 @@
   mark, worked out mechanically over the whole reserved set, which is
   what makes the set complete rather than a guess.
 
-- **More reserved words.** Fourteen names join the reserved set, which is
+- **PROLOG can say "or", and "if this then that, otherwise the other".**
+  Until now the only way to say *or* was to write the same rule twice,
+  which works for a whole rule and not at all for one step in the middle
+  of a longer one. Two new forms fix that.
+
+  **`(or A B ...)`** succeeds if any of its goals does, trying them left
+  to right. Two or more, as many as you like:
+
+  ```
+  (rule (contact P) (or (employee P) (contractor P) (visitor P)))
+  ```
+
+  **`(if C T E)`** proves `C`; if that works it commits to the first way
+  it worked and goes on to `T`, and if it doesn't it does `E` instead.
+  The else-goal may be left off — `(if C T)` simply fails when `C` does.
+
+  ```
+  (query (if (member X L) (found X) (missing X)))
+  ```
+
+  Two things about `(if ...)` are worth knowing before you rely on it.
+  It **commits**: once the condition succeeds one way, the other ways it
+  might have succeeded are not tried. And the else-goal runs **only when
+  the condition never succeeded at all** — if the condition works and the
+  then-goal then fails, the whole thing fails rather than falling through
+  to the else. Both are what Prolog does, and both are easy to assume
+  backwards.
+
+- **Which blanks come back as columns, when the answer had a choice in
+  it.** Worth reading once, because the rule is not what you might guess
+  and it is the one thing about these forms likely to look like a bug.
+
+  A blank becomes a column of the answer **only if every way of
+  succeeding fills it in**. Ask
+
+  ```
+  (query (or (p X) (q Y)))
+  ```
+
+  and you get a plain `TRUE` or `FALSE`, not two columns. That is
+  deliberate: `X` is filled in only when the first branch is the one that
+  worked and `Y` only when the second is, so on any given answer one of
+  them is still blank — and a column of blanks reported as though it held
+  values is worse than no column. Ask about a blank **both** branches
+  fill in
+
+  ```
+  (query (or (p X) (q X)))
+  ```
+
+  and `X` comes back as a real column, one row per branch that succeeded.
+
+  `(if C T E)` follows the same rule with one wrinkle worth knowing: a
+  blank filled in by the **condition** counts as filled for the
+  then-branch, because the condition's answers carry forward into it —
+  but not for the else-branch, which is only ever reached when the
+  condition failed and filled in nothing. So in
+
+  ```
+  (query (if (link W M) (tag M T) (nope T)))
+  ```
+
+  `T` is a column and `W` and `M` are not. Leave the else off, and there
+  is only one way to succeed, so all three come back.
+
+- **Why `or` and `if` rather than Prolog's `;` and `->`.** Real Prolog
+  writes these `;` and `->`. **`;` is not available here and cannot be**:
+  Frazaro's reader has always treated `;` as a comment that runs to the
+  end of the line, long before PROLOG existed. That is not a small
+  inconvenience — a `;` written mid-rule quietly deletes the rest of that
+  line, and on the usual multi-line layout the rule still parses. You get
+  a *different rule* rather than an error, and nothing tells you. So `;`
+  had to go, and `or` and `if` are the words Frazaro already uses for
+  these ideas everywhere else.
+
+  Typing `(-> ...)` or `(\+ ...)` — Prolog's arrow and its negation —
+  now gets you a short note naming the form Frazaro uses instead, rather
+  than silence. The `\+` one matters most: left unrecognised it would
+  have quietly *failed*, and a negation that fails looks exactly like a
+  negation that worked.
+
+- **A cut (`!`) inside one rule no longer cancels a cut in the rule that
+  called it.** A real bug, present since cut shipped in `0.5.0` and found
+  while building the above. If a rule used `!`, and a rule it called
+  *also* used `!`, the inner one silently cancelled the outer one — so
+  the outer rule kept offering answers it had been told to stop at. Rare,
+  because it needs cuts at two levels at once, but wrong whenever it
+  happened, and wrong quietly.
+
+- **More reserved words.** Eighteen names join the reserved set, which is
   what lets Frazaro's advice about them always be right: `callable?`,
   `is-list?`, `ground?`, `integer?` and `float?`; the Prolog spellings
   `callable`, `is_list`, `ground`, `integer` and `float`; the three
-  near-misses above; and `whole?`, the whole-number test described
-  earlier. If a knowledge base of yours uses one of those as a
-  predicate name, it will need renaming — `ground`, `integer` and `float`
-  are the plausible ones.
+  near-misses above; `whole?`, the whole-number test described
+  earlier; and `or`, `if`, `->` and `\+` from the two control forms. If a
+  knowledge base of yours uses one of those as a predicate name, it will
+  need renaming — `ground`, `integer`, `float`, `or` and `if` are the
+  plausible ones.
 
   `cons` and `nil` are still **not** reserved, unchanged from `0.5.4`: a
   predicate of your own may still be called that. Nor is `nth1`, which
