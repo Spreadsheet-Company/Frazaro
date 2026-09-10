@@ -93,6 +93,12 @@ $scannedProcs = @(
 # (length/2, member/2, nth/3, append/3, reverse/2, sum-list/2), so the
 # arity message must take BOTH its form and its count from the caller;
 # naming a form in either text would be wrong five times out of six.
+# prolog-alias-spelling joins at PROLOG.15's own alias follow-up. It
+# serves every NEAR-MISS spelling of a reserved name - is-list, is_list?
+# and sum_list today - from one raise site, and those do not even belong
+# to the same family (two are type tests, one is a list goal), so naming
+# a form in its own text would be wrong two times out of three.
+#
 # prolog-type-test-number-type joins at PROLOG.15. It serves all FOUR
 # spellings of the two number-type tests this engine cannot yet answer -
 # integer?, float? and their bare ISO forms integer and float - from one
@@ -105,7 +111,8 @@ $multiFormIds = @(
     'prolog-type-test-iso-spelling',
     'prolog-list-bad-shape',
     'prolog-list-not-a-list',
-    'prolog-type-test-number-type'
+    'prolog-type-test-number-type',
+    'prolog-alias-spelling'
 )
 
 $formToken          = '{form}'

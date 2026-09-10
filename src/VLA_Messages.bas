@@ -499,7 +499,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' message that still enumerated only four would be quietly wrong about
     ' which names it had just refused, which is the same class of
     ' confidently-wrong answer the {form} rewrite above exists to remove.
-    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between/list, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, the nine type tests var? nonvar? atom? number? atomic? compound? callable? is-list? ground?, the six list goals length member nth append reverse sum-list, the nine ISO spellings var nonvar atom number atomic compound callable is_list ground - reserved only so PROLOG can point you at the question-mark form instead of failing silently - and the four number-type names integer? float? integer float, reserved now but refused until PROLOG tells one kind of number from another) and can't be used as a predicate name in a (fact ...) or (rule ...)."
+    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between/list, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, the nine type tests var? nonvar? atom? number? atomic? compound? callable? is-list? ground?, the six list goals length member nth append reverse sum-list, the nine ISO spellings var nonvar atom number atomic compound callable is_list ground - reserved only so PROLOG can point you at the question-mark form instead of failing silently - the four number-type names integer? float? integer float, reserved now but refused until PROLOG tells one kind of number from another, and the three alias spellings is-list is_list? sum_list, reserved only so PROLOG can point you at the spelling it does use) and can't be used as a predicate name in a (fact ...) or (rule ...)."
     ' `prolog-cut-not-yet-supported` (PROLOG.5.1-5.3-era: "cut (!) isn't
     ' supported yet.") is retired at PROLOG.5.4 - cut is real now, no
     ' code path can raise it anymore, and this project's own precedent
@@ -599,6 +599,23 @@ Private Sub AddEntries(ByVal m As Collection)
     ' spelling here has a question mark and that the test is not
     ' available, in one message instead of two.
     AddMsg m, "prolog-type-test-number-type", 5, "VLA-Prolog", "{form} isn't available: PROLOG has one kind of number, so nothing here tells an integer from a float - ask (number? X) instead. {fixed} stays reserved, and so does the spelling without the question mark, so a program you write today keeps working if PROLOG ever tells the two apart."
+    ' PROLOG.15's alias follow-up - the NEAR-MISS spellings of a name that
+    ' does exist. `is-list`, `is_list?` and `sum_list` are each one small
+    ' slip away from a real predicate, and an unknown predicate in PROLOG
+    ' is a SILENT dead end, so without this the slip costs a user an empty
+    ' result and no explanation.
+    '
+    ' ONE id for all three, {form}-templated, though unlike its siblings
+    ' the forms it serves do not even share a FAMILY: two are type tests
+    ' and one is a list goal. That is exactly why it cannot name a form in
+    ' its own text, and why the text below explains the two SPELLING RULES
+    ' rather than anything about what the predicate does - the rules are
+    ' the only thing all three misses have in common.
+    '
+    ' The class is closed and mechanically derived rather than a list of
+    ' names someone thought of: swap hyphen for underscore, or drop a
+    ' trailing question mark, over the reserved set. See AliasSpellingFor.
+    AddMsg m, "prolog-alias-spelling", 5, "VLA-Prolog", "{form} isn't how PROLOG spells this - write {fixed} instead. PROLOG joins the words of a name with a hyphen rather than an underscore, and ends a name that ASKS something with a question mark."
     ' PROLOG.10 - the adjudication. A text cell reading eng becomes the
     ' term ""eng, and a bare eng written in a query is a DIFFERENT term;
     ' that stays true, and this message does not change it. What changes

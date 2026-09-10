@@ -13438,13 +13438,35 @@ now carries one summary paragraph per engine and points here.*
     mentions between them, and the file itself contains no Prolog row.
     `VLA_PROLOG_VERSION` bumped `PROLOG.21` → `PROLOG.15`.
 
-    *Blocks nothing.* *Named follow-ups left open:* the
-    hyphen/underscore alias class (`is-list`, `sum_list`, and whatever
-    else `PROLOG.16` adds); `append` over partial lists, inherited from
-    `PROLOG.13`. *Pays into:* `PROLOG.17`, which now has the integer
-    question stated as a decision with a named dependent and a written
-    reopening condition rather than as an aside; and `PROLOG.20`, which
-    now has its helper.
+    **THE ALIAS FOLLOW-UP LANDED 2026-09-09, and it REVERSES this item's
+    own decision on purpose.** This entry declined to reserve `is-list`
+    and pinned it as usable, because admitting it would make
+    `TypeTestIsoSpellingFor`'s contract "every near-miss anyone might
+    type" - **a rule with no edge**. That was right about the TABLE and
+    wrong about the CLASS. The near-misses are GENERATED, by two rules
+    over the reserved set - swap a hyphen for an underscore, or drop a
+    trailing question mark - so the class is closed and countable. Run
+    mechanically over all 44 names it yields **exactly three** that were
+    not already reserved: `is-list`, `sum_list`, and **`is_list?`, which
+    nobody had thought of** and which turned up only because the class
+    was DERIVED rather than recalled. That enumeration is the edge the
+    rule was missing. A seventh delegated table `AliasSpellingFor`
+    (reserved set 44 -> **47**) and one refusal that teaches the two
+    SPELLING RULES rather than the predicate - necessarily, since the
+    three misses do not share a family: two are type tests, one is a list
+    goal. This entry's `is-list` pin is **re-pointed rather than
+    deleted**, so the reversal is visible in the diff instead of being a
+    pin that quietly vanished. `nth0`/`nth1` are deliberately absent as a
+    DIFFERENT class - numbered variants, not derivable by the two rules,
+    and `nth0` is a genuinely different predicate (zero-based) so
+    pointing it at `nth` would be a confidently wrong answer; `nth1` is
+    pinned as still-definable exactly as `is-list` once was.
+
+    *Blocks nothing.* *Named follow-up left open:* `append` over partial
+    lists, inherited from `PROLOG.13`. *Pays into:* `PROLOG.17`, which
+    now has the integer question stated as a decision with a named
+    dependent and a written reopening condition rather than as an aside;
+    and `PROLOG.20`, which now has its helper.
   - ⬜ **PROLOG.16 — STANDARD ORDER OF TERMS: `@<`/`@=<`/`@>`/`@>=`,
     `compare/3`, `msort`/`sort`, `setof`/`bagof`.** `PROLOG.7` gave
     NUMERIC comparison and `PROLOG.8` gave structural EQUALITY; there is
@@ -13723,10 +13745,37 @@ now carries one summary paragraph per engine and points here.*
     because the next person to touch that module will see the same thing
     and should not have to re-derive it.
 
-    *Blocks nothing; blocked by nothing.* *Named follow-ups:* the eight
-    dataflow-guarded indexes above; the stale-pin check when there is a
-    second representation change to generalise from; the
-    non-discriminating-test audit, still unmeasured.
+    **THE DATAFLOW FOLLOW-UP LANDED 2026-09-09, and it needed no
+    dataflow.** This entry filed the guarded-by-an-earlier-line class as
+    needing "dataflow, not a regex". It needs neither. **Rule F is
+    PROCEDURE-SCOPED**: once a procedure passes V to a guarded helper it
+    has ADMITTED V's shape is uncertain, so no statement in that
+    procedure may raw-subscript V - one syntactic question asked over one
+    procedure. Rule E covers the And-joined assertion itself. Together
+    they found **ten**, not the eight this entry named: the list here
+    missed `mixed` in `VLA_Tests.bas` and `names` in
+    `VLA_Tests_Host.bas`, which is why the follow-up re-derived the class
+    mechanically instead of working from it. Nine were genuine and are
+    fixed; one - a loop index over a local `Array()` literal, in range by
+    its own loop bounds - is exempted BY NAME with its reason, and the
+    exemption is proved load-bearing by removing it. **Rule F is what
+    makes rule E's fix stick:** fixing the assertion and leaving the
+    neighbouring `detailAll = ... & CStr(arrAll(r0, c0))` still kills the
+    run, and that statement has no `And` in it, so E alone cannot reach
+    it. A blanket "no raw subscript anywhere" rule was MEASURED before
+    being rejected - 99 statements, most legitimate - because a rule that
+    flags 90 false positives gets widened until it stops noticing. Two
+    new helpers: `ResultCellNumIs`, kept NUMERIC rather than rewritten as
+    text because `CDbl` accepts forms `CStr` does not (a tightening could
+    fail a passing test) and because `CStr` follows the machine locale on
+    a fractional value; and `ResultCellText` for the details. The
+    equivalence transliteration grew to **ten mutations, all biting** -
+    and one law came out CONSTANT until a shape with a numeric cell was
+    added, which its own L3 caught.
+
+    *Blocks nothing; blocked by nothing.* *Named follow-ups left open:*
+    the stale-pin check, when there is a second representation change to
+    generalise from; the non-discriminating-test audit, still unmeasured.
   - ✅ **PROLOG.21 — `(list a b c)`, the shorthand `PROLOG.13` filed and
     deliberately did not take.** SHIPPED 2026-09-09; owner-verified live.
     `TestDSLs` 602 → **624/624** (22 new assertions, 21 rendering pins

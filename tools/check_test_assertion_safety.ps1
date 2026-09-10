@@ -59,29 +59,37 @@ module holds a CEILING. Exceeding it fails. Coming in under it also fails
 - with instructions to lower the ceiling - so the count can only ever go
 down.
 
-WHAT THIS SCAN DOES NOT SEE, stated so its count is not read as a
-ceiling on the defect itself. It only fires where the statement guards
-the variable somewhere. An assertion that indexes a container with NO
-guard in the statement at all is invisible to it:
+RULES E AND F - THE RAW SUBSCRIPT, added by PROLOG.20's own follow-up.
+Rules A-D fire only where the statement guards the variable itself, so an
+assertion whose bound was computed on an EARLIER line was invisible to
+them:
 
     okAll = (nRowsAll = 4) And (CStr(arrAll(r0, c0)) = "Name")
 
-nRowsAll was computed on an earlier line, so the bound really is checked
-- just not somewhere this scan can connect to the index.
+  E  an And-joined statement may not raw-subscript a bare local. That is
+     the assertion class, and it is exactly the shape above.
 
-PROLOG.20 measured EIGHT of them and deliberately did NOT fix them. They
-are named here by VARIABLE, not by line number, because a line number in
-a comment goes stale on the next edit and this file has already shifted
-by 43 lines once:
+  F  PROCEDURE-SCOPED, and it is what makes E's fix stick: once a
+     procedure passes V to a guarded helper it has ADMITTED V's shape is
+     uncertain, so no statement in that procedure may raw-subscript V.
+     Without F, fixing the assertion and leaving the neighbouring
+     `detailAll = ... & CStr(arrAll(r0, c0))` still kills the run - a
+     Report's detail is evaluated on every call - and that statement has
+     no `And` in it, so E cannot reach it.
 
-  VLA_Tests_Query.bas   arrNarrow, arrAll, arrJoin, arrGroup, arrOrder,
-                        arrCompound, arrChain   (the SQL spill tests)
-  VLA_Tests_Host.bas    arr                     (the slab read)
+F was the answer to what PROLOG.20 filed as needing "dataflow, not a
+regex". It needs neither: it is one syntactic question asked over one
+procedure. What it will not do is judge a raw subscript in a procedure
+that never uses a helper at all - a blanket rule there was measured at
+99 statements, most of them legitimate (loop bodies indexed by their own
+loop bounds; write-backs like `arr(2, 2) = "CHANGED"` that are the test's
+ACTION, not its assertion), and a rule that flags 90 false positives gets
+widened until it stops noticing.
 
-Not fixed because telling a genuine one from a safe loop index over an
-Array() literal needs dataflow, not a regex - and fixing what this check
-cannot hold is precisely how the backlog it exists to drain was created
-in the first place. Filed as its own follow-up.
+An assignment TARGET is dropped for that reason, and the one genuine
+false positive - a loop index over a local Array() literal - is exempted
+BY NAME in $rawIndexExempt with its reason, rather than by loosening the
+rule.
 
 The module list and ceilings below are the reviewable baseline -
 deliberately NAMES and NUMBERS, not a glob: a new test module must be
@@ -125,6 +133,16 @@ $ceilings = [ordered]@{
     'src\VLA_Tests_Query.bas'   = 0
 }
 
+# ---- baseline: raw subscripts accepted as safe, with the reason --------
+# Rule E flags a raw subscript of a bare local inside an And-joined
+# assertion. One instance is genuinely safe and is exempted BY NAME with
+# its reason, rather than by loosening the rule until it stops noticing.
+# Keyed "<module>|<procedure>|<variable>".
+$rawIndexExempt = @{
+    'src\VLA_Tests_Host.bas|TestRuntimeModule|names' =
+        'indexed only by `For i = LBound(names) To UBound(names)` over a local Array() literal, so the subscript is in range by the loop bounds themselves'
+}
+
 # ---- baseline: accepted mentions, with the reason each is safe ---------
 # A guarded helper answers False or -1 for a shape it cannot read, so
 # mentioning a guarded variable inside one is exactly the fix this check
@@ -135,7 +153,9 @@ $guardedHelpers = @(
     'ResultTextIs', 'ResultTextStartsWith', 'CollItemIs',
     # PROLOG.20 stage 2: the same shapes for the other three modules -
     # 1-D and 2-D arrays, and a Collection.
-    'Arr1DIsEmpty', 'Arr1DItemIs', 'Arr1DText', 'Arr2DItemIs'
+    'Arr1DIsEmpty', 'Arr1DItemIs', 'Arr1DText', 'Arr2DItemIs', 'Arr2DText',
+    # PROLOG.20 follow-up: the numeric and display-text cell readers.
+    'ResultCellNumIs', 'ResultCellText'
 )
 
 # An operand that asks what shape V is. Touching V after one of these has
@@ -166,7 +186,7 @@ $guardedHelpers = @(
 $guardKinds = @(
     @{ Kind = 'Exists'; Form = '\bIsArray\s*\(\s*{0}\s*\)' },
     @{ Kind = 'Exists'; Form = '\bVarType\s*\(\s*{0}\s*\)' },
-    @{ Kind = 'Exists'; Form = '\b(?:Result(?:RowCount|ColCount|CellIs|Col1Is|BoolIs|TextIs|TextStartsWith)|Arr1D(?:IsEmpty|ItemIs|Text)|Arr2DItemIs|CollItemIs)\s*\(\s*{0}\s*[,)]' },
+    @{ Kind = 'Exists'; Form = '\b(?:Result(?:RowCount|ColCount|CellIs|CellNumIs|CellText|Col1Is|BoolIs|TextIs|TextStartsWith)|Arr1D(?:IsEmpty|ItemIs|Text)|Arr2D(?:ItemIs|Text)|CollItemIs)\s*\(\s*{0}\s*[,)]' },
     @{ Kind = 'Extent'; Form = '\b(?:UBound|LBound)\s*\(\s*{0}\s*[,)]' },
     @{ Kind = 'Count';  Form = '\b{0}\s*\.\s*Count\b' }
 )
@@ -237,7 +257,7 @@ foreach ($rel in $ceilings.Keys) {
         # Every variable this statement asks the shape of.
         $vars = @([regex]::Matches($code, '\b(?:IsArray|UBound|LBound|VarType)\s*\(\s*([A-Za-z_]\w*)') |
                   ForEach-Object { $_.Groups[1].Value }) +
-                @([regex]::Matches($code, '\b(?:Result(?:RowCount|ColCount|CellIs|Col1Is|BoolIs|TextIs|TextStartsWith)|Arr1D(?:IsEmpty|ItemIs|Text)|Arr2DItemIs|CollItemIs)\s*\(\s*([A-Za-z_]\w*)') |
+                @([regex]::Matches($code, '\b(?:Result(?:RowCount|ColCount|CellIs|CellNumIs|CellText|Col1Is|BoolIs|TextIs|TextStartsWith)|Arr1D(?:IsEmpty|ItemIs|Text)|Arr2D(?:ItemIs|Text)|CollItemIs)\s*\(\s*([A-Za-z_]\w*)') |
                   ForEach-Object { $_.Groups[1].Value }) +
                 @([regex]::Matches($code, '\b([A-Za-z_]\w*)\s*\.\s*Count\b') |
                   ForEach-Object { $_.Groups[1].Value })
@@ -288,6 +308,104 @@ foreach ($rel in $ceilings.Keys) {
                     break
                 }
             }
+        }
+    }
+}
+
+# ======================================================================
+#  Rules E and F - the RAW SUBSCRIPT, which rules A-D cannot see.
+#
+#  Rules A-D only fire where the statement itself guards the variable. An
+#  assertion whose bound was computed on an EARLIER line is invisible to
+#  them:
+#
+#      okAll = (nRowsAll = 4) And (CStr(arrAll(r0, c0)) = "Name")
+#
+#  E: an And-joined statement may not raw-subscript a bare local. That is
+#     the assertion class, and it is exactly the shape above.
+#
+#  F: PROCEDURE-SCOPED, and it is what makes E's fix stick. Once a
+#     procedure passes V to a guarded helper it has ADMITTED V's shape is
+#     uncertain, so no statement in that procedure may raw-subscript V.
+#     Without F, fixing the assertion and leaving the neighbouring
+#     `detailAll = ... & CStr(arrAll(r0, c0))` still kills the run - a
+#     detail is evaluated on every call - and that statement has no `And`
+#     in it, so E cannot reach it. F needs no dataflow: it is one
+#     syntactic question asked over one procedure.
+#
+#  WHY NOT SIMPLY "no raw subscript anywhere in a test module": measured,
+#  and it is 99 statements, most of them legitimate - loop bodies indexed
+#  by their own loop bounds, and write-backs like `arr(2, 2) = "CHANGED"`
+#  that are the test's ACTION rather than its assertion. A rule that
+#  flags 90 false positives gets widened until it stops noticing, which
+#  is the failure mode this file exists to avoid.
+# ======================================================================
+$vbaKeywords = @'
+and or not then else elseif if end select case for each next do loop while wend with
+to step in new call set let get is mod xor eqv imp byval byref optional as dim const
+redim erase exit function sub property public private friend static on error resume goto
+'@ -split '\s+' | Where-Object { $_ }
+$vbaBuiltins = @'
+instr instrrev left right mid ltrim rtrim trim len lenb replace split join filter strcomp string space
+chr chrw asc ascw cstr clng cint cdbl csng cbool cbyte cdate cvar ccur cdec val str format formatnumber
+abs int fix sgn sqr exp log round ubound lbound isarray isdate isempty iserror ismissing isnull isnumeric
+isobject typename vartype array iif choose switch hex oct rgb dateadd datediff datepart dateserial
+timeserial now date time rnd msgbox dir filelen shell environ callbyname createobject getobject nz
+'@ -split '\s+' | Where-Object { $_ }
+$notAnIndex = @{}
+foreach ($w in ($vbaKeywords + $vbaBuiltins)) { $notAnIndex[$w] = $true }
+foreach ($sf in (Get-ChildItem -Path (Join-Path $repoRoot 'src') -Filter '*.bas')) {
+    foreach ($l in (Get-Content -LiteralPath $sf.FullName)) {
+        if ($l -match '^\s*(?:Public\s+|Private\s+|Friend\s+)?(?:Static\s+)?(?:Sub|Function|Property\s+(?:Get|Let|Set))\s+([A-Za-z_]\w*)') {
+            $notAnIndex[$Matches[1].ToLower()] = $true
+        }
+    }
+}
+$helperAlt = ($guardedHelpers | ForEach-Object { [regex]::Escape($_) }) -join '|'
+
+foreach ($rel in $ceilings.Keys) {
+    $raw = Get-Content -LiteralPath (Join-Path $repoRoot $rel)
+
+    # statements again, this time carrying the enclosing procedure name
+    $stmts = New-Object System.Collections.ArrayList
+    $acc = ''; $accLine = 0; $proc = '(module)'
+    for ($i = 0; $i -lt $raw.Count; $i++) {
+        if ($raw[$i] -match '^\s*(?:Public\s+|Private\s+|Friend\s+)?(?:Static\s+)?(?:Sub|Function|Property\s+(?:Get|Let|Set))\s+([A-Za-z_]\w*)') { $proc = $Matches[1] }
+        $s = Strip-Comment $raw[$i]
+        if ($acc -eq '') { $accLine = $i + 1 }
+        if ($s -match '\s_\s*$') { $acc += ($s -replace '\s_\s*$', ' '); continue }
+        $acc += $s
+        if ($acc.Trim().Length -gt 0) { [void]$stmts.Add([pscustomobject]@{ Line = $accLine; Text = $acc.Trim(); Proc = $proc }) }
+        $acc = ''
+    }
+
+    # pass 1: which locals does each procedure hand to a guarded helper?
+    $admitted = @{}
+    foreach ($st in $stmts) {
+        $code = Blank-Strings $st.Text
+        foreach ($m in [regex]::Matches($code, '\b(?:' + $helperAlt + ')\s*\(\s*([A-Za-z_]\w*)')) {
+            $admitted["$($st.Proc)|$($m.Groups[1].Value)"] = $true
+        }
+    }
+
+    # pass 2: raw subscripts
+    foreach ($st in $stmts) {
+        $code = Blank-Strings $st.Text
+        if ($code -match '^\s*(Dim|Const|ReDim|Declare|Erase)\b') { continue }
+        # An assignment TARGET is the test's action, not its assertion -
+        # `arr(2, 2) = "CHANGED"` writes a cell back. Dropped so the rule
+        # judges what a test READS.
+        $body = [regex]::Replace($code, '^\s*[A-Za-z_]\w*\s*\([^)]*\)\s*=', ' ')
+        foreach ($m in [regex]::Matches($body, '(?<![.\w$])([A-Za-z_]\w*)\s*\(')) {
+            $v = $m.Groups[1].Value
+            if ($notAnIndex.ContainsKey($v.ToLower())) { continue }
+            $key = "$rel|$($st.Proc)|$v"
+            if ($rawIndexExempt.ContainsKey($key)) { continue }
+            $isE = ($code -match '\bAnd\b')
+            $isF = $admitted.ContainsKey("$($st.Proc)|$v")
+            if (-not ($isE -or $isF)) { continue }
+            [void]$findings.Add([pscustomobject]@{
+                Module = $rel; Line = $st.Line; Var = $v; Text = $st.Text })
         }
     }
 }

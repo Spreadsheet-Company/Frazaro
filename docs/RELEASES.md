@@ -67,6 +67,33 @@
   question mark, and typing the Prolog form gets you the Frazaro form
   rather than silence.
 
+- **Get the spelling slightly wrong and Frazaro says so.** `sum-list` is
+  written with a hyphen; Prolog writes `sum_list` with an underscore. A
+  name that asks a question ends in `?`; `is-list` without one is one
+  character short of `is-list?`. Each of those used to be an unknown
+  predicate — which finds nothing and explains nothing — and now stops
+  and names the spelling to use.
+
+  The three it catches (`is-list`, `is_list?`, `sum_list`) are not a list
+  someone thought of. They are every spelling you can reach from a real
+  name by swapping a hyphen for an underscore or dropping a question
+  mark, worked out mechanically over the whole reserved set, which is
+  what makes the set complete rather than a guess.
+
+- **More reserved words.** Thirteen names join the reserved set, which is
+  what lets Frazaro's advice about them always be right: `callable?`,
+  `is-list?`, `ground?`, `integer?` and `float?`; the Prolog spellings
+  `callable`, `is_list`, `ground`, `integer` and `float`; and the three
+  near-misses above. If a knowledge base of yours uses one of those as a
+  predicate name, it will need renaming — `ground`, `integer` and `float`
+  are the plausible ones.
+
+  `cons` and `nil` are still **not** reserved, unchanged from `0.5.4`: a
+  predicate of your own may still be called that. Nor is `nth1`, which
+  looks like a near-miss for `nth` and is not one — Prolog's `nth0` and
+  `nth1` count from different places, so guessing which you meant would
+  be worse than saying nothing.
+
 - **A new release check: `tools/check_test_assertion_safety.ps1`.** VBA
   evaluates *every* part of an `And`, even when an earlier part has
   already answered no. So a test written as one expression — check the
@@ -77,11 +104,16 @@
   to say what broke, and every later test never runs.
 
   This is invisible in a passing test suite by construction, so nothing
-  but a static check can find it. **154 assertions across all four test
-  files were carrying it**, and all 154 are fixed. The check now runs at
+  but a static check can find it. **165 assertions across all four test
+  files were carrying it**, and all 165 are fixed. The check now runs at
   every release and holds each file at zero — and fails just as loudly if
   a file comes in *under* its recorded number without the number being
   lowered too, so the ground gained cannot quietly be given back.
+
+  It also catches the half-fixed version, which is the one that would
+  have bitten: a test can be repaired where it checks the answer and left
+  reading past the end of it where it *reports* the answer — and the
+  report is built every single time, pass or fail.
 
   Nothing here changes what Frazaro does. It changes what happens on the
   day something else goes wrong: you get told, instead of the report
@@ -89,17 +121,6 @@
   checked against VBA's own rules for every shape a result can take,
   proving each replacement means exactly what it replaced, and both the
   check and that proof were mutation-tested rather than assumed to work.
-
-- **More reserved words.** Ten names join the reserved set, which is what
-  lets Frazaro's advice about them always be right: `callable?`,
-  `is-list?`, `ground?`, `integer?` and `float?`, plus the Prolog
-  spellings `callable`, `is_list`, `ground`, `integer` and `float`. If a
-  knowledge base of yours uses one of those as a predicate name, it will
-  need renaming — `ground`, `integer` and `float` are the plausible ones.
-
-  `is-list` — hyphen, no question mark — is **not** reserved, and that is
-  deliberate rather than an oversight: a predicate of your own may still
-  be called that. So may `cons` and `nil`, unchanged from `0.5.4`.
 
 ### Known open security items
 

@@ -773,8 +773,8 @@ Private Sub TestArraySlabHelpers()
            UBound(arr, 1) = 3 And UBound(arr, 2) = 2, _
            "UBound1=" & UBound(arr, 1) & " UBound2=" & UBound(arr, 2)
     Report "slab: multi-row/col read round-trips content", _
-           arr(1, 1) = 1 And arr(2, 2) = "b" And arr(3, 1) = 3, _
-           "arr(1,1)=" & arr(1, 1) & " arr(2,2)=" & arr(2, 2) & " arr(3,1)=" & arr(3, 1)
+           Arr2DItemIs(arr, 1, 1, "1") And Arr2DItemIs(arr, 2, 2, "b") And Arr2DItemIs(arr, 3, 1, "3"), _
+           "arr(1,1)=" & Arr2DText(arr, 1, 1) & " arr(2,2)=" & Arr2DText(arr, 2, 2) & " arr(3,1)=" & Arr2DText(arr, 3, 1)
 
     arr(2, 2) = "CHANGED"
     VLA_Runtime.VlaSlabWrite arr, rng
@@ -3462,6 +3462,29 @@ Private Function Arr2DItemIs(ByVal a As Variant, ByVal r As Long, ByVal c As Lon
     If c < c1 Or c > c2 Then Exit Function
     If IsObject(a(r, c)) Then Exit Function
     Arr2DItemIs = (CStr(a(r, c)) = expected)
+End Function
+
+' One cell of a 2-D array as DISPLAY TEXT, Arr1DText's twin, for a
+' Report's detail argument. Same reason: a detail is evaluated on every
+' call, so a raw index there kills the run on exactly the failing case.
+Private Function Arr2DText(ByVal a As Variant, ByVal r As Long, ByVal c As Long) As String
+    If Not IsArray(a) Then Arr2DText = "<not an array>": Exit Function
+    Dim r1 As Long, r2 As Long, c1 As Long, c2 As Long
+    On Error Resume Next
+    r1 = LBound(a, 1): r2 = UBound(a, 1)
+    c1 = LBound(a, 2): c2 = UBound(a, 2)
+    ' Err checked BEFORE `On Error GoTo 0`, which resets Err.Number.
+    If Err.Number <> 0 Then
+        Err.Clear
+        On Error GoTo 0
+        Arr2DText = "<not 2-D>"
+        Exit Function
+    End If
+    On Error GoTo 0
+    If r < r1 Or r > r2 Then Arr2DText = "<row out of range>": Exit Function
+    If c < c1 Or c > c2 Then Arr2DText = "<col out of range>": Exit Function
+    If IsObject(a(r, c)) Then Arr2DText = "<object>": Exit Function
+    Arr2DText = CStr(a(r, c))
 End Function
 
 ' One item of a Collection - Item(n) past the end raises, on precisely

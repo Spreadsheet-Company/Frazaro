@@ -4723,8 +4723,8 @@ Private Sub TestInterpreterQuote()
     mixed = VLA_Interpreter.VlaEvalExpression("(quote (1 ""two"" three))")
     Dim mixedOk As Boolean, mixedDetail As String
     If IsArray(mixed) Then
-        mixedOk = (mixed(0) = 1) And (mixed(1) = "two") And (mixed(2) = "three")
-        mixedDetail = "elements: " & CStr(mixed(0)) & " / " & CStr(mixed(1)) & " / " & CStr(mixed(2))
+        mixedOk = Arr1DItemIs(mixed, 0, "1") And Arr1DItemIs(mixed, 1, "two") And Arr1DItemIs(mixed, 2, "three")
+        mixedDetail = "elements: " & Arr1DText(mixed, 0) & " / " & Arr1DText(mixed, 1) & " / " & Arr1DText(mixed, 2)
     Else
         mixedDetail = "not an array: " & CStr(mixed)
     End If
@@ -5871,6 +5871,19 @@ Public Function Arr1DItemIs(ByVal a As Variant, ByVal ix As Long, ByVal expected
     If ix > UBound(a) Then Exit Function
     If IsObject(a(ix)) Then Exit Function
     Arr1DItemIs = (CStr(a(ix)) = expected)
+End Function
+
+' One element as DISPLAY TEXT, for a Report's detail argument. A detail
+' is evaluated on EVERY call, pass or fail, so a raw index there kills the
+' run on exactly the failing case the assertion beside it was just made
+' safe for. Says what went wrong rather than raising: a detail string that
+' crashes destroys the run that was about to explain itself.
+Public Function Arr1DText(ByVal a As Variant, ByVal ix As Long) As String
+    If Not IsArray(a) Then Arr1DText = "<not an array>": Exit Function
+    If ix < LBound(a) Then Arr1DText = "<below LBound>": Exit Function
+    If ix > UBound(a) Then Arr1DText = "<above UBound>": Exit Function
+    If IsObject(a(ix)) Then Arr1DText = "<object>": Exit Function
+    Arr1DText = CStr(a(ix))
 End Function
 
 ' One item of a Collection. `c.Count = 2 And CStr(c.Item(2)) = "x"` is the

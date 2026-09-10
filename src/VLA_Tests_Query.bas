@@ -1176,8 +1176,8 @@ Private Sub TestDatalogHostTable()
         nRowsNarrow = UBound(arrNarrow, 1) - LBound(arrNarrow, 1) + 1
         nColsNarrow = UBound(arrNarrow, 2) - LBound(arrNarrow, 2) + 1
         okNarrow = (nRowsNarrow = 2) And (nColsNarrow = 2) And _
-                   (CStr(arrNarrow(LBound(arrNarrow, 1), LBound(arrNarrow, 2))) = "alice" Or _
-                    CStr(arrNarrow(LBound(arrNarrow, 1), LBound(arrNarrow, 2))) = "bob")
+                   (ResultCellIs(arrNarrow, LBound(arrNarrow, 1), LBound(arrNarrow, 2), "alice") Or _
+                    ResultCellIs(arrNarrow, LBound(arrNarrow, 1), LBound(arrNarrow, 2), "bob"))
         detailNarrow = "got " & nRowsNarrow & " rows x " & nColsNarrow & " cols"
     Else
         detailNarrow = "got " & TypeName(arrNarrow) & " = " & CStr(arrNarrow)
@@ -3203,20 +3203,71 @@ Private Sub TestPrologTypeTestsRest()
                InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
     Next k
 
-    ' ---- the underscore spelling is reserved and the HYPHEN-without-
-    ' question-mark one is deliberately NOT. `is-list` is a house-
-    ' convention slip rather than an ISO import, and admitting it would
-    ' make TypeTestIsoSpellingFor's contract "every near-miss anyone
-    ' might type" instead of "every bare ISO name". Pinned so the
-    ' decision is visible rather than accidental - and so whoever takes
-    ' the hyphen/underscore alias follow-up finds the test that changes.
+    ' ---- THE NEAR-MISS SPELLINGS, and this REVERSES a PROLOG.15
+    ' decision on purpose rather than by drift.
     '
-    ' Asserted on the RESULT, not on the absence of the word "reserved"
-    ' in a string: PROLOG returns a spilled ARRAY here, and CStr() of an
-    ' array raises a type mismatch that would kill the run. Proving the
-    ' predicate actually WORKS is the stronger claim anyway.
-    result = VLA_Prolog.PROLOG("(fact (is-list a)) (query (is-list X))")
-    Report "prolog.15: `is-list` (hyphen, no question mark) is NOT reserved - a user may still define it, deliberately", _
+    ' PROLOG.15 declined to reserve `is-list` and pinned it as usable,
+    ' on the grounds that admitting it would make
+    ' TypeTestIsoSpellingFor's contract "every near-miss anyone might
+    ' type" - a rule with no edge. That objection was right about that
+    ' TABLE and wrong about the CLASS: the near-misses are GENERATED, by
+    ' two rules over the reserved set (swap hyphen for underscore; drop a
+    ' trailing question mark), so the class is closed and countable.
+    ' Enumerated mechanically over all 44 names it yields exactly three
+    ' that were not already reserved - and one of them, `is_list?`, is a
+    ' spelling nobody had thought of. That enumeration is the edge the
+    ' rule was missing, and it is why AliasSpellingFor exists.
+    '
+    ' This test is RE-POINTED rather than deleted, so the reversal is
+    ' visible in the diff instead of being a pin that quietly vanished.
+    Dim aliasName As Variant, aliasWant As Variant
+    Dim aliasNames As Variant, aliasWants As Variant
+    Dim ai As Long
+    aliasNames = Array("is-list", "is_list?", "sum_list")
+    aliasWants = Array("is-list?", "is-list?", "sum-list")
+    For ai = 0 To 2
+        aliasName = aliasNames(ai)
+        aliasWant = aliasWants(ai)
+        r = CStr(VLA_Prolog.PROLOG("(query (" & aliasName & " nil))"))
+        Report "prolog.15-alias: the near-miss '" & aliasName & "' is REFUSED with guidance, never silently failed", _
+               InStr(1, r, "isn't how PROLOG spells this", vbTextCompare) > 0, "got: " & r
+        Report "prolog.15-alias: ...and names both (" & aliasName & " ...) and the (" & aliasWant & " ...) to write instead", _
+               InStr(1, r, "(" & aliasName & " ...)", vbTextCompare) > 0 _
+               And InStr(1, r, "(" & aliasWant & " ...)", vbTextCompare) > 0, "got: " & r
+        r = CStr(VLA_Prolog.PROLOG("(fact (" & aliasName & " a)) (query (p X))"))
+        Report "prolog.15-alias: ...and '" & aliasName & "' is RESERVED as well as dispatched", _
+               InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+    Next ai
+
+    ' ---- the message teaches the two RULES, not the predicate, because
+    ' the three misses do not share a family: two are type tests and one
+    ' is a list goal. This is the assertion that would fail if someone
+    ' rewrote the text to talk about type tests.
+    r = CStr(VLA_Prolog.PROLOG("(query (sum_list nil N))"))
+    Report "prolog.15-alias: the refusal explains the hyphen rule and the question-mark rule, not the predicate", _
+           InStr(1, r, "hyphen rather than an underscore", vbTextCompare) > 0 _
+           And InStr(1, r, "question mark", vbTextCompare) > 0, "got: " & r
+
+    ' ---- and the DISCRIMINATING twin: the real spellings still work, so
+    ' the refusals above are about the near-miss and not about the
+    ' predicate having broken.
+    result = VLA_Prolog.PROLOG("(query (is-list? nil))")
+    Report "prolog.15-alias: ...while the real `is-list?` still succeeds", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sum-list (list 1 2 3) N))")
+    Report "prolog.15-alias: ...and the real `sum-list` still totals 6", _
+           ResultRowCount(result) = 2 And ResultCol1Is(result, "6"), "got: " & ResultDescribe(result)
+
+    ' ---- `nth0`/`nth1` are a DIFFERENT class and deliberately absent.
+    ' They are numbered variants rather than a hyphen/underscore slip,
+    ' and are not derivable by the two rules above. `nth1` would be a
+    ' true alias of this engine's one-based `nth`, but `nth0` is a
+    ' different predicate - zero-based - so pointing it at `nth` would be
+    ' a confidently wrong answer. Pinned as still-definable so the
+    ' decision is visible, exactly as `is-list` was before this item
+    ' reversed it.
+    result = VLA_Prolog.PROLOG("(fact (nth1 a)) (query (nth1 X))")
+    Report "prolog.15-alias: `nth1` is NOT reserved - a numbered variant is a different class, filed rather than folded in", _
            ResultRowCount(result) = 2 And ResultCol1Is(result, "a"), "got: " & ResultDescribe(result)
 
     ' ---- the reserved-word refusal must enumerate what it refuses from.
@@ -3231,6 +3282,10 @@ Private Sub TestPrologTypeTestsRest()
            InStr(1, r, "number-type names", vbTextCompare) > 0 _
            And InStr(1, r, "integer?", vbTextCompare) > 0 _
            And InStr(1, r, "float", vbTextCompare) > 0, "got: " & r
+    Report "prolog.15-alias: ...and the three alias spellings, is_list? among them", _
+           InStr(1, r, "alias spellings", vbTextCompare) > 0 _
+           And InStr(1, r, "is_list?", vbTextCompare) > 0 _
+           And InStr(1, r, "sum_list", vbTextCompare) > 0, "got: " & r
 
     ' =================================================================
     '  the phantom column, a fourth and fifth and sixth time
@@ -4061,7 +4116,7 @@ Private Sub TestPrologLists()
     ' it - and no amount of one-directional testing would.
     Dim renderedBag As String
     result = VLA_Prolog.PROLOG("(fact (color red)) (fact (color green)) (query (findall X (color X) Bag))")
-    If ResultRowCount(result) = 2 Then renderedBag = CStr(result(2, 1))
+    If ResultRowCount(result) = 2 Then renderedBag = ResultCellText(result, 2, 1)
     Report "prolog.21: the rendered form is re-readable at all (a non-empty string came back)", _
            Len(renderedBag) > 0, "got: '" & renderedBag & "'"
     result = VLA_Prolog.PROLOG( _
@@ -4696,7 +4751,7 @@ Private Sub TestPrologHostTable()
     Dim ok2 As Boolean, detail2 As String
     If IsArray(arr2) Then
         ok2 = (ResultRowCount(arr2) = 2 And ResultCellIs(arr2, 2, 1, "90000") And ResultCellIs(arr2, 2, 2, "eng"))
-        detail2 = "got S=" & arr2(2, 1) & " D=" & arr2(2, 2)
+        detail2 = "got S=" & ResultCellText(arr2, 2, 1) & " D=" & ResultCellText(arr2, 2, 2)
     Else
         detail2 = "got " & TypeName(arr2) & " = " & CStr(arr2)
     End If
@@ -4824,6 +4879,45 @@ Private Function ResultBoolIs(ByVal result As Variant, ByVal expected As Boolean
     If IsArray(result) Then Exit Function
     If VarType(result) <> vbBoolean Then Exit Function
     ResultBoolIs = (CBool(result) = expected)
+End Function
+
+' PROLOG.20 follow-up: a cell compared NUMERICALLY rather than as text.
+'
+' Not folded into ResultCellIs, deliberately. The SQL spill tests assert
+' `CDbl(arr(r, c)) = 185000`, and rewriting that as a text comparison
+' would be a TIGHTENING, not a translation: CDbl accepts "185000.0" and a
+' padded " 185000 " where CStr does not, so a passing test could start
+' failing for a reason that has nothing to do with the defect being
+' fixed. Worse, CStr follows the machine locale on a fractional value -
+' the exact hazard NumberToTerm's own Str$-not-CStr note records - so a
+' text rewrite would quietly make these tests locale-dependent.
+'
+' IsNumeric before CDbl: CDbl of a non-numeric raises, which is the whole
+' class of thing this family exists to stop doing.
+Private Function ResultCellNumIs(ByVal result As Variant, ByVal rowIx As Long, ByVal colIx As Long, ByVal expected As Double) As Boolean
+    If Not IsArray(result) Then Exit Function
+    If rowIx < LBound(result, 1) Then Exit Function
+    If rowIx > UBound(result, 1) Then Exit Function
+    If colIx < LBound(result, 2) Then Exit Function
+    If colIx > UBound(result, 2) Then Exit Function
+    If IsObject(result(rowIx, colIx)) Then Exit Function
+    If Not IsNumeric(result(rowIx, colIx)) Then Exit Function
+    ResultCellNumIs = (CDbl(result(rowIx, colIx)) = expected)
+End Function
+
+' PROLOG.20 follow-up: one cell as DISPLAY TEXT, for a Report's detail.
+'
+' A detail is evaluated on EVERY call, pass or fail, so a raw index there
+' kills the run on exactly the failing case the assertion beside it was
+' just made safe for. Says what went wrong instead of raising, because a
+' detail string that crashes destroys the run that was about to explain
+' itself.
+Private Function ResultCellText(ByVal result As Variant, ByVal rowIx As Long, ByVal colIx As Long) As String
+    If Not IsArray(result) Then ResultCellText = "<not an array>": Exit Function
+    If rowIx < LBound(result, 1) Or rowIx > UBound(result, 1) Then ResultCellText = "<row out of range>": Exit Function
+    If colIx < LBound(result, 2) Or colIx > UBound(result, 2) Then ResultCellText = "<col out of range>": Exit Function
+    If IsObject(result(rowIx, colIx)) Then ResultCellText = "<object>": Exit Function
+    ResultCellText = CStr(result(rowIx, colIx))
 End Function
 
 ' PROLOG.20: the same guarded shape for a result that is TEXT rather than
@@ -6016,11 +6110,11 @@ Private Sub TestSqlHostTable()
         Dim r0 As Long, c0 As Long
         r0 = LBound(arrAll, 1): c0 = LBound(arrAll, 2)
         okAll = (nRowsAll = 4) And (nColsAll = 3) _
-                And (CStr(arrAll(r0, c0)) = "Name") _
-                And (CStr(arrAll(r0, c0 + 1)) = "Dept") _
-                And (CStr(arrAll(r0, c0 + 2)) = "Salary")
+                And ResultCellIs(arrAll, r0, c0, "Name") _
+                And ResultCellIs(arrAll, r0, c0 + 1, "Dept") _
+                And ResultCellIs(arrAll, r0, c0 + 2, "Salary")
         detailAll = "got " & nRowsAll & " rows x " & nColsAll & " cols, headers '" & _
-                    CStr(arrAll(r0, c0)) & "','" & CStr(arrAll(r0, c0 + 1)) & "','" & CStr(arrAll(r0, c0 + 2)) & "'"
+                    ResultCellText(arrAll, r0, c0) & "','" & ResultCellText(arrAll, r0, c0 + 1) & "','" & ResultCellText(arrAll, r0, c0 + 2) & "'"
     Else
         detailAll = "got " & TypeName(arrAll) & " = " & CStr(arrAll)
     End If
@@ -6096,8 +6190,8 @@ Private Sub TestSqlHostTable()
         nRowsJoin = UBound(arrJoin, 1) - LBound(arrJoin, 1) + 1
         Dim rJ As Long, cJ As Long
         rJ = LBound(arrJoin, 1): cJ = LBound(arrJoin, 2)
-        okJoin = (nRowsJoin = 2) And (CStr(arrJoin(rJ + 1, cJ + 1)) = "Bldg5")
-        detailJoin = "got " & nRowsJoin & " rows, building '" & CStr(arrJoin(rJ + 1, cJ + 1)) & "'"
+        okJoin = (nRowsJoin = 2) And ResultCellIs(arrJoin, rJ + 1, cJ + 1, "Bldg5")
+        detailJoin = "got " & nRowsJoin & " rows, building '" & ResultCellText(arrJoin, rJ + 1, cJ + 1) & "'"
     Else
         detailJoin = "got " & TypeName(arrJoin) & " = " & CStr(arrJoin)
     End If
@@ -6122,10 +6216,10 @@ Private Sub TestSqlHostTable()
         nRowsGroup = UBound(arrGroup, 1) - LBound(arrGroup, 1) + 1
         Dim rG As Long, cG As Long
         rG = LBound(arrGroup, 1): cG = LBound(arrGroup, 2)
-        okGroup = (nRowsGroup = 2) And (CStr(arrGroup(rG + 1, cG)) = "eng") _
-                  And (CDbl(arrGroup(rG + 1, cG + 1)) = 2) And (CDbl(arrGroup(rG + 1, cG + 2)) = 185000)
-        detailGroup = "got " & nRowsGroup & " rows, dept '" & CStr(arrGroup(rG + 1, cG)) & _
-                      "', n=" & CStr(arrGroup(rG + 1, cG + 1)) & ", total=" & CStr(arrGroup(rG + 1, cG + 2))
+        okGroup = (nRowsGroup = 2) And ResultCellIs(arrGroup, rG + 1, cG, "eng") _
+                  And ResultCellNumIs(arrGroup, rG + 1, cG + 1, 2) And ResultCellNumIs(arrGroup, rG + 1, cG + 2, 185000)
+        detailGroup = "got " & nRowsGroup & " rows, dept '" & ResultCellText(arrGroup, rG + 1, cG) & _
+                      "', n=" & ResultCellText(arrGroup, rG + 1, cG + 1) & ", total=" & ResultCellText(arrGroup, rG + 1, cG + 2)
     Else
         detailGroup = "got " & TypeName(arrGroup) & " = " & CStr(arrGroup)
     End If
@@ -6141,9 +6235,9 @@ Private Sub TestSqlHostTable()
         nRowsOrder = UBound(arrOrder, 1) - LBound(arrOrder, 1) + 1
         Dim rO As Long, cO As Long
         rO = LBound(arrOrder, 1): cO = LBound(arrOrder, 2)
-        okOrder = (nRowsOrder = 3) And (CStr(arrOrder(rO + 1, cO)) = "carol") And (CStr(arrOrder(rO + 2, cO)) = "alice")
+        okOrder = (nRowsOrder = 3) And ResultCellIs(arrOrder, rO + 1, cO, "carol") And ResultCellIs(arrOrder, rO + 2, cO, "alice")
         detailOrder = "got " & nRowsOrder & " rows (incl. header), top two: '" & _
-                      CStr(arrOrder(rO + 1, cO)) & "', '" & CStr(arrOrder(rO + 2, cO)) & "'"
+                      ResultCellText(arrOrder, rO + 1, cO) & "', '" & ResultCellText(arrOrder, rO + 2, cO) & "'"
     Else
         detailOrder = "got " & TypeName(arrOrder) & " = " & CStr(arrOrder)
     End If
@@ -6187,13 +6281,13 @@ Private Sub TestSqlHostTable()
         Dim rC As Long, cC As Long
         rC = LBound(arrCompound, 1): cC = LBound(arrCompound, 2)
         okCompound = (nRowsCompound = 4) _
-                     And (CDbl(arrCompound(rC + 1, cC)) = 3) _
-                     And (CDbl(arrCompound(rC + 2, cC)) = 2) _
-                     And (CDbl(arrCompound(rC + 3, cC)) = 1)
+                     And ResultCellNumIs(arrCompound, rC + 1, cC, 3) _
+                     And ResultCellNumIs(arrCompound, rC + 2, cC, 2) _
+                     And ResultCellNumIs(arrCompound, rC + 3, cC, 1)
         detailCompound = "got " & nRowsCompound & " rows (incl. header): " & _
-                          CStr(arrCompound(rC + 1, cC)) & ", " & _
-                          CStr(arrCompound(rC + 2, cC)) & ", " & _
-                          CStr(arrCompound(rC + 3, cC))
+                          ResultCellText(arrCompound, rC + 1, cC) & ", " & _
+                          ResultCellText(arrCompound, rC + 2, cC) & ", " & _
+                          ResultCellText(arrCompound, rC + 3, cC)
     Else
         detailCompound = "got " & TypeName(arrCompound) & " = " & CStr(arrCompound)
     End If
@@ -6235,11 +6329,11 @@ Private Sub TestSqlHostTable()
         Dim rCh As Long, cCh As Long
         rCh = LBound(arrChain, 1): cCh = LBound(arrChain, 2)
         okChain = (nRowsChain = 4) _
-                  And (CStr(arrChain(rCh + 1, cCh)) = "alice") _
-                  And (CStr(arrChain(rCh + 2, cCh)) = "bob") _
-                  And (CStr(arrChain(rCh + 3, cCh)) = "carol")
+                  And ResultCellIs(arrChain, rCh + 1, cCh, "alice") _
+                  And ResultCellIs(arrChain, rCh + 2, cCh, "bob") _
+                  And ResultCellIs(arrChain, rCh + 3, cCh, "carol")
         detailChain = "got " & nRowsChain & " rows (incl. header): " & _
-                      CStr(arrChain(rCh + 1, cCh)) & ", " & CStr(arrChain(rCh + 2, cCh)) & ", " & CStr(arrChain(rCh + 3, cCh))
+                      ResultCellText(arrChain, rCh + 1, cCh) & ", " & ResultCellText(arrChain, rCh + 2, cCh) & ", " & ResultCellText(arrChain, rCh + 3, cCh)
     Else
         detailChain = "got " & TypeName(arrChain) & " = " & CStr(arrChain)
     End If

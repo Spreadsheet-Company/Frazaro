@@ -136,6 +136,7 @@ $countPhrases = @{
     'ISO spellings'        = 'TypeTestIsoSpellingFor'
     'list goals'           = 'ListGoalKindFor'
     'number-type names'    = 'TypeTestDeferredFor'
+    'alias spellings'      = 'AliasSpellingFor'
 }
 
 $numberWords = @{
