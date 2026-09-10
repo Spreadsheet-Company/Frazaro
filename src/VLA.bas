@@ -19,7 +19,7 @@ Option Explicit
 ' signal (see SD-14 for what each of the three numbers means from here)
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
-Public Const VLA_RELEASE_VERSION As String = "0.5.4"
+Public Const VLA_RELEASE_VERSION As String = "0.5.5"
 Public Const VLA_CORE_VERSION As String = "LINTERPOLATE.0"
 ' LINTERPOLATE.0: (interpolate tpl :key val ...) - EmitExpr's own Case
 ' "interpolate", below, next to "array" - the compile-time twin of
