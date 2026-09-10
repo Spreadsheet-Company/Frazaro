@@ -87,11 +87,12 @@
   mark, worked out mechanically over the whole reserved set, which is
   what makes the set complete rather than a guess.
 
-- **More reserved words.** Thirteen names join the reserved set, which is
+- **More reserved words.** Fourteen names join the reserved set, which is
   what lets Frazaro's advice about them always be right: `callable?`,
   `is-list?`, `ground?`, `integer?` and `float?`; the Prolog spellings
-  `callable`, `is_list`, `ground`, `integer` and `float`; and the three
-  near-misses above. If a knowledge base of yours uses one of those as a
+  `callable`, `is_list`, `ground`, `integer` and `float`; the three
+  near-misses above; and `whole?`, the whole-number test described
+  earlier. If a knowledge base of yours uses one of those as a
   predicate name, it will need renaming — `ground`, `integer` and `float`
   are the plausible ones.
 
