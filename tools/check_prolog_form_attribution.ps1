@@ -110,7 +110,40 @@ $scannedProcs = @(
 # one raise site in SolveGoalList, and the two do not even belong to the
 # same form family (one is if-then-else, the other negation), so naming a
 # form in its own text would be wrong half the time.
+#
+# PROLOG.18 adds EIGHT, all registered here before the code that raises
+# them existed, and this check failed on every one until it did. Seven
+# serve the seven text goals (atom-length, atom-concat, sub-atom,
+# atom-number, upcase-atom, downcase-atom, atomic-list-concat), which do
+# not share an arity, a mode or even a result type, so each refusal takes
+# its form from the caller the way the list family's do:
+#   prolog-text-bad-shape       - every text goal, from ValidateBodyItem's
+#                                 one arm; takes {count} as well, since
+#                                 the seven arities run from two to five.
+#   prolog-text-unbound         - any text goal whose needed input is still
+#                                 free; takes {need} from the caller too,
+#                                 because WHICH argument is needed differs.
+#   prolog-text-not-text        - a compound term where text was needed.
+#   prolog-text-not-a-number    - a count or a position bound to a
+#                                 non-number (atom-length, sub-atom,
+#                                 atom-number).
+#   prolog-text-too-many-ways   - sub-atom and atom-concat's generating
+#                                 modes, refused up front.
+#   prolog-text-outside-bmp     - atom-length, sub-atom and atom-concat's
+#                                 generating mode: the goals that count.
+#   prolog-text-case-unsupported - upcase-atom and downcase-atom.
+# The eighth is the list family's, not the text family's:
+#   prolog-list-given-text      - (length ...) and (append ...) handed a
+#                                 piece of text, pointing at its text twin.
 $multiFormIds = @(
+    'prolog-text-bad-shape',
+    'prolog-text-unbound',
+    'prolog-text-not-text',
+    'prolog-text-not-a-number',
+    'prolog-text-too-many-ways',
+    'prolog-text-outside-bmp',
+    'prolog-text-case-unsupported',
+    'prolog-list-given-text',
     'prolog-control-iso-spelling',
     'prolog-comparison-bad-shape',
     'prolog-unification-bad-shape',

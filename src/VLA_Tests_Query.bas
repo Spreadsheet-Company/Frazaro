@@ -365,6 +365,8 @@ Public Function TestDSLs() As Boolean
     TestPrologFindall
     TestPrologCut
     TestPrologControl
+    TestPrologText
+    TestPrologTextParts
     TestPrologKeyedAtoms
     TestPrologHostTable
     TestSql
@@ -5327,6 +5329,453 @@ Private Sub TestPrologControl()
     If IsArray(result) Then keyedOk = (ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "bob"))
     Report "prolog.14: a keyed table atom inside a branch is desugared - and the FIRST branch matches nothing, so the row comes from the second", _
            keyedOk, "got: " & ResultDescribe(result)
+End Sub
+
+' PROLOG.18: the text goals, part one - the one spelling of a number,
+' the alias class rule E re-derived, atom-length, and atom-concat with
+' the marking decision it carries. Pure: no live workbook.
+'
+' THE DISCRIMINATION RULE, stated because this family is exposed to it:
+' an unknown predicate fails SILENTLY, so a test asserting that a text
+' goal fails would pass against no implementation at all. Every failure
+' asserted here is a ground query answering FALSE beside its own TRUE
+' twin, a strict non-empty subset, or an assertion on refusal TEXT.
+'
+' THE SHAPE RULE: a query with a free variable always spills, a header
+' row even with no solutions; only a ground query collapses to a Boolean.
+'
+' Refusals are asserted through ResultTextStartsWith and ResultDescribe,
+' never `CStr(VLA_Prolog.PROLOG(...))`. That idiom is safe only while the
+' query really refuses: a regression that made one of these SPILL would
+' turn a failing assertion into a type mismatch that kills the run,
+' PROLOG.17's own incident. The phantom-column tests are exactly the ones
+' whose failure mode is a spill.
+Private Sub TestPrologText()
+    Dim result As Variant
+    Dim r As String
+    Dim q As String
+    q = Chr$(34)
+
+    ' ---- ONE SPELLING FOR A NUMBER ------------------------------------
+    ' sum-list's total goes through NumberToTerm, the Str$ path, which
+    ' dropped a fraction's leading zero. Now it reads 0.5, as `is` does.
+    result = VLA_Prolog.PROLOG("(query (sum-list (list 0.25 0.25) S))")
+    Report "prolog.18: a fraction from the Str$ path reads 0.5, never .5", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "0.5"), "got: " & ResultDescribe(result)
+
+    ' THE WRONG ANSWER it caused, and the decisive pin: under ".5" this
+    ' was FALSE - a confidently wrong "no" - because ".5" and the literal
+    ' 0.5 are different atoms. Beside its twin, so it cannot pass for want
+    ' of an implementation.
+    result = VLA_Prolog.PROLOG("(query (sum-list (list 0.25 0.25) 0.5))")
+    Report "prolog.18: (sum-list (list 0.25 0.25) 0.5) is TRUE - the total now matches the literal 0.5", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sum-list (list 0.25 0.25) 0.75))")
+    Report "prolog.18: ...and its twin against 0.75 is FALSE", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    ' The two paths agree term for term. S and T are free, so this spills;
+    ' had the two spellings differed, == would fail and leave a header only.
+    result = VLA_Prolog.PROLOG("(query (sum-list (list 0.25 0.25) S) (is T (+ 0.25 0.25)) (== S T))")
+    Report "prolog.18: the sum-list path and the is path spell 0.25 + 0.25 identically, so (== S T) holds", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "0.5") And ResultCellIs(result, 2, 2, "0.5"), _
+           "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (sum-list (list -0.25 -0.25) S))")
+    Report "prolog.18: a negative fraction reads -0.5, never -.5", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "-0.5"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X (- 0 0.5)))")
+    Report "prolog.18: ...and the is path, now routed through the same function, spells it identically", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "-0.5"), "got: " & ResultDescribe(result)
+
+    ' ---- THE ALIAS CLASS, re-derived --------------------------------
+    ' Rule E of check_prolog_reserved_names.ps1 derives the near-miss
+    ' spellings from the reserved set on every run; it found `whole`
+    ' missing, a silent unknown predicate since PROLOG.17.
+    result = VLA_Prolog.PROLOG("(query (whole 3))")
+    r = ResultDescribe(result)
+    Report "prolog.18: (whole 3) is refused and pointed at (whole? ...) - it used to fail silently", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "(whole? ...)", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(fact (whole 3)) (query (p X))")
+    r = ResultDescribe(result)
+    Report "prolog.18: ...and 'whole' is reserved, so it cannot be defined and then silently shadowed", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+
+    ' The ISO/SWI spellings a Prolog author types first, one per shape.
+    result = VLA_Prolog.PROLOG("(query (atom_length abc N))")
+    r = ResultDescribe(result)
+    Report "prolog.18: ISO's atom_length is refused and pointed at (atom-length ...)", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "(atom-length ...)", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (atomic_list_concat L x axb))")
+    r = ResultDescribe(result)
+    Report "prolog.18: SWI's atomic_list_concat is refused and pointed at (atomic-list-concat ...)", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "(atomic-list-concat ...)", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(fact (atom-length a b)) (query (p X))")
+    r = ResultDescribe(result)
+    Report "prolog.18: 'atom-length' is refused as a predicate name, so it cannot be defined and then shadowed", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "reserved word", vbTextCompare) > 0, "got: " & r
+
+    ' ---- ATOM-LENGTH -------------------------------------------------
+    result = VLA_Prolog.PROLOG("(query (atom-length " & q & "hello" & q & " N))")
+    Report "prolog.18: (atom-length " & q & "hello" & q & " N) counts 5", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "5"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-length hello 5))")
+    Report "prolog.18: (atom-length hello 5) is TRUE - a bare name is text too", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-length hello 4))")
+    Report "prolog.18: ...and its twin (atom-length hello 4) is FALSE", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    ' A number's text is its CANONICAL rendering, so 0.50 is three
+    ' characters, as ISO counts it - the number, not the way it was typed.
+    result = VLA_Prolog.PROLOG("(query (atom-length 0.50 N))")
+    Report "prolog.18: (atom-length 0.50 N) is 3 - a number is measured as it prints, 0.5", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "3"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-length " & q & q & " N))")
+    Report "prolog.18: empty text has length 0", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "0"), "got: " & ResultDescribe(result)
+
+    ' THE PHANTOM COLUMN. Text goals bind, so CollectVars descends into
+    ' them and X is collected; what stops a column headed X holding "X" is
+    ' that the goal refuses by name when its input is free. Its failure
+    ' mode is a SPILL, which is why this is not a CStr(...) assertion.
+    result = VLA_Prolog.PROLOG("(query (atom-length X N))")
+    r = ResultDescribe(result)
+    Report "prolog.18: THE PHANTOM COLUMN - (atom-length X N) with X free refuses by name rather than spilling X", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "can't run yet", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (atom-length (f a) N))")
+    r = ResultDescribe(result)
+    Report "prolog.18: a compound term is not text, and is refused by name", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "compound term", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (atom-length abc " & q & "3" & q & "))")
+    r = ResultDescribe(result)
+    Report "prolog.18: a count given as TEXT is refused - a text 3 is not the number 3 (between's own rule)", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "isn't one", vbTextCompare) > 0, "got: " & r
+
+    ' A character outside the Basic Multilingual Plane is two UTF-16 units:
+    ' Excel's LEN says 2, Prolog says 1. The goals that count refuse...
+    Dim emoji As String
+    emoji = ChrW$(55357) & ChrW$(56832)            ' U+1F600, stored as two units
+    result = VLA_Prolog.PROLOG("(query (atom-length " & q & "a" & emoji & q & " N))")
+    r = ResultDescribe(result)
+    Report "prolog.18: atom-length refuses text holding an emoji rather than choosing between Excel's count and Prolog's", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "stores as two", vbTextCompare) > 0, "got: " & r
+    ' ...and a goal that does not count passes it through untouched.
+    result = VLA_Prolog.PROLOG("(query (upcase-atom " & q & "a" & emoji & q & " U))")
+    Report "prolog.18: ...while upcase-atom, which counts nothing, passes the same emoji through", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "A" & emoji), "got: " & ResultDescribe(result)
+
+    ' ---- ATOM-CONCAT, and THE MARKING DECISION --------------------------
+    result = VLA_Prolog.PROLOG("(query (atom-concat ab c X))")
+    Report "prolog.18: (atom-concat ab c X) joins to abc", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "abc"), "got: " & ResultDescribe(result)
+
+    ' The result is TEXT - marked, exactly as a text cell is. This FAILS
+    ' under "mirror the inputs" and under "mark only when a bare atom would
+    ' be misread", both of which would hand back the bare name abc - and
+    ' (== abc "abc") would then REFUSE, so no row could spill.
+    '
+    ' A SPILL, not a Boolean: X is free and atom-concat binds it, so X is an
+    ' output column - the result-shape rule this Sub's own header states.
+    ' The first version asserted ResultBoolIs here and failed on the live
+    ' run against a correct engine, which spilled exactly X = abc.
+    result = VLA_Prolog.PROLOG("(query (atom-concat ab c X) (== X " & q & "abc" & q & "))")
+    Report "prolog.18: MARKING - the result of a text goal is TEXT, identical to the quoted " & q & "abc" & q, _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "abc"), "got: " & ResultDescribe(result)
+    ' ...so comparing it with the bare NAME abc is PROLOG.10's confusable
+    ' case, and refuses rather than answering a silent FALSE.
+    result = VLA_Prolog.PROLOG("(query (atom-concat ab c X) (== X abc))")
+    r = ResultDescribe(result)
+    Report "prolog.18: ...and comparing it with the bare name abc refuses through PROLOG.10's own message", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "different things", vbTextCompare) > 0, "got: " & r
+
+    ' A BOUND argument is read as its TEXT, so the relation holds with all
+    ' three bound. This FAILS under "compare a bound result by unification".
+    result = VLA_Prolog.PROLOG("(query (atom-concat ab c abc))")
+    Report "prolog.18: TEST MODE - (atom-concat ab c abc) is TRUE: every bound argument is read as text", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-concat ab c abd))")
+    Report "prolog.18: ...and its twin (atom-concat ab c abd) is FALSE", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (atom-concat " & q & "Item " & q & " 42 X))")
+    Report "prolog.18: a number joins as its text - Item 42", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "Item 42"), "got: " & ResultDescribe(result)
+    ' Joining two numbers makes TEXT, ISO's answer - under "mirror the
+    ' inputs" it would be the NUMBER 42.
+    result = VLA_Prolog.PROLOG("(query (atom-concat 4 2 X) (atom? X))")
+    Report "prolog.18: MARKING - (atom-concat 4 2 X) is text: atom? is TRUE", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "42"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-concat 4 2 X) (number? X))")
+    Report "prolog.18: ...and number? is FALSE - header only", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+    ' THE VARIABLE TRAP: a bare BOB would be read as an unbound VARIABLE.
+    result = VLA_Prolog.PROLOG("(query (upcase-atom bob U) (atom? U))")
+    Report "prolog.18: MARKING - (upcase-atom bob U) gives TEXT, never a bare BOB that would read as a variable", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "BOB"), "got: " & ResultDescribe(result)
+
+    ' Taking a text apart by a known prefix, a known suffix, or every split.
+    result = VLA_Prolog.PROLOG("(query (atom-concat " & q & "ID-" & q & " Rest " & q & "ID-42" & q & "))")
+    Report "prolog.18: a known PREFIX - (atom-concat " & q & "ID-" & q & " Rest " & q & "ID-42" & q & ") gives Rest = 42", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "42"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-concat " & q & "XX-" & q & " Rest " & q & "ID-42" & q & "))")
+    Report "prolog.18: ...a prefix the text does not have finds nothing - header only", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-concat Stem " & q & ".xlsx" & q & " " & q & "report.xlsx" & q & "))")
+    Report "prolog.18: a known SUFFIX - Stem = report", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "report"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-concat A B " & q & "abc" & q & "))")
+    Report "prolog.18: every split of abc, both ends included, in order - four rows", _
+           ResultRowCount(result) = 5 And ResultCellIs(result, 2, 1, "") And ResultCellIs(result, 2, 2, "abc") _
+           And ResultCellIs(result, 5, 1, "abc") And ResultCellIs(result, 5, 2, ""), "got: " & ResultDescribe(result)
+
+    ' THE BUDGET, at the exact edge - between's rule and its off-by-one.
+    ' 118 characters have 119 splits: 1 step for the goal + 119 = 120, the
+    ' whole budget, and it fits. 119 characters would need 120 and are
+    ' refused BY NAME up front, never at the step ceiling a split later.
+    result = VLA_Prolog.PROLOG("(query (atom-concat A B " & q & String$(118, "a") & q & "))")
+    Report "prolog.18: BOUNDARY - 118 characters split every way inside the budget (119 rows)", _
+           ResultRowCount(result) = 120, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-concat A B " & q & String$(119, "a") & q & "))")
+    r = ResultDescribe(result)
+    Report "prolog.18: BOUNDARY - 119 characters are refused by name up front, not at the step ceiling", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "ways", vbTextCompare) > 0, "got: " & r
+    ' A known prefix on a LONG text is answered directly, never by trying
+    ' every split - the deterministic modes are there for exactly this.
+    result = VLA_Prolog.PROLOG("(query (atom-concat " & q & "ID-" & q & " Rest " & q & "ID-" & String$(200, "a") & q & "))")
+    Report "prolog.18: a known prefix on a 203-character text is answered directly, not refused", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, String$(200, "a")), "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (atom-concat A B C))")
+    r = ResultDescribe(result)
+    Report "prolog.18: THE PHANTOM COLUMN - atom-concat with nothing bound refuses by name", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "can't run yet", vbTextCompare) > 0, "got: " & r
+
+    ' A generator obeys the cut: stop on it, never absorb it.
+    result = VLA_Prolog.PROLOG("(rule (firstsplit A) (atom-concat A B " & q & "abc" & q & ") !) (query (firstsplit A))")
+    Report "prolog.18: ! after atom-concat's generating mode prunes it to the first split", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, ""), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(rule (firstsplit A) (atom-concat A B " & q & "abc" & q & ")) (query (firstsplit A))")
+    Report "prolog.18: ...and without the cut, all four", _
+           ResultRowCount(result) = 5, "got: " & ResultDescribe(result)
+End Sub
+
+' PROLOG.18: the text goals, part two - sub-atom, atom-number, case, and
+' atomic-list-concat, plus the list goals that now name their text twin.
+' The same three rules as part one's header: discriminating failures,
+' spill-or-Boolean shape, and refusals asserted without CStr(...).
+Private Sub TestPrologTextParts()
+    Dim result As Variant
+    Dim r As String
+    Dim q As String
+    q = Chr$(34)
+
+    ' ---- SUB-ATOM ----------------------------------------------------
+    result = VLA_Prolog.PROLOG("(query (sub-atom " & q & "Frazaro" & q & " 2 3 After Part))")
+    Report "prolog.18: (sub-atom " & q & "Frazaro" & q & " 2 3 After Part) - After 2, Part aza", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "2") And ResultCellIs(result, 2, 2, "aza"), _
+           "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sub-atom " & q & "a,b,c" & q & " B 1 A " & q & "," & q & "))")
+    Report "prolog.18: a bound Part finds every occurrence - the commas at 1 and 3", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 3, 1, "3"), _
+           "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sub-atom " & q & "banana" & q & " B L A " & q & "ana" & q & "))")
+    Report "prolog.18: ...overlapping ones included - ana in banana at 1 and 3", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 3, 1, "3"), _
+           "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sub-atom hello 0 1 4 h))")
+    Report "prolog.18: (sub-atom hello 0 1 4 h) is TRUE", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sub-atom hello 0 1 4 e))")
+    Report "prolog.18: ...and its twin with e is FALSE", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sub-atom ab B L A S))")
+    Report "prolog.18: with only the text bound, every piece of ab - six, Before then Length ascending", _
+           ResultRowCount(result) = 7 And ResultCellIs(result, 2, 1, "0") And ResultCellIs(result, 2, 2, "0") _
+           And ResultCellIs(result, 4, 2, "2") And ResultCellIs(result, 4, 4, "ab") And ResultCellIs(result, 7, 1, "2"), _
+           "got: " & ResultDescribe(result)
+
+    ' THE BUDGET, at the exact edge. All-free is (n+1)(n+2)/2 pieces: 105 at
+    ' 13 characters fits, 120 at 14 is refused by name before one is made.
+    result = VLA_Prolog.PROLOG("(query (sub-atom " & q & String$(13, "a") & q & " B L A S))")
+    Report "prolog.18: BOUNDARY - 13 characters, all free: 105 pieces fit the budget", _
+           ResultRowCount(result) = 106, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sub-atom " & q & String$(14, "a") & q & " B L A S))")
+    r = ResultDescribe(result)
+    Report "prolog.18: BOUNDARY - 14 characters, all free: 120 pieces are refused up front, by name", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "ways", vbTextCompare) > 0, "got: " & r
+    ' A bound Before narrows the occurrences BEFORE they are counted, so a
+    ' long text with many matches still answers.
+    result = VLA_Prolog.PROLOG("(query (sub-atom " & q & String$(200, "a") & q & " 5 L A " & q & "a" & q & "))")
+    Report "prolog.18: a bound position narrows a long text's matches before the count - one row, not a refusal", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 2, 2, "194"), _
+           "got: " & ResultDescribe(result)
+
+    ' Positions are 0..n: a value outside that set FAILS (nth's rule), a
+    ' non-number is refused.
+    result = VLA_Prolog.PROLOG("(query (sub-atom hello 1.5 1 A S))")
+    Report "prolog.18: a fractional position is no position - header only", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sub-atom hello 1 1 A S))")
+    Report "prolog.18: ...its twin at position 1 finds e", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 2, "e"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sub-atom hello 99999999999 L A S))")
+    Report "prolog.18: a huge position fails cleanly - it never reaches CLng to overflow", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sub-atom hello " & q & "1" & q & " 1 A S))")
+    r = ResultDescribe(result)
+    Report "prolog.18: a position given as TEXT is refused - it is not a position at all", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "isn't one", vbTextCompare) > 0, "got: " & r
+
+    result = VLA_Prolog.PROLOG("(rule (firstchar C) (sub-atom hello B 1 A C) !) (query (firstchar C))")
+    Report "prolog.18: ! after sub-atom prunes it to the first character", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "h"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(rule (firstchar C) (sub-atom hello B 1 A C)) (query (firstchar C))")
+    Report "prolog.18: ...and without the cut, all five", _
+           ResultRowCount(result) = 6, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sub-atom X B L A S))")
+    r = ResultDescribe(result)
+    Report "prolog.18: THE PHANTOM COLUMN - sub-atom with its text free refuses by name", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "can't run yet", vbTextCompare) > 0, "got: " & r
+
+    ' ---- ATOM-NUMBER - text and number cross on purpose ----------------
+    result = VLA_Prolog.PROLOG("(query (atom-number " & q & "42" & q & " N) (number? N))")
+    Report "prolog.18: (atom-number " & q & "42" & q & " N) gives the NUMBER 42 - number? holds", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "42"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-number " & q & "0.50" & q & " N))")
+    Report "prolog.18: ...in canonical form - " & q & "0.50" & q & " gives 0.5", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "0.5"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-number " & q & "abc" & q & " N))")
+    Report "prolog.18: text that spells no number FAILS - a correct negative answer, header only", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-number A 7) (atom? A))")
+    Report "prolog.18: run backwards, (atom-number A 7) gives TEXT - atom? holds", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "7"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-number " & q & "3.5" & q & " N) (is M (* N 2)))")
+    Report "prolog.18: the number it gives does arithmetic - 3.5 doubled is 7", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 2, "7"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-number A N))")
+    r = ResultDescribe(result)
+    Report "prolog.18: THE PHANTOM COLUMN - atom-number with both free refuses by name", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "can't run yet", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (atom-number A " & q & "7" & q & "))")
+    r = ResultDescribe(result)
+    Report "prolog.18: a number given as TEXT is refused - a text 7 is not the number 7", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "isn't one", vbTextCompare) > 0, "got: " & r
+
+    ' ---- CASE, which obeys R6 and PROLOG.19 at once ---------------------
+    ' Built with ChrW$ so this module stays ASCII: no codepage decides
+    ' what these tests contain.
+    result = VLA_Prolog.PROLOG("(query (upcase-atom " & q & "hello World" & q & " U))")
+    Report "prolog.18: upcase-atom", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "HELLO WORLD"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (downcase-atom " & q & ChrW$(193) & "RBOL " & ChrW$(209) & "AND" & ChrW$(218) & q & " L))")
+    Report "prolog.18: downcase-atom moves Spanish accents and the n-tilde - not ASCII-only, unlike Fold", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, ChrW$(225) & "rbol " & ChrW$(241) & "and" & ChrW$(250)), _
+           "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (downcase-atom " & q & ChrW$(321) & ChrW$(211) & "D" & ChrW$(377) & q & " L))")
+    Report "prolog.18: ...and Latin Extended-A, a Polish place name", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, ChrW$(322) & ChrW$(243) & "d" & ChrW$(378)), _
+           "got: " & ResultDescribe(result)
+    ' Locale-free: I is i on every machine, including a Turkish one.
+    result = VLA_Prolog.PROLOG("(query (downcase-atom " & q & "INDIGO" & q & " L))")
+    Report "prolog.18: I downcases to the plain i, never the Turkish dotless one - the table follows no locale", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "indigo"), "got: " & ResultDescribe(result)
+    ' The contested characters refuse, in their contested direction only.
+    result = VLA_Prolog.PROLOG("(query (upcase-atom " & q & ChrW$(305) & q & " U))")
+    r = ResultDescribe(result)
+    Report "prolog.18: the dotless i on UPCASE is refused - Unicode and the invariant table disagree, so any answer is a guess", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "U+0131", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (downcase-atom " & q & ChrW$(305) & q & " L))")
+    Report "prolog.18: ...its uncontested direction is fine - it downcases to itself", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, ChrW$(305)), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (upcase-atom " & q & ChrW$(945) & ChrW$(946) & q & " U))")
+    r = ResultDescribe(result)
+    Report "prolog.18: a Greek letter is refused by name, never passed through unchanged", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "U+03B1", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (upcase-atom " & q & "5" & ChrW$(8364) & " abc" & q & " U))")
+    Report "prolog.18: a character with no case - the euro sign - passes through", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "5" & ChrW$(8364) & " ABC"), "got: " & ResultDescribe(result)
+    ' Above U+7FFF AscW comes back negative; a check written against the
+    ' unsigned value would let this full-width letter through.
+    result = VLA_Prolog.PROLOG("(query (upcase-atom " & q & "x" & ChrW$(65345) & q & " U))")
+    r = ResultDescribe(result)
+    Report "prolog.18: a full-width letter (above U+7FFF, negative from AscW) is still refused", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "U+FF41", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (downcase-atom " & q & "ENG" & q & " eng))")
+    Report "prolog.18: (downcase-atom " & q & "ENG" & q & " eng) is TRUE - the bound result is read as text", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (downcase-atom " & q & "ENG" & q & " sales))")
+    Report "prolog.18: ...and against sales is FALSE", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (upcase-atom X " & q & "ABC" & q & "))")
+    r = ResultDescribe(result)
+    Report "prolog.18: THE PHANTOM COLUMN - upcase-atom with its input free refuses by name", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "can't run yet", vbTextCompare) > 0, "got: " & r
+
+    ' ---- ATOMIC-LIST-CONCAT - join, and split -------------------------
+    result = VLA_Prolog.PROLOG("(query (atomic-list-concat P " & q & "," & q & " " & q & "a,b,c" & q & "))")
+    Report "prolog.18: SPLIT a,b,c on the comma - a list of three pieces of text", _
+           ResultCol1Is(result, "(list " & q & "a" & q & " " & q & "b" & q & " " & q & "c" & q & ")"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic-list-concat P " & q & "," & q & " " & q & "a,b,c" & q & ") (length P N))")
+    Report "prolog.18: ...an ordinary list, so length measures it - 3", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 2, "3"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic-list-concat P " & q & ", " & q & " " & q & "red, green" & q & ") (member X P))")
+    Report "prolog.18: ...a two-character separator, and member walking the pieces", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 2, "red") And ResultCellIs(result, 3, 2, "green"), _
+           "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic-list-concat (list a b c) " & q & "-" & q & " X))")
+    Report "prolog.18: JOIN (list a b c) with a hyphen - a-b-c", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "a-b-c"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic-list-concat (list 1 0.50 x) " & q & "/" & q & " X))")
+    Report "prolog.18: ...numbers join by their canonical text - 1/0.5/x", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "1/0.5/x"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic-list-concat (list First Second) " & q & " " & q & " " & q & "Ada Lovelace" & q & "))")
+    Report "prolog.18: a list of free variables destructures a name - First Ada, Second Lovelace", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "Ada") And ResultCellIs(result, 2, 2, "Lovelace"), _
+           "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic-list-concat (list A B) " & q & "," & q & " " & q & "a,b,c" & q & "))")
+    Report "prolog.18: ...two variables against three pieces finds nothing - header only", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic-list-concat (list a Y) " & q & "," & q & " " & q & "a,b" & q & "))")
+    Report "prolog.18: ...a KNOWN bare element is matched by its text, so (list a Y) takes a,b apart - Y is b", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "b"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic-list-concat P " & q & "," & q & " " & q & q & ") (length P N))")
+    Report "prolog.18: splitting empty text gives ONE empty piece, SWI's answer", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 2, "1"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic-list-concat P " & q & q & " " & q & "ab" & q & "))")
+    r = ResultDescribe(result)
+    Report "prolog.18: SPLITTING on an empty separator is refused - there is no one way to cut at every nothing", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "empty separator", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (atomic-list-concat (list a b) " & q & q & " X))")
+    Report "prolog.18: ...while JOINING with one is fine - ab", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "ab"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atomic-list-concat (cons a T) " & q & "," & q & " " & q & "a,b" & q & "))")
+    r = ResultDescribe(result)
+    Report "prolog.18: a PARTIAL list is refused by name, PROLOG.13's rule", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "needs a list", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (atomic-list-concat L S W))")
+    r = ResultDescribe(result)
+    Report "prolog.18: THE PHANTOM COLUMN - atomic-list-concat with nothing bound refuses by name", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "can't run yet", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE LIST GOALS, HANDED TEXT ---------------------------------
+    ' The first thing a user types. It is still refused - text is not a
+    ' list - but the refusal now names the goal they wanted.
+    result = VLA_Prolog.PROLOG("(query (length " & q & "hello" & q & " N))")
+    r = ResultDescribe(result)
+    Report "prolog.18: (length " & q & "hello" & q & " N) is refused, and the refusal names (atom-length ...)", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "(atom-length ...)", vbTextCompare) > 0 _
+           And InStr(1, r, "needs a list", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (append " & q & "ab" & q & " " & q & "c" & q & " X))")
+    r = ResultDescribe(result)
+    Report "prolog.18: (append " & q & "ab" & q & " " & q & "c" & q & " X) names (atom-concat ...)", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "(atom-concat ...)", vbTextCompare) > 0, "got: " & r
+    ' The twin: a NUMBER is not text, so it keeps the plain list refusal.
+    result = VLA_Prolog.PROLOG("(query (length 42 N))")
+    r = ResultDescribe(result)
+    Report "prolog.18: ...but (length 42 N) - a number, not text - keeps the plain refusal and names no text goal", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "needs a list", vbTextCompare) > 0 _
+           And InStr(1, r, "atom-length", vbTextCompare) = 0, "got: " & r
 End Sub
 
 Private Sub TestPrologKeyedAtoms()

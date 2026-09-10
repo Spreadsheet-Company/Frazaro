@@ -499,7 +499,25 @@ Private Sub AddEntries(ByVal m As Collection)
     ' message that still enumerated only four would be quietly wrong about
     ' which names it had just refused, which is the same class of
     ' confidently-wrong answer the {form} rewrite above exists to remove.
-    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between/list/or/if, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, the ten type tests var? nonvar? atom? number? atomic? compound? callable? is-list? ground? whole?, the six list goals length member nth append reverse sum-list, the nine ISO spellings var nonvar atom number atomic compound callable is_list ground - reserved only so PROLOG can point you at the question-mark form instead of failing silently - the four number-type names integer? float? integer float, reserved now but refused until PROLOG tells one kind of number from another, the three alias spellings is-list is_list? sum_list, reserved only so PROLOG can point you at the spelling it does use, and the two control spellings -> \+, reserved the same way so PROLOG can point you at the word it writes instead) and can't be used as a predicate name in a (fact ...) or (rule ...)."
+    ' PROLOG.18 adds the seven text goals and eight alias spellings, and
+    ' corrects the number-type clause, which still said those names were
+    ' "refused until PROLOG tells one kind of number from another" after
+    ' PROLOG.17 had settled that it never will.
+    ' WRITTEN ACROSS CONTINUATION LINES, and it has to be: the VBA editor
+    ' holds a physical line to 1023 characters and splits a longer one on
+    ' import into a syntax error that stops the whole project compiling.
+    ' This entry was 1004 characters at v0.5.5 and PROLOG.18 took it to
+    ' 1196; the owner's compile caught it. One clause per line, so the next
+    ' item that adds a family adds a line. check_prolog_reserved_names.ps1
+    ' joins the pieces before reading them, and its rule F holds every line
+    ' of this file to the limit.
+    AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between/list/or/if, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, " & _
+        "the ten type tests var? nonvar? atom? number? atomic? compound? callable? is-list? ground? whole?, the six list goals length member nth append reverse sum-list, " & _
+        "the seven text goals atom-length atom-concat sub-atom atom-number upcase-atom downcase-atom atomic-list-concat, " & _
+        "the nine ISO spellings var nonvar atom number atomic compound callable is_list ground - reserved only so PROLOG can point you at the question-mark form instead of failing silently - " & _
+        "the four number-type names integer? float? integer float, reserved and refused because PROLOG has one kind of number, " & _
+        "the eleven alias spellings is-list is_list? sum_list whole atom_length atom_concat sub_atom atom_number upcase_atom downcase_atom atomic_list_concat, reserved only so PROLOG can point you at the spelling it does use, " & _
+        "and the two control spellings -> \+, reserved the same way so PROLOG can point you at the word it writes instead) and can't be used as a predicate name in a (fact ...) or (rule ...)."
     ' `prolog-cut-not-yet-supported` (PROLOG.5.1-5.3-era: "cut (!) isn't
     ' supported yet.") is retired at PROLOG.5.4 - cut is real now, no
     ' code path can raise it anymore, and this project's own precedent
@@ -701,6 +719,28 @@ Private Sub AddEntries(ByVal m As Collection)
     ' so it can spell that form in its own text without ever being wrong.
     AddMsg m, "prolog-list-is-not-a-goal", 5, "VLA-Prolog", "(list ...) builds a list, it is not something PROLOG can prove - so it belongs in an argument, not where a goal goes. To ask something ABOUT a list, use a list goal: (member X L), (length L N), (nth N L X), (append A B C), (reverse L R) or (sum-list L N)."
     AddMsg m, "prolog-list-not-a-list", 5, "VLA-Prolog", "{form} needs a list, but found '{value}'. A list is built with cons and ends in nil - (cons a (cons b nil)) is the list a, b - and the empty list is written nil. A findall bag is already one."
+    ' PROLOG.18 - the seven text goals, and the list refusal that points a
+    ' user holding a piece of text at the goal they wanted. Every {form}-
+    ' templated id here serves more than one goal from one raise site, so
+    ' each names its form through the slot and never in its own text -
+    ' all eight are registered in tools/check_prolog_form_attribution.ps1,
+    ' where they were added before the code that raises them and failed
+    ' until it existed. None carries a count of its own ("the seven text
+    ' goals" lives only in prolog-reserved-predicate-name, where rule B of
+    ' check_prolog_reserved_names.ps1 holds it to the table): a bare count
+    ' anywhere else goes stale with nothing to catch it, PROLOG.15's
+    ' finding. prolog-list-given-text keeps both phrases of
+    ' prolog-list-not-a-list's own text, so a test written against that
+    ' refusal still reads true of this one.
+    AddMsg m, "prolog-list-given-text", 5, "VLA-Prolog", "{form} needs a list, but found the text '{value}' - for text, {fixed} is the goal that does this job. A list is built with cons and ends in nil - (cons a (cons b nil)) is the list a, b."
+    AddMsg m, "prolog-text-bad-shape", 5, "VLA-Prolog", "{form} needs exactly {count} arguments. The text goals are (atom-length Text N), (atom-concat A B Whole), (sub-atom Text Before Length After Part), (atom-number Text N), (upcase-atom Text Upper), (downcase-atom Text Lower) and (atomic-list-concat Parts Separator Whole)."
+    AddMsg m, "prolog-text-unbound", 5, "VLA-Prolog", "{form} can't run yet - {need}, and {var} is still unbound. Bind it first, from a table or an earlier goal in the query."
+    AddMsg m, "prolog-text-not-text", 5, "VLA-Prolog", "{form} works on text - a quoted string, a name or a number - but found '{value}', which is a compound term."
+    AddMsg m, "prolog-text-not-a-number", 5, "VLA-Prolog", "{form} expected a number there but found '{value}', which isn't one - note that a text cell reading 5 is not the number 5."
+    AddMsg m, "prolog-text-too-many-ways", 5, "VLA-Prolog", "{form} would have to try {count} ways of taking apart a text {length} characters long, and a whole query gets {max} resolution steps - bind more of its arguments so it has fewer ways to try."
+    AddMsg m, "prolog-text-outside-bmp", 5, "VLA-Prolog", "{form} counts characters, and '{value}' holds one that Excel stores as two - an emoji, or a letter from a rarely used script. Excel's LEN counts it as 2 and Prolog counts it as 1, so PROLOG refuses rather than guess which you meant."
+    AddMsg m, "prolog-text-case-unsupported", 5, "VLA-Prolog", "{form} changes the case of Latin letters - A to Z and the accented letters of Western and Central European languages - but will not guess at '{char}' (U+{code}): either its script's case rules are not carried here, or, like the Turkish dotless i, its case depends on the language it is written in."
+    AddMsg m, "prolog-text-empty-separator", 5, "VLA-Prolog", "(atomic-list-concat ...) can't split text on an empty separator - there is no one way to cut text at every nothing. Give it a separator, such as a comma; joining with an empty separator is fine."
     AddMsg m, "prolog-between-bad-shape", 5, "VLA-Prolog", "(between ...) needs exactly three arguments - a low bound, a high bound, and the value to generate or test, like (between 1 10 X)."
     ' Raised for a bound OR for a bound third argument, since the answer
     ' is the same in both cases and so is the fix: between counts, and a

@@ -13922,7 +13922,262 @@ now carries one summary paragraph per engine and points here.*
     property of the C runtime's `pow`, not of this engine, and nothing
     here can run VBA to find out.
     `~week`.
-  - ⬜ **PROLOG.18 — ATOM AND TEXT builtins.** `atom_length`,
+  - ✅ **PROLOG.18 — ATOM AND TEXT builtins.** SHIPPED 2026-09-10;
+    owner-verified live (`TestDSLs` 932/932, all 22 in-cell steps, and the
+    `Str$` measurement below). Seven goals, one new delegated table
+    `TextGoalKindFor` (the NINTH), one dispatch arm, one router:
+    `(atom-length Text N)`, `(atom-concat A B Whole)`, `(sub-atom Text
+    Before Length After Part)`, `(atom-number Text N)`, `(upcase-atom Text
+    U)`, `(downcase-atom Text L)`, `(atomic-list-concat Parts Sep Whole)`.
+    Nothing outside `VLA_Prolog`, `VLA_Messages` and `VLA_Tests_Query` is
+    touched, plus two check scripts. `TestDSLs` 841 → **932** predicted,
+    counted mechanically (91 new assertions in `TestPrologText` and
+    `TestPrologTextParts`, no loops, **none re-pointed**). Pure 1047, host
+    143 and `VerifyReports` 141 + 141 are unmoved **by this item's diff**:
+    only `VLA_Tests_Query` calls `VLA_Prolog`, and `VLA_Messages` — the one
+    edited module every suite loads — gained entries with no duplicate id
+    (checked mechanically over all 440). **All 18 `tools/check_*.ps1` green
+    on HEAD plus this item alone**, run in an isolated `git archive` copy
+    because the shared tree was not this item's alone (below).
+
+    **A CONCURRENT SESSION, FOUND MID-ITEM.** The tree was clean at
+    pre-flight; partway through, ten files this item never touched were
+    modified — `G-FORMAT` slice 1 (`english.vla`, `VLA_Interpreter`,
+    `VLA_Tests`, `VLA_Tests_Host`, both roadmaps, `GRAMMAR_SINCE.md`,
+    `TESTING.md`, `THREAT_MODEL.md`, `instructions.txt`), live in four peer
+    sessions on the same working copy. Consequences recorded rather than
+    discovered later: in the shared tree `check_rule_coverage` and
+    `check_grammar_since` go red on that session's `english.vla` edit (its
+    expanded vocabulary needs re-exporting), not on this item; any live run
+    of the shared tree will MOVE pure/host/`VerifyReports` because of that
+    session's new tests; and both roadmaps now hold both items' hunks, so a
+    pathspec-scoped commit of either roadmap would carry the other's.
+    Nothing of that session's was touched, stashed or reverted.
+
+    **THE ENTRY WAS WRONG TWICE, and the brief once.** (i) Its "open
+    sub-question" is stale: `PROLOG.10` answered it — a text 42 and a
+    numeric 42 are not the same term — so `atom-number` is decided here as
+    a CONVERSION that crosses that line on purpose. (ii) "Cannot currently
+    take one apart … inside PROLOG" undersold what shipped: `EvalArithTerm`
+    strips the marker, so `(is N "42")` already converted text to a number,
+    and `atom-number` had to agree with it about what a number looks like —
+    both now ask `IsInvariantNumericString`. The brief's own three
+    measurement cells contained a result-shape slip: its third,
+    `(query (sum-list …) (is T …) (== S T))`, has free variables, so it
+    SPILLS S and T (or a header only) rather than reading TRUE. The
+    handoff corrects it.
+
+    **THE NAMES: ISO's and SWI's own, hyphenated.** The rule `PROLOG.13`
+    (`sum_list` → `sum-list`) and `PROLOG.15` (`is_list` → `is-list?`)
+    already follow, and the one a Prolog author can predict. None asks a
+    yes/no question, so none carries a `?`. `split` is SWI's
+    `atomic_list_concat/3` run the other way; SWI's `split_string/4`
+    belongs to its separate STRING type, which this engine does not import.
+    The brief named the collision this creates: rule 1 of the alias
+    derivation turns `atom-length` into `atom_length`, which IS the ISO
+    name, so one word answers to both "near-miss" and "ISO spelling".
+    `AliasSpellingFor` owns all seven, on `sum_list`'s precedent (SWI's own
+    name, already there): the fix is purely the hyphen, which is what that
+    table's message says. `TypeTestIsoSpellingFor` exists only because a
+    type test's fix is more than the spelling rule.
+
+    **THE MARKING DECISION, and the three it beat.** A text goal RELATES
+    TEXT: every bound argument is read as its text (marker off, a bare name
+    as itself, a number as its canonical rendering) and every argument it
+    fills in receives MARKED text — what a text cell becomes. So
+    `(atom-concat ab c abc)` is TRUE, and `(atom-concat ab c X) (== X abc)`
+    REFUSES through `PROLOG.10`'s own message, since X is text and abc a
+    name. Each rejected policy is pinned by a test it fails, and each is a
+    mutation in the transliteration that turns it red:
+      - *mirror the inputs* — `(upcase-atom bob U)` would give a bare BOB,
+        which `IsVarAtom` reads as a VARIABLE, and `(atom-concat 4 2 X)`
+        the NUMBER 42 where ISO gives text;
+      - *mark only when a bare atom would be misread* — `PROLOG.10`'s
+        option C for results, rejected on that item's own ground: whether a
+        later goal matches a hand-written fact would depend on the
+        characters of the answer;
+      - *compare a bound result by unification* — `(atom-concat ab c abc)`
+        would fail while the relation plainly holds. Reading bound
+        arguments as text is what keeps every mode the same relation,
+        `between`'s rule (`PROLOG.9`).
+    A bound NUMBER position (a count, a position) given text is refused by
+    name, `between`'s rule again.
+
+    **(ii), MEASURED WHERE IT COULD BE, AND MADE INDEPENDENT OF WHAT COULD
+    NOT.** Three number-to-text sites, never compared on a fraction: `is`
+    wrote `CStr` (locale-following — "0,5" on a comma-decimal Windows,
+    which `IsInvariantNumericString` then rejects), `NumberToTerm` and
+    `TableCellToTerm` wrote `Trim$(Str$(…))` (invariant, but `Str$(0.5)` is
+    suspected to be " .5" — so a 0.5 cell became ".5" and never matched a
+    typed 0.5: `(sum-list (list 0.25 0.25) 0.5)` answering FALSE). The
+    `Str$` half is the one thing nothing here can run, so the fix was made
+    NOT to depend on it: `NumberToTerm` keeps `Str$` and restores a
+    missing leading zero, and the transliteration shows it produces the
+    same text under BOTH readings of `Str$`, and equals en-US `CStr` on
+    every probe value — which is why the suite's fractional pins (all
+    through `is`) do not move. `is` and `TableCellToTerm` now call it; it is
+    the only `Str$` site left. **MEASURED by the owner, in the Immediate
+    window:** `Str$(0.5)` is `[ .5]` and `CStr(0.5)` is `[0.5]` — the
+    leading zero really was dropped, so the defect was real and shipped,
+    and `RELEASES.md` says so. Noticed, not fixed, recorded: both formats switch
+    to E-notation (`1E+15`), which `IsInvariantNumericString` rejects, so a
+    very large computed number is not a number to the next goal — its own
+    item, to measure first.
+
+    **CASE: R6 AND `PROLOG.19` AT ONCE.** `UCase$`/`LCase$` follow the
+    machine's locale (R6's own reason, and the brief's 33 sites across 9
+    modules — the count survived; a first grep here said zero, on a broken
+    escape, and was caught); `Fold` is invariant but A–Z only, confidently
+    wrong on Spanish. So `CaseMapCodeUnit` is an explicit table over Basic
+    Latin, Latin-1 and Latin Extended-A, **checked on every BMP code unit
+    against .NET's invariant simple mapping** — every mapping agrees and
+    nothing cased leaks through unchanged. The refused ranges beyond were
+    DERIVED from that oracle (every cased code unit above U+017F, gap-merged,
+    the full-width block split so its punctuation is not swept in), not
+    recalled. **A finding the oracle forced:** on exactly four characters
+    Unicode's own mapping and the invariant table disagree — µ up, İ down,
+    ı up, ſ up — two of them the Turkish case R6 exists for. Where two
+    references disagree this project refuses rather than guesses, so those
+    four refuse in their contested direction only, and the contested set is
+    COMPUTED by the harness. No new `UCase$`/`LCase$` site. The interpreter's
+    existing user-facing `ucase`/`lcase` builtins (`VLA_Interpreter`) still
+    use the locale-following functions — a pre-existing R6 exposure,
+    recorded here and not widened.
+
+    **EMOJI.** A character outside the BMP is two UTF-16 units; Excel's
+    `LEN` says 2 and Prolog says 1. The goals that count or cut refuse such
+    text rather than pick; the others pass it through. `AscW` returns a
+    SIGNED Integer, so every code unit from U+8000 up is negative and a
+    range test against the unsigned value silently never fires — normalised
+    in both places, each proved by mutation.
+
+    **THE BUDGET (vi), CONFIRMED AND ANSWERED.** `sub-atom` with only its
+    text bound is (n+1)(n+2)/2 pieces — 105 at 13, 120 at 14. Both
+    generators count candidates BEFORE producing one and refuse by name past
+    `PROLOG_MAX_STEPS - 1` (`between`'s rule and off-by-one), both edges
+    pinned (118/119 characters for `atom-concat`, 13/14 for `sub-atom`).
+    Every deterministic mode — a known prefix or suffix, a bound position,
+    a bound piece — is answered directly and never counted.
+
+    **THE PHANTOM COLUMN, closed by refusal**, `PROLOG.13`'s way: text
+    goals bind, so `CollectVars`' default descend is right and they get no
+    arm; each goal refuses by name when its needed input is free. Proved by
+    mutation — with the refusal removed the transliteration spills exactly
+    the phantom `X`. Every such test asserts through `ResultTextStartsWith`
+    and `ResultDescribe`, never `CStr(PROLOG(…))`, because a phantom's
+    failure mode is a SPILL, and `CStr` of a spill kills the run
+    (`PROLOG.17`'s incident).
+
+    **(iii) CLOSED MECHANICALLY: rule E.** `AliasSpellingFor`'s header
+    called its class "closed and countable"; it was derived once, by hand,
+    at 44 names. Rule E of `tools/check_prolog_reserved_names.ps1` now
+    derives it on every run (rule 1 for word-shaped names only, so `->`
+    gives no `_>`) and fails on any derived spelling left unreserved. Run
+    RED on `whole` before `whole` was added. Three mutations: lifting the
+    word-shaped restriction reports `_>` and nothing else; starving the
+    derivation trips its floor; and removing its COMPOSE step came back
+    **GREEN** — correctly, since a composed spelling is only reachable
+    through a first-order one the rule already requires reserved, so the
+    step can never change the verdict. It was REMOVED, not kept as a guard.
+
+    **`(length "hello" N)`** — the first thing a user types — now names
+    atom-length (`prolog-list-given-text`), and `append` handed text names
+    atom-concat. The new text keeps both of `prolog-list-not-a-list`'s own
+    phrases, so `PROLOG.13`'s pin on `(length foo N)` — whose argument this
+    item reclassifies as text — still reads true of the message it now
+    gets. Noted as the input-meaning class `PROLOG.17` named: the pin's
+    INPUT now takes a different refusal, and it survives only because the
+    new text was written to keep its phrases.
+
+    **METHOD.** Transliterated before a line reached VBA: 105 cases, run
+    under both readings of `Str$`, with a CONTROL reproducing shipped
+    behaviour first. The harness hit the brief's own traps for real and
+    each was fixed before any verdict was trusted: `@((G …))` flattened a
+    one-goal list; PowerShell's case-insensitive variables let a loop index
+    `$k` overwrite the continuation `$K`; and `-eq` on a result ARRAY
+    filtered instead of comparing, so a failing mutant killed the run
+    rather than reporting — `PROLOG.20`'s class, met again in a harness.
+    **23 mutations, all RED.** Three came back GREEN first, and each proved
+    a guard that matters only on LONG text, where getting it wrong turns a
+    right answer into a false too-many-ways refusal: narrowing occurrences
+    by a bound position before counting, the fractional-position guard,
+    and the prefix/suffix modes. The long-text tests that make them red are
+    in the suite. A structural balance scanner and a duplicate-`Dim` scanner
+    ran clean over all three modules (105/6/52 procedures), proved to bite
+    by an injected deleted `End If`, `Next`, `End Select` and duplicated
+    `Dim`, and proved NOT to false-positive on colon-packed `For…Next`,
+    `Dim t1 As Collection: Set t1 = f(a, b, c)`, one-line `If`, colon-`Case`
+    and strings holding `:`, `'` and "End If". Also mechanical: every
+    `RaiseMsg` supplies its template's slots (116 of 116 — a first version
+    split values at inner commas and flagged SHIPPED code, which is how its
+    bug showed); every kind is routed; no undeclared variable (125
+    assignments); all 91 new PROLOG program strings paren-balanced; exposure
+    of all fourteen chosen spellings in the suite's 788 program literals:
+    zero.
+
+    **THE FIRST IMPORT FAILED TO COMPILE, and no scan here could have
+    seen why.** `prolog-reserved-predicate-name` was one source line of
+    1004 characters at `v0.5.5`; this item's fifteen names took it to
+    **1196**, and the VBA editor holds a physical line to **1023** — it
+    split the line on import, mid-word ("the tw|o control spellings"),
+    into a syntax error that stops the WHOLE project compiling, every
+    suite and not just PROLOG's. Every scanner above checked structure,
+    declarations and slots; none checked line length. Fixed by writing the
+    statement across `_` continuation lines, one clause each, joining to a
+    byte-identical 1129-character template, so neither the runtime message
+    nor any assertion moved. Mechanized as **rule F** of
+    `check_prolog_reserved_names.ps1` — every physical line of
+    `VLA_Messages.bas` held to 1023, longest reported (548 after the fix)
+    — run RED on the 1196-character line first. The same script now joins
+    continuation lines before reading the catalogue; deleting that join
+    makes the refusal "not defined" (red), and deleting its `" & "` seam
+    removal came back GREEN on the shipped text, so it was proved on a
+    synthetic split instead: a wrong count word split from its noun
+    (`"the eight " & _ "text goals"`) is caught with it and passes blind
+    without it.
+
+    **SECOND LIVE PASS: `TestDSLs` 931/932, and the one failure was the
+    TEST.** `(query (atom-concat ab c X) (== X "abc"))` has a free
+    variable that atom-concat binds, so it SPILLS X = abc — the engine was
+    right, and the assertion was `ResultBoolIs`, the result-shape trap the
+    item's own brief named. The transliteration missed it because its
+    output columns were handed to it per case rather than derived the way
+    `CollectVars` derives them. Re-pointed to assert the spill (it still
+    fails under both rejected marking policies, where `(== abc "abc")`
+    refuses), and a scan that evaluates each test's program text and lists
+    query variables beside every `ResultBoolIs` now finds none of the ten
+    remaining. Pure 1061/1061 and host 143/143 on that pass — pure's +14 is
+    the concurrent `G-FORMAT` session's tests, not this item's.
+
+    **THIRD LIVE PASS, owner-run: `TestDSLs` 932/932 — the predicted count
+    exactly** — with pure 1061/1061, host 143/143 and `VerifyReports`
+    177/177 + 177/177 (the moves above 1047 and 141 are `G-FORMAT`'s, not
+    this item's; its diff touches neither suite). **All 22 in-cell steps
+    answered correctly**, the three decisive ones included: (1)
+    `(sum-list (list 0.25 0.25) 0.5)` TRUE, (4) the marked result, (14)
+    `(downcase-atom "ÁRBOL Ñandú" L)` → `árbol ñandú`, and (22) a Table cell
+    holding 0.5 matching a typed `0.5`. Two steps read differently from the
+    handoff, and both were the HANDOFF's error: (4) spilled X = abc rather
+    than reading TRUE — the same result-shape slip as the test above,
+    copied into the table; and (15) spilled `Aß` rather than refusing,
+    because the text typed was not Greek — the first character mapped to
+    `A`, so it was Latin `a`, and the unchanged second was the German `ß`
+    (U+00DF, the Alt+225 lookalike of beta), which has no single-character
+    capital. The engine answered that input correctly; real Greek's
+    refusal is pinned in `TestDSLs` from code points and passed. The
+    pre-import `Str$` measurement was skipped in the debugging and taken
+    afterwards in the Immediate window instead, which is sound because it
+    is a fact about VBA rather than about this build: `[ .5]` beside
+    `[0.5]`, confirming the defect.
+
+    *Named follow-ups:* SWI's `string_*` names (`string_length`,
+    `string_concat`, `split_string`, …) as refusals pointing at the atom
+    goals — a separate class, derived from the shipped seven rather than
+    listed, and deliberately not folded in; E-notation numbers not
+    re-reading as numbers (above); the interpreter's locale-following
+    `ucase`/`lcase` against R6.
+
+    *Original entry, for the record:* `atom_length`,
     `atom_concat`, `sub_atom`, `atom_number`, `upcase`/`downcase`,
     `split`. A spreadsheet language whose whole subject is cell values
     cannot currently take one apart or put two together inside PROLOG — a

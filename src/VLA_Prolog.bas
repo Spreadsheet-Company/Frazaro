@@ -1,6 +1,99 @@
 Attribute VB_Name = "VLA_Prolog"
 Option Explicit
-Public Const VLA_PROLOG_VERSION As String = "PROLOG.15"
+Public Const VLA_PROLOG_VERSION As String = "PROLOG.18"
+'
+' PROLOG.18: TEXT. A spreadsheet language whose whole subject is cell
+' values could not, inside PROLOG, take one apart or put two together.
+' Seven goals, one delegated table (TextGoalKindFor), one dispatch arm:
+'
+'   (atom-length Text N)                          count the characters
+'   (atom-concat A B Whole)                       join, or take apart
+'   (sub-atom Text Before Length After Part)      any piece, by position
+'   (atom-number Text N)                          text <-> number
+'   (upcase-atom Text Upper) (downcase-atom ...)  case
+'   (atomic-list-concat Parts Separator Whole)    join a list, or split
+'
+' THE NAMES are ISO's and SWI's own, with this engine's hyphen for their
+' underscore - the rule PROLOG.13 (sum_list -> sum-list) and PROLOG.15
+' (is_list -> is-list?) already follow, and the one a Prolog author can
+' predict. None of the seven asks a yes/no question, so none takes a
+' question mark (PROLOG.9's rule). `split` is SWI's atomic_list_concat/3
+' run the other way; SWI's split_string/4 belongs to its separate STRING
+' type, which this engine does not have and does not import. The
+' underscore spellings are reserved in AliasSpellingFor, the table that
+' already owns sum_list, because for these seven the ISO spelling and
+' the derived near-miss are the same word and that table's message is
+' exactly true of them.
+'
+' THE MARKING DECISION - the one this item turns on. A text goal RELATES
+' TEXT: every argument it is handed bound is read as its text (a quoted
+' string without its marker, a bare name as itself, a number as its
+' canonical rendering), and every argument it FILLS IN receives marked
+' text - `"abc`, exactly what a text cell becomes (TableCellToTerm).
+' So `(atom-concat ab c abc)` is TRUE, and `(atom-concat ab c X)
+' (== X abc)` REFUSES through PROLOG.10's own quoted-versus-bare message,
+' because X is text and abc is a name. Three alternatives were weighed
+' and each is pinned by a test it fails:
+'   - MIRROR THE INPUTS (bare in, bare out). `(upcase-atom bob U)` would
+'     produce a bare BOB, which IsVarAtom reads as a VARIABLE, and
+'     `(atom-concat 4 2 X)` would produce the NUMBER 42 where ISO
+'     produces text. Both wrong, both silent.
+'   - MARK ONLY WHEN A BARE ATOM WOULD BE MISREAD. PROLOG.10's option C
+'     for results, and rejected on PROLOG.10's own ground: whether a
+'     later goal matches a hand-written fact would depend on the
+'     characters of the answer, which no one can learn.
+'   - COMPARE A BOUND RESULT BY UNIFICATION, marker included. Then
+'     `(atom-concat ab c abc)` would refuse or fail while the relation
+'     plainly holds. Reading bound arguments as TEXT is what keeps every
+'     mode the same relation - between's own rule (PROLOG.9).
+'
+' NUMBERS BECOME TEXT IN ONE PLACE, and that place was not one before.
+' `is` wrote CStr(value) - locale-following, so "0,5" on a comma-decimal
+' Windows, which then fails every numeric test downstream. NumberToTerm
+' and TableCellToTerm wrote Trim$(Str$(value)) - invariant, but Str$
+' drops the leading zero of a fraction, so a table cell holding 0.5
+' became ".5" and never matched a 0.5 written in a query. Now all three
+' go through NumberToTerm, which keeps Str$'s invariance and restores the
+' zero. Measured rather than assumed: the canonical form equals en-US
+' CStr on every probe value, so the suite's own fractional pins (0.5,
+' 2.5, 3.5, all through `is`) do not move.
+'
+' CASE MAPPING OBEYS R6 AND PROLOG.19 AT ONCE. VBA's UCase$/LCase$ follow
+' the machine's locale (VLA_Identity's header: the Turkish dotless i), so
+' a cell's value would depend on whose PC computed it. VLA_Identity.Fold
+' is invariant but moves A-Z only, which is confidently wrong on the
+' Spanish text this product ships for. CaseMapCodeUnit is a third thing:
+' an explicit table over Basic Latin, Latin-1 and Latin Extended-A,
+' checked code point by code point against .NET's invariant mapping
+' before import. Letters of every other cased script are REFUSED by
+' name; caseless characters (digits, the euro sign, CJK) pass through.
+' FOUR characters are refused even inside those blocks, each in one
+' direction only: micro sign up, dotted capital I down, dotless small i
+' up, long s up - exactly where Unicode's own mapping and the invariant
+' table disagree, and so exactly where any answer would be a guess.
+'
+' A CHARACTER OUTSIDE THE BASIC MULTILINGUAL PLANE (an emoji) is stored
+' as two UTF-16 units. Excel's LEN counts it as 2 and Prolog as 1, so
+' the goals that COUNT or CUT at a position (atom-length, sub-atom,
+' atom-concat's generating mode) refuse such text rather than pick.
+'
+' TWO GENERATORS AND THE BUDGET. sub-atom with nothing but its text bound
+' enumerates (n+1)(n+2)/2 pieces - 105 at 13 characters, 120 at 14, all
+' of PROLOG_MAX_STEPS. So both generators count their candidates BEFORE
+' producing one and refuse by name past PROLOG_MAX_STEPS - 1, between's
+' own rule and its own off-by-one (the dispatch has already charged a
+' step). Every deterministic mode - a known prefix, a known piece, a
+' known position - is answered directly and never counted.
+'
+' THE PHANTOM COLUMN IS CLOSED BY REFUSAL, PROLOG.13's way. Text goals
+' BIND, so CollectVars' default descend is right and they get no skip;
+' what keeps `(atom-length X N)` from spilling a column headed X holding
+' "X" is that every goal refuses by name when the input it needs is free.
+'
+' Also here: `whole` joins AliasSpellingFor (rule E of
+' tools/check_prolog_reserved_names.ps1 now derives that class and found
+' it missing), and `(length "hello" N)` - the first thing a user types -
+' now names atom-length in its refusal instead of only teaching cons.
 '
 ' PROLOG.15: the REST of the ISO type-test family. PROLOG.9 shipped six
 ' of eleven; this finishes the set, and the finishing turns out to be
@@ -1648,6 +1741,17 @@ Private Sub CollectVars(ByVal term As Variant, freeVarNames As Collection, ByVal
         ' check, which skips only on `findall`. None of the five names
         ' matches, so all five fall through to the default descend as
         ' intended - checked against those arms rather than assumed.
+        '
+        ' PROLOG.18: the SEVEN TEXT GOALS get no arm either, on the list
+        ' goals' own reasoning: every one of them binds, so the default
+        ' descend is right, and the phantom column is closed by refusal -
+        ' each goal refuses by name when the input it needs is still free,
+        ' so `(query (atom-length X N))` stops rather than spilling X as
+        ' "X". Proved by mutation before import: with that refusal removed
+        ' the transliteration spills exactly that phantom. Checked against
+        ' the shape-keyed skips too: atom-length, atom-number and the two
+        ' case goals are 3 long (no UnificationOpFor name), atom-concat and
+        ' atomic-list-concat 4 long (not findall), sub-atom 6 long.
         If lst.Count = 4 Then
             If Not IsObject(lst.Item(1)) Then
                 If VLA_Identity.Fold(CStr(lst.Item(1))) = "findall" Then
@@ -2024,7 +2128,12 @@ Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
         ' honest rather than an exemption from rule C. The same
         ' non-short-circuit note applies unchanged, all eight being pure
         ' lookups over frozen Select Cases.
-        IsReservedPredicateName = (ComparisonOpFor(predName) <> "" Or UnificationOpFor(predName) <> "" Or TypeTestKindFor(predName) <> "" Or TypeTestIsoSpellingFor(predName) <> "" Or ListGoalKindFor(predName) <> "" Or TypeTestDeferredFor(predName) <> "" Or AliasSpellingFor(predName) <> "" Or ControlIsoSpellingFor(predName) <> "")
+        '
+        ' PROLOG.18: a NINTH, TextGoalKindFor - the seven text goals, which
+        ' solve, on exactly the terms ListGoalKindFor's six do. Their
+        ' underscore spellings join AliasSpellingFor rather than a table of
+        ' their own; see that function's header for why.
+        IsReservedPredicateName = (ComparisonOpFor(predName) <> "" Or UnificationOpFor(predName) <> "" Or TypeTestKindFor(predName) <> "" Or TypeTestIsoSpellingFor(predName) <> "" Or ListGoalKindFor(predName) <> "" Or TypeTestDeferredFor(predName) <> "" Or AliasSpellingFor(predName) <> "" Or ControlIsoSpellingFor(predName) <> "" Or TextGoalKindFor(predName) <> "")
     End Select
 End Function
 
@@ -2300,7 +2409,8 @@ End Function
 
 ' PROLOG.15's alias follow-up: a NEAR-MISS spelling of a name that really
 ' exists -> the spelling this engine uses, or "" if predName is not one.
-' A SEVENTH delegated table, taking the reserved set to 47.
+' A SEVENTH delegated table, taking the reserved set to 47 (PROLOG.18
+' adds eight more names here; see the note at the foot of this header).
 '
 ' THE CLASS IS DERIVED, NOT LISTED, and that is what makes this table
 ' shippable where PROLOG.15 refused it. That item declined to reserve
@@ -2337,10 +2447,39 @@ End Function
 ' one-based `nth`, but `nth0` is a DIFFERENT PREDICATE - zero-based - so
 ' pointing it at `nth` would be a confidently wrong answer, exactly what
 ' this family exists to prevent. Filed rather than folded in.
+'
+' PROLOG.18: "CLOSED AND COUNTABLE" WAS TRUE OF THE RULE AND NOT OF THIS
+' TABLE. The derivation above was done once, by hand, at 44 names, and
+' nothing re-ran it: by 52 it had missed `whole` (from PROLOG.17's
+' `whole?`, a silent unknown predicate until now) and would have produced
+' `_>` from PROLOG.14's `->` had anyone run it - an artifact, since the
+' rule is about joining the WORDS of a name and an operator has none.
+' tools/check_prolog_reserved_names.ps1's rule E now derives the class
+' from the reserved set on every run, applying rule 1 to word-shaped
+' names only, and fails on any derived spelling left unreserved. It ran
+' RED on `whole` before `whole` was added here.
+'
+' THE SEVEN TEXT GOALS' UNDERSCORE SPELLINGS LIVE HERE TOO, and this is
+' the one place the two rules could have collided. For these seven the
+' spelling rule 1 derives IS the ISO/SWI name a Prolog author types -
+' `atom-length` derives `atom_length`, which is ISO's own - so one name
+' answers to both "near-miss" and "ISO spelling". This table owns it, on
+' `sum_list`'s precedent (SWI's own name, and already here): the fix is
+' purely the hyphen, which is what this table's message says. A separate
+' ISO table exists for the type tests only because their fix is more
+' than the spelling rule - it is the question mark.
 Private Function AliasSpellingFor(ByVal predName As String) As String
     Select Case predName
-    Case "is-list", "is_list?": AliasSpellingFor = "is-list?"
-    Case "sum_list":            AliasSpellingFor = "sum-list"
+    Case "is-list", "is_list?":   AliasSpellingFor = "is-list?"
+    Case "sum_list":              AliasSpellingFor = "sum-list"
+    Case "whole":                 AliasSpellingFor = "whole?"
+    Case "atom_length":           AliasSpellingFor = "atom-length"
+    Case "atom_concat":           AliasSpellingFor = "atom-concat"
+    Case "sub_atom":              AliasSpellingFor = "sub-atom"
+    Case "atom_number":           AliasSpellingFor = "atom-number"
+    Case "upcase_atom":           AliasSpellingFor = "upcase-atom"
+    Case "downcase_atom":         AliasSpellingFor = "downcase-atom"
+    Case "atomic_list_concat":    AliasSpellingFor = "atomic-list-concat"
     End Select
 End Function
 
@@ -2444,6 +2583,46 @@ Private Function ListGoalArity(ByVal kind As String) As Long
     End Select
 End Function
 
+' PROLOG.18: a text goal's own predicate name -> the kind of operation it
+' performs, or "" if predName is not one of the seven. The single-source
+' shape every table above established, for the identical reason:
+' IsReservedPredicateName, ValidateBodyItem, DesugarBodyItem and
+' SolveGoalList's own dispatch all ask this function rather than
+' repeating the list. A NINTH delegated table.
+'
+' The names are ISO's and SWI's, with this engine's hyphen for their
+' underscore - see this module's own PROLOG.18 header for why, and why
+' `split` is spelled atomic-list-concat. None asks a yes/no question, so
+' none carries a question mark (PROLOG.9's rule).
+'
+' tools/check_prolog_reserved_names.ps1 reads this table's own Case arms
+' to count the set it must find advertised, and its rule B holds the
+' phrase "the seven text goals" in prolog-reserved-predicate-name's text
+' to this table's real size.
+Private Function TextGoalKindFor(ByVal predName As String) As String
+    Select Case predName
+    Case "atom-length":           TextGoalKindFor = "length"
+    Case "atom-concat":           TextGoalKindFor = "concat"
+    Case "sub-atom":              TextGoalKindFor = "sub"
+    Case "atom-number":           TextGoalKindFor = "number"
+    Case "upcase-atom":           TextGoalKindFor = "upcase"
+    Case "downcase-atom":         TextGoalKindFor = "downcase"
+    Case "atomic-list-concat":    TextGoalKindFor = "listconcat"
+    End Select
+End Function
+
+' PROLOG.18: how many elements a text goal's own term has, functor
+' included - ListGoalArity's shape and for its reason: the seven do not
+' share an arity (two, three or five arguments), so the shared shape
+' refusal takes its count from here rather than naming one.
+Private Function TextGoalArity(ByVal kind As String) As Long
+    Select Case kind
+    Case "sub":                  TextGoalArity = 6
+    Case "concat", "listconcat": TextGoalArity = 4
+    Case Else:                   TextGoalArity = 3
+    End Select
+End Function
+
 ' PROLOG.9: THE one place this module decides whether a ground leaf is a
 ' NUMBER or an ATOM - which is to say, the one place PROLOG.9 reads the
 ' quoted-string marker at all. `atom`, `number` and `atomic` all ask it,
@@ -2503,15 +2682,42 @@ End Function
 ' number that Trim$ removes), where CStr follows the machine's locale and
 ' would produce "3,5" on a comma-decimal machine.
 '
-' This is TableCellToTerm's own expression (below), deliberately, and the
-' duplication is the point rather than a missed hoist: a value `between`
-' generates must be the SAME TEXT a numeric table cell of that value
-' becomes, or `(between 1 3 X) (emp X)` would silently match nothing
-' against a table whose id column holds 1, 2 and 3. Two spellings of a
-' number are two different ground atoms to UnifyTwoWay, which compares
-' atoms text-for-text.
+' This was TableCellToTerm's own expression (below), duplicated
+' deliberately: a value `between` generates must be the SAME TEXT a
+' numeric table cell of that value becomes, or `(between 1 3 X) (emp X)`
+' would silently match nothing against a table whose id column holds 1, 2
+' and 3. Two spellings of a number are two different ground atoms to
+' UnifyTwoWay, which compares atoms text-for-text.
+'
+' PROLOG.18: THE DUPLICATION IS GONE, AND SO IS THE THIRD SPELLING. The
+' guarantee above was held by two copies agreeing, and `is` wrote a third
+' with CStr - PROLOG.5.1's choice, which PROLOG.9 never went back to - so
+' the engine had two spellings of a number that had never been compared
+' on a fraction. Both were wrong in a different way. CStr follows the
+' machine's locale ("0,5" on a comma-decimal Windows, text that
+' IsInvariantNumericString then rejects, so the next arithmetic on it
+' refuses). Str$ is invariant but DROPS THE LEADING ZERO of a fraction -
+' Str$(0.5) is " .5" - so a table cell holding 0.5 became ".5", and a
+' `0.5` written in a query or produced by `is` was a different atom that
+' never matched it. `is`, TableCellToTerm and every text goal now call
+' here, so the guarantee is held by there being one place rather than by
+' copies agreeing.
+'
+' The repair keeps Str$'s invariance and restores the zero. Transliterated
+' under BOTH readings of Str$ - zero dropped and zero kept - it produces
+' the same text either way, so the choice does not rest on the one
+' measurement nothing here could run; the same run showed it equal to
+' en-US CStr on every probe value, which is why no fractional pin in the
+' suite moves.
 Private Function NumberToTerm(ByVal v As Double) As String
-    NumberToTerm = Trim$(Str$(v))
+    Dim s As String
+    s = Trim$(Str$(v))
+    If Left$(s, 1) = "." Then
+        s = "0" & s
+    ElseIf Left$(s, 2) = "-." Then
+        s = "-0" & Mid$(s, 2)
+    End If
+    NumberToTerm = s
 End Function
 
 ' An `is`-expression's own STATIC shape, checked recursively at parse
@@ -2853,6 +3059,27 @@ Private Sub ValidateBodyItem(ByVal item As Variant, ByVal ctx As String, predAri
                         "count", CStr(wantedCount - 1)
                 End If
                 Exit Sub
+            ElseIf TextGoalKindFor(headWord) <> "" Then
+                ' PROLOG.18: the seven text goals, on exactly the list arm's
+                ' terms above - arity is the only thing checked, asked of
+                ' TextGoalArity because the seven do not share one, and the
+                ' shared refusal takes {count} beside {form} for that
+                ' reason. Every argument is an arbitrary term whose
+                ' usability is a RUNTIME question (a text argument is
+                ' normally a variable bound by a table or an earlier goal),
+                ' so SolveTextGoal decides it and refuses by name.
+                '
+                ' Its own local, never a second `Dim wantedCount`: VBA
+                ' rejects a duplicate declaration anywhere in one
+                ' procedure, block or no block.
+                Dim wantedTextCount As Long
+                wantedTextCount = TextGoalArity(TextGoalKindFor(headWord))
+                If lst.Count <> wantedTextCount Then
+                    VLA_Messages.RaiseMsg "prolog-text-bad-shape", _
+                        "form", "(" & headWord & " ...)", _
+                        "count", CStr(wantedTextCount - 1)
+                End If
+                Exit Sub
             End If
         End If
     End If
@@ -3019,6 +3246,16 @@ Private Sub DesugarBodyItem(ByRef dest As Variant, ByVal item As Variant, ByVal 
                 ' runs IsReservedPredicateName over every table argument
                 ' before it is loaded, and all six are reserved as of
                 ' this item.
+                Set dest = item
+                Exit Sub
+            ElseIf TextGoalKindFor(headWord) <> "" Then
+                ' PROLOG.18: the seven text goals, passed through untouched
+                ' for the list arm's reason directly above - their
+                ' arguments are text, numbers and (for atomic-list-concat)
+                ' a list, never keyed column atoms, and stated as an arm so
+                ' the pass-through is a guarantee rather than an accident of
+                ' DesugarPredicateAtom bailing on a non-table name. All
+                ' seven are reserved, so none can be a table name either.
                 Set dest = item
                 Exit Sub
             ElseIf headWord = "not" Then
@@ -3669,7 +3906,10 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         computedVal = EvalArithTerm(isGoal.Item(3), envN, envT, "(is ...)")
         Dim isN As Collection, isT As Collection
         VLA_Unify.UnifyEnvClone envN, envT, isN, isT
-        If VLA_Unify.UnifyTwoWay(isGoal.Item(2), CStr(computedVal), isN, isT) Then
+        ' PROLOG.18: NumberToTerm, never CStr - CStr follows the machine's
+        ' locale ("0,5" on a comma-decimal Windows) and was the one place a
+        ' computed number got a spelling of its own. See NumberToTerm.
+        If VLA_Unify.UnifyTwoWay(isGoal.Item(2), NumberToTerm(computedVal), isN, isT) Then
             SolveGoalList rest, clauseDict, isN, isT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
         End If
         Exit Sub
@@ -3959,6 +4199,30 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         stepsTaken = stepsTaken + 1
         If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
         SolveListGoal goals.Item(1), ListGoalKindFor(predName), rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        Exit Sub
+    End If
+
+    ' PROLOG.18: the seven text goals - dispatched here on the same
+    ' unambiguous-by-construction reasoning, and above the clauseDict
+    ' lookup for the same silent-dead-end reason: `atom-length` left
+    ' undispatched would answer "no rows" to a user who had every reason to
+    ' think it existed.
+    '
+    ' One arm for all seven, SolveListGoal's shape: two of them GENERATE
+    ' (sub-atom, and atom-concat taking a text apart), so SolveTextGoal
+    ' owns the continuation and is handed rest, clauseDict, freeVarNames,
+    ' solutions and the cut signal. The step charged here is for the GOAL;
+    ' a generator charges one more per candidate, and a deterministic mode
+    ' charges nothing further however long the text - reading a string is
+    ' a primitive, no more resolution work than `is` walking an
+    ' expression.
+    '
+    ' No locals declared in this arm - findall's live-caught stack-frame
+    ' reason, above.
+    If TextGoalKindFor(predName) <> "" Then
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        SolveTextGoal goals.Item(1), TextGoalKindFor(predName), rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
         Exit Sub
     End If
 
@@ -5444,9 +5708,11 @@ Private Sub SolveListGoal(ByVal listGoal As Variant, ByVal kind As String, ByVal
 
     Dim items As Collection
     Set items = New Collection
+    ' PROLOG.18: RaiseListNotAList rather than the refusal directly, so
+    ' `(length "hello" N)` - the first thing a user types - names
+    ' atom-length instead of only teaching cons.
     If Not ListTermToItems(lst.Item(2), envN, envT, items) Then
-        VLA_Messages.RaiseMsg "prolog-list-not-a-list", _
-            "form", ListGoalFormLabel(lst), "value", ListMessageValue(lst.Item(2), envN, envT)
+        RaiseListNotAList lst, kind, lst.Item(2), envN, envT
     End If
 
     ' computed is a Variant because reverse produces a TERM (an object,
@@ -5700,6 +5966,14 @@ Private Sub SolveListAppend(ByVal lst As Collection, ByVal rest As Collection, _
         ' ---- branch 3: nothing to join and nothing to split. Report the
         ' FIRST of the three that is not a proper list, so the message
         ' points at the argument the user has to change.
+        '
+        ' PROLOG.18: a piece of TEXT in any of the three is reported
+        ' first, because it names a mistake the user can fix in one word -
+        ' they meant atom-concat - where "found 'X'" for a free variable
+        ' beside it would send them looking in the wrong place.
+        If ArgIsText(lst.Item(2), envN, envT) Then RaiseListNotAList lst, "append", lst.Item(2), envN, envT
+        If ArgIsText(lst.Item(3), envN, envT) Then RaiseListNotAList lst, "append", lst.Item(3), envN, envT
+        If ArgIsText(lst.Item(4), envN, envT) Then RaiseListNotAList lst, "append", lst.Item(4), envN, envT
         If Not frontOk Then
             VLA_Messages.RaiseMsg "prolog-list-not-a-list", _
                 "form", ListGoalFormLabel(lst), "value", ListMessageValue(lst.Item(2), envN, envT)
@@ -5742,6 +6016,850 @@ Private Sub SolveListAppend(ByVal lst As Collection, ByVal rest As Collection, _
         End If
         If cutActive Then Exit For
     Next splitAt
+End Sub
+
+' =====================================================================
+'  PROLOG.18: the text goals. This module's own PROLOG.18 header has the
+'  decisions; each procedure below carries the reasoning for its own part.
+' =====================================================================
+
+' PROLOG.18: the text goal that does for TEXT what this list goal does
+' for a list, or "" if it has none. Only two do, and they are the two a
+' user reaches for with a piece of text in hand.
+Private Function ListGoalTextTwinFor(ByVal kind As String) As String
+    Select Case kind
+    Case "length": ListGoalTextTwinFor = "atom-length"
+    Case "append": ListGoalTextTwinFor = "atom-concat"
+    End Select
+End Function
+
+' PROLOG.18: is this argument a piece of TEXT as the environment has it -
+' a quoted string, or a bare name other than nil? Not a number, not a
+' free variable, not a compound, and not nil, which IS a list. The one
+' question RaiseListNotAList asks, written once.
+Private Function ArgIsText(ByVal term As Variant, envN As Collection, envT As Collection) As Boolean
+    Dim w As Variant
+    VLA_Unify.EnvWalkInto w, term, envN, envT
+    If IsObject(w) Then Exit Function
+    Dim raw As String
+    raw = CStr(w)
+    If Left$(raw, 1) = Chr$(34) Then
+        ArgIsText = True
+        Exit Function
+    End If
+    If VLA_Unify.IsVarAtom(raw) Then Exit Function
+    If raw = PROLOG_NIL Then Exit Function
+    ArgIsText = Not LeafIsNumberTerm(raw)
+End Function
+
+' PROLOG.18: a list goal's not-a-list refusal. When the offending
+' argument is TEXT and this goal has a text twin, the refusal names the
+' twin - `(length "hello" N)` is the first thing a user types, and "a
+' list is built with cons" answers a question they did not ask. Anything
+' else gets PROLOG.13's refusal, unchanged.
+'
+' prolog-list-given-text keeps both of that refusal's own phrases - "needs
+' a list" and the (cons a (cons b nil)) example - so PROLOG.13's pin on
+' `(length foo N)`, whose argument this item reclassifies as text, still
+' reads true of the message it now gets. Kept on purpose rather than
+' re-pointed: the test's claim ("refused by name, and teaches cons") is
+' still exactly right.
+Private Sub RaiseListNotAList(ByVal lst As Collection, ByVal kind As String, ByVal argTerm As Variant, _
+                              envN As Collection, envT As Collection)
+    Dim twin As String
+    twin = ListGoalTextTwinFor(kind)
+    If Len(twin) > 0 Then
+        If ArgIsText(argTerm, envN, envT) Then
+            VLA_Messages.RaiseMsg "prolog-list-given-text", "form", ListGoalFormLabel(lst), _
+                "value", ListMessageValue(argTerm, envN, envT), "fixed", "(" & twin & " ...)"
+        End If
+    End If
+    VLA_Messages.RaiseMsg "prolog-list-not-a-list", _
+        "form", ListGoalFormLabel(lst), "value", ListMessageValue(argTerm, envN, envT)
+End Sub
+
+' PROLOG.18: the marked leaf a text goal hands back - a quoted-string
+' atom, exactly what a text cell becomes (TableCellToTerm, below). The one
+' place a text goal builds a result, so the marking decision in this
+' module's own PROLOG.18 header is written down once.
+Private Function MakeTextTerm(ByVal txt As String) As String
+    MakeTextTerm = Chr$(34) & txt
+End Function
+
+' PROLOG.18: the TEXT of an atomic leaf - how every bound argument of a
+' text goal is read. A quoted string loses its marker, a bare name is
+' itself, and a NUMBER is its canonical rendering, so `(atom-length 0.50
+' N)` counts the three characters of 0.5 - ISO counts the number, not the
+' way it was typed. The marker is tested on the RAW text before anything
+' strips it, EvalArithTerm's own discipline.
+Private Function TextOfAtomicLeaf(ByVal raw As String) As String
+    If Left$(raw, 1) = Chr$(34) Then
+        TextOfAtomicLeaf = Mid$(raw, 2)
+    ElseIf LeafIsNumberTerm(raw) Then
+        TextOfAtomicLeaf = NumberToTerm(VLA_Relation.InvariantVal(raw))
+    Else
+        TextOfAtomicLeaf = raw
+    End If
+End Function
+
+' PROLOG.18: what a text goal's argument IS, as the environment has it -
+'   0  a free variable   (outText is its name, for a refusal to show)
+'   1  atomic            (outText is its TEXT)
+'   2  a compound term   (outText is not written)
+' EnvWalkInto first, always: `(= X "abc") (atom-length X N)` must measure
+' abc, not the atom "X".
+Private Function TextArgClass(ByVal term As Variant, envN As Collection, envT As Collection, _
+                              ByRef outText As String) As Long
+    Dim w As Variant
+    VLA_Unify.EnvWalkInto w, term, envN, envT
+    If IsObject(w) Then
+        TextArgClass = 2
+        Exit Function
+    End If
+    Dim raw As String
+    raw = CStr(w)
+    If Left$(raw, 1) <> Chr$(34) And VLA_Unify.IsVarAtom(raw) Then
+        outText = raw
+        TextArgClass = 0
+        Exit Function
+    End If
+    outText = TextOfAtomicLeaf(raw)
+    TextArgClass = 1
+End Function
+
+' PROLOG.18: an argument the goal cannot run without - its text, or a
+' refusal by name. The refusal for a FREE one is what closes the phantom
+' column (CollectVars' own PROLOG.18 note).
+Private Function RequireTextArg(ByVal term As Variant, envN As Collection, envT As Collection, _
+                                ByVal formLabel As String, ByVal need As String) As String
+    Dim s As String
+    Select Case TextArgClass(term, envN, envT, s)
+    Case 0
+        VLA_Messages.RaiseMsg "prolog-text-unbound", "form", formLabel, "need", need, "var", s
+    Case 2
+        VLA_Messages.RaiseMsg "prolog-text-not-text", "form", formLabel, "value", ListMessageValue(term, envN, envT)
+    End Select
+    RequireTextArg = s
+End Function
+
+' PROLOG.18: a TEXT position the goal fills in or tests. A free variable
+' is bound to the MARKED text; a bound argument has its own TEXT compared.
+' Those are the two halves of the marking decision (this module's own
+' PROLOG.18 header), and the second is why `(atom-concat ab c abc)` holds.
+' envN/envT here are always the caller's own fresh clone.
+Private Function BindOrCompareText(ByVal term As Variant, ByVal txt As String, _
+                                   envN As Collection, envT As Collection, _
+                                   ByVal formLabel As String) As Boolean
+    Dim w As Variant
+    VLA_Unify.EnvWalkInto w, term, envN, envT
+    If IsObject(w) Then VLA_Messages.RaiseMsg "prolog-text-not-text", "form", formLabel, "value", ListMessageValue(term, envN, envT)
+    Dim raw As String
+    raw = CStr(w)
+    If Left$(raw, 1) <> Chr$(34) And VLA_Unify.IsVarAtom(raw) Then
+        BindOrCompareText = VLA_Unify.UnifyTwoWay(raw, MakeTextTerm(txt), envN, envT)
+    Else
+        BindOrCompareText = (TextOfAtomicLeaf(raw) = txt)
+    End If
+End Function
+
+' PROLOG.18: a NUMBER position - a count or a position. A free variable is
+' bound to the number; a bound number is compared by VALUE; a bound
+' non-number is refused by name, between's own rule (PROLOG.9) - `(atom-
+' length abc "3")` answering FALSE would be indistinguishable from a
+' wrong count.
+Private Function BindOrCompareNumber(ByVal term As Variant, ByVal v As Double, _
+                                     envN As Collection, envT As Collection, _
+                                     ByVal formLabel As String) As Boolean
+    Dim w As Variant
+    VLA_Unify.EnvWalkInto w, term, envN, envT
+    If IsObject(w) Then VLA_Messages.RaiseMsg "prolog-text-not-a-number", "form", formLabel, "value", ListMessageValue(term, envN, envT)
+    Dim raw As String
+    raw = CStr(w)
+    If Left$(raw, 1) <> Chr$(34) And VLA_Unify.IsVarAtom(raw) Then
+        BindOrCompareNumber = VLA_Unify.UnifyTwoWay(raw, NumberToTerm(v), envN, envT)
+    ElseIf LeafIsNumberTerm(raw) Then
+        BindOrCompareNumber = (VLA_Relation.InvariantVal(raw) = v)
+    Else
+        VLA_Messages.RaiseMsg "prolog-text-not-a-number", "form", formLabel, "value", LeafText(raw)
+    End If
+End Function
+
+' PROLOG.18: does this text hold a UTF-16 surrogate - half of a character
+' outside the Basic Multilingual Plane, such as an emoji? Excel's LEN
+' counts such a character as 2 and Prolog as 1, so the goals that count
+' or cut at a position refuse rather than pick (this module's own
+' PROLOG.18 header).
+'
+' AscW returns a SIGNED Integer, so every code unit from U+8000 up -
+' surrogates included - comes back NEGATIVE, and a range test written
+' against the unsigned value silently never fires. Normalised first.
+' Proved by mutation: without the normalisation the emoji is not seen.
+Private Function TextHasSurrogate(ByVal txt As String) As Boolean
+    Dim i As Long, c As Long
+    For i = 1 To Len(txt)
+        c = AscW(Mid$(txt, i, 1))
+        If c < 0 Then c = c + 65536
+        If c >= 55296 And c <= 57343 Then          ' U+D800 to U+DFFF
+            TextHasSurrogate = True
+            Exit Function
+        End If
+    Next i
+End Function
+
+' PROLOG.18: one UTF-16 code unit's case, or -1 for a character this table
+' will not guess at. NEITHER UCase$/LCase$ (locale-following: the value of
+' a cell would depend on whose machine computed it, which R6 and
+' PROLOG.19's determinism doctrine both forbid) NOR VLA_Identity.Fold
+' (invariant, but A-Z only - confidently wrong on the Spanish text this
+' product ships for). An explicit table instead, over three Unicode
+' blocks: Basic Latin, Latin-1 Supplement and Latin Extended-A.
+'
+' CHECKED, NOT RECALLED: every code unit of the Basic Multilingual Plane
+' was run through a transliteration of this function beside .NET's
+' invariant simple case mapping before import. Every mapping here agrees
+' with it; every cased character above U+017F falls in a refused range
+' below; nothing with case passes through unchanged.
+'
+' THE REFUSED RANGES were DERIVED from that same oracle - every cased
+' code unit above Latin Extended-A, merged where gaps were small - rather
+' than listed from memory. What they sweep in beside the letters is
+' mostly marks and punctuation of those same scripts; the full-width
+' block is split in two so full-width punctuation is NOT swept in.
+'
+' FOUR CHARACTERS ARE REFUSED INSIDE THE MAPPED BLOCKS, each in ONE
+' direction only - exactly where Unicode's own mapping and the invariant
+' table disagree, so any answer would be a guess dressed as a fact:
+'   micro sign, upcase     Unicode: Greek capital mu      invariant: itself
+'   dotted capital I, down  Unicode: plain i              invariant: itself
+'   dotless small i, up     Unicode: plain I              invariant: itself
+'   long s, upcase         Unicode: plain S               invariant: itself
+' The contested set was COMPUTED by the transliteration, so a fifth could
+' not hide. The other direction of each is uncontested and maps normally.
+Private Function CaseMapCodeUnit(ByVal c As Long, ByVal toUpper As Boolean) As Long
+    CaseMapCodeUnit = c
+    Select Case c
+    Case 65 To 90, 192 To 214, 216 To 222       ' capitals: A-Z, Latin-1 (not the multiplication sign)
+        If Not toUpper Then CaseMapCodeUnit = c + 32
+    Case 97 To 122, 224 To 246, 248 To 254      ' smalls: a-z, Latin-1 (not the division sign)
+        If toUpper Then CaseMapCodeUnit = c - 32
+    Case 181                                    ' micro sign
+        If toUpper Then CaseMapCodeUnit = -1
+    Case 255                                    ' y with diaeresis; its capital is in Latin Extended-A
+        If toUpper Then CaseMapCodeUnit = 376
+    Case 256 To 303, 306 To 311, 330 To 375     ' Latin Extended-A pairs: even capital, odd small
+        If toUpper Then
+            If c Mod 2 = 1 Then CaseMapCodeUnit = c - 1
+        Else
+            If c Mod 2 = 0 Then CaseMapCodeUnit = c + 1
+        End If
+    Case 304                                    ' capital I with dot above
+        If Not toUpper Then CaseMapCodeUnit = -1
+    Case 305                                    ' dotless small i
+        If toUpper Then CaseMapCodeUnit = -1
+    Case 313 To 328, 377 To 382                 ' Latin Extended-A pairs: odd capital, even small
+        If toUpper Then
+            If c Mod 2 = 0 Then CaseMapCodeUnit = c - 1
+        Else
+            If c Mod 2 = 1 Then CaseMapCodeUnit = c + 1
+        End If
+    Case 376                                    ' capital Y with diaeresis; its small is in Latin-1
+        If Not toUpper Then CaseMapCodeUnit = 255
+    Case 383                                    ' long s
+        If toUpper Then CaseMapCodeUnit = -1
+    Case 384 To 658, 880 To 1315, 1329 To 1366, 1377 To 1414, 4256 To 4293, _
+         7545 To 7549, 7680 To 7829, 7840 To 8188, 8498, 8526, 8544 To 8580, _
+         9398 To 9449, 11264 To 11382, 11392 To 11491, 11520 To 11557, _
+         42560 To 42605, 42624 To 42647, 42786 To 42863, 42873 To 42892, _
+         65313 To 65338, 65345 To 65370
+        CaseMapCodeUnit = -1                    ' a cased script this table does not carry
+    End Select
+End Function
+
+' PROLOG.18: txt with every code unit's case mapped, into outText.
+' Returns -1 on success, or the first code unit CaseMapCodeUnit will not
+' map, for the refusal to name. The same normalised AscW as
+' TextHasSurrogate, for the same reason - a full-width letter is above
+' U+7FFF, and missing it would pass a cased letter through unchanged.
+Private Function CaseMapTextInto(ByVal txt As String, ByVal toUpper As Boolean, ByRef outText As String) As Long
+    Dim buf As String
+    buf = txt
+    Dim i As Long, c As Long, m As Long
+    For i = 1 To Len(buf)
+        c = AscW(Mid$(buf, i, 1))
+        If c < 0 Then c = c + 65536
+        m = CaseMapCodeUnit(c, toUpper)
+        If m < 0 Then
+            CaseMapTextInto = c
+            Exit Function
+        End If
+        If m <> c Then Mid$(buf, i, 1) = ChrW$(m)
+    Next i
+    outText = buf
+    CaseMapTextInto = -1
+End Function
+
+' PROLOG.18: txt cut at every occurrence of sep (non-empty, the caller's
+' guarantee), pieces appended to outPieces in order. Written with InStr
+' rather than VBA's Split, whose empty-input case returns an EMPTY array
+' where SWI's atomic_list_concat/3 returns one empty piece - so splitting
+' "" gives (list ""), and two separators in a row give an empty piece
+' between them, both SWI's answers. Binary comparison, this module's
+' default, so the separator matches case-sensitively like every atom.
+Private Sub SplitTextInto(ByVal txt As String, ByVal sep As String, ByVal outPieces As Collection)
+    Dim startPos As Long, hit As Long
+    startPos = 1
+    Do
+        hit = InStr(startPos, txt, sep, vbBinaryCompare)
+        If hit = 0 Then
+            outPieces.Add Mid$(txt, startPos)
+            Exit Do
+        End If
+        outPieces.Add Mid$(txt, startPos, hit - startPos)
+        startPos = hit + Len(sep)
+    Loop
+End Sub
+
+' PROLOG.18: does the piece at Before b, Length l of a text n long agree
+' with every position already bound (-1 meaning free)?
+Private Function SubAtomFits(ByVal n As Long, ByVal b As Long, ByVal lenK As Long, _
+                             ByVal bB As Long, ByVal bL As Long, ByVal bA As Long) As Boolean
+    If bB >= 0 Then
+        If b <> bB Then Exit Function
+    End If
+    If bL >= 0 Then
+        If lenK <> bL Then Exit Function
+    End If
+    If bA >= 0 Then
+        If n - b - lenK <> bA Then Exit Function
+    End If
+    SubAtomFits = True
+End Function
+
+' PROLOG.18: every (Before, Length) pair a text n long has, given the
+' positions already bound (-1 free; a bound one is 0..n, PositionArg's
+' guarantee), in SWI's order - Before ascending, then Length ascending.
+' Generated DIRECTLY per mode rather than by filtering all pairs: with
+' Before bound on a 32,767-character cell, filtering would walk half a
+' billion pairs to find the few that fit. SubAtomCandidateCount must
+' agree with this exactly, and the transliteration checks that it does.
+Private Sub SubAtomCandidatesInto(ByVal n As Long, ByVal bB As Long, ByVal bL As Long, ByVal bA As Long, _
+                                  ByVal outB As Collection, ByVal outL As Collection)
+    Dim b As Long, lenK As Long
+    If bB >= 0 And bL >= 0 Then
+        If bB + bL <= n Then
+            If bA < 0 Or n - bB - bL = bA Then
+                outB.Add bB
+                outL.Add bL
+            End If
+        End If
+    ElseIf bB >= 0 And bA >= 0 Then
+        lenK = n - bB - bA
+        If lenK >= 0 Then
+            outB.Add bB
+            outL.Add lenK
+        End If
+    ElseIf bL >= 0 And bA >= 0 Then
+        b = n - bL - bA
+        If b >= 0 Then
+            outB.Add b
+            outL.Add bL
+        End If
+    ElseIf bB >= 0 Then
+        For lenK = 0 To n - bB
+            outB.Add bB
+            outL.Add lenK
+        Next lenK
+    ElseIf bL >= 0 Then
+        For b = 0 To n - bL
+            outB.Add b
+            outL.Add bL
+        Next b
+    ElseIf bA >= 0 Then
+        For b = 0 To n - bA
+            outB.Add b
+            outL.Add n - bA - b
+        Next b
+    Else
+        For b = 0 To n
+            For lenK = 0 To n - b
+                outB.Add b
+                outL.Add lenK
+            Next lenK
+        Next b
+    End If
+End Sub
+
+' PROLOG.18: how many pairs SubAtomCandidatesInto would produce, WITHOUT
+' producing them - the count the up-front refusal is measured against. A
+' Double: with nothing bound it is (n+1)(n+2)/2, over half a billion for a
+' full cell. With two or three positions bound there is at most one, and
+' that case is simply generated and counted.
+Private Function SubAtomCandidateCount(ByVal n As Long, ByVal bB As Long, ByVal bL As Long, ByVal bA As Long) As Double
+    Dim fixedCount As Long
+    If bB >= 0 Then fixedCount = fixedCount + 1
+    If bL >= 0 Then fixedCount = fixedCount + 1
+    If bA >= 0 Then fixedCount = fixedCount + 1
+    Select Case fixedCount
+    Case 0
+        SubAtomCandidateCount = (CDbl(n) + 1) * (CDbl(n) + 2) / 2
+    Case 1
+        If bB >= 0 Then SubAtomCandidateCount = n - bB + 1
+        If bL >= 0 Then SubAtomCandidateCount = n - bL + 1
+        If bA >= 0 Then SubAtomCandidateCount = n - bA + 1
+    Case Else
+        Dim oneB As Collection, oneL As Collection
+        Set oneB = New Collection
+        Set oneL = New Collection
+        SubAtomCandidatesInto n, bB, bL, bA, oneB, oneL
+        SubAtomCandidateCount = oneB.Count
+    End Select
+End Function
+
+' PROLOG.18: with the Part BOUND, the candidates are its occurrences -
+' every one, overlapping included (ana is in banana twice) - narrowed by
+' any position already bound BEFORE they are counted. That narrowing is
+' what lets `(sub-atom Cell 5 L A "a")` answer on a long cell instead of
+' counting every "a" in it and refusing; proved load-bearing by mutation.
+Private Sub SubAtomMatchesInto(ByVal txt As String, ByVal part As String, _
+                               ByVal bB As Long, ByVal bL As Long, ByVal bA As Long, _
+                               ByVal outB As Collection, ByVal outL As Collection)
+    Dim n As Long, m As Long, b As Long
+    n = Len(txt)
+    m = Len(part)
+    For b = 0 To n - m
+        If Mid$(txt, b + 1, m) = part Then
+            If SubAtomFits(n, b, m, bB, bL, bA) Then
+                outB.Add b
+                outL.Add m
+            End If
+        End If
+    Next b
+End Sub
+
+' PROLOG.18: a POSITION argument of sub-atom (Before, Length or After).
+'   -1  free
+'   -2  bound to a number that is no position in this text: negative,
+'       fractional, or past the end - no candidate at all, and the goal
+'       FAILS, nth's own rule (PROLOG.13): positions are 0..n, and a value
+'       outside that set is a correct negative answer
+'   otherwise the position itself
+' A bound NON-number is refused by name, not failed - it is not a
+' position at all (nth's non-numeric index is refused the same way).
+'
+' Every guard here is load-bearing, and not for the obvious reason -
+' the per-candidate comparison would reject a bad value anyway. They
+' matter for what happens BEFORE that: a negative value would otherwise
+' read as the free sentinel and enumerate everything; a fractional one
+' would be counted as a real position and could draw a too-many-ways
+' refusal where the right answer is "no"; and a huge one would reach
+' CLng and overflow with a raw error. Compared in Double first, so that
+' last cannot happen - nth's own PROLOG.13 fix. Each proved by mutation.
+Private Function PositionArg(ByVal term As Variant, envN As Collection, envT As Collection, _
+                             ByVal n As Long, ByVal formLabel As String) As Long
+    Dim w As Variant
+    VLA_Unify.EnvWalkInto w, term, envN, envT
+    If IsObject(w) Then VLA_Messages.RaiseMsg "prolog-text-not-a-number", "form", formLabel, "value", ListMessageValue(term, envN, envT)
+    Dim raw As String
+    raw = CStr(w)
+    If Left$(raw, 1) <> Chr$(34) And VLA_Unify.IsVarAtom(raw) Then
+        PositionArg = -1
+        Exit Function
+    End If
+    If Not LeafIsNumberTerm(raw) Then VLA_Messages.RaiseMsg "prolog-text-not-a-number", "form", formLabel, "value", LeafText(raw)
+    Dim v As Double
+    v = VLA_Relation.InvariantVal(raw)
+    If v < 0 Or v > n Or v <> Int(v) Then
+        PositionArg = -2
+    Else
+        PositionArg = CLng(v)
+    End If
+End Function
+
+' PROLOG.18: the seven text goals' router - SolveListGoal's shape. It owns
+' the continuation because two of the seven generate. Every kind
+' TextGoalKindFor can return has its own Case and there is no Case Else:
+' a kind with no arm would do nothing and answer "no rows", so the
+' pairing of table and router was checked mechanically before import.
+Private Sub SolveTextGoal(ByVal textGoal As Variant, ByVal kind As String, ByVal rest As Collection, _
+                          clauseDict As Object, envN As Collection, envT As Collection, _
+                          freeVarNames As Collection, solutions As Collection, _
+                          ByRef stepsTaken As Long, _
+                          ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    ' textGoal is a Variant Set into a typed local, SolveListGoal's own
+    ' route around the Variant-into-typed-parameter trap.
+    Dim lst As Collection
+    Set lst = textGoal
+    Select Case kind
+    Case "length"
+        SolveAtomLength lst, rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+    Case "concat"
+        SolveAtomConcat lst, rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+    Case "sub"
+        SolveSubAtom lst, rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+    Case "number"
+        SolveAtomNumber lst, rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+    Case "upcase"
+        SolveCaseMap lst, True, rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+    Case "downcase"
+        SolveCaseMap lst, False, rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+    Case "listconcat"
+        SolveAtomicListConcat lst, rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+    End Select
+End Sub
+
+' PROLOG.18: `(atom-length Text N)`. Deterministic. Text must be bound.
+Private Sub SolveAtomLength(ByVal lst As Collection, ByVal rest As Collection, _
+                            clauseDict As Object, envN As Collection, envT As Collection, _
+                            freeVarNames As Collection, solutions As Collection, _
+                            ByRef stepsTaken As Long, _
+                            ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    Dim formLabel As String
+    formLabel = ListGoalFormLabel(lst)
+    Dim txt As String
+    txt = RequireTextArg(lst.Item(2), envN, envT, formLabel, "its first argument must already be text")
+    If TextHasSurrogate(txt) Then VLA_Messages.RaiseMsg "prolog-text-outside-bmp", "form", formLabel, "value", txt
+    Dim lenN As Collection, lenT As Collection
+    VLA_Unify.UnifyEnvClone envN, envT, lenN, lenT
+    If BindOrCompareNumber(lst.Item(3), CDbl(Len(txt)), lenN, lenT, formLabel) Then
+        SolveGoalList rest, clauseDict, lenN, lenT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+    End If
+End Sub
+
+' PROLOG.18: `(upcase-atom Text Upper)` and `(downcase-atom Text Lower)`.
+' Deterministic. CaseMapCodeUnit's header carries the whole case policy.
+Private Sub SolveCaseMap(ByVal lst As Collection, ByVal toUpper As Boolean, ByVal rest As Collection, _
+                         clauseDict As Object, envN As Collection, envT As Collection, _
+                         freeVarNames As Collection, solutions As Collection, _
+                         ByRef stepsTaken As Long, _
+                         ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    Dim formLabel As String
+    formLabel = ListGoalFormLabel(lst)
+    Dim txt As String
+    txt = RequireTextArg(lst.Item(2), envN, envT, formLabel, "its first argument must already be text")
+    Dim mapped As String, badUnit As Long
+    badUnit = CaseMapTextInto(txt, toUpper, mapped)
+    If badUnit >= 0 Then
+        VLA_Messages.RaiseMsg "prolog-text-case-unsupported", "form", formLabel, _
+            "char", ChrW$(badUnit), "code", Right$("000" & Hex$(badUnit), 4)
+    End If
+    Dim caseN As Collection, caseT As Collection
+    VLA_Unify.UnifyEnvClone envN, envT, caseN, caseT
+    If BindOrCompareText(lst.Item(3), mapped, caseN, caseT, formLabel) Then
+        SolveGoalList rest, clauseDict, caseN, caseT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+    End If
+End Sub
+
+' PROLOG.18: `(atom-number Text N)`. Text bound: if it spells a number, N
+' is that number; if it does not, the goal FAILS - "does this text spell
+' a number" is the question the goal exists to answer (SWI's
+' atom_number/2 fails there too), where `is` refuses because arithmetic
+' on a non-number has no answer at all. Text free and N a number: Text is
+' that number's canonical text. Both free: refused by name.
+'
+' "Spells a number" is IsInvariantNumericString - the same test `is`
+' already applies when it strips a quoted operand (EvalArithTerm), so
+' `(atom-number "42" N)` and `(is N "42")` can never disagree about what
+' a number looks like.
+Private Sub SolveAtomNumber(ByVal lst As Collection, ByVal rest As Collection, _
+                            clauseDict As Object, envN As Collection, envT As Collection, _
+                            freeVarNames As Collection, solutions As Collection, _
+                            ByRef stepsTaken As Long, _
+                            ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    Dim formLabel As String
+    formLabel = ListGoalFormLabel(lst)
+    Dim aText As String, aClass As Long
+    aClass = TextArgClass(lst.Item(2), envN, envT, aText)
+    If aClass = 2 Then VLA_Messages.RaiseMsg "prolog-text-not-text", "form", formLabel, "value", ListMessageValue(lst.Item(2), envN, envT)
+    Dim numN As Collection, numT As Collection
+    If aClass = 1 Then
+        If Not VLA_Relation.IsInvariantNumericString(aText) Then Exit Sub
+        VLA_Unify.UnifyEnvClone envN, envT, numN, numT
+        If BindOrCompareNumber(lst.Item(3), VLA_Relation.InvariantVal(aText), numN, numT, formLabel) Then
+            SolveGoalList rest, clauseDict, numN, numT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        End If
+        Exit Sub
+    End If
+    Dim w As Variant
+    VLA_Unify.EnvWalkInto w, lst.Item(3), envN, envT
+    If IsObject(w) Then VLA_Messages.RaiseMsg "prolog-text-not-a-number", "form", formLabel, "value", ListMessageValue(lst.Item(3), envN, envT)
+    Dim raw As String
+    raw = CStr(w)
+    If Left$(raw, 1) <> Chr$(34) And VLA_Unify.IsVarAtom(raw) Then
+        VLA_Messages.RaiseMsg "prolog-text-unbound", "form", formLabel, _
+            "need", "either its text or its number must already be bound", "var", aText
+    End If
+    If Not LeafIsNumberTerm(raw) Then VLA_Messages.RaiseMsg "prolog-text-not-a-number", "form", formLabel, "value", LeafText(raw)
+    VLA_Unify.UnifyEnvClone envN, envT, numN, numT
+    If BindOrCompareText(lst.Item(2), NumberToTerm(VLA_Relation.InvariantVal(raw)), numN, numT, formLabel) Then
+        SolveGoalList rest, clauseDict, numN, numT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+    End If
+End Sub
+
+' PROLOG.18: `(atom-concat A B Whole)`. Four modes, tried in this order:
+'   A and B bound      JOIN - Whole is their text together, or is tested
+'   Whole and A bound  a known PREFIX - B is the rest, directly
+'   Whole and B bound  a known SUFFIX - A is the rest, directly
+'   Whole alone        GENERATE every split, both ends included
+' The prefix and suffix modes are there for COST, append's own reason:
+' the generating mode would answer them too, by trying every split and
+' comparing - but on a long cell that is a too-many-ways refusal where a
+' known prefix has exactly one answer. Proved load-bearing by mutation.
+'
+' The generating mode is the one that counts at a position, so it alone
+' refuses text holding an emoji, and it is counted up front against
+' PROLOG_MAX_STEPS - 1, between's own rule: a Whole of 118 characters has
+' 119 splits and fits, 119 characters is refused by name.
+Private Sub SolveAtomConcat(ByVal lst As Collection, ByVal rest As Collection, _
+                            clauseDict As Object, envN As Collection, envT As Collection, _
+                            freeVarNames As Collection, solutions As Collection, _
+                            ByRef stepsTaken As Long, _
+                            ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    Dim formLabel As String
+    formLabel = ListGoalFormLabel(lst)
+    Dim aText As String, bText As String, wText As String
+    Dim aClass As Long, bClass As Long, wClass As Long
+    aClass = TextArgClass(lst.Item(2), envN, envT, aText)
+    bClass = TextArgClass(lst.Item(3), envN, envT, bText)
+    wClass = TextArgClass(lst.Item(4), envN, envT, wText)
+    If aClass = 2 Then VLA_Messages.RaiseMsg "prolog-text-not-text", "form", formLabel, "value", ListMessageValue(lst.Item(2), envN, envT)
+    If bClass = 2 Then VLA_Messages.RaiseMsg "prolog-text-not-text", "form", formLabel, "value", ListMessageValue(lst.Item(3), envN, envT)
+    If wClass = 2 Then VLA_Messages.RaiseMsg "prolog-text-not-text", "form", formLabel, "value", ListMessageValue(lst.Item(4), envN, envT)
+    Dim catN As Collection, catT As Collection
+
+    ' ---- JOIN
+    If aClass = 1 And bClass = 1 Then
+        VLA_Unify.UnifyEnvClone envN, envT, catN, catT
+        If BindOrCompareText(lst.Item(4), aText & bText, catN, catT, formLabel) Then
+            SolveGoalList rest, clauseDict, catN, catT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        End If
+        Exit Sub
+    End If
+
+    ' Every other mode takes Whole apart, so Whole must be known.
+    If wClass = 0 Then
+        VLA_Messages.RaiseMsg "prolog-text-unbound", "form", formLabel, _
+            "need", "either its first two arguments or its third must already be text", "var", wText
+    End If
+
+    ' ---- a known PREFIX
+    If aClass = 1 Then
+        If Len(aText) <= Len(wText) Then
+            If Left$(wText, Len(aText)) = aText Then
+                VLA_Unify.UnifyEnvClone envN, envT, catN, catT
+                If BindOrCompareText(lst.Item(3), Mid$(wText, Len(aText) + 1), catN, catT, formLabel) Then
+                    SolveGoalList rest, clauseDict, catN, catT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+                End If
+            End If
+        End If
+        Exit Sub
+    End If
+
+    ' ---- a known SUFFIX
+    If bClass = 1 Then
+        If Len(bText) <= Len(wText) Then
+            If Right$(wText, Len(bText)) = bText Then
+                VLA_Unify.UnifyEnvClone envN, envT, catN, catT
+                If BindOrCompareText(lst.Item(2), Left$(wText, Len(wText) - Len(bText)), catN, catT, formLabel) Then
+                    SolveGoalList rest, clauseDict, catN, catT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+                End If
+            End If
+        End If
+        Exit Sub
+    End If
+
+    ' ---- GENERATE every split
+    If TextHasSurrogate(wText) Then VLA_Messages.RaiseMsg "prolog-text-outside-bmp", "form", formLabel, "value", wText
+    Dim n As Long
+    n = Len(wText)
+    ' PROLOG_MAX_STEPS - 1, between's own reasoning: the dispatch has
+    ' already charged this goal's step, so a count of exactly the ceiling
+    ' would pass here and die at the step ceiling a split later, blaming a
+    ' runaway rule the user does not have.
+    If (n + 1) > (PROLOG_MAX_STEPS - 1) Then
+        VLA_Messages.RaiseMsg "prolog-text-too-many-ways", "form", formLabel, _
+            "count", CStr(n + 1), "length", CStr(n), "max", PROLOG_MAX_STEPS
+    End If
+    Dim k As Long
+    For k = 0 To n
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        VLA_Unify.UnifyEnvClone envN, envT, catN, catT
+        If BindOrCompareText(lst.Item(2), Left$(wText, k), catN, catT, formLabel) Then
+            If BindOrCompareText(lst.Item(3), Mid$(wText, k + 1), catN, catT, formLabel) Then
+                SolveGoalList rest, clauseDict, catN, catT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+            End If
+        End If
+        ' SolveBetween's rule: stop on an active cut, never absorb it.
+        If cutActive Then Exit For
+    Next k
+End Sub
+
+' PROLOG.18: `(sub-atom Text Before Length After Part)`. A GENERATOR in
+' every mode, since each mode is "the pieces consistent with what is
+' bound" - one piece when two positions are bound, every occurrence when
+' the Part is bound, every piece of all when only Text is. The candidates
+' are counted BEFORE one is produced and refused past PROLOG_MAX_STEPS - 1
+' (between's rule and its off-by-one): all-free fits up to 13 characters
+' (105 pieces) and 14 is refused (120). A step is charged per candidate,
+' and an active cut stops the loop and is never absorbed.
+Private Sub SolveSubAtom(ByVal lst As Collection, ByVal rest As Collection, _
+                         clauseDict As Object, envN As Collection, envT As Collection, _
+                         freeVarNames As Collection, solutions As Collection, _
+                         ByRef stepsTaken As Long, _
+                         ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    Dim formLabel As String
+    formLabel = ListGoalFormLabel(lst)
+    Dim txt As String
+    txt = RequireTextArg(lst.Item(2), envN, envT, formLabel, "its first argument must already be text")
+    If TextHasSurrogate(txt) Then VLA_Messages.RaiseMsg "prolog-text-outside-bmp", "form", formLabel, "value", txt
+    Dim n As Long
+    n = Len(txt)
+    Dim bB As Long, bL As Long, bA As Long
+    bB = PositionArg(lst.Item(3), envN, envT, n, formLabel)
+    bL = PositionArg(lst.Item(4), envN, envT, n, formLabel)
+    bA = PositionArg(lst.Item(5), envN, envT, n, formLabel)
+    Dim part As String, partClass As Long
+    partClass = TextArgClass(lst.Item(6), envN, envT, part)
+    If partClass = 2 Then VLA_Messages.RaiseMsg "prolog-text-not-text", "form", formLabel, "value", ListMessageValue(lst.Item(6), envN, envT)
+    ' A bound position no text this long has: no candidates - a correct
+    ' negative answer, nth's own rule.
+    If bB = -2 Or bL = -2 Or bA = -2 Then Exit Sub
+
+    Dim befores As Collection, lengths As Collection
+    Set befores = New Collection
+    Set lengths = New Collection
+    Dim ways As Double
+    If partClass = 1 Then
+        SubAtomMatchesInto txt, part, bB, bL, bA, befores, lengths
+        ways = befores.Count
+    Else
+        ways = SubAtomCandidateCount(n, bB, bL, bA)
+    End If
+    If ways > (PROLOG_MAX_STEPS - 1) Then
+        VLA_Messages.RaiseMsg "prolog-text-too-many-ways", "form", formLabel, _
+            "count", NumberToTerm(ways), "length", CStr(n), "max", PROLOG_MAX_STEPS
+    End If
+    If partClass <> 1 Then SubAtomCandidatesInto n, bB, bL, bA, befores, lengths
+
+    Dim k As Long, bK As Long, lenK As Long
+    Dim subN As Collection, subT As Collection
+    For k = 1 To befores.Count
+        stepsTaken = stepsTaken + 1
+        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        bK = befores.Item(k)
+        lenK = lengths.Item(k)
+        ' A FRESH clone per candidate, the candidates loop's discipline: a
+        ' variable shared between two positions - `(sub-atom abc X X A S)`
+        ' - binds on the first and is compared on the second, and the next
+        ' candidate must find it free again.
+        VLA_Unify.UnifyEnvClone envN, envT, subN, subT
+        If BindOrCompareNumber(lst.Item(3), CDbl(bK), subN, subT, formLabel) Then
+            If BindOrCompareNumber(lst.Item(4), CDbl(lenK), subN, subT, formLabel) Then
+                If BindOrCompareNumber(lst.Item(5), CDbl(n - bK - lenK), subN, subT, formLabel) Then
+                    If BindOrCompareText(lst.Item(6), Mid$(txt, bK + 1, lenK), subN, subT, formLabel) Then
+                        SolveGoalList rest, clauseDict, subN, subT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+                    End If
+                End If
+            End If
+        End If
+        If cutActive Then Exit For
+    Next k
+End Sub
+
+' PROLOG.18: `(atomic-list-concat Parts Separator Whole)` - SWI's own
+' join-and-split, which is what `split` is in real Prolog. Separator must
+' be bound. JOIN when Parts is a proper list whose every element is
+' already known; otherwise SPLIT, which needs Whole. A proper list with
+' some elements still free is matched element by element - a known one by
+' its text, a free one bound to its piece - so `(list First Second)`
+' destructures a name. A PARTIAL list is refused by name, PROLOG.13's
+' rule. Splitting on an empty separator is refused (there is no one way
+' to cut text at every nothing); JOINING with one is fine.
+Private Sub SolveAtomicListConcat(ByVal lst As Collection, ByVal rest As Collection, _
+                                  clauseDict As Object, envN As Collection, envT As Collection, _
+                                  freeVarNames As Collection, solutions As Collection, _
+                                  ByRef stepsTaken As Long, _
+                                  ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    Dim formLabel As String
+    formLabel = ListGoalFormLabel(lst)
+    Dim sep As String
+    sep = RequireTextArg(lst.Item(3), envN, envT, formLabel, "its separator, the second argument, must already be text")
+    Dim items As Collection
+    Set items = New Collection
+    Dim listOk As Boolean
+    listOk = ListTermToItems(lst.Item(2), envN, envT, items)
+    Dim joinN As Collection, joinT As Collection
+    Dim k As Long
+
+    ' ---- JOIN, when every element is known
+    If listOk Then
+        Dim joined As String, piece As String, allKnown As Boolean
+        allKnown = True
+        For k = 1 To items.Count
+            Select Case TextArgClass(items.Item(k), envN, envT, piece)
+            Case 0
+                allKnown = False
+            Case 2
+                VLA_Messages.RaiseMsg "prolog-text-not-text", "form", formLabel, "value", ListMessageValue(items.Item(k), envN, envT)
+            Case Else
+                If k > 1 Then joined = joined & sep
+                joined = joined & piece
+            End Select
+        Next k
+        If allKnown Then
+            VLA_Unify.UnifyEnvClone envN, envT, joinN, joinT
+            If BindOrCompareText(lst.Item(4), joined, joinN, joinT, formLabel) Then
+                SolveGoalList rest, clauseDict, joinN, joinT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+            End If
+            Exit Sub
+        End If
+    End If
+
+    ' ---- SPLIT, which needs the whole
+    Dim wText As String, wClass As Long
+    wClass = TextArgClass(lst.Item(4), envN, envT, wText)
+    If wClass = 0 Then
+        VLA_Messages.RaiseMsg "prolog-text-unbound", "form", formLabel, _
+            "need", "either every element of its list or its third argument must already be text", "var", wText
+    End If
+    If wClass = 2 Then VLA_Messages.RaiseMsg "prolog-text-not-text", "form", formLabel, "value", ListMessageValue(lst.Item(4), envN, envT)
+    If Len(sep) = 0 Then VLA_Messages.RaiseMsg "prolog-text-empty-separator"
+    Dim pieces As Collection
+    Set pieces = New Collection
+    SplitTextInto wText, sep, pieces
+    VLA_Unify.UnifyEnvClone envN, envT, joinN, joinT
+
+    If listOk Then
+        If items.Count <> pieces.Count Then Exit Sub
+        For k = 1 To items.Count
+            If Not BindOrCompareText(items.Item(k), CStr(pieces.Item(k)), joinN, joinT, formLabel) Then Exit Sub
+        Next k
+        SolveGoalList rest, clauseDict, joinN, joinT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+        Exit Sub
+    End If
+
+    ' Not a proper list: only a FREE variable can take the pieces.
+    ' Nested Ifs, never a combined And - CStr on an object raises.
+    Dim lw As Variant
+    VLA_Unify.EnvWalkInto lw, lst.Item(2), envN, envT
+    Dim isFree As Boolean
+    If Not IsObject(lw) Then
+        If Left$(CStr(lw), 1) <> Chr$(34) Then isFree = VLA_Unify.IsVarAtom(CStr(lw))
+    End If
+    If Not isFree Then
+        VLA_Messages.RaiseMsg "prolog-list-not-a-list", _
+            "form", formLabel, "value", ListMessageValue(lst.Item(2), envN, envT)
+    End If
+    Dim textItems As Collection
+    Set textItems = New Collection
+    For k = 1 To pieces.Count
+        textItems.Add MakeTextTerm(CStr(pieces.Item(k)))
+    Next k
+    Dim listTerm As Variant
+    MakeListTermInto listTerm, textItems
+    If VLA_Unify.UnifyTwoWay(lst.Item(2), listTerm, joinN, joinT) Then
+        SolveGoalList rest, clauseDict, joinN, joinT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+    End If
 End Sub
 
 ' PROLOG.5.3: findall's own harvest, factored OUT of SolveGoalList's own
@@ -5992,9 +7110,12 @@ End Function
 ' quoted-atom marker every non-numeric value gets so a capitalized text
 ' cell, or a live Excel Boolean, is never misdetected as an unbound
 ' variable).
+' PROLOG.18: the numeric branch calls NumberToTerm rather than repeating
+' its expression - see that function for the ".5" this used to produce
+' for a cell holding 0.5, and why one place is the guarantee now.
 Private Function TableCellToTerm(ByVal v As Variant) As String
     If VLA_Relation.ValueIsNumericType(v) Then
-        TableCellToTerm = Trim$(Str$(CDbl(v)))
+        TableCellToTerm = NumberToTerm(CDbl(v))
     Else
         TableCellToTerm = Chr$(34) & CStr(v)
     End If

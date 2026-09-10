@@ -2,6 +2,105 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_ROADMAP1.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.5.6
+
+### What changed
+
+- **PROLOG can work with text.** A spreadsheet's whole subject is cell
+  values, and until now PROLOG could not take one apart or put two
+  together. Seven goals do that now:
+
+  - `(atom-length Text N)` — how many characters. `(atom-length "hello" N)`
+    gives `5`.
+  - `(atom-concat A B Whole)` — join two pieces: `(atom-concat "Item " 42 X)`
+    gives `Item 42`. Given the whole, it takes it apart instead:
+    `(atom-concat "ID-" Rest "ID-42")` gives `Rest` = `42`,
+    `(atom-concat Stem ".xlsx" "report.xlsx")` gives `report`, and with
+    both halves left blank it lists every way to split.
+  - `(sub-atom Text Before Length After Part)` — any piece, by position or
+    by content. `(sub-atom "Frazaro" 2 3 After Part)` gives `aza`;
+    `(sub-atom Email Before 1 After "@")` finds where the `@` is. Positions
+    count from 0, the way Prolog counts them.
+  - `(atom-number Text N)` — text to a number and back.
+    `(atom-number "42" N)` gives the number `42`; text that is not a number
+    simply does not match, so it doubles as the test "is this a number?".
+  - `(upcase-atom Text Upper)` and `(downcase-atom Text Lower)` — case.
+  - `(atomic-list-concat Parts Separator Whole)` — split and join.
+    `(atomic-list-concat P "," "a,b,c")` gives the list `(list "a" "b" "c")`,
+    ready for `length`, `member` and the other list goals; run the other
+    way it joins a list. `(atomic-list-concat (list First Last) " "
+    "Ada Lovelace")` fills in both names at once.
+
+  The names are real Prolog's, with a hyphen where Prolog writes an
+  underscore, the way `sum-list` already is. Type the underscore version
+  — `atom_length`, `sub_atom` — and Frazaro tells you the hyphenated one
+  instead of quietly finding nothing.
+
+- **What a text goal hands back is text.** The result behaves exactly
+  like the value of a text cell: `(atom-concat 4 2 X)` makes the text
+  `"42"`, not the number 42, and to compare a result with something you
+  typed, quote it — `(== X "abc")`. Compare it with an unquoted name and
+  Frazaro stops and explains the difference rather than quietly answering
+  no. The values you *give* a text goal are read as text whichever way
+  they were written, so `(atom-concat ab c abc)` is true and
+  `(downcase-atom "ENG" eng)` is true.
+
+- **Changing case gives the same answer on every computer.** The usual
+  way to change case in Excel's own language depends on the Windows
+  language settings — a Turkish Windows lowercases `I` differently — so a
+  cell's answer would have depended on whose machine computed it.
+  `upcase-atom` and `downcase-atom` instead carry their own table: A–Z and
+  the accented letters of Western and Central European languages,
+  Spanish's `ñ`, `á` and `ü` among them, and Polish, Czech and Turkish
+  letters too. Letters from other alphabets — Greek, Cyrillic and so on —
+  are refused by name rather than passed through unchanged and looking
+  finished. Characters with no case at all, like digits or `€`, pass
+  through as they are. Four characters whose case is genuinely disputed
+  — the micro sign `µ`, the Turkish dotless `ı` and dotted `İ`, and the
+  old long `ſ` — are refused in the one direction where the authorities
+  disagree.
+
+- **Emoji and counting.** Excel counts an emoji as two characters and
+  Prolog counts it as one. The goals that count or cut at a position —
+  `atom-length`, `sub-atom`, and `atom-concat` when it lists every split —
+  refuse such text and say why, rather than silently pick one of the two
+  answers. The goals that do not count, like changing case, pass emoji
+  through untouched.
+
+- **Taking a long text apart in every possible way has a limit, and says
+  so.** `(sub-atom Text B L A S)` with only the text given lists every
+  piece of it: 105 pieces for a 13-character text, and 120 for 14, which
+  is the whole of a query's work allowance. Past that it is refused by
+  name *before* it starts, with a message saying to fill in more of the
+  arguments. Anything more specific — a position, a length, the piece
+  you are looking for, or a known start or end for `atom-concat` — is
+  answered directly and works on a text of any length.
+
+- **Every number PROLOG writes is now written one way.** Until now a
+  number could get two different spellings depending on where it came
+  from. The result of `(is ...)` followed the computer's regional
+  settings, so on a Windows set to write `0,5` the next calculation
+  refused it as not a number. A table cell holding `0.5`, or a total from
+  `sum-list`, was written `.5` without its leading zero — and so it never
+  matched a `0.5` you typed: `(sum-list (list 0.25 0.25) 0.5)` answered
+  *no*. Both now read `0.5` on every machine.
+
+- **`(length "hello" N)` now points you at `atom-length`.** It is the
+  first thing most people type. It is still refused — a piece of text is
+  not a list — but the message now names the goal you wanted, and
+  `(append "ab" "c" X)` names `atom-concat` the same way.
+
+- **`(whole 3)` now points at `(whole? 3)`.** It used to be an unknown
+  name that quietly found nothing. The near-miss spellings Frazaro
+  recognises — a hyphen for an underscore, a missing question mark — are
+  now worked out automatically from the full list of names on every
+  release, which is how this one was found missing.
+
+- **More reserved words.** Fifteen names join the reserved set: the
+  seven text goals, their seven underscore spellings, and `whole`. If a
+  knowledge base of yours uses one of those as a predicate name it will
+  need renaming; `whole` is the only plausible one.
+
 ## 0.5.5
 
 ### What changed

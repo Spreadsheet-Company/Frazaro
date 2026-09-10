@@ -77,6 +77,36 @@ WHAT IT CHECKS.
      `between` as a literal name), which is exactly the change that would
      have walked through the gap.
 
+  E. Derived near-misses. AliasSpellingFor's own header says its class is
+     DERIVED, by two rules over the reserved set - swap every hyphen for
+     an underscore (or the reverse), and drop a trailing question mark -
+     and is therefore "closed and countable". Closed only if something
+     re-derives it: the derivation was done BY HAND at 44 names, and by
+     52 it had gone stale twice without anything noticing. `whole` (from
+     PROLOG.17's `whole?`) was a silent unknown predicate, which is the
+     exact dead end the alias table exists to remove. So every derived
+     spelling of every reserved name must itself be reserved - in any
+     table; which table owns it is the code's decision, not this rule's.
+
+     Rule 1 applies to WORD-SHAPED names only - names that begin with a
+     letter. Run over `->` it produces `_>`, which is an artifact of the
+     rule rather than a spelling anyone types; the rule was always about
+     joining the WORDS of a name, and an operator has none. Proved by
+     mutation: lifting the restriction reports `_>` and nothing else.
+
+     PROLOG.18 added this, and ran it RED on `whole` before fixing it.
+
+  F. The catalogue fits the VBA editor. VBE holds a physical source line
+     to 1023 characters and SPLITS a longer one on import, mid-word, into a
+     syntax error that stops the whole project compiling - every suite,
+     not just PROLOG's. prolog-reserved-predicate-name grows with every
+     PROLOG item, sat at 1004 characters at v0.5.5, and PROLOG.18 took it
+     to 1196: the owner's compile caught it, not any check. It is now
+     written across `_` continuation lines (the parser below joins them),
+     and this rule holds EVERY physical line of VLA_Messages.bas to the
+     limit, reporting the longest so the headroom is visible in a green
+     run. Run RED on the 1196-character line before the split.
+
 The baselines below are lists of NAMES, not patterns: a table that joins
 the reserved set must be added here on purpose, and a rename breaks the
 run loudly rather than silently scanning nothing.
@@ -146,6 +176,12 @@ $countPhrases = @{
     # Checked for containment against all seven existing keys, both
     # directions, before choosing it.
     'control spellings'    = 'ControlIsoSpellingFor'
+    # PROLOG.18's own table. Checked for containment against all eight
+    # existing keys, both directions, before choosing it: 'text goals'
+    # contains none of them and none contains it. 'list goals' is the near
+    # neighbour and the two share only the word 'goals', which is not a
+    # key on its own.
+    'text goals'           = 'TextGoalKindFor'
 }
 
 $numberWords = @{
@@ -272,10 +308,35 @@ Write-Output ''
 Write-Output ("  RESERVED SET: {0} name(s) - {1}" -f $reservedSorted.Count, ($reservedSorted -join ' '))
 
 # ---- 2. the refusal's own text ------------------------------------------
+# PROLOG.18: physical lines ending in ` _` are joined into one logical
+# statement first, and the `" & "` seams between the literals of a split
+# template are removed, so the refusal reads the same whether it is written
+# on one line or several. It HAS to be several - see rule F - and without
+# this join the id would simply not be found (a loud failure, but one that
+# stops every other rule here from checking anything).
+#
+# The SEAM removal is the quieter half and was proved separately, because
+# a mutation deleting it came back GREEN on the shipped text - every split
+# there falls between clauses. It matters when a split lands between a
+# count word and its noun (`"the eight " & _` / `"text goals ..."`): with
+# the seam left in, rule B finds no count word, reports "nothing to go
+# stale" and passes blind; with it removed, the same wrong count is
+# caught. Shown on a synthetic copy of the catalogue, both ways.
+$messagesLines = Get-Content -LiteralPath $messagesPath
+$logicalLines = New-Object System.Collections.Generic.List[string]
+$pending = ''
+foreach ($line in $messagesLines) {
+    if ($line -match '\s_\s*$' -and -not $line.TrimStart().StartsWith("'")) {
+        $pending += ($line -replace '\s_\s*$', ' ')
+        continue
+    }
+    $logicalLines.Add($pending + $line)
+    $pending = ''
+}
 $msgText = $null
-foreach ($line in (Get-Content -LiteralPath $messagesPath)) {
+foreach ($line in $logicalLines) {
     if ($line -match '^\s*AddMsg\s+m,\s*"([^"]+)"\s*,\s*[^,]+,\s*"[^"]*"\s*,\s*"(.*)"\s*$') {
-        if ($Matches[1] -eq $reservedMsgId) { $msgText = $Matches[2] }
+        if ($Matches[1] -eq $reservedMsgId) { $msgText = ($Matches[2] -replace '"\s*&\s*"', '') }
     }
 }
 
@@ -466,6 +527,74 @@ if ($null -eq $solveBody) {
             Write-Output ("  {0,-22} UNRESERVED" -f $n)
             $failures.Add("SolveGoalList dispatches '$n' but no code path reserves it - a user may define that predicate, and their own facts are then silently unreachable")
         }
+    }
+}
+
+# ---- rule F: every physical line of the catalogue fits the VBA editor ----
+Write-Output ''
+Write-Output '--- rule F: no physical line of VLA_Messages.bas may exceed the VBA editor''s 1023 characters ---'
+$vbeMaxLine = 1023
+$longest = 0; $longestAt = 0; $lineNo = 0
+foreach ($line in $messagesLines) {
+    $lineNo++
+    if ($line.Length -gt $longest) { $longest = $line.Length; $longestAt = $lineNo }
+    if ($line.Length -gt $vbeMaxLine) {
+        Write-Output ("  line {0,5}: {1} characters  TOO LONG" -f $lineNo, $line.Length)
+        $failures.Add("VLA_Messages.bas line $lineNo is $($line.Length) characters; the VBA editor splits anything over $vbeMaxLine on import, mid-word, into a syntax error that stops the whole project compiling - continue the statement across lines with ' _'")
+    }
+}
+# A rule that looks at nothing passes by not looking.
+if ($lineNo -lt 500) { $failures.Add("rule F examined only $lineNo line(s) of VLA_Messages.bas - the file was not read") }
+Write-Output ("  {0} line(s) examined; longest is line {1} at {2} of {3} characters" -f $lineNo, $longestAt, $longest, $vbeMaxLine)
+
+# ---- rule E: every derived near-miss spelling must itself be reserved ----
+# The two derivation rules AliasSpellingFor's own header states, applied
+# mechanically rather than by hand: see the header above for why a hand
+# derivation went stale. A candidate equal to its source (a name with no
+# hyphen, underscore or trailing '?') is not a candidate.
+Write-Output ''
+Write-Output '--- rule E: every derived near-miss spelling must itself be reserved ---'
+
+$derivedFrom = @{}
+$wordShaped = 0
+foreach ($n in $reservedSorted) {
+    $cands = New-Object System.Collections.Generic.List[string]
+    if ($n -cmatch '^[a-z]') {
+        $wordShaped++
+        if ($n.Contains('-')) { $cands.Add($n.Replace('-', '_')) }
+        if ($n.Contains('_')) { $cands.Add($n.Replace('_', '-')) }
+    }
+    if ($n.EndsWith('?')) { $cands.Add($n.Substring(0, $n.Length - 1)) }
+    # The rules are applied ONCE, never composed, and that is not an
+    # omission. A composed spelling - `is_list` from `is-list?` by way of
+    # `is_list?` - can only be reached through a first-order one, and this
+    # rule requires every first-order spelling to be reserved; once it is,
+    # it is a reserved name in its own right and is expanded on its own
+    # turn, finding the composed spelling there. So composing can never
+    # change the verdict. A first version composed anyway, and deleting
+    # that step changed nothing - which is the honest evidence it was
+    # never load-bearing, so it is gone rather than kept as a "guard".
+    foreach ($c in $cands) {
+        if ($c -ceq $n) { continue }
+        if (-not $derivedFrom.ContainsKey($c)) { $derivedFrom[$c] = $n }
+    }
+}
+
+# A rule that looks at nothing passes by not looking. Most of the reserved
+# set is word-shaped and a good share of it carries a hyphen or a '?', so a
+# derivation that collapses to a handful means the reserved set above was
+# not read, not that the class got smaller.
+Write-Output ("  {0} reserved name(s) examined, {1} word-shaped; {2} derived spelling(s)" -f $reservedSorted.Count, $wordShaped, $derivedFrom.Count)
+if ($wordShaped -lt 30 -or $derivedFrom.Count -lt 15) {
+    $failures.Add("rule E examined $wordShaped word-shaped name(s) and derived $($derivedFrom.Count) spelling(s) - too few to have read the reserved set, so the derivation cannot be trusted")
+}
+
+foreach ($c in ($derivedFrom.Keys | Sort-Object)) {
+    if ($reservedSorted -ccontains $c) {
+        Write-Output ("  {0,-20} ok         reserved (from {1}), derived from {2}" -f $c, $sourceOf[$c], $derivedFrom[$c])
+    } else {
+        Write-Output ("  {0,-20} UNRESERVED derived from {1}" -f $c, $derivedFrom[$c])
+        $failures.Add("'$c' is a near-miss spelling of the reserved '$($derivedFrom[$c])' but is not itself reserved - a user who types it gets a silent unknown predicate instead of a refusal naming the real spelling")
     }
 }
 
