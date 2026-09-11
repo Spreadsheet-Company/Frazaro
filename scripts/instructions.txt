@@ -837,6 +837,59 @@ Add borders to every cell in range B27:D29.
 Add borders to every cell in range B31:D33.
 Remove borders from range C31:D33.
 
+# G-FORMAT slice 2: number formats (pareto section 6) under EN.3's
+# policy - the currency is named in the sentence, dates and times follow
+# the reading machine. Column F is widened first so each check reads the
+# formatted value, not "####". The date and time checks compare against
+# VBA's own Format$ with the machine's named formats, so they hold on
+# any regional setting - and fail if a format stops following it.
+Set width of column F to 40.
+Put 1234.56 into cell F40.
+Format cell F40 as a number.
+Put 1234.56 into cell F41.
+Format cell F41 as a number with 3 decimals.
+Put 1234.56 into cell F42.
+Format cell F42 as a number with thousands separators.
+Put 1234.56 into cell F43.
+Format cell F43 as a number with 0 decimals and thousands separators.
+Put 1234.56 into cell F44.
+Format cell F44 as dollars.
+Put 1234.56 into cell F45.
+Format cell F45 as euros with 0 decimals.
+Put 1234.56 into cell F46.
+Format cell F46 as pounds.
+Put 1234.56 into cell F47.
+Format cell F47 as accounting in dollars.
+Put -1234.56 into cell F48.
+Format cell F48 as accounting in euros with 0 decimals.
+Put 0.125 into cell F49.
+Format range F49 as percent.
+Put 0.125 into cell F50.
+Format cell F50 as percent with 2 decimals.
+Put 46000 into cell F51.
+Format cell F51 as a short date.
+Put 46000 into cell F52.
+Format cell F52 as a long date.
+Put 46000 into cell F53.
+Format cell F53 as an ISO date.
+Put 0.5625 into cell F54.
+Format cell F54 as a time.
+Put 42 into cell F55.
+Format cell F55 as text for new entries.
+Put 1234.56 into cell F56.
+Format cell F56 as dollars.
+Format cell F56 as general.
+Put 42 into cell F57.
+Format cell F57 using "00000".
+
+# Border colour, inside the drawing sentence - "colored" next to the
+# border it describes - and each colours only the lines it draws. One
+# quoted code and two of the eight names, so both paths through
+# VlaColor run under both backends.
+Add a border colored "#FF0000" around range H40:J42.
+Add a bottom border colored green to range H44:J44.
+Add borders colored blue to every cell in range H46:J48.
+
 Go to sheet Output.
 
 Tidy-up.

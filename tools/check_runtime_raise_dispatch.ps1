@@ -97,6 +97,7 @@ $baseline = @(
     'VlaDictGet',
     'VlaFillSeries',
     'VlaFreezePanes',
+    'VlaNumberFormatCode',   # G-FORMAT slice 2, 2026-09-10: refuses a bad decimal count
     'VlaPivotAddValues',
     'VlaPivotChangeSource',
     'VlaPivotClear',

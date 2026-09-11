@@ -423,10 +423,28 @@ End Function
 ' VBA expects. Hex color codes read red-first; VBA's color Longs are
 ' byte-reversed (BGR), so going through RGB() here is what makes
 ' #FF69B4 come out hot pink instead of powder blue.
+' G-FORMAT slice 2: also the eight named colors the phrasebook's
+' {c:color} slot accepts (VLA_English.IsColorWord's own list), so
+' "Add a border colored red around ..." works - that slot hands its
+' word over as text. Checked BEFORE the hex path, and it has to be:
+' "yellow" is six letters and would otherwise be read as a malformed
+' hex code. Folded invariantly (SD-8), not with LCase$. A widening
+' only: every string this used to accept means what it meant, and a
+' name used to refuse.
 Public Function VlaColor(ByVal v As Variant) As Long
     If VarType(v) = vbString Then
         Dim s As String
         s = Trim$(CStr(v))
+        Select Case Fold(s)
+            Case "black": VlaColor = vbBlack: Exit Function
+            Case "white": VlaColor = vbWhite: Exit Function
+            Case "red": VlaColor = vbRed: Exit Function
+            Case "green": VlaColor = vbGreen: Exit Function
+            Case "blue": VlaColor = vbBlue: Exit Function
+            Case "yellow": VlaColor = vbYellow: Exit Function
+            Case "magenta": VlaColor = vbMagenta: Exit Function
+            Case "cyan": VlaColor = vbCyan: Exit Function
+        End Select
         If Left$(s, 1) = "#" Then s = Mid$(s, 2)
         If Len(s) <> 6 Then GoTo bad
         On Error GoTo bad
@@ -558,7 +576,7 @@ Private Function RuntimeCatalogue() As Collection
 End Function
 
 Private Sub RuntimeAddEntries(ByVal m As Collection)
-    RuntimeAddMsg m, "rt-color-invalid", 5, "VLA-English", "'{value}' is not a color - use ""#RRGGBB"", like ""#FF69B4"""
+    RuntimeAddMsg m, "rt-color-invalid", 5, "VLA-English", "'{value}' is not a color - use one of red, yellow, black, blue, cyan, green, magenta or white, or ""#RRGGBB"", like ""#FF69B4"""
     RuntimeAddMsg m, "rt-dict-key-missing", 5, "VLA-English", "there is nothing stored at key '{key}'"
     RuntimeAddMsg m, "rt-mail-attachment-not-found", 53, "VLA-English", "Attachment not found: {path}"
     RuntimeAddMsg m, "rt-mail-outlook-unavailable", 5, "VLA-English", "Could not start Outlook to create the email"
@@ -582,6 +600,8 @@ Private Sub RuntimeAddEntries(ByVal m As Collection)
     RuntimeAddMsg m, "rt-pivot-sort-value-field-ambiguous", 5, "VLA-Runtime", "VlaPivotSort: '{field}' has more than one aggregation in pivot table '{table}'s values - pivot-sort cannot tell which one to sort by."
     RuntimeAddMsg m, "rt-freeze-panes-nonpositive", 5, "VLA-Runtime", "Freeze needs at least 1 row - got {n}. Use ""Unfreeze the panes."" to remove frozen panes instead."
     RuntimeAddMsg m, "rt-fill-series-unknown-kind", 5, "VLA-Runtime", "VlaFillSeries: unknown kind '{kind}' - expected linear or growth."
+    RuntimeAddMsg m, "rt-number-format-decimals", 5, "VLA-Runtime", "'{value}' is not a number of decimal places - use a whole number from 0 to 30, like 2."
+    RuntimeAddMsg m, "rt-number-format-unknown-kind", 5, "VLA-Runtime", "VlaNumberFormatCode: unknown kind '{kind}' - expected number, number-separated, percent, dollars, euros, pounds, or accounting- followed by one of those three currencies."
 End Sub
 
 Private Sub RuntimeAddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _
@@ -1256,6 +1276,93 @@ Public Sub VlaFillSeries(ByVal rng As Range, ByVal startVal As Double, _
     rng.Item(1).Value = startVal
     rng.DataSeries Type:=t, Step:=stepVal
 End Sub
+
+' G-FORMAT slice 2 (pareto.txt section 6) and EN.3's policy, in one
+' place: a named number format from english.vla's "Format ... as ..."
+' sentences, turned into an Excel format code. The policy is the
+' owner's (2026-09-10): the SYMBOL follows the data, the ORDER follows
+' the reader. A currency is named in the sentence - dollars, euros,
+' pounds - because it is a fact about the numbers: dollar figures
+' opened on a German laptop are still dollars. Separators need nothing
+' here: Range.NumberFormat always reads US-syntax codes, and Excel
+' draws "," and "." from the reading machine's own settings when it
+' displays them. Dates and times are not built here at all -
+' english.vla's date and time macros set Excel's own system date and
+' time codes, which follow the reading machine by design.
+'
+' Built here, not written literally in each macro, for two reasons:
+' the decimal count is a runtime value ("with {n} decimals"), and the
+' euro and pound signs are made with ChrW rather than typed - a
+' compiled program's text passes through the machine's ANSI code page
+' on its way into the VBA project, where a non-Western code page would
+' mangle a literal euro or pound sign before Excel ever saw it.
+'
+' decimals: a whole number from 0 to 30 (Excel's own ceiling for a
+' format code). Anything else refuses by name here, rather than
+' reaching Excel, whose own error names neither the sentence's number
+' nor the fix. Empty and True are refused too, although VBA calls both
+' numeric - an unset value is not a decimal count.
+Public Function VlaNumberFormatCode(ByVal kind As String, ByVal decimals As Variant) As String
+    If IsObject(decimals) Then GoTo badDecimals
+    If IsEmpty(decimals) Or IsNull(decimals) Then GoTo badDecimals
+    If VarType(decimals) = vbBoolean Then GoTo badDecimals
+    If Not IsNumeric(decimals) Then GoTo badDecimals
+    Dim n As Double
+    n = CDbl(decimals)
+    If n <> Fix(n) Or n < 0 Or n > 30 Then GoTo badDecimals
+
+    Dim places As String
+    If n > 0 Then places = "." & String$(CLng(n), "0")
+
+    Select Case kind
+        Case "number": VlaNumberFormatCode = "0" & places
+        Case "number-separated": VlaNumberFormatCode = "#,##0" & places
+        Case "percent": VlaNumberFormatCode = "0" & places & "%"
+        Case "dollars", "euros", "pounds"
+            VlaNumberFormatCode = CurrencySymbolCode(kind) & "#,##0" & places
+        ' Excel's own accounting layout: the sign pinned left ("* "
+        ' fills the gap), negatives in brackets, zero as a dash with
+        ' room for the decimals ("?" per place), text left alone.
+        Case "accounting-dollars", "accounting-euros", "accounting-pounds"
+            Dim sym As String
+            sym = CurrencySymbolCode(Mid$(kind, Len("accounting-") + 1))
+            VlaNumberFormatCode = "_(" & sym & "* #,##0" & places & "_);" & _
+                                  "_(" & sym & "* (#,##0" & places & ");" & _
+                                  "_(" & sym & "* ""-""" & String$(CLng(n), "?") & "_);" & _
+                                  "_(@_)"
+        Case Else
+            RaiseRuntimeMsg "rt-number-format-unknown-kind", "kind", kind
+    End Select
+    Exit Function
+badDecimals:
+    Dim shown As String
+    If IsObject(decimals) Then
+        shown = "that"
+    ElseIf IsEmpty(decimals) Or IsNull(decimals) Then
+        shown = "(nothing)"
+    Else
+        shown = CStr(decimals)
+    End If
+    RaiseRuntimeMsg "rt-number-format-decimals", "value", shown
+End Function
+
+' The piece of a format code that shows a currency's sign. Every sign
+' is escaped with a backslash (Excel's "show the next character as it
+' is"), the dollar included: a bare "$" in a format code is NOT a
+' literal - Excel reads it as the READING machine's own currency
+' symbol, so "$#,##0.00" showed "£1,234.56" on a UK-region run (found
+' live, owner's run, 2026-09-10; a US machine cannot tell the two
+' apart). The euro and pound signs are built with ChrW - see
+' VlaNumberFormatCode's own note on code pages.
+Private Function CurrencySymbolCode(ByVal currencyName As String) As String
+    Select Case currencyName
+        Case "dollars": CurrencySymbolCode = "\$"
+        Case "euros": CurrencySymbolCode = "\" & ChrW$(8364)
+        Case "pounds": CurrencySymbolCode = "\" & ChrW$(163)
+        Case Else
+            RaiseRuntimeMsg "rt-number-format-unknown-kind", "kind", currencyName
+    End Select
+End Function
 
 ' G-PIVOT rule #1 (pareto.txt section 10, "Pivot tables"): the two-step
 ' COM sequence pareto.txt's own target names - PivotCaches.Create then

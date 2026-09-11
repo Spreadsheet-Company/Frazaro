@@ -3233,6 +3233,69 @@ Private Sub VerifyReportChecks(ws As Worksheet)
         CheckV "remove borders: B31 left edge untouched (the add ran)", _
                wsF.Range("B31").Borders(xlEdgeLeft).LineStyle, xlContinuous
         CheckV "remove borders: D33 bottom edge gone", wsF.Range("D33").Borders(xlEdgeBottom).LineStyle, xlNone
+
+        ' G-FORMAT slice 2: number formats, read as .Text - what the
+        ' person looking at the sheet actually sees - in a column the
+        ' program widened first, so a narrow column's "####" can never
+        ' stand in for a value. Every number is 1234.56: no half to
+        ' round, so each format's own effect is the only thing that
+        ' differs. The expected text is built with VBA's own Format$,
+        ' which reads the same regional separators Excel displays with,
+        ' so these checks hold on a comma-decimal machine too - EN.3's
+        ' "the order follows the reader", checked rather than assumed to
+        ' be US.
+        Dim sep2 As String, sep0 As String
+        sep2 = Format$(1234.56, "#,##0.00")
+        sep0 = Format$(1234.56, "#,##0")
+        CheckV "number: F40 two decimals, no separators", wsF.Range("F40").Text, Format$(1234.56, "0.00")
+        CheckV "number with 3 decimals: F41", wsF.Range("F41").Text, Format$(1234.56, "0.000")
+        CheckV "number with thousands separators: F42 keeps its two decimals", wsF.Range("F42").Text, sep2
+        CheckV "number with 0 decimals and thousands separators: F43", wsF.Range("F43").Text, sep0
+        CheckV "dollars: F44", wsF.Range("F44").Text, "$" & sep2
+        CheckV "euros with 0 decimals: F45", wsF.Range("F45").Text, ChrW$(8364) & sep0
+        CheckV "pounds: F46", wsF.Range("F46").Text, ChrW$(163) & sep2
+        ' Accounting pads between the sign and the number to fill the
+        ' column ("* "), so the check reads the pieces, not the spacing.
+        Report "accounting in dollars: F47 shows the sign and the amount", _
+               InStr(1, wsF.Range("F47").Text, "$") > 0 And InStr(1, wsF.Range("F47").Text, sep2) > 0, _
+               "got '" & wsF.Range("F47").Text & "'"
+        Report "accounting in euros with 0 decimals: F48 shows the sign and the amount in brackets", _
+               InStr(1, wsF.Range("F48").Text, ChrW$(8364)) > 0 And InStr(1, wsF.Range("F48").Text, "(" & sep0 & ")") > 0, _
+               "got '" & wsF.Range("F48").Text & "'"
+        CheckV "percent, range twin of the shipped cell rule: F49 is one decimal", wsF.Range("F49").Text, Format$(0.125, "0.0%")
+        CheckV "percent with 2 decimals: F50", wsF.Range("F50").Text, Format$(0.125, "0.00%")
+        ' 46000 is 2025-12-09. Format$'s named formats read the same
+        ' Windows regional settings Excel's system codes do, so these
+        ' three pass on any machine whose dates follow its region - and
+        ' the long date also tells [$-F800] from a literal pattern even
+        ' on a US machine ("December 9", not the literal's "December 09").
+        CheckV "short date follows the machine: F51", wsF.Range("F51").Text, Format$(CDate(46000), "Short Date")
+        CheckV "long date follows the machine: F52", wsF.Range("F52").Text, Format$(CDate(46000), "Long Date")
+        CheckV "ISO date, the same everywhere: F53", wsF.Range("F53").Text, "2025-12-09"
+        CheckV "time follows the machine: F54 (13:30)", wsF.Range("F54").Text, Format$(CDate(0.5625), "Long Time")
+        ' "for new entries" means exactly that: the format is Text, and
+        ' the number that was already there is still a number.
+        CheckV "text for new entries: F55's format is Text", wsF.Range("F55").NumberFormat, "@"
+        Report "text for new entries: the 42 already in F55 is still a number", _
+               VarType(wsF.Range("F55").Value) = vbDouble, "got VarType " & VarType(wsF.Range("F55").Value)
+        CheckV "general: F56's dollar format is gone", wsF.Range("F56").NumberFormat, "General"
+        CheckV "general: F56 shows the bare number", wsF.Range("F56").Text, CStr(1234.56)
+        CheckV "custom pattern: F57 using 00000", wsF.Range("F57").Text, "00042"
+
+        ' Border colour inside the drawing sentence ("colored" next to the
+        ' border, one quoted code and two of the eight names). Each colours only
+        ' what its sentence draws: the coloured outline leaves the
+        ' inside undrawn - the exact side effect that withdrew slice 1's
+        ' "Set border-color" - and the coloured edge leaves the other
+        ' edges off.
+        CheckV "border colored ""#FF0000"" around: H40 top edge is #FF0000", wsF.Range("H40").Borders(xlEdgeTop).Color, RGB(255, 0, 0)
+        CheckV "border colored around: J42 right edge is drawn", wsF.Range("J42").Borders(xlEdgeRight).LineStyle, xlContinuous
+        CheckV "border colored around: the inside stays undrawn (I41 bottom edge)", _
+               wsF.Range("I41").Borders(xlEdgeBottom).LineStyle, xlNone
+        CheckV "bottom border colored green: J44 bottom edge is green", wsF.Range("J44").Borders(xlEdgeBottom).Color, RGB(0, 255, 0)
+        CheckV "bottom border colored green: J44 top edge stays off", wsF.Range("J44").Borders(xlEdgeTop).LineStyle, xlNone
+        CheckV "borders colored blue to every cell: I47's inside bottom edge is blue", _
+               wsF.Range("I47").Borders(xlEdgeBottom).Color, RGB(0, 0, 255)
     End If
 End Sub
 

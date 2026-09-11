@@ -400,6 +400,7 @@ Public Function VlaSelfTest() As Boolean
     TestInterpreterCsvInjectionGuard
     TestInterpreterExcelConstants
     TestInterpreterVbConstants
+    TestNumberFormatCodes
     TestInterpreterOperators
     TestInterpreterQuote
     TestArrayPrimitive
@@ -1652,6 +1653,18 @@ Private Sub TestHelpers()
            "got " & VlaColor("#FF69B4")
     Report "VlaColor bare hex", VlaColor("FF69B4") = RGB(255, 105, 180), "bare hex failed"
     Report "VlaColor numeric passthrough", VlaColor(255) = 255, "got " & VlaColor(255)
+    ' G-FORMAT slice 2: the eight names {c:color} hands over as text.
+    ' "yellow" is the one that proves the order - six letters, so the
+    ' hex path would have tried it and refused.
+    CheckV "VlaColor names: red", VlaColor("red"), 255
+    CheckV "VlaColor names: yellow, checked before the six-character hex path", VlaColor("yellow"), 65535
+    CheckV "VlaColor names: blue", VlaColor("blue"), 16711680
+    CheckV "VlaColor names: green", VlaColor("green"), 65280
+    CheckV "VlaColor names: black", VlaColor("black"), 0
+    CheckV "VlaColor names: white", VlaColor("white"), 16777215
+    CheckV "VlaColor names: cyan", VlaColor("cyan"), 16776960
+    CheckV "VlaColor names: magenta", VlaColor("magenta"), 16711935
+    CheckV "VlaColor names: case-insensitive", VlaColor("Blue"), 16711680
     Dim bad As Boolean
     On Error Resume Next
     VlaColor "#GGGGGG"
@@ -4655,6 +4668,64 @@ Private Sub TestInterpreterVbConstants()
     Set frame = VLA_Interpreter.VlaInterpret("(begin (dim my-flag Double) (set! my-flag 7))")
     CheckV "in.3: an ordinary variable is unaffected by the vb-constant table", _
            VLA_Runtime.VlaDictGet(frame, "my-flag"), 7
+End Sub
+
+' G-FORMAT slice 2: VLA_Runtime.VlaNumberFormatCode, purely - it is a
+' string function, so every code it builds is pinned here rather than
+' only through a sheet. One pin is an agreement: "percent" with 1
+' decimal must equal the SHIPPED format-as-percent literal ("0.0%"), so
+' the old sentence and the new one mean the same thing. One is a
+' deliberate DISagreement: "dollars" must NOT be the shipped
+' format-as-currency literal "$#,##0.00" - a bare "$" in a format code
+' is the reading machine's currency symbol (a UK-region run showed
+' "£1,234.56" for it, owner's run, 2026-09-10), so "dollars" escapes it.
+' The refusals are pinned by message fragment, the same way a load's
+' fail: proofs are.
+Private Sub TestNumberFormatCodes()
+    CheckV "g-format: number, 2 decimals", VLA_Runtime.VlaNumberFormatCode("number", 2), "0.00"
+    CheckV "g-format: number, 0 decimals has no point", VLA_Runtime.VlaNumberFormatCode("number", 0), "0"
+    CheckV "g-format: number with separators, 2 decimals", VLA_Runtime.VlaNumberFormatCode("number-separated", 2), "#,##0.00"
+    CheckV "g-format: percent, 1 decimal equals the shipped format-as-percent", _
+           VLA_Runtime.VlaNumberFormatCode("percent", 1), "0.0%"
+    CheckV "g-format: percent, 0 decimals", VLA_Runtime.VlaNumberFormatCode("percent", 0), "0%"
+    CheckV "g-format: dollars, 2 decimals - the $ escaped, so it stays a dollar on any machine", _
+           VLA_Runtime.VlaNumberFormatCode("dollars", 2), "\$#,##0.00"
+    Report "g-format: dollars is deliberately not the shipped format-as-currency code (a bare $ follows the machine)", _
+           VLA_Runtime.VlaNumberFormatCode("dollars", 2) <> "$#,##0.00", "dollars came back as the bare-$ code"
+    CheckV "g-format: euros, 0 decimals - the sign built with ChrW and escaped", _
+           VLA_Runtime.VlaNumberFormatCode("euros", 0), "\" & ChrW$(8364) & "#,##0"
+    CheckV "g-format: pounds, 2 decimals", _
+           VLA_Runtime.VlaNumberFormatCode("pounds", 2), "\" & ChrW$(163) & "#,##0.00"
+    CheckV "g-format: accounting in dollars, 2 decimals", _
+           VLA_Runtime.VlaNumberFormatCode("accounting-dollars", 2), _
+           "_(\$* #,##0.00_);_(\$* (#,##0.00);_(\$* ""-""??_);_(@_)"
+    CheckV "g-format: accounting in euros, 0 decimals - no point, no ? after the dash", _
+           VLA_Runtime.VlaNumberFormatCode("accounting-euros", 0), _
+           "_(\" & ChrW$(8364) & "* #,##0_);_(\" & ChrW$(8364) & "* (#,##0);_(\" & ChrW$(8364) & "* ""-""_);_(@_)"
+    CheckV "g-format: a numeric string is a decimal count", VLA_Runtime.VlaNumberFormatCode("number", "3"), "0.000"
+
+    Dim bad As Variant
+    Dim desc As String
+    Dim ignored As String
+    For Each bad In Array(-1, 2.5, 31, "two", True, Empty)
+        desc = ""
+        On Error Resume Next
+        Err.Clear
+        ignored = VLA_Runtime.VlaNumberFormatCode("number", bad)
+        desc = Err.Description
+        On Error GoTo 0
+        Report "g-format: decimals '" & IIf(IsEmpty(bad), "(empty)", CStr(bad)) & "' refuses by name", _
+               InStr(1, desc, "is not a number of decimal places", vbTextCompare) > 0, "got: " & desc
+    Next bad
+
+    desc = ""
+    On Error Resume Next
+    Err.Clear
+    ignored = VLA_Runtime.VlaNumberFormatCode("yen", 2)
+    desc = Err.Description
+    On Error GoTo 0
+    Report "g-format: an unknown kind refuses by name", _
+           InStr(1, desc, "unknown kind 'yen'", vbTextCompare) > 0, "got: " & desc
 End Sub
 
 ' IN2.7: EvalOpChain's 18 operators, purely - AS.8's own scan found only

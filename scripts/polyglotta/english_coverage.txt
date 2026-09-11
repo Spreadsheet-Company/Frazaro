@@ -1,9 +1,9 @@
 === PHRASEBOOK TEST COVERAGE: english.vla ===
-Rules: 167
+Rules: 185
 
 --- Zero tests, 0 rule(s) ---
 
---- Exactly one test, 117 rule(s) ---
+--- Exactly one test, 130 rule(s) ---
   copy cell {a:cell} to cell {b:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   paste values of range {a:range} into range {b:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   set font-color of cell {r:cell} to {e:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
@@ -117,12 +117,25 @@ Rules: 167
   indent cell|range {r:range} by {n:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   rotate text in cell|range {r:range} by {n:expr} degrees [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   add border around cell|range {r:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  add {d:top|bottom|left|right} border colored {c:color} to cell|range {r:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  add borders colored {c:color} to every cell in [range] {r:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  format cell|range {r:range} as accounting in {d:dollars|euros|pounds} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  format cell|range {r:range} as accounting in {d:dollars|euros|pounds} with {n:expr} decimal/s [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  format range {r:range} as percent [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  format cell|range {r:range} as number [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  format cell|range {r:range} as number with {n:expr} decimal/s [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  format cell|range {r:range} as number with thousands separators [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  format cell|range {r:range} as number with {n:expr} decimal/s and thousands separators [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  format cell|range {r:range} as time [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  format cell|range {r:range} as text for new entries [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  format cell|range {r:range} as general [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  format cell|range {r:range} using {n:text} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   paint cell {r:cell} {e:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   show every {table:text} {shown:text} whose {filtercol:text} is over {val:expr} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   show every {shown:text} in {table:text} with {filtercol:text} over {val:expr} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   show everyone who reports to {person:expr} directly or not in {table:text} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
 
-test-fail proofs (file-level, never attributed to a rule): 5
+test-fail proofs (file-level, never attributed to a rule): 6
 test-success proofs for a structural form, not a phrase rule: 9
 
-=== SUMMARY: 50/167 rules have 2+ tests; 117 have exactly one; 0 have zero ===
+=== SUMMARY: 55/185 rules have 2+ tests; 130 have exactly one; 0 have zero ===

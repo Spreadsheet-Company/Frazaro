@@ -2050,7 +2050,10 @@
 ; :text slot has no runtime path to a color value - VlaColor only
 ; resolves a hex string or a numeric constant, never an English color
 ; name - so a bare color word here would raise rt-color-invalid at
-; runtime with no warning at Check time).
+; runtime with no warning at Check time). G-FORMAT slice 2 later taught
+; VlaColor the eight named colors, for its {c:color} border sentences;
+; this rule keeps {n:expr} (SD-4), where a bare "red" is still read as
+; a variable name.
 (defmacro
     (band-rows r c)
     "shade every other row of a range with a fill color, starting at the range's own 2nd row"
@@ -2480,18 +2483,333 @@
     "Add a border around range B2:D4."
     (add-outline-border (range "b2:d4")))
 
-; Border colour (pareto's border-color) is deliberately NOT in this
-; slice. A first draft shipped "Set border-color of ... to ..." as
-; (set! (. r borders.color) c), and SD-19's audition failed it live:
-; Range.Borders.Color DRAWS every edge and inside line it colours, so
-; an outlined B2:D4 came back with its inside lines drawn too (the
-; owner's Immediate-window read: D3's bottom edge and C4's left edge
-; both LineStyle 1, neither drawn by any sentence). "Set border-color"
-; says recolour; the call also draws. Two honest designs, for a later
-; slice with a sentence that needs one (SD-7): recolour only lines that
-; exist (a Tier-2 walk over every cell's four edges - slow on a whole
-; column), or put the colour in the drawing sentence ("Add a border
-; around range B2:D4 in blue.") so the sentence says it draws.
+; ---- G-FORMAT slice 2: border colour, inside the drawing sentence ------
+; Slice 1 withdrew a "Set border-color of ... to ..." rule: SD-19's
+; audition failed it live, because Range.Borders.Color DRAWS every edge
+; and inside line it colours - an outlined B2:D4 came back with its
+; inside lines drawn (the owner's Immediate-window read: D3's bottom
+; edge and C4's left edge both LineStyle 1, neither drawn by any
+; sentence). The owner's call for its return: the colour rides the
+; drawing sentence, so the sentence says it draws. Each colour sentence
+; colours only the lines it draws - the outline sets Color edge by edge,
+; never Borders.Color, which is what would draw the inside. Only the
+; every-cell sentence uses Borders.Color, where every line is drawn
+; anyway.
+; The wording is the owner's: "colored", placed straight after the
+; border it describes. A draft said "in {e:expr}" at the end, which read
+; oddly with a code ("in "#FF0000"") and doubled up in "every cell in
+; range A1:C3 in ..."; and "colored" at the END would attach to the
+; wrong noun - "every cell in range A1:C3 colored blue" reads as a
+; filter, the cells that ARE blue (SD-19). Next to "border" it can only
+; describe the border.
+; {c:color}, not {e:expr}: the typed slot takes the eight named colours
+; bare and a code quoted, and refuses anything else at Check with its
+; own teaching text - where {e:expr} would have read "colored red" as a
+; variable called red. VLA_Runtime.VlaColor learned the eight names in
+; the same pass. The cost, accepted: a Defined alias like hot-pink needs
+; quotes here.
+(defmacro
+    (add-edge-border-in r edge c)
+    "draw one edge of a range as a continuous line in a color"
+    (begin (add-edge-border r edge) (set! (. (. r borders edge) color) c)))
+
+(defmacro
+    (add-outline-border-in r c)
+    "draw a box around the outside of a range in a color, leaving its inside lines alone"
+    (begin (add-edge-border-in r xledgetop c)
+           (add-edge-border-in r xledgebottom c)
+           (add-edge-border-in r xledgeleft c)
+           (add-edge-border-in r xledgeright c)))
+
+(defmacro
+    (add-border-in r c)
+    "draw every line of every cell in a range, in a color"
+    (begin (add-border r) (set! (. r borders.color) c)))
+
+(english-vla
+    "add border colored {c:color} around cell|range {r:range}"
+    (add-outline-border-in (range {r}) (vlacolor {c})))
+(test-success
+    "Add a border colored red around range B2:D4."
+    (add-outline-border-in (range "b2:d4") (vlacolor "red")))
+(test-success
+    "Add a border colored \"#FF0000\" around cell B2."
+    (add-outline-border-in (range "b2") (vlacolor "#FF0000")))
+
+(english-vla
+    "add {d:top|bottom|left|right} border colored {c:color} to cell|range {r:range}"
+    (add-edge-border-in (range {r}) xledge{d} (vlacolor {c})))
+(test-success
+    "Add a bottom border colored green to range B5:D5."
+    (add-edge-border-in (range "b5:d5") xledgebottom (vlacolor "green")))
+
+(english-vla
+    "add borders colored {c:color} to every cell in [range] {r:range}"
+    (add-border-in (range {r}) (vlacolor {c})))
+(test-success
+    "Add borders colored \"#0000FF\" to every cell in range A1:C3."
+    (add-border-in (range "a1:c3") (vlacolor "#0000FF")))
+(test-fail
+    "Add a border colored hot-pink around range B2:D4."
+    "a color (like")
+
+; ---- G-FORMAT slice 2: number formats (pareto section 6) ---------------
+; EN.3's policy, the owner's call (2026-09-10): the SYMBOL follows the
+; data, the ORDER follows the reader.
+;   - A currency is named in the sentence - dollars, euros, pounds -
+;     because it is a fact about the numbers, not about the machine
+;     reading them. Every sign is ESCAPED in the code, the dollar too:
+;     a bare "$" in a format code is the reading machine's own currency
+;     symbol, not a literal - a UK-region run showed "as dollars" as
+;     "£1,234.56" until VLA_Runtime's CurrencySymbolCode escaped it (owner's run,
+;     2026-09-10). The shipped "Format cell ... as currency" is exactly
+;     that bare "$#,##0.00", so it has always meant "the reading
+;     machine's currency" - a dollar figure reads as pounds in the UK.
+;     It keeps that meaning (SD-4) and gets no range twin: under SD-19
+;     "currency" does not say which, so it is not copied (CO.7 lists it).
+;   - Separators need nothing: Range.NumberFormat always reads US-syntax
+;     codes and Excel draws "," and "." from the reading machine.
+;   - Dates and times use Excel's own system codes, which follow the
+;     reading machine. The shipped "Format cell ... as date" keeps its
+;     fixed US order (mm/dd/yyyy, SD-4) and gets no twin either.
+; Decimals ride each named format ("with 2 decimals"), never a
+; free-standing "Show 2 decimal places in ..." - pareto's own spelling,
+; which replaces the whole format and silently drops a currency or a
+; percent sign (SD-19, by side effect). "decimal/s" (G1.1) takes "with 1
+; decimal" and "with 2 decimals" alike. Every code is built or named in
+; VLA_Runtime.VlaNumberFormatCode or written in the macro below - see
+; that function's own note for why currency codes are built, not typed.
+
+; Currency - the sign is named, and so the rule says which.
+(defmacro
+    (format-as-dollars r n)
+    "apply a dollar currency format with a number of decimal places"
+    (set! (. r numberformat) (vlanumberformatcode "dollars" n)))
+
+(defmacro
+    (format-as-euros r n)
+    "apply a euro currency format with a number of decimal places"
+    (set! (. r numberformat) (vlanumberformatcode "euros" n)))
+
+(defmacro
+    (format-as-pounds r n)
+    "apply a pound sterling currency format with a number of decimal places"
+    (set! (. r numberformat) (vlanumberformatcode "pounds" n)))
+
+(english-vla
+    "format cell|range {r:range} as {d:dollars|euros|pounds}"
+    (format-as-{d} (range {r}) 2))
+(test-success
+    "Format range A1:A9 as dollars."
+    (format-as-dollars (range "a1:a9") 2))
+(test-success
+    "Format cell A1 as pounds."
+    (format-as-pounds (range "a1") 2))
+
+(english-vla
+    "format cell|range {r:range} as {d:dollars|euros|pounds} with {n:expr} decimal/s"
+    (format-as-{d} (range {r}) {n}))
+(test-success
+    "Format range A1:A9 as euros with 0 decimals."
+    (format-as-euros (range "a1:a9") 0))
+(test-success
+    "Format cell A1 as dollars with 1 decimal."
+    (format-as-dollars (range "a1") 1))
+
+(defmacro
+    (format-as-accounting-dollars r n)
+    "apply the accounting layout in dollars: sign at the left, negatives in brackets, zero as a dash"
+    (set! (. r numberformat) (vlanumberformatcode "accounting-dollars" n)))
+
+(defmacro
+    (format-as-accounting-euros r n)
+    "apply the accounting layout in euros: sign at the left, negatives in brackets, zero as a dash"
+    (set! (. r numberformat) (vlanumberformatcode "accounting-euros" n)))
+
+(defmacro
+    (format-as-accounting-pounds r n)
+    "apply the accounting layout in pounds: sign at the left, negatives in brackets, zero as a dash"
+    (set! (. r numberformat) (vlanumberformatcode "accounting-pounds" n)))
+
+(english-vla
+    "format cell|range {r:range} as accounting in {d:dollars|euros|pounds}"
+    (format-as-accounting-{d} (range {r}) 2))
+(test-success
+    "Format range B2:B9 as accounting in dollars."
+    (format-as-accounting-dollars (range "b2:b9") 2))
+
+(english-vla
+    "format cell|range {r:range} as accounting in {d:dollars|euros|pounds} with {n:expr} decimal/s"
+    (format-as-accounting-{d} (range {r}) {n}))
+(test-success
+    "Format range B2:B9 as accounting in euros with 0 decimals."
+    (format-as-accounting-euros (range "b2:b9") 0))
+
+; Percent. The range twin reuses the shipped cell rule's own macro (one
+; decimal, "0.0%"), so "as percent" means one thing whichever it takes;
+; the pure suite pins VlaNumberFormatCode("percent", 1) to that same
+; code. With decimals it goes through VlaNumberFormatCode.
+(english-vla
+    "format range {r:range} as percent"
+    (format-as-percent (range {r})))
+(test-success
+    "Format range A1:A9 as percent."
+    (format-as-percent (range "a1:a9")))
+
+(defmacro
+    (format-as-percent-with-decimals r n)
+    "apply a percent format with a number of decimal places"
+    (set! (. r numberformat) (vlanumberformatcode "percent" n)))
+
+(english-vla
+    "format cell|range {r:range} as percent with {n:expr} decimal/s"
+    (format-as-percent-with-decimals (range {r}) {n}))
+(test-success
+    "Format cell A1 as percent with 2 decimals."
+    (format-as-percent-with-decimals (range "a1") 2))
+(test-success
+    "Format range A1:A9 as percent with 1 decimal."
+    (format-as-percent-with-decimals (range "a1:a9") 1))
+
+; Plain numbers: Excel's own Number category - two decimals, no
+; separators - and the separators named when wanted, as Excel's own
+; "Use 1000 separator" box is. pareto's "Format ... with thousands
+; separators" ("#,##0") is not shipped as written: it hides the
+; decimals too, which the sentence never said (SD-19). The decimals come
+; BEFORE "and thousands separators" on purpose - with them after, the
+; plain rule's {n:expr} would meet "thousands separators and 2" and the
+; two rules' shapes would overlap.
+(defmacro
+    (format-as-number r n)
+    "apply a plain number format with a number of decimal places and no thousands separators"
+    (set! (. r numberformat) (vlanumberformatcode "number" n)))
+
+(defmacro
+    (format-as-separated-number r n)
+    "apply a number format with thousands separators and a number of decimal places"
+    (set! (. r numberformat) (vlanumberformatcode "number-separated" n)))
+
+(english-vla
+    "format cell|range {r:range} as number"
+    (format-as-number (range {r}) 2))
+(test-success
+    "Format range A1:A9 as a number."
+    (format-as-number (range "a1:a9") 2))
+
+(english-vla
+    "format cell|range {r:range} as number with {n:expr} decimal/s"
+    (format-as-number (range {r}) {n}))
+(test-success
+    "Format cell A1 as a number with 3 decimals."
+    (format-as-number (range "a1") 3))
+
+(english-vla
+    "format cell|range {r:range} as number with thousands separators"
+    (format-as-separated-number (range {r}) 2))
+(test-success
+    "Format range A1:A9 as a number with thousands separators."
+    (format-as-separated-number (range "a1:a9") 2))
+
+(english-vla
+    "format cell|range {r:range} as number with {n:expr} decimal/s and thousands separators"
+    (format-as-separated-number (range {r}) {n}))
+(test-success
+    "Format range A1:A9 as a number with 0 decimals and thousands separators."
+    (format-as-separated-number (range "a1:a9") 0))
+
+; Dates and times - the reading machine's own formats, EN.3's "order
+; follows the reader". "m/d/yyyy" looks like a fixed US order and is
+; not: it is how Range.NumberFormat spells Excel's built-in short date
+; (format 14), the one Excel's own dialog marks as following the
+; regional setting. [$-F800] and [$-F400] are Excel's system long date
+; and system time; the text after each is ignored. ISO is the one fixed
+; order, and the sentence names it. The live checks compare against
+; VBA's own Format$ with the machine's named formats, so a region
+; change is the test that tells "follows the reader" from "US".
+(defmacro
+    (format-as-short-date r)
+    "apply the reading machine's own short date format"
+    (set! (. r numberformat) "m/d/yyyy"))
+
+(defmacro
+    (format-as-long-date r)
+    "apply the reading machine's own long date format"
+    (set! (. r numberformat) "[$-F800]dddd, mmmm dd, yyyy"))
+
+(defmacro
+    (format-as-iso-date r)
+    "apply the ISO date format, year-month-day, the same on every machine"
+    (set! (. r numberformat) "yyyy-mm-dd"))
+
+(defmacro
+    (format-as-time r)
+    "apply the reading machine's own time format"
+    (set! (. r numberformat) "[$-F400]h:mm:ss AM/PM"))
+
+(english-vla
+    "format cell|range {r:range} as {d:short|long|iso} date"
+    (format-as-{d}-date (range {r})))
+(test-success
+    "Format range A1:A9 as a short date."
+    (format-as-short-date (range "a1:a9")))
+(test-success
+    "Format cell A1 as a long date."
+    (format-as-long-date (range "a1")))
+(test-success
+    "Format range A1:A9 as an ISO date."
+    (format-as-iso-date (range "a1:a9")))
+
+(english-vla
+    "format cell|range {r:range} as time"
+    (format-as-time (range {r})))
+(test-success
+    "Format range A1:A9 as a time."
+    (format-as-time (range "a1:a9")))
+
+; Text, named for what Excel's Text format actually does (SD-19, the
+; owner's call): it changes how values typed LATER are read - "007"
+; stays "007" - and leaves a number already there a number, still
+; counted by SUM. pareto's bare "Format ... as text" reads as converting
+; what is there; this sentence says it does not.
+(defmacro
+    (format-as-text-for-new-entries r)
+    "make a range treat values typed into it later as text; numbers already there stay numbers"
+    (set! (. r numberformat) "@"))
+
+(english-vla
+    "format cell|range {r:range} as text for new entries"
+    (format-as-text-for-new-entries (range {r})))
+(test-success
+    "Format range A1:A9 as text for new entries."
+    (format-as-text-for-new-entries (range "a1:a9")))
+
+(defmacro
+    (format-as-general r)
+    "remove a range's number format, back to Excel's General"
+    (set! (. r numberformat) "General"))
+
+(english-vla
+    "format cell|range {r:range} as general"
+    (format-as-general (range {r})))
+(test-success
+    "Format range A1:A9 as general."
+    (format-as-general (range "a1:a9")))
+
+; The escape hatch: any Excel format code, quoted, written in Excel's
+; own US syntax ("." for decimals, "," for thousands) whatever the
+; machine - Excel localises the display, never the code. A format code
+; is inert text: it can change what a cell shows, never run anything.
+(defmacro
+    (format-using r pattern)
+    "apply an Excel number format code, written in Excel's own US syntax"
+    (set! (. r numberformat) pattern))
+
+(english-vla
+    "format cell|range {r:range} using {n:text}"
+    (format-using (range {r}) {n}))
+(test-success
+    "Format range A1:A9 using \"00000\"."
+    (format-using (range "a1:a9") "00000"))
 
 ; ---- G11: the template face --------------------------------------
 ; Friendly functors hiding the dot (VBA member access) from template

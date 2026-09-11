@@ -3328,6 +3328,41 @@ specimens: 3 (three blind-fix incidents, one first-user Undo report).*
   parity checker) — a `tools/*.ps1` script comparing the two lists is an
   afternoon, not a redesign, and the failure mode it prevents has already
   fired once live. `~hours`
+- ⬜ **F.16 — pre-flight runtime checks: literal arguments validated at
+  Check.** *Found live, owner-asked, G-FORMAT slice 2 (2026-09-10):* `Format
+  cell A1 as percent with 2.5 decimals.` passed Check (column C: OK), then
+  refused at run time — correctly and in words, through its native
+  `TryRuntimeHelper` Case, but only after every earlier sentence of the
+  program had already run. A bad value written *in the sentence* costs a
+  half-finished sheet and then a modal, when Check could have stopped the
+  program before it touched the workbook. **Why Check misses it today:**
+  Check verifies shape — the words match a rule, typed slots hold the right
+  kind of thing (G2), every name resolves (`EnglishResolveCheck`) — and never
+  computes a value; `{n:expr}` accepts any expression, so only the helper at
+  run time knows 2.5 is not a decimal count. **The mechanism, built once, not
+  per rule:** a runtime helper that is *pure* — a function of its arguments,
+  no workbook, no host object — is marked so; after translation, Check walks
+  the macro-expanded program, and wherever a pure helper is called with only
+  literal arguments it calls the helper and reports a refusal against that
+  sentence's line, the same way `EnglishResolveCheck` reports an unknown name
+  through the at-line markers. **What it cannot do, stated so it is not
+  promised:** a value from a variable or a cell is known only at run time
+  (`with places decimals`); those keep their run-time refusal, which is
+  already in words. **First cases, all live today:** decimals
+  (`VlaNumberFormatCode`), colour codes (`VlaColor` — `Set fill-color of cell
+  A2 to "#GGGGGG".` passes Check), the freeze count (`Freeze the first 0
+  rows.` — its validation needs splitting from `VlaFreezePanes`, which
+  selects rows and is not pure), and G-FORMAT slice 1's indent and rotation
+  bounds, which today reach Excel and come back as Excel's own "Unable to set
+  the IndentLevel property…" rather than a Frazaro refusal — they need a small
+  pure bound check each, which is also their run-time fix. **Constraints:**
+  only helpers marked pure may be called at Check — anything with an effect
+  stays at run time, and the mark is a reviewed, listed property, not
+  inferred; `check_translate_purity.ps1` must accept exactly those calls on
+  the Check path and no others; the refusal text is the helper's own (one
+  message, two moments), so SD-2's catalogue gains nothing new. *Depends on:*
+  nothing. *Pays into:* LX.8 (refusals before effects), PI.6 (a Monday run
+  that fails at Check instead of halfway). `~days`
 
 ---
 
@@ -5068,12 +5103,41 @@ written against.
   available and what to say if it is not. `~days`
 - ⬜ **EN.2 — formula locale policy.** `.Formula` vs `.FormulaLocal`. Choose one,
   document it, pin it. `~days`
-- ⬜ **EN.3 — number-format locale policy.** Named formats resolve to
+- ✅ **EN.3 — number-format locale policy.** Named formats resolve to
   locale-correct patterns. 🔒 **Blocks: G-FORMAT's number-format rules — about
   twelve of them.** Nothing in G-STRUCT, G-ROWLOOP, G-TEXT, or the rest of
   G-FORMAT needs a locale-correct currency pattern. *The previous revision read
   "before Grammar §6" and was taken as blocking seventy rules to protect twelve.*
   *Expiry:* first non-US-locale user. `~days`
+  **Decided and built with G-FORMAT slice 2 (2026-09-10, the owner's call),
+  owner-tested on two regions and committed — the policy: the symbol follows the data, the
+  order follows the reader.** "Locale-correct" turned out to mean two different
+  things. A *currency* is a property of the numbers, so it is named in the
+  sentence (`as dollars|euros|pounds`) and never follows the reading machine —
+  a machine-following currency would relabel dollar figures as euros on a
+  German laptop, which is wrong, not localised. *Separators* and *date and time
+  order* are the reader's conventions, and follow the reading machine:
+  separators already did, since `Range.NumberFormat` always reads US-syntax
+  codes and Excel localises only the display; dates and times use Excel's own
+  system codes (built-in short date, `[$-F800]` long date, `[$-F400]` time).
+  **The UK-region run (owner's, 2026-09-10) — EN.7's first real cell:** the
+  short date, long date and time all followed the region (201/203 on both
+  backends), proving "the order follows the reader". It also caught the one
+  wrong assumption in the build: **a bare `$` in a format code is not a
+  literal** — Excel reads it as the *reading machine's* currency symbol, so `as
+  dollars` showed `£1,234.56`. The euro and pound signs were already escaped
+  (`\€`, `\£`) and passed; the dollar now is too (`\$`), in both the currency
+  and the accounting codes. The same run exposed the shipped `Format cell …
+  as currency`: it is that bare `$#,##0.00`, so it has always meant "the
+  reading machine's currency" — exactly the machine-following currency this
+  policy rules out. It keeps that meaning (SD-4) and is a CO.7 candidate, as
+  is the shipped `… as date` (a fixed month-day-year order). **The re-run with
+  the `\$` fix: 203/203 on both backends under the UK region (F44 read
+  `$1,234.56`) and again under the US region — closed.** *Not covered by this
+  item, named so it is not assumed:* a comma-decimal region (German, say) was
+  not run; the live checks are written for it (every expected string comes
+  from `Format$`), but the rest of `instructions.txt` has never met one, and
+  EN.4 — separators in the reader — is where that belongs.
 - ⬜ **EN.4 — decimal and thousands separators in the reader.** A silently wrong
   number is the worst class of bug a spreadsheet tool can ship. `~days`
 - ⬜ **EN.5 — date literal and date-format policy.** `~days`
@@ -5845,7 +5909,12 @@ before-contact item behind the gate.
   `Add borders to every cell in …`, in G-FORMAT slice 1), `Clear color of
   cell` (clears the fill, leaves font colour — sibling `Clear fill-color of
   …` shipped in the same slice), and `Clear cell|range` (contents only,
-  beside `Clear everything from` — not yet given one). *Output:* a list of
+  beside `Clear everything from` — not yet given one). *Added by G-FORMAT
+  slice 2:* `Format cell … as currency` (which currency? — whichever the
+  reading machine uses: its bare `$` showed £ on a UK-region run; `as
+  dollars|euros|pounds`, which name it, shipped in slice 2) and `Format cell … as date`
+  (a fixed US order that reads as "a date"; `as a short date`, which follows
+  the reader, shipped in slice 2). *Output:* a list of
   every shipped rule with a verdict and, for each failure, its sibling
   rule; the legacy spellings recorded where CO.1/CO.2 will find them. *Why
   CO and not a grammar slice:* it is about what shipped spellings promise,
@@ -6138,21 +6207,101 @@ G-TAIL always said this about itself; it is true of the whole tranche.
   type, not this entry's. Named here so the first Tier-2 implementation
   attempt does not have to rediscover it live. See `SEC.0`'s own threat
   model for where this fits.
-- 🟡 **G-FORMAT** — formatting and number-format sections: `pareto.txt` §5
+- ✅ **G-FORMAT** — formatting and number-format sections: `pareto.txt` §5
   and §6, **43 entries**. Pure Tier-1, no new plumbing, and where a beta looks
   thin or finished. `~weeks`
+  **Closed 2026-09-10, owner-tested and committed:** both slices below, 35
+  phrase rules, every one of the 43 entries covered. §7 continues as
+  `G-CONDFORMAT`.
   *Recounted 2026-09-10, owner-asked:* the "~70 rules" this entry carried was
   an estimate no grouping of the real sections reproduces (§5 is 30 entries,
   §6 is 13, §7 is 12; even all three make 55). §7, conditional formatting, is
   now its own item, `G-CONDFORMAT`, below — the owner's call, so this one has a
   closing condition: **G-FORMAT is ✅ when §6 ships.** Slices:
   1. ✅ §5, the cosmetic layer — below. 29 of 30 entries covered.
-  2. ⬜ §6, number formats — 13 entries; three exist only in narrow form
-     (`format cell … as currency|percent|date`: cell-only, US patterns). EN.3
-     gates the locale-sensitive ones; `text`, `general` and a custom pattern
-     are locale-neutral.
-  3. ⬜ §5's one remainder, border colour — withdrawn from slice 1 (below),
-     with two designs named.
+  2. ✅ §6, number formats, and §5's remainder, border colour — slice 2,
+     below. With it, all 43 entries are covered.
+  - ✅ **Slice 2 — `pareto.txt` §6, number formats, plus border colour.**
+    Owner-tested and committed 2026-09-10. **18 rules**, scoped against pareto
+    with four forks the owner decided (2026-09-10), each the recommended
+    option:
+    - **Locale — the symbol follows the data, the order follows the
+      reader** (EN.3's policy). A currency is named in the sentence (`as dollars|euros|
+      pounds`, and `as accounting in …`), because it is a fact about the
+      numbers: dollar figures opened on a German laptop are still dollars.
+      Separators needed nothing — `Range.NumberFormat` always reads
+      US-syntax codes and Excel draws the separators from the reading
+      machine. Dates and times use Excel's own system codes (built-in
+      short date, `[$-F800]` long date, `[$-F400]` time), which follow the
+      reading machine; `as an ISO date` is the one fixed order, and says
+      so. This closes EN.3 when it ships (EN.3's own entry records it).
+    - **Decimals ride each named format** (`with 2 decimals`, `with 1
+      decimal`), never pareto's free-standing `Show 2 decimal places in …`,
+      which replaces the whole format and silently drops a `$` or `%` — an
+      SD-19 failure by side effect. pareto's `with thousands separators`
+      (`#,##0`) was reshaped for the same reason: it also hid the decimals.
+      `as a number` is Excel's own Number category (two decimals, no
+      separators) and `… and thousands separators` names the separators.
+    - **`as text for new entries`**, named for what Excel's Text format
+      actually does: it changes how values typed later are read and leaves
+      a number already there a number, still counted by SUM. A live check
+      reads that number back as a number.
+    - **Border colour rides the drawing sentence** — slice 1's withdrawn
+      `Set border-color` returns as a sentence that says it draws, and each
+      colours only the lines it draws: the outline sets `Color` edge by
+      edge, never `Borders.Color`. *Wording, the owner's second call:*
+      `colored`, placed straight after the border it describes — `Add a
+      border colored red around range B2:D4.`, `Add a bottom border colored
+      green to …`, `Add borders colored blue to every cell in …`. A first
+      draft ended with `in {e:expr}`, which read oddly with a code (`in
+      "#FF0000"`) and doubled up in `every cell in range A1:C3 in …`; and
+      `colored` at the end would attach to the wrong noun — `every cell in
+      range A1:C3 colored blue` reads as a filter (SD-19). The slot is the
+      typed `{c:color}`: the eight named colours bare, a code quoted,
+      anything else refused at Check — where `{e:expr}` would have read
+      `colored red` as a variable called `red`. `VlaColor` learned the eight
+      names to match (checked before its hex path, since `yellow` is six
+      letters; a widening only — a quoted name used to refuse). The cost,
+      accepted: a Defined alias like `hot-pink` needs quotes in these three
+      sentences, and a `fail:` proof pins that refusal.
+    **No range twin of `Format cell … as currency|date`**: under SD-19,
+    `currency` does not say which, and the shipped `date` is a fixed US
+    order — so neither vague spelling is copied (both added to CO.7). `as
+    percent` does get its twin, and the pure suite pins the new percent code
+    to the shipped literal so old and new sentences agree — and pins the
+    dollar code to *differ* from the shipped `$#,##0.00`, whose bare `$` a
+    UK-region run showed to be the machine's currency, not a dollar (EN.3's
+    entry has the run).
+    **One new runtime helper**, `VLA_Runtime.VlaNumberFormatCode(kind,
+    decimals)`: the decimal count is a runtime value, and the euro and pound
+    signs are built with `ChrW` — a compiled program's text passes through
+    the machine's ANSI code page on its way into the VBA project, where a
+    non-Western code page would mangle a typed `€`. It refuses a decimal
+    count that is not a whole number 0–30 by name, so it has a native
+    `TryRuntimeHelper` Case (IN.15) and joins
+    `check_runtime_raise_dispatch.ps1`'s baseline. No new interpreter
+    member or constant. Proof: 18 pure pins (every code, every refusal); 26
+    live checks on the `GFormat` sheet, number formats read as `.Text` in a
+    widened column, every expected string built with VBA's own `Format$`
+    (separators, and the machine's named date and time formats) — so they
+    hold on any regional setting, and a Windows region change is the test
+    that tells "follows the reader" from "US". *One judgement call, flagged:* `as a
+    number` could be read as "convert text to numbers", the same shape as
+    the text concern; it was kept, because Excel's own menu names the
+    display format that way and the decimals sentence makes it plain —
+    CO.7's audit can overturn it.
+    **Owner-verified live, on two regions:** `VlaSelfTests` pure 1089/1089,
+    host 143/143; `VerifyReports` emitter and interpreter both 203/203 with
+    Windows set to English (United Kingdom) and again to English (United
+    States); the `2.5 decimals` refusal arrived as a Frazaro modal through
+    the native Case; `colored red`/`green`/`"#0000FF"` drew as named and
+    `colored hot-pink` refused at Check with the colour slot's own text.
+    The first UK run went 201/203 and found the one wrong assumption — a
+    bare `$` in a format code is the machine's currency, not a literal — now
+    escaped (EN.3's entry has the run). Goldens: the diff against slice 1 is
+    additions only once step renumbering is set aside — 41 new step labels,
+    one per new `instructions.txt` line, nothing removed, and
+    `interpreter_golden.txt` unchanged.
   - ✅ **Slice 1 — `pareto.txt` §5, the cosmetic layer.** Owner-tested and
     committed 2026-09-10. Appetite-boxed to one section (`AUDIT.md` I.11's Shape Up
     note: an unbounded G-FORMAT produces seventy immaculate rules and no user).

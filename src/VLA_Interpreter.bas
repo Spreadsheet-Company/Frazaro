@@ -2413,6 +2413,15 @@ Private Function TryRuntimeHelper(ByVal h As String, ByVal argVals As Variant, B
             VLA_Runtime.VlaFillSeries ArgAt(argVals, 0), ArgAt(argVals, 1), ArgAt(argVals, 2), CStr(ArgAt(argVals, 3))
             handled = True
             Exit Function
+        ' G-FORMAT slice 2: refuses a bad decimal count by name, so it
+        ' needs this native Case for the same IN.15 reason as every
+        ' raising helper here - through Application.Run the refusal
+        ' would break into the VBE instead of arriving in words.
+        Case "vlanumberformatcode"
+            If Not ArityIs(argVals, 2, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaNumberFormatCode(CStr(ArgAt(argVals, 0)), ArgAt(argVals, 1))
+            handled = True
+            Exit Function
         Case "vlapivotrefresh"
             If Not ArityIs(argVals, 1, handled) Then Exit Function
             VLA_Runtime.VlaPivotRefresh CStr(ArgAt(argVals, 0))

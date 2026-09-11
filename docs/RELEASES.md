@@ -6,6 +6,125 @@
 
 ### What changed
 
+- **Number formats, for a cell or a range.** Money, percentages, plain
+  numbers, dates and times, each in one sentence:
+
+  - **Money, with the currency named:** `Format range B2:B9 as dollars.` —
+    or `euros`, or `pounds`. And Excel's accounting layout, with the sign
+    at the left and negatives in brackets: `Format range B2:B9 as
+    accounting in dollars.`
+  - **Percentages and plain numbers:** `Format range C2:C9 as percent.`,
+    `Format range D2:D9 as a number.`, and `… as a number with thousands
+    separators.`
+  - **Any of those with a set number of decimals:** `Format range B2:B9 as
+    euros with 0 decimals.`, `Format cell C2 as percent with 1 decimal.`,
+    `Format range D2:D9 as a number with 0 decimals and thousands
+    separators.` (0 to 30 decimals.)
+  - **Dates and times:** `Format range A2:A9 as a short date.` — or `a long
+    date`, or `an ISO date` (2025-12-09) — and `Format range E2:E9 as a
+    time.`
+  - **Back to plain, or anything else:** `Format range A1:A9 as general.`
+    clears the format; `Format range A1:A9 using "00000".` takes any Excel
+    format code, written the way Excel's own Format Cells box writes it.
+  - **Text, for what you type next:** `Format range A2:A9 as text for new
+    entries.` Anything typed there afterwards stays exactly as typed —
+    `007` keeps its zeros. A number already in the cell stays a number,
+    which is what Excel's own Text format does, and the sentence says so.
+
+- **Formats follow the person reading, and the currency follows the
+  numbers.** The same workbook opened on computers set up for different
+  countries shows dates in each country's own order and uses each
+  country's own decimal point and thousands separator — so `as a short
+  date` is 09/12/2025 on a UK machine and 12/9/2025 on a US one, both
+  correct. The currency never changes that way: dollars stay dollars
+  wherever the file is opened, because the currency is a fact about the
+  numbers, not the computer. That is why the sentence names it.
+
+  The older `Format cell A1 as currency.` and `… as date.` still work
+  exactly as before, and it is worth knowing what "before" was: `as
+  currency` has always shown *the currency of the computer opening the
+  file* — a $ in the US, a £ in the UK, on the same figures. If your
+  numbers are in one currency, say which: `as dollars`. `as date` keeps
+  month, day, year in that order everywhere; `as a short date` follows
+  the reader.
+
+- **Formatting sentences now reach a whole range, not just one cell.**
+  Five sentences only ever took a single cell — `Make cell A1 bold.` would
+  refuse `A1:C3`. Each now has a range version, worded the same way with
+  `range` in place of `cell`:
+
+  - `Make range A1:C1 bold.` (and `italic`)
+  - `Make range A1:C1 blue.` — any of the eight named colours
+  - `Set font-color of range A1:C1 to "#FF0000".`
+  - `Set fill-color of range A1:C1 to hot-pink.`
+  - `Set font size of range A1:C1 to 14.`
+
+  The cell versions are unchanged.
+
+- **Twelve new ways to make a sheet look right.** Each new sentence
+  below takes a cell or a range — `cell A1` or `range A1:C3`:
+
+  - **Undo bold and italic:** `Make range A1:C1 not bold.`,
+    `Make cell A1 not italic.`
+  - **Underline and strike through:** `Underline range A1:C1.`,
+    `Strike through cell A1.` — and the one sentence that takes marks off
+    again: `Remove underline from …`, `Remove strikethrough from …`,
+    `Remove borders from …`.
+  - **Typeface:** `Set font of range A1:C1 to "Courier New".` Put a font
+    name in quotes; a name with a space in it has to be.
+  - **Vertical alignment:** `Align range A1:C1 to the top.` — or `middle`,
+    or `bottom`. (Left, right and centre were already there.)
+  - **Indent and rotate:** `Indent range A1:C1 by 2.` (0 to 15 levels),
+    `Rotate text in range A1:C1 by 45 degrees.` (−90 to 90).
+  - **Borders, three ways, each saying which lines it draws:**
+    `Add a border around range B2:D4.` draws the outside box only;
+    `Add a bottom border to range B5:D5.` draws one edge (`top`,
+    `bottom`, `left` or `right`); `Add borders to every cell in range
+    A1:C3.` draws every line, inside and out.
+  - **Clear a fill:** `Clear fill-color of range A1:C1.`
+
+- **Border colour, as part of drawing the border.** Say `colored` and a
+  colour right after the word border: `Add a border colored red around
+  range B2:D4.`, `Add a bottom border colored green to range B5:D5.`, `Add
+  borders colored "#0000FF" to every cell in range A1:C3.` Any of the eight
+  colour names works as it is — red, yellow, black, blue, cyan, green,
+  magenta, white — and any other colour as a code in quotes, like
+  `"#FF69B4"`; a name you have defined yourself, like `hot-pink`, goes in
+  quotes here too. Each sentence colours only the lines it draws — the box
+  around a range does not draw its inside lines.
+
+- **Two sentences you may already use now have clearer twins.** `Add
+  border to range A1:C3.` draws a line around *every cell*, though it reads
+  like it draws one box around the range; `Clear color of cell A1.` clears
+  the *fill* and leaves the text colour alone, though "color" could mean
+  either. Both keep working exactly as before — nothing you have written
+  changes. The new spellings say what they do: `Add borders to every cell
+  in …` and `Clear fill-color of …`, and they are the ones the examples use
+  from now on. This is a new standing rule for every sentence Frazaro adds:
+  **where Excel has two neighbouring operations, the sentence names the one
+  it performs.** (A plain "Set border-color of …" was held back under it:
+  Excel's own way of doing that also draws lines you did not ask for.
+  Border colour arrives instead as part of drawing the border — see above.)
+
+- **Colour names in quotes now work wherever a colour code does.** `Set
+  font-color of cell A2 to "red".` used to stop with *"'red' is not a
+  color"*; it now means red, like any of the eight names. Nothing that
+  worked before changes.
+
+- **Six colours now work under Interpret.** `Make cell C4 black.` — and
+  `blue`, `cyan`, `green`, `magenta` and `white` — has always translated
+  and run with Run, but stopped with *"there is nothing stored at key
+  'vbblack'"* under Interpret; only `red` and `yellow` worked there. All
+  eight now work both ways.
+
+- **Interpret can set five more formatting properties, each reviewed by
+  name.** Interpret only touches the parts of Excel someone has read and
+  listed, and refuses everything else in words. This release adds five —
+  underline, strikethrough, vertical alignment, indent and text rotation —
+  each of which changes how a cell looks and nothing else. No new
+  *action* was added: the outline border is drawn as four single-edge
+  lines rather than through a new Excel command.
+
 - **PROLOG can work with text.** A spreadsheet's whole subject is cell
   values, and until now PROLOG could not take one apart or put two
   together. Seven goals do that now:
@@ -142,68 +261,6 @@
   need renaming; `write`, `read`, `print`, `format` and `whole` are
   the plausible ones. `tab` and `flag` are deliberately **not** reserved:
   a sheet tab and a flagged order are ordinary things to keep facts about.
-
-- **Formatting sentences now reach a whole range, not just one cell.**
-  Five sentences only ever took a single cell — `Make cell A1 bold.` would
-  refuse `A1:C3`. Each now has a range version, worded the same way with
-  `range` in place of `cell`:
-
-  - `Make range A1:C1 bold.` (and `italic`)
-  - `Make range A1:C1 blue.` — any of the eight named colours
-  - `Set font-color of range A1:C1 to "#FF0000".`
-  - `Set fill-color of range A1:C1 to hot-pink.`
-  - `Set font size of range A1:C1 to 14.`
-
-  The cell versions are unchanged.
-
-- **Twelve new ways to make a sheet look right.** Each new sentence
-  below takes a cell or a range — `cell A1` or `range A1:C3`:
-
-  - **Undo bold and italic:** `Make range A1:C1 not bold.`,
-    `Make cell A1 not italic.`
-  - **Underline and strike through:** `Underline range A1:C1.`,
-    `Strike through cell A1.` — and the one sentence that takes marks off
-    again: `Remove underline from …`, `Remove strikethrough from …`,
-    `Remove borders from …`.
-  - **Typeface:** `Set font of range A1:C1 to "Courier New".` Put a font
-    name in quotes; a name with a space in it has to be.
-  - **Vertical alignment:** `Align range A1:C1 to the top.` — or `middle`,
-    or `bottom`. (Left, right and centre were already there.)
-  - **Indent and rotate:** `Indent range A1:C1 by 2.` (0 to 15 levels),
-    `Rotate text in range A1:C1 by 45 degrees.` (−90 to 90).
-  - **Borders, three ways, each saying which lines it draws:**
-    `Add a border around range B2:D4.` draws the outside box only;
-    `Add a bottom border to range B5:D5.` draws one edge (`top`,
-    `bottom`, `left` or `right`); `Add borders to every cell in range
-    A1:C3.` draws every line, inside and out.
-  - **Clear a fill:** `Clear fill-color of range A1:C1.`
-
-- **Two sentences you may already use now have clearer twins.** `Add
-  border to range A1:C3.` draws a line around *every cell*, though it reads
-  like it draws one box around the range; `Clear color of cell A1.` clears
-  the *fill* and leaves the text colour alone, though "color" could mean
-  either. Both keep working exactly as before — nothing you have written
-  changes. The new spellings say what they do: `Add borders to every cell
-  in …` and `Clear fill-color of …`, and they are the ones the examples use
-  from now on. This is a new standing rule for every sentence Frazaro adds:
-  **where Excel has two neighbouring operations, the sentence names the one
-  it performs.** (One sentence was held back under it this release:
-  setting a border colour, because Excel's own way of doing it also draws
-  lines you did not ask for. It will come back in a form that says so.)
-
-- **Six colours now work under Interpret.** `Make cell C4 black.` — and
-  `blue`, `cyan`, `green`, `magenta` and `white` — has always translated
-  and run with Run, but stopped with *"there is nothing stored at key
-  'vbblack'"* under Interpret; only `red` and `yellow` worked there. All
-  eight now work both ways.
-
-- **Interpret can set five more formatting properties, each reviewed by
-  name.** Interpret only touches the parts of Excel someone has read and
-  listed, and refuses everything else in words. This release adds five —
-  underline, strikethrough, vertical alignment, indent and text rotation —
-  each of which changes how a cell looks and nothing else. No new
-  *action* was added: the outline border is drawn as four single-edge
-  lines rather than through a new Excel command.
 
 ## 0.5.5
 

@@ -132,9 +132,14 @@ the tagged releases at the time.
 **150 phrasebook rules, 128 core dispatch arms, 278 rows.** Every entry
 below was present at `v0.5.0` except the one marked `0.5.2`.
 
-*Appended since the snapshot:* seventeen phrasebook rows marked `0.5.6`
-— `G-FORMAT`'s first slice (`pareto.txt` §5, the cosmetic layer), added
-in the same change as the rules themselves, per *Maintenance* above. Two
+*Appended since the snapshot:* thirty-five phrasebook rows marked
+`0.5.6` — `G-FORMAT`'s first slice (`pareto.txt` §5, the cosmetic
+layer, seventeen) and its second (§6's number formats and border colour,
+eighteen), each added in the same change as its rules, per *Maintenance*
+above — and one core dispatch arm, `TryRuntimeHelper vlanumberformatcode`,
+the second slice's new runtime helper, dated `0.5.6` because the helper
+itself is new that release (unlike *A new ARM is not the same as a new
+FORM*'s sixteen, which only moved). Two
 of them (`add borders to every cell in …`, `clear fill-color of …`) are
 `SD-19` siblings of vague shipped spellings, which keep their own `0.5.0`
 rows unchanged: the sibling is a new form, not a re-dating of the old.
@@ -145,9 +150,12 @@ rows unchanged: the sibling is a new form, not a re-dating of the old.
 0.5.0  add [new] sheet called {s:sheet}
 0.5.0  add a row to table {n:text}
 0.5.6  add border around cell|range {r:range}
+0.5.6  add border colored {c:color} around cell|range {r:range}
 0.5.0  add border to range {r:range}
+0.5.6  add borders colored {c:color} to every cell in [range] {r:range}
 0.5.6  add borders to every cell in [range] {r:range}
 0.5.0  add {d:rows|columns|filters} of {f:text-list} to pivot {n:text}
+0.5.6  add {d:top|bottom|left|right} border colored {c:color} to cell|range {r:range}
 0.5.6  add {d:top|bottom|left|right} border to cell|range {r:range}
 0.5.0  add {f:text-list} to pivot {n:text} as {d:sum|count|average}
 0.5.6  align cell|range {r:range} to {d:top|middle|bottom}
@@ -198,6 +206,21 @@ rows unchanged: the sibling is a new form, not a re-dating of the old.
 0.5.0  fit column {c:column}
 0.5.0  fit row {r:expr}
 0.5.0  format cell {r:cell} as {d:currency|percent|date}
+0.5.6  format cell|range {r:range} as accounting in {d:dollars|euros|pounds}
+0.5.6  format cell|range {r:range} as accounting in {d:dollars|euros|pounds} with {n:expr} decimal/s
+0.5.6  format cell|range {r:range} as general
+0.5.6  format cell|range {r:range} as number
+0.5.6  format cell|range {r:range} as number with thousands separators
+0.5.6  format cell|range {r:range} as number with {n:expr} decimal/s
+0.5.6  format cell|range {r:range} as number with {n:expr} decimal/s and thousands separators
+0.5.6  format cell|range {r:range} as percent with {n:expr} decimal/s
+0.5.6  format cell|range {r:range} as text for new entries
+0.5.6  format cell|range {r:range} as time
+0.5.6  format cell|range {r:range} as {d:dollars|euros|pounds}
+0.5.6  format cell|range {r:range} as {d:dollars|euros|pounds} with {n:expr} decimal/s
+0.5.6  format cell|range {r:range} as {d:short|long|iso} date
+0.5.6  format cell|range {r:range} using {n:text}
+0.5.6  format range {r:range} as percent
 0.5.0  freeze the first {n:expr} rows
 0.5.0  freeze top row
 0.5.0  go to sheet {s:sheet}
@@ -450,6 +473,7 @@ tag, not assumed.*
 0.5.0  TryRuntimeHelper   vladictget
 0.5.0  TryRuntimeHelper   vlafillseries
 0.5.0  TryRuntimeHelper   vlafreezepanes
+0.5.6  TryRuntimeHelper   vlanumberformatcode
 0.5.0  TryRuntimeHelper   vlapivotaddvalues
 0.5.0  TryRuntimeHelper   vlapivotchangesource
 0.5.0  TryRuntimeHelper   vlapivotclear
