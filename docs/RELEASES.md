@@ -217,7 +217,7 @@
 
 - **PROLOG refuses Prolog's side-effect goals, for good, and says why.**
   `write`, `assert`, `random` and the rest of that family used to be
-  unknown names here, and an unknown name quietly finds nothing — so the
+  unknown names here, and until this release an unknown name quietly found nothing — so the
   line everyone types while debugging, `(query (p X) (write X))`, answered
   with an empty column and looked like "no match". Each is now refused
   with a message giving the reason and what to do instead:
@@ -261,6 +261,46 @@
   need renaming; `write`, `read`, `print`, `format` and `whole` are
   the plausible ones. `tab` and `flag` are deliberately **not** reserved:
   a sheet tab and a flagged order are ordinary things to keep facts about.
+  The same list applies to the name of a table you pass to `PROLOG`, in
+  any capitalisation: a Table named `Write` or `Between` is refused as
+  a reserved word rather than loaded, so rename it.
+
+- **A predicate nothing defines now stops the formula and says so.** A
+  misspelled name used to find nothing, quietly:
+  `=PROLOG("(fact (parent tom bob)) (query (parnet tom X))")` answered
+  with an empty column and looked like "no match". Now it says
+  `'parnet' is called by this query` but nothing defines it, and where a
+  definition could come from — a `(fact ...)`, a `(rule ...)` or a table
+  you pass in. The silence was worst where it was wrong rather than
+  empty: `(not (parnet tom bob))` answered TRUE, and a `findall` over a
+  misspelled goal collected nothing and counted it as zero. Both now stop.
+
+  PROLOG checks this before it answers anything, and only for what your
+  query can reach — the predicates it calls, and the ones those rules
+  call. A rule nothing calls is not examined, so one cell of rules can
+  serve several formulas that pass different tables. Inside what the
+  query can reach, it is checked even on a branch today's data never
+  takes — the else-part of an `(if ...)` that never runs — because that
+  formula would otherwise break the day the data changed. A table you
+  pass that has no rows is not undefined: it is there and empty, and a
+  query over it returns no rows, as before.
+
+  If a program of yours used an undefined name on purpose, as a goal
+  that always fails, write one that matches nothing instead: `(= a b)`
+  fails every time.
+
+- **Cut in parentheses is refused.** Cut is written on its own, between
+  the goals: `(rule (first X) (p X) !)`. Written `(!)`, it used to be a
+  goal nothing could run, which quietly failed — so the rule never
+  answered. It now stops and says how to write it.
+
+- **A spelling mistake is reported as a spelling mistake.** Using a
+  Prolog spelling at two sizes — `(atom X)` in one place and
+  `(atom X Y)` in another, or `(integer? X)` beside `(integer? X Y)`
+  — used to be blamed on the arguments: "used with 1 argument(s) in one
+  place and 2 in another". It now gets the message it gets when written
+  once: that `(atom ...)` is written `(atom? ...)`, or that
+  `integer?` is not available and what to ask instead.
 
 ## 0.5.5
 

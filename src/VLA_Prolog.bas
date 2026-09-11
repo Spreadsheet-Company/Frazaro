@@ -1,6 +1,25 @@
 Attribute VB_Name = "VLA_Prolog"
 Option Explicit
-Public Const VLA_PROLOG_VERSION As String = "PROLOG.19"
+Public Const VLA_PROLOG_VERSION As String = "PROLOG.22"
+'
+' PROLOG.22, PROLOG.23 AND PROLOG.24: the three follow-ups PROLOG.19 filed,
+' landed together because one live pass verifies all three.
+'
+'   PROLOG.22 - AN UNKNOWN PREDICATE REFUSES, statically, over the
+'   predicates the query can reach, before a goal is solved. It used to
+'   fail silently, which under `not` was a confidently wrong TRUE.
+'   RefuseUnknownPredicates carries the decision and the three options it
+'   was chosen over; PROLOG() now gives every table argument a key, so a
+'   table with no rows is defined rather than unknown.
+'   PROLOG.23 - THE TABLE-ARGUMENT RESERVED CHECK WAS NEVER CASE-SENSITIVE.
+'   The defect was filed from a comment, not from the code: TableArgResolve
+'   folds the name. IsReservedPredicateName's header is corrected and the
+'   fold is pinned live.
+'   PROLOG.24 - A REFUSED NAME RECORDS NO ARITY. ValidateBodyItem's last
+'   arm keeps every reserved name out of TermPredName, so `(integer? X)
+'   (integer? X Y)` gets integer?'s refusal rather than an arity mismatch;
+'   and `(! ...)`, the one reserved name nothing dispatched, is refused by
+'   name in SolveGoalList instead of failing silently.
 '
 ' PROLOG.19: WHAT THIS ENGINE REFUSES TO BE. A formula in a cell must be a
 ' function of what it is given: Excel recalculates it whenever it likes,
@@ -29,7 +48,8 @@ Public Const VLA_PROLOG_VERSION As String = "PROLOG.19"
 ' drops `tab` and `flag`, which a workbook's own knowledge base is likely
 ' to use (a sheet tab, a flagged order). The rest stay what every unknown
 ' name is here; making an unknown predicate refuse, as ISO does, is its own
-' item and needs no reservation at all.
+' item and needs no reservation at all. (PROLOG.22 is that item: `(tab 3)`
+' now refuses as a predicate nothing defines.)
 '
 ' FIVE FAMILIES, EACH REFUSED FOR GOOD, FOR TWO DIFFERENT REASONS.
 '   volatile (random, get_time) and outside (read, consult, halt) and
@@ -2055,13 +2075,21 @@ End Function
 ' a known table name - so without this, a predicate genuinely named ">"
 ' could capture a comparison goal instead of the dispatch arm getting it.
 '
-' Matched case-sensitively (this module sets no Option Compare Text),
-' which is exact for the six - none of them contains a letter - and
-' correct for the four word-shaped names at the (fact ...)/(rule ...)
-' sites, where TermPredName has already folded predName before it arrives.
-' The table-argument site (PROLOG, below) passes TableArgResolve's own raw
-' name instead, but an Excel Table cannot be named "<" or "=:=", so the
-' six are unaffected by that difference.
+' Matched case-sensitively (this module sets no Option Compare Text), and
+' that is exact at every call site because every caller hands it a FOLDED
+' name: TermPredName folds at the (fact ...)/(rule ...) sites, and at the
+' table-argument site (PROLOG, below) VLA_Relation.TableArgResolve has
+' already folded the ListObject's or defined name before returning it - on
+' both of its branches, since the initial import.
+'
+' PROLOG.23: this comment used to say the table site passed a RAW name and
+' that only the six operators were safe from the difference. PROLOG.19
+' filed a defect on the strength of it - a Table named `Between` loading
+' and then being bypassed by the arithmetic `between` - and the code never
+' did that: the defect was never real. The fold it rests on lives in
+' another module, so it is pinned LIVE, by a Table named `Between` and one
+' named `Write` in TestPrologHostTable, rather than by a second Fold here
+' that no test could ever turn red.
 Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
     Select Case predName
     Case "is", "not", "findall", "!", "between", "list", "or", "if"
@@ -3261,18 +3289,31 @@ Private Sub ValidateBodyItem(ByVal item As Variant, ByVal ctx As String, predAri
                         "count", CStr(wantedTextCount - 1)
                 End If
                 Exit Sub
-            ElseIf ImpureGoalKindFor(headWord) <> "" Then
-                ' PROLOG.19: the impure goals are left for SolveGoalList to
-                ' refuse, and this arm exists only to keep them out of
-                ' TermPredName below, which would RECORD AN ARITY for each.
-                ' Unlike the names the other refusing tables hold, these
-                ' come in several real arities that ported code uses side
-                ' by side - format/1 and format/2, write/1 and write/2,
-                ' nl/0 and nl/1 - and a program using two of them would be
-                ' refused here as prolog-arity-mismatch, blaming the
-                ' author's arities for a goal that never runs whatever its
-                ' shape. No shape refusal either: the answer is the same at
-                ' every arity, TypeTestDeferredFor's reasoning.
+            ElseIf IsReservedPredicateName(headWord) Then
+                ' PROLOG.24: every reserved name that gets this far is one the
+                ' solver REFUSES rather than solves - each name it solves has
+                ' its own arm above - and this arm exists only to keep it out
+                ' of TermPredName below, which would RECORD AN ARITY for it. A
+                ' reserved name can never be defined (both head sites refuse
+                ' it), so a recorded arity constrains nothing but other uses of
+                ' the same name, and all it can ever do is refuse a program
+                ' that writes the name at two arities as prolog-arity-mismatch:
+                ' blaming the author's arities for a goal that is refused on
+                ' sight whatever its shape, and pre-empting the refusal that
+                ' says why. `(integer? X) (integer? X Y)` was that.
+                '
+                ' DERIVED, NOT LISTED. PROLOG.19 added this arm for the impure
+                ' goals alone, which come in real arities that ported code uses
+                ' side by side (format/1 beside format/2, nl/0 beside nl/1).
+                ' The ISO spellings, the number-type names, the alias
+                ' spellings, the control spellings, `list` in goal position and
+                ' a parenthesised `(! ...)` had the same defect and no arm -
+                ' 28 names. Asking the reserved set itself, AFTER every solving
+                ' arm, covers all of them and any family that joins later;
+                ' tools/check_prolog_reserved_names.ps1's rule G holds it to
+                ' being the LAST arm, and ran red on those 28 before it
+                ' existed. No shape refusal: the answer is the same at every
+                ' arity, TypeTestDeferredFor's reasoning.
                 Exit Sub
             End If
         End If
@@ -3745,6 +3786,121 @@ Private Sub ParseProgram(ByVal clausesText As String, ByVal clauseDict As Object
         End Select
     Next f
     If queryCount = 0 Then VLA_Messages.RaiseMsg "prolog-query-missing"
+    ' PROLOG.22: last, after every form has been read - a rule body may
+    ' call a predicate defined further down the text - and before a single
+    ' goal is solved.
+    RefuseUnknownPredicates queryConjuncts, clauseDict
+End Sub
+
+' PROLOG.22: AN UNKNOWN PREDICATE REFUSES, before anything is solved.
+'
+' Until this item a goal naming a predicate with no clauses reached
+' SolveGoalList's clauseDict lookup and failed SILENTLY. Plain, that is an
+' empty answer with nothing to read; under `not` it is a confidently wrong
+' TRUE - `(not (undefined X))` succeeded - and under findall a confidently
+' wrong empty bag, so `(length Bag N)` counted nothing that was never
+' looked for. ISO raises existence_error(procedure, Name/Arity) when such a
+' goal is CALLED. This refuses STATICALLY instead, and the choice is this
+' item's decision, adjudicated against PROLOG.10's four criteria (the
+' roadmap entry has the whole of it):
+'
+'   RAISE WHEN REACHED, ISO's way, breaks MONOTONICITY: whether it fires
+'   depends on the data, so `(or (p X) (typo X))` answers while p has no
+'   rows and stops answering the day p gains one.
+'   POST HOC, PROLOG.12's way, is monotone but misses exactly the wrong
+'   answers - the `not` TRUE and the empty bag both come back with rows.
+'   STATIC is the only one that does not look at the data at all. Adding a
+'   fact or a row can never make it fire; defining the name, or passing its
+'   table, is the only thing that stops it.
+'
+' WHY IT IS EXACT HERE, when it could not be in ISO Prolog: PROLOG.19
+' refused assert and retract for good, so a program's predicate set is
+' FIXED before solving - facts, rule heads and table arguments, nothing
+' else - and there is no `dynamic` declaration, so a name with no clauses
+' can never be one its author meant to be empty. A table passed with no
+' rows HAS a key (PROLOG(), below, creates one per table), so it is
+' defined, and its goals simply fail.
+'
+' REACHABLE FROM THE QUERY, NOT THE WHOLE PROGRAM. The query's goal names
+' are walked, then the bodies of every clause of every name reached, to a
+' fixpoint - so a rule nothing calls is never examined. That matters here
+' and nowhere else: this is the first parse-time check whose verdict
+' depends on the TABLE ARGUMENTS, and a rules cell shared by several
+' =PROLOG(...) cells with different tables must not refuse in every cell
+' that leaves out a table some other cell's rule needs. It is still
+' stricter than ISO in one direction, deliberately: a named-reachable call
+' that the data never actually reaches - behind a failing goal, a cut, or
+' an if-branch not taken - refuses too, because otherwise the program
+' would work today and break the day the data changed.
+'
+' Reserved names are skipped, not examined: every one of them has its own
+' arm in SolveGoalList (tools/check_prolog_reserved_names.ps1, rules C and
+' D). The FIRST unknown name met, in walk order, is the one named.
+Private Sub RefuseUnknownPredicates(ByVal queryConjuncts As Collection, ByVal clauseDict As Object)
+    Dim names As New Collection
+    Dim seen As Object
+    Set seen = VLA_Runtime.VlaDictNew()
+    Dim g As Variant
+    For Each g In queryConjuncts
+        CollectGoalNamesInto g, names, seen
+    Next g
+    ' A worklist that grows while it is read: names.Count is re-read on
+    ' every pass, so the bodies of a name reached late are walked too.
+    Dim k As Long
+    k = 1
+    Do While k <= names.Count
+        Dim nm As String
+        nm = names.Item(k)
+        k = k + 1
+        If Not IsReservedPredicateName(nm) Then
+            If Not VLA_Runtime.VlaDictHas(clauseDict, nm) Then VLA_Messages.RaiseMsg "prolog-unknown-predicate", "predicate", nm
+            Dim candidates As Collection
+            Set candidates = VLA_Runtime.VlaDictGet(clauseDict, nm)
+            Dim clauseRec As Variant
+            For Each clauseRec In candidates
+                Dim bodyItems As Collection
+                Set bodyItems = clauseRec.Item(2)
+                Dim bi As Variant
+                For Each bi In bodyItems
+                    CollectGoalNamesInto bi, names, seen
+                Next bi
+            Next clauseRec
+        End If
+    Loop
+End Sub
+
+' PROLOG.22: the predicate names a goal CALLS, appended to names in the
+' order first met. Goal positions exactly as ValidateBodyItem walks them -
+' `not`'s goal, findall's goal, every `or` and `if` branch - and nothing
+' else: an `is` expression, a comparison's operands and a term being
+' matched are data, never calls, so their heads are never collected.
+'
+' No shape guards. ValidateBodyItem has already run over every goal passed
+' here, so a `not` has its one goal, a findall its three arguments, and
+' every goal's head is a symbol - TermPredName refused anything else.
+' A bare atom is cut, the only one a goal list can hold.
+Private Sub CollectGoalNamesInto(ByVal item As Variant, ByVal names As Collection, ByVal seen As Object)
+    If Not IsObject(item) Then Exit Sub
+    Dim lst As Collection
+    Set lst = item
+    Dim headWord As String
+    headWord = VLA_Identity.Fold(CStr(lst.Item(1)))
+    Dim i As Long
+    Select Case headWord
+    Case "not"
+        CollectGoalNamesInto lst.Item(2), names, seen
+    Case "findall"
+        CollectGoalNamesInto lst.Item(3), names, seen
+    Case "or", "if"
+        For i = 2 To lst.Count
+            CollectGoalNamesInto lst.Item(i), names, seen
+        Next i
+    Case Else
+        If Not VLA_Runtime.VlaDictHas(seen, headWord) Then
+            VLA_Runtime.VlaDictSet seen, headWord, True
+            names.Add headWord
+        End If
+    End Select
 End Sub
 
 ' ---------------------------------------------------------------------
@@ -4523,6 +4679,36 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         VLA_Messages.RaiseMsg "prolog-list-is-not-a-goal"
     End If
 
+    ' PROLOG.24: `(! ...)` - cut written as a FORM. Cut is a bare atom here,
+    ' dispatched structurally at the top of this procedure; in parentheses it
+    ' is a compound goal named "!", which no clause can define (the name is
+    ' reserved) and which used to fall through to the clauseDict lookup below
+    ' and fail SILENTLY: `(rule (first X) (p X) (!))` never answered, and
+    ' `(query (!))` said FALSE. Found by deriving PROLOG.24's class rather
+    ' than listing it - `!` was the one literal reserved name that neither
+    ' ValidateBodyItem nor this procedure had a name-keyed arm for. No step
+    ' is charged, because no resolution work happens.
+    If predName = "!" Then VLA_Messages.RaiseMsg "prolog-cut-not-a-form"
+
+    ' PROLOG.22: every name a query can reach was checked for a definition
+    ' before solving began (RefuseUnknownPredicates, below ParseProgram), and
+    ' every reserved name has an arm above, so no program that reaches the
+    ' solver can arrive here with a name clauseDict lacks. The line stays the
+    ' dead end it always was rather than becoming a raise, because the
+    ' alternative on a missing key is VlaDictGet's own raw error. A table
+    ' passed with no rows has a key and no clauses, and its goals fail here
+    ' correctly, one line further down.
+    '
+    ' Comments throughout this module written before PROLOG.22 say "an
+    ' unknown predicate is a silent dead end". Since PROLOG.22 that is true
+    ' only of a RESERVED name reaching this line - RefuseUnknownPredicates
+    ' skips reserved names because each is meant to be dispatched here - and
+    ' that is exactly the case the arms above argue about, so their reasoning
+    ' for sitting ABOVE the lookup stands. What changed is the reasoning in
+    ' the refusing tables' own headers (TypeTestIsoSpellingFor and its
+    ' siblings): an UNRESERVED `(atom X)` would now refuse as a predicate
+    ' nothing defines rather than fail silently, so those tables buy the
+    ' better message - "write (atom? ...)" - rather than the loudness.
     If Not VLA_Runtime.VlaDictHas(clauseDict, predName) Then Exit Sub   ' no candidates - dead end, not an error
 
     Dim candidates As Collection
@@ -7402,11 +7588,20 @@ Public Function PROLOG(ByVal clauses As String, ParamArray tables() As Variant) 
         Dim nm As String
         nm = TableArgName(tables(ti))
         If IsReservedPredicateName(nm) Then VLA_Messages.RaiseMsg "prolog-reserved-predicate-name", "name", nm
+        ' PROLOG.22: the key is created for EVERY table argument, rows or
+        ' none. It used to be created per row, so a Table whose data rows
+        ' were all blank - RangeToRows drops a blank row - or deleted left no
+        ' key at all, and RefuseUnknownPredicates would then call a
+        ' predicate its author had passed in "not defined". A table with no
+        ' rows is a defined predicate with no clauses: its goals fail,
+        ' correctly and quietly, exactly as they did before this item.
+        Dim tableClauses As Collection
+        Set tableClauses = GetOrCreateClauseList(clauseDict, nm)
         Dim rows As Collection
         Set rows = VLA_Relation.RangeToRows(tables(ti))
         Dim rw As Variant
         For Each rw In rows
-            GetOrCreateClauseList(clauseDict, nm).Add MakeClause(TableRowToFact(nm, rw), New Collection)
+            tableClauses.Add MakeClause(TableRowToFact(nm, rw), New Collection)
         Next rw
         Dim colsOk As Boolean
         Dim cols As Collection

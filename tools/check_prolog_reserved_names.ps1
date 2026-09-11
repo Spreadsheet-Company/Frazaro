@@ -107,6 +107,21 @@ WHAT IT CHECKS.
      limit, reporting the longest so the headroom is visible in a green
      run. Run RED on the 1196-character line before the split.
 
+  G. No reserved name reaches TermPredName. ValidateBodyItem sends every
+     goal it has no arm for into TermPredName, which RECORDS AN ARITY; a
+     reserved name can never be defined, so the only thing that arity can
+     do is refuse a program writing the name at two arities as
+     prolog-arity-mismatch - blaming the author's arities for a goal that
+     is refused on sight, and pre-empting the refusal that says why. The
+     class is read out of ValidateBodyItem's own arm conditions, never
+     listed; the catch-all `IsReservedPredicateName(headWord)` arm must be
+     the LAST one, or the solving arms after it lose their shape checks.
+
+     PROLOG.24 added this, and ran it RED on 28 names first: `!`, `list`,
+     the two control spellings, the nine ISO spellings, the four
+     number-type names and the eleven alias spellings. PROLOG.19 had given
+     the impure goals an arm and no other refusing family had one.
+
 The baselines below are lists of NAMES, not patterns: a table that joins
 the reserved set must be added here on purpose, and a rename breaks the
 run loudly rather than silently scanning nothing.
@@ -127,15 +142,20 @@ $messagesPath = Join-Path $repoRoot 'src\VLA_Messages.bas'
 
 $reservedMsgId = 'prolog-reserved-predicate-name'
 
-# ---- baseline: the one name dispatched structurally, not by predName ----
+# ---- baseline: names dispatched structurally, not by predName -----------
+# EMPTY since PROLOG.24, and the history is the reason to keep the slot.
 # Cut is the ONLY non-object goal ValidateBodyItem can let through to
-# SolveGoalList, so its arm must run BEFORE GoalPredName (which assumes a
-# Collection) and therefore cannot be a `predName = "!"` test at all. It is
-# exempt from rule C by name, with the reason recorded, rather than by a
-# pattern loose enough to excuse a genuinely undispatched name.
-$structuralDispatch = @{
-    '!' = "SolveGoalList's own non-object arm, which must precede GoalPredName"
-}
+# SolveGoalList, so its arm runs BEFORE GoalPredName (which assumes a
+# Collection) and is not a `predName = "!"` test - and `!` used to be
+# exempt from rule C here for that reason. The exemption hid a real
+# defect: cut written in PARENTHESES, `(! ...)`, is a compound goal named
+# "!" that reaches the name-keyed arms, and nothing dispatched it, so it
+# fell through to the clauseDict lookup and failed silently - reserved AND
+# inert, the first defect this script's header names. PROLOG.24 gave it a
+# `predName = "!"` arm refusing it by name, so rule C now checks `!` like
+# any other literal and deleting that arm turns it red. A name added here
+# must be one with NO name-keyed form at all, with the reason recorded.
+$structuralDispatch = @{}
 
 # ---- baseline: count words in the refusal, and the table each describes -
 # Key is the group noun as it appears in the text; value is the table
@@ -606,6 +626,68 @@ foreach ($c in ($derivedFrom.Keys | Sort-Object)) {
     } else {
         Write-Output ("  {0,-20} UNRESERVED derived from {1}" -f $c, $derivedFrom[$c])
         $failures.Add("'$c' is a near-miss spelling of the reserved '$($derivedFrom[$c])' but is not itself reserved - a user who types it gets a silent unknown predicate instead of a refusal naming the real spelling")
+    }
+}
+
+# ---- rule G: no reserved name may reach TermPredName ---------------------
+# PROLOG.24. ValidateBodyItem sends every goal it has no arm for into
+# TermPredName, which RECORDS AN ARITY - and a reserved name can never be
+# defined, so the only thing a recorded arity can do is refuse a program
+# that uses the name at two arities, as prolog-arity-mismatch, blaming the
+# author's arities for a goal that is refused on sight whatever its shape.
+# The class is read out of ValidateBodyItem's own arm conditions, never
+# listed here: a literal `headWord = "..."`, a table `<Table>(headWord) <>
+# ""`, or the catch-all `IsReservedPredicateName(headWord)`. The catch-all
+# must be the LAST such arm - placed earlier, it would skip the shape
+# checks of every solving arm below it, which every bad-shape pin would
+# then catch, but this rule says why.
+Write-Output ''
+Write-Output '--- rule G: ValidateBodyItem must keep every reserved name out of TermPredName ---'
+$vbiBody = Get-ProcBody -Lines $prologLines -Name 'ValidateBodyItem'
+if ($null -eq $vbiBody) {
+    $failures.Add('ValidateBodyItem not found in VLA_Prolog.bas (renamed or removed - update this baseline deliberately)')
+    Write-Output '  ValidateBodyItem NOT FOUND'
+} else {
+    $armConds = New-Object System.Collections.Generic.List[string]
+    foreach ($line in $vbiBody) {
+        if ($line -match '^\s*(If|ElseIf)\s+(.*headWord.*?)\s+Then\s*(.*)$') { $armConds.Add($Matches[2]) }
+    }
+    $covered = New-Object System.Collections.Generic.List[string]
+    # EVERY catch-all is recorded, not only the last one seen: a second,
+    # early copy would skip the shape checks of every solving arm between
+    # it and the real one, and a single "where is the catch-all" index
+    # overwritten per arm reads only the last copy and passes. Measured: that
+    # first version went GREEN on exactly that mutant.
+    $catchAlls = New-Object System.Collections.Generic.List[int]
+    for ($ai = 0; $ai -lt $armConds.Count; $ai++) {
+        $cond = $armConds[$ai]
+        foreach ($m in [regex]::Matches($cond, 'headWord\s*=\s*"([^"]*)"')) { $covered.Add($m.Groups[1].Value) }
+        foreach ($m in [regex]::Matches($cond, '([A-Za-z_]\w*)\s*\(\s*headWord\s*\)\s*<>\s*""')) {
+            $tb = $m.Groups[1].Value
+            foreach ($n in $reservedSorted) { if ($sourceOf[$n] -eq $tb) { $covered.Add($n) } }
+        }
+        if ($cond -match 'IsReservedPredicateName\s*\(\s*headWord\s*\)') { $catchAlls.Add($ai) }
+    }
+    # A rule that looks at nothing passes by not looking.
+    Write-Output ("  {0} headWord-keyed arm(s) read" -f $armConds.Count)
+    if ($armConds.Count -lt 10) { $failures.Add("rule G read only $($armConds.Count) headWord-keyed arm(s) in ValidateBodyItem - the arm chain was not found, so nothing was checked") }
+    if ($catchAlls.Count -gt 0) {
+        $early = @($catchAlls | Where-Object { $_ -ne $armConds.Count - 1 })
+        if ($early.Count -gt 0) {
+            foreach ($e in $early) {
+                $failures.Add("ValidateBodyItem has an IsReservedPredicateName(headWord) catch-all at arm $($e + 1) of $($armConds.Count), not the last - every solving arm after it loses its shape check")
+            }
+            Write-Output ("  catch-all IS NOT only the last arm (found at arm(s) {0} of {1})" -f (($catchAlls | ForEach-Object { $_ + 1 }) -join ', '), $armConds.Count)
+        } else {
+            Write-Output '  catch-all IsReservedPredicateName(headWord) is the last arm - every reserved name is kept out'
+        }
+    } else {
+        $leaks = @($reservedSorted | Where-Object { $covered -notcontains $_ })
+        foreach ($n in $leaks) {
+            Write-Output ("  {0,-20} REACHES TermPredName (from {1})" -f $n, $sourceOf[$n])
+            $failures.Add("'$n' is reserved but ValidateBodyItem has no arm for it, so TermPredName records its arity - using it at two arities is refused as prolog-arity-mismatch instead of by its own refusal")
+        }
+        if ($leaks.Count -eq 0) { Write-Output ("  all {0} reserved name(s) have an arm" -f $reservedSorted.Count) }
     }
 }
 

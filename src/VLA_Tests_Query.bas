@@ -368,6 +368,8 @@ Public Function TestDSLs() As Boolean
     TestPrologText
     TestPrologTextParts
     TestPrologImpure
+    TestPrologRefusedArity
+    TestPrologUnknownPredicate
     TestPrologKeyedAtoms
     TestPrologHostTable
     TestSql
@@ -2250,9 +2252,14 @@ Private Sub TestPrologComparison()
 
     ' `<=` is not a Prolog spelling at all (real Prolog writes =<), so it
     ' must stay an ordinary unknown predicate rather than be accepted.
+    ' PROLOG.22 re-pointed this pin, and it is a stronger pin for it: an
+    ' unknown predicate used to FAIL, so `1 <= 2` answered FALSE - a
+    ' confidently wrong answer to a true comparison. It now refuses as a
+    ' predicate nothing defines, which is still "not accepted".
     result = VLA_Prolog.PROLOG("(query (<= 1 2))")
-    Report "prolog.7: `<=` is not a Prolog operator and is not accepted as one", _
-           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    r = ResultDescribe(result)
+    Report "prolog.7/22: `<=` is not a Prolog operator and is not accepted as one - it refuses as undefined rather than answering FALSE", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "'<=' is called by this query", vbTextCompare) > 0, "got: " & r
 
     ' ---- the motivating case: a THRESHOLD filter, which PROLOG.6's own
     ' README example had to route around. Strict non-empty subset, so
@@ -3438,7 +3445,10 @@ Private Sub TestPrologTypeTestsRest()
     result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (p 2)) (query (findall X (p X) B) (is-list? B))")
     Report "prolog.15: a findall bag is a list", _
            ResultRowCount(result) = 2 And ResultCol1Is(result, "(list 1 2)"), "got: " & ResultDescribe(result)
-    result = VLA_Prolog.PROLOG("(fact (p 1)) (query (findall X (q X) B) (is-list? B))")
+    ' PROLOG.22: the empty bag comes from a DEFINED predicate with no row to
+    ' match - p has no row whose first column is 2. The pin used to ask an
+    ' undefined q, which now refuses before any bag is built.
+    result = VLA_Prolog.PROLOG("(fact (p 1 a)) (query (findall X (p 2 X) B) (is-list? B))")
     Report "prolog.15: ...and so is an EMPTY findall bag, which is the atom nil", _
            ResultRowCount(result) = 2 And ResultCol1Is(result, "nil"), "got: " & ResultDescribe(result)
 
@@ -4215,11 +4225,14 @@ Private Sub TestPrologNegation()
            "got " & (ResultRowCount(result) - 1) & " rows: " & JoinColumn(result, 1)
 
     ' The real design fork, hand-traced rather than assumed: a variable
-    ' appearing ONLY inside a negated goal (foo/1 doesn't even exist, so
-    ' the negation trivially succeeds) must never surface as a phantom
+    ' appearing ONLY inside a negated goal (no foo row has 2 in its first
+    ' column, so the negation succeeds) must never surface as a phantom
     ' one-column "X" output - it must collapse to the same boolean
     ' scalar shape as any other query with no real free variables.
-    result = VLA_Prolog.PROLOG("(query (not (foo X)))")
+    ' PROLOG.22 re-pointed this pin: it used to negate a foo that did not
+    ' exist at all, which is exactly the confidently wrong TRUE that item
+    ' removed - `(not (undefined X))` now refuses (TestPrologUnknownPredicate).
+    result = VLA_Prolog.PROLOG("(fact (foo 1 a)) (query (not (foo 2 X)))")
     Report "prolog.5.2: a variable appearing only inside a negated goal is never collected as a free output column", _
            ResultBoolIs(result, True), "got " & TypeName(result) & " " & result
 
@@ -4617,7 +4630,9 @@ Private Sub TestPrologLists()
     result = VLA_Prolog.PROLOG("(fact (color red)) (fact (color green)) (fact (color blue)) (query (findall X (color X) Bag))")
     Report "prolog.21: a findall bag RENDERS as (list ...), not as a cons chain", _
            ResultCol1Is(result, "(list red green blue)"), "got: " & ResultDescribe(result)
-    result = VLA_Prolog.PROLOG("(query (findall X (nothing X) Bag))")
+    ' PROLOG.22: a defined predicate with no matching row, not an undefined
+    ' `nothing`, which now refuses before a bag exists to render.
+    result = VLA_Prolog.PROLOG("(fact (p 1 a)) (query (findall X (p 2 X) Bag))")
     Report "prolog.21: ...and an empty bag still renders as the atom nil, not an empty (list)", _
            ResultCol1Is(result, "nil"), "got: " & ResultDescribe(result)
 
@@ -4753,7 +4768,12 @@ Private Sub TestPrologFindall()
     ' the empty list is now the ATOM `nil`, where it used to be a
     ' zero-length Collection rendering as `()`. That single change is
     ' what lets the ISO type-test edge case below answer correctly.
-    result = VLA_Prolog.PROLOG("(query (findall X (nonexistent X) Bag))")
+    ' PROLOG.22: "no solutions" means a DEFINED goal that matches nothing -
+    ' p has no row whose first column is 2. This pin and the three below
+    ' used to ask an undefined `nonexistent`, and "not an error" is no
+    ' longer true of that: an undefined predicate now refuses, pinned in
+    ' TestPrologUnknownPredicate.
+    result = VLA_Prolog.PROLOG("(fact (p 1 a)) (query (findall X (p 2 X) Bag))")
     Report "prolog.5.3/13: findall over a goal with no solutions binds Bag to the empty list nil, not an error", _
            ResultCol1Is(result, "nil"), "got: " & ResultDescribe(result)
 
@@ -4880,13 +4900,15 @@ Private Sub TestPrologFindall()
     ' finds nothing. Only a query with no free variables at all collapses
     ' to a Boolean. So "this goal failed" is spelled here as a row count
     ' of 1 (the header alone), never as result = False.
-    result = VLA_Prolog.PROLOG("(query (findall X (nonexistent X) Bag) (compound? Bag))")
+    ' PROLOG.22: the empty bag comes from a defined predicate with no
+    ' matching row, as in TestPrologFindall's own empty-bag pin.
+    result = VLA_Prolog.PROLOG("(fact (p 1 a)) (query (findall X (p 2 X) Bag) (compound? Bag))")
     Report "prolog.13: (compound? EmptyBag) is now FALSE - the ISO answer, where PROLOG.9's representation forced True", _
            ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
-    result = VLA_Prolog.PROLOG("(query (findall X (nonexistent X) Bag) (atomic? Bag))")
+    result = VLA_Prolog.PROLOG("(fact (p 1 a)) (query (findall X (p 2 X) Bag) (atomic? Bag))")
     Report "prolog.13: ...and (atomic? EmptyBag) is TRUE - the same judgement seen from the other side", _
            ResultRowCount(result) = 2 And ResultCol1Is(result, "nil"), "got: " & ResultDescribe(result)
-    result = VLA_Prolog.PROLOG("(query (findall X (nonexistent X) Bag) (atom? Bag))")
+    result = VLA_Prolog.PROLOG("(fact (p 1 a)) (query (findall X (p 2 X) Bag) (atom? Bag))")
     Report "prolog.13: ...and (atom? EmptyBag) is TRUE - nil is an ordinary atom, not a number and not a variable", _
            ResultRowCount(result) = 2, "got: " & ResultDescribe(result)
 
@@ -4970,14 +4992,16 @@ Private Sub TestPrologCut()
 
     ' Cut's own opacity across `not`'s isolated sub-search (real Prolog's
     ' own rule): blocked/0 reaches a cut (pruning thing's own second
-    ' fact) and then FAILS outright (nonexistent/1 has no facts), so
-    ' blocked/0 has zero solutions and (not (blocked)) is always TRUE,
-    ' regardless of Y. If the internal cut leaked out of the isolated
+    ' fact) and then FAILS outright ((thing 3) matches neither thing
+    ' fact), so blocked/0 has zero solutions and (not (blocked)) is always
+    ' TRUE, regardless of Y. If the internal cut leaked out of the isolated
     ' sub-search, the outer p(Y) loop would wrongly stop after Y=a; a
     ' correctly-opaque cut leaves it fully backtracking over both facts.
+    ' PROLOG.22 re-pointed the failing goal: it was an undefined
+    ' (nonexistent Z), which now refuses the program before solving.
     result = VLA_Prolog.PROLOG( _
         "(fact (p a)) (fact (p b)) (fact (thing 1)) (fact (thing 2)) " & _
-        "(rule (blocked) (thing W) ! (nonexistent Z)) " & _
+        "(rule (blocked) (thing W) ! (thing 3)) " & _
         "(query (p Y) (not (blocked)))")
     Dim notOpaqueOk As Boolean
     If IsArray(result) Then notOpaqueOk = (ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "a") And ResultCellIs(result, 3, 1, "b"))
@@ -5085,12 +5109,14 @@ Private Sub TestPrologControl()
     Report "prolog.14: (or ...) explores every branch, in written order - two two-fact predicates give four solutions", _
            bothOk, "got: " & ResultDescribe(result)
 
-    ' THE DISCRIMINATION CASE. An unknown predicate fails SILENTLY here,
-    ' so a disjunction whose FIRST branch already succeeds would pass
-    ' against an implementation that never looked at the second one at
-    ' all. This is the shape that cannot: the first branch is a predicate
-    ' with no facts, so every row below comes from the second.
-    result = VLA_Prolog.PROLOG(facts & "(rule (f X) (or (nosuch X) (p X))) (query (f X))")
+    ' THE DISCRIMINATION CASE. A disjunction whose FIRST branch already
+    ' succeeds would pass against an implementation that never looked at
+    ' the second one at all. This is the shape that cannot: the first
+    ' branch matches no fact - q holds a and b, never c - so every row
+    ' below comes from the second. PROLOG.22 re-pointed that first branch:
+    ' it was an undefined (nosuch X), and an unknown predicate no longer
+    ' fails silently - it refuses the program before solving.
+    result = VLA_Prolog.PROLOG(facts & "(rule (f X) (or (q c) (p X))) (query (f X))")
     Dim secondOk As Boolean
     If IsArray(result) Then
         secondOk = (ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 3, 1, "2"))
@@ -5099,10 +5125,11 @@ Private Sub TestPrologControl()
            secondOk, "got: " & ResultDescribe(result)
 
     ' ...and its twin, so the test above cannot be passing because the
-    ' rule matches everything: with BOTH branches unknown there are no
-    ' rows at all, and a query with a free variable still spills its
-    ' header row, so this is 1 rather than 0.
-    result = VLA_Prolog.PROLOG(facts & "(rule (g X) (or (nosuch X) (alsonosuch X))) (query (g X))")
+    ' rule matches everything: with BOTH branches matching nothing there
+    ' are no rows at all, and a query with a free variable still spills
+    ' its header row, so this is 1 rather than 0. (Both branches were
+    ' undefined predicates before PROLOG.22; see the pin above.)
+    result = VLA_Prolog.PROLOG(facts & "(rule (g X) (or (q c) (p 9))) (query (g X))")
     Report "prolog.14: ...and with BOTH branches failing there are no rows, only the header", _
            ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
 
@@ -5153,8 +5180,11 @@ Private Sub TestPrologControl()
 
     ' ---- IF-THEN-ELSE ------------------------------------------------
     ' The condition COMMITS to its first solution: p has two facts but
-    ' only p(1) is ever used, so this is two rows and not four.
-    result = VLA_Prolog.PROLOG(facts & "(rule (ite X Y) (if (p X) (q Y) (nope Y))) (query (ite X Y))")
+    ' only p(1) is ever used, so this is two rows and not four. The
+    ' else-goal never runs here; PROLOG.22 made it one that matches nothing,
+    ' (q c), where it was an undefined (nope Y) - an unknown predicate now
+    ' refuses the program even on a branch the data never reaches.
+    result = VLA_Prolog.PROLOG(facts & "(rule (ite X Y) (if (p X) (q Y) (q c))) (query (ite X Y))")
     Dim iteOk As Boolean
     If IsArray(result) Then
         iteOk = (ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 2, 2, "a") _
@@ -5167,12 +5197,13 @@ Private Sub TestPrologControl()
     ' GROUND queries, so both are booleans and neither can pass by
     ' spilling something. The condition succeeds and the then-goal FAILS:
     ' the whole form fails, and the else-goal - which would have
-    ' succeeded - must NOT run.
-    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (q a)) (query (if (p 1) (nosuch 1) (q a)))")
+    ' succeeded - must NOT run. The then-goal is (q 1), which matches no
+    ' fact; before PROLOG.22 it was an undefined (nosuch 1), in both.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (q a)) (query (if (p 1) (q 1) (q a)))")
     Report "prolog.14: condition succeeds, then-goal fails - the whole (if ...) FAILS and the else-goal never runs", _
            ResultBoolIs(result, False), "got: " & ResultDescribe(result)
 
-    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (q a)) (query (if (p 9) (nosuch 1) (q a)))")
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (fact (q a)) (query (if (p 9) (q 1) (q a)))")
     Report "prolog.14: ...and its twin - when the condition never succeeds, the SAME else-goal does run and the form is TRUE", _
            ResultBoolIs(result, True), "got: " & ResultDescribe(result)
 
@@ -5192,9 +5223,12 @@ Private Sub TestPrologControl()
     ' in the same query: W and M are bound only on the then-path, T on
     ' both, so T alone is a column. Committing to link(a b) is also why
     ' there is ONE row: without the commit, link(c d) would give a second.
+    ' The else-goal must still mention T and nothing else, since it is the
+    ' second path the column rule intersects; PROLOG.22 made it (tag none
+    ' T), which matches no fact, where it was an undefined (nope T).
     result = VLA_Prolog.PROLOG( _
         "(fact (link a b)) (fact (link c d)) (fact (tag b yes)) (fact (tag d no)) " & _
-        "(query (if (link W M) (tag M T) (nope T)))")
+        "(query (if (link W M) (tag M T) (tag none T)))")
     Dim bindOk As Boolean
     If IsArray(result) Then
         bindOk = (ResultRowCount(result) = 2 And ResultColCount(result) = 1 And ResultCellIs(result, 2, 1, "yes"))
@@ -5239,7 +5273,8 @@ Private Sub TestPrologControl()
     ' the second (m ...) fact is never reached. If the if-then-else
     ' absorbed the signal instead of letting it pass, this would be two
     ' rows.
-    result = VLA_Prolog.PROLOG(facts & "(rule (m X Y) (if (p X) (q Y) (nope Y)) !) (fact (m 9 9)) (query (m X Y))")
+    ' (q c), never reached, was an undefined (nope Y) before PROLOG.22.
+    result = VLA_Prolog.PROLOG(facts & "(rule (m X Y) (if (p X) (q Y) (q c)) !) (fact (m 9 9)) (query (m X Y))")
     Dim rightCutOk As Boolean
     If IsArray(result) Then
         rightCutOk = (ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "1") And ResultCellIs(result, 2, 2, "a"))
@@ -6010,6 +6045,202 @@ Private Sub TestPrologImpure()
            And InStr(1, r, "isn't how PROLOG spells", vbTextCompare) = 0, "got: " & r
 End Sub
 
+' PROLOG.24: a REFUSED name records no arity. Pure: no live workbook.
+'
+' Every name below is reserved in order to be REFUSED - a bare ISO
+' spelling, a number-type name, an alias spelling, a control spelling,
+' `list` in goal position, cut in parentheses - and each program writes it
+' at TWO arities. Before this item ValidateBodyItem sent every one of them
+' into TermPredName, which recorded the first arity and refused the second
+' as prolog-arity-mismatch: blaming the author's arities for a goal that is
+' refused on sight whatever its shape, and never showing the refusal that
+' says why. Each assertion is on the name's OWN refusal text AND on the
+' absence of the arity text, so it fails the moment the arity refusal
+' comes back.
+'
+' THE LISTS ARE THE CLASS, family by family: the 28 reserved names that
+' reached TermPredName, as tools/check_prolog_reserved_names.ps1's rule G
+' derived them from ValidateBodyItem's own arms before the fix (the
+' transliteration that checked this Sub before import held the union of
+' the lists below equal to that derivation). The impure goals are not
+' here: PROLOG.19 gave them this treatment first, and its format/1 beside
+' format/2 pin in TestPrologImpure is now carried by the same arm.
+'
+' THE SHAPE RULE: every query below has free variables, so an unrefused
+' one SPILLS. Refusals go through ResultTextStartsWith and ResultDescribe.
+Private Sub TestPrologRefusedArity()
+    Dim result As Variant
+    Dim r As String
+    Dim nm As Variant
+
+    For Each nm In Array("var", "nonvar", "atom", "number", "atomic", "compound", "callable", "is_list", "ground")
+        result = VLA_Prolog.PROLOG("(query (" & nm & " X) (" & nm & " X Y))")
+        r = ResultDescribe(result)
+        Report "prolog.24: (" & nm & " X) beside (" & nm & " X Y) gets its ISO-spelling refusal, not an arity mismatch", _
+               ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "(" & nm & " ...) isn't how PROLOG spells this type test", vbTextCompare) > 0 _
+               And InStr(1, r, "same arity", vbTextCompare) = 0, "got: " & r
+    Next nm
+    For Each nm In Array("integer?", "float?", "integer", "float")
+        result = VLA_Prolog.PROLOG("(query (" & nm & " X) (" & nm & " X Y))")
+        r = ResultDescribe(result)
+        Report "prolog.24: (" & nm & " X) beside (" & nm & " X Y) gets its number-type refusal, not an arity mismatch", _
+               ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "(" & nm & " ...) isn't available: PROLOG has one kind of number", vbTextCompare) > 0 _
+               And InStr(1, r, "same arity", vbTextCompare) = 0, "got: " & r
+    Next nm
+    For Each nm In Array("is-list", "is_list?", "sum_list", "whole", "atom_length", "atom_concat", "sub_atom", "atom_number", "upcase_atom", "downcase_atom", "atomic_list_concat")
+        result = VLA_Prolog.PROLOG("(query (" & nm & " X) (" & nm & " X Y))")
+        r = ResultDescribe(result)
+        Report "prolog.24: (" & nm & " X) beside (" & nm & " X Y) gets its alias-spelling refusal, not an arity mismatch", _
+               ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "(" & nm & " ...) isn't how PROLOG spells this - write", vbTextCompare) > 0 _
+               And InStr(1, r, "same arity", vbTextCompare) = 0, "got: " & r
+    Next nm
+    For Each nm In Array("->", "\+")
+        result = VLA_Prolog.PROLOG("(query (" & nm & " X) (" & nm & " X Y))")
+        r = ResultDescribe(result)
+        Report "prolog.24: (" & nm & " X) beside (" & nm & " X Y) gets its control-spelling refusal, not an arity mismatch", _
+               ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "(" & nm & " ...) is how real Prolog spells this", vbTextCompare) > 0 _
+               And InStr(1, r, "same arity", vbTextCompare) = 0, "got: " & r
+    Next nm
+    result = VLA_Prolog.PROLOG("(query (list X) (list X Y))")
+    r = ResultDescribe(result)
+    Report "prolog.24: (list X) beside (list X Y) in goal position gets 'a list is not a goal', not an arity mismatch", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "builds a list, it is not something PROLOG can prove", vbTextCompare) > 0 _
+           And InStr(1, r, "same arity", vbTextCompare) = 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (! X) (! X Y))")
+    r = ResultDescribe(result)
+    Report "prolog.24: (! X) beside (! X Y) gets the cut refusal, not an arity mismatch", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "cut is written on its own", vbTextCompare) > 0 _
+           And InStr(1, r, "same arity", vbTextCompare) = 0, "got: " & r
+
+    ' ---- CUT IN PARENTHESES, at one arity - the silent case the
+    ' derivation found. `(!)` was a compound goal named "!" that nothing
+    ' dispatched: it fell through to the clauseDict lookup and failed.
+    result = VLA_Prolog.PROLOG("(query (!))")
+    r = ResultDescribe(result)
+    Report "prolog.24: (query (!)) is refused by name - it used to answer FALSE", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "cut is written on its own", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (rule (first X) (p X) (!)) (query (first X))")
+    r = ResultDescribe(result)
+    Report "prolog.24: (!) in a rule body is refused by name - the rule used to answer nothing, silently", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "cut is written on its own", vbTextCompare) > 0, "got: " & r
+    ' ...and its control: the same rule with a BARE ! answers its one row,
+    ' so the refusal is about the parentheses and nothing else.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (rule (first X) (p X) !) (query (first X))")
+    Report "prolog.24: ...while the same rule with a bare ! answers its one row", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "1"), "got: " & ResultDescribe(result)
+
+    ' ---- THE ARM IS FOR REFUSED NAMES ONLY. A predicate a program can
+    ' define still has its arity held to one - the catch-all must not be
+    ' read as "skip every name".
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (query (p X) (p X Y))")
+    r = ResultDescribe(result)
+    Report "prolog.24: an ordinary predicate used at two arities is still refused as an arity mismatch", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "must have the same arity", vbTextCompare) > 0, "got: " & r
+End Sub
+
+' PROLOG.22: AN UNKNOWN PREDICATE REFUSES - statically, over the
+' predicates the query can reach, before a goal is solved. Pure: no live
+' workbook (a table argument with no rows is TestPrologHostTable's).
+'
+' Every case below used to FAIL SILENTLY, and three were confidently wrong
+' rather than merely empty: `not` over an undefined goal said TRUE, findall
+' over one built an empty bag that `length` then counted, and a disjunction
+' with a misspelled branch answered from the other branch as though
+' nothing were wrong. Each is asserted on refusal text NAMING the
+' predicate, so none can pass by failing.
+'
+' The decision is pinned in both of its directions: a rule the query never
+' calls is NOT examined (reachable, not whole-program), and a branch the
+' data never reaches IS (static, not raise-when-reached). The roadmap entry
+' has the options and why this one.
+Private Sub TestPrologUnknownPredicate()
+    Dim result As Variant
+    Dim r As String
+    Dim q As String
+    q = Chr$(34)
+
+    ' ---- THE PLAIN CASE. It used to spill a header with nothing under it.
+    result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (query (parnet tom X))")
+    r = ResultDescribe(result)
+    Report "prolog.22: a misspelled predicate refuses by name, where it used to spill an empty column", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "'parnet' is called by this query", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE CONFIDENTLY WRONG TRUE.
+    result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (query (not (parnet tom bob)))")
+    r = ResultDescribe(result)
+    Report "prolog.22: (not ...) over an undefined predicate refuses - it used to answer TRUE", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "'parnet' is called by this query", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE EMPTY BAG THAT COUNTED.
+    result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (query (findall C (parnet tom C) Kids) (length Kids N))")
+    r = ResultDescribe(result)
+    Report "prolog.22: findall over an undefined predicate refuses - (length Kids N) used to count 0", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "'parnet' is called by this query", vbTextCompare) > 0, "got: " & r
+
+    ' ---- A MISSPELLED BRANCH beside one that answers: refused even though
+    ' the query has a real answer, because the program is wrong either way.
+    result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (query (or (parent tom X) (parnet tom X)))")
+    r = ResultDescribe(result)
+    Report "prolog.22: an (or ...) with one undefined branch refuses, even though the other branch answers", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "'parnet' is called by this query", vbTextCompare) > 0, "got: " & r
+
+    ' ---- REACHED THROUGH A RULE: kin's second clause calls sibling, which
+    ' nothing defines. Named, although the first clause alone would answer.
+    result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (rule (kin X Y) (parent X Y)) (rule (kin X Y) (sibling X Y)) (query (kin tom Y))")
+    r = ResultDescribe(result)
+    Report "prolog.22: an undefined predicate in the body of a rule the query calls refuses, naming it", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "'sibling' is called by this query", vbTextCompare) > 0, "got: " & r
+
+    ' ---- ...and inside a goal inside a goal: findall within not.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (query (p X) (not (findall Y (parnet X Y) B)))")
+    r = ResultDescribe(result)
+    Report "prolog.22: an undefined predicate nested inside findall inside not refuses too", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "'parnet' is called by this query", vbTextCompare) > 0, "got: " & r
+
+    ' ---- NOT THE WHOLE PROGRAM: a rule nothing calls is never examined, so
+    ' a rules text shared between cells with different tables still answers.
+    result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (rule (unused X) (sibling X X)) (query (parent tom Y))")
+    Report "prolog.22: a rule the query never calls is not examined - its undefined sibling does not refuse the program", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "bob"), "got: " & ResultDescribe(result)
+
+    ' ---- STATIC, NOT WHEN REACHED: the else-branch never runs on this
+    ' data, and it refuses anyway - otherwise the program would work today
+    ' and break the day the data changed.
+    result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (query (if (parent tom X) (parent tom X) (parnet tom X)))")
+    r = ResultDescribe(result)
+    Report "prolog.22: an undefined predicate on an if-branch the data never reaches still refuses", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "'parnet' is called by this query", vbTextCompare) > 0, "got: " & r
+    ' ...and its twin, with that branch defined, answers.
+    result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (query (if (parent tom X) (parent tom X) (parent bob X)))")
+    Report "prolog.22: ...and with that branch naming a defined predicate, the same query answers bob", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "bob"), "got: " & ResultDescribe(result)
+
+    ' ---- DEFINING THE NAME is what stops it. Once sibling has a fact the
+    ' same negation answers - TRUE, and correctly, because no sibling fact
+    ' says tom and bob.
+    result = VLA_Prolog.PROLOG("(fact (parent tom bob)) (fact (sibling ann bob)) (query (not (sibling tom bob)))")
+    Report "prolog.22: once the predicate has a fact, (not ...) over it answers - a correct TRUE", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+
+    ' ---- ORDER against the quoting diagnosis (PROLOG.12). Both would fire
+    ' on this program; the undefined predicate is found first, before
+    ' anything is solved, and the quoting message is never reached.
+    result = VLA_Prolog.PROLOG("(fact (dept " & q & "eng" & q & ")) (query (dept eng) (parnet tom X))")
+    r = ResultDescribe(result)
+    Report "prolog.22: an undefined predicate is named before the post-hoc quoting diagnosis runs", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "'parnet' is called by this query", vbTextCompare) > 0 _
+           And InStr(1, r, "quoting mismatch", vbTextCompare) = 0, "got: " & r
+
+    ' ---- A NAME PROLOG.19 LEFT UNRESERVED. That item filed this one as
+    ' "the general fix for the ~460 impure names, with no reservation": tab
+    ' is an impure SWI builtin and still a name a knowledge base may define,
+    ' and undefined it now refuses like any other.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (query (p X) (tab 3))")
+    r = ResultDescribe(result)
+    Report "prolog.22: an unreserved impure SWI name (tab) refuses as undefined - the general fix PROLOG.19 filed", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "'tab' is called by this query", vbTextCompare) > 0, "got: " & r
+End Sub
+
 Private Sub TestPrologKeyedAtoms()
     Dim q As String
     q = Chr$(34)
@@ -6295,6 +6526,59 @@ Private Sub TestPrologHostTable()
     End If
     Report "prolog host: named-column (keyed-atom) syntax works end-to-end through the real =PROLOG(...) function against a live Table", _
            ok4, detail4
+
+    ' ---- PROLOG.23: A TABLE NAMED LIKE A RESERVED WORD, in its own case.
+    ' PROLOG() checks a table argument's name against the reserved set, and
+    ' that check matches case-sensitively - so it is exact only because
+    ' VLA_Relation.TableArgResolve hands back the name already FOLDED.
+    ' PROLOG.19 filed the opposite as a defect (a Table named Between
+    ' loading and then being bypassed by the arithmetic `between`, which
+    ' would answer 1, 2, 3 here); the fold was there all along. These two
+    ' pins are what keep it there: with the fold removed, Between loads and
+    ' this query spills 1, 2, 3, and Write loads and gets the output
+    ' refusal instead of this one.
+    ws.Range("E1:F1").Value = Array("Low", "High")
+    ws.Range("E2:F2").Value = Array(1, 3)
+    Dim loBetween As ListObject
+    Set loBetween = ws.ListObjects.Add(xlSrcRange, ws.Range("E1:F2"), , xlYes)
+    loBetween.Name = "Between"
+    Dim arr5 As Variant, r5 As String
+    arr5 = VLA_Prolog.PROLOG("(query (between 1 3 X))", loBetween.Range)
+    r5 = ResultDescribe(arr5)
+    Report "prolog.23 host: a Table named Between is refused as a reserved word - never loaded and then bypassed by the arithmetic between", _
+           ResultTextStartsWith(arr5, "#PROLOG!") And InStr(1, r5, "'between' is a reserved word", vbTextCompare) > 0, "got: " & r5
+
+    ws.Range("H1").Value = "Line"
+    ws.Range("H2").Value = "hello"
+    Dim loWrite As ListObject
+    Set loWrite = ws.ListObjects.Add(xlSrcRange, ws.Range("H1:H2"), , xlYes)
+    loWrite.Name = "Write"
+    Dim arr6 As Variant, r6 As String
+    arr6 = VLA_Prolog.PROLOG("(query (write X))", loWrite.Range)
+    r6 = ResultDescribe(arr6)
+    Report "prolog.23 host: ...and so is a Table named Write, by the reserved-word refusal rather than the output one", _
+           ResultTextStartsWith(arr6, "#PROLOG!") And InStr(1, r6, "'write' is a reserved word", vbTextCompare) > 0 _
+           And InStr(1, r6, "nowhere to print", vbTextCompare) = 0, "got: " & r6
+
+    ' ---- PROLOG.22: A TABLE WITH NO ROWS IS DEFINED, NOT UNKNOWN. Its one
+    ' data row is blank, and RangeToRows drops a blank row, so it passes no
+    ' facts at all. PROLOG() used to create a predicate's key per ROW, so
+    ' this table left none, and an unknown-predicate check would have called
+    ' a predicate the author passed in "not defined". Asserted twice: the
+    ' query spills a header with nothing under it, and a negation over it is
+    ' a correct TRUE - the table really is empty.
+    ws.Range("J1:K1").Value = Array("Item", "Qty")
+    Dim loEmpty As ListObject
+    Set loEmpty = ws.ListObjects.Add(xlSrcRange, ws.Range("J1:K2"), , xlYes)
+    loEmpty.Name = "EmptyHostTest1"
+    Dim arr7 As Variant
+    arr7 = VLA_Prolog.PROLOG("(query (emptyhosttest1 Item Qty))", loEmpty.Range)
+    Report "prolog.22 host: a Table with no data rows is DEFINED - its query spills a header and nothing under it, never 'not defined'", _
+           ResultRowCount(arr7) = 1 And ResultColCount(arr7) = 2, "got: " & ResultDescribe(arr7)
+    Dim arr8 As Variant
+    arr8 = VLA_Prolog.PROLOG("(query (not (emptyhosttest1 X Y)))", loEmpty.Range)
+    Report "prolog.22 host: ...and (not ...) over that empty Table is a correct TRUE", _
+           ResultBoolIs(arr8, True), "got: " & ResultDescribe(arr8)
 
     ' Owner-requested cleanup: unlike TestDatalogHostTable/TestSqlHostTable
     ' (which both leave their own scratch sheet behind for reuse/post-

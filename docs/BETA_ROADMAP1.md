@@ -14775,8 +14775,11 @@ now carries one summary paragraph per engine and points here.*
         the general fix for the ~460 impure names left unreserved (and
         every other unbuilt builtin) with no reservation cost. It changes
         the answer of every query that calls an undefined predicate, so
-        it is its own item with its own live pass.
-      - **The table-argument reserved check is case-sensitive**: `PROLOG()`
+        it is its own item with its own live pass. → **`PROLOG.22`**,
+        which decided it STATIC, over the predicates a query can reach.
+      - **The table-argument reserved check is case-sensitive** (→
+        **`PROLOG.23`**, which found this to be false: `TableArgResolve`
+        folds the name, and only the comment below said otherwise): `PROLOG()`
         runs `IsReservedPredicateName` over a table's RAW name while every
         goal is folded, and the clause dictionary is case-insensitive — so
         a table named `Length`, `Between` or (now) `Write` loads and is
@@ -14787,7 +14790,9 @@ now carries one summary paragraph per engine and points here.*
       - The other refusing tables (`TypeTestIsoSpellingFor`,
         `TypeTestDeferredFor`, `AliasSpellingFor`, `ControlIsoSpellingFor`)
         still record arity, so `(integer? X) (integer? X Y)` is blamed as
-        an arity mismatch. Pre-existing and cosmetic; not widened.
+        an arity mismatch. Pre-existing and cosmetic; not widened. →
+        **`PROLOG.24`**, which derived the class (28 names, `(!)` among
+        them, which was also silent).
       - A pure text-formatting goal, under a name promising no output.
     *Pays into `PROLOG.16`*: standard order must be a function of the
     terms alone — no `StrComp` locale, no insertion order — which is this
@@ -15216,6 +15221,414 @@ now carries one summary paragraph per engine and points here.*
 
     *Blocks nothing; blocked by nothing.* *Named follow-up left open:*
     `append` over partial lists, inherited from `PROLOG.13`.
+  - ✅ **PROLOG.22 — DECIDE: should an unknown predicate refuse? YES —
+    STATICALLY, over the predicates the query can reach, before a goal is
+    solved.** Owner-verified live 2026-09-10 on the FIRST pass, together
+    with `PROLOG.23` and `PROLOG.24`: **`TestDSLs` 1083/1083, the predicted
+    count exactly**, and all **20 in-cell steps** answering as handed off —
+    every refusal one cell of text naming its predicate, the never-called
+    rule and the defined twin spilling `bob`, the defined negation and the
+    empty `Inventory` Table's negation each a correct TRUE, the empty Table
+    itself spilling its `Item | Qty` header with nothing under it. Pure
+    1109/1109, host 148/148 and `VerifyReports` 242/242 + 242/242, above
+    this item's 1089 / 143 / 203 baselines, are the concurrent session's
+    uncommitted tests — attributed by diff: `VLA_Tests.bas` +53 lines and
+    `VLA_Tests_Host.bas` +110, files this item's diff does not touch. One
+    landing with `PROLOG.23` and `PROLOG.24`, because one live pass
+    verifies all three and a split would manufacture intermediate commits
+    nobody had run (`PROLOG.11`'s reasoning). Filed by `PROLOG.19` as the
+    general fix for the ~460 impure SWI names it left unreserved, and for
+    every other unbuilt builtin, with no reservation cost. Until now a goal
+    naming a predicate with no clauses reached `SolveGoalList`'s clauseDict
+    lookup and failed SILENTLY — and three of the silences were
+    confidently WRONG, not merely empty: `(not (undefined X))` answered
+    TRUE, `(findall X (undefined X) B) (length B N)` counted 0, and `(or
+    (p X) (typo X))` answered from `p` as though nothing were wrong.
+    `TestDSLs` 1035 → **1083**, predicted and confirmed live (see the
+    counts below).
+
+    **THE THREE OPTIONS, against `PROLOG.10`'s four criteria:**
+      - **RAISE WHEN REACHED** — ISO's `existence_error(procedure,
+        Name/Arity)`, SWI's default. Catches every case the data reaches.
+        Breaks MONOTONICITY: whether it fires depends on the data, so `(or
+        (p X) (typo X))` answers while `p` has no rows and stops answering
+        the day it gains one — adding a fact removes solutions, the exact
+        property `PROLOG.10` refused to give up.
+      - **POST HOC** — `PROLOG.12`'s way: refuse only when the query found
+        no rows and an unknown predicate was involved. Monotone and the
+        most reversible. It FAILS the load-bearing criterion: the `not`
+        TRUE and the empty bag both come back WITH rows, so it misses
+        precisely the confidently wrong answers, and serves only the
+        correct-but-terse empty result `PROLOG.10` said was not worth an
+        error on its own.
+      - **STATIC** — at parse time. `PROLOG.19` made this newly EXACT: with
+        `assert`/`retract` refused for good a program's predicate set is
+        FIXED before solving — facts, rule heads, table arguments — and
+        there is no `dynamic` declaration, so a name with no clauses can
+        never be one its author MEANT to be empty. That is the answer to
+        the correctness criterion's objection: in `PROLOG.10` a text `"eng"`
+        and a bare `eng` could both be meant; here an undefined name cannot
+        be. MONOTONE in the strongest form of the three — it does not look
+        at the data AT ALL: no fact or row, added or removed, can make it
+        fire; defining the name or passing its table is the only thing that
+        stops it. PRECEDENT: this engine already refuses parse-time defects
+        in rules nothing calls (an arity mismatch, an unknown arithmetic
+        operator, `PROLOG.19`'s impure arithmetic), and `DATALOG` refuses a
+        query naming an unknown predicate (`datalog-query-unknown-predicate`)
+        — the query-only case of this. REVERSIBILITY, read the way the
+        user meets it: relaxing this later (to reached-only, or to post hoc)
+        only ever turns a refusal into an answer, and no working formula
+        breaks; tightening post hoc into this later would break every
+        workbook whose program happened to hold an unreached undefined name.
+        So the strict reading is the one to ship first, at `0.5.x`, before
+        there are workbooks.
+    **Decided: STATIC.** And the brief's question — "a never-called rule
+    that mentions an undefined name would refuse the whole program; decide
+    whether that is right" — **decided NO: the walk is REACHABLE-from-the-
+    query, not whole-program.** The query's goal names, then the bodies of
+    every clause of every name reached, to a fixpoint; a rule nothing calls
+    is never examined. The reason is specific to this engine: this is the
+    FIRST parse-time check whose verdict depends on the TABLE ARGUMENTS,
+    and a rules cell shared by several `=PROLOG(...)` cells with different
+    tables must not refuse in every cell that leaves out a table another
+    cell's rule needs. It is still stricter than ISO in one direction, on
+    purpose, and pinned: a named-reachable call the data never actually
+    reaches — behind a failing goal, a cut, an if-branch not taken —
+    refuses too, because otherwise the program works today and breaks the
+    day the data changes.
+
+    **THE TRAPS, MEASURED rather than assumed:**
+      - *A table with zero rows.* `VLA_Relation.RangeToRows` drops every
+        all-blank row, and `PROLOG()` created a predicate's key per ROW, so
+        a Table whose one data row is blank — or whose rows were deleted —
+        left NO key, while `headerMap` still got its columns. Any
+        unknown-predicate check would have called a table its author passed
+        "not defined". Fixed at the source: `PROLOG()` now creates the key
+        once per table, rows or none. Pinned LIVE (a ListObject over a
+        header and one blank row: its query spills a header and nothing
+        under it, and `(not ...)` over it is a correct TRUE); the
+        transliteration with the per-table key removed turns both red.
+      - *`(not (undefined X))` succeeded* — now refuses; pinned.
+      - *findall over an unknown goal returned an empty bag* — now refuses;
+        pinned with `(length Kids N)` behind it.
+      - *`DiagnoseQuotedVersusBare` (`PROLOG.12`) runs on zero rows.* The
+        order is settled by construction: the static check runs at the end
+        of `ParseProgram`, before solving, so the post-hoc quoting diagnosis
+        can only ever see programs whose every reachable predicate is
+        defined. Pinned by a program both would fire on — the undefined
+        predicate is named and the quoting text is absent.
+      - *EXPOSURE, enumerated MECHANICALLY before a line of code.* A walker
+        evaluated every `VLA_Prolog.PROLOG(` / `PrologRun(` call in
+        `VLA_Tests_Query.bas` from its VBA expression — literals, `q`,
+        `Chr$(34)`, `String$`, `ChrW$`, loop variables, host-sheet cell
+        writes and ListObject names — **641 static call sites, all 641
+        reached, 748 programs with loops expanded**, two with a dynamic
+        operand (`renderedBag`, a spilled cell read back) classified by hand
+        and in data position. Each was parsed by the transliteration; a
+        CONTROL first checked every program the model says refuses at parse
+        time against its own test's assertions (275 terms, 0 mismatches),
+        because a wrong parse refusal would have HIDDEN exposure. Result:
+        **16 programs, 16 assertions**, and whole-program and reachable
+        agree on every one — no never-called rule in the suite mentions an
+        undefined name. The reserved-word tests' `(fact (N a)) (query (p
+        X))` the brief expected here are NOT exposed: they refuse at the
+        fact first. Under the other options the same 16 would have moved
+        12 (raise-when-reached) or 3 (post hoc). A parse-level diff of all
+        746 comparable calls, HEAD's arms against this item's, differs in
+        exactly those 16 — which also proves `PROLOG.24`'s arm and the new
+        cut arm move no existing test (the one program containing `(!` is
+        `(fact (! a))`, refused as reserved either way).
+    **All 16 re-pointed IN PLACE, none deleted**, each comment saying why:
+    every undefined name that stood for "a goal that fails" became a
+    DEFINED goal that matches nothing — `(q c)` where `q` holds `a` and `b`,
+    `(thing 3)`, `(p 2 X)` over `(fact (p 1 a))`, `(tag none T)` where the
+    column rule needs the else-path to mention `T` and nothing else — so the
+    asserted result is byte-identical, which the transliteration proved in
+    BOTH modes (15 of 16 pass on HEAD's arms too). The one that asserts new
+    behaviour is `PROLOG.7`'s `(<= 1 2)` pin, and it is a stronger pin for
+    it: `1 <= 2` answering FALSE was itself a confidently wrong answer; it
+    now refuses as undefined, which is still "not accepted". The
+    `PROLOG.14` comments that stated the premise outright ("An unknown
+    predicate fails SILENTLY here") are rewritten with them.
+
+    **THE BUILD.** `RefuseUnknownPredicates` + `CollectGoalNamesInto`,
+    called last in `ParseProgram` (after every form, since a rule may call a
+    predicate defined further down). Goal positions exactly as
+    `ValidateBodyItem` walks them — `not`'s goal, `findall`'s goal, every
+    `or`/`if` branch; reserved names skipped because each has its own arm
+    (rules C and D). One message, `prolog-unknown-predicate`, naming the
+    predicate and where definitions come from — worded after `DATALOG`'s
+    twin, and saying plainly that a built-in of another Prolog may simply
+    not exist here. `SolveGoalList`'s clauseDict dead end stays (unreachable
+    now for any program that reaches the solver; the alternative on a
+    missing key is `VlaDictGet`'s raw error) and its comment records that
+    the module's many "an unknown predicate is a silent dead end" comments
+    are now true only of a RESERVED name reaching that line — the case they
+    argue about — while the refusing tables' own headers now buy the better
+    message rather than the loudness. New `TestPrologUnknownPredicate`, 12
+    assertions: the plain misspelling, the `not` TRUE, the counted empty
+    bag, the misspelled `or` branch beside an answering one, a name reached
+    only through a rule's second clause, one nested in findall inside
+    `not`, the never-called rule that must NOT refuse, the unreached
+    if-branch that MUST (and its defined twin that answers), a defined
+    negation that answers TRUE, the ordering against the quoting diagnosis,
+    and `tab` — an impure SWI name `PROLOG.19` left free, now refused as
+    undefined with no reservation. Plus the two live zero-row pins in
+    `TestPrologHostTable`.
+
+    **METHOD, for all three items.** The parse AND dispatch decision was
+    transliterated before import — reader, `ParseProgram`, list sugar,
+    keyed-atom desugaring, every `ValidateBodyItem` arm, `CollectVars`, and
+    a solver with `SolveGoalList`'s arm order (cut barriers, if-then-else as
+    a spliced cut, findall through `SolveIsolated`'s private cut state, the
+    occurs check, `UnifyArgsOnly`'s goal-length walk, the post-hoc quoting
+    diagnosis) — with every table read out of the VBA source under test and
+    every refusal rendered from `VLA_Messages.bas`'s own templates. **The
+    CONTROL ran first and FAILED first**, on five harness defects, each
+    fixed before any verdict was trusted (a one-line `If … Then X = (…)`
+    whose parenthesised condition was read as one term; the host tests'
+    `arr1`…`arr4` names; `UBound` inside a named Boolean; a non-Range table
+    argument; and the occurs check the solver lacked, which
+    `(\= X (f X))`'s live-verified refusal caught). **Final CONTROL: 510 live-verified `TestDSLs` assertions
+    reproduced on HEAD's test file and HEAD's arms, 0 fail, 0 crash** (275
+    need what the solver does not model — list and text goals, most
+    arithmetic — and are counted as gaps, never as passes). New arms on the
+    new test file: **558 pass, 0 fail**; on HEAD's arms the new test file
+    fails exactly the 39 assertions of new behaviour and nothing else.
+    **The VBA test Subs' OWN assertions were what was evaluated** — each
+    program from the VBA expression, each `Report` decomposed into its
+    guarded-helper calls — and that checker was proved to bite by five
+    mutations of a copy of the test file (a reworded needle, a wrong cell,
+    `tab` slipped into a loop, a flipped negation, a re-pointed pin put back
+    to `nosuch`): all red. **38 guard mutations, all RED**: the catch-all
+    off or gone (the second also turns `PROLOG.19`'s `format` pin red),
+    each of the 28 names dropped from it on its own (each turns exactly its
+    own pin red), the cut arm, the static pass off, whole-program instead of
+    reachable, rule bodies not followed, nested goals not descended,
+    reserved names not skipped (541 red), the per-table key, and
+    `TableArgResolve`'s fold. **That last one came back GREEN first**, and
+    chasing it found the harness wrong, not the code: the transliteration's
+    `IsReservedPredicateName` was case-INSENSITIVE (PowerShell's `-contains`
+    and `@{}`), so it could not even express `PROLOG.23`'s question; made
+    ordinal like VBA's `Select Case`, the mutant goes red on both host pins,
+    and no earlier verdict moves (every real caller passes a folded name).
+    **The harness traps hit for real, again:** an ArrayList unrolled
+    through `return (…)` twice (`Call-Args` handed the program's first
+    CHARACTER over as the program; `DesugarBodyItem` unrolled every goal);
+    `-notmatch` overwrote a loop's `$Matches`; a single-literal `InStr`
+    regex silently turned every `"(" & nm & " ...)"` needle into a gap;
+    `$s`/`$S` and `$out`/`$Out` were one variable each, twice across a
+    dot-source; PowerShell 5.1's pipe carried `git archive` as text.
+    Structural balance and duplicate-`Dim` over all three modules (110 / 55
+    / 6 procedures, HEAD 108 / 53 / 6), proved to bite on a deleted `End
+    If`, `Loop`, `Next`, `End Select` and a duplicated `Dim` in this item's
+    own code, each located to its line, and clean on the colon-packed /
+    one-line-`If` / colon-`Case` / label / strings-holding-`:`-`'`-"End If"
+    fixture. `RaiseMsg` slots **123 of 123** (121 at HEAD), proved on a
+    dropped `{predicate}`. All 63 new program strings paren-balanced.
+    Longest physical lines 403 / 196 / 561. `VLA_Messages.bas`: 447 ids,
+    none duplicated, CRLF kept, still exactly three non-ASCII bytes.
+
+    **COUNTS, predicted and counted mechanically — and the live run read
+    exactly 1083.** `TestDSLs` 1035 → **1083**: a counter over every `Report` executed, loops expanded, reads
+    HEAD's file at exactly 1035 (its own control) and this one at 1083 —
+    `TestPrologRefusedArity` +32, `TestPrologUnknownPredicate` +12,
+    `TestPrologHostTable` 4 → 8 — and by hand: 26 loop names + 6
+    straight-line + 12 + 4 = 48. The 16 re-points move no count. Pure
+    **1089**, host **143** and `VerifyReports` **203 + 203** — `G-FORMAT`
+    slice 2's own final live numbers, the baseline since `f15c4b4` — are
+    unmoved by construction: only `VLA_Tests_Query` calls `VLA_Prolog`, and
+    the two new message ids are counted by no suite.
+
+    **THE TREE MOVED MID-ITEM, a fourth time.** At pre-flight HEAD was
+    `53178ee` with `G-FORMAT` slice 2's 17 files uncommitted beside it;
+    during this item that session committed them (`f15c4b4`) — caught
+    because `RELEASES.md` at HEAD suddenly held a bullet that had been an
+    uncommitted hunk. Its commit touches none of this item's files and none
+    of the sources the transliteration reads (`VLA_Prolog`,
+    `VLA_Relation`, `VLA_Messages`, `VLA_Tests_Query`, `VLA`, `VLA_Unify`,
+    `VLA_Identity`; its `VLA_Runtime` hunks leave `VlaDict*` alone), so
+    every verdict stands; it then began new uncommitted work in
+    `BETA_ROADMAP2.md` and `RELEASES.md`, beside this item's hunks, so both
+    are staged filtered.
+
+    *Named follow-ups, filed rather than folded in — each now its own item
+    (`PROLOG.25`, `PROLOG.26`, `PROLOG.27`, below):*
+      - **The Name/Arity half of ISO's existence_error** (→ `PROLOG.25`). ISO keys a
+        procedure by name AND arity, so `(emp X)` against a three-column
+        `emp` table is an unknown procedure there. Here it is not refused
+        at all: a table's arity is never recorded (`TermPredName` sees only
+        program text), and `UnifyArgsOnly` walks the GOAL's positions, so —
+        read from the code and transliterated, not yet seen live — a
+        positional goal with FEWER arguments than the table has columns
+        matches every row on its prefix, and one with MORE reaches the head's
+        missing position and returns VBA's raw "Subscript out of range" as
+        the cell's text. Keyed atoms are not affected (they desugar to the
+        full arity).
+      - **The refusing reserved names on an unreached branch stay silent**
+        (→ `PROLOG.26`).
+        `(if (p X) (q X) (atom X))` never reaches `(atom X)`, so its
+        spelling refusal never fires — the one asymmetry with this item's
+        static rule. Extending the static pass to the always-refusing
+        families would make them parse-time refusals and their
+        `SolveGoalList` arms dead; its own decision.
+      - **`true`, `fail`, `false`** (→ `PROLOG.27`). This engine has none of ISO's control
+        constants, and `(fail)` used to work as a silent fail by accident
+        (it was an unknown predicate). It now refuses as undefined; `(= a
+        b)` is the spelling that fails on purpose. Whether to reserve and
+        build the three is its own small item.
+  - ✅ **PROLOG.23 — "the table-argument reserved check is case-sensitive":
+    it is not, and never was.** Owner-verified live 2026-09-10 with
+    `PROLOG.22` (steps 13 and 14: Tables named `Between` and `Write` each
+    refused as a reserved word, `Write` without the output refusal; both
+    host pins inside the 1083). Filed by `PROLOG.19` from
+    `IsReservedPredicateName`'s own header, which said the table-argument
+    site passed `TableArgResolve`'s RAW name and that only the six
+    operators were safe from the difference — so a Table named `Length`,
+    `Member` or `Write` would load and be unreachable, and one named
+    `Between` would be SILENTLY bypassed by the arithmetic `between`.
+    **Read against the code, the defect does not exist:**
+    `VLA_Relation.TableArgResolve` returns `VLA_Identity.Fold(lo.Name)` on
+    its ListObject branch and `Fold(nm)` on its named-range branch, and has
+    since the initial import (`62440a4`), so `PROLOG()` never sees a raw
+    name. The COMMENT was wrong and the follow-up trusted it — the
+    roadmap-overstates-the-code class, one level down.
+    **So no Fold was added.** A second Fold in `PROLOG()` is a guard no test
+    could ever turn red while the one in `VLA_Relation` stands, and the
+    method removes such a guard rather than keeping it. What the item adds
+    is what was actually missing: **a LIVE pin on the fold that exists** —
+    in another module, and shared with `DATALOG`, where nothing pinned it
+    (every other lookup is case-insensitive, so no existing test would
+    notice it gone). `TestPrologHostTable` builds a Table named `Between`,
+    queried `(between 1 3 X)`, and one named `Write`, queried `(write X)`;
+    both must refuse with the reserved-word text, and `Write` must NOT get
+    the output refusal instead. With the fold removed in the
+    transliteration, `Between` loads and spills 1, 2, 3 and `Write` gets
+    "nowhere to print": both red. Excel's naming rules checked for both
+    names without launching Excel: letters only, not a cell reference in
+    A1 or R1C1 form (column letters stop at three), not `R` or `C`, not a
+    built-in name; the one live risk, a defined name `Between` or `Write`
+    already in the test workbook, would stop the run at `.Name =`. The
+    header comment is corrected in place. The refusal names the table
+    folded, `'between'` — the raw spelling is not available without
+    changing `TableArgResolve`'s contract, and the folded one is
+    unambiguous.
+    **`VLA_Datalog`'s table argument does not have this pattern** — it goes
+    through the same folding `TableArgResolve` — **but it has a different,
+    documented one, filed rather than widened into:** `DATALOG` reserves no
+    names at ANY definition site, so a fact, a rule head or a table named
+    `not`, `count`, `sum`, `let` or a comparison operator loads and cannot
+    be reached, because its body parser reads those heads as its own
+    wrappers first; its own comment calls that "the same reserved-word
+    tradeoff fact/rule/query/headless already make at the top level".
+    Whether each case is loud or silent is unmeasured — a `DATALOG`
+    item's to decide.
+  - ✅ **PROLOG.24 — a REFUSED name records no arity; and `(!)`, the one
+    reserved name nothing dispatched.** Owner-verified live 2026-09-10 with
+    `PROLOG.22` (steps 15-20: each two-arity refusal its own text, both
+    `(!)` forms refused, the bare-`!` twin answering `1`, the ordinary
+    predicate still an arity mismatch). `ValidateBodyItem` sends every
+    goal it has no arm for into `TermPredName`, which records an arity, so
+    `(integer? X) (integer? X Y)` was refused as `prolog-arity-mismatch` —
+    blaming the author's arities for a goal refused on sight whatever its
+    shape, and pre-empting the refusal that says why.
+    **THE CLASS WAS DERIVED, AND THE CHECK CAME FIRST.** A new rule G in
+    `check_prolog_reserved_names.ps1` reads `ValidateBodyItem`'s own arm
+    conditions and requires every reserved name to be kept out of
+    `TermPredName`. It ran RED at HEAD on exactly **28** names, matching
+    the derivation by hand: `!` and `list` from `IsReservedPredicateName`'s
+    own literal Case, the two control spellings, the nine ISO spellings,
+    the four number-type names and the eleven alias spellings.
+    `PROLOG.19`'s impure-only arm was the only one there was.
+    **THE FIX IS DERIVED TOO.** One arm, `ElseIf
+    IsReservedPredicateName(headWord) Then Exit Sub`, placed LAST: every
+    reserved name the solver solves has its own arm above it, so anything
+    still there is a refused one, and a family that joins later is covered
+    without being listed. It replaces `PROLOG.19`'s impure arm, whose
+    `format/1`-beside-`format/2` pin it now carries. Rule G holds it to
+    being the last arm — and **rule G's first version went GREEN** on a
+    mutant with a second, EARLY catch-all, because it kept only the last
+    catch-all it saw; it now records every one, and that mutant, the
+    deleted catch-all and the deleted cut arm each turn the check red.
+    **THE DERIVATION FOUND A SILENT CASE the filing did not name.** `!` is
+    dispatched STRUCTURALLY — the bare atom, before `GoalPredName` — and
+    was therefore exempt from rule C by name. The exemption hid `(! ...)`:
+    cut written in parentheses is a compound goal named `!`, which nothing
+    dispatched, so it fell through to the clauseDict lookup and FAILED
+    SILENTLY — `(query (!))` said FALSE, and `(rule (first X) (p X) (!))`
+    answered nothing. It is now refused by name in `SolveGoalList` (new
+    `prolog-cut-not-a-form`: cut is written bare), rule C's exemption is
+    gone, and the `predName = "!"` arm is checked like any other literal.
+    New `TestPrologRefusedArity`, 32 assertions: each of the 28 names at
+    two arities, asserting its OWN refusal text AND the absence of the
+    arity text; `(query (!))` and the rule-body `(!)`; a bare-`!` control
+    that answers; and an ordinary predicate at two arities still refused
+    as a mismatch, so the catch-all cannot be read as "skip every name".
+    Cosmetic for 27 of the names — the confidently-wrong-EXPLANATION class
+    — and a confidently wrong ANSWER for the 28th.
+  - ⬜ **PROLOG.25 — the Name/Arity half of ISO's existence_error: a
+    table-backed goal with the wrong number of arguments.** Filed by
+    `PROLOG.22` (2026-09-10). ISO keys a procedure by name AND arity, so
+    `emp/1` is an unknown procedure when only `emp/3` exists. Here a
+    program-defined predicate is held to one arity at parse time
+    (`TermPredName`'s `RecordArity`), but a TABLE's arity is never recorded
+    — its rows go straight into clauseDict in `PROLOG()` — and
+    `UnifyArgsOnly` walks the GOAL's positions, not the head's. So, read
+    from the code and transliterated, **not yet seen live**: a positional
+    goal with FEWER arguments than the table has columns matches every row
+    on its prefix (`(query (emp N))` against a three-column table answers
+    every name, silently ignoring the rest), and one with MORE reaches a
+    position the head does not have and comes back as VBA's raw
+    "Subscript out of range" in the cell — an unworded error, the class
+    `PROLOG()`'s `On Error` exists to keep out. Keyed atoms are not
+    affected: `DesugarPredicateAtom` builds the full arity. **The likely
+    shape:** seed `ParseProgram`'s arity dictionary from each table's
+    column count (known even for a zero-row table, from
+    `RangeColumnNames`), so the existing `prolog-arity-mismatch` names it —
+    or a table-specific refusal naming the columns, `prolog-unknown-column`'s
+    shape, which is kinder. **First measure live** that the prefix match
+    and the raw error are real, then decide whether fewer-arguments is a
+    defect or a convenience someone relies on (it is not ISO, and it is
+    silent). Exposure: every positional table query in the test suite, by
+    `PROLOG.22`'s enumerator. `~days`
+  - ⬜ **PROLOG.26 — refusing reserved names on a branch the data never
+    reaches stay silent.** Filed by `PROLOG.22` (2026-09-10), the one
+    asymmetry that item left: an UNDEFINED name now refuses statically,
+    even on an if-branch the data never takes, but a reserved name that
+    exists only to be refused — `(atom X)`, `(integer? X)`, `(write X)`,
+    `(\+ G)`, `(list ...)`, `(! ...)` — is still refused only when
+    `SolveGoalList` reaches it. So `(if (p X) (q X) (atom X))` answers,
+    silently carrying a misspelling that fires the day `p` has no match.
+    **The decision:** extend `RefuseUnknownPredicates`' walk (it already
+    visits every reachable goal, and skips reserved names) to refuse the
+    always-refusing families at parse time too — which makes their
+    `SolveGoalList` arms unreachable for a program that parses, so the
+    arms' fate (keep as unreachable defence, or delete) and
+    `check_prolog_reserved_names.ps1` rule C's meaning ("dispatched") both
+    need deciding; PROLOG.9 chose solve-time for these ("refusing in
+    ValidateBodyItem as well would make this arm dead code"), and this item
+    would reverse that on `PROLOG.22`'s monotonicity argument. The same
+    question for the parse-refusable IMPURE names: `PROLOG.19`'s RELEASES
+    note promises "a rule you never call does no harm", which reachability
+    keeps true. Exposure first: the enumerator lists every program with a
+    refusing name on an unreached branch. `~days`
+  - ⬜ **PROLOG.27 — `true`, `fail`, `false`: ISO's control constants.**
+    Filed by `PROLOG.22` (2026-09-10). This engine has none of them. Until
+    `PROLOG.22`, `(fail)` worked as a silent fail by ACCIDENT — it was an
+    unknown predicate — and ported code that writes `fail` to force
+    backtracking (`(p X) (write X) fail`, the failure-driven loop) or
+    `true` as a placeholder now refuses as undefined, which is loud and
+    correct but unhelpful. `(= a b)` fails on purpose and `(= a a)`
+    succeeds, so nothing is inexpressible; the question is spelling.
+    **Decide:** reserve and solve `true`/`fail`/`false` (bare, since ISO
+    writes them bare, and parenthesised — `ValidateBodyItem`'s bare-atom
+    branch would need a route, `PROLOG.19`'s `nl`/`halt` precedent), or
+    reserve them and REFUSE with the `(= a b)` spelling, or leave them free
+    as words a knowledge base might use (`true` and `false` are plausible
+    fact arguments, but as PREDICATE names they are not). Adding reserved
+    names moves `RELEASES.md`'s reserved-word count and
+    `check_prolog_reserved_names.ps1`'s catalogue; rule E derives no twins
+    for them. `~hours`
   - **Stated ceiling, carried forward from `BETA_ROADMAP1.md`, not built
     here:** first-argument clause indexing (`SQL`'s own hash-join law,
     `PROLOG`'s own twin — don't scan every clause per call); tabling/memoized

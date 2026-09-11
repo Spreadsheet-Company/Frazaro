@@ -689,6 +689,17 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "prolog-impure-state", 5, "VLA-Prolog", "{form} is refused for good: PROLOG keeps no values between goals except in their arguments. In Prolog a value set this way outlives the query that set it, and Excel recalculates a formula whenever it chooses, as often as it chooses - so a counter or a remembered value would make the answer depend on how many times it had run. Pass the value along as an argument instead, working out the next one with is, like (is N1 (+ N 1)); to number the answers, collect them with findall and count them with length."
     AddMsg m, "prolog-impure-volatile", 5, "VLA-Prolog", "{form} is refused for good: its answer would change every time Excel recalculates, even when nothing it was given has changed, and a PROLOG answer must depend only on the program and the tables you pass it. Excel's own RAND(), RANDBETWEEN() and NOW() do this job in the open - put one in a cell of a table you pass to PROLOG, and PROLOG reads that value like any other."
     AddMsg m, "prolog-impure-outside", 5, "VLA-Prolog", "{form} is refused for good: PROLOG reads nothing but its own program text and the tables you pass it, and there is no session for it to end. Excel recalculates a formula only when something the formula names has changed, so anything read from a file or a prompt could leave the answer silently out of date. Put the data in a table and pass the table to PROLOG."
+    ' PROLOG.22 - an unknown predicate refuses, before anything is solved:
+    ' every predicate the query can reach, directly or through a rule, must
+    ' have a fact, a rule or a table argument behind it. It used to fail
+    ' silently, which under (not ...) was a confidently wrong TRUE and under
+    ' findall a confidently wrong empty bag. VLA_Prolog's
+    ' RefuseUnknownPredicates carries the decision and the options it was
+    ' chosen over. {predicate} is the name folded, like every PROLOG name.
+    AddMsg m, "prolog-unknown-predicate", 5, "VLA-Prolog", "'{predicate}' is called by this query - directly or through a rule it uses - but nothing defines it: no (fact ...), no (rule ...) and no table argument has that name, so no goal naming it could ever be proved. Check the spelling, or that its table is passed to PROLOG and named to match; if it is a built-in of another Prolog, PROLOG does not have it."
+    ' PROLOG.24 - cut in parentheses. A bare ! is cut; (! ...) was a compound
+    ' goal named "!" that nothing can define, and it failed silently.
+    AddMsg m, "prolog-cut-not-a-form", 5, "VLA-Prolog", "cut is written on its own - a bare ! between the goals of a rule or query, like (rule (first X) (p X) !) - never in parentheses: (! ...) is not a goal PROLOG can run."
     ' PROLOG.10 - the adjudication. A text cell reading eng becomes the
     ' term ""eng, and a bare eng written in a query is a DIFFERENT term;
     ' that stays true, and this message does not change it. What changes
