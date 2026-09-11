@@ -68,7 +68,19 @@ called directly as native VBA, never through reflection:
   `Orientation` (mirrored on the read side), and taught the existing
   `Borders` read to honour its one index argument instead of ignoring
   it. No method was added — the outline border is four edge writes, not
-  `Range.BorderAround`.
+  `Range.BorderAround`. `G-SORTFILTER` added one settable member,
+  `Worksheet.AutoFilterMode`, which Excel lets a program set to `False`
+  only — it takes a sheet's filter buttons away and shows every row, and
+  changes no cell — plus three reads, each navigation to cells already on
+  the sheet: `Range.Columns(n)` (a sort key), `Worksheet.UsedRange`
+  ("Sort this sheet") and `Range.SpecialCells(type)` ("Copy only the
+  visible cells of"). It widened two existing named-argument calls
+  rather than adding methods: `Range.Sort` takes an optional second key
+  (`Key2`/`Order2`) and `Range.AutoFilter` an optional second condition
+  (`Operator`/`Criteria2`). Turning filter buttons on is a runtime
+  helper (`VlaAddFilters`, tier 1.3), not a new member, because
+  `Range.AutoFilter` with no arguments is a toggle and the helper exists
+  to make "add" never take them away.
 - `NeutralizeFormulaInjection` (`SEC.4`, shipped) now guards the one
   member in this tier with a real injection risk (`Value`) against a
   leading `=`/`+`/`-`/`@`.

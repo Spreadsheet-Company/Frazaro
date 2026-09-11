@@ -5914,7 +5914,15 @@ before-contact item behind the gate.
   reading machine uses: its bare `$` showed £ on a UK-region run; `as
   dollars|euros|pounds`, which name it, shipped in slice 2) and `Format cell … as date`
   (a fixed US order that reads as "a date"; `as a short date`, which follows
-  the reader, shipped in slice 2). *Output:* a list of
+  the reader, shipped in slice 2). *Added by G-SORTFILTER:* `Sort range …
+  by column {k:cell}` (row 1 is always held back as a header, unsaid — a
+  range that starts at its data never sorts its first row; `… with|without
+  a header row` shipped), `Keep only rows of range … where column 3 is …`
+  ("keep only" can be heard as deleting the other rows, and "column 3" as
+  sheet column C when the range starts elsewhere; `Filter range … to show
+  rows where column C is …` shipped), and `Show all rows` (heard as
+  unhiding rows hidden with `Hide row`, which ShowAllData does not do;
+  `Clear the filter conditions.` shipped). *Output:* a list of
   every shipped rule with a verdict and, for each failure, its sibling
   rule; the legacy spellings recorded where CO.1/CO.2 will find them. *Why
   CO and not a grammar slice:* it is about what shipped spellings promise,
@@ -5939,7 +5947,15 @@ before-contact item behind the gate.
     expected 'to' but found 'of'"*, suggesting `set {v:var} to {e:expr}`
     and two siblings — `border-color` taken as a variable name.
 
-  Both refuse correctly — nothing ran — so this is a teaching defect, not
+  - *A third, G-SORTFILTER, owner-run live 2026-09-10:* `Sort range A1:C50
+    by column B1 with a header row.` → *"I understood 'sort range a1:c50 by
+    column b1' - then I expected 'descending' but found 'with'"*, suggesting
+    the two shipped `{k:cell}` sorts and the pivot sort. The shipped sort
+    consumes `B1` and gets one word further than the new `{c:column}` rules,
+    so the refusal points the writer back to the legacy spelling with its
+    hidden header, and drops the `with a header row` they had right.
+
+  Each refuses correctly — nothing ran — so this is a teaching defect, not
   a safety one. It matters to this audit specifically because every
   legacy spelling CO.7 declines to widen, and every singular/plural or
   near-synonym SD-19 leaves out, lands in exactly this refusal. *Not
@@ -6549,8 +6565,98 @@ G-TAIL always said this about itself; it is true of the whole tranche.
   *"Turn J1:K3 into table called salestable."*, missing the article "a"
   a human would write. Same policy family as dropping optionals and
   bare-alternation words (shortest legal reading, always).
-- ⬜ **G-SORTFILTER**, ⬜ **G-TABS**, ⬜ **G-FORMULA**,
-  ⬜ **G-TEXT** — the workhorse middle. `~weeks` each
+- ✅ **G-SORTFILTER** — sorting and filtering, `pareto.txt` §8, **11
+  entries**, P0. **Closed 2026-09-10, owner-tested and committed.**
+  **13 phrase rules** in `english.vla`'s new G-SORTFILTER block, every one of
+  the 11 entries covered. *Recounted first, G-FORMAT's way:* three shipped in
+  some form and keep their meaning (SD-4) — `Sort range … by column
+  {k:cell}` (key a cell, row 1 always held back as a header), `Keep only
+  rows of range … where column {f:expr} is …` (a column *position*), and
+  `Show all rows` (ShowAllData) — and each becomes a CO.7 candidate with its
+  explicit sibling below. Scoped with four forks the owner decided
+  (2026-09-10), each the recommended option:
+  - **The header is named in every new sort** — `Sort range A1:C50 by
+    column B with a header row.`, `… without a header row.` A sort that names
+    neither refuses; the clause comes *after* the key so the refusal reaches
+    it and asks "with or without" instead of teaching the shipped `column
+    B1` form (CO.7's near-miss note, and a `test-fail` pins it). Directions
+    as shipped (bare = ascending, or named after the key); two keys (`then
+    by column D`) name both directions or neither — one named and one not
+    refuses, since the reader would have to guess the second.
+    `Sort this sheet by column B …` sorts the used range.
+  - **Clear vs remove, each named (SD-19):** `Clear the filter conditions.`
+    — the shipped `show-all-rows` macro, so the two stay one operation;
+    the buttons stay — and `Remove the filters.` (`AutoFilterMode = False`,
+    the buttons go). `Add filters to range …` is the antonym, and it never
+    toggles: `Range.AutoFilter` with no arguments takes buttons *away* when
+    they are there, so `VlaAddFilters` no-ops then, and refuses by name when
+    the sheet's one set of buttons is on a different range. `range` is
+    required after `to` because the core's `add {e:expr} to {v:var}` would
+    otherwise read `Add filters to A1.` as arithmetic.
+  - **`Filter range … to show rows where column C is …`** — the column a
+    *letter* like every other column slot, `filter` naming hide-not-delete,
+    `to show rows where` naming which rows stay (pareto's bare `Filter …
+    where` can be heard as "filter out"). Siblings `contains …` and `is
+    greater|less than …` (less than is one branch past pareto). A condition
+    on a second column narrows the first (Excel's AND). **`is` is two
+    conditions joined with `xlAnd`**: for a number `>=100` and `<=100`,
+    because Excel matches an "equals" condition against the cell's
+    *displayed* text and `=100` would miss `$100.00`; for text the same
+    `=text` twice, wildcards escaped. `contains` escapes `*`/`?`/`~` too.
+    Numbers are written with `Str$` (always `.`), because AutoFilter reads
+    a condition from VBA the US way. *These two are Excel facts taken on
+    reading, not yet seen live — the live checks below are built to
+    show them.*
+  - **`Copy only the visible cells of range … to …`** — Excel's own name
+    (Go To Special), true of hidden columns too, which `SpecialCells` also
+    skips; "visible rows" would have hidden that.
+  **Four runtime helpers**, each refusing by name and so each with a native
+  `TryRuntimeHelper` Case (IN.15) and a `check_runtime_raise_dispatch.ps1`
+  baseline entry: `VlaColumnInRange` (a column letter → its position in the
+  range; a column outside it refuses — sort key and filter field share it),
+  `VlaAddFilters` (also refuses an empty range, where Excel's own refusal
+  says "select a single cell"), `VlaFilterField` (the filter sentences'
+  Field: `VlaAddFilters`'s checks, then the position), and
+  `VlaFilterCriterion` (pure; an F.16 candidate). **Refused means
+  untouched:** each filter sentence is one `Range.AutoFilter` call — with a
+  Field it is not a toggle, and turns the buttons on itself — so every
+  refusal comes while its arguments are worked out. *Found reading the first
+  live run:* the first build called `VlaAddFilters` as its own statement
+  before the condition was built, so a refused `greater than "abc"` would
+  have left buttons behind. A `Try:` on the live sheet now proves it: had
+  the refused sentence left buttons on its block, every later filter would
+  have refused.
+  **Interpreter:** `Range.Sort` gains optional `Key2`/`Order2` and
+  `Range.AutoFilter` optional `Operator`/`Criteria2`; members
+  `AutoFilterMode` (set, False-only per Excel), `Columns(n)`, `UsedRange`,
+  `SpecialCells` (reads) — `THREAT_MODEL.md` §1.1; constants `xlAnd`,
+  `xlCellTypeVisible`, pinned. **Proof:** 26 `test-success` and 3
+  `test-fail` proofs; pure pins for every condition `VlaFilterCriterion`
+  builds and its refusals, host pins for `VlaColumnInRange`; a live
+  `GSortFilter` sheet read by `VerifyReportChecks` — each sort block's data
+  chosen so a header that sorted would land elsewhere, each filter's result
+  copied out with "Copy only the visible cells" into rows no filter hides
+  (a sheet holds one set of buttons), and the end state reading "add twice,
+  then clear" as buttons on and no condition. `Remove the filters.` runs
+  first on its own block: had it left its buttons, every later filter on the
+  sheet would have refused. **First live run (owner, 2026-09-10):**
+  `VlaSelfTests` pure 1109/1109, host 148/148; `VerifyReports` emitter and
+  interpreter both 242/242; the no-header and one-direction sort refusals
+  and the column-outside-range modal read as designed. The filters-elsewhere
+  and not-a-number refusals were not reached: the handoff put them on a
+  blank sheet, and Excel refuses to filter an empty range in its own words
+  first — which became the empty-range refusal above. The comma-decimal
+  region run is deferred (owner's call). **Second live run (owner,
+  2026-09-10, after the refused-means-untouched fix):** pure 1109/1109,
+  host 152/152; both backends 242/242; the filters-elsewhere, empty-range
+  and not-a-number modals read as designed, and the refused `greater than
+  "abc"` left no filter buttons on its sheet. (One handoff step first
+  reported "is empty" because it leaned on an earlier step's sheet data;
+  rerun self-contained, it passed.) The comma-decimal region run stays
+  open as a live test, not a blocker: the 99.5 checks on the `GSortFilter`
+  sheet are the ones it would read.
+- ⬜ **G-TABS**, ⬜ **G-FORMULA**, ⬜ **G-TEXT** — the workhorse middle.
+  `~weeks` each
 - 🟡 **G-FILES — workbooks and files.** Scoped in `scripts/pareto.txt`
   section 15 (16 surfaces) - this file previously (wrongly) claimed zero
   templates existed for this section; a cross-check found six already

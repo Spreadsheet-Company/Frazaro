@@ -401,6 +401,7 @@ Public Function VlaSelfTest() As Boolean
     TestInterpreterExcelConstants
     TestInterpreterVbConstants
     TestNumberFormatCodes
+    TestFilterCriteria
     TestInterpreterOperators
     TestInterpreterQuote
     TestArrayPrimitive
@@ -4622,6 +4623,11 @@ Private Sub TestInterpreterExcelConstants()
            VLA_Interpreter.VlaEvalExpression("xledgebottom"), 9
     CheckV "g-format: xledgeright resolves to 10 (XlBordersIndex)", _
            VLA_Interpreter.VlaEvalExpression("xledgeright"), 10
+    ' G-SORTFILTER: both constants that pass added.
+    CheckV "g-sortfilter: xland resolves to 1 (XlAutoFilterOperator)", _
+           VLA_Interpreter.VlaEvalExpression("xland"), 1
+    CheckV "g-sortfilter: xlcelltypevisible resolves to 12 (XlCellType)", _
+           VLA_Interpreter.VlaEvalExpression("xlcelltypevisible"), 12
 
     ' Regression: a bound variable takes priority over nothing, because a
     ' name outside the 13-constant table was never touched by this pass -
@@ -4726,6 +4732,53 @@ Private Sub TestNumberFormatCodes()
     On Error GoTo 0
     Report "g-format: an unknown kind refuses by name", _
            InStr(1, desc, "unknown kind 'yen'", vbTextCompare) > 0, "got: " & desc
+End Sub
+
+' G-SORTFILTER: VLA_Runtime.VlaFilterCriterion, purely - every condition
+' a "Filter ... to show rows where" sentence can build. The number pins
+' are the locale guard: 2.5 must come out "2.5" on every machine (Str$,
+' not CStr, which writes "2,5" on a comma-decimal one), and 0.5 must keep
+' its leading zero. "is" is pinned as its two halves, the way the macro
+' passes them; text is the same "=" on both, and its wildcards come back
+' escaped. The refusals are pinned by message fragment.
+Private Sub TestFilterCriteria()
+    CheckV "g-sortfilter: is 100, lower half", VLA_Runtime.VlaFilterCriterion("at-least", 100), ">=100"
+    CheckV "g-sortfilter: is 100, upper half", VLA_Runtime.VlaFilterCriterion("at-most", 100), "<=100"
+    CheckV "g-sortfilter: is 2.5 writes a point on every machine", VLA_Runtime.VlaFilterCriterion("at-least", 2.5), ">=2.5"
+    CheckV "g-sortfilter: is -0.5 keeps its leading zero", VLA_Runtime.VlaFilterCriterion("at-most", -0.5), "<=-0.5"
+    CheckV "g-sortfilter: is text, lower half is equals", VLA_Runtime.VlaFilterCriterion("at-least", "West"), "=West"
+    CheckV "g-sortfilter: is text, upper half is the same equals", VLA_Runtime.VlaFilterCriterion("at-most", "West"), "=West"
+    CheckV "g-sortfilter: is text, wildcards escaped", VLA_Runtime.VlaFilterCriterion("at-least", "A*?~"), "=A~*~?~~"
+    CheckV "g-sortfilter: is text that looks like a number stays text", VLA_Runtime.VlaFilterCriterion("at-least", "007"), "=007"
+    CheckV "g-sortfilter: is nothing is Excel's blank condition", VLA_Runtime.VlaFilterCriterion("at-least", Empty), "="
+    CheckV "g-sortfilter: is an empty string is the blank condition too", VLA_Runtime.VlaFilterCriterion("at-most", ""), "="
+    CheckV "g-sortfilter: contains, wildcards escaped", VLA_Runtime.VlaFilterCriterion("contains", "5*3"), "*5~*3*"
+    CheckV "g-sortfilter: contains a number", VLA_Runtime.VlaFilterCriterion("contains", 0.25), "*0.25*"
+    CheckV "g-sortfilter: greater than", VLA_Runtime.VlaFilterCriterion("greater", 150), ">150"
+    CheckV "g-sortfilter: less than a decimal", VLA_Runtime.VlaFilterCriterion("less", 99.5), "<99.5"
+
+    Dim desc As String
+    Dim ignored As String
+    Dim bad As Variant
+    For Each bad In Array("100", "abc", Empty)
+        desc = ""
+        On Error Resume Next
+        Err.Clear
+        ignored = VLA_Runtime.VlaFilterCriterion("greater", bad)
+        desc = Err.Description
+        On Error GoTo 0
+        Report "g-sortfilter: greater than '" & IIf(IsEmpty(bad), "(empty)", CStr(bad)) & "' refuses by name", _
+               InStr(1, desc, "is not a number", vbTextCompare) > 0, "got: " & desc
+    Next bad
+
+    desc = ""
+    On Error Resume Next
+    Err.Clear
+    ignored = VLA_Runtime.VlaFilterCriterion("between", 1)
+    desc = Err.Description
+    On Error GoTo 0
+    Report "g-sortfilter: an unknown kind refuses by name", _
+           InStr(1, desc, "unknown kind 'between'", vbTextCompare) > 0, "got: " & desc
 End Sub
 
 ' IN2.7: EvalOpChain's 18 operators, purely - AS.8's own scan found only

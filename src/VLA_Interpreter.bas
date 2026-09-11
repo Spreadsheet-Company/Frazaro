@@ -1832,6 +1832,11 @@ Private Function ResolveExcelConstant(ByVal folded As String, ByRef found As Boo
         Case "xledgetop": ResolveExcelConstant = 8              ' XlBordersIndex
         Case "xledgebottom": ResolveExcelConstant = 9           ' XlBordersIndex
         Case "xledgeright": ResolveExcelConstant = 10           ' XlBordersIndex
+        ' G-SORTFILTER: the two constants its macros pass - "is" joins
+        ' its two conditions with xlAnd, and "Copy only the visible
+        ' cells of" asks SpecialCells for xlCellTypeVisible.
+        Case "xland": ResolveExcelConstant = 1                  ' XlAutoFilterOperator
+        Case "xlcelltypevisible": ResolveExcelConstant = 12     ' XlCellType
         Case Else
             found = False
     End Select
@@ -2422,6 +2427,30 @@ Private Function TryRuntimeHelper(ByVal h As String, ByVal argVals As Variant, B
             AssignVar TryRuntimeHelper, VLA_Runtime.VlaNumberFormatCode(CStr(ArgAt(argVals, 0)), ArgAt(argVals, 1))
             handled = True
             Exit Function
+        ' G-SORTFILTER: four new helpers, each refusing by name - a
+        ' column outside the range, filter buttons already on another
+        ' range or an empty one, a "greater than" that is not a number -
+        ' so each gets its native Case for the same IN.15 reason.
+        Case "vlacolumninrange"
+            If Not ArityIs(argVals, 2, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaColumnInRange(ArgAt(argVals, 0), CStr(ArgAt(argVals, 1)))
+            handled = True
+            Exit Function
+        Case "vlaaddfilters"
+            If Not ArityIs(argVals, 1, handled) Then Exit Function
+            VLA_Runtime.VlaAddFilters ArgAt(argVals, 0)
+            handled = True
+            Exit Function
+        Case "vlafilterfield"
+            If Not ArityIs(argVals, 2, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaFilterField(ArgAt(argVals, 0), CStr(ArgAt(argVals, 1)))
+            handled = True
+            Exit Function
+        Case "vlafiltercriterion"
+            If Not ArityIs(argVals, 2, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaFilterCriterion(CStr(ArgAt(argVals, 0)), ArgAt(argVals, 1))
+            handled = True
+            Exit Function
         Case "vlapivotrefresh"
             If Not ArityIs(argVals, 1, handled) Then Exit Function
             VLA_Runtime.VlaPivotRefresh CStr(ArgAt(argVals, 0))
@@ -2746,6 +2775,25 @@ Private Function DynamicGet(ByVal obj As Object, ByVal member As String, ByVal a
         Case "verticalalignment": AssignVar DynamicGet, obj.VerticalAlignment: Exit Function
         Case "indentlevel": AssignVar DynamicGet, obj.IndentLevel: Exit Function
         Case "orientation": AssignVar DynamicGet, obj.Orientation: Exit Function
+        ' G-SORTFILTER: three reads the sort/filter macros make, each
+        ' navigation to cells already on the sheet - a range's own Nth
+        ' column (a sort key), the sheet's used range ("Sort this
+        ' sheet"), and a range's visible cells ("Copy only the visible
+        ' cells of"). Excel's own "No cells were found" stays Excel's
+        ' when nothing is visible. AutoFilterMode mirrors DynamicSet's
+        ' new member, the G-FORMAT convention above.
+        Case "columns"
+            If ArgCount(argVals) = 1 Then
+                AssignVar DynamicGet, obj.Columns(ArgAt(argVals, 0))
+                Exit Function
+            End If
+        Case "usedrange": AssignVar DynamicGet, obj.UsedRange: Exit Function
+        Case "specialcells"
+            If ArgCount(argVals) = 1 Then
+                AssignVar DynamicGet, obj.SpecialCells(CLng(ArgAt(argVals, 0)))
+                Exit Function
+            End If
+        Case "autofiltermode": AssignVar DynamicGet, obj.AutoFilterMode: Exit Function
         Case "range"
             If ArgCount(argVals) = 1 Then
                 AssignVar DynamicGet, obj.Range(ArgAt(argVals, 0))
@@ -3067,6 +3115,12 @@ Private Sub DynamicSet(ByVal obj As Object, ByVal member As String, ByVal v As V
         Case "verticalalignment": obj.VerticalAlignment = v: Exit Sub
         Case "indentlevel": obj.IndentLevel = v: Exit Sub
         Case "orientation": obj.Orientation = v: Exit Sub
+        ' G-SORTFILTER: "Remove the filters." - False takes a sheet's
+        ' filter buttons away (and shows every row); nothing else is
+        ' touched. Excel documents the property as settable to False
+        ' only, so through this member a program can remove buttons,
+        ' never add them - adding is VlaAddFilters's job.
+        Case "autofiltermode": obj.AutoFilterMode = v: Exit Sub
     End Select
 
     ' SEC.1 Tier 2: the CallByName fallback that used to sit here is
@@ -3608,10 +3662,22 @@ Private Function DynamicNamedCall(ByVal obj As Object, ByVal member As String, k
             Dim rDest As Range
             Set rDest = KwArg(kwArgs, "destination")
             rCopy.Copy Destination:=rDest
+        ' G-SORTFILTER: Key2/Order2 are optional, the pastespecial/cut
+        ' widening's own reason - "then by column D" is the first sort
+        ' with a second key; every one-key sort takes the unchanged
+        ' branch. The key is a Range, so presence is KwArgHas, never
+        ' IsEmpty on the value (the cut Case's own note: IsEmpty on a
+        ' Range reads its default member, and a blank key cell is Empty).
         Case "sort"
             Dim rSort As Range
             Set rSort = obj
-            rSort.Sort Key1:=KwArg(kwArgs, "key1"), Order1:=KwArg(kwArgs, "order1"), Header:=KwArg(kwArgs, "header")
+            If KwArgHas(kwArgs, "key2") Then
+                rSort.Sort Key1:=KwArg(kwArgs, "key1"), Order1:=KwArg(kwArgs, "order1"), _
+                           Key2:=KwArg(kwArgs, "key2"), Order2:=KwArg(kwArgs, "order2"), _
+                           Header:=KwArg(kwArgs, "header")
+            Else
+                rSort.Sort Key1:=KwArg(kwArgs, "key1"), Order1:=KwArg(kwArgs, "order1"), Header:=KwArg(kwArgs, "header")
+            End If
         Case "pastespecial"
             ' G-STRUCT: widened from "always requires paste" (paste-
             ' values' own original shape) to genuinely optional Paste/
@@ -3632,10 +3698,19 @@ Private Function DynamicNamedCall(ByVal obj As Object, ByVal member As String, k
             Dim rDedupe As Range
             Set rDedupe = obj
             rDedupe.RemoveDuplicates Columns:=KwArg(kwArgs, "columns"), Header:=KwArg(kwArgs, "header")
+        ' G-SORTFILTER: Operator/Criteria2 are optional - "is" is two
+        ' conditions joined with xlAnd (VLA_Runtime.VlaFilterCriterion's
+        ' own note says why); the shipped keep-only-rows sentence and
+        ' "contains"/"greater than" take the unchanged one-condition branch.
         Case "autofilter"
             Dim rFilter As Range
             Set rFilter = obj
-            rFilter.AutoFilter Field:=KwArg(kwArgs, "field"), Criteria1:=KwArg(kwArgs, "criteria1")
+            If KwArgHas(kwArgs, "operator") Then
+                rFilter.AutoFilter Field:=KwArg(kwArgs, "field"), Criteria1:=KwArg(kwArgs, "criteria1"), _
+                                   Operator:=KwArg(kwArgs, "operator"), Criteria2:=KwArg(kwArgs, "criteria2")
+            Else
+                rFilter.AutoFilter Field:=KwArg(kwArgs, "field"), Criteria1:=KwArg(kwArgs, "criteria1")
+            End If
         ' G-STRUCT: cut/delete/resize, added instead of leaving cut-
         ' range/delete-shift-up/delete-shift-left/insert-n-rows-at on
         ' plain positional calls - Destination/Shift/RowSize+ColumnSize

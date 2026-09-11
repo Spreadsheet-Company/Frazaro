@@ -90,12 +90,16 @@ foreach ($f in @($runtimeFile, $interpFile)) {
 # are in the set too - they are raising helpers, they simply were already
 # dispatched correctly.
 $baseline = @(
+    'VlaAddFilters',         # G-SORTFILTER, 2026-09-10: refuses filters already on another range of the sheet
     'VlaCheckRangeName',
     'VlaCheckSheetAbsent',
     'VlaCheckSheetName',
     'VlaColor',
+    'VlaColumnInRange',      # G-SORTFILTER, 2026-09-10: refuses a column outside the range
     'VlaDictGet',
     'VlaFillSeries',
+    'VlaFilterCriterion',    # G-SORTFILTER, 2026-09-10: refuses a non-number for greater/less than
+    'VlaFilterField',        # G-SORTFILTER, 2026-09-10: VlaAddFilters's checks, then VlaColumnInRange's
     'VlaFreezePanes',
     'VlaNumberFormatCode',   # G-FORMAT slice 2, 2026-09-10: refuses a bad decimal count
     'VlaPivotAddValues',

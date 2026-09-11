@@ -143,6 +143,13 @@ FORM*'s sixteen, which only moved). Two
 of them (`add borders to every cell in …`, `clear fill-color of …`) are
 `SD-19` siblings of vague shipped spellings, which keep their own `0.5.0`
 rows unchanged: the sibling is a new form, not a re-dating of the old.
+Then thirteen more phrasebook rows marked `0.5.6` — `G-SORTFILTER`
+(`pareto.txt` §8, sorting and filtering) — and four core dispatch arms,
+`TryRuntimeHelper vlaaddfilters`, `vlacolumninrange`,
+`vlafiltercriterion` and `vlafilterfield`, its four new runtime helpers,
+each new that release.
+`clear filter condition/s` is the `SD-19` sibling of `show all rows`, whose
+`0.5.0` row stands, the same way.
 
 ### Phrasebook rules
 
@@ -154,6 +161,7 @@ rows unchanged: the sibling is a new form, not a re-dating of the old.
 0.5.0  add border to range {r:range}
 0.5.6  add borders colored {c:color} to every cell in [range] {r:range}
 0.5.6  add borders to every cell in [range] {r:range}
+0.5.6  add filter/s to range {r:range}
 0.5.0  add {d:rows|columns|filters} of {f:text-list} to pivot {n:text}
 0.5.6  add {d:top|bottom|left|right} border colored {c:color} to cell|range {r:range}
 0.5.6  add {d:top|bottom|left|right} border to cell|range {r:range}
@@ -169,6 +177,7 @@ rows unchanged: the sibling is a new form, not a re-dating of the old.
 0.5.0  clear color of cell {r:cell}
 0.5.0  clear everything from {r:range}
 0.5.6  clear fill-color of cell|range {r:range}
+0.5.6  clear filter condition/s
 0.5.0  clear formatting of range {r:range}
 0.5.0  clear pivot {n:text}
 0.5.0  clear status bar
@@ -179,6 +188,7 @@ rows unchanged: the sibling is a new form, not a re-dating of the old.
 0.5.0  copy column widths of {a:range} to {b:range}
 0.5.0  copy formatting of {a:range} to {b:range}
 0.5.0  copy formulas of {a:range} to {b:cell}
+0.5.6  copy only visible cells of [range] {a:range} to [cell] {b:cell}
 0.5.0  copy range {a:range} to range {b:range}
 0.5.0  copy range {a:range} to {b:cell} transposed
 0.5.0  copy range {r:range} to sheet {s:sheet}
@@ -202,6 +212,9 @@ rows unchanged: the sibling is a new form, not a re-dating of the old.
 0.5.0  fill {r:range} with a growth series starting at {n:expr} with step {s:expr}
 0.5.0  fill {r:range} with a series starting at {n:expr}
 0.5.0  fill {r:range} with a series starting at {n:expr} with step {s:expr}
+0.5.6  filter [range] {r:range} to show rows where column {c:column} contains {v:expr}
+0.5.6  filter [range] {r:range} to show rows where column {c:column} is {d:greater|less} than {v:expr}
+0.5.6  filter [range] {r:range} to show rows where column {c:column} is {v:expr}
 0.5.0  fit all columns
 0.5.0  fit column {c:column}
 0.5.0  fit row {r:expr}
@@ -265,6 +278,7 @@ rows unchanged: the sibling is a new form, not a re-dating of the old.
 0.5.0  remember rows {a:expr} to {b:expr} of column {c:column} as {v:var}
 0.5.0  remove duplicates from range {r:range}
 0.5.0  remove duplicates from range {r:range} by column {k:expr}
+0.5.6  remove filter/s
 0.5.0  remove trailing empty rows and columns
 0.5.6  remove {d:underline|strikethrough|borders} from cell|range {r:range}
 0.5.0  remove {f:text-list} from pivot {n:text}
@@ -307,6 +321,12 @@ rows unchanged: the sibling is a new form, not a re-dating of the old.
 0.5.0  show everyone who reports to {person:expr} directly or not in {table:text} as {alias:text} in cell {r:cell}
 0.5.0  show pivot {n:text} in {d:compact|tabular|outline} form
 0.5.0  show the total row of table {n:text}
+0.5.6  sort [range] {r:range} by column {c:column} then [by] column {e:column} {h:with|without} header [row]
+0.5.6  sort [range] {r:range} by column {c:column} {d:ascending|descending} then [by] column {e:column} {f:ascending|descending} {h:with|without} header [row]
+0.5.6  sort [range] {r:range} by column {c:column} {d:ascending|descending} {h:with|without} header [row]
+0.5.6  sort [range] {r:range} by column {c:column} {h:with|without} header [row]
+0.5.6  sort [this] sheet by column {c:column} {d:ascending|descending} {h:with|without} header [row]
+0.5.6  sort [this] sheet by column {c:column} {h:with|without} header [row]
 0.5.0  sort range {r:range} by column {k:cell} [ascending]
 0.5.0  sort range {r:range} by column {k:cell} descending
 0.5.0  sort {f:text} in pivot {n:text} {d:ascending|descending}
@@ -466,12 +486,16 @@ tag, not assumed.*
 0.5.0  TryEvalBuiltin     time
 0.5.0  TryEvalBuiltin     trim
 0.5.0  TryEvalBuiltin     ucase
+0.5.6  TryRuntimeHelper   vlaaddfilters
 0.5.0  TryRuntimeHelper   vlacheckrangename
 0.5.0  TryRuntimeHelper   vlachecksheetabsent
 0.5.0  TryRuntimeHelper   vlachecksheetname
 0.5.0  TryRuntimeHelper   vlacolor
+0.5.6  TryRuntimeHelper   vlacolumninrange
 0.5.0  TryRuntimeHelper   vladictget
 0.5.0  TryRuntimeHelper   vlafillseries
+0.5.6  TryRuntimeHelper   vlafiltercriterion
+0.5.6  TryRuntimeHelper   vlafilterfield
 0.5.0  TryRuntimeHelper   vlafreezepanes
 0.5.6  TryRuntimeHelper   vlanumberformatcode
 0.5.0  TryRuntimeHelper   vlapivotaddvalues

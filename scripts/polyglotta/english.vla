@@ -2811,6 +2811,309 @@
     "Format range A1:A9 using \"00000\"."
     (format-using (range "a1:a9") "00000"))
 
+; ---- G-SORTFILTER: sorting and filtering (pareto section 8) -------------
+; BETA_ROADMAP.md's G-SORTFILTER entry, appetite-boxed to pareto.txt
+; section 8 and scoped against what this file already said, with four
+; forks the owner decided (2026-09-10), each named where its rules sit.
+;
+; What already shipped, and keeps its meaning (SD-4):
+;   "Sort range {r} by column {k:cell} [ascending]|descending" - the key
+;     is a CELL (B1), and :header xlyes means row 1 of the range never
+;     moves, a header whether or not it is one.
+;   "Keep only rows of range {r} where column {f:expr} is {v:expr}" - a
+;     column's POSITION inside the range (3), where every other column
+;     slot in this file takes a letter.
+;   "Show all rows" - ShowAllData, which clears filter conditions and
+;     nothing else.
+; Each is now a CO.7 candidate with an explicit sibling below: the sort
+; hides its header decision; "keep only" can be heard as deleting the
+; other rows, and "column 3" as sheet column C; "show all rows" can be
+; heard as unhiding rows hidden with "Hide row", which it does not do.
+;
+; Columns are letters here ({c:column}), turned into a position inside
+; the range by VLA_Runtime.VlaColumnInRange, which refuses a column
+; outside the range by name. Sort keys and filter fields share it, so
+; "column B" means one thing in both.
+
+; ---- sorting -----------------------------------------------------------
+; The header is named in every sentence, with or without (the owner's
+; call): a header the sentence does not mention is exactly the shipped
+; sort's hidden assumption. It comes last, after the key, on purpose - a
+; sort that names no header gets furthest along THESE rules, so its
+; refusal asks "with or without" instead of teaching the shipped "by
+; column B1" form (CO.7's note on near-miss refusals). "[row]" lets "with
+; a header" and "with a header row" both read.
+;
+; A direction is the bare default (ascending) or named after the key, the
+; shipped sort's own shape. With two keys, both directions are named or
+; neither is: "by column B descending then by column D" would leave D's
+; direction for the reader to guess, so it refuses (a test-fail below).
+(defmacro
+    (sort-with-header r c order)
+    "sort a range by one of its columns, keeping the range's first row in place as its header"
+    (. r sort :key1 (. r columns (vlacolumninrange r c)) :order1 order :header xlyes))
+
+(defmacro
+    (sort-without-header r c order)
+    "sort every row of a range by one of its columns - no header row held back"
+    (. r sort :key1 (. r columns (vlacolumninrange r c)) :order1 order :header xlno))
+
+(defmacro
+    (sort-two-with-header r c order e order2)
+    "sort a range by one column and then another, keeping the range's first row in place as its header"
+    (. r sort :key1 (. r columns (vlacolumninrange r c)) :order1 order :key2 (. r columns (vlacolumninrange r e)) :order2 order2 :header xlyes))
+
+(defmacro
+    (sort-two-without-header r c order e order2)
+    "sort every row of a range by one column and then another - no header row held back"
+    (. r sort :key1 (. r columns (vlacolumninrange r c)) :order1 order :key2 (. r columns (vlacolumninrange r e)) :order2 order2 :header xlno))
+
+; The bare rule is registered first so a sentence naming no header is
+; refused with "one of 'with'/'without'" - the first rule to reach the
+; furthest word leads the refusal.
+(english-vla
+    "sort [range] {r:range} by column {c:column} {h:with|without} header [row]"
+    (sort-{h}-header (range {r}) {c} xlascending))
+(test-success
+    "Sort range A1:C50 by column B with a header row."
+    (sort-with-header (range "a1:c50") "b" xlascending))
+(test-success
+    "Sort A2:C50 by column B without a header row."
+    (sort-without-header (range "a2:c50") "b" xlascending))
+(test-success
+    "Sort range A1:C50 by column C with a header."
+    (sort-with-header (range "a1:c50") "c" xlascending))
+(test-fail
+    "Sort range A1:C50 by column B."
+    "one of 'with'/'without'")
+
+(english-vla
+    "sort [range] {r:range} by column {c:column} {d:ascending|descending} {h:with|without} header [row]"
+    (sort-{h}-header (range {r}) {c} xl{d}))
+(test-success
+    "Sort range A1:C50 by column B descending with a header row."
+    (sort-with-header (range "a1:c50") "b" xldescending))
+(test-success
+    "Sort range A2:C50 by column B ascending without a header row."
+    (sort-without-header (range "a2:c50") "b" xlascending))
+
+(english-vla
+    "sort [range] {r:range} by column {c:column} then [by] column {e:column} {h:with|without} header [row]"
+    (sort-two-{h}-header (range {r}) {c} xlascending {e} xlascending))
+(test-success
+    "Sort range A1:C50 by column B then by column C with a header row."
+    (sort-two-with-header (range "a1:c50") "b" xlascending "c" xlascending))
+(test-success
+    "Sort range A2:C50 by column B then column C without a header row."
+    (sort-two-without-header (range "a2:c50") "b" xlascending "c" xlascending))
+
+(english-vla
+    "sort [range] {r:range} by column {c:column} {d:ascending|descending} then [by] column {e:column} {f:ascending|descending} {h:with|without} header [row]"
+    (sort-two-{h}-header (range {r}) {c} xl{d} {e} xl{f}))
+(test-success
+    "Sort range A1:C50 by column B descending then by column C ascending with a header row."
+    (sort-two-with-header (range "a1:c50") "b" xldescending "c" xlascending))
+(test-success
+    "Sort range A2:C50 by column B ascending then by column C descending without a header row."
+    (sort-two-without-header (range "a2:c50") "b" xlascending "c" xldescending))
+(test-fail
+    "Sort range A1:C50 by column B descending then by column C with a header row."
+    "one of 'ascending'/'descending'")
+
+; "This sheet" is the sheet's used range - every row and column holding
+; data or formatting, pareto's own target. The protect sentences'
+; "this sheet" is the precedent; "the sheet" reads too, since "the" is
+; dropped from input.
+(defmacro
+    (used-range)
+    "the active sheet's used range - every row and column holding data or formatting"
+    (. activesheet usedrange))
+
+(english-vla
+    "sort [this] sheet by column {c:column} {h:with|without} header [row]"
+    (sort-{h}-header (used-range) {c} xlascending))
+(test-success
+    "Sort this sheet by column B with a header row."
+    (sort-with-header (used-range) "b" xlascending))
+(test-success
+    "Sort the sheet by column B without a header row."
+    (sort-without-header (used-range) "b" xlascending))
+
+(english-vla
+    "sort [this] sheet by column {c:column} {d:ascending|descending} {h:with|without} header [row]"
+    (sort-{h}-header (used-range) {c} xl{d}))
+(test-success
+    "Sort this sheet by column B descending with a header row."
+    (sort-with-header (used-range) "b" xldescending))
+(test-success
+    "Sort this sheet by column B ascending without a header."
+    (sort-without-header (used-range) "b" xlascending))
+
+; ---- filter buttons on, conditions cleared, filters removed ------------
+; Clearing and removing are neighbours (SD-19), and each sentence names
+; its own (the owner's call): "Clear the filter conditions." brings every
+; row back and leaves the buttons - ShowAllData, the shipped "Show all
+; rows" macro, so the two stay one operation; "Remove the filters." takes
+; the buttons away too. "Add filters to" is the antonym, and the sentence
+; G-STRUCT's header-style note already pointed at. Each takes "filter"
+; or "filters" - a sheet holds one set, so the two surfaces cannot mean
+; different things.
+;
+; Adding never toggles: Range.AutoFilter with no arguments takes filter
+; buttons AWAY when they are already there, so VLA_Runtime.VlaAddFilters
+; does nothing when they are, and refuses by name when they are on a
+; different range of the same sheet, or when the range is empty (Excel's
+; own refusal there tells the writer to select a cell).
+(defmacro
+    (add-filters r)
+    "turn on filter buttons for a range's header row - nothing is hidden until a condition is set"
+    (vlaaddfilters r))
+
+; "range" is required, as in every shipped "add ... to" rule: the core's
+; own "add {e:expr} to {v:var}" is registered first, and would read "Add
+; filters to A1." as adding a variable called filters to one called a1.
+; "Add filters to range A1." fails that rule at "a1" and reaches this one.
+(english-vla
+    "add filter/s to range {r:range}"
+    (add-filters (range {r})))
+(test-success
+    "Add filters to range A1:D50."
+    (add-filters (range "a1:d50")))
+(test-success
+    "Add a filter to range A1:D50."
+    (add-filters (range "a1:d50")))
+
+(english-vla
+    "clear filter condition/s"
+    (show-all-rows))
+(test-success
+    "Clear the filter conditions."
+    (show-all-rows))
+(test-success
+    "Clear the filter condition."
+    (show-all-rows))
+
+(defmacro
+    (remove-filters)
+    "take the active sheet's filter buttons away, showing every row again"
+    (set! (. activesheet autofiltermode) false))
+
+(english-vla
+    "remove filter/s"
+    (remove-filters))
+(test-success
+    "Remove the filters."
+    (remove-filters))
+(test-success
+    "Remove the filter."
+    (remove-filters))
+
+; ---- filtering by a condition -------------------------------------------
+; "Filter ... to show rows where" (the owner's call): "filter" names
+; Excel's hide-not-delete, and "to show rows where" says which rows stay
+; - pareto's bare "Filter {r} where ..." can be heard as "filter out".
+; A condition on a second column narrows the first, Excel's own AND,
+; which "filter" reads as; a second condition on the SAME column replaces
+; its first.
+;
+; Each is ONE Range.AutoFilter call, which turns the buttons on itself
+; (with a Field it is not a toggle). The Field comes from
+; VLA_Runtime.VlaFilterField, which makes VlaAddFilters's own checks - one
+; set of buttons per sheet, no empty range - so every refusal a filter
+; sentence can meet, the value's included, arrives while the call's
+; arguments are worked out, before Excel is touched: a refused sentence
+; leaves the sheet as it was. (Found reading the owner's first live run:
+; the macros had called VlaAddFilters first, as its own statement, so a
+; refused condition would have left the buttons behind.)
+;
+; "is" is two conditions joined with xlAnd, and the value is written in
+; the macro twice - VLA_Runtime.VlaFilterCriterion's note says why: a
+; number matched as a number, whatever the cell's format, and text
+; matched as written, * and ? included. "is" comes before "is greater
+; than" in this file and never shadows it: {v:expr} reads "greater" as a
+; name, then stops at "than", so the "is" rule fails on the unconsumed
+; words and the next rule matches.
+(defmacro
+    (filter-to-show-matching r c v)
+    "hide every row of a range except those whose column holds a value - the value itself, whatever the cell's number format"
+    (. r autofilter :field (vlafilterfield r c) :criteria1 (vlafiltercriterion "at-least" v) :operator xland :criteria2 (vlafiltercriterion "at-most" v)))
+
+(defmacro
+    (filter-to-show-condition r c condition)
+    "hide every row of a range except those whose column meets one AutoFilter condition"
+    (. r autofilter :field (vlafilterfield r c) :criteria1 condition))
+
+(defmacro
+    (filter-to-show-containing r c v)
+    "hide every row of a range except those whose column contains a piece of text"
+    (filter-to-show-condition r c (vlafiltercriterion "contains" v)))
+
+(defmacro
+    (filter-to-show-greater-than r c v)
+    "hide every row of a range except those whose column holds a number greater than a value"
+    (filter-to-show-condition r c (vlafiltercriterion "greater" v)))
+
+(defmacro
+    (filter-to-show-less-than r c v)
+    "hide every row of a range except those whose column holds a number less than a value"
+    (filter-to-show-condition r c (vlafiltercriterion "less" v)))
+
+(english-vla
+    "filter [range] {r:range} to show rows where column {c:column} is {v:expr}"
+    (filter-to-show-matching (range {r}) {c} {v}))
+(test-success
+    "Filter range A1:D50 to show rows where column C is \"West\"."
+    (filter-to-show-matching (range "a1:d50") "c" "West"))
+(test-success
+    "Filter A1:D50 to show rows where column D is 100."
+    (filter-to-show-matching (range "a1:d50") "d" 100))
+(test-fail
+    "Filter range A1:D50 where column C is \"West\"."
+    "then I expected 'to'")
+
+(english-vla
+    "filter [range] {r:range} to show rows where column {c:column} contains {v:expr}"
+    (filter-to-show-containing (range {r}) {c} {v}))
+(test-success
+    "Filter range A1:D50 to show rows where column C contains \"we\"."
+    (filter-to-show-containing (range "a1:d50") "c" "we"))
+
+; "greater|less" completes the macro name (G11r), the pivot sort's move.
+; pareto lists greater than only; less than is its other half, one
+; branch of the same rule.
+(english-vla
+    "filter [range] {r:range} to show rows where column {c:column} is {d:greater|less} than {v:expr}"
+    (filter-to-show-{d}-than (range {r}) {c} {v}))
+(test-success
+    "Filter range A1:D50 to show rows where column D is greater than 100."
+    (filter-to-show-greater-than (range "a1:d50") "d" 100))
+(test-success
+    "Filter A1:D50 to show rows where column D is less than limit."
+    (filter-to-show-less-than (range "a1:d50") "d" limit))
+
+; ---- copying what is visible --------------------------------------------
+; "Visible cells" (the owner's call) is Excel's own name for this (Go To
+; Special, "Visible cells only"), and it is true of everything
+; SpecialCells skips: rows hidden by a filter or by "Hide row", and
+; hidden columns too - "visible rows" would have said nothing about the
+; columns. "only" marks that the hidden ones stay behind. When nothing in
+; the range is visible, Excel's own "No cells were found." is the
+; refusal, at this sentence's step.
+(defmacro
+    (copy-visible-cells a b)
+    "copy only a range's visible cells to another place - rows and columns hidden by a filter or by hand stay behind"
+    (. (. a specialcells xlcelltypevisible) copy :destination b))
+
+(english-vla
+    "copy only visible cells of [range] {a:range} to [cell] {b:cell}"
+    (copy-visible-cells (range {a}) (range {b})))
+(test-success
+    "Copy only the visible cells of range A1:D50 to F1."
+    (copy-visible-cells (range "a1:d50") (range "f1")))
+(test-success
+    "Copy only the visible cells of A1:D50 to cell F1."
+    (copy-visible-cells (range "a1:d50") (range "f1")))
+
 ; ---- G11: the template face --------------------------------------
 ; Friendly functors hiding the dot (VBA member access) from template
 ; authors. The dot stays first-class in VLA - these are carried

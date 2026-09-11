@@ -6,6 +6,55 @@
 
 ### What changed
 
+- **Sorting, saying whether there is a header row.** Name the column by
+  its letter, and say whether the range starts with a header row that
+  should stay put:
+
+  - `Sort range A1:C50 by column B with a header row.` — row 1 stays on
+    top, the rest is sorted. `Sort range A2:C50 by column B without a
+    header row.` sorts every row you named.
+  - `descending` (or `ascending`) goes after the column: `Sort range A1:C50
+    by column B descending with a header row.`
+  - **Two columns:** `Sort range A1:C50 by column B then by column D with a
+    header row.` — and to set their directions, name both: `… by column B
+    descending then by column D ascending …`.
+  - **The whole sheet:** `Sort this sheet by column B with a header row.`
+
+  A sort that doesn't say "with" or "without" stops before it runs and asks.
+
+- **Filtering.** Turn the filter buttons on, show only the rows you want,
+  and put everything back:
+
+  - `Add filters to range A1:D50.` puts the filter buttons on the header
+    row. Saying it again leaves them on.
+  - `Filter range A1:D50 to show rows where column C is "West".` — or
+    `contains "we"`, or `is greater than 100`, or `is less than 100`.
+    Rows that don't match are hidden, not deleted. A second condition on
+    another column narrows the first: West rows *and* over 100.
+  - `is 100` matches the number, however the cell shows it — `$100.00`
+    included — and `"West"` matches West exactly, not Western. A `*` or
+    `?` in what you type is just a character.
+  - `Clear the filter conditions.` shows every row again and keeps the
+    buttons. `Remove the filters.` takes the buttons away too.
+  - `Copy only the visible cells of range A1:D50 to F1.` copies what a
+    filter leaves showing — rows and columns that are hidden stay behind.
+
+  Filters work one set per sheet, the way Excel's do: adding them to a
+  second range while the first still has them stops and says so, and so
+  does filtering an empty range. A filter sentence that stops leaves the
+  sheet exactly as it was. In a sort or a filter, a column that isn't part
+  of the range — `by column F` on `A1:C50` — stops and names the column.
+
+- **Three sentences you may already use now have clearer twins.** They
+  keep working exactly as before. `Sort range A1:C50 by column B1.` always
+  keeps row 1 where it is, even when row 1 is data — the new sentences say
+  `with a header row` or `without`. `Keep only rows of range A1:D50 where
+  column 3 is "West".` counts columns from the start of the range and
+  hides the other rows rather than deleting them — `Filter range … to show
+  rows where column C is …` names the column by its letter and says it
+  shows. `Show all rows.` clears filter conditions and does not unhide rows
+  hidden with `Hide row` — `Clear the filter conditions.` says which it is.
+
 - **Number formats, for a cell or a range.** Money, percentages, plain
   numbers, dates and times, each in one sentence:
 
@@ -124,6 +173,13 @@
   each of which changes how a cell looks and nothing else. No new
   *action* was added: the outline border is drawn as four single-edge
   lines rather than through a new Excel command.
+
+  Sorting and filtering add four more, also by name: taking a sheet's
+  filter buttons away (it can only take them away, never add them), and
+  three that only find cells already on the sheet — a column of a range,
+  the part of the sheet in use, and the visible cells of a range. Sorting
+  and filtering themselves were already on the list; they now also take
+  a second sort column and a second filter condition.
 
 - **PROLOG can work with text.** A spreadsheet's whole subject is cell
   values, and until now PROLOG could not take one apart or put two
@@ -301,6 +357,59 @@
   place and 2 in another". It now gets the message it gets when written
   once: that `(atom ...)` is written `(atom? ...)`, or that
   `integer?` is not available and what to ask instead.
+
+### Known open security items
+
+**Closed this release:** none — 0.5.6 is a feature release. Three changes
+touch the security surface without closing an item, listed so none is a
+surprise:
+
+- *Interpret* can now set five more cell properties — underline,
+  strikethrough, vertical alignment, indent and text rotation. Interpret
+  only reaches the parts of Excel on a list someone has read and named
+  (`SEC.1`, `docs/THREAT_MODEL.md` §1.1); these five were added to that
+  list by name, each changes only how a cell looks, and anything the list
+  does not name is still refused in words. No new *action* was added.
+- *Interpret* can now do four more things for sorting and filtering, each
+  added to that same list by name: take a sheet's filter buttons away
+  (Excel lets a program only take them away, never add them), and find
+  cells already on the sheet — a column of a range, the part of the sheet
+  in use, and a range's visible cells. Sorting and filtering were already
+  on the list; they now also take a second column and a second condition.
+  Nothing here reaches outside the workbook.
+- PROLOG now refuses, by name, the Prolog goals that would read from
+  outside its own program and tables — `read`, `read_term`, `consult` —
+  along with those that print, keep state between answers, or depend on
+  the clock. None of them ever ran here; they used to be unknown names
+  that quietly found nothing, and now they say why they will not.
+
+**Still open:** `SEC.3`, `SEC.7`, and two from the 2026-09-08 code
+review — `SEC.10` and `SEC.15`. In plain words:
+the remembered raw-VBA consent record still lives inside the workbook
+(`SEC.10`);
+formulas a program writes are not screened for functions that reach the
+network (`SEC.15`); and effects like sending mail still run without a
+permission prompt (`SEC.7`). `SEC.8` narrows that last one — it gates on
+where the *workbook* came from — but does not close it: a phrasebook loaded
+into a workbook of your own still reaches those verbs unprompted.
+
+**Assessed and accepted, not fixed:** `SEC.12`, `SEC.14`, `SEC.16` and
+`SEC.17`. Each needs a precondition an ordinary install does not meet —
+mostly an Excel setting that ships off and that Frazaro never asks you to
+turn on. The reasoning for each, and what would reopen it, is written down
+rather than left implied.
+
+The authoritative lists, kept current in one place instead of copied into
+every release: [`README.md`](../README.md) in plain words, and
+[`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md) with the file, line, fix and
+disposition for each.
+
+Until these close: **load phrasebooks only from people you would accept a
+macro-enabled workbook from — and treat a workbook someone sent you the
+same way before you press Interpret.** Frazaro makes no network call and
+does not update itself; check the README's *Known open security items*
+when you return for a newer build. Vulnerability reports:
+`docs/SECURITY.md`. Everything else: `docs/SUPPORT.md`.
 
 ## 0.5.5
 

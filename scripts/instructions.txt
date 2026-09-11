@@ -890,6 +890,167 @@ Add a border colored "#FF0000" around range H40:J42.
 Add a bottom border colored green to range H44:J44.
 Add borders colored blue to every cell in range H46:J48.
 
+# G-SORTFILTER: pareto.txt section 8, real end state on its own
+# GSortFilter sheet (delete-then-recreate, the GStruct reason: a second
+# Run must not inherit the first one's filter buttons or sort order).
+# Every sort sentence names its header row - "with" or "without" - and
+# each block's data is chosen so the header decision shows: a header
+# that sorted would land somewhere else.
+Try:
+  Delete sheet GSortFilter.
+
+Work on sheet GSortFilter.
+
+# "Sort this sheet" sorts the used range, so it runs first, while its
+# own block is the only thing on the sheet.
+Put "Item" into cell A1.
+Put "Qty" into cell B1.
+Put "a" into cell A2.
+Put 2 into cell B2.
+Put "b" into cell A3.
+Put 9 into cell B3.
+Put "c" into cell A4.
+Put 5 into cell B4.
+Sort this sheet by column B descending with a header row.
+
+# Ascending with a header: numbers sort before text, so a header that
+# was not held back would sink to the bottom.
+Put "Name" into cell D1.
+Put "Score" into cell E1.
+Put "p" into cell D2.
+Put 3 into cell E2.
+Put "q" into cell D3.
+Put 1 into cell E3.
+Put "r" into cell D4.
+Put 2 into cell E4.
+Sort range D1:E4 by column E with a header row.
+
+# Without a header: the first row moves like any other.
+Put "x" into cell G2.
+Put 5 into cell H2.
+Put "y" into cell G3.
+Put 9 into cell H3.
+Put "z" into cell G4.
+Put 7 into cell H4.
+Sort range G2:H4 by column H descending without a header row.
+
+# Two keys, both directions named: the second key reorders rows the
+# first key ties, the opposite way from their written order.
+Put "Region" into cell J1.
+Put "Amount" into cell K1.
+Put "Tag" into cell L1.
+Put "West" into cell J2.
+Put 100 into cell K2.
+Put "a" into cell L2.
+Put "East" into cell J3.
+Put 50 into cell K3.
+Put "b" into cell L3.
+Put "West" into cell J4.
+Put 300 into cell K4.
+Put "c" into cell L4.
+Put "East" into cell J5.
+Put 250 into cell K5.
+Put "d" into cell L5.
+Sort range J1:L5 by column J ascending then by column K descending with a header row.
+
+# Two keys, no directions, no header.
+Put 2 into cell N2.
+Put 9 into cell O2.
+Put 1 into cell N3.
+Put 8 into cell O3.
+Put 2 into cell N4.
+Put 7 into cell O4.
+Sort range N2:O4 by column N then by column O without a header row.
+
+# Filters. A sheet holds one set of filter buttons, so the steps below
+# share them in order, and each condition's result is kept by copying
+# the visible cells into rows no filter hides - the copies are what the
+# checks read. "Remove the filters." comes first, on its own block: if
+# it left its buttons behind, every filter on the main block after it
+# would be refused (VlaAddFilters), so the rest of this section running
+# at all is part of its proof.
+Put "Region" into cell A40.
+Put "Amount" into cell B40.
+Put "West" into cell A41.
+Put 1 into cell B41.
+Put "East" into cell A42.
+Put 2 into cell B42.
+Put "West" into cell A43.
+Put 3 into cell B43.
+Filter range A40:B43 to show rows where column A is "West".
+Copy only the visible cells of range A40:B43 to D46.
+Remove the filters.
+
+# A refused filter sentence leaves the sheet as it was. "abc" is not a
+# number, so this refuses - and the Try keeps the run going. Had it
+# turned the buttons on before refusing, they would sit on A40:B43, and
+# every filter on the main block below would be refused in turn.
+Try:
+  Filter range A40:B43 to show rows where column B is greater than "abc".
+
+# The main block. Amounts are shown as dollars, so "is 100" has to match
+# $100.00 - the value, not the text. "5*3" holds a literal asterisk, so
+# "contains" has to read it as a character, not a wildcard.
+Put "Region" into cell A20.
+Put "Amount" into cell B20.
+Put "Code" into cell C20.
+Put "West" into cell A21.
+Put 100 into cell B21.
+Put "5*3" into cell C21.
+Put "East" into cell A22.
+Put 250 into cell B22.
+Put "53" into cell C22.
+Put "Western" into cell A23.
+Put 100 into cell B23.
+Put "x" into cell C23.
+Put "West" into cell A24.
+Put 50 into cell B24.
+Put "y" into cell C24.
+Put "east" into cell A25.
+Put 300 into cell B25.
+Put "z" into cell C25.
+Put "North" into cell A26.
+Put 175 into cell B26.
+Put "w" into cell C26.
+Put "East" into cell A27.
+Put 75 into cell B27.
+Put "v" into cell C27.
+Format range B21:B27 as dollars.
+
+Filter range A20:C27 to show rows where column A is "West".
+Copy only the visible cells of range A20:C27 to E30.
+Clear the filter conditions.
+
+Filter range A20:C27 to show rows where column B is 100.
+Copy only the visible cells of range A20:C27 to I30.
+Clear the filter conditions.
+
+Filter range A20:C27 to show rows where column C contains "*".
+Copy only the visible cells of range A20:C27 to M30.
+Clear the filter conditions.
+
+# A condition on a second column narrows the first.
+Filter range A20:C27 to show rows where column B is greater than 150.
+Filter range A20:C27 to show rows where column A is "East".
+Copy only the visible cells of range A20:C27 to Q30.
+Clear the filter conditions.
+
+# 99.5, not 100: a decimal is where a comma-decimal machine would differ,
+# so a Windows region change is the test that the condition is written
+# with a point on every machine.
+Filter range A20:C27 to show rows where column B is less than 99.5.
+Copy only the visible cells of range A20:C27 to U30.
+
+# Adding filters that are already there must not take them away, and
+# clearing the conditions must leave the buttons: the end state shows
+# both at once. Then filters on a second range of this sheet refuse by
+# name - a sheet holds one set - and the Try keeps that refusal from
+# ending the run; the check reads that the buttons stayed where they were.
+Add filters to range A20:C27.
+Clear the filter conditions.
+Try:
+  Add filters to range A40:B43.
+
 Go to sheet Output.
 
 Tidy-up.

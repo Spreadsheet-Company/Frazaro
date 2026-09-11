@@ -602,6 +602,11 @@ Private Sub RuntimeAddEntries(ByVal m As Collection)
     RuntimeAddMsg m, "rt-fill-series-unknown-kind", 5, "VLA-Runtime", "VlaFillSeries: unknown kind '{kind}' - expected linear or growth."
     RuntimeAddMsg m, "rt-number-format-decimals", 5, "VLA-Runtime", "'{value}' is not a number of decimal places - use a whole number from 0 to 30, like 2."
     RuntimeAddMsg m, "rt-number-format-unknown-kind", 5, "VLA-Runtime", "VlaNumberFormatCode: unknown kind '{kind}' - expected number, number-separated, percent, dollars, euros, pounds, or accounting- followed by one of those three currencies."
+    RuntimeAddMsg m, "rt-column-outside-range", 5, "VLA-Runtime", "column {col} is not one of range {range}'s own columns - name a column inside the range."
+    RuntimeAddMsg m, "rt-filters-elsewhere", 5, "VLA-Runtime", "this sheet already has filter buttons on {existing}, and a sheet holds one set - say ""Remove the filters."" first, then add them to {range}."
+    RuntimeAddMsg m, "rt-filter-needs-number", 5, "VLA-Runtime", "'{value}' is not a number - ""greater than"" and ""less than"" compare numbers, like 100 or 2.5."
+    RuntimeAddMsg m, "rt-filter-unknown-kind", 5, "VLA-Runtime", "VlaFilterCriterion: unknown kind '{kind}' - expected at-least, at-most, contains, greater, or less."
+    RuntimeAddMsg m, "rt-filter-range-empty", 5, "VLA-Runtime", "range {range} is empty - filters need a header row with data below it."
 End Sub
 
 Private Sub RuntimeAddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _
@@ -1362,6 +1367,193 @@ Private Function CurrencySymbolCode(ByVal currencyName As String) As String
         Case Else
             RaiseRuntimeMsg "rt-number-format-unknown-kind", "kind", currencyName
     End Select
+End Function
+
+' G-SORTFILTER (pareto.txt section 8): "by column B", "where column C" -
+' a sheet column letter, the way every other column slot in english.vla
+' reads - turned into that column's position inside the range, which is
+' what a sort key (rng.Columns(n)) and Range.AutoFilter's Field both
+' want. A column outside the range is refused by name: Excel's own
+' answers (a sort key outside the data, a Field of 0 or past the last
+' column) name neither the column nor the fix. The slot's shape check
+' passes any one to three letters, so a letter past Excel's last column
+' (ZZZ) is caught here too, as the same refusal.
+Public Function VlaColumnInRange(ByVal rng As Range, ByVal colLetters As String) As Long
+    Dim col As Long
+    On Error Resume Next
+    col = rng.Worksheet.Range(colLetters & "1").Column
+    On Error GoTo 0
+    If col < rng.Column Or col > rng.Column + rng.Columns.Count - 1 Then
+        RaiseRuntimeMsg "rt-column-outside-range", "col", UCase$(colLetters), "range", rng.Address(False, False)
+    End If
+    VlaColumnInRange = col - rng.Column + 1
+End Function
+
+' G-SORTFILTER: "Add filters to range A1:D50." Range.AutoFilter called
+' with no arguments is a TOGGLE - on a range that already has filter
+' buttons it takes them away - so a sentence that says "add" is made to
+' only ever add: already there is a no-op. A sheet holds one set of
+' filter buttons, so filters already on a DIFFERENT range are refused by
+' name rather than silently moved (and their conditions dropped). A lone
+' cell is compared as the block around it, which is the range Excel
+' itself filters when handed one cell. A range inside a table shows the
+' table's own buttons - calling AutoFilter there would toggle them off;
+' "Remove the filters." does not reach a table's buttons (G-TABLES,
+' pareto.txt section 9, owns tables).
+Public Sub VlaAddFilters(ByVal rng As Range)
+    If Not rng.ListObject Is Nothing Then
+        rng.ListObject.ShowAutoFilter = True
+        Exit Sub
+    End If
+    If FiltersAlreadyOn(rng) Then Exit Sub
+    rng.AutoFilter
+End Sub
+
+' G-SORTFILTER: the Field for a "Filter ... to show rows where column C"
+' sentence - VlaColumnInRange's position - after the same checks
+' VlaAddFilters makes. It exists so a refused filter sentence changes
+' nothing (found reading the owner's first live run, 2026-09-10): the
+' filter macros used to call VlaAddFilters first and build the condition
+' after, so a refused condition ("greater than "abc"") would have left
+' the buttons behind. Range.
+' AutoFilter WITH a Field is not a toggle - it turns the buttons on
+' itself - so the macros now make one call, and every refusal (buttons
+' on another range, an empty range, a column outside the range, a value
+' that is not a number) comes while its arguments are worked out, before
+' Excel is touched. A range inside a table filters through the table's
+' own buttons, so the one-set-per-sheet check does not apply to it.
+Public Function VlaFilterField(ByVal rng As Range, ByVal colLetters As String) As Long
+    ' Called for its refusals only: buttons already on this range, or
+    ' none yet, both let the filter call go ahead.
+    If rng.ListObject Is Nothing Then Call FiltersAlreadyOn(rng)
+    VlaFilterField = VlaColumnInRange(rng, colLetters)
+End Function
+
+' Shared by VlaAddFilters and VlaFilterField: True when the sheet's
+' filter buttons are already on this range, False when the sheet has
+' none; refuses by name when they are on a different range, and when the
+' range is empty - Excel's own refusal for an empty range asks the
+' writer to "select a single cell", which no sentence can do. A lone
+' cell stands for the block around it, as Excel reads it.
+Private Function FiltersAlreadyOn(ByVal rng As Range) As Boolean
+    Dim target As Range
+    If rng.Cells.Count = 1 Then
+        Set target = rng.CurrentRegion
+    Else
+        Set target = rng
+    End If
+    Dim want As String
+    want = target.Address(False, False)
+    Dim ws As Worksheet
+    Set ws = rng.Worksheet
+    If ws.AutoFilterMode Then
+        Dim have As String
+        have = ws.AutoFilter.Range.Address(False, False)
+        If StrComp(have, want, vbTextCompare) <> 0 Then
+            RaiseRuntimeMsg "rt-filters-elsewhere", "existing", have, "range", want
+        End If
+        FiltersAlreadyOn = True
+        Exit Function
+    End If
+    If Application.WorksheetFunction.CountA(target) = 0 Then
+        RaiseRuntimeMsg "rt-filter-range-empty", "range", want
+    End If
+End Function
+
+' G-SORTFILTER: the text of one AutoFilter condition, from the value a
+' "Filter ... to show rows where column C ..." sentence names. Pure - a
+' function of its arguments, no workbook - so every condition it builds
+' is pinned in the pure suite (and it is an F.16 candidate).
+'   at-least, at-most - the two halves of "is": english.vla passes
+'     Criteria1:=at-least, Operator:=xlAnd, Criteria2:=at-most. For a
+'     NUMBER they are ">=100" and "<=100", not one "=100": an "equals"
+'     condition is matched against the cell's DISPLAYED text (as the
+'     filter dropdown lists displayed values - taken on reading, not yet
+'     seen here), so "=100" could miss a cell showing $100.00; two
+'     comparisons match the value whatever its format, and are right
+'     either way. For TEXT both halves are the same "=text",
+'     with the text's own wildcards escaped (below) - text is what the
+'     cell shows, so equals is right for it, including text that looks
+'     like a number ("007"). An empty value is "=", Excel's own
+'     condition for a blank cell.
+'   contains - "*text*", the text's own wildcards escaped, so "contains
+'     "5*3"" finds 5*3, not every row.
+'   greater, less - ">100", "<100". A number only: text refuses by
+'     name rather than quietly comparing alphabetically.
+' Every number is written with Str$, which always uses "." - AutoFilter
+' reads a condition from VBA the US way, so a comma-decimal machine's
+' own CStr (2,5) would be read as text. ("given", not "val": a local
+' named like VBA's own Val function is a known trap.)
+Public Function VlaFilterCriterion(ByVal kind As String, ByVal v As Variant) As String
+    Dim given As Variant
+    If IsObject(v) Then
+        given = v.Value
+    Else
+        given = v
+    End If
+    If IsNull(given) Then given = Empty
+    Dim isNum As Boolean
+    Select Case VarType(given)
+        Case vbInteger, vbLong, vbSingle, vbDouble, vbCurrency, vbDecimal, vbByte, vbDate
+            isNum = True
+    End Select
+
+    Select Case kind
+        Case "at-least", "at-most"
+            If isNum Then
+                If kind = "at-least" Then
+                    VlaFilterCriterion = ">=" & InvariantNumber(given)
+                Else
+                    VlaFilterCriterion = "<=" & InvariantNumber(given)
+                End If
+            ElseIf IsEmpty(given) Then
+                VlaFilterCriterion = "="
+            Else
+                VlaFilterCriterion = "=" & EscapeFilterWildcards(CStr(given))
+            End If
+        Case "contains"
+            If isNum Then
+                VlaFilterCriterion = "*" & InvariantNumber(given) & "*"
+            Else
+                VlaFilterCriterion = "*" & EscapeFilterWildcards(CStr(given)) & "*"
+            End If
+        Case "greater", "less"
+            If Not isNum Then
+                Dim shown As String
+                If IsEmpty(given) Then shown = "(nothing)" Else shown = CStr(given)
+                RaiseRuntimeMsg "rt-filter-needs-number", "value", shown
+            End If
+            If kind = "greater" Then
+                VlaFilterCriterion = ">" & InvariantNumber(given)
+            Else
+                VlaFilterCriterion = "<" & InvariantNumber(given)
+            End If
+        Case Else
+            RaiseRuntimeMsg "rt-filter-unknown-kind", "kind", kind
+    End Select
+End Function
+
+' A number as AutoFilter reads it from VBA: "." for the decimal point on
+' every machine (Str$ never localises), no leading space, and a leading
+' zero before a bare point (Str$ writes 0.5 as " .5").
+Private Function InvariantNumber(ByVal n As Variant) As String
+    Dim s As String
+    s = Trim$(Str$(CDbl(n)))
+    If Left$(s, 1) = "." Then
+        s = "0" & s
+    ElseIf Left$(s, 2) = "-." Then
+        s = "-0" & Mid$(s, 2)
+    End If
+    InvariantNumber = s
+End Function
+
+' AutoFilter's wildcards are * and ?, escaped with ~ (which escapes
+' itself), so a value is matched as written. ~ first, or the other two
+' escapes would be escaped again.
+Private Function EscapeFilterWildcards(ByVal s As String) As String
+    s = Replace(s, "~", "~~")
+    s = Replace(s, "*", "~*")
+    EscapeFilterWildcards = Replace(s, "?", "~?")
 End Function
 
 ' G-PIVOT rule #1 (pareto.txt section 10, "Pivot tables"): the two-step

@@ -515,6 +515,52 @@ Private Sub TestHelpersHost()
     Report "VlaLast on a list", VlaLast(tc) = 30, "got " & VlaLast(tc)
     Report "VlaFirst on a range", VlaFirst(ws.Range("B1:B3")) = 1, _
            "got " & VlaFirst(ws.Range("B1:B3"))
+
+    ' G-SORTFILTER: a sheet column letter becomes its position inside
+    ' the range - the sort key and the filter field both - and a column
+    ' outside the range (or past Excel's last) refuses by name.
+    Report "VlaColumnInRange: the range's first column is 1", _
+           VlaColumnInRange(ws.Range("C5:F9"), "c") = 1, "got " & VlaColumnInRange(ws.Range("C5:F9"), "c")
+    Report "VlaColumnInRange: its last column is 4", _
+           VlaColumnInRange(ws.Range("C5:F9"), "F") = 4, "got " & VlaColumnInRange(ws.Range("C5:F9"), "F")
+    Dim colBad As Variant
+    Dim colDesc As String
+    Dim colIgnored As Long
+    For Each colBad In Array("b", "g", "zzz")
+        colDesc = ""
+        On Error Resume Next
+        Err.Clear
+        colIgnored = VlaColumnInRange(ws.Range("C5:F9"), CStr(colBad))
+        colDesc = Err.Description
+        On Error GoTo 0
+        Report "VlaColumnInRange: column " & UCase$(colBad) & " outside C5:F9 refuses by name", _
+               InStr(1, colDesc, "is not one of range C5:F9's own columns", vbTextCompare) > 0, "got: " & colDesc
+    Next colBad
+
+    ' The filter field: the same position, after the one-set-per-sheet
+    ' and empty-range checks. A1:B3 holds Widget and the B1:B3 values
+    ' above; C5:F9 is empty, which Excel itself refuses with advice to
+    ' "select a single cell" - these read the Frazaro refusal instead, and
+    ' prove it leaves no filter buttons behind.
+    Report "VlaFilterField: column B of A1:B3 is field 2", _
+           VlaFilterField(ws.Range("A1:B3"), "b") = 2, "got " & VlaFilterField(ws.Range("A1:B3"), "b")
+    colDesc = ""
+    On Error Resume Next
+    Err.Clear
+    colIgnored = VlaFilterField(ws.Range("C5:F9"), "d")
+    colDesc = Err.Description
+    On Error GoTo 0
+    Report "VlaFilterField: an empty range refuses by name", _
+           InStr(1, colDesc, "range C5:F9 is empty", vbTextCompare) > 0, "got: " & colDesc
+    colDesc = ""
+    On Error Resume Next
+    Err.Clear
+    VlaAddFilters ws.Range("C5:F9")
+    colDesc = Err.Description
+    On Error GoTo 0
+    Report "VlaAddFilters: an empty range refuses by name", _
+           InStr(1, colDesc, "range C5:F9 is empty", vbTextCompare) > 0, "got: " & colDesc
+    Report "VlaAddFilters: the refusal left no filter buttons", ws.AutoFilterMode = False, "buttons are on"
     Application.DisplayAlerts = False
     ws.Delete
     Application.DisplayAlerts = True
@@ -3296,6 +3342,95 @@ Private Sub VerifyReportChecks(ws As Worksheet)
         CheckV "bottom border colored green: J44 top edge stays off", wsF.Range("J44").Borders(xlEdgeTop).LineStyle, xlNone
         CheckV "borders colored blue to every cell: I47's inside bottom edge is blue", _
                wsF.Range("I47").Borders(xlEdgeBottom).Color, RGB(0, 0, 255)
+    End If
+
+    ' G-SORTFILTER: pareto.txt section 8, real end state on
+    ' instructions.txt's own GSortFilter sheet. Each sort block's data
+    ' makes the header decision visible (a header that sorted would land
+    ' elsewhere) and each two-key block makes the second key visible
+    ' (rows the first key ties come out opposite to their written order).
+    ' A sheet holds one set of filter buttons, so each filter condition's
+    ' result was copied out with "Copy only the visible cells of" into
+    ' rows no filter hides; those copies are read here, each at the row
+    ' just past its last expected one, which must be empty - a condition
+    ' that let one extra row through fails there.
+    Dim wsS As Worksheet
+    On Error Resume Next
+    Set wsS = ActiveWorkbook.Worksheets("GSortFilter")
+    On Error GoTo 0
+    Report "GSortFilter sheet exists", Not (wsS Is Nothing), "no GSortFilter sheet - Run the program first"
+    If Not wsS Is Nothing Then
+        CheckV "sort this sheet, descending with a header row: A1 is still the header", wsS.Range("A1").Value, "Item"
+        CheckV "sort this sheet, descending with a header row: A2 is the largest (b, 9)", wsS.Range("A2").Value, "b"
+        CheckV "sort this sheet, descending with a header row: B4 is the smallest", wsS.Range("B4").Value, 2
+
+        ' Ascending puts numbers before text, so "Score" would sink to E4.
+        CheckV "sort with a header row: E1 is still the header", wsS.Range("E1").Value, "Score"
+        CheckV "sort with a header row: D2 is the smallest row's name (q, 1)", wsS.Range("D2").Value, "q"
+        CheckV "sort with a header row: E4 is the largest", wsS.Range("E4").Value, 3
+
+        ' Held back as a header, row 2 (x, 5) would not have moved.
+        CheckV "sort without a header row: G2 moved - the first row sorts too (y, 9)", wsS.Range("G2").Value, "y"
+        CheckV "sort without a header row: H4 is the smallest", wsS.Range("H4").Value, 5
+
+        CheckV "sort by two columns, with a header row: J1 is still the header", wsS.Range("J1").Value, "Region"
+        CheckV "sort by two columns: East 250 first (second key descending)", wsS.Range("L2").Value, "d"
+        CheckV "sort by two columns: then East 50", wsS.Range("L3").Value, "b"
+        CheckV "sort by two columns: then West 300 (the key-1 tie reordered by key 2)", wsS.Range("L4").Value, "c"
+        CheckV "sort by two columns: West 100 last", wsS.Range("L5").Value, "a"
+
+        CheckV "sort by two columns without a header row: N2 moved (1 first)", wsS.Range("N2").Value, 1
+        CheckV "sort by two columns without a header row: the 2s ordered by the second key (O3 = 7)", wsS.Range("O3").Value, 7
+        CheckV "sort by two columns without a header row: O4 = 9", wsS.Range("O4").Value, 9
+
+        ' "Remove the filters.": its own block, filtered, copied, removed.
+        CheckV "remove the filters: the filter worked first (D48 is the second West)", wsS.Range("D48").Value, "West"
+        Report "remove the filters: the filter worked first (the East row was not copied - D49 empty)", _
+               Len(CStr(wsS.Range("D49").Value)) = 0, "got " & wsS.Range("D49").Value
+        Report "remove the filters: the East row it hid (42) is showing again", _
+               wsS.Rows(42).Hidden = False, "row 42 still hidden"
+
+        CheckV "filter is ""West"": the first West row (E31)", wsS.Range("E31").Value, "West"
+        CheckV "filter is ""West"": its code came with it (G31)", wsS.Range("G31").Value, "5*3"
+        CheckV "filter is ""West"": the second West row (F32 = 50)", wsS.Range("F32").Value, 50
+        Report "filter is ""West"": exact, not a prefix - Western and East stayed hidden (E33 empty)", _
+               Len(CStr(wsS.Range("E33").Value)) = 0, "got " & wsS.Range("E33").Value
+
+        ' The amounts show as $100.00: "is 100" matches the value, not the text.
+        CheckV "filter is 100, on cells shown as dollars: West (I31)", wsS.Range("I31").Value, "West"
+        CheckV "filter is 100, on cells shown as dollars: Western (I32)", wsS.Range("I32").Value, "Western"
+        Report "filter is 100: nothing else (I33 empty)", _
+               Len(CStr(wsS.Range("I33").Value)) = 0, "got " & wsS.Range("I33").Value
+
+        CheckV "filter contains ""*"": the one row holding an asterisk (O31)", wsS.Range("O31").Value, "5*3"
+        Report "filter contains ""*"": read as a character, not a wildcard (M32 empty)", _
+               Len(CStr(wsS.Range("M32").Value)) = 0, "got " & wsS.Range("M32").Value
+
+        ' Greater than 150, then is "East": both conditions hold together.
+        CheckV "filter greater than 150 and is ""East"": East 250 (R31)", wsS.Range("R31").Value, 250
+        CheckV "filter is ""East"" matches east, any case (Q32)", wsS.Range("Q32").Value, "east"
+        Report "filter conditions narrow together: East 75 fails greater-than (Q33 empty)", _
+               Len(CStr(wsS.Range("Q33").Value)) = 0, "got " & wsS.Range("Q33").Value
+
+        ' 99.5 is written with a point on every machine (Str$), so on a
+        ' comma-decimal region these three are the ones that would fail.
+        CheckV "filter less than 99.5: 50 (V31)", wsS.Range("V31").Value, 50
+        CheckV "filter less than 99.5: 75 (V32)", wsS.Range("V32").Value, 75
+        Report "filter less than 99.5: the 100s stayed hidden (U33 empty)", _
+               Len(CStr(wsS.Range("U33").Value)) = 0, "got " & wsS.Range("U33").Value
+
+        ' The end state: "Add filters to" ran on buttons already there,
+        ' then "Clear the filter conditions." - buttons on means neither
+        ' took them away; no filter mode means the conditions went.
+        Report "add filters twice, then clear: the buttons are still on", _
+               wsS.AutoFilterMode = True, "no filter buttons on GSortFilter"
+        If wsS.AutoFilterMode Then
+            CheckV "filters elsewhere refused: the buttons stayed on A20:C27", _
+                   wsS.AutoFilter.Range.Address(False, False), "A20:C27"
+        End If
+        Report "clear the filter conditions: no condition is left", wsS.FilterMode = False, "a filter condition is still set"
+        Report "clear the filter conditions: row 22, hidden by less than 99.5, is showing", _
+               wsS.Rows(22).Hidden = False, "row 22 still hidden"
     End If
 End Sub
 

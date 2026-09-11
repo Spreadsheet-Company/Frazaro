@@ -2722,1550 +2722,2451 @@ vla_tryd_5: ' vla:1832 src:792
     If vlatraceon() Then ' vla:2123
         Call vlatracestep(502, vla_step_text(502)) ' vla:2123
     End If
-    Call worksheets("output").activate
-    vla_step = 503 ' vla:2126
-    If vlatraceon() Then ' vla:2127
-        Call vlatracestep(503, vla_step_text(503)) ' vla:2127
+    On Error GoTo vla_tryf_6 ' vla:2125 src:899
+    vla_step = 503 ' vla:2126 src:899
+    If vlatraceon() Then ' vla:2127 src:899
+        Call vlatracestep(503, vla_step_text(503)) ' vla:2127 src:899
     End If
-    Call tidy_up ' vla:2129 src:895
-    vla_step = 504 ' vla:2130
-    If vlatraceon() Then ' vla:2131
-        Call vlatracestep(504, vla_step_text(504)) ' vla:2131
+    application.displayalerts = False
+    Call worksheets("gsortfilter").delete
+    application.displayalerts = True
+    GoTo vla_tryd_6 ' vla:2130 src:899
+vla_tryf_6: ' vla:2131 src:899
+    vla_problem = err.description ' vla:2132 src:899
+    Resume vla_tryr_6 ' vla:2133 src:899
+vla_tryr_6: ' vla:2134 src:899
+    On Error GoTo vla_fail ' vla:2135 src:899
+vla_tryd_6: ' vla:2136 src:899
+    On Error GoTo vla_fail ' vla:2137 src:899
+    vla_step = 504 ' vla:2138
+    If vlatraceon() Then ' vla:2139
+        Call vlatracestep(504, vla_step_text(504)) ' vla:2139
+    End If
+    Call vlaensuresheet("gsortfilter") ' vla:2141 src:902
+    Call worksheets("gsortfilter").activate
+    vla_step = 505 ' vla:2142
+    If vlatraceon() Then ' vla:2143
+        Call vlatracestep(505, vla_step_text(505)) ' vla:2143
+    End If
+    range("a1") = "Item" ' vla:2145 src:906
+    vla_step = 506 ' vla:2146
+    If vlatraceon() Then ' vla:2147
+        Call vlatracestep(506, vla_step_text(506)) ' vla:2147
+    End If
+    range("b1") = "Qty" ' vla:2149 src:907
+    vla_step = 507 ' vla:2150
+    If vlatraceon() Then ' vla:2151
+        Call vlatracestep(507, vla_step_text(507)) ' vla:2151
+    End If
+    range("a2") = "a" ' vla:2153 src:908
+    vla_step = 508 ' vla:2154
+    If vlatraceon() Then ' vla:2155
+        Call vlatracestep(508, vla_step_text(508)) ' vla:2155
+    End If
+    range("b2") = 2 ' vla:2157 src:909
+    vla_step = 509 ' vla:2158
+    If vlatraceon() Then ' vla:2159
+        Call vlatracestep(509, vla_step_text(509)) ' vla:2159
+    End If
+    range("a3") = "b" ' vla:2161 src:910
+    vla_step = 510 ' vla:2162
+    If vlatraceon() Then ' vla:2163
+        Call vlatracestep(510, vla_step_text(510)) ' vla:2163
+    End If
+    range("b3") = 9 ' vla:2165 src:911
+    vla_step = 511 ' vla:2166
+    If vlatraceon() Then ' vla:2167
+        Call vlatracestep(511, vla_step_text(511)) ' vla:2167
+    End If
+    range("a4") = "c" ' vla:2169 src:912
+    vla_step = 512 ' vla:2170
+    If vlatraceon() Then ' vla:2171
+        Call vlatracestep(512, vla_step_text(512)) ' vla:2171
+    End If
+    range("b4") = 5 ' vla:2173 src:913
+    vla_step = 513 ' vla:2174
+    If vlatraceon() Then ' vla:2175
+        Call vlatracestep(513, vla_step_text(513)) ' vla:2175
+    End If
+    Call activesheet.usedrange.sort(key1:=activesheet.usedrange.columns(vlacolumninrange(activesheet.usedrange, "b")), order1:=xldescending, header:=xlyes)
+    vla_step = 514 ' vla:2178
+    If vlatraceon() Then ' vla:2179
+        Call vlatracestep(514, vla_step_text(514)) ' vla:2179
+    End If
+    range("d1") = "Name" ' vla:2181 src:918
+    vla_step = 515 ' vla:2182
+    If vlatraceon() Then ' vla:2183
+        Call vlatracestep(515, vla_step_text(515)) ' vla:2183
+    End If
+    range("e1") = "Score" ' vla:2185 src:919
+    vla_step = 516 ' vla:2186
+    If vlatraceon() Then ' vla:2187
+        Call vlatracestep(516, vla_step_text(516)) ' vla:2187
+    End If
+    range("d2") = "p" ' vla:2189 src:920
+    vla_step = 517 ' vla:2190
+    If vlatraceon() Then ' vla:2191
+        Call vlatracestep(517, vla_step_text(517)) ' vla:2191
+    End If
+    range("e2") = 3 ' vla:2193 src:921
+    vla_step = 518 ' vla:2194
+    If vlatraceon() Then ' vla:2195
+        Call vlatracestep(518, vla_step_text(518)) ' vla:2195
+    End If
+    range("d3") = "q" ' vla:2197 src:922
+    vla_step = 519 ' vla:2198
+    If vlatraceon() Then ' vla:2199
+        Call vlatracestep(519, vla_step_text(519)) ' vla:2199
+    End If
+    range("e3") = 1 ' vla:2201 src:923
+    vla_step = 520 ' vla:2202
+    If vlatraceon() Then ' vla:2203
+        Call vlatracestep(520, vla_step_text(520)) ' vla:2203
+    End If
+    range("d4") = "r" ' vla:2205 src:924
+    vla_step = 521 ' vla:2206
+    If vlatraceon() Then ' vla:2207
+        Call vlatracestep(521, vla_step_text(521)) ' vla:2207
+    End If
+    range("e4") = 2 ' vla:2209 src:925
+    vla_step = 522 ' vla:2210
+    If vlatraceon() Then ' vla:2211
+        Call vlatracestep(522, vla_step_text(522)) ' vla:2211
+    End If
+    Call range("d1:e4").sort(key1:=range("d1:e4").columns(vlacolumninrange(range("d1:e4"), "e")), order1:=xlascending, header:=xlyes)
+    vla_step = 523 ' vla:2214
+    If vlatraceon() Then ' vla:2215
+        Call vlatracestep(523, vla_step_text(523)) ' vla:2215
+    End If
+    range("g2") = "x" ' vla:2217 src:929
+    vla_step = 524 ' vla:2218
+    If vlatraceon() Then ' vla:2219
+        Call vlatracestep(524, vla_step_text(524)) ' vla:2219
+    End If
+    range("h2") = 5 ' vla:2221 src:930
+    vla_step = 525 ' vla:2222
+    If vlatraceon() Then ' vla:2223
+        Call vlatracestep(525, vla_step_text(525)) ' vla:2223
+    End If
+    range("g3") = "y" ' vla:2225 src:931
+    vla_step = 526 ' vla:2226
+    If vlatraceon() Then ' vla:2227
+        Call vlatracestep(526, vla_step_text(526)) ' vla:2227
+    End If
+    range("h3") = 9 ' vla:2229 src:932
+    vla_step = 527 ' vla:2230
+    If vlatraceon() Then ' vla:2231
+        Call vlatracestep(527, vla_step_text(527)) ' vla:2231
+    End If
+    range("g4") = "z" ' vla:2233 src:933
+    vla_step = 528 ' vla:2234
+    If vlatraceon() Then ' vla:2235
+        Call vlatracestep(528, vla_step_text(528)) ' vla:2235
+    End If
+    range("h4") = 7 ' vla:2237 src:934
+    vla_step = 529 ' vla:2238
+    If vlatraceon() Then ' vla:2239
+        Call vlatracestep(529, vla_step_text(529)) ' vla:2239
+    End If
+    Call range("g2:h4").sort(key1:=range("g2:h4").columns(vlacolumninrange(range("g2:h4"), "h")), order1:=xldescending, header:=xlno)
+    vla_step = 530 ' vla:2242
+    If vlatraceon() Then ' vla:2243
+        Call vlatracestep(530, vla_step_text(530)) ' vla:2243
+    End If
+    range("j1") = "Region" ' vla:2245 src:939
+    vla_step = 531 ' vla:2246
+    If vlatraceon() Then ' vla:2247
+        Call vlatracestep(531, vla_step_text(531)) ' vla:2247
+    End If
+    range("k1") = "Amount" ' vla:2249 src:940
+    vla_step = 532 ' vla:2250
+    If vlatraceon() Then ' vla:2251
+        Call vlatracestep(532, vla_step_text(532)) ' vla:2251
+    End If
+    range("l1") = "Tag" ' vla:2253 src:941
+    vla_step = 533 ' vla:2254
+    If vlatraceon() Then ' vla:2255
+        Call vlatracestep(533, vla_step_text(533)) ' vla:2255
+    End If
+    range("j2") = "West" ' vla:2257 src:942
+    vla_step = 534 ' vla:2258
+    If vlatraceon() Then ' vla:2259
+        Call vlatracestep(534, vla_step_text(534)) ' vla:2259
+    End If
+    range("k2") = 100 ' vla:2261 src:943
+    vla_step = 535 ' vla:2262
+    If vlatraceon() Then ' vla:2263
+        Call vlatracestep(535, vla_step_text(535)) ' vla:2263
+    End If
+    range("l2") = "a" ' vla:2265 src:944
+    vla_step = 536 ' vla:2266
+    If vlatraceon() Then ' vla:2267
+        Call vlatracestep(536, vla_step_text(536)) ' vla:2267
+    End If
+    range("j3") = "East" ' vla:2269 src:945
+    vla_step = 537 ' vla:2270
+    If vlatraceon() Then ' vla:2271
+        Call vlatracestep(537, vla_step_text(537)) ' vla:2271
+    End If
+    range("k3") = 50 ' vla:2273 src:946
+    vla_step = 538 ' vla:2274
+    If vlatraceon() Then ' vla:2275
+        Call vlatracestep(538, vla_step_text(538)) ' vla:2275
+    End If
+    range("l3") = "b" ' vla:2277 src:947
+    vla_step = 539 ' vla:2278
+    If vlatraceon() Then ' vla:2279
+        Call vlatracestep(539, vla_step_text(539)) ' vla:2279
+    End If
+    range("j4") = "West" ' vla:2281 src:948
+    vla_step = 540 ' vla:2282
+    If vlatraceon() Then ' vla:2283
+        Call vlatracestep(540, vla_step_text(540)) ' vla:2283
+    End If
+    range("k4") = 300 ' vla:2285 src:949
+    vla_step = 541 ' vla:2286
+    If vlatraceon() Then ' vla:2287
+        Call vlatracestep(541, vla_step_text(541)) ' vla:2287
+    End If
+    range("l4") = "c" ' vla:2289 src:950
+    vla_step = 542 ' vla:2290
+    If vlatraceon() Then ' vla:2291
+        Call vlatracestep(542, vla_step_text(542)) ' vla:2291
+    End If
+    range("j5") = "East" ' vla:2293 src:951
+    vla_step = 543 ' vla:2294
+    If vlatraceon() Then ' vla:2295
+        Call vlatracestep(543, vla_step_text(543)) ' vla:2295
+    End If
+    range("k5") = 250 ' vla:2297 src:952
+    vla_step = 544 ' vla:2298
+    If vlatraceon() Then ' vla:2299
+        Call vlatracestep(544, vla_step_text(544)) ' vla:2299
+    End If
+    range("l5") = "d" ' vla:2301 src:953
+    vla_step = 545 ' vla:2302
+    If vlatraceon() Then ' vla:2303
+        Call vlatracestep(545, vla_step_text(545)) ' vla:2303
+    End If
+    Call range("j1:l5").sort(key1:=range("j1:l5").columns(vlacolumninrange(range("j1:l5"), "j")), order1:=xlascending, key2:=range("j1:l5").columns(vlacolumninrange(range("j1:l5"), "k")), order2:=xldescending, header:=xlyes)
+    vla_step = 546 ' vla:2306
+    If vlatraceon() Then ' vla:2307
+        Call vlatracestep(546, vla_step_text(546)) ' vla:2307
+    End If
+    range("n2") = 2 ' vla:2309 src:957
+    vla_step = 547 ' vla:2310
+    If vlatraceon() Then ' vla:2311
+        Call vlatracestep(547, vla_step_text(547)) ' vla:2311
+    End If
+    range("o2") = 9 ' vla:2313 src:958
+    vla_step = 548 ' vla:2314
+    If vlatraceon() Then ' vla:2315
+        Call vlatracestep(548, vla_step_text(548)) ' vla:2315
+    End If
+    range("n3") = 1 ' vla:2317 src:959
+    vla_step = 549 ' vla:2318
+    If vlatraceon() Then ' vla:2319
+        Call vlatracestep(549, vla_step_text(549)) ' vla:2319
+    End If
+    range("o3") = 8 ' vla:2321 src:960
+    vla_step = 550 ' vla:2322
+    If vlatraceon() Then ' vla:2323
+        Call vlatracestep(550, vla_step_text(550)) ' vla:2323
+    End If
+    range("n4") = 2 ' vla:2325 src:961
+    vla_step = 551 ' vla:2326
+    If vlatraceon() Then ' vla:2327
+        Call vlatracestep(551, vla_step_text(551)) ' vla:2327
+    End If
+    range("o4") = 7 ' vla:2329 src:962
+    vla_step = 552 ' vla:2330
+    If vlatraceon() Then ' vla:2331
+        Call vlatracestep(552, vla_step_text(552)) ' vla:2331
+    End If
+    Call range("n2:o4").sort(key1:=range("n2:o4").columns(vlacolumninrange(range("n2:o4"), "n")), order1:=xlascending, key2:=range("n2:o4").columns(vlacolumninrange(range("n2:o4"), "o")), order2:=xlascending, header:=xlno)
+    vla_step = 553 ' vla:2334
+    If vlatraceon() Then ' vla:2335
+        Call vlatracestep(553, vla_step_text(553)) ' vla:2335
+    End If
+    range("a40") = "Region" ' vla:2337 src:972
+    vla_step = 554 ' vla:2338
+    If vlatraceon() Then ' vla:2339
+        Call vlatracestep(554, vla_step_text(554)) ' vla:2339
+    End If
+    range("b40") = "Amount" ' vla:2341 src:973
+    vla_step = 555 ' vla:2342
+    If vlatraceon() Then ' vla:2343
+        Call vlatracestep(555, vla_step_text(555)) ' vla:2343
+    End If
+    range("a41") = "West" ' vla:2345 src:974
+    vla_step = 556 ' vla:2346
+    If vlatraceon() Then ' vla:2347
+        Call vlatracestep(556, vla_step_text(556)) ' vla:2347
+    End If
+    range("b41") = 1 ' vla:2349 src:975
+    vla_step = 557 ' vla:2350
+    If vlatraceon() Then ' vla:2351
+        Call vlatracestep(557, vla_step_text(557)) ' vla:2351
+    End If
+    range("a42") = "East" ' vla:2353 src:976
+    vla_step = 558 ' vla:2354
+    If vlatraceon() Then ' vla:2355
+        Call vlatracestep(558, vla_step_text(558)) ' vla:2355
+    End If
+    range("b42") = 2 ' vla:2357 src:977
+    vla_step = 559 ' vla:2358
+    If vlatraceon() Then ' vla:2359
+        Call vlatracestep(559, vla_step_text(559)) ' vla:2359
+    End If
+    range("a43") = "West" ' vla:2361 src:978
+    vla_step = 560 ' vla:2362
+    If vlatraceon() Then ' vla:2363
+        Call vlatracestep(560, vla_step_text(560)) ' vla:2363
+    End If
+    range("b43") = 3 ' vla:2365 src:979
+    vla_step = 561 ' vla:2366
+    If vlatraceon() Then ' vla:2367
+        Call vlatracestep(561, vla_step_text(561)) ' vla:2367
+    End If
+    Call range("a40:b43").autofilter(field:=vlafilterfield(range("a40:b43"), "a"), criteria1:=vlafiltercriterion("at-least", "West"), operator:=xland, criteria2:=vlafiltercriterion("at-most", "West"))
+    vla_step = 562 ' vla:2370
+    If vlatraceon() Then ' vla:2371
+        Call vlatracestep(562, vla_step_text(562)) ' vla:2371
+    End If
+    Call range("a40:b43").specialcells(xlcelltypevisible).copy(destination:=range("d46"))
+    vla_step = 563 ' vla:2374
+    If vlatraceon() Then ' vla:2375
+        Call vlatracestep(563, vla_step_text(563)) ' vla:2375
+    End If
+    activesheet.autofiltermode = False
+    vla_step = 564 ' vla:2378
+    If vlatraceon() Then ' vla:2379
+        Call vlatracestep(564, vla_step_text(564)) ' vla:2379
+    End If
+    On Error GoTo vla_tryf_7 ' vla:2381 src:988
+    vla_step = 565 ' vla:2382 src:988
+    If vlatraceon() Then ' vla:2383 src:988
+        Call vlatracestep(565, vla_step_text(565)) ' vla:2383 src:988
+    End If
+    Call range("a40:b43").autofilter(field:=vlafilterfield(range("a40:b43"), "b"), criteria1:=vlafiltercriterion("greater", "abc"))
+    GoTo vla_tryd_7 ' vla:2386 src:988
+vla_tryf_7: ' vla:2387 src:988
+    vla_problem = err.description ' vla:2388 src:988
+    Resume vla_tryr_7 ' vla:2389 src:988
+vla_tryr_7: ' vla:2390 src:988
+    On Error GoTo vla_fail ' vla:2391 src:988
+vla_tryd_7: ' vla:2392 src:988
+    On Error GoTo vla_fail ' vla:2393 src:988
+    vla_step = 566 ' vla:2394
+    If vlatraceon() Then ' vla:2395
+        Call vlatracestep(566, vla_step_text(566)) ' vla:2395
+    End If
+    range("a20") = "Region" ' vla:2397 src:994
+    vla_step = 567 ' vla:2398
+    If vlatraceon() Then ' vla:2399
+        Call vlatracestep(567, vla_step_text(567)) ' vla:2399
+    End If
+    range("b20") = "Amount" ' vla:2401 src:995
+    vla_step = 568 ' vla:2402
+    If vlatraceon() Then ' vla:2403
+        Call vlatracestep(568, vla_step_text(568)) ' vla:2403
+    End If
+    range("c20") = "Code" ' vla:2405 src:996
+    vla_step = 569 ' vla:2406
+    If vlatraceon() Then ' vla:2407
+        Call vlatracestep(569, vla_step_text(569)) ' vla:2407
+    End If
+    range("a21") = "West" ' vla:2409 src:997
+    vla_step = 570 ' vla:2410
+    If vlatraceon() Then ' vla:2411
+        Call vlatracestep(570, vla_step_text(570)) ' vla:2411
+    End If
+    range("b21") = 100 ' vla:2413 src:998
+    vla_step = 571 ' vla:2414
+    If vlatraceon() Then ' vla:2415
+        Call vlatracestep(571, vla_step_text(571)) ' vla:2415
+    End If
+    range("c21") = "5*3" ' vla:2417 src:999
+    vla_step = 572 ' vla:2418
+    If vlatraceon() Then ' vla:2419
+        Call vlatracestep(572, vla_step_text(572)) ' vla:2419
+    End If
+    range("a22") = "East" ' vla:2421 src:1000
+    vla_step = 573 ' vla:2422
+    If vlatraceon() Then ' vla:2423
+        Call vlatracestep(573, vla_step_text(573)) ' vla:2423
+    End If
+    range("b22") = 250 ' vla:2425 src:1001
+    vla_step = 574 ' vla:2426
+    If vlatraceon() Then ' vla:2427
+        Call vlatracestep(574, vla_step_text(574)) ' vla:2427
+    End If
+    range("c22") = "53" ' vla:2429 src:1002
+    vla_step = 575 ' vla:2430
+    If vlatraceon() Then ' vla:2431
+        Call vlatracestep(575, vla_step_text(575)) ' vla:2431
+    End If
+    range("a23") = "Western" ' vla:2433 src:1003
+    vla_step = 576 ' vla:2434
+    If vlatraceon() Then ' vla:2435
+        Call vlatracestep(576, vla_step_text(576)) ' vla:2435
+    End If
+    range("b23") = 100 ' vla:2437 src:1004
+    vla_step = 577 ' vla:2438
+    If vlatraceon() Then ' vla:2439
+        Call vlatracestep(577, vla_step_text(577)) ' vla:2439
+    End If
+    range("c23") = "x" ' vla:2441 src:1005
+    vla_step = 578 ' vla:2442
+    If vlatraceon() Then ' vla:2443
+        Call vlatracestep(578, vla_step_text(578)) ' vla:2443
+    End If
+    range("a24") = "West" ' vla:2445 src:1006
+    vla_step = 579 ' vla:2446
+    If vlatraceon() Then ' vla:2447
+        Call vlatracestep(579, vla_step_text(579)) ' vla:2447
+    End If
+    range("b24") = 50 ' vla:2449 src:1007
+    vla_step = 580 ' vla:2450
+    If vlatraceon() Then ' vla:2451
+        Call vlatracestep(580, vla_step_text(580)) ' vla:2451
+    End If
+    range("c24") = "y" ' vla:2453 src:1008
+    vla_step = 581 ' vla:2454
+    If vlatraceon() Then ' vla:2455
+        Call vlatracestep(581, vla_step_text(581)) ' vla:2455
+    End If
+    range("a25") = "east" ' vla:2457 src:1009
+    vla_step = 582 ' vla:2458
+    If vlatraceon() Then ' vla:2459
+        Call vlatracestep(582, vla_step_text(582)) ' vla:2459
+    End If
+    range("b25") = 300 ' vla:2461 src:1010
+    vla_step = 583 ' vla:2462
+    If vlatraceon() Then ' vla:2463
+        Call vlatracestep(583, vla_step_text(583)) ' vla:2463
+    End If
+    range("c25") = "z" ' vla:2465 src:1011
+    vla_step = 584 ' vla:2466
+    If vlatraceon() Then ' vla:2467
+        Call vlatracestep(584, vla_step_text(584)) ' vla:2467
+    End If
+    range("a26") = "North" ' vla:2469 src:1012
+    vla_step = 585 ' vla:2470
+    If vlatraceon() Then ' vla:2471
+        Call vlatracestep(585, vla_step_text(585)) ' vla:2471
+    End If
+    range("b26") = 175 ' vla:2473 src:1013
+    vla_step = 586 ' vla:2474
+    If vlatraceon() Then ' vla:2475
+        Call vlatracestep(586, vla_step_text(586)) ' vla:2475
+    End If
+    range("c26") = "w" ' vla:2477 src:1014
+    vla_step = 587 ' vla:2478
+    If vlatraceon() Then ' vla:2479
+        Call vlatracestep(587, vla_step_text(587)) ' vla:2479
+    End If
+    range("a27") = "East" ' vla:2481 src:1015
+    vla_step = 588 ' vla:2482
+    If vlatraceon() Then ' vla:2483
+        Call vlatracestep(588, vla_step_text(588)) ' vla:2483
+    End If
+    range("b27") = 75 ' vla:2485 src:1016
+    vla_step = 589 ' vla:2486
+    If vlatraceon() Then ' vla:2487
+        Call vlatracestep(589, vla_step_text(589)) ' vla:2487
+    End If
+    range("c27") = "v" ' vla:2489 src:1017
+    vla_step = 590 ' vla:2490
+    If vlatraceon() Then ' vla:2491
+        Call vlatracestep(590, vla_step_text(590)) ' vla:2491
+    End If
+    range("b21:b27").numberformat = vlanumberformatcode("dollars", 2)
+    vla_step = 591 ' vla:2494
+    If vlatraceon() Then ' vla:2495
+        Call vlatracestep(591, vla_step_text(591)) ' vla:2495
+    End If
+    Call range("a20:c27").autofilter(field:=vlafilterfield(range("a20:c27"), "a"), criteria1:=vlafiltercriterion("at-least", "West"), operator:=xland, criteria2:=vlafiltercriterion("at-most", "West"))
+    vla_step = 592 ' vla:2498
+    If vlatraceon() Then ' vla:2499
+        Call vlatracestep(592, vla_step_text(592)) ' vla:2499
+    End If
+    Call range("a20:c27").specialcells(xlcelltypevisible).copy(destination:=range("e30"))
+    vla_step = 593 ' vla:2502
+    If vlatraceon() Then ' vla:2503
+        Call vlatracestep(593, vla_step_text(593)) ' vla:2503
+    End If
+    On Error Resume Next
+    Call activesheet.showalldata
+    On Error GoTo 0
+    vla_step = 594 ' vla:2506
+    If vlatraceon() Then ' vla:2507
+        Call vlatracestep(594, vla_step_text(594)) ' vla:2507
+    End If
+    Call range("a20:c27").autofilter(field:=vlafilterfield(range("a20:c27"), "b"), criteria1:=vlafiltercriterion("at-least", 100), operator:=xland, criteria2:=vlafiltercriterion("at-most", 100))
+    vla_step = 595 ' vla:2510
+    If vlatraceon() Then ' vla:2511
+        Call vlatracestep(595, vla_step_text(595)) ' vla:2511
+    End If
+    Call range("a20:c27").specialcells(xlcelltypevisible).copy(destination:=range("i30"))
+    vla_step = 596 ' vla:2514
+    If vlatraceon() Then ' vla:2515
+        Call vlatracestep(596, vla_step_text(596)) ' vla:2515
+    End If
+    On Error Resume Next
+    Call activesheet.showalldata
+    On Error GoTo 0
+    vla_step = 597 ' vla:2518
+    If vlatraceon() Then ' vla:2519
+        Call vlatracestep(597, vla_step_text(597)) ' vla:2519
+    End If
+    Call range("a20:c27").autofilter(field:=vlafilterfield(range("a20:c27"), "c"), criteria1:=vlafiltercriterion("contains", "*"))
+    vla_step = 598 ' vla:2522
+    If vlatraceon() Then ' vla:2523
+        Call vlatracestep(598, vla_step_text(598)) ' vla:2523
+    End If
+    Call range("a20:c27").specialcells(xlcelltypevisible).copy(destination:=range("m30"))
+    vla_step = 599 ' vla:2526
+    If vlatraceon() Then ' vla:2527
+        Call vlatracestep(599, vla_step_text(599)) ' vla:2527
+    End If
+    On Error Resume Next
+    Call activesheet.showalldata
+    On Error GoTo 0
+    vla_step = 600 ' vla:2530
+    If vlatraceon() Then ' vla:2531
+        Call vlatracestep(600, vla_step_text(600)) ' vla:2531
+    End If
+    Call range("a20:c27").autofilter(field:=vlafilterfield(range("a20:c27"), "b"), criteria1:=vlafiltercriterion("greater", 150))
+    vla_step = 601 ' vla:2534
+    If vlatraceon() Then ' vla:2535
+        Call vlatracestep(601, vla_step_text(601)) ' vla:2535
+    End If
+    Call range("a20:c27").autofilter(field:=vlafilterfield(range("a20:c27"), "a"), criteria1:=vlafiltercriterion("at-least", "East"), operator:=xland, criteria2:=vlafiltercriterion("at-most", "East"))
+    vla_step = 602 ' vla:2538
+    If vlatraceon() Then ' vla:2539
+        Call vlatracestep(602, vla_step_text(602)) ' vla:2539
+    End If
+    Call range("a20:c27").specialcells(xlcelltypevisible).copy(destination:=range("q30"))
+    vla_step = 603 ' vla:2542
+    If vlatraceon() Then ' vla:2543
+        Call vlatracestep(603, vla_step_text(603)) ' vla:2543
+    End If
+    On Error Resume Next
+    Call activesheet.showalldata
+    On Error GoTo 0
+    vla_step = 604 ' vla:2546
+    If vlatraceon() Then ' vla:2547
+        Call vlatracestep(604, vla_step_text(604)) ' vla:2547
+    End If
+    Call range("a20:c27").autofilter(field:=vlafilterfield(range("a20:c27"), "b"), criteria1:=vlafiltercriterion("less", 99.5))
+    vla_step = 605 ' vla:2550
+    If vlatraceon() Then ' vla:2551
+        Call vlatracestep(605, vla_step_text(605)) ' vla:2551
+    End If
+    Call range("a20:c27").specialcells(xlcelltypevisible).copy(destination:=range("u30"))
+    vla_step = 606 ' vla:2554
+    If vlatraceon() Then ' vla:2555
+        Call vlatracestep(606, vla_step_text(606)) ' vla:2555
+    End If
+    Call vlaaddfilters(range("a20:c27"))
+    vla_step = 607 ' vla:2558
+    If vlatraceon() Then ' vla:2559
+        Call vlatracestep(607, vla_step_text(607)) ' vla:2559
+    End If
+    On Error Resume Next
+    Call activesheet.showalldata
+    On Error GoTo 0
+    vla_step = 608 ' vla:2562
+    If vlatraceon() Then ' vla:2563
+        Call vlatracestep(608, vla_step_text(608)) ' vla:2563
+    End If
+    On Error GoTo vla_tryf_8 ' vla:2565 src:1051
+    vla_step = 609 ' vla:2566 src:1051
+    If vlatraceon() Then ' vla:2567 src:1051
+        Call vlatracestep(609, vla_step_text(609)) ' vla:2567 src:1051
+    End If
+    Call vlaaddfilters(range("a40:b43"))
+    GoTo vla_tryd_8 ' vla:2570 src:1051
+vla_tryf_8: ' vla:2571 src:1051
+    vla_problem = err.description ' vla:2572 src:1051
+    Resume vla_tryr_8 ' vla:2573 src:1051
+vla_tryr_8: ' vla:2574 src:1051
+    On Error GoTo vla_fail ' vla:2575 src:1051
+vla_tryd_8: ' vla:2576 src:1051
+    On Error GoTo vla_fail ' vla:2577 src:1051
+    vla_step = 610 ' vla:2578
+    If vlatraceon() Then ' vla:2579
+        Call vlatracestep(610, vla_step_text(610)) ' vla:2579
+    End If
+    Call worksheets("output").activate
+    vla_step = 611 ' vla:2582
+    If vlatraceon() Then ' vla:2583
+        Call vlatracestep(611, vla_step_text(611)) ' vla:2583
+    End If
+    Call tidy_up ' vla:2585 src:1056
+    vla_step = 612 ' vla:2586
+    If vlatraceon() Then ' vla:2587
+        Call vlatracestep(612, vla_step_text(612)) ' vla:2587
     End If
     application.screenupdating = True
-    vla_step = 505 ' vla:2134
-    If vlatraceon() Then ' vla:2135
-        Call vlatracestep(505, vla_step_text(505)) ' vla:2135
+    vla_step = 613 ' vla:2590
+    If vlatraceon() Then ' vla:2591
+        Call vlatracestep(613, vla_step_text(613)) ' vla:2591
     End If
-    Debug.Print "report finished" ' vla:2137 src:897
-    Exit Sub ' vla:2138
-vla_fail: ' vla:2139
-    Call vla_report_error ' vla:2140
+    Debug.Print "report finished" ' vla:2593 src:1058
+    Exit Sub ' vla:2594
+vla_fail: ' vla:2595
+    Call vla_report_error ' vla:2596
 End Sub
 
 Public Sub vla_report_error()
-    Call vlashowerror(("Something went wrong at step " & vla_step & ":" & vbcrlf & vbcrlf & vla_step_text(vla_step) & vbcrlf & vbcrlf & "Excel says: " & err.description)) ' vla:2143
+    Call vlashowerror(("Something went wrong at step " & vla_step & ":" & vbcrlf & vbcrlf & vla_step_text(vla_step) & vbcrlf & vbcrlf & "Excel says: " & err.description)) ' vla:2599
 End Sub
 
 Public Function vla_step_text(ByVal n As Long) As String
-    Select Case n ' vla:2148
+    Select Case n ' vla:2604
         Case 1
-            vla_step_text = "Work on sheet Output. [line 18]" ' vla:2149
+            vla_step_text = "Work on sheet Output. [line 18]" ' vla:2605
             Exit Function
         Case 2
-            vla_step_text = "Turn off screen updating. [line 20]" ' vla:2150
+            vla_step_text = "Turn off screen updating. [line 20]" ' vla:2606
             Exit Function
         Case 3
-            vla_step_text = "Create a number called total. [line 21]" ' vla:2151
+            vla_step_text = "Create a number called total. [line 21]" ' vla:2607
             Exit Function
         Case 4
-            vla_step_text = "Set total to 0. [line 22]" ' vla:2152
+            vla_step_text = "Set total to 0. [line 22]" ' vla:2608
             Exit Function
         Case 5
-            vla_step_text = "Put ""Test Report"" into cell A1. [line 23]" ' vla:2153
+            vla_step_text = "Put ""Test Report"" into cell A1. [line 23]" ' vla:2609
             Exit Function
         Case 6
-            vla_step_text = "Make cell A1 bold. [line 24]" ' vla:2154
+            vla_step_text = "Make cell A1 bold. [line 24]" ' vla:2610
             Exit Function
         Case 7
-            vla_step_text = "Set font size of cell A1 to 14. [line 25]" ' vla:2155
+            vla_step_text = "Set font size of cell A1 to 14. [line 25]" ' vla:2611
             Exit Function
         Case 8
-            vla_step_text = "Put today into cell D1. [line 26]" ' vla:2156
+            vla_step_text = "Put today into cell D1. [line 26]" ' vla:2612
             Exit Function
         Case 9
-            vla_step_text = "Repeat 5 times: [line 28]" ' vla:2157
+            vla_step_text = "Repeat 5 times: [line 28]" ' vla:2613
             Exit Function
         Case 10
-            vla_step_text = "Increase total by counter. [line 29]" ' vla:2158
+            vla_step_text = "Increase total by counter. [line 29]" ' vla:2614
             Exit Function
         Case 11
-            vla_step_text = "If counter is divisible by 2, log ""even step "" joined with counter. [line 30]" ' vla:2159
+            vla_step_text = "If counter is divisible by 2, log ""even step "" joined with counter. [line 30]" ' vla:2615
             Exit Function
         Case 12
-            vla_step_text = "Put total into cell B2. [line 32]" ' vla:2160
+            vla_step_text = "Put total into cell B2. [line 32]" ' vla:2616
             Exit Function
         Case 13
-            vla_step_text = "Put formula ""=B2*2"" into cell B3. [line 33]" ' vla:2161
+            vla_step_text = "Put formula ""=B2*2"" into cell B3. [line 33]" ' vla:2617
             Exit Function
         Case 14
-            vla_step_text = "Put sum of range ""B2:B3"" into cell B4. [line 37]" ' vla:2162
+            vla_step_text = "Put sum of range ""B2:B3"" into cell B4. [line 37]" ' vla:2618
             Exit Function
         Case 15
-            vla_step_text = "Set grand to sum of range B2:B3. [line 38]" ' vla:2163
+            vla_step_text = "Set grand to sum of range B2:B3. [line 38]" ' vla:2619
             Exit Function
         Case 16
-            vla_step_text = "Log ""grand is "" joined with grand. [line 39]" ' vla:2164
+            vla_step_text = "Log ""grand is "" joined with grand. [line 39]" ' vla:2620
             Exit Function
         Case 17
-            vla_step_text = "If grand is greater than 40: [line 43]" ' vla:2165
+            vla_step_text = "If grand is greater than 40: [line 43]" ' vla:2621
             Exit Function
         Case 18
-            vla_step_text = "Put ""PASS"" into cell C4. [line 44]" ' vla:2166
+            vla_step_text = "Put ""PASS"" into cell C4. [line 44]" ' vla:2622
             Exit Function
         Case 19
-            vla_step_text = "Repeat 2 times: [line 45]" ' vla:2167
+            vla_step_text = "Repeat 2 times: [line 45]" ' vla:2623
             Exit Function
         Case 20
-            vla_step_text = "Log ""pass check "" joined with counter. [line 46]" ' vla:2168
+            vla_step_text = "Log ""pass check "" joined with counter. [line 46]" ' vla:2624
             Exit Function
         Case 21
-            vla_step_text = "Make cell C4 bold. [line 48]" ' vla:2169
+            vla_step_text = "Make cell C4 bold. [line 48]" ' vla:2625
             Exit Function
         Case 22
-            vla_step_text = "Put ""CHECK"" into cell C4. [line 51]" ' vla:2170
+            vla_step_text = "Put ""CHECK"" into cell C4. [line 51]" ' vla:2626
             Exit Function
         Case 23
-            vla_step_text = "If grand is at least 45, make cell C4 yellow. [line 53]" ' vla:2171
+            vla_step_text = "If grand is at least 45, make cell C4 yellow. [line 53]" ' vla:2627
             Exit Function
         Case 24
-            vla_step_text = "Create a text called label. [line 54]" ' vla:2172
+            vla_step_text = "Create a text called label. [line 54]" ' vla:2628
             Exit Function
         Case 25
-            vla_step_text = "Set label to ""Total: "" joined with total. [line 55]" ' vla:2173
+            vla_step_text = "Set label to ""Total: "" joined with total. [line 55]" ' vla:2629
             Exit Function
         Case 26
-            vla_step_text = "Put label into cell A6. [line 56]" ' vla:2174
+            vla_step_text = "Put label into cell A6. [line 56]" ' vla:2630
             Exit Function
         Case 27
-            vla_step_text = "Set font-color of cell A6 to hot-pink. [line 57]" ' vla:2175
+            vla_step_text = "Set font-color of cell A6 to hot-pink. [line 57]" ' vla:2631
             Exit Function
         Case 28
-            vla_step_text = "Remember range B2:B4 as results. [line 58]" ' vla:2176
+            vla_step_text = "Remember range B2:B4 as results. [line 58]" ' vla:2632
             Exit Function
         Case 29
-            vla_step_text = "For each r in results, log r. [line 59]" ' vla:2177
+            vla_step_text = "For each r in results, log r. [line 59]" ' vla:2633
             Exit Function
         Case 30
-            vla_step_text = "Set biggest to largest of results. [line 60]" ' vla:2178
+            vla_step_text = "Set biggest to largest of results. [line 60]" ' vla:2634
             Exit Function
         Case 31
-            vla_step_text = "Log ""largest result is "" joined with biggest joined with "", label length "" joined with length of label. [line 61]" ' vla:2179
+            vla_step_text = "Log ""largest result is "" joined with biggest joined with "", label length "" joined with length of label. [line 61]" ' vla:2635
             Exit Function
         Case 32
-            vla_step_text = "Repeat 3 times: [line 64]" ' vla:2180
+            vla_step_text = "Repeat 3 times: [line 64]" ' vla:2636
             Exit Function
         Case 33
-            vla_step_text = "Put counter times 10 into column E row counter. [line 65]" ' vla:2181
+            vla_step_text = "Put counter times 10 into column E row counter. [line 65]" ' vla:2637
             Exit Function
         Case 34
-            vla_step_text = "Set probe to cell in column E row 2. [line 67]" ' vla:2182
+            vla_step_text = "Set probe to cell in column E row 2. [line 67]" ' vla:2638
             Exit Function
         Case 35
-            vla_step_text = "Create a text called num-col-check. [line 68]" ' vla:2183
+            vla_step_text = "Create a text called num-col-check. [line 68]" ' vla:2639
             Exit Function
         Case 36
-            vla_step_text = "If cell in column number 5 row 2 is 20, set num-col-check to ""yes"". [line 69]" ' vla:2184
+            vla_step_text = "If cell in column number 5 row 2 is 20, set num-col-check to ""yes"". [line 69]" ' vla:2640
             Exit Function
         Case 37
-            vla_step_text = "Create a text called value-word-check. [line 70]" ' vla:2185
+            vla_step_text = "Create a text called value-word-check. [line 70]" ' vla:2641
             Exit Function
         Case 38
-            vla_step_text = "If value in column number 5 row 3 is 30, set value-word-check to ""ok"". [line 71]" ' vla:2186
+            vla_step_text = "If value in column number 5 row 3 is 30, set value-word-check to ""ok"". [line 71]" ' vla:2642
             Exit Function
         Case 39
-            vla_step_text = "Put ""bang"" into cell Output!H16. [line 72]" ' vla:2187
+            vla_step_text = "Put ""bang"" into cell Output!H16. [line 72]" ' vla:2643
             Exit Function
         Case 40
-            vla_step_text = "Center cell A1. [line 73]" ' vla:2188
+            vla_step_text = "Center cell A1. [line 73]" ' vla:2644
             Exit Function
         Case 41
-            vla_step_text = "Set width of column D to 24. [line 74]" ' vla:2189
+            vla_step_text = "Set width of column D to 24. [line 74]" ' vla:2645
             Exit Function
         Case 42
-            vla_step_text = "Set round-check to 3.14159 rounded to 2 decimals. [line 75]" ' vla:2190
+            vla_step_text = "Set round-check to 3.14159 rounded to 2 decimals. [line 75]" ' vla:2646
             Exit Function
         Case 43
-            vla_step_text = "Log ""rounded is "" joined with round-check. [line 76]" ' vla:2191
+            vla_step_text = "Log ""rounded is "" joined with round-check. [line 76]" ' vla:2647
             Exit Function
         Case 44
-            vla_step_text = "Set thousand-check to 1,000 plus 500. [line 77]" ' vla:2192
+            vla_step_text = "Set thousand-check to 1,000 plus 500. [line 77]" ' vla:2648
             Exit Function
         Case 45
-            vla_step_text = "Log ""thousands read as "" joined with thousand-check. [line 78]" ' vla:2193
+            vla_step_text = "Log ""thousands read as "" joined with thousand-check. [line 78]" ' vla:2649
             Exit Function
         Case 46
-            vla_step_text = "Log ""probe is "" joined with probe. [line 79]" ' vla:2194
+            vla_step_text = "Log ""probe is "" joined with probe. [line 79]" ' vla:2650
             Exit Function
         Case 47
-            vla_step_text = "Create a number called countdown. [line 81]" ' vla:2195
+            vla_step_text = "Create a number called countdown. [line 81]" ' vla:2651
             Exit Function
         Case 48
-            vla_step_text = "Set countdown to 3. [line 82]" ' vla:2196
+            vla_step_text = "Set countdown to 3. [line 82]" ' vla:2652
             Exit Function
         Case 49
-            vla_step_text = "While countdown is greater than 0: [line 83]" ' vla:2197
+            vla_step_text = "While countdown is greater than 0: [line 83]" ' vla:2653
             Exit Function
         Case 50
-            vla_step_text = "Log ""countdown "" joined with countdown. [line 84]" ' vla:2198
+            vla_step_text = "Log ""countdown "" joined with countdown. [line 84]" ' vla:2654
             Exit Function
         Case 51
-            vla_step_text = "Decrease countdown by 1. [line 85]" ' vla:2199
+            vla_step_text = "Decrease countdown by 1. [line 85]" ' vla:2655
             Exit Function
         Case 52
-            vla_step_text = "Put value into column F row row-number. [line 90]" ' vla:2200
+            vla_step_text = "Put value into column F row row-number. [line 90]" ' vla:2656
             Exit Function
         Case 53
-            vla_step_text = "Stamp. [line 92]" ' vla:2201
+            vla_step_text = "Stamp. [line 92]" ' vla:2657
             Exit Function
         Case 54
-            vla_step_text = "Stamp with row-number of 2 and value of ""beta"". [line 93]" ' vla:2202
+            vla_step_text = "Stamp with row-number of 2 and value of ""beta"". [line 93]" ' vla:2658
             Exit Function
         Case 55
-            vla_step_text = "Set f-last to last filled row of column F. [line 94]" ' vla:2203
+            vla_step_text = "Set f-last to last filled row of column F. [line 94]" ' vla:2659
             Exit Function
         Case 56
-            vla_step_text = "Log ""column F filled to row "" joined with f-last. [line 95]" ' vla:2204
+            vla_step_text = "Log ""column F filled to row "" joined with f-last. [line 95]" ' vla:2660
             Exit Function
         Case 57
-            vla_step_text = "Count echo-row from 1 to f-last, log ""echo "" joined with echo-row. [line 96]" ' vla:2205
+            vla_step_text = "Count echo-row from 1 to f-last, log ""echo "" joined with echo-row. [line 96]" ' vla:2661
             Exit Function
         Case 58
-            vla_step_text = "Count check-row from 1 to f-last: [line 97]" ' vla:2206
+            vla_step_text = "Count check-row from 1 to f-last: [line 97]" ' vla:2662
             Exit Function
         Case 59
-            vla_step_text = "If cell in column F row check-row contains ""ok"", make cell in column F row check-row bold. [line 98]" ' vla:2207
+            vla_step_text = "If cell in column F row check-row contains ""ok"", make cell in column F row check-row bold. [line 98]" ' vla:2663
             Exit Function
         Case 60
-            vla_step_text = "Count stripe-row from 1 to f-last step 2: [line 103]" ' vla:2208
+            vla_step_text = "Count stripe-row from 1 to f-last step 2: [line 103]" ' vla:2664
             Exit Function
         Case 61
-            vla_step_text = "Make cell in column F row stripe-row bold. [line 104]" ' vla:2209
+            vla_step_text = "Make cell in column F row stripe-row bold. [line 104]" ' vla:2665
             Exit Function
         Case 62
-            vla_step_text = "Count back-row down from f-last to 1 step 2: [line 106]" ' vla:2210
+            vla_step_text = "Count back-row down from f-last to 1 step 2: [line 106]" ' vla:2666
             Exit Function
         Case 63
-            vla_step_text = "Log ""back-row "" joined with back-row. [line 107]" ' vla:2211
+            vla_step_text = "Log ""back-row "" joined with back-row. [line 107]" ' vla:2667
             Exit Function
         Case 64
-            vla_step_text = "Count search-row from 1 to 10: [line 111]" ' vla:2212
+            vla_step_text = "Count search-row from 1 to 10: [line 111]" ' vla:2668
             Exit Function
         Case 65
-            vla_step_text = "If search-row is 3, stop the loop. [line 112]" ' vla:2213
+            vla_step_text = "If search-row is 3, stop the loop. [line 112]" ' vla:2669
             Exit Function
         Case 66
-            vla_step_text = "Log ""stopped at "" joined with search-row. [line 114]" ' vla:2214
+            vla_step_text = "Log ""stopped at "" joined with search-row. [line 114]" ' vla:2670
             Exit Function
         Case 67
-            vla_step_text = "Create a list called found-items. [line 119]" ' vla:2215
+            vla_step_text = "Create a list called found-items. [line 119]" ' vla:2671
             Exit Function
         Case 68
-            vla_step_text = "Repeat 4 times: [line 120]" ' vla:2216
+            vla_step_text = "Repeat 4 times: [line 120]" ' vla:2672
             Exit Function
         Case 69
-            vla_step_text = "If counter is greater than 2, append counter times 100 to found-items. [line 121]" ' vla:2217
+            vla_step_text = "If counter is greater than 2, append counter times 100 to found-items. [line 121]" ' vla:2673
             Exit Function
         Case 70
-            vla_step_text = "For each f in found-items, log ""found "" joined with f. [line 123]" ' vla:2218
+            vla_step_text = "For each f in found-items, log ""found "" joined with f. [line 123]" ' vla:2674
             Exit Function
         Case 71
-            vla_step_text = "Set list-count to count of found-items. [line 124]" ' vla:2219
+            vla_step_text = "Set list-count to count of found-items. [line 124]" ' vla:2675
             Exit Function
         Case 72
-            vla_step_text = "Log ""list holds "" joined with list-count. [line 125]" ' vla:2220
+            vla_step_text = "Log ""list holds "" joined with list-count. [line 125]" ' vla:2676
             Exit Function
         Case 73
-            vla_step_text = "Create a text called verdict. [line 131]" ' vla:2221
+            vla_step_text = "Create a text called verdict. [line 131]" ' vla:2677
             Exit Function
         Case 74
-            vla_step_text = "If grand is greater than 100: [line 132]" ' vla:2222
+            vla_step_text = "If grand is greater than 100: [line 132]" ' vla:2678
             Exit Function
         Case 75
-            vla_step_text = "Set verdict to ""huge"". [line 133]" ' vla:2223
+            vla_step_text = "Set verdict to ""huge"". [line 133]" ' vla:2679
             Exit Function
         Case 76
-            vla_step_text = "Set verdict to ""solid"". [line 136]" ' vla:2224
+            vla_step_text = "Set verdict to ""solid"". [line 136]" ' vla:2680
             Exit Function
         Case 77
-            vla_step_text = "Set verdict to ""small"". [line 139]" ' vla:2225
+            vla_step_text = "Set verdict to ""small"". [line 139]" ' vla:2681
             Exit Function
         Case 78
-            vla_step_text = "Create a text called region-label. [line 141]" ' vla:2226
+            vla_step_text = "Create a text called region-label. [line 141]" ' vla:2682
             Exit Function
         Case 79
-            vla_step_text = "Set region to ""South"". [line 142]" ' vla:2227
+            vla_step_text = "Set region to ""South"". [line 142]" ' vla:2683
             Exit Function
         Case 80
-            vla_step_text = "When region is ""North"": [line 143]" ' vla:2228
+            vla_step_text = "When region is ""North"": [line 143]" ' vla:2684
             Exit Function
         Case 81
-            vla_step_text = "Set region-label to ""cold"". [line 144]" ' vla:2229
+            vla_step_text = "Set region-label to ""cold"". [line 144]" ' vla:2685
             Exit Function
         Case 82
-            vla_step_text = "Set region-label to ""warm"". [line 147]" ' vla:2230
+            vla_step_text = "Set region-label to ""warm"". [line 147]" ' vla:2686
             Exit Function
         Case 83
-            vla_step_text = "Set region-label to ""unknown"". [line 150]" ' vla:2231
+            vla_step_text = "Set region-label to ""unknown"". [line 150]" ' vla:2687
             Exit Function
         Case 84
-            vla_step_text = "Log ""verdict "" joined with verdict joined with "", region "" joined with region-label. [line 152]" ' vla:2232
+            vla_step_text = "Log ""verdict "" joined with verdict joined with "", region "" joined with region-label. [line 152]" ' vla:2688
             Exit Function
         Case 85
-            vla_step_text = "Create a number called until-count. [line 154]" ' vla:2233
+            vla_step_text = "Create a number called until-count. [line 154]" ' vla:2689
             Exit Function
         Case 86
-            vla_step_text = "Set fuel to 3. [line 155]" ' vla:2234
+            vla_step_text = "Set fuel to 3. [line 155]" ' vla:2690
             Exit Function
         Case 87
-            vla_step_text = "Repeat until fuel is 0: [line 156]" ' vla:2235
+            vla_step_text = "Repeat until fuel is 0: [line 156]" ' vla:2691
             Exit Function
         Case 88
-            vla_step_text = "Decrease fuel by 1. [line 157]" ' vla:2236
+            vla_step_text = "Decrease fuel by 1. [line 157]" ' vla:2692
             Exit Function
         Case 89
-            vla_step_text = "Increase until-count by 1. [line 158]" ' vla:2237
+            vla_step_text = "Increase until-count by 1. [line 158]" ' vla:2693
             Exit Function
         Case 90
-            vla_step_text = "Log ""repeat-until ran "" joined with until-count joined with "" times"". [line 160]" ' vla:2238
+            vla_step_text = "Log ""repeat-until ran "" joined with until-count joined with "" times"". [line 160]" ' vla:2694
             Exit Function
         Case 91
-            vla_step_text = "Create a text called rescue. [line 166]" ' vla:2239
+            vla_step_text = "Create a text called rescue. [line 166]" ' vla:2695
             Exit Function
         Case 92
-            vla_step_text = "Try: [line 167]" ' vla:2240
+            vla_step_text = "Try: [line 167]" ' vla:2696
             Exit Function
         Case 93
-            vla_step_text = "Go to sheet Nowhere-Land. [line 168]" ' vla:2241
+            vla_step_text = "Go to sheet Nowhere-Land. [line 168]" ' vla:2697
             Exit Function
         Case 94
-            vla_step_text = "Set rescue to ""unreachable"". [line 169]" ' vla:2242
+            vla_step_text = "Set rescue to ""unreachable"". [line 169]" ' vla:2698
             Exit Function
         Case 95
-            vla_step_text = "Log ""the problem was "" joined with the problem. [line 172]" ' vla:2243
+            vla_step_text = "Log ""the problem was "" joined with the problem. [line 172]" ' vla:2699
             Exit Function
         Case 96
-            vla_step_text = "If the problem is not empty, set rescue to ""rescued"". [line 173]" ' vla:2244
+            vla_step_text = "If the problem is not empty, set rescue to ""rescued"". [line 173]" ' vla:2700
             Exit Function
         Case 97
-            vla_step_text = "Create a number called risk-free. [line 175]" ' vla:2245
+            vla_step_text = "Create a number called risk-free. [line 175]" ' vla:2701
             Exit Function
         Case 98
-            vla_step_text = "Try: [line 176]" ' vla:2246
+            vla_step_text = "Try: [line 176]" ' vla:2702
             Exit Function
         Case 99
-            vla_step_text = "Set risk-free to 7. [line 177]" ' vla:2247
+            vla_step_text = "Set risk-free to 7. [line 177]" ' vla:2703
             Exit Function
         Case 100
-            vla_step_text = "Set risk-free to -1. [line 180]" ' vla:2248
+            vla_step_text = "Set risk-free to -1. [line 180]" ' vla:2704
             Exit Function
         Case 101
-            vla_step_text = "Log ""rescue "" joined with rescue joined with "", risk-free "" joined with risk-free. [line 182]" ' vla:2249
+            vla_step_text = "Log ""rescue "" joined with rescue joined with "", risk-free "" joined with risk-free. [line 182]" ' vla:2705
             Exit Function
         Case 102
-            vla_step_text = "Give back amount times 0.08. [line 187]" ' vla:2250
+            vla_step_text = "Give back amount times 0.08. [line 187]" ' vla:2706
             Exit Function
         Case 103
-            vla_step_text = "Set fee to tax of 100. [line 189]" ' vla:2251
+            vla_step_text = "Set fee to tax of 100. [line 189]" ' vla:2707
             Exit Function
         Case 104
-            vla_step_text = "Log ""fee is "" joined with fee. [line 190]" ' vla:2252
+            vla_step_text = "Log ""fee is "" joined with fee. [line 190]" ' vla:2708
             Exit Function
         Case 105
-            vla_step_text = "Create a text called fee-size. [line 191]" ' vla:2253
+            vla_step_text = "Create a text called fee-size. [line 191]" ' vla:2709
             Exit Function
         Case 106
-            vla_step_text = "If tax of 50 is greater than 3: [line 192]" ' vla:2254
+            vla_step_text = "If tax of 50 is greater than 3: [line 192]" ' vla:2710
             Exit Function
         Case 107
-            vla_step_text = "Set fee-size to ""big"". [line 193]" ' vla:2255
+            vla_step_text = "Set fee-size to ""big"". [line 193]" ' vla:2711
             Exit Function
         Case 108
-            vla_step_text = "Set fee-size to ""small"". [line 196]" ' vla:2256
+            vla_step_text = "Set fee-size to ""small"". [line 196]" ' vla:2712
             Exit Function
         Case 109
-            vla_step_text = "Fit column A. [line 199]" ' vla:2257
+            vla_step_text = "Fit column A. [line 199]" ' vla:2713
             Exit Function
         Case 110
-            vla_step_text = "Fit column B. [line 200]" ' vla:2258
+            vla_step_text = "Fit column B. [line 200]" ' vla:2714
             Exit Function
         Case 111
-            vla_step_text = "Set font-color of cell A1 to hot-pink. [line 201]" ' vla:2259
+            vla_step_text = "Set font-color of cell A1 to hot-pink. [line 201]" ' vla:2715
             Exit Function
         Case 112
-            vla_step_text = "Give back sale times rate. [line 206]" ' vla:2260
+            vla_step_text = "Give back sale times rate. [line 206]" ' vla:2716
             Exit Function
         Case 113
-            vla_step_text = "Set full-commission to commission using sale of 2000 and rate of 10%. [line 208]" ' vla:2261
+            vla_step_text = "Set full-commission to commission using sale of 2000 and rate of 10%. [line 208]" ' vla:2717
             Exit Function
         Case 114
-            vla_step_text = "Set default-commission to get commission using sale of 600. [line 209]" ' vla:2262
+            vla_step_text = "Set default-commission to get commission using sale of 600. [line 209]" ' vla:2718
             Exit Function
         Case 115
-            vla_step_text = "Log ""commissions "" joined with full-commission joined with "" / "" joined with default-commission. [line 210]" ' vla:2263
+            vla_step_text = "Log ""commissions "" joined with full-commission joined with "" / "" joined with default-commission. [line 210]" ' vla:2719
             Exit Function
         Case 116
-            vla_step_text = "Try: [line 219]" ' vla:2264
+            vla_step_text = "Try: [line 219]" ' vla:2720
             Exit Function
         Case 117
-            vla_step_text = "Add sheet called ""Q1 Data"". [line 220]" ' vla:2265
+            vla_step_text = "Add sheet called ""Q1 Data"". [line 220]" ' vla:2721
             Exit Function
         Case 118
-            vla_step_text = "Go to sheet Output. [line 222]" ' vla:2266
+            vla_step_text = "Go to sheet Output. [line 222]" ' vla:2722
             Exit Function
         Case 119
-            vla_step_text = "Put ""spaced"" into cell 'Q1 Data'!A1. [line 223]" ' vla:2267
+            vla_step_text = "Put ""spaced"" into cell 'Q1 Data'!A1. [line 223]" ' vla:2723
             Exit Function
         Case 120
-            vla_step_text = "Create a text called spaced-check. [line 224]" ' vla:2268
+            vla_step_text = "Create a text called spaced-check. [line 224]" ' vla:2724
             Exit Function
         Case 121
-            vla_step_text = "Set spaced-check to value in cell 'Q1 Data'!A1. [line 225]" ' vla:2269
+            vla_step_text = "Set spaced-check to value in cell 'Q1 Data'!A1. [line 225]" ' vla:2725
             Exit Function
         Case 122
-            vla_step_text = "Give back 20%. [line 230]" ' vla:2270
+            vla_step_text = "Give back 20%. [line 230]" ' vla:2726
             Exit Function
         Case 123
-            vla_step_text = "Create a number called growth-check. [line 237]" ' vla:2271
+            vla_step_text = "Create a number called growth-check. [line 237]" ' vla:2727
             Exit Function
         Case 124
-            vla_step_text = "Set growth-check to 200. [line 238]" ' vla:2272
+            vla_step_text = "Set growth-check to 200. [line 238]" ' vla:2728
             Exit Function
         Case 125
-            vla_step_text = "Grow growth-check by 10%. [line 239]" ' vla:2273
+            vla_step_text = "Grow growth-check by 10%. [line 239]" ' vla:2729
             Exit Function
         Case 126
-            vla_step_text = "Increase growth-check by 50%. [line 240]" ' vla:2274
+            vla_step_text = "Increase growth-check by 50%. [line 240]" ' vla:2730
             Exit Function
         Case 127
-            vla_step_text = "Add 100 percent to growth-check. [line 241]" ' vla:2275
+            vla_step_text = "Add 100 percent to growth-check. [line 241]" ' vla:2731
             Exit Function
         Case 128
-            vla_step_text = "Decrease growth-check by 75%. [line 242]" ' vla:2276
+            vla_step_text = "Decrease growth-check by 75%. [line 242]" ' vla:2732
             Exit Function
         Case 129
-            vla_step_text = "Set pick-check to item 2 of found-items. [line 243]" ' vla:2277
+            vla_step_text = "Set pick-check to item 2 of found-items. [line 243]" ' vla:2733
             Exit Function
         Case 130
-            vla_step_text = "Log ""grew to "" joined with growth-check joined with "", picked "" joined with pick-check joined with "", first "" joined with first of found-items. [line 244]" ' vla:2278
+            vla_step_text = "Log ""grew to "" joined with growth-check joined with "", picked "" joined with pick-check joined with "", first "" joined with first of found-items. [line 244]" ' vla:2734
             Exit Function
         Case 131
-            vla_step_text = "Create a text called quote-check. [line 245]" ' vla:2279
+            vla_step_text = "Create a text called quote-check. [line 245]" ' vla:2735
             Exit Function
         Case 132
-            vla_step_text = "Set quote-check to ""He said """"ok"""""". [line 246]" ' vla:2280
+            vla_step_text = "Set quote-check to ""He said """"ok"""""". [line 246]" ' vla:2736
             Exit Function
         Case 133
-            vla_step_text = "Create a lookup called prices. [line 260]" ' vla:2281
+            vla_step_text = "Create a lookup called prices. [line 260]" ' vla:2737
             Exit Function
         Case 134
-            vla_step_text = "Store 100 at key ""ax-7"" in prices. [line 261]" ' vla:2282
+            vla_step_text = "Store 100 at key ""ax-7"" in prices. [line 261]" ' vla:2738
             Exit Function
         Case 135
-            vla_step_text = "Store 250 under ""bx-2"" in prices. [line 262]" ' vla:2283
+            vla_step_text = "Store 250 under ""bx-2"" in prices. [line 262]" ' vla:2739
             Exit Function
         Case 136
-            vla_step_text = "Store 120 at key ""AX-7"" in prices. [line 263]" ' vla:2284
+            vla_step_text = "Store 120 at key ""AX-7"" in prices. [line 263]" ' vla:2740
             Exit Function
         Case 137
-            vla_step_text = "Set ax-price to prices for ""ax-7"". [line 264]" ' vla:2285
+            vla_step_text = "Set ax-price to prices for ""ax-7"". [line 264]" ' vla:2741
             Exit Function
         Case 138
-            vla_step_text = "Set key-count to count of keys of prices. [line 265]" ' vla:2286
+            vla_step_text = "Set key-count to count of keys of prices. [line 265]" ' vla:2742
             Exit Function
         Case 139
-            vla_step_text = "Set price-sum to prices for ""ax-7"" plus prices for ""bx-2"". [line 266]" ' vla:2287
+            vla_step_text = "Set price-sum to prices for ""ax-7"" plus prices for ""bx-2"". [line 266]" ' vla:2743
             Exit Function
         Case 140
-            vla_step_text = "Create a text called key-list. [line 267]" ' vla:2288
+            vla_step_text = "Create a text called key-list. [line 267]" ' vla:2744
             Exit Function
         Case 141
-            vla_step_text = "For each k in keys of prices: [line 268]" ' vla:2289
+            vla_step_text = "For each k in keys of prices: [line 268]" ' vla:2745
             Exit Function
         Case 142
-            vla_step_text = "Set key-list to key-list joined with k. [line 269]" ' vla:2290
+            vla_step_text = "Set key-list to key-list joined with k. [line 269]" ' vla:2746
             Exit Function
         Case 143
-            vla_step_text = "Create a text called price-verdict. [line 271]" ' vla:2291
+            vla_step_text = "Create a text called price-verdict. [line 271]" ' vla:2747
             Exit Function
         Case 144
-            vla_step_text = "If prices for ""bx-2"" is greater than 200, set price-verdict to ""steep"". [line 272]" ' vla:2292
+            vla_step_text = "If prices for ""bx-2"" is greater than 200, set price-verdict to ""steep"". [line 272]" ' vla:2748
             Exit Function
         Case 145
-            vla_step_text = "Create a text called pair-trace. [line 273]" ' vla:2293
+            vla_step_text = "Create a text called pair-trace. [line 273]" ' vla:2749
             Exit Function
         Case 146
-            vla_step_text = "For each pair in prices: [line 274]" ' vla:2294
+            vla_step_text = "For each pair in prices: [line 274]" ' vla:2750
             Exit Function
         Case 147
-            vla_step_text = "If value of pair is greater than 200, set pair-trace to pair-trace joined with key of pair. [line 275]" ' vla:2295
+            vla_step_text = "If value of pair is greater than 200, set pair-trace to pair-trace joined with key of pair. [line 275]" ' vla:2751
             Exit Function
         Case 148
-            vla_step_text = "Log ""lookup: ax "" joined with ax-price joined with "", keys "" joined with key-list joined with "", pairs "" joined with pair-trace. [line 277]" ' vla:2296
+            vla_step_text = "Log ""lookup: ax "" joined with ax-price joined with "", keys "" joined with key-list joined with "", pairs "" joined with pair-trace. [line 277]" ' vla:2752
             Exit Function
         Case 149
-            vla_step_text = "Put ""Item"" into cell J1. [line 284]" ' vla:2297
+            vla_step_text = "Put ""Item"" into cell J1. [line 284]" ' vla:2753
             Exit Function
         Case 150
-            vla_step_text = "Put ""Amount"" into cell K1. [line 285]" ' vla:2298
+            vla_step_text = "Put ""Amount"" into cell K1. [line 285]" ' vla:2754
             Exit Function
         Case 151
-            vla_step_text = "Put ""Widget"" into cell J2. [line 286]" ' vla:2299
+            vla_step_text = "Put ""Widget"" into cell J2. [line 286]" ' vla:2755
             Exit Function
         Case 152
-            vla_step_text = "Put 10 into cell K2. [line 287]" ' vla:2300
+            vla_step_text = "Put 10 into cell K2. [line 287]" ' vla:2756
             Exit Function
         Case 153
-            vla_step_text = "Put ""Gadget"" into cell J3. [line 288]" ' vla:2301
+            vla_step_text = "Put ""Gadget"" into cell J3. [line 288]" ' vla:2757
             Exit Function
         Case 154
-            vla_step_text = "Put 20 into cell K3. [line 289]" ' vla:2302
+            vla_step_text = "Put 20 into cell K3. [line 289]" ' vla:2758
             Exit Function
         Case 155
-            vla_step_text = "Turn J1:K3 into a table called SalesTable. [line 290]" ' vla:2303
+            vla_step_text = "Turn J1:K3 into a table called SalesTable. [line 290]" ' vla:2759
             Exit Function
         Case 156
-            vla_step_text = "Set style of table SalesTable to TableStyleMedium9. [line 291]" ' vla:2304
+            vla_step_text = "Set style of table SalesTable to TableStyleMedium9. [line 291]" ' vla:2760
             Exit Function
         Case 157
-            vla_step_text = "Show the total row of table SalesTable. [line 292]" ' vla:2305
+            vla_step_text = "Show the total row of table SalesTable. [line 292]" ' vla:2761
             Exit Function
         Case 158
-            vla_step_text = "Put ""X"" into cell J5. [line 296]" ' vla:2306
+            vla_step_text = "Put ""X"" into cell J5. [line 296]" ' vla:2762
             Exit Function
         Case 159
-            vla_step_text = "Put ""Y"" into cell J6. [line 297]" ' vla:2307
+            vla_step_text = "Put ""Y"" into cell J6. [line 297]" ' vla:2763
             Exit Function
         Case 160
-            vla_step_text = "Turn J5:J6 into a table called QuietTable. [line 298]" ' vla:2308
+            vla_step_text = "Turn J5:J6 into a table called QuietTable. [line 298]" ' vla:2764
             Exit Function
         Case 161
-            vla_step_text = "Show the total row of table QuietTable. [line 299]" ' vla:2309
+            vla_step_text = "Show the total row of table QuietTable. [line 299]" ' vla:2765
             Exit Function
         Case 162
-            vla_step_text = "Hide the total row of table QuietTable. [line 300]" ' vla:2310
+            vla_step_text = "Hide the total row of table QuietTable. [line 300]" ' vla:2766
             Exit Function
         Case 163
-            vla_step_text = "Put ""A"" into cell J8. [line 304]" ' vla:2311
+            vla_step_text = "Put ""A"" into cell J8. [line 304]" ' vla:2767
             Exit Function
         Case 164
-            vla_step_text = "Put ""B"" into cell J9. [line 305]" ' vla:2312
+            vla_step_text = "Put ""B"" into cell J9. [line 305]" ' vla:2768
             Exit Function
         Case 165
-            vla_step_text = "Turn J8:J9 into a table called TempTable. [line 306]" ' vla:2313
+            vla_step_text = "Turn J8:J9 into a table called TempTable. [line 306]" ' vla:2769
             Exit Function
         Case 166
-            vla_step_text = "Turn table TempTable back into a range. [line 307]" ' vla:2314
+            vla_step_text = "Turn table TempTable back into a range. [line 307]" ' vla:2770
             Exit Function
         Case 167
-            vla_step_text = "Put ""Item"" into cell J11. [line 312]" ' vla:2315
+            vla_step_text = "Put ""Item"" into cell J11. [line 312]" ' vla:2771
             Exit Function
         Case 168
-            vla_step_text = "Put ""Qty"" into cell K11. [line 313]" ' vla:2316
+            vla_step_text = "Put ""Qty"" into cell K11. [line 313]" ' vla:2772
             Exit Function
         Case 169
-            vla_step_text = "Put ""Bolt"" into cell J12. [line 314]" ' vla:2317
+            vla_step_text = "Put ""Bolt"" into cell J12. [line 314]" ' vla:2773
             Exit Function
         Case 170
-            vla_step_text = "Put 5 into cell K12. [line 315]" ' vla:2318
+            vla_step_text = "Put 5 into cell K12. [line 315]" ' vla:2774
             Exit Function
         Case 171
-            vla_step_text = "Put ""Nut"" into cell J13. [line 316]" ' vla:2319
+            vla_step_text = "Put ""Nut"" into cell J13. [line 316]" ' vla:2775
             Exit Function
         Case 172
-            vla_step_text = "Put 8 into cell K13. [line 317]" ' vla:2320
+            vla_step_text = "Put 8 into cell K13. [line 317]" ' vla:2776
             Exit Function
         Case 173
-            vla_step_text = "Turn J11:K13 into a table called EditTable. [line 318]" ' vla:2321
+            vla_step_text = "Turn J11:K13 into a table called EditTable. [line 318]" ' vla:2777
             Exit Function
         Case 174
-            vla_step_text = "Add a row to table EditTable. [line 319]" ' vla:2322
+            vla_step_text = "Add a row to table EditTable. [line 319]" ' vla:2778
             Exit Function
         Case 175
-            vla_step_text = "Delete row 1 of table EditTable. [line 320]" ' vla:2323
+            vla_step_text = "Delete row 1 of table EditTable. [line 320]" ' vla:2779
             Exit Function
         Case 176
-            vla_step_text = "Set qty-values to column Qty of table EditTable. [line 321]" ' vla:2324
+            vla_step_text = "Set qty-values to column Qty of table EditTable. [line 321]" ' vla:2780
             Exit Function
         Case 177
-            vla_step_text = "For each q in qty-values, log q. [line 322]" ' vla:2325
+            vla_step_text = "For each q in qty-values, log q. [line 322]" ' vla:2781
             Exit Function
         Case 178
-            vla_step_text = "Put ""Region"" into cell N1. [line 332]" ' vla:2326
+            vla_step_text = "Put ""Region"" into cell N1. [line 332]" ' vla:2782
             Exit Function
         Case 179
-            vla_step_text = "Put ""Product"" into cell O1. [line 333]" ' vla:2327
+            vla_step_text = "Put ""Product"" into cell O1. [line 333]" ' vla:2783
             Exit Function
         Case 180
-            vla_step_text = "Put ""Segment"" into cell P1. [line 334]" ' vla:2328
+            vla_step_text = "Put ""Segment"" into cell P1. [line 334]" ' vla:2784
             Exit Function
         Case 181
-            vla_step_text = "Put ""Channel"" into cell Q1. [line 335]" ' vla:2329
+            vla_step_text = "Put ""Channel"" into cell Q1. [line 335]" ' vla:2785
             Exit Function
         Case 182
-            vla_step_text = "Put ""Units"" into cell R1. [line 336]" ' vla:2330
+            vla_step_text = "Put ""Units"" into cell R1. [line 336]" ' vla:2786
             Exit Function
         Case 183
-            vla_step_text = "Put ""Revenue"" into cell S1. [line 337]" ' vla:2331
+            vla_step_text = "Put ""Revenue"" into cell S1. [line 337]" ' vla:2787
             Exit Function
         Case 184
-            vla_step_text = "Put ""North"" into cell N2. [line 338]" ' vla:2332
+            vla_step_text = "Put ""North"" into cell N2. [line 338]" ' vla:2788
             Exit Function
         Case 185
-            vla_step_text = "Put ""Widget"" into cell O2. [line 339]" ' vla:2333
+            vla_step_text = "Put ""Widget"" into cell O2. [line 339]" ' vla:2789
             Exit Function
         Case 186
-            vla_step_text = "Put ""Retail"" into cell P2. [line 340]" ' vla:2334
+            vla_step_text = "Put ""Retail"" into cell P2. [line 340]" ' vla:2790
             Exit Function
         Case 187
-            vla_step_text = "Put ""Online"" into cell Q2. [line 341]" ' vla:2335
+            vla_step_text = "Put ""Online"" into cell Q2. [line 341]" ' vla:2791
             Exit Function
         Case 188
-            vla_step_text = "Put 10 into cell R2. [line 342]" ' vla:2336
+            vla_step_text = "Put 10 into cell R2. [line 342]" ' vla:2792
             Exit Function
         Case 189
-            vla_step_text = "Put 500 into cell S2. [line 343]" ' vla:2337
+            vla_step_text = "Put 500 into cell S2. [line 343]" ' vla:2793
             Exit Function
         Case 190
-            vla_step_text = "Put ""North"" into cell N3. [line 344]" ' vla:2338
+            vla_step_text = "Put ""North"" into cell N3. [line 344]" ' vla:2794
             Exit Function
         Case 191
-            vla_step_text = "Put ""Gadget"" into cell O3. [line 345]" ' vla:2339
+            vla_step_text = "Put ""Gadget"" into cell O3. [line 345]" ' vla:2795
             Exit Function
         Case 192
-            vla_step_text = "Put ""Wholesale"" into cell P3. [line 346]" ' vla:2340
+            vla_step_text = "Put ""Wholesale"" into cell P3. [line 346]" ' vla:2796
             Exit Function
         Case 193
-            vla_step_text = "Put ""Store"" into cell Q3. [line 347]" ' vla:2341
+            vla_step_text = "Put ""Store"" into cell Q3. [line 347]" ' vla:2797
             Exit Function
         Case 194
-            vla_step_text = "Put 5 into cell R3. [line 348]" ' vla:2342
+            vla_step_text = "Put 5 into cell R3. [line 348]" ' vla:2798
             Exit Function
         Case 195
-            vla_step_text = "Put 200 into cell S3. [line 349]" ' vla:2343
+            vla_step_text = "Put 200 into cell S3. [line 349]" ' vla:2799
             Exit Function
         Case 196
-            vla_step_text = "Put ""South"" into cell N4. [line 350]" ' vla:2344
+            vla_step_text = "Put ""South"" into cell N4. [line 350]" ' vla:2800
             Exit Function
         Case 197
-            vla_step_text = "Put ""Widget"" into cell O4. [line 351]" ' vla:2345
+            vla_step_text = "Put ""Widget"" into cell O4. [line 351]" ' vla:2801
             Exit Function
         Case 198
-            vla_step_text = "Put ""Wholesale"" into cell P4. [line 352]" ' vla:2346
+            vla_step_text = "Put ""Wholesale"" into cell P4. [line 352]" ' vla:2802
             Exit Function
         Case 199
-            vla_step_text = "Put ""Online"" into cell Q4. [line 353]" ' vla:2347
+            vla_step_text = "Put ""Online"" into cell Q4. [line 353]" ' vla:2803
             Exit Function
         Case 200
-            vla_step_text = "Put 20 into cell R4. [line 354]" ' vla:2348
+            vla_step_text = "Put 20 into cell R4. [line 354]" ' vla:2804
             Exit Function
         Case 201
-            vla_step_text = "Put 900 into cell S4. [line 355]" ' vla:2349
+            vla_step_text = "Put 900 into cell S4. [line 355]" ' vla:2805
             Exit Function
         Case 202
-            vla_step_text = "Put ""South"" into cell N5. [line 356]" ' vla:2350
+            vla_step_text = "Put ""South"" into cell N5. [line 356]" ' vla:2806
             Exit Function
         Case 203
-            vla_step_text = "Put ""Gadget"" into cell O5. [line 357]" ' vla:2351
+            vla_step_text = "Put ""Gadget"" into cell O5. [line 357]" ' vla:2807
             Exit Function
         Case 204
-            vla_step_text = "Put ""Retail"" into cell P5. [line 358]" ' vla:2352
+            vla_step_text = "Put ""Retail"" into cell P5. [line 358]" ' vla:2808
             Exit Function
         Case 205
-            vla_step_text = "Put ""Store"" into cell Q5. [line 359]" ' vla:2353
+            vla_step_text = "Put ""Store"" into cell Q5. [line 359]" ' vla:2809
             Exit Function
         Case 206
-            vla_step_text = "Put 8 into cell R5. [line 360]" ' vla:2354
+            vla_step_text = "Put 8 into cell R5. [line 360]" ' vla:2810
             Exit Function
         Case 207
-            vla_step_text = "Put 300 into cell S5. [line 361]" ' vla:2355
+            vla_step_text = "Put 300 into cell S5. [line 361]" ' vla:2811
             Exit Function
         Case 208
-            vla_step_text = "Put ""East"" into cell N6. [line 362]" ' vla:2356
+            vla_step_text = "Put ""East"" into cell N6. [line 362]" ' vla:2812
             Exit Function
         Case 209
-            vla_step_text = "Put ""Widget"" into cell O6. [line 363]" ' vla:2357
+            vla_step_text = "Put ""Widget"" into cell O6. [line 363]" ' vla:2813
             Exit Function
         Case 210
-            vla_step_text = "Put ""Retail"" into cell P6. [line 364]" ' vla:2358
+            vla_step_text = "Put ""Retail"" into cell P6. [line 364]" ' vla:2814
             Exit Function
         Case 211
-            vla_step_text = "Put ""Online"" into cell Q6. [line 365]" ' vla:2359
+            vla_step_text = "Put ""Online"" into cell Q6. [line 365]" ' vla:2815
             Exit Function
         Case 212
-            vla_step_text = "Put 12 into cell R6. [line 366]" ' vla:2360
+            vla_step_text = "Put 12 into cell R6. [line 366]" ' vla:2816
             Exit Function
         Case 213
-            vla_step_text = "Put 600 into cell S6. [line 367]" ' vla:2361
+            vla_step_text = "Put 600 into cell S6. [line 367]" ' vla:2817
             Exit Function
         Case 214
-            vla_step_text = "Put ""East"" into cell N7. [line 368]" ' vla:2362
+            vla_step_text = "Put ""East"" into cell N7. [line 368]" ' vla:2818
             Exit Function
         Case 215
-            vla_step_text = "Put ""Gadget"" into cell O7. [line 369]" ' vla:2363
+            vla_step_text = "Put ""Gadget"" into cell O7. [line 369]" ' vla:2819
             Exit Function
         Case 216
-            vla_step_text = "Put ""Wholesale"" into cell P7. [line 370]" ' vla:2364
+            vla_step_text = "Put ""Wholesale"" into cell P7. [line 370]" ' vla:2820
             Exit Function
         Case 217
-            vla_step_text = "Put ""Store"" into cell Q7. [line 371]" ' vla:2365
+            vla_step_text = "Put ""Store"" into cell Q7. [line 371]" ' vla:2821
             Exit Function
         Case 218
-            vla_step_text = "Put 6 into cell R7. [line 372]" ' vla:2366
+            vla_step_text = "Put 6 into cell R7. [line 372]" ' vla:2822
             Exit Function
         Case 219
-            vla_step_text = "Put 250 into cell S7. [line 373]" ' vla:2367
+            vla_step_text = "Put 250 into cell S7. [line 373]" ' vla:2823
             Exit Function
         Case 220
-            vla_step_text = "Make a pivot table from N1:S7 at U1 called SalesPivot. [line 381]" ' vla:2368
+            vla_step_text = "Make a pivot table from N1:S7 at U1 called SalesPivot. [line 381]" ' vla:2824
             Exit Function
         Case 221
-            vla_step_text = "Add rows of Region, Product to pivot SalesPivot. [line 382]" ' vla:2369
+            vla_step_text = "Add rows of Region, Product to pivot SalesPivot. [line 382]" ' vla:2825
             Exit Function
         Case 222
-            vla_step_text = "Add columns of Segment to pivot SalesPivot. [line 383]" ' vla:2370
+            vla_step_text = "Add columns of Segment to pivot SalesPivot. [line 383]" ' vla:2826
             Exit Function
         Case 223
-            vla_step_text = "Add filters of Channel to pivot SalesPivot. [line 384]" ' vla:2371
+            vla_step_text = "Add filters of Channel to pivot SalesPivot. [line 384]" ' vla:2827
             Exit Function
         Case 224
-            vla_step_text = "Add Revenue to pivot SalesPivot as a sum. [line 392]" ' vla:2372
+            vla_step_text = "Add Revenue to pivot SalesPivot as a sum. [line 392]" ' vla:2828
             Exit Function
         Case 225
-            vla_step_text = "Add Revenue, Units to pivot SalesPivot as a count. [line 393]" ' vla:2373
+            vla_step_text = "Add Revenue, Units to pivot SalesPivot as a count. [line 393]" ' vla:2829
             Exit Function
         Case 226
-            vla_step_text = "Add Units to pivot SalesPivot as an average. [line 394]" ' vla:2374
+            vla_step_text = "Add Units to pivot SalesPivot as an average. [line 394]" ' vla:2830
             Exit Function
         Case 227
-            vla_step_text = "Make a pivot table from N1:S7 at N20 called FullPivot with rows of Region, Product, and Channel and columns of Segment and values of Revenue, Units. [line 406]" ' vla:2375
+            vla_step_text = "Make a pivot table from N1:S7 at N20 called FullPivot with rows of Region, Product, and Channel and columns of Segment and values of Revenue, Units. [line 406]" ' vla:2831
             Exit Function
         Case 228
-            vla_step_text = "Refresh pivot SalesPivot. [line 415]" ' vla:2376
+            vla_step_text = "Refresh pivot SalesPivot. [line 415]" ' vla:2832
             Exit Function
         Case 229
-            vla_step_text = "Refresh every pivot table. [line 416]" ' vla:2377
+            vla_step_text = "Refresh every pivot table. [line 416]" ' vla:2833
             Exit Function
         Case 230
-            vla_step_text = "Collapse Region in pivot SalesPivot. [line 417]" ' vla:2378
+            vla_step_text = "Collapse Region in pivot SalesPivot. [line 417]" ' vla:2834
             Exit Function
         Case 231
-            vla_step_text = "Collapse Product in pivot FullPivot. [line 427]" ' vla:2379
+            vla_step_text = "Collapse Product in pivot FullPivot. [line 427]" ' vla:2835
             Exit Function
         Case 232
-            vla_step_text = "Expand Product in pivot FullPivot. [line 428]" ' vla:2380
+            vla_step_text = "Expand Product in pivot FullPivot. [line 428]" ' vla:2836
             Exit Function
         Case 233
-            vla_step_text = "Show pivot SalesPivot in tabular form. [line 443]" ' vla:2381
+            vla_step_text = "Show pivot SalesPivot in tabular form. [line 443]" ' vla:2837
             Exit Function
         Case 234
-            vla_step_text = "Show pivot SalesPivot in compact form. [line 444]" ' vla:2382
+            vla_step_text = "Show pivot SalesPivot in compact form. [line 444]" ' vla:2838
             Exit Function
         Case 235
-            vla_step_text = "Show pivot FullPivot in outline form. [line 445]" ' vla:2383
+            vla_step_text = "Show pivot FullPivot in outline form. [line 445]" ' vla:2839
             Exit Function
         Case 236
-            vla_step_text = "Hide subtotals for Region in pivot SalesPivot. [line 453]" ' vla:2384
+            vla_step_text = "Hide subtotals for Region in pivot SalesPivot. [line 453]" ' vla:2840
             Exit Function
         Case 237
-            vla_step_text = "Hide subtotals for Product in pivot FullPivot. [line 454]" ' vla:2385
+            vla_step_text = "Hide subtotals for Product in pivot FullPivot. [line 454]" ' vla:2841
             Exit Function
         Case 238
-            vla_step_text = "Show subtotals for Product in pivot FullPivot. [line 455]" ' vla:2386
+            vla_step_text = "Show subtotals for Product in pivot FullPivot. [line 455]" ' vla:2842
             Exit Function
         Case 239
-            vla_step_text = "Add a blank row after Region in pivot SalesPivot. [line 457]" ' vla:2387
+            vla_step_text = "Add a blank row after Region in pivot SalesPivot. [line 457]" ' vla:2843
             Exit Function
         Case 240
-            vla_step_text = "Add a blank row after Product in pivot FullPivot. [line 458]" ' vla:2388
+            vla_step_text = "Add a blank row after Product in pivot FullPivot. [line 458]" ' vla:2844
             Exit Function
         Case 241
-            vla_step_text = "Remove a blank row after Product in pivot FullPivot. [line 459]" ' vla:2389
+            vla_step_text = "Remove a blank row after Product in pivot FullPivot. [line 459]" ' vla:2845
             Exit Function
         Case 242
-            vla_step_text = "Sort Region in pivot SalesPivot descending. [line 476]" ' vla:2390
+            vla_step_text = "Sort Region in pivot SalesPivot descending. [line 476]" ' vla:2846
             Exit Function
         Case 243
-            vla_step_text = "Sort Region in pivot SalesPivot ascending. [line 477]" ' vla:2391
+            vla_step_text = "Sort Region in pivot SalesPivot ascending. [line 477]" ' vla:2847
             Exit Function
         Case 244
-            vla_step_text = "Sort Product in pivot FullPivot descending by Revenue. [line 478]" ' vla:2392
+            vla_step_text = "Sort Product in pivot FullPivot descending by Revenue. [line 478]" ' vla:2848
             Exit Function
         Case 245
-            vla_step_text = "Sort Product in pivot FullPivot ascending by Revenue. [line 479]" ' vla:2393
+            vla_step_text = "Sort Product in pivot FullPivot ascending by Revenue. [line 479]" ' vla:2849
             Exit Function
         Case 246
-            vla_step_text = "Make a pivot table from N1:S7 at N200 called RenameMePivot. [line 490]" ' vla:2394
+            vla_step_text = "Make a pivot table from N1:S7 at N200 called RenameMePivot. [line 490]" ' vla:2850
             Exit Function
         Case 247
-            vla_step_text = "Rename pivot RenameMePivot to RenamedPivot. [line 491]" ' vla:2395
+            vla_step_text = "Rename pivot RenameMePivot to RenamedPivot. [line 491]" ' vla:2851
             Exit Function
         Case 248
-            vla_step_text = "Make a pivot table from N1:S7 at N220 called ClearMePivot. [line 493]" ' vla:2396
+            vla_step_text = "Make a pivot table from N1:S7 at N220 called ClearMePivot. [line 493]" ' vla:2852
             Exit Function
         Case 249
-            vla_step_text = "Add rows of Region to pivot ClearMePivot. [line 494]" ' vla:2397
+            vla_step_text = "Add rows of Region to pivot ClearMePivot. [line 494]" ' vla:2853
             Exit Function
         Case 250
-            vla_step_text = "Add Revenue to pivot ClearMePivot as a sum. [line 495]" ' vla:2398
+            vla_step_text = "Add Revenue to pivot ClearMePivot as a sum. [line 495]" ' vla:2854
             Exit Function
         Case 251
-            vla_step_text = "Clear pivot ClearMePivot. [line 496]" ' vla:2399
+            vla_step_text = "Clear pivot ClearMePivot. [line 496]" ' vla:2855
             Exit Function
         Case 252
-            vla_step_text = "Make a pivot table from N1:S7 at N240 called RemoveFieldMePivot. [line 498]" ' vla:2400
+            vla_step_text = "Make a pivot table from N1:S7 at N240 called RemoveFieldMePivot. [line 498]" ' vla:2856
             Exit Function
         Case 253
-            vla_step_text = "Add rows of Region, Product to pivot RemoveFieldMePivot. [line 499]" ' vla:2401
+            vla_step_text = "Add rows of Region, Product to pivot RemoveFieldMePivot. [line 499]" ' vla:2857
             Exit Function
         Case 254
-            vla_step_text = "Remove Product from pivot RemoveFieldMePivot. [line 500]" ' vla:2402
+            vla_step_text = "Remove Product from pivot RemoveFieldMePivot. [line 500]" ' vla:2858
             Exit Function
         Case 255
-            vla_step_text = "Put ""West"" into cell N8. [line 506]" ' vla:2403
+            vla_step_text = "Put ""West"" into cell N8. [line 506]" ' vla:2859
             Exit Function
         Case 256
-            vla_step_text = "Put ""Widget"" into cell O8. [line 507]" ' vla:2404
+            vla_step_text = "Put ""Widget"" into cell O8. [line 507]" ' vla:2860
             Exit Function
         Case 257
-            vla_step_text = "Put ""Retail"" into cell P8. [line 508]" ' vla:2405
+            vla_step_text = "Put ""Retail"" into cell P8. [line 508]" ' vla:2861
             Exit Function
         Case 258
-            vla_step_text = "Put ""Online"" into cell Q8. [line 509]" ' vla:2406
+            vla_step_text = "Put ""Online"" into cell Q8. [line 509]" ' vla:2862
             Exit Function
         Case 259
-            vla_step_text = "Put 15 into cell R8. [line 510]" ' vla:2407
+            vla_step_text = "Put 15 into cell R8. [line 510]" ' vla:2863
             Exit Function
         Case 260
-            vla_step_text = "Put 700 into cell S8. [line 511]" ' vla:2408
+            vla_step_text = "Put 700 into cell S8. [line 511]" ' vla:2864
             Exit Function
         Case 261
-            vla_step_text = "Make a pivot table from N1:S7 at N260 called SourceTestPivot. [line 513]" ' vla:2409
+            vla_step_text = "Make a pivot table from N1:S7 at N260 called SourceTestPivot. [line 513]" ' vla:2865
             Exit Function
         Case 262
-            vla_step_text = "Add rows of Region to pivot SourceTestPivot. [line 514]" ' vla:2410
+            vla_step_text = "Add rows of Region to pivot SourceTestPivot. [line 514]" ' vla:2866
             Exit Function
         Case 263
-            vla_step_text = "Change the source of pivot SourceTestPivot to N1:S8. [line 515]" ' vla:2411
+            vla_step_text = "Change the source of pivot SourceTestPivot to N1:S8. [line 515]" ' vla:2867
             Exit Function
         Case 264
-            vla_step_text = "Make a pivot table from N1:S7 at N40 called TempPivot. [line 520]" ' vla:2412
+            vla_step_text = "Make a pivot table from N1:S7 at N40 called TempPivot. [line 520]" ' vla:2868
             Exit Function
         Case 265
-            vla_step_text = "Delete pivot TempPivot. [line 521]" ' vla:2413
+            vla_step_text = "Delete pivot TempPivot. [line 521]" ' vla:2869
             Exit Function
         Case 266
-            vla_step_text = "Put grand into cell H1. [line 524]" ' vla:2414
+            vla_step_text = "Put grand into cell H1. [line 524]" ' vla:2870
             Exit Function
         Case 267
-            vla_step_text = "Put biggest into cell H2. [line 525]" ' vla:2415
+            vla_step_text = "Put biggest into cell H2. [line 525]" ' vla:2871
             Exit Function
         Case 268
-            vla_step_text = "Put round-check into cell H3. [line 526]" ' vla:2416
+            vla_step_text = "Put round-check into cell H3. [line 526]" ' vla:2872
             Exit Function
         Case 269
-            vla_step_text = "Put thousand-check into cell H4. [line 527]" ' vla:2417
+            vla_step_text = "Put thousand-check into cell H4. [line 527]" ' vla:2873
             Exit Function
         Case 270
-            vla_step_text = "Put search-row into cell H5. [line 528]" ' vla:2418
+            vla_step_text = "Put search-row into cell H5. [line 528]" ' vla:2874
             Exit Function
         Case 271
-            vla_step_text = "Put f-last into cell H6. [line 529]" ' vla:2419
+            vla_step_text = "Put f-last into cell H6. [line 529]" ' vla:2875
             Exit Function
         Case 272
-            vla_step_text = "Put list-count into cell H7. [line 530]" ' vla:2420
+            vla_step_text = "Put list-count into cell H7. [line 530]" ' vla:2876
             Exit Function
         Case 273
-            vla_step_text = "Put verdict into cell H8. [line 531]" ' vla:2421
+            vla_step_text = "Put verdict into cell H8. [line 531]" ' vla:2877
             Exit Function
         Case 274
-            vla_step_text = "Put region-label into cell H9. [line 532]" ' vla:2422
+            vla_step_text = "Put region-label into cell H9. [line 532]" ' vla:2878
             Exit Function
         Case 275
-            vla_step_text = "Put until-count into cell H10. [line 533]" ' vla:2423
+            vla_step_text = "Put until-count into cell H10. [line 533]" ' vla:2879
             Exit Function
         Case 276
-            vla_step_text = "Put rescue into cell H11. [line 534]" ' vla:2424
+            vla_step_text = "Put rescue into cell H11. [line 534]" ' vla:2880
             Exit Function
         Case 277
-            vla_step_text = "Put risk-free into cell H12. [line 535]" ' vla:2425
+            vla_step_text = "Put risk-free into cell H12. [line 535]" ' vla:2881
             Exit Function
         Case 278
-            vla_step_text = "Put fee into cell H13. [line 536]" ' vla:2426
+            vla_step_text = "Put fee into cell H13. [line 536]" ' vla:2882
             Exit Function
         Case 279
-            vla_step_text = "Put fee-size into cell H14. [line 537]" ' vla:2427
+            vla_step_text = "Put fee-size into cell H14. [line 537]" ' vla:2883
             Exit Function
         Case 280
-            vla_step_text = "Put num-col-check into cell H15. [line 538]" ' vla:2428
+            vla_step_text = "Put num-col-check into cell H15. [line 538]" ' vla:2884
             Exit Function
         Case 281
-            vla_step_text = "Put value-word-check into cell H17. [line 539]" ' vla:2429
+            vla_step_text = "Put value-word-check into cell H17. [line 539]" ' vla:2885
             Exit Function
         Case 282
-            vla_step_text = "Put spaced-check into cell H18. [line 540]" ' vla:2430
+            vla_step_text = "Put spaced-check into cell H18. [line 540]" ' vla:2886
             Exit Function
         Case 283
-            vla_step_text = "Put full-commission into cell H19. [line 541]" ' vla:2431
+            vla_step_text = "Put full-commission into cell H19. [line 541]" ' vla:2887
             Exit Function
         Case 284
-            vla_step_text = "Put default-commission into cell H20. [line 542]" ' vla:2432
+            vla_step_text = "Put default-commission into cell H20. [line 542]" ' vla:2888
             Exit Function
         Case 285
-            vla_step_text = "Put growth-check into cell H21. [line 543]" ' vla:2433
+            vla_step_text = "Put growth-check into cell H21. [line 543]" ' vla:2889
             Exit Function
         Case 286
-            vla_step_text = "Put pick-check into cell H22. [line 544]" ' vla:2434
+            vla_step_text = "Put pick-check into cell H22. [line 544]" ' vla:2890
             Exit Function
         Case 287
-            vla_step_text = "Put quote-check into cell H23. [line 545]" ' vla:2435
+            vla_step_text = "Put quote-check into cell H23. [line 545]" ' vla:2891
             Exit Function
         Case 288
-            vla_step_text = "Put vat-rate into cell H24. [line 546]" ' vla:2436
+            vla_step_text = "Put vat-rate into cell H24. [line 546]" ' vla:2892
             Exit Function
         Case 289
-            vla_step_text = "Put ax-price into cell H26. [line 547]" ' vla:2437
+            vla_step_text = "Put ax-price into cell H26. [line 547]" ' vla:2893
             Exit Function
         Case 290
-            vla_step_text = "Put key-count into cell H27. [line 548]" ' vla:2438
+            vla_step_text = "Put key-count into cell H27. [line 548]" ' vla:2894
             Exit Function
         Case 291
-            vla_step_text = "Put key-list into cell H28. [line 549]" ' vla:2439
+            vla_step_text = "Put key-list into cell H28. [line 549]" ' vla:2895
             Exit Function
         Case 292
-            vla_step_text = "Put price-sum into cell H29. [line 550]" ' vla:2440
+            vla_step_text = "Put price-sum into cell H29. [line 550]" ' vla:2896
             Exit Function
         Case 293
-            vla_step_text = "Put price-verdict into cell H30. [line 551]" ' vla:2441
+            vla_step_text = "Put price-verdict into cell H30. [line 551]" ' vla:2897
             Exit Function
         Case 294
-            vla_step_text = "Put pair-trace into cell H31. [line 552]" ' vla:2442
+            vla_step_text = "Put pair-trace into cell H31. [line 552]" ' vla:2898
             Exit Function
         Case 295
-            vla_step_text = "(set! (range ""h25"") ""vla-row"") [line 559]" ' vla:2443
+            vla_step_text = "(set! (range ""h25"") ""vla-row"") [line 559]" ' vla:2899
             Exit Function
         Case 296
-            vla_step_text = "Repeat 2 times: [line 560]" ' vla:2444
+            vla_step_text = "Repeat 2 times: [line 560]" ' vla:2900
             Exit Function
         Case 297
-            vla_step_text = "(debug-print counter) [line 561]" ' vla:2445
+            vla_step_text = "(debug-print counter) [line 561]" ' vla:2901
             Exit Function
         Case 298
-            vla_step_text = "Work on sheet Demo. [line 576]" ' vla:2446
+            vla_step_text = "Work on sheet Demo. [line 576]" ' vla:2902
             Exit Function
         Case 299
-            vla_step_text = "Make cell A1 italic. [line 579]" ' vla:2447
+            vla_step_text = "Make cell A1 italic. [line 579]" ' vla:2903
             Exit Function
         Case 300
-            vla_step_text = "Make cell A2 red. [line 580]" ' vla:2448
+            vla_step_text = "Make cell A2 red. [line 580]" ' vla:2904
             Exit Function
         Case 301
-            vla_step_text = "Make cell A3 yellow. [line 581]" ' vla:2449
+            vla_step_text = "Make cell A3 yellow. [line 581]" ' vla:2905
             Exit Function
         Case 302
-            vla_step_text = "Set font-color of cell A4 to hot-pink. [line 582]" ' vla:2450
+            vla_step_text = "Set font-color of cell A4 to hot-pink. [line 582]" ' vla:2906
             Exit Function
         Case 303
-            vla_step_text = "Set fill-color of cell A5 to ""#FF69B4"". [line 583]" ' vla:2451
+            vla_step_text = "Set fill-color of cell A5 to ""#FF69B4"". [line 583]" ' vla:2907
             Exit Function
         Case 304
-            vla_step_text = "Clear color of cell A5. [line 584]" ' vla:2452
+            vla_step_text = "Clear color of cell A5. [line 584]" ' vla:2908
             Exit Function
         Case 305
-            vla_step_text = "Add border to range A1:E10. [line 585]" ' vla:2453
+            vla_step_text = "Add border to range A1:E10. [line 585]" ' vla:2909
             Exit Function
         Case 306
-            vla_step_text = "Format cell B1 as currency. [line 586]" ' vla:2454
+            vla_step_text = "Format cell B1 as currency. [line 586]" ' vla:2910
             Exit Function
         Case 307
-            vla_step_text = "Format cell B2 as percent. [line 587]" ' vla:2455
+            vla_step_text = "Format cell B2 as percent. [line 587]" ' vla:2911
             Exit Function
         Case 308
-            vla_step_text = "Format cell B3 as date. [line 588]" ' vla:2456
+            vla_step_text = "Format cell B3 as date. [line 588]" ' vla:2912
             Exit Function
         Case 309
-            vla_step_text = "Center cell A1. [line 589]" ' vla:2457
+            vla_step_text = "Center cell A1. [line 589]" ' vla:2913
             Exit Function
         Case 310
-            vla_step_text = "Center range A1:E1. [line 590]" ' vla:2458
+            vla_step_text = "Center range A1:E1. [line 590]" ' vla:2914
             Exit Function
         Case 311
-            vla_step_text = "Align range A2:A5 left. [line 591]" ' vla:2459
+            vla_step_text = "Align range A2:A5 left. [line 591]" ' vla:2915
             Exit Function
         Case 312
-            vla_step_text = "Align cell A6 center. [line 592]" ' vla:2460
+            vla_step_text = "Align cell A6 center. [line 592]" ' vla:2916
             Exit Function
         Case 313
-            vla_step_text = "Wrap text in range C1:C5. [line 593]" ' vla:2461
+            vla_step_text = "Wrap text in range C1:C5. [line 593]" ' vla:2917
             Exit Function
         Case 314
-            vla_step_text = "Unwrap text in range C1:C5. [line 594]" ' vla:2462
+            vla_step_text = "Unwrap text in range C1:C5. [line 594]" ' vla:2918
             Exit Function
         Case 315
-            vla_step_text = "Merge range D1:D3. [line 595]" ' vla:2463
+            vla_step_text = "Merge range D1:D3. [line 595]" ' vla:2919
             Exit Function
         Case 316
-            vla_step_text = "Unmerge range D1:D3. [line 596]" ' vla:2464
+            vla_step_text = "Unmerge range D1:D3. [line 596]" ' vla:2920
             Exit Function
         Case 317
-            vla_step_text = "Set height of row 1 to 30. [line 601]" ' vla:2465
+            vla_step_text = "Set height of row 1 to 30. [line 601]" ' vla:2921
             Exit Function
         Case 318
-            vla_step_text = "Set width of column A to 20. [line 602]" ' vla:2466
+            vla_step_text = "Set width of column A to 20. [line 602]" ' vla:2922
             Exit Function
         Case 319
-            vla_step_text = "Insert column before B. [line 603]" ' vla:2467
+            vla_step_text = "Insert column before B. [line 603]" ' vla:2923
             Exit Function
         Case 320
-            vla_step_text = "Hide column C. [line 604]" ' vla:2468
+            vla_step_text = "Hide column C. [line 604]" ' vla:2924
             Exit Function
         Case 321
-            vla_step_text = "Unhide column C. [line 605]" ' vla:2469
+            vla_step_text = "Unhide column C. [line 605]" ' vla:2925
             Exit Function
         Case 322
-            vla_step_text = "Delete column B. [line 606]" ' vla:2470
+            vla_step_text = "Delete column B. [line 606]" ' vla:2926
             Exit Function
         Case 323
-            vla_step_text = "Insert row at 5. [line 607]" ' vla:2471
+            vla_step_text = "Insert row at 5. [line 607]" ' vla:2927
             Exit Function
         Case 324
-            vla_step_text = "Insert a row. [line 608]" ' vla:2472
+            vla_step_text = "Insert a row. [line 608]" ' vla:2928
             Exit Function
         Case 325
-            vla_step_text = "Delete row 2. [line 609]" ' vla:2473
+            vla_step_text = "Delete row 2. [line 609]" ' vla:2929
             Exit Function
         Case 326
-            vla_step_text = "Delete the third row. [line 610]" ' vla:2474
+            vla_step_text = "Delete the third row. [line 610]" ' vla:2930
             Exit Function
         Case 327
-            vla_step_text = "Hide row 10. [line 611]" ' vla:2475
+            vla_step_text = "Hide row 10. [line 611]" ' vla:2931
             Exit Function
         Case 328
-            vla_step_text = "Unhide row 10. [line 612]" ' vla:2476
+            vla_step_text = "Unhide row 10. [line 612]" ' vla:2932
             Exit Function
         Case 329
-            vla_step_text = "Freeze top row. [line 613]" ' vla:2477
+            vla_step_text = "Freeze top row. [line 613]" ' vla:2933
             Exit Function
         Case 330
-            vla_step_text = "Unfreeze panes. [line 614]" ' vla:2478
+            vla_step_text = "Unfreeze panes. [line 614]" ' vla:2934
             Exit Function
         Case 331
-            vla_step_text = "Fit column A. [line 615]" ' vla:2479
+            vla_step_text = "Fit column A. [line 615]" ' vla:2935
             Exit Function
         Case 332
-            vla_step_text = "Fit all columns. [line 616]" ' vla:2480
+            vla_step_text = "Fit all columns. [line 616]" ' vla:2936
             Exit Function
         Case 333
-            vla_step_text = "Put ""Region"" into cell G1. [line 620]" ' vla:2481
+            vla_step_text = "Put ""Region"" into cell G1. [line 620]" ' vla:2937
             Exit Function
         Case 334
-            vla_step_text = "Put ""Amount"" into cell H1. [line 621]" ' vla:2482
+            vla_step_text = "Put ""Amount"" into cell H1. [line 621]" ' vla:2938
             Exit Function
         Case 335
-            vla_step_text = "Put ""Notes"" into cell I1. [line 622]" ' vla:2483
+            vla_step_text = "Put ""Notes"" into cell I1. [line 622]" ' vla:2939
             Exit Function
         Case 336
-            vla_step_text = "Put ""West"" into cell G2. [line 623]" ' vla:2484
+            vla_step_text = "Put ""West"" into cell G2. [line 623]" ' vla:2940
             Exit Function
         Case 337
-            vla_step_text = "Put 100 into cell H2. [line 624]" ' vla:2485
+            vla_step_text = "Put 100 into cell H2. [line 624]" ' vla:2941
             Exit Function
         Case 338
-            vla_step_text = "Put ""ok"" into cell I2. [line 625]" ' vla:2486
+            vla_step_text = "Put ""ok"" into cell I2. [line 625]" ' vla:2942
             Exit Function
         Case 339
-            vla_step_text = "Put ""East"" into cell G3. [line 626]" ' vla:2487
+            vla_step_text = "Put ""East"" into cell G3. [line 626]" ' vla:2943
             Exit Function
         Case 340
-            vla_step_text = "Put 250 into cell H3. [line 627]" ' vla:2488
+            vla_step_text = "Put 250 into cell H3. [line 627]" ' vla:2944
             Exit Function
         Case 341
-            vla_step_text = "Put ""ok"" into cell I3. [line 628]" ' vla:2489
+            vla_step_text = "Put ""ok"" into cell I3. [line 628]" ' vla:2945
             Exit Function
         Case 342
-            vla_step_text = "Put ""West"" into cell G4. [line 629]" ' vla:2490
+            vla_step_text = "Put ""West"" into cell G4. [line 629]" ' vla:2946
             Exit Function
         Case 343
-            vla_step_text = "Put 100 into cell H4. [line 630]" ' vla:2491
+            vla_step_text = "Put 100 into cell H4. [line 630]" ' vla:2947
             Exit Function
         Case 344
-            vla_step_text = "Put ""dup"" into cell I4. [line 631]" ' vla:2492
+            vla_step_text = "Put ""dup"" into cell I4. [line 631]" ' vla:2948
             Exit Function
         Case 345
-            vla_step_text = "Sort range G1:I4 by column H1 descending. [line 632]" ' vla:2493
+            vla_step_text = "Sort range G1:I4 by column H1 descending. [line 632]" ' vla:2949
             Exit Function
         Case 346
-            vla_step_text = "Keep only rows of range G1:I4 where column 1 is ""West"". [line 633]" ' vla:2494
+            vla_step_text = "Keep only rows of range G1:I4 where column 1 is ""West"". [line 633]" ' vla:2950
             Exit Function
         Case 347
-            vla_step_text = "Show all rows. [line 634]" ' vla:2495
+            vla_step_text = "Show all rows. [line 634]" ' vla:2951
             Exit Function
         Case 348
-            vla_step_text = "Replace ""dup"" with ""ok"" in range G1:I4. [line 635]" ' vla:2496
+            vla_step_text = "Replace ""dup"" with ""ok"" in range G1:I4. [line 635]" ' vla:2952
             Exit Function
         Case 349
-            vla_step_text = "Remove duplicates from range G1:I4 by column 1. [line 636]" ' vla:2497
+            vla_step_text = "Remove duplicates from range G1:I4 by column 1. [line 636]" ' vla:2953
             Exit Function
         Case 350
-            vla_step_text = "Replace ""ok"" with ""fine"" in column I. [line 637]" ' vla:2498
+            vla_step_text = "Replace ""ok"" with ""fine"" in column I. [line 637]" ' vla:2954
             Exit Function
         Case 351
-            vla_step_text = "Convert range G1:I4 to values. [line 638]" ' vla:2499
+            vla_step_text = "Convert range G1:I4 to values. [line 638]" ' vla:2955
             Exit Function
         Case 352
-            vla_step_text = "Clear formatting of range G1:I4. [line 639]" ' vla:2500
+            vla_step_text = "Clear formatting of range G1:I4. [line 639]" ' vla:2956
             Exit Function
         Case 353
-            vla_step_text = "Name range G1:I4 as demo_table. [line 640]" ' vla:2501
+            vla_step_text = "Name range G1:I4 as demo_table. [line 640]" ' vla:2957
             Exit Function
         Case 354
-            vla_step_text = "Copy range G1:I4 to range K1:M4. [line 641]" ' vla:2502
+            vla_step_text = "Copy range G1:I4 to range K1:M4. [line 641]" ' vla:2958
             Exit Function
         Case 355
-            vla_step_text = "Set tab-color of sheet Demo to hot-pink. [line 645]" ' vla:2503
+            vla_step_text = "Set tab-color of sheet Demo to hot-pink. [line 645]" ' vla:2959
             Exit Function
         Case 356
-            vla_step_text = "Protect this sheet with password ""demo123"". [line 646]" ' vla:2504
+            vla_step_text = "Protect this sheet with password ""demo123"". [line 646]" ' vla:2960
             Exit Function
         Case 357
-            vla_step_text = "Unprotect this sheet with password ""demo123"". [line 647]" ' vla:2505
+            vla_step_text = "Unprotect this sheet with password ""demo123"". [line 647]" ' vla:2961
             Exit Function
         Case 358
-            vla_step_text = "Try: [line 675]" ' vla:2506
+            vla_step_text = "Try: [line 675]" ' vla:2962
             Exit Function
         Case 359
-            vla_step_text = "Delete sheet GStruct. [line 676]" ' vla:2507
+            vla_step_text = "Delete sheet GStruct. [line 676]" ' vla:2963
             Exit Function
         Case 360
-            vla_step_text = "Work on sheet GStruct. [line 678]" ' vla:2508
+            vla_step_text = "Work on sheet GStruct. [line 678]" ' vla:2964
             Exit Function
         Case 361
-            vla_step_text = "Hide row 3. [line 680]" ' vla:2509
+            vla_step_text = "Hide row 3. [line 680]" ' vla:2965
             Exit Function
         Case 362
-            vla_step_text = "Hide column B. [line 681]" ' vla:2510
+            vla_step_text = "Hide column B. [line 681]" ' vla:2966
             Exit Function
         Case 363
-            vla_step_text = "Unhide all rows and columns. [line 682]" ' vla:2511
+            vla_step_text = "Unhide all rows and columns. [line 682]" ' vla:2967
             Exit Function
         Case 364
-            vla_step_text = "Set font size of cell A6 to 36. [line 684]" ' vla:2512
+            vla_step_text = "Set font size of cell A6 to 36. [line 684]" ' vla:2968
             Exit Function
         Case 365
-            vla_step_text = "Fit row 6. [line 685]" ' vla:2513
+            vla_step_text = "Fit row 6. [line 685]" ' vla:2969
             Exit Function
         Case 366
-            vla_step_text = "Group rows 10 through 12. [line 687]" ' vla:2514
+            vla_step_text = "Group rows 10 through 12. [line 687]" ' vla:2970
             Exit Function
         Case 367
-            vla_step_text = "Group rows 14 through 16. [line 688]" ' vla:2515
+            vla_step_text = "Group rows 14 through 16. [line 688]" ' vla:2971
             Exit Function
         Case 368
-            vla_step_text = "Ungroup rows 14 through 16. [line 689]" ' vla:2516
+            vla_step_text = "Ungroup rows 14 through 16. [line 689]" ' vla:2972
             Exit Function
         Case 369
-            vla_step_text = "Put ""before-insert"" into cell A20. [line 691]" ' vla:2517
+            vla_step_text = "Put ""before-insert"" into cell A20. [line 691]" ' vla:2973
             Exit Function
         Case 370
-            vla_step_text = "Insert 3 rows at row 20. [line 692]" ' vla:2518
+            vla_step_text = "Insert 3 rows at row 20. [line 692]" ' vla:2974
             Exit Function
         Case 371
-            vla_step_text = "Put ""before-delete"" into cell A40. [line 694]" ' vla:2519
+            vla_step_text = "Put ""before-delete"" into cell A40. [line 694]" ' vla:2975
             Exit Function
         Case 372
-            vla_step_text = "Delete rows 38 through 39. [line 695]" ' vla:2520
+            vla_step_text = "Delete rows 38 through 39. [line 695]" ' vla:2976
             Exit Function
         Case 373
-            vla_step_text = "Put ""marker-b"" into cell B50. [line 697]" ' vla:2521
+            vla_step_text = "Put ""marker-b"" into cell B50. [line 697]" ' vla:2977
             Exit Function
         Case 374
-            vla_step_text = "Put ""marker-c"" into cell C50. [line 698]" ' vla:2522
+            vla_step_text = "Put ""marker-c"" into cell C50. [line 698]" ' vla:2978
             Exit Function
         Case 375
-            vla_step_text = "Put ""marker-d"" into cell D50. [line 699]" ' vla:2523
+            vla_step_text = "Put ""marker-d"" into cell D50. [line 699]" ' vla:2979
             Exit Function
         Case 376
-            vla_step_text = "Move column B before column D. [line 700]" ' vla:2524
+            vla_step_text = "Move column B before column D. [line 700]" ' vla:2980
             Exit Function
         Case 377
-            vla_step_text = "Freeze the first 2 rows. [line 702]" ' vla:2525
+            vla_step_text = "Freeze the first 2 rows. [line 702]" ' vla:2981
             Exit Function
         Case 378
-            vla_step_text = "Make cell A60 bold. [line 705]" ' vla:2526
+            vla_step_text = "Make cell A60 bold. [line 705]" ' vla:2982
             Exit Function
         Case 379
-            vla_step_text = "Make cell A60 red. [line 706]" ' vla:2527
+            vla_step_text = "Make cell A60 red. [line 706]" ' vla:2983
             Exit Function
         Case 380
-            vla_step_text = "Copy formatting of A60:A60 to C60:C60. [line 707]" ' vla:2528
+            vla_step_text = "Copy formatting of A60:A60 to C60:C60. [line 707]" ' vla:2984
             Exit Function
         Case 381
-            vla_step_text = "Make C62:C62 look like A60:A60. [line 708]" ' vla:2529
+            vla_step_text = "Make C62:C62 look like A60:A60. [line 708]" ' vla:2985
             Exit Function
         Case 382
-            vla_step_text = "Put formula ""=5*2"" into cell B64. [line 710]" ' vla:2530
+            vla_step_text = "Put formula ""=5*2"" into cell B64. [line 710]" ' vla:2986
             Exit Function
         Case 383
-            vla_step_text = "Copy formulas of B64 to D64. [line 711]" ' vla:2531
+            vla_step_text = "Copy formulas of B64 to D64. [line 711]" ' vla:2987
             Exit Function
         Case 384
-            vla_step_text = "Set width of column F to 33. [line 713]" ' vla:2532
+            vla_step_text = "Set width of column F to 33. [line 713]" ' vla:2988
             Exit Function
         Case 385
-            vla_step_text = "Copy column widths of F1:F1 to H1:H1. [line 714]" ' vla:2533
+            vla_step_text = "Copy column widths of F1:F1 to H1:H1. [line 714]" ' vla:2989
             Exit Function
         Case 386
-            vla_step_text = "Put 1 into cell A68. [line 716]" ' vla:2534
+            vla_step_text = "Put 1 into cell A68. [line 716]" ' vla:2990
             Exit Function
         Case 387
-            vla_step_text = "Put 2 into cell A69. [line 717]" ' vla:2535
+            vla_step_text = "Put 2 into cell A69. [line 717]" ' vla:2991
             Exit Function
         Case 388
-            vla_step_text = "Put 3 into cell A70. [line 718]" ' vla:2536
+            vla_step_text = "Put 3 into cell A70. [line 718]" ' vla:2992
             Exit Function
         Case 389
-            vla_step_text = "Copy range A68:A70 to C68 transposed. [line 719]" ' vla:2537
+            vla_step_text = "Copy range A68:A70 to C68 transposed. [line 719]" ' vla:2993
             Exit Function
         Case 390
-            vla_step_text = "Put ""cutme"" into cell A72. [line 721]" ' vla:2538
+            vla_step_text = "Put ""cutme"" into cell A72. [line 721]" ' vla:2994
             Exit Function
         Case 391
-            vla_step_text = "Move range A72:A72 to C72. [line 722]" ' vla:2539
+            vla_step_text = "Move range A72:A72 to C72. [line 722]" ' vla:2995
             Exit Function
         Case 392
-            vla_step_text = "Put ""rowdata"" into cell A74. [line 724]" ' vla:2540
+            vla_step_text = "Put ""rowdata"" into cell A74. [line 724]" ' vla:2996
             Exit Function
         Case 393
-            vla_step_text = "Copy row 74 to row 76. [line 725]" ' vla:2541
+            vla_step_text = "Copy row 74 to row 76. [line 725]" ' vla:2997
             Exit Function
         Case 394
-            vla_step_text = "Put ""clearme"" into cell A80. [line 728]" ' vla:2542
+            vla_step_text = "Put ""clearme"" into cell A80. [line 728]" ' vla:2998
             Exit Function
         Case 395
-            vla_step_text = "Make cell A80 bold. [line 729]" ' vla:2543
+            vla_step_text = "Make cell A80 bold. [line 729]" ' vla:2999
             Exit Function
         Case 396
-            vla_step_text = "Make cell A80 red. [line 730]" ' vla:2544
+            vla_step_text = "Make cell A80 red. [line 730]" ' vla:3000
             Exit Function
         Case 397
-            vla_step_text = "Clear everything from A80:B80. [line 731]" ' vla:2545
+            vla_step_text = "Clear everything from A80:B80. [line 731]" ' vla:3001
             Exit Function
         Case 398
-            vla_step_text = "Put ""m1"" into cell A84. [line 733]" ' vla:2546
+            vla_step_text = "Put ""m1"" into cell A84. [line 733]" ' vla:3002
             Exit Function
         Case 399
-            vla_step_text = "Put ""m2"" into cell A85. [line 734]" ' vla:2547
+            vla_step_text = "Put ""m2"" into cell A85. [line 734]" ' vla:3003
             Exit Function
         Case 400
-            vla_step_text = "Put ""m3"" into cell A86. [line 735]" ' vla:2548
+            vla_step_text = "Put ""m3"" into cell A86. [line 735]" ' vla:3004
             Exit Function
         Case 401
-            vla_step_text = "Put ""m4"" into cell A87. [line 736]" ' vla:2549
+            vla_step_text = "Put ""m4"" into cell A87. [line 736]" ' vla:3005
             Exit Function
         Case 402
-            vla_step_text = "Put ""m5"" into cell A88. [line 737]" ' vla:2550
+            vla_step_text = "Put ""m5"" into cell A88. [line 737]" ' vla:3006
             Exit Function
         Case 403
-            vla_step_text = "Delete A84:A86 and shift cells up. [line 738]" ' vla:2551
+            vla_step_text = "Delete A84:A86 and shift cells up. [line 738]" ' vla:3007
             Exit Function
         Case 404
-            vla_step_text = "Put ""x1"" into cell B90. [line 740]" ' vla:2552
+            vla_step_text = "Put ""x1"" into cell B90. [line 740]" ' vla:3008
             Exit Function
         Case 405
-            vla_step_text = "Put ""x2"" into cell C90. [line 741]" ' vla:2553
+            vla_step_text = "Put ""x2"" into cell C90. [line 741]" ' vla:3009
             Exit Function
         Case 406
-            vla_step_text = "Put ""x3"" into cell D90. [line 742]" ' vla:2554
+            vla_step_text = "Put ""x3"" into cell D90. [line 742]" ' vla:3010
             Exit Function
         Case 407
-            vla_step_text = "Put ""rightdata"" into cell E90. [line 743]" ' vla:2555
+            vla_step_text = "Put ""rightdata"" into cell E90. [line 743]" ' vla:3011
             Exit Function
         Case 408
-            vla_step_text = "Delete B90:D90 and shift cells left. [line 744]" ' vla:2556
+            vla_step_text = "Delete B90:D90 and shift cells left. [line 744]" ' vla:3012
             Exit Function
         Case 409
-            vla_step_text = "Put 1 into cell A94. [line 746]" ' vla:2557
+            vla_step_text = "Put 1 into cell A94. [line 746]" ' vla:3013
             Exit Function
         Case 410
-            vla_step_text = "Put 2 into cell B94. [line 747]" ' vla:2558
+            vla_step_text = "Put 2 into cell B94. [line 747]" ' vla:3014
             Exit Function
         Case 411
-            vla_step_text = "Put 3 into cell A95. [line 748]" ' vla:2559
+            vla_step_text = "Put 3 into cell A95. [line 748]" ' vla:3015
             Exit Function
         Case 412
-            vla_step_text = "Put 5 into cell A96. [line 749]" ' vla:2560
+            vla_step_text = "Put 5 into cell A96. [line 749]" ' vla:3016
             Exit Function
         Case 413
-            vla_step_text = "Put 6 into cell B96. [line 750]" ' vla:2561
+            vla_step_text = "Put 6 into cell B96. [line 750]" ' vla:3017
             Exit Function
         Case 414
-            vla_step_text = "Delete blank rows in A94:B96. [line 751]" ' vla:2562
+            vla_step_text = "Delete blank rows in A94:B96. [line 751]" ' vla:3018
             Exit Function
         Case 415
-            vla_step_text = "Put 1 into cell A150. [line 754]" ' vla:2563
+            vla_step_text = "Put 1 into cell A150. [line 754]" ' vla:3019
             Exit Function
         Case 416
-            vla_step_text = "Put 2 into cell A151. [line 755]" ' vla:2564
+            vla_step_text = "Put 2 into cell A151. [line 755]" ' vla:3020
             Exit Function
         Case 417
-            vla_step_text = "Put 3 into cell A152. [line 756]" ' vla:2565
+            vla_step_text = "Put 3 into cell A152. [line 756]" ' vla:3021
             Exit Function
         Case 418
-            vla_step_text = "Put 4 into cell A153. [line 757]" ' vla:2566
+            vla_step_text = "Put 4 into cell A153. [line 757]" ' vla:3022
             Exit Function
         Case 419
-            vla_step_text = "Band every other row of A150:D153 ""#D9D9D9"". [line 758]" ' vla:2567
+            vla_step_text = "Band every other row of A150:D153 ""#D9D9D9"". [line 758]" ' vla:3023
             Exit Function
         Case 420
-            vla_step_text = "Make row 165 a header row. [line 759]" ' vla:2568
+            vla_step_text = "Make row 165 a header row. [line 759]" ' vla:3024
             Exit Function
         Case 421
-            vla_step_text = "Fill A170:A179 with a series starting at 1. [line 762]" ' vla:2569
+            vla_step_text = "Fill A170:A179 with a series starting at 1. [line 762]" ' vla:3025
             Exit Function
         Case 422
-            vla_step_text = "Fill A180:A184 with a series starting at 1 with step 2. [line 763]" ' vla:2570
+            vla_step_text = "Fill A180:A184 with a series starting at 1 with step 2. [line 763]" ' vla:3026
             Exit Function
         Case 423
-            vla_step_text = "Fill A190:A194 with a growth series starting at 2. [line 764]" ' vla:2571
+            vla_step_text = "Fill A190:A194 with a growth series starting at 2. [line 764]" ' vla:3027
             Exit Function
         Case 424
-            vla_step_text = "Fill A200:A203 with a growth series starting at 2 with step 3. [line 765]" ' vla:2572
+            vla_step_text = "Fill A200:A203 with a growth series starting at 2 with step 3. [line 765]" ' vla:3028
             Exit Function
         Case 425
-            vla_step_text = "Make cell Z500 bold. [line 777]" ' vla:2573
+            vla_step_text = "Make cell Z500 bold. [line 777]" ' vla:3029
             Exit Function
         Case 426
-            vla_step_text = "Clear everything from Z500. [line 778]" ' vla:2574
+            vla_step_text = "Clear everything from Z500. [line 778]" ' vla:3030
             Exit Function
         Case 427
-            vla_step_text = "Remove trailing empty rows and columns. [line 779]" ' vla:2575
+            vla_step_text = "Remove trailing empty rows and columns. [line 779]" ' vla:3031
             Exit Function
         Case 428
-            vla_step_text = "Try: [line 792]" ' vla:2576
+            vla_step_text = "Try: [line 792]" ' vla:3032
             Exit Function
         Case 429
-            vla_step_text = "Delete sheet GFormat. [line 793]" ' vla:2577
+            vla_step_text = "Delete sheet GFormat. [line 793]" ' vla:3033
             Exit Function
         Case 430
-            vla_step_text = "Work on sheet GFormat. [line 795]" ' vla:2578
+            vla_step_text = "Work on sheet GFormat. [line 795]" ' vla:3034
             Exit Function
         Case 431
-            vla_step_text = "Make range A1:C1 bold. [line 799]" ' vla:2579
+            vla_step_text = "Make range A1:C1 bold. [line 799]" ' vla:3035
             Exit Function
         Case 432
-            vla_step_text = "Make range A2:C2 italic. [line 800]" ' vla:2580
+            vla_step_text = "Make range A2:C2 italic. [line 800]" ' vla:3036
             Exit Function
         Case 433
-            vla_step_text = "Make range A3:C3 blue. [line 801]" ' vla:2581
+            vla_step_text = "Make range A3:C3 blue. [line 801]" ' vla:3037
             Exit Function
         Case 434
-            vla_step_text = "Set font-color of range A4:C4 to ""#FF0000"". [line 802]" ' vla:2582
+            vla_step_text = "Set font-color of range A4:C4 to ""#FF0000"". [line 802]" ' vla:3038
             Exit Function
         Case 435
-            vla_step_text = "Set fill-color of range A5:C5 to ""#00FF00"". [line 803]" ' vla:2583
+            vla_step_text = "Set fill-color of range A5:C5 to ""#00FF00"". [line 803]" ' vla:3039
             Exit Function
         Case 436
-            vla_step_text = "Make range A6:C6 yellow. [line 804]" ' vla:2584
+            vla_step_text = "Make range A6:C6 yellow. [line 804]" ' vla:3040
             Exit Function
         Case 437
-            vla_step_text = "Clear fill-color of range B6:C6. [line 805]" ' vla:2585
+            vla_step_text = "Clear fill-color of range B6:C6. [line 805]" ' vla:3041
             Exit Function
         Case 438
-            vla_step_text = "Set font size of range A7:C7 to 16. [line 806]" ' vla:2586
+            vla_step_text = "Set font size of range A7:C7 to 16. [line 806]" ' vla:3042
             Exit Function
         Case 439
-            vla_step_text = "Make range A8:C8 bold. [line 809]" ' vla:2587
+            vla_step_text = "Make range A8:C8 bold. [line 809]" ' vla:3043
             Exit Function
         Case 440
-            vla_step_text = "Make range B8:C8 not bold. [line 810]" ' vla:2588
+            vla_step_text = "Make range B8:C8 not bold. [line 810]" ' vla:3044
             Exit Function
         Case 441
-            vla_step_text = "Make range A9:C9 italic. [line 811]" ' vla:2589
+            vla_step_text = "Make range A9:C9 italic. [line 811]" ' vla:3045
             Exit Function
         Case 442
-            vla_step_text = "Make cell C9 not italic. [line 812]" ' vla:2590
+            vla_step_text = "Make cell C9 not italic. [line 812]" ' vla:3046
             Exit Function
         Case 443
-            vla_step_text = "Underline range A10:C10. [line 813]" ' vla:2591
+            vla_step_text = "Underline range A10:C10. [line 813]" ' vla:3047
             Exit Function
         Case 444
-            vla_step_text = "Strike through range A11:C11. [line 814]" ' vla:2592
+            vla_step_text = "Strike through range A11:C11. [line 814]" ' vla:3048
             Exit Function
         Case 445
-            vla_step_text = "Underline range A12:C12. [line 815]" ' vla:2593
+            vla_step_text = "Underline range A12:C12. [line 815]" ' vla:3049
             Exit Function
         Case 446
-            vla_step_text = "Remove underline from range B12:C12. [line 816]" ' vla:2594
+            vla_step_text = "Remove underline from range B12:C12. [line 816]" ' vla:3050
             Exit Function
         Case 447
-            vla_step_text = "Strike through range A13:C13. [line 817]" ' vla:2595
+            vla_step_text = "Strike through range A13:C13. [line 817]" ' vla:3051
             Exit Function
         Case 448
-            vla_step_text = "Remove the strikethrough from cell C13. [line 818]" ' vla:2596
+            vla_step_text = "Remove the strikethrough from cell C13. [line 818]" ' vla:3052
             Exit Function
         Case 449
-            vla_step_text = "Set font of range A14:C14 to ""Courier New"". [line 819]" ' vla:2597
+            vla_step_text = "Set font of range A14:C14 to ""Courier New"". [line 819]" ' vla:3053
             Exit Function
         Case 450
-            vla_step_text = "Align range A15:C15 to the top. [line 823]" ' vla:2598
+            vla_step_text = "Align range A15:C15 to the top. [line 823]" ' vla:3054
             Exit Function
         Case 451
-            vla_step_text = "Align range A16:C16 to the middle. [line 824]" ' vla:2599
+            vla_step_text = "Align range A16:C16 to the middle. [line 824]" ' vla:3055
             Exit Function
         Case 452
-            vla_step_text = "Align range A17:C17 to the top. [line 825]" ' vla:2600
+            vla_step_text = "Align range A17:C17 to the top. [line 825]" ' vla:3056
             Exit Function
         Case 453
-            vla_step_text = "Align range B17:C17 to the bottom. [line 826]" ' vla:2601
+            vla_step_text = "Align range B17:C17 to the bottom. [line 826]" ' vla:3057
             Exit Function
         Case 454
-            vla_step_text = "Indent range A18:C18 by 2. [line 827]" ' vla:2602
+            vla_step_text = "Indent range A18:C18 by 2. [line 827]" ' vla:3058
             Exit Function
         Case 455
-            vla_step_text = "Rotate text in range A19:C19 by 45 degrees. [line 828]" ' vla:2603
+            vla_step_text = "Rotate text in range A19:C19 by 45 degrees. [line 828]" ' vla:3059
             Exit Function
         Case 456
-            vla_step_text = "Add a border around range B21:D23. [line 834]" ' vla:2604
+            vla_step_text = "Add a border around range B21:D23. [line 834]" ' vla:3060
             Exit Function
         Case 457
-            vla_step_text = "Add a bottom border to range B25:D25. [line 835]" ' vla:2605
+            vla_step_text = "Add a bottom border to range B25:D25. [line 835]" ' vla:3061
             Exit Function
         Case 458
-            vla_step_text = "Add borders to every cell in range B27:D29. [line 836]" ' vla:2606
+            vla_step_text = "Add borders to every cell in range B27:D29. [line 836]" ' vla:3062
             Exit Function
         Case 459
-            vla_step_text = "Add borders to every cell in range B31:D33. [line 837]" ' vla:2607
+            vla_step_text = "Add borders to every cell in range B31:D33. [line 837]" ' vla:3063
             Exit Function
         Case 460
-            vla_step_text = "Remove borders from range C31:D33. [line 838]" ' vla:2608
+            vla_step_text = "Remove borders from range C31:D33. [line 838]" ' vla:3064
             Exit Function
         Case 461
-            vla_step_text = "Set width of column F to 40. [line 846]" ' vla:2609
+            vla_step_text = "Set width of column F to 40. [line 846]" ' vla:3065
             Exit Function
         Case 462
-            vla_step_text = "Put 1234.56 into cell F40. [line 847]" ' vla:2610
+            vla_step_text = "Put 1234.56 into cell F40. [line 847]" ' vla:3066
             Exit Function
         Case 463
-            vla_step_text = "Format cell F40 as a number. [line 848]" ' vla:2611
+            vla_step_text = "Format cell F40 as a number. [line 848]" ' vla:3067
             Exit Function
         Case 464
-            vla_step_text = "Put 1234.56 into cell F41. [line 849]" ' vla:2612
+            vla_step_text = "Put 1234.56 into cell F41. [line 849]" ' vla:3068
             Exit Function
         Case 465
-            vla_step_text = "Format cell F41 as a number with 3 decimals. [line 850]" ' vla:2613
+            vla_step_text = "Format cell F41 as a number with 3 decimals. [line 850]" ' vla:3069
             Exit Function
         Case 466
-            vla_step_text = "Put 1234.56 into cell F42. [line 851]" ' vla:2614
+            vla_step_text = "Put 1234.56 into cell F42. [line 851]" ' vla:3070
             Exit Function
         Case 467
-            vla_step_text = "Format cell F42 as a number with thousands separators. [line 852]" ' vla:2615
+            vla_step_text = "Format cell F42 as a number with thousands separators. [line 852]" ' vla:3071
             Exit Function
         Case 468
-            vla_step_text = "Put 1234.56 into cell F43. [line 853]" ' vla:2616
+            vla_step_text = "Put 1234.56 into cell F43. [line 853]" ' vla:3072
             Exit Function
         Case 469
-            vla_step_text = "Format cell F43 as a number with 0 decimals and thousands separators. [line 854]" ' vla:2617
+            vla_step_text = "Format cell F43 as a number with 0 decimals and thousands separators. [line 854]" ' vla:3073
             Exit Function
         Case 470
-            vla_step_text = "Put 1234.56 into cell F44. [line 855]" ' vla:2618
+            vla_step_text = "Put 1234.56 into cell F44. [line 855]" ' vla:3074
             Exit Function
         Case 471
-            vla_step_text = "Format cell F44 as dollars. [line 856]" ' vla:2619
+            vla_step_text = "Format cell F44 as dollars. [line 856]" ' vla:3075
             Exit Function
         Case 472
-            vla_step_text = "Put 1234.56 into cell F45. [line 857]" ' vla:2620
+            vla_step_text = "Put 1234.56 into cell F45. [line 857]" ' vla:3076
             Exit Function
         Case 473
-            vla_step_text = "Format cell F45 as euros with 0 decimals. [line 858]" ' vla:2621
+            vla_step_text = "Format cell F45 as euros with 0 decimals. [line 858]" ' vla:3077
             Exit Function
         Case 474
-            vla_step_text = "Put 1234.56 into cell F46. [line 859]" ' vla:2622
+            vla_step_text = "Put 1234.56 into cell F46. [line 859]" ' vla:3078
             Exit Function
         Case 475
-            vla_step_text = "Format cell F46 as pounds. [line 860]" ' vla:2623
+            vla_step_text = "Format cell F46 as pounds. [line 860]" ' vla:3079
             Exit Function
         Case 476
-            vla_step_text = "Put 1234.56 into cell F47. [line 861]" ' vla:2624
+            vla_step_text = "Put 1234.56 into cell F47. [line 861]" ' vla:3080
             Exit Function
         Case 477
-            vla_step_text = "Format cell F47 as accounting in dollars. [line 862]" ' vla:2625
+            vla_step_text = "Format cell F47 as accounting in dollars. [line 862]" ' vla:3081
             Exit Function
         Case 478
-            vla_step_text = "Put -1234.56 into cell F48. [line 863]" ' vla:2626
+            vla_step_text = "Put -1234.56 into cell F48. [line 863]" ' vla:3082
             Exit Function
         Case 479
-            vla_step_text = "Format cell F48 as accounting in euros with 0 decimals. [line 864]" ' vla:2627
+            vla_step_text = "Format cell F48 as accounting in euros with 0 decimals. [line 864]" ' vla:3083
             Exit Function
         Case 480
-            vla_step_text = "Put 0.125 into cell F49. [line 865]" ' vla:2628
+            vla_step_text = "Put 0.125 into cell F49. [line 865]" ' vla:3084
             Exit Function
         Case 481
-            vla_step_text = "Format range F49 as percent. [line 866]" ' vla:2629
+            vla_step_text = "Format range F49 as percent. [line 866]" ' vla:3085
             Exit Function
         Case 482
-            vla_step_text = "Put 0.125 into cell F50. [line 867]" ' vla:2630
+            vla_step_text = "Put 0.125 into cell F50. [line 867]" ' vla:3086
             Exit Function
         Case 483
-            vla_step_text = "Format cell F50 as percent with 2 decimals. [line 868]" ' vla:2631
+            vla_step_text = "Format cell F50 as percent with 2 decimals. [line 868]" ' vla:3087
             Exit Function
         Case 484
-            vla_step_text = "Put 46000 into cell F51. [line 869]" ' vla:2632
+            vla_step_text = "Put 46000 into cell F51. [line 869]" ' vla:3088
             Exit Function
         Case 485
-            vla_step_text = "Format cell F51 as a short date. [line 870]" ' vla:2633
+            vla_step_text = "Format cell F51 as a short date. [line 870]" ' vla:3089
             Exit Function
         Case 486
-            vla_step_text = "Put 46000 into cell F52. [line 871]" ' vla:2634
+            vla_step_text = "Put 46000 into cell F52. [line 871]" ' vla:3090
             Exit Function
         Case 487
-            vla_step_text = "Format cell F52 as a long date. [line 872]" ' vla:2635
+            vla_step_text = "Format cell F52 as a long date. [line 872]" ' vla:3091
             Exit Function
         Case 488
-            vla_step_text = "Put 46000 into cell F53. [line 873]" ' vla:2636
+            vla_step_text = "Put 46000 into cell F53. [line 873]" ' vla:3092
             Exit Function
         Case 489
-            vla_step_text = "Format cell F53 as an ISO date. [line 874]" ' vla:2637
+            vla_step_text = "Format cell F53 as an ISO date. [line 874]" ' vla:3093
             Exit Function
         Case 490
-            vla_step_text = "Put 0.5625 into cell F54. [line 875]" ' vla:2638
+            vla_step_text = "Put 0.5625 into cell F54. [line 875]" ' vla:3094
             Exit Function
         Case 491
-            vla_step_text = "Format cell F54 as a time. [line 876]" ' vla:2639
+            vla_step_text = "Format cell F54 as a time. [line 876]" ' vla:3095
             Exit Function
         Case 492
-            vla_step_text = "Put 42 into cell F55. [line 877]" ' vla:2640
+            vla_step_text = "Put 42 into cell F55. [line 877]" ' vla:3096
             Exit Function
         Case 493
-            vla_step_text = "Format cell F55 as text for new entries. [line 878]" ' vla:2641
+            vla_step_text = "Format cell F55 as text for new entries. [line 878]" ' vla:3097
             Exit Function
         Case 494
-            vla_step_text = "Put 1234.56 into cell F56. [line 879]" ' vla:2642
+            vla_step_text = "Put 1234.56 into cell F56. [line 879]" ' vla:3098
             Exit Function
         Case 495
-            vla_step_text = "Format cell F56 as dollars. [line 880]" ' vla:2643
+            vla_step_text = "Format cell F56 as dollars. [line 880]" ' vla:3099
             Exit Function
         Case 496
-            vla_step_text = "Format cell F56 as general. [line 881]" ' vla:2644
+            vla_step_text = "Format cell F56 as general. [line 881]" ' vla:3100
             Exit Function
         Case 497
-            vla_step_text = "Put 42 into cell F57. [line 882]" ' vla:2645
+            vla_step_text = "Put 42 into cell F57. [line 882]" ' vla:3101
             Exit Function
         Case 498
-            vla_step_text = "Format cell F57 using ""00000"". [line 883]" ' vla:2646
+            vla_step_text = "Format cell F57 using ""00000"". [line 883]" ' vla:3102
             Exit Function
         Case 499
-            vla_step_text = "Add a border colored ""#FF0000"" around range H40:J42. [line 889]" ' vla:2647
+            vla_step_text = "Add a border colored ""#FF0000"" around range H40:J42. [line 889]" ' vla:3103
             Exit Function
         Case 500
-            vla_step_text = "Add a bottom border colored green to range H44:J44. [line 890]" ' vla:2648
+            vla_step_text = "Add a bottom border colored green to range H44:J44. [line 890]" ' vla:3104
             Exit Function
         Case 501
-            vla_step_text = "Add borders colored blue to every cell in range H46:J48. [line 891]" ' vla:2649
+            vla_step_text = "Add borders colored blue to every cell in range H46:J48. [line 891]" ' vla:3105
             Exit Function
         Case 502
-            vla_step_text = "Go to sheet Output. [line 893]" ' vla:2650
+            vla_step_text = "Try: [line 899]" ' vla:3106
             Exit Function
         Case 503
-            vla_step_text = "Tidy-up. [line 895]" ' vla:2651
+            vla_step_text = "Delete sheet GSortFilter. [line 900]" ' vla:3107
             Exit Function
         Case 504
-            vla_step_text = "Turn on screen updating. [line 896]" ' vla:2652
+            vla_step_text = "Work on sheet GSortFilter. [line 902]" ' vla:3108
             Exit Function
         Case 505
-            vla_step_text = "Log ""report finished"". [line 897]" ' vla:2653
+            vla_step_text = "Put ""Item"" into cell A1. [line 906]" ' vla:3109
+            Exit Function
+        Case 506
+            vla_step_text = "Put ""Qty"" into cell B1. [line 907]" ' vla:3110
+            Exit Function
+        Case 507
+            vla_step_text = "Put ""a"" into cell A2. [line 908]" ' vla:3111
+            Exit Function
+        Case 508
+            vla_step_text = "Put 2 into cell B2. [line 909]" ' vla:3112
+            Exit Function
+        Case 509
+            vla_step_text = "Put ""b"" into cell A3. [line 910]" ' vla:3113
+            Exit Function
+        Case 510
+            vla_step_text = "Put 9 into cell B3. [line 911]" ' vla:3114
+            Exit Function
+        Case 511
+            vla_step_text = "Put ""c"" into cell A4. [line 912]" ' vla:3115
+            Exit Function
+        Case 512
+            vla_step_text = "Put 5 into cell B4. [line 913]" ' vla:3116
+            Exit Function
+        Case 513
+            vla_step_text = "Sort this sheet by column B descending with a header row. [line 914]" ' vla:3117
+            Exit Function
+        Case 514
+            vla_step_text = "Put ""Name"" into cell D1. [line 918]" ' vla:3118
+            Exit Function
+        Case 515
+            vla_step_text = "Put ""Score"" into cell E1. [line 919]" ' vla:3119
+            Exit Function
+        Case 516
+            vla_step_text = "Put ""p"" into cell D2. [line 920]" ' vla:3120
+            Exit Function
+        Case 517
+            vla_step_text = "Put 3 into cell E2. [line 921]" ' vla:3121
+            Exit Function
+        Case 518
+            vla_step_text = "Put ""q"" into cell D3. [line 922]" ' vla:3122
+            Exit Function
+        Case 519
+            vla_step_text = "Put 1 into cell E3. [line 923]" ' vla:3123
+            Exit Function
+        Case 520
+            vla_step_text = "Put ""r"" into cell D4. [line 924]" ' vla:3124
+            Exit Function
+        Case 521
+            vla_step_text = "Put 2 into cell E4. [line 925]" ' vla:3125
+            Exit Function
+        Case 522
+            vla_step_text = "Sort range D1:E4 by column E with a header row. [line 926]" ' vla:3126
+            Exit Function
+        Case 523
+            vla_step_text = "Put ""x"" into cell G2. [line 929]" ' vla:3127
+            Exit Function
+        Case 524
+            vla_step_text = "Put 5 into cell H2. [line 930]" ' vla:3128
+            Exit Function
+        Case 525
+            vla_step_text = "Put ""y"" into cell G3. [line 931]" ' vla:3129
+            Exit Function
+        Case 526
+            vla_step_text = "Put 9 into cell H3. [line 932]" ' vla:3130
+            Exit Function
+        Case 527
+            vla_step_text = "Put ""z"" into cell G4. [line 933]" ' vla:3131
+            Exit Function
+        Case 528
+            vla_step_text = "Put 7 into cell H4. [line 934]" ' vla:3132
+            Exit Function
+        Case 529
+            vla_step_text = "Sort range G2:H4 by column H descending without a header row. [line 935]" ' vla:3133
+            Exit Function
+        Case 530
+            vla_step_text = "Put ""Region"" into cell J1. [line 939]" ' vla:3134
+            Exit Function
+        Case 531
+            vla_step_text = "Put ""Amount"" into cell K1. [line 940]" ' vla:3135
+            Exit Function
+        Case 532
+            vla_step_text = "Put ""Tag"" into cell L1. [line 941]" ' vla:3136
+            Exit Function
+        Case 533
+            vla_step_text = "Put ""West"" into cell J2. [line 942]" ' vla:3137
+            Exit Function
+        Case 534
+            vla_step_text = "Put 100 into cell K2. [line 943]" ' vla:3138
+            Exit Function
+        Case 535
+            vla_step_text = "Put ""a"" into cell L2. [line 944]" ' vla:3139
+            Exit Function
+        Case 536
+            vla_step_text = "Put ""East"" into cell J3. [line 945]" ' vla:3140
+            Exit Function
+        Case 537
+            vla_step_text = "Put 50 into cell K3. [line 946]" ' vla:3141
+            Exit Function
+        Case 538
+            vla_step_text = "Put ""b"" into cell L3. [line 947]" ' vla:3142
+            Exit Function
+        Case 539
+            vla_step_text = "Put ""West"" into cell J4. [line 948]" ' vla:3143
+            Exit Function
+        Case 540
+            vla_step_text = "Put 300 into cell K4. [line 949]" ' vla:3144
+            Exit Function
+        Case 541
+            vla_step_text = "Put ""c"" into cell L4. [line 950]" ' vla:3145
+            Exit Function
+        Case 542
+            vla_step_text = "Put ""East"" into cell J5. [line 951]" ' vla:3146
+            Exit Function
+        Case 543
+            vla_step_text = "Put 250 into cell K5. [line 952]" ' vla:3147
+            Exit Function
+        Case 544
+            vla_step_text = "Put ""d"" into cell L5. [line 953]" ' vla:3148
+            Exit Function
+        Case 545
+            vla_step_text = "Sort range J1:L5 by column J ascending then by column K descending with a header row. [line 954]" ' vla:3149
+            Exit Function
+        Case 546
+            vla_step_text = "Put 2 into cell N2. [line 957]" ' vla:3150
+            Exit Function
+        Case 547
+            vla_step_text = "Put 9 into cell O2. [line 958]" ' vla:3151
+            Exit Function
+        Case 548
+            vla_step_text = "Put 1 into cell N3. [line 959]" ' vla:3152
+            Exit Function
+        Case 549
+            vla_step_text = "Put 8 into cell O3. [line 960]" ' vla:3153
+            Exit Function
+        Case 550
+            vla_step_text = "Put 2 into cell N4. [line 961]" ' vla:3154
+            Exit Function
+        Case 551
+            vla_step_text = "Put 7 into cell O4. [line 962]" ' vla:3155
+            Exit Function
+        Case 552
+            vla_step_text = "Sort range N2:O4 by column N then by column O without a header row. [line 963]" ' vla:3156
+            Exit Function
+        Case 553
+            vla_step_text = "Put ""Region"" into cell A40. [line 972]" ' vla:3157
+            Exit Function
+        Case 554
+            vla_step_text = "Put ""Amount"" into cell B40. [line 973]" ' vla:3158
+            Exit Function
+        Case 555
+            vla_step_text = "Put ""West"" into cell A41. [line 974]" ' vla:3159
+            Exit Function
+        Case 556
+            vla_step_text = "Put 1 into cell B41. [line 975]" ' vla:3160
+            Exit Function
+        Case 557
+            vla_step_text = "Put ""East"" into cell A42. [line 976]" ' vla:3161
+            Exit Function
+        Case 558
+            vla_step_text = "Put 2 into cell B42. [line 977]" ' vla:3162
+            Exit Function
+        Case 559
+            vla_step_text = "Put ""West"" into cell A43. [line 978]" ' vla:3163
+            Exit Function
+        Case 560
+            vla_step_text = "Put 3 into cell B43. [line 979]" ' vla:3164
+            Exit Function
+        Case 561
+            vla_step_text = "Filter range A40:B43 to show rows where column A is ""West"". [line 980]" ' vla:3165
+            Exit Function
+        Case 562
+            vla_step_text = "Copy only the visible cells of range A40:B43 to D46. [line 981]" ' vla:3166
+            Exit Function
+        Case 563
+            vla_step_text = "Remove the filters. [line 982]" ' vla:3167
+            Exit Function
+        Case 564
+            vla_step_text = "Try: [line 988]" ' vla:3168
+            Exit Function
+        Case 565
+            vla_step_text = "Filter range A40:B43 to show rows where column B is greater than ""abc"". [line 989]" ' vla:3169
+            Exit Function
+        Case 566
+            vla_step_text = "Put ""Region"" into cell A20. [line 994]" ' vla:3170
+            Exit Function
+        Case 567
+            vla_step_text = "Put ""Amount"" into cell B20. [line 995]" ' vla:3171
+            Exit Function
+        Case 568
+            vla_step_text = "Put ""Code"" into cell C20. [line 996]" ' vla:3172
+            Exit Function
+        Case 569
+            vla_step_text = "Put ""West"" into cell A21. [line 997]" ' vla:3173
+            Exit Function
+        Case 570
+            vla_step_text = "Put 100 into cell B21. [line 998]" ' vla:3174
+            Exit Function
+        Case 571
+            vla_step_text = "Put ""5*3"" into cell C21. [line 999]" ' vla:3175
+            Exit Function
+        Case 572
+            vla_step_text = "Put ""East"" into cell A22. [line 1000]" ' vla:3176
+            Exit Function
+        Case 573
+            vla_step_text = "Put 250 into cell B22. [line 1001]" ' vla:3177
+            Exit Function
+        Case 574
+            vla_step_text = "Put ""53"" into cell C22. [line 1002]" ' vla:3178
+            Exit Function
+        Case 575
+            vla_step_text = "Put ""Western"" into cell A23. [line 1003]" ' vla:3179
+            Exit Function
+        Case 576
+            vla_step_text = "Put 100 into cell B23. [line 1004]" ' vla:3180
+            Exit Function
+        Case 577
+            vla_step_text = "Put ""x"" into cell C23. [line 1005]" ' vla:3181
+            Exit Function
+        Case 578
+            vla_step_text = "Put ""West"" into cell A24. [line 1006]" ' vla:3182
+            Exit Function
+        Case 579
+            vla_step_text = "Put 50 into cell B24. [line 1007]" ' vla:3183
+            Exit Function
+        Case 580
+            vla_step_text = "Put ""y"" into cell C24. [line 1008]" ' vla:3184
+            Exit Function
+        Case 581
+            vla_step_text = "Put ""east"" into cell A25. [line 1009]" ' vla:3185
+            Exit Function
+        Case 582
+            vla_step_text = "Put 300 into cell B25. [line 1010]" ' vla:3186
+            Exit Function
+        Case 583
+            vla_step_text = "Put ""z"" into cell C25. [line 1011]" ' vla:3187
+            Exit Function
+        Case 584
+            vla_step_text = "Put ""North"" into cell A26. [line 1012]" ' vla:3188
+            Exit Function
+        Case 585
+            vla_step_text = "Put 175 into cell B26. [line 1013]" ' vla:3189
+            Exit Function
+        Case 586
+            vla_step_text = "Put ""w"" into cell C26. [line 1014]" ' vla:3190
+            Exit Function
+        Case 587
+            vla_step_text = "Put ""East"" into cell A27. [line 1015]" ' vla:3191
+            Exit Function
+        Case 588
+            vla_step_text = "Put 75 into cell B27. [line 1016]" ' vla:3192
+            Exit Function
+        Case 589
+            vla_step_text = "Put ""v"" into cell C27. [line 1017]" ' vla:3193
+            Exit Function
+        Case 590
+            vla_step_text = "Format range B21:B27 as dollars. [line 1018]" ' vla:3194
+            Exit Function
+        Case 591
+            vla_step_text = "Filter range A20:C27 to show rows where column A is ""West"". [line 1020]" ' vla:3195
+            Exit Function
+        Case 592
+            vla_step_text = "Copy only the visible cells of range A20:C27 to E30. [line 1021]" ' vla:3196
+            Exit Function
+        Case 593
+            vla_step_text = "Clear the filter conditions. [line 1022]" ' vla:3197
+            Exit Function
+        Case 594
+            vla_step_text = "Filter range A20:C27 to show rows where column B is 100. [line 1024]" ' vla:3198
+            Exit Function
+        Case 595
+            vla_step_text = "Copy only the visible cells of range A20:C27 to I30. [line 1025]" ' vla:3199
+            Exit Function
+        Case 596
+            vla_step_text = "Clear the filter conditions. [line 1026]" ' vla:3200
+            Exit Function
+        Case 597
+            vla_step_text = "Filter range A20:C27 to show rows where column C contains ""*"". [line 1028]" ' vla:3201
+            Exit Function
+        Case 598
+            vla_step_text = "Copy only the visible cells of range A20:C27 to M30. [line 1029]" ' vla:3202
+            Exit Function
+        Case 599
+            vla_step_text = "Clear the filter conditions. [line 1030]" ' vla:3203
+            Exit Function
+        Case 600
+            vla_step_text = "Filter range A20:C27 to show rows where column B is greater than 150. [line 1033]" ' vla:3204
+            Exit Function
+        Case 601
+            vla_step_text = "Filter range A20:C27 to show rows where column A is ""East"". [line 1034]" ' vla:3205
+            Exit Function
+        Case 602
+            vla_step_text = "Copy only the visible cells of range A20:C27 to Q30. [line 1035]" ' vla:3206
+            Exit Function
+        Case 603
+            vla_step_text = "Clear the filter conditions. [line 1036]" ' vla:3207
+            Exit Function
+        Case 604
+            vla_step_text = "Filter range A20:C27 to show rows where column B is less than 99.5. [line 1041]" ' vla:3208
+            Exit Function
+        Case 605
+            vla_step_text = "Copy only the visible cells of range A20:C27 to U30. [line 1042]" ' vla:3209
+            Exit Function
+        Case 606
+            vla_step_text = "Add filters to range A20:C27. [line 1049]" ' vla:3210
+            Exit Function
+        Case 607
+            vla_step_text = "Clear the filter conditions. [line 1050]" ' vla:3211
+            Exit Function
+        Case 608
+            vla_step_text = "Try: [line 1051]" ' vla:3212
+            Exit Function
+        Case 609
+            vla_step_text = "Add filters to range A40:B43. [line 1052]" ' vla:3213
+            Exit Function
+        Case 610
+            vla_step_text = "Go to sheet Output. [line 1054]" ' vla:3214
+            Exit Function
+        Case 611
+            vla_step_text = "Tidy-up. [line 1056]" ' vla:3215
+            Exit Function
+        Case 612
+            vla_step_text = "Turn on screen updating. [line 1057]" ' vla:3216
+            Exit Function
+        Case 613
+            vla_step_text = "Log ""report finished"". [line 1058]" ' vla:3217
             Exit Function
         Case Else
-            vla_step_text = "an unknown step" ' vla:2654
+            vla_step_text = "an unknown step" ' vla:3218
             Exit Function
     End Select
 End Function
