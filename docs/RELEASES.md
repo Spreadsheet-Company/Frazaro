@@ -96,10 +96,52 @@
   now worked out automatically from the full list of names on every
   release, which is how this one was found missing.
 
-- **More reserved words.** Fifteen names join the reserved set: the
-  seven text goals, their seven underscore spellings, and `whole`. If a
+- **PROLOG refuses Prolog's side-effect goals, for good, and says why.**
+  `write`, `assert`, `random` and the rest of that family used to be
+  unknown names here, and an unknown name quietly finds nothing — so the
+  line everyone types while debugging, `(query (p X) (write X))`, answered
+  with an empty column and looked like "no match". Each is now refused
+  with a message giving the reason and what to do instead:
+
+  - **Changing the program while it answers** — `assert`, `asserta`,
+    `assertz`, `retract`, `retractall`, `abolish`. Excel recalculates a
+    formula whenever it chooses, as often as it chooses, so an answer that
+    depended on how many times it had run would be wrong in a way no one
+    could see. To collect answers use `(findall X Goal Bag)`; to count
+    them, `(length Bag N)`.
+  - **Printing** — `write`, `writeln`, `print`, `nl`, `format`, `writeq`,
+    `write_canonical`, `write_term`. A formula in a cell has nowhere to
+    print; what `PROLOG` returns *is* its output. Put the variable in the
+    query and it fills a column, one row per answer.
+  - **Remembering a value between goals** — `b_setval`, `b_getval`,
+    `nb_setval`, `nb_getval`, `gensym`. In Prolog a value kept this
+    way outlives the query, and a formula must not carry anything from
+    one recalculation to the next — a counter would count how often
+    Excel had recalculated. Pass the value along as an argument instead.
+  - **The clock and the dice** — `random`, `random_between`,
+    `random_member`, `random_permutation`, `get_time`, and `random`,
+    `random_float` and `cputime` inside arithmetic, as in
+    `(is X (random 10))`. Their answer would change every time Excel
+    recalculated. Excel's own `RAND()`, `RANDBETWEEN()` and `NOW()` do
+    this in the open: put one in a table you pass to `PROLOG`.
+  - **Reading from outside** — `read`, `read_term`, `consult`, `halt`.
+    `PROLOG` reads only its own program and the tables you give it.
+
+  Written bare, the way Prolog writes them — `nl`, `halt` — they are
+  refused the same way, and the hyphenated spellings (`random-between`,
+  `get-time`, …) are refused too. A program using `format` with one
+  argument in one place and two in another is told about `format`, not
+  about its arities. A rule that contains one of these goals is refused
+  only when it actually runs, so a rule you never call does no harm.
+  None of these is waiting to be built.
+
+- **More reserved words.** Fifty-four names join the reserved set: the
+  seven text goals, their seven underscore spellings, `whole`, the
+  twenty-eight goals above and eleven hyphenated spellings of them. If a
   knowledge base of yours uses one of those as a predicate name it will
-  need renaming; `whole` is the only plausible one.
+  need renaming; `write`, `read`, `print`, `format` and `whole` are
+  the plausible ones. `tab` and `flag` are deliberately **not** reserved:
+  a sheet tab and a flagged order are ordinary things to keep facts about.
 
 - **Formatting sentences now reach a whole range, not just one cell.**
   Five sentences only ever took a single cell — `Make cell A1 bold.` would

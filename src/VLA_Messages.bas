@@ -503,6 +503,10 @@ Private Sub AddEntries(ByVal m As Collection)
     ' corrects the number-type clause, which still said those names were
     ' "refused until PROLOG tells one kind of number from another" after
     ' PROLOG.17 had settled that it never will.
+    ' PROLOG.19 adds the impure goals on a line of their own - the names
+    ' refused for good because a formula must answer from what it is
+    ' given - and phrases that family with NO count: it has more names
+    ' than check_prolog_reserved_names.ps1's rule B can read as a word.
     ' WRITTEN ACROSS CONTINUATION LINES, and it has to be: the VBA editor
     ' holds a physical line to 1023 characters and splits a longer one on
     ' import into a syntax error that stops the whole project compiling.
@@ -517,6 +521,7 @@ Private Sub AddEntries(ByVal m As Collection)
         "the nine ISO spellings var nonvar atom number atomic compound callable is_list ground - reserved only so PROLOG can point you at the question-mark form instead of failing silently - " & _
         "the four number-type names integer? float? integer float, reserved and refused because PROLOG has one kind of number, " & _
         "the eleven alias spellings is-list is_list? sum_list whole atom_length atom_concat sub_atom atom_number upcase_atom downcase_atom atomic_list_concat, reserved only so PROLOG can point you at the spelling it does use, " & _
+        "the impure goals assert asserta assertz retract retractall abolish write writeln print nl format writeq write_canonical write-canonical write_term write-term read read_term read-term consult halt b_setval b-setval b_getval b-getval nb_setval nb-setval nb_getval nb-getval gensym random random_between random-between random_member random-member random_permutation random-permutation get_time get-time, refused for good because a formula must answer from what it is given and nothing else, " & _
         "and the two control spellings -> \+, reserved the same way so PROLOG can point you at the word it writes instead) and can't be used as a predicate name in a (fact ...) or (rule ...)."
     ' `prolog-cut-not-yet-supported` (PROLOG.5.1-5.3-era: "cut (!) isn't
     ' supported yet.") is retired at PROLOG.5.4 - cut is real now, no
@@ -655,6 +660,35 @@ Private Sub AddEntries(ByVal m As Collection)
     ' names someone thought of: swap hyphen for underscore, or drop a
     ' trailing question mark, over the reserved set. See AliasSpellingFor.
     AddMsg m, "prolog-alias-spelling", 5, "VLA-Prolog", "{form} isn't how PROLOG spells this - write {fixed} instead. PROLOG joins the words of a name with a hyphen rather than an underscore, and ends a name that ASKS something with a question mark."
+    ' PROLOG.19 - the IMPURE GOALS, refused for good: the goals whose
+    ' answer would depend on something other than their arguments and the
+    ' program text, or that would do something other than bind. A formula
+    ' in a cell must be a function of what it is given - Excel recalculates
+    ' it whenever and as often as it likes - and these break that in five
+    ' different ways, so there are five refusals, each saying its own
+    ' reason and what to do instead. Reserved AND dispatched, the shape
+    ' TypeTestDeferredFor set: the name is reached, and what reaching it
+    ' does is teach. Each serves several spellings (hyphen twins
+    ' included) from one raise site, VLA_Prolog.RefuseImpureGoal, so each
+    ' takes {form} from the caller and is registered in
+    ' tools/check_prolog_form_attribution.ps1's multi-form baseline, where
+    ' all five were added before the code and failed until it existed.
+    '
+    ' database and state are NOT condemned by recalculation on the
+    ' reading that could be built here: every PROLOG() call starts again
+    ' from its program text, so a fact asserted inside one call would be
+    ' deterministic. They are refused because that reading is not what the
+    ' names promise - in Prolog an asserted fact or a global value outlives
+    ' the query, which is exactly the cross-recalculation state a formula
+    ' must not have - and because, scoped to one call, the answer would
+    ' depend on the ORDER goals ran rather than on the facts and rules as
+    ' written. The texts say the first reason; VLA_Prolog's PROLOG.19
+    ' header carries both. None of the texts carries a count.
+    AddMsg m, "prolog-impure-database", 5, "VLA-Prolog", "{form} is refused for good: PROLOG never changes its own facts and rules while it answers. Excel recalculates a formula whenever it chooses, as often as it chooses, so a fact one run added would change the next run's answer - and since every run starts again from the program text, no other formula could ever see it. To collect answers, use (findall X Goal Bag); to count them, (length Bag N). A fact that should exist belongs in the program, or in a table you pass to PROLOG."
+    AddMsg m, "prolog-impure-output", 5, "VLA-Prolog", "{form} is refused for good: a formula in a cell has nowhere to print - what PROLOG returns IS its output. To see a value, name its variable in the query and it fills a column of the result, one row per answer; to build a piece of text, use atom-concat or atomic-list-concat."
+    AddMsg m, "prolog-impure-state", 5, "VLA-Prolog", "{form} is refused for good: PROLOG keeps no values between goals except in their arguments. In Prolog a value set this way outlives the query that set it, and Excel recalculates a formula whenever it chooses, as often as it chooses - so a counter or a remembered value would make the answer depend on how many times it had run. Pass the value along as an argument instead, working out the next one with is, like (is N1 (+ N 1)); to number the answers, collect them with findall and count them with length."
+    AddMsg m, "prolog-impure-volatile", 5, "VLA-Prolog", "{form} is refused for good: its answer would change every time Excel recalculates, even when nothing it was given has changed, and a PROLOG answer must depend only on the program and the tables you pass it. Excel's own RAND(), RANDBETWEEN() and NOW() do this job in the open - put one in a cell of a table you pass to PROLOG, and PROLOG reads that value like any other."
+    AddMsg m, "prolog-impure-outside", 5, "VLA-Prolog", "{form} is refused for good: PROLOG reads nothing but its own program text and the tables you pass it, and there is no session for it to end. Excel recalculates a formula only when something the formula names has changed, so anything read from a file or a prompt could leave the answer silently out of date. Put the data in a table and pass the table to PROLOG."
     ' PROLOG.10 - the adjudication. A text cell reading eng becomes the
     ' term ""eng, and a bare eng written in a query is a DIFFERENT term;
     ' that stays true, and this message does not change it. What changes

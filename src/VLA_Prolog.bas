@@ -1,6 +1,64 @@
 Attribute VB_Name = "VLA_Prolog"
 Option Explicit
-Public Const VLA_PROLOG_VERSION As String = "PROLOG.18"
+Public Const VLA_PROLOG_VERSION As String = "PROLOG.19"
+'
+' PROLOG.19: WHAT THIS ENGINE REFUSES TO BE. A formula in a cell must be a
+' function of what it is given: Excel recalculates it whenever it likes,
+' in an order it does not promise, as often as it likes. Standard Prolog
+' has a family of goals built to break exactly that, and until now every
+' one of them was an unknown predicate here - which FAILS SILENTLY, so
+' `(query (write X))` spilled an empty column and read as "no match".
+'
+' THE RULE THAT DECIDES MEMBERSHIP. A goal is IMPURE if, for some
+' arguments, its outcome can depend on something other than its arguments
+' and the program text - the clock, a random generator, the machine, the
+' session, the database as changed while answering, or how many times and
+' in what order goals ran - OR solving it can change something other than
+' its own arguments' bindings. Run MECHANICALLY over SWI-Prolog's own
+' catalogue (its 800-row predicate summary, each row joined to its manual
+' section and ISO tag, plus library(random) and library(listing)), the rule
+' finds 489 names. The list this item was filed with named 22.
+'
+' WHY NOT RESERVE ALL 489. A name this engine SOLVES must be reserved, or
+' the solver would shadow a user's own definition. A name it refuses for
+' good only MAY be: reserving buys a better message and costs the word, for
+' ever, in every knowledge base. So ImpureGoalKindFor holds the members a
+' Prolog author types in an ordinary program - not a directive, not an
+' operation on a stream, thread or other handle only another goal could
+' produce, not a debugger, profiler or operating-system interface - and
+' drops `tab` and `flag`, which a workbook's own knowledge base is likely
+' to use (a sheet tab, a flagged order). The rest stay what every unknown
+' name is here; making an unknown predicate refuse, as ISO does, is its own
+' item and needs no reservation at all.
+'
+' FIVE FAMILIES, EACH REFUSED FOR GOOD, FOR TWO DIFFERENT REASONS.
+'   volatile (random, get_time) and outside (read, consult, halt) and
+'   output (write, format, nl...) reach outside the call: their answer or
+'   their effect is somewhere Excel cannot see. The doctrine condemns them
+'   directly. Output is refused rather than made a harmless no-op because
+'   a write that succeeds and shows nothing lies about what it did - and
+'   the spill already IS the output.
+'   database (assert, retract...) and state (nb_setval, gensym...) do NOT
+'   reach outside the call as this engine could build them: every PROLOG()
+'   call starts again from its program text, so a fact asserted inside one
+'   would be deterministic. They are refused because that is not what the
+'   names promise - in Prolog the fact outlives the query, which is the
+'   cross-recalculation state a formula must not have - and because, kept
+'   inside one call, the answer would depend on the ORDER goals ran rather
+'   than on the facts and rules as written, which is what makes a program
+'   readable by someone checking it. findall, length and an argument serve
+'   every honest use.
+' NONE IS "NOT YET". Membership is a property of what a name promises, and
+' any pure variant - formatting into text, a generator seeded through its
+' arguments - is a different relation that would get a name promising no
+' effect, PROLOG.15's `integer?` -> `whole?` rule. `format` stays refused.
+'
+' THREE SITES, ONE ROUTER. SolveGoalList refuses a goal; ValidateBodyItem
+' refuses a BARE `nl`/`halt` (a bare atom never reaches the solver) and
+' keeps these names out of arity recording, so format/1 beside format/2
+' is not blamed as an arity mismatch; ValidateArithExpr refuses the
+' arithmetic functions random, random_float and cputime. All three go
+' through RefuseImpureGoal, the one place a family becomes its message.
 '
 ' PROLOG.18: TEXT. A spreadsheet language whose whole subject is cell
 ' values could not, inside PROLOG, take one apart or put two together.
@@ -2133,7 +2191,14 @@ Private Function IsReservedPredicateName(ByVal predName As String) As Boolean
         ' solve, on exactly the terms ListGoalKindFor's six do. Their
         ' underscore spellings join AliasSpellingFor rather than a table of
         ' their own; see that function's header for why.
-        IsReservedPredicateName = (ComparisonOpFor(predName) <> "" Or UnificationOpFor(predName) <> "" Or TypeTestKindFor(predName) <> "" Or TypeTestIsoSpellingFor(predName) <> "" Or ListGoalKindFor(predName) <> "" Or TypeTestDeferredFor(predName) <> "" Or AliasSpellingFor(predName) <> "" Or ControlIsoSpellingFor(predName) <> "" Or TextGoalKindFor(predName) <> "")
+        '
+        ' PROLOG.19: a TENTH, ImpureGoalKindFor - the goals refused for good
+        ' (assert, write, random, ...), reserved on TypeTestDeferredFor's
+        ' terms: a user who could DEFINE `write` would find every call to
+        ' their own definition refused, so it is refused where it is
+        ' written instead. Its hyphen twins live in that table rather than
+        ' in AliasSpellingFor; see its header.
+        IsReservedPredicateName = (ComparisonOpFor(predName) <> "" Or UnificationOpFor(predName) <> "" Or TypeTestKindFor(predName) <> "" Or TypeTestIsoSpellingFor(predName) <> "" Or ListGoalKindFor(predName) <> "" Or TypeTestDeferredFor(predName) <> "" Or AliasSpellingFor(predName) <> "" Or ControlIsoSpellingFor(predName) <> "" Or TextGoalKindFor(predName) <> "" Or ImpureGoalKindFor(predName) <> "")
     End Select
 End Function
 
@@ -2623,6 +2688,96 @@ Private Function TextGoalArity(ByVal kind As String) As Long
     End Select
 End Function
 
+' PROLOG.19: an IMPURE goal's own predicate name -> the family its refusal
+' belongs to, or "" if predName is none of them. A TENTH delegated table,
+' and like TypeTestDeferredFor every name in it is reserved in order to be
+' REFUSED - here for good, never pending a decision. This module's own
+' PROLOG.19 header carries the rule that decides membership, the
+' enumeration it was run over, and why these names and not the rest.
+'
+' The five families are the five refusals, and RefuseImpureGoal (below)
+' is the one place a family is turned into its message:
+'
+'   database  the program's facts and rules, changed while answering
+'   output    a console a formula in a cell does not have
+'   state     a value kept between goals other than in their arguments
+'   volatile  the clock and the random generator
+'   outside   a prompt, a file, or a session to end
+'
+' THE HYPHEN TWINS ARE HERE, one hop from the refusal, and not in
+' AliasSpellingFor. That table's message says "write {fixed} instead", and
+' here {fixed} would refuse too - two refusals for one mistake, the second
+' contradicting the first's advice, which is the exact reason PROLOG.15
+' put `integer` beside `integer?` in TypeTestDeferredFor rather than in
+' TypeTestIsoSpellingFor. tools/check_prolog_reserved_names.ps1's rule E
+' derives every twin and holds it reserved; which table owns one is this
+' code's decision, and this is the table whose message is true of it.
+'
+' No CollectVars skip, and no step charged at the dispatch: nothing that
+' always raises can contribute an output column or do resolution work -
+' TypeTestDeferredFor's precedent. ValidateBodyItem DOES get an arm, and
+' it is not the arity arm the other families have: see its own comment.
+'
+' tools/check_prolog_reserved_names.ps1 reads this table's own Case arms
+' to count the set it must find advertised; the catalogue names the family
+' "the impure goals" with no count, because it has more names than that
+' script's rule B can read as a number word.
+Private Function ImpureGoalKindFor(ByVal predName As String) As String
+    Select Case predName
+    Case "assert", "asserta", "assertz", "retract", "retractall", "abolish"
+        ImpureGoalKindFor = "database"
+    Case "write", "writeln", "print", "nl", "format", "writeq", "write_canonical", "write-canonical", "write_term", "write-term"
+        ImpureGoalKindFor = "output"
+    Case "b_setval", "b-setval", "b_getval", "b-getval", "nb_setval", "nb-setval", "nb_getval", "nb-getval", "gensym"
+        ImpureGoalKindFor = "state"
+    Case "random", "random_between", "random-between", "random_member", "random-member", "random_permutation", "random-permutation", "get_time", "get-time"
+        ImpureGoalKindFor = "volatile"
+    Case "read", "read_term", "read-term", "consult", "halt"
+        ImpureGoalKindFor = "outside"
+    End Select
+End Function
+
+' PROLOG.19: the ARITHMETIC functions whose value comes from the clock or
+' the random generator - SWI's random/1, random_float/0 and cputime/0,
+' read off SWI's own arithmetic-function catalogue, which has no others of
+' that kind. Written `(is X (random 10))` or, for the two without an
+' argument, `(is X random_float)`; both reach ValidateArithExpr, which
+' asks here before calling a name an unknown operator.
+'
+' NOT VLA_Relation.ArithOpArity's business, deliberately. That table is
+' the set of operators every engine COMPUTES, shared by PROLOG, SQL and
+' DATALOG and held to its substrate by
+' tools/check_prolog_arith_operators.ps1; these are names PROLOG refuses,
+' which is a statement about PROLOG alone. Before this they reached
+' prolog-arith-unknown-operator - loud, but saying "not one PROLOG
+' recognizes" beside a list of the ones it does, which reads as "not yet".
+Private Function ImpureArithFor(ByVal op As String) As Boolean
+    Select Case op
+    Case "random", "random_float", "cputime"
+        ImpureArithFor = True
+    End Select
+End Function
+
+' PROLOG.19: the ONE place an impure family becomes its refusal. Every
+' kind ImpureGoalKindFor can return has its own Case, and there is no
+' Case Else: a kind without a Case would fall through, the caller would
+' carry on, and the goal would reach the clauseDict lookup and fail
+' SILENTLY - the exact outcome this table exists to prevent. That the two
+' agree is checked mechanically before import, and every family has a
+' test that goes silent the moment its Case is removed.
+'
+' A Sub raising literal ids rather than a function returning one, so that
+' tools/check_prolog_form_attribution.ps1 can find each id's raise site.
+Private Sub RefuseImpureGoal(ByVal kind As String, ByVal formText As String)
+    Select Case kind
+    Case "database": VLA_Messages.RaiseMsg "prolog-impure-database", "form", formText
+    Case "output":   VLA_Messages.RaiseMsg "prolog-impure-output", "form", formText
+    Case "state":    VLA_Messages.RaiseMsg "prolog-impure-state", "form", formText
+    Case "volatile": VLA_Messages.RaiseMsg "prolog-impure-volatile", "form", formText
+    Case "outside":  VLA_Messages.RaiseMsg "prolog-impure-outside", "form", formText
+    End Select
+End Sub
+
 ' PROLOG.9: THE one place this module decides whether a ground leaf is a
 ' NUMBER or an ATOM - which is to say, the one place PROLOG.9 reads the
 ' quoted-string marker at all. `atom`, `number` and `atomic` all ask it,
@@ -2763,7 +2918,16 @@ Private Function ArithArityExampleFor(ByVal wantArgs As Long) As String
 End Function
 
 Private Sub ValidateArithExpr(ByVal term As Variant, ByVal formLabel As String)
-    If Not IsObject(term) Then Exit Sub
+    If Not IsObject(term) Then
+        ' PROLOG.19: `random_float` and `cputime` take no argument, so Prolog
+        ' writes them bare - `X is random_float` - and a bare leaf is
+        ' otherwise left for EvalArithTerm, which would call it "not a
+        ' number" at run time. Refused here, by name, for good. Nothing else
+        ' about a leaf is decided at parse time (it may be a variable bound
+        ' later), and a name in ImpureArithFor can never be a number.
+        If ImpureArithFor(CStr(term)) Then RefuseImpureGoal "volatile", CStr(term)
+        Exit Sub
+    End If
     Dim lst As Collection
     Set lst = term
     ' lst.Count checked BEFORE any lst.Item(1) access - a genuinely
@@ -2789,7 +2953,15 @@ Private Sub ValidateArithExpr(ByVal term As Variant, ByVal formLabel As String)
     op = CStr(lst.Item(1))
     Dim wantArgs As Long
     wantArgs = VLA_Relation.ArithOpArity(op)
-    If wantArgs = 0 Then VLA_Messages.RaiseMsg "prolog-arith-unknown-operator", "op", op, "form", formLabel
+    ' PROLOG.19: `(random 10)` is not an operator PROLOG has yet to learn -
+    ' it is one PROLOG will never have, and the unknown-operator refusal
+    ' beside its list of the ones it does know reads as "not yet". Asked
+    ' only once ArithOpArity has said no, so the operators every engine
+    ' shares are never looked up here. See ImpureArithFor.
+    If wantArgs = 0 Then
+        If ImpureArithFor(op) Then RefuseImpureGoal "volatile", "(" & op & " ...)"
+        VLA_Messages.RaiseMsg "prolog-arith-unknown-operator", "op", op, "form", formLabel
+    End If
     If lst.Count <> wantArgs + 1 Then
         VLA_Messages.RaiseMsg "prolog-arith-wrong-arity", "op", op, _
             "count", ArithArityPhraseFor(wantArgs), _
@@ -2839,6 +3011,15 @@ End Sub
 Private Sub ValidateBodyItem(ByVal item As Variant, ByVal ctx As String, predArity As Object)
     If Not IsObject(item) Then
         If CStr(item) = "!" Then Exit Sub   ' PROLOG.5.4: cut - legal, no further shape to check
+        ' PROLOG.19: a BARE impure name. Prolog writes `nl` and `halt`
+        ' without parentheses - `write(X), nl` is the most-typed line in
+        ' the language - and a bare atom never reaches SolveGoalList,
+        ' because the refusal below stops it here. Without this, `nl`
+        ' would be told it is not a predicate form, the author would write
+        ' `(nl)`, and only then learn it never runs: two refusals for one
+        ' mistake, the first of them beside the point. The form is shown
+        ' as written, bare.
+        If ImpureGoalKindFor(VLA_Identity.Fold(CStr(item))) <> "" Then RefuseImpureGoal ImpureGoalKindFor(VLA_Identity.Fold(CStr(item))), CStr(item)
         VLA_Messages.RaiseMsg "prolog-atom-not-a-list", "context", ctx
         Exit Sub
     End If
@@ -3079,6 +3260,19 @@ Private Sub ValidateBodyItem(ByVal item As Variant, ByVal ctx As String, predAri
                         "form", "(" & headWord & " ...)", _
                         "count", CStr(wantedTextCount - 1)
                 End If
+                Exit Sub
+            ElseIf ImpureGoalKindFor(headWord) <> "" Then
+                ' PROLOG.19: the impure goals are left for SolveGoalList to
+                ' refuse, and this arm exists only to keep them out of
+                ' TermPredName below, which would RECORD AN ARITY for each.
+                ' Unlike the names the other refusing tables hold, these
+                ' come in several real arities that ported code uses side
+                ' by side - format/1 and format/2, write/1 and write/2,
+                ' nl/0 and nl/1 - and a program using two of them would be
+                ' refused here as prolog-arity-mismatch, blaming the
+                ' author's arities for a goal that never runs whatever its
+                ' shape. No shape refusal either: the answer is the same at
+                ' every arity, TypeTestDeferredFor's reasoning.
                 Exit Sub
             End If
         End If
@@ -4131,6 +4325,19 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         VLA_Messages.RaiseMsg "prolog-alias-spelling", _
             "form", "(" & predName & " ...)", "fixed", "(" & AliasSpellingFor(predName) & " ...)"
     End If
+
+    ' PROLOG.19: the IMPURE goals - assert, write, random, read and the
+    ' rest of ImpureGoalKindFor - refused for good. Dispatched here, above
+    ' the clauseDict lookup, on the reasoning every refusing arm above
+    ' states, and it is sharpest here: `(write X)` left undispatched FAILS,
+    ' so a rule whose last goal prints what it found answers "no rows", and
+    ' a query `(query (write X))` spills a header with nothing under it -
+    ' both read as "nothing matched" when the truth is "never runs".
+    '
+    ' Like those arms this never solves; it always raises. No step is
+    ' charged, because no resolution work happens, and no locals are
+    ' declared, for findall's live-caught stack-frame reason.
+    If ImpureGoalKindFor(predName) <> "" Then RefuseImpureGoal ImpureGoalKindFor(predName), "(" & predName & " ...)"
 
     ' PROLOG.9: `(between Low High X)` - dispatched here on the same
     ' unambiguous-by-construction reasoning, and above the clauseDict

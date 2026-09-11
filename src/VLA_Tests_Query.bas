@@ -367,6 +367,7 @@ Public Function TestDSLs() As Boolean
     TestPrologControl
     TestPrologText
     TestPrologTextParts
+    TestPrologImpure
     TestPrologKeyedAtoms
     TestPrologHostTable
     TestSql
@@ -5776,6 +5777,237 @@ Private Sub TestPrologTextParts()
     Report "prolog.18: ...but (length 42 N) - a number, not text - keeps the plain refusal and names no text goal", _
            ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "needs a list", vbTextCompare) > 0 _
            And InStr(1, r, "atom-length", vbTextCompare) = 0, "got: " & r
+End Sub
+
+' PROLOG.19: the IMPURE goals, refused for good - assert, write, random,
+' read and the rest of ImpureGoalKindFor - and the arithmetic functions
+' random, random_float and cputime. Pure: no live workbook.
+'
+' THE DISCRIMINATION RULE bites hardest here, because every name below
+' used to be an UNKNOWN PREDICATE, and an unknown predicate fails
+' silently: a test asserting only that `(query (write hello))` does not
+' succeed would pass against no implementation at all. Every assertion is
+' on REFUSAL TEXT - the family's own phrase and the form written - or on
+' the result a working query produces.
+'
+' THE SHAPE RULE: `(query (write X))` has a free variable, so an
+' unrefused one SPILLS - a header headed X with nothing under it. That is
+' what the loops below would receive if a name fell out of the table, so
+' each goal assertion is also that name's phantom-column pin. Refusals go
+' through ResultTextStartsWith and ResultDescribe, which answer False on
+' an array rather than raising - never CStr(VLA_Prolog.PROLOG(...)),
+' PROLOG.17's incident.
+'
+' The five name lists are the table, family by family, hyphen twins
+' included; the transliteration that checked this Sub before import held
+' their union equal to ImpureGoalKindFor's own Case arms.
+Private Sub TestPrologImpure()
+    Dim result As Variant
+    Dim r As String
+    Dim nm As Variant
+    Dim q As String
+    q = Chr$(34)
+
+    ' ---- EVERY NAME: refused as a goal with its family's reason and the
+    ' form written, and reserved, so it cannot be defined and then refused
+    ' on every call to the definition.
+    For Each nm In Array("assert", "asserta", "assertz", "retract", "retractall", "abolish")
+        result = VLA_Prolog.PROLOG("(query (" & nm & " X))")
+        r = ResultDescribe(result)
+        Report "prolog.19: (" & nm & " X) is refused for good as a DATABASE change - never failed silently, never spilled", _
+               ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "never changes its own facts and rules", vbTextCompare) > 0 _
+               And InStr(1, r, "(" & nm & " ...)", vbTextCompare) > 0, "got: " & r
+        result = VLA_Prolog.PROLOG("(fact (" & nm & " a)) (query (p X))")
+        r = ResultDescribe(result)
+        Report "prolog.19: ...and '" & nm & "' is reserved, so it cannot be defined", _
+               ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "reserved word", vbTextCompare) > 0 _
+               And InStr(1, r, "'" & nm & "'", vbTextCompare) > 0, "got: " & r
+    Next nm
+    For Each nm In Array("write", "writeln", "print", "nl", "format", "writeq", "write_canonical", "write-canonical", "write_term", "write-term")
+        result = VLA_Prolog.PROLOG("(query (" & nm & " X))")
+        r = ResultDescribe(result)
+        Report "prolog.19: (" & nm & " X) is refused for good as OUTPUT - never failed silently, never spilled", _
+               ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "nowhere to print", vbTextCompare) > 0 _
+               And InStr(1, r, "(" & nm & " ...)", vbTextCompare) > 0, "got: " & r
+        result = VLA_Prolog.PROLOG("(fact (" & nm & " a)) (query (p X))")
+        r = ResultDescribe(result)
+        Report "prolog.19: ...and '" & nm & "' is reserved, so it cannot be defined", _
+               ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "reserved word", vbTextCompare) > 0 _
+               And InStr(1, r, "'" & nm & "'", vbTextCompare) > 0, "got: " & r
+    Next nm
+    For Each nm In Array("b_setval", "b-setval", "b_getval", "b-getval", "nb_setval", "nb-setval", "nb_getval", "nb-getval", "gensym")
+        result = VLA_Prolog.PROLOG("(query (" & nm & " X))")
+        r = ResultDescribe(result)
+        Report "prolog.19: (" & nm & " X) is refused for good as kept STATE - never failed silently, never spilled", _
+               ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "keeps no values between goals", vbTextCompare) > 0 _
+               And InStr(1, r, "(" & nm & " ...)", vbTextCompare) > 0, "got: " & r
+        result = VLA_Prolog.PROLOG("(fact (" & nm & " a)) (query (p X))")
+        r = ResultDescribe(result)
+        Report "prolog.19: ...and '" & nm & "' is reserved, so it cannot be defined", _
+               ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "reserved word", vbTextCompare) > 0 _
+               And InStr(1, r, "'" & nm & "'", vbTextCompare) > 0, "got: " & r
+    Next nm
+    For Each nm In Array("random", "random_between", "random-between", "random_member", "random-member", "random_permutation", "random-permutation", "get_time", "get-time")
+        result = VLA_Prolog.PROLOG("(query (" & nm & " X))")
+        r = ResultDescribe(result)
+        Report "prolog.19: (" & nm & " X) is refused for good as VOLATILE - never failed silently, never spilled", _
+               ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "every time Excel recalculates", vbTextCompare) > 0 _
+               And InStr(1, r, "(" & nm & " ...)", vbTextCompare) > 0, "got: " & r
+        result = VLA_Prolog.PROLOG("(fact (" & nm & " a)) (query (p X))")
+        r = ResultDescribe(result)
+        Report "prolog.19: ...and '" & nm & "' is reserved, so it cannot be defined", _
+               ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "reserved word", vbTextCompare) > 0 _
+               And InStr(1, r, "'" & nm & "'", vbTextCompare) > 0, "got: " & r
+    Next nm
+    For Each nm In Array("read", "read_term", "read-term", "consult", "halt")
+        result = VLA_Prolog.PROLOG("(query (" & nm & " X))")
+        r = ResultDescribe(result)
+        Report "prolog.19: (" & nm & " X) is refused for good as reaching OUTSIDE - never failed silently, never spilled", _
+               ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "reads nothing but", vbTextCompare) > 0 _
+               And InStr(1, r, "(" & nm & " ...)", vbTextCompare) > 0, "got: " & r
+        result = VLA_Prolog.PROLOG("(fact (" & nm & " a)) (query (p X))")
+        r = ResultDescribe(result)
+        Report "prolog.19: ...and '" & nm & "' is reserved, so it cannot be defined", _
+               ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "reserved word", vbTextCompare) > 0 _
+               And InStr(1, r, "'" & nm & "'", vbTextCompare) > 0, "got: " & r
+    Next nm
+
+    ' ---- THE LINE EVERYONE TYPES WHILE DEBUGGING. Before this item it
+    ' spilled a header headed X with nothing under it - "no match" - for a
+    ' p that plainly holds.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (query (p X) (write X))")
+    r = ResultDescribe(result)
+    Report "prolog.19: (p X) then (write X) is refused, where it used to spill an empty column headed X", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "nowhere to print", vbTextCompare) > 0, "got: " & r
+
+    ' ---- BARE nl AND halt, as Prolog writes them. A bare atom never
+    ' reaches the solver, so ValidateBodyItem refuses these by name rather
+    ' than calling them "not a predicate form" first.
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (query (p X) nl)")
+    r = ResultDescribe(result)
+    Report "prolog.19: a bare nl is refused as OUTPUT, shown as written", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "nl is refused for good", vbTextCompare) > 0 _
+           And InStr(1, r, "nowhere to print", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query halt)")
+    r = ResultDescribe(result)
+    Report "prolog.19: a bare halt is refused - there is no session to end", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "halt is refused for good", vbTextCompare) > 0 _
+           And InStr(1, r, "no session", vbTextCompare) > 0, "got: " & r
+    ' The twin: an ordinary bare atom keeps its own refusal.
+    result = VLA_Prolog.PROLOG("(query foo)")
+    r = ResultDescribe(result)
+    Report "prolog.19: ...while an ordinary bare atom is still told it is not a predicate form", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "expected a predicate form", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(rule (show X) (p X) nl) (fact (p 1)) (query (show X))")
+    r = ResultDescribe(result)
+    Report "prolog.19: a bare nl in a rule body is refused too", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "nl is refused for good", vbTextCompare) > 0, "got: " & r
+
+    ' ---- TWO ARITIES OF ONE IMPURE NAME are not blamed as an arity
+    ' mismatch: the refusal is the one about the goal, which never runs at
+    ' any arity. Beside the twin that shows arity checking still works.
+    result = VLA_Prolog.PROLOG("(query (format " & q & "a" & q & ") (format " & q & "b" & q & " X))")
+    r = ResultDescribe(result)
+    Report "prolog.19: format/1 beside format/2 is refused as OUTPUT, not as an arity mismatch", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "nowhere to print", vbTextCompare) > 0 _
+           And InStr(1, r, "argument(s)", vbTextCompare) = 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(fact (foo a)) (query (foo X) (foo X Y))")
+    r = ResultDescribe(result)
+    Report "prolog.19: ...while an ordinary predicate used at two arities is still refused as a mismatch", _
+           ResultTextStartsWith(result, "#PROLOG!") _
+           And InStr(1, r, "used with 1 argument(s) in one place and 2 in another", vbTextCompare) > 0, "got: " & r
+
+    ' ---- REFUSED WHEN REACHED, like every refusing family: a rule whose
+    ' impure goal runs is refused, one that is never called does not
+    ' poison a query that works.
+    result = VLA_Prolog.PROLOG("(rule (show X) (p X) (write X)) (fact (p 1)) (query (show X))")
+    r = ResultDescribe(result)
+    Report "prolog.19: a rule that reaches (write X) is refused", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "nowhere to print", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(rule (log X) (write X)) (fact (p 1)) (query (p X))")
+    Report "prolog.19: ...while a rule holding (write X) that is never called leaves a working query alone", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "1"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (query (not (assert (p 2))))")
+    r = ResultDescribe(result)
+    Report "prolog.19: (assert ...) inside (not ...) is refused, not negated into a success", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "never changes its own facts", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(fact (p 1)) (query (or (p X) (write X)))")
+    r = ResultDescribe(result)
+    Report "prolog.19: a reachable (write X) branch refuses the query even after another branch answered", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "nowhere to print", vbTextCompare) > 0, "got: " & r
+
+    ' ---- ARITHMETIC: the clock and the generator inside an expression.
+    ' Before this item `random` was "not an operator PROLOG recognizes" -
+    ' loud, but reading as "not yet". Each beside the twin that keeps its
+    ' old refusal, so the route cannot be swallowing every unknown name.
+    result = VLA_Prolog.PROLOG("(query (is X (random 10)))")
+    r = ResultDescribe(result)
+    Report "prolog.19: (random 10) in arithmetic is refused for good, pointing at Excel's RAND()", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "(random ...) is refused for good", vbTextCompare) > 0 _
+           And InStr(1, r, "RAND()", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (is X random_float))")
+    r = ResultDescribe(result)
+    Report "prolog.19: a bare random_float in arithmetic is refused by name, not called a non-number", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "random_float is refused for good", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (is X (random_float)))")
+    r = ResultDescribe(result)
+    Report "prolog.19: ...and so is (random_float) written as a form", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "(random_float ...) is refused for good", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (is X cputime))")
+    r = ResultDescribe(result)
+    Report "prolog.19: a bare cputime in arithmetic is refused by name", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "cputime is refused for good", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (> (random 10) 5))")
+    r = ResultDescribe(result)
+    Report "prolog.19: (random 10) inside a comparison is refused the same way", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "(random ...) is refused for good", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (is X (foo 10)))")
+    r = ResultDescribe(result)
+    Report "prolog.19: ...while an unknown operator is still called unknown", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "'foo' isn't an arithmetic operator", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (is X (+ 1 2)))")
+    Report "prolog.19: ...and a known operator still computes", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "3"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (is X foo))")
+    r = ResultDescribe(result)
+    Report "prolog.19: ...and an ordinary bare name in arithmetic is still called a non-number, not refused for good", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "'foo'", vbTextCompare) > 0 _
+           And InStr(1, r, "refused for good", vbTextCompare) = 0, "got: " & r
+
+    ' ---- NAMES DELIBERATELY LEFT FREE, so the decision is visible: `tab`
+    ' and `flag` are ordinary words in a workbook's own knowledge base, and
+    ' `recorded` belongs to the recorded database, a family not reserved.
+    result = VLA_Prolog.PROLOG("(fact (tab sheet1)) (query (tab X))")
+    Report "prolog.19: `tab` is NOT reserved - a sheet tab is an ordinary thing to have facts about", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "sheet1"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(fact (flag order17)) (query (flag X))")
+    Report "prolog.19: `flag` is NOT reserved - a flagged order is an ordinary thing to have facts about", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "order17"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(fact (recorded sale1)) (query (recorded X))")
+    Report "prolog.19: `recorded` is NOT reserved - the recorded database is outside the reserved families", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "sale1"), "got: " & ResultDescribe(result)
+
+    ' ---- the reserved-word refusal enumerates the new family, twins too.
+    result = VLA_Prolog.PROLOG("(fact (gensym a)) (query (p X))")
+    r = ResultDescribe(result)
+    Report "prolog.19: the reserved-word refusal lists the impure goals, underscore and hyphen spellings both", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "impure goals", vbTextCompare) > 0 _
+           And InStr(1, r, "write_canonical", vbTextCompare) > 0 And InStr(1, r, "get-time", vbTextCompare) > 0 _
+           And InStr(1, r, "retractall", vbTextCompare) > 0, "got: " & r
+
+    ' ---- the head word is folded like every other goal's.
+    result = VLA_Prolog.PROLOG("(query (WRITE hello))")
+    r = ResultDescribe(result)
+    Report "prolog.19: (WRITE hello) is refused as (write ...)", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "(write ...) is refused for good", vbTextCompare) > 0, "got: " & r
+
+    ' ---- a hyphen twin lands on its family's refusal in ONE hop, not on
+    ' the alias refusal pointing at a spelling that refuses too.
+    result = VLA_Prolog.PROLOG("(query (get-time T))")
+    r = ResultDescribe(result)
+    Report "prolog.19: (get-time T) reaches the volatile refusal directly, not the alias one", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "every time Excel recalculates", vbTextCompare) > 0 _
+           And InStr(1, r, "isn't how PROLOG spells", vbTextCompare) = 0, "got: " & r
 End Sub
 
 Private Sub TestPrologKeyedAtoms()

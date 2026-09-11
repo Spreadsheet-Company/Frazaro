@@ -14348,8 +14348,303 @@ now carries one summary paragraph per engine and points here.*
     `PROLOG.10`'s open sub-question. `~days`, and the highest
     value-per-day of anything on this list for an ordinary spreadsheet
     user. Blocked by `PROLOG.13` only where a result is a list.
-  - ⬜ **PROLOG.19 — DECIDE: `assert`/`retract`, and the answer is
-    probably NO.** Standard Prolog mutates its own database at runtime.
+  - ✅ **PROLOG.19 — DECIDE: `assert`/`retract`, and the answer is
+    NO — for them and for the whole family the principle condemns.**
+    SHIPPED 2026-09-10; owner-verified live on the first pass: **`TestDSLs`
+    1035/1035, the predicted count exactly**, host 143/143, and **all 18
+    in-cell steps** answering as handed off — each refusal as one cell of
+    text (never a spill), the three pinned spills (`tab`, `flag`, the rule
+    never called) spilling their one row, and the two unchanged twins
+    unchanged. Pure read **1088/1088** and `VerifyReports` **203/203** on
+    both backends, above this item's 1061 and 177 — attributed rather than
+    assumed: the concurrent session's uncommitted diff adds 22 `Report`
+    sites to `VLA_Tests.bas` (pure +27, some inside loops) and 26 to
+    `VLA_Tests_Host.bas` (`VerifyReports` +26 exactly), files this item's
+    diff does not touch. No compile error, no failed assertion, no step
+    read differently from the handoff. The three follow-ups below were weighed
+    at close and none blocks it: each is pre-existing and none is widened
+    into a new SILENT case (a table named `Write` now refuses loudly; the
+    one silent case, `Between`, predates this item). One landing: one
+    delegated table `ImpureGoalKindFor` (the TENTH), five refusals, one
+    router `RefuseImpureGoal`, one catalogue continuation line — reached
+    from three sites. `TestDSLs` 932 → **1035** predicted (103 new
+    assertions in a new `TestPrologImpure`, counted two ways — the
+    transliteration executes 103 `Report` calls with loops expanded, and
+    39 loop names × 2 sites + 25 straight-line = 103 — **none
+    re-pointed**). Pure 1061, host 143 and `VerifyReports` 177 + 177 are
+    unmoved **by construction**: only `VLA_Tests_Query` calls
+    `VLA_Prolog` (re-grepped: every other hit is a comment), and
+    `VLA_Messages`, which every suite loads, gained five ids with none
+    duplicated (445 distinct, checked mechanically with a control that
+    catches an injected duplicate). **All 18 `tools/check_*.ps1` green on
+    HEAD plus this item alone**, in an isolated `git archive` copy.
+    `VLA_PROLOG_VERSION` `PROLOG.18` → `PROLOG.19`.
+
+    **THE TREE MOVED MID-ITEM, again.** At pre-flight the shared tree held
+    `G-FORMAT` slice 1's sixteen uncommitted files and none of this item's.
+    Partway through, that session COMMITTED them (`7fdd7da`), so HEAD moved
+    from `50d7312` to `7fdd7da` under this item — caught when
+    `check_rule_coverage` read 39/150 in one isolated run and 49/167 in the
+    next, with no rule file of this item's in either overlay. Their commit
+    touches none of this item's five files (checked with `git diff
+    --numstat 50d7312 7fdd7da`), and none of the three sources the
+    transliteration reads, so every verdict below stands; the baselines are
+    now `G-FORMAT`'s own final live numbers — pure 1061/1061, host
+    143/143, `VerifyReports` 177/177 on both backends. **And then it moved
+    a third time**: while this entry was being written, ANOTHER live
+    session began modifying eight files — `VLA_Runtime`, `VLA_Interpreter`,
+    `VLA_Tests`, `VLA_Tests_Host`, `check_runtime_raise_dispatch.ps1`,
+    `english.vla`, `instructions.txt`, `GRAMMAR_SINCE.md` — disjoint from
+    this item's at first — and then it wrote into both roadmaps and
+    `RELEASES.md` as well, beside this item's hunks. So all three are
+    staged FILTERED at commit (HEAD's blob plus this item's block only,
+    each built and diffed to exactly this item's hunks before the checks
+    ran on it), and the final 18-check run used those filtered versions.
+    Its tests will move pure/host/`VerifyReports` in any run of the shared
+    tree; and because it works on raise dispatch, `VLA_Messages.bas` id
+    uniqueness is re-checked on the combined file at commit, not only on
+    this item's.
+
+    **THE RULE THAT DECIDES MEMBERSHIP**, written down before anything was
+    enumerated: *a goal is impure if, for some arguments, its outcome can
+    depend on something other than its arguments and the program text —
+    the clock, a random generator, the machine, the session, the database
+    as changed while answering, or how many times and in what order goals
+    ran — or if solving it can change something other than its own
+    arguments' bindings.*
+
+    **THE CLASS WAS ENUMERATED OVER A CATALOGUE, NOT RECALLED.** No Prolog
+    is installed here, so SWI-Prolog's own documentation was fetched and
+    parsed: its predicate summary (800 rows, 667 names), every one of the
+    113 chapter-4 manual sections (1,004 definition anchors, each carrying
+    SWI's own `[ISO]` tag) to give every row its section as a family label
+    that comes from the source rather than from here, `library(random)`
+    (18 predicates, 16 not already in the core summary) and
+    `library(listing)`'s output predicates, plus the
+    arithmetic-function catalogue. A classifier applies a per-section
+    default with named per-predicate overrides (the overrides are the
+    reviewable part: `current_atom` reads the session's atom table,
+    `term_to_atom` is a pure conversion inside an I/O section,
+    `set_random` hides in *miscarith*). Result over 821 rows: **489 impure
+    names** — development tools 71, directives and declarations 71,
+    machine and file system 69, concurrency 57, session 46, stream
+    handles 43, output 24, input 24, global state 29, database 18, chance
+    15, configuration 11, Edinburgh file I/O 7, clock 4 — against 193
+    pure. **The brief's own list named 22 of the 489.** The check that
+    caught the classifier's own misfiles was reading its PURE list back:
+    `set_random` and `random_property` had fallen to PURE by section.
+
+    **WHY NOT RESERVE ALL 489, and the rule that picks the reserved
+    ones.** The decision the item turned on, and not the one it was filed
+    as. A name this engine SOLVES must be reserved, or the solver shadows a
+    user's own definition. A name it refuses for good only MAY be:
+    reserving buys a better message, and costs the word — for ever, in
+    every knowledge base (`open`, `close`, `name`, `time`, `table`, `mode`,
+    `recorded` are all impure SWI builtins and all plausible business
+    predicates). So the reserved set is the members a Prolog author types
+    in an ordinary clause body: not a directive (this engine has no `:-`),
+    not an operation on a stream, thread, mutex, engine, trie or clause
+    reference that only another goal could produce, not a debugger,
+    profiler, top-level or operating-system interface — and within the
+    families that pass, the family's entry points in their ISO and SWI
+    spellings. Then a word-cost veto: **`tab` and `flag` are left free**,
+    both on the brief's own list, because a workbook's knowledge base has
+    sheet tabs and flagged orders; the refusal each would have carried is
+    already what an author meets at `write` and `nb_setval`. Both pinned
+    as still-definable, with `recorded` (a whole family, the recorded
+    database, left out) — `nth1`'s precedent, so the decision is visible.
+    The other ~460 stay what every unknown name is here, silent; the
+    general fix for them needs no reservation at all and is filed below.
+    28 names in five families, plus the **eleven hyphen twins** rule E
+    derives from the underscore spellings (`random-between`, `get-time`,
+    …) — 39, reserved set **67 → 106**.
+
+    **FIVE FAMILIES, EACH REFUSED FOR GOOD, ON TWO DIFFERENT CLAIMS — and
+    the entry's own argument was incomplete for its own headline case.**
+      - *volatile* (`random`, `random_between`, `random_member`,
+        `random_permutation`, `get_time`), *outside* (`read`, `read_term`,
+        `consult`, `halt`) and *output* (`write`, `writeln`, `print`, `nl`,
+        `format`, `writeq`, `write_canonical`, `write_term`) reach outside
+        the call: the clock, the generator, a prompt, a file, a console
+        Excel cannot see. The doctrine condemns them directly. `consult`'s
+        sharpest reason is Excel's own: it recalculates a cell only when
+        something the cell NAMES changes, so a file read from inside would
+        go stale silently. **Refusing `write` for ever is a different claim
+        from refusing `assert` for ever**: output changes no answer — it is
+        refused because there is nowhere for it to go, because a write that
+        succeeds and shows nothing lies about what it did (the obvious
+        "harmless no-op" alternative, rejected), and because collecting
+        writes into the result would make the output depend on
+        backtracking — a failed branch's writes would show. The spill
+        already IS the output.
+      - *database* (`assert`, `asserta`, `assertz`, `retract`,
+        `retractall`, `abolish`) and *state* (`b_setval`, `b_getval`,
+        `nb_setval`, `nb_getval`, `gensym`) **do not reach outside the call
+        as this engine could build them.** Every `PROLOG()` call starts
+        again from its program text, so a fact asserted inside one call
+        would be perfectly deterministic — the entry's "an answer that
+        depended on how many times it had already run" is true only of the
+        PERSISTENT reading. They are refused on two other grounds: that is
+        not what the names promise (in Prolog an asserted fact or a global
+        value outlives the query — the next query, which here is another
+        cell — and delivering that is exactly the cross-recalculation state
+        the doctrine forbids), and scoped to one call the answer would
+        depend on the ORDER goals ran and on backtracking rather than on
+        the facts and rules as written, which is what lets someone check a
+        program by reading it. `findall`, `length` and an argument serve
+        every honest use, and the refusals say so.
+    **"NOT YET" IS EMPTY, by construction rather than by verdict.**
+    Membership is a property of what a name promises, and every pure
+    variant is a different relation: formatting into text is not
+    `format`'s console output, and a generator seeded through its
+    arguments is not `random`'s hidden state. Such a thing would ship
+    under a name promising no effect — `PROLOG.15`'s `integer?` → `whole?`
+    rule — so `format` stays refused. This matches what `CONTEMPLATIONS.md`
+    asked of this item's shape: "random sampling without a stated seed"
+    refused by name, never implying "not yet".
+
+    **ARITHMETIC, VERIFIED THEN DECIDED.** `(is X (random 10))` was
+    already loud: `ArithOpArity("random")` is 0, so `ValidateArithExpr`
+    refused it at parse time as `prolog-arith-unknown-operator` — but that
+    text lists the operators PROLOG knows, which reads as "not yet". SWI's
+    function catalogue has exactly three impure functions — `random/1`,
+    `random_float/0`, `cputime/0` — and `ImpureArithFor` routes them to the
+    volatile refusal, in both the operator form and the bare zero-arity
+    leaf (`(is X random_float)`, which used to reach run time and be called
+    "not a number"). **`VLA_Relation.ArithOpArity` is untouched**: it is
+    the set every engine COMPUTES, shared with SQL and DATALOG and held to
+    its substrate by `check_prolog_arith_operators.ps1`; these are names
+    PROLOG refuses, a statement about PROLOG alone. Asked only after
+    `ArithOpArity` says no, so no shared operator is ever looked up here.
+    A variable that dereferences to a stored `(random 10)` still gets
+    `prolog-arith-not-numeric`, deliberately: that user wrote data.
+
+    **THREE SITES, ONE ROUTER, and two traps the table alone would have
+    walked into.** `SolveGoalList` refuses a goal, above the clauseDict
+    lookup (a mutation moving it below turns 46 cases red). **A bare atom
+    never reaches the solver**: Prolog writes `nl` and `halt` without
+    parentheses, and `ValidateBodyItem` refused every bare non-`!` atom as
+    "not a predicate form" — so a ported `(write X) nl` would have taken
+    two refusals for one mistake, the first beside the point. The bare
+    branch now routes impure names first. **Arity recording**: an unknown
+    head records its arity in `TermPredName`, and these names come in real
+    arities ported code uses side by side (`format/1` beside `format/2`),
+    so without a skip arm a program would be refused as
+    `prolog-arity-mismatch` — blaming the author's arities for a goal that
+    never runs. `RefuseImpureGoal` raises literal ids from a `Select Case`
+    with no `Case Else`, so `check_prolog_form_attribution.ps1` can find
+    every raise site; that every kind the table returns is routed is
+    checked mechanically, and each missing `Case` is a mutation that goes
+    red. **The hyphen twins live in the new table, not in
+    `AliasSpellingFor`**, whose message says "write {fixed} instead" — and
+    here {fixed} refuses too: `PROLOG.15`'s one-hop rule for `integer`.
+    No `DesugarBodyItem` arm: its pass-through for a name no table can
+    carry is unobservable, `PROLOG.14`'s control spellings have none, and
+    an arm no test can turn red is not added. No `CollectVars` arm: nothing
+    that always raises contributes a column — `TypeTestDeferredFor`'s
+    precedent.
+
+    **THE PHANTOM COLUMN, closed by refusal and pinned 39 times.** Every
+    name's goal assertion is `(query (<name> X))` — X free, so an
+    unrefused one SPILLS a header headed X with nothing under it — asserted
+    through `ResultTextStartsWith` and `ResultDescribe`, which answer False
+    on an array instead of raising. The line a user actually types,
+    `(fact (p 1)) (query (p X) (write X))`, has its own pin: at HEAD it
+    spilled an empty column and read as "no match". **The shape rule held
+    this time**: the new Sub has no `ResultBoolIs` at all, and every spill
+    assertion was evaluated against columns derived CollectVars' way.
+
+    **THE CHECKS WERE WRITTEN FIRST AND RAN RED.** The five ids went into
+    `check_prolog_form_attribution.ps1`'s multi-form baseline before any
+    code (5 stale entries, red); the table was delegated from
+    `IsReservedPredicateName` before its dispatch arm existed, and
+    `check_prolog_reserved_names.ps1` went red on exactly that (rule C,
+    UNDISPATCHED), green once the arm landed, with rule E finding all
+    eleven twins reserved. **The new group noun carries NO COUNT**, and
+    the trap the brief named was measured, not recited: the family has 39
+    names and `$numberWords` stops at twelve — "the thirty impure goals"
+    captures `thirty` and passes having checked nothing; "the thirty-nine
+    impure goals" captures only `nine` (the regex stops at the hyphen) and
+    fails, loudly and for the wrong reason. The `$countPhrases` entry is
+    registered anyway, with that note, so the day someone adds a count is
+    the day it is looked at; containment checked against all nine keys,
+    both directions. The catalogue grew by a NEW continuation line; rule F
+    reports the longest `VLA_Messages.bas` line at 561 of 1023.
+
+    **METHOD.** The parse-and-dispatch decision was transliterated before
+    a line reached VBA — reader, `ParseProgram`, `ValidateBodyItem`,
+    `ValidateArithExpr`, `CollectVars` and every `SolveGoalList` arm in
+    order — with **the tables read out of the VBA source under test** and
+    refusal text rendered from `VLA_Messages.bas`'s own templates. The
+    CONTROL ran first, on HEAD's tables: 7/7 cases lifted verbatim from
+    live-verified `TestDSLs` pins and 10/10 shipped behaviours this item
+    changes. Then 103/103 new cases, and **52 mutations, all RED** — every
+    new arm and route (13) and the deletion of each of the 39 table
+    entries. **The VBA tests themselves were then run against the
+    transliteration**: a second script evaluates each `PROLOG(...)`
+    program from the VBA expression (literals, `q`, loop variables) and
+    decomposes each `Report` condition into its guarded-helper calls, so no
+    assertion was re-typed by hand — 103/103, and four mutations of the
+    test file (a reworded needle, a wrong cell, `tab` in a loop, a flipped
+    negation) all red. **That script hit the brief's harness traps for
+    real**, both before any verdict was trusted: piping `Split-Top`'s
+    unary-comma result into `ForEach-Object` handed a loop's whole array
+    over as one object, and PowerShell's case-insensitive `-split` on
+    `And` split inside "facts **and** rules"; a variable named `$args`
+    shadowed the automatic one. The engine harness nearly shipped the
+    `@()` trap too — a one-row, two-column result flattening to two rows —
+    and builds its rows from ArrayLists that throw if flattened. A
+    structural-balance and duplicate-`Dim` scanner ran clean over all three
+    modules (108/6/53 procedures; HEAD's 105/6/52 match `PROLOG.18`'s),
+    proved to bite by a deleted `End If`, `Next` and `End Select` and a
+    duplicated `Dim` — each in this item's own code, each located to its
+    line — and proved NOT to false-positive on colon-packed `For…Next`,
+    `Dim t As Collection: Set t = F(1, 2, 3)`, one-line `If` and
+    `If…Else`, colon-`Case`, a label, and strings holding `:`, `'`, "End
+    If", "End Select" and "Next i". Also mechanical: every `RaiseMsg`
+    supplies its template's slots, **121 of 121** (116 at HEAD, matching
+    `PROLOG.18`), parsed depth- and string-aware and proved to bite on a
+    dropped `{form}`; all 102 distinct new program strings paren-balanced;
+    longest physical lines 403 / 561 / 196, none near 1023; **exposure of
+    the 41 chosen spellings** over every string literal in `src/` (849
+    program literals by one classifier, and a wider pass over all 1,543
+    paren-bearing literals in `VLA_Tests_Query.bas` for functor position
+    and bare tokens): **zero program-text hits** — the six wider hits are
+    all English test descriptions ("read as text"). `GRAMMAR_SINCE.md`
+    needs no row, re-verified: `-ListRules` and `-ListArms` return zero
+    `VLA_Prolog` mentions.
+
+    **`RELEASES.md` `0.5.6`** gains the refusals as one bullet and the
+    reserved-word count goes **Fifteen → Fifty-four**, verified by
+    enumerating the set at `v0.5.5` (52) and at HEAD plus this item (106)
+    and diffing: 54 added, none removed. `tab` and `flag` are named there
+    as deliberately free.
+
+    *Named follow-ups:*
+      - **An unknown predicate should refuse, as ISO's does** — ISO raises
+        `existence_error` where this engine fails silently, and that is
+        the general fix for the ~460 impure names left unreserved (and
+        every other unbuilt builtin) with no reservation cost. It changes
+        the answer of every query that calls an undefined predicate, so
+        it is its own item with its own live pass.
+      - **The table-argument reserved check is case-sensitive**: `PROLOG()`
+        runs `IsReservedPredicateName` over a table's RAW name while every
+        goal is folded, and the clause dictionary is case-insensitive — so
+        a table named `Length`, `Between` or (now) `Write` loads and is
+        unreachable, and one named `Between` is silently bypassed by the
+        arithmetic `between`. Pre-existing; this item widens the exposure
+        with everyday words. One `Fold`, but its pin needs a live host
+        table, so it is filed rather than folded in.
+      - The other refusing tables (`TypeTestIsoSpellingFor`,
+        `TypeTestDeferredFor`, `AliasSpellingFor`, `ControlIsoSpellingFor`)
+        still record arity, so `(integer? X) (integer? X Y)` is blamed as
+        an arity mismatch. Pre-existing and cosmetic; not widened.
+      - A pure text-formatting goal, under a name promising no output.
+    *Pays into `PROLOG.16`*: standard order must be a function of the
+    terms alone — no `StrComp` locale, no insertion order — which is this
+    item's rule applied to the next decision.
+
+    *Original entry, for the record:* Standard Prolog mutates its own database at runtime.
     **A worksheet function must be deterministic**: Excel recalculates a
     cell whenever it feels like it, in an order it does not promise, and
     may do so many times for one edit. A `PROLOG()` call whose answer

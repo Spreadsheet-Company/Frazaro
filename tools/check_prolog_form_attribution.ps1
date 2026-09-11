@@ -135,7 +135,31 @@ $scannedProcs = @(
 # The eighth is the list family's, not the text family's:
 #   prolog-list-given-text      - (length ...) and (append ...) handed a
 #                                 piece of text, pointing at its text twin.
+#
+# PROLOG.19 adds FIVE, registered here before the code that raises them
+# existed, and this check failed on every one until it did. They refuse,
+# for good, the goals whose answer would depend on something other than
+# their arguments and the program text, or that would do something other
+# than bind - ImpureGoalKindFor's families. Every one serves several
+# spellings from one raise site (RefuseImpureGoal), hyphen twins included,
+# so each takes its form from the caller:
+#   prolog-impure-database - assert, asserta, assertz, retract, retractall,
+#                            abolish.
+#   prolog-impure-output   - write, writeln, print, nl, format, writeq,
+#                            write_canonical, write_term.
+#   prolog-impure-state    - b_setval, b_getval, nb_setval, nb_getval,
+#                            gensym.
+#   prolog-impure-volatile - random, random_between, random_member,
+#                            random_permutation, get_time - and the
+#                            arithmetic functions random, random_float and
+#                            cputime, raised from ValidateArithExpr too.
+#   prolog-impure-outside  - read, read_term, consult, halt.
 $multiFormIds = @(
+    'prolog-impure-database',
+    'prolog-impure-output',
+    'prolog-impure-state',
+    'prolog-impure-volatile',
+    'prolog-impure-outside',
     'prolog-text-bad-shape',
     'prolog-text-unbound',
     'prolog-text-not-text',

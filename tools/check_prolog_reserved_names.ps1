@@ -182,6 +182,17 @@ $countPhrases = @{
     # neighbour and the two share only the word 'goals', which is not a
     # key on its own.
     'text goals'           = 'TextGoalKindFor'
+    # PROLOG.19's own table. Checked for containment against all nine
+    # existing keys, both directions, before choosing it. PHRASED WITH NO
+    # COUNT, on purpose, and the entry is here anyway: the family holds
+    # more names than $numberWords can read (it stops at 'twelve'). Measured,
+    # not assumed: "the thirty impure goals" captures 'thirty', reaches the
+    # "not a count word" branch below and passes having checked nothing;
+    # "the thirty-nine impure goals" captures only 'nine' (the regex stops at
+    # the hyphen) and fails, but as 9 against the table's real size - loud,
+    # and for the wrong reason. With no count there is nothing to go stale;
+    # with this entry, the day someone adds one is the day it is looked at.
+    'impure goals'         = 'ImpureGoalKindFor'
 }
 
 $numberWords = @{
