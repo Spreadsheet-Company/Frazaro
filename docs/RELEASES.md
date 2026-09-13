@@ -2,6 +2,137 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_ROADMAP1.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.6.0
+
+### What changed
+
+- **Write a policy in English, then ask questions about it.** This is the
+  thing Frazaro exists for, and it starts here. You write the rule in a
+  cell, in a sentence, and you ask about it in other cells. Nothing is
+  hidden: the rule is text you can read and edit, and every answer
+  recalculates when you change it or when the data changes.
+
+  Put your data in Excel Tables — say `Staff` with columns Name, Cert and
+  Level, `Shifts` with Shift, Needs and MinLevel, and `Leave` with Name
+  and Shift. Then write the policy:
+
+  - `Write in cell H2 that a person can-cover a shift if Shifts lists the
+    shift as Shift, the cert as Needs, and the min as MinLevel, and Staff
+    lists the person as Name, the cert as Cert, and the level as Level,
+    and the level is at least the min, and not Leave lists the person as
+    Name and the shift as Shift.`
+
+  That is one rule, and it reads the way the policy is actually stated:
+  the shift needs a certification at some level, the person holds that
+  certification at some level, their level is at least what the shift
+  asks, and they are not on leave for it. **The role nouns are the
+  blanks** — "the person", "the shift", "the level" — and saying the same
+  noun twice is how you say they must match. The "the" is optional:
+  `Staff lists person as Name` means exactly the same thing.
+
+  Then ask, in any cell:
+
+  - `Show in cell E2 who can-cover "Night" by applying the rules in H2:H4
+    to the data tables Staff, Shifts, and Leave.`
+  - `Show in cell E3 what "Bob" can-cover by applying the rules in H2:H4
+    to the data tables Staff, Shifts, and Leave.`
+  - `Show in cell E4 whether "Bob" can-cover "Night" by applying the rules
+    in H2:H4 to the data tables Staff, Shifts, and Leave.`
+
+  "Who" and "what" spill a list under a header named for the question,
+  with each answer listed once, however many ways the rule reaches it;
+  "whether" answers TRUE or FALSE.
+
+- **Quote the names you are asking about.** `"Night"` and `"Bob"` are in
+  quotes on purpose. An unquoted word is lowercased on its way in, and
+  your Table keeps its own capitals, so `night` would quietly match
+  nothing. Quotes are how you say "this exact text".
+
+- **Name your Tables as Excel names them.** List them after "to the data
+  tables", separated by commas, with a comma before the "and". A name
+  that could not stand in a formula as it is — one with a space, a comma
+  or a quote in it — is refused before anything is written, rather than
+  producing a formula that quietly means something else.
+
+- **Conditions you can write today.** A Table row (`Staff lists the
+  person as Name, …`), a relation between two roles (`the person holds
+  the cert`), a set (`the bill is big`), a comparison (`is at least`, `is
+  at most`, `is greater than`, `is less than`), and `not` in front of any
+  of them. Join them with `, and`. A rule can use another rule's
+  relation, so a longer policy can be written as several sentences in
+  neighbouring cells and asked about as one — name the whole range, like
+  `H2:H4`.
+
+- **It tells you when a blank is never filled in.** If you write `the
+  level is at least the min` but nothing in the rule ever says where the
+  level comes from, Frazaro stops and says so, naming the noun you used,
+  instead of answering from a blank. This grammar's own words — `is`,
+  `lists` and the rest — are refused as relation names for the same
+  reason, and so is any name starting `vla-`: Frazaro writes a few helper
+  rules of its own under that prefix, and a name of yours must never be
+  mistaken for one of them.
+
+- **Known limits, said plainly.** A relation's name is one word for now,
+  so it is `can-cover`, with the hyphen, not `can cover`; the two-word
+  spelling is next. Questions are asked one at a time. A quoted name
+  must match the data's capitals exactly: `"night"` finds nothing where
+  the Table says `Night`, and says nothing about it. And a misspelled
+  relation name is caught only by "whether" questions for now: `Show …
+  whether "Bob" can-drive "Night" …` refuses by name, but the same typo
+  in a "who" or "what" question shows the header with nothing under it,
+  which looks exactly like "nobody". If an answer is surprisingly empty,
+  check the relation's spelling first; this is the next thing being fixed.
+
+### Known open security items
+
+**Closed this release:** none — 0.6.0 is a feature release. Three changes
+touch the security surface without closing an item, listed so none is a
+surprise:
+
+- Sentences can now write `=DATALOG(...)` and `=PROLOG(...)` formulas into
+  cells, and those formulas recalculate with the workbook. Both engines
+  read only two things: the rules text in the cells a question names, and
+  the Tables it names — no files, no network, nothing outside the
+  workbook. The rules are ordinary cell text, so anyone who can edit those
+  cells can change every answer that reads them; protect the sheet if that
+  matters, as you would the inputs to any formula.
+- The Table names a question lists are written into its formula, so each
+  one is first held to Excel's own rule for a Table name. A quoted name
+  carrying a comma, a quote or a bracket is refused by name, instead of
+  becoming extra arguments in a formula you did not write.
+- Writing a formula is not new, and `SEC.15` below still applies:
+  formulas a program writes are not screened for functions that reach the
+  network. The formulas these sentences write contain only `DATALOG`,
+  `PROLOG` and `TEXTJOIN`.
+
+**Still open:** `SEC.3`, `SEC.7`, and two from the 2026-09-08 code
+review — `SEC.10` and `SEC.15`. In plain words:
+the remembered raw-VBA consent record still lives inside the workbook
+(`SEC.10`);
+formulas a program writes are not screened for functions that reach the
+network (`SEC.15`); and effects like sending mail still run without a
+permission prompt (`SEC.7`). `SEC.8` narrows that last one — it gates on
+where the *workbook* came from — but does not close it: a phrasebook loaded
+into a workbook of your own still reaches those verbs unprompted.
+
+**Assessed and accepted, not fixed:** `SEC.12`, `SEC.14`, `SEC.16` and
+`SEC.17`. Each needs a precondition an ordinary install does not meet —
+mostly an Excel setting that ships off and that Frazaro never asks you to
+turn on. The reasoning for each, and what would reopen it, is written down
+rather than left implied.
+
+The authoritative lists, kept current in one place instead of copied into
+every release: [`README.md`](../README.md) in plain words, and
+[`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md) with the file, line, fix and
+disposition for each.
+
+Until these close: **load phrasebooks only from people you would accept a
+macro-enabled workbook from — and treat a workbook someone sent you the
+same way before you press Interpret.** Frazaro makes no network call and
+does not update itself; check the README's *Known open security items*
+when you return for a newer build. Vulnerability reports:
+`docs/SECURITY.md`. Everything else: `docs/SUPPORT.md`.
+
 ## 0.5.6
 
 ### What changed

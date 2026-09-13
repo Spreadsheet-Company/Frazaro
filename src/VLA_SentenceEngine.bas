@@ -1987,8 +1987,29 @@ Private Function RenderSlotValue(ByVal cat As String, ByVal bound As Variant) As
             RenderSlotValue = StripQuoteSigil(CStr(bound))
         Case "var", "name"
             RenderSlotValue = CStr(bound)
+        Case "role"
+            ' G-PROLOG: the variable back to the noun that named it.
+            ' RoleToVarName only ever raises the first letter, so
+            ' lowering it is the exact inverse and the sentence
+            ' round-trips - unlike the conditions slot below.
+            RenderSlotValue = LCase$(StripQuoteSigil(CStr(bound)))
+        Case "relation"
+            ' G-PROLOG: a relation name prints as the word it was.
+            RenderSlotValue = StripQuoteSigil(CStr(bound))
         Case "expr", "cond"
             RenderSlotValue = RenderExprForm(bound)
+        Case "conditions"
+            ' G-PROLOG: this sub-grammar has no reverse yet. It prints
+            ' the clause text it parsed to - readable, and honest about
+            ' what it is - and sets the fallback flag, so the render
+            ' self-check counts the rule as "not round-trip tested"
+            ' rather than claiming a round trip it cannot make. The
+            ' fallback is RenderExprForm's own existing category for
+            ' exactly this: something printable that is not promised to
+            ' re-parse. Writing the reverse grammar is slice 2's, beside
+            ' the multi-word relation that needs the same machinery.
+            mLastRenderUsedFallback = True
+            RenderSlotValue = StripQuoteSigil(CStr(bound))
         Case Else
             VLA_Messages.RaiseMsg "english-render-no-category-renderer", "cat", cat
     End Select
@@ -2119,6 +2140,13 @@ Private Function BuildSyntheticBindings(ByVal idx As Long, bn As Collection, bv 
                     Case "var", "name":      val = "stubvar"
                     Case "expr":             val = "1"
                     Case "cond":             val = "(> 1 0)"
+                    ' G-PROLOG: a conditions slot binds TWO names, the
+                    ' goals and the projection rules beside them, so the
+                    ' stub supplies both - the render self-check would
+                    ' otherwise find a template hole with no binding.
+                    Case "role":             val = """Stubrole"""
+                    Case "relation":         val = """stubrel"""
+                    Case "conditions":       val = """(stub Stubrole)"""
                     Case Else
                         BuildSyntheticBindings = False
                         Exit Function
@@ -2126,6 +2154,10 @@ Private Function BuildSyntheticBindings(ByVal idx As Long, bn As Collection, bv 
             End If
             bn.Add slotName
             bv.Add val
+            If cat = "conditions" Then
+                bn.Add slotName & "-rules"
+                bv.Add """"""
+            End If
         End If
     Next
     BuildSyntheticBindings = True
@@ -2278,7 +2310,7 @@ Private Sub ValidateRuleItems(ByVal pattern As String, items As Collection)
                 Next
             Else
                 Select Case ct
-                    Case "name", "var", "text", "expr", "cond", _
+                    Case "name", "var", "text", "expr", "cond", "conditions", "role", "relation", _
                          "range", "cell", "column", "sheet", "color", "path"
                         ' known category (the five before "path" are
                         ' G2's typed reference slots - :text plus a
@@ -2708,6 +2740,19 @@ Private Function CategoryPlaceholderValue(ByVal cat As String) As String
             CategoryPlaceholderValue = "5"
         Case "cond"
             CategoryPlaceholderValue = "5 is empty"
+        Case "role", "relation"
+            ' G-PROLOG: one bare word, never quoted - quotes mark a
+            ' constant in this grammar; a role is a variable and a
+            ' relation is a predicate name. "x" is neither a grammar
+            ' word nor vla-prefixed, so it passes both slots' checks.
+            CategoryPlaceholderValue = "x"
+        Case "conditions"
+            ' G-PROLOG: the cheapest phrase this sub-grammar accepts is
+            ' one set condition, "the x is y" - one shape, no comma, no
+            ' Table. It has to satisfy the SEMANTIC checks too, not just
+            ' the syntax: a set binds its own role, so no role is left
+            ' unbound, and neither word is one of the grammar's own.
+            CategoryPlaceholderValue = "the x is y"
         Case Else
             CategoryPlaceholderValue = """x"""
     End Select
@@ -4492,6 +4537,7 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
     Dim osm As String
     Dim hasDefault As Boolean, defaultVal As String
     Dim matchOk As Boolean
+    Dim condPre As String
 
     For Each it In items
         t = it
@@ -4578,6 +4624,61 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
                 Case "cond"
                     val = ParseCond(toks, p, ok)
                     If Not ok Then matchOk = False
+                Case "role"
+                    ' G-PROLOG: a role noun IS a variable. The slot
+                    ' consumes one bare word and binds the variable that
+                    ' word names, through the same RoleToVarName the
+                    ' conditions sub-grammar uses - so a head's "person"
+                    ' and a body's "the person" are the same Person
+                    ' without the phrasebook having to say so. A quoted
+                    ' token is not accepted: quotes mark a CONSTANT in
+                    ' this grammar, and a constant in a head position is
+                    ' a fact, which is slice 2's sentence.
+                    val = WordAt(toks, p)
+                    If Len(val) = 0 Then
+                        matchOk = False
+                    Else
+                        val = VlaStringLit(RoleToVarName(val))
+                        p = p + 1
+                    End If
+                Case "relation"
+                    ' G-PROLOG: a relation's name, which IS the predicate
+                    ' name both engines see. One bare word: a quoted token
+                    ' is not a relation, because a quote would let a space
+                    ' or a bracket into a predicate name ({rel:text} took
+                    ' one, which is why this category replaced it). One of
+                    ' the conditions grammar's own words simply fails the
+                    ' slot, so a later rule may still try; a name starting
+                    ' "vla-" RAISES by name, because that prefix is where
+                    ' the generated rules live (vla-ask-, vla-not-) and a
+                    ' writer's name must never merge with one of them.
+                    val = WordAt(toks, p)
+                    If Len(val) = 0 Then
+                        matchOk = False
+                    ElseIf IsConditionsGrammarWord(val) Then
+                        matchOk = False
+                    Else
+                        RefuseGeneratedPrefix val
+                        val = VlaStringLit(val)
+                        p = p + 1
+                    End If
+                Case "conditions"
+                    ' G-PROLOG: SD-16's third built-in sub-grammar. The
+                    ' goals bind under the slot's own name; any
+                    ' projection rules a negated Table row generated
+                    ' bind beside them, under "<slot>-rules", because
+                    ' they belong OUTSIDE the (rule ...) the template
+                    ' builds and a template cannot close a parenthesis
+                    ' it never opened. Both are VLA string literals: a
+                    ' template splices them into the formula text it
+                    ' writes, the way interpolate's holes are spliced.
+                    condPre = ""
+                    val = ParseConditions(toks, p, condPre, ok)
+                    If ok Then
+                        val = VlaStringLit(val)
+                    Else
+                        matchOk = False
+                    End If
                 Case Else
                     If Not IsAltCat(cat) Then
                         VLA_Messages.RaiseMsg "english-unknown-slot-category-runtime", "cat", cat
@@ -4619,6 +4720,10 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
             End If
             bn.Add slotName
             bv.Add val
+            If cat = "conditions" Then
+                bn.Add slotName & "-rules"
+                bv.Add VlaStringLit(condPre)
+            End If
         ElseIf IsOptTok(t, ow) Then
             ' G1: optional literal - consumed when present, free when
             ' absent, and it can never fail the match. G1.1: the word
@@ -5162,6 +5267,401 @@ Private Function ParseExprReq(toks() As String, ByRef pos As Long) As String
     Dim ok As Boolean
     ParseExprReq = ParseExpr(toks, pos, ok)
     If Not ok Then VLA_Messages.RaiseMsg "english-expected-value", "context", SentenceContext(toks, pos)
+End Function
+
+' =====================================================================
+'  G-PROLOG: the `conditions` sub-grammar
+' =====================================================================
+' SD-16's 2026-09-11 precision amendment names this the THIRD built-in
+' sub-grammar, beside expr and cond, and holds it to more than either of
+' them: `conditions` is REGULAR. Five fixed condition shapes joined by
+' `and`, each named by its own tokens, with no nesting, no parentheses,
+' no pronouns and single terms as operands. It lives in the engine and
+' can never be written in a phrasebook; its whole slot is one opaque
+' placeholder to the shadow audit, exactly as cond's already is.
+'
+'   Conditions := Condition ( Sep Condition )*
+'   Sep        := ","? "and"                (at least one of the two)
+'   Condition  := "not"? ( TableRow | Relation | Set | Comparison )
+'   TableRow   := <table> "lists" Column ( Sep Column )*
+'   Column     := <role> "as" <header>
+'   Relation   := <role> <rel> <role>
+'   Set        := <role> "is" <set>
+'   Comparison := <role> "is" Op <role>
+'   Op         := "at least" | "at most" | "greater than" | "less than"
+'
+' WHERE "the" WENT. A writer says "the person", and the grammar above has
+' no "the" in it: EnTokenize drops "the" (and "please") from every
+' sentence before any rule sees it (IsDroppedWord), so this sub-grammar
+' reads the token stream the engine actually produces. The first draft
+' required "the" before every role, passed a transliteration whose own
+' tokenizer kept the word, and refused to load live - the vocabulary's
+' own test-success line was the first real sentence it ever saw. "Staff
+' lists the person as Name" and "Staff lists person as Name" are one
+' sentence, which is the dropped-word rule's whole point.
+'
+' ROLE NOUNS ARE THE VARIABLES. "the person" becomes Person, and the
+' same noun is the same variable, which is how a join is said. The fold
+' has already happened - every bare word in a sentence is folded - so
+' the only work is raising the first letter, and that is done by CODE
+' POINT rather than with UCase$: a locale that raises "i" to a dotted
+' capital would mint a different variable on a different machine, and
+' SD-8 says identity never depends on a locale.
+'
+' THE TWO DECISIONS THAT NEED A WINDOW, each exactly the width of the
+' shape it recognizes. Which shape a condition is: its SECOND token
+' decides - "lists" makes a Table row, "is" a set or a comparison,
+' anything else a relation. And after a Table row's column, whether a
+' separator continues the column list or begins a new condition, since
+' the two spellings start alike: ", and level as Level" is another
+' column, ", and level is at least min" a comparison, so the parser
+' reads <word> "as". Neither window looks past the shape it is
+' matching, so this stays one deterministic left-to-right scan with no
+' backtracking, and the language stays regular.
+'
+' WHERE A FAILURE GOES, and why the two kinds differ. A SYNTAX failure
+' sets ok = False and touches nothing, exactly as ParseExpr and
+' ParseCond do, so the slot falls through to the ordinary near-miss
+' machinery and the writer gets "I understood '...' - then expected X
+' but found Y". A SEMANTIC failure - a role nothing binds, a relation
+' named with one of the grammar's own words - RAISES by name instead:
+' by then the sentence has matched and what the writer meant is known,
+' and "expected a condition" would point at the wrong place entirely.
+' These are the lessons the parser can give at Check because it owns
+' this sub-grammar (G-PROLOG's own entry).
+'
+' A NEGATED TABLE ROW IS ALWAYS WRITTEN THROUGH A GENERATED PROJECTION
+' RULE. DATALOG turns a keyed atom's unmentioned column into a fresh
+' anonymous variable (its own DATALOG.5 header), and a fresh variable
+' inside `not` can never be bound by anything earlier, so DATALOG
+' refuses the rule - naming a column the writer never typed. The
+' sentence is compiled with no workbook in hand, so the column count
+' cannot be known here; the projection rule is therefore unconditional,
+' and it is what the corpus's own KB1 writes by hand (on-leave-for).
+' The rule is named from its own CONTENT - the table and the columns it
+' reads - never from an ordinal: two sentences in one rules range would
+' give one name to two different rules, and `not` would then be asking
+' about the wrong thing.
+'
+' NAMES A READER CAN REDO BY HAND, AND ONLY ONE WAY (the owner's gensym
+' question, 2026-09-13). Content alone was not enough: the parts are
+' joined with "-", and "-" is a legal character INSIDE a word, so the
+' headers [needs-by, shift] and [needs, by-shift] gave one name to two
+' different rules. A "-" inside a part is therefore written "--", and a
+' single "-" only ever separates parts (EscapeNamePart) - unambiguous by
+' construction and still derivable with a pencil. And each generator
+' owns a prefix: vla-not- here, vla-ask- for a question's narrowing rule,
+' while nothing a writer types may start with vla- at all
+' (RefuseGeneratedPrefix). Deterministic names are only safe to use where
+' gensym would have been if their namespaces can never meet each other,
+' or meet a writer's.
+Private Function ParseConditions(toks() As String, ByRef pos As Long, _
+                                 ByRef preRules As String, ByRef ok As Boolean) As String
+    Dim goals As String
+    Dim pre As String
+    Dim preSeen As Collection
+    Dim posRoles As Collection
+    Dim allRoles As Collection
+    Dim p As Long
+    Dim negated As Boolean
+    Dim goal As String
+    Dim isRow As Boolean
+    Dim rowTable As String, rowHeaders As String, rowVars As String
+    Dim q As Long
+    Dim sawSep As Boolean
+    Dim projName As String
+    Dim rv As Variant
+
+    ok = False
+    preRules = ""
+    Set preSeen = New Collection
+    Set posRoles = New Collection
+    Set allRoles = New Collection
+    p = pos
+
+    Do
+        negated = False
+        If TokAt(toks, p) = "not" Then
+            negated = True
+            p = p + 1
+        End If
+
+        isRow = False
+        rowTable = ""
+        rowHeaders = ""
+        rowVars = ""
+        If TokAt(toks, p + 1) = "lists" Then
+            goal = ParseOneTableRow(toks, p, negated, posRoles, allRoles, _
+                                    rowTable, rowHeaders, rowVars, ok)
+            If Not ok Then Exit Function
+            isRow = True
+        Else
+            goal = ParseOneRoleCondition(toks, p, negated, posRoles, allRoles, ok)
+            If Not ok Then Exit Function
+        End If
+
+        If negated Then
+            If isRow Then
+                projName = "vla-not-" & EscapeNamePart(rowTable) & "-" & rowHeaders
+                If Not CollHasKey(preSeen, projName) Then
+                    preSeen.Add True, projName
+                    pre = pre & "(rule (" & projName & " " & rowVars & ") " & goal & ") "
+                End If
+                goal = "(" & projName & " " & rowVars & ")"
+            End If
+            goal = "(not " & goal & ")"
+        End If
+        If Len(goals) > 0 Then goals = goals & " "
+        goals = goals & goal
+
+        q = p
+        sawSep = False
+        If TokAt(toks, q) = "," Then
+            q = q + 1
+            sawSep = True
+        End If
+        If TokAt(toks, q) = "and" Then
+            q = q + 1
+            sawSep = True
+        End If
+        If Not sawSep Then Exit Do
+        p = q
+    Loop
+
+    ' DATALOG's safety rule, and PROLOG's silently wrong answer, said as
+    ' a sentence. A role that is only ever negated or only ever compared
+    ' is bound by nothing: DATALOG refuses such a rule in its own words
+    ' about a variable the writer never saw, and PROLOG quietly answers
+    ' from an unbound variable. Caught here, where the role noun the
+    ' writer actually typed can be named back to them.
+    For Each rv In CollKeysOf(allRoles)
+        If Not CollHasKey(posRoles, CStr(rv)) Then
+            VLA_Messages.RaiseMsg "english-conditions-unbound-role", _
+                "role", LCase$(CStr(rv))
+        End If
+    Next rv
+
+    pos = p
+    preRules = pre
+    ParseConditions = goals
+    ok = True
+End Function
+
+' "<role> ..." - a relation, a set, or a comparison. The token after the
+' role noun decides, and it decides on the token itself, never on a
+' guess: "is" opens a set or a comparison, anything else is a relation.
+' (The writer's "the" never arrives - see this section's header.)
+Private Function ParseOneRoleCondition(toks() As String, ByRef p As Long, ByVal negated As Boolean, _
+                                       posRoles As Collection, allRoles As Collection, _
+                                       ByRef ok As Boolean) As String
+    Dim v1 As String, v2 As String
+    Dim nm As String
+    Dim a As String, b As String
+    Dim op As String
+    Dim swapped As Boolean
+
+    ok = False
+    v1 = TakeRoleVar(toks, p, allRoles)
+    If Len(v1) = 0 Then Exit Function
+
+    If TokAt(toks, p) <> "is" Then
+        ' a relation: <role> <relation> <role>
+        nm = WordAt(toks, p)
+        If Len(nm) = 0 Then Exit Function
+        RefuseGrammarWordAsName nm
+        p = p + 1
+        v2 = TakeRoleVar(toks, p, allRoles)
+        If Len(v2) = 0 Then Exit Function
+        If Not negated Then
+            NoteRoleBound posRoles, v1
+            NoteRoleBound posRoles, v2
+        End If
+        ParseOneRoleCondition = "(" & nm & " " & v1 & " " & v2 & ")"
+        ok = True
+        Exit Function
+    End If
+
+    p = p + 1                                  ' "is"
+    a = TokAt(toks, p)
+    b = TokAt(toks, p + 1)
+    op = ""
+    swapped = False
+    ' cond's own words for the comparisons. Only >, < and >= reach the
+    ' cell: the shared PROLOG/DATALOG subset has no <=, so "at most" is
+    ' written as a swapped >= rather than as an operator one engine
+    ' spells =< and the other <=.
+    If a = "at" And b = "least" Then
+        op = ">="
+        p = p + 2
+    ElseIf a = "at" And b = "most" Then
+        op = ">="
+        swapped = True
+        p = p + 2
+    ElseIf a = "greater" And b = "than" Then
+        op = ">"
+        p = p + 2
+    ElseIf a = "less" And b = "than" Then
+        op = "<"
+        p = p + 2
+    End If
+
+    If Len(op) > 0 Then
+        v2 = TakeRoleVar(toks, p, allRoles)
+        If Len(v2) = 0 Then Exit Function
+        If swapped Then
+            ParseOneRoleCondition = "(" & op & " " & v2 & " " & v1 & ")"
+        Else
+            ParseOneRoleCondition = "(" & op & " " & v1 & " " & v2 & ")"
+        End If
+        ok = True
+        Exit Function
+    End If
+
+    ' a set: <role> is <set>
+    nm = WordAt(toks, p)
+    If Len(nm) = 0 Then Exit Function
+    RefuseGrammarWordAsName nm
+    p = p + 1
+    If Not negated Then NoteRoleBound posRoles, v1
+    ParseOneRoleCondition = "(" & nm & " " & v1 & ")"
+    ok = True
+End Function
+
+' "<Table> lists <role> as <Header>, ... and <role> as <Header>"
+' The header is the column as typed (folded, the way DATALOG folds its
+' own header names) and the role is the writer's noun.
+Private Function ParseOneTableRow(toks() As String, ByRef p As Long, ByVal negated As Boolean, _
+                                  posRoles As Collection, allRoles As Collection, _
+                                  ByRef outTable As String, ByRef outHeaders As String, _
+                                  ByRef outVars As String, ByRef ok As Boolean) As String
+    Dim tbl As String
+    Dim pairs As String
+    Dim rvName As String
+    Dim hdr As String
+    Dim q As Long
+    Dim windowOk As Boolean
+
+    ok = False
+    tbl = WordAt(toks, p)
+    If Len(tbl) = 0 Then Exit Function
+    p = p + 1
+    If TokAt(toks, p) <> "lists" Then Exit Function
+    p = p + 1
+
+    Do
+        rvName = TakeRoleVar(toks, p, allRoles)
+        If Len(rvName) = 0 Then Exit Function
+        If TokAt(toks, p) <> "as" Then Exit Function
+        p = p + 1
+        hdr = WordAt(toks, p)
+        If Len(hdr) = 0 Then Exit Function
+        p = p + 1
+        If Len(pairs) > 0 Then pairs = pairs & " "
+        pairs = pairs & "(" & hdr & " " & rvName & ")"
+        If Len(outHeaders) > 0 Then outHeaders = outHeaders & "-"
+        outHeaders = outHeaders & EscapeNamePart(hdr)
+        If Len(outVars) > 0 Then outVars = outVars & " "
+        outVars = outVars & rvName
+        If Not negated Then NoteRoleBound posRoles, rvName
+
+        ' Another column, or the end of the row? See this section's own
+        ' header note on the <word> "as" window.
+        q = p
+        If TokAt(toks, q) = "," Then q = q + 1
+        If TokAt(toks, q) = "and" Then q = q + 1
+        If q = p Then Exit Do
+        windowOk = (Len(WordAt(toks, q)) > 0)
+        If windowOk Then windowOk = (TokAt(toks, q + 1) = "as")
+        If Not windowOk Then Exit Do
+        p = q
+    Loop
+
+    outTable = tbl
+    ParseOneTableRow = "(" & tbl & " " & pairs & ")"
+    ok = True
+End Function
+
+' The role noun at p -> its variable, recorded as seen. Empty when the
+' token is not a word, which every caller reads as a syntax failure.
+Private Function TakeRoleVar(toks() As String, ByRef p As Long, allRoles As Collection) As String
+    Dim w As String
+    Dim v As String
+    w = WordAt(toks, p)
+    If Len(w) = 0 Then Exit Function
+    v = RoleToVarName(w)
+    If Not CollHasKey(allRoles, v) Then allRoles.Add v, v
+    p = p + 1
+    TakeRoleVar = v
+End Function
+
+' The folded role noun with its first ASCII letter raised - by code
+' point, never UCase$ (SD-8: identity never depends on a locale).
+Private Function RoleToVarName(ByVal w As String) As String
+    Dim c As Long
+    If Len(w) = 0 Then Exit Function
+    c = AscW(Left$(w, 1))
+    If c >= 97 And c <= 122 Then
+        RoleToVarName = ChrW$(c - 32) & Mid$(w, 2)
+    Else
+        RoleToVarName = w
+    End If
+End Function
+
+Private Sub NoteRoleBound(posRoles As Collection, ByVal v As String)
+    If Not CollHasKey(posRoles, v) Then posRoles.Add True, v
+End Sub
+
+' A relation or a set may not be named with one of this sub-grammar's
+' own words: the sentence would still parse, and would then mean
+' something the writer did not say. ("the" is not listed: the tokenizer
+' drops it before any name could be read.)
+Private Sub RefuseGrammarWordAsName(ByVal nm As String)
+    If IsConditionsGrammarWord(nm) Then
+        VLA_Messages.RaiseMsg "english-conditions-reserved-name", "name", nm
+    End If
+    RefuseGeneratedPrefix nm
+End Sub
+
+Private Function IsConditionsGrammarWord(ByVal nm As String) As Boolean
+    Select Case nm
+        Case "is", "as", "lists", "not", "and", "if"
+            IsConditionsGrammarWord = True
+    End Select
+End Function
+
+' vla- is where the rules Frazaro writes for itself live - vla-ask- for a
+' question's narrowing rule, vla-not- for a negated row's projection - so
+' a relation or set the writer names may never start with it: a same-
+' arity collision would merge the writer's clauses with a generated rule
+' and change an answer without a word. Names arrive folded, so VLA- and
+' vla- are one case.
+Private Sub RefuseGeneratedPrefix(ByVal nm As String)
+    Dim suggest As String
+    If Left$(nm, 4) <> "vla-" Then Exit Sub
+    suggest = Mid$(nm, 5)
+    If Len(suggest) = 0 Then suggest = "can-cover"
+    VLA_Messages.RaiseMsg "english-conditions-reserved-prefix", "name", nm, "suggest", suggest
+End Sub
+
+' One part of a generated name, with each "-" inside it doubled, so a
+' single "-" in the finished name only ever separates two parts. See
+' this section's header note on names a reader can redo by hand.
+Private Function EscapeNamePart(ByVal part As String) As String
+    EscapeNamePart = Replace(part, "-", "--")
+End Function
+
+' A Collection keyed by name has no key enumerator, and the values here
+' ARE the names, so the roles collection stores its own key as its value
+' and this hands them back in insertion order - the order the writer
+' typed them, which is the order the refusal should name them in.
+Private Function CollKeysOf(c As Collection) As Collection
+    Dim outc As Collection
+    Dim v As Variant
+    Set outc = New Collection
+    For Each v In c
+        outc.Add v
+    Next v
+    Set CollKeysOf = outc
 End Function
 
 ' =====================================================================

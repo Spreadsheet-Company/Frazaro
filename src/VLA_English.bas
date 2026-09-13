@@ -278,6 +278,15 @@ Public Function SlotDesc(ByVal cat As String) As String
         Case "text": SlotDesc = "a reference (like B2 or ""Sheet1"")"
         Case "expr": SlotDesc = "a value (like 5, ""text"", or total plus 1)"
         Case "cond": SlotDesc = "a condition (like total is greater than 5)"
+        ' G-PROLOG: the conditions sub-grammar. The example teaches the
+        ' two shapes a first rule almost always needs - a Table row and
+        ' a comparison - and the ", and" that joins them.
+        Case "conditions": SlotDesc = "one or more conditions joined by "", and"" (like Staff lists the person as Name, and the level is at least the min)"
+        ' G-PROLOG: a role noun, which IS the variable. Unquoted on
+        ' purpose - quotes mark a constant in this grammar.
+        Case "role": SlotDesc = "a role noun, one word and not quoted (like person or shift)"
+        ' G-PROLOG: a relation's name, which is the predicate name itself.
+        Case "relation": SlotDesc = "a relation name, one word and not quoted - hyphens join its parts (like can-cover)"
         ' G2: the typed reference slots teach their shapes; quotes are
         ' always the named-thing escape hatch, so each says so.
         Case "range": SlotDesc = "a range (like A1:C50, B2, or Data!A1:B10 - quotes for a named range)"

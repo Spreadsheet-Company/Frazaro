@@ -3938,5 +3938,142 @@
     "Show everyone who reports to \"Alice\" directly or not in Reports as team in cell E2."
     (datalog-chain-place "reports" "Alice" "team" (range "e2")))
 
+; ---- G-PROLOG slice 1: flat Logical English ---------------------------
+; One sentence writes ONE clause, role nouns are the variables, and the
+; body is a flat and-list of condition shapes parsed by the BUILT-IN
+; `conditions` sub-grammar (VLA_SentenceEngine.bas's own section header
+; has the grammar and the reasoning). SD-16's 2026-09-11 precision
+; amendment is what permits that slot; nothing here is DCG-shaped, and
+; no rule below recurses into another.
+;
+; A rule PLACES ITSELF FIRST - "Write in cell H2 that ..." - so a long
+; body never buries the address, and the questions place themselves the
+; same way, which is the pair a reader meets side by side. `[a]` is an
+; optional article: a BARE "a" would be stripped from the pattern at
+; registration (F.4 shape 2's noise-word strip) and the role slot would
+; then swallow it, while the optional's own SkipArticles consumes the
+; article properly and never fails when it is absent.
+;
+; {..:role} binds the VARIABLE a role noun names - "person" -> Person -
+; through the same RoleToVarName the sub-grammar uses, so a head's role
+; and a body's role are the same variable without the phrasebook saying
+; so. {..:relation} is one bare word - the predicate name itself - and
+; refuses a name starting vla-, the prefix the generated rules own.
+; {c-rules} is the conditions slot's second binding: the projection
+; rules a negated Table row generates, which belong OUTSIDE the (rule
+; ...) this template builds.
+(defmacro
+    (prolog-rule-place r rel subj obj pre body)
+    "write one Logical English rule, and any projection rules it needs, as text in a cell"
+    (set! r (interpolate "{pre}(rule ({rel} {subj} {obj}) {body})"
+                         :pre
+                         pre
+                         :rel
+                         rel
+                         :subj
+                         subj
+                         :obj
+                         obj
+                         :body
+                         body)))
+
+(english-vla
+    "write in cell {r:cell} that [a] {s:role} {rel:relation} [a] {o:role} if {c:conditions}"
+    (prolog-rule-place (range {r}) {rel} {s} {o} {c-rules} {c}))
+(test-success
+    "Write in cell H2 that a person can-cover a shift if Shifts lists the shift as Shift, the cert as Needs, and the min as MinLevel, and Staff lists the person as Name, the cert as Cert, and the level as Level, and the level is at least the min, and not Leave lists the person as Name and the shift as Shift."
+    (prolog-rule-place (range "h2") "can-cover" "Person" "Shift" "(rule (vla-not-leave-name-shift Person Shift) (leave (name Person) (shift Shift))) " "(shifts (shift Shift) (needs Cert) (minlevel Min)) (staff (name Person) (cert Cert) (level Level)) (>= Level Min) (not (vla-not-leave-name-shift Person Shift))"))
+
+; The questions. Routing is by the question's SHAPE, decided in
+; G-PROLOG's scope: WHO and WHAT go to DATALOG (set answers, termination
+; on cycles, no depth budget), WHETHER to PROLOG (a ground TRUE/FALSE).
+; Both read THE SAME CELLS, which is the whole point of holding every
+; clause inside the shared subset.
+;
+; DATALOG's own (query ...) takes a bare predicate SYMBOL, never a goal
+; with arguments (VLA_Datalog.bas's ParseProgram), so a question that
+; fixes a constant has to define a narrowing rule and query that -
+; datalog-filter-place's own shape, one level up. The rule is named
+; after the relation asked about, behind the vla-ask- prefix - a prefix
+; no writer's name (refused at Check) and no projection rule (vla-not-)
+; can share - so an auditor reading the formula sees which question it
+; is. Its head variable is also what names the answer
+; column, since DATALOG takes an answer's headers from the first rule
+; head that defines the predicate.
+;
+; The rules text is read LIVE out of its cells with TEXTJOIN - the
+; idiom VLA_Datalog.bas's own header recommends for a multi-cell rule
+; set - so editing a rule recalculates every question over it. The
+; constant MUST be quoted ({..:expr}, never a bare {..:text}): a bare
+; word folds to lowercase in transit and a Table's own text keeps its
+; case, so "night" would silently match nothing. That is G2's quoting
+; doctrine and datalog-chain-place's own anchor note, again. The
+; doubling of those quotes - \"\" - is Excel's own formula-string
+; escape, done here so a phrasebook author never has to.
+(defmacro
+    (prolog-ask-who rel k rules tables r)
+    "write a =DATALOG(...) who-question over rules held in cells as a live formula"
+    (set-formula r
+                 (interpolate "=DATALOG(TEXTJOIN(\" \",TRUE,{rules})&\" (rule (vla-ask-{rel} Who) ({rel} Who \"\"{k}\"\")) (query vla-ask-{rel})\",{tables})"
+                              :rules
+                              rules
+                              :rel
+                              rel
+                              :k
+                              k
+                              :tables
+                              tables)))
+
+(defmacro
+    (prolog-ask-what rel k rules tables r)
+    "write a =DATALOG(...) what-question over rules held in cells as a live formula"
+    (set-formula r
+                 (interpolate "=DATALOG(TEXTJOIN(\" \",TRUE,{rules})&\" (rule (vla-ask-{rel} What) ({rel} \"\"{k}\"\" What)) (query vla-ask-{rel})\",{tables})"
+                              :rules
+                              rules
+                              :rel
+                              rel
+                              :k
+                              k
+                              :tables
+                              tables)))
+
+(defmacro
+    (prolog-ask-whether rel subj k rules tables r)
+    "write a =PROLOG(...) whether-question over rules held in cells as a live formula"
+    (set-formula r
+                 (interpolate "=PROLOG(TEXTJOIN(\" \",TRUE,{rules})&\" (query ({rel} \"\"{subj}\"\" \"\"{k}\"\"))\",{tables})"
+                              :rules
+                              rules
+                              :rel
+                              rel
+                              :subj
+                              subj
+                              :k
+                              k
+                              :tables
+                              tables)))
+
+(english-vla
+    "show in cell {r:cell} who {rel:relation} {k:expr} by applying the rules in {rules:range} to the data tables {t:text-list}"
+    (prolog-ask-who {rel} {k} {rules} (vlatablearguments {t}) (range {r})))
+(test-success
+    "Show in cell E2 who can-cover \"Night\" by applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave."
+    (prolog-ask-who "can-cover" "Night" "h2:h4" (vlatablearguments (array "staff" "shifts" "leave")) (range "e2")))
+
+(english-vla
+    "show in cell {r:cell} what {s:expr} {rel:relation} by applying the rules in {rules:range} to the data tables {t:text-list}"
+    (prolog-ask-what {rel} {s} {rules} (vlatablearguments {t}) (range {r})))
+(test-success
+    "Show in cell E2 what \"Bob\" can-cover by applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave."
+    (prolog-ask-what "can-cover" "Bob" "h2:h4" (vlatablearguments (array "staff" "shifts" "leave")) (range "e2")))
+
+(english-vla
+    "show in cell {r:cell} whether {s:expr} {rel:relation} {k:expr} by applying the rules in {rules:range} to the data tables {t:text-list}"
+    (prolog-ask-whether {rel} {s} {k} {rules} (vlatablearguments {t}) (range {r})))
+(test-success
+    "Show in cell E2 whether \"Bob\" can-cover \"Night\" by applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave."
+    (prolog-ask-whether "can-cover" "Bob" "Night" "h2:h4" (vlatablearguments (array "staff" "shifts" "leave")) (range "e2")))
+
 
 

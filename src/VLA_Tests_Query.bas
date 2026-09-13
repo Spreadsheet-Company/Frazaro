@@ -373,6 +373,8 @@ Public Function TestDSLs() As Boolean
     TestPrologBudgets
     TestPrologKeyedAtoms
     TestPrologHostTable
+    TestPrologConditions
+    TestTableArguments
     TestSql
     TestSqlJoin
     TestSqlSetOps
@@ -6417,6 +6419,200 @@ Private Function BudgetChainProgram(ByVal n As Long) As String
     Next i
     BudgetChainProgram = s & "(rule (path X Y) (edge X Y)) (rule (path X Y) (edge X Z) (path Z Y)) "
 End Function
+' =====================================================================
+'  G-PROLOG slice 1 - the sentence layer that writes these engines'
+'  programs. Here rather than in VlaSelfTest, the owner's call: these
+'  are Prolog's tests, and TestDSLs is where Prolog's tests run.
+' =====================================================================
+
+' The `conditions` sub-grammar, SD-16's third built-in and the first
+' held to being REGULAR. english.vla's own test-success rows prove the
+' four shipped sentences end to end; these pins hold the machinery
+' underneath them, one shape at a time, on a throwaway rule - so a
+' failure names the shape that broke instead of one long sentence.
+'
+' The pins that matter most are the two that are not about syntax. A
+' role noun must become the SAME variable everywhere it is said, which
+' is the only way a join is expressed here; and a role nothing binds
+' must refuse, because DATALOG would refuse it in words naming a column
+' the writer never typed (datalog-negation-unsafe-variable) and PROLOG
+' would quietly answer from an unbound variable.
+Private Sub TestPrologConditions()
+    Dim d As String
+    Dim junk As String
+
+    EnglishResetGrammar
+    EnglishAddPhrase "assay {c:conditions}", "(debug-print {c})"
+
+    AssertConditions "a Table row keys each column by its header, the role as the variable", _
+                     "Assay Staff lists the person as Name, the cert as Cert, and the level as Level.", _
+                     "(staff (name Person) (cert Cert) (level Level))"
+    ' The tokenizer drops "the" from every sentence (IsDroppedWord), so
+    ' the grammar never sees it and both spellings are one sentence. The
+    ' first draft required "the", and the vocabulary refused to load live.
+    AssertConditions "a role reads the same without its article", _
+                     "Assay Staff lists person as Name, cert as Cert, and level as Level.", _
+                     "(staff (name Person) (cert Cert) (level Level))"
+    AssertConditions "two columns join with a bare and, no Oxford comma needed", _
+                     "Assay Leave lists the person as Name and the shift as Shift.", _
+                     "(leave (name Person) (shift Shift))"
+    AssertConditions "a relation between two roles", _
+                     "Assay the person holds the cert.", "(holds Person Cert)"
+    AssertConditions "a set over one role", _
+                     "Assay the bill is big.", "(big Bill)"
+    AssertConditions "is at least becomes >=", _
+                     "Assay Staff lists the level as Level, and the level is at least the level.", _
+                     "(>= Level Level)"
+    ' The shared PROLOG/DATALOG subset has no <=, so "at most" is the
+    ' same operator with its operands swapped - the roadmap's own words.
+    AssertConditions "is at most becomes a SWAPPED >=, never a <=", _
+                     "Assay Staff lists the level as Level, the cap as Cap, and the level is at most the cap.", _
+                     "(>= Cap Level)"
+    AssertConditions "is greater than becomes >", _
+                     "Assay Staff lists the level as Level, the cap as Cap, and the level is greater than the cap.", _
+                     "(> Level Cap)"
+    AssertConditions "is less than becomes <", _
+                     "Assay Staff lists the level as Level, the cap as Cap, and the level is less than the cap.", _
+                     "(< Level Cap)"
+
+    ' The window that keeps this regular: after ", and", "the level as
+    ' Level" continues the row and "the level is ..." begins a new
+    ' condition. One sentence holds both, so a parser that got the
+    ' window wrong cannot pass this.
+    AssertConditions "a column list ends where a comparison begins", _
+                     "Assay Shifts lists the shift as Shift, the min as MinLevel, and the min is at least the shift.", _
+                     "(shifts (shift Shift) (minlevel Min)) (>= Min Shift)"
+
+    ' A negated Table row is always written through a generated
+    ' projection rule, named from its own content, and the rule lands
+    ' OUTSIDE the goals - which is why the slot binds twice. Both roles
+    ' are bound POSITIVELY first, by the two rows above the negation.
+    EnglishResetGrammar
+    EnglishAddPhrase "assay {c:conditions} finally", "(debug-print {c-rules} {c})"
+    AssertConditions "a negated Table row generates its projection rule, named from table and columns", _
+                     "Assay Staff lists the person as Name, and Shifts lists the shift as Shift, and not Leave lists the person as Name and the shift as Shift finally.", _
+                     "(rule (vla-not-leave-name-shift Person Shift) (leave (name Person) (shift Shift)))"
+    AssertConditions "the body negates the generated rule, never the row", _
+                     "Assay Staff lists the person as Name, and Shifts lists the shift as Shift, and not Leave lists the person as Name and the shift as Shift finally.", _
+                     "(not (vla-not-leave-name-shift Person Shift))"
+    ' A "-" inside a part is written "--", so the two ways of splitting
+    ' one hyphenated string can never share a generated name. Before the
+    ' escape, both of these were vla-not-leave-start-date-shift.
+    AssertConditions "a hyphen inside a header is doubled in the generated name", _
+                     "Assay Staff lists person as Name, and Shifts lists shift as Shift, and not Leave lists person as Start-Date and shift as Shift finally.", _
+                     "(rule (vla-not-leave-start--date-shift Person Shift)"
+    AssertConditions "so the other split of the same letters gets a different name", _
+                     "Assay Staff lists person as Name, and Shifts lists shift as Shift, and not Leave lists person as Start and shift as Date-Shift finally.", _
+                     "(rule (vla-not-leave-start-date--shift Person Shift)"
+
+    EnglishResetGrammar
+    EnglishAddPhrase "assay {c:conditions}", "(debug-print {c})"
+    AssertConditionsRefusal "a role only ever compared refuses, naming the role the writer typed", _
+                            "Assay Staff lists the person as Name, and the level is at least the min.", _
+                            "nothing in this rule says which level it means"
+    AssertConditionsRefusal "a role only ever negated refuses the same way", _
+                            "Assay not Leave lists the person as Name and the shift as Shift.", _
+                            "nothing in this rule says which"
+    AssertConditionsRefusal "a set named with one of the grammar's own words refuses", _
+                            "Assay the person is lists.", _
+                            "is one of this grammar's own words"
+    ' vla- is where the generated rules live, so nothing a writer names
+    ' may start with it - in a condition, in a rule's head, or in a
+    ' question.
+    AssertConditionsRefusal "a relation in a condition named vla- refuses", _
+                            "Assay person vla-holds cert.", _
+                            "starts with vla-"
+
+    EnglishResetGrammar
+    EnglishAddPhrase "relate {x:relation}", "(debug-print {x})"
+    AssertConditions "a relation slot binds its one bare word as the predicate name", _
+                     "Relate can-cover.", "(debug-print ""can-cover"")"
+    AssertConditionsRefusal "a relation slot refuses a vla- name by name", _
+                            "Relate vla-can-cover.", "starts with vla-"
+    AssertConditionsRefusal "a relation slot does not take a quoted name", _
+                            "Relate ""can cover"".", "a relation name"
+End Sub
+
+' AssertEnglish's shape, reported through THIS module's own counters -
+' VLA_Tests.bas's helper increments VlaSelfTest's, which would leave
+' TestDSLs' total wrong by exactly the number of pins above.
+Private Sub AssertConditions(ByVal name As String, ByVal sentence As String, ByVal frag As String)
+    Dim t As String, d As String
+    On Error Resume Next
+    Err.Clear
+    t = EnglishToVla(sentence)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) > 0 Then
+        Report "g-prolog: " & name, False, "unexpected refusal: " & d
+        Exit Sub
+    End If
+    Report "g-prolog: " & name, InStr(1, t, frag, vbTextCompare) > 0, _
+           "missing '" & frag & "' in: " & Left$(t, 200)
+End Sub
+
+Private Sub AssertConditionsRefusal(ByVal name As String, ByVal sentence As String, ByVal frag As String)
+    Dim t As String, d As String
+    On Error Resume Next
+    Err.Clear
+    t = EnglishToVla(sentence)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) = 0 Then
+        Report "g-prolog: " & name, False, "expected a refusal but it translated to: " & Left$(t, 200)
+        Exit Sub
+    End If
+    Report "g-prolog: " & name, InStr(1, d, frag, vbTextCompare) > 0, "got: " & d
+End Sub
+
+' VLA_Runtime.VlaTableArguments, purely. It builds a piece of Excel
+' FORMULA syntax out of a sentence's own G6 list, so the pins are about
+' two things: that the separator is exactly what a formula's argument
+' list wants, and that a name which would change the formula's SHAPE is
+' refused rather than spliced. That second half is why this is not a
+' general string join - a join has no grounds to refuse anything, and
+' the corrupted formula would reach the user as an Excel parse error
+' naming nothing.
+Private Sub TestTableArguments()
+    Report "g-prolog: three tables join with a comma and a space", _
+           VLA_Runtime.VlaTableArguments(Array("staff", "shifts", "leave")) = "staff, shifts, leave", _
+           "got: " & VLA_Runtime.VlaTableArguments(Array("staff", "shifts", "leave"))
+    Report "g-prolog: one table is itself, with no separator", _
+           VLA_Runtime.VlaTableArguments(Array("staff")) = "staff", _
+           "got: " & VLA_Runtime.VlaTableArguments(Array("staff"))
+    Report "g-prolog: underscores, digits and periods are legal in a Table name", _
+           VLA_Runtime.VlaTableArguments(Array("_q1", "sales.2026", "tbl_3")) = "_q1, sales.2026, tbl_3", _
+           "got: " & VLA_Runtime.VlaTableArguments(Array("_q1", "sales.2026", "tbl_3"))
+
+    Dim bad As Variant
+    Dim desc As String
+    Dim ignored As String
+    ' Each of these would not merely name a missing Table - spliced into
+    ' the formula string it would end an argument early, or open a
+    ' string, and the formula would then mean something nobody asked
+    ' for. A bare {:text-list} item cannot carry any of them, but a
+    ' QUOTED one can (G2's "quotes are the door"), so the check is real.
+    For Each bad In Array("a,b", "a" & Chr$(34) & "b", "a)b", "a b", "1staff", "")
+        desc = ""
+        On Error Resume Next
+        Err.Clear
+        ignored = VLA_Runtime.VlaTableArguments(Array(bad))
+        desc = Err.Description
+        On Error GoTo 0
+        Report "g-prolog: Table name '" & CStr(bad) & "' refuses by name", _
+               InStr(1, desc, "cannot name a data table", vbTextCompare) > 0, "got: " & desc
+    Next bad
+
+    desc = ""
+    On Error Resume Next
+    Err.Clear
+    ignored = VLA_Runtime.VlaTableArguments(Array())
+    desc = Err.Description
+    On Error GoTo 0
+    Report "g-prolog: naming no tables at all refuses by name", _
+           InStr(1, desc, "at least one data table", vbTextCompare) > 0, "got: " & desc
+End Sub
+
 Private Sub TestPrologKeyedAtoms()
     Dim q As String
     q = Chr$(34)

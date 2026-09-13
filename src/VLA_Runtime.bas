@@ -607,6 +607,8 @@ Private Sub RuntimeAddEntries(ByVal m As Collection)
     RuntimeAddMsg m, "rt-filter-needs-number", 5, "VLA-Runtime", "'{value}' is not a number - ""greater than"" and ""less than"" compare numbers, like 100 or 2.5."
     RuntimeAddMsg m, "rt-filter-unknown-kind", 5, "VLA-Runtime", "VlaFilterCriterion: unknown kind '{kind}' - expected at-least, at-most, contains, greater, or less."
     RuntimeAddMsg m, "rt-filter-range-empty", 5, "VLA-Runtime", "range {range} is empty - filters need a header row with data below it."
+    RuntimeAddMsg m, "rt-table-arguments-empty", 5, "VLA-Runtime", "a question needs at least one data table to read - name the Tables the rules mention, like Staff, Shifts, and Leave."
+    RuntimeAddMsg m, "rt-table-arguments-bad-name", 5, "VLA-Runtime", "'{name}' cannot name a data table in a formula - a Table name starts with a letter or underscore and continues in letters, digits, underscores and periods, with no spaces."
 End Sub
 
 Private Sub RuntimeAddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _
@@ -1359,6 +1361,74 @@ End Function
 ' live, owner's run, 2026-09-10; a US machine cannot tell the two
 ' apart). The euro and pound signs are built with ChrW - see
 ' VlaNumberFormatCode's own note on code pages.
+' G-PROLOG slice 1: a G6 list of Table names -> the literal argument
+' text an =PROLOG(...) / =DATALOG(...) formula needs after its program
+' string. VLA has no string join, and an Excel formula's Table arguments
+' must be LITERAL - a cell holding "Staff, Shifts, Leave" is text, not
+' three ranges - so the join has to happen while the formula is being
+' written, which is here. VlaNumberFormatCode is the precedent: a small
+' pure helper that builds a piece of Excel syntax out of a runtime
+' value, and refuses by name rather than handing Excel something it
+' will reject in its own words.
+'
+' WHY THIS REFUSES, and why it is not a general string join. Every name
+' here is spliced straight into a formula string, so a name carrying a
+' comma, a quote or a bracket does not produce a bad Table reference -
+' it produces a DIFFERENT FORMULA, with arguments the writer never
+' asked for. A bare {t:text-list} item is one word and cannot do that,
+' but G2's own "quotes are the door" means a writer may quote a name,
+' and a quoted token carries anything. So each name is held to Excel's
+' own rule for what may name a Table: it starts with a letter, an
+' underscore or a backslash, and continues in letters, digits,
+' underscores and periods. A general VlaJoinNames(items, separator)
+' could not make this check - it would not know its items were Table
+' names - and would let the corrupted formula through silently.
+'
+' The names arrive folded to lowercase (every bare word in a sentence
+' does), which costs nothing: an Excel formula resolves a Table name
+' case-insensitively, and PROLOG/DATALOG fold a predicate name through
+' VLA_Identity.Fold on both sides of the match.
+Public Function VlaTableArguments(ByVal names As Variant) As String
+    If Not IsArray(names) Then RaiseRuntimeMsg "rt-table-arguments-empty"
+    Dim lo As Long, hi As Long
+    lo = LBound(names)
+    hi = UBound(names)
+    If hi < lo Then RaiseRuntimeMsg "rt-table-arguments-empty"
+    Dim outText As String
+    Dim i As Long
+    For i = lo To hi
+        Dim nm As String
+        nm = CStr(names(i))
+        If Not IsTableNameShape(nm) Then
+            RaiseRuntimeMsg "rt-table-arguments-bad-name", "name", nm
+        End If
+        If Len(outText) > 0 Then outText = outText & ", "
+        outText = outText & nm
+    Next i
+    VlaTableArguments = outText
+End Function
+
+' Excel's own rule for a Table (or defined-name) identifier, narrowed to
+' the part a formula argument needs. Checked character by character
+' rather than with Like, so the accepted set is readable and no locale's
+' character classes can widen it (SD-8).
+Private Function IsTableNameShape(ByVal nm As String) As Boolean
+    If Len(nm) = 0 Then Exit Function
+    Dim i As Long
+    Dim c As String
+    For i = 1 To Len(nm)
+        c = Mid$(nm, i, 1)
+        If i = 1 Then
+            If Not ((c >= "a" And c <= "z") Or (c >= "A" And c <= "Z") _
+                    Or c = "_" Or c = "\") Then Exit Function
+        Else
+            If Not ((c >= "a" And c <= "z") Or (c >= "A" And c <= "Z") _
+                    Or (c >= "0" And c <= "9") Or c = "_" Or c = ".") Then Exit Function
+        End If
+    Next i
+    IsTableNameShape = True
+End Function
+
 Private Function CurrencySymbolCode(ByVal currencyName As String) As String
     Select Case currencyName
         Case "dollars": CurrencySymbolCode = "\$"

@@ -150,6 +150,13 @@ Then thirteen more phrasebook rows marked `0.5.6` — `G-SORTFILTER`
 each new that release.
 `clear filter condition/s` is the `SD-19` sibling of `show all rows`, whose
 `0.5.0` row stands, the same way.
+Then four phrasebook rows marked `0.6.0` — `G-PROLOG`'s first slice
+(`scripts/pareto_logic.txt` §1, one rule sentence and three questions) —
+and one core dispatch arm, `TryRuntimeHelper vlatablearguments`, that
+slice's one new runtime helper, new that release. These four are the
+first rows whose pattern carries a `{:conditions}` slot, `SD-16`'s third
+built-in sub-grammar, and `{:role}` and `{:relation}` slots; the ledger records the form,
+not the machinery, so the slots need no rows of their own.
 
 ### Phrasebook rules
 
@@ -319,6 +326,9 @@ each new that release.
 0.5.0  show every {shown:text} in {table:text} with {filtercol:text} over {val:expr} as {alias:text} in cell {r:cell}
 0.5.0  show every {table:text} {shown:text} whose {filtercol:text} is over {val:expr} as {alias:text} in cell {r:cell}
 0.5.0  show everyone who reports to {person:expr} directly or not in {table:text} as {alias:text} in cell {r:cell}
+0.6.0  show in cell {r:cell} what {s:expr} {rel:relation} by applying the rules in {rules:range} to the data tables {t:text-list}
+0.6.0  show in cell {r:cell} whether {s:expr} {rel:relation} {k:expr} by applying the rules in {rules:range} to the data tables {t:text-list}
+0.6.0  show in cell {r:cell} who {rel:relation} {k:expr} by applying the rules in {rules:range} to the data tables {t:text-list}
 0.5.0  show pivot {n:text} in {d:compact|tabular|outline} form
 0.5.0  show the total row of table {n:text}
 0.5.6  sort [range] {r:range} by column {c:column} then [by] column {e:column} {h:with|without} header [row]
@@ -344,6 +354,7 @@ each new that release.
 0.5.0  unhide all rows and columns
 0.5.0  wait {n:expr} seconds
 0.5.0  work on sheet {s:sheet}
+0.6.0  write in cell {r:cell} that [a] {s:role} {rel:relation} [a] {o:role} if {c:conditions}
 0.5.0  {d:add|remove} a blank row after {f:text-list} in pivot {n:text}
 0.5.0  {d:hide|show} subtotals for {f:text-list} in pivot {n:text}
 0.5.0  {d:hide|unhide} column {c:column}
@@ -511,4 +522,5 @@ tag, not assumed.*
 0.5.0  TryRuntimeHelper   vlapivotsetsubtotals
 0.5.0  TryRuntimeHelper   vlapivotsort
 0.5.0  TryRuntimeHelper   vlasendmail
+0.6.0  TryRuntimeHelper   vlatablearguments
 ```

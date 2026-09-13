@@ -240,7 +240,14 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "english-render-no-matching-rule", 5, "VLA-English", "G-RENDER: no loaded rule's template form matches {form}"
     AddMsg m, "english-render-not-single-form", 5, "VLA-English", "G-RENDER: EnglishRenderText expects exactly one top-level form, got {count}"
     AddMsg m, "english-alternation-empty-branch", 5, "VLA-English", "pattern '{pattern}': alternation '{token}' has an empty branch - write {example}, every branch a word"
-    AddMsg m, "english-unknown-slot-category", 5, "VLA-English", "pattern '{pattern}': unknown slot category ':{cat}' - categories are name, var, text, expr, cond, range, cell, column, sheet, color, path (or a list of one: text-list, range-list, cell-list, column-list, sheet-list, color-list); or write an alternation {example}"
+    AddMsg m, "english-unknown-slot-category", 5, "VLA-English", "pattern '{pattern}': unknown slot category ':{cat}' - categories are name, var, text, expr, cond, conditions, role, relation, range, cell, column, sheet, color, path (or a list of one: text-list, range-list, cell-list, column-list, sheet-list, color-list); or write an alternation {example}"
+    ' G-PROLOG: the two lessons the conditions sub-grammar can give at
+    ' Check, because it owns its own parser. Both are SEMANTIC - the
+    ' sentence parsed, and means something the writer did not intend -
+    ' so both raise rather than falling through to a near-miss.
+    AddMsg m, "english-conditions-unbound-role", 5, "VLA-English", "nothing in this rule says which {role} it means: ""the {role}"" is only ever compared or ruled out, never listed by a table or named by a relation. Add a condition that finds the {role} first, like ""Staff lists the {role} as <Column>""."
+    AddMsg m, "english-conditions-reserved-name", 5, "VLA-English", "'{name}' is one of this grammar's own words, so it cannot also name a relation or a set - is, as, lists, not, and, and if are reserved. Pick another name, like ""{name}-of""."
+    AddMsg m, "english-conditions-reserved-prefix", 5, "VLA-English", "'{name}' starts with vla-, and Frazaro keeps that prefix for the rules it writes itself - a relation or set named that way could merge with one of them and change an answer. Pick a name without it, like ""{suggest}""."
     AddMsg m, "english-optional-empty-branch", 5, "VLA-English", "pattern '{pattern}': optional '{token}' has an empty branch - write [word] or [word|word]"
     AddMsg m, "english-bare-alternation-empty-branch", 5, "VLA-English", "pattern '{pattern}': alternation '{token}' has an empty branch - write word|word, every branch a word"
     AddMsg m, "english-optional-not-closed", 5, "VLA-English", "'{token}' looks like an optional literal but isn't closed - optionals are [word], one word, no spaces"

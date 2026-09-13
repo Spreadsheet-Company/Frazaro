@@ -2427,6 +2427,16 @@ Private Function TryRuntimeHelper(ByVal h As String, ByVal argVals As Variant, B
             AssignVar TryRuntimeHelper, VLA_Runtime.VlaNumberFormatCode(CStr(ArgAt(argVals, 0)), ArgAt(argVals, 1))
             handled = True
             Exit Function
+        ' G-PROLOG slice 1: refuses an empty Table list and a name that
+        ' could not be a Table reference, so it needs its native Case for
+        ' the same IN.15 reason as every raising helper here - through
+        ' Application.Run the refusal would break into the VBE instead of
+        ' arriving in words.
+        Case "vlatablearguments"
+            If Not ArityIs(argVals, 1, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaTableArguments(ArgAt(argVals, 0))
+            handled = True
+            Exit Function
         ' G-SORTFILTER: four new helpers, each refusing by name - a
         ' column outside the range, filter buttons already on another
         ' range or an empty one, a "greater than" that is not a number -

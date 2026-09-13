@@ -7552,9 +7552,11 @@ G-TAIL always said this about itself; it is true of the whole tranche.
     template coverage may track ordinary phrasing more directly here than for
     any other DSL in the corpus. `~weeks`
 
-  - ⬜ **G-PROLOG — flat Logical English: sentences that write rules into
+  - 🟡 **G-PROLOG — flat Logical English: sentences that write rules into
     cells, and questions that read them.** **Scoped 2026-09-10/11**, seven
-    forks decided by the owner; nothing built. *The previous text of this
+    forks decided by the owner; **slice 1 BUILT 2026-09-12, OWNER-VERIFIED
+    LIVE 2026-09-13 in two rounds, and committed** (see the slice list below for what it ships and
+    what it proved). *The previous text of this
     entry said its dependency, `PROLOG.1`–`.6`, was unbuilt. It was stale:
     `PROLOG.1`–`.24` have shipped.* This is the project's reason for being,
     English to logic, deterministic and auditable, so it was scoped for
@@ -7716,12 +7718,229 @@ G-TAIL always said this about itself; it is true of the whole tranche.
 
     **SLICES**, built G-FORMAT's way (a corpus section each, forks, rules
     with proofs, goldens, a two-region live pass):
-      1. ⬜ **can-cover, end to end** — the smallest slice that proves every
+      1. ✅ **can-cover, end to end** — the smallest slice that proves every
          axis. The rule sentence with a binary head; three condition shapes
          (Table row, `is at least`, `not` over a Table row); WHO routed to
          `DATALOG`, WHETHER to `PROLOG`, both reading the same cells; and the
          Tables-list helper. Corpus §1. *Depends on:* `PROLOG.28`, the
          owner's call.
+         **BUILT 2026-09-12; OWNER-VERIFIED LIVE 2026-09-13 in two rounds
+         (both recorded below); committed.** Five forks went to
+         the owner and three answers changed the scope as written above:
+         the sub-grammar ships with **all five** condition shapes, not
+         three (the parser is regular, and the two extra shapes are a
+         `Select Case` each — §2's `org-skip` and `org-top` are the
+         sentences that need them, SD-7 satisfied); **WHAT is in slice 1**
+         beside WHO and WHETHER, since `elig-what` is P0 and in §1; and a
+         negated Table row is **always** written through a generated
+         projection rule rather than inline. The question's spelling is
+         the owner's own rephrasing — *"by applying the rules in H2:H4 to
+         the data tables Staff, Shifts, and Leave"*, which keeps both
+         nouns where "over" left the Table list ambiguous with the rules
+         range — and **both** sentence families now place their cell
+         first (`Show in cell E2 who …`), the owner's tiebreak: the rule
+         sentence already front-loaded its address by decision 2, and
+         these two are the pair a reader meets side by side, so agreeing
+         with the neighbour beat agreeing with the phrasebook's trailing
+         "in cell" habit. Decision 7's hyphenated relation token stands
+         for this slice, with the **multi-word relation** (`can cover` →
+         `can-cover`) taken as the first item of slice 2 — every relation
+         name in the corpus is a hyphenated English phrase, so it is
+         worth a scanning slot, but not inside the slice whose job is to
+         prove the five axes it already has.
+         **BUILT:** `VLA_SentenceEngine.bas` — `ParseConditions` and its
+         three shape readers, SD-16's **third** built-in sub-grammar and
+         the first held to being *regular*; two new slot categories,
+         `{:conditions}` and `{:role}`, each registered in all five
+         places a category must be (`ValidateRuleItems`' whitelist, which
+         is a separate gate from `TryPhrase`'s dispatch — G6 learned that
+         the hard way, `CategoryPlaceholderValue`, `BuildSyntheticBindings`
+         and `RenderSlotValue`). A `conditions` slot binds **twice** —
+         its goals, and the projection rules beside them under
+         `{<slot>-rules}` — because those rules belong outside the
+         `(rule …)` a template builds and a template cannot close a
+         parenthesis it never opened. `VLA_Runtime.bas`:
+         `VlaTableArguments`, the one new helper, with its IN.15 native
+         `TryRuntimeHelper` Case because it refuses; it is deliberately
+         **not** a general string join, since only a Table-specific
+         helper has grounds to refuse a name that would rewrite the
+         formula it is spliced into. Four phrasebook rows in
+         `english.vla`, each with its `test-success` proof; two new
+         message ids; `TestPrologConditions` (+15) and
+         `TestTableArguments` (+10), both in **`VLA_Tests_Query.bas`
+         under `TestDSLs`, the owner's call** — these are Prolog's tests,
+         and TestDSLs is where Prolog's tests run. They report through
+         that module's own `Report`, not `VlaSelfTest`'s, which is why
+         the sub-grammar pins carry a local `AssertConditions` rather
+         than reusing `VLA_Tests.bas`'s `AssertEnglish`: the shared
+         helper increments the pure suite's counters and would have left
+         `TestDSLs`' total short by exactly those fifteen. **Predicted:
+         `TestDSLs` 1101 → 1126; pure 1109, host 152 and `VerifyReports`
+         242/242 on both backends all UNMOVED**, since nothing was added
+         to the pure suite and `instructions.txt` is untouched.
+         **PROVEN, and what it does not prove.** A PowerShell
+         transliteration models the sub-grammar and a small stratified
+         Datalog evaluator runs what it emits. **CONTROL first:** the
+         corpus's own `KB1`, verbatim, over `STAFFING`, reproducing
+         §1's recorded answers — text this session did not write, measured
+         through a different model. Then a **positive control**:
+         `elig-lossy` must come back *wrong* (Weekend: Bob), or the
+         evaluator is not really doing the join. **24 pass / 0 fail**, and
+         **five mutations each turn their own assertions red** (role
+         nouns uncapitalized → 6; the three-token column window widened →
+         aborts on `expected-as`; `not` always true → 10; comparison
+         always true → 12; the projection rule dropped → aborts). That
+         last mutation is the one that earned its keep: on `STAFFING` the
+         projection rule changes *nothing*, because Leave has exactly the
+         two columns the sentence reads — so the harness gives Leave a
+         **third** column, the edit a user makes without touching the
+         sentence, and the inline spelling is then refused as an unsafe
+         variable naming a column nobody typed while the generated rule
+         still answers. A second run reads the interpolate templates **out
+         of the shipped `english.vla`** rather than retyping them, expands
+         them, models what Excel does with the resulting formula, and runs
+         the program that comes out: **15 pass / 0 fail**, the four §1
+         answers among them. A third run re-derives every assertion
+         written into `TestPrologConditions` (**17 pass / 0 fail**), which
+         is what caught two wrong expectations in this session's own test
+         text before they were shipped. The harness — `gpro1.ps1`,
+         `dlog.ps1`, `run1/2/3.ps1` — is in session `de7452b6`'s
+         scratchpad, `PROLOG.28`'s precedent for where one lives.
+         *What none of this proves:* no VBA ran. The
+         four `test-success` lines are **predictions** until the owner's
+         pass — though a wrong one refuses the vocabulary at load, so it
+         fails loudly and immediately rather than silently.
+         **AND IT DID, on the owner's first live run (2026-09-13).**
+         `VlaProfileAll` stopped on `english.vla` line 3981, the rule
+         sentence's own `test-success`: *"test FAILED to translate"*.
+         The cause was the harness, not the parser logic it modelled.
+         `EnTokenize` drops **"the"** and "please" from every sentence
+         before any rule sees it (`IsDroppedWord`, `VLA_English.bas`),
+         and the first `conditions` grammar required "the" before every
+         role noun — so it could never match a real sentence. The
+         transliteration's own tokenizer kept "the", tested a token
+         stream the engine never produces, and passed. Its CONTROL ran
+         `KB1` through the evaluator, which proved the evaluator and
+         nothing about the tokenizer: **a control has to cover every
+         layer the model stands in for, and the tokenizer was one.**
+         *The fix is to the grammar, never the tokenizer:* a role noun
+         stands bare (`Column := <role> "as" <header>`, and so on), and a
+         condition's SECOND token picks its shape — `lists` a Table row,
+         `is` a set or comparison, anything else a relation — with the
+         column window now `<word> "as"`. "the" is off the reserved-name
+         list, since it can never arrive. **The harness reads the
+         dropped-word list out of `VLA_English.bas`** rather than
+         retyping it, gains a tokenizer control and a `keepthe` mutation
+         that turns the run red, and `TestPrologConditions` gains a pin
+         for a sentence written without its articles. Rebuilt: **26 / 15
+         / 17 / 15 pass, 0 fail**, all **six** mutations red, structure
+         and CRLF unchanged, 18 of 20 ratchets green (the other two still
+         await the re-export). *The modal itself is not a second defect:*
+         `VlaProfileAll`'s `cleanup:` turns profiling off and re-raises on
+         purpose, so a refused load surfaces exactly that way.
+         **OWNER-VERIFIED LIVE, 2026-09-13 — Step 0 and Tests 1–11 all
+         pass**, on the build as it stood after the tokenizer fix: pure
+         1109/1109, host 152/152, `TestDSLs` **1126**/0 (the predicted count
+         exactly), `VerifyReports` 242/242 on both backends, and every
+         in-cell answer as handed off — §1's seven answers from one rules
+         cell across both engines, the projection rule surviving a third
+         Leave column while the inline negation refused, `KB1` rebuilt from
+         two sentences, a set answer, live recalculation on a rule edit and
+         a data edit, the wrong-case limit, both Check lessons, the helper's
+         refusal, and Test 11's defect exactly as predicted. Test 1 first
+         failed on the HANDOFF, not the code: every program opened with
+         "Add new sheet called GP1." beside "Work on sheet GP1.", and Run
+         creates the declared sheet before the first sentence, so the add
+         always refused. The page was corrected, and the stray `gp1 (2)` tab
+         the failure exposed is filed as `U.19`.
+         **THEN THE OWNER ASKED WHETHER A GENERATED NAME IS GENSYM**, of
+         Test 3's `VlaAnonB4C3`. Held to the veto's own terms — the same
+         name across recompiles AND reorderings, re-derivable by hand from
+         what a person wrote, never surfacing without a trace (`GENSYM`'s ⛔
+         entry and its auditability note) — that name, which is
+         `DATALOG.5`'s and not this slice's, is stable across recompiles but
+         not across reorderings (its `C` is the column's position in the LIVE
+         Table header), and it reaches the user in one refusal: filed as
+         **`DATALOG.7`**. The names this slice writes passed all three tests,
+         but holding them to the same rule found two holes of gensym's own
+         kind, both closed in this build at the owner's call. *Not
+         injective:* parts were joined by `-`, which is also legal inside a
+         word, so headers `[needs-by, shift]` and `[needs, by-shift]` gave
+         two rules one name; a `-` inside a part is now doubled
+         (`EscapeNamePart`). *Not hygienic:* nothing stopped a writer naming a
+         relation `vla-…`, so a same-arity name could merge with a generated
+         rule. Every name a writer types is now refused at Check if it starts
+         `vla-` (`RefuseGeneratedPrefix`), through the conditions grammar and
+         a new `{:relation}` slot that replaces `{rel:text}` in all four rows
+         — which also stops a quoted relation name putting a space into a
+         predicate — and each generator owns its own sub-prefix so the two
+         can never meet: a question's narrowing rule is now
+         **`vla-ask-<relation>`** (was `vla-<relation>`, which a writer's own
+         `not-leave-name` could have turned into a projection rule's name).
+         Proven through the harness (26 / 15 / 21 / 15 / 4 pass, 0 fail; a
+         new `noescape` mutation turns the hyphen checks red), six new
+         `TestDSLs` pins — **predicted `TestDSLs` 1126 → 1132**, the other
+         suites unmoved — and two new live tests, 12 and 13.
+         **OWNER-VERIFIED LIVE, second round, 2026-09-13**, on the rebuilt
+         modules: pure **1109/1109**, host **152/152**, `TestDSLs`
+         **1132**/0 (the predicted count exactly), `VerifyReports` **242/242
+         on both backends**. The goldens, `scripts/instructions.vla` and the
+         expanded phrasebook were regenerated; each now writes `vla-ask-` and
+         none still carries `vla-{rel}` (swept mechanically with `git grep`),
+         and the `.vba` goldens did not move, as predicted — the emitted code
+         is unchanged. **All 20 `tools/check_*.ps1` green**
+         (`check_rule_coverage` 202 rules, none untested; `check_grammar_since`
+         clean). And Tests 2, 11, 12 and 13 answered as handed off: the
+         `vla-ask-` formulas, Test 11's defect unchanged in both routes, a
+         doubled hyphen giving two different rules two different names, and a
+         `vla-` name refused at Check in a rule's head, in a question and
+         inside a condition. **Slice 1 is complete, and committed at the
+         owner's word, so `DATALOG.8` can be scoped from a clean tree.**
+         **Owner steps before the ratchets go green:** `english_expanded.vla`
+         is a generated artifact and re-exporting it is an Excel-only
+         action (`Export Expanded Vocabulary`), so `check_rule_coverage`
+         and `check_grammar_since` both report it STALE until that runs.
+         The other **18 are green**. *Filed, not built:* the relation
+         named after a Table the same sentence reads (`lineage-selfname`)
+         is left to `PROLOG.28`'s DEPTH refusal, which now names it
+         honestly; an **undefined** relation is left to the engine by
+         design — the rule and the question are separate sentences and
+         the rules live in cells written at runtime, so the grammar layer
+         provably cannot know, while `PROLOG.22` already refuses it
+         statically, by name, in the cell.
+         **A DEFECT THIS SLICE FOUND IN ITSELF, and did not paper over.**
+         That last disposition holds for WHETHER and FAILS for WHO and
+         WHAT, and the reason is this slice's own narrowing rule. DATALOG
+         refuses an unknown predicate only in the QUERY position
+         (`datalog-query-unknown-predicate`); an unknown predicate in a
+         rule BODY returns an empty relation and says nothing
+         (`VLA_Datalog.bas`, `EvalRuleBody`'s `If Not havePred Then …
+         Exit Function` — read from the code, not assumed). Because a
+         WHO question must write `(rule (vla-ask-can-cover Who) (can-cover
+         Who "Night")) (query vla-ask-can-cover)` to fix its constant, the
+         relation the user actually named sits in a BODY position. So
+         `Show … who can-drive "Night" …`, a typo, spills the header
+         `Who` with nothing under it — indistinguishable from a correct
+         "nobody qualifies" — while the same typo in a WHETHER question
+         refuses by name through `PROLOG.22`. **Two routes, one
+         misspelling, opposite behaviour, and the quiet one is the
+         confidently wrong answer this project exists to refuse.** The
+         grammar layer cannot catch it (the rule and the question are
+         separate sentences, and the rules live in cells), and there is
+         no cheap formula-side dodge: DATALOG's `(query …)` takes a bare
+         symbol, so a constant can only be fixed by a rule. The honest
+         fix is DATALOG's own twin of `PROLOG.22` — refuse an undefined
+         predicate statically, over the predicates the query can reach —
+         which is an engine item, not a grammar one. **Named here, shown
+         to the owner in the live pass as its own numbered step, and
+         theirs to decide: ship slice 1 with it, or build the DATALOG
+         refusal first, which is exactly the shape of the call already
+         made once for `PROLOG.28` before this slice.**
+         **The owner's call, 2026-09-13: build it as `DATALOG.8`, in its
+         own session** — `DATALOG`'s twin of `PROLOG.22`, refusing an
+         undefined predicate statically over every predicate a query can
+         reach. Its landing flips Test 11's J2 from a silent empty answer
+         to a refusal by name.
       2. ⬜ **relations, sets and facts** — the relation and set
          conditions (a rule calling a rule), set heads, facts, all four
          comparisons and equality with a constant, WHAT and PAIRS, and *or*
@@ -16597,6 +16816,61 @@ now carries one summary paragraph per engine and points here.*
     ratchet (`tools/check_prolog_form_attribution.ps1`) already carries a
     second baseline list for exactly this kind of multi-form id.
     `~days`–`~weeks`.
+  - ⬜ **DATALOG.7 — a refusal names the column a writer left out, never an
+    internal variable.** Minted 2026-09-13 by `G-PROLOG` slice 1's review of
+    generated names, the owner's call; filed, not built. A keyed atom's
+    unmentioned column becomes `VlaAnonB<item>C<column>`
+    (`AnonymousColumnVarName`, `DATALOG.5`), and under `(not ...)` that
+    fresh variable is refused as unsafe, so
+    `datalog-negation-unsafe-variable` reads *"the variable 'VlaAnonB4C3'
+    hasn't been given a value"* — naming something no writer typed (slice
+    1's live Test 3, owner-verified). Held to the `GENSYM` veto's own tests,
+    the name is deterministic across recompiles but NOT across reorderings:
+    its `C` is the column's position in the LIVE Table header, so
+    reordering a Table's columns renames it, and it cannot be re-derived from
+    the rule text alone. It never reaches emitted code or a cell; this one
+    message is its only leak, which makes it an `LX.8` defect ("never expose
+    internals") rather than a breach of the veto. **Fix shape:** when the
+    unsafe variable is an anonymous column, say which table's column was
+    never mentioned and how to fix it — name the column, or read the row
+    through a rule first, which is exactly what `G-PROLOG`'s generated
+    projection rule does — since `DesugarBodyAtomForm` knows the header at
+    that position. PROLOG's own anonymous-column scheme
+    (`VLA_Prolog.bas`'s `AnonymousColumnVarName`) gets the same look wherever
+    it can surface. `G-PROLOG` sentences never reach this path. `~hours`
+  - ⬜ **DATALOG.8 — refuse an undefined predicate statically, over every
+    predicate a query can reach: `PROLOG.22`'s twin.** Minted 2026-09-13,
+    the owner's call, from `G-PROLOG` slice 1's live Test 11; to be built in
+    its own session. **The defect, owner-verified live:** `DATALOG` refuses
+    an unknown predicate only in the QUERY position
+    (`datalog-query-unknown-predicate`, raised in `DatalogRun`); an unknown
+    predicate in a rule BODY yields an empty relation and says nothing
+    (`EvalRuleBody`'s `If Not havePred Then … Exit Function`). `G-PROLOG`'s
+    WHO and WHAT questions must fix their constant through a generated
+    narrowing rule, so the relation a writer named always sits in a body: a
+    misspelled `can-drive` spills an empty `Who` column, indistinguishable
+    from "nobody", while the same misspelling routed to `PROLOG` refuses by
+    name. **To decide and build, `PROLOG.22`'s way
+    (`RefuseUnknownPredicates`):** refuse at parse time over the predicates
+    reachable from the query — through positive atoms, `not`, and the
+    `count`/`sum` aggregates — so a rule nothing calls does no harm, and a
+    rules range shared by cells that pass different tables does not refuse
+    in every cell. Defined means a table argument, a `(fact ...)` predicate,
+    or a rule head. Re-run `PROLOG.10`'s four criteria as `PROLOG.22` did
+    rather than assume the same verdict. **Found while filing, to confirm
+    rather than assume:** a table argument with NO rows is already a defined
+    relation here (`DATALOG()` registers one per table argument, rows or
+    none), so `PROLOG.22`'s empty-Table trap should not recur — pin it
+    anyway; what `(not (undefined X))` does today is unmeasured (`PROLOG.22`
+    found PROLOG answered a confidently wrong TRUE); a KEYED atom naming an
+    undefined predicate already refuses, but as
+    `datalog-keyed-atom-needs-header`, whose text blames missing headers — a
+    confidently wrong diagnosis this item should replace with the
+    unknown-predicate refusal; and no test pins
+    `datalog-query-unknown-predicate` today. Exposure first: every `DATALOG`
+    program in the suites and goldens that names an undefined body predicate.
+    Its landing flips slice 1's live Test 11 J2 to a refusal and closes the
+    matching known limit in `RELEASES.md`. `~days`
   - ⬜ **Avoiding a full re-parse/re-fixpoint on every recalc — profiled first,
     not yet built.** `DATALOG()` re-parses `rulesText` and reruns
     `RunStratifiedFixpoint` from scratch every time Excel calls it. Worth
@@ -16820,6 +17094,38 @@ now carries one summary paragraph per engine and points here.*
   provenance tagging would use, so an auditor reads a rendering
   (`docs/CONTEMPLATIONS.md`'s own "the sheet is a view, not the truth")
   and signs a hash. `~days`
+- ⬜ **U.19 — a failed Undo snapshot must not leave its copy behind.**
+  *Minted 2026-09-13, the owner's call, from `G-PROLOG` slice 1's live
+  pass; filed to scope and build separately, not part of that slice.*
+  **Observed:** after Test 1's Run the workbook held two tabs, `gp1` and
+  `gp1 (2)`. **What the code says, read rather than assumed:**
+  `TakeRunSnapshot` (`VLA_IDE.bas`) copies each target sheet — Excel names
+  that copy `<sheet> (2)` — then renames it `VLAu_<tag>_<sheet>` and makes it
+  very-hidden. If the rename or the hide raises, its `cleanup:` re-raises,
+  and the Run path wraps the call in `On Error Resume Next` and only
+  `Debug.Print`s "could not snapshot for Undo … Run continues without Undo".
+  So a failure between the Copy and the very-hide **leaves the copy
+  standing, visible, under Excel's own name, with no rollback — and tells
+  the user nothing**: the dialog-free path to a silently weaker safety
+  guarantee. The tombstone branch (`Worksheets.Add`, then rename, then
+  hide) has the same shape. The class is not new: `EnglishIdeUndo`'s own
+  failure message already tells the user that "a stray copy of a program
+  sheet" can block Undo — the symptom was anticipated and never closed at
+  its source. **Unknown, and to be MEASURED before a fix is chosen:** why
+  the rename failed in this run. Candidates: a name collision with an
+  earlier `VLAu_` snapshot `DeleteSnapshots` did not remove (its deletes
+  run under `On Error Resume Next`, so a failed delete is silent); the
+  program having been Run twice; an Excel behaviour renaming immediately
+  after `Copy`. Evidence to collect first: the Immediate-window line's
+  Excel text, the number of Runs, and the very-hidden sheets present
+  (their names carry the tag). **Shape to decide when scoped:** roll back
+  (delete the copy or marker) on any failure between creating it and
+  hiding it; say a snapshot failure to the user in words (`LX.8`) instead
+  of only the Immediate window, since "Run continues without Undo" changes
+  what a Run promises; and decide whether `DeleteSnapshots`' silent deletes
+  should report too. A standalone repro in `tools/` if the cause resists
+  reading. *Pays into:* `U.17`, since every new path that snapshots would
+  inherit the leak. *Depends on:* nothing. `~hours`–`~days`
 
 ---
 
