@@ -2020,7 +2020,7 @@ because it is hard but because it has never been written.*
     data (mail, file writes) once SEC.1's capability model exists to make that
     statement precise rather than aspirational. *Why now:* every other item in
     this department is worthless while this one stays open. `~hours`
-- ⬜ **SIG.1 — the IT-facing security and architecture summary.** A two-page
+- ✅ **SIG.1 — the IT-facing security and architecture summary.** A two-page
   document a stranger can download: what Frazaro installs, what it can
   reach (SEC.0/SEC.1's own answer), what it sends over a network (SD-13's
   no-network stance, stated as a selling point, not an apology), how it
@@ -2030,7 +2030,57 @@ because it is hard but because it has never been written.*
   company, and nothing resembling it exists — `DEPLOY.md` is written for
   the developer, not the reviewer who has to sign the exception. *Depends
   on:* SEC.0. `~hours`, once SEC.0 exists.
-- ⬜ **SIG.2 — the competitive positioning one-pager.** Frazaro against
+  **Build record (built 2026-09-10; owner-reviewed 2026-09-12 and
+  committed).** `docs/IT_REVIEW.md`, describing 0.5.6. *Owner decisions:* a `docs/`
+  file linked from README and `DEPLOY.md`, not a release asset; the open
+  items as a dated snapshot, with README named authoritative for later
+  builds; the fix path stated as it exists (no push, a numbered release
+  with a security block, watch the repository's releases, the in-product
+  version), with no new process promise; the no-network sentence pinned
+  by a check rather than left as prose; first-party web sources, each
+  access-dated. *Length is measured, not estimated:* rendered to PDF at
+  11pt on Letter with 2 cm margins, two pages (content 1.95 pages).
+  *The gate it names first* is ADVOCATUS A.4's: macro trust, not
+  auditability. Microsoft's own page says a digital signature does not
+  lift the Mark-of-the-Web block for Excel add-ins (MS16-088 hardening),
+  so the self-signed VBA signature helps with the trust prompt and not
+  with a downloaded `.xlam`. *Compile and the VBA-project setting,
+  checked in code:* `RunProgram` refuses without `VlaHasVbProjectTrust()`
+  (`VLA_IDE.bas`), and Interpret never touches `VBProject`. The sentence a
+  reviewer blocks on is therefore "leaving it off costs only Compile".
+  *Found while writing it, and stated in the document rather than fixed
+  here* (none minted; each is the owner's to file or decline):
+  (1) **"Refresh everything."** (`Case "refreshall"`, `DynamicCall`)
+  refreshes the workbook's existing connections. It is the one
+  network-capable route with no SEC.8 guard and no SEC item, and SEC.18's
+  effect ledger would classify it. (2) **Uninstall leaves the consent
+  records** under `HKCU\Software\VB and VBA Program Settings\Frazaro`
+  (`SEC2RawConsentV2`, `SEC9PhrasebookPath`): neither the button nor
+  `Frazaro.iss`'s `[UninstallDelete]` touches them, and *Forget Phrasebook
+  Approvals* clears only the second. (3) **The standalone uninstall runs a
+  hidden `powershell.exe -ExecutionPolicy Bypass` script** from `%TEMP%` and
+  leaves it there. That is exactly SUBSTRATE.md row 5's heuristic class,
+  so the document names it. (4) **Stale copy elsewhere:**
+  `installer/POST_INSTALL.txt` still calls SEC.1/SEC.2 open, `DEPLOY.md`'s
+  download paragraph lists all ten of SEC.8–SEC.17 as open, and
+  `THREAT_MODEL.md` §1.2 still says "awaiting verification". SIG.1 follows
+  the code and README instead. (5) **A possible Compile-path defect, for a
+  live test:** `VlaSendMail` sits above the inject boundary and calls
+  `VLA_Provenance.VlaProvenanceGuardCaptured`, a module that is never
+  injected, so a compiled workbook's `Frazaro_EN_Runtime` (under `Option
+  Explicit`) may not compile. It is the only add-in-only reference in the
+  injectable region (grepped). SIG.1 claims nothing about compiled mail.
+  *The pin:* `tools/check_no_network.ps1` scans the shipped modules
+  (`VLA_Build.bas`'s `mods`) for network mechanisms (forbidden outright),
+  every `Declare` and URL literal (reviewed baselines), and seven
+  outward-reach sites, each named in the document. A new one fails, not
+  warns, because the list is pinned to what a stranger reads. It also
+  checks that `Frazaro.iss` runs and downloads nothing. Mutation-tested
+  13/13 on a scratch copy: nine injected mechanisms fail, and three benign
+  lookalikes (a comment, `Application.Run`, a bare `WScript.Shell`
+  create) pass. The candidate `SIG.6` (a stranger reads this) is still
+  ADVOCATUS's to propose and the owner's to mint.
+- ✅ **SIG.2 — the competitive positioning one-pager.** Frazaro against
   Copilot in Excel, Office Scripts, and Python in Excel — leading with the
   three properties none of those has: determinism (`GENSYM`/`eval` vetoed
   outright, the METAMETAMACRO LINE's own wall), offline/no-network (SD-13),
@@ -2040,6 +2090,48 @@ because it is hard but because it has never been written.*
   *Pays into:* LE.7 — the AI bridge is the engineering answer to the same
   competitive question; this is the one page that exists before LE.7
   ships. `~hours`
+  **Build record (built 2026-09-10; owner-reviewed 2026-09-12 and
+  committed).** `docs/COMPARISON.md`, one page (content 0.99 pages, measured the same
+  way as SIG.1). *Owner decisions:* "when to use which", naming each
+  tool's real strengths, over a head-to-head table (fairness is the
+  credibility); first-party Microsoft sources only, each access-dated.
+  **The filed premise was tested per competitor, per property, and
+  partly failed.** *Determinism* separates Frazaro from Copilot, and
+  Microsoft says so itself: Copilot "can sometimes make mistakes", and
+  `COPILOT()` results "may change over time, even with the same
+  arguments". It does not separate Frazaro from Office Scripts or Python
+  in Excel, which are programs. *Offline* separates Frazaro from all
+  three: Office Scripts needs the network even to reach a script, and
+  Python's calculations run in Microsoft's cloud, though the Python code
+  itself has no network access, as the page says. *Auditability*
+  separates it least: Office Scripts is readable TypeScript with an admin
+  audit log of script activity, which Frazaro does not have (U.18 ⬜). The
+  page therefore leads with the reader, "words the accountable person can
+  read without programming", and concedes what the others do better:
+  ADVOCATUS A.1's zero syntax for Copilot, and reach and an audit log for
+  Office Scripts. *Not claimed:* LE.7 and U.18, both ⬜.
+  `GENSYM`/`eval` is left out as internal vocabulary a stranger cannot
+  check. SD-16's load-time refusal of ambiguous grammar stands in for it.
+  *Evidence over assertion (PREMORTEM D.5):* each Frazaro cell points at
+  an artifact (the golden's 613 numbered steps and 566 `src:` tags, the
+  two-backend goldens, `check_no_network.ps1`, IT_REVIEW.md). Product
+  names are used nominatively, with no logos and no superlative about
+  another product.
+  **Owner adjudication, 2026-09-12: fairness over flattery — the
+  concessions stand as written.** The steer came with a strategic reading
+  worth recording beside them: the Office Scripts strength this page
+  concedes (reach across web and Mac, and a runtime that is not VBA) is
+  the same ground `SD-18`'s second-host engine is meant to occupy, and
+  `PORT.1`–`PORT.3` (host-free translate entry points, the purity
+  ratchet, the intrinsics spec — all ✅) are that road already partly
+  built. An Office Scripts runtime therefore future-proofs the product
+  against the substrate risk `SUBSTRATE.md` tracks *and* answers Mac
+  adoption, which is the one platform gap a reader of this page can see.
+  **Deliberately not said on the page:** the one-pager promises nothing
+  unbuilt, so it concedes the gap without hinting at the port. When a
+  second host actually ships, the "Platforms" row and the Office Scripts
+  paragraph are the two places that change, and this record is the note
+  to whoever changes them.
 - ⬜ **SIG.3 — support terms and an incident-response process.** Where a
   user reports a bug, what response they can expect, and a named security
   contact — the ordinary-support half of SEC.5's `SECURITY.md`, which
@@ -2075,6 +2167,58 @@ because it is hard but because it has never been written.*
   definition of done is the one thing this file otherwise never permits —
   see SD-12's own floor, applied here to the release itself rather than to
   a single version's grammar work. `~hours`
+- ⬜ **SIG.8 — the signing certificate as a published artifact, for a
+  trusted-publisher deployment.** *Minted 2026-09-12 (owner), while closing
+  SIG.1, which found the gap: the VBA project is signed
+  (`CN=Frazaro VBA Signing`, minted by
+  `tools/generate_vba_signing_cert.ps1`), and its public certificate is
+  distributed nowhere. A person can click "Trust all from publisher" once,
+  per machine; an IT department cannot deploy that decision to a fleet,
+  because it has nothing to deploy.* **Why it is the large-organization
+  gate, in Microsoft's own words:** its recommended macro baseline is
+  "Disable all except digitally signed macros" plus "Require macros to be
+  signed by a trusted publisher", and "The certificate needs to be
+  installed as a Trusted Publisher on users' devices"; the recommended
+  route is to "Deploy the public code-signing certificate for the trusted
+  publisher to your users and prevent your users from adding trusted
+  publishers themselves" ([*Macros from the internet are blocked by default
+  in Office*](https://learn.microsoft.com/en-us/microsoft-365-apps/security/internet-macros-blocked),
+  accessed 2026-09-10). Under that baseline Frazaro is undeployable today,
+  whatever its engineering quality — the same shape `SIG.0`'s missing
+  `LICENSE` had. **Build:** publish the certificate's public half (`.cer`)
+  as a release asset beside the `.xlam` editions; print its SHA-256
+  thumbprint in the release notes and in `IT_REVIEW.md` §1 so the artifact
+  can be verified against a second channel; write the Group Policy and
+  Intune deployment steps for the Trusted Publishers store; and state a
+  rotation policy. **Four questions this item has to answer, not assume:**
+  (1) **Expiry and timestamping** — `New-SelfSignedCertificate` defaults to
+  a one-year life, and an Office VBA signature that carries no trusted
+  timestamp stops validating when the certificate expires, which would
+  break every already-installed copy on a date nobody is watching. Confirm
+  whether the VBE's signing dialog timestamps at all, and if it does not,
+  decide what that means for a product whose releases must keep working
+  untouched (SD-13's own promise). (2) **Blast radius** — "Adding a trusted
+  publisher could affect scenarios beyond those related to Office, because
+  a trusted publisher is a Windows-wide setting" (same source). Asking an
+  organization to trust a self-signed publisher machine-wide is a larger
+  ask than it looks, and the honest alternative is a CA-issued
+  code-signing certificate, which `DI.1` deliberately defers until real
+  distribution exists. This item is where that deferral gets re-argued
+  against a real request. (3) **What it does *not* fix** — trusting the
+  publisher does not lift the Mark-of-the-Web block on a downloaded
+  `.xlam` ("Using a digital signature and trusting the publisher doesn't
+  work for Excel Add-in files that have Mark of the Web", same source,
+  MS16-088's hardening). The Unblock step or a Trusted Location survives
+  this item, and the document must say so or IT will expect otherwise.
+  (4) **Per-edition** — signing is manual per edition today (`DEPLOY.md`),
+  so every edition must carry the same publisher identity or the fleet
+  trusts English and refuses Spanish. *Depends on:* DI.1 (the certificate
+  exists), SIG.1 (the document that points a reviewer at it). *Expiry:*
+  the first pilot whose IT policy actually requires it — `PI.7`'s trust
+  reading is what turns this from prudent to urgent, and it is also the
+  evidence that decides question (2). *Pays into:* ADVOCATUS A.4, whose
+  whole verdict is that the real gate is macro trust rather than
+  auditability; this item is that gate's fleet-scale half. `~days`
 
 ---
 

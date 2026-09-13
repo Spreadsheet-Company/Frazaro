@@ -94,7 +94,7 @@ output:
 | PI | PI.7 | PI.8 |
 | S | S6 (bare) | S7 |
 | SEC | SEC.6 | SEC.7 |
-| SIG | SIG.5 | SIG.6 |
+| SIG | SIG.8 | SIG.9 (SIG.6, SIG.7 reserved — see below) |
 | U | U.18 | U.19 |
 | V | V8 (bare) | V9 |
 
@@ -129,6 +129,22 @@ coverage against real external text), plus two hydrations of already-minted
 items with no new ID (`IO.4`, `G-PATH`) and two `U.*` mints (`U.17`, `U.18`,
 already reflected in the table above, for snapshot-before-run and a
 user-facing per-run log).
+
+**`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
+skipped rather than spent.** The new item is the signing certificate as a
+separately published artifact, so an IT department can deploy Frazaro as a
+trusted publisher — scoped while closing `SIG.1`, which found that the
+certificate exists but is distributed nowhere. It did **not** take the
+family's nominal next free slot: `SIG.6` (one practicing auditor's verbatim
+reaction, proposed by `ADVOCATUS.md`) is already cited as if real in
+`VENTURE.md` §6.3 and §7 and in `MARKETING.md` §3.10, and `SIG.7` (the win
+condition with an expiry, proposed by `VIABILITY.md`) is named in its own
+review — both recorded as unminted candidates in `CONTEMPLATIONS.md`'s
+collection table of 2026-09-09. Minting either number for a different item
+would have resolved an outward-facing unbound symbol to the wrong
+definition, which is the founding incident's own failure mode (SD-9) one
+level up. They stay reserved for the items that already bear their names;
+whoever collects them mints them as cited or declines them in writing.
 
 **IN advanced between the 2026-08-18 and 2026-08-19 snapshots (recorded
 then, left as-is here per this file's own nothing-is-pruned convention):**

@@ -151,6 +151,10 @@ Three layers, each one honest about what it is:
   security items* below.)
 - **Undo means undo.** Runs snapshot first. The undo button restores.
 
+Set beside Copilot in Excel, Office Scripts and Python in Excel, including
+what each of those does better, on one page:
+[docs/COMPARISON.md](docs/COMPARISON.md).
+
 ## Query and logic (the fun recent turn)
 
 The same engine now ships **worksheet functions** for querying and
@@ -268,6 +272,11 @@ Two paths, both documented in [docs/DEPLOY.md](docs/DEPLOY.md):
 
 Either way, removal is one honest in-product button.
 
+**Reviewing Frazaro for your organization?**
+[docs/IT_REVIEW.md](docs/IT_REVIEW.md) is the two-page summary: what it
+installs and writes, what it can reach, what it sends over a network
+(nothing of its own), how it updates, and how it is removed.
+
 ## The shelf
 
 This repository's [docs/](docs/) folder is unusually complete —
@@ -286,7 +295,9 @@ is public, and so is the list of what it has not closed yet. Items are
 listed here by roadmap ID so a downloader hears it from this page rather
 than from the repository. Frazaro does not update itself and makes no
 network call, so a copy you download today stays as it is until you come
-back; check this section or the roadmap to see when each closes.
+back; check this section or the roadmap to see when each closes. The same
+list, dated and set beside what Frazaro installs and can reach, is in
+[docs/IT_REVIEW.md](docs/IT_REVIEW.md).
 
 **Closed.** SEC.1 (`0.5.2`): a member reference the interpreter does not
 recognize now refuses in words instead of falling through to VBA's own

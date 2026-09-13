@@ -358,6 +358,19 @@
   once: that `(atom ...)` is written `(atom? ...)`, or that
   `integer?` is not available and what to ask instead.
 
+- **Two short documents for whoever decides whether Frazaro is
+  allowed.** [`docs/IT_REVIEW.md`](IT_REVIEW.md) gives an IT reviewer two
+  pages: what Frazaro installs and writes, including what uninstalling
+  leaves behind; everything it can reach; what it sends over a network
+  (nothing of its own); how it updates; and how it is removed.
+  [`docs/COMPARISON.md`](COMPARISON.md) sets Frazaro beside Copilot in
+  Excel, Office Scripts and Python in Excel on one page, including what
+  each of those does better, and every claim about them quotes
+  Microsoft's own documentation. A new check,
+  `tools/check_no_network.ps1`, runs on every change and before every
+  release. It fails if code that could reach the network ever appears in
+  the add-in, so "no network" is kept true rather than hoped for.
+
 ### Known open security items
 
 **Closed this release:** none — 0.5.6 is a feature release. Three changes
@@ -382,6 +395,15 @@ surprise:
   along with those that print, keep state between answers, or depend on
   the clock. None of them ever ran here; they used to be unknown names
   that quietly found nothing, and now they say why they will not.
+
+**Written down this release, unchanged in behaviour:** writing
+`docs/IT_REVIEW.md` found three things no earlier page said plainly.
+`Refresh everything.` refreshes a workbook's existing data connections,
+which can reach the network, and it is not held back by the `SEC.8` check
+on internet-marked workbooks. Uninstalling leaves Frazaro's remembered
+consents in the registry (`HKCU\Software\VB and VBA Program
+Settings\Frazaro`). And uninstalling a standalone copy runs a hidden
+PowerShell script, which security software may flag.
 
 **Still open:** `SEC.3`, `SEC.7`, and two from the 2026-09-08 code
 review — `SEC.10` and `SEC.15`. In plain words:
