@@ -370,6 +370,7 @@ Public Function TestDSLs() As Boolean
     TestPrologImpure
     TestPrologRefusedArity
     TestPrologUnknownPredicate
+    TestPrologBudgets
     TestPrologKeyedAtoms
     TestPrologHostTable
     TestSql
@@ -1799,8 +1800,11 @@ Private Sub TestPrologRules()
     ' machine's real native call-stack depth and needs lowering further.
     Dim ceilingResult As String
     ceilingResult = CStr(VLA_Prolog.PROLOG("(rule (loop X) (loop X)) (query (loop a))"))
-    Report "prolog.4: a genuinely non-terminating rule is refused by the resolution-step ceiling, not left to hang or crash", _
-           InStr(1, ceilingResult, "resolution steps", vbTextCompare) > 0, "got: " & ceilingResult
+    ' PROLOG.28: re-pointed from the retired step ceiling's text. A rule that
+    ' calls itself grows DEPTH, so it is the depth refusal that answers now -
+    ' and never the work one, which would blame a big Table.
+    Report "prolog.4: a genuinely non-terminating rule is refused by the depth ceiling, not left to hang or crash", _
+           InStr(1, ceilingResult, "rules deep", vbTextCompare) > 0 And InStr(1, ceilingResult, "facts and rules", vbTextCompare) = 0, "got: " & ceilingResult
 
     ' A cyclic graph's own naive transitive closure - the textbook
     ' Prolog gotcha every intro course teaches: a free-variable query
@@ -1819,8 +1823,10 @@ Private Sub TestPrologRules()
         "(rule (path X Y) (edge X Y)) " & _
         "(rule (path X Y) (edge X Z) (path Z Y)) " & _
         "(query (path a Y))"))
-    Report "prolog.4: a cyclic graph's own free-variable reachability query is refused by the ceiling, not left to hang - a real, not just single-clause, non-termination shape", _
-           InStr(1, cycleResult, "resolution steps", vbTextCompare) > 0, "got: " & cycleResult
+    ' PROLOG.28: data that loops back on itself is the depth refusal's own
+    ' second named cause.
+    Report "prolog.4: a cyclic graph's own free-variable reachability query is refused by the depth ceiling, not left to hang - a real, not just single-clause, non-termination shape", _
+           InStr(1, cycleResult, "rules deep", vbTextCompare) > 0 And InStr(1, cycleResult, "facts and rules", vbTextCompare) = 0, "got: " & cycleResult
 
     ' Occurs-check, reached through real clause freshening rather than a
     ' hand-built form literal (TestUnifyTwoWay's own pin, PROLOG.2,
@@ -4090,16 +4096,25 @@ Private Sub TestPrologBetween()
            InStr(1, r, "1000000", vbTextCompare) > 0 And InStr(1, r, "base case", vbTextCompare) = 0, "got: " & r
 
     ' ---- the ceiling boundary, both sides. The dispatch charges one
-    ' step for the goal itself before a single value is generated, so the
-    ' largest range that fits is PROLOG_MAX_STEPS - 1 = 119. One more
-    ' must produce the RANGE refusal, never the step-ceiling one - that
+    ' unit of work for the goal itself before a single value is generated,
+    ' so the largest range that fits is PROLOG_MAX_WORK - 1. One more must
+    ' produce the RANGE refusal, never the work-ceiling one - that
     ' off-by-one is the whole reason the up-front check exists.
-    result = VLA_Prolog.PROLOG("(query (between 1 119 X))")
-    Report "prolog.9: (between 1 119 X) is the largest range that fits - 119 rows plus a header", _
-           ResultRowCount(result) = 120, "got: " & ResultDescribe(result)
-    r = CStr(VLA_Prolog.PROLOG("(query (between 1 120 X))"))
-    Report "prolog.9: (between 1 120 X) is one too many, and says so as a RANGE problem not a runaway-rule one", _
-           InStr(1, r, "would generate", vbTextCompare) > 0 And InStr(1, r, "base case", vbTextCompare) = 0, "got: " & r
+    ' PROLOG.28: re-pointed from the old edge, 119 and 120, which the step
+    ' ceiling set; the work budget moved it to 99,999 and 100,000.
+    ' A CUT after the generator, and this is not a shortcut: what this
+    ' assertion is for is that the UP-FRONT range check passes at 99,999,
+    ' and the cut stops the enumeration after the first value, so the check
+    ' is pinned for a few units of work instead of a hundred thousand. The
+    ' first draft asked for every value, and hung Excel hard enough to
+    ' crash it mid-suite (owner's live run, 2026-09-11) - a test may pin an
+    ' edge, but never by making the suite pay the whole budget.
+    result = VLA_Prolog.PROLOG("(query (between 1 99999 X) !)")
+    Report "prolog.9: a range of 99,999 passes the up-front check - the largest that fits, cut after the first", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "1"), "got: " & ResultDescribe(result)
+    r = ResultDescribe(VLA_Prolog.PROLOG("(query (between 1 100000 X))"))
+    Report "prolog.9: (between 1 100000 X) is one too many, and says so as a RANGE problem not a budget one", _
+           InStr(1, r, "would generate", vbTextCompare) > 0 And InStr(1, r, "facts and rules", vbTextCompare) = 0, "got: " & r
 
     ' ---- the bounds are arithmetic EXPRESSIONS, the same ones (is ...)
     ' and the six comparisons accept, evaluated by the same walker.
@@ -4236,12 +4251,13 @@ Private Sub TestPrologNegation()
     Report "prolog.5.2: a variable appearing only inside a negated goal is never collected as a free output column", _
            ResultBoolIs(result, True), "got " & TypeName(result) & " " & result
 
-    ' The shared step ceiling, run to real exhaustion inside a negated
-    ' goal - proving PROLOG_MAX_STEPS is one running total the whole
-    ' query shares, not a fresh allowance handed to every `not`.
+    ' The shared ceiling, run to real exhaustion inside a negated goal -
+    ' proving the query has ONE depth, the frames of `not`'s isolated
+    ' sub-search counted on top of the caller's, not a fresh allowance
+    ' handed to every `not` (PROLOG.28; before it, the one step budget).
     r = CStr(VLA_Prolog.PROLOG("(rule (loop X) (loop X)) (query (not (loop a)))"))
-    Report "prolog.5.2: a genuinely non-terminating negated goal is refused by the shared resolution-step ceiling, not left to hang or crash", _
-           InStr(1, r, "resolution steps", vbTextCompare) > 0, "got: " & r
+    Report "prolog.5.2: a genuinely non-terminating negated goal is refused by the shared depth ceiling, not left to hang or crash", _
+           InStr(1, r, "rules deep", vbTextCompare) > 0 And InStr(1, r, "facts and rules", vbTextCompare) = 0, "got: " & r
 
     ' An error (not a mere failure) raised while proving a negated goal
     ' must propagate all the way out of not, exactly as if the same goal
@@ -4832,12 +4848,11 @@ Private Sub TestPrologFindall()
     Report "prolog.5.3/13: an already-bound Bag NOT matching the harvested list (wrong order) fails", _
            ResultBoolIs(result, False), "got " & TypeName(result) & " " & result
 
-    ' The shared step ceiling, run to real exhaustion inside findall's
-    ' own Goal - the identical sub-call microscope `not` already proves
-    ' this for.
+    ' The shared ceiling, run to real exhaustion inside findall's own Goal -
+    ' the identical sub-call microscope `not` already proves this for.
     r = CStr(VLA_Prolog.PROLOG("(rule (loop X) (loop X)) (query (findall X (loop a) Bag))"))
-    Report "prolog.5.3: a genuinely non-terminating goal inside findall is refused by the shared resolution-step ceiling, not left to hang or crash", _
-           InStr(1, r, "resolution steps", vbTextCompare) > 0, "got: " & r
+    Report "prolog.5.3: a genuinely non-terminating goal inside findall is refused by the shared depth ceiling, not left to hang or crash", _
+           InStr(1, r, "rules deep", vbTextCompare) > 0 And InStr(1, r, "facts and rules", vbTextCompare) = 0, "got: " & r
 
     ' An error (not a mere failure) raised while proving findall's own
     ' Goal must propagate all the way out - findall's own half of "what
@@ -5053,8 +5068,8 @@ Private Sub TestPrologCut()
     ' already run to real exhaustion, with no cut anywhere in it, so this
     ' isolates whether cut's own new machinery alone changed the ceiling.
     r = CStr(VLA_Prolog.PROLOG("(rule (loop X) (loop X)) (query (loop a))"))
-    Report "prolog.5.4: a genuinely non-terminating rule (no cut involved) is still refused cleanly by the shared step ceiling with cut's new parameters threaded through every frame", _
-           InStr(1, r, "resolution steps", vbTextCompare) > 0, "got: " & r
+    Report "prolog.5.4: a genuinely non-terminating rule (no cut involved) is still refused cleanly by the shared depth ceiling with cut's new parameters threaded through every frame", _
+           InStr(1, r, "rules deep", vbTextCompare) > 0 And InStr(1, r, "facts and rules", vbTextCompare) = 0, "got: " & r
 End Sub
 
 ' ---------------------------------------------------------------------
@@ -5565,15 +5580,22 @@ Private Sub TestPrologText()
            And ResultCellIs(result, 5, 1, "abc") And ResultCellIs(result, 5, 2, ""), "got: " & ResultDescribe(result)
 
     ' THE BUDGET, at the exact edge - between's rule and its off-by-one.
-    ' 118 characters have 119 splits: 1 step for the goal + 119 = 120, the
-    ' whole budget, and it fits. 119 characters would need 120 and are
-    ' refused BY NAME up front, never at the step ceiling a split later.
+    ' 118 characters have 119 splits: 1 unit for the goal + 119 = 120, and
+    ' they fit. One character more needed 120 and was refused BY NAME up
+    ' front, never at the ceiling a split later.
+    ' PROLOG.28 moved that edge with the work budget: a text of 99,999
+    ' characters has 100,000 splits, one past what a query may try, and is
+    ' the refusing side now. 118 keeps its assertion because it still fits,
+    ' and TestPrologBudgets pins 119 - the OLD edge - answering.
+    ' This is the assertion the item's own exposure sweep missed: it swept
+    ' between, length and sub-atom and forgot that atom-concat's split has
+    ' an up-front bound of its own. The live run found it (owner, 2026-09-11).
     result = VLA_Prolog.PROLOG("(query (atom-concat A B " & q & String$(118, "a") & q & "))")
     Report "prolog.18: BOUNDARY - 118 characters split every way inside the budget (119 rows)", _
            ResultRowCount(result) = 120, "got: " & ResultDescribe(result)
-    result = VLA_Prolog.PROLOG("(query (atom-concat A B " & q & String$(119, "a") & q & "))")
+    result = VLA_Prolog.PROLOG("(query (atom-concat A B " & q & String$(99999, "a") & q & "))")
     r = ResultDescribe(result)
-    Report "prolog.18: BOUNDARY - 119 characters are refused by name up front, not at the step ceiling", _
+    Report "prolog.18: BOUNDARY - 99,999 characters are refused by name up front, not at the work ceiling", _
            ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "ways", vbTextCompare) > 0, "got: " & r
     ' A known prefix on a LONG text is answered directly, never by trying
     ' every split - the deterministic modes are there for exactly this.
@@ -5630,14 +5652,18 @@ Private Sub TestPrologTextParts()
            And ResultCellIs(result, 4, 2, "2") And ResultCellIs(result, 4, 4, "ab") And ResultCellIs(result, 7, 1, "2"), _
            "got: " & ResultDescribe(result)
 
-    ' THE BUDGET, at the exact edge. All-free is (n+1)(n+2)/2 pieces: 105 at
-    ' 13 characters fits, 120 at 14 is refused by name before one is made.
+    ' THE BUDGET. All-free is (n+1)(n+2)/2 pieces. The edge used to be 13
+    ' characters (105 fit) and 14 (120 refused); PROLOG.28's work budget
+    ' moved it to 445 (99,681 fit) and 446 (100,128 refused by name before
+    ' one is made). The refusing side is re-pointed here; the fitting side
+    ' at 445 would spill 99,681 rows, so thirteen stays as the small case
+    ' and TestPrologBudgets pins fourteen, the old refused edge, answering.
     result = VLA_Prolog.PROLOG("(query (sub-atom " & q & String$(13, "a") & q & " B L A S))")
-    Report "prolog.18: BOUNDARY - 13 characters, all free: 105 pieces fit the budget", _
+    Report "prolog.18: 13 characters, all free: all 105 pieces", _
            ResultRowCount(result) = 106, "got: " & ResultDescribe(result)
-    result = VLA_Prolog.PROLOG("(query (sub-atom " & q & String$(14, "a") & q & " B L A S))")
+    result = VLA_Prolog.PROLOG("(query (sub-atom " & q & String$(446, "a") & q & " B L A S))")
     r = ResultDescribe(result)
-    Report "prolog.18: BOUNDARY - 14 characters, all free: 120 pieces are refused up front, by name", _
+    Report "prolog.18: BOUNDARY - 446 characters, all free: 100,128 pieces are refused up front, by name", _
            ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "ways", vbTextCompare) > 0, "got: " & r
     ' A bound Before narrows the occurrences BEFORE they are counted, so a
     ' long text with many matches still answers.
@@ -6241,6 +6267,156 @@ Private Sub TestPrologUnknownPredicate()
            ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "'tab' is called by this query", vbTextCompare) > 0, "got: " & r
 End Sub
 
+' PROLOG.28: DEPTH IS NOT WORK. One ceiling of 120 steps, charged per
+' candidate tried, used to stand for both, so a 121-row scan, closure over a
+' six-row Reports table and a fifteen-person join each refused - blaming a
+' rule that recursed, when none did. Now DEPTH (nested SolveGoalList frames,
+' the stack the old ceiling protected) keeps its 120, and WORK has a budget
+' sized for real Tables. And a list may now be as long as work allows, so
+' the term walkers that recursed into a list's tail - one frame per element -
+' loop on it instead. Pure: every case builds its own program, and the long
+' ones are built in a loop, never typed.
+'
+' Each budget is pinned at its exact edge from both sides: a chain of 59
+' links nests exactly 120 frames and answers, 60 is refused by depth (the
+' transliteration measured depth = 2 x links + 2 for this rule).
+Private Sub TestPrologBudgets()
+    Dim result As Variant
+    Dim r As String, s As String
+    Dim q As String
+    q = Chr$(34)
+
+    ' ---- DEPTH, at its edge. Deep DATA is not a runaway rule either, and
+    ' the refusal says so and points at DATALOG, which follows any chain.
+    result = VLA_Prolog.PROLOG(BudgetChainProgram(59) & "(query (path p1 p60))")
+    Report "prolog.28: a terminating chain 59 links long nests exactly 120 frames and answers", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG(BudgetChainProgram(60) & "(query (path p1 p61))")
+    r = ResultDescribe(result)
+    Report "prolog.28: one link more is refused by DEPTH, never by work", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "rules deep", vbTextCompare) > 0 And InStr(1, r, "facts and rules", vbTextCompare) = 0, "got: " & r
+    Report "prolog.28: the depth refusal names a chain deeper than PROLOG follows, and points at DATALOG", _
+           InStr(1, r, "a chain deeper than PROLOG follows", vbTextCompare) > 0 And InStr(1, r, "DATALOG", vbTextCompare) > 0, "got: " & r
+
+    ' ---- WORK IS NOT DEPTH. Five hundred candidates, two frames deep: the
+    ' shape a real Table scan has, refused at the 121st row before PROLOG.28.
+    s = ""
+    Dim i As Long
+    For i = 1 To 500
+        s = s & "(fact (n " & i & ")) "
+    Next i
+    result = VLA_Prolog.PROLOG(s & "(query (n 250))")
+    Report "prolog.28: a scan of 500 facts answers - work grows with the data, depth does not", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+
+    ' The corpus's own headline (scripts/pareto_logic.txt, org-under):
+    ' "who reports to Alice, directly or not" over SIX rows - 176 units of
+    ' work, 12 frames deep - refused before this item.
+    result = VLA_Prolog.PROLOG( _
+        "(fact (reports bob alice)) (fact (reports carol alice)) (fact (reports dave bob)) " & _
+        "(fact (reports eve dave)) (fact (reports frank carol)) (fact (reports gus hal)) " & _
+        "(rule (under X Y) (reports X Y)) (rule (under X Y) (reports X Z) (under Z Y)) " & _
+        "(query (under Who alice))")
+    Report "prolog.28: closure over six rows answers all five reports, Bob first and Frank last", _
+           ResultRowCount(result) = 6 And ResultCellIs(result, 2, 1, "bob") And ResultCellIs(result, 6, 1, "frank"), _
+           "got: " & ResultDescribe(result)
+
+    ' ---- WORK, at its ceiling: a query that tries too much is refused by
+    ' WORK, with the text that names a large Table, never a runaway rule.
+    result = VLA_Prolog.PROLOG("(query (between 1 99999 X) (= X 0))")
+    r = ResultDescribe(result)
+    Report "prolog.28: a query that tries more than the work budget is refused by WORK, never by depth", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "facts and rules", vbTextCompare) > 0 And InStr(1, r, "rules deep", vbTextCompare) = 0, "got: " & r
+
+    ' The old edges are gone: 120 values, and all 120 pieces of fourteen
+    ' characters, used to be refused up front.
+    result = VLA_Prolog.PROLOG("(query (between 1 120 X))")
+    Report "prolog.28: (between 1 120 X), one past the old edge, now generates all 120", _
+           ResultRowCount(result) = 121, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (sub-atom " & q & String$(14, "a") & q & " B L A S))")
+    Report "prolog.28: all 120 pieces of fourteen characters, the old sub-atom edge, now answer", _
+           ResultRowCount(result) = 121, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (atom-concat A B " & q & String$(119, "a") & q & "))")
+    Report "prolog.28: all 120 splits of 119 characters, the old atom-concat edge, now answer", _
+           ResultRowCount(result) = 121, "got: " & ResultDescribe(result)
+
+    ' ---- LONG LISTS. One case keeps the full ten thousand - the cheapest,
+    ' which only counts - and the rest work at two or three, because the
+    ' suite must stay quick: the first draft of this Sub asked for 99,999
+    ' solutions in one assertion and crashed Excel (see TestPrologBetween).
+    ' A findall bag of ten thousand, built, bound and
+    ' measured: the harvest, the occurs check that binding it runs, and
+    ' length all walk it. Recursing into the tail, this nested ten thousand
+    ' frames. Counted inside a rule so the bag itself is not a column.
+    result = VLA_Prolog.PROLOG("(rule (n N) (findall X (between 1 300 X) B) (length B N)) (query (n N))")
+    Report "prolog.28: a findall bag of 300 is built, bound and measured", _
+           ResultCellIs(result, 2, 1, "300"), "got: " & ResultDescribe(result)
+
+    ' Rendered: resolved, contracted and written, all three walkers.
+    result = VLA_Prolog.PROLOG("(query (findall X (between 1 300 X) B))")
+    s = ResultCellText(result, 2, 1)
+    Report "prolog.28: a bag of 300 renders whole in one cell, first element to last", _
+           Left$(s, 12) = "(list 1 2 3 " And Right$(s, 9) = " 299 300)", "got: " & Left$(s, 40) & " ... " & Right$(s, 40)
+
+    ' Too long for any cell: refused by name rather than left to the grid.
+    ' One long TEXT, not a long list: the guard is on the rendered length of
+    ' an answer, whatever shape produced it, and a 40,000-character atom
+    ' reaches it without building anything to walk (or to release - see the
+    ' note on list length in TestPrologBudgets' own header).
+    result = VLA_Prolog.PROLOG("(fact (big " & q & String$(40000, "a") & q & ")) (query (big X))")
+    r = ResultDescribe(result)
+    Report "prolog.28: an answer too long for a cell is refused by name, with the variable and the limit", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "answer for X", vbTextCompare) > 0 And InStr(1, r, "32,767", vbTextCompare) > 0, "got: " & r
+
+    ' Two long lists compared, unified and tested whole - TermsIdentical,
+    ' UnifyTwoWay and TermIsGroundDeep.
+    result = VLA_Prolog.PROLOG("(rule (same Z) (findall X (between 1 300 X) A) (findall Y (between 1 300 Y) B) (== A B) (= A B) (ground? A) (= Z yes)) (query (same Z))")
+    Report "prolog.28: two bags of 300 are identical, unify, and are ground", _
+           ResultCellIs(result, 2, 1, "yes"), "got: " & ResultDescribe(result)
+
+    ' The quoting diagnosis walks to the end: two bags of 10,000 that differ
+    ' ONLY in the quoting of their last element are refused as that
+    ' confusion, naming it - the walker reached the ten-thousandth pair.
+    result = VLA_Prolog.PROLOG("(rule (same Z) (findall X (between 1 300 X) A) (findall Y (between 1 299 Y) B0) (append B0 (list " & q & "300" & q & ") B) (== A B) (= Z yes)) (query (same Z))")
+    r = ResultDescribe(result)
+    Report "prolog.28: bags differing only in the quoting of the last of 300 are refused as exactly that", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "300", vbTextCompare) > 0 And InStr(1, r, "number", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE LIST BUDGET, at its edge, both sides. A list is a chain of
+    ' cons cells and VBA releases such a chain recursively, so what a query
+    ' may GATHER is bounded even though what it may READ is not: 1,000 is
+    ' eight times under the length that raised "Out of stack space" live
+    ' (tools/VLA_Diag3.bas, 2026-09-11).
+    result = VLA_Prolog.PROLOG("(rule (n N) (findall X (between 1 1000 X) B) (length B N)) (query (n N))")
+    Report "prolog.28: a bag of exactly 1,000 is gathered and measured - the largest that fits", _
+           ResultCellIs(result, 2, 1, "1000"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(rule (n N) (findall X (between 1 1001 X) B) (length B N)) (query (n N))")
+    r = ResultDescribe(result)
+    Report "prolog.28: one more is refused by name, saying what to ask instead", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "gather 1001", vbTextCompare) > 0 And InStr(1, r, "DATALOG", vbTextCompare) > 0, "got: " & r
+    ' Reading is not gathering: the same query that cannot hold 1,001 rows
+    ' in one list counts them one at a time without a murmur.
+    result = VLA_Prolog.PROLOG("(query (between 1 5000 X) (= X 4999))")
+    Report "prolog.28: reading 5,000 values is fine - it is holding them in one list that is not", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "4999"), "got: " & ResultDescribe(result)
+
+    ' A split into ten thousand parts - one native step before PROLOG.28,
+    ' and already a list whose first walk could run the stack out.
+    result = VLA_Prolog.PROLOG("(rule (k N) (atomic-list-concat Parts " & q & "," & q & " " & q & String$(299, ",") & q & ") (length Parts N)) (query (k N))")
+    Report "prolog.28: text split into 300 parts is measured whole", _
+           ResultCellIs(result, 2, 1, "300"), "got: " & ResultDescribe(result)
+End Sub
+
+' A chain p1 -> p2 -> ... of n links as facts, and the right-recursive
+' closure over it - TestPrologBudgets' depth edge. Built, never typed: 60
+' links would not fit on one VBA source line.
+Private Function BudgetChainProgram(ByVal n As Long) As String
+    Dim s As String, i As Long
+    For i = 1 To n
+        s = s & "(fact (edge p" & i & " p" & (i + 1) & ")) "
+    Next i
+    BudgetChainProgram = s & "(rule (path X Y) (edge X Y)) (rule (path X Y) (edge X Z) (path Z Y)) "
+End Function
 Private Sub TestPrologKeyedAtoms()
     Dim q As String
     q = Chr$(34)

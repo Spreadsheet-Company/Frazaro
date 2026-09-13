@@ -244,10 +244,10 @@
 
 - **Taking a long text apart in every possible way has a limit, and says
   so.** `(sub-atom Text B L A S)` with only the text given lists every
-  piece of it: 105 pieces for a 13-character text, and 120 for 14, which
-  is the whole of a query's work allowance. Past that it is refused by
-  name *before* it starts, with a message saying to fill in more of the
-  arguments. Anything more specific — a position, a length, the piece
+  piece of it: 105 pieces for a 13-character text, 120 for 14, and so on
+  up to 99,681 for 445 characters, which is as much as one query may try.
+  Past that it is refused by name *before* it starts, with a message
+  saying to fill in more of the arguments. Anything more specific — a position, a length, the piece
   you are looking for, or a known start or end for `atom-concat` — is
   answered directly and works on a text of any length.
 
@@ -344,6 +344,45 @@
   If a program of yours used an undefined name on purpose, as a goal
   that always fails, write one that matches nothing instead: `(= a b)`
   fails every time.
+
+- **PROLOG answers questions about real-sized Tables.** Until now a query
+  could try only 120 things in all, and every row it looked at counted, so
+  a question about a Table of more than about 120 rows stopped. So did
+  "who reports to Alice, directly or not" over a Table of six. The message
+  also blamed your rule for going round in circles, when the rule was
+  fine. There are now separate limits for separate things, and each says
+  what actually happened. Nothing you have already written changes
+  meaning: the programs that answered before answer the same way, and the
+  only ones whose answer changes are those that used to be refused.
+
+  - **How deep a query goes: 120 rules deep**, the same safety limit as
+    before. A rule that calls itself forever still stops here, and so does
+    data that loops back on itself (A reports to B, who reports to A). The
+    message now also names the third cause, a chain longer than PROLOG
+    follows, and says that a DATALOG question follows a chain of any
+    length.
+  - **How much a query tries: 100,000 facts and rules.** This is a limit on
+    SEARCHING, not on the size of your data, and the two are not the same:
+    reading a Table spends one try per row, so a plain question can read
+    100,000 rows, while a join of two Tables spends one try per PAIR, so two
+    Tables of a few hundred rows each is also about the limit. Past it, the
+    message says the query is trying too much — never that your rule is
+    wrong — and suggests putting a known value where the question has an
+    unknown, or asking it as a DATALOG question, which joins large Tables
+    without trying every pair.
+
+- **Longer lists, up to a thousand.** `findall` gathers up to 1,000 things
+  into one list, and `length`, `member`, `==` and the rest work on the
+  whole of it — where before, a list could not outlast the 120-step
+  ceiling. Past a thousand it stops and says so, and says what to ask
+  instead: reading a Table of any size is fine, holding all of it inside
+  one value is not, and a DATALOG question counts a set of any size. (The
+  limit is Excel's own: a list is a chain, and letting go of a very long
+  one runs the host out of stack space. A thousand is eight times under
+  where that was measured to start.) An answer too long to show in one
+  cell (Excel allows 32,767 characters) is refused by name, saying which
+  answer and how long, rather than left for Excel to show as something
+  else. `(between 1 99999 X)` now generates all 99,999 values.
 
 - **Cut in parentheses is refused.** Cut is written on its own, between
   the goals: `(rule (first X) (p X) !)`. Written `(!)`, it used to be a

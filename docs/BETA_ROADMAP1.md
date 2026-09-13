@@ -418,7 +418,27 @@ nothing here is "done," and nothing here is ever pruned.*
   cell to the right of the last row of Sales") are ever wanted, that is
   first an SD-3 dialect question and then a dedicated re-litigation of
   this decision, in SD-13's own sense — never a grammar section that
-  quietly grows a recursive slot.
+  quietly grows a recursive slot. *Precision amendment, 2026-09-11 (the
+  owner's call while scoping `G-PROLOG`; an amendment, not a
+  re-litigation, because it forbids nothing new and permits nothing
+  undecidable):* "every slot consumes exactly one token (or one quoted
+  string, or one G6 comma list)" was never literally true. `{e:expr}` and
+  `{c:cond}` have always consumed many tokens, through parsers fixed in the
+  engine (`ParseExpr`, `ParseCond`). The rule as practised is now the rule
+  as written: **a slot consumes one token, one quoted string, one G6 list,
+  or one phrase of a BUILT-IN sub-grammar** — `expr`, `cond`, and
+  `G-PROLOG`'s `conditions`. A built-in sub-grammar lives in the engine,
+  never in a phrasebook. It is deterministic, never re-enters a phrasebook
+  rule, and its whole slot is one opaque placeholder to the shadow audit, as
+  `cond`'s already is. `conditions` is held to more than that: it is
+  **regular**. Five fixed condition shapes joined by `and`, each named by
+  its own tokens, with no nesting, no parentheses, no pronouns, and single
+  terms as operands. So the audit, the teaching refusal and one sentence,
+  one meaning hold exactly as they do for a plain pattern. What stays
+  forbidden is unchanged: a phrasebook-defined nonterminal; any
+  sub-grammar with anaphora or relative clauses (full Logical English was
+  weighed and declined for exactly that reason); and any use of `PROLOG`
+  or the unifier to recognize a sentence.
 - **SD-17 — blind spots are hunted on a cadence, not collected in a file:
   every roadmap fork is preceded by one outside-persona review, the persona
   must be one not yet used, and a review that mints or kills no roadmap item
@@ -7532,15 +7552,196 @@ G-TAIL always said this about itself; it is true of the whole tranche.
     template coverage may track ordinary phrasing more directly here than for
     any other DSL in the corpus. `~weeks`
 
-  - ⬜ **G-PROLOG** — sentence templates targeting `PROLOG(clauses, ParamArray
-    tables())`: fact/rule authoring (`{slot:type}` rows producing `(fact
-    ...)`/`(rule ...)` forms, exactly as `PROLOG`'s own item text already
-    specifies) plus query-goal recognition ("is Bob an ancestor of Liz").
-    *Depends on:* `PROLOG.1`–`.6` — every one is still `⬜`; no engine exists
-    yet to recognize a sentence against, so this item has nothing to test
-    itself on until at least a `PROLOG` MVP ships. Not gated in the
-    `G9`/pilot-evidence sense — an ordinary build-order dependency, not an
-    external event.
+  - ⬜ **G-PROLOG — flat Logical English: sentences that write rules into
+    cells, and questions that read them.** **Scoped 2026-09-10/11**, seven
+    forks decided by the owner; nothing built. *The previous text of this
+    entry said its dependency, `PROLOG.1`–`.6`, was unbuilt. It was stale:
+    `PROLOG.1`–`.24` have shipped.* This is the project's reason for being,
+    English to logic, deterministic and auditable, so it was scoped for
+    breadth and designed along independent axes rather than one rule per
+    task.
+
+    **THE CORPUS CAME FIRST (SD-7).** `scripts/pareto_logic.txt`, a new
+    sibling of `pareto.txt` and not a section of it: a pareto entry is one
+    line ending in a COM call, and a logic entry needs a multi-clause
+    program, the Tables it runs over, and the answer. **48 entries across
+    seventeen business families** (eligibility, org charts, approval and
+    delegation, access roles, bills of materials, prerequisites,
+    compatibility, tiering, conflicts of interest and of schedule, lineage,
+    routes, compliance with exceptions, "who has no / is the only / every",
+    counts and lists per group, text-shaped codes, and one optimisation
+    task refused as SOLVE's), **22 P0**. Each carries the question a
+    manager would ask, the canonical program, a tiny fixture that hides
+    its section's trap, the engine that owns it, and the answer. Every
+    PROLOG program was **measured** through `PROLOG.22`'s transliteration,
+    extended by a `length` arm. The control ran first: 568 of `TestDSLs`'
+    live-verified assertions reproduced, 0 failures, and a mutation of the
+    new arm turns 7 red. None of the answers has been seen in a cell yet.
+
+    **WHAT THE MEASUREMENTS DECIDED, before any fork was put:**
+      - *Two-place relations alone give wrong answers.* The can-cover
+        policy built only from binary relations (holds, needs, level-of,
+        asks-for) says Bob can cover Weekend. That is false: his level 3
+        belongs to his Forklift row, and his only First-aid row is level 1.
+        It also lists Bob twice for Day (`elig-lossy`). A ternary row is not
+        the join of its binary projections when the attribute depends on
+        the whole row. So the grammar must let one sentence read a Table
+        ROW whole. This is the fact that decided the composition model.
+      - *The step ceiling is a work ceiling in practice.* Transitive
+        closure over a six-row Reports table refuses; so do four-row
+        lineage, a fifteen-person join and a 121-row scan. The refusal
+        blames "a rule that recurses without ever reaching a base case",
+        which is false of every one of them. Every terminating query in the
+        corpus nests at most **19** `SolveGoalList` frames, while work runs
+        to the hundreds and the thousands. → **`PROLOG.28`**, minted below.
+      - *A "who" answer comes back as a bag.* Duplicates were measured in
+        four entries (`org-managers`, `pre-blocked`, `sched-clash`,
+        `elig-lossy`). English "who" means a set.
+      - *A relation named after the Table it reads never terminates*,
+        because a Table and a rule with one name are one predicate
+        (`lineage-selfname`). *Closure over data with a cycle never
+        terminates in PROLOG*, which collects every solution
+        (`routes-reach`); DATALOG terminates on any finite graph.
+      - *DATALOG and PROLOG read the same rule text*, keyed atoms
+        included, except for their comparison spellings (`<=` against
+        `=<`, and `=` as comparison against unification), and one
+        difference in meaning: an omitted column inside `not` is a fresh
+        variable, which DATALOG refuses as unsafe
+        (`VLA_Datalog.bas`'s own DATALOG.5 header) and PROLOG reads as "no
+        such row".
+
+    **DECISIONS (the owner's, each the recommended option unless noted):**
+      1. **The linguistics is flat Logical English.** It was the owner's
+         crux: "the best of all possible solutions to simplify Prolog
+         linguistics as much as possible for business users". Robert
+         Kowalski's Logical English is the logic-programming community's
+         own answer to that question; this is it, cut to fit SD-16. One
+         sentence writes ONE clause, and **role nouns are the variables**:
+         "a person" becomes `Person`, and the same noun is the same
+         variable, which is how a join is said. The body is a flat
+         `and`-list of five fixed condition shapes, parsed by a BUILT-IN
+         sub-grammar, the way `cond` is parsed, never by phrasebook rules.
+         *Or* is a second sentence with the same head, which is Prolog's
+         own *or*. Composition lives in the knowledge base, as the scoping
+         hypothesis said, amended by the lossy-decomposition finding: a
+         condition may read a whole Table row. Weighed and not chosen:
+         point-free relational frames (join, then, converse, but-not), with
+         no new parser but a policy decomposed the way a programmer would
+         (the approval chain takes eight sentences); and full Logical English
+         with relative clauses and pronouns, which needs anaphora and so
+         a re-litigation of SD-16. **SD-16 gains a precision amendment,
+         not a re-litigation** (its own entry, above).
+      2. **Placement: rules in ordinary cells.** A rule sentence names its
+         cell first — "Write in cell H2 that …" — so that a long body never
+         buries the address. A question names its rules range, its Tables
+         and its own cell. All program text stays visible and editable, and
+         a question recalculates when the data or a rule changes. Listing
+         the Tables takes one small helper, because VLA has no string join
+         and an Excel formula's Table arguments must be literal.
+      3. **A Table row reads** `Staff lists the person as Name, the cert as
+         Cert, and the level as Level`: the header as typed, the role as the
+         writer's noun, and G6's Oxford comma.
+      4. **Negation reads** `not …`, as a prefix on one condition anywhere
+         in the list.
+      5. **Routing now, by the question's shape (the owner chose this over
+         the recommendation to route later).** WHO, WHAT, PAIRS and COUNT
+         over the shared fragment go to `DATALOG`: set answers, termination
+         on cycles, no step ceiling. WHETHER, a ground TRUE or FALSE, goes to
+         `PROLOG`. Text, lists and first-match rules are `PROLOG`'s alone.
+         Every clause a sentence writes stays inside the **shared subset**:
+         keyed atoms, `not`, only `>`, `<` and `>=` (so "at most" is written
+         as a swapped `>=`), quoted constants, and a generated projection
+         rule wherever a negated row omits a column. One Rules range
+         therefore feeds both engines, and a later change of route never
+         needs an SD-4 rewrite of cells a user has already written.
+      6. **`PROLOG.28` is built before slice 1 (the owner chose this over
+         the recommendation to ship slice 1 first).** No grammar ships
+         until PROLOG answers a real-sized Table.
+      7. *Stated defaults, not objected to:* a relation name is one
+         hyphenated token (`can-cover`, the phrasebook's `font-color`
+         convention), bare and folded, and it IS the predicate name; "who"
+         is a set; and a question reads `Show who can-cover "Night" from the
+         rules in H2:H4 over Staff, Shifts, and Leave in cell E2.`
+
+    **THE GRAMMAR, as scoped.** A rule is `Write in cell {c:cell} that
+    <head> if <conditions>.` A head is `a <role> <relation> a <role>`, `a
+    <role> is <set>`, or either with a quoted constant in place of a role.
+    A fact is `Write in cell {c:cell} that "Bob" manages "Carol".` The five
+    condition shapes, each identified by its own tokens, with no nesting,
+    no pronouns and no lookahead beyond the shape:
+      - **relation**: `the person holds the cert` gives `(holds Person Cert)`;
+      - **set**: `the bill is big` gives `(big Bill)`;
+      - **comparison**, in `cond`'s own words (`is at least`, `is at most`,
+        `is greater than`, `is less than`), plus `is` with a quoted or
+        numeric constant: `the level is at least the min` gives `(>= Level
+        Min)`;
+      - **Table row**: `Staff lists the person as Name, the cert as Cert,
+        and the level as Level` gives `(staff (name Person) (cert Cert)
+        (level Level))`;
+      - **not** before any of the four.
+    The canonical text is the README's own rule, clause for clause:
+    ```
+    Write in cell H2 that a person can-cover a shift if Shifts lists the
+    shift as Shift, the cert as Needs, and the min as MinLevel, and Staff
+    lists the person as Name, the cert as Cert, and the level as Level, and
+    the level is at least the min, and not Leave lists the person as Name
+    and the shift as Shift.
+
+    H2: (rule (can-cover Person Shift) (shifts (shift Shift) (needs Cert)
+          (minlevel Min)) (staff (name Person) (cert Cert) (level Level))
+          (>= Level Min) (not (leave (name Person) (shift Shift))))
+    ```
+    **Lessons the parser can give at Check**, because it owns the
+    sub-grammar: a role that appears only under `not` or in a comparison
+    (DATALOG's safety rule, and PROLOG's silently wrong answer, turned into
+    a sentence); a relation or set named `is`, `lists` or `not`; a relation
+    named after a Table the same sentence reads. A constant must be quoted,
+    since a bare word folds to lowercase and a Table's text keeps its case.
+    That is G-DATALOG's `{person:expr}` precedent. **Known limit, named:** a
+    quoted constant that differs from the data only in case finds nothing,
+    silently, in both engines.
+
+    **THE MATRIX.** Five axes, each varying independently. *Answer shape*:
+    WHO, WHAT, WHETHER, PAIRS, COUNT, LIST, NONE, EVERY, ONLY, ANY, EACH.
+    *Relation source*: a Table row, a defined relation, a built-in; a
+    question only ever names a relation, so the source costs nothing
+    there. *Connectives*: and, or, not, comparison, directly or not,
+    otherwise, text. *Authoring*: rules, facts and definitions over Tables,
+    which are one frame, since a Table row is a condition shape. *Placement*: the
+    shared "in cell" tails. A row per combination would be several hundred
+    rules. The scoped design is **one rule sentence (four head shapes), one
+    fact sentence and about eight question rows**; the connective and
+    source axes live inside `conditions`, five shapes composing freely.
+    That is the sum of the axes, not their product.
+
+    **SLICES**, built G-FORMAT's way (a corpus section each, forks, rules
+    with proofs, goldens, a two-region live pass):
+      1. ⬜ **can-cover, end to end** — the smallest slice that proves every
+         axis. The rule sentence with a binary head; three condition shapes
+         (Table row, `is at least`, `not` over a Table row); WHO routed to
+         `DATALOG`, WHETHER to `PROLOG`, both reading the same cells; and the
+         Tables-list helper. Corpus §1. *Depends on:* `PROLOG.28`, the
+         owner's call.
+      2. ⬜ **relations, sets and facts** — the relation and set
+         conditions (a rule calling a rule), set heads, facts, all four
+         comparisons and equality with a constant, WHAT and PAIRS, and *or*
+         by repetition. §2, §3, §4, §7, §9, §13.
+      3. ⬜ **recursion and closure** — a rule that names itself, "directly
+         or not", `DATALOG`-routed so that a cycle terminates. §2, §5, §6,
+         §11, §12.
+      4. ⬜ **answer shapes** — COUNT (`DATALOG`'s own set count), NONE,
+         EVERY, ONLY, ANY and EACH. §14, §15.
+      5. ⬜ **PROLOG's own** — text conditions (starts with, contains),
+         first match (tiers), a list in one cell. §8, §15, §16.
+    *Out of scope, and refused by name rather than faked:* optimisation
+    (`SOLVE`, §17); quantity roll-ups along paths (`SQL`/`DATALOG`
+    aggregation); topological order. *Deferred decisions:* how COUNT reads
+    once DATALOG's count shape is in hand, and whether decision tables
+    (DMN) belong beside first-match rules for classification.
+
+    `~weeks`, per slice. *Pays into:* `G-DATALOG`'s second wave (it reads
+    the same cells), `G-SQL` and `G-SOLVE` (both inherit this corpus), and
+    README's own promise that the question is shaped like the policy.
 
   - ⬜ **G-SOLVE** — sentence templates targeting `SOLVE(facts, program)`, the
     Answer Set Programming engine — named for the function, not the
@@ -15879,9 +16080,246 @@ now carries one summary paragraph per engine and points here.*
     names moves `RELEASES.md`'s reserved-word count and
     `check_prolog_reserved_names.ps1`'s catalogue; rule E derives no twins
     for them. `~hours`
+  - ✅ **PROLOG.28 — depth is not work: split `PROLOG_MAX_STEPS` into the
+    budgets it was doing the job of.** Minted 2026-09-11 by `G-PROLOG`'s
+    scoping, and **built before `G-PROLOG` slice 1, the owner's call**: no
+    grammar ships until PROLOG answers a real-sized Table. **Built
+    2026-09-11 and OWNER-VERIFIED LIVE 2026-09-12** (both rounds below),
+    and committed. **Two things the live pass settled beyond the build
+    itself:** the work budget's refusal was REWORDED the same day, because
+    an Excel power user's Tables run past 100,000 rows and a budget of
+    100,000 read like a size limit — it says now that it bounds SEARCHING,
+    that a scan spends one try per row and a join one per pair, and it
+    points at `DATALOG` for bulk; and the real answer to that objection was
+    minted as **`PROLOG.29`** (first-argument indexing), since the honest
+    fix is a smaller cost per question, not a larger budget, and a time
+    budget is not available at all — the same formula would answer on one
+    machine and refuse on a slower one. **THE DEFECT, measured
+    through `PROLOG.22`'s transliteration over `scripts/pareto_logic.txt`:**
+    every candidate a query tries costs one step, and the ceiling is 120
+    in total. A query that scans a Table of more than 120 rows therefore
+    refuses; so does transitive closure over a SIX-row Reports table, lineage
+    over four rows, and a join of fifteen people with five shifts. Each
+    refusal says "almost certainly a rule that recurses without ever
+    reaching a base case", which is false of all of them: a confidently
+    wrong explanation, and it lands on the user's own correct rule.
+    **What the ceiling actually protects is depth.** It was introduced
+    (`PROLOG.4`, lowered at `PROLOG.5.3`) because the solver's recursion
+    nests one `SolveGoalList` frame per goal on the current path, and a
+    runaway rule overflowed VBA's native stack. Depth grows with the
+    proof; work grows with the Tables. Measured over the whole corpus with
+    work uncapped, the deepest TERMINATING query nests **19** frames,
+    while work runs from 49 (the README rule) to 176 (closure over six
+    rows) to 1,000 (a 1,000-row scan, at depth 2). The two runaway programs
+    in the corpus, a relation named after its own Table and closure over
+    a cycle, pass every depth cap tried; that is the case the ceiling was
+    built for.
+
+    **THE SHAPE, as decided by the owner (2026-09-11): two budgets, two true
+    refusals, and no limit on a list's length at all.**
+      - **DEPTH** — nested `SolveGoalList` frames, capped at **120**
+        (`PROLOG_MAX_DEPTH`). Every frame used to be preceded by a charged
+        step, so depth ≤ steps ≤ 120 already: a depth cap of 120 is the
+        stack bound this engine has run under since `PROLOG.5.3`, proven on
+        the owner's machine, and no weaker. New `prolog-depth-ceiling`
+        names all three honest causes (a rule that calls itself, data that
+        loops back, a chain deeper than PROLOG follows) and points at
+        DATALOG, which follows a chain of any depth.
+      - **WORK** — the existing `stepsTaken`, now `PROLOG_MAX_WORK` =
+        **100,000** (the owner's pick of three; to be confirmed by timing
+        live and lowered before commit if the near-100,000 case takes more
+        than a few seconds). New `prolog-work-ceiling` names a large Table or
+        a join, never a runaway rule, and says how to narrow the question.
+        The three generators that refuse up front (`between`, `atom-concat`'s
+        split, `sub-atom`) moved to `PROLOG_MAX_WORK - 1`; their two
+        messages now say "can try at most {max}" instead of "resolution
+        steps". `prolog-step-ceiling` is **retired outright**, the
+        `prolog-cut-not-yet-supported` precedent.
+      - **LIST LENGTH — the walkers iterate AND a budget of 1,000, and it
+        took a crash to learn why both.** The hazard found before building
+        was that `FreshenTerm`, `ResolveTermDeep`, `VLA_Unify.UnifyTwoWay`
+        and the occurs check recursed into every position of a term, a cons
+        cell's tail included, so an N-element list nested N frames. **Nine
+        walkers now recurse into every position but the LAST and loop on the
+        last** — `FreshenTerm`, `ResolveTermDeep`, `TermIsGroundDeep`,
+        `ContractListsInto`, `QuotedVersusBareClass` (VLA_Prolog),
+        `UnifyTwoWay`, `TermsIdentical`, `EnvOccurs` (VLA_Unify) and
+        `WriteDatum` (VLA.bas, the one writer every module uses). The owner
+        chose that over a budget, on the information there was.
+        **The first live run then crashed Excel, twice over, and both causes
+        were real:**
+          - *A Collection read by INDEX is O(n²).* `BuildSpilledArray`
+            walked its solutions with `solutions.Item(r)`, and a test asking
+            for 99,999 of them hung Excel until it died. Measured on the
+            owner's machine: 5,000 items cost 0.023s indexed against 0.000s
+            with `For Each`; 20,000 cost 0.523s against 0.008s — four times
+            the cost for twice the data. **Eleven loops converted** across
+            `BuildSpilledArray`, `member`, `append`'s join and split,
+            `sub-atom`'s candidates, `atomic-list-concat`'s join and split,
+            `sum-list`, `reverse` and the list builder, each now `For Each`
+            or indexing a `ItemsToArray` array filled in one pass. Under the
+            old 120 ceiling no collection could hold more than ~120 items,
+            so this was invisible until the budget made it reachable: it
+            belongs to this item.
+          - *VBA releases a cons chain RECURSIVELY, and that is not ours to
+            make iterative.* Building and walking a 10,000-cell chain takes
+            0.004s and 0.000s; RETURNING from the procedure that built it
+            raises "Out of stack space", because dropping the head drops the
+            tail, one frame per cell. **Measured, not guessed** (a standalone
+            repro, `tools/VLA_Diag3.bas`, no Frazaro in the way): 5,000 drops
+            cleanly, 8,000 does not, in a near-empty stack. **So the budget
+            the owner had declined is back, at 1,000** — eight times under
+            the break, five under the last clean size, with room for the
+            stack the solver has already used and for a list of lists. The
+            four builders that can make one are held to it (`findall`'s bag,
+            a text split, `append`'s join, a list written out in a program),
+            each refusing by name with `prolog-list-ceiling`. Unlinking a
+            chain cell by cell before dropping it was measured too and DOES
+            work at 10,000 — filed, not taken: a bag is built in one place
+            and dropped in many (a discarded env clone, each `append` split,
+            a retried rule body), so it would need a budget as a backstop
+            anyway.
+        **What the budget does not touch:** reading. A scan of a 10,000-row
+        Table builds no list, and that is this item's headline. What is
+        bounded is holding a Table inside one value, and the refusal says so
+        and points at `DATALOG`, which counts a set of any size — the same
+        routing `G-PROLOG` already decided for COUNT.      - **A CELL LIMIT, new because lists can now be long:** an Excel cell
+        holds 32,767 characters, and a bag of every row rendered into one
+        does not fit. New `prolog-value-too-long-for-a-cell` names the
+        variable and the length and suggests `length` or asking for rows.
+
+    **BUILT.** `VLA_Prolog.bas`: three constants and a module-level
+    `mDepth`, so no recursive frame grows (`PROLOG.5.3`'s lesson); DEPTH
+    counted in as `SolveGoalList`'s first statement and out at its single
+    exit, all fourteen `Exit Sub`s now `GoTo leave`; `PrologRun` zeroes it
+    (a raise abandons the whole query, and `PROLOG()`'s handler is the only
+    `On Error` in the module); twenty work checks renamed; the five walkers;
+    eleven indexed loops converted, plus the new `ItemsToArray`; the four
+    list-budget guards; the cell guard in `BuildSpilledArray`;
+    `VLA_PROLOG_VERSION` = `PROLOG.28`. Item headers written before this
+    item that say `PROLOG_MAX_STEPS` are left as written, since they record
+    what was true then, with one reading note at the declaration; every
+    comment sitting on live code was renamed. `VLA_Unify.bas`: three
+    walkers. `VLA.bas`: `WriteDatum`, still typed `Object` and indexed,
+    because its `PNTH.0` note says it may receive a `VlaSlice`, which has no
+    enumerator. `VLA_Messages.bas`: 447 → 450 ids (+4, −1), CRLF and its
+    three non-ASCII bytes unchanged. New **`tools/check_prolog_budgets.ps1`**,
+    eight rules (A the retired names gone; B `SolveGoalList`'s one way in
+    and out; C who may assign `mDepth`; D every unit of work followed by the
+    work check; E every comparison against the budget is the check or an
+    up-front bound at `- 1`; F the nine walkers loop on the last position;
+    G the refusals and their slots; H every list builder held to the list
+    budget). **Six mutants, each turning exactly its own rule red.** New
+    **`tools/VLA_Diag3.bas`**, the standalone repro that measured the
+    Collection cost, the release threshold and the cost of a whole work
+    budget — no dependency on Frazaro, to be deleted or kept beside
+    `VLA_Diag.bas` at the owner's preference.
+
+    **PROOFS, and what the live run corrected.** *The walkers:* each of the
+    nine transliterated twice, recursive as at HEAD and iterative as
+    written, compared over 4,000 random terms and acyclic environments
+    (44,000 comparisons, **0 differences**), then run alone over
+    20,000-element chains; two mutants (the unifier skipping its last pair,
+    the writer dropping its last atom) turned the comparison red at 31 and
+    189 differences. *Exposure:* the solver model under both regimes found
+    **5** assertions that flip, all genuinely non-terminating rules, now the
+    depth refusal. A second sweep parsed every program's own literal
+    generator arguments — **and its first version was incomplete: it swept
+    `between`, `length` and `sub-atom` and forgot that `atom-concat`'s split
+    has an up-front bound of its own.** The live run found that assertion
+    instead, as the single failure in an otherwise clean 1096/1097. Corrected,
+    the sweep names exactly **3** generator boundaries (`between` at 120,
+    `atom-concat` at 119 characters, `sub-atom` at 14) plus one false
+    positive it had also reported, a bound position whose all-free upper
+    bound overcounted. **True exposure: 8 assertions, all re-pointed in
+    place, none deleted** — the five now also assert the work text is
+    ABSENT, and each boundary moved to the new edge, with its old edge
+    pinned in `TestPrologBudgets` as now answering. *The harness, rebuilt to
+    model the NEW code* (the proven iterative walkers, `between`'s real
+    up-front bound, `ground?`, the cell guard, the list budget).
+    **CONTROL: HEAD's sources and HEAD's tests under HEAD's regime, 590
+    pass, 0 fail**, 22 more than it read before the walkers were ported.
+    New regime over the new file: **598 pass, 1 fail**, the one failure a
+    harness artifact — the enumerator reads a string built up in a `For`
+    loop as its first value, so it sees `(query (n 250))` without its 500
+    facts; that program, run directly, answers TRUE. Also run directly,
+    because the enumerator cannot evaluate a helper Function or a `Left$`
+    term: the depth edge (59 links TRUE at exactly 120 frames; 60 refused,
+    naming the chain and DATALOG) and a rendered bag's first and last
+    elements. **`TestPrologBudgets`, 18 assertions**, pinning each of the
+    three budgets at its exact edge from both sides — and pinning them
+    CHEAPLY, which the first draft did not: it asked for 99,999 solutions
+    in one assertion and crashed Excel mid-suite. A cut after the generator
+    proves the same up-front check for **3 units of work** instead of a
+    hundred thousand. **`TestDSLs` 1083 → 1101, counted mechanically**; the
+    counter reads HEAD's file at exactly 1083, its own control. Structural
+    balance and duplicate-`Dim` clean on all four modules, shown to bite on
+    a deleted `Loop`; `RaiseMsg` slots clean. All 20 `tools/check_*.ps1`
+    green.
+    **OWNER-VERIFIED LIVE, 2026-09-12, in two rounds — and the first round
+    is why there is a third budget.** *Round one (2026-09-11)* gave the work
+    budget's real cost (**100,000 units in 0.109s**), the Collection figures,
+    the release threshold, that unlinking a chain first works at 10,000, a
+    **crash**, which found the two defects recorded above, and a **1096/1097**
+    suite whose single failure was the `atom-concat` boundary the exposure
+    sweep had missed. *Round two (2026-09-12):* **`TestDSLs` 1101/1101, the
+    predicted count exactly**; pure **1109/1109**, host **152/152** and
+    `VerifyReports` **242/242 on both backends**, all unmoved as predicted;
+    and **all ten in-cell steps answering as handed off** — a 200-row and a
+    10,000-row Table each spilling `X`/`P7` where both used to refuse; a
+    runaway rule refused by DEPTH in those words; closure over the six-row
+    Reports Table spilling Bob, Carol, Dave, Eve, Frank; gathering 10,000
+    rows into one list refused by name and pointing at DATALOG, with DATALOG
+    then answering the same question; a bag of exactly 1,000 gathered and
+    measured; a join of a 10,000-row Table with itself refused as WORK, not
+    as a runaway rule; `(between 1 99999 X) !` answering 1 and
+    `(between 1 100000 X)` refused as a range; and a 1,000-element bag of
+    40-character values refused as too long for a cell at **45,899
+    characters — the count this item predicted to the character**.
+    **Known costs, named rather than left to be discovered:** `append`
+    enumerating the splits of a list copies the whole list per split, O(n²)
+    copies within n+1 units of work — bounded now by the 1,000-element
+    budget, so a worst case is a million copies rather than unbounded.
+    *Pays into:* `G-PROLOG` (every slice), `G-DATALOG` routing (the
+    comparison, and where COUNT goes), and the stated ceiling below, since
+    first-argument indexing then reduces work without also having to rescue
+    depth. `~days`
+  - ⬜ **PROLOG.29 — first-argument indexing: stop spending a unit of work
+    per row to ask one keyed question.** Minted 2026-09-12, the owner's
+    call, out of the question PROLOG.28's live pass raised: an Excel power
+    user's Tables run past 100,000 rows, so a work budget of 100,000 "will
+    feel arbitrary to serious data scientists". It does — and the honest
+    answer is not a larger budget but a smaller cost. **The budget is not a
+    size limit and must stop reading like one:** a unit is one candidate
+    tried, so a plain scan spends one per row and a join spends one per
+    PAIR. `PROLOG.28`'s refusal now says exactly that (reworded the same
+    day), and points at `DATALOG` for bulk. **Why not simply raise it:** the
+    budget is a time bound wearing a work number (100,000 units measured at
+    0.109s), and it cannot honestly become a time bound, because the same
+    formula over the same data would then answer on one machine and refuse
+    on a slower one — a result an auditor could not reproduce, which is the
+    one thing this project sells. **The fix:** `SolveGoalList` tries every
+    clause of a predicate on every call, so a keyed question over a
+    10,000-row Table costs 10,000 units. Index a predicate's clauses by
+    their first argument when that argument is bound at the call — `SQL`'s
+    own hash-join law, and this engine's own long-stated ceiling — and the
+    same question costs about one, whatever the Table's size. The budget
+    then bounds BACKTRACKING, which is what it was always for, and Table
+    size stops mattering for the questions PROLOG is actually for. *Shape,
+    unmeasured so far:* the index is built per table argument at `PROLOG()`
+    time (where rows already become clauses), keyed on the folded first
+    argument, and consulted only when the goal's own first argument is
+    bound and atomic; everything else keeps the existing scan, so no
+    program changes meaning. *What to measure first:* how much of a real
+    query's work is keyed lookup rather than genuine search, and what the
+    index costs to build on a 10,000-row Table that a query then reads once.
+    *Pays into:* `G-PROLOG` (every slice, since a rule body is mostly keyed
+    lookups), and the `DATALOG` comparison. `~days`
   - **Stated ceiling, carried forward from `BETA_ROADMAP1.md`, not built
-    here:** first-argument clause indexing (`SQL`'s own hash-join law,
-    `PROLOG`'s own twin — don't scan every clause per call); tabling/memoized
+    here:** first-argument clause indexing has LEFT this list — it is
+    `PROLOG.29`, minted above, because `PROLOG.28`'s live pass turned it
+    from a performance nicety into the answer to a real question about real
+    Tables. What remains: tabling/memoized
     resolution (SLG) — named specifically because it is what actually
     TERMINATES the textbook `ancestor(X,Y) :- ancestor(X,Z), parent(Z,Y)`
     recursive case rather than looping forever, the difference between a toy

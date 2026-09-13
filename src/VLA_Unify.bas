@@ -264,68 +264,85 @@ End Function
 ' caller wanting a clean retry must pass a FRESH envN/envT pair, same
 ' discipline as UnifyOneWay's own bn/bv.
 Public Function UnifyTwoWay(ByVal a As Variant, ByVal b As Variant, envN As Collection, envT As Collection) As Boolean
+    ' PROLOG.28: every pair of positions but the LAST unified by the
+    ' recursive call it always was; the last pair becomes the next a and b,
+    ' and the walk goes round again. A cons chain's tail IS its last
+    ' position, so a list of any length is unified in a loop, nesting only
+    ' as deeply as its elements do - the recursion nested one frame per
+    ' element, and a findall bag of every row of a real Table ran VBA's
+    ' stack out. Pairs are unified in the same order, under the same
+    ' threaded environment, so every binding lands exactly as before
+    ' (diff28, the item's transliteration, over random terms and
+    ' environments).
     Dim aw As Variant, bw As Variant
-    EnvWalkInto aw, a, envN, envT
-    EnvWalkInto bw, b, envN, envT
-
-    ' G0 hazard, live-caught (TestUnifyTwoWay's own run 450'd on exactly
-    ' this line): VBA's And does not short-circuit - the original single
-    ' expression "(Not IsObject(aw)) And IsVarAtom(CStr(aw))" evaluates
-    ' CStr(aw) unconditionally even when aw IS an object, invoking a
-    ' Collection's own default member with no index and raising 450 -
-    ' the exact trap UnifyOneWay's own literal-atom case already has a
-    ' comment naming, missed here anyway. Every IsObject check below is
-    ' its own guarding If, never combined with a same-value CStr() in
-    ' one boolean expression.
     Dim aIsVar As Boolean, bIsVar As Boolean
-    If IsObject(aw) Then
-        aIsVar = False
-    Else
-        aIsVar = IsVarAtom(CStr(aw))
-    End If
-    If IsObject(bw) Then
-        bIsVar = False
-    Else
-        bIsVar = IsVarAtom(CStr(bw))
-    End If
+    Dim la2 As Collection, lb2 As Collection
+    Dim i2 As Long
+    Do
+        EnvWalkInto aw, a, envN, envT
+        EnvWalkInto bw, b, envN, envT
 
-    If aIsVar And bIsVar Then
-        If CStr(aw) = CStr(bw) Then
-            UnifyTwoWay = True   ' the same still-free variable, trivially
+        ' G0 hazard, live-caught (TestUnifyTwoWay's own run 450'd on exactly
+        ' this line): VBA's And does not short-circuit - the original single
+        ' expression "(Not IsObject(aw)) And IsVarAtom(CStr(aw))" evaluates
+        ' CStr(aw) unconditionally even when aw IS an object, invoking a
+        ' Collection's own default member with no index and raising 450 -
+        ' the exact trap UnifyOneWay's own literal-atom case already has a
+        ' comment naming, missed here anyway. Every IsObject check below is
+        ' its own guarding If, never combined with a same-value CStr() in
+        ' one boolean expression.
+        If IsObject(aw) Then
+            aIsVar = False
+        Else
+            aIsVar = IsVarAtom(CStr(aw))
+        End If
+        If IsObject(bw) Then
+            bIsVar = False
+        Else
+            bIsVar = IsVarAtom(CStr(bw))
+        End If
+
+        If aIsVar And bIsVar Then
+            If CStr(aw) = CStr(bw) Then
+                UnifyTwoWay = True   ' the same still-free variable, trivially
+                Exit Function
+            End If
+        End If
+
+        If aIsVar Then
+            If EnvOccurs(CStr(aw), bw, envN, envT) Then VLA_Messages.RaiseMsg "prolog-occurs-check", "var", CStr(aw)
+            EnvBind envN, envT, CStr(aw), bw
+            UnifyTwoWay = True
             Exit Function
         End If
-    End If
 
-    If aIsVar Then
-        If EnvOccurs(CStr(aw), bw, envN, envT) Then VLA_Messages.RaiseMsg "prolog-occurs-check", "var", CStr(aw)
-        EnvBind envN, envT, CStr(aw), bw
-        UnifyTwoWay = True
-        Exit Function
-    End If
+        If bIsVar Then
+            If EnvOccurs(CStr(bw), aw, envN, envT) Then VLA_Messages.RaiseMsg "prolog-occurs-check", "var", CStr(bw)
+            EnvBind envN, envT, CStr(bw), aw
+            UnifyTwoWay = True
+            Exit Function
+        End If
 
-    If bIsVar Then
-        If EnvOccurs(CStr(bw), aw, envN, envT) Then VLA_Messages.RaiseMsg "prolog-occurs-check", "var", CStr(bw)
-        EnvBind envN, envT, CStr(bw), aw
-        UnifyTwoWay = True
-        Exit Function
-    End If
+        If IsObject(aw) <> IsObject(bw) Then Exit Function
 
-    If IsObject(aw) <> IsObject(bw) Then Exit Function
+        If Not IsObject(aw) Then
+            UnifyTwoWay = (CStr(aw) = CStr(bw))
+            Exit Function
+        End If
 
-    If Not IsObject(aw) Then
-        UnifyTwoWay = (CStr(aw) = CStr(bw))
-        Exit Function
-    End If
-
-    Dim la2 As Collection, lb2 As Collection
-    Set la2 = aw
-    Set lb2 = bw
-    If la2.Count <> lb2.Count Then Exit Function
-    Dim i2 As Long
-    For i2 = 1 To la2.Count
-        If Not UnifyTwoWay(la2.Item(i2), lb2.Item(i2), envN, envT) Then Exit Function
-    Next
-    UnifyTwoWay = True
+        Set la2 = aw
+        Set lb2 = bw
+        If la2.Count <> lb2.Count Then Exit Function
+        If la2.Count = 0 Then
+            UnifyTwoWay = True
+            Exit Function
+        End If
+        For i2 = 1 To la2.Count - 1
+            If Not UnifyTwoWay(la2.Item(i2), lb2.Item(i2), envN, envT) Then Exit Function
+        Next
+        If IsObject(la2.Item(la2.Count)) Then Set a = la2.Item(la2.Count) Else a = la2.Item(la2.Count)
+        If IsObject(lb2.Item(lb2.Count)) Then Set b = lb2.Item(lb2.Count) Else b = lb2.Item(lb2.Count)
+    Loop
 End Function
 
 ' PROLOG.8: structural identity - real Prolog's own `==`, the strict twin
@@ -358,26 +375,36 @@ End Function
 ' short-circuit, the live-caught 450 trap UnifyTwoWay's own G0 comment
 ' above names in full.
 Public Function TermsIdentical(ByVal a As Variant, ByVal b As Variant, envN As Collection, envT As Collection) As Boolean
+    ' PROLOG.28: UnifyTwoWay's shape - every pair but the last compared
+    ' recursively, the last pair in a loop - so (== L1 L2) over two long
+    ' bags nests only as deeply as their elements do.
     Dim aw As Variant, bw As Variant
-    EnvWalkInto aw, a, envN, envT
-    EnvWalkInto bw, b, envN, envT
-
-    If IsObject(aw) <> IsObject(bw) Then Exit Function
-
-    If Not IsObject(aw) Then
-        TermsIdentical = (CStr(aw) = CStr(bw))
-        Exit Function
-    End If
-
     Dim la3 As Collection, lb3 As Collection
-    Set la3 = aw
-    Set lb3 = bw
-    If la3.Count <> lb3.Count Then Exit Function
     Dim i3 As Long
-    For i3 = 1 To la3.Count
-        If Not TermsIdentical(la3.Item(i3), lb3.Item(i3), envN, envT) Then Exit Function
-    Next i3
-    TermsIdentical = True
+    Do
+        EnvWalkInto aw, a, envN, envT
+        EnvWalkInto bw, b, envN, envT
+
+        If IsObject(aw) <> IsObject(bw) Then Exit Function
+
+        If Not IsObject(aw) Then
+            TermsIdentical = (CStr(aw) = CStr(bw))
+            Exit Function
+        End If
+
+        Set la3 = aw
+        Set lb3 = bw
+        If la3.Count <> lb3.Count Then Exit Function
+        If la3.Count = 0 Then
+            TermsIdentical = True
+            Exit Function
+        End If
+        For i3 = 1 To la3.Count - 1
+            If Not TermsIdentical(la3.Item(i3), lb3.Item(i3), envN, envT) Then Exit Function
+        Next i3
+        If IsObject(la3.Item(la3.Count)) Then Set a = la3.Item(la3.Count) Else a = la3.Item(la3.Count)
+        If IsObject(lb3.Item(lb3.Count)) Then Set b = lb3.Item(lb3.Count) Else b = lb3.Item(lb3.Count)
+    Loop
 End Function
 
 ' Dereferences term through envN/envT: while term is a bare variable
@@ -445,22 +472,28 @@ End Sub
 ' is what makes EnvWalkInto's own chain-chasing loop above safe to run
 ' unconditionally with no cycle guard of its own.
 Private Function EnvOccurs(ByVal varName As String, ByVal term As Variant, envN As Collection, envT As Collection) As Boolean
+    ' PROLOG.28: every position but the last searched recursively, the last
+    ' in a loop - binding a variable to a findall bag of every row runs this
+    ' over the whole bag first, and the recursion nested a frame per element.
     Dim tw As Variant
-    EnvWalkInto tw, term, envN, envT
-    If Not IsObject(tw) Then
-        EnvOccurs = IsVarAtom(CStr(tw)) And (CStr(tw) = varName)
-        Exit Function
-    End If
     Dim lst As Collection
-    Set lst = tw
     Dim i As Long
-    For i = 1 To lst.Count
-        If EnvOccurs(varName, lst.Item(i), envN, envT) Then
-            EnvOccurs = True
+    Do
+        EnvWalkInto tw, term, envN, envT
+        If Not IsObject(tw) Then
+            EnvOccurs = IsVarAtom(CStr(tw)) And (CStr(tw) = varName)
             Exit Function
         End If
-    Next
-    EnvOccurs = False
+        Set lst = tw
+        If lst.Count = 0 Then Exit Function                ' False
+        For i = 1 To lst.Count - 1
+            If EnvOccurs(varName, lst.Item(i), envN, envT) Then
+                EnvOccurs = True
+                Exit Function
+            End If
+        Next
+        If IsObject(lst.Item(lst.Count)) Then Set term = lst.Item(lst.Count) Else term = lst.Item(lst.Count)
+    Loop
 End Function
 
 ' Records varName -> boundTerm. Only ever reached (from UnifyTwoWay,

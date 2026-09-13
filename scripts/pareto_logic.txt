@@ -1,0 +1,652 @@
+# pareto_logic.txt — the query-and-logic corpus
+
+**What this file is.** The specification corpus for the query family's
+grammar (`G-PROLOG` first, `G-DATALOG`'s second wave, `G-SQL`, `G-SOLVE`):
+real Prolog-shaped business tasks, each with the question a manager would
+actually ask, the canonical program it must become, a tiny Table set to prove
+it on, and the answer that program gives. It is `pareto.txt`'s sibling and
+obeys the same two laws: no rule ships from here without `test:` proofs from
+real output, and SD-7 — no grammar without a sentence that needs it. This
+file supplies the sentences.
+
+**Why its own file, not a `pareto.txt` section.** A pareto entry is one line:
+`id | surface | target operation`, where the target is a COM call. A query
+entry cannot be one line. Its target is a program (a rule set plus a query,
+often five clauses), and that program means nothing without the Tables it
+runs over, so every entry carries a fixture and a measured answer. The
+target is engine text rather than an Excel operation, and the corpus's job
+is also different: pareto predicts single operations, while this file
+has to show that a small set of sentence frames composes into all of
+these programs. Folding it into pareto would break pareto's own grammar.
+
+**What the manager's question is NOT.** It is not the sentence Frazaro
+accepts. SD-16 makes the phrasebook's pattern language the only sentence
+grammar, so a free question such as "who can cover the night shift" is the
+*specimen*, and the controlled sentences that reach it come from the frames
+listed in each entry (the frame key below). Those spellings are decided in
+`G-PROLOG`'s scope (`docs/BETA_ROADMAP1.md`), not here.
+
+---
+
+## How to read an entry
+
+```
+  id               priority  engine   frames
+    asks     the question, as a manager would put it
+    program  the canonical program text
+    on       the fixture (below)
+    answers  what the cell holds, measured          [steps, depth]
+```
+
+**Markers**, pareto's own plus two:
+
+| | meaning |
+|---|---|
+| `!` | needs a **Tier-2 runtime helper** |
+| `~` | needs a **grammar feature first** |
+| `?` | **semantic decision required**; the note says what |
+| `#` | **over the step ceiling today** — answers only after `PROLOG.28` |
+| `x` | **not this engine's** — routed or refused, never faked |
+
+**Engines.** `P` PROLOG · `D` DATALOG · `P|D` the shared Horn fragment,
+either engine gives the same set · `Q` SQL · `S` SOLVE (unbuilt).
+
+**Priorities**, pareto's: `P0` a beta without it looks unfinished · `P1`
+common by month two · `P2` real but narrower. Breadth beats depth.
+
+**How the answers were measured.** Every `P` program below was run through
+the transliteration `PROLOG.22` built (a PowerShell model of `VLA_Prolog`'s
+parse and solve, its tables read from the VBA source), extended by one arm
+for `length`. **Control first:** the model reproduces 568 of `TestDSLs`'
+live-verified assertions with 0 failures, 265 counted as gaps and never as
+passes; a mutation of the `length` arm turns 7 red. Steps are what
+`PROLOG_MAX_STEPS` (120) is charged; depth is the deepest nesting of
+`SolveGoalList` frames, the thing the ceiling exists to protect. Where a
+program needs more than 120 steps it is run a second time with work
+uncapped and depth capped at 60, and both numbers are given. `D`, `Q` and
+`S` programs are not measured here; there is no DATALOG transliteration.
+**No answer below has been seen in a cell yet.**
+
+## The frame key
+
+Spelling-independent names for the sentence frames the corpus needs; the
+roadmap's scope gives each its English.
+
+*Reading a Table* — the only frames that see rows:
+
+| frame | clause it writes |
+|---|---|
+| `T2` pair | `(rule (r X Y) (t (a X) (b Y)))` |
+| `T1` set | `(rule (s X) (t (a X)))` |
+| `TW` pair with a row condition | `(rule (r X Y) (t (a X) (b Y) (c V)) (>= V 3))`, or `(c X)` twice for a same-row match |
+| `J` join | `(rule (r X Y) (t1 (a X) (c V) (e P)) (t2 (b Y) (d V) (f Q)) (>= P Q))` — one match pair, at most one comparison |
+| `F` fact | `(fact (r "Bob" "Carol"))` |
+
+*Composing named relations* — one clause each, never a row:
+
+| frame | clause it writes |
+|---|---|
+| `ALSO` rename, and union by repetition | `(rule (r X Y) (a X Y))` |
+| `AND` | `(rule (r X Y) (a X Y) (b X Y))` |
+| `BUTNOT` | `(rule (r X Y) (a X Y) (not (b X Y)))` |
+| `THEN` composition | `(rule (r X Z) (a X Y) (b Y Z))` |
+| `CONV` converse | `(rule (r X Y) (a Y X))` |
+| `CLOS` directly or not | `(rule (r X Y) (a X Y)) (rule (r X Y) (a X Z) (r Z Y))` |
+| `CMP` compare through values | `(rule (r X Y) (a X V) (b Y W) (>= V W))`; `matching` shares `V` |
+| `SEL` select by a constant | `(rule (s X) (a X V) (>= V 10000))` |
+| `PROJ` anyone who | `(rule (s X) (a X Y))` |
+| `IF` first match (P only) | `(rule (r X T) ... (if C1 (= T "Gold") (if C2 ...)))` |
+| `TEXT` prefix, contains (P only) | `(rule (s X) (a X V) (sub-atom V 0 4 After "GL-4"))` |
+
+*Asking* — the codomain; every one writes only the `(query ...)`, plus
+helper rules named `vla-*` where the shape needs one:
+
+`WHO` subject unknown · `WHAT` object unknown · `WHETHER` ground, a TRUE or
+FALSE · `PAIRS` both unknown · `COUNT` · `LIST` in one cell · `NONE` /
+`EVERY` · `ONLY` · `ANY` one (cut) · `EACH` per group.
+
+*Placement* is not a frame: every authoring sentence ends "in cell …" and
+every question names its rules range, its Tables and its cell.
+
+---
+
+## Fixtures
+
+Tiny on purpose, and each one hides the trap its section is about.
+
+```
+STAFFING  Shifts(Shift, Needs, MinLevel)  Staff(Name, Cert, Level)       Leave(Name, Shift)
+          Day      First-aid 1            Ann First-aid 3                 Di  Night
+          Night    Forklift  2            Bob Forklift  3                 Ann Weekend
+          Weekend  First-aid 3            Bob First-aid 1
+                                          Cy  Forklift  1
+                                          Di  Forklift  3
+                                          Ed  First-aid 2
+  (the trap: Bob's LEVEL belongs to each certification row, and his only
+   First-aid row is level 1 — a level taken from his Forklift row would
+   wrongly clear him for Weekend.)
+
+ORG       Reports(Employee, Manager): Bob Alice · Carol Alice · Dave Bob · Eve Dave
+                                      · Frank Carol · Gus Hal
+          Roster(Name, Dept): Alice Exec · Bob Ops · Carol Sales · Dave Ops · Eve Ops
+                              · Frank Sales · Gus Lab · Hal Lab
+  (a disconnected chain, Gus→Hal, and two people nobody manages.)
+
+APPROVAL  ORG, plus Limits(Approver, Limit): Alice 50000 · Bob 10000 · Carol 10000 · Dave 2000
+          Invoices(Invoice, Submitter, Amount): INV-1 Eve 1500 · INV-2 Eve 8000 · INV-3 Frank 30000
+          Delegations(From, To): Alice Carol
+
+ACCESS    UserRoles(User, Role): ann analyst · bob admin · cy viewer
+          RoleInherits(Role, Parent): admin analyst · analyst viewer
+          RolePerms(Role, Perm): viewer read · analyst export · admin delete
+
+BOM       Parts(Assembly, Component, Qty): bike frame 1 · bike wheel 2 · wheel spoke 32
+                                           · wheel rim 1 · wheel hub 1 · hub bearing 2
+
+COURSES   Prereqs(Course, Requires): Stats2 Stats1 · ML Stats2 · ML Linear · Stats1 Math
+          Taken(Student, Course): Zoe Math · Zoe Stats1 · Zoe Stats2 · Yan Math
+
+COMPAT    Compat(A, B): laptop-x dock-1 · dock-1 monitor-4 · laptop-y dock-2
+  (listed one way only; not transitive: laptop-x does not fit monitor-4.)
+
+TIERS     Customers(Customer, Spend): Acme 12000 · Beta 6000 · Cafe 900
+
+COI       Expenses(Expense, Submitter, Approver): E1 Bob Bob · E2 Carol Alice · E3 Dave Eve
+          Relatives(A, B): Eve Dave
+
+SCHEDULE  Assignments(Person, Shift): Ann S1 · Ann S2 · Bob S3
+          ShiftTimes(Shift, Day, Start, End): S1 Mon 8 16 · S2 Mon 14 22 · S3 Tue 8 16
+
+LINEAGE   Feeds(Source, Target): Raw Clean · Clean Model · Model Report · FX Model
+
+ROUTES    Links(From, To): A B · B C · C A · C D      (a cycle, A→B→C→A)
+
+BILLS     Bills(Bill, Vendor, Amount): B1 Acme 12000 · B2 Beta 15000 · B3 Cafe 3000 · B4 Dyna 20000
+          Approvals(Bill, Approver): B1 Alice
+          Preferred(Vendor): Beta
+
+ACCOUNTS  Accounts(Code, Account): GL-4010 Sales · GL-4020 Services · GL-5010 Rent · GL-5020 Wages
+
+SCALE     Big(Name, N): P1 1 … Pn n, for n = 119, 120, 121, 200, 1000
+          Staff of 5, 10, 15, 20 people over five shifts
+```
+
+The slice-1 knowledge base, `KB1`, is used throughout §1 and §14:
+
+```
+(rule (qualified-for X Y) (staff (name X) (cert V) (level P))
+                          (shifts (shift Y) (needs V) (minlevel Q)) (>= P Q))
+(rule (on-leave-for X Y) (leave (name X) (shift Y)))
+(rule (can-cover X Y) (qualified-for X Y) (not (on-leave-for X Y)))
+```
+
+---
+
+## 1. Eligibility and policy — P0
+
+*The README's own specimen, and the section that decides the composition
+model: its Level is an attribute of a (person, certification) row, so no
+chain of two-place relations can carry it (see `elig-lossy`).*
+
+```
+elig-readme          P0  P|D   (one rule, not frames)
+  asks     Who can cover which shift?  (the README rule, verbatim)
+  program  (rule (can-cover Shift Who) (shifts (shift Shift) (needs Cert) (minlevel Min))
+             (staff (name Who) (cert Cert) (level Level)) (>= Level Min)
+             (not (leave (name Who) (shift Shift))))
+           (query (can-cover Shift Who))
+  on       STAFFING
+  answers  Shift|Who: Day Ann · Day Bob · Day Ed · Night Bob                  [49, 7]
+
+elig-who             P0  P|D   J T2 BUTNOT · WHO
+  asks     Who can cover the night shift?
+  program  KB1 (query (can-cover Who "Night"))
+  answers  Who: Bob                                                         [37, 9]
+
+elig-who-day         P0  P|D   J T2 BUTNOT · WHO
+  asks     Who can cover the day shift?
+  program  KB1 (query (can-cover Who "Day"))
+  answers  Who: Ann · Bob · Ed                                              [41, 8]
+
+elig-who-none        P0  P|D   J T2 BUTNOT · WHO
+  asks     Who can cover the weekend?
+  program  KB1 (query (can-cover Who "Weekend"))
+  answers  Who: (the header, nothing under it)                              [33, 9]
+
+elig-whether         P0  P|D   J T2 BUTNOT · WHETHER
+  asks     Can Bob cover the night shift?  Can Di?  Can Bob cover the weekend?
+  program  KB1 (query (can-cover "Bob" "Night"))   ... "Di" "Night" ... "Bob" "Weekend"
+  answers  TRUE · FALSE (on leave) · FALSE (the trap, answered right)       [19 · 16 · 15]
+
+elig-what            P0  P|D   J T2 BUTNOT · WHAT
+  asks     Which shifts can Bob cover?
+  program  KB1 (query (can-cover "Bob" What))
+  answers  What: Night · Day                                                [25, 8]
+
+elig-pairs           P1  P|D   J T2 BUTNOT · PAIRS
+  asks     Who can cover what?
+  program  KB1 (query (can-cover Who Which))
+  answers  Who|Which: Ann Day · Bob Night · Bob Day · Ed Day                [59, 9]
+
+elig-lossy        ?  —   —     T2 T2 T2 T2 THEN CMP BUTNOT  (REJECTED)
+  asks     The same policy built only from two-place relations:
+           holds(Name,Cert), needs(Shift,Cert), level-of(Name,Level),
+           asks-for(Shift,MinLevel), then qualified-for and cleared-for.
+  answers  Weekend: Bob — WRONG (his Forklift level cleared his First-aid)  [85, 16]
+           Day: Ann · Bob · Bob · Ed — a duplicate                          [93, 15]
+  note     The reason the scope has a J frame. A ternary row is not the join
+           of its binary projections unless the attribute depends on the
+           person alone; here it depends on the person AND the certification.
+```
+
+## 2. Org charts and reporting lines — P0
+
+*SD-19's founding pair for this family: "reports to" directly and "reports
+to, directly or not" are neighbouring questions, and each sentence names
+which. Transitive closure blows the step ceiling on six rows.*
+
+```
+org-direct           P0  P|D   T2 · WHO
+  asks     Who reports to Alice?
+  program  (rule (reports-to X Y) (reports (employee X) (manager Y)))
+           (query (reports-to Who "Alice"))
+  on       ORG
+  answers  Who: Bob · Carol                                                 [7, 3]
+
+org-under          # P0  D     T2 CLOS · WHO
+  asks     Who reports to Alice, directly or not?
+  program  ... (rule (under X Y) (reports-to X Y))
+               (rule (under X Y) (reports-to X Z) (under Z Y))
+           (query (under Who "Alice"))
+  answers  today: prolog-step-ceiling, blaming "a rule that recurses without
+           ever reaching a base case" — a wrong explanation of a correct rule
+           uncapped: Who: Bob · Carol · Dave · Eve · Frank                  [176, 12]
+  note     DATALOG answers this today (G-DATALOG's datalog-chain-place).
+
+org-above            P0  P|D   T2 CLOS · WHAT
+  asks     Who is above Eve?
+  program  ... (query (under "Eve" Who))
+  answers  Who: Dave · Bob · Alice                                          [64, 12]
+
+org-skip             P1  P|D   T2 THEN · WHO
+  asks     Who are Alice's skip-level reports?
+  program  ... (rule (skip-level X Y) (reports-to X Z) (reports-to Z Y))
+           (query (skip-level Who "Alice"))
+  answers  Who: Dave · Frank                                                [50, 6]
+
+org-top              P0  P|D   T1 T2 PROJ BUTNOT · WHO
+  asks     Who has no manager?
+  program  ... (rule (person X) (roster (name X))) (rule (has-manager X) (reports-to X Y))
+               (rule (top X) (person X) (not (has-manager X)))
+           (query (top Who))
+  on       ORG (Reports and Roster)
+  answers  Who: Alice · Hal                                                 [82, 8]
+
+org-managers         P1  P|D   T2 PROJ · WHO   (set, not bag)
+  asks     Who manages anyone?
+  program  ... (rule (manager Y) (reports-to X Y)) (query (manager Who))
+  answers  Who: Alice · Alice · Bob · Dave · Carol · Hal                    [8, 4]
+  note     A "who" answer must be a SET: Alice appears once per report. The
+           duplicate is measured, not hypothetical (also pre-blocked, sched-clash).
+
+org-span             P1  P|D   T2 · COUNT
+  asks     How many people report to Alice directly?
+  program  ... (rule (vla-count N) (findall X (reports-to X "Alice") B) (length B N))
+           (query (vla-count N))
+  answers  N: 2                                                             [10, 5]
+  note     findall counts derivations, not people; see COUNT in §15.
+
+org-peers            P1  P     T2 · WHAT  (inequality)
+  asks     Who are Bob's peers?
+  program  ... (rule (peer X Y) (reports-to X M) (reports-to Y M) (\= X Y))
+           (query (peer "Bob" Who))
+  answers  Who: Carol                                                       [17, 7]
+```
+
+## 3. Approval chains and delegation of authority — P0
+
+*Functional attributes (one Limit per approver, one Amount per invoice), so
+here two-place relations ARE lossless and compose freely.*
+
+```
+appr-who             P0  P|D   T2 CLOS THEN CMP · WHO
+  asks     Who can approve INV-2?  (anyone above the submitter whose limit covers it)
+  program  ORG's under, plus
+           (rule (limit-of X L) (limits (approver X) (limit L)))
+           (rule (submitted-by I X) (invoices (invoice I) (submitter X)))
+           (rule (amount-of I A) (invoices (invoice I) (amount A)))
+           (rule (above-submitter Y I) (submitted-by I X) (under X Y))
+           (rule (can-approve Y I) (above-submitter Y I) (limit-of Y L) (amount-of I A) (>= L A))
+           (query (can-approve Who "INV-2"))
+  on       APPROVAL
+  answers  Who: Bob · Alice                                                 [100, 19]
+           INV-3: Alice                                                     [74, 16]
+
+appr-delegated     # P0  P|D   ... ALSO · WHO
+  asks     Who can approve INV-3, counting delegations?
+  program  ... (rule (delegates X Y) (delegations (from X) (to Y)))
+               (rule (may-approve Y I) (can-approve Y I))
+               (rule (may-approve Y I) (delegates X Y) (can-approve X I))
+           (query (may-approve Who "INV-3"))
+  answers  uncapped: Who: Alice · Carol                                     [142, 19]
+  note     Union is two sentences with one head (ALSO twice). A delegation
+           cycle would make CLOS-over-delegation non-terminating in PROLOG.
+```
+
+## 4. Access control and role inheritance — P0
+
+```
+acc-can              P0  P|D   T2 CLOS THEN ALSO · WHAT
+  asks     What can bob do?
+  program  (rule (has-role U R) (userroles (user U) (role R)))
+           (rule (inherits R P) (roleinherits (role R) (parent P)))
+           (rule (inherits-any R P) (inherits R P))
+           (rule (inherits-any R P) (inherits R Z) (inherits-any Z P))
+           (rule (role-of U R) (has-role U R))
+           (rule (role-of U P) (has-role U R) (inherits-any R P))
+           (rule (perm R X) (roleperms (role R) (perm X)))
+           (rule (can U X) (role-of U R) (perm R X))
+           (query (can "bob" What))
+  on       ACCESS
+  answers  What: delete · export · read                                     [47, 13]
+
+acc-whether          P0  P|D   same · WHETHER
+  asks     Can ann delete?
+  answers  FALSE                                                            [35, 10]
+
+acc-who              P0  P|D   same · WHO
+  asks     Who can export?
+  answers  Who: ann · bob                                                   [83, 13]
+  note     role-of must be right-recursive: `(role-of U P) (role-of U R) (inherits R P)`
+           loops in PROLOG. CLOS writes the right-recursive form, always.
+```
+
+## 5. Bills of materials — P1
+
+```
+bom-down             P1  P|D   T2 CLOS · WHAT
+  asks     What goes into a bike, at any depth?
+  program  (rule (contains A C) (parts (assembly A) (component C)))
+           (rule (contains-any A C) (contains A C))
+           (rule (contains-any A C) (contains A Z) (contains-any Z C))
+           (query (contains-any "bike" What))
+  on       BOM
+  answers  What: frame · wheel · spoke · rim · hub · bearing                [112, 12]
+
+bom-up             # P1  D     T2 CLOS · WHO
+  asks     Where is a bearing used?
+  program  ... (query (contains-any What "bearing"))
+  answers  uncapped: What: hub · bike · wheel                               [192, 12]
+
+bom-qty           x  P2  Q|D   —
+  asks     How many spokes go into one bike?  (32 per wheel, 2 wheels: 64)
+  note     Multiplying quantities along every path and summing is aggregation
+           over paths: SQL's WITH RECURSIVE or DATALOG's let/sum, not a frame here.
+```
+
+## 6. Prerequisites and dependency order — P1
+
+```
+pre-all              P1  P|D   T2 CLOS · WHAT
+  asks     What must be taken before ML?
+  program  (rule (requires C R) (prereqs (course C) (requires R)))
+           (rule (requires-any C R) (requires C R))
+           (rule (requires-any C R) (requires C Z) (requires-any Z R))
+           (query (requires-any "ML" What))
+  on       COURSES
+  answers  What: Stats2 · Linear · Stats1 · Math                            [60, 12]
+
+pre-missing          P1  P|D   T2 BUTNOT · WHAT
+  asks     Which ML prerequisites has Zoe not taken?
+  program  ... (rule (took S C) (taken (student S) (course C)))
+           (query (requires "ML" What) (not (took "Zoe" What)))
+  answers  What: Linear                                                     [17, 6]
+
+pre-blocked          P1  P|D   T1 T2 BUTNOT · WHO  (set, not bag)
+  asks     Who is not ready for ML?
+  program  ... (rule (student S) (taken (student S)))
+               (rule (blocked S C) (student S) (requires C R) (not (took S R)))
+           (query (blocked Who "ML"))
+  answers  Who: Zoe · Zoe · Zoe · Yan · Yan  — the set is {Zoe, Yan}        [74, 9]
+
+pre-order         x  P2  P     —
+  asks     In what order should these courses be taken?
+  note     A topological order is a list, not a set: PROLOG with lists, or a
+           Tier-2 helper. Not a relation frame; filed, not scoped.
+```
+
+## 7. Product compatibility — P1
+
+*SD-19 again: "fits" is symmetric but not transitive; "connects through"
+would be CLOS. The sentence says which.*
+
+```
+compat-fits          P1  P|D   T2 CONV ALSO · WHETHER
+  asks     Does monitor-4 fit dock-1?  Does laptop-x fit monitor-4?
+  program  (rule (fits A B) (compat (a A) (b B))) (rule (fits A B) (compat (a B) (b A)))
+           (query (fits "monitor-4" "dock-1"))
+  on       COMPAT
+  answers  TRUE (listed the other way round) · FALSE (not transitive)       [8 · 8]
+```
+
+## 8. Classification and tiering — P0
+
+```
+tier-first           P0  P     IF · PAIRS
+  asks     Which tier is each customer?  (Gold from 10000, Silver from 5000, else Bronze)
+  program  (rule (tier C T) (customers (customer C) (spend S))
+             (if (>= S 10000) (= T "Gold") (if (>= S 5000) (= T "Silver") (= T "Bronze"))))
+           (query (tier Who Tier))
+  on       TIERS
+  answers  expected Acme Gold · Beta Silver · Cafe Bronze; NOT MEASURED (the
+           model does not do term matching over a quoted atom). PROLOG.14's form.
+
+tier-strata          P0  P|D   TW SEL BUTNOT · WHO
+  asks     Who is Silver?  (the DATALOG-shaped spelling: a band, minus the band above)
+  program  (rule (gold C) (customers (customer C) (spend S)) (>= S 10000))
+           (rule (silver C) (customers (customer C) (spend S)) (>= S 5000) (not (gold C)))
+           (query (silver Who))
+  answers  Who: Beta                                                        [19, 8]
+```
+
+## 9. Conflicts of interest — P1
+
+```
+coi-self             P1  P|D   TW (same-row match) · WHO
+  asks     Which expenses did the submitter approve?
+  program  (rule (self-approved E) (expenses (expense E) (submitter X) (approver X)))
+           (query (self-approved Which))
+  on       COI
+  answers  Which: E1                                                        [4, 3]
+
+coi-related          P1  P|D   T2 CONV ALSO J · WHO
+  asks     Which expenses were approved by a relative of the submitter?
+  program  (rule (related X Y) (relatives (a X) (b Y))) (rule (related X Y) (relatives (a Y) (b X)))
+           (rule (coi E) (expenses (expense E) (submitter X) (approver Y)) (related X Y))
+           (query (coi Which))
+  answers  Which: E3                                                        [16, 5]
+```
+
+## 10. Conflicts of schedule — P1
+
+```
+sched-clash          P1  P|D   (one rule; two comparisons on a row pair) · WHO  (set)
+  asks     Who is double-booked?
+  program  (rule (clash X) (assignments (person X) (shift A)) (assignments (person X) (shift B))
+             (\= A B) (shifttimes (shift A) (day D) (start S1) (end E1))
+             (shifttimes (shift B) (day D) (start S2) (end E2)) (< S1 E2) (< S2 E1))
+           (query (clash Who))
+  on       SCHEDULE
+  answers  Who: Ann · Ann                                                   [34, 9]
+  note  ?  Two comparisons on one pair of rows: beyond J's "at most one".
+           Shift is the key of ShiftTimes, so the frames CAN build it from
+           CMP twice plus AND, at a cost in sentences; or a row-condition
+           sub-grammar says it in one. The scope's composition fork decides.
+```
+
+## 11. Lineage — P1
+
+```
+lineage-up           P1  P|D   T2 CLOS · WHAT
+  asks     What feeds the Report, directly or not?
+  program  (rule (feeds-into X Y) (feeds (source X) (target Y)))
+           (rule (upstream X Y) (feeds-into X Y)) (rule (upstream X Y) (feeds-into X Z) (upstream Z Y))
+           (query (upstream What "Report"))
+  on       LINEAGE
+  answers  What: Model · Raw · Clean · FX                                   [108, 12]
+
+lineage-selfname  ?  —   —     T2 named after its own Table  (a HAZARD)
+  program  (rule (feeds X Y) (feeds (source X) (target Y))) (query (feeds What "Report"))
+  answers  prolog-step-ceiling: the rule calls itself, since a Table and a
+           rule with one name are one predicate            [121; uncapped: depth > 60]
+  note     A relation named after the Table it reads can never terminate.
+           The grammar layer should refuse it when the sentence names both.
+```
+
+## 12. Routes and connectivity — P1
+
+```
+routes-reach       x P1  D     T2 CLOS · WHETHER
+  asks     Can we get from A to D?
+  program  (rule (link X Y) (links (from X) (to Y)))
+           (rule (route X Y) (link X Y)) (rule (route X Y) (link X Z) (route Z Y))
+           (query (route "A" "D"))
+  on       ROUTES
+  answers  PROLOG: refuses. The cycle makes it non-terminating, and PROLOG
+           collects every solution, so it never stops.  [121; uncapped: depth > 60]
+           DATALOG terminates on any finite graph.
+  note     Reachability over data that may cycle is DATALOG's by nature.
+           With a cut, (query (route "A" "D") !) answers TRUE in 26 steps,
+           but only when a route exists: "no route" still never terminates.
+```
+
+## 13. Compliance rules with exceptions — P0
+
+```
+comp-violation       P0  P|D   TW PROJ J BUTNOT BUTNOT · WHO
+  asks     Which bills over 10000 have no approval, unless the vendor is preferred?
+  program  (rule (big I) (bills (bill I) (amount A)) (> A 10000))
+           (rule (approved I) (approvals (bill I)))
+           (rule (excused I) (bills (bill I) (vendor V)) (preferred (vendor V)))
+           (rule (needs-approval I) (big I) (not (approved I)))
+           (rule (violation I) (needs-approval I) (not (excused I)))
+           (query (violation Which))
+  on       BILLS
+  answers  Which: B4                                                        [34, 11]
+  note     Exceptions are BUTNOT stacked, one sentence per exception. Unary
+           relations (sets) are needed here, not only pairs.
+```
+
+## 14. "Who has no X", "who is the only X", "every X" — P0
+
+*These are answer SHAPES over a defined relation, not new policies.*
+
+```
+none-covered       # P0  P|D   T1 PROJ BUTNOT · NONE
+  asks     Which shifts have nobody who can cover them?
+  program  KB1 (rule (covered S) (can-cover X S)) (rule (shift S) (shifts (shift S)))
+           (query (shift Which) (not (covered Which)))
+  on       STAFFING
+  answers  uncapped: Which: Weekend                                         [121, 13]
+
+every-covered      # P0  P|D   same · EVERY
+  asks     Does every shift have someone who can cover it?
+  program  ... (rule (uncovered S) (shift S) (not (covered S))) (query (not (uncovered X)))
+  answers  uncapped: FALSE                                                  [123, 15]
+
+only-cover           P0  P|D   · ONLY
+  asks     Is Bob the only one who can cover nights?  /  Who alone can cover nights?
+  program  KB1 (rule (vla-other X Y) (can-cover Z Y) (\= Z X))
+           (query (can-cover Who "Night") (not (vla-other Who "Night")))
+  answers  Who: Bob                                                         [77, 17]
+
+any-cover            P1  P     · ANY
+  asks     Name one person who can cover the day shift.
+  program  KB1 (query (can-cover Who "Day") !)
+  answers  Who: Ann                                                         [10, 8]
+```
+
+## 15. Counts and lists per group — P0
+
+```
+count-each         # P0  D|Q   T1 · EACH COUNT
+  asks     How many people can cover each shift?
+  program  KB1 (rule (shift S) (shifts (shift S)))
+               (rule (vla-count S N) (shift S) (findall X (can-cover X S) B) (length B N))
+           (query (vla-count Shift N))
+  answers  uncapped: Shift|N: Day 3 · Night 1 · Weekend 0                   [122, 13]
+  note  ?  findall counts derivations; a person reachable two ways counts
+           twice. DATALOG's (count N (can-cover X S)) counts the SET, and
+           gives the zero group; SQL's GROUP BY is the aggregation engine.
+           The answer-shape fork decides what COUNT means.
+
+list-each            P1  P     T1 · EACH LIST
+  asks     For each shift, who can cover it, in one cell?
+  program  KB1 (rule (shift S) (shifts (shift S)))
+           (query (shift Shift) (findall X (can-cover X Shift) Who))
+  answers  Shift|Who: Day (list "Ann" "Bob" "Ed") · Night (list "Bob") · Weekend nil  [118, 12]
+  note     PROLOG's own shape: the bag as a value. DATALOG has no lists.
+```
+
+## 16. Text-shaped facts (codes, prefixes) — P1
+
+```
+text-prefix          P1  P     TEXT · WHO
+  asks     Which accounts are revenue?  (their code starts with GL-4)
+  program  (rule (revenue C) (accounts (code C)) (sub-atom C 0 4 After "GL-4"))
+           (query (revenue Which))
+  on       ACCOUNTS
+  answers  expected GL-4010 · GL-4020; NOT MEASURED (text goals are a model gap)
+  note     PROLOG-only: DATALOG has no text goals. A numeric code column is a
+           number, not text, and sub-atom refuses it; the fixture uses text.
+```
+
+## 17. Search and optimisation — not a logic query
+
+```
+solve-roster      x  P2  S     —
+  asks     Assign people to shifts, minimising overtime.
+  note     SOLVE's (unbuilt). Never faked with PROLOG: generating every
+           assignment is not optimising, and it blows any step budget. The
+           grammar refuses it in words until G-SOLVE exists.
+```
+
+## 18. Scale — why none of this survives a real Table today
+
+```
+scale-scan         # —   P     one Table, one question
+  program  (query (big (name X) (n 7)))
+  answers  119 rows: 119 steps · 120: 120 · 121: REFUSED · 200: REFUSED · 1000: REFUSED
+           uncapped, 1000 rows: 1000 steps, depth 2
+
+scale-join         # —   P     KB1, five shifts
+  answers  5 staff: 45 · 10 staff: 84 · 15 staff: REFUSED (127) · 20 staff: REFUSED (170)
+           depth 8 throughout
+```
+
+Every candidate a query tries costs one step, so work grows with the
+Tables. Depth grows only with the proof, and the recursion that
+`PROLOG_MAX_STEPS` was introduced to stop is depth. Across this whole
+corpus the deepest terminating query needs **19** frames. Work reaches
+1,000 on a plain scan, and passes 120 in six entries whose Tables have
+fewer than ten rows each (`org-under`, `appr-delegated`, `bom-up`,
+`none-covered`, `every-covered`, `count-each`); the two that pass it
+because they never terminate (`lineage-selfname`, `routes-reach`) are the
+depth case, the one the cap was built for. The one cap does two jobs, and when the work
+runs out the refusal blames the user's rule for recursing, which is false.
+That is `PROLOG.28`.
+
+---
+
+## Counts
+
+Counted mechanically, not by hand: **48 entries** across seventeen business
+families and the scale section — **22 P0, 19 P1, 3 P2**, and four
+unprioritised because they are findings rather than tasks (`elig-lossy`,
+`lineage-selfname`, `scale-scan`, `scale-join`). **43 measured**; 2 not
+measured (model gaps: `tier-first`, `text-prefix`); 3 routed away and never
+run (`bom-qty`, `pre-order`, `solve-roster`), and `routes-reach` measured
+and routed. **8 entries need `PROLOG.28`** (`#`). Duplicates in a "who"
+answer were measured in four entries (`org-managers`, `pre-blocked`,
+`sched-clash`, `elig-lossy`), a wrong answer in one (`elig-lossy`), and two
+programs that can never terminate (`lineage-selfname`, `routes-reach`).

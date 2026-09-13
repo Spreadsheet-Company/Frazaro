@@ -488,7 +488,30 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "prolog-query-bad-shape", 5, "VLA-Prolog", "(query ...) needs at least one predicate form, like (query (parent tom X))."
     AddMsg m, "prolog-query-missing", 5, "VLA-Prolog", "this program has no (query ...) - PROLOG needs exactly one, naming what to answer."
     AddMsg m, "prolog-query-ambiguous", 5, "VLA-Prolog", "this program has {count} (query ...) forms - PROLOG needs exactly one."
-    AddMsg m, "prolog-step-ceiling", 5, "VLA-Prolog", "this query took more than {steps} resolution steps without finishing, which is almost certainly a rule that recurses without ever reaching a base case rather than a very large proof - check for a rule whose recursive call never gets closer to a fact."
+    ' PROLOG.28: an Excel cell holds at most 32,767 characters. Before the
+    ' work budget was sized for real Tables a findall bag stayed under
+    ' ~118 elements; now a bag of every row is an ordinary result, and one
+    ' rendered into a cell can be longer than the cell.
+    ' PROLOG.28: a list is a chain of cons cells, and VBA releases such a
+    ' chain recursively - measured (tools/VLA_Diag3.bas): 5,000 cells drop
+    ' cleanly, 8,000 raise "Out of stack space" on the way out. The budget
+    ' is on what a query GATHERS, never on what it reads, so the message
+    ' says so and points at the engine that has no such limit.
+    AddMsg m, "prolog-list-ceiling", 5, "VLA-Prolog", "{form} tried to gather {count} things into one list, and PROLOG gathers at most {max} into one - reading a Table of any size is fine, it is holding it all in one value that is not. Ask it as a DATALOG question instead, which counts a set of any size."
+    AddMsg m, "prolog-value-too-long-for-a-cell", 5, "VLA-Prolog", "the answer for {var} is {length} characters long, and an Excel cell holds at most 32,767 - ask for its length with (length ...), or ask for the rows one at a time instead of gathering them into one list."
+    ' PROLOG.28: `prolog-step-ceiling` ("this query took more than {steps}
+    ' resolution steps without finishing, which is almost certainly a rule
+    ' that recurses...") is retired - one budget was doing two jobs, and its
+    ' text blamed a runaway rule for every big Table too. Removed outright,
+    ' the `prolog-cut-not-yet-supported` precedent below: no code path can
+    ' raise it. Its two successors each say only what is true of them.
+    ' DEPTH names all three honest causes, because a chain of data deeper
+    ' than the budget is not a runaway rule either, and points at DATALOG,
+    ' which follows a chain of any depth.
+    AddMsg m, "prolog-depth-ceiling", 5, "VLA-Prolog", "this query went more than {depth} rules deep without finishing. That is a rule that calls itself without ever getting closer to a fact, data that loops back on itself (A to B to C and back to A), or a chain deeper than PROLOG follows - a DATALOG question answers a chain of any depth, and never loops."
+    ' WORK: a large Table, or a join of several, spends it - never a
+    ' runaway rule, which reaches the depth ceiling first.
+    AddMsg m, "prolog-work-ceiling", 5, "VLA-Prolog", "this query tried more than {work} facts and rules without finishing. That is how much SEARCHING one question may do, never how large a Table may be: reading a Table spends one try per row, and joining two spends one per pair, so this is a large Table or a join of several - never a runaway rule. Put a quoted value where the query has an unknown, so there is less to try, or ask it as a DATALOG question, which joins large Tables without trying every pair."
 
     ' PROLOG.5.1 - `is`/arithmetic. `is`/`not`/`findall`/`!` are reserved
     ' words - forward-declared for PROLOG.5.2-5.4 too, even though only
@@ -782,7 +805,7 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "prolog-text-unbound", 5, "VLA-Prolog", "{form} can't run yet - {need}, and {var} is still unbound. Bind it first, from a table or an earlier goal in the query."
     AddMsg m, "prolog-text-not-text", 5, "VLA-Prolog", "{form} works on text - a quoted string, a name or a number - but found '{value}', which is a compound term."
     AddMsg m, "prolog-text-not-a-number", 5, "VLA-Prolog", "{form} expected a number there but found '{value}', which isn't one - note that a text cell reading 5 is not the number 5."
-    AddMsg m, "prolog-text-too-many-ways", 5, "VLA-Prolog", "{form} would have to try {count} ways of taking apart a text {length} characters long, and a whole query gets {max} resolution steps - bind more of its arguments so it has fewer ways to try."
+    AddMsg m, "prolog-text-too-many-ways", 5, "VLA-Prolog", "{form} would have to try {count} ways of taking apart a text {length} characters long, and a whole query can try at most {max} - bind more of its arguments so it has fewer ways to try."
     AddMsg m, "prolog-text-outside-bmp", 5, "VLA-Prolog", "{form} counts characters, and '{value}' holds one that Excel stores as two - an emoji, or a letter from a rarely used script. Excel's LEN counts it as 2 and Prolog counts it as 1, so PROLOG refuses rather than guess which you meant."
     AddMsg m, "prolog-text-case-unsupported", 5, "VLA-Prolog", "{form} changes the case of Latin letters - A to Z and the accented letters of Western and Central European languages - but will not guess at '{char}' (U+{code}): either its script's case rules are not carried here, or, like the Turkish dotless i, its case depends on the language it is written in."
     AddMsg m, "prolog-text-empty-separator", 5, "VLA-Prolog", "(atomic-list-concat ...) can't split text on an empty separator - there is no one way to cut text at every nothing. Give it a separator, such as a comma; joining with an empty separator is fine."
@@ -798,12 +821,13 @@ Private Sub AddEntries(ByVal m As Collection)
     ' relation, since testing then succeeds on exactly the values
     ' generating would produce.
     AddMsg m, "prolog-between-not-a-number", 5, "VLA-Prolog", "(between ...) generates or tests numbers, but its third argument is '{value}', which isn't one - note that a text cell reading 5 is not the number 5."
-    ' The range ceiling IS the query's own step ceiling, not a second
+    ' The range ceiling IS the query's own work budget, not a second
     ' budget - see VLA_Prolog.bas's own PROLOG.9 header. This message
-    ' exists because without it the same query stops with
-    ' prolog-step-ceiling, which blames a runaway rule the user does not
-    ' have.
-    AddMsg m, "prolog-between-range-too-wide", 5, "VLA-Prolog", "(between {low} {high} ...) would generate {count} values, and a whole query gets {max} resolution steps - narrow the range, or bind the third argument to test one value instead of generating them all."
+    ' exists because without it the same query stops with the work
+    ' ceiling a value later, naming a budget rather than the range that
+    ' spent it (before PROLOG.28, prolog-step-ceiling, which blamed a
+    ' runaway rule the user did not have).
+    AddMsg m, "prolog-between-range-too-wide", 5, "VLA-Prolog", "(between {low} {high} ...) would generate {count} values, and a whole query can try at most {max} - narrow the range, or bind the third argument to test one value instead of generating them all."
     ' PROLOG.7: {form}, not a hard-coded "(is ...)". These five refusals
     ' are raised by ValidateArithExpr/EvalArithTerm, which from PROLOG.7
     ' onward serve TWO callers - `(is Var Expr)` and each of the six

@@ -1,6 +1,6 @@
 Attribute VB_Name = "VLA_Prolog"
 Option Explicit
-Public Const VLA_PROLOG_VERSION As String = "PROLOG.22"
+Public Const VLA_PROLOG_VERSION As String = "PROLOG.28"
 '
 ' PROLOG.22, PROLOG.23 AND PROLOG.24: the three follow-ups PROLOG.19 filed,
 ' landed together because one live pass verifies all three.
@@ -1305,7 +1305,51 @@ Public Const VLA_PROLOG_VERSION As String = "PROLOG.22"
 ' revisit this number against real profiling data, DATALOG's own
 ' "profile first, don't build the cache speculatively" doctrine applied
 ' to a ceiling instead of a cache.
-Private Const PROLOG_MAX_STEPS As Long = 120
+'
+' PROLOG.28: that one number was doing two jobs, and the corpus
+' G-PROLOG was scoped against (scripts/pareto_logic.txt) measured the
+' difference. What the history above protects is DEPTH - the nesting of
+' SolveGoalList frames along the path being proved, which is what ran the
+' native stack out. What stepsTaken counts is WORK - every candidate
+' tried - and work grows with the Tables where depth grows only with the
+' proof. Over the whole corpus the deepest terminating query nests 19
+' frames while work runs into the thousands, so a 121-row scan, closure
+' over a six-row Reports table and a fifteen-person join all refused -
+' each blaming a rule that recursed, when none did. Now two budgets, each
+' with its own refusal. PROLOG_MAX_DEPTH keeps the 120: every frame used
+' to be preceded by a charged step, so depth was already at most 120, and
+' capping depth itself at 120 is exactly the stack bound this engine has
+' run under since PROLOG.5.3, no weaker - so every word above about frame
+' size still applies to it unchanged. PROLOG_MAX_WORK is the old counter
+' with a budget sized for real Tables (the owner's call, confirmed by
+' timing on the owner's machine). mDepth is module-level, not a
+' parameter, so no recursive frame grows: SolveGoalList counts itself in
+' on entry and out at its single exit, and PrologRun zeroes it, since a
+' raise abandons the whole query (nothing in the solver traps an error;
+' PROLOG()'s own handler is the only On Error in this module).
+'
+' Item headers in this module written before PROLOG.28 say
+' PROLOG_MAX_STEPS, and are left as written, because they record what was
+' decided then ("PROLOG_MAX_STEPS is 120" was true). Read the name as
+' PROLOG_MAX_WORK wherever such a header means the per-candidate budget,
+' and as PROLOG_MAX_DEPTH wherever it means the native stack. Every
+' comment that sits on live code has been renamed.
+' PROLOG.28, and it exists because of a measurement, not a worry. A list
+' here is a chain of cons cells, each holding the next, so releasing the
+' head releases the tail - and VBA does that recursively, however
+' iterative this module's own walkers are. Measured on the owner's machine
+' (tools/VLA_Diag3.bas): a chain of 5,000 drops cleanly, one of 8,000
+' raises "Out of stack space" on the way out of the procedure that built
+' it, in a near-empty stack. Inside the solver there is less headroom, and
+' a list of lists releases both depths. 1,000 is eight times under the
+' break and five under the last clean size (the owner's call over 2,000).
+' It does NOT limit what a query may READ: a scan of a 10,000-row Table
+' builds no list at all. It limits what one value may GATHER, and the
+' refusal points at DATALOG, which counts a set of any size.
+Private Const PROLOG_MAX_LIST As Long = 1000
+Private Const PROLOG_MAX_DEPTH As Long = 120
+Private Const PROLOG_MAX_WORK As Long = 100000
+Private mDepth As Long
 ' PROLOG.13: the empty list. An ordinary lowercase ATOM, not a Collection
 ' and not a sentinel object - which is the whole reason `(atomic? nil)`
 ' and `(compound? nil)` come out the ISO way with no change to
@@ -4000,14 +4044,35 @@ Private Function FreshenTerm(ByVal term As Variant, ByVal suffix As String) As V
         End If
         Exit Function
     End If
-    Dim lst As Collection, outLst As New Collection
+    ' PROLOG.28: every position but the LAST is freshened by the recursive
+    ' call it always was; the last becomes the next term to walk, so a
+    ' cons chain - whose tail IS its last position - is walked in a loop,
+    ' and nesting is bounded by how deeply a list's ELEMENTS nest, never by
+    ' its length. Position 1 of every level is still copied untouched, so
+    ' the output is the same term the recursion built, proven so over
+    ' random terms (diff28, the item's own transliteration). An empty list
+    ' still reaches lst.Item(1) and errors exactly as it always did.
+    Dim lst As Collection, root As Collection, outLst As Collection, nextLst As Collection
     Set lst = term
-    outLst.Add lst.Item(1)
+    Set root = New Collection
+    Set outLst = root
     Dim i As Long
-    For i = 2 To lst.Count
-        outLst.Add FreshenTerm(lst.Item(i), suffix)
-    Next i
-    Set FreshenTerm = outLst
+    Do
+        outLst.Add lst.Item(1)
+        If lst.Count <= 1 Then Exit Do
+        For i = 2 To lst.Count - 1
+            outLst.Add FreshenTerm(lst.Item(i), suffix)
+        Next i
+        If Not IsObject(lst.Item(lst.Count)) Then
+            outLst.Add FreshenTerm(lst.Item(lst.Count), suffix)
+            Exit Do
+        End If
+        Set nextLst = New Collection
+        outLst.Add nextLst
+        Set outLst = nextLst
+        Set lst = lst.Item(lst.Count)
+    Loop
+    Set FreshenTerm = root
 End Function
 
 ' Evaluates an already-freshened `is`-expression to a Double, fully
@@ -4152,6 +4217,20 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
                            freeVarNames As Collection, solutions As Collection, _
                            ByRef stepsTaken As Long, _
                            ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    ' PROLOG.28: DEPTH, counted here and nowhere else. Every nested frame of
+    ' this Sub - a rule body, the rest of a conjunction, not's and findall's
+    ' isolated sub-searches - comes in through this line, so mDepth is the
+    ' native stack's own depth in frames of this procedure, the thing
+    ' PROLOG_MAX_DEPTH exists to protect. It is counted out at the single
+    ' exit, leave:, at the bottom; there is no other way out of this Sub, and
+    ' check_prolog_budgets.ps1 holds it to that, because an early exit that
+    ' skipped the count-out would leave every later frame of the same query
+    ' refused as too deep. A raise leaves it counted in, harmlessly: nothing
+    ' in the solver traps an error, so the whole query ends, and PrologRun
+    ' zeroes it before the next.
+    mDepth = mDepth + 1
+    If mDepth > PROLOG_MAX_DEPTH Then VLA_Messages.RaiseMsg "prolog-depth-ceiling", "depth", PROLOG_MAX_DEPTH
+
     If goals.Count = 0 Then
         Dim sol As New Collection
         Dim vn As Variant
@@ -4167,7 +4246,7 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
             sol.Add resolved
         Next vn
         solutions.Add sol
-        Exit Sub
+        GoTo leave
     End If
 
     Dim rest As New Collection
@@ -4193,7 +4272,7 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' frame below sees a clean, correctly-ordered signal.
     If Not IsObject(goals.Item(1)) Then
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         Dim cutBarrier As Long
         cutBarrier = CutBarrierOf(CStr(goals.Item(1)))
         SolveGoalList rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
@@ -4233,7 +4312,7 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
             cutActive = True
             cutTargetBarrier = cutBarrier
         End If
-        Exit Sub
+        GoTo leave
     End If
 
     Dim predName As String
@@ -4245,11 +4324,11 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' construction, not a race against a same-named user predicate.
     ' Deterministic (no candidate enumeration, no backtracking - exactly
     ' one outcome per attempt), but still counted against
-    ' PROLOG_MAX_STEPS and still run against a FRESH env clone, the same
+    ' PROLOG_MAX_WORK and still run against a FRESH env clone, the same
     ' two disciplines every ordinary candidate try below already follows.
     If predName = "is" Then
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         Dim isGoal As Collection
         Set isGoal = goals.Item(1)
         Dim computedVal As Double
@@ -4262,7 +4341,7 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         If VLA_Unify.UnifyTwoWay(isGoal.Item(2), NumberToTerm(computedVal), isN, isT) Then
             SolveGoalList rest, clauseDict, isN, isT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
         End If
-        Exit Sub
+        GoTo leave
     End If
 
     ' PROLOG.5.2: `(not Goal)` - dispatched here, never through
@@ -4277,13 +4356,13 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' clone/discard is protecting against).
     If predName = "not" Then
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         Dim notGoal As Collection
         Set notGoal = goals.Item(1)
         If Not SolveNegation(notGoal.Item(2), clauseDict, envN, envT, stepsTaken) Then
             SolveGoalList rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
         End If
-        Exit Sub
+        GoTo leave
     End If
 
     ' PROLOG.5.3: `(findall Template Goal Bag)` - dispatched here, the
@@ -4309,7 +4388,7 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' semantics.
     If predName = "findall" Then
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         Dim findallGoal As Collection
         Set findallGoal = goals.Item(1)
         Dim bagN As Collection, bagT As Collection
@@ -4317,7 +4396,7 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
         If VLA_Unify.UnifyTwoWay(findallGoal.Item(4), HarvestFindallBag(findallGoal, clauseDict, envN, envT, stepsTaken), bagN, bagT) Then
             SolveGoalList rest, clauseDict, bagN, bagT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
         End If
-        Exit Sub
+        GoTo leave
     End If
 
     ' PROLOG.7: the six comparison goals - dispatched here, the identical
@@ -4325,7 +4404,7 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' use, since IsReservedPredicateName forbids ever DEFINING a predicate
     ' with one of these names. Deterministic like those three (exactly one
     ' outcome, no candidate enumeration, no backtracking), still counted
-    ' against PROLOG_MAX_STEPS.
+    ' against PROLOG_MAX_WORK.
     '
     ' envN/envT are threaded into the continuation UNCHANGED - never a
     ' fresh clone the way `is` produces one. A comparison binds nothing:
@@ -4340,11 +4419,11 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' stack-frame reason findall's own dispatch documents above.
     If ComparisonOpFor(predName) <> "" Then
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         If SolveComparison(goals.Item(1), predName, envN, envT) Then
             SolveGoalList rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
         End If
-        Exit Sub
+        GoTo leave
     End If
 
     ' PROLOG.8: the four term-matching goals (=, \=, ==, \==) - dispatched
@@ -4353,7 +4432,7 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' DEFINING a predicate with one of these names. Deterministic like
     ' those (exactly one outcome, no candidate enumeration, no
     ' backtracking - real Prolog's own =/2, \=/2, ==/2 and \==/2 are all
-    ' semi-deterministic), still counted against PROLOG_MAX_STEPS.
+    ' semi-deterministic), still counted against PROLOG_MAX_WORK.
     '
     ' It must sit ABOVE the clauseDict lookup below for the reason
     ' PROLOG.7's arm states: an unknown predicate there is a silent dead
@@ -4373,12 +4452,12 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' stack-frame reason findall's own dispatch documents above.
     If UnificationOpFor(predName) <> "" Then
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         Dim uniN As Collection, uniT As Collection
         If SolveUnification(goals.Item(1), UnificationOpFor(predName), envN, envT, uniN, uniT) Then
             SolveGoalList rest, clauseDict, uniN, uniT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
         End If
-        Exit Sub
+        GoTo leave
     End If
 
     ' PROLOG.9: the type-test goals - dispatched here, the identical
@@ -4386,7 +4465,7 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' since IsReservedPredicateName forbids ever DEFINING a predicate with
     ' one of these names. Deterministic like all of them (exactly one
     ' outcome, no candidate enumeration, no backtracking), still counted
-    ' against PROLOG_MAX_STEPS.
+    ' against PROLOG_MAX_WORK.
     '
     ' envN/envT are threaded into the continuation UNCHANGED - never a
     ' fresh clone the way `is` and `=` produce one. A type test binds
@@ -4407,11 +4486,11 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' stack-frame reason findall's own dispatch documents above.
     If TypeTestKindFor(predName) <> "" Then
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         If SolveTypeTest(goals.Item(1), TypeTestKindFor(predName), envN, envT) Then
             SolveGoalList rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
         End If
-        Exit Sub
+        GoTo leave
     End If
 
     ' PROLOG.9: the BARE ISO spellings - `(atom X)` where this engine
@@ -4519,9 +4598,9 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' step.
     If predName = "between" Then
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         SolveBetween goals.Item(1), rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
-        Exit Sub
+        GoTo leave
     End If
 
     ' PROLOG.13: the six list goals - dispatched here on the same
@@ -4560,9 +4639,9 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' reason findall's own dispatch documents above.
     If ListGoalKindFor(predName) <> "" Then
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         SolveListGoal goals.Item(1), ListGoalKindFor(predName), rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
-        Exit Sub
+        GoTo leave
     End If
 
     ' PROLOG.18: the seven text goals - dispatched here on the same
@@ -4584,9 +4663,9 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' reason, above.
     If TextGoalKindFor(predName) <> "" Then
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         SolveTextGoal goals.Item(1), TextGoalKindFor(predName), rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
-        Exit Sub
+        GoTo leave
     End If
 
     ' PROLOG.14: `(or A B ...)` - dispatched here on the same
@@ -4611,9 +4690,9 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' above follows, for findall's own live-caught stack-frame reason.
     If predName = "or" Then
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         SolveDisjunction goals.Item(1), rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
-        Exit Sub
+        GoTo leave
     End If
 
     ' PROLOG.14: `(if C T E)` / `(if C T)` - dispatched here on the same
@@ -4628,9 +4707,9 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' unique could be absorbed by the wrong loop.
     If predName = "if" Then
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         SolveIfThenElse goals.Item(1), rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
-        Exit Sub
+        GoTo leave
     End If
 
     ' PROLOG.14: the ISO CONTROL spellings - `(-> C T E)` where this
@@ -4709,14 +4788,14 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
     ' siblings): an UNRESERVED `(atom X)` would now refuse as a predicate
     ' nothing defines rather than fail silently, so those tables buy the
     ' better message - "write (atom? ...)" - rather than the loudness.
-    If Not VLA_Runtime.VlaDictHas(clauseDict, predName) Then Exit Sub   ' no candidates - dead end, not an error
+    If Not VLA_Runtime.VlaDictHas(clauseDict, predName) Then GoTo leave   ' no candidates - dead end, not an error
 
     Dim candidates As Collection
     Set candidates = VLA_Runtime.VlaDictGet(clauseDict, predName)
     Dim clauseRec As Variant
     For Each clauseRec In candidates
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
 
         ' PROLOG.5.4: myStep identifies THIS candidate try - the same
         ' value `suffix` is built from - and is this loop's own barrier
@@ -4772,6 +4851,8 @@ Private Sub SolveGoalList(ByVal goals As Collection, clauseDict As Object, _
             End If
         End If
     Next clauseRec
+leave:
+    mDepth = mDepth - 1
 End Sub
 
 ' PROLOG.5.2/5.3: the bounded sub-call microscope both negation-as-
@@ -4783,11 +4864,13 @@ End Sub
 ' proving goal never leaks back into the caller's own env, whether goal
 ' succeeds OR fails, exactly real Prolog's own \+/findall semantics.
 ' Shares stepsTaken (ByRef) with the caller rather than starting a fresh
-' budget - PROLOG_MAX_STEPS is a total-resolution-work ceiling for the
-' WHOLE query, not a per-sub-call allowance, so a goal that doesn't
-' terminate inside EITHER `not` or `findall` still hits the same worded
-' prolog-step-ceiling refusal ordinary recursion already would, never a
-' silent separate budget that could let it dodge the ceiling. No On
+' budget - PROLOG_MAX_WORK is a total-work budget for the WHOLE query,
+' not a per-sub-call allowance, and mDepth counts the sub-search's own
+' frames on top of the caller's, because they really are nested on the
+' stack (PROLOG.28) - so a goal that doesn't terminate inside EITHER
+' `not` or `findall` still hits the same worded refusal ordinary
+' recursion already would, never a silent separate budget that could let
+' it dodge the ceiling. No On
 ' Error of its own, deliberately: neither negation-as-failure nor
 ' findall catch a raised error, only ordinary proof failure (zero
 ' solutions) - an unbound variable inside an `is`, a divide-by-zero, or
@@ -5132,62 +5215,82 @@ Private Function QuotedVersusBareClass(ByVal a As Variant, ByVal b As Variant, _
                                         envN As Collection, envT As Collection, _
                                         ByRef outText As String, _
                                         ByVal freeVarUnifies As Boolean) As Long
+    ' PROLOG.28: walked FreshenTerm's way - every position but the last
+    ' classified recursively, the last pair in a loop - carrying `worst`,
+    ' the most-different class seen so far at every level above, so each
+    ' "return this subterm's class" of the recursion becomes "return the
+    ' larger of that and worst". An explicit (== L1 L2) over two long bags
+    ' reaches here when they differ. Leaves are visited in the same order,
+    ' so outText is the same first marker-only pair it always was.
     Dim aw As Variant, bw As Variant
-    VLA_Unify.EnvWalkInto aw, a, envN, envT
-    VLA_Unify.EnvWalkInto bw, b, envN, envT
-
-    If IsObject(aw) <> IsObject(bw) Then
-        ' A free variable unifies with a compound term too, so the
-        ' mismatched-shape case needs the same exemption as the leaf case
-        ' below. Nested Ifs, never a combined And - VBA does not
-        ' short-circuit, and CStr on the Collection side would raise 450.
-        If freeVarUnifies Then
-            If Not IsObject(aw) Then
-                If VLA_Unify.IsVarAtom(CStr(aw)) Then Exit Function      ' 0
-            End If
-            If Not IsObject(bw) Then
-                If VLA_Unify.IsVarAtom(CStr(bw)) Then Exit Function      ' 0
-            End If
-        End If
-        QuotedVersusBareClass = 2
-        Exit Function
-    End If
-
-    If Not IsObject(aw) Then
-        Dim x As String, y As String
-        x = CStr(aw)
-        y = CStr(bw)
-        If x = y Then Exit Function          ' 0 - identical leaves
-        If freeVarUnifies Then
-            If VLA_Unify.IsVarAtom(x) Then Exit Function                 ' 0
-            If VLA_Unify.IsVarAtom(y) Then Exit Function                 ' 0
-        End If
-        Dim t As String
-        If LeavesDifferOnlyByMarker(x, y, t) Then
-            If Len(outText) = 0 Then outText = t
-            QuotedVersusBareClass = 1
-        Else
-            QuotedVersusBareClass = 2
-        End If
-        Exit Function
-    End If
-
+    Dim worst As Long, c As Long
     Dim la As Collection, lb As Collection
-    Set la = aw
-    Set lb = bw
-    If la.Count <> lb.Count Then
-        QuotedVersusBareClass = 2
-        Exit Function
-    End If
-    Dim worst As Long
     Dim i As Long
-    For i = 1 To la.Count
-        Dim c As Long
-        c = QuotedVersusBareClass(la.Item(i), lb.Item(i), envN, envT, outText, freeVarUnifies)
-        If c > worst Then worst = c
-        If worst = 2 Then Exit For
-    Next i
-    QuotedVersusBareClass = worst
+    Do
+        VLA_Unify.EnvWalkInto aw, a, envN, envT
+        VLA_Unify.EnvWalkInto bw, b, envN, envT
+
+        If IsObject(aw) <> IsObject(bw) Then
+            ' A free variable unifies with a compound term too, so the
+            ' mismatched-shape case needs the same exemption as the leaf case
+            ' below. Nested Ifs, never a combined And - VBA does not
+            ' short-circuit, and CStr on the Collection side would raise 450.
+            c = 2
+            If freeVarUnifies Then
+                If Not IsObject(aw) Then
+                    If VLA_Unify.IsVarAtom(CStr(aw)) Then c = 0
+                End If
+                If Not IsObject(bw) Then
+                    If VLA_Unify.IsVarAtom(CStr(bw)) Then c = 0
+                End If
+            End If
+            If c > worst Then worst = c
+            QuotedVersusBareClass = worst
+            Exit Function
+        End If
+
+        If Not IsObject(aw) Then
+            Dim x As String, y As String
+            x = CStr(aw)
+            y = CStr(bw)
+            c = 2
+            If x = y Then
+                c = 0                                ' identical leaves
+            ElseIf freeVarUnifies And (VLA_Unify.IsVarAtom(x) Or VLA_Unify.IsVarAtom(y)) Then
+                c = 0
+            Else
+                Dim t As String
+                If LeavesDifferOnlyByMarker(x, y, t) Then
+                    If Len(outText) = 0 Then outText = t
+                    c = 1
+                End If
+            End If
+            If c > worst Then worst = c
+            QuotedVersusBareClass = worst
+            Exit Function
+        End If
+
+        Set la = aw
+        Set lb = bw
+        If la.Count <> lb.Count Then
+            QuotedVersusBareClass = 2
+            Exit Function
+        End If
+        If la.Count = 0 Then
+            QuotedVersusBareClass = worst
+            Exit Function
+        End If
+        For i = 1 To la.Count - 1
+            c = QuotedVersusBareClass(la.Item(i), lb.Item(i), envN, envT, outText, freeVarUnifies)
+            If c > worst Then worst = c
+            If worst = 2 Then
+                QuotedVersusBareClass = 2
+                Exit Function
+            End If
+        Next i
+        If IsObject(la.Item(la.Count)) Then Set a = la.Item(la.Count) Else a = la.Item(la.Count)
+        If IsObject(lb.Item(lb.Count)) Then Set b = lb.Item(lb.Count) Else b = lb.Item(lb.Count)
+    Loop
 End Function
 
 ' PROLOG.10: True iff exactly one of the two leaves carries the
@@ -5353,19 +5456,28 @@ End Function
 ' engine can build contains a term that reaches itself. ListTermToItems
 ' and IsProperConsListTerm already rest on the same guarantee.
 Private Function TermIsGroundDeep(ByVal term As Variant, envN As Collection, envT As Collection) As Boolean
+    ' PROLOG.28: the last position walked in a loop, every other one
+    ' recursively - (ground? Bag) on a bag of every row must not nest a
+    ' frame per element (FreshenTerm's header).
     Dim w As Variant
     VLA_Unify.EnvWalkInto w, term, envN, envT
-    If Not IsObject(w) Then
-        TermIsGroundDeep = Not VLA_Unify.IsVarAtom(CStr(w))
-        Exit Function
-    End If
     Dim lst As Collection
-    Set lst = w
     Dim i As Long
-    For i = 1 To lst.Count
-        If Not TermIsGroundDeep(lst.Item(i), envN, envT) Then Exit Function
-    Next i
-    TermIsGroundDeep = True
+    Do
+        If Not IsObject(w) Then
+            TermIsGroundDeep = Not VLA_Unify.IsVarAtom(CStr(w))
+            Exit Function
+        End If
+        Set lst = w
+        If lst.Count = 0 Then
+            TermIsGroundDeep = True
+            Exit Function
+        End If
+        For i = 1 To lst.Count - 1
+            If Not TermIsGroundDeep(lst.Item(i), envN, envT) Then Exit Function
+        Next i
+        VLA_Unify.EnvWalkInto w, lst.Item(lst.Count), envN, envT
+    Loop
 End Function
 
 ' PROLOG.15: is this term a PROPER list - a cons chain terminating in the
@@ -5484,32 +5596,32 @@ Private Sub SolveBetween(ByVal betweenGoal As Variant, ByVal rest As Collection,
     ' predicate with no matching candidate does. `(between 1 N X)` with N
     ' bound to 0 must yield no rows rather than stopping the query.
     If highV < lowV Then Exit Sub
-    ' PROLOG_MAX_STEPS - 1, not PROLOG_MAX_STEPS: the dispatch above
+    ' PROLOG_MAX_WORK - 1, not PROLOG_MAX_WORK: the dispatch above
     ' already charged ONE step for this goal before calling here, so a
     ' range of exactly the ceiling cannot fit and would fall through this
-    ' check only to die at the step ceiling a value later - producing the
+    ' check only to die at the work ceiling a value later - producing the
     ' misleading "a rule that recurses without ever reaching a base case"
     ' text that this refusal exists to replace. Off by one here would
     ' therefore not be a rounding detail; it would silently restore the
-    ' exact defect. The largest range that fits is PROLOG_MAX_STEPS - 1.
-    If (highV - lowV + 1) > (PROLOG_MAX_STEPS - 1) Then
+    ' exact defect. The largest range that fits is PROLOG_MAX_WORK - 1.
+    If (highV - lowV + 1) > (PROLOG_MAX_WORK - 1) Then
         VLA_Messages.RaiseMsg "prolog-between-range-too-wide", _
             "low", NumberToTerm(lowV), "high", NumberToTerm(highV), _
-            "count", NumberToTerm(highV - lowV + 1), "max", PROLOG_MAX_STEPS
+            "count", NumberToTerm(highV - lowV + 1), "max", PROLOG_MAX_WORK
     End If
 
     Dim v As Double
     For v = lowV To highV
         ' Charged per value, exactly as the candidates loop charges per
         ' candidate: a generated value IS a unit of resolution work, and
-        ' PROLOG_MAX_STEPS is a total-work ceiling for the whole query
+        ' PROLOG_MAX_WORK is a total-work ceiling for the whole query
         ' (SolveIsolated's own header). The up-front range check above
         ' cannot replace this - it bounds THIS goal's enumeration, while
         ' this bounds the whole query, including several between goals
         ' nested inside each other, each individually under the range
         ' ceiling and together far over the work ceiling.
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
 
         ' A FRESH clone per value, never one threaded through the loop -
         ' the identical discipline the candidates loop follows for the
@@ -5589,10 +5701,10 @@ Private Sub SolveDisjunction(ByVal orGoal As Variant, ByVal rest As Collection, 
     For bi = 2 To lst.Count
         ' Charged per branch, exactly as the candidates loop charges per
         ' candidate and SolveBetween per value: entering an alternative
-        ' IS a unit of resolution work, and PROLOG_MAX_STEPS is a
+        ' IS a unit of resolution work, and PROLOG_MAX_WORK is a
         ' total-work ceiling for the whole query.
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
 
         ' Set ... New Collection per branch, never Dim ... As New - the
         ' As-New-in-a-loop trap this module has been bitten by three
@@ -5736,15 +5848,47 @@ End Sub
 ' step-ceiling refusal). `As New` auto-instantiates only once, so every
 ' iteration after the first would keep appending onto the FIRST cell and
 ' build one long flat term instead of a chain.
+' PROLOG.28, live-caught: a VBA Collection is a linked list, so reading it
+' by INDEX walks from the front - `For i = 1 To c.Count ... c.Item(i)` is
+' O(n^2), where `For Each` is O(n). Under the old 120-step ceiling no
+' collection here could hold more than ~120 items and it never showed. The
+' work budget made a bag of every row ordinary, and the first live run of
+' this item hung Excel hard enough to crash it, inside a test that asked
+' for 99,999 solutions: BuildSpilledArray was indexing them one by one.
+' Every loop in this module that can now walk a long collection either uses
+' For Each or indexes THIS array - filled once, by For Each, in one pass.
+' Used where the walk needs an index (backwards, or two collections in
+' step); plain For Each is used where it does not.
+Private Function ItemsToArray(ByVal c As Collection) As Variant
+    Dim arr() As Variant
+    ReDim arr(1 To c.Count)
+    Dim i As Long
+    Dim v As Variant
+    i = 0
+    For Each v In c
+        i = i + 1
+        If IsObject(v) Then Set arr(i) = v Else arr(i) = v
+    Next v
+    ItemsToArray = arr
+End Function
+
 Private Sub MakeListTermInto(ByRef dest As Variant, ByVal items As Collection)
     Dim acc As Variant
     acc = PROLOG_NIL
+    If items.Count = 0 Then
+        dest = acc
+        Exit Sub
+    End If
+    ' PROLOG.28: built from the end, so this one needs an index - over the
+    ' array, never the Collection (ItemsToArray's own header).
+    Dim src As Variant
+    src = ItemsToArray(items)
     Dim i As Long
-    For i = items.Count To 1 Step -1
+    For i = UBound(src) To 1 Step -1
         Dim cell As Collection
         Set cell = New Collection
         cell.Add "cons"
-        cell.Add items.Item(i)
+        cell.Add src(i)
         cell.Add acc
         Set acc = cell
     Next i
@@ -5871,6 +6015,15 @@ Private Sub ExpandListSugarInto(ByRef dest As Variant, ByVal term As Variant, By
 
     If Not isGoalPosition Then
         If headWord = "list" Then
+            ' PROLOG.28: a list written out in the program is a chain like
+            ' any other, and the text of one can be thousands of elements
+            ' long - it releases the same way. Checked here, where the sugar
+            ' becomes cons cells, so a program that could not be dropped is
+            ' refused before it is ever solved.
+            If lst.Count - 1 > PROLOG_MAX_LIST Then
+                VLA_Messages.RaiseMsg "prolog-list-ceiling", "form", "(list ...)", _
+                    "count", CStr(lst.Count - 1), "max", PROLOG_MAX_LIST
+            End If
             Dim items As Collection
             Set items = New Collection
             Dim k As Long
@@ -5991,13 +6144,54 @@ Private Sub ContractListsInto(ByRef dest As Variant, ByVal term As Variant)
         Exit Sub
     End If
 
+    ' PROLOG.28: not a proper list, so walked FreshenTerm's way - every
+    ' position but the last contracted recursively, the last in a loop. The
+    ' proper-list branch above already loops on its tail; this is the
+    ' IMPROPER chain, (cons a (cons b T)) - what append leaves over an
+    ' unbound tail - which used to nest a frame per cell.
+    ' And one fact keeps it linear: this term is known not to be a proper
+    ' list, and for a cons cell that is exactly the same as its TAIL not
+    ' being one (IsProperConsListTerm walks straight on into position 3).
+    ' So when this level is a cons cell its last position needs no check;
+    ' only a non-cons compound's last position is asked. Asking at every
+    ' cell - what the recursion did, one call per level - is O(n^2) on an
+    ' improper chain of n cells, found by the item's transliteration
+    ' stalling on 20,000 of them.
+    Dim root As Collection, nextLst As Collection
+    Set root = outLst
+    Dim curIsCons As Boolean
     Dim i As Long
-    For i = 1 To lst.Count
-        Dim childContracted As Variant
-        ContractListsInto childContracted, lst.Item(i)
-        outLst.Add childContracted
-    Next i
-    Set dest = outLst
+    Do
+        If lst.Count = 0 Then Exit Do
+        For i = 1 To lst.Count - 1
+            Dim childContracted As Variant
+            ContractListsInto childContracted, lst.Item(i)
+            outLst.Add childContracted
+        Next i
+        curIsCons = False
+        If lst.Count = 3 Then
+            If Not IsObject(lst.Item(1)) Then
+                If CStr(lst.Item(1)) = "cons" Then curIsCons = True
+            End If
+        End If
+        If Not IsObject(lst.Item(lst.Count)) Then
+            outLst.Add lst.Item(lst.Count)
+            Exit Do
+        End If
+        If Not curIsCons Then
+            If IsProperConsListTerm(lst.Item(lst.Count)) Then
+                Dim lastContracted As Variant
+                ContractListsInto lastContracted, lst.Item(lst.Count)
+                outLst.Add lastContracted
+                Exit Do
+            End If
+        End If
+        Set nextLst = New Collection
+        outLst.Add nextLst
+        Set outLst = nextLst
+        Set lst = lst.Item(lst.Count)
+    Loop
+    Set dest = root
 End Sub
 
 ' PROLOG.13: a list goal's own written spelling, for the two shared
@@ -6027,9 +6221,13 @@ End Function
 ' module's own house shape for a builder whose result is then handed
 ' straight to MakeListTermInto.
 Private Sub ReverseItemsInto(ByVal items As Collection, ByVal outItems As Collection)
+    If items.Count = 0 Then Exit Sub
+    ' PROLOG.28: backwards, so over the array (ItemsToArray's own header).
+    Dim src As Variant
+    src = ItemsToArray(items)
     Dim i As Long
-    For i = items.Count To 1 Step -1
-        outItems.Add items.Item(i)
+    For i = UBound(src) To 1 Step -1
+        outItems.Add src(i)
     Next i
 End Sub
 
@@ -6047,10 +6245,10 @@ End Sub
 Private Function SumOfListItems(ByVal items As Collection, envN As Collection, envT As Collection, _
                                  ByVal formLabel As String) As Double
     Dim total As Double
-    Dim i As Long
-    For i = 1 To items.Count
-        total = total + EvalArithTerm(items.Item(i), envN, envT, formLabel)
-    Next i
+    Dim it As Variant
+    For Each it In items                       ' PROLOG.28: For Each, never by index
+        total = total + EvalArithTerm(it, envN, envT, formLabel)
+    Next it
     SumOfListItems = total
 End Function
 
@@ -6156,17 +6354,17 @@ Private Sub SolveListMember(ByVal lst As Collection, ByVal rest As Collection, _
             "form", ListGoalFormLabel(lst), "value", ListMessageValue(lst.Item(3), envN, envT)
     End If
 
-    Dim i As Long
-    For i = 1 To items.Count
+    Dim it As Variant
+    For Each it In items                       ' PROLOG.28: For Each, never by index
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         Dim memN As Collection, memT As Collection
         VLA_Unify.UnifyEnvClone envN, envT, memN, memT
-        If VLA_Unify.UnifyTwoWay(lst.Item(2), items.Item(i), memN, memT) Then
+        If VLA_Unify.UnifyTwoWay(lst.Item(2), it, memN, memT) Then
             SolveGoalList rest, clauseDict, memN, memT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
         End If
         If cutActive Then Exit For
-    Next i
+    Next it
 End Sub
 
 ' PROLOG.13: `(nth N L X)`, ONE-BASED. Two modes on N, and the fork is
@@ -6257,7 +6455,7 @@ Private Sub SolveListNth(ByVal lst As Collection, ByVal rest As Collection, _
     Dim i As Long
     For i = lo To hi
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         Dim nthN As Collection, nthT As Collection
         VLA_Unify.UnifyEnvClone envN, envT, nthN, nthT
         ' Both unifications share ONE clone: an index and its element are
@@ -6330,15 +6528,21 @@ Private Sub SolveListAppend(ByVal lst As Collection, ByVal rest As Collection, _
     backOk = ListTermToItems(lst.Item(3), envN, envT, backItems)
     If frontOk Then
         If backOk Then
+            ' PROLOG.28: two lists each inside the budget can join into one
+            ' past it.
+            If frontItems.Count + backItems.Count > PROLOG_MAX_LIST Then
+                VLA_Messages.RaiseMsg "prolog-list-ceiling", "form", ListGoalFormLabel(lst), _
+                    "count", CStr(frontItems.Count + backItems.Count), "max", PROLOG_MAX_LIST
+            End If
             Dim joined As Collection
             Set joined = New Collection
-            Dim k As Long
-            For k = 1 To frontItems.Count
-                joined.Add frontItems.Item(k)
-            Next k
-            For k = 1 To backItems.Count
-                joined.Add backItems.Item(k)
-            Next k
+            Dim jt As Variant
+            For Each jt In frontItems              ' PROLOG.28: For Each, never by index
+                joined.Add jt
+            Next jt
+            For Each jt In backItems
+                joined.Add jt
+            Next jt
             Dim joinedTerm As Variant
             MakeListTermInto joinedTerm, joined
             Dim appN As Collection, appT As Collection
@@ -6382,19 +6586,27 @@ Private Sub SolveListAppend(ByVal lst As Collection, ByVal rest As Collection, _
     Dim splitAt As Long
     For splitAt = 0 To wholeItems.Count
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
 
         Dim leftItems As Collection, rightItems As Collection
         Set leftItems = New Collection
         Set rightItems = New Collection
+        ' PROLOG.28: For Each with its own counter - the position is needed,
+        ' the index walk is not (ItemsToArray's own header). Note this loop
+        ' still copies the whole list once per split, so enumerating every
+        ' split of a long list is O(n^2) COPIES within n+1 units of work -
+        ' recorded as a known cost on PROLOG.28's own entry.
         Dim j As Long
-        For j = 1 To wholeItems.Count
+        Dim wt As Variant
+        j = 0
+        For Each wt In wholeItems
+            j = j + 1
             If j <= splitAt Then
-                leftItems.Add wholeItems.Item(j)
+                leftItems.Add wt
             Else
-                rightItems.Add wholeItems.Item(j)
+                rightItems.Add wt
             End If
-        Next j
+        Next wt
 
         Dim leftTerm As Variant, rightTerm As Variant
         MakeListTermInto leftTerm, leftItems
@@ -7064,18 +7276,18 @@ Private Sub SolveAtomConcat(ByVal lst As Collection, ByVal rest As Collection, _
     If TextHasSurrogate(wText) Then VLA_Messages.RaiseMsg "prolog-text-outside-bmp", "form", formLabel, "value", wText
     Dim n As Long
     n = Len(wText)
-    ' PROLOG_MAX_STEPS - 1, between's own reasoning: the dispatch has
-    ' already charged this goal's step, so a count of exactly the ceiling
-    ' would pass here and die at the step ceiling a split later, blaming a
-    ' runaway rule the user does not have.
-    If (n + 1) > (PROLOG_MAX_STEPS - 1) Then
+    ' PROLOG_MAX_WORK - 1, between's own reasoning: the dispatch has
+    ' already charged this goal's step, so a count of exactly the budget
+    ' would pass here and die at the work ceiling a split later, naming a
+    ' budget rather than the goal that spent it.
+    If (n + 1) > (PROLOG_MAX_WORK - 1) Then
         VLA_Messages.RaiseMsg "prolog-text-too-many-ways", "form", formLabel, _
-            "count", CStr(n + 1), "length", CStr(n), "max", PROLOG_MAX_STEPS
+            "count", CStr(n + 1), "length", CStr(n), "max", PROLOG_MAX_WORK
     End If
     Dim k As Long
     For k = 0 To n
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
         VLA_Unify.UnifyEnvClone envN, envT, catN, catT
         If BindOrCompareText(lst.Item(2), Left$(wText, k), catN, catT, formLabel) Then
             If BindOrCompareText(lst.Item(3), Mid$(wText, k + 1), catN, catT, formLabel) Then
@@ -7128,19 +7340,26 @@ Private Sub SolveSubAtom(ByVal lst As Collection, ByVal rest As Collection, _
     Else
         ways = SubAtomCandidateCount(n, bB, bL, bA)
     End If
-    If ways > (PROLOG_MAX_STEPS - 1) Then
+    If ways > (PROLOG_MAX_WORK - 1) Then
         VLA_Messages.RaiseMsg "prolog-text-too-many-ways", "form", formLabel, _
-            "count", NumberToTerm(ways), "length", CStr(n), "max", PROLOG_MAX_STEPS
+            "count", NumberToTerm(ways), "length", CStr(n), "max", PROLOG_MAX_WORK
     End If
     If partClass <> 1 Then SubAtomCandidatesInto n, bB, bL, bA, befores, lengths
 
+    ' PROLOG.28: two collections walked in step, so both become arrays once
+    ' (ItemsToArray's own header) - with a work budget of 100,000 there can
+    ' be tens of thousands of candidates here.
     Dim k As Long, bK As Long, lenK As Long
     Dim subN As Collection, subT As Collection
-    For k = 1 To befores.Count
+    If befores.Count = 0 Then Exit Sub
+    Dim beforesArr As Variant, lengthsArr As Variant
+    beforesArr = ItemsToArray(befores)
+    lengthsArr = ItemsToArray(lengths)
+    For k = 1 To UBound(beforesArr)
         stepsTaken = stepsTaken + 1
-        If stepsTaken > PROLOG_MAX_STEPS Then VLA_Messages.RaiseMsg "prolog-step-ceiling", "steps", PROLOG_MAX_STEPS
-        bK = befores.Item(k)
-        lenK = lengths.Item(k)
+        If stepsTaken > PROLOG_MAX_WORK Then VLA_Messages.RaiseMsg "prolog-work-ceiling", "work", PROLOG_MAX_WORK
+        bK = beforesArr(k)
+        lenK = lengthsArr(k)
         ' A FRESH clone per candidate, the candidates loop's discipline: a
         ' variable shared between two positions - `(sub-atom abc X X A S)`
         ' - binds on the first and is compared on the second, and the next
@@ -7188,17 +7407,20 @@ Private Sub SolveAtomicListConcat(ByVal lst As Collection, ByVal rest As Collect
     If listOk Then
         Dim joined As String, piece As String, allKnown As Boolean
         allKnown = True
-        For k = 1 To items.Count
-            Select Case TextArgClass(items.Item(k), envN, envT, piece)
+        Dim jt As Variant
+        k = 0
+        For Each jt In items                   ' PROLOG.28: For Each, never by index
+            k = k + 1
+            Select Case TextArgClass(jt, envN, envT, piece)
             Case 0
                 allKnown = False
             Case 2
-                VLA_Messages.RaiseMsg "prolog-text-not-text", "form", formLabel, "value", ListMessageValue(items.Item(k), envN, envT)
+                VLA_Messages.RaiseMsg "prolog-text-not-text", "form", formLabel, "value", ListMessageValue(jt, envN, envT)
             Case Else
                 If k > 1 Then joined = joined & sep
                 joined = joined & piece
             End Select
-        Next k
+        Next jt
         If allKnown Then
             VLA_Unify.UnifyEnvClone envN, envT, joinN, joinT
             If BindOrCompareText(lst.Item(4), joined, joinN, joinT, formLabel) Then
@@ -7224,9 +7446,16 @@ Private Sub SolveAtomicListConcat(ByVal lst As Collection, ByVal rest As Collect
 
     If listOk Then
         If items.Count <> pieces.Count Then Exit Sub
-        For k = 1 To items.Count
-            If Not BindOrCompareText(items.Item(k), CStr(pieces.Item(k)), joinN, joinT, formLabel) Then Exit Sub
-        Next k
+        ' PROLOG.28: two collections in step, so both as arrays once
+        ' (ItemsToArray's own header) - a split of a long text reaches here.
+        If items.Count > 0 Then
+            Dim itemsArr As Variant, piecesArr As Variant
+            itemsArr = ItemsToArray(items)
+            piecesArr = ItemsToArray(pieces)
+            For k = 1 To UBound(itemsArr)
+                If Not BindOrCompareText(itemsArr(k), CStr(piecesArr(k)), joinN, joinT, formLabel) Then Exit Sub
+            Next k
+        End If
         SolveGoalList rest, clauseDict, joinN, joinT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
         Exit Sub
     End If
@@ -7243,11 +7472,18 @@ Private Sub SolveAtomicListConcat(ByVal lst As Collection, ByVal rest As Collect
         VLA_Messages.RaiseMsg "prolog-list-not-a-list", _
             "form", formLabel, "value", ListMessageValue(lst.Item(2), envN, envT)
     End If
+    ' PROLOG.28: a split builds its whole list in ONE unit of work, so the
+    ' work budget never bounded it - this is the only thing that does.
+    If pieces.Count > PROLOG_MAX_LIST Then
+        VLA_Messages.RaiseMsg "prolog-list-ceiling", "form", formLabel, _
+            "count", CStr(pieces.Count), "max", PROLOG_MAX_LIST
+    End If
     Dim textItems As Collection
     Set textItems = New Collection
-    For k = 1 To pieces.Count
-        textItems.Add MakeTextTerm(CStr(pieces.Item(k)))
-    Next k
+    Dim pc As Variant
+    For Each pc In pieces                      ' PROLOG.28: For Each, never by index
+        textItems.Add MakeTextTerm(CStr(pc))
+    Next pc
     Dim listTerm As Variant
     MakeListTermInto listTerm, textItems
     If VLA_Unify.UnifyTwoWay(lst.Item(2), listTerm, joinN, joinT) Then
@@ -7329,6 +7565,11 @@ Private Function HarvestFindallBag(ByVal findallGoal As Collection, clauseDict A
     ' function's own return pseudo-variable is not a thing to pass that
     ' way; the IsObject branch that follows is this module's standing
     ' guard against a bare assignment invoking a default member.
+    ' PROLOG.28: a bag is the commonest way a long list gets built here.
+    If bag.Count > PROLOG_MAX_LIST Then
+        VLA_Messages.RaiseMsg "prolog-list-ceiling", "form", "(findall ...)", _
+            "count", CStr(bag.Count), "max", PROLOG_MAX_LIST
+    End If
     Dim bagTerm As Variant
     MakeListTermInto bagTerm, bag
     If IsObject(bagTerm) Then
@@ -7388,15 +7629,35 @@ Private Sub ResolveTermDeep(ByRef dest As Variant, ByVal term As Variant, envN A
         dest = w
         Exit Sub
     End If
-    Dim lst As Collection, outLst As New Collection
+    ' PROLOG.28: FreshenTerm's shape - every position but the last resolved
+    ' recursively, the last walked to and resolved in a loop - because the
+    ' terms this resolves are VALUES, and a findall bag of every row of a
+    ' real Table is a cons chain thousands long. Recursing into the tail
+    ' nested one frame per element and ran VBA's stack out; this nests only
+    ' as deeply as the elements themselves do.
+    Dim lst As Collection, root As Collection, outLst As Collection, nextLst As Collection
     Set lst = w
+    Set root = New Collection
+    Set outLst = root
     Dim i As Long
-    For i = 1 To lst.Count
-        Dim childResolved As Variant
-        ResolveTermDeep childResolved, lst.Item(i), envN, envT
-        outLst.Add childResolved
-    Next i
-    Set dest = outLst
+    Do
+        If lst.Count = 0 Then Exit Do
+        For i = 1 To lst.Count - 1
+            Dim childResolved As Variant
+            ResolveTermDeep childResolved, lst.Item(i), envN, envT
+            outLst.Add childResolved
+        Next i
+        VLA_Unify.EnvWalkInto w, lst.Item(lst.Count), envN, envT
+        If Not IsObject(w) Then
+            outLst.Add w
+            Exit Do
+        End If
+        Set nextLst = New Collection
+        outLst.Add nextLst
+        Set outLst = nextLst
+        Set lst = w
+    Loop
+    Set dest = root
 End Sub
 
 ' ---------------------------------------------------------------------
@@ -7464,13 +7725,33 @@ Private Function BuildSpilledArray(freeVarNames As Collection, solutions As Coll
         arr(1, c) = CStr(freeVarNames.Item(c))
     Next c
     Dim r As Long
-    For r = 1 To nRows
+    Dim cellText As String
+    ' PROLOG.28: For Each over the solutions, never solutions.Item(r) - with
+    ' a budget that allows tens of thousands of them, indexing was the
+    ' O(n^2) walk that hung Excel on this item's first live run
+    ' (ItemsToArray's own header). One row per solution, in the same order.
+    Dim solV As Variant
+    r = 0
+    For Each solV In solutions
+        r = r + 1
         Dim sol As Collection
-        Set sol = solutions.Item(r)
+        Set sol = solV
         For c = 1 To nCols
-            arr(r + 1, c) = RenderBoundValue(sol.Item(c))
+            cellText = RenderBoundValue(sol.Item(c))
+            ' PROLOG.28: an Excel cell holds at most 32,767 characters, and a
+            ' longer string in a worksheet function's result does not arrive
+            ' as that text. Before PROLOG.28 a findall bag stayed under ~118
+            ' elements, so this took a long text per element to reach; with
+            ' the work budget sized for real Tables, a bag of every row is an
+            ' ordinary result. Refused by name, with the variable, the length
+            ' and how to get the answer another way, rather than left to
+            ' whatever the grid makes of it.
+            If Len(cellText) > 32767 Then
+                VLA_Messages.RaiseMsg "prolog-value-too-long-for-a-cell", "var", CStr(freeVarNames.Item(c)), "length", CStr(Len(cellText))
+            End If
+            arr(r + 1, c) = cellText
         Next c
-    Next r
+    Next solV
     BuildSpilledArray = arr
 End Function
 
@@ -7537,6 +7818,9 @@ End Function
 ' is what makes TestPrologKeyedAtoms a PURE test of the desugaring
 ' mechanism itself.
 Public Function PrologRun(ByVal clausesText As String, ByVal clauseDict As Object, ByVal headerMap As Object) As Variant
+    ' PROLOG.28: a query that raised left mDepth counted in (SolveGoalList's
+    ' own entry comment), so every query starts from zero.
+    mDepth = 0
     Dim queryConjuncts As Collection, freeVarNames As Collection
     ParseProgram clausesText, clauseDict, queryConjuncts, freeVarNames, headerMap
 
@@ -7557,10 +7841,13 @@ Public Function PrologRun(ByVal clausesText As String, ByVal clauseDict As Objec
     ' own stack-overflow incident made expensive, and nothing at all on
     ' the backtracking hot path.
     '
-    ' Bounded by construction: a query that completes with zero solutions
-    ' has by definition stayed under PROLOG_MAX_STEPS, so there is no
-    ' large-table case here - one that really did scan ten thousand rows
-    ' raised the step ceiling long before reaching this line.
+    ' Bounded, though no longer for the reason this comment first gave.
+    ' Before PROLOG.28 an empty result had stayed under 120 steps, so no
+    ' large Table could reach this line; now a 10,000-row scan can finish
+    ' empty. The scan is still linear - one pass over each query
+    ' conjunct's own predicate's clauses, the same order of work as
+    ' loading that Table in the first place - and it still costs nothing on
+    ' a query that found a row.
     If solutions.Count = 0 Then DiagnoseQuotedVersusBare queryConjuncts, clauseDict
 
     PrologRun = BuildSpilledArray(freeVarNames, solutions)

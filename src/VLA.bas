@@ -1616,15 +1616,37 @@ Private Function WriteDatum(v As Variant) As String
     End If
     ' PNTH.0: Object, indexed not For Each - v may be a VlaSlice (a
     ' cdr/cddr result), which has no enumerator to walk with For Each.
+    ' PROLOG.28: every item but the LAST written by the recursive call it
+    ' always was; a last item that is itself a list is opened in the same
+    ' buffer and walked in a loop, its closing paren owed and paid once at
+    ' the end. The text is the same byte for byte - "(a (b c))" either way,
+    ' proven over random terms by the item's transliteration (diff28) -
+    ' but a cons chain, whose tail IS its last item, no longer nests one
+    ' frame per cell. PROLOG's rendering reaches here with whatever a query
+    ' built, and an improper chain thousands long (append over an unbound
+    ' tail) used to run VBA's stack out.
     Dim lst As Object
     Dim sb As String, sbU As Long
-    Dim wi As Long
+    Dim wi As Long, closers As Long
     Set lst = v
-    For wi = 1 To lst.Count
-        If sbU > 0 Then SbAdd sb, sbU, " "
-        SbAdd sb, sbU, WriteDatum(lst.Item(wi))
-    Next
-    WriteDatum = "(" & SbText(sb, sbU) & ")"
+    Do
+        SbAdd sb, sbU, "("
+        closers = closers + 1
+        If lst.Count = 0 Then Exit Do
+        For wi = 1 To lst.Count - 1
+            If wi > 1 Then SbAdd sb, sbU, " "
+            SbAdd sb, sbU, WriteDatum(lst.Item(wi))
+        Next
+        If lst.Count > 1 Then SbAdd sb, sbU, " "
+        If IsList(lst.Item(lst.Count)) Then
+            Set lst = lst.Item(lst.Count)
+        Else
+            SbAdd sb, sbU, WriteDatum(lst.Item(lst.Count))
+            Exit Do
+        End If
+    Loop
+    SbAdd sb, sbU, String$(closers, ")")
+    WriteDatum = SbText(sb, sbU)
 End Function
 
 ' F.2: public, single-line wrapper over WriteDatum - the flat half of
