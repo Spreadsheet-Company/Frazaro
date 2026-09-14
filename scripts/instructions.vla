@@ -3769,62 +3769,21 @@
                               alias)))
 
 (defmacro
-    (prolog-rule-place r rel subj obj pre body)
-    "write one Logical English rule, and any projection rules it needs, as text in a cell"
-    (set! r
-          (interpolate "{pre}(rule ({rel} {subj} {obj}) {body})"
-                       :pre
-                       pre
-                       :rel
-                       rel
-                       :subj
-                       subj
-                       :obj
-                       obj
-                       :body
-                       body)))
+    (prolog-clause-place r text)
+    "write one Logical English rule or fact, and any projection rules it needs, as text in a cell"
+    (set! r text))
 
 (defmacro
-    (prolog-ask-who rel k rules tables r)
-    "write a =DATALOG(...) who-question over rules held in cells as a live formula"
+    (prolog-ask-place engine question rules tables r)
+    "write a =DATALOG(...) or =PROLOG(...) question over rules held in cells as a live formula"
     (set-formula r
-                 (interpolate "=DATALOG(TEXTJOIN(\" \",TRUE,{rules})&\" (rule (vla-ask-{rel} Who) ({rel} Who \"\"{k}\"\")) (query vla-ask-{rel})\",{tables})"
+                 (interpolate "={engine}(TEXTJOIN(\" \",TRUE,{rules})&\" {question}\",{tables})"
+                              :engine
+                              engine
+                              :question
+                              question
                               :rules
                               rules
-                              :rel
-                              rel
-                              :k
-                              k
-                              :tables
-                              tables)))
-
-(defmacro
-    (prolog-ask-what rel k rules tables r)
-    "write a =DATALOG(...) what-question over rules held in cells as a live formula"
-    (set-formula r
-                 (interpolate "=DATALOG(TEXTJOIN(\" \",TRUE,{rules})&\" (rule (vla-ask-{rel} What) ({rel} \"\"{k}\"\" What)) (query vla-ask-{rel})\",{tables})"
-                              :rules
-                              rules
-                              :rel
-                              rel
-                              :k
-                              k
-                              :tables
-                              tables)))
-
-(defmacro
-    (prolog-ask-whether rel subj k rules tables r)
-    "write a =PROLOG(...) whether-question over rules held in cells as a live formula"
-    (set-formula r
-                 (interpolate "=PROLOG(TEXTJOIN(\" \",TRUE,{rules})&\" (query ({rel} \"\"{subj}\"\" \"\"{k}\"\"))\",{tables})"
-                              :rules
-                              rules
-                              :rel
-                              rel
-                              :subj
-                              subj
-                              :k
-                              k
                               :tables
                               tables)))
 

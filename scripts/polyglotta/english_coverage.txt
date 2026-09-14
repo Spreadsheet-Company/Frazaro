@@ -1,9 +1,9 @@
 === PHRASEBOOK TEST COVERAGE: english.vla ===
-Rules: 202
+Rules: 200
 
 --- Zero tests, 0 rule(s) ---
 
---- Exactly one test, 135 rule(s) ---
+--- Exactly one test, 131 rule(s) ---
   copy cell {a:cell} to cell {b:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   paste values of range {a:range} into range {b:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   set font-color of cell {r:cell} to {e:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
@@ -135,12 +135,8 @@ Rules: 202
   show every {table:text} {shown:text} whose {filtercol:text} is over {val:expr} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   show every {shown:text} in {table:text} with {filtercol:text} over {val:expr} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   show everyone who reports to {person:expr} directly or not in {table:text} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
-  write in cell {r:cell} that [a] {s:role} {rel:relation} [a] {o:role} if {c:conditions} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
-  show in cell {r:cell} who {rel:relation} {k:expr} by applying the rules in {rules:range} to the data tables {t:text-list} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
-  show in cell {r:cell} what {s:expr} {rel:relation} by applying the rules in {rules:range} to the data tables {t:text-list} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
-  show in cell {r:cell} whether {s:expr} {rel:relation} {k:expr} by applying the rules in {rules:range} to the data tables {t:text-list} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
 
 test-fail proofs (file-level, never attributed to a rule): 9
 test-success proofs for a structural form, not a phrase rule: 9
 
-=== SUMMARY: 67/202 rules have 2+ tests; 135 have exactly one; 0 have zero ===
+=== SUMMARY: 69/200 rules have 2+ tests; 131 have exactly one; 0 have zero ===

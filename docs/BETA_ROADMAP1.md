@@ -438,7 +438,11 @@ nothing here is "done," and nothing here is ever pruned.*
   forbidden is unchanged: a phrasebook-defined nonterminal; any
   sub-grammar with anaphora or relative clauses (full Logical English was
   weighed and declined for exactly that reason); and any use of `PROLOG`
-  or the unifier to recognize a sentence.
+  or the unifier to recognize a sentence. *Slice-2 note, 2026-09-14:*
+  `G-PROLOG` slice 2 adds two built-in sub-grammars on exactly these terms,
+  `clause` (a rule, set head or fact, whole) and `question`, both regular
+  and both one opaque placeholder to the audit; a relation inside either
+  stays one token until `G-RELATIONS`.
 - **SD-17 — blind spots are hunted on a cadence, not collected in a file:
   every roadmap fork is preceded by one outside-persona review, the persona
   must be one not yet used, and a review that mints or kills no roadmap item
@@ -7555,7 +7559,8 @@ G-TAIL always said this about itself; it is true of the whole tranche.
   - 🟡 **G-PROLOG — flat Logical English: sentences that write rules into
     cells, and questions that read them.** **Scoped 2026-09-10/11**, seven
     forks decided by the owner; **slice 1 BUILT 2026-09-12, OWNER-VERIFIED
-    LIVE 2026-09-13 in two rounds, and committed** (see the slice list below for what it ships and
+    LIVE 2026-09-13 in two rounds, and committed; slice 2 BUILT,
+    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14** (see the slice list below for what each ships and
     what it proved). *The previous text of this
     entry said its dependency, `PROLOG.1`–`.6`, was unbuilt. It was stale:
     `PROLOG.1`–`.24` have shipped.* This is the project's reason for being,
@@ -7945,10 +7950,178 @@ G-TAIL always said this about itself; it is true of the whole tranche.
          (the owner's call); its live steps re-run Test 11, whose `J2`
          should now read `#DATALOG! 'can-drive' is used in a rule, but
          nothing defines it …`.
-      2. ⬜ **relations, sets and facts** — the relation and set
+      2. ✅ **relations, sets and facts** — the relation and set
          conditions (a rule calling a rule), set heads, facts, all four
          comparisons and equality with a constant, WHAT and PAIRS, and *or*
          by repetition. §2, §3, §4, §7, §9, §13.
+         **SCOPED, BUILT AND PROVEN 2026-09-13/14; OWNER-VERIFIED LIVE
+         2026-09-14 on the first pass, and committed** (the live record is at
+         the end of this entry). Nine forks went to the owner, each with its measurements;
+         eight were decided and one (PAIRS) delegated, and two were re-put
+         after the owner asked for the long-term view before committing to
+         a parsing decision.
+         **MEASURED FIRST, on shipped code.** Three transliterations, each
+         with a CONTROL reproducing shipped behaviour before any verdict:
+         `DATALOG` (session `02c13571`'s `dl8_engine`, whole-program as
+         `DATALOG.8` shipped) reproducing all **97** of `DATALOG.8`'s pure
+         assertions; `PROLOG` (session `5e820802`'s `engine2`, brought to
+         HEAD by porting `PROLOG.28`'s depth and work budgets and
+         `PROLOG.10`'s quoted-versus-bare refusal on `=`) reproducing
+         **574** `TestDSLs` assertions, its two FAILs named harness gaps (a
+         loop-built program, trap 14; the 32,767-character cell limit); and
+         the tokenizer with the conditions grammar, their tables read from
+         the VBA source, reproducing all **21** `TestPrologConditions` pins
+         and the rule row's `test-success` (**29 / 0**), with `keepthe`,
+         `nocap`, `noescape`, `colwindow`, `noproj` and `nonumword` each
+         red. Two findings about the suite itself: those pins match with
+         `vbTextCompare`, so a lost capital is invisible to them (only the
+         `test-success` line caught `nocap`), and no VBA pin exercises
+         `NumberWord`.
+         Then every slice-2 corpus program in its canonical text, through
+         both engines: all **27** runs reproduce the recorded answers in the
+         routes the corpus names (`appr-delegated`'s WHETHER now answers,
+         `PROLOG.28` having shipped; `org-peers`' `\=` is refused by name in
+         `DATALOG`, correctly, being P-only). What the forks needed:
+           - *Equality with a constant.* `(= Dept "Ops")` agrees only when
+             `Dept` is bound earlier: written before its Table row, `DATALOG`
+             refuses on order and `PROLOG` answers. `(= L "3")` answers in
+             `DATALOG` and refuses in `PROLOG`; `(== ...)` is an undefined
+             predicate to `DATALOG`. A constant in an OPERAND position — a
+             Table column, either side of a relation, a comparison's right —
+             agreed in every case, and no slice-2 corpus rule uses `=`.
+           - *Constants against Table text.* A text fact joins Table text in
+             both engines and a bare number joins a number in both; a QUOTED
+             number matches in `DATALOG` (marker stripped) and silently
+             nothing in `PROLOG` (marker kept). That is a **slice-1 defect**:
+             the question templates quoted every constant, so `whether "Ann"
+             has-level 3` answered FALSE in `PROLOG`, silently, while the WHO
+             spelling answered Ann.
+           - *A head role no condition binds* — a **second slice-1 defect**.
+             `a person can-cover a shift if Staff lists the person as Name`
+             was refused by `DATALOG` (naming the variable `Shift`) and
+             answered TRUE by `PROLOG` for `"Bob"` and any shift at all: the
+             `{c:conditions}` slot cannot see the head's roles.
+           - *Or by repetition.* Both cells in range answer. A range leaving
+             one out answers FALSE in `PROLOG` and a partial list in
+             `DATALOG`, silently — no engine can see it, since the relation
+             is defined. A relation defined only outside the range refuses by
+             name in both.
+           - *PAIRS.* A narrowing rule gives `Who|What` in both routes;
+             querying the relation directly takes its headers from whichever
+             rule cell comes first, and `Col1|Col2` for a facts-only relation.
+           - *The multi-word relation.* `EnTokenize` gives `can cover` as two
+             plain tokens, drops `the` inside a phrase, and rewrites
+             `one`..`twenty` to digits. A stop-token reading decides every
+             corpus phrase, and every phrase it cannot space (`is related
+             to`, `was submitted by`, `has one manager`) ends loud. Corpus
+             arities: 21 unary relations, 37 binary, **0 ternary**.
+         **THE FORKS, decided:**
+           1. **The relation stays one hyphenated token, and declared relation
+              templates are the next item, `G-RELATIONS`** (the owner's call,
+              after asking which option a mature implementation would take).
+              Inferring where a relation's words end is binary-only and SD-4
+              would freeze its guesses; declaring the relation is what Logical
+              English (templates), SBVR (fact types) and Prolog (`op/3`) do,
+              and is CONTEMPLATIONS' "lexically extensible, syntactically
+              governed". The hyphenated token reads identically under every
+              later design.
+           2. **Constants as operands, and no `=`** (recommended). A quoted
+              text or bare number stands where a role does in a Table column,
+              either side of a relation, or a comparison's right; `the dept is
+              "Ops"` refuses and teaches the column spelling, and a comparison
+              refuses quoted text. The shared subset is unchanged. *This
+              supersedes the scope's "plus `is` with a quoted or numeric
+              constant".*
+           3. **Constants are typed, and the shipped question rows are fixed
+              in this slice** (recommended; `0.6.0` is untagged): a quoted
+              token is text, a number token is written bare, and a quoted
+              canonical numeral (`"3"`, not the text code `"007"`) refuses.
+           4. **One `clause` sub-grammar for everything after "that"**
+              (recommended): rule, set head and fact decided by their own
+              tokens, and the head-role check only a slot seeing both halves
+              can make.
+           5. **Facts are built, with a corpus entry first** (recommended,
+              SD-7): `comp-flagged`, a bill audit flagged by hand (`"B3" is
+              flagged`) beside a second `violation` rule over the flag.
+           6. **A set head, plus who, what and whether over a set**
+              (recommended).
+           7. **PAIRS, delegated, decided as a `question` sub-grammar** — the
+              clause's twin. Each argument is a constant or an unknown (`who`,
+              `what`, or `which <noun>`, Logical English's and ACE's own query
+              form), and the SHAPE routes it: no unknown (`whether`) to
+              `PROLOG`, one or two to `DATALOG` through a narrowing rule.
+              Headers come from the question alone (`Who|What`,
+              `Person|Shift`), never from the order of rule cells; two
+              identical unknowns refuse.
+           8. **"Or" gets a Check-time range lint** (recommended), within one
+              program.
+           9. **The ledger replaces slice 1's four `0.6.0` rows** with the two
+              new ones (recommended): they never worked in a release.
+         **BUILT.** `VLA_SentenceEngine.bas`: the conditions sub-grammar
+         takes constants as operands (`TakeOperand`, `TakeConstant`),
+         refuses equality and a text comparison by name, and writes a negated
+         row's constant into the CALL over an all-variable projection rule —
+         written into the rule, "Night" and "Day" would be two rules under
+         one name, the injectivity hole `EscapeNamePart` closed. `ParseClause`
+         and `ParseQuestion`, SD-16's fourth and fifth built-in
+         sub-grammars, both regular; typed constants (`IsInvariantNumeral`,
+         `IsCanonicalNumeral`); and the range lint (`RecordRuleCell`,
+         `RecordQuestionRange`, and `ValidateQuestionRanges` after
+         `ValidateActionCalls`, its records set aside by the shadow audit as
+         call records are), which walks the relations a question reaches
+         through the program's own clauses and never guesses at a
+         sheet-qualified or quoted reference. Two categories registered in
+         all five places, plus `SlotDesc`; eight new message ids.
+         `english.vla`: slice 1's four rows and three macros became two rows
+         (`write in cell {r:cell} that {h:clause}`, `show in cell {r:cell}
+         {q:question} by applying …`), two macros and eight `test-success`
+         lines. `VLA_Tests_Query.bas`: `TestPrologClauses` (20),
+         `TestPrologQuestions` (15) and `TestPrologRangeLint` (7) under
+         `TestDSLs`, through that module's own `AssertConditions` helpers. No
+         engine module changed.
+         **PROVEN, before import.** Re-pointed at the new sub-grammars, the
+         model re-ran slice 1's 21 pins: **29 / 0**, its mutations still red.
+         Every in-scope corpus program was then written as SENTENCES — org
+         charts, approval with delegation, access roles, compatibility,
+         conflicts of interest, compliance with `comp-flagged`, tiers, the
+         constant probes, and slice 1's README rule and questions — expanded
+         through the template read from the shipped `english.vla`, joined as
+         `TEXTJOIN` joins, and run through both engines: **34 pass / 0 fail**,
+         recursion (`is-under`) and or-by-repetition included, and the one
+         split range refused by the lint, which would otherwise have
+         answered `B4` alone. The README rule's cell text and its three
+         question formulas are byte-identical to slice 1's. The eight new
+         `test-success` lines re-derive from the shipped file (**8 / 0**);
+         each of the 42 new pins was derived by running its sentence through
+         the model, never typed (**42 / 0**), and eight mutations each turn
+         pins red (`noconst` 28, `nodouble` 7, `quotenumbers` 5, `nolint` 2,
+         `noheadcheck`, `constinproj`, `nosameunknown`, `nowhetherunknown`
+         1). The harness — `g2_grammar`, `g2_s2`, `s2_run`, `ctl_grammar`,
+         `ctl_vla_rows`, `gen_pins`, `dl_run`, `pl_run` — is in session
+         `ad0e621f`'s scratchpad. *What none of this proves:* no VBA ran.
+         **Predicted:** `TestDSLs` 1152 → **1194** (42 new Report call sites,
+         none in a loop); pure 1109, host 152 and `VerifyReports` 242/242 on
+         both backends unmoved.
+         **OWNER-VERIFIED LIVE 2026-09-14, first pass, and committed:** pure
+         **1109/1109**, host **152/152**, `TestDSLs` **1194**/0 (the predicted
+         count exactly), `VerifyReports` **242/242 on both backends**, and all
+         ten in-cell tests answering as handed off — slice 1's README rule and
+         three questions byte-identical through the new rows; PAIRS under
+         `Who|What` and `Person|Shift`; facts, set heads and "or" by
+         repetition (`comp-flagged`: B3, B4); the range lint refusing a split
+         "or" by name; constants in a Table column, a relation and a negated
+         row; `whether "Ann" has-level 3` TRUE where slice 1 said FALSE; and
+         the quoted number, the unbound head role and equality with a constant
+         each refused at Check in their own words. The owner re-exported
+         `english_expanded.vla`, its coverage file and both instruction
+         goldens. *Found at commit time, not papered over:* the working copy
+         of `english.vla` had been re-serialized after the vocabulary loaded —
+         forms re-flowed, and the one `£` in a comment written as a lone
+         Latin-1 byte, invalid UTF-8 — while the re-exported artifact was
+         stamped with the hash of the file as built and tested. The committed
+         `english.vla` is that built-and-tested text; the rewritten copy was
+         kept aside for the owner, since whatever rewrote a source phrasebook
+         and broke its encoding is its own defect.
       3. ⬜ **recursion and closure** — a rule that names itself, "directly
          or not", `DATALOG`-routed so that a cycle terminates. §2, §5, §6,
          §11, §12.
@@ -7965,6 +8138,32 @@ G-TAIL always said this about itself; it is true of the whole tranche.
     `~weeks`, per slice. *Pays into:* `G-DATALOG`'s second wave (it reads
     the same cells), `G-SQL` and `G-SOLVE` (both inherit this corpus), and
     README's own promise that the question is shaped like the policy.
+
+  - ⬜ **G-RELATIONS — declared relation templates: a relation said in
+    words, with its arguments anywhere.** Minted 2026-09-13 by `G-PROLOG`
+    slice 2's scoping, the owner's call over shipping an inferred multi-word
+    reading. A relation is declared once — `The relation is: an invoice is
+    submitted by a person.` — and every clause, condition and question is
+    read against the finite set of declared templates, so a relation may be
+    several words, passive, and later n-ary with arguments mid-phrase. *Why
+    declared, not inferred:* a reading that guesses where a relation's words
+    end from their shape is binary-only and cannot place an argument
+    mid-phrase, and once shipped SD-4 freezes its guesses (`reports to head
+    of team` as `reports-to-head-of`). Declaring the relation is how Logical
+    English (templates), SBVR (fact types) and Prolog (`op/3`) solve the same
+    problem, and it is CONTEMPLATIONS' "lexically extensible, syntactically
+    governed": a relation phrase is lexicon, the clause sub-grammar syntax.
+    It stays regular — a finite set of fixed phrases with holes. **To scope,
+    not assume:** where a declaration lives (a program sentence read before
+    the rules, a phrasebook entry, or both, and how a rules range shared
+    across programs sees it); that an undeclared hyphenated name keeps
+    working (SD-4 — slice 2 ships it); the audit refusing two templates that
+    could read one sentence two ways; an undeclared relation refused at
+    Check, ahead of `DATALOG.8` and `PROLOG.22`; and the render reverse a
+    template finally gives the clause. Corpus: 21 unary and 37 binary
+    relations, none ternary, and passives (`submitted-by`, `related`)
+    spelled with hyphens today. *Pays into:* `G-PROLOG` slices 3–5,
+    `G-RENDER`. `~weeks`
 
   - ⬜ **G-SOLVE** — sentence templates targeting `SOLVE(facts, program)`, the
     Answer Set Programming engine — named for the function, not the

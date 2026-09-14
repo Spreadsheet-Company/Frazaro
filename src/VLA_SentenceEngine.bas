@@ -543,6 +543,15 @@ Private mActNames As Collection    ' lcase action names
 Private mActParams As Collection   ' parallel: Collection of lcase param names
 Private mActReq As Collection      ' parallel: Collection of "1"(required)/"0"
 Private mCallNames As Collection   ' lcase action name per recorded call
+' G-PROLOG slice 2: the range lint's records (ValidateQuestionRanges).
+' Per clause sentence: its head relation, its cell, the relations its
+' conditions read. Per question: its relation, its rules range, its line.
+Private mRuleCellRels As Collection
+Private mRuleCellAddrs As Collection
+Private mRuleCellBodies As Collection
+Private mAskRels As Collection
+Private mAskRanges As Collection
+Private mAskLines As Collection
 Private mCallArgs As Collection    ' parallel: Collection of lcase arg names
 Private mCallTexts As Collection   ' parallel: the call sentence, for messages
 Private mCallLines As Collection   ' parallel: the call sentence's line
@@ -818,6 +827,12 @@ Public Function EnglishToVla(ByVal text As String) As String
     Set mCallArgs = New Collection
     Set mCallTexts = New Collection
     Set mCallLines = New Collection
+    Set mRuleCellRels = New Collection
+    Set mRuleCellAddrs = New Collection
+    Set mRuleCellBodies = New Collection
+    Set mAskRels = New Collection
+    Set mAskRanges = New Collection
+    Set mAskLines = New Collection
     Set mAliasNames = New Collection
     mAliasDefs = ""
     Set mLoopStack = New Collection
@@ -1131,6 +1146,8 @@ Public Function EnglishToVla(ByVal text As String) As String
 
     ' Every definition is now known: check the recorded calls.
     ValidateActionCalls
+    ' ...and every rule cell is now known: check each question's range.
+    ValidateQuestionRanges
 
     If mainStmts.Count > 0 Then
         outParts = outParts & BuildSub("main", mainStmts) & vbCrLf
@@ -1998,7 +2015,7 @@ Private Function RenderSlotValue(ByVal cat As String, ByVal bound As Variant) As
             RenderSlotValue = StripQuoteSigil(CStr(bound))
         Case "expr", "cond"
             RenderSlotValue = RenderExprForm(bound)
-        Case "conditions"
+        Case "conditions", "clause", "question"
             ' G-PROLOG: this sub-grammar has no reverse yet. It prints
             ' the clause text it parsed to - readable, and honest about
             ' what it is - and sets the fallback flag, so the render
@@ -2147,6 +2164,8 @@ Private Function BuildSyntheticBindings(ByVal idx As Long, bn As Collection, bv 
                     Case "role":             val = """Stubrole"""
                     Case "relation":         val = """stubrel"""
                     Case "conditions":       val = """(stub Stubrole)"""
+                    Case "clause":           val = """(fact (stub x))"""
+                    Case "question":         val = """(query (stub x))"""
                     Case Else
                         BuildSyntheticBindings = False
                         Exit Function
@@ -2157,6 +2176,10 @@ Private Function BuildSyntheticBindings(ByVal idx As Long, bn As Collection, bv 
             If cat = "conditions" Then
                 bn.Add slotName & "-rules"
                 bv.Add """"""
+            End If
+            If cat = "question" Then
+                bn.Add slotName & "-engine"
+                bv.Add """PROLOG"""
             End If
         End If
     Next
@@ -2310,7 +2333,7 @@ Private Sub ValidateRuleItems(ByVal pattern As String, items As Collection)
                 Next
             Else
                 Select Case ct
-                    Case "name", "var", "text", "expr", "cond", "conditions", "role", "relation", _
+                    Case "name", "var", "text", "expr", "cond", "conditions", "role", "relation", "clause", "question", _
                          "range", "cell", "column", "sheet", "color", "path"
                         ' known category (the five before "path" are
                         ' G2's typed reference slots - :text plus a
@@ -2753,6 +2776,14 @@ Private Function CategoryPlaceholderValue(ByVal cat As String) As String
             ' the syntax: a set binds its own role, so no role is left
             ' unbound, and neither word is one of the grammar's own.
             CategoryPlaceholderValue = "the x is y"
+        Case "clause"
+            ' G-PROLOG slice 2: the cheapest clause is a set fact - one
+            ' quoted value, "is", one set name - with no conditions to
+            ' satisfy and no role left unbound.
+            CategoryPlaceholderValue = """x"" is y"
+        Case "question"
+            ' ...and the cheapest question asks whether that fact holds.
+            CategoryPlaceholderValue = "whether ""x"" is y"
         Case Else
             CategoryPlaceholderValue = """x"""
     End Select
@@ -2895,6 +2926,20 @@ Private Sub AuditCrossRuleShadow()
     ' corpus's call-vs-definition check would be a new bug in service
     ' of catching an old one.
     Dim savedCN As Collection, savedCA As Collection, savedCT As Collection, savedCL As Collection
+    Dim savedRR As Collection, savedRA As Collection, savedRB As Collection
+    Dim savedQR As Collection, savedQA As Collection, savedQL As Collection
+    Set savedRR = mRuleCellRels
+    Set savedRA = mRuleCellAddrs
+    Set savedRB = mRuleCellBodies
+    Set savedQR = mAskRels
+    Set savedQA = mAskRanges
+    Set savedQL = mAskLines
+    Set mRuleCellRels = Nothing
+    Set mRuleCellAddrs = Nothing
+    Set mRuleCellBodies = Nothing
+    Set mAskRels = Nothing
+    Set mAskRanges = Nothing
+    Set mAskLines = Nothing
     Set savedCN = mCallNames
     Set savedCA = mCallArgs
     Set savedCT = mCallTexts
@@ -2966,6 +3011,12 @@ Private Sub AuditCrossRuleShadow()
     Set mCallArgs = savedCA
     Set mCallTexts = savedCT
     Set mCallLines = savedCL
+    Set mRuleCellRels = savedRR
+    Set mRuleCellAddrs = savedRA
+    Set mRuleCellBodies = savedRB
+    Set mAskRels = savedQR
+    Set mAskRanges = savedQA
+    Set mAskLines = savedQL
 End Sub
 
 ' =====================================================================
@@ -4538,6 +4589,13 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
     Dim hasDefault As Boolean, defaultVal As String
     Dim matchOk As Boolean
     Dim condPre As String
+    ' G-PROLOG slice 2: what a clause or question slot matched, and the
+    ' one cell or range slot beside it, for the range lint.
+    Dim clauseRel As String, questionRel As String, questionEngine As String
+    Dim clauseNames As Collection
+    Dim sawClause As Boolean, sawQuestion As Boolean
+    Dim lintCell As String, lintRange As String
+    Dim lintCellCount As Long, lintRangeCount As Long
 
     For Each it In items
         t = it
@@ -4563,6 +4621,13 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
                     ' G7; otherwise to a later rule), the teaching text
                     ' riding the I-understood frame when nothing does.
                     matchOk = MatchRefToken(cat, toks, p, val)
+                    If matchOk And cat = "cell" Then
+                        lintCellCount = lintCellCount + 1
+                        lintCell = val
+                    ElseIf matchOk And cat = "range" Then
+                        lintRangeCount = lintRangeCount + 1
+                        lintRange = val
+                    End If
                 Case "path"
                     ' G-PATH: quoted literal (any content - periods,
                     ' backslashes, colons are just string content once
@@ -4679,6 +4744,28 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
                     Else
                         matchOk = False
                     End If
+                Case "clause"
+                    ' G-PROLOG slice 2: a rule or a fact, whole - see
+                    ' ParseClause's section header. Binds the cell text.
+                    Set clauseNames = New Collection
+                    val = ParseClause(toks, p, clauseRel, clauseNames, ok)
+                    If ok Then
+                        val = VlaStringLit(val)
+                        sawClause = True
+                    Else
+                        matchOk = False
+                    End If
+                Case "question"
+                    ' G-PROLOG slice 2: binds the program tail, already
+                    ' doubled for Excel's string literal, and - under
+                    ' "<slot>-engine" - the engine its shape routes it to.
+                    val = ParseQuestion(toks, p, questionEngine, questionRel, ok)
+                    If ok Then
+                        val = VlaStringLit(val)
+                        sawQuestion = True
+                    Else
+                        matchOk = False
+                    End If
                 Case Else
                     If Not IsAltCat(cat) Then
                         VLA_Messages.RaiseMsg "english-unknown-slot-category-runtime", "cat", cat
@@ -4723,6 +4810,10 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
             If cat = "conditions" Then
                 bn.Add slotName & "-rules"
                 bv.Add VlaStringLit(condPre)
+            End If
+            If cat = "question" Then
+                bn.Add slotName & "-engine"
+                bv.Add VlaStringLit(questionEngine)
             End If
         ElseIf IsOptTok(t, ow) Then
             ' G1: optional literal - consumed when present, free when
@@ -4769,6 +4860,10 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
         MarkAssigned CStr(it)
     Next
     pos = p
+    ' G-PROLOG slice 2: only a rule that matched is recorded, and only when
+    ' it names exactly one cell (a clause) or one range (a question).
+    If sawClause And lintCellCount = 1 Then RecordRuleCell lintCell, clauseRel, clauseNames
+    If sawQuestion And lintRangeCount = 1 Then RecordQuestionRange lintRange, questionRel
     outText = TryFormPath(idx, bn, bv)
     mLastRuleIdx = idx
     BumpUsage "rule: " & mPatTexts.Item(idx)   ' S2: every firing counts
@@ -5284,11 +5379,13 @@ End Function
 '   Sep        := ","? "and"                (at least one of the two)
 '   Condition  := "not"? ( TableRow | Relation | Set | Comparison )
 '   TableRow   := <table> "lists" Column ( Sep Column )*
-'   Column     := <role> "as" <header>
-'   Relation   := <role> <rel> <role>
+'   Column     := Operand "as" <header>
+'   Relation   := Operand <rel> Operand
 '   Set        := <role> "is" <set>
-'   Comparison := <role> "is" Op <role>
+'   Comparison := <role> "is" Op ( <role> | <number> )
 '   Op         := "at least" | "at most" | "greater than" | "less than"
+'   Operand    := <role> | <constant>
+'   Constant   := <quoted text> | <number>
 '
 ' WHERE "the" WENT. A writer says "the person", and the grammar above has
 ' no "the" in it: EnTokenize drops "the" (and "please") from every
@@ -5308,6 +5405,20 @@ End Function
 ' capital would mint a different variable on a different machine, and
 ' SD-8 says identity never depends on a locale.
 '
+' CONSTANTS STAND WHERE ROLES DO, AND THERE IS NO "=" (G-PROLOG slice 2,
+' the owner's call). A quoted text or a bare number may fill a Table
+' row's column, either side of a relation, or the right of a comparison:
+' "Roster lists the person as Name and "Ops" as Dept", "the person
+' reports-to "Alice"", "the amount is greater than 10000". Measured in
+' both engines before this was decided, every one of those agreed, while
+' every spelling of equality did not: (= Dept "Ops") written before its
+' Table row is refused by DATALOG's order rule and answered by PROLOG;
+' (= L "3") answers in DATALOG and refuses in PROLOG; (== ...) is an
+' undefined predicate to DATALOG. So "the dept is "Ops"" refuses by name
+' and teaches the column spelling instead, and a comparison refuses
+' quoted text (PROLOG's arithmetic cannot compare it; DATALOG would, by
+' spelling). A constant is TYPED by how it was written - TakeConstant.
+'
 ' THE TWO DECISIONS THAT NEED A WINDOW, each exactly the width of the
 ' shape it recognizes. Which shape a condition is: its SECOND token
 ' decides - "lists" makes a Table row, "is" a set or a comparison,
@@ -5315,7 +5426,7 @@ End Function
 ' separator continues the column list or begins a new condition, since
 ' the two spellings start alike: ", and level as Level" is another
 ' column, ", and level is at least min" a comparison, so the parser
-' reads <word> "as". Neither window looks past the shape it is
+' reads <operand> "as". Neither window looks past the shape it is
 ' matching, so this stays one deterministic left-to-right scan with no
 ' backtracking, and the language stays regular.
 '
@@ -5341,7 +5452,14 @@ End Function
 ' The rule is named from its own CONTENT - the table and the columns it
 ' reads - never from an ordinal: two sentences in one rules range would
 ' give one name to two different rules, and `not` would then be asking
-' about the wrong thing.
+' about the wrong thing. A CONSTANT in a negated row goes in the CALL,
+' never into the rule: "not Leave lists the person as Name and "Night"
+' as Shift" writes (not (vla-not-leave-name-shift Person "Night")) over
+' the same all-variable rule. Written into the rule instead, "Night" and
+' "Day" would be two different rules under one name - the injectivity
+' hole this section's names were already closed against. Such a rule's
+' variables are its columns' (Shift from "shift"), which cannot collide,
+' since a row's headers are already distinct.
 '
 ' NAMES A READER CAN REDO BY HAND, AND ONLY ONE WAY (the owner's gensym
 ' question, 2026-09-13). Content alone was not enough: the parts are
@@ -5355,8 +5473,15 @@ End Function
 ' (RefuseGeneratedPrefix). Deterministic names are only safe to use where
 ' gensym would have been if their namespaces can never meet each other,
 ' or meet a writer's.
+'
+' namesOut and boundOut are for the clause sub-grammar (ParseClause): the
+' relation and set names the conditions read, which the Check-time range
+' lint walks, and the roles they bind positively, which a rule's head
+' roles are checked against. Either may be Nothing.
 Private Function ParseConditions(toks() As String, ByRef pos As Long, _
-                                 ByRef preRules As String, ByRef ok As Boolean) As String
+                                 ByRef preRules As String, ByRef ok As Boolean, _
+                                 Optional ByVal namesOut As Collection, _
+                                 Optional ByVal boundOut As Collection) As String
     Dim goals As String
     Dim pre As String
     Dim preSeen As Collection
@@ -5366,7 +5491,8 @@ Private Function ParseConditions(toks() As String, ByRef pos As Long, _
     Dim negated As Boolean
     Dim goal As String
     Dim isRow As Boolean
-    Dim rowTable As String, rowHeaders As String, rowVars As String
+    Dim rowTable As String, rowHeaders As String, rowArgs As String
+    Dim rowProjVars As String, rowProjBody As String
     Dim q As Long
     Dim sawSep As Boolean
     Dim projName As String
@@ -5389,14 +5515,16 @@ Private Function ParseConditions(toks() As String, ByRef pos As Long, _
         isRow = False
         rowTable = ""
         rowHeaders = ""
-        rowVars = ""
+        rowArgs = ""
+        rowProjVars = ""
+        rowProjBody = ""
         If TokAt(toks, p + 1) = "lists" Then
             goal = ParseOneTableRow(toks, p, negated, posRoles, allRoles, _
-                                    rowTable, rowHeaders, rowVars, ok)
+                                    rowTable, rowHeaders, rowArgs, rowProjVars, rowProjBody, ok)
             If Not ok Then Exit Function
             isRow = True
         Else
-            goal = ParseOneRoleCondition(toks, p, negated, posRoles, allRoles, ok)
+            goal = ParseOneRoleCondition(toks, p, negated, posRoles, allRoles, namesOut, ok)
             If Not ok Then Exit Function
         End If
 
@@ -5405,9 +5533,9 @@ Private Function ParseConditions(toks() As String, ByRef pos As Long, _
                 projName = "vla-not-" & EscapeNamePart(rowTable) & "-" & rowHeaders
                 If Not CollHasKey(preSeen, projName) Then
                     preSeen.Add True, projName
-                    pre = pre & "(rule (" & projName & " " & rowVars & ") " & goal & ") "
+                    pre = pre & "(rule (" & projName & " " & rowProjVars & ") " & rowProjBody & ") "
                 End If
-                goal = "(" & projName & " " & rowVars & ")"
+                goal = "(" & projName & " " & rowArgs & ")"
             End If
             goal = "(not " & goal & ")"
         End If
@@ -5441,46 +5569,55 @@ Private Function ParseConditions(toks() As String, ByRef pos As Long, _
         End If
     Next rv
 
+    If Not boundOut Is Nothing Then
+        For Each rv In CollKeysOf(posRoles)
+            If Not CollHasKey(boundOut, CStr(rv)) Then boundOut.Add CStr(rv), CStr(rv)
+        Next rv
+    End If
+
     pos = p
     preRules = pre
     ParseConditions = goals
     ok = True
 End Function
 
-' "<role> ..." - a relation, a set, or a comparison. The token after the
-' role noun decides, and it decides on the token itself, never on a
-' guess: "is" opens a set or a comparison, anything else is a relation.
-' (The writer's "the" never arrives - see this section's header.)
+' "<operand> ..." - a relation, a set, or a comparison. The token after
+' the first operand decides, and it decides on the token itself, never on
+' a guess: "is" opens a set or a comparison, anything else is a relation.
+' A constant may begin a relation, but a set or a comparison is always
+' said about a role. (The writer's "the" never arrives - see this
+' section's header.)
 Private Function ParseOneRoleCondition(toks() As String, ByRef p As Long, ByVal negated As Boolean, _
                                        posRoles As Collection, allRoles As Collection, _
-                                       ByRef ok As Boolean) As String
+                                       ByVal namesOut As Collection, ByRef ok As Boolean) As String
     Dim v1 As String, v2 As String
+    Dim v1IsRole As Boolean, v2IsRole As Boolean
     Dim nm As String
-    Dim a As String, b As String
+    Dim a As String, b As String, t As String
     Dim op As String
     Dim swapped As Boolean
 
     ok = False
-    v1 = TakeRoleVar(toks, p, allRoles)
-    If Len(v1) = 0 Then Exit Function
+    If Not TakeOperand(toks, p, allRoles, v1, v1IsRole) Then Exit Function
 
     If TokAt(toks, p) <> "is" Then
-        ' a relation: <role> <relation> <role>
+        ' a relation: <operand> <relation> <operand>
         nm = WordAt(toks, p)
         If Len(nm) = 0 Then Exit Function
         RefuseGrammarWordAsName nm
         p = p + 1
-        v2 = TakeRoleVar(toks, p, allRoles)
-        If Len(v2) = 0 Then Exit Function
+        If Not TakeOperand(toks, p, allRoles, v2, v2IsRole) Then Exit Function
         If Not negated Then
-            NoteRoleBound posRoles, v1
-            NoteRoleBound posRoles, v2
+            If v1IsRole Then NoteRoleBound posRoles, v1
+            If v2IsRole Then NoteRoleBound posRoles, v2
         End If
+        NoteName namesOut, nm
         ParseOneRoleCondition = "(" & nm & " " & v1 & " " & v2 & ")"
         ok = True
         Exit Function
     End If
 
+    If Not v1IsRole Then Exit Function
     p = p + 1                                  ' "is"
     a = TokAt(toks, p)
     b = TokAt(toks, p + 1)
@@ -5506,8 +5643,18 @@ Private Function ParseOneRoleCondition(toks() As String, ByRef p As Long, ByVal 
     End If
 
     If Len(op) > 0 Then
-        v2 = TakeRoleVar(toks, p, allRoles)
-        If Len(v2) = 0 Then Exit Function
+        ' A comparison's right side is a role or a NUMBER. Quoted text is
+        ' refused by name: PROLOG's arithmetic cannot compare it and
+        ' DATALOG would compare it by spelling, so one cell would answer
+        ' two ways. A quoted numeral reaches TakeConstant's own refusal.
+        t = TokAt(toks, p)
+        If IsStrTok(t) Then
+            If Not IsCanonicalNumeral(Mid$(t, 2)) Then
+                VLA_Messages.RaiseMsg "english-conditions-compare-needs-number", _
+                    "role", LCase$(v1), "text", Mid$(t, 2)
+            End If
+        End If
+        If Not TakeOperand(toks, p, allRoles, v2, v2IsRole) Then Exit Function
         If swapped Then
             ParseOneRoleCondition = "(" & op & " " & v2 & " " & v1 & ")"
         Else
@@ -5517,27 +5664,45 @@ Private Function ParseOneRoleCondition(toks() As String, ByRef p As Long, ByVal 
         Exit Function
     End If
 
+    ' "the dept is "Ops"" - equality with a constant, which this grammar
+    ' does not write (this section's header has the measurements). Refused
+    ' by name, and taught: the value belongs where the role is read.
+    t = TokAt(toks, p)
+    If IsConstantTok(t) Then
+        VLA_Messages.RaiseMsg "english-conditions-equality-constant", _
+            "role", LCase$(v1), "value", ConstantAsWritten(t)
+    End If
+
     ' a set: <role> is <set>
     nm = WordAt(toks, p)
     If Len(nm) = 0 Then Exit Function
     RefuseGrammarWordAsName nm
     p = p + 1
     If Not negated Then NoteRoleBound posRoles, v1
+    NoteName namesOut, nm
     ParseOneRoleCondition = "(" & nm & " " & v1 & ")"
     ok = True
 End Function
 
-' "<Table> lists <role> as <Header>, ... and <role> as <Header>"
+' "<Table> lists <operand> as <Header>, ... and <operand> as <Header>"
 ' The header is the column as typed (folded, the way DATALOG folds its
-' own header names) and the role is the writer's noun.
+' own header names) and the operand is the writer's noun or a constant.
+' outArgs is what a negated row's CALL passes; outProjVars and
+' outProjBody are its projection rule's head variables and body, which
+' are the row itself unless a column holds a constant - see this
+' section's header on why a constant never goes into the rule.
 Private Function ParseOneTableRow(toks() As String, ByRef p As Long, ByVal negated As Boolean, _
                                   posRoles As Collection, allRoles As Collection, _
                                   ByRef outTable As String, ByRef outHeaders As String, _
-                                  ByRef outVars As String, ByRef ok As Boolean) As String
+                                  ByRef outArgs As String, ByRef outProjVars As String, _
+                                  ByRef outProjBody As String, ByRef ok As Boolean) As String
     Dim tbl As String
     Dim pairs As String
-    Dim rvName As String
+    Dim term As String
+    Dim isRole As Boolean
     Dim hdr As String
+    Dim headerVars As String, headerPairs As String
+    Dim anyConstant As Boolean
     Dim q As Long
     Dim windowOk As Boolean
 
@@ -5549,28 +5714,35 @@ Private Function ParseOneTableRow(toks() As String, ByRef p As Long, ByVal negat
     p = p + 1
 
     Do
-        rvName = TakeRoleVar(toks, p, allRoles)
-        If Len(rvName) = 0 Then Exit Function
+        If Not TakeOperand(toks, p, allRoles, term, isRole) Then Exit Function
         If TokAt(toks, p) <> "as" Then Exit Function
         p = p + 1
         hdr = WordAt(toks, p)
         If Len(hdr) = 0 Then Exit Function
         p = p + 1
         If Len(pairs) > 0 Then pairs = pairs & " "
-        pairs = pairs & "(" & hdr & " " & rvName & ")"
+        pairs = pairs & "(" & hdr & " " & term & ")"
         If Len(outHeaders) > 0 Then outHeaders = outHeaders & "-"
         outHeaders = outHeaders & EscapeNamePart(hdr)
-        If Len(outVars) > 0 Then outVars = outVars & " "
-        outVars = outVars & rvName
-        If Not negated Then NoteRoleBound posRoles, rvName
+        If Len(outArgs) > 0 Then outArgs = outArgs & " "
+        outArgs = outArgs & term
+        If Len(headerVars) > 0 Then headerVars = headerVars & " "
+        headerVars = headerVars & RoleToVarName(hdr)
+        If Len(headerPairs) > 0 Then headerPairs = headerPairs & " "
+        headerPairs = headerPairs & "(" & hdr & " " & RoleToVarName(hdr) & ")"
+        If isRole Then
+            If Not negated Then NoteRoleBound posRoles, term
+        Else
+            anyConstant = True
+        End If
 
         ' Another column, or the end of the row? See this section's own
-        ' header note on the <word> "as" window.
+        ' header note on the <operand> "as" window.
         q = p
         If TokAt(toks, q) = "," Then q = q + 1
         If TokAt(toks, q) = "and" Then q = q + 1
         If q = p Then Exit Do
-        windowOk = (Len(WordAt(toks, q)) > 0)
+        windowOk = (Len(WordAt(toks, q)) > 0) Or IsConstantTok(TokAt(toks, q))
         If windowOk Then windowOk = (TokAt(toks, q + 1) = "as")
         If Not windowOk Then Exit Do
         p = q
@@ -5578,7 +5750,28 @@ Private Function ParseOneTableRow(toks() As String, ByRef p As Long, ByVal negat
 
     outTable = tbl
     ParseOneTableRow = "(" & tbl & " " & pairs & ")"
+    If anyConstant Then
+        outProjVars = headerVars
+        outProjBody = "(" & tbl & " " & headerPairs & ")"
+    Else
+        outProjVars = outArgs
+        outProjBody = ParseOneTableRow
+    End If
     ok = True
+End Function
+
+' An operand: a role noun (its variable, recorded as seen) or a typed
+' constant. False, with nothing consumed, when the token is neither.
+Private Function TakeOperand(toks() As String, ByRef p As Long, allRoles As Collection, _
+                             ByRef term As String, ByRef isRole As Boolean) As Boolean
+    term = TakeRoleVar(toks, p, allRoles)
+    If Len(term) > 0 Then
+        isRole = True
+        TakeOperand = True
+        Exit Function
+    End If
+    isRole = False
+    TakeOperand = TakeConstant(toks, p, term)
 End Function
 
 ' The role noun at p -> its variable, recorded as seen. Empty when the
@@ -5607,8 +5800,15 @@ Private Function RoleToVarName(ByVal w As String) As String
     End If
 End Function
 
+' Stores the name as its own value, so CollKeysOf can hand the bound
+' roles back to a caller that asked for them (boundOut).
 Private Sub NoteRoleBound(posRoles As Collection, ByVal v As String)
-    If Not CollHasKey(posRoles, v) Then posRoles.Add True, v
+    If Not CollHasKey(posRoles, v) Then posRoles.Add v, v
+End Sub
+
+Private Sub NoteName(ByVal names As Collection, ByVal nm As String)
+    If names Is Nothing Then Exit Sub
+    If Not CollHasKey(names, nm) Then names.Add nm, nm
 End Sub
 
 ' A relation or a set may not be named with one of this sub-grammar's
@@ -5662,6 +5862,478 @@ Private Function CollKeysOf(c As Collection) As Collection
         outc.Add v
     Next v
     Set CollKeysOf = outc
+End Function
+
+' =====================================================================
+'  G-PROLOG slice 2: constants, the clause, and the question
+' =====================================================================
+' Two more built-in sub-grammars under SD-16's amendment, both regular,
+' both one opaque placeholder to the shadow audit, and both the owner's
+' calls while scoping slice 2 (2026-09-13).
+'
+' A CONSTANT IS TYPED BY HOW IT WAS WRITTEN. A quoted token is text and
+' is written quoted; a number token is a number and is written bare.
+' Measured before this was decided: slice 1's question templates quoted
+' EVERY constant, so "whether "Ann" has-level 3" wrote "3", and PROLOG -
+' where a text cell keeps its quote marker and a number cell does not -
+' answered FALSE with nothing to warn anyone, while the same question as
+' WHO answered Ann in DATALOG, which strips the marker. A fact carrying
+' "10000" joined to a Table's 10000 split the same way. So a quoted
+' numeral is refused by name (TakeConstant): writing it bare is the one
+' spelling both engines read alike. "Numeral" means canonical - "3",
+' "2.5", "-4" - since "007" and "1.50" are the shapes a text CODE takes.
+'
+' THE CLAUSE is everything after "that" in a rule or a fact sentence:
+'
+'   Clause   := Operand ( "is" [a|an] <set> | <rel> Operand ) ( "if" Conditions )?
+'   Operand  := [a|an] <role> | <constant>
+'
+' Its shape is decided by its own tokens: "is" after the first operand
+' makes a set, anything else a relation; "if" opens conditions, and with
+' no "if" the clause is a FACT, whose operands must all be constants. One
+' slot for all four head shapes and the fact is the owner's call, made
+' because only a sub-grammar that sees the head and the body together
+' can refuse a head role no condition binds: measured, "a person
+' can-cover a shift if Staff lists the person as Name" was refused by
+' DATALOG (naming a variable, Shift) and answered TRUE by PROLOG for
+' "Bob" and any shift at all. A relation is one hyphenated word; declared
+' multi-word relations are G-RELATIONS', the owner's call.
+'
+' THE QUESTION is everything between "show in cell ..." and "by applying":
+'
+'   Question := "whether" <constant> Predicate
+'             | Unknown Predicate
+'             | Unknown <constant> <rel>          (the object asked first)
+'   Predicate := "is" [a|an] <set> | <rel> ( <constant> | Unknown )
+'   Unknown  := "who" | "what" | "which" <noun>
+'
+' Its SHAPE routes it, decision 5 made literal: no unknown ("whether") is
+' a ground TRUE/FALSE and goes to PROLOG; one or two unknowns go to
+' DATALOG through a narrowing rule, vla-ask-<relation>, whose head is the
+' unknowns in argument order. The answer's headers are the question's
+' own words - Who, What, or the noun after "which" - and never the rules'
+' role nouns: measured, a direct query takes its headers from whichever
+' rule cell comes first, and Col1|Col2 when only facts define the
+' relation. The slot binds the program text already doubled for Excel's
+' string literal, because only this sub-grammar knows where a typed
+' constant's quotes are - and doubling EVERY quote is also what stops a
+' quote inside a constant from ending the formula's string early.
+'
+' THE RANGE LINT ("or" by repetition, the owner's call). A second rule
+' sentence with the same head is Prolog's own "or", and a question whose
+' rules range holds one of those cells but not the other answers from
+' part of the relation, silently, in both engines - measured: FALSE in
+' PROLOG where TRUE was right. Neither engine can see it, because the
+' relation IS defined. This sub-grammar can, within one program: each
+' clause sentence records its cell, its head relation and the relations
+' its conditions read; each question records its range; and after the
+' whole program has translated, ValidateQuestionRanges refuses a question
+' whose range splits any relation it can reach. Named limit: rules typed
+' by hand, or written by another program, are invisible to it, and so is
+' a cell or range it cannot place (sheet-qualified, or a quoted name).
+
+' A constant at p: a quoted token (text, written quoted) or a number
+' token (written bare). False, with nothing consumed, when it is neither.
+Private Function TakeConstant(toks() As String, ByRef p As Long, ByRef termText As String) As Boolean
+    Dim t As String
+    t = TokAt(toks, p)
+    If IsStrTok(t) Then
+        If IsCanonicalNumeral(Mid$(t, 2)) Then
+            VLA_Messages.RaiseMsg "english-constant-quoted-number", "text", Mid$(t, 2)
+        End If
+        termText = VlaStringLit(Mid$(t, 2))
+        p = p + 1
+        TakeConstant = True
+    ElseIf IsInvariantNumeral(t) Then
+        termText = t
+        p = p + 1
+        TakeConstant = True
+    End If
+End Function
+
+Private Function IsConstantTok(ByVal t As String) As Boolean
+    IsConstantTok = IsStrTok(t) Or IsInvariantNumeral(t)
+End Function
+
+Private Function ConstantAsWritten(ByVal t As String) As String
+    If IsStrTok(t) Then
+        ConstantAsWritten = """" & Mid$(t, 2) & """"
+    Else
+        ConstantAsWritten = t
+    End If
+End Function
+
+' Digits with at most one ".", and an optional leading "-" - the shape
+' both engines' IsInvariantNumericString reads as a number. VBA's own
+' IsNumeric is locale-dependent and accepts "1e3", so it is not used.
+Private Function IsInvariantNumeral(ByVal s As String) As Boolean
+    Dim i As Long, first As Long
+    Dim c As String
+    Dim sawDigit As Boolean, sawDot As Boolean
+    If Len(s) = 0 Then Exit Function
+    first = 1
+    If Left$(s, 1) = "-" Then first = 2
+    If first > Len(s) Then Exit Function
+    For i = first To Len(s)
+        c = Mid$(s, i, 1)
+        If c Like "[0-9]" Then
+            sawDigit = True
+        ElseIf c = "." And Not sawDot Then
+            sawDot = True
+        Else
+            Exit Function
+        End If
+    Next i
+    IsInvariantNumeral = sawDigit
+End Function
+
+' A numeral written the one way a number cell prints it: no leading
+' zero, no trailing fractional zero, no bare "." - so "3" and "2.5" are
+' numerals, and "007" and "1.50" are the text codes they look like.
+Private Function IsCanonicalNumeral(ByVal s As String) As Boolean
+    Dim body As String, intPart As String, fracPart As String
+    Dim dotAt As Long
+    body = s
+    If Left$(body, 1) = "-" Then body = Mid$(body, 2)
+    If Len(body) = 0 Then Exit Function
+    dotAt = InStr(body, ".")
+    If dotAt > 0 Then
+        intPart = Left$(body, dotAt - 1)
+        fracPart = Mid$(body, dotAt + 1)
+        If Not IsDigitRun(fracPart) Then Exit Function
+        If Right$(fracPart, 1) = "0" Then Exit Function
+    Else
+        intPart = body
+    End If
+    If Not IsDigitRun(intPart) Then Exit Function
+    If Len(intPart) > 1 And Left$(intPart, 1) = "0" Then Exit Function
+    IsCanonicalNumeral = True
+End Function
+
+Private Function IsDigitRun(ByVal s As String) As Boolean
+    Dim i As Long
+    If Len(s) = 0 Then Exit Function
+    For i = 1 To Len(s)
+        If Not (Mid$(s, i, 1) Like "[0-9]") Then Exit Function
+    Next i
+    IsDigitRun = True
+End Function
+
+' A head operand: [a|an] <role> -> its variable, or a constant.
+Private Function TakeHeadOperand(toks() As String, ByRef p As Long, _
+                                 ByRef term As String, ByRef isRole As Boolean) As Boolean
+    Dim w As String
+    SkipArticles toks, p
+    w = WordAt(toks, p)
+    If Len(w) > 0 Then
+        term = RoleToVarName(w)
+        isRole = True
+        p = p + 1
+        TakeHeadOperand = True
+        Exit Function
+    End If
+    isRole = False
+    TakeHeadOperand = TakeConstant(toks, p, term)
+End Function
+
+' The clause sub-grammar - see this section's header. Returns the cell
+' text; headRelation and bodyNames feed the range lint.
+Private Function ParseClause(toks() As String, ByRef pos As Long, ByRef headRelation As String, _
+                             ByVal bodyNames As Collection, ByRef ok As Boolean) As String
+    Dim p As Long
+    Dim subj As String, obj As String
+    Dim subjRole As Boolean, objRole As Boolean
+    Dim rel As String
+    Dim headText As String
+    Dim goals As String, pre As String
+    Dim condOk As Boolean
+    Dim bound As Collection
+
+    ok = False
+    p = pos
+    If Not TakeHeadOperand(toks, p, subj, subjRole) Then Exit Function
+
+    If TokAt(toks, p) = "is" Then
+        p = p + 1
+        SkipArticles toks, p
+        rel = WordAt(toks, p)
+        If Len(rel) = 0 Then Exit Function
+        RefuseGrammarWordAsName rel
+        p = p + 1
+        headText = "(" & rel & " " & subj & ")"
+    Else
+        rel = WordAt(toks, p)
+        If Len(rel) = 0 Then Exit Function
+        RefuseGrammarWordAsName rel
+        p = p + 1
+        If Not TakeHeadOperand(toks, p, obj, objRole) Then Exit Function
+        headText = "(" & rel & " " & subj & " " & obj & ")"
+    End If
+
+    If TokAt(toks, p) = "if" Then
+        p = p + 1
+        Set bound = New Collection
+        goals = ParseConditions(toks, p, pre, condOk, bodyNames, bound)
+        If Not condOk Then Exit Function
+        ' A head role no condition binds would make the rule true of
+        ' every value that role could take - see this section's header.
+        If subjRole Then RefuseUnboundHeadRole subj, bound
+        If objRole Then RefuseUnboundHeadRole obj, bound
+        ParseClause = pre & "(rule " & headText & " " & goals & ")"
+    Else
+        ' No "if": a fact, which names only values.
+        If subjRole Then VLA_Messages.RaiseMsg "english-clause-fact-needs-values", "role", LCase$(subj)
+        If objRole Then VLA_Messages.RaiseMsg "english-clause-fact-needs-values", "role", LCase$(obj)
+        ParseClause = "(fact " & headText & ")"
+    End If
+
+    headRelation = rel
+    pos = p
+    ok = True
+End Function
+
+Private Sub RefuseUnboundHeadRole(ByVal v As String, bound As Collection)
+    If CollHasKey(bound, v) Then Exit Sub
+    VLA_Messages.RaiseMsg "english-clause-unbound-head-role", "role", LCase$(v)
+End Sub
+
+' who -> Who, what -> What, which <noun> -> the noun's variable. False,
+' with nothing consumed, for anything else.
+Private Function TakeUnknown(toks() As String, ByRef p As Long, ByRef varName As String) As Boolean
+    Dim w As String, noun As String
+    w = TokAt(toks, p)
+    If w = "who" Then
+        varName = "Who"
+        p = p + 1
+        TakeUnknown = True
+    ElseIf w = "what" Then
+        varName = "What"
+        p = p + 1
+        TakeUnknown = True
+    ElseIf w = "which" Then
+        noun = WordAt(toks, p + 1)
+        If Len(noun) = 0 Then Exit Function
+        If IsConditionsGrammarWord(noun) Then Exit Function
+        varName = RoleToVarName(noun)
+        p = p + 2
+        TakeUnknown = True
+    End If
+End Function
+
+' The question sub-grammar - see this section's header. Returns the
+' program tail with every quote doubled for Excel's string literal; engine
+' is DATALOG or PROLOG, and relation feeds the range lint.
+Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine As String, _
+                               ByRef relation As String, ByRef ok As Boolean) As String
+    Dim p As Long
+    Dim a1 As String, a2 As String
+    Dim u1 As Boolean, u2 As Boolean
+    Dim isWhether As Boolean
+    Dim rel As String
+    Dim goal As String, headVars As String, tail As String
+
+    ok = False
+    p = pos
+    If TokAt(toks, p) = "whether" Then
+        isWhether = True
+        p = p + 1
+        If Not TakeConstant(toks, p, a1) Then Exit Function
+    Else
+        If Not TakeUnknown(toks, p, a1) Then Exit Function
+        u1 = True
+    End If
+
+    If TokAt(toks, p) = "is" Then
+        p = p + 1
+        SkipArticles toks, p
+        rel = WordAt(toks, p)
+        If Len(rel) = 0 Then Exit Function
+        RefuseGrammarWordAsName rel
+        p = p + 1
+        goal = "(" & rel & " " & a1 & ")"
+        If u1 Then headVars = a1
+    ElseIf u1 And IsConstantTok(TokAt(toks, p)) Then
+        ' "what "Bob" can-cover": the unknown is the OBJECT, asked first
+        If Not TakeConstant(toks, p, a2) Then Exit Function
+        rel = WordAt(toks, p)
+        If Len(rel) = 0 Then Exit Function
+        RefuseGrammarWordAsName rel
+        p = p + 1
+        goal = "(" & rel & " " & a2 & " " & a1 & ")"
+        headVars = a1
+    Else
+        rel = WordAt(toks, p)
+        If Len(rel) = 0 Then Exit Function
+        RefuseGrammarWordAsName rel
+        p = p + 1
+        If Not TakeConstant(toks, p, a2) Then
+            If Not TakeUnknown(toks, p, a2) Then Exit Function
+            u2 = True
+        End If
+        If isWhether And u2 Then
+            VLA_Messages.RaiseMsg "english-question-whether-unknown", "unknown", LCase$(a2)
+        End If
+        If u1 And u2 And LCase$(a1) = LCase$(a2) Then
+            VLA_Messages.RaiseMsg "english-question-same-unknown", "unknown", LCase$(a1)
+        End If
+        goal = "(" & rel & " " & a1 & " " & a2 & ")"
+        If u1 Then headVars = a1
+        If u2 Then
+            If Len(headVars) > 0 Then headVars = headVars & " "
+            headVars = headVars & a2
+        End If
+    End If
+
+    If isWhether Then
+        engine = "PROLOG"
+        tail = "(query " & goal & ")"
+    Else
+        engine = "DATALOG"
+        tail = "(rule (vla-ask-" & rel & " " & headVars & ") " & goal & ") (query vla-ask-" & rel & ")"
+    End If
+    relation = rel
+    pos = p
+    ParseQuestion = Replace(tail, """", """""")
+    ok = True
+End Function
+
+' ---- the range lint: recorded during translation, checked after it ----
+
+Private Sub RecordRuleCell(ByVal cellLit As String, ByVal rel As String, ByVal names As Collection)
+    If mRuleCellRels Is Nothing Then Exit Sub    ' outside a translation
+    mRuleCellRels.Add rel
+    mRuleCellAddrs.Add UnquoteRefLit(cellLit)
+    mRuleCellBodies.Add names
+End Sub
+
+Private Sub RecordQuestionRange(ByVal rangeLit As String, ByVal rel As String)
+    If mAskRels Is Nothing Then Exit Sub
+    mAskRels.Add rel
+    mAskRanges.Add UnquoteRefLit(rangeLit)
+    mAskLines.Add mCurLine
+End Sub
+
+' A reference slot binds a VLA string literal ("h2"); its content, folded.
+Private Function UnquoteRefLit(ByVal lit As String) As String
+    If Len(lit) >= 2 And Left$(lit, 1) = """" And Right$(lit, 1) = """" Then
+        lit = Mid$(lit, 2, Len(lit) - 2)
+    End If
+    UnquoteRefLit = LCase$(lit)
+End Function
+
+Private Sub ValidateQuestionRanges()
+    Dim qi As Long, ci As Long, k As Long
+    Dim reach As Collection, cellsOf As Collection
+    Dim nm As String, addr As String, missing As String
+    Dim total As Long, inside As Long
+    Dim unplaced As Boolean
+    Dim bn As Variant
+    If mAskRels Is Nothing Then Exit Sub
+    For qi = 1 To mAskRels.Count
+        Set reach = New Collection
+        reach.Add CStr(mAskRels.Item(qi)), CStr(mAskRels.Item(qi))
+        k = 1
+        Do While k <= reach.Count
+            nm = CStr(reach.Item(k))
+            Set cellsOf = New Collection
+            total = 0
+            inside = 0
+            missing = ""
+            unplaced = False
+            For ci = 1 To mRuleCellRels.Count
+                If CStr(mRuleCellRels.Item(ci)) = nm Then
+                    For Each bn In mRuleCellBodies.Item(ci)
+                        If Not CollHasKey(reach, CStr(bn)) Then reach.Add CStr(bn), CStr(bn)
+                    Next bn
+                    addr = CStr(mRuleCellAddrs.Item(ci))
+                    If Not CollHasKey(cellsOf, addr) Then
+                        cellsOf.Add addr, addr
+                        total = total + 1
+                        Select Case RefInRange(addr, CStr(mAskRanges.Item(qi)))
+                            Case 1
+                                inside = inside + 1
+                            Case 0
+                                If Len(missing) = 0 Then missing = addr
+                            Case Else
+                                unplaced = True
+                        End Select
+                    End If
+                End If
+            Next ci
+            If Not unplaced And inside > 0 And inside < total Then
+                mErrLine = CLng(mAskLines.Item(qi))
+                VLA_Messages.RaiseMsg "english-question-range-splits-relation", _
+                    "relation", nm, "cell", UCase$(missing), _
+                    "range", UCase$(CStr(mAskRanges.Item(qi))), "loc", LineSuf(mErrLine)
+            End If
+            k = k + 1
+        Loop
+    Next qi
+End Sub
+
+' 1 inside, 0 outside, -1 when either reference cannot be placed here (a
+' sheet-qualified one, a quoted name) - which the lint never guesses at.
+Private Function RefInRange(ByVal cellRef As String, ByVal rangeRef As String) As Long
+    Dim parts() As String
+    Dim cc As Long, cr As Long
+    Dim c1 As Long, r1 As Long, c2 As Long, r2 As Long
+    Dim swapTmp As Long
+    RefInRange = -1
+    If InStr(cellRef, "!") > 0 Or InStr(rangeRef, "!") > 0 Then Exit Function
+    If Not SplitA1(cellRef, cc, cr) Then Exit Function
+    parts = Split(rangeRef, ":")
+    If UBound(parts) = 0 Then
+        If Not SplitA1(parts(0), c1, r1) Then Exit Function
+        c2 = c1
+        r2 = r1
+    ElseIf UBound(parts) = 1 Then
+        If Not SplitA1(parts(0), c1, r1) Then Exit Function
+        If Not SplitA1(parts(1), c2, r2) Then Exit Function
+    Else
+        Exit Function
+    End If
+    If c1 > c2 Then
+        swapTmp = c1
+        c1 = c2
+        c2 = swapTmp
+    End If
+    If r1 > r2 Then
+        swapTmp = r1
+        r1 = r2
+        r2 = swapTmp
+    End If
+    If cc >= c1 And cc <= c2 And cr >= r1 And cr <= r2 Then
+        RefInRange = 1
+    Else
+        RefInRange = 0
+    End If
+End Function
+
+' "h12" -> column 8, row 12. False for anything that is not letters then
+' digits (at most three letters, as Excel's own columns are).
+Private Function SplitA1(ByVal s As String, ByRef colNum As Long, ByRef rowNum As Long) As Boolean
+    Dim i As Long
+    Dim ch As String, letters As String, digits As String
+    s = LCase$(s)
+    For i = 1 To Len(s)
+        ch = Mid$(s, i, 1)
+        If (ch Like "[a-z]") And Len(digits) = 0 Then
+            letters = letters & ch
+        ElseIf (ch Like "[0-9]") And Len(letters) > 0 Then
+            digits = digits & ch
+        Else
+            Exit Function
+        End If
+    Next i
+    If Len(letters) = 0 Or Len(letters) > 3 Then Exit Function
+    If Len(digits) = 0 Or Len(digits) > 7 Then Exit Function
+    colNum = 0
+    For i = 1 To Len(letters)
+        colNum = colNum * 26 + (AscW(Mid$(letters, i, 1)) - 96)
+    Next i
+    rowNum = CLng(digits)
+    If rowNum < 1 Then Exit Function
+    SplitA1 = True
 End Function
 
 ' =====================================================================

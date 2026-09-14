@@ -157,6 +157,16 @@ slice's one new runtime helper, new that release. These four are the
 first rows whose pattern carries a `{:conditions}` slot, `SD-16`'s third
 built-in sub-grammar, and `{:role}` and `{:relation}` slots; the ledger records the form,
 not the machinery, so the slots need no rows of their own.
+Then `G-PROLOG`'s second slice replaced those four rows, before `0.6.0`
+was tagged, with two: `write in cell {r:cell} that {h:clause}` and `show in
+cell {r:cell} {q:question} by applying …`, the first rows carrying
+`{:clause}` and `{:question}`, `SD-16`'s fourth and fifth built-in
+sub-grammars. The four were **removed**, not given an `until:` — the
+owner's call. Rule 1 records when a form first worked *in a release*, and
+these never did, so a row saying `0.6.0` for them would tell an author
+something false; rule 2's append-only protects released dates, which these
+were not. Every sentence the four accepted is accepted by the two, with the
+same meaning.
 
 ### Phrasebook rules
 
@@ -326,9 +336,7 @@ not the machinery, so the slots need no rows of their own.
 0.5.0  show every {shown:text} in {table:text} with {filtercol:text} over {val:expr} as {alias:text} in cell {r:cell}
 0.5.0  show every {table:text} {shown:text} whose {filtercol:text} is over {val:expr} as {alias:text} in cell {r:cell}
 0.5.0  show everyone who reports to {person:expr} directly or not in {table:text} as {alias:text} in cell {r:cell}
-0.6.0  show in cell {r:cell} what {s:expr} {rel:relation} by applying the rules in {rules:range} to the data tables {t:text-list}
-0.6.0  show in cell {r:cell} whether {s:expr} {rel:relation} {k:expr} by applying the rules in {rules:range} to the data tables {t:text-list}
-0.6.0  show in cell {r:cell} who {rel:relation} {k:expr} by applying the rules in {rules:range} to the data tables {t:text-list}
+0.6.0  show in cell {r:cell} {q:question} by applying the rules in {rules:range} to the data tables {t:text-list}
 0.5.0  show pivot {n:text} in {d:compact|tabular|outline} form
 0.5.0  show the total row of table {n:text}
 0.5.6  sort [range] {r:range} by column {c:column} then [by] column {e:column} {h:with|without} header [row]
@@ -354,7 +362,7 @@ not the machinery, so the slots need no rows of their own.
 0.5.0  unhide all rows and columns
 0.5.0  wait {n:expr} seconds
 0.5.0  work on sheet {s:sheet}
-0.6.0  write in cell {r:cell} that [a] {s:role} {rel:relation} [a] {o:role} if {c:conditions}
+0.6.0  write in cell {r:cell} that {h:clause}
 0.5.0  {d:add|remove} a blank row after {f:text-list} in pivot {n:text}
 0.5.0  {d:hide|show} subtotals for {f:text-list} in pivot {n:text}
 0.5.0  {d:hide|unhide} column {c:column}

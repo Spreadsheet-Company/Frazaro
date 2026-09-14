@@ -376,6 +376,9 @@ Public Function TestDSLs() As Boolean
     TestPrologHostTable
     TestPrologConditions
     TestTableArguments
+    TestPrologClauses
+    TestPrologQuestions
+    TestPrologRangeLint
     TestSql
     TestSqlJoin
     TestSqlSetOps
@@ -6850,6 +6853,190 @@ Private Sub TestTableArguments()
     On Error GoTo 0
     Report "g-prolog: naming no tables at all refuses by name", _
            InStr(1, desc, "at least one data table", vbTextCompare) > 0, "got: " & desc
+End Sub
+
+' G-PROLOG slice 2: the clause and question sub-grammars and the range lint
+' (VLA_SentenceEngine.bas, "G-PROLOG slice 2: constants, the clause, and the
+' question"). Each pin runs one sentence through EnglishToVla under a test
+' phrase and looks for a fragment of the VLA it translates to, or of the
+' refusal it raises, through this module's own AssertConditions helpers - so
+' TestDSLs' own counters see them. Every fragment was derived by running the
+' sentence through a transliteration of the sub-grammars, never typed by
+' hand, and each Sub's pins turn red under its own mutations there.
+Private Sub TestPrologClauses()
+    EnglishResetGrammar
+    EnglishAddPhrase "clause {h:clause}", "(debug-print {h})"
+
+    ' The head's shape is read from its own tokens: a relation between two
+    ' operands, or "is" and a set.
+    AssertConditions "a relation rule writes its head from its two role nouns", _
+                     "Clause a person can-cover a shift if Staff lists the person as Name, and Shifts lists the shift as Shift.", _
+                     "(rule (can-cover Person Shift) (staff (name Person)) (shifts (shift Shift)))"
+    AssertConditions "a set head writes a one-place rule, and a number is compared bare", _
+                     "Clause a bill is big if Bills lists the bill as Bill and the amount as Amount, and the amount is greater than 10000.", _
+                     "(rule (big Bill) (bills (bill Bill) (amount Amount)) (> Amount 10000))"
+    AssertConditions "a set head skips the article before its set", _
+                     "Clause a bill is a violation if the bill is flagged.", _
+                     "(rule (violation Bill) (flagged Bill))"
+
+    ' No "if" makes a fact, which names only values - and a constant is typed
+    ' by how it was written: quoted text stays quoted, a number stays bare.
+    AssertConditions "a fact names its values, and quoted text is written quoted", _
+                     "Clause ""Bob"" manages ""Carol"".", _
+                     "(fact (manages \""Bob\"" \""Carol\""))"
+    AssertConditions "a set fact names one value", _
+                     "Clause ""B3"" is flagged.", _
+                     "(fact (flagged \""B3\""))"
+    AssertConditions "a number in a fact is written bare", _
+                     "Clause ""Bob"" has-cap 10000.", _
+                     "(fact (has-cap \""Bob\"" 10000))"
+    AssertConditions "a code that only looks like a number stays text", _
+                     "Clause ""007"" is secret.", _
+                     "(fact (secret \""007\""))"
+    AssertConditions "a quote inside a constant is escaped for the reader", _
+                     "Clause ""Bob"" says ""a """"b"""""".", _
+                     "\""a \\\""b\\\""\"""
+    AssertConditions "a constant may stand in a rule's head", _
+                     "Clause ""Bob"" can-cover a shift if Shifts lists the shift as Shift.", _
+                     "(rule (can-cover \""Bob\"" Shift) (shifts (shift Shift)))"
+
+    ' A constant stands where a role does: in a Table column, either side of a
+    ' relation. There is no "=": both engines agree on these, and measured,
+    ' they did not agree on any spelling of equality.
+    AssertConditions "a constant fills a Table column", _
+                     "Clause a person is in-ops if Roster lists the person as Name and ""Ops"" as Dept.", _
+                     "(roster (name Person) (dept \""Ops\""))"
+    AssertConditions "a constant is a relation's operand", _
+                     "Clause a person is alice-report if the person reports-to ""Alice"".", _
+                     "(reports-to Person \""Alice\"")"
+    ' In a negated row the constant goes in the CALL, so one projection name is
+    ' only ever one rule, whatever value two sentences negate.
+    AssertConditions "a constant in a negated row goes in the call", _
+                     "Clause a person is off-at-night if Staff lists the person as Name, and not Leave lists the person as Name and ""Night"" as Shift.", _
+                     "(not (vla-not-leave-name-shift Person \""Night\""))"
+    AssertConditions "...and its projection rule keeps every column a variable", _
+                     "Clause a person is off-at-night if Staff lists the person as Name, and not Leave lists the person as Name and ""Night"" as Shift.", _
+                     "(rule (vla-not-leave-name-shift Name Shift) (leave (name Name) (shift Shift)))"
+
+    ' The refusals. Each sentence parses, and would mean something its writer
+    ' did not say, or answer two ways in two engines.
+    AssertConditionsRefusal "a head role no condition binds refuses, naming the role", _
+                            "Clause a person can-cover a shift if Staff lists the person as Name.", _
+                            "nothing in this rule says which shift it means"
+    AssertConditionsRefusal "a fact with a role in it refuses", _
+                            "Clause ""Bob"" manages carol.", _
+                            "'carol' is a role, not a value"
+    AssertConditionsRefusal "a quoted number refuses", _
+                            "Clause ""Alice"" has-limit ""50000"".", _
+                            "is a number written in quotes"
+    AssertConditionsRefusal "equality with a constant refuses, and teaches the column spelling", _
+                            "Clause a person is in-ops if Roster lists the person as Name and the dept as Dept, and the dept is ""Ops"".", _
+                            "compares the dept to one fixed value"
+    AssertConditionsRefusal "a comparison with quoted text refuses", _
+                            "Clause a person is late if Roster lists the person as Name and the dept as Dept, and the dept is greater than ""M"".", _
+                            "a comparison needs a number on each side"
+    AssertConditionsRefusal "a vla- relation in a head refuses", _
+                            "Clause a person vla-covers a shift if Shifts lists the shift as Shift, and Staff lists the person as Name.", _
+                            "starts with vla-"
+    AssertConditionsRefusal "a set named with one of the grammar's own words refuses", _
+                            "Clause a bill is lists if Bills lists the bill as Bill.", _
+                            "is one of this grammar's own words"
+End Sub
+
+Private Sub TestPrologQuestions()
+    EnglishResetGrammar
+    EnglishAddPhrase "quiz {q:question}", "(debug-print {q-engine} {q})"
+
+    ' A question's SHAPE routes it: no unknown is PROLOG's ground TRUE/FALSE,
+    ' any unknown is DATALOG's, through a narrowing rule whose head is the
+    ' unknowns - which is what names the answer's columns. The program text
+    ' arrives with its quotes doubled for the formula's string literal.
+    AssertConditions "who routes to DATALOG through a narrowing rule", _
+                     "Quiz who can-cover ""Night"".", _
+                     """DATALOG"" ""(rule (vla-ask-can-cover Who) (can-cover Who \""\""Night\""\"")) (query vla-ask-can-cover)"""
+    AssertConditions "what asks for the object, written first", _
+                     "Quiz what ""Bob"" can-cover.", _
+                     "(rule (vla-ask-can-cover What) (can-cover \""\""Bob\""\"" What))"
+    AssertConditions "whether routes to PROLOG as a ground query", _
+                     "Quiz whether ""Bob"" can-cover ""Night"".", _
+                     """PROLOG"" ""(query (can-cover \""\""Bob\""\"" \""\""Night\""\""))"""
+    AssertConditions "who ... what is a pair, both unknowns in the head", _
+                     "Quiz who can-cover what.", _
+                     "(rule (vla-ask-can-cover Who What) (can-cover Who What))"
+    AssertConditions "which names each unknown, and so each header", _
+                     "Quiz which person can-cover which shift.", _
+                     "(rule (vla-ask-can-cover Person Shift) (can-cover Person Shift))"
+    AssertConditions "which may ask for the object first", _
+                     "Quiz which shift ""Bob"" can-cover.", _
+                     "(rule (vla-ask-can-cover Shift) (can-cover \""\""Bob\""\"" Shift))"
+    AssertConditions "who is a set", _
+                     "Quiz who is top.", _
+                     "(rule (vla-ask-top Who) (top Who))"
+    AssertConditions "what is a set, skipping the article", _
+                     "Quiz what is a violation.", _
+                     "(rule (vla-ask-violation What) (violation What))"
+    AssertConditions "whether over a set", _
+                     "Quiz whether ""B4"" is a violation.", _
+                     """PROLOG"" ""(query (violation \""\""B4\""\""))"""
+    ' Slice 1 quoted every constant, and PROLOG answered a numeric one FALSE.
+    AssertConditions "a number stays bare in a question", _
+                     "Quiz whether ""Ann"" has-level 3.", _
+                     "(query (has-level \""\""Ann\""\"" 3))"
+    ' Every quote is doubled, so one inside a constant cannot end the formula's
+    ' string early.
+    AssertConditions "a quote inside a constant is doubled with the rest", _
+                     "Quiz who says ""a """"b"""""".", _
+                     "(says Who \""\""a \\\""\""b\\\""\""\""\"")"
+
+    AssertConditionsRefusal "the same unknown twice refuses", _
+                            "Quiz who manages who.", _
+                            "asks for who twice"
+    AssertConditionsRefusal "whether with an unknown refuses", _
+                            "Quiz whether ""Bob"" can-cover what.", _
+                            "also asks for what"
+    AssertConditionsRefusal "a quoted number in a question refuses", _
+                            "Quiz whether ""Ann"" has-level ""3"".", _
+                            "is a number written in quotes"
+    AssertConditionsRefusal "a vla- relation in a question refuses", _
+                            "Quiz who vla-covers ""Night"".", _
+                            "starts with vla-"
+End Sub
+
+Private Sub TestPrologRangeLint()
+    EnglishResetGrammar
+    EnglishAddPhrase "inscribe {r:cell} that {h:clause}", "(debug-print {h})"
+    EnglishAddPhrase "pose {q:question} over {rules:range}", "(debug-print {q})"
+
+    ' "Or" is a second rule cell with the same head. A range holding one of
+    ' them but not the other answers from part of the relation, silently, in
+    ' both engines - so within one program it refuses at Check.
+    AssertConditions "a range holding every cell of a relation translates", _
+                     "Inscribe H2 that a device fits a dock if Compat lists the device as A and the dock as B." & vbLf & "Inscribe H3 that a device fits a dock if Compat lists the dock as A and the device as B." & vbLf & "Pose whether ""monitor-4"" fits ""dock-1"" over H2:H3.", _
+                     "(query (fits"
+    AssertConditionsRefusal "a range that leaves out one cell of a relation refuses, naming the cell", _
+                            "Inscribe H2 that a device fits a dock if Compat lists the device as A and the dock as B." & vbLf & "Inscribe H3 that a device fits a dock if Compat lists the dock as A and the device as B." & vbLf & "Pose whether ""monitor-4"" fits ""dock-1"" over H2:H2.", _
+                            "'fits' is also written in cell H3, which H2:H2 leaves out"
+    AssertConditionsRefusal "a relation the question reaches through another rule is checked too", _
+                            "Inscribe H2 that a device fits a dock if Compat lists the device as A and the dock as B." & vbLf & "Inscribe H5 that a device fits a dock if Compat lists the dock as A and the device as B." & vbLf & "Inscribe H4 that a device is dockable if the device fits the dock." & vbLf & "Pose who is dockable over H2:H4.", _
+                            "'fits' is also written in cell H5, which H2:H4 leaves out"
+    AssertConditions "a range holding none of a relation's cells is left to the engine", _
+                     "Inscribe H2 that a device fits a dock if Compat lists the device as A and the dock as B." & vbLf & "Inscribe H3 that a device fits a dock if Compat lists the dock as A and the device as B." & vbLf & "Pose whether ""monitor-4"" fits ""dock-1"" over H5:H6.", _
+                     "(query (fits"
+    AssertConditions "a sheet-qualified range is not guessed at", _
+                     "Inscribe H2 that a device fits a dock if Compat lists the device as A and the dock as B." & vbLf & "Inscribe H3 that a device fits a dock if Compat lists the dock as A and the device as B." & vbLf & "Pose whether ""monitor-4"" fits ""dock-1"" over Data!H2:H2.", _
+                     "(query (fits"
+    AssertConditions "a cell written twice is one cell", _
+                     "Inscribe H2 that a device fits a dock if Compat lists the device as A and the dock as B." & vbLf & "Inscribe H2 that a device fits a dock if Compat lists the dock as A and the device as B." & vbLf & "Pose whether ""monitor-4"" fits ""dock-1"" over H2:H2.", _
+                     "(query (fits"
+    ' The records belong to one translation: a question translated on its own
+    ' knows nothing of cells an earlier program wrote.
+    Dim ignored As String
+    On Error Resume Next
+    ignored = EnglishToVla("Inscribe H2 that a device fits a dock if Compat lists the device as A and the dock as B." & vbLf & "Inscribe H3 that a device fits a dock if Compat lists the dock as A and the device as B.")
+    On Error GoTo 0
+    AssertConditions "records do not outlive the translation that made them", _
+                     "Pose whether ""monitor-4"" fits ""dock-1"" over H2:H2.", _
+                     "(query (fits"
 End Sub
 
 Private Sub TestPrologKeyedAtoms()

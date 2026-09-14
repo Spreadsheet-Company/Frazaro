@@ -287,6 +287,10 @@ Public Function SlotDesc(ByVal cat As String) As String
         Case "role": SlotDesc = "a role noun, one word and not quoted (like person or shift)"
         ' G-PROLOG: a relation's name, which is the predicate name itself.
         Case "relation": SlotDesc = "a relation name, one word and not quoted - hyphens join its parts (like can-cover)"
+        ' G-PROLOG slice 2: the clause and question sub-grammars. Each
+        ' example names the shapes a writer reaches for first.
+        Case "clause": SlotDesc = "a rule or a fact (like a person can-cover a shift if Staff lists the person as Name, or ""Bob"" manages ""Carol"")"
+        Case "question": SlotDesc = "a question (like who can-cover ""Night"", what ""Bob"" can-cover, or whether ""Bob"" can-cover ""Night"")"
         ' G2: the typed reference slots teach their shapes; quotes are
         ' always the named-thing escape hatch, so each says so.
         Case "range": SlotDesc = "a range (like A1:C50, B2, or Data!A1:B10 - quotes for a named range)"

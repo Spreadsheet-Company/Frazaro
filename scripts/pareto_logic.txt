@@ -535,6 +535,22 @@ comp-violation       P0  P|D   TW PROJ J BUTNOT BUTNOT · WHO
   answers  Which: B4                                                        [34, 11]
   note     Exceptions are BUTNOT stacked, one sentence per exception. Unary
            relations (sets) are needed here, not only pairs.
+
+comp-flagged         P1  P|D   F TW PROJ J BUTNOT BUTNOT ALSO · WHAT
+  asks     Which bills are violations, counting the one audit flagged by hand?
+  program  comp-violation's five rules, plus
+           (fact (flagged "B3"))
+           (rule (violation I) (flagged I))
+           (query (violation Which))
+  on       BILLS
+  answers  Which: B3 · B4                          [DATALOG]
+           (violation "B3") TRUE · (violation "B2") FALSE   [PROLOG]
+  note     A one-off exception is a fact, not a Table - the entry the fact
+           sentence needed (SD-7), added by G-PROLOG slice 2 and measured
+           through that slice's transliterations of both engines. With the
+           flag's two cells outside a question's rules range, DATALOG
+           answers B4 alone and PROLOG says B3 is no violation, silently:
+           the case slice 2's range lint refuses at Check.
 ```
 
 ## 14. "Who has no X", "who is the only X", "every X" — P0
@@ -640,10 +656,11 @@ That is `PROLOG.28`.
 
 ## Counts
 
-Counted mechanically, not by hand: **48 entries** across seventeen business
-families and the scale section — **22 P0, 19 P1, 3 P2**, and four
+Counted mechanically, not by hand: **49 entries** across seventeen business
+families and the scale section — **22 P0, 20 P1, 3 P2**, and four
 unprioritised because they are findings rather than tasks (`elig-lossy`,
-`lineage-selfname`, `scale-scan`, `scale-join`). **43 measured**; 2 not
+`lineage-selfname`, `scale-scan`, `scale-join`). (`comp-flagged`, added by
+`G-PROLOG` slice 2, is counted in.) **44 measured**; 2 not
 measured (model gaps: `tier-first`, `text-prefix`); 3 routed away and never
 run (`bom-qty`, `pre-order`, `solve-roster`), and `routes-reach` measured
 and routed. **8 entries need `PROLOG.28`** (`#`). Duplicates in a "who"

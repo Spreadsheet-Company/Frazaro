@@ -43,10 +43,38 @@
   with each answer listed once, however many ways the rule reaches it;
   "whether" answers TRUE or FALSE.
 
+- **Ask for pairs, or name what you are asking for.** `Show in cell E5 who
+  can-cover what by applying …` lists every person and shift together,
+  under the headers Who and What. Say `which` and a noun to name a column
+  yourself: `Show in cell E6 which person can-cover which shift by applying
+  …` spills under Person and Shift. The headers always come from your
+  question, never from how the rules happen to be written.
+
+- **Facts, for the things that do not deserve a Table.** `Write in cell H7
+  that "B3" is flagged.` puts one fact in a cell, and so does `Write in cell
+  H8 that "Bob" manages "Carol".` Any rule in the range you ask over can use
+  it — a bill an auditor flagged by hand, say, beside the rule that makes a
+  big, unapproved bill a violation.
+
+- **Rules about one thing.** `Write in cell H2 that a bill is big if Bills
+  lists the bill as Bill and the amount as Amount, and the amount is greater
+  than 10000.` Then ask `who is …`, `what is a violation`, `which bill is a
+  violation`, or `whether "B4" is a violation`.
+
+- **"Or" is a second rule with the same conclusion.** Write `a bill is a
+  violation if the bill is flagged` in another cell, and a violation is now
+  either kind. Ask over a range that holds every one of those cells: if a
+  question's range holds one and leaves another out, Frazaro stops before
+  anything runs and names the cell it left out, instead of quietly
+  answering from part of the rule.
+
 - **Quote the names you are asking about.** `"Night"` and `"Bob"` are in
   quotes on purpose. An unquoted word is lowercased on its way in, and
   your Table keeps its own capitals, so `night` would quietly match
-  nothing. Quotes are how you say "this exact text".
+  nothing. Quotes are how you say "this exact text". Numbers are the
+  opposite: write `3`, not `"3"`. A number cell holds a number, and a quoted
+  `"3"` would match it in one kind of question and not in the other, so it
+  is refused.
 
 - **Name your Tables as Excel names them.** List them after "to the data
   tables", separated by commas, with a comma before the "and". A name
@@ -61,7 +89,10 @@
   of them. Join them with `, and`. A rule can use another rule's
   relation, so a longer policy can be written as several sentences in
   neighbouring cells and asked about as one — name the whole range, like
-  `H2:H4`.
+  `H2:H4`. A fixed value stands wherever a noun can: `Roster lists the
+  person as Name and "Ops" as Dept`, `the person reports-to "Alice"`, `the
+  amount is greater than 10000`. There is no `the dept is "Ops"`: write the
+  value where the dept is read, and Frazaro tells you so if you forget.
 
 - **It tells you when a blank is never filled in.** If you write `the
   level is at least the min` but nothing in the rule ever says where the
@@ -70,7 +101,10 @@
   `lists` and the rest — are refused as relation names for the same
   reason, and so is any name starting `vla-`: Frazaro writes a few helper
   rules of its own under that prefix, and a name of yours must never be
-  mistaken for one of them.
+  mistaken for one of them. The same goes for what a rule concludes: `a
+  person can-cover a shift if Staff lists the person as Name` never says
+  which shift, so it would be true of every shift there is — it is refused,
+  naming the shift.
 
 - **A misspelled relation is named, in every kind of question.** `Show in
   cell E2 who can-drive "Night" …`, when your rules only ever say
@@ -86,15 +120,21 @@
   rules name, or keep rules that read different Tables in different ranges.
   A Table with no rows is fine: it is still a Table you passed.
 
-- **Known limits, said plainly.** A relation's name is one word for now,
-  so it is `can-cover`, with the hyphen, not `can cover`; the two-word
-  spelling is next. Questions are asked one at a time. A quoted name
-  must match the data's capitals exactly: `"night"` finds nothing where
-  the Table says `Night`, and says nothing about it.
+- **Known limits, said plainly.** A relation's name is one word, so it is
+  `can-cover`, with the hyphen, not `can cover`. Relations you declare in
+  words, like `is submitted by`, are planned rather than guessed at, since a
+  guess about where a relation's words end would have to be honoured
+  forever. Questions are asked one at a time. A quoted name must match the
+  data's capitals exactly: `"night"` finds nothing where the Table says
+  `Night`, and says nothing about it. The range check sees only rules
+  written by the same program: rules typed straight into cells, or written
+  by another program, are not checked, and nor is a range on another sheet.
+  A number kept as text in a column cannot be matched, since quoted numbers
+  are refused.
 
 ### Known open security items
 
-**Closed this release:** none — 0.6.0 is a feature release. Three changes
+**Closed this release:** none — 0.6.0 is a feature release. Four changes
 touch the security surface without closing an item, listed so none is a
 surprise:
 
@@ -109,6 +149,9 @@ surprise:
   one is first held to Excel's own rule for a Table name. A quoted name
   carrying a comma, a quote or a bracket is refused by name, instead of
   becoming extra arguments in a formula you did not write.
+- A quoted name inside a question is written into its formula with every
+  quote mark doubled, so a quote inside the name stays part of the name
+  rather than ending the formula's text early.
 - Writing a formula is not new, and `SEC.15` below still applies:
   formulas a program writes are not screened for functions that reach the
   network. The formulas these sentences write contain only `DATALOG`,
