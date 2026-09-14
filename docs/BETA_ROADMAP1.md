@@ -17434,6 +17434,47 @@ now carries one summary paragraph per engine and points here.*
   should report too. A standalone repro in `tools/` if the cause resists
   reading. *Pays into:* `U.17`, since every new path that snapshots would
   inherit the leak. *Depends on:* nothing. `~hours`–`~days`
+- ⬜ **U.20 — Lint VLA must never break a file it rewrites: audit the
+  button.** Minted 2026-09-14, the owner's call, after a Lint VLA click
+  during `G-PROLOG` slice 2's live pass rewrote files in
+  `scripts/polyglotta`; filed to scope and build separately. **What was
+  seen, not assumed:** the owner reports the button linted
+  `english_expanded.vla`, a GENERATED artifact whose first line says "do
+  not hand-edit, re-export"; and at commit time the working `english.vla`
+  had been rewritten in the same minute (00:41:10, the expanded file
+  00:41:12 — the shape of one folder lint). Its forms were re-flowed onto
+  many lines, and, compared with every whitespace byte removed, exactly
+  one character had changed: the `£` in a comment, written as a lone
+  `0xA3` byte — invalid UTF-8. That one byte moved the phrasebook's
+  non-whitespace source hash, so `check_rule_coverage` called a freshly
+  re-exported artifact STALE. The built-and-tested text was restored and
+  committed (`497a229`); the rewritten copy was kept aside.
+  **The likely mechanism, to verify rather than assume:**
+  `LintVlaFileInPlace` reads through `VLA_Loader.VlaReadFile`, which
+  decoded the `£` correctly (a wrong read would have left two mojibake
+  bytes, not one), and writes through `WriteTextFileVlaIde`, which is
+  `Open … For Output` plus `Print #` — VBA's ANSI-codepage write, so any
+  character outside that codepage is re-encoded or lost, and `Print #`
+  appends a line break of its own. The same writer serves Export Expanded
+  Phrasebook and Phrasebook Test Coverage. **To audit and decide:**
+  (1) *the write* — UTF-8, the file's own BOM and line endings kept, and
+  an already-linted file coming back byte-identical (idempotent), pinned by
+  a round trip over a fixture holding non-ASCII text (`£`, an em dash, an
+  accented phrasebook line, an emoji); (2) *meaning* — `VlaLintFormat` may
+  change whitespace and nothing else, checked mechanically with the same
+  non-whitespace hash the expanded stamp uses, and a write that would move
+  that hash refused by name; (3) *what the button may touch* — a generated
+  artifact (its `; GENERATED … do not hand-edit` header) refused or
+  skipped by name in both the single-file and folder flows, and the folder
+  flow saying what it will rewrite before the first overwrite;
+  (4) *exposure first* — every `.vla` in the repo, the other `polyglotta`
+  phrasebooks' non-ASCII lines above all, through the formatter and the
+  writer (a transliteration, or a standalone repro in `tools/`), since one
+  folder lint of `polyglotta` reaches them all; (5) whether Export Expanded
+  Phrasebook and the coverage report already write mis-encoded text for a
+  phrasebook with non-ASCII rules today. *Pays into:* every phrasebook
+  edit, `G-EXPANDER`'s staleness stamp, `CO.6`. *Depends on:* nothing.
+  `~hours`–`~days`
 
 ---
 
