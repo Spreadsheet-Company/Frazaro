@@ -7560,7 +7560,7 @@ G-TAIL always said this about itself; it is true of the whole tranche.
     cells, and questions that read them.** **Scoped 2026-09-10/11**, seven
     forks decided by the owner; **slice 1 BUILT 2026-09-12, OWNER-VERIFIED
     LIVE 2026-09-13 in two rounds, and committed; slice 2 BUILT,
-    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14** (see the slice list below for what each ships and
+    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14; slice 3 SCOPED 2026-09-14 and waiting on `DATALOG.9`** (see the slice list below for what each ships and
     what it proved). *The previous text of this
     entry said its dependency, `PROLOG.1`–`.6`, was unbuilt. It was stale:
     `PROLOG.1`–`.24` have shipped.* This is the project's reason for being,
@@ -7661,6 +7661,12 @@ G-TAIL always said this about itself; it is true of the whole tranche.
          rule wherever a negated row omits a column. One Rules range
          therefore feeds both engines, and a later change of route never
          needs an SD-4 rewrite of cells a user has already written.
+         *Revised by slice 3's scoping, 2026-09-14 (the owner's call):* once
+         `DATALOG.9` lets `DATALOG` answer a ground query TRUE or FALSE,
+         every WHETHER goes to `DATALOG` as well. Measured, `PROLOG` never
+         finishes a ground question over a closure whose data loops, and
+         follows a generated closure only 39 links deep. `PROLOG` keeps what
+         only it can say (slice 5).
       6. **`PROLOG.28` is built before slice 1 (the owner chose this over
          the recommendation to ship slice 1 first).** No grammar ships
          until PROLOG answers a real-sized Table.
@@ -8125,6 +8131,100 @@ G-TAIL always said this about itself; it is true of the whole tranche.
       3. ⬜ **recursion and closure** — a rule that names itself, "directly
          or not", `DATALOG`-routed so that a cycle terminates. §2, §5, §6,
          §11, §12.
+         **SCOPED 2026-09-14; NOT BUILT — it waits on `DATALOG.9`, the
+         owner's call.** Six forks went to the owner with their
+         measurements, and all six took the recommended option.
+         **MEASURED FIRST, on shipped code** (transliterations; no VBA ran).
+         Slice 2's controls were re-run on HEAD before any verdict:
+         `DATALOG` 97/97, `PROLOG` 574 with its 2 named gaps, `s2_run`
+         34/0, the derived pins 42/0 and byte-identical, the `english.vla`
+         rows 8/0, and the grammar pins 23/0 — not 29, because the slice-1
+         rule row that control also read was retired by slice 2, so its
+         `colwindow` and `noproj` mutations now turn red through the rows
+         control instead. A rule calling itself was already sayable (slice
+         2's `is-under`), so what this slice adds is the phrase and the
+         hazards recursion brings, each measured through both engines:
+           - *A closure over data with a cycle* (`routes-reach`). `PROLOG`
+             collects every proof before a ground query says TRUE, so a
+             WHETHER refuses by DEPTH whether or not a route exists.
+             `DATALOG` answers and stops.
+           - *A closure over a chain with no cycle.* The generated
+             right-recursive form nests three frames a link, so `PROLOG`
+             answers TRUE through 39 links and refuses at 40. `DATALOG`
+             follows 100.
+           - *Left recursion* (the recursive condition first, in either
+             shape): a DEPTH refusal in `PROLOG` for a TRUE and a FALSE
+             alike, where `DATALOG` answers and the right-recursive twin
+             costs 35 units of work.
+           - *A relation named after the Table it reads*
+             (`lineage-selfname`): a DEPTH refusal in `PROLOG` both ways,
+             while `DATALOG` merges the rule into the Table's own relation,
+             a no-op. Today's grammar translates this, and left recursion,
+             without a word.
+           - *The same "directly or not" said in two rule cells* writes the
+             same two clauses twice. `PROLOG`'s work for one question goes
+             64 → 480 → 1,920 for one, two and three copies; `DATALOG` does
+             not notice.
+           - *A ground answer from `DATALOG`.* A zero-arity head is refused
+             by design (`datalog-predicate-needs-argument`), `count` gives
+             `N` over 1 or 0, and a formula-side `ROWS(…)>1` would read a
+             refusal's text as a silent FALSE.
+           - *The range lint* already refuses a question whose range holds a
+             closure's base cell but not its step, or the step but not the
+             base. A range leaving out only the base relation's own cell is
+             `DATALOG.8`'s to refuse.
+           - All eight corpus closure entries (`org-under`, `org-above`,
+             `bom-down`, `bom-up`, `pre-all`, `lineage-up`, `acc-can`, and
+             `routes-reach` in `DATALOG`) reproduce in the generated form,
+             under `not` too, and with `--` in the generated name.
+         **THE FORKS, decided:**
+           1. **Trailing "directly or not", in a condition and in a
+              question** (recommended): `the person reports-to the boss
+              directly or not`, `who reports-to "Alice" directly or not`,
+              and under `not`. These are the words `0.5.0` already shipped in
+              `G-DATALOG`'s row. The long view: logic programming (Prolog,
+              Datalog, Logical English, ACE) has no closure operator; OWL
+              declares a relation transitive once, which would make the bare
+              relation mean the closure everywhere — the undecided spelling
+              SD-19 forbids; SPARQL's `p+`, Cypher's `*` and SQL's `WITH
+              RECURSIVE` mark each use, as this does. SD-4 will freeze the
+              three words, their place after the second operand, and their
+              meaning: one step or more, never zero. Refused by name in a
+              rule's head, and after a set, a Table row or a comparison.
+           2. **The generated rules are `vla-any-<relation>`** (recommended),
+              after the corpus's own `-any` names: `(rule (vla-any-reports--to
+              X Y) (reports-to X Y)) (rule (vla-any-reports--to X Y)
+              (reports-to X Z) (vla-any-reports--to Z Y))`, always
+              right-recursive, written before the rule the way a negated
+              row's projection is. A fixed prefix and one escaped part is
+              injective, and `vla-` is already refused to writers.
+           3. **Routing: `DATALOG.9` first, then EVERY WHETHER to `DATALOG`**
+              (recommended; it revises decision 5). Minted below as its own
+              item, to be built in its own session as `DATALOG.8` was. Every
+              clause this grammar writes is in the shared subset and `0.6.0`
+              is untagged, so no released formula moves; a closure hidden in
+              a rule cell is covered as well as one the question says, and
+              duplicated clauses stop costing anything.
+           4. **Left recursion is refused at Check** (recommended): a rule
+              whose first condition calls its own head relation, with the
+              reorder taught. A cycle through several cells stays DEPTH's, a
+              named limit.
+           5. **A relation named after a Table is refused across the
+              program** (recommended), the range lint's own scope, naming
+              the cell, since the cross-cell form loops just the same.
+           6. **`bom-qty` and `pre-order` are recorded, with no refusal**
+              (recommended): no sentence in this slice can ask either, and a
+              refusal row for a phrasing nobody has needed would break SD-7.
+         **TO BUILD, after `DATALOG.9`:** the phrase in `ParseConditions`
+         and `ParseQuestion`; the left-recursion check in `ParseClause`;
+         Table names recorded beside the lint's relation names; a closure
+         question's tail carrying its own two rules; WHETHER's engine
+         literal; new message ids; pins under `TestDSLs`; `test-success`
+         lines under the two shipped rows, whose patterns do not change (so
+         no new `GRAMMAR_SINCE` row); and a live pass that re-runs slices 1
+         and 2's WHETHER steps on their new route. The harness — `m3_cases`,
+         `pl_run3`, `m3_show` and `s3_probe`, beside slice 2's — is in
+         session `1579476d`'s scratchpad.
       4. ⬜ **answer shapes** — COUNT (`DATALOG`'s own set count), NONE,
          EVERY, ONLY, ANY and EACH. §14, §15.
       5. ⬜ **PROLOG's own** — text conditions (starts with, contains),
@@ -17179,6 +17279,33 @@ now carries one summary paragraph per engine and points here.*
     green. `RELEASES.md` 0.6.0 closes the who/what known limit. Live steps:
     six in-cell programs after the suites, including slice 1's Test 11
     re-run.
+  - ⬜ **DATALOG.9 — answer a ground question TRUE or FALSE: `(query (route
+    "A" "D"))`.** Minted 2026-09-14 by `G-PROLOG` slice 3's scoping, the
+    owner's call, to be built in its own session before that slice. **Why:**
+    a question with no unknown goes to `PROLOG` (`G-PROLOG` decision 5)
+    because `DATALOG`'s query takes only a bare predicate name
+    (`datalog-query-not-a-symbol`). Measured through slice 2's
+    transliterations, `PROLOG` cannot answer the question slice 3 exists
+    for: it collects every proof before a ground query says TRUE, so a
+    closure over data with a cycle refuses by DEPTH whether or not a route
+    exists, and a generated closure over a plain chain refuses from 40
+    links. There is no honest way round it today. A zero-arity narrowing
+    rule is refused by design (`datalog-predicate-needs-argument`); `count`
+    answers `N` over 1 or 0 rather than TRUE or FALSE; and a formula-side
+    `ROWS(…)>1` or `INDEX` wrapper turns a refusal's text into FALSE or
+    `#REF!`, silently. **The owner's routing, once this lands:** every
+    WHETHER `G-PROLOG` writes goes to `DATALOG`. **To scope, measuring
+    first:** the query shapes accepted (a ground atom only, or one with
+    unknowns too, which would duplicate the narrowing rule); what
+    `DATALOG()` returns (a Boolean cell, as `PROLOG()`'s `BuildSpilledArray`
+    does) and what `(headless)` means beside it; the arity check and
+    `DATALOG.8`'s static refusal over the queried name; a keyed query atom;
+    and the one behaviour that moves for a question changing engines —
+    `DATALOG.8` checks the whole program where `PROLOG.22` walks from the
+    query, so a rules range holding a rule over a Table the question does
+    not pass would refuse where it answered. Exposure first: every pin of
+    `datalog-query-not-a-symbol`, and every `=PROLOG(` WHETHER formula in the
+    vocabularies and goldens. *Pays into:* `G-PROLOG` slices 3–5. `~days`
   - ⬜ **Avoiding a full re-parse/re-fixpoint on every recalc — profiled first,
     not yet built.** `DATALOG()` re-parses `rulesText` and reruns
     `RunStratifiedFixpoint` from scratch every time Excel calls it. Worth
