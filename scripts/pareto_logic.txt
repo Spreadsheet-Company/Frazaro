@@ -575,7 +575,8 @@ every-covered      # P0  P|D   same · EVERY
   answers  uncapped: FALSE                                                  [123, 15]
   note     DATALOG refuses this query as nesting (datalog-compound-term);
            DATALOG.10, minted by G-PROLOG slice 4's scoping, answers it
-           (FALSE here, owner-verified live).
+           (FALSE here, owner-verified live). Said since G-PROLOG slice 4:
+           whether every shift that is listed is covered.
            Over no shifts at all PROLOG answers TRUE, and so does DATALOG
            through a count of the uncovered compared with 0.
 
@@ -586,7 +587,8 @@ only-cover           P0  P|D   · ONLY
   answers  Who: Bob                                                         [77, 17]
   note     \= is PROLOG's alone: DATALOG refuses it, as a predicate nothing
            defines, and PROLOG refuses <>. Through DATALOG, a count equal to
-           1 gives Bob, nobody for Day, and FALSE for "Ann" alone.
+           1 gives Bob, nobody for Day, and FALSE for "Ann" alone. Said since
+           G-PROLOG slice 4: who alone can-cover "Night".
 
 any-cover            P1  P     · ANY
   asks     Name one person who can cover the day shift.
@@ -616,7 +618,8 @@ count-each         # P0  D|Q   T1 · EACH COUNT
            · Weekend 0; grouped over can-cover itself, Weekend is silently
            missing. A count read straight off a Table row counts rows
            (Staff: 6, for 5 people), and findall over a rule reading Staff
-           collects ("Ann" "Bob" "Bob" "Cy" "Di" "Ed").
+           collects ("Ann" "Bob" "Bob" "Cy" "Di" "Ed"). Said since G-PROLOG
+           slice 4: how many people can-cover each shift that is listed.
 
 list-each            P1  P     T1 · EACH LIST
   asks     For each shift, who can cover it, in one cell?

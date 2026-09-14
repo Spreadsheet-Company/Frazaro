@@ -7560,7 +7560,7 @@ G-TAIL always said this about itself; it is true of the whole tranche.
     cells, and questions that read them.** **Scoped 2026-09-10/11**, seven
     forks decided by the owner; **slice 1 BUILT 2026-09-12, OWNER-VERIFIED
     LIVE 2026-09-13 in two rounds, and committed; slice 2 BUILT,
-    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14; slice 3 BUILT, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, on its precursor `DATALOG.9` (built, owner-verified live and committed the same day); slice 4 SCOPED 2026-09-14 and waiting on `DATALOG.10`, itself built and owner-verified live the same day** (see the slice list below for what each ships and
+    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14; slice 3 BUILT, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, on its precursor `DATALOG.9` (built, owner-verified live and committed the same day); slice 4 SCOPED, BUILT, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, on `DATALOG.10` (itself built and owner-verified live the same day)** (see the slice list below for what each ships and
     what it proved). *The previous text of this
     entry said its dependency, `PROLOG.1`–`.6`, was unbuilt. It was stale:
     `PROLOG.1`–`.24` have shipped.* This is the project's reason for being,
@@ -8296,10 +8296,12 @@ G-TAIL always said this about itself; it is true of the whole tranche.
          re-exported before this commit, so `check_rule_coverage` and
          `check_grammar_since` report it STALE until Export Expanded
          Vocabulary runs; the other 18 are green.
-      4. ⬜ **answer shapes** — COUNT (`DATALOG`'s own set count), NONE,
+      4. ✅ **answer shapes** — COUNT (`DATALOG`'s own set count), NONE,
          EVERY, ONLY, ANY and EACH. §14, §15.
-         **SCOPED 2026-09-14; NOT BUILT — the whole slice waits on
-         `DATALOG.10`, the owner's call.** Eight forks went to the owner with
+         **SCOPED 2026-09-14, and BUILT, OWNER-VERIFIED LIVE on the first pass
+         and committed the same day, once `DATALOG.10` had shipped** (the live
+         record closes this slice's text). The whole slice waited on `DATALOG.10`, the
+         owner's call. Eight forks went to the owner with
          their measurements; six took the recommended option, and two were
          the owner's own.
          **MEASURED FIRST, on shipped code** (transliterations; no VBA ran).
@@ -8423,6 +8425,84 @@ G-TAIL always said this about itself; it is true of the whole tranche.
          §15 sentences through `DATALOG` end to end; and a live pass. The
          scoping harness — `m4_cases` and `dl4_case_run` — is in session
          `56f079e7`'s scratchpad, over session `1579476d`'s.
+         **TWO MORE FORKS, put before the build, 2026-09-14:** EACH's count
+         column is headed by the noun after "how many" (recommended), and
+         **"are" reads as "is"** in the four new shapes (the owner's call,
+         over "is" only). *Stated defaults:* a count over a set ("how many
+         bills are violations") is not a shape and gets the ordinary near
+         miss, never a refusal naming "is"; an object asked first cannot be
+         alone ("what "Bob" alone can-cover" refuses alone as a reserved name).
+         The generated tails were run through `DATALOG` before the grammar that
+         writes them was built (`m11_cases`, 14 checked answers, 0 wrong).
+         **BUILT 2026-09-14.** `VLA_SentenceEngine.bas`: `ParseQuestion`
+         routes a question by its opening tokens into a new slice-4 section —
+         `ParseHowManyQuestion` (COUNT and EACH), `ParseNoneQuestion`,
+         `ParseEveryQuestion` and `ParseAloneQuestion`, over `IsSetVerb`,
+         `AtAloneShape`, `TakeShapeNoun`, `TakeSetAfterVerb`, `RefuseSetClosure`
+         and `ShapeName` — and hands `TryPhrase` a second relation, which the
+         range lint records beside the first; "alone" joins
+         `IsConditionsGrammarWord`. COUNT writes `(headless) (rule
+         (vla-count-can--cover People) (count People (can-cover VlaCounted
+         "Night"))) (query vla-count-can--cover)`; EACH `(rule
+         (vla-each-can--cover Shift People) (listed Shift) (count People
+         (can-cover VlaCounted Shift)))`; NONE `(rule (vla-none-listed-covered
+         Shift) (listed Shift) (not (covered Shift)))`, and EVERY the same rule
+         with `(query (not (vla-none-listed-covered Shift)))`; ALONE `(rule
+         (vla-alone-can--cover Who) (can-cover Who "Night") (count VlaCount
+         (can-cover VlaCounted "Night")) (= VlaCount 1))`. `VLA_Messages.bas`:
+         the reserved-name text lists alone; no id added. `english.vla`: no new
+         row, so no `GRAMMAR_SINCE` row; seven `test-success` lines under the
+         question row, and a comment. `VLA_Tests_Query.bas`: a new
+         `TestPrologAnswerShapes`, 30 pins, under `TestDSLs`.
+         **PROVEN, before import**, through the slice-4 model (`g4_s4`, over
+         slice 3's). **Controls:** the grammar pins 23/0; the `english.vla`
+         rows 18/0, the seven new lines among them; the pin generator re-emits
+         slice 2 and 3's four Subs byte-identical; and slice 3's 62 recorded
+         answers unmoved from sentences. **97 derived pins, 0 bad**, and
+         **thirteen mutations each red**, judged against the fragments the
+         unmutated model derived — a first run derived them from the mutated
+         model as well, so its success pins could not fail; caught by the
+         mutations that stayed green, and fixed: quotes not doubled (18), names
+         not escaped (10), alone not reserved (7), no `(headless)` (4), alone
+         without its count (4), the closure refusal after a set dropped (3),
+         the second relation left out of the lint (3), the zero group grouped
+         over the relation (2), none without its `not` (2), "are" not read (2),
+         every's not-guard dropped (2), the same noun twice allowed (1), and a
+         count over a set refusing "is" as a name (1). **End to end from
+         sentences** through `DATALOG` with `DATALOG.9`'s and `DATALOG.10`'s
+         arms (`s4_run`): **84 pass / 0 fail** — slice 3's 62, and 22 new:
+         counts of 1, 0, 2, 5 and 2; each with Weekend's 0, and 1 once Ann is
+         off leave; none's Weekend, and nothing; every's FALSE, TRUE, and TRUE
+         over no shifts; alone's Bob, Frank, nobody, TRUE and FALSE; and a none
+         question whose range splits its second set refused at Check. The four
+         changed files rebuild byte-identical from HEAD plus anchored blocks;
+         structure scan clean against HEAD; CRLF kept. *What none of this
+         proves:* no VBA ran. **Predicted:** `TestDSLs` 1269 → **1299** (+30
+         Report executions, none in a loop); pure 1109, host 152 and
+         `VerifyReports` 242/242 on both backends unmoved.
+         `check_rule_coverage` and `check_grammar_since` report
+         `english_expanded.vla` STALE until Export Expanded Vocabulary runs.
+         Live steps: ten programs, generated (`h4_live`). The build harness —
+         `m11_cases`, `g4_s4`, `smoke4`, `gen_pins4`, `gen_ev4`, `gen_tq4`,
+         `s4_run`, `h4_live`, `h4_before` and `apply_s4` — is in session
+         `56f079e7`'s scratchpad (`h11`).
+         **OWNER-VERIFIED LIVE 2026-09-14, first pass, and committed:** pure
+         **1109/1109**, host **152/152**, `TestDSLs` **1299**/0 (the predicted
+         count exactly), `VerifyReports` **242/242 on both backends**, and all
+         ten in-cell tests answering as handed off — how many as one number in
+         one cell (1, 0 and 2); each with Weekend's 0; none's Weekend and
+         every's FALSE, then TRUE and nothing once Ann is off leave; alone's
+         Bob, nobody, TRUE and FALSE; how many and alone through "directly or
+         not" beside the count without it (5 and 2); and the four Check
+         refusals in their own words — a range leaving out a rule for the
+         second set, the same noun twice, "alone" as a set's name (which at
+         HEAD had translated), and "directly or not" after a set. The owner
+         re-exported `english_expanded.vla`; the committed `english.vla` is
+         the built-and-tested text, byte-identical to HEAD plus this slice's
+         blocks. *Found while building the live page, not papered over:* its
+         first draft's Before column read the working sources rather than
+         HEAD's, and then silently reused a stale run; both were fixed before
+         the page was sent.
       5. ⬜ **PROLOG's own** — text conditions (starts with, contains),
          first match (tiers), a list in one cell. §8, §15, §16.
     *Out of scope, and refused by name rather than faked:* optimisation

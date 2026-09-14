@@ -179,6 +179,34 @@
   or in what a rule concludes, is refused too, with a note on where it
   belongs.
 
+- **Ask how many.** `Show in cell E2 how many people can-cover "Night" by
+  applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave.`
+  puts one number in the cell, and counts each person once, however many
+  ways the rules reach them. Put the value first to count the other side:
+  `how many shifts "Bob" can-cover`. Add `directly or not` to count along a
+  chain. When nobody matches, the cell shows 0.
+
+- **Count for each member of a set, the empty ones included.** Write the set
+  once, like `Write in cell H3 that a shift is listed if Shifts lists the
+  shift as Shift.`, then `Show in cell E2 how many people can-cover each shift
+  that is listed by applying …` spills Shift and People side by side, with a
+  0 for a shift nobody can cover rather than leaving that shift out.
+
+- **Ask what is missing, and whether anything is.** With a set for what counts
+  and a set for what is covered, `Show in cell E2 which shift that is listed
+  is not covered by applying …` lists the shifts nobody covers, and `Show in
+  cell E3 whether every shift that is listed is covered by applying …`
+  answers TRUE or FALSE — TRUE when there are no shifts at all. The set goes
+  after `that is`, and a plural reads the same: `which shifts that are listed
+  are not covered`.
+
+- **Ask who alone.** `Show in cell E2 who alone can-cover "Night" by applying
+  …` lists the one person who can, and nobody when two can or none can.
+  `whether "Bob" alone can-cover "Night"` answers TRUE or FALSE. Because of
+  this, `alone` can no longer name a relation or a set. "Name one person
+  who can…" is not offered: which one it named would change with the order
+  of your rows.
+
 - **Known limits, said plainly.** A relation's name is one word, so it is
   `can-cover`, with the hyphen, not `can cover`. Relations you declare in
   words, like `is submitted by`, are planned rather than guessed at, since a

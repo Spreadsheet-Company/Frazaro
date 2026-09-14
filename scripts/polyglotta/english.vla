@@ -4042,6 +4042,34 @@
 (test-success
     "Show in cell E8 whether \"Eve\" reports-to \"Alice\" directly or not by applying the rules in H2:H2 to the data tables Reports."
     (prolog-ask-place "DATALOG" "(rule (vla-any-reports--to X Y) (reports-to X Y)) (rule (vla-any-reports--to X Y) (reports-to X Z) (vla-any-reports--to Z Y)) (query (vla-any-reports--to \"\"Eve\"\" \"\"Alice\"\"))" "h2:h2" (vlatablearguments (array "reports")) (range "e8")))
+; SLICE 4 (the owner's calls, 2026-09-14): four answer shapes, each named by
+; its own opening words, all through DATALOG. "how many" counts the set and
+; answers one number in one cell; "each ... that is <set>" counts per member,
+; zero included; "which ... that is <set> is not <set>" lists what is outside;
+; "whether every ... that is <set> is <set>" asks that nothing is (DATALOG.10);
+; and "alone" after the subject asks that exactly one holds. "are" reads as
+; "is" in these shapes.
+(test-success
+    "Show in cell E2 how many people can-cover \"Night\" by applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave."
+    (prolog-ask-place "DATALOG" "(headless) (rule (vla-count-can--cover People) (count People (can-cover VlaCounted \"\"Night\"\"))) (query vla-count-can--cover)" "h2:h4" (vlatablearguments (array "staff" "shifts" "leave")) (range "e2")))
+(test-success
+    "Show in cell E3 how many shifts \"Bob\" can-cover by applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave."
+    (prolog-ask-place "DATALOG" "(headless) (rule (vla-count-can--cover Shifts) (count Shifts (can-cover \"\"Bob\"\" VlaCounted))) (query vla-count-can--cover)" "h2:h4" (vlatablearguments (array "staff" "shifts" "leave")) (range "e3")))
+(test-success
+    "Show in cell E4 how many people can-cover each shift that is listed by applying the rules in H2:H5 to the data tables Staff, Shifts, and Leave."
+    (prolog-ask-place "DATALOG" "(rule (vla-each-can--cover Shift People) (listed Shift) (count People (can-cover VlaCounted Shift))) (query vla-each-can--cover)" "h2:h5" (vlatablearguments (array "staff" "shifts" "leave")) (range "e4")))
+(test-success
+    "Show in cell E5 which shift that is listed is not covered by applying the rules in H2:H6 to the data tables Staff, Shifts, and Leave."
+    (prolog-ask-place "DATALOG" "(rule (vla-none-listed-covered Shift) (listed Shift) (not (covered Shift))) (query vla-none-listed-covered)" "h2:h6" (vlatablearguments (array "staff" "shifts" "leave")) (range "e5")))
+(test-success
+    "Show in cell E6 whether every shift that is listed is covered by applying the rules in H2:H6 to the data tables Staff, Shifts, and Leave."
+    (prolog-ask-place "DATALOG" "(rule (vla-none-listed-covered Shift) (listed Shift) (not (covered Shift))) (query (not (vla-none-listed-covered Shift)))" "h2:h6" (vlatablearguments (array "staff" "shifts" "leave")) (range "e6")))
+(test-success
+    "Show in cell E7 who alone can-cover \"Night\" by applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave."
+    (prolog-ask-place "DATALOG" "(rule (vla-alone-can--cover Who) (can-cover Who \"\"Night\"\") (count VlaCount (can-cover VlaCounted \"\"Night\"\")) (= VlaCount 1)) (query vla-alone-can--cover)" "h2:h4" (vlatablearguments (array "staff" "shifts" "leave")) (range "e7")))
+(test-success
+    "Show in cell E8 whether \"Bob\" alone can-cover \"Night\" by applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave."
+    (prolog-ask-place "DATALOG" "(rule (vla-alone-can--cover Who) (can-cover Who \"\"Night\"\") (count VlaCount (can-cover VlaCounted \"\"Night\"\")) (= VlaCount 1)) (query (vla-alone-can--cover \"\"Bob\"\"))" "h2:h4" (vlatablearguments (array "staff" "shifts" "leave")) (range "e8")))
 
 
 

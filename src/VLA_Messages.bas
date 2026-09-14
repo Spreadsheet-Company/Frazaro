@@ -246,7 +246,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' sentence parsed, and means something the writer did not intend -
     ' so both raise rather than falling through to a near-miss.
     AddMsg m, "english-conditions-unbound-role", 5, "VLA-English", "nothing in this rule says which {role} it means: ""the {role}"" is only ever compared or ruled out, never listed by a table or named by a relation. Add a condition that finds the {role} first, like ""Staff lists the {role} as <Column>""."
-    AddMsg m, "english-conditions-reserved-name", 5, "VLA-English", "'{name}' is one of this grammar's own words, so it cannot also name a relation or a set - is, as, lists, not, and, and if are reserved. Pick another name, like ""{name}-of""."
+    AddMsg m, "english-conditions-reserved-name", 5, "VLA-English", "'{name}' is one of this grammar's own words, so it cannot also name a relation or a set - is, as, lists, not, and, if, and alone are reserved. Pick another name, like ""{name}-of""."
     AddMsg m, "english-conditions-reserved-prefix", 5, "VLA-English", "'{name}' starts with vla-, and Frazaro keeps that prefix for the rules it writes itself - a relation or set named that way could merge with one of them and change an answer. Pick a name without it, like ""{suggest}""."
     ' G-PROLOG slice 2: constants, the clause and the question. Each is a
     ' sentence that parsed and would mean something the writer did not

@@ -4607,7 +4607,7 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
     Dim condPre As String
     ' G-PROLOG slice 2: what a clause or question slot matched, and the
     ' one cell or range slot beside it, for the range lint.
-    Dim clauseRel As String, questionRel As String, questionEngine As String
+    Dim clauseRel As String, questionRel As String, questionEngine As String, questionRel2 As String
     Dim clauseNames As Collection, clauseTables As Collection
     Dim sawClause As Boolean, sawQuestion As Boolean
     Dim lintCell As String, lintRange As String
@@ -4776,7 +4776,7 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
                     ' G-PROLOG slice 2: binds the program tail, already
                     ' doubled for Excel's string literal, and - under
                     ' "<slot>-engine" - the engine its shape routes it to.
-                    val = ParseQuestion(toks, p, questionEngine, questionRel, ok)
+                    val = ParseQuestion(toks, p, questionEngine, questionRel, questionRel2, ok)
                     If ok Then
                         val = VlaStringLit(val)
                         sawQuestion = True
@@ -4880,7 +4880,11 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
     ' G-PROLOG slice 2: only a rule that matched is recorded, and only when
     ' it names exactly one cell (a clause) or one range (a question).
     If sawClause And lintCellCount = 1 Then RecordRuleCell lintCell, clauseRel, clauseNames, clauseTables
-    If sawQuestion And lintRangeCount = 1 Then RecordQuestionRange lintRange, questionRel
+    If sawQuestion And lintRangeCount = 1 Then
+        RecordQuestionRange lintRange, questionRel
+        ' G-PROLOG slice 4: EACH, NONE and EVERY read a second relation - a set.
+        If Len(questionRel2) > 0 Then RecordQuestionRange lintRange, questionRel2
+    End If
     outText = TryFormPath(idx, bn, bv)
     mLastRuleIdx = idx
     BumpUsage "rule: " & mPatTexts.Item(idx)   ' S2: every firing counts
@@ -5895,7 +5899,7 @@ End Sub
 
 Private Function IsConditionsGrammarWord(ByVal nm As String) As Boolean
     Select Case nm
-        Case "is", "as", "lists", "not", "and", "if"
+        Case "is", "as", "lists", "not", "and", "if", "alone"
             IsConditionsGrammarWord = True
     End Select
 End Function
@@ -6214,7 +6218,8 @@ End Function
 ' program tail with every quote doubled for Excel's string literal; engine
 ' is DATALOG or PROLOG, and relation feeds the range lint.
 Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine As String, _
-                               ByRef relation As String, ByRef ok As Boolean) As String
+                               ByRef relation As String, ByRef relation2 As String, _
+                               ByRef ok As Boolean) As String
     Dim p As Long
     Dim a1 As String, a2 As String
     Dim u1 As Boolean, u2 As Boolean
@@ -6224,16 +6229,51 @@ Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine
     Dim closure As Boolean
     Dim goalPred As String
     Dim pre As String
+    Dim shaped As Boolean
 
     ok = False
+    relation2 = ""
     p = pos
-    If TokAt(toks, p) = "whether" Then
+    ' G-PROLOG slice 4: an answer shape is named by its own opening tokens -
+    ' "how many", "whether every", "which <noun> that is", or "alone" after
+    ' the subject - and writes its own tail (this module's slice-4 section).
+    If TokAt(toks, p) = "how" And TokAt(toks, p + 1) = "many" Then
+        p = p + 2
+        tail = ParseHowManyQuestion(toks, p, rel, relation2, shaped)
+        If Not shaped Then Exit Function
+    ElseIf TokAt(toks, p) = "whether" And TokAt(toks, p + 1) = "every" Then
+        p = p + 2
+        tail = ParseEveryQuestion(toks, p, rel, relation2, shaped)
+        If Not shaped Then Exit Function
+    ElseIf TokAt(toks, p) = "which" And TokAt(toks, p + 2) = "that" And IsSetVerb(TokAt(toks, p + 3)) Then
+        p = p + 1
+        tail = ParseNoneQuestion(toks, p, rel, relation2, shaped)
+        If Not shaped Then Exit Function
+    ElseIf TokAt(toks, p) = "whether" Then
         isWhether = True
         p = p + 1
         If Not TakeConstant(toks, p, a1) Then Exit Function
+        If AtAloneShape(toks, p) Then
+            p = p + 1
+            tail = ParseAloneQuestion(toks, p, "", a1, rel, shaped)
+            If Not shaped Then Exit Function
+        End If
     Else
         If Not TakeUnknown(toks, p, a1) Then Exit Function
         u1 = True
+        If AtAloneShape(toks, p) Then
+            p = p + 1
+            tail = ParseAloneQuestion(toks, p, a1, "", rel, shaped)
+            If Not shaped Then Exit Function
+        End If
+    End If
+    If shaped Then
+        engine = "DATALOG"
+        relation = rel
+        pos = p
+        ParseQuestion = Replace(tail, """", """""")
+        ok = True
+        Exit Function
     End If
 
     If TokAt(toks, p) = "is" Then
@@ -6410,6 +6450,276 @@ Private Sub ValidateRelationTableNames()
         Next cj
     Next ci
 End Sub
+
+' =====================================================================
+'  G-PROLOG slice 4: answer shapes
+' =====================================================================
+' The owner's calls, 2026-09-14, each measured first through both engines
+' (BETA_ROADMAP1.md, G-PROLOG slice 4). Four shapes join the question
+' sub-grammar, each named by its own opening tokens, so the sub-grammar
+' stays one deterministic left-to-right scan and stays regular:
+'
+'   Count := "how" "many" <noun> ( <rel> <constant> DON?
+'                                | <constant> <rel> DON?
+'                                | <rel> "each" <noun> "that" Is [a|an] <set> )
+'   None  := "which" <noun> "that" Is [a|an] <set> Is "not" [a|an] <set>
+'   Every := "whether" "every" <noun> "that" Is [a|an] <set> Is [a|an] <set>
+'   Alone := ( Unknown | "whether" <constant> ) "alone" <rel> <constant> DON?
+'   Is    := "is" | "are"                    DON := "directly" "or" "not"
+'
+' HOW MANY COUNTS THE SET, and answers in one cell. DATALOG's count counts
+' distinct tuples; measured, PROLOG's findall counts a bill that is a
+' violation two ways twice. The count is taken through the relation with its
+' other argument fixed - read straight off a Table row it would count rows,
+' and with the other argument left open it would count pairs - and it is
+' written (headless), so the cell holds the number alone, the way a whether
+' holds TRUE or FALSE. 0 when nothing matches.
+'
+' A DOMAIN IS NAMED AFTER "THAT IS". EACH gives every member of that set its
+' count, the zero group included - measured, grouping over the relation
+' itself left Weekend silently out, SQL's GROUP BY trap - and NONE and EVERY
+' range over it. The noun stays a label, as everywhere in this grammar, and
+' names a header; a set is only ever named after "is". "are" reads as "is" in
+' these four shapes (the owner's call), which have no shipped spelling.
+'
+' NONE WRITES ONE RULE, the domain's members not in the second set, and lists
+' them. EVERY WRITES THE SAME RULE and asks, through DATALOG.10, whether it
+' holds no row: (query (not (vla-none-listed-covered Shift))). TRUE over an
+' empty domain, as PROLOG answers. Both range over sets and never over a
+' relation in the question, since English leaves "whether somebody can-cover
+' every shift" ambiguous in scope.
+'
+' ALONE FOLLOWS THE SUBJECT: the relation holds, and a count of everyone it
+' holds for is 1. "only" was weighed and not chosen - it floats in English -
+' and "alone" joins the reserved names, since "who alone "Bob"" would
+' otherwise also read as a relation named alone.
+'
+' EACH GENERATOR OWNS A PREFIX - vla-count-, vla-each-, vla-alone-, vla-none-
+' - beside vla-not-, vla-ask- and vla-any-, and every part is escaped
+' (EscapeNamePart), so no two names can meet. The count's own variables,
+' VlaCounted and VlaCount, carry a second capital no writer's noun can
+' spell, since a role raises only its first letter.
+'
+' OUT OF SCOPE, recorded, with no row: "name one" (no stable answer without
+' an order), a list in one cell (slice 5), and a quantity summed along a
+' closure (a sum over a set merges equal quantities from different paths).
+
+Private Function IsSetVerb(ByVal t As String) As Boolean
+    IsSetVerb = (t = "is" Or t = "are")
+End Function
+
+' "alone" followed by a relation's word: the ALONE shape. Anything else after
+' it is left to the older reading, which refuses alone as a reserved name.
+Private Function AtAloneShape(toks() As String, ByVal p As Long) As Boolean
+    If TokAt(toks, p) <> "alone" Then Exit Function
+    AtAloneShape = (Len(WordAt(toks, p + 1)) > 0)
+End Function
+
+' A domain or count noun: a word, and not one of the grammar's own.
+Private Function TakeShapeNoun(toks() As String, ByRef p As Long) As String
+    Dim w As String
+    w = WordAt(toks, p)
+    If Len(w) = 0 Then Exit Function
+    If IsConditionsGrammarWord(w) Then Exit Function
+    p = p + 1
+    TakeShapeNoun = w
+End Function
+
+' "is"|"are", [a|an], <set> at p. Empty, with p untouched, when it is not there.
+Private Function TakeSetAfterVerb(toks() As String, ByRef p As Long) As String
+    Dim q As Long
+    Dim nm As String
+    If Not IsSetVerb(TokAt(toks, p)) Then Exit Function
+    q = p + 1
+    SkipArticles toks, q
+    nm = WordAt(toks, q)
+    If Len(nm) = 0 Then Exit Function
+    RefuseGrammarWordAsName nm
+    p = q + 1
+    TakeSetAfterVerb = nm
+End Function
+
+Private Sub RefuseSetClosure(toks() As String, ByVal p As Long)
+    If AtDirectlyOrNot(toks, p) Then
+        VLA_Messages.RaiseMsg "english-conditions-closure-needs-relation", "shape", "a set"
+    End If
+End Sub
+
+' vla-<prefix>-<part1>[-<part2>], every part escaped.
+Private Function ShapeName(ByVal prefix As String, ByVal part1 As String, Optional ByVal part2 As String = "") As String
+    Dim nm As String
+    nm = "vla-" & prefix & "-" & EscapeNamePart(part1)
+    If Len(part2) > 0 Then nm = nm & "-" & EscapeNamePart(part2)
+    ShapeName = nm
+End Function
+
+' "how many" <noun> ... - COUNT, or EACH. Returns the tail, quotes undoubled.
+Private Function ParseHowManyQuestion(toks() As String, ByRef p As Long, ByRef relation As String, _
+                                      ByRef relation2 As String, ByRef ok As Boolean) As String
+    Dim noun As String, noun2 As String
+    Dim nv As String, v2 As String
+    Dim rel As String, setName As String
+    Dim c As String, gp As String, pre As String, nm As String
+
+    ok = False
+    noun = TakeShapeNoun(toks, p)
+    If Len(noun) = 0 Then Exit Function
+    nv = RoleToVarName(noun)
+
+    If IsConstantTok(TokAt(toks, p)) Then
+        ' the object counted: how many shifts "Bob" can-cover
+        If Not TakeConstant(toks, p, c) Then Exit Function
+        rel = WordAt(toks, p)
+        If Len(rel) = 0 Then Exit Function
+        RefuseGrammarWordAsName rel
+        p = p + 1
+        gp = rel
+        If AtDirectlyOrNot(toks, p) Then
+            p = p + 3
+            gp = ClosureName(rel)
+            pre = ClosureRules(rel)
+        End If
+        nm = ShapeName("count", rel)
+        ParseHowManyQuestion = pre & "(headless) (rule (" & nm & " " & nv & ") (count " & nv & " (" & gp & " " & c & " VlaCounted))) (query " & nm & ")"
+        relation = rel
+        ok = True
+        Exit Function
+    End If
+
+    ' "how many bills are violations" - a count over a set - is not one of
+    ' these shapes: it gets the ordinary near miss, never a refusal naming
+    ' "is" as a relation the writer did not mean to name.
+    If IsSetVerb(TokAt(toks, p)) Then Exit Function
+    rel = WordAt(toks, p)
+    If Len(rel) = 0 Then Exit Function
+    RefuseGrammarWordAsName rel
+    p = p + 1
+
+    If TokAt(toks, p) = "each" Then
+        ' EACH: a count for every member of a set, the zero group in
+        p = p + 1
+        noun2 = TakeShapeNoun(toks, p)
+        If Len(noun2) = 0 Then Exit Function
+        v2 = RoleToVarName(noun2)
+        If TokAt(toks, p) <> "that" Then Exit Function
+        p = p + 1
+        setName = TakeSetAfterVerb(toks, p)
+        If Len(setName) = 0 Then Exit Function
+        RefuseSetClosure toks, p
+        If LCase$(v2) = LCase$(nv) Then
+            VLA_Messages.RaiseMsg "english-question-same-unknown", "unknown", LCase$(noun)
+        End If
+        nm = ShapeName("each", rel)
+        ParseHowManyQuestion = "(rule (" & nm & " " & v2 & " " & nv & ") (" & setName & " " & v2 & ") (count " & nv & " (" & rel & " VlaCounted " & v2 & "))) (query " & nm & ")"
+        relation = rel
+        relation2 = setName
+        ok = True
+        Exit Function
+    End If
+
+    ' the subject counted: how many people can-cover "Night"
+    If Not TakeConstant(toks, p, c) Then Exit Function
+    gp = rel
+    If AtDirectlyOrNot(toks, p) Then
+        p = p + 3
+        gp = ClosureName(rel)
+        pre = ClosureRules(rel)
+    End If
+    nm = ShapeName("count", rel)
+    ParseHowManyQuestion = pre & "(headless) (rule (" & nm & " " & nv & ") (count " & nv & " (" & gp & " VlaCounted " & c & "))) (query " & nm & ")"
+    relation = rel
+    ok = True
+End Function
+
+' "which" <noun> "that" is <set> is "not" <set> - NONE, a list.
+Private Function ParseNoneQuestion(toks() As String, ByRef p As Long, ByRef relation As String, _
+                                   ByRef relation2 As String, ByRef ok As Boolean) As String
+    Dim noun As String, v As String
+    Dim set1 As String, set2 As String, nm As String
+
+    ok = False
+    noun = TakeShapeNoun(toks, p)
+    If Len(noun) = 0 Then Exit Function
+    v = RoleToVarName(noun)
+    If TokAt(toks, p) <> "that" Then Exit Function
+    p = p + 1
+    set1 = TakeSetAfterVerb(toks, p)
+    If Len(set1) = 0 Then Exit Function
+    RefuseSetClosure toks, p
+    If Not IsSetVerb(TokAt(toks, p)) Then Exit Function
+    If TokAt(toks, p + 1) <> "not" Then Exit Function
+    p = p + 2
+    SkipArticles toks, p
+    set2 = WordAt(toks, p)
+    If Len(set2) = 0 Then Exit Function
+    RefuseGrammarWordAsName set2
+    p = p + 1
+    RefuseSetClosure toks, p
+    nm = ShapeName("none", set1, set2)
+    ParseNoneQuestion = "(rule (" & nm & " " & v & ") (" & set1 & " " & v & ") (not (" & set2 & " " & v & "))) (query " & nm & ")"
+    relation = set1
+    relation2 = set2
+    ok = True
+End Function
+
+' "whether" "every" <noun> "that" is <set> is <set> - EVERY, TRUE or FALSE
+' through DATALOG.10's negated query.
+Private Function ParseEveryQuestion(toks() As String, ByRef p As Long, ByRef relation As String, _
+                                    ByRef relation2 As String, ByRef ok As Boolean) As String
+    Dim noun As String, v As String
+    Dim set1 As String, set2 As String, nm As String
+
+    ok = False
+    noun = TakeShapeNoun(toks, p)
+    If Len(noun) = 0 Then Exit Function
+    v = RoleToVarName(noun)
+    If TokAt(toks, p) <> "that" Then Exit Function
+    p = p + 1
+    set1 = TakeSetAfterVerb(toks, p)
+    If Len(set1) = 0 Then Exit Function
+    RefuseSetClosure toks, p
+    If IsSetVerb(TokAt(toks, p)) And TokAt(toks, p + 1) = "not" Then Exit Function
+    set2 = TakeSetAfterVerb(toks, p)
+    If Len(set2) = 0 Then Exit Function
+    RefuseSetClosure toks, p
+    nm = ShapeName("none", set1, set2)
+    ParseEveryQuestion = "(rule (" & nm & " " & v & ") (" & set1 & " " & v & ") (not (" & set2 & " " & v & "))) (query (not (" & nm & " " & v & ")))"
+    relation = set1
+    relation2 = set2
+    ok = True
+End Function
+
+' <subject> "alone" <rel> <constant> - ALONE. The subject is an unknown
+' (headVar, a list) or, for a whether, a constant (askConst, TRUE or FALSE).
+Private Function ParseAloneQuestion(toks() As String, ByRef p As Long, ByVal headVar As String, _
+                                    ByVal askConst As String, ByRef relation As String, ByRef ok As Boolean) As String
+    Dim rel As String, c As String, gp As String, pre As String
+    Dim nm As String, hv As String, askText As String
+
+    ok = False
+    rel = WordAt(toks, p)
+    If Len(rel) = 0 Then Exit Function
+    RefuseGrammarWordAsName rel
+    p = p + 1
+    If Not TakeConstant(toks, p, c) Then Exit Function
+    gp = rel
+    If AtDirectlyOrNot(toks, p) Then
+        p = p + 3
+        gp = ClosureName(rel)
+        pre = ClosureRules(rel)
+    End If
+    nm = ShapeName("alone", rel)
+    If Len(askConst) > 0 Then
+        hv = "Who"
+        askText = "(query (" & nm & " " & askConst & "))"
+    Else
+        hv = headVar
+        askText = "(query " & nm & ")"
+    End If
+    ParseAloneQuestion = pre & "(rule (" & nm & " " & hv & ") (" & gp & " " & hv & " " & c & ") (count VlaCount (" & gp & " VlaCounted " & c & ")) (= VlaCount 1)) " & askText
+    relation = rel
+    ok = True
+End Function
 
 ' ---- the range lint: recorded during translation, checked after it ----
 

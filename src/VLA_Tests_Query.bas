@@ -382,6 +382,7 @@ Public Function TestDSLs() As Boolean
     TestPrologQuestions
     TestPrologRangeLint
     TestPrologClosure
+    TestPrologAnswerShapes
     TestSql
     TestSqlJoin
     TestSqlSetOps
@@ -7513,6 +7514,132 @@ Private Sub TestPrologClosure()
     AssertConditionsRefusal "the range lint reaches the relation a closure reads", _
                             "Inscribe H2 that a person reports-to a boss if Reports lists the person as Employee and the boss as Manager." & vbLf & "Inscribe H5 that a person reports-to a boss if Delegates lists the person as From and the boss as To." & vbLf & "Inscribe H3 that a person is-under a boss if the person reports-to the boss directly or not." & vbLf & "Pose who is-under ""Alice"" over H2:H3.", _
                             "'reports-to' is also written in cell H5, which H2:H3 leaves out"
+End Sub
+
+' G-PROLOG slice 4: answer shapes (VLA_SentenceEngine.bas, its slice-4 section).
+' "how many" counts the set in one cell, "each ... that is" per member of a
+' set, "which ... that is ... is not" lists what is outside a set, "whether
+' every ... that is ... is" asks that nothing is (DATALOG.10), and "alone"
+' after the subject asks that exactly one holds; "are" reads as "is" in them.
+' Every success fragment is the slice-4 model's own output for its sentence,
+' never typed, and each check turns pins red under its own mutation there.
+Private Sub TestPrologAnswerShapes()
+    EnglishResetGrammar
+    EnglishAddPhrase "quiz {q:question}", "(debug-print {q-engine} {q})"
+
+    ' HOW MANY counts the set, through the relation with its other argument
+    ' fixed, and writes (headless) so the cell holds the number alone. The
+    ' generated name's part is escaped, as every slice-4 name is.
+    AssertConditions "how many counts the subject, one number in one cell", _
+                     "Quiz how many people can-cover ""Night"".", _
+                     """DATALOG"" ""(headless) (rule (vla-count-can--cover People) (count People (can-cover VlaCounted \""\""Night\""\""))) (query vla-count-can--cover)"""
+    AssertConditions "how many counts the object when a value comes first", _
+                     "Quiz how many shifts ""Bob"" can-cover.", _
+                     """DATALOG"" ""(headless) (rule (vla-count-can--cover Shifts) (count Shifts (can-cover \""\""Bob\""\"" VlaCounted))) (query vla-count-can--cover)"""
+    AssertConditions "how many counts through a closure", _
+                     "Quiz how many people reports-to ""Alice"" directly or not.", _
+                     """DATALOG"" ""(rule (vla-any-reports--to X Y) (reports-to X Y)) (rule (vla-any-reports--to X Y) (reports-to X Z) (vla-any-reports--to Z Y)) (headless) (rule (vla-count-reports--to People) (count People (vla-any-reports--to VlaCounted \""\""Alice\""\""))) (query vla-count-reports--to)"""
+    AssertConditions "a number stays bare in a count", _
+                     "Quiz how many people has-level 3.", _
+                     """DATALOG"" ""(headless) (rule (vla-count-has--level People) (count People (has-level VlaCounted 3))) (query vla-count-has--level)"""
+
+    ' EACH gives every member of the set named after "that is" its count,
+    ' the zero group included, under the two nouns as headers.
+    AssertConditions "each counts per member of a set, the set read first", _
+                     "Quiz how many people can-cover each shift that is listed.", _
+                     """DATALOG"" ""(rule (vla-each-can--cover Shift People) (listed Shift) (count People (can-cover VlaCounted Shift))) (query vla-each-can--cover)"""
+    AssertConditions "are reads as is in each", _
+                     "Quiz how many people can-cover each shift that are listed.", _
+                     """DATALOG"" ""(rule (vla-each-can--cover Shift People) (listed Shift) (count People (can-cover VlaCounted Shift))) (query vla-each-can--cover)"""
+
+    ' NONE lists the domain's members not in the second set; EVERY writes the
+    ' same rule and asks, through DATALOG.10, whether it holds no row.
+    AssertConditions "which ... that is ... is not lists the members outside the second set", _
+                     "Quiz which shift that is listed is not covered.", _
+                     """DATALOG"" ""(rule (vla-none-listed-covered Shift) (listed Shift) (not (covered Shift))) (query vla-none-listed-covered)"""
+    AssertConditions "...and are reads as is, the noun naming the header", _
+                     "Quiz which shifts that are listed are not covered.", _
+                     """DATALOG"" ""(rule (vla-none-listed-covered Shifts) (listed Shifts) (not (covered Shifts))) (query vla-none-listed-covered)"""
+    AssertConditions "whether every ... is asks that nothing is outside, a negated query", _
+                     "Quiz whether every shift that is listed is covered.", _
+                     """DATALOG"" ""(rule (vla-none-listed-covered Shift) (listed Shift) (not (covered Shift))) (query (not (vla-none-listed-covered Shift)))"""
+    AssertConditions "articles are skipped before a set", _
+                     "Quiz whether every bill that is a violation is an excused.", _
+                     """DATALOG"" ""(rule (vla-none-violation-excused Bill) (violation Bill) (not (excused Bill))) (query (not (vla-none-violation-excused Bill)))"""
+
+    ' ALONE follows the subject: the relation holds, and it holds for exactly one.
+    AssertConditions "who alone lists the one who can, when only one can", _
+                     "Quiz who alone can-cover ""Night"".", _
+                     """DATALOG"" ""(rule (vla-alone-can--cover Who) (can-cover Who \""\""Night\""\"") (count VlaCount (can-cover VlaCounted \""\""Night\""\"")) (= VlaCount 1)) (query vla-alone-can--cover)"""
+    AssertConditions "which names the header of an alone question", _
+                     "Quiz which person alone can-cover ""Night"".", _
+                     """DATALOG"" ""(rule (vla-alone-can--cover Person) (can-cover Person \""\""Night\""\"") (count VlaCount (can-cover VlaCounted \""\""Night\""\"")) (= VlaCount 1)) (query vla-alone-can--cover)"""
+    AssertConditions "whether ... alone answers TRUE or FALSE for one value", _
+                     "Quiz whether ""Bob"" alone can-cover ""Night"".", _
+                     """DATALOG"" ""(rule (vla-alone-can--cover Who) (can-cover Who \""\""Night\""\"") (count VlaCount (can-cover VlaCounted \""\""Night\""\"")) (= VlaCount 1)) (query (vla-alone-can--cover \""\""Bob\""\""))"""
+    AssertConditions "alone asks through a closure", _
+                     "Quiz who alone reports-to ""Carol"" directly or not.", _
+                     """DATALOG"" ""(rule (vla-any-reports--to X Y) (reports-to X Y)) (rule (vla-any-reports--to X Y) (reports-to X Z) (vla-any-reports--to Z Y)) (rule (vla-alone-reports--to Who) (vla-any-reports--to Who \""\""Carol\""\"") (count VlaCount (vla-any-reports--to VlaCounted \""\""Carol\""\"")) (= VlaCount 1)) (query vla-alone-reports--to)"""
+
+    ' The refusals, each by name.
+    AssertConditionsRefusal "each with the same noun twice refuses", _
+                            "Quiz how many shift can-cover each shift that is listed.", _
+                            "asks for shift twice"
+    AssertConditionsRefusal "alone is reserved - an object asked first cannot be alone", _
+                            "Quiz what ""Bob"" alone can-cover.", _
+                            "'alone' is one of this grammar's own words"
+    AssertConditionsRefusal "...nor can a relation be named alone", _
+                            "Quiz who alone ""Bob"".", _
+                            "and alone are reserved"
+    AssertConditionsRefusal "directly or not after the set of each refuses", _
+                            "Quiz how many people can-cover each shift that is listed directly or not.", _
+                            "Here it follows a set"
+    AssertConditionsRefusal "directly or not after the set of a none question refuses", _
+                            "Quiz which shift that is listed is not covered directly or not.", _
+                            "Here it follows a set"
+    AssertConditionsRefusal "directly or not after the set of an every question refuses", _
+                            "Quiz whether every shift that is listed is covered directly or not.", _
+                            "Here it follows a set"
+    AssertConditionsRefusal "a quoted number in a count refuses", _
+                            "Quiz how many people can-cover ""3"".", _
+                            "is a number written in quotes"
+    AssertConditionsRefusal "a vla- set in a none question refuses", _
+                            "Quiz which shift that is vla-listed is not covered.", _
+                            "starts with vla-"
+    AssertConditionsRefusal "a vla- set in an every question refuses", _
+                            "Quiz whether every shift that is listed is vla-covered.", _
+                            "starts with vla-"
+    ' A shape this slice does not have gets the ordinary near miss, never a
+    ' refusal that names one of the grammar's words as a relation or set.
+    AssertConditionsRefusal "how many over a set is not one of these shapes - the ordinary near miss", _
+                            "Quiz how many people is top.", _
+                            "expected a question"
+    AssertConditionsRefusal "whether every ... is not ... is not a shape either", _
+                            "Quiz whether every shift that is listed is not covered.", _
+                            "expected a question"
+
+    EnglishResetGrammar
+    EnglishAddPhrase "clause {h:clause}", "(debug-print {h})"
+    AssertConditionsRefusal "alone is reserved in a rule too", _
+                            "Clause a person is alone if Staff lists the person as Name.", _
+                            "'alone' is one of this grammar's own words"
+
+    EnglishResetGrammar
+    EnglishAddPhrase "inscribe {r:cell} that {h:clause}", "(debug-print {h})"
+    EnglishAddPhrase "pose {q:question} over {rules:range}", "(debug-print {q})"
+    ' The range lint reaches both sets a none, every or each question reads.
+    AssertConditionsRefusal "a none question whose range leaves out a cell of its second set refuses", _
+                            "Inscribe H2 that a shift is listed if Shifts lists the shift as Shift." & vbLf & "Inscribe H3 that a shift is covered if Rota lists the person as Name and the shift as Shift." & vbLf & "Inscribe H5 that a shift is covered if Cover lists the shift as Shift." & vbLf & "Pose which shift that is listed is not covered over H2:H3.", _
+                            "'covered' is also written in cell H5, which H2:H3 leaves out"
+    AssertConditionsRefusal "...and so does an every question", _
+                            "Inscribe H2 that a shift is listed if Shifts lists the shift as Shift." & vbLf & "Inscribe H3 that a shift is covered if Rota lists the person as Name and the shift as Shift." & vbLf & "Inscribe H5 that a shift is covered if Cover lists the shift as Shift." & vbLf & "Pose whether every shift that is listed is covered over H2:H3.", _
+                            "'covered' is also written in cell H5, which H2:H3 leaves out"
+    AssertConditionsRefusal "an each question whose range leaves out a cell of its set refuses", _
+                            "Inscribe H2 that a person can-cover a shift if Rota lists the person as Name and the shift as Shift." & vbLf & "Inscribe H3 that a shift is listed if Shifts lists the shift as Shift." & vbLf & "Inscribe H5 that a shift is listed if Extra lists the shift as Shift." & vbLf & "Pose how many people can-cover each shift that is listed over H2:H3.", _
+                            "'listed' is also written in cell H5, which H2:H3 leaves out"
+    AssertConditions "a range holding every cell of both sets translates", _
+                     "Inscribe H2 that a shift is listed if Shifts lists the shift as Shift." & vbLf & "Inscribe H3 that a shift is covered if Rota lists the person as Name and the shift as Shift." & vbLf & "Inscribe H5 that a shift is covered if Cover lists the shift as Shift." & vbLf & "Pose which shift that is listed is not covered over H2:H5.", _
+                     "(query vla-none-listed-covered)"
 End Sub
 
 Private Sub TestPrologKeyedAtoms()
