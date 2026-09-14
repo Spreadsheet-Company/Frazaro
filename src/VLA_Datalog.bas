@@ -1,6 +1,42 @@
 Attribute VB_Name = "VLA_Datalog"
 Option Explicit
-Public Const VLA_DATALOG_VERSION As String = "DATALOG.9"
+Public Const VLA_DATALOG_VERSION As String = "DATALOG.10"
+' DATALOG.10: A QUERY MAY BE ONE ATOM UNDER NOT, and it answers TRUE when
+' nothing matches - (query (not (uncovered X))). Minted by G-PROLOG slice 4's
+' scoping, for its EVERY; the owner's calls throughout.
+'
+' WHY. Whether every member of a set has a property is whether no member
+' lacks it, and DATALOG.9's query was one positive atom with every value
+' written in: the corpus's every-covered program was refused as nesting,
+' which blamed the wrong thing, while PROLOG answered it. A way round already
+' answered here - count what matches and ask for 0, which agreed with PROLOG
+' everywhere PROLOG finished - and the owner chose the engine saying it.
+'
+' ONE ATOM UNDER ONE NOT, WITH VALUES AND BLANKS. A blank (a variable) is any
+' value, and a blank repeated is the same value, so (query (not (link "A"
+' X))) is TRUE when nothing links from A, and (query (not (link X X))) when
+' nothing links to itself. That is SQL's NOT EXISTS, SPARQL's FILTER NOT
+' EXISTS, and PROLOG's own negation as failure, which answers this text the
+' same way - measured, everywhere PROLOG finishes, and over data that loops,
+' where PROLOG refuses by DEPTH. A blank is safe here, though a rule body
+' refuses one under not: a query is checked once, after the whole fixpoint,
+' against a finished relation, where a rule's negation would have to range
+' over values nothing bound.
+'
+' THE ANSWER is DATALOG.9's match inverted - FilterAtomRelation over the
+' queried relation, TRUE when it keeps no row - so it cannot disagree with a
+' rule reading the same atom, and it stays an Excel Boolean.
+'
+' WHAT STAYS REFUSED, each in words that name the right thing. A blank
+' OUTSIDE not keeps datalog-query-atom-has-variable: measured, PROLOG reads
+' (query (p X)) as a list of X's values, so the same text answering TRUE or
+' FALSE here would mean two things in two engines. (not) and (not a b) get the
+' rule body's datalog-not-bad-shape, (not p) ParseAtom's "expected a predicate
+' form", and (not (not ...)) stays nesting - where before, (not p) was read as
+' a query NAMED not, and (not) as a predicate "not" with no arguments. A keyed
+' atom, (headless) beside it, a wrong arity and a name nothing defines refuse
+' exactly as DATALOG.9's ground atom does.
+'
 ' DATALOG.9: A QUERY MAY BE ONE FACT WRITTEN OUT WHOLE, and it answers TRUE
 ' or FALSE - (query (route "A" "D")) beside the query by name that lists
 ' rows. Minted by G-PROLOG slice 3's scoping; the owner's calls throughout.
@@ -1004,12 +1040,15 @@ End Function
 ' arguments, read here only for their names (CollectDefinedNames).
 ' DATALOG.9: queryAtom is the query's atom when the query is one fact
 ' written out whole (ParseGroundQueryAtom), and Nothing for a query by name.
-Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, ByRef rules As Collection, ByRef queryName As String, ByRef headless As Boolean, ByVal headerMap As Object, ByVal relations As Object, ByRef queryAtom As Collection)
+' DATALOG.10: queryNegated is True when that atom was written under (not ...)
+' (ParseNegatedQueryAtom), and DatalogRun then answers its match inverted.
+Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, ByRef rules As Collection, ByRef queryName As String, ByRef headless As Boolean, ByVal headerMap As Object, ByVal relations As Object, ByRef queryAtom As Collection, ByRef queryNegated As Boolean)
     Set facts = New Collection
     Set rules = New Collection
     queryName = ""
     headless = False
     Set queryAtom = Nothing
+    queryNegated = False
     Dim forms As Collection
     Set forms = VLA.VlaReadForms(rulesText)
     ' DATALOG.8: every name this program defines, before any form is
@@ -1204,7 +1243,14 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
             If IsObject(qRaw) Then
                 ' DATALOG.9: one fact written out whole, answered TRUE or
                 ' FALSE - the module header has the shape and why no wider.
-                Set queryAtom = ParseGroundQueryAtom(qRaw)
+                ' DATALOG.10: or one atom under (not ...), which may hold
+                ' blanks and answers TRUE when nothing matches.
+                If IsNegatedQueryForm(qRaw) Then
+                    queryNegated = True
+                    Set queryAtom = ParseNegatedQueryAtom(qRaw)
+                Else
+                    Set queryAtom = ParseGroundQueryAtom(qRaw)
+                End If
                 queryName = AtomPred(queryAtom)
             Else
                 queryName = VLA_Identity.Fold(AtomText(qRaw, "a query"))
@@ -1238,8 +1284,28 @@ End Sub
 ' argument must be a constant (the module header has why). ParseAtom refuses
 ' the rest in its own words - a nested form, a name that is not a word, an
 ' atom with no arguments. A wrapper word (not, count, sum, let) is never read
-' as a keyed table: (query (not (p a))) is nesting, and says so.
+' as a keyed table: (query (count N (p X))) is nesting, and says so. A query
+' under (not ...) never reaches here (DATALOG.10, ParseNegatedQueryAtom).
 Private Function ParseGroundQueryAtom(ByVal qForm As Variant) As Collection
+    RefuseKeyedQueryAtom qForm
+    Dim atom As Collection
+    Set atom = ParseAtom(qForm, "a query")
+    Dim ai As Long
+    For ai = 1 To AtomArity(atom)
+        If ArgIsVar(AtomArgAt(atom, ai)) Then
+            VLA_Messages.RaiseMsg "datalog-query-atom-has-variable", "predicate", AtomPred(atom), "var", ArgText(AtomArgAt(atom, ai))
+        End If
+    Next ai
+    Set ParseGroundQueryAtom = atom
+End Function
+
+' The keyed-shape check both query atoms make first - DATALOG.9's, moved here
+' unchanged when DATALOG.10 gave it a second caller. A (column value) pair in
+' every argument place is a keyed atom, refused as keyed rather than as
+' nesting; a wrapper word (not, count, sum, let) is never read as a keyed
+' table; and a form that is not a list is left to ParseAtom's own words.
+Private Sub RefuseKeyedQueryAtom(ByVal qForm As Variant)
+    If Not IsList(qForm) Then Exit Sub
     Dim lst As Collection
     Set lst = qForm
     If lst.Count >= 2 Then
@@ -1275,15 +1341,34 @@ Private Function ParseGroundQueryAtom(ByVal qForm As Variant) As Collection
             End If
         End If
     End If
-    Dim atom As Collection
-    Set atom = ParseAtom(qForm, "a query")
-    Dim ai As Long
-    For ai = 1 To AtomArity(atom)
-        If ArgIsVar(AtomArgAt(atom, ai)) Then
-            VLA_Messages.RaiseMsg "datalog-query-atom-has-variable", "predicate", AtomPred(atom), "var", ArgText(AtomArgAt(atom, ai))
-        End If
-    Next ai
-    Set ParseGroundQueryAtom = atom
+End Sub
+
+' DATALOG.10: is the query form (not ...)? Read the way ParseProgram reads a
+' rule body's wrapper word - the bare head, folded - so a quoted "not" is a
+' name, never the wrapper.
+Private Function IsNegatedQueryForm(ByVal qForm As Variant) As Boolean
+    Dim lst As Collection
+    Set lst = qForm
+    If lst.Count < 1 Then Exit Function
+    Dim headRaw As Variant
+    NthInto headRaw, lst, 1
+    If IsObject(headRaw) Then Exit Function
+    IsNegatedQueryForm = (VLA_Identity.Fold(CStr(headRaw)) = "not")
+End Function
+
+' DATALOG.10: the atom under (query (not ...)). One predicate form, which may
+' hold blanks - the module header has why a blank is safe here. Each shape
+' that is not one atom refuses in words that already say it: (not) and (not a
+' b) as a rule body's not does, (not p) through ParseAtom, a keyed atom as
+' DATALOG.9's ground atom is, and (not (not ...)) as nesting.
+Private Function ParseNegatedQueryAtom(ByVal qForm As Variant) As Collection
+    Dim lst As Collection
+    Set lst = qForm
+    If lst.Count <> 2 Then VLA_Messages.RaiseMsg "datalog-not-bad-shape"
+    Dim inner As Variant
+    NthInto inner, lst, 2
+    RefuseKeyedQueryAtom inner
+    Set ParseNegatedQueryAtom = ParseAtom(inner, "a query")
 End Function
 
 Private Sub RecordArity(ByVal predArityDict As Object, ByVal predName As String, ByVal arity As Long)
@@ -2243,7 +2328,7 @@ End Sub
 ' variable names to offer - DATALOG falls back to "Col1".."ColN"),
 ' (4) whether the program's own (headless) directive was present, and
 ' (5) DATALOG.9: Empty for a query by name, or the Boolean answer to a
-' query written as one fact.
+' query written as one fact - or, since DATALOG.10, to one under (not ...).
 ' VLA_Tests_Query.TestDatalog is this function's own first caller.
 '
 ' Checks "baseRelations Is Nothing", not IsMissing(baseRelations) - a
@@ -2292,7 +2377,8 @@ Public Function DatalogRun(ByVal rulesText As String, Optional ByVal baseRelatio
     Dim facts As Collection, rules As Collection, queryName As String
     Dim headless As Boolean
     Dim queryAtom As Collection
-    ParseProgram rulesText, facts, rules, queryName, headless, hMap, relations, queryAtom
+    Dim queryNegated As Boolean
+    ParseProgram rulesText, facts, rules, queryName, headless, hMap, relations, queryAtom, queryNegated
 
     Dim fa As Variant, factAtom As Collection
     For Each fa In facts
@@ -2387,13 +2473,21 @@ Public Function DatalogRun(ByVal rulesText As String, Optional ByVal baseRelatio
     outp.Add headless
     ' DATALOG.9: Empty for a query by name. For a query written as one fact,
     ' whether the queried relation holds it, decided after the whole fixpoint
-    ' by the same match a rule body makes (this module's header).
+    ' by the same match a rule body makes (this module's header). DATALOG.10:
+    ' for one written under (not ...), that match inverted - TRUE when the
+    ' relation holds no row the atom matches.
     If queryAtom Is Nothing Then
         outp.Add Empty
     Else
         Dim answerRel As Collection
         Set answerRel = VLA_Runtime.VlaDictGet(relations, queryName)
-        outp.Add (VLA_Relation.RelCount(FilterAtomRelation(answerRel, queryAtom)) > 0)
+        Dim matched As Boolean
+        matched = (VLA_Relation.RelCount(FilterAtomRelation(answerRel, queryAtom)) > 0)
+        If queryNegated Then
+            outp.Add (Not matched)
+        Else
+            outp.Add matched
+        End If
     End If
     Set DatalogRun = outp
 End Function

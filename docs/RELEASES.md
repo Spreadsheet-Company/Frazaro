@@ -135,6 +135,19 @@
   Table columns, like `(query (links (from "A") (to "D")))`; and
   `(headless)` beside a TRUE-or-FALSE question.
 
+- **`=DATALOG(...)` can also ask "is there nothing that…?"** Put `not`
+  around the fact you are asking about, and leave a blank for anything
+  that may be any value: `=DATALOG("… (query (not (route ""A"" X)))",
+  Links)` is TRUE when A reaches nowhere and FALSE when it reaches
+  somewhere. A blank written twice must be the same value, so `(query (not
+  (link X X)))` asks whether nothing links to itself. This is how "does
+  every shift have someone to cover it?" is asked: write a rule for a shift
+  nobody covers, then ask whether there is no such shift. It is a real TRUE
+  or FALSE, and it finishes over data that loops. A blank outside `not`,
+  like `(query (route "A" X))`, is still refused with a note on how to list
+  the answers instead, and a `not` with nothing, or with a bare name, under
+  it now says what is wrong rather than naming something you did not write.
+
 - **Say "directly or not" to follow a relation any number of steps.**
   `Write in cell H3 that a person is-under a boss if the person reports-to
   the boss directly or not.` means the person reports to the boss, or to

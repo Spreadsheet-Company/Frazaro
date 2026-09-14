@@ -382,6 +382,10 @@ bom-qty           x  P2  Q|D   —
   asks     How many spokes go into one bike?  (32 per wheel, 2 wheels: 64)
   note     Multiplying quantities along every path and summing is aggregation
            over paths: SQL's WITH RECURSIVE or DATALOG's let/sum, not a frame here.
+           Measured by G-PROLOG slice 4's scoping: DATALOG's let and sum give
+           64 here, and 32 where the two wheels are two parts with 32 spokes
+           each (64 is right) - sum runs over a SET, which merges equal
+           quantities that came by different paths. No sentence offers it.
 ```
 
 ## 6. Prerequisites and dependency order — P1
@@ -569,17 +573,29 @@ every-covered      # P0  P|D   same · EVERY
   asks     Does every shift have someone who can cover it?
   program  ... (rule (uncovered S) (shift S) (not (covered S))) (query (not (uncovered X)))
   answers  uncapped: FALSE                                                  [123, 15]
+  note     DATALOG refuses this query as nesting (datalog-compound-term);
+           DATALOG.10, minted by G-PROLOG slice 4's scoping, answers it
+           (FALSE here, owner-verified live).
+           Over no shifts at all PROLOG answers TRUE, and so does DATALOG
+           through a count of the uncovered compared with 0.
 
 only-cover           P0  P|D   · ONLY
   asks     Is Bob the only one who can cover nights?  /  Who alone can cover nights?
   program  KB1 (rule (vla-other X Y) (can-cover Z Y) (\= Z X))
            (query (can-cover Who "Night") (not (vla-other Who "Night")))
   answers  Who: Bob                                                         [77, 17]
+  note     \= is PROLOG's alone: DATALOG refuses it, as a predicate nothing
+           defines, and PROLOG refuses <>. Through DATALOG, a count equal to
+           1 gives Bob, nobody for Day, and FALSE for "Ann" alone.
 
 any-cover            P1  P     · ANY
   asks     Name one person who can cover the day shift.
   program  KB1 (query (can-cover Who "Day") !)
   answers  Who: Ann                                                         [10, 8]
+  note     Measured by G-PROLOG slice 4's scoping: with Staff's rows reversed
+           the same query answers Ed, and over data that loops a cut answers
+           when a route exists and refuses by DEPTH when none does. Not
+           built: "one" has no stable answer without an order.
 ```
 
 ## 15. Counts and lists per group — P0
@@ -591,10 +607,16 @@ count-each         # P0  D|Q   T1 · EACH COUNT
                (rule (vla-count S N) (shift S) (findall X (can-cover X S) B) (length B N))
            (query (vla-count Shift N))
   answers  uncapped: Shift|N: Day 3 · Night 1 · Weekend 0                   [122, 13]
-  note  ?  findall counts derivations; a person reachable two ways counts
+  note     findall counts derivations; a person reachable two ways counts
            twice. DATALOG's (count N (can-cover X S)) counts the SET, and
            gives the zero group; SQL's GROUP BY is the aggregation engine.
-           The answer-shape fork decides what COUNT means.
+           Decided by G-PROLOG slice 4's scoping (2026-09-14): a count is
+           DATALOG's, over the SET, and the zero group needs a domain the
+           question names. Measured: grouped over (shift S), Day 3 · Night 1
+           · Weekend 0; grouped over can-cover itself, Weekend is silently
+           missing. A count read straight off a Table row counts rows
+           (Staff: 6, for 5 people), and findall over a rule reading Staff
+           collects ("Ann" "Bob" "Bob" "Cy" "Di" "Ed").
 
 list-each            P1  P     T1 · EACH LIST
   asks     For each shift, who can cover it, in one cell?

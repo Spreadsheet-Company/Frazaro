@@ -927,9 +927,9 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "datalog-fact-bad-shape", 5, "VLA-Datalog", "(fact ...) takes exactly one predicate form, like (fact (parent tom bob))."
     AddMsg m, "datalog-fact-has-variable", 5, "VLA-Datalog", "fact '{predicate}' uses '{arg}', which looks like a variable (it starts with a capital letter) - facts must be fully specific; did you mean to write a rule instead?"
     AddMsg m, "datalog-rule-needs-body", 5, "VLA-Datalog", "a (rule head ...) needs at least one body predicate after the head - a rule with no body is a fact; use (fact ...) instead."
-    AddMsg m, "datalog-query-bad-shape", 5, "VLA-Datalog", "(query ...) takes exactly one thing: a relation's name, like (query indirect_report), to list its rows, or one fact written out whole, like (query (route ""A"" ""D"")), to answer TRUE or FALSE."
+    AddMsg m, "datalog-query-bad-shape", 5, "VLA-Datalog", "(query ...) takes exactly one thing: a relation's name, like (query indirect_report), to list its rows; one fact written out whole, like (query (route ""A"" ""D"")), to answer TRUE or FALSE; or one fact under (not ...), which may hold blanks, like (query (not (route ""A"" X))), to answer TRUE when nothing matches."
     AddMsg m, "datalog-headless-bad-shape", 5, "VLA-Datalog", "(headless) takes no arguments - write it exactly as (headless) to skip the header row and return only data rows."
-    AddMsg m, "datalog-query-missing", 5, "VLA-Datalog", "add (query predicate-name) to say which relation DATALOG should return - for example (query indirect_report) - or (query (route ""A"" ""D"")) to ask whether one fact holds."
+    AddMsg m, "datalog-query-missing", 5, "VLA-Datalog", "add (query predicate-name) to say which relation DATALOG should return - for example (query indirect_report) - or (query (route ""A"" ""D"")) to ask whether one fact holds, or (query (not (route ""A"" X))) to ask whether nothing matches."
     ' DATALOG.9 - a query written as one fact answers TRUE or FALSE; these
     ' are the shapes it refuses, each pointing at the spelling that works.
     ' (datalog-query-not-a-symbol retired with it: a nested form is now read

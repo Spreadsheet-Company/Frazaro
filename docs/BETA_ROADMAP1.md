@@ -7560,7 +7560,7 @@ G-TAIL always said this about itself; it is true of the whole tranche.
     cells, and questions that read them.** **Scoped 2026-09-10/11**, seven
     forks decided by the owner; **slice 1 BUILT 2026-09-12, OWNER-VERIFIED
     LIVE 2026-09-13 in two rounds, and committed; slice 2 BUILT,
-    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14; slice 3 BUILT, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, on its precursor `DATALOG.9` (built, owner-verified live and committed the same day)** (see the slice list below for what each ships and
+    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14; slice 3 BUILT, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, on its precursor `DATALOG.9` (built, owner-verified live and committed the same day); slice 4 SCOPED 2026-09-14 and waiting on `DATALOG.10`, itself built and owner-verified live the same day** (see the slice list below for what each ships and
     what it proved). *The previous text of this
     entry said its dependency, `PROLOG.1`–`.6`, was unbuilt. It was stale:
     `PROLOG.1`–`.24` have shipped.* This is the project's reason for being,
@@ -8298,13 +8298,138 @@ G-TAIL always said this about itself; it is true of the whole tranche.
          Vocabulary runs; the other 18 are green.
       4. ⬜ **answer shapes** — COUNT (`DATALOG`'s own set count), NONE,
          EVERY, ONLY, ANY and EACH. §14, §15.
+         **SCOPED 2026-09-14; NOT BUILT — the whole slice waits on
+         `DATALOG.10`, the owner's call.** Eight forks went to the owner with
+         their measurements; six took the recommended option, and two were
+         the owner's own.
+         **MEASURED FIRST, on shipped code** (transliterations; no VBA ran).
+         Slice 3's controls were re-run on HEAD before any verdict:
+         `DATALOG` 118/118, `PROLOG` 574 with its 2 named gaps, the grammar
+         pins 23/0, the `english.vla` rows 11/0, the derived pins 67/0 with
+         all four Subs byte-identical, and `s3_run` 62/0. The `PROLOG` model
+         has no `length`, so a `findall` bag was read whole rather than
+         counted. Each shape's hazards, through both engines:
+           - *What a count counts.* `DATALOG`'s `count` counts distinct
+             tuples: 2 report to Alice, 0 for a name nobody reports to, 5
+             directly or not, 2 shifts Bob can cover. `PROLOG`'s `findall`
+             collects a bag: `("Ann" "Bob" "Bob" "Cy" "Di" "Ed")` from a rule
+             over Staff, where `DATALOG` counts 5, and `("B4" "B3" "B4")`
+             where a bill is a violation two ways, where `DATALOG` counts 2.
+             Two traps inside `DATALOG`'s own count: read straight off a keyed
+             Table row it counts ROWS (6), and with the other argument left
+             open it counts PAIRS (4 `can-cover` pairs, 3 people). So a
+             question counts through the relation, its other argument fixed.
+             `(headless)` gives the count alone.
+           - *The zero group.* Grouped over a set of shifts: Day 3 · Night 1
+             · Weekend 0. Grouped over the relation itself, Weekend is
+             silently missing — SQL's `GROUP BY` trap. Per person, over a set
+             of people: Ann 1 · Bob 2 · Cy 0 · Di 0 · Ed 1.
+           - *NONE.* `(not (can-cover X S))` written inline is refused by
+             `DATALOG` as unsafe, while `PROLOG` answers Weekend. A generated
+             projection under `not`, or a count equal to 0, answers Weekend in
+             `DATALOG`; with no set to range over, it refuses. Two slice-2
+             rule sentences already say it (Weekend).
+           - *EVERY.* The corpus's `(query (not (uncovered X)))` answers FALSE
+             in `PROLOG`, and TRUE once Ann's leave is removed; `DATALOG`
+             refuses it as nesting (`datalog-compound-term`), which blames the
+             wrong thing. Counting the uncovered shifts and asking `(query
+             (vla-every 0))` through `DATALOG.9` answers FALSE and TRUE alike,
+             and TRUE over an empty Shifts table, as `PROLOG` does. A
+             zero-arity rule is refused by design. A refusal reaches the cell
+             as text, never as FALSE.
+           - *ONLY.* `\=` is refused by `DATALOG`, as a predicate nothing
+             defines (`DATALOG.8`'s text, a wrong diagnosis), and `<>` by
+             `PROLOG`: the engines share no inequality. The corpus's `PROLOG`
+             program answers Bob. Through `DATALOG`, a generated `<>` rule and
+             a count equal to 1 both answer Bob, nobody for Day, and FALSE for
+             "Ann" alone, on Day and on Weekend, where nobody can cover.
+           - *ANY.* `PROLOG`'s cut answers Ann, and Ed once Staff's rows are
+             reversed; `DATALOG`'s WHO spill follows row order the same way.
+             Over data that loops, a cut answers when a route exists and
+             refuses by DEPTH (work 399) when none does.
+           - *`bom-qty`.* A quantity rolled up along a generated closure with
+             `let` and `sum` gives 64 spokes on the corpus's bike, and 32
+             where the two wheels are two parts with 32 spokes each (64 is
+             right): `sum` runs over a set, which merges equal quantities
+             that came by different paths. Confidently wrong.
+           - *The tokenizer* drops only "the" and "please", and writes one to
+             twenty as digits, so "no one" arrives as "no 1" and "name one" as
+             "name 1": no spelling uses "one".
+         **THE FORKS, decided:**
+           1. **COUNT reads "how many", counts the set, and answers in one
+              cell** (recommended): `how many people can-cover "Night"`, the
+              object asked first (`how many shifts "Bob" can-cover`), and
+              "directly or not". `DATALOG`'s `count` over the relation, never a
+              Table row and never pairs; 0 when none; written `(headless)`, so
+              the cell holds the number alone, as a WHETHER holds TRUE or
+              FALSE. The long view: SQL's `COUNT(*)` beside `COUNT(DISTINCT)`,
+              and SPARQL's and Cypher's `count(DISTINCT)`, make the bag an
+              explicit choice; ACE asks "How many …?". SD-4 will freeze the
+              words, and that a count counts different things.
+           2. **A domain is named after "that is"** (recommended): `how many
+              people can-cover each shift that is listed`, `which shift that is
+              listed is not covered`, `whether every shift that is listed is
+              covered`. A noun stays a label, as in slices 1–3, and a set is
+              only ever named after "is"; the set is one rule sentence (`a
+              shift is listed if Shifts lists the shift as Shift`). Weighed:
+              the noun naming the set — SBVR's "each" over a declared concept,
+              shorter, but `which shift` would be a label in one question and a
+              set in its neighbour (SD-19) — and no domain, SQL's missing zero
+              group. Every mature system names the domain for a zero group or a
+              universal: SQL starts from the domain table, Cypher from `OPTIONAL
+              MATCH`, SBVR from a declared noun concept.
+           3. **NONE and EVERY: an engine item first, `DATALOG.10`** (the
+              owner's call, over the recommended generated rule with a count
+              compared to 0, measured correct): a negated query answers TRUE or
+              FALSE. Minted below. Both range over sets, never over a relation
+              in the question: English leaves "whether somebody can-cover every
+              shift" ambiguous in scope, and ACE reads it as one person covering
+              all.
+           4. **ONLY reads "alone" after the subject** (recommended): `who alone
+              can-cover "Night"`, `whether "Bob" alone can-cover "Night"`. One
+              generated rule, the relation and a count of it equal to 1, in the
+              question's own tail, which only `DATALOG` runs. Weighed: "only",
+              which floats in English ("Bob can only cover nights" says Bob
+              covers nothing else), so SD-19's neighbour would live inside the
+              word.
+           5. **The whole slice waits on `DATALOG.10`** (the owner's call, over
+              building COUNT, EACH, ONLY and NONE first, none of which needs
+              it).
+           6. **ANY is not built, and recorded** (recommended): "one" has no
+              stable answer without an order — SQL's and SPARQL's `LIMIT 1`
+              without `ORDER BY` — and a sentence reaching for it gets the
+              ordinary near miss (SD-7, and slice 3's decision 6).
+           7. **A generated-name sub-prefix per shape** (recommended):
+              `vla-count-<relation>`, `vla-each-<relation>`,
+              `vla-alone-<relation>` and `vla-none-<set>-<set>`, every part
+              escaped, beside `vla-not-`, `vla-ask-` and `vla-any-`. "alone"
+              joins the reserved names, since `who alone "Bob"` would otherwise
+              also read as a relation named alone.
+           8. **`list-each` and `bom-qty` are recorded, with no row**
+              (recommended): a list in one cell is slice 5's, and no "how much"
+              or "total" is offered while `sum` over a set gives the answer
+              measured above.
+         *Stated defaults, not forks:* EACH groups by the object, since
+         `count-each` is the corpus's only per-group sentence (SD-7), and
+         spills the domain's noun and the counted noun as its headers, the
+         zero group in; a count's own variable is one no writer's noun can
+         spell (a second capital), so it never meets a role.
+         **TO BUILD, after `DATALOG.10`:** the shapes in `ParseQuestion`
+         (`how many`, `each … that is`, `which … that is … is not`, `whether
+         every … that is … is`, and `alone`); the names, and "alone" among
+         the reserved words; new message ids; pins under `TestDSLs`;
+         `test-success` lines under the shipped question row, whose pattern
+         does not change (so no new `GRAMMAR_SINCE` row); the corpus's §14 and
+         §15 sentences through `DATALOG` end to end; and a live pass. The
+         scoping harness — `m4_cases` and `dl4_case_run` — is in session
+         `56f079e7`'s scratchpad, over session `1579476d`'s.
       5. ⬜ **PROLOG's own** — text conditions (starts with, contains),
          first match (tiers), a list in one cell. §8, §15, §16.
     *Out of scope, and refused by name rather than faked:* optimisation
     (`SOLVE`, §17); quantity roll-ups along paths (`SQL`/`DATALOG`
-    aggregation); topological order. *Deferred decisions:* how COUNT reads
-    once DATALOG's count shape is in hand, and whether decision tables
-    (DMN) belong beside first-match rules for classification.
+    aggregation); topological order. *Deferred decision:* whether decision
+    tables (DMN) belong beside first-match rules for classification. (How
+    COUNT reads was decided by slice 4's scoping.)
 
     `~weeks`, per slice. *Pays into:* `G-DATALOG`'s second wave (it reads
     the same cells), `G-SQL` and `G-SOLVE` (both inherit this corpus), and
@@ -17433,6 +17558,102 @@ now carries one summary paragraph per engine and points here.*
     The harness — `port9`, `dl9_run`, `dl9_case_run`, `d9_live`, `m9_probe`,
     `m9_move`, `count_reports`, `d9_scan` — is in session `1579476d`'s
     scratchpad.
+  - ✅ **DATALOG.10 — answer a negated question TRUE or FALSE: `(query (not
+    (uncovered X)))`.** Minted 2026-09-14 by `G-PROLOG` slice 4's scoping,
+    the owner's call, to be built in its own session before that slice.
+    **Why:** whether EVERY member of a set has a property is whether NO
+    member lacks it, and `DATALOG.9`'s query is one positive ground atom: a
+    variable, and a `not` around the atom, are both refused. Measured through
+    `DATALOG.9`'s transliteration, the corpus's `every-covered` program,
+    `(query (not (uncovered X)))`, is refused as nesting
+    (`datalog-compound-term`), which blames the wrong thing, while `PROLOG`
+    answers FALSE, and TRUE once the one uncovered shift is covered. A way
+    round was measured and put to the owner — count the members that lack
+    it and ask `(query (vla-every 0))`, which answers FALSE, TRUE, and TRUE
+    over an empty set, as `PROLOG` does — and the owner chose the engine
+    item. **To scope, measuring first:** what a variable under `not` means
+    in a query (any value: TRUE when no tuple matches, as negation as failure
+    reads it); constants beside variables (`(query (not (can-cover X
+    "Weekend")))`); one `not` only, or nesting; whether a positive atom with
+    a variable ("is there any") comes with it or stays refused
+    (`datalog-query-atom-has-variable`); a keyed atom and `(headless)` beside
+    it, which `DATALOG.9` refused; `DATALOG.8`'s static refusal and the arity
+    check over the negated name; and an empty relation, where the answer is
+    TRUE. Exposure first: every pin of `datalog-compound-term` in a query and
+    of `datalog-query-atom-has-variable`. *Pays into:* `G-PROLOG` slice 4
+    (EVERY). `~days`
+
+    **BUILT and OWNER-VERIFIED LIVE 2026-09-14, in the session that scoped
+    it** (the live record closes this entry). Three forks went to the owner with their measurements, and
+    each took the recommended option: **one atom under one `not`, with values
+    and blanks** — a blank is any value, a repeated blank the same value, and
+    the answer is TRUE when nothing matches; **a blank outside `not` stays
+    refused**; and **the malformed negations refuse through ids that already
+    exist**, in words that name the right thing. Stated defaults, not forks:
+    an Excel Boolean, as `DATALOG.9` returns; a keyed atom, `(headless)`
+    beside it, a wrong arity and a name nothing defines refuse as
+    `DATALOG.9`'s ground atom does; the two query-shape texts gain the
+    negated spelling; no message id is added or retired.
+    **MEASURED FIRST**, through `DATALOG.9`'s transliteration (its control
+    re-run on HEAD, 118/118) and `PROLOG`'s (574 with its 2 named gaps).
+    Shipped `DATALOG` refused every negated query as nesting, and two of its
+    neighbours named the wrong thing: `(query (not p))` was read as a query
+    named `not`, and `(query (not))` as a predicate `not` with no arguments.
+    `PROLOG`'s negation as failure — the reference reading, and what SQL's
+    `NOT EXISTS` and SPARQL's `FILTER NOT EXISTS` mean — agreed with
+    `DATALOG`'s count-for-0 spelling in every case it finished (values,
+    blanks, a repeated blank, a closure from a dead end, a number cell, an
+    empty Table, the corpus's `every-covered` and slice 4's own EVERY tail),
+    and refused by DEPTH over a closure whose data loops, where the count
+    answered. `_` is a constant in both engines, and a quoted `"3"` splits
+    them, as `DATALOG.9` recorded. **Why a blank outside `not` stays
+    refused:** `PROLOG` reads `(query (p X))` as a list of X's values, so
+    the same text answering TRUE or FALSE here would mean two things in two
+    engines; under `not`, `PROLOG` answers TRUE or FALSE too.
+    **BUILT.** `VLA_Datalog.bas`: `ParseProgram` reads a query whose bare
+    head folds to `not` through the new `ParseNegatedQueryAtom` — the rule
+    body's `datalog-not-bad-shape` for `(not)` and `(not a b)`; the keyed
+    check `DATALOG.9` made, moved unchanged into `RefuseKeyedQueryAtom` now
+    that it has two callers; then `ParseAtom`, which refuses `(not p)` and
+    nesting in its own words — and hands `DatalogRun` a `queryNegated` flag.
+    The answer is `DATALOG.9`'s `FilterAtomRelation` match inverted, after
+    the whole fixpoint. A quoted `"not"` is a name, as in a rule body.
+    `VLA_Messages.bas`: `datalog-query-bad-shape` and `datalog-query-missing`
+    name the negated spelling. `VLA_DATALOG_VERSION` → `DATALOG.10`.
+    **PROVEN, before import**, through the transliteration ported behind a
+    switch (`port10`). **CONTROL:** the arm off over HEAD's tests, **118/118**;
+    the arm on over HEAD's tests fails exactly one pin, the exposure:
+    `TestDatalogGroundQuery`'s "(query (not ...)) is nesting", re-pointed in
+    place. The new arm over the new test file, **147/147**. The shipped arm
+    over the two query Subs fails **26 of 50**; the four new pins that pass
+    on both are pins of what must not move — a blank outside `not`, double
+    negation, a quoted `"not"`, and the query-shape text (which both arms
+    read from the working source). **Six mutants, each red:** the answer not
+    inverted (17), a blank refused under `not` (14), the answer always TRUE
+    (13), no shape check (2), no keyed check (1), and a quoted `"not"` read as
+    the wrapper (1) — that last one turned nothing red until its pin was
+    added. The three modules rebuild byte-identical from HEAD plus anchored
+    blocks; the structure and duplicate-`Dim` scan is clean against HEAD;
+    CRLF and no BOM kept.
+    **TESTS.** New `TestDatalogNegatedQuery`, 29 pins under `TestDSLs`, and
+    one `TestDatalogGroundQuery` pin re-pointed in place: **predicted
+    `TestDSLs` 1240 → 1269**, counted as `Report` call sites (1182 → 1211,
+    none in a loop); pure 1109, host 152 and `VerifyReports` 242/242 on both
+    backends unmoved, since no pure or host test, phrasebook row or golden
+    changed. Live steps: seven in-cell programs after the suites, generated
+    (`d10_live`), among them the corpus's `every-covered` over rules written
+    by sentences, FALSE and then TRUE once the uncovered shift is covered.
+    The harness — `m10_cases`, `port10`, `dl10_run`, `dl10_case_run`,
+    `d10_live` and `apply_d10` — is in session `56f079e7`'s scratchpad
+    (`h10`), over session `1579476d`'s.
+    **OWNER-VERIFIED LIVE 2026-09-14, first pass:** pure **1109/1109**, host
+    **152/152**, `TestDSLs` **1269**/0 (the predicted count exactly),
+    `VerifyReports` **242/242 on both backends**, and all seven in-cell tests
+    answering as handed off — values and blanks as real Booleans; a closure
+    over data that loops answering both ways beside `PROLOG`'s DEPTH refusal;
+    the corpus's `every-covered` over rules written by sentences, FALSE and
+    then TRUE, in both engines; a blank beside a number cell; the refusals in
+    their new words; and `DATALOG.9`'s shapes unchanged.
   - ⬜ **Avoiding a full re-parse/re-fixpoint on every recalc — profiled first,
     not yet built.** `DATALOG()` re-parses `rulesText` and reruns
     `RunStratifiedFixpoint` from scratch every time Excel calls it. Worth
