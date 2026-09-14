@@ -418,6 +418,7 @@ Public Function VlaSelfTest() As Boolean
     TestCo4VersionSemver
     TestF10Requires
     TestVlaLint
+    TestU20LintFileBytes
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -2330,6 +2331,139 @@ Private Sub TestVlaLint()
            InStr(1, out12, "(+ x 1))" & vbCrLf & vbCrLf, vbBinaryCompare) > 0, _
            "got: [" & out12 & "]"
 End Sub
+
+' =====================================================================
+'  U.20 - Lint VLA must never break a file it rewrites. Pure: bytes in,
+'  bytes out, no file I/O - the UTF-8 codec (VLA_Loader) and the whole
+'  per-file decision (VLA_Lint.VlaLintFileBytes). Non-ASCII fixture text
+'  is built with ChrW, so this module's own source stays ASCII.
+' =====================================================================
+Private Sub TestU20LintFileBytes()
+    Dim b() As Byte, n As Long, s As String, badAt As Long, ok As Boolean
+
+    ' --- the codec ---
+    Dim mixed As String
+    mixed = "a" & ChrW(&HA3) & ChrW(&HE9) & ChrW(&H2014) & ChrW(&HD83D) & ChrW(&HDE00)
+    n = VLA_Loader.VlaUtf8Encode(mixed, b)
+    Report "U.20 UTF-8 encode: ASCII, a pound sign, an e-acute, an em dash, and an emoji as one four-byte code point", _
+           U20HexOf(b, n) = "61 C2 A3 C3 A9 E2 80 94 F0 9F 98 80", "got " & U20HexOf(b, n)
+    n = VLA_Loader.VlaUtf8Encode(ChrW(&HD83D) & "x", b)
+    Report "U.20 UTF-8 encode: a lone surrogate is written as U+FFFD, never as a sequence no reader accepts", _
+           U20HexOf(b, n) = "EF BF BD 78", "got " & U20HexOf(b, n)
+    n = U20Hex("61 C2 A3 C3 A9 E2 80 94 F0 9F 98 80", b)
+    ok = VLA_Loader.VlaUtf8Decode(b, 0, n, s, badAt)
+    Report "U.20 UTF-8 decode: those bytes read back as the same text", _
+           ok And s = mixed, "ok " & ok & ", badAt " & badAt
+
+    Dim invalidCases As Variant, k As Long, caseHex As String, wantAt As Long
+    invalidCases = Array("A3", 0, "61 A3", 1, "C0 80", 0, "E0 80 80", 0, "ED A0 80", 0, _
+                         "F4 90 80 80", 0, "E2 80", 0, "61 62 E2 28 A1", 2)
+    For k = 0 To UBound(invalidCases) Step 2
+        caseHex = CStr(invalidCases(k))
+        wantAt = CLng(invalidCases(k + 1))
+        n = U20Hex(caseHex, b)
+        ok = VLA_Loader.VlaUtf8Decode(b, 0, n, s, badAt)
+        Report "U.20 UTF-8 decode refuses [" & caseHex & "] at byte index " & wantAt, _
+               (Not ok) And badAt = wantAt, "ok " & ok & ", badAt " & badAt
+    Next
+
+    ' --- one file, start to finish ---
+    Dim src() As Byte, srcN As Long, out1() As Byte, out1N As Long, out2() As Byte, out2N As Long
+    Dim at As Long, detail As String, st As String, t As String
+
+    Dim fixture As String
+    fixture = "; a comment with " & ChrW(&HA3) & ", an em dash " & ChrW(&H2014) & " and " & _
+              ChrW(&HD83D) & ChrW(&HDE00) & vbCrLf & _
+              "(english-vla ""caf" & ChrW(&HE9) & " {r:cell}."" (debug-print ""x""))"
+    srcN = VLA_Loader.VlaUtf8Encode(fixture, src)
+    st = VLA_Lint.VlaLintFileBytes(src, srcN, out1, out1N, at, detail)
+    ok = VLA_Loader.VlaUtf8Decode(out1, 0, out1N, t, badAt)
+    Report "U.20 lint a file: non-ASCII text in a comment and in a pattern comes back as the same characters (the pound sign's incident)", _
+           st = "rewrite" And ok _
+           And InStr(1, t, ChrW(&HA3) & ", an em dash " & ChrW(&H2014) & " and " & ChrW(&HD83D) & ChrW(&HDE00), vbBinaryCompare) > 0 _
+           And InStr(1, t, "caf" & ChrW(&HE9) & " {r:cell}.", vbBinaryCompare) > 0, _
+           "status " & st & " / " & detail & ", decoded " & ok
+    Report "U.20 lint a file: it ends with house style's three line breaks plus the one Print # always added - four, not five", _
+           Right$(t, 8) = vbCrLf & vbCrLf & vbCrLf & vbCrLf And Right$(t, 10) <> vbCrLf & vbCrLf & vbCrLf & vbCrLf & vbCrLf, _
+           "got: [" & t & "]"
+    Dim counted1 As Long, counted2 As Long
+    Report "U.20 lint a file: the non-whitespace digest - the expanded stamp's own hash - is the same before and after", _
+           VLA_Digest.VlaSha256HexSkippingWhitespace(src, srcN, counted1) = _
+           VLA_Digest.VlaSha256HexSkippingWhitespace(out1, out1N, counted2), _
+           "counted " & counted1 & " vs " & counted2
+    st = VLA_Lint.VlaLintFileBytes(out1, out1N, out2, out2N, at, detail)
+    Report "U.20 lint a file: linting the result again changes nothing, byte for byte", _
+           st = "unchanged" And U20Same(out1, out1N, out2, out2N), "status " & st & " / " & detail
+
+    srcN = U20Hex("EF BB BF 28 73 74 6F 70 29", src)                    ' BOM, then (stop)
+    st = VLA_Lint.VlaLintFileBytes(src, srcN, out1, out1N, at, detail)
+    Report "U.20 lint a file: a UTF-8 BOM is kept", _
+           st = "rewrite" And U20HexOf(out1, out1N) = "EF BB BF 28 73 74 6F 70 29 0D 0A 0D 0A 0D 0A 0D 0A", _
+           "status " & st & ", got " & U20HexOf(out1, out1N)
+
+    srcN = VLA_Loader.VlaUtf8Encode("; x" & vbLf & "(stop)", src)
+    st = VLA_Lint.VlaLintFileBytes(src, srcN, out1, out1N, at, detail)
+    Report "U.20 lint a file: LF-only line breaks stay LF-only", _
+           st = "rewrite" And U20HexOf(out1, out1N) = "3B 20 78 0A 28 73 74 6F 70 29 0A 0A 0A 0A", _
+           "status " & st & ", got " & U20HexOf(out1, out1N)
+
+    ' --- the refusals ---
+    srcN = VLA_Loader.VlaUtf8Encode("; GENERATED by EnglishExpandedVocabularyText from x.vla - do not hand-edit" & vbCrLf & "(stop)", src)
+    st = VLA_Lint.VlaLintFileBytes(src, srcN, out1, out1N, at, detail)
+    Report "U.20 lint a file: a generated artifact is refused by name", st = "generated", "status " & st
+
+    srcN = U20Hex("28 61 29 0D 0A 3B 20 A3 0D 0A", src)                 ' (a), then "; " and a lone A3
+    st = VLA_Lint.VlaLintFileBytes(src, srcN, out1, out1N, at, detail)
+    Report "U.20 lint a file: invalid UTF-8 - a lone A3, the incident's own byte - is refused, naming its byte and line", _
+           st = "not-utf8" And at = 7 And detail = "2", "status " & st & ", at " & at & ", line " & detail
+
+    srcN = VLA_Loader.VlaUtf8Encode("(begin" & vbCrLf & "  ; inner comment" & vbCrLf & "  (stop))", src)
+    st = VLA_Lint.VlaLintFileBytes(src, srcN, out1, out1N, at, detail)
+    Report "U.20 lint a file: a comment inside a form, which the formatter drops, is refused with its line instead of lost", _
+           st = "meaning" And at = 2 And detail = "; inner comment" And out1N = 0, _
+           "status " & st & ", at " & at & ", detail " & detail
+
+    srcN = VLA_Loader.VlaUtf8Encode("(debug-print ""C:\Users"")", src)
+    st = VLA_Lint.VlaLintFileBytes(src, srcN, out1, out1N, at, detail)
+    Report "U.20 lint a file: a lone backslash in a string, which the formatter doubles, is refused", _
+           st = "meaning" And at = 1, "status " & st & ", at " & at & ", detail " & detail
+
+    srcN = VLA_Loader.VlaUtf8Encode("(a b) c", src)
+    st = VLA_Lint.VlaLintFileBytes(src, srcN, out1, out1N, at, detail)
+    Report "U.20 lint a file: text after a form's closing paren is refused with the formatter's own reason", _
+           st = "unparseable" And Len(detail) > 0, "status " & st & ", detail " & detail
+End Sub
+
+' U.20 fixture bytes from space-separated hex ("C2 A3"); returns the count.
+Private Function U20Hex(ByVal hexText As String, ByRef b() As Byte) As Long
+    Dim parts() As String
+    parts = Split(Trim$(hexText), " ")
+    ReDim b(0 To UBound(parts))
+    Dim i As Long
+    For i = 0 To UBound(parts)
+        b(i) = CByte("&H" & parts(i))
+    Next
+    U20Hex = UBound(parts) + 1
+End Function
+
+' The first n bytes as space-separated uppercase hex, for a readable FAIL.
+Private Function U20HexOf(ByRef b() As Byte, ByVal n As Long) As String
+    Dim i As Long, s As String
+    For i = 0 To n - 1
+        If i > 0 Then s = s & " "
+        s = s & Right$("0" & Hex$(b(i)), 2)
+    Next
+    U20HexOf = s
+End Function
+
+Private Function U20Same(ByRef a() As Byte, ByVal aN As Long, ByRef b() As Byte, ByVal bN As Long) As Boolean
+    If aN <> bN Then Exit Function
+    Dim i As Long
+    For i = 0 To aN - 1
+        If a(i) <> b(i) Then Exit Function
+    Next
+    U20Same = True
+End Function
 
 ' F.9: instructions.txt's own paragraphs (its documented structural unit -
 ' "blank line ends a block"), as (startLine, endLine, label) triples,

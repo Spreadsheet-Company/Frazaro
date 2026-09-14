@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Lint"
 Option Explicit
-Public Const VLA_LINT_VERSION As String = "LX2.0"
+Public Const VLA_LINT_VERSION As String = "U20.0"
+' U20.0: VlaLintFileBytes - linting a FILE, bytes in and bytes out, the
+' whole decision behind the Lint VLA button (U.20), pure so VlaSelfTest
+' pins it. It keeps a BOM and LF-only line breaks, and refuses a
+' generated artifact, invalid UTF-8, and any reformatting that would
+' move a byte that is not whitespace - see the block above it.
 ' LX2.0: this module's 2 raw Err.Raise refusal sites now route through
 ' VLA_Messages.RaiseMsg with a stable id - SD-2/LX.2's first migrated
 ' batch. Rendered text and Err.Number/Err.Source are unchanged.
@@ -774,4 +779,192 @@ Public Function VlaLintFormat(ByVal text As String) As String
     Loop
     If Len(result) > 0 Then result = result & vbCrLf & vbCrLf & vbCrLf
     VlaLintFormat = result
+End Function
+
+' =====================================================================
+'  U.20: linting a FILE, as bytes in and bytes out - the whole decision
+'  the Lint VLA button makes, with no file I/O, so VlaSelfTest can pin
+'  all of it. VLA_IDE reads the bytes, calls this, and writes only what
+'  it returns.
+'
+'  Returns one status:
+'    "rewrite"      outBytes/outN differ from the file and may replace it
+'    "unchanged"    the file is already in house style, byte for byte
+'    "generated"    line 1 is a "; GENERATED" stamp. Such a file is
+'                   re-made from its source, never linted by hand -
+'                   VlaLintCheck's own header already said a "lint every
+'                   .vla" pass must not sweep english_expanded.vla in.
+'    "not-utf8"     at = 0-based index of the first invalid byte,
+'                   detail = its 1-based line number
+'    "unparseable"  detail = the formatter's own refusal text
+'    "meaning"      reformatting would change a byte that is not
+'                   whitespace; at = the 1-based line of the ORIGINAL
+'                   where the first such change is, detail = that line
+'  outN is 0 for every status but "rewrite" and "unchanged".
+'
+'  "Only whitespace changed" is the staleness stamp's own definition,
+'  reused rather than re-invented: the bytes that are not tab, LF, CR or
+'  space - VLA_Digest.VlaSha256HexSkippingWhitespace's filter - compared
+'  directly. Equal streams give equal digests by construction, and a
+'  direct comparison can also say WHERE they part. This module's header
+'  names the two ways VlaLintFormat is already known to move them: a ";"
+'  comment inside a form is dropped, and a lone backslash in a string is
+'  doubled. Either one now refuses instead of reaching the disk.
+'
+'  Kept exactly as the file had them: a UTF-8 BOM, and LF-only line
+'  breaks (a file with any CRLF, or with no line break at all, gets the
+'  formatter's own CRLF). The formatted text is followed by ONE more
+'  line break - the one Print # always appended - so a file the old
+'  writer produced from ASCII text comes back byte-identical instead of
+'  one blank line shorter.
+' =====================================================================
+Public Function VlaLintFileBytes(ByRef src() As Byte, ByVal n As Long, _
+                                 ByRef outBytes() As Byte, ByRef outN As Long, _
+                                 ByRef at As Long, ByRef detail As String) As String
+    outN = 0
+    at = -1
+    detail = ""
+
+    If VlaLintIsGenerated(src, n) Then
+        VlaLintFileBytes = "generated"
+        Exit Function
+    End If
+
+    Dim bodyStart As Long
+    If n >= 3 Then
+        If src(0) = &HEF And src(1) = &HBB And src(2) = &HBF Then bodyStart = 3
+    End If
+
+    Dim text As String, badAt As Long
+    If Not VLA_Loader.VlaUtf8Decode(src, bodyStart, n, text, badAt) Then
+        at = badAt
+        detail = CStr(LineOfByte(src, badAt))
+        VlaLintFileBytes = "not-utf8"
+        Exit Function
+    End If
+
+    Dim useLf As Boolean
+    useLf = (InStr(1, text, vbCrLf, vbBinaryCompare) = 0) And (InStr(1, text, vbLf, vbBinaryCompare) > 0)
+
+    Dim formatted As String
+    On Error GoTo unparseable
+    formatted = VlaLintFormat(text)
+    On Error GoTo 0
+    formatted = formatted & vbCrLf
+    If useLf Then formatted = Replace(formatted, vbCrLf, vbLf)
+
+    Dim body() As Byte, bodyN As Long
+    bodyN = VLA_Loader.VlaUtf8Encode(formatted, body)
+    outN = bodyStart + bodyN
+    ReDim outBytes(0 To outN - 1)
+    Dim i As Long
+    For i = 0 To bodyStart - 1
+        outBytes(i) = src(i)
+    Next
+    For i = 0 To bodyN - 1
+        outBytes(bodyStart + i) = body(i)
+    Next
+
+    Dim partAt As Long
+    partAt = FirstNonWhitespaceDifference(src, n, outBytes, outN)
+    If partAt >= 0 Then
+        outN = 0
+        at = LineOfByte(src, partAt)
+        detail = LintLineText(text, at)
+        VlaLintFileBytes = "meaning"
+        Exit Function
+    End If
+
+    VlaLintFileBytes = "rewrite"
+    If outN = n Then
+        For i = 0 To n - 1
+            If outBytes(i) <> src(i) Then Exit Function
+        Next
+        VlaLintFileBytes = "unchanged"
+    End If
+    Exit Function
+
+unparseable:
+    detail = Err.Description
+    outN = 0
+    VlaLintFileBytes = "unparseable"
+End Function
+
+' U.20: True when the bytes, after an optional UTF-8 BOM, begin with the
+' "; GENERATED" stamp EnglishExpandedVocabularyText writes as line 1.
+' Public because VLA_IDE also asks it of a Save-As TARGET, before a
+' linted copy could be written over a generated file.
+Public Function VlaLintIsGenerated(ByRef b() As Byte, ByVal n As Long) As Boolean
+    Const STAMP As String = "; GENERATED"
+    Dim p As Long
+    If n >= 3 Then
+        If b(0) = &HEF And b(1) = &HBB And b(2) = &HBF Then p = 3
+    End If
+    If n - p < Len(STAMP) Then Exit Function
+    Dim i As Long
+    For i = 1 To Len(STAMP)
+        If b(p + i - 1) <> Asc(Mid$(STAMP, i, 1)) Then Exit Function
+    Next
+    VlaLintIsGenerated = True
+End Function
+
+' The 0-based index in a() of the first byte - not tab, LF, CR or space -
+' where the non-whitespace streams of a and b part; -1 when they are one
+' stream. When b's stream simply ends first, that is a's next such byte;
+' when a's ends first, it is aN.
+Private Function FirstNonWhitespaceDifference(ByRef a() As Byte, ByVal aN As Long, _
+                                              ByRef b() As Byte, ByVal bN As Long) As Long
+    Dim i As Long, j As Long
+    Do
+        Do While i < aN
+            Select Case a(i)
+                Case 9, 10, 13, 32: i = i + 1
+                Case Else: Exit Do
+            End Select
+        Loop
+        Do While j < bN
+            Select Case b(j)
+                Case 9, 10, 13, 32: j = j + 1
+                Case Else: Exit Do
+            End Select
+        Loop
+        If i >= aN And j >= bN Then
+            FirstNonWhitespaceDifference = -1
+            Exit Function
+        End If
+        If i >= aN Or j >= bN Then
+            FirstNonWhitespaceDifference = i
+            Exit Function
+        End If
+        If a(i) <> b(j) Then
+            FirstNonWhitespaceDifference = i
+            Exit Function
+        End If
+        i = i + 1
+        j = j + 1
+    Loop
+End Function
+
+' 1-based line number of byte idx: one plus the LF bytes before it.
+Private Function LineOfByte(ByRef b() As Byte, ByVal idx As Long) As Long
+    Dim i As Long, lineNo As Long
+    lineNo = 1
+    For i = 0 To idx - 1
+        If b(i) = 10 Then lineNo = lineNo + 1
+    Next
+    LineOfByte = lineNo
+End Function
+
+' Line lineNo (1-based) of text, trimmed and cut to 80 characters, for a
+' refusal that has to show the reader which line it means.
+Private Function LintLineText(ByVal text As String, ByVal lineNo As Long) As String
+    Dim ls() As String
+    ls = Split(text, vbLf)
+    If UBound(ls) < 0 Then Exit Function
+    If lineNo < 1 Then lineNo = 1
+    If lineNo - 1 > UBound(ls) Then lineNo = UBound(ls) + 1
+    Dim s As String
+    s = Trim$(Replace(ls(lineNo - 1), vbCr, ""))
+    If Len(s) > 80 Then s = Left$(s, 77) & "..."
+    LintLineText = s
 End Function

@@ -1,6 +1,14 @@
 Attribute VB_Name = "VLA_IDE"
 Option Explicit
-Public Const VLA_IDE_VERSION As String = "EDITIONMANIFEST.1"
+Public Const VLA_IDE_VERSION As String = "U20.0"
+' U20.0: Lint VLA can no longer break a file it rewrites (U.20). Both
+' flows decide through VLA_Lint.VlaLintFileBytes before anything is
+' written - refusing a generated artifact, invalid UTF-8, and any
+' reformatting that would move a non-whitespace byte, by name - and
+' write only through WriteLintedFile (a verified sibling copy, then a
+' rename). The folder flow shows its whole plan before the first
+' overwrite. WriteTextFileVlaIde is UTF-8 now, which also fixes Export
+' Expanded Phrasebook and Phrasebook Test Coverage for non-ASCII text.
 ' EDITIONMANIFEST.1: IdeVocabPath's four candidate filenames were
 ' hardcoded to "english.vla" for every edition - a real gap this
 ' session's own scoping pass found (a stray external english.vla could
@@ -1721,15 +1729,34 @@ Private Sub LintVlaOneFile()
         , "Lint VLA - choose the file to lint")
     If VarType(f) = vbBoolean Then Exit Sub   ' cancelled
 
+    ' U.20: the whole decision is made BEFORE the Save-As dialog, so a
+    ' file Lint VLA will not rewrite - generated, not UTF-8, not readable
+    ' as VLA, or one whose reformatting would change more than whitespace
+    ' - is refused while nothing has been chosen or touched.
+    Dim src() As Byte, srcN As Long
+    Dim outB() As Byte, outN As Long
+    Dim at As Long, detail As String, status As String
+    srcN = VLA_Loader.VlaReadFileBytes(CStr(f), src)
+    status = VLA_Lint.VlaLintFileBytes(src, srcN, outB, outN, at, detail)
+    If status <> "rewrite" And status <> "unchanged" Then RaiseLintRefusal status, CStr(f), at, detail
+
     Dim outPath As Variant
     outPath = Application.GetSaveAsFilename( _
         InitialFileName:=CStr(f), _
         FileFilter:="VLA files (*.vla),*.vla,All files (*.*),*.*", _
         Title:="Lint VLA - save linted copy as (defaults to overwriting the original)")
     If VarType(outPath) = vbBoolean Then Exit Sub   ' cancelled
+
+    Dim inPlace As Boolean
+    inPlace = (StrComp(CStr(outPath), CStr(f), vbTextCompare) = 0)
+    If inPlace And status = "unchanged" Then
+        VlaShowInfo "Already in house style - nothing to change: " & CStr(f)
+        Exit Sub
+    End If
+    If Not inPlace Then RefuseGeneratedTarget CStr(outPath)
     If Not ConfirmOverwrite(CStr(outPath), "Lint VLA") Then Exit Sub
 
-    LintVlaFileInPlace CStr(f), CStr(outPath)
+    WriteLintedFile CStr(f), src, srcN, CStr(outPath), outB, outN
     VlaShowInfo "Linted: " & CStr(outPath)
 End Sub
 
@@ -1786,32 +1813,197 @@ Private Sub LintVlaFolder()
         Exit Sub
     End If
 
-    Dim linted As Long, skipped As Long, i As Long
+    ' U.20: PLAN every file before writing any - read it, lint it in
+    ' memory, decide - so one dialog says what will be rewritten, what
+    ' was refused and why, what is generated and never linted, and how
+    ' many are already clean, BEFORE the first overwrite. A refusal in
+    ' one file no longer stops the folder part-way, with earlier files
+    ' already rewritten.
+    Dim statuses() As String
+    ReDim statuses(1 To nameCount)
+    Dim plannedSrc As New Collection, plannedSrcN As New Collection
+    Dim plannedOut As New Collection, plannedOutN As New Collection
+    Dim src() As Byte, srcN As Long, outB() As Byte, outN As Long
+    Dim at As Long, detail As String
+    Dim listWrite As String, listRefused As String, listGenerated As String
+    Dim nWrite As Long, nRefused As Long, nGenerated As Long, nClean As Long
+    Dim i As Long, fp As String
     For i = 1 To nameCount
-        Dim fp As String
         fp = folderPath & "\" & names(i)
-        If ConfirmOverwrite(fp, "Lint VLA - " & names(i)) Then
-            LintVlaFileInPlace fp, fp
-            linted = linted + 1
+        srcN = VLA_Loader.VlaReadFileBytes(fp, src)
+        statuses(i) = VLA_Lint.VlaLintFileBytes(src, srcN, outB, outN, at, detail)
+        plannedSrc.Add src
+        plannedSrcN.Add srcN
+        If statuses(i) = "rewrite" Then
+            plannedOut.Add outB
         Else
-            skipped = skipped + 1
+            plannedOut.Add Empty
+        End If
+        plannedOutN.Add outN
+        Select Case statuses(i)
+            Case "rewrite"
+                nWrite = nWrite + 1
+                listWrite = listWrite & "  " & names(i) & vbCrLf
+            Case "unchanged"
+                nClean = nClean + 1
+            Case "generated"
+                nGenerated = nGenerated + 1
+                listGenerated = listGenerated & "  " & names(i) & vbCrLf
+            Case Else
+                nRefused = nRefused + 1
+                ' The bare name, not fp: the plan already names the folder,
+                ' and two full paths could push the plan past MsgBox's limit.
+                listRefused = listRefused & "  " & LintRefusalText(statuses(i), names(i), at, detail) & vbCrLf
+        End Select
+    Next
+
+    Dim plan As String
+    plan = "Nothing has been changed yet. In " & folderPath & ":" & vbCrLf & vbCrLf
+    If nWrite > 0 Then plan = plan & "To rewrite (" & nWrite & "):" & vbCrLf & listWrite & vbCrLf
+    If nRefused > 0 Then plan = plan & "Refused, left alone (" & nRefused & "):" & vbCrLf & listRefused & vbCrLf
+    If nGenerated > 0 Then plan = plan & "Generated, so never linted (" & nGenerated & "):" & vbCrLf & listGenerated & vbCrLf
+    If nClean > 0 Then plan = plan & "Already in house style, left alone: " & nClean & vbCrLf
+    plan = ClipForDialog(plan)
+
+    If nWrite = 0 Then
+        VlaShowInfo plan & vbCrLf & "Nothing to rewrite.", "Lint VLA"
+        Exit Sub
+    End If
+    If MsgBox(plan & vbCrLf & "Rewrite the " & nWrite & " file(s) under ""To rewrite""?", _
+              vbYesNo Or vbQuestion, "Lint VLA") <> vbYes Then Exit Sub
+
+    ' The per-file overwrite prompt stays - the owner's call, recorded in
+    ' this Sub's header - now only for files the plan says will change.
+    Dim linted As Long, skipped As Long, nFailed As Long, listFailed As String
+    Dim tb() As Byte, tbN As Long, ob() As Byte, obN As Long
+    Dim errNum As Long, errText As String
+    For i = 1 To nameCount
+        If statuses(i) = "rewrite" Then
+            fp = folderPath & "\" & names(i)
+            If ConfirmOverwrite(fp, "Lint VLA - " & names(i)) Then
+                tb = plannedSrc(i)
+                tbN = plannedSrcN(i)
+                ob = plannedOut(i)
+                obN = plannedOutN(i)
+                On Error Resume Next
+                WriteLintedFile fp, tb, tbN, fp, ob, obN
+                errNum = Err.Number
+                errText = Err.Description
+                On Error GoTo 0
+                If errNum = 0 Then
+                    linted = linted + 1
+                Else
+                    nFailed = nFailed + 1
+                    listFailed = listFailed & "  " & errText & vbCrLf
+                End If
+            Else
+                skipped = skipped + 1
+            End If
         End If
     Next
 
-    VlaShowInfo "Linted " & linted & " of " & nameCount & " file(s) in " & folderPath & _
-                IIf(skipped > 0, " (" & skipped & " skipped)", "")
+    Dim summary As String
+    summary = "Linted " & linted & " of the " & nWrite & " file(s) that needed it in " & folderPath & _
+              IIf(skipped > 0, " (" & skipped & " skipped)", "")
+    If nFailed > 0 Then summary = summary & vbCrLf & vbCrLf & "Not rewritten (" & nFailed & "):" & vbCrLf & listFailed
+    VlaShowInfo ClipForDialog(summary)
 End Sub
 
-' Shared by both flows above - read, lint, write. srcPath and outPath
-' are the same path in every caller today (in-place relint); kept as
-' two parameters, not one, because LintVlaOneFile's own Save-As can
-' still send them to different paths (typing a new name keeps the
-' original untouched).
-Private Sub LintVlaFileInPlace(ByVal srcPath As String, ByVal outPath As String)
-    Dim linted As String
-    linted = VLA_Lint.VlaLintFormat(VLA_Loader.VlaReadFile(srcPath))
-    WriteTextFileVlaIde outPath, linted
+' U.20: the refusal, in words (SD-2), for each status
+' VLA_Lint.VlaLintFileBytes returns other than "rewrite"/"unchanged".
+Private Sub RaiseLintRefusal(ByVal status As String, ByVal path As String, ByVal at As Long, ByVal detail As String)
+    Select Case status
+        Case "generated"
+            VLA_Messages.RaiseMsg "ide-lint-generated-file", "path", path
+        Case "not-utf8"
+            VLA_Messages.RaiseMsg "ide-lint-not-utf8", "path", path, "offset", CStr(at + 1), "line", detail
+        Case "unparseable"
+            VLA_Messages.RaiseMsg "ide-lint-unreadable-vla", "path", path, "reason", detail
+        Case "meaning"
+            VLA_Messages.RaiseMsg "ide-lint-would-change-text", "path", path, "line", CStr(at), "text", detail
+    End Select
 End Sub
+
+' The same refusal's text without raising it, for the folder plan's list.
+Private Function LintRefusalText(ByVal status As String, ByVal path As String, ByVal at As Long, ByVal detail As String) As String
+    On Error Resume Next
+    RaiseLintRefusal status, path, at, detail
+    LintRefusalText = Err.Description
+    Err.Clear
+End Function
+
+' U.20: Save-As can aim a linted copy at a DIFFERENT, existing file;
+' when that file is a generated artifact it is refused exactly as
+' linting one would be.
+Private Sub RefuseGeneratedTarget(ByVal outPath As String)
+    If Len(Dir$(outPath)) = 0 Then Exit Sub
+    Dim b() As Byte, n As Long
+    n = VLA_Loader.VlaReadFileBytes(outPath, b)
+    If VLA_Lint.VlaLintIsGenerated(b, n) Then
+        VLA_Messages.RaiseMsg "ide-lint-generated-file", "path", outPath
+    End If
+End Sub
+
+' U.20: the only place Lint VLA writes a file, and why it cannot leave
+' one broken. (1) If the source no longer holds the bytes that were
+' planned - another program, or another session in the same folder,
+' saved it in between - nothing is written. (2) The new bytes go to a
+' sibling "<name>.lint-tmp" first and are read back; unless they match
+' byte for byte, that copy is deleted and the target was never touched.
+' (3) Only then is the target replaced, by a delete and a rename, so the
+' worst interruption leaves the finished text in the .lint-tmp file,
+' never a half-written phrasebook. (".lint-tmp" never matches the folder
+' flow's "*.vla", not even through an 8.3 short name.)
+Private Sub WriteLintedFile(ByVal srcPath As String, ByRef planned() As Byte, ByVal plannedN As Long, _
+                            ByVal outPath As String, ByRef outB() As Byte, ByVal outN As Long)
+    Dim cur() As Byte, curN As Long
+    curN = VLA_Loader.VlaReadFileBytes(srcPath, cur)
+    If Not BytesEqual(cur, curN, planned, plannedN) Then
+        VLA_Messages.RaiseMsg "ide-lint-file-changed", "path", srcPath
+    End If
+
+    Dim tmpPath As String
+    tmpPath = outPath & ".lint-tmp"
+    VLA_Loader.VlaWriteFileBytes tmpPath, outB, outN
+    Dim back() As Byte, backN As Long
+    backN = VLA_Loader.VlaReadFileBytes(tmpPath, back)
+    If Not BytesEqual(back, backN, outB, outN) Then
+        Kill tmpPath
+        VLA_Messages.RaiseMsg "ide-lint-write-not-verified", "path", outPath
+    End If
+
+    Dim killErr As Long
+    On Error Resume Next
+    Kill outPath                             ' error 53, no such file, is fine: a new Save-As name
+    killErr = Err.Number
+    On Error GoTo 0
+    If killErr <> 0 And killErr <> 53 Then
+        Kill tmpPath
+        VLA_Messages.RaiseMsg "ide-lint-cannot-replace", "path", outPath
+    End If
+    Name tmpPath As outPath
+End Sub
+
+Private Function BytesEqual(ByRef a() As Byte, ByVal aN As Long, ByRef b() As Byte, ByVal bN As Long) As Boolean
+    If aN <> bN Then Exit Function
+    Dim i As Long
+    For i = 0 To aN - 1
+        If a(i) <> b(i) Then Exit Function
+    Next
+    BytesEqual = True
+End Function
+
+' MsgBox shows roughly 1,024 characters; a long plan is cut with a note
+' saying so, rather than silently by Windows. 900 leaves room for the
+' note and the folder flow's closing question inside that limit.
+Private Function ClipForDialog(ByVal s As String) As String
+    Const LIMIT As Long = 900
+    If Len(s) <= LIMIT Then
+        ClipForDialog = s
+    Else
+        ClipForDialog = Left$(s, LIMIT) & vbCrLf & "... (the rest is not shown)"
+    End If
+End Function
 
 ' Export Expanded Vocabulary (GEXPANDER.1): a Save-As dialog on EVERY
 ' click, by design - this is a deliberate, occasional, human-triggered
@@ -1896,17 +2088,21 @@ Private Function ConfirmOverwrite(ByVal path As String, ByVal title As String) A
                                 vbYesNo Or vbExclamation, title) = vbYes)
 End Function
 
-' Rule-12 duplicate of the Open.../Print#/Close writer (VLA_English.bas's
-' own WriteTextFileVla is Private to that module) - named with an "Ide"
-' suffix only to avoid shadowing confusion with that identically-shaped
-' sibling when both modules are open side by side.
+' Export Expanded Phrasebook's and Phrasebook Test Coverage's writer -
+' named with an "Ide" suffix only to avoid confusion with
+' VLA_SentenceEngine.bas's identically-named-in-spirit WriteTextFileVla.
+' U.20: this was Open ... For Output + Print #, VBA's ANSI write, which
+' sent a pound sign back to disk as the lone byte A3 (invalid UTF-8) and
+' would send anything outside the system code page as "?". Now UTF-8
+' with no BOM (no file this project ships carries one, and every reader
+' here takes either), still ending with the one line break Print #
+' appended, so an ASCII export is byte-identical to the old writer's.
+' Not yet converted, and outside U.20's Lint VLA scope: WriteTextFileVla
+' (Translate to VLA/VBA) and VLA_Build.bas's WriteTextFile.
 Private Sub WriteTextFileVlaIde(ByVal filePath As String, ByVal content As String)
-    If Len(Dir$(filePath)) > 0 Then Kill filePath
-    Dim f As Integer
-    f = FreeFile
-    Open filePath For Output As #f
-    Print #f, content
-    Close #f
+    Dim b() As Byte, n As Long
+    n = VLA_Loader.VlaUtf8Encode(content & vbCrLf, b)
+    VLA_Loader.VlaWriteFileBytes filePath, b, n
 End Sub
 
 ' Owner request: gridlines off, so the generated code reads like code

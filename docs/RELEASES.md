@@ -221,6 +221,18 @@
   one bike") and putting things in order ("which course to take first")
   cannot be said yet.
 
+- **Lint VLA can no longer break a file it rewrites.** It used to save
+  through the system's legacy code page, so a `£` in a comment came back as
+  a byte that is not valid UTF-8. It now saves UTF-8, keeps a file's own
+  byte-order mark and line breaks, and relinting a clean file changes
+  nothing. It will not touch a generated file like `english_expanded.vla`,
+  a file that is not UTF-8, or one whose reformatting would change more
+  than spaces and line breaks (a `;` comment inside a form, which it would
+  drop) — each is refused by name, with the line. Linting a folder shows
+  what it will rewrite, and what it refused and why, before it changes
+  anything. Export Expanded Phrasebook and Phrasebook Test Coverage save
+  UTF-8 too.
+
 ### Known open security items
 
 **Closed this release:** none — 0.6.0 is a feature release. Four changes
