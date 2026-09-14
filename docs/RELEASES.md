@@ -233,6 +233,17 @@
   anything. Export Expanded Phrasebook and Phrasebook Test Coverage save
   UTF-8 too.
 
+- **Check Instructions clears every old mark.** If you deleted the text of
+  a program's last sentence, or the whole program, its old OK or error mark
+  stayed beside the empty row after the next Check. Now every mark from the
+  previous Check is cleared first. And a program you have emptied gets the
+  "Nothing to check" message instead of a "Subscript out of range" error in
+  C1; Run, Interpret, Export and Show VBA each say there is nothing to do,
+  too.
+
+- **A new program tab starts in B1**, the first sentence cell, ready to type
+  into, instead of in the hidden column A.
+
 ### Known open security items
 
 **Closed this release:** none — 0.6.0 is a feature release. Four changes

@@ -1,6 +1,13 @@
 Attribute VB_Name = "VLA_IDE"
 Option Explicit
-Public Const VLA_IDE_VERSION As String = "U20.0"
+Public Const VLA_IDE_VERSION As String = "TER2.0"
+' TER2.0: ClearMarks clears column C down to its own last mark as well as
+' the program's last row, so a mark on a sentence whose text was deleted
+' - the last one, or the whole program - no longer survives the next
+' Check (TER-2). Found on TER-2's live pass: the empty-program guard on
+' Check, Compile, Interpret, Export and Show VBA could never fire; they
+' use ProgramIsBlank now. And, owner request: a newly created workspace
+' tab opens with B1 active (SelectFirstSentenceCell).
 ' U20.0: Lint VLA can no longer break a file it rewrites (U.20). Both
 ' flows decide through VLA_Lint.VlaLintFileBytes before anything is
 ' written - refusing a generated artifact, invalid UTF-8, and any
@@ -844,10 +851,13 @@ Public Sub VlaIdeSetup()
     On Error GoTo failed
     CaptureHost
     MigrateLegacySheet
+    Dim isNew As Boolean
+    isNew = Not SheetExists(HostBook(), IDE_SHEET)
     Dim ws As Worksheet
     Set ws = GetOrCreateSheet(IDE_SHEET)
     BuildWorkspace ws
     ws.Activate
+    If isNew Then SelectFirstSentenceCell ws
     Exit Sub
 failed:
     VlaShowError Err.Description
@@ -888,10 +898,13 @@ Public Sub EnglishIdeAddProgram()
             End If
         End If
     Next
+    Dim isNew As Boolean
+    isNew = Not SheetExists(hb, full)
     Dim ws As Worksheet
     Set ws = GetOrCreateSheet(full)
     BuildWorkspace ws
     ws.Activate
+    If isNew Then SelectFirstSentenceCell ws
     Exit Sub
 failed:
     VlaShowError Err.Description
@@ -958,6 +971,16 @@ Private Sub BuildWorkspace(ws As Worksheet)
     ws.Columns(1).Hidden = True   ' a lone single-column hide - the only kind that has ever actually worked here
     ws.Activate
     ActiveWindow.DisplayGridlines = False   ' see RenderVbaSource's own note on this being per-sheet, not per-workbook
+End Sub
+
+' Owner request, with TER-2's live pass: a NEW workspace tab, named or
+' not, opens with B1 - the first sentence cell - active. Excel starts a
+' new sheet on A1, and BuildWorkspace hides column A, so the cursor sat
+' in a hidden cell and had to be moved one right before typing. Only on
+' creation: re-running Setup on an existing tab leaves its selection
+' alone. Both callers activate the sheet first, which Select requires.
+Private Sub SelectFirstSentenceCell(ws As Worksheet)
+    ws.Cells(FIRST_ROW, 2).Select
 End Sub
 
 Public Sub EnglishIdeCheck()
@@ -1032,7 +1055,7 @@ Private Sub RunProgram(ByVal wantTrace As Boolean)
     ' S5.3 (owner catch): an empty program from the Run button used to
     ' borrow Check's "Nothing to check" wording (wrong verb) or worse.
     ' Say the true thing, in Run's voice, and touch nothing.
-    If Len(Trim$(ProgramText(ws, FIRST_ROW, IdeLastRow(ws)))) = 0 Then
+    If ProgramIsBlank(ProgramText(ws, FIRST_ROW, IdeLastRow(ws))) Then
         VlaShowInfo "No instructions to compile - write a program in column B of the '" & ws.Name & "' sheet first."
         Exit Sub
     End If
@@ -1206,7 +1229,7 @@ Private Sub InterpretProgram(ByVal wantTrace As Boolean)
     CaptureHost
     Set hb = HostBook()
     Set ws = IdeSheet()
-    If Len(Trim$(ProgramText(ws, FIRST_ROW, IdeLastRow(ws)))) = 0 Then
+    If ProgramIsBlank(ProgramText(ws, FIRST_ROW, IdeLastRow(ws))) Then
         VlaShowInfo "No instructions to interpret - write a program in column B of the '" & ws.Name & "' sheet first."
         Exit Sub
     End If
@@ -1448,7 +1471,7 @@ Public Sub EnglishIdeExportSkeleton()
     Dim ws As Worksheet
     Set hb = HostBook()
     Set ws = IdeSheet()
-    If Len(Trim$(ProgramText(ws, FIRST_ROW, IdeLastRow(ws)))) = 0 Then
+    If ProgramIsBlank(ProgramText(ws, FIRST_ROW, IdeLastRow(ws))) Then
         VlaShowInfo "No instructions to export - write a program in column B of the '" & ws.Name & "' sheet first."
         Exit Sub
     End If
@@ -1584,7 +1607,7 @@ Public Sub EnglishIdeShowVba()
     CaptureHost
     Dim ws As Worksheet
     Set ws = IdeSheet()
-    If Len(Trim$(ProgramText(ws, FIRST_ROW, IdeLastRow(ws)))) = 0 Then
+    If ProgramIsBlank(ProgramText(ws, FIRST_ROW, IdeLastRow(ws))) Then
         VlaShowInfo "No instructions to show VBA for - write a program in column B of the '" & ws.Name & "' sheet first."
         Exit Sub
     End If
@@ -2257,7 +2280,7 @@ Private Function DoCheck(ws As Worksheet, Optional ByRef vlaOut As String) As Bo
 
     Dim full As String
     full = ProgramText(ws, FIRST_ROW, lastRow)
-    If Len(Trim$(full)) = 0 Then
+    If ProgramIsBlank(full) Then
         VlaShowInfo "Nothing to check - write the program in column B of the '" & ws.Name & "' sheet."
         Exit Function
     End If
@@ -2705,7 +2728,30 @@ Private Function ProgramText(ws As Worksheet, ByVal fromRow As Long, ByVal toRow
     ProgramText = s
 End Function
 
+' TER-2's live pass: True when a program's text is nothing but spaces,
+' tabs and line breaks. ProgramText ends EVERY row with a line break, an
+' empty row included, and Trim$ strips only spaces - so the guard that
+' used to read Len(Trim$(text)) = 0 could never be true. Clearing a whole
+' program and clicking Check sent a bare line break to the translator,
+' which came back as "Subscript out of range" marked on row 1; Compile,
+' Interpret, Export and Show VBA carried the same dead guard.
+Private Function ProgramIsBlank(ByVal text As String) As Boolean
+    text = Replace(Replace(Replace(text, vbCr, ""), vbLf, ""), vbTab, "")
+    ProgramIsBlank = (Len(Trim$(text)) = 0)
+End Function
+
+' TER-2: clear down to whichever is further, the program (lastRow, read
+' from column B) or the marks themselves (column C). Callers compute
+' lastRow AFTER the user's edit, so when the last sentence's text was
+' deleted - or the whole program - its old mark sat below lastRow and
+' survived the Check. Column C holds nothing but these marks
+' (BuildWorkspace formats the whole column for them), so clearing to its
+' own last value is safe. PourProgram used to work this out inline for
+' itself; every caller gets it here now.
 Private Sub ClearMarks(ws As Worksheet, ByVal lastRow As Long)
+    Dim lastMark As Long
+    lastMark = ws.Cells(ws.Rows.Count, 3).End(xlUp).Row
+    If lastMark > lastRow Then lastRow = lastMark
     If lastRow < FIRST_ROW Then Exit Sub
     With ws.Range(ws.Cells(FIRST_ROW, 3), ws.Cells(lastRow, 3))
         .ClearContents

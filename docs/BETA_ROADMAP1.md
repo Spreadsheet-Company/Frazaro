@@ -3485,7 +3485,20 @@ specimens: 3 (three blind-fix incidents, one first-user Undo report).*
   not expand it. Needs its own scoping pass before anyone builds it.
   `~weeks`
 
-- ⬜ **F.15 — the two hardcoded module manifests, cross-checked.**
+- ✅ **F.15 — the two hardcoded module manifests, cross-checked.**
+  **CLOSED 2026-09-14, on paper: built as
+  `tools/check_devrig_mods_parity.ps1`, committed with SEC.8 (`1291480`,
+  2026-09-08), and never marked here.** Checked against the script before
+  closing, not assumed: it fails a shipped module missing from the dev-rig
+  list, a dev-rig module missing from the build list (unless it is in the
+  script's reasoned `$devOnly` set), and a listed name with no source file,
+  and it reports source files in neither list. Mutation-tested at closing on
+  a scratch copy of `src/`: the unmodified control exits 0; removing
+  `VLA_Messages` from `VLA_DevRig.bas` (this item's own incident), removing
+  `VLA_Provenance` from `VLA_Build.bas` (SEC.8's), naming a module with no
+  file, and adding an unlisted dev-rig module each exit 1, naming that
+  module. Not wired into `VlaSelfTest`, like the other `tools/check_*.ps1`
+  scans. *As filed:*
   `VLA_Build.bas`'s `mods` array and `VLA_DevRig.bas`'s reload list must
   agree and are not checked against each other — `REBUILD.md`'s own R3
   names this, and `LX.2`'s own session was bitten by it live the same day
@@ -18619,8 +18632,33 @@ anything above it.*
   from the Compile/Trace run into `DoCheck`'s own transpile probe - the
   same class of leftover-armed-state fragility the S5.3/S5.5/S5.6 history
   already documents once, for a different pair of callers.
-- ⬜ **TER-2 — stale row-error marks survive a Check after the row's
-  content is deleted.** Owner-found live, 2026-08-27, during L0.2's
+- ✅ **TER-2 — stale row-error marks survive a Check after the row's
+  content is deleted.** **BUILT, OWNER-VERIFIED LIVE AND COMMITTED
+  2026-09-14** - compile and `VlaSelfTest` clean; the second live pass
+  ran all five tests (an emptied program on Check and on Interpret, B1
+  active on a new named and a new unnamed tab, and a re-run Setup
+  keeping its selection), and all five passed. One correction to this entry, from the code: the marks live
+  in column C (`MarkOK`/`MarkErr`), not B - `ClearMarks` cleared
+  `C<FIRST_ROW>:C<lastRow>` with `lastRow` read from column B, which is
+  the bug exactly as described one column over. *Fix:* `ClearMarks` now
+  clears down to whichever is further, `lastRow` or column C's own last
+  value. That is safe because nothing but marks is ever written to column
+  C, and it lives in `ClearMarks` so both callers get it - `DoCheck`, and
+  `PourProgram`, which had already worked the same thing out inline. It
+  also covers deleting the WHOLE program, where `IdeLastRow` returns 1 and
+  only C1 used to be cleared. **Live pass, same day:** test 1 passed; test
+  2 (clear the whole program, then Check) left "Subscript out of range" in
+  C1. Not this fix, and older than it: the empty-program guard,
+  `Len(Trim$(ProgramText(...))) = 0`, could never be true, because
+  `ProgramText` ends every row with a line break and `Trim$` strips only
+  spaces, so an emptied program reached the translator as a bare line
+  break and failed there, marked on row 1 (the stale C3 mark used to hide
+  it). The same dead guard sat on Compile, Interpret, Export and Show VBA;
+  all five now use `ProgramIsBlank`. The translator's own failure on an
+  all-whitespace text is left as found. *Rode along, owner request:* a
+  newly created workspace tab, named or not, opens with B1 active instead
+  of the hidden A1; re-running Setup on an existing tab leaves its
+  selection alone. *As filed:* Owner-found live, 2026-08-27, during L0.2's
   regression, root cause checked against the code, not just observed:
   `ClearMarks` (`VLA_IDE.bas`) only clears `B1:B<lastRow>`, and `lastRow`
   is `IdeLastRow(ws)` recomputed fresh on every call - if the row carrying
