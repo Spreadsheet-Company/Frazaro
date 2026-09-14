@@ -120,6 +120,21 @@
   rules name, or keep rules that read different Tables in different ranges.
   A Table with no rows is fine: it is still a Table you passed.
 
+- **`=DATALOG(...)` answers a yes-or-no question with TRUE or FALSE.** Write
+  the fact you are asking about as the query, every value filled in:
+  `=DATALOG("(rule (route X Y) (links X Y)) (rule (route X Y) (links X Z)
+  (route Z Y)) (query (route ""A"" ""D""))", Links)` shows TRUE if A can
+  reach D and FALSE if it cannot. It is a real TRUE or FALSE, so `=IF(...)`
+  and conditional formatting read it. It finishes even when the data loops
+  back on itself — A to B to C and back to A — where `=PROLOG(...)` stops
+  with a refusal. The fact is checked exactly the way a rule checks it, so a
+  number is written bare (`3`) and text must match the Table's capitals. To
+  list answers instead, query a relation by name, as before. Three shapes
+  are refused, each with a note on what to write instead: a query with a
+  blank still to fill in, like `(query (route "A" Where))`; one that names
+  Table columns, like `(query (links (from "A") (to "D")))`; and
+  `(headless)` beside a TRUE-or-FALSE question.
+
 - **Known limits, said plainly.** A relation's name is one word, so it is
   `can-cover`, with the hyphen, not `can cover`. Relations you declare in
   words, like `is submitted by`, are planned rather than guessed at, since a

@@ -7560,7 +7560,7 @@ G-TAIL always said this about itself; it is true of the whole tranche.
     cells, and questions that read them.** **Scoped 2026-09-10/11**, seven
     forks decided by the owner; **slice 1 BUILT 2026-09-12, OWNER-VERIFIED
     LIVE 2026-09-13 in two rounds, and committed; slice 2 BUILT,
-    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14; slice 3 SCOPED 2026-09-14 and waiting on `DATALOG.9`** (see the slice list below for what each ships and
+    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14; slice 3 SCOPED 2026-09-14, its precursor `DATALOG.9` built, owner-verified live and committed the same day** (see the slice list below for what each ships and
     what it proved). *The previous text of this
     entry said its dependency, `PROLOG.1`–`.6`, was unbuilt. It was stale:
     `PROLOG.1`–`.24` have shipped.* This is the project's reason for being,
@@ -8131,8 +8131,8 @@ G-TAIL always said this about itself; it is true of the whole tranche.
       3. ⬜ **recursion and closure** — a rule that names itself, "directly
          or not", `DATALOG`-routed so that a cycle terminates. §2, §5, §6,
          §11, §12.
-         **SCOPED 2026-09-14; NOT BUILT — it waits on `DATALOG.9`, the
-         owner's call.** Six forks went to the owner with their
+         **SCOPED 2026-09-14; NOT BUILT. Its precursor `DATALOG.9`, the
+         owner's call, shipped the same day, owner-verified live.** Six forks went to the owner with their
          measurements, and all six took the recommended option.
          **MEASURED FIRST, on shipped code** (transliterations; no VBA ran).
          Slice 2's controls were re-run on HEAD before any verdict:
@@ -8215,7 +8215,7 @@ G-TAIL always said this about itself; it is true of the whole tranche.
            6. **`bom-qty` and `pre-order` are recorded, with no refusal**
               (recommended): no sentence in this slice can ask either, and a
               refusal row for a phrasing nobody has needed would break SD-7.
-         **TO BUILD, after `DATALOG.9`:** the phrase in `ParseConditions`
+         **TO BUILD, now that `DATALOG.9` has shipped:** the phrase in `ParseConditions`
          and `ParseQuestion`; the left-recursion check in `ParseClause`;
          Table names recorded beside the lint's relation names; a closure
          question's tail carrying its own two rules; WHETHER's engine
@@ -17279,7 +17279,7 @@ now carries one summary paragraph per engine and points here.*
     green. `RELEASES.md` 0.6.0 closes the who/what known limit. Live steps:
     six in-cell programs after the suites, including slice 1's Test 11
     re-run.
-  - ⬜ **DATALOG.9 — answer a ground question TRUE or FALSE: `(query (route
+  - ✅ **DATALOG.9 — answer a ground question TRUE or FALSE: `(query (route
     "A" "D"))`.** Minted 2026-09-14 by `G-PROLOG` slice 3's scoping, the
     owner's call, to be built in its own session before that slice. **Why:**
     a question with no unknown goes to `PROLOG` (`G-PROLOG` decision 5)
@@ -17306,6 +17306,62 @@ now carries one summary paragraph per engine and points here.*
     not pass would refuse where it answered. Exposure first: every pin of
     `datalog-query-not-a-symbol`, and every `=PROLOG(` WHETHER formula in the
     vocabularies and goldens. *Pays into:* `G-PROLOG` slices 3–5. `~days`
+
+    **BUILT, OWNER-VERIFIED LIVE and COMMITTED 2026-09-14:** pure
+    **1109/1109**, host **152/152**, `TestDSLs` **1215**/0 (the predicted
+    count exactly), `VerifyReports` **242/242 on both backends**, and all
+    nine in-cell steps answering as handed off.
+    Four forks went to the owner, and each took the recommended option:
+    **one ground atom only** (a variable and a conjunction refused by name);
+    **an Excel Boolean**, as `PROLOG()` returns; **a keyed query atom
+    refused** for now, keyed atoms staying a rule-body position; and
+    **`(headless)` beside it refused**. Stated defaults, not forks: arity is
+    held by `datalog-arity-mismatch`, a queried name nothing defines keeps
+    `datalog-query-unknown-predicate`, and `datalog-query-not-a-symbol` is
+    retired.
+    **MEASURED FIRST**, through `DATALOG.8`'s transliteration. Shipped
+    `DATALOG` refused every list-shaped query — ground, bare, with a
+    variable, under `not`, with no arguments, keyed — as not a plain name,
+    and a conjunction as bad shape. It matches a body constant against a
+    cell by `CStr`, binary, so a ground check through the same
+    `FilterAtomRelation` agrees with every rule by construction: a number
+    cell holding 3 matches `3`, and `"3"` too, the quote marker stripped as
+    everywhere in this engine. Measured for slice 3, the one behaviour a
+    change of engine moves: a rules range holding a rule the question never
+    reaches, over an undefined relation or a Table not passed, answers TRUE
+    in `PROLOG` (`PROLOG.22` walks from the query) and refuses in `DATALOG`
+    (`DATALOG.8` checks the whole program).
+    **BUILT.** `VLA_Datalog.bas`: `ParseProgram` reads a list-shaped query
+    through the new `ParseGroundQueryAtom` — the keyed shape refused first,
+    since its pairs would otherwise read as nesting; the wrapper words `not`,
+    `count`, `sum` and `let` never read as a keyed Table; then `ParseAtom`;
+    then every argument a constant — and refuses `(headless)` beside it once
+    every form is read. `DatalogRun` holds the atom to the one-arity rule and
+    returns a fifth item: Empty for a query by name, or whether the queried
+    relation holds the atom after the whole fixpoint. `DATALOG()` returns
+    that Boolean in place of a spill. `VLA_DATALOG_VERSION` → `DATALOG.9`.
+    `VLA_Messages.bas`: 462 → 464 ids (three new, one retired), and the two
+    query texts that remain name both shapes.
+    **PROVEN, before import**, through the transliteration ported behind a
+    switch. **CONTROL:** HEAD's sources and tests with the arm off, **97/97**.
+    The new arm over the new test file, **118/118** — the 97 unmoved, so
+    exposure is zero, and every `=DATALOG(` template in the vocabularies and
+    goldens queries by name. The shipped arms over the new Sub fail **19 of
+    its 21 pins**; the two that pass are the unchanged query by name and one
+    named harness gap (the model's Collection answers Empty past its last
+    item, where VBA raises). **Six mutants, each red on its own pins:** no
+    variable check, no keyed check, no wrapper skip, no headless check, no
+    arity record, and an answer that is always TRUE (4). Structure and
+    duplicate-`Dim` scan clean against HEAD, shown to bite on a deleted
+    `End If`; CRLF and no BOM kept; all 20 `tools/check_*.ps1` green.
+    **TESTS.** New `TestDatalogGroundQuery`, 21 pins under `TestDSLs`:
+    **predicted `TestDSLs` 1194 → 1215**, counted as `Report` call sites (+21,
+    none in a loop); pure 1109, host 152 and `VerifyReports` 242/242 on both
+    backends unmoved, since no pure or host test, phrasebook row or golden
+    changed. Live steps: nine in-cell programs after the suites, generated.
+    The harness — `port9`, `dl9_run`, `dl9_case_run`, `d9_live`, `m9_probe`,
+    `m9_move`, `count_reports`, `d9_scan` — is in session `1579476d`'s
+    scratchpad.
   - ⬜ **Avoiding a full re-parse/re-fixpoint on every recalc — profiled first,
     not yet built.** `DATALOG()` re-parses `rulesText` and reruns
     `RunStratifiedFixpoint` from scratch every time Excel calls it. Worth

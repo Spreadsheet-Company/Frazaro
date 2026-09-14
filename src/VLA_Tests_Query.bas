@@ -347,6 +347,7 @@ Public Function TestDSLs() As Boolean
     TestDatalogBuiltins
     TestDatalogKeyedAtoms
     TestDatalogUnknownPredicate
+    TestDatalogGroundQuery
     TestDatalogHostTable
     TestUnify
     TestGRenderUnify
@@ -1307,6 +1308,180 @@ Private Sub TestDatalogUnknownPredicate()
     Report "datalog.8: ...and spelled right, the same question answers Bob alone", _
            Len(d) = 0 And VLA_Relation.RelCount(rel) = 1 And VLA_Relation.RelContainsTuple(rel, probeBob), _
            "got: '" & d & "', " & VLA_Relation.RelCount(rel) & " row(s)"
+End Sub
+
+' DATALOG.9: A QUERY WRITTEN AS ONE FACT ANSWERS TRUE OR FALSE. Pure.
+'
+' The shape G-PROLOG's whether questions write, (query (can-cover "Bob"
+' "Night")), used to be refused here as not a plain name, so a question with
+' no unknown went to PROLOG - which, over a closure whose data loops, never
+' finishes. These pins hold the answer (a real Boolean, decided by the same
+' match a rule body makes), the reason (a cycle answers both ways and
+' stops), a query by name unchanged, and each shape still refused, by name,
+' pointing at the spelling that works. Every combined check reads a value
+' that exists even when the call refused (ResultBoolIs over Empty is False).
+Private Sub TestDatalogGroundQuery()
+    Dim result As Variant
+    Dim r As String
+    Dim d As String
+    Dim ans As Variant
+    Dim res As Collection
+    Dim loopy As String
+    loopy = "(fact (link ""A"" ""B"")) (fact (link ""B"" ""C"")) (fact (link ""C"" ""A"")) (fact (link ""C"" ""D"")) (rule (route X Y) (link X Y)) (rule (route X Y) (link X Z) (route Z Y))"
+
+    ' ---- THE ANSWER, both ways, as a Boolean cell rather than text.
+    result = VLA_Datalog.DATALOG("(fact (link ""A"" ""B"")) (query (link ""A"" ""B""))")
+    Report "datalog.9: a query written as one fact answers TRUE when the fact holds - a Boolean, not text", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG("(fact (link ""A"" ""B"")) (query (link ""B"" ""A""))")
+    Report "datalog.9: ...and FALSE when it does not, where it used to be refused as not a plain name", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    ' ---- THE REASON. Closure over data with a cycle: PROLOG collects every
+    ' proof first, so it never finished either question.
+    result = VLA_Datalog.DATALOG(loopy & " (query (route ""A"" ""D""))")
+    Report "datalog.9: a closure over a cycle answers TRUE and stops - A reaches D", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG(loopy & " (query (route ""A"" ""E""))")
+    Report "datalog.9: ...and FALSE and stops when nothing reaches, from inside the cycle", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    ' ---- THE SAME MATCH A RULE BODY MAKES: bare constants, and text
+    ' compared case-sensitively.
+    result = VLA_Datalog.DATALOG("(fact (parent tom bob)) (query (parent tom bob))")
+    Report "datalog.9: bare constants are constants - (query (parent tom bob)) is TRUE", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG("(fact (person ""Bob"")) (query (person ""bob""))")
+    Report "datalog.9: text matches case-sensitively, as in a rule body - ""bob"" is not ""Bob""", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+
+    ' ---- A NUMBER CELL, through a rule over a keyed Table: DatalogRun's
+    ' fifth item carries the answer.
+    Dim staff(1 To 3, 1 To 2) As Variant
+    staff(1, 1) = "Name": staff(1, 2) = "Level"
+    staff(2, 1) = "Ann": staff(2, 2) = 3
+    staff(3, 1) = "Bob": staff(3, 2) = 1
+    Dim staffCols As New Collection
+    staffCols.Add SqlColPair("name", "Name")
+    staffCols.Add SqlColPair("level", "Level")
+    Dim headerMapStaff As Object
+    Set headerMapStaff = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet headerMapStaff, "staff", staffCols
+    Dim basesAnn As Object
+    Set basesAnn = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet basesAnn, "staff", VLA_Relation.RelFromRange(staff, True)
+    d = ""
+    ans = Empty
+    On Error Resume Next
+    Err.Clear
+    Set res = VLA_Datalog.DatalogRun("(rule (has-level P L) (staff (name P) (level L))) (query (has-level ""Ann"" 3))", basesAnn, headerMapStaff)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) = 0 Then ans = res.Item(5)
+    Report "datalog.9: a bare 3 matches a number cell through a rule over a keyed Table - Ann is at level 3", _
+           ResultBoolIs(ans, True), "got: '" & d & "', " & ResultDescribe(ans)
+    Dim basesBob As Object
+    Set basesBob = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet basesBob, "staff", VLA_Relation.RelFromRange(staff, True)
+    d = ""
+    ans = Empty
+    On Error Resume Next
+    Err.Clear
+    Set res = VLA_Datalog.DatalogRun("(rule (has-level P L) (staff (name P) (level L))) (query (has-level ""Bob"" 3))", basesBob, headerMapStaff)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) = 0 Then ans = res.Item(5)
+    Report "datalog.9: ...and Bob, at level 1, is FALSE", _
+           ResultBoolIs(ans, False), "got: '" & d & "', " & ResultDescribe(ans)
+
+    ' ---- G-PROLOG's OWN WHETHER TAIL, the text slice 3 will route here.
+    Dim rota(1 To 3, 1 To 2) As Variant
+    rota(1, 1) = "Name": rota(1, 2) = "Shift"
+    rota(2, 1) = "Bob": rota(2, 2) = "Night"
+    rota(3, 1) = "Di": rota(3, 2) = "Day"
+    Dim rotaCols As New Collection
+    rotaCols.Add SqlColPair("name", "Name")
+    rotaCols.Add SqlColPair("shift", "Shift")
+    Dim headerMapRota As Object
+    Set headerMapRota = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet headerMapRota, "rota", rotaCols
+    Dim basesRota As Object
+    Set basesRota = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet basesRota, "rota", VLA_Relation.RelFromRange(rota, True)
+    d = ""
+    ans = Empty
+    On Error Resume Next
+    Err.Clear
+    Set res = VLA_Datalog.DatalogRun("(rule (can-cover Person Shift) (rota (name Person) (shift Shift))) (query (can-cover ""Bob"" ""Night""))", basesRota, headerMapRota)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) = 0 Then ans = res.Item(5)
+    Report "datalog.9: G-PROLOG's whether tail answers here - Bob can cover Night", _
+           ResultBoolIs(ans, True), "got: '" & d & "', " & ResultDescribe(ans)
+
+    ' ---- A QUERY BY NAME IS UNCHANGED: rows, and an Empty fifth item.
+    result = VLA_Datalog.DATALOG("(fact (p a)) (fact (p b)) (query p)")
+    Report "datalog.9: a query by name still spills its rows - a header and two", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "a"), "got: " & ResultDescribe(result)
+    d = ""
+    ans = "unset"
+    On Error Resume Next
+    Err.Clear
+    Set res = VLA_Datalog.DatalogRun("(fact (p a)) (query p)")
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) = 0 Then ans = res.Item(5)
+    Report "datalog.9: ...and DatalogRun's fifth item is Empty for it", _
+           Len(d) = 0 And IsEmpty(ans), "got: '" & d & "', " & TypeName(ans)
+
+    ' ---- EACH SHAPE STILL REFUSED, by name.
+    result = VLA_Datalog.DATALOG("(fact (link ""A"" ""B"")) (query (link ""A"" Who))")
+    r = ResultDescribe(result)
+    Report "datalog.9: a query atom holding a variable is refused, naming it and teaching the rule", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "holds the variable 'Who'", vbTextCompare) > 0, "got: " & r
+    Dim basesKeyed As Object
+    Set basesKeyed = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet basesKeyed, "staff", VLA_Relation.RelFromRange(staff, True)
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    Set res = VLA_Datalog.DatalogRun("(query (staff (name ""Ann"") (level 3)))", basesKeyed, headerMapStaff)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "datalog.9: a keyed query atom is refused as keyed, not as nesting", _
+           InStr(1, d, "keys its values by column name", vbTextCompare) > 0 And InStr(1, d, "nested", vbTextCompare) = 0, "got: " & d
+    result = VLA_Datalog.DATALOG("(headless) (fact (p a)) (query (p a))")
+    r = ResultDescribe(result)
+    Report "datalog.9: (headless) before a query written as one fact is refused", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "asks for rows without their header", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG("(fact (p a)) (query (p a)) (headless)")
+    r = ResultDescribe(result)
+    Report "datalog.9: ...and after it", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "asks for rows without their header", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG("(fact (link ""A"" ""B"")) (query (link ""A""))")
+    r = ResultDescribe(result)
+    Report "datalog.9: a query atom with the wrong number of values is an arity mismatch", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "used with 2 argument(s) in one place and 1", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG("(fact (p a)) (query (pp a))")
+    r = ResultDescribe(result)
+    Report "datalog.9: a query atom over a name nothing defines keeps the query's own words", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "(query pp) names a predicate with no facts", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG("(fact (p a)) (rule (q X) (p X) (typo X)) (query (p a))")
+    r = ResultDescribe(result)
+    Report "datalog.9: the whole program is still checked - a misspelling in a rule the query never uses refuses", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'typo' is used in a rule", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG("(fact (p a)) (query (p a) (p b))")
+    r = ResultDescribe(result)
+    Report "datalog.9: two facts in one query stay refused - one thing per query", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "takes exactly one thing", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG("(fact (p a)) (query (not (p a)))")
+    r = ResultDescribe(result)
+    Report "datalog.9: (query (not ...)) is nesting, and says so - not read as a keyed table", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "nested inside another's argument, in a query", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG("(fact (p a)) (query (p))")
+    r = ResultDescribe(result)
+    Report "datalog.9: a query atom with no values is refused as having no arguments", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'p' has no arguments", vbTextCompare) > 0, "got: " & r
 End Sub
 
 ' Host-required: every real bug this engine's MVP ever found (this

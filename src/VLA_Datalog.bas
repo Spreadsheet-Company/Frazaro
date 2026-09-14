@@ -1,6 +1,46 @@
 Attribute VB_Name = "VLA_Datalog"
 Option Explicit
-Public Const VLA_DATALOG_VERSION As String = "DATALOG.8"
+Public Const VLA_DATALOG_VERSION As String = "DATALOG.9"
+' DATALOG.9: A QUERY MAY BE ONE FACT WRITTEN OUT WHOLE, and it answers TRUE
+' or FALSE - (query (route "A" "D")) beside the query by name that lists
+' rows. Minted by G-PROLOG slice 3's scoping; the owner's calls throughout.
+'
+' WHY. A question with no unknown went to PROLOG, because this engine's
+' query took only a bare name. PROLOG collects every proof before a ground
+' query says TRUE, so over a closure whose data loops it never finishes -
+' measured, it refuses by DEPTH whether or not a route exists - and it
+' follows a generated closure only 39 links deep. This engine answers both
+' and stops. Nothing honest was possible without it: a zero-argument rule
+' head is refused by design (ParseAtom), count answers N over 1 or 0, and a
+' formula wrapped round the spill reads a refusal's text as FALSE.
+'
+' ONE GROUND ATOM, AND NOTHING WIDER. Every argument is a constant, which
+' is exactly the text G-PROLOG's whether tail already writes. An atom
+' holding a variable is refused by name (datalog-query-atom-has-variable),
+' teaching the rule-and-name spelling that already lists rows, so one
+' question never gains two spellings; a conjunction stays
+' datalog-query-bad-shape. A keyed atom is refused (datalog-query-keyed-
+' atom): keyed atoms are a rule-body position (DATALOG.5), and the columns a
+' query left out would need a meaning of their own. (headless) beside it is
+' refused (datalog-query-headless-answer), since it asks for rows a TRUE or
+' FALSE does not have. Strict first, as DATALOG.8 was: widening any of these
+' later only turns a refusal into an answer.
+'
+' THE ANSWER is an Excel Boolean, as PROLOG() returns for a query with no
+' unknown, so =IF and a conditional format read it and a refusal stays
+' text. It is decided by the SAME match a rule body uses - FilterAtomRelation
+' over the queried relation, after the whole fixpoint - so it can never
+' disagree with a rule reading the same atom: a number cell holding 3
+' matches 3 (and "3", the quote marker stripped as everywhere in this
+' engine), and text matches case-sensitively. Its arity is checked like any
+' other use (datalog-arity-mismatch), a name nothing defines keeps
+' datalog-query-unknown-predicate, and DATALOG.8's whole-program check is
+' unchanged. datalog-query-not-a-symbol is retired: a nested form is now
+' read as an atom, and an ill-formed one gets ParseAtom's own words.
+'
+' DatalogRun gains a fifth item, Empty for a query by name and the Boolean
+' for a ground query; DATALOG() returns that Boolean in place of a spill.
+'
 ' DATALOG.8: AN UNDEFINED PREDICATE REFUSES, statically, anywhere in the
 ' program - PROLOG.22's twin, decided again on DATALOG's own terms rather
 ' than inherited.
@@ -962,11 +1002,14 @@ End Function
 ' Collection of 2-item Collections: headAtom, bodyAtoms), and the one
 ' required query predicate name. DATALOG.8: relations is the table
 ' arguments, read here only for their names (CollectDefinedNames).
-Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, ByRef rules As Collection, ByRef queryName As String, ByRef headless As Boolean, ByVal headerMap As Object, ByVal relations As Object)
+' DATALOG.9: queryAtom is the query's atom when the query is one fact
+' written out whole (ParseGroundQueryAtom), and Nothing for a query by name.
+Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, ByRef rules As Collection, ByRef queryName As String, ByRef headless As Boolean, ByVal headerMap As Object, ByVal relations As Object, ByRef queryAtom As Collection)
     Set facts = New Collection
     Set rules = New Collection
     queryName = ""
     headless = False
+    Set queryAtom = Nothing
     Dim forms As Collection
     Set forms = VLA.VlaReadForms(rulesText)
     ' DATALOG.8: every name this program defines, before any form is
@@ -1157,9 +1200,15 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
             If lst.Count <> 2 Then VLA_Messages.RaiseMsg "datalog-query-bad-shape"
             Dim qRaw As Variant
             NthInto qRaw, lst, 2
-            If IsObject(qRaw) Then VLA_Messages.RaiseMsg "datalog-query-not-a-symbol"
             queryCount = queryCount + 1
-            queryName = VLA_Identity.Fold(AtomText(qRaw, "a query"))
+            If IsObject(qRaw) Then
+                ' DATALOG.9: one fact written out whole, answered TRUE or
+                ' FALSE - the module header has the shape and why no wider.
+                Set queryAtom = ParseGroundQueryAtom(qRaw)
+                queryName = AtomPred(queryAtom)
+            Else
+                queryName = VLA_Identity.Fold(AtomText(qRaw, "a query"))
+            End If
         Case "headless"
             ' Opt-in, per-program, not a formula argument: ParamArray
             ' tables() must be DATALOG's own last parameter (a hard VBA
@@ -1176,7 +1225,66 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
     Next f
     If queryCount = 0 Then VLA_Messages.RaiseMsg "datalog-query-missing"
     If queryCount > 1 Then VLA_Messages.RaiseMsg "datalog-query-ambiguous", "count", queryCount
+    ' DATALOG.9: checked once every form is read, since (headless) may be
+    ' written on either side of the query it contradicts.
+    If headless And Not queryAtom Is Nothing Then
+        VLA_Messages.RaiseMsg "datalog-query-headless-answer", "predicate", AtomPred(queryAtom)
+    End If
 End Sub
+
+' DATALOG.9: the query's atom, when the query is one fact written out whole.
+' A keyed shape is refused first, because its (column value) pairs would
+' otherwise be refused as nesting, which blames the wrong thing; then every
+' argument must be a constant (the module header has why). ParseAtom refuses
+' the rest in its own words - a nested form, a name that is not a word, an
+' atom with no arguments. A wrapper word (not, count, sum, let) is never read
+' as a keyed table: (query (not (p a))) is nesting, and says so.
+Private Function ParseGroundQueryAtom(ByVal qForm As Variant) As Collection
+    Dim lst As Collection
+    Set lst = qForm
+    If lst.Count >= 2 Then
+        Dim predRaw As Variant
+        NthInto predRaw, lst, 1
+        If Not IsObject(predRaw) Then
+            Dim predFolded As String
+            predFolded = VLA_Identity.Fold(AtomText(predRaw, "a query"))
+            Dim allPairs As Boolean
+            allPairs = True
+            Select Case predFolded
+            Case "not", "count", "sum", "let"
+                allPairs = False
+            End Select
+            Dim i As Long
+            For i = 2 To lst.Count
+                Dim raw As Variant
+                NthInto raw, lst, i
+                If IsObject(raw) Then
+                    Dim pairLst As Collection
+                    Set pairLst = raw
+                    If pairLst.Count <> 2 Then
+                        allPairs = False
+                    ElseIf IsObject(pairLst.Item(1)) Or IsObject(pairLst.Item(2)) Then
+                        allPairs = False
+                    End If
+                Else
+                    allPairs = False
+                End If
+            Next i
+            If allPairs Then
+                VLA_Messages.RaiseMsg "datalog-query-keyed-atom", "predicate", predFolded
+            End If
+        End If
+    End If
+    Dim atom As Collection
+    Set atom = ParseAtom(qForm, "a query")
+    Dim ai As Long
+    For ai = 1 To AtomArity(atom)
+        If ArgIsVar(AtomArgAt(atom, ai)) Then
+            VLA_Messages.RaiseMsg "datalog-query-atom-has-variable", "predicate", AtomPred(atom), "var", ArgText(AtomArgAt(atom, ai))
+        End If
+    Next ai
+    Set ParseGroundQueryAtom = atom
+End Function
 
 Private Sub RecordArity(ByVal predArityDict As Object, ByVal predName As String, ByVal arity As Long)
     If VLA_Runtime.VlaDictHas(predArityDict, predName) Then
@@ -2127,13 +2235,15 @@ End Sub
 ' merges its (fact ...) forms and any supplied baseRelations (a VlaDict
 ' of predicate-name -> Relation, typically built via
 ' VLA_Relation.RelFromRange) into one working set, runs the fixpoint,
-' and returns a 4-item Collection: (1) the queried predicate's own
+' and returns a 5-item Collection: (1) the queried predicate's own
 ' folded name, (2) the full VlaDict of every relation (EDB and IDB
 ' alike) after evaluation, (3) that predicate's own head-variable
 ' names as a Variant array (e.g. "X","Y" for a rule-derived predicate),
 ' or Empty when no rule defines it (a raw fact/table predicate has no
 ' variable names to offer - DATALOG falls back to "Col1".."ColN"),
-' (4) whether the program's own (headless) directive was present.
+' (4) whether the program's own (headless) directive was present, and
+' (5) DATALOG.9: Empty for a query by name, or the Boolean answer to a
+' query written as one fact.
 ' VLA_Tests_Query.TestDatalog is this function's own first caller.
 '
 ' Checks "baseRelations Is Nothing", not IsMissing(baseRelations) - a
@@ -2181,7 +2291,8 @@ Public Function DatalogRun(ByVal rulesText As String, Optional ByVal baseRelatio
 
     Dim facts As Collection, rules As Collection, queryName As String
     Dim headless As Boolean
-    ParseProgram rulesText, facts, rules, queryName, headless, hMap, relations
+    Dim queryAtom As Collection
+    ParseProgram rulesText, facts, rules, queryName, headless, hMap, relations, queryAtom
 
     Dim fa As Variant, factAtom As Collection
     For Each fa In facts
@@ -2199,6 +2310,9 @@ Public Function DatalogRun(ByVal rulesText As String, Optional ByVal baseRelatio
             RecordArity predArity, AtomPred(BodyItemAtom(baItem)), AtomArity(BodyItemAtom(baItem))
         Next ba
     Next rr
+    ' DATALOG.9: a query written as one fact uses its predicate like any
+    ' other form does, so it is held to the same one-arity rule.
+    If Not queryAtom Is Nothing Then RecordArity predArity, AtomPred(queryAtom), AtomArity(queryAtom)
 
     For Each fa In facts
         Set factAtom = fa
@@ -2271,6 +2385,16 @@ Public Function DatalogRun(ByVal rulesText As String, Optional ByVal baseRelatio
         outp.Add Empty
     End If
     outp.Add headless
+    ' DATALOG.9: Empty for a query by name. For a query written as one fact,
+    ' whether the queried relation holds it, decided after the whole fixpoint
+    ' by the same match a rule body makes (this module's header).
+    If queryAtom Is Nothing Then
+        outp.Add Empty
+    Else
+        Dim answerRel As Collection
+        Set answerRel = VLA_Runtime.VlaDictGet(relations, queryName)
+        outp.Add (VLA_Relation.RelCount(FilterAtomRelation(answerRel, queryAtom)) > 0)
+    End If
     Set DatalogRun = outp
 End Function
 
@@ -2351,6 +2475,11 @@ Public Function DATALOG(ByVal rulesText As String, ParamArray tables() As Varian
 
     Dim result As Collection
     Set result = DatalogRun(rulesText, relations, headerMap)
+    ' DATALOG.9: a query written as one fact answers a Boolean, not a spill.
+    If Not IsEmpty(result.Item(5)) Then
+        DATALOG = result.Item(5)
+        Exit Function
+    End If
     Dim queryName As String
     queryName = result.Item(1)
     Dim allRel As Object

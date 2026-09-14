@@ -920,10 +920,16 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "datalog-fact-bad-shape", 5, "VLA-Datalog", "(fact ...) takes exactly one predicate form, like (fact (parent tom bob))."
     AddMsg m, "datalog-fact-has-variable", 5, "VLA-Datalog", "fact '{predicate}' uses '{arg}', which looks like a variable (it starts with a capital letter) - facts must be fully specific; did you mean to write a rule instead?"
     AddMsg m, "datalog-rule-needs-body", 5, "VLA-Datalog", "a (rule head ...) needs at least one body predicate after the head - a rule with no body is a fact; use (fact ...) instead."
-    AddMsg m, "datalog-query-bad-shape", 5, "VLA-Datalog", "(query ...) takes exactly one predicate name, like (query indirect_report)."
+    AddMsg m, "datalog-query-bad-shape", 5, "VLA-Datalog", "(query ...) takes exactly one thing: a relation's name, like (query indirect_report), to list its rows, or one fact written out whole, like (query (route ""A"" ""D"")), to answer TRUE or FALSE."
     AddMsg m, "datalog-headless-bad-shape", 5, "VLA-Datalog", "(headless) takes no arguments - write it exactly as (headless) to skip the header row and return only data rows."
-    AddMsg m, "datalog-query-not-a-symbol", 5, "VLA-Datalog", "(query ...) takes a plain predicate name, not a nested form."
-    AddMsg m, "datalog-query-missing", 5, "VLA-Datalog", "add (query predicate-name) to say which relation DATALOG should return - for example (query indirect_report)."
+    AddMsg m, "datalog-query-missing", 5, "VLA-Datalog", "add (query predicate-name) to say which relation DATALOG should return - for example (query indirect_report) - or (query (route ""A"" ""D"")) to ask whether one fact holds."
+    ' DATALOG.9 - a query written as one fact answers TRUE or FALSE; these
+    ' are the shapes it refuses, each pointing at the spelling that works.
+    ' (datalog-query-not-a-symbol retired with it: a nested form is now read
+    ' as an atom, and an ill-formed one gets ParseAtom's own words.)
+    AddMsg m, "datalog-query-atom-has-variable", 5, "VLA-Datalog", "(query ({predicate} ...)) holds the variable '{var}', and a query written as a fact answers only TRUE or FALSE, so every value in it must be written in. To list the values '{var}' can take, put the question in a rule and query the rule by name, like (rule (answer {var}) ({predicate} ...)) (query answer)."
+    AddMsg m, "datalog-query-keyed-atom", 5, "VLA-Datalog", "(query ({predicate} (column value) ...)) keys its values by column name, and a query answers TRUE or FALSE only for a fact written out whole - one value per column, in order, like (query ({predicate} value1 value2)). To ask by column name, write a rule that reads the table that way and query the rule by name."
+    AddMsg m, "datalog-query-headless-answer", 5, "VLA-Datalog", "(headless) asks for rows without their header, but (query ({predicate} ...)) answers a single TRUE or FALSE, which has neither - remove (headless), or query a relation by name to get rows."
     AddMsg m, "datalog-query-ambiguous", 5, "VLA-Datalog", "found {count} (query ...) forms - DATALOG needs exactly one, naming the single relation to return."
     AddMsg m, "datalog-unknown-top-form", 5, "VLA-Datalog", "'{head}' is not a DATALOG form - expected fact, rule, or query."
     AddMsg m, "datalog-unsafe-head-variable", 5, "VLA-Datalog", "in the rule deriving '{predicate}', the variable '{var}' appears in the head but never in the body - DATALOG can't know what values it should take. Every head variable must also appear in at least one body predicate."
