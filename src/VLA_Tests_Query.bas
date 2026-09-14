@@ -346,6 +346,7 @@ Public Function TestDSLs() As Boolean
     TestDatalogAggregation
     TestDatalogBuiltins
     TestDatalogKeyedAtoms
+    TestDatalogUnknownPredicate
     TestDatalogHostTable
     TestUnify
     TestGRenderUnify
@@ -420,7 +421,11 @@ Private Sub TestDatalog()
            ResultRowCount(arrHeadless) = VLA_Relation.RelCount(rel) And (ResultCellIs(arrHeadless, 1, 1, "tom") Or ResultCellIs(arrHeadless, 1, 1, "bob")), _
            "shape mismatch"
 
-    Set result = VLA_Datalog.DatalogRun("(headless) (rule (nothing_here X) (never_true X)) (query nothing_here)")
+    ' DATALOG.8: never_true was an UNDEFINED name standing for "a relation
+    ' that matches nothing", and an undefined name now refuses. A DEFINED
+    ' relation that matches nothing - (thing none), where thing holds only
+    ' a - keeps this pin's own subject, a zero-row headless result.
+    Set result = VLA_Datalog.DatalogRun("(headless) (fact (thing a)) (rule (nothing_here X) (thing X) (thing none)) (query nothing_here)")
     Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
     Dim arrEmpty As Variant
     arrEmpty = VLA_Relation.RelToSpilledArray(rel, , CBool(result.Item(4)))
@@ -1089,6 +1094,218 @@ Private Sub TestDatalogKeyedAtoms()
     Report "datalog keyed: keyed syntax in a rule HEAD is refused (heads stay positional by definition)", raised, "no error raised"
 End Sub
 
+' DATALOG.8: AN UNDEFINED PREDICATE REFUSES - statically, anywhere in the
+' program, before any rule runs. Pure: no live workbook (a Table argument
+' with no data rows is also pinned live, in TestDatalogHostTable).
+'
+' Every body case below used to answer SILENTLY, and two were confidently
+' wrong rather than merely empty: `not` over a misspelled relation kept
+' every row, so a banned person was listed as allowed, and count and sum
+' over one answered 0. Each is asserted on refusal text NAMING the
+' predicate, so none can pass by failing.
+'
+' The decision is pinned in its directions: a misspelling in a rule the
+' query never uses refuses too (the whole program, the owner's call), it
+' refuses before any rule runs, an operator's head is never read as a
+' relation, and a keyed atom is refused as undefined only when nothing
+' defines its name. The roadmap entry has the options and why these.
+Private Sub TestDatalogUnknownPredicate()
+    Dim result As Variant
+    Dim r As String
+    Dim d As String
+    Dim q As String
+    q = Chr$(34)
+
+    ' ---- THE PLAIN CASE. It used to spill a header with nothing under it.
+    result = VLA_Datalog.DATALOG("(fact (parent tom bob)) (rule (kid X) (parnet tom X)) (query kid)")
+    r = ResultDescribe(result)
+    Report "datalog.8: a misspelled relation in a rule body refuses by name, where it used to spill an empty column", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'parnet' is used in a rule", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE CONFIDENTLY WRONG ALLOWED. tom IS banned; the misspelled
+    ' negation read an empty relation and kept him.
+    result = VLA_Datalog.DATALOG("(fact (person tom)) (fact (banned tom)) (rule (ok X) (person X) (not (bannd X))) (query ok)")
+    r = ResultDescribe(result)
+    Report "datalog.8: (not ...) over a misspelled relation refuses - it used to list tom, who is banned", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'bannd' is used in a rule", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE ZEROS THAT COUNTED NOTHING. tom has a sale and an amount.
+    result = VLA_Datalog.DATALOG("(fact (person tom)) (fact (sale tom widget)) (rule (sales X N) (person X) (count N (sael X Y))) (query sales)")
+    r = ResultDescribe(result)
+    Report "datalog.8: (count ...) over a misspelled relation refuses - it used to answer 0", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'sael' is used in a rule", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG("(fact (person tom)) (fact (amount tom 10)) (rule (total X S) (person X) (sum S (amont X V))) (query total)")
+    r = ResultDescribe(result)
+    Report "datalog.8: (sum ...) over a misspelled relation refuses - it used to answer 0", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'amont' is used in a rule", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE WHOLE PROGRAM. Nothing asks about unused, and its
+    ' misspelling refuses anyway - strict first, because relaxing this later
+    ' only turns a refusal into an answer.
+    result = VLA_Datalog.DATALOG("(fact (p a)) (rule (unused X) (sibling X)) (query p)")
+    r = ResultDescribe(result)
+    Report "datalog.8: a misspelling in a rule the query never uses refuses too - the whole program is checked", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'sibling' is used in a rule", vbTextCompare) > 0, "got: " & r
+
+    ' ---- THE FIRST ONE WRITTEN is the one named: zz1 sits in a rule the
+    ' query does not use, ahead of zz2 in the rule it does.
+    result = VLA_Datalog.DATALOG("(fact (p a)) (rule (a1 X) (p X) (zz1 X)) (rule (a2 X) (p X) (zz2 X)) (query a2)")
+    r = ResultDescribe(result)
+    Report "datalog.8: of two misspellings, the first in the order written is named", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'zz1' is used in a rule", vbTextCompare) > 0 _
+           And InStr(1, r, "zz2", vbTextCompare) = 0, "got: " & r
+
+    ' ---- DEFINING THE NAME is what stops it, and the negation then answers
+    ' correctly: tom is banned, so nobody is ok - a header and nothing under.
+    result = VLA_Datalog.DATALOG("(fact (person tom)) (fact (banned tom)) (rule (ok X) (person X) (not (banned X))) (query ok)")
+    Report "datalog.8: ...spelled right, the same rule answers - tom is banned, so the ok column is empty", _
+           ResultRowCount(result) = 1 And ResultCellIs(result, 1, 1, "X"), "got: " & ResultDescribe(result)
+
+    ' ---- AN OPERATOR IS NOT A RELATION. The heads of a let (+) and of a
+    ' comparison (>) are symbols with no relation behind them, and are
+    ' never checked as one.
+    result = VLA_Datalog.DATALOG("(fact (pair 10 3)) (rule (big S) (pair A B) (let S (+ A B)) (> S 5)) (query big)")
+    Report "datalog.8: a let and a comparison name no relation - the rule answers 13", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "13"), "got: " & ResultDescribe(result)
+
+    ' ---- THE QUERY POSITION keeps its own words.
+    result = VLA_Datalog.DATALOG("(fact (p a)) (query pp)")
+    r = ResultDescribe(result)
+    Report "datalog.8: a misspelled query name still refuses with the query's own text", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "(query pp) names a predicate with no facts", vbTextCompare) > 0, "got: " & r
+
+    ' ---- BEFORE ANY RULE RUNS. bad divides by zero the moment it is
+    ' evaluated; each misspelling is named instead, because nothing ran.
+    result = VLA_Datalog.DATALOG("(fact (pair a 10 0)) (rule (bad X Z) (pair X A B) (let Z (/ A B))) (rule (ok X) (pair X A B) (typo X)) (query ok)")
+    r = ResultDescribe(result)
+    Report "datalog.8: a misspelled relation is named before a rule that divides by zero ever runs", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'typo' is used in a rule", vbTextCompare) > 0 _
+           And InStr(1, r, "divide by zero", vbTextCompare) = 0, "got: " & r
+    result = VLA_Datalog.DATALOG("(fact (pair a 10 0)) (rule (bad X Z) (pair X A B) (let Z (/ A B))) (query pp)")
+    r = ResultDescribe(result)
+    Report "datalog.8: ...and so is a misspelled query name - it used to be checked only after every rule had run", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "(query pp) names a predicate", vbTextCompare) > 0 _
+           And InStr(1, r, "divide by zero", vbTextCompare) = 0, "got: " & r
+
+    ' ---- A TABLE WITH NO ROWS IS DEFINED. A header and nothing under it is
+    ' the pure seam for a Table whose rows were all deleted; DATALOG()
+    ' registers a relation per table argument, rows or none.
+    Dim hdr(1 To 1, 1 To 2) As Variant
+    hdr(1, 1) = "Name": hdr(1, 2) = "Shift"
+    Dim basesEmpty As Object
+    Set basesEmpty = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet basesEmpty, "leave", VLA_Relation.RelFromRange(hdr, True)
+    Dim leaveCols As New Collection
+    leaveCols.Add SqlColPair("name", "Name")
+    leaveCols.Add SqlColPair("shift", "Shift")
+    Dim headerMapEmpty As Object
+    Set headerMapEmpty = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet headerMapEmpty, "leave", leaveCols
+    Dim res As Collection
+    Dim rel As Collection
+    Set rel = VLA_Relation.RelNew(1)
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    Set res = VLA_Datalog.DatalogRun("(fact (person tom)) (rule (ok X) (person X) (not (leave X X))) (query ok)", basesEmpty, headerMapEmpty)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) = 0 Then Set rel = VLA_Runtime.VlaDictGet(res.Item(2), res.Item(1))
+    Report "datalog.8: a table argument with no rows is defined - (not ...) over it keeps tom", _
+           Len(d) = 0 And VLA_Relation.RelCount(rel) = 1, "got: '" & d & "', " & VLA_Relation.RelCount(rel) & " row(s)"
+    ' ...and leaving the table out is exactly the misspelling.
+    result = VLA_Datalog.DATALOG("(fact (person tom)) (rule (ok X) (person X) (not (leave X X))) (query ok)")
+    r = ResultDescribe(result)
+    Report "datalog.8: ...while the same rule with no leave table passed names leave", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'leave' is used in a rule", vbTextCompare) > 0, "got: " & r
+
+    ' ---- A KEYED ATOM over a misspelled Table is a misspelling, not a
+    ' relation missing its headers, which is what the refusal used to say.
+    Dim staff(1 To 2, 1 To 2) As Variant
+    staff(1, 1) = "Name": staff(1, 2) = "Level"
+    staff(2, 1) = "Ann": staff(2, 2) = 3
+    Dim basesStaff As Object
+    Set basesStaff = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet basesStaff, "staff", VLA_Relation.RelFromRange(staff, True)
+    Dim staffCols As New Collection
+    staffCols.Add SqlColPair("name", "Name")
+    staffCols.Add SqlColPair("level", "Level")
+    Dim headerMapStaff As Object
+    Set headerMapStaff = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet headerMapStaff, "staff", staffCols
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    VLA_Datalog.DatalogRun "(rule (senior X) (staf (name X) (level L)) (> L 2)) (query senior)", basesStaff, headerMapStaff
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "datalog.8: a keyed atom over a misspelled Table refuses as undefined, not as a relation without column headers", _
+           InStr(1, d, "'staf' is used in a rule", vbTextCompare) > 0 And InStr(1, d, "column headers", vbTextCompare) = 0, "got: " & d
+
+    ' ...while one over a relation that IS defined, by a fact block, keeps
+    ' the header text - defined earlier in the text or later.
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    VLA_Datalog.DatalogRun "(fact (widget a b)) (rule (bad X) (widget (foo X))) (query bad)"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "datalog.8: a keyed atom over a fact block still refuses as having no column headers", _
+           InStr(1, d, "no column headers", vbTextCompare) > 0 And InStr(1, d, "is used in a rule", vbTextCompare) = 0, "got: " & d
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    VLA_Datalog.DatalogRun "(rule (bad X) (widget (foo X))) (fact (widget a b)) (query bad)"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "datalog.8: ...and so does one whose fact block is written after the rule that keys it", _
+           InStr(1, d, "no column headers", vbTextCompare) > 0 And InStr(1, d, "is used in a rule", vbTextCompare) = 0, "got: " & d
+
+    ' ---- G-PROLOG's WHO QUESTION, the shape that found this item: the
+    ' relation a writer names sits in a generated narrowing rule's BODY, so
+    ' a misspelled can-drive used to spill an empty Who column.
+    Dim rota(1 To 3, 1 To 2) As Variant
+    rota(1, 1) = "Name": rota(1, 2) = "Shift"
+    rota(2, 1) = "Bob": rota(2, 2) = "Night"
+    rota(3, 1) = "Di": rota(3, 2) = "Day"
+    Dim rotaCols As New Collection
+    rotaCols.Add SqlColPair("name", "Name")
+    rotaCols.Add SqlColPair("shift", "Shift")
+    Dim headerMapRota As Object
+    Set headerMapRota = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet headerMapRota, "rota", rotaCols
+    Dim rulesText As String
+    rulesText = "(rule (can-cover Person Shift) (rota (name Person) (shift Shift)))"
+    Dim basesRota As Object
+    Set basesRota = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet basesRota, "rota", VLA_Relation.RelFromRange(rota, True)
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    VLA_Datalog.DatalogRun rulesText & " (rule (vla-ask-can-drive Who) (can-drive Who " & q & "Night" & q & ")) (query vla-ask-can-drive)", basesRota, headerMapRota
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "datalog.8: G-PROLOG's who-question with a misspelled relation refuses by name, where it spilled an empty Who column", _
+           InStr(1, d, "'can-drive' is used in a rule", vbTextCompare) > 0, "got: " & d
+    ' ...and its twin, spelled right, answers Bob.
+    Dim basesRota2 As Object
+    Set basesRota2 = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet basesRota2, "rota", VLA_Relation.RelFromRange(rota, True)
+    Dim probeBob(1 To 1) As Variant
+    probeBob(1) = "Bob"
+    Set rel = VLA_Relation.RelNew(1)
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    Set res = VLA_Datalog.DatalogRun(rulesText & " (rule (vla-ask-can-cover Who) (can-cover Who " & q & "Night" & q & ")) (query vla-ask-can-cover)", basesRota2, headerMapRota)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) = 0 Then Set rel = VLA_Runtime.VlaDictGet(res.Item(2), res.Item(1))
+    Report "datalog.8: ...and spelled right, the same question answers Bob alone", _
+           Len(d) = 0 And VLA_Relation.RelCount(rel) = 1 And VLA_Relation.RelContainsTuple(rel, probeBob), _
+           "got: '" & d & "', " & VLA_Relation.RelCount(rel) & " row(s)"
+End Sub
+
 ' Host-required: every real bug this engine's MVP ever found (this
 ' module's own header note has the list) only ever showed up through a
 ' real Excel Table, never through RelFromRange fed a hand-built array -
@@ -1296,6 +1513,28 @@ Private Sub TestDatalogHostTable()
     End If
     Report "datalog host: a keyed atom against a mixed-case Table/header (Staffing/Salary) resolves through Fold, matching exactly the 2 staffers over 80000", _
            okRich, detailRich
+
+    ' Scenario 5, DATALOG.8: a Table whose one data row is blank is still a
+    ' DEFINED relation - DATALOG() registers one per table argument, rows or
+    ' none - so the undefined-predicate refusal must never fire on it.
+    ' PROLOG.22's own trap, pinned for DATALOG: a ListObject over a header
+    ' and one blank row, which RelFromRange reads as zero tuples.
+    ws.Range("N1").Value = "Name"
+    Dim loEmpty As ListObject
+    Set loEmpty = ws.ListObjects.Add(xlSrcRange, ws.Range("N1:N2"), , xlYes)
+    loEmpty.Name = "EmptyDatalogHostTest1"
+
+    Dim arrNotEmpty As Variant
+    arrNotEmpty = VLA_Datalog.DATALOG( _
+        "(headless) (rule (ok X) (personhosttest1 X) (not (emptydataloghosttest1 X))) (query ok)", _
+        loPeople.Range, loEmpty.Range)
+    Report "datalog.8 host: (not ...) over a Table with no data rows answers all 3 people, with no undefined-predicate refusal", _
+           ResultRowCount(arrNotEmpty) = 3, "got: " & ResultDescribe(arrNotEmpty)
+
+    Dim arrEmptyRule As Variant
+    arrEmptyRule = VLA_Datalog.DATALOG("(rule (who X) (emptydataloghosttest1 X)) (query who)", loEmpty.Range)
+    Report "datalog.8 host: a rule reading a Table with no data rows spills its header and nothing under it", _
+           ResultRowCount(arrEmptyRule) = 1 And ResultCellIs(arrEmptyRule, 1, 1, "X"), "got: " & ResultDescribe(arrEmptyRule)
 
     On Error Resume Next
     ThisWorkbook.Names("VlaDatalogAliasTest").Delete

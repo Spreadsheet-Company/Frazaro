@@ -1,6 +1,52 @@
 Attribute VB_Name = "VLA_Datalog"
 Option Explicit
-Public Const VLA_DATALOG_VERSION As String = "DATALOG.5"
+Public Const VLA_DATALOG_VERSION As String = "DATALOG.8"
+' DATALOG.8: AN UNDEFINED PREDICATE REFUSES, statically, anywhere in the
+' program - PROLOG.22's twin, decided again on DATALOG's own terms rather
+' than inherited.
+'
+' Until this item only the QUERY position refused a name nothing defines
+' (datalog-query-unknown-predicate, checked after the fixpoint). In a rule
+' BODY the same name read as an empty relation and said nothing: the
+' positive arm of EvalRuleBody returned no rows, FilterOutMatching kept
+' every row under a `not` over it, and ComputeAggregateGroups counted and
+' summed it to zero. Two of those three are confidently WRONG answers - a
+' (not (bannd X)) beside a real `banned` lists the people who ARE banned -
+' and G-PROLOG's WHO and WHAT questions put the relation a writer names
+' into a body, through their narrowing rule, so a misspelled relation
+' spilled an empty column that looked exactly like "nobody".
+'
+' STATIC, before any rule runs (RefuseUndefinedPredicates, called by
+' DatalogRun once the facts, the rule heads and the table arguments are
+' all known). Refusing where EvalRuleBody meets the missing name would
+' depend on the data - that arm is reached only after every earlier atom
+' matched something - and refusing only an empty answer would miss both
+' wrong answers above, which come back WITH rows. A static check does not
+' look at the data at all: no row added or removed can make it fire, and
+' defining the name or passing its table is the only thing that stops it.
+' It is exact because DATALOG has no assert, so a program's predicate set
+' is fixed before evaluation, and a name with no fact, no rule head and no
+' table argument cannot be one its author meant to be empty. A table
+' argument with no rows is DEFINED: DATALOG() registers a relation per
+' table argument, rows or none.
+'
+' THE WHOLE PROGRAM, not only what the query reaches - the owner's call,
+' and deliberately stricter than PROLOG.22's walk. The query's own name is
+' checked first and keeps its own id and text; then every body name of
+' every rule, positive, negated and aggregated alike, in the order
+' written. A comparison's or a let's head is an operator and never a
+' relation, so it is skipped. The first undefined name met is the one
+' named. Strict first, because relaxing it later only ever turns a refusal
+' into an answer, where tightening it later would break a workbook.
+'
+' A KEYED atom over a name nothing defines refuses as undefined BEFORE the
+' header check. ParseProgram collects every fact and rule-head name, and
+' the table arguments, before it reads a single form (CollectDefinedNames),
+' so DesugarBodyAtomForm can tell a misspelled Table - undefined - from a
+' fact block or a plain named range, which is defined but has no headers to
+' key against. That atom refused before this item too, as needing headers,
+' which blamed the wrong thing; only its words change.
+'
 ' DATALOG.5: named-column atoms - a rule-BODY atom's arguments may now
 ' be (header var-or-const) pairs, keyed by the target predicate's own
 ' column name, instead of bare positional tokens: (staffing (name X)
@@ -736,7 +782,11 @@ End Function
 ' gates this), so an operand list like (> (a b) X) still reaches
 ' ParseAtom untouched and is refused as a compound term, not
 ' misdiagnosed as "mixed keying".
-Private Function DesugarBodyAtomForm(ByVal bodyItemIndex As Long, ByVal atomForm As Variant, ByVal headerMap As Object) As Variant
+'
+' DATALOG.8: definedNames (CollectDefinedNames) tells a keyed atom over a
+' name nothing defines - refused as undefined - from one over a defined
+' relation that has no headers, which is refused as needing them.
+Private Function DesugarBodyAtomForm(ByVal bodyItemIndex As Long, ByVal atomForm As Variant, ByVal headerMap As Object, ByVal definedNames As Object) As Variant
     Dim result As Variant
     CopyVariant result, atomForm
 
@@ -777,6 +827,13 @@ Private Function DesugarBodyAtomForm(ByVal bodyItemIndex As Long, ByVal atomForm
                         VLA_Messages.RaiseMsg "datalog-atom-mixed-keying", "predicate", predFolded
                     ElseIf allValidPairs Then
                         If Not VLA_Runtime.VlaDictHas(headerMap, predFolded) Then
+                            ' DATALOG.8: a name nothing defines is a
+                            ' misspelling, not a relation without headers -
+                            ' said first, so the header text never blames
+                            ' the wrong thing.
+                            If Not VLA_Runtime.VlaDictHas(definedNames, predFolded) Then
+                                VLA_Messages.RaiseMsg "datalog-unknown-predicate", "predicate", predFolded
+                            End If
                             VLA_Messages.RaiseMsg "datalog-keyed-atom-needs-header", "predicate", predFolded
                         End If
                         Dim headerPairs As Collection
@@ -856,16 +913,66 @@ Private Function DesugarBodyAtomForm(ByVal bodyItemIndex As Long, ByVal atomForm
     End If
 End Function
 
+' DATALOG.8: the predicate names a program defines - its table arguments
+' (relations' keys) and the head predicate of every (fact ...) and (rule
+' ...) form - collected from the reader's forms before ParseProgram checks
+' any of them. It never refuses: a form too malformed to name anything is
+' skipped here and refused by ParseProgram itself, in its own order. A name
+' is unquoted and folded exactly as ParseAtom does it (AtomText strips one
+' leading quote mark), so a keyed atom and the form that defines its
+' predicate agree about the spelling.
+Private Function CollectDefinedNames(ByVal forms As Collection, ByVal relations As Object) As Object
+    Dim defined As Object
+    Set defined = VLA_Runtime.VlaDictNew()
+    Dim k As Variant
+    For Each k In VLA_Runtime.VlaDictKeys(relations)
+        VLA_Runtime.VlaDictSet defined, CStr(k), True
+    Next k
+    Dim f As Variant
+    For Each f In forms
+        If IsList(f) Then
+            Dim lst As Collection
+            Set lst = f
+            If lst.Count >= 2 Then
+                If Not IsObject(lst.Item(1)) Then
+                    Dim formHead As String
+                    formHead = VLA_Identity.Fold(CStr(lst.Item(1)))
+                    If formHead = "fact" Or formHead = "rule" Then
+                        If IsObject(lst.Item(2)) Then
+                            Dim atomLst As Collection
+                            Set atomLst = lst.Item(2)
+                            If atomLst.Count >= 1 Then
+                                If Not IsObject(atomLst.Item(1)) Then
+                                    Dim nm As String
+                                    nm = CStr(atomLst.Item(1))
+                                    If Left$(nm, 1) = Chr$(34) Then nm = Mid$(nm, 2)
+                                    VLA_Runtime.VlaDictSet defined, VLA_Identity.Fold(nm), True
+                                End If
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+        End If
+    Next f
+    Set CollectDefinedNames = defined
+End Function
+
 ' Parses rulesText into facts (a Collection of ground atoms), rules (a
 ' Collection of 2-item Collections: headAtom, bodyAtoms), and the one
-' required query predicate name.
-Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, ByRef rules As Collection, ByRef queryName As String, ByRef headless As Boolean, ByVal headerMap As Object)
+' required query predicate name. DATALOG.8: relations is the table
+' arguments, read here only for their names (CollectDefinedNames).
+Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, ByRef rules As Collection, ByRef queryName As String, ByRef headless As Boolean, ByVal headerMap As Object, ByVal relations As Object)
     Set facts = New Collection
     Set rules = New Collection
     queryName = ""
     headless = False
     Dim forms As Collection
     Set forms = VLA.VlaReadForms(rulesText)
+    ' DATALOG.8: every name this program defines, before any form is
+    ' checked - a keyed atom may read a relation a later form defines.
+    Dim definedNames As Object
+    Set definedNames = CollectDefinedNames(forms, relations)
     Dim queryCount As Long
     Dim f As Variant
     For Each f In forms
@@ -1002,7 +1109,7 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
                     ' EvalRuleBody) as a perfectly ordinary positional
                     ' atom, needing no new case anywhere else in this
                     ' module.
-                    CopyVariant atomForm, DesugarBodyAtomForm(bi, atomForm, headerMap)
+                    CopyVariant atomForm, DesugarBodyAtomForm(bi, atomForm, headerMap, definedNames)
                 End If
                 Dim biAtom As Collection
                 Set biAtom = ParseAtom(atomForm, "a rule body")
@@ -1142,7 +1249,9 @@ End Function
 ' ABSENT from negRel. negRel Is Nothing means the negated predicate has
 ' no relation at all yet (never appeared as a fact/table/rule head) -
 ' vacuously true for every row, same as probing a genuinely empty
-' relation, so every row survives unfiltered.
+' relation, so every row survives unfiltered. Since DATALOG.8 no program
+' that reaches evaluation can negate such a name - RefuseUndefinedPredicates
+' refuses it first - so that silence is a dead end, never an answer.
 Private Function FilterOutMatching(ByVal accum As Collection, ByVal natom As Collection, _
                                     ByVal colOf As Object, ByVal negRel As Collection) As Collection
     Dim outp As Collection
@@ -1223,7 +1332,9 @@ End Function
 ' aggregated predicate has no relation at all, e.g. an EDB predicate no
 ' fact/table ever populated) returns an empty dict - every group
 ' defaults to zero at lookup time, below, the same as probing a
-' genuinely empty relation.
+' genuinely empty relation. Since DATALOG.8 that zero can no longer come
+' from a name nothing defines: RefuseUndefinedPredicates refuses it before
+' any rule runs, so a Nothing targetRel is a dead end.
 Private Function ComputeAggregateGroups(ByVal kind As Long, ByVal atom As Collection, _
                                          ByVal colOf As Object, ByVal targetRel As Collection) As Object
     Dim groups As Object
@@ -1668,6 +1779,11 @@ Private Function EvalRuleBody(ByVal headAtom As Collection, ByVal bodyItems As C
                 havePred = VLA_Runtime.VlaDictHas(relations, AtomPred(atom))
                 If havePred Then Set srcRel = VLA_Runtime.VlaDictGet(relations, AtomPred(atom))
             End If
+            ' DATALOG.8: a miss against relations() is unreachable now -
+            ' RefuseUndefinedPredicates refused every undefined name before
+            ' evaluation. A miss against deltas() is the ordinary case: a
+            ' predicate that gained no new tuples last round has no delta,
+            ' and nothing new can join through it.
             If Not havePred Then
                 Set EvalRuleBody = New Collection
                 Exit Function
@@ -1973,6 +2089,40 @@ Private Sub RunStratifiedFixpoint(ByVal rules As Collection, ByVal relations As 
     Next s2
 End Sub
 
+' DATALOG.8: AN UNDEFINED PREDICATE REFUSES, over the whole program, before
+' any rule runs. The module header has the decision and the options it was
+' chosen over. By this point relations holds every name the program can
+' ever define: the table arguments, every fact's predicate, and every rule
+' head (DatalogRun creates each head's relation before evaluating). The
+' query's own name is checked first and keeps its own id; then every body
+' item that reads a relation - a plain atom, a `not`, a `count`, a `sum` -
+' in the order written. A comparison's or a let's "predicate" is its
+' operator symbol, never a relation, so both kinds are skipped. The first
+' undefined name met is the one named.
+Private Sub RefuseUndefinedPredicates(ByVal queryName As String, ByVal rules As Collection, ByVal relations As Object)
+    If Not VLA_Runtime.VlaDictHas(relations, queryName) Then
+        VLA_Messages.RaiseMsg "datalog-query-unknown-predicate", "predicate", queryName
+    End If
+    Dim r As Variant
+    For Each r In rules
+        Dim ruleRec As Collection
+        Set ruleRec = r
+        Dim bi As Variant
+        For Each bi In ruleRec.Item(2)
+            Dim item As Collection
+            Set item = bi
+            Select Case BodyItemKind(item)
+            Case BI_POS, BI_NOT, BI_COUNT, BI_SUM
+                Dim pred As String
+                pred = AtomPred(BodyItemAtom(item))
+                If Not VLA_Runtime.VlaDictHas(relations, pred) Then
+                    VLA_Messages.RaiseMsg "datalog-unknown-predicate", "predicate", pred
+                End If
+            End Select
+        Next bi
+    Next r
+End Sub
+
 ' The pure core, with no Excel dependency at all: parses rulesText,
 ' merges its (fact ...) forms and any supplied baseRelations (a VlaDict
 ' of predicate-name -> Relation, typically built via
@@ -2031,7 +2181,7 @@ Public Function DatalogRun(ByVal rulesText As String, Optional ByVal baseRelatio
 
     Dim facts As Collection, rules As Collection, queryName As String
     Dim headless As Boolean
-    ParseProgram rulesText, facts, rules, queryName, headless, hMap
+    ParseProgram rulesText, facts, rules, queryName, headless, hMap, relations
 
     Dim fa As Variant, factAtom As Collection
     For Each fa In facts
@@ -2072,8 +2222,16 @@ Public Function DatalogRun(ByVal rulesText As String, Optional ByVal baseRelatio
         GetOrCreateRelation relations, AtomPred(ruleRec.Item(1)), AtomArity(ruleRec.Item(1))
     Next rr
 
+    ' DATALOG.8: before any rule runs. Facts, rule heads and table
+    ' arguments are, by here, every name this program can ever define.
+    RefuseUndefinedPredicates queryName, rules, relations
+
     RunStratifiedFixpoint rules, relations
 
+    ' Unreachable since DATALOG.8, which refuses an undefined query name
+    ' above, before evaluation, with this same id. Kept, not deleted: the
+    ' alternative on a missing key is DATALOG()'s bare VlaDictGet, which
+    ' says nothing.
     If Not VLA_Runtime.VlaDictHas(relations, queryName) Then
         VLA_Messages.RaiseMsg "datalog-query-unknown-predicate", "predicate", queryName
     End If

@@ -7940,7 +7940,11 @@ G-TAIL always said this about itself; it is true of the whole tranche.
          own session** — `DATALOG`'s twin of `PROLOG.22`, refusing an
          undefined predicate statically over every predicate a query can
          reach. Its landing flips Test 11's J2 from a silent empty answer
-         to a refusal by name.
+         to a refusal by name. **Built as `DATALOG.8`, 2026-09-13, and
+         owner-verified live and committed the same day** — static, over the whole program
+         (the owner's call); its live steps re-run Test 11, whose `J2`
+         should now read `#DATALOG! 'can-drive' is used in a rule, but
+         nothing defines it …`.
       2. ⬜ **relations, sets and facts** — the relation and set
          conditions (a rule calling a rule), set heads, facts, all four
          comparisons and equality with a constant, WHAT and PAIRS, and *or*
@@ -16838,8 +16842,8 @@ now carries one summary paragraph per engine and points here.*
     that position. PROLOG's own anonymous-column scheme
     (`VLA_Prolog.bas`'s `AnonymousColumnVarName`) gets the same look wherever
     it can surface. `G-PROLOG` sentences never reach this path. `~hours`
-  - ⬜ **DATALOG.8 — refuse an undefined predicate statically, over every
-    predicate a query can reach: `PROLOG.22`'s twin.** Minted 2026-09-13,
+  - ✅ **DATALOG.8 — refuse an undefined predicate statically: `PROLOG.22`'s
+    twin, over the WHOLE PROGRAM.** Minted 2026-09-13,
     the owner's call, from `G-PROLOG` slice 1's live Test 11; to be built in
     its own session. **The defect, owner-verified live:** `DATALOG` refuses
     an unknown predicate only in the QUERY position
@@ -16871,6 +16875,111 @@ now carries one summary paragraph per engine and points here.*
     program in the suites and goldens that names an undefined body predicate.
     Its landing flips slice 1's live Test 11 J2 to a refusal and closes the
     matching known limit in `RELEASES.md`. `~days`
+
+    **BUILT, OWNER-VERIFIED LIVE and COMMITTED 2026-09-13:**
+    pure **1109/1109**, host **152/152**, `TestDSLs` **1152**/0 (the
+    predicted count exactly), `VerifyReports` **242/242 on both backends**,
+    and all six in-cell steps answering as handed off — Test 11's `J2` now
+    refusing by name, the misspelled `not` and `count` refusing where they
+    answered wrongly, a left-out Table named rather than blamed on headers,
+    and a Leave Table with no rows answering Bob and Di. Four forks,
+    each put with its measurements, decided by the owner: **STATIC**
+    (recommended); **THE WHOLE PROGRAM** (the owner's call, over the
+    recommended walk from the query); **a new `datalog-unknown-predicate`,
+    which an undefined keyed atom gets BEFORE the header text**
+    (recommended); and **the query position keeping
+    `datalog-query-unknown-predicate`, raised by the same check before any
+    rule runs** (recommended).
+
+    **MEASURED FIRST, on shipped code**, through a transliteration of
+    `DatalogRun` whose CONTROL reproduced all 79 pure `DATALOG` assertions
+    (every `raised` pin refusing with the id its name promises), the
+    owner-verified answers of slice 1's live Test 2, and Test 11's silent
+    `J2`; the checker was proved to bite by four mutated copies of the test
+    file, each exactly one FAIL. What shipped `DATALOG` did with a name
+    nothing defines:
+      - *a plain body atom*: zero rows, nothing said;
+      - *`(not (bannd X))` beside a real `banned`*: every row kept, so the
+        banned were listed as allowed — **confidently wrong**, the twin of
+        `PROLOG.22`'s `not` TRUE;
+      - *`(count N (sael X Y))`, `(sum S (amont X V))`*: a row with `0` —
+        **confidently wrong**;
+      - *a table argument with NO rows*: already defined (`DATALOG()`
+        registers a relation per table argument), and `not` over it
+        answers, so `PROLOG.22`'s empty-Table trap does not recur — pinned
+        anyway, pure and live;
+      - *a keyed atom over an undefined name*: refused, but as
+        `datalog-keyed-atom-needs-header`, blaming headers — even in a rule
+        nothing reaches, since parse refusals already covered the whole
+        program — and leaving one Table out of `G-PROLOG`'s own rules
+        refused the same way;
+      - *the query position*: refused, after the fixpoint; no test pinned
+        its text (the host alias pin checks only `#DATALOG!`);
+      - *which heads are forms, not calls*, read from `ParseProgram`'s own
+        `Select Case`: `not`, `count` and `sum` are walked INTO; `let` and
+        the six comparisons are skipped, their "predicate" an operator.
+
+    **WHY STATIC, re-argued for DATALOG rather than inherited.** Raising at
+    `EvalRuleBody`'s `havePred` miss would depend on the data (that arm
+    runs only after every earlier atom matched), would have been
+    whole-program anyway (every rule is evaluated whatever the query), and
+    would have had to tell that miss apart from a delta dict that
+    legitimately lacks a name. Post hoc misses both wrong answers, which
+    come back WITH rows. Static never looks at the data, is exact (no
+    assert), and has the precedent of every other parse-time refusal.
+    **Why the whole program:** strict first, since relaxing to a walk from
+    the query later only turns refusals into answers; and, measured, that
+    walk's benefit — a rules range shared by cells passing different
+    tables — was not yet available to `G-PROLOG`'s keyed rules, which
+    already refuse a left-out Table at parse time. Exposure was identical
+    under both scopes.
+
+    **EXPOSURE, mechanically.** Every `DatalogRun` call the pure Subs make
+    (61, run statement by statement), the six `DATALOG()` calls in
+    `TestDatalogHostTable` (programs evaluated from their VBA expressions;
+    table arguments classified by hand from the Sub's own `lo.Name` lines),
+    and every `=DATALOG(` template in the four vocabulary files,
+    instantiated with its own test-success arguments. **One program**:
+    `(rule (nothing_here X) (never_true X))`, re-pointed in place to a
+    defined relation that matches nothing; on HEAD's test file the new
+    check would have stopped `TestDatalog` outright, with no `On Error`
+    around it. The host alias query refuses as before.
+    `datalog-filter-place` and `datalog-chain-place` cannot refuse (every
+    body name is a template head or a table argument);
+    `prolog-ask-who`/`-what` read only relations the writer's rules define,
+    which is the flip this item exists for.
+
+    **THE BUILD.** `RefuseUndefinedPredicates`, called by `DatalogRun` once
+    facts, rule heads and table arguments are registered and before
+    `RunStratifiedFixpoint`: the query's name first, with its own id, then
+    every positive, `not`, `count` and `sum` body name in written order;
+    the first undefined one is named. `CollectDefinedNames`, a
+    non-refusing pre-pass at the top of `ParseProgram`, lets
+    `DesugarBodyAtomForm` refuse a keyed atom over a name nothing defines
+    as undefined, while a defined relation without headers (a fact block,
+    written before or after) keeps the header text. The post-fixpoint query
+    check and the `negRel`/`targetRel Is Nothing` guards stay, documented
+    as dead ends. One new message; `VLA_DATALOG_VERSION` → `DATALOG.8`.
+
+    **PROVEN before import.** New arms on the new test file: **97/97**.
+    Shipped arms on the new test file: fail **exactly the 11** assertions
+    of new behaviour, while the other 7 new pins — the correctly spelled
+    twin, operators, the query's own text, the zero-row table, the header
+    text for a fact block before and after the rule, the correctly spelled
+    who-question — pass on both, as pins of what must not move. New arms on
+    HEAD's test file: exactly the one exposure. **Nine mutants, all red:**
+    no `not` walk, no aggregate walk, no table-argument definitions, the
+    walk from the query, operator heads walked, the query left to the
+    fixpoint, no pre-pass, the undefined text for every keyed atom, and the
+    header text for every keyed atom.
+
+    **TESTS.** New `TestDatalogUnknownPredicate`, 18 assertions, and two
+    live zero-row pins in `TestDatalogHostTable`: **predicted `TestDSLs`
+    1132 → 1152**, counted as `Report` call sites (+20, none in a loop);
+    pure, host and `VerifyReports` unmoved. All 20 `tools/check_*.ps1`
+    green. `RELEASES.md` 0.6.0 closes the who/what known limit. Live steps:
+    six in-cell programs after the suites, including slice 1's Test 11
+    re-run.
   - ⬜ **Avoiding a full re-parse/re-fixpoint on every recalc — profiled first,
     not yet built.** `DATALOG()` re-parses `rulesText` and reruns
     `RunStratifiedFixpoint` from scratch every time Excel calls it. Worth

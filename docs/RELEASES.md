@@ -72,16 +72,25 @@
   rules of its own under that prefix, and a name of yours must never be
   mistaken for one of them.
 
+- **A misspelled relation is named, in every kind of question.** `Show in
+  cell E2 who can-drive "Night" …`, when your rules only ever say
+  `can-cover`, used to show the header with nothing under it — which looks
+  exactly like "nobody". It now says `'can-drive' is used in a rule, but
+  nothing defines it`, the way a "whether" question already did. The same
+  check covers every `=DATALOG(...)` formula: a rule that reads a relation
+  no fact, no rule and no Table defines is refused by name before anything
+  is worked out — including under `not`, `count` and `sum`, where the old
+  silence was worse than empty: a misspelled `not` let everyone through,
+  and a misspelled `count` answered 0. **Every rule in the text is
+  checked, not only the ones your question uses**, so pass every Table the
+  rules name, or keep rules that read different Tables in different ranges.
+  A Table with no rows is fine: it is still a Table you passed.
+
 - **Known limits, said plainly.** A relation's name is one word for now,
   so it is `can-cover`, with the hyphen, not `can cover`; the two-word
   spelling is next. Questions are asked one at a time. A quoted name
   must match the data's capitals exactly: `"night"` finds nothing where
-  the Table says `Night`, and says nothing about it. And a misspelled
-  relation name is caught only by "whether" questions for now: `Show …
-  whether "Bob" can-drive "Night" …` refuses by name, but the same typo
-  in a "who" or "what" question shows the header with nothing under it,
-  which looks exactly like "nobody". If an answer is surprisingly empty,
-  check the relation's spelling first; this is the next thing being fixed.
+  the Table says `Night`, and says nothing about it.
 
 ### Known open security items
 
