@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_Build"
 Option Explicit
-Public Const VLA_BUILD_VERSION As String = "EDITIONMANIFEST.2"
+Public Const VLA_BUILD_VERSION As String = "U20.1"
+' U20.1: WriteTextFile writes UTF-8 through VLA_Loader instead of ANSI
+' Print # (a U.20 follow-on) - version.iss and the ribbon XML without a
+' BOM, the ribbon-injection .ps1 with one, because Windows PowerShell
+' reads a BOM-less script as ANSI. See WriteTextFile's own header.
 ' EDITIONMANIFEST.2: owner correction - VlaBuildAddin's zero-arg call
 ' now builds EVERY known edition (VlaEditionNames), not just English,
 ' the same "run everything, report everything, one failure doesn't
@@ -791,7 +795,7 @@ Public Function VlaInjectRibbon(ByVal xlamPath As String) As String
     xmlPath = tmp & "\VlaRibbon_customUI14.xml"
     psPath = tmp & "\VlaRibbonInject.ps1"
     WriteTextFile xmlPath, VlaRibbonXml()
-    WriteTextFile psPath, RibbonPs1(xlamPath, xmlPath)
+    WriteTextFile psPath, RibbonPs1(xlamPath, xmlPath), withBom:=True   ' Windows PowerShell reads a BOM-less .ps1 as ANSI
 
     Dim sh As Object
     Set sh = CreateObject("WScript.Shell")
@@ -881,11 +885,38 @@ Private Sub EmbedTextAsSheet(ByVal wb As Workbook, ByVal sheetName As String, By
     sh.Visible = xlSheetVeryHidden
 End Sub
 
-Private Sub WriteTextFile(ByVal path As String, ByVal content As String)
-    If Len(Dir$(path)) > 0 Then Kill path
-    Dim f As Integer
-    f = FreeFile
-    Open path For Output As #f
-    Print #f, content
-    Close #f
+' U.20 follow-on: this was Open ... For Output + Print #, VBA's ANSI
+' write - the writer that turned english.vla's pound sign into invalid
+' UTF-8. Now UTF-8 through VLA_Loader, and each of the three consumers
+' decides the rest:
+'   - version.iss: ASCII by construction (a version number), #included
+'     by Frazaro.iss, which is BOM-less too - no BOM.
+'   - the ribbon's customUI XML: no XML declaration, so every reader
+'     takes it as UTF-8 - the injection script's [IO.File]::ReadAllText,
+'     then Office. An ANSI write was only right while every caption is
+'     ASCII; a non-English edition's ribbon would not be. No BOM.
+'   - the injection .ps1: run by powershell.exe (Windows PowerShell 5.1),
+'     which reads a BOM-less script as ANSI - so withBom:=True. Without
+'     the BOM, a path the ANSI write handled (an e-acute in a folder
+'     name) would come back mangled.
+' Still ending with the one line break Print # appended, so ASCII output
+' is byte-identical to the old writer's, apart from the .ps1's BOM.
+Private Sub WriteTextFile(ByVal path As String, ByVal content As String, _
+                          Optional ByVal withBom As Boolean = False)
+    Dim body() As Byte, bodyN As Long
+    bodyN = VLA_Loader.VlaUtf8Encode(content & vbCrLf, body)
+    If Not withBom Then
+        VLA_Loader.VlaWriteFileBytes path, body, bodyN
+        Exit Sub
+    End If
+    Dim b() As Byte
+    ReDim b(0 To bodyN + 2)
+    b(0) = &HEF
+    b(1) = &HBB
+    b(2) = &HBF
+    Dim i As Long
+    For i = 0 To bodyN - 1
+        b(i + 3) = body(i)
+    Next
+    VLA_Loader.VlaWriteFileBytes path, b, bodyN + 3
 End Sub
