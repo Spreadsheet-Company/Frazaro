@@ -7560,7 +7560,7 @@ G-TAIL always said this about itself; it is true of the whole tranche.
     cells, and questions that read them.** **Scoped 2026-09-10/11**, seven
     forks decided by the owner; **slice 1 BUILT 2026-09-12, OWNER-VERIFIED
     LIVE 2026-09-13 in two rounds, and committed; slice 2 BUILT,
-    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14; slice 3 SCOPED 2026-09-14, its precursor `DATALOG.9` built, owner-verified live and committed the same day** (see the slice list below for what each ships and
+    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14; slice 3 BUILT, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, on its precursor `DATALOG.9` (built, owner-verified live and committed the same day)** (see the slice list below for what each ships and
     what it proved). *The previous text of this
     entry said its dependency, `PROLOG.1`–`.6`, was unbuilt. It was stale:
     `PROLOG.1`–`.24` have shipped.* This is the project's reason for being,
@@ -8128,11 +8128,13 @@ G-TAIL always said this about itself; it is true of the whole tranche.
          `english.vla` is that built-and-tested text; the rewritten copy was
          kept aside for the owner, since whatever rewrote a source phrasebook
          and broke its encoding is its own defect.
-      3. ⬜ **recursion and closure** — a rule that names itself, "directly
+      3. ✅ **recursion and closure** — a rule that names itself, "directly
          or not", `DATALOG`-routed so that a cycle terminates. §2, §5, §6,
          §11, §12.
-         **SCOPED 2026-09-14; NOT BUILT. Its precursor `DATALOG.9`, the
-         owner's call, shipped the same day, owner-verified live.** Six forks went to the owner with their
+         **SCOPED, BUILT, OWNER-VERIFIED LIVE on the first pass and committed
+         2026-09-14** (the live record closes this slice's text). Its
+         precursor `DATALOG.9`, the owner's call, shipped the same day,
+         owner-verified live. Six forks went to the owner with their
          measurements, and all six took the recommended option.
          **MEASURED FIRST, on shipped code** (transliterations; no VBA ran).
          Slice 2's controls were re-run on HEAD before any verdict:
@@ -8222,9 +8224,78 @@ G-TAIL always said this about itself; it is true of the whole tranche.
          literal; new message ids; pins under `TestDSLs`; `test-success`
          lines under the two shipped rows, whose patterns do not change (so
          no new `GRAMMAR_SINCE` row); and a live pass that re-runs slices 1
-         and 2's WHETHER steps on their new route. The harness — `m3_cases`,
-         `pl_run3`, `m3_show` and `s3_probe`, beside slice 2's — is in
-         session `1579476d`'s scratchpad.
+         and 2's WHETHER steps on their new route. The scoping harness —
+         `m3_cases`, `pl_run3` and `m3_show`, beside slice 2's — is in session
+         `1579476d`'s scratchpad; its sentence probe, `s3_probe`, was folded
+         into `s3_run` below.
+         **BUILT 2026-09-14, on the six decisions above.**
+         `VLA_SentenceEngine.bas`: "directly or not" is read after a
+         relation's second operand in `ParseConditions` (through
+         `ParseOneRoleCondition`, which now reports each condition's shape
+         and name) and in `ParseQuestion`, and a new slice-3 section holds
+         `AtDirectlyOrNot`, `ClosureName`, `ClosureRules` and
+         `ValidateRelationTableNames`. A closure's two rules are written once
+         per cell beside any projection rules, a closure question carries its
+         own, and every question's engine is `DATALOG`. `ParseClause` refuses
+         the phrase in a head, left recursion (a first positive condition
+         naming the head relation, plainly or as a closure) and a relation
+         named after a Table its own conditions read; the range lint's
+         records gain each clause's tables and line, and
+         `ValidateRelationTableNames` refuses the cross-cell case after
+         `ValidateActionCalls`, its records set aside by the shadow audit as
+         the lint's are. `VLA_Messages.bas`: 464 → 469 ids (five new).
+         `english.vla`: no new row, so no `GRAMMAR_SINCE` row, since the two
+         slice-2 rows' patterns are unchanged; the whether `test-success` now
+         expects `DATALOG`, three `test-success` lines are new (a closure
+         clause, a closure who, a closure whether), and the routing comment
+         says why. `VLA_Tests_Query.bas`: `TestPrologQuestions`' two whether
+         pins re-pointed in place, and a new `TestPrologClosure`, 25 pins,
+         under `TestDSLs`.
+         **PROVEN, before import**, through the slice-3 model (`g3_s3`, over
+         slice 2's). **Controls:** the `english.vla` rows **11/0**, which
+         slice 2's grammar cannot produce; slice 1's conditions pins
+         **23/0**; and the pin generator re-emits `TestPrologClauses` and
+         `TestPrologRangeLint` **byte-identical** to the shipped Subs, with
+         `TestPrologQuestions` differing in exactly its header and the two
+         re-pointed pins. **67 derived pins, 0 bad**, and **fourteen mutations
+         each red**: the closure rules dropped (4), not deduplicated (1), not
+         escaped (10), left recursion allowed (3), a self-named relation
+         allowed (3), the program lint dropped (1), a whether routed to
+         `PROLOG` (3), the phrase after a set, a comparison or in a question
+         allowed (3), in a head (1), after a row (1), and slice 2's four
+         (36, 11, 1, 3). **End to end from sentences** through `DATALOG` with
+         `DATALOG.9`'s arm (`s3_run`): **62 pass / 0 fail** — slice 2's
+         recorded answers unmoved with every whether now in `DATALOG`; the
+         org chart, bill of materials, prerequisites, lineage, routes over a
+         cycle, access roles and a closure under `not`, all as the corpus
+         records; the three Check refusals; `routes-reach`'s whether refused
+         by DEPTH in `PROLOG` beside `DATALOG`'s TRUE and FALSE; and the
+         moved behaviour, `PROLOG`'s TRUE beside `DATALOG`'s refusal naming
+         the undefined relation. Structure scan clean against HEAD; CRLF and
+         UTF-8 kept. `tools/check_*.ps1`: 18 green, with `check_rule_coverage`
+         and `check_grammar_since` reporting `english_expanded.vla` STALE
+         until the owner re-exports it. *What none of this proves:* no VBA
+         ran. **Predicted:** `TestDSLs` 1215 → **1240** (+25 Report
+         executions, none in a loop); pure 1109, host 152 and `VerifyReports`
+         242/242 on both backends unmoved. Live steps: eleven programs,
+         generated (`h3_live`). The build harness — `g3_s3`, `gen_pins3`,
+         `cmp_subs`, `tq3_apply`, `s3_run`, `h3_live`, `h3_before`,
+         `h3_match` — is in the same scratchpad.
+         **OWNER-VERIFIED LIVE 2026-09-14, first pass, and committed:** pure
+         **1109/1109**, host **152/152**, `TestDSLs` **1240**/0 (the predicted
+         count exactly), `VerifyReports` **242/242 on both backends**, and all
+         eleven in-cell tests answering as handed off — a closure in a rule,
+         and in a question beside its neighbour without the words; a route over
+         data that loops answering TRUE and FALSE; slice 1's whether written as
+         `=DATALOG(` with its answers unchanged; a closure under `not`; the
+         five Check refusals in their own words (left recursion, a self-named
+         relation in one sentence and across two cells, the phrase after a set
+         and in a head); and the behaviour that moved, a whether over a range
+         holding an undefined relation elsewhere, refused by name where
+         `PROLOG` answered TRUE. *Still owed:* `english_expanded.vla` was not
+         re-exported before this commit, so `check_rule_coverage` and
+         `check_grammar_since` report it STALE until Export Expanded
+         Vocabulary runs; the other 18 are green.
       4. ⬜ **answer shapes** — COUNT (`DATALOG`'s own set count), NONE,
          EVERY, ONLY, ANY and EACH. §14, §15.
       5. ⬜ **PROLOG's own** — text conditions (starts with, contains),

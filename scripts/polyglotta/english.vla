@@ -3978,13 +3978,21 @@
 (test-success
     "Write in cell H7 that \"B3\" is flagged."
     (prolog-clause-place (range "h7") "(fact (flagged \"B3\"))"))
+; SLICE 3 (the owner's calls, 2026-09-14): "directly or not" after a
+; relation asks for one step along it or more, and writes two generated
+; rules, vla-any-<relation>, always right-recursive, before the rule.
+(test-success
+    "Write in cell H3 that a person is-under a boss if the person reports-to the boss directly or not."
+    (prolog-clause-place (range "h3") "(rule (vla-any-reports--to X Y) (reports-to X Y)) (rule (vla-any-reports--to X Y) (reports-to X Z) (vla-any-reports--to Z Y)) (rule (is-under Person Boss) (vla-any-reports--to Person Boss))"))
 
 ; The questions. {..:question} binds two things: the program text the
 ; question adds after the rules - its quotes already doubled for Excel's
 ; string literal, since only the sub-grammar knows where a typed constant's
 ; quotes are - and, under {..-engine}, the engine the question's SHAPE
 ; routes it to, G-PROLOG's decision 5 made literal. "whether" is a ground
-; TRUE or FALSE and goes to PROLOG. A who, what or which unknown goes to
+; TRUE or FALSE, and since slice 3 goes to DATALOG as one fact written out
+; whole (DATALOG.9), which answers even where data loops back on itself. A
+; who, what or which unknown goes to
 ; DATALOG (set answers, termination on cycles), through a narrowing rule
 ; named vla-ask-<relation> - a prefix no writer's name may start with -
 ; whose head is the unknowns, so an answer's headers are the question's
@@ -4021,13 +4029,19 @@
     (prolog-ask-place "DATALOG" "(rule (vla-ask-can-cover What) (can-cover \"\"Bob\"\" What)) (query vla-ask-can-cover)" "h2:h4" (vlatablearguments (array "staff" "shifts" "leave")) (range "e3")))
 (test-success
     "Show in cell E4 whether \"Bob\" can-cover \"Night\" by applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave."
-    (prolog-ask-place "PROLOG" "(query (can-cover \"\"Bob\"\" \"\"Night\"\"))" "h2:h4" (vlatablearguments (array "staff" "shifts" "leave")) (range "e4")))
+    (prolog-ask-place "DATALOG" "(query (can-cover \"\"Bob\"\" \"\"Night\"\"))" "h2:h4" (vlatablearguments (array "staff" "shifts" "leave")) (range "e4")))
 (test-success
     "Show in cell E6 which person can-cover which shift by applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave."
     (prolog-ask-place "DATALOG" "(rule (vla-ask-can-cover Person Shift) (can-cover Person Shift)) (query vla-ask-can-cover)" "h2:h4" (vlatablearguments (array "staff" "shifts" "leave")) (range "e6")))
 (test-success
     "Show in cell E2 which bill is a violation by applying the rules in H2:H8 to the data tables Bills, Approvals, and Preferred."
     (prolog-ask-place "DATALOG" "(rule (vla-ask-violation Bill) (violation Bill)) (query vla-ask-violation)" "h2:h8" (vlatablearguments (array "bills" "approvals" "preferred")) (range "e2")))
+(test-success
+    "Show in cell E7 who reports-to \"Alice\" directly or not by applying the rules in H2:H2 to the data tables Reports."
+    (prolog-ask-place "DATALOG" "(rule (vla-any-reports--to X Y) (reports-to X Y)) (rule (vla-any-reports--to X Y) (reports-to X Z) (vla-any-reports--to Z Y)) (rule (vla-ask-reports-to Who) (vla-any-reports--to Who \"\"Alice\"\")) (query vla-ask-reports-to)" "h2:h2" (vlatablearguments (array "reports")) (range "e7")))
+(test-success
+    "Show in cell E8 whether \"Eve\" reports-to \"Alice\" directly or not by applying the rules in H2:H2 to the data tables Reports."
+    (prolog-ask-place "DATALOG" "(rule (vla-any-reports--to X Y) (reports-to X Y)) (rule (vla-any-reports--to X Y) (reports-to X Z) (vla-any-reports--to Z Y)) (query (vla-any-reports--to \"\"Eve\"\" \"\"Alice\"\"))" "h2:h2" (vlatablearguments (array "reports")) (range "e8")))
 
 
 

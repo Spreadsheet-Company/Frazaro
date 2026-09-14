@@ -549,6 +549,10 @@ Private mCallNames As Collection   ' lcase action name per recorded call
 Private mRuleCellRels As Collection
 Private mRuleCellAddrs As Collection
 Private mRuleCellBodies As Collection
+' G-PROLOG slice 3: ...and per clause sentence the tables its conditions read,
+' and its line (ValidateRelationTableNames).
+Private mRuleCellTables As Collection
+Private mRuleCellLines As Collection
 Private mAskRels As Collection
 Private mAskRanges As Collection
 Private mAskLines As Collection
@@ -830,6 +834,8 @@ Public Function EnglishToVla(ByVal text As String) As String
     Set mRuleCellRels = New Collection
     Set mRuleCellAddrs = New Collection
     Set mRuleCellBodies = New Collection
+    Set mRuleCellTables = New Collection
+    Set mRuleCellLines = New Collection
     Set mAskRels = New Collection
     Set mAskRanges = New Collection
     Set mAskLines = New Collection
@@ -1146,6 +1152,9 @@ Public Function EnglishToVla(ByVal text As String) As String
 
     ' Every definition is now known: check the recorded calls.
     ValidateActionCalls
+    ' G-PROLOG slice 3: ...no relation may be named after a table another
+    ' rule cell reads...
+    ValidateRelationTableNames
     ' ...and every rule cell is now known: check each question's range.
     ValidateQuestionRanges
 
@@ -2927,16 +2936,21 @@ Private Sub AuditCrossRuleShadow()
     ' of catching an old one.
     Dim savedCN As Collection, savedCA As Collection, savedCT As Collection, savedCL As Collection
     Dim savedRR As Collection, savedRA As Collection, savedRB As Collection
+    Dim savedRT As Collection, savedRL As Collection
     Dim savedQR As Collection, savedQA As Collection, savedQL As Collection
     Set savedRR = mRuleCellRels
     Set savedRA = mRuleCellAddrs
     Set savedRB = mRuleCellBodies
+    Set savedRT = mRuleCellTables
+    Set savedRL = mRuleCellLines
     Set savedQR = mAskRels
     Set savedQA = mAskRanges
     Set savedQL = mAskLines
     Set mRuleCellRels = Nothing
     Set mRuleCellAddrs = Nothing
     Set mRuleCellBodies = Nothing
+    Set mRuleCellTables = Nothing
+    Set mRuleCellLines = Nothing
     Set mAskRels = Nothing
     Set mAskRanges = Nothing
     Set mAskLines = Nothing
@@ -3014,6 +3028,8 @@ Private Sub AuditCrossRuleShadow()
     Set mRuleCellRels = savedRR
     Set mRuleCellAddrs = savedRA
     Set mRuleCellBodies = savedRB
+    Set mRuleCellTables = savedRT
+    Set mRuleCellLines = savedRL
     Set mAskRels = savedQR
     Set mAskRanges = savedQA
     Set mAskLines = savedQL
@@ -4592,7 +4608,7 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
     ' G-PROLOG slice 2: what a clause or question slot matched, and the
     ' one cell or range slot beside it, for the range lint.
     Dim clauseRel As String, questionRel As String, questionEngine As String
-    Dim clauseNames As Collection
+    Dim clauseNames As Collection, clauseTables As Collection
     Dim sawClause As Boolean, sawQuestion As Boolean
     Dim lintCell As String, lintRange As String
     Dim lintCellCount As Long, lintRangeCount As Long
@@ -4748,7 +4764,8 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
                     ' G-PROLOG slice 2: a rule or a fact, whole - see
                     ' ParseClause's section header. Binds the cell text.
                     Set clauseNames = New Collection
-                    val = ParseClause(toks, p, clauseRel, clauseNames, ok)
+                    Set clauseTables = New Collection
+                    val = ParseClause(toks, p, clauseRel, clauseNames, clauseTables, ok)
                     If ok Then
                         val = VlaStringLit(val)
                         sawClause = True
@@ -4862,7 +4879,7 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
     pos = p
     ' G-PROLOG slice 2: only a rule that matched is recorded, and only when
     ' it names exactly one cell (a clause) or one range (a question).
-    If sawClause And lintCellCount = 1 Then RecordRuleCell lintCell, clauseRel, clauseNames
+    If sawClause And lintCellCount = 1 Then RecordRuleCell lintCell, clauseRel, clauseNames, clauseTables
     If sawQuestion And lintRangeCount = 1 Then RecordQuestionRange lintRange, questionRel
     outText = TryFormPath(idx, bn, bv)
     mLastRuleIdx = idx
@@ -5380,7 +5397,7 @@ End Function
 '   Condition  := "not"? ( TableRow | Relation | Set | Comparison )
 '   TableRow   := <table> "lists" Column ( Sep Column )*
 '   Column     := Operand "as" <header>
-'   Relation   := Operand <rel> Operand
+'   Relation   := Operand <rel> Operand ( "directly" "or" "not" )?   (slice 3)
 '   Set        := <role> "is" <set>
 '   Comparison := <role> "is" Op ( <role> | <number> )
 '   Op         := "at least" | "at most" | "greater than" | "less than"
@@ -5477,11 +5494,16 @@ End Function
 ' namesOut and boundOut are for the clause sub-grammar (ParseClause): the
 ' relation and set names the conditions read, which the Check-time range
 ' lint walks, and the roles they bind positively, which a rule's head
-' roles are checked against. Either may be Nothing.
+' roles are checked against. Either may be Nothing. G-PROLOG slice 3:
+' tablesOut receives the tables its Table rows read, and firstRel the
+' relation or set its FIRST condition names when that condition is positive
+' ("" otherwise) - the self-name and left-recursion checks' inputs.
 Private Function ParseConditions(toks() As String, ByRef pos As Long, _
                                  ByRef preRules As String, ByRef ok As Boolean, _
                                  Optional ByVal namesOut As Collection, _
-                                 Optional ByVal boundOut As Collection) As String
+                                 Optional ByVal boundOut As Collection, _
+                                 Optional ByVal tablesOut As Collection, _
+                                 Optional ByRef firstRel As String = "") As String
     Dim goals As String
     Dim pre As String
     Dim preSeen As Collection
@@ -5497,6 +5519,11 @@ Private Function ParseConditions(toks() As String, ByRef pos As Long, _
     Dim sawSep As Boolean
     Dim projName As String
     Dim rv As Variant
+    Dim condIndex As Long
+    Dim condKind As String
+    Dim condName As String
+    Dim condClosure As Boolean
+    Dim closureNm As String
 
     ok = False
     preRules = ""
@@ -5504,8 +5531,10 @@ Private Function ParseConditions(toks() As String, ByRef pos As Long, _
     Set posRoles = New Collection
     Set allRoles = New Collection
     p = pos
+    firstRel = ""
 
     Do
+        condIndex = condIndex + 1
         negated = False
         If TokAt(toks, p) = "not" Then
             negated = True
@@ -5523,9 +5552,27 @@ Private Function ParseConditions(toks() As String, ByRef pos As Long, _
                                     rowTable, rowHeaders, rowArgs, rowProjVars, rowProjBody, ok)
             If Not ok Then Exit Function
             isRow = True
+            ' G-PROLOG slice 3: "directly or not" follows a relation, never a row.
+            If AtDirectlyOrNot(toks, p) Then
+                VLA_Messages.RaiseMsg "english-conditions-closure-needs-relation", "shape", "a table row"
+            End If
+            NoteName tablesOut, rowTable
         Else
-            goal = ParseOneRoleCondition(toks, p, negated, posRoles, allRoles, namesOut, ok)
+            goal = ParseOneRoleCondition(toks, p, negated, posRoles, allRoles, namesOut, _
+                                         condKind, condName, condClosure, ok)
             If Not ok Then Exit Function
+            ' G-PROLOG slice 3: a closure's two generated rules are written once
+            ' per cell, beside any projection rules (this module's slice-3 section).
+            If condClosure Then
+                closureNm = ClosureName(condName)
+                If Not CollHasKey(preSeen, closureNm) Then
+                    preSeen.Add True, closureNm
+                    pre = pre & ClosureRules(condName)
+                End If
+            End If
+            If condIndex = 1 And Not negated Then
+                If condKind = "relation" Or condKind = "set" Then firstRel = condName
+            End If
         End If
 
         If negated Then
@@ -5589,7 +5636,9 @@ End Function
 ' section's header.)
 Private Function ParseOneRoleCondition(toks() As String, ByRef p As Long, ByVal negated As Boolean, _
                                        posRoles As Collection, allRoles As Collection, _
-                                       ByVal namesOut As Collection, ByRef ok As Boolean) As String
+                                       ByVal namesOut As Collection, ByRef condKind As String, _
+                                       ByRef condName As String, ByRef isClosure As Boolean, _
+                                       ByRef ok As Boolean) As String
     Dim v1 As String, v2 As String
     Dim v1IsRole As Boolean, v2IsRole As Boolean
     Dim nm As String
@@ -5598,6 +5647,9 @@ Private Function ParseOneRoleCondition(toks() As String, ByRef p As Long, ByVal 
     Dim swapped As Boolean
 
     ok = False
+    condKind = ""
+    condName = ""
+    isClosure = False
     If Not TakeOperand(toks, p, allRoles, v1, v1IsRole) Then Exit Function
 
     If TokAt(toks, p) <> "is" Then
@@ -5612,7 +5664,17 @@ Private Function ParseOneRoleCondition(toks() As String, ByRef p As Long, ByVal 
             If v2IsRole Then NoteRoleBound posRoles, v2
         End If
         NoteName namesOut, nm
-        ParseOneRoleCondition = "(" & nm & " " & v1 & " " & v2 & ")"
+        condKind = "relation"
+        condName = nm
+        ' G-PROLOG slice 3: "directly or not" after the second operand asks for
+        ' one step or more along the relation, through its generated closure.
+        If AtDirectlyOrNot(toks, p) Then
+            p = p + 3
+            isClosure = True
+            ParseOneRoleCondition = "(" & ClosureName(nm) & " " & v1 & " " & v2 & ")"
+        Else
+            ParseOneRoleCondition = "(" & nm & " " & v1 & " " & v2 & ")"
+        End If
         ok = True
         Exit Function
     End If
@@ -5655,6 +5717,10 @@ Private Function ParseOneRoleCondition(toks() As String, ByRef p As Long, ByVal 
             End If
         End If
         If Not TakeOperand(toks, p, allRoles, v2, v2IsRole) Then Exit Function
+        If AtDirectlyOrNot(toks, p) Then
+            VLA_Messages.RaiseMsg "english-conditions-closure-needs-relation", "shape", "a comparison"
+        End If
+        condKind = "comparison"
         If swapped Then
             ParseOneRoleCondition = "(" & op & " " & v2 & " " & v1 & ")"
         Else
@@ -5678,8 +5744,13 @@ Private Function ParseOneRoleCondition(toks() As String, ByRef p As Long, ByVal 
     If Len(nm) = 0 Then Exit Function
     RefuseGrammarWordAsName nm
     p = p + 1
+    If AtDirectlyOrNot(toks, p) Then
+        VLA_Messages.RaiseMsg "english-conditions-closure-needs-relation", "shape", "a set"
+    End If
     If Not negated Then NoteRoleBound posRoles, v1
     NoteName namesOut, nm
+    condKind = "set"
+    condName = nm
     ParseOneRoleCondition = "(" & nm & " " & v1 & ")"
     ok = True
 End Function
@@ -5908,7 +5979,9 @@ End Function
 '   Unknown  := "who" | "what" | "which" <noun>
 '
 ' Its SHAPE routes it, decision 5 made literal: no unknown ("whether") is
-' a ground TRUE/FALSE and goes to PROLOG; one or two unknowns go to
+' a ground TRUE/FALSE - which went to PROLOG until slice 3 and now goes to
+' DATALOG as one ground atom (DATALOG.9; the slice-3 section below has
+' why) - and one or two unknowns go to
 ' DATALOG through a narrowing rule, vla-ask-<relation>, whose head is the
 ' unknowns in argument order. The answer's headers are the question's
 ' own words - Who, What, or the noun after "which" - and never the rules'
@@ -6039,7 +6112,8 @@ End Function
 ' The clause sub-grammar - see this section's header. Returns the cell
 ' text; headRelation and bodyNames feed the range lint.
 Private Function ParseClause(toks() As String, ByRef pos As Long, ByRef headRelation As String, _
-                             ByVal bodyNames As Collection, ByRef ok As Boolean) As String
+                             ByVal bodyNames As Collection, ByVal bodyTables As Collection, _
+                             ByRef ok As Boolean) As String
     Dim p As Long
     Dim subj As String, obj As String
     Dim subjRole As Boolean, objRole As Boolean
@@ -6048,6 +6122,7 @@ Private Function ParseClause(toks() As String, ByRef pos As Long, ByRef headRela
     Dim goals As String, pre As String
     Dim condOk As Boolean
     Dim bound As Collection
+    Dim firstRel As String
 
     ok = False
     p = pos
@@ -6069,16 +6144,31 @@ Private Function ParseClause(toks() As String, ByRef pos As Long, ByRef headRela
         If Not TakeHeadOperand(toks, p, obj, objRole) Then Exit Function
         headText = "(" & rel & " " & subj & " " & obj & ")"
     End If
+    ' G-PROLOG slice 3: a closure is asked for in a condition or a question,
+    ' never concluded.
+    If AtDirectlyOrNot(toks, p) Then
+        VLA_Messages.RaiseMsg "english-clause-closure-in-head", "relation", rel
+    End If
 
     If TokAt(toks, p) = "if" Then
         p = p + 1
         Set bound = New Collection
-        goals = ParseConditions(toks, p, pre, condOk, bodyNames, bound)
+        goals = ParseConditions(toks, p, pre, condOk, bodyNames, bound, bodyTables, firstRel)
         If Not condOk Then Exit Function
         ' A head role no condition binds would make the rule true of
         ' every value that role could take - see this section's header.
         If subjRole Then RefuseUnboundHeadRole subj, bound
         If objRole Then RefuseUnboundHeadRole obj, bound
+        ' G-PROLOG slice 3: a relation named after a table this rule reads, and
+        ' a rule whose first condition asks its own relation again.
+        If Not bodyTables Is Nothing Then
+            If CollHasKey(bodyTables, rel) Then
+                VLA_Messages.RaiseMsg "english-clause-relation-names-table", "relation", rel
+            End If
+        End If
+        If firstRel = rel Then
+            VLA_Messages.RaiseMsg "english-clause-left-recursion", "relation", rel
+        End If
         ParseClause = pre & "(rule " & headText & " " & goals & ")"
     Else
         ' No "if": a fact, which names only values.
@@ -6131,6 +6221,9 @@ Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine
     Dim isWhether As Boolean
     Dim rel As String
     Dim goal As String, headVars As String, tail As String
+    Dim closure As Boolean
+    Dim goalPred As String
+    Dim pre As String
 
     ok = False
     p = pos
@@ -6150,6 +6243,9 @@ Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine
         If Len(rel) = 0 Then Exit Function
         RefuseGrammarWordAsName rel
         p = p + 1
+        If AtDirectlyOrNot(toks, p) Then
+            VLA_Messages.RaiseMsg "english-conditions-closure-needs-relation", "shape", "a set"
+        End If
         goal = "(" & rel & " " & a1 & ")"
         If u1 Then headVars = a1
     ElseIf u1 And IsConstantTok(TokAt(toks, p)) Then
@@ -6159,7 +6255,13 @@ Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine
         If Len(rel) = 0 Then Exit Function
         RefuseGrammarWordAsName rel
         p = p + 1
-        goal = "(" & rel & " " & a2 & " " & a1 & ")"
+        goalPred = rel
+        If AtDirectlyOrNot(toks, p) Then
+            p = p + 3
+            closure = True
+            goalPred = ClosureName(rel)
+        End If
+        goal = "(" & goalPred & " " & a2 & " " & a1 & ")"
         headVars = a1
     Else
         rel = WordAt(toks, p)
@@ -6170,13 +6272,19 @@ Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine
             If Not TakeUnknown(toks, p, a2) Then Exit Function
             u2 = True
         End If
+        goalPred = rel
+        If AtDirectlyOrNot(toks, p) Then
+            p = p + 3
+            closure = True
+            goalPred = ClosureName(rel)
+        End If
         If isWhether And u2 Then
             VLA_Messages.RaiseMsg "english-question-whether-unknown", "unknown", LCase$(a2)
         End If
         If u1 And u2 And LCase$(a1) = LCase$(a2) Then
             VLA_Messages.RaiseMsg "english-question-same-unknown", "unknown", LCase$(a1)
         End If
-        goal = "(" & rel & " " & a1 & " " & a2 & ")"
+        goal = "(" & goalPred & " " & a1 & " " & a2 & ")"
         If u1 Then headVars = a1
         If u2 Then
             If Len(headVars) > 0 Then headVars = headVars & " "
@@ -6184,12 +6292,15 @@ Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine
         End If
     End If
 
+    ' G-PROLOG slice 3: a closure question carries its own two rules, and every
+    ' question goes to DATALOG - a whether as one ground atom (DATALOG.9),
+    ' which answers over data that loops back on itself, where PROLOG could not.
+    If closure Then pre = ClosureRules(rel)
+    engine = "DATALOG"
     If isWhether Then
-        engine = "PROLOG"
-        tail = "(query " & goal & ")"
+        tail = pre & "(query " & goal & ")"
     Else
-        engine = "DATALOG"
-        tail = "(rule (vla-ask-" & rel & " " & headVars & ") " & goal & ") (query vla-ask-" & rel & ")"
+        tail = pre & "(rule (vla-ask-" & rel & " " & headVars & ") " & goal & ") (query vla-ask-" & rel & ")"
     End If
     relation = rel
     pos = p
@@ -6197,13 +6308,119 @@ Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine
     ok = True
 End Function
 
+' =====================================================================
+'  G-PROLOG slice 3: recursion and closure
+' =====================================================================
+' The owner's calls, 2026-09-14, each measured first through slice 2's
+' transliterations (BETA_ROADMAP1.md, G-PROLOG slice 3). A rule calling
+' itself was already sayable; this slice adds the phrase, and closes the
+' hazards recursion brings that the clause sub-grammar can see.
+'
+' "DIRECTLY OR NOT" TRAILS A RELATION, in a condition or a question: "the
+' person reports-to the boss directly or not", "who reports-to "Alice"
+' directly or not". These are the words 0.5.0 already shipped in
+' G-DATALOG's row, and the long view put to the owner: logic programming
+' has no closure operator, OWL declares a relation transitive once (so the
+' bare relation would mean the closure everywhere, the undecided spelling
+' SD-19 forbids), and SPARQL's p+, Cypher's * and SQL's WITH RECURSIVE mark
+' each use, as this does. It means one step or more, never zero. After a
+' set, a comparison or a Table row it is refused by name, and in a rule's
+' head too: a closure is asked for, never concluded.
+'
+' IT WRITES TWO GENERATED RULES, always RIGHT-recursive - the base step,
+' then one step and the rest - under vla-any-<relation>, the corpus's own
+' -any names: (rule (vla-any-reports--to X Y) (reports-to X Y)) (rule
+' (vla-any-reports--to X Y) (reports-to X Z) (vla-any-reports--to Z Y)).
+' Right, because the left-recursive order loops in PROLOG while DATALOG
+' answers either. The name is a fixed prefix and ONE escaped part, so it is
+' injective, can never meet vla-not- or vla-ask-, and a writer cannot type
+' it (RefuseGeneratedPrefix). In a clause the rules go where a negated
+' row's projection goes, before the rule, once per cell; a question carries
+' its own.
+'
+' EVERY QUESTION GOES TO DATALOG. A whether is written as one ground atom,
+' which DATALOG answers TRUE or FALSE since DATALOG.9. Measured, PROLOG
+' collects every proof before a ground query says TRUE, so over a closure
+' whose data loops it refused by DEPTH whether or not a route existed, and
+' it followed a generated closure only 39 links deep. Every clause this
+' grammar writes is in the shared subset, and 0.6.0 is untagged, so no
+' released formula moved. What moves is DATALOG.8's scope: it checks the
+' whole program where PROLOG.22 walked from the query, so a rules range
+' holding a rule the question never uses, over an undefined relation or a
+' Table not passed, now refuses where PROLOG answered.
+'
+' LEFT RECURSION IS REFUSED AT CHECK: a rule whose FIRST condition, positive,
+' names its own head relation - plainly or as a closure - loops in PROLOG
+' for a TRUE and a FALSE alike. Exact within one sentence. A cycle through
+' several cells is a named limit, left to PROLOG's DEPTH refusal, and no
+' question this grammar writes reaches PROLOG any more.
+'
+' A RELATION NAMED AFTER A TABLE IS REFUSED ACROSS THE PROGRAM: a relation
+' and a table with one name are one predicate in both engines, so the rule
+' reads itself - PROLOG never finishes, and DATALOG merges the rule into the
+' table, a no-op. Refused in the sentence that names both, and after the
+' whole program has translated when the name and the table meet in two
+' cells (ValidateRelationTableNames), the range lint's own scope. Named
+' limit: a table passed only in a question's list, or rules typed by hand.
+'
+' OUT OF SCOPE, recorded and not refused: a quantity rolled up along a
+' closure (bom-qty) and a topological order (pre-order).
+
+' "directly or not" at p - the whole three-token phrase, or nothing.
+Private Function AtDirectlyOrNot(toks() As String, ByVal p As Long) As Boolean
+    If TokAt(toks, p) <> "directly" Then Exit Function
+    If TokAt(toks, p + 1) <> "or" Then Exit Function
+    AtDirectlyOrNot = (TokAt(toks, p + 2) = "not")
+End Function
+
+Private Function ClosureName(ByVal rel As String) As String
+    ClosureName = "vla-any-" & EscapeNamePart(rel)
+End Function
+
+' The two generated rules for rel's closure, with the trailing space a
+' projection rule's text also carries.
+Private Function ClosureRules(ByVal rel As String) As String
+    Dim nm As String
+    nm = ClosureName(rel)
+    ClosureRules = "(rule (" & nm & " X Y) (" & rel & " X Y)) " & _
+                   "(rule (" & nm & " X Y) (" & rel & " X Z) (" & nm & " Z Y)) "
+End Function
+
+' A relation written in one cell and a table of the same name read by a rule
+' in ANOTHER cell of the same program; the same-sentence case was refused at
+' parse. Records are set aside by the shadow audit, as the range lint's are.
+Private Sub ValidateRelationTableNames()
+    Dim ci As Long, cj As Long
+    Dim rel As String
+    Dim tb As Variant
+    If mRuleCellRels Is Nothing Then Exit Sub
+    For ci = 1 To mRuleCellRels.Count
+        rel = CStr(mRuleCellRels.Item(ci))
+        For cj = 1 To mRuleCellRels.Count
+            If cj <> ci Then
+                For Each tb In mRuleCellTables.Item(cj)
+                    If CStr(tb) = rel Then
+                        mErrLine = CLng(mRuleCellLines.Item(ci))
+                        VLA_Messages.RaiseMsg "english-program-relation-names-table", _
+                            "relation", rel, "cell", UCase$(CStr(mRuleCellAddrs.Item(ci))), _
+                            "tablecell", UCase$(CStr(mRuleCellAddrs.Item(cj))), "loc", LineSuf(mErrLine)
+                    End If
+                Next tb
+            End If
+        Next cj
+    Next ci
+End Sub
+
 ' ---- the range lint: recorded during translation, checked after it ----
 
-Private Sub RecordRuleCell(ByVal cellLit As String, ByVal rel As String, ByVal names As Collection)
+Private Sub RecordRuleCell(ByVal cellLit As String, ByVal rel As String, ByVal names As Collection, _
+                           ByVal tables As Collection)
     If mRuleCellRels Is Nothing Then Exit Sub    ' outside a translation
     mRuleCellRels.Add rel
     mRuleCellAddrs.Add UnquoteRefLit(cellLit)
     mRuleCellBodies.Add names
+    mRuleCellTables.Add tables
+    mRuleCellLines.Add mCurLine
 End Sub
 
 Private Sub RecordQuestionRange(ByVal rangeLit As String, ByVal rel As String)

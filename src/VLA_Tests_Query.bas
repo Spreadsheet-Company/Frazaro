@@ -380,6 +380,7 @@ Public Function TestDSLs() As Boolean
     TestPrologClauses
     TestPrologQuestions
     TestPrologRangeLint
+    TestPrologClosure
     TestSql
     TestSqlJoin
     TestSqlSetOps
@@ -7122,19 +7123,20 @@ Private Sub TestPrologQuestions()
     EnglishResetGrammar
     EnglishAddPhrase "quiz {q:question}", "(debug-print {q-engine} {q})"
 
-    ' A question's SHAPE routes it: no unknown is PROLOG's ground TRUE/FALSE,
-    ' any unknown is DATALOG's, through a narrowing rule whose head is the
-    ' unknowns - which is what names the answer's columns. The program text
-    ' arrives with its quotes doubled for the formula's string literal.
+    ' A question's SHAPE writes its program: no unknown is one ground atom, and
+    ' any unknown a narrowing rule whose head is the unknowns - which is what
+    ' names the answer's columns. Since slice 3 every question goes to DATALOG,
+    ' a whether as one ground atom (DATALOG.9). The program text arrives with
+    ' its quotes doubled for the formula's string literal.
     AssertConditions "who routes to DATALOG through a narrowing rule", _
                      "Quiz who can-cover ""Night"".", _
                      """DATALOG"" ""(rule (vla-ask-can-cover Who) (can-cover Who \""\""Night\""\"")) (query vla-ask-can-cover)"""
     AssertConditions "what asks for the object, written first", _
                      "Quiz what ""Bob"" can-cover.", _
                      "(rule (vla-ask-can-cover What) (can-cover \""\""Bob\""\"" What))"
-    AssertConditions "whether routes to PROLOG as a ground query", _
+    AssertConditions "whether is one ground atom, and routes to DATALOG", _
                      "Quiz whether ""Bob"" can-cover ""Night"".", _
-                     """PROLOG"" ""(query (can-cover \""\""Bob\""\"" \""\""Night\""\""))"""
+                     """DATALOG"" ""(query (can-cover \""\""Bob\""\"" \""\""Night\""\""))"""
     AssertConditions "who ... what is a pair, both unknowns in the head", _
                      "Quiz who can-cover what.", _
                      "(rule (vla-ask-can-cover Who What) (can-cover Who What))"
@@ -7152,7 +7154,7 @@ Private Sub TestPrologQuestions()
                      "(rule (vla-ask-violation What) (violation What))"
     AssertConditions "whether over a set", _
                      "Quiz whether ""B4"" is a violation.", _
-                     """PROLOG"" ""(query (violation \""\""B4\""\""))"""
+                     """DATALOG"" ""(query (violation \""\""B4\""\""))"""
     ' Slice 1 quoted every constant, and PROLOG answered a numeric one FALSE.
     AssertConditions "a number stays bare in a question", _
                      "Quiz whether ""Ann"" has-level 3.", _
@@ -7212,6 +7214,113 @@ Private Sub TestPrologRangeLint()
     AssertConditions "records do not outlive the translation that made them", _
                      "Pose whether ""monitor-4"" fits ""dock-1"" over H2:H2.", _
                      "(query (fits"
+End Sub
+
+' G-PROLOG slice 3: recursion and closure (VLA_SentenceEngine.bas, its slice-3
+' section). "directly or not" writes two generated, right-recursive rules and
+' a question carries its own; left recursion and a relation named after a
+' table refuse at Check; and every question goes to DATALOG. Every fragment
+' was derived by running its sentence through a transliteration of the
+' sub-grammars, never typed, and each check turns pins red under its own
+' mutation there.
+Private Sub TestPrologClosure()
+    EnglishResetGrammar
+    EnglishAddPhrase "clause {h:clause}", "(debug-print {h})"
+
+    ' "directly or not" after a relation asks for one step along it or more.
+    ' It writes two generated rules, always right-recursive, before the rule -
+    ' once per cell, and named from the relation alone, its hyphen doubled.
+    AssertConditions "directly or not writes the closure's two rules, right-recursive, before the rule", _
+                     "Clause a person is-under a boss if the person reports-to the boss directly or not.", _
+                     "(rule (vla-any-reports--to X Y) (reports-to X Y)) (rule (vla-any-reports--to X Y) (reports-to X Z) (vla-any-reports--to Z Y)) (rule (is-under Person Boss) (vla-any-reports--to Person Boss))"
+    AssertConditions "a closure said twice in one rule writes its rules once", _
+                     "Clause a person far-under a boss if the person reports-to the middle directly or not, and the middle reports-to the boss directly or not.", _
+                     "(debug-print ""(rule (vla-any-reports--to X Y) (reports-to X Y)) (rule (vla-any-reports--to X Y) (reports-to X Z) (vla-any-reports--to Z Y)) (rule (far-under Person Boss)"
+    AssertConditions "a closure under not negates the generated relation", _
+                     "Clause a person is outside if Roster lists the person as Name, and not the person reports-to ""Alice"" directly or not.", _
+                     "(not (vla-any-reports--to Person \""Alice\""))"
+    AssertConditions "a constant stands on either side of a closure", _
+                     "Clause a person is alice-side if the person reports-to ""Alice"" directly or not.", _
+                     "(rule (alice-side Person) (vla-any-reports--to Person \""Alice\""))"
+    ' A rule may still call itself - it is left recursion, the call FIRST,
+    ' that never finishes in PROLOG.
+    AssertConditions "a recursive call written last is not left recursion", _
+                     "Clause a person is-under a boss if the person reports-to the middle, and the middle is-under the boss.", _
+                     "(rule (is-under Person Boss) (reports-to Person Middle) (is-under Middle Boss))"
+    AssertConditions "...and nor is a closure over the rule's own relation written last", _
+                     "Clause a person is-under a boss if the person reports-to the middle, and the middle is-under the boss directly or not.", _
+                     "(vla-any-is--under Middle Boss)"
+
+    ' The refusals, each by name.
+    AssertConditionsRefusal "directly or not after a set refuses", _
+                            "Clause a bill is odd if the bill is big directly or not.", _
+                            "Here it follows a set"
+    AssertConditionsRefusal "directly or not after a comparison refuses", _
+                            "Clause a person is late if Staff lists the person as Name and the level as Level, and the level is at least 3 directly or not.", _
+                            "Here it follows a comparison"
+    AssertConditionsRefusal "directly or not after a Table row refuses", _
+                            "Clause a person is late if Staff lists the person as Name directly or not.", _
+                            "Here it follows a table row"
+    AssertConditionsRefusal "directly or not in a rule's head refuses", _
+                            "Clause a person reports-to a boss directly or not if the person manages the boss.", _
+                            "not in what a rule concludes"
+    AssertConditionsRefusal "left recursion refuses, naming the relation", _
+                            "Clause a person is-under a boss if the person is-under the middle, and the middle reports-to the boss.", _
+                            "first condition asks 'is-under' again"
+    AssertConditionsRefusal "left recursion through a closure of its own relation refuses too", _
+                            "Clause a person is-under a boss if the person is-under the boss directly or not.", _
+                            "first condition asks 'is-under' again"
+    AssertConditionsRefusal "a set rule that asks itself first refuses", _
+                            "Clause a bill is late if the bill is late, and Bills lists the bill as Bill.", _
+                            "first condition asks 'late' again"
+    AssertConditionsRefusal "a relation named after the table it reads refuses", _
+                            "Clause a source feeds a target if Feeds lists the source as Source and the target as Target.", _
+                            "names both this rule and the table it reads"
+    AssertConditionsRefusal "...and so does a set named after its table", _
+                            "Clause a vendor is preferred if Preferred lists the vendor as Vendor.", _
+                            "names both this rule and the table it reads"
+    AssertConditionsRefusal "...and one that reads its table only under not", _
+                            "Clause a person is leave if Staff lists the person as Name, and not Leave lists the person as Name.", _
+                            "names both this rule and the table it reads"
+
+    EnglishResetGrammar
+    EnglishAddPhrase "quiz {q:question}", "(debug-print {q-engine} {q})"
+    ' A question carries its own closure, and asks through it - in DATALOG,
+    ' which answers even where the data loops back on itself.
+    AssertConditions "who ... directly or not carries its closure and asks through it", _
+                     "Quiz who reports-to ""Alice"" directly or not.", _
+                     """DATALOG"" ""(rule (vla-any-reports--to X Y) (reports-to X Y)) (rule (vla-any-reports--to X Y) (reports-to X Z) (vla-any-reports--to Z Y)) (rule (vla-ask-reports-to Who) (vla-any-reports--to Who \""\""Alice\""\"")) (query vla-ask-reports-to)"""
+    AssertConditions "what ... directly or not asks for the object through it", _
+                     "Quiz what ""Eve"" reports-to directly or not.", _
+                     "(rule (vla-ask-reports-to What) (vla-any-reports--to \""\""Eve\""\"" What))"
+    AssertConditions "whether ... directly or not is one ground atom over the closure", _
+                     "Quiz whether ""Eve"" reports-to ""Alice"" directly or not.", _
+                     """DATALOG"" ""(rule (vla-any-reports--to X Y) (reports-to X Y)) (rule (vla-any-reports--to X Y) (reports-to X Z) (vla-any-reports--to Z Y)) (query (vla-any-reports--to \""\""Eve\""\"" \""\""Alice\""\""))"""
+    AssertConditions "a pair may ask through a closure", _
+                     "Quiz which person reports-to which boss directly or not.", _
+                     "(rule (vla-ask-reports-to Person Boss) (vla-any-reports--to Person Boss))"
+    AssertConditions "without directly or not the question asks the relation itself, its neighbour", _
+                     "Quiz who reports-to ""Alice"".", _
+                     """DATALOG"" ""(rule (vla-ask-reports-to Who) (reports-to Who \""\""Alice\""\"")) (query vla-ask-reports-to)"""
+    AssertConditionsRefusal "directly or not after a set in a question refuses", _
+                            "Quiz who is top directly or not.", _
+                            "Here it follows a set"
+
+    EnglishResetGrammar
+    EnglishAddPhrase "inscribe {r:cell} that {h:clause}", "(debug-print {h})"
+    EnglishAddPhrase "pose {q:question} over {rules:range}", "(debug-print {q})"
+    ' Across a program: a relation named after a table ANOTHER cell reads is
+    ' refused naming both cells, and the range lint reaches a closure's own
+    ' relation.
+    AssertConditionsRefusal "a relation named after a table another cell reads refuses, naming both cells", _
+                            "Inscribe H2 that a source flows-to a target if Feeds lists the source as Source and the target as Target." & vbLf & "Inscribe H3 that a source feeds a target if the source flows-to the target.", _
+                            "'feeds' is written in cell H3, and the rule in cell H2 reads a table also called 'feeds'"
+    AssertConditions "...and one with a name of its own translates", _
+                     "Inscribe H2 that a source flows-to a target if Feeds lists the source as Source and the target as Target." & vbLf & "Inscribe H3 that a source feeds-into a target if the source flows-to the target directly or not.", _
+                     "(vla-any-flows--to Source Target)"
+    AssertConditionsRefusal "the range lint reaches the relation a closure reads", _
+                            "Inscribe H2 that a person reports-to a boss if Reports lists the person as Employee and the boss as Manager." & vbLf & "Inscribe H5 that a person reports-to a boss if Delegates lists the person as From and the boss as To." & vbLf & "Inscribe H3 that a person is-under a boss if the person reports-to the boss directly or not." & vbLf & "Pose who is-under ""Alice"" over H2:H3.", _
+                            "'reports-to' is also written in cell H5, which H2:H3 leaves out"
 End Sub
 
 Private Sub TestPrologKeyedAtoms()

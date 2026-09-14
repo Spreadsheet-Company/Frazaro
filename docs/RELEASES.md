@@ -135,6 +135,37 @@
   Table columns, like `(query (links (from "A") (to "D")))`; and
   `(headless)` beside a TRUE-or-FALSE question.
 
+- **Say "directly or not" to follow a relation any number of steps.**
+  `Write in cell H3 that a person is-under a boss if the person reports-to
+  the boss directly or not.` means the person reports to the boss, or to
+  someone who does, and so on up the chain. You can say it in a question
+  too: `Show in cell E2 who reports-to "Alice" directly or not by applying
+  the rules in H2:H2 to the data tables Reports.` lists everyone under
+  Alice, while the same question without the words lists only the people
+  who report to her directly. It finishes even where the data loops back on
+  itself, like routes from A to B to C and back to A, and it follows a chain
+  of any length. Frazaro writes the two rules that do this into the rule's
+  cell for you, named after the relation (`vla-any-reports--to`).
+
+- **Every "whether" question is now answered by DATALOG.** The answers are
+  the same TRUE or FALSE, and a question over data that loops now finishes.
+  One thing behaves differently: DATALOG checks every rule in the range, so
+  if one rule names a relation nothing defines, a "whether" question is
+  refused by name even when it never uses that rule — where it used to
+  answer. Fix the spelling, or keep rules that do not belong together in
+  different ranges.
+
+- **Two kinds of rule are refused before anything runs.** A rule that asks
+  its own relation first — `a person is-under a boss if the person is-under
+  the middle, and the middle reports-to the boss` — would never finish, so
+  it is refused with the fix: put that condition last. And a relation named
+  after the Table it reads, like `a source feeds a target if Feeds lists …`,
+  is that Table, so the rule only reads itself: it is refused, whether the
+  two names meet in one sentence or in two cells. Give the relation a name
+  of its own. "directly or not" after a set, a comparison or a Table row,
+  or in what a rule concludes, is refused too, with a note on where it
+  belongs.
+
 - **Known limits, said plainly.** A relation's name is one word, so it is
   `can-cover`, with the hyphen, not `can cover`. Relations you declare in
   words, like `is submitted by`, are planned rather than guessed at, since a
@@ -145,7 +176,9 @@
   written by the same program: rules typed straight into cells, or written
   by another program, are not checked, and nor is a range on another sheet.
   A number kept as text in a column cannot be matched, since quoted numbers
-  are refused.
+  are refused. Adding up quantities along a chain ("how many spokes go into
+  one bike") and putting things in order ("which course to take first")
+  cannot be said yet.
 
 ### Known open security items
 
