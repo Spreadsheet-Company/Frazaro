@@ -20,7 +20,25 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.5.6"
-Public Const VLA_CORE_VERSION As String = "LINTERPOLATE.0"
+Public Const VLA_CORE_VERSION As String = "TER-8"
+' TER-8: TOKENIZE READS TEXT WITH NO TOKEN. Found by TER-7, which fixed the
+' English tokenizer's twin. Tokenize ended with ReDim toksArr(1 To
+' outc.Count), and for text holding no token at all - empty, only
+' whitespace, only ; comments - that is ReDim (1 To 0), which VBA refuses
+' with error 9, "Subscript out of range", before a form is read. The P-TOK
+' comment above it said the zero case was handled; it was not. Zero tokens
+' now give (0 To 0) for both arrays, the empty list every reader here
+' already expects: tokens live at 1..UBound, ParseAll and ParseForm loop
+' while pos <= UBound, TokRawLine returns 0 past UBound, and nothing reads
+' LBound or walks the arrays with For Each. Reached only by the readers that
+' do not prepend the prelude - VlaReadForms, VlaReadFormsWithLines, VlaFormat
+' and VlaProbeMacroForm - each of which now returns no forms. Their callers
+' already say so in words (a template, a slot value or a rendered form must
+' be exactly one form; Lint's reformatter refuses a count other than one),
+' DATALOG and PROLOG now refuse empty rules text by name
+' (datalog-rules-empty, prolog-clauses-empty), and an empty or comments-only
+' phrasebook loads no rules instead of raising.
+'
 ' LINTERPOLATE.0: (interpolate tpl :key val ...) - EmitExpr's own Case
 ' "interpolate", below, next to "array" - the compile-time twin of
 ' VLA_Interpreter.bas's EvalExpr Case "interpolate" (that module's own
@@ -1963,10 +1981,12 @@ Private Function Tokenize(ByVal s As String) As String()
     Loop
     ' P-TOK: materialize once into arrays for O(1) positional access -
     ' the scan above is untouched, still building via cheap sequential
-    ' Collection.Add calls; only the destination changes. ReDim to
-    ' size 0 (not left undimmed) even for an empty program, so
-    ' TokRawLine/ParseForm's own UBound checks never hit an
-    ' unallocated-array error on a zero-token input.
+    ' Collection.Add calls; only the destination changes.
+    ' TER-8: this comment used to say an empty program was ReDim'd "to
+    ' size 0". It was not: ReDim (1 To 0) is refused by VBA with error 9,
+    ' so text with no token raised before a form was read. Zero tokens now
+    ' give (0 To 0) - allocated, UBound 0 - the empty list every reader
+    ' expects (TER-7 made the same repair to EnTokenize).
     ' MUST be For Each, not "For k = 1 To .Count: x = .Item(k)" - a
     ' Collection's own Item(k) is itself an O(k) positional walk, so an
     ' indexed copy loop is O(n^2), the exact cost this item exists to
@@ -1974,8 +1994,13 @@ Private Function Tokenize(ByVal s As String) As String()
     ' Tokenize instead of eliminating it). For Each uses the
     ' Collection's real enumerator - true O(n) for the whole copy.
     Dim toksArr() As String
-    ReDim toksArr(1 To outc.Count)
-    ReDim mTokLines(1 To outLn.Count)
+    If outc.Count = 0 Then
+        ReDim toksArr(0 To 0)
+        ReDim mTokLines(0 To 0)
+    Else
+        ReDim toksArr(1 To outc.Count)
+        ReDim mTokLines(1 To outLn.Count)
+    End If
     Dim k As Long, v As Variant
     k = 0
     For Each v In outc

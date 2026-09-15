@@ -420,6 +420,7 @@ Public Function VlaSelfTest() As Boolean
     TestVlaLint
     TestU20LintFileBytes
     TestTer7EmptyProgram
+    TestTer8EmptyForms
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -2500,6 +2501,63 @@ Private Sub TestTer7EmptyProgram()
                Len(errText) = 0 And InStr(1, translated, "(sub main", vbTextCompare) = 0, _
                "error: " & errText
     Next
+End Sub
+
+' =====================================================================
+'  TER-8 - VLA.bas's reader reads text with no token. Tokenize had
+'  EnTokenize's ReDim (1 To 0) for zero tokens, which VBA refuses as
+'  "Subscript out of range"; it now gives (0 To 0), and every reader that
+'  does not prepend the prelude returns no forms. A count, never a Count
+'  on the result in the same expression as the error check: a raise leaves
+'  the Collection unset.
+' =====================================================================
+Private Sub TestTer8EmptyForms()
+    Dim cases As Variant, k As Long
+    Dim caseName As String, errText As String, n As Long
+    Dim forms As Collection, lines As Collection
+    Dim formatted As String
+    cases = Array("empty text", "", _
+                  "only line breaks, spaces and a tab", vbCrLf & "  " & vbTab & vbCrLf, _
+                  "only a comment", "; only a comment", _
+                  "comments on two lines", "; one note" & vbLf & "; another note")
+    For k = 0 To UBound(cases) Step 2
+        caseName = CStr(cases(k))
+        errText = ""
+        n = -1
+        On Error Resume Next
+        Set forms = VLA.VlaReadForms(CStr(cases(k + 1)))
+        If Err.Number <> 0 Then errText = Err.Description
+        On Error GoTo 0
+        If Len(errText) = 0 Then n = forms.Count
+        Report "TER-8 VlaReadForms of " & caseName & " returns no forms and raises nothing", _
+               Len(errText) = 0 And n = 0, "error: " & errText & ", count: " & n
+    Next
+    errText = ""
+    n = -1
+    On Error Resume Next
+    Set forms = VLA.VlaReadFormsWithLines("; only a comment", lines)
+    If Err.Number <> 0 Then errText = Err.Description
+    On Error GoTo 0
+    If Len(errText) = 0 Then n = forms.Count + lines.Count
+    Report "TER-8 VlaReadFormsWithLines of only a comment returns no forms and no lines", _
+           Len(errText) = 0 And n = 0, "error: " & errText & ", count: " & n
+    errText = ""
+    formatted = "not run"
+    On Error Resume Next
+    formatted = VLA.VlaFormat("")
+    If Err.Number <> 0 Then errText = Err.Description
+    On Error GoTo 0
+    Report "TER-8 VlaFormat of empty text is empty text", _
+           Len(errText) = 0 And Len(formatted) = 0, "error: " & errText & ", got: [" & formatted & "]"
+    errText = ""
+    n = -1
+    On Error Resume Next
+    Set forms = VLA.VlaReadForms("(a 1) ; a note")
+    If Err.Number <> 0 Then errText = Err.Description
+    On Error GoTo 0
+    If Len(errText) = 0 Then n = forms.Count
+    Report "TER-8 ...while text holding a form still reads it - one form", _
+           Len(errText) = 0 And n = 1, "error: " & errText & ", count: " & n
 End Sub
 
 ' F.9: instructions.txt's own paragraphs (its documented structural unit -

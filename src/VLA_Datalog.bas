@@ -1051,6 +1051,10 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
     queryNegated = False
     Dim forms As Collection
     Set forms = VLA.VlaReadForms(rulesText)
+    ' TER-8: text with no form - empty, only whitespace or only comments, most
+    ' often a formula reading a blank cell - is refused by name. Until TER-8
+    ' the reader raised VBA's own "Subscript out of range" here.
+    If forms.Count = 0 Then VLA_Messages.RaiseMsg "datalog-rules-empty"
     ' DATALOG.8: every name this program defines, before any form is
     ' checked - a keyed atom may read a relation a later form defines.
     Dim definedNames As Object

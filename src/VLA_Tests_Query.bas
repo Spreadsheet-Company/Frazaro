@@ -388,6 +388,7 @@ Public Function TestDSLs() As Boolean
     TestSqlSetOps
     TestSqlCte
     TestSqlHostTable
+    TestTer8EmptyRules
 
     Debug.Print "===== DSL SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -400,6 +401,31 @@ Public Function TestDSLs() As Boolean
     End If
     TestDSLs = (mFail = 0)
 End Function
+
+' TER-8: DATALOG and PROLOG with rules or clauses text holding no form -
+' empty, or only a comment, as a formula reading a blank cell gives - are
+' refused by name. Until TER-8, VLA.bas's reader raised VBA's own
+' "Subscript out of range" for such text, and each engine showed it raw.
+Private Sub TestTer8EmptyRules()
+    Dim result As Variant
+    Dim r As String
+    result = VLA_Datalog.DATALOG("")
+    r = ResultDescribe(result)
+    Report "ter-8: DATALOG over empty rules text says the text is empty", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "rules text is empty", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG("; only a comment")
+    r = ResultDescribe(result)
+    Report "ter-8: ...and over rules text of only a comment", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "rules text is empty", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("")
+    r = ResultDescribe(result)
+    Report "ter-8: PROLOG over empty clauses text says the text is empty", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "clauses text is empty", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("; only a comment")
+    r = ResultDescribe(result)
+    Report "ter-8: ...and over clauses text of only a comment", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "clauses text is empty", vbTextCompare) > 0, "got: " & r
+End Sub
 
 ' DATALOG.0: pins VLA_Datalog.bas/VLA_Relation.bas's own MVP - facts,
 ' a join rule, recursive transitive closure (the item's own "org

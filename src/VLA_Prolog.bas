@@ -3739,6 +3739,10 @@ Private Sub ParseProgram(ByVal clausesText As String, ByVal clauseDict As Object
 
     Dim forms As Collection
     Set forms = VLA.VlaReadForms(clausesText)
+    ' TER-8: text with no form - empty, only whitespace or only comments, most
+    ' often a formula reading a blank cell - is refused by name. Until TER-8
+    ' the reader raised VBA's own "Subscript out of range" here.
+    If forms.Count = 0 Then VLA_Messages.RaiseMsg "prolog-clauses-empty"
     Dim queryCount As Long
     Dim f As Variant
     For Each f In forms

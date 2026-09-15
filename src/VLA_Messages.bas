@@ -520,6 +520,9 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "prolog-arity-mismatch", 5, "VLA-Prolog", "predicate '{predicate}' is used with {a} argument(s) in one place and {b} in another - every use of one predicate must have the same arity."
     AddMsg m, "prolog-query-bad-shape", 5, "VLA-Prolog", "(query ...) needs at least one predicate form, like (query (parent tom X))."
     AddMsg m, "prolog-query-missing", 5, "VLA-Prolog", "this program has no (query ...) - PROLOG needs exactly one, naming what to answer."
+    ' TER-8: text with no form at all, which VLA.bas's reader used to refuse
+    ' as VBA's own "Subscript out of range".
+    AddMsg m, "prolog-clauses-empty", 5, "VLA-Prolog", "the clauses text is empty, or holds only comments, so PROLOG has nothing to read - if the formula reads a cell or a range, check that it holds the clauses. A program needs at least a (query ...), like (fact (p a)) (query (p X))."
     AddMsg m, "prolog-query-ambiguous", 5, "VLA-Prolog", "this program has {count} (query ...) forms - PROLOG needs exactly one."
     ' PROLOG.28: an Excel cell holds at most 32,767 characters. Before the
     ' work budget was sized for real Tables a findall bag stayed under
@@ -938,6 +941,10 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "datalog-query-bad-shape", 5, "VLA-Datalog", "(query ...) takes exactly one thing: a relation's name, like (query indirect_report), to list its rows; one fact written out whole, like (query (route ""A"" ""D"")), to answer TRUE or FALSE; or one fact under (not ...), which may hold blanks, like (query (not (route ""A"" X))), to answer TRUE when nothing matches."
     AddMsg m, "datalog-headless-bad-shape", 5, "VLA-Datalog", "(headless) takes no arguments - write it exactly as (headless) to skip the header row and return only data rows."
     AddMsg m, "datalog-query-missing", 5, "VLA-Datalog", "add (query predicate-name) to say which relation DATALOG should return - for example (query indirect_report) - or (query (route ""A"" ""D"")) to ask whether one fact holds, or (query (not (route ""A"" X))) to ask whether nothing matches."
+    ' TER-8: text with no form at all, which VLA.bas's reader used to refuse
+    ' as VBA's own "Subscript out of range".
+    AddMsg m, "datalog-rules-empty", 5, "VLA-Datalog", "the rules text is empty, or holds only comments, so DATALOG has nothing to read - if the formula reads a cell or a range, check that it holds the rules. A program needs at least a (query ...), like (fact (p a)) (query p)."
+
     ' DATALOG.9 - a query written as one fact answers TRUE or FALSE; these
     ' are the shapes it refuses, each pointing at the spelling that works.
     ' (datalog-query-not-a-symbol retired with it: a nested form is now read

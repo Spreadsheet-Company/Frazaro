@@ -18974,13 +18974,56 @@ anything above it.*
   check `UBound`, and nothing reads `LBound`), so `EnglishToVla` returns an
   empty translation - just the phrasebook-macro block, when one is loaded.
   Pinned by `TestTer7EmptyProgram` (empty, whitespace-only, comments-only).
-  *Found, not fixed - for the owner to schedule with the logic-engine
-  work:* `VLA.bas`'s `Tokenize` carries the identical `ReDim`, reached
-  through `VlaReadForms` with no empty guard by `VLA_Datalog.ParseProgram`
-  and `VLA_Prolog.ParseProgram`, so an empty rules text most likely raises
-  the same raw error there. The same two-line fix would change what those
-  engines answer for empty rules, which is the logic-engine work's call,
-  not this item's.
+  *Found here, fixed as `TER-8`:* `VLA.bas`'s `Tokenize` carried the
+  identical `ReDim`, reached through `VlaReadForms` with no empty guard by
+  `VLA_Datalog.ParseProgram` and `VLA_Prolog.ParseProgram`. The logic-engine
+  work took it, with the owner deciding how the engines answer empty rules.
+- ✅ **TER-8 — `VLA.bas`'s reader failed on text with no token.** Found by
+  `TER-7` and taken by `G-PROLOG` slice 5's session, 2026-09-14; the owner's
+  calls: its own id, its own commit ahead of `DATALOG.11`, and a worded
+  refusal from each engine for empty text. **Built, owner-verified live and
+  committed 2026-09-14**, in one pass with `DATALOG.11` and `PROLOG.30`:
+  pure 1161/1161 (1141 as predicted, plus `U.19`'s 20 uncommitted pins in
+  the same module), host 152/152, `TestDSLs` 1356/0, `VerifyReports`
+  242/242 on both backends; `=DATALOG("")`, `=PROLOG("")`, a blank cell and
+  a comments-only cell refused by name in both engines; and
+  `VlaReadForms("").Count`, `VlaReadForms("; only a note").Count` and
+  `Len(VlaFormat(""))` each 0 in the Immediate window.
+  `Tokenize` ended with `ReDim toksArr(1 To outc.Count)` and
+  `ReDim mTokLines(1 To outLn.Count)`, and for text holding no token -
+  empty, whitespace only, or only `;` comments - VBA refuses `(1 To 0)` with
+  error 9, "Subscript out of range". Its P-TOK comment said the zero case was
+  handled. Only the readers that do not prepend the prelude could reach it:
+  `VlaReadForms`, `VlaReadFormsWithLines`, `VlaFormat` and
+  `VlaProbeMacroForm`. So `=DATALOG("")`, `=PROLOG("")`, a formula reading a
+  blank cell, or rules of only comments showed `#DATALOG! Subscript out of
+  range` (read from the code; the live pass ran only the fixed build). **Before
+  the fix, every reader was checked** for a zero-token array: `ParseAll` and
+  `ParseForm` loop while `pos <= UBound`, `TokRawLine` returns 0 past
+  `UBound(mTokLines)`, and nothing reads `LBound` or walks the arrays with
+  `For Each`. **Every caller of those four was read** for an empty result:
+  `TemplateForms` already tests `Count = 0`; slot values, `EnglishRenderText`
+  and the vocabulary directive expansion refuse a count other than one in
+  their own words; Lint's reformatter refuses a count other than one; the
+  sentence re-parser and the diff tool treat it as no form; the macro probe
+  never receives empty text. One behaviour moves outside the engines: an
+  empty or comments-only phrasebook loads no rules instead of raising.
+  **Built.** `VLA.bas`: zero tokens give `(0 To 0)` for both arrays, as
+  `EnTokenize`, the P-TOK comment corrected, `VLA_CORE_VERSION` → `TER-8`.
+  `VLA_Datalog.bas` and `VLA_Prolog.bas`: text with no form refuses by name
+  right after the reader (`datalog-rules-empty`, `prolog-clauses-empty`,
+  two new ids) - the engines' version constants are left to the items that
+  own them. Pinned by `TestTer8EmptyForms` (pure: `VlaReadForms` of empty,
+  whitespace-only, comment-only and two-comment text returns no forms,
+  `VlaReadFormsWithLines` no forms and no lines, `VlaFormat("")` empty text,
+  and text holding a form still reads it) and `TestTer8EmptyRules` (under
+  `TestDSLs`: each engine over empty text and over one comment). **Proven
+  where a model can:** the engine half through both transliterations behind
+  a switch (control unmoved; the new pins pass on, fail off); the reader half
+  is VBA's own `ReDim` and rests on the reading above and the owner's pass.
+  **Predicted:** pure 1134 → 1141 (+7 Report executions, four inside one
+  loop over four texts), `TestDSLs` +4, host and `VerifyReports` unmoved.
+  `~hours`
 
 ---
 

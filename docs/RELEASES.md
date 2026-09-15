@@ -244,6 +244,11 @@
 - **A new program tab starts in B1**, the first sentence cell, ready to type
   into, instead of in the hidden column A.
 
+- **An empty rules text is named, not a raw error.** `=DATALOG("")` or
+  `=PROLOG("")`, a formula reading a blank cell, or rules that hold only
+  comments used to show "Subscript out of range". Each engine now says the
+  text is empty and that a program needs at least a query.
+
 - **A program with no sentences no longer fails.** A program of only
   comments, or a file with nothing in it, used to stop with "Subscript out
   of range" when checked, run or translated. It now translates to an empty
