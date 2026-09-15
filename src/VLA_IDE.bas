@@ -1,6 +1,15 @@
 Attribute VB_Name = "VLA_IDE"
 Option Explicit
-Public Const VLA_IDE_VERSION As String = "TER2.0"
+Public Const VLA_IDE_VERSION As String = "U19.0"
+' U19.0: a failed Undo snapshot leaves nothing behind (U.19).
+' TakeRunSnapshot records every sheet it makes the moment it exists and,
+' if any step fails, removes them all and refuses through
+' ide-undo-snapshot-failed; RunProgram and InterpretProgram now STOP
+' there instead of running on without Undo. The copy is found by its new
+' name (VlaIdeAddedSheetNames), not by tab position, and a scanned name
+' no sheet can have is not a target (VlaIdeCanBeSheetName). The module's
+' last raw Err.Raise - the LX2.0 note's 16th, TakeRunSnapshot's cleanup
+' re-raise - is gone with it.
 ' TER2.0: ClearMarks clears column C down to its own last mark as well as
 ' the program's last row, so a mark on a sentence whose text was deleted
 ' - the last one, or the whole program - no longer survives the next
@@ -1099,16 +1108,18 @@ Private Sub RunProgram(ByVal wantTrace As Boolean)
     Set outWs = GetOrCreateSheet(outName)
 
     ' Safety net: snapshot the sheets this run can touch, so "Undo
-    ' last run" can put everything back. Best-effort: if snapshotting
-    ' fails for any reason, the Run still proceeds - Undo is simply
-    ' unavailable for it (a note goes to the Immediate window).
-    On Error Resume Next
-    TakeRunSnapshot hb, progText, VlaIdeProgramTag(ws.Name)
-    If Err.Number <> 0 Then
-        Debug.Print "VLA-IDE: could not snapshot for Undo (" & Err.Description & "); Run continues without Undo."
-        Err.Clear
-    End If
-    On Error GoTo failed
+    ' last run" can put everything back. U.19: a snapshot that cannot be
+    ' made now STOPS the Run, in words, before its first sentence - it
+    ' used to go on with only an Immediate-window note, Undo silently
+    ' gone for that Run and a half-made copy left standing. Stopping
+    ' keeps the promise the Run button makes, that what it changes can
+    ' be undone: a warning AFTER the run would arrive once the sheets had
+    ' already changed, with nothing left to decide, and a question BEFORE
+    ' it would be a mid-run dialog. The failures are ones the person can
+    ' clear (a protected workbook, a sheet already holding a name
+    ' Frazaro keeps for its copies), and the refusal says how.
+    ' TakeRunSnapshot removes everything it made before it raises.
+    TakeRunSnapshot hb, progText, VlaIdeProgramTag(ws.Name), ws.Name
 
     ' Sheet context: unqualified cell references in the vocabulary
     ' mean "the current sheet" (VBA's ActiveSheet), and "Go to sheet
@@ -1264,13 +1275,9 @@ Private Sub InterpretProgram(ByVal wantTrace As Boolean)
     Dim outWs As Worksheet
     Set outWs = GetOrCreateSheet(outName)
 
-    On Error Resume Next
-    TakeRunSnapshot hb, progText, VlaIdeProgramTag(ws.Name)
-    If Err.Number <> 0 Then
-        Debug.Print "VLA-IDE: could not snapshot for Undo (" & Err.Description & "); interpret continues without Undo."
-        Err.Clear
-    End If
-    On Error GoTo failed
+    ' U.19: a snapshot that cannot be made stops this run too, in words,
+    ' before its first sentence - RunProgram's call says why.
+    TakeRunSnapshot hb, progText, VlaIdeProgramTag(ws.Name), ws.Name
 
     outWs.Activate
     ws.Protect
@@ -2871,19 +2878,40 @@ End Function
 '  (Output, plus any sheet named after the word "sheet" in the program
 '  text) are copied to very-hidden snapshots. "Undo Last Run" copies
 '  them back. Sheets with names too long to snapshot losslessly are
-'  skipped with a note in the Immediate window.
+'  skipped with a note in the Immediate window. U.19: a snapshot is all
+'  or nothing - if any copy or marker cannot be made, everything made so
+'  far is removed and the Run stops, in words, before its first sentence.
 ' =====================================================================
 
 ' V2: snapshot names carry the program's tag - VLAu_<tag>_<sheet> -
 ' so each program's Undo sees only its own history. Tags contain no
 ' underscore by construction, so the name never parses ambiguously.
-Private Sub TakeRunSnapshot(hb As Workbook, ByVal programText As String, ByVal tag As String)
+'
+' U.19: all or nothing. Every sheet this makes - a copy or a tombstone
+' marker - joins `made` the moment it exists, BEFORE its rename and its
+' hide, so a failure at any later step removes every one of them: a
+' visible "<sheet> (2)" can no longer outlive a failed snapshot (G-PROLOG
+' slice 1's stray "gp1 (2)"). The failure then refuses in words through
+' ide-undo-snapshot-failed, and the Run stops before its first sentence -
+' RunProgram's call says why it stops rather than going on without Undo.
+' The copy is found by what is NEW among the sheet names
+' (VlaIdeAddedSheetNames), never by position. Measured live (U.19's M1):
+' a Copy made After a very-hidden last sheet lands BEFORE it, so the old
+' Worksheets(Count) read renamed that hidden sheet - the Output tombstone
+' made a moment earlier - and raised nothing, leaving the real copy
+' visible as "<sheet> (2)" and a blank snapshot for Undo to put back. A scanned name no sheet can have is not a target at all
+' (VlaIdeCanBeSheetName): its tombstone's rename was certain to fail.
+Private Sub TakeRunSnapshot(hb As Workbook, ByVal programText As String, ByVal tag As String, ByVal programName As String)
     Dim scr As Boolean, da As Boolean
     scr = Application.ScreenUpdating
     da = Application.DisplayAlerts
     Application.ScreenUpdating = False
     Application.DisplayAlerts = False
-    On Error GoTo cleanup
+    Dim made As Collection
+    Set made = New Collection
+    Dim curTarget As String
+    Dim failWhy As String
+    On Error GoTo failed
 
     DeleteSnapshots hb, tag
     Dim uPre As String, dPre As String
@@ -2895,12 +2923,28 @@ Private Sub TakeRunSnapshot(hb As Workbook, ByVal programText As String, ByVal t
 
     Dim n As Variant
     Dim snap As Worksheet
+    Dim priorNames As Collection
+    Dim added As Collection
+    Dim addedV As Variant
     For Each n In targets
-        If SheetExists(hb, CStr(n)) Then
-            If Len(CStr(n)) + Len(uPre) <= 31 Then
-                hb.Worksheets(CStr(n)).Copy After:=hb.Worksheets(hb.Worksheets.Count)
-                Set snap = hb.Worksheets(hb.Worksheets.Count)
-                snap.Name = uPre & CStr(n)
+        curTarget = CStr(n)
+        If Not VlaIdeCanBeSheetName(curTarget) Then
+            ' U.19: the scan reads quoted text too, so it can offer a
+            ' name like Q1/Q2 that no sheet can have - no Run can reach
+            ' or create that sheet, so there is nothing to put back.
+        ElseIf SheetExists(hb, curTarget) Then
+            If Len(curTarget) + Len(uPre) <= 31 Then
+                Set priorNames = SheetNamesOf(hb)
+                hb.Worksheets(curTarget).Copy After:=hb.Worksheets(hb.Worksheets.Count)
+                Set added = VlaIdeAddedSheetNames(priorNames, SheetNamesOf(hb))
+                For Each addedV In added
+                    made.Add hb.Worksheets(CStr(addedV))
+                Next
+                If added.Count <> 1 Then
+                    VLA_Messages.RaiseMsg "ide-undo-snapshot-copy-not-found", "count", CStr(added.Count)
+                End If
+                Set snap = hb.Worksheets(CStr(added.Item(1)))
+                snap.Name = uPre & curTarget
                 snap.Visible = xlSheetVeryHidden
             Else
                 Debug.Print "VLA-IDE: sheet name too long to snapshot: " & n
@@ -2913,9 +2957,10 @@ Private Sub TakeRunSnapshot(hb As Workbook, ByVal programText As String, ByVal t
             ' the marker together. (Before this, Undo restored every
             ' snapshot but left run-created sheets standing - the
             ' documented gap a real Undo click finally raised.)
-            If Len(CStr(n)) + Len(dPre) <= 31 Then
+            If Len(curTarget) + Len(dPre) <= 31 Then
                 Set snap = hb.Worksheets.Add(After:=hb.Worksheets(hb.Worksheets.Count))
-                snap.Name = dPre & CStr(n)
+                made.Add snap
+                snap.Name = dPre & curTarget
                 snap.Visible = xlSheetVeryHidden
             Else
                 Debug.Print "VLA-IDE: sheet name too long for an undo marker: " & n
@@ -2923,11 +2968,100 @@ Private Sub TakeRunSnapshot(hb As Workbook, ByVal programText As String, ByVal t
         End If
     Next
 
-cleanup:
     Application.ScreenUpdating = scr
     Application.DisplayAlerts = da
-    If Err.Number <> 0 Then Err.Raise Err.Number, Err.Source, Err.Description
+    Exit Sub
+failed:
+    ' Keep Excel's words before anything below can reset Err. Resume
+    ' ends the handler, so the roll-back runs as ordinary code and the
+    ' refusal raised after it reaches the caller, not this handler.
+    failWhy = Err.Description
+    Resume rollBack
+rollBack:
+    On Error GoTo 0
+    Dim leftBehind As String
+    leftBehind = RemoveSnapshotSheets(made)
+    Application.ScreenUpdating = scr
+    Application.DisplayAlerts = da
+    If Len(leftBehind) = 0 Then
+        VLA_Messages.RaiseMsg "ide-undo-snapshot-failed", "program", programName, "sheet", curTarget, "reason", failWhy
+    End If
+    VLA_Messages.RaiseMsg "ide-undo-snapshot-failed-copies-left", "program", programName, "sheet", curTarget, "reason", failWhy, "left", leftBehind
 End Sub
+
+' U.19: remove every sheet a failed snapshot made, whatever name or
+' visibility it had reached by then. Returns the ones it could NOT
+' remove, quoted and comma-separated - "" when every one went. Its own
+' error scope, so one stubborn sheet never stops the rest being tried.
+Private Function RemoveSnapshotSheets(made As Collection) As String
+    Dim da As Boolean
+    da = Application.DisplayAlerts
+    Application.DisplayAlerts = False
+    Dim r As String
+    Dim sV As Variant
+    Dim nm As String
+    On Error Resume Next
+    For Each sV In made
+        nm = ""
+        nm = sV.Name
+        sV.Visible = xlSheetVisible
+        Err.Clear
+        sV.Delete
+        If Err.Number <> 0 Then
+            If Len(r) > 0 Then r = r & ", "
+            r = r & "'" & nm & "'"
+        End If
+        Err.Clear
+    Next
+    On Error GoTo 0
+    Application.DisplayAlerts = da
+    RemoveSnapshotSheets = r
+End Function
+
+' U.19: the names of a book's worksheets, in tab order.
+Private Function SheetNamesOf(hb As Workbook) As Collection
+    Dim r As Collection
+    Set r = New Collection
+    Dim i As Long
+    For i = 1 To hb.Worksheets.Count
+        r.Add hb.Worksheets(i).Name
+    Next
+    Set SheetNamesOf = r
+End Function
+
+' U.19: the names in afterNames that were not in priorNames - how
+' TakeRunSnapshot finds the copy Excel just made, instead of trusting
+' where it landed. Compared through Fold, as Excel compares sheet names
+' without regard to case. Pure, for the self-test; the caller refuses
+' unless there is exactly one.
+Public Function VlaIdeAddedSheetNames(priorNames As Collection, afterNames As Collection) As Collection
+    Dim seen As Collection
+    Set seen = New Collection
+    Dim v As Variant
+    For Each v In priorNames
+        AddTarget seen, CStr(v)
+    Next
+    Dim r As Collection
+    Set r = New Collection
+    For Each v In afterNames
+        If Not CollHasKeyIde(seen, VLA_Identity.Fold(CStr(v))) Then r.Add CStr(v)
+    Next
+    Set VlaIdeAddedSheetNames = r
+End Function
+
+' U.19: could an Excel sheet carry this name? 1 to 31 characters, none
+' of : \ / ? * [ ], no apostrophe first or last, and not Excel's
+' reserved "History". Pure, for the self-test.
+Public Function VlaIdeCanBeSheetName(ByVal nm As String) As Boolean
+    If Len(nm) = 0 Or Len(nm) > 31 Then Exit Function
+    If Left$(nm, 1) = "'" Or Right$(nm, 1) = "'" Then Exit Function
+    If VLA_Identity.Fold(nm) = "history" Then Exit Function
+    Dim i As Long
+    For i = 1 To Len(nm)
+        If InStr(":\/?*[]", Mid$(nm, i, 1)) > 0 Then Exit Function
+    Next
+    VlaIdeCanBeSheetName = True
+End Function
 
 Public Sub EnglishIdeUndo()
     Dim d As String

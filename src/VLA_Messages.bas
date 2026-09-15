@@ -111,6 +111,10 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "ide-autoload-no-slot", 5, "VLA-IDE", "Could not register for auto-load - no free OPEN slot found in 50 tries ({key})."
     AddMsg m, "ide-program-file-moved", 53, "VLA-IDE", "The program file has moved: {path} - use Import to pick it again"
     AddMsg m, "ide-word-read-failed", 5, "VLA-IDE", "Could not read the Word document (is Word installed?): {detail}"
+    ' U.19 - a Run whose Undo copy cannot be made stops before its first sentence, and leaves nothing behind.
+    AddMsg m, "ide-undo-snapshot-failed", 5, "VLA-IDE", "'{program}' has not run. Before a Run changes anything, Frazaro saves each sheet the Run can change, so Undo Last Run can put it back - and it could not save the sheet '{sheet}' ({reason}). None of the program's sentences ran, and nothing Frazaro made for Undo was left behind. If the workbook is protected (Review > Protect Workbook), unprotect it; then run the program again."
+    AddMsg m, "ide-undo-snapshot-failed-copies-left", 5, "VLA-IDE", "'{program}' has not run. Before a Run changes anything, Frazaro saves each sheet the Run can change, so Undo Last Run can put it back - and it could not save the sheet '{sheet}' ({reason}). None of the program's sentences ran, but Frazaro could not remove these sheets it had made for Undo: {left}. Delete them (right-click each tab, then Delete), then run the program again."
+    AddMsg m, "ide-undo-snapshot-copy-not-found", 5, "VLA-IDE", "Excel's copy could not be told apart from the other sheets: {count} new sheets appeared where one was expected"
     ' SEC.9 deliberately adds NO id here. Every refusal it can produce is
     ' a decision the person just made in a dialog, not a fault to report
     ' back to them - the gate skips and records rather than raising, so

@@ -283,6 +283,19 @@
   it came from, so Lint VLA leaves it alone, and it is saved as UTF-8, so a
   sentence like `Put "café" into cell A1.` keeps its `é`.
 
+- **Undo Last Run puts back the right sheet, and a Run it cannot undo no
+  longer starts.** Before a Run changes anything, Frazaro saves a hidden
+  copy of each sheet it can change, so Undo Last Run can put it back. When
+  a program used a sheet by name (`Work on sheet Data.`, say), that copy
+  was left visible as a tab like `Data (2)`, and Undo would have put the
+  sheet back with the wrong contents, often blank. No error was shown.
+  That is fixed. Separately, if saving a copy failed, the Run went ahead
+  anyway, without Undo and without telling you. Now it stops before its
+  first sentence, says which sheet could not be saved and why, and
+  removes anything it had made for Undo. And a sentence that merely
+  mentions a name no sheet can have, like `"see 'Q1/Q2'!A1"`, no longer
+  leaves a stray `Sheet` tab each time it runs.
+
 ### Known open security items
 
 **Closed this release:** none — 0.6.0 is a feature release. Four changes

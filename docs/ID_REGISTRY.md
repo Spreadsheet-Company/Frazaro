@@ -85,7 +85,7 @@ output:
 | F | F.15 | F.16 |
 | G (bare numeric sub-family) | G11r | G12 |
 | GO | GO.5 | GO.6 |
-| IN | IN.14 | IN.15 |
+| IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |

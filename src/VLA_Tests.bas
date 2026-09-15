@@ -309,6 +309,7 @@ Public Function VlaSelfTest() As Boolean
     TestIdeNaming
     TestBuildRibbon
     TestUndoScan
+    TestUndoSnapshotSafety
     TestGoldens
     TestRuleUsage
     TestMessageSeam
@@ -1897,6 +1898,88 @@ Private Sub TestUndoScan()
     CheckV "scan: spaced sheet qualifier keeps its case", VlaIdeScanTargets("Put 1 into cell 'Q1 Data'!A1."), "Q1 Data"
     CheckV "scan: Add sheet called chains to the quoted name", VlaIdeScanTargets("Add sheet called " & Chr$(34) & "Report" & Chr$(34) & "."), "Report"
 End Sub
+
+' ---------------------------------------------------------------------
+'  U.19: a failed Undo snapshot leaves nothing behind. The copy, the
+'  roll-back and the Run stopping need a live workbook; the pure half
+'  is pinned here - how the copy is FOUND (by the name that is new,
+'  never by where Excel put it), which scanned names could be sheets
+'  at all (a tombstone for a name no sheet can have failed its rename
+'  every time, and would now stop the Run), and the refusal's words.
+' ---------------------------------------------------------------------
+Private Sub TestUndoSnapshotSafety()
+    Dim priorNames As Collection
+    Dim afterNames As Collection
+    Dim added As Collection
+    Dim cnt As Long
+    Dim firstAdded As String
+    Set priorNames = U19NameList("Output", "gp1", "VLAd_gp1_Output")
+    Set afterNames = U19NameList("Output", "gp1", "gp1 (2)", "VLAd_gp1_Output")
+    Set added = VlaIdeAddedSheetNames(priorNames, afterNames)
+    cnt = added.Count
+    firstAdded = ""
+    If cnt > 0 Then firstAdded = CStr(added.Item(1))
+    CheckV "undo snapshot: the copy is the new name, not the last tab", cnt & "|" & firstAdded, "1|gp1 (2)"
+    Set afterNames = U19NameList("output", "GP1", "VLAd_gp1_Output")
+    CheckV "undo snapshot: a name differing only in case is not new", VlaIdeAddedSheetNames(priorNames, afterNames).Count, 0
+    Set afterNames = U19NameList("Output", "gp1", "gp1 (2)", "Sheet4", "VLAd_gp1_Output")
+    CheckV "undo snapshot: two new sheets are counted, never guessed between", VlaIdeAddedSheetNames(priorNames, afterNames).Count, 2
+
+    CheckV "sheet name: an ordinary name can be a sheet", VlaIdeCanBeSheetName("Q1 Data"), True
+    CheckV "sheet name: an inner apostrophe is allowed", VlaIdeCanBeSheetName("O'Brien"), True
+    CheckV "sheet name: 31 characters is the limit", VlaIdeCanBeSheetName(String$(31, "a")), True
+    CheckV "sheet name: 32 characters is too long", VlaIdeCanBeSheetName(String$(32, "a")), False
+    CheckV "sheet name: empty is not a name", VlaIdeCanBeSheetName(""), False
+    CheckV "sheet name: a slash cannot be in one", VlaIdeCanBeSheetName("Q1/Q2"), False
+    CheckV "sheet name: nor a colon", VlaIdeCanBeSheetName("a:b"), False
+    CheckV "sheet name: nor a bracket", VlaIdeCanBeSheetName("[x]"), False
+    CheckV "sheet name: nor a leading apostrophe", VlaIdeCanBeSheetName("'x"), False
+    CheckV "sheet name: nor a trailing apostrophe", VlaIdeCanBeSheetName("x'"), False
+    CheckV "sheet name: History is reserved, in any case", VlaIdeCanBeSheetName("history"), False
+    ' The live shape: quoted text the scan reads as a qualified reference.
+    Dim scanned As String
+    scanned = VlaIdeScanTargets("Put " & Chr$(34) & "see 'Q1/Q2'!A1" & Chr$(34) & " into cell B2.")
+    CheckV "sheet name: the scan still offers Q1/Q2 from quoted text", scanned, "Q1/Q2"
+    CheckV "sheet name: and Q1/Q2 is no target, so no tombstone is tried", VlaIdeCanBeSheetName(scanned), False
+
+    Dim d As String
+    Dim msgSource As String
+    On Error Resume Next
+    VLA_Messages.RaiseMsg "ide-undo-snapshot-failed", "program", "Frazaro (gp1)", "sheet", "gp1", "reason", "That name is already taken."
+    d = Err.Description
+    msgSource = Err.Source
+    Err.Clear
+    On Error GoTo 0
+    Report "undo snapshot: the refusal names the program, the sheet and Excel's words", _
+           InStr(d, "'Frazaro (gp1)' has not run.") > 0 And InStr(d, "the sheet 'gp1' (That name is already taken.)") > 0, d
+    Report "undo snapshot: the refusal says nothing ran and nothing was left, from VLA-IDE", _
+           InStr(d, "None of the program's sentences ran, and nothing Frazaro made for Undo was left behind.") > 0 _
+           And InStr(d, "{") = 0 And msgSource = "VLA-IDE", d & " [" & msgSource & "]"
+    On Error Resume Next
+    VLA_Messages.RaiseMsg "ide-undo-snapshot-failed-copies-left", "program", "Frazaro (gp1)", "sheet", "gp1", "reason", "x", "left", "'gp1 (2)'"
+    d = Err.Description
+    Err.Clear
+    On Error GoTo 0
+    Report "undo snapshot: a roll-back that could not finish names what is left and how to clear it", _
+           InStr(d, "these sheets it had made for Undo: 'gp1 (2)'. Delete them") > 0 And InStr(d, "{") = 0, d
+    On Error Resume Next
+    VLA_Messages.RaiseMsg "ide-undo-snapshot-copy-not-found", "count", "2"
+    d = Err.Description
+    Err.Clear
+    On Error GoTo 0
+    Report "undo snapshot: an unidentifiable copy says how many sheets appeared", _
+           InStr(d, "2 new sheets appeared where one was expected") > 0, d
+End Sub
+
+Private Function U19NameList(ParamArray nameList() As Variant) As Collection
+    Dim r As Collection
+    Set r = New Collection
+    Dim v As Variant
+    For Each v In nameList
+        r.Add CStr(v)
+    Next
+    Set U19NameList = r
+End Function
 
 Private Sub TestBuildRibbon()
     Dim x As String

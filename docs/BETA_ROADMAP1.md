@@ -5211,6 +5211,50 @@ written against.
   invent host tests it could not run. The refusal *paths* are what
   `check_runtime_raise_dispatch.ps1` now guarantees exist; that they produce
   the right words is what the owner's live pass checks.
+- ⬜ **IN.16 — the interpreter cannot write a cell on another sheet by
+  name: "Put 5 into cell B2 of sheet Data." is refused.** *Minted
+  2026-09-14, the owner's call, from `U.19`'s live pass.* **Observed:**
+  under Interpret Instructions, with the sheet present,
+  `Put 1 into cell B2 of sheet Omega19.` was refused with
+  `interp-dynamic-member-refused`: "SEC.1: 'range' is not in this
+  interpreter's native dynamic-dispatch allowlist - refused, not attempted
+  via CallByName (…)". This is not an edge case. `english.vla` files the
+  phrase under "One-sentence cross-sheet reaches (context switching still
+  works too)", with its own `test-success`. **What the code says, read
+  rather than assumed:** the phrase expands through
+  `put-into-cell-of-sheet` to `(set! (. (worksheets s) range r) e)`. The
+  interpreter's write path is `WalkMemberSet`, then `DescendToParent`,
+  then `DynamicSet(parent, lastSeg, v)`, and it carries the value and
+  nothing else. `DynamicSet` has no argument parameter, so a member that
+  needs one (`Range("b2")`) cannot be written, and `"range"` falls to the
+  SEC.1 refusal. Reading works: `DynamicGet`'s `Case "range"` takes one
+  argument, so `Set remote to cell B2 of sheet Data.` (`cell-of-sheet`) is
+  unaffected. **Census:** this macro is the only phrasebook write of the
+  shape `(set! (. X member arg) v)`; `espanol.vla`'s `pon-en-celda-de-hoja`
+  calls it. No test pins the sentence under either backend
+  (`check_backend_parity.ps1`: 18/65 forms), which is how it shipped.
+  Whether Compile runs it is unverified. **A second defect in the same
+  refusal:** its text names internals ("Tier 2's own subtractive fix",
+  `VLA_Interpreter.bas`'s `DynamicGet/DynamicCall/DynamicSet`). A person
+  running a program is told how the interpreter is built, not what their
+  sentence cannot do, against `LX.8`. **Workaround today:**
+  `Go to sheet Data.` then `Put 5 into cell B2.` (`Put 5 into cell
+  Data!B2.` takes another path, `(set! (range "data!b2") 5)`, and has not
+  been checked live under Interpret). **Shape to decide when scoped:**
+  keep SEC.1's allowlist; no late-bound fallback comes back. There are two
+  roads. (a) Give the write path the target's arguments (`WalkMemberSet`
+  and `DynamicSet` taking `argVals`), with one reviewed `Case "range"`
+  that still passes through the SEC.4 formula-injection guard `Case
+  "value"` applies. (b) Rewrite the macro as
+  `(set! (. (. (worksheets s) range r) value) e)`, which reaches the
+  already-native `value` write and its guard, the same shape
+  `add-edge-border`'s `(set! (. (. r borders edge) linestyle) …)` already
+  uses. (b) is cheaper, but it changes Compile's output and goldens too,
+  and leaves the shape refusable for the next macro that needs it. Either
+  way: pin `Put 5 into cell B2 of sheet Data.` under BOTH backends (a
+  `VerifyReports` row), and reword `interp-dynamic-member-refused` to name
+  the sentence's problem. *Pays into:* `AS.8` parity. *Depends on:*
+  nothing. `~hours`
 
 **B3 — a second host, prepared (SD-18's own infrastructure; target-neutrality
   applied one substrate further than IN.\* ever needed to)**
@@ -18215,7 +18259,7 @@ now carries one summary paragraph per engine and points here.*
   provenance tagging would use, so an auditor reads a rendering
   (`docs/CONTEMPLATIONS.md`'s own "the sheet is a view, not the truth")
   and signs a hash. `~days`
-- ⬜ **U.19 — a failed Undo snapshot must not leave its copy behind.**
+- ✅ **U.19 — a failed Undo snapshot must not leave its copy behind.**
   *Minted 2026-09-13, the owner's call, from `G-PROLOG` slice 1's live
   pass; filed to scope and build separately, not part of that slice.*
   **Observed:** after Test 1's Run the workbook held two tabs, `gp1` and
@@ -18247,6 +18291,62 @@ now carries one summary paragraph per engine and points here.*
   should report too. A standalone repro in `tools/` if the cause resists
   reading. *Pays into:* `U.17`, since every new path that snapshots would
   inherit the leak. *Depends on:* nothing. `~hours`–`~days`
+  **BUILT, OWNER-VERIFIED LIVE AND COMMITTED 2026-09-14.** *Live:* M1
+  on the pre-fix build found the cause (below). A forced snapshot failure
+  (a chart sheet holding the copy's name) refused in the exact words, ran
+  no sentence (B2 stayed 5), left no stray tab, and the next Run went
+  through. Test 2 kept the copy under its own name, and Undo put B2 back
+  to 5. Test 3 left no `Sheet<N>` tab for `'Q1/Q2'!`. Not seen live, and
+  accepted by the owner: a readout taken right after a refusal, and a
+  tombstone's rename failing (the same `made`/`RemoveSnapshotSheets` path
+  as the copy's).
+  *Read before building:* the code turned up three defects besides the
+  candidates above. (a) It found the copy by position:
+  `Set snap = hb.Worksheets(hb.Worksheets.Count)` right after
+  `Copy After:=` the last worksheet. For every target after the first
+  (`Output` is always first, copied or marked), that last worksheet is
+  very-hidden. If Excel places the copy anywhere but last, the rename
+  hits the wrong sheet and raises nothing, which would leave a stray
+  `gp1 (2)` with no Immediate-window line. (b) A certain leak: the scan
+  reads quoted text, so `'Q1/Q2'!` offered a name no sheet can have. Its
+  tombstone's rename failed on every Run and left a visible `Sheet<N>`.
+  (c) Found, NOT fixed here: tags are compared case-sensitively
+  (`GuardTagCollision`, Add Program's guard, `DeleteSnapshots`), but Excel
+  sheet names ignore case. So `Frazaro (G-p1)` and `Frazaro (gp1)` get
+  two tags whose snapshot names collide. *Measured live (M1, pre-fix
+  build, 2026-09-14): the cause is (a).* Program `Frazaro (U19M)`:
+  `Work on sheet Probe19.` then `Put 5 into cell B2.`, Interpreted twice.
+  No "could not snapshot" line was printed either time. After Run 1 the
+  tabs were `probe19` and a visible `probe19 (2)`, and the only snapshot
+  sheet was `VLAu_U19M_probe19`; `VLAd_U19M_Output` was missing. After
+  Run 2 (B2 changed to 7) a visible `probe19 (3)` held the real
+  pre-run B2 = 5, while `VLAu_U19M_probe19` was blank. So the
+  `Output` tombstone was made last and very-hidden, and Excel placed
+  `probe19`'s copy BEFORE it, not after. `Worksheets(Count)` then renamed the tombstone, silently. The stray
+  tab is the visible half; the hidden half is worse. Undo would have put
+  `probe19` back BLANK instead of 5 and dropped the `Output` tombstone.
+  It happens on every Run that copies a sheet while the last worksheet
+  is very-hidden, which is every Run that names an existing sheet. No
+  raised rename, no collision, no protected structure
+  (`ProtectStructure = False`). *Built:* (1) `TakeRunSnapshot` records
+  each sheet it makes the moment it exists. On any failure it removes them
+  all (`RemoveSnapshotSheets`, in its own error scope) and then refuses
+  through `ide-undo-snapshot-failed`. If some could not be removed it uses
+  `ide-undo-snapshot-failed-copies-left`, which names them. The raw
+  `cleanup:` re-raise is gone, so `VLA_IDE`'s ratchet ceiling drops from
+  1 to 0. (2) The copy is the one name that is new since just before the
+  Copy (`VlaIdeAddedSheetNames`, pure). Any other count refuses
+  (`ide-undo-snapshot-copy-not-found`). (3) `VlaIdeCanBeSheetName` (pure)
+  drops scanned names no sheet can have. (4) **Decided: a failed snapshot
+  stops the Run**, in both `RunProgram` and `InterpretProgram`, before the
+  first sentence. A warning after the run would come once the sheets had
+  already changed, and a question before it would be a mid-run dialog.
+  With (3) removing the one certain failure, the failures left are ones
+  the person can clear, and the refusal says how. The cost: a workbook
+  with a protected structure used to Run without Undo, and is now refused.
+  `DeleteSnapshots`' silent deletes stay silent, because a leftover it
+  could not delete now shows up as the rename's refusal, with the
+  roll-back. Pinned by `VLA_Tests.TestUndoSnapshotSafety` (20 pins).
 - ✅ **U.20 — Lint VLA must never break a file it rewrites: audit the
   button.** **BUILT, OWNER-VERIFIED LIVE AND COMMITTED 2026-09-14** -
   compile and `VlaSelfTest` clean, and all eight live tests passed,

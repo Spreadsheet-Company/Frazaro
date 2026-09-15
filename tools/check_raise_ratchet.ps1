@@ -150,12 +150,16 @@ function Get-RawRaiseCount([string]$path) {
 # pre-flight routed the four genuinely raw refusals that had accumulated
 # in VLA_Relation (1) and VLA_Sql (3) through RaiseMsg instead of
 # bumping their ceilings, so both stay at the implicit 0.
+# Lowered 2026-09-14 (U.19): VLA_IDE 1->0. Its last raw site was
+# TakeRunSnapshot's `cleanup:` re-raise (the note above misplaces it at
+# ReadWordFile); a failed snapshot now rolls back and refuses through
+# RaiseMsg ide-undo-snapshot-failed instead of re-raising Excel's error.
 $ceilings = @{
     'VLA'                = 8
     'VLA_SentenceEngine' = 1
     'VLA_Interpreter'    = 1
     'VLA_Runtime'        = 4
-    'VLA_IDE'            = 1
+    'VLA_IDE'            = 0
     'VLA_Messages'       = 4
 }
 
