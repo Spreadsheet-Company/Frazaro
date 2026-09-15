@@ -1,6 +1,21 @@
 Attribute VB_Name = "VLA_Prolog"
 Option Explicit
-Public Const VLA_PROLOG_VERSION As String = "PROLOG.28"
+Public Const VLA_PROLOG_VERSION As String = "PROLOG.30"
+'
+' PROLOG.30: THE THREE TEXT TESTS, DATALOG.11's twins - (text-starts-with
+' Text Start), (text-ends-with Text End) and (text-contains Text Part).
+' Minted by G-PROLOG slice 5's scoping, the owner's call, so a rule cell
+' written with one reads alike in both engines (G-PROLOG decision 5's shared
+' subset). Each is a TEST: it binds nothing and answers once. Measured, sub-atom
+' used as "contains" answered one row per occurrence - Banana twice. Both
+' arguments must already be text (prolog-text-unbound refuses a free one, the
+' phantom column's rule), read as every text goal reads them (TextOfAtomicLeaf:
+' a number by its canonical text, a quoted string without its marker). Case is
+' exact, and the empty text is in every text. No surrogate refusal: a test
+' neither counts nor cuts at a position. Three more text goals in
+' TextGoalKindFor (ten), and their underscore spellings in AliasSpellingFor,
+' rule E's derivation. NumberToTerm now calls VLA_Relation.InvariantNumberText,
+' byte for byte its old body, so DATALOG reads a number the same way.
 '
 ' PROLOG.22, PROLOG.23 AND PROLOG.24: the three follow-ups PROLOG.19 filed,
 ' landed together because one live pass verifies all three.
@@ -2617,6 +2632,9 @@ Private Function AliasSpellingFor(ByVal predName As String) As String
     Case "upcase_atom":           AliasSpellingFor = "upcase-atom"
     Case "downcase_atom":         AliasSpellingFor = "downcase-atom"
     Case "atomic_list_concat":    AliasSpellingFor = "atomic-list-concat"
+    Case "text_starts_with":      AliasSpellingFor = "text-starts-with"
+    Case "text_ends_with":        AliasSpellingFor = "text-ends-with"
+    Case "text_contains":         AliasSpellingFor = "text-contains"
     End Select
 End Function
 
@@ -2745,6 +2763,10 @@ Private Function TextGoalKindFor(ByVal predName As String) As String
     Case "upcase-atom":           TextGoalKindFor = "upcase"
     Case "downcase-atom":         TextGoalKindFor = "downcase"
     Case "atomic-list-concat":    TextGoalKindFor = "listconcat"
+    ' PROLOG.30: the three text tests, DATALOG.11's names.
+    Case "text-starts-with":      TextGoalKindFor = "starts"
+    Case "text-ends-with":        TextGoalKindFor = "ends"
+    Case "text-contains":         TextGoalKindFor = "contains"
     End Select
 End Function
 
@@ -2936,15 +2958,11 @@ End Function
 ' measurement nothing here could run; the same run showed it equal to
 ' en-US CStr on every probe value, which is why no fractional pin in the
 ' suite moves.
+' PROLOG.30: the body above moved to VLA_Relation.InvariantNumberText
+' unchanged, when DATALOG.11's text tests needed the same reading - one place
+' for both engines, the guarantee this function's header was already about.
 Private Function NumberToTerm(ByVal v As Double) As String
-    Dim s As String
-    s = Trim$(Str$(v))
-    If Left$(s, 1) = "." Then
-        s = "0" & s
-    ElseIf Left$(s, 2) = "-." Then
-        s = "-0" & Mid$(s, 2)
-    End If
-    NumberToTerm = s
+    NumberToTerm = VLA_Relation.InvariantNumberText(v)
 End Function
 
 ' An `is`-expression's own STATIC shape, checked recursively at parse
@@ -7113,7 +7131,38 @@ Private Sub SolveTextGoal(ByVal textGoal As Variant, ByVal kind As String, ByVal
         SolveCaseMap lst, False, rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
     Case "listconcat"
         SolveAtomicListConcat lst, rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+    Case "starts", "ends", "contains"
+        SolveTextTest lst, kind, rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
     End Select
+End Sub
+
+' PROLOG.30: `(text-starts-with Text Start)`, `(text-ends-with Text End)` and
+' `(text-contains Text Part)`. Deterministic and binding nothing, so the
+' continuation runs once, in the caller's own environment - a type test's
+' shape. Both arguments are required text; exact case; the empty text is in
+' every text (InStr finds it at 1).
+Private Sub SolveTextTest(ByVal lst As Collection, ByVal kind As String, ByVal rest As Collection, _
+                          clauseDict As Object, envN As Collection, envT As Collection, _
+                          freeVarNames As Collection, solutions As Collection, _
+                          ByRef stepsTaken As Long, _
+                          ByRef cutActive As Boolean, ByRef cutTargetBarrier As Long)
+    Dim formLabel As String
+    formLabel = ListGoalFormLabel(lst)
+    Dim txt As String, part As String
+    txt = RequireTextArg(lst.Item(2), envN, envT, formLabel, "both its arguments must already be text")
+    part = RequireTextArg(lst.Item(3), envN, envT, formLabel, "both its arguments must already be text")
+    Dim holds As Boolean
+    Select Case kind
+    Case "starts"
+        holds = (Left$(txt, Len(part)) = part)
+    Case "ends"
+        holds = (Right$(txt, Len(part)) = part)
+    Case "contains"
+        holds = (InStr(1, txt, part, vbBinaryCompare) > 0)
+    End Select
+    If holds Then
+        SolveGoalList rest, clauseDict, envN, envT, freeVarNames, solutions, stepsTaken, cutActive, cutTargetBarrier
+    End If
 End Sub
 
 ' PROLOG.18: `(atom-length Text N)`. Deterministic. Text must be bound.

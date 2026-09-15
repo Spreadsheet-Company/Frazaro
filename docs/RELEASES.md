@@ -207,6 +207,30 @@
   who can…" is not offered: which one it named would change with the order
   of your rows.
 
+- **`=DATALOG(...)` and `=PROLOG(...)` can test text.** In a rule,
+  `(text-starts-with Code "GL-4")` keeps the codes that start with GL-4, and
+  `(text-ends-with Code "10")` and `(text-contains Name "an")` do what they
+  say. Each keeps a row once, however often the text occurs, capitals must
+  match exactly, and a number cell is read as its digits, so a code of 4010
+  starts with 40. Put `not` round one to keep the rows it rejects. Both
+  engines read the same rule the same way, so one rules range can feed
+  either. These three names can no longer name a relation, a fact or a
+  Table.
+
+- **`=DATALOG(...)` can put a list in one cell.** `(textjoin People ", "
+  (can-cover Person Shift))` in a rule joins everyone who can cover each
+  shift into one cell — `Ann, Bob, Ed` — in the order the rows were found,
+  each name once, and an empty cell for a shift nobody covers. The
+  separator is whatever you write between the quotes. A list longer than a
+  cell can hold is refused by name.
+
+- **DATALOG says when you have written PROLOG.** `sub-atom`, `if`,
+  `findall`, `=<`, a cut and the rest of PROLOG's own words used to be
+  refused as a misspelling, as "nesting" or as "mixed keying". Now DATALOG
+  names the word as PROLOG's and points at its own way of saying it — for
+  `sub-atom`, the text tests above. A relation you named yourself, say
+  `member`, is untouched.
+
 - **Known limits, said plainly.** A relation's name is one word, so it is
   `can-cover`, with the hyphen, not `can cover`. Relations you declare in
   words, like `is submitted by`, are planned rather than guessed at, since a

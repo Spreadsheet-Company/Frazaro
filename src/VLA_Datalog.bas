@@ -1,6 +1,54 @@
 Attribute VB_Name = "VLA_Datalog"
 Option Explicit
-Public Const VLA_DATALOG_VERSION As String = "DATALOG.10"
+Public Const VLA_DATALOG_VERSION As String = "DATALOG.11"
+' DATALOG.11: TEXT TESTS, TEXTJOIN, AND PROLOG'S GOALS REFUSED BY NAME.
+' Minted by G-PROLOG slice 5's scoping and built in that session, before the
+' slice's grammar; the owner's calls throughout.
+'
+' WHY. G-PROLOG's decision 5 keeps every clause a sentence writes readable by
+' both engines. Measured: a text rule written with PROLOG's sub-atom made this
+' engine refuse EVERY question over its rules range (DATALOG.8 named sub-atom
+' as a misspelling), a sub-atom "contains" answered one row per occurrence in
+' PROLOG (Banana twice), and a list in one cell had no DATALOG spelling. None
+' of it needed PROLOG's search - only builtins this engine lacked.
+'
+' THREE TEXT TESTS: (text-starts-with Text Start), (text-ends-with Text End)
+' and (text-contains Text Part), the names and meaning PROLOG.30 gives PROLOG.
+' Each is a FILTER read the way a comparison is: both operands bound by an
+' earlier positive atom (datalog-builtin-unsafe-variable), no stratum edge,
+' never a delta position, one answer per row. Case is exact. A number cell is
+' read as its canonical invariant text (VLA_Relation.InvariantNumberText, the
+' reading PROLOG's text goals already make: 4010 starts with 40, and 0.5 reads
+' 0.5 on every machine); a constant is its text as written. Every text
+' contains the empty text. Under (not ...) a text test stays one, answered
+' inverted, since PROLOG reads that clause the same way. The three names may
+' not name a relation, a fact or a table (datalog-text-test-name-reserved),
+' and one asked as a query on its own is refused, teaching the rule spelling
+' (datalog-text-test-in-query).
+'
+' TEXTJOIN: (textjoin Result Separator (pred ...)) - count's and sum's shape
+' with the separator between, in Excel TEXTJOIN's order. Exactly one argument
+' left unbound, the value (datalog-textjoin-needs-one-value-variable), and the
+' separator written out, never a variable. Per group, the values in the
+' aggregated relation's own row order - the order its WHO spill shows -
+' joined; an empty group holds "", never a missing row. They come out
+' distinct with no dedupe: with one value variable every other position is a
+' group key or a constant, and a relation holds each row once. A join longer
+' than a cell's 32,767 characters is refused by name, at the join.
+'
+' PROLOG'S GOALS: a word PROLOG solves that this program never defines -
+' sub-atom, if, findall, cut, =< and the rest of PROLOG's reserved set, less
+' the words this engine reads itself - is refused as PROLOG's, pointing at
+' this engine's own spelling where there is one (datalog-prolog-goal). It
+' used to be called a misspelling, nesting, or mixed keying. Checked on a
+' form's bare head word before keyed desugaring or the nesting check: in a
+' rule body, under not, inside an aggregate, and in a query. A program that
+' DEFINES such a name - a relation called member - keeps it, since DATALOG
+' shipped reserving none of them. PrologGoalFamilyFor holds the set, and
+' tools/check_prolog_reserved_names.ps1's rule H holds it equal to PROLOG's
+' reserved set less this engine's own words: this module may not call
+' VLA_Prolog.
+'
 ' DATALOG.10: A QUERY MAY BE ONE ATOM UNDER NOT, and it answers TRUE when
 ' nothing matches - (query (not (uncovered X))). Minted by G-PROLOG slice 4's
 ' scoping, for its EVERY; the owner's calls throughout.
@@ -424,6 +472,9 @@ Private Const BI_COUNT As Long = 2
 Private Const BI_SUM As Long = 3
 Private Const BI_CMP As Long = 4
 Private Const BI_LET As Long = 5
+' DATALOG.11: a text test (text-starts-with T P), and (textjoin R Sep (pred ...)).
+Private Const BI_TEXT As Long = 6
+Private Const BI_JOIN As Long = 7
 
 ' ---- minimal S-expression accessors, duplicated from VLA.bas's own
 '      Private IsList/Nth (cross-module Private calls do not exist in
@@ -611,11 +662,15 @@ End Function
 '      operands as the "args" - never a real predicate at all. Item(3) =
 '      resultVar (String) - an aggregate's or a `let`'s own brand-new
 '      result variable name; "" and unused for BI_POS/BI_NOT/BI_CMP.
-Private Function MakeBodyItem(ByVal kind As Long, ByVal atom As Collection, ByVal resultVar As String) As Collection
+Private Function MakeBodyItem(ByVal kind As Long, ByVal atom As Collection, ByVal resultVar As String, _
+                              Optional ByVal extra As String = "") As Collection
     Dim item As New Collection
     item.Add kind
     item.Add atom
     item.Add resultVar
+    ' DATALOG.11: Item(4) - a textjoin's separator, or "not" for a negated
+    ' text test; "" for every other kind.
+    item.Add extra
     Set MakeBodyItem = item
 End Function
 
@@ -629,6 +684,10 @@ End Function
 
 Private Function BodyItemResultVar(ByVal item As Collection) As String
     BodyItemResultVar = item.Item(3)
+End Function
+
+Private Function BodyItemExtra(ByVal item As Collection) As String
+    BodyItemExtra = item.Item(4)
 End Function
 
 ' Both negation and grouped aggregation need the SAME guarantee the
@@ -654,7 +713,170 @@ End Function
 ' rather than "Not BodyItemNeedsFullRelation(kind)" - RunFixpointForRules'
 ' own round loop does exactly that now.
 Private Function BodyItemNeedsFullRelation(ByVal kind As Long) As Boolean
-    BodyItemNeedsFullRelation = (kind = BI_NOT Or kind = BI_COUNT Or kind = BI_SUM)
+    ' DATALOG.11: textjoin is an aggregate, so it reads its relation whole too.
+    BodyItemNeedsFullRelation = (kind = BI_NOT Or kind = BI_COUNT Or kind = BI_SUM Or kind = BI_JOIN)
+End Function
+
+' =====================================================================
+'  DATALOG.11: text tests, textjoin, and PROLOG's goals
+' =====================================================================
+' This module's header has the decisions and what was measured first.
+
+Private Function IsTextTestName(ByVal nm As String) As Boolean
+    Select Case nm
+    Case "text-starts-with", "text-ends-with", "text-contains"
+        IsTextTestName = True
+    End Select
+End Function
+
+' A form whose head is a BARE text test's name. A quoted "text-contains" is a
+' name, never the test - the wrapper words' own rule.
+Private Function IsTextTestForm(ByVal form As Variant) As Boolean
+    If Not IsList(form) Then Exit Function
+    Dim lst As Collection
+    Set lst = form
+    If lst.Count < 1 Then Exit Function
+    If IsObject(lst.Item(1)) Then Exit Function
+    If Left$(CStr(lst.Item(1)), 1) = Chr$(34) Then Exit Function
+    IsTextTestForm = IsTextTestName(VLA_Identity.Fold(CStr(lst.Item(1))))
+End Function
+
+Private Sub RefuseTextTestName(ByVal nm As String)
+    If IsTextTestName(nm) Then VLA_Messages.RaiseMsg "datalog-text-test-name-reserved", "name", nm
+End Sub
+
+' Exact case, the binary compare this module runs under. InStr finds the
+' empty text at 1, so every text contains it, as every text starts and ends
+' with it.
+Private Function TextTestHolds(ByVal op As String, ByVal txt As String, ByVal part As String) As Boolean
+    Select Case op
+    Case "text-starts-with"
+        TextTestHolds = (Left$(txt, Len(part)) = part)
+    Case "text-ends-with"
+        TextTestHolds = (Right$(txt, Len(part)) = part)
+    Case "text-contains"
+        TextTestHolds = (InStr(1, txt, part, vbBinaryCompare) > 0)
+    End Select
+End Function
+
+' A tuple value as text: a real number type by its canonical invariant text
+' (VLA_Relation.InvariantNumberText, which PROLOG's text goals read too),
+' anything else - a constant, a text cell - as it is.
+Private Function DatalogValueText(ByVal v As Variant) As String
+    If VLA_Relation.ValueIsNumericType(v) Then
+        DatalogValueText = VLA_Relation.InvariantNumberText(CDbl(v))
+    Else
+        DatalogValueText = CStr(v)
+    End If
+End Function
+
+' One group's values joined, through VBA's Join so a long group costs one
+' pass. A group holds at least one piece: ComputeAggregateGroups creates it
+' on its first value.
+Private Function JoinPieces(ByVal pieces As Collection, ByVal separator As String, ByVal resultVar As String) As String
+    Dim parts() As String
+    ReDim parts(0 To pieces.Count - 1)
+    Dim pc As Variant
+    Dim k As Long
+    For Each pc In pieces
+        parts(k) = CStr(pc)
+        k = k + 1
+    Next pc
+    Dim joined As String
+    joined = Join(parts, separator)
+    If Len(joined) > 32767 Then
+        VLA_Messages.RaiseMsg "datalog-textjoin-too-long-for-a-cell", "var", resultVar, "length", CStr(Len(joined))
+    End If
+    JoinPieces = joined
+End Function
+
+' A bare word PROLOG solves, refused as PROLOG's unless this program defines
+' it. rawName is the token as read: a leading quote mark makes it a name.
+Private Sub RefusePrologGoal(ByVal rawName As String, ByVal definedNames As Object)
+    If Left$(rawName, 1) = Chr$(34) Then Exit Sub
+    Dim nm As String
+    nm = VLA_Identity.Fold(rawName)
+    Dim family As String
+    family = PrologGoalFamilyFor(nm)
+    If Len(family) = 0 Then Exit Sub
+    If VLA_Runtime.VlaDictHas(definedNames, nm) Then Exit Sub
+    VLA_Messages.RaiseMsg "datalog-prolog-goal", "name", nm, "hint", PrologGoalHintFor(family)
+End Sub
+
+Private Sub RefusePrologGoalForm(ByVal form As Variant, ByVal definedNames As Object)
+    If Not IsList(form) Then Exit Sub
+    Dim lst As Collection
+    Set lst = form
+    If lst.Count < 1 Then Exit Sub
+    If IsObject(lst.Item(1)) Then Exit Sub
+    RefusePrologGoal CStr(lst.Item(1)), definedNames
+End Sub
+
+' A query written as a fact, or under not: a text test asked on its own is
+' refused with the rule spelling, and a PROLOG goal as PROLOG's.
+Private Sub RefuseQueryGoal(ByVal qForm As Variant, ByVal negated As Boolean, ByVal definedNames As Object)
+    Dim target As Variant
+    CopyVariant target, qForm
+    If negated Then
+        Dim nLst As Collection
+        Set nLst = qForm
+        If nLst.Count < 2 Then Exit Sub
+        CopyVariant target, nLst.Item(2)
+    End If
+    If IsTextTestForm(target) Then
+        Dim tLst As Collection
+        Set tLst = target
+        VLA_Messages.RaiseMsg "datalog-text-test-in-query", "name", VLA_Identity.Fold(CStr(tLst.Item(1)))
+    End If
+    RefusePrologGoalForm target, definedNames
+End Sub
+
+' PROLOG's reserved set, less the words this engine reads itself (not, the
+' comparisons < > >= = it shares, and the three text tests) - each name ->
+' the family its hint comes from. tools/check_prolog_reserved_names.ps1's
+' rule H holds this table to exactly that set.
+Private Function PrologGoalFamilyFor(ByVal nm As String) As String
+    Select Case nm
+    Case "atom-length", "atom-concat", "sub-atom", "atom-number", "upcase-atom", "downcase-atom", "atomic-list-concat"
+        PrologGoalFamilyFor = "text"
+    Case "atom_length", "atom_concat", "sub_atom", "atom_number", "upcase_atom", "downcase_atom", "atomic_list_concat"
+        PrologGoalFamilyFor = "text"
+    Case "text_starts_with", "text_ends_with", "text_contains"
+        PrologGoalFamilyFor = "text"
+    Case "findall", "list", "length", "member", "nth", "append", "reverse", "sum-list", "sum_list"
+        PrologGoalFamilyFor = "list"
+    Case "if", "or", "!", "->", "\+"
+        PrologGoalFamilyFor = "control"
+    Case "=:=", "=\=", "=<", "\=", "\==", "==", "is"
+        PrologGoalFamilyFor = "compare"
+    Case "var?", "nonvar?", "atom?", "number?", "atomic?", "compound?", "callable?", "is-list?", "ground?", "whole?"
+        PrologGoalFamilyFor = "types"
+    Case "var", "nonvar", "atom", "number", "atomic", "compound", "callable", "is_list", "ground"
+        PrologGoalFamilyFor = "types"
+    Case "is-list", "is_list?", "whole", "integer?", "float?", "integer", "float", "between"
+        PrologGoalFamilyFor = "types"
+    Case "assert", "asserta", "assertz", "retract", "retractall", "abolish", "consult", "halt"
+        PrologGoalFamilyFor = "impure"
+    Case "write", "writeln", "print", "nl", "format", "writeq", "write_canonical", "write-canonical", "write_term", "write-term"
+        PrologGoalFamilyFor = "impure"
+    Case "read", "read_term", "read-term", "gensym", "get_time", "get-time"
+        PrologGoalFamilyFor = "impure"
+    Case "b_setval", "b-setval", "b_getval", "b-getval", "nb_setval", "nb-setval", "nb_getval", "nb-getval"
+        PrologGoalFamilyFor = "impure"
+    Case "random", "random_between", "random-between", "random_member", "random-member", "random_permutation", "random-permutation"
+        PrologGoalFamilyFor = "impure"
+    End Select
+End Function
+
+Private Function PrologGoalHintFor(ByVal family As String) As String
+    Select Case family
+    Case "text": PrologGoalHintFor = "DATALOG's own text tests are (text-starts-with Text Start), (text-ends-with Text End) and (text-contains Text Part), and (textjoin Result "", "" (pred ...)) joins a column's values into one cell"
+    Case "list": PrologGoalHintFor = "DATALOG holds no lists - (count N (pred ...)), (sum S (pred ...)) and (textjoin Result "", "" (pred ...)) read a whole relation instead"
+    Case "control": PrologGoalHintFor = "DATALOG has no if, or or cut - write one rule for each case, with (not ...) for its exceptions"
+    Case "compare": PrologGoalHintFor = "DATALOG compares with < > <= >= = and <>, and computes a value with (let Z (+ X Y))"
+    Case "types": PrologGoalHintFor = "DATALOG has no type tests and generates no ranges - a value compares as a number when both sides are numbers, and as text otherwise"
+    Case "impure": PrologGoalHintFor = "a DATALOG formula answers only from its rules and tables, so it has nothing that changes them, prints, or reads the clock"
+    End Select
 End Function
 
 Private Function TopHead(ByVal form As Variant) As String
@@ -715,7 +937,7 @@ Private Sub CheckRuleSafety(ByVal headAtom As Collection, ByVal bodyItems As Col
                     End If
                 End If
             Next ni
-        Case BI_COUNT, BI_SUM
+        Case BI_COUNT, BI_SUM, BI_JOIN
             Dim newVarsSeen As Object
             Set newVarsSeen = VLA_Runtime.VlaDictNew()
             Dim gi As Long
@@ -732,6 +954,11 @@ Private Sub CheckRuleSafety(ByVal headAtom As Collection, ByVal bodyItems As Col
                 If VLA_Runtime.VlaDictKeys(newVarsSeen).Count <> 1 Then
                     VLA_Messages.RaiseMsg "datalog-sum-needs-one-value-variable", "predicate", AtomPred(atom), "count", VLA_Runtime.VlaDictKeys(newVarsSeen).Count
                 End If
+            ElseIf kind = BI_JOIN Then
+                ' DATALOG.11: sum's rule, for the value textjoin joins.
+                If VLA_Runtime.VlaDictKeys(newVarsSeen).Count <> 1 Then
+                    VLA_Messages.RaiseMsg "datalog-textjoin-needs-one-value-variable", "predicate", AtomPred(atom), "count", VLA_Runtime.VlaDictKeys(newVarsSeen).Count
+                End If
             End If
             Dim resultVar As String
             resultVar = BodyItemResultVar(item)
@@ -739,7 +966,8 @@ Private Sub CheckRuleSafety(ByVal headAtom As Collection, ByVal bodyItems As Col
                 VLA_Messages.RaiseMsg "datalog-aggregate-result-reused", "var", resultVar
             End If
             VLA_Runtime.VlaDictSet boundVars, resultVar, True
-        Case BI_CMP, BI_LET
+        Case BI_CMP, BI_LET, BI_TEXT
+            ' DATALOG.11: a text test is held to this rule too.
             ' Same rule as BI_NOT, applied to a comparison/arithmetic
             ' built-in's own two operands: every variable must ALREADY
             ' be bound (a comparison/arithmetic built-in contributes no
@@ -1071,6 +1299,7 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
             If lst.Count <> 2 Then VLA_Messages.RaiseMsg "datalog-fact-bad-shape"
             Dim factAtom As Collection
             Set factAtom = ParseAtom(Nth(lst, 2), "a fact")
+            RefuseTextTestName AtomPred(factAtom)
             Dim ai As Long
             For ai = 1 To AtomArity(factAtom)
                 If ArgIsVar(AtomArgAt(factAtom, ai)) Then
@@ -1082,6 +1311,7 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
             If lst.Count < 3 Then VLA_Messages.RaiseMsg "datalog-rule-needs-body"
             Dim headAtom As Collection
             Set headAtom = ParseAtom(Nth(lst, 2), "a rule head")
+            RefuseTextTestName AtomPred(headAtom)
             ' Same `As New`-in-a-loop trap as ParseAtom's own rec: this
             ' whole Case sits inside the For Each f In forms loop, so a
             ' SECOND (rule ...) form in one program would find
@@ -1100,6 +1330,12 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
                 kind = BI_POS
                 Dim resultVarName As String
                 resultVarName = ""
+                ' DATALOG.11: a textjoin's separator, or "not" for a negated text
+                ' test - reset every pass, since a Dim inside a loop is not.
+                Dim bodyExtra As String
+                bodyExtra = ""
+                ' DATALOG.11: a bare word here - cut, or nl - may be PROLOG's.
+                If Not IsObject(bodyForm) Then RefusePrologGoal CStr(bodyForm), definedNames
                 Dim atomForm As Variant
                 CopyVariant atomForm, bodyForm
                 ' (not (pred ...)) / (count Var (pred ...)) / (sum Var
@@ -1130,6 +1366,14 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
                                 If bLst.Count <> 2 Then VLA_Messages.RaiseMsg "datalog-not-bad-shape"
                                 kind = BI_NOT
                                 NthInto atomForm, bLst, 2
+                                ' DATALOG.11: a text test under not stays a text test,
+                                ' answered inverted - PROLOG reads the same clause so.
+                                If IsTextTestForm(atomForm) Then
+                                    kind = BI_TEXT
+                                    bodyExtra = "not"
+                                Else
+                                    RefusePrologGoalForm atomForm, definedNames
+                                End If
                             Case "count", "sum"
                                 If bLst.Count <> 3 Then VLA_Messages.RaiseMsg "datalog-aggregate-bad-shape", "form", wrapperWord
                                 Dim rvRaw As Variant
@@ -1143,6 +1387,7 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
                                 resultVarName = AtomText(rvRaw, "an aggregate's own result variable")
                                 If wrapperWord = "count" Then kind = BI_COUNT Else kind = BI_SUM
                                 NthInto atomForm, bLst, 3
+                                RefusePrologGoalForm atomForm, definedNames
                             Case "let"
                                 ' (let Z (+ X Y)) - DATALOG.4's own
                                 ' arithmetic binding form. Same shape as
@@ -1178,11 +1423,37 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
                                 ' NthInto override is needed here, unlike
                                 ' every other wrapper case above.
                                 kind = BI_CMP
+                            Case "text-starts-with", "text-ends-with", "text-contains"
+                                ' DATALOG.11: a text test - the whole form is the atom, its
+                                ' two operands the args, exactly as a comparison is read.
+                                kind = BI_TEXT
+                            Case "textjoin"
+                                ' DATALOG.11: (textjoin Result Separator (pred ...)) - count's
+                                ' shape with the separator between, TEXTJOIN's order.
+                                If bLst.Count <> 4 Then VLA_Messages.RaiseMsg "datalog-textjoin-bad-shape"
+                                Dim joinRvRaw As Variant
+                                NthInto joinRvRaw, bLst, 2
+                                If IsObject(joinRvRaw) Then VLA_Messages.RaiseMsg "datalog-aggregate-result-not-a-variable", "form", "textjoin"
+                                If Not IsVariableAtom(joinRvRaw) Then VLA_Messages.RaiseMsg "datalog-aggregate-result-not-a-variable", "form", "textjoin"
+                                resultVarName = AtomText(joinRvRaw, "an aggregate's own result variable")
+                                Dim joinSepRaw As Variant
+                                NthInto joinSepRaw, bLst, 3
+                                If IsObject(joinSepRaw) Then VLA_Messages.RaiseMsg "datalog-textjoin-separator-not-text"
+                                If IsVariableAtom(joinSepRaw) Then VLA_Messages.RaiseMsg "datalog-textjoin-separator-not-text"
+                                bodyExtra = AtomText(joinSepRaw, "a textjoin's separator")
+                                kind = BI_JOIN
+                                NthInto atomForm, bLst, 4
+                                RefusePrologGoalForm atomForm, definedNames
+                            Case Else
+                                ' DATALOG.11: a word PROLOG solves, which this program never
+                                ' defines, is refused as PROLOG's here - before keyed
+                                ' desugaring or the nesting check can name the wrong thing.
+                                RefusePrologGoal wrapperWord, definedNames
                             End Select
                         End If
                     End If
                 End If
-                If kind <> BI_CMP And kind <> BI_LET Then
+                If kind <> BI_CMP And kind <> BI_LET And kind <> BI_TEXT Then
                     ' DATALOG.5: a keyed atom is only ever a real
                     ' predicate reference - BI_POS's own atom, BI_NOT's
                     ' negated atom, or BI_COUNT/BI_SUM's own source atom
@@ -1206,6 +1477,12 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
                     ' "at least one", so the exact count is checked here.
                     If AtomArity(biAtom) <> 2 Then
                         VLA_Messages.RaiseMsg "datalog-builtin-needs-two-operands", "operator", AtomPred(biAtom), "count", AtomArity(biAtom), "expected", "two operands", "example", "(> X 50000) or (+ X Y)"
+                    End If
+                ElseIf kind = BI_TEXT Then
+                    ' DATALOG.11: a text test is two operands too - the text, then the
+                    ' start, end or part it is tested for.
+                    If AtomArity(biAtom) <> 2 Then
+                        VLA_Messages.RaiseMsg "datalog-builtin-needs-two-operands", "operator", AtomPred(biAtom), "count", AtomArity(biAtom), "expected", "two operands", "example", "(" & AtomPred(biAtom) & " Code ""GL-4"")"
                     End If
                 ElseIf kind = BI_LET Then
                     ' PROLOG.17: the operator set is no longer written
@@ -1231,7 +1508,7 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
                         VLA_Messages.RaiseMsg "datalog-builtin-needs-two-operands", "operator", AtomPred(biAtom), "count", AtomArity(biAtom), "expected", ArithArityWordsFor(wantArgsLet), "example", ArithArityExampleFor(wantArgsLet)
                     End If
                 End If
-                bodyAtoms.Add MakeBodyItem(kind, biAtom, resultVarName)
+                bodyAtoms.Add MakeBodyItem(kind, biAtom, resultVarName, bodyExtra)
             Next bi
             CheckRuleSafety headAtom, bodyAtoms
             Dim ruleRec As Collection
@@ -1251,8 +1528,10 @@ Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, B
                 ' blanks and answers TRUE when nothing matches.
                 If IsNegatedQueryForm(qRaw) Then
                     queryNegated = True
+                    RefuseQueryGoal qRaw, True, definedNames
                     Set queryAtom = ParseNegatedQueryAtom(qRaw)
                 Else
+                    RefuseQueryGoal qRaw, False, definedNames
                     Set queryAtom = ParseGroundQueryAtom(qRaw)
                 End If
                 queryName = AtomPred(queryAtom)
@@ -1570,7 +1849,7 @@ Private Function ComputeAggregateGroups(ByVal kind As Long, ByVal atom As Collec
                         End If
                     Else
                         VLA_Runtime.VlaDictSet seenLocal, nm, v
-                        If kind = BI_SUM Then valuePos = i
+                        If kind = BI_SUM Or kind = BI_JOIN Then valuePos = i
                     End If
                 End If
             Else
@@ -1589,6 +1868,18 @@ Private Function ComputeAggregateGroups(ByVal kind As Long, ByVal atom As Collec
                 Else
                     VLA_Runtime.VlaDictSet groups, gk, 1&
                 End If
+            ElseIf kind = BI_JOIN Then
+                ' DATALOG.11: the group's values, in the relation's own row order.
+                ' No dedupe: with one value variable every other position is a
+                ' group key or a constant, so each row here holds a new value.
+                Dim pieces As Collection
+                If VLA_Runtime.VlaDictHas(groups, gk) Then
+                    Set pieces = VLA_Runtime.VlaDictGet(groups, gk)
+                Else
+                    Set pieces = New Collection
+                    VLA_Runtime.VlaDictSet groups, gk, pieces
+                End If
+                pieces.Add DatalogValueText(arr(valuePos))
             Else
                 Dim addend As Double
                 addend = CDbl(arr(valuePos))
@@ -1610,7 +1901,8 @@ End Function
 ' zero - not a row that gets dropped the way FilterOutMatching would
 ' drop one, so every accum row survives unconditionally here.
 Private Function ApplyAggregate(ByVal kind As Long, ByVal accum As Collection, ByVal atom As Collection, _
-                                 ByVal colOf As Object, ByVal groups As Object) As Collection
+                                 ByVal colOf As Object, ByVal groups As Object, _
+                                 Optional ByVal separator As String = "", Optional ByVal resultVar As String = "") As Collection
     Dim atomPositions As Collection, accumCols As Collection
     BoundPositionPairs atom, colOf, atomPositions, accumCols
     Dim inArity As Long
@@ -1623,7 +1915,14 @@ Private Function ApplyAggregate(ByVal kind As Long, ByVal accum As Collection, B
         Dim gk As String
         gk = KeyFromPositions(arr, accumCols)
         Dim aggVal As Variant
-        If VLA_Runtime.VlaDictHas(groups, gk) Then
+        If kind = BI_JOIN Then
+            ' DATALOG.11: a group with no values is empty text, never a lost row.
+            If VLA_Runtime.VlaDictHas(groups, gk) Then
+                aggVal = JoinPieces(VLA_Runtime.VlaDictGet(groups, gk), separator, resultVar)
+            Else
+                aggVal = ""
+            End If
+        ElseIf VLA_Runtime.VlaDictHas(groups, gk) Then
             aggVal = VLA_Runtime.VlaDictGet(groups, gk)
         ElseIf kind = BI_COUNT Then
             aggVal = 0&
@@ -1856,10 +2155,10 @@ Private Function EvalRuleBody(ByVal headAtom As Collection, ByVal bodyItems As C
                     Set EvalRuleBody = New Collection
                     Exit Function
                 End If
-            Case BI_COUNT, BI_SUM
+            Case BI_COUNT, BI_SUM, BI_JOIN
                 Dim groups As Object
                 Set groups = ComputeAggregateGroups(kind, atom, colOf, fullRel)
-                Set accum = ApplyAggregate(kind, accum, atom, colOf, groups)
+                Set accum = ApplyAggregate(kind, accum, atom, colOf, groups, BodyItemExtra(item), BodyItemResultVar(item))
                 VLA_Runtime.VlaDictSet colOf, BodyItemResultVar(item), VLA_Relation.RelArity(accum)
                 ' An aggregate always succeeds (even a zero-tuple group
                 ' yields a real, meaningful 0) - RelCount can never
@@ -1894,6 +2193,27 @@ Private Function EvalRuleBody(ByVal headAtom As Collection, ByVal bodyItems As C
                 End If
             Next tCmp
             Set accum = filteredCmp
+            If VLA_Relation.RelCount(accum) = 0 Then
+                Set EvalRuleBody = New Collection
+                Exit Function
+            End If
+        ElseIf kind = BI_TEXT Then
+            ' DATALOG.11: a text test, filtered per row the comparison arm's way.
+            ' Both operands are bound (CheckRuleSafety), each read as its text
+            ' (DatalogValueText); "not" in the item's extra field inverts it.
+            Dim filteredTxt As Collection
+            Set filteredTxt = VLA_Relation.RelNew(VLA_Relation.RelArity(accum))
+            Dim tTxt As Variant, arrTxt() As Variant
+            Dim txtNegated As Boolean
+            txtNegated = (BodyItemExtra(item) = "not")
+            For Each tTxt In VLA_Relation.RelTuples(accum)
+                arrTxt = tTxt
+                If TextTestHolds(AtomPred(atom), DatalogValueText(ResolveOperand(AtomArgAt(atom, 1), colOf, arrTxt)), _
+                        DatalogValueText(ResolveOperand(AtomArgAt(atom, 2), colOf, arrTxt))) <> txtNegated Then
+                    VLA_Relation.RelTryAdd filteredTxt, arrTxt
+                End If
+            Next tTxt
+            Set accum = filteredTxt
             If VLA_Relation.RelCount(accum) = 0 Then
                 Set EvalRuleBody = New Collection
                 Exit Function
@@ -2176,7 +2496,7 @@ Private Sub ComputeStrata(ByVal rules As Collection, ByRef strataOf As Object)
             Set item = bi
             Dim bik As Long
             bik = BodyItemKind(item)
-            If bik = BI_CMP Or bik = BI_LET Then
+            If bik = BI_CMP Or bik = BI_LET Or bik = BI_TEXT Then
                 ' DATALOG.4's own comparison/arithmetic built-ins
                 ' contribute NO edge here: BodyItemAtom's own "predicate"
                 ' for either kind is an OPERATOR symbol (">", "+", ...),
@@ -2309,7 +2629,7 @@ Private Sub RefuseUndefinedPredicates(ByVal queryName As String, ByVal rules As 
             Dim item As Collection
             Set item = bi
             Select Case BodyItemKind(item)
-            Case BI_POS, BI_NOT, BI_COUNT, BI_SUM
+            Case BI_POS, BI_NOT, BI_COUNT, BI_SUM, BI_JOIN
                 Dim pred As String
                 pred = AtomPred(BodyItemAtom(item))
                 If Not VLA_Runtime.VlaDictHas(relations, pred) Then
@@ -2375,6 +2695,8 @@ Public Function DatalogRun(ByVal rulesText As String, Optional ByVal baseRelatio
     Set predArity = VLA_Runtime.VlaDictNew()
     Dim k As Variant
     For Each k In VLA_Runtime.VlaDictKeys(relations)
+        ' DATALOG.11: a table argument may not be named as a text test.
+        RefuseTextTestName CStr(k)
         RecordArity predArity, CStr(k), VLA_Relation.RelArity(VLA_Runtime.VlaDictGet(relations, k))
     Next k
 

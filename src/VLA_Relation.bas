@@ -973,6 +973,25 @@ Public Function InvariantVal(ByVal s As String) As Double
     InvariantVal = Val(s)
 End Function
 
+' DATALOG.11 and PROLOG.30: a number -> its canonical invariant text, the ONE
+' place both engines turn a number into text. PROLOG.18's NumberToTerm,
+' hoisted here unchanged when DATALOG's text tests needed the same reading:
+' Str$, never CStr, because CStr follows the machine's locale ("0,5" on a
+' comma-decimal Windows); and Str$ drops a fraction's leading zero (Str$(0.5)
+' is " .5", measured by the owner), which is restored. So a cell holding 0.5
+' reads 0.5 on every machine, in both engines. Named limit, PROLOG.18's: a
+' number Str$ writes in E-notation (1E+15) reads as that text.
+Public Function InvariantNumberText(ByVal v As Double) As String
+    Dim s As String
+    s = Trim$(Str$(v))
+    If Left$(s, 1) = "." Then
+        s = "0" & s
+    ElseIf Left$(s, 2) = "-." Then
+        s = "-0" & Mid$(s, 2)
+    End If
+    InvariantNumberText = s
+End Function
+
 ' A value already known/decided to be numeric (bothNumeric at the call
 ' site, below) as a Double: a real Excel numeric type widens/narrows
 ' via CDbl with no string parsing involved at all; anything else (a

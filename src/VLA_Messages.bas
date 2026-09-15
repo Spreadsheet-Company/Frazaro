@@ -576,10 +576,10 @@ Private Sub AddEntries(ByVal m As Collection)
     ' of this file to the limit.
     AddMsg m, "prolog-reserved-predicate-name", 5, "VLA-Prolog", "'{name}' is a reserved word in PROLOG (is/not/findall/!/between/list/or/if, the six comparisons < > =< >= =:= =\=, the four term-matching goals = \= == \==, " & _
         "the ten type tests var? nonvar? atom? number? atomic? compound? callable? is-list? ground? whole?, the six list goals length member nth append reverse sum-list, " & _
-        "the seven text goals atom-length atom-concat sub-atom atom-number upcase-atom downcase-atom atomic-list-concat, " & _
+        "the ten text goals atom-length atom-concat sub-atom atom-number upcase-atom downcase-atom atomic-list-concat text-starts-with text-ends-with text-contains, " & _
         "the nine ISO spellings var nonvar atom number atomic compound callable is_list ground - reserved only so PROLOG can point you at the question-mark form instead of failing silently - " & _
         "the four number-type names integer? float? integer float, reserved and refused because PROLOG has one kind of number, " & _
-        "the eleven alias spellings is-list is_list? sum_list whole atom_length atom_concat sub_atom atom_number upcase_atom downcase_atom atomic_list_concat, reserved only so PROLOG can point you at the spelling it does use, " & _
+        "the fourteen alias spellings is-list is_list? sum_list whole atom_length atom_concat sub_atom atom_number upcase_atom downcase_atom atomic_list_concat text_starts_with text_ends_with text_contains, reserved only so PROLOG can point you at the spelling it does use, " & _
         "the impure goals assert asserta assertz retract retractall abolish write writeln print nl format writeq write_canonical write-canonical write_term write-term read read_term read-term consult halt b_setval b-setval b_getval b-getval nb_setval nb-setval nb_getval nb-getval gensym random random_between random-between random_member random-member random_permutation random-permutation get_time get-time, refused for good because a formula must answer from what it is given and nothing else, " & _
         "and the two control spellings -> \+, reserved the same way so PROLOG can point you at the word it writes instead) and can't be used as a predicate name in a (fact ...) or (rule ...)."
     ' `prolog-cut-not-yet-supported` (PROLOG.5.1-5.3-era: "cut (!) isn't
@@ -837,7 +837,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' prolog-list-not-a-list's own text, so a test written against that
     ' refusal still reads true of this one.
     AddMsg m, "prolog-list-given-text", 5, "VLA-Prolog", "{form} needs a list, but found the text '{value}' - for text, {fixed} is the goal that does this job. A list is built with cons and ends in nil - (cons a (cons b nil)) is the list a, b."
-    AddMsg m, "prolog-text-bad-shape", 5, "VLA-Prolog", "{form} needs exactly {count} arguments. The text goals are (atom-length Text N), (atom-concat A B Whole), (sub-atom Text Before Length After Part), (atom-number Text N), (upcase-atom Text Upper), (downcase-atom Text Lower) and (atomic-list-concat Parts Separator Whole)."
+    AddMsg m, "prolog-text-bad-shape", 5, "VLA-Prolog", "{form} needs exactly {count} arguments. The text goals are (atom-length Text N), (atom-concat A B Whole), (sub-atom Text Before Length After Part), (atom-number Text N), (upcase-atom Text Upper), (downcase-atom Text Lower), (atomic-list-concat Parts Separator Whole), (text-starts-with Text Start), (text-ends-with Text End) and (text-contains Text Part)."
     AddMsg m, "prolog-text-unbound", 5, "VLA-Prolog", "{form} can't run yet - {need}, and {var} is still unbound. Bind it first, from a table or an earlier goal in the query."
     AddMsg m, "prolog-text-not-text", 5, "VLA-Prolog", "{form} works on text - a quoted string, a name or a number - but found '{value}', which is a compound term."
     AddMsg m, "prolog-text-not-a-number", 5, "VLA-Prolog", "{form} expected a number there but found '{value}', which isn't one - note that a text cell reading 5 is not the number 5."
@@ -963,7 +963,7 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "datalog-table-needs-a-name", 5, "VLA-Datalog", "this range has no name DATALOG can use as a predicate - make it an Excel Table (Ctrl+T) or give it a defined name, then reference that name in the formula."
     AddMsg m, "datalog-not-bad-shape", 5, "VLA-Datalog", "(not ...) takes exactly one predicate form, like (not (excluded X)) - not zero, and not more than one."
     AddMsg m, "datalog-negation-unsafe-variable", 5, "VLA-Datalog", "in '{predicate}' under (not ...), the variable '{var}' hasn't been given a value by any body predicate written before it - DATALOG can't evaluate a negation over a value it doesn't already know; move a predicate that binds '{var}' earlier in the rule's body."
-    AddMsg m, "datalog-negation-not-stratifiable", 5, "VLA-Datalog", "predicate '{predicate}' depends on itself through a (not ...), (count ...), or (sum ...) - directly, or through a chain of rules - and DATALOG requires every one of those to be safely stratifiable (the predicate being negated or aggregated must be fully known before the rule using it can run), so a cycle running back through one can't be evaluated."
+    AddMsg m, "datalog-negation-not-stratifiable", 5, "VLA-Datalog", "predicate '{predicate}' depends on itself through a (not ...), (count ...), (sum ...), or (textjoin ...) - directly, or through a chain of rules - and DATALOG requires every one of those to be safely stratifiable (the predicate being negated or aggregated must be fully known before the rule using it can run), so a cycle running back through one can't be evaluated."
     AddMsg m, "datalog-aggregate-bad-shape", 5, "VLA-Datalog", "({form} ...) takes exactly a result variable then a predicate form, like ({form} N (weight X W))."
     AddMsg m, "datalog-aggregate-result-not-a-variable", 5, "VLA-Datalog", "({form} ...)'s first argument must be a bare variable (a word starting with a capital letter) - the name that will hold the result, not the predicate itself."
     AddMsg m, "datalog-sum-needs-one-value-variable", 5, "VLA-Datalog", "(sum ...) over '{predicate}' needs EXACTLY ONE argument left unbound (the value to add up) - found {count}. Bind every other argument to a variable from earlier in the body (the group), or a constant, and leave only the value column free."
@@ -980,7 +980,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' "two-operands" name deliberately - renaming it would retire a
     ' stable id for a cosmetic reason, which SD-9 forbids.
     AddMsg m, "datalog-builtin-needs-two-operands", 5, "VLA-Datalog", "'{operator}' needs exactly {expected}, like {example} - found {count}."
-    AddMsg m, "datalog-builtin-unsafe-variable", 5, "VLA-Datalog", "in '{operator}', the variable '{var}' hasn't been given a value by any body predicate written before it - a comparison or arithmetic built-in can't evaluate a value it doesn't already know; move a predicate that binds '{var}' earlier in the rule's body."
+    AddMsg m, "datalog-builtin-unsafe-variable", 5, "VLA-Datalog", "in '{operator}', the variable '{var}' hasn't been given a value by any body predicate written before it - a comparison, text test or arithmetic built-in can't evaluate a value it doesn't already know; move a predicate that binds '{var}' earlier in the rule's body."
     AddMsg m, "datalog-unknown-arithmetic-operator", 5, "VLA-Datalog", "'{operator}' isn't one of DATALOG's own arithmetic built-ins - refused by name rather than guessed. The ones it knows are + - * / mod rem // min max ** abs sign sqrt truncate round ceiling floor."
     AddMsg m, "datalog-arithmetic-domain-error", 5, "VLA-Datalog", "'{operator}' has no real answer for those operands - the square root of a negative, or a negative raised to a fractional power."
     AddMsg m, "datalog-arithmetic-overflow", 5, "VLA-Datalog", "'{operator}' gives an answer larger than any number DATALOG can represent."
@@ -998,6 +998,15 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "datalog-keyed-atom-needs-header", 5, "VLA-Datalog", "'{predicate}' has no column headers to key against (it comes from a (fact ...) block, a plain named range, or a rule - none of those have column names) - use plain positional arguments instead, like ({predicate} X Y)."
     AddMsg m, "datalog-unknown-column", 5, "VLA-Datalog", "'{column}' isn't a column of '{predicate}' - its own columns are: {columns}."
     AddMsg m, "datalog-keyed-column-repeated", 5, "VLA-Datalog", "'{column}' is keyed more than once in the same '{predicate}' atom - each column name may appear at most once per (predicate (col val) ...) form."
+
+    ' DATALOG.11 - text tests, textjoin, and PROLOG's goals refused by name.
+    AddMsg m, "datalog-text-test-name-reserved", 5, "VLA-Datalog", "'{name}' is one of DATALOG's text tests - (text-starts-with Text Start), (text-ends-with Text End) and (text-contains Text Part) - so it can't name a relation, a fact or a table. Choose another name."
+    AddMsg m, "datalog-text-test-in-query", 5, "VLA-Datalog", "(query ({name} ...)) asks a text test on its own, and a text test is a condition inside a rule - write it there and query the rule, like (rule (answer X) (codes X) ({name} X ""GL-4"")) (query answer)."
+    AddMsg m, "datalog-textjoin-bad-shape", 5, "VLA-Datalog", "(textjoin ...) takes exactly a result variable, a separator and a predicate form, like (textjoin Names "", "" (can-cover Name ""Night""))."
+    AddMsg m, "datalog-textjoin-separator-not-text", 5, "VLA-Datalog", "(textjoin ...)'s second argument is the separator, written out like "", "" - not a variable or a nested form."
+    AddMsg m, "datalog-textjoin-needs-one-value-variable", 5, "VLA-Datalog", "(textjoin ...) over '{predicate}' needs EXACTLY ONE argument left unbound (the value to join) - found {count}. Bind every other argument to a variable from earlier in the body (the group), or a constant, and leave only the value column free."
+    AddMsg m, "datalog-textjoin-too-long-for-a-cell", 5, "VLA-Datalog", "(textjoin ...) would put {length} characters into '{var}', and an Excel cell holds at most 32,767 - narrow the rule, or list the values as rows instead."
+    AddMsg m, "datalog-prolog-goal", 5, "VLA-Datalog", "'{name}' is one of PROLOG's goals, and nothing in this program defines it, so DATALOG can't read it: {hint}."
 
     ' VLA_Relation.bas - the shared table substrate SQL/DATALOG/PROLOG all
     ' read ranges through. Each engine refuses a non-contiguous selection

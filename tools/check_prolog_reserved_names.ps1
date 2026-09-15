@@ -218,6 +218,10 @@ $countPhrases = @{
 $numberWords = @{
     'one' = 1; 'two' = 2; 'three' = 3; 'four' = 4; 'five' = 5; 'six' = 6
     'seven' = 7; 'eight' = 8; 'nine' = 9; 'ten' = 10; 'eleven' = 11; 'twelve' = 12
+    # PROLOG.30 took the alias spellings to fourteen: a count past twelve read
+    # as "not a count word" and checked nothing, so the words go on to twenty.
+    'thirteen' = 13; 'fourteen' = 14; 'fifteen' = 15; 'sixteen' = 16; 'seventeen' = 17
+    'eighteen' = 18; 'nineteen' = 19; 'twenty' = 20
 }
 
 # A token made only of the characters Prolog operator names are spelled
@@ -689,6 +693,68 @@ if ($null -eq $vbiBody) {
         }
         if ($leaks.Count -eq 0) { Write-Output ("  all {0} reserved name(s) have an arm" -f $reservedSorted.Count) }
     }
+}
+
+# ---- rule H: DATALOG's PROLOG-goal table is PROLOG's set less its own words
+# DATALOG.11. VLA_Datalog refuses a word PROLOG solves, by name, when a
+# program uses it without defining it - and it may not call VLA_Prolog to
+# ask which words those are, so it keeps its own table, PrologGoalFamilyFor.
+# That table is a fourth place the reserved set is written down. It must be
+# EXACTLY the reserved set assembled above, less the words DATALOG reads as
+# its own (ParseProgram's Select Case wrapperWord literals): a name missing
+# gets the old "check the spelling" refusal, a DATALOG word in it would be
+# refused in a program that means DATALOG's own reading, and a name in it
+# PROLOG does not reserve is a refusal naming a goal PROLOG does not have.
+# Every family the table names must also have its hint.
+Write-Output ''
+Write-Output '--- rule H: DATALOG''s PROLOG-goal table must be the reserved set less DATALOG''s own words ---'
+$datalogPath = Join-Path $repoRoot 'src\VLA_Datalog.bas'
+$dlLines = Get-Content -LiteralPath $datalogPath
+$famBody = Get-ProcBody -Lines $dlLines -Name 'PrologGoalFamilyFor'
+$hintBody = Get-ProcBody -Lines $dlLines -Name 'PrologGoalHintFor'
+$parseBody = Get-ProcBody -Lines $dlLines -Name 'ParseProgram'
+if ($null -eq $famBody -or $null -eq $hintBody -or $null -eq $parseBody) {
+    $failures.Add('rule H could not find PrologGoalFamilyFor, PrologGoalHintFor or ParseProgram in VLA_Datalog.bas - renamed or removed; update this rule deliberately')
+    Write-Output '  NOT FOUND'
+} else {
+    # Get-CaseLiterals returns its array wrapped (`return ,@(...)`); an @() round
+    # it here would nest it, and every -contains below would test one element.
+    $goalNames = Get-CaseLiterals -Body $famBody
+    $families = @([regex]::Matches(($famBody -join "`n"), 'PrologGoalFamilyFor\s*=\s*"([^"]+)"') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+    $hinted = Get-CaseLiterals -Body $hintBody
+    # the wrapper words: the Case arms of ParseProgram's Select Case wrapperWord only
+    $wrapperWords = New-Object System.Collections.Generic.List[string]
+    $inSel = $false; $depth = 0
+    foreach ($line in $parseBody) {
+        if (-not $inSel) { if ($line -match '^\s*Select Case wrapperWord\s*$') { $inSel = $true }; continue }
+        if ($line -match '^\s*Select Case\b') { $depth++; continue }
+        if ($line -match '^\s*End Select\b') { if ($depth -eq 0) { break }; $depth--; continue }
+        if ($depth -gt 0) { continue }
+        if ($line -match '^\s*Case\s+(?!Else)') { foreach ($m in [regex]::Matches($line, '"([^"]*)"')) { $wrapperWords.Add($m.Groups[1].Value) } }
+    }
+    Write-Output ("  {0} name(s) in PrologGoalFamilyFor, {1} famil(ies); {2} DATALOG wrapper word(s): {3}" -f $goalNames.Count, $families.Count, $wrapperWords.Count, ($wrapperWords -join ' '))
+    # A rule that looks at nothing passes by not looking.
+    if ($goalNames.Count -lt 50 -or $wrapperWords.Count -lt 8) { $failures.Add("rule H read $($goalNames.Count) goal name(s) and $($wrapperWords.Count) wrapper word(s) - too few to have read the tables") }
+    $expected = @($reservedSorted | Where-Object { $wrapperWords -cnotcontains $_ })
+    foreach ($n in $expected) {
+        if ($goalNames -cnotcontains $n) {
+            Write-Output ("  {0,-20} MISSING    reserved by PROLOG, not a DATALOG word, absent from PrologGoalFamilyFor" -f $n)
+            $failures.Add("'$n' is reserved by PROLOG and is not one of DATALOG's own words, but PrologGoalFamilyFor does not hold it - DATALOG would call it a misspelling")
+        }
+    }
+    foreach ($n in $goalNames) {
+        if ($wrapperWords -ccontains $n) {
+            Write-Output ("  {0,-20} DATALOG'S  a DATALOG wrapper word held as PROLOG's" -f $n)
+            $failures.Add("'$n' is one of DATALOG's own words but PrologGoalFamilyFor holds it - a program using DATALOG's reading would be refused")
+        } elseif ($reservedSorted -cnotcontains $n) {
+            Write-Output ("  {0,-20} STALE      not reserved by PROLOG" -f $n)
+            $failures.Add("'$n' is in PrologGoalFamilyFor but PROLOG does not reserve it - DATALOG would name a goal PROLOG does not have")
+        }
+    }
+    foreach ($f in $families) {
+        if ($hinted -cnotcontains $f) { $failures.Add("family '$f' is used by PrologGoalFamilyFor but PrologGoalHintFor has no hint for it - the refusal would end in an empty hint") }
+    }
+    Write-Output ("  {0} name(s) expected; checked both directions" -f $expected.Count)
 }
 
 Write-Output ''

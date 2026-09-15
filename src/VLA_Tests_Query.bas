@@ -349,6 +349,7 @@ Public Function TestDSLs() As Boolean
     TestDatalogUnknownPredicate
     TestDatalogGroundQuery
     TestDatalogNegatedQuery
+    TestDatalogTextTests
     TestDatalogHostTable
     TestUnify
     TestGRenderUnify
@@ -370,6 +371,7 @@ Public Function TestDSLs() As Boolean
     TestPrologControl
     TestPrologText
     TestPrologTextParts
+    TestPrologTextTests
     TestPrologImpure
     TestPrologRefusedArity
     TestPrologUnknownPredicate
@@ -1702,6 +1704,236 @@ Private Sub TestDatalogNegatedQuery()
     r = ResultDescribe(result)
     Report "datalog.10: a quoted ""not"" is a name, never the wrapper - read as one fact, whose argument is nested", _
            ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "nested inside another's argument, in a query", vbTextCompare) > 0, "got: " & r
+End Sub
+
+' DATALOG.11: TEXT TESTS, TEXTJOIN, AND PROLOG'S GOALS REFUSED BY NAME.
+' (text-starts-with T P), (text-ends-with T P) and (text-contains T P) are
+' filters read the way a comparison is; (textjoin R Sep (pred ...)) joins a
+' column's values into one cell, count's and sum's shape. Pure: a number cell
+' is a hand-built array through RelFromRange.
+Private Sub TestDatalogTextTests()
+    Dim result As Variant
+    Dim r As String
+    Dim d As String
+    Dim res As Collection
+    Dim accts As String
+    Dim cover As String
+    accts = "(fact (acct ""GL-4010"")) (fact (acct ""GL-4020"")) (fact (acct ""GL-5010""))"
+    cover = "(fact (cc ""Ann"" ""Day"")) (fact (cc ""Bob"" ""Day"")) (fact (cc ""Ed"" ""Day"")) (fact (cc ""Bob"" ""Night"")) (fact (shift ""Day"")) (fact (shift ""Night"")) (fact (shift ""Weekend""))"
+
+    ' ---- THE THREE TESTS, each a filter answering once per row.
+    result = VLA_Datalog.DATALOG(accts & " (rule (revenue C) (acct C) (text-starts-with C ""GL-4"")) (query revenue)")
+    Report "datalog.11: text-starts-with keeps the codes that start with GL-4", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "GL-4010") And ResultCellIs(result, 3, 1, "GL-4020"), "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG(accts & " (rule (tens C) (acct C) (text-ends-with C ""10"")) (query tens)")
+    Report "datalog.11: text-ends-with keeps the codes that end with 10", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "GL-4010") And ResultCellIs(result, 3, 1, "GL-5010"), "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG("(fact (product ""Banana"")) (fact (product ""Cyan"")) (fact (product ""Apple"")) (rule (has-an N) (product N) (text-contains N ""an"")) (query has-an)")
+    Report "datalog.11: text-contains answers once per row however often the part occurs - Banana once, then Cyan", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "Banana") And ResultCellIs(result, 3, 1, "Cyan"), "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG(accts & " (rule (revenue C) (acct C) (text-starts-with C ""gl-4"")) (query revenue)")
+    Report "datalog.11: case is exact - gl-4 starts no code, header only", _
+           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG(accts & " (rule (any-code C) (acct C) (text-contains C """")) (query any-code)")
+    Report "datalog.11: every text contains the empty text", _
+           ResultRowCount(result) = 4, "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG(accts & " (rule (other C) (acct C) (not (text-starts-with C ""GL-4""))) (query other)")
+    Report "datalog.11: a text test under not answers inverted - GL-5010 alone", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "GL-5010"), "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG("(fact (pair ""GL-4010"" ""GL-4"")) (fact (pair ""GL-5010"" ""GL-4"")) (rule (ok C) (pair C P) (text-starts-with C P)) (query ok)")
+    Report "datalog.11: both operands may be variables an earlier atom bound", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "GL-4010"), "got: " & ResultDescribe(result)
+
+    ' ---- A NUMBER CELL is read as its canonical text, the same on every machine.
+    Dim codes(1 To 4, 1 To 2) As Variant
+    codes(1, 1) = "Code": codes(1, 2) = "Name"
+    codes(2, 1) = 4010: codes(2, 2) = "Sales"
+    codes(3, 1) = "007": codes(3, 2) = "Petty"
+    codes(4, 1) = 0.5: codes(4, 2) = "Half"
+    Dim codeCols As New Collection
+    codeCols.Add SqlColPair("code", "Code")
+    codeCols.Add SqlColPair("name", "Name")
+    Dim codeHeaders As Object
+    Set codeHeaders = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet codeHeaders, "codes", codeCols
+    Dim basesForty As Object
+    Set basesForty = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet basesForty, "codes", VLA_Relation.RelFromRange(codes, True)
+    d = ""
+    result = Empty
+    On Error Resume Next
+    Err.Clear
+    Set res = VLA_Datalog.DatalogRun("(rule (forty N) (codes (code C) (name N)) (text-starts-with C 40)) (query forty)", basesForty, codeHeaders)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) = 0 Then result = VLA_Relation.RelToSpilledArray(VLA_Runtime.VlaDictGet(res.Item(2), "forty"))
+    Report "datalog.11: a number cell holding 4010 starts with 40 - Sales, and the text 007 does not", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "Sales"), "got: '" & d & "', " & ResultDescribe(result)
+    Dim basesHalf As Object
+    Set basesHalf = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet basesHalf, "codes", VLA_Relation.RelFromRange(codes, True)
+    d = ""
+    result = Empty
+    On Error Resume Next
+    Err.Clear
+    Set res = VLA_Datalog.DatalogRun("(rule (half N) (codes (code C) (name N)) (text-starts-with C ""0.5"")) (query half)", basesHalf, codeHeaders)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) = 0 Then result = VLA_Relation.RelToSpilledArray(VLA_Runtime.VlaDictGet(res.Item(2), "half"))
+    Report "datalog.11: a number cell holding 0.5 reads 0.5, its leading zero kept", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "Half"), "got: '" & d & "', " & ResultDescribe(result)
+    Dim basesZeros As Object
+    Set basesZeros = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet basesZeros, "codes", VLA_Relation.RelFromRange(codes, True)
+    d = ""
+    result = Empty
+    On Error Resume Next
+    Err.Clear
+    Set res = VLA_Datalog.DatalogRun("(rule (zeros N) (codes (code C) (name N)) (text-starts-with C ""00"")) (query zeros)", basesZeros, codeHeaders)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) = 0 Then result = VLA_Relation.RelToSpilledArray(VLA_Runtime.VlaDictGet(res.Item(2), "zeros"))
+    Report "datalog.11: a text cell keeps its own text - 007 starts with 00", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "Petty"), "got: '" & d & "', " & ResultDescribe(result)
+
+    ' ---- TEXTJOIN: a column's values in one cell per group, the empty group blank.
+    result = VLA_Datalog.DATALOG(cover & " (rule (who-covers S W) (shift S) (textjoin W "", "" (cc P S))) (query who-covers)")
+    Report "datalog.11: textjoin puts each shift's people in one cell, in the relation's own row order", _
+           ResultRowCount(result) = 4 And ResultCellIs(result, 2, 2, "Ann, Bob, Ed") And ResultCellIs(result, 3, 2, "Bob"), "got: " & ResultDescribe(result)
+    Report "datalog.11: ...and a shift nobody covers holds empty text, never a missing row", _
+           ResultCellIs(result, 4, 1, "Weekend") And ResultCellIs(result, 4, 2, ""), "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG(cover & " (rule (who-covers S W) (shift S) (textjoin W ""; "" (cc P S))) (query who-covers)")
+    Report "datalog.11: the separator is the one written - a semicolon", _
+           ResultCellIs(result, 2, 2, "Ann; Bob; Ed"), "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG(cover & " (rule (who-covers S W) (shift S) (textjoin W """" (cc P S))) (query who-covers)")
+    Report "datalog.11: ...and an empty separator joins with nothing between", _
+           ResultCellIs(result, 2, 2, "AnnBobEd"), "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG(cover & " (fact (spare ""Bob"" ""Day"")) (rule (can P S) (cc P S)) (rule (can P S) (spare P S)) (rule (who-can S W) (shift S) (textjoin W "", "" (can P S))) (query who-can)")
+    Report "datalog.11: someone who qualifies two ways is joined once - a relation holds each row once", _
+           ResultCellIs(result, 2, 2, "Ann, Bob, Ed"), "got: " & ResultDescribe(result)
+    Dim staff(1 To 5, 1 To 2) As Variant
+    staff(1, 1) = "Name": staff(1, 2) = "Level"
+    staff(2, 1) = "Ann": staff(2, 2) = 3
+    staff(3, 1) = "Bob": staff(3, 2) = 3
+    staff(4, 1) = "Bob": staff(4, 2) = 1
+    staff(5, 1) = "Di": staff(5, 2) = 0.5
+    Dim staffCols As New Collection
+    staffCols.Add SqlColPair("name", "Name")
+    staffCols.Add SqlColPair("level", "Level")
+    Dim staffHeaders As Object
+    Set staffHeaders = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet staffHeaders, "staff", staffCols
+    Dim basesLevels As Object
+    Set basesLevels = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet basesLevels, "staff", VLA_Relation.RelFromRange(staff, True)
+    d = ""
+    result = Empty
+    On Error Resume Next
+    Err.Clear
+    Set res = VLA_Datalog.DatalogRun("(rule (levels N L) (staff (name N)) (textjoin L "", "" (staff (name N) (level V)))) (query levels)", basesLevels, staffHeaders)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) = 0 Then result = VLA_Relation.RelToSpilledArray(VLA_Runtime.VlaDictGet(res.Item(2), "levels"))
+    Report "datalog.11: number cells join as their canonical text - Bob 3, 1 and Di 0.5", _
+           ResultRowCount(result) = 4 And ResultCellIs(result, 3, 2, "3, 1") And ResultCellIs(result, 4, 2, "0.5"), "got: '" & d & "', " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG("(fact (p ""x"" """ & String$(16383, "a") & """)) (fact (p ""x"" """ & String$(16382, "b") & """)) (rule (j K W) (p K Z) (textjoin W "", "" (p K V))) (query j)")
+    Report "datalog.11: BOUNDARY - a join of exactly 32,767 characters fits a cell", _
+           ResultRowCount(result) = 2 And Len(ResultCellText(result, 2, 2)) = 32767, "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG("(fact (p ""x"" """ & String$(16383, "a") & """)) (fact (p ""x"" """ & String$(16383, "b") & """)) (rule (j K W) (p K Z) (textjoin W "", "" (p K V))) (query j)")
+    r = ResultDescribe(result)
+    Report "datalog.11: ...and one character more is refused by name, with the length", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "would put 32768 characters into 'W'", vbTextCompare) > 0, "got: " & r
+
+    ' ---- REFUSED BY NAME.
+    result = VLA_Datalog.DATALOG(accts & " (rule (revenue C) (text-starts-with C ""GL-4"") (acct C)) (query revenue)")
+    r = ResultDescribe(result)
+    Report "datalog.11: a text test before anything binds its text is refused, naming the variable", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "in 'text-starts-with', the variable 'C'", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG(accts & " (rule (revenue C) (acct C) (text-starts-with C)) (query revenue)")
+    r = ResultDescribe(result)
+    Report "datalog.11: a text test with one operand is refused, showing the two-operand form", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "like (text-starts-with Code ""GL-4"") - found 1", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG(cover & " (rule (who-covers S W) (shift S) (textjoin W (cc P S))) (query who-covers)")
+    r = ResultDescribe(result)
+    Report "datalog.11: textjoin without its separator is refused, showing its shape", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "a result variable, a separator and a predicate form", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG(cover & " (rule (who-covers S W) (shift S) (textjoin W Sep (cc P S))) (query who-covers)")
+    r = ResultDescribe(result)
+    Report "datalog.11: a separator that is a variable is refused", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "is the separator, written out", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG(cover & " (rule (all W) (shift S) (textjoin W "", "" (cc P Q))) (query all)")
+    r = ResultDescribe(result)
+    Report "datalog.11: textjoin with two arguments left free is refused - which one is the value?", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "(the value to join) - found 2", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG(cover & " (rule (who-covers S) (shift S) (textjoin S "", "" (cc P S))) (query who-covers)")
+    r = ResultDescribe(result)
+    Report "datalog.11: a textjoin result that is already bound is refused", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'S' is already bound earlier", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG(cover & " (rule (chain S W) (shift S) (textjoin W "", "" (chain X S))) (query chain)")
+    r = ResultDescribe(result)
+    Report "datalog.11: a relation joined into itself is refused as unstratifiable, naming textjoin", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "(sum ...), or (textjoin ...)", vbTextCompare) > 0, "got: " & r
+
+    ' ---- PROLOG'S GOALS: named as PROLOG's, pointing at DATALOG's own spelling.
+    result = VLA_Datalog.DATALOG(accts & " (rule (revenue C) (acct C) (sub-atom C 0 L A ""GL-4"")) (query revenue)")
+    r = ResultDescribe(result)
+    Report "datalog.11: sub-atom is named as PROLOG's goal and points at text-starts-with - not a misspelling", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'sub-atom' is one of PROLOG's goals", vbTextCompare) > 0 And InStr(1, r, "(text-starts-with Text Start)", vbTextCompare) > 0 And InStr(1, r, "check the spelling", vbTextCompare) = 0, "got: " & r
+    result = VLA_Datalog.DATALOG(accts & " (rule (kind C T) (acct C) (if (text-starts-with C ""GL-4"") (= T ""Revenue"") (= T ""Cost""))) (query kind)")
+    r = ResultDescribe(result)
+    Report "datalog.11: (if ...) is named as PROLOG's - not as nesting", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'if' is one of PROLOG's goals", vbTextCompare) > 0 And InStr(1, r, "one rule for each case", vbTextCompare) > 0 And InStr(1, r, "nested", vbTextCompare) = 0, "got: " & r
+    result = VLA_Datalog.DATALOG(cover & " (rule (who-covers S L) (shift S) (findall P (cc P S) L)) (query who-covers)")
+    r = ResultDescribe(result)
+    Report "datalog.11: findall is named as PROLOG's and points at textjoin - not as mixed keying", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'findall' is one of PROLOG's goals", vbTextCompare) > 0 And InStr(1, r, "textjoin", vbTextCompare) > 0 And InStr(1, r, "keyed", vbTextCompare) = 0, "got: " & r
+    result = VLA_Datalog.DATALOG("(fact (lvl ""Ann"" 3)) (rule (low P) (lvl P L) (=< L 2)) (query low)")
+    r = ResultDescribe(result)
+    Report "datalog.11: PROLOG's =< is named, pointing at DATALOG's <=", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'=<' is one of PROLOG's goals", vbTextCompare) > 0 And InStr(1, r, "< > <= >= = and <>", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG(accts & " (rule (first-code C) (acct C) !) (query first-code)")
+    r = ResultDescribe(result)
+    Report "datalog.11: a bare cut is named as PROLOG's", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'!' is one of PROLOG's goals", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG(accts & " (rule (odd C) (acct C) (not (sub-atom C 0 L A ""GL""))) (query odd)")
+    r = ResultDescribe(result)
+    Report "datalog.11: ...and so is a PROLOG goal under not", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'sub-atom' is one of PROLOG's goals", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG("(query (sub-atom ""abc"" 0 1 A ""a""))")
+    r = ResultDescribe(result)
+    Report "datalog.11: ...and one written as a query", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'sub-atom' is one of PROLOG's goals", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG("(fact (member ""Ann"" ""Ops"")) (rule (in-ops P) (member P ""Ops"")) (query in-ops)")
+    Report "datalog.11: a program that DEFINES a relation called member keeps it - DATALOG never reserved the name", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "Ann"), "got: " & ResultDescribe(result)
+
+    ' ---- THE TEXT TESTS' OWN NAMES.
+    result = VLA_Datalog.DATALOG("(fact (text-contains ""a"" ""b"")) (query text-contains)")
+    r = ResultDescribe(result)
+    Report "datalog.11: a fact named as a text test is refused", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'text-contains' is one of DATALOG's text tests", vbTextCompare) > 0, "got: " & r
+    result = VLA_Datalog.DATALOG("(fact (pair ""a"" ""b"")) (rule (text-ends-with X Y) (pair X Y)) (query text-ends-with)")
+    r = ResultDescribe(result)
+    Report "datalog.11: ...and so is a rule head", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'text-ends-with' is one of DATALOG's text tests", vbTextCompare) > 0, "got: " & r
+    Dim tbl(1 To 2, 1 To 2) As Variant
+    tbl(1, 1) = "A": tbl(1, 2) = "B"
+    tbl(2, 1) = "x": tbl(2, 2) = "y"
+    Dim basesNamed As Object
+    Set basesNamed = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet basesNamed, "text-starts-with", VLA_Relation.RelFromRange(tbl, True)
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    Set res = VLA_Datalog.DatalogRun("(fact (p ""a"")) (query p)", basesNamed)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "datalog.11: ...and so is a table argument", _
+           InStr(1, d, "'text-starts-with' is one of DATALOG's text tests", vbTextCompare) > 0, "got: " & d
+    result = VLA_Datalog.DATALOG(accts & " (query (text-starts-with ""GL-4010"" ""GL-4""))")
+    r = ResultDescribe(result)
+    Report "datalog.11: a text test asked on its own as a query is refused, teaching the rule spelling", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "asks a text test on its own", vbTextCompare) > 0, "got: " & r
 End Sub
 
 ' Host-required: every real bug this engine's MVP ever found (this
@@ -6477,6 +6709,76 @@ Private Sub TestPrologTextParts()
     Report "prolog.18: ...but (length 42 N) - a number, not text - keeps the plain refusal and names no text goal", _
            ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "needs a list", vbTextCompare) > 0 _
            And InStr(1, r, "atom-length", vbTextCompare) = 0, "got: " & r
+End Sub
+
+' PROLOG.30: DATALOG.11's three text tests, the same names and meaning here,
+' so a rule cell written with one reads alike in both engines. Each is a TEST
+' - it binds nothing and answers once - where sub-atom GENERATES: measured by
+' G-PROLOG slice 5's scoping, sub-atom used as "contains" listed Banana twice.
+Private Sub TestPrologTextTests()
+    Dim result As Variant
+    Dim r As String
+    Dim q As String
+    q = Chr$(34)
+    Dim fruit As String
+    fruit = "(fact (p " & q & "Banana" & q & ")) (fact (p " & q & "Cyan" & q & ")) (fact (p " & q & "Apple" & q & ")) "
+    Dim accts As String
+    accts = "(fact (acct " & q & "GL-4010" & q & ")) (fact (acct " & q & "GL-5010" & q & ")) "
+
+    result = VLA_Prolog.PROLOG("(query (text-starts-with " & q & "GL-4010" & q & " " & q & "GL-4" & q & "))")
+    Report "prolog.30: text-starts-with GL-4010 GL-4 is TRUE", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (text-starts-with " & q & "GL-4010" & q & " " & q & "gl-4" & q & "))")
+    Report "prolog.30: ...and against gl-4 is FALSE - case is exact", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (text-ends-with " & q & "GL-4010" & q & " " & q & "10" & q & "))")
+    Report "prolog.30: text-ends-with GL-4010 10 is TRUE", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (text-ends-with abc b))")
+    Report "prolog.30: ...and abc does not end with b - FALSE, no refusal", _
+           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG(fruit & "(rule (has-an X) (p X) (text-contains X " & q & "an" & q & ")) (query (has-an X))")
+    Report "prolog.30: text-contains answers once per value however often the part occurs - Banana, then Cyan", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "Banana") And ResultCellIs(result, 3, 1, "Cyan"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG(fruit & "(rule (has-an X) (p X) (sub-atom X B L A " & q & "an" & q & ")) (query (has-an X))")
+    Report "prolog.30: ...where sub-atom finds every occurrence, and lists Banana twice", _
+           ResultRowCount(result) = 4, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (text-starts-with 4010 40))")
+    Report "prolog.30: a number is read as its text - 4010 starts with 40", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (text-starts-with 0.50 " & q & "0.5" & q & "))")
+    Report "prolog.30: ...its canonical text - 0.50 reads 0.5", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (text-contains abc " & q & q & "))")
+    Report "prolog.30: every text contains the empty text", _
+           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG(accts & "(rule (other C) (acct C) (not (text-starts-with C " & q & "GL-4" & q & "))) (query (other C))")
+    Report "prolog.30: under not it answers inverted - GL-5010 alone", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "GL-5010"), "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(fact (pair " & q & "GL-4010" & q & " " & q & "GL-4" & q & ")) (fact (pair " & q & "GL-5010" & q & " " & q & "GL-4" & q & ")) (rule (ok C) (pair C P) (text-starts-with C P)) (query (ok C))")
+    Report "prolog.30: both arguments may be variables bound earlier", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "GL-4010"), "got: " & ResultDescribe(result)
+
+    result = VLA_Prolog.PROLOG("(query (text-contains X " & q & "a" & q & "))")
+    r = ResultDescribe(result)
+    Report "prolog.30: THE PHANTOM COLUMN - a free text is refused by name, never spilled", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "can't run yet", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (text-contains (f a) a))")
+    r = ResultDescribe(result)
+    Report "prolog.30: a compound term is not text", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "works on text", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (text-contains abc))")
+    r = ResultDescribe(result)
+    Report "prolog.30: one argument is refused, listing the text tests' shapes", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "(text-contains Text Part)", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(fact (text-contains a b)) (query (text-contains a b))")
+    r = ResultDescribe(result)
+    Report "prolog.30: text-contains is reserved - no fact may define it", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "is a reserved word in PROLOG", vbTextCompare) > 0, "got: " & r
+    result = VLA_Prolog.PROLOG("(query (text_starts_with ab a))")
+    r = ResultDescribe(result)
+    Report "prolog.30: the underscore spelling points at text-starts-with", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "write (text-starts-with ...) instead", vbTextCompare) > 0, "got: " & r
 End Sub
 
 ' PROLOG.19: the IMPURE goals, refused for good - assert, write, random,

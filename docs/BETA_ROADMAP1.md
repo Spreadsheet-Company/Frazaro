@@ -7573,7 +7573,7 @@ G-TAIL always said this about itself; it is true of the whole tranche.
     cells, and questions that read them.** **Scoped 2026-09-10/11**, seven
     forks decided by the owner; **slice 1 BUILT 2026-09-12, OWNER-VERIFIED
     LIVE 2026-09-13 in two rounds, and committed; slice 2 BUILT,
-    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14; slice 3 BUILT, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, on its precursor `DATALOG.9` (built, owner-verified live and committed the same day); slice 4 SCOPED, BUILT, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, on `DATALOG.10` (itself built and owner-verified live the same day)** (see the slice list below for what each ships and
+    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14; slice 3 BUILT, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, on its precursor `DATALOG.9` (built, owner-verified live and committed the same day); slice 4 SCOPED, BUILT, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, on `DATALOG.10` (itself built and owner-verified live the same day); slice 5 SCOPED 2026-09-14, its two engine items `DATALOG.11` and `PROLOG.30` BUILT in the same session, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, its grammar next** (see the slice list below for what each ships and
     what it proved). *The previous text of this
     entry said its dependency, `PROLOG.1`–`.6`, was unbuilt. It was stale:
     `PROLOG.1`–`.24` have shipped.* This is the project's reason for being,
@@ -8516,13 +8516,140 @@ G-TAIL always said this about itself; it is true of the whole tranche.
          first draft's Before column read the working sources rather than
          HEAD's, and then silently reused a stale run; both were fixed before
          the page was sent.
-      5. ⬜ **PROLOG's own** — text conditions (starts with, contains),
+      5. 🟡 **PROLOG's own** — text conditions (starts with, contains),
          first match (tiers), a list in one cell. §8, §15, §16.
+         **SCOPED 2026-09-14; its engine items `DATALOG.11` and `PROLOG.30`
+         BUILT in the same session, OWNER-VERIFIED LIVE on the first pass and
+         committed 2026-09-14** (the
+         owner's call: engine items first and built here, the grammar only
+         once both are verified). Twelve forks went to the owner in three
+         rounds with their measurements; eight took the recommended option,
+         and four were the owner's own.
+         **MEASURED FIRST, on shipped code** (transliterations; no VBA ran).
+         Slice 4's controls were re-run on HEAD before any verdict: `DATALOG`
+         147/147, `PROLOG` 574 with its 2 named gaps, the grammar pins 23/0,
+         the `english.vla` rows 18/0, the derived pins 97/0 with all five Subs
+         byte-identical, and `s4_run` 84/0. The `PROLOG` model gained
+         `sub-atom` and `atomic-list-concat`'s join, read from `VLA_Prolog.bas`
+         (control: `TestPrologTextParts` 0 → 20 pass with 0 fail, the whole
+         suite 574 → 595 with the same 2 gaps; three port mutations red). A
+         fourth, dropping `findall`'s list budget, stayed GREEN because every
+         pin that would test it is a harness gap, so no verdict here rests on
+         that budget. What the forks needed:
+           - *Routing, the slice's central tension.* A text rule written with
+             `PROLOG`'s `sub-atom` anywhere in a rules range made `DATALOG`
+             refuse EVERY question over it, a `can-cover` WHO included
+             (`DATALOG.8`'s whole-program scope), while `PROLOG` answered Bob.
+             A text test over a closure whose data loops answered in NEITHER
+             engine: `DATALOG` refused `sub-atom`, `PROLOG` refused by DEPTH
+             (work 462). `(if ...)` was refused as nesting and `findall` as
+             "mixes keyed arguments" — two wrong diagnoses. None of the three
+             shapes needed `PROLOG`'s search: text and a list each needed a
+             builtin `DATALOG` lacked, and first match needed nothing.
+           - *Text.* `PROLOG` answered prefix and suffix; `sub-atom` used as
+             "contains" listed Banana twice (one row per occurrence), a double
+             `not` once; "gl-4" found nothing, silently; a number cell read as
+             its text (4010 matched 40 and "40", so the corpus note "sub-atom
+             refuses a number" was stale). At HEAD, "the product contains
+             "an"" already translated — as a relation named `contains` — and
+             the corpus's bill of materials names one; "starts with", "ends
+             with" and "otherwise" got the near miss. The imperative grammar's
+             `cond` already reads "contains", "starts with" and "ends with",
+             ignoring case.
+           - *First match.* `PROLOG`'s `if` (`tier-first`, measured for the
+             first time) gave Acme Gold, Beta Silver, Cafe Bronze — but per
+             ROW, so a customer with two rows was Gold AND Bronze. "Or" by
+             repetition without negation made Acme Gold, Silver and Bronze,
+             and `whether "Acme" has-tier "Silver"` TRUE, silently. Each branch
+             compiled to its own conditions plus `not` of every earlier
+             branch's generated guard answered the same in both engines, one
+             tier per customer however many rows (`PROLOG` listing Acme Gold
+             twice where two rows qualified). A writer's own `not` of the same
+             relation was refused by `DATALOG` as unstratifiable. Tiers were
+             already sayable as sets with `not` (Beta).
+           - *A list in one cell.* `findall` reproduced the corpus's `(list
+             "Ann" "Bob" "Ed")`, `(list "Bob")`, `nil` — as a bag (Bob twice
+             with two rows) in row order (Ed, Bob, Ann with Staff reversed).
+             Joined with ", " it read "Ann, Bob, Ed" and an empty group blank,
+             but "Smith, J, Ann" cannot be taken apart where `(list "Smith, J"
+             "Ann")` can. The tokenizer writes "one" as 1.
+         **THE FORKS, decided:**
+           1. **Grow the shared subset; every question stays on `DATALOG`**
+              (recommended). Engine items first — text tests and a one-cell
+              list aggregate in `DATALOG`, the same text tests in `PROLOG` —
+              and first match compiled to generated negation. Decision 5's
+              promise is kept whole; the slice's name is now history.
+           2. **The text conditions are `cond`'s own words, and "contains" is
+              reserved** (recommended): `the code starts with "GL-4"`, `ends
+              with`, `the name contains "an"`, each a test that answers once.
+              0.6.0 is untagged, so nothing shipped moves.
+           3. **First match is "otherwise", per key** (recommended): one
+              sentence, `a customer has-tier "Gold" if …, otherwise "Silver" if
+              …, otherwise "Bronze" if Customers lists the customer as
+              Customer.`, its order the written order inside that sentence,
+              each branch its own conditions plus `not` of every earlier one,
+              and the lint refusing the same relation written in another cell.
+           4. **A list reads "as one list" and is joined** (recommended): a
+              trailing `as one list` after a who, what or each question; the
+              values a set, joined ", ", blank when empty. Named limit: a
+              value holding ", " reads ambiguously.
+           5. **Engine items first, BUILT IN THIS SESSION** (the owner's call,
+              over their own sessions), and the grammar only after both are
+              verified.
+           6. **Exact case** (recommended), as every `G-PROLOG` constant
+              already is; an "ignoring case" sibling waits for a sentence
+              that needs it (SD-7).
+           7. **Row order** (the owner's call, over sorted): the order the
+              values were first found — in `DATALOG`, the aggregated
+              relation's own row order, the order its WHO spill shows.
+           8. **Decision tables are filed as their own item** (the owner's
+              call, over keeping the decision deferred): `G-DECISIONS`, below.
+           9. **The engine spellings are `text-starts-with`, `text-ends-with`
+              and `text-contains`** (recommended), text first, and no relation,
+              fact or Table may take one; the family prefix keeps a relation
+              someone already named `contains` working.
+          10. **`(textjoin Result Separator (pred ...))`** (the owner's call,
+              over a fixed separator): Excel's own name, `TEXTJOIN`'s order.
+          11. **`DATALOG` names `PROLOG`'s goals as `PROLOG`'s, in
+              `DATALOG.11`** (recommended), pointing at its own spelling.
+          12. **A number reads as its canonical text** (recommended), the
+              reading `PROLOG.18` already makes.
+         *Stated defaults, not forks:* the refusal of a `PROLOG` goal fires
+         only for a name the program does not define, since `DATALOG` shipped
+         reserving none of them (a relation called `member` keeps working);
+         the refusal table lives in `DATALOG` (whose layer may not call
+         `VLA_Prolog`), held to `PROLOG`'s reserved set by a new ratchet rule;
+         a text test under `not` stays one, answered inverted, as `PROLOG`
+         reads it; a text test asked as a query on its own is refused,
+         teaching the rule spelling; a join longer than a cell's 32,767
+         characters is refused at the join.
+         **`ANY` ("name one") is not re-opened.** Row order was chosen, so a
+         list gives it no stable order either.
+         **TO BUILD, now that `DATALOG.11` and `PROLOG.30` are committed:** the
+         three text shapes in `ParseConditions` (the second token `contains`,
+         or `starts`/`ends` before `with`), "contains" among the reserved
+         words, and a quoted numeral allowed on a text test's right side;
+         "otherwise" in `ParseClause`, its generated guards under a new
+         `vla-first-` sub-prefix, and the program lint for a first-match
+         relation written in two cells; `as one list` in `ParseQuestion`
+         writing `textjoin` under `vla-list-`; message ids; pins under
+         `TestDSLs`; `test-success` lines under the shipped rows, whose
+         patterns do not change; the corpus's §8, §15 and §16 sentences end
+         to end; and a live pass. Measured already through the new arms
+         (`m13_cases`): prefix, suffix and a single "contains" in `DATALOG`;
+         the mixed range answering Bob; the looping closure answering; the
+         list per shift (`Day | Ann, Bob, Ed`, `Night | Bob`, `Weekend |`
+         blank) and its row order moving with the rows; tiers one per
+         customer. The scoping and build harness — `m12_cases`, `m13_cases`,
+         `show12`, `smoke5`, `port12`, `port13`, `apply_s5e` and the `s5e_`
+         blocks — is in session `4e2a0e8d`'s scratchpad (`h12`), with
+         `port11` and the `dl11_` model in its `h10`.
     *Out of scope, and refused by name rather than faked:* optimisation
     (`SOLVE`, §17); quantity roll-ups along paths (`SQL`/`DATALOG`
-    aggregation); topological order. *Deferred decision:* whether decision
-    tables (DMN) belong beside first-match rules for classification. (How
-    COUNT reads was decided by slice 4's scoping.)
+    aggregation); topological order. *Deferred decision, resolved by slice
+    5's scoping (the owner's call):* decision tables (DMN) are filed as their
+    own item, `G-DECISIONS`, beside first-match rules rather than instead of
+    them. (How COUNT reads was decided by slice 4's scoping.)
 
     `~weeks`, per slice. *Pays into:* `G-DATALOG`'s second wave (it reads
     the same cells), `G-SQL` and `G-SOLVE` (both inherit this corpus), and
@@ -8551,8 +8678,35 @@ G-TAIL always said this about itself; it is true of the whole tranche.
     Check, ahead of `DATALOG.8` and `PROLOG.22`; and the render reverse a
     template finally gives the clause. Corpus: 21 unary and 37 binary
     relations, none ternary, and passives (`submitted-by`, `related`)
-    spelled with hyphens today. *Pays into:* `G-PROLOG` slices 3–5,
-    `G-RENDER`. `~weeks`
+    spelled with hyphens today. *Slice-5 note, 2026-09-14:* `G-PROLOG` slice 5
+    reserves the text conditions' own words — `starts with`, `ends with` and
+    `contains` — so the audit over declared templates must hold them apart
+    too; and until this item lands, a relation is written with its hyphens
+    (`can-cover`), which is the spelling 0.6.0 would ship if it tags first.
+    *Pays into:* `G-PROLOG` slices 3–5, `G-RENDER`. `~weeks`
+
+  - ⬜ **G-DECISIONS — decision tables: a policy held as rows in a Table,
+    with its hit policy named.** Minted 2026-09-14 by `G-PROLOG` slice 5's
+    scoping, the owner's call over keeping the question deferred. DMN keeps
+    a classification's rules as a table — one row per rule, input columns
+    holding conditions (`Spend at least 10000`), an output column (`Gold`),
+    and a hit policy saying what happens when several rows match: Unique,
+    First, Priority, Any, or Collect with an aggregate. In Excel a decision
+    table is naturally a Table, so the rules become rows a business user
+    edits rather than sentences. It sits beside slice 5's "otherwise" (one
+    sentence, written order) rather than replacing it. *Why its own item:*
+    it is rules as data, which no condition shape reads today — a row's cell
+    would have to mean a comparison, not a value — and DMN practice (the DMN
+    Method) steers authors towards Unique over First, because First hides
+    overlapping rules, which is the silent Gold-and-Silver answer slice 5
+    measured. **To scope, measuring first:** a corpus entry that keeps its
+    policy in a table of thresholds (commission bands, rate cards, tiers),
+    since none does today (SD-7); how a column header says which comparison
+    its cells make; which hit policies, and how Unique refuses an overlap
+    (at Check, or per question); what the rules compile to (slice 5's
+    generated guards for First); and SD-19's neighbour, a Table read as data
+    against one read as rules. *Pays into:* `G-PROLOG`'s classification,
+    `G-SQL`. `~weeks`
 
   - ⬜ **G-SOLVE** — sentence templates targeting `SOLVE(facts, program)`, the
     Answer Set Programming engine — named for the function, not the
@@ -17126,7 +17280,38 @@ now carries one summary paragraph per engine and points here.*
     index costs to build on a 10,000-row Table that a query then reads once.
     *Pays into:* `G-PROLOG` (every slice, since a rule body is mostly keyed
     lookups), and the `DATALOG` comparison. `~days`
-  - **Stated ceiling, carried forward from `BETA_ROADMAP1.md`, not built
+  - ✅ **PROLOG.30 — the three text tests, `DATALOG.11`'s twins:
+    `(text-starts-with Text Start)`, `(text-ends-with Text End)` and
+    `(text-contains Text Part)`.** Minted 2026-09-14 by `G-PROLOG` slice 5's
+    scoping, the owner's call, so that a rule cell written with one reads
+    alike in both engines (`G-PROLOG` decision 5's shared subset), and
+    **BUILT in that session, OWNER-VERIFIED LIVE on the first pass and
+    committed 2026-09-14**, in one pass with `DATALOG.11` and `TER-8`
+    (`TestDSLs` 1356/0; pure, host and `VerifyReports` unmoved by this item;
+    the three tests answering alike in both engines' cells). **Why:**
+    `sub-atom` is a generator, so used as "contains" it answered one row per
+    occurrence — measured, Banana twice — and `DATALOG` could not read it at
+    all. **BUILT.** `VLA_Prolog.bas`: three kinds in `TextGoalKindFor` (ten
+    text goals), `SolveTextTest` — both arguments required text, read as
+    every text goal reads them (a number by its canonical text, a quoted
+    string without its marker), exact case, the empty text in every text, a
+    free argument refused by `prolog-text-unbound` (the phantom column's
+    rule), no surrogate refusal since a test neither counts nor cuts — and
+    the three underscore spellings in `AliasSpellingFor`. `NumberToTerm` now
+    calls `VLA_Relation.InvariantNumberText`, its old body moved there
+    unchanged. `VLA_Messages.bas`: the reserved-name catalogue (ten text
+    goals, fourteen alias spellings) and `prolog-text-bad-shape`'s list;
+    no id added. `VLA_PROLOG_VERSION` → `PROLOG.30`.
+    `tools/check_prolog_reserved_names.ps1`: count words to twenty (a count
+    past twelve used to pass unread), and a new rule H over `DATALOG.11`'s
+    table. **PROVEN, before import**, through the `PROLOG` model with
+    `sub-atom` ported (`port12`, `port13`). **CONTROL:** HEAD's sources and
+    tests, 595 pass with the 2 named gaps; the new arm over the new sources,
+    611 — the 595 unmoved and `TestPrologTextTests` 16/16 with no gap.
+    **Three mutations, each red:** case folded (1), "contains" generating one
+    answer per occurrence (1), a number never read as text (2). **Predicted:**
+    `TestDSLs` +16 Report executions (none in a loop); pure, host and
+    `VerifyReports` unmoved by this item. `~days`
     here:** first-argument clause indexing has LEFT this list — it is
     `PROLOG.29`, minted above, because `PROLOG.28`'s live pass turned it
     from a performance nicety into the answer to a real question about real
@@ -17747,6 +17932,66 @@ now carries one summary paragraph per engine and points here.*
     the corpus's `every-covered` over rules written by sentences, FALSE and
     then TRUE, in both engines; a blank beside a number cell; the refusals in
     their new words; and `DATALOG.9`'s shapes unchanged.
+  - ✅ **DATALOG.11 — text tests, `textjoin`, and `PROLOG`'s goals refused
+    by name.** Minted 2026-09-14 by `G-PROLOG` slice 5's scoping, the owner's
+    call, and **BUILT in that session, OWNER-VERIFIED LIVE on the first pass
+    and committed 2026-09-14**, in one pass with `PROLOG.30` and `TER-8`:
+    pure 1161/1161 (1141 as predicted, plus `U.19`'s 20 uncommitted pins in
+    the same module), host 152/152, `TestDSLs` **1356**/0 (this item's 1352
+    and `TER-8`'s 4), `VerifyReports` 242/242 on both backends, and all nine
+    in-cell steps as the page predicted.
+    **Why:** measured through `DATALOG.10`'s transliteration, a text rule
+    written with `PROLOG`'s `sub-atom` anywhere in a rules range made
+    `DATALOG` refuse every question over it, as a misspelling; a text test
+    over a closure whose data loops answered in neither engine; a list in
+    one cell had no `DATALOG` spelling; and `(if ...)` and `findall` were
+    refused as nesting and as mixed keying, naming the wrong thing. Nothing
+    needed `PROLOG`'s search. **Built on the owner's forks** (`G-PROLOG` slice
+    5 records all twelve): `text-starts-with`, `text-ends-with` and
+    `text-contains`, text first, exact case; `(textjoin Result Separator
+    (pred ...))`, in row order; `PROLOG`'s goals named as `PROLOG`'s; a
+    number read as its canonical text. **BUILT.** `VLA_Datalog.bas`: two body
+    kinds. `BI_TEXT` is read as a comparison is — both operands bound earlier
+    (`datalog-builtin-unsafe-variable`), no stratum edge, never a delta
+    position — and answers once per row, inverted under `not`. `BI_JOIN` is
+    `sum`'s shape: exactly one value left unbound, a strict stratum edge, the
+    group's values in the relation's own row order joined by the separator
+    written out, an empty group `""`, a join over 32,767 characters refused.
+    Values come out distinct with no dedupe, since with one value variable
+    every other position is a group key or a constant. `PrologGoalFamilyFor`
+    (104 names, six families, each with a hint) refuses a bare word
+    `PROLOG` solves, checked before keyed desugaring or the nesting check — in
+    a body, under `not`, inside an aggregate, and in a query — unless the
+    program defines it. The three test names may not name a relation, fact or
+    table, and a text test asked as a query on its own is refused.
+    `VLA_Relation.bas`: `InvariantNumberText`, `PROLOG`'s number rendering
+    moved here so both engines read a number one way. `VLA_Messages.bas`:
+    477 → 484 ids (seven new), and two texts naming text tests and
+    `textjoin`. `VLA_DATALOG_VERSION` → `DATALOG.11`.
+    `tools/check_prolog_reserved_names.ps1` rule H holds the table equal to
+    `PROLOG`'s reserved set less `DATALOG`'s own words (`not`, the shared
+    comparisons, the three tests): run green at 104 = 104, and red on a name
+    dropped, on `not` added and on a hint removed. Its first `not` mutant
+    came back green, and the cause was the harness — the `sed` that should
+    have added the name never matched — so it was re-run with a replacement
+    that reported its match.
+    **PROVEN, before import**, through the transliteration ported behind a
+    switch (`port11`). **CONTROL:** the arm off over HEAD's sources and
+    tests, **147/147**; the arm on over the new sources and tests, **184/184**
+    — the 147 unmoved and `TestDatalogTextTests` 37/37, zero exposure (no
+    existing pin reads a text this item changed, and no `DATALOG` test
+    program uses a `PROLOG` name). **Nine mutations, each red:** case folded
+    (1), `not` ignored (1), numbers never text (3), the join sorted (1), no
+    cell limit (1), an empty group dropped (2), no `PROLOG`-goal refusal (7),
+    a defined name refused anyway (1), a test's name allowed as a relation
+    (3). The five changed modules rebuild byte-identical from HEAD plus
+    anchored blocks, on HEAD `000f56d` and again on `e4e2043`; the structure
+    and duplicate-`Dim` scan is clean against HEAD and shown to bite; CRLF
+    kept, no non-ASCII byte added; all 20 `tools/check_*.ps1` green on a HEAD
+    archive plus this item. **Predicted:** `TestDSLs` 1299 → **1352** with
+    `PROLOG.30` (+53 Report executions, none in a loop; counted as call sites
+    1271 → 1324); pure, host and `VerifyReports` unmoved by this item's diff,
+    since no pure or host test, phrasebook row or golden changed.
   - ⬜ **Avoiding a full re-parse/re-fixpoint on every recalc — profiled first,
     not yet built.** `DATALOG()` re-parses `rulesText` and reruns
     `RunStratifiedFixpoint` from scratch every time Excel calls it. Worth

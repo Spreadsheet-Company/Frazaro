@@ -442,8 +442,15 @@ tier-first           P0  P     IF · PAIRS
              (if (>= S 10000) (= T "Gold") (if (>= S 5000) (= T "Silver") (= T "Bronze"))))
            (query (tier Who Tier))
   on       TIERS
-  answers  expected Acme Gold · Beta Silver · Cafe Bronze; NOT MEASURED (the
-           model does not do term matching over a quoted atom). PROLOG.14's form.
+  answers  Who|Tier: Acme Gold · Beta Silver · Cafe Bronze                  [19, 8]
+  note  ?  Measured by G-PROLOG slice 5's scoping (2026-09-14). First match is
+           per ROW here: with a second Customers row Acme 900, Acme is Gold AND
+           Bronze. DATALOG refuses (if ...) as nesting. Decided: first match is
+           "otherwise" in one sentence, compiled per key to each branch's own
+           conditions plus (not ...) of every earlier branch's generated guard,
+           which answered Acme Gold, Beta Silver, Cafe Bronze in both engines,
+           one tier per customer whatever its rows. Or by repetition without
+           the negations makes Acme Gold, Silver and Bronze, silently.
 
 tier-strata          P0  P|D   TW SEL BUTNOT · WHO
   asks     Who is Silver?  (the DATALOG-shaped spelling: a band, minus the band above)
@@ -626,7 +633,12 @@ list-each            P1  P     T1 · EACH LIST
   program  KB1 (rule (shift S) (shifts (shift S)))
            (query (shift Shift) (findall X (can-cover X Shift) Who))
   answers  Shift|Who: Day (list "Ann" "Bob" "Ed") · Night (list "Bob") · Weekend nil  [118, 12]
-  note     PROLOG's own shape: the bag as a value. DATALOG has no lists.
+  note     PROLOG's own shape: the bag as a value. Measured by G-PROLOG slice
+           5's scoping: a bag (Bob twice where he has two rows), in row order
+           (Ed, Bob, Ann with Staff reversed). Decided: "as one list", through
+           DATALOG.11's (textjoin People ", " (can-cover VlaListed Shift)),
+           which answers Day Ann, Bob, Ed · Night Bob · Weekend blank - each
+           value once, in the relation's own row order (the owner's call).
 ```
 
 ## 16. Text-shaped facts (codes, prefixes) — P1
@@ -637,9 +649,16 @@ text-prefix          P1  P     TEXT · WHO
   program  (rule (revenue C) (accounts (code C)) (sub-atom C 0 4 After "GL-4"))
            (query (revenue Which))
   on       ACCOUNTS
-  answers  expected GL-4010 · GL-4020; NOT MEASURED (text goals are a model gap)
-  note     PROLOG-only: DATALOG has no text goals. A numeric code column is a
-           number, not text, and sub-atom refuses it; the fixture uses text.
+  answers  Which: GL-4010 · GL-4020                                         [11, 4]
+  note     Measured by G-PROLOG slice 5's scoping, with sub-atom ported into the
+           model (control: TestPrologTextParts 20/0). The old note was wrong: a
+           number cell IS read by sub-atom, as its canonical text (4010 starts
+           with 40). sub-atom used as "contains" answers once per occurrence
+           (Banana twice), and a text rule anywhere in a rules range made
+           DATALOG refuse every question over it. Decided: DATALOG.11 and
+           PROLOG.30's (text-starts-with C "GL-4"), which both engines read,
+           answering GL-4010 · GL-4020 in DATALOG; said as "the code starts
+           with "GL-4"" once slice 5's grammar is built.
 ```
 
 ## 17. Search and optimisation — not a logic query
@@ -688,7 +707,9 @@ unprioritised because they are findings rather than tasks (`elig-lossy`,
 `G-PROLOG` slice 2, is counted in.) **44 measured**; 2 not
 measured (model gaps: `tier-first`, `text-prefix`); 3 routed away and never
 run (`bom-qty`, `pre-order`, `solve-roster`), and `routes-reach` measured
-and routed. **8 entries need `PROLOG.28`** (`#`). Duplicates in a "who"
+and routed. (`tier-first` and `text-prefix` were measured by `G-PROLOG`
+slice 5's scoping, so the two model gaps above are closed: **46
+measured**.) **8 entries need `PROLOG.28`** (`#`). Duplicates in a "who"
 answer were measured in four entries (`org-managers`, `pre-blocked`,
 `sched-clash`, `elig-lossy`), a wrong answer in one (`elig-lossy`), and two
 programs that can never terminate (`lineage-selfname`, `routes-reach`).
