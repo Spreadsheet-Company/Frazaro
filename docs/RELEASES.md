@@ -328,6 +328,20 @@
   mentions a name no sheet can have, like `"see 'Q1/Q2'!A1"`, no longer
   leaves a stray `Sheet` tab each time it runs.
 
+- **Undo Last Run holds up in three more cases.**
+  - A Run that is refused because Frazaro could not save its copies no
+    longer costs you the Undo you had: Undo Last Run still puts back the
+    Run before it. Before, that Undo was already gone.
+  - Changing only the capitals in a program's tab name (`Frazaro (sales)`
+    to `Frazaro (Sales)`) no longer makes every later Run refuse, and Undo
+    still finds that program's copies. Add Program now also refuses a name
+    that differs from an existing program's only in capitals or
+    punctuation (`q1a` beside `Q1-A`), as it already refused two names that
+    shorten to the same thing.
+  - With a chart sheet among the tabs, Undo could put back the wrong sheet
+    or leave one renamed `VLAu_old`. It now puts back the right sheet, and
+    if it cannot, it leaves that sheet as the Run left it.
+
 ### Known open security items
 
 **Closed this release:** none — 0.6.0 is a feature release. Four changes

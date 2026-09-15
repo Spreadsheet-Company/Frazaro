@@ -95,7 +95,7 @@ output:
 | S | S6 (bare) | S7 |
 | SEC | SEC.6 | SEC.7 |
 | SIG | SIG.8 | SIG.9 (SIG.6, SIG.7 reserved — see below) |
-| U | U.18 | U.19 |
+| U | U.23 | U.24 |
 | V | V8 (bare) | V9 |
 
 Word-suffix families in use (next member follows the same pattern, not a

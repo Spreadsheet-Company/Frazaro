@@ -310,6 +310,7 @@ Public Function VlaSelfTest() As Boolean
     TestBuildRibbon
     TestUndoScan
     TestUndoSnapshotSafety
+    TestUndoSnapshotNames
     TestGoldens
     TestRuleUsage
     TestMessageSeam
@@ -1969,6 +1970,48 @@ Private Sub TestUndoSnapshotSafety()
     On Error GoTo 0
     Report "undo snapshot: an unidentifiable copy says how many sheets appeared", _
            InStr(d, "2 new sheets appeared where one was expected") > 0, d
+End Sub
+
+' ---------------------------------------------------------------------
+'  U.22 and U.23: the Undo bookkeeping, pinned by name. Excel compares
+'  sheet names without case, so a snapshot's tag is compared the same
+'  way (U.22): a program whose tab was re-cased must still own, sweep
+'  and undo its copies, and two programs whose tags differ only in case
+'  share every snapshot name, so they must be refused. The sweep before
+'  a Run's copies exist keeps that program's previous Undo (U.23) and
+'  removes only orphans and its own interrupted staging; the sweep once
+'  they exist removes the rest. (U.21's restore finds its copy through
+'  VlaIdeAddedSheetNames, pinned above.)
+' ---------------------------------------------------------------------
+Private Sub TestUndoSnapshotNames()
+    CheckV "snapshot kind: an Undo copy", VlaIdeSnapshotKind("VLAu_Main_Output"), "u"
+    CheckV "snapshot kind: a tombstone, in any case", VlaIdeSnapshotKind("vlad_main_x"), "d"
+    CheckV "snapshot kind: a staged copy", VlaIdeSnapshotKind("VLAn_Q1_x"), "n"
+    CheckV "snapshot kind: the log is not a snapshot", VlaIdeSnapshotKind("VLA_Log"), ""
+    CheckV "snapshot kind: nor an edition sheet", VlaIdeSnapshotKind("VLAe_Source"), ""
+    CheckV "snapshot kind: nor a person's sheet", VlaIdeSnapshotKind("Output"), ""
+    CheckV "snapshot tag: the part before the next underscore", VlaIdeSnapshotTag("VLAu_Main_Output"), "Main"
+    CheckV "snapshot tag: the sheet part may hold spaces", VlaIdeSnapshotTag("VLAd_gp1_Q1 Data"), "gp1"
+    CheckV "snapshot tag: a pre-tag legacy name has none", VlaIdeSnapshotTag("VLAu_Output"), ""
+    CheckV "snapshot tag: an empty tag is none", VlaIdeSnapshotTag("VLAu__x"), ""
+    CheckV "snapshot tag: a sheet that is no snapshot has none", VlaIdeSnapshotTag("Data_2024_x"), ""
+    CheckV "tags: case alone does not make two tags", VlaIdeTagsMatch("GP1", "gp1"), True
+    CheckV "tags: a longer tag is a different tag", VlaIdeTagsMatch("gp1", "gp10"), False
+    CheckV "tags: no tag matches nothing", VlaIdeTagsMatch("", "gp1"), False
+
+    Dim knownTags As Collection
+    Set knownTags = New Collection
+    knownTags.Add "1", "U22A"
+    knownTags.Add "1", "Other"
+    CheckV "sweep before the copies: the previous Undo stays, even re-cased", VlaIdeSweepsSnapshot("VLAu_u22a_x", "U22A", knownTags, False), False
+    CheckV "sweep before the copies: the previous tombstone stays too", VlaIdeSweepsSnapshot("VLAd_U22A_Output", "U22A", knownTags, False), False
+    CheckV "sweep before the copies: an interrupted staging goes", VlaIdeSweepsSnapshot("VLAn_U22A_x", "U22A", knownTags, False), True
+    CheckV "sweep once the copies exist: the previous Undo goes", VlaIdeSweepsSnapshot("VLAu_u22a_x", "U22A", knownTags, True), True
+    CheckV "sweep: another live program's copy is never touched", VlaIdeSweepsSnapshot("VLAu_Other_x", "U22A", knownTags, True), False
+    CheckV "sweep: another live program's staging is never touched", VlaIdeSweepsSnapshot("VLAn_Other_x", "U22A", knownTags, True), False
+    CheckV "sweep: a copy whose program is gone is an orphan", VlaIdeSweepsSnapshot("VLAu_Gone_x", "U22A", knownTags, False), True
+    CheckV "sweep: a legacy name is an orphan", VlaIdeSweepsSnapshot("VLAu_Output", "U22A", knownTags, False), True
+    CheckV "sweep: the log is not a snapshot", VlaIdeSweepsSnapshot("VLA_Log", "U22A", knownTags, True), False
 End Sub
 
 Private Function U19NameList(ParamArray nameList() As Variant) As Collection

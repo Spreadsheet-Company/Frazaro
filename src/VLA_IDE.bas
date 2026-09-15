@@ -1,6 +1,16 @@
 Attribute VB_Name = "VLA_IDE"
 Option Explicit
-Public Const VLA_IDE_VERSION As String = "U19.0"
+Public Const VLA_IDE_VERSION As String = "U23.0"
+' U23.0: three follow-ups to U.19. U.21 - Undo finds the copy it restores
+' by its new name, not Worksheets(snap.Index + 1) (Index counts chart
+' sheets, Worksheets does not), and a restore that fails part-way puts
+' that sheet back as the Run left it (RollBackRestore). U.22 - program
+' tags compare without case everywhere (VlaIdeTagsMatch), as Excel sheet
+' names do: the Add Program and Run guards, the snapshot sweep, Undo's
+' match. U.23 - a Run's new copies are staged as VLAn_<tag>_ and replace
+' the previous Run's only once all exist, so a Run refused on the way
+' keeps the Undo that was there; the sweep's decision is the pure
+' VlaIdeSweepsSnapshot.
 ' U19.0: a failed Undo snapshot leaves nothing behind (U.19).
 ' TakeRunSnapshot records every sheet it makes the moment it exists and,
 ' if any step fails, removes them all and refuses through
@@ -132,6 +142,10 @@ Private Const DEL_PREFIX As String = "VLAd_"       ' D1.2: tombstone markers -
                                                    ' "this sheet did not exist
                                                    ' before the run; Undo
                                                    ' removes it"
+Private Const STAGE_PREFIX As String = "VLAn_"     ' U.23: a Run's new copies and
+                                                   ' markers while they are made;
+                                                   ' renamed VLAu_/VLAd_ only once
+                                                   ' every one of them exists
 Private Const LOG_SHEET As String = "VLA_Log"      ' deliberately not VLAu_/VLAd_:
                                                    ' the snapshot sweeper owns
                                                    ' those prefixes
@@ -902,7 +916,7 @@ Public Sub EnglishIdeAddProgram()
     Dim wsV As Variant
     For Each wsV In WorkspaceSheets(hb)
         If VLA_Identity.Fold(wsV.Name) <> VLA_Identity.Fold(full) Then
-            If VlaIdeProgramTag(wsV.Name) = tag Then
+            If VlaIdeTagsMatch(VlaIdeProgramTag(wsV.Name), tag) Then
                 VLA_Messages.RaiseMsg "ide-program-name-too-similar", "new", full, "existing", wsV.Name, "tag", tag
             End If
         End If
@@ -2672,7 +2686,7 @@ Private Sub GuardTagCollision(hb As Workbook, ws As Worksheet)
     Dim wsV As Variant
     For Each wsV In WorkspaceSheets(hb)
         If Not wsV Is ws Then
-            If VlaIdeProgramTag(wsV.Name) = tag Then
+            If VlaIdeTagsMatch(VlaIdeProgramTag(wsV.Name), tag) Then
                 VLA_Messages.RaiseMsg "ide-programs-share-short-name", "a", ws.Name, "b", wsV.Name, "tag", tag
             End If
         End If
@@ -2911,12 +2925,21 @@ Private Sub TakeRunSnapshot(hb As Workbook, ByVal programText As String, ByVal t
     Set made = New Collection
     Dim curTarget As String
     Dim failWhy As String
+    Dim staged As Collection
+    Set staged = New Collection
+    Dim finals As Collection
+    Set finals = New Collection
     On Error GoTo failed
 
-    DeleteSnapshots hb, tag
-    Dim uPre As String, dPre As String
+    ' U.23: this first sweep keeps the previous Run's Undo - only orphans
+    ' and this program's own interrupted staging go. The previous copies
+    ' are replaced below, once every new one exists, so a Run refused on
+    ' the way leaves Undo Last Run exactly as it was.
+    DeleteSnapshots hb, tag, False, made
+    Dim uPre As String, dPre As String, sPre As String
     uPre = UNDO_PREFIX & tag & "_"
     dPre = DEL_PREFIX & tag & "_"
+    sPre = STAGE_PREFIX & tag & "_"
     Dim targets As New Collection
     AddTarget targets, OUT_SHEET
     ScanSheetNames programText, targets
@@ -2944,8 +2967,10 @@ Private Sub TakeRunSnapshot(hb As Workbook, ByVal programText As String, ByVal t
                     VLA_Messages.RaiseMsg "ide-undo-snapshot-copy-not-found", "count", CStr(added.Count)
                 End If
                 Set snap = hb.Worksheets(CStr(added.Item(1)))
-                snap.Name = uPre & curTarget
+                snap.Name = sPre & curTarget
                 snap.Visible = xlSheetVeryHidden
+                staged.Add snap
+                finals.Add uPre & curTarget
             Else
                 Debug.Print "VLA-IDE: sheet name too long to snapshot: " & n
             End If
@@ -2960,12 +2985,41 @@ Private Sub TakeRunSnapshot(hb As Workbook, ByVal programText As String, ByVal t
             If Len(curTarget) + Len(dPre) <= 31 Then
                 Set snap = hb.Worksheets.Add(After:=hb.Worksheets(hb.Worksheets.Count))
                 made.Add snap
-                snap.Name = dPre & curTarget
+                snap.Name = sPre & curTarget
                 snap.Visible = xlSheetVeryHidden
+                staged.Add snap
+                finals.Add dPre & curTarget
             Else
                 Debug.Print "VLA-IDE: sheet name too long for an undo marker: " & n
             End If
         End If
+    Next
+
+    ' U.23: the swap. A final name no worksheet holds is taken at once -
+    ' so a chart sheet sitting on it is refused HERE, while the previous
+    ' Undo is still whole. A name the previous Run's copy holds waits
+    ' until the second sweep below has removed that copy. The three
+    ' prefixes are one length, so the target is the same slice of every
+    ' final name.
+    Dim deferred As Collection
+    Set deferred = New Collection
+    Dim k As Long
+    Dim idxV As Variant
+    For k = 1 To staged.Count
+        curTarget = Mid$(CStr(finals.Item(k)), Len(uPre) + 1)
+        If SheetExists(hb, CStr(finals.Item(k))) Then
+            deferred.Add k
+        Else
+            Set snap = staged.Item(k)
+            snap.Name = CStr(finals.Item(k))
+        End If
+    Next
+    DeleteSnapshots hb, tag, True, made
+    For Each idxV In deferred
+        k = CLng(idxV)
+        curTarget = Mid$(CStr(finals.Item(k)), Len(uPre) + 1)
+        Set snap = staged.Item(k)
+        snap.Name = CStr(finals.Item(k))
     Next
 
     Application.ScreenUpdating = scr
@@ -3099,14 +3153,20 @@ Public Sub EnglishIdeUndo()
 
     ' Collect the snapshots FIRST: restoring inserts sheets mid-loop,
     ' which an index-based walk would mis-count.
+    ' U.22: matched through the snapshot's own tag, without case - a
+    ' program whose tab was re-cased still finds its copies.
     Dim snaps As New Collection
     Dim tombs As New Collection
     Dim i As Long
+    Dim nmI As String
     For i = 1 To hb.Worksheets.Count
-        If Left$(hb.Worksheets(i).Name, Len(uPre)) = uPre Then
-            snaps.Add hb.Worksheets(i)
-        ElseIf Left$(hb.Worksheets(i).Name, Len(dPre)) = dPre Then
-            tombs.Add hb.Worksheets(i)
+        nmI = hb.Worksheets(i).Name
+        If VlaIdeTagsMatch(VlaIdeSnapshotTag(nmI), tag) Then
+            If VlaIdeSnapshotKind(nmI) = "u" Then
+                snaps.Add hb.Worksheets(i)
+            ElseIf VlaIdeSnapshotKind(nmI) = "d" Then
+                tombs.Add hb.Worksheets(i)
+            End If
         End If
     Next
 
@@ -3115,10 +3175,22 @@ Public Sub EnglishIdeUndo()
     Dim snapV As Variant
     Dim snap As Worksheet, cpy As Worksheet
     Dim orig As String
+    ' U.21: what one sheet's restore has made so far, and whether the
+    ' current sheet is set aside - so a failure part-way can be undone
+    ' (RollBackRestore, from the handler below).
+    Dim made As Collection
+    Dim setAside As Boolean
+    Dim inRestore As Boolean
+    Dim priorNames As Collection
+    Dim added As Collection
+    Dim addedV As Variant
     For Each snapV In snaps
         Set snap = snapV
         orig = Mid$(snap.Name, Len(uPre) + 1)
         restoring = orig
+        Set made = New Collection
+        setAside = False
+        inRestore = True
         ' Excel cannot Copy a very-hidden sheet, so unhide the
         ' snapshot for the duration (screen updating is off).
         snap.Visible = xlSheetVisible
@@ -3127,15 +3199,32 @@ Public Sub EnglishIdeUndo()
         ' if the copy fails, nothing has been destroyed.
         If SheetExists(hb, orig) Then
             hb.Worksheets(orig).Name = UNDO_PREFIX & "old"
+            setAside = True
         End If
+        ' U.21: the copy is the one NEW sheet name, never
+        ' Worksheets(snap.Index + 1) - Index counts chart sheets and
+        ' Worksheets does not, so one chart sheet before the snapshot
+        ' made that read rename the wrong sheet.
+        Set priorNames = SheetNamesOf(hb)
         snap.Copy After:=snap
-        Set cpy = hb.Worksheets(snap.Index + 1)
+        Set added = VlaIdeAddedSheetNames(priorNames, SheetNamesOf(hb))
+        For Each addedV In added
+            made.Add hb.Worksheets(CStr(addedV))
+        Next
+        If added.Count <> 1 Then
+            VLA_Messages.RaiseMsg "ide-undo-snapshot-copy-not-found", "count", CStr(added.Count)
+        End If
+        Set cpy = hb.Worksheets(CStr(added.Item(1)))
         cpy.Name = orig
         cpy.Visible = xlSheetVisible
+        ' The copy IS the sheet now: a later failure must not remove it.
+        Set made = New Collection
         If SheetExists(hb, UNDO_PREFIX & "old") Then
             hb.Worksheets(UNDO_PREFIX & "old").Delete
         End If
+        setAside = False
         snap.Visible = xlSheetVeryHidden
+        inRestore = False
         restoring = ""
         If Len(restored) > 0 Then restored = restored & ", "
         restored = restored & orig
@@ -3184,6 +3273,10 @@ Public Sub EnglishIdeUndo()
     Exit Sub
 failed:
     d = Err.Description
+    ' U.21: a sheet whose restore failed part-way goes back to how the
+    ' Run left it - its stray copy removed, its own name returned - so
+    ' the dialog below is true and nothing is left named VLAu_old.
+    If inRestore Then RollBackRestore hb, made, setAside, restoring, snap
     On Error Resume Next
     Application.ScreenUpdating = scr
     Application.DisplayAlerts = da
@@ -3206,7 +3299,14 @@ End Sub
 ' (their "tag" reads as the whole target) and snapshots of programs
 ' whose sheets were deleted. Another live program's snapshots are
 ' never touched: that is the whole point of the tag.
-Private Sub DeleteSnapshots(hb As Workbook, ByVal tag As String)
+'
+' U.23: two sweeps now. With includeOwnSnapshots False - before a Run's
+' new copies exist - this program's finished copies and tombstones (the
+' previous Run's Undo) stay, and only orphans and its own interrupted
+' staging go. With True - once the new copies all exist - the previous
+' ones go too. `keep` holds the sheets this Run made, which no sweep
+' removes. The decision itself is the pure VlaIdeSweepsSnapshot.
+Private Sub DeleteSnapshots(hb As Workbook, ByVal tag As String, ByVal includeOwnSnapshots As Boolean, keep As Collection)
     Dim knownTags As Collection
     Set knownTags = New Collection
     Dim wsV As Variant
@@ -3217,39 +3317,109 @@ Private Sub DeleteSnapshots(hb As Workbook, ByVal tag As String)
     Next
     Dim i As Long
     Dim da As Boolean
-    Dim nm As String
-    Dim post As String
-    Dim snapTag As String
-    Dim cut As Long
-    Dim owned As Boolean
+    Dim sweepSheet As Worksheet
     da = Application.DisplayAlerts
     Application.DisplayAlerts = False
     For i = hb.Worksheets.Count To 1 Step -1
-        nm = hb.Worksheets(i).Name
-        post = ""
-        If Left$(nm, Len(UNDO_PREFIX)) = UNDO_PREFIX Then
-            post = Mid$(nm, Len(UNDO_PREFIX) + 1)
-        ElseIf Left$(nm, Len(DEL_PREFIX)) = DEL_PREFIX Then
-            post = Mid$(nm, Len(DEL_PREFIX) + 1)
-        End If
-        If Len(post) > 0 Then
-            cut = InStr(post, "_")
-            If cut > 1 Then snapTag = Left$(post, cut - 1) Else snapTag = post
-            owned = False
-            If cut > 1 Then owned = CollHasKeyIde(knownTags, snapTag)
-            If snapTag = tag Or Not owned Then
+        Set sweepSheet = hb.Worksheets(i)
+        If VlaIdeSweepsSnapshot(sweepSheet.Name, tag, knownTags, includeOwnSnapshots) Then
+            If Not CollHoldsSheet(keep, sweepSheet) Then
                 ' A snapshot is very-hidden; if it would be the last
                 ' sheet Excel allows deleting, make it visible first
                 ' so the delete can't trip the one-sheet-must-remain
                 ' rule.
                 On Error Resume Next
-                hb.Worksheets(i).Visible = xlSheetVisible
-                hb.Worksheets(i).Delete
+                sweepSheet.Visible = xlSheetVisible
+                sweepSheet.Delete
                 On Error GoTo 0
             End If
         End If
     Next
     Application.DisplayAlerts = da
+End Sub
+
+' U.22/U.23: what kind of Frazaro snapshot sheet a name is - "u" an Undo
+' copy, "d" a tombstone marker, "n" a copy or marker still being staged -
+' or "" for any other sheet. Excel compares sheet names without case, so
+' this does too. Pure, for the self-test.
+Public Function VlaIdeSnapshotKind(ByVal sheetName As String) As String
+    Dim pre As String
+    pre = VLA_Identity.Fold(Left$(sheetName, Len(UNDO_PREFIX)))
+    If pre = VLA_Identity.Fold(UNDO_PREFIX) Then
+        VlaIdeSnapshotKind = "u"
+    ElseIf pre = VLA_Identity.Fold(DEL_PREFIX) Then
+        VlaIdeSnapshotKind = "d"
+    ElseIf pre = VLA_Identity.Fold(STAGE_PREFIX) Then
+        VlaIdeSnapshotKind = "n"
+    End If
+End Function
+
+' U.22: the program tag inside a snapshot name - the text between the
+' prefix and the next underscore - or "" when the name is no snapshot or
+' carries no tag (a pre-V2 legacy name). All three prefixes are one
+' length, and tags hold no underscore by construction. Pure.
+Public Function VlaIdeSnapshotTag(ByVal sheetName As String) As String
+    If Len(VlaIdeSnapshotKind(sheetName)) = 0 Then Exit Function
+    Dim post As String
+    post = Mid$(sheetName, Len(UNDO_PREFIX) + 1)
+    Dim cut As Long
+    cut = InStr(post, "_")
+    If cut > 1 Then VlaIdeSnapshotTag = Left$(post, cut - 1)
+End Function
+
+' U.22: do two program tags name the same program? Excel sheet names
+' and VBA module names ignore case, so "Gp1" and "gp1" must be one tag,
+' or their snapshot names collide. An empty tag matches nothing. Pure.
+Public Function VlaIdeTagsMatch(ByVal a As String, ByVal b As String) As Boolean
+    If Len(a) = 0 Or Len(b) = 0 Then Exit Function
+    VlaIdeTagsMatch = (VLA_Identity.Fold(a) = VLA_Identity.Fold(b))
+End Function
+
+' U.23: does a program's sweep remove this sheet? Not a snapshot: never.
+' This program's own: a staged sheet always (only an interrupted Run
+' leaves one, and it is never an Undo state), a finished copy or marker
+' only when includeOwnSnapshots. Otherwise an orphan - no tag, or a tag
+' no live program has - goes; another live program's sheets never do.
+' Pure, for the self-test.
+Public Function VlaIdeSweepsSnapshot(ByVal sheetName As String, ByVal tag As String, knownTags As Collection, ByVal includeOwnSnapshots As Boolean) As Boolean
+    Dim snapKind As String
+    snapKind = VlaIdeSnapshotKind(sheetName)
+    If Len(snapKind) = 0 Then Exit Function
+    Dim snapTag As String
+    snapTag = VlaIdeSnapshotTag(sheetName)
+    If VlaIdeTagsMatch(snapTag, tag) Then
+        VlaIdeSweepsSnapshot = (snapKind = "n" Or includeOwnSnapshots)
+    ElseIf Len(snapTag) = 0 Then
+        VlaIdeSweepsSnapshot = True
+    Else
+        VlaIdeSweepsSnapshot = Not CollHasKeyIde(knownTags, snapTag)
+    End If
+End Function
+
+' Is this very sheet (by object, not by name) one of the collection's?
+Private Function CollHoldsSheet(col As Collection, sh As Worksheet) As Boolean
+    Dim v As Variant
+    For Each v In col
+        If v Is sh Then
+            CollHoldsSheet = True
+            Exit Function
+        End If
+    Next
+End Function
+
+' U.21: undo the part of one sheet's restore that happened before it
+' failed - remove the copy it made, give the set-aside sheet its name
+' back, hide the snapshot again - so that sheet stays as the Run left
+' it. Called from EnglishIdeUndo's handler, so it keeps its own error
+' scope: each step is tried whatever the one before it did.
+Private Sub RollBackRestore(hb As Workbook, made As Collection, ByVal wasSetAside As Boolean, ByVal orig As String, snap As Worksheet)
+    RemoveSnapshotSheets made
+    On Error Resume Next
+    If wasSetAside Then
+        If Not SheetExists(hb, orig) Then hb.Worksheets(UNDO_PREFIX & "old").Name = orig
+    End If
+    If Not snap Is Nothing Then snap.Visible = xlSheetVeryHidden
+    On Error GoTo 0
 End Sub
 
 ' Module-local keyed probe (modules are self-contained by rule 12).

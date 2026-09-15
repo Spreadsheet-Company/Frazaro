@@ -18553,6 +18553,87 @@ now carries one summary paragraph per engine and points here.*
   phrasebook with non-ASCII rules today. *Pays into:* every phrasebook
   edit, `G-EXPANDER`'s staleness stamp, `CO.6`. *Depends on:* nothing.
   `~hours`–`~days`
+- ✅ **U.21 — Undo finds the copy it restores by name.**
+  *Minted 2026-09-14, the owner's call: a follow-up to `U.19`, scoped and
+  built in the same session.* **BUILT, OWNER-VERIFIED LIVE AND COMMITTED
+  2026-09-14.** Five live tests across U.21-U.23 passed: Undo with a chart
+  sheet before the snapshot, a restore forced to fail, a re-cased program
+  tab, a case-only twin at Add Program, and a refused Run followed by Undo.
+  All 23 new pure pins passed too. **What the code said:** `EnglishIdeUndo`
+  restores a sheet by renaming the current one `VLAu_old`, copying the
+  snapshot with `Copy After:=snap`, and taking
+  `hb.Worksheets(snap.Index + 1)` as the copy. `Index` counts every sheet,
+  but `Worksheets(…)` counts worksheets only. With a chart sheet anywhere
+  before the snapshot, the lookup therefore lands one worksheet late,
+  usually on the program's `VLAd_` tombstone. That tombstone was then
+  renamed to the restored sheet's name and shown blank, while the real copy
+  stayed visible as `VLAu_<tag>_<sheet> (2)` and the set-aside sheet was
+  deleted. This is `U.19`'s defect in its other half, reached through a
+  numbering mismatch rather than a hidden neighbour. Separately, a restore
+  that failed part-way left the person's sheet renamed `VLAu_old` beside a
+  stray copy, with a dialog saying only that Undo "couldn't put back" it.
+  **Built:** the copy is the one name new since just before the Copy
+  (`VlaIdeAddedSheetNames`, already pinned). Any other count refuses
+  through the reused `ide-undo-snapshot-copy-not-found`. On a failure
+  partway through one sheet, `RollBackRestore` removes the copy it made,
+  gives `VLAu_old` its name back and hides the snapshot again, so that
+  sheet stays as the Run left it and the existing dialog is true. Sheets
+  already restored earlier in the same Undo stay restored, and the dialog
+  does not list them, since no new message was added. *Depends on:*
+  nothing. `~hours`
+- ✅ **U.22 — program tags compare without case.**
+  *Minted 2026-09-14, the owner's call: `U.19`'s finding (c), scoped and
+  built in the same session.* **BUILT, OWNER-VERIFIED LIVE AND COMMITTED
+  2026-09-14.** Five live tests across U.21-U.23 passed: Undo with a chart
+  sheet before the snapshot, a restore forced to fail, a re-cased program
+  tab, a case-only twin at Add Program, and a refused Run followed by Undo.
+  All 23 new pure pins passed too. **What the code said:** a tag keeps the
+  letters and digits in their typed case. It was compared exactly in four
+  places: Add Program's "too similar" guard, `GuardTagCollision` at Run
+  and Undo, `DeleteSnapshots`' own-tag test, and Undo's `Left$` prefix
+  match. Excel sheet names and VBA module names ignore case. That had two
+  consequences. First, `Frazaro (G-p1)` and `Frazaro (gp1)` (tags `Gp1`
+  and `gp1`) passed both guards, then shared every snapshot name. Second,
+  re-casing one program's tab (`Frazaro (u22a)` to `Frazaro (U22A)`, which
+  Excel allows) stranded its copies. `DeleteSnapshots` counted them
+  neither as its own (exact compare) nor as orphans (its known-tags
+  `Collection` is keyed without case), so they survived and the new
+  copies' names collided. Since `U.19`, every later Run of that program
+  was refused, and Undo, matching the prefix exactly, found nothing.
+  **Built:** `VlaIdeTagsMatch` (pure, folding through `VLA_Identity.Fold`)
+  at all four sites. `VlaIdeSnapshotKind` and `VlaIdeSnapshotTag` (pure)
+  read a snapshot name without case, and the sweep's decision is the pure
+  `VlaIdeSweepsSnapshot`. Both guards now refuse a case-only difference
+  with their existing messages (`ide-program-name-too-similar`,
+  `ide-programs-share-short-name`). One side effect, named: a program
+  named `Frazaro (main)` is now refused beside the default `Frazaro`
+  (tag `Main`); their snapshot names always collided. Pinned in
+  `TestUndoSnapshotNames`. *Depends on:* nothing. `~hours`
+- ✅ **U.23 — a refused Run keeps the previous Undo.**
+  *Minted 2026-09-14, the owner's call: a follow-up to `U.19`, scoped and
+  built in the same session.* **BUILT, OWNER-VERIFIED LIVE AND COMMITTED
+  2026-09-14.** Five live tests across U.21-U.23 passed: Undo with a chart
+  sheet before the snapshot, a restore forced to fail, a re-cased program
+  tab, a case-only twin at Add Program, and a refused Run followed by Undo.
+  All 23 new pure pins passed too. **What the code said:** `TakeRunSnapshot`
+  began with `DeleteSnapshots`, removing the previous Run's copies before
+  making any new one. Once `U.19` made a failed snapshot stop the Run, a
+  refused Run had changed nothing on the sheets, yet it left Undo Last Run
+  saying "Nothing to undo yet". **Built:** new copies and markers are made
+  under a third prefix, `VLAn_<tag>_`. It is the same length as `VLAu_` and
+  `VLAd_`, so the 31-character limit is unchanged. The first sweep keeps
+  this program's finished copies and removes only orphans and its own
+  interrupted staging. Once every new sheet exists, a swap gives each its
+  final name. Where no worksheet holds that name, the rename happens at
+  once, so a chart sheet sitting on the name is refused while the previous
+  Undo is still whole. Where a previous copy holds the name, the rename
+  waits until a second sweep has removed that copy. **Known limit,
+  accepted:** a failure inside that last step (a previous copy Excel will
+  not delete, followed by a colliding rename) still rolls this Run's sheets
+  back, but part of the previous Undo is already gone. Only renaming the
+  previous copies aside first would close that gap, and no live cause is
+  known. Pinned in `TestUndoSnapshotNames` (the sweep's decisions).
+  *Pays into:* `U.17`. *Depends on:* `U.19`. `~hours`
 
 ---
 
