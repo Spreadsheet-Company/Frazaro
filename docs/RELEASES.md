@@ -244,6 +244,16 @@
 - **A new program tab starts in B1**, the first sentence cell, ready to type
   into, instead of in the hidden column A.
 
+- **A program with no sentences no longer fails.** A program of only
+  comments, or a file with nothing in it, used to stop with "Subscript out
+  of range" when checked, run or translated. It now translates to an empty
+  program.
+
+- **Translate to VLA marks its output, and keeps every character.** The
+  `.vla` it writes now starts with a `; GENERATED` line naming the program
+  it came from, so Lint VLA leaves it alone, and it is saved as UTF-8, so a
+  sentence like `Put "café" into cell A1.` keeps its `é`.
+
 ### Known open security items
 
 **Closed this release:** none — 0.6.0 is a feature release. Four changes
