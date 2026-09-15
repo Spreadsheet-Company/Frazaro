@@ -48,7 +48,9 @@
   under the headers Who and What. Say `which` and a noun to name a column
   yourself: `Show in cell E6 which person can-cover which shift by applying
   …` spills under Person and Shift. The headers always come from your
-  question, never from how the rules happen to be written.
+  question, never from how the rules happen to be written. A question that
+  asks for the same noun twice, or a `whether` that also asks `who`, is
+  refused with a note on what to write instead.
 
 - **Facts, for the things that do not deserve a Table.** `Write in cell H7
   that "B3" is flagged.` puts one fact in a cell, and so does `Write in cell
@@ -207,6 +209,35 @@
   who can…" is not offered: which one it named would change with the order
   of your rows.
 
+- **Test text in a rule.** `Write in cell H2 that a code is revenue if
+  Accounts lists the code as Code, and the code starts with "GL-4".` keeps
+  the codes that begin GL-4. `ends with` and `contains` work the same way,
+  and `not` in front keeps the rest. Capitals must match exactly, and a
+  number cell is read as its digits, so 4010 starts with "40". The code has
+  to be found first, by a Table row or a relation: a text test only checks
+  it. The other side may be a noun as well, like `the code starts with the
+  prefix`. Because of this, `contains` can no longer name a relation — call
+  it `has-part`, or another name.
+
+- **Choose the first tier that fits, with "otherwise".** `Write in cell H2
+  that a customer has-tier "Gold" if Customers lists the customer as
+  Customer and the spend as Spend, and the spend is at least 10000,
+  otherwise "Silver" if …, otherwise "Bronze" if Customers lists the
+  customer as Customer.` gives each customer one tier, the first that fits,
+  even when a customer has several rows. Each value after "otherwise" needs
+  its own "if", and a value may be a noun its conditions find as well as a
+  fixed one. Keep the whole choice in that one cell: writing `has-tier`
+  again in another cell is refused, since its answers would stand beside
+  the chosen one.
+
+- **Put a list in one cell.** `Show in cell E2 who can-cover "Day" as one
+  list by applying …` puts `Ann, Bob, Ed` in one cell, each name once, in
+  the order the rows were found. `Show in cell E3 which people can-cover
+  each shift that is listed as one list by applying …` spills each shift
+  beside its list, with an empty cell for a shift nobody can cover. "As one
+  list" follows a question that asks for one thing, or an "each"; after
+  "whether", "how many", "alone" and the other shapes it is refused by name.
+
 - **`=DATALOG(...)` and `=PROLOG(...)` can test text.** In a rule,
   `(text-starts-with Code "GL-4")` keeps the codes that start with GL-4, and
   `(text-ends-with Code "10")` and `(text-contains Name "an")` do what they
@@ -243,7 +274,8 @@
   A number kept as text in a column cannot be matched, since quoted numbers
   are refused. Adding up quantities along a chain ("how many spokes go into
   one bike") and putting things in order ("which course to take first")
-  cannot be said yet.
+  cannot be said yet. A list separates its values with a comma and a space,
+  so a value that holds one reads as two.
 
 - **Lint VLA can no longer break a file it rewrites.** It used to save
   through the system's legacy code page, so a `£` in a comment came back as

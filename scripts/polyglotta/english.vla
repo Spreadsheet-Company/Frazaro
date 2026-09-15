@@ -3984,6 +3984,15 @@
 (test-success
     "Write in cell H3 that a person is-under a boss if the person reports-to the boss directly or not."
     (prolog-clause-place (range "h3") "(rule (vla-any-reports--to X Y) (reports-to X Y)) (rule (vla-any-reports--to X Y) (reports-to X Z) (vla-any-reports--to Z Y)) (rule (is-under Person Boss) (vla-any-reports--to Person Boss))"))
+; SLICE 5 (the owner's calls, 2026-09-14): a text test - starts with, ends with,
+; contains - checks two values and binds neither; "otherwise" chooses the first
+; branch that holds, per subject, through generated vla-first- guards.
+(test-success
+    "Write in cell H2 that a code is revenue if Accounts lists the code as Code, and the code starts with \"GL-4\"."
+    (prolog-clause-place (range "h2") "(rule (revenue Code) (accounts (code Code)) (text-starts-with Code \"GL-4\"))"))
+(test-success
+    "Write in cell H2 that a customer has-tier \"Gold\" if Customers lists the customer as Customer and the spend as Spend, and the spend is at least 10000, otherwise \"Silver\" if Customers lists the customer as Customer and the spend as Spend, and the spend is at least 5000, otherwise \"Bronze\" if Customers lists the customer as Customer."
+    (prolog-clause-place (range "h2") "(rule (vla-first-has--tier-1 Customer) (customers (customer Customer) (spend Spend)) (>= Spend 10000)) (rule (vla-first-has--tier-2 Customer) (customers (customer Customer) (spend Spend)) (>= Spend 5000)) (rule (has-tier Customer \"Gold\") (customers (customer Customer) (spend Spend)) (>= Spend 10000)) (rule (has-tier Customer \"Silver\") (customers (customer Customer) (spend Spend)) (>= Spend 5000) (not (vla-first-has--tier-1 Customer))) (rule (has-tier Customer \"Bronze\") (customers (customer Customer)) (not (vla-first-has--tier-1 Customer)) (not (vla-first-has--tier-2 Customer)))"))
 
 ; The questions. {..:question} binds two things: the program text the
 ; question adds after the rules - its quotes already doubled for Excel's
@@ -4070,6 +4079,14 @@
 (test-success
     "Show in cell E8 whether \"Bob\" alone can-cover \"Night\" by applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave."
     (prolog-ask-place "DATALOG" "(rule (vla-alone-can--cover Who) (can-cover Who \"\"Night\"\") (count VlaCount (can-cover VlaCounted \"\"Night\"\")) (= VlaCount 1)) (query (vla-alone-can--cover \"\"Bob\"\"))" "h2:h4" (vlatablearguments (array "staff" "shifts" "leave")) (range "e8")))
+; SLICE 5: "as one list" joins one unknown's answers in one cell, or gives
+; one list for each member of a set named after "that is" - DATALOG.11's textjoin.
+(test-success
+    "Show in cell E2 who can-cover \"Night\" as one list by applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave."
+    (prolog-ask-place "DATALOG" "(headless) (rule (vla-list-can--cover Who) (textjoin Who \"\", \"\" (can-cover VlaListed \"\"Night\"\"))) (query vla-list-can--cover)" "h2:h4" (vlatablearguments (array "staff" "shifts" "leave")) (range "e2")))
+(test-success
+    "Show in cell E3 which people can-cover each shift that is listed as one list by applying the rules in H2:H5 to the data tables Staff, Shifts, and Leave."
+    (prolog-ask-place "DATALOG" "(rule (vla-list-can--cover Shift People) (listed Shift) (textjoin People \"\", \"\" (can-cover VlaListed Shift))) (query vla-list-can--cover)" "h2:h5" (vlatablearguments (array "staff" "shifts" "leave")) (range "e3")))
 
 
 

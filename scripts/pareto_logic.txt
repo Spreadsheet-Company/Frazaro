@@ -450,7 +450,10 @@ tier-first           P0  P     IF · PAIRS
            conditions plus (not ...) of every earlier branch's generated guard,
            which answered Acme Gold, Beta Silver, Cafe Bronze in both engines,
            one tier per customer whatever its rows. Or by repetition without
-           the negations makes Acme Gold, Silver and Bronze, silently.
+           the negations makes Acme Gold, Silver and Bronze, silently. Said
+           since G-PROLOG slice 5: a customer has-tier "Gold" if ..., otherwise
+           "Silver" if ..., otherwise "Bronze" if Customers lists the customer
+           as Customer.
 
 tier-strata          P0  P|D   TW SEL BUTNOT · WHO
   asks     Who is Silver?  (the DATALOG-shaped spelling: a band, minus the band above)
@@ -639,6 +642,8 @@ list-each            P1  P     T1 · EACH LIST
            DATALOG.11's (textjoin People ", " (can-cover VlaListed Shift)),
            which answers Day Ann, Bob, Ed · Night Bob · Weekend blank - each
            value once, in the relation's own row order (the owner's call).
+           Said since G-PROLOG slice 5: which people can-cover each shift that
+           is listed as one list.
 ```
 
 ## 16. Text-shaped facts (codes, prefixes) — P1
@@ -657,8 +662,9 @@ text-prefix          P1  P     TEXT · WHO
            (Banana twice), and a text rule anywhere in a rules range made
            DATALOG refuse every question over it. Decided: DATALOG.11 and
            PROLOG.30's (text-starts-with C "GL-4"), which both engines read,
-           answering GL-4010 · GL-4020 in DATALOG; said as "the code starts
-           with "GL-4"" once slice 5's grammar is built.
+           answering GL-4010 · GL-4020 in DATALOG. Said since G-PROLOG slice 5:
+           a code is revenue if Accounts lists the code as Code, and the code
+           starts with "GL-4".
 ```
 
 ## 17. Search and optimisation — not a logic query

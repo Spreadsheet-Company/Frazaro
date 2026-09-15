@@ -553,6 +553,9 @@ Private mRuleCellBodies As Collection
 ' and its line (ValidateRelationTableNames).
 Private mRuleCellTables As Collection
 Private mRuleCellLines As Collection
+' G-PROLOG slice 5: ...and whether its sentence chose a first match with
+' "otherwise" (ValidateFirstMatchCells).
+Private mRuleCellFirst As Collection
 Private mAskRels As Collection
 Private mAskRanges As Collection
 Private mAskLines As Collection
@@ -836,6 +839,7 @@ Public Function EnglishToVla(ByVal text As String) As String
     Set mRuleCellBodies = New Collection
     Set mRuleCellTables = New Collection
     Set mRuleCellLines = New Collection
+    Set mRuleCellFirst = New Collection
     Set mAskRels = New Collection
     Set mAskRanges = New Collection
     Set mAskLines = New Collection
@@ -1155,6 +1159,9 @@ Public Function EnglishToVla(ByVal text As String) As String
     ' G-PROLOG slice 3: ...no relation may be named after a table another
     ' rule cell reads...
     ValidateRelationTableNames
+    ' G-PROLOG slice 5: ...no relation chosen with "otherwise" may be written
+    ' in a second cell...
+    ValidateFirstMatchCells
     ' ...and every rule cell is now known: check each question's range.
     ValidateQuestionRanges
 
@@ -2936,13 +2943,14 @@ Private Sub AuditCrossRuleShadow()
     ' of catching an old one.
     Dim savedCN As Collection, savedCA As Collection, savedCT As Collection, savedCL As Collection
     Dim savedRR As Collection, savedRA As Collection, savedRB As Collection
-    Dim savedRT As Collection, savedRL As Collection
+    Dim savedRT As Collection, savedRL As Collection, savedRF As Collection
     Dim savedQR As Collection, savedQA As Collection, savedQL As Collection
     Set savedRR = mRuleCellRels
     Set savedRA = mRuleCellAddrs
     Set savedRB = mRuleCellBodies
     Set savedRT = mRuleCellTables
     Set savedRL = mRuleCellLines
+    Set savedRF = mRuleCellFirst
     Set savedQR = mAskRels
     Set savedQA = mAskRanges
     Set savedQL = mAskLines
@@ -2951,6 +2959,7 @@ Private Sub AuditCrossRuleShadow()
     Set mRuleCellBodies = Nothing
     Set mRuleCellTables = Nothing
     Set mRuleCellLines = Nothing
+    Set mRuleCellFirst = Nothing
     Set mAskRels = Nothing
     Set mAskRanges = Nothing
     Set mAskLines = Nothing
@@ -3030,6 +3039,7 @@ Private Sub AuditCrossRuleShadow()
     Set mRuleCellBodies = savedRB
     Set mRuleCellTables = savedRT
     Set mRuleCellLines = savedRL
+    Set mRuleCellFirst = savedRF
     Set mAskRels = savedQR
     Set mAskRanges = savedQA
     Set mAskLines = savedQL
@@ -4620,6 +4630,7 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
     Dim clauseRel As String, questionRel As String, questionEngine As String, questionRel2 As String
     Dim clauseNames As Collection, clauseTables As Collection
     Dim sawClause As Boolean, sawQuestion As Boolean
+    Dim clauseFirst As Boolean
     Dim lintCell As String, lintRange As String
     Dim lintCellCount As Long, lintRangeCount As Long
 
@@ -4775,7 +4786,7 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
                     ' ParseClause's section header. Binds the cell text.
                     Set clauseNames = New Collection
                     Set clauseTables = New Collection
-                    val = ParseClause(toks, p, clauseRel, clauseNames, clauseTables, ok)
+                    val = ParseClause(toks, p, clauseRel, clauseNames, clauseTables, ok, clauseFirst)
                     If ok Then
                         val = VlaStringLit(val)
                         sawClause = True
@@ -4889,7 +4900,7 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
     pos = p
     ' G-PROLOG slice 2: only a rule that matched is recorded, and only when
     ' it names exactly one cell (a clause) or one range (a question).
-    If sawClause And lintCellCount = 1 Then RecordRuleCell lintCell, clauseRel, clauseNames, clauseTables
+    If sawClause And lintCellCount = 1 Then RecordRuleCell lintCell, clauseRel, clauseNames, clauseTables, clauseFirst
     If sawQuestion And lintRangeCount = 1 Then
         RecordQuestionRange lintRange, questionRel
         ' G-PROLOG slice 4: EACH, NONE and EVERY read a second relation - a set.
@@ -5517,7 +5528,8 @@ Private Function ParseConditions(toks() As String, ByRef pos As Long, _
                                  Optional ByVal namesOut As Collection, _
                                  Optional ByVal boundOut As Collection, _
                                  Optional ByVal tablesOut As Collection, _
-                                 Optional ByRef firstRel As String = "") As String
+                                 Optional ByRef firstRel As String = "", _
+                                 Optional ByVal preSeenIn As Collection) As String
     Dim goals As String
     Dim pre As String
     Dim preSeen As Collection
@@ -5541,7 +5553,13 @@ Private Function ParseConditions(toks() As String, ByRef pos As Long, _
 
     ok = False
     preRules = ""
-    Set preSeen = New Collection
+    ' G-PROLOG slice 5: the branches of one "otherwise" sentence share one
+    ' record, so a projection or closure two branches need is written once.
+    If preSeenIn Is Nothing Then
+        Set preSeen = New Collection
+    Else
+        Set preSeen = preSeenIn
+    End If
     Set posRoles = New Collection
     Set allRoles = New Collection
     p = pos
@@ -5603,6 +5621,9 @@ Private Function ParseConditions(toks() As String, ByRef pos As Long, _
         If Len(goals) > 0 Then goals = goals & " "
         goals = goals & goal
 
+        ' G-PROLOG slice 5: ", otherwise" ends this branch's conditions, and
+        ' the clause reads the next branch.
+        If OtherwiseWidth(toks, p) > 0 Then Exit Do
         q = p
         sawSep = False
         If TokAt(toks, q) = "," Then
@@ -5659,12 +5680,25 @@ Private Function ParseOneRoleCondition(toks() As String, ByRef p As Long, ByVal 
     Dim a As String, b As String, t As String
     Dim op As String
     Dim swapped As Boolean
+    Dim tt As String
+    Dim ttWidth As Long
 
     ok = False
     condKind = ""
     condName = ""
     isClosure = False
     If Not TakeOperand(toks, p, allRoles, v1, v1IsRole) Then Exit Function
+
+    ' G-PROLOG slice 5: "contains", or "starts" or "ends" before "with", is a
+    ' text test, which checks two values and binds neither.
+    tt = TextTestAt(toks, p, ttWidth)
+    If Len(tt) > 0 Then
+        If Not v1IsRole Then Exit Function
+        p = p + ttWidth
+        ParseOneRoleCondition = ParseTextTestRest(toks, p, allRoles, tt, v1, ok)
+        If ok Then condKind = "text"
+        Exit Function
+    End If
 
     If TokAt(toks, p) <> "is" Then
         ' a relation: <operand> <relation> <operand>
@@ -5909,7 +5943,7 @@ End Sub
 
 Private Function IsConditionsGrammarWord(ByVal nm As String) As Boolean
     Select Case nm
-        Case "is", "as", "lists", "not", "and", "if", "alone"
+        Case "is", "as", "lists", "not", "and", "if", "alone", "contains"
             IsConditionsGrammarWord = True
     End Select
 End Function
@@ -6127,7 +6161,7 @@ End Function
 ' text; headRelation and bodyNames feed the range lint.
 Private Function ParseClause(toks() As String, ByRef pos As Long, ByRef headRelation As String, _
                              ByVal bodyNames As Collection, ByVal bodyTables As Collection, _
-                             ByRef ok As Boolean) As String
+                             ByRef ok As Boolean, Optional ByRef firstMatch As Boolean) As String
     Dim p As Long
     Dim subj As String, obj As String
     Dim subjRole As Boolean, objRole As Boolean
@@ -6137,8 +6171,11 @@ Private Function ParseClause(toks() As String, ByRef pos As Long, ByRef headRela
     Dim condOk As Boolean
     Dim bound As Collection
     Dim firstRel As String
+    Dim isSetHead As Boolean
+    Dim preSeen As Collection
 
     ok = False
+    firstMatch = False
     p = pos
     If Not TakeHeadOperand(toks, p, subj, subjRole) Then Exit Function
 
@@ -6150,6 +6187,7 @@ Private Function ParseClause(toks() As String, ByRef pos As Long, ByRef headRela
         RefuseGrammarWordAsName rel
         p = p + 1
         headText = "(" & rel & " " & subj & ")"
+        isSetHead = True
     Else
         rel = WordAt(toks, p)
         If Len(rel) = 0 Then Exit Function
@@ -6167,7 +6205,8 @@ Private Function ParseClause(toks() As String, ByRef pos As Long, ByRef headRela
     If TokAt(toks, p) = "if" Then
         p = p + 1
         Set bound = New Collection
-        goals = ParseConditions(toks, p, pre, condOk, bodyNames, bound, bodyTables, firstRel)
+        Set preSeen = New Collection
+        goals = ParseConditions(toks, p, pre, condOk, bodyNames, bound, bodyTables, firstRel, preSeen)
         If Not condOk Then Exit Function
         ' A head role no condition binds would make the rule true of
         ' every value that role could take - see this section's header.
@@ -6180,10 +6219,18 @@ Private Function ParseClause(toks() As String, ByRef pos As Long, ByRef headRela
                 VLA_Messages.RaiseMsg "english-clause-relation-names-table", "relation", rel
             End If
         End If
-        If firstRel = rel Then
-            VLA_Messages.RaiseMsg "english-clause-left-recursion", "relation", rel
+        If OtherwiseWidth(toks, p) > 0 Then
+            ' G-PROLOG slice 5: a first match, one branch per "otherwise".
+            ParseClause = ParseOtherwiseBranches(toks, p, rel, subj, subjRole, isSetHead, obj, goals, pre, _
+                                                 preSeen, bodyNames, bodyTables, condOk)
+            If Not condOk Then Exit Function
+            firstMatch = True
+        Else
+            If firstRel = rel Then
+                VLA_Messages.RaiseMsg "english-clause-left-recursion", "relation", rel
+            End If
+            ParseClause = pre & "(rule " & headText & " " & goals & ")"
         End If
-        ParseClause = pre & "(rule " & headText & " " & goals & ")"
     Else
         ' No "if": a fact, which names only values.
         If subjRole Then VLA_Messages.RaiseMsg "english-clause-fact-needs-values", "role", LCase$(subj)
@@ -6240,6 +6287,7 @@ Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine
     Dim goalPred As String
     Dim pre As String
     Dim shaped As Boolean
+    Dim listGoal As String
 
     ok = False
     relation2 = ""
@@ -6278,6 +6326,8 @@ Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine
         End If
     End If
     If shaped Then
+        ' G-PROLOG slice 5: none of these shapes has one list to join.
+        If AtOneListShape(toks, p) Then RefuseListShape ListShapeKind(toks, pos)
         engine = "DATALOG"
         relation = rel
         pos = p
@@ -6297,6 +6347,7 @@ Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine
             VLA_Messages.RaiseMsg "english-conditions-closure-needs-relation", "shape", "a set"
         End If
         goal = "(" & rel & " " & a1 & ")"
+        listGoal = "(" & rel & " VlaListed)"
         If u1 Then headVars = a1
     ElseIf u1 And IsConstantTok(TokAt(toks, p)) Then
         ' "what "Bob" can-cover": the unknown is the OBJECT, asked first
@@ -6312,12 +6363,26 @@ Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine
             goalPred = ClosureName(rel)
         End If
         goal = "(" & goalPred & " " & a2 & " " & a1 & ")"
+        listGoal = "(" & goalPred & " " & a2 & " VlaListed)"
         headVars = a1
     Else
         rel = WordAt(toks, p)
         If Len(rel) = 0 Then Exit Function
         RefuseGrammarWordAsName rel
         p = p + 1
+        ' G-PROLOG slice 5: "each <noun> that is <set> as one list" - one
+        ' joined list for each member of the set.
+        If u1 And TokAt(toks, p) = "each" Then
+            p = p + 1
+            tail = ParseEachListQuestion(toks, p, rel, a1, relation2, shaped)
+            If Not shaped Then Exit Function
+            engine = "DATALOG"
+            relation = rel
+            pos = p
+            ParseQuestion = Replace(tail, """", """""")
+            ok = True
+            Exit Function
+        End If
         If Not TakeConstant(toks, p, a2) Then
             If Not TakeUnknown(toks, p, a2) Then Exit Function
             u2 = True
@@ -6335,6 +6400,7 @@ Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine
             VLA_Messages.RaiseMsg "english-question-same-unknown", "unknown", LCase$(a1)
         End If
         goal = "(" & goalPred & " " & a1 & " " & a2 & ")"
+        listGoal = "(" & goalPred & " VlaListed " & a2 & ")"
         If u1 Then headVars = a1
         If u2 Then
             If Len(headVars) > 0 Then headVars = headVars & " "
@@ -6347,7 +6413,13 @@ Private Function ParseQuestion(toks() As String, ByRef pos As Long, ByRef engine
     ' which answers over data that loops back on itself, where PROLOG could not.
     If closure Then pre = ClosureRules(rel)
     engine = "DATALOG"
-    If isWhether Then
+    If AtOneListShape(toks, p) Then
+        ' G-PROLOG slice 5: one unknown's answers, joined in one cell.
+        If isWhether Then RefuseListShape "a whether question"
+        If u2 Then RefuseListShape "a question with two unknowns"
+        p = p + 3
+        tail = pre & ListTail(rel, a1, listGoal)
+    ElseIf isWhether Then
         tail = pre & "(query " & goal & ")"
     Else
         tail = pre & "(rule (vla-ask-" & rel & " " & headVars & ") " & goal & ") (query vla-ask-" & rel & ")"
@@ -6731,16 +6803,249 @@ Private Function ParseAloneQuestion(toks() As String, ByRef p As Long, ByVal hea
     ok = True
 End Function
 
+' =====================================================================
+'  G-PROLOG slice 5: text, first match, and a list in one cell
+' =====================================================================
+' The owner's calls, 2026-09-14, each measured first through both engines
+' (BETA_ROADMAP1.md, G-PROLOG slice 5), on DATALOG.11 and PROLOG.30, which
+' shipped first so that every clause stays in the shared subset and every
+' question stays on DATALOG:
+'
+'   Text      := <role> ( "starts" "with" | "ends" "with" | "contains" ) Operand
+'   Clause    := ... "if" Conditions ( [","] "otherwise" Operand "if" Conditions )*
+'   Question  := ... ( Unknown Predicate | Unknown <rel> "each" <noun> "that" Is <set> ) "as" "one" "list"
+'
+' A TEXT TEST is cond's own words, exact case, and "contains" is reserved.
+' It checks two values and binds neither, as a comparison does, so the role
+' before it must be found by another condition. A quoted numeral is text on
+' its right side ("10" ends GL-4010), and a number cell is read as its text.
+' It writes text-starts-with, text-ends-with or text-contains, which both
+' engines read.
+'
+' FIRST MATCH IS "OTHERWISE", PER KEY, IN ONE SENTENCE: a customer has-tier
+' "Gold" if ..., otherwise "Silver" if .... The key is the head's subject,
+' which must be a role; each branch is its own conditions plus the negation
+' of every earlier branch's generated guard, vla-first-<relation>-<n>, the
+' earlier branch's conditions kept to the key. Measured: PROLOG's if chose per
+' ROW (a customer with two rows was Gold and Bronze), and "or" by repetition
+' chose every tier that held. A branch may not read its own relation, and the
+' relation may not be written in a second cell (ValidateFirstMatchCells), or
+' a second value would stand beside the chosen one.
+'
+' A LIST IN ONE CELL READS "AS ONE LIST" after a question with one unknown -
+' headless, the joined answers alone - or after "each <noun> that is <set>",
+' one list per member, the empty ones blank. It writes DATALOG.11's
+' (textjoin <unknown> ", " ...) under vla-list-<relation>, the values each
+' once, in the relation's own row order. The tokenizer writes "one" as 1.
+' Named limit: a value holding ", " reads ambiguously.
+
+' [","] "otherwise" at p: its width in tokens, or 0.
+Private Function OtherwiseWidth(toks() As String, ByVal p As Long) As Long
+    If TokAt(toks, p) = "otherwise" Then
+        OtherwiseWidth = 1
+    ElseIf TokAt(toks, p) = "," And TokAt(toks, p + 1) = "otherwise" Then
+        OtherwiseWidth = 2
+    End If
+End Function
+
+' The text test named at p, and its width in tokens; empty when there is none.
+Private Function TextTestAt(toks() As String, ByVal p As Long, ByRef width As Long) As String
+    Dim t As String
+    width = 0
+    t = TokAt(toks, p)
+    If t = "contains" Then
+        width = 1
+        TextTestAt = "text-contains"
+    ElseIf TokAt(toks, p + 1) = "with" Then
+        If t = "starts" Then
+            width = 2
+            TextTestAt = "text-starts-with"
+        ElseIf t = "ends" Then
+            width = 2
+            TextTestAt = "text-ends-with"
+        End If
+    End If
+End Function
+
+' A text test's right side, and the goal. Quoted text is text here, a
+' numeral included; a role or a bare number goes through TakeOperand.
+Private Function ParseTextTestRest(toks() As String, ByRef p As Long, allRoles As Collection, _
+                                   ByVal testName As String, ByVal v1 As String, ByRef ok As Boolean) As String
+    Dim t As String, v2 As String
+    Dim v2IsRole As Boolean
+    ok = False
+    t = TokAt(toks, p)
+    If IsStrTok(t) Then
+        v2 = VlaStringLit(Mid$(t, 2))
+        p = p + 1
+    ElseIf Not TakeOperand(toks, p, allRoles, v2, v2IsRole) Then
+        Exit Function
+    End If
+    If AtDirectlyOrNot(toks, p) Then
+        VLA_Messages.RaiseMsg "english-conditions-closure-needs-relation", "shape", "a text test"
+    End If
+    ParseTextTestRest = "(" & testName & " " & v1 & " " & v2 & ")"
+    ok = True
+End Function
+
+Private Function FirstGuardName(ByVal rel As String, ByVal branch As Long) As String
+    FirstGuardName = ShapeName("first", rel, CStr(branch))
+End Function
+
+' The branches after the first, at p just before its first "otherwise".
+' Returns the cell text: the shared generated rules, a guard for every branch
+' but the last, and one rule per branch.
+Private Function ParseOtherwiseBranches(toks() As String, ByRef p As Long, ByVal rel As String, _
+                                        ByVal subj As String, ByVal subjRole As Boolean, _
+                                        ByVal isSetHead As Boolean, ByVal firstObj As String, _
+                                        ByVal firstGoals As String, ByVal pre As String, _
+                                        ByVal preSeen As Collection, ByVal bodyNames As Collection, _
+                                        ByVal bodyTables As Collection, ByRef ok As Boolean) As String
+    Dim objs As Collection, goalsOf As Collection
+    Dim obj As String, objRole As Boolean
+    Dim goals As String, bpre As String, firstRel As String
+    Dim bound As Collection
+    Dim condOk As Boolean
+    Dim k As Long, j As Long
+    Dim guards As String, rules As String, body As String
+
+    ok = False
+    If isSetHead Or Not subjRole Then
+        VLA_Messages.RaiseMsg "english-clause-otherwise-shape", "relation", rel
+    End If
+    Set objs = New Collection
+    Set goalsOf = New Collection
+    objs.Add firstObj
+    goalsOf.Add firstGoals
+    Do While OtherwiseWidth(toks, p) > 0
+        p = p + OtherwiseWidth(toks, p)
+        If Not TakeHeadOperand(toks, p, obj, objRole) Then Exit Function
+        If TokAt(toks, p) <> "if" Then
+            VLA_Messages.RaiseMsg "english-clause-otherwise-needs-if", "relation", rel
+        End If
+        p = p + 1
+        Set bound = New Collection
+        goals = ParseConditions(toks, p, bpre, condOk, bodyNames, bound, bodyTables, firstRel, preSeen)
+        If Not condOk Then Exit Function
+        pre = pre & bpre
+        RefuseUnboundHeadRole subj, bound
+        If objRole Then RefuseUnboundHeadRole obj, bound
+        objs.Add obj
+        goalsOf.Add goals
+    Loop
+    If Not bodyNames Is Nothing Then
+        If CollHasKey(bodyNames, rel) Then
+            VLA_Messages.RaiseMsg "english-clause-otherwise-reads-itself", "relation", rel
+        End If
+    End If
+    If Not bodyTables Is Nothing Then
+        If CollHasKey(bodyTables, rel) Then
+            VLA_Messages.RaiseMsg "english-clause-relation-names-table", "relation", rel
+        End If
+    End If
+    For k = 1 To goalsOf.Count
+        If k < goalsOf.Count Then
+            guards = guards & "(rule (" & FirstGuardName(rel, k) & " " & subj & ") " & CStr(goalsOf.Item(k)) & ") "
+        End If
+        body = CStr(goalsOf.Item(k))
+        For j = 1 To k - 1
+            body = body & " (not (" & FirstGuardName(rel, j) & " " & subj & "))"
+        Next j
+        If Len(rules) > 0 Then rules = rules & " "
+        rules = rules & "(rule (" & rel & " " & subj & " " & CStr(objs.Item(k)) & ") " & body & ")"
+    Next k
+    ParseOtherwiseBranches = pre & guards & rules
+    ok = True
+End Function
+
+' "as one list" at p - the tokenizer writes "one" as 1.
+Private Function AtOneListShape(toks() As String, ByVal p As Long) As Boolean
+    If TokAt(toks, p) <> "as" Then Exit Function
+    If TokAt(toks, p + 1) <> "1" Then Exit Function
+    AtOneListShape = (TokAt(toks, p + 2) = "list")
+End Function
+
+Private Sub RefuseListShape(ByVal shape As String)
+    VLA_Messages.RaiseMsg "english-question-list-shape", "shape", shape
+End Sub
+
+' Which slice-4 shape starts at p, named for the list refusal.
+Private Function ListShapeKind(toks() As String, ByVal p As Long) As String
+    If TokAt(toks, p) = "how" Then
+        ListShapeKind = "a how many question"
+    ElseIf TokAt(toks, p) = "whether" And TokAt(toks, p + 1) = "every" Then
+        ListShapeKind = "a whether every question"
+    ElseIf TokAt(toks, p) = "which" And TokAt(toks, p + 2) = "that" Then
+        ListShapeKind = "a which ... is not question"
+    Else
+        ListShapeKind = "an alone question"
+    End If
+End Function
+
+' One unknown's answers joined in one cell, headless.
+Private Function ListTail(ByVal rel As String, ByVal v As String, ByVal listGoal As String) As String
+    Dim nm As String
+    nm = ShapeName("list", rel)
+    ListTail = "(headless) (rule (" & nm & " " & v & ") (textjoin " & v & " "", "" " & listGoal & ")) (query " & nm & ")"
+End Function
+
+' <unknown> <rel> "each" <noun> "that" is <set> "as one list", at p after "each".
+Private Function ParseEachListQuestion(toks() As String, ByRef p As Long, ByVal rel As String, _
+                                       ByVal headVar As String, ByRef relation2 As String, _
+                                       ByRef ok As Boolean) As String
+    Dim noun2 As String, v2 As String, setName As String, nm As String
+    ok = False
+    noun2 = TakeShapeNoun(toks, p)
+    If Len(noun2) = 0 Then Exit Function
+    v2 = RoleToVarName(noun2)
+    If TokAt(toks, p) <> "that" Then Exit Function
+    p = p + 1
+    setName = TakeSetAfterVerb(toks, p)
+    If Len(setName) = 0 Then Exit Function
+    RefuseSetClosure toks, p
+    If Not AtOneListShape(toks, p) Then Exit Function
+    p = p + 3
+    If LCase$(v2) = LCase$(headVar) Then
+        VLA_Messages.RaiseMsg "english-question-same-unknown", "unknown", LCase$(noun2)
+    End If
+    nm = ShapeName("list", rel)
+    ParseEachListQuestion = "(rule (" & nm & " " & v2 & " " & headVar & ") (" & setName & " " & v2 & ") (textjoin " & headVar & " "", "" (" & rel & " VlaListed " & v2 & "))) (query " & nm & ")"
+    relation2 = setName
+    ok = True
+End Function
+
+' A relation chosen with "otherwise" in one cell and written again in another
+' cell of the same program; records are set aside by the shadow audit.
+Private Sub ValidateFirstMatchCells()
+    Dim ci As Long, cj As Long
+    Dim rel As String
+    If mRuleCellRels Is Nothing Then Exit Sub
+    For ci = 1 To mRuleCellRels.Count
+        If CBool(mRuleCellFirst.Item(ci)) Then
+            rel = CStr(mRuleCellRels.Item(ci))
+            For cj = 1 To mRuleCellRels.Count
+                If cj <> ci And CStr(mRuleCellRels.Item(cj)) = rel Then
+                    mErrLine = CLng(mRuleCellLines.Item(cj))
+                    VLA_Messages.RaiseMsg "english-program-first-match-split", _
+                        "relation", rel, "cell", UCase$(CStr(mRuleCellAddrs.Item(ci))), _
+                        "othercell", UCase$(CStr(mRuleCellAddrs.Item(cj))), "loc", LineSuf(mErrLine)
+                End If
+            Next cj
+        End If
+    Next ci
+End Sub
+
 ' ---- the range lint: recorded during translation, checked after it ----
 
 Private Sub RecordRuleCell(ByVal cellLit As String, ByVal rel As String, ByVal names As Collection, _
-                           ByVal tables As Collection)
+                           ByVal tables As Collection, Optional ByVal firstMatch As Boolean = False)
     If mRuleCellRels Is Nothing Then Exit Sub    ' outside a translation
     mRuleCellRels.Add rel
     mRuleCellAddrs.Add UnquoteRefLit(cellLit)
     mRuleCellBodies.Add names
     mRuleCellTables.Add tables
     mRuleCellLines.Add mCurLine
+    mRuleCellFirst.Add firstMatch
 End Sub
 
 Private Sub RecordQuestionRange(ByVal rangeLit As String, ByVal rel As String)

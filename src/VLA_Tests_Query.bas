@@ -385,6 +385,7 @@ Public Function TestDSLs() As Boolean
     TestPrologRangeLint
     TestPrologClosure
     TestPrologAnswerShapes
+    TestPrologOwnShapes
     TestSql
     TestSqlJoin
     TestSqlSetOps
@@ -7968,6 +7969,140 @@ Private Sub TestPrologAnswerShapes()
     AssertConditions "a range holding every cell of both sets translates", _
                      "Inscribe H2 that a shift is listed if Shifts lists the shift as Shift." & vbLf & "Inscribe H3 that a shift is covered if Rota lists the person as Name and the shift as Shift." & vbLf & "Inscribe H5 that a shift is covered if Cover lists the shift as Shift." & vbLf & "Pose which shift that is listed is not covered over H2:H5.", _
                      "(query vla-none-listed-covered)"
+End Sub
+
+' G-PROLOG slice 5: text conditions, a first match with "otherwise", and a
+' list in one cell. A text test checks two values and binds neither; each
+' branch after "otherwise" is its own conditions plus the negation of every
+' earlier branch's guard; "as one list" joins one unknown's answers. Every
+' success fragment is the slice-5 model's own output for its sentence, never
+' typed, and each check turns pins red under its own mutation there.
+Private Sub TestPrologOwnShapes()
+    EnglishResetGrammar
+    EnglishAddPhrase "clause {h:clause}", "(debug-print {h})"
+
+    ' TEXT: starts with, ends with and contains, exact case, text on the right.
+    AssertConditions "starts with writes a text test after the row that finds the code", _
+                     "Clause a code is revenue if Accounts lists the code as Code, and the code starts with ""GL-4"".", _
+                     """(rule (revenue Code) (accounts (code Code)) (text-starts-with Code \""GL-4\""))"""
+    AssertConditions "ends with takes a quoted numeral as text", _
+                     "Clause a code is tens if Accounts lists the code as Code, and the code ends with ""10"".", _
+                     """(rule (tens Code) (accounts (code Code)) (text-ends-with Code \""10\""))"""
+    AssertConditions "not before contains inverts the test", _
+                     "Clause a name is plain if Products lists the name as Name, and not the name contains ""an"".", _
+                     """(rule (plain Name) (products (name Name)) (not (text-contains Name \""an\"")))"""
+    AssertConditions "a text test may compare two roles", _
+                     "Clause a code is prefixed if Accounts lists the code as Code, and Prefixes lists the start as Start, and the code starts with the start.", _
+                     """(rule (prefixed Code) (accounts (code Code)) (prefixes (start Start)) (text-starts-with Code Start))"""
+    AssertConditions "a bare number on the right stays a number", _
+                     "Clause a code is tens if Accounts lists the code as Code, and the code ends with 10.", _
+                     """(rule (tens Code) (accounts (code Code)) (text-ends-with Code 10))"""
+    AssertConditionsRefusal "a text test binds nothing - the role must be found first", _
+                            "Clause a code is odd if the code starts with ""GL"".", _
+                            "nothing in this rule says which code it means"
+    AssertConditionsRefusal "directly or not after a text test refuses", _
+                            "Clause a code is odd if Accounts lists the code as Code, and the code starts with ""GL"" directly or not.", _
+                            "Here it follows a text test"
+    AssertConditionsRefusal "contains is reserved - no relation may be named contains", _
+                            "Clause an assembly contains a part if Parts lists the assembly as Assembly and the part as Component.", _
+                            "'contains' is one of this grammar's own words"
+
+    ' FIRST MATCH: one guard per branch but the last, kept to the subject, and
+    ' each later branch ruling out every earlier one.
+    AssertConditions "otherwise writes a guard for each earlier branch and a rule per branch", _
+                     "Clause a customer has-tier ""Gold"" if Customers lists the customer as Customer and the spend as Spend, and the spend is at least 10000, otherwise ""Silver"" if Customers lists the customer as Customer and the spend as Spend, and the spend is at least 5000, otherwise ""Bronze"" if Customers lists the customer as Customer.", _
+                     """(rule (vla-first-has--tier-1 Customer) (customers (customer Customer) (spend Spend)) (>= Spend 10000)) (rule (vla-first-has--tier-2 Customer) (customers (customer Customer) (spend Spend)) (>= Spend 5000)) (rule (has-tier Customer \""Gold\"") (customers (customer Customer) (spend Spend)) (>= Spend 10000)) (rule (has-tier Customer \""Silver\"") (customers (customer Customer) (spend Spend)) (>= Spend 5000) (not (vla-first-has--tier-1 Customer))) (rule (has-tier Customer \""Bronze\"") (customers (customer Customer)) (not (vla-first-has--tier-1 Customer)) (not (vla-first-has--tier-2 Customer)))"""
+    AssertConditions "otherwise reads the same with no comma before it", _
+                     "Clause a customer has-tier ""Gold"" if Customers lists the customer as Customer and the spend as Spend, and the spend is at least 10000 otherwise ""Bronze"" if Customers lists the customer as Customer.", _
+                     """(rule (vla-first-has--tier-1 Customer) (customers (customer Customer) (spend Spend)) (>= Spend 10000)) (rule (has-tier Customer \""Gold\"") (customers (customer Customer) (spend Spend)) (>= Spend 10000)) (rule (has-tier Customer \""Bronze\"") (customers (customer Customer)) (not (vla-first-has--tier-1 Customer)))"""
+    AssertConditions "a branch may conclude a role its own conditions find", _
+                     "Clause a customer pays a rate if Customers lists the customer as Customer, and Promo lists the customer as Customer and the rate as Rate, otherwise 0 if Customers lists the customer as Customer.", _
+                     """(rule (vla-first-pays-1 Customer) (customers (customer Customer)) (promo (customer Customer) (rate Rate))) (rule (pays Customer Rate) (customers (customer Customer)) (promo (customer Customer) (rate Rate))) (rule (pays Customer 0) (customers (customer Customer)) (not (vla-first-pays-1 Customer)))"""
+    AssertConditions "a projection two branches need is written once", _
+                     "Clause a person has-status ""Senior"" if Staff lists the person as Name and the level as Level, and the level is at least 3, and not Leave lists the person as Name, otherwise ""Junior"" if Staff lists the person as Name, and not Leave lists the person as Name.", _
+                     """(rule (vla-not-leave-name Person) (leave (name Person))) (rule (vla-first-has--status-1 Person) (staff (name Person) (level Level)) (>= Level 3) (not (vla-not-leave-name Person))) (rule (has-status Person \""Senior\"") (staff (name Person) (level Level)) (>= Level 3) (not (vla-not-leave-name Person))) (rule (has-status Person \""Junior\"") (staff (name Person)) (not (vla-not-leave-name Person)) (not (vla-first-has--status-1 Person)))"""
+    AssertConditionsRefusal "each value after otherwise needs its own if", _
+                            "Clause a customer has-tier ""Gold"" if Customers lists the customer as Customer, otherwise ""Bronze"".", _
+                            "needs its own ""if"""
+    AssertConditionsRefusal "otherwise needs a relation with a second value, not a set", _
+                            "Clause a customer is gold if Customers lists the customer as Customer, otherwise ""x"" if Customers lists the customer as Customer.", _
+                            "needs a rule about a role and a second value"
+    AssertConditionsRefusal "otherwise needs a role as the subject it chooses for", _
+                            "Clause ""Acme"" has-tier ""Gold"" if Customers lists ""Acme"" as Customer, otherwise ""Bronze"" if Customers lists ""Acme"" as Customer.", _
+                            "needs a rule about a role and a second value"
+    AssertConditionsRefusal "a branch may not read the relation it chooses", _
+                            "Clause a customer has-tier ""Gold"" if the customer has-tier ""Silver"", otherwise ""Bronze"" if Customers lists the customer as Customer.", _
+                            "cannot also ask 'has-tier' in its own conditions"
+    AssertConditionsRefusal "each later branch must find the subject itself", _
+                            "Clause a customer has-tier ""Gold"" if Customers lists the customer as Customer, otherwise ""Bronze"" if Staff lists the person as Name.", _
+                            "nothing in this rule says which customer it means"
+
+    EnglishResetGrammar
+    EnglishAddPhrase "quiz {q:question}", "(debug-print {q-engine} {q})"
+    ' AS ONE LIST: one unknown's answers joined in one cell, headless, or one
+    ' joined list for each member of a set named after "that is".
+    AssertConditions "who as one list joins the answers in one cell", _
+                     "Quiz who can-cover ""Night"" as one list.", _
+                     """DATALOG"" ""(headless) (rule (vla-list-can--cover Who) (textjoin Who \""\"", \""\"" (can-cover VlaListed \""\""Night\""\""))) (query vla-list-can--cover)"""
+    AssertConditions "what as one list joins the objects", _
+                     "Quiz what ""Bob"" can-cover as one list.", _
+                     """DATALOG"" ""(headless) (rule (vla-list-can--cover What) (textjoin What \""\"", \""\"" (can-cover \""\""Bob\""\"" VlaListed))) (query vla-list-can--cover)"""
+    AssertConditions "a set question as one list", _
+                     "Quiz which code is revenue as one list.", _
+                     """DATALOG"" ""(headless) (rule (vla-list-revenue Code) (textjoin Code \""\"", \""\"" (revenue VlaListed))) (query vla-list-revenue)"""
+    AssertConditions "as one list through a closure", _
+                     "Quiz who reports-to ""Alice"" directly or not as one list.", _
+                     """DATALOG"" ""(rule (vla-any-reports--to X Y) (reports-to X Y)) (rule (vla-any-reports--to X Y) (reports-to X Z) (vla-any-reports--to Z Y)) (headless) (rule (vla-list-reports--to Who) (textjoin Who \""\"", \""\"" (vla-any-reports--to VlaListed \""\""Alice\""\""))) (query vla-list-reports--to)"""
+    AssertConditions "each ... that is ... as one list gives a list per member, the empty ones in", _
+                     "Quiz which people can-cover each shift that is listed as one list.", _
+                     """DATALOG"" ""(rule (vla-list-can--cover Shift People) (listed Shift) (textjoin People \""\"", \""\"" (can-cover VlaListed Shift))) (query vla-list-can--cover)"""
+    AssertConditions "are reads as is in an each list", _
+                     "Quiz who can-cover each shift that are listed as one list.", _
+                     """DATALOG"" ""(rule (vla-list-can--cover Shift Who) (listed Shift) (textjoin Who \""\"", \""\"" (can-cover VlaListed Shift))) (query vla-list-can--cover)"""
+    AssertConditionsRefusal "an each list with the same noun twice refuses", _
+                            "Quiz which shift can-cover each shift that is listed as one list.", _
+                            "asks for shift twice"
+    AssertConditionsRefusal "directly or not after the set of an each list refuses", _
+                            "Quiz who can-cover each shift that is listed directly or not as one list.", _
+                            "Here it follows a set"
+    AssertConditionsRefusal "as one list cannot follow a whether", _
+                            "Quiz whether ""Bob"" can-cover ""Night"" as one list.", _
+                            "It cannot follow a whether question"
+    AssertConditionsRefusal "...nor two unknowns", _
+                            "Quiz who can-cover which shift as one list.", _
+                            "It cannot follow a question with two unknowns"
+    AssertConditionsRefusal "...nor how many", _
+                            "Quiz how many people can-cover ""Night"" as one list.", _
+                            "It cannot follow a how many question"
+    AssertConditionsRefusal "...nor alone", _
+                            "Quiz who alone can-cover ""Night"" as one list.", _
+                            "It cannot follow an alone question"
+    AssertConditionsRefusal "...nor a none question", _
+                            "Quiz which shift that is listed is not covered as one list.", _
+                            "It cannot follow a which ... is not question"
+    AssertConditionsRefusal "...nor every", _
+                            "Quiz whether every shift that is listed is covered as one list.", _
+                            "It cannot follow a whether every question"
+    AssertConditionsRefusal "each without as one list is not a shape - the ordinary near miss", _
+                            "Quiz who can-cover each shift that is listed.", _
+                            "expected a question"
+
+    EnglishResetGrammar
+    EnglishAddPhrase "inscribe {r:cell} that {h:clause}", "(debug-print {h})"
+    EnglishAddPhrase "pose {q:question} over {rules:range}", "(debug-print {q})"
+    ' A relation chosen with otherwise is written in one cell only.
+    AssertConditionsRefusal "a first-match relation written again in a later cell refuses", _
+                            "Inscribe H2 that a customer has-tier ""Gold"" if Customers lists the customer as Customer and the spend as Spend, and the spend is at least 10000, otherwise ""Bronze"" if Customers lists the customer as Customer." & vbLf & "Inscribe H3 that a customer has-tier ""Platinum"" if Customers lists the customer as Customer and the spend as Spend, and the spend is at least 50000." & vbLf & "Pose which customer has-tier which tier over H2:H3.", _
+                            "'has-tier' is chosen with ""otherwise"" in cell H2, and cell H3 writes 'has-tier' again"
+    AssertConditionsRefusal "...and in an earlier cell", _
+                            "Inscribe H2 that a customer has-tier ""Platinum"" if Customers lists the customer as Customer and the spend as Spend, and the spend is at least 50000." & vbLf & "Inscribe H3 that a customer has-tier ""Gold"" if Customers lists the customer as Customer and the spend as Spend, and the spend is at least 10000, otherwise ""Bronze"" if Customers lists the customer as Customer." & vbLf & "Pose which customer has-tier which tier over H2:H3.", _
+                            "'has-tier' is chosen with ""otherwise"" in cell H3, and cell H2 writes 'has-tier' again"
+    AssertConditions "a first match alone in its cell translates", _
+                     "Inscribe H2 that a customer has-tier ""Gold"" if Customers lists the customer as Customer and the spend as Spend, and the spend is at least 10000, otherwise ""Bronze"" if Customers lists the customer as Customer." & vbLf & "Pose which customer has-tier which tier over H2:H2.", _
+                     "(query vla-ask-has-tier)"
+    AssertConditionsRefusal "the range lint reaches the set of an each list", _
+                            "Inscribe H2 that a person can-cover a shift if Rota lists the person as Name and the shift as Shift." & vbLf & "Inscribe H3 that a shift is listed if Shifts lists the shift as Shift." & vbLf & "Inscribe H5 that a shift is listed if Extra lists the shift as Shift." & vbLf & "Pose who can-cover each shift that is listed as one list over H2:H3.", _
+                            "'listed' is also written in cell H5, which H2:H3 leaves out"
 End Sub
 
 Private Sub TestPrologKeyedAtoms()

@@ -7613,11 +7613,11 @@ G-TAIL always said this about itself; it is true of the whole tranche.
     template coverage may track ordinary phrasing more directly here than for
     any other DSL in the corpus. `~weeks`
 
-  - 🟡 **G-PROLOG — flat Logical English: sentences that write rules into
+  - ✅ **G-PROLOG — flat Logical English: sentences that write rules into
     cells, and questions that read them.** **Scoped 2026-09-10/11**, seven
     forks decided by the owner; **slice 1 BUILT 2026-09-12, OWNER-VERIFIED
     LIVE 2026-09-13 in two rounds, and committed; slice 2 BUILT,
-    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14; slice 3 BUILT, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, on its precursor `DATALOG.9` (built, owner-verified live and committed the same day); slice 4 SCOPED, BUILT, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, on `DATALOG.10` (itself built and owner-verified live the same day); slice 5 SCOPED 2026-09-14, its two engine items `DATALOG.11` and `PROLOG.30` BUILT in the same session, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, its grammar next** (see the slice list below for what each ships and
+    OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14; slice 3 BUILT, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, on its precursor `DATALOG.9` (built, owner-verified live and committed the same day); slice 4 SCOPED, BUILT, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, on `DATALOG.10` (itself built and owner-verified live the same day); slice 5 SCOPED 2026-09-14, its two engine items `DATALOG.11` and `PROLOG.30` BUILT in the same session, OWNER-VERIFIED LIVE on the first pass and committed 2026-09-14, its grammar BUILT, OWNER-VERIFIED LIVE on the first pass and committed the same day; COMPLETE AS SCOPED** (see the slice list below for what each ships and
     what it proved). *The previous text of this
     entry said its dependency, `PROLOG.1`–`.6`, was unbuilt. It was stale:
     `PROLOG.1`–`.24` have shipped.* This is the project's reason for being,
@@ -7722,8 +7722,12 @@ G-TAIL always said this about itself; it is true of the whole tranche.
          `DATALOG.9` lets `DATALOG` answer a ground query TRUE or FALSE,
          every WHETHER goes to `DATALOG` as well. Measured, `PROLOG` never
          finishes a ground question over a closure whose data loops, and
-         follows a generated closure only 39 links deep. `PROLOG` keeps what
-         only it can say (slice 5).
+         follows a generated closure only 39 links deep. *Revised again by
+         slice 5's scoping (the owner's call):* nothing slice 5 needed was
+         `PROLOG`'s search, so text, first match and a list in one cell joined
+         the shared subset (`DATALOG.11`, `PROLOG.30`) instead of routing to
+         `PROLOG`. Every question the grammar writes goes to `DATALOG`, and
+         every clause it writes stays readable by both engines.
       6. **`PROLOG.28` is built before slice 1 (the owner chose this over
          the recommendation to ship slice 1 first).** No grammar ships
          until PROLOG answers a real-sized Table.
@@ -8560,11 +8564,12 @@ G-TAIL always said this about itself; it is true of the whole tranche.
          first draft's Before column read the working sources rather than
          HEAD's, and then silently reused a stale run; both were fixed before
          the page was sent.
-      5. 🟡 **PROLOG's own** — text conditions (starts with, contains),
+      5. ✅ **PROLOG's own** — text conditions (starts with, contains),
          first match (tiers), a list in one cell. §8, §15, §16.
          **SCOPED 2026-09-14; its engine items `DATALOG.11` and `PROLOG.30`
          BUILT in the same session, OWNER-VERIFIED LIVE on the first pass and
-         committed 2026-09-14** (the
+         committed 2026-09-14; its grammar BUILT, OWNER-VERIFIED LIVE on the
+         first pass and committed the same day** (the
          owner's call: engine items first and built here, the grammar only
          once both are verified). Twelve forks went to the owner in three
          rounds with their measurements; eight took the recommended option,
@@ -8669,7 +8674,7 @@ G-TAIL always said this about itself; it is true of the whole tranche.
          characters is refused at the join.
          **`ANY` ("name one") is not re-opened.** Row order was chosen, so a
          list gives it no stable order either.
-         **TO BUILD, now that `DATALOG.11` and `PROLOG.30` are committed:** the
+         **WHAT WAS TO BUILD, once `DATALOG.11` and `PROLOG.30` were committed:** the
          three text shapes in `ParseConditions` (the second token `contains`,
          or `starts`/`ends` before `with`), "contains" among the reserved
          words, and a quoted numeral allowed on a text test's right side;
@@ -8688,9 +8693,113 @@ G-TAIL always said this about itself; it is true of the whole tranche.
          `show12`, `smoke5`, `port12`, `port13`, `apply_s5e` and the `s5e_`
          blocks — is in session `4e2a0e8d`'s scratchpad (`h12`), with
          `port11` and the `dl11_` model in its `h10`.
-    *Out of scope, and refused by name rather than faked:* optimisation
-    (`SOLVE`, §17); quantity roll-ups along paths (`SQL`/`DATALOG`
-    aggregation); topological order. *Deferred decision, resolved by slice
+         **BUILT 2026-09-14** on HEAD `4907383`, and rebuilt on `33b4615`
+         when a peer commit landed mid-build (it touched no grammar file;
+         every proof was re-run there, with the same results). `VLA_SentenceEngine.bas`, a slice-5 section:
+         `ParseOneRoleCondition` reads a text test first when `contains`, or
+         `starts` or `ends` before `with`, follows the subject (`TextTestAt`,
+         `ParseTextTestRest`). The role before it must be found by another
+         condition; quoted text on its right is text, a numeral included; a
+         role or a bare number goes through the usual operand; `directly or
+         not` after it is refused. `contains` joins `IsConditionsGrammarWord`,
+         listed before `alone` in the reserved-name text so the shipped pin
+         reading "and alone are reserved" stands. `ParseConditions` stops at
+         `[,] otherwise` and can share one record of the generated rules it
+         has written. `ParseClause` hands a first match to
+         `ParseOtherwiseBranches`, which refuses a set head or a constant
+         subject (`english-clause-otherwise-shape`), a value with no `if`
+         (`english-clause-otherwise-needs-if`) and a branch that reads its own
+         relation (`english-clause-otherwise-reads-itself`), checks each
+         branch's head roles, and writes the shared generated rules, a guard
+         `vla-first-<relation>-<n>` for every branch but the last, and one
+         rule per branch with `(not ...)` of every earlier guard. The range
+         lint's records carry a first-match flag, and `ValidateFirstMatchCells`
+         (after the table-name lint, before the range lint; set aside by the
+         shadow audit) refuses the relation written in a second cell
+         (`english-program-first-match-split`). `ParseQuestion` reads `as one
+         list` (the tokenizer's `as 1 list`) after one unknown - `(headless)
+         (rule (vla-list-<relation> <Unknown>) (textjoin <Unknown> ", "
+         <goal>))` - and after `each <noun> that is <set>`
+         (`ParseEachListQuestion`), one list per member with the empty ones
+         in; after a whether, two unknowns, how many, alone, none or every it
+         is refused by name (`english-question-list-shape`).
+         `VLA_Messages.bas`: five ids and the reserved-name text.
+         `english.vla`: no new row, so no `GRAMMAR_SINCE` row; four derived
+         `test-success` lines under the two rows. `VLA_Tests_Query.bas`:
+         `TestPrologOwnShapes`, 36 pins, under `TestDSLs`.
+         *Stated defaults, not forks:* a text test binds neither side, as a
+         comparison does, and its right side may be a role; "otherwise" needs
+         a role as the subject it chooses for, and the comma before it is
+         optional; a generated rule two branches need is written once; a
+         one-unknown list is headless, as a count is; an each list spills the
+         set's noun beside the unknown's; `as one list` is refused, never
+         guessed at, after the shapes the owner did not name.
+         **PROVEN, before import**, through the slice-5 model (`g5_s5`, over
+         slice 4's). **Controls, on HEAD first:** the grammar pins 23/0, the
+         `english.vla` rows 18/0, the derived pins 97/0 with all five Subs
+         byte-identical, and `s4_run` 84/0 - re-pointed at `dl11_case_run`,
+         since the `DATALOG.10` model refuses to load a `VLA_Datalog.bas` with
+         `DATALOG.11`'s wrapper cases. **On the build:** the grammar pins
+         23/0; the rows **22/0**, four new; **133 derived pins, 0 bad**, the
+         five shipped Subs byte-identical and `TestPrologOwnShapes` 36; and
+         **sixteen mutations each red**, judged against the unmutated model's
+         fragments: `contains` not reserved (1), a text test that binds (1), a
+         quoted numeral refused on its right (1), no refusal of `directly or
+         not` after it (1), no shape refusal (2), no `if` refusal (1), no
+         self-read refusal (1), no program lint (2), no guards (4), guard
+         names unescaped (3), a generated rule written twice (1), a list with
+         a header (4), an each list grouped over the relation (2), a list
+         after a whether or two unknowns (2), after any slice-4 shape (6), and
+         the same noun twice allowed (1). **End to end from sentences**
+         through `DATALOG.11` (`s5_run`): **108 pass / 0 fail** - slice 4's
+         84 and 24 new: the three text tests, `not` and exact case; a number
+         cell read as its text (40 and 4010, and `ends with 10`); the mixed
+         range answering Bob; the looping closure answering A, B and C; tiers
+         Acme Gold, Beta Silver, Cafe Bronze, the same with a second Acme row,
+         and FALSE for a second tier; `Ann, Bob, Ed` in one cell, `Night, Day`
+         for Bob in his rows' order, `Ed, Bob, Ann` with Staff reversed, and a
+         list per shift with Weekend blank (one headless blank row); and
+         three programs refused at Check. No guards, an each list over the
+         relation and no program lint also fail end to end (Acme Gold, Silver
+         and Bronze; Weekend missing; the split translating); a list's
+         header, a binding text test and a rule written twice change no
+         answer, and are proven by the pins alone. **Found while building,
+         and fixed:** reserving `contains` refused slice 3's bill-of-materials
+         program (`an assembly contains a part`), re-run as `has-part` with
+         its answers unchanged, and would have failed the shipped pin that
+         reads the reserved words; no shipped sentence, doc or phrasebook row
+         used `contains` as a relation. The structure scan is clean against
+         HEAD on all three modules and shown to bite; CRLF kept, no non-ASCII
+         byte added. **Predicted:** `TestDSLs` 1356 → **1392** (+36 Report
+         executions, none in a loop); pure, host and `VerifyReports` unmoved.
+         `check_rule_coverage` and `check_grammar_since` report
+         `english_expanded.vla` STALE until Export Expanded Vocabulary runs.
+         Live steps: ten programs, generated (`h5g_live`), on sheets G5T10 to
+         G5T19. The build harness - `g5_s5`, `smoke5g`, `ctl5`, `gen_pins5`,
+         `gen_ev5`, `gen_tq5`, `s5_run`, `mut5`, `h5g_live` and the `s5g_`
+         blocks - is in session `4e2a0e8d`'s scratchpad (`h13`).
+         **OWNER-VERIFIED LIVE 2026-09-14, first pass, and committed:**
+         `TestDSLs` **1392**/0 (the predicted count exactly), pure
+         **1184/1184** (unmoved by this slice: 1161 at HEAD, plus 23
+         uncommitted `U.19` pins in the same module), host **152/152**,
+         `VerifyReports` **242/242 on both backends**, and all ten in-cell
+         tests answering as handed off - the three text tests with exact
+         case and `not`; a number cell read as its text; one tier per
+         customer with Acme's second row; `Ann, Bob, Ed` in one cell, Bob's
+         shifts in his rows' order, and a list per shift with Weekend blank;
+         a text test over a closure whose links loop; and the five Check
+         refusals in their own words. The owner re-exported
+         `english_expanded.vla`; its diff is the four new `test-success`
+         lines and the source hash. **With this slice, `G-PROLOG` is
+         complete as scoped:** every answer shape but ANY (not built, slice
+         4's decision 6), every connective and every authoring form in the
+         matrix, all through `DATALOG`.
+    *Out of scope, and never faked:* optimisation (`SOLVE`, §17); quantity
+    roll-ups along paths (`SQL`/`DATALOG` aggregation); topological order.
+    *Corrected at completion:* this line used to say they are "refused by
+    name". Slices 3 and 4 recorded them in the corpus with no sentence, so a
+    sentence reaching for one gets the ordinary near miss, not a named
+    refusal. *Deferred decision, resolved by slice
     5's scoping (the owner's call):* decision tables (DMN) are filed as their
     own item, `G-DECISIONS`, beside first-match rules rather than instead of
     them. (How COUNT reads was decided by slice 4's scoping.)
