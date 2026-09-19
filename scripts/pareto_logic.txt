@@ -702,6 +702,34 @@ depth case, the one the cap was built for. The one cap does two jobs, and when t
 runs out the refusal blames the user's rule for recursing, which is false.
 That is `PROLOG.28`.
 
+**DATALOG, measured live 2026-09-18** (`DATALOG.12`, six live passes, one
+machine: Excel 16.0 64-bit). These are timings of the questions this corpus
+already holds, written by the grammar itself — no new entries, so the counts
+below are unchanged.
+
+| shape | ms per row | measured |
+|---|---|---|
+| a scan | 2.55 | 100 rows 0.27s · 1,000 2.25s · 10,000 25.5s |
+| a join (`can-cover`, three Tables) | 3.96 | 3,000 rows 11.9s |
+| `count` per group (101 groups) | 2.54 | 3,000 7.6s |
+| `textjoin` per group (11 groups) | 2.33 | 3,000 7.0s |
+| `not` through a projection | 2.71 | 3,000 7.8s |
+| "otherwise", five rules over one Table | 13.5 | 300 4.0s; 1,000 past the guard |
+| closure, wide org (ten reports each) | 15–18 | 100 1.5s · 300 5.5s |
+| closure, one chain | 216 | 100 links 21.6s |
+
+Where `PROLOG` REFUSED a 121-row scan on its step ceiling, `DATALOG` answers
+every one of these correctly at every size, and `MAX_ROUNDS` is never
+approached: what stops it is time, not a budget. Four of the shapes sit in
+one band of 2.3–4.0 ms a row, because the shape barely matters and the row
+count does — 84% of that is one guard clause in `VLA_Runtime.bas`, asked once
+per dictionary call (`DATALOG.13`). The closure's much larger cost is its
+own question: every pair is built before the question narrows, and every
+fixpoint round re-filters each relation in full (`DATALOG.14`). Recalculating
+after one cell changes costs what the first answer cost, since nothing is
+cached; a cell the question does not read costs nothing, since `DATALOG` is
+not volatile.
+
 ---
 
 ## Counts

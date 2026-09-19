@@ -275,7 +275,17 @@
   are refused. Adding up quantities along a chain ("how many spokes go into
   one bike") and putting things in order ("which course to take first")
   cannot be said yet. A list separates its values with a comma and a space,
-  so a value that holds one reads as two.
+  so a value that holds one reads as two. How large a Table a question can
+  read has now been measured, on one machine: a few hundred rows answer in
+  well under a second, a thousand rows take two to three seconds, and ten
+  thousand take half a minute, during which Excel stops responding. A rule
+  written with "otherwise" costs about five times an ordinary one, because it
+  becomes five rules. "Directly or not" costs more again, because it works
+  out every pair in the whole chain before narrowing to the person you asked
+  about: a hundred people in one reporting line takes twenty seconds. Asking
+  the same question again after changing one cell costs what it cost the
+  first time, since nothing is remembered between answers — though changing a
+  cell the question does not read costs nothing at all.
 
 - **Lint VLA can no longer break a file it rewrites.** It used to save
   through the system's legacy code page, so a `£` in a comment came back as

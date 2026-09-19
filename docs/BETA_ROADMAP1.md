@@ -18145,6 +18145,454 @@ now carries one summary paragraph per engine and points here.*
     `PROLOG.30` (+53 Report executions, none in a loop; counted as call sites
     1271 → 1324); pure, host and `VerifyReports` unmoved by this item's diff,
     since no pure or host test, phrasebook row or golden changed.
+  - ✅ **DATALOG.12 — measure `DATALOG` on a real-sized Table, before anyone
+    relies on it there.** Minted 2026-09-14 at `G-PROLOG`'s completion, the
+    owner's call. **Scoped 2026-09-14; MEASURED LIVE IN SIX PASSES on
+    2026-09-18, the owner at the keyboard, and committed** — eight shapes
+    from a scan to a closure, every answer right at every size, nothing
+    crashed or ran out of memory, and `MAX_ROUNDS` was never approached.
+    The flat cost is one guard clause (`DATALOG.13`) and the closure's is
+    its own (`DATALOG.14`), both minted below; the numbers are recorded
+    here, in `pareto_logic.txt` §18 beside `PROLOG`'s, and in plain words in
+    RELEASES.md's known limits (the SCOPED and MEASURED blocks below).
+    **Why:** every question the `G-PROLOG` grammar
+    writes goes to `DATALOG`. Slice 3 moved WHETHER there, and slice 5 kept
+    text, first match and a list in one cell in the shared subset. But the
+    corpus's only scale measurement is `PROLOG`'s (`pareto_logic.txt` §18: a
+    121-row scan refused, fixed by `PROLOG.28`). No `DATALOG` answer over a
+    Table past a few dozen rows has been timed, live or modelled, and a
+    transliteration cannot time one: it models meaning, never cost.
+    `PROLOG.28`'s live pass found an indexed `Collection` read that grows
+    with the square of the rows, and a recursive teardown, and neither was
+    visible to the model. The unbuilt recalc item below says it needs a
+    realistically sized workbook profiled first; this is that profile,
+    widened from a recalc to the first answer.
+    **To scope, not assume:**
+      - *Read the code before timing it:* how `VLA_Relation.bas` stores
+        rows and joins them (indexed `Collection` reads, a hash or a
+        nested-loop join), where `RunStratifiedFixpoint` rescans whole
+        relations, and what a spilled answer costs to build.
+      - *The shapes to time,* each at sizes such as 100, 1,000, 10,000 and
+        100,000 rows: a scan (`which bill is big`); a keyed join (the
+        README's `can-cover` over Staff, Shifts and Leave); a closure
+        (`reports-to directly or not` over a deep org and a wide one);
+        `count` and `textjoin` per group; `not` through a generated
+        projection; and "otherwise" guards.
+      - *What to record:* time to the first answer, time to recalculate
+        after one cell changes, whether Excel stays responsive, and memory
+        if it can be observed.
+      - *What could refuse or break first:* `MAX_ROUNDS` (10,000, which
+        counts fixpoint rounds, not rows), `textjoin`'s 32,767-character
+        cell limit, a spill larger than the sheet, and VBA's stack when a
+        large structure is released.
+      - *The harness:* a generator that writes the fixtures and formulas
+        (a standalone repro in `tools/`, or a program the owner runs), with
+        the owner at the keyboard and no Excel COM from a session. The
+        timing helpers `VLA_DevRig.bas` and `VLA_Tests_Host.bas` already use
+        are the place to start.
+      - *What "fast enough" means:* a threshold to put to the owner, not
+        assumed.
+    **Outcome:** a measured table in this entry and in `pareto_logic.txt`
+    §18 beside `PROLOG`'s. Any cliff found becomes its own item (a
+    `DATALOG` twin of `PROLOG.29`'s indexing, for example), and RELEASES.md's
+    known limits say the measured size plainly. Whether it lands before
+    0.6.0 is tagged is the owner's call. *Pays into:* `G-PROLOG` (every
+    question it writes), the recalc item below, `G-DECISIONS` and `G-SQL`.
+
+    **SCOPED 2026-09-14.** *What the code says, read before anything was
+    timed. Every cost below is a PREDICTION from reading `VLA_Datalog.bas`
+    and `VLA_Relation.bas`, not a measurement.*
+      - *A Table becomes rows* inside `DATALOG()` itself. Each table argument
+        is read in one `Value2` pull (`SourceToArray`), and `RelFromRange`
+        puts every row through `RelTryAdd`. That call builds a key string with
+        a `CStr` per cell and adds it to a `Scripting.Dictionary`. Every
+        column of every Table argument is loaded, whether or not a rule reads
+        it.
+      - *Rows are stored* as a `Collection` of tuple arrays beside a
+        binary-compare `Dictionary` of their keys. Every engine loop on the
+        answer's path reads that `Collection` with `For Each`. No indexed read
+        of a relation was found, so `PROLOG.28`'s O(n²) `Item(i)` walk does not
+        recur here.
+      - *A keyed body atom is hash-joined.* A keyed atom desugars to a
+        positional one, and every column it does not name becomes a fresh
+        variable. So the intermediate rows carry every column of every Table
+        the body reads. `FilterAtomRelation` copies the rows the atom's
+        constants allow, and `RelJoin` then indexes the smaller side in a
+        `Dictionary` and probes with the other. A join costs what it outputs.
+        **The constant factor is heavy:** `AtomMatches` calls
+        `CreateObject("Scripting.Dictionary")` once per tuple, per body atom,
+        per rule pass. `ComputeAggregateGroups` does the same per tuple. A row
+        that reaches the answer is re-keyed and re-hashed five or six times:
+        filter, projection, comparison, head, the full relation, the delta.
+      - *`RunFixpointForRules` rescans whole relations every round.* Each
+        round evaluates every rule once per positive body position. Each atom
+        not at that position re-filters its FULL relation and rebuilds a join
+        index, so recursion costs rounds × the base relation. The grammar's
+        closure (`vla-any-…`, right-recursive) builds EVERY pair before the
+        question narrows to one person. A chain of n links holds n(n+1)/2
+        pairs over about n rounds; a wide org holds about n × its depth.
+        `MAX_ROUNDS` counts rounds per stratum, which is the longest chain, so
+        the closure's size stops a chain long before 10,000 rounds would.
+      - *A spill* is one `For Each` into a 2D array (`RelToSpilledArray`).
+        *`textjoin`* gathers each group's values and joins them with VBA's
+        `Join` in one pass. Its 32,767-character check runs after that join,
+        so a refusal costs one group's join, never a quadratic build-up of
+        the string.
+    **Predicted:** every shape grows linearly with rows except closure, with
+    a large per-row constant that could put a plain scan of 100,000 rows past
+    2 s. A chain's closure is quadratic twice over (pairs and rescans), and
+    it is the likeliest cliff. A wide org at 100,000 builds 487,660 pairs.
+    `textjoin` over ten groups refuses by name at 100,000 rows (78,892
+    characters in the longest list). A recalc after one cell costs what a
+    first answer costs, since there is no cache, and a change to an unrelated
+    cell costs nothing, since `DATALOG` is not volatile. The last two are the
+    recalc item's premise, measured here for the first time.
+    **The owner's forks (2026-09-14), all four as recommended:**
+      - *Fast enough:* under 2 s is fine, 2–10 s is slow and said so, and
+        past 10 s is a limit, where the size ladder stops.
+      - *The top size:* 100,000 rows. A size is skipped when its time,
+        projected from the sizes before it, passes 60 s.
+      - *The measure:* a sentence program per shape builds a small fixture
+        and asks the grammar's own question, so the formula timed is the one
+        the grammar wrote. A harness then grows those Tables in place.
+      - *Closure:* a wide org (ten reports each) runs the full ladder, and
+        one chain runs its own ladder of 100 / 250 / 500 / 1,000 links.
+    **The harness.** `tools/VLA_Diag12.bas` is standalone. It calls nothing
+    in Frazaro; it writes cells and times `Application.Calculate` under
+    manual calculation, restored after. The owner runs one Immediate-window
+    line per step, `D12Ladder <step>`. At each size it rewrites the Tables
+    and times the first answer. It then changes one cell chosen to move the
+    answer by a known amount and times that, then times a change to a cell
+    nothing reads. It checks every answer's rows, and for `count` and
+    `textjoin` one group's value, against the generator, so a wrong answer
+    stops the ladder instead of being timed. It stops after a size past
+    10 s, before a projection past 60 s, and at a refusal or a VBA error.
+    The expected answers were re-derived separately, in PowerShell, from the
+    fixture definitions. The steps are `tools/datalog12_live_steps.md`:
+    eight programs on sheets `D12T1`–`D12T8`, Tables ending `12x1`–`12x8`,
+    with the chain last.
+
+    **MEASURED — live pass 1, 2026-09-18** (Excel 16.0 64-bit, the dev
+    workbook `VLA.xlsm`). Step 1 only: a scan, one rule reading one Table
+    with one comparison, then the question's own narrowing rule.
+
+    | rows | first answer | after one cell changes | an unrelated cell | answer |
+    |---|---|---|---|---|
+    | 100 | 0.273s | 0.254s | 0.000s | right |
+    | 1,000 | 2.254s | 2.250s | 0.000s | right |
+    | 10,000 | 25.547s | 28.434s | 0.000s | right |
+    | 100,000 | not run — the size before passed the 10s limit | | | |
+
+    **What it says.** The cost is FLAT per row — 2.7, 2.25 and 2.55
+    milliseconds each — so a scan is linear and what hurts is a constant, not
+    an algorithm that degrades with size. For scale, `PROLOG.28` measured a
+    unit of `PROLOG`'s own work at about a microsecond on this machine: one
+    `DATALOG` row costs on the order of 2,500 of those. **The predicted cliff
+    was the closure, and the real one is the simplest shape in the corpus.**
+    A thousand rows takes over two seconds, and ten thousand stalled Excel
+    for 15–20 seconds, with the window not even switchable to. Two
+    predictions held exactly: a change to a cell nothing reads costs 0.000s,
+    so `DATALOG` really is not volatile, and a recalculation costs what a
+    first answer costs (2.250s against 2.254s), so there is no cache — the
+    recalc item's own premise, measured for the first time. Every answer was
+    right, before and after the one-cell change.
+    **The owner's calls on that (2026-09-18), all as recommended:** the
+    ladder is cut to 100 / 300 / 1,000 / 3,000 and the guard to 15s, so no
+    step stalls Excel again; a standalone cost repro runs BEFORE the
+    remaining shapes (`tools/VLA_Diag12b.bas`, `VLA_Diag3.bas`'s precedent —
+    it times a late-bound `Scripting.Dictionary` creation, a `Collection`, a
+    dictionary in use and a key build against the measured 2.5 ms, with no
+    engine in the way); the follow-up item is minted once that repro names
+    the cause rather than guessing at `PROLOG.29`'s indexing twin, which this
+    measurement does not point to; and RELEASES.md's known limits are
+    written once every shape is measured. *The suspect, from the code:*
+    `AtomMatches` calls `VlaDictNew` — `CreateObject("Scripting.Dictionary")`
+    plus a `CompareMode` set — for EVERY tuple it tests, on every body atom,
+    on every rule pass, which is about two per row in step 1's program. At a
+    millisecond apiece that is the whole measurement, and the fix would be to
+    stop creating one per row.
+
+    **MEASURED — live pass 2, 2026-09-18: THE SUSPECT WAS WRONG, and that is
+    the finding.** `tools/VLA_Diag12b.bas`, 10,000 repetitions each, against
+    the 2.55 ms a scanned row measured in pass 1:
+
+    | what | each | share of one row |
+    |---|---|---|
+    | `CreateObject("Scripting.Dictionary")` + `CompareMode` | 0.157 ms | 6% |
+    | `Set c = New Collection` | 0.000 ms | 0% |
+    | one dictionary: `Exists` + `Add` + `Exists` | 0.0016 ms | 0% |
+    | build one three-column key string | 0.0008 ms | 0% |
+    | one row's shape: 2 scratch dictionaries, 6 keys, 6 adds | 0.334 ms | 13% |
+
+    So creating a dictionary per tuple is real but SMALL — two a row is about
+    an eighth of the cost — and using a dictionary, or building a key, costs
+    nothing worth naming. **87% of a row is still unaccounted for.** Had the
+    fix been minted off the prediction, it would have bought about 12%.
+    Step 2, the join, at the same pass (100 / 300 / 1,000 / 3,000 rows):
+    0.508s · 1.297s · 4.063s · 11.867s, which is 5.1 · 4.3 · 4.1 · 4.0 ms a
+    row — the same flat per-row cost as the scan, just more of it per row,
+    with every answer right and an unrelated cell at 0.000s throughout.
+    **The next suspect, named from the code and not yet measured:** every
+    `VlaDictGet`, `VlaDictHas` and `VlaDictSet` in `VLA_Runtime.bas` opens
+    with `TypeName(d) = "Dictionary"`, and `TypeName` on a late-bound COM
+    object has to ask the object for its type information. A row makes about
+    a dozen of those calls — `AtomMatches` asks Has and then Set per column,
+    the comparison resolves two operands, the head resolves one. Pass 3 tests
+    it two ways, the owner's call: `D12bCost` sections 6–8 time `TypeName` on
+    a `Dictionary`, on a `Collection` for contrast, and a row's shape with
+    the wrapper calls included; and a new `D12Parts` asks the ENGINE instead
+    of a model, timing four formulas over one Table where each adds one stage
+    (read and spill it whole, then one rule, then the comparison, then the
+    question's narrowing rule), so the difference between two lines is what
+    that stage costs per row. The follow-up item is minted when that names
+    the cost, not before.
+
+    **MEASURED — live pass 3, 2026-09-18: the wrapper guard is CONFIRMED,
+    and the decomposition found a second cost nobody predicted.**
+    `TypeName(d)` on a `Scripting.Dictionary` costs **0.148 ms**, as much as
+    creating one, while `TypeName` on a VBA `Collection` costs nothing
+    (0.000 ms) — it is asking a COM object for its type information that is
+    expensive, not `TypeName` itself. One row's shape WITH the dozen wrapper
+    calls included measures **2.18 ms, 85% of a scanned row**, where the same
+    shape without them reached 13%. So `TypeName(d) = "Dictionary"`, which
+    opens every `VlaDictGet`, `VlaDictHas` and `VlaDictSet` in
+    `VLA_Runtime.bas`, is the bulk of `DATALOG`'s per-row cost — and it is a
+    question the code could answer once per dictionary instead of once per
+    call. *Then the engine's own decomposition* (`D12Parts`, 1,000 rows):
+
+    | probe | seconds | ms/row | answer | against the one before |
+    |---|---|---|---|---|
+    | `(query bills12x1)` | 2.273 | 2.273 | 1,000 × 3 | read the Table, spill it whole |
+    | + one rule, no test | 1.563 | 1.563 | 1,000 × 2 | −0.711 ms/row |
+    | + the comparison | 1.570 | 1.570 | 490 × 2 | +0.008 ms/row |
+    | + the narrowing rule | 2.258 | 2.258 | 490 × 1 | +0.688 ms/row |
+
+    **Read it carefully, because it does not say what it first appears to.**
+    A query with NO RULE AT ALL — read the Table and hand it back — is the
+    most expensive of the four per row, and ADDING a rule made it faster.
+    What fell between those two is the number of CELLS returned (3,000 →
+    2,000), while halving the ROWS at the same width (probe 2 → probe 3)
+    changed nothing. That points at a second cost no reading of the code
+    predicted: handing cells back to Excel from a VBA UDF, which is not
+    something a `DATALOG` fix can remove — only a narrower answer can. The
+    comparison arm is free (+0.008 ms/row), and the question's own narrowing
+    rule costs 0.688 ms/row, being a second rule over the derived relation.
+    Four probes that each vary two things cannot separate the two costs, so
+    pass 4 varies one at a time: `D12Width` runs three formulas over the same
+    1,000 rows, doing identical per-row work and answering 1, 2 and 3
+    columns, beside a bare VBA UDF that only hands back an array of the same
+    shape and touches no engine at all.
+
+    **MEASURED — live pass 4, 2026-09-18: the second cost DOES NOT EXIST,
+    and a row is now fully accounted for.** `D12Width`, the same rows with a
+    wider answer:
+
+    | what answers | at 1,000 rows | at 3,000 rows | ms per row |
+    |---|---|---|---|
+    | `DATALOG`, 1 column out | 1.422s | 4.203s | 1.42 · 1.40 |
+    | `DATALOG`, 2 columns out | 1.563s | 4.633s | 1.56 · 1.54 |
+    | `DATALOG`, 3 columns out | 1.695s | 5.078s | 1.70 · 1.69 |
+    | a bare UDF, 1 column out | 0.000s | 0.000s | 0.00 |
+    | a bare UDF, 3 columns out | 0.008s | 0.000s | 0.00 |
+
+    **Handing cells back to Excel is FREE** — a UDF that returns 9,000 cells
+    and does nothing else measures 0.000s — so pass 3's "second cost" was
+    never real. `D12Parts`' first probe was an ARTEFACT: its 2.273s is step
+    1's own `J2` answer (2.254s in pass 1) recalculating inside that first
+    timed pass, not the cost of a query with no rule. Every other `D12Parts`
+    line matches `D12Width` exactly — a two-column answer measures 1.563s in
+    both — which is what makes the artefact identifiable rather than a
+    mystery. **A probe that varies two things at once cannot be read, and
+    this is the case that proves it**: read alone, `D12Parts` said "a query
+    with no rule is the most expensive thing here", which is false.
+    **What a row actually costs: about 1.4 ms for a one-column answer, plus
+    0.14 ms for every further column**, flat as the Table triples (1.42 →
+    1.40 ms/row). And 0.14 ms is ONE `TypeName` call (0.148 ms measured):
+    the head projection resolves one variable per output column through
+    `VlaDictGet`, and pays the guard each time. The 1.4 ms base is the same
+    story nine or ten times over, plus two `CreateObject`s at 0.16 ms. The
+    accounting closes: nothing is left unexplained, the engine's algorithms
+    are not at fault, and the whole cost sits in one guard clause in
+    `VLA_Runtime.bas` that every engine reads. Minted as **`DATALOG.13`**
+    below, the owner's call, with its own fork to settle.
+
+    **MEASURED — live pass 5, 2026-09-18: four more shapes, and the rescan
+    made visible.** Every answer right at every size, and an unrelated cell
+    0.000s in all six shapes, so `DATALOG` not being volatile is now measured
+    across the corpus rather than inferred once.
+
+    | shape | its largest measured size | ms per row |
+    |---|---|---|
+    | a scan | 10,000 rows, 25.5s | 2.55 |
+    | a join, the README's `can-cover` | 3,000, 11.9s | 3.96 |
+    | `count` per group (101 groups) | 3,000, 7.6s | 2.54 |
+    | `textjoin` per group (11 groups) | 3,000, 7.0s | 2.33 |
+    | `not` through a generated projection | 3,000, 8.1s | 2.71 |
+    | "otherwise", five rules over one Table | 300, 4.0s | **13.5** |
+
+    **Four of the six sit in one band**, 2.3 to 4.0 ms a row, which is what a
+    single per-row guard clause predicts: the shape barely matters, the row
+    count does. **"Otherwise" is five times the rest and the only shape that
+    grew SUPERLINEARLY** — 100 to 300 rows cost 4.9× for 3× the data, so the
+    1,000 rung was skipped at a projected 15s, the ladder's guard doing
+    exactly its job. That is the rescan this item predicted from the code,
+    now visible in a measurement: a first-match sentence writes FIVE rules
+    over one Table (two `vla-first-` guards and three branches), every
+    fixpoint round re-filters each rule's full relation, and the cost tracks
+    rules × rounds × rows rather than rows alone. It is the shape a tiering
+    sentence writes, so it is not exotic. **One anomaly, named rather than
+    explained:** `not` through a projection at 3,000 rows recalculated in
+    13.797s against a first answer of 8.125s — the only place in six shapes
+    where a recalculation cost materially more than the first answer, which
+    everywhere else it matches within noise. One re-run decides whether it is
+    real; no theory is offered here.
+
+    **MEASURED — live pass 6, 2026-09-18: the closures, and the fork's own
+    numbers. The measurement is COMPLETE.**
+      - *The anomaly was noise.* `not` through a projection, re-run at 3,000
+        rows: 7.813s first and 7.750s after one cell, against the 13.797s
+        seen once. All six flat shapes now agree that a recalculation costs
+        what a first answer costs.
+      - *Both cheap fixes are free.* `TypeOf d Is Collection` asked of a
+        `Dictionary` measures **0.000 ms**, and so does a Boolean read per
+        call. So the guard's 0.145 ms is not the price of asking a question
+        — it is the price of asking COM one.
+      - *The closures, which are the real ceiling:*
+
+    | closure | rows | first answer | ms per row | what it built |
+    |---|---|---|---|---|
+    | a wide org, ten reports each | 100 | 1.531s | 15.3 | 190 pairs, 2 deep |
+    | | 300 | 5.484s | 18.3 | 780 pairs, 3 deep |
+    | | 1,000 | not run | | projected 22s, over the guard |
+    | one chain | 100 | **21.648s** | **216** | 5,050 pairs, 100 deep |
+    | | 250 | not run | | the size before passed the 10s limit |
+
+    **A closure costs six times a scan per row over a wide org, and eighty
+    times over a chain**: a hundred people in a chain takes 21.6s where a
+    hundred in a wide org takes 1.5s. Both numbers are the two things the
+    code predicted, now measured — the grammar's closure is right-recursive
+    and builds EVERY pair before the question narrows to one person, and
+    every fixpoint round re-filters each atom's full relation, so a chain of
+    n costs about n rounds over n rows. **`MAX_ROUNDS` (10,000) never gets
+    near it; time stops it first**, which retires the worry this item was
+    scoped with. Answers stayed right at every size in every shape, and no
+    size crashed Excel, ran out of memory, or hit the 32,767-character cell
+    limit (out of reach on the cut ladder). **What `DATALOG` can honestly do
+    today:** a scan, a join, a count, a list or a negation over a few hundred
+    rows in well under a second, a thousand rows in two to three seconds, ten
+    thousand in half a minute with Excel stalled; a first-match "otherwise"
+    at about five times that; and "directly or not" over a few hundred people
+    at best, a deep chain far less. The cause of the flat part is
+    `DATALOG.13`; the cause of the closure part is its own question, and the
+    owner's call on whether it becomes an item.
+    `~days`
+  - ⬜ **DATALOG.13 — one guard clause costs `DATALOG` most of its time:
+    `TypeName(d) = "Dictionary"`, asked once per dictionary CALL.** Minted
+    2026-09-18 out of `DATALOG.12`'s live passes, the owner's call, as its
+    own item; the cause is measured, the FIX IS NOT CHOSEN, and the fork
+    below is the owner's. **What was measured** (four live passes; the
+    tables are in `DATALOG.12` above): a `DATALOG` answer costs about **1.4
+    ms per source row** for a one-column answer, plus **0.14 ms for each
+    further column**, flat as the Table grows — so a scan of 1,000 rows
+    takes 2.25s, and 10,000 takes 25.5s with Excel stalled and not even
+    switchable to. No algorithm degrades with size, and handing cells back
+    to Excel is free (a UDF returning 9,000 cells measures 0.000s), so the
+    cost is neither the search nor the answer. **It is one line, three
+    times.** `VLA_Runtime.bas`'s `VlaDictGet`, `VlaDictHas` and `VlaDictSet`
+    each open with `If TypeName(d) = "Dictionary"`, and **`TypeName` on a
+    late-bound COM object costs 0.148 ms on the owner's machine** — as much
+    as CREATING the dictionary (0.157 ms) — while the same question asked of
+    a VBA `Collection` costs 0.000. A row makes about a dozen such calls
+    (`AtomMatches` asks Has and then Set per column, the comparison resolves
+    two operands, the head resolves one per output column — which is exactly
+    why one more column costs 0.14 ms, one more guard), and a row's shape
+    with them included measures 2.18 ms against the 2.55 ms measured live:
+    **85%**. **Why this was not predictable by reading:** the code named
+    `CreateObject` per tuple as the suspect, and that is 12%; a fix built on
+    the prediction would have bought an eighth and left the item open. Only
+    measurement found it, `PROLOG.28`'s lesson in a second engine.
+    **THE FORK, SETTLED 2026-09-18 on measured numbers — option 2,
+    `TypeOf d Is Collection`.** Both cheap options measured **0.000 ms**
+    (the repro's sections 9 and 10), so the guard's 0.145 ms is the price of
+    asking COM a question, not of asking one; the owner chose the stateless
+    one. The three considered, all inside `VLA_Runtime.bas`:
+      1. *A kind decided once, not per call.* The host either has the
+         Scripting runtime or it does not, and `VlaDictNew` already knows
+         which representation it built; the wrappers then read a Boolean
+         (section 10 of the repro times that at 0.000 ms). Smallest diff, no
+         call site changes. The question to settle is where the flag lives —
+         a module-level "this host has Scripting" is honest only because the
+         host cannot change mid-session.
+      2. **CHOSEN.** *`TypeOf d Is Collection`* in place of `TypeName`: no
+         state at all, one line per wrapper, and the FALLBACK becomes the
+         tested case rather than the dictionary — the honest reading, since
+         a `Collection` here means the host had no Scripting runtime.
+         Measured at 0.000 ms, against `TypeName`'s 0.145: asking a VBA
+         object whether it implements a VBA interface costs nothing, where
+         asking COM for a name costs as much as creating the object.
+      3. *A typed wrapper class.* A `VlaDict` class holding the object and
+         its kind, so the question is answered by the type system. The
+         boring, permanent answer, and the largest diff: every call site
+         changes, and there are 102 in `VLA_Datalog.bas` alone (40 in the
+         interpreter, 32 in `VLA_Sql.bas`, 23 in `VLA_Relation.bas`, 18 in
+         `VLA_Prolog.bas`).
+    **What it pays back, honestly bounded.** Even at zero guard cost a row
+    still pays two `CreateObject`s and its keys — 0.33 ms measured — so 1.4
+    ms a row should fall to roughly 0.5, about a threefold gain: a 1,000-row
+    scan near 0.8s, a 10,000-row scan near 8s. **That is an improvement, not
+    a cure**, and 100,000 rows stays out of reach; the next candidate after
+    it is `AtomMatches` creating a dictionary per tuple (the remaining 12%),
+    which is a `DATALOG` change rather than a shared-substrate one. This is
+    **NOT `PROLOG.29`'s indexing twin** — that item is about how many
+    candidates a query tries, and this one is about what each touch costs;
+    `PROLOG`'s own hot loop measured about a microsecond a unit, so it is
+    not paying this per candidate, while `DATALOG`'s per-row path is.
+    **How it will be proven:** behaviour identical, so `TestDSLs`, pure and
+    host suites and `VerifyReports` all unmoved, with the Mac/no-Scripting
+    fallback path — the one this machine cannot exercise — held by whichever
+    option keeps it structurally, and named as the risk it is; then
+    `D12Ladder` re-run over `DATALOG.12`'s own steps, same sheets and same
+    expected answers, so before and after are the same measurement rather
+    than two different ones. A ratchet holding the guard out of those three
+    wrappers is worth considering once the shape is chosen. *Pays into:*
+    `DATALOG.12`'s remaining shapes, `G-PROLOG` (every question it writes),
+    `G-SQL` and the recalc item below. `~hours`
+  - ⬜ **DATALOG.14 — a closure builds every pair, and every round re-reads
+    every relation.** Minted 2026-09-18 out of `DATALOG.12`'s live passes,
+    the owner's call; **scoped, not built, and not chosen.** **What was
+    measured:** "who reports-to E1 directly or not" over a wide org (ten
+    reports each) costs **15–18 ms per row** — 100 people 1.531s, 300 people
+    5.484s, 1,000 skipped at a projected 22s — and over ONE CHAIN **216 ms
+    per row**: a hundred people deep takes **21.648s**, where a scan of the
+    same hundred rows takes 0.27s. Every answer was right, and `MAX_ROUNDS`
+    (10,000) was never approached — time stops these, not the budget, which
+    retires the ceiling `DATALOG.12` was scoped worrying about. **Two
+    causes, separable, both predicted from the code before they were seen:**
+      1. *Every pair is built before the question narrows.* The grammar's
+         `directly or not` writes a right-recursive `vla-any-<relation>` and
+         then asks it about ONE person, so the whole transitive closure is
+         computed first — 5,050 pairs for a hundred-link chain, 190 for a
+         hundred-person wide org — and all but a handful are then discarded.
+         A chain of n holds n(n+1)/2 pairs, so the cost grows with the square
+         of the org's depth however shallow the question is.
+      2. *Every round re-filters every relation in full.*
+         `RunFixpointForRules` evaluates each rule once per positive body
+         position per round, and every atom NOT at the delta position runs
+         `FilterAtomRelation` over its whole relation again and rebuilds a
+         join index. A chain of n needs about n rounds, so the base relation
+         is re-read n times — which is what the chain's 216 ms a row is.
+    **What to consider, none of it decided:** pushing the question's own
+    bound argument into the closure before it materialises (the magic-sets
+    idea, and the general version of what `PROLOG.29`'s first-argument
+    indexing does for a different engine); keeping a per-predicate index so a
+    round's re-filter is a lookup rather than a scan; or simply bounding a
+    closure's depth with a refusal that says so, which is the smallest honest
+    thing and buys no speed at all. **Sequencing, and it matters:**
+    `DATALOG.13` goes first, since it cuts the constant every one of these
+    rows pays and would change what this item measures against; then
+    `D12Ladder 7` and `8` are re-run before any shape is chosen here.
+    *Pays into:* `G-PROLOG`'s own `directly or not` (slice 3's sentence),
+    `G-DECISIONS`, and the recalc item below. `~days`
   - ⬜ **Avoiding a full re-parse/re-fixpoint on every recalc — profiled first,
     not yet built.** `DATALOG()` re-parses `rulesText` and reruns
     `RunStratifiedFixpoint` from scratch every time Excel calls it. Worth
