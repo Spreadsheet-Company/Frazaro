@@ -2,6 +2,7 @@
 Version 3:
 ==========
 
+Finding a good schedule is easy; proving it's the best is where the time goes, even at 10 people.
 
 
 

@@ -1734,4 +1734,17 @@ corpus is `SD-7`'s gate, and the betting table decides.
 - Seating incumbents: [Software Advice on Prismm](https://www.softwareadvice.com/venue-management/allseated-profile/)
   and [a 2025 seating-software comparison](https://www.seatplanning.com/blog/seating-chart-software-comparison-2025).
 
+*Correction, 2026-09-19, from `OPTIMIZE.0`'s probe: "a UDF has no
+`DoEvents`" was wrong as a fact, and right as a conclusion.*
+- **The fact:** `DoEvents` runs inside a UDF, and Excel then accepts typing
+  mid-calculation.
+- **Why it can't be used:** an edit to the formula's own input made during
+  it left the cell silently stale, and F9 did not recalculate it.
+- **The conclusion stands for a different reason:** every budget inside a
+  formula must still refuse by name.
+- **Nothing else inside a UDF gets out either.** Esc cannot be caught there
+  (`EnableCancelKey` is silently ignored), and the status bar and `OnTime`
+  are silently dropped. The long search belongs to the command, as settled
+  the same day.
+
 ---

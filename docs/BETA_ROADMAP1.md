@@ -19036,7 +19036,7 @@ now carries one summary paragraph per engine and points here.*
   conflict learning is an item with a trigger, not a ceiling. The owner's
   standing rule for this family, 2026-09-18: Frazaro's value lives or dies
   on real-sized data, so no feature here ships proven only at toy size.
-  - ⬜ **OPTIMIZE.0 — measure the shape of the search before building any
+  - ✅ **OPTIMIZE.0 — measure the shape of the search before building any
     of it: the traps, each with the fix that narrows it, and the fixtures
     every later item is measured against.** Minted 2026-09-18, the owner's
     call, as `DATALOG.12`'s twin for an engine that does not exist yet. The
@@ -19283,6 +19283,208 @@ now carries one summary paragraph per engine and points here.*
     correctness oracle for the fixtures — run by the owner from
     PowerShell, never shipped, never called by Frazaro, `SD-13` intact —
     so answers can be checked at sizes where hand-checking cannot.
+    **FORKS SETTLED 2026-09-19, the owner's calls, all as recommended.**
+    The paper model, the seven corrections it made to this entry, and the
+    predictions are in `docs/OPTIMIZATION.md`, Entry 1. They are not
+    repeated here.
+      1. *The reference roster:* 50 people × 4 weeks × 3 shifts a day, at
+         a **tightness of 0.84**: every shift needs max(1, people \ 5), so
+         2, 4 and 10 at 10, 20 and 50 people. The 2–4 needs this entry
+         first proposed stay as the "loose" variant. That variant turned out
+         to be a tightness of 0.25, an on-call pool rather than a roster, and
+         the killer case's "exactly 5 days" is unsatisfiable on it.
+      2. *Fast enough:* as proposed above. The 10 s command target
+         **includes** grounding, which the model puts at about 2–3 s at the
+         reference in today's `DATALOG`.
+      3. *Formula or command:* decided after the probe. The provisional rule:
+         a formula up to a ground-size ceiling projected at 2 s or less; past
+         that, the formula refuses by name and points to the command.
+      4. *clingo:* yes, as a dev-only oracle. `tools/optimize0_lp.ps1`
+         writes a `.lp` file and never runs clingo; the owner runs it by
+         hand; no binary is kept in the repository; `SD-13` is intact.
+         Compare only whether a schedule exists and the optimal cost, never
+         the schedule itself: ties break differently.
+      5. *The §17 corpus:* its own item, sequenced after `OPTIMIZE.0` and
+         before `OPTIMIZE.1`, id the owner's to mint. This item gives it the
+         toy's 7,290 valid worlds (10 × 3⁶, confirmed by exhaustive search)
+         and the measured numbers beside `optimize-roster`.
+    **BUILT 2026-09-19, not yet measured.** The paper model's predictions
+    were written first, and the tools were built after them. No `src/`
+    module was created: `VLA_Optimize.bas` does not exist.
+      - `tools/VLA_DiagO0.bas`: `O0Ladder 1`–`12`, twelve shapes, each on a
+        fresh sheet, every row checked against the fixture's definition.
+        Beside each measurement it prints the model (time = a·F + b·J) and
+        the measured/model ratio. Two guards stop a rung before it runs: a
+        time projection from the model, and a **memory guard** that skips any
+        rung predicted past 500,000 live rows. The memory guard will skip
+        exactly nine rungs. `O0Model` prints the model alone, and `O0Fixture`
+        writes the reference Tables.
+      - `tools/optimize0_expected.ps1`: the independent twin. It enumerates
+        every rung's rows from the definitions, and they agree with the
+        harness's closed forms on every rung.
+      - `tools/VLA_ProbeO0.bas`: the host probe, ten steps.
+      - `tools/optimize0_lp.ps1`: the clingo exporter.
+      - `tools/optimize0_live_steps.md`: the owner's steps.
+    Two fixtures are **provably unsatisfiable by hand**, the first answer key
+    for "no schedule exists": 5 people (one senior for seven nights) and 10
+    people with the loose needs (63 slots a week against a capacity of 50).
+    **MEASURED LIVE 2026-09-19, the owner at the keyboard** (Excel 16.0
+    64-bit, `VLA.xlsm` for Parts A and B, a blank `O0Probe.xlsm` for Part
+    C). 101 ladder rungs ran, and every answer was right on every rung.
+    Nothing crashed. The guards stopped each combination step after its first
+    rung past 10 s, and no rung the memory guard refused was attempted.
+    *The ground sizes, at the largest rung each shape reached:*
+
+    | shape | largest rung run | ground rows | seconds | measured/model |
+    |---|---|---|---|---|
+    | the pool, Cartesian (A1) | 50 × 4 weeks | 4,200 | 0.12 | 0.73 |
+    | the pool minus vacations (A2) | 50 × 4 | 3,600 | 0.16 | 0.72 |
+    | the pool through a skill join (A3) | 50 × 4 | 3,136 | 0.10 | 0.77 |
+    | a native counter per shift (A4) | 50 × 4 | 84 | 0.68 | 1.08 |
+    | a native counter per person-week (A5) | 50 × 4 | 200 | 0.69 | 1.06 |
+    | never two in a row, pair relation (A6) | 50 × 4 | 4,150 | 2.44 | 1.06 |
+    | never two in a row, all pairs + arithmetic (A7) | 50 × 4 | 4,150 | 16.37 | 1.76 |
+    | at most 2 per shift as triples (A8) | 20 × 4 | 95,760 | 10.93 | 1.25 |
+    | the same, no canonical order (A9) | 14 × 4 | 183,456 | 13.52 | 1.18 |
+    | at most 3 a week as 4-subsets (A10) | 10 × 1 | 59,850 | 17.25 | 2.75 |
+    | at most 5 a week as 6-subsets (A10, rung 12 alone) | 1 person-week | 54,264 | 17.58 | 1.73 |
+    | overtime per person-week, against Kept (A11) | 50 × 4 | 20 | 0.35 | 1.13 |
+
+    **The single largest trap, measured.** Every cardinality rule costs orders
+    of magnitude more written as combinations than as native counters:
+    - "at most 2 per shift" at 20 × 4: 10.9 s as triples, against 0.28 s as
+      84 counters (about 39×);
+    - "at most 3 a week" at 10 × 1: 17.3 s as quadruples, against 0.15 s as
+      counters (about 118×);
+    - "at most 5 a week", one person-week: 17.6 s as six-subsets, against
+      about 0.0035 s as a counter (about 5,000×).
+    At the reference roster, both combination forms stay model-only: 1.6
+    million and 10.9 million rows, far past memory. The native forms of the
+    same roster ground in under a second each, and the pairs in 2.4 s.
+    Canonical order divides rows by exactly (k+1)!, 6 for triples, and time
+    by 2.3–4.0× (A8 against A9).
+    **The cost model, against its predictions (a = 0.16 ms, b = 0.01 ms):**
+    - **a**, per source row filtered, measured about **0.17 ms** (A4, A5).
+    - **b**, per produced row, measured about **0.0055 ms** for plain join
+      rows (A1–A3), but about **0.014 ms** for rows a `let` or comparison
+      produces (A7). Those rows are keyed into a Dictionary.
+    - **A fixed 12 ms per calculation**, which the model did not include.
+    - Within the linear range, the harness model predicted 0.72–1.18×.
+    - The refined prediction for A7 was **wrong by 2.6×**, and was withdrawn
+      before A8 ran. It applied the join-row cost to keyed rows:
+      `DATALOG.13`'s lesson again.
+    **What bends the curve:** a Scripting.Dictionary slows as it grows
+    (`O0DictCost`, no engine: 1.27 µs per key at 10,000 keys, 1.99 at 100,000,
+    3.26 at 200,000, 8.83 at 400,000). Every rung whose largest relation
+    passed about 90,000 live rows ran at 1.25–2.75× its model.
+    - The Dictionary accounts for about a third of A7's excess. The rest is
+      named, not measured: memory held by two 350,000-row relations at once.
+    - A10 bent earlier than A8 at similar peaks (1.69 at 88,000 against 0.98
+      at 80,000), and is **not explained**. The candidates are hash collisions
+      from its key shapes, and state carried across rungs: run alone, A10's
+      rung 12 read 1.73 against 2.75 inside the ladder.
+    This is measured support for `OPTIMIZE.0.C`: no string-keyed Dictionary
+    inside the grounder's hot path past about 100,000 entries.
+    Handing cells back to Excel (A12) measured **0.13–0.15 µs a cell**: 3.4
+    million cells in 0.46 s. Cheap, but not free. **DATALOG accepts a
+    Cartesian body today** (A1), so nothing needs undoing before `OPTIMIZE.3`
+    refuses such rules by projected size.
+    **The grounding ceilings: measured here, left to `OPTIMIZE.3`** (the
+    owner's call, 2026-09-19). The measured basis:
+    - under about 50,000 rows in the largest relation, linear and under
+      about 4 s;
+    - past about 90,000, superlinear;
+    - past 500,000, a memory risk.
+    The reference roster written natively is about 8,600 ground instances.
+    **The probe, C1–C10** (`CalculationInterruptKey` is 2 on this machine:
+    any key can interrupt a calculation):
+    - **C1, Esc during a long UDF:** VBA's own "Code execution has been
+      interrupted" dialog appears. End leaves `#VALUE!`, which F9 does not
+      clear.
+    - **C2, `EnableCancelKey` set inside a UDF:** **silently ignored**. It
+      raised nothing and read back 1. **C3** (`xlDisabled`) is settled by the
+      same read-back and was not run.
+    - **C4, the same loop as a macro:** error 18 can be trapped under
+      `xlErrorHandler`, and Esc is ignored under `xlDisabled`. The setting
+      reverts to 1 when code ends, so it cannot be armed ahead of a
+      calculation.
+    - **C5, a MsgBox inside a UDF:** it shows, and its answer reaches the cell.
+      F9 does not ask again; Ctrl+Alt+F9 does.
+    - **C6, the Function Wizard:** it evaluates a UDF **twice for every
+      change**: on opening, and on every edit, including a paste with no key
+      events. A modal would ask twice per keystroke.
+    - **C7, a modal UserForm inside a UDF:** it shows. Unplanned: inserting
+      the form reset the VBA project, clearing every module variable. The
+      next sheet insertion re-ran **every** UDF in the workbook, and two
+      MsgBox formulas asked again in the middle of an unrelated macro.
+    - **C8, the status bar set inside a UDF:** **silently ignored**. It read
+      back `FALSE`.
+    - **C9, `OnTime` scheduled inside a UDF:** **silently dropped**. The
+      identical call from the Immediate window ran and wrote. So "a UDF
+      cannot write" stands, even by the side door.
+    - **C10, `DoEvents` inside a UDF:** no re-entrancy (depth 1), and Esc is
+      ignored. But the owner could edit cells mid-calculation, and **an edit
+      to the formula's own input left the cell silently stale**: never
+      recalculated, and F9 did nothing.
+    **FORMULA OR COMMAND, SETTLED 2026-09-19 on the probe, the owner's call,
+    as proposed.**
+    - A formula searches only under a ground-size ceiling projected at 2 s or
+      less. Past it, the formula refuses by name and points to the command.
+    - Long searches, Esc (error 18, trapped) and "keep searching?" live in
+      the command.
+    - Nothing in the formula path uses `DoEvents`, a modal, the status bar or
+      `OnTime`. The first leaves cells stale, the second breaks on every
+      recalculation and in the Function Wizard, and the last two are silently
+      dropped.
+    **An observation for the other engines, not acted on here:** nothing in
+    `src/` sets `EnableCancelKey`, so C1's dialog probably meets anyone who
+    presses Esc during a long `DATALOG` or `PROLOG` recalculation, such as
+    A7's 16 s. Inferred from C1 and not tested in the built `.xlam`, whose
+    project may be locked.
+    **Part D, the clingo oracle (clingo 5.8.2, run by the owner from
+    PowerShell, 2026-09-19).** Every result here is the answer key the later
+    items are judged against: compare whether a schedule exists and its
+    costs, never the schedule itself.
+
+    | fixture | result | cost (overtime, changes) | time |
+    |---|---|---|---|
+    | the toy, every model counted | **7,290 models** | – | 2.8 s |
+    | 5 × 1, tight | **UNSATISFIABLE** | – | 0.003 s |
+    | 10 × 1, loose | **UNKNOWN**, twice | – | 188 s, then 120 s |
+    | 10 × 1, tight | **OPTIMUM FOUND** | **0, 24** | 21.7 s, 19.85 of it proving |
+    | 20 × 1, tight | best found, optimum unknown | 0, 92 | 300 s limit |
+    | 50 × 4, tight (the reference) | best found, optimum unknown | 0, 1,486 | 600 s limit; first model 0.06 s |
+    | 50 × 4, with kept-first value order | best found, optimum unknown | 35, **236** | 120 s limit |
+
+    - **The toy's 7,290** now agrees three ways: by hand (10 × 3^6), by
+      exhaustive search in PowerShell, and by clingo.
+    - **Two hand-proved fixtures, two very different oracle results.**
+      - 5 × 1 came back UNSATISFIABLE at once. Its reason is local: one senior
+        for seven nights.
+      - The loose 10 × 1 came back UNKNOWN, under both encodings, one of them
+        with the weekly cap as a direct cardinality constraint. Its reason is
+        counting: 63 slots a week, room for 50. That is a pigeonhole proof,
+        exponential for a solver that learns clauses, and instant as
+        arithmetic.
+      - **So OPTIMIZE needs counting pre-checks before any search** (below,
+        in `OPTIMIZE.2`). And for "no schedule exists" whose reason is
+        counting, the answer key is the hand arithmetic, not clingo.
+    - **Finding is cheap, proving is not.** Every first schedule came in
+      under 0.1 s, and every proof took far longer:
+      - at 10 × 1, 91% of the time went into proving the optimum;
+      - at 20 × 1, clingo had no proof by 300 s.
+      A solver with conflict learning cannot prove a fifth of the reference
+      roster in five minutes. That is early evidence for `OPTIMIZE.9`'s
+      trigger, and says "best found, not proven best" (`OPTIMIZE.6`) will be
+      the normal result at real sizes.
+    - **The reference roster's answer key is a range:** overtime 0, with
+      between 236 and 1,486 changes. The 236 is a hand floor: each of the
+      kept schedule's 118 assignments on a leave day costs at least a drop
+      and an add. The kept-first run reached exactly that floor, but only by
+      giving up 15 overtime against the kept schedule's own 20.
+    - **Value order must follow the objective's order**
+      (`OPTIMIZE.6`/`.7`, below). A naive kept-first order optimized the
+      second goal at the expense of the first.
     **Outcome:** the paper model and the measured ground-size table in
     this entry and in `pareto_logic.txt` §17 beside `optimize-roster`; the
     grounding ceilings for the refusals above, set from the numbers; the
@@ -19327,6 +19529,13 @@ now carries one summary paragraph per engine and points here.*
     identically, so "`DATALOG` wearing the name" is a measured claim, not
     a description; pins for each result state's text and for the memo
     (two cells, one search); `TestDSLs` and `VerifyReports` unmoved.
+    *From `OPTIMIZE.0`'s probe (2026-09-19): the memo cannot be relied on.*
+    A VBA project reset wipes it: editing the project does, and so does the
+    End button on C1's Esc dialog. After a reset, the next structural change
+    re-ran **every** UDF in the workbook (C7). So the memo must tolerate
+    being lost at any moment. It may only make a search faster, never change
+    what it answers, which decision 1 already requires. Its pin should cover
+    a reset between the two cells.
     `~days`
   - ⬜ **OPTIMIZE.2 — constraints against the one world.** Still zero
     search: with no choice yet, `OPTIMIZE.1`'s fixpoint produces exactly
@@ -19341,7 +19550,23 @@ now carries one summary paragraph per engine and points here.*
     is different from a rule — it derives nothing, only eliminates — and
     the item that lands the single-atom-constraint pruning and the
     Cartesian-body refusal from `OPTIMIZE.0`, since both are properties of
-    a constraint's body that need no search to test. `~days`
+    a constraint's body that need no search to test.
+    *From `OPTIMIZE.0`'s oracle runs (2026-09-19): counting pre-checks belong
+    here, before any search exists.*
+    - **What each one compares:** for every counted resource, what the rules
+      demand against what the pool can supply. Slots a week against people ×
+      the weekly cap. Senior nights against seniors × their cap. Each shift's
+      need against the people eligible for it.
+    - **What it costs:** arithmetic over the Tables, microseconds, and no
+      search.
+    - **What it says:** the constraint and the numbers, "the shifts need 63
+      people a week, and 10 people may work at most 5 each", as a proven
+      "no schedule satisfies every rule".
+    - **Why it can't be left to the search:** clingo, a solver with conflict
+      learning, could not prove exactly that fixture impossible in three
+      minutes, under two encodings. A pigeonhole argument is exponential for
+      clause learning. `OPTIMIZE.3`, which does not learn, would fare worse.
+    `~days`
   - ⬜ **OPTIMIZE.3 — choice, grounding over the pool, and a search that
     propagates.** The first search, and NOT the retired `SOLVE.3`'s
     enumeration. `(choose N head pool)` names a pool (a `DATALOG`
@@ -19366,7 +19591,33 @@ now carries one summary paragraph per engine and points here.*
     twice gives the same spill; a program whose Table rows are permuted
     gives the same SET), for the budget refusals; and the first run of
     `OPTIMIZE.0`'s ladder with its before-and-after recorded here, since
-    this is the first item whose cost is exponential. `~weeks`
+    this is the first item whose cost is exponential.
+    *What `OPTIMIZE.0` (2026-09-19) rules in and out here:*
+    - **The refusal is by projected size, never by shape.** A Cartesian body
+      is the roster's own pool, and `DATALOG` grounds it today (A1).
+    - **The ceilings are this item's to set.** The measured basis, while
+      grounding goes through `DATALOG`'s relations: linear under about 50,000
+      rows in the largest relation, superlinear past about 90,000, a memory
+      risk past 500,000. Re-measure before raising them once grounding moves
+      to integer arrays.
+    - **Keep string-keyed Dictionaries out of the grounder's hot path** past
+      about 100,000 entries (`O0DictCost`).
+    - **The formula form searches only under a ceiling projected at 2 s or
+      less** (settled 2026-09-19). Past it, the formula refuses by name and
+      points to the command.
+    - **The Function Wizard runs a UDF twice for every argument edit** (C6).
+      Either detect the wizard and return early, or rely on the ceiling alone.
+      Excel exposes no documented flag for the wizard, so this is a question
+      for this item, not a decision made.
+    - **No `DoEvents` in the formula path.** It left a cell silently stale
+      when its input was edited mid-calculation (C10).
+    - **No modal, no status bar and no `OnTime` from the formula.** A modal
+      breaks on every recalculation and in the wizard; the status bar and
+      `OnTime` are silently dropped (C5, C8, C9).
+    - **The formula cannot catch Esc.** `EnableCancelKey` is ignored inside a
+      UDF (C2). A formula search that runs long enough to be interrupted is
+      the case the ceiling exists to prevent.
+    `~weeks`
   - ⬜ **OPTIMIZE.4 — `count` and `sum` as native constraints.** "Every
     shift has at least 2 people", "nobody works more than 5 a week", "no
     more than 40 hours" — each a counter or a weighted sum over chosen
@@ -19408,7 +19659,20 @@ now carries one summary paragraph per engine and points here.*
     writing. `DATALOG`'s arithmetic evaluator scores the
     objective's terms; nothing new is invented for the sum. The ladder
     with the objective is this item's number, and the point at which
-    `OPTIMIZE.9`'s trigger is expected to fire. `~weeks`
+    `OPTIMIZE.9`'s trigger is expected to fire.
+    *From `OPTIMIZE.0`'s oracle runs (2026-09-19):*
+    - **Proving is the expensive part.** At 10 × 1, clingo found the best
+      schedule at once and spent 19.85 of its 21.7 s proving it. At 20 × 1
+      it had no proof after 300 s. So "best found within the budget, not
+      proven best" is the ordinary result at real sizes.
+    - **The value order is the objective's, in its own order.** A kept-first
+      order put ahead of overtime reached the floor on changes (236) but
+      stalled at 35 overtime. Without it, the search reached 0 overtime. So
+      the rule is: prefer the values the first term of the objective
+      prefers; break ties with the next term; and only then the kept choice.
+    - **This item's answer key, at the reference roster:** overtime 0, with
+      between 236 and 1,486 changes. The optimum is unknown.
+    `~weeks`
   - ⬜ **OPTIMIZE.7 — the kept schedule: fewest changes, stability across
     edits, and a warm start that cannot change the answer.** The item the
     owner named the one managers should fall in love with (2026-09-18):
@@ -19429,7 +19693,26 @@ now carries one summary paragraph per engine and points here.*
     progress form, a Continue that resumes the same deterministic search,
     and the budget it used written beside the roster it keeps, per
     `OPTIMIZE.0.C`), and the ground for the large-neighbourhood mode past
-    the ladder, if the owner wants it. `~days`
+    the ladder, if the owner wants it.
+    *What `OPTIMIZE.0`'s probe (2026-09-19) rules in for the command form:*
+    - **Esc is handled.** A macro that sets `Application.EnableCancelKey =
+      xlErrorHandler` receives Esc as a trappable error 18 (C4). So "stopped
+      by the user; the best schedule so far is kept" is a clean result, with
+      no debugger dialog.
+    - **The command must set it itself, every run.** The setting reverts to
+      its default when code ends, so nothing can arm it ahead of time.
+    - **The command may use the status bar** for progress (the ladder harness
+      did throughout Part A).
+    - **The command may yield with `DoEvents` only if it guards against edits
+      to its own inputs.** In a formula, an edit made during `DoEvents` left
+      the cell silently stale (C10). A command that yields must re-read or
+      lock its inputs before it writes.
+    *And from the oracle runs, on "values tried kept-first":* kept-first is a
+    tie-breaker inside the objective's own order, never above it. Placed
+    first outright, it reached the floor on changes (236) at the cost of 35
+    overtime, where the plain search reached 0 overtime (see `OPTIMIZE.0`,
+    Part D, and `OPTIMIZE.6`).
+    `~days`
   - ⬜ **OPTIMIZE.8 — the structural narrowers, each measured: symmetry
     breaking, component decomposition, root probing, dynamic ordering.**
     Four of `OPTIMIZE.0.B`'s fixes that change no answer and can each be

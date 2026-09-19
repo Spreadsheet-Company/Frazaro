@@ -677,6 +677,45 @@ optimize-roster   x  P2  O     —
            grammar refuses it in words until G-OPTIMIZE exists.
 ```
 
+**What the roster costs to ground, measured live 2026-09-19** (`OPTIMIZE.0`,
+Excel 16.0 64-bit, one machine). OPTIMIZE does not exist yet, so each
+constraint the roster needs was written as a `DATALOG` rule whose rows ARE
+its ground instances. The fixtures are closed forms (`tools/VLA_DiagO0.bas`,
+`O0Fixture`), and every answer was checked row by row and re-derived by
+enumeration (`tools/optimize0_expected.ps1`). The reference roster: 50 people,
+4 weeks, 3 shifts a day, 10 per shift (a tightness of 0.84).
+
+| constraint | written as | largest size run | ground rows | seconds |
+|---|---|---|---|---|
+| the pool (anyone, any shift, not on leave) | a join and a `not` | 50 × 4 weeks | 3,600 | 0.16 |
+| every shift's count | a native counter | 50 × 4 | 84 | 0.68 |
+| every person-week's count | a native counter | 50 × 4 | 200 | 0.69 |
+| never two in a row | a pair relation | 50 × 4 | 4,150 | 2.44 |
+| at most 2 per shift | triples | 20 × 4 | 95,760 | 10.9 |
+| at most 3 a week | 4-subsets | 10 × 1 | 59,850 | 17.3 |
+| at most 5 a week | 6-subsets | one person-week | 54,264 | 17.6 |
+
+Written as native counters, every rule of the reference roster grounds in
+under a second (the pairs in 2.4 s). Written as combinations, the same rules
+stop at toy sizes: 39× the counters' cost for "at most 2 per shift", about
+5,000× for "at most 5 a week". At the reference roster they come to 1.6
+million and 10.9 million rows, which is why `G-OPTIMIZE` may only ever write
+the counter. **The toy's answer, for the corpus to come:** 5 people, 7
+shifts, exactly 2 per shift, never two in a row has **7,290** valid worlds
+(10 × 3^6) out of 10,000,000 candidates, by hand and by exhaustive search.
+Two fixtures provably have no schedule: 5 people (one senior for seven
+nights), and 10 people with the loose needs (63 slots a week, capacity 50).
+**The answer key, from clingo** (a dev-only oracle, run by hand, never
+shipped):
+- the toy's 7,290 models;
+- 10 people × 1 week: the proven optimum is overtime 0, 24 changes;
+- 20 × 1: best found overtime 0, 92 changes, not proven;
+- the reference roster: overtime 0, with between 236 and 1,486 changes, the
+  optimum unknown after 10 minutes.
+
+clingo proved the senior shortage at once, but could not prove the counting
+one (63 against 50) in three minutes. That answer rests on the arithmetic.
+
 ## 18. Scale — why none of this survives a real Table today
 
 ```

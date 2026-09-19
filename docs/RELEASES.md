@@ -104,6 +104,49 @@
   nothing changed is byte-for-byte identical. It needs no Word or Excel, and
   skips any file that is open instead of failing.
 
+- **`OPTIMIZE` measured before it is built (`OPTIMIZE.0`).** Nothing you can
+  run has changed. What changed is what the project knows about the engine
+  that will build schedules. Its costs were measured on real-sized
+  rosters, up to 50 people over four weeks, using the engines that exist.
+  Three things came out of it that shape what you will get:
+  - **A rule written as a count is thousands of times cheaper** than the same
+    rule written as a list of forbidden combinations. "At most 5 shifts a
+    week" took about 17 seconds as combinations for one person's week, and
+    thousandths of a second as a count. So the sentences that will write
+    these rules will only ever write the count.
+  - **A long calculation inside a formula cannot be stopped cleanly.** Inside
+    a worksheet formula, Excel silently ignores the setting that would let
+    Esc stop it politely. It ignores status-bar messages and scheduled
+    macros too. So long searches will be a command you run, one that can
+    stop when you press Esc and keep the best schedule found so far. A
+    formula will only search when the problem is small enough to answer in
+    about two seconds.
+  - **"No schedule is possible" is often plain arithmetic.** For example, the
+    shifts need 63 people a week, and 10 people can work at most 5 each. So
+    that is checked first, and said in those words, before any search.
+  The full account, including the predictions that turned out wrong, is in
+  `docs/OPTIMIZATION.md`.
+
+- **Worth knowing today: Esc during a long Frazaro formula.** The probe above
+  found that pressing Esc while a formula's code is running brings up
+  Visual Basic's "Code execution has been interrupted" box. We expect the
+  same from a long `DATALOG` or `PROLOG` question, though that is not yet
+  tested in the installed add-in. If you see it, click **End**. The cell will
+  show `#VALUE!` until you change one of the formula's inputs or press
+  Ctrl+Alt+F9.
+
+- **For contributors: the `OPTIMIZE.0` tools, all in `tools/`.** None of them
+  ships, and none is called by Frazaro.
+  - `VLA_DiagO0.bas`: the size ladder and the reference roster's Tables.
+    Every answer is checked row by row.
+  - `optimize0_expected.ps1`: re-derives every expected count by
+    enumeration.
+  - `VLA_ProbeO0.bas`: the ten host probes.
+  - `optimize0_lp.ps1`: exports a roster for clingo, the answer-set solver
+    used by hand as a reference. It never runs clingo and makes no network
+    call.
+  - `optimize0_live_steps.md`: the steps.
+
 ### Known open security items
 
 **Closed this release:** the Uninstall Frazaro data-loss bug above, a
