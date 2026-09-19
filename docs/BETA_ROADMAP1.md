@@ -18884,7 +18884,13 @@ now carries one summary paragraph per engine and points here.*
     `OPTIMIZE` cell's spill before `OPTIMIZE.1` breaks ground. **BUILT,
     TESTED LIVE (all 14 steps) and committed 2026-09-19.** Every fork below was
     settled by the assistant while the owner slept, as recommended, and each
-    is marked PROVISIONAL, owner to confirm.
+    is marked PROVISIONAL, owner to confirm. **ALL CONFIRMED 2026-09-19,
+    the owner's call, as recommended**, including the two not numbered
+    below: the shared ids, and the version constants. The PROVISIONAL marks
+    stay as the record of how each was proposed. Two loosenings are named
+    for later, since each relaxes a refusal and breaks no working formula:
+    numbers as headers (year columns), and two names on one spill registered
+    as aliases.
     **The code, read first** (line numbers as of this build):
       - `VLA_Relation.bas` is the one place a table argument is read, for all
         three engines. `TableArgResolve` (~375) names it: an Excel Table by
@@ -19736,9 +19742,9 @@ now carries one summary paragraph per engine and points here.*
         **pending** entry (16), each headed with its run lines and the
         expected clingo output. The four seeded entries' checks were done in
         `OPTIMIZE.0` Part D.
-      - *Counts updated mechanically*: 68 entries, 26 P0, 29 P1, 9 P2, four
+      - *Counts updated mechanically*: 68 entries, 26 P0, 30 P1, 8 P2, four
         unprioritised; `optimize-roster` moved from the `x` marker to the new
-        `o`.
+        `o`, and to P1 (fork 5).
     **Predicted, then measured.** The 19 hand keys (every entry but the
     reference roster, whose key is clingo's) were written into the script
     before its first run. **The first run agreed with every one: 40
@@ -19781,6 +19787,18 @@ now carries one summary paragraph per engine and points here.*
       5. *Priorities:* compliance P0, rosters and seating P1, configuration
          and timetabling P2; `optimize-roster` stays P2 as filed, marked `o`
          rather than `x`.
+    **FORKS SETTLED 2026-09-19, the owner's calls: 1-4 as recommended; 5
+    changed, `optimize-roster` to P1 beside its roster siblings, since the
+    killer case was filed P2 before the engine existed.** Two carry notes
+    forward. On fork 3, the MEANING is settled (a request is an objective
+    term, as ASP's weak constraints, MiniZinc's soft constraints and
+    OptaPlanner's soft scores all have it), and its user-facing spelling is
+    `OPTIMIZE.1`'s. On fork 4, the MEASURE is settled (assignments added
+    plus assignments removed, the only one well defined when a shift's size
+    changes), and what users SEE is not a bare number: "236 changes" reads to
+    a manager as 236 people moved. The status says "118 assignments changed:
+    118 added, 118 removed" (`OPTIMIZE.1`'s status wording, `OPTIMIZE.7`'s
+    report).
     **What `OPTIMIZE.1`'s scoping may now take as given:** the sentences its
     spellings are judged against (§17's `rules` lines). Keyed entries for
     three of the five result states: "no schedule satisfies every rule" 7,
@@ -19852,7 +19870,39 @@ now carries one summary paragraph per engine and points here.*
     being lost at any moment. It may only make a search faster, never change
     what it answers, which decision 1 already requires. Its pin should cover
     a reset between the two cells.
-    `~days`
+    **Step 1, an internal precursor, folded in 2026-09-19 (the owner's
+    call): a canonical, injective UTF-8 encoding of the memo's inputs,
+    hashed by SEC.11's SHA-256.** The memo is keyed on the rules text and
+    every input Table's values, and the only text hash today is
+    `VLA_Digest.VlaSha256HexOfAsciiText`, which is exact for ASCII alone:
+    its `StrConv` goes through the ANSI code page, so "Zoë" and "Zoe?"
+    could share a key. Found while folding it in, and the reason this is
+    more than a call to the existing encoder:
+    `VLA_Loader.VlaUtf8Encode` writes a LONE surrogate as U+FFFD. That is
+    right for a file, where no reader accepts the raw sequence, and wrong
+    for a key, where "a" + U+D800 and "a" + U+FFFD would collide and a
+    memo would hand one workbook's answer to another's inputs. The memo
+    must never change an answer (decision 2), so the key must be
+    injective. **Settled 2026-09-19, the owner's call, all three as
+    recommended:**
+      - *Text* as UTF-8, with a lone surrogate encoded as its own three
+        bytes (the WTF-8 convention). This is byte-identical to UTF-8 for
+        every well-formed string, and injective on every string VBA can hold.
+        Either a flag on `VlaUtf8Encode` or a sibling in `VLA_Digest`.
+      - *Every cell typed and framed*: a type tag (empty, text, number,
+        Boolean, error), then a length, then the bytes. Then 1 and "1",
+        blank and "", and ("ab", "c") and ("a", "bc") all differ.
+        `Chr$(31)` joins, as `TupleKey` uses, are not injective and are not
+        reused here.
+      - *Numbers by their exact bits*: a Double's eight bytes, not its text,
+        so no locale or rounding enters. Dates are Doubles in `Value2`
+        already.
+      - *The shape too*: each Table's name, its row and column counts, and
+        the rules text, each framed the same way.
+    **Proof:** SHA-256 known-answer vectors over non-ASCII text ("é" is
+    `c3 a9`, one astral character is four bytes); pure pins for each
+    collision the framing prevents, a lone surrogate against U+FFFD
+    included; one host pin hashing a Unicode cell. `~days`
   - ⬜ **OPTIMIZE.2 — constraints against the one world.** Still zero
     search: with no choice yet, `OPTIMIZE.1`'s fixpoint produces exactly
     one world, so `(forbid ...)` is a CHECK — does its body hold in that

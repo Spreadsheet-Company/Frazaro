@@ -820,7 +820,7 @@ optimize-duty-rotation      o P1  O   ONE COUNT
 ### Shift rosters — the killer case
 
 ```
-optimize-roster             o P2  O   EXACT-k POOL IN-A-ROW AT-MOST DERIVED WEIGHTED KEEP
+optimize-roster             o P1  O   EXACT-k POOL IN-A-ROW AT-MOST DERIVED WEIGHTED KEEP
   asks     Assign people to shifts, minimising overtime.
            In full: roster fifty people over four weeks of three shifts a day,
            everyone each shift needs, never two shifts in a row, at most five
@@ -1235,9 +1235,10 @@ programs that can never terminate (`lineage-selfname`, `routes-reach`).
 
 **After `OPTIMIZE.0.1` (2026-09-19)**, counted the same way, by the id lines
 inside the fenced blocks: **68 entries**, §17 having grown from 1 to 20 —
-**26 P0, 29 P1, 9 P2**, and the same four unprioritised. The 20 in §17 are
+**26 P0, 30 P1, 8 P2**, and the same four unprioritised. The 20 in §17 are
 keyed, not measured, and carry the new `o` marker; `optimize-roster` moved
-from `x` to `o`, so the routed-away-and-never-run count is now 2 (`bom-qty`,
+from `x` to `o`, and from P2 to P1 beside its roster siblings (the owner's
+call, 2026-09-19: the killer case was filed P2 before `OPTIMIZE` existed), so the routed-away-and-never-run count is now 2 (`bom-qty`,
 `pre-order`). Of the 20: **13 satisfiable** and **7 with no world** — four
 by counting alone (`optimize-sod-short`, `optimize-roster-loose`,
 `optimize-seat-overflow`, `optimize-exam-rooms`), one by counting and by a
