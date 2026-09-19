@@ -1,6 +1,12 @@
 Attribute VB_Name = "VLA_Tests_Query"
 Option Explicit
-Public Const VLA_TESTS_QUERY_VERSION As String = "PROLOG.6"
+Public Const VLA_TESTS_QUERY_VERSION As String = "DATALOG.15"
+' DATALOG.15: TestSpillHeaders (new, pure - VLA_Relation's spill header
+' check, RefersTo matching and text, the error-value reason, and every
+' new refusal's words, with no live workbook) and TestSpillHostTable (new,
+' host-required - a real dynamic-array spill, named through Name Manager,
+' read by DATALOG, SQL and PROLOG through their real worksheet functions,
+' with a part of a spill and a plain named range pinned unchanged).
 ' PROLOG.6: TestPrologKeyedAtoms (new, pure - VLA_Prolog.PrologRun called
 ' directly with a hand-built headerMap, no live workbook, DATALOG.5's own
 ' TestDatalogKeyedAtoms precedent) and TestPrologHostTable (new, host-
@@ -351,6 +357,8 @@ Public Function TestDSLs() As Boolean
     TestDatalogNegatedQuery
     TestDatalogTextTests
     TestDatalogHostTable
+    TestSpillHeaders
+    TestSpillHostTable
     TestUnify
     TestGRenderUnify
     TestUnifyTwoWay
@@ -2169,6 +2177,285 @@ Private Sub TestDatalogHostTable()
 
     On Error Resume Next
     ThisWorkbook.Names("VlaDatalogAliasTest").Delete
+    On Error GoTo 0
+    Application.DisplayAlerts = False
+    ws.Delete
+    Application.DisplayAlerts = True
+    prior.Activate
+End Sub
+
+' DATALOG.15: a spill's header row as Value2 reads it, (1 To 1, 1 To n),
+' built from the cells given - so a pure pin can hand SpillHeaderCheck a
+' number, a blank or an error value without a live sheet.
+Private Function SpillHdr(ParamArray cells() As Variant) As Variant
+    Dim n As Long
+    n = UBound(cells) - LBound(cells) + 1
+    Dim h() As Variant
+    ReDim h(1 To 1, 1 To n)
+    Dim i As Long
+    For i = 1 To n
+        h(1, i) = cells(LBound(cells) + i - 1)
+    Next i
+    SpillHdr = h
+End Function
+
+' DATALOG.15: the words a table-argument reason becomes, captured before
+' On Error GoTo 0 can reset them.
+Private Function SpillRefusalText(ByVal reason As String, ByVal detail As String) As String
+    Dim d As String
+    On Error Resume Next
+    Err.Clear
+    VLA_Relation.RaiseTableArgRefusal reason, detail
+    d = Err.Description
+    On Error GoTo 0
+    SpillRefusalText = d
+End Function
+
+' DATALOG.15: the host-free half of reading a spilled range as a table.
+' SpillHeaderCheck is what keeps a spill whose first row is DATA (a
+' SEQUENCE, a FILTER over a Table's body) from losing that row silently:
+' a number, a blank or an error in the first row is refused by name, and
+' an error value is checked without CStr, which would raise 13 on it.
+' SpillRefersToMatches accepts each spelling of the spill reference Excel
+' may hand back in a Name's RefersTo. And an argument that is an error
+' value - what N2# gives when N2 is not spilling - is refused as one by
+' all three engines, while a plain value keeps today's "not a range".
+Private Sub TestSpillHeaders()
+    Dim why As String, badCol As Long, otherCol As Long
+
+    why = VLA_Relation.SpillHeaderCheck(SpillHdr("Name", "Shift"), badCol, otherCol)
+    Report "datalog.15: a header row of two names passes", why = "" And badCol = 0, "got '" & why & "' at " & badCol
+    why = VLA_Relation.SpillHeaderCheck(SpillHdr("Only"), badCol, otherCol)
+    Report "datalog.15: a one-column header row passes", why = "", "got '" & why & "'"
+    why = VLA_Relation.SpillHeaderCheck(SpillHdr("Name", Empty), badCol, otherCol)
+    Report "datalog.15: a blank header is refused, at its column", why = "spill-header-blank" And badCol = 2, "got '" & why & "' at " & badCol
+    why = VLA_Relation.SpillHeaderCheck(SpillHdr("Name", "   "), badCol, otherCol)
+    Report "datalog.15: a header of only spaces is blank", why = "spill-header-blank" And badCol = 2, "got '" & why & "' at " & badCol
+    why = VLA_Relation.SpillHeaderCheck(SpillHdr(1, "Shift"), badCol, otherCol)
+    Report "datalog.15: a number in the first row is refused (a SEQUENCE's first row is data)", why = "spill-header-not-text" And badCol = 1, "got '" & why & "' at " & badCol
+    why = VLA_Relation.SpillHeaderCheck(SpillHdr("Name", True), badCol, otherCol)
+    Report "datalog.15: TRUE in the first row is refused", why = "spill-header-not-text" And badCol = 2, "got '" & why & "' at " & badCol
+    why = VLA_Relation.SpillHeaderCheck(SpillHdr("Name", CVErr(2042)), badCol, otherCol)
+    Report "datalog.15: an error in the first row is refused, not raised on", why = "spill-header-not-text" And badCol = 2, "got '" & why & "' at " & badCol
+    why = VLA_Relation.SpillHeaderCheck(SpillHdr("Name", "Shift", "NAME"), badCol, otherCol)
+    Report "datalog.15: two headers alike after folding are refused, naming both columns", _
+           why = "spill-header-duplicate" And badCol = 3 And otherCol = 1, "got '" & why & "' at " & badCol & "/" & otherCol
+
+    Report "datalog.15: =Sheet1!$N$2# is the spill reference", _
+           VLA_Relation.SpillRefersToMatches("=Sheet1!$N$2#", "Sheet1", "$N$2"), ""
+    Report "datalog.15: a quoted sheet name matches", _
+           VLA_Relation.SpillRefersToMatches("='Q1 Plan'!$N$2#", "Q1 Plan", "$N$2"), ""
+    Report "datalog.15: the file format's _xlfn.ANCHORARRAY spelling matches", _
+           VLA_Relation.SpillRefersToMatches("=_xlfn.ANCHORARRAY(Sheet1!$N$2)", "Sheet1", "$N$2"), ""
+    Report "datalog.15: ANCHORARRAY without _xlfn matches", _
+           VLA_Relation.SpillRefersToMatches("=ANCHORARRAY(Sheet1!$N$2)", "Sheet1", "$N$2"), ""
+    Report "datalog.15: a reference without $ signs matches", _
+           VLA_Relation.SpillRefersToMatches("=Sheet1!N2#", "Sheet1", "$N$2"), ""
+    Report "datalog.15: the sheet and cell compare case-insensitively", _
+           VLA_Relation.SpillRefersToMatches("=sheet1!$n$2#", "Sheet1", "$N$2"), ""
+    Report "datalog.15: a sheet name holding a quote matches", _
+           VLA_Relation.SpillRefersToMatches("='It''s'!$A$1#", "It's", "$A$1"), ""
+    Report "datalog.15: a static range over the same cells is not the spill reference", _
+           Not VLA_Relation.SpillRefersToMatches("=Sheet1!$N$2:$P$9", "Sheet1", "$N$2"), ""
+    Report "datalog.15: the same cell on another sheet does not match", _
+           Not VLA_Relation.SpillRefersToMatches("=Sheet2!$N$2#", "Sheet1", "$N$2"), ""
+    Report "datalog.15: another anchor does not match", _
+           Not VLA_Relation.SpillRefersToMatches("=Sheet1!$N$3#", "Sheet1", "$N$2"), ""
+    Report "datalog.15: a reference with no sheet does not match", _
+           Not VLA_Relation.SpillRefersToMatches("=$N$2#", "Sheet1", "$N$2"), ""
+
+    Report "datalog.15: the RefersTo a refusal tells the user to type", _
+           VLA_Relation.SpillRefersToText("Sheet1", "$N$2") = "='Sheet1'!$N$2#", "got " & VLA_Relation.SpillRefersToText("Sheet1", "$N$2")
+    Report "datalog.15: ...with a quote in the sheet name doubled", _
+           VLA_Relation.SpillRefersToText("It's", "$A$1") = "='It''s'!$A$1#", "got " & VLA_Relation.SpillRefersToText("It's", "$A$1")
+    Report "datalog.15: ...and what it tells the user to type is what the match accepts", _
+           VLA_Relation.SpillRefersToMatches(VLA_Relation.SpillRefersToText("Q1 Plan", "$N$2"), "Q1 Plan", "$N$2"), ""
+
+    Dim ok As Boolean, reason As String, detail As String, nm As String
+    nm = VLA_Relation.TableArgResolve(CVErr(2023), ok, reason, detail)
+    Report "datalog.15: an error value is its own reason, not 'not a range'", _
+           (Not ok) And reason = "error-value", "got ok=" & ok & " reason=" & reason
+    nm = VLA_Relation.TableArgResolve(1, ok, reason)
+    Report "datalog.15: a plain value is still 'not a range' (and detail stays optional)", _
+           (Not ok) And reason = "not-a-range", "got ok=" & ok & " reason=" & reason
+
+    Dim result As Variant
+    result = VLA_Datalog.DATALOG("(query p)", CVErr(2023))
+    Report "datalog.15: DATALOG over an error value says it is one", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, ResultDescribe(result), "is an error value", vbTextCompare) > 0, "got: " & ResultDescribe(result)
+    result = VLA_Sql.SQL("SELECT * FROM t", CVErr(2023))
+    Report "datalog.15: SQL over an error value says it is one", _
+           ResultTextStartsWith(result, "#SQL!") And InStr(1, ResultDescribe(result), "is an error value", vbTextCompare) > 0, "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (p X))", CVErr(2023))
+    Report "datalog.15: PROLOG over an error value says it is one", _
+           ResultTextStartsWith(result, "#PROLOG!") And InStr(1, ResultDescribe(result), "is an error value", vbTextCompare) > 0, "got: " & ResultDescribe(result)
+
+    Dim d As String
+    d = SpillRefusalText("spill-needs-a-name", "='Sheet1'!$N$2#")
+    Report "datalog.15: a spill with no name is told the RefersTo to type", _
+           InStr(1, d, "Name Manager", vbTextCompare) > 0 And InStr(1, d, "='Sheet1'!$N$2#", vbBinaryCompare) > 0, "got: " & d
+    d = SpillRefusalText("spill-two-names", "roster, schedule")
+    Report "datalog.15: a spill with two names names them", InStr(1, d, "(roster, schedule)", vbBinaryCompare) > 0, "got: " & d
+    d = SpillRefusalText("spill-header-blank", "O2")
+    Report "datalog.15: a blank header names its cell", InStr(1, d, "cell O2 is blank", vbTextCompare) > 0, "got: " & d
+    d = SpillRefusalText("spill-header-not-text", "N2")
+    Report "datalog.15: a data-looking first row names its cell", InStr(1, d, "cell N2 holds a number", vbTextCompare) > 0, "got: " & d
+    d = SpillRefusalText("spill-header-duplicate", "N2 and P2")
+    Report "datalog.15: duplicate headers name both cells", InStr(1, d, "cells N2 and P2 hold the same name", vbTextCompare) > 0, "got: " & d
+    d = SpillRefusalText("zzq-no-such-reason", "")
+    Report "datalog.15: a reason nobody words is refused as a bug, never a silent blank name", _
+           InStr(1, d, "zzq-no-such-reason", vbBinaryCompare) > 0 And InStr(1, d, "bug", vbTextCompare) > 0, "got: " & d
+End Sub
+
+' DATALOG.15, host-required: a real dynamic-array spill read as a table.
+' Each spill is an array constant entered with Formula2 (late-bound, so
+' this module still compiles on an Excel without dynamic arrays), named
+' through the workbook's Names with the spill reference itself, and read
+' by the three engines' real worksheet functions from VBA - the Range a
+' formula like =DATALOG(..., Schedule) hands them is the same object.
+' Pinned unchanged beside it: a part of a spill, and a plain named range,
+' both still read with their first row as a fact.
+Private Sub TestSpillHostTable()
+    Dim prior As Worksheet
+    Set prior = ActiveSheet
+    Dim nmList As Variant, nmItem As Variant
+    nmList = Array("VlaSpillSched", "VlaSpillSched2", "VlaSpillEmpty", "VlaSpillNums", "VlaSpillDup", "VlaSpillPart", "VlaSpillPlain")
+    On Error Resume Next
+    For Each nmItem In nmList
+        ActiveWorkbook.Names(CStr(nmItem)).Delete
+    Next nmItem
+    On Error GoTo 0
+
+    VlaEnsureSheet "VlaSpillHostSheet"
+    Dim ws As Worksheet
+    Set ws = ActiveWorkbook.Worksheets("VlaSpillHostSheet")
+    ws.Activate
+    Do While ws.ListObjects.Count > 0
+        ws.ListObjects(1).Delete
+    Loop
+    ws.Cells.Clear
+
+    Dim q As String
+    q = Chr$(34)
+    Dim cellSched As Object, cellEmpty As Object, cellNums As Object, cellDup As Object
+    Set cellSched = ws.Range("A1")
+    Set cellEmpty = ws.Range("D1")
+    Set cellNums = ws.Range("G1")
+    Set cellDup = ws.Range("J1")
+    ' Formula2 raises 438 on an Excel without dynamic arrays; the Nothing
+    ' check below then reports it rather than the run dying here.
+    On Error Resume Next
+    cellSched.Formula2 = "={" & q & "Name" & q & "," & q & "Shift" & q & ";" & q & "Ann" & q & "," & q & "Mon" & q & ";" & _
+                         q & "Bob" & q & "," & q & "Tue" & q & ";" & q & "Ann" & q & "," & q & "Wed" & q & "}"
+    cellEmpty.Formula2 = "={" & q & "Name" & q & "," & q & "Shift" & q & "}"
+    cellNums.Formula2 = "={1,2;3,4}"
+    cellDup.Formula2 = "={" & q & "Name" & q & "," & q & "name" & q & ";" & q & "a" & q & "," & q & "b" & q & "}"
+    On Error GoTo 0
+    ws.Range("P1:Q1").Value = Array("Name", "Shift")
+    ws.Range("P2:Q2").Value = Array("Cy", "Thu")
+    ws.Range("P3:Q3").Value = Array("Di", "Fri")
+    ws.Calculate
+
+    Dim spillSched As Object, spillEmpty As Object, spillNums As Object, spillDup As Object
+    On Error Resume Next
+    Set spillSched = cellSched.SpillingToRange
+    Set spillEmpty = cellEmpty.SpillingToRange
+    Set spillNums = cellNums.SpillingToRange
+    Set spillDup = cellDup.SpillingToRange
+    On Error GoTo 0
+    ' Is Nothing tested alone, never joined to .Address by And: VBA's And
+    ' evaluates both sides, and .Address on Nothing raises 91.
+    Dim spilled As Boolean
+    spilled = Not (spillSched Is Nothing Or spillEmpty Is Nothing Or spillNums Is Nothing Or spillDup Is Nothing)
+    Report "datalog.15 host: the four fixture formulas spill (an Excel with dynamic arrays)", spilled, "a SpillingToRange was Nothing"
+    If Not spilled Then GoTo cleanup
+    Report "datalog.15 host: the fixture spills where expected (A1:B4, D1:E1, G1:H2, J1:K2)", _
+           spillSched.Address = "$A$1:$B$4" And spillEmpty.Address = "$D$1:$E$1" And spillNums.Address = "$G$1:$H$2" And spillDup.Address = "$J$1:$K$2", _
+           "got " & spillSched.Address & " " & spillEmpty.Address & " " & spillNums.Address & " " & spillDup.Address
+
+    Dim anchor As Object
+    Set anchor = VLA_Relation.SpillAnchorOf(spillSched)
+    Dim anchorAddr As String
+    If Not anchor Is Nothing Then anchorAddr = anchor.Address
+    Report "datalog.15 host: a spill's whole extent is recognised, with A1 as its anchor", anchorAddr = "$A$1", "got '" & anchorAddr & "'"
+    Report "datalog.15 host: a part of a spill is not a spill", VLA_Relation.SpillAnchorOf(ws.Range("A1:B2")) Is Nothing, ""
+    Report "datalog.15 host: plain cells are not a spill", VLA_Relation.SpillAnchorOf(ws.Range("P1:Q3")) Is Nothing, ""
+
+    Dim result As Variant
+    result = VLA_Datalog.DATALOG("(rule (who P) (vlaspillsched (name P))) (query who)", spillSched)
+    Report "datalog.15 host: an unnamed spill is refused, told the RefersTo to type", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, ResultDescribe(result), "'VlaSpillHostSheet'!$A$1#", vbTextCompare) > 0, _
+           "got: " & ResultDescribe(result)
+
+    Dim addErr As String
+    On Error Resume Next
+    Err.Clear
+    ws.Parent.Names.Add Name:="VlaSpillSched", RefersTo:="='VlaSpillHostSheet'!$A$1#"
+    ws.Parent.Names.Add Name:="VlaSpillEmpty", RefersTo:="='VlaSpillHostSheet'!$D$1#"
+    ws.Parent.Names.Add Name:="VlaSpillNums", RefersTo:="='VlaSpillHostSheet'!$G$1#"
+    ws.Parent.Names.Add Name:="VlaSpillDup", RefersTo:="='VlaSpillHostSheet'!$J$1#"
+    ws.Parent.Names.Add Name:="VlaSpillPart", RefersTo:="='VlaSpillHostSheet'!$A$1:$B$2"
+    ws.Parent.Names.Add Name:="VlaSpillPlain", RefersTo:="='VlaSpillHostSheet'!$P$1:$Q$3"
+    addErr = Err.Description
+    On Error GoTo 0
+    Report "datalog.15 host: Name Manager accepts a name referring to a spill", addErr = "", "got: " & addErr
+
+    result = VLA_Datalog.DATALOG("(headless) (query vlaspillsched)", spillSched)
+    Report "datalog.15 host: a named spill's first row is its headers, not a fact (3 rows, not 4)", _
+           ResultRowCount(result) = 3, "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG("(rule (who P) (vlaspillsched (name P))) (query who)", spillSched)
+    Report "datalog.15 host: a keyed atom reads the spill's header by name (Ann, Bob)", _
+           ResultRowCount(result) = 3 And ResultCellIs(result, 1, 1, "P"), "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG("(rule (who P) (vlaspillempty (name P))) (query who)", spillEmpty)
+    Report "datalog.15 host: a spill of its header row alone is a defined relation with no rows", _
+           ResultRowCount(result) = 1 And ResultCellIs(result, 1, 1, "P"), "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG("(headless) (query vlaspillnums)", spillNums)
+    Report "datalog.15 host: a spill whose first row is numbers is refused, naming G1", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, ResultDescribe(result), "cell G1 holds a number", vbTextCompare) > 0, _
+           "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG("(headless) (query vlaspilldup)", spillDup)
+    Report "datalog.15 host: a spill with two headers alike is refused, naming J1 and K1", _
+           ResultTextStartsWith(result, "#DATALOG!") And InStr(1, ResultDescribe(result), "cells J1 and K1", vbTextCompare) > 0, _
+           "got: " & ResultDescribe(result)
+
+    result = VLA_Sql.SQL("SELECT Name FROM vlaspillsched WHERE Shift = 'Tue'", spillSched)
+    Report "datalog.15 host: SQL reads the same spill, by its header names (Bob)", _
+           ResultRowCount(result) = 2 And ResultCellIs(result, 1, 1, "Name") And ResultCellIs(result, 2, 1, "Bob"), _
+           "got: " & ResultDescribe(result)
+    result = VLA_Prolog.PROLOG("(query (vlaspillsched (name P)))", spillSched)
+    Report "datalog.15 host: PROLOG reads the same spill, keyed by header (3 rows under the header)", _
+           ResultRowCount(result) = 4, "got: " & ResultDescribe(result)
+
+    result = VLA_Datalog.DATALOG("(headless) (query vlaspillpart)", ws.Range("A1:B2"))
+    Report "datalog.15 host: UNCHANGED - a named part of a spill reads its first row as a fact (2 rows)", _
+           ResultRowCount(result) = 2, "got: " & ResultDescribe(result)
+    result = VLA_Datalog.DATALOG("(headless) (query vlaspillplain)", ws.Range("P1:Q3"))
+    Report "datalog.15 host: UNCHANGED - a plain named range reads its first row as a fact (3 rows)", _
+           ResultRowCount(result) = 3, "got: " & ResultDescribe(result)
+
+    On Error Resume Next
+    Err.Clear
+    ws.Parent.Names.Add Name:="VlaSpillSched2", RefersTo:="='VlaSpillHostSheet'!$A$1#"
+    addErr = Err.Description
+    On Error GoTo 0
+    result = VLA_Datalog.DATALOG("(headless) (query vlaspillsched)", spillSched)
+    Report "datalog.15 host: a spill with two different names is refused, naming both", _
+           addErr = "" And ResultTextStartsWith(result, "#DATALOG!") And InStr(1, ResultDescribe(result), "vlaspillsched, vlaspillsched2", vbTextCompare) > 0, _
+           "add: '" & addErr & "' got: " & ResultDescribe(result)
+
+    ws.Range("S1").Value = "x"
+    Dim notSpilling As Variant
+    notSpilling = ws.Evaluate("S1#")
+    result = VLA_Datalog.DATALOG("(headless) (query p)", notSpilling)
+    Report "datalog.15 host: a # reference to a cell that is not spilling is refused as an error value", _
+           IsError(notSpilling) And ResultTextStartsWith(result, "#DATALOG!") And InStr(1, ResultDescribe(result), "is an error value", vbTextCompare) > 0, _
+           "Evaluate gave " & TypeName(notSpilling) & "; got: " & ResultDescribe(result)
+
+cleanup:
+    On Error Resume Next
+    For Each nmItem In nmList
+        ActiveWorkbook.Names(CStr(nmItem)).Delete
+    Next nmItem
     On Error GoTo 0
     Application.DisplayAlerts = False
     ws.Delete

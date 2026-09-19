@@ -1089,7 +1089,7 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
      from a baseline cannot discover an external-effect member nobody
      ever added to it; the list in question 5 is human judgement,
      re-derived once, not something the pin can find for itself. Fixture
-     recipe for the live tests: `tools/sec8_motw_fixture.md`, the same shape
+     recipe for the live tests: `archive/sec8_motw_fixture.md`, the same shape
      as `SEC.13`'s own. The pin
      did, however, find a tenth site on its first run
      (`VLA_IDE::EnglishIdeExportSkeleton`'s `Close`), which is exempted
@@ -1776,7 +1776,7 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   `.docm` does not belong in a public repo, and a generator script would
   need *Trust access to the VBA project object model* switched on, which
   is weakening a security setting to run a security test. Recipe:
-  `tools/sec13_word_fixture.md`. `~hours`
+  `archive/sec13_word_fixture.md`. `~hours`
 
 - 🛡️ **SEC.14 — no step budget or cancel in the interpreter; unbounded
   reader recursion.** **CONFIRMED:** the interpreter's loop primitives
@@ -18421,7 +18421,7 @@ now carries one summary paragraph per engine and points here.*
     stops the ladder instead of being timed. It stops after a size past
     10 s, before a projection past 60 s, and at a refusal or a VBA error.
     The expected answers were re-derived separately, in PowerShell, from the
-    fixture definitions. The steps are `tools/datalog12_live_steps.md`:
+    fixture definitions. The steps are `archive/datalog12_live_steps.md`:
     eight programs on sheets `D12T1`–`D12T8`, Tables ending `12x1`–`12x8`,
     with the chain last.
 
@@ -18876,6 +18876,178 @@ now carries one summary paragraph per engine and points here.*
     what remains is more nearly this item's own cost than it was.
     *Pays into:* `G-PROLOG`'s own `directly or not` (slice 3's sentence),
     `G-DECISIONS`, and the recalc item below. `~days`
+  - ✅ **DATALOG.15 — a spilled range's first row counts as its headers, so
+    a question can read another formula's answer as a table.** Minted
+    2026-09-19, the owner's call, as the substrate change `OPTIMIZE`'s
+    standing decision 1 approved ("one search, many views"): a `DATALOG`
+    sentence must be able to say "Schedule lists the person as Name" of an
+    `OPTIMIZE` cell's spill before `OPTIMIZE.1` breaks ground. **BUILT,
+    TESTED LIVE (all 14 steps) and committed 2026-09-19.** Every fork below was
+    settled by the assistant while the owner slept, as recommended, and each
+    is marked PROVISIONAL, owner to confirm.
+    **The code, read first** (line numbers as of this build):
+      - `VLA_Relation.bas` is the one place a table argument is read, for all
+        three engines. `TableArgResolve` (~375) names it: an Excel Table by
+        its `ListObject.Name`, a plain range by `rng.Name.Name`, or reason
+        `needs-a-name`. `SourceToArray` (~662) reads its values, stripping a
+        Table's header row and nothing else's; `RelFromRange` (~766, DATALOG's
+        set) and `RangeToRows` (~804, SQL's and PROLOG's bag) both go through
+        it. `RangeColumnNames` (~854) returns column names only for a
+        `ListObject`, and exits otherwise.
+      - `VLA_Datalog.bas` `DATALOG()` (~2885) calls `TableArgName` (~2846, the
+        wrapper that words the reasons), `RelFromRange` and `RangeColumnNames`
+        per argument, and builds `headerMap` from the last. `VLA_Sql.bas`
+        `SQL()` (~3971) calls `SqlTableName` (~3909), `SqlColumnNames` (~3929,
+        which requires names) and `RangeToRows`. `VLA_Prolog.bas` `PROLOG()`
+        (~7923) calls `TableArgName` (~7821), `RangeToRows` and
+        `RangeColumnNames`.
+      - **So SQL and PROLOG read a spill exactly as DATALOG does, for free.**
+        All three reach the same three substrate functions, and nothing
+        engine-side needed to change beyond the wrappers' wording. That is
+        pinned: host pins run SQL and PROLOG over the same spill.
+      - **A hole found while scoping.** None of the three wrappers had a
+        `Case Else`. A new reason from `TableArgResolve` would have fallen
+        through each one's `Select Case` and handed back an EMPTY predicate
+        name, silently. Each wrapper now ends in `Case Else`, which calls
+        `VLA_Relation.RaiseTableArgRefusal`, so a reason no wrapper words
+        itself is still refused by name.
+    **The scoping questions, answered:**
+      1. *Which predicate name does a spill argument get?* `=DATALOG("...",
+         N2#)` passes a Range with no `ListObject` and, usually, no Name.
+         **Chosen: a defined Name whose `Refers to` is the spill reference**
+         (Name Manager: `Schedule` = `=Sheet1!$N$2#`). It is found by
+         scanning the workbook's Names for that text
+         (`SpillRefersToMatches`, which accepts `=Sheet1!$N$2#`,
+         `='Q1 Plan'!N2#` and the file format's `=_xlfn.ANCHORARRAY(...)`),
+         then `rng.Name` as a plain range gets it, and failing both it is
+         refused by name. The refusal gives the exact text to type,
+         `='Sheet1'!$N$2#`. It is the same rule a plain range already lives
+         by (it needs a Name), and the only one of the three that follows
+         the spill as it grows. **What `rng.Name` does for a spill is not
+         known**, since this session cannot run Excel: it may name the range
+         or raise 1004. The code does not depend on the answer, because it
+         reads `rng.Name` only under `On Error Resume Next`, after the scan;
+         live step 14 records the answer. *PROVISIONAL, owner to confirm.*
+         The alternatives: derive a name (from the anchor's address, or from
+         the query the anchor's formula answers), which is magic a reader
+         cannot see in the formula; or refuse spills outright, which undoes
+         decision 1.
+      2. *How is a spill recognised?* **Exactly one anchor's whole
+         `SpillingToRange`** (`SpillAnchorOf`): the argument's top-left cell's
+         `SpillParent` is that cell, and that anchor's spill has the
+         argument's own address. A UDF cannot see how its argument was
+         written, so this goes by what the range IS. A part of a spill, a
+         range overlapping one, and every range on an Excel without dynamic
+         arrays (`SpillParent` raises 438 there) are not spills, and behave
+         as today. One edge is named rather than solved: a static defined
+         name that covers a spill's current extent exactly is read as the
+         spill. Its first row was a header row either way. *PROVISIONAL.*
+      3. *Empty, an error, a single cell.* There is no empty spill (an empty
+         array is `#CALC!`, not a spill). A spill of **its header row alone**
+         is a defined relation with zero rows, like a Table with no data
+         rows (the same one-blank-row trick `SourceToArray` already uses), so
+         the undefined-predicate refusal never fires on it. A spill that is
+         **an error** never arrives as a Range: `N2#` over a cell that is not
+         spilling gives `#REF!`, so the argument is an error value. That now
+         has its own reason and refusal, `relation-table-is-an-error`, in
+         place of `*-table-not-a-range`'s "not a computed value", which
+         misled for exactly this case. *PROVISIONAL.* The alternative is to
+         keep today's wording. The change reaches any error-valued argument,
+         not only one from a spill; no existing pin passes one. A
+         **single-cell** answer does not spill at all, so `#` over it is the
+         error case. A one-ROW spill is header-only, above.
+      4. *What may the header row hold?* **Strict: every header non-blank
+         text, and no two alike after `Fold`** (`SpillHeaderCheck`). A number,
+         TRUE/FALSE, an error or a blank in the first row is refused, naming
+         the cell, and so are duplicates, naming both cells. This is the
+         guard on decision 1's one real cost: a spill whose first row is DATA
+         (`SEQUENCE`, a `FILTER` over a Table's body) would otherwise lose
+         that row silently as "headers". It cannot catch a first data row that
+         happens to be text; that case is named here, not solved. Error
+         values are checked with `IsError` and `VarType`, never `CStr`, which
+         raises 13 on one. *PROVISIONAL.* The alternatives: accept numbers as
+         headers (year columns such as 2024), or check nothing.
+      5. *Two names on one spill* are refused, naming both
+         (`relation-spill-two-names`), since which one the rules mean cannot
+         be told from a Range. A workbook name and a sheet name spelled alike
+         are one name, and pass. *PROVISIONAL.* The alternative is the first
+         name in Excel's Names order.
+    **Refusals** (`VLA_Messages.bas`, the `fail:`/`Err.Description`
+    convention, ids shared as `relation-*` because a spill's fault is the
+    same whichever engine reads it, and the cell's `#DATALOG!`/`#SQL!`/
+    `#PROLOG!` prefix still names the engine): `relation-table-is-an-error`,
+    `relation-spill-needs-a-name` (`{refers}`), `relation-spill-two-names`
+    (`{names}`), `relation-spill-header-blank` (`{cell}`),
+    `relation-spill-header-not-text` (`{cell}`),
+    `relation-spill-header-duplicate` (`{cells}`), and
+    `relation-table-reason-unknown` (`{reason}`, the `Case Else` guard: "a
+    Frazaro bug, please report it"). *PROVISIONAL, the shared ids:* the
+    alternative is three engine-specific ids per reason, 21 in all.
+    `check_raise_ratchet` and `check_runtime_raise_dispatch` stay green: no
+    raw `Err.Raise` was added, and nothing in `VLA_Runtime.bas` changed.
+    **Unchanged, and pinned so:** an Excel Table (every path above runs only
+    after its `ListObject` branch), a plain named range, and a named part of
+    a spill, whose first row is still a fact.
+    **Proof:** `TestSpillHeaders`, **33 pure pins**: the header check (blank,
+    spaces, a number, TRUE, an error value, duplicates after folding, one
+    column), the RefersTo match in every spelling and its refusals (another
+    sheet, another anchor, no sheet, a static range), the RefersTo text and
+    its round trip, the error-value reason against a plain value, each
+    engine refusing an error value by name, and the words of every refusal.
+    `TestSpillHostTable`, **18 host pins**, on real spills entered with
+    `Formula2` and named through the workbook's Names: recognition (whole,
+    part, plain cells), the unnamed refusal with its RefersTo text, header
+    rows read as headers (3 rows, not 4), a keyed atom by header, a
+    header-only spill, the number and duplicate refusals naming their cells,
+    SQL and PROLOG over the same spill, two names refused, the error value
+    from a real `#` reference, and the two UNCHANGED cases. So **TestDSLs
+    +51**, and `VlaSelfTest`, `VlaSelfTestHost` and `VerifyReports` are
+    unmoved: nothing they reach changed. Versions: `VLA_RELATION_VERSION`,
+    `VLA_DATALOG_VERSION`, `VLA_MESSAGES_VERSION` and
+    `VLA_TESTS_QUERY_VERSION` → `DATALOG.15`. `VLA_Sql.bas` and
+    `VLA_Prolog.bas` changed only in their wrappers and keep their
+    constants, as `DATALOG.13` left `VLA_Relation.bas`'s. All 22
+    `tools/check_*.ps1` green. The owner's live steps are
+    `archive/datalog15_live_steps.md`: 14 steps, each on its own fresh sheet,
+    with step 3 the headline (one `DATALOG` answer read by a second, by its
+    column names).
+    **Predicted, before the live pass:** every new pin passes; Name Manager
+    accepts `=Sheet!$A$1#`; a cell holding `=DATALOG(..., A1#)` over a cell
+    that is not spilling shows the new error-value refusal, because Excel
+    hands a UDF the `#REF!` rather than skipping the call (step 12 says which,
+    and if a bare `#REF!` shows, the claim in point 3 about the cell is
+    withdrawn).
+    **LIVE, steps 1-3, 2026-09-19, the owner at the keyboard** (`VLA.xlsm`):
+    compiled clean (`VlaDiagnostics` does not list `VLA_Relation`,
+    `VLA_Datalog` or `VLA_Messages`, so step 1's version check is moot);
+    `TestDSLs` **1443/0**, exactly 1,392 + 51 as predicted; pure 1201/1201,
+    host 152/152, `VerifyReports` 242/242 on both backends, all unmoved.
+    Step 3, the headline, held: a `DATALOG` answer spilled at D1 (`Name`
+    `Shift` over three rows), named `SchedD15` = `D1#`, was read by a second
+    `DATALOG` question by its column names, answering `P` / `Bob` / `Cy`.
+    **Steps 4-10 and 12-14, the same day, all as expected:** the name
+    followed the spill as it grew (4); the unnamed refusal named
+    `='Sheet3'!$A$1#` (5); SQL (`Name` / `Bob`) and PROLOG (`P` / `Ann` /
+    `Bob` / `Ann`) read a spill (6, 7); `SEQUENCE`'s first row and a
+    duplicate header were refused naming their cells (8, 9); a header-only
+    spill answered `P` alone (10); **the error-value refusal reached the
+    cell, so Excel does hand a UDF the `#REF!`** and point 3's claim stands
+    (12); a plain named range still reads its first row as a fact (13).
+    **Step 14 settles the open question:** a Name Manager name's `RefersTo`
+    reads back `=Sheet12!$A$1#`, the plain spelling, and
+    `SpillingToRange.Name.Name` **raises 1004**. So a spill is named ONLY
+    through the `RefersTo` scan, never the `rng.Name` fallback, and every
+    named step above went through the scan.
+    **Step 11 matched on a re-run.** The first attempt answered the data row
+    because only one name had been created (a missed step, the owner's own
+    finding); rebuilt from scratch with both names, D1 refused, naming
+    `(firstd15, secondd15)`. **All 14 live steps match.** One limitation,
+    reasoned rather than observed: adding a second name to a spill does not
+    recalculate a formula that uses only the first, so that formula keeps its
+    answer until the workbook next recalculates.
+    *Pays into:* `OPTIMIZE.1` (the answer read as a table, decision 1's "view
+    many"), and every `DATALOG`, `SQL` or `PROLOG` question over a
+    `FILTER`/`SORT`/`VSTACK` spill, which today needs a Table copy. `~hours`
   - ⬜ **Avoiding a full re-parse/re-fixpoint on every recalc — profiled first,
     not yet built.** `DATALOG()` re-parses `rulesText` and reruns
     `RunStratifiedFixpoint` from scratch every time Excel calls it. Worth
@@ -19307,7 +19479,8 @@ now carries one summary paragraph per engine and points here.*
       5. *The §17 corpus:* its own item, sequenced after `OPTIMIZE.0` and
          before `OPTIMIZE.1`, id the owner's to mint. This item gives it the
          toy's 7,290 valid worlds (10 × 3⁶, confirmed by exhaustive search)
-         and the measured numbers beside `optimize-roster`.
+         and the measured numbers beside `optimize-roster`. Minted
+         2026-09-19 as `OPTIMIZE.0.1`, below.
     **BUILT 2026-09-19, not yet measured.** The paper model's predictions
     were written first, and the tools were built after them. No `src/`
     module was created: `VLA_Optimize.bas` does not exist.
@@ -19324,7 +19497,7 @@ now carries one summary paragraph per engine and points here.*
         harness's closed forms on every rung.
       - `tools/VLA_ProbeO0.bas`: the host probe, ten steps.
       - `tools/optimize0_lp.ps1`: the clingo exporter.
-      - `tools/optimize0_live_steps.md`: the owner's steps.
+      - `archive/optimize0_live_steps.md`: the owner's steps.
     Two fixtures are **provably unsatisfiable by hand**, the first answer key
     for "no schedule exists": 5 people (one senior for seven nights) and 10
     people with the loose needs (63 slots a week against a capacity of 50).
@@ -19494,6 +19667,147 @@ now carries one summary paragraph per engine and points here.*
     "in a row" becomes a precomputed pair relation — the grammar is the
     guardrail), `DATALOG.14` (the index and the join order are shared).
     `~days`
+  - ✅ **OPTIMIZE.0.1 — the `OPTIMIZE` corpus: twenty manager-sized
+    questions with their answers worked out before the engine exists.**
+    Minted 2026-09-19, the owner's call (`OPTIMIZE.0`'s fork 5), sequenced
+    after `OPTIMIZE.0` and before `OPTIMIZE.1`. **BUILT 2026-09-19, checked
+    by clingo, and committed.** The forks below were settled by the assistant while the
+    owner slept, as recommended, each marked PROVISIONAL, owner to confirm.
+    **Why:** Contemplation 8 found the one-entry corpus to be "the actual
+    gap": `pareto_logic.txt` held 49 entries and one was `OPTIMIZE`-shaped,
+    so `SD-7` had no sentence to schedule `G-OPTIMIZE` against, and
+    `OPTIMIZE.1`, which chooses the spellings of `choose`, `forbid`,
+    `minimize`, `keep`, `status` and `budget`, had nothing to judge them
+    by. Its prescription, followed: "fifteen or twenty table-sized,
+    hand-solvable entries with expected answers written before the engine
+    exists".
+    **What was built:**
+      - *`pareto_logic.txt` §17, grown from 1 entry to 20* across
+        Contemplation 8's five segments:
+        - **Compliance, 5** (the wedge): `optimize-sod-close` (preparer and
+          reviewer per task), `optimize-sod-check` (no choice: which rows
+          break a rule), `optimize-sod-short`, `optimize-audit-independence`
+          (corpus family 9 plus a choice), `optimize-duty-rotation`.
+        - **Rosters, 6**: `optimize-roster` (kept, extended), `optimize-toy`,
+          `optimize-roster-senior`, `optimize-roster-loose`,
+          `optimize-roster-apart` ("Brianna can't work with Tyler", the
+          parking lot), `optimize-roster-kept` (`OPTIMIZE.7`'s case).
+        - **Seating, 3**: `optimize-seat-dinner`, `optimize-seat-wedding`
+          (weights, and "is this the best?"), `optimize-seat-overflow`.
+        - **Configuration and quoting, 3**: `optimize-config-laptop` (corpus
+          family 7 plus a choice), `optimize-quote-bike` (a maximum under a
+          binding price cap), `optimize-quote-conflict`.
+        - **Timetabling, 3**: `optimize-exam-slots`, `optimize-class-timetable`,
+          `optimize-exam-rooms`.
+      - *Every entry carries* the manager's question, a fixture of a handful
+        of rows written inline, its rules in plain English, and an ANSWER
+        KEY: satisfiable or not, how many valid worlds there are out of how
+        many candidates, the optimum in the objective's order, and how many
+        worlds reach it (the ties `OPTIMIZE`'s Table-order tie-break must
+        reduce to one). Each "no world" carries a `why` line, the sentence
+        `OPTIMIZE.2` should say. 13 are satisfiable and 7 have no world:
+        four by counting alone (`sod-short` 8 roles against 6, `roster-loose`
+        63 slots against 50, `seat-overflow` 7 guests against 6 seats,
+        `exam-rooms` 5 exams against 4), one by counting and by a local
+        reason (`roster-senior`), and two by a conflict between named rules
+        (`sod-check`, `quote-conflict`).
+      - *No spelling is fixed.* Every rule is an English sentence tagged with
+        the roadmap's name for its kind (`[choice]`, `[constraint]`,
+        `[derived]`, `[objective]`, `[kept]`, `[budget]`, `[status]`),
+        declared once as illustrative, not a keyword, beside a neutral
+        "shapes" code per entry for coverage (`EXACT-k`, `APART`,
+        `IN-A-ROW`, `SUM-CAP`, `NONE-COUNT`...). No line is program text in
+        any proposed syntax. The owner's instruction held throughout: no
+        unintuitive or technical syntax gets locked in by the corpus.
+      - *`tools/optimize01_corpus.ps1`*, the independent re-derivation
+        (PowerShell 5.1, host-independent, no network). It walks every
+        candidate world of each entry and checks each rule on the whole
+        world, in an encoding that is deliberately neither `OPTIMIZE`'s nor
+        clingo's (people as bits, choices as integers). Only the toy prunes,
+        soundly, as it goes. It recomputes the two proofs (`roster-senior`,
+        `roster-loose`) and the reference roster's hand floor from the
+        closed-form fixture definitions. It then checks that the key line
+        printed in the corpus says exactly what it derived, and exits
+        non-zero on any disagreement. `-Control` plants a wrong key in every
+        entry and passes only if all are caught.
+      - *`tools/optimize01_lp.ps1`*, the clingo exporter, a sibling of
+        `optimize0_lp.ps1` under the same rules: it writes `.lp` files, never
+        runs clingo, and ships nothing (`SD-13` intact). One file per
+        **pending** entry (16), each headed with its run lines and the
+        expected clingo output. The four seeded entries' checks were done in
+        `OPTIMIZE.0` Part D.
+      - *Counts updated mechanically*: 68 entries, 26 P0, 29 P1, 9 P2, four
+        unprioritised; `optimize-roster` moved from the `x` marker to the new
+        `o`.
+    **Predicted, then measured.** The 19 hand keys (every entry but the
+    reference roster, whose key is clingo's) were written into the script
+    before its first run. **The first run agreed with every one: 40
+    checks, 0 mismatches**, and the control caught 17 planted wrong keys of
+    17. One adjustment followed, and it moved no key: `duty-rotation`'s
+    enumeration first walked 216 ready-made month orders, where its stated
+    choice ("every person gets exactly one duty") is 19,683 candidates. It
+    now walks the stated choice, and still finds 4. **One finding:** at 10
+    people × 1 week the hand floor on changes is 14 (7 kept assignments on
+    a leave day), below clingo's proven optimum of 24. So the floor is a
+    floor and not a prediction, and at the reference roster, 236 is only
+    where the unknown optimum cannot be below.
+    **Coverage for `OPTIMIZE.1`, counted from the entries:** `[choice]` in
+    19, written out in 16 and inherited in 3 (`quote-conflict` and the two
+    proofs), with only `sod-check` having none; `[constraint]` in all 20,
+    17 written out; `[objective]` in 10, one a maximum and one weighted;
+    `[kept]` in 2; `[status]` in 4; `[derived]` and `[budget]` in 1 each,
+    the reference roster. **The thin
+    ones are thin on purpose**: every search at these sizes finishes, so a
+    budget can never be the answer to a hand-sized key, and "best found, not
+    proven" is keyed only where clingo supplied it. `OPTIMIZE.6`'s ladder
+    fixtures are where those two get their keys.
+    **FORKS, all PROVISIONAL, owner to confirm:**
+      1. *The notation:* plain English, with bracketed kind tags and neutral
+         shape codes. The alternative is untagged prose, which is harder to
+         count coverage over.
+      2. *What a world is:* every distinct set of chosen rows, with tables,
+         shifts and people all distinguishable. Nothing is counted up to
+         symmetry, so two identical tables double the count. This is the
+         number `OPTIMIZE.10`'s "how many" would print. The alternative is
+         counting up to symmetry, which is `OPTIMIZE.8`'s concern, not a
+         key's.
+      3. *A request is an objective term, never a rule* (Brianna's
+         Saturday; Gus and Ed's wish, with weights). The alternative is a
+         separate "soft constraint" form, and that is a spelling question
+         for `OPTIMIZE.1`.
+      4. *A change from the kept schedule costs a drop and an add*: two for
+         a moved shift, `OPTIMIZE.0`'s clingo convention. The alternative is
+         one per moved assignment.
+      5. *Priorities:* compliance P0, rosters and seating P1, configuration
+         and timetabling P2; `optimize-roster` stays P2 as filed, marked `o`
+         rather than `x`.
+    **What `OPTIMIZE.1`'s scoping may now take as given:** the sentences its
+    spellings are judged against (§17's `rules` lines). Keyed entries for
+    three of the five result states: "no schedule satisfies every rule" 7,
+    "best found within the budget, not proven best" 1, proven best 10.
+    Of the other two, a refusal is malformed input, which no corpus entry
+    is. "No schedule found within the budget; there may be one" has no key,
+    since every search here finishes; clingo's own UNKNOWN on
+    `roster-loose` is the nearest, and its key is the arithmetic that
+    `OPTIMIZE.2` must reach first. Two counts, for `OPTIMIZE.10`: 7,290 and
+    4. And `DATALOG.15`, built beside this item, reads a spill with its
+    headers.
+    **clingo, run by the owner 2026-09-19 (clingo 5.8.2): every result
+    agrees with its key.** The eleven satisfiable entries counted 84, 90,
+    4, 60, 16, 2, 20, 3, 3, 24 and 12 models, with the optima 0, 0, 0, 2,
+    0, 1, 1070, -335 (the bike's maximum, negated) and the tie counts 36, 9,
+    34, 8, 8 and 4 exactly as keyed. The five with no world came back
+    UNSATISFIABLE, and `sod-check` with `-c strict=0` listed exactly its two
+    violating rows. **Every hand key now agrees three ways**: by hand, by
+    enumeration and by the oracle. The four entries keyed at one optimal
+    world (`roster-kept`, `seat-dinner`, `config-laptop`, `quote-bike`)
+    printed no `Optimal` line. The owner re-ran `seat-dinner` unfiltered:
+    after the first answer, the enumeration of optimal worlds printed that
+    same answer once more and nothing else. `Models : 2` counts the repeat,
+    so there is one optimal world, and it is the keyed one (Ann, Bob and Di
+    at the head table). So clingo omits `Optimal` when the count is one.
+    The other three are read the same way, from the same observed
+    behaviour. `~day`
   - ⬜ **OPTIMIZE.1 — the zero-choice base case: `DATALOG`'s own engine,
     unchanged, wearing the `OPTIMIZE` name.** A program with no choice, no
     constraint and no objective is exactly a `DATALOG` program — one
@@ -19523,7 +19837,9 @@ now carries one summary paragraph per engine and points here.*
     `src/**` glob (already Apache-2.0). **Substrate, `VLA_Relation.bas`,
     coordinated:** a spilled range's first row counts as its headers, so a
     `DATALOG` question can read an `OPTIMIZE` cell's answer as a data
-    table (decision 1's "view many"). **Proof:** the parity pin the owner
+    table (decision 1's "view many"). *Now its own item, `DATALOG.15`,
+    built 2026-09-19 ahead of this one: the spill is named through Name
+    Manager (`=Sheet1!$N$2#`), and SQL and PROLOG read it too.* **Proof:** the parity pin the owner
     approved 2026-09-18 — every `DATALOG` test program in
     `VLA_Tests_Query` run through `OPTIMIZE()` and required to answer
     identically, so "`DATALOG` wearing the name" is a measured claim, not

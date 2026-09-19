@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "LINTERPOLATE.0"
+Public Const VLA_MESSAGES_VERSION As String = "DATALOG.15"
+' DATALOG.15: seven new relation-* entries - a table argument that is an
+' error value, and a spilled range's missing or doubled name and its
+' header row (blank, not text, duplicated), plus a guard for a reason no
+' refusal is written for. Raised from VLA_Relation.RaiseTableArgRefusal.
 ' LINTERPOLATE.0: twelve new entries (six vla-interpolate-*/six
 ' interp-interpolate-*) for L-INTERPOLATE's new
 ' (interpolate tpl :key val ...) primitive - VLA.bas's EmitExpr and
@@ -1025,6 +1029,17 @@ Private Sub AddEntries(ByVal m As Collection)
     ' that reached SourceToArray without one. Migrated from a raw Err.Raise
     ' at 0.5.1's pre-flight (2026-09-07), where F.14's ratchet caught it.
     AddMsg m, "relation-table-noncontiguous-areas", 5, "VLA-Relation", "a table argument spanning multiple disjoint areas is not supported - select one contiguous block of the table's own columns instead."
+    ' DATALOG.15: a spilled range as a table argument (its first row is its
+    ' headers), and an argument that arrives as an error value - raised by
+    ' VLA_Relation.RaiseTableArgRefusal from every engine's own wrapper, so
+    ' one wording serves DATALOG, SQL and PROLOG alike.
+    AddMsg m, "relation-table-is-an-error", 5, "VLA-Relation", "a table argument is an error value, not a range. A reference ending in # (like N2#) gives #REF! when its cell is not spilling a table right now - check that cell shows its table, and not an error or a single value."
+    AddMsg m, "relation-spill-needs-a-name", 5, "VLA-Relation", "this spilled range has no name the rules can use for it. In Name Manager, add a name (for example Schedule) that refers to {refers}, then pass that name in the formula instead of the reference."
+    AddMsg m, "relation-spill-two-names", 5, "VLA-Relation", "this spilled range has more than one name ({names}), so it is not clear which one the rules mean - keep one of them in Name Manager."
+    AddMsg m, "relation-spill-header-blank", 5, "VLA-Relation", "a spilled range's first row is its headers, and cell {cell} is blank - every column needs a name there."
+    AddMsg m, "relation-spill-header-not-text", 5, "VLA-Relation", "a spilled range's first row is its headers, and cell {cell} holds a number, TRUE/FALSE or an error rather than a column name - that row looks like data. Spill a header row first, for example =VSTACK(HSTACK(""Name"", ""Shift""), ...)."
+    AddMsg m, "relation-spill-header-duplicate", 5, "VLA-Relation", "a spilled range's first row is its headers, and cells {cells} hold the same name - give every column its own name."
+    AddMsg m, "relation-table-reason-unknown", 5, "VLA-Relation", "a table argument was refused for a reason ('{reason}') no refusal is written for - this is a Frazaro bug, please report it."
 
     AddMsg m, "sql-table-not-a-range", 5, "VLA-Sql", "SQL's table argument must be a cell range - pass a reference like Employees, not a computed value."
     AddMsg m, "sql-table-noncontiguous-columns", 5, "VLA-Sql", "a table argument spanning multiple disjoint areas (a Ctrl-selected, non-contiguous range) isn't supported - select one contiguous block of the table's own columns instead."

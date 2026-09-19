@@ -7,7 +7,7 @@ Option Explicit
 ' wrote. Import it into any open project, run one step's program through the
 ' IDE, then type that step's line in the Immediate window. Delete the module
 ' afterwards; nothing in Frazaro calls it. The steps are in
-' tools/datalog12_live_steps.md.
+' archive/datalog12_live_steps.md.
 '
 ' WHAT THIS MEASURES. No DATALOG answer over more than a few dozen rows had
 ' been timed, and a transliteration cannot time VBA (PROLOG.28's live pass

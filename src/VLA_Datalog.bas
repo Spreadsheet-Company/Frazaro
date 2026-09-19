@@ -1,6 +1,13 @@
 Attribute VB_Name = "VLA_Datalog"
 Option Explicit
-Public Const VLA_DATALOG_VERSION As String = "DATALOG.11"
+Public Const VLA_DATALOG_VERSION As String = "DATALOG.15"
+' DATALOG.15: a spilled range's first row counts as its headers, so a
+' question can read an OPTIMIZE answer or any spill as a data table
+' ("Schedule lists the person as Name"). The change is VLA_Relation's
+' (its own DATALOG.15 note); here, TableArgName passes every reason it
+' does not word itself to VLA_Relation.RaiseTableArgRefusal. SQL and
+' PROLOG read tables through the same three substrate functions, so they
+' read a spill identically.
 ' DATALOG.11: TEXT TESTS, TEXTJOIN, AND PROLOG'S GOALS REFUSED BY NAME.
 ' Minted by G-PROLOG slice 5's scoping and built in that session, before the
 ' slice's grammar; the owner's calls throughout.
@@ -2833,9 +2840,12 @@ End Function
 ' own LAYER 0 contract), so the shared function returns a category code
 ' rather than raising - this thin wrapper is what turns that code back
 ' into DATALOG's own, already-shipped wording, unchanged.
+'
+' DATALOG.15: every other reason - an error value, and a spill's name or
+' headers - is worded once, in VLA_Relation.RaiseTableArgRefusal.
 Private Function TableArgName(ByVal v As Variant) As String
-    Dim ok As Boolean, reason As String
-    TableArgName = VLA_Relation.TableArgResolve(v, ok, reason)
+    Dim ok As Boolean, reason As String, detail As String
+    TableArgName = VLA_Relation.TableArgResolve(v, ok, reason, detail)
     If ok Then Exit Function
     Select Case reason
     Case "not-a-range"
@@ -2844,6 +2854,8 @@ Private Function TableArgName(ByVal v As Variant) As String
         VLA_Messages.RaiseMsg "datalog-table-noncontiguous-columns"
     Case "needs-a-name"
         VLA_Messages.RaiseMsg "datalog-table-needs-a-name"
+    Case Else
+        VLA_Relation.RaiseTableArgRefusal reason, detail
     End Select
 End Function
 
@@ -2854,7 +2866,9 @@ End Function
 ' DATALOG does not flatten a range on its own. Each further argument is
 ' a cell range: an Excel Table (name = its own ListObject name, header
 ' row auto-stripped) or a plain named range (name = its defined name,
-' every row a fact, no header assumed). Passing the WHOLE table is still
+' every row a fact, no header assumed), or (DATALOG.15) a spilled range
+' such as another formula's answer, whose first row is its headers and
+' whose name is a defined name referring to it (=Sheet1!$N$2#). Passing the WHOLE table is still
 ' the common case, but a NARROWER, contiguous block of the table's own
 ' columns is honored too (DATALOG.3): the predicate name stays the
 ' table's own ListObject.Name regardless, only the arity and values

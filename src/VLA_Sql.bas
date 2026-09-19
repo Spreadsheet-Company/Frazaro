@@ -3903,9 +3903,12 @@ End Function
 ' Thin wrapper over VLA_Relation.TableArgResolve, turning its message-
 ' agnostic reason code back into SQL's own wording - VLA_Datalog.
 ' TableArgName's own identical wrapper is the precedent this mirrors.
+' DATALOG.15: every other reason - an error value, and a spill's name or
+' headers - is worded once, in VLA_Relation.RaiseTableArgRefusal. A spill
+' with a checked header row passes SqlColumnNames below as a Table does.
 Private Function SqlTableName(ByVal v As Variant) As String
-    Dim ok As Boolean, reason As String
-    SqlTableName = VLA_Relation.TableArgResolve(v, ok, reason)
+    Dim ok As Boolean, reason As String, detail As String
+    SqlTableName = VLA_Relation.TableArgResolve(v, ok, reason, detail)
     If ok Then Exit Function
     Select Case reason
     Case "not-a-range"
@@ -3914,6 +3917,8 @@ Private Function SqlTableName(ByVal v As Variant) As String
         VLA_Messages.RaiseMsg "sql-table-noncontiguous-columns"
     Case "needs-a-name"
         VLA_Messages.RaiseMsg "sql-table-needs-a-name"
+    Case Else
+        VLA_Relation.RaiseTableArgRefusal reason, detail
     End Select
 End Function
 

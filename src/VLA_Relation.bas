@@ -1,6 +1,31 @@
 Attribute VB_Name = "VLA_Relation"
 Option Explicit
-Public Const VLA_RELATION_VERSION As String = "SQL.4"
+Public Const VLA_RELATION_VERSION As String = "DATALOG.15"
+' DATALOG.15: a spilled range's first row counts as its headers, so a
+' DATALOG question can read an OPTIMIZE answer (or any dynamic-array
+' spill) as a data table - OPTIMIZE's standing decision 1. SPILLS ONLY:
+' a table argument is a spill when it is EXACTLY one anchor's whole
+' SpillingToRange (SpillAnchorOf); a plain named range, a part of a
+' spill, and every Excel Table keep their behaviour unchanged. What a
+' spill gets, in the three functions every engine reads tables through
+' (so DATALOG, SQL and PROLOG all read it the same way):
+'   - TableArgResolve: its NAME comes from a defined Name whose RefersTo
+'     is the spill reference (=Sheet1!$N$2#, SpillRefersToMatches), then
+'     from rng.Name as today; with none, reason "spill-needs-a-name" and
+'     detail = the exact RefersTo text to type. Its header row is checked
+'     first (SpillHeaderCheck): every header non-blank text, no two alike
+'     after Fold - a number, a blank or an error in the first row is
+'     refused by name, since it is most likely a data row that would
+'     otherwise be eaten silently as a header.
+'   - SourceToArray: the first row is stripped; a header-only spill is a
+'     defined relation with zero rows (the Table-with-no-rows trick).
+'   - RangeColumnNames: the first row's text, folded, as a Table's is.
+' An argument that is an ERROR value (N2# when N2 is not spilling gives
+' #REF!) now says so (reason "error-value") rather than "not a range".
+' The new reasons are raised by RaiseTableArgRefusal, one shared
+' relation-* id each, from every engine's own wrapper's Case Else - which
+' also closes the silent "" name a reason no wrapper knew would give.
+'
 ' SQL.4: RelGroupBy - the shared grouping kernel BETA_ROADMAP2.md's own
 ' SQL.4 text asked for by name ("the third appearance of grouping in
 ' this codebase..., so it generalizes existing key-hashing rather than
@@ -341,12 +366,23 @@ End Function
 ' sql-table-not-a-range name the identical failure differently on
 ' purpose, matching how each engine already owns its own message
 ' catalogue entries for everything else).
-Public Function TableArgResolve(ByVal v As Variant, ByRef ok As Boolean, ByRef reason As String) As String
+'
+' DATALOG.15: detail (optional, every existing caller unchanged) carries
+' what a spill refusal needs to name - the RefersTo text to type, or the
+' header cells at fault. An ERROR value (a spill reference whose cell is
+' not spilling arrives as #REF!, not a Range) gets its own reason,
+' "error-value"; any other non-object stays "not-a-range".
+Public Function TableArgResolve(ByVal v As Variant, ByRef ok As Boolean, ByRef reason As String, Optional ByRef detail As String = "") As String
     ok = False
     reason = ""
+    detail = ""
     TableArgResolve = ""
     If Not IsObject(v) Then
-        reason = "not-a-range"
+        If IsError(v) Then
+            reason = "error-value"
+        Else
+            reason = "not-a-range"
+        End If
         Exit Function
     End If
     Dim rng As Object
@@ -369,6 +405,13 @@ Public Function TableArgResolve(ByVal v As Variant, ByRef ok As Boolean, ByRef r
         ok = True
         Exit Function
     End If
+    ' DATALOG.15: a spill is named and header-checked on its own path.
+    Dim anchor As Object
+    Set anchor = SpillAnchorOf(rng)
+    If Not anchor Is Nothing Then
+        TableArgResolve = SpillTableName(rng, anchor, ok, reason, detail)
+        Exit Function
+    End If
     Dim nm As String
     On Error Resume Next
     nm = rng.Name.Name
@@ -383,6 +426,214 @@ Public Function TableArgResolve(ByVal v As Variant, ByRef ok As Boolean, ByRef r
     TableArgResolve = VLA_Identity.Fold(nm)
     ok = True
 End Function
+
+' DATALOG.15: the anchor cell when rng is EXACTLY one spill's whole extent
+' (the range a reference like N2# stands for), else Nothing. Recognised by
+' what the range IS, since a UDF cannot see how its argument was written:
+' its top-left cell's SpillParent is that same cell, and that anchor's
+' SpillingToRange has rng's own address. A part of a spill, a range
+' merely overlapping one, and every range on an Excel without dynamic
+' arrays (SpillParent raises 438 there) answer Nothing - today's
+' behaviour, unchanged. A static defined name that happens to cover a
+' spill's current extent exactly is indistinguishable from N2# and IS
+' read as a spill; its first row was a spill's header row either way.
+Public Function SpillAnchorOf(ByVal rng As Object) As Object
+    Dim anchor As Object, extent As Object
+    On Error Resume Next
+    Set anchor = rng.Cells(1, 1).SpillParent
+    If Not anchor Is Nothing Then Set extent = anchor.SpillingToRange
+    On Error GoTo 0
+    If anchor Is Nothing Then Exit Function
+    If extent Is Nothing Then Exit Function
+    If StrComp(anchor.Address(External:=True), rng.Cells(1, 1).Address(External:=True), vbTextCompare) <> 0 Then Exit Function
+    If StrComp(extent.Address(External:=True), rng.Address(External:=True), vbTextCompare) <> 0 Then Exit Function
+    Set SpillAnchorOf = anchor
+End Function
+
+' DATALOG.15: a spill's predicate name. The header row is checked first,
+' so a refusal about headers is never masked by one about the name. Then
+' every defined Name in the spill's workbook whose RefersTo is the spill
+' reference - the robust way to name a spill, since it follows the spill
+' as it grows - and, failing those, rng.Name as a plain range gets it.
+' Two different names referring to one spill are refused: which one the
+' rules text means cannot be told from a Range.
+Private Function SpillTableName(ByVal rng As Object, ByVal anchor As Object, ByRef ok As Boolean, ByRef reason As String, ByRef detail As String) As String
+    SpillTableName = ""
+    Dim hdr As Variant
+    hdr = ValueOf(rng.Rows(1))
+    Dim badCol As Long, otherCol As Long
+    reason = SpillHeaderCheck(hdr, badCol, otherCol)
+    If Len(reason) > 0 Then
+        If otherCol > 0 Then
+            detail = rng.Cells(1, otherCol).Address(False, False) & " and " & rng.Cells(1, badCol).Address(False, False)
+        Else
+            detail = rng.Cells(1, badCol).Address(False, False)
+        End If
+        Exit Function
+    End If
+
+    Dim sheetName As String, anchorAddr As String
+    sheetName = anchor.Worksheet.Name
+    anchorAddr = anchor.Address
+    Dim found As String, foundCount As Long, seen As String
+    seen = Chr$(31)
+    Dim wbNames As Object, nmObj As Object
+    Set wbNames = anchor.Worksheet.Parent.Names
+    For Each nmObj In wbNames
+        Dim refText As String, nmText As String
+        refText = ""
+        nmText = ""
+        On Error Resume Next
+        refText = nmObj.RefersTo
+        nmText = nmObj.Name
+        On Error GoTo 0
+        If Len(nmText) > 0 Then
+            If SpillRefersToMatches(refText, sheetName, anchorAddr) Then
+                Dim bang As Long
+                bang = InStr(nmText, "!")
+                If bang > 0 Then nmText = Mid$(nmText, bang + 1)
+                nmText = VLA_Identity.Fold(nmText)
+                ' A workbook name and a sheet name spelled alike are one
+                ' name to the rules text, so only DIFFERENT names count.
+                If InStr(1, seen, Chr$(31) & nmText & Chr$(31), vbBinaryCompare) = 0 Then
+                    seen = seen & nmText & Chr$(31)
+                    If foundCount = 0 Then
+                        found = nmText
+                    Else
+                        found = found & ", " & nmText
+                    End If
+                    foundCount = foundCount + 1
+                End If
+            End If
+        End If
+    Next nmObj
+    If foundCount > 1 Then
+        reason = "spill-two-names"
+        detail = found
+        Exit Function
+    End If
+    If foundCount = 0 Then
+        On Error Resume Next
+        found = rng.Name.Name
+        On Error GoTo 0
+        If Len(found) = 0 Then
+            reason = "spill-needs-a-name"
+            detail = SpillRefersToText(sheetName, anchorAddr)
+            Exit Function
+        End If
+        Dim bang2 As Long
+        bang2 = InStr(found, "!")
+        If bang2 > 0 Then found = Mid$(found, bang2 + 1)
+        found = VLA_Identity.Fold(found)
+    End If
+    SpillTableName = found
+    ok = True
+End Function
+
+' DATALOG.15, pure: whether a defined Name's RefersTo text is the spill
+' reference for the anchor at anchorAddr ("$N$2") on sheetName. Accepts
+' each spelling Excel may hand back - =Sheet1!$N$2#, ='My Sheet'!N2#, and
+' the file format's =_xlfn.ANCHORARRAY(Sheet1!$N$2) - comparing the sheet
+' as Excel does (case-insensitively) and the cell with its $ signs
+' dropped. Anything else, including a reference with no sheet, is False.
+Public Function SpillRefersToMatches(ByVal refersTo As String, ByVal sheetName As String, ByVal anchorAddr As String) As Boolean
+    Dim s As String
+    s = Trim$(refersTo)
+    If Left$(s, 1) = "=" Then s = Trim$(Mid$(s, 2))
+    If StrComp(Left$(s, 6), "_xlfn.", vbTextCompare) = 0 Then s = Mid$(s, 7)
+    If StrComp(Left$(s, 12), "ANCHORARRAY(", vbTextCompare) = 0 And Right$(s, 1) = ")" Then
+        s = Mid$(s, 13, Len(s) - 13) & "#"
+    End If
+    Dim bang As Long
+    bang = InStrRev(s, "!")
+    If bang < 2 Then Exit Function
+    Dim sheetPart As String, cellPart As String
+    sheetPart = Left$(s, bang - 1)
+    cellPart = Mid$(s, bang + 1)
+    If Len(sheetPart) >= 2 And Left$(sheetPart, 1) = "'" And Right$(sheetPart, 1) = "'" Then
+        sheetPart = Replace(Mid$(sheetPart, 2, Len(sheetPart) - 2), "''", "'")
+    End If
+    If StrComp(sheetPart, sheetName, vbTextCompare) <> 0 Then Exit Function
+    SpillRefersToMatches = (StrComp(Replace(cellPart, "$", ""), Replace(anchorAddr, "$", "") & "#", vbTextCompare) = 0)
+End Function
+
+' DATALOG.15, pure: the RefersTo text a spill refusal tells the user to
+' type into Name Manager. The sheet is always quoted (Excel accepts a
+' quoted name whether or not it needs quoting, and a name like "A1" or
+' "Q1 Plan" does), with any quote inside it doubled.
+Public Function SpillRefersToText(ByVal sheetName As String, ByVal anchorAddr As String) As String
+    SpillRefersToText = "='" & Replace(sheetName, "'", "''") & "'!" & anchorAddr & "#"
+End Function
+
+' DATALOG.15, pure: what is wrong with a spill's header row, or "". hdr is
+' the row as Value2 reads it, a (1 To 1, 1 To n) array. Every header must
+' be text with something in it, and no two may fold alike. badCol is the
+' first column at fault; otherCol the earlier column a duplicate repeats,
+' 0 otherwise. A number, TRUE/FALSE or an error is "spill-header-not-
+' text" - checked with VarType and IsError, never CStr, which raises 13 on
+' an error value.
+Public Function SpillHeaderCheck(ByVal hdr As Variant, ByRef badCol As Long, ByRef otherCol As Long) As String
+    SpillHeaderCheck = ""
+    badCol = 0
+    otherCol = 0
+    Dim cLo As Long, cHi As Long, rTop As Long
+    rTop = LBound(hdr, 1)
+    cLo = LBound(hdr, 2)
+    cHi = UBound(hdr, 2)
+    Dim c As Long, c2 As Long
+    For c = cLo To cHi
+        If IsError(hdr(rTop, c)) Then
+            SpillHeaderCheck = "spill-header-not-text"
+        ElseIf IsEmpty(hdr(rTop, c)) Then
+            SpillHeaderCheck = "spill-header-blank"
+        ElseIf VarType(hdr(rTop, c)) <> vbString Then
+            SpillHeaderCheck = "spill-header-not-text"
+        ElseIf Len(Trim$(hdr(rTop, c))) = 0 Then
+            SpillHeaderCheck = "spill-header-blank"
+        End If
+        If Len(SpillHeaderCheck) > 0 Then
+            badCol = c - cLo + 1
+            Exit Function
+        End If
+    Next c
+    For c = cLo + 1 To cHi
+        For c2 = cLo To c - 1
+            If StrComp(VLA_Identity.Fold(CStr(hdr(rTop, c))), VLA_Identity.Fold(CStr(hdr(rTop, c2))), vbBinaryCompare) = 0 Then
+                SpillHeaderCheck = "spill-header-duplicate"
+                badCol = c - cLo + 1
+                otherCol = c2 - cLo + 1
+                Exit Function
+            End If
+        Next c2
+    Next c
+End Function
+
+' DATALOG.15: the one place a table-argument reason no engine words for
+' itself becomes a refusal. VLA_Datalog/VLA_Sql/VLA_Prolog each keep their
+' own ids for the reasons they already had (not-a-range, noncontiguous,
+' needs-a-name) and send every other reason here from their Case Else, so
+' a reason added to TableArgResolve can never again fall through a wrapper
+' as a silent "" name. The ids are shared, relation-*, because what is
+' wrong with a spill is the same whichever engine reads it; the cell's own
+' #DATALOG!/#SQL!/#PROLOG! prefix still says which engine refused.
+Public Sub RaiseTableArgRefusal(ByVal reason As String, ByVal detail As String)
+    Select Case reason
+    Case "error-value"
+        VLA_Messages.RaiseMsg "relation-table-is-an-error"
+    Case "spill-needs-a-name"
+        VLA_Messages.RaiseMsg "relation-spill-needs-a-name", "refers", detail
+    Case "spill-two-names"
+        VLA_Messages.RaiseMsg "relation-spill-two-names", "names", detail
+    Case "spill-header-blank"
+        VLA_Messages.RaiseMsg "relation-spill-header-blank", "cell", detail
+    Case "spill-header-not-text"
+        VLA_Messages.RaiseMsg "relation-spill-header-not-text", "cell", detail
+    Case "spill-header-duplicate"
+        VLA_Messages.RaiseMsg "relation-spill-header-duplicate", "cells", detail
+    Case Else
+        VLA_Messages.RaiseMsg "relation-table-reason-unknown", "reason", reason
+    End Select
+End Sub
 
 ' Excel Range -> its own Value2 2D array (ListObject-aware: a Table's
 ' header row is stripped automatically, arity = ListColumns.Count even
@@ -465,7 +716,20 @@ Private Function SourceToArray(ByVal src As Variant) As Variant
             SourceToArray = ValueOf(lo.DataBodyRange)
         End If
     Else
-        SourceToArray = ValueOf(rng)
+        ' DATALOG.15: a spill's first row is its headers, stripped as a
+        ' Table's are; a spill of its header row alone reports its arity
+        ' through the one-blank-row trick above, and reads as zero rows.
+        Dim anchor As Object
+        Set anchor = SpillAnchorOf(rng)
+        If anchor Is Nothing Then
+            SourceToArray = ValueOf(rng)
+        ElseIf rng.Rows.Count < 2 Then
+            Dim emptyS() As Variant
+            ReDim emptyS(1 To 1, 1 To rng.Columns.Count)
+            SourceToArray = emptyS
+        Else
+            SourceToArray = ValueOf(rng.Offset(1, 0).Resize(rng.Rows.Count - 1))
+        End If
     End If
 End Function
 
@@ -598,7 +862,28 @@ Public Function RangeColumnNames(ByVal src As Variant, ByRef ok As Boolean) As C
     On Error Resume Next
     Set lo = rng.ListObject
     On Error GoTo 0
-    If lo Is Nothing Then Exit Function
+    If lo Is Nothing Then
+        ' DATALOG.15: a spill's first row is its headers. ok stays False
+        ' when that row would not pass TableArgResolve's own check, which
+        ' every engine runs first and refuses by name.
+        Dim anchor As Object
+        Set anchor = SpillAnchorOf(rng)
+        If anchor Is Nothing Then Exit Function
+        Dim hdr As Variant
+        hdr = ValueOf(rng.Rows(1))
+        Dim badCol As Long, otherCol As Long
+        If Len(SpillHeaderCheck(hdr, badCol, otherCol)) > 0 Then Exit Function
+        Dim sc As Long
+        For sc = 1 To UBound(hdr, 2)
+            Dim hPair As Collection
+            Set hPair = New Collection
+            hPair.Add VLA_Identity.Fold(CStr(hdr(1, sc)))
+            hPair.Add CStr(hdr(1, sc))
+            names.Add hPair
+        Next sc
+        ok = True
+        Exit Function
+    End If
     Dim tableColCount As Long
     tableColCount = lo.ListColumns.Count
     Dim passedColCount As Long

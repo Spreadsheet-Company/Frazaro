@@ -2,6 +2,53 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_ROADMAP1.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.6.2
+
+*(next: write this before running the release)*
+
+### What changed
+
+- **A question can read another formula's spilled answer as a table.**
+  If a formula spills a table with a header row (a `FILTER`, a `VSTACK`,
+  or another `DATALOG` question), give that spill a name in Name Manager,
+  with `Refers to:` set to the spill's reference, for example
+  `=Sheet1!$D$1#`. Then pass the name to `DATALOG`, `SQL` or `PROLOG`. The
+  first row is read as column names, so a rule can say "Schedule lists the
+  person as Name", and the name keeps working as the spill grows or
+  shrinks. This is what the coming `OPTIMIZE` needs: one search, read by
+  as many questions as you like. Excel Tables and ordinary named ranges
+  work exactly as before, including a named range that covers only part of
+  a spill. You are told in words, rather than getting a wrong answer, when:
+  a spill has no name (the message gives the exact `Refers to:` text to
+  type); two names point at one spill; or the first row looks like data (a
+  number, a blank, TRUE/FALSE or an error), or has two columns with the
+  same name. The last guards against a `SEQUENCE` or a `FILTER` over a
+  Table's rows losing its first row as "headers". A reference such as
+  `D1#` to a cell that is not spilling now says that it arrived as an
+  error, not that it is "not a range". Tested live, fourteen checks each on
+  a fresh sheet: one `DATALOG` answer read by a second question by its
+  column names, the name following a spill as it grew, `SQL` and `PROLOG`
+  reading the same spill, every refusal above appearing in the cell with
+  its cell named, and a plain named range reading exactly as before. The
+  new tests all pass, and every existing suite gave the same counts as
+  before.
+
+- **The test questions for the coming `OPTIMIZE` function, answered before
+  it exists.** Twenty small, real questions the optimizer will have to
+  answer, from five kinds of work. Who prepares and who reviews each
+  month-end task, so nobody checks their own work. A weekend roster where
+  two people can't share a shift. A wedding seating plan with wishes of
+  different weights. The best-margin bike quote under a price cap. Fitting
+  exams into sittings so nobody sits two back to back. Each answer was
+  worked out by hand first, then re-checked by a script that tries every
+  possible arrangement, and again by clingo, an established answer-set
+  solver run by hand outside Frazaro. All three agreed on every answer.
+  Seven of the twenty have no valid answer, and four
+  of those fail on simple arithmetic, such as more jobs than people to do
+  them; the engine will be expected to say that in one sentence, before it
+  searches. Nothing you can run changes: this is the yardstick the engine
+  will be measured against.
+
 ## 0.6.1
 
 ### What changed

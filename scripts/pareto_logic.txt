@@ -47,6 +47,7 @@ listed in each entry (the frame key below). Those spellings are decided in
 | `?` | **semantic decision required**; the note says what |
 | `#` | **over the step ceiling today** — answers only after `PROLOG.28` |
 | `x` | **not this engine's** — routed or refused, never faked |
+| `o` | **`OPTIMIZE`'s, unbuilt** — a hand-derived answer key, re-derived by `tools/optimize01_corpus.ps1`; §17 only |
 
 **Engines.** `P` PROLOG · `D` DATALOG · `P|D` the shared Horn fragment,
 either engine gives the same set · `Q` SQL · `O` OPTIMIZE (unbuilt).
@@ -65,7 +66,9 @@ passes; a mutation of the `length` arm turns 7 red. Steps are what
 program needs more than 120 steps it is run a second time with work
 uncapped and depth capped at 60, and both numbers are given. `D`, `Q` and
 `O` programs are not measured here; there is no DATALOG transliteration.
-**No answer below has been seen in a cell yet.**
+**No answer below has been seen in a cell yet.** `O` entries (§17) carry
+no program at all: their rules are plain English, and their keys were
+derived by hand and re-derived by enumeration, before the engine exists.
 
 ## The frame key
 
@@ -667,14 +670,271 @@ text-prefix          P1  P     TEXT · WHO
            starts with "GL-4".
 ```
 
-## 17. Search and optimisation — not a logic query
+## 17. Search and optimisation — OPTIMIZE's corpus
+
+*Not a logic query. Every entry here asks for a DECISION, which of the ways
+things could be is best, and none of the other three engines can make one.
+Grown from one entry to twenty by `OPTIMIZE.0.1` (2026-09-19), across the
+five segments of Contemplation 8 (compliance assignments, shift rosters,
+event seating, configuration and quoting, timetabling), before any of
+`VLA_Optimize.bas` exists. Every fixture is tiny, and every key was written
+by hand first and then re-derived by `tools/optimize01_corpus.ps1`, which
+walks every candidate world, checks every rule on each, and exits non-zero on
+any disagreement with the key printed here. `tools/optimize01_lp.ps1` exports
+each entry for clingo, the dev-only oracle the owner runs by hand.*
+
+**How an OPTIMIZE entry is written.** There is no program to show yet, so:
 
 ```
-optimize-roster   x  P2  O     —
+  id                          marker priority engine   shapes
+    asks     the question, as a manager would put it
+    on       the fixture, inline
+    rules    one rule a line, in plain English, tagged with its kind
+    key      satisfiable or not · valid worlds of the candidates · the optimum,
+             in the objective's order, and how many worlds reach it
+    why      for "no world": the reason, in the words the answer should use
+    clingo   the oracle's check: done, or pending until the owner runs it
+    note     how the key was derived by hand
+```
+
+**The rules are English on purpose, and no line below is a spelling.** The
+bracketed kind is the roadmap's own name for the concept: `[choice]`,
+`[constraint]`, `[derived]`, `[objective]`, `[kept]`, `[budget]`, `[status]`.
+It is illustrative, not a keyword. The forms' spellings are `OPTIMIZE.1`'s to
+choose, under the long-term-first rule for parsing decisions, and the
+sentences are `G-OPTIMIZE`'s. Both are judged against these lines: a spelling
+that cannot say one of them plainly is the wrong spelling.
+
+**Shapes**, neutral names for coverage only: `ONE` / `EXACT-k` (exactly one
+or k chosen per group) · `OPTIONAL` (zero or one) · `AT-MOST` (a cap counted
+over chosen rows) · `APART` / `TOGETHER` (two named rows never / always in
+one group) · `IN-A-ROW` (a pair relation over consecutive groups) · `POOL`
+(eligibility narrows the choice) · `REQUIRES` / `EXCLUDES` · `SUM-CAP` (a
+weighted sum under a bound) · `DERIVED` (a rule over chosen rows) · `MIN` /
+`MAX` / `WEIGHTED` (the objective) · `KEEP` · `CHECK` (no choice at all) ·
+`COUNT` (how many worlds) · `NONE-COUNT` / `NONE-LOCAL` (no world, by
+counting or by a conflict between named rules).
+
+**What a key says.** A *candidate* is one way of making every choice before
+any rule applies: a pair of people for each shift, a table for each guest. A
+*valid world* is a candidate that breaks no constraint. The *optimum* is the
+best objective value among the valid worlds, in the order the objective
+states, and "N worlds reach it" is how many tie there. That is the number
+`OPTIMIZE`'s Table-order tie-break (decision 2) must reduce to one answer.
+"No world" is a first-class answer (`OPTIMIZE.2`), and each one's `why` line
+is the sentence that answer should say. Four of those are by counting,
+demand over capacity, which `OPTIMIZE.2`'s pre-checks answer by arithmetic
+before any search.
+
+### Compliance assignments — the wedge
+
+```
+optimize-sod-close          o P0  O   ONE POOL AT-MOST MIN
+  asks     Who prepares and who reviews each close task this month, so nobody
+           reviews their own work and nobody carries more than two jobs?
+  on       Staff(Name, Senior): Ann yes · Bob yes · Cy no · Di no
+           Tasks(Task): T1 bank rec · T2 accruals · T3 revenue
+  rules    [choice]     every task gets exactly one preparer and exactly one
+                        reviewer, from the staff
+           [constraint] nobody reviews a task they prepared
+           [constraint] every reviewer is senior
+           [constraint] nobody holds more than two roles in the month
+           [objective]  as few preparing roles as possible go to seniors
+  key      satisfiable · 84 valid worlds of 4,096 candidates · optimum (0), 36 worlds reach it
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): Models 84; Optimization 0, Optimal 36, agreeing with the key
+  note     Segregation of duties, cited in 63% of adverse control reports
+           (Contemplation 8). Hand: reviewers are seniors, 2^3 = 8 ways, less
+           all-Ann and all-Bob (three roles) = 6. The senior with two reviews
+           is then full; the other may prepare one task, never the one they
+           review. Preparers: 3 · 3 · 2 = 18, less the other senior preparing
+           both of the first senior's tasks (2), less Cy or Di preparing all
+           three (2) = 14 per split: 84. With no senior preparing, 2^3 - 2 = 6
+           per split: 36.
+
+optimize-sod-check          o P0  O   CHECK
+  asks     Does this month's close assignment break any rule, and which rows?
+  on       optimize-sod-close's Staff, and
+           Assigned(Task, Preparer, Reviewer): T1 Ann Bob · T2 Cy Cy · T3 Bob Ann
+  rules    optimize-sod-close's three constraints; no choice, no objective
+  key      no world · 0 valid worlds of 1 candidate
+  why      T2 breaks two rules: Cy reviews their own work, and the reviewer,
+           Cy, is not senior. (Ann, Bob and Cy hold two roles each, within the cap.)
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): UNSATISFIABLE; with -c strict=0, viol(self_review,t2) viol(not_senior,t2), agreeing with the key
+  note     The zero-choice case: OPTIMIZE.1's one world, checked by OPTIMIZE.2.
+           This is Check, Contemplation 5's second-ranked engine, and the
+           compliance pack's evidence: the answer is the violating rows, named.
+
+optimize-sod-short          o P0  O   ONE AT-MOST NONE-COUNT
+  asks     Can three of us cover four close tasks, a preparer and a separate
+           reviewer on each, with nobody taking more than two jobs?
+  on       Staff: Ann · Bob · Cy.  Tasks: T1 · T2 · T3 · T4
+  rules    [choice]     every task gets exactly one preparer and exactly one
+                        reviewer, from the staff
+           [constraint] nobody reviews a task they prepared
+           [constraint] nobody holds more than two roles
+  key      no world · 0 valid worlds of 6,561 candidates
+  why      the four tasks need 8 roles, and 3 people may hold at most 2 each (6)
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): UNSATISFIABLE, agreeing with the key
+  note     No world by counting, at the smallest size there is: one
+           multiplication, before any search.
+
+optimize-audit-independence o P0  O   EXACT-2 POOL AT-MOST MIN
+  asks     Staff each audit with two people, keeping everyone independent of
+           the client, and use Ed, the partner, as little as we can.
+  on       Staff: Ann · Bob · Cy · Di · Ed
+           Engagements(Client): Acme · Beta · Cafe
+           Interests(Name, Client): Ann Acme · Cy Acme · Bob Beta · Di Cafe
+  rules    [choice]     every engagement gets exactly two of the staff
+           [constraint] nobody audits a client they hold an interest in
+           [constraint] nobody is on more than two engagements
+           [objective]  as few engagements as possible have Ed on them
+  key      satisfiable · 90 valid worlds of 1,000 candidates · optimum (0), 9 worlds reach it
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): Models 90; Optimization 0, Optimal 9, agreeing with the key
+  note     Corpus family 9 (conflicts of interest), plus a choice. Hand: the
+           independent pools are 3, 4 and 4 people, C(3,2) · C(4,2) · C(4,2)
+           = 108. Only Ed is eligible everywhere, and he is on all three in
+           2 · 3 · 3 = 18 of them: 90. Without Ed, Acme takes Bob and Di, Beta
+           two of Ann, Cy and Di (3 ways), Cafe two of Ann, Bob and Cy (3),
+           and no cap binds: 9.
+
+optimize-duty-rotation      o P1  O   ONE COUNT
+  asks     Rotate cash, payables and payroll among Ann, Bob and Cy this quarter
+           so nobody keeps a duty two months running or does one twice.
+  on       People: Ann · Bob · Cy.  Duties: Cash · Payables · Payroll.
+           Months: M1 · M2 · M3
+           LastMonth(Name, Duty): Ann Cash · Bob Payables · Cy Payroll
+  rules    [choice]     every month, every person gets exactly one duty
+           [constraint] every month, every duty has exactly one person
+           [constraint] nobody does last month's duty in M1
+           [constraint] nobody does the same duty twice in the quarter
+           [status]     how many rotations are there?
+  key      satisfiable · 4 valid worlds of 19,683 candidates · no objective
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): Models 4, agreeing with the key
+  note     Rotation of duties, a control in its own right. LastMonth is read
+           as a Table: nothing here prefers it, so it is not a kept schedule.
+           Hand: M1 is one of the 2 derangements of last month; M1 to M3 then
+           form a Latin square, and a 3 x 3 Latin square with its first row
+           fixed has 2 completions: 4.
+```
+
+### Shift rosters — the killer case
+
+```
+optimize-roster             o P2  O   EXACT-k POOL IN-A-ROW AT-MOST DERIVED WEIGHTED KEEP
   asks     Assign people to shifts, minimising overtime.
+           In full: roster fifty people over four weeks of three shifts a day,
+           everyone each shift needs, never two shifts in a row, at most five
+           a week, a senior on every night, nobody on leave; least overtime
+           first, then the fewest changes from last month's roster.
+  on       OPTIMIZE.0's reference fixture (tools/VLA_DiagO0.bas O0Fixture,
+           closed forms): 50 people x 4 weeks x 3 shifts, 10 a shift
+           (a tightness of 0.84)
+  rules    [choice]     every shift gets exactly the people it needs, from
+                        those not on leave that day
+           [constraint] nobody works two shifts in a row
+           [constraint] nobody works more than five shifts a week
+           [constraint] every night has a senior on it
+           [derived]    a person's overtime in a week is the shifts they work
+                        beyond their contract (4 or 5)
+           [objective]  least overtime first; then the fewest changes from Kept
+           [kept]       last month's roster, Kept
+           [budget]     stop after a stated amount of work, and say so
+           [status]     is this the best roster, or only the best found?
+  key      best found, not proven best: overtime 0, and between 236 and 1,486 changes
+  clingo   done 2026-09-19 (OPTIMIZE.0 Part D): 10 x 1 proven (0, 24) in 21.7 s;
+           20 x 1 best (0, 92), unproven at 300 s; the reference best (0, 1,486),
+           unproven at 600 s, and (35, 236) with the kept-first value order
   note     OPTIMIZE's (unbuilt). Never faked with PROLOG: generating every
            assignment is not optimising, and it blows any step budget. The
-           grammar refuses it in words until G-OPTIMIZE exists.
+           grammar refuses it in words until G-OPTIMIZE exists. The one entry
+           whose key is the oracle's rather than a hand count, being far too
+           large to enumerate. What is checked by hand is the floor: 118 kept
+           assignments fall on a leave day, each a drop and an add, so at
+           least 236 changes. At 10 x 1 the same floor is 14, and clingo's
+           proven optimum of 24 sits above it: a floor, not a prediction.
+
+optimize-toy                o P1  O   EXACT-2 IN-A-ROW COUNT
+  asks     Put two of our five people on each of seven shifts, never anyone on
+           two shifts in a row. How many ways are there?
+  on       People: P1 to P5.  Shifts: S1 to S7, in order
+           Next(From, To): S1 S2 · S2 S3 · ... · S6 S7
+  rules    [choice]     every shift gets exactly two of the people
+           [constraint] nobody works two shifts in a row
+           [status]     how many rosters are there?
+  key      satisfiable · 7,290 valid worlds of 10,000,000 candidates · no objective
+  clingo   done 2026-09-19 (OPTIMIZE.0 Part D, tools/optimize0_lp.ps1 -Toy): 7,290 models
+  note     OPTIMIZE.0's toy. Hand: the first shift is any of C(5,2) = 10
+           pairs, and each later one takes 2 of the 3 people who did not work
+           the one before (3 ways): 10 · 3^6. The number OPTIMIZE.10 must
+           print, and why the retired SOLVE.3's enumeration never finished.
+
+optimize-roster-senior      o P1  O   the reference rules · NONE-LOCAL NONE-COUNT
+  asks     Roster our five people for next week under the usual rules.
+  on       OPTIMIZE.0's fixture at 5 people x 1 week, tight (one a shift):
+           P1 to P5, senior when i mod 4 = 0 (P4 alone), on leave when
+           (i + day) mod 7 = 0, 21 shifts with every third a night
+  rules    optimize-roster's rules, unchanged
+  key      no world · proved by hand, not enumerated
+  why      the night of day 3 needs a senior, and the only senior, P4, is on
+           leave that day. And 7 nights need a senior, while P4 may work
+           at most 5 shifts a week.
+  clingo   done 2026-09-19 (OPTIMIZE.0 Part D): UNSATISFIABLE in 0.003 s
+  note     Two proofs, one local and one by counting; clingo found the local
+           one at once.
+
+optimize-roster-loose       o P1  O   the reference rules · NONE-COUNT
+  asks     Roster ten people for a week: two on earlies, three on lates, four
+           on nights.
+  on       OPTIMIZE.0's fixture at 10 people x 1 week, with the loose needs
+           (Early 2, Late 3, Night 4)
+  rules    optimize-roster's rules, unchanged
+  key      no world · proved by hand, not enumerated
+  why      the shifts need 63 people a week, and 10 people may work at most 5 each (50)
+  clingo   done 2026-09-19 (OPTIMIZE.0 Part D): UNKNOWN after 188 s and 120 s,
+           under two encodings
+  note     The case that put counting pre-checks into OPTIMIZE.2: a pigeonhole
+           proof is exponential for clause learning and one multiplication
+           by hand.
+
+optimize-roster-apart       o P1  O   EXACT-2 APART AT-MOST MIN
+  asks     Two on each weekend shift. Brianna can't work with Tyler, nobody
+           does more than two, and Brianna asked for Saturday off if we can.
+  on       People: Brianna · Tyler · Uma · Vic.  Shifts: Fri · Sat · Sun
+           Apart(A, B): Brianna Tyler.  Requests(Name, Off): Brianna Sat
+  rules    [choice]     every shift gets exactly two of the people
+           [constraint] Brianna and Tyler never work the same shift
+           [constraint] nobody works more than two shifts
+           [objective]  as few requests broken as possible (a request is not a rule)
+  key      satisfiable · 60 valid worlds of 216 candidates · optimum (0), 34 worlds reach it
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): Models 60; Optimization 0, Optimal 34, agreeing with the key
+  note     The parking lot of Contemplation 8's title: the constraint no
+           scheduling system has a cell for. Hand: each shift is one of the 5
+           pairs that are not Brianna and Tyler, 125 ways. Someone on all
+           three shifts breaks the cap: Uma in 27, Vic in 27, Brianna in 8,
+           Tyler in 8, less the 5 ways two people share all three: 65, so 60.
+           Brianna on Saturday (with Uma, or with Vic) leaves 13 ways for
+           Friday and Sunday each, so 60 - 26 = 34 keep her request.
+
+optimize-roster-kept        o P1  O   ONE POOL IN-A-ROW AT-MOST KEEP
+  asks     Bob can't do Thursdays any more. Change last week's roster as
+           little as possible.
+  on       People: Ann · Bob · Cy.  Shifts: Mon · Tue · Wed · Thu, one person each
+           Kept(Shift, Name): Mon Ann · Tue Bob · Wed Ann · Thu Bob
+           Leave(Name, Shift): Bob Thu
+  rules    [choice]     every shift gets exactly one of the people
+           [constraint] nobody works while on leave
+           [constraint] nobody works two days in a row
+           [constraint] nobody works more than two shifts
+           [kept]       last week's roster is Kept; each difference from it
+                        costs one, so a moved shift costs a drop and an add
+  key      satisfiable · 16 valid worlds of 81 candidates · optimum (2), 1 world reaches it
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): Models 16; Optimization 2, agreeing with the key
+  note     OPTIMIZE.7's own case: "keep this month's roster unless a rule now
+           breaks it". Hand: nobody on two days running is 3 · 2 · 2 · 2 = 24
+           rosters, a third of which end on Bob: 16. Nobody fits three shifts
+           in four days without two in a row, so the cap never binds.
+           Thursday must change and Ann works Wednesday, so Cy takes it: one
+           drop and one add, and any other roster moves more.
 ```
 
 **What the roster costs to ground, measured live 2026-09-19** (`OPTIMIZE.0`,
@@ -715,6 +975,170 @@ shipped):
 
 clingo proved the senior shortage at once, but could not prove the counting
 one (63 against 50) in three minutes. That answer rests on the arithmetic.
+
+### Event seating — the demonstration
+
+```
+optimize-seat-dinner        o P1  O   ONE EXACT-3 TOGETHER APART MIN
+  asks     Seat six at two tables of three. Ann hosts the head table, Bob sits
+           with her, Cy and Di are kept apart, and friends sit together where
+           they can.
+  on       Guests: Ann · Bob · Cy · Di · Ed · Fay.  Tables: Head · Second, 3 seats each
+           Together: Ann Bob.  Apart: Cy Di.  Friends: Ed Fay · Cy Ed
+  rules    [choice]     every guest gets exactly one table
+           [constraint] every table seats exactly three
+           [constraint] Ann sits at the head table
+           [constraint] Ann and Bob sit together; Cy and Di sit apart
+           [objective]  as few pairs of friends split up as possible
+  key      satisfiable · 2 valid worlds of 64 candidates · optimum (0), 1 world reaches it
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): Models 2; Optimization 0, agreeing with the key
+  note     The owner's first hook, and the challenge post's subject
+           (MARKETING.md 4.9). Hand: the head table is Ann, Bob and one more;
+           Ed or Fay there would leave Cy and Di together, so it is Cy
+           (splitting Cy from Ed) or Di (splitting nobody).
+
+optimize-seat-wedding       o P1  O   ONE EXACT-3 TOGETHER APART WEIGHTED
+  asks     Seat nine at three tables of three. Couples together, Gus at the
+           head table, Ed away from Fay and from Ann. Keep Gus with his friend
+           Ed if at all possible, then Hal with Ivy. Is that the best we can do?
+  on       Guests: Ann · Bob · Cy · Di · Ed · Fay · Gus · Hal · Ivy
+           Tables: Head · Two · Three, 3 seats each
+           Couples: Ann Bob · Cy Di.  Apart: Ed Fay · Ann Ed
+           Wishes(A, B, Weight): Gus Ed 2 · Hal Ivy 1
+  rules    [choice]     every guest gets exactly one table
+           [constraint] every table seats exactly three
+           [constraint] each couple sits together
+           [constraint] Gus sits at the head table
+           [constraint] Ed sits apart from Fay, and apart from Ann
+           [objective]  the least total weight of wishes broken
+           [status]     is this the best seating, or only the best found?
+  key      satisfiable · 20 valid worlds of 19,683 candidates · optimum (1), 8 worlds reach it
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): Models 20; Optimization 1, Optimal 8, agreeing with the key
+  note     Weights, and "proven best". Hand: each couple fills two seats of
+           its own table, with one single beside it, and the other three
+           singles share the third table. With Gus at the head table: 4 worlds
+           where it is Ann and Bob's, 2 where it is Cy and Di's, 14 where it
+           is the singles': 20. Both wishes cannot hold, since Hal and Ivy can
+           only share the singles' table, which then has no seat for Ed beside
+           Gus. So the best breaks Hal and Ivy's wish alone (weight 1), with Ed
+           beside Gus at the singles' head table: 8 worlds. The whole space
+           was searched, so the status is proven best.
+
+optimize-seat-overflow      o P1  O   ONE AT-MOST NONE-COUNT
+  asks     Seat seven guests at our two tables of three.
+  on       Guests: seven.  Tables: A · B, at most 3 seats each
+  rules    [choice]     every guest gets exactly one table
+           [constraint] no table seats more than three
+  key      no world · 0 valid worlds of 128 candidates
+  why      7 guests, and 2 tables of 3 seat at most 6
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): UNSATISFIABLE, agreeing with the key
+```
+
+### Configuration and quoting — a later payoff
+
+```
+optimize-config-laptop      o P2  O   ONE POOL SUM-CAP MIN
+  asks     Quote the cheapest laptop, dock and monitor that all fit together,
+           for 1,200 or less.
+  on       Items(Item, Kind, Price): laptop-x laptop 900 · laptop-y laptop 700
+           · dock-1 dock 150 · dock-2 dock 120 · monitor-4 monitor 300
+           · monitor-5 monitor 250
+           Fits(A, B): laptop-x dock-1 · laptop-y dock-1 · laptop-y dock-2
+           · dock-1 monitor-4 · dock-1 monitor-5 · dock-2 monitor-5
+  rules    [choice]     exactly one item of each kind
+           [constraint] the laptop fits the dock, and the dock fits the monitor
+           [constraint] the total price is at most 1,200
+           [objective]  the lowest total price
+  key      satisfiable · 3 valid worlds of 8 candidates · optimum (1,070), 1 world reaches it
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): Models 3; Optimization 1070, agreeing with the key
+  note     Corpus family 7 (compat-fits), plus a choice. Hand: five of the
+           eight combinations fit; laptop-x's two cost 1,350 and 1,300, and
+           laptop-y's three cost 1,070, 1,150 and 1,100.
+
+optimize-quote-bike         o P2  O   ONE OPTIONAL REQUIRES EXCLUDES SUM-CAP MAX
+  asks     Build the best-margin bike quote for 1,350 or less. The customer
+           wants a child seat.
+  on       Catalogue(Item, Kind, Price, Margin): alloy frame 800 200
+           · carbon frame 1500 500 · standard wheels 300 60
+           · carbon wheels 700 250 · child-seat extra 150 40
+           · lights extra 80 30 · rack extra 100 35
+  rules    [choice]     exactly one frame and one set of wheels; each extra
+                        is in the quote or not
+           [constraint] carbon wheels need the carbon frame
+           [constraint] the child seat is not rated for the carbon frame
+           [constraint] the quote includes the child seat
+           [constraint] the total price is at most 1,350
+           [objective]  the highest total margin
+  key      satisfiable · 3 valid worlds of 32 candidates · optimum (335), 1 world reaches it
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): Models 3; Optimization -335 (the maximum, negated), agreeing with the key
+  note     Hand: the seat rules out the carbon frame, which rules out carbon
+           wheels. Alloy, standard and the seat cost 1,250 (margin 300); the
+           lights bring it to 1,330 (330), the rack to 1,350 (335), and both to
+           1,430, over. A budget that binds, and a best that is not the most.
+
+optimize-quote-conflict     o P2  O   ONE OPTIONAL REQUIRES EXCLUDES NONE-LOCAL
+  asks     Same catalogue, no price limit: the customer wants the carbon frame
+           and a child seat.
+  on       optimize-quote-bike's Catalogue
+  rules    optimize-quote-bike's first three constraints, and
+           [constraint] the quote includes the carbon frame
+  key      no world · 0 valid worlds of 32 candidates
+  why      the child seat is not rated for the carbon frame, and the customer
+           wants both
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): UNSATISFIABLE, agreeing with the key
+  note     No world by a conflict between two named rules, not by counting:
+           the answer must name both, which is where EXPLAIN (the stated
+           ceiling) begins.
+```
+
+### Timetabling — later still
+
+```
+optimize-exam-slots         o P2  O   ONE APART AT-MOST MIN
+  asks     Fit four exams into three sittings so nobody has two at once, and
+           as few students as possible sit two back to back.
+  on       Exams: Stats · ML · Law · Art.  Sittings: Mon AM · Mon PM · Tue AM
+           Takes(Student, Exam): Zoe Stats · Zoe ML · Yan ML · Yan Law
+           · Xi Law · Xi Art
+           BackToBack(First, Second): Mon-AM Mon-PM
+  rules    [choice]     every exam gets exactly one sitting
+           [constraint] no student has two exams in one sitting
+           [constraint] no sitting holds more than two exams (two rooms)
+           [objective]  as few students as possible with exams back to back
+  key      satisfiable · 24 valid worlds of 81 candidates · optimum (0), 8 worlds reach it
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): Models 24; Optimization 0, Optimal 8, agreeing with the key
+  note     Hand: the clashes form a chain, Stats-ML-Law-Art, so 3 · 2 · 2 · 2
+           = 24, and no three exams are clash-free, so the room cap never
+           binds. With nobody back to back every clashing pair is Tue AM and a
+           Monday sitting: Tue AM on alternate exams (2 ways), the other two
+           on either Monday sitting (2 · 2): 8.
+
+optimize-class-timetable    o P2  O   ONE APART MIN
+  asks     Timetable maths, English and science once each for 7A and 7B over
+           three periods. Ms Ro would like period 1 free.
+  on       Classes: 7A · 7B.  Periods: 1 · 2 · 3
+           Teaches(Teacher, Subject): Ms Ro maths · Mr Li English
+           · Dr Ng science, each to both classes
+  rules    [choice]     every class's every subject gets exactly one period
+           [constraint] a class has one lesson a period
+           [constraint] a teacher teaches one class a period
+           [objective]  as few maths lessons in period 1 as possible
+  key      satisfiable · 12 valid worlds of 729 candidates · optimum (0), 4 worlds reach it
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): Models 12; Optimization 0, Optimal 4, agreeing with the key
+  note     Hand: 7A's order is any of 3! = 6, and 7B's must differ from it in
+           every period (one teacher a subject), which is 2 of the 6: 12.
+           With maths out of period 1 for 7A (4 orders), exactly one of 7B's
+           two keeps its maths out of period 1 too: 4.
+
+optimize-exam-rooms         o P2  O   ONE AT-MOST NONE-COUNT
+  asks     Fit five exams into two sittings of two rooms each.
+  on       Exams: five.  Sittings: two, 2 rooms each
+  rules    [choice]     every exam gets exactly one sitting
+           [constraint] no sitting holds more than two exams
+  key      no world · 0 valid worlds of 32 candidates
+  why      5 exams, and 2 sittings of 2 rooms hold at most 4
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): UNSATISFIABLE, agreeing with the key
+```
 
 ## 18. Scale — why none of this survives a real Table today
 
@@ -808,3 +1232,21 @@ measured**.) **8 entries need `PROLOG.28`** (`#`). Duplicates in a "who"
 answer were measured in four entries (`org-managers`, `pre-blocked`,
 `sched-clash`, `elig-lossy`), a wrong answer in one (`elig-lossy`), and two
 programs that can never terminate (`lineage-selfname`, `routes-reach`).
+
+**After `OPTIMIZE.0.1` (2026-09-19)**, counted the same way, by the id lines
+inside the fenced blocks: **68 entries**, §17 having grown from 1 to 20 —
+**26 P0, 29 P1, 9 P2**, and the same four unprioritised. The 20 in §17 are
+keyed, not measured, and carry the new `o` marker; `optimize-roster` moved
+from `x` to `o`, so the routed-away-and-never-run count is now 2 (`bom-qty`,
+`pre-order`). Of the 20: **13 satisfiable** and **7 with no world** — four
+by counting alone (`optimize-sod-short`, `optimize-roster-loose`,
+`optimize-seat-overflow`, `optimize-exam-rooms`), one by counting and by a
+local reason (`optimize-roster-senior`), and two by a conflict between named
+rules (`optimize-sod-check`, `optimize-quote-conflict`). **19 keys were
+derived by hand**: 17 re-derived by enumerating every candidate and 2 by
+recomputing their proofs from the fixture's definitions
+(`tools/optimize01_corpus.ps1`, 40 checks, 0 mismatches, its control
+catching 17 of 17 planted wrong keys). The twentieth, `optimize-roster`'s, is
+the oracle's; only its hand floor is rechecked. By segment: compliance 5,
+rosters 6, seating 3, configuration 3, timetabling 3. The measured counts
+above are unchanged.

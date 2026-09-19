@@ -4,7 +4,7 @@ Option Explicit
 ' Standalone diagnostic for OPTIMIZE.0 - NOT part of the VLA project. Import it
 ' into the dev workbook (VLA.xlsm), type one step's line in the Immediate
 ' window, and delete the module afterwards; nothing in Frazaro calls it. The
-' steps are in tools/optimize0_live_steps.md.
+' steps are in archive/optimize0_live_steps.md.
 '
 ' WHAT IT CALLS IN FRAZARO, AND WHY: nothing from VBA. It writes a
 ' =DATALOG(...) worksheet formula and times Excel's recalculation of it, because

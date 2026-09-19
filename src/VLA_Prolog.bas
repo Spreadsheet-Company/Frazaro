@@ -7816,9 +7816,11 @@ End Function
 ' TableArgResolve cannot itself call VLA_Messages (its own LAYER 0
 ' contract), so this thin wrapper turns its shared category code back
 ' into PROLOG's own wording.
+' DATALOG.15: every other reason - an error value, and a spill's name or
+' headers - is worded once, in VLA_Relation.RaiseTableArgRefusal.
 Private Function TableArgName(ByVal v As Variant) As String
-    Dim ok As Boolean, reason As String
-    TableArgName = VLA_Relation.TableArgResolve(v, ok, reason)
+    Dim ok As Boolean, reason As String, detail As String
+    TableArgName = VLA_Relation.TableArgResolve(v, ok, reason, detail)
     If ok Then Exit Function
     Select Case reason
     Case "not-a-range"
@@ -7827,6 +7829,8 @@ Private Function TableArgName(ByVal v As Variant) As String
         VLA_Messages.RaiseMsg "prolog-table-noncontiguous-columns"
     Case "needs-a-name"
         VLA_Messages.RaiseMsg "prolog-table-needs-a-name"
+    Case Else
+        VLA_Relation.RaiseTableArgRefusal reason, detail
     End Select
 End Function
 

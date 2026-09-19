@@ -4,7 +4,7 @@ Option Explicit
 ' Standalone probe for OPTIMIZE.0 - NOT part of the VLA project, and it calls
 ' nothing in it. Import it into a NEW, BLANK workbook saved as .xlsm (not the
 ' dev workbook: a hang here should cost nothing), then follow
-' tools/optimize0_live_steps.md, part C. Delete the workbook afterwards.
+' archive/optimize0_live_steps.md, part C. Delete the workbook afterwards.
 '
 ' WHAT IT ASKS. OPTIMIZE's search may run long inside a worksheet formula, and
 ' nobody knows what the host allows there. Each worksheet function below asks
