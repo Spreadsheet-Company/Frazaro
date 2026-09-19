@@ -1162,7 +1162,8 @@ optimize-network-connect    o P2  O   OPTIONAL DERIVED-RECURSIVE MIN
            [constraint] every office is reachable
            [objective]  the lowest total cost of the links that are on
   key      satisfiable · 14 valid worlds of 32 candidates · optimum (10), 1 world reaches it
-  clingo   pending, owner to run
+  clingo   done 2026-09-19 (clingo 5.8.2, the owner): Models 14; Optimization 10,
+           one optimal (HQ-North, North-South, North-West), agreeing with the key
   note     The [derived] rule reads the CHOICES and calls itself: the one
            shape OPTIMIZE.5 refuses by name in this version. The refusal is
            a loosening away from support, since the semantics are fixed now

@@ -19754,7 +19754,10 @@ now carries one summary paragraph per engine and points here.*
         without a sentence" now holds for that refusal too: 14 valid
         networks of 32, cheapest 10 (the minimum spanning tree), one world.
         The key will not move when recursion arrives, because the semantics
-        are already fixed.
+        are already fixed. clingo agreed the same evening (14 models;
+        optimum 10, one world, HQ-North + North-South + North-West), which
+        also proves the stable-model reading of a rule that recurses
+        through the choices is the one being fixed here.
     **Predicted, then measured.** The 20 hand keys (every entry but the
     reference roster, whose key is clingo's) were written into the script
     before its first run. **The first run agreed with every one: 42

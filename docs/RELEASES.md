@@ -4,8 +4,6 @@
 
 ## 0.6.2
 
-*(next: write this before running the release)*
-
 ### What changed
 
 - **A question can read another formula's spilled answer as a table.**
@@ -48,6 +46,13 @@
   them; the engine will be expected to say that in one sentence, before it
   searches. Nothing you can run changes: this is the yardstick the engine
   will be measured against.
+
+### Known open security items
+
+**Closed this release:** nothing. Neither change above is a security item:
+one reads a spilled range that Excel already showed you, and the other is
+a set of test questions. Standing advice unchanged. The full list of open
+items is in `docs/BETA_ROADMAP1.md`, in plain words in `README.md`.
 
 ## 0.6.1
 
