@@ -352,6 +352,24 @@
     or leave one renamed `VLAu_old`. It now puts back the right sheet, and
     if it cannot, it leaves that sheet as the Run left it.
 
+- **A new release check: `tools/check_ptrsafe_declares.ps1`.** Frazaro calls
+  into Windows in exactly one place — the four window calls behind the CLI's
+  resizable frame — and a declaration like that is the one kind of VBA whose
+  correctness depends on which Office compiles it. Written for 32-bit
+  Office, it stops 64-bit Office from compiling the module at all, and
+  64-bit is most installations today; written for 64-bit Office, it is
+  refused by Office 2007 and older; and a window handle typed as a 32-bit
+  number compiles on both, then quietly loses half its value on 64-bit. No
+  compile and no test catches all three, because any one machine compiles
+  only the branch written for it. This check reads the text instead: for
+  nine Office versions it works out which of them compiles each
+  declaration, and fails the release if any of them would refuse it or read
+  it wrongly. It also holds that nothing Frazaro generates — no phrasebook
+  template, no compiled module — writes such a declaration itself.
+  Mutation-tested in both directions: twenty planted faults, each caught by
+  the rule it was planted against, and three correct declarations that stay
+  clean.
+
 ### Known open security items
 
 **Closed this release:** none — 0.6.0 is a feature release. Four changes

@@ -5373,7 +5373,80 @@ written against.
   `~hours`
 - ⬜ **EN.7 — the environment matrix.** Versions × locales × bitness ×
   **backend**. `~weeks`
-- ⬜ **EN.8 — 64-bit declaration discipline** (`PtrSafe`) as a lint rule. `~hours`
+- ✅ **EN.8 — 64-bit declaration discipline** (`PtrSafe`) as a lint rule.
+  **Built 2026-09-14, owner-reviewed and committed 2026-09-18** - a static
+  check, so there is no Excel pass; the evidence is the mutation run below.
+  New `tools/check_ptrsafe_declares.ps1`, in the house shape (PowerShell 5.1, no
+  Excel, exit 0/1, a WHY header, not in `VlaSelfTest`); CI and
+  `tools/release.ps1` run it by its `check_*.ps1` name. **Decided, with
+  reasons:**
+  - *What it scans: every `.bas`, `.cls`, `.frm`, `.vba` and `.vla` under
+    the repository root, tracked or not* - not only the shipped `mods`
+    array. A 64-bit compile error in a dev-only module or a `tools/`
+    diagnostic stops the dev workbook, the self-tests and `VlaBuildAddin`
+    on the owner's own 64-bit Excel. The `mods` array is read only to label
+    each site shipped, dev-only or tool. Which DLLs may be called at all
+    stays `check_no_network.ps1`'s reviewed list (SD-13); this check keeps
+    no second one.
+  - *Nesting is evaluated, not pattern-matched.* Every `#If`, `#ElseIf`,
+    `#Else` and `#End If` frame is evaluated against nine modelled hosts -
+    Windows pre-VBA7, Windows 2010+ 32-bit and 64-bit, and Mac 2011 and Mac
+    2016+ once for each value of `Win32` and `Win64`, which the script does
+    not assume - giving the hosts that compile each Declare line. PtrSafe is
+    required wherever a 64-bit host compiles the line; PtrSafe, `LongPtr`
+    and `LongLong` are refused wherever a pre-VBA7 host does; `LongLong` is
+    refused wherever 32-bit VBA7 does. A constant a text scan cannot see (a
+    project-level `#Const`) is refused, not guessed.
+  - *Handle and pointer widths are a reviewed baseline, not a naming rule.*
+    A rule keyed on `hwnd`, `h*` or `lp*` fails open: `ByVal window As Long`
+    passes it, and so does every handle-returning function, because a
+    return has no name. Instead every `Long`, `Integer`, `Byte` or `Boolean`
+    slot in a line 64-bit Office compiles must be listed in
+    `$reviewedWidths` with the API's own type as the reason. Eleven entries
+    today, all frmCLI's VBA7 branch: `GetWindowLong` and `SetWindowLong`'s
+    `nIndex`, `dwNewLong` and returns (whole only because frmCLI reads
+    `GWL_STYLE`; the entries say a `GWLP_` pointer index would need
+    `GetWindowLongPtrA`), and `SetWindowPos`'s `x`, `y`, `cx`, `cy`,
+    `wFlags` and BOOL return.
+  - *A Declare outside any conditional fails* (`[SPLIT]`), with or without
+    PtrSafe: 64-bit Office needs PtrSafe and pre-VBA7 Office refuses it, so
+    no one line is right on both. The same rule catches the subtler
+    `#If Win64 ... #Else` shape, whose `#Else` 64-bit Mac Office compiles
+    too.
+  - *The branch nobody compiles gets two rules:* `[PARITY]` (two Declares
+    of one name agree, except a `Long` that became `LongPtr` or `LongLong`)
+    and `[COVERAGE]` (every name is declared for every host, unless
+    `$partialHosts` lists it - empty today). This is SUBSTRATE.md's "any
+    new one arrives without the dual branch", made mechanical.
+  - *Generated text:* `[GENERATED]` fails a Declare spelled in a VBA string
+    literal, in any `.vla` (the phrasebooks, the prelude, a translated
+    program) or in generated `.vba`. Confirmed before building: neither the
+    emitter nor any phrasebook writes one; the only non-comment "declare"
+    in the code is a word in `VLA_SentenceEngine`'s reserved-word list.
+  **Measured:** clean on the tree (51 files today; frmCLI's 8 Declare
+  lines, 4 names, 11 reviewed slots), in under a second. **Mutation-tested
+  in both directions, on scratch copies, never the real `src/`:** 20
+  planted violations each exit 1 on the intended rule at the intended site,
+  and exit 0 again once restored - PtrSafe removed; PtrSafe or `LongPtr`
+  put into the `#Else`; `hwnd` narrowed to `Long`; a bare Declare;
+  `#If VBA7` rewritten as `#If Win64`; `LongLong` in the VBA7 branch; an
+  untyped parameter; a parameter renamed in one branch only; a branch's
+  Declare deleted, or doubled; `#End If` deleted; an unknown constant in
+  the `#If`; `Lib` dropped; a missing PtrSafe hidden behind a line
+  continuation; and a Declare in a string literal, in `prelude.vla`, in the
+  `.vba` golden, in a `tools/` diagnostic and in a new untracked module
+  outside `src/`. Three negative controls stay clean: a comment that
+  mentions a Declare, a correct new two-branch pointer-only Declare, and a
+  correct `#If Win64` / `#ElseIf VBA7` / `#Else` triple. **Not
+  user-visible**, but carried under 0.6.0 in RELEASES.md all the same, at
+  the owner's call, as a release-check bullet - the shape SEC.13's check and
+  the hash twin's check already set. **Not covered, and named in the
+  script's header:** whether a reviewed 32-bit slot really is one, pointer
+  members inside a user type, a Declare assembled from string pieces, and a
+  `raw` rule in a phrasebook a user loads. *Against SUBSTRATE.md's proposed
+  rescope* (a one-assertion ratchet): what landed is wider - every VBA
+  file, and generated text - and stricter, with the width and unread-branch
+  rules, at about the same cost. `~hours`
 - ⬜ **EN.9 — `Workbook.Path` as a cloud URL breaks every `Dir$`-based file
   check.** Found live, `EDITION-MANIFEST`'s own external-override check: a
   workbook stored under a OneDrive-redirected folder ("Known Folder Move," a

@@ -272,7 +272,7 @@ download without asking.
 
 - ⬜ **EN.7 — the environment matrix.** Versions × locales × bitness × **backend**. `~weeks`
 
-- ⬜ **EN.8 — 64-bit declaration discipline** (`PtrSafe`) as a lint rule. `~hours`
+- ✅ **EN.8 — 64-bit declaration discipline** (`PtrSafe`) as a lint rule. **Built 2026-09-14, owner-reviewed and committed 2026-09-18** (a static check, so no Excel pass). New `tools/check_ptrsafe_declares.ps1` scans every `.bas`, `.cls`, `.frm`, `.vba` and `.vla` in the tree and evaluates each Declare's `#If` nesting against nine modelled Office hosts. It fails a Declare that 64-bit Office compiles without PtrSafe, one that pre-VBA7 Office compiles with PtrSafe, `LongPtr` or `LongLong`, and one outside any conditional. It also fails a slot of 32 bits or fewer in the 64-bit branch that its reviewed list does not name (eleven today, all frmCLI's), two branches of one name out of step, a name some host has no Declare for, and a Declare in generated text (a VBA string literal, `.vla`, `.vba`). Clean on the tree (frmCLI's 8 lines) and mutation-tested both ways: 20 planted violations each fail on the intended rule and pass once restored, and 3 negative controls stay clean. Not user-visible, but RELEASES.md carries it under 0.6.0 as a release check. *(more: BETA_ROADMAP1.md)* `~hours`
 
 - ⬜ **EN.9 — `Workbook.Path` as a cloud URL breaks every `Dir$`-based file check.** A OneDrive Known-Folder-Move workbook reports `https://d.docs.live.net/...` from `.Path`; `Dir$` either crashed on it (fixed, `SafeFileExists`) or now silently reports "not found" for every candidate built from it. Found live during EDITION-MANIFEST's override check. The fix is scoped in the full entry. *(more: BETA_ROADMAP1.md)*
 
