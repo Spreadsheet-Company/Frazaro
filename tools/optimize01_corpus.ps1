@@ -402,6 +402,36 @@ $entries.Add(@{
     Sat = $false; Worlds = 0; Opt = $null; OptCount = 0
 })
 
+# Network design - the sentence recursion through choices needs (SD-7).
+# Offices HQ 0, North 1, South 2, West 3; candidate links, each on or off:
+# 0 HQ-North 3, 1 HQ-South 4, 2 North-South 2, 3 North-West 5, 4 South-West 6.
+$linkEnds = @(@(0, 1), @(0, 2), @(1, 2), @(1, 3), @(2, 3))
+$linkCost = @(3, 4, 2, 5, 6)
+$entries.Add(@{
+    Id = 'optimize-network-connect'
+    Domains = (New-O1Domains 5 @(0, 1))
+    Prune = $null
+    Valid = { param([int[]]$v)
+        # Reachability from HQ over the chosen links, the recursion itself:
+        # grown to a fixpoint rather than assumed.
+        $seen = New-Object bool[] 4
+        $seen[0] = $true
+        $grew = $true
+        while ($grew) {
+            $grew = $false
+            for ($i = 0; $i -lt 5; $i++) {
+                if ($v[$i] -ne 1) { continue }
+                $a = $linkEnds[$i][0]; $b = $linkEnds[$i][1]
+                if ($seen[$a] -and -not $seen[$b]) { $seen[$b] = $true; $grew = $true }
+                if ($seen[$b] -and -not $seen[$a]) { $seen[$a] = $true; $grew = $true }
+            }
+        }
+        for ($o = 0; $o -lt 4; $o++) { if (-not $seen[$o]) { return $false } }
+        $true }
+    Cost = { param([int[]]$v) $c = 0; for ($i = 0; $i -lt 5; $i++) { if ($v[$i] -eq 1) { $c += $linkCost[$i] } }; $c }
+    Sat = $true; Worlds = 14; Opt = @(10); OptCount = 1
+})
+
 # Segment 5 - timetabling
 # optimize-exam-slots. Stats 0, ML 1, Law 2, Art 3; slots Mon AM 0, Mon PM 1,
 # Tue AM 2. Zoe sits Stats+ML, Yan ML+Law, Xi Law+Art.

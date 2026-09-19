@@ -1137,7 +1137,7 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   presented correctly in Frazaro's own modal. Cause: the interpreter
   reaches `vlasendmail` through `TryRuntimeHelper`'s generic
   `Application.Run` mechanism, and `IN.12`'s own comment there already
-  records — with a standalone repro, `tools/VLA_Diag2.bas` scenario 1 —
+  records — with a standalone repro, `archive/VLA_Diag2.bas` scenario 1 —
   that **`Application.Run` does not propagate a target macro's `Err.Raise`
   to the caller's handler at all**. The guard was placed on the wrong side
   of a boundary this codebase had already mapped. Both of the generic
@@ -4966,7 +4966,7 @@ not answer *why does this need to write code into my file*.
   `On Error Resume Next` — and `Application.Run` does **not** propagate a
   target macro's own `Err.Raise` back to the caller's `On Error Resume
   Next` at all, confirmed with a standalone, zero-dependency repro
-  ([`tools/VLA_Diag2.bas`](../tools/VLA_Diag2.bas)) whose *simplest*
+  ([`archive/VLA_Diag2.bas`](../archive/VLA_Diag2.bas)) whose *simplest*
   scenario — one `Sub`, one raise, one level of `Resume Next` — already
   breaks straight through to an unhandled VBA error. Every `VLA_Runtime`
   raise ever routed through this path has had this bug; `VlaCheckSheetName`
@@ -5098,7 +5098,7 @@ written against.
 
   **CONFIRMED live 2026-09-08, and already reproduced standalone.**
   `Application.Run` does not propagate a target macro's `Err.Raise` to the
-  caller's handler; `tools/VLA_Diag2.bas` scenario 1 proves it with zero
+  caller's handler; `archive/VLA_Diag2.bas` scenario 1 proves it with zero
   project state on the stack, and `VLA_Interpreter.bas` ~2246 records the
   live catch. So a refusal raised inside a `VLA_Runtime` helper reaches the
   user as **"Run-time error '5'" with a Debug button** instead of a Frazaro
@@ -17437,7 +17437,7 @@ now carries one summary paragraph per engine and points here.*
             0.004s and 0.000s; RETURNING from the procedure that built it
             raises "Out of stack space", because dropping the head drops the
             tail, one frame per cell. **Measured, not guessed** (a standalone
-            repro, `tools/VLA_Diag3.bas`, no Frazaro in the way): 5,000 drops
+            repro, `archive/VLA_Diag3.bas`, no Frazaro in the way): 5,000 drops
             cleanly, 8,000 does not, in a near-empty stack. **So the budget
             the owner had declined is back, at 1,000** — eight times under
             the break, five under the last clean size, with room for the
@@ -17481,7 +17481,7 @@ now carries one summary paragraph per engine and points here.*
     up-front bound at `- 1`; F the nine walkers loop on the last position;
     G the refusals and their slots; H every list builder held to the list
     budget). **Six mutants, each turning exactly its own rule red.** New
-    **`tools/VLA_Diag3.bas`**, the standalone repro that measured the
+    **`archive/VLA_Diag3.bas`**, the standalone repro that measured the
     Collection cost, the release threshold and the cost of a whole work
     budget — no dependency on Frazaro, to be deleted or kept beside
     `VLA_Diag.bas` at the owner's preference.
@@ -18410,7 +18410,7 @@ now carries one summary paragraph per engine and points here.*
         the grammar wrote. A harness then grows those Tables in place.
       - *Closure:* a wide org (ten reports each) runs the full ladder, and
         one chain runs its own ladder of 100 / 250 / 500 / 1,000 links.
-    **The harness.** `tools/VLA_Diag12.bas` is standalone. It calls nothing
+    **The harness.** `archive/VLA_Diag12.bas` is standalone. It calls nothing
     in Frazaro; it writes cells and times `Application.Calculate` under
     manual calculation, restored after. The owner runs one Immediate-window
     line per step, `D12Ladder <step>`. At each size it rewrites the Tables
@@ -18452,7 +18452,7 @@ now carries one summary paragraph per engine and points here.*
     **The owner's calls on that (2026-09-18), all as recommended:** the
     ladder is cut to 100 / 300 / 1,000 / 3,000 and the guard to 15s, so no
     step stalls Excel again; a standalone cost repro runs BEFORE the
-    remaining shapes (`tools/VLA_Diag12b.bas`, `VLA_Diag3.bas`'s precedent —
+    remaining shapes (`archive/VLA_Diag12b.bas`, `VLA_Diag3.bas`'s precedent —
     it times a late-bound `Scripting.Dictionary` creation, a `Collection`, a
     dictionary in use and a key build against the measured 2.5 ms, with no
     engine in the way); the follow-up item is minted once that repro names
@@ -18466,7 +18466,7 @@ now carries one summary paragraph per engine and points here.*
     stop creating one per row.
 
     **MEASURED — live pass 2, 2026-09-18: THE SUSPECT WAS WRONG, and that is
-    the finding.** `tools/VLA_Diag12b.bas`, 10,000 repetitions each, against
+    the finding.** `archive/VLA_Diag12b.bas`, 10,000 repetitions each, against
     the 2.55 ms a scanned row measured in pass 1:
 
     | what | each | share of one row |
@@ -18756,7 +18756,7 @@ now carries one summary paragraph per engine and points here.*
     `tools/check_vladict_guard.ps1`, a new ratchet that holds `TypeName`
     out of the seven procedures and their guards in place (red on HEAD's
     pre-fix source, and on a mutant dropping only `Is Nothing`);
-    `VLA_RUNTIME_VERSION` → `DATALOG13.0`. *Harness:* `tools/VLA_Diag13.bas`
+    `VLA_RUNTIME_VERSION` → `DATALOG13.0`. *Harness:* `archive/VLA_Diag13.bas`
     (`D13Wrappers` times the real wrappers, before and after the reload)
     and an optional extra rung on `D12Ladder` (`D12Ladder 1, , 10000`).
     **Predicted before measuring:** a row from about 1.4 ms to about 0.5
@@ -19490,7 +19490,7 @@ now carries one summary paragraph per engine and points here.*
     **BUILT 2026-09-19, not yet measured.** The paper model's predictions
     were written first, and the tools were built after them. No `src/`
     module was created: `VLA_Optimize.bas` does not exist.
-      - `tools/VLA_DiagO0.bas`: `O0Ladder 1`–`12`, twelve shapes, each on a
+      - `archive/VLA_DiagO0.bas`: `O0Ladder 1`–`12`, twelve shapes, each on a
         fresh sheet, every row checked against the fixture's definition.
         Beside each measurement it prints the model (time = a·F + b·J) and
         the measured/model ratio. Two guards stop a rung before it runs: a
@@ -19501,7 +19501,7 @@ now carries one summary paragraph per engine and points here.*
       - `tools/optimize0_expected.ps1`: the independent twin. It enumerates
         every rung's rows from the definitions, and they agree with the
         harness's closed forms on every rung.
-      - `tools/VLA_ProbeO0.bas`: the host probe, ten steps.
+      - `archive/VLA_ProbeO0.bas`: the host probe, ten steps.
       - `tools/optimize0_lp.ps1`: the clingo exporter.
       - `archive/optimize0_live_steps.md`: the owner's steps.
     Two fixtures are **provably unsatisfiable by hand**, the first answer key
@@ -19673,7 +19673,7 @@ now carries one summary paragraph per engine and points here.*
     "in a row" becomes a precomputed pair relation — the grammar is the
     guardrail), `DATALOG.14` (the index and the join order are shared).
     `~days`
-  - ✅ **OPTIMIZE.0.1 — the `OPTIMIZE` corpus: twenty manager-sized
+  - ✅ **OPTIMIZE.0.1 — the `OPTIMIZE` corpus: twenty-one manager-sized
     questions with their answers worked out before the engine exists.**
     Minted 2026-09-19, the owner's call (`OPTIMIZE.0`'s fork 5), sequenced
     after `OPTIMIZE.0` and before `OPTIMIZE.1`. **BUILT 2026-09-19, checked
@@ -19739,17 +19739,27 @@ now carries one summary paragraph per engine and points here.*
       - *`tools/optimize01_lp.ps1`*, the clingo exporter, a sibling of
         `optimize0_lp.ps1` under the same rules: it writes `.lp` files, never
         runs clingo, and ships nothing (`SD-13` intact). One file per
-        **pending** entry (16), each headed with its run lines and the
+        **pending** entry (16, and 17 once the network entry joined), each headed with its run lines and the
         expected clingo output. The four seeded entries' checks were done in
         `OPTIMIZE.0` Part D.
-      - *Counts updated mechanically*: 68 entries, 26 P0, 30 P1, 8 P2, four
+      - *Counts updated mechanically*: 69 entries, 26 P0, 30 P1, 9 P2, four
         unprioritised; `optimize-roster` moved from the `x` marker to the new
         `o`, and to P1 (fork 5).
-    **Predicted, then measured.** The 19 hand keys (every entry but the
+      - *A twenty-first entry, the same evening* (the owner's call, once
+        `OPTIMIZE.5`'s recursion fork was settled): **a sixth segment,
+        network design, with `optimize-network-connect`** - which links to
+        switch on so every office reaches every other, at least cost. Its
+        `[derived]` rule recurses through the CHOICES, the one shape
+        `OPTIMIZE.5` refuses in this version, so `SD-7`'s "no grammar
+        without a sentence" now holds for that refusal too: 14 valid
+        networks of 32, cheapest 10 (the minimum spanning tree), one world.
+        The key will not move when recursion arrives, because the semantics
+        are already fixed.
+    **Predicted, then measured.** The 20 hand keys (every entry but the
     reference roster, whose key is clingo's) were written into the script
-    before its first run. **The first run agreed with every one: 40
-    checks, 0 mismatches**, and the control caught 17 planted wrong keys of
-    17. One adjustment followed, and it moved no key: `duty-rotation`'s
+    before its first run. **The first run agreed with every one: 42
+    checks, 0 mismatches**, and the control caught 18 planted wrong keys of
+    18 (40, 17 and 17 before the network entry joined them). One adjustment followed, and it moved no key: `duty-rotation`'s
     enumeration first walked 216 ready-made month orders, where its stated
     choice ("every person gets exactly one duty") is 19,683 candidates. It
     now walks the stated choice, and still finds 4. **One finding:** at 10
@@ -19758,10 +19768,11 @@ now carries one summary paragraph per engine and points here.*
     floor and not a prediction, and at the reference roster, 236 is only
     where the unknown optimum cannot be below.
     **Coverage for `OPTIMIZE.1`, counted from the entries:** `[choice]` in
-    19, written out in 16 and inherited in 3 (`quote-conflict` and the two
-    proofs), with only `sod-check` having none; `[constraint]` in all 20,
-    17 written out; `[objective]` in 10, one a maximum and one weighted;
-    `[kept]` in 2; `[status]` in 4; `[derived]` and `[budget]` in 1 each,
+    20, written out in 17 and inherited in 3 (`quote-conflict` and the two
+    proofs), with only `sod-check` having none; `[constraint]` in all 21,
+    18 written out; `[objective]` in 11, one a maximum and one weighted;
+    `[kept]` in 2; `[status]` in 4; `[derived]` in 2 (the reference roster,
+    and the network entry's recursive one); `[budget]` in 1,
     the reference roster. **The thin
     ones are thin on purpose**: every search at these sizes finishes, so a
     budget can never be the answer to a hand-sized key, and "best found, not
@@ -19802,7 +19813,7 @@ now carries one summary paragraph per engine and points here.*
     **What `OPTIMIZE.1`'s scoping may now take as given:** the sentences its
     spellings are judged against (§17's `rules` lines). Keyed entries for
     three of the five result states: "no schedule satisfies every rule" 7,
-    "best found within the budget, not proven best" 1, proven best 10.
+    "best found within the budget, not proven best" 1, proven best 11.
     Of the other two, a refusal is malformed input, which no corpus entry
     is. "No schedule found within the budget; there may be one" has no key,
     since every search here finishes; clingo's own UNKNOWN on
@@ -19839,14 +19850,77 @@ now carries one summary paragraph per engine and points here.*
     (`choose`, `forbid`, `minimize`, `keep`, `status` are the placeholders;
     the reader is `VlaReadForms`, so the choice is spellings, not syntax),
     parsed and refused by name here even though none is executed yet, so
-    `OPTIMIZE.2` and `.3` add machinery and not grammar; the five RESULT
+    `OPTIMIZE.2` and `.3` add machinery and not grammar.
+    **THE SPELLINGS, settled 2026-09-19, the owner's calls, and subject only
+    to this item's own scoping run finding a sentence in §17 that one of
+    them cannot say plainly.** The test each had to pass: a word an auditor
+    would use in a sentence, that a solver person would recognise.
+      - *Choice:* **`choose-exactly`, `choose-at-least`, `choose-at-most`,
+        `choose-between`**, one symbol per meaning, so an error message and
+        a reader can name the whole thing, and so nothing resembles Excel's
+        own `CHOOSE` in the formula bar. A bare `(choose ...)` is refused by
+        name, listing the four. `text-starts-with` is the house precedent.
+        *Open to scoping:* whether an unbounded choice needs a fifth form or
+        is written `choose-at-least 0`.
+      - *Hard rules:* **`require`** (positive) and **`forbid`** (negative).
+        Both polarities run all through §17 ("every reviewer is senior",
+        "nobody reviews their own work"), and forcing either through the
+        other writes the double negatives this family exists to avoid. The
+        owner's call, 2026-09-19: `forbid` earns its word by doing two
+        words' work.
+      - *Soft preferences:* **`prefer`** and **`avoid`**, with an optional
+        **`(cost N)`**, default 1 - the user-facing spelling of
+        `OPTIMIZE.0.1`'s fork 3 (a request is an objective term, as ASP's
+        weak constraints, MiniZinc's soft constraints and OptaPlanner's
+        soft scores).
+      - *Objective:* **`minimize`/`maximize`**, with `minimise`/`maximise`
+        as aliases (the `OPTIMISE` courtesy). **Written order is priority**,
+        which puts decision 2's stated order on the page.
+      - *The kept schedule:* **`(fewest-changes-from LastMonth)`**, not
+        `keep`, which in this codebase's own vocabulary reads as "filter to
+        these rows" and sounds hard where this is soft. It says what it
+        does; "baseline" is the industry word and says nothing.
+      - *No `lock` form* (the owner's call, 2026-09-19). "These shifts are
+        locked" is `require` over a Table of locked rows: the same work, no
+        speed difference (a single-row constraint already narrows the choice
+        at grounding, `OPTIMIZE.0.A`), and a second word for one shape of
+        `require` would overlap where `require`/`forbid` merely differ in
+        polarity. The manager's phrasing belongs to `G-OPTIMIZE`'s
+        sentences, not to a second form.
+      - *The budget:* **`(effort quick|normal|thorough)`**, or a number for
+        experts. "Effort" says work, never time, so determinism (decision 2)
+        stays honest, where `(budget 50000)` left "50,000 what?" on the
+        page. Each level maps to a fixed work count, set once `OPTIMIZE.3`
+        and `OPTIMIZE.6` have measured.
+      - *Status:* a companion function, **`OPTIMIZE_STATUS(rules,
+        tables...)`**, not a `(status)` form: status is a question about the
+        answer, not a rule, and the same arguments hit the same memo. An
+        underscore, not Excel's own dot (`FORECAST.ETS.STAT`): a VBA
+        procedure name cannot contain one.
+      - *Derived rules:* **`rule`, unchanged from `DATALOG`** (the owner's
+        call, 2026-09-19). A rule whose body reads chosen rows means what it
+        says - "overtime is the shifts worked beyond the contract" - and
+        making users write `recursive-rule` would put an implementation
+        detail into their programs and freeze a dead word into their
+        workbooks (`SD-4`). See `OPTIMIZE.5` for what is refused meanwhile.
+      - *The "no schedule" answer:* **the header row, with nothing under
+        it**, exactly as a `DATALOG` query with no rows answers today, so
+        every question reading the spill sees zero rows and nothing breaks.
+        A single word in the cell ("None") would not spill at all, so a
+        reader's `N2#` becomes `#REF!` (measured live, `DATALOG.15` step
+        12); a word in a ROW would become data - a person named None,
+        counted by `COUNTIFS`. The words live in `OPTIMIZE_STATUS`. A
+        refusal (malformed input) stays `#OPTIMIZE!` text, where breaking
+        the readers is right.
+    **What else this item settles:** the five RESULT
     STATES, reserved now so no later item invents one — a refusal
     (`#OPTIMIZE!`, malformed input, the `fail:`/`Err.Description`
     convention the other three use), "no schedule satisfies every rule"
     (proven, `OPTIMIZE.2`), "no schedule found within the budget; there
     may be one" (`OPTIMIZE.3`), "best found within the budget, not proven
     best" (`OPTIMIZE.6`), and proven best — the last three readable through
-    a `(status)` form served from the memo, so asking costs nothing; the
+    `OPTIMIZE_STATUS` (above) served from the memo, so asking costs nothing;
+    the
     memo itself (decision 1: a session store keyed on SEC.11's hash of the
     rules and every input Table's values, capped, so an unchanged input
     never re-solves); the `OPTIMISE` alias; and the module's chores — the
@@ -20007,7 +20081,21 @@ now carries one summary paragraph per engine and points here.*
     (reachability over chosen edges) needs unfounded-set checking to keep
     a world from supporting itself, and no roster, seating chart or
     allocation needs it; refused by name at parse, at the ceiling with
-    unstratified negation until asked for. `~weeks`
+    unstratified negation until asked for.
+    **The surface word stays `rule`, and recursion arrives beneath it
+    later** (the owner's call, 2026-09-19). What is cut is narrow:
+    recursion over the DATA (who reports to Alice, directly or not) is
+    settled before any search, since grounding is `DATALOG`'s; only
+    recursion through the CHOICES is refused, which is routing and
+    network-design shaped and which nothing in §17 asks for. **The
+    semantics are fixed now, not later:** the stable-model reading clingo
+    already gives such programs, so building support is a loosening that
+    changes no answer any program has today, and no `recursive-rule` word
+    is frozen into a workbook (`SD-4`). The known algorithm is the
+    unfounded-set check (clasp's source pointers). *Before it is built it
+    wants a sentence, `SD-7`:* a §17 entry that needs it - choosing links
+    so every office is connected - with a hand key and a clingo check.
+    `~weeks`
   - ⬜ **OPTIMIZE.6 — the objective: the best world, branch-and-bound, and
     "best found" against "proven best".** `(minimize term)` (and its
     negation for maximize) over a weighted sum of chosen and derived atoms

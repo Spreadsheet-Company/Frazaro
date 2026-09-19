@@ -256,6 +256,24 @@ class(c7a;c7b). subject(maths;english;science). period(1..3).
 #show at/3.
 '@ })
 
+$programs.Add(@{ Id = 'optimize-network-connect'; Worlds = 14; Opt = '10'; Optimal = 1; Text = @'
+office(hq;north;south;west).
+link(hq,north,3). link(hq,south,4). link(north,south,2). link(north,west,5). link(south,west,6).
+% each link is switched on, or not
+{ on(A,B) : link(A,B,_) }.
+joined(A,B) :- on(A,B).
+joined(B,A) :- on(A,B).
+% an office is reachable if it is HQ, or a link that is on joins it to one
+% that is reachable - the recursion through the choices itself
+reach(hq).
+reach(B) :- reach(A), joined(A,B).
+% every office is reachable
+:- office(O), not reach(O).
+% the lowest total cost of the links that are on
+#minimize { C,A,B : on(A,B), link(A,B,C) }.
+#show on/2.
+'@ })
+
 $programs.Add(@{ Id = 'optimize-exam-rooms'; Worlds = 0; Opt = $null; Optimal = 0; Text = @'
 exam(1..5). sitting(1..2).
 1 { in(E,S) : sitting(S) } 1 :- exam(E).

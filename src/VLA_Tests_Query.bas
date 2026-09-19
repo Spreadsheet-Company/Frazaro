@@ -7615,7 +7615,7 @@ Private Sub TestPrologBudgets()
     ' cons cells and VBA releases such a chain recursively, so what a query
     ' may GATHER is bounded even though what it may READ is not: 1,000 is
     ' eight times under the length that raised "Out of stack space" live
-    ' (tools/VLA_Diag3.bas, 2026-09-11).
+    ' (archive/VLA_Diag3.bas, 2026-09-11).
     result = VLA_Prolog.PROLOG("(rule (n N) (findall X (between 1 1000 X) B) (length B N)) (query (n N))")
     Report "prolog.28: a bag of exactly 1,000 is gathered and measured - the largest that fits", _
            ResultCellIs(result, 2, 1, "1000"), "got: " & ResultDescribe(result)

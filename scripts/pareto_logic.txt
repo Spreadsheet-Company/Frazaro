@@ -826,7 +826,7 @@ optimize-roster             o P1  O   EXACT-k POOL IN-A-ROW AT-MOST DERIVED WEIG
            everyone each shift needs, never two shifts in a row, at most five
            a week, a senior on every night, nobody on leave; least overtime
            first, then the fewest changes from last month's roster.
-  on       OPTIMIZE.0's reference fixture (tools/VLA_DiagO0.bas O0Fixture,
+  on       OPTIMIZE.0's reference fixture (archive/VLA_DiagO0.bas O0Fixture,
            closed forms): 50 people x 4 weeks x 3 shifts, 10 a shift
            (a tightness of 0.84)
   rules    [choice]     every shift gets exactly the people it needs, from
@@ -940,7 +940,7 @@ optimize-roster-kept        o P1  O   ONE POOL IN-A-ROW AT-MOST KEEP
 **What the roster costs to ground, measured live 2026-09-19** (`OPTIMIZE.0`,
 Excel 16.0 64-bit, one machine). OPTIMIZE does not exist yet, so each
 constraint the roster needs was written as a `DATALOG` rule whose rows ARE
-its ground instances. The fixtures are closed forms (`tools/VLA_DiagO0.bas`,
+its ground instances. The fixtures are closed forms (`archive/VLA_DiagO0.bas`,
 `O0Fixture`), and every answer was checked row by row and re-derived by
 enumeration (`tools/optimize0_expected.ps1`). The reference roster: 50 people,
 4 weeks, 3 shifts a day, 10 per shift (a tightness of 0.84).
@@ -1140,6 +1140,43 @@ optimize-exam-rooms         o P2  O   ONE AT-MOST NONE-COUNT
   clingo   done 2026-09-19 (clingo 5.8.2, the owner): UNSATISFIABLE, agreeing with the key
 ```
 
+### Network design — the sentence recursion needs
+
+*Added 2026-09-19, the owner's call, under `SD-7`: `OPTIMIZE.5` refuses a
+rule that recurses through the CHOICES until unfounded-set checking is
+built, and a refusal with no sentence behind it is a guess about what users
+want. This is that sentence, and the key the eventual build is measured
+against. Nothing else in this corpus needs recursion through a choice, which
+is why the cut is where it is.*
+
+```
+optimize-network-connect    o P2  O   OPTIONAL DERIVED-RECURSIVE MIN
+  asks     Which links should we switch on so every office can reach every
+           other, as cheaply as possible?
+  on       Offices: HQ · North · South · West
+           Links(From, To, Cost): HQ North 3 · HQ South 4 · North South 2
+           · North West 5 · South West 6
+  rules    [choice]     each link is switched on, or not
+           [derived]    an office is reachable if it is HQ, or a link that is
+                        on joins it to an office that is reachable
+           [constraint] every office is reachable
+           [objective]  the lowest total cost of the links that are on
+  key      satisfiable · 14 valid worlds of 32 candidates · optimum (10), 1 world reaches it
+  clingo   pending, owner to run
+  note     The [derived] rule reads the CHOICES and calls itself: the one
+           shape OPTIMIZE.5 refuses by name in this version. The refusal is
+           a loosening away from support, since the semantics are fixed now
+           (the stable-model reading clingo gives it), so this key will not
+           move when recursion arrives beneath the same word, `rule`.
+           Hand: West hangs off two links. With only North-West on, HQ,
+           North and South must be joined among their own three links, which
+           4 of their 8 subsets do; the same with only South-West on; with
+           both on, West joins North to South, and HQ needs one of its two
+           links, which 6 of the 8 subsets give: 14. The cheapest network is
+           the minimum spanning tree, North-South 2 + HQ-North 3 +
+           North-West 5 = 10, and no other spanning tree ties it.
+```
+
 ## 18. Scale — why none of this survives a real Table today
 
 ```
@@ -1234,20 +1271,23 @@ answer were measured in four entries (`org-managers`, `pre-blocked`,
 programs that can never terminate (`lineage-selfname`, `routes-reach`).
 
 **After `OPTIMIZE.0.1` (2026-09-19)**, counted the same way, by the id lines
-inside the fenced blocks: **68 entries**, §17 having grown from 1 to 20 —
-**26 P0, 30 P1, 8 P2**, and the same four unprioritised. The 20 in §17 are
+inside the fenced blocks: **69 entries**, §17 having grown from 1 to 21 —
+**26 P0, 30 P1, 9 P2**, and the same four unprioritised. (Twenty on the day;
+`optimize-network-connect` was added the same evening, once `OPTIMIZE.5`'s
+refusal was settled, so the shape it refuses would have a sentence.) The 21 in §17 are
 keyed, not measured, and carry the new `o` marker; `optimize-roster` moved
 from `x` to `o`, and from P2 to P1 beside its roster siblings (the owner's
 call, 2026-09-19: the killer case was filed P2 before `OPTIMIZE` existed), so the routed-away-and-never-run count is now 2 (`bom-qty`,
-`pre-order`). Of the 20: **13 satisfiable** and **7 with no world** — four
+`pre-order`). Of the 21: **14 satisfiable** and **7 with no world** — four
 by counting alone (`optimize-sod-short`, `optimize-roster-loose`,
 `optimize-seat-overflow`, `optimize-exam-rooms`), one by counting and by a
 local reason (`optimize-roster-senior`), and two by a conflict between named
-rules (`optimize-sod-check`, `optimize-quote-conflict`). **19 keys were
-derived by hand**: 17 re-derived by enumerating every candidate and 2 by
+rules (`optimize-sod-check`, `optimize-quote-conflict`). **20 keys were
+derived by hand**: 18 re-derived by enumerating every candidate and 2 by
 recomputing their proofs from the fixture's definitions
-(`tools/optimize01_corpus.ps1`, 40 checks, 0 mismatches, its control
-catching 17 of 17 planted wrong keys). The twentieth, `optimize-roster`'s, is
-the oracle's; only its hand floor is rechecked. By segment: compliance 5,
-rosters 6, seating 3, configuration 3, timetabling 3. The measured counts
+(`tools/optimize01_corpus.ps1`, 42 checks, 0 mismatches, its control
+catching 18 of 18 planted wrong keys). The twenty-first,
+`optimize-roster`'s, is the oracle's; only its hand floor is rechecked. By
+segment: compliance 5, rosters 6, seating 3, configuration 3, timetabling 3,
+network design 1. The measured counts
 above are unchanged.

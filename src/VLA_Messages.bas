@@ -543,7 +543,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' ~118 elements; now a bag of every row is an ordinary result, and one
     ' rendered into a cell can be longer than the cell.
     ' PROLOG.28: a list is a chain of cons cells, and VBA releases such a
-    ' chain recursively - measured (tools/VLA_Diag3.bas): 5,000 cells drop
+    ' chain recursively - measured (archive/VLA_Diag3.bas): 5,000 cells drop
     ' cleanly, 8,000 raise "Out of stack space" on the way out. The budget
     ' is on what a query GATHERS, never on what it reads, so the message
     ' says so and points at the engine that has no such limit.

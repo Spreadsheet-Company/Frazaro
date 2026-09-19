@@ -1,6 +1,6 @@
 # optimize0_expected.ps1 - OPTIMIZE.0's expected answers, derived independently.
 #
-# tools/VLA_DiagO0.bas checks every DATALOG answer against closed forms
+# archive/VLA_DiagO0.bas checks every DATALOG answer against closed forms
 # (S * C(P,3), 18 * P * W, ...). This script derives the same numbers a second
 # way: by ENUMERATING the rows from the fixture's definitions (who is on leave,
 # which shifts are nights, which pairs are consecutive) and counting them. It

@@ -1353,7 +1353,7 @@ Public Const VLA_PROLOG_VERSION As String = "PROLOG.30"
 ' here is a chain of cons cells, each holding the next, so releasing the
 ' head releases the tail - and VBA does that recursively, however
 ' iterative this module's own walkers are. Measured on the owner's machine
-' (tools/VLA_Diag3.bas): a chain of 5,000 drops cleanly, one of 8,000
+' (archive/VLA_Diag3.bas): a chain of 5,000 drops cleanly, one of 8,000
 ' raises "Out of stack space" on the way out of the procedure that built
 ' it, in a near-empty stack. Inside the solver there is less headroom, and
 ' a list of lists releases both depths. 1,000 is eight times under the

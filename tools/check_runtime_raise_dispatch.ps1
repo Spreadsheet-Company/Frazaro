@@ -2,7 +2,7 @@
 check_runtime_raise_dispatch.ps1 - IN.15's mechanical pin.
 
 IN.15: `Application.Run` does not propagate a target macro's `Err.Raise` to
-the caller's handler. `tools/VLA_Diag2.bas` scenario 1 proves it standalone,
+the caller's handler. `archive/VLA_Diag2.bas` scenario 1 proves it standalone,
 with zero project state on the stack, and `VLA_Interpreter.bas`'s own
 `TryRuntimeHelper` header records the live catch. So a refusal raised inside
 a `VLA_Runtime` helper that the interpreter reaches through the generic

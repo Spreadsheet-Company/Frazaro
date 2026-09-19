@@ -2300,7 +2300,7 @@ End Function
 ' VlaCheckSheetAbsent, VlaCheckRangeName) - needed for the same reason
 ' IN.11's own native Cases were: the generic mechanism below breaks for
 ' this specific shape. Proven with a standalone, zero-dependency repro
-' (tools/VLA_Diag2.bas, scenario 1 - the SIMPLEST possible case, one
+' (archive/VLA_Diag2.bas, scenario 1 - the SIMPLEST possible case, one
 ' Sub, one Err.Raise, one level of On Error Resume Next in the caller)
 ' that Application.Run does NOT propagate a target macro's own
 ' Err.Raise back to the caller's On Error Resume Next at all - it
@@ -2344,7 +2344,7 @@ Private Function TryRuntimeHelper(ByVal h As String, ByVal argVals As Variant, B
         ' provenance guard at the top of it made "validate and maybe
         ' raise" part of its job, which is exactly the shape the generic
         ' Application.Run mechanism below is PROVEN to break
-        ' (tools/VLA_Diag2.bas scenario 1). Live-caught, owner-run,
+        ' (archive/VLA_Diag2.bas scenario 1). Live-caught, owner-run,
         ' 2026-09-08: the refusal surfaced as a raw "Run-time error '5'"
         ' VBE dialog with a Debug button instead of Frazaro's own modal,
         ' while the identical refusal on protect/unprotect (raised
@@ -2382,7 +2382,7 @@ Private Function TryRuntimeHelper(ByVal h As String, ByVal argVals As Variant, B
         ' native Case exactly when IT CAN RAISE, because a raise routed
         ' through Application.Run below does not reach any caller's
         ' handler at all (this function's own header, and
-        ' tools/VLA_Diag2.bas scenario 1).
+        ' archive/VLA_Diag2.bas scenario 1).
         '
         ' SIXTEEN, NOT EIGHT, and the eight-way difference is the whole
         ' argument for mechanizing the count. Scoping this item by hand

@@ -6,7 +6,7 @@
 # in Frazaro calls it, no clingo binary is kept in this repository, and SD-13
 # is untouched: the owner installs clingo separately and runs it by hand.
 #
-# The fixture is the same closed-form definition as tools/VLA_DiagO0.bas
+# The fixture is the same closed-form definition as archive/VLA_DiagO0.bas
 # (O0Fixture) and tools/optimize0_expected.ps1: people i = 1..P, Senior when
 # i mod 4 = 0, Contract 4 (odd) or 5 (even); shifts s = 1..21W, day
 # (s-1)\3+1, Night when (s-1) mod 3 = 2; leave when (i + day) mod 7 = 0; need
