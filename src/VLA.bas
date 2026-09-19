@@ -19,7 +19,7 @@ Option Explicit
 ' signal (see SD-14 for what each of the three numbers means from here)
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
-Public Const VLA_RELEASE_VERSION As String = "0.5.6"
+Public Const VLA_RELEASE_VERSION As String = "0.6.0"
 Public Const VLA_CORE_VERSION As String = "TER-8"
 ' TER-8: TOKENIZE READS TEXT WITH NO TOKEN. Found by TER-7, which fixed the
 ' English tokenizer's twin. Tokenize ended with ReDim toksArr(1 To
