@@ -18,4 +18,6 @@
 *.xlsm binary
 *.xlam binary
 *.docx binary
+*.xlsx binary
+*.pdf binary
 *.exe binary

@@ -47,29 +47,34 @@ that are *checked* before they run, refuse with an explanation when
 they don't parse, and mean exactly one thing when they do.
 
 ```text
-Work on sheet Output.
-Put "Test Report" into cell A1.
-Make cell A1 bold.
-Create a number called total.
-Set total to 0.
+# Accounts Receivable Aging - run on the first business day of the month.
+Work on sheet "Invoices".
+Set last-row to last filled row of column A.
+Count r from 2 to last-row:
+  Set days to cell in column E row r.
+  Put "Current" into column F row r.
+  If days is greater than 30, put "31-60 days" into column F row r.
+  If days is greater than 90, put "Over 90 days" into column F row r.
 
-Repeat 5 times:
-  Increase total by counter.
-  If counter is divisible by 2, log "even step " joined with counter.
-
-Put total into cell B2.
-Set grand to sum of range B2:B3.
-If grand is greater than 40:
-  Put "PASS" into cell C4.
+Set total-ar to sum of range D2:D31.
+Set ar-over-ninety to sum of range D2:D31 where range F2:F31 matches "Over 90 days".
+Sort range A1:F31 by column E descending with a header row.
+Set over-ninety-share to ar-over-ninety divided by total-ar.
+If over-ninety-share is greater than 0.15, show "Start collection calls today".
 ```
 
-That is not pseudocode. It is a working excerpt from this repository's
-regression corpus: you type sentences like these into a worksheet,
-press **Check Instructions** to have every row validated (errors land on
-their exact row, in words), then **Interpret Instructions** to execute —
-with a snapshot taken first and an **Undo Last Run** button behind it.
-(**Compile Instructions** does the same through generated VBA, when you
+That is not pseudocode. It is an excerpt from one of the
+[sample procedures](examples/). Load a procedure like this from Word or a
+text file (or type it into a worksheet), press **Validate Instructions** to
+check every row (errors land on their exact row, in words), then **Interpret
+and Run**. A snapshot is taken first, and an **Undo Last Run** button is
+behind it. (**Compile and Run** does the same through generated VBA, when you
 want the artifact.)
+
+> **New here? Start with [`examples/`](examples/).** Eight sample SOPs,
+> easiest first (a sales summary, an expense audit, a month-end close, a
+> purchase order, a shift schedule), all running on one sample workbook. The
+> first takes two minutes.
 
 ---
 
@@ -209,7 +214,7 @@ counted, added up, searched or taken apart, with `length`, `member`,
 goals in their own right, type tests (`atom?`, `number?`, …), `between`,
 cut, and `findall` are all in; an infinite rule is
 stopped by a step ceiling and refused by name, never left spinning.
-`SOLVE()` (answer set programming) is scoped and coming.
+`OPTIMIZE()` (choices, constraints and an objective over the same rules — rosters, seating, allocation) is scoped and coming.
 
 ## Phrasebooks all the way down
 

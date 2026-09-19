@@ -2334,22 +2334,79 @@ forever without anyone deciding to slip it.*
   running it — a document carrying its own macros must never have them
   triggered by this path. `~days`–`~weeks`
 
+  *Already shipped, found 2026-09-18 while building LE.6 — read before
+  scoping:* the Word half exists. `ImportFromPath`/`ReadWordFile`
+  (`VLA_IDE.bas`) route `.doc`/`.docx`/`.docm` through Word over COM from
+  **Load Instructions**, with SEC.13's `AutomationSecurity = 3` guard (the
+  ADVERSARY name-check above, answered) and alerts suppressed on an instance
+  Frazaro created. What is missing is PDF: it is in neither the file
+  picker's filter nor the extension check, and Word's PDF conversion prompt
+  needs handling on a hidden instance.
+
+  *A step added 2026-09-18 (owner): PDF exports of the LE.6 samples.*
+  `examples/` ships its samples as `.txt` and `.docx` only, because PDF is
+  not an intake format yet and a sample that cannot be loaded is worse than
+  none (`examples/README.md` tells users to open a PDF in Word and save it
+  as `.docx` meanwhile). When PDF intake lands, export the `.docx` samples
+  (02-08 and the practice SOP) to PDF through Word's own Save as PDF, add
+  them to `examples/` and its README, and use them as this item's live
+  fixture. A sample exported from Word and read back through Word's PDF
+  conversion must Validate exactly as its `.docx` does, which exercises the
+  conversion on real, born-digital documents whose correct result is already
+  known. The export is Office automation: owner-run or owner-approved each
+  time, never done by default in `tools/build_examples.ps1`, whose value is
+  building everything without Office.
+
 - ⬜ **SOP.2 — one line in, one row out, no classification at all.**
-  Owner-simplified, this session, replacing this item's own earlier
-  line-kind-triage design outright: every extracted unit — a Word paragraph
-  (`SOP.1`'s own walked `Document.Paragraphs`, one row each, the natural unit
-  a numbered step already lives in) or a plain-text paste's own line (split on
-  the ordinary line break, when no Word document is involved at all) — becomes
-  exactly one row, completely unmodified, in written order. No attempt
-  anywhere in this item to guess "is this an instruction, a comment, a header"
-  — that judgment is left entirely to `SOP.4`'s own Verify pass and the human
-  reading its result. One small, explicitly-decided exception, not a silent
-  special case: a wholly blank paragraph/line is dropped rather than becoming
-  an empty row, since an empty row carries no decision for a human to make
-  either way. Deliberately the simplest possible design — SD-16's own spirit
-  taken further than this project's other grammar-adjacent tooling usually
-  goes, since not even a sentence-blind heuristic runs before a line reaches
-  the phrasebook, only extraction and row-splitting. `~hours`
+  Owner-simplified, replacing this item's own earlier line-kind-triage design
+  outright: every extracted unit — a Word paragraph or a plain-text line —
+  becomes exactly one row, in written order. No attempt anywhere in this item
+  to guess "is this an instruction, a comment, a header" — that judgment is
+  left entirely to `SOP.4`'s own Verify pass and the human reading its result.
+  Deliberately the simplest possible design — SD-16's own spirit taken further
+  than this project's other grammar-adjacent tooling usually goes, since not
+  even a sentence-blind heuristic runs before a line reaches the phrasebook,
+  only extraction and row-splitting.
+
+  **Rewritten 2026-09-18 (owner): a blank paragraph becomes a blank row, with
+  no exception.** The earlier draft dropped wholly blank lines on the
+  reasoning that "an empty row carries no decision for a human to make." That
+  was wrong: a blank line is syntax. The tokenizer turns it into the
+  paragraph marker that closes every open block (`VLA_SentenceEngine.bas`,
+  `PARA_TOK`), and a blank line before `Otherwise:` or `If that fails:` is
+  what separates two branches of one block. Dropping blanks would silently
+  re-nest a procedure: lines meant to follow an `If` block would join its
+  body, and the Try/recovery and If/Otherwise shapes LE.6's samples 05 and 06
+  use would read differently from how they were written. So the rule has no
+  exceptions: one paragraph or line in, one row out, blank or not. A run of
+  several blank lines is harmless, because the tokenizer already collapses it
+  to one marker.
+
+  *Unmodified, stated honestly:* the only change made to a line's text is
+  `NormalizeProgramText`'s undoing of Word typography (curly quotes to
+  straight, typographic dashes to hyphens, non-breaking spaces to spaces,
+  manual line, page and cell breaks to line breaks). Those edits never
+  change what a sentence means, and without them Word's AutoFormat would make
+  every quoted string fail. Nothing else is trimmed, merged, or reordered.
+
+  *Already shipped:* this is today's behavior for Word and text files.
+  `ReadWordFile` reads `Document.Content.Text`, and `PourProgram` writes one
+  row per line, blank lines included. What remains is the decision record
+  above plus one pin: a fixture whose meaning depends on its blank lines (an
+  If/Otherwise and a Try/If that fails) must import and Validate unchanged
+  from `.txt` and `.docx`. LE.6's samples 05 and 06 are ready-made
+  candidates.
+
+  *The hazard this rule keeps, named rather than hidden:* people use empty
+  Word paragraphs for spacing. One typed inside a block ends that block
+  early, and the lines after it then run at top level, unconditionally, if
+  they still parse there. This is the language's own rule, the same as
+  typing the procedure into the sheet, so SOP.2 does not special-case it.
+  The mitigation belongs to Validate, as a follow-on for the owner to decide
+  and not part of this item: warn when a line that is visibly indented
+  (leading spaces, or a Word paragraph's left indent, which `SOP.3`'s
+  paragraph walk can read) follows a blank line, because the indent says
+  "still in the block" and the blank line says it has ended. `~hours`
 
 - ⬜ **SOP.3 — an embedded image becomes a `#`-prefixed comment line, in
   place.** The direct, concrete answer to "images aren't parsed": during the
@@ -6220,7 +6277,20 @@ before-contact item behind the gate.
   sheet column C when the range starts elsewhere; `Filter range … to show
   rows where column C is …` shipped), and `Show all rows` (heard as
   unhiding rows hidden with `Hide row`, which ShowAllData does not do;
-  `Clear the filter conditions.` shipped). *Output:* a list of
+  `Clear the filter conditions.` shipped). *Added by LE.6 (owner, 2026-09-18),
+  a gap in specificity:* `Make cell|range … {red|yellow|black|blue|cyan|green|
+  magenta|white}` sets the **fill** (`english.vla`'s `(set-fill-color (range
+  {r}) vb{d})`), but "make the cell white" reads just as naturally as the
+  text colour. It cost two live round trips while LE.6's samples were being
+  written. `Make cell B5 white.`, meant as white text on a green result
+  cell, painted the fill white and erased the green. The same sentence
+  turned four sample header rows from navy to plain white. There is no
+  colour-word sibling that names what it colours: text colour exists only
+  as `Set font-color of … to …`. Candidates for the sibling pair are `Fill
+  cell … green` / `Make the text of cell … green`. A second question,
+  separate from the spelling: the colour words bind VBA's eight saturated
+  constants (`vbGreen` is `#00FF00`), which the owner rejected on sight
+  for sample 06 ("neon vomit"). *Output:* a list of
   every shipped rule with a verdict and, for each failure, its sibling
   rule; the legacy spellings recorded where CO.1/CO.2 will find them. *Why
   CO and not a grammar slice:* it is about what shipped spellings promise,
@@ -19341,8 +19411,54 @@ now carries one summary paragraph per engine and points here.*
 - ⬜ **LE.4 — the first-run tutorial workbook.** Runnable, not readable. `~days`
 - ⬜ **LE.5 — progressive disclosure.** A new user meets 40 verbs, not 340.
   `~days`
-- ⬜ **LE.6 — worked SOP templates.** *Acquisition instrument, not
+- ✅ **LE.6 — worked SOP templates.** *Acquisition instrument, not
   documentation — belongs in the pilot bundle.* `~days`
+  **Built, owner-verified live and committed 2026-09-18.** Owner brief: the README's and
+  `instructions.txt`'s examples manage low-level cells and loops, not the
+  procedures spreadsheet users actually run, so the entry point needs 5-10
+  real SOPs of increasing complexity across accounting, finance, sales, and
+  operations, in `.docx`, `.pdf`, and `.txt`. Shipped in a new top-level
+  `examples/`: eight samples (01 Tidy the Sales Export, 02 Weekly Sales
+  Summary, 03 Expense Report Audit, 04 Accounts Receivable Aging, 05 Sales
+  Pivot by Region, 06 Month-End Close, 07 Inventory Reorder, 08 Shift
+  Coverage - the last one the G-PROLOG policy layer over three real Excel
+  Tables), a practice SOP with six deliberately unmarked prose lines for
+  SOP.4's `#`-or-rewrite loop, and `Frazaro Sample Data.xlsx` (a Start Here
+  sheet plus the data every sample runs on, so no sample types its own data
+  in). `examples/README.md` is the guided tour; the root README's hero
+  example is now an excerpt from sample 04 with a pointer to `examples/`.
+  *How it is built:* `tools/build_examples.ps1` holds every SOP's text and
+  every data row and writes the `.docx`/`.xlsx` as raw OOXML - no Office
+  automation, byte-identical on rebuild, so the script is the reviewable
+  diff. *How it was checked (static only):* every OOXML part parses; every
+  instruction line was matched against the phrasebook's own patterns plus
+  the core sentence shapes (357 lines; the only misses were the practice
+  SOP's six intended refusals and a checker artifact on `column A`, whose
+  shapes the phrasebook proves directly); sample data was sized so each
+  sample's interesting branch fires (04's over-90 warning at 24.5% of AR,
+  06's three unreconciled accounts, 07's eight reorders, 08's one uncovered
+  shift). **Owner-tested live 2026-09-18: every sample, the practice SOP
+  and `joy` pass with their expected results under Interpret and Run.**
+  The live pass found five defects in the samples, each fixed in
+  `tools/build_examples.ps1` and retested: (1) a Show/Log message ending
+  `…."` has no sentence period of its own, so the whole-program check
+  hit the next blank line still waiting for one (samples 03-07 and the
+  root README); the per-row check had passed that row as OK, a
+  disagreement still unfiled. (2) `Make cell|range … white` sets the fill,
+  not the text, so four navy headers and 06's result cell were painted
+  white (filed under CO.7). (3) Sample 07 appended `cell in column A row r`,
+  a live Range object, to a list and then sorted the sheet under it. The
+  PO would have read the wrong rows, and step 4 died with a raw error 438
+  in a modal; it now takes the value through `Set` first. (4) Long dates in
+  B2 overflowed fixed column widths (02, 04, 06). (5) Step 1 of 02 now sums
+  its remembered names instead of repeating their ranges. Also added
+  during the pass: `joy.txt`/`joy.docx`, Bob Ross's fifteen paints and
+  four bases as `Define` constants plus a swatch program, an easter egg
+  and not a feature. The generator now skips any file that is open in
+  Word or Excel instead of failing the whole build. *Settled 2026-09-18 (owner):* the PDFs moved to
+  SOP.1 as a step of their own, because PDF is not an intake format yet;
+  `examples/**` is 0BSD in `REUSE.toml` (copy-and-adapt terms, the
+  runtime's precedent), confirmed.
 - ⬜ **LE.7 — the AI drafting bridge.** *Carried from Alpha 1's F2, and
   independently rediscovered by the audit's Part III.* "Describe what you want"
   → the phrase catalogue as the constraint → candidate sentences into column A →
@@ -20247,6 +20363,63 @@ anything above it.*
   **Predicted:** pure 1134 → 1141 (+7 Report executions, four inside one
   loop over four texts), `TestDSLs` +4, host and `VerifyReports` unmoved.
   `~hours`
+
+- ⬜ **TER-9 — the per-row check and the whole-program check disagree about
+  a sentence's final period, and the refusal lands on the wrong row.** Found
+  by the owner's LE.6 live pass, 2026-09-18, filed the same day. Sample 03's
+  last line was `Show "…" joined with need-approval joined with " need a
+  manager's approval."`. The period is inside the quotes, so the sentence
+  has none of its own. **Validate Instructions** marked that row OK. The
+  whole-program pass then refused, but put the refusal on the blank row
+  *below* it: *"I understood 'show "…"' - then I expected '.' to end the
+  sentence but found '|'. Did you mean: 'show {e:expr}' | 'show all rows' |
+  'show the total row of table {n:text}' (line 59)"*. Three defects in one:
+  (1) the two passes disagree about what ends a sentence; the per-row pass
+  appears to accept the end of the row's text as the terminator, which is
+  inferred from the symptom and not yet read in `VLA_IDE.bas`'s
+  `DoCheck`. (2) The error is attributed to the row after the sentence,
+  not the sentence's own row. (3) The message shows `|`, the tokenizer's
+  internal paragraph marker (`VLA_SentenceEngine.bas`, `PARA_TOK`), which
+  LX.8 says a refusal never exposes. A writer cannot know what `|` means.
+  *Why non-critical:* nothing runs. The program is still refused before
+  execution, so this is a teaching failure, not a safety one. *The fix,
+  proposed:* one terminator rule shared by both passes. The refusal goes on
+  the sentence's own row, and names the likeliest cause in words: "this
+  sentence needs its own period at the end - the one inside the quotes
+  belongs to the message." *Repro:* any sentence whose last character is a
+  closing quote with the period inside it, followed by a blank row, e.g.
+  `Show "Done."` then a blank line. `~hours`
+
+- ⬜ **TER-10 — a raw VBA error reaches the user as a bare modal, with no
+  row and no sentence.** Found by the owner's LE.6 live pass, 2026-09-18,
+  filed the same day. Sample 07, as first written, stopped under **Interpret
+  and Run** with a modal reading only *"Object doesn't support this property
+  or method"* (VBA error 438): no sentence, no row, no mark on the Frazaro
+  sheet. Steps 1-3 had run. The *Purchase Order* sheet and its header
+  existed, and step 4 wrote no rows. *The trigger:* step 2 did `Append cell
+  in column A row r to reorder-list.`. `cell in column A row r` parses to the
+  cell itself (`(cells …)`, a Range object; B5.2's "cell = the place"), so
+  the list held eight live Range objects. Step 4 then used each one as `sku`
+  in `Go to sheet`, `Set item-name to lookup of sku in range A2:G21 column
+  2.` and `Put sku into column A row po-row.`. *Which* of those raised 438
+  was not pinned; the fix was to the sample (`Set sku-code to cell in column
+  A row r.` then `Append sku-code …`, since IN.11's `set!` Let-coerces a
+  Range to its value). Two defects, one filed here and one named for its
+  owner: (1) **here:** a runtime error inside the interpreter surfaces raw.
+  IN.15 made sixteen helpers refuse in words, but this path still reaches
+  the user as VBA's own text, with nothing to say which sentence failed.
+  The fix is for the interpreter's top-level handler to name the sentence
+  and its row, as Check does for a refusal. (2) **For the grammar
+  (CO.7/SD-19 territory, not built here):** `Append cell in … to list`
+  stores a *reference*. A sort, a delete or a later write then changes
+  what the list holds. `value in column A row r` gives no escape, because
+  B5.2 compiles it to the same place. A writer who says "append the cell's
+  value" has no sentence that does exactly that. *Why non-critical:* Undo
+  Last Run restores the workbook, and the sample no longer does this.
+  *Repro:* LE.6 sample 07 with step 2's two `Set sku-code …`/`Append
+  sku-code …` lines replaced by the original single `Append cell in column A
+  row r to reorder-list.`; press **Interpret and Trace** first to pin the
+  statement. `~hours`
 
 ---
 

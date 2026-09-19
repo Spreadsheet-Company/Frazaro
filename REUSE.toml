@@ -44,3 +44,12 @@ SPDX-License-Identifier = "0BSD"
 path = ["docs/**", "*.md", "NOTICE"]
 SPDX-FileCopyrightText = "2026 Spreadsheet Company"
 SPDX-License-Identifier = "CC-BY-4.0"
+
+# The onboarding samples (LE.6): sample SOPs and their sample data, made to
+# be copied into an organization's own procedures and adapted without
+# ceremony - so they carry the same no-attribution terms as the runtime
+# that is copied into customers' workbooks.
+[[annotations]]
+path = ["examples/**"]
+SPDX-FileCopyrightText = "2026 Spreadsheet Company"
+SPDX-License-Identifier = "0BSD"

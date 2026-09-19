@@ -37,6 +37,41 @@
   copy with the helper squeezed back onto one line, and fails the code as
   it was before the change.
 
+- **Eight sample procedures to start from, in a new `examples/` folder.**
+  They are the kind of standard operating procedures people already keep in
+  Word, written so Frazaro can run them, easiest first:
+  01 Tidy the Sales Export (five sentences), 02 Weekly Sales Summary, 03
+  Expense Report Audit, 04 Accounts Receivable Aging, 05 Sales Pivot by
+  Region, 06 Month-End Close, 07 Inventory Reorder and 08 Shift Coverage.
+  That spans sales, finance, accounting and operations, as `.txt` and
+  `.docx` files. All of them run on one workbook, `Frazaro Sample
+  Data.xlsx`, which opens on a Start Here sheet, so there is nothing to set
+  up. Open it, press **Load Instructions**, pick
+  `01 Tidy the Sales Export.txt`, then **Validate Instructions** and
+  **Interpret and Run**. `examples/README.md` walks through the rest.
+
+- **A practice procedure, written the way real ones are.** `Practice -
+  Expense Reimbursement (as written).docx` has a title, a "Performed by"
+  line and steps like "Send the total to payroll", all lines Frazaro cannot
+  run. Validate it, then either put `#` in front of each flagged line, which
+  keeps it as a note, or rewrite it as an instruction. That is the whole
+  process for bringing your own SOP.
+
+- **For painters: `examples/joy.txt`.** Bob Ross's fifteen paints and four
+  bases, as colours you can name in any program. Load it and run it for a
+  swatch sheet, or copy its `Define` lines to the top of your own procedure
+  and write `Set fill-color of range A1:D1 to phthalo-blue.`
+
+- **The README's first example is now a real procedure** (receivables
+  aging, from sample 04) instead of a test program, with a pointer to
+  `examples/` for anyone new.
+
+- **For contributors: `tools/build_examples.ps1`.** Git cannot show a change
+  inside a `.docx` or `.xlsx`, so every sample's text and every row of sample
+  data live in this script, and the files are built from it. A rebuild with
+  nothing changed is byte-for-byte identical. It needs no Word or Excel, and
+  skips any file that is open instead of failing.
+
 ## 0.6.0
 
 ### What changed

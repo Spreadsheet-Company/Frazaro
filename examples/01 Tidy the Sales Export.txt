@@ -1,0 +1,14 @@
+# 01 - Tidy the Sales Export
+# Area: Sales. Works on the Sales sheet of Frazaro Sample Data.xlsx.
+#
+# Every Monday the sales system exports last week's orders as a plain,
+# unformatted sheet. These five sentences make it readable.
+#
+# Lines that start with # are notes for people. Frazaro skips them.
+# Every other line is an instruction, checked before anything runs.
+
+Work on sheet "Sales".
+Make row 1 a header row.
+Format range G2:G41 as dollars.
+Fit all columns.
+Freeze top row.

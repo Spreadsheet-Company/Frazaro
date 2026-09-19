@@ -1,0 +1,112 @@
+# The Joy of Painting Palette
+# Bob Ross's fifteen paints and four bases, as colours any Frazaro program can use by name.
+# Load this and press Interpret and Run to paint a swatch of every colour on a Joy sheet.
+# To use the palette in your own procedure, copy the Define lines below to the top of it.
+# Then write, for example: Set fill-color of range A1:D1 to phthalo-blue.
+#
+# Hex codes follow the Bob Ross paintings dataset (github.com/jwilber/Bob_Ross_Paintings),
+# with two exceptions it does not give: Indian Red is the standard #CD5C5C, and Liquid White is #FFFFFF.
+# Liquid Clear is transparent, so its #FFFFFF is only a stand-in.
+# These are the paints straight from the tube, so several are very dark.
+# There are no mistakes, just happy accidents.
+
+# THE PALETTE
+Define alizarin-crimson as "#4E1500".
+Define bright-red as "#DB0000".
+Define burnt-umber as "#8A3324".
+Define cadmium-yellow as "#FFEC00".
+Define dark-sienna as "#5F2E1F".
+Define indian-red as "#CD5C5C".
+Define indian-yellow as "#FFB800".
+Define midnight-black as "#000000".
+Define phthalo-blue as "#0C0040".
+Define phthalo-green as "#102E3C".
+Define prussian-blue as "#021E44".
+Define sap-green as "#0A3410".
+Define titanium-white as "#FFFFFF".
+Define van-dyke-brown as "#221B15".
+Define yellow-ochre as "#C79B00".
+
+# THE BASES, PAINTED ON BEFORE THE COLOUR GOES ON
+Define liquid-white as "#FFFFFF".
+Define liquid-clear as "#FFFFFF".
+Define liquid-black as "#000000".
+Define black-gesso as "#000000".
+
+# THE SWATCHES
+Work on sheet "Joy".
+Clear everything from A1:C30.
+Put "The Joy of Painting" into cell A1.
+Set font size of cell A1 to 18.
+Make cell A1 bold.
+Put "Paint" into cell A3.
+Put "Hex" into cell B3.
+Put "Swatch" into cell C3.
+Make range A3:C3 bold.
+Add a bottom border to range A3:C3.
+Put "Alizarin Crimson" into cell A4.
+Put alizarin-crimson into cell B4.
+Set fill-color of cell C4 to alizarin-crimson.
+Put "Bright Red" into cell A5.
+Put bright-red into cell B5.
+Set fill-color of cell C5 to bright-red.
+Put "Burnt Umber" into cell A6.
+Put burnt-umber into cell B6.
+Set fill-color of cell C6 to burnt-umber.
+Put "Cadmium Yellow" into cell A7.
+Put cadmium-yellow into cell B7.
+Set fill-color of cell C7 to cadmium-yellow.
+Put "Dark Sienna" into cell A8.
+Put dark-sienna into cell B8.
+Set fill-color of cell C8 to dark-sienna.
+Put "Indian Red" into cell A9.
+Put indian-red into cell B9.
+Set fill-color of cell C9 to indian-red.
+Put "Indian Yellow" into cell A10.
+Put indian-yellow into cell B10.
+Set fill-color of cell C10 to indian-yellow.
+Put "Midnight Black" into cell A11.
+Put midnight-black into cell B11.
+Set fill-color of cell C11 to midnight-black.
+Put "Phthalo Blue" into cell A12.
+Put phthalo-blue into cell B12.
+Set fill-color of cell C12 to phthalo-blue.
+Put "Phthalo Green" into cell A13.
+Put phthalo-green into cell B13.
+Set fill-color of cell C13 to phthalo-green.
+Put "Prussian Blue" into cell A14.
+Put prussian-blue into cell B14.
+Set fill-color of cell C14 to prussian-blue.
+Put "Sap Green" into cell A15.
+Put sap-green into cell B15.
+Set fill-color of cell C15 to sap-green.
+Put "Titanium White" into cell A16.
+Put titanium-white into cell B16.
+Set fill-color of cell C16 to titanium-white.
+Add a border around range C16.
+Put "Van Dyke Brown" into cell A17.
+Put van-dyke-brown into cell B17.
+Set fill-color of cell C17 to van-dyke-brown.
+Put "Yellow Ochre" into cell A18.
+Put yellow-ochre into cell B18.
+Set fill-color of cell C18 to yellow-ochre.
+Put "Bases" into cell A20.
+Make cell A20 bold.
+Add a bottom border to range A20:C20.
+Put "Liquid White" into cell A21.
+Put liquid-white into cell B21.
+Set fill-color of cell C21 to liquid-white.
+Add a border around range C21.
+Put "Liquid Clear" into cell A22.
+Put liquid-clear into cell B22.
+Set fill-color of cell C22 to liquid-clear.
+Add a border around range C22.
+Put "Liquid Black" into cell A23.
+Put liquid-black into cell B23.
+Set fill-color of cell C23 to liquid-black.
+Put "Black Gesso" into cell A24.
+Put black-gesso into cell B24.
+Set fill-color of cell C24 to black-gesso.
+Set width of column A to 20.
+Set width of column B to 12.
+Set width of column C to 16.

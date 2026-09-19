@@ -1,0 +1,57 @@
+# 03 - Expense Report Audit
+# Area: Finance. Works on the Expenses sheet of Frazaro Sample Data.xlsx.
+#
+# Policy: every claim needs a receipt, and any claim over $500 needs a
+# manager's approval. This checks each claim, marks it in column F,
+# totals spend by category, and tells you what it found.
+#
+# New in this one: "Count r from 2 to last-row" repeats the indented
+# lines once for every claim, with r standing for the row number.
+
+Work on sheet "Expenses".
+Put "Check" into cell F1.
+Set last-row to last filled row of column A.
+
+# Check every claim. A later line overwrites an earlier one, so the
+# most serious finding is the one that stays.
+Count r from 2 to last-row:
+  Set amount to cell in column D row r.
+  Set receipt to cell in column E row r.
+  Put "OK" into column F row r.
+  If amount is greater than 500, put "Needs manager approval" into column F row r.
+  If receipt is "No", put "Missing receipt" into column F row r.
+  If receipt is "No", make cell in column B row r bold.
+
+# Count what we found.
+Set missing-receipts to count of range F2:F26 matching "Missing receipt".
+Set need-approval to count of range F2:F26 matching "Needs manager approval".
+
+# Spend by category, beside the claims.
+Put "Category" into cell H1.
+Put "Spend" into cell I1.
+Put "Travel" into cell H2.
+Set travel-spend to sum of range D2:D26 where range C2:C26 matches "Travel".
+Put travel-spend into cell I2.
+Put "Lodging" into cell H3.
+Set lodging-spend to sum of range D2:D26 where range C2:C26 matches "Lodging".
+Put lodging-spend into cell I3.
+Put "Meals" into cell H4.
+Set meals-spend to sum of range D2:D26 where range C2:C26 matches "Meals".
+Put meals-spend into cell I4.
+Put "Supplies" into cell H5.
+Set supplies-spend to sum of range D2:D26 where range C2:C26 matches "Supplies".
+Put supplies-spend into cell I5.
+Put "Software" into cell H6.
+Set software-spend to sum of range D2:D26 where range C2:C26 matches "Software".
+Put software-spend into cell I6.
+Put "Total" into cell H7.
+Put sum of range I2:I6 into cell I7.
+
+# Make it easy on the eyes.
+Make row 1 a header row.
+Make range H7:I7 bold.
+Format range D2:D26 as dollars.
+Format range I2:I7 as dollars.
+Fit all columns.
+
+Show "Expense check done: " joined with missing-receipts joined with " claims are missing a receipt, and " joined with need-approval joined with " need a manager's approval".
