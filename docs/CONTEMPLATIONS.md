@@ -1279,7 +1279,7 @@ need no user:
 - **Engine capacity.** `PROLOG_MAX_STEPS` is a total budget of 120,
   charged per candidate, and `PROLOG.9`'s own entry records the usable
   range of a single `between` goal as 119. No document says what size of
-  real table each engine answers before refusing. A rota with fifty
+  real table each engine answers before refusing. A schedule with fifty
   shifts and twenty staff may already be over the line.
 - **The number experiment.** One cell holding `=0.1+0.2`, one `SQL()`
   comparing it to `0.3`, one formula doing the same. One minute. It
@@ -1500,5 +1500,238 @@ appeared under "write marketing copy." The one part honestly owed to
 luck is that the writer had been inside the shelf's voice for hours, and
 that voice is understatement. Understatement is most of comedy, and the
 shelf has been rehearsing it for a year without meaning to.
+
+---
+
+## Contemplation 8 — The Parking Lot *(2026-09-18)*
+
+*The owner's question, 2026-09-18, filed the same day: justify another
+week or so of engine work on `OPTIMIZE`. What would answer set programming
+bring to spreadsheets that `DATALOG`, `SQL` and `PROLOG` cannot already
+do? The owner's own first intrigue was seating charts for event planners
+and the other industry-grade classes of logic problem; the ask was to
+make it concrete in an economic way — who is served, how, and why it
+matters beyond "democratizing logic programming by hiding it behind
+sentences." The answer given in conversation, re-filed here at the
+owner's request. The title is the assistant's, not the owner's, after
+the retail store manager in `VOX_POPS.md`: "Brianna can't work with
+Tyler, and that's not in the system. That's in the parking lot." The
+parking lot is where the constraints that decide a schedule actually
+live, and it is the thing no existing tool has a cell for. (That
+quotation is invented, like every line in that file; it is cited here as
+the prediction it is.)*
+
+*Read in full before answering: the `OPTIMIZE` scoping and its eleven
+items (`OPTIMIZE.0` to `OPTIMIZE.10`) in both roadmaps;
+`scripts/pareto_logic.txt`, in particular
+§17, §18 and the counts; `MARKETING.md` §3.5 and §4.9; `VENTURE.md` §2,
+§5, §6 and §8; `VIABILITY.md` N.1 and N.2; Contemplation 5 above; the
+README's staffing example; the budget constants in `VLA_Prolog.bas`.
+Looked up rather than assumed, and cited at the end: what managers spend
+on scheduling, what the scheduling and seating incumbents charge, Excel
+Solver's stated limits, how often segregation of duties appears in
+adverse control reports, and what the published ASP systems handle. Like
+every contemplation this is a mental model, not a commitment: the week
+it argues for is not an item until the betting table says so.*
+
+### The short answer
+
+`OPTIMIZE` is the only engine of the four that produces a decision instead
+of a report, and its zero-choice case is the compliance check that
+`VENTURE.md`'s highest-willingness-to-pay buyer wants. That justifies a
+week. What does not justify a week is the staff schedule itself: the
+shelf's own measurements say naive search will not reach it, so the week
+has to be shaped around what it can honestly deliver.
+
+### What the fourth engine adds that the other three cannot
+
+`DATALOG` and `SQL` are monotone. They report what already follows from
+the data, and the corpus shows exactly where that stops: families 9, 10
+and 13 of `pareto_logic.txt` find a conflict of interest, a schedule
+clash or a compliance violation, and none of them can fix one. Finding
+the understaffed shift is a report. Filling it is a choice, and a choice
+is the one thing a fixpoint cannot make.
+
+`PROLOG` can search in principle, and the corpus measured why that is
+not enough. `scale-join` refused at fifteen staff on a plain join, and
+the one `OPTIMIZE`-shaped entry, `optimize-roster`, carries the note that
+generating every assignment is not optimising and blows any step budget.
+Worse, Prolog has no declarative way to say "pick exactly two" or
+"minimise overtime": the user would have to write the search procedure,
+which is the exact skill Frazaro exists to make unnecessary. And when no
+schedule exists, Prolog fails silently, where an answer-set engine
+returns "no valid world" as a first-class result — `OPTIMIZE.2`'s own
+contract.
+
+Excel's Solver is what people reach for today, and it is the wrong tool
+for this class. The built-in edition caps at 200 decision variables and,
+for nonlinear models, 100 constraints; practitioners report it degrading
+well before the cap. Every logical rule — nobody works two days in a
+row, if Brianna then not Tyler — must be hand-linearised into binary
+variables first. It returns a number with no reason.
+
+The economic unit is what changes. Every other Frazaro capability saves
+the hours of a procedure the analyst already knows how to perform — the
+analyst-hours frame of `VENTURE.md` §2. `OPTIMIZE` replaces a decision
+nobody makes well by hand, and its constraint check proves the decision
+legal. That is the auditor's unit, attestation, not the analyst's. Three
+things follow that "democratizing logic programming" does not say:
+
+- **Every rule already written becomes a constraint at no cost.**
+  `OPTIMIZE.1` is `DATALOG`'s engine wearing the name, so a `can-cover`
+  rule, a conflict-of-interest rule, a reporting-line closure — all
+  written for questions — are constraints on a schedule the day
+  `OPTIMIZE.3` exists. The phrasebook moat of `VENTURE.md` §8 compounds
+  into a new product without a new corpus.
+- **"No valid world exists, and here is why" is a control.** Not a
+  crash, not a blank; a verdict with the violating rows. That is the
+  Check engine Contemplation 5 ranked second, and it said so: build
+  Check first and `OPTIMIZE.2` inherits it.
+- **The competition is structurally absent.** A prompt box hallucinates
+  a plausible schedule; Solver cannot take a logical constraint; the
+  scheduling SaaS keeps the data elsewhere and the constraints in the
+  parking lot; clingo is unreachable by a spreadsheet user. Nobody sells
+  "a schedule that explains itself, offline, in the workbook where the
+  facts already are."
+
+### Who is served, ranked by distance from the wedge
+
+1. **The compliance buyer's own assignment problems.** Closest to
+   `VENTURE.md` §5's wedge and the highest willingness to pay. Assign
+   close tasks so preparer and reviewer differ, nobody exceeds a
+   workload cap, every task is covered. Assign audit staff to
+   engagements without an independence conflict — corpus family 9,
+   verbatim, plus a choice. Rotate duties. Segregation of duties was
+   cited in 63% of adverse internal-control reports in fiscal 2020,
+   second only to a shortage of trained accounting staff, and the pair
+   has been the top two for five years running. An `OPTIMIZE`-produced
+   assignment with its constraint list checked is the evidence artifact
+   §6.3's compliance pack sells; and `OPTIMIZE.2` alone, with zero
+   choices, already answers "does this assignment break any rule, and
+   which rows."
+2. **Managers who build shift schedules.** Large, adjacent, not the
+   wedge. A 2024 hourly-workforce survey put 56% of managers at three to
+   ten-plus hours a week on scheduling and time-and-attendance; the
+   scheduling vendors claim five-plus hours a week saved. The
+   alternatives are per-seat SaaS whose data lives outside the workbook,
+   and the constraints that matter are not in those systems — see the
+   title. These users will mostly be free users, so what they bring the
+   project is specimens and word of mouth, not subscriptions: the Gift
+   destiny's audience.
+3. **Event and seating professionals.** The owner's original hook, and
+   it holds — as a demonstration rather than a revenue line. Guest lists
+   live in Excel and the constraints are relational and already
+   Datalog-shaped: must-sit-with, must-not, table capacity, proximity to
+   the host. The incumbents are diagramming tools on enterprise quotes,
+   and the largest independent one was absorbed by Cvent in 2025;
+   auto-seating under stated constraints is mostly absent from the
+   category. A dinner is also the case everyone understands, which makes
+   it the right subject for `MARKETING.md` §4.9's challenge post.
+4. **Configuration and quoting in mid-market manufacturing.** ASP's
+   flagship industrial use, with Siemens's configurators the reference
+   after twenty-five years of constraint technology there. Corpus family
+   7, `compat-fits`, is already the compatibility half; the choice half
+   — pick components that all fit, under budget, including X — needs
+   `OPTIMIZE.4` and `OPTIMIZE.6`. A later payoff.
+5. **Timetabling** in schools and training departments, where clingo
+   competes with the special-purpose solvers in the literature. Later
+   still.
+
+| Alternative today | Price point | What it cannot do |
+|---|---|---|
+| When I Work, Deputy | $2.50 to $9 per user per month | logical constraints; data in the workbook; reasons |
+| Homebase | $30 to $120 per location per month | the same |
+| Excel Solver, built-in | free | 200 variables; hand-linearised logic; no reasons |
+| Cvent's seating tools | enterprise quote | constraint-driven seating at all |
+| clingo | free | be reached by a spreadsheet user |
+
+### The counter-evidence, from the shelf itself
+
+Two facts cut against, and both are the project's own.
+
+**Demand is asserted, not measured.** `pareto_logic.txt` holds 49
+entries and exactly one is `OPTIMIZE`-shaped, filed P2 — "real but
+narrower." §17's own heading says why: the corpus was built for logic
+*queries*, and search was scoped out at the door. So the corpus is not
+evidence of low demand; it is evidence that the demand evidence does not
+exist yet, and `SD-7` will not schedule a `G-OPTIMIZE` sentence until it
+does.
+
+**Naive search does not reach the killer case, and the plan was redrawn
+on that arithmetic on 2026-09-18.** The retired `SOLVE.4` re-ran the
+stratified fixpoint once per candidate world. At `DATALOG.12`'s measured
+2.55 ms per row, over a schedule-sized world of about forty rows:
+
+| Problem | Candidate worlds | Per candidate | Total |
+|---|---|---|---|
+| five people, three shifts, two per shift | 1,000 | ~100 ms | ~100 s |
+| the same, once `DATALOG.13` removes the guard that is 84% of a row | 1,000 | ~16 ms | ~16 s |
+| the README's own example: ten people, seven shifts, two per shift | 45^7 ≈ 3.7 × 10^11 | any | never |
+
+A hundred-guest dinner at ten tables is worse than the third row. The
+published nurse-rostering work handles a hundred nurses for a year in
+minutes, but only with conflict-driven search, which that day's plan kept at
+the ceiling and `OPTIMIZE.9` now schedules behind a measured trigger. So
+the schedule in `OPTIMIZE`'s killer-case bullet is not a week's work, and
+`OPTIMIZE.3`'s propagation is where a real one
+begins to be possible — and a UDF has no `DoEvents`, so every candidate
+budget must refuse by name, the step-ceiling doctrine again.
+
+### What a week has to buy
+
+Given the velocity on record — `G-PROLOG`'s five slices landed in three
+days, `PROLOG.7` through `PROLOG.30` in six — a week plausibly covers
+`OPTIMIZE.0` through `OPTIMIZE.2`, whose own estimates are `~days` each
+(the first search, `OPTIMIZE.3`, is `~weeks` by itself). For the
+justification above to hold, it should be spent in this order:
+
+- **An `OPTIMIZE` corpus first, one day.** `pareto_optimize.txt`, or a §17
+  grown to fifteen or twenty entries across the five segments above:
+  table-sized, hand-solvable, with the expected answer sets written
+  before the engine exists — the discipline `pareto_logic.txt` already
+  set. The one-entry corpus is the actual gap, and the corpus is also
+  the justification document.
+- **`OPTIMIZE.1` and `OPTIMIZE.2`, which is Check.** This pays whether or not
+  search ever scales: the manager's engine and the compliance evidence
+  in one, and every existing `DATALOG` rule promoted to a constraint.
+- **`OPTIMIZE.3`, propagating from its first search and measured up
+  `OPTIMIZE.0`'s ladder**, with work budgets refused by name —
+  `PROLOG_MAX_WORK`'s precedent — and the sizes it reaches stated in the
+  item, not discovered by a user (nothing in this family
+  ships proven only at toy size: the owner's rule, 2026-09-18).
+- **The challenge post of `MARKETING.md` §4.9**, which costs nothing and
+  returns syntax review and the first outside demand signal. Not
+  `OPTIMIZE.6` — the best schedule waits until there is more than a toy's
+  worth of valid ones to choose between.
+
+### Under which destiny it pays
+
+`VIABILITY.md` N.2's five destinies price the same week differently.
+Under the Gift and the Instrument, `OPTIMIZE` is the last rung of the
+ladder Contemplation 5 drew and the design-review audience's favourite
+argument; it pays on its own. Under the Lifestyle Product and the
+compliance pack it pays only through Check and the segregation-of-duties
+assignment. Under the Register it is one more evaluator the constitution
+will have to freeze. The week is defensible under every destiny only if
+`OPTIMIZE.2` is the first thing that ships from it — which is also the
+order the dissections already prescribe. None of this is an item: the
+corpus is `SD-7`'s gate, and the betting table decides.
+
+### Sources for the outside numbers
+
+- Manager hours on scheduling: Legion's 2024 hourly-workforce report as
+  relayed by [QuickBooks](https://quickbooks.intuit.com/time-tracking/resources/work-schedule-survey/)
+  and [Homebase](https://www.joinhomebase.com/blog/how-to-make-a-schedule).
+- Scheduling software prices: [Turnozo's 2026 comparison](https://turnozo.com/blog/employee-scheduling-software-pricing)
+  and [Costbench on Homebase](https://costbench.com/software/employee-scheduling/homebase/).
+- Solver limits: [Frontline's problem-size page](https://www.solver.com/standard-excel-solver-dealing-problem-size-limits)
+  and [Boardflare's limitations note](https://www.boardflare.com/resources/excel/excel-solver-limitations/).
+- Segregation of duties in adverse reports: [Baker Tilly](https://www.bakertilly.com/insights/trends-in-public-company-material-weaknesses)
+  and [Moss Adams](https://www.mossadams.com/articles/2025/06/trends-in-public-company-material-weaknesses).
+- Industrial ASP: Falkner et al., [*Industrial Applications of Answer Set Programming*](https://link.springer.com/article/10.1007/s13218-018-0548-6),
+  KI 2018; Dodaro and Maratea, [*Nurse Scheduling via Answer Set Programming*](https://www.researchgate.net/publication/318166972_Nurse_Scheduling_via_Answer_Set_Programming),
+  LPNMR 2017; [incremental ASP for product configuration at Siemens](https://arxiv.org/pdf/2207.08599).
+- Seating incumbents: [Software Advice on Prismm](https://www.softwareadvice.com/venue-management/allseated-profile/)
+  and [a 2025 seating-software comparison](https://www.seatplanning.com/blog/seating-chart-software-comparison-2025).
 
 ---

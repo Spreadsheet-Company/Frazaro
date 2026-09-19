@@ -297,7 +297,7 @@ teachers by temperament; give them the handout.
 
 **Who.** The Potassco/clingo community, ASP researchers, the LPNMR crowd,
 and — orthogonally — everyone who has ever fought Excel's Solver add-in
-over a staff rota.
+over a staff schedule.
 
 **Where.** The Potassco mailing list and GitHub discussions, LPNMR/ICLP,
 r/prolog (ASP threads land there), the constraint-programming Discords.
@@ -325,7 +325,7 @@ the solver lives where the facts already are, offline, with no runtime to
 install.
 
 **Orthogonal.** Publish the killer case as a *challenge before the
-feature exists*: a small, real rota problem in a workbook (shifts,
+feature exists*: a small, real scheduling problem in a workbook (shifts,
 certifications, leave, "every shift needs two people, nobody works two in
 a row") and ask the community how *they* would write it. The replies are
 the syntax review, and the workbook becomes `OPTIMIZE`'s first golden test the
@@ -723,7 +723,7 @@ serves and the feedback it yields.
    the author grades fidelity. Translation-as-review teaches the corpus
    what "faithful" means to a process owner. (Operations; feeds `SOP.*`.)
 
-9. **The OPTIMIZE challenge, before the feature.** Publish the rota problem
+9. **The OPTIMIZE challenge, before the feature.** Publish the scheduling problem
    (shifts, certifications, leave, two-per-shift, no back-to-backs) as a
    workbook and ask ASP people how they would write it. The replies are the
    syntax review; the workbook becomes `OPTIMIZE`'s first golden test. (ASP;
@@ -1098,7 +1098,7 @@ a second sheet, "open → Check → Interpret → Undo" as the whole tutorial.
 | `04-org-chart-datalog.xlsx` | Datalog / data | An `Employees` table with `manager_id`; the two-rule transitive-closure `=DATALOG(...)` from the roadmap's killer case. |
 | `05-staffing-prolog.xlsx` | Prolog | The README's shifts/staff/leave tables and the `can-cover` rule, plus the `findall` variant. |
 | `06-sales-sql.xlsx` | SQL | One Staff table; six `=SQL(...)` cells escalating from `SELECT` to recursive `WITH`, and one cell that hits `sql-outer-join-not-supported` on purpose. |
-| `07-rota-solve-challenge.xlsx` | ASP | The rota problem as data only — no formula yet — with the challenge text (§4.9). |
+| `07-schedule-optimize-challenge.xlsx` | ASP | The scheduling problem as data only — no formula yet — with the challenge text (§4.9). |
 | `08-polyglot.xlsx` | Lisp / educators | The same five-line program in English, Spanish, Latin, Esperanto, and pirate, one sheet each, with the identical generated VBA shown beside. |
 | `09-port-my-macro.xlsm` | VBA developers | One ugly recorded macro; the sentences that replace it; the VBA Frazaro emits. The template for §4.2. |
 
