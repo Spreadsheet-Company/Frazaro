@@ -18584,6 +18584,15 @@ now carries one summary paragraph per engine and points here.*
     `CreateObject` per tuple as the suspect, and that is 12%; a fix built on
     the prediction would have bought an eighth and left the item open. Only
     measurement found it, `PROLOG.28`'s lesson in a second engine.
+    **The same guard stands in four more places, grepped 2026-09-18 and not
+    yet timed.** `VlaDictKeys` and `VlaDictPairs` open with it too, so five
+    wrappers carry it rather than three; a mixed
+    `TypeName(v) = "Collection" Or TypeName(v) = "Dictionary"` sits at this
+    module's own line 481; and `VLA_Relation.bas` asks it twice of the
+    membership index (~660, ~691), which is on the per-row path. Whether any
+    of those belong in this item is a scoping question for whoever builds it -
+    the three wrappers named above are what the measurement covered, and
+    `VLA_Relation.bas` is a file another session owns.
     **THE FORK, SETTLED 2026-09-18 on measured numbers — option 2,
     `TypeOf d Is Collection`.** Both cheap options measured **0.000 ms**
     (the repro's sections 9 and 10), so the guard's 0.145 ms is the price of
