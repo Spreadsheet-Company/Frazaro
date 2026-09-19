@@ -885,7 +885,7 @@ item the register allows.
 
 *The owner's question, 2026-09-09, filed the same day. Out of sheer
 curiosity: what other orthogonal functions could Frazaro include in the
-vein that produced `DATALOG`, `SQL` and `PROLOG`, with `SOLVE` scoped
+vein that produced `DATALOG`, `SQL` and `PROLOG`, with `OPTIMIZE` scoped
 behind them? A sentential API over an underlying DSL democratizes a whole
 domain of programming — set theory, logic programming — by templating the
 questions that can be asked of a set of data structures, and thinking in
@@ -935,7 +935,7 @@ recursion. Add least fixpoint and you have Datalog, which stays in
 polynomial time. Add guess-and-check and you have answer set programming,
 the NP rung. Add unbounded recursion over terms and you have Prolog,
 which is everything computable. Frazaro has one engine per rung, with
-`SOLVE` the only one unbuilt. Above Prolog is undecidability, which the
+`OPTIMIZE` the only one unbuilt. Above Prolog is undecidability, which the
 refusal doctrine cannot price. So the fifth engine should not be "a
 stronger logic."
 
@@ -1015,11 +1015,11 @@ Notes on the ones with a catch:
   provenance. *Why is this value in this cell* is precedents plus
   attribution. The sentence layer will receive both and should refuse
   the ambiguous one.
-- **Check is on the path to `SOLVE`, not a detour.** `SOLVE.2` checks
+- **Check is on the path to `OPTIMIZE`, not a detour.** `OPTIMIZE.2` checks
   constraints against one derived world and reports "no answer set."
   Check is that same step with zero choices, pointed at the data,
   rendering the violating rows instead of a verdict. Build it first and
-  `SOLVE.2` inherits it.
+  `OPTIMIZE.2` inherits it.
 - **Decide is where the shadow audit becomes a product.** Business
   people already write decision tables in Excel. What they cannot do is
   prove a table complete and non-overlapping, and over interval
@@ -1061,7 +1061,7 @@ engine with a policy sentence on top:
   hypothetical deltas, one input at a time.
 - **Are we compliant with our own rules?** Contemplation 4's
   policy-over-procedures for programs, plus Check for data.
-- **What are the staffing options and which is cheapest?** `SOLVE`, as
+- **What are the staffing options and which is cheapest?** `OPTIMIZE`, as
   already scoped.
 - **What would it take to hit the target?** Goal seek: deterministic root
   finding, but approximate, so it would state its tolerance the way
@@ -1081,7 +1081,7 @@ anything with a model in the loop.
 
 Ranked by what each unlocks, the house rule: reflection first, because
 it turns four engines loose on the workbook itself for almost nothing.
-Check second, because it is the manager's engine and `SOLVE.2`'s base
+Check second, because it is the manager's engine and `OPTIMIZE.2`'s base
 case at once. Diff third; then Attribute as the distinctive one; then
 row patterns and Decide as the two cheap new logics. None of this is an
 item: `SD-7` wants a sentence that needs each, and the QUERY AND LOGIC

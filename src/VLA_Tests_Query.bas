@@ -260,7 +260,7 @@ Public Const VLA_TESTS_QUERY_VERSION As String = "PROLOG.6"
 '  split out before it ever shared a file with the language's own
 '  tests, not after (VLA_Tests_Grammar.bas's own F.8 split happened at
 '  4,945 lines and REBUILD.md's R4 budget; this module exists so that
-'  crossing never has to happen a second time). SQL/PROLOG/SOLVE's own
+'  crossing never has to happen a second time). SQL/PROLOG/OPTIMIZE's own
 '  future test subs belong here too, next to TestDatalog, as each
 '  engine ships - one file per roadmap SECTION, not one per engine
 '  module.
@@ -332,7 +332,7 @@ End Sub
 
 ' THE command for QUERY AND LOGIC's whole test suite - run this, not
 ' VlaSelfTest, to exercise DATALOG (and, as they ship, SQL/PROLOG/
-' SOLVE). Needs a live workbook open (TestDatalogHostTable, below,
+' OPTIMIZE). Needs a live workbook open (TestDatalogHostTable, below,
 ' builds and tears down a real ListObject); every other sub in this
 ' module stays pure.
 Public Function TestDSLs() As Boolean
@@ -4587,7 +4587,7 @@ Private Sub TestPrologTypeTestsRest()
            ResultBoolIs(result, True), "got: " & ResultDescribe(result)
 
     ' =================================================================
-    '  reservation and the bare ISO spellings, for the three that SOLVE
+    '  reservation and the bare ISO spellings, for the three that OPTIMIZE
     ' =================================================================
 
     Dim tName As Variant

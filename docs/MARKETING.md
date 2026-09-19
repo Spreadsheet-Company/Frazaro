@@ -29,7 +29,7 @@ each row.
 | Lisp / PL people | A Lisp whose target is VBA, with the surface language as *data* — eight phrasebooks over one macro layer, including one written entirely in glyphs. | `alien.vla`, `prelude.vla`, `scripts/polyglotta/` | "Another DSL." (The deterministic first-match grammar and the refusal doctrine are the argument, not the syntax.) |
 | Prolog people | `=PROLOG(clauses, tables…)`: unification, backtracking, `not`, `findall`, cut — over Excel Tables as facts, with a step ceiling that refuses by name. | README's staffing example | "Where's tabling / clause indexing?" (Stated ceilings in the roadmap; say so.) |
 | Datalog people | `=DATALOG(rules, tables…)`: function-free Horn clauses, stratified negation, aggregates, named-column atoms — provably terminating, refused at parse time otherwise. | README's ancestor example; `datalog-*` refusals | "Why not just SQL recursive CTEs?" (Both exist; Datalog is the one that *cannot* not terminate.) |
-| ASP people | `SOLVE()` — choice rules and integrity constraints over the same substrate, scoped in nine dissections, not built. | The SOLVE entries in `BETA_ROADMAP2.md` | "Vaporware." (Correct today; the ask is design review, not adoption.) |
+| ASP people | `OPTIMIZE()` — choice rules and integrity constraints over the same substrate, scoped in eleven items (`OPTIMIZE.0` to `OPTIMIZE.10`), none built. | The OPTIMIZE entries in `BETA_ROADMAP2.md` | "Vaporware." (Correct today; the ask is design review, not adoption.) |
 | SQL / data people | `=SQL("SELECT …", Table)` as a spilled array: joins, GROUP BY, recursive `WITH`, a frozen SQLite-leaning subset that refuses everything else *by name*. | `sql-outer-join-not-supported` and friends | "No outer joins, no NULL." (Both are open items with IDs — link them.) |
 | NLP / controlled-language people | A controlled natural language for spreadsheets: deterministic, first-match-wins, no statistics, refusals that teach. | The Datalog refusal quoted in the README | "That's not NLP." (Agreed — it's CNL, and the ACE lineage is the right shelf to put it on.) |
 | Accountants | Your month-end checklist as sentences that either run exactly as written or refuse before touching a number. | A reconciliation-prep workbook (to be built — §1) | "I'm not a programmer." (That is the entire premise; the first tutorial is for you.) |
@@ -118,7 +118,7 @@ not to today.
 |---|---|---|
 | 0 | §1, all of it. | Nothing below survives a stale README or an unsigned add-in. |
 | 1 | **Soft launch** — r/vba, r/lisp, MrExcel and ExcelForum's add-in boards, the SWI-Prolog Discourse. Small, kind, technical. | Twenty people hit the first-run friction where fixing it is cheap and nobody important is watching. |
-| 2 | **Show HN**, logic-programming angle (Appendix A.1). Cross-post to lobste.rs, r/ProgrammingLanguages, r/prolog, r/datalog if active, the Potassco/ASP list for the `SOLVE` design review. | HN's first comment decides the thread; the logic-programming story is the one that survives HN's reflexive skepticism of "program Excel in English." |
+| 2 | **Show HN**, logic-programming angle (Appendix A.1). Cross-post to lobste.rs, r/ProgrammingLanguages, r/prolog, r/datalog if active, the Potassco/ASP list for the `OPTIMIZE` design review. | HN's first comment decides the thread; the logic-programming story is the one that survives HN's reflexive skepticism of "program Excel in English." |
 | 3 | **The Excel circuit** — r/excel with its showcase flair, pitches to the Excel YouTube channels (Appendix A.7), the Spanish-language Excel ecosystem for the Espanol edition, EuSpRIG abstract submitted. | The audiences that will actually *use* it, reached after the technical audiences have shaken the obvious bugs out. |
 | 4 | **Second HN post**, phrasebooks angle: "A Lisp that compiles to VBA, with English phrasebooks in eight languages (including pirate, and one for an alien)." Plus dev.to / Hashnode long-form. | Don't spend that title before the phrasebook tutorial exists to catch the people it brings. |
 | 5 | **Accounting / FP&A / audit** — LinkedIn carousel, r/Accounting, r/FinancialModeling, the EUC-controls angle for ISACA/IIA-adjacent groups. | These audiences need the `examples/` workbooks and the signed add-in; by week 5 both exist and have been exercised. |
@@ -197,8 +197,10 @@ the alien. Then the doctrine: first-match-wins, no backtracking, the loader
 feature (`LX.8`); a golden-file parity suite holding two backends to the
 same semantics.
 
-**The ask.** Design review, not adoption. Specifically: the `SOLVE`
-dissection (nine scoped items, none built — is the sequencing right?); the
+**The ask.** Design review, not adoption. Specifically: the `OPTIMIZE`
+plan (eleven scoped items, none built — is the sequencing right: measure
+first, ground once, propagate from the first search, conflict learning
+behind a measured trigger?); the
 decision to keep VLA strictly 1:1 with VBA and never add semantic smoothing
 (README, *How it works*, layer 2); and the unknown-namespace refusal
 doctrine in `F.10`. These are the arguments this audience enjoys, and the
@@ -253,7 +255,7 @@ it is Prolog-shaped over S-expressions because VLA's reader was free.
 puzzle, a small scheduling problem, a family tree — each as one
 `=PROLOG(...)` formula in a downloadable workbook, posted where puzzle
 people gather (r/puzzles is not the venue; the Prolog and Excel
-communities both are). Sudoku is explicitly *not* the pitch (the `SOLVE`
+communities both are). Sudoku is explicitly *not* the pitch (the `OPTIMIZE`
 entry says so), but it is an honest hello-world for a thread.
 
 ### 3.4 Datalog
@@ -300,19 +302,22 @@ over a staff rota.
 **Where.** The Potassco mailing list and GitHub discussions, LPNMR/ICLP,
 r/prolog (ASP threads land there), the constraint-programming Discords.
 
-**The hook.** There is nothing to download. `SOLVE()` is scoped in nine
-dissections and none is built. The hook is the *design*: choice rules and
-integrity constraints over the same substrate as `DATALOG`, `SOLVE.1` being
+**The hook.** There is nothing to download. `OPTIMIZE()` is scoped in eleven
+items and none is built. The hook is the *design*: choice rules and
+integrity constraints over the same substrate as `DATALOG`, `OPTIMIZE.1` being
 literally Datalog's engine wearing the name, `#minimize`/`#maximize` as the
-business-valuable mode, CDCL-style search deliberately at the ceiling.
+business-valuable mode, a deterministic answer as the standing promise,
+and CDCL-style search scheduled behind a measured trigger (`OPTIMIZE.9`)
+rather than left at the ceiling.
 And the reason it is not called `ASP()` — a real collision with "average
 selling price" in finance spreadsheets.
 
-**The ask.** Design review before a line is written: is enumerate-and-
-backtrack (`SOLVE.3`) the right first search for problems that are
+**The ask.** Design review before a line is written: is propagation-first
+search over a ground program (`OPTIMIZE.3`), with learning gated by a
+measurement (`OPTIMIZE.9`), the right shape for problems that are
 workbook-sized? What is the smallest scheduling case that breaks it? Would
-a clingo user find the syntax tolerable or offensive? Post the nine
-dissections and ask.
+a clingo user find the syntax tolerable or offensive? Post the eleven
+items and ask.
 
 **Objections, honestly.** "Vaporware" — yes, and the roadmap says so with
 estimates. "Use clingo" — a spreadsheet user cannot; the whole bet is that
@@ -323,7 +328,7 @@ install.
 feature exists*: a small, real rota problem in a workbook (shifts,
 certifications, leave, "every shift needs two people, nobody works two in
 a row") and ask the community how *they* would write it. The replies are
-the syntax review, and the workbook becomes `SOLVE`'s first golden test the
+the syntax review, and the workbook becomes `OPTIMIZE`'s first golden test the
 day it ships.
 
 ### 3.6 SQL and data people
@@ -718,11 +723,11 @@ serves and the feedback it yields.
    the author grades fidelity. Translation-as-review teaches the corpus
    what "faithful" means to a process owner. (Operations; feeds `SOP.*`.)
 
-9. **The SOLVE challenge, before the feature.** Publish the rota problem
+9. **The OPTIMIZE challenge, before the feature.** Publish the rota problem
    (shifts, certifications, leave, two-per-shift, no back-to-backs) as a
    workbook and ask ASP people how they would write it. The replies are the
-   syntax review; the workbook becomes `SOLVE`'s first golden test. (ASP;
-   feeds `SOLVE.1`–`SOLVE.9`.)
+   syntax review; the workbook becomes `OPTIMIZE`'s first golden test. (ASP;
+   feeds `OPTIMIZE.0`–`OPTIMIZE.10`.)
 
 10. **Conference papers as durable marketing.** EuSpRIG (the audience that
     buys), the CNL / VL/HCC venues (the shelf where it is novel), an
@@ -866,7 +871,7 @@ not attention this project can use.
   exists — *Import Program File…* accepts `.docx` — which is exactly why it
   must not be advertised: today it opens the document in Word with macros
   enabled. The plain-text paste path is the honest offer.
-- **Do not announce `SOLVE()` as existing.** It is scoped; the ask is
+- **Do not announce `OPTIMIZE()` as existing.** It is scoped; the ask is
   review.
 - **The beta is the beta.** Its definition is one sentence
   (`BETA_ROADMAP2.md`'s header): *one named person outside the project runs
@@ -887,7 +892,7 @@ Relative to Week 0's completion. One fixed date: 19 September.
 | Week 1 | Soft launch: r/vba, r/lisp, MrExcel, ExcelForum, SWI-Prolog Discourse. Fix what the first twenty hit. | Patch releases as needed |
 | Week 2, Tue–Thu, 8–10 a.m. ET | Show HN (Appendix A.1). Cross-posts same day. Author present in the thread for six hours. | The thread; issues filed from it |
 | Week 2 | Awesome-list PRs, GitHub topics, Console.dev submission (§4.11). | PRs |
-| Week 3 | r/excel showcase post; YouTube pitches, Spanish channel first (Appendix A.7); EuSpRIG abstract submitted (A.6); the SOLVE challenge posted (§4.9). | Posts, emails, abstract |
+| Week 3 | r/excel showcase post; YouTube pitches, Spanish channel first (Appendix A.7); EuSpRIG abstract submitted (A.6); the OPTIMIZE challenge posted (§4.9). | Posts, emails, abstract |
 | Week 4 | Second Show HN: the phrasebooks angle. dev.to / Hashnode long-form. First *Bring your checklist* live hour (§4.7). | Post; recording |
 | Week 5 | Accounting / FP&A / audit: LinkedIn carousel, r/Accounting, r/FinancialModeling, `PI.7` trust survey circulated. *Frazaro solves the case* (§4.6). | Posts; survey; workbook |
 | Week 6 | The digest (§6): what refused, what we fixed, who found what, channels retired. Re-bet the channels. Product Hunt decision. | The digest post |
@@ -933,8 +938,8 @@ functions (offline, no code injected)
 > as an issue.
 
 **First comment (yours, posted immediately):** the shared-substrate story
-in four sentences; why `SOLVE()` isn't built yet and what the nine
-dissections are; the `alien.vla` link for the Lisp people; the
+in four sentences; why `OPTIMIZE()` isn't built yet and what the eleven
+items are; the `alien.vla` link for the Lisp people; the
 `THREAT_MODEL.md` link for the security people. Then stay six hours.
 
 ### A.2 r/excel showcase

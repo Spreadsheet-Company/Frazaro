@@ -403,7 +403,7 @@ nothing here is "done," and nothing here is ever pruned.*
   as shared substrate (`VLA_Unify.bas`, see `PROLOG`'s own entry), the
   rendering direction (G-RENDER already unifies a template against a
   form, and is the model: it matches forms against forms and is never
-  handed a token stream), SOLVE's search — none of which ever decides
+  handed a token stream), OPTIMIZE's search — none of which ever decides
   whether a sentence is accepted. *Reason, and why it is written
   sternly:* the temptation is structural, not hypothetical — the day
   `=PROLOG()` exists, the cheapest way to write a new grammar section
@@ -7777,7 +7777,7 @@ G-TAIL always said this about itself; it is true of the whole tranche.
     compatibility, tiering, conflicts of interest and of schedule, lineage,
     routes, compliance with exceptions, "who has no / is the only / every",
     counts and lists per group, text-shaped codes, and one optimisation
-    task refused as SOLVE's), **22 P0**. Each carries the question a
+    task refused as OPTIMIZE's), **22 P0**. Each carries the question a
     manager would ask, the canonical program, a tiny fixture that hides
     its section's trap, the engine that owns it, and the answer. Every
     PROLOG program was **measured** through `PROLOG.22`'s transliteration,
@@ -8937,7 +8937,7 @@ G-TAIL always said this about itself; it is true of the whole tranche.
          complete as scoped:** every answer shape but ANY (not built, slice
          4's decision 6), every connective and every authoring form in the
          matrix, all through `DATALOG`.
-    *Out of scope, and never faked:* optimisation (`SOLVE`, §17); quantity
+    *Out of scope, and never faked:* optimisation (`OPTIMIZE`, §17); quantity
     roll-ups along paths (`SQL`/`DATALOG` aggregation); topological order.
     *Corrected at completion:* this line used to say they are "refused by
     name". Slices 3 and 4 recorded them in the corpus with no sentence, so a
@@ -8948,7 +8948,7 @@ G-TAIL always said this about itself; it is true of the whole tranche.
     them. (How COUNT reads was decided by slice 4's scoping.)
 
     `~weeks`, per slice. *Pays into:* `G-DATALOG`'s second wave (it reads
-    the same cells), `G-SQL` and `G-SOLVE` (both inherit this corpus), and
+    the same cells), `G-SQL` and `G-OPTIMIZE` (both inherit this corpus), and
     README's own promise that the question is shaped like the policy.
 
   - ⬜ **G-RELATIONS — declared relation templates: a relation said in
@@ -9004,20 +9004,25 @@ G-TAIL always said this about itself; it is true of the whole tranche.
     against one read as rules. *Pays into:* `G-PROLOG`'s classification,
     `G-SQL`. `~weeks`
 
-  - ⬜ **G-SOLVE** — sentence templates targeting `SOLVE(facts, program)`, the
-    Answer Set Programming engine — named for the function, not the
-    discipline: `SOLVE`'s own item text already refused `ASP()` for a real
-    cell-formula collision ("average selling price" in finance spreadsheets,
-    `GO.1`'s naming discipline), and this item's own ID follows that same
-    lesson rather than reintroducing the collision-prone name one level up.
-    The strongest specimen in this whole family is already written down,
-    verbatim, in `SOLVE`'s own "killer case" bullet: *"assign each person to a
-    shift such that everyone works exactly 5 days, nobody works two in a row,
-    every shift has at least 2 people, nobody's scheduled during their
-    vacation days, total overtime is minimized."* That sentence is this item's
-    own north star the day it can be attempted. *Depends on:* `SOLVE`'s MVP —
-    currently `⬜`, "the heaviest MVP of the four," not started. Last in this
-    family to become actionable.
+  - ⬜ **G-OPTIMIZE** — sentence templates targeting `OPTIMIZE(rules,
+    tables...)`, the decision engine — named for the function, not the
+    discipline, as `G-SOLVE` was (renamed with the engine 2026-09-18;
+    `G-SOLVE` is retired under `SD-9`, and the engine's own family paragraph
+    records why `ASP`, `SOLVE` and five other names were refused). The
+    strongest specimen in this whole family is already written down,
+    verbatim, in the engine's "killer case" bullet: *"assign each person to
+    a shift such that everyone works exactly 5 days, nobody works two in a
+    row, every shift has at least 2 people, nobody's scheduled during their
+    vacation days, total overtime is minimized."* That sentence is this
+    item's own north star the day it can be attempted. **The grammar is the
+    guardrail, not a translator:** `OPTIMIZE.0` names the shapes that ground
+    and search tractably, and these sentences may only write those —
+    "at least 2", "at most 5 a week" become native counters, "in a row" a
+    precomputed pair relation, "on leave" a pool exclusion — so a manager
+    cannot write the combinatorial shape by accident. *Depends on:*
+    `OPTIMIZE.3` (the first search), and `OPTIMIZE.7` for the sentence a
+    manager actually wants ("keep this month's roster unless…"). Last in
+    this family to become actionable.
 
 - ✅ **L-INTERPOLATE — a template-string primitive.** (Filed this session as
   `L-FORMAT`; renamed before implementation solidified — see the renaming note
@@ -12626,7 +12631,7 @@ the artifact.*
     keeping only its English-specific glued-slot branch as an atom-level
     hook) and two-way unify (Prolog proper, occurs check refused by name,
     `prolog-occurs-check`, never skipped for speed). Pays into G-RENDER v2
-    (multi-statement templates are the unifier's list case), SOLVE's
+    (multi-statement templates are the unifier's list case), OPTIMIZE's
     grounding, and SD-16 — the unifier matches forms against forms and is
     never handed a token stream.
   - **v2** (`~weeks` more): cut, `is`/arithmetic, negation-as-failure,
@@ -12639,7 +12644,7 @@ the artifact.*
     backtracker and something that survives a real KB; an `EXPLAIN` that
     returns the proof tree (which facts/rules fired, in order) for the
     same auditability reason as `SQL`'s. **Constraint/CSP solving is
-    explicitly not this engine's job** — that instinct belongs to `SOLVE`
+    explicitly not this engine's job** — that instinct belongs to `OPTIMIZE`
     below (Answer Set Programming), which is a purpose-built generate-
     and-test notation for "many valid worlds, pick the best," not a
     repurposed proof engine wearing an `in`/`all_different` costume.
@@ -12690,7 +12695,7 @@ the artifact.*
     proves the shared-substrate bet cheaply instead of discovering its
     problems mid-way through a bigger engine.
 
-- ⬜ **`SOLVE(facts, program)`** — Answer Set Programming, the fourth and
+- ⬜ **`OPTIMIZE(facts, program)`** — Answer Set Programming, the fourth and
   last of this family, complementary rather than competing: the other
   three all answer some version of "what follows from what I know"; this
   one answers "what are all the self-consistent ways this could be, and
@@ -12710,7 +12715,7 @@ the artifact.*
     has at least 2 people, nobody's scheduled during their vacation days,
     total overtime is minimized." The thing people currently fight
     Excel's Solver add-in over, except Solver is a numeric black box with
-    no way to ask why this answer and not another, and `SOLVE` is built
+    no way to ask why this answer and not another, and `OPTIMIZE` is built
     from the same named, inspectable facts as the other three. (Sudoku/
     N-Queens are the honest hello-world, not the pitch.)
   - **MVP** (`~weeks`, the heaviest MVP of the four): choice rules,
@@ -12738,18 +12743,23 @@ the artifact.*
     range-to-facts machinery) and shares search/backtracking lineage with
     `PROLOG` (real combinatorial exploration, not a fixpoint) — sitting at
     the genuine intersection of both rather than a separate engine.
+  - *Renamed `OPTIMIZE` on 2026-09-18, and re-planned: the build record
+    below supersedes every sub-bullet here. Its family paragraph says why
+    the name changed, why the naive search this scoping assumed (and the
+    nine dissections that followed it) was retired on arithmetic, and why
+    the search's shape is now measured before any of it is built.*
 
 **Shared substrate, not four engines.** All four converge on the same
 machinery at the ceiling: a recursive `PROLOG` query, a recursive `SQL`
-`WITH` CTE, `DATALOG`'s fixpoint evaluation, and `SOLVE`'s grounded search
+`WITH` CTE, `DATALOG`'s fixpoint evaluation, and `OPTIMIZE`'s grounded search
 are the same underlying computation wearing four different contracts
 (unrestricted and possibly-nonterminating; recursive-and-relational;
 restricted-and-guaranteed; generate-and-test), built from the same
 indexed-relation primitives (hash join, group-by, projection, plus
-`SOLVE`'s own backtracking search over the grounded result). Building any
+`OPTIMIZE`'s own backtracking search over the grounded result). Building any
 one's engine makes the others meaningfully cheaper — which is also the
 argument for building `DATALOG` first: it is the smallest possible proof
-of the shared bet, not a fourth thing competing for a turn — `SOLVE` earns
+of the shared bet, not a fourth thing competing for a turn — `OPTIMIZE` earns
 that description honestly instead.
 
 **The build record - moved here from BETA_ROADMAP2.md on 2026-09-08.**
@@ -12819,7 +12829,7 @@ now carries one summary paragraph per engine and points here.*
   existing shape — never a scalar, a JSON blob, or a lazy handle; query text
   is locale-invariant (`.` decimal separator, ISO 8601 dates, `,` argument
   separator) regardless of the user's Excel locale, decided now rather than
-  inherited by accident from EN.2/EN.3's later policy; and `PROLOG`/`SOLVE`
+  inherited by accident from EN.2/EN.3's later policy; and `PROLOG`/`OPTIMIZE`
   specifically must enforce a hard resolution-step budget, refusing by name
   past the ceiling, because an in-cell UDF has no `DoEvents` path (IN.14's
   cancellation is interpreter-loop-only) and an unbounded backtracking search
@@ -13351,11 +13361,11 @@ now carries one summary paragraph per engine and points here.*
   succeeded, entirely outside this walk.) Three things get simpler at once:
   G-RENDER's own deferred v2 (multi-statement templates — matching a list of
   forms against a list of templates is the unifier's list case, already),
-  SOLVE (its grounding step is unification against ground facts: one-way
+  OPTIMIZE (its grounding step is unification against ground facts: one-way
   mode), and SD-16's wall — because the one thing the unifier is never handed
   is a token stream; it matches forms against forms, and a sentence is not a
   form until `TryPhrase` has already accepted it. *Pays into:* G-RENDER v2,
-  SOLVE, AS.4. **Not reopening the `DATALOG` boundary:** an earlier session
+  OPTIMIZE, AS.4. **Not reopening the `DATALOG` boundary:** an earlier session
   considered and rejected letting `PROLOG()` auto-detect a function-free
   ruleset and silently run it bottom-up instead of backtracking — a query that
   loses its termination guarantee the moment one rule happens to use a
@@ -17620,7 +17630,7 @@ now carries one summary paragraph per engine and points here.*
     order), the same auditability reason `SQL`'s own `EXPLAIN` ceiling item
     already gives. **Explicitly not this engine's job, unchanged from
     `BETA_ROADMAP1.md`:** constraint/CSP solving — that instinct belongs to
-    `SOLVE` (Answer Set Programming) below, a purpose-built generate-and-test
+    `OPTIMIZE` (Answer Set Programming) below, a purpose-built generate-and-test
     notation, not a repurposed proof engine wearing an `in`/`all_different`
     costume.
 
@@ -17691,7 +17701,7 @@ now carries one summary paragraph per engine and points here.*
     worksheet-function error surfaces as readable text in the cell
     (`"#DATALOG! ..."`) rather than Excel's own `#VALUE!`, since a UDF has no
     other visible surface for a refusal's words — first use of that pattern in
-    this codebase, worth watching as a precedent for `SQL`/`PROLOG`/`SOLVE`.
+    this codebase, worth watching as a precedent for `SQL`/`PROLOG`/`OPTIMIZE`.
   - ✅ **Stratified negation (`not`), DATALOG.1.** Owner-tested live and
     committed. Safe only because stratifiability — no predicate depending on
     itself through a `not`/`count`/`sum`, directly or through a cycle — is
@@ -17859,7 +17869,7 @@ now carries one summary paragraph per engine and points here.*
     `TestDatalogHostTable` gains the live scenario, including a mixed-case
     Table name and header (`Staffing`/`Salary`) proving both fold invariantly.
     *Pays into:* the first real English→DATALOG phrasebook row, and — since
-    `PROLOG`/`SOLVE` source facts from the same Tables — the identical
+    `PROLOG`/`OPTIMIZE` source facts from the same Tables — the identical
     keyed-atom syntax for both, from the same substrate. `~days`.
   - ⬜ **DATALOG.6 — `min`/`max`/`avg` aggregation, alongside `count`/`sum`.**
     A real, concrete gap against `DATALOG`'s own sibling engine: `DATALOG.2`
@@ -18890,159 +18900,582 @@ now carries one summary paragraph per engine and points here.*
     owner's own go-ahead every time). Revisit only once a real rule set or
     fact table is measured to make this matter.
 
-- ⬜ **`SOLVE(facts, program)`** — Answer Set Programming, the fourth and last
-  of this family, complementary rather than competing: the other three all
-  answer some version of "what follows from what I know"; this one answers
-  "what are all the self-consistent ways this could be, and which is best."
-  Written like `DATALOG` (facts, rules) plus two new ingredients — **choice
-  rules** (`{ assign(S,P) : eligible(P,S) } = 2 :- shift(S).`, "generate every
-  possible way to pick 2 eligible people per shift") and **integrity
-  constraints** (`:- assign(S,P), on_vacation(P,S).`, "discard any candidate
-  world containing this") — so the program describes a whole space of
-  candidate worlds and the solver hands back the ones that survive every
-  constraint: an **answer set**. Not `ASP()` — a real, not hypothetical,
-  collision with "average selling price" in finance spreadsheets, the same
-  naming-collision discipline `BETA_ROADMAP1.md`'s own `GO.1` already applies
-  elsewhere in this file. **The killer case, concretely:** staff scheduling,
-  seating charts, resource allocation — "assign each person to a shift such
-  that everyone works exactly 5 days, nobody works two in a row, every shift
-  has at least 2 people, nobody's scheduled during their vacation days, total
-  overtime is minimized." The thing people currently fight Excel's own Solver
-  add-in over, except Solver is a numeric black box with no way to ask why
-  this answer and not another, and `SOLVE` is built from the same named,
-  inspectable facts as the other three (Sudoku/N-Queens are the honest
-  hello-world, not the pitch). **`BETA_ROADMAP1.md`'s own MVP/Stretch/Ceiling
-  breakdown predates the flat numbered shape `PROLOG`/`SQL` both settled on
-  and is superseded by it below** — hydrated as `SOLVE.1`–`SOLVE.9` plus a
-  stated ceiling, each item the smallest addition that turns the previous
-  item's own output into the next item's own required input, "microscopes
-  before dissections" the same discipline `SQL`'s own sequencing note names:
-  no search machinery is built before there is exactly one candidate world to
-  run it on; no world-scoring is built before there is more than one candidate
-  world to choose between.
-  - ⬜ **SOLVE.1 — the zero-choice base case: `DATALOG`'s own engine,
-    unchanged, wearing the `SOLVE` name.** A `SOLVE` program with no choice
-    rule and no integrity constraint is exactly a `DATALOG` program — one
-    guaranteed, unique model, no search of any kind. Reuses
-    `DatalogRun`/`RunStratifiedFixpoint` (`VLA_Datalog.bas`) wholesale: once
-    `SOLVE`'s own parser has recognized a program's `(fact ...)`/`(rule ...)`
-    forms as identical `DATALOG` syntax, `=SOLVE(...)` hands them straight to
-    the same stratified fixpoint `DATALOG` already runs and reports its one
-    derived relation set back as "the one answer set." Proves the framing —
-    facts in, an answer set out, a `#SOLVE!`-style refusal (the same
-    `fail:`/`Err.Description` convention `PROLOG`/`DATALOG`/`SQL` all already
-    use) for malformed input — before either of `SOLVE`'s own two new
-    ingredients exists to complicate it. `~days`.
-  - ⬜ **SOLVE.2 — integrity constraints (`:- body.`) against that single
-    candidate world.** Still zero search: with no choice rule yet, `SOLVE.1`'s
-    own fixpoint produces exactly one candidate, so a constraint is a pure
-    post-hoc CHECK — does `body` hold against the one derived model — never a
-    reason to backtrack, since there is nothing else to try yet. The first
-    point in this chain where "no answer set exists" is even a possible
-    outcome, and — `BETA_ROADMAP1.md`'s own conclusion, carried forward — a
-    first-class, auditable RESULT, not a crash: genuinely distinct from the
-    `#SOLVE!` parse/shape-refusal path above, which stays reserved for
-    malformed input, never for a world a constraint legitimately rejected.
-    Reuses `DATALOG`'s own body-atom evaluator unchanged (the same walk a rule
-    body already does) to check `body`. The smallest possible proof that a
-    constraint is DIFFERENT from a rule — it derives nothing, it only
-    eliminates — before search exists to make that distinction matter.
-    `~days`.
-  - ⬜ **SOLVE.3 — one choice rule (`{ p(X) : q(X) } = N`), naive
-    enumerate-and-backtrack, no derived rules over the chosen atoms yet.** The
-    first real search: `q(X)`'s own facts (already an ordinary `DATALOG`-style
-    relation) name the candidate pool, and the solver enumerates every N-sized
-    subset, checking each against `SOLVE.2`'s own constraints in turn,
-    returning the first that survives (or `SOLVE.2`'s own "no answer set
-    exists" result once every subset is exhausted). The
-    try-a-candidate/recurse/backtrack-on-failure SHAPE is not new: it is
-    `VLA_Prolog.bas`'s own `SolveGoalList` candidates loop, adapted from "try
-    the next matching clause" to "try the next N-sized subset" — the same
-    discipline, a different generator. Deliberately excludes a choice's own
-    chosen atoms from ever appearing in another rule's body in this item (that
-    composition is `SOLVE.4`), so a bug found here can only ever be in the
-    enumeration or the constraint check, nothing else. `~weeks`.
-  - ⬜ **SOLVE.4 — a choice rule's own chosen atoms feeding ordinary rules
-    before constraints are checked.** The real scheduling shape: `assign(S,P)`
-    gets chosen by `SOLVE.3`'s own search, an ordinary rule then derives
-    `overtime(P)` from it via `SOLVE.1`'s own stratified fixpoint, and only
-    THEN does `SOLVE.2`'s own constraint check run — against the FULLY DERIVED
-    model, not the raw chosen set. Composes `SOLVE.1` and `SOLVE.3` rather
-    than adding new machinery: each candidate subset `SOLVE.3` proposes is
-    re-run through `RunStratifiedFixpoint` before being checked, exactly
-    `DATALOG`'s own existing per-call cost, now paid once per candidate rather
-    than once per query. `~days`–`~weeks`.
-  - ⬜ **SOLVE.5 — more than one choice rule in the same program.** A real
-    schedule has one choice per shift, not one choice total — this widens
-    `SOLVE.3`'s own single-generator search into nested generators, one per
-    choice rule, still fully naive (the Cartesian product of every choice's
-    own candidate subsets, each full combination re-run through `SOLVE.4`'s
-    own derive-then-check pipeline). A genuinely small increment over
-    `SOLVE.3`/`SOLVE.4` — the enumeration primitive itself is unchanged, only
-    how many of it run per program — but the first point where combinatorial
-    cost becomes real, which is why performance (`SOLVE.9`, below) waits until
-    there is an actual multi-choice program to profile against. `~days`.
-  - ⬜ **SOLVE.6 — aggregates over a choice's own chosen set (`#count`, `#sum`)
-    inside a constraint or a choice's own cardinality bound.** The killer
-    case's own "every shift has at least 2 people" and "total overtime is
-    minimized" both need to count or sum over the CURRENT CANDIDATE's chosen
-    atoms, not over stored facts the way `DATALOG.2`/`DATALOG.6` (min/max/avg,
-    itself still pending) aggregate — the same accumulation logic, reading
-    from a different, per-candidate source. Reuses whichever of `DATALOG`'s
-    own aggregate forms are built by the time this item is reached,
-    generalized to read from a candidate set rather than a stored relation.
-    `~weeks`.
-  - ⬜ **SOLVE.7 — first-answer-set vs. all-answer-sets mode, spilled and
-    `LIMIT`-capped.** Once `SOLVE.3`–`SOLVE.6`'s own search loop exists,
-    returning either the first surviving candidate or every one up to a cap is
-    a caller-facing mode switch over an already-complete search, not new
-    search machinery — `DATALOG`'s own spilled-array return convention, reused
-    rather than invented. Real motivation, not speculative: "how many valid
-    schedules are there" and "show me a few options" are both ordinary asks
-    the killer case's own stakeholders make once "does at least one exist"
-    stops being the only question. `~days`.
-  - ⬜ **SOLVE.8 — `#minimize`/`#maximize` (weak constraints): the best answer
-    set, not just a valid one.** The single most business-valuable mode this
-    engine has, named as such in this item's own original scoping — "the thing
-    people currently fight Excel's own Solver add-in over." Runs `SOLVE.7`'s
-    own all-answer-sets search to exhaustion (or an incremental
-    bound-tightening variant of it, a real, owner-decidable choice left open
-    here rather than assumed), scores each surviving candidate through an
-    objective expression evaluated with `DATALOG`'s own arithmetic evaluator,
-    and keeps the best. The one item in this chain whose cost can genuinely
-    explode on a real workbook-sized problem — the reason `SOLVE.9`'s own
-    pruning work exists, and the reason CDCL-style search stays at the ceiling
-    rather than becoming a prerequisite. `~weeks`.
-  - ⬜ **SOLVE.9 — search pruning (unit-propagation-style constraint
-    short-circuiting) over `SOLVE.3`–`SOLVE.8`'s own naive backtracking,
-    profiled first.** A performance item, not a semantics one — every answer
-    this chain has already produced stays correct without it; what changes is
-    how many dead-end candidates get generated before a constraint that was
-    always going to fail them gets checked. `DATALOG`'s own recalc-caching
-    item (above) sets the precedent this item follows: real profiling against
-    a real scheduling-sized workbook before building anything, never
-    speculative. Stops short of real conflict-driven (CDCL) search, which
-    stays at the ceiling below. `~weeks`.
-  - **Stated ceiling, carried forward from `BETA_ROADMAP1.md`, not built
-    here:** real conflict-driven search (CDCL-style, not the propagation
-    `SOLVE.9` already adds) to stay responsive at real problem sizes inside a
-    live calc engine; disjunctive rule heads (`a | b :- body.`) for full
-    theoretical ASP expressiveness, flagged as probably never needed for
-    anything spreadsheet-shaped; classical/strong negation (`-a`, distinct
-    from `not a`'s negation-as-failure, which `DATALOG`'s own stratification
-    already covers) — no killer case named above needs it, and
-    negation-as-failure alone already expresses every constraint this item's
-    own scheduling example requires; an `EXPLAIN` showing which choices and
-    constraints were binding, arguably more valuable here than for the other
-    three, since "why is this the optimal schedule" is exactly what a human
-    scheduler needs to trust this over Solver.
-  - **Substrate relationship:** shares grounding and stratified derivation
-    with `DATALOG` (`SOLVE.1`/`SOLVE.4`, the identical
-    `RunStratifiedFixpoint`) and shares its own search/backtracking SHAPE with
-    `PROLOG` (`SOLVE.3`, `SolveGoalList`'s own candidates-loop discipline,
-    real combinatorial exploration rather than a fixpoint) — sitting at the
-    genuine intersection of both rather than a separate fourth engine, exactly
-    the shared-substrate bet the rest of this family already proved out.
+- ⬜ **`OPTIMIZE(rules, tables...)`** — the fourth and last engine of this
+  family, and the only one that produces a DECISION rather than an answer:
+  the other three say what follows from what you know; this one says which
+  of the ways things could be is the best. Written like `DATALOG` — facts,
+  rules, the same s-expression forms through `VLA.VlaReadForms`, **settled
+  2026-09-18, the owner's call: s-expressions, as the other three** — plus
+  three ingredients, whose exact spellings `OPTIMIZE.1` settles and the
+  grammar will hide anyway: a **choice** (`(choose 2 (assign Shift Person)
+  (eligible Person Shift))` — pick two eligible people for every shift), a
+  **constraint** (`(forbid (assign S P) (on-leave P S))` — no world in which
+  this holds), and an **objective** (`(minimize (overtime P))` — the world
+  with the least of this). The program describes a space of candidate
+  worlds; the engine hands back the best one that breaks no rule, or says
+  in words that none exists. **The killer case, unchanged:** staff
+  scheduling, seating charts, resource allocation — "assign each person to
+  a shift such that everyone works exactly 5 days, nobody works two in a
+  row, every shift has at least 2 people, nobody's scheduled during their
+  vacation days, total overtime is minimized." The thing people fight
+  Excel's own Solver over, except Solver is a numeric black box with no way
+  to ask why this answer and not another, and this is built from the same
+  named, inspectable facts as the other three (Sudoku and N-Queens are the
+  honest hello-world, not the pitch).
+  **NAMED 2026-09-18, the owner's call, and it was overdue: the name goes
+  into users' formulas the day `OPTIMIZE.1` ships, so it had to be settled
+  before it.** The engine was `SOLVE` until this day. The ids
+  `SOLVE.1`–`SOLVE.9` and `G-SOLVE` are RETIRED under `SD-9`, never to be
+  re-minted (`tools/check_id_registry.ps1` holds them), and every other
+  mention of the old name in the repository was renamed with the engine
+  the same day — the owner's call: semantic drift should not calcify in a
+  months-old project — leaving the old name only where a retired id is
+  named as retired, and in the registry's own record. `pareto_logic.txt`'s
+  corpus entry is `optimize-roster` and its engine letter `O`. What was
+  weighed:
+  - *`ASP`* — refused long ago: "average selling price" in every finance
+    workbook (`GO.1`'s discipline).
+  - *`SOLVE`* — refused as over-general: it names no task, so a user
+    cannot guess from the formula what it does or when to reach for it,
+    and it shares its verb with the Solver add-in it is meant to replace.
+  - *`CHOOSE`* — Excel's own function, so not even possible.
+  - *`ASSIGN`, `ARRANGE`, `ALLOCATE`* — each names the MECHANISM (the
+    engine assigns people to shifts) rather than the value, and
+    `ALLOCATE` reads as splitting a quantity, which is Solver's problem,
+    not this one's.
+  - *`ALLOT`* — the safest word on the list (short, unclaimed, spelled the
+    same everywhere) and the dullest: a rare verb with no cognate in the
+    phrasebook languages, that no manager uses about a roster.
+  - **`OPTIMIZE` — chosen.** It names what the user WANTS, not what the
+    engine does; it is the one verb every manager already uses ("optimize
+    the roster"), so a non-programmer reads the formula right first time;
+    its cognates carry it into the phrasebook languages (optimizar,
+    optimiser, optimieren, ottimizzare, otimizar); no worksheet function
+    begins with `OPT` (checked against Microsoft's alphabetical function
+    list 2026-09-18; `ALL`, `ASS`, `SOL` and `SCH` are free too); and it
+    positions the engine exactly where its value is — against Solver,
+    with rules in English and answers you can audit. Two costs, paid
+    knowingly. *Spelling:* `OPTIMISE` is a one-line alias in the same
+    module forwarding to the same engine, so a British user's formula
+    works (Excel's own functions have no British spellings; this is a
+    courtesy, not a convention). *Honesty:* a program that names no
+    objective still optimizes — see the determinism decision below: every
+    answer is the best under a stated order, so the name never overclaims
+    — and the name forbids one thing outright: an answer may never be
+    CALLED best unless it is proven best. When a budget stops the search,
+    the cell says "best found within the budget, not proven best", in
+    those words.
+  **Four more standing decisions, 2026-09-18, the owner's:**
+  1. **One search, many views — the answer is the decision, spilled.** The
+     cell spills the chosen rows (who works which shift) as a table with
+     headers, and every other question about it — how many per person,
+     who is free on Tuesday, is anyone over five — reads that spill:
+     Excel's own `FILTER`, `COUNTIFS` and `PIVOTBY`, or a `DATALOG`
+     question that takes the spill as a data table. So a schedule is
+     searched for ONCE and read many times, every view agrees because
+     every view reads the same rows, and a grid (people down, days across)
+     is presentation built over the spill, never something the engine
+     knows about. **Substrate change approved with it:** `VLA_Relation`
+     reads column headers only from Excel Tables today
+     (`RangeColumnNames` exits when a range has no `ListObject`), so a
+     spilled range's first row must count as its headers before a
+     `DATALOG` sentence can say "Schedule lists the person as Name".
+     Behind it, the mechanism that makes "once" literal: because the
+     engine is deterministic (next), the same inputs always produce the
+     same answer, so a session memo keyed on the CONTENT of the rules and
+     every input Table (SEC.11's hash) is sound — a recalculation whose
+     inputs did not change costs a hash, and a second cell asking for the
+     search's status costs nothing. That is `DATALOG`'s own recalc-caching
+     item made safe by a property `DATALOG` does not need and this engine
+     cannot do without.
+  2. **Determinism is the hill.** Same inputs, same answer, on every
+     machine, in every session: no randomness anywhere; ties broken by the
+     Tables' own row order; budgets counted in WORK (decisions and
+     conflicts), never in seconds, so a faster machine proves the same
+     thing a slower one does; a time guard exists only to keep Excel alive
+     and says so when it fires. Every answer is the best under a stated
+     order — the objective the program names, then the fewest changes from
+     the kept schedule (`OPTIMIZE.7`), then the Tables' own order — so a
+     program with no objective still has exactly one answer, and a
+     recalculation never reshuffles a roster. Session state may make a
+     search FASTER and may never change what it answers (the warm-start
+     trap, `OPTIMIZE.7`). The owner's framing, recorded as the design
+     brief: this engine wants 80% of what answer-set programming offers
+     from 20% of its machinery, and determinism is what the other 20%
+     would have cost — it is what lets a schedule be trusted, memoized,
+     pinned in a test and explained.
+  3. **Negation stays stratified.** `DATALOG`'s rule holds unchanged (the
+     engine refuses `datalog-negation-not-stratifiable` today, and this one
+     inherits the refusal), so choice is the ONLY source of alternatives:
+     grounding is `DATALOG`'s, search ranges over chosen atoms alone, and
+     the semantics can be explained in a sentence. Unstratified negation
+     — the `a :- not b. b :- not a.` two-worlds trick full ASP allows — is
+     at the ceiling until enough users ask for it, which may be never.
+  4. **Ownership.** `VLA_Optimize.bas` is the engine's home, new. Substrate
+     that any engine could use (the spill-as-table read, a per-predicate
+     index, a ground-size bound) goes in `VLA_Relation.bas`, and every
+     `optimize-*` refusal id in `VLA_Messages.bas`, both other sessions'
+     files: coordinate per change, as `DATALOG.13`'s join-index sites were.
+  **The plan below REPLACES the nine dissections recorded at commit
+  `8368111` (`SOLVE.1`–`SOLVE.9`), and the reason is arithmetic, not
+  taste.** That plan was naive enumeration through `SOLVE.8`, with pruning
+  at `SOLVE.9` "profiled first" and conflict-driven search at the ceiling.
+  Worked at the killer case's OWN toy size — five people, seven shifts,
+  two per shift — it enumerates C(5,2)^7 = 10,000,000 candidate worlds and
+  re-runs the `DATALOG` fixpoint on each (`SOLVE.4`): at one millisecond a
+  candidate, a fraction of what a small `DATALOG` call costs today, that is
+  2.8 hours for a one-week roster of five. Twenty staff over a fortnight of
+  four shifts a day is 190^56, about 10^128 worlds; the reference roster
+  below is 10^259. Naive search does not degrade on these, it never
+  finishes — `PROLOG.28`'s cliff at 121 rows, in a different engine and a
+  hundred orders of magnitude sooner. So the order of work is inverted:
+  the search's shape is measured before any of it is built
+  (`OPTIMIZE.0`), the engine grounds once and searches with propagation
+  from its first search item rather than re-deriving per candidate, every
+  narrowing the field knows is scheduled and gated by a measurement, and
+  conflict learning is an item with a trigger, not a ceiling. The owner's
+  standing rule for this family, 2026-09-18: Frazaro's value lives or dies
+  on real-sized data, so no feature here ships proven only at toy size.
+  - ⬜ **OPTIMIZE.0 — measure the shape of the search before building any
+    of it: the traps, each with the fix that narrows it, and the fixtures
+    every later item is measured against.** Minted 2026-09-18, the owner's
+    call, as `DATALOG.12`'s twin for an engine that does not exist yet. The
+    reference sizes used throughout: a *toy* of 5 people, 7 shifts, 2 per
+    shift; and a *reference roster* of 50 people over 4 weeks of 3 shifts
+    a day — 84 shifts, 2 to 4 people each, skills, vacations, "at most 5
+    shifts a week", "never two shifts in a row", and an objective over
+    overtime and changes. At the reference roster there are at most 4,200
+    choice atoms (50 × 84) and 2^4,200 ≈ 10^1,264 raw assignments; with
+    "exactly two per shift" imposed, C(50,2)^84 ≈ 10^259 candidate worlds.
+    Nothing enumerates that. What makes it tractable is that almost none
+    of it is ever visited, and every trap below is a way of visiting more
+    of it than necessary.
+    **A. Grounding — polynomial, and the exponent is chosen by how a rule
+    is written.**
+      - *Cardinality written as combinations.* "At most 2 per shift" as
+        forbidden triples grounds to C(50,3) = 19,600 constraints per
+        shift, 1.65 million over the roster; "at most 5 a week" as
+        forbidden six-subsets of a person's 21 shifts is C(21,6) = 54,264
+        per person-week, 10.9 million. The same rules as NATIVE COUNTERS
+        are 84 and 200 constraints. This is the single largest trap in the
+        family, and it is why aggregates move from sixth place in the old
+        plan to the choice rule's own bound in `OPTIMIZE.3` and constraints
+        in `OPTIMIZE.4`, never expanded.
+      - *A Cartesian body.* A rule whose body atoms share no variables
+        (`(shift S) (person P) (day D)` with nothing linking them) grounds
+        to the product of their domains. Refused by name at parse, the way
+        `DATALOG` refuses an unsafe head variable today
+        (`datalog-unsafe-head-variable`): a body's variables must be
+        linked through shared atoms.
+      - *No bound before grounding.* Every rule's instance count is bounded
+        from its domains before it is grounded; over a ceiling, the engine
+        refuses naming the rule and the number ("pairs every person with
+        every other person for every shift: 1,225 × 84 = 102,900 checks —
+        say it as 'at most 2 per shift'"). `DATALOG.12`'s harness projected
+        the next size from the ones before; this projects the ground
+        program from the Tables, before the first instance is built.
+      - *A constraint on one atom.* "Nobody works while on leave" is not a
+        constraint at all: it removes the atom from the pool at grounding,
+        so it costs zero. Every single-atom constraint becomes domain
+        pruning.
+      - *Symmetric pairs grounded twice.* "No two of the same people…"
+        grounds (P1,P2) and (P2,P1) unless a canonical order (P1 < P2) is
+        imposed at grounding. Halves the largest constraint families.
+      - *Join order.* A body is grounded by joining its atoms, and the
+        order decides the size of every intermediate: most selective and
+        already-bound first. `DATALOG.14`'s per-predicate index pays here
+        directly, and its magic-sets direction (push the bound argument in
+        before materialising) is the same idea.
+      - *Unsafe variables* — inherited: `DATALOG` already refuses a head
+        or negated variable no positive body atom binds, so no rule can
+        ground over an infinite domain.
+      - *What grounding IS here:* `DATALOG`'s fixpoint computes everything
+        certain (the facts and what follows from them alone — `OPTIMIZE.1`
+        is exactly this); the choice pools are `DATALOG` relations; and a
+        rule that mentions a chosen atom is instantiated only where every
+        positive body atom is POSSIBLE (certain or in a pool), which is
+        one more fixpoint over "possibly true" rather than "true". The
+        grounder is the engine `DATALOG` already has, run twice.
+    **B. Search — exponential, and the base is chosen by what propagates.**
+      - *Enumerating subsets.* The retired plan's generator. Replaced by
+        one decision at a time — this atom true, propagate everything that
+        forces, decide the next — so a world that breaks a rule is
+        abandoned at the first decision that broke it, never built whole.
+        Where the old search built C(50,2) subsets per shift, this one
+        decides 4,200 atoms with most of them forced. (`OPTIMIZE.3`)
+      - *Counters that do not propagate.* "Exactly two" must FORCE: once
+        two are chosen the rest are false without a decision; once only
+        two can still be chosen they are true without a decision. A
+        counter checked only when complete is enumeration with extra
+        steps. (`OPTIMIZE.3` for the choice bound, `OPTIMIZE.4` for
+        `count` and `sum` in constraints, as bound propagation.)
+      - *The wrong decision first.* Deciding an easy shift first and a
+        hard one last means the hard one's failure is discovered under
+        every combination of the easy ones. Fail-first: the shift with
+        the fewest eligible people is decided first, the person with the
+        fewest options next; every tie broken by Table order, so the order
+        is deterministic. Static from the grounding in `OPTIMIZE.3`,
+        dynamic (recomputed as the domains shrink) in `OPTIMIZE.8`.
+      - *Deciding values in the wrong order.* The first value tried decides
+        how good the first solution is, and the first solution is the
+        bound every later one is pruned against. Values are tried in the
+        order the objective prefers, and the kept schedule's own choice
+        first (`OPTIMIZE.6`, `OPTIMIZE.7`).
+      - *Symmetry.* Ten interchangeable people — same skills, no vacations
+        — give every solution 10! = 3,628,800 mirror images, and a search
+        that fails on one branch re-explores each mirror. Interchangeable
+        rows are detected from the Tables (identical in every attribute
+        the rules read) and ordered lexicographically at grounding, so one
+        of each family of mirrors exists. (`OPTIMIZE.8`)
+      - *Independent parts solved together.* Four weeks that no rule links
+        are four problems of a quarter the size each: exponential in 1,050
+        atoms four times over instead of in 4,200 once. The ground
+        constraint graph's connected components are solved separately and
+        their answers concatenated; deterministic and cheap to detect.
+        (`OPTIMIZE.8`)
+      - *Forced values found late.* Trying each atom true and then false
+        at the root and propagating finds the values every world must
+        share (failed-literal probing) before the search starts; on a
+        roster this fixes the vacation-adjacent and skill-constrained
+        shifts outright. (`OPTIMIZE.8`)
+      - *Proving optimality by exhaustion.* "Run every world and keep the
+        best" (the retired `SOLVE.8`) never finishes. Branch-and-bound: a
+        partial schedule whose cost so far plus what it must still pay is
+        no better than the best found is abandoned; the first solution,
+        found by the heuristic order, is the first bound. (`OPTIMIZE.6`)
+      - *The same dead end entered twice.* Plain backtracking re-derives a
+        conflict everywhere its cause recurs. Conflict learning records
+        each conflict's reason as a clause, jumps back to where it became
+        inevitable, and never enters it again; two-watched-literal
+        propagation keeps that cheap; deterministic restarts (a fixed
+        sequence, no clock) with remembered phases tame the heavy tail.
+        This is the difference between the solvers of 1995 and 2015, and
+        the retired plan put it at the ceiling. It is `OPTIMIZE.9`, gated
+        by the measurement: built when the ladder shows propagation alone
+        stalling short of the reference roster, which it is expected to.
+      - *Atoms no rule reads.* Fixed false at grounding so they cannot
+        multiply solutions; matters for counting. (`OPTIMIZE.10`)
+      - *All or nothing.* Within a budget the engine returns the best world
+        it found and says it is not proven, rather than nothing.
+        (`OPTIMIZE.6`)
+      - *Past the ladder.* For a roster larger than the measured ceiling, a
+        re-solve that keeps the kept schedule fixed except in a window
+        (large-neighbourhood search) trades global optimality for a
+        bounded search, deterministically, and says so. (`OPTIMIZE.7`,
+        optional, the owner's call once the ceiling is measured.)
+    **C. The constants, and the host — `DATALOG.13`'s lesson, times a
+    million nodes.**
+      - *Objects in the search.* One `TypeName` cost `DATALOG` 85% of a
+        row at a dozen calls a row. A search visits 10^5–10^7 nodes; one
+        `CreateObject` per node (0.157 ms measured) is 160 seconds per
+        million nodes before any search happens. So: atoms are integers,
+        clauses and counters are `Long` arrays, every string is resolved
+        at grounding, and no `Dictionary`, `Collection`, `CreateObject`,
+        `TypeName` or `Variant` sits inside the search loop. Memory
+        follows: a ground program of millions of literals is tens of
+        megabytes as `Long` arrays and hundreds as Collections.
+      - *Recursion.* VBA's stack is small and every local costs a frame
+        (`PROLOG.5.3`'s finding, `PROLOG_MAX_STEPS`'s reason). A search
+        that recursed once per decision over 4,200 atoms would overflow
+        it. The search is ITERATIVE with an explicit trail — `PROLOG`'s
+        recursive `SolveGoalList` is the wrong template here, however
+        right its candidates loop was for that engine.
+      - *Small things that multiply:* arrays grown geometrically, never
+        `ReDim Preserve` per element; typed arrays, never `Variant`; the
+        budget checked every N nodes, since the check costs; `Timer` wraps
+        at midnight (every harness in `tools/` already handles it); `Long`
+        counters that cannot silently wrap.
+      - *Time budgets.* A budget in seconds makes the answer depend on the
+        machine: the faster one proves optimality, the slower one reports
+        "best found". Budgets count decisions and conflicts. A seconds
+        guard exists only so a runaway formula cannot hold Excel
+        indefinitely, and when it fires the cell says that it did.
+      - *A formula blocks Excel.* Whether Esc interrupts a running UDF, and
+        what the user then sees, is not known — a probe below. And a
+        formula re-solves whenever an input changes; the memo (decision 1)
+        makes an unchanged input free and `OPTIMIZE.7` makes a changed one
+        cheap. Whether the large sizes live as a formula at all or as an
+        "Optimize and keep" command that writes values into a Table (as
+        Excel's Solver is a command) is the owner's fork, decided once the
+        ladder says where a formula stops being polite.
+      - *A budget that stops the search is somebody's twenty seconds.* The
+        owner's question, 2026-09-18: could a long search pop a modal
+        mid-calculation and ask whether the user will wait for a better
+        answer, instead of hard-stopping at a threshold — five minutes to
+        save five hours should be that user's choice, not another user's
+        twenty-second default. **Settled the same day, the owner's call:
+        "wait longer?" is an incremented `(budget X)` — the user is the
+        one who knows their own search budget — and no modal lives inside
+        the formula.** The reasoning kept for the record: a `MsgBox` or a
+        modal form from inside a
+        UDF probably does display (the probe below settles it), but a modal
+        INSIDE the formula is the wrong place, for four reasons that
+        survive the probe: a recalculation is not always a person (opening
+        the workbook, Ctrl+Alt+F9, another add-in's refresh, Power Query),
+        and a workbook that interrogates whoever recalculates it, or blocks
+        until nobody answers, is hostile; every `OPTIMIZE` cell would ask
+        in turn, and the Function Wizard re-evaluates a formula on every
+        keystroke; a UDF cannot write, so the consent is lost when the
+        calculation ends and the next one asks again; and an answer that
+        depends on who clicked Yes is not a function of the workbook —
+        user A's better roster and user B's twenty-second one from the
+        same inputs, decision 2 broken by the side door. **The shape that
+        gives the question what it wants: the budget is DATA, and consent
+        edits the data.** The work budget is a form in the program
+        (`(budget 50000)`, with a default that keeps a first answer near
+        twenty seconds on a typical machine), so the same workbook answers
+        the same everywhere, and a user who will wait five minutes writes
+        a larger number once, for everyone. The cell's status says whether
+        waiting would buy anything — "best found within 50,000 conflicts,
+        not proven best; still improving at 41,200" against "no
+        improvement since 6,000" — which is the modal's question, asked
+        without blocking anyone. The interactive "keep searching?" lives in
+        the COMMAND form ("Optimize and keep": a macro, not a UDF), which
+        can show progress, speak in minutes (this machine's measured rate
+        times the work budget), take the answer, continue an anytime search
+        where it stopped (deterministic, so continuing to 500,000 equals
+        starting at 500,000), and write both the roster and the budget it
+        used into the workbook, so the formula reproduces what the command
+        found. If the probe says a UDF modal is reliable and the owner
+        still wants one, its honest form is "continue with a larger
+        budget?", and its Yes must still land that budget in the workbook,
+        which a UDF cannot do: that is the fork's real content.
+    **What this item itself does — all before any engine code, `~days`:**
+      - *The paper model.* One table: each constraint shape the killer
+        case needs (exactly-k per shift, at-most-k a week, never two in a
+        row, skills, vacations, the objective) against ground size at 10,
+        20 and 50 people over 1 and 4 weeks, written two ways — as
+        combinations and as native counters — from the formulas above.
+        Predictions, stated as such, before anything is measured.
+      - *Ground sizes measured with the engine that exists.* Each
+        constraint's body written as a `DATALOG` rule over the fixture
+        Tables and its rows counted, up the ladder, so the grounding is
+        measured on real Tables before the grounder is built — `D12Ladder`'s
+        shape, `DATALOG` timing its own successor's first phase.
+      - *The fixture generator* (`tools/`, standalone, deterministic — a
+        seeded generator, never bare `Rnd`): people with skills and
+        vacations, shifts with needs, a kept schedule; knobs for every
+        size; the same Tables every later item measures against, so before
+        and after are one measurement.
+      - *The UDF-interaction probe* (`tools/`, the owner at the keyboard;
+        the Esc probe, widened by the owner's question above): a UDF and a
+        macro that loop for twenty seconds — does Esc stop each, what does
+        the sheet show afterwards, does `Application.EnableCancelKey`
+        change it; does a `MsgBox` and a modal form show from inside the
+        UDF, and what happens in the Function Wizard; can the UDF set
+        `Application.StatusBar` or invalidate the ribbon (a non-blocking
+        "a better roster may exist — search longer" invitation, if so);
+        and what `DoEvents` inside a UDF does to re-entrancy. Decides
+        whether a long search inside a formula is survivable at all, and
+        which of the shapes above the host permits.
+      - *The ladder and its guards*, `DATALOG.12`'s: sizes 5/10/20/50
+        people × 1/4 weeks, a 10 s limit, a 15 s projection guard, every
+        answer checked against the generator, a wrong answer stopping the
+        ladder rather than being timed. Every item from `OPTIMIZE.3` on
+        re-runs it and records its own before-and-after in its entry.
+    **The owner's forks, to settle here and not assume:** what the
+    reference roster is (the 50 × 4 × 3 above is a proposal); what "fast
+    enough" means (proposed: a first valid schedule under 2 s at 10 people
+    × 1 week as a formula, under 10 s at the reference roster as a command,
+    and "proven best" allowed longer provided it says when it is not);
+    formula versus command, and where the line falls; and whether clingo
+    (the Potassco answer-set solver, MIT-licensed) serves as a DEV-ONLY
+    correctness oracle for the fixtures — run by the owner from
+    PowerShell, never shipped, never called by Frazaro, `SD-13` intact —
+    so answers can be checked at sizes where hand-checking cannot.
+    **Outcome:** the paper model and the measured ground-size table in
+    this entry and in `pareto_logic.txt` §17 beside `optimize-roster`; the
+    grounding ceilings for the refusals above, set from the numbers; the
+    forks settled; and the fixtures every later item is judged against.
+    *Pays into:* every item below, `G-OPTIMIZE` (whose sentences may only
+    write the tractable shapes: cardinality words become native counters,
+    "in a row" becomes a precomputed pair relation — the grammar is the
+    guardrail), `DATALOG.14` (the index and the join order are shared).
+    `~days`
+  - ⬜ **OPTIMIZE.1 — the zero-choice base case: `DATALOG`'s own engine,
+    unchanged, wearing the `OPTIMIZE` name.** A program with no choice, no
+    constraint and no objective is exactly a `DATALOG` program — one
+    guaranteed, unique world, no search of any kind. `=OPTIMIZE(...)` reads
+    the same `(fact ...)`/`(rule ...)`/`(query ...)` forms, hands them to
+    `DatalogRun`/`RunStratifiedFixpoint` wholesale, and spills the relation
+    the query names, headers first, as `DATALOG` does — decision 1's shape
+    from the first day, since the decision relation of a real program is
+    just the relation a query names. **What it settles that the retired
+    `SOLVE.1` did not:** the surface forms of the three ingredients
+    (`choose`, `forbid`, `minimize`, `keep`, `status` are the placeholders;
+    the reader is `VlaReadForms`, so the choice is spellings, not syntax),
+    parsed and refused by name here even though none is executed yet, so
+    `OPTIMIZE.2` and `.3` add machinery and not grammar; the five RESULT
+    STATES, reserved now so no later item invents one — a refusal
+    (`#OPTIMIZE!`, malformed input, the `fail:`/`Err.Description`
+    convention the other three use), "no schedule satisfies every rule"
+    (proven, `OPTIMIZE.2`), "no schedule found within the budget; there
+    may be one" (`OPTIMIZE.3`), "best found within the budget, not proven
+    best" (`OPTIMIZE.6`), and proven best — the last three readable through
+    a `(status)` form served from the memo, so asking costs nothing; the
+    memo itself (decision 1: a session store keyed on SEC.11's hash of the
+    rules and every input Table's values, capped, so an unchanged input
+    never re-solves); the `OPTIMISE` alias; and the module's chores — the
+    build list and `check_devrig_mods_parity`'s twin, a `check_raise_ratchet`
+    ceiling of 0, `check_no_network`'s shipped-module count, `REUSE.toml`'s
+    `src/**` glob (already Apache-2.0). **Substrate, `VLA_Relation.bas`,
+    coordinated:** a spilled range's first row counts as its headers, so a
+    `DATALOG` question can read an `OPTIMIZE` cell's answer as a data
+    table (decision 1's "view many"). **Proof:** the parity pin the owner
+    approved 2026-09-18 — every `DATALOG` test program in
+    `VLA_Tests_Query` run through `OPTIMIZE()` and required to answer
+    identically, so "`DATALOG` wearing the name" is a measured claim, not
+    a description; pins for each result state's text and for the memo
+    (two cells, one search); `TestDSLs` and `VerifyReports` unmoved.
+    `~days`
+  - ⬜ **OPTIMIZE.2 — constraints against the one world.** Still zero
+    search: with no choice yet, `OPTIMIZE.1`'s fixpoint produces exactly
+    one world, so `(forbid ...)` is a CHECK — does its body hold in that
+    world — never a reason to try another, since there is none. Grounded,
+    not re-evaluated: each constraint's body is instantiated over the world
+    by the same join `DATALOG` runs for a rule body, and a non-empty result
+    is a violation naming the rows that violate it. The first point where
+    "no schedule satisfies every rule" is an outcome — a first-class
+    result in words, with the constraint named, never a `#OPTIMIZE!`
+    (that stays for malformed input). The smallest proof that a constraint
+    is different from a rule — it derives nothing, only eliminates — and
+    the item that lands the single-atom-constraint pruning and the
+    Cartesian-body refusal from `OPTIMIZE.0`, since both are properties of
+    a constraint's body that need no search to test. `~days`
+  - ⬜ **OPTIMIZE.3 — choice, grounding over the pool, and a search that
+    propagates.** The first search, and NOT the retired `SOLVE.3`'s
+    enumeration. `(choose N head pool)` names a pool (a `DATALOG`
+    relation) and a bound; grounding produces one integer atom per pool
+    row and one native counter per rule instance ("exactly N", "at least",
+    "at most" — never combinations); constraints from `OPTIMIZE.2` are
+    grounded over the possible atoms into clauses over those integers; and
+    the search decides one atom at a time with unit propagation and
+    counter propagation, on an explicit trail, iteratively, with
+    fail-first static ordering from the grounding and every tie broken by
+    Table order. **Refusals that ground before they search:** the
+    ground-size bound (a rule projected past the ceiling is refused
+    naming the rule and the number) and the Cartesian body. **Budgets:**
+    decisions and conflicts, deterministic; the seconds guard that reports
+    itself; "no schedule found within the budget; there may be one" as a
+    result distinct from `OPTIMIZE.2`'s proven "none". **The data
+    discipline from `OPTIMIZE.0.C` is this item's own pin**: a static scan
+    holding `CreateObject`, `TypeName`, `Dictionary`, `Collection` and
+    `Variant` out of the search procedures, `check_vladict_guard.ps1`'s
+    shape, because the regression is silent. **Proof:** pure pins for
+    propagation (a counter that forces), for determinism (the same program
+    twice gives the same spill; a program whose Table rows are permuted
+    gives the same SET), for the budget refusals; and the first run of
+    `OPTIMIZE.0`'s ladder with its before-and-after recorded here, since
+    this is the first item whose cost is exponential. `~weeks`
+  - ⬜ **OPTIMIZE.4 — `count` and `sum` as native constraints.** "Every
+    shift has at least 2 people", "nobody works more than 5 a week", "no
+    more than 40 hours" — each a counter or a weighted sum over chosen
+    atoms with a bound, inside a `(forbid ...)`, propagated as bounds
+    (partial sum plus the least the rest can add, against the bound), never
+    expanded: `OPTIMIZE.0`'s largest trap, closed. Reuses `DATALOG.2`'s
+    aggregate forms for the spelling and its accumulation for the certain
+    part, generalised to read a candidate's chosen set. The ladder re-run
+    with the at-most-a-week rule added is this item's own number.
+    `~days`–`~weeks`
+  - ⬜ **OPTIMIZE.5 — rules over chosen atoms.** The real scheduling shape:
+    `(assign S P)` is chosen, `(overtime P)` follows from it by an ordinary
+    rule, and a constraint or the objective reads `overtime`. Grounded as
+    `OPTIMIZE.0.A` says — instantiated where every positive body atom is
+    possible — and given to the search as definitional clauses (the head
+    is true exactly when some instance's body is: the completion), so the
+    derived atoms are search variables that propagate like any other,
+    never a fixpoint re-run per candidate (the retired `SOLVE.4`). **The
+    80/20 cut, stated:** a rule that depends on chosen atoms may not be
+    RECURSIVE in this version — positive recursion through a choice
+    (reachability over chosen edges) needs unfounded-set checking to keep
+    a world from supporting itself, and no roster, seating chart or
+    allocation needs it; refused by name at parse, at the ceiling with
+    unstratified negation until asked for. `~weeks`
+  - ⬜ **OPTIMIZE.6 — the objective: the best world, branch-and-bound, and
+    "best found" against "proven best".** `(minimize term)` (and its
+    negation for maximize) over a weighted sum of chosen and derived atoms
+    — overtime hours, unfilled shifts, preferences unmet. The search keeps
+    the best world found, prunes any partial world whose cost so far plus
+    the least it must still pay is no better, takes its first bound from
+    the first solution the heuristic order finds, and tries values in the
+    order the objective prefers. Two results, never confused: proven best
+    (the search finished), and "best found within the budget, not proven
+    best" (it did not) — the name's own honesty rule, and the anytime
+    behaviour a formula needs. The budget is a form in the program
+    (`OPTIMIZE.0.C`), its default near twenty seconds of work on a typical
+    machine, and the status names the conflict at which the last
+    improvement came, so a reader knows whether a larger budget is worth
+    writing. `DATALOG`'s arithmetic evaluator scores the
+    objective's terms; nothing new is invented for the sum. The ladder
+    with the objective is this item's number, and the point at which
+    `OPTIMIZE.9`'s trigger is expected to fire. `~weeks`
+  - ⬜ **OPTIMIZE.7 — the kept schedule: fewest changes, stability across
+    edits, and a warm start that cannot change the answer.** The item the
+    owner named the one managers should fall in love with (2026-09-18):
+    "keep this month's roster unless a rule now breaks it". `(keep Table)`
+    names the published schedule as an EXPLICIT input — never hidden state,
+    never the cell's own previous value — and adds "one per difference" to
+    the objective behind whatever the program names, so an edited vacation
+    moves the fewest people, and the values are tried kept-first, so the
+    first solution is usually the answer. **The warm-start trap, named:**
+    a search seeded from a session's previous answer would make the
+    result depend on what ran before — deterministic per session and
+    wrong across sessions — so only explicit inputs may steer the search;
+    the memo may skip a search and may never alter one. What it buys
+    beyond speed: determinism across VERSIONS (a better heuristic in a
+    later release cannot reshuffle a roster the kept schedule pins), the
+    natural loop for the command form (the Table it writes is the next
+    run's kept schedule; it is also where "keep searching?" lives — a
+    progress form, a Continue that resumes the same deterministic search,
+    and the budget it used written beside the roster it keeps, per
+    `OPTIMIZE.0.C`), and the ground for the large-neighbourhood mode past
+    the ladder, if the owner wants it. `~days`
+  - ⬜ **OPTIMIZE.8 — the structural narrowers, each measured: symmetry
+    breaking, component decomposition, root probing, dynamic ordering.**
+    Four of `OPTIMIZE.0.B`'s fixes that change no answer and can each be
+    switched off, so each is measured alone on the ladder and kept on its
+    own number: interchangeable rows ordered at grounding; independent
+    components solved separately; failed-literal probing at the root;
+    fail-first ordering recomputed as domains shrink. Their order of
+    building is the order the ladder says they matter. `~weeks`
+  - ⬜ **OPTIMIZE.9 — conflict learning: clauses learned from conflicts,
+    backjumping, watched literals, deterministic restarts.** The retired
+    plan's ceiling, now an item with a TRIGGER: built when `OPTIMIZE.6`'s
+    ladder shows propagation stalling short of the reference roster, which
+    `OPTIMIZE.0` predicts it will. Learned clauses as `Long` arrays with a
+    cap and deterministic deletion; two-watched-literal propagation;
+    non-chronological backjumping to the level where the conflict became
+    inevitable; a fixed restart sequence (no clock) with remembered phases.
+    Real conflict-driven search is what real problem sizes need inside a
+    live calc engine, and nothing about it is research-grade in 2026 —
+    the discipline is `OPTIMIZE.0.C`'s, all integers, iterative, and every
+    answer identical to `OPTIMIZE.3`'s on every fixture, which is the pin.
+    `~weeks`
+  - ⬜ **OPTIMIZE.10 — how many, and show me a few: counting and
+    enumerating within a budget.** With determinism the first answer IS
+    the answer, so this is the exploratory extra, last: "how many valid
+    rosters are there" and "show me three" as `(status)`-style forms over
+    the same search, capped, don't-care atoms fixed so they cannot inflate
+    the count, and `DATALOG`'s spilled-array convention for the list.
+    `~days`
+  - **Stated ceiling, not built here:** unstratified negation (decision 3);
+    recursion through chosen atoms (`OPTIMIZE.5`); disjunctive heads and
+    classical negation, which nothing spreadsheet-shaped needs;
+    multi-level (lexicographic) objectives beyond the fixed order decision
+    2 states; continuous variables, which are Solver's problem and never
+    this engine's; and `EXPLAIN` — which rules bound this schedule, why
+    P3 moved — flagged as the first thing after `OPTIMIZE.10`, since it is
+    what a scheduler needs to trust this over Solver, and `OPTIMIZE.7`
+    already knows which changes it made and why.
+  - **Substrate relationship:** grounding IS `DATALOG` — its fixpoint for
+    the certain part, its joins for the pools and the constraint bodies,
+    `DATALOG.14`'s index for the join order — and the search shares
+    nothing with `PROLOG` but the word: `SolveGoalList`'s recursive
+    candidates loop is exactly the recursion and the per-candidate
+    re-derivation this engine must not have. What it adds to the family is
+    small and new — an integer ground program and an iterative propagating
+    search over it — sitting on top of the substrate rather than beside
+    it, which is the shared bet the rest of this family already proved out.
 
 ---
 

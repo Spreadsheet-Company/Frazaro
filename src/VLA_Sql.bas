@@ -58,7 +58,7 @@ Public Const VLA_SQL_VERSION As String = "SQL.7"
 ' for a self-referencing step over cyclic data (a real footgun in real
 ' SQL too, not unique to this engine) - the identical "an in-cell UDF
 ' has no DoEvents path" reasoning this section's own parent bullet
-' already states for PROLOG/SOLVE's own resolution-step budget, applied
+' already states for PROLOG/OPTIMIZE's own resolution-step budget, applied
 ' here a second time.
 '
 ' The one recursive SHAPE this item supports, deliberately narrow and

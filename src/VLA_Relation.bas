@@ -143,7 +143,7 @@ Public Const VLA_RELATION_VERSION As String = "SQL.4"
 '  boundary conversions every one of the four engines needs (a live
 '  Excel Range OR a plain 2D array, in; a spilled 2D array, out).
 '  VLA_Datalog.bas is the first caller; the roadmap's own SQL/PROLOG/
-'  SOLVE items are written to reuse this file rather than re-deriving
+'  OPTIMIZE items are written to reuse this file rather than re-deriving
 '  a join apiece.
 '
 '  Deliberately ignorant of every DSL's own syntax: no fact/rule

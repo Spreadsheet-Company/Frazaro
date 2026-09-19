@@ -37,6 +37,15 @@
   copy with the helper squeezed back onto one line, and fails the code as
   it was before the change.
 
+- **The fourth engine has its name before a line of it exists: `OPTIMIZE`,
+  not `SOLVE`.** It is the one that will produce a decision — who works
+  which shift, who sits where — from choices, constraints and an objective
+  over the same rules the other three read. Nothing of it is built, and the
+  README says so. The name was settled now because it goes into your
+  formulas the day the first piece ships, and a name that reads as a task
+  is one a non-programmer can guess the meaning of, where `SOLVE` named no
+  task at all. `OPTIMISE` will work too.
+
 - **Eight sample procedures to start from, in a new `examples/` folder.**
   They are the kind of standard operating procedures people already keep in
   Word, written so Frazaro can run them, easiest first:

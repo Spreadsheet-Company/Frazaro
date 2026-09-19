@@ -104,7 +104,7 @@ Public Const VLA_UNIFY_VERSION As String = "PROLOG.3"
 '            conjunctive query solver (UnifyTwoWay/EnvWalkInto/
 '            UnifyEnvClone, PROLOG.3), PROLOG.4's SLD resolution
 '            (UnifyTwoWay is its own resolution step - proving a
-'            subgoal against a candidate clause head), SOLVE's own
+'            subgoal against a candidate clause head), OPTIMIZE's own
 '            grounding step (one-way mode, per
 '            BETA_ROADMAP2.md's own PROLOG paragraph).
 ' REASON:    proving the substrate-sharing claim against a REAL,

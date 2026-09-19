@@ -1,7 +1,7 @@
 # pareto_logic.txt — the query-and-logic corpus
 
 **What this file is.** The specification corpus for the query family's
-grammar (`G-PROLOG` first, `G-DATALOG`'s second wave, `G-SQL`, `G-SOLVE`):
+grammar (`G-PROLOG` first, `G-DATALOG`'s second wave, `G-SQL`, `G-OPTIMIZE`):
 real Prolog-shaped business tasks, each with the question a manager would
 actually ask, the canonical program it must become, a tiny Table set to prove
 it on, and the answer that program gives. It is `pareto.txt`'s sibling and
@@ -49,7 +49,7 @@ listed in each entry (the frame key below). Those spellings are decided in
 | `x` | **not this engine's** — routed or refused, never faked |
 
 **Engines.** `P` PROLOG · `D` DATALOG · `P|D` the shared Horn fragment,
-either engine gives the same set · `Q` SQL · `S` SOLVE (unbuilt).
+either engine gives the same set · `Q` SQL · `O` OPTIMIZE (unbuilt).
 
 **Priorities**, pareto's: `P0` a beta without it looks unfinished · `P1`
 common by month two · `P2` real but narrower. Breadth beats depth.
@@ -64,7 +64,7 @@ passes; a mutation of the `length` arm turns 7 red. Steps are what
 `SolveGoalList` frames, the thing the ceiling exists to protect. Where a
 program needs more than 120 steps it is run a second time with work
 uncapped and depth capped at 60, and both numbers are given. `D`, `Q` and
-`S` programs are not measured here; there is no DATALOG transliteration.
+`O` programs are not measured here; there is no DATALOG transliteration.
 **No answer below has been seen in a cell yet.**
 
 ## The frame key
@@ -670,11 +670,11 @@ text-prefix          P1  P     TEXT · WHO
 ## 17. Search and optimisation — not a logic query
 
 ```
-solve-roster      x  P2  S     —
+optimize-roster   x  P2  O     —
   asks     Assign people to shifts, minimising overtime.
-  note     SOLVE's (unbuilt). Never faked with PROLOG: generating every
+  note     OPTIMIZE's (unbuilt). Never faked with PROLOG: generating every
            assignment is not optimising, and it blows any step budget. The
-           grammar refuses it in words until G-SOLVE exists.
+           grammar refuses it in words until G-OPTIMIZE exists.
 ```
 
 ## 18. Scale — why none of this survives a real Table today
@@ -762,7 +762,7 @@ unprioritised because they are findings rather than tasks (`elig-lossy`,
 `lineage-selfname`, `scale-scan`, `scale-join`). (`comp-flagged`, added by
 `G-PROLOG` slice 2, is counted in.) **44 measured**; 2 not
 measured (model gaps: `tier-first`, `text-prefix`); 3 routed away and never
-run (`bom-qty`, `pre-order`, `solve-roster`), and `routes-reach` measured
+run (`bom-qty`, `pre-order`, `optimize-roster`), and `routes-reach` measured
 and routed. (`tier-first` and `text-prefix` were measured by `G-PROLOG`
 slice 5's scoping, so the two model gaps above are closed: **46
 measured**.) **8 entries need `PROLOG.28`** (`#`). Duplicates in a "who"

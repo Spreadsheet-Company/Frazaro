@@ -57,7 +57,10 @@ $advisoryPaths = $advisoryNames | ForEach-Object { Join-Path $docsDir $_ } |
 # guarantee simply did not apply, while the check reported clean. Nothing
 # had gone wrong yet; the point is that nothing WOULD HAVE BEEN CAUGHT.
 #
-# Raised to {1,8} - DATALOG's seven plus one spare - rather than to
+# Raised to {1,8} - DATALOG's seven plus one spare (OPTIMIZE, minted
+# 2026-09-18, is eight letters and uses that spare; a nine-letter family
+# would need this bound, Get-Prefix and Get-LeadingNumber raised together) -
+# rather than to
 # [A-Z]+, deliberately: an unbounded prefix would start matching ordinary
 # prose tokens of the same shape (SHA256, UTF8, ISO8601, RFC4180) if one
 # ever appeared bolded at the head of a bullet, and an explicit reviewable
@@ -259,6 +262,20 @@ foreach ($ap in $advisoryPaths) {
 # of F.1 forever. Only the retired spelling itself ("F1" bare) is forbidden.
 $retired = @(
     [pscustomobject]@{ Raw = 'F1'; Note = "F1 (bare) - Alpha 1 interpreter mode; collided with F.1; SD-9's founding incident." }
+    # 2026-09-18: the SOLVE engine was renamed OPTIMIZE and its nine
+    # dissections re-planned around ground-then-search (BETA_ROADMAP1.md,
+    # the OPTIMIZE family paragraph). None was built. The old ids are
+    # retired so a later "SOLVE.3" can never mean a second thing.
+    [pscustomobject]@{ Raw = 'G-SOLVE'; Note = "G-SOLVE - the grammar item for the SOLVE engine; renamed G-OPTIMIZE with the engine, 2026-09-18." }
+    [pscustomobject]@{ Raw = 'SOLVE.1'; Note = "SOLVE.1 - the SOLVE engine's zero-choice base case; re-minted as OPTIMIZE.1, 2026-09-18." }
+    [pscustomobject]@{ Raw = 'SOLVE.2'; Note = "SOLVE.2 - integrity constraints against one world; re-minted as OPTIMIZE.2, 2026-09-18." }
+    [pscustomobject]@{ Raw = 'SOLVE.3'; Note = "SOLVE.3 - naive enumerate-and-backtrack; retired on arithmetic, replaced by OPTIMIZE.3's propagating search, 2026-09-18." }
+    [pscustomobject]@{ Raw = 'SOLVE.4'; Note = "SOLVE.4 - a fixpoint re-run per candidate; retired on arithmetic, replaced by OPTIMIZE.5's definitional clauses, 2026-09-18." }
+    [pscustomobject]@{ Raw = 'SOLVE.5'; Note = "SOLVE.5 - nested naive generators; retired, subsumed by OPTIMIZE.3, 2026-09-18." }
+    [pscustomobject]@{ Raw = 'SOLVE.6'; Note = "SOLVE.6 - aggregates over a chosen set; re-minted as OPTIMIZE.4 (moved ahead, the largest grounding trap), 2026-09-18." }
+    [pscustomobject]@{ Raw = 'SOLVE.7'; Note = "SOLVE.7 - all-answer-sets mode; re-minted as OPTIMIZE.10 (last, since determinism makes the first answer the answer), 2026-09-18." }
+    [pscustomobject]@{ Raw = 'SOLVE.8'; Note = "SOLVE.8 - the best answer set by exhaustion; re-minted as OPTIMIZE.6 with branch-and-bound, 2026-09-18." }
+    [pscustomobject]@{ Raw = 'SOLVE.9'; Note = "SOLVE.9 - pruning profiled first; retired - propagation is OPTIMIZE.3's core, learning OPTIMIZE.9's, 2026-09-18." }
 )
 
 Write-Output ''
