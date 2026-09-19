@@ -19788,6 +19788,41 @@ now carries one summary paragraph per engine and points here.*
   previous copies aside first would close that gap, and no live cause is
   known. Pinned in `TestUndoSnapshotNames` (the sweep's decisions).
   *Pays into:* `U.17`. *Depends on:* `U.19`. `~hours`
+- ⬜ **U.24 — a ribbon button runs the add-in's own code, whatever
+  workbook is active.**
+  *Minted 2026-09-19, the owner's call, from the `0.6.1` Uninstall fix.*
+  **What happened:** in `0.6.0`, pressing Utilities → Uninstall Frazaro
+  deleted the dev workbook `VLA.xlsm` for good (`Remove-Item -Force`, past
+  the Recycle Bin). Every Frazaro ribbon button calls
+  `onAction="VlaRibbonAction"` with no workbook name
+  (`VLA_Build.RibbonBtn`). `VLA.xlsm` holds a procedure of the same name, and
+  the click ran that copy, so `ThisWorkbook` was the dev workbook. **Seen
+  live after the fix:** with `VLA.xlsm` active and a rebuilt
+  `Frazaro_Beta.xlam` loaded, the add-in's Uninstall button raised
+  `0.6.1`'s refusal naming `VLA.xlsm`. From a blank workbook it named the
+  add-in, as it should. The menu buttons are not affected, because their
+  `OnAction` is `'<ThisWorkbook.Name>'!<macro>`.
+  **What `0.6.1` closed, and what it left open:** it guards only the one
+  destructive command. `VlaUninstallRefusal` refuses anything but a built
+  add-in (IsAddin and a `.xlam` name) at the button and again before the
+  delete, and `ScheduleSelfDelete` refuses any other kind of path. Every
+  other button still runs the dev copy while `VLA.xlsm` is active: Run,
+  Undo, Lint and the rest act with the dev project's code and its
+  `ThisWorkbook`. The same would happen with any open workbook that has a
+  procedure named `VlaRibbonAction`.
+  **To scope:** (1) Measure the rule first, in a standalone two-workbook
+  repro in `tools/`: is it the active workbook, the load order, or the
+  project name? (2) Then choose. A workbook-qualified `onAction`, written at
+  `VlaInjectRibbon` time, fixes it at the source, but it breaks a renamed
+  copy such as `Frazaro_Beta.xlam` unless `VlaRefreshBetaCopy` re-injects
+  it. A guard at the top of `VlaRibbonAction` that refuses in words when
+  `ThisWorkbook` is not an add-in costs nothing, but it takes away any dev
+  habit of pressing the ribbon to run the dev copy. The dev workbook has no
+  ribbon of its own, so every call that reaches its `VlaRibbonAction` is
+  misrouted. **Done when:** with `VLA.xlsm` active, every ribbon button
+  either runs the add-in's code or refuses by name, a pin holds the
+  chosen shape, and the Uninstall guard stays in place as a second line.
+  *Depends on:* nothing. `~hours`–`~days`
 
 ---
 

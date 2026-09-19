@@ -308,6 +308,7 @@ Public Function VlaSelfTest() As Boolean
     TestHelpers
     TestIdeNaming
     TestBuildRibbon
+    TestUninstallGuard
     TestUndoScan
     TestUndoSnapshotSafety
     TestUndoSnapshotNames
@@ -2113,6 +2114,32 @@ Private Sub TestBuildRibbon()
     Report "ribbon: every button rides the one callback", _
            CountOcc(x, "onAction=" & Chr$(34) & "VlaRibbonAction" & Chr$(34)) = 23, _
            "got " & CountOcc(x, "onAction=" & Chr$(34) & "VlaRibbonAction" & Chr$(34))
+End Sub
+
+' 0.6.1: Uninstall Frazaro deleted the dev workbook VLA.xlsm - the bare
+' ribbon callback ran the dev workbook's own copy, and nothing asked
+' which file ThisWorkbook was. VlaUninstallRefusal is that question;
+' only a built add-in (IsAddin AND a .xlam name) may be uninstalled.
+Private Sub TestUninstallGuard()
+    Report "uninstall: refuses the dev workbook", _
+           Len(VLA_IDE.VlaUninstallRefusal(False, "C:\repo\VLA.xlsm")) > 0, "no refusal"
+    Report "uninstall: refuses a workbook even with an .xlam name", _
+           Len(VLA_IDE.VlaUninstallRefusal(False, "C:\x\Frazaro_English.xlam")) > 0, "no refusal"
+    Report "uninstall: refuses an IsAddin file that is not .xlam", _
+           Len(VLA_IDE.VlaUninstallRefusal(True, "C:\repo\VLA.xlsm")) > 0, "no refusal"
+    CheckV "uninstall: allows the built add-in", _
+           VLA_IDE.VlaUninstallRefusal(True, "C:\x\Frazaro_English.xlam"), ""
+    CheckV "uninstall: .xlam match ignores case", _
+           VLA_IDE.VlaUninstallRefusal(True, "C:\x\Frazaro_Beta.XLAM"), ""
+    Report "uninstall: this dev workbook itself is refused", _
+           Len(VLA_IDE.VlaUninstallRefusal(ThisWorkbook.IsAddin, ThisWorkbook.FullName)) > 0, ThisWorkbook.FullName
+    ' The leftover-files line names only Frazaro's own companions - the
+    ' old one pointed at the repo's own scripts\ folder, beside a dev copy.
+    CheckV "uninstall: prelude.vla is a companion", VLA_IDE.VlaIsUninstallCompanion("prelude.vla"), True
+    CheckV "uninstall: companion match ignores case", VLA_IDE.VlaIsUninstallCompanion("English.VLA"), True
+    CheckV "uninstall: espanol.vla is a companion", VLA_IDE.VlaIsUninstallCompanion("espanol.vla"), True
+    CheckV "uninstall: a user's own .vla is not", VLA_IDE.VlaIsUninstallCompanion("alonzo.vla"), False
+    CheckV "uninstall: a program file is not", VLA_IDE.VlaIsUninstallCompanion("instructions.txt"), False
 End Sub
 
 ' =====================================================================

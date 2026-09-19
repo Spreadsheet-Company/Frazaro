@@ -3735,21 +3735,89 @@ End Sub
 '     This Sub now only confirms, deregisters, and (for an exe
 '     install) hands off to the real uninstaller; everything
 '     filesystem-touching for the standalone case happens later.
+'  4. 0.6.1, owner-caught at the cost of the dev workbook itself: none
+'     of the above ever asked WHICH file ThisWorkbook is. The ribbon's
+'     onAction is the bare name "VlaRibbonAction", and with VLA.xlsm
+'     open beside an installed add-in, Excel ran the dev workbook's own
+'     copy of it - so ThisWorkbook was VLA.xlsm, no unins000.exe sat
+'     beside it, and ScheduleSelfDelete force-deleted it (Remove-Item
+'     -Force, past the Recycle Bin). Three guards now, each sufficient:
+'     VlaUninstallRefusal refuses anything but a built add-in (IsAddin
+'     AND a .xlam name) here AND again in VlaUninstallCloseDeferred
+'     (Public, so reachable from the Macros dialog without passing
+'     through here); and ScheduleSelfDelete refuses any non-.xlam path
+'     on its own. The delete itself stays a hard delete: a Recycle Bin
+'     version was built and dropped the same session, since recycling
+'     an add-in is not uninstalling it (owner decision). The dialog's
+'     "companion 'scripts' folder" line had the same flaw - any folder
+'     named scripts beside the add-in, live the repo's own - so it now
+'     lists files only when every entry is Frazaro's own (see
+'     UninstallCompanionFiles).
 ' =====================================================================
+
+' Why Uninstall must refuse to touch this file, or "" when it may: only
+' a built add-in - IsAddin (VlaBuildAddin sets it) AND a .xlam name -
+' is ever Frazaro's own install. Pure over its two inputs so the self-
+' test can pin it without the workbook it would otherwise delete.
+Public Function VlaUninstallRefusal(ByVal isAddin As Boolean, ByVal fullName As String) As String
+    If Not isAddin Then
+        VlaUninstallRefusal = "this workbook is not an installed Frazaro add-in, so there is nothing to uninstall and it will not be touched"
+    ElseIf LCase$(Right$(fullName, 5)) <> ".xlam" Then
+        VlaUninstallRefusal = "only a Frazaro .xlam add-in can be uninstalled, and this file is not one, so it will not be touched"
+    End If
+End Function
+
+' The files a standalone Frazaro keeps in a 'scripts' folder beside the
+' add-in (DEPLOY.md, "Installing"): its prelude and edition phrasebooks.
+Public Function VlaIsUninstallCompanion(ByVal fileName As String) As Boolean
+    Select Case LCase$(fileName)
+        Case "prelude.vla", "english.vla", "espanol.vla"
+            VlaIsUninstallCompanion = True
+    End Select
+End Function
+
+' 0.6.1: the full paths of the companion files in folder, one per line -
+' or "" when the folder is missing, empty, or holds ANYTHING else. A
+' folder merely named 'scripts' beside the add-in is not proof it is
+' Frazaro's: live, beside a dev copy in the repo root, the old dialog
+' told the owner to delete the repo's own scripts\ folder by hand.
+' So the dialog names files, never the folder, and only when every
+' entry in it is one of Frazaro's own.
+Private Function UninstallCompanionFiles(ByVal folder As String) As String
+    On Error GoTo notOurs
+    Dim found As String
+    Dim entry As String
+    entry = Dir$(folder & "\*", vbDirectory Or vbHidden Or vbSystem)
+    Do While Len(entry) > 0
+        If entry <> "." And entry <> ".." Then
+            If (GetAttr(folder & "\" & entry) And vbDirectory) = vbDirectory Then GoTo notOurs
+            If Not VlaIsUninstallCompanion(entry) Then GoTo notOurs
+            found = found & vbCrLf & folder & "\" & entry
+        End If
+        entry = Dir$()
+    Loop
+    If Len(found) > 0 Then UninstallCompanionFiles = Mid$(found, Len(vbCrLf) + 1)
+    Exit Function
+notOurs:
+    UninstallCompanionFiles = ""
+End Function
 
 Public Sub VlaIdeUninstall()
     On Error GoTo failed
+    Dim refusal As String
+    refusal = VlaUninstallRefusal(ThisWorkbook.IsAddin, ThisWorkbook.FullName)
+    If Len(refusal) > 0 Then
+        VlaShowError "Uninstall Frazaro stopped: " & refusal & "." & vbCrLf & vbCrLf & ThisWorkbook.FullName
+        Exit Sub
+    End If
+
     Dim uninstPath As String
     uninstPath = ThisWorkbook.Path & "\unins000.exe"
     Dim exeInstalled As Boolean
     exeInstalled = (Len(Dir$(uninstPath)) > 0)
 
-    Dim scriptsFolder As String
-    scriptsFolder = ThisWorkbook.Path & "\scripts"
-    Dim hasScripts As Boolean
-    On Error Resume Next
-    hasScripts = (GetAttr(scriptsFolder) And vbDirectory) = vbDirectory
-    On Error GoTo 0
+    Dim leftovers As String
+    leftovers = UninstallCompanionFiles(ThisWorkbook.Path & "\scripts")
 
     ' Every fact the user needs goes in THIS one dialog, before they
     ' commit - owner-caught, live: an earlier version showed a SECOND,
@@ -3767,8 +3835,9 @@ Public Sub VlaIdeUninstall()
         confirmMsg = confirmMsg & "The Windows uninstaller will then remove the rest."
     Else
         confirmMsg = confirmMsg & "This file will then be deleted automatically."
-        If hasScripts Then confirmMsg = confirmMsg & vbCrLf & vbCrLf & _
-            "This copy also has a companion 'scripts' folder - delete it too, by hand: " & scriptsFolder
+        If Len(leftovers) > 0 Then confirmMsg = confirmMsg & vbCrLf & vbCrLf & _
+            "Frazaro's own files beside it stay behind. If no other workbook uses them, delete them by hand:" & _
+            vbCrLf & leftovers
     End If
     confirmMsg = confirmMsg & vbCrLf & vbCrLf & "Continue?"
 
@@ -3833,7 +3902,11 @@ End Sub
 ' the script simply gives up rather than retrying forever); False if
 ' even launching it failed, so the caller can fall back to the manual
 ' instruction.
+' 0.6.1: refuses any path that is not a .xlam, whoever calls it. The
+' delete stays a hard one - uninstall means gone, not recycled (owner
+' decision); the guards, not a recoverable delete, are the safety.
 Private Function ScheduleSelfDelete(ByVal targetPath As String) As Boolean
+    If LCase$(Right$(targetPath, 5)) <> ".xlam" Then Exit Function
     On Error GoTo failed
     Dim tmp As String
     tmp = Environ$("TEMP")
@@ -3874,6 +3947,8 @@ End Function
 ' threading a parameter through Application.OnTime, which only
 ' supports bare procedure names, no arguments.
 Public Sub VlaUninstallCloseDeferred()
+    ' 0.6.1: re-checked here - Public, so reachable without the confirm.
+    If Len(VlaUninstallRefusal(ThisWorkbook.IsAddin, ThisWorkbook.FullName)) > 0 Then Exit Sub
     On Error Resume Next
     If Len(Dir$(ThisWorkbook.Path & "\unins000.exe")) = 0 Then
         ScheduleSelfDelete ThisWorkbook.FullName

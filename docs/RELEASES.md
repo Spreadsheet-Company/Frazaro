@@ -4,9 +4,32 @@
 
 ## 0.6.1
 
-*(next: write this before running the release)*
-
 ### What changed
+
+- **Safety fix: Uninstall Frazaro could delete the wrong workbook.** In
+  0.6.0, with another workbook open that carries Frazaro's own code (a
+  developer's working copy, or anyone who imported the modules into their
+  own file), pressing **Uninstall Frazaro** could run that workbook's copy
+  of the command. It then removed *that* workbook from disk, permanently,
+  bypassing the Recycle Bin. It happened to the project's own development
+  workbook. Uninstall now refuses to touch anything but a Frazaro add-in
+  file (`.xlam`). It checks twice, once when you press the button and again
+  just before the file is removed, and the removal step refuses any other
+  kind of file. The same dialog also told you to delete, by hand, any
+  folder named `scripts` next to the add-in, whether or not it was
+  Frazaro's. It now lists Frazaro's own files (`prelude.vla`, `english.vla`,
+  `espanol.vla`) by name, and only when that folder holds nothing else.
+  Tested live both ways: pressed with the development workbook active, it
+  refuses and names that workbook; pressed from a blank workbook, it removes
+  the add-in and leaves its `scripts` files where they were. If you use
+  Uninstall Frazaro, update first.
+
+  *Still open:* the cause is that Frazaro's ribbon buttons name their
+  command without naming the add-in, so while another workbook with
+  Frazaro's code is active, every button runs that workbook's copy. Only
+  Uninstall can delete a file, and it is now guarded. The rest is `U.24` on
+  the roadmap. If you keep Frazaro's modules in a workbook of your own,
+  click into a different workbook before pressing a Frazaro button.
 
 - **Questions about your rules answer five to ten times faster, with the
   same answers.** 0.6.0 measured how large a Table a question can read, and
@@ -80,6 +103,13 @@
   data live in this script, and the files are built from it. A rebuild with
   nothing changed is byte-for-byte identical. It needs no Word or Excel, and
   skips any file that is open instead of failing.
+
+### Known open security items
+
+**Closed this release:** the Uninstall Frazaro data-loss bug above, a
+safety fix rather than a listed security item. Standing advice unchanged.
+The full list of open items is in `docs/BETA_ROADMAP1.md`, in plain words
+in `README.md`.
 
 ## 0.6.0
 
