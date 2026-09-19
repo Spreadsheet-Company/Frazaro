@@ -1837,6 +1837,75 @@ Private Sub TestHelpers()
     End If
     Report "VlaDict pairs: fallback deals identical pairs", entriesOk, _
            "got " & pp.Count & " pairs"
+    ' DATALOG.13: the guard's new sense, pinned on BOTH representations.
+    ' Every VlaDict wrapper now tests for the FALLBACK (VlaDictIsFallback:
+    ' Is Nothing, then TypeOf d Is Collection) and leaves the dictionary
+    ' as the Else, so
+    ' each object is read back natively to prove which branch wrote it -
+    ' a plain value in a Dictionary, a (key, value) pair in a Collection.
+    ' Has is pinned on both, since it is on DATALOG's per-row path and
+    ' nothing above asks it. Nothing keeps the fallback's handling: Has
+    ' answers False and Get misses loudly, which VLA_Interpreter's
+    ' module-scope read relies on (its And calls VlaDictHas even while
+    ' mModuleFrame is Nothing).
+    Dim senseD As Object, senseC As Object, sensePair As Object, senseNone As Object
+    Dim senseItem As Variant
+    Dim senseOk As Boolean, senseHasOk As Boolean, senseRaised As Boolean
+    Dim senseSkip As String, senseMsg As String
+    Set senseD = VlaDictNew()
+    If TypeOf senseD Is Collection Then
+        senseSkip = " (skipped: this host has no Scripting runtime)"
+        senseOk = True
+        senseHasOk = True
+    Else
+        VlaDictSet senseD, "ax-7", 100
+        On Error Resume Next
+        senseItem = senseD.Item("ax-7")
+        senseOk = (Err.Number = 0)
+        On Error GoTo 0
+        If senseOk Then senseOk = IsNumeric(senseItem)
+        If senseOk Then senseOk = (senseItem = 100)
+        senseHasOk = VlaDictHas(senseD, "AX-7") And Not VlaDictHas(senseD, "zz-9")
+    End If
+    Report "VlaDict sense: a Dictionary takes the native branch" & senseSkip, senseOk, _
+           "the Dictionary does not hold 100 at ax-7 natively"
+    Report "VlaDict sense: Has reads a Dictionary" & senseSkip, senseHasOk, _
+           "expected AX-7 found and zz-9 not"
+    Set senseC = New Collection
+    VlaDictSet senseC, "ax-7", 100
+    senseOk = False
+    On Error Resume Next
+    Set sensePair = senseC.Item("ax-7")
+    On Error GoTo 0
+    If Not sensePair Is Nothing Then
+        If TypeOf sensePair Is Collection Then
+            If sensePair.Count = 2 Then
+                senseOk = (CStr(sensePair.Item(1)) = "ax-7")
+                If senseOk Then senseOk = (sensePair.Item(2) = 100)
+            End If
+        End If
+    End If
+    Report "VlaDict sense: a Collection takes the fallback branch", senseOk, _
+           "the Collection does not hold the pair (ax-7, 100) at ax-7"
+    senseHasOk = VlaDictHas(senseC, "AX-7") And Not VlaDictHas(senseC, "zz-9")
+    Report "VlaDict sense: Has reads the fallback", senseHasOk, _
+           "expected AX-7 found and zz-9 not"
+    senseOk = True
+    On Error Resume Next
+    senseOk = VlaDictHas(senseNone, "qx-5")
+    senseRaised = (Err.Number <> 0)
+    senseMsg = Err.Description
+    On Error GoTo 0
+    Report "VlaDict sense: Has on Nothing answers False, raising nothing", _
+           Not senseOk And Not senseRaised, "raised: " & senseRaised & " " & senseMsg
+    On Error Resume Next
+    VlaDictGet senseNone, "qx-5"
+    senseRaised = (Err.Number <> 0)
+    senseMsg = Err.Description
+    On Error GoTo 0
+    Report "VlaDict sense: Get on Nothing misses loudly, naming the key", _
+           senseRaised And InStr(1, senseMsg, "qx-5", vbTextCompare) > 0, _
+           "miss message: " & senseMsg
 End Sub
 
 ' ---------------------------------------------------------------------

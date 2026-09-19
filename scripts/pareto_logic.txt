@@ -730,6 +730,28 @@ after one cell changes costs what the first answer cost, since nothing is
 cached; a cell the question does not read costs nothing, since `DATALOG` is
 not volatile.
 
+**After `DATALOG.13`, measured live 2026-09-18** (same machine, same eight
+programs, same expected answers). The guard clause now asks `TypeOf` rather
+than `TypeName`, and every shape got five to ten times faster with every
+answer unchanged:
+
+| shape | ms per row | measured |
+|---|---|---|
+| a scan | 0.38 | 100 rows 0.06s · 1,000 0.38s · 10,000 3.8s |
+| a join (`can-cover`, three Tables) | 0.68 | 3,000 rows 2.0s |
+| `count` per group (101 groups) | 0.38 | 3,000 1.1s |
+| `textjoin` per group (11 groups) | 0.38 | 3,000 1.1s |
+| `not` through a projection | 0.50 | 3,000 1.5s |
+| "otherwise", five rules over one Table | 1.29 | 300 0.41s · 3,000 3.9s |
+| closure, wide org (ten reports each) | 3.3–3.8 | 300 1.0s · 1,000 3.3s · 3,000 11.3s |
+| closure, one chain | 41 | 100 links 4.1s; 250 past the guard |
+
+The one-Table shapes now share one figure, 0.38 ms a row, and most of that is
+two dictionaries created per tuple. "Otherwise" gained most and no longer
+grows faster than its rows at these sizes. The closures gained least, because
+more of their time is the pair-building and rescanning that `DATALOG.14` is
+about. A 100,000-row scan projects to about 38s, still past the 10s limit.
+
 ---
 
 ## Counts

@@ -9,7 +9,13 @@ Option Explicit
 ' SIG.0: this notice sits INSIDE the injectable region on purpose, so
 ' it travels with the code it licenses; tools/check_spdx.ps1 fails if
 ' it ever drifts below the boundary.
-Public Const VLA_RUNTIME_VERSION As String = "PF4B.0"
+Public Const VLA_RUNTIME_VERSION As String = "DATALOG13.0"
+' DATALOG13.0: the VlaDict family (and VLA_Relation's join index) test
+' for the fallback with VlaDictIsFallback (Is Nothing, then TypeOf) instead
+' of asking TypeName(d) = "Dictionary" - TypeName on the late-bound
+' Dictionary cost 0.148 ms a call and most of a DATALOG row. The same
+' behaviour on both representations and on Nothing; the note at
+' VlaDictSet says why the fallback is now the branch tested for.
 ' PF4B.0: VlaSlabRead/VlaSlabWrite - PRODUCT · PERFORMANCE's PF.4b, the
 ' array-slab bulk read/write-back helpers PF.4c's own for-each-row will
 ' build on. One Range.Value read/write regardless of row count, instead
@@ -688,18 +694,36 @@ Public Function VlaDictNew() As Object
     Set VlaDictNew = New Collection
 End Function
 
+' DATALOG.13: every wrapper in this family asks VlaDictIsFallback(d)
+' and never TypeName(d). TypeName on a late-bound COM object asks it
+' for its type information, measured at 0.148 ms a call (as much as
+' creating the dictionary), and a DATALOG row made about a dozen of
+' these calls: 85% of its cost. TypeOf on a VBA Collection and Is
+' Nothing each measure 0.000 ms. The fallback is the tested branch
+' because a Collection here means the host had no Scripting runtime.
+' Nothing keeps the fallback it always had: VlaDictHas answers False
+' and VlaDictGet misses loudly, which VLA_Interpreter's module-scope
+' read relies on (its And evaluates VlaDictHas even when mModuleFrame
+' is Nothing).
+' tools/check_vladict_guard.ps1 holds TypeName out of these wrappers.
+'
+' Two tests, never one line: TypeOf RAISES error 91 on Nothing rather
+' than answering False, and VBA's Or evaluates both operands, so
+' "d Is Nothing Or TypeOf d Is Collection" raised on exactly the
+' Nothing it was written to admit - caught by the owner's live pass,
+' 2026-09-18, eval of an unbound name in a fresh session.
+Private Function VlaDictIsFallback(ByVal d As Object) As Boolean
+    If d Is Nothing Then
+        VlaDictIsFallback = True
+    Else
+        VlaDictIsFallback = TypeOf d Is Collection
+    End If
+End Function
+
 Public Sub VlaDictSet(ByVal d As Object, ByVal k As Variant, ByVal v As Variant)
     Dim ks As String
     ks = CStr(k)
-    If TypeName(d) = "Dictionary" Then
-        If IsObject(v) Then
-            Set d.Item(ks) = v
-        Else
-            d.Item(ks) = v           ' add-or-replace in one move;
-                                     ' TextCompare keeps the first
-                                     ' spelling of a matched key
-        End If
-    Else
+    If VlaDictIsFallback(d) Then
         ' Fallback: replace = remove + re-add, keeping the FIRST
         ' spelling from the old pair so the two representations
         ' cannot be told apart from the sentence side.
@@ -717,6 +741,14 @@ Public Sub VlaDictSet(ByVal d As Object, ByVal k As Variant, ByVal v As Variant)
         pair.Add disp
         pair.Add v
         d.Add pair, Fold(ks)
+    Else
+        If IsObject(v) Then
+            Set d.Item(ks) = v
+        Else
+            d.Item(ks) = v           ' add-or-replace in one move;
+                                     ' TextCompare keeps the first
+                                     ' spelling of a matched key
+        End If
     End If
 End Sub
 
@@ -724,16 +756,7 @@ Public Function VlaDictGet(ByVal d As Object, ByVal k As Variant) As Variant
     Dim ks As String
     ks = CStr(k)
     Dim hit As Boolean
-    If TypeName(d) = "Dictionary" Then
-        hit = d.Exists(ks)
-        If hit Then
-            If IsObject(d.Item(ks)) Then
-                Set VlaDictGet = d.Item(ks)
-            Else
-                VlaDictGet = d.Item(ks)
-            End If
-        End If
-    Else
+    If VlaDictIsFallback(d) Then
         Dim pair As Collection
         On Error Resume Next
         Set pair = d.Item(Fold(ks))
@@ -744,6 +767,15 @@ Public Function VlaDictGet(ByVal d As Object, ByVal k As Variant) As Variant
                 Set VlaDictGet = pair.Item(2)
             Else
                 VlaDictGet = pair.Item(2)
+            End If
+        End If
+    Else
+        hit = d.Exists(ks)
+        If hit Then
+            If IsObject(d.Item(ks)) Then
+                Set VlaDictGet = d.Item(ks)
+            Else
+                VlaDictGet = d.Item(ks)
             End If
         End If
     End If
@@ -764,14 +796,14 @@ End Function
 Public Function VlaDictHas(ByVal d As Object, ByVal k As Variant) As Boolean
     Dim ks As String
     ks = CStr(k)
-    If TypeName(d) = "Dictionary" Then
-        VlaDictHas = d.Exists(ks)
-    Else
+    If VlaDictIsFallback(d) Then
         Dim pair As Collection
         On Error Resume Next
         Set pair = d.Item(Fold(ks))
         On Error GoTo 0
         VlaDictHas = Not pair Is Nothing
+    Else
+        VlaDictHas = d.Exists(ks)
     End If
 End Function
 
@@ -781,13 +813,13 @@ Public Function VlaDictKeys(ByVal d As Object) As Collection
     ' is deterministic everywhere.
     Dim r As New Collection
     Dim e As Variant
-    If TypeName(d) = "Dictionary" Then
-        For Each e In d.Keys
-            r.Add e
-        Next
-    Else
+    If VlaDictIsFallback(d) Then
         For Each e In d
             r.Add e.Item(1)
+        Next
+    Else
+        For Each e In d.Keys
+            r.Add e
         Next
     End If
     Set VlaDictKeys = r
@@ -804,16 +836,16 @@ Public Function VlaDictPairs(ByVal d As Object) As Collection
     Dim r As New Collection
     Dim e As Variant
     Dim pair As Collection
-    If TypeName(d) = "Dictionary" Then
+    If VlaDictIsFallback(d) Then
+        For Each e In d
+            r.Add e                  ' the fallback's entries ARE pairs
+        Next
+    Else
         For Each e In d.Keys
             Set pair = New Collection
             pair.Add e
             pair.Add d.Item(e)
             r.Add pair
-        Next
-    Else
-        For Each e In d
-            r.Add e                  ' the fallback's entries ARE pairs
         Next
     End If
     Set VlaDictPairs = r

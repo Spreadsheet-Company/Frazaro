@@ -6,6 +6,37 @@
 
 *(next: write this before running the release)*
 
+### What changed
+
+- **Questions about your rules answer five to ten times faster, with the
+  same answers.** 0.6.0 measured how large a Table a question can read, and
+  most of the time went on one small check repeated about thirteen times a
+  row. It now costs almost nothing. On the same machine as before: a
+  thousand rows answer in under half a second (they took over two), and ten
+  thousand in about four seconds (they took twenty-five). A rule written
+  with "otherwise" gained most and now costs about three and a half times
+  an ordinary one, not five. "Directly or not" is faster too, but gained
+  least, because most of its cost is working out every pair in the chain
+  before narrowing to the person you asked about: a thousand people in a
+  wide organization now take about three seconds, and a hundred in one
+  reporting line about four, down from twenty. A hundred thousand rows are
+  still out of reach. The generated code in your own workbook uses the
+  same check, so it gets the saving the next time you compile.
+
+- **A new release check: `tools/check_vladict_guard.ps1`.** The speed-up
+  above is invisible to every test: putting the slow check back gives
+  exactly the same answers, so every suite would stay green while every
+  question got six times slower again. This check reads the text of the
+  seven places the fast check now lives and fails the release if any of
+  them asks the slow question again. It also refuses one shape by name: a
+  test for "is this empty" joined on one line to "is this a list". VBA
+  answers the second part even when the first has already said empty, and
+  then raises an error. That shape shipped in this item's first build and
+  was caught in the live test.
+  Tested both ways: it fails that first build in all five places, fails a
+  copy with the helper squeezed back onto one line, and fails the code as
+  it was before the change.
+
 ## 0.6.0
 
 ### What changed

@@ -54,7 +54,11 @@ Private Const GUARD_SECONDS As Double = 15#
 Private Const RESULTS_COL As Long = 30
 Private Const UNRELATED_ADDR As String = "AP1"
 
-Public Sub D12Ladder(ByVal stepNo As Long, Optional ByVal maxRows As Long = 0)
+' extraRows (DATALOG.13, 2026-09-18): one more size appended after the
+' step's own ladder, when larger than its last size - "D12Ladder 1, , 10000"
+' re-measures pass 1's 10,000-row scan after the fix. The limit and the
+' guard still apply to it, so a fix that falls short skips it by projection.
+Public Sub D12Ladder(ByVal stepNo As Long, Optional ByVal maxRows As Long = 0, Optional ByVal extraRows As Long = 0)
     Dim answerAddr As String, shapeName As String, sizes As Variant, minExp As Double
     Dim ws As Worksheet, ans As Range
     Dim bits As String
@@ -73,6 +77,15 @@ Public Sub D12Ladder(ByVal stepNo As Long, Optional ByVal maxRows As Long = 0)
     If Not D12Spec(stepNo, answerAddr, shapeName, sizes, minExp) Then
         Debug.Print "D12: there is no step " & stepNo & " - the steps are 1 to 8."
         Exit Sub
+    End If
+    If extraRows > CLng(sizes(UBound(sizes))) Then
+        Dim grown() As Variant, gi As Long
+        ReDim grown(LBound(sizes) To UBound(sizes) + 1)
+        For gi = LBound(sizes) To UBound(sizes)
+            grown(gi) = sizes(gi)
+        Next gi
+        grown(UBound(grown)) = extraRows
+        sizes = grown
     End If
     On Error Resume Next
     Set ws = ActiveWorkbook.Worksheets("D12T" & stepNo)

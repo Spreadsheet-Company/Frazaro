@@ -18559,7 +18559,7 @@ now carries one summary paragraph per engine and points here.*
     `DATALOG.13`; the cause of the closure part is its own question, and the
     owner's call on whether it becomes an item.
     `~days`
-  - ⬜ **DATALOG.13 — one guard clause costs `DATALOG` most of its time:
+  - ✅ **DATALOG.13 — one guard clause costs `DATALOG` most of its time:
     `TypeName(d) = "Dictionary"`, asked once per dictionary CALL.** Minted
     2026-09-18 out of `DATALOG.12`'s live passes, the owner's call, as its
     own item; the cause is measured, the FIX IS NOT CHOSEN, and the fork
@@ -18638,7 +18638,122 @@ now carries one summary paragraph per engine and points here.*
     than two different ones. A ratchet holding the guard out of those three
     wrappers is worth considering once the shape is chosen. *Pays into:*
     `DATALOG.12`'s remaining shapes, `G-PROLOG` (every question it writes),
-    `G-SQL` and the recalc item below. `~hours`
+    `G-SQL` and the recalc item below.
+
+    **BUILT, MEASURED LIVE 2026-09-18 with the owner at the keyboard, and
+    committed.** (The measured table is at the end of this entry.)
+    *The sites, each decided:* all five `VlaDict` wrappers now open with
+    `If VlaDictIsFallback(d) Then` (the fallback first), a private helper
+    that asks `d Is Nothing` and only then `TypeOf d Is Collection`, and `VLA_Relation.bas`'s `JoinIndexPut` and `JoinIndexGet` with
+    `If TypeOf idx Is Collection Then` — the owner's call to include them,
+    as they run once per indexed row and once per probe on every hash
+    join. `VlaDictKeys` and `VlaDictPairs` run once per walk, not per row;
+    they changed so the family has one guard with one sense. **`VlaCount`
+    (the mixed guard) was left alone:** it asks whether a value is ANY
+    countable object, a Dictionary included, `TypeOf` cannot name a
+    late-bound `Scripting.Dictionary`, and no engine calls it.
+    **Found in scoping, and why `Is Nothing` is there:** a bare `TypeOf`
+    would have sent Nothing to the dictionary branch and raised error 91,
+    where the fallback always answered it (`VlaDictHas` False, `VlaDictGet`
+    a loud miss naming the key). That is reachable:
+    `VLA_Interpreter.bas`'s module-scope read joins its tests with `And`,
+    which evaluates `VlaDictHas(mModuleFrame, s)` even while
+    `mModuleFrame` is Nothing — as it is under `VlaEvalExpression` in a
+    fresh session. Any other object that is neither kind would now take
+    the dictionary branch; no path was found that hands one over, so that
+    is named rather than paid for. **The first build got the Nothing half
+    wrong, and the owner's live pass caught it (step 3, 2026-09-18):** it
+    wrote the guard as one line, `d Is Nothing Or TypeOf d Is Collection`,
+    and `eval "zzq-unbound"` in a fresh session raised error 91 on that
+    line in `VlaDictHas`. `TypeOf` RAISES 91 on Nothing rather than
+    answering False, and VBA's `Or` evaluates both operands, so the
+    `Is Nothing` protected nothing. The helper tests the two in sequence;
+    the ratchet now refuses the one-liner by name, and fails the build that
+    crashed on all five wrappers. *Proof:* six pure pins beside the forced
+    fallback (each representation read back natively to show which branch
+    wrote it, `VlaDictHas` on both, and Nothing through `Has` and `Get`),
+    so **pure +6**, host, `TestDSLs` and `VerifyReports` unmoved;
+    `tools/check_vladict_guard.ps1`, a new ratchet that holds `TypeName`
+    out of the seven procedures and their guards in place (red on HEAD's
+    pre-fix source, and on a mutant dropping only `Is Nothing`);
+    `VLA_RUNTIME_VERSION` → `DATALOG13.0`. *Harness:* `tools/VLA_Diag13.bas`
+    (`D13Wrappers` times the real wrappers, before and after the reload)
+    and an optional extra rung on `D12Ladder` (`D12Ladder 1, , 10000`).
+    **Predicted before measuring:** a row from about 1.4 ms to about 0.5
+    — a 1,000-row scan 2.25s → ~0.8s (0.5 by subtracting the guards
+    outright), 10,000 rows 25.5s → ~8s, the join at 3,000 11.9s → ~4s,
+    `count`/`textjoin`/`not` at 3,000 → 2.5–3s each, "otherwise" at 300
+    4.0s → ~1.3s, the wide-org closure at 300 5.5s → ~1.8s and the chain
+    at 100 21.6s → ~7s. A 1,000-row scan above about 1.2s would say the
+    guard was not the 85% claimed.
+
+    **MEASURED — the live pass, 2026-09-18** (Excel 16.0 64-bit, the dev
+    workbook `VLA.xlsm`, the same eight programs, sheets and expected
+    answers as `DATALOG.12`). Pure 1190/1190, host 152/152, `TestDSLs`
+    1392/0, `VerifyReports` 242/242 on both backends; step 3's
+    `eval "zzq-unbound"` misses by name (error 5, "there is nothing stored
+    at key 'zzq-unbound'"), as it always did.
+    *The wrappers themselves* (`D13Wrappers`, 10,000 calls a line, the
+    first time the real wrappers rather than a model were timed):
+
+    | call | on a Dictionary, before | after | on a Collection, before | after |
+    |---|---|---|---|---|
+    | `VlaDictGet` | 0.153 ms | 0.0016 ms | 0.0023 ms | 0.0016 ms |
+    | `VlaDictHas` | 0.148 ms | 0.0008 ms | 0.0016 ms | 0.0016 ms |
+    | `VlaDictSet` | 0.148 ms | 0.0016 ms | 0.0047 ms | 0.0055 ms |
+
+    The controls held across the reload (`TypeName` 0.146 → 0.147 ms,
+    `TypeOf` 0.000 both times), so the machine did not move; the code did.
+    *The ladder, before and after:*
+
+    | shape | size | `DATALOG.12` | predicted | measured | gain | ms per row now |
+    |---|---|---|---|---|---|---|
+    | a scan | 1,000 | 2.254s | ~0.8s | **0.383s** | 5.9× | 0.38 |
+    | | 10,000 | 25.547s | ~8s | **3.813s** | 6.7× | 0.38 |
+    | a join, `can-cover` | 3,000 | 11.867s | ~4s | **2.031s** | 5.8× | 0.68 |
+    | `count` per group | 3,000 | 7.6s | ~2.5–3s | **1.133s** | 6.7× | 0.38 |
+    | `textjoin` per group | 3,000 | 7.0s | ~2.5s | **1.133s** | 6.2× | 0.38 |
+    | `not` through a projection | 3,000 | 7.813s | ~2.5–3s | **1.508s** | 5.2× | 0.50 |
+    | "otherwise", five rules | 300 | 4.0s | ~1.3s | **0.406s** | 9.9× | 1.35 |
+    | | 3,000 | not run | | **3.875s** | | 1.29 |
+    | closure, a wide org | 300 | 5.484s | ~1.8s | **0.992s** | 5.5× | 3.3 |
+    | | 1,000 | not run | | **3.344s** | | 3.3 |
+    | | 3,000 | not run | | **11.281s** | | 3.8 |
+    | closure, one chain | 100 | 21.648s | ~7s | **4.125s** | 5.2× | 41 |
+    | | 250 | not run | | not run: projected 26s | | |
+
+    Every answer was right at every size, before and after the one-cell
+    change, and a cell nothing reads cost 0.000s throughout.
+    **THE PREDICTION WAS WRONG, in the good direction, by about half:**
+    threefold was predicted, and five to ten fold was measured; the
+    1,000-row scan came in below even the bottom of the stated 0.5–1.0s
+    range. **The cause claim held exactly; the arithmetic built on it did
+    not.** The scan lost 1.871 ms a row, which is 83% of it (the entry said
+    85%), or 12.8 guard calls at 0.146 ms (the entry said "about a dozen").
+    The "threefold" took `D12Width`'s one-column ratio (1.4 → 0.5 ms) and
+    applied it to a scan whose own 2.25 ms held more guards than that
+    probe's 1.4; subtracting the guards from the scan directly, as the
+    entry's own parenthesis did, predicted 0.5s — nearer, and still a
+    little pessimistic, because the true count is nearer thirteen.
+    **"Otherwise" gained most (9.9×) and no longer grows superlinearly
+    at these sizes:** 100 → 300 → 1,000 → 3,000 cost 2.5×, 3.3× and 2.9×
+    for each threefold step, where `DATALOG.12` measured 4.9× for 100 →
+    300. Why that earlier growth has gone is not settled here — the rescan
+    it was attributed to is still in the code (`DATALOG.14`) — and it is
+    recorded as observed, not explained. **The closures gained least
+    (5.2–5.5×)**, as they should: more of their time is the rescan and the
+    pair-building `DATALOG.14` is about, which no guard clause touches.
+    **What a row costs now, and what is next:** about 0.38 ms for a plain
+    scan, of which two `CreateObject("Scripting.Dictionary")` per tuple in
+    `AtomMatches` are about 0.31 by `DATALOG.12`'s pass-2 measurement —
+    most of what is left, and a `VLA_Datalog.bas` change, not minted here.
+    **What `DATALOG` can honestly do now:** a thousand rows in under half a
+    second, ten thousand in about four, "otherwise" at about three and a
+    half times an ordinary rule, and "directly or not" over a thousand
+    people in a wide org in about three seconds, or a hundred in one chain
+    in about four. A 100,000-row scan projects to about 38s: still past
+    the 10s limit, now by a factor of four rather than twenty-five.
+    `~hours`
   - ⬜ **DATALOG.14 — a closure builds every pair, and every round re-reads
     every relation.** Minted 2026-09-18 out of `DATALOG.12`'s live passes,
     the owner's call; **scoped, not built, and not chosen.** **What was
@@ -18673,6 +18788,12 @@ now carries one summary paragraph per engine and points here.*
     `DATALOG.13` goes first, since it cuts the constant every one of these
     rows pays and would change what this item measures against; then
     `D12Ladder 7` and `8` are re-run before any shape is chosen here.
+    **Re-run 2026-09-18, after `DATALOG.13`** (its entry has the table):
+    a wide org 100 0.281s · 300 0.992s · 1,000 3.344s · 3,000 11.281s, now
+    3.3–3.8 ms a row and about 1 ms per pair built; one chain of 100 links
+    4.125s, 41 ms a row, with 250 still skipped at a projected 26s. The
+    guard's removal gained 5.2–5.5× here against 5.8–9.9× elsewhere, so
+    what remains is more nearly this item's own cost than it was.
     *Pays into:* `G-PROLOG`'s own `directly or not` (slice 3's sentence),
     `G-DECISIONS`, and the recalc item below. `~days`
   - ⬜ **Avoiding a full re-parse/re-fixpoint on every recalc — profiled first,
