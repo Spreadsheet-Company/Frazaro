@@ -19690,16 +19690,53 @@ after the roadmap above is closed out, not before; nothing here blocks
 anything above it.*
 
 - ⬜ **TER-1 — `Check Instructions` appears to re-run a prior `Compile and
-  Trace`.** Owner-found live, 2026-08-27, during L0.2's regression: `Compile
-  and Trace` run successfully, then `Check Instructions` clicked right
-  after - it visibly re-ran, as if it were another Compile/Trace, not a
-  translate-only Check. A second `Check Instructions` click immediately
-  after does NOT repeat this - only the first click after a run does. Root
-  cause not yet investigated; a plausible lead, not a diagnosis: leftover
-  armed trace/step-tracking state (`VLA_IDE.bas`'s `ArmTrace`) surviving
-  from the Compile/Trace run into `DoCheck`'s own transpile probe - the
-  same class of leftover-armed-state fragility the S5.3/S5.5/S5.6 history
-  already documents once, for a different pair of callers.
+  Trace`.** **Measured 2026-09-18 and DEFERRED by the owner the same day** -
+  real, but far below the items above it; left ⬜ rather than 🟡 because
+  nothing is built. *As filed:* owner-found live, 2026-08-27, during L0.2's
+  regression: `Compile and Trace` run successfully, then `Check
+  Instructions` clicked right after - it visibly re-ran, as if it were
+  another Compile/Trace, not a translate-only Check. A second `Check
+  Instructions` click immediately after does NOT repeat this - only the
+  first click after a run does. The lead filed with it, a guess and not a
+  diagnosis: leftover armed trace/step-tracking state (`VLA_IDE.bas`'s
+  `ArmTrace`) surviving from the Compile/Trace run into `DoCheck`'s own
+  transpile probe.
+  **The measurement, live, owner at the keyboard 2026-09-18** - dev workbook
+  hosting the built add-in's ribbon, a fresh five-row program whose Run adds
+  1 to a cell and stamps the time, then two `Compile and Trace` runs each
+  followed by two `Validate Instructions` clicks: the first round with
+  nothing clicked in between, the second with the program's own tab clicked
+  first. What it settled:
+  - *The program's effects never happened twice.* The counter read 2 after
+    two Runs, one timestamp per Run - no Validate click ran the program.
+    This is the claim the item is named for, and it is false as written.
+  - *No Validate did hidden work.* Six commands produced exactly six
+    translations, and the per-Check timings were flat (vocabulary 430-469
+    ms, translation 0-8 ms): the first Check after a Run costs what the
+    second does.
+  - *The filed lead is dead.* `VLAt_TraceOn` read `=0` afterwards, and
+    `DoCheck` runs no step, arms nothing, and never calls
+    `ShowTraceWindow` - an armed flag records steps, it cannot cause one.
+  - *It did not reproduce at this size* - the owner's own words, that the
+    Validate clicks "didn't hang Excel like Compile did", they "seemed like
+    pure validation runs".
+  **What is left for whoever picks this up:** the 2026-08-27 sighting was a
+  program of a few hundred rows, and both surviving explanations need that
+  size to be visible. `DoCheck` clears column C and writes each row's mark
+  with screen updating ON, so a long program paints a visible sweep - the
+  same sweep a Run paints a moment earlier, since a Run Checks first; and a
+  Run paints with updating OFF, so Excel can defer redrawing what it changed
+  until the next command touches the screen, which is one-shot by
+  construction and fits "only the first click after a run" exactly. Re-measure
+  with `instructions.txt` loaded before theorising further; if it is the
+  sweep, marking with updating off (or one bulk write to column C) is the
+  fix and is worth having anyway. Two asides kept rather than chased: a
+  `Validate Instructions` clicked while a non-program sheet is showing checks
+  the program sheet out of sight and shows nothing at all (with two or more
+  programs open it refuses as ambiguous instead), and the Trace sheet's A1
+  came back empty in the owner's screenshot where
+  `===== RUN TRACE (N step executions) =====` belongs - unconfirmed, and its
+  own bug if real.
 - ✅ **TER-2 — stale row-error marks survive a Check after the row's
   content is deleted.** **BUILT, OWNER-VERIFIED LIVE AND COMMITTED
   2026-09-14** - compile and `VlaSelfTest` clean; the second live pass
