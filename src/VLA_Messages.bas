@@ -131,7 +131,21 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "ide-programs-share-short-name", 5, "VLA-IDE", "The programs '{a}' and '{b}' would share the short name '{tag}' - rename one of them so each program keeps its own module and its own Undo"
     AddMsg m, "ide-autoload-no-slot", 5, "VLA-IDE", "Could not register for auto-load - no free OPEN slot found in 50 tries ({key})."
     AddMsg m, "ide-program-file-moved", 53, "VLA-IDE", "The program file has moved: {path} - use Import to pick it again"
-    AddMsg m, "ide-word-read-failed", 5, "VLA-IDE", "Could not read the Word document (is Word installed?): {detail}"
+    ' SOP.1 - Word and PDF intake. The text of ide-word-read-failed was
+    ' rewritten here (its id kept, SD-9): it no longer guesses "is Word
+    ' installed?", which is now ide-word-not-available's own answer, and
+    ' no longer says "Word document", since the file may be a PDF.
+    AddMsg m, "ide-word-read-failed", 5, "VLA-IDE", "Word could not open {file}: {detail} - the program on this sheet has not been changed."
+    AddMsg m, "ide-word-not-available", 5, "VLA-IDE", "Frazaro reads Word documents through Microsoft Word, and could not start it on this computer: {detail}. Save the procedure as plain text (.txt) and load that instead - a text file needs nothing extra. The program on this sheet has not been changed."
+    AddMsg m, "ide-word-needs-windows", 5, "VLA-IDE", "Loading a Word document needs Windows Excel: Frazaro reads one through Microsoft Word, which Mac Excel cannot drive. Save the procedure as plain text (.txt) and load that instead - it works the same on both. The program on this sheet has not been changed."
+    ' SOP.1, owner's call 2026-09-19: PDF intake is deferred, and a PDF
+    ' says so by name rather than being read badly. The warning about
+    ' the conversion is not padding - it is this item's own measurement,
+    ' and it applies to the person doing the conversion by hand exactly
+    ' as it applied to Frazaro doing it.
+    AddMsg m, "ide-pdf-not-supported", 5, "VLA-IDE", "Frazaro does not read PDFs: {file} has not been loaded, and the program on this sheet has not been changed. Open the PDF in Word, save it as a Word document (.docx) or as plain text (.txt), and load that. Read it over before you run it - Word rebuilds the lines when it converts a PDF, and it can join two steps into one line and drop the blank line that ends an indented block."
+    AddMsg m, "ide-word-no-text", 5, "VLA-IDE", "Word found no text in {file}, so nothing was loaded. A scanned or photographed page is a picture of text rather than text, and Frazaro does not read pictures - it has no OCR. Load the document the scan was made from, if you have it, or type the procedure into this sheet. The program on this sheet has not been changed."
+    AddMsg m, "ide-word-password", 5, "VLA-IDE", "{file} is protected by a password, and Frazaro never asks for one - a password box on a window you cannot see would simply stop Excel. Open the file in Word, remove the password (File > Info > Protect Document > Encrypt with Password, then clear the box), save it, and load it again. The program on this sheet has not been changed."
     ' U.19 - a Run whose Undo copy cannot be made stops before its first sentence, and leaves nothing behind.
     AddMsg m, "ide-undo-snapshot-failed", 5, "VLA-IDE", "'{program}' has not run. Before a Run changes anything, Frazaro saves each sheet the Run can change, so Undo Last Run can put it back - and it could not save the sheet '{sheet}' ({reason}). None of the program's sentences ran, and nothing Frazaro made for Undo was left behind. If the workbook is protected (Review > Protect Workbook), unprotect it; then run the program again."
     AddMsg m, "ide-undo-snapshot-failed-copies-left", 5, "VLA-IDE", "'{program}' has not run. Before a Run changes anything, Frazaro saves each sheet the Run can change, so Undo Last Run can put it back - and it could not save the sheet '{sheet}' ({reason}). None of the program's sentences ran, but Frazaro could not remove these sheets it had made for Undo: {left}. Delete them (right-click each tab, then Delete), then run the program again."

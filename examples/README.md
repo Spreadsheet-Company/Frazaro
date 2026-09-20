@@ -140,9 +140,14 @@ have a name.
   with the document's own macros switched off. Each paragraph becomes one row.
   You need Word installed.
 - **Plain text (`.txt`) works everywhere** and needs nothing extra.
-- **PDF isn't read directly yet.** For now, open the PDF in Word (Word converts
-  it), save it as `.docx`, and load that. A scanned PDF has no text for Word to
-  recover.
+- **PDF isn't read directly, and that is deliberate.** Open the PDF in Word,
+  save it as `.docx`, and load that — but read the result before you run it. A
+  PDF doesn't store lines and paragraphs, only marks on a page, so Word rebuilds
+  them by measuring the gaps. It joins steps that sit close together, and it
+  drops the blank line that ends an indented block — which changes what a
+  procedure does without changing a word of it. Frazaro refuses a `.pdf` rather
+  than load one that looks right and isn't. A scanned PDF has no text for Word
+  to recover at all.
 - **Pictures and screenshots aren't read.** Where a step was a screenshot,
   write a `#` note saying what it showed, so the step doesn't quietly
   disappear.

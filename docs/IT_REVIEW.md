@@ -57,7 +57,7 @@ SEC.12 (both below), programs reach outside the workbook only this way:
 | Mail | An Outlook draft, optionally with a local file attached, shown for the user to send; never sent | As Files |
 | "Refresh everything." | Refreshes the workbook's *existing* external data ranges and PivotTables [5], wherever they point; Frazaro adds no connection | **None.** Not SEC.8-gated; not yet a filed item |
 | Formulas | Any formula, including `WEBSERVICE` ("returns data from a web service on the Internet or Intranet" [6]) or DDE | None (SEC.15, open) |
-| Other programs | Word (macros force-disabled) to import a `.doc`/`.docx` (SEC.13). Uninstall runs the uninstaller, or for a standalone copy a hidden `powershell -ExecutionPolicy Bypass` script deleting the `.xlam` (endpoint security may flag it) | User-initiated only |
+| Other programs | Word (macros force-disabled) to import a `.doc`/`.docx` (SEC.13) — in a hidden instance Frazaro starts and quits for that one read, never a Word you have open, whose settings and documents it does not touch (SOP.1); a `.pdf` is refused rather than converted. Uninstall runs the uninstaller, or for a standalone copy a hidden `powershell -ExecutionPolicy Bypass` script deleting the `.xlam` (endpoint security may flag it) | User-initiated only |
 
 **Inside Excel**, Interpret reaches only a fixed, named list of object-model
 members and refuses anything else in words (SEC.1;

@@ -157,6 +157,14 @@ Private Const FIRST_ROW As Long = 1   ' S3.3 (owner revision): row 1
                                       ' guidance line lives in a cell
                                       ' comment on A1
 
+' SOP.1: a password Word will never match, handed to every
+' Documents.Open ReadWordFile makes. Word's password box is a DIALOG,
+' not an alert, so DisplayAlerts does not cover it: a protected
+' document would otherwise stop to ask for a password on a window
+' nobody can see. With a wrong one supplied up front Word refuses
+' instead, and ide-word-password says so in words.
+Private Const WORD_NO_PASSWORD As String = "frazaro-no-password"
+
 ' D1: the host workbook handle, captured once per public command by
 ' CaptureHost (defined beside HostBook below). Declared HERE because
 ' VBA requires module-level declarations to precede the first
@@ -4199,9 +4207,33 @@ Private Sub ImportFromPath(ws As Worksheet, ByVal path As String)
                             ' Import dialog and Reload Instructions use
     Dim ext As String
     ext = VLA_Identity.Fold(Mid$(path, InStrRev(path, ".") + 1))
+    ' SOP.1, owner's call 2026-09-19: PDF intake is NOT shipped, and a
+    ' PDF is refused BY NAME here rather than falling through to
+    ' VlaReadFile, which would pour a few hundred rows of compressed
+    ' bytes over the person's program. The refusal names the way out -
+    ' convert it in Word first - and warns about what that conversion
+    ' does, because the measurement behind this decision applies just
+    ' as much when a person runs it by hand: Word's PDF conversion
+    ' re-derives paragraphs from the geometry of the page, joining
+    ' steps that sit close together and swallowing the blank line that
+    ' ends an indented block. See SOP.1 in docs/BETA_ROADMAP1.md for
+    ' the measured numbers, and tools/export_example_pdfs.ps1 for the
+    ' instrument that produced them.
+    If ext = "pdf" Then
+        VLA_Messages.RaiseMsg "ide-pdf-not-supported", "file", FileNameOnly(path)
+    End If
     Dim text As String
-    If ext = "docx" Or ext = "doc" Or ext = "docm" Then
+    If VlaIdeReadsThroughWord(ext) Then
         text = ReadWordFile(path)
+        ' SOP.1: a scan is a picture of text, and Word hands back
+        ' nothing but its own control marks for one. Refused HERE,
+        ' before PourProgram: pouring it would clear the program the
+        ' person already has and leave one empty row where it was -
+        ' silent loss, where a refusal in words costs them nothing. A
+        ' .docx of pasted screenshots is exactly that case.
+        If Not VlaIdeHasReadableText(text) Then
+            VLA_Messages.RaiseMsg "ide-word-no-text", "file", FileNameOnly(path)
+        End If
     Else
         text = VlaReadFile(path)
     End If
@@ -4210,73 +4242,167 @@ Private Sub ImportFromPath(ws As Worksheet, ByVal path As String)
     DoCheck ws                                ' immediate feedback per row
 End Sub
 
-' Word documents via late-bound automation: reuse a running Word if
-' there is one, otherwise start (and afterwards quit) a hidden one.
+' SOP.1: the extensions Word reads for us - Word's own formats, and
+' only those. Public and pure so the host-free suite can pin the
+' routing, which is otherwise provable only by opening Word.
+'
+' ".pdf" is deliberately NOT here. Word can open a PDF, through its own
+' conversion, and SOP.1 measured what comes back: paragraphs re-derived
+' from the geometry of the page, steps joined into one line about once
+' a page, and - worst - the blank line that closes an indented block
+' swallowed, which re-nests a procedure while every line still passes
+' Check. ImportFromPath refuses a .pdf by name instead.
+Public Function VlaIdeReadsThroughWord(ByVal ext As String) As Boolean
+    Select Case VLA_Identity.Fold(ext)
+        Case "doc", "docx", "docm": VlaIdeReadsThroughWord = True
+    End Select
+End Function
+
+' SOP.1: is there anything in what Word handed back that a person could
+' read? Word's text stream is full of characters that are not text -
+' Chr(1) where a picture sits, Chr(7) at a table cell, Chr(12) at a page
+' break, Chr(13) at every paragraph - and a scanned page converts to a
+' document made of exactly those and nothing else. Everything below 33
+' counts as not-text, as does 160 (the non-breaking space), so the
+' answer does not depend on which of them a given Word version emits.
+Public Function VlaIdeHasReadableText(ByVal t As String) As Boolean
+    Dim i As Long, c As Long
+    For i = 1 To Len(t)
+        c = AscW(Mid$(t, i, 1))
+        If c < 0 Then c = c + 65536   ' AscW returns a SIGNED Integer - everything above &H7FFF comes back negative
+        If c > 32 And c <> 160 Then
+            VlaIdeHasReadableText = True
+            Exit Function
+        End If
+    Next
+End Function
+
+' The file's own name, for a refusal to name. Deliberately not Dir$,
+' which raises on a disconnected drive or a dead UNC path - the D1
+' audit find EnglishIdeReload already works around - because a refusal
+' must never fail while it is being written.
+Private Function FileNameOnly(ByVal path As String) As String
+    Dim p As Long
+    p = InStrRev(path, "\")
+    If p = 0 Then p = InStrRev(path, "/")
+    FileNameOnly = Mid$(path, p + 1)
+End Function
+
+' Word documents via late-bound automation, always through Frazaro's
+' OWN hidden Word: started for this one read, quit after it.
+'
+' SOP.1 replaced the earlier "reuse a running Word if there is one"
+' shape. The reasons are worth keeping written down:
+'   * Documents.Open on a file ALREADY open in that Word hands back
+'     THEIR open document (its Revert argument defaults to "activate
+'     the open document"), and the doc.Close below would then shut
+'     their window and discard unsaved edits. That is the ordinary
+'     state of a person editing an SOP in Word and pressing Reload
+'     Instructions.
+'   * GetObject can hand back an INVISIBLE Word left behind by a
+'     crash, where every prompt hangs Excel exactly as a hidden one
+'     would - with alerts deliberately left unsuppressed, because that
+'     instance reads as "not ours".
+' What it costs, stated rather than discovered later: a second or two
+' of Word start-up on every read, even when Word is already open, and
+' the file is read AS SAVED - unsaved edits in the user's own Word are
+' not seen, so the advice is save first, then Reload.
 '
 ' SEC.13: Word's AutomationSecurity default under automation is
 ' msoAutomationSecurityLow, so without the guard below Documents.Open
 ' runs a .docm's AutoOpen/Document_Open the instant Frazaro reads the
 ' file - and ImportFromPath routes .doc/.docx/.docm here straight off
-' the "Import Program File..." menu item and ribbon button, so this is a
-' one-click path, not a hypothetical one. The guard is set AFTER
-' "On Error GoTo cleanup" on purpose: if it cannot be set, we refuse
-' through cleanup rather than open the document unguarded.
+' the "Import Program File..." menu item and ribbon button, so this is
+' a one-click path, not a hypothetical one. Both settings are made
+' AFTER "On Error GoTo cleanup" on purpose: if either cannot be set we
+' refuse through cleanup, rather than open the document unguarded or on
+' an instance that can still stop to ask a question.
+'
+' The second half of that reverses SEC.13's own "a failed DisplayAlerts
+' is tolerated, this is robustness and must not refuse an import", and
+' the reason it reverses is the instance question above, not PDF. When
+' that line was written, an alert could still land on the user's own
+' VISIBLE Word, where a person could answer it. Every read now happens
+' on a hidden instance of our own, so an alert we failed to silence has
+' no window anybody can click and can only appear as Excel hanging. A
+' refusal in words is strictly better than that.
 Private Function ReadWordFile(ByVal path As String) As String
+    If VlaOnMac() Then VLA_Messages.RaiseMsg "ide-word-needs-windows"
+
     Dim wordApp As Object, doc As Object
-    Dim createdNew As Boolean
-    Dim priorSecurity As Long
+    Dim ours As Boolean, mine As Boolean
     Dim d As String
+    Dim n As Long
+
     On Error Resume Next
-    Set wordApp = GetObject(, "Word.Application")
+    Set wordApp = CreateObject("Word.Application")
+    d = Err.Description       ' captured before On Error GoTo 0, which clears Err
     On Error GoTo 0
-    If wordApp Is Nothing Then
-        Set wordApp = CreateObject("Word.Application")
-        createdNew = True
-        ' An instance we created is invisible, so a modal Word chose to
-        ' show (a corrupt document, a file-conversion prompt) would have
-        ' no clickable window and would appear to hang Excel. Suppress
-        ' alerts on OUR instance only: it is Quit below, so nothing needs
-        ' restoring. An ATTACHED instance is deliberately left alone - it
-        ' is visible, so its dialogs are clickable, and silencing alerts
-        ' in an application we do not own would fail OPEN, costing the
-        ' user warnings they should see. Failure here is tolerated: this
-        ' is robustness, not the SEC.13 security guard below, and must
-        ' not refuse an import on its own.
-        On Error Resume Next
-        wordApp.DisplayAlerts = 0   ' 0 = wdAlertsNone - the literal, not the named Word constant, so this compiles with no dependency on the Word Object Library being a checked reference
-        On Error GoTo 0
+    If wordApp Is Nothing Then VLA_Messages.RaiseMsg "ide-word-not-available", "detail", d
+
+    ' Prove it is ours BEFORE changing a setting or quitting anything.
+    ' CreateObject starts a NEW Word - Word registers single-use - and a
+    ' Word started for automation has no window and no document open. If
+    ' this one has either, it belongs to somebody else, most likely the
+    ' user, and quitting it would throw away their unsaved work: refuse
+    ' instead, having touched nothing. A probe that errors counts as not
+    ' ours for the same reason. Belt and braces against this function's
+    ' one load-bearing assumption, so that being wrong about it refuses
+    ' rather than closes a Word somebody is working in.
+    On Error Resume Next
+    mine = (Not wordApp.Visible) And (wordApp.Documents.Count = 0)
+    If Err.Number <> 0 Then mine = False
+    On Error GoTo 0
+    If Not mine Then
+        Set wordApp = Nothing
+        VLA_Messages.RaiseMsg "ide-word-not-available", "detail", _
+            "Word did not open a separate copy for Frazaro to use, and Frazaro never changes or closes a Word you are working in"
     End If
-    ' Capture before we change it: GetObject above frequently attaches to
-    ' the USER'S OWN live Word, an application we do not own and must hand
-    ' back as we found it. 0 is not a valid msoAutomationSecurity value,
-    ' so it doubles as "never captured - do not restore".
-    On Error Resume Next
-    priorSecurity = wordApp.AutomationSecurity
-    On Error GoTo 0
+
     On Error GoTo cleanup
+    ours = True
+    wordApp.DisplayAlerts = 0   ' 0 = wdAlertsNone - the literal, not the named Word constant, so this compiles with no dependency on the Word Object Library being a checked reference
     wordApp.AutomationSecurity = 3   ' 3 = msoAutomationSecurityForceDisable - the literal, not the named Office constant, so this compiles with no dependency on the Office Object Library being a checked reference
-    Set doc = wordApp.Documents.Open(path, ReadOnly:=True, AddToRecentFiles:=False)
+    ' Starting a Word of our own costs a second or two even when Word
+    ' is already open, and a large document costs more, so Excel's own
+    ' status bar says what is happening rather than leaving a person
+    ' looking at a frozen window. Cosmetic, and tolerated if it fails:
+    ' unlike the two settings above, nothing hangs or opens unguarded
+    ' without it.
+    On Error Resume Next
+    Application.StatusBar = "Frazaro: reading " & FileNameOnly(path) & " through Word..."
+    On Error GoTo cleanup
+    ' Every argument below stops Word asking a question on a window
+    ' nobody can see: no converter dialog, no encoding dialog, and a
+    ' password it will never match instead of a password box.
+    Set doc = wordApp.Documents.Open(path, ConfirmConversions:=False, ReadOnly:=True, _
+                                     AddToRecentFiles:=False, PasswordDocument:=WORD_NO_PASSWORD, _
+                                     NoEncodingDialog:=True)
     ReadWordFile = doc.Content.Text
     doc.Close False
-    ' Restore only on an instance we ATTACHED to - one we created is quit
-    ' just below, so its setting dies with it. Wrapped in a Resume Next of
-    ' its own so a failed restore cannot discard a read that already
-    ' succeeded, and left deliberately silent: a restore that fails leaves
-    ' the user's Word MORE restrictive than we found it, never less.
+    Set doc = Nothing
+    wordApp.Quit False
+    Set wordApp = Nothing
     On Error Resume Next
-    If (Not createdNew) And (priorSecurity <> 0) Then wordApp.AutomationSecurity = priorSecurity
-    Err.Clear
-    On Error GoTo cleanup
-    If createdNew Then wordApp.Quit False
+    Application.StatusBar = False
     Exit Function
 cleanup:
     d = Err.Description
+    n = Err.Number
     On Error Resume Next
+    Application.StatusBar = False
     If Not doc Is Nothing Then doc.Close False
-    If (Not createdNew) And (priorSecurity <> 0) Then wordApp.AutomationSecurity = priorSecurity
-    If createdNew Then wordApp.Quit False
+    If ours Then wordApp.Quit False
     On Error GoTo 0
-    VLA_Messages.RaiseMsg "ide-word-read-failed", "detail", d
+    ' 5408 is Word's own "the password is incorrect", which here means
+    ' the document has one at all - nobody typed a password. The text
+    ' test catches the same refusal worded differently, since a
+    ' non-English Word's number is not something to rely on; when
+    ' neither matches, Word's own words are reported as they are.
+    If n = 5408 Or InStr(1, d, "password", vbTextCompare) > 0 Then
+        VLA_Messages.RaiseMsg "ide-word-password", "file", FileNameOnly(path)
+    End If
+    VLA_Messages.RaiseMsg "ide-word-read-failed", "file", FileNameOnly(path), "detail", d
 End Function
 
 ' Undo Word's helpful typography: curly quotes back to straight,

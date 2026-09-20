@@ -2301,61 +2301,187 @@ forever without anyone deciding to slip it.*
   it does not replace them. specimens: 0 until PI.2 (LE.6/LE.7's own precedent
   — no specimen exists until a real transcript does).*
 
-- ⬜ **SOP.1 — Word and PDF intake, via Word itself.** Owner call, this
-  session, overriding this item's own earlier draft (plain-text-only,
-  `.docx`/`.pdf` named a ceiling): a Word document is where a real SOP
-  actually lives, and telling a prospective client "first retype your
-  procedure as plain text" reads as a rewrite-from-scratch — the wrong first
-  impression for a beta. Neither format gets a hand-built parser: both route
-  through Word's own object model, automated via COM
-  (`CreateObject("Word.Application")`) — the same "drive the real application,
-  never reimplement its file format" instinct SD-1 already applies to VBA
-  itself, extended here to "Word is a backend too, for reading its own files."
-  A `.docx` opens directly; a `.pdf` opens through Word's own built-in
-  PDF-to-Word conversion (a real, existing Word feature — Word reflows a PDF's
-  own text into an editable document on open) — both formats end this step as
-  an ordinary Word `Document` object, walked identically from there by
-  `SOP.2`. Two real limits, named now rather than discovered live: this needs
-  Word installed and automatable on the machine — refused by name, never
-  crashed, when it isn't (`IO.2`'s own "refuse in words, name the reason — or
-  switch backends" precedent, applied to a second application instead of a
-  second VBA host); and Word's own PDF conversion reflows a BORN-DIGITAL text
-  PDF but does not OCR a scanned or photocopied one — a scanned SOP converts
-  to something with no recoverable text, a real ceiling, not a bug to chase
-  later. Plain-text paste stays supported too, as the always-available
-  fallback needing no external application at all. *Open question for whoever
-  scopes this in detail, not resolved here:* whether automating Word crosses
-  into SD-15's own "dynamic dispatch beyond the native, reviewed tier"
-  territory, or stays tooling-side — the add-in's own authoring flow, not an
-  emitted, user-facing capability, the same way the panel itself already isn't
-  SD-15's concern — a real judgment call, not a rubber stamp. *Worth a
-  name-check by 🛡 ADVERSARY, not solved here either:* opening an arbitrary
-  user-supplied `.docx` for text extraction should never be confused with
-  running it — a document carrying its own macros must never have them
-  triggered by this path. `~days`–`~weeks`
+- ✅ **SOP.1 — Word intake, hardened; PDF measured and deferred.** *Renamed
+  2026-09-19 from "Word and PDF intake, via Word itself", when this item's own
+  measurement settled its PDF half in the opposite direction from its design.*
+  The original call stands for Word, and is worth keeping stated: a Word
+  document is where a real SOP actually lives, telling a prospective client
+  "first retype your procedure as plain text" reads as a
+  rewrite-from-scratch, and the format gets no hand-built parser — it routes
+  through Word's own object model over COM (`CreateObject("Word.Application")`),
+  the same "drive the real application, never reimplement its file format"
+  instinct SD-1 already applies to VBA itself, extended to "Word is a backend
+  too, for reading its own files". What did not survive contact is the second
+  half of that sentence: driving Word to read a **PDF** buys a converter whose
+  output cannot be trusted, and that is a measurement rather than a
+  preference. Plain text stays the always-available fallback needing no
+  external application at all. `~days`
 
-  *Already shipped, found 2026-09-18 while building LE.6 — read before
-  scoping:* the Word half exists. `ImportFromPath`/`ReadWordFile`
-  (`VLA_IDE.bas`) route `.doc`/`.docx`/`.docm` through Word over COM from
-  **Load Instructions**, with SEC.13's `AutomationSecurity = 3` guard (the
-  ADVERSARY name-check above, answered) and alerts suppressed on an instance
-  Frazaro created. What is missing is PDF: it is in neither the file
-  picker's filter nor the extension check, and Word's PDF conversion prompt
-  needs handling on a hidden instance.
+  **Built 2026-09-19, owner-verified live 2026-09-20** (`VLA_SELF-TESTS` pure
+  1215/1215 — `+14`, `TestIdeImportRouting` — host 152/152 unmoved; the live
+  harness 12 of 12, with the password case skipped for want of its fixture);
+  ✅ waits on a commit. ***Still outstanding, to run before the release:***
+  SEC.13's own macro regression, a `.docm` carrying `AutoOpen` imported with
+  Word closed (`archive/sec13_word_fixture.md`, test 1). It is the one check
+  that cannot be automated — a VBA project is a compound binary no script can
+  write without Word — and it is deferred rather than skipped because the
+  guard line itself is unchanged, `check_word_automation_security.ps1` still
+  pins it present, and the instance it guards is the one `0.5.3`'s own live
+  pass already proved; what changed is that it is now the *only* instance.
+  Five changes, all in `VLA_IDE.bas`/`VLA_Messages.bas`, and one of them is a
+  defect fix rather than a feature:
 
-  *A step added 2026-09-18 (owner): PDF exports of the LE.6 samples.*
-  `examples/` ships its samples as `.txt` and `.docx` only, because PDF is
-  not an intake format yet and a sample that cannot be loaded is worse than
-  none (`examples/README.md` tells users to open a PDF in Word and save it
-  as `.docx` meanwhile). When PDF intake lands, export the `.docx` samples
-  (02-08 and the practice SOP) to PDF through Word's own Save as PDF, add
-  them to `examples/` and its README, and use them as this item's live
-  fixture. A sample exported from Word and read back through Word's PDF
-  conversion must Validate exactly as its `.docx` does, which exercises the
-  conversion on real, born-digital documents whose correct result is already
-  known. The export is Office automation: owner-run or owner-approved each
-  time, never done by default in `tools/build_examples.ps1`, whose value is
-  building everything without Office.
+  - ***The defect, found while scoping and not previously known:* a Word
+    import could close a document the user had open, discarding unsaved
+    edits.** `ReadWordFile` attached to a running Word through `GetObject`,
+    and `Documents.Open` on a file *already open in that instance* hands back
+    **their** open document rather than a copy — its `Revert` argument
+    defaults to "activate the open document" — after which this function's own
+    `doc.Close False` shut their window and threw the edits away. The
+    triggering case is the ordinary one: a person edits an SOP in Word and
+    presses **Reload Instructions**.
+  - **Frazaro now always drives its own hidden Word**, started per read and
+    quit afterwards, and never touches a Word the user is in. That closes the
+    defect above; it also removes two hazards the old shape carried — silencing
+    or restoring settings on an application we do not own, and `GetObject`
+    handing back an *invisible* Word left by a crash, where a prompt hangs
+    Excel with alerts deliberately unsuppressed. A fresh-instance check (no
+    window, no document open) runs before any setting is changed or anything
+    is quit, so being wrong about `CreateObject` refuses rather than closes
+    somebody's Word. *Costs, stated rather than discovered later:* a second or
+    two of Word start-up per read even when Word is open, and the file is read
+    **as saved** — so the advice is save first, then Reload.
+  - **Both settings are now fail-closed**, reversing SEC.13's own "a failed
+    `DisplayAlerts` is tolerated". That reversal follows from the line above,
+    not from PDF: when SEC.13 wrote it, an alert could still land on the
+    user's visible Word where a person could answer it, and every read now
+    happens on a hidden instance where an unsilenced alert has no window to
+    click and can only look like Excel hanging.
+  - **`Documents.Open` now refuses Word's remaining question-asking paths**:
+    `ConfirmConversions:=False`, `NoEncodingDialog:=True`, and a
+    `PasswordDocument` Word will never match — a password box is a *dialog*,
+    not an alert, so `DisplayAlerts` does not cover it and a protected
+    document would otherwise stop to ask on a window nobody can see.
+  - **Five refusals in words** (`ide-word-not-available`,
+    `ide-word-needs-windows`, `ide-word-no-text`, `ide-word-password`,
+    `ide-pdf-not-supported`), each raised **before** `PourProgram`, so every
+    one can end truthfully with "the program on this sheet has not been
+    changed". `ide-word-read-failed` keeps its id (SD-9) with reworded text:
+    it no longer guesses "is Word installed?", which is now its own id.
+    *`ide-word-no-text` applies to every file Word reads, not only to a scan:*
+    a `.docx` of pasted screenshots is the same case, and today either one
+    silently clears the program and leaves a single empty row where it was.
+    Fourteen pure pins in `VLA_Tests.bas` (`TestIdeImportRouting`) hold the
+    routing and the has-readable-text rule; everything else on this path needs
+    a live Word and is owner-run (`archive/sec13_word_fixture.md`, the local
+    fixture recipe, rewritten for this item: eight steps, of which 3 and 4
+    replace the three that tested an attached Word).
+
+  **PDF intake: measured, then deferred by the owner, 2026-09-19.** Not a
+  scheduling deferral — the measurement says the format cannot carry a
+  procedure faithfully through Word's converter, and the failures are silent.
+  Word's PDF conversion re-derives paragraphs from the **geometry** of the
+  page, and over LE.6's own seven `.docx` samples, exported by Word's own Save
+  as PDF and read straight back through the importer's own `Documents.Open`
+  arguments:
+
+  - **It drops exactly the blank lines that carry meaning.** Sample 06 lost
+    four, sample 05 one, every one of them mid-page, and every one of them
+    immediately after an **indented** block body: the blank closing a
+    `Count r from 2 to 21:` loop, the blank before `Otherwise:`, the blank
+    before `If that fails:`. The converter reads the indent change as its
+    paragraph signal and consumes the empty paragraph's space in the process.
+    `SOP.2`'s "a blank line is syntax" is precisely what this destroys, so 06
+    comes back with three statements swallowed into a loop that would run them
+    twenty times, and **every line still passes Check** — the silent-loss
+    failure `docs/AUDIT.md` Part III exists to prevent.
+  - **It joins steps, about once a page**, and it is not deterministic about
+    it: with paragraph spacing tuned deliberately loose, 02 and 04 each still
+    lost one pair mid-page while sixty identical-looking pairs beside them
+    survived. Twice, in the untuned run, it welded an instruction onto the end
+    of a `#` note, which deletes that instruction from the program outright.
+  - **It splits a long line** where the page wrapped it, mid-quoted-string
+    (sample 04's `Show "Heads up: " …`).
+  - **It adds page furniture** — the running header, the footer, and a stray
+    `/` where the header's rule is drawn. These are the harmless ones: they
+    are visible and Check flags them.
+  - *Cosmetic and irrelevant, recorded so it is not re-investigated:* every
+    line comes back with a trailing space and every blank line as a line
+    holding one space. The tokenizer skips both, and a raw line-for-line
+    comparison therefore reports ~155 differences on a sample whose real count
+    is 7 — the measurement has to canonicalize or it says nothing.
+
+  ***The part worth remembering, because it says where the ceiling actually
+  is:*** the exported PDFs are **tagged**. Sample 02's PDF carries
+  `/MarkInfo /Marked true`, a `/StructTreeRoot`, **78 `/S/P` paragraph
+  elements for the .docx's 78 paragraphs**, and 70 `/Artifact` marks on the
+  header and footer. Word wrote a correct structure tree and Word's own
+  converter ignored it, re-deriving paragraphs from pixel gaps. So this is not
+  "PDF cannot be read"; it is "this reader throws away the answer that was in
+  the file". Any future attempt should start there — and the same thought
+  suggests the fix for the blank lines: the indentation that destroys them
+  *survives* the conversion, so a paragraph indented 720 twips followed by one
+  at 240 with no blank between them **is** a lost block-closer, recoverable
+  from the paragraph walk `SOP.3` already needs. That is a structural signal,
+  not sentence triage, so it does not collide with `SOP.2` — but it is a
+  design question for a future owner, deliberately not smuggled in here.
+
+  **What ships instead, and why not even one sample PDF** (owner, 2026-09-19):
+  `.pdf` is refused **by name** in `ImportFromPath`, with the way out in the
+  message — open it in Word, save as `.docx` or `.txt`, load that — and with
+  the warning above attached, because that conversion damage happens just the
+  same when a person runs it by hand. The earlier plan to ship PDF exports of
+  the samples as this item's fixture (the 2026-09-18 step, now **withdrawn**)
+  died with the measurement: only 08 round-tripped identically. Shipping the
+  one that works was considered and rejected on the owner's own reasoning —
+  a single working sample PDF reads as a promise that PDF intake is a reliable
+  on-ramp, when it is likelier to fail than succeed. `examples/README.md`
+  carries the plain-words version for users.
+
+  *The instrument, deleted on purpose, described so it can be rebuilt:*
+  `tools/export_example_pdfs.ps1` exported each sample through
+  `ExportAsFixedFormat` on its own hidden Word, read both files back with the
+  importer's exact `Documents.Open` arguments, normalized them the way
+  `NormalizeProgramText` does, and compared them with an LCS diff, reporting
+  added and dropped lines separately, blank drops counted apart, each against
+  the `.docx` page it sat on. It was deleted rather than kept, on the owner's
+  call: a PDF export tool in a repository that refuses PDFs invites exactly
+  the misunderstanding the decision above avoids. *Two traps it hit, if it is
+  ever rebuilt:* PowerShell cannot pass a COM method's later optional
+  arguments — a `[Type]::Missing` placeholder makes its adapter treat the call
+  as a parameterised property assignment ("Exception setting Open") — and a
+  function returning `,$list` piped straight into `Where-Object` compares the
+  LIST, where `-ne` filters by member enumeration and the control passes
+  vacuously, 0 or 1 whatever the documents hold.
+
+  **SD-15, answered** (the open question this item carried; owner's call,
+  2026-09-19): **automating Word is authoring-side tooling, outside SD-15** —
+  with the boundary recorded so it is a rule rather than a rubber stamp.
+  SD-15 governs what a *form, macro, or phrasebook rule* may reach through
+  open-ended late-bound dispatch. `ReadWordFile` is none of those: the ProgID
+  and every member name are literals in reviewed add-in code, nothing is
+  computed or caller-supplied, and it runs only when a person presses Load or
+  Reload on a file they picked in a dialog. No program can reach it — the
+  interpreter's one `Application.Run` is pinned to `VLA_Runtime`'s own members
+  (`TryRuntimeHelper`), and `ReadWordFile` is `Private` to `VLA_IDE`; only
+  `raw` could, and `raw` reaches anything behind SEC.2's consent gate already.
+  SD-15's actual demand — that the reach be enumerated in advance — is already
+  met at tooling level by `check_no_network.ps1`'s `$reach` list (Word appears
+  once, as `VLA_IDE::ReadWordFile::Word`, and a second site fails the check)
+  and by `docs/IT_REVIEW.md` naming it to a stranger. ***The condition that
+  flips this:*** the day a sentence or phrasebook rule can name a document for
+  Word to open — "read the procedure in `C:\…`", a scheduled re-import —
+  authored content is reaching another application, and that is SD-15
+  territory needing `SEC.7`'s declared capability.
+
+  ***🛡 ADVERSARY, adjacent and NOT closed here — worth its own item:***
+  `AutomationSecurity` stops macros, not fetches. A `.docx` can name a remote
+  template or linked content that Word requests when it opens the file, and a
+  UNC target there can leak the Windows sign-in hash; opened by hand from an
+  internet-marked file Protected View would block that, and an automated
+  `Documents.Open` does not use Protected View. Reasoned from Word's
+  documented behaviour, not observed. PDF carried no part of this, so the
+  deferral above neither helps nor hurts it.
 
 - ⬜ **SOP.2 — one line in, one row out, no classification at all.**
   Owner-simplified, replacing this item's own earlier line-kind-triage design
@@ -21407,7 +21533,11 @@ now carries one summary paragraph per engine and points here.*
   four bases as `Define` constants plus a swatch program, an easter egg
   and not a feature. The generator now skips any file that is open in
   Word or Excel instead of failing the whole build. *Settled 2026-09-18 (owner):* the PDFs moved to
-  SOP.1 as a step of their own, because PDF is not an intake format yet;
+  SOP.1 as a step of their own, because PDF is not an intake format yet
+  — *and that step was withdrawn on 2026-09-19, after SOP.1 measured what
+  Word's PDF conversion does to these very samples and the owner deferred PDF
+  intake altogether; `examples/` stays `.txt` and `.docx`, and the sample
+  files are byte-identical to what LE.6 shipped*;
   `examples/**` is 0BSD in `REUSE.toml` (copy-and-adapt terms, the
   runtime's precedent), confirmed.
 - ⬜ **LE.7 — the AI drafting bridge.** *Carried from Alpha 1's F2, and

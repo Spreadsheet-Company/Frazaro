@@ -307,6 +307,7 @@ Public Function VlaSelfTest() As Boolean
     TestLoader
     TestHelpers
     TestIdeNaming
+    TestIdeImportRouting
     TestBuildRibbon
     TestUninstallGuard
     TestUndoScan
@@ -1934,6 +1935,45 @@ Private Sub TestIdeNaming()
     CheckV "ide: tag caps at 10", VlaIdeProgramTag("Frazaro (ABCDEFGHIJKLMNOP)"), "ABCDEFGHIJ"
     CheckV "ide: default module stays Frazaro_EN_Sheet", VlaIdeModuleFor("Frazaro"), "Frazaro_EN_Sheet"
     CheckV "ide: named module is Frazaro_EN_tag", VlaIdeModuleFor("Frazaro (Invoices)"), "Frazaro_EN_Invoices"
+End Sub
+
+' ---------------------------------------------------------------------
+'  SOP.1: the two decisions in the import path that can be settled
+'  without Word. Everything else about reading a .docx or a .pdf needs
+'  a live Word and is owner-run (archive/sec13_word_fixture.md), so these
+'  two are pinned here precisely because the rest cannot be:
+'  - which extensions go to Word at all. ".pdf" is pinned OUT: SOP.1
+'    measured Word's PDF conversion and the owner deferred PDF intake
+'    on the result, so a PDF is refused by name in ImportFromPath.
+'    Were it routed to Word it would import re-nested and green; were
+'    it routed to VlaReadFile it would pour its raw bytes into the
+'    sheet. Neither is a refusal, and this is the line that keeps the
+'    decision from being undone by a one-word edit.
+'  - what counts as "Word gave us nothing readable", which is how a
+'    scanned page is caught before PourProgram clears the sheet. The
+'    cases below are the characters Word actually emits for one: Chr(1)
+'    where a picture sits, Chr(7) at a table cell, Chr(12) at a page
+'    break, Chr(13) at every paragraph.
+' ---------------------------------------------------------------------
+Private Sub TestIdeImportRouting()
+    CheckV "sop1: .docx goes to Word", VlaIdeReadsThroughWord("docx"), True
+    CheckV "sop1: .doc goes to Word", VlaIdeReadsThroughWord("doc"), True
+    CheckV "sop1: .docm goes to Word", VlaIdeReadsThroughWord("docm"), True
+    CheckV "sop1: .pdf does NOT go to Word - it is refused by name", VlaIdeReadsThroughWord("pdf"), False
+    CheckV "sop1: .PDF in capitals does not either", VlaIdeReadsThroughWord("PDF"), False
+    CheckV "sop1: .DOCX in capitals still goes to Word", VlaIdeReadsThroughWord("DOCX"), True
+    CheckV "sop1: .txt does not", VlaIdeReadsThroughWord("txt"), False
+    CheckV "sop1: .en does not", VlaIdeReadsThroughWord("en"), False
+    CheckV "sop1: a page of pictures has no readable text", _
+           VlaIdeHasReadableText(Chr$(1) & vbCr & Chr$(12) & Chr$(1) & vbCr), False
+    CheckV "sop1: a table of pictures has none either", _
+           VlaIdeHasReadableText(Chr$(1) & Chr$(7) & Chr$(7) & vbCr), False
+    CheckV "sop1: whitespace alone is not text", _
+           VlaIdeHasReadableText(" " & vbTab & vbCrLf & ChrW$(160)), False
+    CheckV "sop1: an empty document is not text", VlaIdeHasReadableText(""), False
+    CheckV "sop1: one letter is text", VlaIdeHasReadableText(Chr$(1) & vbCr & "a" & vbCr), True
+    CheckV "sop1: a document of only notes is still text", _
+           VlaIdeHasReadableText("# a note" & vbCr), True
 End Sub
 
 ' ---------------------------------------------------------------------
