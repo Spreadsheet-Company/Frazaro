@@ -20308,7 +20308,17 @@ now carries one summary paragraph per engine and points here.*
     `=DATALOG(...)` and `=OPTIMIZE(...)`, required to agree cell for cell)
     and step 13 the one I am least sure of (a worksheet formula calling
     `=OPTIMIZE(...)` and its spill read back by a second one). `~days`
-  - ⬜ **OPTIMIZE.2 — constraints against the one world.** Still zero
+  - ✅ **OPTIMIZE.2 — constraints against the one world.** *Built, tested
+    live (all fourteen steps) and committed 2026-09-19. `TestDSLs`
+    1860/0; `VlaSelfTest` 1214/1214 (moved by a peer's `SOP.1`, not by
+    this item), `VlaSelfTestHost` 152/152 and `VerifyReports` 242/242 on
+    both backends. The owner's four forks were brought and settled before
+    any code was written, and the owner reversed my own recommendation on
+    the third — rightly, and the reasoning is recorded below. All 26
+    `tools/check_*.ps1` green (25 plus this item's own) and
+    `tools/optimize01_corpus.ps1` 42 checks / 0 mismatches, before and
+    after. The engineering findings are written up for a general reader
+    in `docs/OPTIMIZATION.md`, Entry 3.* Still zero
     search: with no choice yet, `OPTIMIZE.1`'s fixpoint produces exactly
     one world, so `(forbid ...)` is a CHECK — does its body hold in that
     world — never a reason to try another, since there is none. Grounded,
@@ -20351,6 +20361,350 @@ now carries one summary paragraph per engine and points here.*
       learning, could not prove exactly that fixture impossible in three
       minutes, under two encodings. A pigeonhole argument is exponential for
       clause learning. `OPTIMIZE.3`, which does not learn, would fare worse.
+    **THE OWNER'S FOUR FORKS, settled 2026-09-19 before any code, and the
+    third of them against my own recommendation.**
+      1. *The architectural one.* `EvalRuleBody`, `RunOneRulePass` and
+         `RunFixpointForRules` are Private, and the entry's own "the same
+         join `DATALOG` runs for a rule body" had to be paid for somehow.
+         Moving the join to `VLA_Relation.bas` is not expensive but
+         **blocked**: that file is LAYER 0 and may not call `VLA_Messages`,
+         which the join does a dozen times — `TableArgResolve` returns
+         reason codes for exactly this reason — so the move is a
+         reason-code conversion under all four engines. Duplicating it in
+         `VLA_Optimize.bas` means re-implementing `DesugarBodyAtomForm`,
+         the five body-item kinds and `CheckRuleSafety`, which drift on the
+         next `DATALOG` item. **Settled: a fourth option the entry did not
+         list — don't borrow the join, BE a rule body.** A constraint is
+         rewritten into an ordinary `(rule ...)` whose head collects the
+         rows that break it, and a violation is a non-empty derived
+         relation. Aggregates, keyed atoms, text tests, negation,
+         stratification and safety all arrive free and cannot drift. The
+         seam that needs is at the PROGRAM level and not the join:
+         `VLA_Datalog.DatalogRunForms`, which promises only "a program is
+         a list of forms, and here is the entry that takes them". Costs
+         the other three engines nothing — only `DATALOG` and `OPTIMIZE`
+         call `DatalogRun` — and pays forward, since `OPTIMIZE.3`/`.5`
+         ground over *possible* atoms by the same route and `G-OPTIMIZE`
+         generates forms rather than text. The rejected variant is worth
+         recording: the same rewrite with **no** `VLA_Datalog` change at
+         all, by re-serialising through `VLA.VlaWriteForm` — refused
+         because it puts a writer between what a user wrote and what the
+         engine answers, where a bug is a wrong ANSWER rather than a
+         refusal.
+      2. *What a violated check puts in the cell.* The tension is real and
+         was not smoothed over: decision 1 says the cell spills the
+         decision; `OPTIMIZE.1` reserved "no schedule" as the header row
+         with nothing under it, measured; and Contemplation 8 plus
+         `optimize-sod-check` both say the valuable answer to a zero-choice
+         check IS the violating rows, named. **One cell cannot be both
+         without changing SHAPE between runs** — schedule columns when
+         satisfiable, violation columns when not — which breaks every
+         formula reading the spill on precisely the run that matters and
+         makes "no schedule" indistinguishable by shape from an answer; it
+         also rewrites a shape this item may not touch. **Settled: a third
+         function, `OPTIMIZE_VIOLATIONS(rules, tables...)`**, three columns
+         fixed for every program (`Check`, `Rule`, `Where`), computing its
+         own answer as `OPTIMIZE_STATUS` does and sharing the same memo.
+         The `OPTIMIZE` cell keeps the reserved shape; the status sentence
+         keeps the reserved WORDS as its prefix and appends which checks
+         broke and how many rows each; the evidence becomes a table an
+         auditor can `FILTER` and `COUNTIFS` and a `DATALOG` question can
+         read.
+      3. *The counting pre-checks.* **The scoping run's blocking finding:
+         all four NONE-COUNT keys take their DEMAND from a choice form,
+         and a choice is refused before anything runs.** I recommended
+         letting a choice-bearing program answer when impossibility is
+         provable without search (sound in one direction: more constraints
+         only remove worlds, and `DATALOG` is monotone, so a `forbid`
+         violated by certain rows stays violated). **The owner deferred to
+         the safer, more extensible option and was right, and I changed my
+         own recommendation before the call was made.** Two reasons
+         decided it. First, the demand side genuinely wants the grounder:
+         `optimize-roster`'s count comes from a Table column per group and
+         `optimize-sod-short`'s cap counts a derived relation fed by two
+         choices, so inferring demand here means a shadow grounder written
+         to be replaced at `OPTIMIZE.3` — the same duplication fork 1 had
+         just rejected, relocated. Second, where a mistake lands: a slip in
+         that arithmetic would answer "no schedule satisfies every rule"
+         for a roster that has one, which is the worst thing this engine
+         can do and the mirror of the name's own honesty rule. **Settled:
+         build the three comparisons, pin them against every key's
+         numbers, and let nothing reach them** — `OPTIMIZE.1`'s own
+         pattern for the five result states. It bought something concrete
+         besides safety: not one `*-not-yet` message was reworded, so no
+         pin over them had to be reread, which is exactly the trap that
+         cost `OPTIMIZE.1`'s pass two steps.
+      4. *The two provisional calls confirmed:* the three effort levels
+         stay at ZERO and `normal` stays the written-down default.
+         Nothing in this item consumes work — the checks are one fixpoint
+         and the pre-checks are arithmetic — so no default becomes
+         observable, and a number published before it means anything is a
+         number users tune around.
+    **THE THREE COMPARISONS, and their order is the corpus's own.**
+    Per-group pool (a group demands N and fewer rows can fill it),
+    per-member cap (total demand against members × cap), per-group
+    capacity (things to place against groups × cap). `OptimizeFirstShortfall`
+    reports them in that order, because `optimize-roster-senior` has BOTH a
+    local reason and a counting one and clingo found the local one in
+    0.003 s while never finding the counting one at all — and because "the
+    only senior is on leave that day" names a row a manager can change
+    where "seven nights need a senior" names a policy. **The sentences are
+    built from the program's own names, never from English verbs:**
+    section 17's `why` lines say "may work", "may hold", "seat", which no
+    s-expression supplies, so what a pin requires — and does — is that the
+    sentence carries the corpus's own NUMBERS in the corpus's own order,
+    which is exactly what `tools/optimize01_corpus.ps1` asserts of the
+    corpus itself.
+    **WHAT SECTION 17 THIS ITEM ACTUALLY REACHES, stated plainly: one key
+    of the seven, and it is the right one.** `optimize-sod-check` is the
+    only "no world" entry with no choice in it, and it is the zero-choice
+    case, the compliance wedge and Contemplation 8's own example. It is
+    pinned in full, all three clauses of its `why` line including the cap
+    that does NOT fire — which needed `count` inside a `forbid`, and that
+    turned out to need nothing from `OPTIMIZE.4`, whose job is propagating
+    counters over CHOSEN atoms during search. The other six all carry a
+    choice. `optimize-quote-conflict` was examined closely and is not
+    reachable either: a bodyless ground `require` over an undefined
+    predicate refuses, and making it a FACT instead would assert the atom
+    into the user's own data — right when a choice is forcing it, wrong
+    when the world is the data, and the opposite of what a compliance
+    check exists to do.
+    **WHAT WAS BUILT:**
+      - `VLA_Datalog.bas`, three changes and no more: `DatalogRun` split
+        into a two-line reader and `DatalogRunForms`; `ParseProgram` takes
+        forms; and `DefinedNamesSentence` never offers a name under
+        `vla-check-`.
+      - `VLA_Optimize.bas`: the rewriting, the violations table,
+        `OPTIMIZE_VIOLATIONS`, the status sentence, and the three
+        unreached comparisons.
+      - `VLA_Messages.bas`: `optimize-constraint-not-yet` retired (its
+        words, "this version checks none", became false), and three added
+        — the reserved prefix and the two ways a `require` consequent can
+        be written that must not silently become a question about
+        negation.
+      - `tools/check_optimize_body_wrappers.ps1`, **the 26th check**: the
+        fourteen body wrappers `VLA_Optimize.CollectBoundVars` and
+        `CheckConsequent` name must be exactly the fourteen
+        `VLA_Datalog.bas`'s own rule-body `Select Case` names. Two
+        independent lists that must agree, with nothing mechanical holding
+        them together, is the actual defect. Mutation-controlled three
+        ways. *Its own first run over a known-good tree was not clean,
+        which is a new check reporting its own defect:* it did not join
+        VBA line continuations, and the `Case` arm listing fourteen words
+        is exactly the kind that gets split.
+    **TWO DEFECTS THE SCOPING FOUND BEFORE THE OWNER COULD, both about
+    reserved names.**
+      - **`vla-` is already occupied.** The first draft reserved the whole
+        umbrella prefix. The sentence layer emits `vla-ask-can-cover` and
+        `vla-not-leave-name-shift` into ordinary `DATALOG` programs and
+        **two of them are in the parity table**, so that draft would have
+        refused a program `DATALOG` answers — and would have made this
+        engine refuse its own generator's output the day a Frazaro
+        sentence compiles to an `OPTIMIZE` call. Narrowed to `vla-check-`,
+        which is the project's own one-sub-prefix-per-generator rule. The
+        parity pin would have caught it; a grep caught it first.
+      - **A query's name is the one predicate position that is a bare
+        token**, so the walk over the forms never reaches it, and
+        `(query vla-check-1)` would have spilled this engine's internal
+        check relation straight into a cell. Guarded separately, and
+        pinned.
+    **Proof:** `TestOptimizeChecks`, **66 pure pins** — `optimize-sod-check`
+    in full; both polarities satisfied and broken; a ground requirement
+    checked rather than asserted; the existential through a derived rule,
+    which is `OPTIMIZE.1`'s "no `exists` form" claim working rather than
+    parsing; the reserved shape held for a broken check and a Boolean
+    query answering FALSE; the violations table's own shape both ways;
+    negation, `count` and a comparison inside a constraint body; the
+    generated name never offered back in a refusal; determinism with the
+    memo cleared between the two asks; and six of section 17's constraint
+    lines now CHECKED rather than merely parsed. `TestOptimizeCounting`,
+    **19 pure pins** over all five counting keys' numbers, their order,
+    and the direction that must never reverse. `TestOptimizeForms` stays
+    at **78**: the nine pins that asserted the retired message were
+    replaced one for one by `AssertOptParses`, which asserts a constraint
+    parsed by what is left to refuse it — a NAME, in `DATALOG`'s words,
+    and not a shape refusal of OPTIMIZE's. *And `check_test_assertion_safety`
+    caught an unsafe assertion in this item's own first draft, as it caught
+    `OPTIMIZE.1`'s:* an `And` chain indexing three columns of a spill, where
+    an `IsArray` guard says nothing about a wrong COLUMN COUNT and `v(1, 3)`
+    raises 9 on exactly the run the pin had something to say about.
+    **LIVE, first attempt, 2026-09-19: the suite CRASHED, and it found two
+    defects — one of them nine items old and not this item's.**
+      - **`ProjectAfterJoin` raised runtime error 9 on a rule whose body
+        binds NOTHING.** Every argument a constant means the projection is
+        the EMPTY tuple, and that path reached it through
+        `ReDim nt(1 To 0)` — the inverted-bounds `ReDim` that
+        `VLA_Relation.RelUnit`'s own header documents as unreliable and
+        live-caught once already, in the very file whose `Array()` is the
+        fix. **It has been there since `DATALOG.0`**, and nothing had
+        written such a rule, because until a CONSTRAINT had to say
+        `optimize-quote-bike`'s "carbon wheels need the carbon frame" —
+        two named items and no variables at all — there was no reason to.
+        Fixed in `VLA_Datalog.bas` with `Array()`, and **both** the
+        holding and the not-holding shape are now in the parity table,
+        which is why it went from 178 programs to 180. Recorded as the
+        shape of finding it deserves: scoping predicted this path would
+        work by reading the code, and read it wrong. A pure pin had to
+        run it.
+      - **This item's own: the generated check relations escaped into the
+        caller's dictionary and went stale.** `DatalogRunForms` writes
+        every relation it derives into the dict it is given, `vla-check-N`
+        among them, so a caller reusing one dict across two calls — which
+        every pure test does and no worksheet function does — handed the
+        SECOND program the FIRST program's violations. A clean program
+        then answered "no schedule satisfies every rule" on the strength
+        of a rule it does not contain, which is the worst answer this
+        engine can give and the exact failure mode fork 3 was decided to
+        avoid. **The run now gets its own dictionary**, a shallow copy
+        with any reserved name dropped, and the memo key is taken over
+        that copy so a cell's key cannot depend on what ran before it.
+        Three pins cover it, including that the caller's dict never holds
+        a generated name at all.
+      *Both were caught by this item's own new pins rather than by review,
+      and the keyed-atom pin that caught the first was added late, after
+      scoping noticed the walk over a keyed atom's `(header value)` pairs
+      had no coverage.*
+    *Predicted before the live re-run:* `TestDSLs` 1768 + 71 + 19 + 2 =
+    **1860**; `VlaSelfTest` **1214** rather than `OPTIMIZE.1`'s 1201,
+    which is a peer's `SOP.1` landing in the shared tree and not this
+    item.
+    **LIVE, steps 1-7 on the re-run, 2026-09-19, the owner at the
+    keyboard: every one as predicted, and `TestDSLs` at the predicted
+    total exactly.** Compiled clean, four version constants at
+    `OPTIMIZE.2`; `TestDSLs` **1860 passed, 0 failed** — the number
+    counted from the source, which also means the suite ran to the end
+    this time; `VlaSelfTest` 1201 -> **1214/1214** (the peer's `SOP.1`,
+    as predicted) and `VlaSelfTestHost` **152/152**. Step 3 held, which
+    is the whole regression guard for the `DatalogRunForms` seam: the
+    same program through `=DATALOG(...)` and `=OPTIMIZE(...)` spilled
+    two identical 4x2 ranges.
+    **STEP 4 IS THE ITEM, AND IT LANDED.** `optimize-sod-check`, section
+    17's zero-choice case and Contemplation 8's compliance wedge,
+    answered in a cell: the `OPTIMIZE` cell spilled its header row
+    (`Col1 Col2 Col3`) with nothing under it - the reserved shape, first
+    reachable here - and `OPTIMIZE_STATUS` said, verbatim:
+    *"no schedule satisfies every rule: check 1, (forbid (prepares T P)
+    (reviews T P)), is broken by 1 row; check 2, (require (senior R)
+    (reviews T R)), is broken by 1 row. OPTIMIZE_VIOLATIONS lists
+    them."* That is the corpus's own `why` line - T2 breaks two rules -
+    reached from the rules and the data rather than from a hand key, and
+    the reserved words stand unreworded at the front of it.
+    **THE TWO THINGS THIS ENTRY SAID IT COULD NOT PREDICT, now recorded
+    rather than judged.** `VLA.VlaWriteForm`'s rendering of a constraint
+    is canonical and unsurprising - single spaces, no reflow - and the
+    `Rule` column reads exactly `(forbid (prepares T P) (reviews T P))`
+    and `(require (senior R) (reviews T R))`. Written down here so the
+    next item inherits the fact instead of the doubt.
+    Steps 5 and 6 as predicted (the rows return the moment nothing rules
+    them out; the two-role cap does not fire, and fires on six rows at a
+    cap of one - the corpus's third clause, both ways). Step 7 as
+    predicted, including the keyed constraint written with COLUMN NAMES
+    rather than positions - `(forbid (assigned (Preparer P) (Reviewer
+    P)))` - which is the shape `G-OPTIMIZE` will generate, and which
+    named `P = Cy` alone, with neither column name mistaken for a
+    variable. `OPTIMIZE_VIOLATIONS` with nothing broken spilled its own
+    header row and nothing under it.
+    **STEP 8'S FIRST FORMULA WAS A DEFECT IN THE INSTRUCTION, not in
+    anything it was testing** - the second pass running where that has
+    been true, after `OPTIMIZE.1`'s "set the table name" without saying
+    which box. The step offered `=COUNTIFS(Broken[[#All]],"<>")` over the
+    named spill. `Broken[[#All]]` is STRUCTURED-REFERENCE syntax, which
+    works only on a real Excel Table, and `Broken` is a defined name
+    referring to a spill - so Excel refuses the formula at ENTRY, with
+    its "There's a problem with this formula" dialog, rather than
+    returning the `#NAME?` the step had also predicted wrongly. The spill
+    itself was visibly correct on the same screen, both violations named
+    on T2. Replaced with `=ROWS(Broken)` and `=COUNTA(Broken)`, which are
+    what a named spill actually takes. The lesson is narrow and is
+    written into the steps file beside it: do not put a formula in front
+    of the owner that has not been reasoned through end to end, and do
+    not offer a fallback as cover for not having done so.
+    **STEP 8 ITSELF, once its formula was right, HELD - and it was the
+    one flagged as least certain after step 7.** The
+    `OPTIMIZE_VIOLATIONS` spill was named through Name Manager
+    (`=Sheet1!$A$8#`), `ROWS` read 3 and `COUNTA` 9, and a
+    `=DATALOG(...)` question read the evidence table BY ITS COLUMN NAME
+    - `(rule (offender W) (broken (where W)))` - spilling header `W`
+    then `T = T2, P = Cy` and `T = T2, R = Cy`. So standing decision 1's
+    "one search, many views" now reaches this item's own output as well
+    as the answer: the violations are a table, not a sentence, and a
+    question can be asked of them.
+    **LIVE, step 9, 2026-09-19: as predicted.** A constraint with a
+    NEGATED atom in its body, over two real Excel Tables rather than
+    facts - `(forbid (rota P S) (not (trained P)))` - named
+    `P = cy, S = tue`, and the status cell carried the constraint as
+    written. A `not` inside a `forbid` needed no machinery of its own,
+    which is the rewriting paying for itself: the body is a rule body,
+    so everything `DATALOG` already does inside one works inside a
+    check.
+    **LIVE, step 10, 2026-09-19: as predicted, and this was the one
+    where a red result would have meant a DESIGN error rather than a
+    bug.** `(require (approved t2))` against a Table holding only `t1`
+    reported that it is not approved - "no schedule satisfies every
+    rule: check 1, (require (approved t2)), is broken by 1 row" - and
+    the `OPTIMIZE` cell spilled its header row with nothing under it,
+    with `t2` appearing NOWHERE on the sheet but inside the rule the
+    user wrote and the sentence reporting it missing. The Table was
+    unchanged. `(require (approved t1))` answered proven best. So the
+    semantics this item chose hold: with no choice the world is the
+    data, and a ground requirement is a CHECK over it, never an atom
+    forced into it. Forcing is what the same form will do at
+    `OPTIMIZE.3`, where the world is being built and the atom is one of
+    the things being decided; here it would have silently added a row to
+    the user's own approvals and reported nothing wrong, which is the
+    exact opposite of what a compliance check exists for.
+    **LIVE, steps 11-14, 2026-09-19: all four hold, and step 12 turned up
+    a THIRD instruction defect of mine rather than an engine one.** Step
+    11's five refusals appeared in real cells with their own words - the
+    reserved `vla-check-` prefix, the existential `require` (naming
+    `assign` and `P`, and never mentioning the `not` the user did not
+    write), a `>` where a row belongs, `choose-exactly` refusing in
+    exactly `OPTIMIZE.1`'s unchanged wording, and a mistyped `q` refused
+    in DATALOG's words.
+    **Step 12 read 4 where the step said 1, and the memo was right.**
+    The step said "press Ctrl+Alt+F9", which recalculates the whole
+    WORKBOOK - and by that point the workbook held nine sheets of
+    `OPTIMIZE` cells from the earlier steps. With the memo just cleared,
+    every distinct program in it was a miss. `OptimizeMemoCount`
+    discriminated in one line: **4 runs, 4 keys**, so every run was a
+    DIFFERENT question and no repeat ever missed, which is precisely the
+    property the step exists to show; and a pure two-ask check from the
+    Immediate window gave `1`, as `TestOptimizeMemo`'s own twelve pins
+    already had. The step now recalculates one cell at a time with
+    F2+Enter and reads the counter after each. *The lesson is the
+    third of this pass's own, and the most general: a measurement whose
+    SCOPE is wider than the thing being measured reports the
+    neighbours, and a counter is evidence only if you know exactly what
+    was allowed to move it.*
+    **Step 13, the counting pre-checks, printed the corpus's own numbers
+    in the corpus's own order** - `optimize-roster-loose`'s 63 against
+    10 at most 5 each, which is 50 (the fixture clingo could not prove
+    impossible in three minutes under two encodings);
+    `optimize-seat-overflow`'s 7 into 2 of 3, which is 6;
+    `optimize-roster-senior`'s local reason, day 3 needing 1 row where 0
+    can fill it - and said NOTHING at all for demand exactly equal to
+    capacity, which is the direction that must never reverse. Step 14:
+    `SQL` and `PROLOG` read the same Table unchanged, so the
+    `DatalogRunForms` seam is invisible to them.
+    **ALL FOURTEEN STEPS PASS, 2026-09-19, the owner at the keyboard.**
+    `TestDSLs` **1860/0**, `VlaSelfTest` 1214/1214, `VlaSelfTestHost`
+    152/152, four version constants at `OPTIMIZE.2`. The pass found two
+    real defects, both on its first attempt and both already written up
+    above (the `DATALOG.0` projector crash and this item's escaping
+    check relations), and three defects in the STEPS themselves - the
+    `COUNTIFS` over a named spill, the workbook-wide recalculation, and
+    `OPTIMIZE.1`'s inherited lesson about naming a Table - none of which
+    was a defect in what the engine answers.
+    *Predicted before the first live pass, for the record:* `TestDSLs`
+    1768 + 66 + 19 = **1853**, with `VlaSelfTest` at 1201/1201 — the first
+    number was right about every pin that RAN and the second was simply
+    out of date, since a peer's work had moved it. `VlaSelfTestHost`
+    152/152 and `VerifyReports` 242/242 on both backends, unmoved. The
+    owner's steps are
+    `archive/optimize2_live_steps.md`, fourteen of them, with step 4 the
+    headline (`optimize-sod-check` answered in a cell) and steps 7 and 8
+    the ones I am least sure of (the first formula ever to call
+    `OPTIMIZE_VIOLATIONS`, and its spill read back through Name Manager).
     `~days`
   - ⬜ **OPTIMIZE.3 — choice, grounding over the pool, and a search that
     propagates.** The first search, and NOT the retired `SOLVE.3`'s

@@ -85,6 +85,70 @@
   "the same engine" a measured claim rather than a description. Every
   other suite reports exactly the counts it did before.
 
+- **`OPTIMIZE` now checks your rules against your data, and tells you
+  which rows break which rule.** Write `(forbid ...)` or `(require ...)`
+  beside your facts and rules and the cell no longer says "not yet" — it
+  answers. Nothing is being searched for: with no choice to make there is
+  exactly one way things are, and these are checks over it. So "does this
+  month's close assignment break any rule, and which rows?" is a question
+  you can now type.
+
+  Three cells, given the same arguments, say three things about one
+  answer, and the search behind them runs once. `=OPTIMIZE(...)` gives the
+  rows — or, when a rule is broken, its **header row with nothing under
+  it**, because rows that break a rule are not an answer and handing them
+  back would look like one. `=OPTIMIZE_STATUS(...)` says "no schedule
+  satisfies every rule", then names which checks are broken and by how
+  many rows. And the new `=OPTIMIZE_VIOLATIONS(...)` spills the evidence
+  as a table you can filter, count and ask further questions about:
+  `Check`, `Rule` and `Where` — the rule exactly as you wrote it, and the
+  rows that broke it, named. Those three columns are the same for every
+  program, so a formula written over one of these tables keeps working
+  over the next. With nothing broken it spills its header row and nothing
+  under it, in the same shape, so nothing reading it breaks either.
+
+  **A requirement over your data is checked, never quietly granted.**
+  `(require (approved t2))` when `t2` is not in your approvals table
+  reports that it is not — it does not add a row so that it is. For a
+  compliance check that distinction is the whole point.
+
+  Everything you could already write inside a rule works inside a check:
+  "nobody reviews what they prepared", "every reviewer is senior",
+  "nobody on the rota is untrained" (a `not`), "nobody holds more than two
+  roles this month" (a `count`), "nothing over forty hours" (a
+  comparison). Both directions, too — `require` says what must hold
+  wherever something else does, `forbid` says what may never all hold at
+  once, and neither makes you write the other one inside out.
+
+  A rule of the form "every night has *some* senior on it" is still
+  written as a rule that finds them followed by a `require` over it, and
+  if you write it as a bare requirement the message says so and shows you
+  the two lines. Nothing else about how a program is written changed, and
+  every `DATALOG` question answers exactly what it did.
+
+  Tested with ninety-two new automated checks, and then by hand in a live
+  workbook: fourteen numbered steps, each on its own fresh sheet. Among
+  them is the segregation-of-duties case this engine was scoped around,
+  answered end to end: three close tasks, four staff, and the one row
+  where the same person prepares and reviews and is not senior either —
+  both broken rules named, on that row, with the workload cap correctly
+  *not* firing. Also checked by hand: the evidence table named through
+  Name Manager and then read back by a `DATALOG` question by its own
+  column name; a check written with your Table's column names rather
+  than positions; and the three other engines answering exactly as
+  before.
+
+- **Fixed: a rule that mentions no names at all no longer breaks the
+  question.** A rule whose body is entirely fixed values — "carbon wheels
+  need the carbon frame", naming two catalogue items and nothing else —
+  used to stop the calculation with a Visual Basic error instead of
+  answering. It affected `DATALOG`, `SQL`, `PROLOG` and `OPTIMIZE`
+  equally, and it had been there since the first version of the
+  question engine; nothing had written such a rule until a *check* needed
+  to, because a rule that names nothing derives only one fixed fact and
+  looks pointless until you are ruling something out. Both shapes of it
+  are now permanent test cases.
+
 - **When a question names something that does not exist, the message now
   tells you what does.** If a rule or a question names a relation nothing
   defines — almost always a misspelling, or a table whose name is not what

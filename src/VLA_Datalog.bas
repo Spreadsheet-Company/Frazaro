@@ -1,6 +1,6 @@
 Attribute VB_Name = "VLA_Datalog"
 Option Explicit
-Public Const VLA_DATALOG_VERSION As String = "DATALOG.15"
+Public Const VLA_DATALOG_VERSION As String = "OPTIMIZE.2"
 ' DATALOG.15: a spilled range's first row counts as its headers, so a
 ' question can read an OPTIMIZE answer or any spill as a data table
 ' ("Schedule lists the person as Name"). The change is VLA_Relation's
@@ -1284,15 +1284,18 @@ End Function
 ' written out whole (ParseGroundQueryAtom), and Nothing for a query by name.
 ' DATALOG.10: queryNegated is True when that atom was written under (not ...)
 ' (ParseNegatedQueryAtom), and DatalogRun then answers its match inverted.
-Private Sub ParseProgram(ByVal rulesText As String, ByRef facts As Collection, ByRef rules As Collection, ByRef queryName As String, ByRef headless As Boolean, ByVal headerMap As Object, ByVal relations As Object, ByRef queryAtom As Collection, ByRef queryNegated As Boolean)
+' OPTIMIZE.2: takes the FORMS, not the text. The one line that read
+' them (VLA.VlaReadForms) moved up to DatalogRun, so that a caller which
+' built a program rather than parsing one - OPTIMIZE.2's constraint
+' rewriting - enters here with the identical objects the reader would
+' have produced, and no serialiser sits in between.
+Private Sub ParseProgram(ByVal forms As Collection, ByRef facts As Collection, ByRef rules As Collection, ByRef queryName As String, ByRef headless As Boolean, ByVal headerMap As Object, ByVal relations As Object, ByRef queryAtom As Collection, ByRef queryNegated As Boolean)
     Set facts = New Collection
     Set rules = New Collection
     queryName = ""
     headless = False
     Set queryAtom = Nothing
     queryNegated = False
-    Dim forms As Collection
-    Set forms = VLA.VlaReadForms(rulesText)
     ' TER-8: text with no form - empty, only whitespace or only comments, most
     ' often a formula reading a blank cell - is refused by name. Until TER-8
     ' the reader raised VBA's own "Subscript out of range" here.
@@ -2045,7 +2048,28 @@ Private Function ProjectAfterJoin(ByVal joined As Collection, ByVal accumArity A
     For Each t In joined
         arr = t
         Dim nt() As Variant
-        ReDim nt(1 To outArity)
+        If outArity = 0 Then
+            ' A body position that binds NOTHING: the accumulator has no
+            ' columns yet and the atom brought no new variable, which
+            ' happens when every argument is a constant - (p "a") as the
+            ' first body item. The projection is then the empty tuple,
+            ' and `ReDim nt(1 To 0)` is the inverted-bounds ReDim
+            ' VLA_Relation.RelUnit's own header documents as unreliable:
+            ' it raises 9, "Subscript out of range", on a real Windows
+            ' Excel session. Array() is the reliable empty array, and is
+            ' exactly what RelUnit itself uses to build the join
+            ' identity this path is projecting back down to.
+            '
+            ' OPTIMIZE.2 is what reached this, not what caused it: a
+            ' rule with an all-constant body has always crashed here
+            ' ((fact (p a)) (rule (h "x") (p a)) (query h)), and nothing
+            ' had written one until a constraint needed to say
+            ' "carbon wheels need the carbon frame", which names two
+            ' items and no variables at all.
+            nt = Array()
+        Else
+            ReDim nt(1 To outArity)
+        End If
         Dim i As Long
         For i = 1 To accumArity
             nt(i) = arr(i)
@@ -2646,24 +2670,51 @@ End Sub
 '
 ' The names are FOLDED, as every predicate name in these messages is, and
 ' that is the useful form: it is what a rule has to write.
+' OPTIMIZE.2: a name under the reserved `vla-check-` prefix is never
+' offered here. OPTIMIZE.2 rewrites each of its constraints into an
+' ordinary rule whose head is `vla-check-N`, and those rules reach this
+' engine through DatalogRunForms like any others - so without this
+' filter, a user who mistyped a predicate would be told to match their
+' name against an internal one they never wrote and cannot use. That
+' prefix is refused at OPTIMIZE's parse (optimize-reserved-predicate),
+' which is why hiding it here cannot hide a name a user could
+' legitimately have meant.
+'
+' NARROWLY `vla-check-`, not `vla-`. The sentence layer's own generated
+' predicates - `vla-ask-can-cover`, `vla-not-leave-name-shift` - reach
+' this engine under the same umbrella prefix and are a different
+' generator's business, not this one's to hide.
 Private Function DefinedNamesSentence(ByVal relations As Object) As String
     Dim names As Collection
     Set names = VLA_Runtime.VlaDictKeys(relations)
-    If names.Count = 0 Then
+    Dim offered As Collection
+    Set offered = New Collection
+    Dim k As Variant
+    For Each k In names
+        If Not IsReservedPredicateName(CStr(k)) Then offered.Add CStr(k)
+    Next k
+    If offered.Count = 0 Then
         DefinedNamesSentence = "This program defines no names at all."
         Exit Function
     End If
     Dim s As String
     Dim shown As Long
-    Dim k As Variant
-    For Each k In names
+    For Each k In offered
         If shown >= 12 Then Exit For
         If shown > 0 Then s = s & ", "
         s = s & CStr(k)
         shown = shown + 1
     Next k
-    If names.Count > shown Then s = s & ", and " & (names.Count - shown) & " more"
+    If offered.Count > shown Then s = s & ", and " & (offered.Count - shown) & " more"
     DefinedNamesSentence = "The names this program does define, table arguments first, are: " & s & "."
+End Function
+
+' The one place the reserved prefix is spelled in this module. Names
+' arrive here folded (ParseAtom folds every predicate name), so a plain
+' Left$ comparison against the lower-case prefix is exact and needs no
+' case handling of its own.
+Private Function IsReservedPredicateName(ByVal nm As String) As Boolean
+    IsReservedPredicateName = (Left$(nm, 10) = "vla-check-")
 End Function
 
 Private Sub RefuseUndefinedPredicates(ByVal queryName As String, ByVal rules As Collection, ByVal relations As Object)
@@ -2728,7 +2779,31 @@ End Sub
 ' all" (an empty VlaDict), never a crash - the same Is-Nothing-not-
 ' IsMissing discipline baseRelations above already established, for the
 ' identical reason (a typed Optional Object parameter).
+'
+' OPTIMIZE.2: this function is now the two-line half of a pair. It
+' READS, and DatalogRunForms below RUNS - the whole of the old body,
+' moved down unchanged. The split exists because OPTIMIZE.2 rewrites a
+' (forbid ...)/(require ...) into an ordinary (rule ...) FORM and needs
+' to hand the rewritten program over without serialising it back to
+' text first: a read-write-read round trip would put VLA.VlaWriteForm
+' into the path between what a user wrote and what this engine answers,
+' where a writer bug becomes a wrong answer rather than a refusal.
+'
+' WHAT THE SEAM PROMISES, and it is deliberately the narrowest thing
+' that works: "a program is a list of forms, and here is the entry that
+' takes them." NOTHING about how a rule body is ground is exposed -
+' EvalRuleBody, RunOneRulePass and RunFixpointForRules stay Private, as
+' they were. OPTIMIZE.2 reaches DATALOG's own join by BEING a rule
+' body, never by borrowing the join, which is why this file needed one
+' entry point and not a grounding API.
 Public Function DatalogRun(ByVal rulesText As String, Optional ByVal baseRelations As Object, Optional ByVal headerMap As Object) As Collection
+    Set DatalogRun = DatalogRunForms(VLA.VlaReadForms(rulesText), baseRelations, headerMap)
+End Function
+
+' The same engine, entered one step later: the forms are already read.
+' Every caller that has text calls DatalogRun above; a caller that BUILT
+' a program calls this. The two share every line that follows.
+Public Function DatalogRunForms(ByVal forms As Collection, Optional ByVal baseRelations As Object, Optional ByVal headerMap As Object) As Collection
     Dim relations As Object
     If baseRelations Is Nothing Then
         Set relations = VLA_Runtime.VlaDictNew()
@@ -2756,7 +2831,7 @@ Public Function DatalogRun(ByVal rulesText As String, Optional ByVal baseRelatio
     Dim headless As Boolean
     Dim queryAtom As Collection
     Dim queryNegated As Boolean
-    ParseProgram rulesText, facts, rules, queryName, headless, hMap, relations, queryAtom, queryNegated
+    ParseProgram forms, facts, rules, queryName, headless, hMap, relations, queryAtom, queryNegated
 
     Dim fa As Variant, factAtom As Collection
     For Each fa In facts
@@ -2868,7 +2943,7 @@ Public Function DatalogRun(ByVal rulesText As String, Optional ByVal baseRelatio
             outp.Add matched
         End If
     End If
-    Set DatalogRun = outp
+    Set DatalogRunForms = outp
 End Function
 
 ' A table argument's own name: an Excel Table's ListObject.Name, or a

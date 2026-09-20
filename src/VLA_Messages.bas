@@ -1,6 +1,13 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "OPTIMIZE.1"
+Public Const VLA_MESSAGES_VERSION As String = "OPTIMIZE.2"
+' OPTIMIZE.2: twenty optimize-* entries now - OPTIMIZE.1's eighteen,
+' less optimize-constraint-not-yet (retired, never re-minted: a
+' constraint IS checked now, so "this version checks none" became
+' false), plus three of OPTIMIZE.2's own - the reserved `vla-` prefix,
+' and the two ways a (require ...) consequent can be written that the
+' engine must not silently turn into a question about negation.
+'
 ' OPTIMIZE.1: eighteen new optimize-* entries, at the foot of
 ' AddEntries - the six forms of OPTIMIZE's three ingredients, refused
 ' by name in the version that settles their spellings and executes
@@ -1159,7 +1166,24 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "optimize-not-a-row", 5, "VLA-Optimize", "({form} ...) expects a row for {role}, and '{text}' is not one. A row is written like (assign Shift Person) - a name, then what it is about."
     AddMsg m, "optimize-effort-unknown-level", 5, "VLA-Optimize", "'{level}' is not an effort level - write quick, normal or thorough, or a whole number of units of work greater than none. Effort is counted in WORK and never in seconds, so the same workbook answers the same on a fast machine and a slow one."
     AddMsg m, "optimize-choice-not-yet", 5, "VLA-Optimize", "({form} ...) asks OPTIMIZE to make a choice, and this version makes none: it answers a program of facts, rules and one query, which is what DATALOG answers, because it is the same engine. Remove the choice for that answer. Searching arrives with the choice itself."
-    AddMsg m, "optimize-constraint-not-yet", 5, "VLA-Optimize", "({form} ...) is a rule about every possible answer, and this version checks none: a program with no choice has exactly one answer, so there is nothing yet for a constraint to rule out. Remove it for that one answer."
+    ' OPTIMIZE.2 retired optimize-constraint-not-yet. Its words said
+    ' "this version checks none", which this version makes false: a
+    ' constraint is now a check over the one world, so a program with
+    ' one either answers or says no schedule satisfies every rule. The
+    ' id is not re-minted for anything else (SD-9).
+    '
+    ' The three below are OPTIMIZE.2's own. Every one of them is about
+    ' a form the USER wrote - which is why they are worded here and not
+    ' inherited from DATALOG, whose own refusals would name `not` and
+    ' `vla-check-1`, neither of which appears in the program a user is
+    ' looking at.
+    AddMsg m, "optimize-reserved-predicate", 5, "VLA-Optimize", "'{name}' starts with '{prefix}', which Frazaro keeps for the names it writes itself - OPTIMIZE turns each of your rules into one, so a name of your own that started the same way could quietly collect your rows alongside its own. Rename it to anything that does not begin '{prefix}'. An Excel Table cannot be named with a hyphen, so no table argument is affected."
+    ' Two more of OPTIMIZE.2's own, both about a (require ...)
+    ' consequent. Worded here rather than inherited because DATALOG's
+    ' own refusals for the same programs would name `not` and
+    ' `vla-check-1`, and neither appears in what the user wrote.
+    AddMsg m, "optimize-require-unbound-consequent", 5, "VLA-Optimize", "(require ({predicate} ...) ...) says '{predicate}' must hold wherever the rest holds, and '{var}' appears only in '{predicate}' - nothing else in the rule says which row it is. So this is asking whether SOME row exists, which is a question a rule answers, not a requirement. Write the rule first and require its head: (rule (has-senior S) (assign S P) (senior P)), then (require (has-senior S) (night S))."
+    AddMsg m, "optimize-require-consequent-not-a-row", 5, "VLA-Optimize", "(require ...) needs a row first - what must be true - and '{word}' is a test rather than a row. A test belongs in the part that follows, which says when the requirement applies, or in a (forbid ...), which says what may never all hold at once. For example (require (senior P) (reviews T P)), or (forbid (holds P T) (count N (holds P T2)) (> N 2))."
     AddMsg m, "optimize-preference-not-yet", 5, "VLA-Optimize", "({form} ...) says what a good answer looks like, and this version compares none: with no choice there is exactly one answer, so nothing is being preferred over anything. Remove it for that answer."
     AddMsg m, "optimize-objective-not-yet", 5, "VLA-Optimize", "({form} ...) names what to make as small or as large as possible, and this version searches nothing: a program with no choice has exactly one answer, and it is already the best one there is. Remove it for that answer."
     AddMsg m, "optimize-kept-not-yet", 5, "VLA-Optimize", "({form} ...) names a schedule to stay close to, and this version has nothing to move: with no choice there is exactly one answer. Remove it for that answer."
