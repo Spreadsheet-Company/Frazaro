@@ -19241,10 +19241,16 @@ now carries one summary paragraph per engine and points here.*
         in `OPTIMIZE.4`, never expanded.
       - *A Cartesian body.* A rule whose body atoms share no variables
         (`(shift S) (person P) (day D)` with nothing linking them) grounds
-        to the product of their domains. Refused by name at parse, the way
-        `DATALOG` refuses an unsafe head variable today
+        to the product of their domains. ~~Refused by name at parse, the
+        way `DATALOG` refuses an unsafe head variable today
         (`datalog-unsafe-head-variable`): a body's variables must be
-        linked through shared atoms.
+        linked through shared atoms.~~ **SUPERSEDED BY THIS ENTRY'S OWN
+        LATER MEASUREMENT, struck through rather than rewritten so the
+        correction is visible:** refusing by SHAPE is wrong, because a
+        Cartesian body is the roster's own pool and `DATALOG` grounds it
+        today (measured 2026-09-19, this entry's own A1 rung). The
+        refusal is **by projected SIZE**, against a ceiling `OPTIMIZE.3`
+        sets on its own grounder — see `OPTIMIZE.3`, which now owns it.
       - *No bound before grounding.* Every rule's instance count is bounded
         from its domains before it is grounded; over a ceiling, the engine
         refuses naming the rule and the number ("pairs every person with
@@ -20795,6 +20801,18 @@ now carries one summary paragraph per engine and points here.*
     aggregate forms for the spelling and its accumulation for the certain
     part, generalised to read a candidate's chosen set. The ladder re-run
     with the at-most-a-week rule added is this item's own number.
+    **NARROWED BY MEASUREMENT, 2026-09-19 (`OPTIMIZE.2`): the CHECKING
+    half already shipped, and this item owns only the propagating half.**
+    A `count` inside a `forbid` over a fixed world is a `count` inside a
+    rule body, which the engine has done since `DATALOG.2` — it works
+    today, and is pinned doing so on `optimize-sod-check`'s own two-role
+    cap, which correctly does not fire at two and fires on six rows at
+    one. So nothing here is needed to ASK whether a cap is breached. What
+    is left is the hard part and is exactly what the trap was about:
+    propagating a counter over atoms that are still being CHOSEN, during
+    a search, as a bound rather than an expansion. The split between
+    "check it" and "propagate it" was not visible on paper and became
+    obvious the moment a constraint was a rule body.
     `~days`–`~weeks`
   - ⬜ **OPTIMIZE.5 — rules over chosen atoms.** The real scheduling shape:
     `(assign S P)` is chosen, `(overtime P)` follows from it by an ordinary

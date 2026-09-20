@@ -243,6 +243,95 @@ generator anywhere, seeded or otherwise.
   "1E3" as a number. A numeric Id makes the canonical order *equal* to the
   Tables' row order, which is also the engine's tie-break.
 
+#### 3a. The reference fixture, in full, so it can be rebuilt from this page
+
+*Added 2026-09-19, during `OPTIMIZE.2`. The list above was written before
+the generator existed and left two things open — what `Need` is, and how
+`Kept` staffs a shift that takes more than two people. Both are settled
+below, from the generator as shipped. The generator itself is a diagnostic
+module that is not kept in version control, so this section is the
+authoritative statement of the fixture every later item is measured
+against; `tools/optimize0_expected.ps1`, which is in version control,
+re-derives every count from these same definitions.*
+
+Two parameters: **P** people and **W** weeks. Everything else follows.
+
+| | closed form |
+|---|---|
+| shifts | `S = 21·W` — 7 days × 3 slots a day |
+| day of shift s | `(s−1)\3 + 1` |
+| slot of shift s | `(s−1) mod 3` → 0 Early, 1 Late, 2 Night |
+| week of shift s | `(day−1)\7 + 1` |
+| senior | person i, when `i mod 4 = 0` |
+| contract | 4 shifts for odd i, 5 for even i |
+| on leave | person i on day d, when `(i + d) mod 7 = 0` — one day each a week |
+| skill | Night shifts require `senior`; Early and Late take `any` |
+| **Need, tight** | `max(1, P\5)` for every shift |
+| **Need, loose** | `2 + slot` — Early 2, Late 3, Night 4 |
+| Next(From, To) | `(s, s+1)` for s = 1..S−1 |
+
+**Kept**, last month's roster, is a round-robin: shift *s* takes the next
+`Need(s)` people in Id order after the shift before it, wrapping at P.
+Person *j* of shift *s* (j = 0-based) is `((start(s) + j) mod P) + 1`,
+where
+
+- tight: `start(s) = Need·(s−1)`;
+- loose: `start(s) = 9·((s−1)\3)`, plus 0, 2 or 5 for Early, Late, Night —
+  9 being a whole day's demand under the loose needs.
+
+Five tables are written, and their names carry the fixture's own size so
+that several can live in one workbook: `PeopleO0f…`, `ShiftsO0f…`,
+`LeaveO0f…`, `NextO0f…`, `KeptO0f…`, with columns `(Id, Name, Senior,
+Contract)`, `(Id, Week, Day, Slot, Need, Skill)`, `(Person, Day)`,
+`(From, To)` and `(Shift, Person, Week)`.
+
+**Tightness** is the one ratio that matters, and it is weekly:
+`weekly demand ÷ (P × 5)`, the most anyone may work in a week. A
+tightness at or above 1 is impossible by counting alone, before any
+search.
+
+**The fixtures every later item is judged against.** Every figure here is
+printed by `tools/optimize0_expected.ps1`, which derives them from the
+definitions above rather than from the generator:
+
+| fixture | need | weekly demand | capacity | tightness | seniors | a schedule exists |
+|---|---|---|---|---|---|---|
+| the reference roster, 50 × 4 | 10 a shift | 210 | 250 | **0.84** | 12 | not decided by hand |
+| 10 × 1 loose | 2 / 3 / 4 | **63** | **50** | **1.26** | 2 | **NO, provably** — weekly demand over 5 per person |
+| 5 × 1 tight | 1 a shift | 21 | 25 | 0.84 | 1 | **NO, provably** — too few seniors for 7 nights |
+| the toy | 2 of 5, 7 shifts | — | — | — | — | yes: **7,290** worlds |
+
+- The 10 × 1 loose fixture is impossible by one multiplication — 63 slots
+  a week against a capacity of 50 — and is the case the reference solver
+  could not prove in over three minutes under two encodings. It is
+  `optimize-roster-loose` in the corpus.
+- The 5 × 1 tight fixture is under its capacity and impossible anyway, for
+  a reason counting the total misses: only **one** of its five people is
+  senior (`4 mod 4 = 0`), and seven Nights a week each need one, so P4
+  would have to work 7 shifts against a cap of 5. It is impossible
+  *locally* as well — P4 is on leave on day 3 (`(4+3) mod 7 = 0`) and the
+  Night of day 3 is shift 9 — and the solver found that local reason in
+  0.003 s and the counting one never. It is `optimize-roster-senior`, and
+  it is why the pre-checks test each counted resource separately rather
+  than only the total.
+
+**What the kept roster itself breaks**, at the reference size, counted
+from its own rows — the first "these rows violate a rule" answer key this
+project had, and the shape `OPTIMIZE.2`'s violations table now produces:
+
+| | 50 × 4 |
+|---|---|
+| assignments on a leave day | **118** |
+| two shifts in a row | 0 |
+| person-weeks over five | 0 |
+| Nights with no senior | 0 |
+| person-weeks over contract | **20** |
+
+The 118 leave clashes each cost at least a drop and an add, which is
+where the hand floor of **236 changes** comes from. At 10 × 1 the same
+count is 7 and the floor is 14, and the solver's proven optimum of 24
+sits above it: a floor, not a prediction.
+
 ### 4. The measurement plan
 
 A standalone Excel harness grows each fixture up a size ladder and times
