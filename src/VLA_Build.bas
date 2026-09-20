@@ -399,7 +399,12 @@ Private Function VlaBuildOneEdition(ByVal edition As String, ByRef note As Strin
     ' ("Dim sl As New VlaSlice", "Dim srcSlice As VlaSlice"), which is
     ' word-for-word F5.0's rationale for shipping VlaFrame. It sits
     ' beside VlaFrame here for the same reason it does there.
-    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_IDE", "VLA_Lint", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Browser", "frmCLI")
+    ' OPTIMIZE.1: VLA_Optimize added, beside the three engines it shares
+    ' VLA_Relation with. It ships from day one (the tenth time this
+    ' comment block's own warning was read rather than discovered
+    ' afterwards), and tools/check_devrig_mods_parity.ps1 holds it in
+    ' step with VLA_DevRig.bas's array.
+    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_IDE", "VLA_Lint", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Optimize", "VLA_Browser", "frmCLI")
 
     ' Export the current, in-project versions - the build always ships
     ' exactly what the dev workbook contains. (VLA_English and its

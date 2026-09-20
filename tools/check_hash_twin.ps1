@@ -104,6 +104,69 @@ $whitespacePair = @{
     Sha   = 'F5885BDE1D136B3F76E2F8392A31D8EBF4F84AEA0445CF23F251B9F27A98A728'
 }
 
+# ---- OPTIMIZE.1 step 1: the memo key's own vectors --------------------
+#
+# A second baseline, verified a different way, and here for the same
+# reason as the first. There is no PowerShell twin of VLA_Digest's WTF-8
+# encoder or of its key framing: OPTIMIZE's memo key is built in one
+# language only. What still must not drift is the EXPECTED VALUE the VBA
+# pins hold. So each digest below is ALSO computed here, by .NET's own
+# SHA-256, from the byte sequence the design names - and step 2 then
+# requires src\VLA_Tests*.bas to assert that same string. The VBA pin is
+# thereby held to the digest of the INTENDED bytes, not to whatever VBA
+# produced on the day it was written, which is the property that makes
+# the FIPS vectors above worth having.
+#
+# Why these bytes. VLA_Loader.VlaUtf8Encode writes a LONE surrogate as
+# U+FFFD, which is right for a file (no reader accepts the raw sequence)
+# and a COLLISION for a key: "a" + U+D800 and "a" + U+FFFD would share
+# one key, and OPTIMIZE's memo would hand one workbook's answer to
+# another workbook's inputs. The two rows named for that pair are the
+# proof that the two do not collide - two different digests, each with
+# its own known answer, rather than an inequality that could be made
+# true by any bug.
+$keyVectors = @(
+    @{ Name = 'wtf8-e-acute';      Bytes = 'c3 a9';
+       What = 'U+00E9, the one-character case StrConv could not carry';
+       Sha  = '4A99557E4033C3539DE2EB65472017CAD5F9557F7A0625A09F1C3F6E2BA69C4C' },
+    @{ Name = 'wtf8-astral';       Bytes = 'f0 9f 98 80';
+       What = 'U+1F600 - one code point of four bytes, from a surrogate PAIR';
+       Sha  = 'F0443A342C5EF54783A111B51BA56C938E474C32324D90C3A60C9C8E3A37E2D9' },
+    @{ Name = 'wtf8-zoe';          Bytes = '5a 6f c3 ab';
+       What = 'Zo + U+00EB - mixed ASCII and not';
+       Sha  = 'C6A12698582FC1104EA24107A2D7268145FF06EF859707729D01FD060897F067' },
+    @{ Name = 'wtf8-lone-high';    Bytes = 'ed a0 80';
+       What = 'U+D800 alone, kept as its own three bytes (the WTF-8 convention)';
+       Sha  = '91A681B998555FB475479817B126C94E57E52011FA1842C5D188795A4A05226B' },
+    @{ Name = 'wtf8-lone-low';     Bytes = 'ed b0 80';
+       What = 'U+DC00 alone, likewise';
+       Sha  = 'B2D612A08BEC1F41120EBD961F62EF19678375B5788C70D3F8F4C02E345ED412' },
+    @{ Name = 'wtf8-replacement';  Bytes = 'ef bf bd';
+       What = 'U+FFFD itself - what the FILE encoder writes for the two above';
+       Sha  = '83D544CCC223C057D2BF80D3F2A32982C32C3C0DB8E2674820DA5064783FB097' },
+    @{ Name = 'wtf8-a-lone-high';  Bytes = '61 ed a0 80';
+       What = 'the collision pair, first half: "a" + U+D800';
+       Sha  = '25819B9B43D499092EB2BE7B6F27AE28439EEE434CEA4490191AB4CCB8F3409C' },
+    @{ Name = 'wtf8-a-replaced';   Bytes = '61 ef bf bd';
+       What = 'the collision pair, second half: "a" + U+FFFD';
+       Sha  = '51D277510BA4BF97B25F12D38513C1B620A2A33FC83B3BEEEB0DD971BF429E6D' },
+    # The framing itself, as one key whose every field can be read by
+    # hand. Tag, then a four-byte big-endian length, then the bytes:
+    #   01 00000001 61              text "a"
+    #   05 00000004 00000002        count 2
+    #   02 00000008 000000000000f03f number 1 (a Double's eight bytes)
+    #   01 00000001 31              text "1"
+    #   00 00000000                 a blank cell
+    #   01 00000000                 empty text
+    #   03 00000001 01              TRUE
+    # Fifty bytes. It carries 1 against "1", and blank against "", which
+    # are two of the collisions the tags exist to prevent.
+    @{ Name = 'key-framing-sample';
+       Bytes = '01 00 00 00 01 61 05 00 00 00 04 00 00 00 02 02 00 00 00 08 00 00 00 00 00 00 f0 3f 01 00 00 00 01 31 00 00 00 00 00 01 00 00 00 00 03 00 00 00 01 01';
+       What = 'the framed sample key of TestOptimizeKey, fifty bytes';
+       Sha  = 'E4BF92CB66C89E6B0566D0C1FB8885AE0FA5423262BBFD7E694CF106641EFA53' }
+)
+
 # ---- 1. the REAL Get-SourceHash, lifted out of the checker ------------
 $coveragePath = Join-Path $PSScriptRoot 'check_rule_coverage.ps1'
 if (-not (Test-Path -LiteralPath $coveragePath)) {
@@ -170,6 +233,38 @@ try {
     Remove-Item -LiteralPath $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
+Write-Output ''
+Write-Output '--- OPTIMIZE.1 step 1: each key vector is the digest of its own bytes ---'
+$keySha = [System.Security.Cryptography.SHA256]::Create()
+try {
+    foreach ($kv in $keyVectors) {
+        $raw = @($kv.Bytes -split '\s+' | Where-Object { $_.Length -gt 0 } | ForEach-Object { [byte]('0x' + $_) })
+        $arr = New-Object 'byte[]' $raw.Count
+        for ($bi = 0; $bi -lt $raw.Count; $bi++) { $arr[$bi] = $raw[$bi] }
+        $got = (($keySha.ComputeHash($arr) | ForEach-Object { $_.ToString('X2') }) -join '')
+        if ($got -ne $kv.Sha) {
+            $failures.Add("key vector '$($kv.Name)' ($($kv.What)): the bytes hash to $got, baseline says $($kv.Sha)")
+            Write-Output ("  FAIL  {0,-22} {1}" -f $kv.Name, $got)
+        } else {
+            Write-Output ("  ok    {0,-22} {1,3} byte(s)  {2}" -f $kv.Name, $arr.Length, $got)
+        }
+    }
+} finally {
+    $keySha.Dispose()
+}
+
+# The collision the whole precursor exists to prevent, stated here too:
+# if these two ever became one digest, WTF-8 had been lost and a memo
+# could answer one workbook's question with another's answer.
+$loneHigh = ($keyVectors | Where-Object { $_.Name -eq 'wtf8-a-lone-high' }).Sha
+$replaced = ($keyVectors | Where-Object { $_.Name -eq 'wtf8-a-replaced' }).Sha
+if ($loneHigh -eq $replaced) {
+    $failures.Add('the baseline itself gives "a"+U+D800 and "a"+U+FFFD one digest - the collision step 1 exists to prevent is in the baseline.')
+    Write-Output '  FAIL  the collision pair shares one digest IN THE BASELINE'
+} else {
+    Write-Output '  ok    the collision pair has two digests (a + U+D800 against a + U+FFFD)'
+}
+
 # ---- 2. the VBA side asserts the same strings -------------------------
 # Not "does VBA compute this" - that is VlaSelfTest's job - but "is
 # VlaSelfTest asserting against the same numbers this baseline holds".
@@ -188,6 +283,11 @@ Write-Output "--- VBA side: the digests VlaSelfTest pins ($($testsPaths.Count) t
 $allExpected = @()
 $allExpected += $vectors | ForEach-Object { @{ Name = $_.Name; Sha = $_.Sha } }
 $allExpected += @{ Name = $whitespacePair.Name; Sha = $whitespacePair.Sha }
+# OPTIMIZE.1 step 1: the same requirement, for the memo key's vectors -
+# VLA_Tests_Query.bas's TestOptimizeKey holds them, and check_devrig's
+# own lesson applies: a comment saying "keep these two in step" is not a
+# mechanism.
+$allExpected += $keyVectors | ForEach-Object { @{ Name = $_.Name; Sha = $_.Sha } }
 foreach ($e in $allExpected) {
     if ($testsSrc.IndexOf($e.Sha, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
         Write-Output ("  ok    {0,-16} pinned in VBA" -f $e.Name)

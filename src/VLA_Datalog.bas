@@ -1143,7 +1143,14 @@ Private Function DesugarBodyAtomForm(ByVal bodyItemIndex As Long, ByVal atomForm
                             ' said first, so the header text never blames
                             ' the wrong thing.
                             If Not VLA_Runtime.VlaDictHas(definedNames, predFolded) Then
-                                VLA_Messages.RaiseMsg "datalog-unknown-predicate", "predicate", predFolded
+                                ' OPTIMIZE.1's follow-up: definedNames,
+                                ' not relations - it is what this scope
+                                ' has, and CollectDefinedNames builds it
+                                ' table arguments FIRST too, so the
+                                ' sentence's own claim about the order
+                                ' holds here as well.
+                                VLA_Messages.RaiseMsg "datalog-unknown-predicate", "predicate", predFolded, _
+                                    "defined", DefinedNamesSentence(definedNames)
                             End If
                             VLA_Messages.RaiseMsg "datalog-keyed-atom-needs-header", "predicate", predFolded
                         End If
@@ -2623,9 +2630,46 @@ End Sub
 ' in the order written. A comparison's or a let's "predicate" is its
 ' operator symbol, never a relation, so both kinds are skipped. The first
 ' undefined name met is the one named.
+' OPTIMIZE.1's follow-up (the owner's call, 2026-09-19), from its own live
+' pass: both refusals below told the reader to "check that the table
+' argument's name matches" without saying WHAT names there were to match
+' against. Twice in one pass that turned a fixture slip - a name typed into
+' Excel's Name Box, which makes a defined name and leaves the Table called
+' Table1 - into a refusal that looked like an engine bug, and the owner
+' reasonably doubted Excel rather than the instructions.
+'
+' The list is in VlaDictKeys order, which is TABLE ARGUMENTS FIRST (the
+' caller registers them before ParseProgram runs), then fact predicates,
+' then rule heads - so the very names this failure is usually about come
+' first rather than being sorted away. Capped, because a large program's
+' full list would bury the sentence it is attached to.
+'
+' The names are FOLDED, as every predicate name in these messages is, and
+' that is the useful form: it is what a rule has to write.
+Private Function DefinedNamesSentence(ByVal relations As Object) As String
+    Dim names As Collection
+    Set names = VLA_Runtime.VlaDictKeys(relations)
+    If names.Count = 0 Then
+        DefinedNamesSentence = "This program defines no names at all."
+        Exit Function
+    End If
+    Dim s As String
+    Dim shown As Long
+    Dim k As Variant
+    For Each k In names
+        If shown >= 12 Then Exit For
+        If shown > 0 Then s = s & ", "
+        s = s & CStr(k)
+        shown = shown + 1
+    Next k
+    If names.Count > shown Then s = s & ", and " & (names.Count - shown) & " more"
+    DefinedNamesSentence = "The names this program does define, table arguments first, are: " & s & "."
+End Function
+
 Private Sub RefuseUndefinedPredicates(ByVal queryName As String, ByVal rules As Collection, ByVal relations As Object)
     If Not VLA_Runtime.VlaDictHas(relations, queryName) Then
-        VLA_Messages.RaiseMsg "datalog-query-unknown-predicate", "predicate", queryName
+        VLA_Messages.RaiseMsg "datalog-query-unknown-predicate", "predicate", queryName, _
+            "defined", DefinedNamesSentence(relations)
     End If
     Dim r As Variant
     For Each r In rules
@@ -2640,7 +2684,8 @@ Private Sub RefuseUndefinedPredicates(ByVal queryName As String, ByVal rules As 
                 Dim pred As String
                 pred = AtomPred(BodyItemAtom(item))
                 If Not VLA_Runtime.VlaDictHas(relations, pred) Then
-                    VLA_Messages.RaiseMsg "datalog-unknown-predicate", "predicate", pred
+                    VLA_Messages.RaiseMsg "datalog-unknown-predicate", "predicate", pred, _
+                        "defined", DefinedNamesSentence(relations)
                 End If
             End Select
         Next bi
@@ -2766,7 +2811,8 @@ Public Function DatalogRun(ByVal rulesText As String, Optional ByVal baseRelatio
     ' alternative on a missing key is DATALOG()'s bare VlaDictGet, which
     ' says nothing.
     If Not VLA_Runtime.VlaDictHas(relations, queryName) Then
-        VLA_Messages.RaiseMsg "datalog-query-unknown-predicate", "predicate", queryName
+        VLA_Messages.RaiseMsg "datalog-query-unknown-predicate", "predicate", queryName, _
+            "defined", DefinedNamesSentence(relations)
     End If
 
     ' The first rule (encounter order) whose own head names a given

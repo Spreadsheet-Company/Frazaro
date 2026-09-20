@@ -1,6 +1,6 @@
 Attribute VB_Name = "VLA_Tests_Query"
 Option Explicit
-Public Const VLA_TESTS_QUERY_VERSION As String = "DATALOG.15"
+Public Const VLA_TESTS_QUERY_VERSION As String = "OPTIMIZE.1"
 ' DATALOG.15: TestSpillHeaders (new, pure - VLA_Relation's spill header
 ' check, RefersTo matching and text, the error-value reason, and every
 ' new refusal's words, with no live workbook) and TestSpillHostTable (new,
@@ -359,6 +359,11 @@ Public Function TestDSLs() As Boolean
     TestDatalogHostTable
     TestSpillHeaders
     TestSpillHostTable
+    TestOptimizeKey
+    TestOptimizeForms
+    TestOptimizeMemo
+    TestOptimizeParity
+    TestOptimizeHostTable
     TestUnify
     TestGRenderUnify
     TestUnifyTwoWay
@@ -1217,6 +1222,27 @@ Private Sub TestDatalogUnknownPredicate()
     r = ResultDescribe(result)
     Report "datalog.8: a misspelled query name still refuses with the query's own text", _
            ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "(query pp) names a predicate with no facts", vbTextCompare) > 0, "got: " & r
+
+    ' ---- OPTIMIZE.1's follow-up: BOTH refusals now say what names there
+    ' WERE. Asked for after two steps of OPTIMIZE.1's own live pass were
+    ' lost to a table whose name had gone to Excel's Name Box instead of
+    ' its Table Name box: the refusal was correct and told the reader
+    ' nothing they could act on. Same two programs as above, so the parity
+    ' table's coverage is untouched.
+    Report "datalog.8: the query refusal now lists the names that DO exist", _
+           InStr(1, r, "The names this program does define, table arguments first, are: p.", vbTextCompare) > 0, _
+           "got: " & r
+    result = VLA_Datalog.DATALOG("(fact (parent tom bob)) (rule (kid X) (parnet tom X)) (query kid)")
+    r = ResultDescribe(result)
+    Report "datalog.8: and so does the rule-body refusal, which is the one a wrong table name hits", _
+           InStr(1, r, "The names this program does define, table arguments first, are: parent, kid.", vbTextCompare) > 0, _
+           "got: " & r
+    ' A program with nothing defined at all says so, rather than trailing
+    ' off after a colon.
+    result = VLA_Datalog.DATALOG("(query pp)")
+    r = ResultDescribe(result)
+    Report "datalog.8: a program defining nothing at all says that, rather than an empty list", _
+           InStr(1, r, "This program defines no names at all.", vbTextCompare) > 0, "got: " & r
 
     ' ---- BEFORE ANY RULE RUNS. bad divides by zero the moment it is
     ' evaluated; each misspelling is named instead, because nothing ran.
@@ -2462,6 +2488,1334 @@ cleanup:
     Application.DisplayAlerts = True
     prior.Activate
 End Sub
+
+' ---------------------------------------------------------------------
+'  OPTIMIZE.1, step 1: the memo key's encoder and its framing.
+'
+'  Three things are pinned here, and the FIRST two have known answers
+'  rather than merely being self-consistent:
+'
+'  1. WTF-8, against SHA-256. Each digest below is the digest of the
+'     byte sequence the design names, verified against .NET's own
+'     SHA-256 over those same bytes by tools/check_hash_twin.ps1. So a
+'     shared bug in VLA_Digest.bas and in this pin cannot cancel out -
+'     the same discipline SEC.11's FIPS vectors already establish.
+'
+'  2. The framing, byte for byte, as one known-answer key. Fifty bytes
+'     whose every field can be read by hand (the comment beside it
+'     decodes them), so the framing is a SPEC and not whatever the
+'     implementation happens to do.
+'
+'  3. The collisions. One pin per pair the framing prevents, asserted
+'     as two DIFFERENT digests. These need no baseline: they are
+'     properties, and a framing that lost one would fail here even if
+'     every known answer above still matched.
+'
+'  Why here and not in VLA_Tests.bas beside TestSec11Digest: the
+'  encoder exists for OPTIMIZE's memo, OPTIMIZE.1 owns the proof, and
+'  TestDSLs is this tranche's one command - this module's own header
+'  note about not lengthening VlaSelfTest's everyday run.
+' ---------------------------------------------------------------------
+
+' A code unit by number, without relying on how VBA reads an
+' unsuffixed &H literal above 32767: ChrW's own documented range is
+' -32768 to 65535, and this says which half is meant.
+Private Function KeyCharW(ByVal code As Long) As String
+    If code > 32767 Then
+        KeyCharW = ChrW(code - 65536)
+    Else
+        KeyCharW = ChrW(code)
+    End If
+End Function
+
+Private Function KeyByteText(ByRef b() As Byte, ByVal n As Long) As String
+    Dim s As String, i As Long
+    For i = 0 To n - 1
+        If i > 0 Then s = s & " "
+        s = s & Right$("0" & Hex$(b(i)), 2)
+    Next i
+    KeyByteText = s
+End Function
+
+' The key of a run of cells, in order - the collision pins' own shape.
+Private Function KeyOfCells(ParamArray cells() As Variant) As String
+    Dim buf() As Byte
+    Dim m As Long
+    Dim i As Long
+    VLA_Digest.VlaKeyBegin buf, m
+    For i = LBound(cells) To UBound(cells)
+        VLA_Digest.VlaKeyAddCell buf, m, cells(i)
+    Next i
+    KeyOfCells = VLA_Digest.VlaKeyHex(buf, m)
+End Function
+
+' The key of a run of text fields, in order.
+Private Function KeyOfTexts(ParamArray texts() As Variant) As String
+    Dim buf() As Byte
+    Dim m As Long
+    Dim i As Long
+    VLA_Digest.VlaKeyBegin buf, m
+    For i = LBound(texts) To UBound(texts)
+        VLA_Digest.VlaKeyAddText buf, m, CStr(texts(i))
+    Next i
+    KeyOfTexts = VLA_Digest.VlaKeyHex(buf, m)
+End Function
+
+' The key of a run of counts, in order.
+Private Function KeyOfCounts(ParamArray nums() As Variant) As String
+    Dim buf() As Byte
+    Dim m As Long
+    Dim i As Long
+    VLA_Digest.VlaKeyBegin buf, m
+    For i = LBound(nums) To UBound(nums)
+        VLA_Digest.VlaKeyAddCount buf, m, CLng(nums(i))
+    Next i
+    KeyOfCounts = VLA_Digest.VlaKeyHex(buf, m)
+End Function
+
+Private Sub TestOptimizeKey()
+    Dim b() As Byte
+    Dim n As Long
+    Dim buf() As Byte
+    Dim m As Long
+    Dim hexA As String
+
+    ' --- 1. WTF-8, byte for byte, with SHA-256 known answers ---------
+
+    n = VLA_Digest.VlaWtf8Encode(KeyCharW(&HE9), b)
+    Report "optimize key: e-acute encodes as c3 a9", _
+           KeyByteText(b, n) = "C3 A9", "got " & KeyByteText(b, n)
+    Report "optimize key: SHA-256 over e-acute's two bytes", _
+           VLA_Digest.VlaSha256Hex(b, n) = "4A99557E4033C3539DE2EB65472017CAD5F9557F7A0625A09F1C3F6E2BA69C4C", _
+           "got " & VLA_Digest.VlaSha256Hex(b, n)
+
+    ' One astral character is ONE code point of four bytes, from a
+    ' surrogate PAIR - the case a naive per-code-unit encoder gets
+    ' wrong in the other direction from the lone-surrogate case below.
+    n = VLA_Digest.VlaWtf8Encode(KeyCharW(&HD83D&) & KeyCharW(&HDE00&), b)
+    Report "optimize key: one astral character is four bytes (f0 9f 98 80)", _
+           KeyByteText(b, n) = "F0 9F 98 80", "got " & KeyByteText(b, n)
+    Report "optimize key: SHA-256 over the astral character's four bytes", _
+           VLA_Digest.VlaSha256Hex(b, n) = "F0443A342C5EF54783A111B51BA56C938E474C32324D90C3A60C9C8E3A37E2D9", _
+           "got " & VLA_Digest.VlaSha256Hex(b, n)
+
+    n = VLA_Digest.VlaWtf8Encode("Zo" & KeyCharW(&HEB), b)
+    Report "optimize key: SHA-256 over Zo-diaeresis (5a 6f c3 ab)", _
+           VLA_Digest.VlaSha256Hex(b, n) = "C6A12698582FC1104EA24107A2D7268145FF06EF859707729D01FD060897F067", _
+           "got " & VLA_Digest.VlaSha256Hex(b, n)
+
+    ' THE reason this encoder exists. VLA_Loader.VlaUtf8Encode writes
+    ' each of the next two as U+FFFD, which is right for a file and a
+    ' collision for a key.
+    n = VLA_Digest.VlaWtf8Encode(KeyCharW(&HD800&), b)
+    Report "optimize key: a lone HIGH surrogate keeps its own bytes (ed a0 80)", _
+           KeyByteText(b, n) = "ED A0 80", "got " & KeyByteText(b, n)
+    Report "optimize key: SHA-256 over a lone high surrogate", _
+           VLA_Digest.VlaSha256Hex(b, n) = "91A681B998555FB475479817B126C94E57E52011FA1842C5D188795A4A05226B", _
+           "got " & VLA_Digest.VlaSha256Hex(b, n)
+
+    n = VLA_Digest.VlaWtf8Encode(KeyCharW(&HDC00&), b)
+    Report "optimize key: a lone LOW surrogate keeps its own bytes (ed b0 80)", _
+           KeyByteText(b, n) = "ED B0 80", "got " & KeyByteText(b, n)
+    Report "optimize key: SHA-256 over a lone low surrogate", _
+           VLA_Digest.VlaSha256Hex(b, n) = "B2D612A08BEC1F41120EBD961F62EF19678375B5788C70D3F8F4C02E345ED412", _
+           "got " & VLA_Digest.VlaSha256Hex(b, n)
+
+    n = VLA_Digest.VlaWtf8Encode(KeyCharW(&HFFFD&), b)
+    Report "optimize key: U+FFFD itself is ef bf bd", _
+           KeyByteText(b, n) = "EF BF BD", "got " & KeyByteText(b, n)
+    Report "optimize key: SHA-256 over U+FFFD", _
+           VLA_Digest.VlaSha256Hex(b, n) = "83D544CCC223C057D2BF80D3F2A32982C32C3C0DB8E2674820DA5064783FB097", _
+           "got " & VLA_Digest.VlaSha256Hex(b, n)
+
+    ' The collision itself, as two known answers rather than as an
+    ' inequality: these are the two strings the memo must never confuse.
+    n = VLA_Digest.VlaWtf8Encode("a" & KeyCharW(&HD800&), b)
+    Report "optimize key: SHA-256 over a + a lone high surrogate", _
+           VLA_Digest.VlaSha256Hex(b, n) = "25819B9B43D499092EB2BE7B6F27AE28439EEE434CEA4490191AB4CCB8F3409C", _
+           "got " & VLA_Digest.VlaSha256Hex(b, n)
+    n = VLA_Digest.VlaWtf8Encode("a" & KeyCharW(&HFFFD&), b)
+    Report "optimize key: SHA-256 over a + U+FFFD", _
+           VLA_Digest.VlaSha256Hex(b, n) = "51D277510BA4BF97B25F12D38513C1B620A2A33FC83B3BEEEB0DD971BF429E6D", _
+           "got " & VLA_Digest.VlaSha256Hex(b, n)
+
+    n = VLA_Digest.VlaWtf8Encode("", b)
+    Report "optimize key: the empty string encodes to no bytes at all", n = 0, "got " & n
+
+    ' Plain ASCII is unchanged, so every key an ASCII-only workbook
+    ' makes is what a plain UTF-8 encoder would have made.
+    n = VLA_Digest.VlaWtf8Encode("abc", b)
+    Report "optimize key: ASCII is byte-identical to UTF-8", _
+           KeyByteText(b, n) = "61 62 63", "got " & KeyByteText(b, n)
+
+    ' --- 2. a Double's eight bytes ------------------------------------
+
+    n = VLA_Digest.VlaDoubleBytes(1#, b)
+    Report "optimize key: 1 is 00 00 00 00 00 00 F0 3F", _
+           n = 8 And KeyByteText(b, n) = "00 00 00 00 00 00 F0 3F", "got " & KeyByteText(b, n)
+    n = VLA_Digest.VlaDoubleBytes(0#, b)
+    Report "optimize key: 0 is eight zero bytes", _
+           KeyByteText(b, n) = "00 00 00 00 00 00 00 00", "got " & KeyByteText(b, n)
+    n = VLA_Digest.VlaDoubleBytes(-1#, b)
+    Report "optimize key: -1 differs from 1 only in its sign bit", _
+           KeyByteText(b, n) = "00 00 00 00 00 00 F0 BF", "got " & KeyByteText(b, n)
+    n = VLA_Digest.VlaDoubleBytes(0.5, b)
+    Report "optimize key: 0.5 is 00 00 00 00 00 00 E0 3F", _
+           KeyByteText(b, n) = "00 00 00 00 00 00 E0 3F", "got " & KeyByteText(b, n)
+    n = VLA_Digest.VlaDoubleBytes(1000000#, b)
+    Report "optimize key: a million is 00 00 00 00 80 84 2E 41", _
+           KeyByteText(b, n) = "00 00 00 00 80 84 2E 41", "got " & KeyByteText(b, n)
+
+    ' --- 3. the framing, byte for byte --------------------------------
+    '
+    ' text "a"    01 00000001 61
+    ' count 2     05 00000004 00000002
+    ' number 1    02 00000008 0000000000 00F03F
+    ' text "1"    01 00000001 31
+    ' blank       00 00000000
+    ' text ""     01 00000000
+    ' TRUE        03 00000001 01
+    '             = fifty bytes in all
+    VLA_Digest.VlaKeyBegin buf, m
+    VLA_Digest.VlaKeyAddText buf, m, "a"
+    VLA_Digest.VlaKeyAddCount buf, m, 2
+    VLA_Digest.VlaKeyAddCell buf, m, 1#
+    VLA_Digest.VlaKeyAddCell buf, m, "1"
+    VLA_Digest.VlaKeyAddCell buf, m, Empty
+    VLA_Digest.VlaKeyAddCell buf, m, ""
+    VLA_Digest.VlaKeyAddCell buf, m, True
+    Report "optimize key: the sample key frames to exactly fifty bytes", m = 50, "got " & m
+    Report "optimize key: the sample key's first field is text, length 1, 'a'", _
+           KeyByteText(buf, 6) = "01 00 00 00 01 61", "got " & KeyByteText(buf, 6)
+    Report "optimize key: the sample key's digest", _
+           VLA_Digest.VlaKeyHex(buf, m) = "E4BF92CB66C89E6B0566D0C1FB8885AE0FA5423262BBFD7E694CF106641EFA53", _
+           "got " & VLA_Digest.VlaKeyHex(buf, m)
+
+    ' An empty key is the empty message's own digest - the same value
+    ' SEC.11's own 'empty' vector holds, reached through this framing.
+    VLA_Digest.VlaKeyBegin buf, m
+    Report "optimize key: a key with no fields hashes the empty message", _
+           m = 0 And VLA_Digest.VlaKeyHex(buf, m) = "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855", _
+           "got " & VLA_Digest.VlaKeyHex(buf, m)
+
+    ' VlaKeyBegin must really restart, or a second key built into a
+    ' reused buffer would carry the first one's bytes.
+    VLA_Digest.VlaKeyBegin buf, m
+    VLA_Digest.VlaKeyAddText buf, m, "x"
+    hexA = VLA_Digest.VlaKeyHex(buf, m)
+    VLA_Digest.VlaKeyBegin buf, m
+    VLA_Digest.VlaKeyAddText buf, m, "x"
+    Report "optimize key: VlaKeyBegin restarts a reused buffer", _
+           VLA_Digest.VlaKeyHex(buf, m) = hexA, "the second key carried the first's bytes"
+
+    ' --- 4. every collision the framing prevents ----------------------
+
+    Report "optimize key: the number 1 and the text ""1"" differ", _
+           KeyOfCells(1#) <> KeyOfCells("1"), "the type tag was lost"
+    Report "optimize key: a blank cell and empty text differ", _
+           KeyOfCells(Empty) <> KeyOfCells(""), "the type tag was lost"
+    Report "optimize key: (""ab"",""c"") and (""a"",""bc"") differ", _
+           KeyOfCells("ab", "c") <> KeyOfCells("a", "bc"), "the length frame was lost"
+    Report "optimize key: TRUE and the text ""TRUE"" differ", _
+           KeyOfCells(True) <> KeyOfCells("TRUE"), "the type tag was lost"
+    Report "optimize key: TRUE and the number 1 differ", _
+           KeyOfCells(True) <> KeyOfCells(1#), "the type tag was lost"
+    Report "optimize key: FALSE and TRUE differ", _
+           KeyOfCells(False) <> KeyOfCells(True), "the payload byte was lost"
+    Report "optimize key: an error value and the text ""#N/A"" differ", _
+           KeyOfCells(CVErr(2042)) <> KeyOfCells("#N/A"), "the type tag was lost"
+    Report "optimize key: an error value and a blank differ", _
+           KeyOfCells(CVErr(2042)) <> KeyOfCells(Empty), "the type tag was lost"
+    Report "optimize key: two rows of one against one row of two differ", _
+           KeyOfCounts(2, 1) <> KeyOfCounts(1, 2), "the shape was lost"
+    Report "optimize key: tables (AB, C) and (A, BC) differ", _
+           KeyOfTexts("AB", "C") <> KeyOfTexts("A", "BC"), "the length frame was lost"
+    Report "optimize key: a count and text of the same bytes differ", _
+           KeyOfCounts(1) <> KeyOfTexts("x"), "the type tag was lost"
+
+    ' A lone surrogate against U+FFFD, at the KEY level rather than the
+    ' byte level - the collision step 1 exists to prevent, stated the
+    ' way OPTIMIZE's memo would meet it.
+    Report "optimize key: a cell of a + a lone surrogate and one of a + U+FFFD differ", _
+           KeyOfCells("a" & KeyCharW(&HD800&)) <> KeyOfCells("a" & KeyCharW(&HFFFD&)), _
+           "WTF-8 was lost: a memo would hand one workbook's answer to another's inputs"
+
+    ' The same cells in the same order must of course agree, or the
+    ' memo would never hit at all.
+    Report "optimize key: the same cells in the same order give one key", _
+           KeyOfCells("a", 1#, Empty, True) = KeyOfCells("a", 1#, Empty, True), "not deterministic"
+    Report "optimize key: the same cells in a different order differ", _
+           KeyOfCells("a", "b") <> KeyOfCells("b", "a"), "order was lost"
+
+    ' A Long and a Double of the same value are ONE key: the engine
+    ' cannot tell them apart either, so a second key would only cost a
+    ' needless re-solve.
+    Report "optimize key: a Long 1 and a Double 1 give one key", _
+           KeyOfCells(CLng(1)) = KeyOfCells(1#), "a needless re-solve"
+End Sub
+
+' ---------------------------------------------------------------------
+'  OPTIMIZE.1: the parity pin - "DATALOG wearing the name", measured.
+'
+'  THE CLAIM. A program with no choice, no constraint and no objective
+'  IS a DATALOG program, so =OPTIMIZE(...) must answer exactly what
+'  =DATALOG(...) answers for every such program. The owner approved
+'  this proof on 2026-09-18: every DATALOG test program in this module,
+'  run through OPTIMIZE and required to answer identically, so that the
+'  claim is measured rather than described.
+'
+'  WHAT "IDENTICALLY" MEANS HERE, stated because a weaker reading would
+'  be easy: the same queried relation with the same tuples IN THE SAME
+'  ORDER (order matters - standing decision 2 breaks ties by the
+'  Tables' own row order, so a reordering would be a real difference),
+'  the same head-variable names, the same headless flag, the same
+'  Boolean answer - or both engines refusing, with the same error
+'  number AND the same words.
+'
+'  The relations are compared by hashing them with OPTIMIZE.1's own
+'  step-1 key (VLA_Digest's injective framing), which is why one
+'  comparison covers arity, count, order and every cell's type at once,
+'  and why it cannot raise on a cell it did not expect.
+'
+'  NO TABLE ARGUMENTS ARE SUPPLIED, on purpose. A program whose tables
+'  its original test passed in refuses in BOTH engines, identically,
+'  because its predicates are then undefined - which is still parity,
+'  and is what lets this pin cover every program without a fixture per
+'  program. 128 of the 177 answer outright; the rest agree on their
+'  refusal, to the word.
+'
+'  tools/check_optimize_parity.ps1 is what keeps "every" true: it reads
+'  every DatalogRun/DATALOG call site in this module and fails if one
+'  of their programs is missing from the table below. Without it the
+'  table would quietly become "every program as of OPTIMIZE.1" the
+'  first time somebody adds a DATALOG test - the same defect
+'  check_devrig_mods_parity.ps1 exists for.
+' ---------------------------------------------------------------------
+
+' A relation's contents as one digest: its arity, its row count, then
+' every cell of every tuple in order, through the injective framing of
+' OPTIMIZE.1's step 1. Two relations agree exactly when these agree.
+Private Function ParityRelationKey(ByVal rel As Collection) As String
+    Dim buf() As Byte
+    Dim n As Long
+    Dim tup As Variant
+    Dim arr() As Variant
+    Dim i As Long
+    VLA_Digest.VlaKeyBegin buf, n
+    VLA_Digest.VlaKeyAddCount buf, n, VLA_Relation.RelArity(rel)
+    VLA_Digest.VlaKeyAddCount buf, n, VLA_Relation.RelCount(rel)
+    For Each tup In VLA_Relation.RelTuples(rel)
+        arr = tup
+        For i = LBound(arr) To UBound(arr)
+            VLA_Digest.VlaKeyAddCell buf, n, arr(i)
+        Next i
+    Next tup
+    ParityRelationKey = VLA_Digest.VlaKeyHex(buf, n)
+End Function
+
+' The head-variable names either engine reports, as one digest -
+' Empty (no defining rule) and an array of names both, without ever
+' touching the array on the branch that admitted it might not be one.
+Private Function ParityNamesKey(ByVal v As Variant) As String
+    Dim buf() As Byte
+    Dim n As Long
+    Dim i As Long
+    VLA_Digest.VlaKeyBegin buf, n
+    If IsEmpty(v) Then
+        VLA_Digest.VlaKeyAddText buf, n, "(no head names)"
+    ElseIf IsArray(v) Then
+        For i = LBound(v) To UBound(v)
+            VLA_Digest.VlaKeyAddCell buf, n, v(i)
+        Next i
+    Else
+        VLA_Digest.VlaKeyAddCell buf, n, v
+    End If
+    ParityNamesKey = VLA_Digest.VlaKeyHex(buf, n)
+End Function
+
+' "" when the two engines agree completely; otherwise what differed, in
+' words. Returns rather than raises, so one genuine difference reports
+' itself and the remaining programs still run.
+'
+' Err.Number and Err.Description are read BEFORE On Error GoTo 0, which
+' clears them - a VBA trap this project has met before.
+Private Function ParityVerdict(ByVal program As String) As String
+    Dim dErr As Long, oErr As Long
+    Dim dDesc As String, oDesc As String
+    Dim dRes As Collection, oRes As Collection
+    Dim dRel As Collection, oRel As Collection
+
+    On Error Resume Next
+    Err.Clear
+    Set dRes = VLA_Datalog.DatalogRun(program)
+    dErr = Err.Number
+    dDesc = Err.Description
+    On Error GoTo 0
+
+    On Error Resume Next
+    Err.Clear
+    Set oRes = VLA_Optimize.OptimizeRun(program)
+    oErr = Err.Number
+    oDesc = Err.Description
+    On Error GoTo 0
+
+    If dErr <> 0 Or oErr <> 0 Then
+        If dErr = 0 Then
+            ParityVerdict = "DATALOG answered; OPTIMIZE refused with " & oDesc
+        ElseIf oErr = 0 Then
+            ParityVerdict = "DATALOG refused with " & dDesc & "; OPTIMIZE answered"
+        ElseIf dErr <> oErr Then
+            ParityVerdict = "both refused, different error numbers: " & dErr & " against " & oErr
+        ElseIf StrComp(dDesc, oDesc, vbBinaryCompare) <> 0 Then
+            ParityVerdict = "both refused, different words: [" & dDesc & "] against [" & oDesc & "]"
+        End If
+        Exit Function
+    End If
+
+    If StrComp(CStr(dRes.Item(1)), CStr(oRes.Item(1)), vbBinaryCompare) <> 0 Then
+        ParityVerdict = "different queried predicate: " & CStr(dRes.Item(1)) & " against " & CStr(oRes.Item(1))
+        Exit Function
+    End If
+    If CBool(dRes.Item(4)) <> CBool(oRes.Item(4)) Then
+        ParityVerdict = "different headless flag"
+        Exit Function
+    End If
+    If IsEmpty(dRes.Item(5)) <> IsEmpty(oRes.Item(5)) Then
+        ParityVerdict = "one engine answered a Boolean and the other a table"
+        Exit Function
+    End If
+    If Not IsEmpty(dRes.Item(5)) Then
+        If CBool(dRes.Item(5)) <> CBool(oRes.Item(5)) Then
+            ParityVerdict = "different Boolean answer"
+            Exit Function
+        End If
+    End If
+    If StrComp(ParityNamesKey(dRes.Item(3)), ParityNamesKey(oRes.Item(3)), vbBinaryCompare) <> 0 Then
+        ParityVerdict = "different head-variable names"
+        Exit Function
+    End If
+    Set dRel = VLA_Runtime.VlaDictGet(dRes.Item(2), CStr(dRes.Item(1)))
+    Set oRel = VLA_Runtime.VlaDictGet(oRes.Item(2), CStr(oRes.Item(1)))
+    If StrComp(ParityRelationKey(dRel), ParityRelationKey(oRel), vbBinaryCompare) <> 0 Then
+        ParityVerdict = "different rows: " & VLA_Relation.RelCount(dRel) & " against " & VLA_Relation.RelCount(oRel)
+        Exit Function
+    End If
+    ' OPTIMIZE's two extra items: a zero-choice program is the one
+    ' answer there is, so it is proven best, and it says so.
+    If CLng(oRes.Item(6)) <> VLA_Optimize.VLA_OPTIMIZE_PROVEN_BEST Then
+        ParityVerdict = "OPTIMIZE reported result state " & CStr(oRes.Item(6)) & ", not proven best"
+        Exit Function
+    End If
+End Function
+
+Private Sub TestOptimizeParity()
+    Dim programs As Collection
+    Set programs = DatalogParityPrograms()
+    Dim p As Variant
+    Dim ix As Long
+    Dim label As String
+    Dim verdict As String
+    For Each p In programs
+        ix = ix + 1
+        label = CStr(p)
+        If Len(label) > 64 Then label = Left$(label, 64) & "..."
+        verdict = ParityVerdict(CStr(p))
+        Report "optimize parity " & ix & ": " & label, Len(verdict) = 0, verdict
+    Next p
+    ' The count itself is a pin: tools/check_optimize_parity.ps1 found
+    ' 177 distinct programs in this module at OPTIMIZE.1, and it fails
+    ' if a later DATALOG test adds one the table does not carry.
+    Report "optimize parity: the table carries every DATALOG program (177 at OPTIMIZE.1)", _
+           programs.Count >= 177, "got " & programs.Count
+End Sub
+
+' Every distinct DATALOG program this module names, from every
+' DatalogRun and DATALOG call site. Maintained with
+' tools/check_optimize_parity.ps1, which reads those call sites and
+' fails when one is missing here; -Emit prints this list to paste.
+Private Function DatalogParityPrograms() As Collection
+    Dim p As Collection
+    Set p = New Collection
+    ' Generated by tools\check_optimize_parity.ps1 -Emit, then reviewed.
+    ' 178 distinct DATALOG programs, every one this module names.
+    p.Add " (fact (covered ""Night"")) (query (not (gap X)))"
+    p.Add " (fact (spare ""Bob"" ""Day"")) (rule (can P S) (cc P S)) (rule (can P S) (spare P S)) (rule (who-can S W) (shift S) (textjoin W "", "" (can P S))) (query who-can)"
+    p.Add " (query (not (gap X)))"
+    p.Add " (query (not (route ""A"" X)))"
+    p.Add " (query (not (route X ""E"")))"
+    p.Add " (query (route ""A"" ""D""))"
+    p.Add " (query (route ""A"" ""E""))"
+    p.Add " (query (text-starts-with ""GL-4010"" ""GL-4""))"
+    p.Add " (rule (all W) (shift S) (textjoin W "", "" (cc P Q))) (query all)"
+    p.Add " (rule (any-code C) (acct C) (text-contains C """")) (query any-code)"
+    p.Add " (rule (chain S W) (shift S) (textjoin W "", "" (chain X S))) (query chain)"
+    p.Add " (rule (first-code C) (acct C) !) (query first-code)"
+    p.Add " (rule (kind C T) (acct C) (if (text-starts-with C ""GL-4"") (= T ""Revenue"") (= T ""Cost""))) (query kind)"
+    p.Add " (rule (odd C) (acct C) (not (sub-atom C 0 L A ""GL""))) (query odd)"
+    p.Add " (rule (other C) (acct C) (not (text-starts-with C ""GL-4""))) (query other)"
+    p.Add " (rule (revenue C) (acct C) (sub-atom C 0 L A ""GL-4"")) (query revenue)"
+    p.Add " (rule (revenue C) (acct C) (text-starts-with C ""gl-4"")) (query revenue)"
+    p.Add " (rule (revenue C) (acct C) (text-starts-with C)) (query revenue)"
+    p.Add " (rule (revenue C) (text-starts-with C ""GL-4"") (acct C)) (query revenue)"
+    p.Add " (rule (tens C) (acct C) (text-ends-with C ""10"")) (query tens)"
+    p.Add " (rule (vla-ask-can-cover Who) (can-cover Who Night)) (query vla-ask-can-cover)"
+    p.Add " (rule (vla-ask-can-drive Who) (can-drive Who Night)) (query vla-ask-can-drive)"
+    p.Add " (rule (who-covers S L) (shift S) (findall P (cc P S) L)) (query who-covers)"
+    p.Add " (rule (who-covers S W) (shift S) (textjoin W """" (cc P S))) (query who-covers)"
+    p.Add " (rule (who-covers S W) (shift S) (textjoin W "", "" (cc P S))) (query who-covers)"
+    p.Add " (rule (who-covers S W) (shift S) (textjoin W ""; "" (cc P S))) (query who-covers)"
+    p.Add " (rule (who-covers S W) (shift S) (textjoin W (cc P S))) (query who-covers)"
+    p.Add " (rule (who-covers S W) (shift S) (textjoin W Sep (cc P S))) (query who-covers)"
+    p.Add " (rule (who-covers S) (shift S) (textjoin S "", "" (cc P S))) (query who-covers)"
+    p.Add "(fact (deptname eng)) (fact (deptname sales)) (rule (deptcount D N) (deptname D) (count N (staffing (dept D)))) (query deptcount)"
+    p.Add "(fact (edge a a)) (fact (edge a b)) (rule (self_loop X) (edge X X)) (query self_loop)"
+    p.Add "(fact (edge a b 1)) (fact (edge b c 1)) (fact (edge c d 1)) (rule (path X Y D) (edge X Y D)) (rule (path X Z D) (edge X Y D1) (path Y Z D2) (let D (+ D1 D2))) (query path)"
+    p.Add "(fact (item a)) (rule (foo X Z) (item X) (let Z (+ X))) (query foo)"
+    p.Add "(fact (item a)) (rule (foo X Z) (item X) (let Z (+ Y 1))) (query foo)"
+    p.Add "(fact (item a)) (rule (foo X) (item X) (> X)) (query foo)"
+    p.Add "(fact (item a)) (rule (foo X) (item X) (> Y 5)) (query foo)"
+    p.Add "(fact (item a)) (rule (foo X) (item X) (let)) (query foo)"
+    p.Add "(fact (item a)) (rule (foo X) (not (bar X))) (query foo)"
+    p.Add "(fact (item a)) (rule (p X N) (item X) (count N (p X Y))) (query p)"
+    p.Add "(fact (item a)) (rule (p X) (item X) (not (p X))) (query p)"
+    p.Add "(fact (item a)) (rule (p X) (item X) (not (q X))) (rule (q X) (item X) (not (p X))) (query p)"
+    p.Add "(fact (link ""A"" ""B"")) (fact (link ""C"" ""C"")) (query (not (link X X)))"
+    p.Add "(fact (link ""A"" ""B"")) (query (link ""A"" ""B""))"
+    p.Add "(fact (link ""A"" ""B"")) (query (link ""A"" Who))"
+    p.Add "(fact (link ""A"" ""B"")) (query (link ""A""))"
+    p.Add "(fact (link ""A"" ""B"")) (query (link ""B"" ""A""))"
+    p.Add "(fact (link ""A"" ""B"")) (query (not (link ""A"" X)))"
+    p.Add "(fact (link ""A"" ""B"")) (query (not (link ""A"")))"
+    p.Add "(fact (link ""A"" ""B"")) (query (not (link ""B"" X)))"
+    p.Add "(fact (link ""A"" ""B"")) (query (not (link X X)))"
+    p.Add "(fact (link ""A"" ""B"")) (query (not (link X Y)))"
+    p.Add "(fact (lvl ""Ann"" 3)) (rule (low P) (lvl P L) (=< L 2)) (query low)"
+    p.Add "(fact (member ""Ann"" ""Ops"")) (rule (in-ops P) (member P ""Ops"")) (query in-ops)"
+    p.Add "(fact (node a)) (fact (node b)) (fact (node c)) (fact (edge a b)) (fact (edge b c)) (rule (reachable X Y) (edge X Y)) (rule (reachable X Z) (edge X Y) (reachable Y Z)) (rule (reachcount X N) (node X) (count N (reachable X Y))) (query reachcount)"
+    p.Add "(fact (node a)) (fact (node b)) (fact (node c)) (fact (edge a b)) (fact (edge b c)) (rule (reachable X Y) (edge X Y)) (rule (reachable X Z) (edge X Y) (reachable Y Z)) (rule (unreachable X Y) (node X) (node Y) (not (reachable X Y))) (query unreachable)"
+    p.Add "(fact (p ""a"")) (query p)"
+    p.Add "(fact (p ""x"" ""a"")) (fact (p ""x"" ""b"")) (rule (j K W) (p K Z) (textjoin W "", "" (p K V))) (query j)"
+    p.Add "(fact (p (q r))) (query p)"
+    p.Add "(fact (p a b)) (fact (p a b c)) (query p)"
+    p.Add "(fact (p a))"
+    p.Add "(fact (p a)) (fact (p b)) (query (not (p b)))"
+    p.Add "(fact (p a)) (fact (p b)) (query p)"
+    p.Add "(fact (p a)) (fact (q b)) (query (not (p a) (q b)))"
+    p.Add "(fact (p a)) (query (""not"" (p a)))"
+    p.Add "(fact (p a)) (query (not (not (p a))))"
+    p.Add "(fact (p a)) (query (not (p a)))"
+    p.Add "(fact (p a)) (query (not (p b)))"
+    p.Add "(fact (p a)) (query (not (p)))"
+    p.Add "(fact (p a)) (query (not (pp X)))"
+    p.Add "(fact (p a)) (query (not p))"
+    p.Add "(fact (p a)) (query (not))"
+    p.Add "(fact (p a)) (query (p a) (p b))"
+    p.Add "(fact (p a)) (query (p a)) (headless)"
+    p.Add "(fact (p a)) (query (p X))"
+    p.Add "(fact (p a)) (query (p))"
+    p.Add "(fact (p a)) (query (pp a))"
+    p.Add "(fact (p a)) (query p)"
+    p.Add "(fact (p a)) (query pp)"
+    p.Add "(fact (p a)) (rule (a1 X) (p X) (zz1 X)) (rule (a2 X) (p X) (zz2 X)) (query a2)"
+    p.Add "(fact (p a)) (rule (q X) (p X) (not (p X))) (query (not (q X)))"
+    p.Add "(fact (p a)) (rule (q X) (p X) (typo X)) (query (not (p b)))"
+    p.Add "(fact (p a)) (rule (q X) (p X) (typo X)) (query (p a))"
+    p.Add "(fact (p a)) (rule (unused X) (sibling X)) (query p)"
+    p.Add "(fact (pair ""a"" ""b"")) (rule (text-ends-with X Y) (pair X Y)) (query text-ends-with)"
+    p.Add "(fact (pair ""GL-4010"" ""GL-4"")) (fact (pair ""GL-5010"" ""GL-4"")) (rule (ok C) (pair C P) (text-starts-with C P)) (query ok)"
+    p.Add "(fact (pair 10 3)) (rule (added S) (pair A B) (let S (+ A B))) (query added)"
+    p.Add "(fact (pair 10 3)) (rule (big S) (pair A B) (let S (+ A B)) (> S 5)) (query big)"
+    p.Add "(fact (pair 10 3)) (rule (multiplied S) (pair A B) (let S (* A B))) (query multiplied)"
+    p.Add "(fact (pair 10 3)) (rule (subbed S) (pair A B) (let S (- A B))) (query subbed)"
+    p.Add "(fact (pair 10 4)) (rule (divided S) (pair A B) (let S (/ A B))) (query divided)"
+    p.Add "(fact (pair 3 7)) (rule (mx S) (pair A B) (let S (max A B))) (query mx)"
+    p.Add "(fact (pair 7 2)) (rule (idiv S) (pair A B) (let S (// A B))) (query idiv)"
+    p.Add "(fact (pair -7 3)) (rule (modded S) (pair A B) (let S (mod A B))) (query modded)"
+    p.Add "(fact (pair -7 3)) (rule (remmed S) (pair A B) (let S (rem A B))) (query remmed)"
+    p.Add "(fact (pair a 1 2)) (rule (foo X Z) (pair X A B) (let Z (% A B))) (query foo)"
+    p.Add "(fact (pair a 1 2)) (rule (foo X Z) (pair X A B) (let z (+ A B))) (query foo)"
+    p.Add "(fact (pair a 1)) (rule (foo X N) (pair X N) (let N (+ N 1))) (query foo)"
+    p.Add "(fact (pair a 10 0)) (rule (bad X Z) (pair X A B) (let Z (/ A B))) (query pp)"
+    p.Add "(fact (pair a 10 0)) (rule (bad X Z) (pair X A B) (let Z (/ A B))) (rule (ok X) (pair X A B) (typo X)) (query ok)"
+    p.Add "(fact (pair a 10 0)) (rule (foo X Z) (pair X A B) (let Z (/ A B))) (query foo)"
+    p.Add "(fact (pair a hello)) (rule (foo X Z) (pair X A) (let Z (+ A 1))) (query foo)"
+    p.Add "(fact (parent tom bob)) (fact (parent bob liz)) (query parent)"
+    p.Add "(fact (parent tom bob)) (fact (parent bob liz)) (rule (grandparent X Z) (parent X Y) (parent Y Z)) (query grandparent)"
+    p.Add "(fact (parent tom bob)) (query (parent tom bob))"
+    p.Add "(fact (parent tom bob)) (rule (kid X) (parnet tom X)) (query kid)"
+    p.Add "(fact (person ""Bob"")) (query (person ""bob""))"
+    p.Add "(fact (person alice 25)) (fact (person bob 15)) (fact (banned bob)) (rule (adult_allowed X) (person X Age) (> Age 18) (not (banned X))) (query adult_allowed)"
+    p.Add "(fact (person alice)) (fact (amount alice ""10"")) (rule (bad X S) (person X) (sum S (amount X ""10""))) (query bad)"
+    p.Add "(fact (person alice)) (fact (amount2 alice 1 2)) (rule (bad X S) (person X) (sum S (amount2 X V W))) (query bad)"
+    p.Add "(fact (person alice)) (fact (person bob)) (fact (person carol)) (fact (amount alice 10)) (fact (amount alice 15)) (fact (amount bob 7)) (rule (total X S) (person X) (sum S (amount X V))) (query total)"
+    p.Add "(fact (person alice)) (fact (person bob)) (fact (person carol)) (fact (banned bob)) (rule (allowed X) (person X) (not (banned X))) (query allowed)"
+    p.Add "(fact (person alice)) (fact (person bob)) (fact (person carol)) (fact (sale alice widget)) (fact (sale alice gadget)) (fact (sale bob widget)) (rule (salescount X N) (person X) (count N (sale X Y))) (query salescount)"
+    p.Add "(fact (person alice)) (fact (sale alice widget)) (rule (bad X N) (person X) (count N (sale X Y)) (count N (sale X Z))) (query bad)"
+    p.Add "(fact (person alice)) (fact (sale alice widget)) (rule (bad X) (person X) (count n (sale X Y))) (query bad)"
+    p.Add "(fact (person alice)) (rule (bad X N) (person X) (count N)) (query bad)"
+    p.Add "(fact (person tom)) (fact (amount tom 10)) (rule (total X S) (person X) (sum S (amont X V))) (query total)"
+    p.Add "(fact (person tom)) (fact (banned tom)) (rule (ok X) (person X) (not (bannd X))) (query ok)"
+    p.Add "(fact (person tom)) (fact (banned tom)) (rule (ok X) (person X) (not (banned X))) (query ok)"
+    p.Add "(fact (person tom)) (fact (sale tom widget)) (rule (sales X N) (person X) (count N (sael X Y))) (query sales)"
+    p.Add "(fact (person tom)) (rule (ok X) (person X) (not (leave X X))) (query ok)"
+    p.Add "(fact (product ""Banana"")) (fact (product ""Cyan"")) (fact (product ""Apple"")) (rule (has-an N) (product N) (text-contains N ""an"")) (query has-an)"
+    p.Add "(fact (reports_to alice bob)) (fact (reports_to bob carol)) (fact (reports_to carol dave)) (rule (indirect_report X Y) (reports_to X Y)) (rule (indirect_report X Y) (reports_to X Z) (indirect_report Z Y)) (query indirect_report)"
+    p.Add "(fact (score alice 9)) (fact (score bob 10)) (rule (high_scorer X) (score X N) (> N 8)) (query high_scorer)"
+    p.Add "(fact (tag apple)) (fact (tag banana)) (fact (tag cherry)) (rule (not_banana X) (tag X) (<> X banana)) (query not_banana)"
+    p.Add "(fact (text-contains ""a"" ""b"")) (query text-contains)"
+    p.Add "(fact (val 2.5)) (rule (rnd S) (val A) (let S (round A))) (query rnd)"
+    p.Add "(fact (val -4)) (rule (absd S) (val A) (let S (abs A))) (query absd)"
+    p.Add "(fact (widget a b)) (rule (bad X) (widget (foo X))) (query bad)"
+    p.Add "(headless extra) (fact (p a)) (query p)"
+    p.Add "(headless) (fact (p a)) (query (not (p b)))"
+    p.Add "(headless) (fact (p a)) (query (p a))"
+    p.Add "(headless) (fact (parent tom bob)) (fact (parent bob liz)) (query parent)"
+    p.Add "(headless) (fact (thing a)) (rule (nothing_here X) (thing X) (thing none)) (query nothing_here)"
+    p.Add "(headless) (query p)"
+    p.Add "(headless) (query personhosttest1)"
+    p.Add "(headless) (query vladatalogaliastest)"
+    p.Add "(headless) (query vlaspilldup)"
+    p.Add "(headless) (query vlaspillnums)"
+    p.Add "(headless) (query vlaspillpart)"
+    p.Add "(headless) (query vlaspillplain)"
+    p.Add "(headless) (query vlaspillsched)"
+    p.Add "(headless) (query widehosttest1)"
+    p.Add "(headless) (rule (indirect X Y) (reportstohosttest1 X Y)) (rule (indirect X Y) (reportstohosttest1 X Z) (indirect Z Y)) (query indirect)"
+    p.Add "(headless) (rule (ok X) (personhosttest1 X) (not (emptydataloghosttest1 X))) (query ok)"
+    p.Add "(headless) (rule (rich X) (staffinghosttest1 (name X) (salary S)) (> S 80000)) (query rich)"
+    p.Add "(query (not (leave X Y)))"
+    p.Add "(query (not (staff (name ""Ann"") (level 3))))"
+    p.Add "(query (staff (name ""Ann"") (level 3)))"
+    p.Add "(query (sub-atom ""abc"" 0 1 A ""a""))"
+    p.Add "(query p)"
+    p.Add "(query pp)"
+    p.Add "(rule (allkeyed N S D) (staffing (name N) (salary S) (dept D))) (query allkeyed)"
+    p.Add "(rule (bad X S) (staffing (name X) (bogus S))) (query bad)"
+    p.Add "(rule (bad X Y) (staffing (name X) (name Y))) (query bad)"
+    p.Add "(rule (bad X Y) (staffing (name X) (salary (foo Y)))) (query bad)"
+    p.Add "(rule (bad X) (staffing X (salary S))) (query bad)"
+    p.Add "(rule (bad X) (widget (foo X))) (fact (widget a b)) (query bad)"
+    p.Add "(rule (can-cover Person Shift) (rota (name Person) (shift Shift))) (query (can-cover ""Bob"" ""Night""))"
+    p.Add "(rule (foo X Y) (bar X)) (query foo)"
+    p.Add "(rule (forty N) (codes (code C) (name N)) (text-starts-with C 40)) (query forty)"
+    p.Add "(rule (half N) (codes (code C) (name N)) (text-starts-with C ""0.5"")) (query half)"
+    p.Add "(rule (has-level P L) (staff (name P) (level L))) (query (has-level ""Ann"" 3))"
+    p.Add "(rule (has-level P L) (staff (name P) (level L))) (query (has-level ""Bob"" 3))"
+    p.Add "(rule (has-level P L) (staff (name P) (level L))) (query (not (has-level ""Ann"" 3)))"
+    p.Add "(rule (has-level P L) (staff (name P) (level L))) (query (not (has-level Who 2)))"
+    p.Add "(rule (has-level P L) (staff (name P) (level L))) (query (not (has-level Who 3)))"
+    p.Add "(rule (highearner X) (staff X S) (> S 80000)) (query highearner)"
+    p.Add "(rule (indirect_report X Y) (reports_to X Y)) (rule (indirect_report X Y) (reports_to X Z) (indirect_report Z Y)) (query indirect_report)"
+    p.Add "(rule (levels N L) (staff (name N)) (textjoin L "", "" (staff (name N) (level V)))) (query levels)"
+    p.Add "(rule (pair X Y) (staffing (name X)) (staffing (name Y))) (query pair)"
+    p.Add "(rule (rich X) (staffing (name X) (salary S)) (> S 80000)) (query rich)"
+    p.Add "(rule (senior X) (staf (name X) (level L)) (> L 2)) (query senior)"
+    p.Add "(rule (staffing (name X)) (staffing (name X))) (query staffing)"
+    p.Add "(rule (who P) (vlaspillempty (name P))) (query who)"
+    p.Add "(rule (who P) (vlaspillsched (name P))) (query who)"
+    p.Add "(rule (who X) (emptydataloghosttest1 X)) (query who)"
+    p.Add "(rule (zeros N) (codes (code C) (name N)) (text-starts-with C ""00"")) (query zeros)"
+    p.Add "; only a comment"
+    Set DatalogParityPrograms = p
+End Function
+
+' ---------------------------------------------------------------------
+'  OPTIMIZE.1: the six forms, their shapes, and the five result states.
+'
+'  Everything here is a SPELLING pin. None of the six forms executes in
+'  this version, so what is being proved is narrow and load-bearing:
+'  that each spelling PARSES (reaching its not-yet refusal rather than a
+'  shape refusal), that a wrong shape is refused by name rather than
+'  guessed, and that the words of every refusal say what they say. A
+'  spelling settled now and refused clearly now is a spelling nobody has
+'  to change later (SD-4), and that is this item's actual product.
+'
+'  THE SECTION 17 BLOCK is the scoping run's own proof. Every rule line
+'  of scripts/pareto_logic.txt section 17 that needs a shape - the
+'  killer case's count from a Table column, duty-rotation's two-atom
+'  group, the wedding's weights from a column, the two per-row choices,
+'  the implications - is written out in the settled spellings and
+'  required to parse. The three shapes this item's scoping added
+'  ((per ...), choose-any, and a variable cost) are each there because
+'  one of those lines could not be said without it.
+' ---------------------------------------------------------------------
+
+' The words a program's refusal carries, or "(no refusal)" if it did
+' not refuse. Err.Number and Err.Description are both read before
+' On Error GoTo 0, which clears them.
+Private Function OptRefusalOf(ByVal program As String) As String
+    Dim d As String
+    Dim num As Long
+    On Error Resume Next
+    Err.Clear
+    VLA_Optimize.OptimizeRun program
+    num = Err.Number
+    d = Err.Description
+    On Error GoTo 0
+    If num = 0 Then
+        OptRefusalOf = "(no refusal)"
+    Else
+        OptRefusalOf = d
+    End If
+End Function
+
+Private Sub AssertOptRefusal(ByVal name As String, ByVal program As String, ByVal frag As String)
+    Dim d As String
+    d = OptRefusalOf(program)
+    Report name, InStr(1, d, frag, vbTextCompare) > 0, "got: " & d
+End Sub
+
+Private Sub TestOptimizeForms()
+    Dim v As Variant
+    Dim words As String
+
+    ' --- the five choice spellings, each parsing and refusing ---------
+    AssertOptRefusal "optimize forms: choose-exactly parses and is refused by name", _
+        "(fact (elig s p)) (choose-exactly 2 (assign S P) (elig S P)) (query elig)", _
+        "asks OPTIMIZE to make a choice"
+    AssertOptRefusal "optimize forms: choose-at-least parses and is refused by name", _
+        "(fact (elig s p)) (choose-at-least 2 (assign S P) (elig S P)) (query elig)", _
+        "asks OPTIMIZE to make a choice"
+    AssertOptRefusal "optimize forms: choose-at-most parses and is refused by name", _
+        "(fact (elig s p)) (choose-at-most 2 (assign S P) (elig S P)) (query elig)", _
+        "asks OPTIMIZE to make a choice"
+    AssertOptRefusal "optimize forms: choose-between parses and is refused by name", _
+        "(fact (elig s p)) (choose-between 2 4 (assign S P) (elig S P)) (query elig)", _
+        "asks OPTIMIZE to make a choice"
+    AssertOptRefusal "optimize forms: choose-any parses and is refused by name", _
+        "(fact (link a b)) (choose-any (on F T) (link F T)) (query link)", _
+        "asks OPTIMIZE to make a choice"
+
+    ' A bare (choose ...) is refused BY NAME, listing all five - so the
+    ' one word nobody should write teaches the five that work, and
+    ' nothing in a formula bar resembles Excel's own CHOOSE.
+    AssertOptRefusal "optimize forms: a bare (choose ...) is refused, listing the five", _
+        "(fact (elig s p)) (choose 2 (assign S P) (elig S P)) (query elig)", _
+        "choose-exactly, choose-at-least, choose-at-most, choose-between, or choose-any"
+
+    ' --- hard rules, both polarities ----------------------------------
+    AssertOptRefusal "optimize forms: require parses and is refused by name", _
+        "(fact (reviews t p)) (require (senior P) (reviews T P)) (query reviews)", _
+        "a rule about every possible answer"
+    AssertOptRefusal "optimize forms: a ground require (no body) parses", _
+        "(fact (seat a h)) (require (seat ""Ann"" ""Head"")) (query seat)", _
+        "a rule about every possible answer"
+    AssertOptRefusal "optimize forms: forbid parses and is refused by name", _
+        "(fact (prepares t p)) (forbid (prepares T P) (reviews T P)) (query prepares)", _
+        "a rule about every possible answer"
+
+    ' --- soft preferences ---------------------------------------------
+    AssertOptRefusal "optimize forms: prefer parses and is refused by name", _
+        "(fact (wish a b)) (prefer (together A B) (wish A B)) (query wish)", _
+        "says what a good answer looks like"
+    AssertOptRefusal "optimize forms: avoid parses and is refused by name", _
+        "(fact (off p s)) (avoid (assign S P) (off P S)) (query off)", _
+        "says what a good answer looks like"
+    AssertOptRefusal "optimize forms: prefer takes an optional (cost N)", _
+        "(fact (wish a b)) (prefer (together A B) (wish A B) (cost 2)) (query wish)", _
+        "says what a good answer looks like"
+
+    ' --- objectives ---------------------------------------------------
+    AssertOptRefusal "optimize forms: minimize parses and is refused by name", _
+        "(fact (ot p)) (minimize (overtime P) (ot P)) (query ot)", _
+        "as small or as large as possible"
+    AssertOptRefusal "optimize forms: maximize parses and is refused by name", _
+        "(fact (m i)) (maximize (margin I) (m I)) (query m)", _
+        "as small or as large as possible"
+    AssertOptRefusal "optimize forms: minimise is the same form (the OPTIMISE courtesy)", _
+        "(fact (ot p)) (minimise (overtime P) (ot P)) (query ot)", _
+        "as small or as large as possible"
+    AssertOptRefusal "optimize forms: maximise is the same form", _
+        "(fact (m i)) (maximise (margin I) (m I)) (query m)", _
+        "as small or as large as possible"
+
+    ' --- the kept schedule --------------------------------------------
+    AssertOptRefusal "optimize forms: fewest-changes-from parses and is refused by name", _
+        "(fact (p a)) (fewest-changes-from LastMonth) (query p)", _
+        "names a schedule to stay close to"
+
+    ' --- the budget, as effort ----------------------------------------
+    AssertOptRefusal "optimize forms: (effort quick) parses", _
+        "(fact (p a)) (effort quick) (query p)", "sets how much work"
+    AssertOptRefusal "optimize forms: (effort normal) parses", _
+        "(fact (p a)) (effort normal) (query p)", "sets how much work"
+    AssertOptRefusal "optimize forms: (effort thorough) parses", _
+        "(fact (p a)) (effort thorough) (query p)", "sets how much work"
+    AssertOptRefusal "optimize forms: (effort 50000) parses - a number, for experts", _
+        "(fact (p a)) (effort 50000) (query p)", "sets how much work"
+    AssertOptRefusal "optimize forms: an unknown effort level is refused by name", _
+        "(fact (p a)) (effort sideways) (query p)", "is not an effort level"
+    AssertOptRefusal "optimize forms: (effort 0) is refused - no work is not a budget", _
+        "(fact (p a)) (effort 0) (query p)", "is not an effort level"
+    AssertOptRefusal "optimize forms: an effort of two words is refused", _
+        "(fact (p a)) (effort quick thorough) (query p)", "is written wrong"
+
+    ' --- shapes refused rather than guessed ---------------------------
+    AssertOptRefusal "optimize forms: choose-exactly with no pool is refused", _
+        "(fact (p a)) (choose-exactly 2 (assign S P)) (query p)", "is written wrong"
+    AssertOptRefusal "optimize forms: choose-exactly with too many parts is refused", _
+        "(fact (p a)) (choose-exactly 2 (assign S P) (elig S P) (per (sh S)) (extra X)) (query p)", _
+        "is written wrong"
+    AssertOptRefusal "optimize forms: a count that is neither a number nor a name is refused", _
+        "(fact (p a)) (choose-exactly ""two"" (assign S P) (elig S P)) (query p)", _
+        "'two' is neither a whole number of zero or more nor a name"
+    ' "of zero or more" is load-bearing in the words, not decoration:
+    ' -1 IS a whole number, and the first draft of this message said
+    ' only "a whole number", which would have been wrong about the very
+    ' next assertion. The fragment quotes the count too, so a refusal
+    ' about the wrong slot cannot pass either of these.
+    AssertOptRefusal "optimize forms: a negative count is refused", _
+        "(fact (p a)) (choose-exactly -1 (assign S P) (elig S P)) (query p)", _
+        "'-1' is neither a whole number of zero or more nor a name"
+    AssertOptRefusal "optimize forms: choose-between with its numbers the wrong way round is refused", _
+        "(fact (p a)) (choose-between 4 2 (assign S P) (elig S P)) (query p)", _
+        "write the smaller number first"
+    AssertOptRefusal "optimize forms: a bare word where a row belongs is refused", _
+        "(fact (p a)) (choose-exactly 2 assign (elig S P)) (query p)", "is not one"
+    AssertOptRefusal "optimize forms: a bare word where the pool belongs is refused", _
+        "(fact (p a)) (choose-exactly 2 (assign S P) elig) (query p)", "is not one"
+    AssertOptRefusal "optimize forms: a misspelled (per ...) is refused, not ignored", _
+        "(fact (p a)) (choose-exactly 2 (assign S P) (elig S P) (pre (sh S))) (query p)", _
+        "is written wrong"
+    AssertOptRefusal "optimize forms: an empty (per) is refused", _
+        "(fact (p a)) (choose-exactly 2 (assign S P) (elig S P) (per)) (query p)", _
+        "at least one row to group by"
+    AssertOptRefusal "optimize forms: choose-any with a count is refused - it takes none", _
+        "(fact (p a)) (choose-any 1 (on F T) (link F T)) (query p)", "is written wrong"
+    AssertOptRefusal "optimize forms: a (cost ...) holding a row is refused", _
+        "(fact (p a)) (prefer (together A B) (cost (w A))) (query p)", "not a row"
+    AssertOptRefusal "optimize forms: a (cost ...) of two things is refused", _
+        "(fact (p a)) (prefer (together A B) (cost 1 2)) (query p)", "is written wrong"
+    AssertOptRefusal "optimize forms: a (prefer ...) that is only a cost is refused", _
+        "(fact (p a)) (prefer (cost 1)) (query p)", "is written wrong"
+    AssertOptRefusal "optimize forms: fewest-changes-from needs exactly one name", _
+        "(fact (p a)) (fewest-changes-from A B) (query p)", "is written wrong"
+    AssertOptRefusal "optimize forms: fewest-changes-from of a row is refused", _
+        "(fact (p a)) (fewest-changes-from (t X)) (query p)", "not a row"
+    AssertOptRefusal "optimize forms: an unknown top-level form is refused, listing OPTIMIZE's own", _
+        "(fact (p a)) (choos 2 (assign S P) (elig S P)) (query p)", _
+        "is not an OPTIMIZE form"
+    AssertOptRefusal "optimize forms: the unknown-form refusal names choose-any, not DATALOG's three forms", _
+        "(fact (p a)) (wibble x) (query p)", "choose-any"
+
+    ' --- section 17's own sentences, in the settled spellings ---------
+    '
+    ' Each of these is one line of scripts/pareto_logic.txt section 17,
+    ' written out. Reaching a not-yet refusal is the pass: it means the
+    ' spelling SAID the sentence. A shape refusal here would mean the
+    ' spellings cannot say something the corpus asks for, which is the
+    ' one thing this item's scoping run was for.
+
+    ' optimize-roster, the killer case: "every shift gets exactly the
+    ' people it needs" - the count comes from the Shifts table's own
+    ' Need column, which is why (per ...) exists and why a three-slot
+    ' choice form could not say this at all.
+    AssertOptRefusal "optimize forms (s17): the killer case's count comes from a Table column", _
+        "(fact (p a)) (choose-exactly N (assign S P) (elig S P) (per (shifts S N))) (query p)", _
+        "asks OPTIMIZE to make a choice"
+    ' optimize-duty-rotation: "every month, every person gets exactly
+    ' one duty" - a group of two, which is why (per ...) holds a list.
+    AssertOptRefusal "optimize forms (s17): a group of two things", _
+        "(fact (p a)) (choose-exactly 1 (assign M P D) (duty D) (per (month M) (person P))) (query p)", _
+        "asks OPTIMIZE to make a choice"
+    ' optimize-toy and optimize-audit-independence: exactly k per group.
+    AssertOptRefusal "optimize forms (s17): exactly two of the people on every shift", _
+        "(fact (p a)) (choose-exactly 2 (assign S P) (person P) (per (shift S))) (query p)", _
+        "asks OPTIMIZE to make a choice"
+    ' optimize-roster's needs as a range, the loose variant's shape.
+    AssertOptRefusal "optimize forms (s17): between two and four per shift", _
+        "(fact (p a)) (choose-between 2 4 (assign S P) (elig S P) (per (shift S))) (query p)", _
+        "asks OPTIMIZE to make a choice"
+    ' optimize-quote-bike: "each extra is in the quote or not", and
+    ' optimize-network-connect: "each link is switched on, or not" - the
+    ' two sentences that needed the fifth form.
+    AssertOptRefusal "optimize forms (s17): each extra is in the quote or not", _
+        "(fact (p a)) (choose-any (include I) (extra I)) (query p)", _
+        "asks OPTIMIZE to make a choice"
+    AssertOptRefusal "optimize forms (s17): each link is switched on, or not", _
+        "(fact (p a)) (choose-any (on F T) (links F T C)) (query p)", _
+        "asks OPTIMIZE to make a choice"
+    ' optimize-sod-close: "every reviewer is senior" - an implication,
+    ' and the reason require is not forbid with a not in it.
+    AssertOptRefusal "optimize forms (s17): every reviewer is senior", _
+        "(fact (p a)) (require (senior P) (reviews T P)) (query p)", _
+        "a rule about every possible answer"
+    ' optimize-seat-dinner: "Ann and Bob sit together" - the same
+    ' implication shape, earning itself a second time.
+    AssertOptRefusal "optimize forms (s17): Ann and Bob sit together", _
+        "(fact (p a)) (require (seat ""Bob"" T) (seat ""Ann"" T)) (query p)", _
+        "a rule about every possible answer"
+    ' optimize-roster-senior, through a derived rule doing the
+    ' existential: this is why nothing spells `exists`.
+    AssertOptRefusal "optimize forms (s17): every night has a senior, through a derived rule", _
+        "(fact (night n)) (rule (covered N) (night N) (assign N P) (senior P)) (require (covered N) (night N)) (query night)", _
+        "a rule about every possible answer"
+    ' optimize-roster-apart: "Brianna and Tyler never work the same
+    ' shift", read from an Apart table.
+    AssertOptRefusal "optimize forms (s17): two named people never share a shift", _
+        "(fact (p a)) (forbid (assign S A) (assign S B) (apart A B)) (query p)", _
+        "a rule about every possible answer"
+    ' optimize-roster-apart again: "Brianna asked for Saturday off if we
+    ' can" - a request is an objective term, never a rule.
+    AssertOptRefusal "optimize forms (s17): a request is a preference, not a rule", _
+        "(fact (p a)) (avoid (assign S P) (requests-off P S)) (query p)", _
+        "says what a good answer looks like"
+    ' optimize-seat-wedding: "the least total weight of wishes broken" -
+    ' the weight is a Table column, which is why (cost ...) takes a
+    ' variable and not only a number.
+    AssertOptRefusal "optimize forms (s17): the wedding's weights come from a Table column", _
+        "(fact (p a)) (minimize (split A B) (wishes A B W) (cost W)) (query p)", _
+        "as small or as large as possible"
+    ' optimize-config-laptop: "the laptop fits the dock, and the dock
+    ' fits the monitor".
+    AssertOptRefusal "optimize forms (s17): the laptop fits the dock", _
+        "(fact (p a)) (require (fits A B) (pick ""laptop"" A) (pick ""dock"" B)) (query p)", _
+        "a rule about every possible answer"
+    ' optimize-quote-bike: "carbon wheels need the carbon frame", and
+    ' "the quote includes the child seat".
+    AssertOptRefusal "optimize forms (s17): carbon wheels need the carbon frame", _
+        "(fact (p a)) (require (include ""carbon-frame"") (include ""carbon-wheels"")) (query p)", _
+        "a rule about every possible answer"
+    ' optimize-roster-kept, and OPTIMIZE.7's own case.
+    AssertOptRefusal "optimize forms (s17): change last week's roster as little as possible", _
+        "(fact (p a)) (fewest-changes-from Kept) (query p)", _
+        "names a schedule to stay close to"
+    ' optimize-sod-close's objective: "as few preparing roles as
+    ' possible go to seniors" - a count of matching rows, which needs no
+    ' cost at all (the default of 1).
+    AssertOptRefusal "optimize forms (s17): as few preparing roles as possible go to seniors", _
+        "(fact (p a)) (minimize (prepares T P) (senior P)) (query p)", _
+        "as small or as large as possible"
+    ' optimize-quote-bike's "the highest total margin", a maximum whose
+    ' weight is a column, and optimize-config-laptop's "lowest total
+    ' price" - the same one shape, twice.
+    AssertOptRefusal "optimize forms (s17): the highest total margin", _
+        "(fact (p a)) (maximize (include I) (catalogue I K Price Margin) (cost Margin)) (query p)", _
+        "as small or as large as possible"
+    ' Written order is priority: "least overtime first; then the fewest
+    ' changes from Kept". Two objectives in one program, and the first
+    ' one written is the one refused.
+    AssertOptRefusal "optimize forms (s17): two objectives, and written order is priority", _
+        "(fact (p a)) (minimize (overtime P) (person P)) (minimize (changed S P) (kept S P)) (query p)", _
+        "as small or as large as possible"
+
+    ' --- the five reserved result states, and their words -------------
+    Report "optimize states: a refusal's words", _
+           VLA_Optimize.OptimizeStatusWords(VLA_Optimize.VLA_OPTIMIZE_REFUSED) = _
+           "this program could not be read; the cell says why", _
+           "got: " & VLA_Optimize.OptimizeStatusWords(VLA_Optimize.VLA_OPTIMIZE_REFUSED)
+    Report "optimize states: no schedule satisfies every rule", _
+           VLA_Optimize.OptimizeStatusWords(VLA_Optimize.VLA_OPTIMIZE_NO_SCHEDULE) = _
+           "no schedule satisfies every rule", _
+           "got: " & VLA_Optimize.OptimizeStatusWords(VLA_Optimize.VLA_OPTIMIZE_NO_SCHEDULE)
+    Report "optimize states: none found within the budget, but there may be one", _
+           VLA_Optimize.OptimizeStatusWords(VLA_Optimize.VLA_OPTIMIZE_NONE_IN_BUDGET) = _
+           "no schedule found within the budget; there may be one", _
+           "got: " & VLA_Optimize.OptimizeStatusWords(VLA_Optimize.VLA_OPTIMIZE_NONE_IN_BUDGET)
+    ' The name's own honesty rule, in the difference between these two.
+    Report "optimize states: best found within the budget, NOT proven best", _
+           VLA_Optimize.OptimizeStatusWords(VLA_Optimize.VLA_OPTIMIZE_BEST_IN_BUDGET) = _
+           "best found within the budget, not proven best", _
+           "got: " & VLA_Optimize.OptimizeStatusWords(VLA_Optimize.VLA_OPTIMIZE_BEST_IN_BUDGET)
+    words = VLA_Optimize.OptimizeStatusWords(VLA_Optimize.VLA_OPTIMIZE_PROVEN_BEST)
+    Report "optimize states: proven best says WHY nothing was searched", _
+           InStr(1, words, "proven best", vbTextCompare) = 1 And _
+           InStr(1, words, "makes no choices", vbTextCompare) > 0, "got: " & words
+    Report "optimize states: the five states are five different numbers", _
+           VLA_Optimize.VLA_OPTIMIZE_REFUSED = 0 And VLA_Optimize.VLA_OPTIMIZE_NO_SCHEDULE = 1 And _
+           VLA_Optimize.VLA_OPTIMIZE_NONE_IN_BUDGET = 2 And VLA_Optimize.VLA_OPTIMIZE_BEST_IN_BUDGET = 3 And _
+           VLA_Optimize.VLA_OPTIMIZE_PROVEN_BEST = 4, "the reserved numbers moved"
+    ' A sixth state announces itself rather than answering blankly.
+    Dim stateErr As Long
+    On Error Resume Next
+    Err.Clear
+    VLA_Optimize.OptimizeStatusWords 5
+    stateErr = Err.Number
+    On Error GoTo 0
+    Report "optimize states: a sixth state is refused, not answered blankly", stateErr <> 0, "no error raised"
+
+    ' The three effort levels carry no number yet, on purpose: a number
+    ' published before it means anything is a number users tune around.
+    Report "optimize effort: the three levels are deliberately unset until OPTIMIZE.3/.6 measure", _
+           VLA_Optimize.VLA_OPTIMIZE_WORK_QUICK = 0 And VLA_Optimize.VLA_OPTIMIZE_WORK_NORMAL = 0 And _
+           VLA_Optimize.VLA_OPTIMIZE_WORK_THOROUGH = 0, "a work count was set before it was measured"
+    Report "optimize effort: the default level is written down now", _
+           VLA_Optimize.VLA_OPTIMIZE_EFFORT_DEFAULT = "normal", _
+           "got: " & VLA_Optimize.VLA_OPTIMIZE_EFFORT_DEFAULT
+
+    ' --- the worksheet surface, all three names -----------------------
+    v = VLA_Optimize.OPTIMIZE("(fact (parent tom bob)) (fact (parent bob liz)) (query parent)")
+    Report "optimize cell: a zero-choice program spills headers plus its rows", _
+           ResultRowCount(v) = 3 And ResultColCount(v) = 2, _
+           "shape " & ResultRowCount(v) & "x" & ResultColCount(v)
+    v = VLA_Optimize.OPTIMISE("(fact (parent tom bob)) (fact (parent bob liz)) (query parent)")
+    Report "optimize cell: OPTIMISE answers exactly what OPTIMIZE does", _
+           ResultRowCount(v) = 3 And ResultColCount(v) = 2, _
+           "shape " & ResultRowCount(v) & "x" & ResultColCount(v)
+    v = VLA_Optimize.OPTIMIZE_STATUS("(fact (parent tom bob)) (query parent)")
+    Report "optimize cell: OPTIMIZE_STATUS says proven best for a zero-choice program", _
+           ResultTextStartsWith(v, "proven best"), "got: " & ResultDescribe(v)
+
+    ' A query with no rows: THE HEADER ROW, WITH NOTHING UNDER IT. This
+    ' is the "no schedule" answer's shape from the first day, and it
+    ' needs no code of its own - it is what a DATALOG query with no rows
+    ' already gives. A word in the cell would not spill, so a reader's
+    ' N2# would become #REF! (measured live, DATALOG.15 step 12); a word
+    ' in a ROW would become data. The words live in OPTIMIZE_STATUS.
+    v = VLA_Optimize.OPTIMIZE("(fact (thing a)) (rule (none_here X) (thing X) (thing zzz)) (query none_here)")
+    Report "optimize cell: no rows spills the header row and nothing under it", _
+           ResultRowCount(v) = 1 And ResultCellIs(v, 1, 1, "X"), _
+           "shape " & ResultRowCount(v) & "x" & ResultColCount(v)
+
+    ' A refusal stays #OPTIMIZE! TEXT, where breaking the readers is the
+    ' right thing to do - and the prefix names the function the user
+    ' called even when the words are the shared engine's.
+    v = VLA_Optimize.OPTIMIZE("(fact (elig s p)) (choose-exactly 2 (assign S P) (elig S P)) (query elig)")
+    Report "optimize cell: a refusal is readable #OPTIMIZE! text", _
+           ResultTextStartsWith(v, "#OPTIMIZE!"), "got: " & ResultDescribe(v)
+    v = VLA_Optimize.OPTIMIZE("(fact (p a))")
+    Report "optimize cell: a DATALOG refusal reaches the cell under the OPTIMIZE prefix", _
+           ResultTextStartsWith(v, "#OPTIMIZE!"), "got: " & ResultDescribe(v)
+    v = VLA_Optimize.OPTIMISE("(fact (p a))")
+    Report "optimize cell: OPTIMISE refuses under the same prefix, not its own", _
+           ResultTextStartsWith(v, "#OPTIMIZE!"), "got: " & ResultDescribe(v)
+    v = VLA_Optimize.OPTIMIZE_STATUS("(fact (p a))")
+    Report "optimize cell: OPTIMIZE_STATUS refuses as text too", _
+           ResultTextStartsWith(v, "#OPTIMIZE!"), "got: " & ResultDescribe(v)
+    ' A table argument that is not a range, worded as OPTIMIZE's own
+    ' rather than as DATALOG's - the PROLOG/SQL precedent.
+    v = VLA_Optimize.OPTIMIZE("(fact (p a)) (query p)", 42)
+    Report "optimize cell: a table argument that is not a range names OPTIMIZE, not DATALOG", _
+           ResultTextHas(v, "#OPTIMIZE!") And ResultTextHas(v, "every OPTIMIZE table argument"), _
+           "got: " & ResultDescribe(v)
+
+    ' `rule` is unchanged from DATALOG, and stays the word (the owner's
+    ' call): a rule whose body reads chosen rows means what it says.
+    ' What OPTIMIZE.5 refuses is narrower, and its refusal is RESERVED
+    ' here with its wording - unreachable until a choice runs, which is
+    ' exactly why the words are pinned now.
+    Report "optimize forms: a recursive rule over the DATA still answers, as in DATALOG", _
+           ParityVerdict("(fact (reports_to alice bob)) (fact (reports_to bob carol)) " & _
+                         "(rule (indirect X Y) (reports_to X Y)) " & _
+                         "(rule (indirect X Y) (reports_to X Z) (indirect Z Y)) (query indirect)") = "", _
+           "a recursive rule over data differed between the engines"
+End Sub
+
+' ---------------------------------------------------------------------
+'  OPTIMIZE.1: the memo (standing decision 1).
+'
+'  Three properties, and the third is the one that matters most:
+'    1. Two cells asking the same question run ONE search.
+'    2. A changed input is a different question, and runs another.
+'    3. LOSING THE MEMO CHANGES NO ANSWER. OPTIMIZE.0's probe found
+'       that a VBA project reset wipes every module variable, and that
+'       after one the next structural change re-ran every UDF in the
+'       workbook (C7). So the memo must tolerate being lost at any
+'       moment; the pin is to lose it between two calls, which
+'       OptimizeMemoClear does exactly.
+' ---------------------------------------------------------------------
+Private Sub TestOptimizeMemo()
+    Dim a As Collection, b As Collection
+    Dim runsBefore As Long
+    Dim keyA As String, keyB As String
+    Dim bases As Object
+    Dim arr(1 To 1, 1 To 2) As Variant
+    Dim i As Long
+    Const prog As String = "(fact (parent tom bob)) (fact (parent bob liz)) (query parent)"
+
+    VLA_Optimize.OptimizeMemoClear
+    Report "optimize memo: a cleared memo holds nothing and has run nothing", _
+           VLA_Optimize.OptimizeMemoCount() = 0 And VLA_Optimize.OptimizeMemoRuns() = 0, _
+           "count " & VLA_Optimize.OptimizeMemoCount() & ", runs " & VLA_Optimize.OptimizeMemoRuns()
+
+    Set a = VLA_Optimize.OptimizeRun(prog)
+    Report "optimize memo: the first ask runs one search", VLA_Optimize.OptimizeMemoRuns() = 1, _
+           "runs " & VLA_Optimize.OptimizeMemoRuns()
+    Set b = VLA_Optimize.OptimizeRun(prog)
+    Report "optimize memo: TWO CELLS, ONE SEARCH - the second ask runs none", _
+           VLA_Optimize.OptimizeMemoRuns() = 1, "runs " & VLA_Optimize.OptimizeMemoRuns()
+    Report "optimize memo: and the second ask gives the same answer", _
+           ParityRelationKey(VLA_Runtime.VlaDictGet(a.Item(2), CStr(a.Item(1)))) = _
+           ParityRelationKey(VLA_Runtime.VlaDictGet(b.Item(2), CStr(b.Item(1)))), _
+           "the memoized answer differed"
+    Report "optimize memo: the status comes from the memo too, at no cost", _
+           CStr(a.Item(7)) = CStr(b.Item(7)) And VLA_Optimize.OptimizeMemoRuns() = 1, _
+           "runs " & VLA_Optimize.OptimizeMemoRuns()
+
+    ' THE RESET. Everything the memo held is gone, as a project reset
+    ' leaves it - and the answer is the same, which is the whole
+    ' contract: faster, never different.
+    VLA_Optimize.OptimizeMemoClear
+    Set b = VLA_Optimize.OptimizeRun(prog)
+    Report "optimize memo: A RESET BETWEEN TWO CELLS costs a search and changes no answer", _
+           VLA_Optimize.OptimizeMemoRuns() = 1 And _
+           ParityRelationKey(VLA_Runtime.VlaDictGet(a.Item(2), CStr(a.Item(1)))) = _
+           ParityRelationKey(VLA_Runtime.VlaDictGet(b.Item(2), CStr(b.Item(1)))), _
+           "the answer changed across a reset"
+
+    ' A different program is a different question.
+    runsBefore = VLA_Optimize.OptimizeMemoRuns()
+    VLA_Optimize.OptimizeRun "(fact (parent tom bob)) (query parent)"
+    Report "optimize memo: a different program runs its own search", _
+           VLA_Optimize.OptimizeMemoRuns() = runsBefore + 1, _
+           "runs " & VLA_Optimize.OptimizeMemoRuns()
+
+    ' A changed TABLE is a different question, even with identical
+    ' rules text - which is the half of the key that a hash of the
+    ' rules alone would have missed.
+    arr(1, 1) = "alice": arr(1, 2) = "bob"
+    Set bases = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet bases, "reports_to", VLA_Relation.RelFromRange(arr)
+    keyA = VLA_Optimize.OptimizeMemoKey("(query reports_to)", bases, VLA_Runtime.VlaDictNew())
+    arr(1, 2) = "carol"
+    Set bases = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet bases, "reports_to", VLA_Relation.RelFromRange(arr)
+    keyB = VLA_Optimize.OptimizeMemoKey("(query reports_to)", bases, VLA_Runtime.VlaDictNew())
+    Report "optimize memo: one edited cell in one Table is a different key", keyA <> keyB, _
+           "the same key for different data"
+
+    ' And the same data is the same key, or the memo would never hit.
+    arr(1, 2) = "bob"
+    Set bases = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet bases, "reports_to", VLA_Relation.RelFromRange(arr)
+    Report "optimize memo: the same rules and the same data give the same key", _
+           VLA_Optimize.OptimizeMemoKey("(query reports_to)", bases, VLA_Runtime.VlaDictNew()) = keyA, _
+           "the key is not deterministic"
+
+    ' A renamed COLUMN changes what a keyed rule resolves to, so it has
+    ' to change the key even though no value moved.
+    Dim hdrA As Object, hdrB As Object
+    Set hdrA = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet hdrA, "reports_to", TwoColPair("boss", "Boss")
+    Set hdrB = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet hdrB, "reports_to", TwoColPair("chief", "Chief")
+    Report "optimize memo: a renamed column is a different key, though no value moved", _
+           VLA_Optimize.OptimizeMemoKey("(query reports_to)", bases, hdrA) <> _
+           VLA_Optimize.OptimizeMemoKey("(query reports_to)", bases, hdrB), _
+           "a header rename left the key alone"
+
+    ' A refusal is never memoized: it is cheap, and a stale one would
+    ' be a lie.
+    VLA_Optimize.OptimizeMemoClear
+    For i = 1 To 3
+        OptRefusalOf "(fact (p a)) (effort sideways) (query p)"
+    Next i
+    Report "optimize memo: a refusal is never memoized", VLA_Optimize.OptimizeMemoCount() = 0, _
+           "count " & VLA_Optimize.OptimizeMemoCount()
+
+    ' The cap holds, so a workbook of many OPTIMIZE cells cannot grow
+    ' the session's memory without bound.
+    VLA_Optimize.OptimizeMemoClear
+    For i = 1 To 40
+        VLA_Optimize.OptimizeRun "(fact (p a" & i & ")) (query p)"
+    Next i
+    Report "optimize memo: the memo is capped, and holds at most sixteen answers", _
+           VLA_Optimize.OptimizeMemoCount() <= 16 And VLA_Optimize.OptimizeMemoRuns() = 40, _
+           "count " & VLA_Optimize.OptimizeMemoCount() & ", runs " & VLA_Optimize.OptimizeMemoRuns()
+    VLA_Optimize.OptimizeMemoClear
+End Sub
+
+' One (folded, original) column-name pair, in the Collection-of-pairs
+' shape VLA_Relation.RangeColumnNames returns - the memo key reads it
+' the same way the engines do.
+Private Function TwoColPair(ByVal folded As String, ByVal original As String) As Collection
+    Dim cols As Collection
+    Set cols = New Collection
+    Dim pair As Collection
+    Set pair = New Collection
+    pair.Add folded
+    pair.Add original
+    cols.Add pair
+    Set TwoColPair = cols
+End Function
+
+' ---------------------------------------------------------------------
+'  OPTIMIZE.1: the host pins - a real Table, a real Unicode cell, and
+'  decision 1's "one search, many views" on a real sheet.
+'
+'  Why these need a live workbook at all, when everything above is
+'  pure: every real bug this family's own MVP found showed up only
+'  through the real =OPTIMIZE(...) path (this module's own header note),
+'  and step 1's whole reason for existing is what a real cell's Value2
+'  hands the encoder - which no hand-built array can prove.
+' ---------------------------------------------------------------------
+Private Sub TestOptimizeHostTable()
+    Dim prior As Worksheet
+    Set prior = ActiveSheet
+    Dim q As String
+    q = Chr$(34)
+
+    On Error Resume Next
+    ActiveWorkbook.Names("VlaOptSpill").Delete
+    On Error GoTo 0
+
+    VlaEnsureSheet "VlaOptimizeHostSheet"
+    Dim ws As Worksheet
+    Set ws = ActiveWorkbook.Worksheets("VlaOptimizeHostSheet")
+    ws.Activate
+    Do While ws.ListObjects.Count > 0
+        ws.ListObjects(1).Delete
+    Loop
+    ws.Cells.Clear
+
+    ' A two-edge chain, as TestDatalogHostTable's own fixture has it.
+    ws.Range("A1:B1").Value = Array("P", "C")
+    ws.Range("A2:B2").Value = Array("alice", "bob")
+    ws.Range("A3:B3").Value = Array("bob", "carol")
+    Dim loEdges As ListObject
+    Set loEdges = ws.ListObjects.Add(xlSrcRange, ws.Range("A1:B3"), , xlYes)
+    loEdges.Name = "ReportsToOptTest1"
+
+    ' A Dim rather than a Const: VBA's constant expressions are fussy
+    ' about a continued concatenation, and this is not a hot path.
+    Dim closure As String
+    closure = "(rule (indirect X Y) (reportstoopttest1 X Y))" & _
+              " (rule (indirect X Y) (reportstoopttest1 X Z) (indirect Z Y))" & _
+              " (query indirect)"
+
+    ' The same live Table, through both engines: the parity claim on the
+    ' path a user actually takes.
+    Dim viaDatalog As Variant, viaOptimize As Variant, viaOptimise As Variant
+    viaDatalog = VLA_Datalog.DATALOG(closure, loEdges.Range)
+    viaOptimize = VLA_Optimize.OPTIMIZE(closure, loEdges.Range)
+    viaOptimise = VLA_Optimize.OPTIMISE(closure, loEdges.Range)
+    Report "optimize host: a recursive rule over a LIVE Table answers 3 rows plus a header", _
+           ResultRowCount(viaOptimize) = 4 And ResultColCount(viaOptimize) = 2, _
+           "got: " & ResultDescribe(viaOptimize)
+    Report "optimize host: OPTIMIZE's live answer has DATALOG's own shape", _
+           ResultRowCount(viaOptimize) = ResultRowCount(viaDatalog) And _
+           ResultColCount(viaOptimize) = ResultColCount(viaDatalog), _
+           "OPTIMIZE " & ResultDescribe(viaOptimize) & " against DATALOG " & ResultDescribe(viaDatalog)
+    Report "optimize host: and its header row is the rule's own variables", _
+           ResultCellIs(viaOptimize, 1, 1, "X") And ResultCellIs(viaOptimize, 1, 2, "Y"), _
+           "got: " & ResultDescribe(viaOptimize)
+    Report "optimize host: OPTIMISE answers the same over the same Table", _
+           ResultRowCount(viaOptimise) = 4 And ResultColCount(viaOptimise) = 2, _
+           "got: " & ResultDescribe(viaOptimise)
+
+    ' TWO CELLS, ONE SEARCH - over real Ranges, which is the case
+    ' standing decision 1 is actually about.
+    VLA_Optimize.OptimizeMemoClear
+    VLA_Optimize.OPTIMIZE closure, loEdges.Range
+    Dim runsAfterFirst As Long
+    runsAfterFirst = VLA_Optimize.OptimizeMemoRuns()
+    Dim statusCell As Variant
+    statusCell = VLA_Optimize.OPTIMIZE_STATUS(closure, loEdges.Range)
+    Report "optimize host: an answer cell and a status cell over one Table run ONE search", _
+           runsAfterFirst = 1 And VLA_Optimize.OptimizeMemoRuns() = 1, _
+           "runs " & runsAfterFirst & " then " & VLA_Optimize.OptimizeMemoRuns()
+    Report "optimize host: and the status cell says proven best", _
+           ResultTextStartsWith(statusCell, "proven best"), "got: " & ResultDescribe(statusCell)
+
+    ' A RESET BETWEEN THE TWO CELLS, which OPTIMIZE.0's probe C7 says
+    ' can happen at any moment: it costs a search and changes nothing.
+    VLA_Optimize.OptimizeMemoClear
+    Dim statusAfterReset As Variant
+    statusAfterReset = VLA_Optimize.OPTIMIZE_STATUS(closure, loEdges.Range)
+    Report "optimize host: a memo wiped between the two cells changes no answer", _
+           ResultTextStartsWith(statusAfterReset, "proven best") And _
+           VLA_Optimize.OptimizeMemoRuns() = 1, _
+           "got: " & ResultDescribe(statusAfterReset) & ", runs " & VLA_Optimize.OptimizeMemoRuns()
+
+    ' --- step 1's host pin: a real Unicode cell -----------------------
+    '
+    ' The one thing no hand-built array can prove: what a live cell's
+    ' Value2 hands the key encoder. "Zoe" with a diaeresis is the exact
+    ' string VlaSha256HexOfAsciiText could not carry - its StrConv goes
+    ' through the ANSI code page - and the memo may never hand one
+    ' workbook's answer to another workbook's inputs.
+    ws.Range("D1").Value = "Name"
+    ws.Range("D2").Value = "Zo" & ChrW(&HEB)
+    ws.Range("D3").Value = "Bob"
+    Dim loNames As ListObject
+    Set loNames = ws.ListObjects.Add(xlSrcRange, ws.Range("D1:D3"), , xlYes)
+    loNames.Name = "PeopleOptTest1"
+
+    Dim keyUnicode As String, keyUnicodeAgain As String, keyAscii As String
+    keyUnicode = LiveTableMemoKey("(query peopleopttest1)", loNames.Range)
+    keyUnicodeAgain = LiveTableMemoKey("(query peopleopttest1)", loNames.Range)
+    Report "optimize host: a Unicode cell's memo key is the same on two reads", _
+           keyUnicode = keyUnicodeAgain And Len(keyUnicode) = 64, _
+           "got " & keyUnicode & " then " & keyUnicodeAgain
+    ws.Range("D2").Value = "Zoe"
+    keyAscii = LiveTableMemoKey("(query peopleopttest1)", loNames.Range)
+    Report "optimize host: Zoe with a diaeresis and plain Zoe are DIFFERENT keys", _
+           keyUnicode <> keyAscii, "one key for two different workbooks' data"
+    ws.Range("D2").Value = "Zo" & ChrW(&HEB)
+    Report "optimize host: and putting the diaeresis back gives the first key again", _
+           LiveTableMemoKey("(query peopleopttest1)", loNames.Range) = keyUnicode, _
+           "the key is not a function of the data alone"
+
+    ' The value itself survives the engine unchanged, so the key is
+    ' guarding something the answer really carries.
+    Dim uniAnswer As Variant
+    uniAnswer = VLA_Optimize.OPTIMIZE("(query peopleopttest1)", loNames.Range)
+    Report "optimize host: the Unicode value reaches the spill unchanged", _
+           ResultCellIs(uniAnswer, 2, 1, "Zo" & ChrW(&HEB)), "got: " & ResultDescribe(uniAnswer)
+
+    ' --- decision 1: ONE SEARCH, MANY VIEWS, on a real sheet ----------
+    '
+    ' An OPTIMIZE cell's own spill, named in the workbook's Names, read
+    ' back by a second OPTIMIZE question BY ITS COLUMN NAMES. This is
+    ' what DATALOG.15 was built ahead of this item for, and it is the
+    ' whole shape of the decision: a schedule is searched for once and
+    ' read as many times as you like.
+    Dim spillCell As Object
+    Set spillCell = ws.Range("G1")
+    On Error Resume Next
+    spillCell.Formula2 = "=OPTIMIZE(" & q & "(rule (pair X Y) (reportstoopttest1 X Y)) (query pair)" & q & ", ReportsToOptTest1)"
+    On Error GoTo 0
+    ws.Calculate
+    Dim spillRange As Object
+    On Error Resume Next
+    Set spillRange = spillCell.SpillingToRange
+    On Error GoTo 0
+    If spillRange Is Nothing Then
+        Report "optimize host: an OPTIMIZE formula spills (an Excel with dynamic arrays)", False, _
+               "SpillingToRange was Nothing"
+    Else
+        Report "optimize host: an OPTIMIZE formula spills its header row plus its rows", _
+               spillRange.Address = "$G$1:$H$3", "got " & spillRange.Address
+        ws.Parent.Names.Add Name:="VlaOptSpill", RefersTo:="='VlaOptimizeHostSheet'!$G$1#"
+        Dim readBack As Variant
+        readBack = VLA_Optimize.OPTIMIZE("(rule (who P) (vlaoptspill (x P))) (query who)", spillRange)
+        Report "optimize host: ONE SEARCH, MANY VIEWS - a second question reads that spill by its column names", _
+               ResultRowCount(readBack) = 3 And ResultCellIs(readBack, 1, 1, "P"), _
+               "got: " & ResultDescribe(readBack)
+    End If
+
+    On Error Resume Next
+    ActiveWorkbook.Names("VlaOptSpill").Delete
+    On Error GoTo 0
+    VLA_Optimize.OptimizeMemoClear
+    Application.DisplayAlerts = False
+    ws.Delete
+    Application.DisplayAlerts = True
+    prior.Activate
+End Sub
+
+' The memo key for a live Range, built exactly as OPTIMIZE builds it -
+' the same RelFromRange and RangeColumnNames the engine uses, so the
+' key a pin computes is the key a formula would.
+Private Function LiveTableMemoKey(ByVal program As String, ByVal rng As Object) As String
+    Dim relations As Object
+    Dim headerMap As Object
+    Dim nm As String
+    Dim colsOk As Boolean
+    Dim cols As Collection
+    Set relations = VLA_Runtime.VlaDictNew()
+    Set headerMap = VLA_Runtime.VlaDictNew()
+    Dim ok As Boolean, reason As String, detail As String
+    nm = VLA_Relation.TableArgResolve(rng, ok, reason, detail)
+    If Not ok Then
+        LiveTableMemoKey = "(unnamed: " & reason & ")"
+        Exit Function
+    End If
+    VLA_Runtime.VlaDictSet relations, nm, VLA_Relation.RelFromRange(rng)
+    Set cols = VLA_Relation.RangeColumnNames(rng, colsOk)
+    If colsOk Then VLA_Runtime.VlaDictSet headerMap, nm, cols
+    LiveTableMemoKey = VLA_Optimize.OptimizeMemoKey(program, relations, headerMap)
+End Function
 
 ' Builds a (folded, original) pair the same shape VLA_Relation.
 ' RangeColumnNames returns - VLA_Sql.SqlRun's own second argument.
@@ -8873,6 +10227,23 @@ Private Function ResultTextStartsWith(ByVal result As Variant, ByVal prefix As S
     If Len(prefix) = 0 Then Exit Function
     ResultTextStartsWith = (Left$(CStr(result), Len(prefix)) = prefix)
 End Function
+
+' OPTIMIZE.1: the "somewhere inside" twin of ResultTextStartsWith, for
+' a refusal that must both carry the engine's prefix AND name the right
+' function. Written as a helper rather than as
+' `ResultTextStartsWith(v, "#OPTIMIZE!") And InStr(1, CStr(v), ...)`,
+' which is the exact defect tools/check_test_assertion_safety.ps1
+' exists to catch and DID catch on this assertion's first draft: the
+' first operand admits v may not be text, and CStr of an array raises
+' 13 - on precisely the run where the refusal failed to happen and the
+' report was the only thing left worth having.
+Private Function ResultTextHas(ByVal result As Variant, ByVal needle As String) As Boolean
+    If IsArray(result) Then Exit Function
+    If VarType(result) <> vbString Then Exit Function
+    If Len(needle) = 0 Then Exit Function
+    ResultTextHas = (InStr(1, CStr(result), needle, vbTextCompare) > 0)
+End Function
+
 
 ' PROLOG.20: the Collection twin of ResultCellIs. `bn.Count = 1 And
 ' CStr(bn.Item(1)) = "x"` is the array defect in a different container -

@@ -31,6 +31,95 @@
   new tests all pass, and every existing suite gave the same counts as
   before.
 
+- **`OPTIMIZE` exists, and so far it answers exactly what `DATALOG`
+  answers.** The new function is the first piece of the optimizer: for a
+  program of facts, rules and one question it *is* `DATALOG`, the same
+  engine under a different name, and it spills the same table with the same
+  header row. That sounds like nothing and is the foundation for
+  everything: the thousand-odd checks that already prove `DATALOG` right
+  now also run through `OPTIMIZE` and must give identical answers, so
+  nothing the optimizer adds later can quietly change what a question
+  already answers. `=OPTIMISE(...)` works too, for anyone who spells it
+  that way. A companion `=OPTIMIZE_STATUS(...)`, given the same arguments,
+  says in words how good the answer is — today, always "proven best: this
+  program makes no choices, so it has exactly one answer and nothing was
+  searched", because with nothing to choose there is nothing to search.
+  Asking the same question in two cells only works it out once.
+
+  **The words you will write are settled now, before anything uses them.**
+  You can already type a choice (`choose-exactly`, `choose-at-least`,
+  `choose-at-most`, `choose-between`, or `choose-any` for "each one, in or
+  out"), a hard rule (`require` and `forbid`), a preference with an
+  optional weight (`prefer` and `avoid`), a goal (`minimize` and
+  `maximize`, and the British spellings; the order you write them in is
+  the order they matter), the schedule to stay close to
+  (`fewest-changes-from`), and how hard to try (`effort quick`, `normal`,
+  `thorough`, or a number). Each one is read, checked for shape, and then
+  refused in a sentence that says plainly that this version makes no
+  choices and points you at the answer it *can* give. So nothing you write
+  today has to be rewritten when the searching arrives: the spelling is
+  the same spelling. Write `choose` on its own and it tells you the five
+  words that work. Write a shape wrong — a count that is not a number, a
+  range the wrong way round, a word where a row belongs — and it says
+  which, rather than guessing.
+
+  Two details worth knowing now, because they decide what your other
+  formulas can do. When there is no valid answer, the cell will spill its
+  **header row with nothing under it** rather than a word like "None", so
+  a `FILTER`, a `COUNTIFS` or a second question reading it sees zero rows
+  and nothing breaks; the words live in the status cell, never in a row
+  where they would be counted as data. And a genuinely unreadable program
+  still shows readable `#OPTIMIZE!` text, where breaking those readers is
+  the right thing to do.
+
+  Tested with three hundred and twenty-one new automated checks, and then
+  by hand in a live workbook: fourteen numbered steps, each on its own
+  fresh sheet, covering the same program answered identically by
+  `=DATALOG(...)` and `=OPTIMIZE(...)`, the British spelling, the status
+  cell, every one of the six forms refused in its own words, the
+  header-row-and-nothing-under-it answer read by a `ROWS()` beside it, one
+  `OPTIMIZE` answer read back by a second `OPTIMIZE` question through a
+  Name Manager name, and a table cell holding `Zoë`. The automated total
+  includes every existing `DATALOG` test program re-run through
+  `OPTIMIZE` and required to give an identical answer — that is what makes
+  "the same engine" a measured claim rather than a description. Every
+  other suite reports exactly the counts it did before.
+
+- **When a question names something that does not exist, the message now
+  tells you what does.** If a rule or a question names a relation nothing
+  defines — almost always a misspelling, or a table whose name is not what
+  you think — `DATALOG`, `SQL`, `PROLOG` and `OPTIMIZE` all told you to
+  "check that the table argument's name matches" without saying what the
+  names actually were. They now end with, for example:
+
+  > The names this program does define, table arguments first, are:
+  > parent, kid.
+
+  Table arguments come first deliberately, because a table whose name is
+  not what you expect is the usual cause. The commonest way to get there:
+  select a range, press Ctrl+T, and then type the name into the **Name
+  Box** above column A instead of the **Table Name** box on the Table
+  Design tab. The first makes an ordinary defined name and leaves the table
+  called `Table1`; only the second renames the table, and it is the
+  table's own name that a rule must use. That looks identical from the
+  formula bar, and it cost the author of this release two test steps before
+  the message was improved to say so.
+
+- **Non-English text in a table can no longer be confused with other
+  text.** Behind the scenes, `OPTIMIZE` remembers an answer so that asking
+  again costs nothing — and it recognises a repeat question by a
+  fingerprint of your rules and of every cell of every table you passed.
+  Making that fingerprint exact meant fixing something real: the only text
+  fingerprint Frazaro had went through Windows' legacy code page, where
+  `Zoë` and `Zoe?` could come out identical. They no longer can, for any
+  text Excel can hold. Numbers are fingerprinted by their exact value and
+  never by how they are displayed, so no locale or rounding gets in, and
+  `1` and `"1"`, a blank cell and an empty one, are all told apart.
+  Nothing you can see changes; what it buys is that a remembered answer is
+  never the wrong answer. The memory is also allowed to vanish at any
+  moment — editing the macro project empties it — and losing it costs a
+  moment's recalculation and never changes a result.
+
 - **The test questions for the coming `OPTIMIZE` function, answered before
   it exists.** Twenty small, real questions the optimizer will have to
   answer, from five kinds of work. Who prepares and who reviews each
@@ -49,9 +138,15 @@
 
 ### Known open security items
 
-**Closed this release:** nothing. Neither change above is a security item:
-one reads a spilled range that Excel already showed you, and the other is
-a set of test questions. Standing advice unchanged. The full list of open
+**Closed this release:** nothing. None of the changes above is a security
+item: one reads a spilled range that Excel already showed you, one is a set
+of test questions, and the new function answers what `DATALOG` already
+answered. The exact-fingerprint fix is worth naming here even so, because
+it touches the same SHA-256 the phrasebook-consent record is keyed on: that
+record was never affected — it has always been fingerprinted from raw
+bytes, not through the code page — and the fix adds a new way to
+fingerprint text without changing the existing one. Nothing in any of this
+makes a network call. Standing advice unchanged. The full list of open
 items is in `docs/BETA_ROADMAP1.md`, in plain words in `README.md`.
 
 ## 0.6.1

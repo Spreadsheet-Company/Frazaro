@@ -1,6 +1,16 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "DATALOG.15"
+Public Const VLA_MESSAGES_VERSION As String = "OPTIMIZE.1"
+' OPTIMIZE.1: eighteen new optimize-* entries, at the foot of
+' AddEntries - the six forms of OPTIMIZE's three ingredients, refused
+' by name in the version that settles their spellings and executes
+' none of them, plus their shape refusals, three table-argument twins
+' (PROLOG's and SQL's own precedent), one reserved refusal for
+' recursion through a choice (OPTIMIZE.5's, unreachable until a choice
+' runs), and one internal guard over the five reserved result states.
+' What OPTIMIZE deliberately does NOT re-word: every refusal the shared
+' engine raises for a fact, rule or query form keeps DATALOG's wording,
+' since DATALOG raised it. See the comment above the block itself.
 ' DATALOG.15: seven new relation-* entries - a table argument that is an
 ' error value, and a spilled range's missing or doubled name and its
 ' header row (blank, not text, duplicated), plus a guard for a reason no
@@ -971,8 +981,14 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "datalog-unsafe-head-variable", 5, "VLA-Datalog", "in the rule deriving '{predicate}', the variable '{var}' appears in the head but never in the body - DATALOG can't know what values it should take. Every head variable must also appear in at least one body predicate."
     AddMsg m, "datalog-arity-mismatch", 5, "VLA-Datalog", "predicate '{predicate}' is used with {a} argument(s) in one place and {b} in another - every DATALOG predicate needs one fixed number of arguments everywhere it appears."
     AddMsg m, "datalog-round-ceiling", 5, "VLA-Datalog", "this DATALOG program is still deriving new facts after {rounds} rounds, which is almost certainly a mistake rather than a very large answer - check for a rule whose recursion never narrows."
-    AddMsg m, "datalog-query-unknown-predicate", 5, "VLA-Datalog", "(query {predicate}) names a predicate with no facts, no rule, and no matching table - check the spelling, or that the table argument's name matches."
-    AddMsg m, "datalog-unknown-predicate", 5, "VLA-Datalog", "'{predicate}' is used in a rule, but nothing defines it: no (fact ...), no rule deriving it, and no table argument has that name - so every rule reading it would silently find nothing, and an empty answer would look like ""nothing matched"". Check the spelling, or that its table is passed to DATALOG and named to match."
+    ' OPTIMIZE.1's follow-up: both of these ended at "check that the name
+    ' matches" without saying what names there WERE, and that gap turned a
+    ' fixture slip into an apparent engine bug twice in one live pass. The
+    ' {defined} slot is a whole sentence (VLA_Datalog.DefinedNamesSentence),
+    ' appended at the END on purpose: every existing assertion over these
+    ' two ids matches a prefix fragment, so nothing that was pinned moved.
+    AddMsg m, "datalog-query-unknown-predicate", 5, "VLA-Datalog", "(query {predicate}) names a predicate with no facts, no rule, and no matching table - check the spelling, or that the table argument's name matches. {defined}"
+    AddMsg m, "datalog-unknown-predicate", 5, "VLA-Datalog", "'{predicate}' is used in a rule, but nothing defines it: no (fact ...), no rule deriving it, and no table argument has that name - so every rule reading it would silently find nothing, and an empty answer would look like ""nothing matched"". Check the spelling, or that its table is passed to DATALOG and named to match. {defined}"
     AddMsg m, "datalog-table-not-a-range", 5, "VLA-Datalog", "every DATALOG table argument must be a cell range - pass a reference like Employees, not a computed value."
     AddMsg m, "datalog-table-needs-a-name", 5, "VLA-Datalog", "this range has no name DATALOG can use as a predicate - make it an Excel Table (Ctrl+T) or give it a defined name, then reference that name in the formula."
     AddMsg m, "datalog-not-bad-shape", 5, "VLA-Datalog", "(not ...) takes exactly one predicate form, like (not (excluded X)) - not zero, and not more than one."
@@ -1110,6 +1126,49 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "sql-internal-aggregate-unregistered", 5, "VLA-Sql", "internal: aggregate '{key}' not registered in the grouped colMap"
     AddMsg m, "sql-internal-scalar-node-shape", 5, "VLA-Sql", "internal: EvalScalar called on a non-scalar AST node"
     AddMsg m, "sql-internal-bool-node-shape", 5, "VLA-Sql", "internal: EvalBool called on a non-boolean AST node"
+
+    ' OPTIMIZE.1. Two families, and the split is the item's own point.
+    '
+    ' The SHAPE refusals below say how one of the six forms is written,
+    ' and they are the reason the forms are parsed at all in a version
+    ' that executes none of them: a spelling settled now and refused
+    ' clearly now is a spelling nobody has to change later (SD-4).
+    '
+    ' The NOT-YET refusals say plainly that this version makes no
+    ' choices, checks no constraints and searches nothing, and each one
+    ' points at the engine that CAN answer the rest of the program -
+    ' because it is the same engine. One id per ingredient, not one per
+    ' spelling: a user who wrote choose-at-most and one who wrote
+    ' choose-between have the same problem, and the form they actually
+    ' wrote is in the message either way.
+    '
+    ' The refusals OPTIMIZE does NOT own: everything the shared engine
+    ' raises for a (fact ...)/(rule ...)/(query ...) form keeps
+    ' DATALOG's own wording, because DATALOG raised it. Only the cell's
+    ' #OPTIMIZE! prefix says which function the user called. The three
+    ' table-argument ids below are the exception, and they exist for the
+    ' same reason PROLOG's and SQL's do: VLA_Relation returns a reason
+    ' code and never raises, so the wording is each engine's own, and
+    ' "every DATALOG table argument..." inside an #OPTIMIZE! cell would
+    ' name the wrong function.
+    AddMsg m, "optimize-choose-bare", 5, "VLA-Optimize", "'choose' on its own does not say how many to choose - write choose-exactly, choose-at-least, choose-at-most, choose-between, or choose-any (each pool row in or out). One word per meaning, so a message can name the whole thing."
+    AddMsg m, "optimize-unknown-top-form", 5, "VLA-Optimize", "'{head}' is not an OPTIMIZE form - expected fact, rule or query, or one of choose-exactly, choose-at-least, choose-at-most, choose-between, choose-any, require, forbid, prefer, avoid, minimize, maximize, fewest-changes-from or effort."
+    AddMsg m, "optimize-form-bad-shape", 5, "VLA-Optimize", "({form} ...) is written wrong: it needs {expected}. For example {example}."
+    AddMsg m, "optimize-count-not-a-number", 5, "VLA-Optimize", "({form} ...) needs a count first, and '{count}' is neither a whole number of zero or more nor a name. Write the number, or a name a (per ...) row binds - for example (choose-exactly N (assign S P) (Eligible S P) (per (Shifts S N))), where every shift's own N comes from the Shifts table."
+    AddMsg m, "optimize-choose-range-inverted", 5, "VLA-Optimize", "choose-between {low} and {high} asks for at least {low} and at most {high}, which nothing can satisfy - write the smaller number first."
+    AddMsg m, "optimize-not-a-row", 5, "VLA-Optimize", "({form} ...) expects a row for {role}, and '{text}' is not one. A row is written like (assign Shift Person) - a name, then what it is about."
+    AddMsg m, "optimize-effort-unknown-level", 5, "VLA-Optimize", "'{level}' is not an effort level - write quick, normal or thorough, or a whole number of units of work greater than none. Effort is counted in WORK and never in seconds, so the same workbook answers the same on a fast machine and a slow one."
+    AddMsg m, "optimize-choice-not-yet", 5, "VLA-Optimize", "({form} ...) asks OPTIMIZE to make a choice, and this version makes none: it answers a program of facts, rules and one query, which is what DATALOG answers, because it is the same engine. Remove the choice for that answer. Searching arrives with the choice itself."
+    AddMsg m, "optimize-constraint-not-yet", 5, "VLA-Optimize", "({form} ...) is a rule about every possible answer, and this version checks none: a program with no choice has exactly one answer, so there is nothing yet for a constraint to rule out. Remove it for that one answer."
+    AddMsg m, "optimize-preference-not-yet", 5, "VLA-Optimize", "({form} ...) says what a good answer looks like, and this version compares none: with no choice there is exactly one answer, so nothing is being preferred over anything. Remove it for that answer."
+    AddMsg m, "optimize-objective-not-yet", 5, "VLA-Optimize", "({form} ...) names what to make as small or as large as possible, and this version searches nothing: a program with no choice has exactly one answer, and it is already the best one there is. Remove it for that answer."
+    AddMsg m, "optimize-kept-not-yet", 5, "VLA-Optimize", "({form} ...) names a schedule to stay close to, and this version has nothing to move: with no choice there is exactly one answer. Remove it for that answer."
+    AddMsg m, "optimize-effort-not-yet", 5, "VLA-Optimize", "({form} ...) sets how much work a search may do, and this version does no searching: a program with no choice has exactly one answer and needs no budget. Remove it for that answer."
+    AddMsg m, "optimize-recursion-through-choices", 5, "VLA-Optimize", "the rule for '{predicate}' reads rows that are themselves being chosen, and calls itself - so an answer could support itself, which this version will not accept. Rules over the DATA may recurse freely (who reports to Alice, directly or not); only recursion through a CHOICE is refused. Nothing changes about what a rule means: the same rule will answer, unchanged, when this is built."
+    AddMsg m, "optimize-unknown-result-state", 5, "VLA-Optimize", "internal: result state {state} is not one of the five OPTIMIZE reserves - this is a Frazaro bug, please report it."
+    AddMsg m, "optimize-table-not-a-range", 5, "VLA-Optimize", "every OPTIMIZE table argument must be a cell range - pass a reference like Employees, not a computed value."
+    AddMsg m, "optimize-table-needs-a-name", 5, "VLA-Optimize", "this range has no name OPTIMIZE can use for it - make it an Excel Table (Ctrl+T) or give it a defined name, then reference that name in the formula."
+    AddMsg m, "optimize-table-noncontiguous-columns", 5, "VLA-Optimize", "a table argument spanning multiple disjoint areas (a Ctrl-selected, non-contiguous range) isn't supported - select one contiguous block of the table's own columns instead."
 End Sub
 
 Private Sub AddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _

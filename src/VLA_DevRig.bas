@@ -166,7 +166,11 @@ Public Sub VlaDevReload(Optional ByVal folder As String = "")
     ' again. Two independent arrays that must agree, with nothing
     ' mechanical holding them together, is the actual defect; the
     ' repeated comments are a workaround for it, not a fix.
-    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_IDE", "VLA_Build", "VLA_Lint", "VLA_Tests", "VLA_Tests_Grammar", "VLA_Tests_Host", "VLA_Tests_Query", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Browser", "frmCLI")
+    ' OPTIMIZE.1: VLA_Optimize added here in the same edit as
+    ' VLA_Build.bas's array, which is the whole point - the eight
+    ' recurrences listed above were every one of them a module added to
+    ' one array and missed in the other.
+    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_IDE", "VLA_Build", "VLA_Lint", "VLA_Tests", "VLA_Tests_Grammar", "VLA_Tests_Host", "VLA_Tests_Query", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Optimize", "VLA_Browser", "frmCLI")
     Dim i As Long
     Dim fp As String
     Dim comp As Object

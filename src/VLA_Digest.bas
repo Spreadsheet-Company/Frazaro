@@ -1,6 +1,16 @@
 Attribute VB_Name = "VLA_Digest"
 Option Explicit
-Public Const VLA_DIGEST_VERSION As String = "SEC11.0"
+Public Const VLA_DIGEST_VERSION As String = "OPTIMIZE.1"
+' OPTIMIZE.1 (step 1): a canonical, INJECTIVE encoding of a memo's
+' inputs, hashed by the SHA-256 above - VlaWtf8Encode plus the
+' VlaKeyBegin/VlaKeyAdd*/VlaKeyHex framing at the foot of this module.
+' Two reasons it could not be a call to what already existed:
+' VlaSha256HexOfAsciiText goes through StrConv's ANSI code page, so
+' "Zoe" with a diaeresis and "Zoe?" could share a key; and
+' VLA_Loader.VlaUtf8Encode writes a LONE surrogate as U+FFFD, which is
+' right for a file (no reader accepts the raw sequence) and wrong for a
+' key (two different strings would collide, and a memo would hand one
+' workbook's answer to another's inputs). See the foot of this module.
 
 ' =====================================================================
 '  VLA_Digest - SEC.11: SHA-256, in VBA, depending on nothing.
@@ -70,6 +80,34 @@ Public Const VLA_DIGEST_VERSION As String = "SEC11.0"
 Private mK(0 To 63) As Long
 Private mH(0 To 7) As Long
 Private mReady As Boolean
+
+' OPTIMIZE.1: the eight bytes of a Double, read without a Declare.
+' LSet between two user-defined types of the same size copies their
+' bytes, which is the whole reason these two exist - SUBSTRATE.md's H.4
+' census pins this codebase at ONE Declare site, and a memo key is not
+' the place to add a second, bitness-sensitive one (the same trade
+' SEC.11's own header records for SHA-256 itself). VBA requires a Type
+' in the declarations section, which is why they sit here rather than
+' beside VlaDoubleBytes at the foot of the module.
+Private Type VlaKeyDouble
+    d As Double
+End Type
+
+Private Type VlaKeyBytes8
+    b(0 To 7) As Byte
+End Type
+
+' OPTIMIZE.1: the type tags a framed key field carries. Public so a test
+' can name them, and so a reader of a key's bytes can decode it by hand
+' (GENSYM's "hand-derivable" instinct, applied to a hash's input).
+Public Const VLA_KEY_TAG_BLANK As Long = 0
+Public Const VLA_KEY_TAG_TEXT As Long = 1
+Public Const VLA_KEY_TAG_NUMBER As Long = 2
+Public Const VLA_KEY_TAG_BOOLEAN As Long = 3
+Public Const VLA_KEY_TAG_ERROR As Long = 4
+Public Const VLA_KEY_TAG_COUNT As Long = 5
+Public Const VLA_KEY_TAG_NULL As Long = 6
+Public Const VLA_KEY_TAG_OTHER As Long = 7
 
 ' --- 32-bit word arithmetic on a signed Long -------------------------
 
@@ -307,4 +345,258 @@ Public Function VlaSha256HexOfAsciiTextSkippingWhitespace(ByVal s As String, ByR
     End If
     b = StrConv(s, vbFromUnicode)
     VlaSha256HexOfAsciiTextSkippingWhitespace = VlaSha256HexSkippingWhitespace(b, Len(s), counted)
+End Function
+
+' --- OPTIMIZE.1, step 1: a canonical, injective key ------------------
+'
+'  WHY THIS EXISTS. OPTIMIZE's session memo (its standing decision 1)
+'  is keyed on the CONTENT of a program's rules text and of every input
+'  Table. The memo may only make a search faster and may never change
+'  what it answers (decision 2), so the key must be INJECTIVE: two
+'  different inputs may never share one key, or one workbook's answer
+'  would be handed to another workbook's inputs. Everything below
+'  exists to make that true, and nothing below knows what a spreadsheet
+'  is - the whole section is arithmetic over bytes, like the digest
+'  above it.
+'
+'  THE THREE PROPERTIES, and what each one buys:
+'
+'  1. TEXT AS WTF-8. VlaWtf8Encode is byte-identical to UTF-8 for
+'     every well-formed string, and encodes a LONE surrogate as its own
+'     three bytes rather than as U+FFFD. VLA_Loader.VlaUtf8Encode does
+'     the opposite, correctly, because it writes FILES: no reader
+'     accepts a raw surrogate sequence, so U+FFFD is the honest thing
+'     to put on disk. For a KEY it is a collision - "a" + U+D800 and
+'     "a" + U+FFFD would be one key - and a collision here is a wrong
+'     answer. Injective on every string VBA can hold.
+'
+'  2. EVERY FIELD TYPED AND LENGTH-FRAMED. A field is one TAG byte,
+'     then a four-byte big-endian LENGTH, then exactly that many bytes.
+'     So 1 and "1" differ (the tag), blank and "" differ (the tag), and
+'     ("ab", "c") and ("a", "bc") differ (the lengths).
+'     VLA_Relation's own Chr$(31) TupleKey joins are NOT injective and
+'     are deliberately not reused here: a cell holding that one
+'     character would forge a boundary.
+'
+'  3. NUMBERS BY THEIR EXACT BITS. A number is its Double's eight
+'     bytes, never its text, so no locale, no rounding and no cell
+'     format enters the key. Dates are already Doubles in Value2, so
+'     they arrive by that same path.
+'
+'  WHAT IS DELIBERATELY NOT DISTINGUISHED. Each one is a MISS (a
+'  needless re-solve, which costs time and changes no answer) and never
+'  a collision:
+'    - two different error values share the error tag. An error value
+'      inside a table argument is already refused upstream -
+'      VLA_Relation.RelFromRange's own all-blank test calls CStr on
+'      every cell, and CStr raises 13 on an error value - so the case
+'      cannot reach a memoized answer. When a later item gives an error
+'      cell a meaning, the tag gains a payload and every key changes,
+'      which is what the version tag in the key's first field is for.
+'    - minus zero and zero have different bit patterns and answer
+'      identically.
+'    - an object or an array cannot sit in a Relation tuple at all (the
+'      same CStr above), and so gets the OTHER tag with its VarType as
+'      the payload rather than a refusal. That is on purpose: it keeps
+'      this module depending on NOTHING, not even on VLA_Messages,
+'      which is the property SEC.11's own header is built on.
+'
+'  BYTE ORDER. Lengths and counts are BIG-endian, chosen so a key's
+'  bytes can be read left to right by hand. A Double's eight bytes are
+'  whatever LSet lays down, which is little-endian on every host VBA
+'  runs on; the pins hold those exact bytes, so the layout is pinned
+'  rather than assumed.
+
+' The WTF-8 bytes of s into b (0-based); returns the count. A surrogate
+' PAIR is one code point and four bytes, exactly as UTF-8 has it. A
+' LONE surrogate keeps its own value and gets the three bytes any code
+' point of that value would get (U+D800 is ED A0 80): the WTF-8
+' convention, and the one difference from VLA_Loader.VlaUtf8Encode,
+' whose own header says why a file needs the other behaviour.
+Public Function VlaWtf8Encode(ByVal s As String, ByRef b() As Byte) As Long
+    Erase b
+    Dim units As Long
+    units = Len(s)
+    If units = 0 Then Exit Function
+    Dim u() As Byte
+    u = s                                    ' UTF-16LE, two bytes per unit
+    ReDim b(0 To 3 * units - 1)              ' a pair (2 units) needs 4 bytes, a lone unit at most 3
+    Dim j As Long, k As Long, cp As Long, lo As Long
+    Do While j < units
+        cp = u(2 * j) + u(2 * j + 1) * &H100&
+        j = j + 1
+        If cp >= &HD800& And cp <= &HDBFF& Then
+            lo = -1
+            If j < units Then lo = u(2 * j) + u(2 * j + 1) * &H100&
+            If lo >= &HDC00& And lo <= &HDFFF& Then
+                cp = &H10000 + (cp - &HD800&) * &H400& + (lo - &HDC00&)
+                j = j + 1
+            End If
+            ' No else: an unpaired high surrogate keeps cp as itself and
+            ' falls through to the three-byte arm below. That single
+            ' absent branch IS the difference from VlaUtf8Encode.
+        End If
+        If cp < &H80& Then
+            b(k) = cp
+            k = k + 1
+        ElseIf cp < &H800& Then
+            b(k) = &HC0& Or (cp \ &H40&)
+            b(k + 1) = &H80& Or (cp And &H3F&)
+            k = k + 2
+        ElseIf cp < &H10000 Then
+            b(k) = &HE0& Or (cp \ &H1000&)
+            b(k + 1) = &H80& Or ((cp \ &H40&) And &H3F&)
+            b(k + 2) = &H80& Or (cp And &H3F&)
+            k = k + 3
+        Else
+            b(k) = &HF0& Or (cp \ &H40000)
+            b(k + 1) = &H80& Or ((cp \ &H1000&) And &H3F&)
+            b(k + 2) = &H80& Or ((cp \ &H40&) And &H3F&)
+            b(k + 3) = &H80& Or (cp And &H3F&)
+            k = k + 4
+        End If
+    Loop
+    ReDim Preserve b(0 To k - 1)
+    VlaWtf8Encode = k
+End Function
+
+' The eight bytes of d into b (0-based); returns 8. See the two Types
+' in the declarations section for why this needs no Declare.
+Public Function VlaDoubleBytes(ByVal d As Double, ByRef b() As Byte) As Long
+    Dim dv As VlaKeyDouble
+    Dim bv As VlaKeyBytes8
+    dv.d = d
+    LSet bv = dv
+    ReDim b(0 To 7)
+    Dim i As Long
+    For i = 0 To 7
+        b(i) = bv.b(i)
+    Next i
+    VlaDoubleBytes = 8
+End Function
+
+' --- the key buffer --------------------------------------------------
+'
+' A key is built into a caller-held Byte array plus a count, rather
+' than into module state: a key is built once inside one call, and
+' module state is exactly what a VBA project reset wipes (LESSONS.md
+' XXXII, and OPTIMIZE.0's probe C7, which found a reset re-running
+' every UDF in the workbook). Nothing here is a hot loop either -
+' one key per OPTIMIZE call, not one per search node.
+
+' buf grown geometrically so a long rules text or a wide Table does not
+' pay a ReDim Preserve per byte (OPTIMIZE.0.C's "arrays grown
+' geometrically, never ReDim Preserve per element").
+Private Sub KeyEnsure(ByRef buf() As Byte, ByVal n As Long, ByVal extra As Long)
+    Dim have As Long
+    have = 0
+    On Error Resume Next
+    have = UBound(buf) + 1
+    On Error GoTo 0
+    If n + extra <= have Then Exit Sub
+    Dim want As Long
+    want = have
+    If want < 64 Then want = 64
+    Do While want < n + extra
+        want = want * 2
+    Loop
+    If have = 0 Then
+        ReDim buf(0 To want - 1)
+    Else
+        ReDim Preserve buf(0 To want - 1)
+    End If
+End Sub
+
+' One field: the tag byte, the four-byte big-endian length, the bytes.
+' payload may be unallocated when payloadLen is 0 - the copy loop then
+' runs zero times, which is why nothing indexes it before the bound.
+Private Sub KeyAddField(ByRef buf() As Byte, ByRef n As Long, ByVal fieldTag As Long, _
+                        ByRef payload() As Byte, ByVal payloadLen As Long)
+    KeyEnsure buf, n, 5 + payloadLen
+    Dim d As Double
+    Dim i As Long
+    buf(n) = CByte(fieldTag)
+    n = n + 1
+    d = CDbl(payloadLen)
+    For i = 3 To 0 Step -1
+        buf(n + i) = CByte(d - Int(d / 256) * 256)
+        d = Int(d / 256)
+    Next i
+    n = n + 4
+    For i = 0 To payloadLen - 1
+        buf(n + i) = payload(i)
+    Next i
+    n = n + payloadLen
+End Sub
+
+' Start (or restart) a key.
+Public Sub VlaKeyBegin(ByRef buf() As Byte, ByRef n As Long)
+    Erase buf
+    n = 0
+End Sub
+
+' A text field: the WTF-8 bytes of s, length-framed.
+Public Sub VlaKeyAddText(ByRef buf() As Byte, ByRef n As Long, ByVal s As String)
+    Dim p() As Byte
+    Dim pn As Long
+    pn = VlaWtf8Encode(s, p)
+    KeyAddField buf, n, VLA_KEY_TAG_TEXT, p, pn
+End Sub
+
+' A count field: four big-endian bytes under its own tag, so a row
+' count can never be read as a cell and vice versa.
+Public Sub VlaKeyAddCount(ByRef buf() As Byte, ByRef n As Long, ByVal v As Long)
+    Dim p(0 To 3) As Byte
+    Dim d As Double
+    Dim i As Long
+    d = CDbl(v)
+    If d < 0 Then d = d + 4294967296#
+    For i = 3 To 0 Step -1
+        p(i) = CByte(d - Int(d / 256) * 256)
+        d = Int(d / 256)
+    Next i
+    KeyAddField buf, n, VLA_KEY_TAG_COUNT, p, 4
+End Sub
+
+' One cell of one tuple, tagged by what it IS. Every VarType a Value2
+' read or a hand-built test tuple can hold has an arm; see the section
+' header for what the last arm deliberately does not distinguish.
+' IsError/VarType only - never CStr, which raises 13 on an error value
+' (DATALOG.15's own lesson, VLA_Relation.SpillHeaderCheck).
+Public Sub VlaKeyAddCell(ByRef buf() As Byte, ByRef n As Long, ByVal v As Variant)
+    Dim p() As Byte
+    Dim pn As Long
+    Select Case VarType(v)
+    Case vbEmpty
+        KeyAddField buf, n, VLA_KEY_TAG_BLANK, p, 0
+    Case vbNull
+        KeyAddField buf, n, VLA_KEY_TAG_NULL, p, 0
+    Case vbError
+        KeyAddField buf, n, VLA_KEY_TAG_ERROR, p, 0
+    Case vbBoolean
+        ReDim p(0 To 0)
+        If CBool(v) Then p(0) = 1 Else p(0) = 0
+        KeyAddField buf, n, VLA_KEY_TAG_BOOLEAN, p, 1
+    Case vbString
+        VlaKeyAddText buf, n, CStr(v)
+    Case vbByte, vbInteger, vbLong, vbSingle, vbDouble, vbCurrency, vbDate, vbDecimal
+        pn = VlaDoubleBytes(CDbl(v), p)
+        KeyAddField buf, n, VLA_KEY_TAG_NUMBER, p, pn
+    Case Else
+        ReDim p(0 To 3)
+        p(0) = 0
+        p(1) = 0
+        p(2) = CByte((VarType(v) \ 256) And 255)
+        p(3) = CByte(VarType(v) And 255)
+        KeyAddField buf, n, VLA_KEY_TAG_OTHER, p, 4
+    End Select
+End Sub
+
+' The key itself: SHA-256 over exactly the bytes framed so far, as 64
+' uppercase hex digits. Nothing is skipped here - unlike
+' VlaSha256HexSkippingWhitespace, whose filter exists for a FILE's
+' portability across line endings. A key's bytes are constructed, not
+' read off a disk, so every one of them counts.
+Public Function VlaKeyHex(ByRef buf() As Byte, ByVal n As Long) As String
+    VlaKeyHex = VlaSha256Hex(buf, n)
 End Function

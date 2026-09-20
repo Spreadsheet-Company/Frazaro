@@ -19840,7 +19840,7 @@ now carries one summary paragraph per engine and points here.*
     at the head table). So clingo omits `Optimal` when the count is one.
     The other three are read the same way, from the same observed
     behaviour. `~day`
-  - ⬜ **OPTIMIZE.1 — the zero-choice base case: `DATALOG`'s own engine,
+  - ✅ **OPTIMIZE.1 — the zero-choice base case: `DATALOG`'s own engine,
     unchanged, wearing the `OPTIMIZE` name.** A program with no choice, no
     constraint and no objective is exactly a `DATALOG` program — one
     guaranteed, unique world, no search of any kind. `=OPTIMIZE(...)` reads
@@ -19979,17 +19979,359 @@ now carries one summary paragraph per engine and points here.*
     **Proof:** SHA-256 known-answer vectors over non-ASCII text ("é" is
     `c3 a9`, one astral character is four bytes); pure pins for each
     collision the framing prevents, a lone surrogate against U+FFFD
-    included; one host pin hashing a Unicode cell. `~days`
+    included; one host pin hashing a Unicode cell.
+    **BUILT 2026-09-19, NOT YET TESTED LIVE.** Step 1 first, then the item.
+    The four forks below were brought to the owner and settled before any
+    OPTIMIZE surface was written; three SHAPES the entry above had left
+    open were forced by the scoping run against §17 and are recorded with
+    it. All 23 `tools/check_*.ps1` green (22 plus this item's own), and
+    `tools/optimize01_corpus.ps1` 42 checks / 0 mismatches, before and
+    after.
+    **THE SCOPING RUN'S RESULT: no settled spelling had to change, and
+    three of them had no shape yet.** Every word survived §17's
+    twenty-one entries. What §17 broke was the roadmap's own three-slot
+    choice example, and it broke it on the killer case:
+      1. *`optimize-roster`'s own choice line was unwritable.* "Every
+         shift gets exactly the people it needs" takes its count from the
+         `Need` column of `Shifts`, so `N` must be a VARIABLE - and
+         `(choose-exactly N (assign S P) (eligible S P))` has nowhere to
+         bind one. That killed the "group inferred from the trailing
+         argument" reading on evidence rather than on taste.
+         **Settled: a trailing `(per group-atoms...)` modifier**, matching
+         `(cost N)`'s own modifier style; with no `(per ...)` the count is
+         over the whole pool at once. `optimize-duty-rotation` needs the
+         plural ("every month, every person gets exactly one duty"), which
+         is why `(per ...)` holds a LIST and not one atom.
+      2. *Two §17 entries choose per POOL ROW with no group and no count*
+         (`optimize-quote-bike`'s "each extra is in the quote or not",
+         `optimize-network-connect`'s "each link is switched on, or not").
+         `choose-at-least 0` reads as a no-op per group where the sentence
+         needs "at most one per row", so it would have had to mean
+         something other than it says - the test the other four passed.
+         **Settled: a fifth form, `(choose-any chosen pool)`**, and the
+         four keep their meanings.
+      3. *`require`'s direction was undetermined.* **Settled: DATALOG's
+         own `rule` shape** - `(require CONSEQUENT BODY...)`, so a reader
+         who knows `rule` knows this, and `forbid` stays its exact mirror;
+         with no body it is a plain ground requirement. And the finding
+         that goes with it: an EXISTENTIAL requirement needs no new form
+         and gets none. "Every night has a senior on it" is a derived
+         `rule` doing the existential, then a `require` over that rule's
+         head - which is why nothing spells `exists`, and what
+         `G-OPTIMIZE` will generate.
+      4. *`(cost N)` could not say the wedding's sentence.*
+         `optimize-seat-wedding` carries `Wishes(A, B, Weight)` and asks
+         for "the least total weight of wishes broken", so **`(cost T)`
+         takes a number OR a variable bound by a positive body row**
+         (DATALOG's own safety condition, checked against the grounding at
+         `OPTIMIZE.6`). Default 1.
+      5. *The objective's term*, settled with it: `(minimize BODY...
+         [(cost T)])`, its value the sum of the cost over every ground
+         instance of the body that holds. One shape says all three kinds
+         §17 asks for - a count of matching rows, a weighted sum from a
+         Table column, and a sum over derived atoms - and it reuses
+         `prefer`/`avoid`'s own `(cost ...)`, so there is one weight word
+         in the language rather than two. No `count`/`sum` wrapper inside
+         an objective, which would have given `count` two meanings.
+    **THE OWNER'S FOUR FORKS, settled 2026-09-19, all as recommended:**
+    the choice form's `(per ...)` shape (1 above); the fifth form (2
+    above); `require`'s shape (3 above); and **`OPTIMIZE_STATUS` computes
+    the answer itself** rather than reading a memo its sibling cell may
+    never have filled. That last is what makes it a pure function of its
+    own arguments: it cannot depend on calculation order, on whether an
+    `OPTIMIZE` cell exists, or on what ran before - and it answers the
+    same after a reset wiped the memo. Both alternatives ("not calculated
+    yet", and a refusal) would have made a cell's value depend on history,
+    which is decision 2 broken by the side door, `OPTIMIZE.7`'s warm-start
+    trap arriving through a status cell. The price is stated: a status cell
+    asked with a cold memo pays for the answer.
+    *The three effort levels are deliberately ZERO* (PROVISIONAL, owner to
+    confirm): the level a program names is recorded and the form is then
+    refused, so no default is observable yet, and `OPTIMIZE.3`/`.6` set the
+    numbers from their own measurements. `normal` is written down as the
+    default now, so the day a number lands behind it the default is already
+    stated. A number published before it means anything is a number users
+    tune around.
+    **What was built:**
+      - `src/VLA_Digest.bas` (step 1, first): `VlaWtf8Encode` - the one
+        flipped branch away from `VlaUtf8Encode`, which writes a lone
+        surrogate as U+FFFD (right for a file, a collision for a key) -
+        plus `VlaDoubleBytes` (LSet between two Types, so no second
+        `Declare` joins `SUBSTRATE.md`'s H.4 census) and the
+        `VlaKeyBegin`/`VlaKeyAdd*`/`VlaKeyHex` framing: a tag byte, a
+        four-byte big-endian length, then the bytes. `TupleKey`'s `Chr$(31)`
+        joins are not injective and are not reused.
+      - `src/VLA_Optimize.bas`, new, the engine's home (decision 4):
+        `OPTIMIZE`, `OPTIMISE`, `OPTIMIZE_STATUS`, the pure `OptimizeRun`
+        seam whose first five result items are `DatalogRun`'s own item for
+        item, the five reserved result states with their exact words, the
+        capped session memo, and the six forms parsed and refused.
+      - **`VLA_Datalog.bas` did not change, and that is a design
+        consequence rather than luck:** a program carrying any of the six
+        forms is refused in `VLA_Optimize` BEFORE `DatalogRun` is called,
+        so `ParseProgram`'s own `Case Else` is unreachable from this
+        engine. Decision 4's "coordinate per change" cost nothing here.
+      - `VLA_Messages.bas`, eighteen `optimize-*` entries. **What OPTIMIZE
+        deliberately does NOT re-word:** every refusal the shared engine
+        raises for a `fact`/`rule`/`query` form keeps DATALOG's wording,
+        because DATALOG raised it; only the cell's `#OPTIMIZE!` prefix says
+        which function the user called. The three table-argument twins are
+        the exception, for the same reason PROLOG's and SQL's are - a
+        message reading "every DATALOG table argument..." inside an
+        `#OPTIMIZE!` cell names the wrong function - and each wrapper ends
+        in the `Case Else` that DATALOG.15 had to add after the fact.
+      - The chores: both `mods` arrays in the same edit (the eighth
+        recurrence's own lesson, read rather than rediscovered);
+        `check_raise_ratchet`'s implicit ceiling of 0 held, every refusal
+        through `RaiseMsg`; `check_no_network`'s scan widened to 25 shipped
+        modules by reading `VLA_Build.bas`, with nothing to edit;
+        `REUSE.toml`'s `src/**` glob already Apache-2.0, likewise.
+    **Proof, and two of the pins are new mechanism:**
+      - `TestOptimizeKey`, **40 pure pins**: the WTF-8 vectors as SHA-256
+        KNOWN ANSWERS (not self-consistency), a Double's eight bytes, the
+        framing as one fifty-byte known-answer key whose every field the
+        comment beside it decodes by hand, and one pin per collision the
+        framing prevents.
+      - `tools/check_hash_twin.ps1` gained a second baseline in its own
+        shape: every key vector's digest is recomputed here from the bytes
+        the design names, by .NET, and the VBA pins are then required to
+        assert the same strings. So a shared bug in the encoder and its pin
+        cannot cancel out - SEC.11's FIPS discipline, extended.
+      - `TestOptimizeForms`, **78 pure pins**: each of the six forms
+        parsing and refusing by name, every shape refusal, the five result
+        states' exact words, a sixth state refused rather than answered
+        blankly, and **a §17 block** - eighteen of the corpus's own rule
+        lines written out in the settled spellings and required to PARSE,
+        which is the scoping run's own claim turned into a test.
+      - `TestOptimizeParity`, **179 pins**, the owner's approved proof:
+        every one of the **178** distinct DATALOG programs this module
+        names, run through both engines and required to agree completely -
+        same relation, same tuples in the same ORDER (decision 2 breaks
+        ties by row order, so a reordering is a real difference), same
+        header names, same headless flag, same Boolean - or both refusing
+        with the same number and the same words. The relations are compared
+        by hashing them with step 1's own key, which is why one comparison
+        covers arity, count, order and every cell's type at once and cannot
+        raise on a cell it did not expect. No table arguments are supplied:
+        a program whose tables its original test passed in refuses in BOTH
+        engines identically, which is still parity, and is what lets this
+        cover every program with no fixture per program.
+      - `tools/check_optimize_parity.ps1`, new, is what makes "every" true
+        and keeps it true: it reads every `DatalogRun`/`DATALOG` call site
+        in `VLA_Tests_Query.bas` and fails if one of their programs is
+        missing from the table. Without it the table would quietly become
+        "every program as of OPTIMIZE.1" the first time somebody added a
+        DATALOG test - `check_devrig_mods_parity.ps1`'s own defect, in a
+        new place.
+      - `TestOptimizeMemo`, **12 pure pins**, and `TestOptimizeHostTable`,
+        **13 host pins**: two cells and one search; a changed cell in one
+        Table as a different key; a renamed COLUMN as a different key
+        though no value moved (a keyed rule resolves against it, so it
+        changes the answer); a refusal never memoized; the cap holding at
+        sixteen; **a reset between the two cells** costing a search and
+        changing no answer (`OPTIMIZE.0`'s C7 as a test); step 1's host pin
+        over a real `Zoë` cell; and decision 1 end to end - an `OPTIMIZE`
+        cell's spill, named, read back by a second `OPTIMIZE` question by
+        its column names.
+      - **One finding, from the checks rather than from review:**
+        `check_test_assertion_safety.ps1` caught an unsafe assertion in
+        this item's OWN first draft -
+        `ResultTextStartsWith(v, "#OPTIMIZE!") And InStr(1, CStr(v), ...)`,
+        where the first operand admits `v` may not be text and `CStr` of an
+        array raises 13, on precisely the run where the refusal failed to
+        happen and the report was the only thing left worth having. Fixed
+        onto a guarded helper (`ResultTextHas`), and every new DETAIL string
+        moved onto the existing `ResultDescribe` for the identical hazard
+        one argument further along.
+    *Predicted before the live pass:* every new pin passes; `TestDSLs`
+    1443 + 321 = **1764** (**1768** after the message follow-up below added three pins and one parity program); `VlaSelfTest`, `VlaSelfTestHost` and
+    `VerifyReports` unmoved.
+    **LIVE, step 2, 2026-09-19, the owner at the keyboard: 1764 assertions
+    ran - the predicted total exactly, which also means the host step's
+    formula DID spill - with 1762 passing and TWO failing.** `VlaSelfTest`
+    1201/1201 and `VlaSelfTestHost` 152/152, both unmoved as predicted. The
+    two failures were **stale expectations in this item's own pins, not
+    behaviour**: the count refusal's wording had been widened from "neither
+    a whole number nor a name" to "neither a whole number **of zero or
+    more** nor a name" - because `-1` IS a whole number, so the first
+    draft's message would have been wrong about the very next assertion -
+    and the two fragments those pins matched on were never updated with it.
+    The refusals themselves fired correctly, with exactly the intended
+    words, on exactly the intended programs. Both fragments now quote the
+    offending count as well (`'two'`, `'-1'`), so a refusal about the wrong
+    slot cannot pass either of them. So the prediction was right about the
+    engine and wrong about two of its own test strings; the lesson is the
+    narrow one - a message reworded after its pin was written needs the pin
+    reread, and a fragment short enough to drift is a fragment worth
+    lengthening.
+    **LIVE, steps 1-3 on the re-run, 2026-09-19: all three as predicted.**
+    Four version constants at `OPTIMIZE.1`; compiled clean; `TestDSLs`
+    **1764/0**; `VlaSelfTest` 1201/1201, `VlaSelfTestHost` 152/152 and
+    `VerifyReports` 242/242 on both backends, every one unmoved. **Step 3,
+    the headline, held:** the same program through `=DATALOG(...)` and
+    `=OPTIMIZE(...)` over one Excel Table spilled identically, cell for
+    cell - `X`/`Y`, then `alice bob`, `bob carol`, `alice carol`.
+    **LIVE, steps 4 and 5, 2026-09-19: both as predicted on the re-run.**
+    `=OPTIMISE(...)` spills what `=OPTIMIZE(...)` spills; the status cell
+    reads "proven best: this program makes no choices, so it has exactly
+    one answer and nothing was searched".
+    **ONE PROCESS FINDING, and it cost two steps before it was
+    understood.** Steps 3 and 5 each first refused their table's predicate
+    as undefined, in BOTH engines identically - which was the parity claim
+    HOLDING, since a predicate's name is the Excel Table's OWN name and
+    never a defined name over the same cells (`TestDatalogHostTable` pins
+    both halves). The diagnosis, after it recurred: the steps said "set the
+    table name to X" WITHOUT SAYING WHERE, and Excel has two boxes that
+    both take a name and both commit on Enter - Table Design's *Table Name*
+    box, which renames the ListObject, and the Name Box above column A,
+    which creates a defined name and leaves the table `Table1`. The second
+    looks like success (the name resolves, so no `#NAME?`, and Excel
+    colours it blue) and is refused by design. The owner reasonably read
+    the recurrence as Excel misbehaving, and the instruction was the
+    defect. **Fixed at the root:** every step that builds a Table now names
+    it and reads the name back in ONE Immediate-window line
+    (`ActiveSheet.ListObjects(1).Name = "X": ?ActiveSheet.ListObjects(1).Name`),
+    so neither box is used and the result is unambiguous.
+    **LIVE, steps 6 and 7, 2026-09-19: both as predicted.** Two cells over
+    one Table ran ONE search (`OptimizeMemoRuns` = 1 after a
+    `CalculateFull`), and both cells held their exact text through a VBA
+    project reset plus Ctrl+Alt+F9 - `OPTIMIZE.0`'s probe C7 turned into a
+    live test, and decision 1's memo doing the only job it is allowed to
+    do. Steps 8-14 are still to run.
+    **THE FOLLOW-UP THE PROCESS FINDING EXPOSED, taken 2026-09-19 on the
+    owner's call.** Both `datalog-query-unknown-predicate` and
+    `datalog-unknown-predicate` ended at "check that the name matches"
+    without saying what names there WERE to match against, which is why a
+    correct refusal twice read as an engine bug. Both now end with a
+    sentence from a new `VLA_Datalog.DefinedNamesSentence`: "The names this
+    program does define, table arguments first, are: parent, kid." - in
+    `VlaDictKeys` order, which is table arguments first (registered before
+    `ParseProgram` runs), capped at twelve, and folded, since folded is the
+    form a rule has to write. A program defining nothing says so rather
+    than trailing off after a colon. It cost nothing that was pinned: every
+    existing assertion over the two ids matches a PREFIX fragment, so the
+    clause was appended at the end and all of them still hold. Three new
+    pins cover the two sentences and the empty case, written over programs
+    the parity table already carried, except the empty one - and
+    `check_optimize_parity.ps1` refused the commit until that one program
+    was added, which is the mechanism earning itself on its first day.
+    **AND A NEW CHECK, from a defect I introduced making that change.** A
+    PowerShell one-liner meant to replace the parity table matched nothing,
+    called `Write-Error` - which does not stop a script under the default
+    `$ErrorActionPreference` - and inserted 180 generated lines at offset
+    0, ABOVE `Attribute VB_Name`. **All 23 checks then passed**, including
+    the one that counts those very lines, because it reads them from inside
+    the function it expects them in and never looks at the top of the file.
+    It was found only because an unrelated count printed double. A module
+    with no header does not import into VBA, so the bill would have come
+    due on the owner's machine mid-pass. `tools/check_module_heads.ps1`
+    closes it in fifteen lines: every `src/*.bas` begins with exactly
+    `Attribute VB_Name = "<basename>"` (the name must match the FILE, since
+    `VBComponents.Import` takes it from the attribute and not the path),
+    every `.cls` and `.frm` its own first line, `Attribute VB_Name` exactly
+    once per file, and `Option Explicit` present. Mutation-controlled by
+    reproducing the exact accident in place and requiring it be caught.
+    **24 checks now, all green.**
+    **LIVE, steps 8-14, 2026-09-19: every one as predicted, first time.**
+    All six forms refused by name in real cells, with their exact words (8,
+    9), and `'sideways'` caught as a SHAPE error before the not-yet
+    refusal, which is the ordering this item chose deliberately. **Step 10
+    is the scoping run's central claim, proven in a cell rather than only
+    in a pin:** `(choose-exactly N (assign S P) (elig S P)
+    (per (shifts S N)))` reached the not-yet refusal, meaning the spelling
+    SAID `optimize-roster`'s own choice line - the one with its count bound
+    from a Table column, which the roadmap's original three-slot form could
+    not write at all. A query with no rows spilled its header row and
+    nothing under it, and `ROWS(A1#)` read 1 rather than `#REF!` (11). A
+    table argument that is not a range named OPTIMIZE and not DATALOG (12).
+    **Step 13, the one this entry flagged as least certain, held:** a
+    worksheet `=OPTIMIZE(...)` spilled at `D1:E3`, was named through Name
+    Manager, and a second `=OPTIMIZE(...)` read it back BY ITS COLUMN NAMES
+    at `G1:G3` - header `P`, then `alice`, `bob`. That is standing decision
+    1, "one search, many views", working end to end through real formulas,
+    on the substrate `DATALOG.15` was built ahead of this item to provide.
+    And an edited Unicode cell was a different question, so the memo missed
+    and the engine ran again, 0 then 1 (14).
+    *Two halves of steps were not separately reported and are not treated
+    as gaps:* the bare `(choose ...)` refusal listing the five (step 8's
+    second half) and the `Zoe`-with-a-diaeresis spill reading back intact
+    (step 14's first half). Both are covered by pins that passed in the
+    same run - `TestOptimizeForms`'s bare-choose pin and
+    `TestOptimizeHostTable`'s "the Unicode value reaches the spill
+    unchanged" - so they are verified, just not by hand.
+    **The follow-up's own defect, found live and then made impossible.**
+    The `{defined}` slot went into two templates, and the two raise sites
+    in the procedure being read were updated. There were FOUR sites for
+    those two ids: one in the keyed-atom desugaring path and one a
+    defensive post-fixpoint guard still raised without it, so the cell
+    showed `RaiseMsg: no value supplied for slot '{defined}'` - which is
+    `VLA_Messages` failing loudly and correctly. A test happened to
+    exercise the keyed-atom path and caught it; **all 24 checks passed.**
+    Both sites fixed (the keyed-atom one reads `definedNames`, which
+    `CollectDefinedNames` also builds table arguments first, so the
+    sentence's own claim about the order holds there too).
+    **`tools/check_message_slots.ps1` closes the class, not the instance:**
+    over both catalogues (519 entries in `VLA_Messages.bas`, 33 in
+    `VLA_Runtime.bas`'s mini-catalogue) and all **732** raise sites, every
+    site must name an id its catalogue holds and supply EXACTLY the slots
+    its template names - missing one is this defect, and supplying one the
+    template does not name is a typo that leaves the real slot unfilled
+    while looking deliberate. Worth a static check rather than leaving it
+    to the suite, because no test exercises most of those 732 sites: such a
+    refusal ships broken and announces itself only when a user finally
+    reaches it, showing them Frazaro's internals instead of what is wrong
+    with their spreadsheet. Mutation-controlled three ways - the real
+    defect, a mistyped slot name, and an unknown id - each caught.
+    *And the check's own first bug, worth recording because the clean tree
+    is what found it:* a template is often built by CONCATENATION
+    (`"{loc}: ..." & vbCrLf & "  sentence: {sentence}" & ...`), and reading
+    only the last literal saw only its final slot and reported every
+    earlier one as "supplied but not named" - 14 of them, all in
+    `VLA_SentenceEngine.bas`, all spurious. A new check whose first run
+    over a known-good tree is not clean is reporting its own defect.
+    **25 checks now, all green.**
+    **ALL FOURTEEN LIVE STEPS PASS, 2026-09-19, the owner at the
+    keyboard.** Step 2 re-run at the final count: `TestDSLs` **1768
+    passed, 0 failed**. With `VlaSelfTest` 1201/1201, `VlaSelfTestHost`
+    152/152 and `VerifyReports` 242/242 on both backends from the same
+    pass, all unmoved, and the four version constants at `OPTIMIZE.1`.
+    The three failures the pass turned up were, in order: two stale
+    expected FRAGMENTS in this item's own pins (a message reworded after
+    they were written), and one genuinely missing slot value at two raise
+    sites the follow-up did not reach. None was a defect in what the
+    engine answers, and each is written up above with what it changed.
+    **BUILT, TESTED LIVE (all fourteen steps) AND COMMITTED 2026-09-19.**
+    Nothing has been pushed.
+    The owner's steps are
+    `archive/optimize1_live_steps.md`, fourteen of them, each on its own
+    fresh sheet, with step 3 the headline (the same program through
+    `=DATALOG(...)` and `=OPTIMIZE(...)`, required to agree cell for cell)
+    and step 13 the one I am least sure of (a worksheet formula calling
+    `=OPTIMIZE(...)` and its spill read back by a second one). `~days`
   - ⬜ **OPTIMIZE.2 — constraints against the one world.** Still zero
     search: with no choice yet, `OPTIMIZE.1`'s fixpoint produces exactly
     one world, so `(forbid ...)` is a CHECK — does its body hold in that
     world — never a reason to try another, since there is none. Grounded,
     not re-evaluated: each constraint's body is instantiated over the world
     by the same join `DATALOG` runs for a rule body, and a non-empty result
-    is a violation naming the rows that violate it. The first point where
-    "no schedule satisfies every rule" is an outcome — a first-class
-    result in words, with the constraint named, never a `#OPTIMIZE!`
-    (that stays for malformed input). The smallest proof that a constraint
+    is a violation naming the rows that violate it. **Both polarities, not
+    just `forbid`:** `OPTIMIZE.1` settled `require` as DATALOG's own rule
+    shape (`(require CONSEQUENT BODY...)`, an implication) beside
+    `(forbid BODY...)`, and both are checks over the one world here, since
+    forcing either through the other writes the double negatives this
+    family exists to avoid.
+    **The result sentence is already reserved, and this item may not
+    reword it.** `OPTIMIZE.1` fixed the exact words of all five result
+    states in `VLA_Optimize.OptimizeStatusWords`, pinned, precisely so no
+    later item would invent or drift them. So what this item adds is not
+    the wording but the REACHABILITY: it is the first point at which
+    `VLA_OPTIMIZE_NO_SCHEDULE` — "no schedule satisfies every rule" — can
+    be the answer at all, and the first at which `OPTIMIZE_STATUS` says
+    something other than proven best. The words come from the constant;
+    what this item owns is naming the violating CONSTRAINT and ROWS
+    alongside them, and never letting any of it become a `#OPTIMIZE!`
+    (which stays for malformed input alone).
+    The smallest proof that a constraint
     is different from a rule — it derives nothing, only eliminates — and
     the item that lands the single-atom-constraint pruning and the
     Cartesian-body refusal from `OPTIMIZE.0`, since both are properties of
