@@ -76,6 +76,9 @@ add-in on a managed machine wants [THREAT_MODEL.md](THREAT_MODEL.md) and
 - **[CONTEMPLATIONS.md](CONTEMPLATIONS.md)** — Append-only thought
   experiments: the questions that are not yet items and the arguments that
   are not yet decisions.
+- **[SPITBALLS.md](SPITBALLS.md)** — Fun, non-business things Frazaro could
+  do that nobody has asked for yet, each with what it stands on and its
+  catch.
 - **[OPTIMIZATION.md](OPTIMIZATION.md)** — Optimizing Spreadsheets: working
   notes toward a white paper on answer-set optimisation inside Excel, with
   predictions written before the measurements that test them.

@@ -523,3 +523,548 @@ check that sits entirely outside our code.
     prefers, break ties by the next, and only then by what was kept. We had
     argued that ordering; this is the first measurement of what happens
     without it.
+
+---
+
+## Entry 2 — Building the base case: what the corpus refused, and six defects a green suite could not see *(2026-09-19)*
+
+*Status: written after the item shipped and was tested live, so unlike Entry
+1 nothing here is a prediction. Entry 1 measured the shape of the search
+before any engine existed. This entry records what building the first piece
+of it actually cost. The project's roadmap tracks this work as `OPTIMIZE.1`.*
+
+### Background, for a reader new to the project
+
+`OPTIMIZE.1` is deliberately the least ambitious item in its family. A
+program with no choice, no constraint and no objective *is* a Datalog
+program, so `=OPTIMIZE(...)` must answer exactly what `=DATALOG(...)`
+answers and nothing more: the same s-expression forms, handed to the same
+evaluator, spilling the same table with the same header row.
+
+What it settles is not behaviour but **vocabulary**. The words a user will
+type for a choice, a constraint and an objective are fixed here, parsed
+here, and refused by name here — before anything executes them — so that
+nothing written today has to be rewritten when searching arrives. A spelling
+is the one part of a program that cannot be changed later without breaking
+somebody's workbook.
+
+Two thirds of the work was therefore not code. What follows is the part that
+was hard, and it was mostly not the part that looked hard.
+
+### 1. The corpus refused the plan's own example
+
+Before this item, the plan carried an illustrative choice form:
+`(choose 2 (assign Shift Person) (eligible Person Shift))` — a count, the
+rows chosen, the pool they come from. Three slots, and it reads well.
+
+A corpus of twenty-one hand-solved questions had been written first, in
+plain English, specifically so that spellings could be judged against
+sentences rather than against taste. Checking the three-slot form against
+all twenty-one found that it **cannot write the family's own killer case**.
+
+| the sentence | what it needs | what three slots gave |
+|---|---|---|
+| "every shift gets exactly the people it needs" | the count comes from a *column of a table*, so it must be a variable | nowhere to bind one — unwritable |
+| "every month, every person gets exactly one duty" | a group of *two* things at once | one implied group |
+| "each extra is in the quote or not" | per-*row*, no group and no count | "at least zero" would mean the opposite of what it says |
+| "every reviewer is senior" | a universally quantified implication | a direction nobody had fixed |
+| "the least total weight of wishes broken" | the weight is a *table column* | a literal cost only |
+
+Three shapes were added: a trailing optional `(per group-atoms...)` modifier
+(which also holds the plural group), a fifth choice form `choose-any` for
+the per-row case, and a cost term that accepts a variable bound by the body.
+One shape was fixed rather than added: a requirement takes the same
+head-then-body shape an ordinary rule does, which makes it an implication —
+and that turns out to remove the need for an existential form altogether,
+since "every night has a senior on it" is an ordinary derived rule doing the
+existential, with a requirement over its head.
+
+**No settled *word* changed.** Every word chosen the day before survived
+contact with all twenty-one sentences. What had not been decided, and what
+nobody had noticed was undecided, were the *shapes*. That is the return on
+writing the corpus before the engine: the gap it found was invisible from
+inside the design, and would otherwise have been found by the first user who
+tried to write the one problem the engine exists for.
+
+### 2. A file's text encoder is the wrong encoder for a key
+
+The engine is allowed to remember an answer so that asking the same question
+twice costs nothing, and it recognises a repeat question by a fingerprint of
+the rules and of every cell of every table. The fingerprint must be
+**injective**: two different inputs may never share one, or the memory hands
+one workbook's answer to another workbook's question. That is a wrong
+answer, not a slow one, so this precursor was built and pinned before any of
+the engine's surface existed.
+
+Two things already in the codebase were nearly right, and both were wrong in
+instructive ways.
+
+- The only text hash available converted text through the system's legacy
+  code page, which is exact for ASCII and lossy for everything else. `Zoë`
+  and `Zoe?` could land on one key.
+- The UTF-8 encoder used for writing files encodes an unpaired surrogate as
+  U+FFFD, the replacement character. For a **file** that is correct and
+  careful: no reader accepts a raw surrogate sequence, so writing one would
+  produce a file nothing can read. For a **key** it is a collision
+  generator, because `"a" + U+D800` and `"a" + U+FFFD` become the same
+  bytes.
+
+The same fact — "this input cannot be represented, so substitute" — is right
+in one context and a defect in the other. The fix is a sibling encoder
+differing by exactly one absent branch, which keeps an unpaired surrogate as
+its own three bytes; it is byte-identical to UTF-8 for every well-formed
+string.
+
+Encoding alone is not enough, because concatenation loses boundaries. Each
+field is written as a type tag, a four-byte length, then its bytes, which is
+what distinguishes:
+
+| these | from these | by |
+|---|---|---|
+| the number `1` | the text `"1"` | the tag |
+| a blank cell | an empty one | the tag |
+| `TRUE` | the text `"TRUE"`, and the number `1` | the tag |
+| `("ab", "c")` | `("a", "bc")` | the lengths |
+
+An existing helper joined values with a control character for a different
+purpose in the same codebase; it is not injective (a cell containing that
+character forges a boundary) and was deliberately not reused. Numbers are
+written as their exact eight bytes rather than as text, so no locale,
+rounding or cell format enters — obtained without adding a second platform
+call to a codebase that holds itself to one, by copying between two
+same-sized user-defined types.
+
+### 3. Making "the same engine" a measured claim rather than a description
+
+The item's entire claim is that this is the existing engine under a new
+name. A claim like that is easy to assert and easy to quietly break.
+
+The proof is the existing engine's **whole test corpus**: all 178 distinct
+Datalog programs the test module names, each run through both engines and
+required to agree completely — the same relation, the same rows *in the same
+order* (ties are broken by table order, so a reordering is a real
+difference), the same header names, the same boolean answer — or to refuse
+identically, with the same error number and the same words.
+
+Two decisions made that affordable:
+
+- **No fixtures.** A program whose tables its original test supplied refuses
+  in *both* engines, identically, because its predicates are then undefined.
+  That is still parity, so no program needs a fixture of its own. 128 of the
+  178 answer outright; the rest agree on their refusal, to the word.
+- **The comparison reuses the key from section 2.** Hashing each relation
+  with the injective encoding makes one string comparison cover arity, row
+  count, order and every cell's type at once, and it cannot raise on a cell
+  the comparison did not anticipate. The precursor built for the memory did
+  double duty as the instrument that measures the main claim.
+
+A table of 178 programs is exactly the shape that silently stops being
+complete: add a Datalog test a year from now and the parity suite still
+passes, having quietly become "every program as of this item". So a static
+check reads every call site in the test module and fails when one of their
+programs is missing from the table. It earned itself the same day, refusing
+a change until a newly added program joined the table.
+
+### 4. Where a refusal belongs when two engines share one
+
+If two engines share an evaluator, whose words does a refusal use? The
+answer adopted is a split, and it needs stating because neither half is
+obviously right:
+
+- A refusal the **shared evaluator** raises keeps the original engine's
+  wording, because that engine raised it. Only the cell's prefix names the
+  function the user actually called.
+- A refusal about something **only the new engine has** — its own forms, its
+  own table arguments — is worded by the new engine, because a message
+  reading "every DATALOG table argument…" inside a cell the user wrote
+  `OPTIMIZE` in names the wrong function.
+
+One consequence was not designed and is worth recording: because every one
+of the new forms is refused *before* the shared evaluator is called, the
+shared module needed **no change at all**. The new engine is purely
+additive — which is the strongest available evidence that the base case
+really is the old engine, since the old engine did not have to learn
+anything.
+
+### 5. Six defects, and what caught each
+
+The item shipped with three failures found by the live pass and three found
+before it. None was in what the engine answers. The table is the point of
+this section: note the third column.
+
+| what was wrong | what caught it | what a green suite showed |
+|---|---|---|
+| An assertion combining a shape guard with a conversion of the same value — it would raise, rather than report, on exactly the run where it failed | a static scan already in the repo, on the item's own first draft | nothing; the assertion passed |
+| Two test expectations matching a message fragment that had been reworded after they were written | the live suite | the failure, correctly |
+| A message template gained a slot; two of its **four** raise sites were updated | the live suite, via one test that happens to reach a third site | nothing for the fourth site |
+| 180 generated lines inserted *above* a module's header line, by a script whose failed match did not stop it | a count printed for an unrelated reason reading double | **all 24 checks passed** |
+| A hand-written source scan whose parameter regex stopped at the first close paren, so array parameters read as undeclared | running it against modules known to compile | its own "clean" run, on modules that had no array parameter |
+| A new check reading only the last string literal of a template built by concatenation | its own first run over a known-good tree, reporting 14 problems | — |
+
+Three lessons generalise past this project.
+
+1. **A defect can be invisible to every mechanical check and to a green
+   suite at once.** The module-header case is the clean example: the check
+   that counts the very lines which had been duplicated read the right
+   number, because it reads them from inside the function it expects them in
+   and never looks at the top of the file. The bill for that one would have
+   come due as an import failure on someone else's machine.
+2. **A new check whose first run over a known-good tree is not clean is
+   reporting its own defect.** Both harness bugs above were found that way,
+   and one of them had already passed a control — against files that
+   happened not to exercise the construct being parsed. Choose controls that
+   exercise the construct, not merely files known to be good.
+3. **A message reworded after its test was written needs that test reread**,
+   and a fragment short enough to drift is worth lengthening. Both stale
+   expectations were caused by improving a message.
+
+### 6. And one defect that was not in the software at all
+
+Two steps of the live pass failed with a correct refusal: a rule named a
+relation nothing defined. The instruction said "set the table name to
+`Chain`" without saying *where*, and a spreadsheet has two boxes that both
+take a name and both commit on Enter — the table's own name box on the table
+tools tab, and the name box above the columns, which creates an ordinary
+defined name and leaves the table called `Table1`. Only the first is the
+table's name, and it is the table's name a rule must use.
+
+The second outcome is nearly indistinguishable from success: the name
+resolves, so no reference error appears, and the formula bar colours it like
+any other name. The refusal was right both times and told the reader nothing
+they could act on, so the natural conclusion was that the spreadsheet was
+misbehaving rather than the instructions.
+
+Two things changed. The instructions now have the name set and read back in
+one line, so neither box is involved. And the refusal — in all four engines
+that share it — now ends by listing the names the program *does* define,
+table arguments first, because those are what this failure is nearly always
+about:
+
+> `(query staff5)` names a predicate with no facts, no rule, and no matching
+> table — check the spelling, or that the table argument's name matches.
+> **The names this program does define, table arguments first, are: table1.**
+
+The general form is worth keeping: **a fixture slip on a named input is
+indistinguishable, in the refusal it produces, from a defect in the thing
+being tested.** A refusal that names what it *did* find, and not only what it
+wanted, collapses that ambiguity for nothing.
+
+### What it cost, in numbers
+
+| | before | after |
+|---|---|---|
+| automated assertions in the query suite | 1,443 | 1,768 |
+| static scans | 22 | 25 |
+| refusal catalogue entries / raise sites checked | — | 552 / 737 |
+| Datalog programs re-run through the new engine | — | 178 |
+| lines changed in the shared evaluator | — | 0 |
+
+Of the 325 new assertions, 40 pin the key (against published digests
+recomputed independently from the bytes the design names, so a shared bug in
+the encoder and in its own test cannot cancel out), 78 pin the spellings —
+including eighteen of the corpus's own English rule lines, written out in
+the settled spellings and required to parse — and 179 are the parity proof.
+The remaining 28 cover the memory, including the case that matters most:
+wiping it between two questions must change no answer, only the time.
+
+---
+
+## Entry 3 — Constraints without a search: a seam not taken, and a crash nine items old *(2026-09-19)*
+
+*Status: written after the item shipped and was tested live, so like Entry 2
+nothing here is a prediction. Entry 1 measured the shape of a search before
+any engine existed; Entry 2 recorded what building the base case cost. This
+entry records the first item that makes the engine say something Datalog
+cannot: that a schedule breaks a rule, and which rows break it. The
+project's roadmap tracks this work as `OPTIMIZE.2`.*
+
+### Background, for a reader new to the project
+
+The engine answers questions written as s-expressions over spreadsheet
+tables. Until this item it only ever **derived**: given facts and rules, it
+computed everything that follows and spilled the result into the worksheet.
+This item adds the first thing that **eliminates**. A constraint says "no
+world in which this holds" (`forbid`) or "wherever this holds, that must
+too" (`require`), and with no choice in the program there is exactly one
+world, so a constraint is not a reason to try another — there is no other.
+It is a check.
+
+That makes this the smallest possible proof that a constraint is a different
+kind of thing from a rule, and it is also the whole of the compliance case
+the engine was scoped around: *does this month's assignment break any rule,
+and which rows?* No search is involved, and none is needed.
+
+### 1. The seam we did not build
+
+The plan said a constraint's body should be instantiated over the world "by
+the same join the evaluator runs for a rule body". The join is private, and
+deliberately so: it is entangled with the evaluator's own atom
+representation, its column bookkeeping, its aggregates, its built-ins and
+its safety checks. Three ways to reach it were on the table, and all three
+were bad.
+
+**Exposing the join** would have promised that whole internal contract to
+every future caller, in exchange for one capability.
+
+**Moving the join into the shared substrate layer** looked like the
+principled choice and turned out to be *structurally unavailable*, for a
+reason worth recording. That layer is forbidden from raising user-facing
+refusals — refusal wording belongs to each engine, so that a message inside
+an `OPTIMIZE` cell never names a different function. The substrate's own
+table-resolution helper returns a *reason code* rather than raising, for
+exactly this reason. But the join raises about a dozen refusals directly. So
+moving it means converting every one of those to a reason code and rewiring
+four engines to re-word them. A layering rule adopted for a small reason —
+who owns the words of an error — silently decided, years later, which
+refactor was affordable.
+
+**Duplicating the join** would have meant re-implementing column-name
+desugaring, five kinds of body item and the safety checker, all of which
+drift the moment the shared evaluator changes.
+
+The fourth option is the one we took, and it is the finding: **do not borrow
+the machinery — become the thing the machinery already processes.** A
+constraint is rewritten into an ordinary rule whose head collects the rows
+that break it.
+
+```
+  (forbid B1 B2)        ->  (rule (check-1 "1" V...) B1 B2)
+  (require CONS B...)   ->  (rule (check-2 "2" V...) B... (not CONS))
+  (require GROUND)      ->  (rule (check-3 "3") (not GROUND))
+```
+
+A violation is then exactly a non-empty derived relation. Negation,
+aggregates, comparisons, column-name atoms, stratification and the safety
+checker all arrive for free and cannot drift, because they are not being
+reused — they are simply running, on a rule, as they always do.
+
+The seam this needed is one function, and it is at the **program** level
+rather than the algorithm level: an entry point that takes a program already
+parsed into forms, rather than one that takes text. It promises only "a
+program is a list of forms, and here is the entry that takes them". The
+grounding machinery stayed private, and the shared evaluator changed in
+three places totalling about forty lines.
+
+The generalisable form: **the narrowest seam is at the layer where the data
+already has a name**, not at the layer where the algorithm you want lives.
+We wanted the join; what we actually needed was the ability to hand over a
+program, which is a far smaller promise and one the module could already
+almost make.
+
+A variant we rejected is worth naming because it was tempting. The same
+rewriting can be done with *no* change to the shared evaluator at all, by
+re-serialising the rewritten program back into text and handing over the
+text. We refused it: that puts a text writer between what a user wrote and
+what the engine answers, where a writer bug becomes a **wrong answer**
+rather than a refusal. A round trip through a serialiser is not free just
+because it touches no files.
+
+### 2. Where a mistake lands should decide where a feature goes
+
+Entry 1 found that some impossibilities are arithmetic, not search: a roster
+needing 63 person-shifts a week from ten people who may work five each is
+impossible by one multiplication, and the reference solver could not prove
+it in over three minutes under two encodings. So the engine should run
+counting pre-checks — demand against capacity — before searching.
+
+This item was supposed to land them, and the scoping run found they could
+not run at all. **Every counting case takes its demand from a choice**, and
+a choice is refused until the search item exists. Reaching them here would
+mean inferring demand from the choice forms and the rule graph *without* the
+grounder that the search item builds: the counted resource is often a
+derived relation fed by two different choices, and a count can come from a
+table column rather than a literal. That inference is a second, throwaway
+implementation of the very machinery about to arrive — the same duplication
+we had just rejected in section 1, relocated.
+
+The argument that settled it, though, was not duplication. It was **where a
+mistake lands**. Wired up, a slip in that arithmetic answers *"no schedule
+satisfies every rule"* for a roster that has one — an engine named for
+optimisation telling a manager their problem is impossible when it is not.
+Left unreachable, the identical slip is a failing test.
+
+So the three comparisons were built, and pinned against every counting case
+in the corpus, and nothing calls them. When the search item lands it will
+supply demand and capacity from its real grounding and call the same
+functions unchanged. This is the same pattern the previous item used for its
+five result sentences: **reserve and prove the part that is settled, and let
+reachability arrive with the machinery that makes it honest.**
+
+It bought something concrete beyond safety. Not one existing refusal message
+had to be reworded, so not one existing test expectation had to be re-read —
+which is precisely what cost the previous item's live pass two of its
+fourteen steps.
+
+### 3. A documented hazard is not a fixed hazard
+
+The suite crashed on its first live run, inside the shared evaluator, with
+"subscript out of range".
+
+The cause: a rule whose body binds **nothing** — every argument a constant —
+projects down to the empty tuple, and that path built it with a zero-length
+`ReDim` of a one-based array. That idiom is unreliable in this host, and it
+is *documented as unreliable in the very file whose own helper works around
+it*, with a note recording that it was caught live once before.
+
+It has been there since the evaluator's first version, through nine
+subsequent items and some 1,800 automated assertions. Nothing had written
+such a rule. Rules are written to derive things *about* data, so they
+mention variables; a rule with no variables at all derives one fixed fact
+and looks pointless.
+
+What made one appear was a sentence. The corpus of manager-sized questions
+contains a quoting rule — *"carbon wheels need the carbon frame"* — which
+names two catalogue items and no variables whatsoever. Written as a
+constraint, it is exactly the shape nobody had a reason to write.
+
+Two findings, and the second is the useful one:
+
+- **Coverage is a function of the shapes your corpus writes, not of the
+  lines your tests touch.** Line coverage over that projector was total for
+  nine items. The uncovered thing was an *input shape*, and no coverage tool
+  measures those.
+- **A hazard that is written down is not thereby handled.** The note
+  describing this exact failure, and the helper that avoids it, sat in the
+  same module. Documentation of a trap protects only the code that was
+  written after someone read it.
+
+Both shapes of the offending rule are now permanent cases in the
+cross-engine comparison suite.
+
+### 4. A test harness more adversarial than the product
+
+The second defect was this item's own, and it shows a class of bug that
+worksheet use cannot produce.
+
+The rewritten check rules derive relations, and derived relations are
+written into the dictionary of relations the caller supplies. Each worksheet
+function builds a fresh dictionary per call, so nothing accumulates. **Every
+programmatic test, by contrast, builds one dictionary and reuses it**, which
+is the efficient and obvious thing to do — and which handed the second
+program the first program's violations, still sitting under the same
+generated name. A clean program then reported a violation from a rule it did
+not contain.
+
+That is the same wrong answer section 2 declined to risk, arriving through a
+door nobody was watching: not from arithmetic, but from a side effect
+crossing a call boundary.
+
+The fix is that each run now works in its own copy of the dictionary, and
+the cache key is taken over that copy — otherwise a cell's key would depend
+on what ran before it, which is the determinism guarantee broken by the side
+door. **The general shape: a function that writes into a structure its
+caller owns has an unstated precondition — that the caller does not reuse it
+— and the only callers that violate it may be your tests.**
+
+### 5. An umbrella prefix needs sub-prefixes from the first generator, not the second
+
+Generated identifiers in this project live under a reserved `vla-` prefix,
+refused when a user writes one. The first draft of this item reserved that
+whole prefix.
+
+It was already occupied. A different subsystem — the one that compiles
+English sentences into queries — emits `vla-ask-...` and `vla-not-...`
+predicates into ordinary programs, and **two of them sit in the cross-engine
+comparison table**. Reserving the umbrella would have refused a program the
+other engine answers, and would eventually have made this engine refuse its
+own sibling's output.
+
+Narrowed to `vla-check-`, one sub-prefix per generator. The finding is a
+small piece of API design that generalises: **a reserved namespace needs its
+per-generator partition defined by the first generator, not negotiated by
+the second**, because by then the first one's names are already in tests,
+fixtures and other people's files.
+
+A second, smaller hole in the same area: the reserved-name guard walked the
+program's nested forms looking at each list's head, which is where a
+predicate name appears — except in a bare `(query name)`, where the name is
+a plain token and not a list head at all. `(query vla-check-1)` would
+therefore have spilled the engine's own internal bookkeeping into a
+worksheet. **An enumeration of "all the places X can appear" is worth
+writing out explicitly; the one that gets missed is always the one with a
+different shape.**
+
+### 6. The live pass: three instruction defects to two engine defects
+
+Fourteen numbered steps were run by hand in a live workbook. They found two
+real defects (sections 3 and 4) and **three defects in the steps
+themselves**, none of which was a defect in what the engine answers. That
+ratio is worth recording, because the instructions are usually treated as
+the trustworthy part of a verification pass.
+
+All three were claims about the *host* rather than the engine:
+
+- A step asked for `=COUNTIFS(Broken[[#All]],"<>")` over a named spilled
+  range. That bracket syntax is a *structured reference*, which works only
+  on a real spreadsheet Table; a named spill is referred to by its bare
+  name. Excel rejected the formula **at entry**, with a dialog, rather than
+  evaluating it to the `#NAME?` error the step had predicted as its fallback
+  — and the step offering a fallback at all was the tell that neither half
+  had been reasoned through.
+- A step proved "three cells, one search" by clearing a counter, forcing a
+  **full recalculation**, and expecting 1. It read 4. A full recalculation
+  is workbook-wide, and by that step the workbook held nine earlier sheets
+  of cells calling the same engine; with the counter just cleared, every
+  distinct program in the workbook was a miss. The feature was working
+  perfectly.
+- The third was inherited from the previous item: a step that depends on a
+  name the operator must set needs that name read back before the first
+  formula, because a fixture slip on a named input is indistinguishable from
+  an engine bug in the refusal it produces.
+
+Two rules came out of it, both narrow:
+
+- **Make a measurement's scope as narrow as the claim.** Recalculate one
+  cell, not the workbook.
+- **Ship a discriminator with every counter.** The 4-versus-1 question was
+  settled in a single line by also printing the number of distinct cached
+  keys: *four runs, four keys* means every run was a different question and
+  no repeat ever missed — which is the very property the step was trying to
+  demonstrate. Without that second number, a surprising count is an
+  argument; with it, it is a diagnosis.
+
+### 7. A scope finding for the next item
+
+One measured result changes a future item's plan. Counting constraints —
+"nobody holds more than two roles this month" — were expected to need the
+aggregate work scheduled as a separate item. They do not, for *checking*: an
+aggregate inside a constraint over a fixed world is an aggregate inside a
+rule body, which the evaluator has done for several versions. It works
+today, and is pinned doing so on the corpus's own segregation-of-duties
+case, where the cap correctly does **not** fire at two and fires on six rows
+at one.
+
+What the aggregate item actually owns is narrower and harder than it looked:
+propagating a counter over atoms that are still *being chosen*, during a
+search, as a bound rather than an expansion. Splitting "check it" from
+"propagate it" was not visible on paper and became obvious the moment a
+constraint was a rule body.
+
+### What it cost, in numbers
+
+| | before | after |
+|---|---|---|
+| automated assertions in the query suite | 1,768 | 1,860 |
+| static scans | 25 | 26 |
+| Datalog programs re-run through the new engine | 178 | 180 |
+| lines changed in the shared evaluator | 0 | ~40 |
+| worksheet functions | 3 | 4 |
+| refusal catalogue entries for this engine | 18 | 20 |
+
+Of the 92 new assertions, 71 cover the checks themselves — including the
+corpus's segregation-of-duties case end to end, both polarities satisfied
+and broken, a requirement over data checked rather than granted, and six of
+the corpus's own English rule lines now *checked* rather than merely parsed
+— 19 pin the unreachable counting arithmetic against the corpus's own
+numbers, and 2 are the two crash shapes from section 3.
+
+The new static scan holds this engine's copy of the evaluator's fourteen
+body-item keywords to the evaluator's own list. Two independent lists that
+must agree, with nothing mechanical holding them together, is the actual
+defect; the drift would show up as the engine building a rule it then
+refuses, naming an internal predicate at a user who never wrote one. Its own
+first run over a known-good tree was not clean — it was not joining
+continued source lines, and the keyword list is exactly the kind that gets
+split across two. **A new check whose first run over a known-good tree is
+not clean is reporting its own defect**, which is Entry 2's lesson arriving
+again in a different file.

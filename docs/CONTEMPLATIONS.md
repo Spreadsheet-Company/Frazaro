@@ -1748,3 +1748,398 @@ corpus is `SD-7`'s gate, and the betting table decides.
   the same day.
 
 ---
+
+## Contemplation 9 — The Arrows Still Outside *(2026-09-19)*
+
+*The owner's question, 2026-09-19, filed the same day. With logic
+engines, security work and IO features arriving quickly, the owner felt
+the project's "elegance" had been skipped over. The moment phrasebooks
+were turned into VLA (`F.13`), "something fundamental clicked" — a core
+puzzle piece laid almost by accident, out of a wish to normalize
+rule-matching in Lisp syntax. The owner read that feeling as a clue that
+"elegance isn't always antagonistic to composability", and asked for an
+assessment of Frazaro as it stands: find the other "phrasebooks in VLA"
+gaps, the cleaner design choices that would collapse one or more layers
+of cognitive complexity, and use the ten-thousand-foot view to spot the
+blindnesses of an "agglutinative architecture". In the owner's words:
+"I don't want Frazaro to just work performantly, I want it to sing
+beautifully." Mid-answer the owner added that "the Bartosz Milewski
+category theory contemplation" was orthogonally related. That is
+Contemplation 5 above, which asked what to add along orthogonal axes;
+this one is its dual, and asks what to collapse. The answer given in
+conversation, re-filed here at the owner's request. The title is the
+assistant's.*
+
+*Read in full before answering: `README.md`, `docs/README.md`,
+`REBUILD.md`, `CUTS.md`, `SUBSTRATE.md`, Contemplations 3 and 5 above,
+`BETA_ROADMAP2.md`'s standing-decision register, THE TWO NEUTRALITIES,
+THE MIDDLE LAYER, THE METAMETAMACRO LINE and THE EDITION LINE,
+`LESSONS.md` §I and its Beta addendum, `VLA_HeadTable.bas`, the emitter
+sections of `VLA.bas`, the dispatch procedures of `VLA_Interpreter.bas`,
+the head of `english.vla` and of `prelude.vla`, and the header of every
+`tools/check_*.ps1`. Surveyed by four read-only passes and then
+re-checked: the query tier, the four test modules, persisted state and
+effect gating, and the phrasebook, message and renderer machinery.
+Measured, not recalled: every count below was re-taken at `HEAD`
+(`1866697`) at filing, the commands are at the end, and where a figure
+differs from the one given in conversation the filed figure is the
+measured one. No Excel was run, so every claim about behaviour is a
+reading of source; the two that matter most are marked as unverified.
+Like every contemplation this is a mental model, not a commitment:
+nothing here is an item until the betting table says so, and no ID is
+minted below.*
+
+### The short answer
+
+The click was not Lisp syntax. One of the system's arrows, English →
+VLA, stopped being written in a private notation and became an object in
+the system's own language, and it inherited every arrow VLA already had
+without anyone building them. That yields a mechanical search rule —
+**look for what is declarative and still written in VBA** — and the rule
+finds six things. Five are collapses with a recipe. The sixth is the
+largest, is guarded by `SD-16`, and has been growing the wrong way for
+two weeks.
+
+### What clicked, stated so it can be hunted
+
+Before `F.13` a phrasebook was a file in a line-oriented notation of its
+own: `pattern => template`, `test:`, `fail:`, `override:`. After it, a
+rule is `(english-vla "pattern" template)` and its proof is
+`(test-success …)` beside it. Nothing was built to make the following
+true. Each came with the move:
+
+- the reader parses phrasebooks, so Lint formats them and the SHA-256
+  that consent is keyed to covers them;
+- `defmacro` applies, so a rule family (`table-property-family`, the
+  antonym families) generates a rule, its macro and its proof from one
+  call;
+- a proof sits beside its rule and a failing proof refuses the load, so
+  the file is its own regression suite;
+- the loaded grammar can be written back out (`english_expanded.vla`),
+  so coverage has something to read.
+
+That is the connection to Contemplation 5, and it is the one
+category-theory sentence this contemplation earns: the project did not
+add features, it moved an arrow into a category where the morphisms
+already existed. Every gap below is an arrow that is still *external* —
+written in VBA, the meta-language — when it could be *internal*, written
+in the language it is about. `F.3` was the same move one size smaller: a
+322-line VBA string became `prelude.vla`. The move has been made twice.
+The search rule is how to find the third.
+
+### The ledger: what is declarative and still written in VBA
+
+| Still outside | Measured at `HEAD` | What gives it away |
+|---|---|---|
+| VLA → VBA and VLA → formula | four `Select Case` dispatchers in `VLA.bas` holding 71 `Case "…"` lines (`EmitStmt` 36, `EmitExpr` 14, `EmitTop` 11, `EmitFormula` 10); by a reading of `EmitStmt`, about twenty arms are one-line templates and about a dozen are procedural | `pad & "Do While " & EmitExpr(…) & … & "Loop"` is a phrasebook rule written as string concatenation |
+| Refusals | 519 `AddMsg` rows in `VLA_Messages.bas`, about 700 `RaiseMsg` sites | the catalogue already uses the phrasebook's `{slot}` syntax; its doubled `""` quotes are the bug class `F.3` deleted; the Spanish edition refuses in English |
+| The Excel binding | the interpreter's thirteen dispatch procedures hold about 270 `Case "…"` lines; about 55 are the language (`ExecStmt` 21, `EvalOpChain` 18, `EvalExpr` 15) and about 220 bind members, constants, receivers and helpers | `DynamicGet`'s own comment records that the Get and Set lists drifted and were mirrored "wholesale" by hand |
+| Sentence structure and logic English | statement and block parsing ≈915 lines, expressions ≈390, conditions ≈125, the `G-PROLOG` sub-grammars ≈1,770; the matcher that executes phrasebook data ≈500 | five `G-PROLOG` slices inserted 2,085 lines into `VLA_SentenceEngine.bas` and 270 into `english.vla`, whose `G-PROLOG` section holds two rules and twenty-two proofs |
+| Proofs | 26,523 test lines, about three thousand assertion call sites, 658 literal `PROLOG("…")` calls, 339 lines that build VLA source by `& vbLf & _` | `check_optimize_parity.ps1 -Emit` scrapes 178 `DATALOG` programs out of `VLA_Tests_Query.bas` and prints them back as a VBA table for pasting |
+| Core forms | `VLA_HeadTable.bas`: 65 rows, seven columns, one column live (aliases) | its summary string still says "IN.2 not built", and `VLA_Interpreter.bas` does not reference the table at all |
+
+### The collapses, ranked by what falls out
+
+**1. Phrasebooks below the waist: `vla-vba` and `vla-formula`.** The
+README's heading says "phrasebooks all the way down", and today that is
+true of the top half of the hourglass. `LESSONS.md`'s Beta addendum
+records the owner's reason for the `<lingua>-vla` head: every rule
+should read as "my language into VLA". Read as notation, the head names
+an arrow by its endpoints. `vla-vba` continues the naming downward, and
+the heads then compose the way the arrows do: `english-vla`, then
+`vla-vba`.
+
+- *Mechanism.* A form pattern maps to a text template with typed slots
+  — `{e:expr}`, `{body:stmts}`, `{n:ident}` — the emitter's counterpart
+  of `{r:cell}`. The dozen procedural arms (`for-each-row`, `select`,
+  `make-button`, the two provenance wrappers) take an explicit
+  `(native EmitForEachRow)` escape, and the ratio of template rules to
+  natives is published the way the dot count is.
+- *`F.7` closes by construction.* A head with no rule is refused, which
+  is the product's doctrine at the top of the hourglass and not yet at
+  the bottom: `VLA_HeadTable.bas`'s own honesty note says `(do-until x)`
+  would emit `DO_UNTIL(x)` through `EmitFormula`'s permissive
+  `Case Else`.
+- *`SEC.3` comes free.* Rule-driven output knows which rule, in which
+  file, wrote each line, exactly as Explain does upstream.
+- *A second export target becomes a file, not a module.* The ark
+  `SUBSTRATE.md` H.3 declines to build on spec gets cheaper to build on
+  demand. `G-RENDER`'s "legacy import" horizon becomes the move the
+  renderer already makes with `VLA_Unify.UnifyOneWay`, pointed at a
+  different phrasebook.
+- *Why it is possible at all.* A 1:1 middle layer is what makes the
+  lower arrow a phrasebook and not a compiler. `LESSONS.md` §I has been
+  paying for that option since the founding bargain, and nothing has
+  collected on it.
+- *The catch.* Since `IN.9` the emitter is the export path, so this buys
+  symmetry and optionality, not daily leverage. *The pilot:*
+  `EmitFormula` is 88 lines, `F.7` is open and asks for exactly a
+  declared table, and the goldens give an empty-diff witness.
+
+**2. An edition is one file.** THE EDITION LINE plans three mechanisms
+for one idea: alias-style tables for vocabulary (`EDITION-VOCAB`),
+swapped `AddEntries` bodies for refusals (`EDITION-MESSAGES`), and a new
+id-table for chrome (`EDITION-CHROME`). The alternative is the one
+mechanism that already exists: every word a human reads is a form in the
+edition's `.vla` — refusals, captions, number, ordinal and operator
+words, and the eleven built-in rules `EnsureInit` registers from VBA,
+flagged non-overridable.
+
+- Translators never touch Apache-licensed VBA. `CUTS.md`'s licence cut
+  already says words belong to the MPL corpus; the refusals are words on
+  the wrong side of it.
+- `test-fail` can pin a message *id*. Today it pins an English substring
+  (`"one of 'with'/'without'"`), so `english.vla`'s own proofs would
+  break under a Spanish catalogue.
+- Translation coverage becomes the rule-coverage report, unchanged.
+- *The catch.* A refusal about a phrasebook that failed to load needs a
+  voice. `REBUILD.md` already proposes generating a fallback catalogue
+  from a single source for the runtime's `rt-*` twin; the same
+  derivation serves here.
+- This is the cheapest candidate, and the nearest twin of `F.3`.
+
+**3. The host is a profile.** Contemplation 3 named the domain profile;
+this is its price list. The forms would read
+`(host-member bold :get :set)`,
+`(host-member saveas :call :effect external)` and
+`(host-helper vlasendmail :effect external :raises)`.
+
+- *One declared closed world*, read by `SEC.1`'s allowlist, `SEC.8`'s
+  gate, `SEC.7`'s permissions, `F.16`'s "marked pure", Undo's scope and
+  Check — and by the emitter, which today is an open world:
+  `EmitExpr`'s `Case Else` emits any name as a call, while the
+  interpreter allowlists.
+- *What it replaces.* By one count made during the conversation, about
+  fourteen hand-kept lists answer "what does this verb do": four member
+  allowlists, `EmitFormula`'s refusal arm, two head-table columns
+  nothing dispatches on, the native-`Case` list for helpers that can
+  raise, reserved names, and PowerShell baselines in `tools/`.
+- *A reading, not a test.* `SEC.8`'s guard has nine call sites: eight in
+  the interpreter's member dispatch and one in `VlaSendMail`. `VLA.bas`
+  has none, so compiled code does not meet the gate. The compile path is
+  closed by VBOM trust, the argument `SEC.12` and `SEC.17` already rest
+  on; whether that argument should also carry `SEC.8` is the owner's
+  call, and it is worth a look before it is assumed. *Unverified: read,
+  not run.*
+- *The metric.* The last three Excel-facing slices (`G-FORMAT` 1 and 2,
+  `G-SORTFILTER`) each inserted lines into `VLA_Interpreter.bas` (+57,
+  +9, +77); two also into `VLA_Runtime.bas` (+108, +192) and a ratchet
+  baseline. `SD-12` makes the grammar slice the hottest path in the
+  project, and the phrasebook's promise was that a new sentence is a
+  data change.
+- *The catch.* VBA cannot dispatch from data: `IN.15` proved
+  `Application.Run` does not propagate a raise. Two honest options.
+  `CallByName` behind the declared list: `obj.Bold` on an `Object` is
+  already late-bound, so `REBUILD.md`'s constraint 6 may cost less than
+  assumed — a guess, to be measured before it is believed. Or the build
+  generates the arms from the profile with the project's own emitter,
+  the first real dogfood of VLA → VBA. Either way the profile is what
+  `SD-15` asks of dynamic dispatch: a declared capability, default
+  deny.
+
+**4. Proofs are forms.** `test-success` is one of the best ideas in the
+repository, and it stops at the phrasebook boundary. Generalised to every
+arrow — `(test-vba form "text")`, `(test-prolog "program" rows…)`,
+`(test-sql …)` — it does three things.
+
+- The 178-program parity table, the script that scrapes it and the
+  ratchet that keeps it complete all go away, because both suites
+  iterate one corpus.
+- The bigger gain is `REBUILD.md`'s Whitworth caveat. A data corpus can
+  be checked by an implementation of a different lineage. `OPTIMIZE`
+  already has this: seventeen clingo exports confirm its keys. SQLite
+  could check the SQLite-leaning `SQL`, and SWI-Prolog could check
+  `PROLOG`, in place of the throwaway PowerShell transliterations the
+  roadmap mentions some forty times and `VLA_Tests_Query.bas` cites as
+  the source of its expected strings. Those share a lineage with the
+  code they check: the same author reading the same source. All of it is
+  dev-side, as clingo is, so `SD-13` is untouched.
+- A sampled census during the conversation estimated that roughly 60%
+  of the test lines are `(name, input, expected)` rows. That is an
+  estimate, not a count.
+- *The catch.* The host tests stay VBA, and a results grid needs a
+  notation.
+
+**5. One term under four engines.** The reader is shared
+(`VLA.VlaReadForms`) and the relation substrate is shared. The term is
+not.
+
+- *The leak.* "An atom is a String with a leading quote character"
+  reaches every engine: four quote-strippers (`AtomText`, `OptAtomText`,
+  `LeafText`, `TextOfAtomicLeaf`), three variable tests, three
+  `TopHead`s, six copies of the table-binding loop, and two keyed-atom
+  desugarers of 133 and 93 lines whose helper `JoinOriginalNames` is
+  byte-identical in both. The only cross-engine call in the tier is
+  `OPTIMIZE` calling `DatalogRunForms`.
+- *Two value models.* `PROLOG` stringifies cells while `DATALOG` and
+  `SQL` keep Variants, so the engines disagree about `"5"` and `5`, the
+  English layer has to know which engine a question goes to, and
+  `VLA_Prolog.bas` carries about 250 lines whose only job is explaining
+  quoted-versus-bare failures.
+- *The fix has a name:* `REBUILD.md`'s `VLA_Forms`, "the ABI between
+  tiers". Its absence is also why the click stopped propagating:
+  `VocabTextHasRawForm`'s own comment says it walks raw text because
+  `Nth` and `IsList` are `Private` to `VLA.bas`.
+- *The duplication is a fossil.* The comments justify each copy in the
+  same words: "a two-line rule, not worth a cross-module dependency
+  for", "a four-line rule not worth coupling for". That is `R7`, earned
+  at the injection boundary and carried by habit into modules that
+  always ship together — which `R7`'s own text says it does not cover.
+  `SD-11` applies.
+- *The catch.* `SD-4`. The dedup is free; unifying the value model
+  changes shipped answers and needs the permanence analysis first.
+
+### The one moving the wrong way
+
+`G-PROLOG`'s English lives in built-in slot categories — `conditions`,
+`clause`, `question` — because `SD-16` forbids phrasebook-defined
+nonterminals. The wall is sound, and it has three costs on the record.
+
+- The renderer has no reverse for those categories; its own comment
+  says "this sub-grammar has no reverse yet". A rule written as data
+  inverts for free. A rule written as code is one-way.
+- Spanish reaches structure only through `keyword-alias`, which rewrites
+  its words into English ones, in English word order — five words today,
+  and `espanol.vla` records why `para cada … en` could not join them.
+  That quietly makes English, not VLA, the structural waist.
+- `PhraseBuiltinShapes()` hand-mirrors `ParseStmt` so that "What can I
+  say?" has an answer, and the slot-category list lives in three
+  `Select Case`s, two of which the code's own comment says were found to
+  disagree "live, the hard way".
+
+This is not a proposal to re-litigate `SD-16` in passing. It is a
+question for a contemplation of its own, with the mature-implementation
+analysis a parsing fork deserves: can *regular, non-recursive*
+sub-grammars be declared as tables that one engine scanner runs —
+keeping the wall (no backtracking, no self-reference, the shadow audit
+still decidable) while moving the English back out?
+
+### Blindnesses, from altitude
+
+- **Ratchets where a single home would do.** About a dozen of the 25
+  `check_*.ps1` scripts guard one fact that lives in two places: the two
+  module arrays, the two hash implementations, the reserved-predicate
+  set written three times, the operator gates, the parity table — and a
+  twenty-sixth, uncommitted in a peer session's tree that day, guards
+  `OPTIMIZE`'s copy of `DATALOG`'s body-wrapper list. Each was locally
+  right, an afternoon against a redesign, and that local argument is how
+  an agglutinative architecture wins every vote. The counter-example is
+  already in the repository: `VlaHelperManifest` derives its list by
+  scanning its own source, so a helper is "in the manifest by existing".
+  A working rule: when a fact needs a second ratchet, it is asking for a
+  single home.
+- **The click did not finish propagating.** `VocabTextHasRawForm` and
+  `EnglishResolveCheck` still walk raw phrasebook text, skipping
+  comments and strings by hand, though since `F.13` the reader could
+  give them forms. Undo decides which sheets to snapshot by scanning the
+  English for the word "sheet". And head aliases (`fijar!`, `si`,
+  `depurar`) resolve in the four emitter dispatchers and, as far as the
+  source reads, nowhere on the interpreter's path — so `(fijar! x 5)`
+  should compile and fail to interpret. *Unverified: read, not run.*
+  Each is the same shape: a front-half concept implemented inside one
+  consumer.
+- **Forty percent of `src/` is comments.** 32,203 of 80,235 lines;
+  `VLA_Prolog.bas` is 63%, and its first declaration is on line 1,364.
+  `CUTS.md`'s "fourteen of twenty-four modules over `R4`'s budget" is
+  largely prose. The reason is a good one — sessions are stateless and
+  the comments are the collaborator's memory — but `BETA_ROADMAP2.md`
+  already made this cut for the roadmap: one paragraph, then "more:
+  `BETA_ROADMAP1.md`". The code has not had its `BETA_ROADMAP2.md`.
+
+### Where elegance is a trapdoor
+
+- **A `PROLOG`-language prelude for `member`, `append` and `reverse`.**
+  Two clauses each and every mode for free, and wrong here:
+  `PROLOG_MAX_DEPTH` is 120 frames, so a recursive list predicate dies
+  near a hundred elements. The native, loop-ified builtins are forced by
+  the VBA stack, as `PROLOG.28` found.
+- **The interpreter's language arms stay code.** Phrasebooks translate
+  between languages. One arrow has to leave the category of languages
+  and mean something, and that arrow is `ExecStmt` and `EvalExpr`.
+- **Tables as runtime dispatch.** `IN.15` again. Tables declare, arms
+  execute, and the loader audits the pair; or the build generates the
+  arms. The table is never the dispatch.
+- **Self-hosting for its own sake.** `L-TIER3`'s own framing stands:
+  dogfooding, not homoiconic flattening. Generated tables are the most
+  that pays.
+
+### The order that pays
+
+The house rule is to measure before building. The number every candidate
+above should move is **files touched per grammar slice**: 17, 17 and 19
+for the last three Excel-facing slices, docs and goldens included, and
+git holds the whole history of it for free. Then the two cheapest tests
+of the thesis:
+
+- `vla-formula` as a rule file: closes `F.7`, puts 88 lines at risk,
+  touches only the export path.
+- Refusals as forms: `F.3`'s twin, with a dormant seam already in
+  `VLA_Messages.bas`.
+
+If neither produces the feeling the owner described, the thesis is wrong
+and the cost was a weekend. If one does, the host profile is the
+candidate that changes the daily work. None of this is an item: `SD-7`
+wants a sentence that needs each, and the betting table decides.
+
+### The numbers, and how to re-run them
+
+All counts are at `HEAD` `1866697`, read from the committed blobs
+because a peer session had uncommitted edits in six `src/` modules that
+day. No Excel is needed. From a Git Bash prompt at the repository root:
+
+```
+# A scratch copy of HEAD's sources (the working tree may be mid-item)
+S=$(mktemp -d); mkdir -p "$S/src"
+for f in $(git ls-files src | grep -E '\.(bas|cls)$'); do
+  git show "HEAD:$f" > "$S/$f"; done
+cd "$S/src"
+# Comment share: all of src/, then VLA_Prolog.bas
+cat *.bas *.cls | wc -l; cat *.bas *.cls | grep -c "^[[:space:]]*'"
+wc -l < VLA_Prolog.bas; grep -c "^[[:space:]]*'" VLA_Prolog.bas
+# Case "..." lines per dispatch procedure (interpreter, then emitter)
+arms() { awk '
+  /^(Private|Public) (Function|Sub) /{n=$3; sub(/\(.*/,"",n); c=n}
+  /^End (Function|Sub)/{c=""}
+  c!="" && /^[ \t]*Case "/{k[c]++}
+  END{for(p in k) if(k[p]>=9) printf "%-24s %d\n",p,k[p]}' "$1" |
+  sort -k2 -nr; }
+arms VLA_Interpreter.bas; arms VLA.bas
+# Refusals, the head table, and who reads it
+grep -c '^[[:space:]]*AddMsg m,' VLA_Messages.bas
+cat *.bas | grep -v "^[[:space:]]*'" | grep -o 'RaiseMsg "' | wc -l
+grep -c '^[[:space:]]*AddRow rows,' VLA_HeadTable.bas
+grep -c 'VLA_HeadTable\|ResolveHeadAlias' VLA_Interpreter.bas
+# Proofs
+cat VLA_Tests*.bas | wc -l
+grep -v "^[[:space:]]*'" VLA_Tests_Query.bas |
+  grep -o 'VLA_Prolog\.PROLOG("' | wc -l
+grep -c '^[[:space:]]*p\.Add "' VLA_Tests_Query.bas
+cat VLA_Tests*.bas | grep -cE '& vb(Lf|CrLf) & _[[:space:]]*$'
+# SEC.8's guard call sites, and the emitter's share of them
+grep -n 'VlaProvenanceGuardCaptured "' \
+  VLA_Interpreter.bas VLA_Runtime.bas VLA.bas
+cd - >/dev/null
+# G-PROLOG: what went into the engine, and what into the phrasebook
+for c in c5923d2 497a229 7b2be86 3709d00 ff658d0; do
+  git show --numstat --format= $c -- src/VLA_SentenceEngine.bas \
+    scripts/polyglotta/english.vla; done
+# Files touched per Excel-facing slice, and tracked check scripts
+for c in 7fdd7da f15c4b4 cabe454; do
+  git show --numstat --format= $c | wc -l; done
+git ls-files 'tools/check_*.ps1' | wc -l
+```
+
+*Restated at filing, against the figures given in conversation:* 519
+`AddMsg` rows, not 525, and about 700 raise sites, not 713 (the
+conversation read a working tree carrying a peer session's uncommitted
+refusals, and quoted `check_message_slots.ps1`'s header for the sites);
+658 literal `PROLOG("…")` calls, not 700, and 26,523 test lines, not
+"about 27k", for the same reason; about three thousand assertion call
+sites, not 2,700 (a different regular expression); eleven built-in rules
+in `EnsureInit`, not thirteen; `EmitStmt` has 36 arms and `EmitFormula`
+88 lines, not 37 and 87; the interpreter's arms are about 270 with about
+55 the language, not 250 and 35 (the conversation's count left out
+`EvalOpChain`); six table-binding loops at `HEAD`, not seven; 25 tracked
+check scripts, not 26. No conclusion moved.
+
+---

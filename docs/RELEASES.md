@@ -6,6 +6,48 @@
 
 ### What changed
 
+- **Safety fix: loading a Word document could close one you had open, losing
+  unsaved edits.** If Word was already running, Frazaro used to borrow it —
+  and asking Word to open a file it *already had open* gives back the document
+  you are working in, not a copy. Frazaro then closed it, and anything you had
+  not saved went with it. That was most likely to happen in exactly the
+  situation it is worst: editing a procedure in Word, then pressing **Reload
+  Instructions**. Frazaro now starts its own copy of Word, hidden, for the
+  moment it takes to read the file, and closes it afterwards. It never changes
+  a setting in the Word you are using, never closes a document you have open,
+  and never leaves one behind. Two consequences worth knowing: loading a Word
+  document now takes a second or two longer - the status bar says what it is
+  doing while Word works - and Frazaro reads the file **as saved**, so save in
+  Word first, then Reload.
+
+- **Frazaro now says why it cannot read a file, instead of showing a
+  programmer's error or quietly loading nothing.** Five new messages, in plain
+  words: Word is not installed or will not start; you are on a Mac, where
+  Frazaro cannot drive Word (save as `.txt` instead); the document holds no
+  text Frazaro can read — a scan or a page of screenshots is a picture of
+  text, and there is no OCR; the file is protected by a password, which
+  Frazaro never asks for (remove it in Word and save again); and the file is a
+  PDF. Each one leaves the procedure already on the sheet untouched, which the
+  message says — before this, a document with nothing readable in it would
+  clear your program and leave a single empty row where it had been.
+
+- **A password-protected Word document no longer freezes Excel.** Word asked
+  for the password on a window nobody could see, so Excel simply stopped.
+  Frazaro now tells Word not to ask, and refuses in words instead.
+
+- **PDFs are refused by name, and the reason is not a shrug.** Frazaro was
+  going to read PDFs through Word's own PDF conversion. Measuring that
+  conversion on our own sample procedures stopped it: a PDF does not store
+  lines and paragraphs, only marks on a page, so Word rebuilds them by
+  measuring gaps — and it drops the blank line that ends an indented block.
+  That silently changes what a procedure *does*, while every line still passes
+  Validate: one of our samples came back with three steps swallowed into a
+  loop that would have run them twenty times. It also joins steps that sit
+  close together, about once a page. So Frazaro refuses a `.pdf` and tells you
+  the way round it — open it in Word, save as `.docx` or `.txt`, load that —
+  along with what to check, because that same conversion is the one you will
+  be running by hand.
+
 - **A question can read another formula's spilled answer as a table.**
   If a formula spills a table with a header row (a `FILTER`, a `VSTACK`,
   or another `DATALOG` question), give that spill a name in Name Manager,
@@ -241,48 +283,6 @@ items is in `docs/BETA_ROADMAP1.md`, in plain words in `README.md`.
   Uninstall can delete a file, and it is now guarded. The rest is `U.24` on
   the roadmap. If you keep Frazaro's modules in a workbook of your own,
   click into a different workbook before pressing a Frazaro button.
-
-- **Safety fix: loading a Word document could close one you had open, losing
-  unsaved edits.** If Word was already running, Frazaro used to borrow it —
-  and asking Word to open a file it *already had open* gives back the document
-  you are working in, not a copy. Frazaro then closed it, and anything you had
-  not saved went with it. That was most likely to happen in exactly the
-  situation it is worst: editing a procedure in Word, then pressing **Reload
-  Instructions**. Frazaro now starts its own copy of Word, hidden, for the
-  moment it takes to read the file, and closes it afterwards. It never changes
-  a setting in the Word you are using, never closes a document you have open,
-  and never leaves one behind. Two consequences worth knowing: loading a Word
-  document now takes a second or two longer - the status bar says what it is
-  doing while Word works - and Frazaro reads the file **as saved**, so save in
-  Word first, then Reload.
-
-- **Frazaro now says why it cannot read a file, instead of showing a
-  programmer's error or quietly loading nothing.** Five new messages, in plain
-  words: Word is not installed or will not start; you are on a Mac, where
-  Frazaro cannot drive Word (save as `.txt` instead); the document holds no
-  text Frazaro can read — a scan or a page of screenshots is a picture of
-  text, and there is no OCR; the file is protected by a password, which
-  Frazaro never asks for (remove it in Word and save again); and the file is a
-  PDF. Each one leaves the procedure already on the sheet untouched, which the
-  message says — before this, a document with nothing readable in it would
-  clear your program and leave a single empty row where it had been.
-
-- **A password-protected Word document no longer freezes Excel.** Word asked
-  for the password on a window nobody could see, so Excel simply stopped.
-  Frazaro now tells Word not to ask, and refuses in words instead.
-
-- **PDFs are refused by name, and the reason is not a shrug.** Frazaro was
-  going to read PDFs through Word's own PDF conversion. Measuring that
-  conversion on our own sample procedures stopped it: a PDF does not store
-  lines and paragraphs, only marks on a page, so Word rebuilds them by
-  measuring gaps — and it drops the blank line that ends an indented block.
-  That silently changes what a procedure *does*, while every line still passes
-  Validate: one of our samples came back with three steps swallowed into a
-  loop that would have run them twenty times. It also joins steps that sit
-  close together, about once a page. So Frazaro refuses a `.pdf` and tells you
-  the way round it — open it in Word, save as `.docx` or `.txt`, load that —
-  along with what to check, because that same conversion is the one you will
-  be running by hand.
 
 - **Questions about your rules answer five to ten times faster, with the
   same answers.** 0.6.0 measured how large a Table a question can read, and
