@@ -20342,10 +20342,30 @@ now carries one summary paragraph per engine and points here.*
     alongside them, and never letting any of it become a `#OPTIMIZE!`
     (which stays for malformed input alone).
     The smallest proof that a constraint
-    is different from a rule — it derives nothing, only eliminates — and
-    the item that lands the single-atom-constraint pruning and the
-    Cartesian-body refusal from `OPTIMIZE.0`, since both are properties of
-    a constraint's body that need no search to test.
+    is different from a rule — it derives nothing, only eliminates.
+    **The single-atom pruning and the Cartesian-body refusal did NOT land
+    here, and both moved to `OPTIMIZE.3` — recorded rather than dropped,
+    because this entry claimed them and the scoping run found neither is
+    a thing this item can do.**
+      - *Single-atom pruning* is a POOL operation, and there is no pool
+        until a choice exists. "Nobody works while on leave" as a
+        constraint over the one world is a one-atom rule body, which
+        `EvalRuleBody` already evaluates with no join at all, so there is
+        nothing here to make cheaper. What `OPTIMIZE.0` actually
+        described — removing the atom from the choice pool at grounding,
+        so it costs zero — is `OPTIMIZE.3`'s, where a pool exists.
+      - *The Cartesian-body refusal* would contradict `OPTIMIZE.0`'s own
+        correction if it landed here as written. That correction, recorded
+        under `OPTIMIZE.3`, is explicit: **"the refusal is by projected
+        size, never by shape. A Cartesian body is the roster's own pool,
+        and `DATALOG` grounds it today."** Refusing by shape is therefore
+        wrong, and refusing by projected size needs a ceiling that
+        `OPTIMIZE.3` owns and measures on its own integer grounder. There
+        is a second reason, from the code: a constraint body IS a rule
+        body here, so refusing one `DATALOG` accepts would be a parity
+        divergence this engine has no grounds to introduce — and the
+        hazard is pre-existing and shared, not something this item
+        creates.
     *From `OPTIMIZE.0`'s oracle runs (2026-09-19): counting pre-checks belong
     here, before any search exists.*
     - **What each one compares:** for every counted resource, what the rules
@@ -20718,7 +20738,16 @@ now carries one summary paragraph per engine and points here.*
     fail-first static ordering from the grounding and every tie broken by
     Table order. **Refusals that ground before they search:** the
     ground-size bound (a rule projected past the ceiling is refused
-    naming the rule and the number) and the Cartesian body. **Budgets:**
+    naming the rule and the number) and the Cartesian body. **Both
+    inherited from `OPTIMIZE.2`, which was written as their home and
+    could land neither** (2026-09-19, recorded rather than dropped):
+    single-atom pruning is a POOL operation and there is no pool without
+    a choice, and the Cartesian refusal is by projected SIZE against a
+    ceiling this item measures — refusing by shape would contradict
+    `OPTIMIZE.0.A`'s own correction and would refuse a body `DATALOG`
+    grounds today. **So this item also inherits the single-atom
+    pruning**, the cheapest of all the narrowings and the only one that
+    costs nothing to apply. **Budgets:**
     decisions and conflicts, deterministic; the seconds guard that reports
     itself; "no schedule found within the budget; there may be one" as a
     result distinct from `OPTIMIZE.2`'s proven "none". **The data
