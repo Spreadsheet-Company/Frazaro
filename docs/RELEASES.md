@@ -68,27 +68,54 @@
   a secret, a token, an API key or a credential is kept only until Excel
   closes, and is never written to that file.
 
-- **Nothing you can see changed in `OPTIMIZE` yet - but the part that will
-  lay out a schedule's possibilities is in.** Before `OPTIMIZE` can choose
-  who works which shift, it has to spell out every possible choice and every
-  rule that could forbid one - and that step, done the way `DATALOG` does its
-  work, was measured taking around nine seconds on a roster rule that is not
-  even large. This release adds a second way of doing that one step, built
-  for exactly this job: it works on numbers instead of on the text in your
-  cells. It does not reach any formula yet - `OPTIMIZE` still refuses a
-  choice exactly as it did - and it gives the same answer as `DATALOG`
-  itself on every rule of all 192 test programs, row for row and in the
-  same order, which is checked every time the tests run. Measured: the
-  roster rule that took about nine seconds (9.2) now takes about half a
-  second (0.56), sixteen times faster, and the other roster rules measured
-  ran five to twenty-five times faster.
+- **`OPTIMIZE` makes choices.** Until now it could only check a schedule
+  you already had. Now it builds one. Write who may work which shift, how
+  many each shift needs - a number, or a column of your own table - and
+  the rules no schedule may break, and `OPTIMIZE` answers with the first
+  schedule that breaks none. It fills your first shift first, and takes
+  your rows in the order your tables list them. `OPTIMIZE_STATUS` says
+  why this is the answer: with nothing to make as small or as large as
+  possible, every schedule that breaks no rule is as good as another, and
+  this is the first of them.
+  - **When there is no schedule, it says so and says why.** That is
+    either the rules that cannot all hold, by number, or the arithmetic
+    that rules it out before anything is tried: "7 guests, and 2 tables
+    of 3 seat at most 6".
+  - **How hard it may try is yours to set, in the rules themselves:**
+    `(effort quick)`, `normal` or `thorough`, or a number. It is counted
+    in work rather than seconds, so a workbook answers the same on a
+    fast machine as on a slow one. If the effort runs out first, it says
+    there may still be a schedule rather than claiming there is none. And
+    a search inside a formula is stopped after ten seconds whatever its
+    effort says, and the answer tells you that is what happened. The three
+    levels are provisional: so far they are measured only on small
+    problems, where `thorough` is at most a second and a half of
+    searching, and a later release sets them on real rosters.
+  - **It lays out the possibilities much faster.** Before choosing, it
+    has to spell out every possibility and every rule that could forbid
+    one, and it now does that a new way, on numbers instead of on the
+    text in your cells. A roster rule that took nine seconds (9.2) now
+    takes about half a second (0.56). It is checked against `DATALOG`
+    itself on every rule of 192 test programs, row for row, every time
+    the tests run.
+  - **Not yet:** "as few as possible" and "as many as possible"
+    (`minimize`, `maximize`), preferences, staying close to last month's
+    roster, and rules that read what is being chosen. Each is refused in
+    words that say so.
 
 ### Known open security items
 
 **Closed this release:** nothing. The query changes above are speed only: the
 same questions, over the same tables, giving the same answers, with no new
-capability, no new file or network access and nothing new that a workbook can
-ask Frazaro to do. The CLI's history is new. It is written to one file of
+capability and no new file or network access. `OPTIMIZE`'s choosing is new,
+and it is the one new thing a workbook can ask Frazaro to do. It reads only
+the tables its formula names, writes nothing and calls nothing outside
+Excel. Its search stops at the effort its own rules allow, or after ten
+seconds of searching, whichever comes first. Laying out a very large
+program's possibilities is not bounded yet, just as a very large `DATALOG`
+question is not; a later release adds limits that refuse a program by its
+projected size.
+The CLI's history is new. It is written to one file of
 your own, `%APPDATA%\Frazaro\history.txt` - the first file Frazaro keeps in
 your profile - and never into a workbook; nothing in a workbook can read it or
 ask for it, and a command in it only ever comes back into the CLI's box, never

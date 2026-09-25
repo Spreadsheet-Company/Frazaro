@@ -30,6 +30,20 @@ Option Explicit
 ' same rungs, through a worksheet formula, are in the steps file for
 ' comparison; this harness re-times DATALOG in the same session rather than
 ' trusting them.
+'
+' SLICE 2 - THE SEARCH, TIMED. O3Search times two things, and prints O3S|
+' lines:
+'   - the search alone (VLA_OptimizeSearch.OptSearchRun) on the TWO-SHIFT
+'     FAMILY - n people, two shifts, exactly k on each, nobody on both, with
+'     2k > n. It has no schedule, but not by counting (one choice form and
+'     no cap), so the search must try every way; built as the search's own
+'     problem, with no grounding, no guard and a budget far past its need.
+'   - the whole run (VLA_Optimize.OptimizeRun) on the same family written as
+'     an OPTIMIZE program, and on OPTIMIZE's toy scaled to 20 people and 21
+'     shifts, four a shift - grounding and search together.
+' Every line checks its outcome and its decisions and dead ends against the
+' counts a line-for-line transliteration of the search computed before the
+' pass, and says WRONG rather than print a time for a different search.
 
 Private Const GUARD_SECONDS As Double = 15#
 
@@ -334,5 +348,152 @@ Private Function CountText(ByVal n As Long) As String
         CountText = "-"
     Else
         CountText = Format$(n, "#,##0")
+    End If
+End Function
+
+' ---------------------------------------------------------------------------
+' SLICE 2: the search, timed.
+' ---------------------------------------------------------------------------
+
+Public Sub O3Search()
+    Debug.Print "=== O3S: the search, timed ==="
+    Debug.Print "    Excel " & Application.Version & ", " & Format$(Now, "yyyy-mm-dd hh:nn")
+    Debug.Print "O3S|run|people|k|atoms|decisions|dead ends|expected decisions|expected dead ends|outcome|seconds|us per unit of work|verdict"
+    ' The expected counts, from the transliteration: (people, k, decisions).
+    ' Dead ends are always one more than decisions on this family.
+    Dim rungs As Variant
+    rungs = Split("14,8,923 16,9,3431 18,10,12869 20,11,48619", " ")
+    Dim i As Long
+    Dim stopAt As String
+    For i = LBound(rungs) To UBound(rungs)
+        Dim bits As Variant
+        bits = Split(CStr(rungs(i)), ",")
+        If Len(stopAt) = 0 Then
+            Dim v As String
+            v = SearchRung(CLng(bits(0)), CLng(bits(1)), CLng(bits(2)))
+            If v <> "ok" Then stopAt = v
+        Else
+            Debug.Print "O3S|search alone|" & bits(0) & "|" & bits(1) & "||||||||not run: " & stopAt
+        End If
+    Next i
+    If Len(stopAt) = 0 Then
+        ProgramRung "family through OPTIMIZE", FamilyProgram(16, 9), 16, 9, 32, 3431, 3432, VLA_Optimize.VLA_OPTIMIZE_NO_SCHEDULE
+        ProgramRung "toy scaled, through OPTIMIZE", RowProgram(20, 21, 4), 20, 4, 420, 84, 0, VLA_Optimize.VLA_OPTIMIZE_PROVEN_BEST
+    End If
+    Debug.Print "=== O3S done ==="
+End Sub
+
+' One family rung through the search alone.
+Private Function SearchRung(ByVal n As Long, ByVal k As Long, ByVal wantD As Long) As String
+    Dim prob As OptSearchProblem
+    VLA_OptimizeSearch.OptProblemInit prob, 2 * n
+    Dim buf() As Long
+    ReDim buf(1 To 2 * n)
+    Dim q As Long
+    For q = 1 To n
+        buf(1) = -q
+        buf(2) = -(n + q)
+        VLA_OptimizeSearch.OptProblemAddClause prob, buf, 2, q
+    Next q
+    For q = 1 To n
+        buf(q) = q
+    Next q
+    VLA_OptimizeSearch.OptProblemAddCounter prob, buf, n, k, k, 1
+    For q = 1 To n
+        buf(q) = n + q
+    Next q
+    VLA_OptimizeSearch.OptProblemAddCounter prob, buf, n, k, k, 2
+    Dim res As OptSearchResult
+    Dim t0 As Double
+    t0 = Timer
+    VLA_OptimizeSearch.OptSearchRun prob, 100000000, 0, res
+    Dim secs As Double
+    secs = SecondsSince(t0)
+    Dim verdict As String
+    If res.outcome <> VLA_OptimizeSearch.OPT_SEARCH_NONE Then
+        verdict = "WRONG: the outcome was " & res.outcome & ", not none (2)"
+    ElseIf res.decisions <> wantD Or res.conflicts <> wantD + 1 Then
+        verdict = "WRONG: a different search - the counts differ from the transliteration's"
+    Else
+        verdict = "ok"
+    End If
+    Debug.Print "O3S|search alone|" & n & "|" & k & "|" & (2 * n) & "|" & res.decisions & "|" & res.conflicts & "|" & _
+                wantD & "|" & (wantD + 1) & "|" & OutcomeWord(res.outcome) & "|" & SecsText(secs) & "|" & _
+                PerUnitText(secs, res.work) & "|" & verdict
+    SearchRung = verdict
+End Function
+
+' A whole OPTIMIZE run: grounding and search, timed together.
+Private Sub ProgramRung(ByVal label As String, ByVal prog As String, ByVal n As Long, ByVal k As Long, _
+                        ByVal wantAtoms As Long, ByVal wantD As Long, ByVal wantC As Long, ByVal wantState As Long)
+    VLA_Optimize.OptimizeMemoClear
+    Dim t0 As Double
+    t0 = Timer
+    Dim r As Collection
+    Set r = VLA_Optimize.OptimizeRun(prog)
+    Dim secs As Double
+    secs = SecondsSince(t0)
+    Dim st As Variant
+    st = r.Item(9)
+    Dim verdict As String
+    If CLng(r.Item(6)) <> wantState Then
+        verdict = "WRONG: the state was " & r.Item(6) & ", not " & wantState & " - " & r.Item(7)
+    ElseIf CLng(st(0)) <> wantAtoms Or CLng(st(3)) <> wantD Or CLng(st(4)) <> wantC Then
+        verdict = "WRONG: a different grounding or search - atoms, decisions or dead ends differ"
+    Else
+        verdict = "ok"
+    End If
+    Debug.Print "O3S|" & label & "|" & n & "|" & k & "|" & st(0) & "|" & st(3) & "|" & st(4) & "|" & _
+                wantD & "|" & wantC & "|" & OutcomeWord(CLng(st(6))) & "|" & SecsText(secs) & "|" & _
+                PerUnitText(secs, CLng(st(5))) & "|" & verdict
+End Sub
+
+' The family as an OPTIMIZE program: its atoms are numbered exactly as
+' SearchRung numbers them (shift a's people in order, then shift b's).
+Private Function FamilyProgram(ByVal n As Long, ByVal k As Long) As String
+    Dim s As String
+    Dim q As Long
+    For q = 1 To n
+        s = s & "(fact (person p" & q & ")) "
+    Next q
+    FamilyProgram = s & "(fact (shift a)) (fact (shift b)) (rule (elig S P) (shift S) (person P)) " & _
+        "(choose-exactly " & k & " (on S P) (elig S P) (per (shift S))) " & _
+        "(forbid (on a P) (on b P)) (effort thorough) (query on)"
+End Function
+
+' OPTIMIZE's toy, scaled: m people, s shifts in a row, exactly k a shift,
+' never two in a row.
+Private Function RowProgram(ByVal m As Long, ByVal nS As Long, ByVal k As Long) As String
+    Dim s As String
+    Dim q As Long
+    For q = 1 To m
+        s = s & "(fact (person p" & q & ")) "
+    Next q
+    For q = 1 To nS
+        s = s & "(fact (shift s" & q & ")) "
+    Next q
+    For q = 1 To nS - 1
+        s = s & "(fact (next s" & q & " s" & (q + 1) & ")) "
+    Next q
+    RowProgram = s & "(rule (elig S P) (shift S) (person P)) " & _
+        "(choose-exactly " & k & " (assign S P) (elig S P) (per (shift S))) " & _
+        "(forbid (assign S P) (assign T P) (next S T)) (query assign)"
+End Function
+
+Private Function OutcomeWord(ByVal o As Long) As String
+    Select Case o
+    Case 1: OutcomeWord = "found"
+    Case 2: OutcomeWord = "none"
+    Case 3: OutcomeWord = "budget"
+    Case 4: OutcomeWord = "guard"
+    Case Else: OutcomeWord = "(" & o & ")"
+    End Select
+End Function
+
+Private Function PerUnitText(ByVal secs As Double, ByVal work As Long) As String
+    If work <= 0 Or secs <= 0 Then
+        PerUnitText = "(under the timer's floor)"
+    Else
+        PerUnitText = Format$(secs * 1000000# / work, "0.0")
     End If
 End Function

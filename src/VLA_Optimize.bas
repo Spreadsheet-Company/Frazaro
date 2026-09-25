@@ -1,10 +1,28 @@
 Attribute VB_Name = "VLA_Optimize"
 Option Explicit
-Public Const VLA_OPTIMIZE_VERSION As String = "OPTIMIZE.2"
+Public Const VLA_OPTIMIZE_VERSION As String = "OPTIMIZE.3"
 
 ' =====================================================================
-'  VLA_Optimize - OPTIMIZE.2: constraints against the one world.
-'  OPTIMIZE.1's base case, plus checks that can only eliminate.
+'  VLA_Optimize - OPTIMIZE.3 (slice 2): choice, grounding over the pool,
+'  and a search that propagates. OPTIMIZE.2's constraints against the
+'  one world, OPTIMIZE.1's base case beneath them.
+'
+'  WHAT OPTIMIZE.3 SLICE 2 ADDS. The five choice forms run: a program
+'  that chooses is grounded in three passes - the certain part through
+'  DATALOG's own fixpoint, then the choices and then the constraints over
+'  chosen rows through slice 1's integer grounder - into atoms, counters
+'  and clauses, and VLA_OptimizeSearch finds the first schedule that
+'  breaks no rule, deciding the rows in the Tables' own order (the
+'  owner's fork 6). The section OPTIMIZE.3: PROGRAMS THAT CHOOSE, below,
+'  has the whole account. (effort ...) is the search's budget, in work;
+'  OPTIMIZE.2's counting pre-checks are reached at last; a program with
+'  no choice takes OPTIMIZE.2's path exactly as before. Still refused by
+'  name: preferences, objectives and the kept schedule (OPTIMIZE.6 and
+'  .7), rules over chosen rows (.5) and a count over them (.4).
+'
+'  The rest of this header is OPTIMIZE.1's and OPTIMIZE.2's, kept as
+'  written; where it says a choice is refused, OPTIMIZE.3 is what changed
+'  that.
 '
 '  WHAT OPTIMIZE.2 ADDS, and it is reachability rather than wording.
 '  With no choice, OPTIMIZE.1's fixpoint produces exactly ONE world, so
@@ -139,13 +157,17 @@ Public Const VLA_OPTIMIZE_VERSION As String = "OPTIMIZE.2"
 '             DISPLAY text the violations table carries - never on the
 '             path between what a user wrote and what this engine
 '             answers, which is what DatalogRunForms exists to keep
-'             clear), VLA_Datalog (DatalogRunForms - the whole engine),
-'             VLA_Relation (TableArgResolve/RelFromRange/
-'             RangeColumnNames/RelToSpilledArray/RelNew/RelTryAdd/
-'             RelArity/RelCount/RelTuples, and RaiseTableArgRefusal for
-'             a reason no wrapper here words itself), VLA_Digest (the
-'             memo key), VLA_Identity (Fold), VLA_Messages (every
-'             refusal), VLA_Runtime (VlaDict*)
+'             clear), VLA_Datalog (DatalogRunForms - the whole engine -
+'             and, since OPTIMIZE.3, DatalogGroundRules, slice 1's
+'             integer grounder), VLA_Relation (TableArgResolve/
+'             RelFromRange/RangeColumnNames/RelToSpilledArray/RelNew/
+'             RelTryAdd/RelArity/RelCount/RelTuples, RaiseTableArgRefusal
+'             for a reason no wrapper here words itself, and the
+'             VlaSymbols table with VlaSymInit/VlaSymFind and
+'             InvariantNumberText), VLA_OptimizeSearch (OPTIMIZE.3's
+'             search, which calls nothing back), VLA_Digest (the memo
+'             key), VLA_Identity (Fold), VLA_Messages (every refusal),
+'             VLA_Runtime (VlaDict*)
 '  SHIPS:     add-in (VLA_Build.bas's own mods array) and the dev rig
 '  PAYS INTO: OPTIMIZE.2 through OPTIMIZE.10, and G-OPTIMIZE, which may
 '             only ever write the shapes named above.
@@ -202,15 +224,18 @@ Public Const VLA_OPTIMIZE_PROVEN_BEST As Long = 4
 
 ' ---- the three effort levels ---------------------------------------
 '
-' Deliberately ZERO, every one of them. The level a program names is
-' recorded and the form is then refused, so no default is observable
-' yet; OPTIMIZE.3 and OPTIMIZE.6 set these from their own
-' measurements, in units of WORK (decisions and conflicts), never
-' seconds - standing decision 2, so that a faster machine proves the
-' same thing a slower one does.
-Public Const VLA_OPTIMIZE_WORK_QUICK As Long = 0
-Public Const VLA_OPTIMIZE_WORK_NORMAL As Long = 0
-Public Const VLA_OPTIMIZE_WORK_THOROUGH As Long = 0
+' In units of WORK - one decision or one dead end each - never seconds:
+' standing decision 2, so that a faster machine proves the same thing a
+' slower one does. Zero until OPTIMIZE.3 slice 2, the first search that
+' consumes them; PROVISIONAL since then, ten times apart, chosen so the
+' three are distinguishable on the corpus before anything is measured.
+' OPTIMIZE.3 slice 4 sets them from the ladder's measured rates, and
+' OPTIMIZE.6 revisits them once searches optimise. A number published
+' before it means anything is a number users tune around, which is why
+' these are called provisional wherever they are shown.
+Public Const VLA_OPTIMIZE_WORK_QUICK As Long = 5000
+Public Const VLA_OPTIMIZE_WORK_NORMAL As Long = 50000
+Public Const VLA_OPTIMIZE_WORK_THOROUGH As Long = 500000
 
 ' The level a program with no (effort ...) form gets, written down now
 ' so the day a number lands behind it, the default is already stated.
@@ -219,17 +244,17 @@ Public Const VLA_OPTIMIZE_EFFORT_DEFAULT As String = "normal"
 ' ---- the form kinds, for the refusal that names the right one ------
 '
 ' OPT_KIND_CONSTRAINT is gone with optimize-constraint-not-yet, which
-' this item made false: a constraint is no longer an unbuilt
-' ingredient, it is the thing this item builds. The numbers of the
-' others are left exactly where they were rather than closed up, since
-' nothing outside this module reads them and a renumber would be a
-' diff with no meaning in it.
+' OPTIMIZE.2 made false: a constraint is no longer an unbuilt
+' ingredient, it is the thing that item built. OPT_KIND_CHOICE (1) and
+' OPT_KIND_EFFORT (6) went the same way at OPTIMIZE.3 slice 2, with
+' optimize-choice-not-yet and optimize-effort-not-yet. The numbers of
+' the others are left exactly where they were rather than closed up,
+' since nothing outside this module reads them and a renumber would be
+' a diff with no meaning in it.
 Private Const OPT_KIND_NONE As Long = 0
-Private Const OPT_KIND_CHOICE As Long = 1
 Private Const OPT_KIND_PREFERENCE As Long = 3
 Private Const OPT_KIND_OBJECTIVE As Long = 4
 Private Const OPT_KIND_KEPT As Long = 5
-Private Const OPT_KIND_EFFORT As Long = 6
 
 ' ---- the generated name, and the violations table ------------------
 '
@@ -250,6 +275,79 @@ Private Const OPT_VIOL_COL_WHERE As String = "Where"
 ' counting them out - DefinedNamesSentence's own cap, for the same
 ' reason: a sentence is read, and a hundred of them is not a sentence.
 Private Const OPT_STATUS_CHECK_CAP As Long = 6
+
+' ---- OPTIMIZE.3: the names a choice program's grounding writes ------
+'
+' Every one under OPT_CHECK_PREFIX, so a user can never write one (the
+' prefix is refused at parse) and DefinedNamesSentence never offers one
+' back. Each is derived from written position alone - a choice form's
+' own 1-based number among the choice forms, a constraint's among the
+' constraints, a stub's in the order the stubs are written - and they
+' are injective, since what follows the prefix never overlaps: never,
+' stub-, group-, member-, rank-, clause-, or OPTIMIZE.2's bare number.
+Private Const OPT_NEVER_NAME As String = "vla-check-never"
+Private Const OPT_STUB_PREFIX As String = "vla-check-stub-"
+Private Const OPT_GROUP_PREFIX As String = "vla-check-group-"
+Private Const OPT_MEMBER_PREFIX As String = "vla-check-member-"
+Private Const OPT_RANK_PREFIX As String = "vla-check-rank-"
+Private Const OPT_CLAUSE_PREFIX As String = "vla-check-clause-"
+
+' ---- OPTIMIZE.3: the seconds guard -----------------------------------
+'
+' OPTIMIZE.0.C: a guard exists only so that a runaway formula cannot
+' hold Excel indefinitely, and when it fires the answer says so. Ten
+' seconds, PROVISIONAL with the effort levels above: five times the 2 s
+' a formula is allowed to be projected at, so a search the effort
+' already bounds never meets it on a sound machine. The effort is the
+' stop that means something; this is the one that depends on the
+' machine, and the status says which one fired.
+Private Const OPT_GUARD_SECONDS As Double = 10
+
+' ---- OPTIMIZE.3: integer tuples, and a program's ground form ---------
+'
+' A tuple index over Long ids: open addressing over a flat key array,
+' tuple numbers in the order they were first added. The atom table is
+' one of these, keyed (chosen predicate's number, argument ids..., 0
+' padding), so an atom's NUMBER is its tuple number - and the numbers
+' are handed out in the order the atoms are decided.
+Private Type OptTupleIndex
+    wid As Long
+    n As Long
+    keys() As Long
+    slot() As Long
+    mask As Long
+End Type
+
+' Everything the grounding of a choice program produces, in integers,
+' plus what the words need to say which rule or group is meant. See the
+' section header, OPTIMIZE.3: PROGRAMS THAT CHOOSE.
+Private Type OptGround
+    keyWidth As Long
+    atoms As OptTupleIndex
+    nForms As Long
+    fHasPer() As Boolean
+    fGVars() As Collection
+    fGRows() As Variant
+    fGWidth() As Long
+    fGCount() As Long
+    fCtrFirst() As Long
+    fCtrN() As Long
+    nCtr As Long
+    ctrForm() As Long
+    ctrGroup() As Long
+    ctrLo() As Long
+    ctrHi() As Long
+    ctrStart() As Long
+    nCtrMem As Long
+    ctrMem() As Long
+    nCl As Long
+    clCheck() As Long
+    clRule() As Long
+    clRow() As Long
+    clStart() As Long
+    nClLit As Long
+    clLit() As Long
+End Type
 
 ' ---- the session memo ----------------------------------------------
 '
@@ -468,6 +566,11 @@ End Function
 '   6 the result state (one of the five VLA_OPTIMIZE_* constants)
 '   7 the status words
 '   8 OPTIMIZE.2: the violations, as a three-column Relation
+'   9 OPTIMIZE.3: the search's own numbers, one Variant array -
+'     atoms, clauses, counters, decisions, dead ends, work, the
+'     search's outcome (a VLA_OptimizeSearch OPT_SEARCH_* constant, or
+'     0 when nothing was searched) and atoms pruned at grounding. All
+'     zero for a program with no choice.
 '
 ' Items 6 upward are this engine's own and the parity pin never reads
 ' them; items 1 to 5 stay DatalogRun's, item for item, which is what
@@ -536,14 +639,36 @@ Public Function OptimizeRun(ByVal rulesText As String, Optional ByVal baseRelati
     End If
 
     ' The program is read ONCE, here, and the forms travel the rest of
-    ' the way as objects. Every form's SHAPE is checked, the five
+    ' the way as objects. Every form's SHAPE is checked, the three
     ' ingredients this version still does not execute are refused by
-    ' name, and the constraints are collected in written order.
+    ' name, and the choices and constraints are collected in written
+    ' order.
     Dim forms As Collection
     Set forms = VLA.VlaReadForms(rulesText)
     Dim constraints As Collection
-    ScanProgram forms, constraints
+    Dim choices As Collection
+    Dim effortWork As Long
+    Dim effortWords As String
+    ScanProgram forms, constraints, choices, effortWork, effortWords
 
+    ' OPTIMIZE.3: a program that chooses nothing takes OPTIMIZE.2's path
+    ' unchanged, line for line - which is what keeps the parity pin
+    ' honest: every DATALOG program is a program with no choice.
+    Dim outp As Collection
+    If choices.Count = 0 Then
+        Set outp = RunZeroChoice(forms, constraints, relations, hMap)
+    Else
+        Set outp = RunWithChoices(forms, constraints, choices, effortWork, effortWords, relations, hMap)
+    End If
+
+    MemoPut memoKey, outp
+    Set OptimizeRun = outp
+End Function
+
+' OPTIMIZE.2's whole run, moved here unchanged when OPTIMIZE.3 gave
+' OptimizeRun a second path: one world, the constraints checked over it.
+Private Function RunZeroChoice(ByVal forms As Collection, ByVal constraints As Collection, _
+                               ByVal relations As Object, ByVal hMap As Object) As Collection
     ' Each constraint becomes an ordinary rule whose head collects the
     ' rows that violate it, and checkVars carries the head's own
     ' variable names so that ONE walk decides both what the head holds
@@ -578,9 +703,10 @@ Public Function OptimizeRun(ByVal rulesText As String, Optional ByVal baseRelati
     outp.Add stateId
     outp.Add StatusSentence(stateId, constraints, violations)
     outp.Add violations
-
-    MemoPut memoKey, outp
-    Set OptimizeRun = outp
+    ' OPTIMIZE.3's item 9, the search's own numbers - all zero here,
+    ' because nothing was searched.
+    outp.Add Array(0&, 0&, 0&, 0&, 0&, 0&, 0&, 0&)
+    Set RunZeroChoice = outp
 End Function
 
 ' The answer a cell holds, from OptimizeRun's own result: a Boolean when
@@ -608,8 +734,14 @@ Private Function OptimizeAnswerOf(ByVal result As Collection) As Variant
     ' shape" the spill gives, said the only way a Boolean can say it.
     ' Which rule is broken, and where, is OPTIMIZE_STATUS's and
     ' OPTIMIZE_VIOLATIONS's to say, and they say it either way.
+    '
+    ' OPTIMIZE.3: a search that spent its budget without finding a
+    ' schedule answers the same empty shape. It HAS no schedule to show,
+    ' and anything else in the cell - a partial one, the certain rows -
+    ' would be read as an answer; OPTIMIZE_STATUS says there may be one.
     Dim broken As Boolean
-    broken = (CLng(result.Item(6)) = VLA_OPTIMIZE_NO_SCHEDULE)
+    broken = (CLng(result.Item(6)) = VLA_OPTIMIZE_NO_SCHEDULE) Or _
+             (CLng(result.Item(6)) = VLA_OPTIMIZE_NONE_IN_BUDGET)
     If Not IsEmpty(result.Item(5)) Then
         If broken Then
             OptimizeAnswerOf = False
@@ -635,6 +767,13 @@ End Function
 ' the second, OPTIMIZE.6 the last two, and none of them may reword one.
 ' The name's own honesty rule lives in the difference between the last
 ' two.
+'
+' OPTIMIZE.3: the PROVEN_BEST sentence says the program makes no choices,
+' so it stays exactly as written for the programs it describes, and a
+' program that DOES choose keeps its "proven best" prefix and says its
+' own reason after it (ChoiceBestWords). The reserved words are never
+' reworded; a choice program's are a different sentence with the same
+' prefix, the pattern OPTIMIZE.2 set for "no schedule".
 Public Function OptimizeStatusWords(ByVal stateId As Long) As String
     Select Case stateId
     Case VLA_OPTIMIZE_REFUSED
@@ -675,8 +814,21 @@ End Function
 ' wins over an earlier well-formed one - the shape error is the more
 ' actionable of the two, and a user fixing it will meet the not-yet
 ' refusal next.
-Private Sub ScanProgram(ByVal forms As Collection, ByRef constraints As Collection)
+'
+' OPTIMIZE.3 slice 2: the choice forms and (effort ...) are no longer
+' refused - the choices are collected in written order, which is the
+' order their atoms are decided in, and the effort becomes the search's
+' budget. A program with no (effort ...) gets VLA_OPTIMIZE_EFFORT_DEFAULT,
+' and one with two is refused: which one was meant is not ours to guess.
+' A program with no choice may still carry an (effort ...) - it is simply
+' never spent, which is true of a search that has nothing to decide, and
+' saves a user editing the choices out from having to edit it out too.
+Private Sub ScanProgram(ByVal forms As Collection, ByRef constraints As Collection, _
+                        ByRef choices As Collection, ByRef effortWork As Long, _
+                        ByRef effortWords As String)
     Set constraints = New Collection
+    Set choices = New Collection
+    Dim effortForm As Collection
     Dim firstHead As String
     Dim firstKind As Long
     firstKind = OPT_KIND_NONE
@@ -716,13 +868,13 @@ Private Sub ScanProgram(ByVal forms As Collection, ByRef constraints As Collecti
                 VLA_Messages.RaiseMsg "optimize-choose-bare"
             Case "choose-exactly", "choose-at-least", "choose-at-most"
                 CheckChoiceForm f, head, 1
-                kind = OPT_KIND_CHOICE
+                choices.Add f
             Case "choose-between"
                 CheckChoiceForm f, head, 2
-                kind = OPT_KIND_CHOICE
+                choices.Add f
             Case "choose-any"
                 CheckChooseAnyForm f, head
-                kind = OPT_KIND_CHOICE
+                choices.Add f
             Case "require"
                 ' OPTIMIZE.2: a constraint is no longer an unbuilt
                 ' ingredient. Its shape is checked here and it is kept,
@@ -745,7 +897,8 @@ Private Sub ScanProgram(ByVal forms As Collection, ByRef constraints As Collecti
                 kind = OPT_KIND_KEPT
             Case "effort"
                 CheckEffortForm f, head
-                kind = OPT_KIND_EFFORT
+                If Not effortForm Is Nothing Then VLA_Messages.RaiseMsg "optimize-effort-twice"
+                Set effortForm = f
             Case Else
                 VLA_Messages.RaiseMsg "optimize-unknown-top-form", "head", head
             End Select
@@ -756,31 +909,55 @@ Private Sub ScanProgram(ByVal forms As Collection, ByRef constraints As Collecti
         End If
     Next f
     If firstKind <> OPT_KIND_NONE Then RefuseNotYet firstHead, firstKind
+
+    If effortForm Is Nothing Then
+        effortWork = EffortWorkOf(VLA_OPTIMIZE_EFFORT_DEFAULT)
+        effortWords = "the default effort, " & VLA_OPTIMIZE_EFFORT_DEFAULT & ","
+    Else
+        Dim raw As Variant
+        NthInto raw, effortForm, 2
+        effortWork = EffortWorkOf(VLA_Identity.Fold(OptAtomText(raw)))
+        effortWords = VLA.VlaWriteForm(effortForm)
+    End If
 End Sub
+
+' A level's work count, or a number's own value - CheckEffortForm has
+' already refused anything else, a number over the Long range included.
+Private Function EffortWorkOf(ByVal w As String) As Long
+    Select Case w
+    Case "quick"
+        EffortWorkOf = VLA_OPTIMIZE_WORK_QUICK
+    Case "normal"
+        EffortWorkOf = VLA_OPTIMIZE_WORK_NORMAL
+    Case "thorough"
+        EffortWorkOf = VLA_OPTIMIZE_WORK_THOROUGH
+    Case Else
+        EffortWorkOf = CLng(w)
+    End Select
+End Function
 
 ' The one refusal every still-unbuilt OPTIMIZE form reaches today. One
 ' id per INGREDIENT rather than one per spelling: a user who wrote
-' choose-at-most and a user who wrote choose-between have the same
-' problem, and the form they wrote is in the message either way.
+' prefer and a user who wrote avoid have the same problem, and the form
+' they wrote is in the message either way.
 '
 ' OPTIMIZE.2 removed the CONSTRAINT arm, and with it
 ' optimize-constraint-not-yet: a constraint is checked now, so a
-' message saying "this version checks none" would be false. The other
-' five are untouched, which is what the owner's call on this item's
-' fork 3 bought - a program with a choice refuses exactly as it did,
-' in exactly the words it did, so no pin over them had to be reread.
+' message saying "this version checks none" would be false. OPTIMIZE.3
+' slice 2 removed the CHOICE and EFFORT arms the same way, and REWORDED
+' the three that remain: each justified itself with "with no choice
+' there is exactly one answer", which a program that chooses makes
+' false. Their new words are true of every program - this version gives
+' the first answer that breaks no rule - and each keeps the fragment its
+' pins match, so no pin had to be reread for the rewording.
 Private Sub RefuseNotYet(ByVal head As String, ByVal kind As Long)
     Select Case kind
-    Case OPT_KIND_CHOICE
-        VLA_Messages.RaiseMsg "optimize-choice-not-yet", "form", head
     Case OPT_KIND_PREFERENCE
         VLA_Messages.RaiseMsg "optimize-preference-not-yet", "form", head
     Case OPT_KIND_OBJECTIVE
         VLA_Messages.RaiseMsg "optimize-objective-not-yet", "form", head
     Case OPT_KIND_KEPT
         VLA_Messages.RaiseMsg "optimize-kept-not-yet", "form", head
-    Case OPT_KIND_EFFORT
-        VLA_Messages.RaiseMsg "optimize-effort-not-yet", "form", head
     End Select
 End Sub
 
@@ -875,6 +1052,9 @@ Private Function RewriteProgram(ByVal forms As Collection, ByVal constraints As 
         Select Case OptTopHead(f)
         Case "require", "forbid"
             ' Replaced below, by exactly one generated rule each.
+        Case "effort"
+            ' OPTIMIZE.3: accepted in a program with no choice, and never
+            ' spent - there is nothing to search - so never DATALOG's.
         Case Else
             outp.Add f
         End Select
@@ -1499,6 +1679,11 @@ Private Sub CheckEffortForm(ByVal form As Variant, ByVal head As String)
         If CDbl(w) <= 0 Then
             VLA_Messages.RaiseMsg "optimize-effort-unknown-level", "level", OptAtomText(raw)
         End If
+        ' OPTIMIZE.3: the budget is a Long, counted without wrapping, so
+        ' a number past its range is refused rather than silently cut.
+        If CDbl(w) > 2147483647# Then
+            VLA_Messages.RaiseMsg "optimize-effort-too-large", "level", OptAtomText(raw)
+        End If
     End Select
 End Sub
 
@@ -1661,6 +1846,1964 @@ Private Function ChoiceExampleFor(ByVal head As String) As String
         ChoiceExampleFor = "(" & head & " N (assign S P) (Eligible S P) (per (Shifts S N)))"
     End If
 End Function
+
+' =====================================================================
+'  OPTIMIZE.3: PROGRAMS THAT CHOOSE
+' =====================================================================
+'
+'  WHAT HAPPENS, in order, to a program with at least one choice form.
+'
+'   1. WHAT IS CHOSEN. Each choice form's chosen row names a predicate the
+'      search will fill - its CHOSEN predicate. Nothing else may give it
+'      rows (a table argument, a fact, a rule): a row cannot be both
+'      given and chosen. Every form choosing it must agree on its arity,
+'      and its row is written by position, since it has no Table and so
+'      no column names.
+'   2. WHAT LATER ITEMS BUILD, refused in OPTIMIZE's own words: a rule
+'      that reads chosen rows (OPTIMIZE.5), a pool or (per ...) row that
+'      is itself chosen, and a count, sum or textjoin over chosen rows
+'      inside a constraint (OPTIMIZE.4 - a cap is a second choice form
+'      over the same rows, which this version propagates natively).
+'   3. PASS 1, THE CERTAIN PART: DATALOG's own fixpoint over the user's
+'      facts and rules, with every constraint that reads no chosen row
+'      rewritten and checked exactly as OPTIMIZE.2 checks it, and the
+'      chosen predicates registered as EMPTY relations so a query or a
+'      constraint may name them. Plus one never-firing STUB rule per atom
+'      a later pass reads, (rule (vla-check-stub-K "K") (vla-check-never
+'      "x") ATOM), because DATALOG.14's PushBoundArguments narrows a
+'      recursive predicate to the one constant every reader it can SEE
+'      pins - and a later pass is a reader it cannot see, which would
+'      read the narrowed relation as the whole. The stub makes it
+'      visible. Its first atom is the empty vla-check-never, where
+'      EvalRuleBody stops at once, so it costs one empty lookup.
+'   4. A constraint broken by certain rows alone is "no schedule", named
+'      exactly as OPTIMIZE.2 names it, and nothing is grounded further.
+'   5. PASS 2, THE CHOICES, through slice 1's integer grounder
+'      (VLA_Datalog.DatalogGroundRules): per form, its GROUPS (the rows
+'      of its (per ...) atoms), its MEMBERS (each pool row, with the
+'      group it falls in), and one counter per group. The ATOMS - every
+'      row that may be chosen - are the union of every form's members
+'      (clingo's own reading of several choice rules over one
+'      predicate), numbered in the order they are DECIDED: forms in
+'      written order; within a form, its groups in the order of their
+'      (per ...) rows, the first (per ...) atom outermost; within a
+'      group, its members in the order of the pool's rows. That is the
+'      owner's fork 6, the Tables' own order, made precise for a form
+'      with a (per ...), and it is why "the first shift is filled first"
+'      is the one-sentence account of a roster's answer.
+'   6. PASS 3, THE CONSTRAINTS THAT READ CHOSEN ROWS, as clauses: each is
+'      grounded as a rule over the certain relations and, for each
+'      chosen predicate, the relation of its POSSIBLE rows; each row of
+'      that rule is one clause. A positive chosen atom in the body adds
+'      "not this atom"; a negated one adds "this atom", or nothing when
+'      the atom can never be chosen, since its negation then always
+'      holds; a chosen consequent of a require adds "this atom". A
+'      clause left with nothing in it is broken whatever is chosen - a
+'      violation, in the violations table like OPTIMIZE.2's.
+'   7. SINGLE-ATOM PRUNING (a clause of one literal fixes its atom at
+'      grounding, and costs the search nothing) and THE COUNTING
+'      PRE-CHECKS, OPTIMIZE.2's three comparisons reached at last: a
+'      group needing more rows than can still fill it, or a demand no
+'      capacity can meet, is "no schedule" by arithmetic, before any
+'      search - the pigeonhole proof clause learning cannot make.
+'   8. THE SEARCH, VLA_OptimizeSearch, within the effort.
+'   9. THE ANSWER: DATALOG answers the user's own (query ...) over the
+'      certain relations and the chosen rows, so a query by name, a
+'      query of one fact and (headless) all mean what they mean there. A
+'      chosen predicate's columns are named by the first choice form's
+'      own chosen row - (assign S P) gives S and P - as a rule's head
+'      names its relation's.
+'
+'  NOT YET, and each has its item: an objective or preference (.6), the
+'  kept schedule (.7), a count over chosen rows (.4), rules over chosen
+'  rows (.5), and the ceilings that refuse a program by its projected
+'  size before grounding it (this item's slice 3). Until slice 3, a
+'  program's grounding is bounded by nothing but its own size.
+
+Private Function RunWithChoices(ByVal forms As Collection, ByVal constraints As Collection, _
+                                ByVal choices As Collection, ByVal effortWork As Long, _
+                                ByVal effortWords As String, ByVal relations As Object, _
+                                ByVal hMap As Object) As Collection
+    Dim i As Long, c As Long
+    Dim f As Variant
+
+    ' --- 1. what is chosen ----------------------------------------------
+    Dim chosen As Object
+    Set chosen = VLA_Runtime.VlaDictNew()
+    Dim chosenNames As Collection
+    Set chosenNames = New Collection
+    Dim chosenAtoms As Object
+    Set chosenAtoms = VLA_Runtime.VlaDictNew()
+    For i = 1 To choices.Count
+        RegisterChosen choices.Item(i), chosen, chosenNames, chosenAtoms, relations
+    Next i
+    For Each f In forms
+        RefuseDefinesChosen f, chosen
+    Next f
+
+    ' --- 2. what later items build ----------------------------------------
+    For i = 1 To choices.Count
+        CheckChoicePools choices.Item(i), chosen
+        CheckChoiceVariables choices.Item(i)
+    Next i
+    Dim readsChoice() As Boolean
+    ReDim readsChoice(0 To constraints.Count)
+    For c = 1 To constraints.Count
+        readsChoice(c) = ConstraintReadsChoice(constraints.Item(c), chosen)
+    Next c
+
+    ' --- 3. pass 1, the certain part --------------------------------------
+    Dim checkVars As Collection
+    Dim pass1 As Collection
+    Set pass1 = BuildCertainPass(forms, constraints, choices, readsChoice, chosen, checkVars)
+    Dim rel1 As Object
+    Set rel1 = CopyRelations(relations)
+    Dim nm As Variant
+    For Each nm In chosenNames
+        VLA_Runtime.VlaDictSet rel1, CStr(nm), _
+            VLA_Relation.RelNew(CLng(VLA_Runtime.VlaDictGet(chosen, CStr(nm))))
+    Next nm
+    VLA_Runtime.VlaDictSet rel1, OPT_NEVER_NAME, VLA_Relation.RelNew(1)
+    Dim r1 As Collection
+    Set r1 = VLA_Datalog.DatalogRunForms(pass1, rel1, hMap)
+    mMemoRuns = mMemoRuns + 1
+
+    Dim gr As OptGround
+    Dim syms As VlaSymbols
+    VLA_Relation.VlaSymInit syms
+    Dim chosenVal() As Long
+    ReDim chosenVal(0 To 0)
+    Dim stats(1 To 8) As Long
+
+    ' --- 4. a constraint broken by certain rows alone ---------------------
+    Dim violations As Collection
+    Set violations = CollectViolations(constraints, checkVars, r1.Item(2))
+    If VLA_Relation.RelCount(violations) > 0 Then
+        Set RunWithChoices = FinishChoiceRun(forms, r1, chosen, chosenNames, chosenAtoms, gr, chosenVal, _
+            False, VLA_OPTIMIZE_NO_SCHEDULE, StatusSentence(VLA_OPTIMIZE_NO_SCHEDULE, constraints, violations), _
+            violations, stats, hMap, syms)
+        Exit Function
+    End If
+
+    ' --- 5. pass 2, the choices -------------------------------------------
+    GroundChoices choices, r1.Item(2), hMap, syms, chosen, chosenNames, gr
+
+    ' --- 6. pass 3, the constraints over chosen rows, as clauses ----------
+    GroundClauses constraints, readsChoice, r1.Item(2), hMap, syms, chosen, chosenNames, gr, violations
+    stats(1) = gr.atoms.n
+    stats(2) = gr.nCl
+    stats(3) = gr.nCtr
+    If VLA_Relation.RelCount(violations) > 0 Then
+        Set RunWithChoices = FinishChoiceRun(forms, r1, chosen, chosenNames, chosenAtoms, gr, chosenVal, _
+            False, VLA_OPTIMIZE_NO_SCHEDULE, StatusSentence(VLA_OPTIMIZE_NO_SCHEDULE, constraints, violations), _
+            violations, stats, hMap, syms)
+        Exit Function
+    End If
+
+    ' --- 7. single-atom pruning, then the counting pre-checks -------------
+    Dim pruned() As Long
+    Dim nPruned As Long
+    PruneSingleAtoms gr, pruned, nPruned
+    stats(8) = nPruned
+    Dim reason As String
+    reason = PoolShortReason(gr, pruned, choices, syms)
+    If Len(reason) = 0 Then reason = CapShortReason(gr, pruned, choices)
+    If Len(reason) > 0 Then
+        Set RunWithChoices = FinishChoiceRun(forms, r1, chosen, chosenNames, chosenAtoms, gr, chosenVal, _
+            False, VLA_OPTIMIZE_NO_SCHEDULE, reason, violations, stats, hMap, syms)
+        Exit Function
+    End If
+
+    ' --- 8. the search ----------------------------------------------------
+    Dim prob As OptSearchProblem
+    BuildSearchProblem gr, prob
+    Dim res As OptSearchResult
+    VLA_OptimizeSearch.OptSearchRun prob, effortWork, OPT_GUARD_SECONDS, res
+    stats(4) = res.decisions
+    stats(5) = res.conflicts
+    stats(6) = res.work
+    stats(7) = res.outcome
+    Dim stateId As Long
+    Dim words As String
+    Dim found As Boolean
+    Select Case res.outcome
+    Case VLA_OptimizeSearch.OPT_SEARCH_FOUND
+        stateId = VLA_OPTIMIZE_PROVEN_BEST
+        words = ChoiceBestWords(res.decisions, res.conflicts)
+        chosenVal = res.value
+        found = True
+    Case VLA_OptimizeSearch.OPT_SEARCH_NONE
+        stateId = VLA_OPTIMIZE_NO_SCHEDULE
+        If res.rootConflict Then
+            words = ChoiceRootWords(res, gr, constraints, choices, syms)
+        Else
+            words = ChoiceNoneWords(res.decisions, res.conflicts)
+        End If
+    Case VLA_OptimizeSearch.OPT_SEARCH_BUDGET
+        stateId = VLA_OPTIMIZE_NONE_IN_BUDGET
+        words = ChoiceBudgetWords(effortWords, effortWork, res.decisions, res.conflicts)
+    Case VLA_OptimizeSearch.OPT_SEARCH_GUARD
+        stateId = VLA_OPTIMIZE_NONE_IN_BUDGET
+        words = ChoiceGuardWords(res.seconds, res.work, effortWork, effortWords)
+    Case Else
+        VLA_Messages.RaiseMsg "optimize-internal", "detail", "handed its search a problem the search could not read"
+    End Select
+
+    ' --- 9. the answer ----------------------------------------------------
+    Set RunWithChoices = FinishChoiceRun(forms, r1, chosen, chosenNames, chosenAtoms, gr, chosenVal, _
+        found, stateId, words, violations, stats, hMap, syms)
+End Function
+
+' The chosen rows - one relation per chosen predicate, in the order the
+' atoms were decided, empty unless a schedule was found - and DATALOG's
+' own answer to the user's (query ...) over them and every certain
+' relation. Items 1 to 5 are that answer's, exactly as the zero-choice
+' path's are DatalogRun's.
+Private Function FinishChoiceRun(ByVal forms As Collection, ByVal r1 As Collection, ByVal chosen As Object, _
+                                 ByVal chosenNames As Collection, ByVal chosenAtoms As Object, _
+                                 ByRef gr As OptGround, ByRef chosenVal() As Long, ByVal found As Boolean, _
+                                 ByVal stateId As Long, ByVal words As String, ByVal violations As Collection, _
+                                 ByRef stats() As Long, ByVal hMap As Object, ByRef syms As VlaSymbols) As Collection
+    Dim rel4 As Object
+    Set rel4 = CopyRelations(r1.Item(2))
+    Dim pi As Long
+    Dim nm As Variant
+    For Each nm In chosenNames
+        pi = pi + 1
+        Dim arity As Long
+        arity = CLng(VLA_Runtime.VlaDictGet(chosen, CStr(nm)))
+        Dim rel As Collection
+        Set rel = VLA_Relation.RelNew(arity)
+        If found Then
+            Dim a As Long
+            For a = 1 To gr.atoms.n
+                If chosenVal(a) = 1 Then
+                    If gr.atoms.keys((a - 1) * gr.keyWidth + 1) = pi Then
+                        Dim vals() As Variant
+                        vals = AtomValues(gr, a, arity, syms)
+                        VLA_Relation.RelTryAdd rel, vals
+                    End If
+                End If
+            Next a
+        End If
+        VLA_Runtime.VlaDictSet rel4, CStr(nm), rel
+    Next nm
+
+    Dim finalForms As Collection
+    Set finalForms = New Collection
+    Dim f As Variant
+    For Each f In forms
+        Select Case OptTopHead(f)
+        Case "query", "headless"
+            finalForms.Add f
+        End Select
+    Next f
+    Dim r4 As Collection
+    Set r4 = VLA_Datalog.DatalogRunForms(finalForms, rel4, hMap)
+
+    Dim outp As Collection
+    Set outp = New Collection
+    outp.Add r4.Item(1)
+    outp.Add r4.Item(2)
+    Dim item3 As Variant
+    If VLA_Runtime.VlaDictHas(chosen, CStr(r4.Item(1))) Then
+        item3 = ChosenHeadNames(VLA_Runtime.VlaDictGet(chosenAtoms, CStr(r4.Item(1))))
+    Else
+        CopyVariant item3, r1.Item(3)
+    End If
+    outp.Add item3
+    outp.Add r4.Item(4)
+    outp.Add r4.Item(5)
+    outp.Add stateId
+    outp.Add words
+    outp.Add violations
+    outp.Add Array(stats(1), stats(2), stats(3), stats(4), stats(5), stats(6), stats(7), stats(8))
+    Set FinishChoiceRun = outp
+End Function
+
+' ---- 1 and 2: what is chosen, and what this version refuses ----------
+
+' A choice form's chosen row, registered; the same predicate chosen again
+' must have the same arity. A chosen row is written by position - it has
+' no Table, so a keyed (column value) pair has nothing to name.
+Private Sub RegisterChosen(ByVal cf As Collection, ByVal chosen As Object, ByVal chosenNames As Collection, _
+                           ByVal chosenAtoms As Object, ByVal relations As Object)
+    Dim head As String
+    head = OptTopHead(cf)
+    Dim atom As Collection
+    Set atom = ChoiceChosenAtom(cf)
+    Dim nm As String
+    nm = AtomNameOf(atom)
+    If atom.Count < 2 Then
+        VLA_Messages.RaiseMsg "optimize-form-bad-shape", "form", head, _
+            "expected", "the rows being chosen to name at least one thing after the predicate", _
+            "example", ChoiceExampleFor(head)
+    End If
+    Dim j As Long
+    For j = 2 To atom.Count
+        Dim a As Variant
+        NthInto a, atom, j
+        If IsObject(a) Then
+            VLA_Messages.RaiseMsg "optimize-form-bad-shape", "form", head, _
+                "expected", "the rows being chosen written by position, like (assign S P) - a chosen row has no Table, so it has no column names", _
+                "example", ChoiceExampleFor(head)
+        End If
+    Next j
+    Dim arity As Long
+    arity = atom.Count - 1
+    If VLA_Runtime.VlaDictHas(chosen, nm) Then
+        If CLng(VLA_Runtime.VlaDictGet(chosen, nm)) <> arity Then
+            VLA_Messages.RaiseMsg "optimize-chosen-arity", "name", nm, "form", head, _
+                "arity", CStr(arity), "other", CStr(VLA_Runtime.VlaDictGet(chosen, nm))
+        End If
+        Exit Sub
+    End If
+    If VLA_Runtime.VlaDictHas(relations, nm) Then
+        VLA_Messages.RaiseMsg "optimize-chosen-is-defined", "name", nm, "how", "a table argument"
+    End If
+    VLA_Runtime.VlaDictSet chosen, nm, arity
+    chosenNames.Add nm
+    VLA_Runtime.VlaDictSet chosenAtoms, nm, atom
+End Sub
+
+' A fact or a rule giving a chosen predicate rows, and a rule READING
+' chosen rows - OPTIMIZE.5's, whose derived atoms the search would have
+' to decide as it goes.
+Private Sub RefuseDefinesChosen(ByVal f As Variant, ByVal chosen As Object)
+    Dim head As String
+    head = OptTopHead(f)
+    If head <> "fact" And head <> "rule" Then Exit Sub
+    Dim lst As Collection
+    Set lst = f
+    If lst.Count < 2 Then Exit Sub
+    Dim a As Variant
+    NthInto a, lst, 2
+    If Not IsObject(a) Then Exit Sub
+    Dim nm As String
+    nm = AtomNameOf(a)
+    If VLA_Runtime.VlaDictHas(chosen, nm) Then
+        VLA_Messages.RaiseMsg "optimize-chosen-is-defined", "name", nm, "how", "a (" & head & " ...)"
+    End If
+    If head <> "rule" Then Exit Sub
+    Dim j As Long
+    For j = 3 To lst.Count
+        Dim item As Variant, src As Variant
+        NthInto item, lst, j
+        If BodyReadKind(item, src) > 0 Then
+            If VLA_Runtime.VlaDictHas(chosen, AtomNameOf(src)) Then
+                VLA_Messages.RaiseMsg "optimize-rule-over-choice-not-yet", "predicate", nm, "chosen", AtomNameOf(src)
+            End If
+        End If
+    Next j
+End Sub
+
+' A pool, and every (per ...) row, must be a row the program already
+' has - not a test, not a wrapper, and not a row being chosen.
+Private Sub CheckChoicePools(ByVal cf As Collection, ByVal chosen As Object)
+    Dim head As String
+    head = OptTopHead(cf)
+    CheckPoolAtom head, ChoicePoolAtom(cf), "the pool they are chosen from", chosen
+    Dim per As Collection
+    Set per = ChoicePer(cf)
+    If per Is Nothing Then Exit Sub
+    Dim j As Long
+    For j = 2 To per.Count
+        Dim pa As Variant
+        NthInto pa, per, j
+        CheckPoolAtom head, pa, "a row to group by", chosen
+    Next j
+End Sub
+
+Private Sub CheckPoolAtom(ByVal head As String, ByVal atom As Variant, ByVal role As String, _
+                          ByVal chosen As Object)
+    Dim lst As Collection
+    Set lst = atom
+    Dim h As Variant
+    NthInto h, lst, 1
+    Select Case VLA_Identity.Fold(CStr(h))
+    Case "not", "count", "sum", "let", "textjoin", ">", "<", "<=", ">=", "=", "<>", _
+         "text-starts-with", "text-ends-with", "text-contains"
+        VLA_Messages.RaiseMsg "optimize-not-a-row", "form", head, "role", role, "text", OptAtomText(h)
+    End Select
+    If VLA_Runtime.VlaDictHas(chosen, AtomNameOf(atom)) Then
+        VLA_Messages.RaiseMsg "optimize-pool-reads-choice", "form", head, "name", AtomNameOf(atom)
+    End If
+End Sub
+
+' Every name in the chosen row must come from the pool or a (per ...)
+' row, or the row ranges over nothing in particular; a count that is a
+' name must come from a (per ...) row, since it is the count FOR a group.
+Private Sub CheckChoiceVariables(ByVal cf As Collection)
+    Dim head As String
+    head = OptTopHead(cf)
+    Dim poolVars As Collection, poolSeen As Object
+    Set poolVars = New Collection
+    Set poolSeen = VLA_Runtime.VlaDictNew()
+    CollectBoundVars ChoicePoolAtom(cf), poolVars, poolSeen
+    Dim perVars As Collection, perSeen As Object
+    Set perVars = New Collection
+    Set perSeen = VLA_Runtime.VlaDictNew()
+    Dim per As Collection
+    Set per = ChoicePer(cf)
+    Dim j As Long
+    If Not per Is Nothing Then
+        For j = 2 To per.Count
+            Dim pa As Variant
+            NthInto pa, per, j
+            CollectBoundVars pa, perVars, perSeen
+        Next j
+    End If
+    Dim atom As Collection
+    Set atom = ChoiceChosenAtom(cf)
+    For j = 2 To atom.Count
+        Dim a As Variant
+        NthInto a, atom, j
+        If OptIsVariable(a) Then
+            If Not VLA_Runtime.VlaDictHas(poolSeen, CStr(a)) And Not VLA_Runtime.VlaDictHas(perSeen, CStr(a)) Then
+                VLA_Messages.RaiseMsg "optimize-choice-unbound", "form", head, "var", CStr(a)
+            End If
+        End If
+    Next j
+    For j = 2 To 1 + ChoiceCountSlots(head)
+        Dim cr As Variant
+        NthInto cr, cf, j
+        If OptIsVariable(cr) Then
+            If Not VLA_Runtime.VlaDictHas(perSeen, CStr(cr)) Then
+                VLA_Messages.RaiseMsg "optimize-count-unbound", "form", head, "var", CStr(cr)
+            End If
+        End If
+    Next j
+End Sub
+
+' Whether a constraint reads a chosen predicate anywhere - its body, or
+' a require's consequent - refusing a count, sum or textjoin over chosen
+' rows, which is OPTIMIZE.4's.
+Private Function ConstraintReadsChoice(ByVal form As Variant, ByVal chosen As Object) As Boolean
+    Dim lst As Collection
+    Set lst = form
+    Dim isRequire As Boolean
+    isRequire = (OptTopHead(form) = "require")
+    Dim bodyFrom As Long
+    If isRequire Then bodyFrom = 3 Else bodyFrom = 2
+    Dim j As Long
+    For j = bodyFrom To lst.Count
+        Dim item As Variant, src As Variant
+        NthInto item, lst, j
+        Dim kind As Long
+        kind = BodyReadKind(item, src)
+        If kind > 0 Then
+            If VLA_Runtime.VlaDictHas(chosen, AtomNameOf(src)) Then
+                If kind = 3 Then
+                    Dim w As Variant
+                    NthInto w, item, 1
+                    VLA_Messages.RaiseMsg "optimize-count-over-choice-not-yet", _
+                        "word", VLA_Identity.Fold(OptAtomText(w)), "chosen", AtomNameOf(src)
+                End If
+                ConstraintReadsChoice = True
+            End If
+        End If
+    Next j
+    If isRequire Then
+        Dim cons As Variant
+        NthInto cons, lst, 2
+        If VLA_Runtime.VlaDictHas(chosen, AtomNameOf(cons)) Then ConstraintReadsChoice = True
+    End If
+End Function
+
+' What a rule-body item reads, by DATALOG's own shapes: 1, a positive
+' atom (the item itself); 2, a negated atom - (not ATOM); 3, an
+' aggregate's source - (count V ATOM), (sum V ATOM), (textjoin V S
+' ATOM); 0, nothing - a comparison, a let, a text test, or a shape
+' DATALOG will refuse in its own words. Classified by CStr with any
+' quote left on, CollectBoundVars' own reason: a quoted "not" is an
+' atom whose predicate is spelled not.
+Private Function BodyReadKind(ByVal item As Variant, ByRef src As Variant) As Long
+    If Not IsObject(item) Then Exit Function
+    Dim lst As Collection
+    Set lst = item
+    If lst.Count < 1 Then Exit Function
+    Dim h As Variant
+    NthInto h, lst, 1
+    If IsObject(h) Then Exit Function
+    Select Case VLA_Identity.Fold(CStr(h))
+    Case ">", "<", "<=", ">=", "=", "<>", "text-starts-with", "text-ends-with", "text-contains", "let"
+        Exit Function
+    Case "not"
+        ' A text test under not - DATALOG.11's inverted test - comes back
+        ' as 2 with the test as its source, and is harmless there: every
+        ' caller asks whether the source's name is CHOSEN, or a rule's
+        ' head, and a test word is neither.
+        If lst.Count <> 2 Then Exit Function
+        NthInto src, lst, 2
+        If Not IsObject(src) Then Exit Function
+        BodyReadKind = 2
+    Case "count", "sum"
+        If lst.Count <> 3 Then Exit Function
+        NthInto src, lst, 3
+        If Not IsObject(src) Then Exit Function
+        BodyReadKind = 3
+    Case "textjoin"
+        If lst.Count <> 4 Then Exit Function
+        NthInto src, lst, 4
+        If Not IsObject(src) Then Exit Function
+        BodyReadKind = 3
+    Case Else
+        CopyVariant src, item
+        BodyReadKind = 1
+    End Select
+End Function
+
+' An atom's predicate, folded, as DATALOG names it - "" for anything
+' that is not a list with a word first.
+Private Function AtomNameOf(ByVal atom As Variant) As String
+    If Not IsObject(atom) Then Exit Function
+    Dim lst As Collection
+    Set lst = atom
+    If lst.Count < 1 Then Exit Function
+    Dim h As Variant
+    NthInto h, lst, 1
+    If IsObject(h) Then Exit Function
+    AtomNameOf = VLA_Identity.Fold(OptAtomText(h))
+End Function
+
+' A negated chosen row says a row is NOT chosen, and asks it about every
+' value of a name nothing else in the rule binds - a "for all" nobody
+' wrote. Refused before DATALOG sees it, in words about the row the user
+' did write.
+Private Sub CheckNegatedChosen(ByVal atom As Variant, ByVal seen As Object)
+    Dim lst As Collection
+    Set lst = atom
+    Dim j As Long
+    For j = 2 To lst.Count
+        Dim a As Variant
+        NthInto a, lst, j
+        If OptIsVariable(a) Then
+            If Not VLA_Runtime.VlaDictHas(seen, CStr(a)) Then
+                VLA_Messages.RaiseMsg "optimize-negated-choice-unbound", "var", CStr(a), "predicate", AtomNameOf(atom)
+            End If
+        End If
+    Next j
+End Sub
+
+' ---- the choice form's parts ------------------------------------------
+
+Private Function ChoiceCountSlots(ByVal head As String) As Long
+    Select Case head
+    Case "choose-exactly", "choose-at-least", "choose-at-most"
+        ChoiceCountSlots = 1
+    Case "choose-between"
+        ChoiceCountSlots = 2
+    End Select
+End Function
+
+Private Function ChoiceChosenAtom(ByVal cf As Collection) As Collection
+    Set ChoiceChosenAtom = cf.Item(2 + ChoiceCountSlots(OptTopHead(cf)))
+End Function
+
+Private Function ChoicePoolAtom(ByVal cf As Collection) As Collection
+    Set ChoicePoolAtom = cf.Item(3 + ChoiceCountSlots(OptTopHead(cf)))
+End Function
+
+' The (per ...) list, or Nothing when the form has none.
+Private Function ChoicePer(ByVal cf As Collection) As Collection
+    Dim at As Long
+    at = 4 + ChoiceCountSlots(OptTopHead(cf))
+    If cf.Count >= at Then Set ChoicePer = cf.Item(at)
+End Function
+
+' The rows a (per ...) groups by, as a list of atoms.
+Private Function PerAtomsOf(ByVal per As Collection) As Collection
+    Dim outp As Collection
+    Set outp = New Collection
+    Dim j As Long
+    For j = 2 To per.Count
+        outp.Add per.Item(j)
+    Next j
+    Set PerAtomsOf = outp
+End Function
+
+' A group family's name, for the counting sentences: its (per ...) rows'
+' predicates, or the form itself when it counts over its whole pool.
+Private Function GroupFamilyName(ByVal cf As Collection) As String
+    Dim per As Collection
+    Set per = ChoicePer(cf)
+    If per Is Nothing Then
+        GroupFamilyName = "(" & OptTopHead(cf) & " ...)"
+    Else
+        GroupFamilyName = PerNamesOf(per)
+    End If
+End Function
+
+Private Function PerNamesOf(ByVal per As Collection) As String
+    Dim s As String
+    Dim j As Long
+    For j = 2 To per.Count
+        If j > 2 Then s = s & " and "
+        s = s & AtomNameOf(per.Item(j))
+    Next j
+    PerNamesOf = s
+End Function
+
+' Whether a form caps every one of its groups at the same literal number
+' - what the pigeonhole comparison needs of the capping side.
+Private Function UniformLiteralCap(ByVal cf As Collection, ByRef cap As Long) As Boolean
+    Dim head As String
+    head = OptTopHead(cf)
+    Dim at As Long
+    Select Case head
+    Case "choose-exactly", "choose-at-most"
+        at = 2
+    Case "choose-between"
+        at = 3
+    Case Else
+        Exit Function
+    End Select
+    Dim raw As Variant
+    NthInto raw, cf, at
+    If OptIsVariable(raw) Then Exit Function
+    cap = CLng(OptAtomText(raw))
+    UniformLiteralCap = True
+End Function
+
+' A demand family that places each of its groups exactly once - the
+' sentence then counts THINGS to place rather than rows the rules need.
+Private Function ExactlyOneEach(ByVal cf As Collection) As Boolean
+    If OptTopHead(cf) <> "choose-exactly" Then Exit Function
+    If ChoicePer(cf) Is Nothing Then Exit Function
+    Dim raw As Variant
+    NthInto raw, cf, 2
+    If OptIsVariable(raw) Then Exit Function
+    ExactlyOneEach = (OptAtomText(raw) = "1")
+End Function
+
+' ---- 3: pass 1 --------------------------------------------------------
+
+' Pass 1's program: the user's own facts, rules, query and headless
+' directive; each constraint that reads only certain rows, rewritten as
+' OPTIMIZE.2 checks it; and one never-firing stub per atom a later pass
+' reads (the section header has why). checkVars gets one entry per
+' constraint, an empty one for a constraint pass 3 grounds instead.
+'
+' A stub is written only for an atom over a predicate a RULE derives:
+' PushBoundArguments narrows nothing else (its condition 2 - no fact and
+' no Table may put rows into what it narrows), so a stub over a Table,
+' a fact or a test word would be a rule with nothing to protect.
+Private Function BuildCertainPass(ByVal forms As Collection, ByVal constraints As Collection, _
+                                  ByVal choices As Collection, ByRef readsChoice() As Boolean, _
+                                  ByVal chosen As Object, ByRef checkVars As Collection) As Collection
+    Dim outp As Collection
+    Set outp = New Collection
+    Dim ruleHeads As Object
+    Set ruleHeads = VLA_Runtime.VlaDictNew()
+    Dim f As Variant
+    For Each f In forms
+        Select Case OptTopHead(f)
+        Case "choose-exactly", "choose-at-least", "choose-at-most", "choose-between", "choose-any", _
+             "require", "forbid", "effort"
+        Case Else
+            outp.Add f
+            If OptTopHead(f) = "rule" Then
+                Dim rl As Collection
+                Set rl = f
+                If rl.Count >= 2 Then
+                    Dim rh As Variant
+                    NthInto rh, rl, 2
+                    If Len(AtomNameOf(rh)) > 0 Then VLA_Runtime.VlaDictSet ruleHeads, AtomNameOf(rh), True
+                End If
+            End If
+        End Select
+    Next f
+    Set checkVars = New Collection
+    Dim c As Long
+    For c = 1 To constraints.Count
+        Dim vars As Collection
+        If readsChoice(c) Then
+            checkVars.Add New Collection
+        Else
+            outp.Add RewriteConstraint(constraints.Item(c), c, vars)
+            checkVars.Add vars
+        End If
+    Next c
+    Dim stubN As Long
+    Dim i As Long, j As Long
+    For i = 1 To choices.Count
+        Dim cf As Collection
+        Set cf = choices.Item(i)
+        AddStub outp, stubN, ChoicePoolAtom(cf), ruleHeads
+        Dim per As Collection
+        Set per = ChoicePer(cf)
+        If Not per Is Nothing Then
+            For j = 2 To per.Count
+                AddStub outp, stubN, per.Item(j), ruleHeads
+            Next j
+        End If
+    Next i
+    For c = 1 To constraints.Count
+        If readsChoice(c) Then AddConstraintStubs outp, stubN, constraints.Item(c), chosen, ruleHeads
+    Next c
+    Set BuildCertainPass = outp
+End Function
+
+' (rule (vla-check-stub-K "K") (vla-check-never "x") ATOM), for an atom
+' over a predicate a rule derives.
+Private Sub AddStub(ByVal outp As Collection, ByRef stubN As Long, ByVal atom As Variant, _
+                    ByVal ruleHeads As Object)
+    If Not IsObject(atom) Then Exit Sub
+    If Not VLA_Runtime.VlaDictHas(ruleHeads, AtomNameOf(atom)) Then Exit Sub
+    stubN = stubN + 1
+    Dim head As Collection
+    Set head = New Collection
+    head.Add OPT_STUB_PREFIX & stubN
+    head.Add Chr$(34) & CStr(stubN)
+    Dim never As Collection
+    Set never = New Collection
+    never.Add OPT_NEVER_NAME
+    never.Add Chr$(34) & "x"
+    Dim r As Collection
+    Set r = New Collection
+    r.Add "rule"
+    r.Add head
+    r.Add never
+    r.Add atom
+    outp.Add r
+End Sub
+
+' Every certain row a constraint over chosen rows reads - positive,
+' negated or aggregated, each written positively in its stub, which is
+' all PushBoundArguments needs to see, and a require's certain
+' consequent too.
+Private Sub AddConstraintStubs(ByVal outp As Collection, ByRef stubN As Long, ByVal form As Variant, _
+                               ByVal chosen As Object, ByVal ruleHeads As Object)
+    Dim lst As Collection
+    Set lst = form
+    Dim isRequire As Boolean
+    isRequire = (OptTopHead(form) = "require")
+    Dim bodyFrom As Long
+    If isRequire Then bodyFrom = 3 Else bodyFrom = 2
+    Dim j As Long
+    For j = bodyFrom To lst.Count
+        Dim item As Variant, src As Variant
+        NthInto item, lst, j
+        If BodyReadKind(item, src) > 0 Then
+            If Not VLA_Runtime.VlaDictHas(chosen, AtomNameOf(src)) Then AddStub outp, stubN, src, ruleHeads
+        End If
+    Next j
+    If isRequire Then
+        Dim cons As Variant
+        NthInto cons, lst, 2
+        If IsObject(cons) Then
+            If Not VLA_Runtime.VlaDictHas(chosen, AtomNameOf(cons)) Then AddStub outp, stubN, cons, ruleHeads
+        End If
+    End If
+End Sub
+
+' The same dictionary's entries in a new dictionary - the objects are
+' shared, as DATALOG shares them; only the names are the run's own.
+Private Function CopyRelations(ByVal d As Object) As Object
+    Dim outp As Object
+    Set outp = VLA_Runtime.VlaDictNew()
+    Dim k As Variant
+    For Each k In VLA_Runtime.VlaDictKeys(d)
+        VLA_Runtime.VlaDictSet outp, CStr(k), VLA_Runtime.VlaDictGet(d, k)
+    Next k
+    Set CopyRelations = outp
+End Function
+
+' (rule (NAME "N" V1 ... Vk TERM...) BODY...) - the one shape every rule
+' this section generates has: its own name, its own number as a constant
+' first slot (DATALOG refuses a head with no argument, and a body that
+' binds nothing would need one - OPTIMIZE.2's vla-check-N reason), the
+' variables it carries, any further terms exactly as written, then the
+' body, whose items are the user's own forms, reused by reference.
+Private Function BuildRule(ByVal headName As String, ByVal n As Long, ByVal vars As Collection, _
+                           ByVal terms As Collection, ByVal body As Collection) As Collection
+    Dim head As Collection
+    Set head = New Collection
+    head.Add headName
+    head.Add Chr$(34) & CStr(n)
+    Dim v As Variant
+    For Each v In vars
+        head.Add CStr(v)
+    Next v
+    If Not terms Is Nothing Then
+        Dim t As Variant
+        For Each t In terms
+            head.Add t
+        Next t
+    End If
+    Dim r As Collection
+    Set r = New Collection
+    r.Add "rule"
+    r.Add head
+    Dim b As Variant
+    For Each b In body
+        r.Add b
+    Next b
+    Set BuildRule = r
+End Function
+
+' ---- 5: pass 2, the choices --------------------------------------------
+
+Private Sub GroundChoices(ByVal choices As Collection, ByVal certain As Object, ByVal hMap As Object, _
+                          ByRef syms As VlaSymbols, ByVal chosen As Object, ByVal chosenNames As Collection, _
+                          ByRef gr As OptGround)
+    Dim nF As Long
+    nF = choices.Count
+    gr.nForms = nF
+    ReDim gr.fHasPer(1 To nF)
+    ReDim gr.fGVars(1 To nF)
+    ReDim gr.fGRows(1 To nF)
+    ReDim gr.fGWidth(1 To nF)
+    ReDim gr.fGCount(1 To nF)
+    ReDim gr.fCtrFirst(1 To nF)
+    ReDim gr.fCtrN(1 To nF)
+
+    ' The atom key: the chosen predicate's number, then its arguments'
+    ' ids, padded with 0 - which no symbol is - to the widest arity.
+    Dim maxArity As Long
+    Dim nm As Variant
+    For Each nm In chosenNames
+        If CLng(VLA_Runtime.VlaDictGet(chosen, CStr(nm))) > maxArity Then
+            maxArity = CLng(VLA_Runtime.VlaDictGet(chosen, CStr(nm)))
+        End If
+    Next nm
+    gr.keyWidth = 1 + maxArity
+    TupInit gr.atoms, gr.keyWidth
+    gr.nCtr = 0
+    gr.nCtrMem = 0
+    ReDim gr.ctrForm(1 To 16)
+    ReDim gr.ctrGroup(1 To 16)
+    ReDim gr.ctrLo(1 To 16)
+    ReDim gr.ctrHi(1 To 16)
+    ReDim gr.ctrStart(1 To 17)
+    gr.ctrStart(1) = 1
+    ReDim gr.ctrMem(1 To 16)
+
+    ' One batch: per form, its groups (when it has a (per ...)), its
+    ' members, and - with two or more (per ...) atoms - one ranking rule
+    ' per atom that names anything, for the order of the groups.
+    Dim batch As Collection
+    Set batch = New Collection
+    Dim groupRule() As Long, memberRule() As Long
+    ReDim groupRule(1 To nF)
+    ReDim memberRule(1 To nF)
+    Dim rankInfo() As Collection
+    ReDim rankInfo(1 To nF)
+    Dim i As Long, j As Long
+    For i = 1 To nF
+        Dim cf As Collection
+        Set cf = choices.Item(i)
+        Dim per As Collection
+        Set per = ChoicePer(cf)
+        gr.fHasPer(i) = Not per Is Nothing
+        Dim gv As Collection, gSeen As Object
+        Set gv = New Collection
+        Set gSeen = VLA_Runtime.VlaDictNew()
+        Dim body As Collection
+        Set body = New Collection
+        body.Add ChoicePoolAtom(cf)
+        If gr.fHasPer(i) Then
+            For j = 2 To per.Count
+                Dim pa As Variant
+                NthInto pa, per, j
+                CollectBoundVars pa, gv, gSeen
+                body.Add pa
+            Next j
+            batch.Add BuildRule(OPT_GROUP_PREFIX & i, i, gv, Nothing, PerAtomsOf(per))
+            groupRule(i) = batch.Count
+        End If
+        Set gr.fGVars(i) = gv
+        Dim terms As Collection
+        Set terms = New Collection
+        Dim cAtom As Collection
+        Set cAtom = ChoiceChosenAtom(cf)
+        For j = 2 To cAtom.Count
+            terms.Add cAtom.Item(j)
+        Next j
+        batch.Add BuildRule(OPT_MEMBER_PREFIX & i, i, gv, terms, body)
+        memberRule(i) = batch.Count
+        Set rankInfo(i) = New Collection
+        If gr.fHasPer(i) Then
+            If per.Count > 2 Then
+                For j = 2 To per.Count
+                    NthInto pa, per, j
+                    Dim av As Collection, aSeen As Object
+                    Set av = New Collection
+                    Set aSeen = VLA_Runtime.VlaDictNew()
+                    CollectBoundVars pa, av, aSeen
+                    If av.Count > 0 Then
+                        Dim one As Collection
+                        Set one = New Collection
+                        one.Add pa
+                        batch.Add BuildRule(OPT_RANK_PREFIX & i & "-" & j, i, av, Nothing, one)
+                        rankInfo(i).Add Array(batch.Count, av)
+                    End If
+                Next j
+            End If
+        End If
+    Next i
+
+    Dim out As Collection
+    Set out = VLA_Datalog.DatalogGroundRules(batch, certain, hMap, syms)
+    For i = 1 To nF
+        GroundOneChoice choices.Item(i), i, out, groupRule(i), memberRule(i), rankInfo(i), _
+            chosenNames, syms, gr
+    Next i
+End Sub
+
+' One choice form's groups, atoms and counters, from its grounded rules.
+Private Sub GroundOneChoice(ByVal cf As Collection, ByVal i As Long, ByVal out As Collection, _
+                            ByVal gRuleIx As Long, ByVal mRuleIx As Long, ByVal rankInfo As Collection, _
+                            ByVal chosenNames As Collection, ByRef syms As VlaSymbols, _
+                            ByRef gr As OptGround)
+    Dim head As String
+    head = OptTopHead(cf)
+    Dim k As Long
+    k = gr.fGVars(i).Count
+    Dim cAtom As Collection
+    Set cAtom = ChoiceChosenAtom(cf)
+    Dim m As Long
+    m = cAtom.Count - 1
+    Dim predIx As Long
+    predIx = NameIndex(chosenNames, AtomNameOf(cAtom))
+
+    ' --- the groups, and the order they are decided in -----------------
+    Dim nG As Long, wG As Long
+    Dim gRows() As Long
+    Dim gIndex As OptTupleIndex
+    TupInit gIndex, k
+    Dim r As Long
+    If gr.fHasPer(i) Then
+        Dim gOut As Variant
+        gOut = out.Item(gRuleIx)
+        wG = CLng(gOut(1))
+        nG = CLng(gOut(2))
+        gRows = gOut(3)
+        For r = 0 To nG - 1
+            TupFind gIndex, gRows, r * wG + 1, True
+        Next r
+    Else
+        nG = 1
+        wG = 1
+        ReDim gRows(0 To 1)
+    End If
+    gr.fGRows(i) = gRows
+    gr.fGWidth(i) = wG
+    gr.fGCount(i) = nG
+    Dim order() As Long
+    ReDim order(0 To nG)
+    For r = 1 To nG
+        order(r) = r
+    Next r
+    If rankInfo.Count > 0 Then SortGroupsByRanks order, nG, gRows, wG, gr.fGVars(i), rankInfo, out
+
+    ' --- the members, each in its group, in the pool's order ----------
+    Dim mOut As Variant
+    mOut = out.Item(mRuleIx)
+    Dim wM As Long, nM As Long
+    wM = CLng(mOut(1))
+    nM = CLng(mOut(2))
+    Dim mRows() As Long
+    mRows = mOut(3)
+    Dim grpOf() As Long, cnt() As Long, startOf() As Long, fillAt() As Long, bucket() As Long
+    ReDim grpOf(0 To nM)
+    ReDim cnt(0 To nG + 1)
+    Dim g As Long
+    For r = 0 To nM - 1
+        If gr.fHasPer(i) Then
+            g = TupFind(gIndex, mRows, r * wM + 1, False)
+            If g = 0 Then VLA_Messages.RaiseMsg "optimize-internal", "detail", "grounded a choice's member into no group"
+        Else
+            g = 1
+        End If
+        grpOf(r) = g
+        cnt(g) = cnt(g) + 1
+    Next r
+    ReDim startOf(0 To nG + 1)
+    ReDim fillAt(0 To nG + 1)
+    For g = 1 To nG
+        startOf(g + 1) = startOf(g) + cnt(g)
+        fillAt(g) = startOf(g)
+    Next g
+    ReDim bucket(0 To nM)
+    For r = 0 To nM - 1
+        g = grpOf(r)
+        bucket(fillAt(g)) = r
+        fillAt(g) = fillAt(g) + 1
+    Next r
+
+    ' --- the counts: a literal, or the group's own value of a name ----
+    Dim slots As Long
+    slots = ChoiceCountSlots(head)
+    Dim litCount(1 To 2) As Long, varPos(1 To 2) As Long, varName(1 To 2) As String
+    Dim j As Long
+    For j = 1 To slots
+        Dim cr As Variant
+        NthInto cr, cf, 1 + j
+        If OptIsVariable(cr) Then
+            varName(j) = CStr(cr)
+            varPos(j) = VarPosition(gr.fGVars(i), varName(j))
+        Else
+            litCount(j) = CLng(OptAtomText(cr))
+        End If
+    Next j
+
+    ' --- the atoms and the counters, group by group ------------------
+    Dim kbuf() As Long
+    ReDim kbuf(0 To gr.keyWidth)
+    kbuf(1) = predIx
+    gr.fCtrFirst(i) = gr.nCtr + 1
+    Dim gi As Long, q As Long, ai As Long, nMem As Long, id As Long
+    Dim mem() As Long
+    Dim cnts(1 To 2) As Long
+    Dim lo As Long, hi As Long
+    For gi = 1 To nG
+        g = order(gi)
+        ReDim mem(1 To startOf(g + 1) - startOf(g) + 1)
+        nMem = 0
+        For q = startOf(g) To startOf(g + 1) - 1
+            r = bucket(q)
+            For ai = 1 To m
+                kbuf(1 + ai) = mRows(r * wM + 1 + k + ai)
+            Next ai
+            nMem = nMem + 1
+            mem(nMem) = TupFind(gr.atoms, kbuf, 0, True)
+        Next q
+        If slots > 0 Then
+            For j = 1 To slots
+                If varPos(j) > 0 Then
+                    id = gRows((g - 1) * wG + 1 + varPos(j))
+                    If Not WholeCountOf(syms, id, cnts(j)) Then
+                        VLA_Messages.RaiseMsg "optimize-count-bad-value", "form", head, "var", varName(j), _
+                            "group", GroupKeyWords(gr, i, g, syms), "value", SafeValueText(syms.rep(id))
+                    End If
+                Else
+                    cnts(j) = litCount(j)
+                End If
+            Next j
+            Select Case head
+            Case "choose-exactly"
+                lo = cnts(1)
+                hi = cnts(1)
+            Case "choose-at-least"
+                lo = cnts(1)
+                hi = VLA_OptimizeSearch.OPT_SEARCH_NO_MOST
+            Case "choose-at-most"
+                lo = 0
+                hi = cnts(1)
+            Case "choose-between"
+                lo = cnts(1)
+                hi = cnts(2)
+            End Select
+            AddCounter gr, i, g, lo, hi, mem, nMem
+        End If
+    Next gi
+    gr.fCtrN(i) = gr.nCtr - gr.fCtrFirst(i) + 1
+End Sub
+
+Private Sub AddCounter(ByRef gr As OptGround, ByVal formIx As Long, ByVal groupIx As Long, _
+                       ByVal lo As Long, ByVal hi As Long, ByRef mem() As Long, ByVal nMem As Long)
+    Dim k As Long
+    k = gr.nCtr + 1
+    Do While k + 1 > UBound(gr.ctrStart)
+        ReDim Preserve gr.ctrStart(1 To 2 * UBound(gr.ctrStart))
+    Loop
+    Do While k > UBound(gr.ctrForm)
+        ReDim Preserve gr.ctrForm(1 To 2 * UBound(gr.ctrForm))
+        ReDim Preserve gr.ctrGroup(1 To UBound(gr.ctrForm))
+        ReDim Preserve gr.ctrLo(1 To UBound(gr.ctrForm))
+        ReDim Preserve gr.ctrHi(1 To UBound(gr.ctrForm))
+    Loop
+    Do While gr.nCtrMem + nMem > UBound(gr.ctrMem)
+        ReDim Preserve gr.ctrMem(1 To 2 * UBound(gr.ctrMem))
+    Loop
+    Dim j As Long
+    For j = 1 To nMem
+        gr.ctrMem(gr.nCtrMem + j) = mem(j)
+    Next j
+    gr.nCtrMem = gr.nCtrMem + nMem
+    gr.ctrForm(k) = formIx
+    gr.ctrGroup(k) = groupIx
+    gr.ctrLo(k) = lo
+    gr.ctrHi(k) = hi
+    gr.nCtr = k
+    gr.ctrStart(k + 1) = gr.nCtrMem + 1
+End Sub
+
+' Sorts order(1..n) so the groups run in the order of their (per ...)
+' rows, the first (per ...) atom outermost: each group's own values of
+' each atom's names are looked up among that atom's rows, whose positions
+' are its ranks, and the groups' rank vectors compared left to right. A
+' merge sort, so equal vectors keep the grounder's own order.
+Private Sub SortGroupsByRanks(ByRef order() As Long, ByVal n As Long, ByRef gRows() As Long, _
+                              ByVal wG As Long, ByVal gv As Collection, ByVal rankInfo As Collection, _
+                              ByVal out As Collection)
+    Dim nR As Long
+    nR = rankInfo.Count
+    Dim rk() As Long
+    ReDim rk(0 To n * nR + 1)
+    Dim j As Long, g As Long, p As Long, r As Long
+    For j = 1 To nR
+        Dim info As Variant
+        info = rankInfo.Item(j)
+        Dim av As Collection
+        Set av = info(1)
+        Dim entry As Variant
+        entry = out.Item(CLng(info(0)))
+        Dim wR As Long, nRows As Long
+        wR = CLng(entry(1))
+        nRows = CLng(entry(2))
+        Dim rRows() As Long
+        rRows = entry(3)
+        Dim idx As OptTupleIndex
+        TupInit idx, av.Count
+        For r = 0 To nRows - 1
+            TupFind idx, rRows, r * wR + 1, True
+        Next r
+        Dim posIn() As Long
+        ReDim posIn(0 To av.Count)
+        For p = 1 To av.Count
+            posIn(p) = VarPosition(gv, CStr(av.Item(p)))
+        Next p
+        Dim kbuf() As Long
+        ReDim kbuf(0 To av.Count)
+        For g = 1 To n
+            For p = 1 To av.Count
+                kbuf(p) = gRows((g - 1) * wG + 1 + posIn(p))
+            Next p
+            rk((g - 1) * nR + j) = TupFind(idx, kbuf, 0, False)
+        Next g
+    Next j
+    MergeSortByVectors order, n, rk, nR
+End Sub
+
+Private Sub MergeSortByVectors(ByRef order() As Long, ByVal n As Long, ByRef rk() As Long, ByVal w As Long)
+    If n < 2 Then Exit Sub
+    Dim tmp() As Long
+    ReDim tmp(0 To n)
+    Dim runLen As Long, loPos As Long, midPos As Long, hiPos As Long
+    Dim a As Long, b As Long, k As Long
+    runLen = 1
+    Do While runLen < n
+        loPos = 1
+        Do While loPos <= n
+            midPos = loPos + runLen - 1
+            If midPos > n Then midPos = n
+            hiPos = loPos + 2 * runLen - 1
+            If hiPos > n Then hiPos = n
+            a = loPos
+            b = midPos + 1
+            k = loPos
+            Do While a <= midPos And b <= hiPos
+                If VectorLess(rk, order(b), order(a), w) Then
+                    tmp(k) = order(b)
+                    b = b + 1
+                Else
+                    tmp(k) = order(a)
+                    a = a + 1
+                End If
+                k = k + 1
+            Loop
+            Do While a <= midPos
+                tmp(k) = order(a)
+                a = a + 1
+                k = k + 1
+            Loop
+            Do While b <= hiPos
+                tmp(k) = order(b)
+                b = b + 1
+                k = k + 1
+            Loop
+            loPos = loPos + 2 * runLen
+        Loop
+        For k = 1 To n
+            order(k) = tmp(k)
+        Next k
+        runLen = runLen * 2
+    Loop
+End Sub
+
+' True when group x's rank vector comes strictly before group y's.
+Private Function VectorLess(ByRef rk() As Long, ByVal x As Long, ByVal y As Long, ByVal w As Long) As Boolean
+    Dim j As Long
+    For j = 1 To w
+        If rk((x - 1) * w + j) < rk((y - 1) * w + j) Then
+            VectorLess = True
+            Exit Function
+        End If
+        If rk((x - 1) * w + j) > rk((y - 1) * w + j) Then Exit Function
+    Next j
+End Function
+
+' ---- 6: pass 3, the constraints over chosen rows ----------------------
+
+Private Sub GroundClauses(ByVal constraints As Collection, ByRef readsChoice() As Boolean, _
+                          ByVal certain As Object, ByVal hMap As Object, ByRef syms As VlaSymbols, _
+                          ByVal chosen As Object, ByVal chosenNames As Collection, ByRef gr As OptGround, _
+                          ByVal violations As Collection)
+    gr.nCl = 0
+    gr.nClLit = 0
+    ReDim gr.clCheck(1 To 16)
+    ReDim gr.clRule(1 To 16)
+    ReDim gr.clRow(1 To 16)
+    ReDim gr.clStart(1 To 17)
+    gr.clStart(1) = 1
+    ReDim gr.clLit(1 To 16)
+    Dim c As Long
+    Dim hasAny As Boolean
+    For c = 1 To constraints.Count
+        If readsChoice(c) Then hasAny = True
+    Next c
+    If Not hasAny Then Exit Sub
+
+    ' Every chosen predicate's POSSIBLE rows, as the relation pass 3 reads.
+    Dim rel3 As Object
+    Set rel3 = CopyRelations(certain)
+    Dim pi As Long
+    Dim nm As Variant
+    For Each nm In chosenNames
+        pi = pi + 1
+        Dim arity As Long
+        arity = CLng(VLA_Runtime.VlaDictGet(chosen, CStr(nm)))
+        Dim rel As Collection
+        Set rel = VLA_Relation.RelNew(arity)
+        Dim a As Long
+        For a = 1 To gr.atoms.n
+            If gr.atoms.keys((a - 1) * gr.keyWidth + 1) = pi Then
+                Dim vals() As Variant
+                vals = AtomValues(gr, a, arity, syms)
+                VLA_Relation.RelTryAdd rel, vals
+            End If
+        Next a
+        VLA_Runtime.VlaDictSet rel3, CStr(nm), rel
+    Next nm
+
+    ' One rule per such constraint - except one with nothing left in its
+    ' body, such as a plain (require (in "carbon-frame")): that is ONE
+    ' clause, its chosen rows' names all constants, and DATALOG takes no
+    ' rule without a body, so it is made here as a single empty row.
+    Dim batch As Collection
+    Set batch = New Collection
+    Dim metaOf() As Collection, ruleOf() As Long
+    ReDim metaOf(0 To constraints.Count)
+    ReDim ruleOf(0 To constraints.Count)
+    For c = 1 To constraints.Count
+        If readsChoice(c) Then
+            Dim meta As Collection
+            Dim rl As Collection
+            Set rl = BuildClauseRule(constraints.Item(c), c, chosen, meta)
+            Set metaOf(c) = meta
+            If rl.Count > 2 Then
+                batch.Add rl
+                ruleOf(c) = batch.Count
+            End If
+        End If
+    Next c
+    Dim out As Collection
+    Set out = VLA_Datalog.DatalogGroundRules(batch, rel3, hMap, syms)
+
+    Dim lits() As Long
+    ReDim lits(1 To 16)
+    Dim r As Long, nl As Long, rowBase As Long, aId As Long
+    Dim taut As Boolean
+    For c = 1 To constraints.Count
+        If Not readsChoice(c) Then GoTo nextCheck
+        Dim mq As Collection
+        Set mq = metaOf(c)
+        Dim qVars As Collection, qPos As Collection, qNeg As Collection, qCol As Object
+        Set qVars = mq.Item(2)
+        Set qPos = mq.Item(3)
+        Set qNeg = mq.Item(4)
+        Dim qHasCons As Boolean
+        qHasCons = mq.Item(5)
+        Dim qCons As Variant
+        NthInto qCons, mq, 6
+        Set qCol = mq.Item(7)
+        Dim w As Long, nRows As Long
+        Dim rows() As Long
+        If ruleOf(c) > 0 Then
+            Dim entry As Variant
+            entry = out.Item(ruleOf(c))
+            w = CLng(entry(1))
+            nRows = CLng(entry(2))
+            rows = entry(3)
+        Else
+            w = 1
+            nRows = 1
+            ReDim rows(0 To 1)
+        End If
+        For r = 0 To nRows - 1
+            nl = 0
+            rowBase = r * w
+            Dim at As Variant
+            For Each at In qPos
+                aId = InstantiateAtom(at, rows, rowBase, qCol, syms, gr, chosenNames)
+                If aId = 0 Then
+                    VLA_Messages.RaiseMsg "optimize-internal", "detail", _
+                        "grounded a constraint over a row it could not find among the rows that may be chosen"
+                End If
+                AppendLit lits, nl, -aId
+            Next at
+            For Each at In qNeg
+                aId = InstantiateAtom(at, rows, rowBase, qCol, syms, gr, chosenNames)
+                If aId > 0 Then AppendLit lits, nl, aId
+            Next at
+            If qHasCons Then
+                aId = InstantiateAtom(qCons, rows, rowBase, qCol, syms, gr, chosenNames)
+                If aId > 0 Then AppendLit lits, nl, aId
+            End If
+            NormalizeClause lits, nl, taut
+            If Not taut Then
+                If nl = 0 Then
+                    AddViolationRow violations, c, constraints.Item(c), qVars, rows, rowBase, syms
+                Else
+                    AddClause gr, c, ruleOf(c), r, lits, nl
+                End If
+            End If
+        Next r
+nextCheck:
+    Next c
+End Sub
+
+' One constraint over chosen rows, as the rule pass 3 grounds: its body
+' with every NEGATED chosen row taken out (collected, since each becomes
+' a positive literal), and a require's certain consequent negated at the
+' end exactly as OPTIMIZE.2 writes it; its head the check's number and
+' every name the kept body binds. meta holds (check number, those names,
+' the positive chosen rows, the negated ones, whether the consequent is
+' chosen, the consequent, and each name's column in a grounded row).
+Private Function BuildClauseRule(ByVal form As Variant, ByVal c As Long, ByVal chosen As Object, _
+                                 ByRef meta As Collection) As Collection
+    Dim lst As Collection
+    Set lst = form
+    Dim isRequire As Boolean
+    isRequire = (OptTopHead(form) = "require")
+    Dim bodyFrom As Long
+    If isRequire Then bodyFrom = 3 Else bodyFrom = 2
+    Dim kept As Collection, posAtoms As Collection, negAtoms As Collection
+    Set kept = New Collection
+    Set posAtoms = New Collection
+    Set negAtoms = New Collection
+    Dim j As Long
+    For j = bodyFrom To lst.Count
+        Dim item As Variant, src As Variant
+        NthInto item, lst, j
+        Dim kind As Long
+        kind = BodyReadKind(item, src)
+        If kind = 2 And VLA_Runtime.VlaDictHas(chosen, AtomNameOf(src)) Then
+            negAtoms.Add src
+        Else
+            kept.Add item
+            If kind = 1 Then
+                If VLA_Runtime.VlaDictHas(chosen, AtomNameOf(src)) Then posAtoms.Add src
+            End If
+        End If
+    Next j
+    Dim cons As Variant
+    Dim consChosen As Boolean
+    If isRequire Then
+        NthInto cons, lst, 2
+        consChosen = VLA_Runtime.VlaDictHas(chosen, AtomNameOf(cons))
+        If Not consChosen Then
+            ' LAST, for OPTIMIZE.2's reason: CheckRuleSafety walks a body
+            ' in written order, so the names are bound by the time it is
+            ' reached.
+            Dim notForm As Collection
+            Set notForm = New Collection
+            notForm.Add "not"
+            notForm.Add cons
+            kept.Add notForm
+        End If
+    End If
+
+    Dim vars As Collection, seen As Object
+    Set vars = New Collection
+    Set seen = VLA_Runtime.VlaDictNew()
+    Dim b As Variant
+    For Each b In kept
+        CollectBoundVars b, vars, seen
+    Next b
+    If isRequire Then CheckConsequent cons, seen
+    Dim na As Variant
+    For Each na In negAtoms
+        CheckChosenUse na, chosen, OptTopHead(form)
+        CheckNegatedChosen na, seen
+    Next na
+    If consChosen Then CheckChosenUse cons, chosen, OptTopHead(form)
+
+    Dim colOf As Object
+    Set colOf = VLA_Runtime.VlaDictNew()
+    Dim p As Long
+    For p = 1 To vars.Count
+        VLA_Runtime.VlaDictSet colOf, CStr(vars.Item(p)), 1 + p
+    Next p
+    Set meta = New Collection
+    meta.Add c
+    meta.Add vars
+    meta.Add posAtoms
+    meta.Add negAtoms
+    meta.Add consChosen
+    If consChosen Then
+        meta.Add cons
+    Else
+        meta.Add Empty
+    End If
+    meta.Add colOf
+    Set BuildClauseRule = BuildRule(OPT_CLAUSE_PREFIX & c, c, vars, Nothing, kept)
+End Function
+
+' A negated chosen row, or a require's chosen consequent, is taken out of
+' the rule pass 3 grounds - so DATALOG never sees it, and never holds it
+' to the arity every other use of the predicate has. Held to it here, in
+' DATALOG's own words, since a positive chosen row with the wrong arity
+' meets exactly those words from the grounder; and written by position,
+' since a keyed (column value) pair has no column to name.
+Private Sub CheckChosenUse(ByVal atom As Variant, ByVal chosen As Object, ByVal formHead As String)
+    Dim lst As Collection
+    Set lst = atom
+    Dim nm As String
+    nm = AtomNameOf(lst)
+    Dim arity As Long
+    arity = CLng(VLA_Runtime.VlaDictGet(chosen, nm))
+    If lst.Count - 1 <> arity Then
+        VLA_Messages.RaiseMsg "datalog-arity-mismatch", "predicate", nm, "a", CStr(arity), "b", CStr(lst.Count - 1)
+    End If
+    Dim j As Long
+    For j = 2 To lst.Count
+        If IsObject(lst.Item(j)) Then
+            VLA_Messages.RaiseMsg "optimize-form-bad-shape", "form", formHead, _
+                "expected", "a chosen row written by position, like (assign S P) - a chosen row has no Table, so it has no column names", _
+                "example", "(forbid (assign S P) (not (assign T P)) (next S T))"
+        End If
+    Next j
+End Sub
+
+' A chosen row as its atom number, its names read from one grounded row
+' of a pass-3 rule and its constants from the text: 0 when the row is
+' not among those that may be chosen at all.
+Private Function InstantiateAtom(ByVal atom As Variant, ByRef rows() As Long, ByVal rowBase As Long, _
+                                 ByVal colOf As Object, ByRef syms As VlaSymbols, ByRef gr As OptGround, _
+                                 ByVal chosenNames As Collection) As Long
+    Dim lst As Collection
+    Set lst = atom
+    Dim kbuf() As Long
+    ReDim kbuf(0 To gr.keyWidth)
+    kbuf(1) = NameIndex(chosenNames, AtomNameOf(lst))
+    Dim j As Long
+    For j = 2 To lst.Count
+        Dim raw As Variant
+        NthInto raw, lst, j
+        If OptIsVariable(raw) Then
+            kbuf(j) = rows(rowBase + CLng(VLA_Runtime.VlaDictGet(colOf, CStr(raw))))
+        Else
+            Dim id As Long
+            id = VLA_Relation.VlaSymFind(syms, OptAtomText(raw))
+            If id = 0 Then Exit Function
+            kbuf(j) = id
+        End If
+    Next j
+    InstantiateAtom = TupFind(gr.atoms, kbuf, 0, False)
+End Function
+
+Private Sub AppendLit(ByRef lits() As Long, ByRef nl As Long, ByVal lit As Long)
+    If nl + 1 > UBound(lits) Then ReDim Preserve lits(1 To 2 * UBound(lits))
+    nl = nl + 1
+    lits(nl) = lit
+End Sub
+
+' Sorts a clause's literals by atom, drops a repeated one, and reports a
+' clause holding an atom both ways - true in every world, so no clause.
+Private Sub NormalizeClause(ByRef lits() As Long, ByRef nl As Long, ByRef taut As Boolean)
+    taut = False
+    Dim i As Long, j As Long, x As Long
+    For i = 2 To nl
+        x = lits(i)
+        j = i - 1
+        Do While j >= 1
+            If Abs(lits(j)) < Abs(x) Or (Abs(lits(j)) = Abs(x) And lits(j) <= x) Then Exit Do
+            lits(j + 1) = lits(j)
+            j = j - 1
+        Loop
+        lits(j + 1) = x
+    Next i
+    Dim n As Long
+    n = 0
+    For i = 1 To nl
+        If n > 0 Then
+            If lits(n) = lits(i) Then GoTo nextLit
+            If lits(n) = -lits(i) Then
+                taut = True
+                Exit Sub
+            End If
+        End If
+        n = n + 1
+        lits(n) = lits(i)
+nextLit:
+    Next i
+    nl = n
+End Sub
+
+Private Sub AddClause(ByRef gr As OptGround, ByVal c As Long, ByVal ruleIx As Long, ByVal rowIx As Long, _
+                      ByRef lits() As Long, ByVal nl As Long)
+    Dim k As Long
+    k = gr.nCl + 1
+    Do While k + 1 > UBound(gr.clStart)
+        ReDim Preserve gr.clStart(1 To 2 * UBound(gr.clStart))
+    Loop
+    Do While k > UBound(gr.clCheck)
+        ReDim Preserve gr.clCheck(1 To 2 * UBound(gr.clCheck))
+        ReDim Preserve gr.clRule(1 To UBound(gr.clCheck))
+        ReDim Preserve gr.clRow(1 To UBound(gr.clCheck))
+    Loop
+    Do While gr.nClLit + nl > UBound(gr.clLit)
+        ReDim Preserve gr.clLit(1 To 2 * UBound(gr.clLit))
+    Loop
+    Dim j As Long
+    For j = 1 To nl
+        gr.clLit(gr.nClLit + j) = lits(j)
+    Next j
+    gr.nClLit = gr.nClLit + nl
+    gr.clCheck(k) = c
+    gr.clRule(k) = ruleIx
+    gr.clRow(k) = rowIx
+    gr.nCl = k
+    gr.clStart(k + 1) = gr.nClLit + 1
+End Sub
+
+' A clause left empty: the constraint is broken whatever is chosen. One
+' row of the violations table, in OPTIMIZE.2's own shape - its number,
+' its text and the bindings that made it hold.
+Private Sub AddViolationRow(ByVal violations As Collection, ByVal c As Long, ByVal form As Variant, _
+                            ByVal vars As Collection, ByRef rows() As Long, ByVal rowBase As Long, _
+                            ByRef syms As VlaSymbols)
+    Dim arr() As Variant
+    ReDim arr(1 To 1 + vars.Count)
+    arr(1) = c
+    Dim p As Long
+    For p = 1 To vars.Count
+        arr(1 + p) = syms.rep(rows(rowBase + 1 + p))
+    Next p
+    Dim row(1 To 3) As Variant
+    row(1) = c
+    row(2) = VLA.VlaWriteForm(form)
+    row(3) = BindingWords(vars, arr)
+    VLA_Relation.RelTryAdd violations, row
+End Sub
+
+' ---- 7: single-atom pruning and the counting pre-checks ---------------
+
+' A clause of one literal is not a constraint over choices at all but
+' the atom's value, fixed at grounding (OPTIMIZE.0.A: "nobody works while
+' on leave" takes the leave rows out of the pool). pruned(a) is -1 for an
+' atom no world may choose, +1 for one every world must.
+Private Sub PruneSingleAtoms(ByRef gr As OptGround, ByRef pruned() As Long, ByRef nPruned As Long)
+    ReDim pruned(0 To gr.atoms.n)
+    nPruned = 0
+    Dim k As Long, lit As Long
+    For k = 1 To gr.nCl
+        If gr.clStart(k + 1) - gr.clStart(k) = 1 Then
+            lit = gr.clLit(gr.clStart(k))
+            If lit < 0 Then
+                If pruned(-lit) <> -1 Then nPruned = nPruned + 1
+                pruned(-lit) = -1
+            ElseIf pruned(lit) = 0 Then
+                pruned(lit) = 1
+            End If
+        End If
+    Next k
+End Sub
+
+' The first group, in the order they are decided, that needs more rows
+' than can still fill it - OptimizePoolShortWords, reached at last.
+Private Function PoolShortReason(ByRef gr As OptGround, ByRef pruned() As Long, _
+                                 ByVal choices As Collection, ByRef syms As VlaSymbols) As String
+    Dim i As Long, k As Long, j As Long, avail As Long
+    For i = 1 To gr.nForms
+        For k = gr.fCtrFirst(i) To gr.fCtrFirst(i) + gr.fCtrN(i) - 1
+            avail = 0
+            For j = gr.ctrStart(k) To gr.ctrStart(k + 1) - 1
+                If pruned(gr.ctrMem(j)) <> -1 Then avail = avail + 1
+            Next j
+            If gr.ctrLo(k) > avail Then
+                Dim cf As Collection
+                Set cf = choices.Item(i)
+                Dim gName As String, gKey As String
+                If gr.fHasPer(i) Then
+                    gName = PerNamesOf(ChoicePer(cf))
+                    gKey = GroupKeyWords(gr, i, gr.ctrGroup(k), syms)
+                Else
+                    gName = "(" & OptTopHead(cf) & " ...)"
+                    gKey = "over its whole pool"
+                End If
+                PoolShortReason = OptimizePoolShortWords(gName, gKey, gr.ctrLo(k), _
+                    AtomNameOf(ChoicePoolAtom(cf)), avail)
+                Exit Function
+            End If
+        Next k
+    Next i
+End Function
+
+' The pigeonhole, OPTIMIZE.2's other two comparisons: a DEMAND family
+' whose groups share no atom needs the sum of its lower bounds, all
+' distinct atoms; a CAPPING family over the same chosen rows, every
+' group capped at one literal number, whose groups cover every atom the
+' demand could still use, holds at most (its groups that touch them) x
+' (the cap). The demand past the capacity is "no schedule", and it is a
+' proof - the pigeonhole principle, which clause learning cannot make
+' short (OPTIMIZE.0's oracle, three minutes on optimize-roster-loose).
+Private Function CapShortReason(ByRef gr As OptGround, ByRef pruned() As Long, _
+                                ByVal choices As Collection) As String
+    Dim nA As Long
+    nA = gr.atoms.n
+    Dim inA() As Long, inB() As Long
+    Dim fa As Long, fb As Long, k As Long, j As Long, a As Long
+    Dim demand As Double, cap As Long, groupsB As Long
+    Dim disjoint As Boolean, touches As Boolean, covered As Boolean
+    Dim cfA As Collection, cfB As Collection
+    For fa = 1 To gr.nForms
+        If gr.fCtrN(fa) = 0 Then GoTo nextA
+        Set cfA = choices.Item(fa)
+        ReDim inA(0 To nA)
+        demand = 0
+        disjoint = True
+        For k = gr.fCtrFirst(fa) To gr.fCtrFirst(fa) + gr.fCtrN(fa) - 1
+            demand = demand + gr.ctrLo(k)
+            For j = gr.ctrStart(k) To gr.ctrStart(k + 1) - 1
+                a = gr.ctrMem(j)
+                If inA(a) <> 0 Then disjoint = False
+                inA(a) = k
+            Next j
+        Next k
+        If Not disjoint Or demand <= 0 Or demand > 2147483647# Then GoTo nextA
+        For fb = 1 To gr.nForms
+            If fb = fa Then GoTo nextB
+            If gr.fCtrN(fb) = 0 Then GoTo nextB
+            Set cfB = choices.Item(fb)
+            If AtomNameOf(ChoiceChosenAtom(cfB)) <> AtomNameOf(ChoiceChosenAtom(cfA)) Then GoTo nextB
+            If Not UniformLiteralCap(cfB, cap) Then GoTo nextB
+            ReDim inB(0 To nA)
+            groupsB = 0
+            For k = gr.fCtrFirst(fb) To gr.fCtrFirst(fb) + gr.fCtrN(fb) - 1
+                touches = False
+                For j = gr.ctrStart(k) To gr.ctrStart(k + 1) - 1
+                    a = gr.ctrMem(j)
+                    inB(a) = 1
+                    If inA(a) <> 0 And pruned(a) <> -1 Then touches = True
+                Next j
+                If touches Then groupsB = groupsB + 1
+            Next k
+            covered = True
+            For a = 1 To nA
+                If inA(a) <> 0 And pruned(a) <> -1 And inB(a) = 0 Then
+                    covered = False
+                    Exit For
+                End If
+            Next a
+            If Not covered Then GoTo nextB
+            If demand > CDbl(groupsB) * cap Then
+                If ExactlyOneEach(cfA) Then
+                    CapShortReason = OptimizeCapacityShortWords(PerNamesOf(ChoicePer(cfA)), gr.fCtrN(fa), _
+                        GroupFamilyName(cfB), groupsB, cap)
+                Else
+                    CapShortReason = OptimizeCapShortWords(AtomNameOf(ChoiceChosenAtom(cfA)), CLng(demand), _
+                        GroupFamilyName(cfB), groupsB, cap)
+                End If
+                Exit Function
+            End If
+nextB:
+        Next fb
+nextA:
+    Next fa
+End Function
+
+' ---- 8: the search's own problem ---------------------------------------
+
+' Every clause, and every counter that bounds anything - an "at least
+' none, at most any" counter is no constraint - tagged with its own
+' number here, so a contradiction's reasons come back as rows of gr.
+Private Sub BuildSearchProblem(ByRef gr As OptGround, ByRef prob As OptSearchProblem)
+    VLA_OptimizeSearch.OptProblemInit prob, gr.atoms.n
+    Dim buf() As Long
+    ReDim buf(1 To 16)
+    Dim k As Long, j As Long, n As Long
+    For k = 1 To gr.nCl
+        n = gr.clStart(k + 1) - gr.clStart(k)
+        If n > UBound(buf) Then ReDim buf(1 To 2 * n)
+        For j = 1 To n
+            buf(j) = gr.clLit(gr.clStart(k) + j - 1)
+        Next j
+        VLA_OptimizeSearch.OptProblemAddClause prob, buf, n, k
+    Next k
+    For k = 1 To gr.nCtr
+        If gr.ctrLo(k) > 0 Or gr.ctrHi(k) <> VLA_OptimizeSearch.OPT_SEARCH_NO_MOST Then
+            n = gr.ctrStart(k + 1) - gr.ctrStart(k)
+            If n > UBound(buf) Then ReDim buf(1 To 2 * n)
+            For j = 1 To n
+                buf(j) = gr.ctrMem(gr.ctrStart(k) + j - 1)
+            Next j
+            VLA_OptimizeSearch.OptProblemAddCounter prob, buf, n, gr.ctrLo(k), gr.ctrHi(k), k
+        End If
+    Next k
+End Sub
+
+' ---- 9: the words -------------------------------------------------------
+
+' "proven best", and why a program that chooses may say it: with nothing
+' minimized or maximized every schedule that breaks no rule is as good
+' as another, and this one is the FIRST of them - OPTIMIZE.1's reserved
+' sentence says the program makes no choices, which is true only of one
+' that makes none, so a choice program keeps the prefix and says its own
+' reason after it.
+Private Function ChoiceBestWords(ByVal decisions As Long, ByVal conflicts As Long) As String
+    ChoiceBestWords = "proven best: every rule holds, and nothing is being minimized or maximized, so no schedule is better than this one - it is the first that breaks no rule when the rows are decided in the order your Tables list them (" & _
+        decisions & " decision" & PluralS(decisions) & ", " & conflicts & " dead end" & PluralS(conflicts) & ")."
+End Function
+
+Private Function ChoiceNoneWords(ByVal decisions As Long, ByVal conflicts As Long) As String
+    ChoiceNoneWords = OptimizeStatusWords(VLA_OPTIMIZE_NO_SCHEDULE) & _
+        ": every way of making the choices was tried (" & decisions & " decision" & PluralS(decisions) & _
+        ", " & conflicts & " dead end" & PluralS(conflicts) & ")."
+End Function
+
+' A contradiction reached before the first decision, and the rules it was
+' walked back to: each check by number, as the violations table writes
+' it, then each choice's group that took part, in the order they are
+' decided - capped as the broken-check list is.
+Private Function ChoiceRootWords(ByRef res As OptSearchResult, ByRef gr As OptGround, _
+                                 ByVal constraints As Collection, ByVal choices As Collection, _
+                                 ByRef syms As VlaSymbols) As String
+    Dim seenC() As Long
+    ReDim seenC(0 To constraints.Count)
+    Dim j As Long, c As Long, k As Long
+    For j = 1 To res.nWhyClauses
+        seenC(gr.clCheck(res.whyClauses(j))) = 1
+    Next j
+    Dim s As String
+    Dim named As Long, more As Long
+    For c = 1 To constraints.Count
+        If seenC(c) <> 0 Then
+            If named >= OPT_STATUS_CHECK_CAP Then
+                more = more + 1
+            Else
+                If named > 0 Then s = s & "; "
+                s = s & "check " & c & ", " & VLA.VlaWriteForm(constraints.Item(c))
+                named = named + 1
+            End If
+        End If
+    Next c
+    For j = 1 To res.nWhyCounters
+        k = res.whyCounters(j)
+        If named >= OPT_STATUS_CHECK_CAP Then
+            more = more + 1
+        Else
+            If named > 0 Then s = s & "; "
+            s = s & VLA.VlaWriteForm(choices.Item(gr.ctrForm(k)))
+            If gr.fHasPer(gr.ctrForm(k)) Then
+                s = s & " for " & GroupKeyWords(gr, gr.ctrForm(k), gr.ctrGroup(k), syms)
+            End If
+            named = named + 1
+        End If
+    Next j
+    If more > 0 Then s = s & "; and " & more & " more"
+    ChoiceRootWords = OptimizeStatusWords(VLA_OPTIMIZE_NO_SCHEDULE) & _
+        ": these cannot all hold, before anything is chosen - " & s & "."
+End Function
+
+Private Function ChoiceBudgetWords(ByVal effortWords As String, ByVal budget As Long, _
+                                   ByVal decisions As Long, ByVal conflicts As Long) As String
+    ChoiceBudgetWords = OptimizeStatusWords(VLA_OPTIMIZE_NONE_IN_BUDGET) & ": " & effortWords & _
+        " allows " & budget & " unit" & PluralS(budget) & " of work - a decision or a dead end is one each - and all of them went on " & _
+        decisions & " decision" & PluralS(decisions) & " and " & conflicts & " dead end" & PluralS(conflicts) & _
+        ". More effort may find one: (effort thorough), or a larger number."
+End Function
+
+Private Function ChoiceGuardWords(ByVal seconds As Double, ByVal work As Long, ByVal budget As Long, _
+                                  ByVal effortWords As String) As String
+    ChoiceGuardWords = OptimizeStatusWords(VLA_OPTIMIZE_NONE_IN_BUDGET) & _
+        ": the search was stopped after " & VLA_Relation.InvariantNumberText(Round(seconds, 1)) & _
+        " seconds by the guard that keeps a formula from holding Excel, having done " & work & _
+        " of the " & budget & " units of work " & effortWords & " allows. Unlike the effort, where this stops depends on how fast the machine is."
+End Function
+
+' A group's own values of its names, "S = s3, N = 2", as the violations
+' table writes bindings.
+Private Function GroupKeyWords(ByRef gr As OptGround, ByVal i As Long, ByVal g As Long, _
+                               ByRef syms As VlaSymbols) As String
+    Dim gv As Collection
+    Set gv = gr.fGVars(i)
+    If gv.Count = 0 Then
+        GroupKeyWords = "(no names)"
+        Exit Function
+    End If
+    Dim rows() As Long
+    rows = gr.fGRows(i)
+    Dim w As Long
+    w = gr.fGWidth(i)
+    Dim s As String
+    Dim p As Long
+    For p = 1 To gv.Count
+        If p > 1 Then s = s & ", "
+        s = s & CStr(gv.Item(p)) & " = " & SafeValueText(syms.rep(rows((g - 1) * w + 1 + p)))
+    Next p
+    GroupKeyWords = s
+End Function
+
+' ---- small helpers --------------------------------------------------------
+
+' An atom's values, as its relation holds them: each argument's symbol's
+' first-seen value, which is the pool's own cell.
+Private Function AtomValues(ByRef gr As OptGround, ByVal a As Long, ByVal arity As Long, _
+                            ByRef syms As VlaSymbols) As Variant()
+    Dim t() As Variant
+    ReDim t(1 To arity)
+    Dim j As Long
+    For j = 1 To arity
+        t(j) = syms.rep(gr.atoms.keys((a - 1) * gr.keyWidth + 1 + j))
+    Next j
+    AtomValues = t
+End Function
+
+' A chosen predicate's column names: its first choice form's own chosen
+' row, each argument's text - (assign S P) gives S and P.
+Private Function ChosenHeadNames(ByVal atom As Collection) As Variant
+    Dim names() As Variant
+    ReDim names(1 To atom.Count - 1)
+    Dim j As Long
+    For j = 2 To atom.Count
+        Dim raw As Variant
+        NthInto raw, atom, j
+        names(j - 1) = OptAtomText(raw)
+    Next j
+    ChosenHeadNames = names
+End Function
+
+Private Function NameIndex(ByVal names As Collection, ByVal nm As String) As Long
+    Dim i As Long
+    For i = 1 To names.Count
+        If CStr(names.Item(i)) = nm Then
+            NameIndex = i
+            Exit Function
+        End If
+    Next i
+End Function
+
+' A name's 1-based place among a group's names, matched as DATALOG
+' matches a variable - without regard to case.
+Private Function VarPosition(ByVal names As Collection, ByVal nm As String) As Long
+    Dim i As Long
+    For i = 1 To names.Count
+        If StrComp(CStr(names.Item(i)), nm, vbTextCompare) = 0 Then
+            VarPosition = i
+            Exit Function
+        End If
+    Next i
+End Function
+
+' A count read from a Table: a whole number of zero or more, as a number
+' or as the text of one. False for anything else.
+Private Function WholeCountOf(ByRef syms As VlaSymbols, ByVal id As Long, ByRef n As Long) As Boolean
+    Dim v As Variant
+    v = syms.rep(id)
+    Select Case VarType(v)
+    Case vbInteger, vbLong, vbSingle, vbDouble, vbCurrency, vbDecimal, vbByte
+        Dim d As Double
+        d = CDbl(v)
+        If d < 0 Or d > 2147483647# Then Exit Function
+        If d <> Int(d) Then Exit Function
+        n = CLng(d)
+        WholeCountOf = True
+    Case vbString
+        Dim s As String
+        s = CStr(v)
+        If Left$(s, 1) = Chr$(34) Then s = Mid$(s, 2)
+        If Not IsWholeNumberText(s) Then Exit Function
+        If Len(s) > 10 Then Exit Function
+        If CDbl(s) > 2147483647# Then Exit Function
+        n = CLng(s)
+        WholeCountOf = True
+    End Select
+End Function
+
+' A value as text for a sentence, never raising on an error value.
+Private Function SafeValueText(ByVal v As Variant) As String
+    If IsError(v) Then
+        SafeValueText = "an error value"
+    ElseIf IsObject(v) Then
+        SafeValueText = "an object"
+    Else
+        SafeValueText = CStr(v)
+    End If
+End Function
+
+' ---- the tuple index ------------------------------------------------------
+
+Private Sub TupInit(ByRef t As OptTupleIndex, ByVal wid As Long)
+    t.wid = wid
+    t.n = 0
+    ReDim t.keys(0 To 16 * wid + 1)
+    t.mask = 63
+    ReDim t.slot(0 To t.mask)
+End Sub
+
+' The number of the tuple src(off + 1 .. off + wid): found, or added when
+' addIt and absent; 0 when absent and not added.
+Private Function TupFind(ByRef t As OptTupleIndex, ByRef src() As Long, ByVal off As Long, _
+                         ByVal addIt As Boolean) As Long
+    Dim h As Long, i As Long, s As Long, k As Long, kb As Long
+    Dim same As Boolean
+    h = 5381
+    For i = 1 To t.wid
+        h = ((h * 33) Xor src(off + i)) And &H7FFFFF
+    Next i
+    s = h And t.mask
+    Do
+        k = t.slot(s)
+        If k = 0 Then Exit Do
+        kb = (k - 1) * t.wid
+        same = True
+        For i = 1 To t.wid
+            If t.keys(kb + i) <> src(off + i) Then
+                same = False
+                Exit For
+            End If
+        Next i
+        If same Then
+            TupFind = k
+            Exit Function
+        End If
+        s = (s + 1) And t.mask
+    Loop
+    If Not addIt Then Exit Function
+    t.n = t.n + 1
+    Do While t.n * t.wid + 1 > UBound(t.keys)
+        ReDim Preserve t.keys(0 To 2 * UBound(t.keys) + 1)
+    Loop
+    kb = (t.n - 1) * t.wid
+    For i = 1 To t.wid
+        t.keys(kb + i) = src(off + i)
+    Next i
+    t.slot(s) = t.n
+    TupFind = t.n
+    If 2 * t.n > t.mask Then TupRehash t
+End Function
+
+Private Sub TupRehash(ByRef t As OptTupleIndex)
+    t.mask = 2 * t.mask + 1
+    ReDim t.slot(0 To t.mask)
+    Dim k As Long, i As Long, h As Long, s As Long, kb As Long
+    For k = 1 To t.n
+        kb = (k - 1) * t.wid
+        h = 5381
+        For i = 1 To t.wid
+            h = ((h * 33) Xor t.keys(kb + i)) And &H7FFFFF
+        Next i
+        s = h And t.mask
+        Do While t.slot(s) <> 0
+            s = (s + 1) And t.mask
+        Loop
+        t.slot(s) = k
+    Next k
+End Sub
 
 ' =====================================================================
 '  THE MEMO

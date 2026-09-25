@@ -407,7 +407,10 @@ Private Function VlaBuildOneEdition(ByVal edition As String, ByRef note As Strin
     ' CLI.3: VLA_Console, beside frmCLI - the form calls it for the
     ' console's history, which has to outlive the form (it unloads on
     ' Esc). Added to both arrays in the same edit.
-    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_IDE", "VLA_Lint", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Optimize", "VLA_Browser", "VLA_Console", "frmCLI")
+    ' OPTIMIZE.3 (slice 2): VLA_OptimizeSearch, just before VLA_Optimize,
+    ' which is its only caller - the search itself, held to Long arrays by
+    ' tools/check_optimize_search_discipline.ps1. Both arrays, one edit.
+    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_IDE", "VLA_Lint", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_OptimizeSearch", "VLA_Optimize", "VLA_Browser", "VLA_Console", "frmCLI")
 
     ' Export the current, in-project versions - the build always ships
     ' exactly what the dev workbook contains. (VLA_English and its

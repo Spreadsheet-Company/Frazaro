@@ -37,11 +37,19 @@ WHAT IS CHECKED
   2. CheckConsequent names the same set, since a require's consequent
      is held to "a row, not a test" against the identical list.
 
+  2a. OPTIMIZE.3 slice 2 added two more copies, held to the same set:
+     BodyReadKind, which reads what a body item reads (a choice program
+     must know whether a constraint touches a chosen row, and where a
+     negated one is), and CheckPoolAtom, which refuses a wrapper where a
+     pool or a (per ...) row belongs. A fifteenth DATALOG wrapper read as
+     a positive atom there would put its inner names into a grounding
+     rule the user never wrote - the same defect, two new places.
+
   3. Each list is sorted and compared as a set, so a reordering inside
      either file is not a failure - only a word present in one and
      absent from the other.
 
-Exit code: 0 when the three sets agree; 1 otherwise, naming each word
+Exit code: 0 when all five sets agree; 1 otherwise, naming each word
 and the file it is missing from.
 
 MUTATION CONTROL: -Control plants each of three defects in memory (a
@@ -128,7 +136,7 @@ function Get-OptimizeWrappers {
     $lines = Join-VbaContinuations -Lines $lines
     $start = -1
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        if ($lines[$i] -match "^Private Sub $([regex]::Escape($SubName))\b") { $start = $i; break }
+        if ($lines[$i] -match "^Private (Sub|Function) $([regex]::Escape($SubName))\b") { $start = $i; break }
     }
     if ($start -lt 0) { throw "could not find Private Sub $SubName in $Path" }
     $end = -1
@@ -158,6 +166,8 @@ function Compare-Sets {
 $datalog = Get-DatalogWrappers -Path $datalogPath
 $collector = Get-OptimizeWrappers -Path $optimizePath -SubName 'CollectBoundVars'
 $consequent = Get-OptimizeWrappers -Path $optimizePath -SubName 'CheckConsequent'
+$readKind = Get-OptimizeWrappers -Path $optimizePath -SubName 'BodyReadKind'
+$poolAtom = Get-OptimizeWrappers -Path $optimizePath -SubName 'CheckPoolAtom'
 
 if ($Control) {
     $cases = @(
@@ -190,6 +200,12 @@ foreach ($p in (Compare-Sets -Expected $datalog -Actual $collector -ExpectedName
 foreach ($p in (Compare-Sets -Expected $datalog -Actual $consequent -ExpectedName 'VLA_Datalog.bas' -ActualName 'VLA_Optimize.CheckConsequent')) {
     $problems.Add($p)
 }
+foreach ($p in (Compare-Sets -Expected $datalog -Actual $readKind -ExpectedName 'VLA_Datalog.bas' -ActualName 'VLA_Optimize.BodyReadKind')) {
+    $problems.Add($p)
+}
+foreach ($p in (Compare-Sets -Expected $datalog -Actual $poolAtom -ExpectedName 'VLA_Datalog.bas' -ActualName 'VLA_Optimize.CheckPoolAtom')) {
+    $problems.Add($p)
+}
 
 if ($problems.Count -gt 0) {
     Write-Output "check_optimize_body_wrappers: FAILED"
@@ -197,6 +213,6 @@ if ($problems.Count -gt 0) {
     exit 1
 }
 
-Write-Output "check_optimize_body_wrappers: OK - $($datalog.Count) body wrappers, and all three lists agree"
+Write-Output "check_optimize_body_wrappers: OK - $($datalog.Count) body wrappers, and all five lists agree"
 Write-Output "  $($datalog -join ' ')"
 exit 0

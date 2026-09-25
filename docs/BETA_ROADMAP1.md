@@ -21343,7 +21343,9 @@ now carries one summary paragraph per engine and points here.*
     the owner the same day, five as recommended and one against: the
     integer grounder is built in this item rather than deferred. Five
     slices. **Slice 1 of five, the integer grounder, BUILT, TESTED LIVE and
-    COMMITTED 2026-09-24, every count exact.** The pre-flight that set this
+    COMMITTED 2026-09-24, every count exact. Slice 2, the first search,
+    BUILT, TESTED LIVE and COMMITTED 2026-09-25, every count exact.** The
+    pre-flight that set this
     item's starting conditions is recorded below, since its steps file
     moved to `archive/` when the item began.* The first search, and NOT the
     retired `SOLVE.3`'s
@@ -21650,7 +21652,10 @@ now carries one summary paragraph per engine and points here.*
         12.6-16.6x `DATALOG` on the subsets, 24.7x on the one disputed rung
         below; the read-bound pair relation shows 5-7x on two and three
         ticks. **Every time here is a whole number of 1/128 s ticks
-        (7.8 ms)**, the resolution of VBA's `Timer` on this machine, so
+        (7.8 ms)**, ~~the resolution of VBA's `Timer` on this machine~~
+        **the resolution of VBA's `Timer` at the hour this ran, 22:26,
+        not of the machine** (corrected in slice 2, below: `Timer` is a
+        `Single`, and after 18:12 its 24 bits step by 1/128 s), so
         a ratio on an integer time of four ticks or fewer is good to a
         quarter at best; slice 4's ladder repeats small rungs until they
         are well clear of it. The ceilings stay where fork 1 set them:
@@ -21668,6 +21673,197 @@ now carries one summary paragraph per engine and points here.*
         rung's place, without the rung, with this harness's thirteen rungs
         added, or on those thirteen alone, the formula ceiling costs
         0.88-0.92s by the model: **fork 1 does not move.**
+
+    **SLICE 2 — THE FIRST SEARCH. BUILT, TESTED LIVE AND COMMITTED
+    2026-09-25.**
+    The five choice forms run. A program that chooses is grounded in three
+    passes into atoms, counters and clauses, and a search decides the rows
+    in the Tables' own order, answering the first schedule that breaks no
+    rule. A program with no choice takes `OPTIMIZE.2`'s path line for line.
+      - `VLA_OptimizeSearch.bas`, new: `Long` arrays and numbers only, no
+        recursion, one decision at a time. Unit propagation over clauses
+        and counter propagation over the choice forms' groups: a counter
+        at its most forces the rest out, and one with only its least still
+        possible forces them in. An explicit trail, chronological
+        backtracking with the failed decision set false one level down, a
+        budget in work (a decision or a dead end is one unit each), and
+        the seconds guard read every 256 units. A contradiction found
+        before any decision is walked back through each forced value's
+        reason to the rules that started it, which are the rules the
+        answer names. **The data discipline is pinned** by
+        `tools/check_optimize_search_discipline.ps1`, **the 28th check**.
+        It holds the whole module to typed numbers, with no object,
+        dictionary, collection, late-bound call or implicitly typed name,
+        and it catches `Dim a, b As Long`, which makes `a` a `Variant`.
+        Its mutation control plants nine defects and catches all nine.
+        *Its own first run over the known-good module was not clean*: it
+        flagged a `ReDim` of an array PARAMETER as an undeclared name,
+        because it collected declared names from `Dim` lines only.
+      - `VLA_Optimize.bas`: the grounding (section OPTIMIZE.3: PROGRAMS
+        THAT CHOOSE).
+        - *Pass 1* is `DATALOG`'s own fixpoint over the certain part.
+          Constraints over certain rows are checked there exactly as
+          `OPTIMIZE.2` checks them, and the chosen predicates are
+          registered empty.
+        - *Pass 1 also writes a never-firing stub* per atom a later pass
+          reads over a predicate a rule derives. `DATALOG.14`'s
+          `PushBoundArguments` would otherwise narrow a recursive
+          predicate to the one constant every reader it can SEE pins, and
+          a later pass is a reader it cannot see. It is pinned on a
+          left-recursive closure asked about from `a` alone, whose pool
+          keeps all six pairs.
+        - *Pass 2* grounds the choices through slice 1's grounder: each
+          form's groups and members, and a counter per group, the count
+          literal or read from the group's own row.
+        - *Pass 3* grounds each constraint over chosen rows as a rule over
+          the chosen predicates' POSSIBLE rows, one clause per row. A
+          positive chosen atom gives not-this-atom. A negated one gives
+          this-atom, or nothing when the atom can never be chosen. A
+          chosen consequent gives this-atom.
+        - *Single-atom pruning*: a one-literal clause fixes its atom at
+          grounding. *The three counting pre-checks* `OPTIMIZE.2` built
+          and left unreached are reached at last: a group with too few
+          rows, and the pigeonhole, a demand family against a capping
+          family over the same chosen rows.
+        - *The answer is `DATALOG`'s own* `(query ...)` over the certain
+          relations and the chosen rows. A chosen predicate's columns are
+          named by its first choice form's chosen row.
+      - *Four calls made while building, none a fork, each written down
+        for review:*
+        - **The atom order, precise.** Choice forms in written order.
+          Within a form, its groups in the order of their `(per ...)`
+          rows, the first `(per ...)` atom outermost. Within a group, the
+          pool's rows. That is fork 6's "the Tables' own order" made
+          precise where it had not been, and it is why "the first shift
+          is filled first" is the one-sentence account of a roster. Pure
+          pool order would have followed whatever order a DERIVED pool
+          came out of `DATALOG`'s join in, which is deterministic but
+          depends on relation sizes.
+        - **Several choice forms over one chosen predicate:** the possible
+          atoms are the UNION of their pools. That is clingo's own reading
+          of several choice rules, and the oracle's.
+        - **`(effort ...)` in a program with no choice is accepted and
+          never spent**, so removing a program's choices does not also
+          mean removing its effort. Two `(effort ...)` forms are refused.
+        - **The effort levels are PROVISIONAL**: quick 5,000, normal
+          50,000, thorough 500,000 units, ten times apart. The seconds
+          guard is 10 s, five times the 2 s a formula may be projected
+          at. Slice 4 sets both from the ladder; step 13's timing is the
+          first number.
+      - `VLA_Messages.bas`:
+        - `optimize-choice-not-yet` and `optimize-effort-not-yet` retired:
+          a choice is made and an effort spent now, so both said something
+          false.
+        - The three not-yet refusals left (preference, objective, kept)
+          reworded, since each justified itself with "with no choice there
+          is exactly one answer". Each keeps the fragment its pins match.
+        - Twelve new entries, in OPTIMIZE's own words:
+          - a chosen predicate something else defines, or chosen with two
+            arities;
+          - a rule over chosen rows (`OPTIMIZE.5`'s);
+          - a pool that is itself chosen;
+          - a count over chosen rows (`OPTIMIZE.4`'s, pointing to the
+            second-choice-form spelling of a cap);
+          - an unbound name in a chosen row, a count or a negated chosen
+            row;
+          - a count read from a Table that is not a whole number, naming
+            the group;
+          - two efforts, and an effort past the `Long` range;
+          - one internal refusal.
+      - `tools/check_optimize_body_wrappers.ps1` now holds FIVE copies of
+        `DATALOG`'s body-wrapper words to `DATALOG`'s own, not three: the
+        two new ones are `BodyReadKind` and `CheckPoolAtom`, the same
+        drift in two new places. A planted drift in the new list was
+        caught, and the file was restored byte for byte.
+      - Both `mods` arrays gain `VLA_OptimizeSearch`, in one edit. Step 5
+        re-imports `VLA_DevRig.bas` by hand first, since the rig cannot
+        reload itself.
+      - *Proof, 111 new pins:*
+        - `TestOptimizeSearch`, 53. The search on hand-written problems (a
+          counter that forces, a dead end undone, a contradiction and its
+          reasons, the budget, a problem it cannot read), then forty
+          problems a seeded generator writes. On each, the search must
+          answer the world an exhaustive walk finds first, or neither
+          finds one. The split of the forty, 29 with a world and 11
+          without, is computed host-independently by
+          `tools/optimize3_search_twin.ps1`, whose `-Control` joins
+          `run_checks.ps1`'s verifiers.
+        - `TestOptimizeChoice`, 56. Section 17 answered: the toy's first
+          roster row for row; the duty rotation's first world; the
+          seat-dinner's without its objective; `optimize-quote-conflict`
+          naming exactly its three rules and not the fourth; the four
+          counting keys in the corpus's own numbers; `optimize-roster-
+          senior`'s local reason both ways, the second through pruning;
+          the budget; determinism with the memo lost; a permutation of
+          every Table; and every new refusal.
+        - `TestOptimizeForms` 78 → 80. The pins that asserted a choice or
+          an effort was refused now assert what each program answers.
+      - **The finding, before the owner could have it.** A line-for-line
+        PowerShell transliteration of the search was run over every pinned
+        problem before handing over. It agreed with the exhaustive walk on
+        all forty generated problems and confirmed every hand trace but
+        ONE. The five-people, three-shifts no-schedule costs 5 decisions
+        and 6 dead ends, not the 9 and 10 the hand trace said: the trace
+        missed that the second shift's own counter forces its last three
+        in the moment only three can still be chosen. The pin now says 5
+        and 6.
+      - *Tested live 2026-09-25, every number as predicted*
+        (`tools/optimize3_live_steps.md`, steps 5 to 15): the version line
+        as written, so the two new private types compiled first time;
+        `TestDSLs` 2124 → **2235/0**; `VlaSelfTest` **1347/1347**, moved
+        by CLI.5's uncommitted pins in `VLA_Tests.bas`, a file this slice
+        does not touch; `VlaSelfTestHost` **152/152** and `VerifyReports`
+        **242/242** on both backends, unmoved. 28 static checks and 7
+        verifiers green. Steps 7 to 12 answered word for word: the toy, a
+        count read from a real Table, the effort running out, the
+        pigeonhole, the collision naming exactly its three rules, and a
+        requirement no choice can meet.
+      - *The search half of the before-and-after* — `O3Search`
+        (`tools/VLA_DiagO3.bas`, step 13), run at 00:38. The two-shift
+        family has no schedule, but not by counting, so the search must
+        try every way. Every line's decisions and dead ends matched the
+        transliteration's:
+
+            run                         people   k  atoms  decisions  dead ends  seconds  µs a unit
+            search alone                    14   8     28        923        924    0.005        2.8
+            search alone                    16   9     32      3,431      3,432    0.015        2.2
+            search alone                    18  10     36     12,869     12,870    0.061        2.4
+            search alone                    20  11     40     48,619     48,620    0.241        2.5
+            family through OPTIMIZE         16   9     32      3,431      3,432    0.047        6.8
+            toy scaled, through OPTIMIZE    20   4    420         84          0    0.063      749.9
+
+        Step 14 made the guard fire in a real formula, on the family at 28
+        people and 15 a shift: stopped after 10 seconds at **3,411,712
+        units**, exactly 13,327 × 256, as a guard read every 256 units
+        must stop.
+        **What it says.** A unit of work costs a steady **2.2-2.9 µs** on
+        this machine, from 1,847 units to 3.4 million. The 0.005 s rung is
+        too short to read closely; the rest read 2.2, 2.4 and 2.5 at 32,
+        36 and 40 atoms, and 2.9 at 56 through a formula, rising slowly
+        with the width of the counters. So the provisional levels are, in
+        seconds here, **quick 0.011-0.015, normal 0.11-0.15, thorough
+        1.1-1.5**, and thorough fits the 2 s a formula is allowed; the
+        guard stops a search at about 3.4 million units, seven times
+        thorough. The rate is the family's only, where each atom sits in
+        one clause and one counter of 14 to 28 atoms. A unit over a real
+        roster's grounding will cost more, and slice 4's ladder is where
+        the levels are set. OPTIMIZE's work around the search is a fixed
+        cost: 0.032 s of the whole run's 0.047 s at 16 people, and almost
+        all of the scaled toy's 0.063 s, which finds its roster without
+        one dead end, so that line's last column is the fixed cost over 84
+        units, not a rate.
+        **The timer, corrected.** These times are not whole 1/128 s ticks,
+        and slice 1's all were. VBA's `Timer` returns seconds since
+        midnight as a `Single`, whose 24 bits step by 1/128 s from 18:12
+        to midnight, 1/256 s from 09:06, and 1/4096 s at 00:38; slice 1's
+        harness ran at 22:26. Its record is corrected above. A harness
+        timing short rungs in the evening reads them to 7.8 ms, whatever
+        the machine.
+      - *Found live, for slice 3:* the toy's status says its rows were
+        decided "in the order your Tables list them", and that program's
+        rows are facts written into it, with no Table at all. True of
+        real use; it is reworded in slice 3, so this pass's pins and steps
+        stand as they are.
     `~weeks`
   - ⬜ **OPTIMIZE.4 — `count` and `sum` as native constraints.** "Every
     shift has at least 2 people", "nobody works more than 5 a week", "no

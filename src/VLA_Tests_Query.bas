@@ -9,6 +9,14 @@ Public Const VLA_TESTS_QUERY_VERSION As String = "OPTIMIZE.3"
 ' two floors so that loop cannot pass by grounding nothing. The table grew
 ' by the two base programs those pins ground over (190 -> 192), so
 ' TestOptimizeParity reports two more.
+' OPTIMIZE.3 (slice 2): TestOptimizeSearch (new, pure, 53 - the search on
+' hand-written problems, then forty a seeded generator writes, each
+' required to answer the first world an exhaustive walk finds, with the
+' split of the forty held to tools/optimize3_search_twin.ps1's count) and
+' TestOptimizeChoice (new, pure, 56 - section 17's entries answered, each
+' first world derived by hand, the counting pre-checks reached, and every
+' new refusal). The pins that asserted a choice or an effort was refused
+' now assert what each program answers (TestOptimizeForms 78 -> 80).
 '
 ' DATALOG.15: TestSpillHeaders (new, pure - VLA_Relation's spill header
 ' check, RefersTo matching and text, the error-value reason, and every
@@ -374,6 +382,8 @@ Public Function TestDSLs() As Boolean
     TestOptimizeForms
     TestOptimizeChecks
     TestOptimizeCounting
+    TestOptimizeSearch
+    TestOptimizeChoice
     TestOptimizeMemo
     TestOptimizeParity
     TestOptimizeHostTable
@@ -3784,26 +3794,47 @@ Private Sub AssertOptParses(ByVal name As String, ByVal program As String, ByVal
     Report name, namesIt And Not isShape, "got: " & d
 End Sub
 
+' OPTIMIZE.3 slice 2: a form that used to reach a not-yet refusal now
+' RUNS. So the claim those pins made - the spelling SAYS the sentence -
+' is shown the stronger way: the program answers, in the state its own
+' data leads to, and is not refused at all.
+Private Sub AssertOptRuns(ByVal name As String, ByVal program As String, ByVal wantState As Long)
+    Dim d As String
+    d = OptRefusalOf(program)
+    If d <> "(no refusal)" Then
+        Report name, False, "refused: " & d
+        Exit Sub
+    End If
+    Dim st As Long
+    st = OptStateOf(program)
+    Report name, st = wantState, "state " & st & ", want " & wantState & ": " & OptStatusOf(program)
+End Sub
+
 Private Sub TestOptimizeForms()
     Dim v As Variant
     Dim words As String
 
-    ' --- the five choice spellings, each parsing and refusing ---------
-    AssertOptRefusal "optimize forms: choose-exactly parses and is refused by name", _
+    ' --- the five choice spellings, each parsing and RUNNING -------------
+    ' OPTIMIZE.3 slice 2: these five used to reach optimize-choice-not-
+    ' yet, which that slice retired by making it false. Each now answers
+    ' in the state its one-row pool leads to: two of one row cannot be
+    ' chosen (no schedule, by the pool's own count); at most two, or any,
+    ' can (proven best).
+    AssertOptRuns "optimize forms: choose-exactly parses and runs", _
         "(fact (elig s p)) (choose-exactly 2 (assign S P) (elig S P)) (query elig)", _
-        "asks OPTIMIZE to make a choice"
-    AssertOptRefusal "optimize forms: choose-at-least parses and is refused by name", _
+        VLA_Optimize.VLA_OPTIMIZE_NO_SCHEDULE
+    AssertOptRuns "optimize forms: choose-at-least parses and runs", _
         "(fact (elig s p)) (choose-at-least 2 (assign S P) (elig S P)) (query elig)", _
-        "asks OPTIMIZE to make a choice"
-    AssertOptRefusal "optimize forms: choose-at-most parses and is refused by name", _
+        VLA_Optimize.VLA_OPTIMIZE_NO_SCHEDULE
+    AssertOptRuns "optimize forms: choose-at-most parses and runs", _
         "(fact (elig s p)) (choose-at-most 2 (assign S P) (elig S P)) (query elig)", _
-        "asks OPTIMIZE to make a choice"
-    AssertOptRefusal "optimize forms: choose-between parses and is refused by name", _
+        VLA_Optimize.VLA_OPTIMIZE_PROVEN_BEST
+    AssertOptRuns "optimize forms: choose-between parses and runs", _
         "(fact (elig s p)) (choose-between 2 4 (assign S P) (elig S P)) (query elig)", _
-        "asks OPTIMIZE to make a choice"
-    AssertOptRefusal "optimize forms: choose-any parses and is refused by name", _
+        VLA_Optimize.VLA_OPTIMIZE_NO_SCHEDULE
+    AssertOptRuns "optimize forms: choose-any parses and runs", _
         "(fact (link a b)) (choose-any (on F T) (link F T)) (query link)", _
-        "asks OPTIMIZE to make a choice"
+        VLA_Optimize.VLA_OPTIMIZE_PROVEN_BEST
 
     ' A bare (choose ...) is refused BY NAME, listing all five - so the
     ' one word nobody should write teaches the five that work, and
@@ -3864,14 +3895,21 @@ Private Sub TestOptimizeForms()
         "names a schedule to stay close to"
 
     ' --- the budget, as effort ----------------------------------------
-    AssertOptRefusal "optimize forms: (effort quick) parses", _
-        "(fact (p a)) (effort quick) (query p)", "sets how much work"
-    AssertOptRefusal "optimize forms: (effort normal) parses", _
-        "(fact (p a)) (effort normal) (query p)", "sets how much work"
-    AssertOptRefusal "optimize forms: (effort thorough) parses", _
-        "(fact (p a)) (effort thorough) (query p)", "sets how much work"
-    AssertOptRefusal "optimize forms: (effort 50000) parses - a number, for experts", _
-        "(fact (p a)) (effort 50000) (query p)", "sets how much work"
+    ' OPTIMIZE.3 slice 2 retired optimize-effort-not-yet: an effort is the
+    ' search's budget now, and a program with no choice may carry one it
+    ' never spends.
+    AssertOptRuns "optimize forms: (effort quick) parses", _
+        "(fact (p a)) (effort quick) (query p)", VLA_Optimize.VLA_OPTIMIZE_PROVEN_BEST
+    AssertOptRuns "optimize forms: (effort normal) parses", _
+        "(fact (p a)) (effort normal) (query p)", VLA_Optimize.VLA_OPTIMIZE_PROVEN_BEST
+    AssertOptRuns "optimize forms: (effort thorough) parses", _
+        "(fact (p a)) (effort thorough) (query p)", VLA_Optimize.VLA_OPTIMIZE_PROVEN_BEST
+    AssertOptRuns "optimize forms: (effort 50000) parses - a number, for experts", _
+        "(fact (p a)) (effort 50000) (query p)", VLA_Optimize.VLA_OPTIMIZE_PROVEN_BEST
+    AssertOptRefusal "optimize forms: two (effort ...) forms are refused - which was meant is not ours to guess", _
+        "(fact (p a)) (effort quick) (effort normal) (query p)", "says (effort ...) twice"
+    AssertOptRefusal "optimize forms: an effort past the budget's range is refused, not cut", _
+        "(fact (p a)) (effort 99999999999) (query p)", "is more work than one search may be given"
     AssertOptRefusal "optimize forms: an unknown effort level is refused by name", _
         "(fact (p a)) (effort sideways) (query p)", "is not an effort level"
     AssertOptRefusal "optimize forms: (effort 0) is refused - no work is not a budget", _
@@ -3930,40 +3968,42 @@ Private Sub TestOptimizeForms()
     ' --- section 17's own sentences, in the settled spellings ---------
     '
     ' Each of these is one line of scripts/pareto_logic.txt section 17,
-    ' written out. Reaching a not-yet refusal is the pass: it means the
-    ' spelling SAID the sentence. A shape refusal here would mean the
-    ' spellings cannot say something the corpus asks for, which is the
-    ' one thing this item's scoping run was for.
+    ' written out. A shape refusal here would mean the spellings cannot
+    ' say something the corpus asks for, which is the one thing this
+    ' item's scoping run was for.
+    '
+    ' OPTIMIZE.3 slice 2: the six choice lines below used to be shown to
+    ' parse by reaching optimize-choice-not-yet, which that slice retired.
+    ' Their programs define none of their data, so each is now shown to
+    ' parse OPTIMIZE.2's way round: the only thing left to refuse it is a
+    ' NAME it never defines - the first the grounding reads, which is a
+    ' (per ...) row's when there is one and the pool's when there is not.
+    ' What each such line ANSWERS, over data, is pinned in
+    ' TestOptimizeChoice.
 
     ' optimize-roster, the killer case: "every shift gets exactly the
     ' people it needs" - the count comes from the Shifts table's own
     ' Need column, which is why (per ...) exists and why a three-slot
     ' choice form could not say this at all.
-    AssertOptRefusal "optimize forms (s17): the killer case's count comes from a Table column", _
-        "(fact (p a)) (choose-exactly N (assign S P) (elig S P) (per (shifts S N))) (query p)", _
-        "asks OPTIMIZE to make a choice"
+    AssertOptParses "optimize forms (s17): the killer case's count comes from a Table column", _
+        "(fact (p a)) (choose-exactly N (assign S P) (elig S P) (per (shifts S N))) (query p)", "shifts"
     ' optimize-duty-rotation: "every month, every person gets exactly
     ' one duty" - a group of two, which is why (per ...) holds a list.
-    AssertOptRefusal "optimize forms (s17): a group of two things", _
-        "(fact (p a)) (choose-exactly 1 (assign M P D) (duty D) (per (month M) (person P))) (query p)", _
-        "asks OPTIMIZE to make a choice"
+    AssertOptParses "optimize forms (s17): a group of two things", _
+        "(fact (p a)) (choose-exactly 1 (assign M P D) (duty D) (per (month M) (person P))) (query p)", "month"
     ' optimize-toy and optimize-audit-independence: exactly k per group.
-    AssertOptRefusal "optimize forms (s17): exactly two of the people on every shift", _
-        "(fact (p a)) (choose-exactly 2 (assign S P) (person P) (per (shift S))) (query p)", _
-        "asks OPTIMIZE to make a choice"
+    AssertOptParses "optimize forms (s17): exactly two of the people on every shift", _
+        "(fact (p a)) (choose-exactly 2 (assign S P) (person P) (per (shift S))) (query p)", "shift"
     ' optimize-roster's needs as a range, the loose variant's shape.
-    AssertOptRefusal "optimize forms (s17): between two and four per shift", _
-        "(fact (p a)) (choose-between 2 4 (assign S P) (elig S P) (per (shift S))) (query p)", _
-        "asks OPTIMIZE to make a choice"
+    AssertOptParses "optimize forms (s17): between two and four per shift", _
+        "(fact (p a)) (choose-between 2 4 (assign S P) (elig S P) (per (shift S))) (query p)", "shift"
     ' optimize-quote-bike: "each extra is in the quote or not", and
     ' optimize-network-connect: "each link is switched on, or not" - the
     ' two sentences that needed the fifth form.
-    AssertOptRefusal "optimize forms (s17): each extra is in the quote or not", _
-        "(fact (p a)) (choose-any (include I) (extra I)) (query p)", _
-        "asks OPTIMIZE to make a choice"
-    AssertOptRefusal "optimize forms (s17): each link is switched on, or not", _
-        "(fact (p a)) (choose-any (on F T) (links F T C)) (query p)", _
-        "asks OPTIMIZE to make a choice"
+    AssertOptParses "optimize forms (s17): each extra is in the quote or not", _
+        "(fact (p a)) (choose-any (include I) (extra I)) (query p)", "extra"
+    AssertOptParses "optimize forms (s17): each link is switched on, or not", _
+        "(fact (p a)) (choose-any (on F T) (links F T C)) (query p)", "links"
     ' OPTIMIZE.2: the six constraint lines below used to be shown to
     ' PARSE by reaching optimize-constraint-not-yet. That message is
     ' retired, so each is now shown to parse the other way round - the
@@ -4068,11 +4108,16 @@ Private Sub TestOptimizeForms()
     On Error GoTo 0
     Report "optimize states: a sixth state is refused, not answered blankly", stateErr <> 0, "no error raised"
 
-    ' The three effort levels carry no number yet, on purpose: a number
-    ' published before it means anything is a number users tune around.
-    Report "optimize effort: the three levels are deliberately unset until OPTIMIZE.3/.6 measure", _
-           VLA_Optimize.VLA_OPTIMIZE_WORK_QUICK = 0 And VLA_Optimize.VLA_OPTIMIZE_WORK_NORMAL = 0 And _
-           VLA_Optimize.VLA_OPTIMIZE_WORK_THOROUGH = 0, "a work count was set before it was measured"
+    ' OPTIMIZE.3 slice 2: the three levels carry PROVISIONAL numbers now,
+    ' since the first search spends them - ten times apart, in order.
+    ' Slice 4 sets them from the ladder's measured rates; until then this
+    ' pins exactly what was published, so a change to them is a reviewed
+    ' change to this line too.
+    Report "optimize effort: the three levels are provisional, ten times apart, in order", _
+           VLA_Optimize.VLA_OPTIMIZE_WORK_QUICK = 5000 And VLA_Optimize.VLA_OPTIMIZE_WORK_NORMAL = 50000 And _
+           VLA_Optimize.VLA_OPTIMIZE_WORK_THOROUGH = 500000, _
+           "got " & VLA_Optimize.VLA_OPTIMIZE_WORK_QUICK & ", " & VLA_Optimize.VLA_OPTIMIZE_WORK_NORMAL & ", " & _
+           VLA_Optimize.VLA_OPTIMIZE_WORK_THOROUGH
     Report "optimize effort: the default level is written down now", _
            VLA_Optimize.VLA_OPTIMIZE_EFFORT_DEFAULT = "normal", _
            "got: " & VLA_Optimize.VLA_OPTIMIZE_EFFORT_DEFAULT
@@ -4103,8 +4148,10 @@ Private Sub TestOptimizeForms()
 
     ' A refusal stays #OPTIMIZE! TEXT, where breaking the readers is the
     ' right thing to do - and the prefix names the function the user
-    ' called even when the words are the shared engine's.
-    v = VLA_Optimize.OPTIMIZE("(fact (elig s p)) (choose-exactly 2 (assign S P) (elig S P)) (query elig)")
+    ' called even when the words are the shared engine's. (OPTIMIZE.3
+    ' slice 2: this used a choice, which now answers; a bare (choose ...)
+    ' is refused as it always was.)
+    v = VLA_Optimize.OPTIMIZE("(fact (elig s p)) (choose 2 (assign S P) (elig S P)) (query elig)")
     Report "optimize cell: a refusal is readable #OPTIMIZE! text", _
            ResultTextStartsWith(v, "#OPTIMIZE!"), "got: " & ResultDescribe(v)
     v = VLA_Optimize.OPTIMIZE("(fact (p a))")
@@ -4463,13 +4510,16 @@ Private Sub TestOptimizeChecks()
     Report "optimize checks: and the generated name is not offered as one to match", _
            InStr(1, words, "vla-check", vbTextCompare) = 0, "got: " & words
 
-    ' --- a choice still refuses, in exactly the words it did ------------
-    ' The owner's call on this item's fork 3: no *-not-yet message was
-    ' reworded, so a program with a choice refuses as it did at
-    ' OPTIMIZE.1 even when it also carries constraints.
-    AssertOptRefusal "optimize checks: a choice beside a constraint still refuses as the choice", _
-        "(fact (elig s p)) (forbid (elig S P)) (choose-exactly 2 (assign S P) (elig S P)) (query elig)", _
-        "asks OPTIMIZE to make a choice"
+    ' --- a choice beside a constraint over certain rows -----------------
+    ' OPTIMIZE.2 pinned that a choice refused as the choice even beside a
+    ' constraint (its fork 3). OPTIMIZE.3 slice 2 made the choice run, and
+    ' the constraint here reads only certain rows - so it is checked
+    ' exactly as OPTIMIZE.2 checks one, before any grounding of the
+    ' choice, and its broken row is the answer.
+    words = OptStatusOf("(fact (elig s p)) (forbid (elig S P)) (choose-exactly 2 (assign S P) (elig S P)) (query elig)")
+    Report "optimize checks: a choice beside a constraint broken by certain rows answers no schedule, naming it", _
+        InStr(1, words, "no schedule satisfies every rule: check 1, (forbid (elig S P)), is broken by 1 row", vbBinaryCompare) = 1, _
+        "got: " & words
     AssertOptRefusal "optimize checks: and an objective beside one refuses as the objective", _
         "(fact (p a)) (forbid (p X)) (minimize (p X)) (query p)", _
         "as small or as large as possible"
@@ -4750,6 +4800,831 @@ Private Function OptNumbersInOrder(ByVal sentence As String, ByVal csv As String
         at = found + Len(Trim$(parts(i)))
     Next i
     OptNumbersInOrder = True
+End Function
+
+' ---------------------------------------------------------------------
+'  OPTIMIZE.3 slice 2: the search itself, pure.
+'
+'  Problems are written out by hand in a small text shape, so each pin
+'  says exactly what it searches: clauses as "1 -2;3" - each clause its
+'  literals, +a for atom a chosen and -a for not, clauses separated by
+'  semicolons - and counters as "1 2 3:1:2" - the members, then at
+'  least, then at most (-1 for no most). Tags are each clause's and
+'  counter's own position. The answer comes back as one line: the
+'  outcome, the values as T/F in atom order, the decisions (d) and the
+'  dead ends (c), and for a contradiction found before any decision,
+'  the clause and counter tags it was walked back to.
+'
+'  Then the claim itself, checked rather than argued: over forty
+'  problems a seeded generator writes, the search's answer is the world
+'  an exhaustive walk of every assignment - lexicographic, TRUE first -
+'  finds first, or neither finds one. That is the owner's fork 6 as a
+'  property of the code, with propagation, backtracking and the counters
+'  all under it.
+' ---------------------------------------------------------------------
+Private Sub TestOptimizeSearch()
+    Dim prob As OptSearchProblem
+    Dim s As String
+
+    ' --- the smallest cases ------------------------------------------
+    SearchProblemFromText prob, 0, "", ""
+    s = SearchSummary(prob, 100)
+    Report "optimize search: a problem with no atoms is found at once", s = "found d0 c0", "got " & s
+    ' A counter that FORCES: exactly two of two, so both are in with no
+    ' decision made - OPTIMIZE.0's second trap closed.
+    SearchProblemFromText prob, 2, "", "1 2:2:2"
+    s = SearchSummary(prob, 100)
+    Report "optimize search: a counter that must take every member forces them all", s = "found TT d0 c0", "got " & s
+    ' A counter at its most forces the rest out: atom 2 is in (a clause
+    ' of one literal), and at most one of three may be.
+    SearchProblemFromText prob, 3, "2", "1 2 3:0:1"
+    s = SearchSummary(prob, 100)
+    Report "optimize search: a full counter forces every other member out", s = "found FTF d0 c0", "got " & s
+    ' The order: exactly one of three, and the first is tried TRUE first.
+    SearchProblemFromText prob, 3, "", "1 2 3:1:1"
+    s = SearchSummary(prob, 100)
+    Report "optimize search: the lowest atom is decided first, and tried chosen first", s = "found TFF d1 c0", "got " & s
+
+    ' --- backtracking -------------------------------------------------
+    ' Choosing 1 forces 2 in (the first clause) and then out (the second):
+    ' one dead end, 1 set FALSE a level down, and 2 decided in.
+    SearchProblemFromText prob, 2, "-1 2;-1 -2", ""
+    s = SearchSummary(prob, 100)
+    Report "optimize search: a dead end is undone and its decision flipped", s = "found FT d2 c1", "got " & s
+    ' And the same answer twice: nothing is carried between runs.
+    Report "optimize search: the same problem twice gives the same answer", SearchSummary(prob, 100) = s, _
+           "second run " & SearchSummary(prob, 100)
+
+    ' --- no world ----------------------------------------------------
+    ' Two clauses of one literal each, opposite: a contradiction before
+    ' any decision, walked back to both.
+    SearchProblemFromText prob, 1, "1;-1", ""
+    s = SearchSummary(prob, 100)
+    Report "optimize search: a contradiction before any decision names both clauses", s = "none d0 c1 root c=1,2 g=", "got " & s
+    ' A counter and two clauses: exactly one of two, and each forbidden -
+    ' the counter's reasons are the two clauses that took its members out.
+    SearchProblemFromText prob, 2, "-1;-2", "1 2:1:1"
+    s = SearchSummary(prob, 100)
+    Report "optimize search: a counter no member can satisfy is walked back to what took them", _
+           s = "none d0 c1 root c=1,2 g=1", "got " & s
+    ' Exactly two of three, no two together: proven only by searching -
+    ' one decision, two dead ends, and it is not a root contradiction.
+    SearchProblemFromText prob, 3, "-1 -2;-1 -3;-2 -3", "1 2 3:2:2"
+    s = SearchSummary(prob, 100)
+    Report "optimize search: no world, proven by trying every way", s = "none d1 c2", "got " & s
+
+    ' --- the budget, and a problem the search cannot read -------------
+    s = SearchSummary(prob, 1)
+    Report "optimize search: the budget stops it and says so", s = "budget d1 c1", "got " & s
+    s = SearchSummary(prob, 0)
+    Report "optimize search: a budget of nothing makes no decision", s = "budget d0 c0", "got " & s
+    SearchProblemFromText prob, 3, "5", ""
+    s = SearchSummary(prob, 100)
+    Report "optimize search: an atom outside the problem is refused, not searched", s = "bad", "got " & s
+
+    ' --- the claim: the first world in order, as an exhaustive walk finds it
+    Dim seed As Double
+    seed = 20260924#
+    Dim p As Long, bf As String, bfFound As Boolean, want As String
+    Dim nFound As Long, nNone As Long
+    For p = 1 To 40
+        RandomSearchProblem prob, seed
+        bf = BruteFirstWorld(prob, bfFound)
+        s = SearchSummary(prob, 1000000)
+        If bfFound Then
+            nFound = nFound + 1
+            If prob.nAtoms = 0 Then want = "found d" Else want = "found " & bf & " d"
+            Report "optimize search: generated problem " & p & " answers the first world an exhaustive walk finds", _
+                   Left$(s, Len(want)) = want, "the walk found " & bf & ", the search answered " & s
+        Else
+            nNone = nNone + 1
+            Report "optimize search: generated problem " & p & " has no world, as an exhaustive walk finds", _
+                   Left$(s, 5) = "none ", "the walk found no world, the search answered " & s
+        End If
+    Next p
+    ' Both kinds, in the numbers tools/optimize3_search_twin.ps1 computes
+    ' for this seed by the same generator and the same walk, host-
+    ' independently - so the loop cannot pass by generating only one kind,
+    ' and the twin's -Control fails if this line and the twin disagree.
+    Report "optimize search: the forty include worlds and no-worlds, in the numbers the twin computes", _
+           nFound = 29 And nNone = 11, "found " & nFound & ", none " & nNone
+End Sub
+
+' A problem from the text shape TestOptimizeSearch's header describes.
+Private Sub SearchProblemFromText(ByRef prob As OptSearchProblem, ByVal nAtoms As Long, _
+                                  ByVal clauses As String, ByVal counters As String)
+    VLA_OptimizeSearch.OptProblemInit prob, nAtoms
+    Dim buf() As Long
+    ReDim buf(1 To 64)
+    Dim parts() As String, items() As String, bits() As String
+    Dim i As Long, j As Long, n As Long
+    If Len(clauses) > 0 Then
+        parts = Split(clauses, ";")
+        For i = LBound(parts) To UBound(parts)
+            n = 0
+            items = Split(Trim$(parts(i)), " ")
+            For j = LBound(items) To UBound(items)
+                If Len(items(j)) > 0 Then
+                    n = n + 1
+                    buf(n) = CLng(items(j))
+                End If
+            Next j
+            VLA_OptimizeSearch.OptProblemAddClause prob, buf, n, i + 1
+        Next i
+    End If
+    If Len(counters) > 0 Then
+        parts = Split(counters, ";")
+        For i = LBound(parts) To UBound(parts)
+            bits = Split(parts(i), ":")
+            n = 0
+            items = Split(Trim$(bits(0)), " ")
+            For j = LBound(items) To UBound(items)
+                If Len(items(j)) > 0 Then
+                    n = n + 1
+                    buf(n) = CLng(items(j))
+                End If
+            Next j
+            VLA_OptimizeSearch.OptProblemAddCounter prob, buf, n, CLng(bits(1)), CLng(bits(2)), i + 1
+        Next i
+    End If
+End Sub
+
+' One search, as one line - see TestOptimizeSearch's header. No seconds
+' guard: a pin's answer may not depend on the machine.
+Private Function SearchSummary(ByRef prob As OptSearchProblem, ByVal budget As Long) As String
+    Dim res As OptSearchResult
+    VLA_OptimizeSearch.OptSearchRun prob, budget, 0, res
+    Dim s As String
+    Dim a As Long, j As Long
+    Select Case res.outcome
+    Case VLA_OptimizeSearch.OPT_SEARCH_FOUND
+        s = "found"
+        If prob.nAtoms > 0 Then s = s & " "
+        For a = 1 To prob.nAtoms
+            If res.value(a) = 1 Then s = s & "T" Else s = s & "F"
+        Next a
+    Case VLA_OptimizeSearch.OPT_SEARCH_NONE
+        s = "none"
+    Case VLA_OptimizeSearch.OPT_SEARCH_BUDGET
+        s = "budget"
+    Case VLA_OptimizeSearch.OPT_SEARCH_BAD_PROBLEM
+        SearchSummary = "bad"
+        Exit Function
+    Case Else
+        s = "outcome " & res.outcome
+    End Select
+    s = s & " d" & res.decisions & " c" & res.conflicts
+    If res.rootConflict Then
+        s = s & " root c="
+        For j = 1 To res.nWhyClauses
+            If j > 1 Then s = s & ","
+            s = s & res.whyClauses(j)
+        Next j
+        s = s & " g="
+        For j = 1 To res.nWhyCounters
+            If j > 1 Then s = s & ","
+            s = s & res.whyCounters(j)
+        Next j
+    End If
+    SearchSummary = s
+End Function
+
+' The first assignment, lexicographic with atom 1 most significant and
+' TRUE before FALSE, that every clause and counter accepts - by walking
+' all of them. For the pins only, over a handful of atoms. The values
+' come back as T/F in atom order; found is False when none is accepted.
+Private Function BruteFirstWorld(ByRef prob As OptSearchProblem, ByRef found As Boolean) As String
+    found = False
+    Dim n As Long
+    n = prob.nAtoms
+    Dim total As Long
+    total = CLng(2 ^ n)
+    Dim v() As Long
+    ReDim v(0 To n)
+    Dim k As Long, a As Long, c As Long, j As Long, g As Long, lit As Long, nTrue As Long
+    Dim bitv As Long
+    Dim ok As Boolean, sat As Boolean
+    For k = 0 To total - 1
+        For a = 1 To n
+            bitv = CLng(2 ^ (n - a))
+            If (k \ bitv) Mod 2 = 0 Then v(a) = 1 Else v(a) = -1
+        Next a
+        ok = True
+        For c = 1 To prob.nClauses
+            sat = False
+            For j = prob.clauseStart(c) To prob.clauseStart(c + 1) - 1
+                lit = prob.lits(j)
+                If lit > 0 Then
+                    If v(lit) = 1 Then sat = True
+                Else
+                    If v(-lit) = -1 Then sat = True
+                End If
+            Next j
+            If Not sat Then
+                ok = False
+                Exit For
+            End If
+        Next c
+        If ok Then
+            For g = 1 To prob.nCounters
+                nTrue = 0
+                For j = prob.counterStart(g) To prob.counterStart(g + 1) - 1
+                    If v(prob.members(j)) = 1 Then nTrue = nTrue + 1
+                Next j
+                If nTrue < prob.counterLo(g) Then
+                    ok = False
+                    Exit For
+                End If
+                If prob.counterHi(g) <> VLA_OptimizeSearch.OPT_SEARCH_NO_MOST And nTrue > prob.counterHi(g) Then
+                    ok = False
+                    Exit For
+                End If
+            Next g
+        End If
+        If ok Then
+            found = True
+            Dim s As String
+            For a = 1 To n
+                If v(a) = 1 Then s = s & "T" Else s = s & "F"
+            Next a
+            BruteFirstWorld = s
+            Exit Function
+        End If
+    Next k
+End Function
+
+' Park and Miller's minimal standard generator, in Doubles so the
+' product never overflows a Long - and exactly what
+' tools/optimize3_search_twin.ps1 computes, so the two agree draw for
+' draw. Returns a fraction in [0, 1).
+Private Function LcgNext(ByRef seed As Double) As Double
+    seed = seed * 16807# - Int(seed * 16807# / 2147483647#) * 2147483647#
+    LcgNext = seed / 2147483647#
+End Function
+
+' A whole number from 0 to n - 1.
+Private Function LcgInt(ByRef seed As Double, ByVal n As Long) As Long
+    LcgInt = Int(LcgNext(seed) * n)
+    If LcgInt >= n Then LcgInt = n - 1
+End Function
+
+' A small problem, drawn from the seed: 3 to 9 atoms, up to two
+' counters (each atom a member by a coin flip, bounds drawn within the
+' members, a third of them with no most) and up to six clauses of one to
+' three literals over distinct atoms.
+Private Sub RandomSearchProblem(ByRef prob As OptSearchProblem, ByRef seed As Double)
+    Dim n As Long
+    n = 3 + LcgInt(seed, 7)
+    VLA_OptimizeSearch.OptProblemInit prob, n
+    Dim buf() As Long
+    ReDim buf(1 To 16)
+    Dim nCtr As Long, g As Long, a As Long, m As Long, lo As Long, hi As Long
+    nCtr = LcgInt(seed, 3)
+    For g = 1 To nCtr
+        m = 0
+        For a = 1 To n
+            If LcgInt(seed, 2) = 0 Then
+                m = m + 1
+                buf(m) = a
+            End If
+        Next a
+        If m = 0 Then
+            m = 1
+            buf(1) = 1 + LcgInt(seed, n)
+        End If
+        lo = LcgInt(seed, m + 1)
+        If LcgInt(seed, 3) = 0 Then
+            hi = VLA_OptimizeSearch.OPT_SEARCH_NO_MOST
+        Else
+            hi = lo + LcgInt(seed, m - lo + 1)
+        End If
+        VLA_OptimizeSearch.OptProblemAddCounter prob, buf, m, lo, hi, g
+    Next g
+    Dim nCl As Long, c As Long, nLit As Long, j As Long, at As Long, i As Long
+    Dim dup As Boolean
+    nCl = LcgInt(seed, 7)
+    For c = 1 To nCl
+        nLit = 1 + LcgInt(seed, 3)
+        m = 0
+        For j = 1 To nLit
+            at = 1 + LcgInt(seed, n)
+            dup = False
+            For i = 1 To m
+                If Abs(buf(i)) = at Then dup = True
+            Next i
+            If Not dup Then
+                m = m + 1
+                If LcgInt(seed, 2) = 0 Then buf(m) = at Else buf(m) = -at
+            End If
+        Next j
+        VLA_OptimizeSearch.OptProblemAddClause prob, buf, m, c
+    Next c
+End Sub
+
+' ---------------------------------------------------------------------
+'  OPTIMIZE.3 slice 2: programs that choose, answered.
+'
+'  Section 17's own entries, with their answers derived by hand from the
+'  order the atoms are decided in (the Tables' own order, the owner's
+'  fork 6) - each answer the FIRST valid world in that order, and each
+'  derivation in the comment above its pin, down to the decisions and
+'  dead ends it costs. The entries whose key is an objective are asked
+'  here without it: OPTIMIZE.6 is what compares one world with another.
+' ---------------------------------------------------------------------
+Private Sub TestOptimizeChoice()
+    Dim v As Variant
+    Dim prog As String, w As String, t As String
+
+    ' --- optimize-toy: five people, seven shifts, two a shift, never two
+    '     in a row -----------------------------------------------------
+    ' The atoms are decided shift by shift - the (per (shift S)) rows in
+    ' order - and each shift's candidates in the pool's order, p1 to p5.
+    ' s1 takes p1 and p2 (two decisions, and the counter full forces p3
+    ' to p5 out); p1 and p2 are then out of s2 by the forbid, so s2 takes
+    ' p3 and p4; s3 is back to p1 and p2; and so on. Fourteen decisions,
+    ' no dead end: propagation alone keeps every later shift legal.
+    prog = OptToyProgram("")
+    v = VLA_Optimize.OPTIMIZE(prog)
+    t = OptSpillText(v)
+    Report "optimize choice (s17 toy): the first roster in the Tables' order, row for row", _
+           t = "S,P|s1,p1|s1,p2|s2,p3|s2,p4|s3,p1|s3,p2|s4,p3|s4,p4|s5,p1|s5,p2|s6,p3|s6,p4|s7,p1|s7,p2", "got " & t
+    w = OptStatusOf(prog)
+    Report "optimize choice (s17 toy): proven best, and it says why - nothing is minimized, and this is the first", _
+           w = "proven best: every rule holds, and nothing is being minimized or maximized, so no schedule is better than this one - it is the first that breaks no rule when the rows are decided in the order your Tables list them (14 decisions, 0 dead ends).", _
+           "got " & w
+    Report "optimize choice (s17 toy): 35 atoms, 30 clauses and 7 counters, as counted by hand", _
+           OptStat(prog, 1) = 35 And OptStat(prog, 2) = 30 And OptStat(prog, 3) = 7, OptStatsText(prog)
+    ' Determinism, with the memo emptied between the two asks: the same
+    ' program is the same answer, which is standing decision 2.
+    VLA_Optimize.OptimizeMemoClear
+    Report "optimize choice (s17 toy): asked again after the memo is lost, the same roster", _
+           OptSpillText(VLA_Optimize.OPTIMIZE(prog)) = t, "got " & OptSpillText(VLA_Optimize.OPTIMIZE(prog))
+
+    ' --- the budget ----------------------------------------------------
+    ' Three units of work buy three decisions, and the fourth is refused:
+    ' no schedule found, which is NOT "no schedule exists" - the cell
+    ' keeps the reserved empty shape, and the status says more may help.
+    prog = OptToyProgram("(effort 3) ")
+    w = OptStatusOf(prog)
+    Report "optimize choice: an effort spent before a schedule is found says so, in the reserved words", _
+           w = "no schedule found within the budget; there may be one: (effort 3) allows 3 units of work - a decision or a dead end is one each - and all of them went on 3 decisions and 0 dead ends. More effort may find one: (effort thorough), or a larger number.", _
+           "got " & w
+    v = VLA_Optimize.OPTIMIZE(prog)
+    Report "optimize choice: and the cell spills the header row with nothing under it", _
+           OptSpillText(v) = "S,P", "got " & OptSpillText(v)
+    Report "optimize choice: its state is none-in-budget, not no-schedule", _
+           OptStateOf(prog) = VLA_Optimize.VLA_OPTIMIZE_NONE_IN_BUDGET, "state " & OptStateOf(prog)
+
+    ' --- a dead end, undone ---------------------------------------------
+    ' Atoms a,x a,y b,x b,y (the pool is built person-first, but the
+    ' groups are the slots, a then b). Choosing a,x forces a,y out by the
+    ' counter and both of b's candidates out by the two forbids, so slot b
+    ' has none left: a dead end. a,x goes out one level down, a,y is then
+    ' forced in, and b,x is decided in: two decisions, one dead end.
+    prog = "(fact (slot a)) (fact (slot b)) (fact (person x)) (fact (person y)) " & _
+           "(rule (elig S P) (slot S) (person P)) " & _
+           "(choose-exactly 1 (put S P) (elig S P) (per (slot S))) " & _
+           "(forbid (put a x) (put b y)) (forbid (put a x) (put b x)) (query put)"
+    t = OptSpillText(VLA_Optimize.OPTIMIZE(prog))
+    Report "optimize choice: a first choice that fails is undone, and the next world is the answer", _
+           t = "S,P|a,y|b,x", "got " & t
+    Report "optimize choice: two decisions and one dead end", _
+           OptStat(prog, 4) = 2 And OptStat(prog, 5) = 1, OptStatsText(prog)
+
+    ' --- no schedule, proven by searching --------------------------------
+    ' Five people, three shifts, THREE a shift, never two in a row: s2
+    ' can only use the two s1 left over. Nothing counts it impossible
+    ' before the search (one choice form, no cap), so the search proves
+    ' it: five decisions and six dead ends. The first hand trace said
+    ' nine and ten and was wrong - it missed that s2's own counter forces
+    ' its last three in the moment only three can still be chosen, which
+    ' ends every attempt one decision early. A line-for-line
+    ' transliteration of the search found it before the owner could.
+    prog = "(fact (person p1)) (fact (person p2)) (fact (person p3)) (fact (person p4)) (fact (person p5)) " & _
+           "(fact (shift s1)) (fact (shift s2)) (fact (shift s3)) (fact (next s1 s2)) (fact (next s2 s3)) " & _
+           "(rule (elig S P) (shift S) (person P)) " & _
+           "(choose-exactly 3 (assign S P) (elig S P) (per (shift S))) " & _
+           "(forbid (assign S P) (assign T P) (next S T)) (query assign)"
+    w = OptStatusOf(prog)
+    Report "optimize choice: no schedule, found by trying every way, and it says so", _
+           w = "no schedule satisfies every rule: every way of making the choices was tried (5 decisions, 6 dead ends).", "got " & w
+    Report "optimize choice: and the cell spills the header row with nothing under it", _
+           OptSpillText(VLA_Optimize.OPTIMIZE(prog)) = "S,P", "got " & OptSpillText(VLA_Optimize.OPTIMIZE(prog))
+
+    ' --- optimize-quote-conflict: two rules that cannot both hold --------
+    ' The requirements force the child seat and the carbon frame in
+    ' before anything is decided, and the forbid then has nothing left:
+    ' a contradiction walked back to exactly the three rules in it - and
+    ' NOT the carbon-wheels rule, which plays no part.
+    prog = OptQuoteConflictProgram()
+    w = OptStatusOf(prog)
+    Dim pre As String
+    pre = "no schedule satisfies every rule: these cannot all hold, before anything is chosen - "
+    Report "optimize choice (s17 quote-conflict): no schedule, before anything is chosen", _
+           Left$(w, Len(pre)) = pre, "got " & w
+    Report "optimize choice (s17 quote-conflict): it names the forbid", _
+           InStr(1, w, "check 2, (forbid (in child-seat) (in carbon-frame))", vbBinaryCompare) > 0, "got " & w
+    Report "optimize choice (s17 quote-conflict): and both requirements", _
+           InStr(1, w, "check 3, (require (in child-seat)); check 4, (require (in carbon-frame))", vbBinaryCompare) > 0, "got " & w
+    Report "optimize choice (s17 quote-conflict): and not the rule that plays no part", _
+           InStr(1, w, "check 1", vbBinaryCompare) = 0, "got " & w
+    Report "optimize choice (s17 quote-conflict): no decision was made", _
+           OptStat(prog, 4) = 0 And OptStat(prog, 5) = 1, OptStatsText(prog)
+
+    ' --- optimize-duty-rotation: the first of its four worlds ------------
+    ' Atoms month by month, person by person - the two (per ...) atoms
+    ' nested, the first outermost - and each group's duties in order.
+    ' Last month's duties are pruned at grounding (three atoms). Choosing
+    ' ann's payables in m1 forces the rest of m1 (bob payroll, cy cash)
+    ' through the two families of counters; choosing ann's cash in m2
+    ' forces everything else. Two decisions, no dead end.
+    prog = OptDutyRotationProgram()
+    t = OptSpillText(VLA_Optimize.OPTIMIZE(prog))
+    Report "optimize choice (s17 duty-rotation): the first rotation in order", _
+           t = "M,P,D|m1,ann,payables|m1,bob,payroll|m1,cy,cash|m2,ann,cash|m2,bob,payables|m2,cy,payroll|m3,ann,payroll|m3,bob,cash|m3,cy,payables", _
+           "got " & t
+    Report "optimize choice (s17 duty-rotation): 27 atoms, 30 clauses, 18 counters, 3 pruned, 2 decisions", _
+           OptStat(prog, 1) = 27 And OptStat(prog, 2) = 30 And OptStat(prog, 3) = 18 And _
+           OptStat(prog, 8) = 3 And OptStat(prog, 4) = 2 And OptStat(prog, 5) = 0, OptStatsText(prog)
+
+    ' --- optimize-seat-dinner, its rules without its objective -----------
+    ' Ann at the head table is forced, Bob with her is forced by the
+    ' require, and one decision - Cy at the head table - fills it; the
+    ' second table then takes everyone left. The corpus's two worlds are
+    ' this and Di in Cy's place; this one comes first.
+    prog = OptSeatDinnerProgram()
+    t = OptSpillText(VLA_Optimize.OPTIMIZE(prog))
+    Report "optimize choice (s17 seat-dinner): the first seating that breaks no rule", _
+           t = "G,T|ann,head|bob,head|cy,head|di,second|ed,second|fay,second", "got " & t
+    Report "optimize choice (s17 seat-dinner): one decision", _
+           OptStat(prog, 4) = 1 And OptStat(prog, 5) = 0, OptStatsText(prog)
+
+    ' --- the killer case's shape: the count from a Table column ----------
+    ' s1 needs one and s2 two; the pool is built person-first, but the
+    ' groups decide the order, so s1 is filled first.
+    prog = "(fact (shifts s1 1)) (fact (shifts s2 2)) (fact (person x)) (fact (person y)) (fact (person z)) " & _
+           "(rule (elig S P) (shifts S N) (person P)) " & _
+           "(choose-exactly N (assign S P) (elig S P) (per (shifts S N))) (query assign)"
+    t = OptSpillText(VLA_Optimize.OPTIMIZE(prog))
+    Report "optimize choice: every shift gets exactly the people its own row says it needs", _
+           t = "S,P|s1,x|s2,x|s2,y", "got " & t
+
+    ' --- the other three counts, and choose-any ---------------------------
+    t = OptSpillText(VLA_Optimize.OPTIMIZE("(fact (extra a)) (fact (extra b)) (choose-any (in I) (extra I)) (query in)"))
+    Report "optimize choice: choose-any with nothing against it takes every row", t = "I|a|b", "got " & t
+    prog = "(fact (item a)) (fact (item b)) (fact (item c)) (choose-at-most 2 (pick I) (item I)) (query pick)"
+    t = OptSpillText(VLA_Optimize.OPTIMIZE(prog))
+    Report "optimize choice: choose-at-most with nothing demanding takes the first rows it may", t = "I|a|b", "got " & t
+    t = OptSpillText(VLA_Optimize.OPTIMIZE("(fact (item a)) (fact (item b)) (fact (item c)) (fact (item d)) " & _
+        "(choose-between 2 3 (pick I) (item I)) (forbid (pick a)) (query pick)"))
+    Report "optimize choice: choose-between, with a forbidden row pruned before the search", t = "I|b|c|d", "got " & t
+
+    ' --- the query is DATALOG's own, over the chosen rows -----------------
+    v = VLA_Optimize.OPTIMIZE("(fact (item a)) (fact (item b)) (fact (item c)) (choose-at-most 2 (pick I) (item I)) (query (pick a))")
+    Report "optimize choice: a query of one chosen row answers TRUE when it was chosen", ResultBoolIs(v, True), "got " & ResultDescribe(v)
+    v = VLA_Optimize.OPTIMIZE("(fact (item a)) (fact (item b)) (fact (item c)) (choose-at-most 2 (pick I) (item I)) (query (pick c))")
+    Report "optimize choice: and FALSE when it was not", ResultBoolIs(v, False), "got " & ResultDescribe(v)
+    v = VLA_Optimize.OPTIMIZE("(fact (item a)) (fact (item b)) (fact (item c)) (choose-at-most 2 (pick I) (item I)) (query item)")
+    Report "optimize choice: a query of a certain relation answers it whole", _
+           ResultRowCount(v) = 4 And ResultColCount(v) = 1, "shape " & ResultRowCount(v) & "x" & ResultColCount(v)
+
+    ' --- no schedule, named by a rule ------------------------------------
+    ' A constraint over certain rows alone is checked as OPTIMIZE.2 checks
+    ' it, and nothing is searched.
+    prog = "(fact (item a)) (fact (bad a)) (choose-any (pick I) (item I)) (forbid (item I) (bad I)) (query pick)"
+    w = OptStatusOf(prog)
+    Report "optimize choice: a rule broken by certain rows is no schedule, named as OPTIMIZE.2 names it", _
+           w = "no schedule satisfies every rule: check 1, (forbid (item I) (bad I)), is broken by 1 row. OPTIMIZE_VIOLATIONS lists them.", "got " & w
+    ' A requirement no choice can meet - b is not in any pool - is a
+    ' clause with nothing in it: broken whatever is chosen, and listed.
+    prog = "(fact (item a)) (choose-any (pick I) (item I)) (require (pick b)) (query pick)"
+    w = OptStatusOf(prog)
+    Report "optimize choice: a requirement no choice can meet is no schedule, named", _
+           w = "no schedule satisfies every rule: check 1, (require (pick b)), is broken by 1 row. OPTIMIZE_VIOLATIONS lists them.", "got " & w
+    Dim viol As Collection
+    Set viol = OptViolations(prog)
+    Report "optimize choice: and OPTIMIZE_VIOLATIONS lists it, check 1", _
+           OptViolCount(viol) = 1 And OptViolCell(viol, 1, 1) = "1", "rows " & OptViolCount(viol)
+
+    ' --- the counting pre-checks, reached at last ---------------------------
+    ' optimize-seat-overflow: "7 guests, and 2 tables of 3 seat at most 6".
+    w = OptStatusOf(OptSeatOverflowProgram())
+    Report "optimize choice (s17 seat-overflow): 7 guests into 2 tables of 3, by arithmetic", _
+           w = "no schedule satisfies every rule: there are 7 rows of 'guest' to place, and 'table' has 2 rows holding at most 3 each, which is 6.", "got " & w
+    ' optimize-exam-rooms: "5 exams, and 2 sittings of 2 rooms hold at most 4".
+    w = OptStatusOf("(fact (exam e1)) (fact (exam e2)) (fact (exam e3)) (fact (exam e4)) (fact (exam e5)) " & _
+        "(fact (sitting am)) (fact (sitting pm)) (rule (can E S) (exam E) (sitting S)) " & _
+        "(choose-exactly 1 (at E S) (can E S) (per (exam E))) " & _
+        "(choose-at-most 2 (at E S) (can E S) (per (sitting S))) (query at)")
+    Report "optimize choice (s17 exam-rooms): 5 exams into 2 sittings of 2", OptNumbersInOrder(w, "5,2,2,4") And _
+           Left$(w, 32) = "no schedule satisfies every rule", "got " & w
+    ' optimize-sod-short: "the four tasks need 8 roles, and 3 people may
+    ' hold at most 2 each (6)" - the role as a column, so one choice form
+    ' covers preparing and reviewing and one cap covers both.
+    w = OptStatusOf(OptSodShortProgram())
+    Report "optimize choice (s17 sod-short): 8 roles against 3 people at most 2 each", _
+           w = "no schedule satisfies every rule: there are 8 rows of 'task and kind' to place, and 'staff' has 3 rows holding at most 2 each, which is 6.", "got " & w
+    ' optimize-roster-loose: the fixture clingo could not prove impossible
+    ' in three minutes under two encodings, proven by one multiplication.
+    w = OptStatusOf(OptRosterLooseProgram())
+    Report "optimize choice (s17 roster-loose): 63 slots a week against 10 people at most 5 each", _
+           w = "no schedule satisfies every rule: the rules need 63 rows of 'assign', and 'person and week' has 10 rows at most 5 each, which is 50.", "got " & w
+    ' optimize-roster-senior's local reason, two ways: leave kept out of
+    ' the pool by a rule, and leave written as a forbid over one chosen
+    ' row, which single-atom pruning turns into the same missing row.
+    w = OptStatusOf("(fact (night n1)) (fact (night n2)) (fact (night n3)) (fact (senior p4)) (fact (leave p4 n2)) " & _
+        "(rule (seniorfree N P) (night N) (senior P) (not (leave P N))) " & _
+        "(choose-at-least 1 (assign N P) (seniorfree N P) (per (night N))) (query assign)")
+    Report "optimize choice (s17 roster-senior): the night the only senior is on leave, named", _
+           w = "no schedule satisfies every rule: night N = n2 needs 1 row from 'seniorfree', and only 0 rows can fill it.", "got " & w
+    prog = "(fact (night n1)) (fact (night n2)) (fact (night n3)) (fact (senior p4)) (fact (leave p4 n2)) " & _
+           "(rule (seniorpool N P) (night N) (senior P)) " & _
+           "(choose-at-least 1 (assign N P) (seniorpool N P) (per (night N))) " & _
+           "(forbid (assign N P) (leave P N)) (query assign)"
+    w = OptStatusOf(prog)
+    Report "optimize choice (s17 roster-senior): the same night, when leave is a rule over one chosen row", _
+           w = "no schedule satisfies every rule: night N = n2 needs 1 row from 'seniorpool', and only 0 rows can fill it.", "got " & w
+    Report "optimize choice: and that row was pruned at grounding, not searched", _
+           OptStat(prog, 8) = 1 And OptStat(prog, 4) = 0, OptStatsText(prog)
+
+    ' --- the stub: a later pass's reader is a reader ----------------------
+    ' reach is a left-recursive closure the program asks about from a
+    ' alone, so DATALOG.14 would narrow it to a's rows - and the choice
+    ' reads ALL of it. The stub pass 1 writes makes that reader visible,
+    ' so the pool keeps all six pairs.
+    prog = "(fact (edge a b)) (fact (edge b c)) (fact (edge c d)) " & _
+           "(rule (reach X Y) (edge X Y)) (rule (reach X Y) (reach X Z) (edge Z Y)) " & _
+           "(rule (froma Y) (reach a Y)) (choose-any (pick X Y) (reach X Y)) (query froma)"
+    Report "optimize choice: a pool over a narrowed predicate still sees every row of it", _
+           OptStat(prog, 1) = 6, OptStatsText(prog)
+    v = VLA_Optimize.OPTIMIZE(prog)
+    Report "optimize choice: and the query over the same predicate answers as DATALOG does", _
+           ResultRowCount(v) = 4, "shape " & ResultRowCount(v) & "x" & ResultColCount(v)
+
+    ' --- the order is the Tables' own: a permuted Table, one answer --------
+    ' With exactly one valid world, permuting every Table's rows cannot
+    ' change which world is the answer - only the order it spills in.
+    t = OptSortedRows(VLA_Optimize.OPTIMIZE("(fact (slot s1)) (fact (slot s2)) (fact (person x)) (fact (person y)) " & _
+        "(fact (off x s1)) (fact (off y s2)) (rule (elig S P) (slot S) (person P)) " & _
+        "(choose-exactly 1 (put S P) (elig S P) (per (slot S))) (forbid (put S P) (off P S)) (query put)"))
+    w = OptSortedRows(VLA_Optimize.OPTIMIZE("(fact (off y s2)) (fact (off x s1)) (fact (person y)) (fact (person x)) " & _
+        "(fact (slot s2)) (fact (slot s1)) (rule (elig S P) (slot S) (person P)) " & _
+        "(choose-exactly 1 (put S P) (elig S P) (per (slot S))) (forbid (put S P) (off P S)) (query put)"))
+    Report "optimize choice: a program with one valid world answers it whatever order its Tables are in", _
+           t = "s1,y|s2,x" And w = t, "in order " & t & ", permuted " & w
+
+    ' --- a program with no choice is untouched ------------------------------
+    Report "optimize choice: a program with no choice searches nothing", _
+           OptStat("(fact (p a)) (query p)", 1) = 0 And OptStat("(fact (p a)) (query p)", 7) = 0, OptStatsText("(fact (p a)) (query p)")
+
+    ' --- what this version refuses, in OPTIMIZE's own words ----------------
+    AssertOptRefusal "optimize choice: a chosen row a fact also gives is refused", _
+        "(fact (pick a)) (fact (item a)) (choose-any (pick I) (item I)) (query item)", _
+        "'pick' is being chosen, and the program also gives it rows, as a (fact ...)"
+    AssertOptRefusal "optimize choice: a chosen row a rule also derives is refused", _
+        "(fact (item a)) (rule (pick I) (item I)) (choose-any (pick I) (item I)) (query item)", _
+        "'pick' is being chosen, and the program also gives it rows, as a (rule ...)"
+    Dim rels As Object
+    Set rels = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet rels, "pick", VLA_Relation.RelNew(1)
+    w = OptRefusalWithTables("(fact (item a)) (choose-any (pick I) (item I)) (query item)", rels)
+    Report "optimize choice: a chosen row a table argument gives is refused", _
+           InStr(1, w, "as a table argument", vbTextCompare) > 0, "got " & w
+    AssertOptRefusal "optimize choice: two forms choosing one predicate with two arities are refused", _
+        "(fact (item a)) (fact (pair a b)) (choose-any (pick I) (item I)) (choose-at-most 1 (pick I J) (pair I J)) (query item)", _
+        "'pick' is chosen with 2 names after it in (choose-at-most ...), and with 1 by an earlier choice form"
+    AssertOptRefusal "optimize choice: a chosen row written with a column name is refused", _
+        "(fact (item a)) (choose-any (pick (Name I)) (item I)) (query item)", "written by position"
+    AssertOptRefusal "optimize choice: a rule over chosen rows is OPTIMIZE.5's, and says so", _
+        "(fact (item a)) (choose-any (pick I) (item I)) (rule (got I) (pick I)) (query item)", _
+        "the rule for 'got' reads 'pick', which is being chosen"
+    AssertOptRefusal "optimize choice: a pool that is itself chosen is refused", _
+        "(fact (item a)) (choose-any (pick I) (item I)) (choose-any (take I) (pick I)) (query item)", _
+        "(choose-any ...) chooses from 'pick', which is itself being chosen"
+    AssertOptRefusal "optimize choice: a pool that is a test is refused", _
+        "(fact (item a)) (choose-any (pick I) (not (item I))) (query item)", "'not' is not one"
+    AssertOptRefusal "optimize choice: a count over chosen rows is OPTIMIZE.4's, and points to the choice form", _
+        "(fact (item a)) (choose-any (pick I) (item I)) (forbid (item I) (count N (pick J)) (> N 1)) (query item)", _
+        "a (count ...) in a rule counts rows of 'pick', which are still being chosen"
+    AssertOptRefusal "optimize choice: a chosen row with a name nothing binds is refused", _
+        "(fact (item a)) (choose-any (pick I J) (item I)) (query item)", _
+        "(choose-any ...) chooses rows with 'J' in them"
+    AssertOptRefusal "optimize choice: a count that is a name no (per ...) row binds is refused", _
+        "(fact (item a)) (choose-exactly N (pick I) (item I)) (query item)", _
+        "(choose-exactly ...) takes its count from 'N', and no (per ...) row names 'N'"
+    AssertOptRefusal "optimize choice: a count read from a Table that is not a whole number is refused, naming the group", _
+        "(fact (shifts s1 two)) (fact (person x)) (rule (elig S P) (shifts S N) (person P)) " & _
+        "(choose-exactly N (assign S P) (elig S P) (per (shifts S N))) (query assign)", _
+        "for S = s1, N = two it is 'two', which is not a whole number of zero or more"
+    AssertOptRefusal "optimize choice: a negated chosen row with a name nothing binds is refused", _
+        "(fact (item a)) (choose-any (pick I) (item I)) (forbid (item I) (not (pick J))) (query item)", _
+        "a rule says a 'pick' row is not chosen, and 'J' in that row appears nowhere else"
+    AssertOptRefusal "optimize choice: a negated chosen row with the wrong arity is held to it", _
+        "(fact (item a)) (choose-any (pick I) (item I)) (forbid (item I) (not (pick I I))) (query item)", _
+        "predicate 'pick' is used with 1 argument(s) in one place and 2 in another"
+    AssertOptRefusal "optimize choice: an objective beside a choice is refused in its new words", _
+        "(fact (item a)) (choose-any (pick I) (item I)) (minimize (pick I)) (query item)", _
+        "does not compare one answer with another yet: it gives the first answer that breaks no rule"
+End Sub
+
+' The toy, optimize-toy, with an optional effort form inserted.
+Private Function OptToyProgram(ByVal effortForm As String) As String
+    OptToyProgram = _
+        "(fact (person p1)) (fact (person p2)) (fact (person p3)) (fact (person p4)) (fact (person p5)) " & _
+        "(fact (shift s1)) (fact (shift s2)) (fact (shift s3)) (fact (shift s4)) (fact (shift s5)) " & _
+        "(fact (shift s6)) (fact (shift s7)) " & _
+        "(fact (next s1 s2)) (fact (next s2 s3)) (fact (next s3 s4)) (fact (next s4 s5)) " & _
+        "(fact (next s5 s6)) (fact (next s6 s7)) " & _
+        "(rule (elig S P) (shift S) (person P)) " & _
+        "(choose-exactly 2 (assign S P) (elig S P) (per (shift S))) " & _
+        "(forbid (assign S P) (assign T P) (next S T)) " & effortForm & "(query assign)"
+End Function
+
+' optimize-quote-conflict: exactly one frame and one set of wheels, each
+' extra in or not; carbon wheels need the carbon frame (check 1); the
+' seat is not rated for it (2); the customer wants the seat (3) and the
+' carbon frame (4).
+Private Function OptQuoteConflictProgram() As String
+    OptQuoteConflictProgram = _
+        "(fact (catalogue alloy-frame frame)) (fact (catalogue carbon-frame frame)) " & _
+        "(fact (catalogue standard-wheels wheels)) (fact (catalogue carbon-wheels wheels)) " & _
+        "(fact (catalogue child-seat extra)) (fact (catalogue lights extra)) (fact (catalogue rack extra)) " & _
+        "(fact (kind frame)) (fact (kind wheels)) " & _
+        "(rule (extra I) (catalogue I extra)) " & _
+        "(choose-exactly 1 (in I) (catalogue I K) (per (kind K))) " & _
+        "(choose-any (in I) (extra I)) " & _
+        "(require (in carbon-frame) (in carbon-wheels)) " & _
+        "(forbid (in child-seat) (in carbon-frame)) " & _
+        "(require (in child-seat)) (require (in carbon-frame)) (query in)"
+End Function
+
+' optimize-duty-rotation: every month, every person exactly one duty and
+' every duty exactly one person; nobody does last month's duty in m1;
+' nobody does a duty twice.
+Private Function OptDutyRotationProgram() As String
+    OptDutyRotationProgram = _
+        "(fact (month m1)) (fact (month m2)) (fact (month m3)) " & _
+        "(fact (person ann)) (fact (person bob)) (fact (person cy)) " & _
+        "(fact (duty cash)) (fact (duty payables)) (fact (duty payroll)) " & _
+        "(fact (lastmonth ann cash)) (fact (lastmonth bob payables)) (fact (lastmonth cy payroll)) " & _
+        "(choose-exactly 1 (does M P D) (duty D) (per (month M) (person P))) " & _
+        "(choose-exactly 1 (does M P D) (person P) (per (month M) (duty D))) " & _
+        "(forbid (does m1 P D) (lastmonth P D)) " & _
+        "(forbid (does M P D) (does M2 P D) (< M M2)) (query does)"
+End Function
+
+' optimize-seat-dinner's rules, without its objective: one table each,
+' three a table, Ann at the head table, Bob with Ann, Cy and Di apart.
+Private Function OptSeatDinnerProgram() As String
+    OptSeatDinnerProgram = _
+        "(fact (guest ann)) (fact (guest bob)) (fact (guest cy)) (fact (guest di)) (fact (guest ed)) (fact (guest fay)) " & _
+        "(fact (table head)) (fact (table second)) (rule (can G T) (guest G) (table T)) " & _
+        "(choose-exactly 1 (sit G T) (can G T) (per (guest G))) " & _
+        "(choose-exactly 3 (sit G T) (can G T) (per (table T))) " & _
+        "(require (sit ann head)) (require (sit bob T) (sit ann T)) (forbid (sit cy T) (sit di T)) (query sit)"
+End Function
+
+Private Function OptSeatOverflowProgram() As String
+    OptSeatOverflowProgram = _
+        "(fact (guest g1)) (fact (guest g2)) (fact (guest g3)) (fact (guest g4)) (fact (guest g5)) " & _
+        "(fact (guest g6)) (fact (guest g7)) (fact (table ta)) (fact (table tb)) " & _
+        "(rule (seat G T) (guest G) (table T)) " & _
+        "(choose-exactly 1 (sit G T) (seat G T) (per (guest G))) " & _
+        "(choose-at-most 3 (sit G T) (seat G T) (per (table T))) (query sit)"
+End Function
+
+Private Function OptSodShortProgram() As String
+    OptSodShortProgram = _
+        "(fact (staff ann)) (fact (staff bob)) (fact (staff cy)) " & _
+        "(fact (task t1)) (fact (task t2)) (fact (task t3)) (fact (task t4)) " & _
+        "(fact (kind prep)) (fact (kind rev)) " & _
+        "(rule (slot T P K) (task T) (staff P) (kind K)) " & _
+        "(choose-exactly 1 (role T P K) (slot T P K) (per (task T) (kind K))) " & _
+        "(choose-at-most 2 (role T P K) (slot T P K) (per (staff P))) " & _
+        "(forbid (role T P prep) (role T P rev)) (query role)"
+End Function
+
+' optimize-roster-loose: ten people for a week, two on earlies, three on
+' lates, four on nights - 63 slots - and at most five shifts each.
+Private Function OptRosterLooseProgram() As String
+    Dim s As String
+    Dim d As Long, p As Long
+    For d = 1 To 7
+        s = s & "(fact (shifts d" & d & "e 2)) (fact (shifts d" & d & "l 3)) (fact (shifts d" & d & "n 4)) "
+    Next d
+    For p = 1 To 10
+        s = s & "(fact (person p" & p & ")) "
+    Next p
+    OptRosterLooseProgram = s & "(fact (week w1)) " & _
+        "(rule (elig S P) (shifts S N) (person P)) " & _
+        "(rule (welig S P W) (elig S P) (week W)) " & _
+        "(choose-exactly N (assign S P) (elig S P) (per (shifts S N))) " & _
+        "(choose-at-most 5 (assign S P) (welig S P W) (per (person P) (week W))) (query assign)"
+End Function
+
+' A spill as one line - rows by "|", cells by ",", the header first - or
+' "<...>" describing anything else, never raising.
+Private Function OptSpillText(ByVal v As Variant) As String
+    If Not IsArray(v) Then
+        If IsObject(v) Then
+            OptSpillText = "<object>"
+        ElseIf IsError(v) Then
+            OptSpillText = "<error>"
+        Else
+            OptSpillText = "<" & TypeName(v) & " " & CStr(v) & ">"
+        End If
+        Exit Function
+    End If
+    Dim s As String
+    Dim r As Long, c As Long
+    For r = LBound(v, 1) To UBound(v, 1)
+        If r > LBound(v, 1) Then s = s & "|"
+        For c = LBound(v, 2) To UBound(v, 2)
+            If c > LBound(v, 2) Then s = s & ","
+            If IsObject(v(r, c)) Then
+                s = s & "<object>"
+            ElseIf IsError(v(r, c)) Then
+                s = s & "<error>"
+            Else
+                s = s & CStr(v(r, c))
+            End If
+        Next c
+    Next r
+    OptSpillText = s
+End Function
+
+' A spill's DATA rows, sorted, as one line - for the permutation pin,
+' which compares a set and not an order.
+Private Function OptSortedRows(ByVal v As Variant) As String
+    Dim full As String
+    full = OptSpillText(v)
+    If Left$(full, 1) = "<" Then
+        OptSortedRows = full
+        Exit Function
+    End If
+    Dim rows() As String
+    rows = Split(full, "|")
+    Dim i As Long, j As Long, x As String
+    For i = LBound(rows) + 2 To UBound(rows)
+        x = rows(i)
+        j = i - 1
+        Do While j >= LBound(rows) + 1
+            If rows(j) <= x Then Exit Do
+            rows(j + 1) = rows(j)
+            j = j - 1
+        Loop
+        rows(j + 1) = x
+    Next i
+    Dim s As String
+    For i = LBound(rows) + 1 To UBound(rows)
+        If i > LBound(rows) + 1 Then s = s & "|"
+        s = s & rows(i)
+    Next i
+    OptSortedRows = s
+End Function
+
+' One of OptimizeRun's item 9, 1-based: 1 atoms, 2 clauses, 3 counters,
+' 4 decisions, 5 dead ends, 6 work, 7 the search's outcome, 8 atoms
+' pruned. -1 when the run refused.
+Private Function OptStat(ByVal program As String, ByVal ix As Long) As Long
+    Dim r As Collection
+    On Error Resume Next
+    Set r = VLA_Optimize.OptimizeRun(program)
+    If Err.Number <> 0 Then
+        OptStat = -1
+        Exit Function
+    End If
+    On Error GoTo 0
+    Dim st As Variant
+    st = r.Item(9)
+    OptStat = CLng(st(ix - 1))
+End Function
+
+Private Function OptStatsText(ByVal program As String) As String
+    Dim s As String
+    Dim i As Long
+    For i = 1 To 8
+        If i > 1 Then s = s & " "
+        s = s & Choose(i, "atoms", "clauses", "counters", "decisions", "deadends", "work", "outcome", "pruned") & _
+            "=" & OptStat(program, i)
+    Next i
+    OptStatsText = s
+End Function
+
+' A refusal's words from a run given table arguments, or "(no refusal)".
+Private Function OptRefusalWithTables(ByVal program As String, ByVal rels As Object) As String
+    Dim num As Long, d As String
+    On Error Resume Next
+    Err.Clear
+    VLA_Optimize.OptimizeRun program, rels
+    num = Err.Number
+    d = Err.Description
+    On Error GoTo 0
+    If num = 0 Then
+        OptRefusalWithTables = "(no refusal)"
+    Else
+        OptRefusalWithTables = d
+    End If
 End Function
 
 ' ---------------------------------------------------------------------

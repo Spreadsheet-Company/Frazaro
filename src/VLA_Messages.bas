@@ -6,6 +6,16 @@ Public Const VLA_MESSAGES_VERSION As String = "OPTIMIZE.3"
 ' batch it cannot answer in one pass. Only OPTIMIZE builds those batches,
 ' so a user who meets it has met a Frazaro bug, and it says so.
 '
+' OPTIMIZE.3 (slice 2): the first search. optimize-choice-not-yet and
+' optimize-effort-not-yet retired - a choice is made and an effort spent
+' now, so both were false - and the three not-yet refusals left
+' (preference, objective, kept) REWORDED, since each justified itself
+' with "with no choice there is exactly one answer"; each keeps the
+' fragment its pins match. Twelve new optimize-* entries beside
+' OPTIMIZE's others: what a choice program may not do yet, in OPTIMIZE's
+' own words, and one internal refusal for a grounding that contradicts
+' itself.
+'
 ' CLI.3: three cli-history-* entries, at the foot of AddEntries - the
 ' console's own refusals: !N with nothing kept yet, !N naming a number
 ' the history does not hold (it says which it does), and the history
@@ -1192,7 +1202,9 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "optimize-choose-range-inverted", 5, "VLA-Optimize", "choose-between {low} and {high} asks for at least {low} and at most {high}, which nothing can satisfy - write the smaller number first."
     AddMsg m, "optimize-not-a-row", 5, "VLA-Optimize", "({form} ...) expects a row for {role}, and '{text}' is not one. A row is written like (assign Shift Person) - a name, then what it is about."
     AddMsg m, "optimize-effort-unknown-level", 5, "VLA-Optimize", "'{level}' is not an effort level - write quick, normal or thorough, or a whole number of units of work greater than none. Effort is counted in WORK and never in seconds, so the same workbook answers the same on a fast machine and a slow one."
-    AddMsg m, "optimize-choice-not-yet", 5, "VLA-Optimize", "({form} ...) asks OPTIMIZE to make a choice, and this version makes none: it answers a program of facts, rules and one query, which is what DATALOG answers, because it is the same engine. Remove the choice for that answer. Searching arrives with the choice itself."
+    ' OPTIMIZE.3 slice 2 retired optimize-choice-not-yet. Its words said
+    ' "this version makes none", which a program that chooses now makes
+    ' false. The id is not re-minted for anything else (SD-9).
     ' OPTIMIZE.2 retired optimize-constraint-not-yet. Its words said
     ' "this version checks none", which this version makes false: a
     ' constraint is now a check over the one world, so a program with
@@ -1211,12 +1223,32 @@ Private Sub AddEntries(ByVal m As Collection)
     ' `vla-check-1`, and neither appears in what the user wrote.
     AddMsg m, "optimize-require-unbound-consequent", 5, "VLA-Optimize", "(require ({predicate} ...) ...) says '{predicate}' must hold wherever the rest holds, and '{var}' appears only in '{predicate}' - nothing else in the rule says which row it is. So this is asking whether SOME row exists, which is a question a rule answers, not a requirement. Write the rule first and require its head: (rule (has-senior S) (assign S P) (senior P)), then (require (has-senior S) (night S))."
     AddMsg m, "optimize-require-consequent-not-a-row", 5, "VLA-Optimize", "(require ...) needs a row first - what must be true - and '{word}' is a test rather than a row. A test belongs in the part that follows, which says when the requirement applies, or in a (forbid ...), which says what may never all hold at once. For example (require (senior P) (reviews T P)), or (forbid (holds P T) (count N (holds P T2)) (> N 2))."
-    AddMsg m, "optimize-preference-not-yet", 5, "VLA-Optimize", "({form} ...) says what a good answer looks like, and this version compares none: with no choice there is exactly one answer, so nothing is being preferred over anything. Remove it for that answer."
-    AddMsg m, "optimize-objective-not-yet", 5, "VLA-Optimize", "({form} ...) names what to make as small or as large as possible, and this version searches nothing: a program with no choice has exactly one answer, and it is already the best one there is. Remove it for that answer."
-    AddMsg m, "optimize-kept-not-yet", 5, "VLA-Optimize", "({form} ...) names a schedule to stay close to, and this version has nothing to move: with no choice there is exactly one answer. Remove it for that answer."
-    AddMsg m, "optimize-effort-not-yet", 5, "VLA-Optimize", "({form} ...) sets how much work a search may do, and this version does no searching: a program with no choice has exactly one answer and needs no budget. Remove it for that answer."
+    ' OPTIMIZE.3 slice 2 reworded the three below: each said "with no
+    ' choice there is exactly one answer", which a program that chooses
+    ' makes false. Their words now hold of every program, and each keeps
+    ' the fragment its pins match.
+    AddMsg m, "optimize-preference-not-yet", 5, "VLA-Optimize", "({form} ...) says what a good answer looks like, and this version does not weigh one answer against another yet: it gives the first answer that breaks no rule, deciding the rows in the order your Tables list them. Remove it for that answer."
+    AddMsg m, "optimize-objective-not-yet", 5, "VLA-Optimize", "({form} ...) names what to make as small or as large as possible, and this version does not compare one answer with another yet: it gives the first answer that breaks no rule, deciding the rows in the order your Tables list them. Remove it for that answer."
+    AddMsg m, "optimize-kept-not-yet", 5, "VLA-Optimize", "({form} ...) names a schedule to stay close to, and this version does not measure an answer against another yet: it gives the first answer that breaks no rule, deciding the rows in the order your Tables list them. Remove it for that answer."
+    ' OPTIMIZE.3 slice 2 retired optimize-effort-not-yet: a search spends
+    ' the effort now. Not re-minted (SD-9).
     AddMsg m, "optimize-recursion-through-choices", 5, "VLA-Optimize", "the rule for '{predicate}' reads rows that are themselves being chosen, and calls itself - so an answer could support itself, which this version will not accept. Rules over the DATA may recurse freely (who reports to Alice, directly or not); only recursion through a CHOICE is refused. Nothing changes about what a rule means: the same rule will answer, unchanged, when this is built."
     AddMsg m, "optimize-unknown-result-state", 5, "VLA-Optimize", "internal: result state {state} is not one of the five OPTIMIZE reserves - this is a Frazaro bug, please report it."
+    ' OPTIMIZE.3 slice 2: a program that chooses. Each is about a form the
+    ' user wrote, in OPTIMIZE's own words - DATALOG's refusals for the
+    ' same programs would name the vla-check- rules this engine writes.
+    AddMsg m, "optimize-chosen-is-defined", 5, "VLA-Optimize", "'{name}' is being chosen, and the program also gives it rows, as {how} - a row cannot be both given and chosen. Choose into a name the program defines nowhere else, the way assign is chosen in (choose-exactly 2 (assign S P) (eligible S P) (per (shifts S)))."
+    AddMsg m, "optimize-chosen-arity", 5, "VLA-Optimize", "'{name}' is chosen with {arity} names after it in ({form} ...), and with {other} by an earlier choice form - every form choosing the same rows must agree on how many names a row has."
+    AddMsg m, "optimize-rule-over-choice-not-yet", 5, "VLA-Optimize", "the rule for '{predicate}' reads '{chosen}', which is being chosen, and this version answers rules over the data, not over the choices, yet. A condition on chosen rows can be written as a (forbid ...) or a (require ...), which may read them: for example (forbid (assign S P) (assign T P) (next S T))."
+    AddMsg m, "optimize-pool-reads-choice", 5, "VLA-Optimize", "({form} ...) chooses from '{name}', which is itself being chosen - a pool, and the rows a (per ...) groups by, must be rows the program already has: a Table, a fact, or a rule over them."
+    AddMsg m, "optimize-count-over-choice-not-yet", 5, "VLA-Optimize", "a ({word} ...) in a rule counts rows of '{chosen}', which are still being chosen, and this version cannot count what it has not decided yet. A limit on how many is a second choice form over the same rows, which is kept as the rows are chosen: for example (choose-at-most 5 (assign S P) (week-eligible S P W) (per (person-week P W)))."
+    AddMsg m, "optimize-choice-unbound", 5, "VLA-Optimize", "({form} ...) chooses rows with '{var}' in them, and neither the pool nor the (per ...) says what '{var}' is - so there is no end to the rows it could mean. Name '{var}' in the pool or in a (per ...) row."
+    AddMsg m, "optimize-count-unbound", 5, "VLA-Optimize", "({form} ...) takes its count from '{var}', and no (per ...) row names '{var}' - a count read from a Table comes from the row it counts for, like N in (per (shifts S N))."
+    AddMsg m, "optimize-count-bad-value", 5, "VLA-Optimize", "({form} ...) takes its count from '{var}', and for {group} it is '{value}', which is not a whole number of zero or more."
+    AddMsg m, "optimize-negated-choice-unbound", 5, "VLA-Optimize", "a rule says a '{predicate}' row is not chosen, and '{var}' in that row appears nowhere else in the rule - so it asks about every possible '{var}' at once. Name '{var}' in a row the rule already reads."
+    AddMsg m, "optimize-effort-twice", 5, "VLA-Optimize", "this program says (effort ...) twice - write it once, so there is one answer to how much work the search may do."
+    AddMsg m, "optimize-effort-too-large", 5, "VLA-Optimize", "'{level}' is more work than one search may be given - at most 2147483647 units, each a decision or a dead end. Effort is counted in WORK and never in seconds, so the same workbook answers the same on a fast machine and a slow one."
+    AddMsg m, "optimize-internal", 5, "VLA-Optimize", "internal: OPTIMIZE {detail} - this is a Frazaro bug; please report it."
     AddMsg m, "optimize-table-not-a-range", 5, "VLA-Optimize", "every OPTIMIZE table argument must be a cell range - pass a reference like Employees, not a computed value."
     AddMsg m, "optimize-table-needs-a-name", 5, "VLA-Optimize", "this range has no name OPTIMIZE can use for it - make it an Excel Table (Ctrl+T) or give it a defined name, then reference that name in the formula."
     AddMsg m, "optimize-table-noncontiguous-columns", 5, "VLA-Optimize", "a table argument spanning multiple disjoint areas (a Ctrl-selected, non-contiguous range) isn't supported - select one contiguous block of the table's own columns instead."

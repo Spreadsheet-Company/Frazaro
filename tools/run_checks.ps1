@@ -1,7 +1,7 @@
 <#
 run_checks.ps1 - runs every tools\check_*.ps1 and reports one total.
 
-WHY: there are 27 of them now. Running them one at a time is a page of
+WHY: there are 28 of them now. Running them one at a time is a page of
 scrollback in which a single red line is easy to walk past, and "they all
 seemed to pass" is not a result anybody can quote in a commit message. This
 prints one line per check and one total, and its own exit code is the answer.
@@ -55,7 +55,9 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # --- The floor, hand-maintained. ---
 # 2026-09-20, DATALOG.14: 27, the 26 that stood at 0.6.2 plus
 # check_datalog_per_tuple_alloc.ps1.
-$expectedAtLeast = 27
+# 2026-09-24, OPTIMIZE.3 slice 2: 28, plus
+# check_optimize_search_discipline.ps1.
+$expectedAtLeast = 28
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---
@@ -66,7 +68,9 @@ $extras = @(
     @{ Script = 'datalog14_proof.ps1';     Args = @();              What = 'DATALOG.14 specialisation, 15 hand-derived programs' },
     @{ Script = 'datalog14_proof.ps1';     Args = @('-Mutations');  What = 'DATALOG.14 conditions, mutation control' },
     @{ Script = 'datalog14_model.ps1';     Args = @('-Control');    What = 'DATALOG.14 cost model against the measured ladder' },
-    @{ Script = 'optimize3_model.ps1';     Args = @('-Control');    What = 'OPTIMIZE.3 grounding model against the pre-flight ladder' }
+    @{ Script = 'optimize3_model.ps1';     Args = @('-Control');    What = 'OPTIMIZE.3 grounding model against the pre-flight ladder' },
+    @{ Script = 'check_optimize_search_discipline.ps1'; Args = @('-Control'); What = 'OPTIMIZE.3 search discipline, mutation control' },
+    @{ Script = 'optimize3_search_twin.ps1'; Args = @('-Control'); What = 'OPTIMIZE.3 search pins against their host-independent twin' }
 )
 
 function Invoke-OneScript {

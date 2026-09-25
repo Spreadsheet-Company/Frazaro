@@ -174,7 +174,11 @@ Public Sub VlaDevReload(Optional ByVal folder As String = "")
     ' array. A rig still running the OLD copy of this module will not
     ' import it - re-import VLA_DevRig.bas by hand first (it cannot
     ' reload itself), then VlaDevReload.
-    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_IDE", "VLA_Build", "VLA_Lint", "VLA_Tests", "VLA_Tests_Grammar", "VLA_Tests_Host", "VLA_Tests_Query", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Optimize", "VLA_Browser", "VLA_Console", "frmCLI")
+    ' OPTIMIZE.3 (slice 2): VLA_OptimizeSearch, before VLA_Optimize, in the
+    ' same edit as VLA_Build.bas's array - and the same warning as CLI.3's:
+    ' re-import this module by hand before VlaDevReload, or the new module
+    ' is never imported.
+    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_IDE", "VLA_Build", "VLA_Lint", "VLA_Tests", "VLA_Tests_Grammar", "VLA_Tests_Host", "VLA_Tests_Query", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_OptimizeSearch", "VLA_Optimize", "VLA_Browser", "VLA_Console", "frmCLI")
     Dim i As Long
     Dim fp As String
     Dim comp As Object
