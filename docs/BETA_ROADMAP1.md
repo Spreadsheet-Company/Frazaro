@@ -19899,8 +19899,13 @@ now carries one summary paragraph per engine and points here.*
         every combination of the easy ones. Fail-first: the shift with
         the fewest eligible people is decided first, the person with the
         fewest options next; every tie broken by Table order, so the order
-        is deterministic. Static from the grounding in `OPTIMIZE.3`,
-        dynamic (recomputed as the domains shrink) in `OPTIMIZE.8`.
+        is deterministic. ~~Static from the grounding in `OPTIMIZE.3`,
+        dynamic (recomputed as the domains shrink) in `OPTIMIZE.8`.~~
+        **Superseded 2026-09-24 by `OPTIMIZE.3`'s fork 6, the owner's call,
+        struck rather than rewritten:** the decision order DEFINES which
+        schedule a program with no objective gets, so it is fixed as the
+        Tables' own order, and fail-first's pruning waits for `OPTIMIZE.9`'s
+        backjumping, which keeps that answer. `OPTIMIZE.3` has the reasoning.
       - *Deciding values in the wrong order.* The first value tried decides
         how good the first solution is, and the first solution is the
         bound every later one is pruned against. Values are tried in the
@@ -21333,17 +21338,26 @@ now carries one summary paragraph per engine and points here.*
     the ones I am least sure of (the first formula ever to call
     `OPTIMIZE_VIOLATIONS`, and its spill read back through Name Manager).
     `~days`
-  - ⬜ **OPTIMIZE.3 — choice, grounding over the pool, and a search that
-    propagates.** The first search, and NOT the retired `SOLVE.3`'s
+  - 🟡 **OPTIMIZE.3 — choice, grounding over the pool, and a search that
+    propagates.** *Scoped 2026-09-24, and all six of its forks settled by
+    the owner the same day, five as recommended and one against: the
+    integer grounder is built in this item rather than deferred. Five
+    slices. **Slice 1 of five, the integer grounder, BUILT, TESTED LIVE and
+    COMMITTED 2026-09-24, every count exact.** The pre-flight that set this
+    item's starting conditions is recorded below, since its steps file
+    moved to `archive/` when the item began.* The first search, and NOT the
+    retired `SOLVE.3`'s
     enumeration. `(choose N head pool)` names a pool (a `DATALOG`
     relation) and a bound; grounding produces one integer atom per pool
     row and one native counter per rule instance ("exactly N", "at least",
     "at most" — never combinations); constraints from `OPTIMIZE.2` are
     grounded over the possible atoms into clauses over those integers; and
     the search decides one atom at a time with unit propagation and
-    counter propagation, on an explicit trail, iteratively, with
+    counter propagation, on an explicit trail, iteratively, ~~with
     fail-first static ordering from the grounding and every tie broken by
-    Table order. **Refusals that ground before they search:** the
+    Table order~~ **in the Tables' own order — superseded 2026-09-24 by this
+    item's fork 6, below, struck rather than rewritten so the change of
+    plan is visible**. **Refusals that ground before they search:** the
     ground-size bound (a rule projected past the ceiling is refused
     naming the rule and the number) and the Cartesian body. **Both
     inherited from `OPTIMIZE.2`, which was written as their home and
@@ -21392,6 +21406,268 @@ now carries one summary paragraph per engine and points here.*
     - **The formula cannot catch Esc.** `EnableCancelKey` is ignored inside a
       UDF (C2). A formula search that runs long enough to be interrupted is
       the case the ceiling exists to prevent.
+
+    **THE PRE-FLIGHT, 2026-09-24 — this item's starting conditions.**
+    `OPTIMIZE.0`'s grounding ladder was re-timed against the engine
+    `DATALOG.14` left, the owner at the keyboard. Every ground-row count
+    matched, so it was a re-timing and not a re-derivation. What it found:
+      - *Two regimes where the old model saw one.* Shapes bound by the rows
+        they READ ran 13-15x faster: the pool (A1) 0.12s → 0.074s, a
+        counter per shift (A4) 0.68s → 0.047s, per person-week (A5) 0.65s →
+        0.047s, the pair relation (A6) 2.4s → 0.188s. Shapes bound by the
+        rows they PRODUCE — the subsets and triples — gained about 1.2x:
+        A8 at 20 × 4 10.9s → 9.039s, A10 at 1 × 1 k = 5 17.6s → 18.719s,
+        6% slower and correctly so, since it reads 441 rows and produces
+        over a million. A10 at 10 × 1 k = 3 (17.3s → 8.063s) is a 28x
+        outlier against the mechanism, and the conservative reading, 1.2x,
+        is the one planned on. **Re-timed by slice 1's harness the same
+        day: 17.148s** — September's figure, not the pre-flight's, so it is
+        the 8.063s that does not reproduce, the opposite of the pre-flight's
+        guess. The 1.2x plan stands; why the rung has measured both is not
+        known (slice 1's record, below).
+      - *The old model was wrong both ways:* about tenfold pessimistic below
+        ~100,000 peak rows, because its first coefficient (0.16 ms a source
+        row) is the constant `DATALOG.14` deleted, and up to 1.84x
+        OPTIMISTIC past ~300,000 — the dangerous direction for a ceiling.
+      - *The knee did not move*: measured/model rises monotonically with
+        peak rows in three series and crosses 1.0 near 300,000. A
+        `Scripting.Dictionary` property, which `DATALOG.14` never touched.
+      - *Handing cells back is not free:* 3.44 million cells in 0.477s, flat
+        at 0.13-0.16 µs a cell. `DATALOG.12`'s "free at 9,000 cells" is
+        retired. And the 100,000-row scan was measured, not projected: 3.676s.
+
+    **THE RE-FITTED MODEL, `tools/optimize3_model.ps1`** (in
+    `run_checks.ps1`'s verifiers, `-Control`). Twenty rungs recovered from
+    the pre-flight's measured/model ratios through the harness's own
+    `BuildModel`, ported — the recovery reproduces all four seconds the
+    pre-flight wrote down explicitly to within 0.5%:
+
+        t = 15 ms + 7.6 µs × J + 2.2 µs × J × (peak ÷ 100,000)
+
+    J is every row produced, every round; peak is the largest single step.
+    rms error 15%, worst optimism above 0.1s 0.85; fitted on one shape family
+    and predicting the other, 0.73-1.25. **A source-row term fits to zero**
+    (−0.0004 ms): `DATALOG.14` deleted it, which is why the pre-flight's two
+    regimes collapse into ONE model counted in produced rows — they differ
+    only in how many rows they produce per row read. **The superlinear term
+    is fitted, not assumed**, and has a mechanism: `O0DictCost` measured about
+    1 µs per key per 100,000 keys, and a produced row pays about two
+    dictionary operations. At 1 s the model admits 114,000-123,000 produced
+    rows in either regime. Four mutants — a wrong recorded second, round two
+    dropped from the port, the peak term zeroed, the peak term swapped for
+    source rows — all fail its control; the zeroed one first PASSED, because
+    a singular fit's NaN coefficients slipped through range checks written
+    as "fail if below or above", and every check is now written as what must
+    hold.
+
+    **THE OWNER'S SIX FORKS, settled 2026-09-24:**
+      1. *The ceilings, in PRODUCED ROWS, as recommended* — rows, not
+         seconds, so the same workbook refuses or answers the same on every
+         machine. A formula grounds at most **100,000** projected rows of
+         OPTIMIZE's own grounding (choice members and constraint clauses)
+         and at most **50,000** in any one step: 0.88s by the model, 1.10s
+         at its worst cross-family optimism, leaving about a second for the
+         search at `(effort normal)` inside the settled 2s. `DATALOG`'s
+         certain part is not counted, since `DATALOG` has no ceiling
+         either. A command: at most **500,000** rows in any one step (memory;
+         `O0DictCost` 8.83 µs a key at 400,000), and no time ceiling, since
+         Esc works in a macro. The native reference roster is about 55,000
+         rows of OPTIMIZE's own grounding. These are `DATALOG`'s costs, and
+         this entry's own words apply: re-measure on the integer grounder
+         before raising them.
+      2. *The representation: grounding moves to integer arrays IN THIS ITEM*
+         — against my recommendation to defer it, whose cost I put at a
+         formula ceiling of 100,000 rather than about a million and a
+         reference-roster grounding of about 0.9s rather than 0.1s. The
+         owner chose the integer grounder with its cost stated: a second
+         evaluator, and two semantics to keep in step. Slice 1 is how that
+         cost is paid down (below).
+      3. *The Function Wizard: the ceiling and the memo, no detection, as
+         recommended.* Its second evaluation of the same arguments hits the
+         memo, so an edit costs at most one ceiling-bounded run, and only an
+         edit that completes a valid program; partial text refuses at parse.
+         Detection has only undocumented signals — a window-class probe needs
+         a second `Declare` against `SUBSTRATE.md`'s H.4 census — and a false
+         positive puts a non-answer into a real recalculation.
+      4. *Slicing: the command last, as recommended* — five slices once fork 2
+         added the grounder (below).
+      5. *Where the grounder lives: in `DATALOG`, as this item's slice 1, as
+         recommended* — a second evaluator of `DATALOG`'s own parsed rules
+         rather than a parser of OPTIMIZE's own, so keyed atoms, safety and
+         every refusal are `DATALOG`'s and cannot drift. `DATALOG` running
+         its own fixpoint on it would be a separate, later item.
+      6. *What decides which schedule a program with no objective gets: the
+         first valid schedule in the Tables' own order, as recommended* —
+         atoms decided in the order the choice forms produce them (written
+         order, then the pool's rows in table order), "chosen" tried first.
+         It is standing decision 2's own words, it explains in one sentence,
+         and every later improvement that only removes dead ends finds the
+         SAME answer: learning, backjumping, restarts without phase saving,
+         root probing, components, and symmetry breaking aligned to table
+         order. **It supersedes the fail-first static order** this entry
+         and `OPTIMIZE.0.B` planned: with several choice forms over one pool
+         — a cap, a senior every night — the smallest groups would drive a
+         fail-first order, so "a senior on every night" (about eleven
+         candidates) would be decided first and every night staffed with
+         seniors before anything else, a shape that changes whenever group
+         sizes shift. What this costs is fail-first's pruning, which waits
+         for `OPTIMIZE.9`'s backjumping — the trigger the roadmap already
+         expects the ladder to pull. `OPTIMIZE.8`'s dynamic ordering is the
+         one planned narrower this rules out as written; see its entry.
+
+    **WHAT SCOPING FOUND, beyond the forks:**
+      - *A cap and "a senior on every night" are second choice forms over
+        the same pool* — `(choose-at-most 5 (assign S P) (week-elig S P W)
+        (per (pw P W)))` and `(choose-at-least 1 (assign S P) (senior-elig
+        S P) (per (night S)))` — native counters, this item's own
+        machinery, since section 17 fixes no spelling. So the whole
+        reference roster except its objective is this item's, and
+        `OPTIMIZE.2`'s three counting comparisons become reachable, under
+        the conditions that make them sound: the demand groups must not
+        overlap, and the cap groups must cover them. A `count` over chosen
+        rows inside a `forbid` stays `OPTIMIZE.4`'s, and will be refused
+        pointing at the choice-form spelling.
+      - *The grounding plan:* three `DatalogRunForms`-shaped passes — the
+        certain part, then the choice members, then the constraint clauses —
+        so sizes are known before OPTIMIZE's own rules are built, with a
+        never-firing stub of every later rule in the first pass so
+        `PushBoundArguments` sees every reader and cannot narrow a relation
+        a later pass reads differently. The chosen predicate IS the
+        "possible" relation in `DATALOG`'s view, so every refusal names the
+        user's own predicate.
+      - *Four surviving `*-not-yet` refusals become false with a choice* —
+        preference, objective, kept and effort each justify themselves with
+        "with no choice there is exactly one answer". And the reserved
+        PROVEN_BEST sentence says "this program makes no choices": it is
+        kept for zero-choice programs, and a choice program's status gets
+        the same "proven best:" prefix with its own clause.
+      - *The permutation pin can only hold on a program with one valid
+        world* — standing decision 2 breaks ties by row order.
+      - *The budget's spelling is `(effort ...)`*, settled by `OPTIMIZE.1`;
+        `(budget N)` is its earlier name.
+      - *`OPTIMIZE.2`'s ✅ summary in `BETA_ROADMAP2.md` claimed it landed
+        the single-atom pruning and the Cartesian refusal.* It landed
+        neither — this file's own `OPTIMIZE.2` entry says so — and both are
+        this item's. Struck there, recorded here.
+
+    **THE FIVE SLICES**, each landing whole, tested live by the owner and
+    committed before the next: **1** the integer grounder; **2** the first
+    search — the choices, the three passes grounded on slice 1, clauses,
+    the search module (`Long` arrays only, iterative, a trail, unit and
+    counter propagation), the pre-checks wired, `(effort ...)` with
+    provisional counts, the seconds guard, and the data-discipline scan as
+    the 28th check; **3** the ceilings — projection before grounding, body
+    reordering for the rules OPTIMIZE generates, the size refusal naming the
+    rule and the number; **4** the ladder — the reference fixture searched
+    at 5 to 50 people × 1 and 4 weeks, every answer checked, the effort
+    numbers set from measured rates, and `docs/OPTIMIZATION.md` Entry 4;
+    **5** a minimal command, which the formula's ceiling refusal points to.
+
+    **SLICE 1 — THE INTEGER GROUNDER. BUILT, TESTED LIVE AND COMMITTED
+    2026-09-24.**
+    Nothing a user types reaches it yet.
+      - `VLA_Relation.bas`: `VlaSymbols`, the project's first `Public Type`,
+        and five procedures that keep it. **An id is a SPELLING** — CStr's
+        text, exactly the identity `TupleKey` and `PartialKey` already give
+        a tuple and a join key — so the integer path and `RelJoin` agree on
+        which rows match by construction. No COM object: the table hashes a
+        spelling's own bytes, so a host without the Scripting runtime runs
+        the same code. The first value seen with a spelling is kept for
+        the operations that read a value, and a spelling seen standing for
+        two different values (the text "1" and the number 1) flags the
+        table ambiguous.
+      - `VLA_Datalog.bas`: `DatalogGroundRules`, a second evaluator of this
+        engine's own parsed rules. It parses through `ParseProgram`, refuses
+        in `DATALOG`'s own words and order, and evaluates joins, anti-joins,
+        comparisons and text tests in `Long`s — a join builds on the smaller
+        side and probes with the larger, as `RelJoin` chooses, so rows come
+        out in `RelJoin`'s order; comparisons and text tests call the SAME
+        `CompareValues`, `BuiltinOperandIsNumeric`, `DatalogValueText` and
+        `TextTestHolds`. Any other body item — `let`, the aggregates, or one
+        added later — sends the whole rule to `EvalRuleBody`, and so does a
+        comparison when the table is ambiguous. It accepts only batches one
+        pass can answer (no rule reading another's head, no head naming an
+        existing relation) and refuses anything else as a Frazaro bug
+        (`datalog-ground-internal`, the one new message).
+      - *Proof:* `TestDatalogGroundRules`, **241** — 47 hand-derived pins,
+        among them the join ORDER both ways round, each also asked of
+        `EvalRuleBody` so the hand key is checked against the reference; every
+        pin required to have taken the path it claims, since a rule that fell
+        back to `EvalRuleBody` agrees with it by definition; ambiguity, keyed
+        atoms, a product, heads, refusals and the symbol table. Then every
+        rule of every program in the parity table grounded both ways over its
+        own program's answer, row for row (192), with two floors so the loop
+        cannot pass by grounding nothing. The table grew by the two base
+        programs those pins ground over, 190 → 192.
+      - *The ratchet:* `check_datalog_per_tuple_alloc.ps1` gained rule D —
+        the grounder's ROW loops hold no object at all (no VlaDict call,
+        `CreateObject`, `New`, `Array(` or `Collection`), with each
+        procedure's number of row loops pinned. **Its own mutation control
+        found its defect**: renaming one of `IntJoinAtom`'s three row loops
+        out of the pattern passed, because the other two still matched; the
+        count is what closed it. Five mutants, all caught, and an unmutated
+        copy clean.
+      - *Tested live 2026-09-24, every number as predicted:* `TestDSLs`
+        1881 → **2124/0** (241 + 2 in `TestOptimizeParity`); `VlaSelfTest`
+        **1302/1302** (peers' CLI.3 and CLI.4 moved it from the 1215 this
+        item's brief quoted; nothing here), `VlaSelfTestHost` **152/152**
+        and `VerifyReports` **242/242** on both backends, all unmoved; the
+        version line as written, so the first `Public Type` compiled. 27
+        static checks and 5 verifiers green. The parity loop's info line
+        (how many rules, how many in integers) scrolled out of the Immediate
+        window's 200-line buffer, a flaw in the step and not the code: both
+        floors held, at least 40 rules and at least 25 in integers.
+      - *The grounding half of the before-and-after* — `O3Ground`
+        (`tools/VLA_DiagO3.bas`, four live steps in
+        `tools/optimize3_live_steps.md`), each rung the SAME rule over the
+        SAME in-memory relations through both evaluators. On all 13 rungs
+        the rows matched the fixture's closed form, the two evaluators
+        agreed row for row and in order, and the integer path was the one
+        taken. `~` marks an integer time four timer ticks or fewer:
+
+            rung (people x weeks)     rows    DATALOG   integer   faster
+            A6 pairs      10 x 1       200     0.023s   0.000s    -
+            A6 pairs      20 x 4     1,660     0.086s   0.016s    ~5x
+            A6 pairs      50 x 4     4,150     0.172s   0.023s    ~7x
+            A8 k=2        10 x 1     2,520     0.227s   0.016s    ~14x
+            A8 k=2        14 x 1     7,644     0.594s   0.047s    12.7x
+            A8 k=2        20 x 1    23,940     1.719s   0.133s    12.9x
+            A8 k=2        10 x 4    10,080     0.906s   0.070s    12.9x
+            A8 k=2        14 x 4    30,576     2.508s   0.164s    15.3x
+            A8 k=2        20 x 4    95,760     9.211s   0.555s    16.6x
+            A10 k=2        5 x 1     6,650     0.516s   0.031s    ~17x
+            A10 k=2       10 x 1    13,300     0.992s   0.070s    14.1x
+            A10 k=3        5 x 1    29,925     3.555s   0.281s    12.6x
+            A10 k=3       10 x 1    59,850    17.148s   0.695s    24.7x
+
+        **What it says.** The integer grounder costs about **1 µs a
+        produced row** on the subset shapes — 0.85-1.21 on every rung big
+        enough to time, counting rows as it makes them (one pass: every
+        join and filter output, and the head), and 1.50 at the largest
+        single step, 279,300 rows — against `DATALOG`'s 7.6 µs plus the
+        superlinear term. So a second of grounding is on the order of a
+        million rows: fork 2's estimate, measured. Clear of the timer it is
+        12.6-16.6x `DATALOG` on the subsets, 24.7x on the one disputed rung
+        below; the read-bound pair relation shows 5-7x on two and three
+        ticks. **Every time here is a whole number of 1/128 s ticks
+        (7.8 ms)**, the resolution of VBA's `Timer` on this machine, so
+        a ratio on an integer time of four ticks or fewer is good to a
+        quarter at best; slice 4's ladder repeats small rungs until they
+        are well clear of it. The ceilings stay where fork 1 set them:
+        this is the grounding half of "re-measure before raising", and
+        slice 3 decides with the search measured too.
+        **It re-timed `DATALOG` as well.** Ten of the eleven rungs it
+        shares with the pre-flight reproduce within 0.91-1.07, median 1.02.
+        A6's 0.91 is most likely the worksheet read and spill this harness
+        does not pay. The eleventh is the rung the pre-flight flagged, A10 10 x 1
+        k = 3: **17.148s**, as September's 17.3s, not the pre-flight's
+        8.063s. The re-fitted model fits the 8.063s, so by today's
+        measurement it is 2.1x optimistic there. That is at 279,300 rows
+        in one step, 5.6 times the formula's per-step ceiling and in the
+        command's range, which has no time ceiling. With 17.148s in that
+        rung's place, without the rung, with this harness's thirteen rungs
+        added, or on those thirteen alone, the formula ceiling costs
+        0.88-0.92s by the model: **fork 1 does not move.**
     `~weeks`
   - ⬜ **OPTIMIZE.4 — `count` and `sum` as native constraints.** "Every
     shift has at least 2 people", "nobody works more than 5 a week", "no
@@ -21521,7 +21797,15 @@ now carries one summary paragraph per engine and points here.*
     own number: interchangeable rows ordered at grounding; independent
     components solved separately; failed-literal probing at the root;
     fail-first ordering recomputed as domains shrink. Their order of
-    building is the order the ladder says they matter. `~weeks`
+    building is the order the ladder says they matter.
+    **NARROWED 2026-09-24 by `OPTIMIZE.3`'s fork 6:** a program with no
+    objective answers the first valid schedule in the Tables' own order, so
+    "changes no answer" holds for three of these four and NOT for dynamic
+    ordering, which would reshuffle every such roster on the day it shipped.
+    Symmetry breaking keeps the answer only if its lexicographic leader is
+    ordered by the Tables' own order too; components and root probing keep
+    it outright. Dynamic ordering is out as written, and could come back
+    only in a role that cannot change which schedule is first. `~weeks`
   - ⬜ **OPTIMIZE.9 — conflict learning: clauses learned from conflicts,
     backjumping, watched literals, deterministic restarts.** The retired
     plan's ceiling, now an item with a TRIGGER: built when `OPTIMIZE.6`'s

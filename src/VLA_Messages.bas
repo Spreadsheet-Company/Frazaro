@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "CLI.3"
+Public Const VLA_MESSAGES_VERSION As String = "OPTIMIZE.3"
+' OPTIMIZE.3 (slice 1): datalog-ground-internal, beside DATALOG's other
+' entries - the integer grounder (VLA_Datalog.DatalogGroundRules) handed a
+' batch it cannot answer in one pass. Only OPTIMIZE builds those batches,
+' so a user who meets it has met a Frazaro bug, and it says so.
+'
 ' CLI.3: three cli-history-* entries, at the foot of AddEntries - the
 ' console's own refusals: !N with nothing kept yet, !N naming a number
 ' the history does not hold (it says which it does), and the history
@@ -1008,6 +1013,7 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "datalog-unknown-top-form", 5, "VLA-Datalog", "'{head}' is not a DATALOG form - expected fact, rule, or query."
     AddMsg m, "datalog-unsafe-head-variable", 5, "VLA-Datalog", "in the rule deriving '{predicate}', the variable '{var}' appears in the head but never in the body - DATALOG can't know what values it should take. Every head variable must also appear in at least one body predicate."
     AddMsg m, "datalog-arity-mismatch", 5, "VLA-Datalog", "predicate '{predicate}' is used with {a} argument(s) in one place and {b} in another - every DATALOG predicate needs one fixed number of arguments everywhere it appears."
+    AddMsg m, "datalog-ground-internal", 5, "VLA-Datalog", "internal: the integer grounder was handed {detail} - OPTIMIZE builds these rules itself, so this is a Frazaro bug; please report it."
     AddMsg m, "datalog-round-ceiling", 5, "VLA-Datalog", "this DATALOG program is still deriving new facts after {rounds} rounds, which is almost certainly a mistake rather than a very large answer - check for a rule whose recursion never narrows."
     ' OPTIMIZE.1's follow-up: both of these ended at "check that the name
     ' matches" without saying what names there WERE, and that gap turned a

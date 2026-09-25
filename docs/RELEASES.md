@@ -68,6 +68,21 @@
   a secret, a token, an API key or a credential is kept only until Excel
   closes, and is never written to that file.
 
+- **Nothing you can see changed in `OPTIMIZE` yet - but the part that will
+  lay out a schedule's possibilities is in.** Before `OPTIMIZE` can choose
+  who works which shift, it has to spell out every possible choice and every
+  rule that could forbid one - and that step, done the way `DATALOG` does its
+  work, was measured taking around nine seconds on a roster rule that is not
+  even large. This release adds a second way of doing that one step, built
+  for exactly this job: it works on numbers instead of on the text in your
+  cells. It does not reach any formula yet - `OPTIMIZE` still refuses a
+  choice exactly as it did - and it gives the same answer as `DATALOG`
+  itself on every rule of all 192 test programs, row for row and in the
+  same order, which is checked every time the tests run. Measured: the
+  roster rule that took about nine seconds (9.2) now takes about half a
+  second (0.56), sixteen times faster, and the other roster rules measured
+  ran five to twenty-five times faster.
+
 ### Known open security items
 
 **Closed this release:** nothing. The query changes above are speed only: the

@@ -1,6 +1,15 @@
 Attribute VB_Name = "VLA_Tests_Query"
 Option Explicit
-Public Const VLA_TESTS_QUERY_VERSION As String = "DATALOG.14"
+Public Const VLA_TESTS_QUERY_VERSION As String = "OPTIMIZE.3"
+' OPTIMIZE.3 (slice 1): TestDatalogGroundRules (new, pure) - the integer
+' grounder against the evaluator it mirrors: 47 hand-derived pins, the join
+' ORDER among them and each checked against EvalRuleBody too, every one
+' required to have taken the path it claims; then every rule of every
+' program in DatalogParityPrograms grounded both ways, row for row, with
+' two floors so that loop cannot pass by grounding nothing. The table grew
+' by the two base programs those pins ground over (190 -> 192), so
+' TestOptimizeParity reports two more.
+'
 ' DATALOG.15: TestSpillHeaders (new, pure - VLA_Relation's spill header
 ' check, RefersTo matching and text, the error-value reason, and every
 ' new refusal's words, with no live workbook) and TestSpillHostTable (new,
@@ -357,6 +366,7 @@ Public Function TestDSLs() As Boolean
     TestDatalogGroundQuery
     TestDatalogNegatedQuery
     TestDatalogTextTests
+    TestDatalogGroundRules
     TestDatalogHostTable
     TestSpillHeaders
     TestSpillHostTable
@@ -2114,6 +2124,406 @@ Private Sub TestDatalogTextTests()
            ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "asks a text test on its own", vbTextCompare) > 0, "got: " & r
 End Sub
 
+' ---------------------------------------------------------------------
+'  OPTIMIZE.3 slice 1: THE INTEGER GROUNDER (VLA_Datalog.DatalogGroundRules
+'  over VLA_Relation's VlaSymbols), proven against the evaluator it mirrors.
+'
+'  Two kinds of pin. Hand-derived answers for every shape the integer path
+'  takes, where the ORDER is part of the key: RelJoin's choice of build
+'  side decides it, and OPTIMIZE will take its pools' order - its answer's
+'  tie-break, the owner's fork on the answer order - from rows grounded
+'  here. Each also has to have GONE the integer way, since a rule that
+'  quietly fell back to EvalRuleBody agrees with EvalRuleBody by
+'  definition; and the order-deciding ones are asked of EvalRuleBody too
+'  (variantOnly), so the hand key is checked against the reference as well
+'  as against the new code. Then every rule of every program in the parity
+'  table, grounded both ways over its own program's answer, required to
+'  agree row for row.
+'
+'  The two base programs are DatalogRun call sites, so they are in
+'  DatalogParityPrograms like every other, and run through OPTIMIZE's
+'  parity loop and this one's.
+' ---------------------------------------------------------------------
+Private Sub TestDatalogGroundRules()
+    Dim base As Object
+    Set base = VLA_Datalog.DatalogRun("(fact (p2 a 1)) (fact (p2 b 2)) (fact (q3 1 x)) (fact (q3 2 y)) (fact (q3 1 z))" & _
+        " (fact (p3 a 1)) (fact (p3 b 2)) (fact (p3 c 1)) (fact (q2 1 x)) (fact (q2 2 y))" & _
+        " (fact (r a a)) (fact (r a b)) (fact (r c c)) (fact (bad 1))" & _
+        " (fact (n a 1)) (fact (n b 10)) (fact (n c 3)) (fact (w abc)) (fact (w xab)) (fact (w ab))" & _
+        " (fact (one a)) (fact (one b)) (fact (two 1)) (fact (two 2)) (fact (pv a 1)) (fact (pv a 2)) (fact (pv b 1))" & _
+        " (query p2)").Item(2)
+    Dim t As String
+
+    ' --- one atom, and the two join orders ------------------------------
+    t = GroundText("(rule (h X Y) (p2 X Y))", base)
+    Report "ground: one atom gives its relation back in its own order", t = "h:a,1;b,2", "got " & t
+    Report "ground: and it went the integer way", _
+           VLA_Datalog.DatalogGroundIntegerRules() = 1 And VLA_Datalog.DatalogGroundVariantRules() = 0, GroundPathText()
+    ' Two rows so far against q3's three: RelJoin builds on the LEFT and
+    ' probes with q3, so the rows follow q3 - a, b, then a again.
+    t = GroundText("(rule (h X Z) (p2 X Y) (q3 Y Z))", base)
+    Report "ground: a join that builds on the left follows the relation's order", t = "h:a,x;b,y;a,z", "got " & t
+    ' Three rows so far against q2's two: it builds on the RIGHT and probes
+    ' with the rows so far, so the rows follow p3 - a, b, c.
+    t = GroundText("(rule (h X Z) (p3 X Y) (q2 Y Z))", base)
+    Report "ground: a join that builds on the right follows the rows so far", t = "h:a,x;b,y;c,x", "got " & t
+    Report "ground: EvalRuleBody itself gives both joins these rows in this order", _
+           GroundText("(rule (h X Z) (p2 X Y) (q3 Y Z))", base, True) = "h:a,x;b,y;a,z" And _
+           GroundText("(rule (h X Z) (p3 X Y) (q2 Y Z))", base, True) = "h:a,x;b,y;c,x", _
+           "the reference evaluator disagreed with the hand key"
+
+    ' --- what an atom filters by itself -----------------------------------
+    t = GroundText("(rule (h X) (p3 X 1))", base)
+    Report "ground: a constant filters its column", t = "h:a;c", "got " & t
+    t = GroundText("(rule (h X) (p3 X zz))", base)
+    Report "ground: a constant no value spells matches nothing", t = "h:", "got " & t
+    t = GroundText("(rule (h X) (r X X))", base)
+    Report "ground: a repeated variable keeps only the rows that repeat", t = "h:a;c", "got " & t
+
+    ' --- negation ---------------------------------------------------------
+    t = GroundText("(rule (h X) (p2 X Y) (not (bad Y)))", base)
+    Report "ground: a negated atom removes the rows it matches", t = "h:b", "got " & t
+    t = GroundText("(rule (h X) (p2 X Y) (not (q2 Y zz)))", base)
+    Report "ground: a negated atom with a constant nobody spells removes nothing", t = "h:a;b", "got " & t
+
+    ' --- comparisons and text tests read VALUES ---------------------------
+    ' Numeric text compares as numbers (BuiltinOperandIsNumeric's lenient
+    ' policy): as text, "10" would sort before "2".
+    t = GroundText("(rule (h X) (n X V) (> V 2))", base)
+    Report "ground: numeric text compares as numbers - 10 is over 2", t = "h:b;c", "got " & t
+    Report "ground: and a comparison over unambiguous values went the integer way", _
+           VLA_Datalog.DatalogGroundIntegerRules() = 1, GroundPathText()
+    t = GroundText("(rule (h X) (n X V) (< X b))", base)
+    Report "ground: words compare as text", t = "h:a", "got " & t
+    t = GroundText("(rule (h X) (w X) (text-starts-with X ab))", base)
+    Report "ground: a text test keeps what passes", t = "h:abc;ab", "got " & t
+    t = GroundText("(rule (h X) (w X) (not (text-starts-with X ab)))", base)
+    Report "ground: and under not, what fails", t = "h:xab", "got " & t
+
+    ' --- products, heads, bodies of constants ------------------------------
+    ' No shared variable: RelJoin's keys are all equal, it builds on the
+    ' left (two against two), and probes with two - so 1 pairs with a, then
+    ' b, before 2 does.
+    t = GroundText("(rule (h X Y) (one X) (two Y))", base)
+    Report "ground: a Cartesian body builds the product in RelJoin's order", t = "h:a,1;b,1;a,2;b,2", "got " & t
+    Report "ground: EvalRuleBody builds the same product in the same order", _
+           GroundText("(rule (h X Y) (one X) (two Y))", base, True) = "h:a,1;b,1;a,2;b,2", _
+           "the reference evaluator disagreed with the hand key"
+    t = GroundText("(rule (h X) (pv X Y))", base)
+    Report "ground: a head that drops a variable keeps each row once, first seen first", t = "h:a;b", "got " & t
+    t = GroundText("(rule (h k X) (one X))", base)
+    Report "ground: a head's constant is written into every row", t = "h:k,a;k,b", "got " & t
+    t = GroundText("(rule (h x) (one a))", base)
+    Report "ground: a body of constants that holds gives its one row", t = "h:x", "got " & t
+    t = GroundText("(rule (h x) (one zz))", base)
+    Report "ground: and one that does not hold gives none", t = "h:", "got " & t
+
+    ' --- a kind the integer path does not evaluate -------------------------
+    t = GroundText("(rule (h X W) (n X V) (let W (+ V 1)))", base)
+    Report "ground: a let's rule is answered by EvalRuleBody, with its own numbers", t = "h:a,2;b,11;c,4", "got " & t
+    Report "ground: which it went to, not the integer way", _
+           VLA_Datalog.DatalogGroundIntegerRules() = 0 And VLA_Datalog.DatalogGroundVariantRules() = 1, GroundPathText()
+
+    ' --- a batch ---------------------------------------------------------------
+    t = GroundText("(rule (h X) (one X)) (rule (g Y) (two Y))", base)
+    Report "ground: a batch answers each rule, in written order", t = "h:a;b | g:1;2", "got " & t
+    Report "ground: both in integers", VLA_Datalog.DatalogGroundIntegerRules() = 2, GroundPathText()
+    Report "ground: and the caller's dictionary never gains a head the batch derived", _
+           Not VLA_Runtime.VlaDictHas(base, "h") And Not VLA_Runtime.VlaDictHas(base, "g"), _
+           "a derived head escaped into the caller's relations"
+
+    ' --- one spelling, two values -----------------------------------------------
+    ' d holds the NUMBER 1 (a let's result) where n holds the TEXT "1".
+    Dim base2 As Object
+    Set base2 = VLA_Datalog.DatalogRun("(fact (n a 1)) (rule (d X Y) (n X V) (let Y (+ V 0))) (query d)").Item(2)
+    t = GroundText("(rule (h X) (n X V) (d X V))", base2)
+    Report "ground: the text 1 and the number 1 join, as RelJoin's keys join them", t = "h:a", "got " & t
+    Report "ground: a join reads identities alone, so it still went the integer way", _
+           VLA_Datalog.DatalogGroundIntegerRules() = 1, GroundPathText()
+    t = GroundText("(rule (h X) (n X V) (d X V) (> V 0))", base2)
+    Report "ground: a comparison over that spelling is answered", t = "h:a", "got " & t
+    Report "ground: by EvalRuleBody, since one value could not stand for both", _
+           VLA_Datalog.DatalogGroundIntegerRules() = 0 And VLA_Datalog.DatalogGroundVariantRules() = 1, GroundPathText()
+
+    ' --- a keyed atom: desugared by DATALOG's own parser first ----------------
+    Dim keyedArr(1 To 4, 1 To 3) As Variant
+    keyedArr(1, 1) = "Name": keyedArr(1, 2) = "Salary": keyedArr(1, 3) = "Dept"
+    keyedArr(2, 1) = "alice": keyedArr(2, 2) = 90000: keyedArr(2, 3) = "eng"
+    keyedArr(3, 1) = "bob": keyedArr(3, 2) = 70000: keyedArr(3, 3) = "sales"
+    keyedArr(4, 1) = "carol": keyedArr(4, 2) = 95000: keyedArr(4, 3) = "eng"
+    Dim keyedBase As Object
+    Set keyedBase = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet keyedBase, "staffing", VLA_Relation.RelFromRange(keyedArr, True)
+    Dim keyedCols As Collection
+    Set keyedCols = New Collection
+    keyedCols.Add SqlColPair("name", "Name")
+    keyedCols.Add SqlColPair("salary", "Salary")
+    keyedCols.Add SqlColPair("dept", "Dept")
+    Dim keyedMap As Object
+    Set keyedMap = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet keyedMap, "staffing", keyedCols
+    t = GroundText("(rule (h X) (staffing (name X) (salary S)) (> S 80000))", keyedBase, False, keyedMap)
+    Report "ground: a keyed atom is desugared first, and its numbers compare as numbers", _
+           t = "h:alice;carol", "got " & t
+    Report "ground: in integers", VLA_Datalog.DatalogGroundIntegerRules() = 1, GroundPathText()
+
+    ' --- refusals ------------------------------------------------------------------
+    Report "ground refusal: a rule reading what its own batch derives is refused as a Frazaro bug", _
+           InStr(1, GroundRefusal("(rule (h X) (one X)) (rule (g X) (h X))", base), "integer grounder", vbTextCompare) > 0, _
+           "got: " & GroundRefusal("(rule (h X) (one X)) (rule (g X) (h X))", base)
+    Report "ground refusal: so is a head naming a relation that already exists", _
+           InStr(1, GroundRefusal("(rule (one X) (two X))", base), "integer grounder", vbTextCompare) > 0, _
+           "got: " & GroundRefusal("(rule (one X) (two X))", base)
+    Report "ground refusal: an undefined name is refused in DATALOG's own words", _
+           InStr(1, GroundRefusal("(rule (h X) (nothere X))", base), "nothing defines it", vbTextCompare) > 0, _
+           "got: " & GroundRefusal("(rule (h X) (nothere X))", base)
+
+    ' --- the symbol table ---------------------------------------------------------
+    Dim syms As VlaSymbols
+    Dim idA As Long, idB As Long
+    VLA_Relation.VlaSymInit syms
+    idA = VLA_Relation.VlaSymIntern(syms, "a")
+    idB = VLA_Relation.VlaSymIntern(syms, "a")
+    Report "ground symbols: one spelling is one id", idA = 1 And idB = 1, "ids " & idA & " and " & idB
+    Report "ground symbols: a spelling never interned is id 0", VLA_Relation.VlaSymFind(syms, "b") = 0, _
+           "found " & VLA_Relation.VlaSymFind(syms, "b")
+    Report "ground symbols: two equal texts are no ambiguity", Not syms.ambiguous, "flagged"
+    idA = VLA_Relation.VlaSymIntern(syms, "1")
+    idB = VLA_Relation.VlaSymIntern(syms, 1#)
+    Report "ground symbols: the text 1 and the number 1 are one id", idA = idB, "ids " & idA & " and " & idB
+    Report "ground symbols: and an ambiguity, since they are two values", syms.ambiguous, "not flagged"
+    VLA_Relation.VlaSymInit syms
+    idA = VLA_Relation.VlaSymIntern(syms, 3&)
+    idB = VLA_Relation.VlaSymIntern(syms, 3#)
+    Report "ground symbols: a whole number held as Long and as Double is one value", _
+           idA = idB And Not syms.ambiguous, "ids " & idA & " and " & idB
+    VLA_Relation.VlaSymInit syms
+    idA = VLA_Relation.VlaSymIntern(syms, 1# / 3#)
+    idB = VLA_Relation.VlaSymIntern(syms, 0.333333333333333)
+    Report "ground symbols: two numbers CStr prints alike are an ambiguity", _
+           idA = idB And syms.ambiguous, "ids " & idA & " and " & idB & " for " & CStr(1# / 3#)
+    VLA_Relation.VlaSymInit syms
+    idA = VLA_Relation.VlaSymInternSpelling(syms, "7")
+    idB = VLA_Relation.VlaSymIntern(syms, 7#)
+    Report "ground symbols: a rule's constant is claimed by the first value, with no ambiguity", _
+           idA = idB And Not syms.ambiguous, "ids " & idA & " and " & idB
+    Report "ground symbols: and holds that value from then on", VarType(syms.rep(idB)) = vbDouble, _
+           "type " & VarType(syms.rep(idB))
+    VLA_Relation.VlaSymInit syms
+    Dim gi As Long
+    Dim inOrder As Boolean
+    inOrder = True
+    For gi = 1 To 3000
+        If VLA_Relation.VlaSymIntern(syms, "v" & gi) <> gi Then inOrder = False
+    Next gi
+    Report "ground symbols: three thousand spellings take ids 1 to 3000 in order", _
+           inOrder And syms.n = 3000, "n " & syms.n
+    Report "ground symbols: and are all found again after the table has grown", _
+           VLA_Relation.VlaSymFind(syms, "v1234") = 1234 And VLA_Relation.VlaSymFind(syms, "v3001") = 0, _
+           "v1234 is " & VLA_Relation.VlaSymFind(syms, "v1234")
+    VLA_Relation.VlaSymInit syms
+    Dim relRows() As Long
+    Dim relN As Long
+    VLA_Relation.VlaSymInternRelation VLA_Runtime.VlaDictGet(base, "p2"), syms, relRows, relN
+    t = GroundRowsText(relRows, relN, 2, syms)
+    Report "ground symbols: a relation interns row by row, column by column", t = "a,1;b,2", "got " & t
+
+    ' --- every rule of every parity program, both ways ------------------------------
+    Dim programs As Collection
+    Set programs = DatalogParityPrograms()
+    Dim p As Variant
+    Dim ix As Long
+    Dim label As String
+    Dim verdict As String
+    Dim rulesSeen As Long, intSeen As Long
+    For Each p In programs
+        ix = ix + 1
+        label = CStr(p)
+        If Len(label) > 64 Then label = Left$(label, 64) & "..."
+        verdict = GroundParityVerdict(CStr(p), rulesSeen, intSeen)
+        Report "ground parity " & ix & ": " & label, Len(verdict) = 0, verdict
+    Next p
+    ' Floors, so the loop above cannot pass by grounding nothing. Counted by
+    ' hand from the table at OPTIMIZE.3: about 67 rules sit in programs
+    ' DATALOG answers, about 50 of them joins and filters alone.
+    Report "ground parity: at least 40 rules went through both evaluators", rulesSeen >= 40, "rules " & rulesSeen
+    Report "ground parity: at least 25 of them in integers", intSeen >= 25, "integer " & intSeen
+    Debug.Print "  info: ground parity compared " & rulesSeen & " rules, " & intSeen & " of them in integers"
+End Sub
+
+' One batch's answer as text: "head:row;row", cells joined by commas, each
+' cell its spelling, batches' rules joined by " | ". Rows in the order the
+' grounder returned them, so the text is an order pin as well as a set one.
+Private Function GroundText(ByVal rulesText As String, ByVal base As Object, _
+                            Optional ByVal variantOnly As Boolean = False, _
+                            Optional ByVal headerMap As Object = Nothing) As String
+    Dim syms As VlaSymbols
+    VLA_Relation.VlaSymInit syms
+    Dim res As Collection
+    Set res = VLA_Datalog.DatalogGroundRules(VLA.VlaReadForms(rulesText), base, headerMap, syms, variantOnly)
+    GroundText = GroundResultText(res, syms)
+End Function
+
+' A batch's refusal, or "" when it answered. Err is read into locals
+' before On Error GoTo 0, which would otherwise clear it.
+Private Function GroundRefusal(ByVal rulesText As String, ByVal base As Object) As String
+    Dim t As String
+    Dim errNo As Long, errText As String
+    On Error Resume Next
+    Err.Clear
+    t = GroundText(rulesText, base)
+    errNo = Err.Number
+    errText = Err.Description
+    On Error GoTo 0
+    If errNo <> 0 Then GroundRefusal = errText
+End Function
+
+Private Function GroundPathText() As String
+    GroundPathText = "integer " & VLA_Datalog.DatalogGroundIntegerRules() & _
+                     ", EvalRuleBody " & VLA_Datalog.DatalogGroundVariantRules()
+End Function
+
+Private Function GroundResultText(ByVal res As Collection, ByRef syms As VlaSymbols) As String
+    Dim s As String
+    Dim g As Variant
+    Dim rows() As Long
+    For Each g In res
+        If Len(s) > 0 Then s = s & " | "
+        rows = g(3)
+        s = s & CStr(g(0)) & ":" & GroundRowsText(rows, CLng(g(2)), CLng(g(1)), syms)
+    Next g
+    GroundResultText = s
+End Function
+
+' Rows of an integer relation as text. Every index is checked against the
+' array first, so a malformed result reports itself rather than raising in
+' the middle of the suite.
+Private Function GroundRowsText(ByRef rows() As Long, ByVal nRows As Long, ByVal arity As Long, _
+                                ByRef syms As VlaSymbols) As String
+    Dim s As String
+    Dim r As Long, c As Long, ix As Long, id As Long
+    For r = 0 To nRows - 1
+        If r > 0 Then s = s & ";"
+        For c = 1 To arity
+            If c > 1 Then s = s & ","
+            ix = r * arity + c
+            If ix > UBound(rows) Then
+                GroundRowsText = s & "<row " & (r + 1) & " is missing>"
+                Exit Function
+            End If
+            id = rows(ix)
+            If id < 1 Or id > syms.n Then
+                s = s & "<id " & id & ">"
+            Else
+                s = s & syms.spell(id)
+            End If
+        Next c
+    Next r
+    GroundRowsText = s
+End Function
+
+' One parity program: "" when every rule it holds, grounded alone over its
+' own program's answer, gives the same rows in the same order both ways -
+' or when DATALOG refuses the program, since there is then no answer to
+' ground over (the refusal itself is TestOptimizeParity's business). Each
+' rule's head is renamed first: its body may read its own predicate, which
+' is data here, and a batch's head may not name a relation that exists.
+Private Function GroundParityVerdict(ByVal program As String, ByRef rulesSeen As Long, _
+                                     ByRef intSeen As Long) As String
+    Dim dRes As Collection
+    Dim dErr As Long
+    On Error Resume Next
+    Err.Clear
+    Set dRes = VLA_Datalog.DatalogRun(program)
+    dErr = Err.Number
+    On Error GoTo 0
+    If dErr <> 0 Then Exit Function
+    Dim base As Object
+    Set base = dRes.Item(2)
+    Dim forms As Collection
+    Set forms = VLA.VlaReadForms(program)
+    Dim f As Variant
+    Dim ruleNo As Long
+    Dim batch As Collection
+    Dim aText As String, bText As String
+    Dim aErr As Long, bErr As Long
+    Dim aDesc As String, bDesc As String
+    Dim aInt As Long
+    For Each f In forms
+        If GroundIsRuleForm(f) Then
+            ruleNo = ruleNo + 1
+            Set batch = New Collection
+            batch.Add GroundRenamedRule(f)
+            aText = GroundFormsText(batch, base, False, aErr, aDesc)
+            aInt = VLA_Datalog.DatalogGroundIntegerRules()
+            bText = GroundFormsText(batch, base, True, bErr, bDesc)
+            If aErr <> 0 Or bErr <> 0 Then
+                If aErr <> bErr Or StrComp(aDesc, bDesc, vbBinaryCompare) <> 0 Then
+                    GroundParityVerdict = "rule " & ruleNo & ": integer path [" & aErr & " " & aDesc & _
+                                          "] against EvalRuleBody [" & bErr & " " & bDesc & "]"
+                    Exit Function
+                End If
+            ElseIf StrComp(aText, bText, vbBinaryCompare) <> 0 Then
+                GroundParityVerdict = "rule " & ruleNo & ": integer path [" & aText & _
+                                      "] against EvalRuleBody [" & bText & "]"
+                Exit Function
+            End If
+            rulesSeen = rulesSeen + 1
+            intSeen = intSeen + aInt
+        End If
+    Next f
+End Function
+
+Private Function GroundFormsText(ByVal batch As Collection, ByVal base As Object, ByVal variantOnly As Boolean, _
+                                 ByRef errNo As Long, ByRef errText As String) As String
+    Dim syms As VlaSymbols
+    VLA_Relation.VlaSymInit syms
+    Dim res As Collection
+    Dim t As String
+    On Error Resume Next
+    Err.Clear
+    Set res = VLA_Datalog.DatalogGroundRules(batch, base, Nothing, syms, variantOnly)
+    errNo = Err.Number
+    errText = Err.Description
+    On Error GoTo 0
+    If errNo = 0 Then t = GroundResultText(res, syms)
+    GroundFormsText = t
+End Function
+
+Private Function GroundIsRuleForm(ByVal f As Variant) As Boolean
+    If Not IsObject(f) Then Exit Function
+    Dim lst As Collection
+    Set lst = f
+    If lst.Count < 3 Then Exit Function
+    If IsObject(lst.Item(1)) Then Exit Function
+    If VLA_Identity.Fold(CStr(lst.Item(1))) <> "rule" Then Exit Function
+    GroundIsRuleForm = IsObject(lst.Item(2))
+End Function
+
+' The same rule with its head predicate renamed, every other part the
+' reader's own object.
+Private Function GroundRenamedRule(ByVal f As Variant) As Collection
+    Dim src As Collection
+    Set src = f
+    Dim headSrc As Collection
+    Set headSrc = src.Item(2)
+    Dim head As Collection
+    Set head = New Collection
+    head.Add "zzvlaground"
+    Dim i As Long
+    For i = 2 To headSrc.Count
+        head.Add headSrc.Item(i)
+    Next i
+    Dim outp As Collection
+    Set outp = New Collection
+    outp.Add "rule"
+    outp.Add head
+    For i = 3 To src.Count
+        outp.Add src.Item(i)
+    Next i
+    Set GroundRenamedRule = outp
+End Function
+
 ' Host-required: every real bug this engine's MVP ever found (this
 ' module's own header note has the list) only ever showed up through a
 ' real Excel Table, never through RelFromRange fed a hand-built array -
@@ -3077,9 +3487,12 @@ Private Sub TestOptimizeParity()
     ' NOTE, because it is not obvious from here: this loop reports ONCE PER
     ' PROGRAM, so adding to the table moves TestDSLs' total by that many.
     ' DATALOG.14 added eleven pins and ten programs and its own build
-    ' record predicted +11; the suite moved +21.
-    Report "optimize parity: the table carries every DATALOG program (190 at DATALOG.14)", _
-           programs.Count >= 190, "got " & programs.Count
+    ' record predicted +11; the suite moved +21. OPTIMIZE.3's slice 1 added
+    ' two, its integer-grounder pins' base programs, and TestDatalogGroundRules
+    ' walks the same table once more - so each program here is now TWO
+    ' assertions, one in each loop.
+    Report "optimize parity: the table carries every DATALOG program (192 at OPTIMIZE.3)", _
+           programs.Count >= 192, "got " & programs.Count
 End Sub
 
 ' Every distinct DATALOG program this module names, from every
@@ -3293,6 +3706,13 @@ Private Function DatalogParityPrograms() As Collection
     p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask W) (any e5 W)) (query ask)"
     p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask W) (edge W Q) (not (any W e1))) (query ask)"
     p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (side W) (any W e1)) (query any)"
+    ' OPTIMIZE.3 slice 1: TestDatalogGroundRules' two base programs - the
+    ' relations its integer-grounder pins ground over. Appended rather than
+    ' sorted in, so no earlier parity pin changes its number.
+    p.Add "(fact (p2 a 1)) (fact (p2 b 2)) (fact (q3 1 x)) (fact (q3 2 y)) (fact (q3 1 z)) (fact (p3 a 1)) (fact (p3 b 2)) (fact (p3 c 1)) (fact (q2 1 x)) (fact (q2 2 y))" & _
+          " (fact (r a a)) (fact (r a b)) (fact (r c c)) (fact (bad 1)) (fact (n a 1)) (fact (n b 10)) (fact (n c 3)) (fact (w abc)) (fact (w xab)) (fact (w ab))" & _
+          " (fact (one a)) (fact (one b)) (fact (two 1)) (fact (two 2)) (fact (pv a 1)) (fact (pv a 2)) (fact (pv b 1)) (query p2)"
+    p.Add "(fact (n a 1)) (rule (d X Y) (n X V) (let Y (+ V 0))) (query d)"
     Set DatalogParityPrograms = p
 End Function
 

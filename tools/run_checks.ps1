@@ -65,7 +65,8 @@ $extras = @(
     @{ Script = 'optimize01_corpus.ps1';   Args = @();              What = 'the OPTIMIZE corpus against its keys' },
     @{ Script = 'datalog14_proof.ps1';     Args = @();              What = 'DATALOG.14 specialisation, 15 hand-derived programs' },
     @{ Script = 'datalog14_proof.ps1';     Args = @('-Mutations');  What = 'DATALOG.14 conditions, mutation control' },
-    @{ Script = 'datalog14_model.ps1';     Args = @('-Control');    What = 'DATALOG.14 cost model against the measured ladder' }
+    @{ Script = 'datalog14_model.ps1';     Args = @('-Control');    What = 'DATALOG.14 cost model against the measured ladder' },
+    @{ Script = 'optimize3_model.ps1';     Args = @('-Control');    What = 'OPTIMIZE.3 grounding model against the pre-flight ladder' }
 )
 
 function Invoke-OneScript {

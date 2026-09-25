@@ -1,6 +1,17 @@
 Attribute VB_Name = "VLA_Relation"
 Option Explicit
-Public Const VLA_RELATION_VERSION As String = "DATALOG.15"
+Public Const VLA_RELATION_VERSION As String = "OPTIMIZE.3"
+' OPTIMIZE.3 (slice 1): the integer grounder's substrate - a symbol table
+' (VlaSymbols, in the declarations section) giving every distinct value a
+' Long id by its spelling, and VlaSymInternRelation, which turns a Relation
+' into rows of those ids. The evaluator that joins them is VLA_Datalog's
+' (DatalogGroundRules); nothing here knows what a rule is. An id is a
+' SPELLING - CStr's text - which is exactly the identity TupleKey and
+' PartialKey already give a tuple and a join key, so the integer path and
+' RelJoin agree on which rows match by construction. No COM object: the
+' table hashes a spelling's own bytes, so a host without the Scripting
+' runtime runs the same code.
+'
 ' DATALOG.15: a spilled range's first row counts as its headers, so a
 ' DATALOG question can read an OPTIMIZE answer (or any dynamic-array
 ' spill) as a data table - OPTIMIZE's standing decision 1. SPILLS ONLY:
@@ -214,6 +225,52 @@ Public Const AGG_SUM As Long = 1
 Public Const AGG_MIN As Long = 2
 Public Const AGG_MAX As Long = 3
 Public Const AGG_AVG As Long = 4
+
+' OPTIMIZE.3 slice 1: the integer grounder's SYMBOL TABLE - every distinct
+' value a grounding reads, given a Long id once, so that a join, a filter
+' and a set membership test compare two Longs instead of building a string
+' key and asking a Scripting.Dictionary about it per row. Declared here
+' because a module-level Type, like a Const, must precede this module's
+' first procedure; the procedures that keep it are at the end of the file.
+'
+' AN ID IS A SPELLING, and that is the whole semantic claim. Two values are
+' one symbol exactly when CStr gives them the same text - which is the
+' identity this module's own TupleKey and PartialKey already give a
+' Relation's tuples and RelJoin's keys, so an integer join and RelJoin
+' agree about which rows match by construction rather than by argument.
+' (The one place they could differ is TupleKey's own Chr$(31) separator,
+' which this module's header already names as a theoretical collision; ids
+' do not share it.)
+'
+' THE VALUE BEHIND A SPELLING is kept once, as the first value seen with it
+' (rep), for the operations that read a value rather than an identity - a
+' comparison, a text test, a cell handed back. When two DIFFERENT values
+' share a spelling - the number 1 and the text "1", or two Doubles CStr
+' prints alike - the table is flagged ambiguous, and every caller that
+' reads a value rather than an identity must then go back to the Variant
+' path instead of trusting rep. A spelling written in a RULE (a constant)
+' has no value behind it until a relation brings one, so it never raises
+' the flag by itself.
+Public Type VlaSymbols
+    n As Long                 ' ids 1..n are in use; element 0 of every array is unused
+    slotMask As Long          ' size of slot() less one; the size is a power of two
+    slot() As Long            ' open addressing: 0 is an empty slot, anything else an id
+    spell() As String         ' id -> its spelling, CStr of the value
+    cls() As Long             ' id -> what kind of value it is (SYM_CLS_*)
+    num() As Double           ' id -> the number, when cls is SYM_CLS_NUMBER
+    rep() As Variant          ' id -> the first value seen with this spelling
+    ambiguous As Boolean      ' some spelling stands for two different values
+End Type
+
+' What a symbol's value is. SYM_CLS_SPELLING is a rule constant nothing has
+' brought a value for; the others follow VarType, with NUMBER being exactly
+' ValueIsNumericType's own set (SymClassOf asks it rather than repeating it).
+Private Const SYM_CLS_SPELLING As Long = 0
+Private Const SYM_CLS_TEXT As Long = 1
+Private Const SYM_CLS_NUMBER As Long = 2
+Private Const SYM_CLS_BOOLEAN As Long = 3
+Private Const SYM_CLS_EMPTY As Long = 4
+Private Const SYM_CLS_OTHER As Long = 5
 
 ' Tuple identity for dedup/index keys is DELIBERATELY case-SENSITIVE
 ' and NOT folded through VLA_Identity.Fold: a Relation's tuples are a
@@ -1785,4 +1842,214 @@ Public Function RelGroupBy(ByVal rows As Collection, ByVal keyPositions As Varia
         outp.Add outRow
     Next gi
     Set RelGroupBy = outp
+End Function
+
+' =====================================================================
+'  OPTIMIZE.3 slice 1: THE INTEGER GROUNDER'S SUBSTRATE - the symbol
+'  table (VlaSymbols, declared at the top of this module) and the one
+'  conversion every integer relation starts from.
+'
+'  WHY IT IS HERE. OPTIMIZE.0 measured a Scripting.Dictionary slowing as
+'  it grows (1.27 us a key at 10,000 keys, 8.83 at 400,000), and the
+'  OPTIMIZE.3 pre-flight measured the grounding shapes OPTIMIZE needs -
+'  the rows a join PRODUCES - at about 7.6 us a row, dictionary-bound,
+'  after DATALOG.14 had removed everything else. An integer relation pays
+'  for a value's string once, here, when the value is first read; after
+'  that every join, filter and membership test in VLA_Datalog's integer
+'  evaluator compares Longs. Substrate rather than engine: nothing below
+'  knows what a rule is, and any engine could read a Relation this way.
+'
+'  NO COM OBJECT. The table is open addressing over a hash of the
+'  spelling's own UTF-16 bytes, so it runs the same on a host without the
+'  Scripting runtime - where RelNew's index is Nothing and RelTryAdd
+'  falls back to a linear scan - rather than needing a second path.
+'
+'  AN INTEGER RELATION is a Long array, rows laid end to end: row r
+'  (0-based) column c (1-based) is rows(r * arity + c), and element 0 is
+'  never used, so an empty relation is rows(0 To 0) and no caller ever
+'  meets the inverted-bounds ReDim RelUnit's header warns about.
+' =====================================================================
+
+' Empties a symbol table, ready for one grounding. Every array starts
+' small and doubles; ids begin at 1.
+Public Sub VlaSymInit(ByRef syms As VlaSymbols)
+    syms.n = 0
+    syms.slotMask = 1023
+    ReDim syms.slot(0 To syms.slotMask)
+    ReDim syms.spell(0 To 255)
+    ReDim syms.cls(0 To 255)
+    ReDim syms.num(0 To 255)
+    ReDim syms.rep(0 To 255)
+    syms.ambiguous = False
+End Sub
+
+' The id of a spelling, or 0 when nothing has been interned with it - in
+' which case no value any relation holds has that spelling, so a constant
+' that looks it up can match nothing.
+Public Function VlaSymFind(ByRef syms As VlaSymbols, ByVal s As String) As Long
+    Dim p As Long
+    p = SymHash(s) And syms.slotMask
+    Dim id As Long
+    Do
+        id = syms.slot(p)
+        If id = 0 Then Exit Function
+        If StrComp(syms.spell(id), s, vbBinaryCompare) = 0 Then
+            VlaSymFind = id
+            Exit Function
+        End If
+        p = (p + 1) And syms.slotMask
+    Loop
+End Function
+
+' A VALUE read from a relation: its id, interned if new. The first value
+' seen with a spelling becomes that spelling's rep; a later one that is a
+' different kind of value, or a different number, flags the table
+' ambiguous (see VlaSymbols' own header for what a caller must then do).
+Public Function VlaSymIntern(ByRef syms As VlaSymbols, ByVal v As Variant) As Long
+    Dim s As String
+    s = CStr(v)
+    Dim c As Long
+    c = SymClassOf(v)
+    Dim id As Long
+    id = VlaSymFind(syms, s)
+    If id = 0 Then
+        id = SymAdd(syms, s)
+        SymClaim syms, id, v, c
+    ElseIf syms.cls(id) = SYM_CLS_SPELLING Then
+        ' A constant a rule wrote before any relation brought this spelling:
+        ' the first real value claims it, and that is not an ambiguity.
+        SymClaim syms, id, v, c
+    ElseIf syms.cls(id) <> c Then
+        syms.ambiguous = True
+    ElseIf c = SYM_CLS_NUMBER Then
+        If syms.num(id) <> CDbl(v) Then syms.ambiguous = True
+    End If
+    VlaSymIntern = id
+End Function
+
+' A SPELLING written in a rule - a constant, or a rule head's own constant
+' slot. It is given an id so it can be compared as one, and its rep is the
+' text itself, which is exactly the value DATALOG's own evaluator holds for
+' a constant (AtomText, a String). A relation value arriving later with the
+' same spelling claims it.
+Public Function VlaSymInternSpelling(ByRef syms As VlaSymbols, ByVal s As String) As Long
+    Dim id As Long
+    id = VlaSymFind(syms, s)
+    If id = 0 Then
+        id = SymAdd(syms, s)
+        syms.cls(id) = SYM_CLS_SPELLING
+        syms.rep(id) = s
+    End If
+    VlaSymInternSpelling = id
+End Function
+
+' A whole Relation as an integer relation (layout in this block's header),
+' interning every cell in tuple order. nRows is the relation's own count;
+' an arity-0 relation (RelUnit) gives nRows rows of no columns.
+Public Sub VlaSymInternRelation(ByVal rel As Collection, ByRef syms As VlaSymbols, _
+                                ByRef rows() As Long, ByRef nRows As Long)
+    Dim k As Long
+    k = RelArity(rel)
+    nRows = RelCount(rel)
+    ReDim rows(0 To nRows * k)
+    Dim r As Long
+    Dim t As Variant, arr() As Variant
+    Dim c As Long
+    For Each t In RelTuples(rel)
+        arr = t
+        For c = 1 To k
+            rows(r * k + c) = VlaSymIntern(syms, arr(LBound(arr) + c - 1))
+        Next c
+        r = r + 1
+    Next t
+End Sub
+
+' The hash of a spelling, over its own UTF-16 bytes. Masked to 23 bits at
+' every step, so h * 33 + a byte can never overflow a Long: the largest h
+' is &H7FFFFF, and 33 times that plus 255 is well under 2^31. An empty
+' spelling assigns an empty Byte array, whose UBound is -1, and hashes to
+' the seed.
+Private Function SymHash(ByVal s As String) As Long
+    Dim b() As Byte
+    b = s
+    Dim h As Long
+    h = 5381
+    Dim i As Long
+    For i = 0 To UBound(b)
+        h = ((h * 33) + b(i)) And &H7FFFFF
+    Next i
+    SymHash = h
+End Function
+
+' A new spelling's id. The arrays double as they fill, and the slot table
+' is kept at most half full, so every probe loop in this block ends.
+Private Function SymAdd(ByRef syms As VlaSymbols, ByVal s As String) As Long
+    Dim id As Long
+    id = syms.n + 1
+    If id > UBound(syms.spell) Then
+        Dim newTop As Long
+        newTop = 2 * UBound(syms.spell) + 1
+        ReDim Preserve syms.spell(0 To newTop)
+        ReDim Preserve syms.cls(0 To newTop)
+        ReDim Preserve syms.num(0 To newTop)
+        ReDim Preserve syms.rep(0 To newTop)
+    End If
+    syms.n = id
+    syms.spell(id) = s
+    If 2 * id > syms.slotMask + 1 Then
+        ' Rebuilding places every id, this one included.
+        SymRehash syms
+    Else
+        SymPlace syms, id
+    End If
+    SymAdd = id
+End Function
+
+Private Sub SymRehash(ByRef syms As VlaSymbols)
+    Dim size As Long
+    size = syms.slotMask + 1
+    Do While 2 * syms.n > size
+        size = size * 2
+    Loop
+    syms.slotMask = size - 1
+    ReDim syms.slot(0 To syms.slotMask)
+    Dim i As Long
+    For i = 1 To syms.n
+        SymPlace syms, i
+    Next i
+End Sub
+
+Private Sub SymPlace(ByRef syms As VlaSymbols, ByVal id As Long)
+    Dim p As Long
+    p = SymHash(syms.spell(id)) And syms.slotMask
+    Do While syms.slot(p) <> 0
+        p = (p + 1) And syms.slotMask
+    Loop
+    syms.slot(p) = id
+End Sub
+
+Private Sub SymClaim(ByRef syms As VlaSymbols, ByVal id As Long, ByVal v As Variant, ByVal c As Long)
+    syms.cls(id) = c
+    If c = SYM_CLS_NUMBER Then syms.num(id) = CDbl(v)
+    syms.rep(id) = v
+End Sub
+
+' NUMBER is ValueIsNumericType's own set, asked rather than repeated, so
+' what counts as a number here can never drift from what CompareValues'
+' callers count as one.
+Private Function SymClassOf(ByVal v As Variant) As Long
+    If ValueIsNumericType(v) Then
+        SymClassOf = SYM_CLS_NUMBER
+        Exit Function
+    End If
+    Select Case VarType(v)
+    Case vbString
+        SymClassOf = SYM_CLS_TEXT
+    Case vbBoolean
+        SymClassOf = SYM_CLS_BOOLEAN
+    Case vbEmpty
+        SymClassOf = SYM_CLS_EMPTY
+    Case Else
+        SymClassOf = SYM_CLS_OTHER
+    End Select
 End Function

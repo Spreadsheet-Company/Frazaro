@@ -1,6 +1,16 @@
 Attribute VB_Name = "VLA_Datalog"
 Option Explicit
-Public Const VLA_DATALOG_VERSION As String = "DATALOG.14"
+Public Const VLA_DATALOG_VERSION As String = "OPTIMIZE.3"
+' OPTIMIZE.3 (slice 1): THE INTEGER GROUNDER - DatalogGroundRules, a second
+' evaluator of this module's own parsed rules for OPTIMIZE to ground its
+' choices and constraints with. Nothing a user types reaches it yet. It
+' parses through ParseProgram, refuses in DATALOG's own words, and then
+' evaluates each rule once over VLA_Relation's integer relations: joins,
+' anti-joins, comparisons and text tests in Longs; any other body item
+' sends the whole rule to EvalRuleBody. Its own header, beside it, has why
+' the answer is the same row for row and in order, and the one shape of
+' batch it accepts. DatalogRun, DatalogRunForms and DATALOG are unchanged.
+'
 ' DATALOG.15: a spilled range's first row counts as its headers, so a
 ' question can read an OPTIMIZE answer or any spill as a data table
 ' ("Schedule lists the person as Name"). The change is VLA_Relation's
@@ -482,6 +492,15 @@ Private Const BI_LET As Long = 5
 ' DATALOG.11: a text test (text-starts-with T P), and (textjoin R Sep (pred ...)).
 Private Const BI_TEXT As Long = 6
 Private Const BI_JOIN As Long = 7
+
+' OPTIMIZE.3 slice 1: how many rules the LAST DatalogGroundRules call
+' evaluated in integers and how many it sent to EvalRuleBody. Read only by
+' pins, which would otherwise pass vacuously: a rule that silently fell back
+' to EvalRuleBody agrees with EvalRuleBody by definition. Declared here, in
+' the declarations section, because a module-level variable may not follow
+' a procedure.
+Private mGroundIntegerRules As Long
+Private mGroundVariantRules As Long
 
 ' ---- minimal S-expression accessors, duplicated from VLA.bas's own
 '      Private IsList/Nth (cross-module Private calls do not exist in
@@ -3391,6 +3410,832 @@ Public Function DatalogRunForms(ByVal forms As Collection, Optional ByVal baseRe
     End If
     Set DatalogRunForms = outp
 End Function
+
+' =====================================================================
+'  OPTIMIZE.3 slice 1: THE INTEGER GROUNDER
+' =====================================================================
+'
+'  WHAT IT IS. A second evaluator of THIS module's own parsed rules - not a
+'  second parser. OPTIMIZE grounds its choices and its constraints by
+'  writing them as ordinary rules over relations already in hand (the
+'  certain part, then the choice pools), and this evaluates each such rule
+'  once, over integer relations (VLA_Relation's VlaSymbols ids), where
+'  EvalRuleBody builds a Variant array, a string key and a dictionary entry
+'  for every row a join produces - about 7.6 us a produced row, measured by
+'  the OPTIMIZE.3 pre-flight after DATALOG.14 had removed everything else.
+'  The owner's calls, 2026-09-24: build it in this item rather than defer
+'  it (OPTIMIZE.3's fork 2), here in DATALOG as the item's first slice.
+'
+'  WHAT IT SHARES, WHICH IS EVERYTHING BUT THE LOOPS. The rules are read by
+'  ParseProgram - keyed atoms desugared, every refusal DATALOG's own,
+'  CheckRuleSafety applied - and held to the arity and undefined-name rules
+'  DatalogRunForms applies, in its order. Only EVALUATION differs, and only
+'  for four body-item kinds: a positive atom (a hash join), a negated atom
+'  (an anti-join), a comparison and a text test (filters). Any other kind -
+'  let, count, sum, textjoin, or one added after this - sends the WHOLE rule
+'  to EvalRuleBody itself, so a new DATALOG body item can never be
+'  evaluated here by accident.
+'
+'  WHAT MAKES IT THE SAME ANSWER, row for row and in order:
+'    identity - a symbol id is a spelling, CStr's text, which is exactly
+'      what TupleKey and PartialKey compare;
+'    order - a join builds on the smaller side and probes with the larger,
+'      as RelJoin chooses (ties to the left), and each bucket keeps its
+'      insertion order, so rows come out in RelJoin's order; the head keeps
+'      each row's first occurrence, which is what RunOneRulePass's
+'      RelTryAdd keeps;
+'    values - a comparison or a text test calls the same CompareValues,
+'      BuiltinOperandIsNumeric, DatalogValueText and TextTestHolds, on each
+'      symbol's value. When one spelling stands for two different values
+'      (VlaSymbols.ambiguous), a rule that reads values goes to EvalRuleBody
+'      instead, because one rep could not stand for both.
+'  No intermediate row needs de-duplicating: rows so far are distinct, a
+'  relation's rows are distinct, and two relation rows that join one row
+'  differ in some column only a NEW variable can hold - so what
+'  ProjectAfterJoin's RelTryAdd would absorb never arises.
+'
+'  WHAT IT MAY BE GIVEN. Rules that read only relations already in hand:
+'  none may read what another rule of the same batch derives, and no head
+'  may name a relation that already exists. That is what makes ONE pass of
+'  each rule the whole answer - a non-recursive rule's fixpoint over fixed
+'  relations is its first round, and its second round finds no delta - and
+'  it is exactly the shape OPTIMIZE generates. Either condition broken is a
+'  caller's defect, refused as one (datalog-ground-internal).
+'
+'  PushBoundArguments is not run: a batch has no recursive rule for it to
+'  specialise. Keeping a narrowed relation honest ACROSS OPTIMIZE's passes
+'  is the caller's job.
+'
+'  Returns one item per rule, in written order: Array(head predicate,
+'  arity, row count, rows), rows an integer relation in VLA_Relation's
+'  layout (row r, 0-based, column c at r * arity + c; element 0 unused).
+'  variantOnly sends every rule through EvalRuleBody - the parity pins run
+'  each rule both ways and require the two to agree.
+Public Function DatalogGroundRules(ByVal ruleForms As Collection, ByVal relations As Object, _
+                                   ByVal headerMap As Object, ByRef syms As VlaSymbols, _
+                                   Optional ByVal variantOnly As Boolean = False) As Collection
+    Dim outp As Collection
+    Set outp = New Collection
+    Set DatalogGroundRules = outp
+    mGroundIntegerRules = 0
+    mGroundVariantRules = 0
+    If ruleForms.Count = 0 Then Exit Function
+
+    ' The run's own dictionary: a head relation created below can never
+    ' reach the caller's (OPTIMIZE.2's lesson about a reused dictionary).
+    Dim rels As Object
+    Set rels = VLA_Runtime.VlaDictNew()
+    Dim predArity As Object
+    Set predArity = VLA_Runtime.VlaDictNew()
+    Dim k As Variant
+    For Each k In VLA_Runtime.VlaDictKeys(relations)
+        RefuseTextTestName CStr(k)
+        VLA_Runtime.VlaDictSet rels, CStr(k), VLA_Runtime.VlaDictGet(relations, k)
+        RecordArity predArity, CStr(k), VLA_Relation.RelArity(VLA_Runtime.VlaDictGet(relations, k))
+    Next k
+    Dim hMap As Object
+    If headerMap Is Nothing Then
+        Set hMap = VLA_Runtime.VlaDictNew()
+    Else
+        Set hMap = headerMap
+    End If
+
+    ' ParseProgram reads a PROGRAM, which has exactly one query, so the
+    ' batch is given a placeholder. Nothing looks its name up.
+    Dim forms As Collection
+    Set forms = New Collection
+    Dim f As Variant
+    For Each f In ruleForms
+        forms.Add f
+    Next f
+    Dim qForm As Collection
+    Set qForm = New Collection
+    qForm.Add "query"
+    qForm.Add "vla-ground-query"
+    forms.Add qForm
+
+    Dim facts As Collection, rules As Collection, queryName As String
+    Dim headless As Boolean, queryAtom As Collection, queryNegated As Boolean
+    ParseProgram forms, facts, rules, queryName, headless, hMap, rels, queryAtom, queryNegated
+    If facts.Count > 0 Then
+        VLA_Messages.RaiseMsg "datalog-ground-internal", "detail", "a (fact ...) among the rules to ground"
+    End If
+    If rules.Count = 0 Then Exit Function
+
+    Dim heads As Object
+    Set heads = VLA_Runtime.VlaDictNew()
+    Dim rr As Variant, ruleRec As Collection
+    Dim ba As Variant, baItem As Collection
+    Dim hp As String
+    For Each rr In rules
+        Set ruleRec = rr
+        hp = AtomPred(ruleRec.Item(1))
+        If VLA_Runtime.VlaDictHas(rels, hp) Then
+            VLA_Messages.RaiseMsg "datalog-ground-internal", "detail", _
+                "a rule whose head '" & hp & "' is already a relation"
+        End If
+        VLA_Runtime.VlaDictSet heads, hp, True
+        RecordArity predArity, hp, AtomArity(ruleRec.Item(1))
+        For Each ba In ruleRec.Item(2)
+            Set baItem = ba
+            RecordArity predArity, AtomPred(BodyItemAtom(baItem)), AtomArity(BodyItemAtom(baItem))
+        Next ba
+    Next rr
+    ' No rule may read what the batch itself derives - the condition that
+    ' makes one pass the answer.
+    For Each rr In rules
+        Set ruleRec = rr
+        For Each ba In ruleRec.Item(2)
+            Set baItem = ba
+            Select Case BodyItemKind(baItem)
+            Case BI_POS, BI_NOT, BI_COUNT, BI_SUM, BI_JOIN
+                If VLA_Runtime.VlaDictHas(heads, AtomPred(BodyItemAtom(baItem))) Then
+                    VLA_Messages.RaiseMsg "datalog-ground-internal", "detail", _
+                        "a rule that reads '" & AtomPred(BodyItemAtom(baItem)) & "', which the same batch derives"
+                End If
+            End Select
+        Next ba
+    Next rr
+    For Each rr In rules
+        Set ruleRec = rr
+        GetOrCreateRelation rels, AtomPred(ruleRec.Item(1)), AtomArity(ruleRec.Item(1))
+    Next rr
+    Set ruleRec = rules.Item(1)
+    RefuseUndefinedPredicates AtomPred(ruleRec.Item(1)), rules, rels
+
+    Dim cache As Object
+    Set cache = VLA_Runtime.VlaDictNew()
+    Dim rows() As Long
+    Dim nRows As Long
+    For Each rr In rules
+        Set ruleRec = rr
+        GroundOneRule ruleRec, rels, cache, syms, variantOnly, rows, nRows
+        outp.Add Array(AtomPred(ruleRec.Item(1)), AtomArity(ruleRec.Item(1)), nRows, rows)
+    Next rr
+End Function
+
+' One rule, down whichever path can give its answer. A rule of joins and
+' anti-joins alone reads only identities, so it is exact whatever the data;
+' a comparison or a text test reads VALUES, so it needs every spelling to
+' stand for one value - the table unambiguous once this rule's own
+' relations are interned; and any other body-item kind is EvalRuleBody's.
+Private Sub GroundOneRule(ByVal ruleRec As Collection, ByVal rels As Object, ByVal cache As Object, _
+                          ByRef syms As VlaSymbols, ByVal variantOnly As Boolean, _
+                          ByRef rows() As Long, ByRef nRows As Long)
+    Dim useInt As Boolean
+    useInt = Not variantOnly
+    Dim readsValues As Boolean
+    Dim b As Variant, item As Collection
+    For Each b In ruleRec.Item(2)
+        Set item = b
+        Select Case BodyItemKind(item)
+        Case BI_POS, BI_NOT
+            If useInt Then EnsureIntRelation AtomPred(BodyItemAtom(item)), rels, cache, syms
+        Case BI_CMP, BI_TEXT
+            readsValues = True
+        Case Else
+            useInt = False
+        End Select
+    Next b
+    If useInt And readsValues And syms.ambiguous Then useInt = False
+    If useInt Then
+        mGroundIntegerRules = mGroundIntegerRules + 1
+        GroundRuleInteger ruleRec, cache, syms, rows, nRows
+    Else
+        mGroundVariantRules = mGroundVariantRules + 1
+        GroundRuleVariant ruleRec, rels, syms, rows, nRows
+    End If
+End Sub
+
+' The last DatalogGroundRules call's two counts - see the declarations
+' section. Public for the pins alone.
+Public Function DatalogGroundIntegerRules() As Long
+    DatalogGroundIntegerRules = mGroundIntegerRules
+End Function
+
+Public Function DatalogGroundVariantRules() As Long
+    DatalogGroundVariantRules = mGroundVariantRules
+End Function
+
+' One rule through EvalRuleBody itself, the reference evaluator, with its
+' head rows then interned and kept in first-occurrence order - what
+' RunOneRulePass's RelTryAdd keeps. A variable's value is interned as a
+' value (it came from a relation, a let or an aggregate); a constant the
+' head writes is interned as a spelling, so a rule's own "3" never claims
+' a spelling a Table's 3 should.
+Private Sub GroundRuleVariant(ByVal ruleRec As Collection, ByVal rels As Object, ByRef syms As VlaSymbols, _
+                              ByRef rows() As Long, ByRef nRows As Long)
+    Dim headAtom As Collection
+    Set headAtom = ruleRec.Item(1)
+    Dim w As Long
+    w = AtomArity(headAtom)
+    Dim isConst() As Boolean
+    ReDim isConst(1 To w)
+    Dim i As Long
+    For i = 1 To w
+        isConst(i) = Not ArgIsVar(AtomArgAt(headAtom, i))
+    Next i
+    Dim emptyDeltas As Object
+    Set emptyDeltas = VLA_Runtime.VlaDictNew()
+    Dim derived As Collection
+    Set derived = EvalRuleBody(headAtom, ruleRec.Item(2), 0, rels, emptyDeltas)
+
+    Dim cand() As Long
+    ReDim cand(1 To w)
+    Dim setSlot() As Long, setMask As Long
+    IntSetInit setSlot, setMask, derived.Count
+    nRows = 0
+    ReDim rows(0 To 0)
+    Dim t As Variant, arr() As Variant
+    For Each t In derived
+        arr = t
+        For i = 1 To w
+            If isConst(i) Then
+                cand(i) = VLA_Relation.VlaSymInternSpelling(syms, CStr(arr(i)))
+            Else
+                cand(i) = VLA_Relation.VlaSymIntern(syms, arr(i))
+            End If
+        Next i
+        IntSetAddRow rows, nRows, w, cand, setSlot, setMask
+    Next t
+    ReDim Preserve rows(0 To nRows * w)
+End Sub
+
+' One rule over integer relations: EvalRuleBody's walk, item by item, with
+' the rows so far held as one Long array (acc, accW columns, accN rows) and
+' the join identity RelUnit is - one row of no columns - as the start.
+Private Sub GroundRuleInteger(ByVal ruleRec As Collection, ByVal cache As Object, ByRef syms As VlaSymbols, _
+                              ByRef rows() As Long, ByRef nRows As Long)
+    Dim headAtom As Collection
+    Set headAtom = ruleRec.Item(1)
+    Dim bodyItems As Collection
+    Set bodyItems = ruleRec.Item(2)
+    nRows = 0
+    ReDim rows(0 To 0)
+
+    Dim acc() As Long, accW As Long, accN As Long
+    ReDim acc(0 To 0)
+    accW = 0
+    accN = 1
+    Dim colOf As Object
+    Set colOf = VLA_Runtime.VlaDictNew()
+    ' What a comparison and a text test need to know about each symbol's
+    ' value, worked out the first time a row asks and kept for the rest.
+    ' The table cannot grow while the body is walked: constants are looked
+    ' up there, never interned.
+    Dim numKnown() As Byte, dvKnown() As Byte, dvText() As String
+    ReDim numKnown(0 To syms.n)
+    ReDim dvKnown(0 To syms.n)
+    ReDim dvText(0 To syms.n)
+
+    Dim bi As Long
+    Dim item As Collection, atom As Collection
+    For bi = 1 To bodyItems.Count
+        Set item = bodyItems.Item(bi)
+        Set atom = BodyItemAtom(item)
+        Select Case BodyItemKind(item)
+        Case BI_POS
+            IntJoinAtom atom, colOf, cache, syms, acc, accW, accN
+        Case BI_NOT
+            IntAntiJoinAtom atom, colOf, cache, syms, acc, accW, accN
+        Case BI_CMP
+            IntCompareFilter atom, colOf, syms, numKnown, acc, accW, accN
+        Case BI_TEXT
+            IntTextFilter atom, colOf, syms, dvKnown, dvText, (BodyItemExtra(item) = "not"), acc, accW, accN
+        End Select
+        If accN = 0 Then Exit Sub
+    Next bi
+
+    ' The head, as EvalRuleBody builds it: a variable from its column, a
+    ' constant as its own spelling.
+    Dim w As Long
+    w = AtomArity(headAtom)
+    Dim hCol() As Long, hConst() As Long
+    ReDim hCol(1 To w)
+    ReDim hConst(1 To w)
+    Dim i As Long
+    Dim ha As Collection
+    For i = 1 To w
+        Set ha = AtomArgAt(headAtom, i)
+        If ArgIsVar(ha) Then
+            hCol(i) = CLng(VLA_Runtime.VlaDictGet(colOf, ArgText(ha)))
+        Else
+            hConst(i) = VLA_Relation.VlaSymInternSpelling(syms, ArgText(ha))
+        End If
+    Next i
+    Dim cand() As Long
+    ReDim cand(1 To w)
+    Dim setSlot() As Long, setMask As Long
+    IntSetInit setSlot, setMask, accN
+    Dim r As Long, rowBase As Long
+    For r = 1 To accN
+        rowBase = (r - 1) * accW
+        For i = 1 To w
+            If hCol(i) > 0 Then
+                cand(i) = acc(rowBase + hCol(i))
+            Else
+                cand(i) = hConst(i)
+            End If
+        Next i
+        IntSetAddRow rows, nRows, w, cand, setSlot, setMask
+    Next r
+    ReDim Preserve rows(0 To nRows * w)
+End Sub
+
+' A positive atom. Its relation is first filtered by the atom's own
+' constants and repeated variables (FilterAtomRelation's checks, the same
+' positions), then hash-joined with the rows so far on the variables
+' already bound (BuildJoinPlan's columns): built on the SMALLER side and
+' probed with the larger, ties to the left, exactly as RelJoin chooses, so
+' the rows come out in RelJoin's order. Each output row is the row so far
+' plus one column per variable this atom binds (ProjectAfterJoin's
+' projection), and those variables then join colOf in position order.
+Private Sub IntJoinAtom(ByVal atom As Collection, ByVal colOf As Object, ByVal cache As Object, _
+                        ByRef syms As VlaSymbols, ByRef acc() As Long, ByRef accW As Long, ByRef accN As Long)
+    Dim k As Long, n As Long
+    Dim rel() As Long
+    IntRelationOf AtomPred(atom), cache, k, n, rel
+
+    ' The atom's plan, worked out once. Arrays are sized k + 1 so an atom
+    ' with none of a kind never meets an inverted ReDim.
+    Dim cPos() As Long, cId() As Long, nC As Long
+    Dim qPos() As Long, qOf() As Long, nQ As Long
+    Dim keyAcc() As Long, keyPos() As Long, nKey As Long
+    Dim newPos() As Long, nNew As Long
+    ReDim cPos(1 To k + 1): ReDim cId(1 To k + 1)
+    ReDim qPos(1 To k + 1): ReDim qOf(1 To k + 1)
+    ReDim keyAcc(1 To k + 1): ReDim keyPos(1 To k + 1)
+    ReDim newPos(1 To k + 1)
+    Dim newNames As Collection
+    Set newNames = New Collection
+    Dim seen As Object
+    Set seen = VLA_Runtime.VlaDictNew()
+    Dim p As Long
+    Dim a As Collection
+    Dim nm As String
+    For p = 1 To k
+        Set a = AtomArgAt(atom, p)
+        If Not ArgIsVar(a) Then
+            ' A constant no relation value spells gets id 0, which no row
+            ' holds - the atom matches nothing, as PlanMatches would find.
+            nC = nC + 1
+            cPos(nC) = p
+            cId(nC) = VLA_Relation.VlaSymFind(syms, ArgText(a))
+        Else
+            nm = ArgText(a)
+            If VLA_Runtime.VlaDictHas(seen, nm) Then
+                nQ = nQ + 1
+                qPos(nQ) = p
+                qOf(nQ) = CLng(VLA_Runtime.VlaDictGet(seen, nm))
+            Else
+                VLA_Runtime.VlaDictSet seen, nm, p
+                If VLA_Runtime.VlaDictHas(colOf, nm) Then
+                    nKey = nKey + 1
+                    keyAcc(nKey) = CLng(VLA_Runtime.VlaDictGet(colOf, nm))
+                    keyPos(nKey) = p
+                Else
+                    nNew = nNew + 1
+                    newPos(nNew) = p
+                    newNames.Add nm
+                End If
+            End If
+        End If
+    Next p
+
+    ' The filter: which rows of the relation this atom can match, in the
+    ' relation's own order (0-based row numbers).
+    Dim fIdx() As Long, fN As Long
+    ReDim fIdx(0 To n)
+    Dim ri As Long, rb As Long, j As Long
+    Dim ok As Boolean
+    For ri = 0 To n - 1
+        rb = ri * k
+        ok = True
+        For j = 1 To nC
+            If rel(rb + cPos(j)) <> cId(j) Then
+                ok = False
+                Exit For
+            End If
+        Next j
+        If ok Then
+            For j = 1 To nQ
+                If rel(rb + qPos(j)) <> rel(rb + qOf(j)) Then
+                    ok = False
+                    Exit For
+                End If
+            Next j
+        End If
+        If ok Then
+            fN = fN + 1
+            fIdx(fN) = ri
+        End If
+    Next ri
+    If fN = 0 Then
+        accN = 0
+        Exit Sub
+    End If
+
+    ' The index over the build side: a chain per slot, appended at its
+    ' tail, so equal keys keep their insertion order as RelJoin's buckets
+    ' do. Different keys may share a chain; the probe compares every key.
+    Dim buildLeft As Boolean
+    buildLeft = (accN <= fN)
+    Dim bN As Long
+    If buildLeft Then bN = accN Else bN = fN
+    Dim size As Long
+    size = 1024
+    Do While size < 2 * bN
+        size = size * 2
+    Loop
+    Dim mask As Long
+    mask = size - 1
+    Dim hd() As Long, tl() As Long, nx() As Long
+    ReDim hd(0 To mask)
+    ReDim tl(0 To mask)
+    ReDim nx(0 To bN)
+    Dim e As Long, h As Long, s As Long, eb As Long
+    For e = 1 To bN
+        h = 5381
+        If buildLeft Then
+            eb = (e - 1) * accW
+            For j = 1 To nKey
+                h = ((h * 33) + acc(eb + keyAcc(j))) And &H7FFFFF
+            Next j
+        Else
+            eb = fIdx(e) * k
+            For j = 1 To nKey
+                h = ((h * 33) + rel(eb + keyPos(j))) And &H7FFFFF
+            Next j
+        End If
+        s = h And mask
+        If hd(s) = 0 Then
+            hd(s) = e
+        Else
+            nx(tl(s)) = e
+        End If
+        tl(s) = e
+    Next e
+
+    ' The probe, in the probe side's own order.
+    Dim newW As Long
+    newW = accW + nNew
+    Dim outA() As Long, outN As Long
+    ReDim outA(0 To 0)
+    Dim pN As Long
+    If buildLeft Then pN = fN Else pN = accN
+    Dim pr As Long, pb As Long, ab As Long, relB As Long, ob As Long
+    Dim c As Long
+    Dim same As Boolean
+    For pr = 1 To pN
+        h = 5381
+        If buildLeft Then
+            pb = fIdx(pr) * k
+            For j = 1 To nKey
+                h = ((h * 33) + rel(pb + keyPos(j))) And &H7FFFFF
+            Next j
+        Else
+            pb = (pr - 1) * accW
+            For j = 1 To nKey
+                h = ((h * 33) + acc(pb + keyAcc(j))) And &H7FFFFF
+            Next j
+        End If
+        e = hd(h And mask)
+        Do While e <> 0
+            If buildLeft Then
+                ab = (e - 1) * accW
+                relB = pb
+            Else
+                ab = pb
+                relB = fIdx(e) * k
+            End If
+            same = True
+            For j = 1 To nKey
+                If acc(ab + keyAcc(j)) <> rel(relB + keyPos(j)) Then
+                    same = False
+                    Exit For
+                End If
+            Next j
+            If same Then
+                outN = outN + 1
+                EnsureRowCapacity outA, outN, newW
+                ob = (outN - 1) * newW
+                For c = 1 To accW
+                    outA(ob + c) = acc(ab + c)
+                Next c
+                For c = 1 To nNew
+                    outA(ob + accW + c) = rel(relB + newPos(c))
+                Next c
+            End If
+            e = nx(e)
+        Loop
+    Next pr
+
+    Dim oldW As Long
+    oldW = accW
+    acc = outA
+    accW = newW
+    accN = outN
+    For c = 1 To nNew
+        VLA_Runtime.VlaDictSet colOf, CStr(newNames.Item(c)), oldW + c
+    Next c
+End Sub
+
+' (not ATOM): keep each row whose instantiation of the atom is NOT a row of
+' the relation - FilterOutMatching's anti-join, in ids. CheckRuleSafety has
+' bound every variable the atom names. A constant no relation value spells
+' can match no row, so then every row is kept.
+Private Sub IntAntiJoinAtom(ByVal atom As Collection, ByVal colOf As Object, ByVal cache As Object, _
+                            ByRef syms As VlaSymbols, ByRef acc() As Long, ByVal accW As Long, ByRef accN As Long)
+    Dim k As Long, n As Long
+    Dim rel() As Long
+    IntRelationOf AtomPred(atom), cache, k, n, rel
+    Dim pCol() As Long, pId() As Long
+    ReDim pCol(1 To k)
+    ReDim pId(1 To k)
+    Dim p As Long
+    Dim a As Collection
+    For p = 1 To k
+        Set a = AtomArgAt(atom, p)
+        If ArgIsVar(a) Then
+            pCol(p) = CLng(VLA_Runtime.VlaDictGet(colOf, ArgText(a)))
+        Else
+            pId(p) = VLA_Relation.VlaSymFind(syms, ArgText(a))
+            If pId(p) = 0 Then Exit Sub
+        End If
+    Next p
+    If n = 0 Then Exit Sub
+
+    Dim setSlot() As Long, setMask As Long
+    IntSetInit setSlot, setMask, n
+    Dim ri As Long
+    For ri = 1 To n
+        IntSetPlace rel, ri, k, setSlot, setMask
+    Next ri
+
+    Dim probe() As Long
+    ReDim probe(1 To k)
+    Dim kept As Long, r As Long, rb As Long, c As Long
+    For r = 1 To accN
+        rb = (r - 1) * accW
+        For p = 1 To k
+            If pCol(p) > 0 Then
+                probe(p) = acc(rb + pCol(p))
+            Else
+                probe(p) = pId(p)
+            End If
+        Next p
+        If Not IntSetHasRow(rel, k, probe, setSlot, setMask) Then
+            kept = kept + 1
+            If kept <> r Then
+                For c = 1 To accW
+                    acc((kept - 1) * accW + c) = acc(rb + c)
+                Next c
+            End If
+        End If
+    Next r
+    accN = kept
+End Sub
+
+' (op X Y): CompareValues itself, on each operand's value - a variable's
+' symbol's rep, or the constant's own text, as ResolveOperand gives it -
+' with BuiltinOperandIsNumeric's verdict worked out once per symbol. The
+' caller sent this rule to EvalRuleBody if any spelling was ambiguous, so
+' a rep here stands for every value that has its spelling.
+Private Sub IntCompareFilter(ByVal atom As Collection, ByVal colOf As Object, ByRef syms As VlaSymbols, _
+                             ByRef numKnown() As Byte, ByRef acc() As Long, ByVal accW As Long, ByRef accN As Long)
+    Dim op As String
+    op = AtomPred(atom)
+    Dim lCol As Long, rCol As Long
+    Dim lConst As Variant, rConst As Variant
+    Dim lConstNum As Boolean, rConstNum As Boolean
+    IntOperandPlan AtomArgAt(atom, 1), colOf, lCol, lConst, lConstNum
+    IntOperandPlan AtomArgAt(atom, 2), colOf, rCol, rConst, rConstNum
+    Dim lv As Variant, rv As Variant
+    Dim ln As Boolean, rn As Boolean
+    Dim kept As Long, r As Long, rb As Long, c As Long, id As Long
+    For r = 1 To accN
+        rb = (r - 1) * accW
+        If lCol > 0 Then
+            id = acc(rb + lCol)
+            lv = syms.rep(id)
+            ln = IntSymIsNumeric(syms, numKnown, id)
+        Else
+            lv = lConst
+            ln = lConstNum
+        End If
+        If rCol > 0 Then
+            id = acc(rb + rCol)
+            rv = syms.rep(id)
+            rn = IntSymIsNumeric(syms, numKnown, id)
+        Else
+            rv = rConst
+            rn = rConstNum
+        End If
+        If VLA_Relation.CompareValues(op, lv, rv, ln And rn) Then
+            kept = kept + 1
+            If kept <> r Then
+                For c = 1 To accW
+                    acc((kept - 1) * accW + c) = acc(rb + c)
+                Next c
+            End If
+        End If
+    Next r
+    accN = kept
+End Sub
+
+' (text-starts-with T P) and its two siblings, with "not" inverting them -
+' TextTestHolds on DatalogValueText of each operand, the text worked out
+' once per symbol.
+Private Sub IntTextFilter(ByVal atom As Collection, ByVal colOf As Object, ByRef syms As VlaSymbols, _
+                          ByRef dvKnown() As Byte, ByRef dvText() As String, ByVal negated As Boolean, _
+                          ByRef acc() As Long, ByVal accW As Long, ByRef accN As Long)
+    Dim op As String
+    op = AtomPred(atom)
+    Dim lCol As Long, rCol As Long
+    Dim lConst As Variant, rConst As Variant
+    Dim unusedNum As Boolean
+    IntOperandPlan AtomArgAt(atom, 1), colOf, lCol, lConst, unusedNum
+    IntOperandPlan AtomArgAt(atom, 2), colOf, rCol, rConst, unusedNum
+    Dim lText As String, rText As String
+    If lCol = 0 Then lText = DatalogValueText(lConst)
+    If rCol = 0 Then rText = DatalogValueText(rConst)
+    Dim kept As Long, r As Long, rb As Long, c As Long
+    For r = 1 To accN
+        rb = (r - 1) * accW
+        If lCol > 0 Then lText = IntSymText(syms, dvKnown, dvText, acc(rb + lCol))
+        If rCol > 0 Then rText = IntSymText(syms, dvKnown, dvText, acc(rb + rCol))
+        If TextTestHolds(op, lText, rText) <> negated Then
+            kept = kept + 1
+            If kept <> r Then
+                For c = 1 To accW
+                    acc((kept - 1) * accW + c) = acc(rb + c)
+                Next c
+            End If
+        End If
+    Next r
+    accN = kept
+End Sub
+
+' An operand of a comparison or a text test: a bound variable's column, or
+' (column 0) a constant's own text, with BuiltinOperandIsNumeric's verdict
+' on that text - what ResolveOperand and EvalRuleBody's comparison arm give
+' a constant.
+Private Sub IntOperandPlan(ByVal a As Collection, ByVal colOf As Object, ByRef col As Long, _
+                           ByRef constValue As Variant, ByRef constNumeric As Boolean)
+    If ArgIsVar(a) Then
+        col = CLng(VLA_Runtime.VlaDictGet(colOf, ArgText(a)))
+    Else
+        col = 0
+        constValue = ArgText(a)
+        constNumeric = BuiltinOperandIsNumeric(constValue)
+    End If
+End Sub
+
+Private Function IntSymIsNumeric(ByRef syms As VlaSymbols, ByRef numKnown() As Byte, ByVal id As Long) As Boolean
+    If numKnown(id) = 0 Then
+        If BuiltinOperandIsNumeric(syms.rep(id)) Then numKnown(id) = 2 Else numKnown(id) = 1
+    End If
+    IntSymIsNumeric = (numKnown(id) = 2)
+End Function
+
+Private Function IntSymText(ByRef syms As VlaSymbols, ByRef dvKnown() As Byte, ByRef dvText() As String, _
+                            ByVal id As Long) As String
+    If dvKnown(id) = 0 Then
+        dvText(id) = DatalogValueText(syms.rep(id))
+        dvKnown(id) = 1
+    End If
+    IntSymText = dvText(id)
+End Function
+
+' A relation the batch reads, as an integer relation, interned the first
+' time any rule of the batch asks for it.
+Private Sub EnsureIntRelation(ByVal pred As String, ByVal rels As Object, ByVal cache As Object, ByRef syms As VlaSymbols)
+    If VLA_Runtime.VlaDictHas(cache, pred) Then Exit Sub
+    Dim rel As Collection
+    Set rel = VLA_Runtime.VlaDictGet(rels, pred)
+    Dim rows() As Long
+    Dim n As Long
+    VLA_Relation.VlaSymInternRelation rel, syms, rows, n
+    VLA_Runtime.VlaDictSet cache, pred, Array(VLA_Relation.RelArity(rel), n, rows)
+End Sub
+
+Private Sub IntRelationOf(ByVal pred As String, ByVal cache As Object, ByRef k As Long, ByRef n As Long, ByRef rel() As Long)
+    Dim rec As Variant
+    rec = VLA_Runtime.VlaDictGet(cache, pred)
+    k = rec(0)
+    n = rec(1)
+    rel = rec(2)
+End Sub
+
+' ---- sets of integer rows: an open-addressing table of row numbers
+'      (1-based) over a rows array in VLA_Relation's layout, kept at most
+'      half full. Used for a head's first-occurrence de-duplication and for
+'      an anti-join's membership test.
+
+Private Sub IntSetInit(ByRef setSlot() As Long, ByRef setMask As Long, ByVal expected As Long)
+    Dim size As Long
+    size = 1024
+    Do While size < 2 * expected
+        size = size * 2
+    Loop
+    setMask = size - 1
+    ReDim setSlot(0 To setMask)
+End Sub
+
+' The hash of w ids starting after offset: the same 23-bit mask as
+' VLA_Relation's SymHash, so h * 33 plus an id can never overflow a Long.
+Private Function IntRowHash(ByRef ids() As Long, ByVal offset As Long, ByVal w As Long) As Long
+    Dim h As Long
+    h = 5381
+    Dim c As Long
+    For c = 1 To w
+        h = ((h * 33) + ids(offset + c)) And &H7FFFFF
+    Next c
+    IntRowHash = h
+End Function
+
+' Row number ri of rows (already stored) into the set, with no equality
+' check - for building a set over a relation, whose rows are distinct.
+Private Sub IntSetPlace(ByRef rows() As Long, ByVal ri As Long, ByVal w As Long, _
+                        ByRef setSlot() As Long, ByRef setMask As Long)
+    Dim p As Long
+    p = IntRowHash(rows, (ri - 1) * w, w) And setMask
+    Do While setSlot(p) <> 0
+        p = (p + 1) And setMask
+    Loop
+    setSlot(p) = ri
+End Sub
+
+Private Function IntSetHasRow(ByRef rows() As Long, ByVal w As Long, ByRef cand() As Long, _
+                              ByRef setSlot() As Long, ByRef setMask As Long) As Boolean
+    Dim p As Long
+    p = IntRowHash(cand, 0, w) And setMask
+    Dim ri As Long, c As Long, rb As Long
+    Dim same As Boolean
+    Do
+        ri = setSlot(p)
+        If ri = 0 Then Exit Function
+        rb = (ri - 1) * w
+        same = True
+        For c = 1 To w
+            If rows(rb + c) <> cand(c) Then
+                same = False
+                Exit For
+            End If
+        Next c
+        If same Then
+            IntSetHasRow = True
+            Exit Function
+        End If
+        p = (p + 1) And setMask
+    Loop
+End Function
+
+' cand(1..w) appended to rows as row nRows + 1, unless an equal row is
+' already there. True when it was new.
+Private Function IntSetAddRow(ByRef rows() As Long, ByRef nRows As Long, ByVal w As Long, _
+                              ByRef cand() As Long, ByRef setSlot() As Long, ByRef setMask As Long) As Boolean
+    If IntSetHasRow(rows, w, cand, setSlot, setMask) Then Exit Function
+    nRows = nRows + 1
+    EnsureRowCapacity rows, nRows, w
+    Dim c As Long
+    For c = 1 To w
+        rows((nRows - 1) * w + c) = cand(c)
+    Next c
+    If 2 * nRows > setMask + 1 Then
+        ' Rebuilding places every row, this one included.
+        Dim size As Long
+        size = setMask + 1
+        Do While size < 2 * nRows
+            size = size * 2
+        Loop
+        setMask = size - 1
+        ReDim setSlot(0 To setMask)
+        Dim ri As Long
+        For ri = 1 To nRows
+            IntSetPlace rows, ri, w, setSlot, setMask
+        Next ri
+    Else
+        IntSetPlace rows, nRows, w, setSlot, setMask
+    End If
+    IntSetAddRow = True
+End Function
+
+' Room for needRows rows of w columns, doubling. A zero-width row needs no
+' room at all: the count alone is the relation.
+Private Sub EnsureRowCapacity(ByRef rows() As Long, ByVal needRows As Long, ByVal w As Long)
+    If w = 0 Then Exit Sub
+    Dim need As Long
+    need = needRows * w
+    If need <= UBound(rows) Then Exit Sub
+    Dim cap As Long
+    cap = UBound(rows)
+    If cap < 64 Then cap = 64
+    Do While cap < need
+        cap = cap * 2
+    Loop
+    ReDim Preserve rows(0 To cap)
+End Sub
 
 ' A table argument's own name: an Excel Table's ListObject.Name, or a
 ' plain Range's own defined name (its sheet-qualifying "Sheet1!"
