@@ -19386,14 +19386,38 @@ now carries one summary paragraph per engine and points here.*
     **Flat, as it has been since `DATALOG.12` — but an order of magnitude
     lower.** The marginal cost is **0.0317 ms a row** from 1,000 to 10,000,
     against the 0.38 ms `DATALOG.13` left it at, over a fixed 0.011s.
-    **THE SIZE THIS LADDER WAS SCOPED AROUND IS NOW IN REACH.**
-    `DATALOG.12`'s own forks set the top size at 100,000 rows and no pass
-    ever got there; `DATALOG.13` closed by projecting 100,000 at **about
-    38s — "still past the 10s limit, now by a factor of four rather than
-    twenty-five."** On the line above, 100,000 rows projects to **3.2s**:
-    inside the limit, for the first time since the ladder was written. That
-    is a projection from two measured points and not a measurement, and it
-    should be run before it is repeated anywhere a user can read it.
+    **THE SIZE THIS LADDER WAS SCOPED AROUND IS NOW IN REACH — AND IT WAS
+    RUN, not left as a projection.** `DATALOG.12`'s own forks set the top
+    size at 100,000 rows and no pass ever got there; `DATALOG.13` closed by
+    projecting 100,000 at **about 38s — "still past the 10s limit, now by a
+    factor of four rather than twenty-five."** Measured live 2026-09-24
+    (`D12Ladder 1, , 100000`): **3.676s first, 3.555s after the one-cell
+    change, 49,001 rows, right.** Inside the 10s limit for the first time
+    since the ladder was written, and **10.3× better than the projection it
+    replaces.**
+    **The projection this entry carried was 3.2s, and it was 16% optimistic
+    — because the scan is not perfectly flat after all.** Marginal cost is
+    0.031 ms a row from 1,000 to 3,000 and 0.0291 from 3,000 to 10,000, then
+    **0.0374 from 10,000 to 100,000 — a 29% rise.** Per-row cost falls while
+    the fixed 0.011s amortises (0.043 → 0.035 → 0.0309 ms) and then turns
+    back up (0.0368 at 100,000), which is the shape of a small superlinear
+    term that only shows above 10,000 rows.
+    **Named rather than explained, and the arithmetic does not close.** The
+    obvious suspect is `Scripting.Dictionary` growth: `OPTIMIZE.0`'s
+    `O0DictCost` measured 1.27 µs a key at 10,000 keys against 1.99 at
+    100,000, a **57% rise over exactly this range**, and a relation's
+    membership index holds one key per row. But two dictionary operations a
+    row at +0.72 µs each is +0.0014 ms a row, where the observed rise is
+    +0.0083 — **about a fifth of it.** The rest is unaccounted, and this
+    entry does not guess: `DATALOG.12`'s own record is that reading the code
+    named a suspect worth 12% while the real cause was 85%. A decomposition
+    would say, and none was run.
+    **This is also independent evidence for `OPTIMIZE.3`'s pre-flight:**
+    `OPTIMIZE.0` put the grounder's knee at "linear under about 50,000 rows,
+    superlinear past about 90,000", and a scan turning up between 10,000 and
+    100,000 rows is the same knee seen from a different shape. So the
+    prediction that `DATALOG.14` moved the absolute times and not the knee
+    has one measurement behind it already.
     **MEASURED — step 5, the sentence-level pass, live 2026-09-24.** The
     shape the rewrite APPLIES to, asked through the grammar on a fresh sheet
     so the whole path from sentence to spilled cells runs once. Over the

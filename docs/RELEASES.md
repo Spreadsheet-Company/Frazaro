@@ -31,14 +31,16 @@
   thousand rows went from **3.8 seconds to 0.3**. Counting and list-making
   questions gained the same way.
 
-- **A hundred thousand rows now looks reachable.** The previous release could
-  scan ten thousand rows in about four seconds and put a hundred thousand at
-  roughly thirty-eight — comfortably past the point where a spreadsheet feels
-  broken. On the measurements above the same hundred thousand rows works out
-  at around three seconds. That is a projection from two measured sizes and
-  not yet a measurement, so it is written here as the encouraging sign it is
-  and not as a promise; the honest statement remains that ten thousand rows
-  is measured and fast.
+- **A hundred thousand rows, answered in under four seconds.** This is the
+  one worth stopping on. The previous release could scan ten thousand rows in
+  about four seconds, and put a hundred thousand at roughly thirty-eight —
+  comfortably past the point where a spreadsheet feels broken. A hundred
+  thousand rows now answers in **3.7 seconds**, with all 49,001 matching rows
+  correct. That is measured, not projected: it is the size Frazaro's own
+  scale testing was designed around a fortnight ago and could never actually
+  reach. It is still the largest size anyone has asked a question at, so
+  treat it as the edge of what is known rather than the edge of what works —
+  but the edge moved by a factor of ten.
 
 - **Nothing about any answer changed, and that is the part that was tested
   hardest.** The narrowing is only applied where it provably cannot be seen:

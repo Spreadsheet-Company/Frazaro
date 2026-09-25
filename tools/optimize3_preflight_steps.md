@@ -30,7 +30,24 @@ it until it has been run once.
 
 ---
 
-## Step 1 — the 100,000-row rung (about two minutes)
+## Step 1 — the 100,000-row rung — **DONE 2026-09-24**
+
+**Result: 3.676s first, 3.555s after the change, 49,001 rows, `ok`.** Inside
+the 10s limit, and 10.3× better than the 38s `DATALOG.13` projected. The
+roadmap and `RELEASES.md` 0.6.3 are corrected from projection to measurement.
+
+**It also found something step 2 should expect.** The scan is NOT perfectly
+flat: marginal cost is 0.0291 ms a row from 3,000 to 10,000 and **0.0374 from
+10,000 to 100,000, a 29% rise**. `O0DictCost` measured a 57% rise in per-key
+dictionary cost over exactly that range, which accounts for about a fifth of
+it by arithmetic and no more; the rest is unexplained and was not guessed at.
+**So there is already one measurement saying the knee near 50,000–90,000 rows
+is still there** — which is what step 2 predicts it will find, from a
+different shape.
+
+The instructions are kept below for the record.
+
+### (as written, before it was run)
 
 Do this one first: it is short, and it needs no new module.
 
