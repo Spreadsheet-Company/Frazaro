@@ -428,6 +428,8 @@ Public Function VlaSelfTest() As Boolean
     TestTer8EmptyForms
     TestCliHistory
     TestCliHistoryFile
+    TestCliTranscript
+    TestCliConsoleResults
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -2834,7 +2836,7 @@ Private Sub TestCliHistory()
     Dim letGo As Long, moved As Boolean, movedUp As Boolean, isWord As Boolean
     Dim sb As Long, dr As String, bx As String, nt As String, entryNo As Long
     Dim boxText As String, status As String, listing As String, errText As String
-    Dim caseText As String, shown As String
+    Dim caseText As String
 
     ' --- keeping ---
     Set h = CliHistoryOf("a", "b", "c")
@@ -2940,57 +2942,59 @@ Private Sub TestCliHistory()
 
     ' --- the console's own words ---
     Set h = CliHistoryOf("a", "b", "c")
-    isWord = CliHistoryAnswer("history", h, 0, "", boxText, status, listing, errText)
+    ' CLI.5: history's list comes back in listing, for the transcript, and
+    ' leaves the box alone - only !N ever fills the box.
+    isWord = CliHistoryAnswer("history", h, 0, boxText, status, listing, errText)
     Report "CLI.3 history lists what is kept, numbered, newest last", _
-           isWord And boxText = "1  a" & vbCrLf & "2  b" & vbCrLf & "3  c" And listing = boxText And Len(errText) = 0, _
-           "word " & isWord & ", got [" & boxText & "] " & errText
-    isWord = CliHistoryAnswer("history 2", h, 0, "", boxText, status, listing, errText)
+           isWord And listing = "1  a" & vbCrLf & "2  b" & vbCrLf & "3  c" And Len(boxText) = 0 And Len(errText) = 0, _
+           "word " & isWord & ", got [" & listing & "], box [" & boxText & "] " & errText
+    isWord = CliHistoryAnswer("history 2", h, 0, boxText, status, listing, errText)
     Report "CLI.3 history N lists only the last N", _
-           isWord And boxText = "2  b" & vbCrLf & "3  c", "got [" & boxText & "] " & errText
-    isWord = CliHistoryAnswer("history", h, 97, "", boxText, status, listing, errText)
+           isWord And listing = "2  b" & vbCrLf & "3  c", "got [" & listing & "] " & errText
+    isWord = CliHistoryAnswer("history", h, 97, boxText, status, listing, errText)
     Report "CLI.3 history's numbers count the ones the cap let go, lined up", _
-           isWord And boxText = " 98  a" & vbCrLf & " 99  b" & vbCrLf & "100  c", "got [" & boxText & "]"
-    isWord = CliHistoryAnswer("history 0", h, 0, "", boxText, status, listing, errText)
+           isWord And listing = " 98  a" & vbCrLf & " 99  b" & vbCrLf & "100  c", "got [" & listing & "]"
+    isWord = CliHistoryAnswer("history 0", h, 0, boxText, status, listing, errText)
     Report "CLI.3 history 0 lists nothing and leaves the box alone", _
-           isWord And Len(boxText) = 0 And Len(status) > 0 And Len(errText) = 0, _
-           "got [" & boxText & "] status [" & status & "] " & errText
-    isWord = CliHistoryAnswer("  HISTORY 1 ", h, 0, "", boxText, status, listing, errText)
+           isWord And Len(listing) = 0 And Len(boxText) = 0 And Len(status) > 0 And Len(errText) = 0, _
+           "got [" & listing & "] status [" & status & "] " & errText
+    isWord = CliHistoryAnswer("  HISTORY 1 ", h, 0, boxText, status, listing, errText)
     Report "CLI.3 the console's words forgive case and surrounding spaces", _
-           isWord And boxText = "3  c", "got [" & boxText & "] " & errText
+           isWord And listing = "3  c", "got [" & listing & "] " & errText
 
     Set h = CliHistoryOf("(defmacro" & vbCrLf & "  (modal message)" & vbCrLf & vbTab & "(msgbox message))", _
                          String$(70, "x"))
-    isWord = CliHistoryAnswer("history", h, 0, "", boxText, status, listing, errText)
-    lines = Split(boxText, vbCrLf)
+    isWord = CliHistoryAnswer("history", h, 0, boxText, status, listing, errText)
+    lines = Split(listing, vbCrLf)
     Report "CLI.3 history lists a many-line command as one line", _
-           Arr1DItemIs(lines, 0, "1  (defmacro (modal message) (msgbox message))"), "got [" & boxText & "]"
+           Arr1DItemIs(lines, 0, "1  (defmacro (modal message) (msgbox message))"), "got [" & listing & "]"
     Report "CLI.3 history cuts a long command short with ...", _
-           Arr1DItemIs(lines, 1, "2  " & String$(57, "x") & "..."), "got [" & boxText & "]"
+           Arr1DItemIs(lines, 1, "2  " & String$(57, "x") & "..."), "got [" & listing & "]"
 
     Set h = New Collection
-    isWord = CliHistoryAnswer("history", h, 0, "", boxText, status, listing, errText)
+    isWord = CliHistoryAnswer("history", h, 0, boxText, status, listing, errText)
     Report "CLI.3 history with nothing kept says so and leaves the box alone", _
-           isWord And Len(boxText) = 0 And Len(status) > 0 And Len(errText) = 0, _
-           "got [" & boxText & "] status [" & status & "] " & errText
-    isWord = CliHistoryAnswer("!1", h, 0, "", boxText, status, listing, errText)
+           isWord And Len(listing) = 0 And Len(boxText) = 0 And Len(status) > 0 And Len(errText) = 0, _
+           "got [" & listing & "] status [" & status & "] " & errText
+    isWord = CliHistoryAnswer("!1", h, 0, boxText, status, listing, errText)
     Report "CLI.3 !N with nothing kept is refused, saying why", _
            InStr(errText, "no entry 1 ") > 0 And InStr(errText, "nothing has been kept") > 0, "got: " & errText
 
     Set h = CliHistoryOf("a", "(b" & vbCrLf & "  c)", "d")
-    isWord = CliHistoryAnswer("!2", h, 0, "", boxText, status, listing, errText)
+    isWord = CliHistoryAnswer("!2", h, 0, boxText, status, listing, errText)
     Report "CLI.3 !N brings command N back exactly, line breaks and all", _
            isWord And boxText = "(b" & vbCrLf & "  c)" And Len(listing) = 0 And Len(errText) = 0, _
            "got [" & boxText & "] " & errText
-    isWord = CliHistoryAnswer(" !003" & vbCrLf, h, 0, "", boxText, status, listing, errText)
+    isWord = CliHistoryAnswer(" !003" & vbCrLf, h, 0, boxText, status, listing, errText)
     Report "CLI.3 !N forgives leading zeros and a trailing line break", _
            isWord And boxText = "d", "got [" & boxText & "] " & errText
-    isWord = CliHistoryAnswer("!5", h, 10, "", boxText, status, listing, errText)
+    isWord = CliHistoryAnswer("!5", h, 10, boxText, status, listing, errText)
     Report "CLI.3 !N older than what is kept is refused, naming what is", _
            InStr(errText, "no entry 5 ") > 0 And InStr(errText, "11 to 13") > 0, "got: " & errText
-    isWord = CliHistoryAnswer("!14", h, 10, "", boxText, status, listing, errText)
+    isWord = CliHistoryAnswer("!14", h, 10, boxText, status, listing, errText)
     Report "CLI.3 !N past the newest is refused the same way", _
            InStr(errText, "no entry 14 ") > 0 And InStr(errText, "11 to 13") > 0, "got: " & errText
-    isWord = CliHistoryAnswer("!99999999999", h, 10, "", boxText, status, listing, errText)
+    isWord = CliHistoryAnswer("!99999999999", h, 10, boxText, status, listing, errText)
     Report "CLI.3 !N too long to be a number is refused, not overflowed", _
            InStr(errText, "no entry 99999999999 ") > 0, "got: " & errText
 
@@ -2999,20 +3003,15 @@ Private Sub TestCliHistory()
                   "!", "!x", "! 3", "(history)", "Put 5 in A1.", "!3" & vbCrLf & "Put 5 in A1.")
     For k = LBound(cases) To UBound(cases)
         caseText = CStr(cases(k))
-        isWord = CliHistoryAnswer(caseText, h, 0, "", boxText, status, listing, errText)
+        isWord = CliHistoryAnswer(caseText, h, 0, boxText, status, listing, errText)
         Report "CLI.3 not one of the console's words, so it runs as before: " & Replace(caseText, vbCrLf, " / "), _
                Not isWord And Len(boxText) = 0 And Len(status) = 0 And Len(errText) = 0, _
                "word " & isWord & ", box [" & boxText & "] " & errText
     Next
 
-    isWord = CliHistoryAnswer("history", h, 0, "", boxText, status, listing, errText)
-    shown = listing
-    isWord = CliHistoryAnswer(shown, h, 0, shown, boxText, status, listing, errText)
-    Report "CLI.3 the history list itself is refused rather than run", _
-           InStr(errText, "history list") > 0 And InStr(errText, "!3 ") > 0, "got: " & errText
-    isWord = CliHistoryAnswer(Replace(shown, vbCrLf, vbLf) & vbCrLf, h, 0, shown, boxText, status, listing, errText)
-    Report "CLI.3 ...even with its line breaks as the box hands them back", _
-           InStr(errText, "history list") > 0, "got: " & errText
+    ' CLI.5 retired the two pins that stood here - the list refused when
+    ' run unchanged from the box - with the guard itself: the list goes to
+    ' the transcript now, and never into the box.
 End Sub
 
 ' CLI.3: a throwaway history holding these commands, oldest first.
@@ -3029,15 +3028,14 @@ End Function
 ' CLI.3: one VLA_Console.VlaConsoleWordAnswer call with any refusal
 ' caught - its words in errText, "" when nothing was refused.
 Private Function CliHistoryAnswer(ByVal text As String, ByVal h As Collection, ByVal base As Long, _
-                                  ByVal lastList As String, ByRef boxText As String, _
-                                  ByRef status As String, ByRef listing As String, _
-                                  ByRef errText As String) As Boolean
+                                  ByRef boxText As String, ByRef status As String, _
+                                  ByRef listing As String, ByRef errText As String) As Boolean
     errText = ""
     boxText = ""
     status = ""
     listing = ""
     On Error Resume Next
-    CliHistoryAnswer = VLA_Console.VlaConsoleWordAnswer(text, h, base, lastList, boxText, status, listing)
+    CliHistoryAnswer = VLA_Console.VlaConsoleWordAnswer(text, h, base, boxText, status, listing)
     If Err.Number <> 0 Then errText = Err.Description
     On Error GoTo 0
 End Function
@@ -3167,6 +3165,210 @@ End Sub
 Private Function CliShow(ByVal s As String) As String
     CliShow = Replace(Replace(Replace(s, vbCr, "<CR>"), vbLf, "<LF>"), vbTab, "<TAB>")
 End Function
+
+' CLI.5: the transcript and the last three results - VLA_Console's pure
+' half once more: the lines one command leaves, how a value is written,
+' and the ring *, ** and *** ride in. Scalars, arrays and lists only - a
+' range's own rendering needs a live sheet, so it is the owner's live
+' test, beside the pane itself.
+Private Sub TestCliTranscript()
+    Dim printed As Collection, entry As String, res As Collection, lst As Collection
+    Dim entries As Collection, k As Long, grid() As Variant
+    Dim isWord As Boolean, wipes As Boolean, boxText As String, status As String, listing As String
+
+    ' --- one command's lines ---
+    entry = VLA_Console.VlaTranscriptEntry("(* 6 7)", Nothing, "", True, "42", "OK - 18:02:11")
+    Report "CLI.5 an expression's entry: the command after ~, its value, the status", _
+           entry = "~ (* 6 7)" & vbCrLf & "= 42" & vbCrLf & "OK - 18:02:11", "got [" & CliShow(entry) & "]"
+    Set printed = New Collection
+    printed.Add "one"
+    printed.Add "two"
+    entry = VLA_Console.VlaTranscriptEntry("(debug-print" & vbCrLf & "  ""one"")" & vbCrLf, printed, "", False, "", "OK")
+    Report "CLI.5 a many-line command sits indented under its ~, and what it printed follows it", _
+           entry = "~ (debug-print" & vbCrLf & "    ""one"")" & vbCrLf & "one" & vbCrLf & "two" & vbCrLf & "OK", _
+           "got [" & CliShow(entry) & "]"
+    entry = VLA_Console.VlaTranscriptEntry("!42", Nothing, "Frazaro: There is no entry 42." & vbCrLf & _
+                                           "Frazaro: And a second.", False, "", "")
+    Report "CLI.5 what Frazaro said is written in its own words, without the dialog's title - and an entry given no status ends there", _
+           entry = "~ !42" & vbCrLf & "There is no entry 42." & vbCrLf & "And a second.", _
+           "got [" & CliShow(entry) & "]"
+    entry = VLA_Console.VlaTranscriptEntry("Put 5 in A1.", Nothing, "", False, "", "OK - 18:02:11")
+    Report "CLI.5 a sentence that comes to nothing shows no = line", _
+           entry = "~ Put 5 in A1." & vbCrLf & "OK - 18:02:11", "got [" & CliShow(entry) & "]"
+
+    ' --- how a value is written ---
+    CheckV "CLI.5 a whole number shows as itself", VLA_Console.VlaConsoleShowValue(42), "42"
+    CheckV "CLI.5 a fraction shows with a full stop, whatever the locale", VLA_Console.VlaConsoleShowValue(2.5), "2.5"
+    CheckV "CLI.5 a negative number keeps its sign", VLA_Console.VlaConsoleShowValue(-3), "-3"
+    CheckV "CLI.5 text is quoted, its quotes and backslashes escaped as VLA writes them", _
+           VLA_Console.VlaConsoleShowValue("say ""hi"" C:\x"), """say \""hi\"" C:\\x"""
+    CheckV "CLI.5 true and false are spelled as VLA spells them", _
+           VLA_Console.VlaConsoleShowValue(True) & " " & VLA_Console.VlaConsoleShowValue(False), "true false"
+    CheckV "CLI.5 a date with no time shows as its day", VLA_Console.VlaConsoleShowValue(DateSerial(2026, 9, 24)), "2026-09-24"
+    CheckV "CLI.5 a worksheet error shows by Excel's own name for it", VLA_Console.VlaConsoleShowValue(CVErr(2042)), "#N/A"
+    CheckV "CLI.5 null shows as null", VLA_Console.VlaConsoleShowValue(Null), "null"
+    CheckV "CLI.5 an array shows as (array ...), each item by the same rules", _
+           VLA_Console.VlaConsoleShowValue(Array(1, "a", True)), "(array 1 ""a"" true)"
+    CheckV "CLI.5 an empty array shows as (array)", VLA_Console.VlaConsoleShowValue(Array()), "(array)"
+    ReDim grid(1 To 3, 1 To 2)
+    CheckV "CLI.5 a grid - what a range's values come back as - shows by its size", _
+           VLA_Console.VlaConsoleShowValue(grid), "an array of 3 rows and 2 columns"
+    Set lst = New Collection
+    lst.Add "a"
+    lst.Add "b"
+    CheckV "CLI.5 a list shows the way VLA writes it", VLA_Console.VlaConsoleShowValue(lst), "(a b)"
+    CheckV "CLI.5 nothing shows as nothing", VLA_Console.VlaConsoleShowValue(Nothing), "nothing"
+    CheckV "CLI.5 a long value is cut short at 400 characters", Len(VLA_Console.VlaConsoleShowValue(String$(500, "x"))), 400
+
+    ' --- *, ** and *** ---
+    Set res = New Collection
+    VLA_Console.VlaResultsPush res, 1
+    VLA_Console.VlaResultsPush res, 2
+    Report "CLI.5 the newest result goes in front - it is * now", _
+           res.Count = 2 And CollItemIs(res, 1, "2") And CollItemIs(res, 2, "1"), "count " & res.Count
+    VLA_Console.VlaResultsPush res, 3
+    VLA_Console.VlaResultsPush res, 4
+    Report "CLI.5 only three results are kept - *, ** and ***", _
+           res.Count = 3 And CollItemIs(res, 1, "4") And CollItemIs(res, 3, "2"), "count " & res.Count
+    VLA_Console.VlaResultsPush res, lst
+    Report "CLI.5 an object result goes in front like any other", _
+           res.Count = 3 And CollItemIs(res, 2, "4") And CollItemIs(res, 3, "3"), "count " & res.Count
+
+    ' --- the transcript's own cap ---
+    Set entries = New Collection
+    For k = 1 To 5
+        VLA_Console.VlaTranscriptPush entries, "entry " & k, 3
+    Next
+    Report "CLI.5 the transcript keeps only its newest entries", _
+           entries.Count = 3 And CollItemIs(entries, 1, "entry 3") And CollItemIs(entries, 3, "entry 5"), _
+           "count " & entries.Count
+
+    ' --- clear, and what Clear History asks (the owner's calls) ---
+    isWord = VLA_Console.VlaConsoleWordAnswer("  CLEAR ", New Collection, 0, boxText, status, listing, wipes)
+    Report "CLI.5 clear, alone and in any case, is the console's word for emptying the transcript", _
+           isWord And wipes And Len(boxText) = 0 And Len(listing) = 0 And Len(status) > 0, _
+           "word " & isWord & ", clears " & wipes & ", status [" & status & "]"
+    isWord = VLA_Console.VlaConsoleWordAnswer("clear.", New Collection, 0, boxText, status, listing, wipes)
+    Report "CLI.5 clear. with a full stop is not the console's word - it goes to the English reader", _
+           Not isWord And Not wipes, "word " & isWord & ", clears " & wipes
+    isWord = VLA_Console.VlaConsoleWordAnswer("Clear range A1:C10.", New Collection, 0, boxText, status, listing, wipes)
+    Report "CLI.5 an English sentence that begins Clear is never the console's word", _
+           Not isWord And Not wipes, "word " & isWord & ", clears " & wipes
+    Report "CLI.5 Clear History's question names what goes - one command, and history.txt", _
+           InStr(VLA_Console.VlaConsoleClearPrompt(1), "the 1 command kept") > 0 And _
+           InStr(VLA_Console.VlaConsoleClearPrompt(1), "history.txt") > 0, "got: " & VLA_Console.VlaConsoleClearPrompt(1)
+    Report "CLI.5 ...and counts several as several", _
+           InStr(VLA_Console.VlaConsoleClearPrompt(9), "the 9 commands kept") > 0, "got: " & VLA_Console.VlaConsoleClearPrompt(9)
+
+    ' --- the keys that work wherever the focus is (the owner's calls) ---
+    ' Name, key, MSForms' Shift mask (1 Shift, 2 Ctrl, 4 Alt), what it does.
+    Dim keyCases As Variant
+    keyCases = Array("Esc closes the window", vbKeyEscape, 0, "close", _
+                     "Ctrl+Shift+Delete clears the history", vbKeyDelete, 3, "clear history", _
+                     "Ctrl+Backspace stays the box's - delete the word before", vbKeyBack, 2, "", _
+                     "Ctrl+Delete stays the box's - delete the word after", vbKeyDelete, 2, "", _
+                     "Shift+Delete stays the box's - cut", vbKeyDelete, 1, "", _
+                     "Delete alone stays the box's", vbKeyDelete, 0, "", _
+                     "Ctrl+Shift+Delete with Alt held too is not the chord", vbKeyDelete, 7, "")
+    For k = LBound(keyCases) To UBound(keyCases) Step 4
+        Report "CLI.5 " & keyCases(k), _
+               VLA_Console.VlaConsoleWindowKey(CLng(keyCases(k + 1)), CLng(keyCases(k + 2))) = CStr(keyCases(k + 3)), _
+               "got [" & VLA_Console.VlaConsoleWindowKey(CLng(keyCases(k + 1)), CLng(keyCases(k + 2))) & "]"
+    Next
+End Sub
+
+' CLI.5: what a run comes to, and *, ** and *** - VLA_Interpreter's own
+' half of the transcript, pinned through VlaInterpret itself. Pure: no
+' program here touches a sheet. Every value is compared through
+' VlaConsoleShowValue, which is safe on anything a run might come to.
+Private Sub TestCliConsoleResults()
+    Dim frame As Object, v As Variant, had As Boolean, res As Collection
+    Dim printed As Collection, errText As String
+
+    Set frame = VLA_Interpreter.VlaInterpret("(+ 2 3)")
+    had = VLA_Interpreter.VlaInterpreterValue(v)
+    Report "CLI.5 a top-level expression is what the run comes to", _
+           had And VLA_Console.VlaConsoleShowValue(v) = "5", "had " & had & ", " & VLA_Console.VlaConsoleShowValue(v)
+    Set frame = VLA_Interpreter.VlaInterpret("(set! x 6) (* x 7)")
+    had = VLA_Interpreter.VlaInterpreterValue(v)
+    Report "CLI.5 it is the LAST top-level form's value", _
+           had And VLA_Console.VlaConsoleShowValue(v) = "42", "had " & had & ", " & VLA_Console.VlaConsoleShowValue(v)
+    Set frame = VLA_Interpreter.VlaInterpret("7")
+    had = VLA_Interpreter.VlaInterpreterValue(v)
+    Report "CLI.5 a bare value at top level is what the run comes to", _
+           had And VLA_Console.VlaConsoleShowValue(v) = "7", "had " & had & ", " & VLA_Console.VlaConsoleShowValue(v)
+    Set frame = VLA_Interpreter.VlaInterpret("(function twice ((n)) (return (* n 2))) (twice 21)")
+    had = VLA_Interpreter.VlaInterpreterValue(v)
+    Report "CLI.5 a call to the run's own function comes to what it returns", _
+           had And VLA_Console.VlaConsoleShowValue(v) = "42", "had " & had & ", " & VLA_Console.VlaConsoleShowValue(v)
+    Set frame = VLA_Interpreter.VlaInterpret("(+ 1 1) (debug-print ""x"")")
+    had = VLA_Interpreter.VlaInterpreterValue(v)
+    Report "CLI.5 a run that ends in a statement comes to nothing", Not had, "had " & had
+    Set frame = VLA_Interpreter.VlaInterpret("(begin (+ 1 2))")
+    had = VLA_Interpreter.VlaInterpreterValue(v)
+    Report "CLI.5 only the top-level form counts - an expression inside a statement does not", _
+           Not had, "had " & had
+    Set frame = VLA_Interpreter.VlaInterpret("(+ 1 2) (function f () (return 1))")
+    had = VLA_Interpreter.VlaInterpreterValue(v)
+    Report "CLI.5 a run that ends in a definition comes to nothing", Not had, "had " & had
+
+    Set frame = VLA_Interpreter.VlaInterpret("(debug-print ""a"") (debug-print 1 2)")
+    Set printed = VLA_Interpreter.VlaInterpreterPrinted()
+    Report "CLI.5 what debug-print printed comes back one line each", _
+           printed.Count = 2 And CollItemIs(printed, 1, "a") And CollItemIs(printed, 2, "1 2"), _
+           "count " & printed.Count
+
+    Set res = New Collection
+    res.Add 21                  ' * - the newest
+    res.Add 5                   ' **
+    Set frame = VLA_Interpreter.VlaInterpret("(* * 2)", consoleResults:=res)
+    had = VLA_Interpreter.VlaInterpreterValue(v)
+    Report "CLI.5 * is the last result, and (* * 2) doubles it - * in head position is still multiplication", _
+           had And VLA_Console.VlaConsoleShowValue(v) = "42", "had " & had & ", " & VLA_Console.VlaConsoleShowValue(v)
+    Set frame = VLA_Interpreter.VlaInterpret("(+ ** 1)", consoleResults:=res)
+    had = VLA_Interpreter.VlaInterpreterValue(v)
+    Report "CLI.5 ** is the result before it", _
+           had And VLA_Console.VlaConsoleShowValue(v) = "6", "had " & had & ", " & VLA_Console.VlaConsoleShowValue(v)
+    errText = ""
+    On Error Resume Next
+    Set frame = VLA_Interpreter.VlaInterpret("(+ *** 1)", consoleResults:=res)
+    If Err.Number <> 0 Then errText = Err.Description
+    On Error GoTo 0
+    Report "CLI.5 *** before there are three results is refused in the console's own words", _
+           InStr(errText, "'***' holds one of the CLI's last three results") > 0, "got: " & errText
+    errText = ""
+    On Error Resume Next
+    Set frame = VLA_Interpreter.VlaInterpret("(+ * 1)")
+    If Err.Number <> 0 Then errText = Err.Description
+    On Error GoTo 0
+    Report "CLI.5 outside the CLI, * is an ordinary name with nothing bound to it", _
+           Len(errText) > 0 And InStr(errText, "CLI's last three results") = 0, "got: " & errText
+
+    ' What the CLI hands straight to the interpreter (VLA_IDE.VlaCliIsVla).
+    Dim cases As Variant, k As Long, caseText As String, want As Boolean
+    cases = Array("(+ 1 2)", True, "  *  ", True, "**", True, "***", True, _
+                  vbCrLf & "  (+ 1 2)", True, "****", False, "* 2", False, "Put 5 in A1.", False, _
+                  "; a note" & vbCrLf & "(+ 1 2)", True, "  ; nothing but a note", True)
+    For k = LBound(cases) To UBound(cases) Step 2
+        caseText = CStr(cases(k))
+        want = CBool(cases(k + 1))
+        Report "CLI.5 " & IIf(want, "goes to the interpreter: ", "goes to the English reader: ") & CliShow(caseText), _
+               VLA_IDE.VlaCliIsVla(caseText) = want, "got " & VLA_IDE.VlaCliIsVla(caseText)
+    Next
+
+    ' The sample the CLI opens with, since CLI.5 under three ; comments -
+    ' which the English reader would refuse, had the switch above not
+    ' learned that ; is VLA's.
+    Report "CLI.5 the sample the CLI opens with goes to the interpreter, comments and all", _
+           VLA_IDE.VlaCliIsVla(VLA_Console.VlaConsoleSample()), "it would go to the English reader"
+    Dim sampleForms As Long
+    sampleForms = -1
+    On Error Resume Next
+    sampleForms = VLA.VlaReadForms(VLA_Console.VlaConsoleSample()).Count
+    On Error GoTo 0
+    Report "CLI.5 the sample reads as its three forms - the comments are only comments", _
+           sampleForms = 3, "forms: " & sampleForms & IIf(sampleForms = -1, " (the reader refused it)", "")
+End Sub
 
 ' F.9: instructions.txt's own paragraphs (its documented structural unit -
 ' "blank line ends a block"), as (startLine, endLine, label) triples,

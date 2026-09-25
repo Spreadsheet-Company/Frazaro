@@ -1377,14 +1377,88 @@ End Sub
 
 Public Sub VlaOpenCli()
     frmCLI.Show vbModeless
-    frmCLI.txtCommand.SetFocus
+    frmCLI.FocusBox                      ' CLI.5: and, the first time, the sample selected
+End Sub
+
+' CLI.5 (the owner's request): VlaCli - six letters for the Immediate
+' window, where the CLI is opened far more often than from the ribbon or
+' by Ctrl+Shift+`. An alias, not a second way in: it is VlaOpenCli. The
+' name was checked free of every procedure and every module first - a
+' bare name that matches a module resolves to the module ("Expected
+' variable or procedure, not module"; VLA_DevRig's header records the
+' two renames that cost).
+Public Sub VlaCli()
+    VlaOpenCli
 End Sub
 
 ' The Run button/Ctrl+Enter's actual work. Returns a short status line
-' for the dialog's own label - full failure detail goes out through
+' - CLI.5: OK, Failed or Translation failed, and the time, which ends
+' the command's entry in the transcript (the dialog lost its own status
+' label to it) - while full failure detail goes out through
 ' VlaShowError, same voice as every other refusal in this product,
 ' rather than shrinking it to fit a label.
-Public Function VlaCliRun(ByVal text As String) As String
+' CLI.5: and now, beside the status, everything else the command
+' produced, for the CLI's transcript. said is every dialog it would
+' have raised - a refusal, a helper's own note - captured through
+' VlaShowError's own seam (VlaMessageCapture) instead of shown; a
+' program's own (msgbox ...) is not a Frazaro dialog and still appears.
+' printed is what its debug-print statements printed; runValue and
+' hasValue are what it came to (VLA_Interpreter.VlaInterpreterValue).
+' consoleResults are the CLI's last three results, bound as *, ** and
+' ***. Capture is always switched off again before this returns, so no
+' later dialog anywhere in Frazaro can be swallowed by a CLI command.
+Public Function VlaCliRun(ByVal text As String, Optional ByVal consoleResults As Collection = Nothing, _
+                          Optional ByRef said As String, Optional ByRef printed As Collection, _
+                          Optional ByRef runValue As Variant, Optional ByRef hasValue As Boolean) As String
+    Dim status As String, broke As String
+    Set printed = New Collection
+    hasValue = False
+    VLA_Runtime.VlaMessageCapture True
+    On Error Resume Next
+    status = CliRunCaptured(text, consoleResults, printed, runValue, hasValue)
+    If Err.Number <> 0 Then
+        broke = Err.Description
+        status = CliStatus("Failed")
+    End If
+    On Error GoTo 0
+    said = VLA_Runtime.VlaCapturedMessages()
+    VLA_Runtime.VlaMessageCapture False
+    If Len(broke) > 0 Then
+        If Len(said) > 0 Then said = said & vbCrLf
+        said = said & broke
+    End If
+    VlaCliRun = status
+End Function
+
+' CLI.5: whether the CLI hands text straight to the interpreter rather
+' than to the English reader. Text whose first character, past any
+' spaces, tabs or blank lines, is "(" - a form - or ";" - a VLA comment,
+' like the three the CLI's sample now opens with, and a character the
+' English reader refuses outright (its comments are #) - or one of the
+' console's own result names alone, *, ** or ***, so that typing *
+' shows the last result the way it does at every Lisp listener's
+' prompt. No English sentence is a lone run of asterisks. (Before CLI.5
+' a blank line above a form sent it to the English reader, which
+' refused it.)
+Public Function VlaCliIsVla(ByVal text As String) As Boolean
+    Dim t As String
+    t = Trim$(Replace(Replace(Replace(text, vbCr, " "), vbLf, " "), vbTab, " "))
+    VlaCliIsVla = (Left$(t, 1) = "(") Or (Left$(t, 1) = ";") Or t = "*" Or t = "**" Or t = "***"
+End Function
+
+' CLI.5: a status as the transcript writes it - how the run ended, and
+' when. The time tells one run of a command from the next.
+Private Function CliStatus(ByVal ending As String) As String
+    CliStatus = ending & " - " & Format$(Now, "hh:mm:ss")
+End Function
+
+' CLI.5: VlaCliRun's own body from before the transcript, now run with
+' every Frazaro dialog captured - it still refuses through VlaShowError,
+' which lands in the transcript instead of on the screen.
+Private Function CliRunCaptured(ByVal text As String, ByVal consoleResults As Collection, _
+                                ByRef printed As Collection, ByRef runValue As Variant, _
+                                ByRef hasValue As Boolean) As String
+    Dim ran As Boolean
     On Error GoTo failed
     CaptureHost
     Dim hb As Workbook
@@ -1407,7 +1481,7 @@ Public Function VlaCliRun(ByVal text As String) As String
     ' literally the same reader. Anything else is English, unchanged.
     Dim vla As String
     Dim viaEnglish As Boolean
-    If Left$(Trim$(text), 1) = "(" Then
+    If VlaCliIsVla(text) Then            ' CLI.5: a form, a ; comment, or *, ** or *** alone
         vla = text
     Else
         viaEnglish = True
@@ -1431,12 +1505,15 @@ Public Function VlaCliRun(ByVal text As String) As String
         On Error GoTo failed
         If Not translated Then
             VlaShowError errMsg
-            VlaCliRun = "Translation failed - see message."
+            CliRunCaptured = CliStatus("Translation failed")
             Exit Function
         End If
     End If
 
-    VLA_Interpreter.VlaInterpret vla, hb
+    ran = True
+    VLA_Interpreter.VlaInterpret vla, hb, consoleResults
+    Set printed = VLA_Interpreter.VlaInterpreterPrinted()
+    hasValue = VLA_Interpreter.VlaInterpreterValue(runValue)
 
     ' Same post-run registration InterpretProgram does - a CLI command
     ' declaring "When the sheet changes:" or a button-click handler
@@ -1459,15 +1536,18 @@ Public Function VlaCliRun(ByVal text As String) As String
         Next
     End If
 
-    VlaCliRun = "OK - " & Format$(Now, "hh:mm:ss")
+    CliRunCaptured = CliStatus("OK")
     Exit Function
 failed:
     Dim d As String
     d = Err.Description
     On Error Resume Next
+    ' CLI.5: what it printed before it was refused belongs in the record.
+    If ran Then Set printed = VLA_Interpreter.VlaInterpreterPrinted()
+    hasValue = False
     VlaShowError d
     On Error GoTo 0
-    VlaCliRun = "Failed - see message."
+    CliRunCaptured = CliStatus("Failed")
 End Function
 
 ' IN.4 (part two, walking skeleton): the export mechanism, proven

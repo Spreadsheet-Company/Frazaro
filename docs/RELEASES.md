@@ -66,7 +66,32 @@
   workbook: what one person typed at their console is not something a
   workbook they send on should carry. A command that mentions a password,
   a secret, a token, an API key or a credential is kept only until Excel
-  closes, and is never written to that file.
+  closes, and is never written to that file. The **Clear History**
+  button, or **Ctrl+Shift+Delete** from the keyboard, forgets them all,
+  and the file with them, after asking, since that cannot be undone.
+
+- **The CLI shows what came back.** Along the bottom of its window, under
+  the box, the CLI now keeps a transcript: each command after a `~`, then
+  whatever it printed, whatever Frazaro had to say about it - a refusal is
+  written there in full, in its own words, instead of in a dialog you have
+  to dismiss - the answer, when it worked one out, and how it ended: `OK`,
+  `Failed` or `Translation failed`, with the time. `(* 6 7)` answers
+  `= 42`. The last three answers are there to use in the next command, the
+  way every Lisp listener has had them since the 1970s: `*` is the last,
+  `**` the one before, `***` the one before that, so `(* * 2)` doubles the
+  last answer. The transcript lasts until Excel closes and is never saved
+  anywhere: it holds values from your own workbook. Type `clear` to empty
+  it; the history is kept.
+
+- **The CLI's window is simpler, and all of it works from the keyboard.**
+  **Run** and **Clear History** sit above the box, each naming its keys:
+  **Ctrl+Enter** runs, and **Ctrl+Shift+Delete** clears the history, after
+  asking. **Esc** closes the window from anywhere in it, as its X does. The
+  example the box opens with starts out selected, so the first thing you
+  type replaces it, and its opening comment lines say which keys do what.
+  A VLA command may now begin with blank lines or `;` comment lines, as
+  that example does; before, either sent it to the English reader, which
+  refused it.
 
 - **`OPTIMIZE` makes choices.** Until now it could only check a schedule
   you already had. Now it builds one. Write who may work which shift, how
@@ -120,7 +145,8 @@ your own, `%APPDATA%\Frazaro\history.txt` - the first file Frazaro keeps in
 your profile - and never into a workbook; nothing in a workbook can read it or
 ask for it, and a command in it only ever comes back into the CLI's box, never
 runs by itself. A command that mentions a password or another secret is not
-written to it at all. Nothing in any of this makes a network call.
+written to it at all. The CLI's transcript is kept in memory only, while Excel
+is open, and written nowhere. Nothing in any of this makes a network call.
 Standing advice unchanged. The full list of open items is in `docs/BETA_ROADMAP1.md`,
 in plain words in `README.md`.
 

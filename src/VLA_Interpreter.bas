@@ -1,6 +1,16 @@
 Attribute VB_Name = "VLA_Interpreter"
 Option Explicit
-Public Const VLA_INTERPRETER_VERSION As String = "LINTERPOLATE.0"
+Public Const VLA_INTERPRETER_VERSION As String = "CLI.5"
+' CLI.5: what a run came to, for the CLI's transcript. VlaInterpret
+' keeps the value of the run's last top-level form when that form is an
+' expression (VlaInterpreterValue) - a statement, a definition or an
+' English sentence comes to nothing - and hands back what debug-print
+' printed (VlaInterpreterPrinted). A CLI run passes its last three
+' results, bound in the run's own frame as *, ** and ***: the reader
+' already reads those as ordinary atoms, so in head position * is still
+' multiplication and (* * 2) doubles the last result. Only a CLI run
+' binds them, and asking for one that does not exist yet is refused in
+' the console's own words.
 ' LINTERPOLATE.0: (interpolate tpl :key val ...) - EvalExpr's own Case
 ' "interpolate", below, next to "array". Named "interpolate", not CL's
 ' "format" - this codebase's own format-as-currency/-percent/-date
@@ -311,6 +321,22 @@ Private mCaughtErrDesc As String
 Private mHelperManifest As String
 Private mHelperManifestRead As Boolean
 
+' CLI.5: the run's value - what its last top-level form came to, when
+' that form was an expression; Empty otherwise. Reset per run, and per
+' top-level form, so it always answers for the LAST one.
+Private mRunValue As Variant
+' CLI.5: set by ExecTop just before it hands a top-level form to
+' ExecStmt, and read-and-cleared at ExecStmt's own entry into
+' mCaptureThis - so only that one call keeps its value, and nothing
+' nested inside it does. Module state rather than a local in ExecStmt:
+' that procedure recurses, and a local there is paid on every level.
+Private mCaptureNext As Boolean
+Private mCaptureThis As Boolean
+' CLI.5: True for a run the CLI started with its last three results
+' bound as *, ** and *** - the one kind of run whose missing * is the
+' console's refusal rather than an ordinary unbound name.
+Private mConsoleRun As Boolean
+
 Public Sub VlaInterpretDemo()
     Dim english As String
     Dim vla As String
@@ -372,12 +398,21 @@ End Function
 ' results (VLA_Runtime.VlaDictGet(frame, "name")). IN3_5.0: also
 ' resets and populates mEffectLog, so every call starts its own clean
 ' record (VlaInterpreterEffectLog reads back after the call returns).
-Public Function VlaInterpret(ByVal vlaSource As String, Optional ByVal hostWb As Workbook = Nothing) As Object
+' CLI.5: consoleResults, when the CLI passes it, holds its last three
+' results, newest first; they are bound in this run's frame as *, ** and
+' ***, and the run's own value comes back through VlaInterpreterValue.
+Public Function VlaInterpret(ByVal vlaSource As String, Optional ByVal hostWb As Workbook = Nothing, _
+                             Optional ByVal consoleResults As Collection = Nothing) As Object
     Dim forms As Collection
     Dim frame As Object
     Set frame = PrepareInterpret(vlaSource, hostWb, forms)
+    If Not consoleResults Is Nothing Then
+        mConsoleRun = True
+        BindConsoleResults frame, consoleResults
+    End If
     Dim f As Variant
     For Each f In forms
+        mRunValue = Empty
         ExecTop f, frame
         ' Top level is a call-frame boundary too: an exit-sub/return
         ' (or a stray exit-for/exit-do with no enclosing loop) inside a
@@ -417,6 +452,10 @@ Private Function PrepareInterpret(ByVal vlaSource As String, ByVal hostWb As Wor
     Set frame = VLA_Runtime.VlaDictNew()
     Set mModuleFrame = frame
     Set mEffectLog = New Collection
+    mRunValue = Empty                    ' CLI.5
+    mCaptureNext = False
+    mCaptureThis = False
+    mConsoleRun = False
     mLoopBreak = False
     mProcReturn = False
     mProcReturnValue = Empty
@@ -525,7 +564,11 @@ End Function
 ' top-level sub's body ran once, param-blind, in file order) is what
 ' this replaces.
 Private Sub ExecTop(ByVal f As Variant, ByVal frame As Object)
+    ' CLI.5: mCaptureNext is set only here, right before handing a
+    ' top-level form to ExecStmt - never for main's body below, so an
+    ' English sentence's inner helper calls never become the run's value.
     If Not IsList(f) Then
+        mCaptureNext = True
         ExecStmt f, frame
         Exit Sub
     End If
@@ -534,6 +577,7 @@ Private Sub ExecTop(ByVal f As Variant, ByVal frame As Object)
     Dim h As String
     h = VLA_Identity.Fold(HeadSym(lst))
     If h <> "sub" And h <> "function" Then
+        mCaptureNext = True
         ExecStmt f, frame
         Exit Sub
     End If
@@ -656,11 +700,21 @@ End Function
 '  the mechanism.
 ' ---------------------------------------------------------------------
 Private Sub ExecStmt(ByVal f As Variant, ByVal frame As Object)
+    ' CLI.5: whether this call is ExecTop's own - read once, here, and
+    ' cleared before anything nested can run (see mCaptureNext).
+    mCaptureThis = mCaptureNext
+    mCaptureNext = False
     If Not IsList(f) Then
         ' A bare atom in statement position - degenerate but legal
         ' (mirrors VLA.bas's own EmitStmt, which refuses this; the
         ' skeleton is more permissive on purpose: "no error handling").
-        EvalExpr f, frame
+        ' CLI.5: at top level it is also the run's value - typing * alone
+        ' in the CLI shows the last result.
+        If mCaptureThis Then
+            AssignVar mRunValue, EvalExpr(f, frame)
+        Else
+            EvalExpr f, frame
+        End If
         Exit Sub
     End If
     Dim lst As Collection
@@ -710,7 +764,14 @@ Private Sub ExecStmt(ByVal f As Variant, ByVal frame As Object)
             ' (still true for 'with'/named-arg templates - IN.2's
             ' remaining hand-work, unimplemented anywhere, so they
             ' surface the same way).
-            EvalExpr f, frame
+            ' CLI.5: at top level, the result is kept as the run's value
+            ' instead of discarded. mCaptureThis is read before EvalExpr
+            ' runs, so a procedure it calls cannot change the answer.
+            If mCaptureThis Then
+                AssignVar mRunValue, EvalExpr(f, frame)
+            Else
+                EvalExpr f, frame
+            End If
     End Select
 End Sub
 
@@ -1338,6 +1399,46 @@ Public Function VlaInterpreterEffectLog() As String
     VlaInterpreterEffectLog = r
 End Function
 
+' CLI.5: the most recent run's value - True, with it in v, when that
+' run's last top-level form was an expression and came to something;
+' False when it came to nothing (Empty), or was a statement, a
+' definition or an English sentence. Answers for the most recent run
+' only, like VlaInterpreterEffectLog, and says nothing about a run that
+' was refused part-way: the caller asks only after a run that finished.
+Public Function VlaInterpreterValue(ByRef v As Variant) As Boolean
+    If IsEmpty(mRunValue) Then Exit Function
+    AssignVar v, mRunValue
+    VlaInterpreterValue = True
+End Function
+
+' CLI.5: what the most recent run's debug-print statements printed, in
+' order, one item each - read back from the effect log, which already
+' records every one as "debug-print: <text>". Nothing new is recorded
+' for it, so the log and the transcript can never disagree.
+Public Function VlaInterpreterPrinted() As Collection
+    Dim printed As Collection, e As Variant
+    Set printed = New Collection
+    If Not mEffectLog Is Nothing Then
+        For Each e In mEffectLog
+            If Left$(CStr(e), 13) = "debug-print: " Then printed.Add Mid$(CStr(e), 14)
+        Next
+    End If
+    Set VlaInterpreterPrinted = printed
+End Function
+
+' CLI.5: the CLI's last three results bound in the run's own frame -
+' results(1), the newest, as *, then ** and ***. Only the ones that
+' exist are bound; a missing one reaches EvalExpr's unbound branch and
+' is refused there in the console's own words.
+Private Sub BindConsoleResults(ByVal frame As Object, ByVal results As Collection)
+    Dim slots As Variant, i As Long
+    slots = Array("*", "**", "***")
+    For i = 1 To results.Count
+        If i > 3 Then Exit For
+        VLA_Runtime.VlaDictSet frame, CStr(slots(i - 1)), results.Item(i)
+    Next
+End Sub
+
 ' IN2.3: stops at mLoopBreak (set by exit-for/exit-do), not just after
 ' the current statement - VBA's own "Exit For"/"Exit Do" stop
 ' executing immediately, not at the end of the current pass. Since
@@ -1611,6 +1712,14 @@ Private Function EvalExpr(ByVal x As Variant, ByVal frame As Object) As Variant
                     If Not bareReceiver Is Nothing Then
                         AssignVar EvalExpr, bareReceiver
                     Else
+                        ' CLI.5: in a CLI run, a *, ** or *** with no
+                        ' result behind it yet is the console's own
+                        ' refusal, not a dictionary miss.
+                        If mConsoleRun Then
+                            If s = "*" Or s = "**" Or s = "***" Then
+                                VLA_Messages.RaiseMsg "interp-console-no-result", "name", s
+                            End If
+                        End If
                         ' Neither frame has it, and it is not a known
                         ' global receiver either - VlaDictGet's own raise
                         ' names the miss the same way it always has.

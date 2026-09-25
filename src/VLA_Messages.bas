@@ -16,6 +16,11 @@ Public Const VLA_MESSAGES_VERSION As String = "OPTIMIZE.3"
 ' own words, and one internal refusal for a grounding that contradicts
 ' itself.
 '
+' CLI.5: interp-console-no-result, at the foot of AddEntries - a CLI
+' command asking for *, ** or *** before that many results exist - and
+' cli-history-list-not-a-command retired: the history list goes to the
+' transcript now, so there is no list in the box to run by mistake.
+'
 ' CLI.3: three cli-history-* entries, at the foot of AddEntries - the
 ' console's own refusals: !N with nothing kept yet, !N naming a number
 ' the history does not hold (it says which it does), and the history
@@ -1258,7 +1263,12 @@ Private Sub AddEntries(ByVal m As Collection)
     ' history holds and which word gets at it.
     AddMsg m, "cli-history-empty", 5, "VLA-Console", "There is no entry {n} to bring back: nothing has been kept in this console's history yet. Every command run here is kept, even one that is refused, and typing history lists them with their numbers."
     AddMsg m, "cli-history-no-such-entry", 5, "VLA-Console", "There is no entry {n} in this console's history - it holds entries {first} to {last}. Type history to see them with their numbers, then ! and one of those numbers, like !{last}, to bring that command back."
-    AddMsg m, "cli-history-list-not-a-command", 5, "VLA-Console", "That is the history list, not a command, so it has not been run. To bring back one of the commands in it, put ! and its number in the list's place - !{last} is the newest - and press Ctrl+Enter; Ctrl+Enter again runs it."
+    ' CLI.5 retired cli-history-list-not-a-command: the history list is
+    ' written into the transcript now, never into the box, so there is no
+    ' list left to run by mistake. The id is not re-minted (SD-9).
+    ' CLI.5 - raised from VLA_Interpreter's EvalExpr, and only in a run the
+    ' CLI started: the names are the console's, bound there and nowhere else.
+    AddMsg m, "interp-console-no-result", 5, "VLA-Interpreter", "'{name}' holds one of the CLI's last three results - * the newest, ** the one before it, *** the one before that - and there is no such result yet. Only a command that works something out, like (+ 2 3), leaves one behind."
 End Sub
 
 Private Sub AddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _

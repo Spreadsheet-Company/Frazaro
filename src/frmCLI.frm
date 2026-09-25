@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmCLI 
    Caption         =   "Frazaro CLI"
-   ClientHeight    =   8440
+   ClientHeight    =   9840.001
    ClientLeft      =   110
    ClientTop       =   450
-   ClientWidth     =   9380.001
+   ClientWidth     =   9580.001
    OleObjectBlob   =   "frmCLI.frx":0000
    StartUpPosition =   2  'CenterScreen
 End
@@ -48,12 +48,25 @@ Private Const SWP_FRAMECHANGED As Long = &H20
 
 ' Layout constants captured from the original build
 ' (tools/build_cli_form.ps1) so UserForm_Resize computes every
-' control's new position from the MARGINS and the bottom-reserved band,
-' not from hardcoded absolutes.
+' control's new position from the MARGINS and the bands, not from
+' hardcoded absolutes.
 Private Const CLI_MARGIN As Long = 12
-Private Const CLI_BOTTOM_BAND As Long = 68        ' ClientHeight(272) - lblStatus.Top(204)
-Private Const CLI_STATUS_TO_BUTTONS As Long = 22  ' cmdRun.Top(226) - lblStatus.Top(204)
-Private Const CLI_BUTTON_GAP As Long = 6          ' cmdCancel.Left(346) - (cmdRun.Left+cmdRun.Width)
+Private Const CLI_BUTTON_GAP As Long = 6          ' the least room kept between the two buttons
+' CLI.5: the second band, and the owner's calls over four live looks.
+' Top to bottom: the two buttons, Run at the left and Clear History at
+' the right; the box where definitions are written, which takes all the
+' height the window gives (the box is where the work is, so it is the
+' one that grows); and the transcript, a fixed strip of about a dozen
+' lines of Consolas along the very bottom of the window - where a
+' terminal panel sits under an editor. No hint line: its words open the
+' sample, as comments. No status line: the transcript says everything
+' it said, and has its room. No Close button: Esc and the window's own
+' X close it. Below CLI_MIN_HEIGHT the box would have no room, and
+' narrower than the two buttons side by side they would overlap, so the
+' layout stays where it is, as it already did below the old minimum.
+Private Const CLI_TRANSCRIPT_BAND As Long = 156
+Private Const CLI_PANE_GAP As Long = 8
+Private Const CLI_MIN_HEIGHT As Long = 290
 
 ' CLI.3: where this box is in the history VLA_Console keeps. mStepsBack
 ' 0 is entry zero, the text being typed, and 1 is the newest command
@@ -64,74 +77,48 @@ Private Const CLI_BUTTON_GAP As Long = 6          ' cmdCancel.Left(346) - (cmdRu
 Private mStepsBack As Long
 Private mDraft As String
 Private mRecalling As Boolean   ' True while ShowInBox itself changes the text
+Private mJustOpened As Boolean  ' CLI.5: True until FocusBox first selects the sample
 
 Private Sub UserForm_Initialize()
-    cmdCancel.Cancel = True
-    lblStatus.Caption = ""
     ' CLI.1: no font was ever set at build time - the original build
     ' script's own attempt to set txtCommand.Font.Name/.Size via
     ' PowerShell COM automation failed (a chained-property-access quirk
     ' specific to that automation path, not a VBA limitation) and was
     ' dropped, leaving MSForms' plain default font in place ever since.
     ' Font, like Caption, is a complex object property living in the
-    ' binary .frx, not the plain-text .frm - set here for the same
-    ' reason lblHint's Caption is: hand-editable without re-running
-    ' tools/build_cli_form.ps1. Consolas, not the proportional default -
-    ' owner-requested (paren-matching by eye is what a monospace font
-    ' is FOR). Widely available since Vista/Office 2007, no fallback
-    ' needed for this project's own baseline (customUI14 already
-    ' assumes Office 2010+).
+    ' binary .frx, not the plain-text .frm - set here, where it stays
+    ' hand-editable without re-running tools/build_cli_form.ps1.
+    ' Consolas, not the proportional default - owner-requested (paren-
+    ' matching by eye is what a monospace font is FOR). Widely available
+    ' since Vista/Office 2007, no fallback needed for this project's own
+    ' baseline (customUI14 already assumes Office 2010+).
     txtCommand.Font.Name = "Consolas"
     txtCommand.Font.Size = 11
-    ' CLI.1 (owner-caught live): raw VLA has no # comment - only the
-    ' English/workspace-sheet dialect does. # has no special meaning to
-    ' VLA.Tokenize at all (checked directly: only ";" is a recognized
-    ' comment case), so a "#..." row reads as an ordinary bare symbol
-    ' and gets evaluated as a variable reference - "nothing stored at
-    ' key '#...'" is the normal unbound-variable error, not a hash-
-    ' lookup feature. Deliberately not teaching the raw reader # too:
-    ' # is genuinely unclaimed VLA syntax today, which is exactly the
-    ' character a future reader macro (#t/#f, #x hex literals) would
-    ' want - spending it on a second comment spelling forecloses that
-    ' for a convenience this hint line covers for free. Set here, not
-    ' baked into the .frm as a designer property, because a Label's
-    ' Caption lives in the binary .frx, not the plain-text part of
-    ' .frm - this is the hand-editable way to change it without
-    ' re-running tools/build_cli_form.ps1.
-    lblHint.Caption = "VLA or English - VLA comments use ; (not #) - Ctrl+Enter runs, Esc closes."
-    ' CLI.1: boot-time example, not a placeholder - a real, runnable
-    ' program showing both halves of the pipeline at once: a multi-line
-    ' raw VLA form (L0.2's own payoff) defining a tail-recursive
-    ' function, and msgbox as the exit point for actually SEEING a
-    ' macro's result while testing one, the thing a new user has no
-    ' other way to discover from the CLI alone. fib-iter mirrors L18's
-    ' own proven test shape exactly (TestL18's "fact-iter", VLA_Tests_
-    ' Grammar.bas) - accumulator-style, every parameter (byval), the
-    ' recursive call in tail position via (return (fib-iter ...)).
-    ' Honest caveat, not shown in the text itself but worth knowing:
-    ' L18's actual rebind-and-jump transform is EmitProc's own trick -
-    ' Compile only. Interpret (what the CLI always runs through) has no
-    ' such optimization, so this genuinely recurses via CallUserProc
-    ' rather than looping in the metal; correct either way for n=10,
-    ' just not the O(1)-stack claim L18 makes under Compile.
-    txtCommand.Text = _
-        "(function" & vbCrLf & _
-        "  fib-iter ((n) (byval a) (byval b Long)) Long " & vbCrLf & _
-        "  " & Chr$(34) & "tail-recursive fibonacci, accumulator style" & Chr$(34) & vbCrLf & _
-        "  (if (<= n 0)" & vbCrLf & _
-        "    (then (return a))" & vbCrLf & _
-        "    (else (return (fib-iter (- n 1) b (+ a b))))))" & vbCrLf & _
-        vbCrLf & _
-        "(defmacro" & vbCrLf & _
-        "  (modal message)" & vbCrLf & _
-        "  " & Chr$(34) & "alias for msgbox" & Chr$(34) & vbCrLf & _
-        "  (msgbox message))" & vbCrLf & _
-        vbCrLf & _
-        "(modal (fib-iter 10 0 1))"
+    ' CLI.5: the transcript - read-only, the same Consolas a size smaller,
+    ' flat and borderless on the dialog's own face colour, so it reads as
+    ' part of the window around the box rather than as a second box (the
+    ' owner's call, from the first live look: sunken, it looked like a box
+    ' someone had switched off). Set here, like the font above, so it stays
+    ' hand-editable without re-running tools/build_cli_form.ps1. It is
+    ' filled in UserForm_Activate: scrolling it to its newest line needs
+    ' focus, which Initialize - before the form is shown - cannot give.
+    txtTranscript.Font.Name = "Consolas"
+    txtTranscript.Font.Size = 10
+    txtTranscript.Locked = True
+    txtTranscript.BackColor = vbButtonFace
+    txtTranscript.SpecialEffect = fmSpecialEffectFlat
+    txtTranscript.BorderStyle = fmBorderStyleNone
+    ' CLI.1's sample, a real program to run or to type over - since CLI.5
+    ' under three ; comments carrying what the hint line above the box
+    ' used to say (VLA_Console.VlaConsoleSample has why each part is
+    ' there). FocusBox selects all of it on the way in.
+    txtCommand.Text = VLA_Console.VlaConsoleSample()
+    mJustOpened = True
 End Sub
 
 Private Sub UserForm_Activate()
     txtCommand.SetFocus
+    ShowTranscript                      ' CLI.5: the session's transcript, as far as it goes
     ' CLI.2: the window handle only reliably exists once the form is
     ' actually shown, not at Initialize - hence doing this here, not
     ' there. Best-effort: a failed resize-enable must never block
@@ -161,32 +148,58 @@ Private Sub UserForm_Activate()
     On Error GoTo 0
 End Sub
 
+' CLI.5: where every opening leaves the focus - VLA_IDE.VlaOpenCli calls
+' this last, once Show has returned. In the box; and the first time,
+' with all of the sample selected, as if Ctrl+A had been pressed, so the
+' first key typed replaces it (the owner's call). Here and not in
+' Activate, which runs inside Show: SetFocus leaves the caret after the
+' last character with nothing selected (MSForms' own rule), so the
+' selection has to come after the opening's last SetFocus - this one.
+' Opening a window already open leaves what is being typed as it is.
+Public Sub FocusBox()
+    txtCommand.SetFocus
+    If mJustOpened Then
+        mJustOpened = False
+        txtCommand.SelStart = 0
+        txtCommand.SelLength = Len(txtCommand.Text)
+    End If
+End Sub
+
 ' CLI.2: MSForms controls have no built-in anchoring/docking at all -
 ' flipping WS_THICKFRAME alone would just reveal more empty dialog
 ' background on drag, with txtCommand and the buttons frozen at their
 ' original size and position. This is what actually makes the resize
-' useful: txtCommand grows to fill the new space, the status line and
-' both buttons stay pinned to the bottom-right corner. Every position is
-' computed from the CLI_* margin/band constants captured from the
-' original build, not hardcoded, so this generalizes to any new size.
+' useful: txtCommand grows to fill the new space (CLI.5: between the
+' buttons, which stay along the top with Clear History at the right
+' edge, and the transcript, which keeps the bottom edge). Every
+' position is computed from the CLI_* margin/band constants captured
+' from the original build, not hardcoded, so this generalizes to any
+' new size.
 Private Sub UserForm_Resize()
     On Error Resume Next   ' best-effort: a layout glitch must never crash the CLI mid-resize
     Dim w As Single, h As Single
     w = Me.InsideWidth
     h = Me.InsideHeight
-    If w < 200 Or h < 150 Then Exit Sub   ' too small to lay out sanely - leave controls where they are
+    ' too small to lay out sanely - leave controls where they are
+    If w < 2 * CLI_MARGIN + cmdRun.Width + CLI_BUTTON_GAP + cmdClearHistory.Width Then Exit Sub
+    If h < CLI_MIN_HEIGHT Then Exit Sub
 
-    lblHint.Width = w - 2 * CLI_MARGIN
+    ' CLI.5: the buttons along the top, the transcript keeping
+    ' CLI_TRANSCRIPT_BAND along the bottom, and the box between them.
+    cmdRun.Top = CLI_MARGIN
+    cmdRun.Left = CLI_MARGIN
+    cmdClearHistory.Top = CLI_MARGIN
+    cmdClearHistory.Left = w - CLI_MARGIN - cmdClearHistory.Width
 
+    txtTranscript.Top = h - CLI_MARGIN - CLI_TRANSCRIPT_BAND
+    txtTranscript.Left = CLI_MARGIN
+    txtTranscript.Width = w - 2 * CLI_MARGIN
+    txtTranscript.Height = CLI_TRANSCRIPT_BAND
+
+    txtCommand.Top = cmdRun.Top + cmdRun.Height + CLI_PANE_GAP
+    txtCommand.Left = CLI_MARGIN
     txtCommand.Width = w - 2 * CLI_MARGIN
-    txtCommand.Height = h - CLI_BOTTOM_BAND - txtCommand.Top
-
-    lblStatus.Top = h - CLI_BOTTOM_BAND
-    cmdCancel.Top = lblStatus.Top + CLI_STATUS_TO_BUTTONS
-    cmdCancel.Left = w - CLI_MARGIN - cmdCancel.Width
-    cmdRun.Top = cmdCancel.Top
-    cmdRun.Left = cmdCancel.Left - CLI_BUTTON_GAP - cmdRun.Width
-    lblStatus.Width = cmdRun.Left - CLI_MARGIN - CLI_MARGIN
+    txtCommand.Height = txtTranscript.Top - CLI_PANE_GAP - txtCommand.Top
     On Error GoTo 0
 End Sub
 
@@ -194,8 +207,29 @@ Private Sub cmdRun_Click()
     RunCurrentText
 End Sub
 
-Private Sub cmdCancel_Click()
-    Unload Me
+Private Sub cmdClearHistory_Click()
+    AskAndClearHistory
+End Sub
+
+' CLI.5 (the owner's request, from the live test): forget the kept
+' commands - and, by the button being on the form at all, show that they
+' ARE kept. It asks first, the owner's call: forgetting is the one thing
+' the CLI does that cannot be undone, so this is the one dialog of its
+' own it still opens. The question names what goes, and No is the
+' default, so a stray Enter keeps everything. With nothing kept there is
+' nothing to ask about, and the transcript says so. The button and
+' Ctrl+Shift+Delete (WindowKeys) both come here.
+Private Sub AskAndClearHistory()
+    Dim n As Long
+    n = VLA_Console.VlaConsoleHistoryCount()
+    If n = 0 Then
+        VLA_Console.VlaConsoleClearHistory
+        ShowTranscript
+    ElseIf MsgBox(VLA_Console.VlaConsoleClearPrompt(n), vbYesNo + vbQuestion + vbDefaultButton2, "Frazaro") = vbYes Then
+        VLA_Console.VlaConsoleClearHistory
+        ShowTranscript
+    End If
+    txtCommand.SetFocus
 End Sub
 
 Private Sub txtCommand_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
@@ -210,7 +244,42 @@ Private Sub txtCommand_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shi
         older = (KeyCode = vbKeyUp)
         KeyCode = 0
         RecallHistory older
+    Else
+        WindowKeys KeyCode, Shift
     End If
+End Sub
+
+Private Sub txtTranscript_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    WindowKeys KeyCode, Shift
+End Sub
+
+Private Sub cmdRun_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    WindowKeys KeyCode, Shift
+End Sub
+
+Private Sub cmdClearHistory_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    WindowKeys KeyCode, Shift
+End Sub
+
+' CLI.5: the keys that work wherever the focus is - Esc closes the
+' window, as its X does, and Ctrl+Shift+Delete clears the history, as
+' the Clear History button does, asking first. VLA_Console's
+' VlaConsoleWindowKey decides which key is which, where the suite pins
+' it; this does them. The Close button that used to answer Esc (its
+' Cancel property) is gone - the owner's call: the X and Esc already say
+' it - so every control that can hold the focus hands its keys here: the
+' box, the transcript (a click puts the focus there, to select and copy)
+' and the two buttons (Tab reaches them). Each key is spent before it
+' acts, so the box never also deletes or cuts with it.
+Private Sub WindowKeys(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    Select Case VLA_Console.VlaConsoleWindowKey(KeyCode.Value, Shift)
+        Case "close"
+            KeyCode = 0
+            Unload Me
+        Case "clear history"
+            KeyCode = 0
+            AskAndClearHistory
+    End Select
 End Sub
 
 ' CLI.3: any edit - a keystroke, a paste, a cut - makes the text the
@@ -222,49 +291,64 @@ Private Sub txtCommand_Change()
 End Sub
 
 Private Sub RunCurrentText()
-    Dim src As String
-    Dim boxText As String, status As String, note As String
+    Dim src As String, boxText As String
     src = txtCommand.Text
     If Len(Trim$(src)) = 0 Then Exit Sub
     ' CLI.3: the console's own words - history, history N, !N - are
-    ' answered here, never run and never kept.
-    If VLA_Console.VlaConsoleAnswer(src, boxText, status) Then
+    ' answered here, never run and never kept. CLI.5: their answers go into
+    ' the transcript, history's list among them; only !N fills the box.
+    If VLA_Console.VlaConsoleAnswer(src, boxText) Then
         If Len(boxText) > 0 Then ShowInBox boxText
-        lblStatus.Caption = status
-        txtCommand.SetFocus
+        ShowTranscript
         Exit Sub
     End If
     ' CLI.3: kept BEFORE it runs, so a refused command is there to fix -
     ' and the box, still holding it, is entry zero again. CLI.4: kept on
-    ' disk too; a write that failed comes back as a note for the status
-    ' line, after the run's own status, never as a dialog.
-    note = VLA_Console.VlaConsoleRemember(src)
+    ' disk too. CLI.5: VlaConsoleRun does all of it - keeps the command,
+    ' runs it with *, ** and *** bound, and writes it and everything that
+    ' came back into the transcript, how it ended last.
     mStepsBack = 0
-    lblStatus.Caption = "Running..."
-    Me.Repaint
-    lblStatus.Caption = VLA_IDE.VlaCliRun(src)
-    If Len(note) > 0 Then lblStatus.Caption = lblStatus.Caption & " - " & note
+    VLA_Console.VlaConsoleRun src
+    ShowTranscript
+End Sub
+
+' CLI.5: refill the transcript from VLA_Console and scroll it to its
+' newest line. An MSForms textbox only scrolls to its caret while it has
+' the focus, so the focus visits the pane and comes back to the box -
+' with the box's own caret and selection put back as they were, since
+' coming back into a textbox can otherwise select all of it.
+Private Sub ShowTranscript()
+    Dim keepStart As Long, keepLength As Long
+    On Error Resume Next   ' best-effort, like the resize: a display glitch must never stop a run
+    keepStart = txtCommand.SelStart
+    keepLength = txtCommand.SelLength
+    txtTranscript.Text = VLA_Console.VlaConsoleTranscript()
+    txtTranscript.SetFocus
+    txtTranscript.SelStart = Len(txtTranscript.Text)
     txtCommand.SetFocus
+    txtCommand.SelStart = keepStart
+    txtCommand.SelLength = keepLength
+    On Error GoTo 0
 End Sub
 
 ' CLI.3: Ctrl+Up (older) or Ctrl+Down, one step through the history.
+' CLI.5: nothing more is said - the box shows the command, and at either
+' end of the history it stays as it is, the way a terminal's prompt does.
 Private Sub RecallHistory(ByVal older As Boolean)
-    Dim newText As String, status As String
-    If VLA_Console.VlaConsoleRecall(older, mStepsBack, mDraft, txtCommand.Text, newText, status) Then
-        ShowInBox newText
-        lblStatus.Caption = status
-    ElseIf Len(status) > 0 Then
-        lblStatus.Caption = status
-    End If
+    Dim newText As String
+    If VLA_Console.VlaConsoleRecall(older, mStepsBack, mDraft, txtCommand.Text, newText) Then ShowInBox newText
 End Sub
 
 ' CLI.3: put text in the box without it counting as an edit - the
 ' Change handler would otherwise send the history back to entry zero -
 ' and leave the caret at the end, where typing carries on.
-Private Sub ShowInBox(ByVal text As String)
+Private Sub ShowInBox(ByVal shown As String)
+    ' The parameter is not called "text": a declaration of text makes the
+    ' VBE re-case every .Text in this module to .text, and the VBE's casing
+    ' is what tools/build_cli_form.ps1's round trip writes back to src\.
     mRecalling = True
     On Error Resume Next   ' best-effort, like the resize: never leave mRecalling stuck True
-    txtCommand.Text = text
+    txtCommand.Text = shown
     txtCommand.SelStart = Len(txtCommand.Text)
     On Error GoTo 0
     mRecalling = False

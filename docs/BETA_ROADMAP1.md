@@ -22144,7 +22144,7 @@ now carries one summary paragraph per engine and points here.*
   disk. Found on the way: `CLI.3`'s console-word match used `LCase$`, which
   is locale-aware, the one case `R6` exists to prevent; it now folds
   through `VLA_Identity.Fold`.
-- ⬜ **CLI.5 — the transcript pane, and the last three results.** A read-only
+- ✅ **CLI.5 — the transcript pane, and the last three results.** A read-only
   pane above the input showing each command and what came back: the status
   line, `debug-print` output, refusals in their own words, and an
   expression's value. That needs one plumbing change — `VlaCliRun` returning
@@ -22157,6 +22157,95 @@ now carries one summary paragraph per engine and points here.*
   `***` wait until the tokenizer is shown to tell a bare `*` from the
   operator in head position (unchecked at minting). Unblocks SPITBALLS 15,
   47, 50 and 101. *Depends on:* `CLI.3`. `~days`
+  *Built 2026-09-24 and 25 over five live looks, the build script run by
+  the owner after each layout change, and owner-verified live 2026-09-25:
+  all thirteen steps of the window's round (the layout, the sample opening
+  selected, `~` and each run's status with its time, `*`, `clear`, `!N`,
+  a read-only `history.txt` answered by a note and by an all-or-nothing
+  Clear History, Esc from every control, the resize), all eight of the
+  keyboard's (Ctrl+Shift+Delete from the box, the transcript and a
+  button, with Ctrl+Backspace, Ctrl+Delete and Shift+Delete left to the
+  box), and the button naming its chord; `VlaSelfTests` pure 1358/1358
+  and host 152/152.* Checked, and the minting's open question closed: the reader
+  splits only on spaces, parentheses, `;` and quotes, so `*`, `**` and
+  `***` are ordinary atoms; in head position `*` is still multiplication,
+  in argument position it is a name lookup nothing intercepts. So the
+  owner's call was `*`, `**`, `***` and no `(last)`, which would have
+  claimed the word for good (`SD-4`) while it already means "the last
+  element of" in the English layer (`vlalast`) and in every Lisp. Only a
+  CLI run binds them, in the run's own frame; asking for one that does not
+  exist yet is refused in the console's words (`interp-console-no-result`).
+  The value is new plumbing: `VlaInterpret` returned its frame and threw a
+  top-level expression's value away, so it now keeps the value of the
+  run's last top-level form when that form is an expression - a statement,
+  a definition or an English sentence comes to nothing - and hands back
+  what `debug-print` printed, read from the effect log. The owner's second
+  call: refusals go into the transcript only, with every Frazaro dialog of
+  a CLI run captured through `VlaShowError`'s own seam and the capture
+  always switched off again; a program's own `(msgbox ...)` still shows.
+  The third, from the first live look: the first build gave the
+  transcript the height and kept the box to a seven-line strip, a
+  terminal's layout, and it looked like a second box switched off. It is
+  now a flat, borderless strip of about nine lines in the window's own
+  grey, and the box - where definitions are written - takes the rest.
+  The fourth, from the second look: the strip moved from above the box
+  to the very bottom of the window, under the buttons, where it reads as
+  a terminal panel under an editor. The fifth, from the live test, when
+  the history had no easy reset: a Clear History button at the left of
+  the button row, which asks first - the one dialog the CLI still opens
+  of its own, for the one thing it does that cannot be undone - and
+  `clear`, which empties the transcript, as in every terminal, and keeps
+  the history. The sixth, from the fourth look, settled the window: Run
+  and Clear History along the top, Run at the left; no Close button, since
+  Esc and the window's own X already close it (Esc now closes it from the
+  box, the transcript or either button); no status line, since the
+  transcript already said all it said - a run's status ends its entry
+  with the time (`OK - 18:02:11`, `Failed - ...`, no more "see
+  transcript" inside the transcript), a console word's answer is its own
+  last line, `clear` leaves one line saying what it kept, and Ctrl+Up
+  says nothing but the command it brings back - so the strip took its
+  room, about a dozen lines; no hint line either, its words moved into
+  the sample as three `;` comments, so `VlaCliIsVla` also hands text that
+  opens with `;` to the interpreter (the English reader refuses a `;`
+  outright); `~` in front of each command instead of `>`; and the sample
+  opens selected, as if Ctrl+A had been pressed, so the first key typed
+  replaces it (`frmCLI.FocusBox`, which `VlaOpenCli` calls last, since
+  a `SetFocus` after `Show` would put the caret back at the end). The
+  sample moved into `VLA_Console.VlaConsoleSample`, where two pins hold
+  it to the interpreter and to its three forms. The seventh, from the
+  fifth look, when steps 1 to 13 had passed: nothing a CLI does may need
+  the mouse, so Ctrl+Shift+Delete clears the history from anywhere in
+  the window, asking first like the button - the chord every browser
+  uses to clear its history, and one nothing in the box uses.
+  Ctrl+Backspace, the owner's first thought, is every text box's
+  delete-the-word-before; the other candidates were Ctrl+- (zoom out
+  everywhere else), Alt+H (the button's accelerator) and a typed
+  `history clear` (fish's own). `VlaConsoleWindowKey` decides what Esc
+  and the chord do, and its pins hold Ctrl+Backspace, Ctrl+Delete and
+  Shift+Delete to the box. The button names its chord, "Clear History
+  (Ctrl+Shift+Del)", as Run names Ctrl+Enter, and is 140 points wide to
+  hold it. The sample's comments are now the owner's own
+  four lines, the third saying `"history" lists 20` rather than "lists
+  all": a bare `history` lists the last 20, as settled at `CLI.3`.
+  And `VlaCli`, at the owner's asking: six letters for the Immediate
+  window, an alias of `VlaOpenCli`.
+  `history`'s list moved into the transcript, as decided at `CLI.3`, so
+  its guard and `cli-history-list-not-a-command` retired. The transcript
+  is kept for the Excel session (200 commands), never on disk.
+  `build_cli_form.ps1` now reads the form's code from `frmCLI.frm` instead
+  of keeping its own CLI.0 copy - run as it stood, it would have deleted
+  `CLI.1` to `CLI.5` - and exports to a folder of its own before touching
+  `src`. Found while writing the live test: the CLI sent anything not
+  starting with `(` to the English reader, so `*` typed alone - the
+  listener's habit the names were chosen for - was refused as a sentence;
+  `VlaCliIsVla` now hands a lone `*`, `**` or `***` to the interpreter,
+  and no longer lets a blank line above a form send it to English. The
+  build script's first run also showed the VBE re-casing every `.Text` to
+  `.text` on its round trip, because a parameter was named `text`: renamed,
+  and the code section restored byte for byte beside Excel's new header
+  and `.frx`. 58 more pure pins (34 in `TestCliTranscript`, 24 in
+  `TestCliConsoleResults`), 2 retired with the guard. No `GRAMMAR_SINCE.md`
+  row: `*` and its siblings are names the console binds, not forms.
 - ⬜ **U.16 — the backend switch, in words.** Where the user sees which backend
   is running, why, and how to change it. *Depends on:* IN.4, IN.6, EN.1. `~days`
 - ⬜ **U.13 · U.11 · U.6 · U.7 · U.8** — exploration rig and the remaining items.
