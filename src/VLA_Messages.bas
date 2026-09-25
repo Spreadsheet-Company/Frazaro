@@ -1,6 +1,13 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "OPTIMIZE.2"
+Public Const VLA_MESSAGES_VERSION As String = "CLI.3"
+' CLI.3: three cli-history-* entries, at the foot of AddEntries - the
+' console's own refusals: !N with nothing kept yet, !N naming a number
+' the history does not hold (it says which it does), and the history
+' list itself run as though it were a command. Raised from
+' VLA_Console.VlaConsoleWordAnswer; shown by VlaConsoleAnswer the way
+' VlaCliRun shows every other refusal in the CLI.
+'
 ' OPTIMIZE.2: twenty optimize-* entries now - OPTIMIZE.1's eighteen,
 ' less optimize-constraint-not-yet (retired, never re-minted: a
 ' constraint IS checked now, so "this version checks none" became
@@ -1207,6 +1214,13 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "optimize-table-not-a-range", 5, "VLA-Optimize", "every OPTIMIZE table argument must be a cell range - pass a reference like Employees, not a computed value."
     AddMsg m, "optimize-table-needs-a-name", 5, "VLA-Optimize", "this range has no name OPTIMIZE can use for it - make it an Excel Table (Ctrl+T) or give it a defined name, then reference that name in the formula."
     AddMsg m, "optimize-table-noncontiguous-columns", 5, "VLA-Optimize", "a table argument spanning multiple disjoint areas (a Ctrl-selected, non-contiguous range) isn't supported - select one contiguous block of the table's own columns instead."
+    ' CLI.3 - the console's own refusals, raised from
+    ' VLA_Console.VlaConsoleWordAnswer. The words are the console's, not
+    ' the language's, so none of these names a form: each says what the
+    ' history holds and which word gets at it.
+    AddMsg m, "cli-history-empty", 5, "VLA-Console", "There is no entry {n} to bring back: nothing has been kept in this console's history yet. Every command run here is kept, even one that is refused, and typing history lists them with their numbers."
+    AddMsg m, "cli-history-no-such-entry", 5, "VLA-Console", "There is no entry {n} in this console's history - it holds entries {first} to {last}. Type history to see them with their numbers, then ! and one of those numbers, like !{last}, to bring that command back."
+    AddMsg m, "cli-history-list-not-a-command", 5, "VLA-Console", "That is the history list, not a command, so it has not been run. To bring back one of the commands in it, put ! and its number in the list's place - !{last} is the newest - and press Ctrl+Enter; Ctrl+Enter again runs it."
 End Sub
 
 Private Sub AddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _

@@ -21578,7 +21578,7 @@ now carries one summary paragraph per engine and points here.*
 - ⬜ **U.12 — apropos in the panel** (three tiers plus worksheet functions).
 - ⬜ **U.14 — `VlaTryTranspile`.** Retires the modal class from expected-error
   smokes. `~days`
-- 🟡 **CLI.3 — the console remembers: session history.** *Minted 2026-09-24,
+- ✅ **CLI.3 — the console remembers: session history.** *Minted 2026-09-24,
   with CLI.4 and CLI.5, from a conversation scoping the one catch two
   spitballs shared (SPITBALLS 25, define-by-demonstration, and 101, `*`/`**`/
   `***`): the console keeps no history. Numbered to continue `IN.13`'s own
@@ -21601,12 +21601,16 @@ now carries one summary paragraph per engine and points here.*
   layout is untouched, so no `build_cli_form.ps1` run. *Pure half testable
   in the pure suite:* the buffer's push/cap/collapse/cursor logic, kept free
   of the form. `~hours`
-  *Built 2026-09-24, awaiting the owner's live test.* A new shipped module,
-  `VLA_Console`, holds the commands; the form keeps only its own position
-  and entry zero, which should close with it. The pure half
+  *Built 2026-09-24, and owner-verified live the same day: all seventeen
+  steps as written, `VlaSelfTests` pure 1260/1260 (+45) and host 152/152.*
+  A new shipped module, `VLA_Console`, holds the commands; the form keeps
+  only its own position and entry zero, which should close with it. The
+  pure half
   (`VlaHistoryPush`, `VlaHistoryMove`, `VlaConsoleWordAnswer`) takes its
-  state as arguments and carries 45 pins in `TestCliHistory`, so a
-  self-test run mid-session leaves the session's history alone. The
+  state as arguments and carries 45 pins in `TestCliHistory`, so the pure
+  suite never touches the session's history. (`VlaSelfTests`' host half
+  does, indirectly, in the dev workbook: it injects scratch modules there,
+  and an injection resets every module's state.) The
   owner's one call: until `CLI.5`'s transcript exists, `history` puts its
   list *in the input box* (monospace, scrolling, no dialog), and running
   that list unchanged is refused rather than handed to the English reader

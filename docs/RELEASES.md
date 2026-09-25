@@ -54,13 +54,26 @@
   On the machine this was measured on, every one of the questions above was
   checked against its expected answer before it was timed, at every size.
 
+- **The CLI remembers what you ran.** In the Frazaro CLI, **Ctrl+Up** brings
+  back the command before, and the one before that, and **Ctrl+Down** walks
+  forward again to whatever you were in the middle of typing, which is kept
+  while you look back. A command is kept *before* it runs, so one that
+  Frazaro refused is there to fix rather than to retype from memory. Type
+  `history` to list the last twenty with their numbers (`history 50` lists
+  fifty), and `!7` to put number 7 back in the box without running it. The
+  history lasts until Excel closes, and it is never written into your
+  workbook: what one person typed at their console is not something a
+  workbook they send on should carry.
+
 ### Known open security items
 
-**Closed this release:** nothing. The changes above are speed only: the same
-questions, over the same tables, giving the same answers, with no new
+**Closed this release:** nothing. The query changes above are speed only: the
+same questions, over the same tables, giving the same answers, with no new
 capability, no new file or network access and nothing new that a workbook can
-ask Frazaro to do. Nothing in any of this makes a network call. Standing
-advice unchanged. The full list of open items is in `docs/BETA_ROADMAP1.md`,
+ask Frazaro to do. The CLI's history is new, and stays in memory only while
+Excel is open: it is written to no file and never into a workbook, and nothing
+in a workbook can read it. Nothing in any of this makes a network call.
+Standing advice unchanged. The full list of open items is in `docs/BETA_ROADMAP1.md`,
 in plain words in `README.md`.
 
 ## 0.6.2

@@ -55,6 +55,16 @@ Private Const CLI_BOTTOM_BAND As Long = 68        ' ClientHeight(272) - lblStatu
 Private Const CLI_STATUS_TO_BUTTONS As Long = 22  ' cmdRun.Top(226) - lblStatus.Top(204)
 Private Const CLI_BUTTON_GAP As Long = 6          ' cmdCancel.Left(346) - (cmdRun.Left+cmdRun.Width)
 
+' CLI.3: where this box is in the history VLA_Console keeps. mStepsBack
+' 0 is entry zero, the text being typed, and 1 is the newest command
+' kept; mDraft holds entry zero while the box shows an older command.
+' Here and not in VLA_Console: they describe this box, and the next
+' opening starts with a fresh one. The commands themselves live there,
+' because this form - and everything it holds - unloads on Esc.
+Private mStepsBack As Long
+Private mDraft As String
+Private mRecalling As Boolean   ' True while ShowInBox itself changes the text
+
 Private Sub UserForm_Initialize()
     cmdCancel.Cancel = True
     lblStatus.Caption = ""
@@ -189,18 +199,70 @@ Private Sub cmdCancel_Click()
 End Sub
 
 Private Sub txtCommand_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    Dim older As Boolean
     If KeyCode = vbKeyReturn And (Shift And 2) = 2 Then   ' Ctrl+Enter
         KeyCode = 0
         RunCurrentText
+    ElseIf Shift = 2 And (KeyCode = vbKeyUp Or KeyCode = vbKeyDown) Then
+        ' CLI.3: Ctrl+Up / Ctrl+Down, with Ctrl alone - bare Up and Down
+        ' move the caret between the lines of a many-line form, and
+        ' Ctrl+Shift keeps whatever the box itself does with them.
+        older = (KeyCode = vbKeyUp)
+        KeyCode = 0
+        RecallHistory older
     End If
+End Sub
+
+' CLI.3: any edit - a keystroke, a paste, a cut - makes the text the
+' person's own again: the box goes back to entry zero, and what is in it
+' now is what the next Ctrl+Up keeps. ShowInBox's own changes do not
+' count.
+Private Sub txtCommand_Change()
+    If Not mRecalling Then mStepsBack = 0
 End Sub
 
 Private Sub RunCurrentText()
     Dim src As String
+    Dim boxText As String, status As String
     src = txtCommand.Text
     If Len(Trim$(src)) = 0 Then Exit Sub
+    ' CLI.3: the console's own words - history, history N, !N - are
+    ' answered here, never run and never kept.
+    If VLA_Console.VlaConsoleAnswer(src, boxText, status) Then
+        If Len(boxText) > 0 Then ShowInBox boxText
+        lblStatus.Caption = status
+        txtCommand.SetFocus
+        Exit Sub
+    End If
+    ' CLI.3: kept BEFORE it runs, so a refused command is there to fix -
+    ' and the box, still holding it, is entry zero again.
+    VLA_Console.VlaConsoleRemember src
+    mStepsBack = 0
     lblStatus.Caption = "Running..."
     Me.Repaint
     lblStatus.Caption = VLA_IDE.VlaCliRun(src)
     txtCommand.SetFocus
+End Sub
+
+' CLI.3: Ctrl+Up (older) or Ctrl+Down, one step through the history.
+Private Sub RecallHistory(ByVal older As Boolean)
+    Dim newText As String, status As String
+    If VLA_Console.VlaConsoleRecall(older, mStepsBack, mDraft, txtCommand.Text, newText, status) Then
+        ShowInBox newText
+        lblStatus.Caption = status
+    ElseIf Len(status) > 0 Then
+        lblStatus.Caption = status
+    End If
+End Sub
+
+' CLI.3: put text in the box without it counting as an edit - the
+' Change handler would otherwise send the history back to entry zero -
+' and leave the caret at the end, where typing carries on.
+Private Sub ShowInBox(ByVal text As String)
+    mRecalling = True
+    On Error Resume Next   ' best-effort, like the resize: never leave mRecalling stuck True
+    txtCommand.Text = text
+    txtCommand.SelStart = Len(txtCommand.Text)
+    On Error GoTo 0
+    mRecalling = False
 End Sub

@@ -256,7 +256,8 @@ Public Const VLA_TESTS_VERSION As String = "AS7.1"
 '             Layer 5)
 '  MAY CALL:  VLA (transpiler), VLA_English (grammar engine),
 '             VLA_Loader, VLA_HeadTable, VLA_Runtime, VLA_IDE,
-'             VLA_Build, VLA_Interpreter, VLA_Tests_Grammar (dispatch
+'             VLA_Build, VLA_Interpreter, VLA_Console (CLI.3's pure
+'             half only), VLA_Tests_Grammar (dispatch
 '             only, from VlaSelfTest) - none of these calls touches a
 '             live workbook; VLA_Runtime's VlaColor/VlaDict family and
 '             VLA_IDE's naming/scan helpers are pure functions
@@ -425,6 +426,7 @@ Public Function VlaSelfTest() As Boolean
     TestU20LintFileBytes
     TestTer7EmptyProgram
     TestTer8EmptyForms
+    TestCliHistory
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -2821,6 +2823,223 @@ Private Sub TestTer8EmptyForms()
     Report "TER-8 ...while text holding a form still reads it - one form", _
            Len(errText) = 0 And n = 1, "error: " & errText & ", count: " & n
 End Sub
+
+' CLI.3: the console's history - VLA_Console's pure half, over throwaway
+' histories, so a run in the middle of a CLI session leaves the
+' session's own history as it was. What the form does with the keys is
+' the owner's live test; everything it decides is decided here.
+Private Sub TestCliHistory()
+    Dim h As Collection, lines As Variant, cases As Variant, k As Long
+    Dim letGo As Long, moved As Boolean, movedUp As Boolean, isWord As Boolean
+    Dim sb As Long, dr As String, bx As String, nt As String, entryNo As Long
+    Dim boxText As String, status As String, listing As String, errText As String
+    Dim caseText As String, shown As String
+
+    ' --- keeping ---
+    Set h = CliHistoryOf("a", "b", "c")
+    Report "CLI.3 history keeps commands oldest first", _
+           h.Count = 3 And CollItemIs(h, 1, "a") And CollItemIs(h, 2, "b") And CollItemIs(h, 3, "c"), _
+           "count " & h.Count
+    letGo = VLA_Console.VlaHistoryPush(h, "c", 5)
+    Report "CLI.3 history keeps a command run twice in a row once", _
+           h.Count = 3 And letGo = 0, "count " & h.Count & ", let go " & letGo
+    VLA_Console.VlaHistoryPush h, "a", 5
+    Report "CLI.3 history keeps a repeat that is not the newest", _
+           h.Count = 4 And CollItemIs(h, 4, "a"), "count " & h.Count
+    VLA_Console.VlaHistoryPush h, "", 5
+    VLA_Console.VlaHistoryPush h, "   ", 5
+    VLA_Console.VlaHistoryPush h, vbCrLf & vbTab & " " & vbLf, 5
+    Report "CLI.3 history never keeps blank text", h.Count = 4, "count " & h.Count
+    Set h = CliHistoryOf("(a" & vbCrLf & "  b)")
+    Report "CLI.3 history keeps a many-line command byte for byte", _
+           CollItemIs(h, 1, "(a" & vbCrLf & "  b)"), "count " & h.Count
+    Set h = New Collection
+    VLA_Console.VlaHistoryPush h, "a", 3
+    VLA_Console.VlaHistoryPush h, "b", 3
+    VLA_Console.VlaHistoryPush h, "c", 3
+    letGo = VLA_Console.VlaHistoryPush(h, "d", 3)
+    Report "CLI.3 past its cap, history lets the oldest go and says how many", _
+           h.Count = 3 And letGo = 1 And CollItemIs(h, 1, "b") And CollItemIs(h, 3, "d"), _
+           "count " & h.Count & ", let go " & letGo
+
+    ' --- walking: Ctrl+Up and Ctrl+Down ---
+    Set h = CliHistoryOf("a", "b", "c")
+    sb = 0: dr = "": bx = "half typ"
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, bx, True, nt, entryNo)
+    Report "CLI.3 Ctrl+Up shows the newest and keeps what was being typed", _
+           moved And nt = "c" And entryNo = 3 And sb = 1 And dr = "half typ", _
+           "moved " & moved & " to '" & nt & "' #" & entryNo & ", kept '" & dr & "'"
+    bx = nt
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, bx, True, nt, entryNo)
+    Report "CLI.3 Ctrl+Up again goes one older", _
+           moved And nt = "b" And entryNo = 2 And sb = 2, "moved " & moved & " to '" & nt & "' #" & entryNo
+    bx = nt
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, bx, True, nt, entryNo)
+    bx = nt
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, bx, True, nt, entryNo)
+    Report "CLI.3 Ctrl+Up at the oldest changes nothing", _
+           Not moved And sb = 3 And nt = "a", "moved " & moved & ", at " & sb & " '" & nt & "'"
+    bx = nt
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, bx, False, nt, entryNo)
+    bx = nt
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, bx, False, nt, entryNo)
+    bx = nt
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, bx, False, nt, entryNo)
+    Report "CLI.3 Ctrl+Down walks back to exactly what was being typed", _
+           moved And nt = "half typ" And entryNo = 0 And sb = 0, _
+           "moved " & moved & " to '" & nt & "' #" & entryNo & ", at " & sb
+    bx = nt
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, bx, False, nt, entryNo)
+    Report "CLI.3 Ctrl+Down at what is being typed changes nothing", _
+           Not moved And sb = 0, "moved " & moved & ", at " & sb
+
+    Set h = New Collection
+    sb = 0: dr = ""
+    movedUp = VLA_Console.VlaHistoryMove(h, 0, sb, dr, "x", True, nt, entryNo)
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, "x", False, nt, entryNo)
+    Report "CLI.3 an empty history recalls nothing, either way", _
+           Not movedUp And Not moved And sb = 0, "up " & movedUp & ", down " & moved
+
+    Set h = CliHistoryOf("a", "b", "c")
+    sb = 0: dr = ""
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, "c", True, nt, entryNo)
+    Report "CLI.3 with the newest already in the box, Ctrl+Up skips to the one before", _
+           moved And nt = "b" And entryNo = 2 And sb = 2, _
+           "moved " & moved & " to '" & nt & "' #" & entryNo & ", at " & sb
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, "b", False, nt, entryNo)
+    Report "CLI.3 ...and Ctrl+Down skips it again, back to the box as it was", _
+           moved And nt = "c" And entryNo = 0 And sb = 0, _
+           "moved " & moved & " to '" & nt & "' #" & entryNo & ", at " & sb
+
+    Set h = CliHistoryOf("only")
+    sb = 0: dr = "": nt = ""
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, "only", True, nt, entryNo)
+    Report "CLI.3 a lone command already in the box has nothing older", _
+           Not moved And sb = 0, "moved " & moved & " to '" & nt & "'"
+
+    Set h = CliHistoryOf("a", "b", "c")
+    sb = 0: dr = ""
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, "mine", True, nt, entryNo)
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, "c", True, nt, entryNo)
+    sb = 0                                  ' what the form's Change handler does on any edit
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, "b, edited", True, nt, entryNo)
+    Report "CLI.3 after an edit, Ctrl+Up keeps the edit and starts again from the newest", _
+           moved And nt = "c" And dr = "b, edited" And sb = 1, _
+           "moved " & moved & " to '" & nt & "', kept '" & dr & "'"
+
+    sb = 0: dr = ""
+    moved = VLA_Console.VlaHistoryMove(h, 10, sb, dr, "", True, nt, entryNo)
+    Report "CLI.3 a recalled command's number counts the ones the cap let go", _
+           moved And entryNo = 13, "moved " & moved & ", #" & entryNo
+
+    sb = 9: dr = ""
+    moved = VLA_Console.VlaHistoryMove(h, 0, sb, dr, "x", True, nt, entryNo)
+    Report "CLI.3 a position past the end starts again from what is being typed", _
+           moved And nt = "c" And sb = 1 And dr = "x", "moved " & moved & " to '" & nt & "', at " & sb
+
+    ' --- the console's own words ---
+    Set h = CliHistoryOf("a", "b", "c")
+    isWord = CliHistoryAnswer("history", h, 0, "", boxText, status, listing, errText)
+    Report "CLI.3 history lists what is kept, numbered, newest last", _
+           isWord And boxText = "1  a" & vbCrLf & "2  b" & vbCrLf & "3  c" And listing = boxText And Len(errText) = 0, _
+           "word " & isWord & ", got [" & boxText & "] " & errText
+    isWord = CliHistoryAnswer("history 2", h, 0, "", boxText, status, listing, errText)
+    Report "CLI.3 history N lists only the last N", _
+           isWord And boxText = "2  b" & vbCrLf & "3  c", "got [" & boxText & "] " & errText
+    isWord = CliHistoryAnswer("history", h, 97, "", boxText, status, listing, errText)
+    Report "CLI.3 history's numbers count the ones the cap let go, lined up", _
+           isWord And boxText = " 98  a" & vbCrLf & " 99  b" & vbCrLf & "100  c", "got [" & boxText & "]"
+    isWord = CliHistoryAnswer("history 0", h, 0, "", boxText, status, listing, errText)
+    Report "CLI.3 history 0 lists nothing and leaves the box alone", _
+           isWord And Len(boxText) = 0 And Len(status) > 0 And Len(errText) = 0, _
+           "got [" & boxText & "] status [" & status & "] " & errText
+    isWord = CliHistoryAnswer("  HISTORY 1 ", h, 0, "", boxText, status, listing, errText)
+    Report "CLI.3 the console's words forgive case and surrounding spaces", _
+           isWord And boxText = "3  c", "got [" & boxText & "] " & errText
+
+    Set h = CliHistoryOf("(defmacro" & vbCrLf & "  (modal message)" & vbCrLf & vbTab & "(msgbox message))", _
+                         String$(70, "x"))
+    isWord = CliHistoryAnswer("history", h, 0, "", boxText, status, listing, errText)
+    lines = Split(boxText, vbCrLf)
+    Report "CLI.3 history lists a many-line command as one line", _
+           Arr1DItemIs(lines, 0, "1  (defmacro (modal message) (msgbox message))"), "got [" & boxText & "]"
+    Report "CLI.3 history cuts a long command short with ...", _
+           Arr1DItemIs(lines, 1, "2  " & String$(57, "x") & "..."), "got [" & boxText & "]"
+
+    Set h = New Collection
+    isWord = CliHistoryAnswer("history", h, 0, "", boxText, status, listing, errText)
+    Report "CLI.3 history with nothing kept says so and leaves the box alone", _
+           isWord And Len(boxText) = 0 And Len(status) > 0 And Len(errText) = 0, _
+           "got [" & boxText & "] status [" & status & "] " & errText
+    isWord = CliHistoryAnswer("!1", h, 0, "", boxText, status, listing, errText)
+    Report "CLI.3 !N with nothing kept is refused, saying why", _
+           InStr(errText, "no entry 1 ") > 0 And InStr(errText, "nothing has been kept") > 0, "got: " & errText
+
+    Set h = CliHistoryOf("a", "(b" & vbCrLf & "  c)", "d")
+    isWord = CliHistoryAnswer("!2", h, 0, "", boxText, status, listing, errText)
+    Report "CLI.3 !N brings command N back exactly, line breaks and all", _
+           isWord And boxText = "(b" & vbCrLf & "  c)" And Len(listing) = 0 And Len(errText) = 0, _
+           "got [" & boxText & "] " & errText
+    isWord = CliHistoryAnswer(" !003" & vbCrLf, h, 0, "", boxText, status, listing, errText)
+    Report "CLI.3 !N forgives leading zeros and a trailing line break", _
+           isWord And boxText = "d", "got [" & boxText & "] " & errText
+    isWord = CliHistoryAnswer("!5", h, 10, "", boxText, status, listing, errText)
+    Report "CLI.3 !N older than what is kept is refused, naming what is", _
+           InStr(errText, "no entry 5 ") > 0 And InStr(errText, "11 to 13") > 0, "got: " & errText
+    isWord = CliHistoryAnswer("!14", h, 10, "", boxText, status, listing, errText)
+    Report "CLI.3 !N past the newest is refused the same way", _
+           InStr(errText, "no entry 14 ") > 0 And InStr(errText, "11 to 13") > 0, "got: " & errText
+    isWord = CliHistoryAnswer("!99999999999", h, 10, "", boxText, status, listing, errText)
+    Report "CLI.3 !N too long to be a number is refused, not overflowed", _
+           InStr(errText, "no entry 99999999999 ") > 0, "got: " & errText
+
+    Set h = CliHistoryOf("a", "b", "c")
+    cases = Array("History.", "history of A1:B2.", "historyx", "history -1", "history 2 3", _
+                  "!", "!x", "! 3", "(history)", "Put 5 in A1.", "!3" & vbCrLf & "Put 5 in A1.")
+    For k = LBound(cases) To UBound(cases)
+        caseText = CStr(cases(k))
+        isWord = CliHistoryAnswer(caseText, h, 0, "", boxText, status, listing, errText)
+        Report "CLI.3 not one of the console's words, so it runs as before: " & Replace(caseText, vbCrLf, " / "), _
+               Not isWord And Len(boxText) = 0 And Len(status) = 0 And Len(errText) = 0, _
+               "word " & isWord & ", box [" & boxText & "] " & errText
+    Next
+
+    isWord = CliHistoryAnswer("history", h, 0, "", boxText, status, listing, errText)
+    shown = listing
+    isWord = CliHistoryAnswer(shown, h, 0, shown, boxText, status, listing, errText)
+    Report "CLI.3 the history list itself is refused rather than run", _
+           InStr(errText, "history list") > 0 And InStr(errText, "!3 ") > 0, "got: " & errText
+    isWord = CliHistoryAnswer(Replace(shown, vbCrLf, vbLf) & vbCrLf, h, 0, shown, boxText, status, listing, errText)
+    Report "CLI.3 ...even with its line breaks as the box hands them back", _
+           InStr(errText, "history list") > 0, "got: " & errText
+End Sub
+
+' CLI.3: a throwaway history holding these commands, oldest first.
+Private Function CliHistoryOf(ParamArray commands() As Variant) As Collection
+    Dim h As Collection
+    Dim v As Variant
+    Set h = New Collection
+    For Each v In commands
+        VLA_Console.VlaHistoryPush h, CStr(v), 500
+    Next
+    Set CliHistoryOf = h
+End Function
+
+' CLI.3: one VLA_Console.VlaConsoleWordAnswer call with any refusal
+' caught - its words in errText, "" when nothing was refused.
+Private Function CliHistoryAnswer(ByVal text As String, ByVal h As Collection, ByVal base As Long, _
+                                  ByVal lastList As String, ByRef boxText As String, _
+                                  ByRef status As String, ByRef listing As String, _
+                                  ByRef errText As String) As Boolean
+    errText = ""
+    boxText = ""
+    status = ""
+    listing = ""
+    On Error Resume Next
+    CliHistoryAnswer = VLA_Console.VlaConsoleWordAnswer(text, h, base, lastList, boxText, status, listing)
+    If Err.Number <> 0 Then errText = Err.Description
+    On Error GoTo 0
+End Function
 
 ' F.9: instructions.txt's own paragraphs (its documented structural unit -
 ' "blank line ends a block"), as (startLine, endLine, label) triples,

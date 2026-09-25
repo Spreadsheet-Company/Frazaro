@@ -404,7 +404,10 @@ Private Function VlaBuildOneEdition(ByVal edition As String, ByRef note As Strin
     ' comment block's own warning was read rather than discovered
     ' afterwards), and tools/check_devrig_mods_parity.ps1 holds it in
     ' step with VLA_DevRig.bas's array.
-    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_IDE", "VLA_Lint", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Optimize", "VLA_Browser", "frmCLI")
+    ' CLI.3: VLA_Console, beside frmCLI - the form calls it for the
+    ' console's history, which has to outlive the form (it unloads on
+    ' Esc). Added to both arrays in the same edit.
+    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_IDE", "VLA_Lint", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_Optimize", "VLA_Browser", "VLA_Console", "frmCLI")
 
     ' Export the current, in-project versions - the build always ships
     ' exactly what the dev workbook contains. (VLA_English and its
