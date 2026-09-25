@@ -19344,11 +19344,20 @@ now carries one summary paragraph per engine and points here.*
     | 1,000 | **3.344s** | ~0.20s | **0.125s** | **26.8×** | 0.125 |
     | 3,000 | **11.281s** | ~0.60s | **0.313s** | **36×** | 0.104 |
 
-    **Read the small rungs with care: VBA's `Timer` quantises to 1/64s, and
-    every figure above is an exact multiple of it** — 2, 4, 8 and 20 ticks.
-    So 100 people carries about ±25% and 300 about ±12%; only the 3,000 rung
-    (20 ticks, ±2.5%) deserves three digits. The live steps said to treat
-    100 and 300 as "near zero rather than measurements" and that held.
+    **Read the small rungs with care — but NOT for the reason first written
+    here, which was wrong and is corrected.** This entry claimed VBA's
+    `Timer` quantises to 1/64s and that every figure above was an exact
+    multiple of it. The four wide-org values do sit within 1% of 2, 4, 8 and
+    20 ticks — but the scan rungs measured the same day, at the same
+    magnitudes, do not (0.043 is 2.75 ticks, 0.020 is 1.28, 0.012 is 0.77),
+    and `OPTIMIZE.0`'s own control returned 0.004s, a quarter of one tick.
+    No single quantum explains all three harnesses, so the tick reading was
+    pattern-matching on four numbers. Both harnesses take ONE un-averaged
+    `Timer` delta per rung (`SecondsToCalculate`, `ElapsedSince`), so the
+    safe statement is the plain one: a sub-0.1s figure from a single reading
+    carries material uncertainty, the 100 and 300 rungs are "near zero
+    rather than measurements" as the live steps said, and only the 3,000
+    rung deserves three digits.
     **The wide org is now effectively LINEAR, and cheap.** Per-row cost
     FALLS with size (0.31 → 0.10 ms) because a fixed overhead of about 0.03s
     dominates the small rungs; the marginal cost is **0.089 ms a row from
@@ -21569,7 +21578,7 @@ now carries one summary paragraph per engine and points here.*
 - ⬜ **U.12 — apropos in the panel** (three tiers plus worksheet functions).
 - ⬜ **U.14 — `VlaTryTranspile`.** Retires the modal class from expected-error
   smokes. `~days`
-- ⬜ **CLI.3 — the console remembers: session history.** *Minted 2026-09-24,
+- 🟡 **CLI.3 — the console remembers: session history.** *Minted 2026-09-24,
   with CLI.4 and CLI.5, from a conversation scoping the one catch two
   spitballs shared (SPITBALLS 25, define-by-demonstration, and 101, `*`/`**`/
   `***`): the console keeps no history. Numbered to continue `IN.13`'s own
@@ -21592,6 +21601,27 @@ now carries one summary paragraph per engine and points here.*
   layout is untouched, so no `build_cli_form.ps1` run. *Pure half testable
   in the pure suite:* the buffer's push/cap/collapse/cursor logic, kept free
   of the form. `~hours`
+  *Built 2026-09-24, awaiting the owner's live test.* A new shipped module,
+  `VLA_Console`, holds the commands; the form keeps only its own position
+  and entry zero, which should close with it. The pure half
+  (`VlaHistoryPush`, `VlaHistoryMove`, `VlaConsoleWordAnswer`) takes its
+  state as arguments and carries 45 pins in `TestCliHistory`, so a
+  self-test run mid-session leaves the session's history alone. The
+  owner's one call: until `CLI.5`'s transcript exists, `history` puts its
+  list *in the input box* (monospace, scrolling, no dialog), and running
+  that list unchanged is refused rather than handed to the English reader
+  (`cli-history-list-not-a-command`). Settled in scoping: a cap of 500;
+  `history` alone lists 20; numbers never shift when the cap lets the
+  oldest go (the shell's convention), so a number read off the list stays
+  good; the words match their exact shapes only, so `History.` or a
+  phrasebook rule of the user's own that begins "history" still reaches the
+  pipeline; the words themselves are never kept; Ctrl alone, so
+  Ctrl+Shift+Up keeps the textbox's own meaning. One rule the entry did not
+  foresee: the text just run stays in the box and is also the newest entry,
+  so a first Ctrl+Up onto it would change nothing on screen. Leaving entry
+  zero steps over the newest when it equals the box, and stepping back down
+  skips it again. No `GRAMMAR_SINCE.md` row: the words are caught before
+  either reader sees them, so they are not forms.
 - ⬜ **CLI.4 — history survives Excel.** `CLI.3`'s buffer persisted to a text
   file under the user's profile, `%APPDATA%\Frazaro\history.txt`, loaded on
   first open, appended on each run, trimmed to the cap. Multi-line entries
