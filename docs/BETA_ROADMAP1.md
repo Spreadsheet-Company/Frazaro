@@ -11247,6 +11247,78 @@ lost or mistaken for closer than they are:**
   as this session's seven files were. The seven hand-built files become
   the acceptance corpus for this generator, not artifacts to maintain by
   hand forever.
+- ⬜ **METAPROOF** — proofs as forms, all the way down. *Minted
+  2026-09-24, from an evening the owner declared "a brainstorming kind of
+  night": twenty ways to make VLA "so Lispy it hurts", of which sixteen
+  went to `SPITBALLS.md`, three already had roadmap homes (`apply` in
+  LISPIMPORT's own text, self-hosting in L-TIER3, the `vla-vba` rule file
+  in Contemplation 9), and this one earned an ID.*
+
+  **What exists.** Two primitive proof directives,
+  `(test-success "sentence" form)` and `(test-fail "sentence" "fragment")`,
+  collected by `DispatchVocabForm` and run by a generic two-phase runner
+  (`RunVocabTest`/`RunVocabFailTest`) after the whole file has loaded; a
+  failing proof refuses the phrasebook. Generators such as
+  `table-property-family` already expand to
+  `(begin (defmacro …) (english-vla …) (test-success …))`, so proofs are
+  already macro-generated — the loader just has no vocabulary for saying
+  so on purpose.
+
+  **The claim.** `test-success` and `test-fail` are the `car` and `cdr`
+  of testing. The runner never grows again: every other proof shape is a
+  `defmacro` over those two, written in the phrasebook, expanded at load,
+  carried through `at-row` provenance like any generated directive. Lisp
+  reached this for programs in 1960; nobody has done it for a grammar of
+  English.
+
+  **In order, each `~hours`:**
+  1. A third primitive, `(test-refuses-with-id sentence msg-id)`. Today
+     `test-fail` pins an English substring (`"one of 'with'/'without'"`),
+     so `english.vla`'s own proofs would break the day a Spanish
+     catalogue loads. Pinning the id is what EDITION-MESSAGES needs first,
+     and it is also what makes proofs queryable (step 5).
+  2. `test-same` — `(test-same "Put 5 into cell B2." "Put 5 in cell B2.")`:
+     two spellings, one form. A metamorphic relation (paraphrase
+     invariance) stated once, replacing every duplicated `in`/`into` pair
+     in the corpus, which today copy the expected form twice.
+  3. `test-every-surface` — enumerate a pattern's alternation branches and
+     optionals and emit one `test-success` per surface, with the expected
+     form built from the rule's own template. Finite because `SD-16`
+     keeps slot grammars regular; patterns with `expr`/`cond` slots take a
+     sample binding (`:with (r "a1")`). This closes `AS.1`'s "exactly one
+     test: 131 rules" by construction, and `check_rule_coverage.ps1`
+     becomes a macro that always reports zero.
+  4. `test-round-trip` — sentence → form → sentence through `G-RENDER`,
+     equal modulo optional words. A proof of the arrow and its inverse
+     from one datum; `G-RENDER`'s "no reverse yet" for the `G-PROLOG`
+     categories becomes a visible gap instead of a comment.
+  5. `test-parity` beside each `DATALOG` program in the tests, so the
+     178-row `DatalogParityPrograms` table, its scraper and
+     `check_optimize_parity.ps1` retire the same day — the parity claim
+     rides the program instead of a copy of it. With step 1, `DATALOG`
+     can then be asked which ids no proof pins and which rules are proven
+     under one backend only: `EDITION-PARITY` as a query over two
+     phrasebooks' proof sets.
+
+  **Two catches, stated at minting.** `VocabRequiresScan` refuses a
+  `requires-*` that arrives from a macro expansion, so proof macros must
+  be dispatched on the other side of that scan, or exempted by name.
+  And generated proof names must be deterministic, hand-derivable from
+  the rule's own text, injective, and under the `vla-` prefix — GENSYM's
+  veto applies to proofs exactly as to identifiers.
+
+  **Unscheduled, named so they are not rediscovered:** a proof-carrying
+  certificate, `(audited :rules N :proofs N :shadows 0 :sha256 …)`,
+  emitted by the shadow audit into `english_expanded.vla` (Necula's
+  proof-carrying code, for a grammar; the consent hash and the audit
+  verdict become one datum); per-rule goldens, `(proof sentence form vba
+  effects)` beside the rule, decomposing `instructions_golden.vla`;
+  proof neighbourhoods (near-miss sentences from a fixed mutation table,
+  each proven to refuse with a named id); and proof *suggestion*, where
+  the loader proposes a proof for an unproven rule and a person blesses
+  it — LESSONS.md VIII made into a loop. *Pays into:* `AS.1`,
+  `EDITION-MESSAGES`, `EDITION-PARITY`, `G-RENDER`'s horizons, and one
+  fewer `tools/check_*.ps1`. `~days`
 - ⬜ **VOCAB-MIGRATE** — version a generation spec, diff the rules it
   produces against what's currently loaded (VOCABDIFF), and report the
   delta - schema migrations for a spoken grammar. No known precedent to
@@ -18960,9 +19032,12 @@ now carries one summary paragraph per engine and points here.*
     in about four. A 100,000-row scan projects to about 38s: still past
     the 10s limit, now by a factor of four rather than twenty-five.
     `~hours`
-  - ⬜ **DATALOG.14 — a closure builds every pair, and every round re-reads
+  - ✅ **DATALOG.14 — a closure builds every pair, and every round re-reads
     every relation.** Minted 2026-09-18 out of `DATALOG.12`'s live passes,
-    the owner's call; **scoped, not built, and not chosen.** **What was
+    the owner's call; scoped, **BUILT 2026-09-20, OWNER-VERIFIED LIVE on the
+    first pass 2026-09-24 (all eight steps) and committed.** The fork the
+    entry left open was settled on the re-run ladder's own numbers, and the
+    build record and the live pass are at the end of this entry. **What was
     measured:** "who reports-to E1 directly or not" over a wide org (ten
     reports each) costs **15–18 ms per row** — 100 people 1.531s, 300 people
     5.484s, 1,000 skipped at a projected 22s — and over ONE CHAIN **216 ms
@@ -19001,7 +19076,374 @@ now carries one summary paragraph per engine and points here.*
     guard's removal gained 5.2–5.5× here against 5.8–9.9× elsewhere, so
     what remains is more nearly this item's own cost than it was.
     *Pays into:* `G-PROLOG`'s own `directly or not` (slice 3's sentence),
-    `G-DECISIONS`, and the recalc item below. `~days`
+    `G-DECISIONS`, and the recalc item below.
+
+    **THE FORK, SETTLED 2026-09-20 — both halves, on modelled numbers.**
+    The entry named three shapes and picked none. A cost model of the real
+    round loop (`tools/datalog14_model.ps1`, standalone, no Excel) was
+    written first and CONTROLLED against `DATALOG.13`'s own measured ladder:
+    counting one operation — `CreateObject("Scripting.Dictionary")` at the
+    0.157 ms `DATALOG.12` pass 2 measured — accounts for **81.6% to 88.8% of
+    every measured point** across three shapes and four sizes, and the model
+    independently reproduces every pair count the harness printed (190, 780,
+    2,880, 10,770, 5,050) and every answer. A second term, the rest of a
+    tuple's work, fits at 0.0052 ms an operation (spread 0.0047–0.0063), and
+    is there because the first term is exactly what every candidate shape
+    REMOVES: a model calibrated on a term that then goes away cannot
+    extrapolate past its own removal.
+      - **Which cause is to blame — the entry says "separable in principle",
+        and the arithmetic says they are near enough EQUAL.** Splitting every
+        tuple a later round reads: over one chain of 100 it is 10,199 reads
+        at a non-delta position (cause 2, the re-filter) against 10,300 at
+        the delta (cause 1, the pairs built) — **50/50**. Over a wide org it
+        is 40/60 at 3,000 rows, 39/61 at 1,000, 41/59 at 300. So **fixing
+        either cause alone caps out under 2×**, and that is not a prediction:
+        magic sets modelled cuts the chain's pairs fiftyfold (5,050 → 100)
+        and still buys **1.8–1.9×**, because the ROUND COUNT does not move
+        and every round still re-reads the base relation whole.
+      - **The per-predicate index, the `PROLOG.29` sibling, was refused on
+        arithmetic rather than built.** Modelled as an ORACLE — already
+        built, never maintained, free — its ceiling is **1.2–1.3×**, and
+        1.0× on a scan. The reason is in the code: the only atom in either
+        ladder program with a bound argument is `(vla-any-… Who "E1")`, and
+        in every round past the first it filters the DELTA the round just
+        created. Indexing a delta costs one insert per tuple to save one
+        scan per tuple — break-even by construction. The index's value is
+        real but it is `OPTIMIZE.3`'s, over a materialised pool it reuses,
+        not this ladder's.
+      - **What the numbers actually point at is none of the three.**
+        `FilterAtomRelation` copies a relation tuple by tuple and
+        `AtomMatches` built a fresh dictionary for every one of them — to
+        answer a question that depends only on the ATOM'S OWN SHAPE. And the
+        hot atom is `(reports-to X Z)`: two distinct free variables, no
+        constant, no repeat. **It rejects nothing.** The engine was spending
+        a COM object allocation per row deciding to keep every row. Compiling
+        the atom's checks once and handing back the relation whole when it
+        constrains nothing is **6.6–11.9×** on the two closure rows and
+        **7.6× on a plain scan**, which no closure fix would have touched.
+      - **The owner's call, 2026-09-20: BOTH, in this item** — the filter fix
+        and the bound argument, against a recommendation of the filter fix
+        alone. Also in: `ComputeAggregateGroups`, which has the identical
+        per-tuple dictionary on the `count`/`textjoin` path (`DATALOG.13`'s
+        precedent for including `VLA_Relation.bas`'s join-index sites). Also
+        in: a ratchet, because the regression is silent.
+      - **A depth bound was NOT taken**, and the reason is the numbers:
+        modelled after the fix, a chain of 400 links answers in about 5.9s,
+        so the 250 and 500 rungs the live ladder had to skip come under the
+        limit for the first time. A ceiling would refuse answers the engine
+        can now give. Had one been wanted, the wording is on record —
+        "`directly or not` over Chain12x8 followed the chain 250 links deep
+        and would build 31,375 pairs — this workbook allows 10,000" — never
+        "too deep".
+      - **Honest limit, said plainly: nothing here makes a chain linear.**
+        The modelled exponent stays 2.09 under every variant. What would is
+        an index on the base relation's JOIN column plus a join reorder so
+        the recursive atom runs first — which changes which body position is
+        the delta, and is a different item.
+      - **What it costs `OPTIMIZE.3`'s grounder: nothing, and it pays it
+        directly.** `OPTIMIZE.2` runs every constraint through
+        `DatalogRunForms` as a rule whose body is mostly unconstraining atoms
+        over pool relations — the scan row, 7.6×. No join order changes and
+        no plan the grounder must understand. What it does NOT bank is
+        `OPTIMIZE.0.A`'s magic-sets note in its general form: the rewrite
+        here is the pass-through case only, and a grounder that wants the
+        binding traced around a cycle still has that to build.
+
+    **BUILT 2026-09-20; owner-verified live 2026-09-24 and committed.**
+    *The filter, in `VLA_Datalog.bas`:* `ParseAtom` now gives every atom a
+    third record item, its MATCH PLAN — three parallel arrays in atom
+    position order (the position to test; 0 for "compare to a constant" or
+    else the position a repeated variable first appeared at; the constant's
+    text) — built with the same `VlaDictNew`/`VlaDictHas`/`VlaDictSet`
+    wrappers the per-tuple version used, so "the same variable twice" keeps
+    its exact former meaning on BOTH hosts rather than being re-derived from
+    `StrComp` and argued equivalent. Both filters walk it through one shared
+    `PlanMatches`, which allocates nothing and takes the plan's arrays
+    UNPACKED, so that no caller copies three Variant arrays per tuple - a
+    smaller version of the very cost this item removes. `AtomMatches` is gone:
+    once both filters went through the walker it had no callers left, and it
+    was deleted rather than kept as dead code.
+    `FilterAtomRelation` returns `rel` ITSELF when the plan is empty; that
+    was checked, not assumed — the one caller reads the result through
+    `RelCount` and `RelJoin`, which touches a relation only through
+    `RelArity`/`RelTuples`/`RelCount` and finishes with it before
+    `RunOneRulePass` adds anything, and every relation reaching it is already
+    a set (`RelWrapBag`, the one bag constructor, is `VLA_Sql.bas`'s alone).
+    `ComputeAggregateGroups` builds its own plan once per CALL rather than
+    per tuple — it cannot live on the atom record, because which positions
+    are group KEYS depends on `colOf`.
+    *The bound argument:* `PushBoundArguments`, called after every refusal
+    and before `RunStratifiedFixpoint`, so no refusal's wording can depend on
+    whether it fired and `ComputeStrata` sees the same graph. It is a
+    SPECIALISATION, not the general adorned rewrite: predicate P is narrowed
+    at position k to constant c only when (1) P is not the query's own
+    predicate, (2) no fact or Table already populates it, (3) it is directly
+    self-recursive through a positive atom, (4) every occurrence outside its
+    own rules — another rule's body at any kind, or a ground query atom —
+    holds the SAME constant there, and there is at least one, and (5) in
+    every P-headed rule the head names a variable V at k, every P atom in
+    that body names V at k too, and V is mentioned by no body item that is
+    not a plain positive atom. Then V := c throughout. Condition 4 is what
+    makes the narrowing invisible — every reader already discards the rows
+    the rewrite never builds — and it also means no reader can PROJECT
+    position k, so the value stored there never reaches a cell. Condition 5
+    is why a comparison, a `let`, a text test, a negation or an aggregate
+    declines: those read a VALUE, and substituting the constant's text could
+    compare as text what used to compare as a number.
+    **Which direction it covers, and which it does not:** the grammar's
+    closure is right-recursive, so a bound SECOND argument passes straight
+    through and is rewritten, and a bound FIRST argument does not and is
+    declined. The left-recursive mirror image is rewritten at position 1.
+    Both are pinned.
+    *Proof, before a line was imported:* `tools/datalog14_proof.ps1`
+    transliterates the five conditions and a small evaluator over **fifteen
+    programs**, every answer hand-derived. The control comes first — the
+    UNSPECIALISED evaluator must reproduce the hand-derived answer before the
+    specialised one is compared against it — and it earned its keep: it
+    caught a harness defect where `@(...)` flattened a fact tuple and the
+    evaluator then indexed into a STRING for column two. **Mutation control
+    (`-Mutations`): all five load-bearing conditions have a mutant that MOVES
+    AN ANSWER.** Two of the five needed the corpus fixed before they did:
+    down one chain the reachers of E2 are a subset of the reachers of E1, so
+    two readers pinning different constants still answered right; and a
+    comparison that gates a part of the closure the question never reads
+    proves nothing. Conditions 2 and 3 have no mutant and that is recorded
+    rather than hidden — neither is load-bearing; each removes a class of
+    reasoning, not a class of bugs.
+    *Proof in the engine:* `TestDatalogBoundArgument`, **eleven pure pins**,
+    every one an ANSWER pin because that is all this item may not move — the
+    ladder's own shape, the other direction, a reader projecting both
+    columns, the queried closure, two readers over two SEPARATE chains, a
+    negated reader, a count reader, a comparison operand, a fact in the
+    closure predicate, a repeated variable, and an atom that constrains
+    nothing. All ten new programs are in `DatalogParityPrograms`
+    (**180 → 190**), so each runs through both engines and must agree, and
+    the count pin's floor moved with the table — a floor left behind its own
+    table still passes while covering ten fewer programs than the module
+    names, which is the one failure that pin exists to prevent.
+    **THE SUITES, RUN 2026-09-24, and the prediction was wrong twice.**
+    `TestDSLs` **1860 → 1881**, not the 1871 predicted: `TestOptimizeParity`
+    reports ONCE PER PROGRAM, so the ten programs added to the parity table
+    are themselves ten more assertions on top of the eleven pins. The
+    prediction treated the table as a list when it is a test loop. And
+    `VlaSelfTest` came back **1215/1215** against a recorded baseline of
+    1214 — the baseline was stale, not the suite: 1214 was `OPTIMIZE.2`'s
+    reading while a peer's `SOP.1` was still uncommitted, and `SOP.1`'s own
+    commit (`006d193`) records "Pure 1215/1215 (+14)". Nothing here moved it.
+    Host **152/152** and `VerifyReports` **242/242 on both backends**,
+    unmoved as predicted. Recorded because a suite total that moves by more
+    than its item added is exactly the shape of a real defect, and the only
+    thing that distinguishes this from one is the arithmetic above.
+    *The ratchet:* `tools/check_datalog_per_tuple_alloc.ps1`, the 27th check.
+    Rule A — no allocation anywhere in `PlanMatches`. Rule B — none inside a
+    tuple loop, in six procedures across two modules, each naming its own
+    loop header. Rule C — six load-bearing lines present
+    verbatim, because a pin that only forbids cannot notice a fix being
+    deleted. **Its first run over a known-good tree was NOT clean, and it was
+    reporting its own defect**: `ProjectAfterJoin` walks `RelJoin`'s bare
+    Collection, not a Relation, so a rule-B detector that assumed
+    `RelTuples(` everywhere read that as a missing loop. Six mutants, all
+    caught — including one that moves the plan's unpack back inside the tuple
+    loop, which is the same defect one order of magnitude down. `VLA_DATALOG_VERSION` and `VLA_TESTS_QUERY_VERSION` →
+    `DATALOG.14`.
+    **Modelled before and after** (the two-term model; an AFTER is a size,
+    not a number, since the fitted term carries most of it):
+
+    | shape | rows | after `DATALOG.13` | modelled now | gain |
+    |---|---|---|---|---|
+    | closure, one chain | 100 | **4.125s** measured | ~0.51s | 8.1× |
+    | | 250 | not run: projected 26s | ~1.85s | 12.8× |
+    | | 400 | not run | ~5.9s | first time under the limit |
+    | closure, a wide org | 1,000 | **3.344s** measured | ~0.20s | 16.6× |
+    | | 3,000 | **11.281s** measured | ~0.60s | 19× |
+    | a scan | 1,000 | **0.383s** measured | ~0.05s | 7.6× |
+
+    The model's shipped column reproduces each measured time within 1.3%
+    (4.138 against 4.125, 3.384 against 3.344, 11.425 against 11.281, 0.383
+    against 0.383), which is what makes the after column worth quoting at
+    all. **`D12Ladder 7` and `8` decide it, and the live steps are
+    `archive/datalog14_live_steps.md` (written in `tools/` and moved there
+    once the item landed, as `DATALOG.12`'s and `.13`'s were; `archive/` is
+    gitignored, so the steps live on the owner's machine and this entry is
+    the version-controlled record of what they measured).**
+
+    **MEASURED — the chain, live 2026-09-24** (Excel 16.0 64-bit, the dev
+    workbook `VLA.xlsm`, `D12Ladder 8`, the same sheet, Table and expected
+    answers as `DATALOG.12` and `.13`). Every answer right at every size,
+    checked against the generator before it was timed, and a cell nothing
+    reads 0.000s throughout.
+
+    | links | after `DATALOG.13` | modelled | measured | pairs built |
+    |---|---|---|---|---|
+    | 100 | **4.125s** | ~0.51s | **0.500s** — **8.3×** | 5,050 |
+    | 250 | not run: projected 26s | ~1.85s | **1.434s** | 31,375 |
+    | 500 | never run | ~9s | **3.797s** | 125,250 |
+    | 1,000 | never run | | not run: projected 24s | |
+
+    **The 250 and 500 rungs had never run**, at any point in `DATALOG.12` or
+    `.13`; that was this item's stated success criterion and it is met.
+    **The prediction was right where it was tightest and pessimistic where it
+    was loosest.** At 100 links, 8.1× predicted against 8.25× measured — the
+    one rung with a measured before to anchor it. At 500 the model said ~9s
+    and the engine took 3.797s, **2.4× pessimistic**, which is the caveat
+    recorded above doing its job in the good direction: the second term was
+    fitted on the SHIPPED engine's operation mix, and the mix after the fix
+    is not that one.
+    **THE 500 RUNG'S ANOMALY WAS NOISE, and the re-run is what proves it.**
+    The first pass measured the 500 rung's recalculation at **5.891s against
+    a first answer of 3.797s** — 55% more, where 100 and 250 agreed within
+    3%. It was named and not explained, with `DATALOG.12`'s pass-5 anomaly
+    (`not` through a projection, 13.797s against 8.125s, noise on re-run) as
+    the precedent. Re-run 2026-09-24: **3.652s first, 3.594s after the
+    change** — within 2%, like every other rung. Same shape, same verdict,
+    and the reason to re-run rather than theorise.
+    **And because it was noise, the 1,000 rung RAN — the first time it ever
+    has.** `Projection` carries forward `max(first, change)`, so the 5.891s
+    had projected 23.6s against the harness's 15s guard and the rung was
+    skipped; the clean 3.652s projected 14.6s and it ran. **A 1,000-link
+    chain answers in 10.176s** (10.125s after the change, 999 rows, right),
+    against the ~11s extrapolated from the first pass.
+
+    | links | first pass | re-run, first | re-run, change |
+    |---|---|---|---|
+    | 100 | 0.500 / 0.488 | 0.508 | 0.477 |
+    | 250 | 1.434 / 1.418 | 1.414 | 1.449 |
+    | 500 | 3.797 / **5.891** | 3.652 | **3.594** |
+    | 1,000 | skipped | **10.176** | **10.125** |
+
+    **THE SQUARE IS NOW MEASURED, not asserted.** The exponent between
+    consecutive rungs rises steadily — 1.117, 1.369, 1.478 — which is what a
+    linear-plus-quadratic sum looks like from below. Fitting
+    `t = c + a·n + b·n²` through 100, 500 and 1,000 gives **c = 0.010s,
+    a = 4.40 ms a link, b = 5.76 µs a link²**, and predicts the 250 rung it
+    was not fitted on at 1.471s against 1.414s measured — 4% out. So the
+    chain IS quadratic, the claim above stands, and both terms have a
+    mechanism: **4.4 ms a round** is the per-round allocation the filter fix
+    does not touch (`colOf`, `RelUnit`, each `RelNew`'s own index — about
+    fourteen `CreateObject`s a round at 0.157 ms), and **5.76 µs a probe** is
+    `RelJoin` probing the whole base relation once per round, which is the
+    join order this item deliberately did not change.
+    **The crossover is at 764 links.** Below it the linear term dominates
+    (the square is 11% of the time at 100 links); above it the square does
+    (57% at 1,000). That is why the first pass, stopping at 500, could not
+    see it. 2,000 links projects to about **32s**.
+    **So the honest statement of what remains is now specific rather than
+    directional:** halving the chain needs the per-round allocations gone
+    (the linear term) and making it linear needs an index on the base
+    relation's join column plus a reorder so the recursive atom runs first
+    (the quadratic term). Two different items, and the arithmetic above says
+    which one matters at which size.
+    **MEASURED — the wide org, live 2026-09-24** (`D12Ladder 7`, same sheet,
+    Table and expected answers). Every answer right, every size, and an
+    unrelated cell 0.000s throughout.
+
+    | people | after `DATALOG.13` | modelled | measured | gain | ms/row now |
+    |---|---|---|---|---|---|
+    | 100 | 0.281s | ~0.02s | 0.031s | 9.1× | 0.31 |
+    | 300 | 0.992s | ~0.06s | 0.063s | 15.7× | 0.21 |
+    | 1,000 | **3.344s** | ~0.20s | **0.125s** | **26.8×** | 0.125 |
+    | 3,000 | **11.281s** | ~0.60s | **0.313s** | **36×** | 0.104 |
+
+    **Read the small rungs with care: VBA's `Timer` quantises to 1/64s, and
+    every figure above is an exact multiple of it** — 2, 4, 8 and 20 ticks.
+    So 100 people carries about ±25% and 300 about ±12%; only the 3,000 rung
+    (20 ticks, ±2.5%) deserves three digits. The live steps said to treat
+    100 and 300 as "near zero rather than measurements" and that held.
+    **The wide org is now effectively LINEAR, and cheap.** Per-row cost
+    FALLS with size (0.31 → 0.10 ms) because a fixed overhead of about 0.03s
+    dominates the small rungs; the marginal cost is **0.089 ms a row from
+    300 to 1,000 and 0.094 from 1,000 to 3,000** — one number, twice, where
+    `DATALOG.13` left it at 3.3–3.8 ms a row. That is where the 36× comes
+    from, and why this shape and the chain diverge: a wide org needs 4 or 5
+    rounds however many people it holds, so once the per-tuple cost is gone
+    there is nothing left to grow.
+    **The model was pessimistic here too, and by a consistent factor.** ~0.60s
+    against 0.313s measured at 3,000 is 1.9×, beside the chain's 2.4× at 500
+    links. So the fitted residual (0.0052 ms an operation) is roughly twice
+    what the post-fix operation mix actually costs — the term was calibrated
+    on the shipped engine, exactly as the caveat said, and the correction is
+    recorded here rather than left as a claim that the model was right.
+    **One stale reading to be aware of in the harness output:** the note
+    column still prints "closure 10,770 pairs" at 3,000 people. That is
+    `FillOrg`'s own arithmetic for the FULL closure, computed from the
+    fixture and never from the engine, and with the bound argument pushed in
+    the engine now builds 3,000 of those pairs, not 10,770. The note is not
+    wrong about the fixture; it is no longer a description of what runs.
+    **MEASURED — a scan, live 2026-09-24** (`D12Ladder 1`, then
+    `D12Ladder 1, , 10000` for the rung with a measured before). This shape
+    is not what the item set out to change; it is here because the atom that
+    constrains nothing sits in every rule that reads a Table, so the gain was
+    predicted to spill out of the closures and it did. Every answer right.
+
+    | rows | after `DATALOG.13` | measured | gain |
+    |---|---|---|---|
+    | 100 | | 0.012s | |
+    | 300 | | 0.020s | |
+    | 1,000 | **0.383s** | **0.043s** | **8.9×** |
+    | 3,000 | not measured | 0.109s | |
+    | 10,000 | **3.813s** | **0.328s** | **11.6×** |
+
+    **Flat, as it has been since `DATALOG.12` — but an order of magnitude
+    lower.** The marginal cost is **0.0317 ms a row** from 1,000 to 10,000,
+    against the 0.38 ms `DATALOG.13` left it at, over a fixed 0.011s.
+    **THE SIZE THIS LADDER WAS SCOPED AROUND IS NOW IN REACH.**
+    `DATALOG.12`'s own forks set the top size at 100,000 rows and no pass
+    ever got there; `DATALOG.13` closed by projecting 100,000 at **about
+    38s — "still past the 10s limit, now by a factor of four rather than
+    twenty-five."** On the line above, 100,000 rows projects to **3.2s**:
+    inside the limit, for the first time since the ladder was written. That
+    is a projection from two measured points and not a measurement, and it
+    should be run before it is repeated anywhere a user can read it.
+    **MEASURED — step 5, the sentence-level pass, live 2026-09-24.** The
+    shape the rewrite APPLIES to, asked through the grammar on a fresh sheet
+    so the whole path from sentence to spilled cells runs once. Over the
+    chain E5→E4→E3→E2→E1, "who reports-to "E1" directly or not" spilled
+    `Who` / `E2` / `E3` / `E4` / `E5` and nothing below — **exactly the five
+    cells the step predicted, in the predicted order.** The order was
+    reasoned through rather than observed after the fact: the closure gains
+    one further link per fixpoint round and the question's own rule picks up
+    each new reacher in the round after it appears, so they arrive
+    shortest-path first, and the narrowed closure derives the same pairs in
+    the same round order.
+    *Worth recording, because the step text was wrong about it:* the
+    Table-name check expected `Reports14x1` and printed `reports14x1`. The
+    Interpret step creates the name folded, and **assigning a name that
+    differs only in CASE leaves it unchanged**, so the set half of the
+    set-and-read-back one-liner is a no-op in that situation and only the
+    read-back carries weight. Harmless here — Excel matches table names
+    case-insensitively and the engine folds them, so the formula's
+    `reports14x1` argument and the rule's own atom both resolve — but it
+    narrows what that check proves, from "the name is exactly this" to "a
+    Table exists under a name the program can reach". A wrong name still
+    fails loudly. Corrected in the steps for 6 and 7 before they were run.
+    **MEASURED — steps 6 and 7, live 2026-09-24. THE LIVE PASS IS
+    COMPLETE.** Step 6, the direction the rewrite DECLINES: "what "E5"
+    reports-to directly or not" spilled `What` / `E4` / `E3` / `E2` / `E1`,
+    the four bosses nearest first, exactly as predicted. This is the case
+    that matters most, because a rewrite that wrongly fired here would
+    narrow the closure to pairs STARTING at E5 before the recursion could
+    use any other pair, and the answer would collapse to `E4` alone — three
+    missing names, not a crash. Step 7, a count through a closure:
+    `(headless) … (count People (vla-any-reports--to VlaCounted "E1"))`
+    answered **4** in one cell with nothing below it, so
+    `ComputeAggregateGroups`' per-call plan and the specialisation are
+    correct on the same path at once — the closure IS narrowed here (the
+    count's own atom pins position 2) and the count is unchanged.
+    Both Table names read back folded, as step 5's correction said they
+    would.
+
+    **THE PASS, END TO END.** Eight steps, every one green, nothing
+    re-run except the 500 rung whose anomaly it settled:
+    `TestDSLs` **1881/0**, `VlaSelfTest` **1215/1215**, host **152/152**,
+    `VerifyReports` **242/242 on both backends**, **27 static checks clean**;
+    the chain 100 links **4.125s → 0.508s** with 250, 500 and **1,000
+    (10.176s)** running for the first time ever; the wide org at 3,000
+    **11.281s → 0.313s (36×)**; a scan at 10,000 **3.813s → 0.328s
+    (11.6×)**, putting 100,000 rows inside the 10s limit for the first time
+    since the ladder was written; and the three sentence-level steps exact
+    to the cell. Every answer, at every size, in every shape, identical to
+    what it was — which is the only thing this item was ever allowed to
+    leave unchanged. `~days`
   - ✅ **DATALOG.15 — a spilled range's first row counts as its headers, so
     a question can read another formula's answer as a table.** Minted
     2026-09-19, the owner's call, as the substrate change `OPTIMIZE`'s
@@ -21103,6 +21545,57 @@ now carries one summary paragraph per engine and points here.*
 - ⬜ **U.12 — apropos in the panel** (three tiers plus worksheet functions).
 - ⬜ **U.14 — `VlaTryTranspile`.** Retires the modal class from expected-error
   smokes. `~days`
+- ⬜ **CLI.3 — the console remembers: session history.** *Minted 2026-09-24,
+  with CLI.4 and CLI.5, from a conversation scoping the one catch two
+  spitballs shared (SPITBALLS 25, define-by-demonstration, and 101, `*`/`**`/
+  `***`): the console keeps no history. Numbered to continue `IN.13`'s own
+  sub-passes — `CLI.0` (the form and its build script), `CLI.1` (font, hint),
+  `CLI.2` (resizable) — which live in code comments, not in this file.*
+  **What exists:** `frmCLI` is one multi-line textbox; Ctrl+Enter calls
+  `RunCurrentText`, which calls `VLA_IDE.VlaCliRun(text)` and shows the
+  returned status string. A "command" is a whole multi-line text, not a
+  line, so history entries are texts. The form is shown `vbModeless` and
+  unloads on Esc, so anything it holds dies with the window.
+  **The item:** a capped (a few hundred), consecutive-duplicate-collapsed
+  buffer of command texts in a standard module; `RunCurrentText` pushes
+  *before* running, so a refused command is recallable to fix. Recall on
+  Ctrl+Up / Ctrl+Down in `txtCommand_KeyDown` (the handler that already
+  catches Ctrl+Enter) — not bare Up/Down, which move the caret in a
+  multi-line form. A cursor index; any edit resets it to "past the end"; the
+  half-typed text is kept as entry zero, so arrowing away and back loses
+  nothing. A `history` console word prints the last N numbered; `!N`
+  recalls entry N into the box without running it. Code only — the `.frx`
+  layout is untouched, so no `build_cli_form.ps1` run. *Pure half testable
+  in the pure suite:* the buffer's push/cap/collapse/cursor logic, kept free
+  of the form. `~hours`
+- ⬜ **CLI.4 — history survives Excel.** `CLI.3`'s buffer persisted to a text
+  file under the user's profile, `%APPDATA%\Frazaro\history.txt`, loaded on
+  first open, appended on each run, trimmed to the cap. Multi-line entries
+  need a record format that survives a line break in the text (length-
+  prefixed records, or an escape — decide and pin it with a round-trip
+  test). Read as data, never executed. A read failure is silent (empty
+  history); a write failure is one note on the status line, never a modal.
+  *Why not the workbook:* history is a record of what one person typed, and
+  a workbook travels — a mailed workbook carrying its author's console
+  transcript is a leak, the mild cousin of `SEC.10`. *Why not the registry:*
+  `SaveSetting` is for a few short values. *Why it matters beyond itself:*
+  the first use of the profile folder anywhere in the product, and the
+  precedent SPITBALLS 27's `init.vla` will follow — so name the folder once
+  and put the path in one function. `SD-13` untouched. *Depends on:* `CLI.3`.
+  `~hours`
+- ⬜ **CLI.5 — the transcript pane, and the last three results.** A read-only
+  pane above the input showing each command and what came back: the status
+  line, `debug-print` output, refusals in their own words, and an
+  expression's value. That needs one plumbing change — `VlaCliRun` returning
+  the value beside the status (today `VlaInterpret`'s result is discarded) —
+  and one layout change, which is why this is its own item: the control
+  layout lives in the binary `frmCLI.frx`, regenerated only by
+  `tools/build_cli_form.ps1`, which drives Excel over COM and is the
+  owner's to run; `UserForm_Resize` then learns a second band. The last
+  three values become `(last)`, `(last 2)`, `(last 3)`; bare `*`, `**`,
+  `***` wait until the tokenizer is shown to tell a bare `*` from the
+  operator in head position (unchecked at minting). Unblocks SPITBALLS 15,
+  47, 50 and 101. *Depends on:* `CLI.3`. `~days`
 - ⬜ **U.16 — the backend switch, in words.** Where the user sees which backend
   is running, why, and how to change it. *Depends on:* IN.4, IN.6, EN.1. `~days`
 - ⬜ **U.13 · U.11 · U.6 · U.7 · U.8** — exploration rig and the remaining items.

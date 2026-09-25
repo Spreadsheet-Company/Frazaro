@@ -1,6 +1,6 @@
 Attribute VB_Name = "VLA_Tests_Query"
 Option Explicit
-Public Const VLA_TESTS_QUERY_VERSION As String = "OPTIMIZE.2"
+Public Const VLA_TESTS_QUERY_VERSION As String = "DATALOG.14"
 ' DATALOG.15: TestSpillHeaders (new, pure - VLA_Relation's spill header
 ' check, RefersTo matching and text, the error-value reason, and every
 ' new refusal's words, with no live workbook) and TestSpillHostTable (new,
@@ -348,6 +348,7 @@ Public Function TestDSLs() As Boolean
     Debug.Print "===== VLA SELF-TEST (QUERY AND LOGIC / DSLs) ====="
 
     TestDatalog
+    TestDatalogBoundArgument
     TestDatalogNegation
     TestDatalogAggregation
     TestDatalogBuiltins
@@ -572,6 +573,146 @@ Private Sub TestDatalog()
     On Error GoTo 0
     Report "datalog: (headless extra) is refused, not silently accepted", raised, "no error raised"
 End Sub
+
+' DATALOG.14: the atom plan, the filter that filters nothing, and the
+' question's own bound argument pushed into a recursive predicate before it
+' materialises. Every pin here is an ANSWER pin, because that is what this
+' item may not move: the whole of it is a cost change, and the only way it
+' can go wrong is by answering differently. The cost itself is measured on
+' D12Ladder 7 and 8, not here - a pure suite cannot time anything.
+'
+' The decision procedure and these same shapes were proven first in
+' tools/datalog14_proof.ps1 (fifteen programs, every answer hand-derived,
+' five conditions each with a mutant that moves an answer) before a line of
+' it was imported. What follows is the same corpus asked of the real engine.
+'
+' The chain is E5 -> E4 -> E3 -> E2 -> E1, four links, so the closure holds
+' ten pairs and four employees reach E1.
+Private Sub TestDatalogBoundArgument()
+    Dim result As Collection
+    Dim rel As Collection
+
+
+    ' The shape D12Ladder 8 times. Specialised at position 2, and the answer
+    ' is the four employees who reach e1.
+    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
+        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
+        " (rule (ask W) (any W e1)) (query ask)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    Report "datalog bound arg: a closure asked about one person answers its four reachers", _
+           VLA_Relation.RelCount(rel) = 4, "got " & VLA_Relation.RelCount(rel)
+
+    ' The same question with the OTHER argument bound. Right-recursive, so
+    ' the binding does not pass through position 1 and the rewrite declines -
+    ' and the answer is the four bosses e5 reaches, unchanged either way.
+    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
+        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
+        " (rule (ask W) (any e5 W)) (query ask)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    Report "datalog bound arg: the other direction still answers its four bosses", _
+           VLA_Relation.RelCount(rel) = 4, "got " & VLA_Relation.RelCount(rel)
+
+    ' A reader that projects BOTH columns pins nothing, so the whole closure
+    ' must still be built: ten pairs over a four-link chain.
+    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
+        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
+        " (rule (ask A B) (any A B)) (query ask)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    Report "datalog bound arg: a reader projecting both columns still gets all ten pairs", _
+           VLA_Relation.RelCount(rel) = 10, "got " & VLA_Relation.RelCount(rel)
+
+    ' The closure IS the query. Its own relation is the answer, so it may
+    ' never be narrowed however the other rule reads it.
+    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
+        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
+        " (rule (side W) (any W e1)) (query any)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    Report "datalog bound arg: the queried closure keeps all ten pairs though a reader pins e1", _
+           VLA_Relation.RelCount(rel) = 10, "got " & VLA_Relation.RelCount(rel)
+
+    ' Two readers over two SEPARATE chains, pinning different constants. No
+    ' single narrowing serves both, so neither may be applied: a2 and a3
+    ' reach a1, b2 and b3 reach b1, and the answer is all four.
+    Set result = VLA_Datalog.DatalogRun( _
+        "(fact (edge a2 a1)) (fact (edge a3 a2)) (fact (edge b2 b1)) (fact (edge b3 b2))" & _
+        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
+        " (rule (ask W) (any W a1)) (rule (ask W) (any W b1)) (query ask)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    Report "datalog bound arg: two readers pinning two constants keep both answers", _
+           VLA_Relation.RelCount(rel) = 4, "got " & VLA_Relation.RelCount(rel)
+
+    ' A negated reader pins position 2 like any other. Every employee with a
+    ' boss reaches e1, so nothing survives the anti-join.
+    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
+        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
+        " (rule (ask W) (edge W Q) (not (any W e1))) (query ask)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    Report "datalog bound arg: a negated reader over the closure still answers nothing", _
+           VLA_Relation.RelCount(rel) = 0, "got " & VLA_Relation.RelCount(rel)
+
+    ' A count reader. Four reach e1, and ComputeAggregateGroups' plan is
+    ' built once per call rather than once per tuple.
+    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
+        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
+        " (rule (ask N) (count N (any VlaCounted e1))) (query ask)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    Report "datalog bound arg: counting the closure's reachers of e1 answers 4", _
+           VLA_Relation.RelCount(rel) = 1 And DatalogFirstCell(rel) = "4", _
+           "got " & VLA_Relation.RelCount(rel) & " row(s), first cell " & DatalogFirstCell(rel)
+
+    ' The bound variable is also a comparison operand, so the rewrite must
+    ' decline: substituting the constant's text would leave Y unbound in the
+    ' comparison. The recursive step fires only for Y = e1, which is exactly
+    ' what carries e3, e4 and e5 into the answer beside e1's direct report.
+    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
+        " (rule (any X Y) (edge X Y))" & _
+        " (rule (any X Y) (edge X Z) (any Z Y) (= Y e1))" & _
+        " (rule (ask W) (any W e1)) (query ask)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    Report "datalog bound arg: a bound variable read as a value declines, and answers four", _
+           VLA_Relation.RelCount(rel) = 4, "got " & VLA_Relation.RelCount(rel)
+
+    ' A fact already defines the closure predicate: z9 reaches e1 by fiat, so
+    ' the answer is five, not four.
+    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
+        " (fact (any z9 e1))" & _
+        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
+        " (rule (ask W) (any W e1)) (query ask)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    Report "datalog bound arg: a fact in the closure predicate is still answered", _
+           VLA_Relation.RelCount(rel) = 5, "got " & VLA_Relation.RelCount(rel)
+
+    ' The atom plan's first job: a repeated variable must still filter. Of
+    ' the two edges only (a a) has its two columns equal, so exactly one row
+    ' survives - and the plan is what decides that, where a per-tuple
+    ' dictionary used to.
+    Set result = VLA_Datalog.DatalogRun("(fact (edge a a)) (fact (edge a b))" & _
+        " (rule (self_loop X) (edge X X)) (query self_loop)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    Report "datalog bound arg: a repeated variable still filters after the plan is compiled", _
+           VLA_Relation.RelCount(rel) = 1, "got " & VLA_Relation.RelCount(rel)
+
+    ' An atom whose every argument is a distinct free variable constrains
+    ' nothing, so FilterAtomRelation hands its relation straight back. The
+    ' answer must be every row, unchanged and un-deduped in count.
+    Set result = VLA_Datalog.DatalogRun("(fact (edge a b)) (fact (edge b c)) (fact (edge c d))" & _
+        " (rule (copy X Y) (edge X Y)) (query copy)")
+    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
+    Report "datalog bound arg: an atom that constrains nothing passes every row through", _
+           VLA_Relation.RelCount(rel) = 3, "got " & VLA_Relation.RelCount(rel)
+End Sub
+
+' The first cell of a one-column relation's first tuple, as text - the
+' aggregate pins above read a count back this way rather than spilling.
+Private Function DatalogFirstCell(ByVal rel As Collection) As String
+    If VLA_Relation.RelCount(rel) = 0 Then Exit Function
+    Dim t As Variant, arr() As Variant
+    For Each t In VLA_Relation.RelTuples(rel)
+        arr = t
+        DatalogFirstCell = CStr(arr(LBound(arr)))
+        Exit Function
+    Next t
+End Function
 
 ' DATALOG.1: stratified negation (`not`) - a basic anti-join, the
 ' variable-safety refusal (a negated atom's own variable never bound by
@@ -2928,9 +3069,17 @@ Private Sub TestOptimizeParity()
     ' 177 distinct programs in this module at OPTIMIZE.1, and it fails
     ' if a later DATALOG test adds one the table does not carry.
     ' OPTIMIZE.2 took it to 180, adding the two all-constant-body
-    ' programs whose crash its own live pass found.
-    Report "optimize parity: the table carries every DATALOG program (180 at OPTIMIZE.2)", _
-           programs.Count >= 180, "got " & programs.Count
+    ' programs whose crash its own live pass found. DATALOG.14 took it to
+    ' 190, and the floor moved with it: a floor left behind its own table
+    ' still passes while covering ten fewer programs than the module names,
+    ' which is the failure this pin exists to prevent.
+    '
+    ' NOTE, because it is not obvious from here: this loop reports ONCE PER
+    ' PROGRAM, so adding to the table moves TestDSLs' total by that many.
+    ' DATALOG.14 added eleven pins and ten programs and its own build
+    ' record predicted +11; the suite moved +21.
+    Report "optimize parity: the table carries every DATALOG program (190 at DATALOG.14)", _
+           programs.Count >= 190, "got " & programs.Count
 End Sub
 
 ' Every distinct DATALOG program this module names, from every
@@ -2941,7 +3090,7 @@ Private Function DatalogParityPrograms() As Collection
     Dim p As Collection
     Set p = New Collection
     ' Generated by tools\check_optimize_parity.ps1 -Emit, then reviewed.
-    ' 178 distinct DATALOG programs, every one this module names.
+    ' 190 distinct DATALOG programs, every one this module names.
     ' OPTIMIZE.2: a rule whose body binds NOTHING - every argument a
     ' constant. It crashed ProjectAfterJoin with runtime error 9 (an
     ' inverted-bounds ReDim, VLA_Relation.RelUnit's own documented
@@ -3128,6 +3277,22 @@ Private Function DatalogParityPrograms() As Collection
     p.Add "(rule (who X) (emptydataloghosttest1 X)) (query who)"
     p.Add "(rule (zeros N) (codes (code C) (name N)) (text-starts-with C ""00"")) (query zeros)"
     p.Add "; only a comment"
+    ' DATALOG.14, 2026-09-20: the bound argument pushed into a recursive
+    ' predicate, and the atom plan. Ten programs - the shape D12Ladder 8
+    ' times, the other direction, and each condition that declines the
+    ' rewrite. Every one of them must answer alike in both engines, which
+    ' is the point: this item may change what the engine COSTS and nothing
+    ' about what it answers.
+    p.Add "(fact (edge a b)) (fact (edge b c)) (fact (edge c d)) (rule (copy X Y) (edge X Y)) (query copy)"
+    p.Add "(fact (edge a2 a1)) (fact (edge a3 a2)) (fact (edge b2 b1)) (fact (edge b3 b2)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask W) (any W a1)) (rule (ask W) (any W b1)) (query ask)"
+    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (fact (any z9 e1)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask W) (any W e1)) (query ask)"
+    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y) (= Y e1)) (rule (ask W) (any W e1)) (query ask)"
+    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask A B) (any A B)) (query ask)"
+    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask N) (count N (any VlaCounted e1))) (query ask)"
+    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask W) (any W e1)) (query ask)"
+    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask W) (any e5 W)) (query ask)"
+    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask W) (edge W Q) (not (any W e1))) (query ask)"
+    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (side W) (any W e1)) (query any)"
     Set DatalogParityPrograms = p
 End Function
 

@@ -2,6 +2,65 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_ROADMAP1.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.6.3
+
+### What changed
+
+- **Questions that follow a chain — "who reports-to Alice directly or not" —
+  are several times faster, and answer exactly what they answered before.**
+  Two things were costing the time. The first is the sillier one: to work out
+  which rows of a table a rule cares about, Frazaro was creating a small
+  scratch object for *every single row*, even when the rule cared about all of
+  them and the scratch object never rejected anything. It now works out what a
+  rule is actually asking once, and where a rule asks for everything it simply
+  uses the table as it stands instead of copying it row by row. The second is
+  that a question about one person used to build every connection between
+  every pair of people first, and only then narrow down to the person asked
+  about; where it can be done without changing the answer, the person's name
+  is now pushed into the search before it runs, so the connections nobody
+  asked about are never built. Measured on the same org-chart questions as
+  before, on the same machine: a chain of a hundred people **4.1 seconds to
+  0.5**, and an organisation of three thousand **11.3 seconds to 0.3** — the
+  same answers, thirty-six times sooner. Chains of 250, 500 and even 1,000
+  people, which were previously too slow to be worth attempting at all, now
+  finish in 1.4, 3.7 and 10.2 seconds.
+
+- **Ordinary questions got faster too, which was not the point.** The scratch
+  object above was created on every row of every table any rule read, so this
+  was never only about org charts. A plain "which bill is big" over ten
+  thousand rows went from **3.8 seconds to 0.3**. Counting and list-making
+  questions gained the same way.
+
+- **A hundred thousand rows now looks reachable.** The previous release could
+  scan ten thousand rows in about four seconds and put a hundred thousand at
+  roughly thirty-eight — comfortably past the point where a spreadsheet feels
+  broken. On the measurements above the same hundred thousand rows works out
+  at around three seconds. That is a projection from two measured sizes and
+  not yet a measurement, so it is written here as the encouraging sign it is
+  and not as a promise; the honest statement remains that ten thousand rows
+  is measured and fast.
+
+- **Nothing about any answer changed, and that is the part that was tested
+  hardest.** The narrowing is only applied where it provably cannot be seen:
+  Frazaro checks that every other part of the program already asks about the
+  same person, that the relation being narrowed is not itself what the cell
+  shows, and that the person's name is not used anywhere it would be read as a
+  value rather than a name. If any of those is not true, it does the work the
+  long way. Fifteen worked examples with their answers written out by hand
+  were used to prove it before any of it went into Excel, and 190 test
+  programs are required to give the same answer through two different engines.
+  On the machine this was measured on, every one of the questions above was
+  checked against its expected answer before it was timed, at every size.
+
+### Known open security items
+
+**Closed this release:** nothing. The changes above are speed only: the same
+questions, over the same tables, giving the same answers, with no new
+capability, no new file or network access and nothing new that a workbook can
+ask Frazaro to do. Nothing in any of this makes a network call. Standing
+advice unchanged. The full list of open items is in `docs/BETA_ROADMAP1.md`,
+in plain words in `README.md`.
+
 ## 0.6.2
 
 ### What changed

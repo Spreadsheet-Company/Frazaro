@@ -1,6 +1,6 @@
 Attribute VB_Name = "VLA_Datalog"
 Option Explicit
-Public Const VLA_DATALOG_VERSION As String = "OPTIMIZE.2"
+Public Const VLA_DATALOG_VERSION As String = "DATALOG.14"
 ' DATALOG.15: a spilled range's first row counts as its headers, so a
 ' question can read an OPTIMIZE answer or any spill as a data table
 ' ("Schedule lists the person as Name"). The change is VLA_Relation's
@@ -633,6 +633,12 @@ Private Function ParseAtom(ByVal form As Variant, ByVal ctx As String) As Collec
     Dim atom As New Collection
     atom.Add predName
     atom.Add args
+    ' DATALOG.14: Item(3) is the match plan, built here because this is the
+    ' one chokepoint every atom passes through and because the plan depends
+    ' on nothing but the arguments just parsed. AtomPred/AtomArity/AtomArgAt
+    ' read Item(1)/Item(2) and are the only readers of the record, so the
+    ' third item is invisible to every existing caller.
+    atom.Add BuildAtomPlan(args)
     Set ParseAtom = atom
 End Function
 
@@ -1700,39 +1706,489 @@ End Function
 ' RelJoin itself knows nothing about constants or repeats; this is
 ' where a single atom's own shape actually gets resolved, before it
 ' ever reaches the cross-atom join.
-Private Function AtomMatches(ByVal atom As Collection, ByRef tup() As Variant) As Boolean
+' DATALOG.14: the checks an atom imposes, worked out ONCE per atom instead
+' of once per tuple. The old body built a fresh Scripting.Dictionary for
+' every tuple it tested, to answer a question that depends only on the
+' atom's own shape - measured at 0.157 ms a call (DATALOG.12 pass 2), and
+' the largest single term left in the engine after DATALOG.13 removed the
+' TypeName guard. A closure over a hundred-link chain paid it about 21,000
+' times, which is 3.3s of the 4.125s that pass measured.
+'
+' The plan is three parallel arrays in ATOM POSITION ORDER, so this walks
+' the positions in exactly the order the dictionary version did and stops
+' at the same one:
+'   pos(i)  - the 1-based argument position to test
+'   cmp(i)  - 0 to compare against a constant, otherwise the position whose
+'             value this one must equal (a repeated variable's first use)
+'   txt(i)  - the constant's text when cmp(i) = 0, "" otherwise
+' A position holding a variable's FIRST occurrence imposes nothing and is
+' absent from all three. An atom with no entries at all - every argument a
+' distinct free variable, which is what the grammar's own closure rule
+' writes - constrains NOTHING, and FilterAtomRelation below hands the
+' relation straight back rather than copying it tuple by tuple.
+'
+' Built with VlaDictNew and VlaDictHas/Set, the same wrappers the per-tuple
+' version used, so "the same variable twice" keeps its exact former
+' meaning on both hosts - a Scripting.Dictionary at vbTextCompare here, a
+' folded-key Collection on a host without the Scripting runtime - rather
+' than being re-derived from StrComp and argued to be equivalent.
+Private Function BuildAtomPlan(ByVal args As Collection) As Collection
+    Dim n As Long
+    n = args.Count
+    Dim pos() As Long, cmp() As Long
+    Dim txt() As String
+    ReDim pos(1 To n + 1)
+    ReDim cmp(1 To n + 1)
+    ReDim txt(1 To n + 1)
+    Dim used As Long
+    used = 0
+
     Dim seen As Object
     Set seen = VLA_Runtime.VlaDictNew()
     Dim i As Long
-    For i = 1 To AtomArity(atom)
+    For i = 1 To n
+        Dim a As Collection
+        Set a = args.Item(i)
+        If CBool(a.Item(1)) Then
+            Dim nm As String
+            nm = a.Item(2)
+            If VLA_Runtime.VlaDictHas(seen, nm) Then
+                used = used + 1
+                pos(used) = i
+                cmp(used) = CLng(VLA_Runtime.VlaDictGet(seen, nm))
+                txt(used) = vbNullString
+            Else
+                VLA_Runtime.VlaDictSet seen, nm, i
+            End If
+        Else
+            used = used + 1
+            pos(used) = i
+            cmp(used) = 0
+            txt(used) = a.Item(2)
+        End If
+    Next i
+
+    Dim plan As New Collection
+    plan.Add used                       ' Item(1): how many checks, 0 = constrains nothing
+    plan.Add pos                        ' Item(2)
+    plan.Add cmp                        ' Item(3)
+    plan.Add txt                        ' Item(4)
+    Set BuildAtomPlan = plan
+End Function
+
+Private Function AtomPlan(ByVal atom As Collection) As Collection
+    Set AtomPlan = atom.Item(3)
+End Function
+
+' ComputeAggregateGroups' own plan, in the same three arrays, with the one
+' rule that differs: a variable ALREADY bound in colOf selects which group a
+' tuple belongs to and is never a filter, so it imposes nothing here where
+' the atom plan would have treated its repeat as a check. valuePos comes
+' back by reference - the last position holding a not-yet-bound variable's
+' first use, which for BI_SUM and BI_JOIN is the value being aggregated
+' (CheckRuleSafety guarantees there is exactly one) and for BI_COUNT is
+' unused.
+Private Function BuildAggregatePlan(ByVal atom As Collection, ByVal colOf As Object, _
+                                     ByVal kind As Long, ByRef valuePos As Long) As Collection
+    Dim n As Long
+    n = AtomArity(atom)
+    Dim pos() As Long, cmp() As Long
+    Dim txt() As String
+    ReDim pos(1 To n + 1)
+    ReDim cmp(1 To n + 1)
+    ReDim txt(1 To n + 1)
+    Dim used As Long
+    used = 0
+    valuePos = 0
+
+    Dim seenLocal As Object
+    Set seenLocal = VLA_Runtime.VlaDictNew()
+    Dim i As Long
+    For i = 1 To n
         Dim a As Collection
         Set a = AtomArgAt(atom, i)
-        Dim v As String
-        v = CStr(tup(i))
         If ArgIsVar(a) Then
             Dim nm As String
             nm = ArgText(a)
-            If VLA_Runtime.VlaDictHas(seen, nm) Then
-                If StrComp(CStr(VLA_Runtime.VlaDictGet(seen, nm)), v, vbBinaryCompare) <> 0 Then Exit Function
-            Else
-                VLA_Runtime.VlaDictSet seen, nm, v
+            If Not VLA_Runtime.VlaDictHas(colOf, nm) Then
+                If VLA_Runtime.VlaDictHas(seenLocal, nm) Then
+                    used = used + 1
+                    pos(used) = i
+                    cmp(used) = CLng(VLA_Runtime.VlaDictGet(seenLocal, nm))
+                    txt(used) = vbNullString
+                Else
+                    VLA_Runtime.VlaDictSet seenLocal, nm, i
+                    If kind = BI_SUM Or kind = BI_JOIN Then valuePos = i
+                End If
             End If
         Else
-            If StrComp(ArgText(a), v, vbBinaryCompare) <> 0 Then Exit Function
+            used = used + 1
+            pos(used) = i
+            cmp(used) = 0
+            txt(used) = ArgText(a)
         End If
     Next i
-    AtomMatches = True
+
+    Dim plan As New Collection
+    plan.Add used
+    plan.Add pos
+    plan.Add cmp
+    plan.Add txt
+    Set BuildAggregatePlan = plan
 End Function
 
+Private Function AtomPlanConstrains(ByVal atom As Collection) As Boolean
+    AtomPlanConstrains = (CLng(AtomPlan(atom).Item(1)) > 0)
+End Function
+
+' Filters rel down to tuples consistent with atom's own constants and
+' within-atom repeated variables (e.g. (edge X X), (reports_to Y "bob")) -
+' unification-lite, since no compound terms exist to unify structurally.
+' RelJoin itself knows nothing about constants or repeats; this is
+' where a single atom's own shape actually gets resolved, before it
+' ever reaches the cross-atom join.
+' DATALOG.14: the one walker every filter uses, and what used to be
+' AtomMatches. Both filters share it - FilterAtomRelation, whose plan lives
+' on the atom record, and ComputeAggregateGroups, whose plan depends on colOf
+' and so cannot - and both therefore run the identical comparisons in the
+' identical order. It takes the plan's three arrays UNPACKED and ByRef rather
+' than the plan record, because it runs once per tuple: reading plan.Item(2)
+' here would copy a Variant array per tuple, which is a smaller version of
+' exactly the per-tuple cost this item exists to remove. Each caller unpacks
+' once, outside its own loop.
+Private Function PlanMatches(ByVal used As Long, ByRef pos As Variant, ByRef cmp As Variant, _
+                             ByRef txt As Variant, ByRef tup() As Variant) As Boolean
+    Dim i As Long
+    For i = 1 To used
+        If cmp(i) = 0 Then
+            If StrComp(txt(i), CStr(tup(pos(i))), vbBinaryCompare) <> 0 Then Exit Function
+        Else
+            If StrComp(CStr(tup(cmp(i))), CStr(tup(pos(i))), vbBinaryCompare) <> 0 Then Exit Function
+        End If
+    Next i
+    PlanMatches = True
+End Function
+
+' The plan's three arrays and its count, in one place, so no caller reaches
+' into the record's positions itself.
+Private Sub PlanUnpack(ByVal plan As Collection, ByRef used As Long, ByRef pos As Variant, _
+                        ByRef cmp As Variant, ByRef txt As Variant)
+    used = plan.Item(1)
+    pos = plan.Item(2)
+    cmp = plan.Item(3)
+    txt = plan.Item(4)
+End Sub
+
+' DATALOG.14: an atom that constrains nothing gets its relation back
+' UNCHANGED, with no copy and no per-tuple work at all. The grammar's own
+' closure rule is exactly this case twice over - (reports-to X Z) and
+' (vla-any-reports--to Z Y) each hold two distinct free variables, so the
+' old body spent a COM object allocation per row to decide to keep every
+' row, once per fixpoint round, over the whole relation.
+'
+' Returning rel ITSELF is safe here and was checked rather than assumed:
+' the one caller reads the result through RelCount and hands it to RelJoin,
+' which touches a relation only through RelArity/RelTuples/RelCount and
+' never mutates it, and which has finished with it before RunOneRulePass
+' adds anything to relations(head). The copy also cannot be doing quiet
+' dedup work: every relation that reaches here was built by RelNew plus
+' RelTryAdd (a table through RelFromRange, a fact and every derived tuple
+' directly), so it is already a set. RelWrapBag, the one constructor that
+' makes a BAG, is VLA_Sql.bas's alone and no Datalog relation comes from it.
 Private Function FilterAtomRelation(ByVal rel As Collection, ByVal atom As Collection) As Collection
+    If Not AtomPlanConstrains(atom) Then
+        Set FilterAtomRelation = rel
+        Exit Function
+    End If
+    Dim used As Long
+    Dim pos As Variant, cmp As Variant, txt As Variant
+    PlanUnpack AtomPlan(atom), used, pos, cmp, txt
     Dim outp As Collection
     Set outp = VLA_Relation.RelNew(VLA_Relation.RelArity(rel))
     Dim t As Variant, arr() As Variant
     For Each t In VLA_Relation.RelTuples(rel)
         arr = t
-        If AtomMatches(atom, arr) Then VLA_Relation.RelTryAdd outp, arr
+        If PlanMatches(used, pos, cmp, txt, arr) Then VLA_Relation.RelTryAdd outp, arr
     Next t
     Set FilterAtomRelation = outp
+End Function
+
+' =====================================================================
+'  DATALOG.14: the question's own bound argument, pushed into a
+'  recursive predicate BEFORE it materialises
+' =====================================================================
+' The grammar writes "directly or not" as a right-recursive closure and
+' then asks it about ONE person, so the whole transitive closure is built
+' and all but a handful of its pairs are thrown away: 5,050 pairs for a
+' hundred-link chain, 10,770 for a three-thousand-person org. This is the
+' magic-sets idea in the one shape that shape takes here - not the general
+' adorned rewrite with a growing magic predicate, but the case where the
+' binding passes STRAIGHT THROUGH, which is exactly what a right-recursive
+' closure asked about a constant does. Where it does not pass straight
+' through the rewrite is declined and the program runs as it always did.
+'
+' It is a SPECIALISATION, so it must be answer-identical, and every
+' condition below exists to keep it so. For predicate P at argument
+' position k, with constant c:
+'
+'   1. P is not the query's own predicate. That relation IS the answer,
+'      spilled whole, so narrowing it would narrow what the cell shows.
+'      This also declines a ground query written over P itself.
+'   2. No fact and no Table already puts rows into P. Those rows would not
+'      pass through the rewrite, and reasoning about which of them still
+'      belong is not worth the two lines it would save.
+'   3. P is DIRECTLY self-recursive through a positive body atom. Mutual
+'      recursion is declined: the binding would have to be traced around
+'      the cycle, which is the general rewrite this deliberately is not.
+'   4. EVERY occurrence of P outside its own rules - another rule's body,
+'      at any body kind, or a ground query atom - holds the SAME constant c
+'      at position k, and there is at least one such occurrence. This is
+'      what makes the narrowing invisible: every reader already discards
+'      the rows the rewrite never builds. It also means no reader can
+'      PROJECT position k (a constant argument contributes no column), so
+'      the value stored there can never reach a cell.
+'   5. In every P-headed rule, the head names a variable V at position k,
+'      every P atom in that rule's body names V at position k too, and V is
+'      mentioned by no body item that is not a plain positive atom.
+'      A comparison, a `let`, a text test, a negation or an aggregate reads
+'      a VALUE; substituting the constant's text there could compare as
+'      text what used to compare as a number, so the rewrite is declined
+'      rather than made clever.
+'
+' Then V := c throughout each P-headed rule. What P derives afterwards is
+' exactly what it derived before restricted to t(k) = c, and the stored
+' value at position k becomes the constant's own text - which is the same
+' string it was, because the body atom that bound V only matched rows where
+' CStr(value) already equalled c.
+'
+' Measured against DATALOG.13's own ladder, modelled in
+' tools/datalog14_model.ps1: this alone buys 1.8-1.9x, because the number
+' of ROUNDS does not change and every round still re-reads the base
+' relation in full. It is the filter fix above that carries the rest.
+Private Sub PushBoundArguments(ByVal rules As Collection, ByVal relations As Object, _
+                                ByVal queryName As String, ByVal queryAtom As Collection)
+    Dim headPreds As Object
+    Set headPreds = VLA_Runtime.VlaDictNew()
+    Dim r As Variant, ruleRec As Collection
+    For Each r In rules
+        Set ruleRec = r
+        VLA_Runtime.VlaDictSet headPreds, AtomPred(ruleRec.Item(1)), True
+    Next r
+    Dim k As Variant
+    For Each k In VLA_Runtime.VlaDictKeys(headPreds)
+        SpecialisePredicate CStr(k), rules, relations, queryName, queryAtom
+    Next k
+End Sub
+
+' Variable identity as the EVALUATOR decides it, not as StrComp would:
+' colOf, BuildJoinPlan's seenInAtom and the atom plan all key variables
+' through VlaDictSet/Has, which is a Scripting.Dictionary at vbTextCompare
+' on this host and a folded-key Collection on one without the Scripting
+' runtime. Asking the same wrapper keeps the two hosts' answers together
+' instead of pinning one and arguing the other matches.
+Private Function SameVariableName(ByVal a As String, ByVal b As String) As Boolean
+    Dim d As Object
+    Set d = VLA_Runtime.VlaDictNew()
+    VLA_Runtime.VlaDictSet d, a, True
+    SameVariableName = VLA_Runtime.VlaDictHas(d, b)
+End Function
+
+Private Function SubstituteVarInAtom(ByVal atom As Collection, ByVal varName As String, _
+                                      ByVal constText As String) As Collection
+    Dim args As New Collection
+    Dim changed As Boolean
+    Dim i As Long
+    For i = 1 To AtomArity(atom)
+        Dim a As Collection
+        Set a = AtomArgAt(atom, i)
+        ' Explicit Set each iteration - ParseAtom's own header has why a
+        ' `Dim rec As New Collection` here would silently share one record
+        ' across every argument.
+        Dim rec As Collection
+        Set rec = New Collection
+        If ArgIsVar(a) And SameVariableName(ArgText(a), varName) Then
+            rec.Add False
+            rec.Add constText
+            changed = True
+        Else
+            rec.Add ArgIsVar(a)
+            rec.Add ArgText(a)
+        End If
+        args.Add rec
+    Next i
+    If Not changed Then
+        Set SubstituteVarInAtom = atom
+        Exit Function
+    End If
+    Dim outAtom As New Collection
+    outAtom.Add AtomPred(atom)
+    outAtom.Add args
+    outAtom.Add BuildAtomPlan(args)
+    Set SubstituteVarInAtom = outAtom
+End Function
+
+Private Function BodyItemMentionsVar(ByVal item As Collection, ByVal v As String) As Boolean
+    If Len(BodyItemResultVar(item)) > 0 Then
+        If SameVariableName(BodyItemResultVar(item), v) Then
+            BodyItemMentionsVar = True
+            Exit Function
+        End If
+    End If
+    Dim atom As Collection
+    Set atom = BodyItemAtom(item)
+    Dim i As Long
+    For i = 1 To AtomArity(atom)
+        Dim a As Collection
+        Set a = AtomArgAt(atom, i)
+        If ArgIsVar(a) Then
+            If SameVariableName(ArgText(a), v) Then
+                BodyItemMentionsVar = True
+                Exit Function
+            End If
+        End If
+    Next i
+End Function
+
+' True when this occurrence pins position kk to a constant that agrees with
+' every occurrence seen so far. False the moment one holds a variable, is
+' too short, or names a different constant - which declines the position.
+Private Function OccurrencePinsPosition(ByVal atom As Collection, ByVal kk As Long, _
+                                         ByRef wanted As String, ByRef haveOne As Boolean) As Boolean
+    If AtomArity(atom) < kk Then Exit Function
+    Dim a As Collection
+    Set a = AtomArgAt(atom, kk)
+    If ArgIsVar(a) Then Exit Function
+    If haveOne Then
+        If StrComp(wanted, ArgText(a), vbBinaryCompare) <> 0 Then Exit Function
+    Else
+        wanted = ArgText(a)
+        haveOne = True
+    End If
+    OccurrencePinsPosition = True
+End Function
+
+Private Sub SpecialisePredicate(ByVal p As String, ByVal rules As Collection, ByVal relations As Object, _
+                                 ByVal queryName As String, ByVal queryAtom As Collection)
+    ' Condition 1.
+    If StrComp(p, queryName, vbBinaryCompare) = 0 Then Exit Sub
+    ' Condition 2.
+    If VLA_Runtime.VlaDictHas(relations, p) Then
+        If VLA_Relation.RelCount(VLA_Runtime.VlaDictGet(relations, p)) > 0 Then Exit Sub
+    End If
+
+    ' Condition 3, and P's arity while we are walking its rules.
+    Dim selfRec As Boolean
+    Dim arity As Long
+    Dim r As Variant, ruleRec As Collection
+    Dim b As Variant, item As Collection
+    selfRec = False
+    arity = 0
+    For Each r In rules
+        Set ruleRec = r
+        If StrComp(AtomPred(ruleRec.Item(1)), p, vbBinaryCompare) = 0 Then
+            arity = AtomArity(ruleRec.Item(1))
+            For Each b In ruleRec.Item(2)
+                Set item = b
+                If BodyItemKind(item) = BI_POS Then
+                    If StrComp(AtomPred(BodyItemAtom(item)), p, vbBinaryCompare) = 0 Then selfRec = True
+                End If
+            Next b
+        End If
+    Next r
+    If Not selfRec Then Exit Sub
+    If arity = 0 Then Exit Sub
+
+    ' Condition 4, position by position. The first position that survives is
+    ' taken; a closure has one bound argument, never two, so there is no
+    ' ordering question worth settling here.
+    Dim kk As Long
+    For kk = 1 To arity
+        Dim wanted As String
+        Dim haveOne As Boolean, ok As Boolean
+        wanted = vbNullString
+        haveOne = False
+        ok = True
+        If Not queryAtom Is Nothing Then
+            If StrComp(AtomPred(queryAtom), p, vbBinaryCompare) = 0 Then
+                If Not OccurrencePinsPosition(queryAtom, kk, wanted, haveOne) Then ok = False
+            End If
+        End If
+        If ok Then
+            For Each r In rules
+                Set ruleRec = r
+                If StrComp(AtomPred(ruleRec.Item(1)), p, vbBinaryCompare) <> 0 Then
+                    For Each b In ruleRec.Item(2)
+                        Set item = b
+                        If StrComp(AtomPred(BodyItemAtom(item)), p, vbBinaryCompare) = 0 Then
+                            If Not OccurrencePinsPosition(BodyItemAtom(item), kk, wanted, haveOne) Then ok = False
+                        End If
+                    Next b
+                End If
+            Next r
+        End If
+        If ok And haveOne Then
+            If SpecialiseAtPosition(p, kk, wanted, rules) Then Exit Sub
+        End If
+    Next kk
+End Sub
+
+Private Function SpecialiseAtPosition(ByVal p As String, ByVal kk As Long, ByVal c As String, _
+                                       ByVal rules As Collection) As Boolean
+    Dim r As Variant, ruleRec As Collection
+    Dim b As Variant, item As Collection
+    Dim headArg As Collection
+    Dim v As String
+
+    ' Condition 5, checked over EVERY P-headed rule before a single one is
+    ' rewritten - a half-applied specialisation would be a wrong answer.
+    For Each r In rules
+        Set ruleRec = r
+        If StrComp(AtomPred(ruleRec.Item(1)), p, vbBinaryCompare) = 0 Then
+            If AtomArity(ruleRec.Item(1)) < kk Then Exit Function
+            Set headArg = AtomArgAt(ruleRec.Item(1), kk)
+            If Not ArgIsVar(headArg) Then Exit Function
+            v = ArgText(headArg)
+            For Each b In ruleRec.Item(2)
+                Set item = b
+                If BodyItemKind(item) <> BI_POS Then
+                    If BodyItemMentionsVar(item, v) Then Exit Function
+                    ' P read under `not`, `count`, `sum` or `textjoin` from
+                    ' inside its own rule would read the NARROWED relation
+                    ' while meaning the whole one. Stratification refuses
+                    ' such a program later; this runs first, so it declines.
+                    If StrComp(AtomPred(BodyItemAtom(item)), p, vbBinaryCompare) = 0 Then Exit Function
+                ElseIf StrComp(AtomPred(BodyItemAtom(item)), p, vbBinaryCompare) = 0 Then
+                    If AtomArity(BodyItemAtom(item)) < kk Then Exit Function
+                    Dim ba As Collection
+                    Set ba = AtomArgAt(BodyItemAtom(item), kk)
+                    If Not ArgIsVar(ba) Then Exit Function
+                    If Not SameVariableName(ArgText(ba), v) Then Exit Function
+                End If
+            Next b
+        End If
+    Next r
+
+    For Each r In rules
+        Set ruleRec = r
+        If StrComp(AtomPred(ruleRec.Item(1)), p, vbBinaryCompare) = 0 Then
+            Set headArg = AtomArgAt(ruleRec.Item(1), kk)
+            v = ArgText(headArg)
+            Dim newHead As Collection
+            Set newHead = SubstituteVarInAtom(ruleRec.Item(1), v, c)
+            ruleRec.Remove 1
+            ruleRec.Add newHead, , 1
+            For Each b In ruleRec.Item(2)
+                Set item = b
+                If BodyItemKind(item) = BI_POS Then
+                    Dim newAtom As Collection
+                    Set newAtom = SubstituteVarInAtom(BodyItemAtom(item), v, c)
+                    item.Remove 2
+                    item.Add newAtom, , 2
+                End If
+            Next b
+        End If
+    Next r
+    SpecialiseAtPosition = True
 End Function
 
 ' The anti-join half of negation: keeps only accum's own rows whose
@@ -1816,7 +2272,8 @@ End Function
 ' argument positions. A tuple is skipped (does not contribute to any
 ' group) if it is inconsistent with the atom's own UNBOUND-variable
 ' repeats or CONSTANT arguments - the identical consistency rule
-' AtomMatches enforces for a normal atom, restricted here to the
+' the atom plan enforces for a normal atom (DATALOG.14 renamed the walker
+' from AtomMatches to PlanMatches), restricted here to the
 ' not-yet-globally-bound positions, since a globally-bound position is
 ' instead what SELECTS which group a tuple belongs to, not a filter to
 ' apply before grouping. For BI_SUM, CheckRuleSafety already guarantees
@@ -1838,44 +2295,27 @@ Private Function ComputeAggregateGroups(ByVal kind As Long, ByVal atom As Collec
     End If
     Dim atomPositions As Collection, accumCols As Collection
     BoundPositionPairs atom, colOf, atomPositions, accumCols
-    Dim nArgs As Long
-    nArgs = AtomArity(atom)
+    ' DATALOG.14: the same per-tuple Scripting.Dictionary FilterAtomRelation
+    ' used to build, in the aggregate's own consistency check - DATALOG.12's
+    ' pass 2 named this site beside the atom filter and it was left alone then.
+    ' The plan cannot live on the atom record, because which positions are
+    ' group KEYS rather than filters depends on colOf, which changes with the
+    ' body position and the round; it is built once per CALL instead, which
+    ' is one dictionary where there were as many as the relation has rows.
+    ' valuePos was already the same for every tuple - the last not-yet-bound
+    ' variable's position, read only on a consistent row - so hoisting it out
+    ' of the loop changes nothing it could have decided.
+    Dim valuePos As Long
+    Dim tuplePlan As Collection
+    Set tuplePlan = BuildAggregatePlan(atom, colOf, kind, valuePos)
+    Dim used As Long
+    Dim pos As Variant, cmp As Variant, txt As Variant
+    PlanUnpack tuplePlan, used, pos, cmp, txt
     Dim t As Variant, arr() As Variant
     For Each t In VLA_Relation.RelTuples(targetRel)
         arr = t
-        Dim seenLocal As Object
-        Set seenLocal = VLA_Runtime.VlaDictNew()
         Dim consistent As Boolean
-        consistent = True
-        Dim valuePos As Long
-        valuePos = 0
-        Dim i As Long
-        For i = 1 To nArgs
-            Dim a As Collection
-            Set a = AtomArgAt(atom, i)
-            Dim v As String
-            v = CStr(arr(i))
-            If ArgIsVar(a) Then
-                Dim nm As String
-                nm = ArgText(a)
-                If Not VLA_Runtime.VlaDictHas(colOf, nm) Then
-                    If VLA_Runtime.VlaDictHas(seenLocal, nm) Then
-                        If StrComp(CStr(VLA_Runtime.VlaDictGet(seenLocal, nm)), v, vbBinaryCompare) <> 0 Then
-                            consistent = False
-                            Exit For
-                        End If
-                    Else
-                        VLA_Runtime.VlaDictSet seenLocal, nm, v
-                        If kind = BI_SUM Or kind = BI_JOIN Then valuePos = i
-                    End If
-                End If
-            Else
-                If StrComp(ArgText(a), v, vbBinaryCompare) <> 0 Then
-                    consistent = False
-                    Exit For
-                End If
-            End If
-        Next i
+        consistent = PlanMatches(used, pos, cmp, txt, arr)
         If consistent Then
             Dim gk As String
             gk = KeyFromPositions(arr, atomPositions)
@@ -1987,7 +2427,7 @@ End Function
 ' columns on both sides, via colOf's running variable->column map) vs
 ' brand new (kept, appended to the accumulator). A second occurrence
 ' of the same variable WITHIN this atom carries no new information
-' (AtomMatches already enforced its equality with the first
+' (the atom plan already enforced its equality with the first
 ' occurrence) and is skipped entirely, on both sides.
 Private Sub BuildJoinPlan(ByVal colOf As Object, ByVal atom As Collection, _
                           ByRef leftCols As Variant, ByRef rightCols As Variant, _
@@ -2878,6 +3318,12 @@ Public Function DatalogRunForms(ByVal forms As Collection, Optional ByVal baseRe
     ' DATALOG.8: before any rule runs. Facts, rule heads and table
     ' arguments are, by here, every name this program can ever define.
     RefuseUndefinedPredicates queryName, rules, relations
+
+    ' DATALOG.14: after every refusal, before any rule runs. Placed here on
+    ' purpose - it rewrites rules, and no refusal's wording may depend on
+    ' whether it fired. It changes no predicate's name, arity or dependency
+    ' edge, so ComputeStrata below sees the same graph either way.
+    PushBoundArguments rules, relations, queryName, queryAtom
 
     RunStratifiedFixpoint rules, relations
 
