@@ -1,11 +1,17 @@
 Attribute VB_Name = "VLA_Console"
 Option Explicit
-Public Const VLA_CONSOLE_VERSION As String = "CLI.3"
+Public Const VLA_CONSOLE_VERSION As String = "CLI.4"
+' CLI.4: the history survives Excel - %APPDATA%\Frazaro\history.txt, one
+' escaped line per command, read once a session and added to as commands
+' run. A command naming a secret stays in memory only. ConsoleWord now
+' folds through VLA_Identity.Fold rather than LCase$, which is locale-
+' aware (LX.3): CLI.3 had written the one case R6 exists to prevent.
 
 ' =====================================================================
 '  VLA_Console - what the CLI remembers between commands. CLI.3: the
 '  commands themselves, recalled with Ctrl+Up and Ctrl+Down, listed by
-'  the word history, and brought back by number with !N.
+'  the word history, and brought back by number with !N. CLI.4: the same
+'  commands, kept on disk from one Excel session to the next.
 '
 '  A STANDARD MODULE, BECAUSE THE FORM FORGETS. frmCLI unloads on Esc,
 '  and everything a UserForm holds dies with it. So the commands live
@@ -14,10 +20,10 @@ Public Const VLA_CONSOLE_VERSION As String = "CLI.3"
 '  entry zero - which SHOULD close with the window, since the next
 '  opening starts with a fresh box.
 '
-'  THE SPLIT. Three pure functions make every decision, with the state
-'  handed in, so VlaSelfTest pins them over a throwaway Collection and a
-'  run in the middle of a CLI session leaves the session's history
-'  alone:
+'  THE SPLIT. Pure functions make every decision, with the state handed
+'  in, so VlaSelfTest pins them over a throwaway Collection or a string
+'  and a run in the middle of a CLI session leaves the session's history
+'  - and the file - alone:
 '
 '    VlaHistoryPush        keep one command: never a blank one, never a
 '                          second copy of the newest, and the oldest
@@ -25,6 +31,13 @@ Public Const VLA_CONSOLE_VERSION As String = "CLI.3"
 '    VlaHistoryMove        one Ctrl+Up or Ctrl+Down step
 '    VlaConsoleWordAnswer  history, history N and !N - recognised,
 '                          listed, fetched, or refused
+'    VlaHistoryEncode      CLI.4: one command as one line of the file,
+'    VlaHistoryDecode      and one line back to its command
+'    VlaHistoryFromFileText  a file's commands, and whether it is tidy
+'    VlaHistoryFileText    the tidy file for a list of commands
+'    VlaHistoryTailStart   where a tail read's first whole line begins
+'    VlaHistoryTextFromBytes  the file's bytes as text, a bad line left out
+'    VlaHistoryMayKeepOnDisk  whether a command may be written at all
 '
 '  Three thin session functions own the module's state, and they are
 '  all frmCLI calls: VlaConsoleRemember, VlaConsoleRecall and
@@ -46,18 +59,27 @@ Public Const VLA_CONSOLE_VERSION As String = "CLI.3"
 '  the history list still names the same command a few commands later.
 '  The shell's own convention.
 '
-'  IN MEMORY ONLY, for as long as the add-in's VBA project keeps its
-'  state: an Excel session, or until a reset - the VBE's Reset button,
-'  VlaDevReload, or any scratch module injected into the dev workbook
-'  (VlaTry, and VlaSelfTests' host half, both do that).
-'  Never written into a workbook: a workbook travels, and what one
-'  person typed at their console is not its business - CLI.4's entry
-'  has the reasoning, and CLI.4 is what keeps it on disk instead.
+'  ON DISK, IN THE PERSON'S OWN FOLDER (CLI.4): history.txt in
+'  VLA_Loader.VlaProfileFolder, read the first time the console needs it
+'  in a session - an Excel session, or the time after a reset: the VBE's
+'  Reset button, VlaDevReload, or a scratch module injected into the dev
+'  workbook (VlaTry and VlaSelfTests' host half both do that) - and added
+'  to one line per command as commands run. UTF-8, through U.20's own
+'  byte-honest helpers, never ANSI Print #. Read as data only: the text
+'  goes into the list, and nothing loaded runs without the person's own
+'  Ctrl+Enter. A read failure is silent - an empty history - and a write
+'  failure is a note on the status line, never a dialog. A command that
+'  names a secret is kept for the session and never written at all.
+'  Never written into a workbook: a workbook travels, and what one person
+'  typed at their console is not its business (CLI.4's roadmap entry:
+'  the mild cousin of SEC.10).
 '
 '  LAYER:     add-in-resident only, beside VLA_IDE - the console is an
 '             IDE surface, and nothing here is ever injected into a
 '             user workbook.
-'  MAY CALL:  VLA_Messages (the refusals); VLA_Runtime (VlaShowError,
+'  MAY CALL:  VLA_Messages (the refusals); VLA_Identity (Fold);
+'             VLA_Loader (the profile folder, the byte-honest file
+'             helpers, the UTF-8 codec); VLA_Runtime (VlaShowError,
 '             from the session half only).
 '  SHIPS:     yes - VLA_Build.bas's mods array, beside frmCLI, which
 '             calls it.
@@ -72,8 +94,15 @@ Private Const HISTORY_LIST_DEFAULT As Long = 20
 ' "...". The box is about seventy Consolas characters wide at the size
 ' it opens at, and a number and two spaces sit in front of each line.
 Private Const HISTORY_LIST_WIDTH As Long = 60
+' CLI.4: the file, in VLA_Loader.VlaProfileFolder.
+Private Const HISTORY_FILE_NAME As String = "history.txt"
+' CLI.4: the most of the file one load reads - several times what 500
+' ordinary commands take. A longer file (a runaway, or one something
+' else wrote) is read from its last two megabytes, cut at a line break,
+' and the tidy after the load brings it back under the cap.
+Private Const HISTORY_READ_LIMIT As Long = 2097152
 
-Private mHistory As Collection   ' the session's commands, oldest first
+Private mHistory As Collection   ' the session's commands, oldest first; Nothing until the file is read
 Private mDropped As Long         ' how many the cap has let go, so numbers stay put
 Private mLastList As String      ' the list the word history last put in the box
 
@@ -90,10 +119,7 @@ Private mLastList As String      ' the list the word history last put in the box
 ' adds to its own count so that every number stays the same command.
 Public Function VlaHistoryPush(ByVal entries As Collection, ByVal text As String, _
                                ByVal cap As Long) As Long
-    If IsBlankText(text) Then Exit Function
-    If entries.Count > 0 Then
-        If CStr(entries.Item(entries.Count)) = text Then Exit Function
-    End If
+    If Not WouldKeep(entries, text) Then Exit Function
     entries.Add text
     Dim letGo As Long
     Do While entries.Count > cap And entries.Count > 0
@@ -216,6 +242,174 @@ Public Function VlaConsoleWordAnswer(ByVal text As String, ByVal entries As Coll
 End Function
 
 ' ---------------------------------------------------------------------
+'  The pure half, continued - CLI.4's history.txt, as text and as bytes.
+' ---------------------------------------------------------------------
+
+' CLI.4: one command as one line of history.txt. Three escapes and no
+' others: a backslash doubles, a carriage return is \r, a line feed is
+' \n. So no record ever holds a line break, and every other character -
+' an e-acute, a pound sign, a tab - is written as itself, UTF-8 on disk.
+' The backslash goes first: the two escapes after it add backslashes
+' that must not be doubled.
+Public Function VlaHistoryEncode(ByVal text As String) As String
+    VlaHistoryEncode = Replace(Replace(Replace(text, "\", "\\"), vbCr, "\r"), vbLf, "\n")
+End Function
+
+' CLI.4: one line of history.txt back to its command, in text. False,
+' with text empty, for a line VlaHistoryEncode could not have written -
+' a backslash before anything but \, r or n, or a lone one at the end -
+' so a damaged record is skipped rather than recalled half-read. Built
+' in a buffer of the record's own length (a decode is never longer), a
+' run at a time between backslashes, so a long pasted program decodes
+' in one pass rather than one concatenation per character.
+Public Function VlaHistoryDecode(ByVal record As String, ByRef text As String) As Boolean
+    Dim buf As String, i As Long, j As Long, k As Long, n As Long
+    text = ""
+    n = Len(record)
+    buf = Space$(n)
+    i = 1                                ' the next character of record to read
+    Do
+        k = InStr(i, record, "\")
+        If k = 0 Then k = n + 1
+        If k > i Then
+            Mid$(buf, j + 1, k - i) = Mid$(record, i, k - i)
+            j = j + k - i
+        End If
+        If k > n Then Exit Do
+        If k = n Then Exit Function      ' a lone backslash at the very end
+        j = j + 1
+        Select Case Mid$(record, k + 1, 1)
+            Case "\": Mid$(buf, j, 1) = "\"
+            Case "r": Mid$(buf, j, 1) = vbCr
+            Case "n": Mid$(buf, j, 1) = vbLf
+            Case Else: Exit Function
+        End Select
+        i = k + 2
+    Loop
+    text = Left$(buf, j)
+    VlaHistoryDecode = True
+End Function
+
+' CLI.4: the commands kept in a history file's text, oldest first,
+' exactly as VlaHistoryPush would have kept them one run at a time:
+' blank and damaged lines skipped, a repeat of the command before it
+' collapsed, and only the newest cap. Any line ending reads - CRLF, a
+' lone LF, a lone CR - and a byte-order mark at the front is set aside,
+' so a file saved from Notepad still reads. tidy comes back True only
+' when the text is already exactly VlaHistoryFileText of what came back,
+' so the caller rewrites the file only when a rewrite would change it.
+Public Function VlaHistoryFromFileText(ByVal fileText As String, ByVal cap As Long, _
+                                       ByRef tidy As Boolean) As Collection
+    Dim entries As Collection, lines As Variant, i As Long, body As String, text As String
+    Set entries = New Collection
+    body = fileText
+    If Left$(body, 1) = ChrW$(&HFEFF&) Then body = Mid$(body, 2)
+    lines = Split(Replace(Replace(body, vbCrLf, vbLf), vbCr, vbLf), vbLf)
+    For i = LBound(lines) To UBound(lines)
+        If Len(lines(i)) > 0 Then
+            If VlaHistoryDecode(CStr(lines(i)), text) Then VlaHistoryPush entries, text, cap
+        End If
+    Next
+    tidy = (VlaHistoryFileText(entries) = fileText)
+    Set VlaHistoryFromFileText = entries
+End Function
+
+' CLI.4: a history file's whole text for these commands, oldest first -
+' each as one VlaHistoryEncode line, each line ending CRLF. The tidy
+' form VlaHistoryFromFileText compares against.
+Public Function VlaHistoryFileText(ByVal entries As Collection) As String
+    Dim parts() As String, i As Long
+    If entries.Count = 0 Then Exit Function
+    ReDim parts(1 To entries.Count)
+    For i = 1 To entries.Count
+        parts(i) = VlaHistoryEncode(CStr(entries.Item(i)))
+    Next
+    VlaHistoryFileText = Join(parts, vbCrLf) & vbCrLf
+End Function
+
+' CLI.4: where the first whole line begins in b(0) .. b(n - 1), the
+' last n bytes of a file total bytes long: 0 when those n bytes ARE the
+' whole file; otherwise just past the first line feed, since a tail
+' read begins mid-line and perhaps mid-character; or n when there is no
+' line feed at all, and nothing whole was read. A line feed is one byte
+' in UTF-8 and never part of a longer sequence, so the cut always falls
+' between characters.
+Public Function VlaHistoryTailStart(ByRef b() As Byte, ByVal n As Long, _
+                                    ByVal total As Long) As Long
+    Dim i As Long
+    If n >= total Then Exit Function
+    For i = 0 To n - 1
+        If b(i) = 10 Then
+            VlaHistoryTailStart = i + 1
+            Exit Function
+        End If
+    Next
+    VlaHistoryTailStart = n
+End Function
+
+' CLI.4: the text of b(start) .. b(n - 1), read as UTF-8. All of it when
+' it decodes, with clean True. Otherwise line by line, leaving out each
+' line that does not decode, with clean False: one line saved in the
+' wrong encoding - an e-acute written as a lone ANSI byte by some other
+' editor - costs that line, not the whole history, and the caller's tidy
+' rewrite then takes it out of the file, so it is paid for once. Empty
+' lines are left out too; they mean nothing to a history.
+Public Function VlaHistoryTextFromBytes(ByRef b() As Byte, ByVal start As Long, _
+                                        ByVal n As Long, ByRef clean As Boolean) As String
+    Dim s As String, badAt As Long, i As Long, lineStart As Long, lineEnd As Long
+    Dim atEnd As Boolean, parts() As String, kept As Long
+    clean = VLA_Loader.VlaUtf8Decode(b, start, n, s, badAt)
+    If clean Then
+        VlaHistoryTextFromBytes = s
+        Exit Function
+    End If
+    ReDim parts(0 To 63)
+    lineStart = start
+    For i = start To n
+        atEnd = (i = n)
+        If Not atEnd Then atEnd = (b(i) = 10)
+        If atEnd Then
+            lineEnd = i
+            If lineEnd > lineStart Then
+                If b(lineEnd - 1) = 13 Then lineEnd = lineEnd - 1
+            End If
+            If lineEnd > lineStart Then
+                If VLA_Loader.VlaUtf8Decode(b, lineStart, lineEnd, s, badAt) Then
+                    If kept > UBound(parts) Then ReDim Preserve parts(0 To 2 * UBound(parts) + 1)
+                    parts(kept) = s
+                    kept = kept + 1
+                End If
+            End If
+            lineStart = i + 1
+        End If
+    Next
+    If kept > 0 Then
+        ReDim Preserve parts(0 To kept - 1)
+        VlaHistoryTextFromBytes = Join(parts, vbCrLf) & vbCrLf
+    End If
+End Function
+
+' CLI.4: whether a command may be written to history.txt at all. One
+' that names a password, a secret, a token, an API key or a credential -
+' in any case, anywhere in it - is kept for this session and never
+' written: "Protect this sheet with password X." is real grammar, and
+' %APPDATA% is the roaming profile, which a company network may copy to
+' a server. The owner's call, and the default PowerShell's own history
+' keeps for the same reason. A word test, and wide on purpose: it can
+' keep a harmless command off the disk, and it cannot catch a secret
+' typed without a word that names it.
+Public Function VlaHistoryMayKeepOnDisk(ByVal text As String) As Boolean
+    Dim t As String, words As Variant, i As Long
+    t = VLA_Identity.Fold(text)
+    words = Array("password", "passwd", "pwd", "secret", "token", "apikey", "api key", _
+                  "api-key", "api_key", "credential")
+    For i = LBound(words) To UBound(words)
+        If InStr(t, CStr(words(i))) > 0 Then Exit Function
+    Next
+    VlaHistoryMayKeepOnDisk = True
+End Function
+
+' ---------------------------------------------------------------------
 '  The pure half's own helpers.
 ' ---------------------------------------------------------------------
 
@@ -235,9 +429,9 @@ Private Function ConsoleWord(ByVal text As String, ByRef arg As String) As Strin
         Exit Function
     End If
     t = Replace(t, vbTab, " ")
-    If LCase$(t) = "history" Then
+    If VLA_Identity.Fold(t) = "history" Then
         ConsoleWord = "history"
-    ElseIf LCase$(Left$(t, 8)) = "history " Then
+    ElseIf VLA_Identity.Fold(Left$(t, 8)) = "history " Then
         rest = Trim$(Mid$(t, 9))
         If IsDigits(rest) Then
             arg = rest
@@ -324,6 +518,17 @@ Private Function IsBlankText(ByVal text As String) As Boolean
     IsBlankText = (Len(TrimAll(text)) = 0)
 End Function
 
+' Whether VlaHistoryPush keeps text: never a blank one, never the newest
+' again. CLI.4's writer asks the same question before it touches the
+' file, so there is one answer to it.
+Private Function WouldKeep(ByVal entries As Collection, ByVal text As String) As Boolean
+    If IsBlankText(text) Then Exit Function
+    If entries.Count > 0 Then
+        If CStr(entries.Item(entries.Count)) = text Then Exit Function
+    End If
+    WouldKeep = True
+End Function
+
 ' One or more of 0-9, and nothing else.
 Private Function IsDigits(ByVal s As String) As Boolean
     If Len(s) = 0 Then Exit Function
@@ -359,16 +564,93 @@ End Function
 '  read and written here and nowhere else.
 ' ---------------------------------------------------------------------
 
+' The session's commands - read from history.txt the first time they are
+' needed (CLI.4), then kept here for the rest of the session.
 Private Function SessionHistory() As Collection
-    If mHistory Is Nothing Then Set mHistory = New Collection
+    If mHistory Is Nothing Then Set mHistory = LoadHistoryFile()
     Set SessionHistory = mHistory
 End Function
 
 ' Keep a command the console is about to run. Called BEFORE it runs,
-' so a refused command is there to recall and fix.
-Public Sub VlaConsoleRemember(ByVal text As String)
-    mDropped = mDropped + VlaHistoryPush(SessionHistory(), text, HISTORY_CAP)
+' so a refused command is there to recall and fix. CLI.4: a command kept
+' is also added to history.txt, unless it names a secret
+' (VlaHistoryMayKeepOnDisk). Answers "" or, when that write failed, the
+' note the status line should carry - never a dialog.
+Public Function VlaConsoleRemember(ByVal text As String) As String
+    Dim entries As Collection, isNew As Boolean
+    Set entries = SessionHistory()
+    isNew = WouldKeep(entries, text)
+    mDropped = mDropped + VlaHistoryPush(entries, text, HISTORY_CAP)
+    If isNew Then
+        If VlaHistoryMayKeepOnDisk(text) Then VlaConsoleRemember = AppendHistoryFile(text)
+    End If
+End Function
+
+' CLI.4: %APPDATA%\Frazaro\history.txt, or "" where there is no profile
+' folder to keep it in.
+Private Function HistoryFilePath() As String
+    Dim folder As String
+    folder = VLA_Loader.VlaProfileFolder()
+    If Len(folder) > 0 Then HistoryFilePath = folder & "\" & HISTORY_FILE_NAME
+End Function
+
+' CLI.4: the file's commands, once a session - or an empty history when
+' there is no profile folder, no file yet, or anything at all goes wrong
+' reading it. A read failure is silent, by the entry's own terms. An
+' untidy file - over the cap, a repeat, a damaged line, a line in the
+' wrong encoding, or read only from its tail - is rewritten tidy,
+' best-effort and just as silently: that is housekeeping, not the
+' person's command. (A second Excel adding a line in the moment between
+' this read and that rewrite loses it - rare enough to leave, and said
+' here so nobody has to find it again.)
+Private Function LoadHistoryFile() As Collection
+    Dim path As String, b() As Byte, n As Long, total As Long, start As Long
+    Dim fileText As String, clean As Boolean, tidy As Boolean, loaded As Collection
+    Set LoadHistoryFile = New Collection
+    path = HistoryFilePath()
+    If Len(path) = 0 Then Exit Function
+    On Error GoTo unreadable
+    If Len(Dir$(path)) = 0 Then Exit Function
+    n = VLA_Loader.VlaReadFileTailBytes(path, HISTORY_READ_LIMIT, b, total)
+    If n <= 0 Then Exit Function
+    start = VlaHistoryTailStart(b, n, total)
+    fileText = VlaHistoryTextFromBytes(b, start, n, clean)
+    Set loaded = VlaHistoryFromFileText(fileText, HISTORY_CAP, tidy)
+    Set LoadHistoryFile = loaded
+    If start > 0 Or Not clean Or Not tidy Then RewriteHistoryFile path, loaded
+    Exit Function
+unreadable:
+    ' silent, by design: whatever went wrong, the history starts empty
+End Function
+
+' CLI.4: the file replaced by exactly these commands, tidy. Best-effort
+' and silent - see LoadHistoryFile.
+Private Sub RewriteHistoryFile(ByVal path As String, ByVal entries As Collection)
+    Dim b() As Byte, n As Long
+    On Error Resume Next
+    n = VLA_Loader.VlaUtf8Encode(VlaHistoryFileText(entries), b)
+    VLA_Loader.VlaWriteFileBytes path, b, n
+    On Error GoTo 0
 End Sub
+
+' CLI.4: one command added to history.txt, making the profile folder
+' when it is missing. Answers "" or the note for the status line. No
+' profile folder at all (Mac Excel) is not a failure - there is nowhere
+' to keep it - so it says nothing.
+Private Function AppendHistoryFile(ByVal text As String) As String
+    Dim folder As String, b() As Byte, n As Long, reason As String
+    folder = VLA_Loader.VlaProfileFolder()
+    If Len(folder) = 0 Then Exit Function
+    On Error Resume Next
+    If Len(Dir$(folder, vbDirectory)) = 0 Then MkDir folder
+    If Err.Number <> 0 Then reason = Err.Description
+    On Error GoTo 0
+    If Len(reason) = 0 Then
+        n = VLA_Loader.VlaUtf8Encode(VlaHistoryEncode(text) & vbCrLf, b)
+        reason = VLA_Loader.VlaAppendFileBytes(folder & "\" & HISTORY_FILE_NAME, b, n)
+    End If
+    If Len(reason) > 0 Then AppendHistoryFile = "history.txt not saved: " & reason
+End Function
 
 ' Ctrl+Up (older) or Ctrl+Down: one VlaHistoryMove step over the
 ' session's history, and the status line to leave. False leaves the box

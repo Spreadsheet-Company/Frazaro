@@ -427,6 +427,7 @@ Public Function VlaSelfTest() As Boolean
     TestTer7EmptyProgram
     TestTer8EmptyForms
     TestCliHistory
+    TestCliHistoryFile
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -3039,6 +3040,132 @@ Private Function CliHistoryAnswer(ByVal text As String, ByVal h As Collection, B
     CliHistoryAnswer = VLA_Console.VlaConsoleWordAnswer(text, h, base, lastList, boxText, status, listing)
     If Err.Number <> 0 Then errText = Err.Description
     On Error GoTo 0
+End Function
+
+' CLI.4: history.txt, as text and as bytes - VLA_Console's pure half
+' again, so no pin touches the disk (U.20's own rule for this suite) and
+' none reads the person's real history. The file itself - made, added
+' to, read back after Excel restarts - is the owner's live test.
+' Non-ASCII fixture text is built with ChrW, so this source stays ASCII.
+Private Sub TestCliHistoryFile()
+    Dim cases As Variant, k As Long, caseText As String, want As Boolean
+    Dim enc As String, dec As String, ok As Boolean
+    Dim h As Collection, tidy As Boolean, fileText As String, got As String
+    Dim b() As Byte, n As Long, clean As Boolean
+
+    ' --- one record, and back ---
+    cases = Array("plain words", "a" & vbCrLf & "b", "a" & vbCr & "b", "a" & vbLf & "b", _
+                  "C:\temp", "a literal \n, not a line break", "ends with \", "\\ two \\", _
+                  "tab" & vbTab & "in it", _
+                  ChrW(&HE9) & ChrW(&HA3) & ChrW(&H2014) & ChrW(&HD83D) & ChrW(&HDE00), _
+                  "(defmacro" & vbCrLf & "  (twice x) ""a\""b""" & vbCrLf & "  (begin x x))")
+    For k = LBound(cases) To UBound(cases)
+        caseText = CStr(cases(k))
+        enc = VLA_Console.VlaHistoryEncode(caseText)
+        dec = ""
+        ok = VLA_Console.VlaHistoryDecode(enc, dec)
+        Report "CLI.4 a history record round-trips: " & CliShow(caseText), _
+               ok And dec = caseText And InStr(enc, vbCr) = 0 And InStr(enc, vbLf) = 0, _
+               "decoded " & ok & ", record [" & CliShow(enc) & "], back [" & CliShow(dec) & "]"
+    Next
+    Report "CLI.4 a record doubles a backslash", _
+           VLA_Console.VlaHistoryEncode("C:\temp") = "C:\\temp", "got " & VLA_Console.VlaHistoryEncode("C:\temp")
+    Report "CLI.4 a record writes a CRLF as \r\n", _
+           VLA_Console.VlaHistoryEncode("a" & vbCrLf & "b") = "a\r\nb", _
+           "got " & VLA_Console.VlaHistoryEncode("a" & vbCrLf & "b")
+    Report "CLI.4 a literal backslash-n in a command stays itself, doubled", _
+           VLA_Console.VlaHistoryEncode("\n") = "\\n", "got " & VLA_Console.VlaHistoryEncode("\n")
+    Report "CLI.4 an e-acute is written as itself, not escaped", _
+           VLA_Console.VlaHistoryEncode("caf" & ChrW(&HE9)) = "caf" & ChrW(&HE9), _
+           "got " & CliShow(VLA_Console.VlaHistoryEncode("caf" & ChrW(&HE9)))
+
+    cases = Array("\q", "ends in a lone \", "\", "a\x")
+    For k = LBound(cases) To UBound(cases)
+        caseText = CStr(cases(k))
+        dec = "unset"
+        ok = VLA_Console.VlaHistoryDecode(caseText, dec)
+        Report "CLI.4 a damaged record is refused, not half-read: " & caseText, _
+               Not ok And Len(dec) = 0, "decoded " & ok & " as [" & dec & "]"
+    Next
+
+    ' --- a whole file's text ---
+    Set h = CliHistoryOf("a", "(b" & vbCrLf & "  c)", "d")
+    fileText = VLA_Console.VlaHistoryFileText(h)
+    Report "CLI.4 the tidy file is one record a line, each line ending CRLF", _
+           fileText = "a" & vbCrLf & "(b\r\n  c)" & vbCrLf & "d" & vbCrLf, "got [" & CliShow(fileText) & "]"
+    Set h = VLA_Console.VlaHistoryFromFileText(fileText, 500, tidy)
+    Report "CLI.4 the tidy file reads back as the same commands, and is tidy", _
+           h.Count = 3 And CollItemIs(h, 2, "(b" & vbCrLf & "  c)") And tidy, "count " & h.Count & ", tidy " & tidy
+    Report "CLI.4 no commands is an empty file", _
+           Len(VLA_Console.VlaHistoryFileText(New Collection)) = 0, "not empty"
+    Set h = VLA_Console.VlaHistoryFromFileText("a" & vbLf & "b" & vbCrLf & "c" & vbCr & "d", 500, tidy)
+    Report "CLI.4 a file reads with any line ending, and is untidy until rewritten", _
+           h.Count = 4 And CollItemIs(h, 1, "a") And CollItemIs(h, 4, "d") And Not tidy, _
+           "count " & h.Count & ", tidy " & tidy
+    Set h = VLA_Console.VlaHistoryFromFileText("a" & vbCrLf & vbCrLf & "\q" & vbCrLf & "   " & vbCrLf & "b" & vbCrLf, 500, tidy)
+    Report "CLI.4 blank, damaged and all-space lines are skipped", _
+           h.Count = 2 And CollItemIs(h, 1, "a") And CollItemIs(h, 2, "b") And Not tidy, _
+           "count " & h.Count & ", tidy " & tidy
+    Set h = VLA_Console.VlaHistoryFromFileText("a" & vbCrLf & "a" & vbCrLf & "b" & vbCrLf, 500, tidy)
+    Report "CLI.4 a repeat in the file collapses as it is read", _
+           h.Count = 2 And Not tidy, "count " & h.Count & ", tidy " & tidy
+    Set h = VLA_Console.VlaHistoryFromFileText("a" & vbCrLf & "b" & vbCrLf & "c" & vbCrLf & "d" & vbCrLf & "e" & vbCrLf, 3, tidy)
+    Report "CLI.4 a file over the cap keeps only the newest", _
+           h.Count = 3 And CollItemIs(h, 1, "c") And CollItemIs(h, 3, "e") And Not tidy, _
+           "count " & h.Count & ", tidy " & tidy
+    Set h = VLA_Console.VlaHistoryFromFileText("a" & vbCrLf & "b", 500, tidy)
+    Report "CLI.4 a last line with no line break still reads", _
+           h.Count = 2 And CollItemIs(h, 2, "b") And Not tidy, "count " & h.Count & ", tidy " & tidy
+    Set h = VLA_Console.VlaHistoryFromFileText(ChrW(&HFEFF&) & "a" & vbCrLf, 500, tidy)
+    Report "CLI.4 a byte-order mark is set aside, not read into the first command", _
+           h.Count = 1 And CollItemIs(h, 1, "a") And Not tidy, "count " & h.Count & ", tidy " & tidy
+    Set h = VLA_Console.VlaHistoryFromFileText("", 500, tidy)
+    Report "CLI.4 an empty file is an empty history, already tidy", _
+           h.Count = 0 And tidy, "count " & h.Count & ", tidy " & tidy
+
+    ' --- the file's bytes ---
+    n = VLA_Loader.VlaUtf8Encode("ab" & vbLf & "cd" & vbLf, b)
+    Report "CLI.4 a whole file is read from its first byte", _
+           VLA_Console.VlaHistoryTailStart(b, n, n) = 0, "got " & VLA_Console.VlaHistoryTailStart(b, n, n)
+    Report "CLI.4 a tail read starts just past its first line feed", _
+           VLA_Console.VlaHistoryTailStart(b, n, n + 10) = 3, "got " & VLA_Console.VlaHistoryTailStart(b, n, n + 10)
+    n = VLA_Loader.VlaUtf8Encode("abcd", b)
+    Report "CLI.4 a tail read with no line feed holds no whole line", _
+           VLA_Console.VlaHistoryTailStart(b, n, n + 10) = n, "got " & VLA_Console.VlaHistoryTailStart(b, n, n + 10)
+    n = VLA_Loader.VlaUtf8Encode("caf" & ChrW(&HE9) & vbCrLf, b)
+    got = VLA_Console.VlaHistoryTextFromBytes(b, 0, n, clean)
+    Report "CLI.4 a file that decodes comes back whole, and clean", _
+           clean And got = "caf" & ChrW(&HE9) & vbCrLf, "clean " & clean & ", got [" & CliShow(got) & "]"
+    fileText = "good" & vbCrLf & "bad X" & vbCrLf & "also good" & vbCrLf
+    n = VLA_Loader.VlaUtf8Encode(fileText, b)
+    b(InStr(fileText, "X") - 1) = &HE9       ' an e-acute saved as one ANSI byte by some other editor
+    got = VLA_Console.VlaHistoryTextFromBytes(b, 0, n, clean)
+    Report "CLI.4 a line in the wrong encoding costs that line, not the history", _
+           Not clean And got = "good" & vbCrLf & "also good" & vbCrLf, _
+           "clean " & clean & ", got [" & CliShow(got) & "]"
+
+    ' --- what may be written to disk at all ---
+    cases = Array("Protect this sheet with password hunter2.", False, _
+                  "PROTECT SHEET WITH PASSWORD X.", False, _
+                  "(set! apikey ""k"")", False, _
+                  "Put my API key in A1.", False, _
+                  "(debug-print ""a secret"")", False, _
+                  "Put 5 in A1.", True, _
+                  "(debug-print ""one"")", True, _
+                  "history", True)
+    For k = LBound(cases) To UBound(cases) Step 2
+        caseText = CStr(cases(k))
+        want = CBool(cases(k + 1))
+        Report "CLI.4 " & IIf(want, "may be written to disk: ", "stays off the disk: ") & caseText, _
+               VLA_Console.VlaHistoryMayKeepOnDisk(caseText) = want, _
+               "got " & VLA_Console.VlaHistoryMayKeepOnDisk(caseText)
+    Next
+End Sub
+
+' CLI.4: a text for a test's name or detail, with its line breaks and
+' tabs made visible.
+Private Function CliShow(ByVal s As String) As String
+    CliShow = Replace(Replace(Replace(s, vbCr, "<CR>"), vbLf, "<LF>"), vbTab, "<TAB>")
 End Function
 
 ' F.9: instructions.txt's own paragraphs (its documented structural unit -

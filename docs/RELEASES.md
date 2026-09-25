@@ -61,18 +61,24 @@
   Frazaro refused is there to fix rather than to retype from memory. Type
   `history` to list the last twenty with their numbers (`history 50` lists
   fifty), and `!7` to put number 7 back in the box without running it. The
-  history lasts until Excel closes, and it is never written into your
+  history carries over from one Excel session to the next, in a file of
+  your own - `history.txt`, in `%APPDATA%\Frazaro` - and never in your
   workbook: what one person typed at their console is not something a
-  workbook they send on should carry.
+  workbook they send on should carry. A command that mentions a password,
+  a secret, a token, an API key or a credential is kept only until Excel
+  closes, and is never written to that file.
 
 ### Known open security items
 
 **Closed this release:** nothing. The query changes above are speed only: the
 same questions, over the same tables, giving the same answers, with no new
 capability, no new file or network access and nothing new that a workbook can
-ask Frazaro to do. The CLI's history is new, and stays in memory only while
-Excel is open: it is written to no file and never into a workbook, and nothing
-in a workbook can read it. Nothing in any of this makes a network call.
+ask Frazaro to do. The CLI's history is new. It is written to one file of
+your own, `%APPDATA%\Frazaro\history.txt` - the first file Frazaro keeps in
+your profile - and never into a workbook; nothing in a workbook can read it or
+ask for it, and a command in it only ever comes back into the CLI's box, never
+runs by itself. A command that mentions a password or another secret is not
+written to it at all. Nothing in any of this makes a network call.
 Standing advice unchanged. The full list of open items is in `docs/BETA_ROADMAP1.md`,
 in plain words in `README.md`.
 

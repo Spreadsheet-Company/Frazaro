@@ -223,7 +223,7 @@ End Sub
 
 Private Sub RunCurrentText()
     Dim src As String
-    Dim boxText As String, status As String
+    Dim boxText As String, status As String, note As String
     src = txtCommand.Text
     If Len(Trim$(src)) = 0 Then Exit Sub
     ' CLI.3: the console's own words - history, history N, !N - are
@@ -235,12 +235,15 @@ Private Sub RunCurrentText()
         Exit Sub
     End If
     ' CLI.3: kept BEFORE it runs, so a refused command is there to fix -
-    ' and the box, still holding it, is entry zero again.
-    VLA_Console.VlaConsoleRemember src
+    ' and the box, still holding it, is entry zero again. CLI.4: kept on
+    ' disk too; a write that failed comes back as a note for the status
+    ' line, after the run's own status, never as a dialog.
+    note = VLA_Console.VlaConsoleRemember(src)
     mStepsBack = 0
     lblStatus.Caption = "Running..."
     Me.Repaint
     lblStatus.Caption = VLA_IDE.VlaCliRun(src)
+    If Len(note) > 0 Then lblStatus.Caption = lblStatus.Caption & " - " & note
     txtCommand.SetFocus
 End Sub
 

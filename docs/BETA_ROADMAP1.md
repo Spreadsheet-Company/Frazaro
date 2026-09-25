@@ -21626,7 +21626,7 @@ now carries one summary paragraph per engine and points here.*
   zero steps over the newest when it equals the box, and stepping back down
   skips it again. No `GRAMMAR_SINCE.md` row: the words are caught before
   either reader sees them, so they are not forms.
-- ⬜ **CLI.4 — history survives Excel.** `CLI.3`'s buffer persisted to a text
+- ✅ **CLI.4 — history survives Excel.** `CLI.3`'s buffer persisted to a text
   file under the user's profile, `%APPDATA%\Frazaro\history.txt`, loaded on
   first open, appended on each run, trimmed to the cap. Multi-line entries
   need a record format that survives a line break in the text (length-
@@ -21641,6 +21641,29 @@ now carries one summary paragraph per engine and points here.*
   precedent SPITBALLS 27's `init.vla` will follow — so name the folder once
   and put the path in one function. `SD-13` untouched. *Depends on:* `CLI.3`.
   `~hours`
+  *Built 2026-09-24, and owner-verified live the same day: all nine steps,
+  a real Excel restart among them, and a read-only file answered by the
+  status-line note with no dialog; `VlaSelfTests` pure 1302/1302 (+42) and
+  host 152/152, the history reloading from disk after the host half's
+  reset.* The owner's two
+  calls: the record is one escaped line per command (a backslash doubles,
+  CR is `\r`, LF is `\n`, every other character is written as itself, in
+  UTF-8 through `U.20`'s byte-honest helpers, never ANSI `Print #`); and a
+  command that names a password, a secret, a token, an API key or a
+  credential stays in memory for the session and is never written,
+  because `Protect this sheet with password X.` is real grammar and
+  `%APPDATA%` is the roaming profile. `VlaProfileFolder` names the folder
+  once, in `VLA_Loader` beside those helpers, with two new ones that report
+  a failure instead of raising (`VlaAppendFileBytes`,
+  `VlaReadFileTailBytes`), so no error can leave the file open. The file is
+  read once a session, from at most its last 2 MB cut at a line break; a
+  line that will not decode costs that line only; anything untidy (over
+  the cap, a repeat, a damaged or mis-encoded line, a partial read) is
+  rewritten tidy, silently. No `%APPDATA%` (Mac Excel) means session-only,
+  with no note. 42 pure pins in `TestCliHistoryFile`, none touching the
+  disk. Found on the way: `CLI.3`'s console-word match used `LCase$`, which
+  is locale-aware, the one case `R6` exists to prevent; it now folds
+  through `VLA_Identity.Fold`.
 - ⬜ **CLI.5 — the transcript pane, and the last three results.** A read-only
   pane above the input showing each command and what came back: the status
   line, `debug-print` output, refusals in their own words, and an

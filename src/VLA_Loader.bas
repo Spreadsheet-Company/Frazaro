@@ -1,6 +1,12 @@
 Attribute VB_Name = "VLA_Loader"
 Option Explicit
-Public Const VLA_LOADER_VERSION As String = "U20.0"
+Public Const VLA_LOADER_VERSION As String = "CLI.4"
+' CLI.4: VlaProfileFolder - %APPDATA%\Frazaro, the person's own folder,
+' named once here - and two more byte-honest helpers beside U.20's, for
+' a file that grows a line at a time: VlaAppendFileBytes and
+' VlaReadFileTailBytes. Both ANSWER a failure instead of raising, so
+' neither can leave a file open behind an error. The console's history
+' (VLA_Console) is their first caller.
 ' U20.0: VlaReadFileBytes/VlaWriteFileBytes and a strict, pure-VBA UTF-8
 ' codec (VlaUtf8Encode/VlaUtf8Decode), for U.20: Lint VLA's writer was
 ' ANSI Print #, and it turned a phrasebook's pound sign into invalid
@@ -206,6 +212,93 @@ Public Sub VlaWriteFileBytes(ByVal filePath As String, ByRef b() As Byte, ByVal 
     End If
     Close #f
 End Sub
+
+' CLI.4: the person's own Frazaro folder, %APPDATA%\Frazaro - the first
+' place in the product that belongs to a PERSON rather than to a
+' workbook or to the add-in, named once, here. The console's history is
+' its first tenant; SPITBALLS 27's init.vla is meant to be the next. ""
+' where there is no such folder to name (Mac Excel has no APPDATA), and
+' a caller reads "" as "keep nothing on disk". Never created here: the
+' caller that writes makes it, so asking where it is touches no disk.
+Public Function VlaProfileFolder() As String
+    Dim appData As String
+    appData = Environ$("APPDATA")
+    If Len(appData) = 0 Then Exit Function
+    If Right$(appData, 1) = "\" Then appData = Left$(appData, Len(appData) - 1)
+    VlaProfileFolder = appData & "\Frazaro"
+End Function
+
+' CLI.4: adds exactly the first n bytes of b to the end of filePath,
+' creating the file when it is absent; nothing already in it is
+' rewritten. Answers "" when they were added, or the reason they were
+' not - never raises, so a failure never leaves the file open behind
+' it. Its caller, the console's history, turns a failure into a note on
+' the status line and runs the command anyway.
+Public Function VlaAppendFileBytes(ByVal filePath As String, ByRef b() As Byte, _
+                                   ByVal n As Long) As String
+    Dim f As Integer, i As Long, reason As String
+    Dim exact() As Byte
+    If n <= 0 Then Exit Function
+    On Error Resume Next
+    f = FreeFile
+    Open filePath For Binary Access Write As #f
+    If Err.Number <> 0 Then
+        reason = Err.Description
+    Else
+        Seek #f, LOF(f) + 1
+        If UBound(b) = n - 1 Then
+            Put #f, , b
+        Else
+            ReDim exact(0 To n - 1)
+            For i = 0 To n - 1
+                exact(i) = b(i)
+            Next
+            Put #f, , exact
+        End If
+        If Err.Number <> 0 Then reason = Err.Description
+        Close #f
+        If Err.Number <> 0 And Len(reason) = 0 Then reason = Err.Description
+    End If
+    On Error GoTo 0
+    VlaAppendFileBytes = reason
+End Function
+
+' CLI.4: at most the last maxBytes of filePath into b (0-based), with the
+' file's whole length in total; answers how many bytes came back, or -1
+' when the file could not be read - never raises, for the same reason
+' as VlaAppendFileBytes. A file no longer than maxBytes comes back whole.
+' The bytes may begin mid-line, and mid-character: the caller cuts them.
+Public Function VlaReadFileTailBytes(ByVal filePath As String, ByVal maxBytes As Long, _
+                                     ByRef b() As Byte, ByRef total As Long) As Long
+    Dim f As Integer, n As Long, readFailed As Boolean
+    Erase b
+    total = 0
+    On Error Resume Next
+    f = FreeFile
+    Open filePath For Binary Access Read As #f
+    If Err.Number <> 0 Then
+        readFailed = True
+    Else
+        total = LOF(f)
+        n = total
+        If n > maxBytes Then n = maxBytes
+        If n > 0 Then
+            ReDim b(0 To n - 1)
+            Seek #f, total - n + 1
+            Get #f, , b
+        End If
+        readFailed = (Err.Number <> 0)
+        Close #f
+    End If
+    On Error GoTo 0
+    If readFailed Then
+        Erase b
+        total = 0
+        VlaReadFileTailBytes = -1
+    Else
+        VlaReadFileTailBytes = n
+    End If
+End Function
 
 ' The UTF-8 bytes of s into b (0-based); returns the count. A surrogate
 ' pair is one code point, four bytes. A lone surrogate - which no valid
