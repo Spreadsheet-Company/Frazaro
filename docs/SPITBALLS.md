@@ -71,6 +71,23 @@ English function; no sentence writes a text file; `VlaCompileToForms` is
 has not; and the logic corpus is all business, with none of these hobbies
 in it.*
 
+*Fourth sitting, 2026-09-24, which the owner declared "a brainstorming
+kind of night": the ten to twenty "most-Lispy things this project could
+do tomorrow to make it so Lispy it hurts. Turning the phrasebook into VLA
+was a giant leap for Lispkind. What's next? Go crazy. Go stupid." Twenty
+were pitched. One earned a roadmap ID that night — `METAPROOF`, proofs
+as forms, in THE METAMETAMACRO LINE — and three already had homes
+(`apply` is named in `LISPIMPORT`'s own text; the interpreter written in
+VLA is `L-TIER3`; the `vla-vba` rule file is Contemplation 9's first
+collapse). The remaining sixteen are Spitballs 94 to 109, in section XX.
+Two of them breach a standing veto and are filed as stupid on purpose,
+with the lawful cousin beside each. Checked at `HEAD` `42ad47d`:
+`QUASIQUOTE` and `LISTOPS` have both shipped; `interpolate` exists in
+both backends; the tokenizer's only special characters are the parens,
+the quote and `;`; the IDE already writes a cell Note as data (the
+guidance line on the workspace sheet); `To …:` defines a verb but a verb
+is not a value; and the console keeps no history.*
+
 ---
 
 ## The two rules that sort a spitball from an Excel trick
@@ -1267,6 +1284,201 @@ as play.
 
 ---
 
+## XX. Lisp
+
+*Every Lisp earns its name the same way: the program is data, the data
+is a list, and the tools that read the program are written in it. `F.13`
+did that for the grammar and `F.3` for the standard library. These are
+the places it has not reached yet, plus two it must never reach, filed
+as stupid on purpose.*
+
+**Spitball 94 — The parser is a list.** `If … :`, `Count … from … to`,
+`Try:` and `Done.` are nine hundred lines of VBA comparing tokens against
+English words. Make the structural grammar a table of forms, and
+`ParseStmt` becomes a `case` over data. Contemplation 9's sixth item, said
+the Lisp way.
+
+- *Stands on:* `keyword-alias`, which already rewrites a structural word
+  before the parser sees it.
+- *The catch:* it is the largest fork on the shelf, guarded by `SD-16`,
+  and it wants the dedicated contemplation Contemplation 9 asked for
+  before anyone builds it.
+- *Size:* `~weeks`, after the decision.
+
+**Spitball 95 — `macroexpand` in a cell.** `=EXPAND("(when x (inc! y))")`
+spills the expansion, one form per row. The dev rig's REPL already has
+`expand`; move it to the sheet, where the Lisp is supposed to live.
+
+- *Stands on:* `VlaExpandText`, and a spilled-array return.
+- *The catch:* pure by construction, so none. Prelude macros only until
+  a phrasebook is loaded for the cell.
+- *Size:* `~hours`.
+
+**Spitball 96 — Quasiquote in templates.** A template is already
+quasi-quoted in spirit: `{r}` is an unquote wearing braces. Make it
+literal, `` `(set! (range ,r) ,e) ``, so a slot is `,` and the pattern
+mini-language shrinks by one construct.
+
+- *Stands on:* `QUASIQUOTE` has shipped.
+- *The catch:* `SD-4`. `{r}` is a shipped spelling and stays; this is a
+  second spelling, not a replacement. Glued slots (`make-{d}`) have no
+  quasiquote equivalent and would keep the braces.
+- *Size:* `~days`.
+
+**Spitball 97 — A Lisp-1 for English.** `To tax of amount:` defines a
+verb whose name is an English word. Let the verb be a value:
+`Set rule to tax. Apply rule to 100.` That is `funcall`, in a business
+suit, and the first step toward `Sort by`-style sentences that take a
+rule as an argument.
+
+- *Stands on:* `To … :` and `To get … using … :`.
+- *The catch:* under Compile a procedure is not a VBA value, so the
+  emitter would need `Application.Run` by name, and `IN.15` recorded what
+  that does to a raise. Under Interpret it is a dictionary lookup.
+- *Size:* `~days`.
+
+**Spitball 98 — `cond` in English.** `When amount is: less than 100,
+mark "small"; less than 1000, mark "medium"; otherwise mark "large".`
+The `When … is:` block exists for `Select Case`; give its arms predicates
+instead of constants and it is `cond`.
+
+- *Stands on:* the block grammar for `When … is:`.
+- *The catch:* engine grammar (Spitball 94's territory), and `Select
+  Case` with `Is <` arms already exists in VBA, so the emitter half is
+  cheap.
+- *Size:* `~days`.
+
+**Spitball 99 — Property lists on cells.** A cell's Note is a plist:
+`(put (cell "B2") :reviewed-by "Priya")`, `(get (cell "B2") :reviewed-by)`.
+Data that travels with the datum — no hidden sheet, no registry — and
+visible to a person who hovers.
+
+- *Stands on:* the IDE already writes a Note as data, for the workspace
+  guidance line.
+- *The catch:* a Note is free text that a person can edit, so reads must
+  refuse a Note that does not parse, by name. Notes do not survive every
+  export.
+- *Size:* `~hours`.
+
+**Spitball 100 — `assoc` for Tables.** `(assoc "Q1" sales)` on a
+two-column Table returns the row; `(rassoc …)` the other way. The
+relation substrate is already there. This gives it the oldest name in
+the book, and `Look up "Q1" in table Sales.` in English.
+
+- *Stands on:* `VLA_Relation`, and the `english-function` word
+  mechanism.
+- *The catch:* none.
+- *Size:* `~hours`.
+
+**Spitball 101 — `*`, `**`, `***` in the console.** The last three
+results, by name, so `(range-of *)` works. Every Lisp listener since the
+1970s has had them, and every Lisper's hands expect them.
+
+- *Stands on:* the CLI.
+- *The catch:* the console keeps no history today (Spitball 25's catch),
+  and `*` is also an operator, so the reader has to tell a bare `*` from
+  a head. Whether that is ambiguous in the tokenizer is unchecked.
+- *Size:* `~hours` after history exists.
+
+**Spitball 102 — `trace` as a sentence.** `Trace tax.` Every call and
+return of the verb prints its arguments and result. `Untrace tax.` stops.
+The thing every Lisper reaches for before a debugger, and the effect log
+is halfway there.
+
+- *Stands on:* the interpreter's effect log and `CallUserProc`.
+- *The catch:* Interpret only. Under Compile, tracing means emitted
+  code, which is the emitter's existing `vla-step` machinery under a
+  different name.
+- *Size:* `~hours`.
+
+**Spitball 103 — Conditions and restarts.** `Try: … If that fails: …`
+is `handler-case`. Add `Try again with rate of 5%.` as a restart the
+handler can invoke, and `Give up.` as `abort`. Undo is already a restart;
+name it one.
+
+- *Stands on:* the `Try` block, and Undo's snapshot.
+- *The catch:* a restart re-enters a form with new bindings, which is
+  engine grammar, and under Compile it is VBA's `Resume` with a
+  variable changed first — legal, and ugly.
+- *Size:* `~days`.
+
+**Spitball 104 — `describe`.** `Describe sheet Invoices.` prints its
+Tables, Names, handlers, and the last program that touched it.
+`Describe tax.` prints the verb's parameters, its docstring, its source
+sentence and the file it came from. `L.11` is `apropos`; this is its
+sibling.
+
+- *Stands on:* Explain's provenance, `VlaMacroDoc`, and the run
+  provenance Name.
+- *The catch:* "the last program that touched it" needs `U.18`'s run
+  log.
+- *Size:* `~hours` for verbs, `~days` for sheets.
+
+**Spitball 105 — The image.** A Lisp image is the whole heap, saved.
+Save every loaded phrasebook, personal command (Spitball 24), hook and
+binding into the workbook, so that `Frazaro.xlsm` opens exactly where
+the world was left.
+
+- *Stands on:* `VLA_LoadedPhrasebooks`, which already records the
+  request.
+- *The catch:* `SEC.9` and `SEC.10` are both lessons about a workbook
+  carrying its own words or its own permission slip. The image loads
+  inert and asks; nothing in it may grant itself trust.
+- *Size:* `~days`.
+
+**Spitball 106 — Reader macros for the sheet.** `#A1` reads as
+`(range "A1")` and `#Sales` as `(table "Sales")`. One character of
+syntax, and every s-expression in a cell gets shorter.
+
+- *Stands on:* the tokenizer, whose only special characters today are
+  the parens, the quote and `;`.
+- *The catch:* `SD-4` will freeze whichever character ships, and `#` is
+  the comment character in `instructions.txt`. Pick it in daylight.
+- *Size:* `~hours`.
+
+**Spitball 107 — `format` directives.**
+`Show "~a of ~a rows done" with i and n.` The `interpolate` form exists
+in both backends; give it Common Lisp's `~a`, `~d`, `~%` and `~{ ~}`, and
+watch VBA programmers recoil in delight.
+
+- *Stands on:* `interpolate`.
+- *The catch:* `~{ ~}` iterates, which is control flow inside a string,
+  and the emitter would have to unroll it. `~a` and `~d` alone are
+  spelling.
+- *Size:* `~hours` for the scalar directives.
+
+**Spitball 108 — `gensym`, but honest.** *Stupid, and vetoed by name:*
+a real `gensym`, which invents a name from nothing. The lawful cousin
+already exists as a rule in this project: a generated name must be
+deterministic, hand-derivable from its inputs, injective, and under a
+prefix that Check refuses. Call it `(vla-name "tidy" "A1:D10")` and it
+is hygiene without the Wild West.
+
+- *Stands on:* the `vla-` reserved prefix and `GENSYM`'s own veto text.
+- *The catch:* none. This is the veto, made into a primitive.
+- *Size:* `~hours`.
+
+**Spitball 109 — `defpackage` for phrasebooks.** `(in-phrasebook joy)`,
+`(export phthalo-blue)`, `(use-phrasebook joy)`. An override becomes a
+shadowing import, provenance becomes the package prefix
+`joy::phthalo-blue`, and THE EDITION LINE becomes the problem Common
+Lisp solved in 1984.
+
+- *Stands on:* `G3`'s load order and override rule, and Explain's
+  per-file provenance, which already know whose rule won.
+- *The catch:* a qualified name in an English sentence is not English.
+  The prefix belongs in Explain and in refusals, never in a sentence.
+- *Size:* `~days`.
+
+*Filed as stupid, and kept off the list:* `(eval (read (cell "A1")))`.
+`eval` was never proposed and stays off the table by the same wall as
+`gensym`. Its lawful cousin is `L-TIER3`, an interpreter for VLA written
+in VLA, run once against the corpus as dogfood. And one joke for the
+morning: `english_expanded.vla` is the compiled phrasebook. Rename it
+`english.fasl` and only the right people will laugh.
+
+---
+
 ## The enablers
 
 *Added at the third sitting. Eight small things keep turning up under
@@ -1318,6 +1530,18 @@ at once, and the first two are the cheapest of all.*
 - **`OPTIMIZE.3`** — the first search, which Spitballs 62, 79 and 90 wait
   on.
 
+*Added at the fourth sitting:*
+
+- **`METAPROOF`** — proofs as forms, minted 2026-09-24 from this
+  sitting's list; the one Lisp idea that earned an ID.
+- **`LISPIMPORT`** — already names `apply` as the one candidate on the
+  table, so `apply` is not a spitball.
+- **`L-TIER3`** — self-hosting, the lawful cousin of the vetoed `eval`.
+- **`GENSYM`** — vetoed; Spitball 108 is the veto as a primitive, not a
+  reopening.
+- **Contemplation 9, first collapse** — the `vla-vba` rule file, which
+  should be minted from there when `F.7` is next touched.
+
 ## Guardrails that keep it cool
 
 - **`SD-13`: nothing networked.** No multiplayer, no leaderboard, no
@@ -1365,6 +1589,16 @@ draw. Nothing enforces it yet.
 - **An export is an external effect** (`SEC.8`). Text written into a cell
   is not.
 
+*Added at the fourth sitting:*
+
+- **The Chinese wall holds.** No `gensym`, no `eval`, whatever the
+  costume. A Lisp idea that needs either is filed as stupid and given
+  its lawful cousin.
+- **A second spelling never retires the first** (`SD-4`). Quasiquote
+  beside braces, `#A1` beside `(range "A1")`.
+- **A package prefix is for Explain, not for a sentence.** English stays
+  English; the machinery may be qualified, the words may not.
+
 ## If only three get built
 
 1. **Spitballs 1 and 2.** One mechanism, and the story developers retell.
@@ -1389,6 +1623,12 @@ richest seam) and Spitball 58 (a new audience that already writes
 instructions for a living room). Before any of them come the top two rows
 of the enablers table: a way to read a character, and a word for a
 remainder. Between them they unlock a dozen entries.
+
+*Added at the fourth sitting:* from section XX, Spitballs 95, 100 and
+108 are each an afternoon and each is pure; 102 is the one a developer
+would use every day. The two that matter most, 94 and 96, are decisions
+before they are work, and both sit behind `SD-16` and `SD-4`
+respectively, so they wait for daylight.
 
 ## Sources for the outside facts
 
