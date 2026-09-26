@@ -227,15 +227,16 @@ Public Const VLA_OPTIMIZE_PROVEN_BEST As Long = 4
 ' In units of WORK - one decision or one dead end each - never seconds:
 ' standing decision 2, so that a faster machine proves the same thing a
 ' slower one does. Zero until OPTIMIZE.3 slice 2, the first search that
-' consumes them; PROVISIONAL since then, ten times apart, chosen so the
-' three are distinguishable on the corpus before anything is measured.
-' OPTIMIZE.3 slice 4 sets them from the ladder's measured rates, and
-' OPTIMIZE.6 revisits them once searches optimise. A number published
-' before it means anything is a number users tune around, which is why
-' these are called provisional wherever they are shown.
-Public Const VLA_OPTIMIZE_WORK_QUICK As Long = 5000
-Public Const VLA_OPTIMIZE_WORK_NORMAL As Long = 50000
-Public Const VLA_OPTIMIZE_WORK_THOROUGH As Long = 500000
+' consumes them, and provisional there, ten times apart, until slice 4's
+' ladder measured them on OPTIMIZE.0's reference roster, 50 people over
+' 4 weeks: a unit of search work at 3.7 to 4.35 us, and everything else
+' a run does at 0.75 s. THOROUGH is the most search a formula's 2 s
+' leaves room for on that roster - 250,000 units, about 1.1 s, and 1.8 s
+' in all - and each level is a tenth of the next (the owner's call,
+' 2026-09-25). OPTIMIZE.6 revisits them once searches optimise.
+Public Const VLA_OPTIMIZE_WORK_QUICK As Long = 2500
+Public Const VLA_OPTIMIZE_WORK_NORMAL As Long = 25000
+Public Const VLA_OPTIMIZE_WORK_THOROUGH As Long = 250000
 
 ' The level a program with no (effort ...) form gets, written down now
 ' so the day a number lands behind it, the default is already stated.
@@ -296,11 +297,12 @@ Private Const OPT_CLAUSE_PREFIX As String = "vla-check-clause-"
 '
 ' OPTIMIZE.0.C: a guard exists only so that a runaway formula cannot
 ' hold Excel indefinitely, and when it fires the answer says so. Ten
-' seconds, PROVISIONAL with the effort levels above: five times the 2 s
-' a formula is allowed to be projected at, so a search the effort
-' already bounds never meets it on a sound machine. The effort is the
-' stop that means something; this is the one that depends on the
-' machine, and the status says which one fired.
+' seconds: five times the 2 s a formula is allowed to be projected at,
+' and about nine times the search thorough allows on the reference
+' roster (slice 4), so a search the effort already bounds never meets it
+' on a sound machine. The effort is the stop that means something; this
+' is the one that depends on the machine, and the status says which one
+' fired.
 Private Const OPT_GUARD_SECONDS As Double = 10
 
 ' ---- OPTIMIZE.3 slice 3: the ceilings a formula's grounding is held to --

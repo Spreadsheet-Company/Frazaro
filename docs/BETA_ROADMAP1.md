@@ -21429,7 +21429,9 @@ now carries one summary paragraph per engine and points here.*
     COMMITTED 2026-09-24, every count exact. Slice 2, the first search,
     BUILT, TESTED LIVE and COMMITTED 2026-09-25, every count exact. Slice
     3, the ceilings, BUILT, TESTED LIVE and COMMITTED 2026-09-25, every
-    count exact, in two rounds.** The pre-flight that set this
+    count exact, in two rounds. Slice 4, the ladder, BUILT and TESTED
+    LIVE 2026-09-25, in two rounds, every count exact, and COMMITTED
+    2026-09-26.** The pre-flight that set this
     item's starting conditions is recorded below, since its steps file
     moved to `archive/` when the item began.* The first search, and NOT the
     retired `SOLVE.3`'s
@@ -22173,6 +22175,123 @@ now carries one summary paragraph per engine and points here.*
         release note claims only the fix. Ten other lines of VBA source
         hold non-ASCII, all comments, and no check holds the source to
         ASCII.
+
+    **SLICE 4 — THE LADDER. BUILT AND TESTED LIVE 2026-09-25, in two
+    rounds, every count exact; COMMITTED 2026-09-26.**
+    OPTIMIZE.0's reference roster, searched for the first time. The tight
+    needs, one day's leave a person a week, a senior every night, at most
+    five a week and never two in a row, at 5, 10, 20 and 50 people over 1
+    and 4 weeks. It is written as an OPTIMIZE program over its four
+    Tables and run whole: DATALOG's pass, the grounding, the search and
+    the answer (`O3Ladder` in `tools/VLA_DiagO3.bas`, step 30). There is
+    no objective and no kept schedule yet, so every answer is the first
+    schedule in the Tables' own order.
+      - *Predicted, every count:* a line-for-line C# translation of the
+        search, run over the roster built from its definition. It
+        reproduces all seven counts measured live so far: slice 2's four
+        family rungs and its scaled toy, step 23 and the toy. The harness
+        checks every schedule against the roster's definition itself,
+        never through OPTIMIZE, and a wrong rung stops the ladder.
+      - **The reference roster, 50 × 4, is found with 800 decisions and
+        no dead end**, laying out 33,456 rows: a third of the formula
+        ceiling. 5 people are refused by counting before any search (the
+        one senior is on leave on day 3). 10 and 20 people are found with
+        2 to 8 dead ends.
+      - **One person more a shift pulls `OPTIMIZE.9`'s trigger.** At 11 a
+        shift (tightness 0.92 against 0.84) the search never leaves week
+        1. Its first dead end comes 175 decisions in, on day 6, and in 3
+        million units backtracking never reaches back past day 5's late
+        shift. The same happens at 30 to 45 people, each one past its
+        tight need, over 1 week and over 4. Whether a schedule exists
+        there is not known.
+      - *The calibration:* that roster at 50 × 4, timed at `(effort 1)`,
+        `normal` and `thorough`. Each run spends its effort to the last
+        unit, so its time less the `(effort 1)` run's is the search alone:
+        a unit of search work at a real roster's widths. My guess is
+        about 5 µs, which would put `thorough` near 2.5 s, past a
+        formula's 2 s.
+      - *The predictions are written before the run*, in
+        `docs/OPTIMIZATION.md` Entry 4, per that file's own rule.
+      - *Tested live, round 1, 2026-09-25:* all eleven `O3L|` lines `ok`
+        and every count as predicted. Seconds a run: 0.090, 0.110, 0.142
+        and 0.243 at 5, 10, 20 and 50 people over 1 week; 0.176, 0.245,
+        0.385 and **0.745** over 4. At 11 a shift, `(effort 1)` took
+        0.747 s, 50,000 units 0.932 s and 500,000 units **2.922 s**. So a
+        unit of search work costs **3.70 µs** over the first 50,000 units
+        and **4.35 µs** over 500,000; I guessed 5. The reference roster's
+        0.745 s was 2.5 times my guess of 0.3, and its search is about
+        3 ms of it. Across the rungs a run costs about 0.09 s plus 20 µs
+        a row laid out, where the grounder alone costs about 1. So most
+        of a run is not the grounding the ceilings count.
+      - **The effort levels, halved, the owner's call 2026-09-25:
+        `quick` 2,500, `normal` 25,000, `thorough` 250,000.** `thorough`
+        at 4.35 µs is about 1.1 s of search, 1.8 s with the roster's
+        0.75 s: the most a formula's 2 s leaves room for. Each level is
+        still a tenth of the next. Declined: `normal` at about a second,
+        which is fork 1's own phrase. That would make `thorough` about
+        11 s, which the 10 s guard cuts short in a formula. The guard
+        stays at 10 s.
+      - **The ceilings, weighed and kept** at 100,000 and 50,000. The
+        grounder they count costs 0.5 to 1.6 µs a row, not the old
+        model's 7.6. But by the ladder's slope a roster-shaped program
+        at 100,000 rows takes about 0.09 + 100,000 × 20 µs ≈ 2.1 s in
+        all, the formula's 2 s. The reference roster uses a third of
+        them.
+      - **FOUND BY THE PREDICTION AND FIXED: a search could do one unit
+        more than its budget** (slice 2's). When the budget's last unit
+        went on a decision that ran straight into a dead end, the dead
+        end was counted too. At the new `thorough` the status would have
+        read "allows 250000 units … all of them went on 125087 decisions
+        and 124914 dead ends", which is 250,001. Round 1's budgets both
+        ended on a dead end, so it never showed there. `OptSearchRun`
+        now stops at such a dead end without taking it. Slice 2's pin
+        "the budget stops it and says so" held the overshoot (`budget d1
+        c1` on a budget of 1). It now reads `budget d1 c0`, and a new pin
+        holds the other side of the edge (`budget d1 c1` on 2). The
+        port, fixed the same way, still reproduces all seven live counts.
+      - *Round 2, built:* `VLA_Optimize.bas` (the levels),
+        `VLA_OptimizeSearch.bas` (the budget) and `VLA_Tests_Query.bas`
+        (1 new pin, 2 re-pointed). `O3Ladder` runs the new levels
+        (12,583 and 12,417 at `normal`; 125,087 and 124,913 at
+        `thorough`) and adds one line: where the reference roster's run
+        goes, split into the memo key, DATALOG's own pass over the six
+        rules, and OPTIMIZE's own work.
+        *Predicted:* `TestDSLs` **2265**; `VlaSelfTest` and
+        `VlaSelfTestHost` moved only by another session's uncommitted
+        pins (1358 and 152 before them); `VerifyReports` **242**;
+        `thorough` near 1.8 s. Steps 32 to 35. Entry 4 holds the
+        before-and-after and round 2's predictions.
+      - *Tested live, round 2, 2026-09-25:*
+        - the reload showed ` 2500  25000  250000`;
+        - `TestDSLs` **2265/0**, as predicted;
+        - `VlaSelfTest` **1388/1388** and `VlaSelfTestHost` **194/194**,
+          moved from 1358 and 152 by the other session's uncommitted
+          pins;
+        - `VerifyReports` **267/267** on both backends, against my 242:
+          the other session's new sentences in `scripts/instructions.txt`
+          and their 48 lines of checks in `VerifyReportChecks`, none of
+          this slice's;
+        - every `O3L|` line `ok` and every count exact, the fixed budget's
+          included (125,087 and 124,913, exactly 250,000 units);
+        - `thorough` at 11 a shift **1.871 s**, 0.753 s plus 1.118 s of
+          search, inside a formula's 2 s;
+        - a unit of search work **4.48 µs** over 25,000 units and **4.47**
+          over 250,000.
+        Round 1's reading that the rate rises as the search runs longer
+        was noise in a short window, and it is corrected in Entry 4. The
+        two long windows agree at 4.35 and 4.47 µs.
+      - **Where the reference roster's run goes**, the split's first
+        measurement: `DATALOG`'s own pass over the six rules **0.495 s**,
+        the memo key **0.095 s**, `OPTIMIZE`'s own work **0.170 s**, 0.760
+        s in all. I guessed 0.2–0.3, 0.01 and about 0.45: the total held
+        and the parts did not.
+        - Two-thirds of a run is the certain part, which no ceiling
+          counts, so keeping the ceilings is borne out.
+        - The memo key costs 0.095 s on every call at this size, a memo
+          hit included. That was not known before, and no item owns it
+          yet.
+      - *Left for slice 5:* the minimal command. The formula's size
+        refusals will point to it, at 500,000 rows a step.
     `~weeks`
   - ⬜ **OPTIMIZE.4 — `count` and `sum` as native constraints.** "Every
     shift has at least 2 people", "nobody works more than 5 a week", "no

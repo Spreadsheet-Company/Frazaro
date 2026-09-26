@@ -679,3 +679,209 @@ seconds are the point:
 ## 29. Remove the harness
 
 In the VBA editor, right-click `VLA_DiagO3` > `Remove VLA_DiagO3...` > **No**.
+
+---
+
+# Slice 4 - the ladder
+
+*OPTIMIZE.0's reference roster, searched for the first time. It has 50
+people over 4 weeks of 3 shifts a day, a fifth of the people on every
+shift, and one day's leave a person a week. Every night needs a senior,
+nobody works more than five shifts a week, and nobody works two in a row.
+The ladder runs it at 5, 10, 20 and 50 people over 1 and 4 weeks, written
+as an OPTIMIZE program over its four Tables. Every run goes through the
+whole engine: DATALOG's pass, the grounding, the search and the answer.
+The roster has no objective and no kept schedule yet (OPTIMIZE.6 and .7),
+so each answer is the first schedule in the Tables' own order.*
+
+*Every count below was computed before the pass: the search translated
+line for line into another language, over the roster built from its
+definition. That translation reproduces every count measured live so far:
+slice 2's four family rungs and its scaled toy, step 23's roster, and the
+toy. Every schedule the harness gets back is checked against the roster's
+own definition by the harness itself, not by OPTIMIZE. No `src` module
+changed, so there are no suites to run this round. Two steps.*
+
+**Round 1 passed live 2026-09-25:** all eleven lines `ok`, every count as
+predicted. The reference roster took 0.745 s a run, against my guess of
+0.3 s. A unit of search work took 3.70 us at `normal` and 4.35 us at
+`thorough`, against my guess of 5, so `thorough`'s 500,000 units took
+2.92 s in all: past a formula's 2 s.
+
+## 30. The ladder
+
+In the VBA editor, `File > Import File...` and choose
+`tools\VLA_DiagO3.bas` (slice 4's rungs are added to it).
+`Debug > Compile VBAProject`. Close every other workbook. Then:
+
+```
+O3Ladder
+```
+
+It takes under a minute, and Excel does not respond until it is done: each
+rung runs again and again for two seconds, so the small ones are timed well
+clear of `Timer`'s steps.
+
+**Expected, exactly, on every `O3L|` line:** verdict `ok` and these counts.
+
+| rung | a shift | atoms | counters | clauses | rows laid out | largest step | decisions | dead ends | answer |
+|---|---|---|---|---|---|---|---|---|---|
+| 5 x 1 | 1 | 90 | 33 | 80 | 889 | 90 | 0 | 0 | none |
+| 5 x 4 | 1 | 360 | 132 | 335 | 3,604 | 360 | 0 | 0 | none |
+| 10 x 1 | 2 | 180 | 38 | 162 | 1,707 | 180 | 35 | 2 | a schedule |
+| 10 x 4 | 2 | 720 | 152 | 672 | 6,906 | 720 | 140 | 8 | a schedule |
+| 20 x 1 | 4 | 360 | 48 | 325 | 3,358 | 360 | 80 | 2 | a schedule |
+| 20 x 4 | 4 | 1,440 | 192 | 1,345 | 13,579 | 1,440 | 320 | 8 | a schedule |
+| 50 x 1 | 10 | 900 | 78 | 814 | 8,277 | 900 | 200 | 0 | a schedule |
+| 50 x 4 | 10 | 3,600 | 312 | 3,364 | 33,456 | 3,600 | 800 | 0 | a schedule |
+| 50 x 4 at 11, (effort 1) | 11 | 3,600 | 312 | 3,364 | 33,456 | 3,600 | 1 | 0 | none within the effort |
+| 50 x 4 at 11, (effort normal) | 11 | 3,600 | 312 | 3,364 | 33,456 | 3,600 | 25,084 | 24,916 | none within the effort |
+| 50 x 4 at 11, (effort thorough) | 11 | 3,600 | 312 | 3,364 | 33,456 | 3,600 | 250,084 | 249,916 | none within the effort |
+
+What the rows mean:
+- **5 people:** no schedule, found by counting before any search. Their one
+  senior, P4, is on leave on day 3, so nobody can take that night. The
+  harness also checks the status reads exactly: "no schedule satisfies
+  every rule: night S = 9 needs 1 row from 'senior-free', and only 0 rows
+  can fill it."
+- **10 to 50 people:** a schedule each time, and the harness checks every
+  row of it. The full reference roster, 50 x 4, takes **800 decisions and
+  no dead end**, and lays out 33,456 rows, a third of a formula's ceiling.
+- **The last three rows are the calibration.** They use the same roster
+  with 11 a shift instead of 10. The search never gets out of week 1:
+  - its first dead end comes 175 decisions in, on day 6's early shift;
+  - after that, backtracking one decision at a time never reaches further
+    back than the 147th decision, on day 5's late shift;
+  - so every effort level runs out, and each run's search is exactly its
+    effort's units of work.
+
+  `(effort 1)` times everything but the search. The last `O3L|` line
+  divides what is left by the units: that is a unit of search work on a
+  real roster, which is what the effort levels get set from.
+
+The seconds are this slice's own measurement. My guesses, which I am not
+holding you to: about 0.3 s a run at 50 x 4, and a unit of search work
+around 5 us. That would put `thorough` near 2.5 s on this roster, past the
+2 s a formula is allowed, which is the question the calibration is here to
+answer. If the thorough line says `GUARD` instead of `ok`, a unit costs
+more than 20 us here, and that is the answer too.
+
+**Paste every `O3L|` line back.**
+
+## 31. Remove the harness
+
+In the VBA editor, right-click `VLA_DiagO3` > `Remove VLA_DiagO3...` > **No**.
+
+---
+
+## Slice 4, round 2 - the effort levels, set
+
+**Round 2 passed live 2026-09-25:**
+- **Suites and reload.** The reload showed ` 2500  25000  250000`.
+  `TestDSLs` gave **2265/0**, as predicted. `VlaSelfTest` 1388/1388 and
+  `VlaSelfTestHost` 194/194 moved by the other session's pins.
+  `VerifyReports` gave 267/267 on both backends, moved by that session's
+  new sentences and their checks, none of this slice's.
+- **The ladder.** Every `O3L|` line `ok` and every count exact, including
+  the fixed budget: 125,087 and 124,913. `thorough` took **1.871 s** a
+  run, where it took 2.92 s, and a unit of search work took 4.47 to
+  4.48 us.
+- **Where the reference roster's run goes:** 0.495 s is DATALOG's own
+  pass, 0.095 s the memo key, and 0.170 s OPTIMIZE's own work.
+
+*Your call, 2026-09-25: halve all three. `quick` is now 2,500 units,
+`normal` 25,000 and `thorough` 250,000. At round 1's 4.35 us a unit,
+`thorough` is about 1.1 s of search on the reference roster, and with
+the 0.75 s everything else takes there, 1.8 s in all: inside a
+formula's 2 s. Each level is still a tenth of the next.*
+
+*Setting the new levels turned up a defect from slice 2. A search could
+do one unit more than its budget: when the budget's last unit went on a
+decision that ran straight into a dead end, the dead end was counted as
+well. The status then said "allows 250000 units of work ... and all of
+them went on 125087 decisions and 124914 dead ends", which adds up to
+250,001. Round 1 never showed it, because both of its budgets happened
+to end on a dead end, not a decision. The search now stops at such a
+dead end without taking it, so it never does more work than it was
+given. Slice 2's own pin had the overshoot written into it, and it is
+re-pointed.*
+
+*Another session's work is in the tree as well: `VLA_Runtime`,
+`VLA_Interpreter`, `VLA_Tests`, `VLA_Tests_Host` and the English
+phrasebook. `VlaDevReload` loads it along with this slice, so
+`VlaSelfTest` and `VlaSelfTestHost` will count its pins. This slice adds
+none there. If a compile stops in one of those modules, that is the
+other session's work in progress. Four steps.*
+
+## 32. Reload and compile
+
+`VLA_Optimize.bas`, `VLA_OptimizeSearch.bas` and `VLA_Tests_Query.bas`
+changed; no module was added. `VlaDevReload`, then
+`Debug > Compile VBAProject`. Then:
+
+```
+?VLA_Optimize.VLA_OPTIMIZE_WORK_QUICK; VLA_Optimize.VLA_OPTIMIZE_WORK_NORMAL; VLA_Optimize.VLA_OPTIMIZE_WORK_THOROUGH
+```
+
+**Expected:** ` 2500  25000  250000`. That shows the reload took the new
+levels. If the compile stops, paste the highlighted line and the error,
+then stop.
+
+## 33. The suites
+
+```
+?VLA_Tests_Query.TestDSLs
+?VlaSelfTest
+?VlaSelfTestHost
+```
+
+and `VerifyReports` on both backends.
+
+**Expected:** `TestDSLs` **2265 passed, 0 failed**. That is 2264 plus
+**1**: the budget is now pinned at its edge from both sides. With one
+unit it stops at the decision, and with two the dead end is the second
+unit. Two more pins changed what they hold: the three levels, and slice
+2's "the budget stops it" pin, which now reads `budget d1 c0` instead of
+`budget d1 c1`. `VlaSelfTest` and `VlaSelfTestHost` will show whatever
+the other session's pins make them (1358 and 152 before it).
+`VerifyReports` **242/242** on both. Only the totals to paste.
+
+## 34. The ladder again
+
+`File > Import File...` and choose `tools\VLA_DiagO3.bas` again (round
+2's counts and a new last line are in it). `Debug > Compile
+VBAProject`. Close every other workbook. Then:
+
+```
+O3Ladder
+```
+
+**Expected, exactly:** the eight rungs as in step 30, every count the
+same, since none of them spends more than 800 units of the new
+`normal`'s 25,000. The calibration now runs the new levels:
+
+| rung | decisions | dead ends | answer |
+|---|---|---|---|
+| 50 x 4 at 11, (effort 1) | 1 | 0 | none within the effort |
+| 50 x 4 at 11, (effort normal) | 12,583 | 12,417 | none within the effort |
+| 50 x 4 at 11, (effort thorough) | 125,087 | 124,913 | none within the effort |
+
+125,087 and 124,913 make exactly 250,000. Without the fix the last row
+would read 124,914 dead ends. Every line should say `ok`.
+
+The seconds are the point:
+- **The thorough line should come in near 1.8 s**, where round 1 took
+  2.92 s: 0.75 s plus 250,000 units at about 4.35 us each.
+- **The unit rates should repeat round 1's**, about 3.7 to 4.4 us.
+- **The last line is new: where the reference roster's own run goes.**
+  It splits the run into the memo key, DATALOG's own pass over the six
+  rules, and the rest, which is OPTIMIZE's own work. Round 1's 0.75 s
+  was 2.5 times my guess, so I don't know the split. My guesses are
+  about 0.01 s for the key, 0.2 to 0.3 s for DATALOG's pass, and the
+  remainder for OPTIMIZE.
+
+**Paste every `O3L|` line back**, with the four suite totals from step 33.
+
+## 35. Remove the harness
+
+In the VBA editor, right-click `VLA_DiagO3` > `Remove VLA_DiagO3...` > **No**.

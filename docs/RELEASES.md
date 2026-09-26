@@ -113,9 +113,18 @@
     there may still be a schedule rather than claiming there is none. And
     a search inside a formula is stopped after ten seconds whatever its
     effort says, and the answer tells you that is what happened. The three
-    levels are provisional: so far they are measured only on small
-    problems, where `thorough` is at most a second and a half of
-    searching, and a later release sets them on real rosters.
+    levels are set on a real roster of 50 people over four weeks. There,
+    `thorough` is about a second of searching, which with everything else
+    stays under the two seconds a formula may take. `normal`, the default,
+    is a tenth of that, and `quick` a tenth again.
+  - **A four-week roster is answered in under a second.** It has 50
+    people and 84 shifts of ten, with a day's leave for each person every
+    week. There is a senior on every night, nobody works more than five
+    shifts a week, and nobody works two in a row. `OPTIMIZE` finds the
+    first schedule that breaks none of that in three-quarters of a second,
+    without taking back a single choice. With one more person needed on
+    every shift, it finds none within any of the three efforts, and says
+    there may still be one.
   - **It lays out the possibilities much faster.** Before choosing, it
     has to spell out every possibility and every rule that could forbid
     one, and it now does that a new way, on numbers instead of on the

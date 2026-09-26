@@ -4390,14 +4390,15 @@ Private Sub TestOptimizeForms()
     On Error GoTo 0
     Report "optimize states: a sixth state is refused, not answered blankly", stateErr <> 0, "no error raised"
 
-    ' OPTIMIZE.3 slice 2: the three levels carry PROVISIONAL numbers now,
-    ' since the first search spends them - ten times apart, in order.
-    ' Slice 4 sets them from the ladder's measured rates; until then this
-    ' pins exactly what was published, so a change to them is a reviewed
+    ' OPTIMIZE.3 slice 2 gave the three levels provisional numbers, ten
+    ' times apart, and slice 4 set them from the ladder (the owner's call,
+    ' 2026-09-25): thorough is the most search a formula's 2 s leaves room
+    ' for on the reference roster, and each is a tenth of the next. This
+    ' pins exactly what is published, so a change to them is a reviewed
     ' change to this line too.
-    Report "optimize effort: the three levels are provisional, ten times apart, in order", _
-           VLA_Optimize.VLA_OPTIMIZE_WORK_QUICK = 5000 And VLA_Optimize.VLA_OPTIMIZE_WORK_NORMAL = 50000 And _
-           VLA_Optimize.VLA_OPTIMIZE_WORK_THOROUGH = 500000, _
+    Report "optimize effort: the three levels, set on the reference roster, ten times apart, in order", _
+           VLA_Optimize.VLA_OPTIMIZE_WORK_QUICK = 2500 And VLA_Optimize.VLA_OPTIMIZE_WORK_NORMAL = 25000 And _
+           VLA_Optimize.VLA_OPTIMIZE_WORK_THOROUGH = 250000, _
            "got " & VLA_Optimize.VLA_OPTIMIZE_WORK_QUICK & ", " & VLA_Optimize.VLA_OPTIMIZE_WORK_NORMAL & ", " & _
            VLA_Optimize.VLA_OPTIMIZE_WORK_THOROUGH
     Report "optimize effort: the default level is written down now", _
@@ -5156,8 +5157,15 @@ Private Sub TestOptimizeSearch()
     Report "optimize search: no world, proven by trying every way", s = "none d1 c2", "got " & s
 
     ' --- the budget, and a problem the search cannot read -------------
+    ' The budget is never passed, pinned at its edge from both sides
+    ' (slice 4's finding: slice 2 took the dead end as well, one unit
+    ' past). With one unit, it goes on the decision, and the dead end
+    ' that decision runs into ends the search untaken; with two, the dead
+    ' end is the second.
     s = SearchSummary(prob, 1)
-    Report "optimize search: the budget stops it and says so", s = "budget d1 c1", "got " & s
+    Report "optimize search: the budget stops it and says so", s = "budget d1 c0", "got " & s
+    s = SearchSummary(prob, 2)
+    Report "optimize search: a dead end is a unit of the budget, never one past it", s = "budget d1 c1", "got " & s
     s = SearchSummary(prob, 0)
     Report "optimize search: a budget of nothing makes no decision", s = "budget d0 c0", "got " & s
     SearchProblemFromText prob, 3, "5", ""

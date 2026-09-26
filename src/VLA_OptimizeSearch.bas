@@ -62,11 +62,13 @@ Public Const VLA_OPTIMIZE_SEARCH_VERSION As String = "OPTIMIZE.3"
 '
 '  WORK, NOT SECONDS (standing decision 2). The budget counts decisions
 '  and conflicts, so a faster machine proves exactly what a slower one
-'  does. The seconds guard exists only so that no formula can hold
-'  Excel indefinitely (OPTIMIZE.0.C); it is read every 256 units of
-'  work, since reading the clock costs, and when it fires the answer
-'  says so - it is the one stop that depends on the machine. Timer
-'  wraps at midnight, and the elapsed time is corrected for it.
+'  does, and it is never passed: a dead end the budget's last decision
+'  runs into ends the search there, uncounted. The seconds guard exists
+'  only so that no formula can hold Excel indefinitely (OPTIMIZE.0.C);
+'  it is read every 256 units of work, since reading the clock costs,
+'  and when it fires the answer says so - it is the one stop that
+'  depends on the machine. Timer wraps at midnight, and the elapsed time
+'  is corrected for it.
 '
 '  THE DATA DISCIPLINE (OPTIMIZE.0.C), and it is pinned rather than
 '  hoped for: tools/check_optimize_search_discipline.ps1 holds this
@@ -277,8 +279,9 @@ End Sub
 '  THE SEARCH
 ' =====================================================================
 
-' budget is the most work (decisions plus conflicts) the search may do;
-' guardSeconds, when above zero, the most wall-clock time.
+' budget is the most work (decisions plus conflicts) the search may do,
+' and it does no more; guardSeconds, when above zero, the most
+' wall-clock time.
 Public Sub OptSearchRun(ByRef prob As OptSearchProblem, ByVal budget As Long, _
                         ByVal guardSeconds As Double, ByRef res As OptSearchResult)
     res.outcome = 0
@@ -306,9 +309,9 @@ Public Sub OptSearchRun(ByRef prob As OptSearchProblem, ByVal budget As Long, _
     Do
         If confl = 0 Then confl = Propagate()
         If confl <> 0 Then
-            mConflicts = mConflicts + 1
-            mWork = mWork + 1
             If mLevel = 0 Then
+                mConflicts = mConflicts + 1
+                mWork = mWork + 1
                 res.outcome = OPT_SEARCH_NONE
                 If mDecisions = 0 Then
                     res.rootConflict = True
@@ -316,6 +319,16 @@ Public Sub OptSearchRun(ByRef prob As OptSearchProblem, ByVal budget As Long, _
                 End If
                 Exit Do
             End If
+            ' The budget's last unit went on the decision that led here, so
+            ' the search stops at this dead end without taking it and never
+            ' does more work than it was given. Slice 2 counted the dead end
+            ' as well, one unit past the budget (found by slice 4's ladder).
+            If mWork >= budget Then
+                res.outcome = OPT_SEARCH_BUDGET
+                Exit Do
+            End If
+            mConflicts = mConflicts + 1
+            mWork = mWork + 1
             If mWork >= budget Then
                 res.outcome = OPT_SEARCH_BUDGET
                 Exit Do

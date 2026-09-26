@@ -56,6 +56,22 @@ Option Explicit
 ' together. Every line checks its rows against the counts a transliteration
 ' of the grounder computed before the pass, and says WRONG rather than time
 ' a different grounding.
+'
+' SLICE 4 - THE LADDER. O3Ladder prints O3L| lines: OPTIMIZE.0's reference
+' roster (docs/OPTIMIZATION.md, Entry 1 section 3a - tight needs, one day's
+' leave a person a week, a senior on every night, at most five a week, never
+' two in a row) at 5, 10, 20 and 50 people over 1 and 4 weeks, written as
+' an OPTIMIZE program over its four Tables and run whole by OptimizeRun:
+' DATALOG's pass, the grounding, the search and the answer. Every rung
+' checks its counts against a transliteration computed before the pass, and
+' every schedule is checked against the fixture's own definition by this
+' module, not by OPTIMIZE; a wrong rung stops the ladder and is never timed.
+' Then the calibration: the same roster at 50 x 4 with ELEVEN a shift, where
+' the transliteration says every effort level runs out, timed at (effort 1),
+' normal and thorough - a unit of search work at a real roster's widths,
+' which is what the effort levels are set from - and where the reference
+' roster's own run spends its time: the memo key, DATALOG's pass over its
+' rules, and OPTIMIZE's own work.
 
 Private Const GUARD_SECONDS As Double = 15#
 
@@ -663,4 +679,390 @@ Private Function CeilProgram(ByVal nItems As Long, ByVal nSlots As Long) As Stri
         s = s & "(fact (slot t" & k & ")) "
     Next k
     CeilProgram = s & "(choose-at-most " & nItems & " (pick X S) (item X) (per (slot S))) (query pick)"
+End Function
+
+' ---------------------------------------------------------------------------
+' SLICE 4: the ladder.
+' ---------------------------------------------------------------------------
+
+' Each rung: people and weeks, then the counts a transliteration computed
+' before the pass - atoms, counters, clauses, rows laid out, largest step,
+' decisions and dead ends - and the answer: S a schedule, N no schedule by
+' the counting pre-check. The need is the fixture's tight one, a fifth of
+' the people and at least one.
+Public Sub O3Ladder()
+    Debug.Print "=== O3L: the ladder - OPTIMIZE.0's reference roster, grounded and searched ==="
+    Debug.Print "    Excel " & Application.Version & ", " & Format$(Now, "yyyy-mm-dd hh:nn")
+    Debug.Print "O3L|rung|a shift|atoms|counters|clauses|rows laid out|largest step|decisions|dead ends|answer|runs|seconds a run|verdict"
+    Dim rungs As Variant
+    rungs = Array("5,1,90,33,80,889,90,0,0,N", "5,4,360,132,335,3604,360,0,0,N", _
+                  "10,1,180,38,162,1707,180,35,2,S", "10,4,720,152,672,6906,720,140,8,S", _
+                  "20,1,360,48,325,3358,360,80,2,S", "20,4,1440,192,1345,13579,1440,320,8,S", _
+                  "50,1,900,78,814,8277,900,200,0,S", "50,4,3600,312,3364,33456,3600,800,0,S")
+    Dim i As Long
+    Dim stopAt As String
+    For i = LBound(rungs) To UBound(rungs)
+        Dim b As Variant
+        b = Split(CStr(rungs(i)), ",")
+        If Len(stopAt) = 0 Then
+            Dim v As String
+            v = LadderRung(b)
+            If v <> "ok" Then stopAt = "an earlier rung said " & v
+        Else
+            Debug.Print "O3L|" & b(0) & " x " & b(1) & String$(12, "|") & "not run: " & stopAt
+        End If
+    Next i
+    If Len(stopAt) = 0 Then
+        LadderCalibration
+    Else
+        Debug.Print "O3L|the calibration" & String$(12, "|") & "not run: " & stopAt
+    End If
+    Debug.Print "=== O3L done ==="
+End Sub
+
+' One rung: the program run once and checked, then timed.
+Private Function LadderRung(ByVal want As Variant) As String
+    Dim nP As Long, nW As Long, need As Long
+    nP = CLng(want(0))
+    nW = CLng(want(1))
+    need = nP \ 5
+    If need < 1 Then need = 1
+    Dim rels As Object
+    Set rels = LadderRelations(nP, nW, need)
+    Dim prog As String
+    prog = LadderProgram("")
+    VLA_Optimize.OptimizeMemoClear
+    Dim r As Collection
+    Set r = VLA_Optimize.OptimizeRun(prog, rels)
+    Dim st As Variant
+    st = r.Item(9)
+    Dim verdict As String
+    If CLng(st(0)) <> CLng(want(2)) Or CLng(st(2)) <> CLng(want(3)) Or CLng(st(1)) <> CLng(want(4)) Or _
+       CLng(st(8)) <> CLng(want(5)) Or CLng(st(9)) <> CLng(want(6)) Then
+        verdict = "WRONG: a different grounding - the atoms, counters, clauses or rows laid out differ"
+    ElseIf CLng(st(3)) <> CLng(want(7)) Or CLng(st(4)) <> CLng(want(8)) Then
+        verdict = "WRONG: a different search - the decisions or dead ends differ"
+    ElseIf want(9) = "N" Then
+        verdict = LadderNoneCheck(r)
+    Else
+        verdict = LadderAnswerCheck(r, nP, nW, need)
+    End If
+    Dim runs As Long, secs As Double
+    secs = -1
+    If verdict = "ok" Then LadderTime prog, rels, runs, secs
+    Debug.Print "O3L|" & nP & " x " & nW & "|" & need & "|" & CountText(CLng(st(0))) & "|" & st(2) & "|" & _
+                CountText(CLng(st(1))) & "|" & CountText(CLng(st(8))) & "|" & CountText(CLng(st(9))) & "|" & _
+                st(3) & "|" & st(4) & "|" & LadderAnswerWord(r) & "|" & runs & "|" & SecsText(secs) & "|" & verdict
+    If verdict = "ok" And secs > 10# Then verdict = "a run took " & Format$(secs, "0.0") & " s, over 10 s"
+    LadderRung = verdict
+End Function
+
+' The 5-people rungs: no schedule, by counting, before any search. Their one
+' senior, P4, is on leave on day 3, so the night of day 3 - shift 9 - has no
+' senior free to take it (Entry 1 section 3a, optimize-roster-senior).
+Private Function LadderNoneCheck(ByVal r As Collection) As String
+    Dim wantWords As String
+    wantWords = "no schedule satisfies every rule: night S = 9 needs 1 row from 'senior-free', " & _
+                "and only 0 rows can fill it."
+    If CLng(r.Item(6)) <> VLA_Optimize.VLA_OPTIMIZE_NO_SCHEDULE Then
+        LadderNoneCheck = "WRONG: the state was " & r.Item(6) & ", not no schedule (1)"
+    ElseIf CStr(r.Item(7)) <> wantWords Then
+        LadderNoneCheck = "WRONG: the status said: " & r.Item(7)
+    ElseIf VLA_Relation.RelCount(VLA_Runtime.VlaDictGet(r.Item(2), "assign")) <> 0 Then
+        LadderNoneCheck = "WRONG: an answer with no schedule holds rows"
+    Else
+        LadderNoneCheck = "ok"
+    End If
+End Function
+
+' A schedule, checked against the fixture's own definition by this module,
+' not by OPTIMIZE: every row a shift and a person of the fixture, the person
+' not on leave that day; every shift holding exactly its need; a senior on
+' every night; nobody on two shifts in a row; nobody on more than five in a
+' week.
+Private Function LadderAnswerCheck(ByVal r As Collection, ByVal nP As Long, ByVal nW As Long, _
+                                   ByVal need As Long) As String
+    If CLng(r.Item(6)) <> VLA_Optimize.VLA_OPTIMIZE_PROVEN_BEST Then
+        LadderAnswerCheck = "WRONG: the state was " & r.Item(6) & ", not proven best (4)"
+        Exit Function
+    End If
+    Dim nS As Long
+    nS = 21 * nW
+    Dim rel As Collection
+    Set rel = VLA_Runtime.VlaDictGet(r.Item(2), "assign")
+    If VLA_Relation.RelCount(rel) <> nS * need Then
+        LadderAnswerCheck = "WRONG: the schedule has " & VLA_Relation.RelCount(rel) & " rows, not " & (nS * need)
+        Exit Function
+    End If
+    Dim onShift() As Boolean
+    ReDim onShift(1 To nS + 1, 1 To nP)
+    Dim t As Variant, arr() As Variant
+    Dim s As Long, p As Long, w As Long, cnt As Long
+    Dim senior As Boolean
+    For Each t In VLA_Relation.RelTuples(rel)
+        arr = t
+        s = CLng(arr(LBound(arr)))
+        p = CLng(arr(LBound(arr) + 1))
+        If s < 1 Or s > nS Or p < 1 Or p > nP Then
+            LadderAnswerCheck = "WRONG: a row outside the fixture, shift " & s & " person " & p
+            Exit Function
+        End If
+        If (p + LadderDay(s)) Mod 7 = 0 Then
+            LadderAnswerCheck = "WRONG: P" & p & " is on shift " & s & " while on leave"
+            Exit Function
+        End If
+        onShift(s, p) = True
+    Next t
+    For s = 1 To nS
+        cnt = 0
+        senior = False
+        For p = 1 To nP
+            If onShift(s, p) Then
+                cnt = cnt + 1
+                If p Mod 4 = 0 Then senior = True
+                If onShift(s + 1, p) Then
+                    LadderAnswerCheck = "WRONG: P" & p & " works shifts " & s & " and " & (s + 1)
+                    Exit Function
+                End If
+            End If
+        Next p
+        If cnt <> need Then
+            LadderAnswerCheck = "WRONG: shift " & s & " has " & cnt & ", not " & need
+            Exit Function
+        End If
+        If (s - 1) Mod 3 = 2 And Not senior Then
+            LadderAnswerCheck = "WRONG: the night of shift " & s & " has no senior"
+            Exit Function
+        End If
+    Next s
+    For p = 1 To nP
+        For w = 1 To nW
+            cnt = 0
+            For s = 21 * (w - 1) + 1 To 21 * w
+                If onShift(s, p) Then cnt = cnt + 1
+            Next s
+            If cnt > 5 Then
+                LadderAnswerCheck = "WRONG: P" & p & " works " & cnt & " shifts in week " & w
+                Exit Function
+            End If
+        Next w
+    Next p
+    LadderAnswerCheck = "ok"
+End Function
+
+' The same program again and again, the memo cleared each time, until two
+' seconds have passed or fifty runs: a small rung is timed well clear of
+' Timer's steps, and the mean is what is printed.
+Private Sub LadderTime(ByVal prog As String, ByVal rels As Object, ByRef runs As Long, ByRef secs As Double)
+    Dim t0 As Double, total As Double
+    Dim r As Collection
+    runs = 0
+    t0 = Timer
+    Do
+        VLA_Optimize.OptimizeMemoClear
+        Set r = VLA_Optimize.OptimizeRun(prog, rels)
+        runs = runs + 1
+        total = SecondsSince(t0)
+    Loop While total < 2# And runs < 50
+    secs = total / runs
+End Sub
+
+Private Function LadderAnswerWord(ByVal r As Collection) As String
+    Select Case CLng(r.Item(6))
+    Case VLA_Optimize.VLA_OPTIMIZE_PROVEN_BEST
+        LadderAnswerWord = "a schedule"
+    Case VLA_Optimize.VLA_OPTIMIZE_NO_SCHEDULE
+        LadderAnswerWord = "none"
+    Case VLA_Optimize.VLA_OPTIMIZE_NONE_IN_BUDGET
+        LadderAnswerWord = "none within the effort"
+    Case Else
+        LadderAnswerWord = "(state " & r.Item(6) & ")"
+    End Select
+End Function
+
+' THE CALIBRATION. The same roster at 50 x 4 with ELEVEN a shift, not ten: a
+' tightness of 0.92 against the reference's 0.84. The transliteration says
+' the search never leaves week 1 there - 175 decisions in it meets its first
+' dead end, on day 6, and backtracking one decision at a time never reaches
+' back past the 147th - so every effort level runs out, and a run's search is
+' exactly its effort's units. (effort 1) times everything else: DATALOG's
+' pass, the grounding, the problem, one decision and the answer. What is left
+' when that is taken away is the search alone, at a real roster's widths.
+' Round 2 runs the levels slice 4 set, 25,000 and 250,000 units; round 1 ran
+' slice 2's 50,000 and 500,000 (25,084 and 250,084 decisions).
+Private Sub LadderCalibration()
+    Dim rels As Object
+    Set rels = LadderRelations(50, 4, 11)
+    Dim t1 As Double, tN As Double, tT As Double
+    If Not CalibRung("(effort 1)", rels, 1, 0, t1) Then Exit Sub
+    If Not CalibRung("(effort normal)", rels, 12583, 12417, tN) Then Exit Sub
+    If Not CalibRung("(effort thorough)", rels, 125087, 124913, tT) Then Exit Sub
+    Debug.Print "O3L|a unit of search work, 50 x 4 at 11 a shift: " & _
+                UsPerUnit(tN - t1, VLA_Optimize.VLA_OPTIMIZE_WORK_NORMAL - 1) & " us at normal, " & _
+                UsPerUnit(tT - t1, VLA_Optimize.VLA_OPTIMIZE_WORK_THOROUGH - 1) & " us at thorough; " & _
+                "everything but the search " & SecsText(t1) & " s"
+    LadderSplit
+End Sub
+
+' WHERE A RUN GOES, at the reference roster itself (50 x 4, 10 a shift): its
+' memo key, a hash of the program and every Table; DATALOG's own pass over
+' the program's six rules alone, which is OPTIMIZE's first pass less its
+' stubs; and the whole run at (effort 1), which is everything but the
+' search. What is left is OPTIMIZE's own work: reading the program, the
+' grounding the ceilings count, the counters, clauses and checks, the
+' problem, one decision and the answer.
+Private Sub LadderSplit()
+    Dim rels As Object
+    Set rels = LadderRelations(50, 4, 10)
+    Dim prog As String
+    prog = LadderProgram("(effort 1) ")
+    Dim hdr As Object
+    Set hdr = VLA_Runtime.VlaDictNew()
+    Dim runs As Long
+    Dim t0 As Double, total As Double
+    Dim tKey As Double, tPass As Double, tRun As Double
+    Dim key As String
+    t0 = Timer
+    Do
+        key = VLA_Optimize.OptimizeMemoKey(prog, rels, hdr)
+        runs = runs + 1
+        total = SecondsSince(t0)
+    Loop While total < 2# And runs < 50
+    tKey = total / runs
+    Dim rulesOnly As String
+    rulesOnly = LadderRules() & "(query free)"
+    Dim res As Collection, copyRels As Object
+    Dim k As Variant
+    runs = 0
+    t0 = Timer
+    Do
+        Set copyRels = VLA_Runtime.VlaDictNew()
+        For Each k In VLA_Runtime.VlaDictKeys(rels)
+            VLA_Runtime.VlaDictSet copyRels, CStr(k), VLA_Runtime.VlaDictGet(rels, k)
+        Next k
+        Set res = VLA_Datalog.DatalogRunForms(VLA.VlaReadForms(rulesOnly), copyRels, Nothing)
+        runs = runs + 1
+        total = SecondsSince(t0)
+    Loop While total < 2# And runs < 50
+    tPass = total / runs
+    LadderTime prog, rels, runs, tRun
+    Debug.Print "O3L|where a 50 x 4 run goes: the memo key " & SecsText(tKey) & " s, DATALOG's pass over the six rules " & _
+                SecsText(tPass) & " s, OPTIMIZE's own work " & SecsText(tRun - tKey - tPass) & " s; " & _
+                SecsText(tRun) & " s in all at (effort 1)"
+End Sub
+
+Private Function CalibRung(ByVal effortText As String, ByVal rels As Object, ByVal wantD As Long, _
+                           ByVal wantC As Long, ByRef secs As Double) As Boolean
+    Dim prog As String
+    prog = LadderProgram(effortText & " ")
+    VLA_Optimize.OptimizeMemoClear
+    Dim r As Collection
+    Set r = VLA_Optimize.OptimizeRun(prog, rels)
+    Dim st As Variant
+    st = r.Item(9)
+    Dim verdict As String
+    If CLng(st(0)) <> 3600 Or CLng(st(2)) <> 312 Or CLng(st(1)) <> 3364 Or CLng(st(8)) <> 33456 Then
+        verdict = "WRONG: a different grounding - the atoms, counters, clauses or rows laid out differ"
+    ElseIf CLng(st(6)) = VLA_OptimizeSearch.OPT_SEARCH_GUARD Then
+        verdict = "GUARD: the 10 s guard stopped the search at " & CountText(CLng(st(5))) & _
+                  " units, before its effort ran out"
+    ElseIf CLng(st(6)) <> VLA_OptimizeSearch.OPT_SEARCH_BUDGET Then
+        verdict = "WRONG: the search's outcome was " & OutcomeWord(CLng(st(6))) & ", not budget"
+    ElseIf CLng(st(3)) <> wantD Or CLng(st(4)) <> wantC Then
+        verdict = "WRONG: a different search - the decisions or dead ends differ"
+    ElseIf VLA_Relation.RelCount(VLA_Runtime.VlaDictGet(r.Item(2), "assign")) <> 0 Then
+        verdict = "WRONG: an answer with no schedule holds rows"
+    Else
+        verdict = "ok"
+    End If
+    Dim runs As Long
+    secs = -1
+    If verdict = "ok" Then LadderTime prog, rels, runs, secs
+    Debug.Print "O3L|50 x 4 at 11, " & effortText & "|11|" & CountText(CLng(st(0))) & "|" & st(2) & "|" & _
+                CountText(CLng(st(1))) & "|" & CountText(CLng(st(8))) & "|" & CountText(CLng(st(9))) & "|" & _
+                CountText(CLng(st(3))) & "|" & CountText(CLng(st(4))) & "|" & LadderAnswerWord(r) & "|" & _
+                runs & "|" & SecsText(secs) & "|" & verdict
+    CalibRung = (verdict = "ok")
+End Function
+
+Private Function UsPerUnit(ByVal secs As Double, ByVal units As Long) As String
+    UsPerUnit = Format$(secs * 1000000# / units, "0.00")
+End Function
+
+' The reference roster's four Tables as DATALOG relations built directly, in
+' OPTIMIZE.0's O0Fixture columns: people (Id, Name, Senior, Contract), shifts
+' (Id, Week, Day, Slot, Need, Skill), leave (Person, Day) and next (From,
+' To). Ids and numbers are Doubles, as a worksheet hands them over.
+Private Function LadderRelations(ByVal nP As Long, ByVal nW As Long, ByVal need As Long) As Object
+    Dim rels As Object
+    Set rels = VLA_Runtime.VlaDictNew()
+    Dim people As Collection, shifts As Collection, leave As Collection, nx As Collection
+    Set people = VLA_Relation.RelNew(4)
+    Set shifts = VLA_Relation.RelNew(6)
+    Set leave = VLA_Relation.RelNew(2)
+    Set nx = VLA_Relation.RelNew(2)
+    Dim t4(1 To 4) As Variant, t6(1 To 6) As Variant, t2(1 To 2) As Variant
+    Dim p As Long, s As Long, d As Long, nS As Long
+    For p = 1 To nP
+        t4(1) = CDbl(p)
+        t4(2) = "P" & p
+        If p Mod 4 = 0 Then t4(3) = "yes" Else t4(3) = "no"
+        If p Mod 2 = 1 Then t4(4) = 4# Else t4(4) = 5#
+        VLA_Relation.RelTryAdd people, t4
+    Next p
+    nS = 21 * nW
+    For s = 1 To nS
+        t6(1) = CDbl(s)
+        t6(2) = CDbl((LadderDay(s) - 1) \ 7 + 1)
+        t6(3) = CDbl(LadderDay(s))
+        t6(4) = Choose((s - 1) Mod 3 + 1, "Early", "Late", "Night")
+        t6(5) = CDbl(need)
+        If (s - 1) Mod 3 = 2 Then t6(6) = "senior" Else t6(6) = "any"
+        VLA_Relation.RelTryAdd shifts, t6
+    Next s
+    For p = 1 To nP
+        For d = 1 To 7 * nW
+            If (p + d) Mod 7 = 0 Then
+                t2(1) = CDbl(p)
+                t2(2) = CDbl(d)
+                VLA_Relation.RelTryAdd leave, t2
+            End If
+        Next d
+    Next p
+    For s = 1 To nS - 1
+        t2(1) = CDbl(s)
+        t2(2) = CDbl(s + 1)
+        VLA_Relation.RelTryAdd nx, t2
+    Next s
+    VLA_Runtime.VlaDictSet rels, "people", people
+    VLA_Runtime.VlaDictSet rels, "shifts", shifts
+    VLA_Runtime.VlaDictSet rels, "leave", leave
+    VLA_Runtime.VlaDictSet rels, "next", nx
+    Set LadderRelations = rels
+End Function
+
+Private Function LadderDay(ByVal s As Long) As Long
+    LadderDay = (s - 1) \ 3 + 1
+End Function
+
+' The reference roster's rules, less its objective and its kept roster
+' (OPTIMIZE.6 and .7): free is who may work a shift, being on leave that day
+' neither; every shift gets exactly its need; nobody works more than five a
+' week; every night gets at least one senior; nobody works two in a row.
+Private Function LadderProgram(ByVal effortText As String) As String
+    LadderProgram = LadderRules() & _
+        "(choose-exactly N (assign S P) (free S P) (per (shifts S W D Slot N K))) " & _
+        "(choose-at-most 5 (assign S P) (free-week S P W) (per (person-week P W))) " & _
+        "(choose-at-least 1 (assign S P) (senior-free S P) (per (night S))) " & _
+        "(forbid (assign S P) (assign T P) (next S T)) " & effortText & "(query assign)"
+End Function
+
+' The six rules over the four Tables that every choice above reads.
+Private Function LadderRules() As String
+    LadderRules = "(rule (free S P) (shifts S W D Slot N K) (people P Nm Sr C) (not (leave P D))) " & _
+        "(rule (week W) (shifts S W D Slot N K)) " & _
+        "(rule (person-week P W) (people P Nm Sr C) (week W)) " & _
+        "(rule (free-week S P W) (free S P) (shifts S W D Slot N K)) " & _
+        "(rule (night S) (shifts S W D Slot N ""senior"")) " & _
+        "(rule (senior-free S P) (free S P) (night S) (people P Nm ""yes"" C)) "
 End Function

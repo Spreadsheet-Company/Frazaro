@@ -1068,3 +1068,270 @@ continued source lines, and the keyword list is exactly the kind that gets
 split across two. **A new check whose first run over a known-good tree is
 not clean is reporting its own defect**, which is Entry 2's lesson arriving
 again in a different file.
+
+---
+
+## Entry 4 — The first search, on the reference roster *(2026-09-25)*
+
+*Status: **predictions**, written before the ladder ran. The measurements
+will be appended below them, with their dates, and the predictions will
+stay as written. The project's roadmap tracks this work as `OPTIMIZE.3`,
+whose fourth slice runs Entry 1's ladder through a search for the first
+time.*
+
+### The ladder, as run
+
+Entry 1's reference roster (section 3a, with the tight needs), written as
+an `OPTIMIZE` program over its four Tables, `people`, `shifts`, `leave`
+and `next`:
+
+    (rule (free S P) (shifts S W D Slot N K) (people P Nm Sr C) (not (leave P D)))
+    (rule (week W) (shifts S W D Slot N K))
+    (rule (person-week P W) (people P Nm Sr C) (week W))
+    (rule (free-week S P W) (free S P) (shifts S W D Slot N K))
+    (rule (night S) (shifts S W D Slot N "senior"))
+    (rule (senior-free S P) (free S P) (night S) (people P Nm "yes" C))
+    (choose-exactly N (assign S P) (free S P) (per (shifts S W D Slot N K)))
+    (choose-at-most 5 (assign S P) (free-week S P W) (per (person-week P W)))
+    (choose-at-least 1 (assign S P) (senior-free S P) (per (night S)))
+    (forbid (assign S P) (assign T P) (next S T))
+    (query assign)
+
+That is everything but the objective and the kept schedule, which later
+items build. With no objective, the answer is the first schedule when the
+rows are decided in the Tables' own order: shift by shift, within a shift
+person by person, each tried on before off.
+
+### Predicted: the counts
+
+These were computed before the ladder ran, by a line-for-line translation
+of the search run over the roster built from its definition. The same
+translation reproduces all seven counts measured live so far, so a count
+below that comes out differently live is a defect in the engine or in this
+table, not noise.
+
+| people × weeks | a shift | atoms | counters | clauses | rows laid out | decisions | dead ends | answer |
+|---|---|---|---|---|---|---|---|---|
+| 5 × 1 | 1 | 90 | 33 | 80 | 889 | 0 | 0 | none, by counting |
+| 5 × 4 | 1 | 360 | 132 | 335 | 3,604 | 0 | 0 | none, by counting |
+| 10 × 1 | 2 | 180 | 38 | 162 | 1,707 | 35 | 2 | a schedule |
+| 10 × 4 | 2 | 720 | 152 | 672 | 6,906 | 140 | 8 | a schedule |
+| 20 × 1 | 4 | 360 | 48 | 325 | 3,358 | 80 | 2 | a schedule |
+| 20 × 4 | 4 | 1,440 | 192 | 1,345 | 13,579 | 320 | 8 | a schedule |
+| 50 × 1 | 10 | 900 | 78 | 814 | 8,277 | 200 | 0 | a schedule |
+| **50 × 4** | **10** | **3,600** | **312** | **3,364** | **33,456** | **800** | **0** | **a schedule** |
+
+What it says:
+- **At the reference tightness, 0.84, the first schedule is nearly free.**
+  There are 840 places to fill. The search makes 800 decisions and takes
+  none of them back; the counters force the other 40 in. That agrees with
+  clingo, which found a first schedule at this size in 0.06 s (Entry 1):
+  finding a schedule is easy here, and proving one best is where the time
+  goes.
+- **The 5-person roster is refused before any search.** The reason is the
+  local one clingo found in 0.003 s (section 3a): the only senior is on
+  leave on day 3, so that night has no senior to take it.
+- **The ground program is a third of a formula's ceiling**: 33,456 rows laid
+  out, against the 100,000 set when this item was scoped.
+
+### Predicted: one person more a shift
+
+At 11 a shift, a tightness of 0.92 rather than 0.84, the search does not
+finish:
+
+| budget, in units of work | decisions | dead ends | answer |
+|---|---|---|---|
+| 50,000 (`normal`) | 25,084 | 24,916 | none within the effort |
+| 500,000 (`thorough`) | 250,084 | 249,916 | none within the effort |
+| 3,000,000 | 1,500,084 | 1,499,916 | none within the effort |
+
+The same happens at 30, 35, 40 and 45 people, each one person a shift past
+its tight need, over 1 week as over 4.
+
+Where it stalls:
+- The first dead end comes 175 decisions in, on day 6's early shift.
+- For the next half-million units, backtracking never reaches further back
+  than the 147th decision, on day 5's late shift.
+
+The cause lies further back, in whatever week 1's first days used up.
+Chronological backtracking undoes the most recent decision first, so it
+tries every arrangement of the last day and a half and never reaches the
+cause. This is Entry 1's trap B, "the same dead end entered twice", which
+the roadmap gave to conflict learning and backjumping (`OPTIMIZE.9`), to be
+"built when the ladder shows propagation alone stalling short of the
+reference roster". The ladder shows it stalling one person a shift past it.
+Whether a schedule exists at 11 a shift is not known.
+
+### Predicted: the times
+
+These are my guesses, written before the run and not held to:
+- **A whole run at 50 × 4**, meaning DATALOG's pass, the grounding, 800
+  decisions and the answer: about 0.3 s.
+- **A unit of search work on this roster: about 5 µs.** That is twice
+  the 2.2–2.9 µs slice 2 measured on a family whose counters held 14 to 28
+  atoms; here a shift's counter holds 42 or 43.
+
+At that rate, `thorough`'s 500,000 units would take about 2.5 s on this
+roster, past the 2 s a formula may be projected at. The runs at 11 a shift
+exist to answer exactly that: each spends its effort to the last unit, so
+its time, less a run at `(effort 1)`, is the search alone. The effort
+levels are set from what they measure.
+
+### Measured, 2026-09-25
+
+*Excel 16.0 on the owner's machine. The harness calls the engine
+directly rather than through a worksheet formula, so reading the Tables
+and spilling the answer are not in these times. Each rung ran again and
+again for two seconds, and the mean is given. **Every count in the two
+tables above came out exactly as predicted**, on all eleven lines, and
+every schedule passed the harness's own check against the roster's
+definition.*
+
+| people × weeks | rows laid out | seconds a run |
+|---|---|---|
+| 5 × 1 | 889 | 0.090 |
+| 5 × 4 | 3,604 | 0.176 |
+| 10 × 1 | 1,707 | 0.110 |
+| 10 × 4 | 6,906 | 0.245 |
+| 20 × 1 | 3,358 | 0.142 |
+| 20 × 4 | 13,579 | 0.385 |
+| 50 × 1 | 8,277 | 0.243 |
+| **50 × 4** | **33,456** | **0.745** |
+
+| 50 × 4 at 11 a shift | units of work | seconds a run |
+|---|---|---|
+| `(effort 1)` | 1 | 0.747 |
+| `normal`, then 50,000 | 50,000 | 0.932 |
+| `thorough`, then 500,000 | 500,000 | 2.922 |
+
+What it says, against the predictions:
+- **A whole run at the reference roster took 0.745 s, two and a half
+  times my guess.** The search is almost none of it: its 800 decisions
+  come to about 3 ms. Across the eight rungs a run costs about 0.09 s,
+  plus 20 µs for every row the grounding lays out. The grounder alone
+  costs about 1 µs a row (slice 3's measurement, in the roadmap). So
+  most of a run is not the grounding the ceilings count. The next
+  measurement splits it.
+- **A unit of search work costs 3.7 µs over the first 50,000 units, and
+  4.35 µs over 500,000.** I guessed 5; slice 2 measured 2.2–2.9 µs on
+  counters of 14 to 28 atoms. The rate rises as the search runs
+  longer, most likely because backtracking reaches further back: the
+  shallowest decision it returns to moves from the 152nd to the 147th
+  between the two budgets.
+- **So `thorough` took 2.92 s on the reference roster**, past the 2 s a
+  formula may be projected at.
+
+### Before and after
+
+| | before this item | after |
+|---|---|---|
+| the reference roster's rules, grounded | one shape at a time, through a `DATALOG` formula: the pool less leave 0.16 s, a counter per shift 0.68 s, per person-week 0.69 s, the pair relation 2.44 s (2026-09-19); after `DATALOG.14`, 0.074, 0.047, 0.047 and 0.188 s (2026-09-24) | all of them at once, into 3,600 atoms, 312 counters and 3,364 clauses, then searched and answered: 0.745 s |
+| a schedule for it | none: nothing could choose | the first in the Tables' own order, 800 decisions and no dead end |
+| the 5-person roster | impossible by hand (section 3a) | refused by counting before any search, naming the night |
+| the reference solver, for scale | clingo, a first schedule in 0.06 s | — |
+
+The two sides are not measured the same way. The before column is a
+worksheet formula per shape, Tables read and answer spilled. The after
+column is one engine call for the whole program.
+
+### What the measurement set
+
+- **The effort levels, halved: `quick` 2,500 units, `normal` 25,000 and
+  `thorough` 250,000** (the owner's call, 2026-09-25). `thorough` is the
+  most search a formula's 2 s leaves room for on the reference roster:
+  about 1.1 s at 4.35 µs a unit, and 1.8 s with everything else. Each
+  level stays a tenth of the next. The alternative on the table was to
+  give `normal` about a second, as the ceilings' own reasoning had
+  assumed. That would have made `thorough` about 11 s, which a formula's
+  10 s guard cuts short, so it would only make sense for a command.
+- **The ceilings, kept at 100,000 rows in all and 50,000 in a step.**
+  They were set on the old evaluator's cost of 7.6 µs a row. The grounder
+  they count now costs 0.5 to 1.6 µs a row (slice 3). Raising them looked
+  due. But by the
+  slope above, a roster-shaped program at 100,000 rows would take about
+  0.09 s + 100,000 × 20 µs ≈ 2.1 s in all: the formula's 2 s, reached
+  by the part of the run the ceilings do not count. The reference roster
+  uses a third of them.
+- **A defect from slice 2, found by predicting the new levels.** A search
+  could do one unit more than its budget. When the budget's last unit went
+  on a decision that ran straight into a dead end, the dead end was counted
+  too. The status then read "allows 250000 units of work … and all of them
+  went on 125087 decisions and 124914 dead ends", which adds up to
+  250,001. The translation found it at the new `thorough`, and at none of
+  round 1's budgets, which both happened to end on a dead end. The search
+  now stops at such a dead end without taking it. Slice 2's own pin had
+  the overshoot written into it: a budget of one unit, answered with one
+  decision and one dead end. It has been corrected, and the budget is now
+  pinned at its edge from both sides.
+
+### Predicted, before the second run
+
+- The eight rungs: every count as before. None of them spends more than
+  800 units of the new `normal`'s 25,000.
+- At 11 a shift: `normal` (25,000 units) gives 12,583 decisions and
+  12,417 dead ends, and `thorough` (250,000) gives 125,087 and 124,913.
+- **`thorough` at about 1.8 s**, where it took 2.92 s.
+- Where the reference roster's 0.75 s goes, my guesses: about 0.01 s for
+  the memo key, a hash of the program and every Table; 0.2 to 0.3 s for
+  `DATALOG`'s own pass over the six rules; and the rest, about 0.45 s,
+  for `OPTIMIZE`'s own work around the grounding. I am least sure of the
+  last, since round 1's 0.75 s was two and a half times what I expected.
+
+### Measured, the second run, 2026-09-25
+
+*The same harness, on the new levels, after the fix. **Every count came
+out as predicted again**, the fixed budget's included: 125,087 decisions
+and 124,913 dead ends at `thorough`, exactly 250,000 units. The eight
+rungs ran within 0.02 s of the first run's times.*
+
+- **`thorough` now takes 1.871 s at 50 × 4 and 11 a shift.** That is
+  0.753 s for everything else and 1.118 s of search, inside a formula's
+  2 s, as predicted (about 1.8 s).
+- **A unit of search work cost 4.48 µs over the first 25,000 units, and
+  4.47 µs over 250,000.** I predicted the first run's rates would repeat,
+  "about 3.7 to 4.4 µs"; these sit just above that range.
+- *Correction to the first run's reading, 2026-09-25.* "The rate rises as
+  the search runs longer" does not survive. Here the first 25,000 units
+  cost 4.48 µs, more than the 3.70 µs the first 50,000 cost in the first
+  run. A short window's search time is a small difference between two
+  larger times: 0.11 to 0.19 s, out of 0.75 to 0.93 s. So a wobble of a
+  hundredth of a second in either one moves the rate by about a tenth.
+  The two long windows agree to within 3%, at 4.35 and 4.47 µs. A unit of
+  search work on this roster costs about 4.4 µs.
+
+Where the reference roster's run goes, against my guesses:
+
+| part of a run, 50 × 4 | measured | guessed |
+|---|---|---|
+| the memo key: a hash of the program and every Table | 0.095 s | 0.01 s |
+| `DATALOG`'s own pass over the program's six rules | 0.495 s | 0.2–0.3 s |
+| `OPTIMIZE`'s own work: the grounding the ceilings count, the counters and clauses, the problem, one decision and the answer | 0.170 s | about 0.45 s |
+| in all, at `(effort 1)` | 0.760 s | 0.75 s |
+
+The total held and the parts did not. What it says:
+- **Two-thirds of a run is `DATALOG`'s pass over the user's own rules.**
+  No ceiling counts that part; it was left out when the ceilings were
+  set, since `DATALOG` has no ceiling of its own. The part the ceilings
+  bound, `OPTIMIZE`'s own work with its grounding inside it, is about a
+  fifth. So raising the ceilings would have loosened the smaller part of
+  the cost, which is why they were kept.
+- **The memo key costs a tenth of a second at this size, and every call
+  pays it**, a memo hit included. The key is taken before the memo can be
+  asked, so an unchanged roster recalculated costs 0.095 s rather than
+  nothing. No item owns that yet.
+- **`OPTIMIZE`'s own work is 0.17 s** for 33,456 rows laid out, 3,600
+  atoms, 312 counters and 3,364 clauses: about 5 µs for each row laid
+  out, everything included.
+
+### What the ladder leaves for later items
+
+- **Plain backtracking stalls one person a shift past the reference
+  roster.** At 11 a shift the search never gets out of week 1, at any
+  effort. This is the trigger the roadmap set for conflict learning and
+  backjumping (`OPTIMIZE.9`), and it has now been pulled on a measured
+  roster rather than a guessed one.
+- **At real sizes, a formula's time is set by the part that is not
+  search.** On the reference roster the search is 3 ms. The grounding,
+  at slice 3's rate of 0.5 to 1.6 µs a row, is a few hundredths of a
+  second. `DATALOG`'s pass over the user's rules takes half a second, and
+  the memo key a tenth.
