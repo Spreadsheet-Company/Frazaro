@@ -6416,7 +6416,11 @@ before-contact item behind the gate.
   cell … green` / `Make the text of cell … green`. A second question,
   separate from the spelling: the colour words bind VBA's eight saturated
   constants (`vbGreen` is `#00FF00`), which the owner rejected on sight
-  for sample 06 ("neon vomit"). *Output:* a list of
+  for sample 06 ("neon vomit"). *Added by G-TEXT slice 1 (2026-09-25):*
+  `Set … to trimmed …` is VBA's `Trim`, which trims the two ends only,
+  while that slice's `Remove extra spaces from …` is Excel's TRIM, which
+  also closes up every run inside the text. A reader who knows `=TRIM()`
+  will expect `trimmed` to do the same. *Output:* a list of
   every shipped rule with a verdict and, for each failure, its sibling
   rule; the legacy spellings recorded where CO.1/CO.2 will find them. *Why
   CO and not a grammar slice:* it is about what shipped spellings promise,
@@ -7149,8 +7153,87 @@ G-TAIL always said this about itself; it is true of the whole tranche.
   rerun self-contained, it passed.) The comma-decimal region run stays
   open as a live test, not a blocker: the 99.5 checks on the `GSortFilter`
   sheet are the ones it would read.
-- ⬜ **G-TABS**, ⬜ **G-FORMULA**, ⬜ **G-TEXT** — the workhorse middle.
+- ⬜ **G-TABS**, ⬜ **G-FORMULA** — the workhorse middle.
   `~weeks` each
+- ⬜ **G-TEXT** — text handling, `pareto.txt` §12, **16 entries**, P0, and
+  §13's find and replace (**6 entries**), which belonged to no item and was
+  taken in at scoping (2026-09-25). *Recounted first, G-FORMAT's way:* the
+  text of one value into a variable already ships — `trimmed`, `first|last
+  {n} letters of`, `position of … in`, `… with … replaced by …`,
+  `uppercase|lowercase|length of` — and so do the core's `contains`,
+  `starts with` and `ends with` conditions, and `Replace … with … in
+  range|column`. What was missing was changing text **where it stands**.
+  **Three slices:** 1, text changed in place (§12's trim-spaces, upper-case,
+  lower-case, proper-case, clean-text); 2, text in a variable (text-before/
+  -after, `characters` as the sibling of `letters`, pad, join; `joined with`
+  already means concatenation, so join needs its own fork); 3, find and
+  replace (§13) and split-column (pareto's `!~`, and `TextToColumns`
+  overwrites the columns beside it).
+  **✅ Slice 1, built, owner-verified live and committed 2026-09-25**
+  (`VlaSelfTests` pure 1388/1388 and host 194/194, as predicted;
+  `VerifyReports` 267/267 on both backends; `VlaGoldens` diff read - the
+  two shipped Replace calls gain `LookAt`/`MatchCase`, and every other line
+  that moved is the `GText` block or a `' vla:N` tag shifted by its one
+  hoisted `Dim`; 28/28 checks after the owner's export; three hand tests -
+  the clause-less capitalize refused on its own row naming both rules,
+  `Jane O'Neil`/`Smith-Jones` beside a 42 left a number, and `bANANa`
+  with Ctrl+H's "Match entire cell contents" ticked). The first host run
+  stopped on error 438 at a pin of this slice's own: `WorksheetFunction`
+  has no `Upper` or `Lower`, so the UPPER/LOWER oracle now reads real
+  `=UPPER()`/`=LOWER()` formulas; every PROPER, TRIM and CLEAN oracle pin
+  had already passed. Ten rules, each on a
+  `cell|range` and on a `column`: `Make … upper case|lower case` and the
+  one-word `uppercase|lowercase` (both reach one macro, `make-{k}case`
+  gluing the word back), `Capitalize each word in … after any
+  space|non-letter`, `Remove extra spaces from …`, `Remove non-printing
+  characters from …`. Four forks the owner decided:
+  - **Text stays text.** Excel reads a value written from VBA as if typed,
+    so `"  00123 "` trimmed or `"true"` upper-cased would come back as 123 or
+    TRUE; such a cell is written again behind an apostrophe, found by asking
+    Excel after the write rather than by predicting its reader, which
+    differs by region. Turning text into numbers is its own sentence later.
+  - **The capitalize rule is named in the sentence** — the owner's own
+    design, over the three options put: a closing `after any space|
+    non-letter` clause, the sort's `with|without header` shape. Non-letter is
+    Excel's PROPER (`O'Neil`, `Smith-Jones`, and its own `Don'T`, `3Rd`);
+    space capitalizes only a letter right after a space, a tab or a line
+    break (`Don't`, `3rd`, `O'neil`). A sentence naming neither refuses at
+    Check, and its near miss shows both.
+  - **Non-breaking spaces count as spaces** in `Remove extra spaces` (and in
+    `after any space`): they look like spaces, and web and ERP exports are
+    full of them. Otherwise the sentence is Excel's TRIM exactly; `Remove
+    non-printing characters` is Excel's CLEAN exactly (0 to 31, not 127).
+  - **The shipped Replace is fixed here.** `replace-in` called
+    `Range.Replace` with no `LookAt`/`MatchCase`, and Excel reuses the last
+    Find's or Replace's settings when they are left out — including
+    `VlaFindRow`'s own `LookAt:=xlWhole` — so `Set r to row of "Widget" in
+    column A.` made a later `Replace "an" with …` match whole cells only.
+    Now pinned to Excel's starting settings (part, any case), which SD-4
+    reads as the meaning it always had for anyone who never touched the
+    dialog. Whether Replace should reach inside formulas (it does) stays
+    slice 3's `?`.
+  **What changes, and what does not:** only cells holding text — formulas
+  (even ones showing text), numbers, dates, TRUE/FALSE, errors and blanks
+  stay; a column means its used cells, header included; each area is read
+  in bulk and a cell written only if its text changed; text starting
+  `= + - @` is marked before it is written, SEC.4's rule repeated in the
+  runtime because that module must compile alone in a user's workbook.
+  **Runtime:** `VlaTextOp` (pure, one change of one string, an unknown
+  change refused by name) and `VlaTextInRange` (asks `VlaTextOp` before
+  touching a cell, so a refused sentence changes nothing), each with a
+  native `TryRuntimeHelper` Case (IN.15) and a raise-dispatch baseline
+  entry. **Interpreter:** `Range.Replace` takes optional `LookAt`/
+  `MatchCase` (a raw form that omits one still omits it, the compiled
+  call's shape); constant `xlPart`. **Proof:** 15 `test-success` and one
+  `test-fail`; 30 pure pins (both capitalize rules on the same inputs, TRIM,
+  CLEAN, the refusal, `xlPart`); 42 host pins, 19 of them holding each
+  Excel-named change against Excel's own `PROPER`/`TRIM`/`CLEAN`/`UPPER`/
+  `LOWER` as its oracle; and a live `GText` sheet read by
+  `VerifyReportChecks` on both backends, including the Replace-after-Find
+  case. *CO.7 note, found here, not changed:* the shipped `trimmed` is VBA's
+  `Trim` (the two ends only) while `Remove extra spaces from` is Excel's
+  TRIM; a reader who knows `=TRIM()` will expect `trimmed` to close up the
+  inside too. `~weeks`
 - 🟡 **G-FILES — workbooks and files.** Scoped in `scripts/pareto.txt`
   section 15 (16 surfaces) - this file previously (wrongly) claimed zero
   templates existed for this section; a cross-check found six already

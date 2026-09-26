@@ -146,6 +146,30 @@
   or a missing block?" - was the only message whose words held a character
   outside plain ASCII, which Frazaro's code is not meant to contain.
 
+- **Text can be tidied where it stands.** Five new sentences change the text
+  in a range, or in a whole column, with no helper column and no formula:
+  `Make range A2:A50 upper case.` (or `lower case`); `Capitalize each word in
+  column B after any space.`, or `after any non-letter`, which is Excel's own
+  PROPER - "o'neil" becomes "O'Neil" and, as in Excel, "don't" becomes
+  "Don'T" - and the sentence says which, so nothing is guessed; `Remove extra
+  spaces from column A.`, which is Excel's TRIM and also counts the
+  non-breaking spaces that text pasted from the web is full of; and `Remove
+  non-printing characters from range A2:A50.`, which is Excel's CLEAN, so
+  tabs and line breaks inside a cell go. Only text changes. Numbers, dates,
+  formulas, errors and blank cells are left exactly as they were, and text
+  stays text: a code like " 00123 " keeps its zeros when trimmed instead of
+  becoming the number 123, and "true" in capitals is still the word TRUE.
+
+- **"Replace ... with ... in range" means the same thing every time.** Excel
+  remembers the last settings its Find and Replace used - whether to match
+  the whole cell, whether capitals matter - and quietly reuses them when a
+  program does not say. So the same Replace sentence could change text
+  anywhere in a cell one day and only whole cells the next: after someone
+  used Ctrl+H, or even after an earlier sentence in the same program looked
+  something up with `row of ... in column ...`. It now always matches
+  anywhere in a cell, in any case, which is what it did for anyone who never
+  changed those settings.
+
 ### Known open security items
 
 **Closed this release:** nothing. The query changes above are speed only: the
@@ -166,6 +190,10 @@ ask for it, and a command in it only ever comes back into the CLI's box, never
 runs by itself. A command that mentions a password or another secret is not
 written to it at all. The CLI's transcript is kept in memory only, while Excel
 is open, and written nowhere. Nothing in any of this makes a network call.
+The new text sentences change only cells that already hold text, in the range
+or column the sentence names, and never write anything that becomes a formula:
+text that would start with `=`, `+`, `-` or `@` is kept as text, the same
+guard every value Frazaro writes already has.
 Standing advice unchanged. The full list of open items is in `docs/BETA_ROADMAP1.md`,
 in plain words in `README.md`.
 

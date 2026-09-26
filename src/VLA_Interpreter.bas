@@ -1946,6 +1946,9 @@ Private Function ResolveExcelConstant(ByVal folded As String, ByRef found As Boo
         ' cells of" asks SpecialCells for xlCellTypeVisible.
         Case "xland": ResolveExcelConstant = 1                  ' XlAutoFilterOperator
         Case "xlcelltypevisible": ResolveExcelConstant = 12     ' XlCellType
+        ' G-TEXT: replace-in pins LookAt to a part of a cell, Excel's own
+        ' starting setting, instead of inheriting the last Find's.
+        Case "xlpart": ResolveExcelConstant = 2                 ' XlLookAt
         Case Else
             found = False
     End Select
@@ -2568,6 +2571,19 @@ Private Function TryRuntimeHelper(ByVal h As String, ByVal argVals As Variant, B
         Case "vlafiltercriterion"
             If Not ArityIs(argVals, 2, handled) Then Exit Function
             AssignVar TryRuntimeHelper, VLA_Runtime.VlaFilterCriterion(CStr(ArgAt(argVals, 0)), ArgAt(argVals, 1))
+            handled = True
+            Exit Function
+        ' G-TEXT slice 1: both refuse a change they do not know by name
+        ' (VlaTextInRange asks VlaTextOp before touching a cell), so each
+        ' gets its native Case for the same IN.15 reason.
+        Case "vlatextinrange"
+            If Not ArityIs(argVals, 2, handled) Then Exit Function
+            VLA_Runtime.VlaTextInRange ArgAt(argVals, 0), CStr(ArgAt(argVals, 1))
+            handled = True
+            Exit Function
+        Case "vlatextop"
+            If Not ArityIs(argVals, 2, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaTextOp(CStr(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1)))
             handled = True
             Exit Function
         Case "vlapivotrefresh"
@@ -3809,10 +3825,32 @@ Private Function DynamicNamedCall(ByVal obj As Object, ByVal member As String, k
             Set rPaste = obj
             rPaste.PasteSpecial Paste:=KwArgOptional(kwArgs, "paste", -4104), _
                                  Transpose:=KwArgOptional(kwArgs, "transpose", False)
+        ' G-TEXT: LookAt/MatchCase are optional, the sort/autofilter
+        ' widening's own shape. Excel saves both each time Find or
+        ' Replace runs and reuses them when a later call leaves them out -
+        ' the Find and Replace dialog's last settings, or VlaFindRow's own
+        ' whole-cell Find - so replace-in now always passes both. A raw
+        ' form that leaves one out still leaves it out here: the same call
+        ' the compiled backend makes from the same form.
         Case "replace"
             Dim rReplace As Range
             Set rReplace = obj
-            rReplace.Replace What:=KwArg(kwArgs, "what"), Replacement:=KwArg(kwArgs, "replacement")
+            Dim replLookAt As Boolean
+            Dim replMatchCase As Boolean
+            replLookAt = KwArgHas(kwArgs, "lookat")
+            replMatchCase = KwArgHas(kwArgs, "matchcase")
+            If replLookAt And replMatchCase Then
+                rReplace.Replace What:=KwArg(kwArgs, "what"), Replacement:=KwArg(kwArgs, "replacement"), _
+                                 LookAt:=KwArg(kwArgs, "lookat"), MatchCase:=KwArg(kwArgs, "matchcase")
+            ElseIf replLookAt Then
+                rReplace.Replace What:=KwArg(kwArgs, "what"), Replacement:=KwArg(kwArgs, "replacement"), _
+                                 LookAt:=KwArg(kwArgs, "lookat")
+            ElseIf replMatchCase Then
+                rReplace.Replace What:=KwArg(kwArgs, "what"), Replacement:=KwArg(kwArgs, "replacement"), _
+                                 MatchCase:=KwArg(kwArgs, "matchcase")
+            Else
+                rReplace.Replace What:=KwArg(kwArgs, "what"), Replacement:=KwArg(kwArgs, "replacement")
+            End If
         Case "removeduplicates"
             Dim rDedupe As Range
             Set rDedupe = obj

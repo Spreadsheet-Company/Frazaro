@@ -615,6 +615,7 @@ Private Sub RuntimeAddEntries(ByVal m As Collection)
     RuntimeAddMsg m, "rt-filter-range-empty", 5, "VLA-Runtime", "range {range} is empty - filters need a header row with data below it."
     RuntimeAddMsg m, "rt-table-arguments-empty", 5, "VLA-Runtime", "a question needs at least one data table to read - name the Tables the rules mention, like Staff, Shifts, and Leave."
     RuntimeAddMsg m, "rt-table-arguments-bad-name", 5, "VLA-Runtime", "'{name}' cannot name a data table in a formula - a Table name starts with a letter or underscore and continues in letters, digits, underscores and periods, with no spaces."
+    RuntimeAddMsg m, "rt-text-unknown-op", 5, "VLA-Runtime", "VlaTextOp: unknown change '{op}' - expected upper, lower, capitalize-after-space, capitalize-after-non-letter, remove-extra-spaces, or remove-non-printing."
 End Sub
 
 Private Sub RuntimeAddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _
@@ -1657,6 +1658,238 @@ Private Function EscapeFilterWildcards(ByVal s As String) As String
     s = Replace(s, "*", "~*")
     EscapeFilterWildcards = Replace(s, "?", "~?")
 End Function
+
+' G-TEXT slice 1 (pareto.txt section 12): one change to one piece of
+' text, purely, so every rule below is pinned in the pure suite with no
+' workbook. Where Excel has a worksheet function for the change, this is
+' that function written out rather than called - WorksheetFunction would
+' tie the pure suite to a host - and the host suite holds each one
+' against Excel's own function as its oracle.
+'   upper, lower                  UCase/LCase: Excel's UPPER and LOWER.
+'   capitalize-after-non-letter   Excel's PROPER: a letter is a capital
+'                                 when it starts the text or comes right
+'                                 after any character that is not a
+'                                 letter, and small otherwise. "o'neil"
+'                                 is "O'Neil"; PROPER's own quirk,
+'                                 "don't" is "Don'T", comes with it.
+'   capitalize-after-space        the same, but only a space starts a
+'                                 word: "don't" is "Don't", while "3rd"
+'                                 and "(note)" stay as they are, since
+'                                 their first letter does not come right
+'                                 after a space. A space is an ordinary
+'                                 or non-breaking one, a tab or a line
+'                                 break.
+'   remove-extra-spaces           Excel's TRIM, with a non-breaking space
+'                                 (160) counted as a space (the owner's
+'                                 call, 2026-09-25): every run of them
+'                                 becomes one ordinary space, and none is
+'                                 left at either end.
+'   remove-non-printing           Excel's CLEAN: characters 0 to 31 go,
+'                                 tabs and line breaks among them, and
+'                                 nothing else does.
+' The rule that says which one a sentence meant is in the sentence
+' ("after any space|non-letter"); the owner's call over a default that
+' would hide it. An unknown change refuses by name, and VlaTextInRange
+' asks here before it touches a cell, so a refused sentence changes
+' nothing.
+Public Function VlaTextOp(ByVal s As String, ByVal op As String) As String
+    Select Case op
+        Case "upper": VlaTextOp = UCase$(s)
+        Case "lower": VlaTextOp = LCase$(s)
+        Case "capitalize-after-non-letter": VlaTextOp = CapitalizeWords(s, False)
+        Case "capitalize-after-space": VlaTextOp = CapitalizeWords(s, True)
+        Case "remove-extra-spaces": VlaTextOp = RemoveExtraSpaces(s)
+        Case "remove-non-printing": VlaTextOp = RemoveNonPrinting(s)
+        Case Else
+            RaiseRuntimeMsg "rt-text-unknown-op", "op", op
+    End Select
+End Function
+
+' The two capitalize rules differ in one question only: what may come
+' right before a letter that starts a word. Letters that start no word
+' are made small, as PROPER does - "MCDONALD" is "Mcdonald" either way.
+' The text is changed in place with the Mid$ statement, one character at
+' a time, so a long cell is not rebuilt by concatenation.
+Private Function CapitalizeWords(ByVal s As String, ByVal afterSpaceOnly As Boolean) As String
+    Dim r As String
+    r = s
+    Dim i As Long
+    Dim ch As String
+    Dim startsWord As Boolean
+    startsWord = True
+    For i = 1 To Len(r)
+        ch = Mid$(r, i, 1)
+        If IsCasedLetter(ch) Then
+            If startsWord Then
+                Mid$(r, i, 1) = UCase$(ch)
+            Else
+                Mid$(r, i, 1) = LCase$(ch)
+            End If
+            startsWord = False
+        ElseIf afterSpaceOnly Then
+            startsWord = IsTextSpace(ch)
+        Else
+            startsWord = True
+        End If
+    Next
+    CapitalizeWords = r
+End Function
+
+' A letter, for capitalizing: A to Z and a to z; the letters of Latin-1
+' (192 to 255 but for the two signs at 215 and 247, so the sharp s at 223
+' counts although VBA gives it no capital); and past Latin-1, any character
+' with an upper and a lower case. AscW is signed above &H7FFF, so a
+' negative code simply means past Latin-1.
+Private Function IsCasedLetter(ByVal ch As String) As Boolean
+    Select Case AscW(ch)
+        Case 65 To 90, 97 To 122, 192 To 214, 216 To 246, 248 To 255
+            IsCasedLetter = True
+        Case 0 To 191, 215, 247
+            IsCasedLetter = False
+        Case Else
+            IsCasedLetter = (UCase$(ch) <> LCase$(ch))
+    End Select
+End Function
+
+' What "after any space" counts as a space: an ordinary or non-breaking
+' space, a tab, or a line break (a new line in a cell starts a word as
+' visibly as a space does).
+Private Function IsTextSpace(ByVal ch As String) As Boolean
+    Select Case AscW(ch)
+        Case 32, 160, 9, 10, 13
+            IsTextSpace = True
+    End Select
+End Function
+
+' Excel's TRIM, non-breaking spaces included: a run of spaces is held
+' back until the next character that is not one, so it is written as
+' one ordinary space between two words and not at all at either end.
+Private Function RemoveExtraSpaces(ByVal s As String) As String
+    Dim buf As String
+    buf = Space$(Len(s))
+    Dim n As Long
+    Dim i As Long
+    Dim code As Long
+    Dim pending As Boolean
+    For i = 1 To Len(s)
+        code = AscW(Mid$(s, i, 1))
+        If code = 32 Or code = 160 Then
+            If n > 0 Then pending = True
+        Else
+            If pending Then
+                n = n + 1
+                Mid$(buf, n, 1) = " "
+                pending = False
+            End If
+            n = n + 1
+            Mid$(buf, n, 1) = Mid$(s, i, 1)
+        End If
+    Next
+    RemoveExtraSpaces = Left$(buf, n)
+End Function
+
+' Excel's CLEAN: the 32 control characters of 7-bit ASCII go, and
+' nothing past them (CLEAN leaves 127 and the other high controls too).
+Private Function RemoveNonPrinting(ByVal s As String) As String
+    Dim buf As String
+    buf = Space$(Len(s))
+    Dim n As Long
+    Dim i As Long
+    Dim code As Long
+    For i = 1 To Len(s)
+        code = AscW(Mid$(s, i, 1))
+        If code < 0 Or code > 31 Then
+            n = n + 1
+            Mid$(buf, n, 1) = Mid$(s, i, 1)
+        End If
+    Next
+    RemoveNonPrinting = Left$(buf, n)
+End Function
+
+' G-TEXT slice 1: the cells a text sentence changes are the ones holding
+' TEXT, and no others. A formula stays even when it shows text (writing
+' would replace it with its own result), and so do numbers, dates,
+' TRUE/FALSE, errors and blank cells, so "Make column B upper case."
+' never turns a date into text. A whole column is read only as far as
+' the sheet's used range; each area is read once, in bulk, and a cell is
+' written only if its text changed.
+'
+' A cell that held text still holds text afterwards (the owner's call,
+' 2026-09-25). Excel reads a value written from VBA as if it were typed,
+' so "  00123 " trimmed to "00123", or "true" upper-cased to "TRUE",
+' would come back as the number 123 or the logical TRUE. Such a cell is
+' written again behind an apostrophe, Excel's own mark for text, and
+' which ones need it is found by asking Excel after the write, not by
+' predicting its reader, which differs by region. Text that begins with
+' = + - or @ is marked before it is written at all, so upper-casing
+' "=hyperlink(...)" can never make a formula: SEC.4's rule, the one
+' VLA_Interpreter's NeutralizeFormulaInjection applies, repeated here
+' rather than called because this module must compile alone in a user's
+' workbook.
+Public Sub VlaTextInRange(ByVal rng As Range, ByVal op As String)
+    Dim probe As String
+    probe = VlaTextOp(vbNullString, op)
+    Dim target As Range
+    Set target = Application.Intersect(rng, rng.Worksheet.UsedRange)
+    If target Is Nothing Then Exit Sub
+    Dim area As Range
+    For Each area In target.Areas
+        TextInArea area, op
+    Next
+End Sub
+
+' One rectangle of the range. HasFormula answers for the whole area:
+' True when every cell holds a formula (nothing to do), False when none
+' does, and Null when some do - only then is each text cell asked.
+Private Sub TextInArea(ByVal area As Range, ByVal op As String)
+    Dim hf As Variant
+    hf = area.HasFormula
+    If VarType(hf) = vbBoolean Then
+        If hf Then Exit Sub
+    End If
+    Dim checkEach As Boolean
+    checkEach = IsNull(hf)
+    Dim vals As Variant
+    vals = area.Value
+    If Not IsArray(vals) Then
+        If VarType(vals) = vbString Then RewriteTextCell area.Cells(1, 1), CStr(vals), op, checkEach
+        Exit Sub
+    End If
+    Dim r As Long
+    Dim c As Long
+    For r = 1 To UBound(vals, 1)
+        For c = 1 To UBound(vals, 2)
+            If VarType(vals(r, c)) = vbString Then
+                RewriteTextCell area.Cells(r, c), CStr(vals(r, c)), op, checkEach
+            End If
+        Next
+    Next
+End Sub
+
+' One text cell: changed, then written so it reads back as the same
+' text. Text changed to nothing (a cell of spaces, trimmed) leaves the
+' cell blank; Value, not ClearContents, so the first cell of a merged
+' block can be emptied too.
+Private Sub RewriteTextCell(ByVal cell As Range, ByVal s As String, ByVal op As String, _
+                            ByVal checkFormula As Boolean)
+    If checkFormula Then
+        If cell.HasFormula Then Exit Sub
+    End If
+    Dim t As String
+    t = VlaTextOp(s, op)
+    If t = s Then Exit Sub
+    If Len(t) = 0 Then
+        cell.Value = Empty
+        Exit Sub
+    End If
+    Select Case Left$(t, 1)
+        Case "=", "+", "-", "@"
+            cell.Value = "'" & t
+            Exit Sub
+    End Select
+    cell.Value = t
+    If VarType(cell.Value) <> vbString Then cell.Value = "'" & t
+End Sub
 
 ' G-PIVOT rule #1 (pareto.txt section 10, "Pivot tables"): the two-step
 ' COM sequence pareto.txt's own target names - PivotCaches.Create then

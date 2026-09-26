@@ -407,6 +407,7 @@ Public Function VlaSelfTest() As Boolean
     TestInterpreterVbConstants
     TestNumberFormatCodes
     TestFilterCriteria
+    TestTextOps
     TestInterpreterOperators
     TestInterpreterQuote
     TestArrayPrimitive
@@ -5677,6 +5678,9 @@ Private Sub TestInterpreterExcelConstants()
            VLA_Interpreter.VlaEvalExpression("xland"), 1
     CheckV "g-sortfilter: xlcelltypevisible resolves to 12 (XlCellType)", _
            VLA_Interpreter.VlaEvalExpression("xlcelltypevisible"), 12
+    ' G-TEXT: the LookAt replace-in now pins.
+    CheckV "g-text: xlpart resolves to 2 (XlLookAt)", _
+           VLA_Interpreter.VlaEvalExpression("xlpart"), 2
 
     ' Regression: a bound variable takes priority over nothing, because a
     ' name outside the 13-constant table was never touched by this pass -
@@ -5828,6 +5832,88 @@ Private Sub TestFilterCriteria()
     On Error GoTo 0
     Report "g-sortfilter: an unknown kind refuses by name", _
            InStr(1, desc, "unknown kind 'between'", vbTextCompare) > 0, "got: " & desc
+End Sub
+
+' G-TEXT slice 1: VLA_Runtime.VlaTextOp, purely - each change a "text
+' changed in place" sentence can make. The two capitalize rules are
+' pinned on the same inputs so their one difference shows: what may come
+' right before a letter that starts a word. Non-ASCII inputs are built
+' with ChrW so this file stays ASCII. The host suite holds the Excel-
+' named changes against Excel's own worksheet functions; these pin the
+' rule as written down.
+Private Sub TestTextOps()
+    CheckV "g-text: upper", VLA_Runtime.VlaTextOp("abc Def 12", "upper"), "ABC DEF 12"
+    CheckV "g-text: lower", VLA_Runtime.VlaTextOp("ABC Def 12", "lower"), "abc def 12"
+
+    ' Excel's PROPER: a capital after any character that is not a letter.
+    CheckV "g-text: after any non-letter, an apostrophe starts a word", _
+           VLA_Runtime.VlaTextOp("o'neil", "capitalize-after-non-letter"), "O'Neil"
+    CheckV "g-text: after any non-letter, a hyphen starts a word", _
+           VLA_Runtime.VlaTextOp("smith-jones", "capitalize-after-non-letter"), "Smith-Jones"
+    CheckV "g-text: after any non-letter, PROPER's own quirk", _
+           VLA_Runtime.VlaTextOp("don't", "capitalize-after-non-letter"), "Don'T"
+    CheckV "g-text: after any non-letter, a digit starts a word", _
+           VLA_Runtime.VlaTextOp("3rd quarter", "capitalize-after-non-letter"), "3Rd Quarter"
+    CheckV "g-text: after any non-letter, a bracket starts a word", _
+           VLA_Runtime.VlaTextOp("(note) hello", "capitalize-after-non-letter"), "(Note) Hello"
+    CheckV "g-text: every other letter is made small", _
+           VLA_Runtime.VlaTextOp("MCDONALD AND CO", "capitalize-after-non-letter"), "Mcdonald And Co"
+
+    ' A capital only right after a space, a tab or a line break.
+    CheckV "g-text: after any space, an apostrophe does not start a word", _
+           VLA_Runtime.VlaTextOp("don't stop", "capitalize-after-space"), "Don't Stop"
+    CheckV "g-text: after any space, o'neil keeps a small n", _
+           VLA_Runtime.VlaTextOp("o'neil", "capitalize-after-space"), "O'neil"
+    CheckV "g-text: after any space, a hyphen does not start a word", _
+           VLA_Runtime.VlaTextOp("smith-jones", "capitalize-after-space"), "Smith-jones"
+    CheckV "g-text: after any space, 3rd stays - its letter is not right after the space", _
+           VLA_Runtime.VlaTextOp("3rd quarter", "capitalize-after-space"), "3rd Quarter"
+    CheckV "g-text: after any space, (note) stays - its letter follows the bracket", _
+           VLA_Runtime.VlaTextOp("(note) HELLO", "capitalize-after-space"), "(note) Hello"
+    CheckV "g-text: after any space, a tab counts as a space", _
+           VLA_Runtime.VlaTextOp("tab" & vbTab & "word", "capitalize-after-space"), "Tab" & vbTab & "Word"
+    CheckV "g-text: after any space, a line break counts as a space", _
+           VLA_Runtime.VlaTextOp("line" & vbLf & "break", "capitalize-after-space"), "Line" & vbLf & "Break"
+    CheckV "g-text: after any space, a non-breaking space counts as a space", _
+           VLA_Runtime.VlaTextOp("nb" & ChrW$(160) & "space", "capitalize-after-space"), "Nb" & ChrW$(160) & "Space"
+    CheckV "g-text: a Latin-1 letter is a letter (e-acute)", _
+           VLA_Runtime.VlaTextOp(ChrW$(233) & "lan vital", "capitalize-after-space"), ChrW$(201) & "lan Vital"
+    CheckV "g-text: the sharp s is a letter, so the letter after it stays small", _
+           VLA_Runtime.VlaTextOp("stra" & ChrW$(223) & "e", "capitalize-after-non-letter"), "Stra" & ChrW$(223) & "e"
+    CheckV "g-text: capitalizing nothing is nothing", VLA_Runtime.VlaTextOp("", "capitalize-after-space"), ""
+
+    ' Excel's TRIM, a non-breaking space counted as a space.
+    CheckV "g-text: extra spaces - both ends and the inside", _
+           VLA_Runtime.VlaTextOp("  a   b  c ", "remove-extra-spaces"), "a b c"
+    CheckV "g-text: extra spaces - non-breaking spaces count, and become ordinary ones", _
+           VLA_Runtime.VlaTextOp(ChrW$(160) & "a" & ChrW$(160) & ChrW$(160) & "b " & ChrW$(160), "remove-extra-spaces"), "a b"
+    CheckV "g-text: extra spaces - a tab is not a space (TRIM leaves it; CLEAN takes it)", _
+           VLA_Runtime.VlaTextOp("a" & vbTab & "b", "remove-extra-spaces"), "a" & vbTab & "b"
+    CheckV "g-text: extra spaces - only spaces leaves nothing", VLA_Runtime.VlaTextOp("   ", "remove-extra-spaces"), ""
+    CheckV "g-text: extra spaces - nothing extra is unchanged", _
+           VLA_Runtime.VlaTextOp("no extra", "remove-extra-spaces"), "no extra"
+
+    ' Excel's CLEAN: characters 0 to 31, and nothing past them.
+    CheckV "g-text: non-printing - tab, line breaks and NUL go", _
+           VLA_Runtime.VlaTextOp("a" & vbTab & "b" & vbCrLf & "c" & Chr$(0) & "d", "remove-non-printing"), "abcd"
+    CheckV "g-text: non-printing - 127 stays, as CLEAN leaves it", _
+           VLA_Runtime.VlaTextOp("a" & Chr$(127) & "b", "remove-non-printing"), "a" & Chr$(127) & "b"
+    CheckV "g-text: non-printing - spaces stay, non-breaking ones too", _
+           VLA_Runtime.VlaTextOp("a b" & ChrW$(160) & "c", "remove-non-printing"), "a b" & ChrW$(160) & "c"
+
+    Dim desc As String
+    Dim ignored As String
+    Dim bad As Variant
+    For Each bad In Array("sideways", "")
+        desc = ""
+        On Error Resume Next
+        Err.Clear
+        ignored = VLA_Runtime.VlaTextOp("abc", CStr(bad))
+        desc = Err.Description
+        On Error GoTo 0
+        Report "g-text: an unknown change '" & CStr(bad) & "' refuses by name", _
+               InStr(1, desc, "unknown change '" & CStr(bad) & "'", vbTextCompare) > 0, "got: " & desc
+    Next bad
 End Sub
 
 ' IN2.7: EvalOpChain's 18 operators, purely - AS.8's own scan found only

@@ -1051,6 +1051,65 @@ Clear the filter conditions.
 Try:
   Add filters to range A40:B43.
 
+# G-TEXT slice 1: pareto.txt section 12, text changed in place, real end
+# state on its own GText sheet (delete-then-recreate, the GStruct reason:
+# a second Run must start again from the raw text). Each sentence gets
+# its own column, and beside the text it changes sits one of each value
+# it must leave alone: a number, a formula showing text, and text that
+# Excel would read as TRUE or as a formula if it were typed.
+Try:
+  Delete sheet GText.
+
+Work on sheet GText.
+
+# Upper case, on a range: only A1, A4 and A5 are text. The leading
+# apostrophe makes each of those two a piece of text, on both backends.
+Put "widget" into cell A1.
+Put 42 into cell A2.
+Put formula "=CHAR(97)&CHAR(98)" into cell A3.
+Put "'true" into cell A4.
+Put "'=abc" into cell A5.
+Make range A1:A5 upper case.
+
+# Lower case, on a whole column: its used cells only.
+Put "HELLO World" into cell B1.
+Put "MiXeD" into cell B2.
+Make column B lowercase.
+
+# The two capitalize rules, on the same three words, one column each.
+Put "don't stop" into cell C1.
+Put "3rd quarter" into cell C2.
+Put "o'neil" into cell C3.
+Capitalize each word in range C1:C3 after any space.
+Put "don't stop" into cell D1.
+Put "3rd quarter" into cell D2.
+Put "o'neil" into cell D3.
+Capitalize each word in column D after any non-letter.
+
+# Extra spaces: E2 is text that Excel would read as the number 123 once
+# trimmed, and must keep its zeros; E4 is built from non-breaking spaces
+# (UNICHAR 160) by a formula, then turned into plain text.
+Put "  a   b  " into cell E1.
+Put "'  00123 " into cell E2.
+Put "   " into cell E3.
+Put formula "=UNICHAR(160)&CHAR(120)&UNICHAR(160)&UNICHAR(160)&CHAR(121)" into cell E4.
+Convert range E4:E4 to values.
+Remove extra spaces from range E1:E4.
+
+# Non-printing characters: a line break and a tab, built the same way.
+Put formula "=CHAR(97)&CHAR(10)&CHAR(98)" into cell F1.
+Put formula "=CHAR(99)&CHAR(9)&CHAR(100)" into cell F2.
+Convert range F1:F2 to values.
+Remove non-printing characters from range F1:F2.
+
+# Replace no longer inherits the last Find: "row of ... in column" runs a
+# whole-cell Find first, then the Replace still matches inside a cell, in
+# any case.
+Put "Widget" into cell G1.
+Put "banana" into cell G2.
+Set gtext-row to row of "Widget" in column G.
+Replace "AN" with "xy" in range G2:G2.
+
 Go to sheet Output.
 
 Tidy-up.

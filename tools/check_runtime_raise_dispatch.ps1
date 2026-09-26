@@ -114,7 +114,9 @@ $baseline = @(
     'VlaPivotSetShowDetail',
     'VlaPivotSetSubtotals',
     'VlaPivotSort',
-    'VlaSendMail'
+    'VlaSendMail',
+    'VlaTextInRange',        # G-TEXT slice 1, 2026-09-25: VlaTextOp's refusal, asked before a cell is touched
+    'VlaTextOp'              # G-TEXT slice 1, 2026-09-25: refuses a change it does not know by name
 )
 
 $raiseRe = 'RaiseRuntimeMsg|RaiseMsg|Err\.Raise'

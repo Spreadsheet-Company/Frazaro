@@ -80,7 +80,15 @@ called directly as native VBA, never through reflection:
   (`Operator`/`Criteria2`). Turning filter buttons on is a runtime
   helper (`VlaAddFilters`, tier 1.3), not a new member, because
   `Range.AutoFilter` with no arguments is a toggle and the helper exists
-  to make "add" never take them away.
+  to make "add" never take them away. `G-TEXT` slice 1 added no member:
+  it widened `Range.Replace` with optional `LookAt`/`MatchCase`, so the
+  phrasebook's Replace no longer inherits whatever the last Find used,
+  and its text sentences are one runtime helper (`VlaTextInRange`, tier
+  1.3) that writes only cells already holding text, in the range the
+  sentence names. That helper writes `Value` itself, so it carries
+  `SEC.4`'s rule itself - text that would start with `=`/`+`/`-`/`@` is
+  written behind an apostrophe - because the runtime must compile alone
+  in a user's workbook and cannot call `NeutralizeFormulaInjection`.
 - `NeutralizeFormulaInjection` (`SEC.4`, shipped) now guards the one
   member in this tier with a real injection risk (`Value`) against a
   leading `=`/`+`/`-`/`@`.

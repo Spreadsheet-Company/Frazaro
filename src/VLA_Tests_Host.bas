@@ -561,6 +561,118 @@ Private Sub TestHelpersHost()
     Report "VlaAddFilters: an empty range refuses by name", _
            InStr(1, colDesc, "range C5:F9 is empty", vbTextCompare) > 0, "got: " & colDesc
     Report "VlaAddFilters: the refusal left no filter buttons", ws.AutoFilterMode = False, "buttons are on"
+
+    ' G-TEXT slice 1: VlaTextOp's Excel-named changes against Excel's own
+    ' worksheet functions, the oracle the pure suite cannot reach. A
+    ' failure here means the rule written down in VlaTextOp's header is
+    ' not Excel's after all, for that input.
+    Dim txSample As Variant
+    For Each txSample In Array("o'neil", "smith-jones", "don't", "3rd quarter", "(note) hello", _
+                               "MCDONALD and co", "x2y", "a_b", ChrW$(233) & "lan vital", _
+                               "stra" & ChrW$(223) & "e", "")
+        CheckV "VlaTextOp after any non-letter is Excel's PROPER: [" & txSample & "]", _
+               VlaTextOp(CStr(txSample), "capitalize-after-non-letter"), _
+               Application.WorksheetFunction.Proper(CStr(txSample))
+    Next txSample
+    For Each txSample In Array("  a   b  ", "a", "   ", "x  y z  ", "no extra")
+        CheckV "VlaTextOp remove-extra-spaces is Excel's TRIM: [" & txSample & "]", _
+               VlaTextOp(CStr(txSample), "remove-extra-spaces"), _
+               Application.WorksheetFunction.Trim(CStr(txSample))
+    Next txSample
+    CheckV "VlaTextOp remove-non-printing is Excel's CLEAN", _
+           VlaTextOp("a" & vbTab & "b" & vbCrLf & "c" & Chr$(1) & Chr$(31) & "d" & Chr$(127), "remove-non-printing"), _
+           Application.WorksheetFunction.Clean("a" & vbTab & "b" & vbCrLf & "c" & Chr$(1) & Chr$(31) & "d" & Chr$(127))
+    ' WorksheetFunction has no Upper or Lower (VBA's UCase/LCase stand in
+    ' for them - found live, error 438), so Excel is asked through a real
+    ' =UPPER()/=LOWER() formula over the same text in a cell. M1:M4 sit
+    ' left of Z, the empty column checked below.
+    ws.Range("M1").Value = "abc " & ChrW$(233) & ChrW$(223) & " 12"
+    ws.Range("M2").Formula = "=UPPER(M1)"
+    ws.Range("M3").Value = "ABC " & ChrW$(201) & " 12"
+    ws.Range("M4").Formula = "=LOWER(M3)"
+    CheckV "VlaTextOp upper is Excel's UPPER", _
+           VlaTextOp(CStr(ws.Range("M1").Value), "upper"), CStr(ws.Range("M2").Value)
+    CheckV "VlaTextOp lower is Excel's LOWER", _
+           VlaTextOp(CStr(ws.Range("M3").Value), "lower"), CStr(ws.Range("M4").Value)
+
+    ' VlaTextInRange on real cells: H1:H9 holds one of each kind of
+    ' value, and H4's formula makes the area mixed, so each text cell is
+    ' asked whether it holds a formula. After "upper" only the text
+    ' changed, and text Excel would have read as a logical or a formula
+    ' came back as text.
+    ws.Range("H1").Value = "widget"
+    ws.Range("H2").Value = 42
+    ws.Range("H3").Value = DateSerial(2026, 1, 2)
+    ws.Range("H4").Formula = "=""ab""&""c"""
+    ws.Range("H5").Value = "'true"
+    ws.Range("H6").Value = "'=hyperlink(""x"")"
+    ws.Range("H8").Value = CVErr(xlErrNA)
+    ws.Range("H9").Value = "MiXeD"
+    VlaTextInRange ws.Range("H1:H9"), "upper"
+    CheckV "VlaTextInRange upper: text changed", ws.Range("H1").Value, "WIDGET"
+    Report "VlaTextInRange upper: a number stays a number", VarType(ws.Range("H2").Value) = vbDouble, _
+           "VarType " & VarType(ws.Range("H2").Value)
+    Report "VlaTextInRange upper: a date stays a date", VarType(ws.Range("H3").Value) = vbDate, _
+           "VarType " & VarType(ws.Range("H3").Value)
+    Report "VlaTextInRange upper: a formula showing text is still a formula", ws.Range("H4").HasFormula = True, _
+           "H4 now holds " & ws.Range("H4").Formula
+    CheckV "VlaTextInRange upper: the formula's result is its own, not upper-cased", ws.Range("H4").Value, "abc"
+    Report "VlaTextInRange upper: text that reads as TRUE stays text", VarType(ws.Range("H5").Value) = vbString, _
+           "VarType " & VarType(ws.Range("H5").Value)
+    CheckV "VlaTextInRange upper: and says TRUE", ws.Range("H5").Value, "TRUE"
+    Report "VlaTextInRange upper: text starting = never becomes a formula", ws.Range("H6").HasFormula = False, _
+           "H6 now holds " & ws.Range("H6").Formula
+    CheckV "VlaTextInRange upper: and is the upper-cased text", ws.Range("H6").Value, "=HYPERLINK(""X"")"
+    Report "VlaTextInRange upper: a blank cell stays blank", IsEmpty(ws.Range("H7").Value), "H7 is no longer blank"
+    Report "VlaTextInRange upper: an error stays an error", VarType(ws.Range("H8").Value) = vbError, _
+           "VarType " & VarType(ws.Range("H8").Value)
+    CheckV "VlaTextInRange upper: the last text cell changed too", ws.Range("H9").Value, "MIXED"
+
+    ' An area with no formulas at all, and the text that Excel would
+    ' have read as a number: "  00123 " trimmed must keep its zeros.
+    ws.Range("J1").Value = "'  00123 "
+    ws.Range("J2").Value = ChrW$(160) & "a  " & ChrW$(160) & "b"
+    ws.Range("J3").Value = "   "
+    ws.Range("J4").Value = "no change"
+    VlaTextInRange ws.Range("J1:J4"), "remove-extra-spaces"
+    Report "VlaTextInRange trim: text that reads as a number stays text", VarType(ws.Range("J1").Value) = vbString, _
+           "VarType " & VarType(ws.Range("J1").Value)
+    CheckV "VlaTextInRange trim: and keeps its zeros", ws.Range("J1").Value, "00123"
+    CheckV "VlaTextInRange trim: non-breaking spaces closed up to one ordinary space", ws.Range("J2").Value, "a b"
+    Report "VlaTextInRange trim: a cell of spaces is left blank", IsEmpty(ws.Range("J3").Value), _
+           "J3 holds [" & ws.Range("J3").Value & "]"
+    CheckV "VlaTextInRange trim: text with nothing to change is untouched", ws.Range("J4").Value, "no change"
+
+    ' One cell (Range.Value is then a scalar, not an array), and a whole
+    ' column read only as far as the used range - a column past it is
+    ' nothing to do, not an error.
+    ws.Range("K1").Value = "a" & vbLf & "b"
+    VlaTextInRange ws.Range("K1"), "remove-non-printing"
+    CheckV "VlaTextInRange clean: one cell, its line break gone", ws.Range("K1").Value, "ab"
+    ws.Range("L1").Value = "ABC"
+    ws.Range("L2").Value = "o'NEIL"
+    VlaTextInRange ws.Columns("L"), "capitalize-after-non-letter"
+    CheckV "VlaTextInRange capitalize, a whole column: L1", ws.Range("L1").Value, "Abc"
+    CheckV "VlaTextInRange capitalize, a whole column: L2", ws.Range("L2").Value, "O'Neil"
+    Dim txDesc As String
+    txDesc = ""
+    On Error Resume Next
+    Err.Clear
+    VlaTextInRange ws.Columns("Z"), "upper"
+    txDesc = Err.Description
+    On Error GoTo 0
+    Report "VlaTextInRange: a column with nothing in it is nothing to do", Len(txDesc) = 0, "raised: " & txDesc
+
+    ' An unknown change refuses before a cell is touched.
+    txDesc = ""
+    On Error Resume Next
+    Err.Clear
+    VlaTextInRange ws.Range("H1:H9"), "sideways"
+    txDesc = Err.Description
+    On Error GoTo 0
+    Report "VlaTextInRange: an unknown change refuses by name", _
+           InStr(1, txDesc, "unknown change 'sideways'", vbTextCompare) > 0, "got: " & txDesc
+    CheckV "VlaTextInRange: the refused change touched nothing", ws.Range("H1").Value, "WIDGET"
     Application.DisplayAlerts = False
     ws.Delete
     Application.DisplayAlerts = True
@@ -3431,6 +3543,54 @@ Private Sub VerifyReportChecks(ws As Worksheet)
         Report "clear the filter conditions: no condition is left", wsS.FilterMode = False, "a filter condition is still set"
         Report "clear the filter conditions: row 22, hidden by less than 99.5, is showing", _
                wsS.Rows(22).Hidden = False, "row 22 still hidden"
+    End If
+
+    ' G-TEXT slice 1: pareto.txt section 12, text changed in place, real
+    ' end state on instructions.txt's own GText sheet. Each column holds
+    ' one sentence's text beside the values it had to leave alone, and
+    ' the text Excel would have read as TRUE, a formula or a number is
+    ' checked to be text still.
+    Dim wsT As Worksheet
+    On Error Resume Next
+    Set wsT = ActiveWorkbook.Worksheets("GText")
+    On Error GoTo 0
+    Report "GText sheet exists", Not (wsT Is Nothing), "no GText sheet - Run the program first"
+    If Not wsT Is Nothing Then
+        CheckV "upper case: text changed (A1)", wsT.Range("A1").Value, "WIDGET"
+        Report "upper case: a number stays a number (A2)", VarType(wsT.Range("A2").Value) = vbDouble, _
+               "VarType " & VarType(wsT.Range("A2").Value)
+        Report "upper case: a formula stays a formula (A3)", wsT.Range("A3").HasFormula = True, _
+               "A3 now holds " & wsT.Range("A3").Formula
+        CheckV "upper case: the formula shows its own result, not upper-cased (A3)", wsT.Range("A3").Value, "ab"
+        Report "upper case: text that reads as TRUE stays text (A4)", VarType(wsT.Range("A4").Value) = vbString, _
+               "VarType " & VarType(wsT.Range("A4").Value)
+        CheckV "upper case: and says TRUE (A4)", wsT.Range("A4").Value, "TRUE"
+        Report "upper case: text starting = never becomes a formula (A5)", wsT.Range("A5").HasFormula = False, _
+               "A5 now holds " & wsT.Range("A5").Formula
+        CheckV "upper case: and is the upper-cased text (A5)", wsT.Range("A5").Value, "=ABC"
+
+        CheckV "lower case, a whole column (B1)", wsT.Range("B1").Value, "hello world"
+        CheckV "lower case, a whole column (B2)", wsT.Range("B2").Value, "mixed"
+
+        CheckV "capitalize after any space: an apostrophe starts no word (C1)", wsT.Range("C1").Value, "Don't Stop"
+        CheckV "capitalize after any space: 3rd stays (C2)", wsT.Range("C2").Value, "3rd Quarter"
+        CheckV "capitalize after any space: o'neil keeps its small n (C3)", wsT.Range("C3").Value, "O'neil"
+        CheckV "capitalize after any non-letter: PROPER's own quirk (D1)", wsT.Range("D1").Value, "Don'T Stop"
+        CheckV "capitalize after any non-letter: a digit starts a word (D2)", wsT.Range("D2").Value, "3Rd Quarter"
+        CheckV "capitalize after any non-letter: O'Neil (D3)", wsT.Range("D3").Value, "O'Neil"
+
+        CheckV "extra spaces: both ends and the inside (E1)", wsT.Range("E1").Value, "a b"
+        Report "extra spaces: text that reads as a number stays text (E2)", VarType(wsT.Range("E2").Value) = vbString, _
+               "VarType " & VarType(wsT.Range("E2").Value)
+        CheckV "extra spaces: and keeps its zeros (E2)", wsT.Range("E2").Value, "00123"
+        Report "extra spaces: a cell of spaces is left blank (E3)", IsEmpty(wsT.Range("E3").Value), _
+               "E3 holds [" & wsT.Range("E3").Value & "]"
+        CheckV "extra spaces: non-breaking ones count, closed up to one ordinary space (E4)", wsT.Range("E4").Value, "x y"
+
+        CheckV "non-printing characters: a line break gone (F1)", wsT.Range("F1").Value, "ab"
+        CheckV "non-printing characters: a tab gone (F2)", wsT.Range("F2").Value, "cd"
+
+        CheckV "replace after a whole-cell Find still matches inside a cell, any case (G2)", wsT.Range("G2").Value, "bxyxya"
     End If
 End Sub
 

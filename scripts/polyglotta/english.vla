@@ -3114,6 +3114,169 @@
     "Copy only the visible cells of A1:D50 to cell F1."
     (copy-visible-cells (range "a1:d50") (range "f1")))
 
+; ---- G-TEXT slice 1: text changed in place (pareto section 12) ----------
+; BETA_ROADMAP.md's G-TEXT entry. pareto.txt section 12 has sixteen
+; entries; this slice is the five that change a range's text where it
+; stands (trim-spaces, upper-case, lower-case, proper-case, clean-text),
+; each with a column twin. Scoped 2026-09-25 against what already
+; shipped, with four forks the owner decided, each named where its rules
+; sit.
+;
+; What already shipped, and keeps its meaning (SD-4): the text of ONE
+; value, into a variable - "Set v to trimmed ...", "first|last {n}
+; letters of", "position of ... in", "... with ... replaced by ...",
+; "uppercase|lowercase|length of", and the conditions "contains",
+; "starts with" and "ends with" (the core's). pareto's text-before/-after,
+; characters, pad and join are the next slice's, over the same values.
+; A CO.7 note, found here and not changed here: "trimmed" is VBA's Trim,
+; which trims the two ends only, where "Remove extra spaces from" below
+; is Excel's TRIM - a speaker who knows =TRIM() will expect "trimmed" to
+; close up the inside of the text too.
+;
+; Every sentence here changes TEXT and nothing else: formulas, numbers,
+; dates, TRUE/FALSE, errors and blank cells are left as they are, and a
+; cell that held text still holds text afterwards, so "00123" keeps its
+; zeros and "TRUE" stays a word (the owner's call). A column means the
+; column's used cells, its header included. All of it is one runtime
+; helper, VLA_Runtime.VlaTextInRange, whose header says how.
+
+; ---- upper and lower case ----------------------------------------------
+; pareto's "upper case" and "lower case", and the one-word spellings Word
+; and Excel's own help use; both reach the same macro, "{k}case" gluing
+; the matched word back into one name.
+(defmacro
+    (make-uppercase r)
+    "turn the text in a range into capital letters - numbers, dates and formulas stay as they are"
+    (vlatextinrange r "upper"))
+
+(defmacro
+    (make-lowercase r)
+    "turn the text in a range into small letters - numbers, dates and formulas stay as they are"
+    (vlatextinrange r "lower"))
+
+(english-vla
+    "make cell|range {r:range} {k:upper|lower} case"
+    (make-{k}case (range {r})))
+(test-success
+    "Make range A2:A50 upper case."
+    (make-uppercase (range "a2:a50")))
+(test-success
+    "Make cell B2 lower case."
+    (make-lowercase (range "b2")))
+
+(english-vla
+    "make cell|range {r:range} {k:uppercase|lowercase}"
+    (make-{k} (range {r})))
+(test-success
+    "Make range A2:A50 uppercase."
+    (make-uppercase (range "a2:a50")))
+(test-success
+    "Make range A2:C9 lowercase."
+    (make-lowercase (range "a2:c9")))
+
+(english-vla
+    "make column {c:column} {k:upper|lower} case"
+    (make-{k}case (columns {c})))
+(test-success
+    "Make column B upper case."
+    (make-uppercase (columns "b")))
+
+(english-vla
+    "make column {c:column} {k:uppercase|lowercase}"
+    (make-{k} (columns {c})))
+(test-success
+    "Make column C lowercase."
+    (make-lowercase (columns "c")))
+
+; ---- capitalizing each word ----------------------------------------------
+; Two rules are in use for where a word starts, and the sentence names
+; the one it means (the owner's call, over pareto's bare "Capitalize
+; range", which some readers hear as ALL CAPITALS, and over a default
+; that would hide the choice):
+;   "after any non-letter" - Excel's PROPER: "o'neil" is "O'Neil",
+;     "smith-jones" is "Smith-Jones", and "don't" is "Don'T".
+;   "after any space" - a capital only right after a space, a tab or a
+;     line break: "don't" is "Don't", "o'neil" is "O'neil".
+; Either way every other letter is made small. A sentence naming neither
+; refuses, and the refusal shows both.
+(defmacro
+    (capitalize-after-space r)
+    "capitalize each word in a range's text, a word starting after a space - other letters made small"
+    (vlatextinrange r "capitalize-after-space"))
+
+(defmacro
+    (capitalize-after-non-letter r)
+    "capitalize each word in a range's text, a word starting after any character that is not a letter (Excel's PROPER) - other letters made small"
+    (vlatextinrange r "capitalize-after-non-letter"))
+
+(english-vla
+    "capitalize each word in cell|range {r:range} after any {k:space|non-letter}"
+    (capitalize-after-{k} (range {r})))
+(test-success
+    "Capitalize each word in range A2:A50 after any space."
+    (capitalize-after-space (range "a2:a50")))
+(test-success
+    "Capitalize each word in cell B2 after any non-letter."
+    (capitalize-after-non-letter (range "b2")))
+(test-fail
+    "Capitalize each word in range A2:A50."
+    "then I expected 'after'")
+
+(english-vla
+    "capitalize each word in column {c:column} after any {k:space|non-letter}"
+    (capitalize-after-{k} (columns {c})))
+(test-success
+    "Capitalize each word in column B after any non-letter."
+    (capitalize-after-non-letter (columns "b")))
+
+; ---- extra spaces and non-printing characters --------------------------
+; "Remove extra spaces from" is Excel's TRIM - both ends, and every run
+; inside closed up to one space - with a non-breaking space (CHAR(160),
+; common in text pasted from the web or exported from other systems)
+; counted as a space, since it looks like one (the owner's call). "Remove
+; non-printing characters from" is Excel's CLEAN: characters 0 to 31,
+; tabs and line breaks inside a cell among them.
+(defmacro
+    (remove-extra-spaces r)
+    "remove spaces from both ends of a range's text and close up every run inside it to one space (Excel's TRIM, non-breaking spaces counted)"
+    (vlatextinrange r "remove-extra-spaces"))
+
+(defmacro
+    (remove-non-printing-characters r)
+    "remove tabs, line breaks and the other characters 0 to 31 from a range's text (Excel's CLEAN)"
+    (vlatextinrange r "remove-non-printing"))
+
+(english-vla
+    "remove extra spaces from cell|range {r:range}"
+    (remove-extra-spaces (range {r})))
+(test-success
+    "Remove extra spaces from range A2:A50."
+    (remove-extra-spaces (range "a2:a50")))
+(test-success
+    "Remove extra spaces from cell B2."
+    (remove-extra-spaces (range "b2")))
+
+(english-vla
+    "remove extra spaces from column {c:column}"
+    (remove-extra-spaces (columns {c})))
+(test-success
+    "Remove extra spaces from column A."
+    (remove-extra-spaces (columns "a")))
+
+(english-vla
+    "remove non-printing characters from cell|range {r:range}"
+    (remove-non-printing-characters (range {r})))
+(test-success
+    "Remove non-printing characters from range A2:A50."
+    (remove-non-printing-characters (range "a2:a50")))
+
+(english-vla
+    "remove non-printing characters from column {c:column}"
+    (remove-non-printing-characters (columns {c})))
+(test-success
+    "Remove non-printing characters from column D."
+    (remove-non-printing-characters (columns "d")))
+
 ; ---- G11: the template face --------------------------------------
 ; Friendly functors hiding the dot (VBA member access) from template
 ; authors. The dot stays first-class in VLA - these are carried
@@ -3396,10 +3559,17 @@
     wraptext
     "turn on a range's text wrapping"
     "turn off a range's text wrapping")
+; G-TEXT (2026-09-25): :lookat and :matchcase are pinned, to Excel's own
+; starting settings - a match anywhere in a cell, in any case. Left out,
+; Excel reuses whatever the last Find or Replace used, the Find and
+; Replace dialog's or a program's own "row of ... in column" (a whole-
+; cell Find), so the same sentence could replace whole cells only after
+; an earlier one. SD-4 keeps the meaning it had for anyone who never
+; changed that dialog; the sentence now means it every time.
 (defmacro
     (replace-in a b target)
-    "find and replace text within a range or column"
-    (. target replace :what a :replacement b))
+    "find and replace text within a range or column - a match anywhere in a cell, in any case"
+    (. target replace :what a :replacement b :lookat xlpart :matchcase false))
 
 (defmacro
     (clear-formatting r)
