@@ -375,7 +375,7 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "english-create-unknown-kind", 5, "VLA-English", "Create what? Say 'a number', 'a text', 'a value', 'a list', or 'a lookup', not '{kind}'"
     AddMsg m, "english-to-not-top-level", 5, "VLA-English", "'To ...' definitions must be at the top level, not inside a block"
     AddMsg m, "english-define-not-top-level", 5, "VLA-English", "'Define ...' must be at the top level, not inside a block"
-    AddMsg m, "english-unexpected-token-block", 5, "VLA-English", "Unexpected '{tok}' — is there a stray 'Done.' or a missing block?"
+    AddMsg m, "english-unexpected-token-block", 5, "VLA-English", "Unexpected '{tok}' - is there a stray 'Done.' or a missing block?"
     AddMsg m, "english-parse-error", 5, "VLA-English", "{msg}"
     AddMsg m, "english-unknown-slot-category-runtime", 5, "VLA-English", "Unknown slot category ':{cat}' in a phrase pattern"
     AddMsg m, "english-action-unknown-param", 5, "VLA-English", "the action '{action}' has no parameter called '{param}'. Its parameters are: {list}{loc}"

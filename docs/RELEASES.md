@@ -128,6 +128,11 @@
     roster, and rules that read what is being chosen. Each is refused in
     words that say so.
 
+- **One message's dash is a plain hyphen now, like every other message's.**
+  The refusal of a stray `Done.` or `Otherwise` - "is there a stray 'Done.'
+  or a missing block?" - was the only message whose words held a character
+  outside plain ASCII, which Frazaro's code is not meant to contain.
+
 ### Known open security items
 
 **Closed this release:** nothing. The query changes above are speed only: the
