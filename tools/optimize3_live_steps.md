@@ -399,3 +399,283 @@ N is a second measurement of the rate.
 ## 15. Remove the harness
 
 In the VBA editor, right-click `VLA_DiagO3` > `Remove VLA_DiagO3...` > **No**.
+
+---
+
+# Slice 3 - the ceilings
+
+*A formula now lays out at most 100,000 rows of OPTIMIZE's own grounding,
+and at most 50,000 in any one step; a program past either is refused,
+naming the rule or the choice form and the number, and the refusal is
+memoized. Each step is counted exactly before a row of it is made. The
+rule over chosen rows is joined smallest part first, which is what lets
+the reference roster's "never two in a row" fit at all. Plus one
+separate fix, first: a message's dash. Ten steps, 16 to 25. Every
+number below was checked before the pass against a transliteration of
+the grounder and, where it searches, of the search.*
+
+**Slice 3 passed live 2026-09-25, in two rounds:** every count and every
+sentence as expected. Round 2's `TestDSLs` read 2264/0 again, and its
+`O3C|` lines are in the roadmap: grounding at the ceiling 0.05-0.16 s, a
+whole run at it 0.40 s.
+
+**Round 1, 2026-09-25:**
+- Steps 17 to 23 passed as expected.
+- Step 16 ran on a workbook already reloaded with the fix, so it showed the
+  hyphen. The old dash was never seen.
+- Step 24's counts were exact, but two of its rungs took 16.6 s and 48.5 s.
+  Three hash tables had gone quadratic at the ceiling, one of them slice 2's
+  atom table. The fix is in, and round 2 (steps 26 to 29) re-times it.
+
+**Two steps build their program with a formula.** The programs are
+hundreds of facts long, so A1 builds the text with `TEXTJOIN` and
+`SEQUENCE` rather than you pasting it. A1 shows the program text; that
+is expected.
+
+## 16. The dash, before you reload
+
+Do this **before** step 17 - it looks at the code the workbook has now.
+In the Immediate window:
+
+```
+VLA_Messages.RaiseMsg "english-unexpected-token-block", "tok", "done"
+```
+
+**Expected:** VBA's own error dialog, `Run-time error '5':`, reading
+`Unexpected 'done' â€” is there a stray 'Done.' or a missing block?` -
+three stray characters, `â€”`, where a dash belongs. Click **End**. That
+message's source held a real em dash, stored as three bytes of UTF-8,
+and VBA reads a module as Windows text, one character per byte. If the
+dialog shows a proper dash instead, tell me: the release note says it
+did not.
+
+## 17. Reload, compile, and the versions
+
+No module is new in this slice, and `VLA_DevRig.bas` did not change, so
+`VlaDevReload` alone, then `Debug > Compile VBAProject`. Then:
+
+```
+?VLA_Datalog.VLA_DATALOG_VERSION & " " & VLA_Optimize.VLA_OPTIMIZE_VERSION & " " & VLA_Messages.VLA_MESSAGES_VERSION & " " & VLA_Tests_Query.VLA_TESTS_QUERY_VERSION
+```
+
+**Expected:** compiles with no error, and
+`OPTIMIZE.3 OPTIMIZE.3 OPTIMIZE.3 OPTIMIZE.3` - unchanged since slice 2,
+so here the compile is the check. (`VLA_Messages.bas` is CLI.5's file
+too: if that peer has moved its version, that is theirs.) If the compile
+stops, paste the highlighted line and the error and stop.
+
+## 18. The suites
+
+```
+?VLA_Tests_Query.TestDSLs
+?VlaSelfTest
+?VlaSelfTestHost
+```
+
+and `VerifyReports` on both backends.
+
+**Expected:** `TestDSLs` **2264 passed, 0 failed** - 2235 at slice 2,
+plus **20** in the new `TestDatalogGroundCeilings`, **8** in the new
+`TestOptimizeCeilings`, and **1** in `TestOptimizeChoice`. `VlaSelfTest`
+**1347/1347** when I last saw it (CLI.5's pins, not this slice's);
+`VlaSelfTestHost` **152/152**; `VerifyReports` **242/242** on both.
+Only the totals to paste.
+
+## 19. The dash, after
+
+The same line as step 16:
+
+```
+VLA_Messages.RaiseMsg "english-unexpected-token-block", "tok", "done"
+```
+
+**Expected:** the dialog reads
+`Unexpected 'done' - is there a stray 'Done.' or a missing block?` - a
+plain hyphen, like every other message. Click **End**.
+
+## 20. A rule that pairs too many
+
+A fresh sheet. In **A1**, this formula (it builds a program of 300 items,
+any of them picked, and a rule over two picks that share no name):
+
+```
+=TEXTJOIN(" ",TRUE,"(fact (item i"&SEQUENCE(300)&"))")&" (choose-any (pick X) (item X)) (forbid (pick X) (pick Y)) (query pick)"
+```
+
+In **C1**: `=OPTIMIZE_STATUS(A1)`.
+
+**Expected:** C1 reads exactly:
+
+> #OPTIMIZE! (forbid (pick X) (pick Y)) pairs more rows than a formula
+> lays out in one step: the 300 rows of 'pick' share no name with the 300
+> before it, so every one pairs with every one, making 90,000 rows, and a
+> formula lays out at most 50,000. A condition that ties its rows together
+> pairs fewer, and so does a smaller pool.
+
+It answers at once: the 90,000 are counted, never made.
+
+## 21. A choice with too many rows to choose from
+
+A fresh sheet. In **A1**:
+
+```
+=TEXTJOIN(" ",TRUE,"(fact (item i"&SEQUENCE(250)&"))")&" "&TEXTJOIN(" ",TRUE,"(fact (slot t"&SEQUENCE(201)&"))")&" (choose-at-most 250 (pick X S) (item X) (per (slot S))) (query pick)"
+```
+
+In **C1**: `=OPTIMIZE_STATUS(A1)`.
+
+**Expected:** C1 reads exactly:
+
+> #OPTIMIZE! (choose-at-most 250 (pick X S) (item X) (per (slot S))) has
+> more rows to choose from than a formula lays out in one step: the 201
+> rows of 'slot' share no name with the 250 before it, so every one pairs
+> with every one, making 50,250 rows, and a formula lays out at most
+> 50,000. Choose from a smaller pool - a rule that keeps only the rows
+> that could really be chosen.
+
+## 22. A program past the total
+
+A fresh sheet. In **A1** - step 21's formula with **200** slots instead
+of 201:
+
+```
+=TEXTJOIN(" ",TRUE,"(fact (item i"&SEQUENCE(250)&"))")&" "&TEXTJOIN(" ",TRUE,"(fact (slot t"&SEQUENCE(200)&"))")&" (choose-at-most 250 (pick X S) (item X) (per (slot S))) (query pick)"
+```
+
+In **C1**: `=OPTIMIZE_STATUS(A1)`.
+
+**Expected:** C1 reads exactly:
+
+> #OPTIMIZE! this program lays out more rows than a formula may: with
+> (choose-at-most 250 (pick X S) (item X) (per (slot S))), its choices and
+> the rules over them reach 100,650 rows, and a formula lays out at most
+> 100,000 in all. Smaller pools, or rules that pair fewer rows, lay out
+> less.
+
+Its one step of 50,000 is AT the step ceiling, not past it, so it is
+made; the 50,000 members after it take the total past 100,000. So unlike
+steps 20 and 21 it is refused only after laying out 100,650 rows, and
+may not answer at once - step 24 times what that costs.
+
+## 23. The reference roster's own shape, answered
+
+A fresh sheet. 50 people, 84 shifts - four weeks of three shifts a day,
+the reference roster's size - exactly two a shift, never two in a row.
+In **A1**:
+
+```
+=TEXTJOIN(" ",TRUE,"(fact (person p"&SEQUENCE(50)&"))")&" "&TEXTJOIN(" ",TRUE,"(fact (shift s"&SEQUENCE(84)&"))")&" "&TEXTJOIN(" ",TRUE,"(fact (next s"&SEQUENCE(83)&" s"&SEQUENCE(83)+1&"))")&" (rule (elig S P) (shift S) (person P)) (choose-exactly 2 (assign S P) (elig S P) (per (shift S))) (forbid (assign S P) (assign T P) (next S T)) (query assign)"
+```
+
+In **C1**: `=OPTIMIZE(A1)`. In **F1**: `=OPTIMIZE_STATUS(A1)`.
+
+**Expected:** C1 spills the header `S` `P` and 168 rows, from `s1 p1`,
+`s1 p2`, `s2 p3`, `s2 p4`, `s3 p1`, `s3 p2` down to `s84 p3`, `s84 p4`
+in C168:D169. F1 reads exactly:
+
+> proven best: every rule holds, and nothing is being minimized or
+> maximized, so no schedule is better than this one - it is the first that
+> breaks no rule when the rows are decided in the order your Tables and
+> facts list them (168 decisions, 0 dead ends).
+
+- "Tables and facts" is the reworded status: slice 2's step 7 said "your
+  Tables" of a program that had none.
+- Before this slice, the forbid in its own written order would have paired
+  every shift of each person with every other: 352,800 rows in one step,
+  and this sheet would be refused. Joined smallest part first, the whole
+  grounding lays out 25,301 rows.
+
+## 24. The ceilings, timed
+
+In the VBA editor, `File > Import File...` and choose
+`tools\VLA_DiagO3.bas` again (slice 3's rungs are added to it).
+`Debug > Compile VBAProject`. Close every other workbook. Then:
+
+```
+O3Ceiling
+```
+
+**Expected, exactly, on every `O3C|` line:** verdict `ok` and these
+counts:
+
+| run | rows laid out | largest step | step refused |
+|---|---|---|---|
+| member rule, 250 items x 198 slots | 99,250 | 49,500 | - |
+| never two in a row, planned, 60 x 553 | 99,912 | 33,120 | - |
+| never two in a row, written, 60 x 553 | 33,180 | 33,180 | 18,348,540 |
+| OPTIMIZE, 250 items x 198 slots | 99,646 | 49,500 | - (and 49,500 decisions) |
+
+The first two are the integer grounder alone at a formula's ceilings, one
+per pass; the third is the rule this slice plans, in its own written
+order, refused - its time is the first step plus counting 18 million
+rows, which it never makes; the last is a whole run at the ceiling, its
+search and its answer included. The seconds are this slice's own first
+measurement of what the ceilings cost on the integer grounder. My guess is
+about a tenth to a fifth of a second for each of the first two, and under
+a second for the whole run, but I am not holding you to it. **Paste every
+`O3C|` line back.**
+
+## 25. Remove the harness
+
+In the VBA editor, right-click `VLA_DiagO3` > `Remove VLA_DiagO3...` > **No**.
+
+---
+
+## Slice 3, round 2 - after the hash fix
+
+*Step 24's first run was exact on every count, but its planned rung took
+16.6 s and its whole run 48.5 s for rows the member rung laid out in
+0.034 s. Three hash tables probed in line on a hash that packed a two-part
+key into neighbouring slots, so every new key walked a run that grew with
+the table:*
+- *the integer grounder's key counter;*
+- *its row sets;*
+- *slice 2's atom table.*
+
+*A simulation of the rungs' own keys counted 246 million and 1.5 billion
+probes. All eleven hash sites now use one step that mixes each id, which
+the same simulation puts at a random hash's probe rate. No answer can
+change: those tables keep their rows in insertion order and only answer
+whether a key is there. Four steps.*
+
+## 26. Reload and compile
+
+`VLA_Datalog.bas` and `VLA_Optimize.bas` changed; no module was added. So
+`VlaDevReload`, then `Debug > Compile VBAProject`. It must compile.
+
+## 27. The suite again
+
+```
+?VLA_Tests_Query.TestDSLs
+```
+
+**Expected:** **2264 passed, 0 failed**, the same as step 18. The hash
+decides where a key sits, never which rows come out or in what order, and
+`TestDatalogGroundRules` grounds every rule of the parity table both ways
+again.
+
+## 28. The ceilings, timed again
+
+If you removed `VLA_DiagO3` at step 25, import `tools\VLA_DiagO3.bas`
+again (it has not changed) and compile. Close every other workbook. Then:
+
+```
+O3Ceiling
+```
+
+**Expected:** exactly step 24's counts on all four lines, each `ok`. The
+seconds are the point:
+- **Rungs 2 and 4 should fall a long way from 16.566 and 48.487.**
+- **Rung 2** should come in near rung 1's few hundredths of a second, with
+  two counting passes on top.
+- **Rung 4** also searches 49,500 decisions (about 0.12 s at slice 2's rate)
+  and builds a 49,500-row answer, so my guess is under two seconds. I have
+  not measured it.
+- Rungs 1 and 3 may move a little either way: the new hash costs a few more
+  operations a key and saves nothing there.
+
+**Paste every `O3C|` line back.**
+
+## 29. Remove the harness
+
+In the VBA editor, right-click `VLA_DiagO3` > `Remove VLA_DiagO3...` > **No**.

@@ -303,6 +303,31 @@ Private Const OPT_CLAUSE_PREFIX As String = "vla-check-clause-"
 ' machine, and the status says which one fired.
 Private Const OPT_GUARD_SECONDS As Double = 10
 
+' ---- OPTIMIZE.3 slice 3: the ceilings a formula's grounding is held to --
+'
+' Fork 1, the owner's call 2026-09-24: counted in ROWS and never in
+' seconds, so a workbook refuses or answers the same on every machine. A
+' formula lays out at most 100,000 rows of OPTIMIZE's own grounding - its
+' choices' groups and members, and its constraints' clauses - and at
+' most 50,000 in any one step: about 0.9 s by the re-fitted model of
+' DATALOG's own evaluator (tools/optimize3_model.ps1), and far less on
+' the integer grounder, which slice 4's ladder measures before either is
+' raised. DATALOG's certain part is not counted, since DATALOG has no
+' ceiling either. What counts as laid out, and when a step is counted,
+' is VLA_Datalog's to say (its declarations section). A command's own
+' ceiling arrives with the command, slice 5.
+Private Const OPT_FORMULA_STEP_ROWS As Double = 50000
+Private Const OPT_FORMULA_TOTAL_ROWS As Double = 100000
+
+' A size refusal is memoized like an answer, unlike every other refusal
+' (see the memo's own header), as a two-item result: this marker, under
+' the reserved prefix so no query name can be it, and the refusal's own
+' words. OptimizeRun raises it again on every ask.
+Private Const OPT_REFUSAL_MARK As String = "vla-check-refusal"
+Private Const OPT_REFUSE_CHOICE_STEP As Long = 1
+Private Const OPT_REFUSE_RULE_STEP As Long = 2
+Private Const OPT_REFUSE_TOTAL As Long = 3
+
 ' ---- OPTIMIZE.3: integer tuples, and a program's ground form ---------
 '
 ' A tuple index over Long ids: open addressing over a flat key array,
@@ -347,6 +372,8 @@ Private Type OptGround
     clStart() As Long
     nClLit As Long
     clLit() As Long
+    rowsLaid As Double
+    peakStep As Double
 End Type
 
 ' ---- the session memo ----------------------------------------------
@@ -367,9 +394,16 @@ End Type
 '  else, and the pins cover exactly that: clear it between two calls and
 '  the answer is the same.
 '
-'  A refusal is never memoized. Only an answer is, so a program that
-'  cannot be read pays for its refusal every time - which is right, since
-'  a refusal is cheap and a stale one would be a lie.
+'  A refusal is never memoized, with ONE exception. Only an answer is, so
+'  a program that cannot be read pays for its refusal every time - which
+'  is right, since such a refusal is cheap and a stale one would be a
+'  lie. The exception is OPTIMIZE.3 slice 3's size refusal, which is not
+'  cheap: it is found by laying a program out up to a ceiling, after
+'  DATALOG has answered its certain part. It is memoized exactly as an
+'  answer is, under the same key, so it can no more be stale than an
+'  answer can - and the Function Wizard's second run of the same
+'  arguments, a status cell beside it, and every recalculation cost a
+'  hash, which is what fork 3 settled the wizard on.
 Private Const OPT_MEMO_CAP As Long = 16
 Private mMemo As Object
 Private mMemoOrder As Collection
@@ -569,8 +603,14 @@ End Function
 '   9 OPTIMIZE.3: the search's own numbers, one Variant array -
 '     atoms, clauses, counters, decisions, dead ends, work, the
 '     search's outcome (a VLA_OptimizeSearch OPT_SEARCH_* constant, or
-'     0 when nothing was searched) and atoms pruned at grounding. All
-'     zero for a program with no choice.
+'     0 when nothing was searched), atoms pruned at grounding, and - from
+'     slice 3 - the rows the grounding laid out and its largest step,
+'     the two numbers the ceilings hold. All zero for a program with no
+'     choice.
+'
+' A program too large for a formula to lay out raises its size refusal
+' here, whether the refusal was just found or is the memo's (see the
+' memo's header): it is never returned as an answer.
 '
 ' Items 6 upward are this engine's own and the parity pin never reads
 ' them; items 1 to 5 stay DatalogRun's, item for item, which is what
@@ -633,8 +673,11 @@ Public Function OptimizeRun(ByVal rulesText As String, Optional ByVal baseRelati
     ' changed (decision 2). A miss costs one hash.
     Dim memoKey As String
     memoKey = OptimizeMemoKey(rulesText, relations, hMap)
+    Dim outp As Collection
     If MemoHas(memoKey) Then
-        Set OptimizeRun = MemoGet(memoKey)
+        Set outp = MemoGet(memoKey)
+        If IsSizeRefusal(outp) Then RaiseSizeRefusal outp
+        Set OptimizeRun = outp
         Exit Function
     End If
 
@@ -654,7 +697,6 @@ Public Function OptimizeRun(ByVal rulesText As String, Optional ByVal baseRelati
     ' OPTIMIZE.3: a program that chooses nothing takes OPTIMIZE.2's path
     ' unchanged, line for line - which is what keeps the parity pin
     ' honest: every DATALOG program is a program with no choice.
-    Dim outp As Collection
     If choices.Count = 0 Then
         Set outp = RunZeroChoice(forms, constraints, relations, hMap)
     Else
@@ -662,6 +704,7 @@ Public Function OptimizeRun(ByVal rulesText As String, Optional ByVal baseRelati
     End If
 
     MemoPut memoKey, outp
+    If IsSizeRefusal(outp) Then RaiseSizeRefusal outp
     Set OptimizeRun = outp
 End Function
 
@@ -704,8 +747,9 @@ Private Function RunZeroChoice(ByVal forms As Collection, ByVal constraints As C
     outp.Add StatusSentence(stateId, constraints, violations)
     outp.Add violations
     ' OPTIMIZE.3's item 9, the search's own numbers - all zero here,
-    ' because nothing was searched.
-    outp.Add Array(0&, 0&, 0&, 0&, 0&, 0&, 0&, 0&)
+    ' because nothing was searched, and nothing laid out beyond what
+    ' DATALOG answers, which no ceiling counts.
+    outp.Add Array(0&, 0&, 0&, 0&, 0&, 0&, 0&, 0&, 0&, 0&)
     Set RunZeroChoice = outp
 End Function
 
@@ -1899,7 +1943,18 @@ End Function
 '      the atom can never be chosen, since its negation then always
 '      holds; a chosen consequent of a require adds "this atom". A
 '      clause left with nothing in it is broken whatever is chosen - a
-'      violation, in the violations table like OPTIMIZE.2's.
+'      violation, in the violations table like OPTIMIZE.2's. Its rule's
+'      body is PLANNED (slice 3): walked smallest atom first, then always
+'      the smallest sharing a name with what is joined, so "(forbid
+'      (assign S P) (assign T P) (next S T))" joins next first - the same
+'      clauses, in the planned order rather than the written one.
+'   5a. THE CEILINGS (slice 3), over passes 2 and 3 together: at most
+'      OPT_FORMULA_TOTAL_ROWS rows laid out, at most OPT_FORMULA_STEP_ROWS
+'      in any one step. Every step's rows are known before one is made,
+'      so a program past a ceiling is refused having laid out no more
+'      than the ceiling - naming the choice form or the rule, and the
+'      number - and the refusal is memoized, since finding it was not
+'      cheap.
 '   7. SINGLE-ATOM PRUNING (a clause of one literal fixes its atom at
 '      grounding, and costs the search nothing) and THE COUNTING
 '      PRE-CHECKS, OPTIMIZE.2's three comparisons reached at last: a
@@ -1916,9 +1971,8 @@ End Function
 '
 '  NOT YET, and each has its item: an objective or preference (.6), the
 '  kept schedule (.7), a count over chosen rows (.4), rules over chosen
-'  rows (.5), and the ceilings that refuse a program by its projected
-'  size before grounding it (this item's slice 3). Until slice 3, a
-'  program's grounding is bounded by nothing but its own size.
+'  rows (.5), and a command for the programs a formula's ceilings refuse
+'  (this item's slice 5).
 
 Private Function RunWithChoices(ByVal forms As Collection, ByVal constraints As Collection, _
                                 ByVal choices As Collection, ByVal effortWork As Long, _
@@ -1973,7 +2027,7 @@ Private Function RunWithChoices(ByVal forms As Collection, ByVal constraints As 
     VLA_Relation.VlaSymInit syms
     Dim chosenVal() As Long
     ReDim chosenVal(0 To 0)
-    Dim stats(1 To 8) As Long
+    Dim stats(1 To 10) As Long
 
     ' --- 4. a constraint broken by certain rows alone ---------------------
     Dim violations As Collection
@@ -1986,13 +2040,26 @@ Private Function RunWithChoices(ByVal forms As Collection, ByVal constraints As 
     End If
 
     ' --- 5. pass 2, the choices -------------------------------------------
-    GroundChoices choices, r1.Item(2), hMap, syms, chosen, chosenNames, gr
+    ' A ceiling passed in either pass ends the run with the size refusal,
+    ' which OptimizeRun memoizes and raises.
+    Dim refusal As Collection
+    GroundChoices choices, r1.Item(2), hMap, syms, chosen, chosenNames, gr, refusal
+    If Not refusal Is Nothing Then
+        Set RunWithChoices = refusal
+        Exit Function
+    End If
 
     ' --- 6. pass 3, the constraints over chosen rows, as clauses ----------
-    GroundClauses constraints, readsChoice, r1.Item(2), hMap, syms, chosen, chosenNames, gr, violations
+    GroundClauses constraints, readsChoice, r1.Item(2), hMap, syms, chosen, chosenNames, gr, violations, refusal
+    If Not refusal Is Nothing Then
+        Set RunWithChoices = refusal
+        Exit Function
+    End If
     stats(1) = gr.atoms.n
     stats(2) = gr.nCl
     stats(3) = gr.nCtr
+    stats(9) = CLng(gr.rowsLaid)
+    stats(10) = CLng(gr.peakStep)
     If VLA_Relation.RelCount(violations) > 0 Then
         Set RunWithChoices = FinishChoiceRun(forms, r1, chosen, chosenNames, chosenAtoms, gr, chosenVal, _
             False, VLA_OPTIMIZE_NO_SCHEDULE, StatusSentence(VLA_OPTIMIZE_NO_SCHEDULE, constraints, violations), _
@@ -2117,7 +2184,8 @@ Private Function FinishChoiceRun(ByVal forms As Collection, ByVal r1 As Collecti
     outp.Add stateId
     outp.Add words
     outp.Add violations
-    outp.Add Array(stats(1), stats(2), stats(3), stats(4), stats(5), stats(6), stats(7), stats(8))
+    outp.Add Array(stats(1), stats(2), stats(3), stats(4), stats(5), stats(6), stats(7), stats(8), _
+                   stats(9), stats(10))
     Set FinishChoiceRun = outp
 End Function
 
@@ -2646,7 +2714,7 @@ End Function
 
 Private Sub GroundChoices(ByVal choices As Collection, ByVal certain As Object, ByVal hMap As Object, _
                           ByRef syms As VlaSymbols, ByVal chosen As Object, ByVal chosenNames As Collection, _
-                          ByRef gr As OptGround)
+                          ByRef gr As OptGround, ByRef refusal As Collection)
     Dim nF As Long
     nF = choices.Count
     gr.nForms = nF
@@ -2684,6 +2752,10 @@ Private Sub GroundChoices(ByVal choices As Collection, ByVal certain As Object, 
     ' per atom that names anything, for the order of the groups.
     Dim batch As Collection
     Set batch = New Collection
+    ' formOf(k): the choice form batch rule k was written for, so a ceiling
+    ' passed in rule k is refused in that form's name.
+    Dim formOf As Collection
+    Set formOf = New Collection
     Dim groupRule() As Long, memberRule() As Long
     ReDim groupRule(1 To nF)
     ReDim memberRule(1 To nF)
@@ -2710,6 +2782,7 @@ Private Sub GroundChoices(ByVal choices As Collection, ByVal certain As Object, 
                 body.Add pa
             Next j
             batch.Add BuildRule(OPT_GROUP_PREFIX & i, i, gv, Nothing, PerAtomsOf(per))
+            formOf.Add i
             groupRule(i) = batch.Count
         End If
         Set gr.fGVars(i) = gv
@@ -2721,6 +2794,7 @@ Private Sub GroundChoices(ByVal choices As Collection, ByVal certain As Object, 
             terms.Add cAtom.Item(j)
         Next j
         batch.Add BuildRule(OPT_MEMBER_PREFIX & i, i, gv, terms, body)
+        formOf.Add i
         memberRule(i) = batch.Count
         Set rankInfo(i) = New Collection
         If gr.fHasPer(i) Then
@@ -2736,6 +2810,7 @@ Private Sub GroundChoices(ByVal choices As Collection, ByVal certain As Object, 
                         Set one = New Collection
                         one.Add pa
                         batch.Add BuildRule(OPT_RANK_PREFIX & i & "-" & j, i, av, Nothing, one)
+                        formOf.Add i
                         rankInfo(i).Add Array(batch.Count, av)
                     End If
                 Next j
@@ -2743,8 +2818,20 @@ Private Sub GroundChoices(ByVal choices As Collection, ByVal certain As Object, 
         End If
     Next i
 
+    ' In written order, as slice 2 grounds them: a member rule's first
+    ' atom is its pool, and its rows must come out in the pool's order.
+    ' Only the ceilings are new here - pass 3 alone is planned.
     Dim out As Collection
-    Set out = VLA_Datalog.DatalogGroundRules(batch, certain, hMap, syms)
+    Set out = VLA_Datalog.DatalogGroundRules(batch, certain, hMap, syms, stepCeiling:=OPT_FORMULA_STEP_ROWS, _
+                                             totalCeiling:=OPT_FORMULA_TOTAL_ROWS)
+    Dim over As Variant
+    over = VLA_Datalog.DatalogGroundOverflow()
+    If Not IsEmpty(over) Then
+        Set refusal = SizeRefusal(over, choices.Item(CLng(formOf.Item(CLng(over(1))))), True)
+        Exit Sub
+    End If
+    gr.rowsLaid = VLA_Datalog.DatalogGroundRowsLaid()
+    gr.peakStep = VLA_Datalog.DatalogGroundPeakStep()
     For i = 1 To nF
         GroundOneChoice choices.Item(i), i, out, groupRule(i), memberRule(i), rankInfo(i), _
             chosenNames, syms, gr
@@ -3040,7 +3127,7 @@ End Function
 Private Sub GroundClauses(ByVal constraints As Collection, ByRef readsChoice() As Boolean, _
                           ByVal certain As Object, ByVal hMap As Object, ByRef syms As VlaSymbols, _
                           ByVal chosen As Object, ByVal chosenNames As Collection, ByRef gr As OptGround, _
-                          ByVal violations As Collection)
+                          ByVal violations As Collection, ByRef refusal As Collection)
     gr.nCl = 0
     gr.nClLit = 0
     ReDim gr.clCheck(1 To 16)
@@ -3087,6 +3174,9 @@ Private Sub GroundClauses(ByVal constraints As Collection, ByRef readsChoice() A
     Dim metaOf() As Collection, ruleOf() As Long
     ReDim metaOf(0 To constraints.Count)
     ReDim ruleOf(0 To constraints.Count)
+    ' checkOf(k): the constraint batch rule k grounds, for a refusal's name.
+    Dim checkOf As Collection
+    Set checkOf = New Collection
     For c = 1 To constraints.Count
         If readsChoice(c) Then
             Dim meta As Collection
@@ -3095,12 +3185,29 @@ Private Sub GroundClauses(ByVal constraints As Collection, ByRef readsChoice() A
             Set metaOf(c) = meta
             If rl.Count > 2 Then
                 batch.Add rl
+                checkOf.Add c
                 ruleOf(c) = batch.Count
             End If
         End If
     Next c
+    ' PLANNED (slice 3): a clause is a clause whichever atom is joined
+    ' first, so these rules - and only these - are walked smallest atom
+    ' first. The clauses come out in the planned order; the search's
+    ' answer, and its decisions and dead ends, do not depend on it, since
+    ' propagation reaches the same fixpoint in any order. The count goes
+    ' on from pass 2's.
     Dim out As Collection
-    Set out = VLA_Datalog.DatalogGroundRules(batch, rel3, hMap, syms)
+    Set out = VLA_Datalog.DatalogGroundRules(batch, rel3, hMap, syms, planned:=True, _
+                                             stepCeiling:=OPT_FORMULA_STEP_ROWS, _
+                                             totalCeiling:=OPT_FORMULA_TOTAL_ROWS, rowsBefore:=gr.rowsLaid)
+    Dim over As Variant
+    over = VLA_Datalog.DatalogGroundOverflow()
+    If Not IsEmpty(over) Then
+        Set refusal = SizeRefusal(over, constraints.Item(CLng(checkOf.Item(CLng(over(1))))), False)
+        Exit Sub
+    End If
+    gr.rowsLaid = VLA_Datalog.DatalogGroundRowsLaid()
+    If VLA_Datalog.DatalogGroundPeakStep() > gr.peakStep Then gr.peakStep = VLA_Datalog.DatalogGroundPeakStep()
 
     Dim lits() As Long
     ReDim lits(1 To 16)
@@ -3553,9 +3660,10 @@ End Sub
 ' as another, and this one is the FIRST of them - OPTIMIZE.1's reserved
 ' sentence says the program makes no choices, which is true only of one
 ' that makes none, so a choice program keeps the prefix and says its own
-' reason after it.
+' reason after it. "Tables and facts" since slice 3: slice 2's live pass
+' showed "your Tables" on a program whose rows were all (fact ...) forms.
 Private Function ChoiceBestWords(ByVal decisions As Long, ByVal conflicts As Long) As String
-    ChoiceBestWords = "proven best: every rule holds, and nothing is being minimized or maximized, so no schedule is better than this one - it is the first that breaks no rule when the rows are decided in the order your Tables list them (" & _
+    ChoiceBestWords = "proven best: every rule holds, and nothing is being minimized or maximized, so no schedule is better than this one - it is the first that breaks no rule when the rows are decided in the order your Tables and facts list them (" & _
         decisions & " decision" & PluralS(decisions) & ", " & conflicts & " dead end" & PluralS(conflicts) & ")."
 End Function
 
@@ -3623,6 +3731,93 @@ Private Function ChoiceGuardWords(ByVal seconds As Double, ByVal work As Long, B
         ": the search was stopped after " & VLA_Relation.InvariantNumberText(Round(seconds, 1)) & _
         " seconds by the guard that keeps a formula from holding Excel, having done " & work & _
         " of the " & budget & " units of work " & effortWords & " allows. Unlike the effort, where this stops depends on how fast the machine is."
+End Function
+
+' ---- 5a: the size refusal ------------------------------------------------
+
+' The refusal a ceiling passed in pass 2 or 3 becomes: the two-item result
+' OptimizeRun memoizes - the marker, then Array(which refusal, the form as
+' the user wrote it, the reason or the running count, the ceiling). The
+' words are made here, once, so the memo holds exactly what is raised.
+Private Function SizeRefusal(ByVal over As Variant, ByVal form As Variant, ByVal isChoice As Boolean) As Collection
+    Dim rec As Collection
+    Set rec = New Collection
+    rec.Add OPT_REFUSAL_MARK
+    If CLng(over(0)) = VLA_Datalog.DATALOG_GROUND_OVER_TOTAL Then
+        rec.Add Array(OPT_REFUSE_TOTAL, VLA.VlaWriteForm(form), OptCountText(CDbl(over(2))), _
+                      OptCountText(OPT_FORMULA_TOTAL_ROWS))
+    ElseIf isChoice Then
+        rec.Add Array(OPT_REFUSE_CHOICE_STEP, VLA.VlaWriteForm(form), SizeWhyWords(over, False), _
+                      OptCountText(OPT_FORMULA_STEP_ROWS))
+    Else
+        rec.Add Array(OPT_REFUSE_RULE_STEP, VLA.VlaWriteForm(form), SizeWhyWords(over, True), _
+                      OptCountText(OPT_FORMULA_STEP_ROWS))
+    End If
+    Set SizeRefusal = rec
+End Function
+
+Private Function IsSizeRefusal(ByVal result As Collection) As Boolean
+    If result.Count <> 2 Then Exit Function
+    If IsObject(result.Item(1)) Then Exit Function
+    IsSizeRefusal = (CStr(result.Item(1)) = OPT_REFUSAL_MARK)
+End Function
+
+Private Sub RaiseSizeRefusal(ByVal result As Collection)
+    Dim a As Variant
+    a = result.Item(2)
+    Select Case CLng(a(0))
+    Case OPT_REFUSE_CHOICE_STEP
+        VLA_Messages.RaiseMsg "optimize-choice-too-large", "form", a(1), "why", a(2), "ceiling", a(3)
+    Case OPT_REFUSE_RULE_STEP
+        VLA_Messages.RaiseMsg "optimize-rule-too-large", "form", a(1), "why", a(2), "ceiling", a(3)
+    Case Else
+        VLA_Messages.RaiseMsg "optimize-too-large", "form", a(1), "rows", a(2), "ceiling", a(3)
+    End Select
+End Sub
+
+' The one step that passed the step ceiling, in words ending on the rows
+' it would have made: an atom's own rows, rows that share no name paired
+' every one with every one, a join on the names they share, or - for a
+' rule DATALOG's own evaluator answered - the rule's rows. planned says
+' the join was already the smallest part first, which is worth saying:
+' rewriting the rule in another order would not help.
+Private Function SizeWhyWords(ByVal over As Variant, ByVal planned As Boolean) As String
+    Dim stepRows As String, atomRows As String, before As String, pred As String
+    stepRows = OptCountText(CDbl(over(3)))
+    atomRows = OptCountText(CDbl(over(5)))
+    If CDbl(over(4)) = 1 Then
+        before = "the one row before it"
+    Else
+        before = "the " & OptCountText(CDbl(over(4))) & " before it"
+    End If
+    pred = CStr(over(9))
+    If CBool(over(8)) Then
+        SizeWhyWords = "its rows come to " & stepRows
+    ElseIf CBool(over(7)) Then
+        SizeWhyWords = "'" & pred & "' alone holds " & stepRows & " rows"
+    ElseIf CBool(over(6)) Then
+        SizeWhyWords = "the " & atomRows & " rows of '" & pred & "' share no name with " & before & _
+            ", so every one pairs with every one, making " & stepRows & " rows"
+    Else
+        SizeWhyWords = "the " & atomRows & " rows of '" & pred & "' meet " & before & _
+            " on the names they share and make " & stepRows & " rows"
+        If planned Then SizeWhyWords = SizeWhyWords & ", even joined smallest part first"
+    End If
+End Function
+
+' A count as a user reads it: whole, with a comma between each three
+' digits - the same on every machine, which Format$'s grouping is not.
+Private Function OptCountText(ByVal n As Double) As String
+    Dim digits As String
+    digits = Format$(n, "0")
+    Dim outp As String
+    Dim i As Long, taken As Long
+    For i = Len(digits) To 1 Step -1
+        If taken > 0 And taken Mod 3 = 0 Then outp = "," & outp
+        outp = Mid$(digits, i, 1) & outp
+        taken = taken + 1
+    Next i
+    OptCountText = outp
 End Function
 
 ' A group's own values of its names, "S = s3, N = 2", as the violations
@@ -3746,14 +3941,18 @@ Private Sub TupInit(ByRef t As OptTupleIndex, ByVal wid As Long)
 End Sub
 
 ' The number of the tuple src(off + 1 .. off + wid): found, or added when
-' addIt and absent; 0 when absent and not added.
+' addIt and absent; 0 when absent and not added. Hashed a step per id by
+' TupHashStep (VLA_Datalog's IntHashStep says why): this table is probed in
+' line, and the (h * 33) Xor id it used at slice 2 packed the atoms'
+' (predicate, item, slot) keys into a run of neighbouring slots - 49,500
+' atoms took 1.5 billion probes, 48.5 s, found by slice 3's timing.
 Private Function TupFind(ByRef t As OptTupleIndex, ByRef src() As Long, ByVal off As Long, _
                          ByVal addIt As Boolean) As Long
     Dim h As Long, i As Long, s As Long, k As Long, kb As Long
     Dim same As Boolean
     h = 5381
     For i = 1 To t.wid
-        h = ((h * 33) Xor src(off + i)) And &H7FFFFF
+        h = TupHashStep(h, src(off + i))
     Next i
     s = h And t.mask
     Do
@@ -3795,7 +3994,7 @@ Private Sub TupRehash(ByRef t As OptTupleIndex)
         kb = (k - 1) * t.wid
         h = 5381
         For i = 1 To t.wid
-            h = ((h * 33) Xor t.keys(kb + i)) And &H7FFFFF
+            h = TupHashStep(h, t.keys(kb + i))
         Next i
         s = h And t.mask
         Do While t.slot(s) <> 0
@@ -3804,6 +4003,16 @@ Private Sub TupRehash(ByRef t As OptTupleIndex)
         t.slot(s) = k
     Next k
 End Sub
+
+' One id folded into a tuple's hash - VLA_Datalog's IntHashStep, the same
+' four lines, kept here rather than made Public so no worksheet function
+' list gains it. See there for what it is and why.
+Private Function TupHashStep(ByVal h As Long, ByVal id As Long) As Long
+    h = (((h + id) And &H1FFFFF) * 1021) And &H1FFFFF
+    h = h Xor (h \ 2048)
+    h = (h * 1019) And &H1FFFFF
+    TupHashStep = h Xor (h \ 1024)
+End Function
 
 ' =====================================================================
 '  THE MEMO

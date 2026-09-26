@@ -502,6 +502,33 @@ Private Const BI_JOIN As Long = 7
 Private mGroundIntegerRules As Long
 Private mGroundVariantRules As Long
 
+' OPTIMIZE.3 slice 3: THE CEILINGS a DatalogGroundRules call may be held
+' to, and what the call LAID OUT - every join's output and every rule's
+' own (head) rows, counted as they are made; a filter only drops rows, so
+' it lays out none. A STEP is one join. Both ceilings are 0, and off,
+' unless the caller sets them, which only OPTIMIZE does: with them off
+' nothing is refused and the parity pins see slice 1's grounder exactly.
+' When a ceiling stops a call, mOver* say what stopped it. The call stops
+' there, and DatalogGroundOverflow hands the account to the caller, whose
+' words name the rule the user wrote.
+Public Const DATALOG_GROUND_OVER_STEP As Long = 1
+Public Const DATALOG_GROUND_OVER_TOTAL As Long = 2
+Private mCeilStep As Double
+Private mCeilTotal As Double
+Private mRowsLaid As Double
+Private mPeakStep As Double
+Private mPlanned As Boolean
+Private mOverKind As Long
+Private mOverRule As Long
+Private mOverRows As Double
+Private mOverStepRows As Double
+Private mOverAccRows As Double
+Private mOverAtomRows As Double
+Private mOverApart As Boolean
+Private mOverFirst As Boolean
+Private mOverVariant As Boolean
+Private mOverPred As String
+
 ' ---- minimal S-expression accessors, duplicated from VLA.bas's own
 '      Private IsList/Nth (cross-module Private calls do not exist in
 '      VBA) - kept small on purpose; this module needs no more of the
@@ -3466,19 +3493,50 @@ End Function
 '  specialise. Keeping a narrowed relation honest ACROSS OPTIMIZE's passes
 '  is the caller's job.
 '
+'  OPTIMIZE.3 slice 3 adds three things a caller may ask for, and only
+'  OPTIMIZE asks. A PLANNED body is walked in the order PlanBodyItems
+'  gives - the atom matching fewest rows first, then always the smallest
+'  that shares a name with what is joined - so a rule written as "every
+'  shift of a person against every other, then (next S T)" is grounded
+'  as next first; the rows are the same set, in the planned order rather
+'  than RelJoin's. A STEP CEILING and a TOTAL CEILING bound the rows
+'  laid out (the declarations section says what counts): before a join
+'  makes a row, its rows are known - at most the product of its two
+'  sides, and, when that could pass what is left, counted exactly from
+'  the keys - so no step past a ceiling is ever made. A rule the integer
+'  path cannot evaluate is held to them by the rows it makes, after the
+'  fact, since EvalRuleBody's own steps are not seen here. rowsBefore
+'  carries a count on from an earlier call, so two passes share one
+'  total. A ceiling passed stops the call; DatalogGroundOverflow says
+'  where. Without them - every call before slice 3, and every parity pin
+'  - the grounder is slice 1's, answer for answer.
+'
 '  Returns one item per rule, in written order: Array(head predicate,
 '  arity, row count, rows), rows an integer relation in VLA_Relation's
 '  layout (row r, 0-based, column c at r * arity + c; element 0 unused).
 '  variantOnly sends every rule through EvalRuleBody - the parity pins run
-'  each rule both ways and require the two to agree.
+'  each rule both ways and require the two to agree. A call a ceiling
+'  stopped returns the rules before the one it stopped in, and nothing
+'  of that one.
 Public Function DatalogGroundRules(ByVal ruleForms As Collection, ByVal relations As Object, _
                                    ByVal headerMap As Object, ByRef syms As VlaSymbols, _
-                                   Optional ByVal variantOnly As Boolean = False) As Collection
+                                   Optional ByVal variantOnly As Boolean = False, _
+                                   Optional ByVal planned As Boolean = False, _
+                                   Optional ByVal stepCeiling As Double = 0, _
+                                   Optional ByVal totalCeiling As Double = 0, _
+                                   Optional ByVal rowsBefore As Double = 0) As Collection
     Dim outp As Collection
     Set outp = New Collection
     Set DatalogGroundRules = outp
     mGroundIntegerRules = 0
     mGroundVariantRules = 0
+    mPlanned = planned
+    mCeilStep = stepCeiling
+    mCeilTotal = totalCeiling
+    mRowsLaid = rowsBefore
+    mPeakStep = 0
+    mOverKind = 0
+    mOverRule = 0
     If ruleForms.Count = 0 Then Exit Function
 
     ' The run's own dictionary: a head relation created below can never
@@ -3567,9 +3625,15 @@ Public Function DatalogGroundRules(ByVal ruleForms As Collection, ByVal relation
     Set cache = VLA_Runtime.VlaDictNew()
     Dim rows() As Long
     Dim nRows As Long
+    Dim ruleNo As Long
     For Each rr In rules
         Set ruleRec = rr
+        ruleNo = ruleNo + 1
         GroundOneRule ruleRec, rels, cache, syms, variantOnly, rows, nRows
+        If mOverKind <> 0 Then
+            mOverRule = ruleNo
+            Exit Function
+        End If
         outp.Add Array(AtomPred(ruleRec.Item(1)), AtomArity(ruleRec.Item(1)), nRows, rows)
     Next rr
 End Function
@@ -3617,6 +3681,31 @@ Public Function DatalogGroundVariantRules() As Long
     DatalogGroundVariantRules = mGroundVariantRules
 End Function
 
+' OPTIMIZE.3 slice 3: the last call's rows laid out - counted on from its
+' rowsBefore - and its largest step.
+Public Function DatalogGroundRowsLaid() As Double
+    DatalogGroundRowsLaid = mRowsLaid
+End Function
+
+Public Function DatalogGroundPeakStep() As Double
+    DatalogGroundPeakStep = mPeakStep
+End Function
+
+' Empty unless a ceiling stopped the last call. Otherwise: (0) which
+' ceiling, DATALOG_GROUND_OVER_STEP or _TOTAL; (1) the rule it stopped
+' in, its 1-based place in the batch; (2) the rows laid out by then,
+' that step included; (3) the step's own rows - a join's, or the rule's
+' when the rule was EvalRuleBody's; (4) the rows the join started from;
+' (5) the joined atom's own rows, after its constants; (6) True when that
+' atom shared no name with them; (7) True when it was the rule's first
+' atom, with nothing before it; (8) True when EvalRuleBody made the rows;
+' (9) the atom's predicate.
+Public Function DatalogGroundOverflow() As Variant
+    If mOverKind = 0 Then Exit Function
+    DatalogGroundOverflow = Array(mOverKind, mOverRule, mOverRows, mOverStepRows, mOverAccRows, _
+                                  mOverAtomRows, mOverApart, mOverFirst, mOverVariant, mOverPred)
+End Function
+
 ' One rule through EvalRuleBody itself, the reference evaluator, with its
 ' head rows then interned and kept in first-occurrence order - what
 ' RunOneRulePass's RelTryAdd keeps. A variable's value is interned as a
@@ -3659,6 +3748,27 @@ Private Sub GroundRuleVariant(ByVal ruleRec As Collection, ByVal rels As Object,
         IntSetAddRow rows, nRows, w, cand, setSlot, setMask
     Next t
     ReDim Preserve rows(0 To nRows * w)
+
+    ' OPTIMIZE.3 slice 3: EvalRuleBody's own steps are not seen from
+    ' here, so such a rule is held to the ceilings by the rows it made -
+    ' after the fact, the work already done. Its rows are its one step.
+    mRowsLaid = mRowsLaid + nRows
+    If nRows > mPeakStep Then mPeakStep = nRows
+    If mCeilStep > 0 And nRows > mCeilStep Then
+        mOverKind = DATALOG_GROUND_OVER_STEP
+    ElseIf mCeilTotal > 0 And mRowsLaid > mCeilTotal Then
+        mOverKind = DATALOG_GROUND_OVER_TOTAL
+    End If
+    If mOverKind <> 0 Then
+        mOverRows = mRowsLaid
+        mOverStepRows = nRows
+        mOverAccRows = 0
+        mOverAtomRows = 0
+        mOverApart = False
+        mOverFirst = False
+        mOverVariant = True
+        mOverPred = AtomPred(headAtom)
+    End If
 End Sub
 
 ' One rule over integer relations: EvalRuleBody's walk, item by item, with
@@ -3669,7 +3779,11 @@ Private Sub GroundRuleInteger(ByVal ruleRec As Collection, ByVal cache As Object
     Dim headAtom As Collection
     Set headAtom = ruleRec.Item(1)
     Dim bodyItems As Collection
-    Set bodyItems = ruleRec.Item(2)
+    If mPlanned Then
+        Set bodyItems = PlanBodyItems(ruleRec.Item(2), cache, syms)
+    Else
+        Set bodyItems = ruleRec.Item(2)
+    End If
     nRows = 0
     ReDim rows(0 To 0)
 
@@ -3696,6 +3810,10 @@ Private Sub GroundRuleInteger(ByVal ruleRec As Collection, ByVal cache As Object
         Select Case BodyItemKind(item)
         Case BI_POS
             IntJoinAtom atom, colOf, cache, syms, acc, accW, accN
+            ' A ceiling stopped the step before it made a row.
+            If mOverKind <> 0 Then Exit Sub
+            mRowsLaid = mRowsLaid + accN
+            If accN > mPeakStep Then mPeakStep = accN
         Case BI_NOT
             IntAntiJoinAtom atom, colOf, cache, syms, acc, accW, accN
         Case BI_CMP
@@ -3740,6 +3858,22 @@ Private Sub GroundRuleInteger(ByVal ruleRec As Collection, ByVal cache As Object
         IntSetAddRow rows, nRows, w, cand, setSlot, setMask
     Next r
     ReDim Preserve rows(0 To nRows * w)
+
+    ' OPTIMIZE.3 slice 3: the rule's own rows are laid out too. There are
+    ' no more of them than the rows its last step made, which the step
+    ' ceiling already held, so only the total can pass here.
+    mRowsLaid = mRowsLaid + nRows
+    If mCeilTotal > 0 And mRowsLaid > mCeilTotal Then
+        mOverKind = DATALOG_GROUND_OVER_TOTAL
+        mOverRows = mRowsLaid
+        mOverStepRows = nRows
+        mOverAccRows = 0
+        mOverAtomRows = 0
+        mOverApart = False
+        mOverFirst = False
+        mOverVariant = False
+        mOverPred = AtomPred(headAtom)
+    End If
 End Sub
 
 ' A positive atom. Its relation is first filtered by the atom's own
@@ -3835,6 +3969,40 @@ Private Sub IntJoinAtom(ByVal atom As Collection, ByVal colOf As Object, ByVal c
         Exit Sub
     End If
 
+    ' OPTIMIZE.3 slice 3: the ceilings, before a row of this step is made.
+    ' It makes at most accN * fN rows; when that could pass what is left,
+    ' IntJoinCount counts them exactly from the keys, still making none.
+    ' A step past a ceiling is not made at all - the caller is told why.
+    If mCeilStep > 0 Or mCeilTotal > 0 Then
+        Dim room As Double
+        room = -1
+        If mCeilStep > 0 Then room = mCeilStep
+        If mCeilTotal > 0 Then
+            If room < 0 Or mCeilTotal - mRowsLaid < room Then room = mCeilTotal - mRowsLaid
+        End If
+        Dim stepRows As Double
+        stepRows = CDbl(accN) * CDbl(fN)
+        If stepRows > room Then
+            If nKey > 0 Then stepRows = IntJoinCount(acc, accW, accN, keyAcc, nKey, rel, k, fIdx, fN, keyPos)
+            If mCeilStep > 0 And stepRows > mCeilStep Then
+                mOverKind = DATALOG_GROUND_OVER_STEP
+            ElseIf mCeilTotal > 0 And mRowsLaid + stepRows > mCeilTotal Then
+                mOverKind = DATALOG_GROUND_OVER_TOTAL
+            End If
+            If mOverKind <> 0 Then
+                mOverRows = mRowsLaid + stepRows
+                mOverStepRows = stepRows
+                mOverAccRows = accN
+                mOverAtomRows = fN
+                mOverApart = (nKey = 0)
+                mOverFirst = (accW = 0)
+                mOverVariant = False
+                mOverPred = AtomPred(atom)
+                Exit Sub
+            End If
+        End If
+    End If
+
     ' The index over the build side: a chain per slot, appended at its
     ' tail, so equal keys keep their insertion order as RelJoin's buckets
     ' do. Different keys may share a chain; the probe compares every key.
@@ -3859,12 +4027,12 @@ Private Sub IntJoinAtom(ByVal atom As Collection, ByVal colOf As Object, ByVal c
         If buildLeft Then
             eb = (e - 1) * accW
             For j = 1 To nKey
-                h = ((h * 33) + acc(eb + keyAcc(j))) And &H7FFFFF
+                h = IntHashStep(h, acc(eb + keyAcc(j)))
             Next j
         Else
             eb = fIdx(e) * k
             For j = 1 To nKey
-                h = ((h * 33) + rel(eb + keyPos(j))) And &H7FFFFF
+                h = IntHashStep(h, rel(eb + keyPos(j)))
             Next j
         End If
         s = h And mask
@@ -3891,12 +4059,12 @@ Private Sub IntJoinAtom(ByVal atom As Collection, ByVal colOf As Object, ByVal c
         If buildLeft Then
             pb = fIdx(pr) * k
             For j = 1 To nKey
-                h = ((h * 33) + rel(pb + keyPos(j))) And &H7FFFFF
+                h = IntHashStep(h, rel(pb + keyPos(j)))
             Next j
         Else
             pb = (pr - 1) * accW
             For j = 1 To nKey
-                h = ((h * 33) + acc(pb + keyAcc(j))) And &H7FFFFF
+                h = IntHashStep(h, acc(pb + keyAcc(j)))
             Next j
         End If
         e = hd(h And mask)
@@ -3939,6 +4107,303 @@ Private Sub IntJoinAtom(ByVal atom As Collection, ByVal colOf As Object, ByVal c
         VLA_Runtime.VlaDictSet colOf, CStr(newNames.Item(c)), oldW + c
     Next c
 End Sub
+
+' OPTIMIZE.3 slice 3: how many rows the join IntJoinAtom is about to make
+' will make, counted without making one. The smaller side's keys go into a
+' table once each, with how many of that side's rows carry them; the
+' larger side's keys are then looked up and those counts summed - linear
+' in the two sides however large the product, so a step of a billion rows
+' costs no more to count than its inputs. The sides and the hash are
+' IntJoinAtom's own.
+Private Function IntJoinCount(ByRef acc() As Long, ByVal accW As Long, ByVal accN As Long, _
+                              ByRef keyAcc() As Long, ByVal nKey As Long, ByRef rel() As Long, _
+                              ByVal k As Long, ByRef fIdx() As Long, ByVal fN As Long, _
+                              ByRef keyPos() As Long) As Double
+    Dim buildLeft As Boolean
+    buildLeft = (accN <= fN)
+    Dim bN As Long, pN As Long
+    If buildLeft Then
+        bN = accN
+        pN = fN
+    Else
+        bN = fN
+        pN = accN
+    End If
+    Dim size As Long
+    size = 1024
+    Do While size < 2 * bN
+        size = size * 2
+    Loop
+    Dim mask As Long
+    mask = size - 1
+    ' slotE: the first build row (1-based) carrying the key that lives in
+    ' this slot, 0 when the slot is empty; slotN: how many carry it.
+    Dim slotE() As Long, slotN() As Long
+    ReDim slotE(0 To mask)
+    ReDim slotN(0 To mask)
+    Dim e As Long, pr As Long, j As Long, s As Long, h As Long
+    Dim eb As Long, fb As Long
+    Dim same As Boolean
+    For e = 1 To bN
+        h = 5381
+        If buildLeft Then
+            eb = (e - 1) * accW
+            For j = 1 To nKey
+                h = IntHashStep(h, acc(eb + keyAcc(j)))
+            Next j
+        Else
+            eb = fIdx(e) * k
+            For j = 1 To nKey
+                h = IntHashStep(h, rel(eb + keyPos(j)))
+            Next j
+        End If
+        s = h And mask
+        Do
+            If slotE(s) = 0 Then
+                slotE(s) = e
+                slotN(s) = 1
+                Exit Do
+            End If
+            same = True
+            If buildLeft Then
+                fb = (slotE(s) - 1) * accW
+                For j = 1 To nKey
+                    If acc(fb + keyAcc(j)) <> acc(eb + keyAcc(j)) Then
+                        same = False
+                        Exit For
+                    End If
+                Next j
+            Else
+                fb = fIdx(slotE(s)) * k
+                For j = 1 To nKey
+                    If rel(fb + keyPos(j)) <> rel(eb + keyPos(j)) Then
+                        same = False
+                        Exit For
+                    End If
+                Next j
+            End If
+            If same Then
+                slotN(s) = slotN(s) + 1
+                Exit Do
+            End If
+            s = (s + 1) And mask
+        Loop
+    Next e
+    Dim total As Double
+    For pr = 1 To pN
+        h = 5381
+        If buildLeft Then
+            eb = fIdx(pr) * k
+            For j = 1 To nKey
+                h = IntHashStep(h, rel(eb + keyPos(j)))
+            Next j
+        Else
+            eb = (pr - 1) * accW
+            For j = 1 To nKey
+                h = IntHashStep(h, acc(eb + keyAcc(j)))
+            Next j
+        End If
+        s = h And mask
+        Do While slotE(s) <> 0
+            same = True
+            If buildLeft Then
+                fb = (slotE(s) - 1) * accW
+                For j = 1 To nKey
+                    If acc(fb + keyAcc(j)) <> rel(eb + keyPos(j)) Then
+                        same = False
+                        Exit For
+                    End If
+                Next j
+            Else
+                fb = fIdx(slotE(s)) * k
+                For j = 1 To nKey
+                    If rel(fb + keyPos(j)) <> acc(eb + keyAcc(j)) Then
+                        same = False
+                        Exit For
+                    End If
+                Next j
+            End If
+            If same Then
+                total = total + slotN(s)
+                Exit Do
+            End If
+            s = (s + 1) And mask
+        Loop
+    Next pr
+    IntJoinCount = total
+End Function
+
+' OPTIMIZE.3 slice 3: how many rows of its relation a positive atom matches
+' on its own - by its constants and any name it repeats - which is what a
+' planned body ranks its atoms by. IntJoinAtom's own filter, counted.
+Private Function IntAtomMatchCount(ByVal atom As Collection, ByVal cache As Object, _
+                                   ByRef syms As VlaSymbols) As Long
+    Dim k As Long, n As Long
+    Dim rel() As Long
+    IntRelationOf AtomPred(atom), cache, k, n, rel
+    Dim cPos() As Long, cId() As Long, nC As Long
+    Dim qPos() As Long, qOf() As Long, nQ As Long
+    ReDim cPos(1 To k + 1): ReDim cId(1 To k + 1)
+    ReDim qPos(1 To k + 1): ReDim qOf(1 To k + 1)
+    Dim seen As Object
+    Set seen = VLA_Runtime.VlaDictNew()
+    Dim p As Long
+    Dim a As Collection
+    Dim nm As String
+    For p = 1 To k
+        Set a = AtomArgAt(atom, p)
+        If Not ArgIsVar(a) Then
+            nC = nC + 1
+            cPos(nC) = p
+            cId(nC) = VLA_Relation.VlaSymFind(syms, ArgText(a))
+        Else
+            nm = ArgText(a)
+            If VLA_Runtime.VlaDictHas(seen, nm) Then
+                nQ = nQ + 1
+                qPos(nQ) = p
+                qOf(nQ) = CLng(VLA_Runtime.VlaDictGet(seen, nm))
+            Else
+                VLA_Runtime.VlaDictSet seen, nm, p
+            End If
+        End If
+    Next p
+    If nC = 0 And nQ = 0 Then
+        IntAtomMatchCount = n
+        Exit Function
+    End If
+    Dim ri As Long, rb As Long, j As Long, cnt As Long
+    Dim ok As Boolean
+    For ri = 0 To n - 1
+        rb = ri * k
+        ok = True
+        For j = 1 To nC
+            If rel(rb + cPos(j)) <> cId(j) Then
+                ok = False
+                Exit For
+            End If
+        Next j
+        If ok Then
+            For j = 1 To nQ
+                If rel(rb + qPos(j)) <> rel(rb + qOf(j)) Then
+                    ok = False
+                    Exit For
+                End If
+            Next j
+        End If
+        If ok Then cnt = cnt + 1
+    Next ri
+    IntAtomMatchCount = cnt
+End Function
+
+' OPTIMIZE.3 slice 3: the order a PLANNED body is walked in. Written order
+' pairs rows in whatever order the rule was written, and "(forbid (assign
+' S P) (assign T P) (next S T))" written so pairs every shift of a person
+' with every other before (next S T) can drop one - 352,800 rows at the
+' reference roster, where 4,150 survive. So: the positive atom matching
+' the fewest rows first; then, again and again, the one matching fewest
+' among those that share a name with what is joined so far, or - when
+' none does - among all that are left; a tie to the one written first.
+' An atom of constants alone shares nothing and needs nothing - it matches
+' one row or none - so it competes from the start, where it is cheapest.
+' Each filter (a negated atom, a comparison, a text test) goes in as soon
+' as every name it reads is bound, in written order, which keeps the body
+' as safe as CheckRuleSafety found it. Only rules on the integer path are
+' planned; their items are those four kinds alone.
+Private Function PlanBodyItems(ByVal bodyItems As Collection, ByVal cache As Object, _
+                               ByRef syms As VlaSymbols) As Collection
+    Dim outp As Collection
+    Set outp = New Collection
+    Dim n As Long
+    n = bodyItems.Count
+    If n = 0 Then
+        Set PlanBodyItems = outp
+        Exit Function
+    End If
+    Dim isPos() As Boolean, used() As Boolean, size() As Long
+    ReDim isPos(1 To n)
+    ReDim used(1 To n)
+    ReDim size(1 To n)
+    Dim names() As Collection
+    ReDim names(1 To n)
+    Dim i As Long, p As Long
+    Dim item As Collection, atom As Collection
+    For i = 1 To n
+        Set item = bodyItems.Item(i)
+        Set atom = BodyItemAtom(item)
+        Set names(i) = New Collection
+        For p = 1 To AtomArity(atom)
+            If ArgIsVar(AtomArgAt(atom, p)) Then names(i).Add ArgText(AtomArgAt(atom, p))
+        Next p
+        isPos(i) = (BodyItemKind(item) = BI_POS)
+        If isPos(i) Then size(i) = IntAtomMatchCount(atom, cache, syms)
+    Next i
+
+    Dim bound As Object
+    Set bound = VLA_Runtime.VlaDictNew()
+    PlanPlaceFilters bodyItems, isPos, used, names, bound, outp
+    Dim best As Long, sweep As Long
+    Do
+        best = 0
+        For sweep = 1 To 2
+            For i = 1 To n
+                If isPos(i) And Not used(i) Then
+                    If sweep = 2 Or names(i).Count = 0 Or PlanSharesName(names(i), bound) Then
+                        If best = 0 Then
+                            best = i
+                        ElseIf size(i) < size(best) Then
+                            best = i
+                        End If
+                    End If
+                End If
+            Next i
+            If best > 0 Then Exit For
+        Next sweep
+        If best = 0 Then Exit Do
+        used(best) = True
+        outp.Add bodyItems.Item(best)
+        For p = 1 To names(best).Count
+            VLA_Runtime.VlaDictSet bound, CStr(names(best).Item(p)), True
+        Next p
+        PlanPlaceFilters bodyItems, isPos, used, names, bound, outp
+    Loop
+    If outp.Count <> n Then
+        VLA_Messages.RaiseMsg "datalog-ground-internal", "detail", _
+            "a planned body with an item whose names nothing before it binds"
+    End If
+    Set PlanBodyItems = outp
+End Function
+
+' Every filter not yet placed whose names are all bound, in written order.
+Private Sub PlanPlaceFilters(ByVal bodyItems As Collection, ByRef isPos() As Boolean, ByRef used() As Boolean, _
+                             ByRef names() As Collection, ByVal bound As Object, ByVal outp As Collection)
+    Dim i As Long, p As Long
+    Dim ready As Boolean
+    For i = 1 To bodyItems.Count
+        If Not isPos(i) And Not used(i) Then
+            ready = True
+            For p = 1 To names(i).Count
+                If Not VLA_Runtime.VlaDictHas(bound, CStr(names(i).Item(p))) Then
+                    ready = False
+                    Exit For
+                End If
+            Next p
+            If ready Then
+                used(i) = True
+                outp.Add bodyItems.Item(i)
+            End If
+        End If
+    Next i
+End Sub
+
+Private Function PlanSharesName(ByVal nms As Collection, ByVal bound As Object) As Boolean
+    Dim p As Long
+    For p = 1 To nms.Count
+        If VLA_Runtime.VlaDictHas(bound, CStr(nms.Item(p))) Then
+            PlanSharesName = True
+            Exit Function
+        End If
+    Next p
+End Function
 
 ' (not ATOM): keep each row whose instantiation of the atom is NOT a row of
 ' the relation - FilterOutMatching's anti-join, in ids. CheckRuleSafety has
@@ -4142,16 +4607,37 @@ Private Sub IntSetInit(ByRef setSlot() As Long, ByRef setMask As Long, ByVal exp
     ReDim setSlot(0 To setMask)
 End Sub
 
-' The hash of w ids starting after offset: the same 23-bit mask as
-' VLA_Relation's SymHash, so h * 33 plus an id can never overflow a Long.
+' The hash of w ids starting after offset, one IntHashStep per id.
 Private Function IntRowHash(ByRef ids() As Long, ByVal offset As Long, ByVal w As Long) As Long
     Dim h As Long
     h = 5381
     Dim c As Long
     For c = 1 To w
-        h = ((h * 33) + ids(offset + c)) And &H7FFFFF
+        h = IntHashStep(h, ids(offset + c))
     Next c
     IntRowHash = h
+End Function
+
+' One id folded into a hash: the id added, then twice over, multiplied (by
+' 1021, then 1019) and the high bits folded back into the low ones. It never
+' leaves 21 bits, so nothing overflows a Long (2,097,151 x 1021 < 2^31).
+' Every hash over ids in this grounder is made of these steps, and so is
+' OPTIMIZE's own tuple index (VLA_Optimize.TupHashStep, the same four lines).
+' OPTIMIZE.3 slice 3's timing is why. These tables are probed in line - a
+' collision takes the next free slot - and the h * 33 + id they used packed
+' a two-part key, a shift and a person, into a run of neighbouring values,
+' so each new key walked the whole run: 33,120 keys took 246 million probes
+' (16.6 s) and 49,500 atoms 1.5 billion (48.5 s). One multiply alone was not
+' enough - its low bits stayed a lattice, and the 60 x 30 roster's atoms
+' still took 17 probes a key - and neither was mixing once per KEY, which
+' cannot split two keys that already share a hash. Mixed per id, as here, a
+' simulation of every key shape tried probes about as often as a truly
+' random hash would: the worst 1.2 a key, against random's 1.1.
+Private Function IntHashStep(ByVal h As Long, ByVal id As Long) As Long
+    h = (((h + id) And &H1FFFFF) * 1021) And &H1FFFFF
+    h = h Xor (h \ 2048)
+    h = (h * 1019) And &H1FFFFF
+    IntHashStep = h Xor (h \ 1024)
 End Function
 
 ' Row number ri of rows (already stored) into the set, with no equality

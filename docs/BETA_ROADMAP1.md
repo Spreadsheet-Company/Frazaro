@@ -21344,8 +21344,9 @@ now carries one summary paragraph per engine and points here.*
     integer grounder is built in this item rather than deferred. Five
     slices. **Slice 1 of five, the integer grounder, BUILT, TESTED LIVE and
     COMMITTED 2026-09-24, every count exact. Slice 2, the first search,
-    BUILT, TESTED LIVE and COMMITTED 2026-09-25, every count exact.** The
-    pre-flight that set this
+    BUILT, TESTED LIVE and COMMITTED 2026-09-25, every count exact. Slice
+    3, the ceilings, BUILT, TESTED LIVE and COMMITTED 2026-09-25, every
+    count exact, in two rounds.** The pre-flight that set this
     item's starting conditions is recorded below, since its steps file
     moved to `archive/` when the item began.* The first search, and NOT the
     retired `SOLVE.3`'s
@@ -21864,6 +21865,231 @@ now carries one summary paragraph per engine and points here.*
         rows are facts written into it, with no Table at all. True of
         real use; it is reworded in slice 3, so this pass's pins and steps
         stand as they are.
+
+    **SLICE 3 — THE CEILINGS. BUILT, TESTED LIVE AND COMMITTED
+    2026-09-25, in two rounds.**
+    Fork 1's ceilings, in a formula: at most **100,000 rows** of
+    OPTIMIZE's own grounding laid out in all, and at most **50,000 in any
+    one step**, the choices and the clauses over them. DATALOG's certain
+    part is not counted. A program past either is refused naming the
+    choice form or the rule, and the number.
+      - `VLA_Datalog.bas`, the grounder. The ceilings are opt-in and off by
+        default, so the parity pins see slice 1's grounder exactly.
+        - *What counts:* every join's output and every rule's own rows,
+          counted as they are made. A filter only drops rows, so it lays
+          out none. A step is one join.
+        - *Each step is projected before a row of it is made.* A join
+          makes at most the product of its two sides. When that could
+          pass the room left, `IntJoinCount` counts the step exactly from
+          the keys: the smaller side's keys go into a table once each,
+          with their counts, and the larger side's are looked up. That
+          costs time linear in the two sides however large the product
+          is, so a step of 18 million rows is refused having made none of
+          them. A rule `EvalRuleBody` answers (a `let`, an aggregate, or
+          a spelling that stands for two values) is held to the ceilings
+          by the rows it made, after the fact, since its own steps are
+          not seen from here. That gap is recorded rather than closed:
+          only a constraint written that way reaches it.
+        - *A planned body*, opt-in and used by pass 3 alone
+          (`PlanBodyItems`):
+          - the positive atom matching the fewest rows goes first;
+          - then, again and again, the smallest of those sharing a name
+            with what is joined so far;
+          - an atom of constants alone competes from the start, since it
+            matches one row or none;
+          - each filter goes in as soon as every name it reads is bound.
+          The rows are the same set in the planned order.
+          **This is why the ceilings and the reordering are one slice.**
+          At the reference roster's size, 50 people and 84 shifts, "never
+          two in a row" as users write it pairs every shift of a person
+          with every other before `(next S T)` can drop one: 352,800 rows
+          in one step, `OPTIMIZATION.md`'s own P·S² row. It would be
+          refused. Planned, a program of just that rule and two a shift
+          lays out 25,301 rows, 4,200 at most (step 23). The whole
+          reference roster, with its leave, skills and caps, is slice 4's
+          to measure.
+        - *The count is not the model's J.* `optimize3_model.ps1` modelled
+          DATALOG's own evaluator, whose J also counts filter outputs,
+          the tables read and semi-naive's second round. So a program at
+          100,000 rows counted here may be more than 100,000 by the
+          model's count. In time it is still far below the model's 0.88
+          s, since the integer grounder pays about 1 µs a row against
+          7.6 (slice 1). Step 24 measures it.
+        - `check_datalog_per_tuple_alloc.ps1` rule D now pins the two
+          procedures that count without making rows, `IntJoinCount` (2
+          row loops) and `IntAtomMatchCount` (1), to the same object-free
+          row loops as the rest.
+      - `VLA_Optimize.bas`:
+        - *Pass 2* is grounded with the ceilings, in written order still:
+          a member rule's first atom is its pool, whose order the atoms
+          keep.
+        - *Pass 3* is planned and held to the same ceilings, counting on
+          from pass 2's rows. Its clauses now come out in the planned
+          order. Neither the answer nor the decisions and dead ends
+          depend on that, since propagation reaches the same fixpoint in
+          any order. A root conflict's named checks, and the order of a
+          several-row rule's violation rows, could differ from slice 2's.
+          No pin had such a case.
+        - *The size refusal* is three messages: a choice form with too
+          many rows to choose from in one step, a rule that pairs too
+          many in one step, and a program past the total. Each ends on
+          the rows the step would have made, and a step whose rows share
+          no name is explained as the product it is. A step the plan
+          already took smallest part first says so, so rewriting the rule
+          in another order is not offered as a fix.
+        - *The size refusal is memoized*, the one refusal the memo holds,
+          since finding it costs up to a ceiling of grounding after
+          DATALOG's own pass. It is a two-item result under the reserved
+          prefix, raised again through `RaiseMsg` on every ask. Fork 3
+          settled the Function Wizard on "an edit costs at most one
+          ceiling-bounded run", and that is only true if the wizard's
+          second run hits the memo. The memo's header records the
+          exception, and the old pin "a refusal is never memoized" now
+          says "a refusal found reading the program".
+        - *Item 9* gains the rows laid out and the largest step.
+        - *The status says "your Tables and facts"*, found live in slice 2
+          and recorded above. The retired wording is rule G's second
+          entry in `check_test_assertion_safety.ps1`. Rule G reads only
+          the literals passed to the guarded helpers, so it could not see
+          the one stale pin, a plain comparison, which was re-pointed by
+          hand.
+      - `VLA_Messages.bas`: `optimize-choice-too-large`,
+        `optimize-rule-too-large` and `optimize-too-large`.
+      - *Not in this slice:* a command's own ceiling, and a refusal that
+        points to the command. Both are slice 5's, and the refusal cannot
+        honestly point to a command that does not exist yet.
+      - *Proof, 29 new pins:*
+        - `TestDatalogGroundCeilings`, 20: the counting, written order
+          against planned, the step and total ceilings, `rowsBefore`, the
+          account of a refused step, a planned body's filters, and the
+          roster at 60 × 30, whose written order is refused at exactly
+          54,000 rows.
+        - `TestOptimizeCeilings`, 8: each refusal word for word, the memo
+          holding one, and the 60 × 30 roster answered with its counts.
+        - `TestOptimizeChoice`, +1: the toy lays out 215 rows, 35 at
+          most.
+        No program went into the parity table: the grounder's relations
+        are built from plain rows. Every hand-traced number was checked
+        before the pass against a transliteration of the grounder's
+        changes (the joins in their exact order, the plan, the count, the
+        ceilings) and, where it searches, of the search. Every one agreed.
+      - *Predicted:* `TestDSLs` 2235 → **2264**. `VlaSelfTest` **1347**
+        (CLI.5's), `VlaSelfTestHost` **152**, `VerifyReports` **242**.
+        28 checks and 7 verifiers green.
+      - *Live steps:* `tools/optimize3_live_steps.md`, 16 to 25. Step 24
+        (`O3Ceiling`) is the first timing of the ceilings on the integer
+        grounder.
+      - **FOUND BY STEP 24, AND FIXED IN THIS SLICE: three hash tables went
+        quadratic at the ceiling, one of them slice 2's.** Every count was
+        right, and two of the four times were not:
+
+            run (O3Ceiling, round 1, 03:29)            rows laid out   seconds   µs a row
+            member rule, 250 items x 198 slots                99,250     0.034        0.3
+            never two in a row, planned, 60 x 553             99,912    16.566      165.8
+            never two in a row, written, refused              33,180     0.138        4.1
+            OPTIMIZE, 250 items x 198 slots                   99,646    48.487      486.6
+
+        Rows cost 0.3 µs in one rung and 166 µs in the next, so the extra
+        cost was quadratic, not per row. Two things combined to cause it:
+          - *The tables were probed in line.* `IntJoinCount`'s key table,
+            the integer grounder's row sets (`IntSetPlace` and
+            `IntSetHasRow`, slice 1), and OPTIMIZE's tuple index
+            (`TupFind`, slice 2, which numbers the atoms) each take the
+            next free slot on a collision.
+          - *The hash, h × 33 + id (in `TupFind`, xor id), packed a
+            two-part key into a run of neighbouring values.* For a shift
+            and a person it gives 33 × shift + person, so the keys fill one
+            long run and every new key walks to its end.
+        A simulation of the rungs' own keys, with the ids in the order the
+        grounder interns them, counted **246 million probes** for rung 2's
+        33,120 keys and **1.46 billion** for rung 4's 49,500 atoms, the
+        16.6 s and the 48.5 s. So this was never only the ceiling's
+        problem. The reference roster's own 84 × 50 pairs cost 706 probes
+        a key in a row set, and step 23's 4,200 atoms 4.2 million probes,
+        993 a key, in the atom table. 25 × 2,000 pairs would cost 23,604 a
+        key.
+        **The fix is one hash step per id, used at all eleven sites**
+        (`IntHashStep` in `VLA_Datalog.bas`, and the same four lines as
+        `TupHashStep` in `VLA_Optimize.bas`). Add the id, then twice over
+        multiply (by 1021, then 1019) and fold the high bits back into the
+        low ones. It never leaves 21 bits, so nothing overflows a Long.
+        It took three tries, each simulated on every key shape before
+        the next:
+          - *One multiply alone* scored no probes at all on both slow
+            rungs' keys, but its low bits stay a lattice. Step 23's atoms
+            still took 74 a key and the 60 × 30 roster's (with one fold
+            added) 17.
+          - *Mixing once per key, at the end,* cannot split two keys that
+            already share a hash, and 25 × 2,000 atoms took 2.8 probes a
+            key against random's 0.9.
+          - *Mixed per id*, the step probes about as often as a truly
+            random hash on every shape tried: pairs, triples, clause
+            heads, atoms of every proportion, single ids and random
+            pairs. The worst was 1.2 probes a key against random's 1.1.
+        `IntJoinAtom`'s chained index took the same step. Chaining cannot
+        cluster, but equal hashes no longer share its chains. **No answer
+        can move:** every one of these tables keeps
+        its rows in insertion order and answers only whether a key is
+        there, so the 241 grounder parity pins and every OPTIMIZE pin prove
+        the same things again. Round 2 of the live pass re-times it (steps
+        26 to 29). Slice 2's record claimed nothing that this contradicts.
+        Its only timing through the atom table was the toy scaled to 420
+        atoms, where the old hash cost a fraction of a millisecond.
+      - *Tested live 2026-09-25, in two rounds, every count as predicted.*
+        - *Round 1, steps 16 to 24:*
+          - the version line as written;
+          - `TestDSLs` 2235 → **2264/0**;
+          - `VlaSelfTest` **1358/1358**, moved by CLI.5's pins, which
+            that peer has since committed (`f33f61c`), and none of this
+            slice's;
+          - `VlaSelfTestHost` **152/152**;
+          - steps 19 to 23 word for word;
+          - step 16 as recorded above, and step 24's timings, which found
+            the hashing defect.
+        - *Round 2, after the fix:* `TestDSLs` **2264/0** again, and the
+          same four rungs, every count exact. Run at 19:25, when `Timer`
+          steps by 1/128 s, so each time is a whole number of ticks:
+
+              run (O3Ceiling, round 2)                   rows laid out   seconds   µs a row
+              member rule, 250 items x 198 slots                99,250     0.047        0.5
+              never two in a row, planned, 60 x 553             99,912     0.156        1.6
+              never two in a row, written, refused              33,180     0.109        3.3
+              OPTIMIZE, 250 items x 198 slots                   99,646     0.398        4.0
+
+        - *After round 2:* `VerifyReports` **242/242** on both backends,
+          unmoved.
+
+        **What it says.** Grounding at a formula's ceiling costs **0.05 to
+        0.16 s** on the integer grounder, about a fifth of the 0.88 s the
+        ceiling was set at by the model of DATALOG's own evaluator. So
+        the ceiling is conservative, and slice 4's ladder is where
+        raising it is weighed: re-measure, then raise.
+          - The planned rung's 1.6 µs a row includes its two exact counts.
+          - A step of 18.3 million rows is refused in 0.11 s all told,
+            including reading the relations into integers and the
+            33,180-row first step. Counting the refused step costs no
+            more than its inputs.
+          - A whole run at the ceiling takes **0.40 s**: the grounding,
+            a search of 49,500 decisions and a 49,500-row answer. That is
+            a fifth of the 2 s a formula is allowed.
+          - Round 1 against round 2: the planned rung 16.566 s → 0.156 s
+            and the whole run 48.487 s → 0.398 s, 106 and 122 times
+            faster, for the same rows. The two rungs the fix did not need
+            moved by a few hundredths of a second, member rule 0.034 →
+            0.047 and refused 0.138 → 0.109. That is within a few of
+            round 2's 7.8 ms ticks. Some of the member rule's rise may be
+            the new hash's extra operations; this pass cannot tell.
+      - *Riding with this pass, committed on its own (`4efda9b`):*
+        `english-unexpected-token-block`'s dash. Its template held an em
+        dash as three bytes of UTF-8, which VBA should import as three
+        characters (`â€”`), since it reads a module in the Windows code
+        page. It is now the catalogue's own hyphen. Steps 16 and 19 were
+        meant as before and after, but step 16 ran on a workbook already
+        reloaded with the fix (CLI.5's pass had reloaded it). It showed
+        the hyphen, so the old symptom was never seen live, and the
+        release note claims only the fix. Ten other lines of VBA source
+        hold non-ASCII, all comments, and no check holds the source to
+        ASCII.
     `~weeks`
   - ⬜ **OPTIMIZE.4 — `count` and `sum` as native constraints.** "Every
     shift has at least 2 people", "nobody works more than 5 a week", "no

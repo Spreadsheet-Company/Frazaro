@@ -132,8 +132,15 @@ $ruleC = @(
 # forbids a VlaDict lookup, New and Array(. The per-atom PLAN loops (For p =
 # 1 To k), which do read colOf, are deliberately not named here - they run
 # once per body atom, not once per row.
+# OPTIMIZE.3 slice 3 added the two procedures that COUNT rows without making
+# them - IntJoinCount (a join's exact size, from the keys: the smaller side's
+# rows, then the larger's) and IntAtomMatchCount (an atom's own matches, for
+# the planned order) - and they are the same hot loops over the same rows.
+# PlanBodyItems loops over a body's ITEMS, not its rows, and is not named.
 $ruleD = @(
     @{ Module = 'VLA_Datalog.bas';  Proc = 'IntJoinAtom';       Loop = 'For\s+(ri|e|pr)\s*='; Count = 3 },
+    @{ Module = 'VLA_Datalog.bas';  Proc = 'IntJoinCount';      Loop = 'For\s+(e|pr)\s*='; Count = 2 },
+    @{ Module = 'VLA_Datalog.bas';  Proc = 'IntAtomMatchCount'; Loop = 'For\s+ri\s*='; Count = 1 },
     @{ Module = 'VLA_Datalog.bas';  Proc = 'IntAntiJoinAtom';   Loop = 'For\s+(ri|r)\s*='; Count = 2 },
     @{ Module = 'VLA_Datalog.bas';  Proc = 'IntCompareFilter';  Loop = 'For\s+r\s*='; Count = 1 },
     @{ Module = 'VLA_Datalog.bas';  Proc = 'IntTextFilter';     Loop = 'For\s+r\s*='; Count = 1 },

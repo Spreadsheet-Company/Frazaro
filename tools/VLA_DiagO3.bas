@@ -44,6 +44,18 @@ Option Explicit
 ' Every line checks its outcome and its decisions and dead ends against the
 ' counts a line-for-line transliteration of the search computed before the
 ' pass, and says WRONG rather than print a time for a different search.
+'
+' SLICE 3 - THE CEILINGS, TIMED. O3Ceiling prints O3C| lines: the integer
+' grounder alone (VLA_Datalog.DatalogGroundRules) on the two shapes a
+' formula's ceilings bound, each sized to lay out just under 100,000 rows -
+' a member rule pairing 250 items with 198 slots (pass 2's shape, its
+' largest step 49,500) and the roster's "never two in a row", planned, at 60
+' people and 553 shifts (pass 3's shape); then that rule in its own written
+' order, refused, which times the first step and the COUNTING of the step
+' it refuses; and a whole OPTIMIZE run at the ceiling, grounding and search
+' together. Every line checks its rows against the counts a transliteration
+' of the grounder computed before the pass, and says WRONG rather than time
+' a different grounding.
 
 Private Const GUARD_SECONDS As Double = 15#
 
@@ -496,4 +508,159 @@ Private Function PerUnitText(ByVal secs As Double, ByVal work As Long) As String
     Else
         PerUnitText = Format$(secs * 1000000# / work, "0.0")
     End If
+End Function
+
+' ---------------------------------------------------------------------------
+' SLICE 3: the ceilings, timed.
+' ---------------------------------------------------------------------------
+
+Public Sub O3Ceiling()
+    Debug.Print "=== O3C: the ceilings, timed ==="
+    Debug.Print "    Excel " & Application.Version & ", " & Format$(Now, "yyyy-mm-dd hh:nn")
+    Debug.Print "O3C|run|rows laid out|largest step|expected|expected largest|step refused|seconds|us per row laid out|verdict"
+    Dim rels As Object
+    ' Pass 2's shape: 250 items each in any of 198 slots - the items' 250,
+    ' 250 x 198 = 49,500 paired, then the 49,500 members: 99,250.
+    Set rels = CeilItemsSlots(250, 198)
+    GroundRung "member rule, 250 items x 198 slots", "(rule (m k S X S) (item X) (slot S))", rels, False, _
+               99250, 49500, 0
+    ' Pass 3's shape, planned: next's 552 pairs, each pair's first shift for
+    ' 60 people (33,120), its second (33,120), the rule's own: 99,912.
+    Set rels = CeilRoster(60, 553)
+    GroundRung "never two in a row, planned, 60 x 553", "(rule (h S T P) (assign S P) (assign T P) (next S T))", rels, _
+               True, 99912, 33120, 0
+    ' The same rule in its own written order: assign's 33,180 rows, then
+    ' every pair of one person's shifts, 60 x 553 x 553 = 18,348,540 -
+    ' counted from the keys, and refused before a row of it is made.
+    GroundRung "never two in a row, written, 60 x 553", "(rule (h S T P) (assign S P) (assign T P) (next S T))", rels, _
+               False, 33180, 33180, 18348540
+    ' A whole run at the ceiling: slot's 198 groups (396) and the member
+    ' rule's 99,250 - 99,646 laid out - then a search deciding all 49,500
+    ' atoms in, and the answer built.
+    WholeRung "OPTIMIZE, 250 items x 198 slots", CeilProgram(250, 198), 99646, 49500, 49500
+    Debug.Print "=== O3C done ==="
+End Sub
+
+' One rule through the grounder at a formula's own ceilings, 50,000 rows in
+' one step and 100,000 in all. wantRefused > 0: the rows of the step it
+' must be refused at.
+Private Sub GroundRung(ByVal label As String, ByVal ruleText As String, ByVal rels As Object, _
+                       ByVal planned As Boolean, ByVal wantLaid As Double, ByVal wantPeak As Double, _
+                       ByVal wantRefused As Double)
+    Dim syms As VlaSymbols
+    VLA_Relation.VlaSymInit syms
+    Dim forms As Collection
+    Set forms = VLA.VlaReadForms(ruleText)
+    Dim t0 As Double
+    t0 = Timer
+    Dim res As Collection
+    Set res = VLA_Datalog.DatalogGroundRules(forms, rels, Nothing, syms, False, planned, 50000, 100000, 0)
+    Dim secs As Double
+    secs = SecondsSince(t0)
+    Dim over As Variant
+    over = VLA_Datalog.DatalogGroundOverflow()
+    Dim laid As Double, peak As Double, refused As Double
+    laid = VLA_Datalog.DatalogGroundRowsLaid()
+    peak = VLA_Datalog.DatalogGroundPeakStep()
+    If IsArray(over) Then refused = CDbl(over(3))
+    Dim verdict As String
+    If refused <> wantRefused Then
+        verdict = "WRONG: the step refused was " & refused & ", not " & wantRefused
+    ElseIf laid <> wantLaid Or peak <> wantPeak Then
+        verdict = "WRONG: a different grounding - the rows laid out differ from the transliteration's"
+    Else
+        verdict = "ok"
+    End If
+    Dim refusedText As String
+    If refused > 0 Then refusedText = CountText(CLng(refused)) Else refusedText = "-"
+    Debug.Print "O3C|" & label & "|" & CountText(CLng(laid)) & "|" & CountText(CLng(peak)) & "|" & _
+                CountText(CLng(wantLaid)) & "|" & CountText(CLng(wantPeak)) & "|" & refusedText & "|" & _
+                SecsText(secs) & "|" & PerUnitText(secs, CLng(laid)) & "|" & verdict
+End Sub
+
+' A whole OptimizeRun: pass 1, the grounding, the search and the answer.
+Private Sub WholeRung(ByVal label As String, ByVal prog As String, ByVal wantLaid As Long, _
+                      ByVal wantPeak As Long, ByVal wantAtoms As Long)
+    VLA_Optimize.OptimizeMemoClear
+    Dim t0 As Double
+    t0 = Timer
+    Dim r As Collection
+    Set r = VLA_Optimize.OptimizeRun(prog)
+    Dim secs As Double
+    secs = SecondsSince(t0)
+    Dim st As Variant
+    st = r.Item(9)
+    Dim verdict As String
+    If CLng(st(6)) <> VLA_OptimizeSearch.OPT_SEARCH_FOUND Then
+        verdict = "WRONG: the search's outcome was " & OutcomeWord(CLng(st(6))) & ", not found"
+    ElseIf CLng(st(8)) <> wantLaid Or CLng(st(9)) <> wantPeak Or CLng(st(0)) <> wantAtoms Then
+        verdict = "WRONG: a different grounding - the rows laid out or the atoms differ"
+    Else
+        verdict = "ok"
+    End If
+    Debug.Print "O3C|" & label & "|" & CountText(CLng(st(8))) & "|" & CountText(CLng(st(9))) & "|" & _
+                CountText(wantLaid) & "|" & CountText(wantPeak) & "|-|" & SecsText(secs) & "|" & _
+                PerUnitText(secs, CLng(st(8))) & "|" & verdict & " (" & CountText(CLng(st(3))) & " decisions)"
+End Sub
+
+' item i1..iN and slot t1..tM, as plain rows.
+Private Function CeilItemsSlots(ByVal nItems As Long, ByVal nSlots As Long) As Object
+    Dim rels As Object
+    Set rels = VLA_Runtime.VlaDictNew()
+    Dim items As Collection, slots As Collection
+    Set items = VLA_Relation.RelNew(1)
+    Set slots = VLA_Relation.RelNew(1)
+    Dim one(1 To 1) As Variant
+    Dim k As Long
+    For k = 1 To nItems
+        one(1) = "i" & k
+        VLA_Relation.RelTryAdd items, one
+    Next k
+    For k = 1 To nSlots
+        one(1) = "t" & k
+        VLA_Relation.RelTryAdd slots, one
+    Next k
+    VLA_Runtime.VlaDictSet rels, "item", items
+    VLA_Runtime.VlaDictSet rels, "slot", slots
+    Set CeilItemsSlots = rels
+End Function
+
+' The roster's two relations, shift by shift: assign, every shift with every
+' person, and next, each shift with the one after it.
+Private Function CeilRoster(ByVal nPeople As Long, ByVal nShifts As Long) As Object
+    Dim rels As Object
+    Set rels = VLA_Runtime.VlaDictNew()
+    Dim asn As Collection, nx As Collection
+    Set asn = VLA_Relation.RelNew(2)
+    Set nx = VLA_Relation.RelNew(2)
+    Dim pair(1 To 2) As Variant
+    Dim s As Long, p As Long
+    For s = 1 To nShifts
+        For p = 1 To nPeople
+            pair(1) = "s" & s
+            pair(2) = "p" & p
+            VLA_Relation.RelTryAdd asn, pair
+        Next p
+        If s < nShifts Then
+            pair(1) = "s" & s
+            pair(2) = "s" & (s + 1)
+            VLA_Relation.RelTryAdd nx, pair
+        End If
+    Next s
+    VLA_Runtime.VlaDictSet rels, "assign", asn
+    VLA_Runtime.VlaDictSet rels, "next", nx
+    Set CeilRoster = rels
+End Function
+
+' 250 items in any of the slots, at most 250 a slot - which binds nothing.
+Private Function CeilProgram(ByVal nItems As Long, ByVal nSlots As Long) As String
+    Dim s As String
+    Dim k As Long
+    For k = 1 To nItems
+        s = s & "(fact (item i" & k & ")) "
+    Next k
+    For k = 1 To nSlots
+        s = s & "(fact (slot t" & k & ")) "
+    Next k
+    CeilProgram = s & "(choose-at-most " & nItems & " (pick X S) (item X) (per (slot S))) (query pick)"
 End Function

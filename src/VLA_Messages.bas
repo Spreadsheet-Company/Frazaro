@@ -16,6 +16,12 @@ Public Const VLA_MESSAGES_VERSION As String = "OPTIMIZE.3"
 ' own words, and one internal refusal for a grounding that contradicts
 ' itself.
 '
+' OPTIMIZE.3 (slice 3): the ceilings. Three optimize-* entries for a
+' program too large for a formula to lay out - a choice form with too
+' many rows to choose from in one step, a rule that pairs too many in one
+' step, and a program past the total - each naming the form and the
+' number. VLA_Optimize memoizes them: finding one is not cheap.
+'
 ' CLI.5: interp-console-no-result, at the foot of AddEntries - a CLI
 ' command asking for *, ** or *** before that many results exist - and
 ' cli-history-list-not-a-command retired: the history list goes to the
@@ -1254,6 +1260,13 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "optimize-effort-twice", 5, "VLA-Optimize", "this program says (effort ...) twice - write it once, so there is one answer to how much work the search may do."
     AddMsg m, "optimize-effort-too-large", 5, "VLA-Optimize", "'{level}' is more work than one search may be given - at most 2147483647 units, each a decision or a dead end. Effort is counted in WORK and never in seconds, so the same workbook answers the same on a fast machine and a slow one."
     AddMsg m, "optimize-internal", 5, "VLA-Optimize", "internal: OPTIMIZE {detail} - this is a Frazaro bug; please report it."
+    ' OPTIMIZE.3 slice 3: past a formula's ceilings, raised by
+    ' VLA_Optimize.RaiseSizeRefusal whether found now or held in the memo.
+    ' {why} is one of SizeWhyWords' shapes, ending on the rows the step
+    ' would have made; {rows} and {ceiling} are whole numbers with commas.
+    AddMsg m, "optimize-choice-too-large", 5, "VLA-Optimize", "{form} has more rows to choose from than a formula lays out in one step: {why}, and a formula lays out at most {ceiling}. Choose from a smaller pool - a rule that keeps only the rows that could really be chosen."
+    AddMsg m, "optimize-rule-too-large", 5, "VLA-Optimize", "{form} pairs more rows than a formula lays out in one step: {why}, and a formula lays out at most {ceiling}. A condition that ties its rows together pairs fewer, and so does a smaller pool."
+    AddMsg m, "optimize-too-large", 5, "VLA-Optimize", "this program lays out more rows than a formula may: with {form}, its choices and the rules over them reach {rows} rows, and a formula lays out at most {ceiling} in all. Smaller pools, or rules that pair fewer rows, lay out less."
     AddMsg m, "optimize-table-not-a-range", 5, "VLA-Optimize", "every OPTIMIZE table argument must be a cell range - pass a reference like Employees, not a computed value."
     AddMsg m, "optimize-table-needs-a-name", 5, "VLA-Optimize", "this range has no name OPTIMIZE can use for it - make it an Excel Table (Ctrl+T) or give it a defined name, then reference that name in the formula."
     AddMsg m, "optimize-table-noncontiguous-columns", 5, "VLA-Optimize", "a table argument spanning multiple disjoint areas (a Ctrl-selected, non-contiguous range) isn't supported - select one contiguous block of the table's own columns instead."

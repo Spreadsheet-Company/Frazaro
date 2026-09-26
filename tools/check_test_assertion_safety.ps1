@@ -168,7 +168,9 @@ $ceilings = [ordered]@{
 # PROLOG.13 had to do by memory.
 $retiredRenderings = @(
     @{ Pattern = '^\(\s*cons\b.*\bnil\s*\)*\s*$'
-       Why     = 'a PROPER cons chain; PROLOG.21 contracts those to (list ...) at write time, so no result can equal this' }
+       Why     = 'a PROPER cons chain; PROLOG.21 contracts those to (list ...) at write time, so no result can equal this' },
+    @{ Pattern = 'decided in the order your Tables list them'
+       Why     = 'OPTIMIZE.3 slice 3 says "your Tables and facts": slice 2''s live pass showed "your Tables" on a program whose rows were all (fact ...) forms' }
 )
 
 # ---- baseline: raw subscripts accepted as safe, with the reason --------

@@ -375,6 +375,7 @@ Public Function TestDSLs() As Boolean
     TestDatalogNegatedQuery
     TestDatalogTextTests
     TestDatalogGroundRules
+    TestDatalogGroundCeilings
     TestDatalogHostTable
     TestSpillHeaders
     TestSpillHostTable
@@ -384,6 +385,7 @@ Public Function TestDSLs() As Boolean
     TestOptimizeCounting
     TestOptimizeSearch
     TestOptimizeChoice
+    TestOptimizeCeilings
     TestOptimizeMemo
     TestOptimizeParity
     TestOptimizeHostTable
@@ -2532,6 +2534,286 @@ Private Function GroundRenamedRule(ByVal f As Variant) As Collection
         outp.Add src.Item(i)
     Next i
     Set GroundRenamedRule = outp
+End Function
+
+' ---------------------------------------------------------------------
+'  OPTIMIZE.3 slice 3: the grounder's ceilings, and its planned order.
+'
+'  wk is three shifts of two people and nxt the two pairs of shifts in a
+'  row, so every count here is small enough to derive by hand in the
+'  comment above its pin. The last rung is the roster at 60 people and 30
+'  shifts, where "never two in a row" in its own written order passes a
+'  formula's 50,000 rows in one step, and planned stays under 2,000. The
+'  relations are built from plain rows rather than asked of DATALOG, so
+'  no program here belongs in the parity table.
+' ---------------------------------------------------------------------
+Private Sub TestDatalogGroundCeilings()
+    Dim base As Object
+    Set base = GroundFactRelations("wk s1 p1|wk s1 p2|wk s2 p1|wk s2 p2|wk s3 p1|wk s3 p2|nxt s1 s2|nxt s2 s3" & _
+        "|p2 a 1|p2 b 2|q3 1 x|q3 2 y|q3 1 z|bad 1|one a|one b|two 1|two 2|n a 1|n b 10|n c 3")
+    Dim pairs As String
+    pairs = "(rule (h S T P) (wk S P) (wk T P) (nxt S T))"
+    Dim t As String, u As String
+
+    ' --- what a call lays out ------------------------------------------
+    ' p2's 2 rows; joined to q3, 3; the rule's own 3. Eight laid out, and
+    ' the largest step three.
+    t = GroundCeilText("(rule (h X Z) (p2 X Y) (q3 Y Z))", base, False, 0, 0, 0)
+    Report "ground ceilings: a call counts each join's rows and the rule's own - 2, 3 and 3", _
+           VLA_Datalog.DatalogGroundRowsLaid() = 8 And VLA_Datalog.DatalogGroundPeakStep() = 3, GroundLaidText()
+    t = GroundCeilText("(rule (h X Z) (p2 X Y) (q3 Y Z))", base, False, 0, 0, 100)
+    Report "ground ceilings: and counts on from the rows its caller says came before", _
+           VLA_Datalog.DatalogGroundRowsLaid() = 108, GroundLaidText()
+    Report "ground ceilings: with no ceiling set, nothing is refused", _
+           IsEmpty(VLA_Datalog.DatalogGroundOverflow()), GroundOverText()
+
+    ' --- written order, and planned ---------------------------------------
+    ' Written: wk's 6 rows; every pair of one person's shifts, 2 x 3 x 3 =
+    ' 18; nxt keeps 4; the rule's own 4 - 32 laid out, 18 at most.
+    ' Planned: nxt's 2 first; each pair's first shift for each person, 4;
+    ' its second, 4; the rule's own 4 - 14, and 4 at most. Both probe wk
+    ' in its own order last, so the rows even come out alike.
+    t = GroundCeilText(pairs, base, False, 0, 0, 0)
+    Report "ground ceilings: written order lays out 32 rows, 18 in its largest step", _
+           VLA_Datalog.DatalogGroundRowsLaid() = 32 And VLA_Datalog.DatalogGroundPeakStep() = 18, GroundLaidText()
+    u = GroundCeilText(pairs, base, True, 0, 0, 0)
+    Report "ground ceilings: planned, smallest atom first, 14 rows and 4 at most", _
+           VLA_Datalog.DatalogGroundRowsLaid() = 14 And VLA_Datalog.DatalogGroundPeakStep() = 4, GroundLaidText()
+    Report "ground ceilings: the planned rows, in the planned order", _
+           u = "h:s1,s2,p1;s1,s2,p2;s2,s3,p1;s2,s3,p2", "got " & u
+    Report "ground ceilings: the same rows as written order gives", GroundSortedRows(t) = GroundSortedRows(u), _
+           "written " & t & ", planned " & u
+
+    ' --- the step ceiling ------------------------------------------------
+    ' At 10 a step, written order's second join would make 18 - counted
+    ' from the keys, each of wk's 6 rows meeting its person's 3 shifts - so
+    ' it is refused before a row of it is made, and the rule returns
+    ' nothing. 6 laid out before it, 24 with it.
+    t = GroundCeilText(pairs, base, False, 10, 0, 0)
+    Report "ground ceilings: a step past the step ceiling is refused, counted exactly - 18 rows from 6 and 6", _
+           GroundOverNum(0) = VLA_Datalog.DATALOG_GROUND_OVER_STEP And GroundOverNum(3) = 18 And _
+           GroundOverNum(4) = 6 And GroundOverNum(5) = 6, GroundOverText()
+    Report "ground ceilings: in rule 1, joining wk on a shared name, 24 rows with it", _
+           GroundOverNum(1) = 1 And GroundOverNum(2) = 24 And GroundOverNum(6) = 0 And GroundOverNum(7) = 0 And _
+           GroundOverPred() = "wk", GroundOverText()
+    Report "ground ceilings: and nothing of the refused rule is returned", t = "", "got " & t
+    t = GroundCeilText(pairs, base, True, 10, 0, 0)
+    Report "ground ceilings: planned, the same rule stays under it, no step over 4", _
+           IsEmpty(VLA_Datalog.DatalogGroundOverflow()) And VLA_Datalog.DatalogGroundRowsLaid() = 14, _
+           GroundOverText() & " - " & GroundLaidText()
+
+    ' --- the total ceiling -------------------------------------------------
+    ' At 12 in all, planned: 2, then 4 (6), then 4 (10) - and the rule's own
+    ' 4 takes it to 14, past 12, found when the rule's rows are counted.
+    t = GroundCeilText(pairs, base, True, 0, 12, 0)
+    Report "ground ceilings: a total passed by the rule's own rows is refused - 14 against 12", _
+           GroundOverNum(0) = VLA_Datalog.DATALOG_GROUND_OVER_TOTAL And GroundOverNum(2) = 14 And _
+           GroundOverNum(3) = 4, GroundOverText()
+    ' 10 already laid out and 20 in all: 12, 16, then 20 - at the ceiling,
+    ' not past it - and the rule's own 4 makes 24.
+    t = GroundCeilText(pairs, base, True, 0, 20, 10)
+    Report "ground ceilings: the rows before count toward the total - 24 against 20", _
+           GroundOverNum(0) = VLA_Datalog.DATALOG_GROUND_OVER_TOTAL And GroundOverNum(2) = 24, GroundOverText()
+
+    ' --- what the account says about the step ------------------------------
+    ' one's 2 rows, then two's 2 sharing no name with them: every one with
+    ' every one, 4, past a ceiling of 3 - known with no counting at all.
+    t = GroundCeilText("(rule (h X Y) (one X) (two Y))", base, False, 3, 0, 0)
+    Report "ground ceilings: a product past the ceiling is named as one - 2 rows sharing no name with 2, 4", _
+           GroundOverNum(6) = 1 And GroundOverNum(7) = 0 And GroundOverNum(3) = 4 And GroundOverNum(4) = 2 And _
+           GroundOverNum(5) = 2 And GroundOverPred() = "two", GroundOverText()
+    t = GroundCeilText("(rule (h X) (wk X P))", base, False, 5, 0, 0)
+    Report "ground ceilings: a first atom past it is named as the atom alone - wk's 6 against 5", _
+           GroundOverNum(7) = 1 And GroundOverNum(3) = 6 And GroundOverPred() = "wk", GroundOverText()
+    t = GroundCeilText("(rule (h X W) (n X V) (let W (+ V 1)))", base, False, 2, 0, 0)
+    Report "ground ceilings: a rule EvalRuleBody answers is held by the rows it made, after the fact - 3 against 2", _
+           GroundOverNum(0) = VLA_Datalog.DATALOG_GROUND_OVER_STEP And GroundOverNum(8) = 1 And _
+           GroundOverNum(3) = 3, GroundOverText()
+
+    ' --- a planned body places each filter as soon as it can ---------------
+    ' p2's 2 before q3's 3; (not (bad Y)) and (> Y 0) go in the moment p2
+    ' binds Y, leaving b alone, and q3 then joins that 1 row. 2, 1 and the
+    ' rule's own 1: 4 - a filter lays out nothing.
+    t = GroundCeilText("(rule (h X Z) (q3 Y Z) (p2 X Y) (not (bad Y)) (> Y 0))", base, True, 0, 0, 0)
+    Report "ground ceilings: a planned body filters as soon as a filter's names are bound", _
+           t = "h:b,y" And VLA_Datalog.DatalogGroundRowsLaid() = 4, "got " & t & " - " & GroundLaidText()
+
+    ' --- the roster at 60 people and 30 shifts ------------------------------
+    ' Written: assign's 1,800 rows, then every pair of one person's shifts,
+    ' 60 x 30 x 30 = 54,000 - past a formula's 50,000 in one step, counted
+    ' from the keys and refused. Planned: next's 29 pairs; each pair's
+    ' first shift for 60 people, 1,740; its second, 1,740; and the 1,740
+    ' rows of the rule - 5,249 laid out, 1,740 at most.
+    Dim roster As Object
+    Set roster = GroundRosterRelations(60, 30)
+    Dim nr As Long
+    nr = GroundCeilRowCount("(rule (h S T P) (assign S P) (assign T P) (next S T))", roster, False, 50000, 100000, 0)
+    Report "ground ceilings (roster 60 x 30): written order would pair 54,000 rows in one step, from 1,800 and 1,800", _
+           GroundOverNum(0) = VLA_Datalog.DATALOG_GROUND_OVER_STEP And GroundOverNum(3) = 54000 And _
+           GroundOverNum(4) = 1800 And GroundOverNum(5) = 1800, GroundOverText()
+    nr = GroundCeilRowCount("(rule (h S T P) (assign S P) (assign T P) (next S T))", roster, True, 50000, 100000, 0)
+    Report "ground ceilings (roster 60 x 30): planned, 5,249 rows laid out and 1,740 at most", _
+           IsEmpty(VLA_Datalog.DatalogGroundOverflow()) And VLA_Datalog.DatalogGroundRowsLaid() = 5249 And _
+           VLA_Datalog.DatalogGroundPeakStep() = 1740, GroundOverText() & " - " & GroundLaidText()
+    Report "ground ceilings (roster 60 x 30): and 1,740 rows, one for each two shifts in a row and each person", _
+           nr = 1740, "rows " & nr
+End Sub
+
+' A batch through the grounder with a plan and ceilings, written as
+' GroundText writes it; DatalogGroundRowsLaid, _PeakStep and _Overflow
+' then read this call.
+Private Function GroundCeilText(ByVal rulesText As String, ByVal base As Object, ByVal planned As Boolean, _
+                                ByVal stepMax As Double, ByVal totalMax As Double, _
+                                ByVal before As Double) As String
+    Dim syms As VlaSymbols
+    VLA_Relation.VlaSymInit syms
+    Dim res As Collection
+    Set res = VLA_Datalog.DatalogGroundRules(VLA.VlaReadForms(rulesText), base, Nothing, syms, False, planned, _
+                                             stepMax, totalMax, before)
+    GroundCeilText = GroundResultText(res, syms)
+End Function
+
+' The same call, answering how many rows its first rule returned - or -1
+' when a ceiling left it returning none.
+Private Function GroundCeilRowCount(ByVal rulesText As String, ByVal base As Object, ByVal planned As Boolean, _
+                                    ByVal stepMax As Double, ByVal totalMax As Double, _
+                                    ByVal before As Double) As Long
+    Dim syms As VlaSymbols
+    VLA_Relation.VlaSymInit syms
+    Dim res As Collection
+    Set res = VLA_Datalog.DatalogGroundRules(VLA.VlaReadForms(rulesText), base, Nothing, syms, False, planned, _
+                                             stepMax, totalMax, before)
+    GroundCeilRowCount = -1
+    If res.Count = 0 Then Exit Function
+    Dim g As Variant
+    g = res.Item(1)
+    GroundCeilRowCount = CLng(g(2))
+End Function
+
+Private Function GroundLaidText() As String
+    GroundLaidText = "laid out " & VLA_Datalog.DatalogGroundRowsLaid() & ", largest step " & _
+                     VLA_Datalog.DatalogGroundPeakStep()
+End Function
+
+' One number of the last call's overflow account - a True as 1, a False
+' as 0 - or -1 when there is no account, so an assertion never indexes
+' the account itself.
+Private Function GroundOverNum(ByVal ix As Long) As Double
+    GroundOverNum = -1
+    Dim o As Variant
+    o = VLA_Datalog.DatalogGroundOverflow()
+    If Not IsArray(o) Then Exit Function
+    If ix < LBound(o) Then Exit Function
+    If ix > UBound(o) Then Exit Function
+    Dim v As Variant
+    v = o(ix)
+    If VarType(v) = vbBoolean Then
+        If v Then GroundOverNum = 1 Else GroundOverNum = 0
+    ElseIf IsNumeric(v) Then
+        GroundOverNum = CDbl(v)
+    End If
+End Function
+
+' The overflow account's predicate, or "" when there is no account.
+Private Function GroundOverPred() As String
+    Dim o As Variant
+    o = VLA_Datalog.DatalogGroundOverflow()
+    If Not IsArray(o) Then Exit Function
+    If UBound(o) < 9 Then Exit Function
+    GroundOverPred = CStr(o(9))
+End Function
+
+Private Function GroundOverText() As String
+    Dim o As Variant
+    o = VLA_Datalog.DatalogGroundOverflow()
+    If Not IsArray(o) Then
+        GroundOverText = "no overflow"
+        Exit Function
+    End If
+    Dim s As String
+    Dim i As Long
+    For i = LBound(o) To UBound(o)
+        If i > LBound(o) Then s = s & ", "
+        s = s & CStr(o(i))
+    Next i
+    GroundOverText = "overflow (" & s & ")"
+End Function
+
+' A one-rule answer's rows, sorted, so one set written in two orders
+' compares equal.
+Private Function GroundSortedRows(ByVal t As String) As String
+    Dim at As Long
+    at = InStr(1, t, ":")
+    If at = 0 Then
+        GroundSortedRows = t
+        Exit Function
+    End If
+    Dim parts() As String
+    parts = Split(Mid$(t, at + 1), ";")
+    Dim i As Long, j As Long
+    Dim x As String
+    For i = LBound(parts) + 1 To UBound(parts)
+        x = parts(i)
+        j = i - 1
+        Do While j >= LBound(parts)
+            If StrComp(parts(j), x, vbBinaryCompare) <= 0 Then Exit Do
+            parts(j + 1) = parts(j)
+            j = j - 1
+        Loop
+        parts(j + 1) = x
+    Next i
+    GroundSortedRows = Left$(t, at) & Join(parts, ";")
+End Function
+
+' Relations from plain rows, without asking DATALOG - "wk s1 p1|wk s1 p2"
+' gives wk two rows. Every value is text, as a (fact ...) holds it.
+Private Function GroundFactRelations(ByVal spec As String) As Object
+    Dim rels As Object
+    Set rels = VLA_Runtime.VlaDictNew()
+    Dim rowTexts() As String
+    rowTexts = Split(spec, "|")
+    Dim i As Long, j As Long
+    Dim parts() As String
+    Dim vals() As Variant
+    For i = LBound(rowTexts) To UBound(rowTexts)
+        parts = Split(Trim$(rowTexts(i)), " ")
+        ReDim vals(1 To UBound(parts))
+        For j = 1 To UBound(parts)
+            vals(j) = parts(j)
+        Next j
+        If Not VLA_Runtime.VlaDictHas(rels, parts(0)) Then
+            VLA_Runtime.VlaDictSet rels, parts(0), VLA_Relation.RelNew(UBound(parts))
+        End If
+        VLA_Relation.RelTryAdd VLA_Runtime.VlaDictGet(rels, parts(0)), vals
+    Next i
+    Set GroundFactRelations = rels
+End Function
+
+' The roster's two relations, shift by shift: assign, every shift with
+' every person, and next, each shift with the one after it.
+Private Function GroundRosterRelations(ByVal nPeople As Long, ByVal nShifts As Long) As Object
+    Dim rels As Object
+    Set rels = VLA_Runtime.VlaDictNew()
+    Dim asn As Collection, nx As Collection
+    Set asn = VLA_Relation.RelNew(2)
+    Set nx = VLA_Relation.RelNew(2)
+    Dim pair(1 To 2) As Variant
+    Dim s As Long, p As Long
+    For s = 1 To nShifts
+        For p = 1 To nPeople
+            pair(1) = "s" & s
+            pair(2) = "p" & p
+            VLA_Relation.RelTryAdd asn, pair
+        Next p
+        If s < nShifts Then
+            pair(1) = "s" & s
+            pair(2) = "s" & (s + 1)
+            VLA_Relation.RelTryAdd nx, pair
+        End If
+    Next s
+    VLA_Runtime.VlaDictSet rels, "assign", asn
+    VLA_Runtime.VlaDictSet rels, "next", nx
+    Set GroundRosterRelations = rels
 End Function
 
 ' Host-required: every real bug this engine's MVP ever found (this
@@ -5150,10 +5432,17 @@ Private Sub TestOptimizeChoice()
            t = "S,P|s1,p1|s1,p2|s2,p3|s2,p4|s3,p1|s3,p2|s4,p3|s4,p4|s5,p1|s5,p2|s6,p3|s6,p4|s7,p1|s7,p2", "got " & t
     w = OptStatusOf(prog)
     Report "optimize choice (s17 toy): proven best, and it says why - nothing is minimized, and this is the first", _
-           w = "proven best: every rule holds, and nothing is being minimized or maximized, so no schedule is better than this one - it is the first that breaks no rule when the rows are decided in the order your Tables list them (14 decisions, 0 dead ends).", _
+           w = "proven best: every rule holds, and nothing is being minimized or maximized, so no schedule is better than this one - it is the first that breaks no rule when the rows are decided in the order your Tables and facts list them (14 decisions, 0 dead ends).", _
            "got " & w
     Report "optimize choice (s17 toy): 35 atoms, 30 clauses and 7 counters, as counted by hand", _
            OptStat(prog, 1) = 35 And OptStat(prog, 2) = 30 And OptStat(prog, 3) = 7, OptStatsText(prog)
+    ' OPTIMIZE.3 slice 3, what the ceilings count. Pass 2: shift's 7 rows
+    ' and their 7 groups; elig's 35, joined to shift (35), and the 35
+    ' members - 119. Pass 3, planned: next's 6 pairs first, each pair's
+    ' first shift for 5 people (30), then its second (30), and the 30
+    ' clauses - 96. 215 in all, and elig's 35 the largest step.
+    Report "optimize choice (s17 toy): 215 rows laid out, 35 in the largest step, as counted by hand", _
+           OptStat(prog, 9) = 215 And OptStat(prog, 10) = 35, OptStatsText(prog)
     ' Determinism, with the memo emptied between the two asks: the same
     ' program is the same answer, which is standing decision 2.
     VLA_Optimize.OptimizeMemoClear
@@ -5427,6 +5716,122 @@ Private Sub TestOptimizeChoice()
         "does not compare one answer with another yet: it gives the first answer that breaks no rule"
 End Sub
 
+' ---------------------------------------------------------------------
+'  OPTIMIZE.3 slice 3: a formula's ceilings, through OPTIMIZE itself -
+'  50,000 rows in one step, 100,000 in all. Each program is plain facts
+'  at a size that reaches a ceiling, and every number in every refusal
+'  is derived in the comment above its pin.
+' ---------------------------------------------------------------------
+Private Sub TestOptimizeCeilings()
+    Dim prog As String, w As String, w2 As String
+
+    ' --- a rule that pairs too many --------------------------------------
+    ' 300 items, any of them picked, and a forbid over two picks that share
+    ' no name. Pass 2 lays out the 300 members (300, and their 300 - 600).
+    ' Pass 3, planned: pick's 300, then pick's 300 again sharing nothing -
+    ' every one with every one, 90,000 in one step, refused before a row
+    ' of it is made.
+    prog = OptItemFacts(300) & "(choose-any (pick X) (item X)) (forbid (pick X) (pick Y)) (query pick)"
+    w = OptRefusalOf(prog)
+    Report "optimize ceilings: a rule pairing 90,000 rows in one step is refused, named, with its numbers", _
+           w = "(forbid (pick X) (pick Y)) pairs more rows than a formula lays out in one step: the 300 rows of 'pick' share no name with the 300 before it, so every one pairs with every one, making 90,000 rows, and a formula lays out at most 50,000. A condition that ties its rows together pairs fewer, and so does a smaller pool.", _
+           "got " & w
+
+    ' The refusal is memoized like an answer: asked again - as the Function
+    ' Wizard asks, or a status cell beside it - nothing is laid out twice.
+    VLA_Optimize.OptimizeMemoClear
+    w = OptRefusalOf(prog)
+    w2 = OptRefusalOf(prog)
+    Report "optimize ceilings: the size refusal is memoized - asked twice, laid out once, the same words", _
+           VLA_Optimize.OptimizeMemoRuns() = 1 And w2 = w, "runs " & VLA_Optimize.OptimizeMemoRuns()
+    w2 = CStr(VLA_Optimize.OPTIMIZE_STATUS(prog))
+    Report "optimize ceilings: and a status cell shows the same refusal", _
+           w2 = "#OPTIMIZE! " & w, "got " & w2
+
+    ' --- a choice with too many rows to choose from ------------------------
+    ' 250 items in any of 201 slots, by a (per ...) sharing no name with
+    ' the pool. Pass 2: slot's 201 groups (201, and their 201); then the
+    ' pool's 250, and slot's 201 sharing nothing with them - 50,250 in one
+    ' step, refused. 250 a slot is more than any slot holds, so the count
+    ' itself binds nothing.
+    prog = OptItemFacts(250) & OptSlotFacts(201) & _
+           "(choose-at-most 250 (pick X S) (item X) (per (slot S))) (query pick)"
+    w = OptRefusalOf(prog)
+    Report "optimize ceilings: a choice with 50,250 rows to choose from in one step is refused, named", _
+           w = "(choose-at-most 250 (pick X S) (item X) (per (slot S))) has more rows to choose from than a formula lays out in one step: the 201 rows of 'slot' share no name with the 250 before it, so every one pairs with every one, making 50,250 rows, and a formula lays out at most 50,000. Choose from a smaller pool - a rule that keeps only the rows that could really be chosen.", _
+           "got " & w
+
+    ' --- a program past the total ------------------------------------------
+    ' 250 items and 200 slots: slot's 200 groups (400); the pool's 250
+    ' (650); slot's 200 sharing nothing with them, 50,000 in one step - AT
+    ' the ceiling, not past it (50,650); then the 50,000 members themselves
+    ' - 100,650, past the 100,000 a formula lays out in all.
+    prog = OptItemFacts(250) & OptSlotFacts(200) & _
+           "(choose-at-most 250 (pick X S) (item X) (per (slot S))) (query pick)"
+    w = OptRefusalOf(prog)
+    Report "optimize ceilings: a program reaching 100,650 rows in all is refused, naming where it passed", _
+           w = "this program lays out more rows than a formula may: with (choose-at-most 250 (pick X S) (item X) (per (slot S))), its choices and the rules over them reach 100,650 rows, and a formula lays out at most 100,000 in all. Smaller pools, or rules that pair fewer rows, lay out less.", _
+           "got " & w
+
+    ' --- the roster at 60 people and 30 shifts, answered --------------------
+    ' Two a shift, never two in a row. Its own written order would pair
+    ' 54,000 rows in one step (TestDatalogGroundCeilings); planned, pass 3
+    ' lays out 5,249 on top of pass 2's 5,460 - shift's 30 groups (60),
+    ' elig's 1,800 joined to shift (3,600) and the 1,800 members - so
+    ' 10,709, and elig's 1,800 the largest step. It fills shift by shift, as
+    ' the toy does: two decisions a shift, no dead end.
+    prog = OptRosterProgram(60, 30)
+    w = OptSpillText(VLA_Optimize.OPTIMIZE(prog))
+    Dim pre As String
+    pre = "S,P|s1,p1|s1,p2|s2,p3|s2,p4|s3,p1|s3,p2|s4,p3"
+    Report "optimize ceilings (roster 60 x 30): answered, the first shift filled first", _
+           Left$(w, Len(pre)) = pre, "got " & Left$(w, 80)
+    Report "optimize ceilings (roster 60 x 30): 1,800 atoms, 1,740 clauses, 30 counters, 60 decisions, no dead end", _
+           OptStat(prog, 1) = 1800 And OptStat(prog, 2) = 1740 And OptStat(prog, 3) = 30 And _
+           OptStat(prog, 4) = 60 And OptStat(prog, 5) = 0, OptStatsText(prog)
+    Report "optimize ceilings (roster 60 x 30): 10,709 rows laid out, 1,800 in the largest step", _
+           OptStat(prog, 9) = 10709 And OptStat(prog, 10) = 1800, OptStatsText(prog)
+End Sub
+
+' n (fact (item iK)) forms, K = 1 to n.
+Private Function OptItemFacts(ByVal n As Long) As String
+    Dim s As String
+    Dim k As Long
+    For k = 1 To n
+        s = s & "(fact (item i" & k & ")) "
+    Next k
+    OptItemFacts = s
+End Function
+
+' n (fact (slot tK)) forms, K = 1 to n.
+Private Function OptSlotFacts(ByVal n As Long) As String
+    Dim s As String
+    Dim k As Long
+    For k = 1 To n
+        s = s & "(fact (slot t" & k & ")) "
+    Next k
+    OptSlotFacts = s
+End Function
+
+' The toy's shape at any size: people p1..pN, shifts s1..sM in a row,
+' exactly two a shift, never two in a row.
+Private Function OptRosterProgram(ByVal nPeople As Long, ByVal nShifts As Long) As String
+    Dim s As String
+    Dim k As Long
+    For k = 1 To nPeople
+        s = s & "(fact (person p" & k & ")) "
+    Next k
+    For k = 1 To nShifts
+        s = s & "(fact (shift s" & k & ")) "
+    Next k
+    For k = 1 To nShifts - 1
+        s = s & "(fact (next s" & k & " s" & (k + 1) & ")) "
+    Next k
+    OptRosterProgram = s & "(rule (elig S P) (shift S) (person P)) " & _
+        "(choose-exactly 2 (assign S P) (elig S P) (per (shift S))) " & _
+        "(forbid (assign S P) (assign T P) (next S T)) (query assign)"
+End Function
+
 ' The toy, optimize-toy, with an optional effort form inserted.
 Private Function OptToyProgram(ByVal effortForm As String) As String
     OptToyProgram = _
@@ -5603,10 +6008,10 @@ End Function
 Private Function OptStatsText(ByVal program As String) As String
     Dim s As String
     Dim i As Long
-    For i = 1 To 8
+    For i = 1 To 10
         If i > 1 Then s = s & " "
-        s = s & Choose(i, "atoms", "clauses", "counters", "decisions", "deadends", "work", "outcome", "pruned") & _
-            "=" & OptStat(program, i)
+        s = s & Choose(i, "atoms", "clauses", "counters", "decisions", "deadends", "work", "outcome", "pruned", _
+                       "laid", "step") & "=" & OptStat(program, i)
     Next i
     OptStatsText = s
 End Function
@@ -5720,13 +6125,15 @@ Private Sub TestOptimizeMemo()
            VLA_Optimize.OptimizeMemoKey("(query reports_to)", bases, hdrB), _
            "a header rename left the key alone"
 
-    ' A refusal is never memoized: it is cheap, and a stale one would
-    ' be a lie.
+    ' A refusal found reading the program is never memoized: it is cheap,
+    ' and a stale one would be a lie. (The one refusal that IS memoized is
+    ' OPTIMIZE.3 slice 3's size refusal, which is not cheap to find - its
+    ' pin is in TestOptimizeCeilings.)
     VLA_Optimize.OptimizeMemoClear
     For i = 1 To 3
         OptRefusalOf "(fact (p a)) (effort sideways) (query p)"
     Next i
-    Report "optimize memo: a refusal is never memoized", VLA_Optimize.OptimizeMemoCount() = 0, _
+    Report "optimize memo: a refusal found reading the program is never memoized", VLA_Optimize.OptimizeMemoCount() = 0, _
            "count " & VLA_Optimize.OptimizeMemoCount()
 
     ' The cap holds, so a workbook of many OPTIMIZE cells cannot grow

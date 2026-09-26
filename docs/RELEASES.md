@@ -123,6 +123,19 @@
     takes about half a second (0.56). It is checked against `DATALOG`
     itself on every rule of 192 test programs, row for row, every time
     the tests run.
+  - **A program too big for a cell is refused before the work is done,
+    and it says which rule and how big.** A formula lays out at most
+    100,000 rows of possibilities, and at most 50,000 in any one step.
+    Each step is counted before a row of it is made, so a rule that
+    would pair 18 million rows is refused having made none of them.
+    Laying a program out right up to that limit was measured at under a
+    fifth of a second. The refusal names the rule, the rows it would
+    make and why - "the 300 rows of 'pick' share no name with the 300
+    before it, so every one pairs with every one". A rule is worked
+    through from its smallest part, whatever order you wrote it in. That
+    is what lets "never two shifts in a row" fit at the size of a real
+    four-week roster: written the obvious way round, it would pair
+    352,800 rows in one step.
   - **Not yet:** "as few as possible" and "as many as possible"
     (`minimize`, `maximize`), preferences, staying close to last month's
     roster, and rules that read what is being chosen. Each is refused in
@@ -141,10 +154,11 @@ capability and no new file or network access. `OPTIMIZE`'s choosing is new,
 and it is the one new thing a workbook can ask Frazaro to do. It reads only
 the tables its formula names, writes nothing and calls nothing outside
 Excel. Its search stops at the effort its own rules allow, or after ten
-seconds of searching, whichever comes first. Laying out a very large
-program's possibilities is not bounded yet, just as a very large `DATALOG`
-question is not; a later release adds limits that refuse a program by its
-projected size.
+seconds of searching, whichever comes first. Laying out a program's
+possibilities is bounded too: past 100,000 rows, or 50,000 in one step, a
+formula refuses it before doing more. The part of a program that is plain
+`DATALOG` - its facts and ordinary rules - is not bounded yet, just as a
+`DATALOG` question is not.
 The CLI's history is new. It is written to one file of
 your own, `%APPDATA%\Frazaro\history.txt` - the first file Frazaro keeps in
 your profile - and never into a workbook; nothing in a workbook can read it or
