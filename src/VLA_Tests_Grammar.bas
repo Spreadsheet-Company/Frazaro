@@ -2887,7 +2887,7 @@ Public Sub TestL11_1()
     n = EnglishLoadVocabularyText("(defmacro (u9m x) (* x 1))", "u9-file")
     If Err.Number <> 0 Then d = Err.Description
     On Error GoTo 0
-    Report "u9: a same-path re-carry teaches reset-or-Reload, not rename", _
+    Report "u9: a same-path re-carry teaches Reload, not rename", _
            InStr(1, d, "already carries this file", vbTextCompare) > 0 And _
            InStr(1, d, "Reload", vbTextCompare) > 0, "got: " & d
     d = ""
@@ -3000,9 +3000,13 @@ Public Sub TestL8()
     t = VlaTranspile("(sub t () (+ 1 2))")
     If Err.Number <> 0 Then d = Err.Description
     On Error GoTo 0
-    Report "l8r: an operator in statement position refuses with directions", _
+    ' SOP.6's live pass (owner, 2026-09-26): the direction no longer
+    ' names VlaTryValue - no refusal a user can see recommends VBA, and
+    ' that one is a dev-rig command no installed Frazaro even has.
+    Report "l8r: an operator in statement position refuses with directions, and names no VBA", _
            InStr(1, d, "expression, not a statement", vbTextCompare) > 0 And _
-           InStr(1, d, "VlaTryValue", vbTextCompare) > 0, "got: " & d
+           InStr(1, d, "use its value, as in (set! x (+ ...))", vbTextCompare) > 0 And _
+           InStr(1, d, "VlaTryValue", vbTextCompare) = 0, "got: " & d
 
     t = TryTranspile("l8r: ordinary call statements still emit Call", _
                      "(sub t () (vlacount x))")

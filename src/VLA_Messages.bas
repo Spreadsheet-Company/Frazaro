@@ -158,7 +158,7 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "ide-lint-file-changed", 5, "VLA-IDE", "{path} changed while Lint VLA was working on it - another program or window saved it - so Lint VLA has not rewritten it. Lint it again to format the new version."
     AddMsg m, "ide-lint-write-not-verified", 5, "VLA-IDE", "Lint VLA has not changed {path}: the reformatted copy it wrote beside it did not read back byte for byte, so that copy was deleted. Check that the disk has space, then lint it again."
     AddMsg m, "ide-lint-cannot-replace", 5, "VLA-IDE", "Lint VLA could not replace {path} - it may be read-only or open in another program - so the file has not been changed. Close whatever has it open, or clear its read-only setting, and lint it again."
-    AddMsg m, "ide-vocab-not-found", 53, "VLA-IDE", "Vocabulary file not found: {path} - edit IdeVocabPath in module VLA_IDE, and this add-in carries no built-in copy either."
+    AddMsg m, "ide-vocab-not-found", 53, "VLA-IDE", "Frazaro could not find its phrasebook: it looked for {path}, and this copy of Frazaro carries no built-in one either, so it cannot read any sentence. Reinstall Frazaro to put its phrasebook back."
     AddMsg m, "ide-no-workspace-sheet", 5, "VLA-IDE", "No '{sheet}' sheet yet - run Set Up Workspace first"
     AddMsg m, "ide-workspace-ambiguous", 5, "VLA-IDE", "This workbook has {count} programs ({names}) - go to the program's own sheet and use its buttons"
     AddMsg m, "ide-programs-share-short-name", 5, "VLA-IDE", "The programs '{a}' and '{b}' would share the short name '{tag}' - rename one of them so each program keeps its own module and its own Undo"
@@ -179,6 +179,27 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "ide-pdf-not-supported", 5, "VLA-IDE", "Frazaro does not read PDFs: {file} has not been loaded, and the program on this sheet has not been changed. Open the PDF in Word, save it as a Word document (.docx) or as plain text (.txt), and load that. Read it over before you run it - Word rebuilds the lines when it converts a PDF, and it can join two steps into one line and drop the blank line that ends an indented block."
     AddMsg m, "ide-word-no-text", 5, "VLA-IDE", "Word found no text in {file}, so nothing was loaded. A scanned or photographed page is a picture of text rather than text, and Frazaro does not read pictures - it has no OCR. Load the document the scan was made from, if you have it, or type the procedure into this sheet. The program on this sheet has not been changed."
     AddMsg m, "ide-word-password", 5, "VLA-IDE", "{file} is protected by a password, and Frazaro never asks for one - a password box on a window you cannot see would simply stop Excel. Open the file in Word, remove the password (File > Info > Protect Document > Encrypt with Password, then clear the box), save it, and load it again. The program on this sheet has not been changed."
+    ' SOP.6 - the <Frazaro> tag. Every one of these is raised by
+    ' VlaIdeTaggedProgram BEFORE PourProgram, so each ends truthfully with
+    ' "the program on this sheet has not been changed", the promise SOP.1's
+    ' Word refusals make for the same reason. A template may not hold a
+    ' literal brace (SubstituteSlots reads every one as a slot), so a
+    ' placeholder is only ever shown through a slot's value.
+    AddMsg m, "ide-tag-malformed", 5, "VLA-IDE", "{file}, line {line}, looks like a Frazaro tag, but Frazaro cannot read it: {problem}. A tag sits alone on its own line: <Frazaro> above the instructions, and </Frazaro> below them. Nothing was loaded, and the program on this sheet has not been changed."
+    AddMsg m, "ide-tag-opener-inside-section", 5, "VLA-IDE", "{file}, line {line}: this <Frazaro> starts a new section while the one started on line {open} is still open. Put </Frazaro> on a line of its own where that section ends. Nothing was loaded, and the program on this sheet has not been changed."
+    AddMsg m, "ide-tag-closer-without-opener", 5, "VLA-IDE", "{file}, line {line}: </Frazaro> ends a section, but no <Frazaro> above it started one. Put <Frazaro> on a line of its own where the instructions begin, or delete this line. Nothing was loaded, and the program on this sheet has not been changed."
+    AddMsg m, "ide-tag-unknown-word", 5, "VLA-IDE", "{file}, line {line}: Frazaro does not know the word '{word}' in a tag. A word on its own in a tag is for Frazaro - a version like 0.6.2, or a language like espanol. To keep it as a note for people, put it in parentheses: ({word}). To make it a value the section can use, give it a name, like status={word}. Nothing was loaded, and the program on this sheet has not been changed."
+    AddMsg m, "ide-tag-quoted-name", 5, "VLA-IDE", "{file}, line {line}: a quoted name on its own in a tag, like {text}, is kept for naming sections in a later version of Frazaro. For now, put it in parentheses as a note, or give it a name as a value, like title={text}. Nothing was loaded, and the program on this sheet has not been changed."
+    AddMsg m, "ide-tag-twice", 5, "VLA-IDE", "{file}, line {line}: this tag gives {what} twice - keep one. Nothing was loaded, and the program on this sheet has not been changed."
+    AddMsg m, "ide-tag-bad-name", 5, "VLA-IDE", "{file}, line {line}: '{name}' cannot name a value. A value's name starts with a letter and holds only letters, digits, hyphens and underscores, like period or cost-center. Nothing was loaded, and the program on this sheet has not been changed."
+    AddMsg m, "ide-tag-value-needs-quotes", 5, "VLA-IDE", "{file}, line {line}: the value of {name} needs double quotes around it. Without them a value is a single word or number, with no spaces, quotes, parentheses, braces or angle brackets - {name}=""Week 39"" needs its quotes, and year=2026 does not. Nothing was loaded, and the program on this sheet has not been changed."
+    AddMsg m, "ide-tag-version-malformed", 5, "VLA-IDE", "{file}, line {line}: {version} is not a Frazaro version. A version is three numbers with dots between them, like 0.6.2. Nothing was loaded, and the program on this sheet has not been changed."
+    AddMsg m, "ide-tag-needs-newer", 5, "VLA-IDE", "{file}, line {line}: this section needs Frazaro {need} or later, and this copy is Frazaro {have}. Update Frazaro, then load the file again. Nothing was loaded, and the program on this sheet has not been changed."
+    AddMsg m, "ide-tag-language-missing", 5, "VLA-IDE", "{file}, line {line}: this section is written for the {language} phrasebook, which this copy of Frazaro does not have. Add it with Load Phrasebook, or use the edition of Frazaro made for it. Nothing was loaded, and the program on this sheet has not been changed."
+    AddMsg m, "ide-tag-placeholder-unknown", 5, "VLA-IDE", "{file}, line {line}: {placeholder} is not one of this section's values - the tag on line {open} gives {names}. Add it to that tag, or fix the spelling. To write a brace itself, type it twice. Nothing was loaded, and the program on this sheet has not been changed."
+    AddMsg m, "ide-tag-placeholder-malformed", 5, "VLA-IDE", "{file}, line {line}: {problem}. A placeholder is the name of one of this section's values between braces, and a brace typed twice stands for the brace itself. Nothing was loaded, and the program on this sheet has not been changed."
+    AddMsg m, "ide-tag-apostrophe-in-sheet-name", 5, "VLA-IDE", "{file}, line {line}: the value of {name} contains an apostrophe, and this line puts it inside a sheet name written between apostrophes, like 'Q1 Data'!A1, where an apostrophe ends the name early. Change the value, or name the sheet another way. Nothing was loaded, and the program on this sheet has not been changed."
+    AddMsg m, "ide-tag-sections-empty", 5, "VLA-IDE", "The <Frazaro> sections in {file} have no instructions in them, so nothing was loaded, and the program on this sheet has not been changed."
     ' U.19 - a Run whose Undo copy cannot be made stops before its first sentence, and leaves nothing behind.
     AddMsg m, "ide-undo-snapshot-failed", 5, "VLA-IDE", "'{program}' has not run. Before a Run changes anything, Frazaro saves each sheet the Run can change, so Undo Last Run can put it back - and it could not save the sheet '{sheet}' ({reason}). None of the program's sentences ran, and nothing Frazaro made for Undo was left behind. If the workbook is protected (Review > Protect Workbook), unprotect it; then run the program again."
     AddMsg m, "ide-undo-snapshot-failed-copies-left", 5, "VLA-IDE", "'{program}' has not run. Before a Run changes anything, Frazaro saves each sheet the Run can change, so Undo Last Run can put it back - and it could not save the sheet '{sheet}' ({reason}). None of the program's sentences ran, but Frazaro could not remove these sheets it had made for Undo: {left}. Delete them (right-click each tab, then Delete), then run the program again."
@@ -200,7 +221,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' add-in module present, VLA_Messages included, so those 22 sites
     ' went back to raw Err.Raise. Only the one call below the boundary
     ' (add-in-side only, never shipped standalone) stays migrated.
-    AddMsg m, "runtime-helpers-unreadable", 5, "VLA-Runtime", "The runtime helpers could not be read (no live module and no VLAr_Source sheet) - rebuild the add-in with VlaBuildAddin"
+    AddMsg m, "runtime-helpers-unreadable", 5, "VLA-Runtime", "Frazaro could not read the helpers a compiled program runs on, so this program cannot be compiled - this copy of Frazaro is missing part of itself. Reinstall Frazaro, or press Interpret and Run, which runs the program without compiling it."
     ' VLA_Interpreter.bas (60 of 61 - line ~1199's `Err.Raise num, src,
     ' desc` inside ExecStmtTrapped stays raw on purpose: a re-raise of an
     ' already-caught error escaping a local On Error Resume Next, not an
@@ -413,7 +434,7 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "english-vocab-requires-form-unsupported", 5, "VLA-English", "{loc}: (requires-form ""{form}"") is understood but not yet enforceable - the record of which release each form first worked in (docs/GRAMMAR_SINCE.md) is not carried inside Frazaro yet, so this build cannot check it and refuses rather than passing it silently. Use (requires-version ...) for now"
     AddMsg m, "english-vocab-requires-from-expansion", 5, "VLA-English", "{loc}: '{head}' was produced by a generator's expansion, not written in the file - a requirement is read from the source text before anything loads, so one that only appears after expansion is never actually checked. Write it literally, at the top of the phrasebook"
     AddMsg m, "english-vocab-macro-expansion-failed", 5, "VLA-English", "{loc}: this directive names a macro ('{head}') but its own expansion failed - {detail}"
-    AddMsg m, "english-vocab-file-already-carried-same", 5, "VLA-English", "{loc}: this session already carries this file - reset first (EnglishResetGrammar) or use the IDE's Reload, which resets for you"
+    AddMsg m, "english-vocab-file-already-carried-same", 5, "VLA-English", "{loc}: this session already carries this file, and loading it again would define every one of its words twice - press Reload Instructions, which starts from a fresh grammar"
     AddMsg m, "english-vocab-macro-name-collision", 5, "VLA-English", "{loc}: a macro named '{name}' is already carried by {prev} - rename this one (macro override semantics are not defined)"
     AddMsg m, "english-vocab-macro-form-invalid", 5, "VLA-English", "{loc}: this macro form does not stand - {detail}"
     AddMsg m, "english-extra-words-after-statement", 5, "VLA-English", "extra words after the first statement"
@@ -450,7 +471,7 @@ Private Sub AddEntries(ByVal m As Collection)
     ' a fully-qualified cross-module reference - see this module's own
     ' header note on why that is the one deliberate exception to Layer 0.
     AddMsg m, "vla-pop-context-empty", 5, "VLA", "VlaPopContext: no matching VlaPushContext - the context stack is empty"
-    AddMsg m, "vla-module-not-ours", 5, "VLA", "'{name}' already exists in this workbook's VBA project and was not created by Frazaro - overwriting it would destroy whatever code is there. Frazaro chooses this name itself, so the fix is on the module, not the program: open the VBA editor (Alt+F11) and rename or remove the '{name}' module, then try again."
+    AddMsg m, "vla-module-not-ours", 5, "VLA", "'{name}' already exists in this workbook's VBA project and was not created by Frazaro - overwriting it would destroy whatever code is there. Frazaro chooses this name itself, so changing the program will not help. Press Interpret and Run instead, which runs the program without writing any code into the workbook, or ask whoever wrote the '{name}' code to rename it."
     AddMsg m, "vla-prelude-not-found", 53, "VLA", "prelude.vla not found - looked beside this workbook and in its scripts folder, and this add-in carries no built-in copy either. Every VLA compile needs it."
     AddMsg m, "vla-include-too-deep", 5, "VLA", "include: nesting deeper than 16 files - is a file including itself? (while splicing '{label}')"
     AddMsg m, "vla-include-cannot-read", 5, "VLA", "include: cannot read '{name}' (looked at '{path}')"
@@ -515,13 +536,13 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-bare-atom-statement", 5, "VLA", "bare atom used as a statement: '{value}'"
     AddMsg m, "vla-type-enum-module-level-only", 5, "VLA", "({head} ...) is module-level only - move it outside the sub or function"
     AddMsg m, "vla-on-error-bad-shape", 5, "VLA", "on-error: expected (on-error resume-next) or (on-error goto <label|0>)"
-    AddMsg m, "vla-quote-in-statement-position", 5, "VLA", "'(quote ...)' is an expression, not a statement - use its value ((set! x (quote ...))) or evaluate it with VlaTryValue"
+    AddMsg m, "vla-quote-in-statement-position", 5, "VLA", "'(quote ...)' is an expression, not a statement - use its value, as in (set! x (quote ...))"
     AddMsg m, "vla-at-line-arity", 5, "VLA", "at-line expects a line number and at least one statement"
     AddMsg m, "vla-at-line-missing-number", 5, "VLA", "at-line expects a line number"
     AddMsg m, "vla-at-line-not-a-number", 5, "VLA", "at-line expects a line number, got '{value}'"
     AddMsg m, "vla-gen-row-arity", 5, "VLA", "gen-row expects a row label and at least one statement"
     AddMsg m, "vla-clause-outside-parent", 5, "VLA", "clause '({head} ...)' used outside its parent form"
-    AddMsg m, "vla-operator-in-statement-position", 5, "VLA", "'({op} ...)' is an expression, not a statement - use its value ((set! x ({op} ...))) or evaluate it with VlaTryValue"
+    AddMsg m, "vla-operator-in-statement-position", 5, "VLA", "'({op} ...)' is an expression, not a statement - use its value, as in (set! x ({op} ...))"
     AddMsg m, "vla-keyword-misuse", 5, "VLA", "{msg}"
     AddMsg m, "vla-return-outside-function", 5, "VLA", "(return <value>) is only valid inside a function"
     AddMsg m, "vla-tco-arity", 5, "VLA", "tail call to '{name}' passes {given} argument(s) but it takes {declared}"

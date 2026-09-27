@@ -167,13 +167,16 @@ these never did, so a row saying `0.6.0` for them would tell an author
 something false; rule 2's append-only protects released dates, which these
 were not. Every sentence the four accepted is accepted by the two, with the
 same meaning.
-Then ten phrasebook rows marked `0.6.3` — `G-TEXT`'s first slice
+Then ten phrasebook rows marked `0.7.0` — `G-TEXT`'s first slice
 (`pareto.txt` §12, text changed in place: upper and lower case, capitalizing
 each word, extra spaces and non-printing characters, each on a range and on a
 column) — and two core dispatch arms, `TryRuntimeHelper vlatextinrange` and
 `vlatextop`, its two new runtime helpers, each new that release. The same
 slice pinned `replace-in`'s `LookAt` and `MatchCase`, which changes no
 form, so the two `replace … with …` rows keep their `0.5.0`.
+Every row dated `0.6.3` here was re-dated `0.7.0` on 2026-09-26, when the
+owner renamed that release before it was tagged: rule 2 guards released
+dates, and `0.6.3` never shipped.
 
 ### Phrasebook rules
 
@@ -194,8 +197,8 @@ form, so the two `replace … with …` rows keep their `0.5.0`.
 0.5.0  align cell|range {r:range} {d:left|right|center/ed}
 0.5.0  ask {q:expr} and put answer into {v:var}
 0.5.0  band every other row of {r:range} {n:expr}
-0.6.3  capitalize each word in cell|range {r:range} after any {k:space|non-letter}
-0.6.3  capitalize each word in column {c:column} after any {k:space|non-letter}
+0.7.0  capitalize each word in cell|range {r:range} after any {k:space|non-letter}
+0.7.0  capitalize each word in column {c:column} after any {k:space|non-letter}
 0.5.0  center cell|range {r:range}
 0.5.0  change the source of pivot {n:text} to {r:range}
 0.5.0  clear cell in column {c:column} row {n:expr}
@@ -277,10 +280,10 @@ form, so the two `replace … with …` rows keep their `0.5.0`.
 0.5.0  make cell {r:cell} {d:bold|italic}
 0.5.0  make cell {r:cell} {d:red|yellow|black|blue|cyan|green|magenta|white}
 0.5.6  make cell|range {r:range} not {d:bold|italic}
-0.6.3  make cell|range {r:range} {k:uppercase|lowercase}
-0.6.3  make cell|range {r:range} {k:upper|lower} case
-0.6.3  make column {c:column} {k:uppercase|lowercase}
-0.6.3  make column {c:column} {k:upper|lower} case
+0.7.0  make cell|range {r:range} {k:uppercase|lowercase}
+0.7.0  make cell|range {r:range} {k:upper|lower} case
+0.7.0  make column {c:column} {k:uppercase|lowercase}
+0.7.0  make column {c:column} {k:upper|lower} case
 0.5.6  make range {r:range} {d:bold|italic}
 0.5.6  make range {r:range} {d:red|yellow|black|blue|cyan|green|magenta|white}
 0.5.0  make row {r:expr} a header row
@@ -308,11 +311,11 @@ form, so the two `replace … with …` rows keep their `0.5.0`.
 0.5.0  remember rows {a:expr} to {b:expr} of column {c:column} as {v:var}
 0.5.0  remove duplicates from range {r:range}
 0.5.0  remove duplicates from range {r:range} by column {k:expr}
-0.6.3  remove extra spaces from cell|range {r:range}
-0.6.3  remove extra spaces from column {c:column}
+0.7.0  remove extra spaces from cell|range {r:range}
+0.7.0  remove extra spaces from column {c:column}
 0.5.6  remove filter/s
-0.6.3  remove non-printing characters from cell|range {r:range}
-0.6.3  remove non-printing characters from column {c:column}
+0.7.0  remove non-printing characters from cell|range {r:range}
+0.7.0  remove non-printing characters from column {c:column}
 0.5.0  remove trailing empty rows and columns
 0.5.6  remove {d:underline|strikethrough|borders} from cell|range {r:range}
 0.5.0  remove {f:text-list} from pivot {n:text}
@@ -548,6 +551,6 @@ tag, not assumed.*
 0.5.0  TryRuntimeHelper   vlapivotsort
 0.5.0  TryRuntimeHelper   vlasendmail
 0.6.0  TryRuntimeHelper   vlatablearguments
-0.6.3  TryRuntimeHelper   vlatextinrange
-0.6.3  TryRuntimeHelper   vlatextop
+0.7.0  TryRuntimeHelper   vlatextinrange
+0.7.0  TryRuntimeHelper   vlatextop
 ```

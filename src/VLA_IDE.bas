@@ -1,6 +1,12 @@
 Attribute VB_Name = "VLA_IDE"
 Option Explicit
-Public Const VLA_IDE_VERSION As String = "U23.0"
+Public Const VLA_IDE_VERSION As String = "SOP.6"
+' SOP.6: the <Frazaro> tag. Load and Reload read only the part of a
+' document between <Frazaro> and </Frazaro> when it has one, with values
+' from the opening tag filled into the section's sentences
+' (VlaIdeFrazaroSections, beside NormalizeProgramText); and a document
+' with no tag that fails its first Check says how to add one, on the red
+' row itself (DoCheck's failHint).
 ' U23.0: three follow-ups to U.19. U.21 - Undo finds the copy it restores
 ' by its new name, not Worksheets(snap.Index + 1) (Index counts chart
 ' sheets, Worksheets does not), and a restore that fails part-way puts
@@ -2376,7 +2382,8 @@ Private Sub EnsureModernLayout(ws As Worksheet)
     ws.Cells(1, 1).Font.Color = RGB(140, 140, 140)
 End Sub
 
-Private Function DoCheck(ws As Worksheet, Optional ByRef vlaOut As String) As Boolean
+Private Function DoCheck(ws As Worksheet, Optional ByRef vlaOut As String, _
+                         Optional ByVal failHint As String = "") As Boolean
     EnsureModernLayout ws
     Dim lastRow As Long
     lastRow = IdeLastRow(ws)
@@ -2502,6 +2509,11 @@ Private Function DoCheck(ws As Worksheet, Optional ByRef vlaOut As String) As Bo
         If Len(Trim$(CStr(ws.Cells(r, 2).Value))) > 0 Then MarkOK ws, r
     Next
     MarkErr ws, badRow, errMsg
+    ' SOP.6: ImportFromPath hands in a hint when the document it just
+    ' poured had no <Frazaro> tag. It joins the red row's own text only
+    ' after MarkErr has logged the failure, so VLA_Log keeps just what
+    ' Frazaro could not read.
+    If Len(failHint) > 0 Then ws.Cells(badRow, 3).Value = CStr(ws.Cells(badRow, 3).Value) & " " & failHint
 End Function
 
 ' S4.3: does any sentence aim the program at a sheet Frazaro owns?
@@ -4317,9 +4329,26 @@ Private Sub ImportFromPath(ws As Worksheet, ByVal path As String)
     Else
         text = VlaReadFile(path)
     End If
-    PourProgram ws, NormalizeProgramText(text)
+    ' SOP.6: a document with a <Frazaro> tag pours only its tagged
+    ' sections. Every refusal of a malformed tag is raised in here,
+    ' before PourProgram, so the program on the sheet is untouched.
+    Dim hasTags As Boolean
+    Dim prog As String
+    prog = VlaIdeFrazaroSections(NormalizeProgramText(text), FileNameOnly(path), _
+                                 VLA_RELEASE_VERSION, IdeTagLanguages(), hasTags)
+    PourProgram ws, prog
     ws.Cells(1, 1).Value = path
-    DoCheck ws                                ' immediate feedback per row
+    ' SOP.6: the point of pain teaches the tag. A document with no tag
+    ' that fails its first Check has just been read as instructions from
+    ' top to bottom, notes for people included - so the red row says how
+    ' to fence the instructions off. On the row, never in a dialog: a
+    ' person reloading a program they are still fixing is not stopped by
+    ' it every time.
+    If hasTags Then
+        DoCheck ws                            ' immediate feedback per row
+    Else
+        DoCheck ws, failHint:="(Loading a whole SOP? Put <Frazaro> on a line of its own above the instructions and </Frazaro> below them, then press Reload Instructions: Frazaro reads only that part, and the rest of the document can stay exactly as it is.)"
+    End If
 End Sub
 
 ' SOP.1: the extensions Word reads for us - Word's own formats, and
@@ -4502,6 +4531,756 @@ Private Function NormalizeProgramText(ByVal t As String) As String
     t = Replace(t, Chr$(12), vbLf)            ' page break
     t = Replace(t, Chr$(7), vbLf)             ' table cell marker
     NormalizeProgramText = t
+End Function
+
+' =====================================================================
+'  SOP.6: the <Frazaro> tag. A client's SOP stays exactly as they wrote
+'  it, and Frazaro reads only the part between <Frazaro> and </Frazaro>.
+'  A pre-scan, not a second importer: ImportFromPath runs it on every
+'  Load and Reload, after NormalizeProgramText and before PourProgram.
+'  The owner's design, 2026-09-25 (the adjudication is SOP.6 in
+'  docs/BETA_ROADMAP1.md):
+'    - No tag line anywhere: the whole document is the program, exactly
+'      as before this item. The text comes back untouched.
+'    - Otherwise only the tagged sections are, any number of them, in
+'      document order. Only the last may be left open, and it then runs
+'      to the end of the document - "top half for people, bottom half
+'      for Frazaro", with PHP's optional closing ?> as the precedent. A
+'      section boundary is a blank line, so no block stays open across
+'      prose the program never shows.
+'    - A tag sits ALONE on its line, case ignored. A sentence that
+'      merely mentions the tag is not one.
+'    - Inside the opening tag, the SHAPE says whose a thing is:
+'        name=value  the author's: a value the section writes as {name}
+'        (any text)  the author's: a note, never read by Frazaro
+'        bare token  Frazaro's: a version (0.6.2 - needs that or later)
+'                    or a language (espanol - needs that phrasebook)
+'      Any other bare token is refused. That keeps every bare word free
+'      for a meaning added later, and makes an older Frazaro refuse a
+'      newer setting out loud instead of ignoring it. An unused value is
+'      fine (a coworker may use it later), and so is a note that says
+'      "approved": a note is a label, never a gate.
+'    - Values are filled in HERE, at import, so the sheet shows the
+'      filled sentence. Every reference stays literal - Check,
+'      DeclaredOutputSheet and Rehearse all see what will run - and a
+'      value's scope is its own section's text, which no blank line can
+'      end. A value goes in as one whole literal, never as raw text: Q3.
+'      Final pasted raw would end the sentence at its full stop.
+'  Pure: the release and the languages come in as arguments, so all of
+'  it is pinned host-free (TestIdeTags).
+' =====================================================================
+
+' The pre-scan. text is the document after NormalizeProgramText;
+' fileName names it in every refusal and in the first row; release is
+' the running Frazaro's version; languages lists the phrasebooks it can
+' read, separated by spaces. hasTags comes back True when the document
+' has a tag line, and the result is then its tagged sections under a
+' first row saying so; False, and the result is text itself.
+Public Function VlaIdeFrazaroSections(ByVal text As String, ByVal fileName As String, _
+                                      ByVal release As String, ByVal languages As String, _
+                                      ByRef hasTags As Boolean) As String
+    hasTags = False
+    VlaIdeFrazaroSections = text
+    Dim lines() As String
+    lines = Split(text, vbLf)
+    Dim n As Long
+    n = UBound(lines)
+    If n < 0 Then Exit Function              ' Split("") has no lines, so no tags
+
+    ' Pass 1: which lines are tags - 1 opens a section, 2 closes one. A
+    ' malformed tag refuses here, in either kind of document: a line that
+    ' plainly meant to be a tag must neither run as an instruction nor be
+    ' skipped as prose.
+    Dim kinds() As Long
+    ReDim kinds(0 To n)
+    Dim i As Long
+    For i = 0 To n
+        kinds(i) = FzTagLineKind(lines(i), fileName, i + 1)
+        If kinds(i) <> 0 Then hasTags = True
+    Next i
+    If Not hasTags Then Exit Function
+
+    ' Pass 2: the sections' shape.
+    Dim secOpen() As Long, secClose() As Long
+    ReDim secOpen(1 To n + 1)
+    ReDim secClose(1 To n + 1)
+    Dim k As Long
+    Dim inSec As Boolean
+    For i = 0 To n
+        If kinds(i) = 1 Then
+            If inSec Then
+                VLA_Messages.RaiseMsg "ide-tag-opener-inside-section", "file", fileName, _
+                    "line", i + 1, "open", secOpen(k) + 1
+            End If
+            k = k + 1
+            secOpen(k) = i
+            inSec = True
+        ElseIf kinds(i) = 2 Then
+            If Not inSec Then
+                VLA_Messages.RaiseMsg "ide-tag-closer-without-opener", "file", fileName, "line", i + 1
+            End If
+            secClose(k) = i
+            inSec = False
+        End If
+    Next i
+    If inSec Then secClose(k) = n + 1        ' left open: it runs to the end
+
+    ' Pass 3: each section's tag, then its lines with the values filled
+    ' in. Row 0 is written last, because it names every section's lines.
+    Dim outp() As String
+    ReDim outp(0 To n + 2 * k + 1)
+    Dim m As Long
+    m = 1
+    Dim s As Long
+    Dim vals As Collection
+    Dim tagRow As String
+    Dim formDepth As Long
+    Dim inQuote As Boolean
+    Dim textSeen As Boolean
+    For s = 1 To k
+        Set vals = New Collection
+        tagRow = FzTagReadOpener(lines(secOpen(s)), fileName, secOpen(s) + 1, release, languages, vals)
+        If s > 1 Then
+            outp(m) = ""                     ' the boundary: it closes any block left open
+            m = m + 1
+        End If
+        If Len(tagRow) > 0 Then
+            outp(m) = "# The section " & FzTagRangeText(secOpen(s), secClose(s), n) & ": " & tagRow
+            m = m + 1
+        End If
+        formDepth = 0
+        inQuote = False
+        For i = secOpen(s) + 1 To secClose(s) - 1
+            If vals.Count > 0 Then
+                outp(m) = FzTagFillLine(lines(i), vals, formDepth, inQuote, fileName, i + 1, secOpen(s) + 1)
+            Else
+                outp(m) = lines(i)
+            End If
+            If VlaIdeHasReadableText(lines(i)) Then textSeen = True
+            m = m + 1
+        Next i
+    Next s
+    ' ide-word-no-text's promise again: pouring nothing would clear the
+    ' program already on the sheet and leave an empty one in its place.
+    If Not textSeen Then
+        VLA_Messages.RaiseMsg "ide-tag-sections-empty", "file", fileName
+    End If
+    outp(0) = FzTagHeaderRow(fileName, secOpen, secClose, k, n, lines)
+    ReDim Preserve outp(0 To m - 1)
+    VlaIdeFrazaroSections = Join(outp, vbLf)
+End Function
+
+' 0 - not a tag; 1 - opens a section; 2 - closes one. A line is tag-LIKE
+' when, spaces aside, it begins "<frazaro" or "</frazaro" in any case and
+' the name ends there (so <Frazaros> is prose). A tag-like line whose
+' LAST character is ">" is a tag, and refuses if anything is wrong with
+' it; one with no ">" anywhere is a tag with its end missing, and refuses
+' too; one with a ">" somewhere else is a sentence that begins by
+' mentioning the tag - "<Frazaro> marks the part that runs." - and is
+' left alone.
+Private Function FzTagLineKind(ByVal ln As String, ByVal fileName As String, ByVal lineNo As Long) As Long
+    Dim t As String
+    t = Trim$(Replace(ln, vbTab, " "))
+    If Left$(t, 1) <> "<" Then Exit Function
+    Dim p As Long
+    p = 2
+    Do While Mid$(t, p, 1) = " "
+        p = p + 1
+    Loop
+    Dim closing As Boolean
+    If Mid$(t, p, 1) = "/" Then
+        closing = True
+        p = p + 1
+        Do While Mid$(t, p, 1) = " "
+            p = p + 1
+        Loop
+    End If
+    If VLA_Identity.Fold(Mid$(t, p, 7)) <> "frazaro" Then Exit Function
+    If Mid$(t, p + 7, 1) Like "[A-Za-z0-9_-]" Then Exit Function
+    If Right$(t, 1) <> ">" Then
+        If InStr(p + 7, t, ">") > 0 Then Exit Function
+        VLA_Messages.RaiseMsg "ide-tag-malformed", "file", fileName, "line", lineNo, _
+            "problem", "it never closes with >"
+    End If
+    Dim body As String
+    body = Trim$(Mid$(t, p + 7, Len(t) - (p + 7)))
+    If closing Then
+        If Len(body) > 0 Then
+            VLA_Messages.RaiseMsg "ide-tag-malformed", "file", fileName, "line", lineNo, _
+                "problem", "a closing tag holds nothing but its name, and this one also holds " & body
+        End If
+        FzTagLineKind = 2
+    Else
+        If Right$(body, 1) = "/" Then
+            VLA_Messages.RaiseMsg "ide-tag-malformed", "file", fileName, "line", lineNo, _
+                "problem", "a tag cannot close itself with />, so put </Frazaro> on a line of its own where the section ends"
+        End If
+        FzTagLineKind = 1
+    End If
+End Function
+
+' The opening tag's contents, read by shape (see the block header):
+' values into vals, keyed by folded name, each an Array(the name as
+' written, its literal in an instruction, its text inside quotes); a
+' version checked against release; a language against languages; notes
+' kept as written. Returns the contents for the section's own row, or ""
+' for a bare <Frazaro>.
+Private Function FzTagReadOpener(ByVal ln As String, ByVal fileName As String, ByVal lineNo As Long, _
+                                 ByVal release As String, ByVal languages As String, _
+                                 vals As Collection) As String
+    Dim t As String
+    t = Trim$(Replace(ln, vbTab, " "))
+    ' Past "<", any spaces and the name - FzTagLineKind has proved the
+    ' shape, so the first "frazaro" is the name - up to the final ">".
+    Dim p As Long
+    p = InStr(1, t, "frazaro", vbTextCompare) + 7
+    Dim body As String
+    body = Mid$(t, p, Len(t) - p)
+    Dim nb As Long
+    nb = Len(body)
+    Dim shown As String, version As String, language As String, lang As String
+    Dim tok As String, c As String
+    Dim i As Long, st As Long, q As Long, depth As Long
+    i = 1
+    Do
+        Do While Mid$(body, i, 1) = " "
+            i = i + 1
+        Loop
+        If i > nb Then Exit Do
+        c = Mid$(body, i, 1)
+        If c = "(" Then
+            ' A note, to its matching ")" - a note may hold its own pairs.
+            st = i
+            depth = 0
+            Do While i <= nb
+                c = Mid$(body, i, 1)
+                If c = "(" Then depth = depth + 1
+                If c = ")" Then
+                    depth = depth - 1
+                    If depth = 0 Then Exit Do
+                End If
+                i = i + 1
+            Loop
+            If depth <> 0 Then FzTagMalformed fileName, lineNo, "a note that opens with ( never closes with )"
+            shown = FzTagJoin(shown, Mid$(body, st, i - st + 1))
+            i = i + 1
+        ElseIf c = """" Then
+            tok = FzTagQuoted(body, i, fileName, lineNo)
+            VLA_Messages.RaiseMsg "ide-tag-quoted-name", "file", fileName, "line", lineNo, _
+                "text", """" & tok & """"
+        ElseIf c = ")" Or c = "=" Then
+            FzTagMalformed fileName, lineNo, "a " & c & " stands where a word, a value or a note should begin"
+        Else
+            st = i
+            Do While i <= nb
+                c = Mid$(body, i, 1)
+                If c = " " Or c = "=" Or c = "(" Or c = ")" Or c = """" Then Exit Do
+                i = i + 1
+            Loop
+            tok = Mid$(body, st, i - st)
+            q = i
+            Do While Mid$(body, q, 1) = " "
+                q = q + 1
+            Loop
+            If Mid$(body, q, 1) = "=" Then
+                i = q + 1
+                shown = FzTagJoin(shown, FzTagReadValue(tok, body, i, fileName, lineNo, vals))
+            ElseIf tok Like "[0-9]*" Then
+                If Len(version) > 0 Then FzTagTwice fileName, lineNo, "a Frazaro version"
+                version = tok
+                FzTagCheckVersion tok, release, fileName, lineNo
+                shown = FzTagJoin(shown, "Frazaro " & tok)
+            Else
+                lang = FzTagLanguageWord(tok)
+                If Len(lang) = 0 Then
+                    VLA_Messages.RaiseMsg "ide-tag-unknown-word", "file", fileName, "line", lineNo, "word", tok
+                End If
+                If Len(language) > 0 Then FzTagTwice fileName, lineNo, "a language"
+                language = lang
+                If InStr(1, " " & languages & " ", " " & lang & " ") = 0 Then
+                    VLA_Messages.RaiseMsg "ide-tag-language-missing", "file", fileName, "line", lineNo, "language", lang
+                End If
+                shown = FzTagJoin(shown, tok)
+            End If
+        End If
+    Loop
+    FzTagReadOpener = shown
+End Function
+
+' One name=value, with i just past the "=". A quoted value is text. An
+' unquoted one is a single word or number - a number when it reads as
+' one, text otherwise - exactly as it would be typed in a sentence, and
+' anything that could start or end something else needs the quotes.
+Private Function FzTagReadValue(ByVal nm As String, ByVal body As String, ByRef i As Long, _
+                                ByVal fileName As String, ByVal lineNo As Long, _
+                                vals As Collection) As String
+    If Not FzTagIsName(nm) Then
+        VLA_Messages.RaiseMsg "ide-tag-bad-name", "file", fileName, "line", lineNo, "name", nm
+    End If
+    Dim nb As Long
+    nb = Len(body)
+    Do While Mid$(body, i, 1) = " "
+        i = i + 1
+    Loop
+    If i > nb Then FzTagMalformed fileName, lineNo, nm & "= has no value after the ="
+    Dim raw As String, lit As String
+    Dim st As Long, j As Long
+    If Mid$(body, i, 1) = """" Then
+        raw = FzTagQuoted(body, i, fileName, lineNo)
+        lit = """" & Replace(raw, """", """""") & """"
+    Else
+        st = i
+        Do While i <= nb
+            If Mid$(body, i, 1) = " " Then Exit Do
+            i = i + 1
+        Loop
+        raw = Mid$(body, st, i - st)
+        For j = 1 To Len(raw)
+            If InStr("""'(){}<>=", Mid$(raw, j, 1)) > 0 Then
+                VLA_Messages.RaiseMsg "ide-tag-value-needs-quotes", "file", fileName, "line", lineNo, "name", nm
+            End If
+        Next j
+        If Not FzTagNumberLiteral(raw, lit) Then lit = """" & raw & """"
+    End If
+    Dim key As String
+    key = VLA_Identity.Fold(nm)
+    If FzTagHas(vals, key) Then FzTagTwice fileName, lineNo, "the value " & nm
+    vals.Add Array(nm, lit, raw), key
+    FzTagReadValue = nm & " = " & lit
+End Function
+
+' A quoted value at body(i), read the way a sentence reads a string - a
+' doubled quote is one quote - and i left just past its closing quote.
+Private Function FzTagQuoted(ByVal body As String, ByRef i As Long, _
+                             ByVal fileName As String, ByVal lineNo As Long) As String
+    Dim r As String, c As String
+    i = i + 1
+    Do While i <= Len(body)
+        c = Mid$(body, i, 1)
+        If c = """" Then
+            If Mid$(body, i + 1, 1) = """" Then
+                r = r & """"
+                i = i + 2
+            Else
+                i = i + 1
+                FzTagQuoted = r
+                Exit Function
+            End If
+        Else
+            r = r & c
+            i = i + 1
+        End If
+    Loop
+    FzTagMalformed fileName, lineNo, "a quote that opens a value never closes"
+End Function
+
+' A bare version: three numbers (VlaVersionParse, the same reading a
+' phrasebook's requires: line gets), at most the running release.
+Private Sub FzTagCheckVersion(ByVal need As String, ByVal release As String, _
+                              ByVal fileName As String, ByVal lineNo As Long)
+    Dim a As Long, b As Long, c As Long
+    If Not VLA.VlaVersionParse(need, a, b, c) Then
+        VLA_Messages.RaiseMsg "ide-tag-version-malformed", "file", fileName, "line", lineNo, "version", need
+    End If
+    If VLA.VlaVersionCompare(release, need) < 0 Then
+        VLA_Messages.RaiseMsg "ide-tag-needs-newer", "file", fileName, "line", lineNo, _
+            "need", need, "have", release
+    End If
+End Sub
+
+' The languages a tag can name: the phrasebooks Frazaro ships in
+' scripts\polyglotta, by file name, and the spelling a native speaker
+' types for three of them. A word here is permanent (SD-4): add, never
+' rename. "" when the word is not a language at all.
+Private Function FzTagLanguageWord(ByVal w As String) As String
+    Dim f As String
+    f = VLA_Identity.Fold(w)
+    Select Case f
+        Case "english", "espanol", "francais", "deutsche", "dansk", "latin", "esperanto", "pirate", "alien"
+            FzTagLanguageWord = f
+        Case "espa" & ChrW$(241) & "ol"
+            FzTagLanguageWord = "espanol"
+        Case "fran" & ChrW$(231) & "ais"
+            FzTagLanguageWord = "francais"
+        Case "deutsch"
+            FzTagLanguageWord = "deutsche"
+    End Select
+End Function
+
+' A value's name: a letter, then letters, digits, "-" and "_" - one of
+' the language's own words, never a number.
+Private Function FzTagIsName(ByVal nm As String) As Boolean
+    If Len(nm) = 0 Then Exit Function
+    If Not (Left$(nm, 1) Like "[A-Za-z]") Then Exit Function
+    Dim i As Long
+    For i = 2 To Len(nm)
+        If Not (Mid$(nm, i, 1) Like "[A-Za-z0-9_-]") Then Exit Function
+    Next i
+    FzTagIsName = True
+End Function
+
+' Does an unquoted value read as a number? Digits, an optional leading
+' "-", an optional decimal part, and thousands commas only in the strict
+' shape EnTokenize swallows (1,500 - never 1,50). lit is the number as
+' an instruction gets it: no commas.
+Private Function FzTagNumberLiteral(ByVal v As String, ByRef lit As String) As Boolean
+    Dim s As String
+    s = v
+    Dim sign As String
+    If Left$(s, 1) = "-" Then
+        sign = "-"
+        s = Mid$(s, 2)
+    End If
+    Dim whole As String, frac As String
+    Dim p As Long
+    p = InStr(s, ".")
+    If p > 0 Then
+        whole = Left$(s, p - 1)
+        frac = Mid$(s, p + 1)
+        If Not FzTagAllDigits(frac) Then Exit Function
+    Else
+        whole = s
+    End If
+    If InStr(whole, ",") > 0 Then
+        Dim groups() As String
+        groups = Split(whole, ",")
+        If Len(groups(0)) > 3 Or Not FzTagAllDigits(groups(0)) Then Exit Function
+        Dim g As Long
+        For g = 1 To UBound(groups)
+            If Len(groups(g)) <> 3 Or Not FzTagAllDigits(groups(g)) Then Exit Function
+        Next g
+        whole = Replace(whole, ",", "")
+    ElseIf Not FzTagAllDigits(whole) Then
+        Exit Function
+    End If
+    lit = sign & whole
+    If p > 0 Then lit = lit & "." & frac
+    FzTagNumberLiteral = True
+End Function
+
+Private Function FzTagAllDigits(ByVal s As String) As Boolean
+    If Len(s) = 0 Then Exit Function
+    Dim i As Long
+    For i = 1 To Len(s)
+        If Not (Mid$(s, i, 1) Like "[0-9]") Then Exit Function
+    Next i
+    FzTagAllDigits = True
+End Function
+
+Private Function FzTagHas(ByVal col As Collection, ByVal key As String) As Boolean
+    Dim v As Variant
+    On Error Resume Next
+    v = col.Item(key)
+    FzTagHas = (Err.Number = 0)
+    On Error GoTo 0
+End Function
+
+Private Function FzTagJoin(ByVal a As String, ByVal b As String) As String
+    If Len(a) = 0 Then
+        FzTagJoin = b
+    Else
+        FzTagJoin = a & "; " & b
+    End If
+End Function
+
+' "a, b and c": the names a section's tag gives, for a refusal to list.
+Private Function FzTagNameList(ByVal vals As Collection) As String
+    Dim r As String
+    Dim k As Long
+    Dim v As Variant
+    For Each v In vals
+        k = k + 1
+        If k > 1 Then
+            If k = vals.Count Then
+                r = r & " and "
+            Else
+                r = r & ", "
+            End If
+        End If
+        r = r & CStr(v(0))
+    Next v
+    FzTagNameList = r
+End Function
+
+' Where a section sits, for the rows that say so. closeIdx past the last
+' line means the section was left open.
+Private Function FzTagRangeText(ByVal openIdx As Long, ByVal closeIdx As Long, ByVal n As Long) As String
+    If closeIdx > n Then
+        FzTagRangeText = "from line " & (openIdx + 1) & " to the end"
+    Else
+        FzTagRangeText = "on lines " & (openIdx + 1) & "-" & (closeIdx + 1)
+    End If
+End Function
+
+' The program's first row: what was read and what was left out. It is
+' there for the change that is easy to miss - one tag added to a
+' document that used to be read whole silences everything outside it.
+' Only lines with text in them count as left out.
+Private Function FzTagHeaderRow(ByVal fileName As String, secOpen() As Long, secClose() As Long, _
+                                ByVal k As Long, ByVal n As Long, lines() As String) As String
+    Dim covered() As Boolean
+    ReDim covered(0 To n)
+    Dim s As Long, i As Long, lastIdx As Long
+    For s = 1 To k
+        lastIdx = secClose(s)
+        If lastIdx > n Then lastIdx = n
+        For i = secOpen(s) To lastIdx
+            covered(i) = True
+        Next i
+    Next s
+    Dim leftOut As Long
+    For i = 0 To n
+        If Not covered(i) Then
+            If Len(Trim$(Replace(lines(i), vbTab, ""))) > 0 Then leftOut = leftOut + 1
+        End If
+    Next i
+    Dim r As String
+    If k = 1 Then
+        r = "# From """ & fileName & """: Frazaro read only the <Frazaro> section " & _
+            FzTagRangeText(secOpen(1), secClose(1), n)
+    Else
+        r = "# From """ & fileName & """: Frazaro read only the " & k & " <Frazaro> sections ("
+        For s = 1 To k
+            If s > 1 Then
+                If s = k Then
+                    r = r & " and "
+                Else
+                    r = r & ", "
+                End If
+            End If
+            r = r & FzTagRangeText(secOpen(s), secClose(s), n)
+        Next s
+        r = r & ")"
+    End If
+    If leftOut = 1 Then
+        r = r & ", and left out the document's other line."
+    ElseIf leftOut > 1 Then
+        r = r & ", and left out the document's other " & leftOut & " lines."
+    Else
+        r = r & "."
+    End If
+    FzTagHeaderRow = r
+End Function
+
+' One line of a section whose tag gives values, with every {name} filled
+' in. It follows EnTokenize's own reading of a line, so a brace is filled
+' only where it would otherwise have been read: in an instruction it
+' becomes one whole literal ("Q3" or 2026); inside a quoted string, the
+' value's text with any quote doubled; inside a 'Sheet name'!A1
+' reference, the text. After an unquoted #, the rest of the line is a
+' note and is left as written. A raw VLA form - a row whose first
+' character is "(" - belongs to the Lisp layer, braces and all, since
+' (interpolate "{x}" :x 1) is that layer's own placeholder: it passes
+' through untouched, however many rows it takes. formDepth and inQuote
+' carry across rows, because both a form and a quoted string can.
+Private Function FzTagFillLine(ByVal s As String, ByVal vals As Collection, ByRef formDepth As Long, _
+                               ByRef inQuote As Boolean, ByVal fileName As String, _
+                               ByVal lineNo As Long, ByVal openNo As Long) As String
+    If Not inQuote Then
+        If formDepth > 0 Or Left$(LTrim$(Replace(s, vbTab, " ")), 1) = "(" Then
+            FzTagFormDepth s, formDepth
+            FzTagFillLine = s
+            Exit Function
+        End If
+    End If
+    Dim r As String, c As String
+    Dim i As Long, q As Long
+    i = 1
+    Do While i <= Len(s)
+        c = Mid$(s, i, 1)
+        If inQuote Then
+            If c = """" Then
+                If Mid$(s, i + 1, 1) = """" Then
+                    r = r & """"""
+                    i = i + 2
+                Else
+                    r = r & c
+                    inQuote = False
+                    i = i + 1
+                End If
+            ElseIf c = "{" Or c = "}" Then
+                r = r & FzTagFillBrace(s, i, vals, 1, fileName, lineNo, openNo)
+            Else
+                r = r & c
+                i = i + 1
+            End If
+        ElseIf c = "#" Then
+            r = r & Mid$(s, i)
+            Exit Do
+        ElseIf c = """" Then
+            r = r & c
+            inQuote = True
+            i = i + 1
+        ElseIf c = "'" Then
+            ' Excel's 'Sheet Name'!A1, recognized exactly as EnTokenize
+            ' recognizes it: closed on this row, then ! and a word.
+            q = InStr(i + 1, s, "'")
+            If q > 0 Then
+                If Mid$(s, q + 1, 1) = "!" And Mid$(s, q + 2, 1) Like "[A-Za-z0-9_-]" Then
+                    r = r & "'" & FzTagFillSheetName(Mid$(s, i + 1, q - i - 1), vals, fileName, lineNo, openNo) & "'"
+                    i = q + 1
+                Else
+                    r = r & c
+                    i = i + 1
+                End If
+            Else
+                r = r & c
+                i = i + 1
+            End If
+        ElseIf c = "{" Or c = "}" Then
+            r = r & FzTagFillBrace(s, i, vals, 0, fileName, lineNo, openNo)
+        Else
+            r = r & c
+            i = i + 1
+        End If
+    Loop
+    FzTagFillLine = r
+End Function
+
+Private Function FzTagFillSheetName(ByVal inner As String, ByVal vals As Collection, _
+                                    ByVal fileName As String, ByVal lineNo As Long, _
+                                    ByVal openNo As Long) As String
+    Dim r As String, c As String
+    Dim i As Long
+    i = 1
+    Do While i <= Len(inner)
+        c = Mid$(inner, i, 1)
+        If c = "{" Or c = "}" Then
+            r = r & FzTagFillBrace(inner, i, vals, 2, fileName, lineNo, openNo)
+        Else
+            r = r & c
+            i = i + 1
+        End If
+    Loop
+    FzTagFillSheetName = r
+End Function
+
+' One brace at s(i), and i left past it. "{{" and "}}" stand for the
+' brace itself, and a lone "}" is only ever a brace - L-INTERPOLATE's
+' own rule, since a "}" is ambiguous only while a placeholder is open.
+' "{name}" is the value: mode 0 in an instruction, 1 inside a quoted
+' string, 2 inside a 'Sheet name'! reference, which has no way to hold
+' an apostrophe at all.
+Private Function FzTagFillBrace(ByVal s As String, ByRef i As Long, ByVal vals As Collection, _
+                                ByVal mode As Long, ByVal fileName As String, _
+                                ByVal lineNo As Long, ByVal openNo As Long) As String
+    Dim c As String
+    c = Mid$(s, i, 1)
+    If Mid$(s, i + 1, 1) = c Then
+        FzTagFillBrace = c
+        i = i + 2
+        Exit Function
+    End If
+    If c = "}" Then
+        FzTagFillBrace = c
+        i = i + 1
+        Exit Function
+    End If
+    Dim cl As Long
+    cl = InStr(i + 1, s, "}")
+    If cl = 0 Then
+        VLA_Messages.RaiseMsg "ide-tag-placeholder-malformed", "file", fileName, "line", lineNo, _
+            "problem", "a brace opens a placeholder here and never closes it"
+    End If
+    Dim nm As String
+    nm = Mid$(s, i + 1, cl - i - 1)
+    If Len(nm) = 0 Then
+        VLA_Messages.RaiseMsg "ide-tag-placeholder-malformed", "file", fileName, "line", lineNo, _
+            "problem", "the braces here have no name between them"
+    End If
+    If Not FzTagIsName(nm) Then
+        VLA_Messages.RaiseMsg "ide-tag-placeholder-malformed", "file", fileName, "line", lineNo, _
+            "problem", "{" & nm & "} holds something that is not a value's name"
+    End If
+    Dim key As String
+    key = VLA_Identity.Fold(nm)
+    If Not FzTagHas(vals, key) Then
+        VLA_Messages.RaiseMsg "ide-tag-placeholder-unknown", "file", fileName, "line", lineNo, _
+            "placeholder", "{" & nm & "}", "open", openNo, "names", FzTagNameList(vals)
+    End If
+    Dim v As Variant
+    v = vals.Item(key)
+    If mode = 0 Then
+        FzTagFillBrace = CStr(v(1))
+    ElseIf mode = 1 Then
+        FzTagFillBrace = Replace(CStr(v(2)), """", """""")
+    Else
+        If InStr(CStr(v(2)), "'") > 0 Then
+            VLA_Messages.RaiseMsg "ide-tag-apostrophe-in-sheet-name", "file", fileName, "line", lineNo, _
+                "name", CStr(v(0))
+        End If
+        FzTagFillBrace = CStr(v(2))
+    End If
+    i = cl + 1
+End Function
+
+' Follows a raw VLA form's parentheses through one row the way
+' EnTokenize does: a string there (backslash escapes) never spans rows,
+' ";" is a comment to the end of the row, and the form is over when its
+' depth comes back to zero - the rest of that row is the tokenizer's
+' business, not this scan's.
+Private Sub FzTagFormDepth(ByVal s As String, ByRef depth As Long)
+    Dim i As Long
+    Dim c As String
+    Dim inS As Boolean
+    i = 1
+    Do While i <= Len(s)
+        c = Mid$(s, i, 1)
+        If inS Then
+            If c = "\" Then
+                i = i + 1
+            ElseIf c = """" Then
+                inS = False
+            End If
+        ElseIf c = """" Then
+            inS = True
+        ElseIf c = ";" Then
+            Exit Do
+        ElseIf c = "(" Then
+            depth = depth + 1
+        ElseIf c = ")" Then
+            depth = depth - 1
+            If depth <= 0 Then
+                depth = 0
+                Exit Do
+            End If
+        End If
+        i = i + 1
+    Loop
+End Sub
+
+Private Sub FzTagMalformed(ByVal fileName As String, ByVal lineNo As Long, ByVal problem As String)
+    VLA_Messages.RaiseMsg "ide-tag-malformed", "file", fileName, "line", lineNo, "problem", problem
+End Sub
+
+Private Sub FzTagTwice(ByVal fileName As String, ByVal lineNo As Long, ByVal what As String)
+    VLA_Messages.RaiseMsg "ide-tag-twice", "file", fileName, "line", lineNo, "what", what
+End Sub
+
+' SOP.6: the languages a tag's language word may ask for, read from names
+' alone: English always (every edition builds on english.vla), this
+' edition's own phrasebook, and every phrasebook this workbook asks to
+' load. No file is touched - a remembered path is an arbitrary string
+' out of the workbook (SEC.9), and only its name is compared. It is the
+' workbook's REQUEST, not this device's answer, and that is enough here:
+' the word is a courtesy that turns "Frazaro does not understand" into
+' "this needs the Spanish phrasebook", not a gate. A phrasebook this
+' device declined still fails every one of its sentences at Check.
+Private Function IdeTagLanguages() As String
+    Dim r As String
+    r = "english " & FzTagFileStem(IdeVocabFileName())
+    Dim p As Variant
+    For Each p In LoadedPhrasebookPaths(HostBook())
+        r = r & " " & FzTagFileStem(CStr(p))
+    Next p
+    IdeTagLanguages = r
+End Function
+
+Private Function FzTagFileStem(ByVal path As String) As String
+    Dim nm As String
+    nm = FileNameOnly(path)
+    If VLA_Identity.Fold(Right$(nm, 4)) = ".vla" Then nm = Left$(nm, Len(nm) - 4)
+    FzTagFileStem = VLA_Identity.Fold(nm)
 End Function
 
 ' Replace the program area: clear old sentences and marks, then one

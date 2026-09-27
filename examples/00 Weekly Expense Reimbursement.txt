@@ -1,0 +1,24 @@
+Weekly Expense Reimbursement
+Owner: Accounts Payable. Performed every Friday afternoon.
+
+PURPOSE
+Pay employees back for every expense claim that has a receipt, and tell payroll the total before 3pm.
+
+PROCEDURE
+1. Open the week's expense report (the Expenses sheet of Frazaro Sample Data.xlsx).
+2. Add up every claim that has a receipt, and write the total beside the report.
+3. Send the total to payroll before 3pm.
+Steps 1 and 2 are done by Frazaro. It reads only the lines between the two tags below, and leaves the rest of this page exactly as it is.
+
+<Frazaro week="Week 39" (steps 1 and 2, automated by Accounts Payable)>
+Work on sheet "Expenses".
+Set receipted-total to sum of range D2:D26 where range E2:E26 matches "Yes".
+Put "Reimbursement total, {week}" into cell H10.
+Put receipted-total into cell I10.
+Format cell I10 as dollars.
+Make range H10:I10 bold.
+Show "{week} reimbursement total: " joined with receipted-total.
+</Frazaro>
+
+REVISION HISTORY
+26 Sep 2026 - Steps 1 and 2 automated with Frazaro. To run it for another week, change Week 39 in the tag above.

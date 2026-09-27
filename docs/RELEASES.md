@@ -2,9 +2,34 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_ROADMAP1.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
-## 0.6.3
+## 0.7.0
 
 ### What changed
+
+- **Your SOP can stay exactly as it is. Put `<Frazaro>` on a line above the
+  part Frazaro should run and `</Frazaro>` on a line below it, and Frazaro
+  reads only that part.** The title, the purpose, the notes for people and
+  the revision history stay as you wrote them, with no `#` needed anywhere. A
+  document can have several tagged sections; one left open at the end runs
+  to the end of the document; and a document with no tag is read from top to
+  bottom, exactly as before. The opening tag can carry more.
+  `week="Week 39"` is a value the section writes as `{week}`, filled in as
+  the document loads, so running it for another week means changing it in
+  one place. Anything in parentheses is a note for people. `0.7.0` says the
+  section needs this Frazaro or later, and `espanol` that it is written for
+  the Spanish phrasebook. A tag Frazaro cannot read is refused with its file
+  and line before anything loads, and the program on your sheet stays as it
+  was. If you load a whole SOP with no tag and its first check fails, the red
+  row now says how to add one. The new sample **`00 Weekly Expense
+  Reimbursement`** (`.docx` and `.txt`) is an ordinary SOP with two lines
+  added, and `examples/README.md` now starts there.
+
+- **Messages point you at the ribbon, never at VBA.** When Frazaro cannot
+  read a sentence, it used to suggest printing a list in VBA's Immediate
+  window, and it named a Known Sentences button the ribbon no longer has; it
+  now says to press **What can I say?**. Seven other messages that sent you
+  into VBA now say what happened in plain words, or name the button that
+  helps. If you do know VBA, `docs/IMMEDIATE.md` lists the commands.
 
 - **Questions that follow a chain — "who reports-to Alice directly or not" —
   are several times faster, and answer exactly what they answered before.**

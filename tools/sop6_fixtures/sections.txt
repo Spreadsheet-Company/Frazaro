@@ -1,0 +1,12 @@
+Month-end ledger check - written for people.
+The two parts below are all Frazaro reads.
+<Frazaro>
+Work on sheet "Ledger".
+Replace "N/A" with 0 in range D2:E21.
+Set debits to sum of range D2:D21.
+</Frazaro>
+Between the two parts, a person checks the export by eye.
+<Frazaro (part 2)>
+Set credits to sum of range E2:E21.
+Set difference to debits minus credits.
+Show "Difference: " joined with difference.

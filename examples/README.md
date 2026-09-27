@@ -1,11 +1,12 @@
 # Frazaro examples
 
-**Eight real procedures, written in plain English, that run in Excel.** They
-start with a five-sentence cleanup and end with a staffing policy you can
-question. Each one is a standard operating procedure (SOP) of the kind people
-already keep in Word: a sales summary, an expense audit, receivables aging, a
-month-end close, a purchase order, a shift schedule. The difference is that Frazaro
-can run these ones.
+**Nine real procedures, written in plain English, that run in Excel.** The
+first is an ordinary SOP with two lines added to it. The rest start with a
+five-sentence cleanup and end with a staffing policy you can question. Each
+one is a standard operating procedure (SOP) of the kind people already keep in
+Word: an expense reimbursement, a sales summary, an expense audit, receivables
+aging, a month-end close, a purchase order, a shift schedule. The difference is
+that Frazaro can run these ones.
 
 All of them work on one workbook, **`Frazaro Sample Data.xlsx`**, so there is
 nothing to set up.
@@ -16,15 +17,37 @@ nothing to set up.
 
 1. Open **`Frazaro Sample Data.xlsx`** with Frazaro installed.
 2. On the **Frazaro** tab, press **Load Instructions** and pick
-   **`01 Tidy the Sales Export.txt`**. The procedure appears on a new
+   **`00 Weekly Expense Reimbursement.docx`** (or the `.txt`, if this
+   computer has no Word). The procedure's instructions appear on a new
    *Frazaro* sheet, one line per row.
 3. Press **Validate Instructions**. Every line gets a green OK, or a note in
    plain words saying what to change. Nothing has run yet.
-4. Press **Interpret and Run**, then look at the *Sales* sheet.
+4. Press **Interpret and Run**, then look at the *Expenses* sheet.
 
 Changed your mind? **Undo Last Run** puts the workbook back the way it was.
 
-This is the whole of sample 01:
+Sample 00 reads like any SOP: a title, a purpose, numbered steps, a revision
+history. Two lines were added to it, and Frazaro reads only what sits between
+them:
+
+```text
+<Frazaro week="Week 39" (steps 1 and 2, automated by Accounts Payable)>
+Work on sheet "Expenses".
+Set receipted-total to sum of range D2:D26 where range E2:E26 matches "Yes".
+Put "Reimbursement total, {week}" into cell H10.
+Put receipted-total into cell I10.
+Format cell I10 as dollars.
+Make range H10:I10 bold.
+Show "{week} reimbursement total: " joined with receipted-total.
+</Frazaro>
+```
+
+Everything outside the two tags stays exactly as a person wrote it. `{week}`
+is filled in from the tag, so running it for another week means changing
+`Week 39` in one place.
+
+Sample 01 is a program from top to bottom, with no tags at all, so every line
+is read:
 
 ```text
 # 01 - Tidy the Sales Export
@@ -43,6 +66,7 @@ Freeze top row.
 
 | # | Sample | Area | What it shows you |
 |---|---|---|---|
+| 00 | [Weekly Expense Reimbursement](00%20Weekly%20Expense%20Reimbursement.docx) | Finance | An ordinary SOP with two lines added: Frazaro runs only what sits between `<Frazaro>` and `</Frazaro>`. |
 | 01 | [Tidy the Sales Export](01%20Tidy%20the%20Sales%20Export.txt) | Sales | Your first program: five sentences that make a raw export readable. |
 | 02 | [Weekly Sales Summary](02%20Weekly%20Sales%20Summary.docx) | Sales | Totals, totals by region, and a report built on its own sheet. |
 | 03 | [Expense Report Audit](03%20Expense%20Report%20Audit.txt) | Finance | Checking every row with a loop, and a message when it's done. |
@@ -78,6 +102,16 @@ document, and anyone on the team can read it.
 
 ## How to read a procedure
 
+- **In a document with a `<Frazaro>` tag, only the lines between
+  `<Frazaro>` and `</Frazaro>` are read.** Each tag sits on a line of its
+  own, in any capitals. A document can have several tagged sections, and one
+  left open at the end runs to the end of the document. A document with no tag
+  is read from top to bottom, as below.
+- **The opening tag can carry more**, each kind with its own shape:
+  `week="Week 39"` is a value the section uses as `{week}`; anything in
+  parentheses is a note for people; a version like `0.6.2` says the section
+  needs that Frazaro or later; and a language like `espanol` says it is
+  written for that phrasebook.
 - **A line that starts with `#` is a note for people.** Frazaro skips it. Use
   notes for headings, reasons, and the steps someone does by hand.
 - **Every other line is an instruction.** It is checked before anything runs,
@@ -107,8 +141,9 @@ two fixes:
   receipt" is already written just below it as
   `Set receipted-total to sum of range D2:D26 where range E2:E26 matches "Yes".`
 
-When every line is green, run it. That's the whole process for your own SOPs
-too.
+When every line is green, run it. Or skip the `#`s altogether: put
+`<Frazaro>` above the instructions and `</Frazaro>` below them, and Frazaro
+reads nothing else. That is how sample 00 is written.
 
 ---
 
@@ -136,6 +171,11 @@ have a name.
 
 ## Bringing your own SOP
 
+- **Leave it as it is, and add two lines.** Put `<Frazaro>` on a line of its
+  own above the part Frazaro should run, and `</Frazaro>` on a line below it.
+  The title, the reasons, the revision history and everything else stay
+  exactly as they are, for people. If a document with no tag fails its first
+  check, the red row says the same thing.
 - **Word (`.docx`) works now.** Frazaro reads the file through Word itself,
   with the document's own macros switched off. Each paragraph becomes one row.
   You need Word installed.

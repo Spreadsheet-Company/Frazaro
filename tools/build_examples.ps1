@@ -7,7 +7,9 @@ WHAT IT BUILDS, all into examples/:
                                trial balance, stock levels, and three Excel
                                Tables for a warehouse schedule), plus a Start
                                Here sheet. Every sample SOP works on it.
-  - NN <Title>.txt / .docx     eight sample SOPs, easiest first, and one
+  - NN <Title>.txt / .docx     sample SOPs, easiest first: 00, an ordinary
+                               SOP with a <Frazaro> section in it (SOP.6),
+                               then eight written as programs; and one
                                practice SOP written the way a real one is.
 
 WHY A SCRIPT AND NOT HAND-SAVED FILES: a .docx or .xlsx is a zip, so git can
@@ -26,8 +28,15 @@ THE SOP MARKUP, one line per program line:
   ## text     a section        -> "# text", styled as a heading
   # text      a note           -> "# text", styled as a quiet note
   ? text      prose, unmarked  -> "text" with no #, styled as ordinary
-                                  prose (the practice SOP only: these are
-                                  the lines Frazaro is meant to refuse)
+                                  prose (the practice SOP: the lines
+                                  Frazaro is meant to refuse; sample 00:
+                                  the document around its <Frazaro>
+                                  section, which Frazaro never reads)
+  ?## text    a heading, unmarked -> "TEXT" with no #, styled as a heading
+                                  (sample 00's own section headings)
+  <Frazaro ...> / </Frazaro>
+              a tag line       -> as written, styled as a tag (SOP.6: only
+                                  the lines between the two are read)
   (blank)     a blank line     -> ends every open block, as in any program
   text        an instruction   -> checked and run by Frazaro; leading
                                   spaces mark a block body (indentation is
@@ -77,6 +86,40 @@ $XmlHead = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + "`n"
 #  THE SOPs
 # =====================================================================
 $sops = @(
+# SOP.6: the first sample is an ordinary SOP - a title, a purpose, numbered
+# steps, a revision history, none of it marked with # - that has had two
+# lines added to it. Frazaro reads only what sits between them, and fills
+# {week} in from the opening tag. The instructions are the practice SOP's
+# own, so both samples do the same job two ways.
+@{ Id = '00'; Title = 'Weekly Expense Reimbursement'; Area = 'Finance'; Format = 'docx+txt'
+   Uses = 'Expenses'; Learn = 'An ordinary SOP with two lines added: Frazaro runs only what sits between <Frazaro> and </Frazaro>.'
+   Body = @'
+? Weekly Expense Reimbursement
+? Owner: Accounts Payable. Performed every Friday afternoon.
+
+?## Purpose
+? Pay employees back for every expense claim that has a receipt, and tell payroll the total before 3pm.
+
+?## Procedure
+? 1. Open the week's expense report (the Expenses sheet of Frazaro Sample Data.xlsx).
+? 2. Add up every claim that has a receipt, and write the total beside the report.
+? 3. Send the total to payroll before 3pm.
+? Steps 1 and 2 are done by Frazaro. It reads only the lines between the two tags below, and leaves the rest of this page exactly as it is.
+
+<Frazaro week="Week 39" (steps 1 and 2, automated by Accounts Payable)>
+Work on sheet "Expenses".
+Set receipted-total to sum of range D2:D26 where range E2:E26 matches "Yes".
+Put "Reimbursement total, {week}" into cell H10.
+Put receipted-total into cell I10.
+Format cell I10 as dollars.
+Make range H10:I10 bold.
+Show "{week} reimbursement total: " joined with receipted-total.
+</Frazaro>
+
+?## Revision history
+? 26 Sep 2026 - Steps 1 and 2 automated with Frazaro. To run it for another week, change Week 39 in the tag above.
+'@ },
+
 @{ Id = '01'; Title = 'Tidy the Sales Export'; Area = 'Sales'; Format = 'txt'
    Uses = 'Sales'; Learn = 'Your first program: five sentences that make a raw export readable.'
    Body = @'
@@ -756,6 +799,7 @@ function Render-Txt($body) {
         if     ($raw -match '^= (.*)$')  { $lines.Add('# ' + $Matches[1]) }
         elseif ($raw -match '^~ (.*)$')  { $lines.Add('# ' + $Matches[1]) }
         elseif ($raw -match '^## (.*)$') { $lines.Add('# ' + $Matches[1].ToUpperInvariant()) }
+        elseif ($raw -match '^\?## (.*)$') { $lines.Add($Matches[1].ToUpperInvariant()) }
         elseif ($raw -match '^\? (.*)$') { $lines.Add($Matches[1]) }
         else                             { $lines.Add($raw) }
     }
@@ -799,6 +843,15 @@ $DocxStyles = $XmlHead + @"
 </w:styles>
 "@
 
+# SOP.6: the style of a <Frazaro> tag line - added only to a document that
+# has one, so every other sample's styles part, and so its bytes, stay as
+# they were.
+$DocxTagStyle = @"
+<w:style w:type="paragraph" w:customStyle="1" w:styleId="FzTag"><w:name w:val="Frazaro Tag"/><w:basedOn w:val="Normal"/><w:qFormat/>
+ <w:pPr><w:keepNext/><w:spacing w:before="80" w:after="60"/></w:pPr><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:cs="Consolas"/><w:color w:val="$C_TEAL"/><w:sz w:val="21"/></w:rPr></w:style>
+
+"@
+
 function Run([string]$text, [string]$rStyle) {
     $rp = ''
     if ($rStyle) { $rp = "<w:rPr><w:rStyle w:val=`"$rStyle`"/></w:rPr>" }
@@ -814,6 +867,8 @@ function Render-DocxBody($body, [bool]$practice) {
         elseif ($raw -match '^~ (.*)$')  { $ps.Add((Para 'FzSubtitle' ((Run '# ' 'FzHash') + (Run $Matches[1])))) }
         elseif ($raw -match '^## (.*)$') { $ps.Add((Para 'FzHeading'  ((Run '# ' 'FzHash') + (Run $Matches[1])))) }
         elseif ($raw -match '^#( (.*))?$') { $ps.Add((Para 'FzNote'   ((Run '# ' 'FzHash') + (Run $Matches[2])))) }
+        elseif ($raw -match '^\?## (.*)$') { $ps.Add((Para 'FzHeading' (Run $Matches[1]))) }
+        elseif ($raw -match '^\s*</?frazaro\b.*>\s*$') { $ps.Add((Para 'FzTag' (Run $raw.Trim()))) }
         elseif ($raw -match '^\? (.*)$') {
             $st = 'FzProse'; if ($first) { $st = 'FzProseTitle' }
             $ps.Add((Para $st (Run $Matches[1])))
@@ -840,6 +895,7 @@ function Build-Docx($sop, [string]$path) {
 
     $kicker = if ($practice) { 'FRAZARO  |  PRACTICE SOP' }
               elseif ($sop.Id -eq 'Joy') { 'FRAZARO  |  A PALETTE FOR ANY PROGRAM' }
+              elseif ($sop.Id -eq '00') { 'FRAZARO  |  START HERE' }
               else { "FRAZARO  |  SAMPLE SOP $($sop.Id) OF 08" }
     $small = '<w:rPr><w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/><w:spacing w:val="12"/><w:color w:val="' + $C_GREY + '"/><w:sz w:val="16"/></w:rPr>'
     $hdr = $XmlHead + "<w:hdr $w><w:p><w:pPr><w:pStyle w:val=`"Header`"/><w:pBdr><w:bottom w:val=`"single`" w:sz=`"4`" w:space=`"6`" w:color=`"$C_HASH`"/></w:pBdr></w:pPr>" +
@@ -847,6 +903,8 @@ function Build-Docx($sop, [string]$path) {
 
     $foot = if ($practice) {
         'Written the way real SOPs are, on purpose. Load it, press Validate Instructions, then add # to each line Frazaro flags, or rewrite it.'
+    } elseif ($sop.Id -eq '00') {
+        'Frazaro reads only the lines between <Frazaro> and </Frazaro>. The rest of this page is for people, exactly as written.'
     } else {
         'Lines that start with # are notes for people. Every other line is an instruction Frazaro checks, then runs.'
     }
@@ -877,7 +935,9 @@ function Build-Docx($sop, [string]$path) {
         '<Relationship Id="rIdFtr" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>' +
         '</Relationships>'
     $parts['word/document.xml'] = $doc
-    $parts['word/styles.xml']   = $DocxStyles
+    $styles = $DocxStyles
+    if ($sop.Body -match '(?m)^\s*</?frazaro\b') { $styles = $styles.Replace('</w:styles>', $DocxTagStyle + '</w:styles>') }
+    $parts['word/styles.xml']   = $styles
     $parts['word/header1.xml']  = $hdr
     $parts['word/footer1.xml']  = $ftr
     $parts['docProps/core.xml'] = $XmlHead + '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/">' +
@@ -1122,12 +1182,12 @@ function Build-Workbook([string]$path) {
     $start = New-Object System.Collections.Generic.List[object]
     $start.Add(@()) # row 1: breathing room
     $start.Add(@('', 'Welcome to Frazaro')); $S['B2'] = 3
-    $start.Add(@('', 'Automate this workbook in plain English. Eight sample procedures, from five sentences to a staffing policy.')); $S['B3'] = 4
+    $start.Add(@('', 'Automate this workbook in plain English. Nine sample procedures, from an ordinary SOP with two lines added to a staffing policy.')); $S['B3'] = 4
     $start.Add(@())
     $start.Add(@('', 'How to run a sample')); $S['B5'] = 5
     $steps = @(
         'On the Frazaro tab of the ribbon, press Load Instructions.',
-        'Pick a sample from the examples folder. Start with "01 Tidy the Sales Export.txt".',
+        'Pick a sample from the examples folder. Start with "00 Weekly Expense Reimbursement.docx" (or the .txt, on a computer without Word).',
         'Press Validate Instructions. Every line gets a green OK, or a note in words saying what to change. Nothing has run yet.',
         'Press Interpret and Run. Changed your mind? Undo Last Run puts the workbook back the way it was.'
     )
@@ -1143,6 +1203,7 @@ function Build-Workbook([string]$path) {
     foreach ($sop in $sops) {
         $file = if ($sop.Id -eq 'Practice') { "Practice - $($sop.Title).docx" }
                 elseif ($sop.File) { "$($sop.File).txt or $($sop.File).docx" }
+                elseif ($sop.Format -match '\+') { "$($sop.Id) $($sop.Title).docx or .txt" }
                 else { "$($sop.Id) $($sop.Title).$($sop.Format)" }
         $label = if ($sop.Id -eq 'Practice') { '+' } elseif ($sop.Id -eq 'Joy') { '*' } else { [int]$sop.Id }
         $start.Add(@('', $label, $file, $sop.Area, $sop.Uses, $sop.Learn))
@@ -1153,7 +1214,7 @@ function Build-Workbook([string]$path) {
     }
     $start.Add(@())
     $notes = @(
-        'Lines that start with # are notes for people. Every other line is an instruction Frazaro checks before anything runs.',
+        'In your own SOP, put <Frazaro> on a line above the instructions and </Frazaro> on a line below them, and Frazaro reads only that part - sample 00 shows how. In a document with no tag, lines that start with # are notes for people, and every other line is an instruction Frazaro checks before anything runs.',
         'The .docx samples need Microsoft Word on this computer (Frazaro reads them through Word, with macros disabled). The .txt samples need nothing extra.',
         'Every sample works on this workbook. Sales is a raw export on purpose: sample 01 tidies it. Staff, Shifts and Leave are Excel Tables for sample 08.',
         'Save a copy before you start if you want to keep the untouched data - or just press Undo Last Run after each sample.'

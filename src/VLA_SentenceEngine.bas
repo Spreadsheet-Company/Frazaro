@@ -10030,11 +10030,16 @@ Private Function BuildParseError(toks() As String, ByVal pos As Long) As String
         ' No sentence starts with this word AND nothing beyond the
         ' prelude is registered: almost always a missing/lost
         ' EnglishLoadVocabulary (VBA state resets clear the grammar).
-        msg = msg & " Only the " & mPatItems.Count & " built-in phrases are loaded - was EnglishLoadVocabulary run in this session?"
+        ' The message says what happened, never how to fix it in VBA:
+        ' a person reading a red row neither knows nor needs VBA (the
+        ' owner's rule, 2026-09-26; docs/IMMEDIATE.md has the commands).
+        msg = msg & " Only the " & mPatItems.Count & " built-in phrases are loaded: Frazaro's phrasebook did not load, so it can read almost no sentence. If this happens again after Validate Instructions, reinstall Frazaro."
     Else
+        ' SOP.6's live pass: this pointed at a "Known Sentences" button
+        ' the ribbon has not had since LE.1 - it is "What can I say?".
         msg = msg & " No loaded sentence starts with '" & PeekWord(toks, pos) & _
-              "' - click the 'Known Sentences' button to see all " & mPatItems.Count & _
-              " sentences this program understands (or, in VBA, print the list with ?EnglishListPhrases in the Immediate window)."
+              "' - press What can I say? on the Frazaro tab to see all " & mPatItems.Count & _
+              " sentences this program understands."
     End If
     Dim ep As Long
     ep = pos

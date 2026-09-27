@@ -21,6 +21,8 @@ document is right.*
   first, written before the release rather than after it.
 - **[GRAMMAR_SINCE.md](GRAMMAR_SINCE.md)** — Which release each sentence
   you can write first worked in.
+- **[IMMEDIATE.md](IMMEDIATE.md)** — If you know VBA: the commands for the
+  Immediate window that list, explain and reload what Frazaro understands.
 
 ## If you are building Frazaro
 

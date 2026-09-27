@@ -1,0 +1,4 @@
+<Frazaro 0.6.2 english (reviewed by Accounts Payable)>
+Work on sheet "Expenses".
+Fit all columns.
+</Frazaro>

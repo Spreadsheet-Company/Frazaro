@@ -309,6 +309,7 @@ Public Function VlaSelfTest() As Boolean
     TestHelpers
     TestIdeNaming
     TestIdeImportRouting
+    TestIdeTags
     TestBuildRibbon
     TestUninstallGuard
     TestUndoScan
@@ -1980,6 +1981,226 @@ Private Sub TestIdeImportRouting()
     CheckV "sop1: one letter is text", VlaIdeHasReadableText(Chr$(1) & vbCr & "a" & vbCr), True
     CheckV "sop1: a document of only notes is still text", _
            VlaIdeHasReadableText("# a note" & vbCr), True
+End Sub
+
+' ---------------------------------------------------------------------
+'  SOP.6: the <Frazaro> tag's pre-scan, VlaIdeFrazaroSections - the part
+'  of Load and Reload that decides which of a document's lines are its
+'  program. Every case runs with the release and the languages pinned
+'  (0.6.2; English and Spanish), so no pin depends on the machine. A "|"
+'  in a case is a line break. TagRows is everything the sheet would get;
+'  TagProgram leaves out the rows saying where the program came from.
+'  Both return a refusal as "REFUSED: <message>" rather than raising, so
+'  one wrong case reports itself and the run goes on.
+' ---------------------------------------------------------------------
+Private Sub TestIdeTags()
+    ' No tag: nothing changes.
+    CheckV "sop6: no tag - the document comes back exactly as it went in", _
+           TagRows("Weekly report|Work on sheet ""Sales"".|Fit all columns."), _
+           "Weekly report|Work on sheet ""Sales"".|Fit all columns."
+    CheckV "sop6: no tag - and says it found none", TagFound("Weekly report|Fit all columns."), False
+    CheckV "sop6: a sentence that mentions the tag is not one", _
+           TagRows("<Frazaro> marks the part that runs.|Fit all columns."), _
+           "<Frazaro> marks the part that runs.|Fit all columns."
+    CheckV "sop6: a longer name is not the tag", TagRows("<Frazaros>|Fit all columns."), "<Frazaros>|Fit all columns."
+    CheckV "sop6: a tag inside a note is not one", _
+           TagRows("# put <Frazaro> above the steps|Fit all columns."), "# put <Frazaro> above the steps|Fit all columns."
+
+    ' Sections.
+    CheckV "sop6: only the section is read, under a row saying so", _
+           TagRows("Expense run|<Frazaro>|Fit all columns.|</Frazaro>|Revision history"), _
+           "# From ""t.txt"": Frazaro read only the <Frazaro> section on lines 2-4, and left out the document's other 2 lines.|Fit all columns."
+    CheckV "sop6: and says it found one", TagFound("Expense run|<Frazaro>|Fit all columns.|</Frazaro>"), True
+    CheckV "sop6: any case, and spaces inside and around", _
+           TagRows("  < FRAZARO >  |Fit all columns.|" & vbTab & "</frazaro >"), _
+           "# From ""t.txt"": Frazaro read only the <Frazaro> section on lines 1-3.|Fit all columns."
+    CheckV "sop6: an opener with no closer runs to the end", _
+           TagRows("Notes for people.|<Frazaro>|Fit all columns.|Freeze top row."), _
+           "# From ""t.txt"": Frazaro read only the <Frazaro> section from line 2 to the end, and left out the document's other line.|Fit all columns.|Freeze top row."
+    CheckV "sop6: two sections, and the boundary between them is a blank line", _
+           TagRows("a|<Frazaro>|Fit all columns.|</Frazaro>|b|<Frazaro>|Freeze top row.|</Frazaro>"), _
+           "# From ""t.txt"": Frazaro read only the 2 <Frazaro> sections (on lines 2-4 and on lines 6-8), and left out the document's other 2 lines.|Fit all columns.||Freeze top row."
+    CheckV "sop6: three sections, the last left open", _
+           TagRows("<Frazaro>|Fit all columns.|</Frazaro>|<Frazaro>|Freeze top row.|</Frazaro>|<Frazaro>|Fit all columns."), _
+           "# From ""t.txt"": Frazaro read only the 3 <Frazaro> sections (on lines 1-3, on lines 4-6 and from line 7 to the end).|Fit all columns.||Freeze top row.||Fit all columns."
+    CheckV "sop6: blank lines are not counted as left out", _
+           TagRows("a||<Frazaro>|Fit all columns.|</Frazaro>||"), _
+           "# From ""t.txt"": Frazaro read only the <Frazaro> section on lines 3-5, and left out the document's other line.|Fit all columns."
+    CheckV "sop6: a tag's contents get a row of their own, in the order written", _
+           TagRows("<Frazaro 0.6.2 espanol period=""Q3"" year=2026 (audited Sep. 30 2026)>|Put {period} into cell A1.|</Frazaro>"), _
+           "# From ""t.txt"": Frazaro read only the <Frazaro> section on lines 1-3.|# The section on lines 1-3: Frazaro 0.6.2; espanol; period = ""Q3""; year = 2026; (audited Sep. 30 2026)|Put ""Q3"" into cell A1."
+
+    ' Values: each goes in as the one literal it would be typed as.
+    CheckV "sop6: a quoted value goes into an instruction as text", _
+           TagProgram("<Frazaro period=""Q3"">|Work on sheet {period}.|</Frazaro>"), "Work on sheet ""Q3""."
+    CheckV "sop6: a number goes in as a number", _
+           TagProgram("<Frazaro n=21>|Count r from 2 to {n}:|</Frazaro>"), "Count r from 2 to 21:"
+    CheckV "sop6: thousands commas are read as a sentence reads them", _
+           TagProgram("<Frazaro amount=1,500>|Set total to {amount}.|</Frazaro>"), "Set total to 1500."
+    CheckV "sop6: a negative decimal is a number", _
+           TagProgram("<Frazaro rate=-0.25>|Set r to {rate}.|</Frazaro>"), "Set r to -0.25."
+    CheckV "sop6: a leading zero stays exactly as typed", _
+           TagProgram("<Frazaro cc=0450>|Set c to {cc}.|</Frazaro>"), "Set c to 0450."
+    CheckV "sop6: an unquoted value that is not a number is text", _
+           TagProgram("<Frazaro v=0.6.1>|Show {v}.|</Frazaro>"), "Show ""0.6.1""."
+    CheckV "sop6: a quoted number stays text", _
+           TagProgram("<Frazaro year=""2026"">|Show {year}.|</Frazaro>"), "Show ""2026""."
+    CheckV "sop6: 1,50 is not a number", _
+           TagProgram("<Frazaro x=1,50>|Show {x}.|</Frazaro>"), "Show ""1,50""."
+    CheckV "sop6: inside a quoted string, a value is its text", _
+           TagProgram("<Frazaro week=""Week 39"">|Show ""Total for {week}"".|</Frazaro>"), "Show ""Total for Week 39""."
+    CheckV "sop6: inside a string, a number keeps its commas", _
+           TagProgram("<Frazaro amount=1,500>|Show ""Paid {amount} today"".|</Frazaro>"), "Show ""Paid 1,500 today""."
+    CheckV "sop6: a quote inside a value is doubled, in an instruction and in a string", _
+           TagProgram("<Frazaro who=""the """"A"""" team"">|Show {who}.|Show ""Hi {who}"".|</Frazaro>"), _
+           "Show ""the """"A"""" team"".|Show ""Hi the """"A"""" team""."
+    CheckV "sop6: a value with a full stop cannot end the sentence", _
+           TagProgram("<Frazaro p=""Q3. Final"">|Work on sheet {p}.|</Frazaro>"), "Work on sheet ""Q3. Final""."
+    CheckV "sop6: a value with a # cannot start a note", _
+           TagProgram("<Frazaro c=""#1"">|Show {c}.|</Frazaro>"), "Show ""#1""."
+
+    ' Braces: filled only where the line would otherwise read them.
+    CheckV "sop6: a doubled brace is the brace itself", _
+           TagProgram("<Frazaro a=1>|Show ""{{a}}"".|</Frazaro>"), "Show ""{a}""."
+    CheckV "sop6: a lone closing brace is only a brace", _
+           TagProgram("<Frazaro a=1>|Show ""a}b"".|</Frazaro>"), "Show ""a}b""."
+    CheckV "sop6: after a #, the rest of the line is left as written", _
+           TagProgram("<Frazaro a=1>|Put {a} into cell A1. # from {a}|</Frazaro>"), "Put 1 into cell A1. # from {a}"
+    CheckV "sop6: inside a 'Sheet name'! reference, a value is its text", _
+           TagProgram("<Frazaro q=Q1>|Put 1 into '{q} Data'!A1.|</Frazaro>"), "Put 1 into 'Q1 Data'!A1."
+    CheckV "sop6: a raw VLA form is the Lisp layer's, braces and all", _
+           TagProgram("<Frazaro a=1>|(show (interpolate ""{x}"" :x 5))|Put {a} into cell A1.|</Frazaro>"), _
+           "(show (interpolate ""{x}"" :x 5))|Put 1 into cell A1."
+    CheckV "sop6: however many rows the form takes", _
+           TagProgram("<Frazaro a=1>|(show|  (interpolate ""{x}"" :x 5))|Put {a} into cell A1.|</Frazaro>"), _
+           "(show|  (interpolate ""{x}"" :x 5))|Put 1 into cell A1."
+    CheckV "sop6: a string that runs onto the next row is still a string", _
+           TagProgram("<Frazaro a=1>|Show ""one {a}|two {a}"".|</Frazaro>"), "Show ""one 1|two 1""."
+    CheckV "sop6: a bare section is read exactly as the whole document would be", _
+           TagProgram("<Frazaro>|Show ""{a}"".|</Frazaro>"), "Show ""{a}""."
+    CheckV "sop6: so is a section whose tag gives no values", _
+           TagProgram("<Frazaro (reviewed)>|Show ""{a}"".|</Frazaro>"), "Show ""{a}""."
+
+    ' Names, versions, languages.
+    CheckV "sop6: names are matched without case", _
+           TagProgram("<Frazaro Period=""Q3"">|Put {PERIOD} into cell A1.|</Frazaro>"), "Put ""Q3"" into cell A1."
+    CheckV "sop6: an unused value is fine", _
+           TagProgram("<Frazaro a=1 b=2>|Put {a} into cell A1.|</Frazaro>"), "Put 1 into cell A1."
+    CheckV "sop6: spaces around = are fine", _
+           TagProgram("<Frazaro a = 1>|Put {a} into cell A1.|</Frazaro>"), "Put 1 into cell A1."
+    CheckV "sop6: a hyphen in a name", _
+           TagProgram("<Frazaro cost-center=""0450"">|Show {cost-center}.|</Frazaro>"), "Show ""0450""."
+    CheckV "sop6: the running version is enough", TagProgram("<Frazaro 0.6.2>|Fit all columns."), "Fit all columns."
+    CheckV "sop6: an older version is enough", TagProgram("<Frazaro 0.5.9>|Fit all columns."), "Fit all columns."
+    CheckV "sop6: a language this Frazaro has", TagProgram("<Frazaro espanol>|Fit all columns."), "Fit all columns."
+    CheckV "sop6: a language in its own spelling", _
+           TagProgram("<Frazaro Espa" & ChrW$(241) & "ol>|Fit all columns."), "Fit all columns."
+
+    ' Refusals: each names the file and the line, and nothing is poured.
+    CheckTagRefused "sop6: a second opener inside an open section is refused, naming both lines", _
+        "<Frazaro>|Fit all columns.|<Frazaro>|Freeze top row.", _
+        "line 3: this <Frazaro> starts a new section while the one started on line 1"
+    CheckTagRefused "sop6: a closer with no opener is refused", _
+        "Fit all columns.|</Frazaro>", "line 2: </Frazaro> ends a section, but no <Frazaro>"
+    CheckTagRefused "sop6: so is a second closer", _
+        "<Frazaro>|Fit all columns.|</Frazaro>|</Frazaro>", "line 4: </Frazaro> ends a section"
+    CheckTagRefused "sop6: a tag with no > is refused", _
+        "<Frazaro period=""Q3""|Fit all columns.", "it never closes with >"
+    CheckTagRefused "sop6: a closing tag holds only its name", _
+        "<Frazaro>|Fit all columns.|</Frazaro period=1>", "a closing tag holds nothing but its name"
+    CheckTagRefused "sop6: a tag cannot close itself", "<Frazaro/>|Fit all columns.", "cannot close itself"
+    CheckTagRefused "sop6: a bare word Frazaro does not know is refused", _
+        "<Frazaro approved>|Fit all columns.", "does not know the word 'approved'"
+    CheckTagRefused "sop6: and the refusal shows it as a note", _
+        "<Frazaro approved>|Fit all columns.", "(approved)"
+    CheckTagRefused "sop6: a quoted name on its own is kept for later", _
+        "<Frazaro ""Month-end close"">|Fit all columns.", "a quoted name on its own in a tag, like ""Month-end close"""
+    CheckTagRefused "sop6: a value's name starts with a letter", _
+        "<Frazaro 2x=1>|Fit all columns.", "'2x' cannot name a value"
+    CheckTagRefused "sop6: a value with a bracket needs quotes", _
+        "<Frazaro week=Week(39)>|Fit all columns.", "the value of week needs double quotes"
+    CheckTagRefused "sop6: so does a value in single quotes", _
+        "<Frazaro p='Q3'>|Fit all columns.", "the value of p needs double quotes"
+    CheckTagRefused "sop6: a name with no value is refused", _
+        "<Frazaro a=>|Fit all columns.", "a= has no value after the ="
+    CheckTagRefused "sop6: the same value twice is refused, whatever its case", _
+        "<Frazaro a=1 A=2>|Fit all columns.", "gives the value A twice"
+    CheckTagRefused "sop6: two versions are refused", _
+        "<Frazaro 0.6.1 0.6.2>|Fit all columns.", "gives a Frazaro version twice"
+    CheckTagRefused "sop6: two languages are refused", _
+        "<Frazaro english espanol>|Fit all columns.", "gives a language twice"
+    CheckTagRefused "sop6: a version is three numbers", _
+        "<Frazaro 0.6>|Fit all columns.", "0.6 is not a Frazaro version"
+    CheckTagRefused "sop6: a version newer than this Frazaro is refused", _
+        "<Frazaro 0.7.0>|Fit all columns.", "needs Frazaro 0.7.0 or later, and this copy is Frazaro 0.6.2"
+    CheckTagRefused "sop6: a language this Frazaro lacks is refused", _
+        "<Frazaro deutsche>|Fit all columns.", "written for the deutsche phrasebook"
+    CheckTagRefused "sop6: a note must close", _
+        "<Frazaro (audited>|Fit all columns.", "a note that opens with ( never closes with )"
+    CheckTagRefused "sop6: a quoted value must close", _
+        "<Frazaro a=""Q3>|Fit all columns.", "a quote that opens a value never closes"
+    CheckTagRefused "sop6: a placeholder names one of its own section's values", _
+        "<Frazaro a=1>|Put {a} into cell A1.|</Frazaro>|<Frazaro b=2>|Put {a} into cell A2.|</Frazaro>", _
+        "line 5: {a} is not one of this section's values - the tag on line 4 gives b"
+    CheckTagRefused "sop6: the refusal lists every value the tag gives", _
+        "<Frazaro a=1 b=2 c=3>|Put {d} into cell A1.", "gives a, b and c"
+    CheckTagRefused "sop6: a placeholder must close", _
+        "<Frazaro a=1>|Put {a into cell A1.", "never closes it"
+    CheckTagRefused "sop6: a placeholder must have a name", _
+        "<Frazaro a=1>|Show ""{}"".", "no name between them"
+    CheckTagRefused "sop6: a placeholder holds only a name", _
+        "<Frazaro a=1>|Show ""{a b}"".", "{a b} holds something that is not a value's name"
+    CheckTagRefused "sop6: an apostrophe cannot go inside a 'Sheet name'! reference", _
+        "<Frazaro q=""O'Brien"">|Put 1 into '{q}'!A1.", "the value of q contains an apostrophe"
+    CheckTagRefused "sop6: sections with nothing in them are refused", _
+        "a|<Frazaro>||</Frazaro>|b", "have no instructions in them"
+    CheckTagRefused "sop6: every refusal names the file and the line", _
+        "a|b|<Frazaro approved>", "t.txt, line 3"
+End Sub
+
+Private Function TagRows(ByVal text As String) As String
+    Dim found As Boolean
+    Dim r As String
+    On Error Resume Next
+    r = VlaIdeFrazaroSections(Replace(text, "|", vbLf), "t.txt", "0.6.2", "english espanol", found)
+    If Err.Number <> 0 Then r = "REFUSED: " & Err.Description
+    On Error GoTo 0
+    TagRows = Replace(r, vbLf, "|")
+End Function
+
+Private Function TagProgram(ByVal text As String) As String
+    Dim parts() As String
+    parts = Split(TagRows(text), "|")
+    Dim r As String
+    Dim kept As Long
+    Dim ln As String
+    Dim i As Long
+    For i = LBound(parts) To UBound(parts)
+        ln = parts(i)
+        If Left$(ln, 7) <> "# From " Then
+            If Left$(ln, 14) <> "# The section " Then
+                If kept > 0 Then r = r & "|"
+                r = r & ln
+                kept = kept + 1
+            End If
+        End If
+    Next i
+    TagProgram = r
+End Function
+
+Private Function TagFound(ByVal text As String) As Boolean
+    Dim found As Boolean
+    Dim r As String
+    On Error Resume Next
+    r = VlaIdeFrazaroSections(Replace(text, "|", vbLf), "t.txt", "0.6.2", "english espanol", found)
+    On Error GoTo 0
+    TagFound = found
+End Function
+
+Private Sub CheckTagRefused(ByVal name As String, ByVal text As String, ByVal wantFrag As String)
+    Dim got As String
+    got = TagRows(text)
+    Report name, Left$(got, 9) = "REFUSED: " And InStr(1, got, wantFrag, vbTextCompare) > 0, "got: " & got
 End Sub
 
 ' ---------------------------------------------------------------------

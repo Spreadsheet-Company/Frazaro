@@ -2584,6 +2584,135 @@ forever without anyone deciding to slip it.*
   phrasebook.* If that sentence cannot be written truthfully after SOP.1–4
   ship, the tranche is not done regardless of what got built. `~hours`
 
+- ✅ **SOP.6 — the `<Frazaro>` tag: a client's SOP stays as written, and
+  Frazaro reads only the part between `<Frazaro>` and `</Frazaro>`.** The
+  owner's idea and design, 2026-09-25, adjudicated over two sittings; built,
+  owner-verified live and committed 2026-09-26, for 0.7.0. It closes the worry
+  this tranche's own design left open: loaded whole, a real SOP meets a
+  newcomer in its first thirty seconds as a wall of red rows, each wanting a
+  `#` (SOP.4), when `#` would end up on most of the document. The tag marks
+  the minority instead: `#` marks prose inside a program, the tag marks a
+  program inside prose. It is the literate-programming move (PHP's `<?php …
+  ?>`, literate Haskell's `\begin{code}`), and it keeps SOP.2's "no
+  classification" rule whole: the author classifies, once, out loud. The
+  owner's reading of what it is for: the standard entry point, two lines added
+  to a document a client already has, and a document that carries the
+  product's name to whoever reads it next.
+
+  **The owner's rules, settled:**
+  - A pre-scan, not a second importer. No tag line anywhere: the whole
+    document is the program, exactly as before. Otherwise only the tagged
+    sections are, any number of them.
+  - An opener with no closer runs to the end of the document ("top half for
+    people, bottom half for Frazaro"). PHP's optional closing `?>` is the
+    precedent, and a forgotten closer fails loudly anyway: the prose after it
+    is poured, and Check marks it red.
+  - A tag sits alone on its line, in any case.
+  - Values ship in the first release ("parameterization is a doorway to
+    higher levels of abstraction"), and the tag takes arbitrary metadata: an
+    unused value is fine, because a coworker may use it later.
+  - Approval notes are just notes. Trust is a human concern, and a note that
+    says "approved" never gates anything.
+
+  **The grammar inside the opening tag, by shape** — the adjudication's answer
+  to "arbitrary metadata" that keeps every later meaning open. `name=value`
+  is the author's: a value the section writes as `{name}`. `(any text)` is
+  the author's: a note, never read. **A bare token is Frazaro's**: a version
+  (`0.6.2`, needs that release or later) or a language (`espanol`, needs that
+  phrasebook), and any other bare token is refused with the way to write it as
+  a note or a value. That one refusal keeps every bare word free for a meaning
+  added later — HTML's `data-*` lesson, applied before the first release
+  instead of after — and makes an older Frazaro refuse a newer setting out
+  loud instead of ignoring it. A quoted name on its own (`<Frazaro "Month-end
+  close">`) is refused too, kept for naming sections.
+
+  **Values are filled in at import, not bound at run time** — the decision the
+  rest hangs on. Run-time variables would need sheet names taken from values,
+  an `INDIRECT` for the engine, which would blind `DeclaredOutputSheet` and
+  G2's "the rule declares what it touches"; and a block-scoped variable would
+  end at the section's first blank line, since a blank line closes every
+  block. Filled in at import, every poured line is an ordinary sentence with
+  literal references, a value's scope is its own section's text, and no engine
+  change was needed. A value goes in as one whole literal — `"Q3"` or `2026`,
+  never raw text, so `Q3. Final` cannot end a sentence at its full stop — and
+  as its plain text inside a quoted string or a `'Sheet name'!` reference.
+  Values follow a sentence's own literal rules: quoted is text, unquoted is a
+  number when it reads as one. Placeholders use L-INTERPOLATE's grammar (`{{`
+  is a brace). Raw VLA rows and `#` notes are left as written.
+
+  **What the sheet shows:** a first row naming the sections read and how many
+  lines were left out — the guard against the one change that is easy to
+  miss, a tag added to a document that used to be read whole — then, per
+  section, a row with the tag's contents, then its lines; a blank row between
+  sections closes any block left open. *This departs from S3.3's "row N is
+  file line N" for a tagged document, on purpose:* the rows name each
+  section's line range, and a sheet of blank rows around the instructions is
+  the opposite of the point.
+
+  **The point of pain teaches the tag.** A document with no tag that fails
+  its first Check says on the red row itself, never in a dialog, how to add
+  one (`DoCheck`'s `failHint`, handed in by `ImportFromPath`).
+
+  **Built:** `VLA_IDE.bas` — `VlaIdeFrazaroSections`, pure, and its `FzTag*`
+  helpers beside `NormalizeProgramText`, wired into `ImportFromPath`; a
+  language word is checked by name only (`IdeTagLanguages`: English, the
+  edition's own phrasebook, and the workbook's requested ones, SEC.9's rule —
+  no file touched). `VLA_Messages.bas` — fifteen `ide-tag-*` refusals, each
+  raised before `PourProgram`. `VLA_Tests.bas` — `TestIdeTags`, **72 pure
+  pins**, pre-verified against a line-for-line PowerShell port that reads the
+  pins and the message templates straight out of the VBA source: 72/72, and
+  three mutants each caught. `examples/` — **sample 00**, an ordinary SOP with
+  a tagged section and a `{week}` value, now first in the README and on the
+  Start Here sheet. Owner-run live steps: `tools/sop6_live_steps.md`.
+
+  **Owner-verified live, 2026-09-26: all eleven steps** of
+  `tools/sop6_live_steps.md` — pure 1493/1493 and host 202/202 with the
+  G-TEXT session's pins in, `TestDSLs` 2299/2299, `VerifyReports` 283/283 on
+  both backends; `Week 39` filled in at import, `Week 40` typed in Word with
+  its curly quotes, both sections of `sections.txt` green and run, the hint on
+  the red row, the three refusals (an unknown word, a newer version, a
+  missing phrasebook) each leaving the sheet as it was, and a tag's contents
+  accepted. **Found at step 6, fixed the same day:** the red row's own
+  message, older than this item, told a user to print `?EnglishListPhrases`
+  in the Immediate window, and named a "Known Sentences" button the ribbon
+  has not had since LE.1 (it is **What can I say?**). The owner's rule: no
+  message a user can see recommends VBA — "99% of Frazaro users will neither
+  know nor care about VBA" — and the commands move to `docs/IMMEDIATE.md`.
+  The sweep reworded seven more: `ide-vocab-not-found` (edit a module),
+  `runtime-helpers-unreadable` (run `VlaBuildAddin`),
+  `english-vocab-file-already-carried-same` (call `EnglishResetGrammar`),
+  `vla-module-not-ours` (open the VBA editor — now: Interpret and Run writes
+  no code into the workbook), the two statement-position refusals (call
+  `VlaTryValue`, a dev-rig command no installed Frazaro even has), and the
+  "was EnglishLoadVocabulary run?" line. `tools/check_no_vba_advice.ps1` now
+  holds the line over both catalogues and every string in every shipped
+  module: red on HEAD's eleven matches, clean after. The owner's next run
+  failed two pure pins that encoded the old advice (pure 1491/1493), both
+  missed because the search before the rewording looked for old phrases
+  rather than the fragments pins assert on: `u9` pinned "already carries
+  this file" and "Reload" — ribbon advice, which the rule allows, so the
+  message keeps both and drops only `EnglishResetGrammar` — and `l8r`
+  pinned `VlaTryValue` itself, so it now pins the direction left and
+  asserts `VlaTryValue` is gone.
+
+  *What it changes in this tranche:* SOP.4's hand-added `#` becomes the
+  fallback for a document with no tag; SOP.3 matters only inside a section;
+  SOP.5's acceptance sentence, written for the `#` route, wants a re-read.
+  *Known gap, not closed here:* Word's `Content.Text` includes hidden text
+  only when that machine's View › Hidden text option is on, so a tag line
+  formatted as hidden reads differently from one machine to the next — pin
+  `TextRetrievalMode.IncludeHiddenText` in `ReadWordFile`. `~days`
+
+- ⬜ **SOP.7 — per-section languages.** `<Frazaro espanol>` two pages above
+  `<Frazaro deutsche>` in one multinational document, each section read with
+  its own phrasebook (the owner, 2026-09-26: "such a cool use case for an
+  international organization"). SOP.6 already reserves the language word and
+  checks that the phrasebook is there; what it cannot do yet is switch, since
+  a program is translated under one grammar — the edition's, plus whatever
+  phrasebooks the workbook loads. An engine item first: a section translated
+  under its own grammar, and a decision on whether a name one section sets is
+  visible to the next. `~weeks`
+
 ---
 
 # 🔧 MACHINE · FORTIFICATIONS
