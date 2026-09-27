@@ -2703,15 +2703,112 @@ forever without anyone deciding to slip it.*
   formatted as hidden reads differently from one machine to the next — pin
   `TextRetrievalMode.IncludeHiddenText` in `ReadWordFile`. `~days`
 
-- ⬜ **SOP.7 — per-section languages.** `<Frazaro espanol>` two pages above
-  `<Frazaro deutsche>` in one multinational document, each section read with
-  its own phrasebook (the owner, 2026-09-26: "such a cool use case for an
-  international organization"). SOP.6 already reserves the language word and
-  checks that the phrasebook is there; what it cannot do yet is switch, since
-  a program is translated under one grammar — the edition's, plus whatever
-  phrasebooks the workbook loads. An engine item first: a section translated
-  under its own grammar, and a decision on whether a name one section sets is
-  visible to the next. `~weeks`
+- ⛔ **SOP.7 — per-section languages. Parked 2026-09-26, a niche
+  nice-to-have.** `<Frazaro espanol>` two pages above `<Frazaro deutsche>` in
+  one document, each section read with its own phrasebook — filed the same
+  day as "such a cool use case for an international organization", then
+  parked by the owner on a second look: "I don't want my linguistic love of
+  linguistics to be the reason we implement a niche feature." The case
+  against, as adjudicated: documents that involve more than one language
+  come in three shapes, and none of them needs a program that switches
+  language mid-run.
+  - *A team that writes in one language* is served by an edition or a loaded
+    phrasebook for the whole document, and SOP.6's language word already
+    gives the useful half: a Spanish SOP opened in the English edition says
+    "written for the espanol phrasebook" instead of a wall of "Don't
+    understand".
+  - *A bilingual SOP* (Quebec, Belgium, Switzerland, an English-and-Spanish
+    workforce) holds the same procedure twice, and this item as filed would
+    run it twice, once per language. What it needs is "run only the section
+    in my language" — selection, which is SOP.8's.
+  - *A global SOP's local annexes* are each run by their own team —
+    selection again.
+
+  SD-7's reasoning holds here even though its letter is about grammar:
+  nothing is scheduled without something that needs it. **Reopens if** a
+  pilot needs two languages in one run; SOP.6 keeps every language word
+  reserved until then. What it would take is unchanged — an engine item
+  first: a section translated under its own grammar, and a decision on
+  whether a name one section sets is visible to the next. `~weeks`
+
+- ⬜ **SOP.8 — named sections, and running just the ones you pick.** Minted
+  2026-09-26 when SOP.7 was parked (the owner's call), scoped, not built. One
+  SOP often holds several procedures — a month-end close is accruals,
+  reconciliation and reporting — and a person wants to run one of them.
+  Naming sections is also where the one real multilingual need went: "run
+  only the section in my language" is selection.
+
+  **The name** is the slot SOP.6 reserved by refusing it:
+  `<Frazaro "Accruals" period="Q3">`. A quoted string that is not a value is
+  the section's name, anywhere in the tag — the shape rule again, and a
+  document written against SOP.6 cannot contain one, so no meaning changes
+  (SD-4). One per tag; unique within the document, case ignored, a duplicate
+  refused naming both lines; never empty. It is a label, not a sheet name, so
+  it may hold any character, a quote doubled as in a value. Named and unnamed
+  sections may share a document.
+
+  **Where the choice is made — not in a dialog after Load.** The owner's
+  first sketch was a modal after Load Instructions: all sections, or a
+  checkbox per section. Two findings against it. A `MsgBox` has buttons and
+  nothing else, and `Application.InputBox` takes typed text; checkboxes mean a
+  UserForm, and this repository's one UserForm, `frmCLI`, carries a binary
+  `.frx` that only Excel can write, driven over COM by
+  `tools/build_cli_form.ps1` — one more thing to prove on Mac, too. The
+  weightier finding is that a choice made at Load is hidden state: the sheet
+  would show only what was picked, Reload would have to ask again or quietly
+  remember, and nothing on the sheet would say what was left out. The rule
+  so far is that the sheet shows what will run — SOP.6's header rows exist
+  for exactly that. So **Load pours every section, as it does now, and the
+  choice is made at Run time, by selection** — Excel's own multi-select
+  control:
+  - **Interpret and Run** runs the whole program, unchanged.
+  - **Run Selected Sections** (new; Interpreter group, and on the Add-ins
+    menu like every command) runs only the named sections the selection
+    touches, in document order, as one Run: one Undo, one record. The cursor
+    in "Accruals" runs Accruals; Ctrl+click into "Reporting" as well and
+    both run. The selection is the checkbox. It is the shape of OPTIMIZE.3
+    slice 5's *Optimize Selected Cell* (in progress): a command that acts on
+    what you have selected.
+  - Interpreter only at first — the path that writes no code into the
+    workbook. A compiled variant waits for someone to ask.
+
+  **What the sheet shows.** In a document with any named section, *every*
+  section gets a header row — SOP.6 gives one only to a tag with contents —
+  so the boundaries can be read from the sheet alone:
+  `# Section "Accruals", lines 40-52: period = "Q3"`, or `# Section, lines
+  60-72` for an unnamed one. A section runs from its header row to the row
+  before the next header, read from the sheet at Run time: an edit to the
+  sheet is honoured, and deleting a header visibly merges two sections.
+
+  **Refusals, in words, before anything runs:** a selection that touches no
+  named section ("this part is not a named section — name its tag, like
+  `<Frazaro "Accruals">`, or press Interpret and Run"); a selection that
+  also touches rows outside named sections, such as a whole column — refused
+  rather than guessed at, relaxable later; a program with no named sections
+  at all; and at Load, through SOP.6's pre-scan, a duplicate, empty or
+  second name.
+
+  **Measure first — the question that sets the size.** A named section run
+  alone does not see the names another section sets. Read from the code, not
+  yet seen live: nothing in the catalogue refuses a name that is read but
+  never set, so `sections.txt`'s second part run alone may compute `debits
+  minus credits` with `debits` empty and show `Difference: -660400` — a
+  confidently wrong answer, the one kind this project refuses on principle.
+  Measure it on both backends before building. If it is silent, SOP.8 takes
+  an engine item first: Check refuses a name a program reads but never sets —
+  which also catches a mistyped name in a whole program today — and a
+  section run alone is checked on its own text, so the refusal can name the
+  section that sets it. If it already refuses, SOP.8 is the name, the header
+  rows and the command.
+
+  **Also:** a section run's own record says which sections ran and which rows
+  they were, because "what ran" is the question an auditor asks. *Later, not
+  here:* a ribbon dropdown listing the sections themselves (it needs a
+  `getContent` callback, and every ribbon control today rides V5's one
+  `onAction` callback); a sentence that runs a section by name from another
+  program; and SOP.7's "run the section in my language", which named sections
+  make a small step. *Depends on:* SOP.6. `~days`, and `~days` more for the
+  engine item if the measurement calls for it.
 
 ---
 
