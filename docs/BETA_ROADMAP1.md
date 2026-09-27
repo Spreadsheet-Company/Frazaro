@@ -21593,8 +21593,9 @@ now carries one summary paragraph per engine and points here.*
     the ones I am least sure of (the first formula ever to call
     `OPTIMIZE_VIOLATIONS`, and its spill read back through Name Manager).
     `~days`
-  - 🟡 **OPTIMIZE.3 — choice, grounding over the pool, and a search that
-    propagates.** *Scoped 2026-09-24, and all six of its forks settled by
+  - ✅ **OPTIMIZE.3 — choice, grounding over the pool, and a search that
+    propagates.** **Complete as scoped, 2026-09-26: all five slices built,
+    tested live and committed.** *Scoped 2026-09-24, and all six of its forks settled by
     the owner the same day, five as recommended and one against: the
     integer grounder is built in this item rather than deferred. Five
     slices. **Slice 1 of five, the integer grounder, BUILT, TESTED LIVE and
@@ -21603,7 +21604,10 @@ now carries one summary paragraph per engine and points here.*
     3, the ceilings, BUILT, TESTED LIVE and COMMITTED 2026-09-25, every
     count exact, in two rounds. Slice 4, the ladder, BUILT and TESTED
     LIVE 2026-09-25, in two rounds, every count exact, and COMMITTED
-    2026-09-26.** The pre-flight that set this
+    2026-09-26. Slice 5, the minimal command, BUILT and TESTED LIVE
+    2026-09-26, in three runs, and COMMITTED 2026-09-26.**
+    `docs/OPTIMIZATION.md` Entries 4 and 5 hold what the item measured.
+    The pre-flight that set this
     item's starting conditions is recorded below, since its steps file
     moved to `archive/` when the item began.* The first search, and NOT the
     retired `SOLVE.3`'s
@@ -21879,7 +21883,7 @@ now carries one summary paragraph per engine and points here.*
         floors held, at least 40 rules and at least 25 in integers.
       - *The grounding half of the before-and-after* — `O3Ground`
         (`tools/VLA_DiagO3.bas`, four live steps in
-        `tools/optimize3_live_steps.md`), each rung the SAME rule over the
+        `archive/optimize3_live_steps.md`), each rung the SAME rule over the
         SAME in-memory relations through both evaluators. On all 13 rungs
         the rows matched the fixture's closed form, the two evaluators
         agreed row for row and in order, and the integer path was the one
@@ -22066,7 +22070,7 @@ now carries one summary paragraph per engine and points here.*
         in the moment only three can still be chosen. The pin now says 5
         and 6.
       - *Tested live 2026-09-25, every number as predicted*
-        (`tools/optimize3_live_steps.md`, steps 5 to 15): the version line
+        (`archive/optimize3_live_steps.md`, steps 5 to 15): the version line
         as written, so the two new private types compiled first time;
         `TestDSLs` 2124 → **2235/0**; `VlaSelfTest` **1347/1347**, moved
         by CLI.5's uncommitted pins in `VLA_Tests.bas`, a file this slice
@@ -22233,7 +22237,7 @@ now carries one summary paragraph per engine and points here.*
       - *Predicted:* `TestDSLs` 2235 → **2264**. `VlaSelfTest` **1347**
         (CLI.5's), `VlaSelfTestHost` **152**, `VerifyReports` **242**.
         28 checks and 7 verifiers green.
-      - *Live steps:* `tools/optimize3_live_steps.md`, 16 to 25. Step 24
+      - *Live steps:* `archive/optimize3_live_steps.md`, 16 to 25. Step 24
         (`O3Ceiling`) is the first timing of the ceilings on the integer
         grounder.
       - **FOUND BY STEP 24, AND FIXED IN THIS SLICE: three hash tables went
@@ -22464,6 +22468,122 @@ now carries one summary paragraph per engine and points here.*
           yet.
       - *Left for slice 5:* the minimal command. The formula's size
         refusals will point to it, at 500,000 rows a step.
+
+    **SLICE 5 — THE MINIMAL COMMAND. BUILT and TESTED LIVE 2026-09-26, in
+    three runs; COMMITTED 2026-09-26.**
+    What a formula refuses, a command runs. It runs a cell's own
+    `=OPTIMIZE(...)` call again with a command's ceiling (fork 1's
+    numbers):
+    - at most 500,000 rows in any one step, and none in all;
+    - no seconds guard, and Esc to stop.
+
+    The answer is written as values on a new sheet named after the cell.
+      - *The owner's calls, 2026-09-26:* both a button and a sentence, and
+        the answer on a new sheet. The ribbon is already crowded (the
+        owner's concern), so the button sits in one "Logic Engines"
+        dropdown in the Utilities group. Later engines' commands can join
+        it without taking room on the tab. The legacy menu gets the same
+        item.
+      - `VLA_Optimize.bas`:
+        - *`OptimizeRunCommand`* is `OptimizeRun`'s run held to a
+          command's ceiling (`SetRunMode`). The grounder's ceilings and
+          the search's guard now read the run's mode, and the command
+          neither reads nor fills the memo.
+        - *`VlaOptimizeCell`* is the command. It reads the cell's formula
+          (`Formula2` where Excel has it, and a cell inside a spill as
+          the spill's first cell) and splits it with the pure
+          `OptimizeCallArgs`. It evaluates each argument on the cell's
+          own sheet, and reads the Tables exactly as the worksheet
+          functions do.
+        - *While it runs,* Esc is armed (`EnableCancelKey`, error 18) and
+          the status bar says what is running. Both are put back however
+          the run ends.
+        - *The answer* is written by value, every text behind an
+          apostrophe (`SEC.4`'s rule), with the status and where it came
+          from above it.
+        - *A refusal on the way* arrives as `optimize-command-failed`,
+          naming the cell, and Esc as `optimize-command-stopped`. So the
+          module's raw-raise ceiling stays at 0, as `VLA_IDE`'s did when
+          it dropped its last re-raise.
+        - *The size refusal records which ceiling it passed.* A formula's
+          words point to the command; a command's say "a command".
+      - *Two ways in:*
+        - `VLA_IDE.VlaOptimizeSelectedCell`, behind the ribbon's dropdown
+          and the menu;
+        - the sentence `Optimize cell C1.`: `english.vla`'s
+          `optimize-cell`, the form `(vlaoptimizecell ...)`, which gets
+          `TryRuntimeHelper`'s native `Case` for the IN.15 reason. It runs
+          in the interpreter and the console only, and Compile refuses it
+          by name (the add-in build's finding, below).
+
+        `GRAMMAR_SINCE.md` dates both. `THREAT_MODEL.md` §1.3 records
+        the one program-reachable procedure outside `VLA_Runtime.bas`.
+      - `VLA_Build.bas`: the dropdown. A button inside a customUI menu
+        takes no size: Office refuses the whole part if one does, and the
+        tab vanishes. The self-test pins that too.
+      - *Proof:*
+        - `TestOptimizeCommand`, 16, and a 17th after the first add-in
+          build (below);
+        - `TestOptimizeCommandHost`, 17 on an Excel that spills;
+        - `TestOptimizeCeilings`' three refusal pins, now holding the
+          words with the pointer;
+        - `TestBuildRibbon`, +2.
+
+        No program went into the parity table: the command runs the same
+        grounder and search over the same parsed program, with a
+        command's ceilings.
+      - *Predicted:* `TestDSLs` 2265 → **2298**, then 2299 with the
+        resolve-check pin (below), and `VlaSelfTest` +2 over the other
+        sessions' work. Steps 36 to 40; the ribbon itself only
+        shows in a built add-in.
+      - *Not in this slice:* the command form `OPTIMIZE.7` plans, with a
+        Table kept from run to run, progress, and Continue.
+      - *The first suite run, 2026-09-26: `TestDSLs` 2297/1, the
+        predicted 2298 less one.* The failing pin compared the status bar
+        with VBA's `False`, but Excel reads its own status bar back as
+        the text `FALSE`. The failure also showed the command had been
+        resetting the status bar to Excel's own rather than putting back
+        what was there, which would drop a program's own status text
+        ("put … in status bar"). `PutStatusBarBack` now restores exactly
+        what it found. The pin sets a program's text first and compares
+        against it, at the same count.
+      - *Found at the owner's first add-in build, 2026-09-26, after
+        `TestDSLs` 2298/0 and the self-tests 1493 and 202: Check refused
+        EVERY program.* It said "a helper named 'vlaoptimizecell' that
+        this Frazaro doesn't provide". Check's resolve check scans a
+        program's whole translation, the phrasebook's macros included,
+        for `vla…` helpers that are neither the program's own nor in
+        `VLA_Runtime`'s manifest. The command lives beside its engine,
+        not in the runtime. It also showed a compiled program could
+        never have reached the engine: only the runtime is injected
+        beside it. Fixed three ways:
+        - the manifest names `vlaoptimizecell`;
+        - the emitter refuses the call at transpile as interpreter-only
+          (`RefuseInterpreterOnlyCall`, `vla-interpreter-only-command`,
+          IN.7's `VLA_ERR_INTERPRETER_ONLY`, which Check already takes as
+          expected);
+        - the sentence runs in the interpreter and the console, and
+          Compile says so by name.
+
+        One pin added (the resolve check knows the helper), which would
+        have caught it before the build, and the emitter pin re-pointed.
+        `TestDSLs` predicted **2299**.
+      - *The third run, 2026-09-26: as predicted throughout.* `TestDSLs`
+        **2299/0**. `VlaSelfTest` 1493/1493 and `VlaSelfTestHost` 202/202,
+        as at the second run. `VerifyReports` 283/283 on both backends,
+        which this slice does not move: 267 → 283 is `G-TEXT` slice 2's
+        sixteen checks, committed the same evening with the same four
+        totals. With the phrasebook exported again, 29 checks and 7
+        verifiers are green. The add-in build loaded `instructions.txt`,
+        and Check passed with no modal.
+        - Step 38: the formula's refusal word for word, ending on the
+          pointer. The command's new sheet held the status, the line
+          naming its source, and each slot's first item.
+        - Step 39: the sentence in the console, the same answer.
+        - Step 40: the formula's guard stopped the search after ten
+          seconds and 2,779,648 units of work. The command ran on past
+          ten seconds until Esc, then said it was stopped and that
+          nothing was written.
     `~weeks`
   - ⬜ **OPTIMIZE.4 — `count` and `sum` as native constraints.** "Every
     shift has at least 2 people", "nobody works more than 5 a week", "no

@@ -1335,3 +1335,387 @@ The total held and the parts did not. What it says:
   at slice 3's rate of 0.5 to 1.6 µs a row, is a few hundredths of a
   second. `DATALOG`'s pass over the user's rules takes half a second, and
   the memo key a tenth.
+
+---
+
+## Entry 5 — Choosing inside a spreadsheet: what the rest of `OPTIMIZE.3` measured *(2026-09-26)*
+
+*Status: **measurements**, collected here when the item closed.
+`OPTIMIZE.3` ran in five slices from 2026-09-24 to 26, each tested live by
+the owner in Excel 16.0 on one Windows machine. Each slice's counts were
+predicted before its run, in the roadmap's `OPTIMIZE.3` entry rather than
+here, and every count came out as predicted. That entry keeps each
+slice's full record. Entry 4 is the fourth slice, the ladder, and is not
+repeated here.*
+
+### What the item built
+
+`OPTIMIZE` could check a schedule it was given. Now it makes one. A
+program names a pool of possible rows, how many to choose from each group
+of them (exactly, at least, at most, between two numbers, or any), and the
+rules no schedule may break. `OPTIMIZE` lays out every possible choice and
+every instance of every rule as integers, which is the grounding. It then
+decides the rows one at a time, in the order the user's Tables list them,
+and propagates what each decision forces. There is no objective yet
+(`OPTIMIZE.6`), so the answer is the first schedule that breaks no rule.
+
+Four questions decide whether that works inside a spreadsheet, and each
+now has a number:
+1. How fast is the grounding?
+2. What does a unit of search cost?
+3. What stops a program too big for a cell before it starts?
+4. What happens to that program next?
+
+### 1. Grounding on integers: about a microsecond a row
+
+**Where it started.** Before this item, the grounding went through
+`DATALOG`'s own evaluator, whose relations are rows keyed by text in
+dictionaries. Entry 1's ladder was re-timed on the evaluator `DATALOG.14`
+left (the pre-flight, 2026-09-24), and a model was re-fitted to it,
+counted in rows *produced* (`tools/optimize3_model.ps1`):
+
+    t = 15 ms + 7.6 µs × J + 2.2 µs × J × (peak ÷ 100,000)
+
+J is every row produced, in every round, and peak is the largest single
+step. Its rms error is 15%. Fitted on one family of shapes, it predicts
+the other to within 0.73–1.25 of the measured time. Two things about it
+reach past this engine:
+- **A term for the rows read fits to zero.** The pre-flight saw two
+  regimes. Shapes bound by the rows they read ran 13–15 times faster than
+  in Entry 1, and shapes bound by the rows they produce only about 1.2
+  times faster. Counted as produced rows, they are one model: they differ
+  only in how many rows they produce for each row they read. The old
+  model's largest term, 0.16 ms for each row read, was the cost
+  `DATALOG.14` had removed. That is why the old model was about ten times
+  pessimistic below 100,000 rows in the largest step.
+- **The superlinear term was fitted, not assumed, and it has a
+  mechanism.** Entry 1 measured the cost of adding a dictionary key rising
+  from 1.27 µs at 10,000 keys to 8.83 µs at 400,000. A produced row pays
+  about two dictionary operations. Measured time passes the old model's
+  prediction near 300,000 rows in the largest step. Beyond that, the old
+  model was up to 1.84 times *optimistic*, the dangerous direction for a
+  ceiling.
+
+At one second, the re-fitted model admits 114,000 to 123,000 produced
+rows. That set the formula's ceilings (section 3).
+
+**The integer grounder** (slice 1) evaluates the same parsed rules over
+integer ids rather than text. An id stands for a *spelling*, the same
+identity `DATALOG`'s own tuple keys use, so by construction the two
+evaluators agree on which rows match. Every comparison calls the same
+functions, and a static scan keeps objects out of its row loops. It was
+timed against `DATALOG` over the same relations in memory, on Entry 1's
+shapes written as combinations (2026-09-24):
+
+| rule, as combinations | people × weeks | rows produced | `DATALOG` | integers | faster |
+|---|---|---|---|---|---|
+| at most 2 a shift (triples) | 14 × 4 | 30,576 | 2.508 s | 0.164 s | 15.3× |
+| at most 2 a shift (triples) | 20 × 4 | 95,760 | 9.211 s | 0.555 s | 16.6× |
+| at most 3 a week (quadruples) | 5 × 1 | 29,925 | 3.555 s | 0.281 s | 12.6× |
+| at most 3 a week (quadruples) | 10 × 1 | 59,850 | 17.148 s | 0.695 s | 24.7× |
+| the pairs for "never two in a row" | 50 × 4 | 4,150 | 0.172 s | 0.023 s | about 7× |
+
+What it says:
+- **About 1 µs for each row produced.** It was 0.85 to 1.21 µs on every
+  rung big enough to time, and 1.50 at the largest single step, 279,300
+  rows. `DATALOG`'s evaluator pays 7.6 µs plus its superlinear term. So a
+  second of grounding is on the order of a million rows.
+- **The same rows, in the same order.** Every time the suite runs, every
+  rule of each of the 192 parity programs is grounded both ways over its
+  own program's answer and compared row for row. Two floors keep the loop
+  from passing by grounding nothing.
+- **One rung is disputed.** At 10 × 1, "at most 3 a week" measured 17.3 s
+  in Entry 1, 8.063 s at the pre-flight and 17.148 s here. The model was
+  fitted to the 8.063, so by today's measurement it is 2.1 times
+  optimistic there. That rung lays out 279,300 rows in one step, which is
+  past a formula's ceiling and in a command's range, where there is no
+  time limit. With either value, or without the rung, the formula's
+  ceiling costs 0.88 to 0.92 s by the model, so the ceilings did not
+  move. Why the rung measured both is not known.
+
+### 2. A unit of search work
+
+The search (slice 2) keeps everything in typed arrays, with no objects
+and no recursion. It decides one row at a time and keeps an explicit
+trail. Each decision's consequences spread through two kinds of
+constraint:
+- a rule that only one undecided row can still keep from breaking forces
+  that row;
+- a count that has reached its most forces the group's other rows out,
+  and a count that can only just reach its least forces them in.
+
+It backtracks chronologically. Its budget is counted in work, and a
+decision or a dead end is one unit each, so a workbook stops at the same
+place on every machine. In a formula, a guard reads the clock every 256
+units, stops the search at ten seconds, and says so in the answer.
+
+| program | rows in a count | units | seconds | µs a unit |
+|---|---|---|---|---|
+| two shifts, 16 people, 9 on each (search alone) | 16 | 6,863 | 0.015 | 2.2 |
+| two shifts, 18 people, 10 on each | 18 | 25,739 | 0.061 | 2.4 |
+| two shifts, 20 people, 11 on each | 20 | 97,239 | 0.241 | 2.5 |
+| two shifts, 28 people, 15 on each, in a formula, stopped by the guard | 28 | 3,411,712 | 10 | 2.9 |
+| two shifts, 30 people, 16 on each, in a formula, stopped by the guard | 30 | 2,779,648 | 10 | 3.6 |
+| the reference roster at 11 a shift (Entry 4) | 42–43 | 250,000 | 1.118 | 4.47 |
+
+The two-shift family has no schedule: nobody works both shifts, and the
+two need more people than there are. Counting cannot show that, so the
+search must try every way. Lines 1 to 4 are slice 2's (2026-09-25), line 5
+is slice 5's (2026-09-26), and line 6 is Entry 4's.
+
+What it says:
+- **A unit costs more the wider the counts a decision touches.** It costs
+  2.2 µs at counts of 16 rows, 2.5 at 20 and 2.9 at 28. On the roster it
+  costs 4.4 to 4.5. There each shift's count holds 42 or 43 people, and
+  every row is also in the rest-day and weekly-cap rules. The likeliest
+  reason is that a decision which fills a count forces every other row of
+  it out, and a wider count has more of them.
+- **The 30-person reading is one run, on another day.** At 3.6 µs it sits
+  above the line the earlier rungs draw, 2.9 at 28, by more than two more
+  people explain. A guarded run's status itself says that where it stops
+  depends on the machine. It is recorded as measured, and nothing is set
+  from it.
+- **The guard stops on an exact multiple of 256.** The two counts are
+  13,327 × 256 and 10,858 × 256. A clock read every 256 units can stop
+  nowhere else, so the count alone shows that the guard stopped the
+  search, not the effort.
+- **The effort levels** were set in Entry 4 from the roster's 4.4 µs:
+  `quick` 2,500 units, `normal` 25,000 and `thorough` 250,000.
+
+### 3. The ceilings, and three hash tables that went quadratic
+
+**The ceilings are counted in rows, not seconds** (the owner's call), so
+a workbook refuses or answers alike on every machine. A formula lays out
+at most 100,000 rows of `OPTIMIZE`'s own grounding, and at most 50,000 in
+any one step. A step is one join. `DATALOG`'s pass over the program's
+certain part is not counted, and Entry 4 found that part is two-thirds of
+a run.
+
+**Each step is counted before a row of it is made.** A join makes at most
+the product of its two sides. When that could pass the room left, the
+grounder counts the step exactly from the join keys. The smaller side's
+keys go into a table with their counts, and the larger side's are looked
+up. That takes time linear in the two sides, however large the product. A
+step of 18.3 million rows was refused in 0.11 s in all, having made none
+of them.
+
+**A rule is worked through from its smallest part.** The atom matching
+the fewest rows goes first. Then, again and again, the smallest of those
+sharing a name with what is joined so far goes next. Each filter goes in
+as soon as every name it reads is bound.
+
+Users write "never two shifts in a row" as
+`(forbid (assign S P) (assign T P) (next S T))`. Taken in that order, it
+pairs every shift a person could work with every other before `next`
+drops any. At the reference roster's size that is 352,800 rows in one
+step (Entry 1's P·S² row), which a formula would refuse. Planned, a
+program of that rule at two a shift lays out 25,301 rows, 4,200 at most
+in a step. The whole reference roster lays out 33,456 (Entry 4).
+
+**Every count was right, and two of the four times were not.** These are
+the first timings at the ceiling (2026-09-25), and the same rungs after
+the fix below:
+
+| run | rows laid out | first run | after the fix |
+|---|---|---|---|
+| a choice's member rule, 250 items × 198 slots | 99,250 | 0.034 s | 0.047 s |
+| never two in a row, planned, 60 × 553 | 99,912 | 16.566 s | 0.156 s |
+| never two in a row, as written, refused | 33,180 | 0.138 s | 0.109 s |
+| a whole `OPTIMIZE` run, 250 items × 198 slots | 99,646 | 48.487 s | 0.398 s |
+
+Three tables used open addressing, where a key whose slot is taken moves
+on to the next free one:
+- the join counter's key table;
+- the integer grounder's row sets;
+- `OPTIMIZE`'s index that numbers the atoms.
+
+Their hash was h × 33 + id (the atom index used xor rather than +). For a
+two-part key, such as a shift and a person, that is 33 × shift + person.
+The keys therefore packed into one long run of neighbouring slots, and
+every new key walked to its end. A simulation of the rungs' own keys, in
+the order the grounder interns them, counted **246 million probes** for
+the second rung's 33,120 keys and **1.46 billion** for the fourth rung's
+49,500 atoms. Those are the 16.6 s and the 48.5 s. So this was never only
+the ceiling's problem: the reference roster's own shift-and-person pairs
+cost 706 probes a key.
+
+**The fix mixes each id into the hash as it is added.** It adds the id,
+then twice multiplies, by 1021 and then by 1019, and folds the high bits
+back into the low ones. It never leaves 21 bits, so nothing overflows a
+`Long`. It took three tries, each simulated on every key shape before the
+next:
+- *One multiply alone* left the low bits a lattice, and one shape still
+  took 74 probes a key.
+- *Mixing once, at the end of a key,* cannot separate two keys that
+  already share a hash. One shape took 2.8 probes a key, against 0.9 for a
+  random hash.
+- *Mixing each id* probes about as often as a truly random hash on every
+  shape tried. The worst was 1.2 probes a key, against random's 1.1.
+
+The two slow rungs became 106 and 122 times faster, for the same rows.
+**No answer could move.** Each table keeps its rows in insertion order and
+only answers whether a key is there.
+
+What it says:
+- **Grounding at a formula's ceiling costs 0.05 to 0.16 s.** That is
+  about a fifth of the 0.88 s the ceiling was set at, from the model of
+  `DATALOG`'s evaluator. **A whole run at the ceiling takes 0.40 s**,
+  covering the grounding, 49,500 decisions and a 49,500-row answer. Entry
+  4 weighed raising the ceilings and kept them, because the part of a run
+  they do not count is the larger one.
+- **A pathological hash is invisible to every correctness test.** Every
+  count on every rung was exact. Only timing at the size the engine was
+  designed for found it, and a ladder that stopped below its own ceiling
+  would not have.
+
+### 4. Where a formula ends and a command begins
+
+Entry 1's host probe is why a formula and a command are held to different
+limits. A worksheet formula runs inside Excel's recalculation. It cannot
+catch Esc, its status-bar text is dropped, and the Function Wizard runs it
+twice for every edit to an argument. So a formula gets:
+- ceilings counted in rows;
+- a ten-second guard that reports itself;
+- a memo that keeps a size refusal, so the wizard's second run finds the
+  refusal without laying anything out again.
+
+A command is a macro the user starts, and there Esc works as documented.
+So a command gets 500,000 rows in a step, a limit set at scoping for
+memory, with no total and no guard.
+
+Measured in slice 5 (2026-09-26):
+- **Past a formula, within a command.** Take 250 items and 201 slots,
+  with exactly one item in each slot. The slots share no name with the
+  items, so every one pairs with every one: 50,250 rows in one step. A
+  formula refuses it at its 50,000 a step, naming the rule, the rows and
+  the reason, and points to the command. The command answers it with
+  50,250 atoms, 201 counts, 101,152 rows laid out, 201 decisions and no
+  dead end. Its time was not measured. The nearest measurement is section
+  3's whole run at 250 × 198, 99,646 rows, in 0.40 s.
+- **No ten-second limit.** The formula's guard had stopped the two-shift
+  family at 30 people after 2,779,648 units. On the same program, the
+  command ran on past ten seconds until Esc. Then it said it was stopped,
+  and that nothing was written.
+- **What the command may touch.** It reads the cell's own formula and
+  evaluates only that formula's arguments. It writes only values, on a new
+  sheet, and overwrites nothing. Every text it writes goes behind an
+  apostrophe, so none of it becomes a formula.
+
+The live runs found two things about the host:
+- **Excel reads its own status bar back as the text `FALSE`**, not the
+  Boolean. So a macro that puts the status bar back must restore exactly
+  what it read.
+- **The engine does not travel with a compiled program.** Only the
+  runtime goes into the user's workbook with a compiled program, so a
+  program that runs the command must be interpreted. At first, the
+  program checker refused every program in the add-in, because the
+  command's name was missing from the runtime's list of helpers. The
+  checker scans the whole phrasebook, so it made no difference whether a
+  program used the sentence.
+
+### 5. How every count was known before Excel ran it
+
+Across the five slices, every count the owner's runs produced was written
+down before the run, and every one matched. That covers decisions, dead
+ends, atoms, counts, clauses and rows laid out. Slice 1's counts were
+derived by hand, and each was checked against `DATALOG`'s own evaluator.
+From slice 2 on, they came from line-for-line translations of the engine,
+in PowerShell for slices 2 and 3 and in C#, compiled in process, from
+slice 4. Each translation was checked first against what could already
+check it. Slice 2's agreed with an exhaustive walk on forty generated
+problems. Slice 4's reproduced every count measured live until then.
+
+They found three things a green suite did not:
+- **A wrong hand trace** (slice 2). Five people on three shifts cost 5
+  decisions and 6 dead ends, not 9 and 10. The trace had missed a count
+  forcing its last three rows in. The pin was written from the
+  translation.
+- **A budget overspent by one unit** (slice 4; Entry 4).
+- **The quadratic hash** (section 3). The simulated probe counts
+  explained the slow rungs' times before the fix was written, and each
+  candidate fix was simulated on every key shape before it went in.
+
+The item also taught three lessons about measuring:
+- **The resolution of VBA's `Timer` is set by the hour, not the
+  machine.** It returns seconds since midnight as a `Single`, whose 24
+  bits step by 1/128 s from 18:12 to midnight, by 1/256 s from 09:06, and
+  by 1/4096 s just after midnight. Slice 1's harness ran at 22:26 and read
+  every time as a whole number of 7.8 ms ticks. A harness timing short
+  runs must repeat them, as Entry 4's ladder does.
+- **A rate read over a short window is noise.** This is Entry 4's
+  correction. A search time found as the small difference between two
+  larger times moves by a tenth when either one moves by a hundredth of a
+  second.
+- **A new check whose first run over known-good code is not clean is
+  reporting its own defect.** That was Entry 3's lesson, and it came three
+  more times:
+  - A ratchet on the grounder's loops let a renamed loop through, until
+    it pinned how many loops each procedure has.
+  - The search's discipline scan called a `ReDim` of an array parameter
+    undeclared.
+  - The model's control passed a mutant, because a singular fit's NaN
+    coefficients slipped through checks written as "fail if below or
+    above". Every check is now written as what must hold.
+
+### Before and after
+
+| | before `OPTIMIZE.3` | after |
+|---|---|---|
+| a program that chooses | refused as "not yet" | the first schedule that breaks no rule, in the Tables' own order |
+| grounding 95,760 rows of "at most 2 a shift" as triples | 9.211 s, `DATALOG`'s evaluator | 0.555 s, on integers |
+| a program at a formula's ceiling, about 100,000 rows | — | 0.40 s, from the program to the answer |
+| the reference roster, 50 people × 4 weeks | nothing could choose | 0.745 s: 800 decisions and no dead end (Entry 4) |
+| a program too big for a formula | — | refused before the work, naming the rule and the rows; a command lays out up to 500,000 in a step |
+| a search that runs long | — | stopped by its effort, counted in work; in a formula also by a ten-second guard that says so, and in a command by Esc |
+| the reference solver, for scale | clingo: a first schedule in 0.06 s (Entry 1) | — |
+
+As in Entry 4, the two sides are not measured the same way. The grounding
+line times one rule on relations in memory, and the others time whole
+engine calls.
+
+### What it cost, in numbers
+
+| | before | after |
+|---|---|---|
+| automated assertions in the query suite | 1,881 | 2,299 |
+| lines in `VLA_Optimize.bas` | 1,952 | 4,853 |
+| lines in the search, `VLA_OptimizeSearch.bas` | — | 920 |
+| lines in `VLA_Datalog.bas`, home of the integer grounder | 3,507 | 4,838 |
+| lines in `VLA_Relation.bas`, home of the symbol table | 1,788 | 2,055 |
+| static scans | 27 | 28 |
+| other verifiers | 4 | 7 |
+| messages for this engine in the catalogue | 20 | 39 |
+| commands a user can run | none | one, as a button and a sentence |
+
+The 418 new assertions divide as follows:
+- 241 pin the integer grounder, 192 of them program by program against
+  `DATALOG`;
+- 111 pin the search and the choices;
+- 34 pin the command;
+- 29 pin the ceilings;
+- 2 sit in `OPTIMIZE`'s parity test;
+- 1 pins the budget's edge.
+
+### What `OPTIMIZE.3` leaves for later items
+
+- **Plain backtracking stalls one person a shift past the reference
+  roster** (Entry 4). That is the trigger for `OPTIMIZE.9`, conflict
+  learning and backjumping.
+- **A formula's time is set by what is not search** (Entry 4).
+  `DATALOG`'s pass over the user's own rules is two-thirds of the
+  reference roster's run. The memo key costs a tenth of a second on every
+  call, a memo hit included, and no item owns it yet.
+- **One gap in the ceilings is recorded, not closed.** A rule that
+  `DATALOG`'s own evaluator answers is held to the ceilings only by the
+  rows it made, after the fact. That means a rule with a `let`, an
+  aggregate, or a spelling that stands for two values. Only a constraint
+  written that way reaches the gap.
+- **The command was not timed.** `OPTIMIZE.7`'s progress form is where a
+  command's time becomes something a user watches.
+- **What a program can say is still growing.** Each missing part is
+  refused today in words that say so:
+  - counts and sums over chosen rows inside a rule (`OPTIMIZE.4`);
+  - rules over chosen rows (`OPTIMIZE.5`);
+  - an objective (`OPTIMIZE.6`);
+  - the kept schedule, with the command's progress and Continue
+    (`OPTIMIZE.7`).

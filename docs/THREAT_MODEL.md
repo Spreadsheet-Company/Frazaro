@@ -165,6 +165,26 @@ an arbitrary module or an arbitrary project, and not a path to code
 outside this codebase's own already-published surface. Real, but
 narrower than "Application.Run" read in isolation suggests.
 
+`OPTIMIZE.3` slice 5 adds the one program-reachable procedure outside
+`VLA_Runtime.bas`: a native `Case`, `vlaoptimizecell`, calling
+`VLA_Optimize.VlaOptimizeCell` directly and by name, as every native `Case`
+does. It is the sentence "Optimize cell C1.", and the Frazaro > Logic Engines
+> Optimize Selected Cell button calls the same procedure. Only the
+interpreter reaches it: the emitter refuses the call at transpile
+(`RefuseInterpreterOnlyCall`, `VLA_ERR_INTERPRETER_ONLY`), so no compiled
+program ever calls it. What it does:
+- it reads the named cell's own formula, which must be one call to an
+  `OPTIMIZE` function;
+- it evaluates that call's arguments with `Worksheet.Evaluate`, the
+  expressions the cell already evaluates on every recalculation;
+- it runs `OPTIMIZE`, and writes one new sheet of values.
+
+It overwrites nothing, and it never writes a formula: every text value
+goes behind an apostrophe, `SEC.4`'s rule, carried by the command itself.
+A refusal, or Esc, writes nothing. It adds no reach a program did not
+already have: the sentence `put formula … into cell …` already lets a
+program write any formula, which Excel then evaluates.
+
 ### 1.4 `raw` — the ungoverned ceiling
 
 **CONFIRMED, `VLA.bas:3288`:** `Case "raw": EmitTop = StrLitContent(Nth(lst, 2)) & vbCrLf`.

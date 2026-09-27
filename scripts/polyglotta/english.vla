@@ -4301,6 +4301,31 @@
     "Show everyone who reports to \"Alice\" directly or not in Reports as team in cell E2."
     (datalog-chain-place "reports" "Alice" "team" (range "e2")))
 
+; ---- OPTIMIZE.3 slice 5: an OPTIMIZE formula run as a command -----------
+; A formula refuses a program too large for a cell and stops a search
+; after ten seconds; the command runs the cell's own =OPTIMIZE(...) call
+; again with neither - a step may lay out 500,000 rows, and Esc stops it -
+; and writes the answer as values on a new sheet named after the cell,
+; leaving the sheet the program is on active. The same command as
+; Frazaro > Logic Engines > Optimize Selected Cell. It runs in the
+; interpreter and the console; a compiled program has no OPTIMIZE engine
+; beside it, so Compile refuses the sentence by name. The header of
+; VLA_Optimize.VlaOptimizeCell has the whole account.
+(defmacro
+    (optimize-cell r)
+    "run the =OPTIMIZE(...) formula in a cell again as a command - larger ceilings, no ten-second limit, Esc stops it - and put its answer on a new sheet"
+    (vlaoptimizecell r))
+
+(english-vla
+    "optimize cell {r:cell}"
+    (optimize-cell (range {r})))
+(test-success
+    "Optimize cell C1."
+    (optimize-cell (range "c1")))
+(test-success
+    "Optimize cell F12."
+    (optimize-cell (range "f12")))
+
 ; ---- G-PROLOG: flat Logical English ------------------------------------
 ; One sentence writes ONE clause, role nouns are the variables, and the
 ; body is a flat and-list of condition shapes parsed by the BUILT-IN

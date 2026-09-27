@@ -184,6 +184,10 @@ and three core dispatch arms, `TryRuntimeHelper vlajoinrange`,
 `vlatextbeside` and `vlatextpad`, each new that release. `first|last {n}
 characters of` is the sibling of `first|last {n} letters of`, whose
 `0.5.0` rows stand; the sibling is a new form, not a re-dating.
+Then one phrasebook row marked `0.7.0` — `OPTIMIZE.3`'s fifth slice, `optimize
+cell {r:cell}`, which runs a cell's own `=OPTIMIZE(...)` formula again as a
+command — and one core dispatch arm, `TryRuntimeHelper vlaoptimizecell`, the
+command itself, new that release.
 
 ### Phrasebook rules
 
@@ -299,6 +303,7 @@ characters of` is the sibling of `first|last {n} letters of`, whose
 0.5.0  move range {a:range} to {b:cell}
 0.5.0  name range {r:range} as {n:text}
 0.5.0  open workbook {p:expr}
+0.7.0  optimize cell {r:cell}
 0.5.2  paint cell {r:cell} {e:expr}
 0.5.0  paste values of range {a:range} into range {b:range}
 0.5.0  print this sheet
@@ -557,6 +562,7 @@ tag, not assumed.*
 0.5.0  TryRuntimeHelper   vlafreezepanes
 0.7.0  TryRuntimeHelper   vlajoinrange
 0.5.6  TryRuntimeHelper   vlanumberformatcode
+0.7.0  TryRuntimeHelper   vlaoptimizecell
 0.5.0  TryRuntimeHelper   vlapivotaddvalues
 0.5.0  TryRuntimeHelper   vlapivotchangesource
 0.5.0  TryRuntimeHelper   vlapivotclear

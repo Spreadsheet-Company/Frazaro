@@ -4,7 +4,7 @@ Option Explicit
 ' Standalone diagnostic for OPTIMIZE.3 - NOT part of the VLA project. Import
 ' it into the dev workbook (VLA.xlsm), type one line in the Immediate window,
 ' and delete the module afterwards; nothing in Frazaro calls it. The steps are
-' in tools/optimize3_live_steps.md.
+' in archive/optimize3_live_steps.md.
 '
 ' SLICE 1 - THE INTEGER GROUNDER, TIMED. O3Ground runs OPTIMIZE.0's grounding
 ' shapes two ways over the SAME rule and the SAME in-memory relations:

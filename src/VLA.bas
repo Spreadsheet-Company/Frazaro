@@ -4585,6 +4585,7 @@ Private Function EmitCallStmt(lst As Collection, ByVal nameIdx As Long) As Strin
     End Select
     ' P.L4 guard: a keyword can never head a form (statement side).
     If IsKeywordArg(opHd) Then VLA_Messages.RaiseMsg "vla-keyword-misuse", "msg", KwMisuseMsg(opHd, "the head of a statement")
+    RefuseInterpreterOnlyCall opHd
     Dim name As String
     name = SymName(SymText(Nth(lst, nameIdx)))
     Dim args As String
@@ -5076,9 +5077,21 @@ Private Function EmitExpr(x As Variant) As String
             ' all the same syntax in VBA, so all the same syntax here.
             ' P.L4 guard: a keyword can never head a form.
             If IsKeywordArg(h) Then VLA_Messages.RaiseMsg "vla-keyword-misuse", "msg", KwMisuseMsg(h, "the head of an expression")
+            RefuseInterpreterOnlyCall VLA_Identity.Fold(h)
             EmitExpr = SymName(h) & "(" & EmitArgs(lst, 2) & ")"
     End Select
 End Function
+
+' OPTIMIZE.3 slice 5: a helper only the interpreter can run. The command
+' behind "Optimize cell C1." runs the OPTIMIZE engine, which lives in the
+' add-in and is never injected beside a compiled program, so a compiled
+' call to it could only fail later, at VBA's untrappable compile modal.
+' Refused here, at TRANSPILE, in words, and with VLA_ERR_INTERPRETER_ONLY
+' - IN.7's own number - so Check's transpile probe takes it as the
+' expected refusal it is and the program still Interprets.
+Private Sub RefuseInterpreterOnlyCall(ByVal foldedHead As String)
+    If foldedHead = "vlaoptimizecell" Then VLA_Messages.RaiseMsg "vla-interpreter-only-command"
+End Sub
 
 ' (. obj member args...) - shared by expression and statement forms.
 ' Zero args emit without parens (correct for property reads and most

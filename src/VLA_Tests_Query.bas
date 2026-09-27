@@ -386,9 +386,11 @@ Public Function TestDSLs() As Boolean
     TestOptimizeSearch
     TestOptimizeChoice
     TestOptimizeCeilings
+    TestOptimizeCommand
     TestOptimizeMemo
     TestOptimizeParity
     TestOptimizeHostTable
+    TestOptimizeCommandHost
     TestUnify
     TestGRenderUnify
     TestUnifyTwoWay
@@ -5732,6 +5734,10 @@ End Sub
 ' ---------------------------------------------------------------------
 Private Sub TestOptimizeCeilings()
     Dim prog As String, w As String, w2 As String
+    ' Slice 5: a formula's size refusal ends pointing to the command.
+    Dim pointer As String
+    pointer = " To run it as a command, which lays out up to 500,000 rows in one step and has no limit in all, " & _
+              "select this cell and choose Frazaro > Logic Engines > Optimize Selected Cell."
 
     ' --- a rule that pairs too many --------------------------------------
     ' 300 items, any of them picked, and a forbid over two picks that share
@@ -5742,7 +5748,7 @@ Private Sub TestOptimizeCeilings()
     prog = OptItemFacts(300) & "(choose-any (pick X) (item X)) (forbid (pick X) (pick Y)) (query pick)"
     w = OptRefusalOf(prog)
     Report "optimize ceilings: a rule pairing 90,000 rows in one step is refused, named, with its numbers", _
-           w = "(forbid (pick X) (pick Y)) pairs more rows than a formula lays out in one step: the 300 rows of 'pick' share no name with the 300 before it, so every one pairs with every one, making 90,000 rows, and a formula lays out at most 50,000. A condition that ties its rows together pairs fewer, and so does a smaller pool.", _
+           w = "(forbid (pick X) (pick Y)) pairs more rows than a formula lays out in one step: the 300 rows of 'pick' share no name with the 300 before it, so every one pairs with every one, making 90,000 rows, and a formula lays out at most 50,000. A condition that ties its rows together pairs fewer, and so does a smaller pool." & pointer, _
            "got " & w
 
     ' The refusal is memoized like an answer: asked again - as the Function
@@ -5766,7 +5772,7 @@ Private Sub TestOptimizeCeilings()
            "(choose-at-most 250 (pick X S) (item X) (per (slot S))) (query pick)"
     w = OptRefusalOf(prog)
     Report "optimize ceilings: a choice with 50,250 rows to choose from in one step is refused, named", _
-           w = "(choose-at-most 250 (pick X S) (item X) (per (slot S))) has more rows to choose from than a formula lays out in one step: the 201 rows of 'slot' share no name with the 250 before it, so every one pairs with every one, making 50,250 rows, and a formula lays out at most 50,000. Choose from a smaller pool - a rule that keeps only the rows that could really be chosen.", _
+           w = "(choose-at-most 250 (pick X S) (item X) (per (slot S))) has more rows to choose from than a formula lays out in one step: the 201 rows of 'slot' share no name with the 250 before it, so every one pairs with every one, making 50,250 rows, and a formula lays out at most 50,000. Choose from a smaller pool - a rule that keeps only the rows that could really be chosen." & pointer, _
            "got " & w
 
     ' --- a program past the total ------------------------------------------
@@ -5778,7 +5784,7 @@ Private Sub TestOptimizeCeilings()
            "(choose-at-most 250 (pick X S) (item X) (per (slot S))) (query pick)"
     w = OptRefusalOf(prog)
     Report "optimize ceilings: a program reaching 100,650 rows in all is refused, naming where it passed", _
-           w = "this program lays out more rows than a formula may: with (choose-at-most 250 (pick X S) (item X) (per (slot S))), its choices and the rules over them reach 100,650 rows, and a formula lays out at most 100,000 in all. Smaller pools, or rules that pair fewer rows, lay out less.", _
+           w = "this program lays out more rows than a formula may: with (choose-at-most 250 (pick X S) (item X) (per (slot S))), its choices and the rules over them reach 100,650 rows, and a formula lays out at most 100,000 in all. Smaller pools, or rules that pair fewer rows, lay out less." & pointer, _
            "got " & w
 
     ' --- the roster at 60 people and 30 shifts, answered --------------------
@@ -5839,6 +5845,350 @@ Private Function OptRosterProgram(ByVal nPeople As Long, ByVal nShifts As Long) 
         "(choose-exactly 2 (assign S P) (elig S P) (per (shift S))) " & _
         "(forbid (assign S P) (assign T P) (next S T)) (query assign)"
 End Function
+
+' ---------------------------------------------------------------------
+'  OPTIMIZE.3 slice 5: the command, its pure half - a cell's formula split
+'  into its one OPTIMIZE call's arguments (OptimizeCallArgs), and the run
+'  a command makes (OptimizeRunCommand): a command's ceiling of 500,000
+'  rows in one step and none in all, no memo, and size refusals that say
+'  "a command" and point nowhere further. TestOptimizeCommandHost runs the
+'  command itself on real cells.
+' ---------------------------------------------------------------------
+Private Sub TestOptimizeCommand()
+    Dim fn As String, why As String
+    Dim a As Collection
+
+    ' --- reading the formula ---------------------------------------------
+    Set a = VLA_Optimize.OptimizeCallArgs("=OPTIMIZE(A1,People,Shifts)", fn, why)
+    Report "optimize command: a formula's one OPTIMIZE call, split into its arguments", _
+           OptArgsText(a) = "A1|People|Shifts" And fn = "OPTIMIZE", "got " & OptArgsText(a) & " (" & fn & ")"
+    Set a = VLA_Optimize.OptimizeCallArgs("=OPTIMIZE(""(fact (p a)), (query p)"")", fn, why)
+    Report "optimize command: a comma inside quoted text does not split", _
+           OptArgsText(a) = """(fact (p a)), (query p)""", "got " & OptArgsText(a)
+    Set a = VLA_Optimize.OptimizeCallArgs( _
+        "=OPTIMIZE(TEXTJOIN("" "",TRUE,B1:B9),People[[#All],[Name]],'My, Sheet'!A1:C9)", fn, why)
+    Report "optimize command: nor one inside a call, a structured reference or a quoted sheet name", _
+           OptArgsText(a) = "TEXTJOIN("" "",TRUE,B1:B9)|People[[#All],[Name]]|'My, Sheet'!A1:C9", _
+           "got " & OptArgsText(a)
+    Set a = VLA_Optimize.OptimizeCallArgs("=@OPTIMIZE_STATUS( A1 , T )", fn, why)
+    Report "optimize command: OPTIMIZE_STATUS takes the same arguments, @ and spaces allowed", _
+           OptArgsText(a) = "A1|T" And fn = "OPTIMIZE_STATUS", "got " & OptArgsText(a) & " (" & fn & ")"
+    Set a = VLA_Optimize.OptimizeCallArgs("=Frazaro_English.xlam!optimise(A1,T)", fn, why)
+    Report "optimize command: an add-in's prefix, and OPTIMISE in any case", _
+           OptArgsText(a) = "A1|T" And fn = "OPTIMISE", "got " & OptArgsText(a) & " (" & fn & ")"
+    Set a = VLA_Optimize.OptimizeCallArgs("=SUM(A1:A3)", fn, why)
+    Report "optimize command: another function is not an OPTIMIZE formula", _
+           a Is Nothing And why = "its formula is =SUM(A1:A3)", "got '" & why & "'"
+    Set a = VLA_Optimize.OptimizeCallArgs("=OPTIMIZE(A1)*2", fn, why)
+    Report "optimize command: nor is a formula with more in it than the one call", _
+           a Is Nothing And why = "its formula, =OPTIMIZE(A1)*2, has more in it than the one call", _
+           "got '" & why & "'"
+    Set a = VLA_Optimize.OptimizeCallArgs("=OPTIMIZE(A1,,T)", fn, why)
+    Report "optimize command: nor one that leaves an argument empty", _
+           a Is Nothing And why = "its formula, =OPTIMIZE(A1,,T), leaves argument 2 empty", "got '" & why & "'"
+    Set a = VLA_Optimize.OptimizeCallArgs("", fn, why)
+    Report "optimize command: and a cell with no formula says so", _
+           a Is Nothing And why = "it holds no formula", "got '" & why & "'"
+
+    ' --- the helper is one this Frazaro provides -------------------------
+    ' Check's resolve check refuses a program that names a vla- helper the
+    ' runtime's manifest does not list, and the phrasebook's optimize-cell
+    ' macro puts this one in every program's translation - so until it was
+    ' listed, every program failed Check (live-caught, the first add-in
+    ' build with this slice).
+    Dim ml As Long, missing As String
+    missing = VLA_SentenceEngine.EnglishResolveCheck("(sub main () (vlaoptimizecell (range ""c1"")))", ml)
+    Report "optimize command: Check's resolve check knows vlaoptimizecell", missing = "", _
+           "missing '" & missing & "'"
+
+    ' --- what a formula refuses, a command answers ---------------------------
+    ' Exactly one of 250 items in each of 201 slots, by a (per ...) sharing no
+    ' name with the pool. Pass 2 is slot's 201 groups (402), the pool's 250,
+    ' and 50,250 in one step - past a formula's 50,000, so a formula refuses
+    ' it - then the 50,250 members: 101,152 in all, past a formula's 100,000
+    ' as well. A command lays out both. Each slot's first item is decided on
+    ' and the other 249 forced off: 201 decisions, no dead end.
+    Dim prog As String
+    prog = OptItemFacts(250) & OptSlotFacts(201) & _
+           "(choose-exactly 1 (pick X S) (item X) (per (slot S))) (query pick)"
+    Report "optimize command: a formula refuses a choice of 50,250 rows in one step", _
+           InStr(OptRefusalOf(prog), "than a formula lays out in one step") > 0, "got " & OptRefusalOf(prog)
+    VLA_Optimize.OptimizeMemoClear
+    Dim r As Collection
+    Set r = VLA_Optimize.OptimizeRunCommand(prog)
+    Dim picked As Long
+    picked = VLA_Relation.RelCount(VLA_Runtime.VlaDictGet(r.Item(2), "pick"))
+    Report "optimize command: a command answers it - proven best, 201 rows, one in each slot", _
+           CLng(r.Item(6)) = VLA_Optimize.VLA_OPTIMIZE_PROVEN_BEST And picked = 201, _
+           "state " & r.Item(6) & ", rows " & picked
+    Report "optimize command: 50,250 atoms, 201 counters, 201 decisions, no dead end", _
+           OptResultStat(r, 0) = 50250 And OptResultStat(r, 2) = 201 And OptResultStat(r, 3) = 201 And _
+           OptResultStat(r, 4) = 0, "atoms " & OptResultStat(r, 0) & ", counters " & OptResultStat(r, 2) & _
+           ", decisions " & OptResultStat(r, 3) & ", dead ends " & OptResultStat(r, 4)
+    Report "optimize command: 101,152 rows laid out, 50,250 in the largest step", _
+           OptResultStat(r, 8) = 101152 And OptResultStat(r, 9) = 50250, _
+           "laid " & OptResultStat(r, 8) & ", step " & OptResultStat(r, 9)
+    Report "optimize command: and the memo is neither read nor filled", _
+           VLA_Optimize.OptimizeMemoCount() = 0, "memo " & VLA_Optimize.OptimizeMemoCount()
+
+    ' --- past a command's own ceiling ------------------------------------------
+    ' 800 items and 700 slots: 560,000 in one step, counted before a row of it
+    ' is made, and refused in a command's words, pointing nowhere further.
+    prog = OptItemFacts(800) & OptSlotFacts(700) & _
+           "(choose-exactly 1 (pick X S) (item X) (per (slot S))) (query pick)"
+    Dim w As String
+    w = OptCommandRefusalOf(prog)
+    Report "optimize command: a step past a command's 500,000 is refused in a command's words", _
+           w = "(choose-exactly 1 (pick X S) (item X) (per (slot S))) has more rows to choose from than a command lays out in one step: the 700 rows of 'slot' share no name with the 800 before it, so every one pairs with every one, making 560,000 rows, and a command lays out at most 500,000. Choose from a smaller pool - a rule that keeps only the rows that could really be chosen.", _
+           "got " & w
+    ' And a formula run after it is held to a formula's ceilings again.
+    w = OptRefusalOf(prog)
+    Report "optimize command: a formula run after it is held to a formula's ceilings, and points to the command", _
+           InStr(w, "a formula lays out at most 50,000") > 0 And InStr(w, "Optimize Selected Cell.") > 0, "got " & w
+End Sub
+
+' A Collection's items joined with |, or (nothing).
+Private Function OptArgsText(ByVal a As Collection) As String
+    If a Is Nothing Then
+        OptArgsText = "(nothing)"
+        Exit Function
+    End If
+    Dim s As String
+    Dim k As Long
+    For k = 1 To a.Count
+        If k > 1 Then s = s & "|"
+        s = s & CStr(a.Item(k))
+    Next k
+    OptArgsText = s
+End Function
+
+' Number ix (0-based) of a result's own numbers, its item 9, or -1 when
+' there is none to read - an assertion over it cannot raise, whatever
+' shape came back.
+Private Function OptResultStat(ByVal r As Collection, ByVal ix As Long) As Long
+    OptResultStat = -1
+    If r Is Nothing Then Exit Function
+    If r.Count < 9 Then Exit Function
+    Dim st As Variant
+    st = r.Item(9)
+    If Not IsArray(st) Then Exit Function
+    If ix < LBound(st) Or ix > UBound(st) Then Exit Function
+    OptResultStat = CLng(st(ix))
+End Function
+
+' The refusal a program raises when run as a command, or (no refusal).
+Private Function OptCommandRefusalOf(ByVal program As String) As String
+    Dim d As String
+    Dim num As Long
+    On Error Resume Next
+    Err.Clear
+    VLA_Optimize.OptimizeRunCommand program
+    num = Err.Number
+    d = Err.Description
+    On Error GoTo 0
+    If num = 0 Then
+        OptCommandRefusalOf = "(no refusal)"
+    Else
+        OptCommandRefusalOf = d
+    End If
+End Function
+
+' ---------------------------------------------------------------------
+'  OPTIMIZE.3 slice 5: the command on real cells - a cell's formula read
+'  with a Table argument and run, the answer's sheet, a cell inside the
+'  spilled answer, the sentence's own primitive through both backends,
+'  and every refusal in words, none of them writing a sheet. Esc cannot
+'  be pressed from here; the live steps press it.
+' ---------------------------------------------------------------------
+Private Sub TestOptimizeCommandHost()
+    Dim prior As Worksheet
+    Set prior = ActiveSheet
+    VlaEnsureSheet "VlaOptimizeCommandSheet"
+    Dim ws As Worksheet
+    Set ws = ActiveWorkbook.Worksheets("VlaOptimizeCommandSheet")
+    ws.Activate
+    Do While ws.ListObjects.Count > 0
+        ws.ListObjects(1).Delete
+    Loop
+    ws.Cells.Clear
+    OptDeleteCommandSheets ActiveWorkbook
+
+    ' The toy's five people as a Table, its program in A1 reading them, and
+    ' =OPTIMIZE in C1: seven shifts in a row, two a shift, never two in a
+    ' row - p1 and p2, then p3 and p4, by turns, 14 decisions.
+    ws.Range("E1").Value = "Person"
+    ws.Range("E2:E6").Value = Application.Transpose(Array("p1", "p2", "p3", "p4", "p5"))
+    Dim lo As ListObject
+    Set lo = ws.ListObjects.Add(xlSrcRange, ws.Range("E1:E6"), , xlYes)
+    lo.Name = "PeopleOptCmd1"
+    ws.Range("A1").Value = _
+        "(fact (shift s1)) (fact (shift s2)) (fact (shift s3)) (fact (shift s4)) (fact (shift s5)) " & _
+        "(fact (shift s6)) (fact (shift s7)) (fact (next s1 s2)) (fact (next s2 s3)) (fact (next s3 s4)) " & _
+        "(fact (next s4 s5)) (fact (next s5 s6)) (fact (next s6 s7)) " & _
+        "(rule (elig S P) (shift S) (peopleoptcmd1 P)) " & _
+        "(choose-exactly 2 (assign S P) (elig S P) (per (shift S))) " & _
+        "(forbid (assign S P) (assign T P) (next S T)) (query assign)"
+    OptSetFormula ws.Range("C1"), "=OPTIMIZE(A1,PeopleOptCmd1)"
+
+    Dim nm As String
+    nm = VLA_Optimize.VlaOptimizeCell(ws.Range("C1"))
+    Report "optimize command host: the cell's formula runs as a command onto 'Optimize C1'", _
+           nm = "Optimize C1", "got '" & nm & "'"
+    Report "optimize command host: and a sentence's run leaves the active sheet where it was", _
+           ActiveSheet.Name = ws.Name, "active is " & ActiveSheet.Name
+    Dim outWs As Worksheet
+    Set outWs = Nothing
+    On Error Resume Next
+    Set outWs = ActiveWorkbook.Worksheets(nm)
+    On Error GoTo 0
+    If outWs Is Nothing Then
+        Report "optimize command host: the answer's sheet exists", False, "no sheet '" & nm & "'"
+    Else
+        Report "optimize command host: A1 holds the status", _
+               Left$(CStr(outWs.Range("A1").Value), 12) = "proven best:", "got " & CStr(outWs.Range("A1").Value)
+        Dim fromWords As String
+        fromWords = "From VlaOptimizeCommandSheet!C1, =OPTIMIZE(A1,PeopleOptCmd1) - run as a command on "
+        Report "optimize command host: A2 says where it came from", _
+               Left$(CStr(outWs.Range("A2").Value), Len(fromWords)) = fromWords, _
+               "got " & CStr(outWs.Range("A2").Value)
+        Report "optimize command host: the answer from A4 - its header, then s1 p1 and s1 p2", _
+               outWs.Range("A4").Value = "S" And outWs.Range("B4").Value = "P" And _
+               outWs.Range("A5").Value = "s1" And outWs.Range("B5").Value = "p1" And _
+               outWs.Range("A6").Value = "s1" And outWs.Range("B6").Value = "p2", _
+               "got " & outWs.Range("A4").Value & outWs.Range("B4").Value & " " & outWs.Range("A5").Value & _
+               outWs.Range("B5").Value & " " & outWs.Range("A6").Value & outWs.Range("B6").Value
+        Report "optimize command host: 14 rows, ending s7 p2", _
+               outWs.Range("A18").Value = "s7" And outWs.Range("B18").Value = "p2" And _
+               IsEmpty(outWs.Range("A19").Value), _
+               "row 18 " & outWs.Range("A18").Value & outWs.Range("B18").Value & ", row 19 '" & outWs.Range("A19").Value & "'"
+        Dim formulaCells As Range
+        On Error Resume Next
+        Set formulaCells = outWs.UsedRange.SpecialCells(xlCellTypeFormulas)
+        On Error GoTo 0
+        Report "optimize command host: every value written as a value - no formula on the sheet", _
+               formulaCells Is Nothing, "a formula is on the sheet"
+    End If
+
+    ' A cell inside the spilled answer runs the spill's own formula -
+    ' where Excel spills at all (HasSpill, like SpillParent, is Excel
+    ' 365's, reached late-bound).
+    Dim spills As Boolean
+    On Error Resume Next
+    spills = CBool(CallByName(ws.Range("C1"), "HasSpill", VbGet))
+    On Error GoTo 0
+    If spills Then
+        nm = VLA_Optimize.VlaOptimizeCell(ws.Range("D2"))
+        Report "optimize command host: a cell inside the spill runs the spill's formula", _
+               nm = "Optimize C1 (2)", "got '" & nm & "'"
+    End If
+
+    ' The sentence's own primitive, through both backends.
+    nm = CStr(VLA_Interpreter.VlaEvalExpression("(vlaoptimizecell (range ""C1""))"))
+    Report "optimize command host: the interpreter runs (vlaoptimizecell ...) and names the sheet", _
+           Left$(nm, 11) = "Optimize C1" And nm <> "Optimize C1", "got '" & nm & "'"
+    ' The emitter refuses it by name: a compiled program runs in the
+    ' user's workbook with no OPTIMIZE engine beside it. IN.7's own number,
+    ' so Check takes it as the expected refusal and the program Interprets.
+    Dim tNum As Long, tDesc As String
+    On Error Resume Next
+    Err.Clear
+    VLA.VlaTranspile "(sub t () (vlaoptimizecell (range ""c1"")))"
+    tNum = Err.Number
+    tDesc = Err.Description
+    On Error GoTo 0
+    Report "optimize command host: and the emitter refuses it by name, as interpreter-only", _
+           tNum = VLA.VLA_ERR_INTERPRETER_ONLY And InStr(tDesc, "only the interpreter can reach") > 0, _
+           "got err " & tNum & ": " & tDesc
+
+    ' The refusals, in words, and none of them writes a sheet. A program's
+    ' own status-bar text is put there first, as a program's "put ... in
+    ' status bar" would, since the command must put back what it found -
+    ' and the property reads back Excel's own as FALSE, not VBA's False
+    ' (slice 5's first suite run), so it is compared with itself.
+    Dim sheetsBefore As Long
+    sheetsBefore = ActiveWorkbook.Sheets.Count
+    Dim prevCancel As Long
+    prevCancel = Application.EnableCancelKey
+    Application.StatusBar = "a program's own status"
+    Dim prevStatus As String
+    prevStatus = CStr(Application.StatusBar)
+    Report "optimize command host: a cell with no formula is refused", _
+           OptCommandCellRefusal(ws.Range("G1")) = "VlaOptimizeCommandSheet!G1 has no OPTIMIZE formula to run as a command: it holds no formula. The command runs a cell whose whole formula is one call to OPTIMIZE, OPTIMISE, OPTIMIZE_STATUS or OPTIMIZE_VIOLATIONS.", _
+           "got " & OptCommandCellRefusal(ws.Range("G1"))
+    ws.Range("G2").Formula = "=SUM(1,2)"
+    Report "optimize command host: so is another function's", _
+           OptCommandCellRefusal(ws.Range("G2")) = "VlaOptimizeCommandSheet!G2 has no OPTIMIZE formula to run as a command: its formula is =SUM(1,2). The command runs a cell whose whole formula is one call to OPTIMIZE, OPTIMISE, OPTIMIZE_STATUS or OPTIMIZE_VIOLATIONS.", _
+           "got " & OptCommandCellRefusal(ws.Range("G2"))
+    Report "optimize command host: and more than one cell", _
+           OptCommandCellRefusal(ws.Range("G1:G2")) = "the command runs one cell's OPTIMIZE formula, and VlaOptimizeCommandSheet!G1:G2 is 2 cells - choose just the cell that holds it.", _
+           "got " & OptCommandCellRefusal(ws.Range("G1:G2"))
+    OptSetFormula ws.Range("G3"), "=OPTIMIZE(A1,5)"
+    Report "optimize command host: an argument that is not a range or a Table is named", _
+           OptCommandCellRefusal(ws.Range("G3")) = "the command could not read VlaOptimizeCommandSheet!G3's argument 2, 5: it is not a range or a Table.", _
+           "got " & OptCommandCellRefusal(ws.Range("G3"))
+    OptSetFormula ws.Range("G4"), "=OPTIMIZE(""(query nothing)"")"
+    Report "optimize command host: the program's own refusal arrives naming the cell", _
+           OptCommandCellRefusal(ws.Range("G4")) = "the command could not run VlaOptimizeCommandSheet!G4: " & _
+           OptRefusalOf("(query nothing)"), "got " & OptCommandCellRefusal(ws.Range("G4"))
+    Report "optimize command host: no refusal wrote a sheet", _
+           ActiveWorkbook.Sheets.Count = sheetsBefore, "sheets " & sheetsBefore & " then " & ActiveWorkbook.Sheets.Count
+    Report "optimize command host: and the Esc setting and the status bar are put back", _
+           Application.EnableCancelKey = prevCancel And CStr(Application.StatusBar) = prevStatus, _
+           "cancel key " & Application.EnableCancelKey & " (was " & prevCancel & "), status bar '" & _
+           CStr(Application.StatusBar) & "' (was '" & prevStatus & "')"
+    Application.StatusBar = False
+
+    OptDeleteCommandSheets ActiveWorkbook
+    Do While ws.ListObjects.Count > 0
+        ws.ListObjects(1).Delete
+    Loop
+    ws.Cells.Clear
+    prior.Activate
+End Sub
+
+' The refusal VlaOptimizeCell raises for a cell, or (no refusal) - any
+' sheet it did write is left for OptDeleteCommandSheets.
+Private Function OptCommandCellRefusal(ByVal target As Range) As String
+    Dim d As String
+    Dim num As Long
+    On Error Resume Next
+    Err.Clear
+    VLA_Optimize.VlaOptimizeCell target
+    num = Err.Number
+    d = Err.Description
+    On Error GoTo 0
+    If num = 0 Then
+        OptCommandCellRefusal = "(no refusal)"
+    Else
+        OptCommandCellRefusal = d
+    End If
+End Function
+
+' A formula written as it would be typed: Formula2 where Excel has it,
+' so an array answer spills; Formula where it does not.
+Private Sub OptSetFormula(ByVal cell As Range, ByVal f As String)
+    On Error Resume Next
+    CallByName cell, "Formula2", VbLet, f
+    If Err.Number <> 0 Then
+        Err.Clear
+        cell.Formula = f
+    End If
+    On Error GoTo 0
+End Sub
+
+' Every "Optimize C1" sheet this test's commands wrote, taken away.
+Private Sub OptDeleteCommandSheets(ByVal wb As Workbook)
+    Dim prevAlerts As Boolean
+    prevAlerts = Application.DisplayAlerts
+    Application.DisplayAlerts = False
+    Dim i As Long
+    For i = wb.Sheets.Count To 1 Step -1
+        If wb.Sheets(i).Name = "Optimize C1" Or Left$(wb.Sheets(i).Name, 13) = "Optimize C1 (" Then
+            wb.Sheets(i).Delete
+        End If
+    Next i
+    Application.DisplayAlerts = prevAlerts
+End Sub
 
 ' The toy, optimize-toy, with an optional effort form inserted.
 Private Function OptToyProgram(ByVal effortForm As String) As String

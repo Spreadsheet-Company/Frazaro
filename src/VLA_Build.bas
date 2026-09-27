@@ -774,6 +774,16 @@ Public Function VlaRibbonXml() As String
     ' alternate CLI surface, install lifecycle, and diagnostics.
     x = x & "      <group id=" & q & "FrazaroUtilities" & q & " label=" & q & "Utilities" & q & ">" & vbLf
     x = x & RibbonBtn("VlaOpenCli", "Open CLI")
+    ' OPTIMIZE.3 slice 5: the logic engines' commands, in ONE dropdown so
+    ' that each new one costs the crowded tab no room of its own (the
+    ' owner's concern, 2026-09-26). A button inside a menu takes no size
+    ' attribute - customUI refuses the whole part if one has it, and the
+    ' tab would vanish - so this one is written here, not by RibbonBtn.
+    x = x & "        <menu id=" & q & "FrazaroEngines" & q & " label=" & q & "Logic Engines" & q & _
+            " size=" & q & "large" & q & ">" & vbLf
+    x = x & "          <button id=" & q & "VlaOptimizeCell" & q & " label=" & q & "Optimize Selected Cell" & q & _
+            " onAction=" & q & "VlaRibbonAction" & q & "/>" & vbLf
+    x = x & "        </menu>" & vbLf
     x = x & RibbonBtn("VlaRegister", "Register for Auto-Load")
     x = x & RibbonBtn("VlaUninstall", "Uninstall Frazaro")
     x = x & RibbonBtn("VlaFeedback", "Copy Diagnostic Report")

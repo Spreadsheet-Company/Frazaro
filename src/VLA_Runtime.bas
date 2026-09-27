@@ -2581,6 +2581,14 @@ Public Function VlaHelperManifest() As String
             If Left$(nm, 3) = "vla" Then r = r & " " & nm
         End If
     Next
+    ' OPTIMIZE.3 slice 5: the one helper this Frazaro provides from outside
+    ' this module - the command behind "Optimize cell C1.", which runs the
+    ' OPTIMIZE engine, so it lives beside that engine (VLA_Optimize) and
+    ' only the interpreter reaches it (its own Case; the emitter refuses it
+    ' by name). Named here, or the resolve check refuses every program for
+    ' the phrasebook macro that calls it (live-caught, the owner's first
+    ' add-in build with the slice).
+    If Len(r) > 0 Then r = r & " vlaoptimizecell"
     If Len(r) > 0 Then VlaHelperManifest = r & " "
 End Function
 

@@ -148,8 +148,10 @@ Public Const VLA_INTERPRETER_VERSION As String = "CLI.5"
 '             grammar-loading siblings), VLA_Runtime (VlaDictNew/Set/Get
 '             directly for the variable frame; every other VLA_Runtime
 '             helper reached dynamically through Application.Run, not a
-'             hand-written direct call), VLA_Identity (Fold), Excel's
-'             own global objects via CallByName.
+'             hand-written direct call), VLA_Identity (Fold),
+'             VLA_Optimize (VlaOptimizeCell alone - OPTIMIZE.3 slice 5's
+'             command, which lives beside its engine), Excel's own
+'             global objects via CallByName.
 '  SHIPS:     yes, as of IN.6 - in VLA_Build.bas's mods array, and
 '             called from VLA_IDE.bas's InterpretProgram (the "Interpret
 '             Instructions"/"Interpret and Trace" ribbon commands),
@@ -2547,6 +2549,18 @@ Private Function TryRuntimeHelper(ByVal h As String, ByVal argVals As Variant, B
         Case "vlatablearguments"
             If Not ArityIs(argVals, 1, handled) Then Exit Function
             AssignVar TryRuntimeHelper, VLA_Runtime.VlaTableArguments(ArgAt(argVals, 0))
+            handled = True
+            Exit Function
+        ' OPTIMIZE.3 slice 5: the command - a cell's own =OPTIMIZE(...)
+        ' call run again, its answer on a new sheet whose name comes back.
+        ' It refuses by name (no OPTIMIZE formula, an argument it cannot
+        ' read, Esc, the program's own refusals), so it takes the native
+        ' Case every raising helper does, for the same IN.15 reason. It
+        ' lives in VLA_Optimize, beside the engine it runs, not in
+        ' VLA_Runtime.
+        Case "vlaoptimizecell"
+            If Not ArityIs(argVals, 1, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Optimize.VlaOptimizeCell(ArgAt(argVals, 0))
             handled = True
             Exit Function
         ' G-SORTFILTER: four new helpers, each refusing by name - a

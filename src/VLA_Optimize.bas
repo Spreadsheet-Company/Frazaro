@@ -20,6 +20,11 @@ Public Const VLA_OPTIMIZE_VERSION As String = "OPTIMIZE.3"
 '  name: preferences, objectives and the kept schedule (OPTIMIZE.6 and
 '  .7), rules over chosen rows (.5) and a count over them (.4).
 '
+'  SLICE 3 holds a formula to ceilings, and SLICE 5 adds the command a
+'  formula's size refusal points to: a cell's own =OPTIMIZE(...) call run
+'  again with a command's ceiling and no seconds guard, its answer written
+'  to a new sheet (the section OPTIMIZE.3 slice 5: THE COMMAND).
+'
 '  The rest of this header is OPTIMIZE.1's and OPTIMIZE.2's, kept as
 '  written; where it says a choice is refused, OPTIMIZE.3 is what changed
 '  that.
@@ -167,7 +172,10 @@ Public Const VLA_OPTIMIZE_VERSION As String = "OPTIMIZE.3"
 '             InvariantNumberText), VLA_OptimizeSearch (OPTIMIZE.3's
 '             search, which calls nothing back), VLA_Digest (the memo
 '             key), VLA_Identity (Fold), VLA_Messages (every refusal),
-'             VLA_Runtime (VlaDict*)
+'             VLA_Runtime (VlaDict*), and - OPTIMIZE.3 slice 5's command
+'             alone - Excel's own objects: the cell's formula and
+'             Worksheet.Evaluate to read it, Worksheets.Add to write its
+'             answer, the status bar, and EnableCancelKey for Esc
 '  SHIPS:     add-in (VLA_Build.bas's own mods array) and the dev rig
 '  PAYS INTO: OPTIMIZE.2 through OPTIMIZE.10, and G-OPTIMIZE, which may
 '             only ever write the shapes named above.
@@ -320,6 +328,22 @@ Private Const OPT_GUARD_SECONDS As Double = 10
 ' ceiling arrives with the command, slice 5.
 Private Const OPT_FORMULA_STEP_ROWS As Double = 50000
 Private Const OPT_FORMULA_TOTAL_ROWS As Double = 100000
+
+' OPTIMIZE.3 slice 5: a COMMAND's ceiling, fork 1's own number - at most
+' 500,000 rows in any one step, for memory, and none in all; nor any
+' seconds guard, since Esc stops a command. The effort is the program's
+' own, exactly as in a formula.
+Private Const OPT_COMMAND_STEP_ROWS As Double = 500000
+
+' The ceilings and the guard the run in progress is held to, set by the
+' entry point before anything is grounded: OptimizeRun a formula's,
+' OptimizeRunCommand a command's (SetRunMode). A size refusal records
+' which, so its words say "a formula" or "a command", and only a
+' formula's point to the command.
+Private mForCommand As Boolean
+Private mStepCeiling As Double
+Private mTotalCeiling As Double
+Private mGuardSeconds As Double
 
 ' A size refusal is memoized like an answer, unlike every other refusal
 ' (see the memo's own header), as a two-item result: this marker, under
@@ -587,6 +611,463 @@ fail:
 End Function
 
 ' =====================================================================
+'  OPTIMIZE.3 slice 5: THE COMMAND
+' =====================================================================
+'
+'  WHAT IT IS. A formula refuses a program too large to lay out inside a
+'  cell (slice 3's ceilings) and stops a search after ten seconds; the
+'  command runs the same program where neither holds - a step may lay out
+'  up to 500,000 rows, there is no limit in all and no seconds guard, and
+'  Esc stops it. The minimal one, on purpose: it runs a cell's own
+'  =OPTIMIZE(...) call again, so nothing is retyped, and writes the
+'  answer as values on a new sheet, so nothing of the user's is
+'  overwritten. The command form OPTIMIZE.7 plans - a Table kept from run
+'  to run, progress, Continue - is built on this one.
+'
+'  TWO WAYS IN, the owner's call (2026-09-26), one procedure: the button
+'  Frazaro > Logic Engines > Optimize Selected Cell
+'  (VLA_IDE.VlaOptimizeSelectedCell, which shows the new sheet), and the
+'  sentence "Optimize cell C1." (english.vla's optimize-cell, the VLA form
+'  (vlaoptimizecell (range "c1")), which the interpreter reaches through
+'  its own Case). Only the interpreter: a compiled program runs in the
+'  user's workbook with no engine beside it, so the emitter refuses the
+'  call by name (VLA.bas's RefuseInterpreterOnlyCall), and the runtime's
+'  helper manifest names it so Check does not refuse every program for
+'  the phrasebook macro that calls it. A program's sentence leaves the
+'  active sheet as it was, so the program's next sentence acts where it
+'  would have.
+'
+'  READING THE CELL. Its formula must be exactly one call to OPTIMIZE,
+'  OPTIMISE, OPTIMIZE_STATUS or OPTIMIZE_VIOLATIONS - the four take the
+'  same arguments - split at its top-level commas by OptimizeCallArgs,
+'  the pure half. A cell inside a spilled answer is read as the spill's
+'  first cell, which holds the formula. Each argument is evaluated on the
+'  cell's own sheet (Worksheet.Evaluate), so a reference means what it
+'  means in the cell: the first gives the rules' text, every other a
+'  range or a Table, read into relations exactly as the worksheet
+'  functions read theirs. A quoted text argument is unquoted here rather
+'  than evaluated, since Evaluate reads at most 255 characters.
+'
+'  WHILE IT RUNS, Esc is caught (EnableCancelKey = xlErrorHandler, error
+'  18 - OPTIMIZE.0's host probe, C4) and the status bar says what is
+'  running; both are put back before the command returns, however it
+'  ends, so an interpreted program's later statements are not left
+'  armed. A refusal met on the way - the program's own, or a size refusal
+'  at the command's ceiling - is raised again as optimize-command-failed,
+'  naming the cell, and Esc as optimize-command-stopped. Nothing is
+'  written unless the run succeeds.
+'
+'  THE SHEET: "Optimize C1" (" (2)" and on if the name is taken), after
+'  the cell's own sheet: the status in A1, where the answer came from and
+'  when in A2, the answer from A4 in OPTIMIZE's own shape, and under it
+'  the rules broken, if any, in OPTIMIZE_VIOLATIONS's. Every value is
+'  written as a value, and text as text - an apostrophe before it, so no
+'  answer can become a formula (the guard every value Frazaro writes
+'  has). Returns the sheet's name.
+Public Function VlaOptimizeCell(ByVal target As Range, Optional ByVal showSheet As Boolean = False) As String
+    If target.Cells.CountLarge <> 1 Then
+        VLA_Messages.RaiseMsg "optimize-command-one-cell", "range", CommandCellName(target), _
+            "count", OptCountText(CDbl(target.Cells.CountLarge))
+    End If
+    Dim cell As Range
+    Set cell = CommandFormulaCell(target)
+    Dim cellName As String
+    cellName = CommandCellName(cell)
+    Dim formulaText As String
+    formulaText = CommandFormulaText(cell)
+    Dim fnName As String, reason As String
+    Dim args As Collection
+    Set args = OptimizeCallArgs(formulaText, fnName, reason)
+    If args Is Nothing Then
+        VLA_Messages.RaiseMsg "optimize-command-no-formula", "cell", cellName, "why", reason
+    End If
+
+    Dim rulesText As String
+    rulesText = CommandRulesText(cell, CStr(args.Item(1)), cellName)
+    Dim relations As Object, headerMap As Object
+    Set relations = VLA_Runtime.VlaDictNew()
+    Set headerMap = VLA_Runtime.VlaDictNew()
+    Dim i As Long
+    For i = 2 To args.Count
+        AddTableArg CommandTableArg(cell, CStr(args.Item(i)), i, cellName), relations, headerMap
+    Next i
+
+    Dim prevCancel As Long
+    prevCancel = Application.EnableCancelKey
+    Dim prevStatus As String
+    prevStatus = CStr(Application.StatusBar)
+    Dim result As Collection
+    Dim failNum As Long, failText As String
+    On Error GoTo runFailed
+    Application.EnableCancelKey = xlErrorHandler
+    Application.StatusBar = "Frazaro: running " & cellName & " as a command - Esc stops it"
+    Set result = OptimizeRunCommand(rulesText, relations, headerMap)
+    PutStatusBarBack prevStatus
+    Application.EnableCancelKey = prevCancel
+    On Error GoTo 0
+    VlaOptimizeCell = WriteCommandSheet(cell, cellName, formulaText, result, showSheet)
+    Exit Function
+runFailed:
+    failNum = Err.Number
+    failText = Err.Description
+    PutStatusBarBack prevStatus
+    Application.EnableCancelKey = prevCancel
+    If failNum = 18 Then VLA_Messages.RaiseMsg "optimize-command-stopped", "cell", cellName
+    VLA_Messages.RaiseMsg "optimize-command-failed", "cell", cellName, "detail", failText
+End Function
+
+' THE PURE HALF of reading the cell: a formula's text split into its one
+' OPTIMIZE call's arguments, each as written, trimmed; the call's own name
+' in fnName. Nothing, and the reason in words, when the formula is not
+' exactly one such call - no formula, another function, anything around
+' the call, or an argument left empty. Commas split only at the call's own
+' level: never inside a nested call's parentheses, an array constant's
+' braces, a structured reference's brackets, a quoted text or a quoted
+' sheet name. A leading @ (implicit intersection, as older Excel shows a
+' formula) and an add-in's own prefix before the name
+' (Frazaro.xlam!OPTIMIZE) are allowed.
+Public Function OptimizeCallArgs(ByVal formulaText As String, ByRef fnName As String, _
+                                 ByRef reason As String) As Collection
+    fnName = ""
+    reason = ""
+    Dim s As String
+    s = Trim$(formulaText)
+    If Left$(s, 1) <> "=" Then
+        reason = "it holds no formula"
+        Exit Function
+    End If
+    s = Trim$(Mid$(s, 2))
+    If Left$(s, 1) = "@" Then s = Trim$(Mid$(s, 2))
+    Dim openAt As Long
+    openAt = InStr(1, s, "(")
+    Dim head As String
+    If openAt > 0 Then head = Trim$(Left$(s, openAt - 1))
+    If InStrRev(head, "!") > 0 Then head = Mid$(head, InStrRev(head, "!") + 1)
+    Select Case UCase$(head)
+    Case "OPTIMIZE", "OPTIMISE", "OPTIMIZE_STATUS", "OPTIMIZE_VIOLATIONS"
+    Case Else
+        reason = "its formula is " & formulaText
+        Exit Function
+    End Select
+
+    Dim args As Collection
+    Set args = New Collection
+    Dim i As Long, depth As Long, startAt As Long, closeAt As Long
+    Dim ch As String
+    Dim inText As Boolean, inName As Boolean
+    startAt = openAt + 1
+    i = openAt + 1
+    Do While i <= Len(s)
+        ch = Mid$(s, i, 1)
+        If inText Then
+            If ch = """" Then
+                If Mid$(s, i + 1, 1) = """" Then
+                    i = i + 1
+                Else
+                    inText = False
+                End If
+            End If
+        ElseIf inName Then
+            If ch = "'" Then
+                If Mid$(s, i + 1, 1) = "'" Then
+                    i = i + 1
+                Else
+                    inName = False
+                End If
+            End If
+        Else
+            Select Case ch
+            Case """"
+                inText = True
+            Case "'"
+                inName = True
+            Case "(", "{", "["
+                depth = depth + 1
+            Case ")", "}", "]"
+                If depth = 0 Then
+                    If ch = ")" Then closeAt = i
+                    Exit Do
+                End If
+                depth = depth - 1
+            Case ","
+                If depth = 0 Then
+                    args.Add Trim$(Mid$(s, startAt, i - startAt))
+                    startAt = i + 1
+                End If
+            End Select
+        End If
+        i = i + 1
+    Loop
+    If closeAt = 0 Then
+        reason = "its formula, " & formulaText & ", does not close its call"
+        Exit Function
+    End If
+    If Len(Trim$(Mid$(s, closeAt + 1))) > 0 Then
+        reason = "its formula, " & formulaText & ", has more in it than the one call"
+        Exit Function
+    End If
+    args.Add Trim$(Mid$(s, startAt, closeAt - startAt))
+    Dim k As Long
+    For k = 1 To args.Count
+        If Len(CStr(args.Item(k))) = 0 Then
+            reason = "its formula, " & formulaText & ", leaves argument " & k & " empty"
+            Exit Function
+        End If
+    Next k
+    fnName = UCase$(head)
+    Set OptimizeCallArgs = args
+End Function
+
+' The status bar as it was before the command: Excel's own when Excel had
+' it - the property then reads back as the text FALSE, not VBA's False
+' (live-caught, slice 5's first suite run) - or the text a program had put
+' there, which a command must not take away.
+Private Sub PutStatusBarBack(ByVal prevStatus As String)
+    If UCase$(prevStatus) = "FALSE" Then
+        Application.StatusBar = False
+    Else
+        Application.StatusBar = prevStatus
+    End If
+End Sub
+
+' The cell whose formula is run: the cell itself, or - when it lies in a
+' spilled answer with no formula of its own - the spill's first cell.
+' SpillParent is Excel 365's, reached late-bound so the module still
+' compiles on an Excel without it.
+Private Function CommandFormulaCell(ByVal target As Range) As Range
+    Set CommandFormulaCell = target
+    If target.HasFormula Then Exit Function
+    Dim parentCell As Object
+    On Error Resume Next
+    Set parentCell = CallByName(target, "SpillParent", VbGet)
+    On Error GoTo 0
+    If Not parentCell Is Nothing Then Set CommandFormulaCell = parentCell
+End Function
+
+Private Function CommandCellName(ByVal r As Range) As String
+    CommandCellName = r.Worksheet.Name & "!" & r.Address(False, False)
+End Function
+
+' The cell's formula in Excel's own English spelling, commas between the
+' arguments on every machine: Formula2 where Excel has it (the formula as
+' typed, with no implicit-intersection @ added), Formula where it does not.
+Private Function CommandFormulaText(ByVal cell As Range) As String
+    If Not cell.HasFormula Then Exit Function
+    Dim f As Variant
+    On Error Resume Next
+    f = CallByName(cell, "Formula2", VbGet)
+    On Error GoTo 0
+    If IsEmpty(f) Then f = cell.Formula
+    CommandFormulaText = CStr(f)
+End Function
+
+' The rules' text, as the cell's first argument gives it: a quoted text
+' unquoted as written, anything else evaluated on the cell's sheet - one
+' cell's value, or a value.
+Private Function CommandRulesText(ByVal cell As Range, ByVal argText As String, ByVal cellName As String) As String
+    If IsOneTextLiteral(argText) Then
+        CommandRulesText = Replace(Mid$(argText, 2, Len(argText) - 2), """""", """")
+        Exit Function
+    End If
+    Dim obj As Object
+    Dim v As Variant
+    EvaluateArg cell, argText, cellName, "first argument", obj, v
+    If Not obj Is Nothing Then
+        If TypeName(obj) <> "Range" Then
+            CommandArgRefused cellName, "first argument", argText, "it is not text or a cell"
+        End If
+        Dim r As Range
+        Set r = obj
+        If r.Cells.CountLarge <> 1 Then
+            CommandArgRefused cellName, "first argument", argText, "it refers to " & _
+                OptCountText(CDbl(r.Cells.CountLarge)) & " cells, and the rules are one cell's text"
+        End If
+        v = r.Value
+    End If
+    If IsError(v) Then
+        CommandArgRefused cellName, "first argument", argText, "it is an error value, not the rules' text"
+    End If
+    CommandRulesText = CStr(v)
+End Function
+
+' Argument i after the first: a range or a Table, as the worksheet
+' functions take it.
+Private Function CommandTableArg(ByVal cell As Range, ByVal argText As String, ByVal i As Long, _
+                                 ByVal cellName As String) As Range
+    Dim obj As Object
+    Dim v As Variant
+    EvaluateArg cell, argText, cellName, "argument " & i, obj, v
+    If TypeName(obj) <> "Range" Then
+        CommandArgRefused cellName, "argument " & i, argText, "it is not a range or a Table"
+    End If
+    Set CommandTableArg = obj
+End Function
+
+' One argument evaluated on the cell's own sheet: a range in obj, or else
+' a value in v. Excel's Evaluate reads at most 255 characters and says
+' nothing clear past them, so a longer argument is refused with the way
+' round it.
+Private Sub EvaluateArg(ByVal cell As Range, ByVal argText As String, ByVal cellName As String, _
+                        ByVal which As String, ByRef obj As Object, ByRef v As Variant)
+    If Len(argText) > 255 Then
+        CommandArgRefused cellName, which, argText, "Excel evaluates at most 255 characters of an " & _
+            "argument - put it in a cell of its own and refer to that cell"
+    End If
+    Set obj = Nothing
+    On Error Resume Next
+    Set obj = cell.Worksheet.Evaluate(argText)
+    If Err.Number <> 0 Then
+        Err.Clear
+        Set obj = Nothing
+        v = cell.Worksheet.Evaluate(argText)
+    End If
+    On Error GoTo 0
+End Sub
+
+Private Sub CommandArgRefused(ByVal cellName As String, ByVal which As String, ByVal argText As String, _
+                              ByVal why As String)
+    Dim shown As String
+    shown = argText
+    If Len(shown) > 60 Then shown = Left$(shown, 57) & "..."
+    VLA_Messages.RaiseMsg "optimize-command-argument", "cell", cellName, "which", which, "arg", shown, "why", why
+End Sub
+
+' Whether an argument is one quoted text and nothing else: quotes at both
+' ends, and every quote between them doubled.
+Private Function IsOneTextLiteral(ByVal t As String) As Boolean
+    If Len(t) < 2 Then Exit Function
+    If Left$(t, 1) <> """" Or Right$(t, 1) <> """" Then Exit Function
+    Dim i As Long
+    i = 2
+    Do While i <= Len(t) - 1
+        If Mid$(t, i, 1) = """" Then
+            If i + 1 > Len(t) - 1 Then Exit Function
+            If Mid$(t, i + 1, 1) <> """" Then Exit Function
+            i = i + 2
+        Else
+            i = i + 1
+        End If
+    Loop
+    IsOneTextLiteral = True
+End Function
+
+' One table argument into the run's relations and header map, exactly as
+' the four worksheet functions each read theirs.
+Private Sub AddTableArg(ByVal tbl As Range, ByVal relations As Object, ByVal headerMap As Object)
+    Dim nm As String
+    nm = OptimizeTableArgName(tbl)
+    VLA_Runtime.VlaDictSet relations, nm, VLA_Relation.RelFromRange(tbl)
+    Dim colsOk As Boolean
+    Dim cols As Collection
+    Set cols = VLA_Relation.RangeColumnNames(tbl, colsOk)
+    If colsOk Then VLA_Runtime.VlaDictSet headerMap, nm, cols
+End Sub
+
+' The answer as values on a new sheet after the cell's own, and its name.
+' A sentence in a program puts the active sheet back as it was; the button
+' leaves the new sheet showing. A write that fails takes its sheet away.
+Private Function WriteCommandSheet(ByVal cell As Range, ByVal cellName As String, ByVal formulaText As String, _
+                                   ByVal result As Collection, ByVal showSheet As Boolean) As String
+    Dim wb As Workbook
+    Set wb = cell.Worksheet.Parent
+    Dim wasActive As Object
+    Set wasActive = ActiveSheet
+    Dim prevUpdating As Boolean
+    prevUpdating = Application.ScreenUpdating
+    Dim prevAlerts As Boolean
+    prevAlerts = Application.DisplayAlerts
+    Dim ws As Worksheet
+    Dim failText As String
+    On Error GoTo writeFailed
+    Application.ScreenUpdating = False
+    Set ws = wb.Worksheets.Add(After:=cell.Worksheet)
+    ws.Name = CommandSheetName(wb, "Optimize " & cell.Address(False, False))
+    ws.Range("A1").Value = SafeCellValue(CStr(result.Item(7)))
+    ws.Range("A2").Value = SafeCellValue("From " & cellName & ", " & formulaText & " - run as a command on " & _
+        Format$(Now, "yyyy-mm-dd") & " at " & Format$(Now, "hh:nn") & ".")
+    Dim lastRow As Long
+    lastRow = WriteValuesAt(ws.Range("A4"), OptimizeAnswerOf(result))
+    If VLA_Relation.RelCount(result.Item(8)) > 0 Then
+        ws.Cells(lastRow + 2, 1).Value = "Rules broken:"
+        WriteValuesAt ws.Cells(lastRow + 3, 1), VLA_Relation.RelToSpilledArray(result.Item(8), _
+            Array(OPT_VIOL_COL_CHECK, OPT_VIOL_COL_RULE, OPT_VIOL_COL_WHERE))
+    End If
+    If Not showSheet Then
+        If Not wasActive Is Nothing Then wasActive.Activate
+    End If
+    Application.ScreenUpdating = prevUpdating
+    WriteCommandSheet = ws.Name
+    Exit Function
+writeFailed:
+    failText = Err.Description
+    Application.DisplayAlerts = False
+    If Not ws Is Nothing Then ws.Delete
+    Application.DisplayAlerts = prevAlerts
+    Application.ScreenUpdating = prevUpdating
+    VLA_Messages.RaiseMsg "optimize-command-failed", "cell", cellName, "detail", failText
+End Function
+
+' A value, or a two-dimensional answer, written at topLeft as values; the
+' last row it took.
+Private Function WriteValuesAt(ByVal topLeft As Range, ByVal answer As Variant) As Long
+    If Not IsArray(answer) Then
+        topLeft.Value = SafeCellValue(answer)
+        WriteValuesAt = topLeft.Row
+        Exit Function
+    End If
+    Dim r0 As Long, r1 As Long, c0 As Long, c1 As Long
+    r0 = LBound(answer, 1)
+    r1 = UBound(answer, 1)
+    c0 = LBound(answer, 2)
+    c1 = UBound(answer, 2)
+    Dim vals() As Variant
+    ReDim vals(1 To r1 - r0 + 1, 1 To c1 - c0 + 1)
+    Dim r As Long, c As Long
+    For r = r0 To r1
+        For c = c0 To c1
+            vals(r - r0 + 1, c - c0 + 1) = SafeCellValue(answer(r, c))
+        Next c
+    Next r
+    topLeft.Resize(r1 - r0 + 1, c1 - c0 + 1).Value = vals
+    WriteValuesAt = topLeft.Row + (r1 - r0)
+End Function
+
+' Text as text: an apostrophe before it, so no answer can become a
+' formula or a number. Anything else as it is.
+Private Function SafeCellValue(ByVal v As Variant) As Variant
+    If VarType(v) = vbString Then
+        If Len(v) > 0 Then
+            SafeCellValue = "'" & v
+            Exit Function
+        End If
+    End If
+    SafeCellValue = v
+End Function
+
+' A sheet name the workbook does not have yet: base, or base (2), (3)...
+Private Function CommandSheetName(ByVal wb As Workbook, ByVal base As String) As String
+    Dim nm As String
+    nm = base
+    Dim n As Long
+    n = 1
+    Do While SheetNameTaken(wb, nm)
+        n = n + 1
+        nm = base & " (" & n & ")"
+    Loop
+    CommandSheetName = nm
+End Function
+
+Private Function SheetNameTaken(ByVal wb As Workbook, ByVal nm As String) As Boolean
+    Dim sh As Object
+    For Each sh In wb.Sheets
+        If StrComp(sh.Name, nm, vbTextCompare) = 0 Then
+            SheetNameTaken = True
+            Exit Function
+        End If
+    Next sh
+End Function
+
+' =====================================================================
 '  THE ENGINE SEAM
 ' =====================================================================
 
@@ -623,12 +1104,72 @@ End Function
 Public Function OptimizeRun(ByVal rulesText As String, Optional ByVal baseRelations As Object, _
                             Optional ByVal headerMap As Object) As Collection
     Dim relations As Object
+    Dim hMap As Object
+    PrepareRun baseRelations, headerMap, relations, hMap
+
+    ' The memo is consulted before the program is even read: the key is
+    ' a hash of the text and the Tables, so a hit means this exact
+    ' question was answered in this session, and the answer cannot have
+    ' changed (decision 2). A miss costs one hash.
+    Dim memoKey As String
+    memoKey = OptimizeMemoKey(rulesText, relations, hMap)
+    Dim outp As Collection
+    If MemoHas(memoKey) Then
+        Set outp = MemoGet(memoKey)
+        If IsSizeRefusal(outp) Then RaiseSizeRefusal outp
+        Set OptimizeRun = outp
+        Exit Function
+    End If
+
+    SetRunMode False
+    Set outp = RunOnce(rulesText, relations, hMap)
+    MemoPut memoKey, outp
+    If IsSizeRefusal(outp) Then RaiseSizeRefusal outp
+    Set OptimizeRun = outp
+End Function
+
+' OPTIMIZE.3 slice 5: the same run as a COMMAND - OptimizeRun's answer
+' in OptimizeRun's shape, held to a command's ceiling instead of a
+' formula's: at most 500,000 rows in any one step and none in all, and no
+' seconds guard, since Esc stops a command. It neither reads nor fills the
+' memo: the memo is a formula's, keyed as a formula's question, and a
+' command is asked on purpose and answers again. Its size refusals say "a
+' command" and point nowhere further.
+Public Function OptimizeRunCommand(ByVal rulesText As String, Optional ByVal baseRelations As Object, _
+                                   Optional ByVal headerMap As Object) As Collection
+    Dim relations As Object
+    Dim hMap As Object
+    PrepareRun baseRelations, headerMap, relations, hMap
+    SetRunMode True
+    Dim outp As Collection
+    Set outp = RunOnce(rulesText, relations, hMap)
+    SetRunMode False
+    If IsSizeRefusal(outp) Then RaiseSizeRefusal outp
+    Set OptimizeRunCommand = outp
+End Function
+
+Private Sub SetRunMode(ByVal forCommand As Boolean)
+    mForCommand = forCommand
+    If forCommand Then
+        mStepCeiling = OPT_COMMAND_STEP_ROWS
+        mTotalCeiling = 0
+        mGuardSeconds = 0
+    Else
+        mStepCeiling = OPT_FORMULA_STEP_ROWS
+        mTotalCeiling = OPT_FORMULA_TOTAL_ROWS
+        mGuardSeconds = OPT_GUARD_SECONDS
+    End If
+End Sub
+
+' The caller's Tables as the run's own dictionary, and an empty header
+' map where none was given.
+Private Sub PrepareRun(ByVal baseRelations As Object, ByVal headerMap As Object, _
+                       ByRef relations As Object, ByRef hMap As Object)
     If baseRelations Is Nothing Then
         Set relations = VLA_Runtime.VlaDictNew()
     Else
         Set relations = baseRelations
     End If
-    Dim hMap As Object
     If headerMap Is Nothing Then
         Set hMap = VLA_Runtime.VlaDictNew()
     Else
@@ -668,21 +1209,11 @@ Public Function OptimizeRun(ByVal rulesText As String, Optional ByVal baseRelati
         End If
     Next baseName
     Set relations = working
+End Sub
 
-    ' The memo is consulted before the program is even read: the key is
-    ' a hash of the text and the Tables, so a hit means this exact
-    ' question was answered in this session, and the answer cannot have
-    ' changed (decision 2). A miss costs one hash.
-    Dim memoKey As String
-    memoKey = OptimizeMemoKey(rulesText, relations, hMap)
-    Dim outp As Collection
-    If MemoHas(memoKey) Then
-        Set outp = MemoGet(memoKey)
-        If IsSizeRefusal(outp) Then RaiseSizeRefusal outp
-        Set OptimizeRun = outp
-        Exit Function
-    End If
-
+' One run of the program, held to the ceilings SetRunMode set.
+Private Function RunOnce(ByVal rulesText As String, ByVal relations As Object, _
+                         ByVal hMap As Object) As Collection
     ' The program is read ONCE, here, and the forms travel the rest of
     ' the way as objects. Every form's SHAPE is checked, the three
     ' ingredients this version still does not execute are refused by
@@ -700,14 +1231,10 @@ Public Function OptimizeRun(ByVal rulesText As String, Optional ByVal baseRelati
     ' unchanged, line for line - which is what keeps the parity pin
     ' honest: every DATALOG program is a program with no choice.
     If choices.Count = 0 Then
-        Set outp = RunZeroChoice(forms, constraints, relations, hMap)
+        Set RunOnce = RunZeroChoice(forms, constraints, relations, hMap)
     Else
-        Set outp = RunWithChoices(forms, constraints, choices, effortWork, effortWords, relations, hMap)
+        Set RunOnce = RunWithChoices(forms, constraints, choices, effortWork, effortWords, relations, hMap)
     End If
-
-    MemoPut memoKey, outp
-    If IsSizeRefusal(outp) Then RaiseSizeRefusal outp
-    Set OptimizeRun = outp
 End Function
 
 ' OPTIMIZE.2's whole run, moved here unchanged when OPTIMIZE.3 gave
@@ -2087,7 +2614,7 @@ Private Function RunWithChoices(ByVal forms As Collection, ByVal constraints As 
     Dim prob As OptSearchProblem
     BuildSearchProblem gr, prob
     Dim res As OptSearchResult
-    VLA_OptimizeSearch.OptSearchRun prob, effortWork, OPT_GUARD_SECONDS, res
+    VLA_OptimizeSearch.OptSearchRun prob, effortWork, mGuardSeconds, res
     stats(4) = res.decisions
     stats(5) = res.conflicts
     stats(6) = res.work
@@ -2824,8 +3351,8 @@ Private Sub GroundChoices(ByVal choices As Collection, ByVal certain As Object, 
     ' atom is its pool, and its rows must come out in the pool's order.
     ' Only the ceilings are new here - pass 3 alone is planned.
     Dim out As Collection
-    Set out = VLA_Datalog.DatalogGroundRules(batch, certain, hMap, syms, stepCeiling:=OPT_FORMULA_STEP_ROWS, _
-                                             totalCeiling:=OPT_FORMULA_TOTAL_ROWS)
+    Set out = VLA_Datalog.DatalogGroundRules(batch, certain, hMap, syms, stepCeiling:=mStepCeiling, _
+                                             totalCeiling:=mTotalCeiling)
     Dim over As Variant
     over = VLA_Datalog.DatalogGroundOverflow()
     If Not IsEmpty(over) Then
@@ -3200,8 +3727,8 @@ Private Sub GroundClauses(ByVal constraints As Collection, ByRef readsChoice() A
     ' on from pass 2's.
     Dim out As Collection
     Set out = VLA_Datalog.DatalogGroundRules(batch, rel3, hMap, syms, planned:=True, _
-                                             stepCeiling:=OPT_FORMULA_STEP_ROWS, _
-                                             totalCeiling:=OPT_FORMULA_TOTAL_ROWS, rowsBefore:=gr.rowsLaid)
+                                             stepCeiling:=mStepCeiling, _
+                                             totalCeiling:=mTotalCeiling, rowsBefore:=gr.rowsLaid)
     Dim over As Variant
     over = VLA_Datalog.DatalogGroundOverflow()
     If Not IsEmpty(over) Then
@@ -3739,21 +4266,22 @@ End Function
 
 ' The refusal a ceiling passed in pass 2 or 3 becomes: the two-item result
 ' OptimizeRun memoizes - the marker, then Array(which refusal, the form as
-' the user wrote it, the reason or the running count, the ceiling). The
-' words are made here, once, so the memo holds exactly what is raised.
+' the user wrote it, the reason or the running count, the ceiling, and
+' whether it was a command's ceiling rather than a formula's). The words
+' are made here, once, so the memo holds exactly what is raised.
 Private Function SizeRefusal(ByVal over As Variant, ByVal form As Variant, ByVal isChoice As Boolean) As Collection
     Dim rec As Collection
     Set rec = New Collection
     rec.Add OPT_REFUSAL_MARK
     If CLng(over(0)) = VLA_Datalog.DATALOG_GROUND_OVER_TOTAL Then
         rec.Add Array(OPT_REFUSE_TOTAL, VLA.VlaWriteForm(form), OptCountText(CDbl(over(2))), _
-                      OptCountText(OPT_FORMULA_TOTAL_ROWS))
+                      OptCountText(mTotalCeiling), mForCommand)
     ElseIf isChoice Then
         rec.Add Array(OPT_REFUSE_CHOICE_STEP, VLA.VlaWriteForm(form), SizeWhyWords(over, False), _
-                      OptCountText(OPT_FORMULA_STEP_ROWS))
+                      OptCountText(mStepCeiling), mForCommand)
     Else
         rec.Add Array(OPT_REFUSE_RULE_STEP, VLA.VlaWriteForm(form), SizeWhyWords(over, True), _
-                      OptCountText(OPT_FORMULA_STEP_ROWS))
+                      OptCountText(mStepCeiling), mForCommand)
     End If
     Set SizeRefusal = rec
 End Function
@@ -3764,18 +4292,37 @@ Private Function IsSizeRefusal(ByVal result As Collection) As Boolean
     IsSizeRefusal = (CStr(result.Item(1)) = OPT_REFUSAL_MARK)
 End Function
 
+' Slice 5: a formula's size refusal points to the command, which lays out
+' more; a command's says "a command" and has nowhere further to point.
 Private Sub RaiseSizeRefusal(ByVal result As Collection)
     Dim a As Variant
     a = result.Item(2)
+    Dim who As String, thenWords As String
+    If CBool(a(4)) Then
+        who = "a command"
+    Else
+        who = "a formula"
+        thenWords = CommandPointerWords()
+    End If
     Select Case CLng(a(0))
     Case OPT_REFUSE_CHOICE_STEP
-        VLA_Messages.RaiseMsg "optimize-choice-too-large", "form", a(1), "why", a(2), "ceiling", a(3)
+        VLA_Messages.RaiseMsg "optimize-choice-too-large", "form", a(1), "why", a(2), "who", who, _
+            "ceiling", a(3), "then", thenWords
     Case OPT_REFUSE_RULE_STEP
-        VLA_Messages.RaiseMsg "optimize-rule-too-large", "form", a(1), "why", a(2), "ceiling", a(3)
+        VLA_Messages.RaiseMsg "optimize-rule-too-large", "form", a(1), "why", a(2), "who", who, _
+            "ceiling", a(3), "then", thenWords
     Case Else
-        VLA_Messages.RaiseMsg "optimize-too-large", "form", a(1), "rows", a(2), "ceiling", a(3)
+        VLA_Messages.RaiseMsg "optimize-too-large", "form", a(1), "rows", a(2), "who", who, _
+            "ceiling", a(3), "then", thenWords
     End Select
 End Sub
+
+' Where a formula's size refusal points, and how to get there.
+Private Function CommandPointerWords() As String
+    CommandPointerWords = " To run it as a command, which lays out up to " & _
+        OptCountText(OPT_COMMAND_STEP_ROWS) & " rows in one step and has no limit in all, " & _
+        "select this cell and choose Frazaro > Logic Engines > Optimize Selected Cell."
+End Function
 
 ' The one step that passed the step ceiling, in words ending on the rows
 ' it would have made: an atom's own rows, rows that share no name paired

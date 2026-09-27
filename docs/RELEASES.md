@@ -120,17 +120,24 @@
 
 - **`OPTIMIZE` makes choices.** Until now it could only check a schedule
   you already had. Now it builds one. Write who may work which shift, how
-  many each shift needs - a number, or a column of your own table - and
-  the rules no schedule may break, and `OPTIMIZE` answers with the first
-  schedule that breaks none. It fills your first shift first, and takes
-  your rows in the order your tables list them. `OPTIMIZE_STATUS` says
-  why this is the answer: with nothing to make as small or as large as
-  possible, every schedule that breaks no rule is as good as another, and
-  this is the first of them.
+  many each shift needs, and the rules no schedule may break, and
+  `OPTIMIZE` answers with the first schedule that breaks none. How many
+  can be exactly so many, at least, at most, or between two numbers, each
+  written in or read from a column of your own table, or left open, as
+  for the extras a customer may or may not add. Several counts can cover
+  the same rows, so "ten on every shift", "a senior on every night" and
+  "at most five shifts a week" hold together. It fills your first shift
+  first, and takes your rows in the order your tables list them.
+  `OPTIMIZE_STATUS` says why this is the answer, and how much searching
+  it took: with nothing to make as small or as large as possible, every
+  schedule that breaks no rule is as good as another, and this is the
+  first of them.
   - **When there is no schedule, it says so and says why.** That is
-    either the rules that cannot all hold, by number, or the arithmetic
-    that rules it out before anything is tried: "7 guests, and 2 tables
-    of 3 seat at most 6".
+    either the rules that cannot all hold together, by number, leaving
+    out any rule that plays no part, or the arithmetic that rules it out
+    before anything is tried: "7 guests, and 2 tables of 3 seat at most
+    6". A rule no choice could meet is listed row by row by
+    `OPTIMIZE_VIOLATIONS`.
   - **How hard it may try is yours to set, in the rules themselves:**
     `(effort quick)`, `normal` or `thorough`, or a number. It is counted
     in work rather than seconds, so a workbook answers the same on a
@@ -170,10 +177,24 @@
     is what lets "never two shifts in a row" fit at the size of a real
     four-week roster: written the obvious way round, it would pair
     352,800 rows in one step.
+  - **What a cell refuses, a command runs.** Select the cell and choose
+    Frazaro > Logic Engines > Optimize Selected Cell, or write
+    `Optimize cell C1.` in the console or in a program you Interpret. The
+    cell's own rules and Tables run again, with no ten-second limit and
+    room for 500,000 rows in a step, and Esc stops it. The answer lands
+    as values on a new sheet named after the cell, with its status above
+    it, and nothing on your sheets is overwritten. A cell's size refusal
+    now ends by pointing here, and a program still too big for a command
+    is refused in the same words, saying "a command". A compiled program
+    cannot run the command, since the OPTIMIZE engine does not travel
+    with it, and Compile says so by name.
   - **Not yet:** "as few as possible" and "as many as possible"
     (`minimize`, `maximize`), preferences, staying close to last month's
-    roster, and rules that read what is being chosen. Each is refused in
-    words that say so.
+    roster, a rule that reads what is being chosen, and a count of it
+    inside a rule. Each is refused in words that say so, and the last two
+    say what works today: a condition on chosen rows written as a rule no
+    schedule may break, and a limit on how many written as another count
+    over the same rows, as "at most five shifts a week" is.
 
 - **One message's dash is a plain hyphen now, like every other message's.**
   The refusal of a stray `Done.` or `Otherwise` - "is there a stray 'Done.'
@@ -222,14 +243,19 @@
 **Closed this release:** nothing. The query changes above are speed only: the
 same questions, over the same tables, giving the same answers, with no new
 capability and no new file or network access. `OPTIMIZE`'s choosing is new,
-and it is the one new thing a workbook can ask Frazaro to do. It reads only
-the tables its formula names, writes nothing and calls nothing outside
-Excel. Its search stops at the effort its own rules allow, or after ten
-seconds of searching, whichever comes first. Laying out a program's
-possibilities is bounded too: past 100,000 rows, or 50,000 in one step, a
-formula refuses it before doing more. The part of a program that is plain
-`DATALOG` - its facts and ordinary rules - is not bounded yet, just as a
-`DATALOG` question is not.
+and with its command it is the one new thing a workbook can ask Frazaro to
+do. A formula reads only the tables it names, writes nothing and calls
+nothing outside Excel. Its search stops at the effort its own rules allow,
+or after ten seconds of searching, whichever comes first. Laying out a
+program's possibilities is bounded too: past 100,000 rows, or 50,000 in one
+step, a formula refuses it before doing more. The command - the Optimize
+Selected Cell button, or the sentence `Optimize cell C1.` - runs a cell's
+own `OPTIMIZE` formula again: it evaluates only that formula's own
+arguments, allows 500,000 rows in a step, has no ten-second limit and
+stops on Esc. It writes one new sheet of values, never a formula, and
+overwrites nothing; a refusal, or Esc, writes nothing. The part of a
+program that is plain `DATALOG` - its facts and ordinary rules - is not
+bounded yet, just as a `DATALOG` question is not.
 The CLI's history is new. It is written to one file of
 your own, `%APPDATA%\Frazaro\history.txt` - the first file Frazaro keeps in
 your profile - and never into a workbook; nothing in a workbook can read it or

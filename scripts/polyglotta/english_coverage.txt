@@ -1,5 +1,5 @@
 === PHRASEBOOK TEST COVERAGE: english.vla ===
-Rules: 222
+Rules: 223
 
 --- Zero tests, 0 rule(s) ---
 
@@ -154,4 +154,4 @@ Rules: 222
 test-fail proofs (file-level, never attributed to a rule): 11
 test-success proofs for a structural form, not a phrase rule: 9
 
-=== SUMMARY: 76/222 rules have 2+ tests; 146 have exactly one; 0 have zero ===
+=== SUMMARY: 77/223 rules have 2+ tests; 146 have exactly one; 0 have zero ===

@@ -533,6 +533,9 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-include-must-stand-alone", 5, "VLA", "'(include ...)' splices a whole file and must stand alone on its own line at the top level - it cannot appear inside a procedure, an expression, or beside other forms"
     AddMsg m, "vla-unknown-top-level-form", 5, "VLA", "unknown top-level form '{head}' (executable statements must live inside a sub or function)"
     AddMsg m, "vla-interpreter-only-handler", VLA.VLA_ERR_INTERPRETER_ONLY, "VLA", "'{name}' (IN.7) is an interpreter-native event handler and cannot be compiled into VBA - Interpret this program instead of using Compile/Compile and Trace"
+    ' OPTIMIZE.3 slice 5: VLA.bas's RefuseInterpreterOnlyCall, at transpile.
+    ' IN.7's number, so Check's transpile probe takes it as expected.
+    AddMsg m, "vla-interpreter-only-command", VLA.VLA_ERR_INTERPRETER_ONLY, "VLA", "the sentence 'Optimize cell ...' runs OPTIMIZE's command, which only the interpreter can reach - a compiled program runs in your workbook without the OPTIMIZE engine beside it. Interpret this program instead of using Compile/Compile and Trace, or choose Frazaro > Logic Engines > Optimize Selected Cell."
     AddMsg m, "vla-bare-atom-statement", 5, "VLA", "bare atom used as a statement: '{value}'"
     AddMsg m, "vla-type-enum-module-level-only", 5, "VLA", "({head} ...) is module-level only - move it outside the sub or function"
     AddMsg m, "vla-on-error-bad-shape", 5, "VLA", "on-error: expected (on-error resume-next) or (on-error goto <label|0>)"
@@ -1285,9 +1288,24 @@ Private Sub AddEntries(ByVal m As Collection)
     ' VLA_Optimize.RaiseSizeRefusal whether found now or held in the memo.
     ' {why} is one of SizeWhyWords' shapes, ending on the rows the step
     ' would have made; {rows} and {ceiling} are whole numbers with commas.
-    AddMsg m, "optimize-choice-too-large", 5, "VLA-Optimize", "{form} has more rows to choose from than a formula lays out in one step: {why}, and a formula lays out at most {ceiling}. Choose from a smaller pool - a rule that keeps only the rows that could really be chosen."
-    AddMsg m, "optimize-rule-too-large", 5, "VLA-Optimize", "{form} pairs more rows than a formula lays out in one step: {why}, and a formula lays out at most {ceiling}. A condition that ties its rows together pairs fewer, and so does a smaller pool."
-    AddMsg m, "optimize-too-large", 5, "VLA-Optimize", "this program lays out more rows than a formula may: with {form}, its choices and the rules over them reach {rows} rows, and a formula lays out at most {ceiling} in all. Smaller pools, or rules that pair fewer rows, lay out less."
+    ' Slice 5: {who} is "a formula" or "a command", and {then} is where a
+    ' formula's refusal points - the command, and how to reach it - or
+    ' nothing, for a command's.
+    AddMsg m, "optimize-choice-too-large", 5, "VLA-Optimize", "{form} has more rows to choose from than {who} lays out in one step: {why}, and {who} lays out at most {ceiling}. Choose from a smaller pool - a rule that keeps only the rows that could really be chosen.{then}"
+    AddMsg m, "optimize-rule-too-large", 5, "VLA-Optimize", "{form} pairs more rows than {who} lays out in one step: {why}, and {who} lays out at most {ceiling}. A condition that ties its rows together pairs fewer, and so does a smaller pool.{then}"
+    AddMsg m, "optimize-too-large", 5, "VLA-Optimize", "this program lays out more rows than {who} may: with {form}, its choices and the rules over them reach {rows} rows, and {who} lays out at most {ceiling} in all. Smaller pools, or rules that pair fewer rows, lay out less.{then}"
+    ' OPTIMIZE.3 slice 5: the command, VLA_Optimize.VlaOptimizeCell - a
+    ' cell's own =OPTIMIZE(...) call run again as a command. {cell} is the
+    ' cell as "Sheet1!C1"; a refusal met while it runs - the program's own,
+    ' or a size refusal at the command's ceiling - arrives through
+    ' optimize-command-failed, its words in {detail}, once the command has
+    ' put the status bar and the Esc setting back.
+    AddMsg m, "optimize-command-no-cell", 5, "VLA-Optimize", "select the cell that holds the =OPTIMIZE(...) formula first - what is selected now is {what}, not a cell."
+    AddMsg m, "optimize-command-one-cell", 5, "VLA-Optimize", "the command runs one cell's OPTIMIZE formula, and {range} is {count} cells - choose just the cell that holds it."
+    AddMsg m, "optimize-command-no-formula", 5, "VLA-Optimize", "{cell} has no OPTIMIZE formula to run as a command: {why}. The command runs a cell whose whole formula is one call to OPTIMIZE, OPTIMISE, OPTIMIZE_STATUS or OPTIMIZE_VIOLATIONS."
+    AddMsg m, "optimize-command-argument", 5, "VLA-Optimize", "the command could not read {cell}'s {which}, {arg}: {why}."
+    AddMsg m, "optimize-command-stopped", 5, "VLA-Optimize", "the command running {cell} was stopped by Esc, and nothing was written."
+    AddMsg m, "optimize-command-failed", 5, "VLA-Optimize", "the command could not run {cell}: {detail}"
     AddMsg m, "optimize-table-not-a-range", 5, "VLA-Optimize", "every OPTIMIZE table argument must be a cell range - pass a reference like Employees, not a computed value."
     AddMsg m, "optimize-table-needs-a-name", 5, "VLA-Optimize", "this range has no name OPTIMIZE can use for it - make it an Excel Table (Ctrl+T) or give it a defined name, then reference that name in the formula."
     AddMsg m, "optimize-table-noncontiguous-columns", 5, "VLA-Optimize", "a table argument spanning multiple disjoint areas (a Ctrl-selected, non-contiguous range) isn't supported - select one contiguous block of the table's own columns instead."

@@ -1397,6 +1397,23 @@ Public Sub VlaCli()
     VlaOpenCli
 End Sub
 
+' OPTIMIZE.3 slice 5: Frazaro > Logic Engines > Optimize Selected Cell, and
+' the legacy menu's item of the same name - the active cell's own
+' =OPTIMIZE(...) call run again as a command, its answer on a new sheet
+' that is left showing (VLA_Optimize.VlaOptimizeCell has the whole
+' account; the sentence "Optimize cell C1." reaches the same procedure).
+' A refusal is shown in words here, since nothing called it to catch one.
+Public Sub VlaOptimizeSelectedCell()
+    On Error GoTo failed
+    If TypeName(Selection) <> "Range" Then
+        VLA_Messages.RaiseMsg "optimize-command-no-cell", "what", TypeName(Selection)
+    End If
+    VLA_Optimize.VlaOptimizeCell ActiveCell, True
+    Exit Sub
+failed:
+    VlaShowError Err.Description
+End Sub
+
 ' The Run button/Ctrl+Enter's actual work. Returns a short status line
 ' - CLI.5: OK, Failed or Translation failed, and the time, which ends
 ' the command's entry in the transcript (the dialog lost its own status
@@ -4089,6 +4106,7 @@ Public Sub VlaAddinMenu()
     AddMenuBtn pop, "Phrasebook Test Coverage...", "EnglishIdeRuleCoverageReport"
     AddMenuBtn pop, "Lint VLA...", "EnglishIdeLintVla"
     AddMenuBtn pop, "Copy Feedback", "EnglishIdeCopyFeedback"
+    AddMenuBtn pop, "Optimize Selected Cell", "VlaOptimizeSelectedCell"
 End Sub
 
 ' V5: the ribbon's single callback - every Frazaro tab button
@@ -4124,6 +4142,7 @@ Public Sub VlaRibbonAction(control As IRibbonControl)
         Case "VlaFeedback": EnglishIdeCopyFeedback
         Case "VlaForgetPhrasebooks": EnglishIdeForgetPhrasebookApprovals
         Case "VlaOpenCli": VlaOpenCli
+        Case "VlaOptimizeCell": VlaOptimizeSelectedCell
         Case Else
             VlaShowError "Unknown ribbon command: " & control.ID
     End Select

@@ -2372,16 +2372,32 @@ Private Sub TestBuildRibbon()
                 "VlaCheck", "VlaInterpret", "VlaInterpretTrace", "VlaRun", "VlaRunTrace", "VlaShowVba", _
                 "VlaTranslateVla", "VlaTranslateVba", "VlaUndo", "VlaPhrases", "VlaLoadPhrasebook", _
                 "VlaExportExpanded", "VlaRuleCoverage", "VlaLintVla", "VlaFeedback", "VlaOpenCli", _
-                "VlaForgetPhrasebooks")
+                "VlaForgetPhrasebooks", "VlaOptimizeCell")
     Dim i As Long
     Dim missing As String
     For i = LBound(ids) To UBound(ids)
         If InStr(x, "id=" & Chr$(34) & ids(i) & Chr$(34)) = 0 Then missing = missing & " " & ids(i)
     Next
-    Report "ribbon: all twenty-three command ids present", Len(missing) = 0, "missing:" & missing
+    Report "ribbon: all twenty-four command ids present", Len(missing) = 0, "missing:" & missing
     Report "ribbon: every button rides the one callback", _
-           CountOcc(x, "onAction=" & Chr$(34) & "VlaRibbonAction" & Chr$(34)) = 23, _
+           CountOcc(x, "onAction=" & Chr$(34) & "VlaRibbonAction" & Chr$(34)) = 24, _
            "got " & CountOcc(x, "onAction=" & Chr$(34) & "VlaRibbonAction" & Chr$(34))
+    ' OPTIMIZE.3 slice 5: the Logic Engines dropdown. customUI refuses the
+    ' whole part when a button inside a menu carries a size, and the tab
+    ' vanishes - so the menu's own button must have none.
+    Dim menuAt As Long, menuEnd As Long, btnAt As Long, optAt As Long
+    Dim sizedInMenu As Boolean
+    menuAt = InStr(x, "<menu id=" & Chr$(34) & "FrazaroEngines" & Chr$(34))
+    If menuAt > 0 Then
+        menuEnd = InStr(menuAt, x, "</menu>")
+        btnAt = InStr(menuAt, x, "<button")
+        optAt = InStr(menuAt, x, "id=" & Chr$(34) & "VlaOptimizeCell" & Chr$(34))
+        If btnAt > 0 And btnAt < menuEnd Then sizedInMenu = (InStr(btnAt, Left$(x, menuEnd), "size=") > 0)
+    End If
+    Report "ribbon: the Logic Engines dropdown holds Optimize Selected Cell", _
+           menuAt > 0 And optAt > 0 And optAt < menuEnd, "no FrazaroEngines menu around VlaOptimizeCell"
+    Report "ribbon: and no button inside it carries a size", _
+           btnAt > 0 And btnAt < menuEnd And Not sizedInMenu, "a button inside the menu has a size"
 End Sub
 
 ' 0.6.1: Uninstall Frazaro deleted the dev workbook VLA.xlsm - the bare
