@@ -188,6 +188,10 @@ Then one phrasebook row marked `0.7.0` — `OPTIMIZE.3`'s fifth slice, `optimize
 cell {r:cell}`, which runs a cell's own `=OPTIMIZE(...)` formula again as a
 command — and one core dispatch arm, `TryRuntimeHelper vlaoptimizecell`, the
 command itself, new that release.
+Then one core dispatch arm marked `0.7.0` — `ExecStmt at-line`, `TER-10`: the
+interpreter runs the line marks its Run now asks for, so a stop names its
+sentence. `EmitStmt at-line` keeps its `0.5.0`; the form is not new, only the
+interpreter's reading of it.
 
 ### Phrasebook rules
 
@@ -515,6 +519,7 @@ tag, not assumed.*
 0.5.0  EvalExpr           source
 0.5.0  EvalExpr           true
 0.5.0  ExecStmt           .
+0.7.0  ExecStmt           at-line
 0.5.0  ExecStmt           begin
 0.5.0  ExecStmt           const
 0.5.0  ExecStmt           debug-print

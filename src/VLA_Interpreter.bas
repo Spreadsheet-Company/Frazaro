@@ -338,6 +338,11 @@ Private mCaptureThis As Boolean
 ' bound as *, ** and *** - the one kind of run whose missing * is the
 ' console's refusal rather than an ordinary unbound name.
 Private mConsoleRun As Boolean
+' TER-10: the program line of the sentence running now, from the
+' (at-line N ...) wrapper the IDE's translation puts round each one
+' (EnglishLineMarks); 0 outside every wrapper. A stop leaves it where
+' it was, so VlaInterpreterLine names the sentence that stopped.
+Private mAtLine As Long
 
 Public Sub VlaInterpretDemo()
     Dim english As String
@@ -444,6 +449,7 @@ End Function
 ' Object return can't also be ByRef, and every existing S3.1-safe
 ' reset here is unchanged from VlaInterpret's own original body).
 Private Function PrepareInterpret(ByVal vlaSource As String, ByVal hostWb As Workbook, ByRef forms As Collection) As Object
+    mAtLine = 0                          ' TER-10: before anything can raise
     If hostWb Is Nothing Then
         Set mHostWorkbook = ActiveWorkbook
     Else
@@ -739,6 +745,7 @@ Private Sub ExecStmt(ByVal f As Variant, ByVal frame As Object)
         Case "exit-sub", "exit-function": mProcReturn = True
         Case "return": ExecReturn lst, frame
         Case "begin": ExecBegin lst, frame
+        Case "at-line": ExecAtLine lst, frame
         Case "debug-print": ExecDebugPrint lst, frame
         Case ".": ExecDotCall lst, frame
         Case "on-error": ExecOnError lst
@@ -1305,6 +1312,31 @@ End Sub
 Private Sub ExecBegin(lst As Collection, frame As Object)
     ExecBody lst, 2, frame
 End Sub
+
+' TER-10: (at-line N form...) - the forms one sentence on line N became,
+' run as a begin is. IN.5 adjudicated it interpretable (the emitter's
+' zero-runtime annotation) and nothing had needed it until the IDE's
+' Run asked for line marks. The line is set before the forms run and
+' put back after them, so a block's own sentences name themselves and
+' the block's line returns once they are done; an error skips the
+' put-back - the emitter's own at-line does the same - so the line a
+' stop leaves is the innermost sentence that was running. A pending
+' goto passes through untouched: a Try's labels sit inside its own
+' sentence's wrapper, so ExecBody finds them there, as a begin's.
+Private Sub ExecAtLine(lst As Collection, frame As Object)
+    Dim outer As Long
+    outer = mAtLine
+    mAtLine = CLng(EvalExpr(Nth(lst, 2), frame))
+    ExecBody lst, 3, frame
+    mAtLine = outer
+End Sub
+
+' TER-10: the line of the sentence the last run stopped in - read by
+' the IDE right after VlaInterpret raised. 0 when the translation
+' carried no line marks, and after a run that finished.
+Public Function VlaInterpreterLine() As Long
+    VlaInterpreterLine = mAtLine
+End Function
 
 Private Sub ExecDebugPrint(lst As Collection, frame As Object)
     Dim i As Long

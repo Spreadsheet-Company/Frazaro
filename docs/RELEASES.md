@@ -238,6 +238,20 @@
   everything the new cell sentences do can be done to a value too: `Set tidy
   to name with extra spaces removed.`
 
+- **A Run that stops puts its sheets back, and says where it stopped.** When
+  a program stops part-way - a sentence refuses, or something goes wrong
+  that no `Try:` catches - Frazaro now puts back what Undo Last Run would
+  have: the Output sheet and every sheet the program names, as they were
+  before the run, and removes any of those the run had created. Then one
+  message says which line stopped it and quotes the sentence, gives the
+  reason, and lists what was put back; the row is marked "Stopped here" on
+  the program sheet. So a stop at step 50 of 100 no longer leaves the first
+  49 done. What a program did outside those sheets - a file it saved, an
+  email it drafted - stays as it is, and the message says so. This works
+  the same whichever way the program runs. Before, Interpret's stop gave
+  only the reason, with no line, and Compile and Run's labelled Frazaro's
+  own refusals "Excel says".
+
 ### Known open security items
 
 **Closed this release:** nothing. The query changes above are speed only: the
@@ -269,6 +283,9 @@ text that would start with `=`, `+`, `-` or `@` is kept as text, the same
 guard every value Frazaro writes already has. The sentences that work on a
 value only read: a range as one list reads the cells the sentence names and
 writes nothing.
+A Run that stops puts back only the sheets its own snapshot copied before it
+began, by the same steps Undo Last Run has always taken; it reaches no other
+sheet, workbook or file.
 Standing advice unchanged. The full list of open items is in `docs/BETA_ROADMAP1.md`,
 in plain words in `README.md`.
 

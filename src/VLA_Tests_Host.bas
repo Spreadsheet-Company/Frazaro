@@ -3713,9 +3713,14 @@ Public Function VerifyReportInterpreter() As Boolean
     ' in when step tracking is on (ParseTracked's own gate - a pure
     ' passthrough when mStepTracking is False) - same convention, applied
     ' here to instructions.txt's own compile for the first time.
+    ' TER-10: with the line marks the IDE's Interpret now asks for, so
+    ' every sentence of the corpus runs inside its (at-line N ...) here
+    ' exactly as it does from the button.
     EnglishStepTracking False
+    EnglishLineMarks True
     Dim vla As String
     vla = EnglishToVla(englishText)
+    EnglishLineMarks False
     EnglishStepTracking True
     If Err.Number <> 0 Then d = "compile: " & Err.Description
     On Error GoTo 0

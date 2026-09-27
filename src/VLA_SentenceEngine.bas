@@ -536,6 +536,8 @@ Private mLintWarnings As Collection ' accumulated lint warnings
 Private mStepCount As Long
 Private mStepTexts As Collection
 Private mStepTracking As Boolean   ' set True in EnsureInit (default on)
+Private mLineMarks As Boolean      ' TER-10: at-line alone, for the
+                                   ' interpreter - EnglishLineMarks
 
 ' Action signatures and recorded calls, for translation-time call
 ' checking (converts would-be VBA compile errors into clean messages).
@@ -1238,7 +1240,18 @@ End Function
 Private Function ParseTracked(toks() As String, ByRef pos As Long, ByVal ind As Long) As String
     mCurLine = TokLine(pos)            ' V1: assignment-line bookkeeping
     If Not mStepTracking Then
-        ParseTracked = ParseStmt(toks, pos, ind)
+        ' TER-10: the interpreter's Run asks for the line marks alone -
+        ' the same (at-line N ...) wrapper as below, without the step
+        ' machinery it has no use for - so a stop can name the sentence
+        ' and its row, as a compiled Run's does.
+        Dim lmLn As Long
+        lmLn = TokLine(pos)
+        If mLineMarks And lmLn > 0 Then
+            ParseTracked = String$(ind * 2, " ") & "(at-line " & lmLn & vbCrLf & _
+                           ParseStmt(toks, pos, ind) & ")"
+        Else
+            ParseTracked = ParseStmt(toks, pos, ind)
+        End If
         Exit Function
     End If
     mStepCount = mStepCount + 1
@@ -1319,10 +1332,13 @@ Private Function BuildStepInfra() As String
     ' add-in and the dev workbook) - so the dialog's CONTENT is
     ' readable by the test harness. Styling (vbexclamation, title)
     ' now lives in the helper: one place, not every generated program.
+    ' U.25: the stop goes to VlaReportStop, which shows it through the
+    ' seam as before when the program runs on its own, and hands it to
+    ' the Run button when that is what started it, so the sheets are put
+    ' back before anything is said. The words no longer say "Excel says":
+    ' most stops are Frazaro's own refusals.
     SbAdd sb, sbU, "(sub vla-report-error ()" & vbCrLf
-    SbAdd sb, sbU, "  (vlashowerror (& ""Something went wrong at step "" vla-step "":"" vbcrlf vbcrlf" & vbCrLf
-    SbAdd sb, sbU, "                   (vla-step-text vla-step) vbcrlf vbcrlf" & vbCrLf
-    SbAdd sb, sbU, "                   ""Excel says: "" err.description)))" & vbCrLf & vbCrLf
+    SbAdd sb, sbU, "  (vlareportstop vla-step (vla-step-text vla-step) err.description))" & vbCrLf & vbCrLf
     SbAdd sb, sbU, "(function vla-step-text ((byval n Long)) String" & vbCrLf
     SbAdd sb, sbU, "  (select n" & vbCrLf
     Dim i As Long
@@ -1347,6 +1363,16 @@ End Function
 Public Sub EnglishStepTracking(ByVal enabled As Boolean)
     EnsureInit
     mStepTracking = enabled
+End Sub
+
+' TER-10: with step mapping off, wrap each sentence in (at-line N ...)
+' anyway - the line alone, no step number, no trace call, no handler.
+' Default off; the interpreter's Run turns it on around its own
+' translation and off again, as it does EnglishStepTracking, so every
+' other translation stays as it was.
+Public Sub EnglishLineMarks(ByVal enabled As Boolean)
+    EnsureInit
+    mLineMarks = enabled
 End Sub
 
 Public Function EnglishToVba(ByVal text As String) As String
@@ -1387,6 +1413,7 @@ Private Sub EnsureInit()
     Set mRuleTestCounts = New Collection
     RegisterBuiltinFuncWords
     mStepTracking = True
+    mLineMarks = False
     ' The prelude vocabulary. Each line is one DCG production.
     mLoadSource = "(built-in)"
     AddPhraseRule "set {v:var} to {e:expr}", "(set! {v} {e})"

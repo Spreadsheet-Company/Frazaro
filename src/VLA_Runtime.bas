@@ -239,6 +239,10 @@ Private Const TRACE_NAME As String = "VLAt_TraceOn"
 Private Const PROVENANCE_NAME As String = "VLAt_RunProvenance"
                                    ' the VerifyReports stale-read bug's
                                    ' own fix - see VlaStampRunProvenance
+Private mStopArmed As Boolean      ' U.25: the Run button is waiting for
+Private mStopped As Boolean        ' a stop - see VlaReportStop
+Private mStopStep As String
+Private mStopWhat As String
 
 ' =====================================================================
 '  S3: the message seam. One function carries every product-voiced
@@ -291,6 +295,44 @@ Public Function VlaCapturedMessages() As String
         r = r & e
     Next
     VlaCapturedMessages = r
+End Function
+
+' U.25: a compiled program's stop. Its vla-report-error calls this with
+' the step it stopped at, that step's sentence and line, and what went
+' wrong. When the Run button started it, the button armed this first
+' (VlaArmStopReport), so the stop is only recorded - the button puts the
+' sheets back and then says what happened, once. Run any other way (its
+' main from Excel's Macros list, or a standalone copy), nothing is
+' waiting, so it is shown here through the seam, as it always was. Only
+' the first stop is kept: a step failing inside an action of the
+' program's own is reported by that action, and its caller goes on.
+Public Sub VlaReportStop(ByVal stepNo As Long, ByVal stepText As String, ByVal what As String)
+    If mStopArmed Then
+        If Not mStopped Then
+            mStopped = True
+            mStopStep = stepText
+            mStopWhat = what
+        End If
+    Else
+        VlaShowError "Something went wrong at step " & stepNo & ":" & vbCrLf & vbCrLf & _
+                     stepText & vbCrLf & vbCrLf & what
+    End If
+End Sub
+
+' U.25: the Run button arms this before it runs a compiled program and
+' disarms it after, reading VlaStopReport in between. Either way the
+' record starts empty.
+Public Sub VlaArmStopReport(ByVal onOff As Boolean)
+    mStopArmed = onOff
+    mStopped = False
+    mStopStep = ""
+    mStopWhat = ""
+End Sub
+
+' U.25: "" when the armed run did not stop; otherwise the step's text
+' (its sentence and " [line N]"), a line feed, and what went wrong.
+Public Function VlaStopReport() As String
+    If mStopped Then VlaStopReport = mStopStep & vbLf & mStopWhat
 End Function
 
 ' =====================================================================

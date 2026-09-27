@@ -318,6 +318,7 @@ Public Function VlaSelfTest() As Boolean
     TestGoldens
     TestRuleUsage
     TestMessageSeam
+    TestRunStops
     TestSec8Provenance
     TestSec11Digest
     TestSec9PhrasebookPaths
@@ -5254,11 +5255,15 @@ Private Sub TestMessageSeam()
 
     ' The generated step-failure dialog routes through the seam; the
     ' user's own Show dialog does NOT - both pinned on one program.
+    ' U.25: by way of VlaReportStop, which shows it through the seam
+    ' when nothing armed it (TestRunStops pins that half).
     EnglishResetGrammar
     Dim vla As String
     vla = EnglishToVla("Create a number called t." & vbCrLf & "Show t.")
     CheckFrags "seam: step infra routes through the seam", vla, _
-               Array("(vlashowerror (& ""Something went wrong at step """)
+               Array("(vlareportstop vla-step (vla-step-text vla-step) err.description)")
+    Report "u25: the step infra no longer says ""Excel says""", _
+           InStr(1, vla, "Excel says", vbTextCompare) = 0, Left$(Norm(vla), 200)
     Report "seam: the user's Show keeps its own dialog", _
            InStr(1, vla, "(msgbox t)", vbTextCompare) > 0, Left$(Norm(vla), 200)
     Report "seam: no raw msgbox remains in the step infra", _
@@ -5286,6 +5291,157 @@ Private Sub TestMessageSeam()
     VlaMessageCapture False
 End Sub
 
+' ---------------------------------------------------------------------
+'  TER-10 and U.25 pins: a Run that stops names its sentence and row,
+'  and puts its sheets back. The put-back is sheet surgery the pure
+'  suite cannot reach (the live steps own it); what is pinned here is
+'  every piece it stands on - the line marks the interpreter's Run asks
+'  for, the interpreter's at-line (a stop leaves the innermost line, a
+'  finished block puts its own back, a Try's labels still resolve
+'  inside its wrapper), the compiled program's stop hook both ways, and
+'  the words the Run ends with.
+' ---------------------------------------------------------------------
+Private Sub TestRunStops()
+    Dim vla As String
+    EnglishResetGrammar
+
+    ' The line marks: at-line alone, and only when asked for.
+    EnglishStepTracking False
+    EnglishLineMarks True
+    vla = EnglishToVla("Create a number called t." & vbCrLf & "Set t to 5.")
+    EnglishLineMarks False
+    CheckFrags "ter10: line marks wrap each sentence in its own line", vla, _
+               Array("(at-line 1", "(at-line 2")
+    Report "ter10: line marks carry no step machinery", _
+           InStr(1, vla, "vla-step", vbTextCompare) = 0 And InStr(1, vla, "vlatraceon", vbTextCompare) = 0 _
+           And InStr(1, vla, "vla-fail", vbTextCompare) = 0, Left$(Norm(vla), 200)
+    vla = EnglishToVla("Create a number called t." & vbCrLf & "Set t to 5.")
+    EnglishStepTracking True
+    Report "ter10: without them an untracked translation is as it was", _
+           InStr(1, vla, "(at-line", vbTextCompare) = 0, Left$(Norm(vla), 200)
+
+    ' The interpreter's at-line: run as a begin, the line back to 0 after.
+    Dim frame As Object
+    Set frame = VLA_Interpreter.VlaInterpret("(sub main () (at-line 3 (dim x) (set! x 1)) (at-line 4 (dim y) (set! y (+ x 1))))")
+    CheckV "ter10: the interpreter runs what an at-line wraps", VLA_Runtime.VlaDictGet(frame, "y"), 2
+    CheckV "ter10: a finished run leaves no line", VLA_Interpreter.VlaInterpreterLine(), 0
+
+    ' A stop leaves the line it happened on, the innermost one...
+    Dim stopLine As Long, stopWhat As String
+    RunStopProbe "(sub main () (at-line 2 (dim x) (set! x 1)) (at-line 5 (vlatextbeside ""abc"" ""#"" ""before"" ""first"")))", _
+                 stopLine, stopWhat
+    CheckV "ter10: a stop names its line", stopLine, 5
+    Report "ter10: and the stop keeps its own words", InStr(1, stopWhat, "'#' is not in 'abc'", vbTextCompare) > 0, stopWhat
+    RunStopProbe "(sub main () (at-line 2 (if true (then (at-line 3 (vlatextbeside ""abc"" ""#"" ""before"" ""first""))))))", _
+                 stopLine, stopWhat
+    CheckV "ter10: a stop inside a block names the sentence inside it", stopLine, 3
+    ' ...and a sentence that finished puts its block's line back.
+    RunStopProbe "(sub main () (at-line 2 (begin (at-line 3 (dim x)) (vlatextbeside ""abc"" ""#"" ""before"" ""first""))))", _
+                 stopLine, stopWhat
+    CheckV "ter10: a finished inner sentence puts the block's line back", stopLine, 2
+
+    ' Through the translator: a Try's labels sit inside its own wrapper
+    ' and still resolve, and a stop after it names its own row.
+    EnglishStepTracking False
+    EnglishLineMarks True
+    vla = EnglishToVla("Create a number called q." & vbCrLf & _
+                       "Try:" & vbCrLf & _
+                       "  (vlatextbeside ""abc"" ""#"" ""before"" ""first"")" & vbCrLf & _
+                       "" & vbCrLf & _
+                       "Set q to 1.")
+    Dim vlaStop As String
+    vlaStop = EnglishToVla("Create a number called q." & vbCrLf & _
+                           "If q is 0:" & vbCrLf & _
+                           "  Set q to 2." & vbCrLf & _
+                           "  (vlatextbeside ""abc"" ""#"" ""after"" ""last"")" & vbCrLf & _
+                           "" & vbCrLf & _
+                           "Set q to 3.")
+    EnglishLineMarks False
+    EnglishStepTracking True
+    Dim tryOk As Boolean
+    On Error Resume Next
+    Set frame = Nothing
+    Set frame = VLA_Interpreter.VlaInterpret(vla)
+    tryOk = (Err.Number = 0)
+    On Error GoTo 0
+    Report "ter10: a Try inside its line mark still catches", tryOk, Left$(Norm(vla), 240)
+    If tryOk Then
+        CheckV "ter10: and the sentence after it runs", VLA_Runtime.VlaDictGet(frame, "q"), 1
+    Else
+        Report "ter10: and the sentence after it runs", False, "the run raised"
+    End If
+    CheckV "ter10: a caught failure leaves no line", VLA_Interpreter.VlaInterpreterLine(), 0
+    RunStopProbe vlaStop, stopLine, stopWhat
+    CheckV "ter10: a translated program's stop names its row", stopLine, 4
+
+    ' The compiled program's stop hook: shown through the seam when
+    ' nothing armed it, recorded - the first one only - when the Run
+    ' button did.
+    VlaMessageCapture True
+    VlaArmStopReport False
+    VlaReportStop 3, "Set t to 5. [line 3]", "boom"
+    Dim cap As String
+    cap = VlaCapturedMessages()
+    Report "u25: an unarmed stop is shown through the seam, step and sentence first", _
+           InStr(1, cap, "Something went wrong at step 3:", vbTextCompare) > 0 And _
+           InStr(1, cap, "Set t to 5. [line 3]", vbTextCompare) > 0 And _
+           InStr(1, cap, "boom", vbTextCompare) > 0, cap
+    Report "u25: without ""Excel says""", InStr(1, cap, "Excel says", vbTextCompare) = 0, cap
+    CheckV "u25: and nothing is recorded", VlaStopReport(), ""
+    VlaMessageCapture True
+    VlaArmStopReport True
+    VlaReportStop 4, "A. [line 4]", "first"
+    VlaReportStop 9, "B. [line 9]", "second"
+    CheckV "u25: an armed stop is recorded, the first one kept", VlaStopReport(), "A. [line 4]" & vbLf & "first"
+    CheckV "u25: and shows nothing", VlaCapturedMessages(), ""
+    VlaArmStopReport False
+    CheckV "u25: disarming clears the record", VlaStopReport(), ""
+    VlaMessageCapture False
+
+    ' The step text a compiled stop hands back, split into sentence and line.
+    Dim ln As Long, sent As String
+    sent = VlaIdeSplitStepText("Put x into cell A1. [line 12]", ln)
+    CheckV "u25: step text splits into its sentence and line", sent & "|" & ln, "Put x into cell A1.|12"
+    sent = VlaIdeSplitStepText("Say ""[line 3]"" now. [line 4]", ln)
+    CheckV "u25: the last [line N] is the line", sent & "|" & ln, "Say ""[line 3]"" now.|4"
+    sent = VlaIdeSplitStepText("an unknown step", ln)
+    CheckV "u25: no line on the end leaves the text whole", sent & "|" & ln, "an unknown step|0"
+    sent = VlaIdeSplitStepText("x [line 1a]", ln)
+    CheckV "u25: a line that is not a whole number is no line", sent & "|" & ln, "x [line 1a]|0"
+
+    ' The words the Run ends with.
+    Dim m As String
+    m = VlaIdeStopMessage(12, "Set part to the text before ""#"" in code.", "'#' is not in 'abc'.", "", "", "Output, GText", "")
+    CheckFrags "u25: the stop message names line, sentence, words and what went back", m, _
+               Array("The run stopped at line 12:" & vbCrLf & "Set part to the text before ""#"" in code.", _
+                     "'#' is not in 'abc'.", "Put back as they were before the run: Output, GText.", _
+                     "stays as it is.")
+    Report "u25: and says nothing of a removal that did not happen", InStr(1, m, "Removed", vbTextCompare) = 0, m
+    m = VlaIdeStopMessage(0, "", "boom", "", "", "Output", "Summary, Notes")
+    CheckFrags "u25: a stop with no line, and the sheets the run made", m, _
+               Array("The run stopped." & vbCrLf, "Removed the sheets the run had created: Summary, Notes.")
+    m = VlaIdeStopMessage(3, "Go to sheet Q.", "boom", "Permission denied", "GText", "Output", "")
+    CheckFrags "u25: a put-back that failed says which sheet, and names Undo", m, _
+               Array("Put back as they were before the run: Output.", _
+                     "The sheet 'GText' could not be put back (Permission denied) - Undo Last Run can try again.")
+    m = VlaIdeStopMessage(3, "Go to sheet Q.", "boom", "", "", "", "")
+    CheckFrags "u25: nothing to put back is said plainly", m, Array("There was nothing to put back.")
+End Sub
+
+' TER-10: run VLA the interpreter must stop in, and hand back the line it
+' stopped on and what it said (-1 and "" when it did not stop).
+Private Sub RunStopProbe(ByVal vla As String, ByRef stopLine As Long, ByRef stopWhat As String)
+    stopLine = -1
+    stopWhat = ""
+    On Error Resume Next
+    VLA_Interpreter.VlaInterpret vla
+    If Err.Number <> 0 Then
+        stopWhat = Err.Description
+        stopLine = VLA_Interpreter.VlaInterpreterLine()
+    End If
+    On Error GoTo 0
+End Sub
+
 
 ' ---------------------------------------------------------------------
 '  S4.2 pins: the resolve check - the probe's replacement, and unlike
@@ -5302,7 +5458,7 @@ Private Sub TestResolveCheck()
     Dim ml As Long
 
     ' Live end-to-end: a real tracked translation resolves cleanly -
-    ' the step infra's own (vlashowerror ...) call proves the manifest
+    ' the step infra's own (vlareportstop ...) call proves the manifest
     ' path against the actual runtime module.
     EnglishResetGrammar
     EnglishStepTracking True

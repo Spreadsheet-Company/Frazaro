@@ -1061,6 +1061,7 @@ End Sub
 Private Sub RunProgram(ByVal wantTrace As Boolean)
     Dim ws As Worksheet
     Dim hb As Workbook
+    Dim running As Boolean
     On Error GoTo failed
     CaptureHost
     ' V5 (Mac spike): the transpiler road runs through VBProject
@@ -1197,14 +1198,31 @@ Private Sub RunProgram(ByVal wantTrace As Boolean)
     ' instance served both roles). Host-qualified arm, local
     ' fallback for the dev topology.
     If wantTrace Then ArmTrace hb, True
+    ' U.25: the compiled program's own handler catches its stop, so this
+    ' Sub learns of it only by asking: armed, VlaReportStop records the
+    ' stop instead of showing it, and the stop is handled below exactly
+    ' as the interpreter's is.
+    ArmStopReport hb, True
+    running = True
     Application.ScreenUpdating = False
     Application.Run "'" & hb.Name & "'!" & outMod & ".main"
+    running = False
     Application.ScreenUpdating = True
     ws.Unprotect
-    If wantTrace Then
-        ArmTrace hb, False
-        ShowTraceWindow hb
+    Dim stopRep As String
+    stopRep = ReadStopReport(hb)
+    ArmStopReport hb, False
+    If wantTrace Then ArmTrace hb, False
+    If Len(stopRep) > 0 Then
+        Dim stopLine As Long, stopCut As Long, stopSentence As String
+        stopCut = InStr(stopRep, vbLf)
+        If stopCut = 0 Then stopCut = Len(stopRep) + 1
+        stopSentence = VlaIdeSplitStepText(Left$(stopRep, stopCut - 1), stopLine)
+        ReportStoppedRun hb, ws, stopLine, stopSentence, Mid$(stopRep, stopCut + 1)
+        If wantTrace Then ShowTraceWindow hb
+        Exit Sub
     End If
+    If wantTrace Then ShowTraceWindow hb
     ' VerifyReports stale-read fix (VLA_Runtime's own header note has
     ' the full incident): only stamped on a run that reached HERE
     ' without hitting "failed" below, so a crashed run leaves whatever
@@ -1224,8 +1242,15 @@ failed:
     ' (S5.6: wantTrace alone decides; the old wasTracing check read
     ' the LOCAL instance, which standalone is the wrong one.)
     If wantTrace Then ArmTrace hb, False
+    ArmStopReport hb, False
     On Error GoTo 0
-    VlaShowError d
+    ' U.25: a failure that escaped the program's own handler while it
+    ' ran is a stop too, with no step to name.
+    If running Then
+        ReportStoppedRun hb, ws, 0, "", d
+    Else
+        VlaShowError d
+    End If
     If wantTrace Then ShowTraceWindow hb
 End Sub
 
@@ -1264,6 +1289,7 @@ End Function
 Private Sub InterpretProgram(ByVal wantTrace As Boolean)
     Dim ws As Worksheet
     Dim hb As Workbook
+    Dim running As Boolean
     On Error GoTo failed
     CaptureHost
     Set hb = HostBook()
@@ -1285,11 +1311,15 @@ Private Sub InterpretProgram(ByVal wantTrace As Boolean)
     ' already proved out - On Error Resume Next here only to guarantee
     ' the True restore still runs if DoCheck itself raises, matching
     ' VerifyReportInterpreter's own shape exactly.
+    ' TER-10: the line marks alone ride along (EnglishLineMarks), so a
+    ' stop can name its sentence and row.
     Dim vla As String
     Dim checkOk As Boolean
     On Error Resume Next
     EnglishStepTracking False
+    EnglishLineMarks True
     checkOk = DoCheck(ws, vla)
+    EnglishLineMarks False
     EnglishStepTracking True
     On Error GoTo failed
     If Not checkOk Then Exit Sub
@@ -1314,7 +1344,13 @@ Private Sub InterpretProgram(ByVal wantTrace As Boolean)
     ' ActiveWorkbook default - "thisworkbook" (save-workbook-as/
     ' close-workbook) should mean the workbook this program is running
     ' in even if something mid-run changes which workbook is active.
+    ' U.25: running brackets the sentences alone - a failure inside it
+    ' is a stop, and the handler puts the sheets back; one before it
+    ' (Check, the snapshot) changed nothing, and one after it (the event
+    ' registrations) comes once every sentence has run.
+    running = True
     VLA_Interpreter.VlaInterpret vla, hb
+    running = False
     ' IN.7: a program declaring "When the sheet changes:" arms its
     ' handler the moment it is interpreted - re-running it (this same
     ' sub, "Interpret Instructions"/"Interpret and Trace") replaces any
@@ -1354,9 +1390,106 @@ failed:
     Application.ScreenUpdating = True
     If Not ws Is Nothing Then ws.Unprotect
     On Error GoTo 0
-    VlaShowError d
+    If running Then
+        ReportStoppedRun hb, ws, VLA_Interpreter.VlaInterpreterLine(), "", d
+    Else
+        VlaShowError d
+    End If
     If wantTrace Then ShowInterpreterTraceWindow
 End Sub
+
+' TER-10/U.25: a Run that stopped part-way. Its sheets are put back as
+' they were before it (PutBackLastRun, Undo Last Run's own restore, from
+' the snapshot the Run took before its first sentence), the row it
+' stopped on is marked and shown, and one message says all of it. Both
+' backends end here: the interpreter's handler with the line its
+' at-line wrappers left, a compiled Run with the step text its program
+' handed VlaReportStop. sentence may be "", and is then read from the
+' row. Never raises - it runs inside a Run's failure handling, where a
+' raise would reach the user as VBA's own dialog.
+Private Sub ReportStoppedRun(hb As Workbook, ws As Worksheet, ByVal lineNo As Long, _
+                             ByVal sentence As String, ByVal what As String)
+    Dim restored As String, removed As String, restoring As String, why As String
+    On Error Resume Next
+    why = PutBackLastRun(hb, VlaIdeProgramTag(ws.Name), restored, removed, restoring)
+    Dim r As Long
+    r = FIRST_ROW + lineNo - 1
+    If lineNo > 0 And r <= IdeLastRow(ws) Then
+        If Len(sentence) = 0 Then sentence = Trim$(CStr(ws.Cells(r, 2).Value))
+        ws.Cells(r, 3).Value = "Stopped here: " & Replace(Replace(what, vbCrLf, " "), vbLf, " ")
+        ws.Cells(r, 3).Interior.Color = RGB(247, 215, 215)
+        Application.Goto ws.Cells(r, 2)
+    End If
+    On Error GoTo 0
+    VlaShowError VlaIdeStopMessage(lineNo, sentence, what, why, restoring, restored, removed)
+End Sub
+
+' TER-10/U.25: the words a stopped Run ends with. Pure, for the
+' self-test. lineNo is 0 when the line is not known; why is "" when the
+' sheets went back, and otherwise PutBackLastRun's reason, restoring
+' naming the sheet it was on. It says what was put back and never
+' claims more: a file saved or an email drafted is not in any sheet.
+Public Function VlaIdeStopMessage(ByVal lineNo As Long, ByVal sentence As String, ByVal what As String, _
+                                  ByVal why As String, ByVal restoring As String, _
+                                  ByVal restored As String, ByVal removed As String) As String
+    Dim m As String
+    If lineNo > 0 Then
+        m = "The run stopped at line " & lineNo & ":" & vbCrLf & sentence
+    Else
+        m = "The run stopped."
+    End If
+    m = m & vbCrLf & vbCrLf & what & vbCrLf & vbCrLf
+    If Len(restored) > 0 Then m = m & "Put back as they were before the run: " & restored & "." & vbCrLf
+    If Len(removed) > 0 Then
+        m = m & "Removed the sheet" & IIf(InStr(removed, ",") > 0, "s", "") & " the run had created: " & removed & "." & vbCrLf
+    End If
+    If Len(why) > 0 Then
+        If Len(restoring) > 0 Then
+            m = m & "The sheet '" & restoring & "' could not be put back (" & why & ") - Undo Last Run can try again." & vbCrLf
+        Else
+            m = m & "The sheets could not be put back (" & why & ") - Undo Last Run can try again." & vbCrLf
+        End If
+    ElseIf Len(restored) = 0 And Len(removed) = 0 Then
+        m = m & "There was nothing to put back." & vbCrLf
+    End If
+    VlaIdeStopMessage = m & "Anything it did anywhere else, like a file saved or an email drafted, stays as it is."
+End Function
+
+' U.25: a compiled Run's step text is its sentence, then " [line N]"
+' (ParseTracked's step table). Returns the sentence and sets lineNo;
+' with no line on the end, the whole text and 0. Pure, for the self-test.
+Public Function VlaIdeSplitStepText(ByVal stepText As String, ByRef lineNo As Long) As String
+    lineNo = 0
+    VlaIdeSplitStepText = stepText
+    Dim p As Long
+    p = InStrRev(stepText, " [line ")
+    If p = 0 Or Right$(stepText, 1) <> "]" Then Exit Function
+    Dim n As String
+    n = Mid$(stepText, p + 7, Len(stepText) - p - 7)
+    If Len(n) = 0 Or Len(n) > 9 Or n Like "*[!0-9]*" Then Exit Function
+    lineNo = CLng(n)
+    VlaIdeSplitStepText = Left$(stepText, p - 1)
+End Function
+
+' U.25: arm the stop record on the copy a compiled program calls - the
+' host's Frazaro_EN_Runtime, or this project's own in the dev topology,
+' ArmTrace's shape for ArmTrace's reasons.
+Private Sub ArmStopReport(hb As Workbook, ByVal onOff As Boolean)
+    On Error GoTo localOnly
+    Application.Run "'" & hb.Name & "'!Frazaro_EN_Runtime.VlaArmStopReport", onOff
+    Exit Sub
+localOnly:
+    VlaArmStopReport onOff
+End Sub
+
+' U.25: the stop the compiled program recorded, "" when it ran through.
+Private Function ReadStopReport(hb As Workbook) As String
+    On Error GoTo localOnly
+    ReadStopReport = CStr(Application.Run("'" & hb.Name & "'!Frazaro_EN_Runtime.VlaStopReport"))
+    Exit Function
+localOnly:
+    ReadStopReport = VlaStopReport()
+End Function
 
 ' =====================================================================
 '  The CLI (Ctrl+Shift+`): a modeless frmCLI carrying one multi-line
@@ -2999,6 +3132,11 @@ End Function
 '                              sheet object, so a mid-run
 '                              focus change cannot misdirect
 '                              the unprotect
+'  Run stop (U.25)             the snapshot is put back before sound
+'                              anything is said, the row it
+'                              stopped on is marked; a put-back
+'                              that fails names its sheet and
+'                              Undo Last Run, which can retry
 '  Parse-failure logging       best-effort throughout; a log   sound
 '                              problem never breaks a Check
 '                              (book derived from ws.Parent -
@@ -3256,6 +3394,59 @@ Public Sub EnglishIdeUndo()
     GuardTagCollision hb, ws
     Dim tag As String
     tag = VlaIdeProgramTag(ws.Name)
+
+    ' U.25: the restore itself is PutBackLastRun, shared with a Run that
+    ' stops; its failure comes back as words and the sheet it was on.
+    Dim restored As String, removed As String, restoring As String
+    d = PutBackLastRun(hb, tag, restored, removed, restoring)
+    If Len(d) > 0 Then GoTo reportFailure
+
+    Application.ScreenUpdating = scr
+    Application.DisplayAlerts = da
+    If Len(restored) = 0 And Len(removed) = 0 Then
+        VlaShowInfo "Nothing to undo yet for '" & ws.Name & "' - Undo covers that program's most recent Run."
+    Else
+        If SheetExists(hb, OUT_SHEET) Then hb.Worksheets(OUT_SHEET).Activate
+        Dim m As String
+        m = "Put back the way it was before the last Run of '" & ws.Name & "'"
+        If Len(restored) > 0 Then m = m & ": " & restored
+        If Len(removed) > 0 Then m = m & vbCrLf & "Removed the sheet" & IIf(InStr(removed, ",") > 0, "s", "") & " the run had created: " & removed
+        VlaShowInfo m
+    End If
+    Exit Sub
+failed:
+    d = Err.Description
+reportFailure:
+    On Error Resume Next
+    Application.ScreenUpdating = scr
+    Application.DisplayAlerts = da
+    On Error GoTo 0
+    If Len(restoring) > 0 Then
+        VlaShowError "Undo couldn't put back (or remove) the sheet '" & restoring & "'." & vbCrLf & vbCrLf & _
+               "Excel says: " & d
+    Else
+        ' S4.3: Excel's bare description ("Automation error") taught
+        ' the owner nothing - say WHERE it died and what usually
+        ' clears it. Deeper phase forensics wait for demand.
+        VlaShowError "Undo stopped before it could change anything - Excel says: " & d & vbCrLf & vbCrLf & _
+               "A leftover sheet from an interrupted Run (a name starting with VLAu_, or a stray copy of a program sheet) can cause this; deleting it clears the way."
+    End If
+End Sub
+
+' U.25: put back what the last Run of the program tagged `tag` changed -
+' Undo Last Run's restore, moved here unchanged so a Run that stops can
+' make the same one. Returns "" when it is done, restored and removed
+' naming the sheets put back and the sheets the run had created that
+' are gone again. Otherwise returns why it stopped, with restoring
+' naming the sheet it was on ("" when it stopped before changing
+' anything); that sheet is left as the run left it (U.21), and the
+' sheets already put back stay put back.
+Private Function PutBackLastRun(hb As Workbook, ByVal tag As String, ByRef restored As String, _
+                                ByRef removed As String, ByRef restoring As String) As String
+    Dim scr As Boolean, da As Boolean
+    scr = Application.ScreenUpdating
+    da = Application.DisplayAlerts
+    On Error GoTo failed
     Dim uPre As String, dPre As String
     uPre = UNDO_PREFIX & tag & "_"
     dPre = DEL_PREFIX & tag & "_"
@@ -3287,8 +3478,6 @@ Public Sub EnglishIdeUndo()
         End If
     Next
 
-    Dim restored As String
-    Dim restoring As String
     Dim snapV As Variant
     Dim snap As Worksheet, cpy As Worksheet
     Dim orig As String
@@ -3351,7 +3540,6 @@ Public Sub EnglishIdeUndo()
     ' (with its marker); before the run they did not exist, so after
     ' Undo they must not either. Removal consumes the marker, so a
     ' second Undo correctly reports nothing left to do.
-    Dim removed As String
     Dim existed As Boolean
     For Each snapV In tombs
         Set snap = snapV
@@ -3377,38 +3565,19 @@ Public Sub EnglishIdeUndo()
 
     Application.ScreenUpdating = scr
     Application.DisplayAlerts = da
-    If Len(restored) = 0 And Len(removed) = 0 Then
-        VlaShowInfo "Nothing to undo yet for '" & ws.Name & "' - Undo covers that program's most recent Run."
-    Else
-        If SheetExists(hb, OUT_SHEET) Then hb.Worksheets(OUT_SHEET).Activate
-        Dim m As String
-        m = "Put back the way it was before the last Run of '" & ws.Name & "'"
-        If Len(restored) > 0 Then m = m & ": " & restored
-        If Len(removed) > 0 Then m = m & vbCrLf & "Removed the sheet" & IIf(InStr(removed, ",") > 0, "s", "") & " the run had created: " & removed
-        VlaShowInfo m
-    End If
-    Exit Sub
+    Exit Function
 failed:
-    d = Err.Description
+    PutBackLastRun = Err.Description
+    If Len(PutBackLastRun) = 0 Then PutBackLastRun = "error " & Err.Number
     ' U.21: a sheet whose restore failed part-way goes back to how the
     ' Run left it - its stray copy removed, its own name returned - so
-    ' the dialog below is true and nothing is left named VLAu_old.
+    ' the caller's words are true and nothing is left named VLAu_old.
     If inRestore Then RollBackRestore hb, made, setAside, restoring, snap
     On Error Resume Next
     Application.ScreenUpdating = scr
     Application.DisplayAlerts = da
     On Error GoTo 0
-    If Len(restoring) > 0 Then
-        VlaShowError "Undo couldn't put back (or remove) the sheet '" & restoring & "'." & vbCrLf & vbCrLf & _
-               "Excel says: " & d
-    Else
-        ' S4.3: Excel's bare description ("Automation error") taught
-        ' the owner nothing - say WHERE it died and what usually
-        ' clears it. Deeper phase forensics wait for demand.
-        VlaShowError "Undo stopped before it could change anything - Excel says: " & d & vbCrLf & vbCrLf & _
-               "A leftover sheet from an interrupted Run (a name starting with VLAu_, or a stray copy of a program sheet) can cause this; deleting it clears the way."
-    End If
-End Sub
+End Function
 
 ' V2: a program's snapshot sweep deletes ITS OWN snapshots (prefix
 ' match on its tag) plus ORPHANS - snapshot sheets whose tag part

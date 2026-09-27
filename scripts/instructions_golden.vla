@@ -3048,9 +3048,7 @@
   (vla-report-error))
 
 (sub vla-report-error ()
-  (vlashowerror (& "Something went wrong at step " vla-step ":" vbcrlf vbcrlf
-                   (vla-step-text vla-step) vbcrlf vbcrlf
-                   "Excel says: " err.description)))
+  (vlareportstop vla-step (vla-step-text vla-step) err.description))
 
 (function vla-step-text ((byval n Long)) String
   (select n

@@ -23295,6 +23295,57 @@ now carries one summary paragraph per engine and points here.*
   either runs the add-in's code or refuses by name, a pin holds the
   chosen shape, and the Uninstall guard stays in place as a second line.
   *Depends on:* nothing. `~hours`–`~days`
+- ✅ **U.25 — a Run that stops puts its sheets back.** Minted 2026-09-26,
+  the owner's call. `G-TEXT` slice 2's live pass showed a missing marker
+  refusing mid-run, and the owner asked what happens at step 50 of 100:
+  steps 1-49 stayed done, an SOP half complete, and only a click on Undo
+  Last Run - which the stop never mentioned - put it back. The owner chose
+  a Run that is all or nothing. **Built, owner-verified live and committed 2026-09-26**
+  (`VlaSelfTests` pure 1522/1522 and host 202/202, as predicted;
+  `VerifyReports` 283/283 on both backends; `VlaGoldens` read - one line
+  changed, the step handler's call, the rest `' vla:N` shifts; a stop under
+  Interpret and Run and under Compile and Run, each putting its sheet back
+  and removing the one it made; Undo Last Run after a run that finished;
+  and a compiled program run from the Macros list, its dialog without
+  "Excel says").
+  - *What happens now.* The snapshot Undo Last Run restores is taken before
+    a Run's first sentence (Output, every sheet the program names after the
+    word "sheet", and a marker for each such sheet that does not exist
+    yet). A Run that stops - a refusal, or any error no `Try:` catches -
+    now restores it at once, and only then says anything: the line and
+    the sentence (`TER-10`), the stop's own words, "Put back as they were
+    before the run: …", "Removed the sheet the run had created: …", and
+    "Anything it did anywhere else, like a file saved or an email
+    drafted, stays as it is." The stopping row is marked "Stopped here: …"
+    in column C and selected. A Try-caught failure is not a stop.
+  - *One restore.* Undo Last Run's restore moved, unchanged, into
+    `PutBackLastRun`, which Undo and a stopped Run both call. It returns
+    its failure instead of showing it: Undo shows its own two messages as
+    before, and a stopped Run says which sheet could not be put back and
+    that Undo Last Run can try again. The snapshot stays after a restore,
+    so Undo still can.
+  - *Both backends.* The interpreter's Run marks which part is the
+    sentences (`running`): a failure there is a stop; one before it (Check,
+    the snapshot) changed nothing, and one after (the event registrations)
+    comes once every sentence ran. A compiled program catches its own stop
+    in its generated handler, so its `vla-report-error` now calls a new
+    runtime helper, `VlaReportStop(step, sentence, words)`. Armed by the
+    Run button (`VlaArmStopReport`, on the host's `Frazaro_EN_Runtime`,
+    `ArmTrace`'s shape), it records the first stop and shows nothing; the
+    button reads it back (`VlaStopReport`) and ends exactly as the
+    interpreter does. Run any other way, it shows the dialog through the
+    seam as before, now without "Excel says", which was wrong for every
+    refusal of Frazaro's own.
+  - *Proof:* 16 pure pins - the stop hook both ways (6), the step text's
+    split into sentence and line (4), the message's shapes (5), and the
+    step infra's new call without "Excel says" (1); the restore is
+    sheet surgery the pure suite cannot reach, so the live steps own it.
+    The goldens' `vla-report-error` changes; nothing else in them should.
+  - *Found, filed as `TER-11`:* in a compiled program a failure inside one
+    of its own actions is reported by that action, and its caller goes on.
+    The message therefore says what is true on both backends - what was
+    put back - and not that nothing after the stop ran.
+  *Depends on:* `U.19`, `U.23`. *Pays into:* `U.17`. `~hours`
 
 ---
 
@@ -24334,7 +24385,7 @@ anything above it.*
   closing quote with the period inside it, followed by a blank row, e.g.
   `Show "Done."` then a blank line. `~hours`
 
-- ⬜ **TER-10 — a raw VBA error reaches the user as a bare modal, with no
+- ✅ **TER-10 — a raw VBA error reaches the user as a bare modal, with no
   row and no sentence.** Found by the owner's LE.6 live pass, 2026-09-18,
   filed the same day. Sample 07, as first written, stopped under **Interpret
   and Run** with a modal reading only *"Object doesn't support this property
@@ -24363,7 +24414,43 @@ anything above it.*
   *Repro:* LE.6 sample 07 with step 2's two `Set sku-code …`/`Append
   sku-code …` lines replaced by the original single `Append cell in column A
   row r to reorder-list.`; press **Interpret and Trace** first to pin the
-  statement. `~hours`
+  statement.
+  **(1) built, owner-verified live and committed 2026-09-26 with `U.25`
+  (its live steps and counts are there); (2) not built.**
+  The interpreter could not name a sentence because its translation had
+  none: Interpret turns step tracking off, and with it went the
+  `(at-line N …)` wrapper the compiled Run's step table comes from. A new
+  translation switch, `EnglishLineMarks`, keeps the wrapper alone - no
+  step number, no trace call, no handler - and Interpret turns it on
+  around its Check. The interpreter now runs `at-line` (IN.5 had ruled it
+  interpretable, "unwrap and execute the body", but nothing had asked):
+  the line is set before the sentence and put back after it, so a block's
+  line returns once its own sentences finish, and an error skips the
+  put-back, as the emitter's does, leaving the innermost sentence's line
+  for `VlaInterpreterLine`. A Try's labels sit inside its own sentence's
+  wrapper, so they still resolve. The stop is then `U.25`'s: the sheets
+  put back, "The run stopped at line N:" and the sentence, the row marked.
+  `VerifyReports`' interpreter half now translates with the same marks,
+  so all of `instructions.txt` runs through `at-line` there. *Proof:* 13
+  pure pins - the marks' shape and that nothing else changes without
+  them, a stop's line (innermost, a block's put back, a Try that still
+  catches, a translated program's row) - and the ledger's
+  `ExecStmt at-line` row. `~hours`
+- ⬜ **TER-11 — in a compiled program, a failure inside one of its own
+  actions does not stop the run.** Found 2026-09-26 building `U.25`, by
+  reading the generated code; not yet seen live. `BuildSub` gives every
+  procedure a program defines (`To stamp, with …:`) its own
+  `(on-error goto vla-fail)` and `(label vla-fail) (vla-report-error)`.
+  The handler reports and the procedure returns normally, so its caller
+  goes on to the next sentence. The interpreter stops at the same failure
+  (SD-5). From the Run button, `U.25` still puts the sheets back and its
+  message claims nothing about what ran after; a program run on its own
+  shows the dialog and carries on. *The fix to weigh:* only `main` reports;
+  a procedure's handler passes the error to its caller, which needs care
+  where the caller is an event sink rather than a program. *Repro:* a
+  program whose action refuses (`the text before "#" in "abc"`), called
+  before a `Put` into a cell; Compile and Run it from Excel's Macros list.
+  `~hours`
 
 ---
 
