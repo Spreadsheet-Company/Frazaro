@@ -282,6 +282,14 @@ Public Sub TestG1()
         "(test-success ""Tilt cell B2 centered."" (debug-print ""b2""))")
     Report "g1.1: audit flags a suffixed surface shadowed by a plain rule", _
            InStr(1, aud, "duplicates", vbTextCompare) > 0, "report was: " & Left$(aud, 160)
+
+    ' G-TEXT slice 2: a number word in a pattern reads the way the
+    ' tokenizer reads it in a sentence ("one" is 1 on both sides), so a
+    ' pattern saying "as one list" matches a sentence saying it.
+    EnglishResetGrammar
+    EnglishAddPhrase "bundle cell {r:text} as one list", "(debug-print {r})"
+    AssertEnglish "g-text: a number word in a pattern matches the same word in a sentence", _
+                  "Bundle cell B2 as one list.", "(debug-print ""b2"")"
     EnglishResetGrammar
 End Sub
 

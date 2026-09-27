@@ -89,6 +89,9 @@ called directly as native VBA, never through reflection:
   `SEC.4`'s rule itself - text that would start with `=`/`+`/`-`/`@` is
   written behind an apostrophe - because the runtime must compile alone
   in a user's workbook and cannot call `NeutralizeFormulaInjection`.
+  Slice 2 added no member either: `VlaTextBeside` and `VlaTextPad` compute
+  on values, and `VlaJoinRange` reads the cells of the range the sentence
+  names (a column only as far as its used range) and writes nothing.
 - `NeutralizeFormulaInjection` (`SEC.4`, shipped) now guards the one
   member in this tier with a real injection risk (`Value`) against a
   leading `=`/`+`/`-`/`@`.

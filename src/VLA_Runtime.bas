@@ -616,6 +616,14 @@ Private Sub RuntimeAddEntries(ByVal m As Collection)
     RuntimeAddMsg m, "rt-table-arguments-empty", 5, "VLA-Runtime", "a question needs at least one data table to read - name the Tables the rules mention, like Staff, Shifts, and Leave."
     RuntimeAddMsg m, "rt-table-arguments-bad-name", 5, "VLA-Runtime", "'{name}' cannot name a data table in a formula - a Table name starts with a letter or underscore and continues in letters, digits, underscores and periods, with no spaces."
     RuntimeAddMsg m, "rt-text-unknown-op", 5, "VLA-Runtime", "VlaTextOp: unknown change '{op}' - expected upper, lower, capitalize-after-space, capitalize-after-non-letter, remove-extra-spaces, or remove-non-printing."
+    RuntimeAddMsg m, "rt-text-unknown-kind", 5, "VLA-Runtime", "{proc}: unknown kind '{kind}' - expected {expected}."
+    RuntimeAddMsg m, "rt-text-not-one-value", 5, "VLA-Runtime", "this needs one value - a piece of text, a number, or one cell - not a list or a range of several cells."
+    RuntimeAddMsg m, "rt-text-error-value", 5, "VLA-Runtime", "the value is an error ({value}), not text - fix the cell it came from first."
+    RuntimeAddMsg m, "rt-text-marker-empty", 5, "VLA-Runtime", "the text to look for is empty - name a character or a word, like ""-""."
+    RuntimeAddMsg m, "rt-text-marker-missing", 5, "VLA-Runtime", "'{marker}' is not in '{text}' - where some values may not have it, check first with ""If ... contains ..."", which looks for it the same way."
+    RuntimeAddMsg m, "rt-text-pad-character", 5, "VLA-Runtime", "'{value}' is not one character - pad with a single character, like ""0"" or "" ""."
+    RuntimeAddMsg m, "rt-text-pad-width", 5, "VLA-Runtime", "'{value}' is not a number of characters - use a whole number, like 5."
+    RuntimeAddMsg m, "rt-join-cell-error", 5, "VLA-Runtime", "cell {cell} holds an error ({value}) - a list is made of values, so fix or clear that cell first."
 End Sub
 
 Private Sub RuntimeAddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _
@@ -1691,8 +1699,12 @@ End Function
 ' ("after any space|non-letter"); the owner's call over a default that
 ' would hide it. An unknown change refuses by name, and VlaTextInRange
 ' asks here before it touches a cell, so a refused sentence changes
-' nothing.
-Public Function VlaTextOp(ByVal s As String, ByVal op As String) As String
+' nothing. Slice 2 made the text one value of any kind (TextOfValue's
+' header says how each reads), so the same changes serve a variable:
+' "Set tidy to name with extra spaces removed."
+Public Function VlaTextOp(ByVal v As Variant, ByVal op As String) As String
+    Dim s As String
+    s = TextOfValue(v)
     Select Case op
         Case "upper": VlaTextOp = UCase$(s)
         Case "lower": VlaTextOp = LCase$(s)
@@ -1889,6 +1901,181 @@ Private Sub RewriteTextCell(ByVal cell As Range, ByVal s As String, ByVal op As 
     End Select
     cell.Value = t
     If VarType(cell.Value) <> vbString Then cell.Value = "'" & t
+End Sub
+
+' G-TEXT slice 2 (pareto.txt section 12): text in a variable. One value
+' read as text, for every change made to a value rather than to cells:
+' text as it is; a number as VBA's CStr writes it (this machine's decimal
+' mark, the same text "joined with" gives); a date as this machine's
+' short date; TRUE and FALSE as Excel shows them; nothing as nothing. One
+' cell gives its value. A list, a range of several cells, or an error
+' value refuses by name, since none of them is one piece of text.
+' (v Is Nothing is asked on its own line: TypeOf on Nothing raises.)
+Private Function TextOfValue(ByVal v As Variant) As String
+    Dim given As Variant
+    If IsObject(v) Then
+        If v Is Nothing Then RaiseRuntimeMsg "rt-text-not-one-value"
+        If Not TypeOf v Is Range Then RaiseRuntimeMsg "rt-text-not-one-value"
+        If v.Cells.CountLarge <> 1 Then RaiseRuntimeMsg "rt-text-not-one-value"
+        given = v.Value
+    Else
+        given = v
+    End If
+    If IsArray(given) Then RaiseRuntimeMsg "rt-text-not-one-value"
+    If IsError(given) Then RaiseRuntimeMsg "rt-text-error-value", "value", CStr(given)
+    Select Case VarType(given)
+        Case vbEmpty, vbNull
+            TextOfValue = vbNullString
+        Case vbBoolean
+            If given Then TextOfValue = "TRUE" Else TextOfValue = "FALSE"
+        Case Else
+            TextOfValue = CStr(given)
+    End Select
+End Function
+
+' A value inside a refusal: long text cut short so the message stays
+' readable, and nothing shown as "(nothing)".
+Private Function ShownText(ByVal s As String) As String
+    If Len(s) = 0 Then
+        ShownText = "(nothing)"
+    ElseIf Len(s) > 60 Then
+        ShownText = Left$(s, 57) & "..."
+    Else
+        ShownText = s
+    End If
+End Function
+
+' "Set part to the text before|after [the last] "-" in code." Excel's
+' TEXTBEFORE and TEXTAFTER, with two of the owner's calls (2026-09-25):
+' the marker is found in any case, exactly as the core's "If code
+' contains "-"" finds it (InStr with vbTextCompare, the same call), so
+' the two sentences can never disagree; and a marker that is not there
+' refuses by name, as Excel's own #N/A does, rather than giving the whole
+' text or nothing and letting a wrong value run on. A program expecting
+' gaps asks "If code contains "-"" first. "the last" searches from the
+' end. The side and the occurrence are checked before anything is found,
+' so an unknown one refuses the same way whatever the text is.
+Public Function VlaTextBeside(ByVal v As Variant, ByVal marker As Variant, _
+                              ByVal side As String, ByVal which As String) As String
+    If side <> "before" And side <> "after" Then
+        RaiseRuntimeMsg "rt-text-unknown-kind", "proc", "VlaTextBeside", "kind", side, "expected", "before or after"
+    End If
+    If which <> "first" And which <> "last" Then
+        RaiseRuntimeMsg "rt-text-unknown-kind", "proc", "VlaTextBeside", "kind", which, "expected", "first or last"
+    End If
+    Dim s As String
+    Dim m As String
+    s = TextOfValue(v)
+    m = TextOfValue(marker)
+    If Len(m) = 0 Then RaiseRuntimeMsg "rt-text-marker-empty"
+    Dim pos As Long
+    If which = "first" Then
+        pos = InStr(1, s, m, vbTextCompare)
+    Else
+        pos = InStrRev(s, m, -1, vbTextCompare)
+    End If
+    If pos = 0 Then RaiseRuntimeMsg "rt-text-marker-missing", "marker", m, "text", ShownText(s)
+    If side = "before" Then
+        VlaTextBeside = Left$(s, pos - 1)
+    Else
+        VlaTextBeside = Mid$(s, pos + Len(m))
+    End If
+End Function
+
+' "Set code to id padded on the left|right with "0" to 5 characters."
+' The side and the character are both in the sentence (the owner's
+' call), so 42 becomes "00042" and a fixed-width field "ab  " only when
+' the sentence says so. Text already that long or longer is never cut -
+' Excel's RIGHT("00000"&A1,5) would cut it, and a silently shortened
+' code is worse than a long one. The pad must be exactly one character
+' and the width a whole number of characters; each refuses by name.
+Public Function VlaTextPad(ByVal v As Variant, ByVal padWith As Variant, _
+                           ByVal width As Variant, ByVal side As String) As String
+    If side <> "left" And side <> "right" Then
+        RaiseRuntimeMsg "rt-text-unknown-kind", "proc", "VlaTextPad", "kind", side, "expected", "left or right"
+    End If
+    Dim s As String
+    Dim c As String
+    s = TextOfValue(v)
+    c = TextOfValue(padWith)
+    If Len(c) <> 1 Then RaiseRuntimeMsg "rt-text-pad-character", "value", c
+    Dim wholeWidth As Boolean
+    Select Case VarType(width)
+        Case vbInteger, vbLong, vbSingle, vbDouble, vbCurrency, vbDecimal, vbByte
+            If width = Int(width) Then
+                If width >= 0 And width <= 32767 Then wholeWidth = True
+            End If
+    End Select
+    If Not wholeWidth Then RaiseRuntimeMsg "rt-text-pad-width", "value", ShownText(TextOfValue(width))
+    Dim n As Long
+    n = CLng(width)
+    If Len(s) >= n Then
+        VlaTextPad = s
+    ElseIf side = "left" Then
+        VlaTextPad = String$(n - Len(s), c) & s
+    Else
+        VlaTextPad = s & String$(n - Len(s), c)
+    End If
+End Function
+
+' "Set names to range A2:A9 as one list [separated by "; "]." G-PROLOG
+' slice 5's own words for a list in one cell, so one phrase means one
+' thing: ", " between items unless the sentence names another, row by
+' row (TEXTJOIN's order), blank cells skipped. Each cell gives its value
+' read as TextOfValue reads one - a number without its currency format,
+' a date as this machine's short date - not its displayed text, which
+' shows "####" in a column too narrow and would make the answer depend on
+' column width (the owner's call). A whole column is read only as far as
+' the used range. A cell holding an error refuses, naming the cell.
+' Items are gathered first and joined once, so a long column is not
+' rebuilt by concatenation.
+Public Function VlaJoinRange(ByVal rng As Range, ByVal separator As Variant) As String
+    Dim sep As String
+    sep = TextOfValue(separator)
+    Dim target As Range
+    Set target = Application.Intersect(rng, rng.Worksheet.UsedRange)
+    If target Is Nothing Then Exit Function
+    Dim items As Collection
+    Set items = New Collection
+    Dim area As Range
+    Dim vals As Variant
+    Dim r As Long
+    Dim c As Long
+    For Each area In target.Areas
+        vals = area.Value
+        If IsArray(vals) Then
+            For r = 1 To UBound(vals, 1)
+                For c = 1 To UBound(vals, 2)
+                    AddJoinItem items, vals(r, c), area, r, c
+                Next
+            Next
+        Else
+            AddJoinItem items, vals, area, 1, 1
+        End If
+    Next
+    If items.Count = 0 Then Exit Function
+    Dim parts() As String
+    ReDim parts(1 To items.Count)
+    Dim i As Long
+    For i = 1 To items.Count
+        parts(i) = items.Item(i)
+    Next
+    VlaJoinRange = Join(parts, sep)
+End Function
+
+' One cell's contribution to a list: nothing for a blank cell, a refusal
+' naming the cell for an error, and otherwise its value as text. The
+' cell's address is worked out only for the refusal.
+Private Sub AddJoinItem(ByVal items As Collection, ByVal given As Variant, _
+                        ByVal area As Range, ByVal r As Long, ByVal c As Long)
+    If IsError(given) Then
+        RaiseRuntimeMsg "rt-join-cell-error", "cell", area.Cells(r, c).Address(False, False), "value", CStr(given)
+    End If
+    If IsEmpty(given) Then Exit Sub
+    If VarType(given) = vbString Then
+        If Len(given) = 0 Then Exit Sub
+    End If
+    items.Add TextOfValue(given)
 End Sub
 
 ' G-PIVOT rule #1 (pareto.txt section 10, "Pivot tables"): the two-step

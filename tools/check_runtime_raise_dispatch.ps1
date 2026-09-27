@@ -101,6 +101,7 @@ $baseline = @(
     'VlaFilterCriterion',    # G-SORTFILTER, 2026-09-10: refuses a non-number for greater/less than
     'VlaFilterField',        # G-SORTFILTER, 2026-09-10: VlaAddFilters's checks, then VlaColumnInRange's
     'VlaFreezePanes',
+    'VlaJoinRange',          # G-TEXT slice 2, 2026-09-26: refuses a cell holding an error, naming it
     'VlaNumberFormatCode',   # G-FORMAT slice 2, 2026-09-10: refuses a bad decimal count
     'VlaPivotAddValues',
     'VlaPivotChangeSource',
@@ -115,8 +116,10 @@ $baseline = @(
     'VlaPivotSetSubtotals',
     'VlaPivotSort',
     'VlaSendMail',
+    'VlaTextBeside',         # G-TEXT slice 2, 2026-09-26: refuses a marker that is not there
     'VlaTextInRange',        # G-TEXT slice 1, 2026-09-25: VlaTextOp's refusal, asked before a cell is touched
-    'VlaTextOp'              # G-TEXT slice 1, 2026-09-25: refuses a change it does not know by name
+    'VlaTextOp',             # G-TEXT slice 1, 2026-09-25: refuses a change it does not know by name
+    'VlaTextPad'             # G-TEXT slice 2, 2026-09-26: refuses a pad that is not one character
 )
 
 $raiseRe = 'RaiseRuntimeMsg|RaiseMsg|Err\.Raise'

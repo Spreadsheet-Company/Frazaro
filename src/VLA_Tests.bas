@@ -409,6 +409,7 @@ Public Function VlaSelfTest() As Boolean
     TestNumberFormatCodes
     TestFilterCriteria
     TestTextOps
+    TestTextValues
     TestInterpreterOperators
     TestInterpreterQuote
     TestArrayPrimitive
@@ -6135,6 +6136,94 @@ Private Sub TestTextOps()
         Report "g-text: an unknown change '" & CStr(bad) & "' refuses by name", _
                InStr(1, desc, "unknown change '" & CStr(bad) & "'", vbTextCompare) > 0, "got: " & desc
     Next bad
+End Sub
+
+' G-TEXT slice 2: text in a variable, purely - the marker helper, the pad,
+' and how one value reads as text. Numbers here are whole, so no pin
+' depends on this machine's decimal mark. Every refusal is pinned by the
+' fragment that names it; the cell-reading halves are the host suite's.
+Private Sub TestTextValues()
+    CheckV "g-text: text before the first marker", VLA_Runtime.VlaTextBeside("AB-CD-EF", "-", "before", "first"), "AB"
+    CheckV "g-text: text after the first marker", VLA_Runtime.VlaTextBeside("AB-CD-EF", "-", "after", "first"), "CD-EF"
+    CheckV "g-text: text before the last marker", VLA_Runtime.VlaTextBeside("AB-CD-EF", "-", "before", "last"), "AB-CD"
+    CheckV "g-text: text after the last marker", VLA_Runtime.VlaTextBeside("AB-CD-EF", "-", "after", "last"), "EF"
+    CheckV "g-text: a marker of several characters", VLA_Runtime.VlaTextBeside("Total: 42", ": ", "after", "first"), "42"
+    CheckV "g-text: the marker is found in any case, as contains finds it", _
+           VLA_Runtime.VlaTextBeside("aXb", "x", "after", "first"), "b"
+    CheckV "g-text: a marker at the very start leaves nothing before it", _
+           VLA_Runtime.VlaTextBeside("-x", "-", "before", "first"), ""
+    CheckV "g-text: a number reads as its text", VLA_Runtime.VlaTextBeside(1234, "2", "before", "first"), "1"
+
+    CheckV "g-text: padded on the left with zeros", VLA_Runtime.VlaTextPad("42", "0", 5, "left"), "00042"
+    CheckV "g-text: a number padded on the left", VLA_Runtime.VlaTextPad(42, "0", 5, "left"), "00042"
+    CheckV "g-text: padded on the right with spaces", VLA_Runtime.VlaTextPad("ab", " ", 5, "right"), "ab   "
+    CheckV "g-text: text already that long is unchanged", VLA_Runtime.VlaTextPad("abcde", "0", 5, "left"), "abcde"
+    CheckV "g-text: text longer than the width is never cut", VLA_Runtime.VlaTextPad("123456", "0", 3, "left"), "123456"
+    CheckV "g-text: nothing padded is all pad", VLA_Runtime.VlaTextPad(Empty, "*", 3, "right"), "***"
+
+    ' How one value reads as text, through VlaTextOp.
+    CheckV "g-text: TRUE reads as Excel shows it", VLA_Runtime.VlaTextOp(True, "lower"), "true"
+    CheckV "g-text: FALSE reads as Excel shows it", VLA_Runtime.VlaTextOp(False, "upper"), "FALSE"
+    CheckV "g-text: nothing reads as nothing", VLA_Runtime.VlaTextOp(Empty, "upper"), ""
+    CheckV "g-text: a whole number reads as its digits", VLA_Runtime.VlaTextOp(42, "remove-extra-spaces"), "42"
+
+    CheckTextRefusal "g-text: a marker that is not there refuses by name", _
+                     "AB-CD", "#", "before", "first", Empty, "'#' is not in 'AB-CD'"
+    CheckTextRefusal "g-text: an empty marker refuses by name", _
+                     "AB-CD", "", "after", "first", Empty, "the text to look for is empty"
+    CheckTextRefusal "g-text: an unknown side refuses by name", _
+                     "AB-CD", "-", "around", "first", Empty, "unknown kind 'around'"
+    CheckTextRefusal "g-text: an unknown occurrence refuses by name", _
+                     "AB-CD", "-", "before", "middle", Empty, "unknown kind 'middle'"
+    CheckTextRefusal "g-text: a pad of two characters refuses by name", _
+                     "42", "00", "left", "", 5, "'00' is not one character"
+    CheckTextRefusal "g-text: an empty pad refuses by name", _
+                     "42", "", "left", "", 5, "is not one character"
+    CheckTextRefusal "g-text: a width that is not whole refuses by name", _
+                     "42", "0", "left", "", 2.5, "is not a number of characters"
+    CheckTextRefusal "g-text: a negative width refuses by name", _
+                     "42", "0", "left", "", -1, "is not a number of characters"
+    CheckTextRefusal "g-text: a width given as text refuses by name", _
+                     "42", "0", "left", "", "5", "'5' is not a number of characters"
+    CheckTextRefusal "g-text: an unknown pad side refuses by name", _
+                     "42", "0", "middle", "", 5, "unknown kind 'middle'"
+
+    Dim desc As String
+    Dim ignored As String
+    desc = ""
+    On Error Resume Next
+    Err.Clear
+    ignored = VLA_Runtime.VlaTextOp(CVErr(2042), "upper")
+    desc = Err.Description
+    On Error GoTo 0
+    Report "g-text: an error value refuses by name", InStr(1, desc, "is an error", vbTextCompare) > 0, "got: " & desc
+    desc = ""
+    On Error Resume Next
+    Err.Clear
+    ignored = VLA_Runtime.VlaTextOp(New Collection, "upper")
+    desc = Err.Description
+    On Error GoTo 0
+    Report "g-text: a list where one value belongs refuses by name", _
+           InStr(1, desc, "this needs one value", vbTextCompare) > 0, "got: " & desc
+End Sub
+
+' One refusal from VlaTextBeside (when width is Empty) or VlaTextPad
+' (when it is not): pad and side ride the marker and side arguments.
+Private Sub CheckTextRefusal(ByVal name As String, ByVal txt As Variant, ByVal marker As Variant, _
+                             ByVal side As String, ByVal which As String, ByVal width As Variant, _
+                             ByVal wantFrag As String)
+    Dim desc As String
+    Dim ignored As String
+    On Error Resume Next
+    Err.Clear
+    If IsEmpty(width) Then
+        ignored = VLA_Runtime.VlaTextBeside(txt, marker, side, which)
+    Else
+        ignored = VLA_Runtime.VlaTextPad(txt, marker, width, side)
+    End If
+    desc = Err.Description
+    On Error GoTo 0
+    Report name, InStr(1, desc, wantFrag, vbTextCompare) > 0, "got: " & desc
 End Sub
 
 ' IN2.7: EvalOpChain's 18 operators, purely - AS.8's own scan found only

@@ -1110,6 +1110,62 @@ Put "banana" into cell G2.
 Set gtext-row to row of "Widget" in column G.
 Replace "AN" with "xy" in range G2:G2.
 
+# G-TEXT slice 2: text in a variable. Each result is put into column I,
+# set to text first, so a result like "00042" is kept exactly as made.
+Format range I1:I20 as text for new entries.
+Set gtext-code to "INV-ab-Cd".
+Set gtext-part to the text before "-" in gtext-code.
+Put gtext-part into cell I1.
+Set gtext-part to the text after "-" in gtext-code.
+Put gtext-part into cell I2.
+Set gtext-part to the text after the last "-" in gtext-code.
+Put gtext-part into cell I3.
+
+# The marker is found in any case: a small "c" finds the capital C.
+Set gtext-part to the text before "c" in gtext-code.
+Put gtext-part into cell I4.
+Set gtext-part to the first 3 characters of gtext-code.
+Put gtext-part into cell I5.
+Set gtext-part to the last 2 characters of gtext-code.
+Put gtext-part into cell I6.
+
+Set gtext-part to 42 padded on the left with "0" to 5 characters.
+Put gtext-part into cell I7.
+Set gtext-part to "ab" padded on the right with "." to 4 characters.
+Put gtext-part into cell I8.
+
+# A range as one list: J2 is blank and is skipped; J3 is a number.
+Put "x" into cell J1.
+Put 7 into cell J3.
+Put "y" into cell J4.
+Set gtext-list to range J1:J4 as one list.
+Put gtext-list into cell I9.
+Set gtext-list to range J1:J4 as one list separated by "; ".
+Put gtext-list into cell I10.
+Set gtext-list to column J as one list.
+Put gtext-list into cell I11.
+
+# Slice 1's changes made to a value; K1 holds a line break, built by a
+# formula and turned into plain text, and is read straight from its cell.
+Set gtext-part to "  a   b " with extra spaces removed.
+Put gtext-part into cell I12.
+Set gtext-part to "o'neil" with each word capitalized after any non-letter.
+Put gtext-part into cell I13.
+Set gtext-part to "don't stop" with each word capitalized after any space.
+Put gtext-part into cell I14.
+Put formula "=CHAR(112)&CHAR(10)&CHAR(113)" into cell K1.
+Convert range K1:K1 to values.
+Set gtext-part to cell K1 with non-printing characters removed.
+Put gtext-part into cell I15.
+
+# A marker that is not there refuses before anything is set: the Try
+# keeps the refusal from ending the run, and I16 shows the value the
+# refused sentence did not replace.
+Try:
+  Set gtext-part to the text before "#" in gtext-code.
+
+Put gtext-part into cell I16.
+
 Go to sheet Output.
 
 Tidy-up.

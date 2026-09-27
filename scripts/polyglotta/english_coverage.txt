@@ -1,9 +1,9 @@
 === PHRASEBOOK TEST COVERAGE: english.vla ===
-Rules: 210
+Rules: 222
 
 --- Zero tests, 0 rule(s) ---
 
---- Exactly one test, 137 rule(s) ---
+--- Exactly one test, 146 rule(s) ---
   copy cell {a:cell} to cell {b:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   paste values of range {a:range} into range {b:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   set font-color of cell {r:cell} to {e:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
@@ -137,12 +137,21 @@ Rules: 210
   remove extra spaces from column {c:column} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   remove non-printing characters from cell|range {r:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   remove non-printing characters from column {c:column} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  set {v:var} to first {n:expr} characters of {t:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  set {v:var} to last {n:expr} characters of {t:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  set {v:var} to range {r:range} as one list [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  set {v:var} to range {r:range} as one list separated by {s:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  set {v:var} to column {c:column} as one list [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  set {v:var} to column {c:column} as one list separated by {s:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  set {v:var} to {t:expr} with extra spaces removed [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  set {v:var} to {t:expr} with non-printing characters removed [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  set {v:var} to {t:expr} with each word capitalized after any {k:space|non-letter} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   paint cell {r:cell} {e:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   show every {table:text} {shown:text} whose {filtercol:text} is over {val:expr} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   show every {shown:text} in {table:text} with {filtercol:text} over {val:expr} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   show everyone who reports to {person:expr} directly or not in {table:text} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
 
-test-fail proofs (file-level, never attributed to a rule): 10
+test-fail proofs (file-level, never attributed to a rule): 11
 test-success proofs for a structural form, not a phrase rule: 9
 
-=== SUMMARY: 73/210 rules have 2+ tests; 137 have exactly one; 0 have zero ===
+=== SUMMARY: 76/222 rules have 2+ tests; 146 have exactly one; 0 have zero ===

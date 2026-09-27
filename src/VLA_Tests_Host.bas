@@ -673,6 +673,40 @@ Private Sub TestHelpersHost()
     Report "VlaTextInRange: an unknown change refuses by name", _
            InStr(1, txDesc, "unknown change 'sideways'", vbTextCompare) > 0, "got: " & txDesc
     CheckV "VlaTextInRange: the refused change touched nothing", ws.Range("H1").Value, "WIDGET"
+
+    ' G-TEXT slice 2: a range as one list, and one cell read as a value.
+    ' N1:O3 is read row by row with O2 blank; O3 is a date, compared with
+    ' the text this machine gives a date, so the pin holds on any region.
+    ws.Range("N1").Value = "x"
+    ws.Range("O1").Value = 7
+    ws.Range("N2").Value = True
+    ws.Range("N3").Value = "y"
+    ws.Range("O3").Value = DateSerial(2026, 1, 2)
+    CheckV "VlaJoinRange: row by row, blanks skipped, TRUE as Excel shows it", _
+           VlaJoinRange(ws.Range("N1:O3"), ", "), "x, 7, TRUE, y, " & CStr(DateSerial(2026, 1, 2))
+    CheckV "VlaJoinRange: a separator of its own", VlaJoinRange(ws.Range("N1:N3"), "; "), "x; TRUE; y"
+    CheckV "VlaJoinRange: a whole column, its used cells only", VlaJoinRange(ws.Columns("N"), "|"), "x|TRUE|y"
+    CheckV "VlaJoinRange: a column with nothing in it is nothing", VlaJoinRange(ws.Columns("Z"), ", "), ""
+    ws.Range("P2").Value = CVErr(xlErrDiv0)
+    txDesc = ""
+    On Error Resume Next
+    Err.Clear
+    txDesc = VlaJoinRange(ws.Range("P1:P3"), ", ")
+    txDesc = Err.Description
+    On Error GoTo 0
+    Report "VlaJoinRange: a cell holding an error refuses, naming the cell", _
+           InStr(1, txDesc, "cell P2 holds an error", vbTextCompare) > 0, "got: " & txDesc
+    ws.Range("Q1").Value = "file.tar.gz"
+    CheckV "VlaTextBeside: one cell reads as its value", VlaTextBeside(ws.Range("Q1"), ".", "after", "last"), "gz"
+    CheckV "VlaTextOp: one cell reads as its value", VlaTextOp(ws.Range("Q1"), "upper"), "FILE.TAR.GZ"
+    txDesc = ""
+    On Error Resume Next
+    Err.Clear
+    txDesc = VlaTextOp(ws.Range("Q1:Q2"), "upper")
+    txDesc = Err.Description
+    On Error GoTo 0
+    Report "VlaTextOp: several cells where one value belongs refuse by name", _
+           InStr(1, txDesc, "this needs one value", vbTextCompare) > 0, "got: " & txDesc
     Application.DisplayAlerts = False
     ws.Delete
     Application.DisplayAlerts = True
@@ -3591,6 +3625,26 @@ Private Sub VerifyReportChecks(ws As Worksheet)
         CheckV "non-printing characters: a tab gone (F2)", wsT.Range("F2").Value, "cd"
 
         CheckV "replace after a whole-cell Find still matches inside a cell, any case (G2)", wsT.Range("G2").Value, "bxyxya"
+
+        ' G-TEXT slice 2: text in a variable, each result put into column
+        ' I (formatted as text first) from the code "INV-ab-Cd".
+        CheckV "text before the first marker (I1)", wsT.Range("I1").Value, "INV"
+        CheckV "text after the first marker (I2)", wsT.Range("I2").Value, "ab-Cd"
+        CheckV "text after the last marker (I3)", wsT.Range("I3").Value, "Cd"
+        CheckV "text before a marker found in any case: small c finds C (I4)", wsT.Range("I4").Value, "INV-ab-"
+        CheckV "the first 3 characters (I5)", wsT.Range("I5").Value, "INV"
+        CheckV "the last 2 characters (I6)", wsT.Range("I6").Value, "Cd"
+        CheckV "padded on the left with zeros, kept as text (I7)", wsT.Range("I7").Value, "00042"
+        CheckV "padded on the right with dots (I8)", wsT.Range("I8").Value, "ab.."
+        CheckV "a range as one list, the blank cell skipped (I9)", wsT.Range("I9").Value, "x, 7, y"
+        CheckV "a range as one list with its own separator (I10)", wsT.Range("I10").Value, "x; 7; y"
+        CheckV "a column as one list, its used cells only (I11)", wsT.Range("I11").Value, "x, 7, y"
+        CheckV "a value with extra spaces removed (I12)", wsT.Range("I12").Value, "a b"
+        CheckV "a value capitalized after any non-letter (I13)", wsT.Range("I13").Value, "O'Neil"
+        CheckV "a value capitalized after any space (I14)", wsT.Range("I14").Value, "Don't Stop"
+        CheckV "a cell's value with its line break removed (I15)", wsT.Range("I15").Value, "pq"
+        CheckV "a marker that is not there refused before setting anything (I16 keeps I15's value)", _
+               wsT.Range("I16").Value, "pq"
     End If
 End Sub
 

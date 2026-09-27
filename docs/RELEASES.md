@@ -204,6 +204,19 @@
   anywhere in a cell, in any case, which is what it did for anyone who never
   changed those settings.
 
+- **Pieces of text can be taken apart and put together in a variable.**
+  `Set part to the text before "-" in code.` (or `after`, or `the text after
+  the last "."` for a file's extension) finds its marker in any case, just as
+  `If code contains "-"` does, and stops with a plain message naming the text
+  when the marker is not there, rather than carrying on with a wrong value.
+  `Set prefix to the first 3 characters of code.` counts every character, not
+  only letters. `Set code to id padded on the left with "0" to 5 characters.`
+  turns 42 into "00042", and never cuts a longer code short. `Set names to
+  range A2:A9 as one list.` gives "a, b, c" (or `separated by "; "`), row by
+  row, skipping blank cells, each cell's value rather than its display. And
+  everything the new cell sentences do can be done to a value too: `Set tidy
+  to name with extra spaces removed.`
+
 ### Known open security items
 
 **Closed this release:** nothing. The query changes above are speed only: the
@@ -227,7 +240,9 @@ is open, and written nowhere. Nothing in any of this makes a network call.
 The new text sentences change only cells that already hold text, in the range
 or column the sentence names, and never write anything that becomes a formula:
 text that would start with `=`, `+`, `-` or `@` is kept as text, the same
-guard every value Frazaro writes already has.
+guard every value Frazaro writes already has. The sentences that work on a
+value only read: a range as one list reads the cells the sentence names and
+writes nothing.
 Standing advice unchanged. The full list of open items is in `docs/BETA_ROADMAP1.md`,
 in plain words in `README.md`.
 

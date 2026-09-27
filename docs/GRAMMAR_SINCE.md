@@ -177,6 +177,13 @@ form, so the two `replace … with …` rows keep their `0.5.0`.
 Every row dated `0.6.3` here was re-dated `0.7.0` on 2026-09-26, when the
 owner renamed that release before it was tagged: rule 2 guards released
 dates, and `0.6.3` never shipped.
+Then twelve more phrasebook rows marked `0.7.0` — `G-TEXT`'s second slice
+(text in a variable: before and after a marker, characters, padding, a
+range or column as one list, and slice 1's changes made to a value) —
+and three core dispatch arms, `TryRuntimeHelper vlajoinrange`,
+`vlatextbeside` and `vlatextpad`, each new that release. `first|last {n}
+characters of` is the sibling of `first|last {n} letters of`, whose
+`0.5.0` rows stand; the sibling is a new form, not a re-dating.
 
 ### Phrasebook rules
 
@@ -339,18 +346,30 @@ dates, and `0.6.3` never shipped.
 0.5.0  set width of column {c:column} to {w:expr}
 0.5.0  set {v:var} to average of range {r:range}
 0.5.0  set {v:var} to cell {r:cell} of sheet {s:sheet}
+0.7.0  set {v:var} to column {c:column} as one list
+0.7.0  set {v:var} to column {c:column} as one list separated by {s:expr}
 0.5.0  set {v:var} to column {c:text} of table {n:text}
 0.5.0  set {v:var} to count of range {c:range} matching {e:expr}
+0.7.0  set {v:var} to first {n:expr} characters of {t:expr}
 0.5.0  set {v:var} to first {n:expr} letters of {t:expr}
 0.5.0  set {v:var} to last filled row of column {c:column}
+0.7.0  set {v:var} to last {n:expr} characters of {t:expr}
 0.5.0  set {v:var} to last {n:expr} letters of {t:expr}
 0.5.0  set {v:var} to lookup of {e:expr} in range {r:range} column {k:expr}
 0.5.0  set {v:var} to position of {a:expr} in {t:expr}
+0.7.0  set {v:var} to range {r:range} as one list
+0.7.0  set {v:var} to range {r:range} as one list separated by {s:expr}
 0.5.0  set {v:var} to row of {e:expr} in column {c:column}
 0.5.0  set {v:var} to sum of range {r:range}
 0.5.0  set {v:var} to sum of range {r:range} where range {c:range} matches {e:expr}
+0.7.0  set {v:var} to text {d:before|after} last {a:expr} in {t:expr}
+0.7.0  set {v:var} to text {d:before|after} {a:expr} in {t:expr}
 0.5.0  set {v:var} to trimmed {t:expr}
 0.5.0  set {v:var} to {e:expr} rounded to {n:expr} decimals
+0.7.0  set {v:var} to {t:expr} padded on {d:left|right} with {c:expr} to {n:expr} characters
+0.7.0  set {v:var} to {t:expr} with each word capitalized after any {k:space|non-letter}
+0.7.0  set {v:var} to {t:expr} with extra spaces removed
+0.7.0  set {v:var} to {t:expr} with non-printing characters removed
 0.5.0  set {v:var} to {t:expr} with {a:expr} replaced by {b:expr}
 0.5.0  show all rows
 0.5.0  show every {shown:text} in {table:text} with {filtercol:text} over {val:expr} as {alias:text} in cell {r:cell}
@@ -536,6 +555,7 @@ tag, not assumed.*
 0.5.6  TryRuntimeHelper   vlafiltercriterion
 0.5.6  TryRuntimeHelper   vlafilterfield
 0.5.0  TryRuntimeHelper   vlafreezepanes
+0.7.0  TryRuntimeHelper   vlajoinrange
 0.5.6  TryRuntimeHelper   vlanumberformatcode
 0.5.0  TryRuntimeHelper   vlapivotaddvalues
 0.5.0  TryRuntimeHelper   vlapivotchangesource
@@ -551,6 +571,8 @@ tag, not assumed.*
 0.5.0  TryRuntimeHelper   vlapivotsort
 0.5.0  TryRuntimeHelper   vlasendmail
 0.6.0  TryRuntimeHelper   vlatablearguments
+0.7.0  TryRuntimeHelper   vlatextbeside
 0.7.0  TryRuntimeHelper   vlatextinrange
 0.7.0  TryRuntimeHelper   vlatextop
+0.7.0  TryRuntimeHelper   vlatextpad
 ```

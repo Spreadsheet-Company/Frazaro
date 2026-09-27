@@ -3277,6 +3277,199 @@
     "Remove non-printing characters from column D."
     (remove-non-printing-characters (columns "d")))
 
+; ---- G-TEXT slice 2: text in a variable (pareto section 12) -------------
+; The rest of section 12 that makes a value rather than changing cells:
+; text-before, text-after, first- and last-characters, pad-left, and
+; join-range, plus the value form of every slice-1 change (SD-19: a
+; speaker who can tidy a column expects to tidy the text in hand the
+; same way). Four forks the owner decided (2026-09-25), each named where
+; its rules sit. Each value reads as text the one way VLA_Runtime's
+; TextOfValue says: a number as this machine writes it, a date as its
+; short date, TRUE/FALSE as Excel shows them, one cell as its value; a
+; list, several cells or an error value refuse by name.
+
+; ---- the characters of a text --------------------------------------------
+; pareto's own word. The shipped "first|last {n} letters of" stay (SD-4),
+; but a code's characters are not all letters, so "characters" is the
+; spelling that says what is counted.
+(english-vla
+    "set {v:var} to first {n:expr} characters of {t:expr}"
+    (set! {v} (left {t} {n})))
+(test-success
+    "Set prefix to the first 3 characters of code."
+    (set! prefix (left code 3)))
+
+(english-vla
+    "set {v:var} to last {n:expr} characters of {t:expr}"
+    (set! {v} (right {t} {n})))
+(test-success
+    "Set suffix to the last 2 characters of code."
+    (set! suffix (right code 2)))
+
+; ---- the text before or after a marker -----------------------------------
+; Excel's TEXTBEFORE and TEXTAFTER. The marker is found in any case,
+; exactly as "If code contains ..." finds it, so the two can never
+; disagree; and a marker that is not there refuses by name, as Excel's
+; #N/A does, instead of letting a whole text or an empty one run on
+; (both the owner's calls). A program expecting gaps asks "If code
+; contains ..." first. "the last" searches from the end - a file's
+; extension, a person's last name.
+(defmacro
+    (text-before t a)
+    "the text before the first place a marker appears in it, found in any case - refuses when the marker is not there"
+    (vlatextbeside t a "before" "first"))
+
+(defmacro
+    (text-after t a)
+    "the text after the first place a marker appears in it, found in any case - refuses when the marker is not there"
+    (vlatextbeside t a "after" "first"))
+
+(defmacro
+    (text-before-last t a)
+    "the text before the last place a marker appears in it, found in any case - refuses when the marker is not there"
+    (vlatextbeside t a "before" "last"))
+
+(defmacro
+    (text-after-last t a)
+    "the text after the last place a marker appears in it, found in any case - refuses when the marker is not there"
+    (vlatextbeside t a "after" "last"))
+
+(english-vla
+    "set {v:var} to text {d:before|after} {a:expr} in {t:expr}"
+    (set! {v} (text-{d} {t} {a})))
+(test-success
+    "Set part to the text before \"-\" in code."
+    (set! part (text-before code "-")))
+(test-success
+    "Set rest to the text after \": \" in cell B2."
+    (set! rest (text-after (range "b2") ": ")))
+
+(english-vla
+    "set {v:var} to text {d:before|after} last {a:expr} in {t:expr}"
+    (set! {v} (text-{d}-last {t} {a})))
+(test-success
+    "Set extension to the text after the last \".\" in file-name."
+    (set! extension (text-after-last file-name ".")))
+(test-success
+    "Set folder to the text before the last \"/\" in file-path."
+    (set! folder (text-before-last file-path "/")))
+
+; ---- padding ---------------------------------------------------------------
+; The side and the character are both named in the sentence (the
+; owner's call): 42 padded on the left with "0" to 5 characters is
+; "00042". Text already that long is never cut, a pad that is not one
+; character refuses, and so does a width that is not a whole number.
+(defmacro
+    (pad-left t c n)
+    "a text lengthened to a number of characters by adding one character on the left - never cut when already that long"
+    (vlatextpad t c n "left"))
+
+(defmacro
+    (pad-right t c n)
+    "a text lengthened to a number of characters by adding one character on the right - never cut when already that long"
+    (vlatextpad t c n "right"))
+
+(english-vla
+    "set {v:var} to {t:expr} padded on {d:left|right} with {c:expr} to {n:expr} characters"
+    (set! {v} (pad-{d} {t} {c} {n})))
+(test-success
+    "Set code to id padded on the left with \"0\" to 5 characters."
+    (set! code (pad-left id "0" 5)))
+(test-success
+    "Set label to name padded on the right with \" \" to 20 characters."
+    (set! label (pad-right name " " 20)))
+
+; ---- a range as one list ---------------------------------------------------
+; G-PROLOG slice 5's own words for a list in one cell, so the phrase
+; means one thing (the owner's call over pareto's "joined with", which
+; already glues two texts together): ", " between items unless the
+; sentence names another, row by row, blank cells skipped, and each
+; cell's value as text - not its displayed text, which shows "####" in
+; a narrow column. A column means its used cells, its header included.
+; A cell holding an error refuses, naming the cell.
+(defmacro
+    (as-one-list r sep)
+    "the values of a range's cells as one text, row by row, blank cells skipped, with a separator between them"
+    (vlajoinrange r sep))
+
+(english-vla
+    "set {v:var} to range {r:range} as one list"
+    (set! {v} (as-one-list (range {r}) ", ")))
+(test-success
+    "Set names to range A2:A9 as one list."
+    (set! names (as-one-list (range "a2:a9") ", ")))
+
+(english-vla
+    "set {v:var} to range {r:range} as one list separated by {s:expr}"
+    (set! {v} (as-one-list (range {r}) {s})))
+(test-success
+    "Set names to range A2:A9 as one list separated by \"; \"."
+    (set! names (as-one-list (range "a2:a9") "; ")))
+
+(english-vla
+    "set {v:var} to column {c:column} as one list"
+    (set! {v} (as-one-list (columns {c}) ", ")))
+(test-success
+    "Set regions to column C as one list."
+    (set! regions (as-one-list (columns "c") ", ")))
+
+(english-vla
+    "set {v:var} to column {c:column} as one list separated by {s:expr}"
+    (set! {v} (as-one-list (columns {c}) {s})))
+(test-success
+    "Set regions to column C as one list separated by \" / \"."
+    (set! regions (as-one-list (columns "c") " / ")))
+
+; ---- slice 1's changes, made to a value ----------------------------------
+; The same changes the cell sentences make, with the same rules, into a
+; variable - so a loop can tidy one value at a time. "Remove extra
+; spaces" is Excel's TRIM with non-breaking spaces counted, which the
+; shipped "trimmed" (VBA's Trim, the two ends only) is not; CO.7 holds
+; that note.
+(defmacro
+    (without-extra-spaces t)
+    "a text with spaces removed from both ends and every run inside closed up to one (Excel's TRIM, non-breaking spaces counted)"
+    (vlatextop t "remove-extra-spaces"))
+
+(defmacro
+    (without-non-printing-characters t)
+    "a text with tabs, line breaks and the other characters 0 to 31 removed (Excel's CLEAN)"
+    (vlatextop t "remove-non-printing"))
+
+(defmacro
+    (capitalized-after-space t)
+    "a text with each word capitalized, a word starting after a space - other letters made small"
+    (vlatextop t "capitalize-after-space"))
+
+(defmacro
+    (capitalized-after-non-letter t)
+    "a text with each word capitalized, a word starting after any character that is not a letter (Excel's PROPER) - other letters made small"
+    (vlatextop t "capitalize-after-non-letter"))
+
+(english-vla
+    "set {v:var} to {t:expr} with extra spaces removed"
+    (set! {v} (without-extra-spaces {t})))
+(test-success
+    "Set tidy to raw-name with extra spaces removed."
+    (set! tidy (without-extra-spaces raw-name)))
+
+(english-vla
+    "set {v:var} to {t:expr} with non-printing characters removed"
+    (set! {v} (without-non-printing-characters {t})))
+(test-success
+    "Set tidy to cell B2 with non-printing characters removed."
+    (set! tidy (without-non-printing-characters (range "b2"))))
+
+(english-vla
+    "set {v:var} to {t:expr} with each word capitalized after any {k:space|non-letter}"
+    (set! {v} (capitalized-after-{k} {t})))
+(test-success
+    "Set proper to raw-name with each word capitalized after any non-letter."
+    (set! proper (capitalized-after-non-letter raw-name)))
+(test-fail
+    "Set proper to raw-name with each word capitalized."
+    "then I expected 'after'")
+
 ; ---- G11: the template face --------------------------------------
 ; Friendly functors hiding the dot (VBA member access) from template
 ; authors. The dot stays first-class in VLA - these are carried

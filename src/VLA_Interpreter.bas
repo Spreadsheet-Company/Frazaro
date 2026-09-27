@@ -2582,8 +2582,33 @@ Private Function TryRuntimeHelper(ByVal h As String, ByVal argVals As Variant, B
             handled = True
             Exit Function
         Case "vlatextop"
+            ' G-TEXT slice 2: the text is passed as it came - a cell
+            ' stays a Range - so VlaTextOp's own TextOfValue reads it,
+            ' and refuses a list or several cells by name, rather than
+            ' CStr doing either here first.
             If Not ArityIs(argVals, 2, handled) Then Exit Function
-            AssignVar TryRuntimeHelper, VLA_Runtime.VlaTextOp(CStr(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1)))
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaTextOp(ArgAt(argVals, 0), CStr(ArgAt(argVals, 1)))
+            handled = True
+            Exit Function
+        ' G-TEXT slice 2: text in a variable. Each refuses by name (a
+        ' marker that is not there, a pad that is not one character, a
+        ' list where one value belongs, a cell holding an error), so each
+        ' gets its native Case for the same IN.15 reason.
+        Case "vlatextbeside"
+            If Not ArityIs(argVals, 4, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaTextBeside(ArgAt(argVals, 0), ArgAt(argVals, 1), _
+                                                                  CStr(ArgAt(argVals, 2)), CStr(ArgAt(argVals, 3)))
+            handled = True
+            Exit Function
+        Case "vlatextpad"
+            If Not ArityIs(argVals, 4, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaTextPad(ArgAt(argVals, 0), ArgAt(argVals, 1), _
+                                                               ArgAt(argVals, 2), CStr(ArgAt(argVals, 3)))
+            handled = True
+            Exit Function
+        Case "vlajoinrange"
+            If Not ArityIs(argVals, 2, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaJoinRange(ArgAt(argVals, 0), ArgAt(argVals, 1))
             handled = True
             Exit Function
         Case "vlapivotrefresh"

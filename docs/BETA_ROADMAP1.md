@@ -7362,7 +7362,50 @@ G-TAIL always said this about itself; it is true of the whole tranche.
   case. *CO.7 note, found here, not changed:* the shipped `trimmed` is VBA's
   `Trim` (the two ends only) while `Remove extra spaces from` is Excel's
   TRIM; a reader who knows `=TRIM()` will expect `trimmed` to close up the
-  inside too. `~weeks`
+  inside too.
+  **✅ Slice 2, built, owner-verified live and committed 2026-09-26**
+  (`VlaSelfTests` pure 1493/1493 with the other sessions' uncommitted
+  pins, 1491 in this commit alone, and host 202/202; `TestDSLs` 2299;
+  `VerifyReports` 283/283 on both backends once a fixture was fixed - a
+  `Put` written right under the `Try:` body, with no blank line, had
+  joined it; three hand tests: the missing marker refused naming both
+  texts, the pieces in their cells, `00042`). Text in a variable:
+  twelve rules. `Set part to the text before|after "-" in code.` and `… the
+  last "-" …` (Excel's TEXTBEFORE/TEXTAFTER); `the first|last 3 characters
+  of …` (the sibling of the shipped `letters`, which a code's characters
+  are not all); `Set code to id padded on the left|right with "0" to 5
+  characters.`; `Set names to range A2:A9|column C as one list [separated
+  by "; "].`; and slice 1's changes made to a value — `… with extra spaces
+  removed`, `… with non-printing characters removed`, `… with each word
+  capitalized after any space|non-letter` (SD-19: a speaker who can tidy a
+  column expects to tidy the text in hand). Four forks the owner decided,
+  each the recommended option: a marker that is not there **refuses by
+  name** (Excel's own #N/A), since a whole text or an empty one would run
+  on wrong; the marker is found **in any case**, by the same `InStr`
+  `vbTextCompare` call the core's `contains` makes, so the two sentences
+  cannot disagree; padding **names its side and character** and never cuts
+  a longer text; and a range joins **`as one list`**, G-PROLOG slice 5's
+  own words (`joined with` already glues two texts), each cell's *value*
+  as text, not its display, which shows `####` in a narrow column. One
+  reading of a value as text serves every helper (`TextOfValue`): text as
+  it is, a number as `CStr` writes it (the same text `joined with` gives),
+  a date as the machine's short date, TRUE/FALSE as Excel shows them, one
+  cell as its value; a list, several cells or an error value refuse by
+  name. **Engine precursor, found building it:** the tokenizer writes
+  "one" as `1` in a sentence, but `AddPhraseRule` split patterns on spaces
+  and kept the word, so a pattern saying `as one list` could never match;
+  no pattern had held a number word before. Pattern literals now pass
+  through the same `NumberWord`; only a plain literal can equal one, so no
+  shipped rule changes, and the pattern's own text (every refusal, "What
+  can I say?") keeps the word. Optional and alternation branches do not
+  convert yet; nothing needs them. **Runtime:** `VlaTextBeside`,
+  `VlaTextPad`, `VlaJoinRange`, each with a native `TryRuntimeHelper` Case
+  and a raise-dispatch baseline entry; `VlaTextOp` now takes any one value.
+  **Proof:** 20 `test-success` and one `test-fail`; 31 pure pins (one the
+  engine precursor's, in `TestG1`); 8 host pins (a range as a list row by
+  row, a date against the machine's own text for one, an error cell named,
+  one cell read as a value); 16 `VerifyReportChecks` on the `GText` sheet,
+  including a refused marker leaving the variable as it was. `~weeks`
 - 🟡 **G-FILES — workbooks and files.** Scoped in `scripts/pareto.txt`
   section 15 (16 surfaces) - this file previously (wrongly) claimed zero
   templates existed for this section; a cross-check found six already

@@ -1478,7 +1478,15 @@ Private Sub AddPhraseRule(ByVal pattern As String, ByVal template As String, _
     For i = LBound(parts) To UBound(parts)
         w = VLA_Identity.Fold(Trim$(parts(i)))
         If Len(w) > 0 Then
-            If Not IsNoiseWord(w) Then items.Add w
+            ' G-TEXT slice 2: a number word is read here the way the
+            ' tokenizer reads it in a sentence (EnTokenize writes "one" as
+            ' 1), or "as one list" could never match "as one list". Only a
+            ' plain literal can be exactly a number word - a slot, an
+            ' optional or an alternation never is - and no pattern before
+            ' this one held one, so no shipped rule changes. The pattern's
+            ' own text, which every refusal and "What can I say?" shows,
+            ' keeps the word.
+            If Not IsNoiseWord(w) Then items.Add NumberWord(w)
         End If
     Next
     If items.Count = 0 Then VLA_Messages.RaiseMsg "english-empty-pattern"
