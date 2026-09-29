@@ -26,11 +26,13 @@ document is right.*
 
 ## If you are building Frazaro
 
-- **[BETA_ROADMAP2.md](BETA_ROADMAP2.md)** — The current plan: every item,
-  open and closed, cut to one paragraph and filed under the department
-  accountable for it.
-- **[BETA_ROADMAP1.md](BETA_ROADMAP1.md)** — Its predecessor, kept for the
-  full reasoning behind every standing decision and every closed item.
+- **[BETA_ROADMAP.md](BETA_ROADMAP.md)** — The current plan: open items
+  only, one paragraph each, filed under the department accountable for
+  them; a closed item leaves the day it closes.
+- **[BETA_REARVIEW.md](BETA_REARVIEW.md)** — The rear-view mirror: the
+  mission argument, every standing decision with its reasoning, every
+  item's full scoping and build record, and the ledger of closed items
+  moved off the roadmap.
 - **[TESTING.md](TESTING.md)** — The six verification passes a change to
   the grammar, a phrasebook, or the runtime has to survive, in order.
 - **[REBUILD.md](REBUILD.md)** — What the modules in `src/` should be

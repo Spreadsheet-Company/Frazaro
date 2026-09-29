@@ -1,7 +1,7 @@
 Attribute VB_Name = "VLA_English"
 Option Explicit
 Public Const VLA_ENGLISH_VERSION As String = "LX5.2"
-' LX5.2: BETA_ROADMAP2.md's LX.5, phase 2 - the physical split. Every
+' LX5.2: BETA_ROADMAP.md's LX.5, phase 2 - the physical split. Every
 ' procedure that touches the shared rule-store state (grammar
 ' registration, the DCG matcher, G-RENDER, statement/condition/
 ' expression parsing, vocabulary-file loading, sub-assembly bookkeeping,

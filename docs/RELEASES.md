@@ -1,6 +1,6 @@
 # Releases
 
-*Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_ROADMAP1.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
+*Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
 ## 0.7.0
 
@@ -286,7 +286,7 @@ writes nothing.
 A Run that stops puts back only the sheets its own snapshot copied before it
 began, by the same steps Undo Last Run has always taken; it reaches no other
 sheet, workbook or file.
-Standing advice unchanged. The full list of open items is in `docs/BETA_ROADMAP1.md`,
+Standing advice unchanged. The full list of open items is in `docs/BETA_REARVIEW.md`,
 in plain words in `README.md`.
 
 ## 0.6.2
@@ -540,7 +540,7 @@ record was never affected — it has always been fingerprinted from raw
 bytes, not through the code page — and the fix adds a new way to
 fingerprint text without changing the existing one. Nothing in any of this
 makes a network call. Standing advice unchanged. The full list of open
-items is in `docs/BETA_ROADMAP1.md`, in plain words in `README.md`.
+items is in `docs/BETA_REARVIEW.md`, in plain words in `README.md`.
 
 ## 0.6.1
 
@@ -691,7 +691,7 @@ items is in `docs/BETA_ROADMAP1.md`, in plain words in `README.md`.
 
 **Closed this release:** the Uninstall Frazaro data-loss bug above, a
 safety fix rather than a listed security item. Standing advice unchanged.
-The full list of open items is in `docs/BETA_ROADMAP1.md`, in plain words
+The full list of open items is in `docs/BETA_REARVIEW.md`, in plain words
 in `README.md`.
 
 ## 0.6.0
@@ -1105,7 +1105,7 @@ rather than left implied.
 
 The authoritative lists, kept current in one place instead of copied into
 every release: [`README.md`](../README.md) in plain words, and
-[`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md) with the file, line, fix and
+[`docs/BETA_REARVIEW.md`](BETA_REARVIEW.md) with the file, line, fix and
 disposition for each.
 
 Until these close: **load phrasebooks only from people you would accept a
@@ -1575,7 +1575,7 @@ rather than left implied.
 
 The authoritative lists, kept current in one place instead of copied into
 every release: [`README.md`](../README.md) in plain words, and
-[`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md) with the file, line, fix and
+[`docs/BETA_REARVIEW.md`](BETA_REARVIEW.md) with the file, line, fix and
 disposition for each.
 
 Until these close: **load phrasebooks only from people you would accept a
@@ -1879,7 +1879,7 @@ rather than left implied.
 
 The authoritative lists, kept current in one place instead of copied into
 every release: [`README.md`](../README.md) in plain words, and
-[`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md) with the file, line, fix and
+[`docs/BETA_REARVIEW.md`](BETA_REARVIEW.md) with the file, line, fix and
 disposition for each.
 
 Until these close: **load phrasebooks only from people you would accept a
@@ -2200,7 +2200,7 @@ rather than left implied.
 
 The authoritative lists, kept current in one place instead of copied into
 every release: [`README.md`](../README.md) in plain words, and
-[`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md) with the file, line, fix and
+[`docs/BETA_REARVIEW.md`](BETA_REARVIEW.md) with the file, line, fix and
 disposition for each.
 
 Until these close: **load phrasebooks only from people you would accept a
@@ -2301,7 +2301,7 @@ when you return for a newer build. Vulnerability reports:
   Visual Basic's dialog rather than a Frazaro message. Only the email
   helper is fixed here, because only it was in the way of `SEC.8`; the
   rest are recorded in
-  [`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md) with the full list rather
+  [`docs/BETA_REARVIEW.md`](BETA_REARVIEW.md) with the full list rather
   than fixed in a hurry alongside a security change.
 
 - **A build defect found by a new release check: `VlaSlice` was never
@@ -2658,7 +2658,7 @@ rather than left implied.
 
 The authoritative lists, kept current in one place instead of copied into
 every release: [`README.md`](../README.md) in plain words, and
-[`docs/BETA_ROADMAP1.md`](BETA_ROADMAP1.md) with the file, line, fix and
+[`docs/BETA_REARVIEW.md`](BETA_REARVIEW.md) with the file, line, fix and
 disposition for each.
 
 Until these close: **load phrasebooks only from people you would accept a
@@ -2697,7 +2697,7 @@ when you return for a newer build. Vulnerability reports:
   already had no fallback to begin with. Permissioned, declared
   capabilities with real external effect (`vlasendmail` today) are a
   separate, still-open item — see `SEC.7`. Full mechanism:
-  `docs/BETA_ROADMAP1.md`'s own SEC.1 entry.
+  `docs/BETA_REARVIEW.md`'s own SEC.1 entry.
 - **`SEC.2` — `raw` behind explicit, per-phrasebook consent, built and
   owner-verified live.** A phrasebook using `raw` (literal VBA,
   previously unconsented) now shows a modal, naming the file, before it
@@ -2712,7 +2712,7 @@ when you return for a newer build. Vulnerability reports:
   as never showing a dialog — an early draft got this wrong and only
   passed the purity ratchet on a technicality, caught before it
   shipped. No test-bypass toggle anywhere in the mechanism, by design.
-  Full mechanism: `docs/BETA_ROADMAP1.md`'s own SEC.2 entry.
+  Full mechanism: `docs/BETA_REARVIEW.md`'s own SEC.2 entry.
 - **`GO.6` — a working Load Phrasebook button, owner live-tested.**
   Found live while hand-verifying `SEC.2`: the only mechanism that
   technically loaded an external phrasebook (`VLA_IDE.IdeVocabPath`'s
@@ -2732,7 +2732,7 @@ when you return for a newer build. Vulnerability reports:
   (`EnglishLoadedSourcesReport`). A moved or deleted remembered
   phrasebook is skipped with a note rather than blocking every other
   command; a genuine content collision still refuses, unchanged. Full
-  mechanism: `docs/BETA_ROADMAP1.md`'s own GO.6 entry.
+  mechanism: `docs/BETA_REARVIEW.md`'s own GO.6 entry.
 - **The one `AS.1` gap closed: `paint cell {r:text}`.**
   `check_rule_coverage.ps1`'s first real report (after `GEXPANDERLINT.0`
   verticalized the phrasebook artifact) found a rule with zero
@@ -2911,7 +2911,7 @@ before they run, refuse with an explanation when they don't parse, and mean
 exactly one thing when they do. This is a known-unfinished program, released
 unfinished on purpose, because the only way to learn which sentences real
 people reach for is to let real people reach for them. The open items are
-counted, in order, in `docs/BETA_ROADMAP2.md`.
+counted, in order, in `docs/BETA_ROADMAP.md`.
 
 ### Download
 

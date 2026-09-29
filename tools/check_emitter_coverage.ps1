@@ -1,7 +1,7 @@
 <#
 check_emitter_coverage.ps1 - AS.2's own coverage report.
 
-"Which Select Case arms no pin exercises, per backend" - BETA_ROADMAP.md's
+"Which Select Case arms no pin exercises, per backend" - BETA_REARVIEW.md's
 AS.2. Extends AS.8's own proven approach (check_backend_parity.ps1) rather
 than inventing a new one: same pin-detection over VLA_Tests*.bas
 (AssertVla/TryTranspile/VlaTranspile for the emitter, VlaInterpret/

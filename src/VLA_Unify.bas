@@ -51,7 +51,7 @@ Public Const VLA_UNIFY_VERSION As String = "PROLOG.3"
 ' Collection linear scan a non-concern; revisit only if PROLOG.4's real
 ' proof search is ever profiled and found slow, never speculatively.
 '
-' PROLOG.1: new module - the one-way match mode of BETA_ROADMAP2.md's own
+' PROLOG.1: new module - the one-way match mode of BETA_ROADMAP.md's own
 ' PROLOG entry ("the unifier is substrate, not engine-private"), hoisted
 ' out of VLA_English.bas's own UnifyForm (G-RENDER's FormSubstitute
 ' inverse) rather than duplicated. UnifyOneWay below IS UnifyForm's own
@@ -78,7 +78,7 @@ Public Const VLA_UNIFY_VERSION As String = "PROLOG.3"
 ' drops the fact that source and destination differ. See
 ' VLA_Tests_Query.bas's own TestGRenderUnify (via TestDSLs) for the pin.
 '
-' Also corrects BETA_ROADMAP2.md's own PROLOG paragraph on one point,
+' Also corrects BETA_ROADMAP.md's own PROLOG paragraph on one point,
 ' found while reading UnifyForm rather than trusted from its prose: the
 ' glued-slot branch never actually read mPatItems (that name belongs to
 ' a DIFFERENT, later gate - VLA_English.bas's own CandidateShapeOk,
@@ -106,7 +106,7 @@ Public Const VLA_UNIFY_VERSION As String = "PROLOG.3"
 '            (UnifyTwoWay is its own resolution step - proving a
 '            subgoal against a candidate clause head), OPTIMIZE's own
 '            grounding step (one-way mode, per
-'            BETA_ROADMAP2.md's own PROLOG paragraph).
+'            BETA_ROADMAP.md's own PROLOG paragraph).
 ' REASON:    proving the substrate-sharing claim against a REAL,
 '            already-shipped second client (G-RENDER) before anything
 '            backtracking-shaped exists to also depend on it - this

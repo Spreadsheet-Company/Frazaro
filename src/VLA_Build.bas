@@ -24,7 +24,7 @@ Public Const VLA_BUILD_VERSION As String = "U20.1"
 ' VlaEditionOutputName/VlaEditionVocabOverrideName below - the small,
 ' hardcoded, reviewable table this session's own EDITION-MANIFEST
 ' scoping pass argued for over a second per-edition `mods` array
-' (BETA_ROADMAP2.md's own EDITION LINE text: "not another pair of
+' (BETA_ROADMAP.md's own EDITION LINE text: "not another pair of
 ' hand-maintained arrays" - F.15's finding, not multiplied). The `mods`
 ' array itself is untouched and stays edition-invariant: one compiled
 ' engine, sibling downloads - what varies is only which phrasebook
@@ -55,10 +55,10 @@ Public Const VLA_BUILD_VERSION As String = "U20.1"
 ' (EDITION-MODULETAG) rather than folded in here - it's a Compile-time
 ' concern (the user's own workbook), not a build-time one (this file).
 ' PROLOG.3: mods array gains VLA_Prolog (new module - the first real
-' =PROLOG(...) worksheet function; docs/BETA_ROADMAP2.md's own PROLOG.3
+' =PROLOG(...) worksheet function; docs/BETA_ROADMAP.md's own PROLOG.3
 ' entry), placed after VLA_Sql, its own family's last-shipped member.
 ' PROLOG.1: mods array gains VLA_Unify (new module - G-RENDER's one-way
-' unifier, hoisted out of VLA_English.bas; docs/BETA_ROADMAP2.md's own
+' unifier, hoisted out of VLA_English.bas; docs/BETA_ROADMAP.md's own
 ' PROLOG entry), placed beside its sibling VLA_Relation - both ship in
 ' the add-in from day one, unlike VLA_Datalog/VLA_Sql's still-
 ' aspirational tranche.
@@ -169,7 +169,7 @@ Public Const VLA_BUILD_VERSION As String = "U20.1"
 ' =====================================================================
 
 ' EDITION-MANIFEST: the edition table. Each edition names only the two
-' things BETA_ROADMAP2.md's own EDITION LINE text says vary - which
+' things BETA_ROADMAP.md's own EDITION LINE text says vary - which
 ' phrasebook file(s) get audited/embedded, in load order, and the
 ' output filename - never the module list (VlaBuildAddin's own `mods`,
 ' below, stays a single array for every edition). Add a new edition by
@@ -353,7 +353,7 @@ Private Function VlaBuildOneEdition(ByVal edition As String, ByRef note As Strin
     ' name it as a type, so a build without it fails Debug > Compile.
     ' IN.6: VLA_Interpreter ships too - left off this list since IN.0.5
     ' built it as a dev-rig-only throwaway skeleton ("not in
-    ' VLA_Build.bas's shipped module list", BETA_ROADMAP.md's own words at
+    ' VLA_Build.bas's shipped module list", BETA_REARVIEW.md's own words at
     ' the time), a decision nothing revisited as it grew into the real
     ' evaluator (IN.2-IN.11). IN.6 is the first shipped module
     ' (VLA_IDE's own InterpretProgram) to actually reference

@@ -10,7 +10,7 @@ Attribute VB_Exposed = False
 Option Explicit
 ' PNTH.0: a read-only, O(1) VIEW over the tail of an existing Collection -
 ' cdr/cddr's own structural-sharing representation (MACHINE + OPTIMIZATION's
-' P-NTH, BETA_ROADMAP2.md), replacing ListTail's old full-copy walk
+' P-NTH, BETA_ROADMAP.md), replacing ListTail's old full-copy walk
 ' (VLA.bas). "Slice," not "cons cell": it stays a FLAT offset into one
 ' root Collection rather than a general linked structure, on purpose -
 ' cdr/cddr (repeated tail-walking) is the evidenced hot path (P-DICT's

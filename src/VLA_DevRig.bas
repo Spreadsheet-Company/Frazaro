@@ -2,7 +2,7 @@ Attribute VB_Name = "VLA_DevRig"
 Option Explicit
 Public Const VLA_DEVRIG_VERSION As String = "PPROF.0"
 ' PPROF.0: VlaProfileAll added - P-PROF's own dial
-' (BETA_ROADMAP2.md, MACHINE + OPTIMIZATION), VlaTimeIt's family shape
+' (BETA_ROADMAP.md, MACHINE + OPTIMIZATION), VlaTimeIt's family shape
 ' applied to a per-phase timing switch (VLA.mProfileOn, VLA.bas/
 ' VLA_SentenceEngine.bas) instead of a single number: turns it on,
 ' runs VLA_Tests_Host.VlaSelfTestsAll (the scale-included suite - the
@@ -26,7 +26,7 @@ Public Const VLA_DEVRIG_VERSION As String = "PPROF.0"
 ' SECTION" rule - VLA_Unify.bas is PROLOG.1), dispatched from TestDSLs,
 ' not VlaSelfTest - corrected mid-session from an initial wrong call.
 ' AS7.0: VlaTimeItSelfTest - VlaTimeIt's own suite-runtime counterpart
-' (AS.7, docs/BETA_ROADMAP.md). Built as a new dial in this module,
+' (AS.7, docs/BETA_REARVIEW.md). Built as a new dial in this module,
 ' modeled on VlaTimeIt's own shape (workbook-Name baselines, CURRENT
 ' next to PREVIOUS), rather than as anything wired into VlaSelfTest
 ' itself - see its own header note, right above the Sub, for why.
@@ -1643,7 +1643,7 @@ ansiFallback:
 End Function
 
 ' =====================================================================
-'  PPROF.0: VlaProfileAll - P-PROF's own dial (BETA_ROADMAP2.md,
+'  PPROF.0: VlaProfileAll - P-PROF's own dial (BETA_ROADMAP.md,
 '  MACHINE + OPTIMIZATION), run against VLA_Tests_Host.VlaSelfTestsAll -
 '  the full pure+host suite WITH mRunScaleTests forced on internally, so
 '  TestListopsBudget/TestListopsDepthSafety/TestTablespecDepthSafety's own
@@ -1651,7 +1651,7 @@ End Function
 '  dominate the numbers below (several minutes at 5500 rows, already
 '  confirmed live by wall clock alone - this dial's own job is turning
 '  that single number into a phase breakdown, not re-discovering it).
-'  The tranche's own gating rule (BETA_ROADMAP1.md: "All of it gated on
+'  The tranche's own gating rule (BETA_REARVIEW.md: "All of it gated on
 '  P-PROF's before-numbers") is what this exists to satisfy - a real
 '  before-number for P-DICT/P-NTH (GetMacro's per-step lookup, cdr/
 '  ListTail's O(n^2) tail copy, both VLA.bas), not the wall-clock total

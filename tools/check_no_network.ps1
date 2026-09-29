@@ -283,6 +283,6 @@ if ($failed.Count -eq 0) {
 } else {
     Write-Output "=== CHECK: $($failed.Count) problem(s) ==="
     $failed | ForEach-Object { Write-Output "  $_" }
-    Write-Output 'A network mechanism in shipped code breaks SD-13 outright - remove it, or re-litigate SD-13 first (docs/BETA_ROADMAP1.md). A NEW Declare, URL literal or outward-reach site may be fine, but it changes what docs/IT_REVIEW.md tells a reviewer: review it, add it to the baseline above with its reason, and name it in IT_REVIEW.md section 3 in the same commit.'
+    Write-Output 'A network mechanism in shipped code breaks SD-13 outright - remove it, or re-litigate SD-13 first (docs/BETA_REARVIEW.md). A NEW Declare, URL literal or outward-reach site may be fine, but it changes what docs/IT_REVIEW.md tells a reviewer: review it, add it to the baseline above with its reason, and name it in IT_REVIEW.md section 3 in the same commit.'
 }
 exit ([Math]::Min($failed.Count, 1))

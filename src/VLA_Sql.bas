@@ -216,7 +216,7 @@ Public Const VLA_SQL_VERSION As String = "SQL.7"
 ' unremarkable, named limit, not a silent gap.
 '
 ' SQL.5: ORDER BY / LIMIT - the "one deliberately-late dissection"
-' (BETA_ROADMAP2.md's own words: nothing downstream consumes ordering,
+' (BETA_ROADMAP.md's own words: nothing downstream consumes ordering,
 ' so this item floats, sequenced here not because anything needs it but
 ' because it is pure presentation). Genuinely simpler than SQL.4, and
 ' needs NO new AST node kind and NO new tokenizer work at all - ORDER
@@ -264,7 +264,7 @@ Public Const VLA_SQL_VERSION As String = "SQL.7"
 ' than guessed - the ambiguous case mirrors SQL.3's own
 ' sql-ambiguous-column discipline.
 '
-' Sorting itself: VBA has no native array sort, and BETA_ROADMAP2.md's
+' Sorting itself: VBA has no native array sort, and BETA_ROADMAP.md's
 ' own scope note is explicit - "one stable sort routine written once...
 ' over row INDICES, never swapping whole rows per comparison." A merge
 ' sort (StableSortIndices/MergeSortRange/CompareRowsForSort) over an
@@ -414,11 +414,11 @@ Public Const VLA_SQL_VERSION As String = "SQL.7"
 ' OUTER/CROSS are refused BY NAME (sql-outer-join-not-supported),
 ' checked at both positions a JOIN keyword could legally start, rather
 ' than falling through to the generic end-of-query leftover-token
-' check - BETA_ROADMAP2.md's own words, "a dissection, not a
+' check - BETA_ROADMAP.md's own words, "a dissection, not a
 ' microscope," get an actual teaching refusal, not just a vague one.
 '
 ' Reuses VLA_Relation.RelJoin's own hash join DIRECTLY, never a second
-' nested-loop implementation (BETA_ROADMAP1.md's own standing law) -
+' nested-loop implementation (BETA_REARVIEW.md's own standing law) -
 ' the one real substrate gap this forced open: RelJoin's own accessors
 ' (RelArity/RelTuples/RelCount) expect a Relation-SHAPED 3-item record,
 ' but SQL's own rows are a BAG (RangeToRows, never RelFromRange/
@@ -484,7 +484,7 @@ Public Const VLA_SQL_VERSION As String = "SQL.7"
 ' SqlRunJoin (a one-table Collection), the identical "extend without
 ' breaking" move VLA_Datalog.DatalogRun's own Optional baseRelations/
 ' headerMap already made twice. LEFT JOIN deliberately deferred
-' (BETA_ROADMAP2.md's own words: "a dissection, not a microscope" -
+' (BETA_ROADMAP.md's own words: "a dissection, not a microscope" -
 ' DATALOG's own `not` already proves the substrate can express the
 ' anti-join half; nothing downstream needs it yet).
 '
@@ -545,7 +545,7 @@ Public Const VLA_SQL_VERSION As String = "SQL.7"
 '
 ' =====================================================================
 '  VLA_Sql - the QUERY AND LOGIC section's second engine, following the
-'  split BETA_ROADMAP2.md's own SQL item names: VLA_Relation.bas (the
+'  split BETA_ROADMAP.md's own SQL item names: VLA_Relation.bas (the
 '  shared, DSL-ignorant substrate DATALOG already proved out) plus this
 '  thin module owning only SQL's own grammar and its own =SQL(...) UDF.
 '
@@ -636,10 +636,10 @@ Public Const VLA_SQL_VERSION As String = "SQL.7"
 '  separator (ParseInvariantNumber's own header has the reason), string
 '  literals are single-quoted with '' as an escaped quote (the ordinary
 '  SQL convention), regardless of the caller's own Excel locale - SD-4's
-'  freeze, decided before any engine code, BETA_ROADMAP2.md's own words.
+'  freeze, decided before any engine code, BETA_ROADMAP.md's own words.
 '
 '  One SQLite-shaped dialect, deliberately, not a cherry-picked mix
-'  (BETA_ROADMAP2.md's own dialect-pin note: mixing dialects invalidates
+'  (BETA_ROADMAP.md's own dialect-pin note: mixing dialects invalidates
 '  all of them de facto, and the whole point of real SQL text is that a
 '  query copied from an actual tool just works) - '' string-escaping,
 '  <> not !=, case-sensitive string DATA comparison (vbBinaryCompare,
@@ -944,7 +944,7 @@ Private Function Tokenize(ByVal s As String) As Collection
             End If
         ElseIf c = "-" And i < n And Mid$(s, i + 1, 1) = "-" Then
             ' A '--' line comment - real SQLite syntax, ordinary in any
-            ' query pasted from an actual SQL tool (BETA_ROADMAP2.md's
+            ' query pasted from an actual SQL tool (BETA_ROADMAP.md's
             ' own SQLite-dialect pin exists precisely so pasted text
             ' works, not just hand-typed text). Checked BEFORE the bare
             ' '-' arithmetic-operator branch below, so '--' still always
@@ -1002,7 +1002,7 @@ End Function
 ' Val() is genuinely LOCALE-INVARIANT in VBA - it always treats '.' as
 ' the decimal separator, unlike CDbl/CSng, which respect the user's own
 ' regional settings. This is exactly the '.' -always requirement
-' BETA_ROADMAP2.md's own SQL item freezes "decided now rather than
+' BETA_ROADMAP.md's own SQL item freezes "decided now rather than
 ' inherited by accident" - CDbl("50000.5") would silently misparse as
 ' 500005 on a comma-decimal Excel locale, exactly the trap this function
 ' exists to avoid. The tokenizer's own numBuf construction already
@@ -1354,7 +1354,7 @@ Private Function OrderItemDescending(ByVal r As Collection) As Boolean
 End Function
 
 ' SQL.3's own explicit, named refusal for every JOIN variant this item
-' does NOT build (BETA_ROADMAP2.md's own words: "LEFT JOIN deliberately
+' does NOT build (BETA_ROADMAP.md's own words: "LEFT JOIN deliberately
 ' deferred... it is a dissection, not a microscope") - checked wherever
 ' a JOIN keyword could legally start (right after FROM's own table, and
 ' again after each completed join clause), so LEFT/RIGHT/FULL/OUTER/
@@ -2497,7 +2497,7 @@ Private Function EvalBool(ByVal node As Collection, ByVal colMap As Object, ByRe
     End Select
 End Function
 
-' A manually-doubled growable buffer - BETA_ROADMAP2.md's own SQL.1
+' A manually-doubled growable buffer - BETA_ROADMAP.md's own SQL.1
 ' words, named because per-row ReDim Preserve is a genuine O(n^2) trap a
 ' large table (this engine's whole stated motivation) would actually
 ' hit, not a hypothetical one. cap/used are tracked by the caller
@@ -2921,7 +2921,7 @@ End Function
 ' own tie-break always prefers the LEFT run first (<=, below), which it
 ' does. Neither buf() nor sortKeys() is ever reordered in place - only
 ' idx() moves, this file's own SQL.5 header note has the "why"
-' (BETA_ROADMAP2.md's own words: "over row indices, never swapping
+' (BETA_ROADMAP.md's own words: "over row indices, never swapping
 ' whole rows per comparison").
 Private Sub StableSortIndices(ByRef idx() As Long, ByRef sortKeys() As Variant, ByRef descs() As Boolean)
     Dim n As Long

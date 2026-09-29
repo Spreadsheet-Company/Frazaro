@@ -85,7 +85,7 @@ Was `EnglishFormPathSelfCheck`: loaded a vocabulary twice, once with
 F.2's form path on and once off, and confirmed the `test:`/`fail:`
 corpus agreed both ways. Retired along with the toggle itself and the
 old `Replace()`-text fallback it was proving safe - there is only one
-path now (F.2's own closure bar is met; see `BETA_ROADMAP.md`'s F.2
+path now (F.2's own closure bar is met; see `BETA_REARVIEW.md`'s F.2
 entry), so there is nothing left to compare against. Ordinary
 vocabulary loading already re-verifies every `test:`/`fail:` proof
 through that one path on every load, which is what this pass's own

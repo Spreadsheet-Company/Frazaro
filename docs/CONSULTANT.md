@@ -1,11 +1,11 @@
 # CONSULTANT — an outside project-management assessment of the Frazaro beta
 
 *Written 2026-08-27, nine days before the `0.5.0` beta target (2026-09-05).
-Sources read in full: `BETA_ROADMAP.md`, `METAMETALISP4.md`, `AUDIT.md`,
+Sources read in full: `BETA_REARVIEW.md`, `METAMETALISP4.md`, `AUDIT.md`,
 `REBUILD.md`, plus targeted reads of `src/` to verify the security-relevant
 claims below rather than infer them from prose.*
 
-*Standing assumption, as briefed: **every ⬜ item on `BETA_ROADMAP.md` is
+*Standing assumption, as briefed: **every ⬜ item on `BETA_REARVIEW.md` is
 treated as done.** The question is not "is the roadmap finished" — it is
 "if it were finished tomorrow, what would still be missing." So the findings
 below are, deliberately, the gaps the roadmap does not contain, or contains
@@ -424,7 +424,7 @@ and should be cited in that document.
 
 ### 2.15 — Process debt that a contributor would notice in the first hour **[HACKER]**
 
-- `BETA_ROADMAP.md` opens by declaring itself "terse and stable" and that
+- `BETA_REARVIEW.md` opens by declaring itself "terse and stable" and that
   "pass records belong in the version ledger, not here." It is 6,416 lines
   and 440 KB; the majority of every ✅ entry is a pass diary. The file's
   own rule is violated by nearly every entry after it. Every future session
@@ -555,7 +555,7 @@ to things a company's reviewers would actually check:
     test counts. `~days`. (§2.13)
 14. **Define `0.5.0`'s acceptance criteria** in one paragraph. `~hours`.
     (§2.16)
-15. **Move pass diaries out of `BETA_ROADMAP.md`** into the ledger the file
+15. **Move pass diaries out of `BETA_REARVIEW.md`** into the ledger the file
     itself says they belong in. `~hours`, mechanical. (§2.15)
 
 Items 1, 2, 4, 10, 12, and 14 together are under two working days and

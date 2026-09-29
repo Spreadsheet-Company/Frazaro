@@ -461,7 +461,7 @@ provable beats plausible.
 | Document | What it holds |
 |---|---|
 | [README.md](../README.md) | The product, for a technical evaluator |
-| [BETA_ROADMAP2.md](BETA_ROADMAP2.md) | Current plan, open items, standing decisions |
+| [BETA_ROADMAP.md](BETA_ROADMAP.md) | Current plan, open items, standing decisions |
 | [VIABILITY.md](VIABILITY.md) | Internal economics audit (the accountant) |
 | [PREMORTEM.md](PREMORTEM.md) | Eight ways this dies, with tripwires (the coroner) |
 | [ADVOCATUS.md](ADVOCATUS.md) | The bear case, argued to win (the advocate) |

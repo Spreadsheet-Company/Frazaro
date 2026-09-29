@@ -8,7 +8,7 @@ document is the only review that cannot be commissioned by the person who
 needs it.** Every other document on this shelf can be written late. This
 one, written late, is written by nobody.*
 
-*Sources read in full: `BETA_ROADMAP1.md`, `BETA_ROADMAP2.md`,
+*Sources read in full: `BETA_REARVIEW.md`, `BETA_ROADMAP.md`,
 `DEPLOY.md`, `TESTING.md`, `PROJECT_BRIEF.md` (as archived this session),
 `LESSONS.md`, `TRENCHES.md`, `ID_REGISTRY.md`, `PREMORTEM.md`,
 `ADVOCATUS.md` — plus, and this is the first review on the shelf whose

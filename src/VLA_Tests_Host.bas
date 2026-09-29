@@ -129,7 +129,7 @@ Public Const VLA_TESTS_HOST_VERSION As String = "PF4C.0"
 ' Deliberately NOT dispatched from VlaSelfTestHost - see this function's
 ' own header note for why (mirrors VerifyReport's own reasoning for
 ' staying manual). Found, and names rather than builds, real structured-
-' exception-handling remainder - see docs/BETA_ROADMAP.md's IN.3 entry and
+' exception-handling remainder - see docs/BETA_REARVIEW.md's IN.3 entry and
 ' VLA_Interpreter.bas's own IN.3 note for the full reasoning. Also adds
 ' VerifyReports, VlaSelfTests's own convenience shape - VerifyReport then
 ' VerifyReportInterpreter, one call, order load-bearing (see its own
@@ -426,7 +426,7 @@ End Function
 ' runner instead of the pure half alone, plus TestF4RealCorpusShadow
 ' (VLA_Tests_Grammar.bas) - the one real-corpus F.4 audit deliberately
 ' kept out of the routine suite for its own O(N^2) cost (its own
-' header, and BETA_ROADMAP.md's F.4 entry, have the full reasoning).
+' header, and BETA_REARVIEW.md's F.4 entry, have the full reasoning).
 ' Several minutes slower than VlaSelfTests; use before a release, or
 ' after touching AuditCrossRuleShadow/ExpandMacros/cdr/ListTail/
 ' tablespec's own walk.
@@ -3756,7 +3756,7 @@ Public Function VerifyReportInterpreter() As Boolean
     If Err.Number <> 0 Then
         ' IN.11: a raise here used to name only the error, not where it
         ' happened - two straight guessing rounds against the breadth
-        ' pass (docs/BETA_ROADMAP.md's own IN.11 entry has the history) cost
+        ' pass (docs/BETA_REARVIEW.md's own IN.11 entry has the history) cost
         ' real turnaround time that the interpreter's own effect log
         ' (LogEffect, VLA_Interpreter.bas) could have closed immediately:
         ' it already records every real effect in order, so its last few

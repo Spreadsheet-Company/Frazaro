@@ -1076,7 +1076,7 @@ Private Sub RunProgram(ByVal wantTrace As Boolean)
     End If
     ' IN.6: Compile writes real VBA into the workbook's VBProject, the
     ' one Excel setting managed IT departments routinely disable
-    ' (BETA_ROADMAP.md's own "gate to every enterprise conversation").
+    ' (BETA_REARVIEW.md's own "gate to every enterprise conversation").
     ' Refuse in words, naming the reason and the alternative (SD-10),
     ' now that the alternative - Interpret Instructions, which touches
     ' no VBProject at all - sits right beside this button instead of
@@ -4496,7 +4496,7 @@ Private Sub ImportFromPath(ws As Worksheet, ByVal path As String)
     ' as much when a person runs it by hand: Word's PDF conversion
     ' re-derives paragraphs from the geometry of the page, joining
     ' steps that sit close together and swallowing the blank line that
-    ' ends an indented block. See SOP.1 in docs/BETA_ROADMAP1.md for
+    ' ends an indented block. See SOP.1 in docs/BETA_REARVIEW.md for
     ' the measured numbers, and tools/export_example_pdfs.ps1 for the
     ' instrument that produced them.
     If ext = "pdf" Then
@@ -4727,7 +4727,7 @@ End Function
 '  A pre-scan, not a second importer: ImportFromPath runs it on every
 '  Load and Reload, after NormalizeProgramText and before PourProgram.
 '  The owner's design, 2026-09-25 (the adjudication is SOP.6 in
-'  docs/BETA_ROADMAP1.md):
+'  docs/BETA_REARVIEW.md):
 '    - No tag line anywhere: the whole document is the program, exactly
 '      as before this item. The text comes back untouched.
 '    - Otherwise only the tagged sections are, any number of them, in

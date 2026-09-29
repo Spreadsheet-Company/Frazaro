@@ -10,7 +10,7 @@ booked but not collected until the owner adjudicates. Receivables age.
 The fork is collections day, and a register still uncollected at the
 fork after that is D.7 wearing an eyeshade.*
 
-*Sources read in full: `BETA_ROADMAP1.md`, `BETA_ROADMAP2.md`,
+*Sources read in full: `BETA_REARVIEW.md`, `BETA_ROADMAP.md`,
 `CONSULTANT.md`, `AUDIT.md`, `CONTEMPLATIONS.md`, `DEPLOY.md`,
 `PREMORTEM.md`, `ADVOCATUS.md`, `CONTINUITY.md`, `ID_REGISTRY.md`,
 `METAMETALISP4.md`.*

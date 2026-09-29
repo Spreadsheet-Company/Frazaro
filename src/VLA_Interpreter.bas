@@ -18,7 +18,7 @@ Public Const VLA_INTERPRETER_VERSION As String = "CLI.5"
 ' "format" doing string substitution would collide in READING even
 ' with no symbol collision (owner's own call, this session - the
 ' roadmap item itself was renamed L-FORMAT -> L-INTERPOLATE alongside
-' this). A real primitive, not a defmacro (BETA_ROADMAP2.md's own
+' this). A real primitive, not a defmacro (BETA_ROADMAP.md's own
 ' L-INTERPOLATE text: a defmacro substitutes into a fixed template FORM
 ' at define time and cannot parse the CONTENTS of a string literal
 ' supplied at a call site). tpl must be a literal string node (checked
@@ -70,7 +70,7 @@ Public Const VLA_INTERPRETER_VERSION As String = "CLI.5"
 ' breaking right after row 2).
 ' PF4A.0: array-element set!/read parity with the compiled backend -
 ' PRODUCT · PERFORMANCE's PF.4a, the first of PF.4's three sub-items
-' (BETA_ROADMAP1.md/BETA_ROADMAP2.md). Compiled has always handled
+' (BETA_REARVIEW.md/BETA_ROADMAP.md). Compiled has always handled
 ' (set! (arr i) v) and (arr i) for free - EmitStmt's/EmitExpr's own
 ' generic text substitution emits real VBA array-index syntax with no
 ' compiler awareness needed. The interpreter had neither direction:
@@ -133,7 +133,7 @@ Public Const VLA_INTERPRETER_VERSION As String = "CLI.5"
 ' emitter's own real Run.
 '
 ' The build history - what each dispatch tier cost, and the bugs found
-' getting whole-corpus parity - is in docs/BETA_ROADMAP.md's own IN.2/IN.3/
+' getting whole-corpus parity - is in docs/BETA_REARVIEW.md's own IN.2/IN.3/
 ' IN.10/IN.11 entries and, for the harder-won stories, docs/TRENCHES.md.
 ' =====================================================================
 '  VLA_Interpreter - the full evaluator: every core control-flow/
@@ -4310,7 +4310,7 @@ Private Function EvalInterpolateCall(lst As Collection, frame As Object) As Vari
     EvalInterpolateCall = result
 End Function
 
-' A simple linear scan (BETA_ROADMAP2.md's own L-INTERPOLATE scoping
+' A simple linear scan (BETA_ROADMAP.md's own L-INTERPOLATE scoping
 ' text: "not a second grammar") over tpl, splitting it into
 ' literal-text pieces and named-hole pieces. A hole piece is marked
 ' internally with a leading Chr$(1) (unlikely to appear in real text;

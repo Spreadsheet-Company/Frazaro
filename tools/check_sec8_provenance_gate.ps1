@@ -272,6 +272,6 @@ if ($failed.Count -eq 0) {
 } else {
     Write-Output "=== CHECK: $($failed.Count) problem(s) ==="
     $failed | ForEach-Object { Write-Output "  $_" }
-    Write-Output 'Call "VLA_Provenance.VlaProvenanceGuardCaptured ""<what the program tried to do>""" on a line inside the same Case, before the effect. Without it a workbook mailed in from outside runs that effect with the add-in''s own privilege, which is exactly what Office''s 2022 macro block removed and what SEC.8 restores. See SEC.8 in docs/BETA_ROADMAP1.md.'
+    Write-Output 'Call "VLA_Provenance.VlaProvenanceGuardCaptured ""<what the program tried to do>""" on a line inside the same Case, before the effect. Without it a workbook mailed in from outside runs that effect with the add-in''s own privilege, which is exactly what Office''s 2022 macro block removed and what SEC.8 restores. See SEC.8 in docs/BETA_REARVIEW.md.'
 }
 exit ([Math]::Min($failed.Count, 1))

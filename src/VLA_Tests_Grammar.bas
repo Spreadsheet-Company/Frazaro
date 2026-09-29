@@ -894,7 +894,7 @@ End Sub
 '  re-transpile the ENTIRE accumulated mVocabMacros text plus the new
 '  macro's own text on EVERY registration - O(macros^2) in the number
 '  of vocab macros carried, confirmed the dominant cost of a real
-'  corpus load (BETA_ROADMAP1.md's own P-PROBE entry; scripts/
+'  corpus load (BETA_REARVIEW.md's own P-PROBE entry; scripts/
 '  instructions_golden.vla's own 134 defmacro forms is the real corpus
 '  this surfaced against). Fixed to probe only the NEW macro's own
 '  text: correct per DefineMacro's own contract (VLA.bas) - Pass 1
@@ -1386,7 +1386,7 @@ End Sub
 '  GEXPANDER.1: the fully macro-expanded form of a vocabulary, on
 '  demand (EnglishExpandedVocabularyText) rather than automatically on
 '  every load (GEXPANDER.0's own reversed design - see
-'  BETA_ROADMAP.md). A live temp phrasebook exercises every real
+'  BETA_REARVIEW.md). A live temp phrasebook exercises every real
 '  directive kind DispatchVocabForm recognizes (a plain english-vla
 '  rule, a defmacro whose call expands to a (begin ...) pair, an
 '  at-row-tagged test-success) so the pins check the SAME real content
@@ -4207,7 +4207,7 @@ Public Sub TestAlonzoLib()
 End Sub
 
 ' LX.10: the falsification test - "a non-English market exists and is
-' reachable," the belief BETA_ROADMAP.md's own entry says this item
+' reachable," the belief BETA_REARVIEW.md's own entry says this item
 ' exists to be cheaply wrong about. scripts/espanol.vla already carries
 ' 19 rules and 20 test-success proofs in Spanish (session evidence
 ' logged against this item, six sibling dialect files besides), written
@@ -4292,7 +4292,7 @@ Public Sub TestF4NoiseWordBeforeSlot()
            Len(aud) = 0, "unexpected: " & Left$(aud, 200)
 
     ' Real acceptance target: francais.vla:151's own rule, the second
-    ' live instance BETA_ROADMAP.md's F.4 entry names. Confirmed live
+    ' live instance BETA_REARVIEW.md's F.4 entry names. Confirmed live
     ' (owner's VlaSelfTest run): loading raises - the rule's own
     ' test-success proof fails to translate, because the swallowed "a"
     ' gets parsed as a one-letter column reference and the match then
@@ -4330,7 +4330,7 @@ End Sub
 ' AddPhraseRule directly and quadrupled VlaSelfTest's own runtime,
 ' since a per-rule dispatch probe is O(corpus size so far) and that
 ' cost was being paid by every ordinary test's own reload, not just
-' audits - see BETA_ROADMAP.md's F.4 entry for the measured numbers).
+' audits - see BETA_REARVIEW.md's F.4 entry for the measured numbers).
 ' The real target is english.vla:517's own "show cell in column
 ' {c:column} row {n:expr}", shadowed by the BUILT-IN prelude rule
 ' "show {e:expr}" -> (msgbox {e}) (AddPhraseRule, ~line 1198 - always

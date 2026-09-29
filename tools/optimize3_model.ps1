@@ -9,7 +9,7 @@ b = 0.01 ms per produced row) was calibrated on an engine DATALOG.14 then
 changed underneath it: its own first coefficient is, to within noise, the
 per-source-row dictionary DATALOG.14 deleted. The OPTIMIZE.3 pre-flight
 (tools/optimize3_preflight_steps.md, archived when OPTIMIZE.3 began; its
-findings are in BETA_ROADMAP1.md's OPTIMIZE.3 entry) re-timed the ladder
+findings are in BETA_REARVIEW.md's OPTIMIZE.3 entry) re-timed the ladder
 and found the old model tenfold pessimistic below ~100,000 peak rows and up
 to 1.84x OPTIMISTIC past ~300,000. This refits it.
 
@@ -29,7 +29,7 @@ optimistic at that rung, whose 279,300-row step is 5.6 times the formula's
 per-step ceiling. The fit is kept as the pre-flight's record because the
 ceiling does not depend on it: with 17.148 s in that rung's place, without
 the rung, or with the harness's rungs added, the formula ceiling costs
-0.88-0.92 s. BETA_ROADMAP1.md's OPTIMIZE.3 entry, slice 1, has the table.
+0.88-0.92 s. BETA_REARVIEW.md's OPTIMIZE.3 entry, slice 1, has the table.
 
 THE FIT, relative least squares (each rung weighted by 1/seconds, so a
 0.05 s rung counts as much as a 9 s one):

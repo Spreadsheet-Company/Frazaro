@@ -14,7 +14,7 @@ death and proposed the watch-list (`EN.9`) without contents;
 to doubt — "Excel is where the users are" — and `VIABILITY.md` co-signed
 it as the largest unbookable line item on its books. Both land here.*
 
-*Sources read in full: `BETA_ROADMAP1.md`, `BETA_ROADMAP2.md`,
+*Sources read in full: `BETA_REARVIEW.md`, `BETA_ROADMAP.md`,
 `DEPLOY.md`, `PREMORTEM.md`, `ADVOCATUS.md`, `CONTINUITY.md`,
 `VIABILITY.md`, `CONTEMPLATIONS.md` — plus one census of the codebase
 itself (the `Declare` sites, counted below), and the public record of

@@ -19,7 +19,7 @@ cannot read, in words, and runs the rest inside Excel.*
 Less lyrically: this is a known-unfinished program, released unfinished
 on purpose, because the only way to learn which sentences real people
 reach for is to let real people reach for them. The gaps are counted, in
-order, in [docs/BETA_ROADMAP2.md](docs/BETA_ROADMAP2.md). Before
+order, in [docs/BETA_ROADMAP.md](docs/BETA_ROADMAP.md). Before
 reporting a missing feature, check whether it is already there. If it
 is, the complaint is heard and queued. If it is not, that is a genuinely
 useful report and exactly why the beta exists.
@@ -664,7 +664,7 @@ ever fixed, with its incident cited in place.
 | Self-tests, 2026-09-26 | 1493 pure, 202 against a live host, 2299 across the query and logic engines, and 283 corpus checks passing on each backend |
 
 **Standing decisions**, the ones a contributor meets first
-([docs/BETA_ROADMAP1.md](docs/BETA_ROADMAP1.md) has the register):
+([docs/BETA_REARVIEW.md](docs/BETA_REARVIEW.md) has the register):
 VBA is a backend, not the language (SD-1); a shipped spelling keeps its
 meaning (SD-4); every backend supports or explicitly refuses every core
 form (SD-5); no grammar section without a real sentence that needs it
@@ -812,7 +812,7 @@ devil's-advocate pass, a succession audit, a platform history)
 commissioned against the project's own blind spots. If you want to
 evaluate the engineering culture before the code, start with
 [docs/LESSONS.md](docs/LESSONS.md); if you want the current plan,
-[docs/BETA_ROADMAP2.md](docs/BETA_ROADMAP2.md); if you want the
+[docs/BETA_ROADMAP.md](docs/BETA_ROADMAP.md); if you want the
 arguments that are not yet decisions,
 [docs/CONTEMPLATIONS.md](docs/CONTEMPLATIONS.md) and
 [docs/SPITBALLS.md](docs/SPITBALLS.md).
@@ -866,7 +866,7 @@ with the mitigating control written down and a stated condition that reopens
 each — see *Assessed and accepted* below. Two remain open and are listed
 here, most-severe first. Both are audit findings read from the code rather
 than exploits anyone has run. Each one's file, line, and fix is in
-[docs/BETA_ROADMAP1.md](docs/BETA_ROADMAP1.md). In plain words:
+[docs/BETA_REARVIEW.md](docs/BETA_REARVIEW.md). In plain words:
 
 - **SEC.10** — the "remember my consent for this workbook" record is
   stored inside the workbook, so a workbook someone sends you can arrive
@@ -877,7 +877,7 @@ than exploits anyone has run. Each one's file, line, and fix is in
 **Assessed and accepted — deliberately not fixed, and why.** Each of these
 needs a precondition an ordinary install does not meet. The full reasoning,
 and the condition that would reopen each one, is in
-[docs/BETA_ROADMAP1.md](docs/BETA_ROADMAP1.md); in short:
+[docs/BETA_REARVIEW.md](docs/BETA_REARVIEW.md); in short:
 
 - **SEC.12** and **SEC.17** — both are on the *Compile* path, which refuses
   to run at all unless you have turned on Excel's *Trust access to the VBA

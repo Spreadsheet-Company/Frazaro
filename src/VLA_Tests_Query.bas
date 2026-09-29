@@ -1187,7 +1187,7 @@ End Sub
 ' headerMap in the exact (folded, original) pair shape VLA_Relation.
 ' RangeColumnNames returns (SqlColPair, already built for SQL's own
 ' pure suite below, reused as-is). Proves the motivating example this
-' item was found by name (BETA_ROADMAP2.md's own words - "Show every
+' item was found by name (BETA_ROADMAP.md's own words - "Show every
 ' Staffing name whose salary is over 80000"), the one correctness
 ' property that would be silently wrong if the anonymous-column naming
 ' were keyed on column position ALONE rather than atom occurrence too
@@ -13256,7 +13256,7 @@ Private Sub TestSql()
     ' parse as (dept='sales') OR (dept='eng' AND salary>92000), NOT as
     ' (dept='sales' OR dept='eng') AND salary>92000 - real SQL's own
     ' rule, and the entire reason a proper expression tree was built
-    ' instead of a string-FIND heuristic (BETA_ROADMAP1.md's own
+    ' instead of a string-FIND heuristic (BETA_REARVIEW.md's own
     ' correction, cited in this engine's own module header).
     Set result = VLA_Sql.SqlRun( _
         "SELECT * FROM staff WHERE dept = 'sales' OR dept = 'eng' AND salary > 92000", _
@@ -14571,7 +14571,7 @@ Private Sub TestSqlHostTable()
 
     ' SQL.7: a live recursive WITH, through the actual =SQL(...)
     ' worksheet function - the exact "everything transitively under
-    ' this row" shape BETA_ROADMAP1.md's own DATALOG motivating example
+    ' this row" shape BETA_REARVIEW.md's own DATALOG motivating example
     ' already used (an Employees table with a manager column IS a
     ' reports-to relation, no authoring step needed), now answered by
     ' SQL directly: bob reports to alice, carol reports to bob, dave

@@ -1,7 +1,7 @@
 Attribute VB_Name = "VLA_VocabMigrate"
 Option Explicit
 
-' F.13 (docs/BETA_ROADMAP.md) - throwaway, one-time migration tool.
+' F.13 (docs/BETA_REARVIEW.md) - throwaway, one-time migration tool.
 ' Converts english.vla's OLD directive DSL (pattern => template,
 ' test:/fail:/macro:/function:, #/' comments) into the NEW grammar
 ' (english-vla/english-vla-override/test-success/test-fail/bare

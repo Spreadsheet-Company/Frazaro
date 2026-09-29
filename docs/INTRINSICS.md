@@ -57,7 +57,7 @@ End Function
 **Why it matters.** Every identifier fold in the system — the head
 table, the macro table, the doc table (SD-8's own standing decision)
 — goes through this function, and deliberately *not* through VBA's
-built-in `LCase`. `LCase` is locale-aware (`BETA_ROADMAP1.md`'s own
+built-in `LCase`. `LCase` is locale-aware (`BETA_REARVIEW.md`'s own
 audit table: "in a Turkish locale, `I`/`İ` fold inconsistently"), so
 identity would silently depend on the end user's Windows regional
 settings. `Fold` sidesteps the entire problem by only ever touching

@@ -1286,7 +1286,7 @@ End Sub
 ' F.13: rewritten for the vocabulary-grammar migration - every fixture
 ' below used to be old-format text (pattern => template, test:,
 ' function:), which the loader no longer understands at all (forms are
-' the only path now - see BETA_ROADMAP.md's F.13 entry). Same
+' the only path now - see BETA_REARVIEW.md's F.13 entry). Same
 ' intent, same assertions, new-grammar fixtures.
 Private Sub TestLoader()
     Dim v As String
@@ -3810,7 +3810,7 @@ End Sub
 
 ' F.1: the dot count - rules whose template reaches the VBA object
 ' model directly instead of through a named macro or runtime helper.
-' Publish it; watch it fall; fail a test when it rises (BETA_ROADMAP.md's
+' Publish it; watch it fall; fail a test when it rises (BETA_REARVIEW.md's
 ' own words for this item). Counts every top-level form containing
 ' "(. " that is NOT itself a (defmacro ...) form - macro BODIES are
 ' where the dots are supposed to live, per F.1's own finish line ("the
@@ -4651,7 +4651,7 @@ End Sub
 '  LISTOPS-EXPAND: the seven expand-time arithmetic/comparison
 '  primitives (+expand/=expand/<>expand/>expand/<expand/>=expand/
 '  <=expand) - constant folding over LITERAL numeric operands only,
-'  scoped and adjudicated in BETA_ROADMAP.md before a line of this was
+'  scoped and adjudicated in BETA_REARVIEW.md before a line of this was
 '  written (see VLA_CORE_VERSION's own LISTOPSEXPAND.0 comment,
 '  VLA.bas). Non-numeric-operand cases prove the strict gate (guardrail
 '  2) rather than a silent coercion; the "not a canonical literal"
@@ -4702,7 +4702,7 @@ Private Sub TestListopsExpand()
     CheckFrags "listops-expand: <=expand is true on equality", t, Array("true")
 
     ' --- strict, not heuristic: a non-numeric operand raises, never
-    '     coerces (guardrail 2, BETA_ROADMAP.md's own LISTOPS-EXPAND
+    '     coerces (guardrail 2, BETA_REARVIEW.md's own LISTOPS-EXPAND
     '     entry) - same discipline eq?'s atom-only requirement holds.
     CheckExpandErr "listops-expand: +expand refuses a non-numeric operand", _
         "(+expand 2 (quote x))", "+expand: expected a number, got 'x'"
@@ -4742,7 +4742,7 @@ End Sub
 
 ' ---------------------------------------------------------------------
 '  COND.0: the tenth engine primitive, unifying the expand-time and
-'  runtime halves of `cond` under one name (BETA_ROADMAP.md's own COND
+'  runtime halves of `cond` under one name (BETA_REARVIEW.md's own COND
 '  entry - a first pass split them into two separate roadmap items that
 '  both wanted the name `cond`, caught before either was built).
 ' ---------------------------------------------------------------------
@@ -4761,7 +4761,7 @@ Private Sub TestCond()
     CheckFrags "cond: a false clause is skipped, never resolved, the next clause tried", t, Array("b")
 
     ' --- the standalone case that broke the original naive defmacro-
-    '     based attempt (BETA_ROADMAP.md's own COND entry history) - a
+    '     based attempt (BETA_REARVIEW.md's own COND entry history) - a
     '     compound LISTOPS test, called at the TOP LEVEL, no enclosing
     '     defmacro. This is the entire reason cond became an engine
     '     primitive instead of staying a prelude.vla macro.
@@ -4962,7 +4962,7 @@ Private Sub TestListopsDepthSafety()
 End Sub
 
 ' ---------------------------------------------------------------------
-'  TABLESPEC (BETA_ROADMAP.md's own entry) depth-safety proof - the
+'  TABLESPEC (BETA_REARVIEW.md's own entry) depth-safety proof - the
 '  same TestListopsDepthSafety discipline applied to tablespec/
 '  tablespec-row (scripts/english.vla) instead of the acceptance test's
 '  own walk-rows: tablespec is ALSO a self-recursive macro, so it

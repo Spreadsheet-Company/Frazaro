@@ -39,7 +39,7 @@ Public Const VLA_HEADTABLE_VERSION As String = "IN5.0"
 '             note above the row data), the
 '             interpreter (IN.2, when built, needs the same table for
 '             a different reason - its own dispatch, not the VBA
-'             emitter's - per BETA_ROADMAP.md's own note on this item),
+'             emitter's - per BETA_REARVIEW.md's own note on this item),
 '             R9/SD-5 (no row may end up with a filled VBA cell, an
 '             empty interpreter cell, and no refusal - unenforceable
 '             today since IN.2 doesn't exist, but the column is here

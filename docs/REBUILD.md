@@ -1,11 +1,11 @@
 # REBUILD — the target module topology
 
 *What the `.bas` files should be **shaped like** if they were written again from
-nothing, given what `BETA_ROADMAP.md` now says the project is for. Strategy, not a
+nothing, given what `BETA_REARVIEW.md` now says the project is for. Strategy, not a
 schedule: no pass IDs, no checkmarks, no dates. The ledger holds passes; the
 roadmap holds order; this file holds **shape**.*
 
-*Companion to `BETA_ROADMAP.md`, and downstream of it in exactly one direction: every
+*Companion to `BETA_REARVIEW.md`, and downstream of it in exactly one direction: every
 module below must name the roadmap items that pay for it, or it does not get
 created. A topology that cannot cite its debts is architecture as decoration.*
 

@@ -209,7 +209,7 @@
 
 ; LX5.3: (keyword-alias ...) - las primeras palabras de CONTROL DE
 ; FLUJO en espanol, probando el mecanismo LX5.1/LX5.2
-; (BETA_ROADMAP2.md, CanonicalizeStructuralWords) mas alla del
+; (BETA_ROADMAP.md, CanonicalizeStructuralWords) mas alla del
 ; vocabulario de frases de arriba: hasta ahora, cada regla de este
 ; archivo es una PLANTILLA (espanol-vla), nunca una palabra que
 ; ParseStmt reconoce por si misma (if/repeat/while/for, literales en

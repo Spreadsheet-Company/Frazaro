@@ -49,7 +49,7 @@ Private Const RAW_CONSENT_SECTION As String = "SEC2RawConsentV2"
 ' holding an array couldn't spread it across positional arguments the
 ' way every existing caller already does. See the function's own
 ' header, just above its body, for the detection rule.
-' LX5.2: split out of VLA_English.bas (BETA_ROADMAP2.md's LX.5, phase 2)
+' LX5.2: split out of VLA_English.bas (BETA_ROADMAP.md's LX.5, phase 2)
 ' - this module is the language-neutral sentence machinery: grammar
 ' registration, the DCG phrase-matching engine, G-RENDER, statement/
 ' condition/expression parsing, vocabulary-file loading/diff/profiling/
@@ -73,7 +73,7 @@ Private Const RAW_CONSENT_SECTION As String = "SEC2RawConsentV2"
 ' PROLOG.1: UnifyForm (G-RENDER's own one-way unifier, the FormSubstitute
 ' inverse) is now a thin pass-through to VLA_Unify.UnifyOneWay
 ' (VLA_Unify.bas, new module) rather than its own implementation -
-' BETA_ROADMAP2.md's own PROLOG entry, "the unifier is substrate, not
+' BETA_ROADMAP.md's own PROLOG entry, "the unifier is substrate, not
 ' engine-private." Read in full before touching it: every one of
 ' UnifyForm's four cases (bare {name} slot, glued slot make-{d}/xl{d},
 ' literal atom, list recursion) turned out to be completely DSL-
@@ -106,7 +106,7 @@ Private Const RAW_CONSENT_SECTION As String = "SEC2RawConsentV2"
 ' why that is safe (substitution is a single, non-recursive scan).
 ' Rendered text and Err.Number/Err.Source are unchanged (verified by
 ' manual trace at migration time for every site).
-' RULECOVERAGE.0: BETA_ROADMAP.md's AS.1, VBA-native this time - see the
+' RULECOVERAGE.0: BETA_REARVIEW.md's AS.1, VBA-native this time - see the
 ' owner's own "why isn't this shipped with Frazaro" challenge to the
 ' PowerShell-only version. EnglishRuleCoverageReport (new, public) does
 ' a fresh EnglishResetGrammar+EnglishLoadVocabulary, the same contract
@@ -151,7 +151,7 @@ Private Const RAW_CONSENT_SECTION As String = "SEC2RawConsentV2"
 ' Two item categories pinned (TestG6, VLA_Tests_Grammar.bas), not one,
 ' to prove the mechanism is generic: text-shaped and column-shaped
 ' (RefShapeOk's own IsColLetters, reused unchanged).
-' GEXPANDERLINT.0: BETA_ROADMAP.md's AS.1 scoping pass - "Export Expanded
+' GEXPANDERLINT.0: BETA_REARVIEW.md's AS.1 scoping pass - "Export Expanded
 ' Vocabulary" now returns house-style, pretty-printed text (VLA_Lint.
 ' VlaLintFormat over GEXPANDER.0's own flat blob) instead of one line per
 ' directive forever. Owner's own standing preference: every .vla this
@@ -165,7 +165,7 @@ Private Const RAW_CONSENT_SECTION As String = "SEC2RawConsentV2"
 ' (english-vla/test-success are IsDirectiveShaped, so both ALWAYS
 ' verticalize as "(head arg1" / "  arg2)", regardless of width) - not yet
 ' live-verified, needs an owner run.
-' ANTONYMSWEEP.0: BETA_ROADMAP.md's ANTONYM-SWEEP - the five hand-
+' ANTONYMSWEEP.0: BETA_REARVIEW.md's ANTONYM-SWEEP - the five hand-
 ' copied verb-antonym macro pairs (hide|unhide column, wrap|unwrap
 ' text, merge|unmerge range, protect|unprotect sheet, hide|unhide row)
 ' refactored through two real generators, both pure vocabulary
@@ -189,7 +189,7 @@ Private Const RAW_CONSENT_SECTION As String = "SEC2RawConsentV2"
 ' parameter shape genuinely does not fit either family. `TestAntonymSweep`
 ' (VLA_Tests_Grammar.bas) wired into VlaSelfTest right after
 ' TestListopsDepthSafety.
-' ATROW.0: BETA_ROADMAP.md's LISTOPS-PROVENANCE - a rule/test/macro a
+' ATROW.0: BETA_REARVIEW.md's LISTOPS-PROVENANCE - a rule/test/macro a
 ' generator produces from row N of a table must be traceable to row N,
 ' not just to the generator's own call site (today every spliced form
 ' inherits the call site's line only - fine for a five-line antonym
@@ -236,7 +236,7 @@ Private Const RAW_CONSENT_SECTION As String = "SEC2RawConsentV2"
 ' mechanism directly; TestAtRow's own two new pins (now 9 total) prove
 ' the full round trip - an at-row-tagged macro's real compiled output
 ' carries the tag on every call, and an ordinary macro's does not.
-' TABLEFAMILY.0: BETA_ROADMAP.md's TABLE-FAMILY, the first real generator
+' TABLEFAMILY.0: BETA_REARVIEW.md's TABLE-FAMILY, the first real generator
 ' macro METAVOCAB's own mechanism carries - not a test of the mechanism
 ' (TestMetaVocab already did that with synthetic macros), the mechanism
 ' put to real use in scripts/english.vla. table-property-family
@@ -375,7 +375,7 @@ Private Const RAW_CONSENT_SECTION As String = "SEC2RawConsentV2"
 ' is the same conservative bucket a default would otherwise earn.
 ' LX3.0: every identity-deciding LCase$ site now folds through
 ' VLA_Identity.Fold (invariant ASCII, never locale-dependent) - R6/SD-8.
-' GEXPANDER.0: BETA_ROADMAP.md's G-EXPANDER. Every EnglishLoadVocabulary
+' GEXPANDER.0: BETA_REARVIEW.md's G-EXPANDER. Every EnglishLoadVocabulary
 ' file load now writes a fully macro-expanded sibling next to the
 ' source (english_expanded.vla for english.vla) - every real directive
 ' DispatchVocabForm actually dispatches (english-vla/override/test-
@@ -410,7 +410,7 @@ Private Const RAW_CONSENT_SECTION As String = "SEC2RawConsentV2"
 ' refuse loudly on a mismatch instead of silently reading a stale
 ' expansion - the same fail-loud-over-silent-misreport instinct AS.6/
 ' F.12 already hold elsewhere in this file.
-' LX5.1: BETA_ROADMAP2.md's LX.5, phase 1 - the structural-keyword
+' LX5.1: BETA_ROADMAP.md's LX.5, phase 1 - the structural-keyword
 ' canonicalization seam. ParseStmt/ParseCond/ParseExpr/ParsePrim/the
 ' Oxford-comma list logic (887, 967, 4306, 4510-4540, 4916-4949) compare
 ' tokens against dozens of literal English words (if/repeat/until/times/
@@ -503,7 +503,7 @@ Private mPatForms As Collection    ' F.2: parallel - template pre-parsed
                                     ' era, and its Replace()-text fallback
                                     ' mPatTmpls, retired once F.2's own
                                     ' closure bar was met - see
-                                    ' BETA_ROADMAP.md's F.2 entry).
+                                    ' BETA_REARVIEW.md's F.2 entry).
 Private mLastRenderUsedFallback As Boolean  ' G-RENDER: set by
                                     ' RenderExprForm whenever an
                                     ' :expr/:cond binding fell outside
@@ -1654,7 +1654,7 @@ End Sub
 ' the reader half of the double round-trip (English substitutes text,
 ' VlaTranspile re-tokenizes it) never has to run twice per sentence.
 ' Forms are the ONLY path a rule's template takes now (the dual-path
-' era's Replace()-text fallback is retired - see BETA_ROADMAP.md's F.2
+' era's Replace()-text fallback is retired - see BETA_REARVIEW.md's F.2
 ' entry), so a template that doesn't parse as at least one well-formed
 ' VLA form is a load-time bug, not a degradation to fall back from -
 ' raises here, with the template text in the message, at the exact
@@ -1680,12 +1680,12 @@ End Function
 ' F.2: deep-copy tmplForm, substituting bound values in as FORMS, never
 ' text - so a bound value can never collide with a slot delimiter or
 ' corrupt a sibling slot's braces the way the old Replace()-based text
-' path could (retired; see BETA_ROADMAP.md's F.2 entry). Two shapes,
+' path could (retired; see BETA_REARVIEW.md's F.2 entry). Two shapes,
 ' both real in the shipped phrasebook: an atom that reads EXACTLY
 ' "{slotname}" splices the
 ' bound value's FULL form in structurally (a LIST, when the slot is an
 ' :expr/:cond - "total plus 1" binds a (+ total 1) list, not text); a
-' slot GLUED onto a larger atom - "make-{d}", "xl{d}", BETA_ROADMAP.md's
+' slot GLUED onto a larger atom - "make-{d}", "xl{d}", BETA_REARVIEW.md's
 ' own documented idiom for building a keyword from an alternation's
 ' matched word - text-splices just that bound word into the identifier,
 ' the one place a text-level operation is still correct because the
@@ -1844,7 +1844,7 @@ End Function
 ' proof that comparing the two paths agreed) are retired along with
 ' mPatTmpls and TryPhrase's own Replace()-text fallback - there is only
 ' one path now, so there is nothing left to toggle or compare against.
-' See BETA_ROADMAP.md's F.2 entry for the full retirement story;
+' See BETA_REARVIEW.md's F.2 entry for the full retirement story;
 ' docs/TESTING.md's old Pass 2 (which called EnglishFormPathSelfCheck)
 ' is retired for the same reason - ordinary vocabulary loading already
 ' re-verifies every test:/fail: proof through the one remaining path.
@@ -1857,7 +1857,7 @@ End Function
 '  matches and render that rule's English pattern with the concrete
 '  bindings spliced back in.
 '
-'  v1 scope (BETA_ROADMAP.md's G-RENDER entry has the full design):
+'  v1 scope (BETA_REARVIEW.md's G-RENDER entry has the full design):
 '  a rule is a render candidate only when its template compiles to
 '  EXACTLY ONE top-level form (mPatForms(idx).Count = 1) - a
 '  multi-statement template is not renderable yet. Ambiguity is real
@@ -4928,7 +4928,7 @@ Private Function TryPhrase(ByVal idx As Long, toks() As String, ByRef pos As Lon
 
     ' Success: substitute bindings into the template via the cached
     ' form - the only path now (F.2's dual-path era is retired; see
-    ' BETA_ROADMAP.md's F.2 entry).
+    ' BETA_REARVIEW.md's F.2 entry).
     For Each it In varNames
         MarkAssigned CStr(it)
     Next
@@ -6469,7 +6469,7 @@ End Function
 '  G-PROLOG slice 3: recursion and closure
 ' =====================================================================
 ' The owner's calls, 2026-09-14, each measured first through slice 2's
-' transliterations (BETA_ROADMAP1.md, G-PROLOG slice 3). A rule calling
+' transliterations (BETA_REARVIEW.md, G-PROLOG slice 3). A rule calling
 ' itself was already sayable; this slice adds the phrase, and closes the
 ' hazards recursion brings that the clause sub-grammar can see.
 '
@@ -6572,7 +6572,7 @@ End Sub
 '  G-PROLOG slice 4: answer shapes
 ' =====================================================================
 ' The owner's calls, 2026-09-14, each measured first through both engines
-' (BETA_ROADMAP1.md, G-PROLOG slice 4). Four shapes join the question
+' (BETA_REARVIEW.md, G-PROLOG slice 4). Four shapes join the question
 ' sub-grammar, each named by its own opening tokens, so the sub-grammar
 ' stays one deterministic left-to-right scan and stays regular:
 '
@@ -6842,7 +6842,7 @@ End Function
 '  G-PROLOG slice 5: text, first match, and a list in one cell
 ' =====================================================================
 ' The owner's calls, 2026-09-14, each measured first through both engines
-' (BETA_ROADMAP1.md, G-PROLOG slice 5), on DATALOG.11 and PROLOG.30, which
+' (BETA_REARVIEW.md, G-PROLOG slice 5), on DATALOG.11 and PROLOG.30, which
 ' shipped first so that every clause stays in the shared subset and every
 ' question stays on DATALOG:
 '
@@ -7715,7 +7715,7 @@ Public Function EnglishExpandedVocabularyText(ByVal vocabPath As String) As Stri
     ' source by its bare filename (Dir$ strips the directory), never a
     ' machine-specific absolute path, and carries source-size but not
     ' mtime - see ExpandedSiblingPath's own neighbor note below and
-    ' BETA_ROADMAP.md's G-EXPANDER entry for the full reasoning (both
+    ' BETA_REARVIEW.md's G-EXPANDER entry for the full reasoning (both
     ' still apply unchanged; only the automatic-write half was reversed).
     ' 0.5.1 (owner call, 2026-09-07): the staleness stamp is a hash over the
     ' source's NON-WHITESPACE bytes, not its byte size. The byte size read a
@@ -8024,7 +8024,7 @@ Private Sub DispatchVocabForm(fl As Variant, ByVal startLine As Long, ByVal rowT
         count = count + 1
     ElseIf Len(head) > 4 And Right$(head, 4) = "-vla" Then
         ' F.13: the source language rides in the head on purpose -
-        ' see BETA_ROADMAP.md's F.13 entry - and every one of them
+        ' see BETA_REARVIEW.md's F.13 entry - and every one of them
         ' is a phrase-rule directive, no per-language dispatch
         ' needed. Polyglot files are deliberate, not tolerated:
         ' this never checks which prefix a file already committed
@@ -8289,7 +8289,7 @@ End Sub
 '  tests), which exercises the real code path with no shortcut built
 '  in. The live prompt-and-decline/accept interaction itself is
 '  owner-verified manually, the same precedent DI.1's own trust dialog
-'  already set in this codebase (BETA_ROADMAP1.md DI.1: "Owner-verified
+'  already set in this codebase (BETA_REARVIEW.md DI.1: "Owner-verified
 '  live, all three trust states in sequence" - never folded into the
 '  automated VlaSelfTestsAll suite).
 '
@@ -8464,7 +8464,7 @@ End Function
 '      (requires-version "0.5.2")
 '      (requires-capability "sendmail")
 '      (requires-form "paint cell")
-'  BETA_ROADMAP.md's own F.10 entry spells this "requires:
+'  BETA_REARVIEW.md's own F.10 entry spells this "requires:
 '  <namespace>:<value>", which is prose predating F.13's migration to
 '  an all-forms file format - there is no line-oriented "key: value"
 '  syntax left in a .vla file for it to be. Head-carried namespace is
@@ -9191,7 +9191,7 @@ Private Sub RegisterVocabMacro(macForm As Collection, ByVal sourceName As String
     ' P-PROBE: this used to re-transpile mVocabMacros (every macro
     ' registered so far) & macText on EVERY new registration -
     ' O(macros^2) in the number of vocab macros, confirmed the
-    ' dominant cost of a full corpus load (BETA_ROADMAP1.md's own
+    ' dominant cost of a full corpus load (BETA_REARVIEW.md's own
     ' P-PROBE entry). Read against VlaTranspile's actual Pass 1/Pass 2
     ' split (VLA.bas) before changing it: Pass 1 (DefineMacro) collects
     ' every top-level defmacro form into a FRESH mMacros Collection on

@@ -1,7 +1,7 @@
 <#
 check_rule_coverage.ps1 - AS.1's own coverage report.
 
-"Which rules have no test-success; which have only one" - BETA_ROADMAP.md's
+"Which rules have no test-success; which have only one" - BETA_REARVIEW.md's
 AS.1, scoped over several passes once a static scan of the hand-written
 scripts/english.vla turned out to undercount the moment a generator
 (TABLE-FAMILY) is involved: a generator's own CALL site is one line in that

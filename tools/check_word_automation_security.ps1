@@ -146,6 +146,6 @@ if ($failed.Count -eq 0) {
 } else {
     Write-Output "=== CHECK: $($failed.Count) unguarded Documents.Open site(s) ==="
     $failed | ForEach-Object { Write-Output "  $_" }
-    Write-Output 'Set "wordApp.AutomationSecurity = 3" (msoAutomationSecurityForceDisable - the literal, since Word here is late-bound and the Office Object Library is not a checked reference) on a line before the Open, inside the same procedure. Without it Word''s automation default is msoAutomationSecurityLow and an opened .docm''s AutoOpen/Document_Open macro runs silently. See SEC.13 in docs/BETA_ROADMAP1.md.'
+    Write-Output 'Set "wordApp.AutomationSecurity = 3" (msoAutomationSecurityForceDisable - the literal, since Word here is late-bound and the Office Object Library is not a checked reference) on a line before the Open, inside the same procedure. Without it Word''s automation default is msoAutomationSecurityLow and an opened .docm''s AutoOpen/Document_Open macro runs silently. See SEC.13 in docs/BETA_REARVIEW.md.'
 }
 exit ([Math]::Min($failed.Count, 1))

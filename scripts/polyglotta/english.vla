@@ -217,7 +217,7 @@
 
 ; G1: the matched color word completes the vb constant. COLOR-FAMILY:
 ; widened from the original two-branch demo to VBA's full eight named
-; colors (BETA_ROADMAP.md's COLOR-FAMILY entry) - no engine change at
+; colors (BETA_REARVIEW.md's COLOR-FAMILY entry) - no engine change at
 ; all, since the glued-identifier substitution (vb{d}) and 3+-branch
 ; alternations both already work elsewhere in this file (format-as's
 ; own {d:currency|percent|date}); this is pure vocabulary data.
@@ -868,7 +868,7 @@
     "Name range A1:B10 as prices."
     (name-range (range "a1:b10") "prices"))
 
-; G-TABLES rule #1 (BETA_ROADMAP.md F.2's own composite proof): create an
+; G-TABLES rule #1 (BETA_REARVIEW.md F.2's own composite proof): create an
 ; Excel Table (a ListObject) from a range and name it, in one sentence.
 ; Surface and target both taken from pareto.txt's own section 9 ("Tables
 ; (ListObjects) - P1") - "make-table | Turn {r:range} into a table called
@@ -947,7 +947,7 @@
 ; its (begin (defmacro ...) (english-vla ...) (test-success ...))
 ; output back through the loader exactly as if a person had typed the
 ; defmacro/english-vla/test-success below by hand - same tests, same
-; apropos hit, same diff visibility (BETA_ROADMAP.md's TABLE-FAMILY
+; apropos hit, same diff visibility (BETA_REARVIEW.md's TABLE-FAMILY
 ; entry). `name` (a bare macro-name symbol, e.g. table-style) and
 ; `property` (a bare member-name symbol, e.g. tablestyle) each
 ; substitute as a WHOLE value into the nested defmacro's own head
@@ -1077,7 +1077,7 @@
     "Set qty-values to column Qty of table Sales."
     (table-column qty-values "sales" "qty"))
 
-; TABLESPEC (BETA_ROADMAP.md's own entry, THE METAMETAMACRO LINE):
+; TABLESPEC (BETA_REARVIEW.md's own entry, THE METAMETAMACRO LINE):
 ; table-property-family above generates one triple per HAND-TYPED call
 ; (three calls, three triples); tablespec generalizes that to an
 ; arbitrary-length WALKED list - one call, N triples, read off a quoted
@@ -1099,7 +1099,7 @@
 ; testsentence/testcall substitute via the exact same bound-parameter
 ; mechanism table-property-family's own name/property already use,
 ; nothing new there. tablespec itself is walk-rows' own shape
-; (BETA_ROADMAP.md's TABLESPEC entry, LISTOPS.0's acceptance test) -
+; (BETA_REARVIEW.md's TABLESPEC entry, LISTOPS.0's acceptance test) -
 ; quote-if/null?/car/cdr driving a self-terminating recursive walk -
 ; generalized from "one debug-print per row" to "one tablespec-row CALL
 ; per row," each field pulled off the current row via car/cadr/caddr
@@ -1109,7 +1109,7 @@
 ; new, untested ground. Base case bare (begin), same reason walk-rows'
 ; own is: quote-if's branches are CODE, not data.
 ;
-; DEPTH CEILING - tested, not assumed (BETA_ROADMAP.md's TABLESPEC
+; DEPTH CEILING - tested, not assumed (BETA_REARVIEW.md's TABLESPEC
 ; entry has the full trace of why begin-splice does NOT dodge this,
 ; contrary to this line's own LISTOPS-BUDGET entry's optimistic
 ; framing): tablespec is a self-recursive macro, so it inherits
@@ -1123,7 +1123,7 @@
 ; (TestListopsBudget's own number) fails LOUDLY, never a silent partial
 ; result. A table bigger than the tested-safe range is the author's to
 ; split across multiple (tablespec ...) calls, each within it - see
-; TABLESPEC-SCALE, filed directly after TABLESPEC in BETA_ROADMAP.md,
+; TABLESPEC-SCALE, filed directly after TABLESPEC in BETA_REARVIEW.md,
 ; for why no cleverer internal fix exists today. No real caller in this
 ; corpus yet (no table in scripts/english.vla is currently big enough
 ; to need it) - shipped as infrastructure, proven by TestTablespec's
@@ -1167,7 +1167,7 @@
 ; describe the SECTION's other verbs (pivot-rows/-columns/-filters, which
 ; do need G6's {f:field-list}), not this one, the same "the marker was a
 ; section-wide recommendation, not a per-surface requirement" gap the
-; BETA_ROADMAP.md G-FILES correction already found once. pareto.txt's
+; BETA_REARVIEW.md G-FILES correction already found once. pareto.txt's
 ; own surface text starts with "Create", but that word is the built-in
 ; Create-declaration keyword's own reserved first word (VLA_English.bas's
 ; Case "create" always intercepts a sentence starting with it, before
@@ -1187,7 +1187,7 @@
     (pivot-create (range "a1:c10") (range "f1") "salespivot"))
 
 ; G-PIVOT rules #2-4 (pareto.txt section 10): the three field-
-; orientation verbs, unblocked now that G6 (BETA_ROADMAP.md) ships
+; orientation verbs, unblocked now that G6 (BETA_REARVIEW.md) ships
 ; {name:text-list}. One shared Tier-2 helper, VlaPivotSetOrientation
 ; (VLA_Runtime.bas) - ".PivotFields(name).Orientation = xl...Field" is
 ; the same per-field-name loop regardless of which orientation, so each
@@ -1527,7 +1527,7 @@
 
 ; G-PIVOT round 2: pivot-rename/pivot-clear/pivot-source/pivot-sort -
 ; the CRUD-completeness survey's own findings, scoped and adjudicated
-; with the owner (docs/BETA_ROADMAP.md's G-PIVOT entry has the full
+; with the owner (docs/BETA_REARVIEW.md's G-PIVOT entry has the full
 ; conversation) before writing any of this.
 (defmacro
     (pivot-rename n m)
@@ -1741,7 +1741,7 @@
     (set-status-bar false))
 
 ; ---- G-STRUCT: rows, columns, copy/paste, clearing -------------------
-; BETA_ROADMAP.md's G-STRUCT entry, scoped against pareto.txt sections
+; BETA_REARVIEW.md's G-STRUCT entry, scoped against pareto.txt sections
 ; 2-5 and signed off with the owner before writing any rule below (four
 ; real forks; the owner's own choice is named at each). What pareto.txt
 ; itself already covers under a DIFFERENT surface this file already
@@ -1751,7 +1751,7 @@
 ; remove-duplicates, clear-formatting) is deliberately NOT re-added
 ; here under pareto's own wording - two spellings for one operation is
 ; exactly the promise-proliferation G-ROWLOOP's own entry already
-; reverted once (BETA_ROADMAP.md).
+; reverted once (BETA_REARVIEW.md).
 ;
 ; copy-style (pareto section 5) and copy-formats (section 3) turned out
 ; to be the identical .PasteSpecial xlPasteFormats call under two
@@ -2143,7 +2143,7 @@
     (fill-series (range "a1:a10") 2 3 "growth"))
 
 ; ---- G-FORMAT slice 1: the cosmetic layer (pareto section 5) ----------
-; BETA_ROADMAP.md's G-FORMAT entry, appetite-boxed to pareto.txt section
+; BETA_REARVIEW.md's G-FORMAT entry, appetite-boxed to pareto.txt section
 ; 5 only. Section 6 (number formats) waits on EN.3's locale policy - the
 ; roadmap's own gate table names exactly those rules and nothing else -
 ; and section 7 (conditional formatting) is its own later pass.
@@ -2154,7 +2154,7 @@
 ; unmerge, align left/right/center, copy-style, banded-rows and
 ; header-style.
 ;
-; SD-19 (BETA_ROADMAP.md's standing-decision register, founded on this
+; SD-19 (BETA_REARVIEW.md's standing-decision register, founded on this
 ; block): where Excel has neighbouring operations, each sentence names
 ; the one it performs. The test, at audition: read the sentence to
 ; someone who has not seen the rule - if a sibling operation is a
@@ -2812,7 +2812,7 @@
     (format-using (range "a1:a9") "00000"))
 
 ; ---- G-SORTFILTER: sorting and filtering (pareto section 8) -------------
-; BETA_ROADMAP.md's G-SORTFILTER entry, appetite-boxed to pareto.txt
+; BETA_REARVIEW.md's G-SORTFILTER entry, appetite-boxed to pareto.txt
 ; section 8 and scoped against what this file already said, with four
 ; forks the owner decided (2026-09-10), each named where its rules sit.
 ;
@@ -3115,7 +3115,7 @@
     (copy-visible-cells (range "a1:d50") (range "f1")))
 
 ; ---- G-TEXT slice 1: text changed in place (pareto section 12) ----------
-; BETA_ROADMAP.md's G-TEXT entry. pareto.txt section 12 has sixteen
+; BETA_REARVIEW.md's G-TEXT entry. pareto.txt section 12 has sixteen
 ; entries; this slice is the five that change a range's text where it
 ; stands (trim-spaces, upper-case, lower-case, proper-case, clean-text),
 ; each with a column twin. Scoped 2026-09-25 against what already
@@ -3508,7 +3508,7 @@
 ; boolean flip doesn't fit - the antonym pair IS two distinct method
 ; names on one target, not one property's two values. protect-sheet/
 ; unprotect-sheet below stay hand-written on purpose, table-to-range's
-; own precedent (BETA_ROADMAP.md's TABLE-FAMILY entry): their shape
+; own precedent (BETA_REARVIEW.md's TABLE-FAMILY entry): their shape
 ; adds a keyword-argument tail (:password pw) AND an extra parameter -
 ; neither family can splice into a signature and a call site with two
 ; different subsets of the same rest-bound name at once without real
@@ -4188,7 +4188,7 @@
     (set-fill-color (range "a1") (vlacolor hot-pink)))
 
 ; ---- G-DATALOG: sentence templates targeting DATALOG(rulesText, tables) --
-; BETA_ROADMAP2.md's own SQL.1 "Two refinements" text settled this whole
+; BETA_ROADMAP.md's own SQL.1 "Two refinements" text settled this whole
 ; query family's architecture already: these rows are RECOGNIZERS, not
 ; generators - an English sentence is matched and parsed INTO a target
 ; query representation (here, DATALOG's own S-expression program text,
@@ -4253,7 +4253,7 @@
     "Show every Name in Staffing with Salary over 80000 as Rich in cell E2."
     (datalog-filter-place "staffing" "name" "salary" ">" 80000 "rich" (range "e2")))
 
-; Reachability - Datalog's own differentiator (BETA_ROADMAP2.md's
+; Reachability - Datalog's own differentiator (BETA_ROADMAP.md's
 ; G-DATALOG entry names this the natural second wave). One template,
 ; one anchored transitive-closure shape: a two-column table read
 ; positionally (X reports to Y - DATALOG's own header comment's own

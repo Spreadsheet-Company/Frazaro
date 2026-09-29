@@ -459,7 +459,7 @@ Add a blank row after Product in pivot FullPivot.
 Remove a blank row after Product in pivot FullPivot.
 
 # G-PIVOT round 2 (pivot-sort/pivot-sort-by-value): scoped and
-# adjudicated with the owner (docs/BETA_ROADMAP.md's G-PIVOT entry has
+# adjudicated with the owner (docs/BETA_REARVIEW.md's G-PIVOT entry has
 # the full conversation, including the real ambiguity this deliberately
 # avoids). SalesPivot's own Region field (North/South/East) proves
 # alphabetical sort both directions - ascending restores Excel's own

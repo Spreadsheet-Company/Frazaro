@@ -206,7 +206,7 @@ Public Const VLA_DATALOG_VERSION As String = "OPTIMIZE.3"
 ' its rule's body (the same `bi` index ParseProgram's own body loop
 ' already walks by) and the column's own 1-based header position, never
 ' a counter or random name (this project's own standing veto on
-' gensym-style identifier invention, BETA_ROADMAP1.md's LANGUAGE +
+' gensym-style identifier invention, BETA_REARVIEW.md's LANGUAGE +
 ' MACHINE section). Deliberately UNIQUE PER ATOM OCCURRENCE, not per
 ' column alone: two different keyed atoms both omitting the same
 ' column - even against the same table, even within the same rule body
@@ -304,7 +304,7 @@ Public Const VLA_DATALOG_VERSION As String = "OPTIMIZE.3"
 ' DATALOG.3: column-scoped table arguments - the first of the MVP's two
 ' remaining stated limits to actually get built (the second, avoiding a
 ' full re-parse/re-fixpoint per recalc, stays deliberately unbuilt
-' pending a real profiling signal - BETA_ROADMAP2.md's own scoping note).
+' pending a real profiling signal - BETA_ROADMAP.md's own scoping note).
 ' TableArgName gains an early refusal (datalog-table-noncontiguous-
 ' columns) for a multi-area (Ctrl-selected) Range, before .ListObject
 ' even gets a chance to resolve unpredictably against one. The actual
@@ -1099,7 +1099,7 @@ End Function
 
 ' Comma-joined ORIGINAL (unfolded) column names, for datalog-unknown-
 ' column's own teaching-refusal wording ("its own columns are: ...") -
-' mirrors sql-unknown-column's shape (BETA_ROADMAP2.md's own DATALOG.5
+' mirrors sql-unknown-column's shape (BETA_ROADMAP.md's own DATALOG.5
 ' words) without literally reusing its id (SD-9: ids are never reused).
 Private Function JoinOriginalNames(ByVal headerPairs As Collection) As String
     Dim r As String

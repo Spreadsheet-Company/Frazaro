@@ -1,7 +1,7 @@
 # instrucciones.txt - lo que Frazaro_Espanol.xlam entiende HOY, en
 # espanol, y nada mas. Es el companero exacto de instructions.txt: la
 # BRECHA entre ambos archivos ES el trabajo pendiente de EDITION-
-# ESPANOL (docs/BETA_ROADMAP2.md) - cada linea de instructions.txt que
+# ESPANOL (docs/BETA_ROADMAP.md) - cada linea de instructions.txt que
 # NO tiene una version aqui es, por definicion, una frase que Frazaro
 # todavia no entiende en espanol. Esta corrida ejercita, con una
 # prueba real, exactamente los 19 patrones (espanol-vla ...) y las 5
@@ -25,7 +25,7 @@
 # misma razon de fondo: sin una variable que pueda cambiar de valor,
 # cualquier condicion literal como "5 es 5" nunca se vuelve falsa - un
 # bucle asi colgaria Excel de verdad si esto se compila y corre
-# (IN.14, docs/BETA_ROADMAP2.md, ya nombra este riesgo para el
+# (IN.14, docs/BETA_ROADMAP.md, ya nombra este riesgo para el
 # interprete). La propia prueba test-success de "mientras" en
 # espanol.vla ya cubre esa palabra de forma segura - solo traduccion,
 # nunca ejecucion. Repetirlo aqui como una linea que SI se ejecuta

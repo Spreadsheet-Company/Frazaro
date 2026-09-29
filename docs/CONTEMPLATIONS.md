@@ -633,9 +633,9 @@ in their native tongue?*
 *Sources read in full before answering: `README.md`, `SUBSTRATE.md`,
 `VENTURE.md`, `VIABILITY.md`, `THREAT_MODEL.md`, `SECURITY.md`,
 `ADVOCATUS.md`, `METAMETAMETALISP.md`, and Contemplations 1–3 above.
-Read in part: `BETA_ROADMAP1.md` (the mission, the ordering rules, the
+Read in part: `BETA_REARVIEW.md` (the mission, the ordering rules, the
 standing-decision register, the two-neutralities preamble, the closing
-short answer, `LE.7`, `GO.3`, `PORT.1`–`PORT.3`), `BETA_ROADMAP2.md`'s
+short answer, `LE.7`, `GO.3`, `PORT.1`–`PORT.3`), `BETA_ROADMAP.md`'s
 preamble, `CONSULTANT.md` §0–§2.6, `PREMORTEM.md` through D.2,
 `MARKETING.md` §0–§3.2, `INTRINSICS.md`'s scope and first intrinsics,
 `GRAMMAR_SINCE.md`'s rule, `LESSONS.md`'s opening, and `sententiae.txt`.
@@ -901,7 +901,7 @@ ask in a Frazaro SOP that today are answered by clicking through large
 workbooks?*
 
 *Read in full before answering: `README.md`, Contemplations 1–4 above,
-`BETA_ROADMAP2.md`'s QUERY AND LOGIC tranche, its standing-decision
+`BETA_ROADMAP.md`'s QUERY AND LOGIC tranche, its standing-decision
 register, THE MIDDLE LAYER, THE METAMETAMACRO LINE, THE EDITION LINE,
 `U.18` and `SOP.1`–`SOP.5`; `MARKETING.md` §3.8–§3.11 and §4;
 `VENTURE.md` §6; `sententiae.txt`; `PHRASEBOOK-TERMS.md`; the headers of
@@ -1129,7 +1129,7 @@ measurement, and it is the reason the rest was worth writing.*
 `CONTINUITY.md`, `VIABILITY.md`, `SUBSTRATE.md`, `CONSULTANT.md`
 (including its addendum), `THREAT_MODEL.md`, `TESTING.md`,
 `SECURITY.md`, `SUPPORT.md`, `docs/README.md`, the root `README.md`,
-and Contemplations 1–5 above. Read in part: `BETA_ROADMAP2.md` (the
+and Contemplations 1–5 above. Read in part: `BETA_ROADMAP.md` (the
 departments, the standing-decision register, SIGNATORY, PATIENT, SOP
 IMPORT, ENVIRONMENT, THE MIDDLE LAYER through QUERY AND LOGIC, and
 INTERFACE through the closing short answer); `AUDIT.md` (I.0–I.4 and
@@ -1170,7 +1170,7 @@ roadmap files.
 | `DZ.1`, the drizzle ledger | PREMORTEM | Not minted. TERRARIUM is the nearest thing and demands a repro and a root cause — the opposite of a shrug, by its own design note. |
 | `DO.7`, the front door | VIABILITY | Done in substance: the root `README.md` exists. No ID. |
 
-Neither `RELEASES.md` nor `BETA_ROADMAP2.md` contains the words
+Neither `RELEASES.md` nor `BETA_ROADMAP.md` contains the words
 "premortem", "drizzle", or "receivable"; the roadmap's single
 "tripwire" is `PROLOG.9`'s own name for a PowerShell check, not a
 re-read of the coroner's. `PREMORTEM.md`'s Ω predicted exactly this
@@ -1363,12 +1363,12 @@ needed, and every line below is a plain shell command:
 # Which proposed mints exist as roadmap items (bold ID at bullet head)?
 for id in SIG.6 SIG.7 EN.9 EN.10 CN.1 CN.2 CN.3 DZ.1 DO.7; do
   printf '%-6s %s %s\n' "$id" \
-    "$(grep -c "\*\*$id\b" docs/BETA_ROADMAP2.md)" \
-    "$(grep -c "\*\*$id\b" docs/BETA_ROADMAP1.md)"; done
+    "$(grep -c "\*\*$id\b" docs/BETA_ROADMAP.md)" \
+    "$(grep -c "\*\*$id\b" docs/BETA_REARVIEW.md)"; done
 # Where are they referenced at all?
 grep -n "SIG\.6\|SIG\.7\|CN\.[123]\b\|DZ\.1\|EN\.10" docs/*.md README.md
 # Did any fork re-read the coroner?
-grep -nic "premortem\|drizzle\|receivable" docs/RELEASES.md docs/BETA_ROADMAP2.md
+grep -nic "premortem\|drizzle\|receivable" docs/RELEASES.md docs/BETA_ROADMAP.md
 # The shelf's vocabulary
 for t in "the owner" "the user" "the pilot"; do grep -roi "$t" docs/*.md | wc -l; done
 # The literature, and the landlord's own record
@@ -1772,7 +1772,7 @@ assistant's.*
 
 *Read in full before answering: `README.md`, `docs/README.md`,
 `REBUILD.md`, `CUTS.md`, `SUBSTRATE.md`, Contemplations 3 and 5 above,
-`BETA_ROADMAP2.md`'s standing-decision register, THE TWO NEUTRALITIES,
+`BETA_ROADMAP.md`'s standing-decision register, THE TWO NEUTRALITIES,
 THE MIDDLE LAYER, THE METAMETAMACRO LINE and THE EDITION LINE,
 `LESSONS.md` §I and its Beta addendum, `VLA_HeadTable.bas`, the emitter
 sections of `VLA.bas`, the dispatch procedures of `VLA_Interpreter.bas`,
@@ -2042,9 +2042,9 @@ still decidable) while moving the English back out?
   `VLA_Prolog.bas` is 63%, and its first declaration is on line 1,364.
   `CUTS.md`'s "fourteen of twenty-four modules over `R4`'s budget" is
   largely prose. The reason is a good one — sessions are stateless and
-  the comments are the collaborator's memory — but `BETA_ROADMAP2.md`
+  the comments are the collaborator's memory — but `BETA_ROADMAP.md`
   already made this cut for the roadmap: one paragraph, then "more:
-  `BETA_ROADMAP1.md`". The code has not had its `BETA_ROADMAP2.md`.
+  `BETA_REARVIEW.md`". The code has not had its `BETA_ROADMAP.md`.
 
 ### Where elegance is a trapdoor
 

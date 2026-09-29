@@ -37,12 +37,19 @@ one that quietly failed to arrive).
 
 ## Governed set, and why it stops there
 
-**Governed:** `docs/BETA_ROADMAP.md` + `docs/ALPHA*_ROADMAP.md` (today, just
+**Governed:** `docs/BETA_ROADMAP.md` + `docs/BETA_REARVIEW.md` + `docs/ALPHA*_ROADMAP.md` (today, just
 `ALPHA6_ROADMAP.md`; the glob picks up `ALPHA7_ROADMAP.md` unmodified when
 this version closes). This is the promotion path SD-9 describes in its own
 telling — a ledger mints an item, the strategy file carries it forward or
 promotes it — so it is the only place a new ID gets minted, and the only
 place this script treats a collision as an error.
+
+Since 2026-09-27 the roadmap holds open items only, and each closed item's
+one-paragraph entry moves to THE CLOSED LEDGER at the end of
+`docs/BETA_REARVIEW.md`, where its full build record already lives. The check
+reads that ledger as its own mirrored file, so the pair is reported as
+MIRRORED (informational), never as a DUPLICATE DEFINITION - the same
+relationship the two files had before the rename.
 
 **Advisory, not governed:** `docs/REBUILD.md`, `docs/LESSONS.md`,
 `docs/AUDIT.md`, `docs/PROJECT_BRIEF.md`. Each keeps its own internal
@@ -50,7 +57,7 @@ numbering for its own purpose — REBUILD.md's `R1`–`R11` are naming/lint
 rules and its plate/layer steps are a target-architecture sketch, not
 backlog items; LESSONS.md and AUDIT.md number findings from sessions that
 predate this file. Renumbering any of them is out of scope for an `~hours`
-item and is not what SD-9 asks for — but BETA_ROADMAP.md's own prose already
+item and is not what SD-9 asks for — but BETA_REARVIEW.md's own prose already
 cites REBUILD.md IDs inline (`R7`, `R9`, `R10`, `S3.1`, ...) in the same
 breath as its own items, so a token free in the governed set can still read
 as ambiguous next to an advisory one. The script reports that overlap so it
@@ -64,7 +71,7 @@ Ran clean: **0 governed collisions, 0 duplicate definitions, 0 retired IDs
 re-minted.** SD-9's discipline has held across every item since the founding
 incident. *Refreshed again, same day, after `SIG.0`–`SIG.5` plus `F.15`,
 `LX.12`, `IN.14`, and `AS.9` were minted* — all six checked clean before
-landing in BETA_ROADMAP.md. This mint again coexisted with a concurrent
+landing in BETA_REARVIEW.md. This mint again coexisted with a concurrent
 session's own in-flight, uncommitted work (a G3/`mSigOwner` follow-up inside
 `F.4`'s own entry, not itself a new ID mint) — the two edit streams were kept
 apart at the git-hunk level too, not just the ID level, so the concurrent
@@ -109,7 +116,7 @@ granted capability; default deny), minted while scoping `SEC.*`).
 
 **`SEC` is a wholly new family, minted the same day as this second refresh's
 own `SIG` mint, both declared in the prefix inventory at the moment of
-minting** (`BETA_ROADMAP.md`'s "HOW THIS ROADMAP IS ORDERED" section) rather
+minting** (`BETA_REARVIEW.md`'s "HOW THIS ROADMAP IS ORDERED" section) rather
 than found missing by a later audit — the L./V./DR gap's own lesson, applied
 instead of repeated twice. Six items, `SEC.0`–`SEC.6`, under a new sixth
 department, 🛡 THE ADVERSARY. `SD-15` (dynamic dispatch beyond the native
@@ -148,7 +155,7 @@ whoever collects them mints them as cited or declines them in writing.
 
 **IN advanced between the 2026-08-18 and 2026-08-19 snapshots (recorded
 then, left as-is here per this file's own nothing-is-pruned convention):**
-`IN.9` → `IN.10` (user-procedure call/return, BETA_ROADMAP.md,
+`IN.9` → `IN.10` (user-procedure call/return, BETA_REARVIEW.md,
 adjudication/scoping only — see the item's own "buy the decision now, defer
 the artifact" framing). Several other families (`F`, `IN`, `G-`) advanced
 further between the 2026-08-19 and 2026-08-28 snapshots via a different,
@@ -178,7 +185,7 @@ closed ledgers, not as this file's own count, and reads the dotted form
 (`V.2`, `L.12`) as the one actually free in the *live* rotating family.
 
 **Three prefixes the founding audit found live but undeclared:** `L.` and
-`V.` were already minted (`L.11`, `V.1`) and cited throughout BETA_ROADMAP.md,
+`V.` were already minted (`L.11`, `V.1`) and cited throughout BETA_REARVIEW.md,
 but missing from this file's own prefix inventory (the "ordering" section,
 now fixed). `DR` (`DR1`, `DR2`, both on `ALPHA6_ROADMAP.md`, DR2 currently
 ⛔ parked) was never declared anywhere. None of the three were ever
@@ -186,7 +193,7 @@ actually ambiguous — that was a documentation gap the audit closed, not a
 collision the audit found.
 
 **Spot-checked, not exhaustively reviewed:** the advisory-overlap output is
-large (most of BETA_ROADMAP.md's own items are, unsurprisingly, *also* mentioned
+large (most of BETA_REARVIEW.md's own items are, unsurprisingly, *also* mentioned
 in REBUILD.md and AUDIT.md's prose — that is normal cross-referencing, not a
 collision). One family was checked by hand: the bare `G6`/`G7`/`G8`/`G9`/
 `G11r` tokens that PROJECT_BRIEF.md and both ledgers share are the *same*

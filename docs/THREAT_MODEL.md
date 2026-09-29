@@ -14,7 +14,7 @@ is itself a fix — this is the artifact `SEC.0` asks for, no more.*
 
 ## 0. The one thing to get right before anything else
 
-**"Zero-trust runtime" (`IN.9`, `BETA_ROADMAP1.md`) does not mean what an
+**"Zero-trust runtime" (`IN.9`, `BETA_REARVIEW.md`) does not mean what an
 IT reviewer will assume it means.** IN.9's own text: the interpreter is the
 default runtime specifically because it needs *"no VBProject trust"* — it
 runs VLA source directly against a live workbook, generating no VBA code,

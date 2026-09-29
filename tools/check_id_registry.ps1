@@ -5,15 +5,17 @@ Mechanizes SD-9 ("IDs are never reused across documents, and a retired ID is
 never re-minted") the same way REBUILD.md's R11/Appendix D mechanizes it for
 module names: a grep-shaped check, runnable in one call, no live Excel needed.
 
-GOVERNED set: docs/BETA_ROADMAP.md + docs/ALPHA*_ROADMAP.md. These are "the
+GOVERNED set: docs/BETA_ROADMAP.md + docs/BETA_REARVIEW.md + docs/ALPHA*_ROADMAP.md. These are "the
 namespace" SD-9 and F.12 describe - the strategy file and its version ledgers,
 the promotion path where SD-9's founding incident (Alpha 1's bare "F1" vs this
-file's "F.1") actually happened. A new item ID is only minted here.
+file's "F.1") actually happened. A new item ID is only minted here. BETA_REARVIEW.md's closing section,
+THE CLOSED LEDGER, is the roadmap's former summary half (BETA_ROADMAP2.md
+until 2026-09-27) and is read as a separate, mirrored file - see Pass 1.
 
 ADVISORY set: docs/REBUILD.md, docs/LESSONS.md, docs/AUDIT.md,
 docs/PROJECT_BRIEF.md. These documents keep their own internal numbering for
 their own purposes (REBUILD.md's R1-R11 lint rules and layer/plate steps,
-etc.) and this script does not govern or rename them. But BETA_ROADMAP.md's own
+etc.) and this script does not govern or rename them. But BETA_REARVIEW.md's own
 prose cites REBUILD.md IDs inline (R7, R9, R10, S3.1, ...), so a token that is
 free in the governed set can still collide in a reader's head with an advisory
 one - this script reports that overlap so it can be a documented, understood
@@ -38,7 +40,8 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $docsDir  = Join-Path $repoRoot 'docs'
 
-$governedPaths = @(Get-ChildItem -Path $docsDir -Filter 'BETA_ROADMAP*.md') +
+$governedPaths = @(Get-ChildItem -Path $docsDir -Filter 'BETA_ROADMAP.md') +
+                  @(Get-ChildItem -Path $docsDir -Filter 'BETA_REARVIEW.md') +
                   @(Get-ChildItem -Path $docsDir -Filter 'ALPHA*_ROADMAP.md') |
                   Sort-Object Name
 $advisoryNames = @('REBUILD.md', 'LESSONS.md', 'AUDIT.md', 'PROJECT_BRIEF.md')
@@ -112,7 +115,7 @@ function Get-LeadingNumber([string]$tok) {
 # to another item, reported under CROSS-REFERENCE MENTIONS rather than
 # counted as a definition.
 #
-# Why (2026-09-07, 0.5.1's pre-flight): BETA_ROADMAP2.md's one-paragraph-
+# Why (2026-09-07, 0.5.1's pre-flight): BETA_ROADMAP.md's one-paragraph-
 # per-item style bolds ids mid-sentence when an item points at another -
 # "absorbed into **PF.4**", "🔒 **SD-10 governs:**", "**Not** the finding
 # **P-PROBE** already closed", "**LE.1 is the read-only view of the
@@ -129,7 +132,7 @@ function Get-LeadingNumber([string]$tok) {
 # while scoping F.14/LX.2's own follow-ups) and kept: a nested sub-bullet
 # that POINTS AT another item's id rather than restating its own definition
 # uses this doc's own recurring callout phrasing, "**TOKEN cross-reference:**"
-# (BETA_ROADMAP.md's LISTOPS-BUDGET and TABLESPEC entries both cross-
+# (BETA_REARVIEW.md's LISTOPS-BUDGET and TABLESPEC entries both cross-
 # reference P-PROBE this way). That bolded token sits at the head of its
 # own sub-bullet, so the head-position rule alone would still count it -
 # excluded by the literal word immediately following the token, not by
@@ -139,8 +142,16 @@ $defined   = New-Object System.Collections.Generic.List[object]
 $crossRefs = New-Object System.Collections.Generic.List[object]
 foreach ($f in $governedPaths) {
     $lineNo = 0
+    $fileLabel = $f.Name
     foreach ($line in Get-Content -LiteralPath $f.FullName) {
         $lineNo++
+        # THE CLOSED LEDGER (2026-09-27): from this heading down, BETA_REARVIEW.md
+        # holds the roadmap's own one-paragraph entry for every closed item,
+        # moved there the day it closed - the former BETA_ROADMAP2.md half of
+        # the mirror, now inside the same file as the full entries. Labelled as
+        # its own file so each pair reads as MIRRORED (informational), not
+        # DUPLICATE (an error), exactly as it did when the halves were two files.
+        if ($line -match '^# THE CLOSED LEDGER') { $fileLabel = "$($f.Name) (closed ledger)" }
         if ($line -notmatch '^\s*-\s') { continue }
         $ms = [regex]::Matches($line, "\*\*$tokenPattern")
         foreach ($m in $ms) {
@@ -152,14 +163,14 @@ foreach ($f in $governedPaths) {
             $atHead = ($prefix -cnotmatch '[a-z]')
             if (-not $atHead -or $tail -match '^\s+cross-reference\b') {
                 $crossRefs.Add([pscustomobject]@{
-                    File = $f.Name
+                    File = $fileLabel
                     Line = $lineNo
                     Raw  = $m.Groups['tok'].Value
                 })
                 continue
             }
             $defined.Add([pscustomobject]@{
-                File = $f.Name
+                File = $fileLabel
                 Line = $lineNo
                 Raw  = $m.Groups['tok'].Value
                 Norm = Get-Normalized $m.Groups['tok'].Value
@@ -263,7 +274,7 @@ foreach ($ap in $advisoryPaths) {
 $retired = @(
     [pscustomobject]@{ Raw = 'F1'; Note = "F1 (bare) - Alpha 1 interpreter mode; collided with F.1; SD-9's founding incident." }
     # 2026-09-18: the SOLVE engine was renamed OPTIMIZE and its nine
-    # dissections re-planned around ground-then-search (BETA_ROADMAP1.md,
+    # dissections re-planned around ground-then-search (BETA_REARVIEW.md,
     # the OPTIMIZE family paragraph). None was built. The old ids are
     # retired so a later "SOLVE.3" can never mean a second thing.
     [pscustomobject]@{ Raw = 'G-SOLVE'; Note = "G-SOLVE - the grammar item for the SOLVE engine; renamed G-OPTIMIZE with the engine, 2026-09-18." }

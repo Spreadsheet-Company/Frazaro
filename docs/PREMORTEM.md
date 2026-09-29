@@ -6,7 +6,7 @@ hindsight, which is the premortem's one real trick: "what could go wrong?"
 produces hedges, while "what went wrong?" produces mechanisms, because the
 past tense is the only tense in which humans reliably stop negotiating.*
 
-*Sources read in full: `BETA_ROADMAP1.md`, `BETA_ROADMAP2.md`,
+*Sources read in full: `BETA_REARVIEW.md`, `BETA_ROADMAP.md`,
 `CONSULTANT.md`, `AUDIT.md`, `REBUILD.md`, `LESSONS.md`, `TRENCHES.md`,
 `DEPLOY.md`, `METAMETALISP4.md`. Standing assumption, inherited from
 `CONSULTANT.md` and kept: **every ⬜ item is treated as if it will be

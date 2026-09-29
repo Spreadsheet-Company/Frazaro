@@ -19,7 +19,7 @@ Attribute VB_Exposed = False
 ' form's own window style via User32, after which Windows' own window
 ' manager handles the drag-resize natively. Deliberately NOT the
 ' AddressOf/subclassing pattern flagged as the real security concern
-' when this whole feature started (BETA_ROADMAP.md's IN.13) - this is
+' when this whole feature started (BETA_REARVIEW.md's IN.13) - this is
 ' one style bit set on a window this form already owns, no custom
 ' WndProc, no callback pointer, nothing for AMSI/Defender heuristics to
 ' notice. SetWindowPos with SWP_FRAMECHANGED right after is required,

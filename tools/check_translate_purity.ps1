@@ -65,7 +65,7 @@ $srcDir   = Join-Path $repoRoot 'src'
 # function added to this chain belongs on this list the same day.
 $scanTargets = @(
     # LX5.2: these five moved from VLA_English.bas to VLA_SentenceEngine.bas
-    # (BETA_ROADMAP2.md's LX.5, phase 2 - the physical module split). Purity
+    # (BETA_ROADMAP.md's LX.5, phase 2 - the physical module split). Purity
     # is a property of the CODE, not of which file holds it, so the move
     # itself needed no re-audit - only this list's own Module field, or the
     # scanner would silently stop finding these functions at all.

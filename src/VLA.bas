@@ -59,7 +59,7 @@ Public Const VLA_CORE_VERSION As String = "TER-8"
 ' literal runs, "&"-joined, one splice per OCCURRENCE (a hole reused
 ' three times in one template gets its value's EmitExpr text emitted
 ' three times, not cached into a temp variable - correct and simplest
-' for BETA_ROADMAP2.md's own "not a second grammar" scoping, since
+' for BETA_ROADMAP.md's own "not a second grammar" scoping, since
 ' EmitExpr is pure text generation with no side effect to worry about
 ' repeating). New messages (VLA_Messages.bas): vla-interpolate-
 ' template-must-be-literal, vla-interpolate-expected-keyword-arg,
@@ -81,7 +81,7 @@ Public Const VLA_CORE_VERSION As String = "TER-8"
 ' row's own columns - no raw Cells/Range calls inside it - the owner's
 ' own explicit adjudication after the automatic-loop-rewrite
 ' alternative was rejected on determinism/auditability grounds
-' (docs/BETA_ROADMAP1.md's own PF.4 entry has the full history): a
+' (docs/BETA_REARVIEW.md's own PF.4 entry has the full history): a
 ' fixed, unconditional emission template is what keeps this auditable,
 ' the same shape every other VLA form already has.
 ' All-or-nothing commit falls out of the emission shape itself, not
@@ -132,7 +132,7 @@ Public Const VLA_CORE_VERSION As String = "TER-8"
 ' than special-casing exit-for to route through it correctly.
 ' PF7.0: VlaEmbeddedText's O(n^2) string-build (`s = s & CStr(cell.Value)
 ' & vbCrLf` inside a `For i = 1 To n` cell-by-cell loop) fixed - PRODUCT +
-' PERFORMANCE's PF.7, BETA_ROADMAP1.md/BETA_ROADMAP2.md, scoped before any
+' PERFORMANCE's PF.7, BETA_REARVIEW.md/BETA_ROADMAP.md, scoped before any
 ' code changed per the owner's own P-TOK-precedent request. One bulk
 ' Range.Value read (one COM round-trip regardless of n, replacing n
 ' separate sh.Cells(i, 1) calls) flattened into a 1-D String array, then
@@ -162,7 +162,7 @@ Public Const VLA_CORE_VERSION As String = "TER-8"
 ' call during translation - a different mechanical shape wanting its own
 ' fix, not this one repeated.
 ' PNTH.0: cdr/cddr's O(n^2) copy replaced with O(1) structural sharing -
-' MACHINE + OPTIMIZATION's P-NTH, BETA_ROADMAP2.md, the "full fix,"
+' MACHINE + OPTIMIZATION's P-NTH, BETA_ROADMAP.md, the "full fix,"
 ' owner's own call after P-DICT's live before/after ruled out GetMacro
 ' and confirmed this family (cdr/ListTail) as the real cost. New class
 ' VlaSlice.cls: a read-only, O(1) VIEW over the tail of an existing
@@ -204,7 +204,7 @@ Public Const VLA_CORE_VERSION As String = "TER-8"
 ' since every consumer already only ever needed .Count/.Item(i).
 ' PDICT.0: mMacros (the macro registry) swapped from a Collection to a
 ' late-bound Scripting.Dictionary (no project reference) - MACHINE +
-' OPTIMIZATION's P-DICT, BETA_ROADMAP2.md, gated on and directly measured
+' OPTIMIZATION's P-DICT, BETA_ROADMAP.md, gated on and directly measured
 ' by P-PROF's own live run: GetMacro's Collection.Item(key) lookup was a
 ' linear scan (Collection has no hash table for keyed access), the
 ' dominant contributor to "expand" reading 71.3% of compile-side transpile
@@ -229,7 +229,7 @@ Public Const VLA_CORE_VERSION As String = "TER-8"
 ' by P-PROF's own numbers the way GetMacro was, and this tranche's own
 ' rule is real cost before a fix, not suspicion.
 ' PPROF.0: per-phase timing behind one switch (MACHINE + OPTIMIZATION's
-' P-PROF, BETA_ROADMAP2.md), the instrument the rest of that tranche
+' P-PROF, BETA_ROADMAP.md), the instrument the rest of that tranche
 ' (P-DICT/P-NTH/P-TOK) is gated on rather than built on suspicion.
 ' VlaTranspile's own existing Pass 1/Pass 2 structure is the seam - four
 ' compile-side buckets (tokenize/parse/expand/emit), summed across every
@@ -271,7 +271,7 @@ Public Const VLA_CORE_VERSION As String = "TER-8"
 ' against a fresh grep count, not just counted by hand).
 ' COND.0: the tenth engine primitive - (cond (test1 form1) ... (else
 ' formN)), generalizing quote-if's own strict two-branch shape to N
-' clauses. Scoped across several passes in BETA_ROADMAP.md's own COND
+' clauses. Scoped across several passes in BETA_REARVIEW.md's own COND
 ' entry, with one real correction along the way worth keeping on
 ' record: a first pass split it into two SEPARATE proposals under two
 ' roadmap items (COND, a prelude.vla macro deferring every test to
@@ -304,7 +304,7 @@ Public Const VLA_CORE_VERSION As String = "TER-8"
 ' <>expand/>expand/<expand/>=expand/<=expand - the arithmetic/comparison
 ' counterpart to LISTOPS.0's own nine structural primitives, scoped and
 ' adjudicated against LISTOPS-PURITY/the anti-gensym auditability
-' doctrine in BETA_ROADMAP.md's own LISTOPS-EXPAND entry before a line
+' doctrine in BETA_REARVIEW.md's own LISTOPS-EXPAND entry before a line
 ' of this was written. Verdict there: safe, under three guardrails -
 ' operands must already be resolved literal numbers within the SAME
 ' Substitute pass (never force further expansion of an unresolved call
@@ -313,7 +313,7 @@ Public Const VLA_CORE_VERSION As String = "TER-8"
 ' actual slope toward eval). Unblocks LISTOPS-STDLIB's own `length`
 ' (still a runtime sum of 1s today, unchanged by this pass - no caller
 ' rewritten yet) and gives a future expand-time `cond` (LISTOPS-COND,
-' also in BETA_ROADMAP.md) a comparison vocabulary beyond null?/eq?/
+' also in BETA_REARVIEW.md) a comparison vocabulary beyond null?/eq?/
 ' equal?. Checked, not assumed, before writing IsNumericLiteralText/
 ' EvalArithExpand (VLA.bas): every atom in this system - numbers
 ' included - is stored as a plain string with no separate reader-time
@@ -1219,7 +1219,7 @@ End Function
 ' caller that wants to BUILD forms directly - VLA_English.bas's phrase-
 ' rule templates, today spliced together as text and handed back
 ' through this same reader a second time (Tier 1's "double round-trip",
-' BETA_ROADMAP.md's F.2) - can turn a VLA-syntax fragment into real
+' BETA_REARVIEW.md's F.2) - can turn a VLA-syntax fragment into real
 ' forms once, at rule-load time, instead of every match. Context-
 ' pushed/popped (F5.0) so a call mid-compile can never disturb
 ' mTokLines/mFormLines/mLineOffset the enclosing compile still needs.
@@ -3567,7 +3567,7 @@ End Function
 ' PNTH.0: a read-only, O(1) VIEW (VlaSlice.cls) over c's items from
 ' position n+1 onward - was a full copy into a new Collection, the
 ' evidenced dominant cost in "expand" once P-DICT's own before/after
-' ruled out GetMacro (BETA_ROADMAP1.md's P-NTH entry has the full
+' ruled out GetMacro (BETA_REARVIEW.md's P-NTH entry has the full
 ' finding and the S3.1 safety argument for why a shared VIEW, not a
 ' copy, is still correct here). c may itself already be a VlaSlice (a
 ' prior cdr/cddr in the same chain) - flattened to point at the SAME
@@ -3782,7 +3782,7 @@ End Function
 ' separators (Application.International/regional Windows settings) and
 ' would let identical source text fold to a different literal result on
 ' two machines, exactly what LISTOPS-PURITY's own wall forbids (see
-' BETA_ROADMAP.md's own LISTOPS-EXPAND entry - checked against the
+' BETA_REARVIEW.md's own LISTOPS-EXPAND entry - checked against the
 ' reader, not assumed: every atom in this system, numbers included, is
 ' stored as a plain string with no separate reader-time number type, so
 ' there is no existing classification to reuse). Accepts exactly an
@@ -3860,7 +3860,7 @@ End Function
 ' (cond (test1 form1) (test2 form2) ... (else formN)) - the tenth
 ' engine primitive, generalizing quote-if's own strict two-branch shape
 ' to N clauses AND unifying the expand-time and runtime use cases under
-' one name (BETA_ROADMAP.md's own COND entry - both halves adjudicated
+' one name (BETA_REARVIEW.md's own COND entry - both halves adjudicated
 ' and built together, not split into two primitives, after the owner
 ' caught that a `cond` prelude macro and a `cond` engine primitive can
 ' never coexist under the same name: DefineMacro refuses shadowing
@@ -5518,7 +5518,7 @@ Private Function EmitInterpolateCall(lst As Collection) As String
     EmitInterpolateCall = r
 End Function
 
-' A simple linear scan (BETA_ROADMAP2.md's own L-INTERPOLATE scoping
+' A simple linear scan (BETA_ROADMAP.md's own L-INTERPOLATE scoping
 ' text: "not a second grammar") over tpl, splitting it into
 ' literal-text pieces and named-hole pieces - VLA_Interpreter.bas's own
 ' EvalParseInterpolateTemplate, EXACTLY (P.L5/REPLEVAL.0's own

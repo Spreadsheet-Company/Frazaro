@@ -525,7 +525,7 @@ function Invoke-Model {
 
 # ---------------------------------------------------------------- control
 
-# The post-DATALOG.13 ladder, from BETA_ROADMAP1.md's own table. These are
+# The post-DATALOG.13 ladder, from BETA_REARVIEW.md's own table. These are
 # the numbers the model has to reproduce before anything it says is evidence.
 $script:MEASURED = @(
     @{ Shape = 'scan';  N = 1000;  Seconds = 0.383;  Answer = 490 },

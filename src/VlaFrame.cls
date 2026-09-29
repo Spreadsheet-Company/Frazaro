@@ -20,7 +20,7 @@ Option Explicit
 '
 ' Scope, stated so it is not assumed wider than it is: this snapshots
 ' VLA.bas's twenty fields only (the ones "the compiler is not reentrant"
-' in BETA_ROADMAP.md's F.5 refers to; APROPOSPLUS added AproposRulesCarry
+' in BETA_REARVIEW.md's F.5 refers to; APROPOSPLUS added AproposRulesCarry
 ' beside AproposCarry, and LISTOPS-PROVENANCE added GenRow beside AtLine,
 ' same shape, same reason each needs the same save/restore).
 ' VLA_English.bas's own module-level state

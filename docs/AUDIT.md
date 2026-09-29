@@ -1,4 +1,4 @@
-# AUDIT — `BETA_ROADMAP.md` read against `METAMETALISP4.md`
+# AUDIT — `BETA_REARVIEW.md` read against `METAMETALISP4.md`
  
 *Three parts, written in one pass. **Part I** audits the master roadmap under
 the essay's own doctrine — with §7's invitation taken literally, so the
@@ -16,7 +16,7 @@ this audit and the roadmap disagree, that assumption is usually why.*
  
 ## I.0 — The verdict, in one paragraph
  
-`BETA_ROADMAP.md` is an unusually good strategy document that is optimizing for the
+`BETA_REARVIEW.md` is an unusually good strategy document that is optimizing for the
 wrong bottleneck. It correctly identifies rising-cost work, correctly refuses to
 hydrate distant tranches, correctly cuts departments by accountability, and
 correctly names the microscope discipline it inherited. What it does not contain
@@ -91,7 +91,7 @@ a real constraint rather than a deferral with good manners.
 | Items | ~100 |
 | Items whose "done" is a stranger doing something | **0** |
 | Real user sentences cited as motivation for any grammar section | **0** |
-| Instances of the word "pilot" in `BETA_ROADMAP.md` | **0** |
+| Instances of the word "pilot" in `BETA_REARVIEW.md` | **0** |
  
 The Alpha 5 ledger *does* contain a pilot (E3, with a kill criterion and a
 near-miss log, and a note that "the pilot's log re-ranks everything"). That was
@@ -231,7 +231,7 @@ been given a lock icon so nobody argues with it.
  
 ## I.8 — Finding 7: no time units anywhere
  
-`BETA_ROADMAP.md` contains no estimates, no appetites, no durations, and no dates.
+`BETA_REARVIEW.md` contains no estimates, no appetites, no durations, and no dates.
 That is defensible for a strategy file — but it has a specific consequence: a
 document with ~100 items and no denominator **cannot be prioritized by
 cost-of-delay at all**, because cost of delay is a rate, and a rate needs a
@@ -442,7 +442,7 @@ specimen *this month*, and it converts the project's largest open question —
  
 ### The revised short answer
  
-Replacing the closing section of `BETA_ROADMAP.md`:
+Replacing the closing section of `BETA_REARVIEW.md`:
  
 > **Do next, in this order:**
 > **F.1** (one sentence, largest expansion count, and the readability lever of
@@ -463,7 +463,7 @@ Replacing the closing section of `BETA_ROADMAP.md`:
  
 ---
  
-## I.13 — Concrete edits to `BETA_ROADMAP.md`
+## I.13 — Concrete edits to `BETA_REARVIEW.md`
  
 Small, mechanical, and each one removable if you disagree.
  
@@ -839,7 +839,7 @@ a time, and that each move is made by somebody who was, the week before, a user.
  
 # PART III — THE HORIZON
  
-*Assume everything in `BETA_ROADMAP.md` is implemented. Not "shipped and adopted" —
+*Assume everything in `BETA_REARVIEW.md` is implemented. Not "shipped and adopted" —
 just built. What becomes possible that is not possible now, and what should the
 freed hours be spent on?*
  
@@ -1146,7 +1146,7 @@ This is the practical residue of Part III, and it agrees with Part I:
  
 That last row is the one finding in Part III that is genuinely new: **the
 English-rendering direction — forms back to sentences — is a dependency of four
-separate horizons and appears nowhere in `BETA_ROADMAP.md`.** It is partially implied
+separate horizons and appears nowhere in `BETA_REARVIEW.md`.** It is partially implied
 by AS.4's round-trip property test, which is filed as an assurance item rather
 than as a capability. It deserves its own line, in Grammar or in Interface, with
 its reasons attached.

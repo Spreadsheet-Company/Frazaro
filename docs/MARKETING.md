@@ -29,7 +29,7 @@ each row.
 | Lisp / PL people | A Lisp whose target is VBA, with the surface language as *data* — eight phrasebooks over one macro layer, including one written entirely in glyphs. | `alien.vla`, `prelude.vla`, `scripts/polyglotta/` | "Another DSL." (The deterministic first-match grammar and the refusal doctrine are the argument, not the syntax.) |
 | Prolog people | `=PROLOG(clauses, tables…)`: unification, backtracking, `not`, `findall`, cut — over Excel Tables as facts, with a step ceiling that refuses by name. | README's staffing example | "Where's tabling / clause indexing?" (Stated ceilings in the roadmap; say so.) |
 | Datalog people | `=DATALOG(rules, tables…)`: function-free Horn clauses, stratified negation, aggregates, named-column atoms — provably terminating, refused at parse time otherwise. | README's ancestor example; `datalog-*` refusals | "Why not just SQL recursive CTEs?" (Both exist; Datalog is the one that *cannot* not terminate.) |
-| ASP people | `OPTIMIZE()` — choice rules and integrity constraints over the same substrate, scoped in eleven items (`OPTIMIZE.0` to `OPTIMIZE.10`), none built. | The OPTIMIZE entries in `BETA_ROADMAP2.md` | "Vaporware." (Correct today; the ask is design review, not adoption.) |
+| ASP people | `OPTIMIZE()` — choice rules and integrity constraints over the same substrate, scoped in eleven items (`OPTIMIZE.0` to `OPTIMIZE.10`), none built. | The OPTIMIZE entries in `BETA_ROADMAP.md` | "Vaporware." (Correct today; the ask is design review, not adoption.) |
 | SQL / data people | `=SQL("SELECT …", Table)` as a spilled array: joins, GROUP BY, recursive `WITH`, a frozen SQLite-leaning subset that refuses everything else *by name*. | `sql-outer-join-not-supported` and friends | "No outer joins, no NULL." (Both are open items with IDs — link them.) |
 | NLP / controlled-language people | A controlled natural language for spreadsheets: deterministic, first-match-wins, no statistics, refusals that teach. | The Datalog refusal quoted in the README | "That's not NLP." (Agreed — it's CNL, and the ACE lineage is the right shelf to put it on.) |
 | Accountants | Your month-end checklist as sentences that either run exactly as written or refuse before touching a number. | A reconciliation-prep workbook (to be built — §1) | "I'm not a programmer." (That is the entire premise; the first tutorial is for you.) |
@@ -246,7 +246,7 @@ harder question: is a step ceiling the right termination story, or should
 tabling (a stated ceiling item) come before comparison goals?
 
 **Objections, honestly.** "No tabling, no indexing" — correct; both are
-named ceilings in `BETA_ROADMAP1.md`'s `PROLOG` entry, neither is promised.
+named ceilings in `BETA_REARVIEW.md`'s `PROLOG` entry, neither is promised.
 "120 steps is tiny" — it is a beta constant chosen to refuse loudly; the
 ask above is exactly what number it should be. "Not ISO" — never claimed;
 it is Prolog-shaped over S-expressions because VLA's reader was free.
@@ -285,7 +285,7 @@ checks: is there a rule that should be refused and isn't?
 **Objections, honestly.** "SQL recursive CTEs do this" — `SQL.7` ships them;
 Datalog is the one that *cannot* fail to terminate, and the refusal is at
 parse time. "Re-running the fixpoint on every recalc" — named, profiled,
-and deliberately not yet built (`BETA_ROADMAP2.md`, the recalc-caching
+and deliberately not yet built (`BETA_ROADMAP.md`, the recalc-caching
 item under `DATALOG`).
 
 **Orthogonal.** A one-page *Datalog for spreadsheet people* explainer on
@@ -874,7 +874,7 @@ not attention this project can use.
 - **Do not announce `OPTIMIZE()` as existing.** It is scoped; the ask is
   review.
 - **The beta is the beta.** Its definition is one sentence
-  (`BETA_ROADMAP2.md`'s header): *one named person outside the project runs
+  (`BETA_ROADMAP.md`'s header): *one named person outside the project runs
   their own SOP, on their own machine, on a Monday, with the owner
   unreachable.* Until that sentence is true, every claim of traction is a
   claim about attention, and the two should never be confused in public.

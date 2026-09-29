@@ -85,7 +85,7 @@ only from people you would accept a macro-enabled workbook from.
   stops, or nest deep enough to crash it); SEC.16 (replacing the grammar
   files beside the add-in needs code already running as the user).
 - **Closed:** SEC.1, 2, 4, 8, 9, 11, 13. File, line and fix for each:
-  [BETA_ROADMAP1.md](BETA_ROADMAP1.md).
+  [BETA_REARVIEW.md](BETA_REARVIEW.md).
 
 ## 5. Updates, removal, reporting
 

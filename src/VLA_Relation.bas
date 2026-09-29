@@ -37,7 +37,7 @@ Public Const VLA_RELATION_VERSION As String = "OPTIMIZE.3"
 ' relation-* id each, from every engine's own wrapper's Case Else - which
 ' also closes the silent "" name a reason no wrapper knew would give.
 '
-' SQL.4: RelGroupBy - the shared grouping kernel BETA_ROADMAP2.md's own
+' SQL.4: RelGroupBy - the shared grouping kernel BETA_ROADMAP.md's own
 ' SQL.4 text asked for by name ("the third appearance of grouping in
 ' this codebase..., so it generalizes existing key-hashing rather than
 ' inventing"), generalizing VLA_Datalog.bas's own BoundPositionPairs/
@@ -142,7 +142,7 @@ Public Const VLA_RELATION_VERSION As String = "OPTIMIZE.3"
 ' hoisted here (as a message-agnostic resolver; see its own header) the
 ' moment VLA_Sql.bas needed the identical table-argument-naming
 ' mechanism - the substrate/engine split doing its job, per BETA_
-' ROADMAP2.md's own SQL.1 sequencing note. This is the module's FIRST
+' BETA_ROADMAP.md's own SQL.1 sequencing note. This is the module's FIRST
 ' real VLA_* dependency (VLA_Identity.Fold) - LAYER moves from 0 to 0.5
 ' below; still never VLA_Messages (see TableArgResolve's own header for
 ' why that boundary holds regardless).
@@ -160,7 +160,7 @@ Public Const VLA_RELATION_VERSION As String = "OPTIMIZE.3"
 ' it covers fewer than the table's full ListColumns.Count, rather than
 ' always reading the whole DataBodyRange once .ListObject resolves at
 ' all - closing the MVP's own stated "table argument must be the whole
-' table, not one column of it" limit (BETA_ROADMAP2.md's own DATALOG.3
+' table, not one column of it" limit (BETA_ROADMAP.md's own DATALOG.3
 ' history note, VLA_Datalog.bas, has the caller-side half: the early
 ' multi-area refusal). Always the table's full row span - only columns
 ' narrow, row-scoping was never part of this item's own stated limit.
@@ -171,7 +171,7 @@ Public Const VLA_RELATION_VERSION As String = "OPTIMIZE.3"
 ' set didn't already provide.
 
 ' =====================================================================
-'  VLA_Relation - the shared substrate BETA_ROADMAP2.md's QUERY AND
+'  VLA_Relation - the shared substrate BETA_ROADMAP.md's QUERY AND
 '  LOGIC section promises: a Relation (a named-elsewhere, fixed-arity
 '  SET of Variant tuples - duplicates silently absorbed, relational,
 '  not a list), a real hash join (index built on whichever side is
@@ -882,7 +882,7 @@ Public Function RangeToRows(ByVal src As Variant) As Collection
     Set RangeToRows = rows
 End Function
 
-' SQL.1's own "new substrate DATALOG never needed" (BETA_ROADMAP2.md's
+' SQL.1's own "new substrate DATALOG never needed" (BETA_ROADMAP.md's
 ' own SQL.1 sequencing note): DATALOG is deliberately positional - a
 ' Relation has arity but no concept of a column NAME - while SQL selects
 ' and filters BY name. Returns a 1-based Collection of 2-item pairs,

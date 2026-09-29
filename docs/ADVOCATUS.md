@@ -13,7 +13,7 @@ strongest argument for this document: it was effectively abolished in
 Remove the paid skeptic and the saints get cheaper. This shelf proposes
 its share of saints.*
 
-*Sources read in full: `BETA_ROADMAP1.md`, `BETA_ROADMAP2.md`,
+*Sources read in full: `BETA_REARVIEW.md`, `BETA_ROADMAP.md`,
 `CONSULTANT.md`, `AUDIT.md`, `REBUILD.md`, `LESSONS.md`, `TRENCHES.md`,
 `PROJECT_BRIEF.md`, `PREMORTEM.md`, `METAMETALISP4.md`.*
 

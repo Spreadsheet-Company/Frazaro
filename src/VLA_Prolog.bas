@@ -1376,7 +1376,7 @@ Private mDepth As Long
 ' to IsVarAtom, never this.
 Private Const PROLOG_NIL As String = "nil"
 ' PROLOG.4: `(rule head body...)` forms, unification-driven SLD
-' resolution with backtracking, no cut - docs/BETA_ROADMAP2.md's own
+' resolution with backtracking, no cut - docs/BETA_ROADMAP.md's own
 ' PROLOG.4 entry. One predicate may now be defined by facts AND rules
 ' together: ParseProgram (below) appends EVERY clause - a `(fact ...)`
 ' becomes a clause with an empty body, a `(rule ...)` a clause with one
@@ -1445,7 +1445,7 @@ Private Const PROLOG_NIL As String = "nil"
 ' argued against building is still not warranted by this alone.
 '
 ' PROLOG.3: new module - the first real `=PROLOG(...)` worksheet
-' function, docs/BETA_ROADMAP2.md's own PROLOG.3 entry. Ground facts
+' function, docs/BETA_ROADMAP.md's own PROLOG.3 entry. Ground facts
 ' only (no `(rule ...)` yet - that is PROLOG.4) and conjunctive queries
 ' - `(query (pred1 ...) (pred2 ...) ...)` - answered by enumeration over
 ' the stored facts, not resolution: no search/backtracking machinery
@@ -1523,7 +1523,7 @@ Private Const PROLOG_NIL As String = "nil"
 ' auto-dedupe `findall`-style answers either), not an oversight.
 '
 ' `=PROLOG(clauses, ParamArray tables())` - the signature
-' `docs/BETA_ROADMAP2.md`'s own top paragraph froze 2026-08-31, ahead of
+' `docs/BETA_ROADMAP.md`'s own top paragraph froze 2026-08-31, ahead of
 ' this item existing, `SQL.1`'s own precedent (a real signature pinned
 ' before the item that first exposes it is built). `tables` was reserved
 ' for PROLOG.6's own live-table-sourced facts and refused by name here

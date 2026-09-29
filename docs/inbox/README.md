@@ -8,7 +8,7 @@ ID until the owner gives it one.*
 
 ## Why this folder exists
 
-`BETA_ROADMAP1.md`, `BETA_ROADMAP2.md` and `RELEASES.md` change in nearly
+`BETA_REARVIEW.md`, `BETA_ROADMAP.md` and `RELEASES.md` change in nearly
 every commit, so a second session editing them in parallel collides with
 the first. The roadmap therefore keeps one writer: the local session, at
 the owner's direction. Sessions that work elsewhere (a cloud session
@@ -29,7 +29,7 @@ cannot conflict with anything.
    Excel; a *confirmed* verdict means the path was traced end to end by
    reading, not observed.
 3. **The owner triages locally**: file a candidate as a `TER-` item (or
-   whichever family fits) in `BETA_ROADMAP2.md` with a real ID, fold it
+   whichever family fits) in `BETA_ROADMAP.md` with a real ID, fold it
    into an existing item, or reject it. Record the outcome in the
    candidate's file with one line (`C3 → TER-12`, `C5 → rejected: …`), so
    the next audit does not raise it again.

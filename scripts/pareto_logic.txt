@@ -24,7 +24,7 @@ accepts. SD-16 makes the phrasebook's pattern language the only sentence
 grammar, so a free question such as "who can cover the night shift" is the
 *specimen*, and the controlled sentences that reach it come from the frames
 listed in each entry (the frame key below). Those spellings are decided in
-`G-PROLOG`'s scope (`docs/BETA_ROADMAP1.md`), not here.
+`G-PROLOG`'s scope (`docs/BETA_REARVIEW.md`), not here.
 
 ---
 

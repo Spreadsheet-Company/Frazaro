@@ -76,7 +76,7 @@ Public Const VLA_RUNTIME_VERSION As String = "DATALOG13.0"
 ' (the mini-catalogue's own internal checks and chokepoint call, same
 ' shape as VLA_Messages's own 4) - see tools/check_raise_ratchet.ps1.
 ' GPIVOT.4: the CRUD-completeness survey's own findings, scoped and
-' adjudicated with the owner (docs/BETA_ROADMAP.md's G-PIVOT entry has
+' adjudicated with the owner (docs/BETA_REARVIEW.md's G-PIVOT entry has
 ' the full conversation) - pivot-rename (VlaPivotRename), pivot-clear
 ' (VlaPivotClear), pivot-source (VlaPivotChangeSource - ChangePivotCache
 ' over a fresh PivotCache, not a direct PivotCache.SourceData
@@ -152,7 +152,7 @@ Public Const VLA_RUNTIME_VERSION As String = "DATALOG13.0"
 ' explicitly, preserving its existing v1 behavior unchanged.
 ' GPIVOT.0: VlaPivotSetOrientation/VlaPivotAddValues - the field-
 ' orientation and values half of G-PIVOT's own pivot-rows/-columns/
-' -filters/-full (scripts/english.vla, BETA_ROADMAP.md's own G-PIVOT
+' -filters/-full (scripts/english.vla, BETA_REARVIEW.md's own G-PIVOT
 ' entry has the full scoping). One shared helper for row/column/filter
 ' (kind is a plain string, never the raw XL constant - that mapping
 ' stays entirely inside this real host VBA), plus a new
@@ -1241,7 +1241,7 @@ End Sub
 ' pattern as ResolveExcelConstant and DynamicNamedCall elsewhere in
 ' this codebase.
 '
-' UNRESOLVED, SEPARATELY - see docs/BETA_ROADMAP.md's TERRARIUM TER-4
+' UNRESOLVED, SEPARATELY - see docs/BETA_REARVIEW.md's TERRARIUM TER-4
 ' for the full incident, including a correction logged the same
 ' night. This Sub's own EntireColumn.Delete loop, specifically,
 ' reproducibly reverted PasteSpecial/Cut-mediated formatting elsewhere
