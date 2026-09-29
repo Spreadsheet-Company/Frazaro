@@ -1,6 +1,33 @@
 Attribute VB_Name = "VLA_Relation"
 Option Explicit
-Public Const VLA_RELATION_VERSION As String = "OPTIMIZE.3"
+Public Const VLA_RELATION_VERSION As String = "DATALOG.16"
+' DATALOG.16 and SQL.12: AN EXACT KEYED MAP - RelExactMapNew, RelExactMapHas,
+' RelExactMapGet and RelExactMapSet - for keys made of DATA, and the two
+' grouping walks moved onto it. Both kept their groups in VLA_Runtime's
+' VlaDict, which compares keys WITHOUT case: right for the names it was
+' built for, wrong for a group key, which is a row's own values joined
+' (TupleKey's note, below, has the rule). So DATALOG's count, sum and
+' textjoin (VLA_Datalog's ComputeAggregateGroups and ApplyAggregate) and
+' SQL's GROUP BY (RelGroupBy, below) put "Bob" and "bob" in one group,
+' while every join, DISTINCT and de-duplication beside them kept the two
+' apart. Measured live: =DATALOG over p("Bob", x), p("bob", y) and
+' who("Bob") counted 2 for Bob (2026-09-28), where the join (who W)
+' (p W V) finds Bob's row alone (2026-09-29). SQLite, the dialect
+' VLA_Sql.bas pins, groups under the same BINARY rule its = compares by.
+'
+' THE SHAPE is the join index's own (BuildJoinIndex): a
+' Scripting.Dictionary left at its default binary compare or, on a host
+' with no Scripting runtime, a Collection of (key, value) pairs scanned
+' with StrComp vbBinaryCompare. It cannot be a Collection KEYED by the
+' key, as VlaDict's fallback is, because a Collection's own key lookup
+' ignores case - the very fold this leaves out. On that host a lookup is
+' a scan of the groups so far where VlaDict's was hashed, and no query's
+' cost changes class: RelTryAdd there already builds every relation, the
+' one being grouped included, with a scan per row. On Windows it is the
+' same Dictionary, one compare mode over.
+'
+' With RelGroupBy moved, this module no longer calls VLA_Runtime.
+'
 ' OPTIMIZE.3 (slice 1): the integer grounder's substrate - a symbol table
 ' (VlaSymbols, in the declarations section) giving every distinct value a
 ' Long id by its spelling, and VlaSymInternRelation, which turns a Relation
@@ -1041,6 +1068,98 @@ Private Function JoinIndexGet(ByVal idx As Object, ByVal key As String) As Colle
     End If
 End Function
 
+' =====================================================================
+'  DATALOG.16 and SQL.12: the EXACT KEYED MAP - add-or-replace, has and
+'  get, over keys compared byte for byte. This module's header has why
+'  it exists and what its fallback costs.
+' =====================================================================
+' A group key is DATA - a row's own values joined by Chr$(31) - so it is
+' one key only where its text is equal exactly, the identity TupleKey and
+' PartialKey give a tuple and a join key. Keep VLA_Runtime's VlaDict for
+' identifiers, which it folds on purpose; a key built from values belongs
+' here.
+'
+' A map is never Nothing: RelExactMapNew always hands one back, so each
+' reader's guard is the plain TypeOf test the join index uses, and
+' tools/check_vladict_guard.ps1 holds TypeName out of all three. Get
+' never raises (this module words no refusal of its own): a key that is
+' not there gives Empty, and every caller asks Has first.
+Public Function RelExactMapNew() As Object
+    Dim m As Object
+    On Error Resume Next
+    Set m = CreateObject("Scripting.Dictionary")
+    On Error GoTo 0
+    ' Left at CompareMode's default, vbBinaryCompare: that default IS the
+    ' exactness. VLA_Runtime.VlaDictNew is the one that sets vbTextCompare.
+    If m Is Nothing Then Set m = New Collection
+    Set RelExactMapNew = m
+End Function
+
+Public Function RelExactMapHas(ByVal m As Object, ByVal key As String) As Boolean
+    If TypeOf m Is Collection Then
+        RelExactMapHas = Not (ExactMapFindPair(m, key) Is Nothing)
+    Else
+        RelExactMapHas = m.Exists(key)
+    End If
+End Function
+
+Public Function RelExactMapGet(ByVal m As Object, ByVal key As String) As Variant
+    If TypeOf m Is Collection Then
+        Dim pair As Collection
+        Set pair = ExactMapFindPair(m, key)
+        If pair Is Nothing Then Exit Function
+        If IsObject(pair.Item(2)) Then
+            Set RelExactMapGet = pair.Item(2)
+        Else
+            RelExactMapGet = pair.Item(2)
+        End If
+    Else
+        If Not m.Exists(key) Then Exit Function
+        If IsObject(m.Item(key)) Then
+            Set RelExactMapGet = m.Item(key)
+        Else
+            RelExactMapGet = m.Item(key)
+        End If
+    End If
+End Function
+
+' Add-or-replace, as VlaDictSet is. On the fallback a replaced value is
+' swapped inside its own pair, so the pair keeps its place and every key
+' keeps the order it was first stored in, as a Dictionary keeps it.
+Public Sub RelExactMapSet(ByVal m As Object, ByVal key As String, ByVal v As Variant)
+    If TypeOf m Is Collection Then
+        Dim pair As Collection
+        Set pair = ExactMapFindPair(m, key)
+        If pair Is Nothing Then
+            Set pair = New Collection
+            pair.Add key
+            pair.Add v
+            m.Add pair
+        Else
+            pair.Remove 2
+            pair.Add v
+        End If
+    Else
+        If IsObject(v) Then
+            Set m.Item(key) = v
+        Else
+            m.Item(key) = v
+        End If
+    End If
+End Sub
+
+' The fallback's pair for key, or Nothing - JoinIndexFindBucket's scan,
+' case-sensitive for the same reason.
+Private Function ExactMapFindPair(ByVal m As Collection, ByVal key As String) As Collection
+    Dim pair As Variant
+    For Each pair In m
+        If StrComp(CStr(pair.Item(1)), key, vbBinaryCompare) = 0 Then
+            Set ExactMapFindPair = pair
+            Exit Function
+        End If
+    Next pair
+End Function
+
 ' Natural-join building block: every matching (leftTuple, rightTuple)
 ' pair, concatenated left-then-right (output arity = leftArity +
 ' rightArity; duplicate join columns are included on both sides -
@@ -1658,15 +1777,15 @@ Private Sub AccumulateAggValue(ByVal kind As Long, ByVal acc As Object, ByVal gk
         End If
         Dim addend As Double
         addend = CDbl(v)
-        If VLA_Runtime.VlaDictHas(acc, gk) Then
-            VLA_Runtime.VlaDictSet acc, gk, CDbl(VLA_Runtime.VlaDictGet(acc, gk)) + addend
+        If RelExactMapHas(acc, gk) Then
+            RelExactMapSet acc, gk, CDbl(RelExactMapGet(acc, gk)) + addend
         Else
-            VLA_Runtime.VlaDictSet acc, gk, addend
+            RelExactMapSet acc, gk, addend
         End If
     Case AGG_MIN, AGG_MAX
-        If VLA_Runtime.VlaDictHas(acc, gk) Then
+        If RelExactMapHas(acc, gk) Then
             Dim cur As Variant
-            cur = VLA_Runtime.VlaDictGet(acc, gk)
+            cur = RelExactMapGet(acc, gk)
             Dim bothNum As Boolean
             bothNum = ValueIsNumericType(v) And ValueIsNumericType(cur)
             Dim takeNew As Boolean
@@ -1675,9 +1794,9 @@ Private Sub AccumulateAggValue(ByVal kind As Long, ByVal acc As Object, ByVal gk
             Else
                 takeNew = CompareValues(">", v, cur, bothNum)
             End If
-            If takeNew Then VLA_Runtime.VlaDictSet acc, gk, v
+            If takeNew Then RelExactMapSet acc, gk, v
         Else
-            VLA_Runtime.VlaDictSet acc, gk, v
+            RelExactMapSet acc, gk, v
         End If
     End Select
 End Sub
@@ -1707,6 +1826,12 @@ End Sub
 ' by construction, VLA_Sql.bas's own parallel aggList position) that
 ' failed, so the caller can name WHICH function in its own refusal
 ' wording. Never raises itself (LAYER 0.5, TableArgResolve's own header).
+'
+' SQL.12: a group is an EXACT key. These maps were VlaDicts until then,
+' which compare without case, so GROUP BY put "Bob" and "bob" in one
+' group - two rows DISTINCT keeps and = tells apart. They are
+' RelExactMaps now (this module's header has the map), and SQL groups
+' as SQLite's BINARY collation does.
 Public Function RelGroupBy(ByVal rows As Collection, ByVal keyPositions As Variant, _
                             ByVal aggSpecs As Collection, ByVal alwaysOneGroup As Boolean, _
                             ByRef ok As Boolean, ByRef reason As String, ByRef failSpecIndex As Long) As Collection
@@ -1719,11 +1844,11 @@ Public Function RelGroupBy(ByVal rows As Collection, ByVal keyPositions As Varia
 
     Dim groupOrder As New Collection
     Dim groupSeen As Object
-    Set groupSeen = VLA_Runtime.VlaDictNew()
+    Set groupSeen = RelExactMapNew()
     Dim keyVals As Object
-    Set keyVals = VLA_Runtime.VlaDictNew()
+    Set keyVals = RelExactMapNew()
     Dim countAcc As Object
-    Set countAcc = VLA_Runtime.VlaDictNew()
+    Set countAcc = RelExactMapNew()
 
     Dim nAgg As Long
     nAgg = aggSpecs.Count
@@ -1731,7 +1856,7 @@ Public Function RelGroupBy(ByVal rows As Collection, ByVal keyPositions As Varia
     If nAgg > 0 Then ReDim aggAcc(1 To nAgg)
     Dim ai As Long
     For ai = 1 To nAgg
-        Set aggAcc(ai) = VLA_Runtime.VlaDictNew()
+        Set aggAcc(ai) = RelExactMapNew()
     Next ai
 
     Dim t As Variant, arr() As Variant
@@ -1739,9 +1864,9 @@ Public Function RelGroupBy(ByVal rows As Collection, ByVal keyPositions As Varia
     For Each t In rows
         arr = t
         gk = GroupKeyFromPositions(arr, keyPositions)
-        If Not VLA_Runtime.VlaDictHas(groupSeen, gk) Then
+        If Not RelExactMapHas(groupSeen, gk) Then
             groupOrder.Add gk
-            VLA_Runtime.VlaDictSet groupSeen, gk, True
+            RelExactMapSet groupSeen, gk, True
             Dim kv() As Variant
             If keyArity > 0 Then
                 ReDim kv(1 To keyArity)
@@ -1750,10 +1875,10 @@ Public Function RelGroupBy(ByVal rows As Collection, ByVal keyPositions As Varia
                     kv(ki) = arr(CLng(keyPositions(LBound(keyPositions) + ki - 1)))
                 Next ki
             End If
-            VLA_Runtime.VlaDictSet keyVals, gk, kv
-            VLA_Runtime.VlaDictSet countAcc, gk, 0&
+            RelExactMapSet keyVals, gk, kv
+            RelExactMapSet countAcc, gk, 0&
         End If
-        VLA_Runtime.VlaDictSet countAcc, gk, CLng(VLA_Runtime.VlaDictGet(countAcc, gk)) + 1
+        RelExactMapSet countAcc, gk, CLng(RelExactMapGet(countAcc, gk)) + 1
 
         For ai = 1 To nAgg
             Dim spec As Collection
@@ -1780,8 +1905,8 @@ Public Function RelGroupBy(ByVal rows As Collection, ByVal keyPositions As Varia
         groupOrder.Add emptyKey
         Dim kv0() As Variant
         If keyArity > 0 Then ReDim kv0(1 To keyArity)
-        VLA_Runtime.VlaDictSet keyVals, emptyKey, kv0
-        VLA_Runtime.VlaDictSet countAcc, emptyKey, 0&
+        RelExactMapSet keyVals, emptyKey, kv0
+        RelExactMapSet countAcc, emptyKey, 0&
     End If
 
     Dim outp As New Collection
@@ -1794,13 +1919,13 @@ Public Function RelGroupBy(ByVal rows As Collection, ByVal keyPositions As Varia
         Dim outRow() As Variant
         ReDim outRow(1 To outArity)
         Dim kvArr As Variant
-        kvArr = VLA_Runtime.VlaDictGet(keyVals, gkey)
+        kvArr = RelExactMapGet(keyVals, gkey)
         Dim p As Long
         For p = 1 To keyArity
             outRow(p) = kvArr(p)
         Next p
         Dim rowCount As Long
-        rowCount = CLng(VLA_Runtime.VlaDictGet(countAcc, gkey))
+        rowCount = CLng(RelExactMapGet(countAcc, gkey))
         For ai = 1 To nAgg
             Dim spec2 As Collection
             Set spec2 = aggSpecs.Item(ai)
@@ -1811,14 +1936,14 @@ Public Function RelGroupBy(ByVal rows As Collection, ByVal keyPositions As Varia
             Case AGG_COUNT
                 result = rowCount
             Case AGG_SUM
-                If VLA_Runtime.VlaDictHas(aggAcc(ai), gkey) Then
-                    result = VLA_Runtime.VlaDictGet(aggAcc(ai), gkey)
+                If RelExactMapHas(aggAcc(ai), gkey) Then
+                    result = RelExactMapGet(aggAcc(ai), gkey)
                 Else
                     result = 0#
                 End If
             Case AGG_MIN, AGG_MAX
-                If VLA_Runtime.VlaDictHas(aggAcc(ai), gkey) Then
-                    result = VLA_Runtime.VlaDictGet(aggAcc(ai), gkey)
+                If RelExactMapHas(aggAcc(ai), gkey) Then
+                    result = RelExactMapGet(aggAcc(ai), gkey)
                 Else
                     ok = False
                     reason = "empty-aggregate"
@@ -1827,8 +1952,8 @@ Public Function RelGroupBy(ByVal rows As Collection, ByVal keyPositions As Varia
                     Exit Function
                 End If
             Case AGG_AVG
-                If VLA_Runtime.VlaDictHas(aggAcc(ai), gkey) Then
-                    result = CDbl(VLA_Runtime.VlaDictGet(aggAcc(ai), gkey)) / rowCount
+                If RelExactMapHas(aggAcc(ai), gkey) Then
+                    result = CDbl(RelExactMapGet(aggAcc(ai), gkey)) / rowCount
                 Else
                     ok = False
                     reason = "empty-aggregate"

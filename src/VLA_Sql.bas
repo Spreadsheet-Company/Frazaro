@@ -2217,6 +2217,15 @@ End Function
 ' that aggregate's result column - EvalScalar's own new NK_AGG case
 ' (below) looks a node back up by this SAME signature, so registration
 ' and lookup can never drift apart.
+'
+' SQL.12, A NAMED LIMIT, read from the code rather than run: both of
+' those keys live in VlaDicts (the colMap holds column names too), and a
+' VlaDict compares without case, while a signature carries a string
+' literal as written. So MAX('Bob') beside MAX('bob') would share one
+' slot and both show Bob. Contrived today, since only a bare literal can
+' sit inside an aggregate; SQL.10's CASE WHEN would make it ordinary -
+' SUM(CASE WHEN Name = 'Bob' THEN 1 ELSE 0 END) - so close it there, by
+' keying a literal's text in a form no case fold can merge.
 Private Function AggSignature(ByVal node As Collection) As String
     If NodeAggIsStar(node) Then
         AggSignature = LCase$(AggFunctionName(NodeAggKind(node))) & "(*)"

@@ -22,7 +22,10 @@ WHAT IS CHECKED, per procedure in the list below:
     fallback it always had (VlaDictHas answers False, VlaDictGet misses
     loudly), which VLA_Interpreter's module-scope read relies on. The
     join index is never handed Nothing, so its guard is
-    `TypeOf idx Is Collection` alone;
+    `TypeOf idx Is Collection` alone, and so is DATALOG.16's exact map
+    (VLA_Relation's RelExactMapHas/Get/Set), `TypeOf m Is Collection` -
+    every group key of count, sum, textjoin and SQL's GROUP BY is asked
+    through it, once or more per row;
   - no body joins `Is Nothing` and `TypeOf` with `Or` or `And` on one
     line. TypeOf RAISES error 91 on Nothing, and VBA evaluates every
     operand, so that one-liner raises on the very Nothing it names - the
@@ -62,9 +65,12 @@ if ($SrcDir -eq '') {
 # --- The guarded procedures, hand-maintained. ---
 # 2026-09-18, DATALOG.13: the five VlaDict wrappers, the helper they ask,
 # and the join index's two readers of it.
+# 2026-09-29, DATALOG.16: the exact map's three readers. RelExactMapNew
+# always hands one back, never Nothing, so theirs is the join index's guard.
 $vlaDictGuard = 'If VlaDictIsFallback(d) Then'
 $helperGuard  = 'If d Is Nothing Then'
 $joinGuard    = 'TypeOf idx Is Collection'
+$exactGuard   = 'TypeOf m Is Collection'
 $guarded = @(
     @{ Module = 'VLA_Runtime.bas';  Proc = 'VlaDictIsFallback'; Guard = $helperGuard },
     @{ Module = 'VLA_Runtime.bas';  Proc = 'VlaDictSet';    Guard = $vlaDictGuard },
@@ -73,7 +79,10 @@ $guarded = @(
     @{ Module = 'VLA_Runtime.bas';  Proc = 'VlaDictKeys';   Guard = $vlaDictGuard },
     @{ Module = 'VLA_Runtime.bas';  Proc = 'VlaDictPairs';  Guard = $vlaDictGuard },
     @{ Module = 'VLA_Relation.bas'; Proc = 'JoinIndexPut';  Guard = $joinGuard },
-    @{ Module = 'VLA_Relation.bas'; Proc = 'JoinIndexGet';  Guard = $joinGuard }
+    @{ Module = 'VLA_Relation.bas'; Proc = 'JoinIndexGet';  Guard = $joinGuard },
+    @{ Module = 'VLA_Relation.bas'; Proc = 'RelExactMapHas'; Guard = $exactGuard },
+    @{ Module = 'VLA_Relation.bas'; Proc = 'RelExactMapGet'; Guard = $exactGuard },
+    @{ Module = 'VLA_Relation.bas'; Proc = 'RelExactMapSet'; Guard = $exactGuard }
 )
 
 $endPattern = '^\s*End\s+(Sub|Function|Property)\b'

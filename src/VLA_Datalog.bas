@@ -1,6 +1,25 @@
 Attribute VB_Name = "VLA_Datalog"
 Option Explicit
-Public Const VLA_DATALOG_VERSION As String = "METAPROOF.1"
+Public Const VLA_DATALOG_VERSION As String = "DATALOG.16"
+' DATALOG.16: count, sum and textjoin group text EXACTLY, as a join has
+' always matched it. ComputeAggregateGroups kept its groups in
+' VLA_Runtime.VlaDictNew(), which compares without case, and
+' ApplyAggregate looked each row up in the same dictionary, so "Bob" and
+' "bob" were one group to an aggregate and two values to everything else.
+' Measured live: =DATALOG over p("Bob", x), p("bob", y) and who("Bob")
+' spilled Bob 2 under (count N (p W V)) (2026-09-28), where (who W)
+' (p W V) spills Bob's row alone (2026-09-29). It broke two promises this
+' header makes - a constant compares case-sensitively, and a textjoin's
+' values come out distinct with no dedupe: likes("Bob", "tea") beside
+' likes("bob", "tea") joined as "tea, tea" for Bob. Both procedures keep
+' their groups in VLA_Relation's exact map now (RelExactMapNew, and that
+' module's DATALOG.16 note), with the key string and the walk unchanged,
+' so VlaDict is back to what MAY CALL, below, allows it: names, never
+' tuple data. The integer grounder sends every aggregate rule to
+' EvalRuleBody and OPTIMIZE hands its aggregate rules to this engine, so
+' both answer the same way. Four proofs in scripts/proofs/datalog.vla pin
+' it over "Bob" and "bob": the join, then count, sum and textjoin.
+'
 ' METAPROOF.1: DatalogAnswer - the worksheet answer for one run's result,
 ' the lines that turn DatalogRun's Collection into what =DATALOG(...) shows
 ' (a Boolean for a one-fact query, otherwise the spilled rows with their
@@ -470,7 +489,8 @@ Public Const VLA_DATALOG_VERSION As String = "METAPROOF.1"
 '             separate, case-sensitive index instead), VLA_Messages
 '             (RaiseMsg), VLA_Relation (the whole join/storage
 '             substrate, plus DATALOG.4's own shared CompareValues/
-'             ComputeArithmetic/IsInvariantNumericString).
+'             ComputeArithmetic/IsInvariantNumericString, and
+'             DATALOG.16's exact map for a key made of tuple data).
 '  Duplicates VLA.bas's own Private IsList/Nth rather than widen its
 '  public surface for a second, unrelated reader - VLA_Interpreter.bas's
 '  own precedent (its header note) for the identical situation.
@@ -2342,10 +2362,13 @@ End Function
 ' genuinely empty relation. Since DATALOG.8 that zero can no longer come
 ' from a name nothing defines: RefuseUndefinedPredicates refuses it before
 ' any rule runs, so a Nothing targetRel is a dead end.
+' DATALOG.16: groups is VLA_Relation's exact map, so two keys are one group
+' only when their text is equal exactly - "Bob" and "bob" are two groups,
+' as they are two rows to RelJoin. It was a VlaDict, which folds case.
 Private Function ComputeAggregateGroups(ByVal kind As Long, ByVal atom As Collection, _
                                          ByVal colOf As Object, ByVal targetRel As Collection) As Object
     Dim groups As Object
-    Set groups = VLA_Runtime.VlaDictNew()
+    Set groups = VLA_Relation.RelExactMapNew()
     If targetRel Is Nothing Then
         Set ComputeAggregateGroups = groups
         Exit Function
@@ -2377,30 +2400,30 @@ Private Function ComputeAggregateGroups(ByVal kind As Long, ByVal atom As Collec
             Dim gk As String
             gk = KeyFromPositions(arr, atomPositions)
             If kind = BI_COUNT Then
-                If VLA_Runtime.VlaDictHas(groups, gk) Then
-                    VLA_Runtime.VlaDictSet groups, gk, CLng(VLA_Runtime.VlaDictGet(groups, gk)) + 1
+                If VLA_Relation.RelExactMapHas(groups, gk) Then
+                    VLA_Relation.RelExactMapSet groups, gk, CLng(VLA_Relation.RelExactMapGet(groups, gk)) + 1
                 Else
-                    VLA_Runtime.VlaDictSet groups, gk, 1&
+                    VLA_Relation.RelExactMapSet groups, gk, 1&
                 End If
             ElseIf kind = BI_JOIN Then
                 ' DATALOG.11: the group's values, in the relation's own row order.
                 ' No dedupe: with one value variable every other position is a
                 ' group key or a constant, so each row here holds a new value.
                 Dim pieces As Collection
-                If VLA_Runtime.VlaDictHas(groups, gk) Then
-                    Set pieces = VLA_Runtime.VlaDictGet(groups, gk)
+                If VLA_Relation.RelExactMapHas(groups, gk) Then
+                    Set pieces = VLA_Relation.RelExactMapGet(groups, gk)
                 Else
                     Set pieces = New Collection
-                    VLA_Runtime.VlaDictSet groups, gk, pieces
+                    VLA_Relation.RelExactMapSet groups, gk, pieces
                 End If
                 pieces.Add DatalogValueText(arr(valuePos))
             Else
                 Dim addend As Double
                 addend = CDbl(arr(valuePos))
-                If VLA_Runtime.VlaDictHas(groups, gk) Then
-                    VLA_Runtime.VlaDictSet groups, gk, CDbl(VLA_Runtime.VlaDictGet(groups, gk)) + addend
+                If VLA_Relation.RelExactMapHas(groups, gk) Then
+                    VLA_Relation.RelExactMapSet groups, gk, CDbl(VLA_Relation.RelExactMapGet(groups, gk)) + addend
                 Else
-                    VLA_Runtime.VlaDictSet groups, gk, addend
+                    VLA_Relation.RelExactMapSet groups, gk, addend
                 End If
             End If
         End If
@@ -2431,13 +2454,13 @@ Private Function ApplyAggregate(ByVal kind As Long, ByVal accum As Collection, B
         Dim aggVal As Variant
         If kind = BI_JOIN Then
             ' DATALOG.11: a group with no values is empty text, never a lost row.
-            If VLA_Runtime.VlaDictHas(groups, gk) Then
-                aggVal = JoinPieces(VLA_Runtime.VlaDictGet(groups, gk), separator, resultVar)
+            If VLA_Relation.RelExactMapHas(groups, gk) Then
+                aggVal = JoinPieces(VLA_Relation.RelExactMapGet(groups, gk), separator, resultVar)
             Else
                 aggVal = ""
             End If
-        ElseIf VLA_Runtime.VlaDictHas(groups, gk) Then
-            aggVal = VLA_Runtime.VlaDictGet(groups, gk)
+        ElseIf VLA_Relation.RelExactMapHas(groups, gk) Then
+            aggVal = VLA_Relation.RelExactMapGet(groups, gk)
         ElseIf kind = BI_COUNT Then
             aggVal = 0&
         Else

@@ -81,14 +81,18 @@ if ($ClingoDir -eq '') { $ClingoDir = Join-Path $PSScriptRoot 'clingo' }
 # 2026-09-27, METAPROOF.1: datalog.vla, sixteen proofs - TestDatalogBoundArgument's
 # eleven and five of TestDatalog's refusals, moved out of VBA. 2026-09-28,
 # METAPROOF.3: ninety-four - seventy-eight more moved from VLA_Tests_Query.bas.
+# 2026-09-29, DATALOG.16: ninety-eight - four proofs that keep "Bob" and "bob"
+# apart, in a join and in count, sum and textjoin.
 $floors = [ordered]@{
-    'datalog.vla' = 94
+    'datalog.vla' = 98
 }
 # --- rule 9's baseline: every proof file, and the fewest of its proofs its
 # clingo export may carry (0 for an engine clingo cannot check) ---
 # 2026-09-28, METAPROOF.2: datalog.vla, eleven - every answer proof. Its five
 # refusals are DATALOG's own policy, which no other lineage raises. 2026-09-28,
 # METAPROOF.3: twenty-three - twelve of the seventy-eight new proofs export.
+# 2026-09-29, DATALOG.16: still twenty-three - its four proofs need a quoted
+# "Bob", which the translation declines.
 $clingoFloors = [ordered]@{
     'datalog.vla' = 23
 }

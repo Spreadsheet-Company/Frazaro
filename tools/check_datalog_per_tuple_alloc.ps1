@@ -147,9 +147,13 @@ $ruleD = @(
     @{ Module = 'VLA_Datalog.bas';  Proc = 'GroundRuleInteger'; Loop = 'For\s+r\s*=\s*1\s+To\s+accN'; Count = 1 },
     @{ Module = 'VLA_Relation.bas'; Proc = 'VlaSymInternRelation'; Loop = $tupleLoop; Count = 1 }
 )
-$objectPattern = '\b(VlaDict\w*\s*\(|CreateObject\s*\(|New\s+\w|Array\s*\(|Collection\b)'
+# 2026-09-29, DATALOG.16: VLA_Relation's exact map is a dictionary too.
+# ComputeAggregateGroups keeps its groups in one now (RelExactMapNew, once
+# per call), so its constructor is an allocation to rules A and B, and any
+# of its calls is an object to rule D, exactly as a VlaDict's would be.
+$objectPattern = '\b(VlaDict\w*\s*\(|RelExactMap\w*\s*\(|CreateObject\s*\(|New\s+\w|Array\s*\(|Collection\b)'
 
-$allocPattern = '\b(VlaDictNew\s*\(|CreateObject\s*\()'
+$allocPattern = '\b(VlaDictNew\s*\(|RelExactMapNew\s*\(|CreateObject\s*\()'
 $endPattern   = '^\s*End\s+(Sub|Function|Property)\b'
 
 function Test-IsComment([string]$line) {

@@ -12020,7 +12020,9 @@ lost or mistaken for closer than they are:**
   program spilled `Bob | 2`. The join half is still a reading. The
   translation declines quoted strings, so clingo cannot see it yet; the
   first proof that widens the translation to quoted text would witness it
-  either way.
+  either way. *Filed and built as `DATALOG.16` on 2026-09-29, once the
+  owner's second cell had confirmed the join half live (`Bob | x`);
+  `SQL.12` fixed the same fold in `SQL`'s `GROUP BY` in that pass.*
 
   **Owner-verified 2026-09-28, every line as predicted.** clingo, run by the
   owner by hand from PowerShell over all fourteen files, with the one line
@@ -14297,6 +14299,41 @@ now carries one summary paragraph per engine and points here.*
     subquery result containing `NULL` is real SQL's own most notorious
     surprise (the whole `NOT IN` returns no rows at all) and deserves a named
     test, not a silent trap.
+  - ✅ **SQL.12 — `GROUP BY` groups text exactly, as SQLite does.** Minted
+    2026-09-29, the owner's call, from `DATALOG.16`'s audit, and built,
+    tested live and committed in the same pass. **The defect, read from the
+    code:** `RelGroupBy`
+    (`VLA_Relation.bas`, `SQL.4`'s kernel) kept all four of its maps - the
+    groups seen, their key values, their counts and each aggregate's running
+    value - in `VLA_Runtime.VlaDictNew()`, which compares without case, so
+    `SELECT Name, COUNT(*) FROM People GROUP BY Name` over `Bob`, `bob` and
+    `Bob` answered one group, `Bob 3`. The same engine's `DISTINCT`, `=`
+    and `JOIN` tell the two apart, and `VLA_Sql.bas`'s own header pins
+    SQLite: "case-sensitive string DATA comparison (vbBinaryCompare, never
+    a silent NOCASE)", with `VlaDict` for "identifier lookups only, never
+    row data". SQLite's `BINARY` collation groups the way its `=` compares.
+    Not a separate, deliberate rule: `RelGroupBy`'s header says it
+    generalises `DATALOG.2`'s grouping, and it carried the same `VlaDict`
+    over. **The fix:** its four maps are `DATALOG.16`'s exact map -
+    twenty-eight mechanical renames in `RelGroupBy` and `AccumulateAggValue`,
+    nothing else changed - and `VLA_Relation.bas` now calls `VLA_Runtime`
+    nowhere. **Pins:** `TestSqlGroupCase` (new, pure, 4): two groups, Bob
+    first; each counts and sums its own rows (Bob 2 and 11, bob 1 and 5);
+    `MIN` and `MAX` read their own group (Bob 1 to 10, bob 5 to 5); and
+    `DISTINCT`, which always compared exactly, agrees. **A named limit, left
+    for `SQL.10`:** an aggregate's signature carries a string literal as
+    written and is a key in two `VlaDict`s - `ComputeGroupedRows`' `aggSeen`
+    and the grouped colMap, which holds column names too - so, read from
+    the code, `MAX('Bob')` beside `MAX('bob')` would share one slot and both
+    show `Bob`. Contrived while only a bare literal can sit inside an
+    aggregate; `SQL.10`'s `CASE WHEN` makes it ordinary
+    (`SUM(CASE WHEN Name = 'Bob' THEN 1 ELSE 0 END)`), so close it there, by
+    keying a literal's text in a form no fold can merge. Named at
+    `AggSignature`. **LIVE, 2026-09-29, step 7 of
+    `archive/datalog16_live_steps.md`:** over a `PeopleD16` Table holding
+    `Bob 10`, `bob 5` and `Bob 1`, `GROUP BY Name` spilled `Name n s` /
+    `Bob 2 11` / `bob 1 5`, as predicted - one row, `Bob 3 16`, before.
+    `~hours`
   - **Stated non-goals and ceiling, unchanged from `BETA_REARVIEW.md`:** no
     DML ever (`INSERT`/`UPDATE`/`DELETE` — a worksheet function mutating cells
     outside its own return value is the exact anti-pattern Excel's calc engine
@@ -20440,6 +20477,88 @@ now carries one summary paragraph per engine and points here.*
     *Pays into:* `OPTIMIZE.1` (the answer read as a table, decision 1's "view
     many"), and every `DATALOG`, `SQL` or `PROLOG` question over a
     `FILTER`/`SORT`/`VSTACK` spill, which today needs a Table copy. `~hours`
+  - ✅ **DATALOG.16 — `count`, `sum` and `textjoin` group text exactly, as a
+    join matches it.** Minted 2026-09-29, the owner's call, from
+    `METAPROOF.2`'s "Found while building" note, and built, tested live and
+    committed the same day, with `SQL.12` beside it. **The defect,
+    owner-verified live:** over
+    `p("Bob", x)`, `p("bob", y)` and `who("Bob")`, the cell
+    `=DATALOG("... (rule (n W N) (who W) (count N (p W V))) (query n)")`
+    spilled `W N` / `Bob 2` (2026-09-28), while the same facts under
+    `(rule (m W V) (who W) (p W V))` spill `W V` / `Bob x` alone
+    (2026-09-29). Only one `p` row holds `"Bob"`. `ComputeAggregateGroups`
+    kept its groups in `VLA_Runtime.VlaDictNew()`, a `Scripting.Dictionary`
+    at `vbTextCompare`, and `ApplyAggregate` read each row's total back
+    from the same dictionary, so the fold worked both ways: `(who "bob")`
+    would have read Bob's 2 as well. `sum` and `textjoin` share the walk,
+    and `textjoin` broke its own promise of distinct values:
+    `likes("Bob", "tea")` beside `likes("bob", "tea")` joined as `tea, tea`
+    for Bob. The walk also broke the module's own MAY CALL line, which
+    allows `VlaDict` "predicate-NAME lookups only, never tuple data".
+    **The audit, before any code** - every place DATALOG's evaluation keys
+    or compares data (variable and predicate names fold by design and were
+    left out): `not` (`RelContainsTuple` over `NewIndex`), joins and
+    de-duplication (`BuildJoinIndex`, `RelTryAdd`), constants and repeated
+    variables (`PlanMatches`), the text tests (`TextTestHolds`; no module
+    declares `Option Compare Text`), the comparisons (`CompareValues`), the
+    integer grounder's symbols (`VlaSymbols`, a byte hash with a binary
+    compare) and table reads were all exact already. The aggregate walk was
+    the one place. `OPTIMIZE`'s own counting is exact - its choice groups
+    are symbol-id tuples - and its memo folds but keys an uppercase SHA-256
+    hex of exact bytes, so no two inputs merge; it met the defect only
+    through the aggregate rules it hands `DATALOG`. `SQL`'s `GROUP BY`
+    folded too, by descent from this walk: `SQL.12`.
+    **The fix:** an exact keyed map in `VLA_Relation.bas` -
+    `RelExactMapNew`, `RelExactMapHas`, `RelExactMapGet`, `RelExactMapSet` -
+    in the join index's own shape: a `Scripting.Dictionary` left at its
+    default binary compare or, with no Scripting runtime, a Collection of
+    (key, value) pairs scanned with `vbBinaryCompare`. Not in
+    `VLA_Runtime.bas`: `VlaDict` sits above the inject boundary, so an
+    addition there ships into every exported workbook, and its fallback is
+    a Collection KEYED by the folded key, which an exact map cannot share,
+    since a Collection's key lookup ignores case. The two procedures swap
+    their sixteen `VlaDict` calls on `groups` and change nothing else - the
+    same key string, the same walk, the same order. **Cost:** on Windows,
+    the same Dictionary one compare mode over; not measured, and nothing
+    to expect. Without the Scripting runtime a lookup scans the groups so
+    far where `VlaDict`'s was hashed, and no query's cost changes class,
+    since `RelTryAdd` there already builds every relation, the grouped one
+    included, with a scan per row.
+    **Checks:** `check_vladict_guard.ps1` holds `TypeName` out of the map's
+    three readers (11 procedures); `check_datalog_per_tuple_alloc.ps1`
+    counts `RelExactMapNew` as an allocation (rules A and B) and any
+    exact-map call as an object in the grounder's row loops (rule D).
+    Mutation-controlled 2026-09-29: a map built per tuple in
+    `ComputeAggregateGroups`, an exact-map lookup in `IntCompareFilter`'s
+    row loop, and `TypeName` put back in `RelExactMapHas` each fail their
+    check, and an unmutated copy passes both.
+    **Pins:** four proofs in `scripts/proofs/datalog.vla` - the join half
+    (`Bob x`), `count` (the owner's own cell, `Bob 1`), `sum` (`Bob 10`,
+    `bob 5`) and `textjoin` (`Bob tea`, `bob coffee`), the last two naming
+    both spellings in the outer relation so each group is read from each
+    side. clingo does not check them (the translation declines a quoted
+    string), so its floor stays 23. `TestExactMap` (11 pure pins) holds
+    the map to one contract on this host's Dictionary and on a forced
+    Collection. The corpus floor rises 94 → 98 in `check_proofs.ps1` and
+    `TestDatalogProofs`, and `TestOptimizeParity`'s 193 → 197. Versions:
+    `VLA_RELATION_VERSION`, `VLA_DATALOG_VERSION` and
+    `VLA_TESTS_QUERY_VERSION` → `DATALOG.16`; `VLA_Sql.bas` gains a
+    comment only (`SQL.12`'s named limit) and keeps its constant.
+    **Predicted, before the live pass:** `TestDSLs` +27 - twelve for the
+    proofs (a line each in `TestDatalogProofs` and in both parity loops),
+    eleven exact-map pins and four `SQL.12` pins - so 2,303 → 2,330, 0
+    failed. `VlaSelfTest`, `VlaSelfTestHost` and `VerifyReports` reach none
+    of this and are unmoved by it. Live steps:
+    `archive/datalog16_live_steps.md`, seven, each on its own sheet.
+    **LIVE, 2026-09-29, the owner at the keyboard - every step as
+    predicted:** the three versions read `DATALOG.16`; `TestDSLs`
+    **2330/0**, exactly 2,303 + 27; pure 1537/1537, host 241/241 and
+    `VerifyReports` 317/317 on both backends, the pure and `VerifyReports`
+    counts moved by `IN.17`'s pins (committed beside this pass as
+    `f61bf95`), not by this item. The owner's count cell now spills `W N` /
+    `Bob 1`; the join, `W V` / `Bob x`; `sum`, `Bob 10` / `bob 5`;
+    `textjoin`, `Bob tea` / `bob coffee`; and step 7, `SQL.12`'s,
+    `Bob 2 11` / `bob 1 5`. `~hours`
   - ⬜ **Avoiding a full re-parse/re-fixpoint on every recalc — profiled first,
     not yet built.** `DATALOG()` re-parses `rulesText` and reruns
     `RunStratifiedFixpoint` from scratch every time Excel calls it. Worth
@@ -25181,6 +25300,7 @@ numbers. **Quoting a correction is not applying it.**
 ## 🔧 MACHINE · QUERY AND LOGIC
 
 - ✅ **`SQL(table, query)`** — a relational query engine as a real worksheet function, `=SQL(query, tables…)`. **Shipped, SQL.1–SQL.7, each owner-tested live:** single-table `SELECT`/`WHERE` (SQL.1); computed expressions, `AS`, `DISTINCT` (SQL.2); `INNER JOIN … ON` on `VLA_Relation`'s hash join (SQL.3); `GROUP BY`/aggregates/`HAVING` (SQL.4); `ORDER BY`/`LIMIT` (SQL.5); `UNION`/`INTERSECT`/`EXCEPT` (SQL.6); `WITH` and recursive `WITH`, the convergence proof (SQL.7). Its own tokenizer and recursive-descent parser (`VLA_Sql.bas`), never `VlaReadForms` — real SQL syntax already lives in users' heads. **Open, below — each already refused by name today.** *(more: the full entry, earlier in this file)*
+  - ✅ **SQL.12 — `GROUP BY` groups text exactly, as SQLite does.** *Built, tested live and committed 2026-09-29, with `DATALOG.16`.* Found by `DATALOG.16`'s audit: `RelGroupBy` kept its groups in `VlaDict`s, which ignore case, so `GROUP BY Name` made one group (`Bob`, 2) of `Bob` and `bob`, while `DISTINCT`, `=` and `JOIN` told them apart — against this engine's own SQLite pin, "never a silent NOCASE". Now on `DATALOG.16`'s exact map, and `VLA_Relation.bas` no longer calls `VLA_Runtime`. Pinned by `TestSqlGroupCase`; live, a Table holding `Bob`, `bob` and `Bob` spilled `Bob 2 11` / `bob 1 5` (one row, `Bob 3 16`, before). A named limit stays, at `AggSignature`: an aggregate's signature carries a string literal as written and is still a `VlaDict` key, so `MAX('Bob')` beside `MAX('bob')` would share one slot — contrived now, ordinary once `SQL.10`'s `CASE WHEN` lands, so close it there. *(more: the full entry, earlier in this file)* `~hours`
 
 - **`PROLOG(knowledgebase, query)`** — open items remain in BETA_ROADMAP.md.
   - ✅ **PROLOG.7 — comparison operators (`<`, `>`, `=<`, `>=`, `=:=`, `=\=`) as goals, not folded into `(is ...)`.** SHIPPED 2026-09-08; owner-verified live, `TestDSLs` 335 → 378/378 with pure/host/VerifyReports baselines unmoved. Owner-flagged: PROLOG.5.1 shipped arithmetic strictly as a *binding* form, so there was no `(> Salary 80000)` to write — the README's own staffing example had to route around it. New dispatch in `SolveGoalList`, sibling to `not`/`findall`/`!`: a comparison goal succeeds or fails, it never binds, and it sits above the `clauseDict` lookup because an unknown predicate there is a silent dead end. Each side is evaluated by **`EvalArithTerm`** (this entry originally named `ComputeArithmetic` — wrong; that is only the leaf substrate `EvalArithTerm` delegates to), then compared by `VLA_Relation.CompareValues` with `bothNumeric:=True`. The five shared arithmetic refusals hard-coded `(is ...)` into their own text — the entry counted two, a check written first found five — so they are now `{form}`-templated, byte-identical when rendered for `(is ...)`, and pinned by `tools/check_prolog_form_attribution.ps1`. **DATALOG.6 inherits that shape** for its own `sum`-specific text. *(more: the full entry, earlier in this file)*
@@ -25212,6 +25332,7 @@ numbers. **Quoting a correction is not applying it.**
   - ✅ **DATALOG.13 — one guard clause costs `DATALOG` most of its time.** **Built, measured live 2026-09-18 and committed: five to ten times faster, every answer unchanged.** A 1,000-row scan 2.254s → 0.383s and 10,000 rows 25.5s → 3.8s; the join at 3,000 11.9s → 2.0s; `count`, `textjoin` and `not` at 3,000 now 1.1–1.5s; "otherwise" 9.9× faster and no longer visibly superlinear (3,000 rows in 3.9s); the closures gained least (5.2–5.5×: a chain of 100 links 21.6s → 4.1s), being mostly `DATALOG.14`'s cost. The wrappers themselves fell from 0.15 ms a call to 0.001. Threefold was predicted, so the prediction was wrong by about half in the good direction: the cause (83% of a row, about thirteen guards) held, and the ratio built on it did not. What is left of a row, 0.38 ms, is mostly two `CreateObject`s per tuple in `AtomMatches`. **The build:** the five `VlaDict` wrappers ask a private `VlaDictIsFallback`, which tests `d Is Nothing` and only then `TypeOf d Is Collection` (Nothing keeps the fallback it always had, which the interpreter's module-scope read relies on; the first build put both on one line, and since `TypeOf` raises 91 on Nothing and `Or` evaluates both, the owner's live pass caught it raising) and `VLA_Relation`'s join index `TypeOf idx Is Collection`; `VlaCount` keeps its `TypeName` by decision; pure +6, a new `check_vladict_guard.ps1` ratchet, and a predicted 1,000-row scan of ~0.8s against 2.25s. Minted 2026-09-18 out of `DATALOG.12`'s four live passes, the owner's call; the cause is measured and the fix is settled. A `DATALOG` answer costs about 1.4 ms per source row plus 0.14 ms per further column, flat, so 1,000 rows takes 2.25s and 10,000 stalls Excel for 25.5s. No algorithm degrades with size, and returning cells to Excel is free. The cost is one line, three times: `VlaDictGet`, `VlaDictHas` and `VlaDictSet` each open with `TypeName(d) = "Dictionary"`, and `TypeName` on a late-bound COM object costs 0.148 ms — as much as creating the dictionary — while asking it of a VBA `Collection` costs nothing. A row makes about a dozen such calls, which is 85% of it; reading the code had predicted `CreateObject` per tuple, which is 12%. Three ways to stop asking were weighed, and the owner settled it 2026-09-18 on measured numbers: **`TypeOf d Is Collection`** — stateless, one line per wrapper, and it makes the `Collection` fallback the tested branch rather than the dictionary. Both cheap options measured 0.000 ms against `TypeName`'s 0.145, so the price is asking COM a question at all, not which one; the typed `VlaDict` class was the permanent answer and the largest diff (102 call sites in `VLA_Datalog.bas` alone), and was not taken. The same guard also stands in `VlaDictKeys` and `VlaDictPairs`, and twice in `VLA_Relation`'s membership index — grepped 2026-09-18, not timed, and a scoping question for the build. Bounded honestly: about threefold, not a cure — 100,000 rows stays out of reach. *(more: the full entry, earlier in this file)* `~hours`
   - ✅ **DATALOG.14 — a closure builds every pair, and every round re-reads every relation.** Minted 2026-09-18 out of `DATALOG.12`'s live passes, the owner's call; **BUILT 2026-09-20, owner-verified live on the first pass 2026-09-24 (all eight steps) and committed.** **Measured: a chain of 100 links 4.125s → 0.508s, and 250, 500 and 1,000 links ran for the first time ever (1.414s, 3.652s, 10.176s); a 3,000-person org 11.281s → 0.313s (36×); a 10,000-row scan 3.813s → 0.328s (11.6×), which puts 100,000 rows at a projected 3.2s — inside the 10s limit for the first time since the ladder was written, where `DATALOG.13` left it at 38s. Every answer, at every size, in every shape, identical.** **The fork the entry left open, settled on modelled numbers, and the surprise is that none of its three candidate shapes was where the money was.** A cost model of the real round loop (`tools/datalog14_model.ps1`) was controlled against `DATALOG.13`'s own measured ladder first: counting one operation — a `Scripting.Dictionary` created at 0.157 ms — accounts for 81.6–88.8% of every measured point across three shapes and four sizes, and it reproduces every pair count and answer the harness printed. On it: **the two causes are near enough EQUALLY to blame** (50/50 over one chain, 40/60 over a wide org), so fixing either alone caps under 2× — magic sets cuts the chain's pairs fiftyfold and still buys only 1.8–1.9×, because the round count does not move. **The per-predicate index was refused on arithmetic rather than built**: modelled as a free oracle its ceiling is 1.2–1.3×, because the only atom with a bound argument filters the delta the round just created, and indexing a delta costs what scanning it costs. What the numbers point at instead: `FilterAtomRelation` copied a relation tuple by tuple and `AtomMatches` built a dictionary for each one, to answer a question about the ATOM's shape — and the hot atom, `(reports-to X Z)`, has two distinct free variables and rejects nothing. Compiling the checks once and handing the relation back whole when it constrains nothing carried most of the gain, on every shape including the plain scan no closure fix would have touched. **The owner's call: BOTH** — that filter fix and the bound argument pushed in — plus `ComputeAggregateGroups`' identical per-tuple dictionary and a ratchet. **No depth bound was taken**: a ceiling would refuse answers the engine can now give. The bound argument is a SPECIALISATION under five conditions, not the general adorned rewrite; it covers a bound second argument (right-recursive, the shape the grammar writes) and declines a bound first one, and the live pass confirmed both directions answer as they did. Proven before import in `tools/datalog14_proof.ps1`: fifteen programs, every answer hand-derived, the unspecialised evaluator controlled against them first — which caught a harness defect — and all five load-bearing conditions carrying a mutant that moves an answer. Eleven pure pins, all ten new programs in the parity table (180 → 190), and a 27th check, `check_datalog_per_tuple_alloc.ps1`, whose own first run was red and right. **The chain stays quadratic and that is now measured, not asserted:** fitting the four rungs gives 4.40 ms a round (the per-round allocations this item does not touch) plus 5.76 µs a probe (`RelJoin` reading the whole base relation once a round), crossing over at 764 links — so halving it and linearising it are two different later items. `tools/run_checks.ps1` runs all 27 checks and reports one total, born here. *(more: the full entry, earlier in this file)* `~days`
   - ✅ **DATALOG.15 — a spilled range's first row counts as its headers.** *Built, tested live (all 14 steps) and committed 2026-09-19; its forks confirmed by the owner the same day, as recommended.* Minted 2026-09-19, the owner's call: `OPTIMIZE`'s decision 1 approved it so a `DATALOG` question can read an `OPTIMIZE` answer ("Schedule lists the person as Name"). The change is in `VLA_Relation.bas`, the substrate every engine reads tables through, so `SQL` and `PROLOG` read a spill the same way, and are pinned doing so. A spill is recognised as exactly one anchor's whole `SpillingToRange`; a plain named range, a part of a spill and every Excel Table behave as before. Its name is a defined Name referring to it (`=Sheet1!$N$2#`, found by its `Refers to`, `ANCHORARRAY` spellings included); without one it is refused with the exact text to type. The header row must be non-blank text with no two names alike, so a spill whose first row is data (`SEQUENCE`) is refused, naming the cell, rather than silently losing that row. A header-only spill is a table with no rows. A `#` reference to a cell that is not spilling arrives as `#REF!` and now says so. Seven new `relation-*` refusals, raised from each engine wrapper's new `Case Else`, which also closes a hole found in scoping: a new reason would have fallen through all three wrappers as a silent empty name. `TestDSLs` +51 (33 pure, 18 host); the other suites unmoved; 14 live steps in `archive/datalog15_live_steps.md`. *(more: the full entry, earlier in this file)* `~hours`
+  - ✅ **DATALOG.16 — `count`, `sum` and `textjoin` group text exactly, as a join matches it.** *Built, tested live (all seven steps) and committed 2026-09-29; `TestDSLs` 2330/0, exactly as predicted.* Found while building `METAPROOF.2` and confirmed live by the owner: over `p("Bob", x)`, `p("bob", y)` and `who("Bob")`, `(count N (p W V))` answered `Bob 2`, where the join `(who W) (p W V)` spills Bob's row alone. `ComputeAggregateGroups` kept its groups in a `VlaDict`, which ignores case — the one place DATALOG's evaluation compared data without it; `not`, the text tests, the comparisons and the integer grounder's symbols were already exact. An exact keyed map in `VLA_Relation.bas` (`RelExactMapNew` and three readers; a binary-compare `Scripting.Dictionary`, or a binary scan without the Scripting runtime) now holds the groups, so `"Bob"` and `"bob"` are two, `textjoin`'s values come out distinct again, and the same cell answers `Bob 1`. The integer grounder and `OPTIMIZE` hand their aggregate rules to the same walk. Four proofs pin it (a join, then `count`, `sum`, `textjoin`), and `TestExactMap` holds the map to one contract on both representations. *(more: the full entry, earlier in this file)* `~hours`
 
 - **`OPTIMIZE(rules, tables...)`** — open items remain in BETA_ROADMAP.md.
   - ✅ **OPTIMIZE.0 — measure the shape of the search before building any of it.** *Built and measured live 2026-09-19. 101 ladder rungs ran, every answer was right, and nothing crashed. At the reference roster the native forms ground in under a second (the pool 0.12 s, the counters 0.68 s, the pairs 2.4 s). The combination forms reached only 20 × 4 for "at most 2 per shift" (10.9 s, about 39× the counters), 10 × 1 for "at most 3 a week" (17.3 s, about 118×), and one person-week for "at most 5 a week" (17.6 s, about 5,000×). A Scripting.Dictionary slows as it grows (7× per key from 10,000 to 400,000 keys), and every rung past about 90,000 live rows went superlinear. The probe: Esc inside a UDF shows VBA's debugger dialog and cannot be caught; `EnableCancelKey`, the status bar and `OnTime` are silently ignored inside a UDF; the Function Wizard evaluates twice per edit; `DoEvents` leaves a cell silently stale. Settled 2026-09-19: the reference roster is 50 × 4 weeks × 3 shifts at a tightness of 0.84; fast enough as proposed, grounding included; clingo as a dev-only oracle; the §17 corpus as its own item before `OPTIMIZE.1`; formula or command settled on the probe (a formula searches only under a ceiling projected at 2 s or less, and long searches and Esc live in the command). The grounding ceilings are left to `OPTIMIZE.3`, with the measured basis recorded. The clingo oracle confirmed the toy's 7,290 worlds three ways and proved the 10 × 1 optimum (overtime 0, 24 changes) in 21.7 s, 91% of it proving. It found no proof at 20 × 1 in 300 s, nor at the reference in 600 s, whose answer key is overtime 0 with 236–1,486 changes. It could not prove a pure counting impossibility in three minutes, so `OPTIMIZE.2` gets counting pre-checks. A kept-first value order put ahead of the objective stalled at 35 overtime, so value order follows the objective's order. The paper model and the measurements are in `docs/OPTIMIZATION.md`, Entry 1.* `DATALOG.12`'s twin for an engine that does not exist yet. Reference sizes: a toy (5 people, 7 shifts, 2 each) and a roster of 50 people over 4 weeks of 3 shifts — 4,200 choice atoms, 10^259 candidate worlds under "exactly two per shift"; nothing enumerates that, and every trap is a way of visiting more of it than necessary. **The traps, each with its fix and the item that lands it:** in grounding — cardinality written as combinations (C(50,3) × 84 = 1.65 million constraints where native counters are 84; at-most-5-a-week 10.9 million where counters are 200), Cartesian bodies (refused by projected size, never by shape: a roster's own pool is one, and `DATALOG` grounds it today, measured 2026-09-19), no bound before grounding (every rule's instance count projected from the Tables, refused over a ceiling naming the rule and the number), single-atom constraints (pruned from the pool, cost zero), symmetric pairs grounded twice (canonical order), join order (`DATALOG.14`'s index); in search — enumeration (replaced by one decision at a time with propagation), counters that do not force, the wrong decision first (fail-first, ties by Table order), the wrong value first (the objective's and the kept schedule's), symmetry (interchangeable rows ordered at grounding: ten interchangeable people are 10! mirrors), independent parts solved together (components solved separately), forced values found late (root probing), optimality by exhaustion (branch-and-bound), the same dead end twice (conflict learning, now `OPTIMIZE.9` with a trigger), all-or-nothing (best found, said plainly); in the constants — objects in the loop (integers and `Long` arrays only; one `CreateObject` a node is 160 s a million nodes), recursion (iterative with a trail — `SolveGoalList` is the wrong template), time budgets (work budgets, so answers do not depend on the machine), a formula blocking Excel (a UDF-interaction probe first; formula versus command as the owner's fork), and a budget that stops the search being somebody's twenty seconds — the owner's question of a mid-calculation "wait longer?" modal, answered and settled by the owner the same day with the budget as DATA (the user knows their own search budget; no modal in the formula): a `(budget N)` form in the program so consent to wait edits the workbook for everyone, a status that says whether waiting would help ("still improving at 41,200" against "no improvement since 6,000"), and the interactive "keep searching?" in the command form, which resumes the same deterministic search and writes the budget it used beside the roster. **What it does, before any engine code:** a paper model of ground size per constraint shape at 10/20/50 people × 1/4 weeks, written as combinations and as counters; those ground sizes MEASURED with `DATALOG` today, each constraint body as a rule over the fixture Tables; a deterministic fixture generator every later item measures against; the Esc probe; the ladder and its guards. Forks for the owner: the reference roster, "fast enough", formula versus command, clingo as a dev-only oracle (never shipped, `SD-13` intact). *(more: the full entry, earlier in this file)* `~days`

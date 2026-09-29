@@ -46,6 +46,14 @@
   To ask first: `If range A1:D50 contains "total", …` or `If column C does
   not contain "x", …`.
 
+- **DATALOG and SQL group text exactly, the way they match it.** A DATALOG
+  `count`, `sum` or `textjoin`, and a SQL `GROUP BY`, used to put "Bob" and
+  "bob" in one group, although a join, `DISTINCT` and `=` always told them
+  apart. So a count could say 2 where only one row belonged to Bob, and a
+  `textjoin` could list the same value twice. Now each spelling is its own
+  group, as in SQLite. If one of your questions groups text that differs
+  only in capitals, its answer changes, so check it.
+
 ### Known open security items
 
 **Closed this release: Replace could create a formula.** Excel's own Replace

@@ -1,6 +1,18 @@
 Attribute VB_Name = "VLA_Tests_Query"
 Option Explicit
-Public Const VLA_TESTS_QUERY_VERSION As String = "METAPROOF.3"
+Public Const VLA_TESTS_QUERY_VERSION As String = "DATALOG.16"
+' DATALOG.16 and SQL.12: A GROUP'S KEY IS COMPARED EXACTLY. Four proofs
+' join scripts/proofs/datalog.vla - a join, then count, sum and textjoin,
+' each over "Bob" and "bob" - so TestDatalogProofs' floor rises 94 -> 98,
+' and both parity loops run the four programs too (TestOptimizeParity's
+' floor 193 -> 197). TestExactMap (new, pure) holds VLA_Relation's exact
+' map to one contract on both representations, the fallback forced with
+' a plain Collection as VLA_Tests.bas forces VlaDict's. TestSqlGroupCase
+' (new, pure) pins GROUP BY keeping Bob and bob apart, as DISTINCT and =
+' always did. TestDSLs +27: twelve for the proofs (a line each in
+' TestDatalogProofs and in both parity loops), eleven exact-map pins and
+' four SQL pins.
+'
 ' METAPROOF.3: MORE OF THE SUITE MOVES TO THE PROOF FILE. scripts/proofs/
 ' datalog.vla gains seventy-eight proofs, which carry what ninety-four pins
 ' here did: every answer of TestDatalog, TestDatalogBuiltins,
@@ -403,6 +415,7 @@ Public Function TestDSLs() As Boolean
 
     TestDatalog
     TestDatalogProofs
+    TestExactMap
     TestDatalogBuiltins
     TestDatalogKeyedAtoms
     TestDatalogUnknownPredicate
@@ -462,6 +475,7 @@ Public Function TestDSLs() As Boolean
     TestPrologAnswerShapes
     TestPrologOwnShapes
     TestSql
+    TestSqlGroupCase
     TestSqlJoin
     TestSqlSetOps
     TestSqlCte
@@ -649,9 +663,10 @@ Private Sub TestDatalogProofs()
                "datalog.vla line " & CStr(formLines.Item(ix)) & ": " & verdict
     Next f
     ' The floor, so the loop cannot pass by reading nothing: sixteen at
-    ' METAPROOF.1, ninety-four at METAPROOF.3, the tests that moved here.
-    ' Raise it as proofs arrive.
-    Report "datalog proofs: the corpus holds at least its ninety-four proofs", ix >= 94, "read " & ix
+    ' METAPROOF.1, ninety-four at METAPROOF.3, the tests that moved here,
+    ' and ninety-eight at DATALOG.16, whose four proofs group "Bob" and
+    ' "bob" apart. Raise it as proofs arrive.
+    Report "datalog proofs: the corpus holds at least its ninety-eight proofs", ix >= 98, "read " & ix
 End Sub
 
 ' One control: proofText is judged exactly as a corpus proof is, and must
@@ -1207,6 +1222,66 @@ Private Function DatalogProofPrograms() As Collection
         End If
     Next f
 End Function
+
+' ---------------------------------------------------------------------
+'  DATALOG.16 and SQL.12: VLA_Relation's EXACT MAP, the store both
+'  grouping walks keep their groups in (count, sum and textjoin, and
+'  SQL's GROUP BY). First on the representation this host gives, then on
+'  the fallback, forced with a plain Collection - the branch a machine
+'  with the Scripting runtime never takes on its own, as VLA_Tests.bas
+'  forces VlaDict's. One contract for both: "Bob" and "bob" are two keys,
+'  a second set replaces, a missing key is Empty and raises nothing, and
+'  an object stored comes back as that same object (textjoin's pieces).
+'  The walks' own answers are proofs in scripts/proofs/datalog.vla.
+' ---------------------------------------------------------------------
+Private Sub TestExactMap()
+    Dim onHost As Object
+    Set onHost = VLA_Relation.RelExactMapNew()
+    ExactMapContract "exact map", onHost
+    Dim forced As Object
+    Set forced = New Collection
+    ExactMapContract "exact map fallback", forced
+    Report "exact map: this host gives a Dictionary, so the fallback pins ran on a forced Collection", _
+           Not (TypeOf onHost Is Collection), "RelExactMapNew gave a Collection: this host has no Scripting runtime"
+End Sub
+
+' Five pins, one contract, on whichever representation m is.
+Private Sub ExactMapContract(ByVal label As String, ByVal m As Object)
+    VLA_Relation.RelExactMapSet m, "Bob", 1
+    VLA_Relation.RelExactMapSet m, "bob", 2
+    Report label & ": Bob and bob are two keys, each with its own value", _
+           VLA_Relation.RelExactMapGet(m, "Bob") = 1 And VLA_Relation.RelExactMapGet(m, "bob") = 2, _
+           "got " & VLA_Relation.RelExactMapGet(m, "Bob") & " and " & VLA_Relation.RelExactMapGet(m, "bob")
+    Report label & ": Has asks exactly - Bob and bob are there, BOB is not", _
+           VLA_Relation.RelExactMapHas(m, "Bob") And VLA_Relation.RelExactMapHas(m, "bob") _
+           And Not VLA_Relation.RelExactMapHas(m, "BOB"), "Has answered as if case did not count"
+    VLA_Relation.RelExactMapSet m, "Bob", 3
+    Report label & ": setting Bob again replaces his value and leaves bob's", _
+           VLA_Relation.RelExactMapGet(m, "Bob") = 3 And VLA_Relation.RelExactMapGet(m, "bob") = 2, _
+           "got " & VLA_Relation.RelExactMapGet(m, "Bob") & " and " & VLA_Relation.RelExactMapGet(m, "bob")
+    ' Read into locals before On Error GoTo 0, which would clear Err.
+    Dim missing As Variant
+    Dim missRaised As Boolean
+    On Error Resume Next
+    Err.Clear
+    missing = VLA_Relation.RelExactMapGet(m, "BOB")
+    missRaised = (Err.Number <> 0)
+    On Error GoTo 0
+    Report label & ": a key never set is Empty, and asking raises nothing", _
+           (Not missRaised) And IsEmpty(missing), "it raised, or came back holding a value"
+    Dim box As Collection
+    Set box = New Collection
+    VLA_Relation.RelExactMapSet m, "pieces", box
+    box.Add "tea"
+    Dim sameBox As Boolean
+    If IsObject(VLA_Relation.RelExactMapGet(m, "pieces")) Then
+        Dim back As Object
+        Set back = VLA_Relation.RelExactMapGet(m, "pieces")
+        If back Is box Then sameBox = (back.Count = 1)
+    End If
+    Report label & ": an object comes back as the same object, so a textjoin's pieces grow in place", _
+           sameBox, "a copy, or nothing, came back"
+End Sub
 
 ' DATALOG.1 and DATALOG.2 - stratified negation, and count and sum grouped
 ' - were TestDatalogNegation and TestDatalogAggregation until METAPROOF.3.
@@ -3746,8 +3821,9 @@ Private Sub TestOptimizeParity()
     ' by nothing; a new proof moves it by one, in both loops.
     ' METAPROOF.3 bore that out: seventy-eight tests moved, the table fell
     ' 177 -> 99 and the corpus rose 16 -> 94, and the count is 193 again.
-    Report "optimize parity: the table and the proof corpus carry every DATALOG program (193 at METAPROOF.3)", _
-           programs.Count >= 193, "got " & programs.Count
+    ' DATALOG.16 added four proofs and no table line: 99 + 98 = 197.
+    Report "optimize parity: the table and the proof corpus carry every DATALOG program (197 at DATALOG.16)", _
+           programs.Count >= 197, "got " & programs.Count
 End Sub
 
 ' Every distinct DATALOG program this module names, from every
@@ -13643,6 +13719,54 @@ Private Sub TestSql()
     If Err.Number <> 0 Then raised = True
     On Error GoTo 0
     Report "sql.5: a negative LIMIT is refused", raised, "no error raised"
+End Sub
+
+' ---------------------------------------------------------------------
+'  SQL.12: GROUP BY groups text exactly. RelGroupBy kept its groups in
+'  VlaDicts, which compare without case, so Bob and bob were one group of
+'  three rows; SQLite, whose dialect this engine pins, groups under the
+'  same BINARY rule its = compares by, and this engine's own = and
+'  DISTINCT always told the two apart. Pure: SqlRun over hand-built rows.
+'  Each pin reads a cell only once the row count is right, so a
+'  regression fails here rather than stopping the suite.
+' ---------------------------------------------------------------------
+Private Sub TestSqlGroupCase()
+    Dim cols As New Collection
+    cols.Add SqlColPair("name", "Name")
+    cols.Add SqlColPair("amount", "Amount")
+    Dim rows As New Collection
+    Dim g1(1 To 2) As Variant: g1(1) = "Bob": g1(2) = 10: rows.Add g1
+    Dim g2(1 To 2) As Variant: g2(1) = "bob": g2(2) = 5: rows.Add g2
+    Dim g3(1 To 2) As Variant: g3(1) = "Bob": g3(2) = 1: rows.Add g3
+
+    Dim result As Collection
+    Dim ok As Boolean
+    Set result = VLA_Sql.SqlRun("SELECT Name, COUNT(*) AS n, SUM(Amount) AS s, MIN(Amount) AS lo, MAX(Amount) AS hi FROM people GROUP BY Name", _
+                                "people", cols, rows)
+    ok = False
+    If CountRows(result) = 2 Then ok = (ValueAt(result, 1, 1) = "Bob" And ValueAt(result, 2, 1) = "bob")
+    Report "sql.12: GROUP BY keeps Bob and bob apart - two groups, Bob first", ok, _
+           "got " & CountRows(result) & " group(s)"
+    ok = False
+    If CountRows(result) = 2 Then
+        ok = (ValueAt(result, 1, 2) = 2 And ValueAt(result, 1, 3) = 11 _
+              And ValueAt(result, 2, 2) = 1 And ValueAt(result, 2, 3) = 5)
+    End If
+    Report "sql.12: ...each group counts and sums its own rows - Bob 2 and 11, bob 1 and 5", ok, _
+           "got " & CountRows(result) & " group(s)"
+    ok = False
+    If CountRows(result) = 2 Then
+        ok = (ValueAt(result, 1, 4) = 1 And ValueAt(result, 1, 5) = 10 _
+              And ValueAt(result, 2, 4) = 5 And ValueAt(result, 2, 5) = 5)
+    End If
+    Report "sql.12: ...and MIN and MAX read their own group - Bob 1 to 10, bob 5 to 5", ok, _
+           "got " & CountRows(result) & " group(s)"
+
+    Set result = VLA_Sql.SqlRun("SELECT DISTINCT Name FROM people", "people", cols, rows)
+    ok = False
+    If CountRows(result) = 2 Then ok = (ValueAt(result, 1, 1) = "Bob" And ValueAt(result, 2, 1) = "bob")
+    Report "sql.12: DISTINCT, which always compared exactly, agrees - Bob, then bob", ok, _
+           "got " & CountRows(result) & " row(s)"
 End Sub
 
 Private Function CountRows(ByVal result As Collection) As Long

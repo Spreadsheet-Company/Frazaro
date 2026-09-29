@@ -973,3 +973,54 @@
     (query in-ops))
   (rows (P)
     ("Ann")))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.16: a group's key is compared exactly, as a join's always
+;  was. Until this item count, sum and textjoin kept their groups in a
+;  dictionary that ignores case, so "Bob" and "bob" were one group to an
+;  aggregate and two values to everything else: the count proof below
+;  answered Bob 2, live, over the very facts where the join proof above
+;  it finds one row. The join comes first so the two halves stand side
+;  by side. Sum and textjoin name both spellings in the outer relation,
+;  so each group is read from each side. clingo does not check these:
+;  its translation declines a quoted string (tools/proofs_lib.ps1).
+; ---------------------------------------------------------------------
+
+(test-datalog "a join matches text exactly: Bob's row, and not bob's"
+  (program
+    (fact (p "Bob" x)) (fact (p "bob" y))
+    (fact (who "Bob"))
+    (rule (m W V) (who W) (p W V))
+    (query m))
+  (rows (W V)
+    ("Bob" x)))
+
+(test-datalog "count groups text exactly: Bob has one row, not bob's as well"
+  (program
+    (fact (p "Bob" x)) (fact (p "bob" y))
+    (fact (who "Bob"))
+    (rule (n W N) (who W) (count N (p W V)))
+    (query n))
+  (rows (W N)
+    ("Bob" 1)))
+
+(test-datalog "sum groups text exactly: Bob and bob keep their own totals"
+  (program
+    (fact (amount "Bob" 10)) (fact (amount "bob" 5))
+    (fact (person "Bob")) (fact (person "bob"))
+    (rule (total W S) (person W) (sum S (amount W V)))
+    (query total))
+  (rows (W S)
+    ("Bob" 10)
+    ("bob" 5)))
+
+(test-datalog "textjoin groups text exactly: Bob and bob keep their own lists"
+  (program
+    (fact (likes "Bob" "tea")) (fact (likes "bob" "coffee"))
+    (fact (person "Bob")) (fact (person "bob"))
+    (rule (drinks W D) (person W) (textjoin D ", " (likes W V)))
+    (query drinks))
+  (rows (W D)
+    ("Bob" "tea")
+    ("bob" "coffee")))
