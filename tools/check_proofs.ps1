@@ -79,16 +79,18 @@ if ($ClingoDir -eq '') { $ClingoDir = Join-Path $PSScriptRoot 'clingo' }
 
 # --- the baseline: every proof file, and the fewest proofs it may hold ---
 # 2026-09-27, METAPROOF.1: datalog.vla, sixteen proofs - TestDatalogBoundArgument's
-# eleven and five of TestDatalog's refusals, moved out of VBA.
+# eleven and five of TestDatalog's refusals, moved out of VBA. 2026-09-28,
+# METAPROOF.3: ninety-four - seventy-eight more moved from VLA_Tests_Query.bas.
 $floors = [ordered]@{
-    'datalog.vla' = 16
+    'datalog.vla' = 94
 }
 # --- rule 9's baseline: every proof file, and the fewest of its proofs its
 # clingo export may carry (0 for an engine clingo cannot check) ---
 # 2026-09-28, METAPROOF.2: datalog.vla, eleven - every answer proof. Its five
-# refusals are DATALOG's own policy, which no other lineage raises.
+# refusals are DATALOG's own policy, which no other lineage raises. 2026-09-28,
+# METAPROOF.3: twenty-three - twelve of the seventy-eight new proofs export.
 $clingoFloors = [ordered]@{
-    'datalog.vla' = 11
+    'datalog.vla' = 23
 }
 # The engines a (test-<engine> ...) head may name: one per runner that
 # exists. A proof for any other would be read by nothing.

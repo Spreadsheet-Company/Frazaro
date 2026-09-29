@@ -78,7 +78,9 @@ $failures = New-Object System.Collections.Generic.List[string]
 # 2026-09-27, METAPROOF.1: 188 - the 204 at 0.7.0 less the sixteen tests
 # that moved to scripts/proofs/datalog.vla (eleven of
 # TestDatalogBoundArgument, five of TestDatalog's refusals).
-$callSiteCeiling = 188
+# 2026-09-28, METAPROOF.3: 109 - seventy-nine more call sites moved, as
+# seventy-eight proofs (TestDatalog's (edge X X) pin was already one).
+$callSiteCeiling = 109
 $testsPath = Join-Path $root 'src\VLA_Tests_Query.bas'
 if (-not (Test-Path -LiteralPath $testsPath)) {
     Write-Error "Missing $testsPath"

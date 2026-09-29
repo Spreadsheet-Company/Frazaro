@@ -49,8 +49,10 @@
 ;
 ;  WHY A FILE AND NOT VBA. Here a program is written as the program it
 ;  is: no doubled quotes, no & _ joins, no line to stay under, and a
-;  file is data any tool can read. A test that needs a live Table, or
-;  builds its program in a loop, stays in VBA. New DATALOG tests come
+;  file is data any tool can read. A test stays in VBA when it needs a
+;  table argument, builds its program in VBA, or checks WHAT a refusal's
+;  words name - (refuses id) says only which refusal it is. New DATALOG
+;  tests come
 ;  here; tools/check_optimize_parity.ps1 holds the number of DATALOG
 ;  calls in VLA_Tests_Query.bas to a ceiling that only comes down.
 ; =====================================================================
@@ -272,3 +274,702 @@
     (query copy))
   (rows-in-any-order (X Y)
     (a b) (b c) (c d)))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.0: facts, a join, a closure, and (headless) - moved from
+;  TestDatalog at METAPROOF.3. There each checked a row COUNT, and three
+;  checked DatalogRun's own record (the header names it offers, the
+;  headless flag); here each names its rows under the header a person
+;  sees, which is where that record ends up. A relation of facts alone
+;  has no names of its own, so it spills under Col1, Col2. Its test over
+;  a table argument stays in VBA.
+; ---------------------------------------------------------------------
+
+(test-datalog "a relation of facts alone spills under Col headers"
+  (program
+    (fact (parent tom bob))
+    (fact (parent bob liz))
+    (query parent))
+  (rows-in-any-order (Col1 Col2)
+    (tom bob) (bob liz)))
+
+(test-datalog "(headless) spills the same rows with no header row"
+  (program
+    (headless)
+    (fact (parent tom bob))
+    (fact (parent bob liz))
+    (query parent))
+  (rows-in-any-order headless
+    (tom bob) (bob liz)))
+
+(test-datalog "a headless program that matches nothing is the blank cell, not a crash"
+  (program
+    (headless)
+    (fact (thing a))
+    (rule (nothing_here X) (thing X) (thing none))
+    (query nothing_here))
+  (rows headless))
+
+(test-datalog "a one-join rule answers one row under its head's own names"
+  (program
+    (fact (parent tom bob))
+    (fact (parent bob liz))
+    (rule (grandparent X Z) (parent X Y) (parent Y Z))
+    (query grandparent))
+  (rows (X Z)
+    (tom liz)))
+
+(test-datalog "a closure over a three-link chain answers all six pairs"
+  (program
+    (fact (reports_to alice bob))
+    (fact (reports_to bob carol))
+    (fact (reports_to carol dave))
+    (rule (indirect_report X Y) (reports_to X Y))
+    (rule (indirect_report X Y) (reports_to X Z) (indirect_report Z Y))
+    (query indirect_report))
+  (rows-in-any-order (X Y)
+    (alice bob) (bob carol) (carol dave)
+    (alice carol) (bob dave)
+    (alice dave)))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.1: stratified negation - moved whole from TestDatalogNegation
+;  at METAPROOF.3. Its three refusals checked only that SOME error was
+;  raised; here each names its refusal. The unbound variable is refused
+;  as unsafe although bar is also undefined: a rule's safety is checked
+;  as it is read, before anything asks what bar is. unreachable is the
+;  case stratification exists for - its rule may not run until
+;  reachable's whole recursive fixpoint, an earlier stratum, is done.
+; ---------------------------------------------------------------------
+
+(test-datalog "(not (banned X)) leaves out exactly the banned person"
+  (program
+    (fact (person alice))
+    (fact (person bob))
+    (fact (person carol))
+    (fact (banned bob))
+    (rule (allowed X) (person X) (not (banned X)))
+    (query allowed))
+  (rows-in-any-order (X)
+    (alice) (carol)))
+
+(test-datalog "a variable bound only under (not ...) is refused, not left unbound"
+  (program
+    (fact (item a))
+    (rule (foo X) (not (bar X)))
+    (query foo))
+  (refuses datalog-negation-unsafe-variable))
+
+(test-datalog "a predicate negating itself is refused as unstratifiable"
+  (program
+    (fact (item a))
+    (rule (p X) (item X) (not (p X)))
+    (query p))
+  (refuses datalog-negation-not-stratifiable))
+
+(test-datalog "two predicates negating each other are refused as unstratifiable"
+  (program
+    (fact (item a))
+    (rule (p X) (item X) (not (q X)))
+    (rule (q X) (item X) (not (p X)))
+    (query p))
+  (refuses datalog-negation-not-stratifiable))
+
+(test-datalog "unreachable is every pair but reachable's whole fixpoint"
+  (program
+    (fact (node a)) (fact (node b)) (fact (node c))
+    (fact (edge a b)) (fact (edge b c))
+    (rule (reachable X Y) (edge X Y))
+    (rule (reachable X Z) (edge X Y) (reachable Y Z))
+    (rule (unreachable X Y) (node X) (node Y) (not (reachable X Y)))
+    (query unreachable))
+  (rows-in-any-order (X Y)
+    (a a) (b a) (b b) (c a) (c b) (c c)))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.2: count and sum, grouped - moved whole from
+;  TestDatalogAggregation at METAPROOF.3. A group with no row at all is
+;  a real 0, never a missing row. Its six refusals checked only that some
+;  error was raised; here each names its refusal. reachcount counts a
+;  relation that is itself recursive, so it waits for reachable's whole
+;  fixpoint, an earlier stratum.
+; ---------------------------------------------------------------------
+
+(test-datalog "count answers one row per person, the one with no sale a real 0"
+  (program
+    (fact (person alice)) (fact (person bob)) (fact (person carol))
+    (fact (sale alice widget)) (fact (sale alice gadget)) (fact (sale bob widget))
+    (rule (salescount X N) (person X) (count N (sale X Y)))
+    (query salescount))
+  (rows-in-any-order (X N)
+    (alice 2) (bob 1) (carol 0)))
+
+(test-datalog "sum answers one row per person, the one with no amount a real 0"
+  (program
+    (fact (person alice)) (fact (person bob)) (fact (person carol))
+    (fact (amount alice 10)) (fact (amount alice 15)) (fact (amount bob 7))
+    (rule (total X S) (person X) (sum S (amount X V)))
+    (query total))
+  (rows-in-any-order (X S)
+    (alice 25) (bob 7) (carol 0)))
+
+(test-datalog "a sum with no value left to add is refused"
+  (program
+    (fact (person alice))
+    (fact (amount alice "10"))
+    (rule (bad X S) (person X) (sum S (amount X "10")))
+    (query bad))
+  (refuses datalog-sum-needs-one-value-variable))
+
+(test-datalog "a sum with two values it could add is refused"
+  (program
+    (fact (person alice))
+    (fact (amount2 alice 1 2))
+    (rule (bad X S) (person X) (sum S (amount2 X V W)))
+    (query bad))
+  (refuses datalog-sum-needs-one-value-variable))
+
+(test-datalog "an aggregate's result already bound earlier in the body is refused"
+  (program
+    (fact (person alice))
+    (fact (sale alice widget))
+    (rule (bad X N) (person X) (count N (sale X Y)) (count N (sale X Z)))
+    (query bad))
+  (refuses datalog-aggregate-result-reused))
+
+(test-datalog "an aggregate's result written in lower case is refused"
+  (program
+    (fact (person alice))
+    (fact (sale alice widget))
+    (rule (bad X) (person X) (count n (sale X Y)))
+    (query bad))
+  (refuses datalog-aggregate-result-not-a-variable))
+
+(test-datalog "a (count ...) with no predicate form is refused"
+  (program
+    (fact (person alice))
+    (rule (bad X N) (person X) (count N))
+    (query bad))
+  (refuses datalog-aggregate-bad-shape))
+
+(test-datalog "a predicate counting itself is refused as unstratifiable"
+  (program
+    (fact (item a))
+    (rule (p X N) (item X) (count N (p X Y)))
+    (query p))
+  (refuses datalog-negation-not-stratifiable))
+
+(test-datalog "a count over a recursive relation waits for its whole fixpoint"
+  (program
+    (fact (node a)) (fact (node b)) (fact (node c))
+    (fact (edge a b)) (fact (edge b c))
+    (rule (reachable X Y) (edge X Y))
+    (rule (reachable X Z) (edge X Y) (reachable Y Z))
+    (rule (reachcount X N) (node X) (count N (reachable X Y)))
+    (query reachcount))
+  (rows-in-any-order (X N)
+    (a 2) (b 1) (c 0)))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.4 and PROLOG.17: comparisons, and (let Z (op X Y)) - moved from
+;  TestDatalogBuiltins at METAPROOF.3, all but its one test over a table
+;  argument. A fact's 9 and 10 are text, and (> N 8) still compares them
+;  as numbers, where text would put 10 before 8. Each let names its
+;  VALUE, because a wrong operator gives a plausible number, not an
+;  error: mod floors as PROLOG's does (VBA's own Mod gives -1), rem is
+;  its twin, and round goes half away from zero (VBA's own Round gives
+;  2). The path lengths add up across recursive rounds. Its ten refusals
+;  checked only that some error was raised; here each names its refusal.
+; ---------------------------------------------------------------------
+
+(test-datalog "(> N 8) compares numbers written as fact text as numbers"
+  (program
+    (fact (score alice 9))
+    (fact (score bob 10))
+    (rule (high_scorer X) (score X N) (> N 8))
+    (query high_scorer))
+  (rows-in-any-order (X)
+    (alice) (bob)))
+
+(test-datalog "(<> X banana) compares words as text and drops exactly banana"
+  (program
+    (fact (tag apple)) (fact (tag banana)) (fact (tag cherry))
+    (rule (not_banana X) (tag X) (<> X banana))
+    (query not_banana))
+  (rows-in-any-order (X)
+    (apple) (cherry)))
+
+(test-datalog "a comparison and a (not ...) compose in one rule"
+  (program
+    (fact (person alice 25))
+    (fact (person bob 15))
+    (fact (banned bob))
+    (rule (adult_allowed X) (person X Age) (> Age 18) (not (banned X)))
+    (query adult_allowed))
+  (rows (X)
+    (alice)))
+
+(test-datalog "(let S (+ A B)) adds: 10 and 3 make 13"
+  (program
+    (fact (pair 10 3))
+    (rule (added S) (pair A B) (let S (+ A B)))
+    (query added))
+  (rows (S) (13)))
+
+(test-datalog "(let S (- A B)) subtracts: 10 less 3 is 7"
+  (program
+    (fact (pair 10 3))
+    (rule (subbed S) (pair A B) (let S (- A B)))
+    (query subbed))
+  (rows (S) (7)))
+
+(test-datalog "(let S (* A B)) multiplies: 10 times 3 is 30"
+  (program
+    (fact (pair 10 3))
+    (rule (multiplied S) (pair A B) (let S (* A B)))
+    (query multiplied))
+  (rows (S) (30)))
+
+(test-datalog "(let S (/ A B)) divides: 10 over 4 is 2.5"
+  (program
+    (fact (pair 10 4))
+    (rule (divided S) (pair A B) (let S (/ A B)))
+    (query divided))
+  (rows (S) (2.5)))
+
+(test-datalog "(mod -7 3) is 2, floored as PROLOG's is"
+  (program
+    (fact (pair -7 3))
+    (rule (modded S) (pair A B) (let S (mod A B)))
+    (query modded))
+  (rows (S) (2)))
+
+(test-datalog "(rem -7 3) is -1, so mod and rem stay two operators"
+  (program
+    (fact (pair -7 3))
+    (rule (remmed S) (pair A B) (let S (rem A B)))
+    (query remmed))
+  (rows (S) (-1)))
+
+(test-datalog "(// 7 2) is 3, a division to a whole number"
+  (program
+    (fact (pair 7 2))
+    (rule (idiv S) (pair A B) (let S (// A B)))
+    (query idiv))
+  (rows (S) (3)))
+
+(test-datalog "(max 3 7) is 7"
+  (program
+    (fact (pair 3 7))
+    (rule (mx S) (pair A B) (let S (max A B)))
+    (query mx))
+  (rows (S) (7)))
+
+(test-datalog "(abs -4) is 4, a let of one operand"
+  (program
+    (fact (val -4))
+    (rule (absd S) (val A) (let S (abs A)))
+    (query absd))
+  (rows (S) (4)))
+
+(test-datalog "(round 2.5) is 3, half away from zero"
+  (program
+    (fact (val 2.5))
+    (rule (rnd S) (val A) (let S (round A)))
+    (query rnd))
+  (rows (S) (3)))
+
+(test-datalog "path lengths add up across recursive rounds"
+  (program
+    (fact (edge a b 1)) (fact (edge b c 1)) (fact (edge c d 1))
+    (rule (path X Y D) (edge X Y D))
+    (rule (path X Z D) (edge X Y D1) (path Y Z D2) (let D (+ D1 D2)))
+    (query path))
+  (rows-in-any-order (X Y D)
+    (a b 1) (b c 1) (c d 1)
+    (a c 2) (b d 2)
+    (a d 3)))
+
+(test-datalog "a comparison reading an unbound variable is refused"
+  (program
+    (fact (item a))
+    (rule (foo X) (item X) (> Y 5))
+    (query foo))
+  (refuses datalog-builtin-unsafe-variable))
+
+(test-datalog "a let operand reading an unbound variable is refused"
+  (program
+    (fact (item a))
+    (rule (foo X Z) (item X) (let Z (+ Y 1)))
+    (query foo))
+  (refuses datalog-builtin-unsafe-variable))
+
+(test-datalog "a let result already bound earlier in the body is refused"
+  (program
+    (fact (pair a 1))
+    (rule (foo X N) (pair X N) (let N (+ N 1)))
+    (query foo))
+  (refuses datalog-let-result-reused))
+
+(test-datalog "a comparison with one operand is refused"
+  (program
+    (fact (item a))
+    (rule (foo X) (item X) (> X))
+    (query foo))
+  (refuses datalog-builtin-needs-two-operands))
+
+(test-datalog "a let giving a two-operand operator one operand is refused"
+  (program
+    (fact (item a))
+    (rule (foo X Z) (item X) (let Z (+ X)))
+    (query foo))
+  (refuses datalog-builtin-needs-two-operands))
+
+(test-datalog "an arithmetic operator DATALOG does not know is refused by name"
+  (program
+    (fact (pair a 1 2))
+    (rule (foo X Z) (pair X A B) (let Z (% A B)))
+    (query foo))
+  (refuses datalog-unknown-arithmetic-operator))
+
+(test-datalog "division by zero is refused, not a raw crash"
+  (program
+    (fact (pair a 10 0))
+    (rule (foo X Z) (pair X A B) (let Z (/ A B)))
+    (query foo))
+  (refuses datalog-division-by-zero))
+
+(test-datalog "arithmetic on a word is refused"
+  (program
+    (fact (pair a hello))
+    (rule (foo X Z) (pair X A) (let Z (+ A 1)))
+    (query foo))
+  (refuses datalog-arithmetic-non-numeric-operand))
+
+(test-datalog "a (let) with nothing in it is refused"
+  (program
+    (fact (item a))
+    (rule (foo X) (item X) (let))
+    (query foo))
+  (refuses datalog-let-bad-shape))
+
+(test-datalog "a let result written in lower case is refused"
+  (program
+    (fact (pair a 1 2))
+    (rule (foo X Z) (pair X A B) (let z (+ A B)))
+    (query foo))
+  (refuses datalog-let-result-not-a-variable))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.8: the two answers in TestDatalogUnknownPredicate, moved at
+;  METAPROOF.3 - the spellings that work, beside the misspellings that
+;  refuse. The refusals stay in VBA for now: each checks WHICH predicate
+;  its words name, and (refuses id) cannot say that yet.
+; ---------------------------------------------------------------------
+
+(test-datalog "spelled right, the negation answers: tom is banned, so ok is empty"
+  (program
+    (fact (person tom))
+    (fact (banned tom))
+    (rule (ok X) (person X) (not (banned X)))
+    (query ok))
+  (rows (X)))
+
+(test-datalog "a let and a comparison name no relation: the rule answers 13"
+  (program
+    (fact (pair 10 3))
+    (rule (big S) (pair A B) (let S (+ A B)) (> S 5))
+    (query big))
+  (rows (S) (13)))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.9: a query written as one fact answers TRUE or FALSE - moved
+;  from TestDatalogGroundQuery at METAPROOF.3, every answer that needs no
+;  table argument. A closure over data that loops answers and stops,
+;  where PROLOG collected every proof first and never finished. A query
+;  matches text exactly, as a rule body does. A query by name still
+;  spills rows. The refusals stay in VBA for now, each checking what its
+;  words name.
+; ---------------------------------------------------------------------
+
+(test-datalog "a query written as one fact is TRUE when the fact holds"
+  (program
+    (fact (link "A" "B"))
+    (query (link "A" "B")))
+  (answer true))
+
+(test-datalog "a query written as one fact is FALSE when it does not hold"
+  (program
+    (fact (link "A" "B"))
+    (query (link "B" "A")))
+  (answer false))
+
+(test-datalog "a closure over data that loops answers TRUE and stops: A reaches D"
+  (program
+    (fact (link "A" "B")) (fact (link "B" "C")) (fact (link "C" "A")) (fact (link "C" "D"))
+    (rule (route X Y) (link X Y))
+    (rule (route X Y) (link X Z) (route Z Y))
+    (query (route "A" "D")))
+  (answer true))
+
+(test-datalog "a closure over data that loops answers FALSE and stops: A cannot reach E"
+  (program
+    (fact (link "A" "B")) (fact (link "B" "C")) (fact (link "C" "A")) (fact (link "C" "D"))
+    (rule (route X Y) (link X Y))
+    (rule (route X Y) (link X Z) (route Z Y))
+    (query (route "A" "E")))
+  (answer false))
+
+(test-datalog "bare constants in a query are constants: (parent tom bob) is TRUE"
+  (program
+    (fact (parent tom bob))
+    (query (parent tom bob)))
+  (answer true))
+
+(test-datalog "a query matches text exactly, so bob is not Bob"
+  (program
+    (fact (person "Bob"))
+    (query (person "bob")))
+  (answer false))
+
+(test-datalog "a query by name still spills its rows under a header"
+  (program
+    (fact (p a))
+    (fact (p b))
+    (query p))
+  (rows (Col1)
+    (a) (b)))
+
+(test-datalog "a query by name answers rows, never TRUE or FALSE"
+  (program
+    (fact (p a))
+    (query p))
+  (rows (Col1)
+    (a)))
+
+(test-datalog "(query (not ...)) is answered, not refused as nesting: FALSE beside the fact"
+  (program
+    (fact (p a))
+    (query (not (p a))))
+  (answer false))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.10: a query may be one atom under (not ...), and it is TRUE
+;  when nothing matches - moved from TestDatalogNegatedQuery at
+;  METAPROOF.3, every answer that needs no table argument. A blank, a
+;  variable, is any value, and a blank repeated is one value. The
+;  refusals stay in VBA for now, each checking what its words name.
+; ---------------------------------------------------------------------
+
+(test-datalog "(not ...) over a fact nothing states is TRUE"
+  (program
+    (fact (p a))
+    (query (not (p b))))
+  (answer true))
+
+(test-datalog "(not ...) over a fact the program states is FALSE"
+  (program
+    (fact (p a))
+    (fact (p b))
+    (query (not (p b))))
+  (answer false))
+
+(test-datalog "a blank is any value: something links from A, so none from A is FALSE"
+  (program
+    (fact (link "A" "B"))
+    (query (not (link "A" X))))
+  (answer false))
+
+(test-datalog "a blank is any value: nothing links from B, so none from B is TRUE"
+  (program
+    (fact (link "A" "B"))
+    (query (not (link "B" X))))
+  (answer true))
+
+(test-datalog "two blanks ask whether the relation holds any row: it does, so FALSE"
+  (program
+    (fact (link "A" "B"))
+    (query (not (link X Y))))
+  (answer false))
+
+(test-datalog "a repeated blank is one value: nothing links to itself, so TRUE"
+  (program
+    (fact (link "A" "B"))
+    (query (not (link X X))))
+  (answer true))
+
+(test-datalog "a repeated blank is one value: C links to itself, so FALSE"
+  (program
+    (fact (link "A" "B"))
+    (fact (link "C" "C"))
+    (query (not (link X X))))
+  (answer false))
+
+(test-datalog "over data that loops, A reaches something, so FALSE, and it stops"
+  (program
+    (fact (link "A" "B")) (fact (link "B" "C")) (fact (link "C" "A")) (fact (link "C" "D"))
+    (rule (route X Y) (link X Y))
+    (rule (route X Y) (link X Z) (route Z Y))
+    (query (not (route "A" X))))
+  (answer false))
+
+(test-datalog "over data that loops, nothing reaches E, so TRUE, and it stops"
+  (program
+    (fact (link "A" "B")) (fact (link "B" "C")) (fact (link "C" "A")) (fact (link "C" "D"))
+    (rule (route X Y) (link X Y))
+    (rule (route X Y) (link X Z) (route Z Y))
+    (query (not (route X "E"))))
+  (answer true))
+
+(test-datalog "a rule that derives nothing answers TRUE: no row can match"
+  (program
+    (fact (p a))
+    (rule (q X) (p X) (not (p X)))
+    (query (not (q X))))
+  (answer true))
+
+(test-datalog "no shift is a gap is FALSE while Night has no cover"
+  (program
+    (fact (shift "Day")) (fact (shift "Night")) (fact (covered "Day"))
+    (rule (gap S) (shift S) (not (covered S)))
+    (query (not (gap X))))
+  (answer false))
+
+(test-datalog "no shift is a gap is TRUE once Night is covered"
+  (program
+    (fact (shift "Day")) (fact (shift "Night")) (fact (covered "Day"))
+    (rule (gap S) (shift S) (not (covered S)))
+    (fact (covered "Night"))
+    (query (not (gap X))))
+  (answer true))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.11: the text tests and textjoin - moved from
+;  TestDatalogTextTests at METAPROOF.3, every answer that needs no table
+;  argument. A text test answers once per row, however often its part
+;  occurs, and its case is exact. textjoin puts a group's values in one
+;  cell in the relation's own row order, and a group with none holds
+;  empty text, never a missing row. Rows are in the engine's order
+;  wherever the VBA pin read them by position. The refusals, the table
+;  tests and the 32,767-character boundary, whose program VBA builds,
+;  stay there.
+; ---------------------------------------------------------------------
+
+(test-datalog "text-starts-with keeps the codes that start with GL-4"
+  (program
+    (fact (acct "GL-4010")) (fact (acct "GL-4020")) (fact (acct "GL-5010"))
+    (rule (revenue C) (acct C) (text-starts-with C "GL-4"))
+    (query revenue))
+  (rows (C)
+    ("GL-4010") ("GL-4020")))
+
+(test-datalog "text-ends-with keeps the codes that end with 10"
+  (program
+    (fact (acct "GL-4010")) (fact (acct "GL-4020")) (fact (acct "GL-5010"))
+    (rule (tens C) (acct C) (text-ends-with C "10"))
+    (query tens))
+  (rows (C)
+    ("GL-4010") ("GL-5010")))
+
+(test-datalog "text-contains answers once per row, however often the part occurs"
+  (program
+    (fact (product "Banana")) (fact (product "Cyan")) (fact (product "Apple"))
+    (rule (has-an N) (product N) (text-contains N "an"))
+    (query has-an))
+  (rows (N)
+    ("Banana") ("Cyan")))
+
+(test-datalog "a text test's case is exact: gl-4 starts no code"
+  (program
+    (fact (acct "GL-4010")) (fact (acct "GL-4020")) (fact (acct "GL-5010"))
+    (rule (revenue C) (acct C) (text-starts-with C "gl-4"))
+    (query revenue))
+  (rows (C)))
+
+(test-datalog "every text contains the empty text"
+  (program
+    (fact (acct "GL-4010")) (fact (acct "GL-4020")) (fact (acct "GL-5010"))
+    (rule (any-code C) (acct C) (text-contains C ""))
+    (query any-code))
+  (rows-in-any-order (C)
+    ("GL-4010") ("GL-4020") ("GL-5010")))
+
+(test-datalog "a text test under not answers inverted"
+  (program
+    (fact (acct "GL-4010")) (fact (acct "GL-4020")) (fact (acct "GL-5010"))
+    (rule (other C) (acct C) (not (text-starts-with C "GL-4")))
+    (query other))
+  (rows (C)
+    ("GL-5010")))
+
+(test-datalog "a text test's operands may both be variables an earlier atom bound"
+  (program
+    (fact (pair "GL-4010" "GL-4"))
+    (fact (pair "GL-5010" "GL-4"))
+    (rule (ok C) (pair C P) (text-starts-with C P))
+    (query ok))
+  (rows (C)
+    ("GL-4010")))
+
+(test-datalog "textjoin puts each shift's people in one cell, an empty shift empty text"
+  (program
+    (fact (cc "Ann" "Day")) (fact (cc "Bob" "Day")) (fact (cc "Ed" "Day")) (fact (cc "Bob" "Night"))
+    (fact (shift "Day")) (fact (shift "Night")) (fact (shift "Weekend"))
+    (rule (who-covers S W) (shift S) (textjoin W ", " (cc P S)))
+    (query who-covers))
+  (rows (S W)
+    ("Day" "Ann, Bob, Ed")
+    ("Night" "Bob")
+    ("Weekend" "")))
+
+(test-datalog "textjoin's separator is the one written: a semicolon"
+  (program
+    (fact (cc "Ann" "Day")) (fact (cc "Bob" "Day")) (fact (cc "Ed" "Day")) (fact (cc "Bob" "Night"))
+    (fact (shift "Day")) (fact (shift "Night")) (fact (shift "Weekend"))
+    (rule (who-covers S W) (shift S) (textjoin W "; " (cc P S)))
+    (query who-covers))
+  (rows (S W)
+    ("Day" "Ann; Bob; Ed")
+    ("Night" "Bob")
+    ("Weekend" "")))
+
+(test-datalog "an empty textjoin separator joins with nothing between"
+  (program
+    (fact (cc "Ann" "Day")) (fact (cc "Bob" "Day")) (fact (cc "Ed" "Day")) (fact (cc "Bob" "Night"))
+    (fact (shift "Day")) (fact (shift "Night")) (fact (shift "Weekend"))
+    (rule (who-covers S W) (shift S) (textjoin W "" (cc P S)))
+    (query who-covers))
+  (rows (S W)
+    ("Day" "AnnBobEd")
+    ("Night" "Bob")
+    ("Weekend" "")))
+
+(test-datalog "someone who qualifies two ways is joined once"
+  (program
+    (fact (cc "Ann" "Day")) (fact (cc "Bob" "Day")) (fact (cc "Ed" "Day")) (fact (cc "Bob" "Night"))
+    (fact (shift "Day")) (fact (shift "Night")) (fact (shift "Weekend"))
+    (fact (spare "Bob" "Day"))
+    (rule (can P S) (cc P S))
+    (rule (can P S) (spare P S))
+    (rule (who-can S W) (shift S) (textjoin W ", " (can P S)))
+    (query who-can))
+  (rows (S W)
+    ("Day" "Ann, Bob, Ed")
+    ("Night" "Bob")
+    ("Weekend" "")))
+
+(test-datalog "a program that defines member keeps it: DATALOG never reserved the name"
+  (program
+    (fact (member "Ann" "Ops"))
+    (rule (in-ops P) (member P "Ops"))
+    (query in-ops))
+  (rows (P)
+    ("Ann")))

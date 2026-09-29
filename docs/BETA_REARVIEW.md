@@ -11938,15 +11938,18 @@ lost or mistaken for closer than they are:**
     held a peer's `english.vla` edit mid-item, so the check ran on an
     archive of a private index.
 
-  **Found while building — read, not run:** DATALOG's `count` groups text
-  without case, while its joins compare exactly. `ComputeAggregateGroups`
-  keys its groups in a `VlaDictNew`, which compares as text; `RelJoin` and
-  `RelTryAdd`'s de-duplication use a plain `Scripting.Dictionary`, which
-  compares exactly. So with `p("Bob", x)`, `p("bob", y)` and `who("Bob")`,
-  `(count N (p W V))` after `(who W)` should count 2, where the join
-  `(who W) (p W V)` finds one row. Unverified. The translation declines
-  quoted strings, so clingo cannot see it yet; the first proof that widens
-  the translation to quoted text would witness it either way.
+  **Found while building — read, then confirmed live:** DATALOG's `count`
+  groups text without case, while its joins compare exactly.
+  `ComputeAggregateGroups` keys its groups in a `VlaDictNew`, which compares
+  as text; `RelJoin` and `RelTryAdd`'s de-duplication use a plain
+  `Scripting.Dictionary`, which compares exactly. So with `p("Bob", x)`,
+  `p("bob", y)` and `who("Bob")`, `(count N (p W V))` after `(who W)`
+  counts 2, where the join `(who W) (p W V)` finds one row. The owner's cell
+  confirmed the count half the same day: `=DATALOG(...)` over exactly that
+  program spilled `Bob | 2`. The join half is still a reading. The
+  translation declines quoted strings, so clingo cannot see it yet; the
+  first proof that widens the translation to quoted text would witness it
+  either way.
 
   **Owner-verified 2026-09-28, every line as predicted.** clingo, run by the
   owner by hand from PowerShell over all fourteen files, with the one line
@@ -11954,6 +11957,82 @@ lost or mistaken for closer than they are:**
   the three controls. Each program had been traced by hand first. Every
   answer proof in the corpus now agrees with a reading of another lineage,
   not only with the engine. `~hours`
+- ✅ **METAPROOF.3 — more of the DATALOG suite moves to the proof file.**
+  *Opened 2026-09-28 at the owner's call ("Proceed with moving more DATALOG
+  tests into the proof file before suggesting next steps"): METAPROOF.1's
+  plan, step 2. Owner-verified live and committed the same day.*
+
+  **The rule for what moved.** A pin moved when a proof could say at least
+  as much as it did. So every answer that needs no table argument moved,
+  and so did every refusal pin that accepted ANY error, a raw VBA crash
+  included. A refusal pin that already checked its words stayed: most check
+  WHAT the words name - which predicate, which variable, which hint - and
+  `(refuses id)` says only which refusal it is.
+
+  **Built:**
+  - `scripts/proofs/datalog.vla`: seventy-eight new proofs in eight
+    sections, one per DATALOG item (0, 1, 2, 4, 8, 9, 10 and 11), ninety-four
+    in all. Each answer names every row where the pin counted rows or probed
+    one tuple, in any order unless the pin read cells by position. Nineteen
+    refusals name their ids now, each derived from the engine's own code:
+    - `datalog-negation-not-stratifiable`, three times: a predicate negating
+      itself, two negating each other, one counting itself;
+    - `datalog-sum-needs-one-value-variable`,
+      `datalog-builtin-unsafe-variable` and
+      `datalog-builtin-needs-two-operands`, twice each;
+    - `datalog-negation-unsafe-variable`, `datalog-aggregate-result-reused`,
+      `datalog-aggregate-result-not-a-variable`,
+      `datalog-aggregate-bad-shape`, `datalog-let-result-reused`,
+      `datalog-unknown-arithmetic-operator`, `datalog-division-by-zero`,
+      `datalog-arithmetic-non-numeric-operand`, `datalog-let-bad-shape` and
+      `datalog-let-result-not-a-variable`, once each.
+
+    The header's sentence on what stays in VBA now names all three
+    reasons.
+  - `VLA_Tests_Query.bas`, ninety-four pins removed:
+    - `TestDatalogNegation` and `TestDatalogAggregation` retired whole;
+    - `TestDatalog` keeps its table argument and the spill-shape check,
+      `TestDatalogBuiltins` its one comparison over a table;
+    - the ground, negated and text-test Subs keep their table pins, their
+      refusals and the 32,767-character boundary;
+    - TestDatalog's `(edge X X)` pin was already a proof and ran twice, so
+      it is gone.
+
+    The parity table lost every line whose only call site moved
+    (177 → 99). Fifteen of those lines were only the literal tail of a
+    program the test built from a shared string (`loopy`, `gaps`, `accts`,
+    `cover`), so those fifteen programs reach both parity loops whole for
+    the first time. OPTIMIZE's zero-choice path runs DATALOG's own engine,
+    so parity there holds by construction; the integer grounder meets them
+    new.
+  - Ratchets: `check_proofs.ps1`'s floors 16 → 94 proofs and 11 → 23
+    clingo exports, `check_optimize_parity.ps1`'s call-site ceiling
+    188 → 109, and `TestDatalogProofs`' floor 16 → 94. The parity floor stays
+    193: the table fell by exactly what the corpus rose.
+  - The clingo export: twelve new programs, twenty-three proofs and three
+    controls in all. The other forty-seven new answer proofs are declined by
+    name, each with its reason: `sum`, the ordering comparisons, `let`,
+    `(answer ...)` and quoted text.
+
+  **Checked without Excel:** all 30 checks pass on `HEAD` plus this change,
+  and every cut in the module was made by one script that asserted its
+  first and last line before cutting. It counted 94 `Report` lines out,
+  exactly the pins planned, and the Subs and Functions still balance
+  (77 and 102).
+
+  **Owner-verified live 2026-09-28, every number as predicted:**
+  VlaSelfTest pure 1528/1528 and host 241/241, unmoved; TestDSLs 2303/0
+  (2319 − 94 pins + 78 proofs, both parity loops unchanged at 193
+  programs). clingo over the twenty-six files: `agrees` on the twenty-three
+  proofs, `caught` on the three controls.
+
+  One observation from that run: clingo printed an `info` line for each of
+  the two counts with a group key ("global variable in tuple of aggregate
+  element: X"). The translation lists the group key inside the `#count`
+  tuple, where it is held fixed and changes nothing, so both agreed. But the
+  idiomatic form lists only the counted variables. It is left for the next
+  slice that touches the translation, so that the files the owner ran are
+  the files committed. `~hours`
 - ⬜ **VOCAB-MIGRATE** — version a generation spec, diff the rules it
   produces against what's currently loaded (VOCABDIFF), and report the
   delta - schema migrations for a spoken grammar. No known precedent to
@@ -25119,3 +25198,5 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **METAPROOF.1 — proofs as forms, the first arrow: DATALOG.** Contemplation 9's collapse 4, opened 2026-09-27 as 0.7.1's first item; owner-verified live and committed 2026-09-28 (`VLA_SELF-TESTS` pure 1525/1525, host 202/202; TestDSLs 2319/0, every number as predicted; a live red control, one expected cell edited, failed exactly its proof). `scripts/proofs/datalog.vla` holds DATALOG tests as forms — `(test-datalog "name" (program ...) expectation)`, the expectation `(rows ...)`, `(rows-in-any-order ...)`, `(answer true|false)` or `(refuses message-id)` — run by `TestDatalogProofs` in TestDSLs after seventeen controls that prove the runner says FAIL. Sixteen tests moved there and got stronger: `TestDatalogBoundArgument`'s eleven row counts now name their rows, and `TestDatalog`'s five refusals, which accepted any error (a raw crash included), now name their message ids through `VLA_Messages`' new memory of the last refusal raised. `DATALOG()`'s answer lines moved unchanged into `DatalogAnswer`, so a proof sees what the cell shows. Both parity loops read the corpus, and the table fell 192 → 177. New `tools/check_proofs.ps1` (the thirtieth check, mutation-tested) reads the corpus without Excel; `check_optimize_parity.ps1` holds DATALOG call sites to a falling ceiling (188). Next slices, scoped not built: input tables, the other engines, and clingo as an oracle of another lineage. *(more: the full entry, earlier in this file)* `~days`
 
 - ✅ **METAPROOF.2 — clingo, an oracle of another lineage, for the DATALOG proofs.** METAPROOF.1's plan, step 4, opened 2026-09-28; owner-verified and committed the same day (clingo, run by the owner by hand over all fourteen files: `agrees` on the eleven proofs and `caught` on the three controls, every line as predicted). `tools/proofs_lp.ps1` writes every DATALOG answer proof as a clingo program in `tools/clingo`: the program, the rows the proof expects, and a judge that shows `vla_verdict(agrees)` or names the rows that differ. Three controls, wrong on purpose, must show `caught`. Eleven of the sixteen proofs export; the five refusals cannot, since no other lineage raises DATALOG's message ids. What the translation cannot state faithfully (quoted strings, `sum`, the ordering comparisons, …) is declined by name, never guessed. `check_proofs.ps1`'s new rule 9 fails when the tracked files fall behind the proofs. Every answer proof in the corpus now agrees with a reading of another lineage, not only with the engine. *(more: the full entry, earlier in this file)* `~hours`
+
+- ✅ **METAPROOF.3 — more of the DATALOG suite moves to the proof file.** METAPROOF.1's plan, step 2, opened 2026-09-28 at the owner's call; owner-verified live and committed the same day (VlaSelfTest pure 1528/1528 and host 241/241, unmoved; TestDSLs 2303/0, as predicted; clingo agrees on all twenty-three exported proofs and caught the three controls). Seventy-eight proofs join `scripts/proofs/datalog.vla` (ninety-four in all) and carry what ninety-four VBA pins did: every answer that needs no table argument, and the whole of `TestDatalogNegation` and `TestDatalogAggregation`, both retired. They got stronger on the way: a row count or a probed tuple became every row, named, and the nineteen refusal pins that accepted any error now name their message id. A pin stays in VBA only for a reason: a table argument (no `(tables ...)` clause yet), a program VBA builds, the text entry point, or a refusal pin that checks WHAT its words name, which `(refuses id)` cannot say yet. The parity table fell 177 → 99 and the call-site ceiling 188 → 109; fifteen programs the tests built from shared strings reach both parity loops whole for the first time; twelve new proofs join the clingo export (twenty-three in all). *(more: the full entry, earlier in this file)* `~hours`

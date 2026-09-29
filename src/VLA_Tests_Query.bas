@@ -1,6 +1,22 @@
 Attribute VB_Name = "VLA_Tests_Query"
 Option Explicit
-Public Const VLA_TESTS_QUERY_VERSION As String = "METAPROOF.1"
+Public Const VLA_TESTS_QUERY_VERSION As String = "METAPROOF.3"
+' METAPROOF.3: MORE OF THE SUITE MOVES TO THE PROOF FILE. scripts/proofs/
+' datalog.vla gains seventy-eight proofs, which carry what ninety-four pins
+' here did: every answer of TestDatalog, TestDatalogBuiltins,
+' TestDatalogGroundQuery, TestDatalogNegatedQuery, TestDatalogTextTests and
+' TestDatalogUnknownPredicate that needs no table argument, and the whole of
+' TestDatalogNegation and TestDatalogAggregation (both retired). They got
+' stronger on the way: a row count or a probed tuple became every row,
+' named, and the nineteen refusal pins that accepted ANY error - a raw VBA
+' crash passed them - now name their message id. What stayed here stayed
+' for a reason: a table argument (the notation has no (tables ...) clause
+' yet), a program VBA builds (the 32,767-character boundary), the text
+' entry point (TER-8), or a refusal whose words are checked for WHAT they
+' name, which (refuses id) cannot say yet. TestDatalog's (edge X X) pin was
+' already a proof, so it ran twice; it is gone. The parity table lost every
+' line whose only call site moved.
+'
 ' METAPROOF.1: PROOFS AS FORMS, the first arrow. TestDatalogProofs (new)
 ' runs scripts/proofs/datalog.vla - DATALOG test programs written as the
 ' programs they are, each beside the answer it must give - one PASS/FAIL
@@ -387,8 +403,6 @@ Public Function TestDSLs() As Boolean
 
     TestDatalog
     TestDatalogProofs
-    TestDatalogNegation
-    TestDatalogAggregation
     TestDatalogBuiltins
     TestDatalogKeyedAtoms
     TestDatalogUnknownPredicate
@@ -491,69 +505,16 @@ Private Sub TestTer8EmptyRules()
            ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "clauses text is empty", vbTextCompare) > 0, "got: " & r
 End Sub
 
-' DATALOG.0: pins VLA_Datalog.bas/VLA_Relation.bas's own MVP - facts,
-' a join rule, recursive transitive closure (the item's own "org
-' chart" killer case), a within-atom repeated variable, a table
-' argument built from a plain 2D array (no live Range at all - the
-' seam RelFromRange/DatalogRun exist to make testable), the spilled-
-' array shape, and the parse-time/safety refusals. Entirely pure -
-' nothing here touches a live workbook.
+' DATALOG.0: a table argument built from a plain 2D array (no live Range at
+' all - the seam RelFromRange/DatalogRun exist to make testable), and the
+' spilled array's own shape. Entirely pure - nothing here touches a live
+' workbook. The rest of DATALOG.0's MVP - facts, a join rule, the recursive
+' org-chart closure, a within-atom repeated variable, (headless), and the
+' parse-time refusals - are proofs in scripts/proofs/datalog.vla
+' (METAPROOF.1 and METAPROOF.3).
 Private Sub TestDatalog()
     Dim result As Collection
     Dim rel As Collection
-
-    Set result = VLA_Datalog.DatalogRun("(fact (parent tom bob)) (fact (parent bob liz)) (query parent)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog: facts-only relation has 2 tuples", VLA_Relation.RelCount(rel) = 2, "got " & VLA_Relation.RelCount(rel)
-    Report "datalog: a raw fact predicate (no defining rule) offers no header names", IsEmpty(result.Item(3)), "expected Empty, got " & TypeName(result.Item(3))
-    Report "datalog: no (headless) directive leaves the flag False", CBool(result.Item(4)) = False, "expected False"
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(headless) (fact (parent tom bob)) (fact (parent bob liz)) (query parent)")
-    Report "datalog: (headless) sets the flag DatalogRun reports back", CBool(result.Item(4)) = True, "expected True"
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Dim arrHeadless As Variant
-    arrHeadless = VLA_Relation.RelToSpilledArray(rel, , CBool(result.Item(4)))
-    Report "datalog: headless output has exactly N rows, no header row", _
-           ResultRowCount(arrHeadless) = VLA_Relation.RelCount(rel) And (ResultCellIs(arrHeadless, 1, 1, "tom") Or ResultCellIs(arrHeadless, 1, 1, "bob")), _
-           "shape mismatch"
-
-    ' DATALOG.8: never_true was an UNDEFINED name standing for "a relation
-    ' that matches nothing", and an undefined name now refuses. A DEFINED
-    ' relation that matches nothing - (thing none), where thing holds only
-    ' a - keeps this pin's own subject, a zero-row headless result.
-    Set result = VLA_Datalog.DatalogRun("(headless) (fact (thing a)) (rule (nothing_here X) (thing X) (thing none)) (query nothing_here)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Dim arrEmpty As Variant
-    arrEmpty = VLA_Relation.RelToSpilledArray(rel, , CBool(result.Item(4)))
-    Report "datalog: a zero-row headless result is a safe blank scalar, not a crash", _
-           VLA_Relation.RelCount(rel) = 0 And ResultTextIs(arrEmpty, ""), _
-           "got " & TypeName(arrEmpty)
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (parent tom bob)) (fact (parent bob liz))" & _
-        " (rule (grandparent X Z) (parent X Y) (parent Y Z))" & _
-        " (query grandparent)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog: one-join rule derives exactly 1 tuple", VLA_Relation.RelCount(rel) = 1, "got " & VLA_Relation.RelCount(rel)
-    Report "datalog: a rule-derived predicate offers its own head-variable names as headers", _
-           Not IsEmpty(result.Item(3)) And CStr(result.Item(3)(1)) = "X" And CStr(result.Item(3)(2)) = "Z", _
-           "expected (X, Z)"
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (reports_to alice bob)) (fact (reports_to bob carol)) (fact (reports_to carol dave))" & _
-        " (rule (indirect_report X Y) (reports_to X Y))" & _
-        " (rule (indirect_report X Y) (reports_to X Z) (indirect_report Z Y))" & _
-        " (query indirect_report)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog: transitive closure over a 3-edge chain derives 6 tuples", VLA_Relation.RelCount(rel) = 6, "got " & VLA_Relation.RelCount(rel)
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (edge a a)) (fact (edge a b))" & _
-        " (rule (self_loop X) (edge X X))" & _
-        " (query self_loop)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog: (edge X X) keeps only the self-loop", VLA_Relation.RelCount(rel) = 1, "got " & VLA_Relation.RelCount(rel)
 
     Dim arr(1 To 2, 1 To 2) As Variant
     arr(1, 1) = "alice": arr(1, 2) = "bob"
@@ -688,8 +649,9 @@ Private Sub TestDatalogProofs()
                "datalog.vla line " & CStr(formLines.Item(ix)) & ": " & verdict
     Next f
     ' The floor, so the loop cannot pass by reading nothing: sixteen at
-    ' METAPROOF.1, the tests that moved here. Raise it as proofs arrive.
-    Report "datalog proofs: the corpus holds at least its sixteen proofs", ix >= 16, "read " & ix
+    ' METAPROOF.1, ninety-four at METAPROOF.3, the tests that moved here.
+    ' Raise it as proofs arrive.
+    Report "datalog proofs: the corpus holds at least its ninety-four proofs", ix >= 94, "read " & ix
 End Sub
 
 ' One control: proofText is judged exactly as a corpus proof is, and must
@@ -1246,204 +1208,18 @@ Private Function DatalogProofPrograms() As Collection
     Next f
 End Function
 
-' DATALOG.1: stratified negation (`not`) - a basic anti-join, the
-' variable-safety refusal (a negated atom's own variable never bound by
-' an earlier positive atom), the stratifiability refusal (a predicate
-' negatively depending on itself, directly and through a mutual cycle),
-' and a real multi-stratum program (transitive reachability, then a
-' negation over it) - the case stratification exists for: unreachable's
-' own rule cannot run until reachable's ENTIRE recursive fixpoint (its
-' own earlier stratum) is finished, not just "evaluated once."
-Private Sub TestDatalogNegation()
-    Dim result As Collection
-    Dim rel As Collection
+' DATALOG.1 and DATALOG.2 - stratified negation, and count and sum grouped
+' - were TestDatalogNegation and TestDatalogAggregation until METAPROOF.3.
+' Every pin they held is a proof in scripts/proofs/datalog.vla now: each
+' answer naming its rows, and each of the nine refusals naming its message
+' id, where the pin here accepted any error.
 
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (person alice)) (fact (person bob)) (fact (person carol))" & _
-        " (fact (banned bob))" & _
-        " (rule (allowed X) (person X) (not (banned X)))" & _
-        " (query allowed)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog negation: (not (banned X)) excludes exactly the banned person", _
-           VLA_Relation.RelCount(rel) = 2, "got " & VLA_Relation.RelCount(rel)
-
-    Dim raised As Boolean
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (item a)) (rule (foo X) (not (bar X))) (query foo)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog negation: a variable used ONLY under (not ...) is refused, not silently unbound", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (item a)) (rule (p X) (item X) (not (p X))) (query p)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog negation: a predicate negating itself is refused as unstratifiable", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun _
-        "(fact (item a))" & _
-        " (rule (p X) (item X) (not (q X)))" & _
-        " (rule (q X) (item X) (not (p X)))" & _
-        " (query p)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog negation: a mutual negation cycle (p negates q, q negates p) is refused", raised, "no error raised"
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (node a)) (fact (node b)) (fact (node c))" & _
-        " (fact (edge a b)) (fact (edge b c))" & _
-        " (rule (reachable X Y) (edge X Y))" & _
-        " (rule (reachable X Z) (edge X Y) (reachable Y Z))" & _
-        " (rule (unreachable X Y) (node X) (node Y) (not (reachable X Y)))" & _
-        " (query unreachable)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog negation: unreachable = all pairs minus reachable's own full recursive fixpoint (9 - 3 = 6)", _
-           VLA_Relation.RelCount(rel) = 6, "got " & VLA_Relation.RelCount(rel)
-End Sub
-
-' DATALOG.2: grouped aggregation (`count`/`sum`) - a per-group count
-' including a real ZERO group (carol has no sales at all), a per-group
-' sum including a real zero-sum group, the parse-time refusals (sum with
-' zero or two unbound "value" variables, a reused result variable, a
-' non-variable result name, a malformed wrapper shape), and a real
-' multi-stratum program (count over a recursively-derived predicate -
-' reachcount cannot run until reachable's own full fixpoint, an earlier
-' stratum, is finished). RelContainsTuple probes a specific (group,
-' aggregate) pair directly rather than trusting row order, since a
-' VlaDict's own enumeration order is never part of this engine's
-' contract.
-Private Sub TestDatalogAggregation()
-    Dim result As Collection
-    Dim rel As Collection
-    Dim probe(1 To 2) As Variant
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (person alice)) (fact (person bob)) (fact (person carol))" & _
-        " (fact (sale alice widget)) (fact (sale alice gadget)) (fact (sale bob widget))" & _
-        " (rule (salescount X N) (person X) (count N (sale X Y)))" & _
-        " (query salescount)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog count: one row per group, including a zero-sale person", VLA_Relation.RelCount(rel) = 3, "got " & VLA_Relation.RelCount(rel)
-    probe(1) = "alice": probe(2) = 2
-    Report "datalog count: alice's own 2 sales", VLA_Relation.RelContainsTuple(rel, probe), "(alice, 2) not found"
-    probe(1) = "bob": probe(2) = 1
-    Report "datalog count: bob's own 1 sale", VLA_Relation.RelContainsTuple(rel, probe), "(bob, 1) not found"
-    probe(1) = "carol": probe(2) = 0
-    Report "datalog count: carol's own real zero (no sales at all)", VLA_Relation.RelContainsTuple(rel, probe), "(carol, 0) not found"
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (person alice)) (fact (person bob)) (fact (person carol))" & _
-        " (fact (amount alice 10)) (fact (amount alice 15)) (fact (amount bob 7))" & _
-        " (rule (total X S) (person X) (sum S (amount X V)))" & _
-        " (query total)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog sum: one row per group, including a zero-amount person", VLA_Relation.RelCount(rel) = 3, "got " & VLA_Relation.RelCount(rel)
-    probe(1) = "alice": probe(2) = 25
-    Report "datalog sum: alice's own 10+15", VLA_Relation.RelContainsTuple(rel, probe), "(alice, 25) not found"
-    probe(1) = "bob": probe(2) = 7
-    Report "datalog sum: bob's own single amount", VLA_Relation.RelContainsTuple(rel, probe), "(bob, 7) not found"
-    probe(1) = "carol": probe(2) = 0
-    Report "datalog sum: carol's own real zero (no amounts at all)", VLA_Relation.RelContainsTuple(rel, probe), "(carol, 0) not found"
-
-    Dim raised As Boolean
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun _
-        "(fact (person alice)) (fact (amount alice ""10""))" & _
-        " (rule (bad X S) (person X) (sum S (amount X ""10"")))" & _
-        " (query bad)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog sum: zero unbound value variables is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun _
-        "(fact (person alice)) (fact (amount2 alice 1 2))" & _
-        " (rule (bad X S) (person X) (sum S (amount2 X V W)))" & _
-        " (query bad)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog sum: two unbound value variables is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun _
-        "(fact (person alice)) (fact (sale alice widget))" & _
-        " (rule (bad X N) (person X) (count N (sale X Y)) (count N (sale X Z)))" & _
-        " (query bad)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog aggregate: a result variable reused from earlier in the body is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun _
-        "(fact (person alice)) (fact (sale alice widget))" & _
-        " (rule (bad X) (person X) (count n (sale X Y)))" & _
-        " (query bad)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog aggregate: a lowercase (non-variable) result name is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun _
-        "(fact (person alice))" & _
-        " (rule (bad X N) (person X) (count N))" & _
-        " (query bad)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog aggregate: a malformed (count ...) wrapper shape is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun _
-        "(fact (item a))" & _
-        " (rule (p X N) (item X) (count N (p X Y)))" & _
-        " (query p)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog aggregate: a predicate counting itself is refused as unstratifiable", raised, "no error raised"
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (node a)) (fact (node b)) (fact (node c))" & _
-        " (fact (edge a b)) (fact (edge b c))" & _
-        " (rule (reachable X Y) (edge X Y))" & _
-        " (rule (reachable X Z) (edge X Y) (reachable Y Z))" & _
-        " (rule (reachcount X N) (node X) (count N (reachable X Y)))" & _
-        " (query reachcount)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog aggregate: reachcount needs reachable's own full recursive fixpoint first (3 rows)", _
-           VLA_Relation.RelCount(rel) = 3, "got " & VLA_Relation.RelCount(rel)
-    probe(1) = "a": probe(2) = 2
-    Report "datalog aggregate: a reaches 2 nodes (b, c)", VLA_Relation.RelContainsTuple(rel, probe), "(a, 2) not found"
-    probe(1) = "b": probe(2) = 1
-    Report "datalog aggregate: b reaches 1 node (c)", VLA_Relation.RelContainsTuple(rel, probe), "(b, 1) not found"
-    probe(1) = "c": probe(2) = 0
-    Report "datalog aggregate: c reaches 0 nodes", VLA_Relation.RelContainsTuple(rel, probe), "(c, 0) not found"
-End Sub
-
-' DATALOG.4: comparison filters ((> X 50000) and the rest of the
-' </<=/>/>=/=/<> set) and the (let Z (+ X Y)) arithmetic binding form -
-' this module's own header note above has the full scenario list.
-' Entirely pure, unlike TestDatalogHostTable below: neither shape needs
-' a live workbook, so every case here goes straight through DatalogRun.
+' DATALOG.4: a comparison over a TABLE argument's real Double column - the
+' one case of this Sub a proof cannot state yet, since the notation has no
+' (tables ...) clause. Its other twenty-five pins - comparisons over fact
+' text, every let operator, the recursive path length, and ten refusals
+' that accepted any error - are proofs in scripts/proofs/datalog.vla
+' (METAPROOF.3). Entirely pure, unlike TestDatalogHostTable below.
 Private Sub TestDatalogBuiltins()
     Dim result As Collection
     Dim rel As Collection
@@ -1471,221 +1247,6 @@ Private Sub TestDatalogBuiltins()
     Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
     Report "datalog builtins: (> S 80000) over a table-sourced (real Double) column keeps alice+carol (2 rows)", _
            VLA_Relation.RelCount(rel) = 2, "got " & VLA_Relation.RelCount(rel)
-
-    ' The SAME comparison shape, but every value now a fact-block
-    ' constant (always a plain VBA String, never a real Excel type) -
-    ' 9 and 10 against a threshold of 8, deliberately chosen because a
-    ' naive lexical-text fallback would get "10 > 8" WRONG (StrComp
-    ' compares "1" against "8" first and finds "10" < "8"), so this
-    ' specifically proves BuiltinOperandIsNumeric's own numeric-LOOKING-
-    ' STRING policy (VLA_Relation.IsInvariantNumericString) actually
-    ' fires rather than silently falling back to text.
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (score alice 9)) (fact (score bob 10))" & _
-        " (rule (high_scorer X) (score X N) (> N 8))" & _
-        " (query high_scorer)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog builtins: (> N 8) compares numeric-looking fact STRINGS numerically, not lexically (9 and 10 both qualify - 2 rows)", _
-           VLA_Relation.RelCount(rel) = 2, "got " & VLA_Relation.RelCount(rel)
-
-    ' Text fallback: neither operand looks numeric, so this compares as
-    ' case-sensitive text - <> excludes exactly the one equal value.
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (tag apple)) (fact (tag banana)) (fact (tag cherry))" & _
-        " (rule (not_banana X) (tag X) (<> X banana))" & _
-        " (query not_banana)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog builtins: (<> X banana) falls back to text compare, excludes exactly banana (2 rows)", _
-           VLA_Relation.RelCount(rel) = 2, "got " & VLA_Relation.RelCount(rel)
-
-    ' A comparison and (not ...) composing in the SAME rule body - alice
-    ' clears the age filter and isn't banned; bob fails the age filter
-    ' regardless of his own separate ban.
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (person alice 25)) (fact (person bob 15)) (fact (banned bob))" & _
-        " (rule (adult_allowed X) (person X Age) (> Age 18) (not (banned X)))" & _
-        " (query adult_allowed)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog builtins: a comparison and (not ...) compose in one rule body (alice only)", _
-           VLA_Relation.RelCount(rel) = 1, "got " & VLA_Relation.RelCount(rel)
-
-    ' The four arithmetic operators, one rule apiece.
-    Dim probe1(1 To 1) As Variant
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (pair 10 3)) (rule (added S) (pair A B) (let S (+ A B))) (query added)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    probe1(1) = 13
-    Report "datalog let: (+ 10 3) = 13", VLA_Relation.RelContainsTuple(rel, probe1), "13 not found"
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (pair 10 3)) (rule (subbed S) (pair A B) (let S (- A B))) (query subbed)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    probe1(1) = 7
-    Report "datalog let: (- 10 3) = 7", VLA_Relation.RelContainsTuple(rel, probe1), "7 not found"
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (pair 10 3)) (rule (multiplied S) (pair A B) (let S (* A B))) (query multiplied)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    probe1(1) = 30
-    Report "datalog let: (* 10 3) = 30", VLA_Relation.RelContainsTuple(rel, probe1), "30 not found"
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (pair 10 4)) (rule (divided S) (pair A B) (let S (/ A B))) (query divided)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    probe1(1) = 2.5
-    Report "datalog let: (/ 10 4) = 2.5", VLA_Relation.RelContainsTuple(rel, probe1), "2.5 not found"
-
-    ' ---- PROLOG.17: the widened operator set reaches DATALOG through the
-    ' SAME VLA_Relation.ArithOpArity table and the same two compute
-    ' functions PROLOG uses. These assert the VALUE, because a wrong
-    ' operator here produces a plausible NUMBER in a cell rather than an
-    ' error - the failure this whole item is shaped around.
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (pair -7 3)) (rule (modded S) (pair A B) (let S (mod A B))) (query modded)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    probe1(1) = 2
-    Report "datalog let: (mod -7 3) = 2 - FLOORED here exactly as in PROLOG, not VBA's own truncating Mod (which gives -1)", _
-           VLA_Relation.RelContainsTuple(rel, probe1), "2 not found"
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (pair -7 3)) (rule (remmed S) (pair A B) (let S (rem A B))) (query remmed)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    probe1(1) = -1
-    Report "datalog let: (rem -7 3) = -1 - the twin, so DATALOG cannot have collapsed mod and rem into one", _
-           VLA_Relation.RelContainsTuple(rel, probe1), "-1 not found"
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (pair 7 2)) (rule (idiv S) (pair A B) (let S (// A B))) (query idiv)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    probe1(1) = 3
-    Report "datalog let: (// 7 2) = 3 - integer division, where (/ 7 2) is 3.5", _
-           VLA_Relation.RelContainsTuple(rel, probe1), "3 not found"
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (pair 3 7)) (rule (mx S) (pair A B) (let S (max A B))) (query mx)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    probe1(1) = 7
-    Report "datalog let: (max 3 7) = 7", VLA_Relation.RelContainsTuple(rel, probe1), "7 not found"
-
-    ' ---- THE UNARY SHAPE, which DATALOG could not express at all before
-    ' this item: its `let` arm shared a flat "exactly two operands" check
-    ' with comparisons, so (let Z (abs X)) was unwritable rather than
-    ' merely unimplemented.
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (val -4)) (rule (absd S) (val A) (let S (abs A))) (query absd)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    probe1(1) = 4
-    Report "datalog let: (abs -4) = 4 - a UNARY let, which this engine's arity check made impossible before PROLOG.17", _
-           VLA_Relation.RelContainsTuple(rel, probe1), "4 not found"
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (val 2.5)) (rule (rnd S) (val A) (let S (round A))) (query rnd)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    probe1(1) = 3
-    Report "datalog let: (round 2.5) = 3 - half AWAY FROM ZERO, where VBA's own Round gives 2", _
-           VLA_Relation.RelContainsTuple(rel, probe1), "3 not found"
-
-    ' A RECURSIVE rule accumulating (let ...) across semi-naive rounds -
-    ' path length over a 3-edge chain (a-b-c-d, weight 1 each). This is
-    ' the one case that would have caught a wrong round-loop/ComputeStrata
-    ' fix: BI_LET is no longer a valid semi-naive delta position (unlike
-    ' BI_POS), and its own atom (predicate "+") must NOT be mistaken for
-    ' a real relation by ComputeStrata's own dependency graph.
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (edge a b 1)) (fact (edge b c 1)) (fact (edge c d 1))" & _
-        " (rule (path X Y D) (edge X Y D))" & _
-        " (rule (path X Z D) (edge X Y D1) (path Y Z D2) (let D (+ D1 D2)))" & _
-        " (query path)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog let: recursive path-length accumulation derives all 6 reachable pairs", _
-           VLA_Relation.RelCount(rel) = 6, "got " & VLA_Relation.RelCount(rel)
-    Dim probePath(1 To 3) As Variant
-    probePath(1) = "a": probePath(2) = "d": probePath(3) = 3
-    Report "datalog let: a-to-d path length accumulates to 3 across two recursive hops", _
-           VLA_Relation.RelContainsTuple(rel, probePath), "(a, d, 3) not found"
-
-    Dim raised As Boolean
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (item a)) (rule (foo X) (item X) (> Y 5)) (query foo)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog builtins: a comparison referencing an unbound variable is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (item a)) (rule (foo X Z) (item X) (let Z (+ Y 1))) (query foo)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog builtins: a let operand referencing an unbound variable is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (pair a 1)) (rule (foo X N) (pair X N) (let N (+ N 1))) (query foo)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog builtins: a let result variable reused from earlier in the body is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (item a)) (rule (foo X) (item X) (> X)) (query foo)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog builtins: a comparison with only one operand is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (item a)) (rule (foo X Z) (item X) (let Z (+ X))) (query foo)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog builtins: a let arithmetic expression with only one operand is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (pair a 1 2)) (rule (foo X Z) (pair X A B) (let Z (% A B))) (query foo)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog builtins: an unrecognized arithmetic operator is refused by name", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (pair a 10 0)) (rule (foo X Z) (pair X A B) (let Z (/ A B))) (query foo)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog builtins: division by zero is refused, not a raw runtime crash", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (pair a hello)) (rule (foo X Z) (pair X A) (let Z (+ A 1))) (query foo)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog builtins: a non-numeric arithmetic operand is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (item a)) (rule (foo X) (item X) (let)) (query foo)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog builtins: a malformed (let ...) wrapper shape is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (pair a 1 2)) (rule (foo X Z) (pair X A B) (let z (+ A B))) (query foo)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog builtins: a lowercase (non-variable) let result name is refused", raised, "no error raised"
 End Sub
 
 ' DATALOG.5: named-column atoms - a hand-built (Name, Salary, Dept)
@@ -1879,18 +1440,10 @@ Private Sub TestDatalogUnknownPredicate()
            ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'zz1' is used in a rule", vbTextCompare) > 0 _
            And InStr(1, r, "zz2", vbTextCompare) = 0, "got: " & r
 
-    ' ---- DEFINING THE NAME is what stops it, and the negation then answers
-    ' correctly: tom is banned, so nobody is ok - a header and nothing under.
-    result = VLA_Datalog.DATALOG("(fact (person tom)) (fact (banned tom)) (rule (ok X) (person X) (not (banned X))) (query ok)")
-    Report "datalog.8: ...spelled right, the same rule answers - tom is banned, so the ok column is empty", _
-           ResultRowCount(result) = 1 And ResultCellIs(result, 1, 1, "X"), "got: " & ResultDescribe(result)
-
-    ' ---- AN OPERATOR IS NOT A RELATION. The heads of a let (+) and of a
-    ' comparison (>) are symbols with no relation behind them, and are
-    ' never checked as one.
-    result = VLA_Datalog.DATALOG("(fact (pair 10 3)) (rule (big S) (pair A B) (let S (+ A B)) (> S 5)) (query big)")
-    Report "datalog.8: a let and a comparison name no relation - the rule answers 13", _
-           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "13"), "got: " & ResultDescribe(result)
+    ' ---- METAPROOF.3: the two answers that stood here - spelled right, the
+    ' negation answers (tom is banned, so ok is empty); a let and a
+    ' comparison name no relation (the rule answers 13) - are proofs in
+    ' scripts/proofs/datalog.vla now.
 
     ' ---- THE QUERY POSITION keeps its own words.
     result = VLA_Datalog.DATALOG("(fact (p a)) (query pp)")
@@ -2056,45 +1609,24 @@ End Sub
 ' The shape G-PROLOG's whether questions write, (query (can-cover "Bob"
 ' "Night")), used to be refused here as not a plain name, so a question with
 ' no unknown went to PROLOG - which, over a closure whose data loops, never
-' finishes. These pins hold the answer (a real Boolean, decided by the same
-' match a rule body makes), the reason (a cycle answers both ways and
-' stops), a query by name unchanged, and each shape still refused, by name,
-' pointing at the spelling that works. Every combined check reads a value
-' that exists even when the call refused (ResultBoolIs over Empty is False).
+' finishes. The answers - a real Boolean, decided by the same match a rule
+' body makes; the reason, a cycle answering both ways and stopping; a query
+' by name unchanged - are proofs in scripts/proofs/datalog.vla since
+' METAPROOF.3, all but the three over a keyed Table. Here: those three, and
+' each shape still refused, by name, pointing at the spelling that works.
+' Every combined check reads a value that exists even when the call refused
+' (ResultBoolIs over Empty is False).
 Private Sub TestDatalogGroundQuery()
     Dim result As Variant
     Dim r As String
     Dim d As String
     Dim ans As Variant
     Dim res As Collection
-    Dim loopy As String
-    loopy = "(fact (link ""A"" ""B"")) (fact (link ""B"" ""C"")) (fact (link ""C"" ""A"")) (fact (link ""C"" ""D"")) (rule (route X Y) (link X Y)) (rule (route X Y) (link X Z) (route Z Y))"
 
-    ' ---- THE ANSWER, both ways, as a Boolean cell rather than text.
-    result = VLA_Datalog.DATALOG("(fact (link ""A"" ""B"")) (query (link ""A"" ""B""))")
-    Report "datalog.9: a query written as one fact answers TRUE when the fact holds - a Boolean, not text", _
-           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG("(fact (link ""A"" ""B"")) (query (link ""B"" ""A""))")
-    Report "datalog.9: ...and FALSE when it does not, where it used to be refused as not a plain name", _
-           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
-
-    ' ---- THE REASON. Closure over data with a cycle: PROLOG collects every
-    ' proof first, so it never finished either question.
-    result = VLA_Datalog.DATALOG(loopy & " (query (route ""A"" ""D""))")
-    Report "datalog.9: a closure over a cycle answers TRUE and stops - A reaches D", _
-           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG(loopy & " (query (route ""A"" ""E""))")
-    Report "datalog.9: ...and FALSE and stops when nothing reaches, from inside the cycle", _
-           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
-
-    ' ---- THE SAME MATCH A RULE BODY MAKES: bare constants, and text
-    ' compared case-sensitively.
-    result = VLA_Datalog.DATALOG("(fact (parent tom bob)) (query (parent tom bob))")
-    Report "datalog.9: bare constants are constants - (query (parent tom bob)) is TRUE", _
-           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG("(fact (person ""Bob"")) (query (person ""bob""))")
-    Report "datalog.9: text matches case-sensitively, as in a rule body - ""bob"" is not ""Bob""", _
-           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
+    ' ---- METAPROOF.3: the answers that needed no table - TRUE and FALSE both
+    ' ways, a closure over data that loops, bare constants, text matched
+    ' exactly - are proofs in scripts/proofs/datalog.vla now, and so are the
+    ' query by name and the (query (not ...)) that stood below.
 
     ' ---- A NUMBER CELL, through a rule over a keyed Table: DatalogRun's
     ' fifth item carries the answer.
@@ -2160,21 +1692,6 @@ Private Sub TestDatalogGroundQuery()
     Report "datalog.9: G-PROLOG's whether tail answers here - Bob can cover Night", _
            ResultBoolIs(ans, True), "got: '" & d & "', " & ResultDescribe(ans)
 
-    ' ---- A QUERY BY NAME IS UNCHANGED: rows, and an Empty fifth item.
-    result = VLA_Datalog.DATALOG("(fact (p a)) (fact (p b)) (query p)")
-    Report "datalog.9: a query by name still spills its rows - a header and two", _
-           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "a"), "got: " & ResultDescribe(result)
-    d = ""
-    ans = "unset"
-    On Error Resume Next
-    Err.Clear
-    Set res = VLA_Datalog.DatalogRun("(fact (p a)) (query p)")
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) = 0 Then ans = res.Item(5)
-    Report "datalog.9: ...and DatalogRun's fifth item is Empty for it", _
-           Len(d) = 0 And IsEmpty(ans), "got: '" & d & "', " & TypeName(ans)
-
     ' ---- EACH SHAPE STILL REFUSED, by name.
     result = VLA_Datalog.DATALOG("(fact (link ""A"" ""B"")) (query (link ""A"" Who))")
     r = ResultDescribe(result)
@@ -2215,11 +1732,6 @@ Private Sub TestDatalogGroundQuery()
     r = ResultDescribe(result)
     Report "datalog.9: two facts in one query stay refused - one thing per query", _
            ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "takes exactly one thing", vbTextCompare) > 0, "got: " & r
-    ' DATALOG.10 re-pointed this pin in place: one atom under (not ...) is a
-    ' query shape of its own now, answered rather than refused as nesting.
-    result = VLA_Datalog.DATALOG("(fact (p a)) (query (not (p a)))")
-    Report "datalog.10: (query (not ...)) answers where it was refused as nesting - (not (p a)) beside the fact is FALSE", _
-           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
     result = VLA_Datalog.DATALOG("(fact (p a)) (query (p))")
     r = ResultDescribe(result)
     Report "datalog.9: a query atom with no values is refused as having no arguments", _
@@ -2237,54 +1749,10 @@ Private Sub TestDatalogNegatedQuery()
     Dim d As String
     Dim ans As Variant
     Dim res As Collection
-    Dim loopy As String
-    Dim gaps As String
-    loopy = "(fact (link ""A"" ""B"")) (fact (link ""B"" ""C"")) (fact (link ""C"" ""A"")) (fact (link ""C"" ""D"")) (rule (route X Y) (link X Y)) (rule (route X Y) (link X Z) (route Z Y))"
-    gaps = "(fact (shift ""Day"")) (fact (shift ""Night"")) (fact (covered ""Day"")) (rule (gap S) (shift S) (not (covered S)))"
 
-    ' ---- VALUES ONLY: DATALOG.9's ground atom, inverted, as a Boolean.
-    result = VLA_Datalog.DATALOG("(fact (p a)) (query (not (p b)))")
-    Report "datalog.10: (not ...) over a fact nothing states is TRUE - a Boolean, not text", _
-           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG("(fact (p a)) (fact (p b)) (query (not (p b)))")
-    Report "datalog.10: ...and FALSE over a fact the program states", _
-           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
-
-    ' ---- BLANKS: a blank is any value, and a blank repeated is the same value.
-    result = VLA_Datalog.DATALOG("(fact (link ""A"" ""B"")) (query (not (link ""A"" X)))")
-    Report "datalog.10: a blank is any value - something links from A, so nothing-from-A is FALSE", _
-           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG("(fact (link ""A"" ""B"")) (query (not (link ""B"" X)))")
-    Report "datalog.10: ...and nothing links from B, so nothing-from-B is TRUE", _
-           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG("(fact (link ""A"" ""B"")) (query (not (link X Y)))")
-    Report "datalog.10: two blanks ask whether the relation holds any row - it does, so FALSE", _
-           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG("(fact (link ""A"" ""B"")) (query (not (link X X)))")
-    Report "datalog.10: a repeated blank is one value - nothing links to itself, so TRUE", _
-           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG("(fact (link ""A"" ""B"")) (fact (link ""C"" ""C"")) (query (not (link X X)))")
-    Report "datalog.10: ...and FALSE once C links to itself", _
-           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
-
-    ' ---- OVER DATA THAT LOOPS, where PROLOG refuses by DEPTH either way.
-    result = VLA_Datalog.DATALOG(loopy & " (query (not (route ""A"" X)))")
-    Report "datalog.10: over a closure whose data loops - A reaches something, so FALSE, and it stops", _
-           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG(loopy & " (query (not (route X ""E"")))")
-    Report "datalog.10: ...and nothing reaches E, so TRUE", _
-           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
-
-    ' ---- A RELATION HOLDING NO ROW, and EVERY as G-PROLOG slice 4 will ask it.
-    result = VLA_Datalog.DATALOG("(fact (p a)) (rule (q X) (p X) (not (p X))) (query (not (q X)))")
-    Report "datalog.10: a rule that derives nothing answers TRUE - no row can match", _
-           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG(gaps & " (query (not (gap X)))")
-    Report "datalog.10: every shift is covered is no shift is a gap - Night has no cover, so FALSE", _
-           ResultBoolIs(result, False), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG(gaps & " (fact (covered ""Night"")) (query (not (gap X)))")
-    Report "datalog.10: ...and TRUE once Night is covered", _
-           ResultBoolIs(result, True), "got: " & ResultDescribe(result)
+    ' ---- METAPROOF.3: every answer here that needed no table - values only,
+    ' blanks, data that loops, a relation holding no row - is a proof in
+    ' scripts/proofs/datalog.vla now.
 
     ' ---- A NUMBER CELL through a keyed Table: DatalogRun's fifth item.
     Dim staff(1 To 3, 1 To 2) As Variant
@@ -2431,28 +1899,10 @@ Private Sub TestDatalogTextTests()
     accts = "(fact (acct ""GL-4010"")) (fact (acct ""GL-4020"")) (fact (acct ""GL-5010""))"
     cover = "(fact (cc ""Ann"" ""Day"")) (fact (cc ""Bob"" ""Day"")) (fact (cc ""Ed"" ""Day"")) (fact (cc ""Bob"" ""Night"")) (fact (shift ""Day"")) (fact (shift ""Night"")) (fact (shift ""Weekend""))"
 
-    ' ---- THE THREE TESTS, each a filter answering once per row.
-    result = VLA_Datalog.DATALOG(accts & " (rule (revenue C) (acct C) (text-starts-with C ""GL-4"")) (query revenue)")
-    Report "datalog.11: text-starts-with keeps the codes that start with GL-4", _
-           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "GL-4010") And ResultCellIs(result, 3, 1, "GL-4020"), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG(accts & " (rule (tens C) (acct C) (text-ends-with C ""10"")) (query tens)")
-    Report "datalog.11: text-ends-with keeps the codes that end with 10", _
-           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "GL-4010") And ResultCellIs(result, 3, 1, "GL-5010"), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG("(fact (product ""Banana"")) (fact (product ""Cyan"")) (fact (product ""Apple"")) (rule (has-an N) (product N) (text-contains N ""an"")) (query has-an)")
-    Report "datalog.11: text-contains answers once per row however often the part occurs - Banana once, then Cyan", _
-           ResultRowCount(result) = 3 And ResultCellIs(result, 2, 1, "Banana") And ResultCellIs(result, 3, 1, "Cyan"), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG(accts & " (rule (revenue C) (acct C) (text-starts-with C ""gl-4"")) (query revenue)")
-    Report "datalog.11: case is exact - gl-4 starts no code, header only", _
-           ResultRowCount(result) = 1, "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG(accts & " (rule (any-code C) (acct C) (text-contains C """")) (query any-code)")
-    Report "datalog.11: every text contains the empty text", _
-           ResultRowCount(result) = 4, "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG(accts & " (rule (other C) (acct C) (not (text-starts-with C ""GL-4""))) (query other)")
-    Report "datalog.11: a text test under not answers inverted - GL-5010 alone", _
-           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "GL-5010"), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG("(fact (pair ""GL-4010"" ""GL-4"")) (fact (pair ""GL-5010"" ""GL-4"")) (rule (ok C) (pair C P) (text-starts-with C P)) (query ok)")
-    Report "datalog.11: both operands may be variables an earlier atom bound", _
-           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "GL-4010"), "got: " & ResultDescribe(result)
+    ' ---- METAPROOF.3: the three tests over fact blocks, the four textjoins
+    ' over fact blocks, and a program that defines member are proofs in
+    ' scripts/proofs/datalog.vla now. What stays here needs a table, builds
+    ' its program in VBA, or checks what its refusal's words name.
 
     ' ---- A NUMBER CELL is read as its canonical text, the same on every machine.
     Dim codes(1 To 4, 1 To 2) As Variant
@@ -2507,20 +1957,6 @@ Private Sub TestDatalogTextTests()
            ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "Petty"), "got: '" & d & "', " & ResultDescribe(result)
 
     ' ---- TEXTJOIN: a column's values in one cell per group, the empty group blank.
-    result = VLA_Datalog.DATALOG(cover & " (rule (who-covers S W) (shift S) (textjoin W "", "" (cc P S))) (query who-covers)")
-    Report "datalog.11: textjoin puts each shift's people in one cell, in the relation's own row order", _
-           ResultRowCount(result) = 4 And ResultCellIs(result, 2, 2, "Ann, Bob, Ed") And ResultCellIs(result, 3, 2, "Bob"), "got: " & ResultDescribe(result)
-    Report "datalog.11: ...and a shift nobody covers holds empty text, never a missing row", _
-           ResultCellIs(result, 4, 1, "Weekend") And ResultCellIs(result, 4, 2, ""), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG(cover & " (rule (who-covers S W) (shift S) (textjoin W ""; "" (cc P S))) (query who-covers)")
-    Report "datalog.11: the separator is the one written - a semicolon", _
-           ResultCellIs(result, 2, 2, "Ann; Bob; Ed"), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG(cover & " (rule (who-covers S W) (shift S) (textjoin W """" (cc P S))) (query who-covers)")
-    Report "datalog.11: ...and an empty separator joins with nothing between", _
-           ResultCellIs(result, 2, 2, "AnnBobEd"), "got: " & ResultDescribe(result)
-    result = VLA_Datalog.DATALOG(cover & " (fact (spare ""Bob"" ""Day"")) (rule (can P S) (cc P S)) (rule (can P S) (spare P S)) (rule (who-can S W) (shift S) (textjoin W "", "" (can P S))) (query who-can)")
-    Report "datalog.11: someone who qualifies two ways is joined once - a relation holds each row once", _
-           ResultCellIs(result, 2, 2, "Ann, Bob, Ed"), "got: " & ResultDescribe(result)
     Dim staff(1 To 5, 1 To 2) As Variant
     staff(1, 1) = "Name": staff(1, 2) = "Level"
     staff(2, 1) = "Ann": staff(2, 2) = 3
@@ -2613,9 +2049,6 @@ Private Sub TestDatalogTextTests()
     r = ResultDescribe(result)
     Report "datalog.11: ...and one written as a query", _
            ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'sub-atom' is one of PROLOG's goals", vbTextCompare) > 0, "got: " & r
-    result = VLA_Datalog.DATALOG("(fact (member ""Ann"" ""Ops"")) (rule (in-ops P) (member P ""Ops"")) (query in-ops)")
-    Report "datalog.11: a program that DEFINES a relation called member keeps it - DATALOG never reserved the name", _
-           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "Ann"), "got: " & ResultDescribe(result)
 
     ' ---- THE TEXT TESTS' OWN NAMES.
     result = VLA_Datalog.DATALOG("(fact (text-contains ""a"" ""b"")) (query text-contains)")
@@ -3334,9 +2767,9 @@ End Function
 ' Host-required: every real bug this engine's MVP ever found (this
 ' module's own header note has the list) only ever showed up through a
 ' real Excel Table, never through RelFromRange fed a hand-built array -
-' TestDatalog/TestDatalogNegation above are pure precisely because
+' TestDatalog above is pure precisely because
 ' RelFromRange makes that possible, but that same seam is exactly why
-' they could never have caught either bug. This sub builds a real
+' it could never have caught either bug. This sub builds a real
 ' ListObject on a real sheet and calls the actual =DATALOG(...) worksheet
 ' function (VLA_Datalog.DATALOG, called directly - same code Excel calls
 ' from a cell formula, no Application.Run indirection needed since this
@@ -4311,7 +3744,9 @@ Private Sub TestOptimizeParity()
     ' since TestDatalog still names it - so this loop runs it twice, and
     ' 177 + 16 = 193. A program that moves to the corpus moves this count
     ' by nothing; a new proof moves it by one, in both loops.
-    Report "optimize parity: the table and the proof corpus carry every DATALOG program (193 at METAPROOF.1)", _
+    ' METAPROOF.3 bore that out: seventy-eight tests moved, the table fell
+    ' 177 -> 99 and the corpus rose 16 -> 94, and the count is 193 again.
+    Report "optimize parity: the table and the proof corpus carry every DATALOG program (193 at METAPROOF.3)", _
            programs.Count >= 193, "got " & programs.Count
 End Sub
 
@@ -4327,8 +3762,9 @@ Private Function DatalogParityPrograms() As Collection
     Dim p As Collection
     Set p = New Collection
     ' Generated by tools\check_optimize_parity.ps1 -Emit, then reviewed.
-    ' 177 distinct DATALOG programs at METAPROOF.1 (192 before it, fifteen
-    ' moved to the proof corpus), every one this module names.
+    ' 99 distinct DATALOG programs at METAPROOF.3 (177 at METAPROOF.1, 192
+    ' before it - the rest moved to the proof corpus), every one this module
+    ' names.
     ' OPTIMIZE.2: a rule whose body binds NOTHING - every argument a
     ' constant. It crashed ProjectAfterJoin with runtime error 9 (an
     ' inverted-bounds ReDim, VLA_Relation.RelUnit's own documented
@@ -4337,70 +3773,31 @@ Private Function DatalogParityPrograms() As Collection
     ' frame", which names two items and no variables at all.
     p.Add "(fact (p a)) (rule (h ""x"") (p a)) (query h)"
     p.Add "(fact (p a)) (rule (h ""x"") (p b)) (query h)"
-    p.Add " (fact (covered ""Night"")) (query (not (gap X)))"
-    p.Add " (fact (spare ""Bob"" ""Day"")) (rule (can P S) (cc P S)) (rule (can P S) (spare P S)) (rule (who-can S W) (shift S) (textjoin W "", "" (can P S))) (query who-can)"
-    p.Add " (query (not (gap X)))"
-    p.Add " (query (not (route ""A"" X)))"
-    p.Add " (query (not (route X ""E"")))"
-    p.Add " (query (route ""A"" ""D""))"
-    p.Add " (query (route ""A"" ""E""))"
     p.Add " (query (text-starts-with ""GL-4010"" ""GL-4""))"
     p.Add " (rule (all W) (shift S) (textjoin W "", "" (cc P Q))) (query all)"
-    p.Add " (rule (any-code C) (acct C) (text-contains C """")) (query any-code)"
     p.Add " (rule (chain S W) (shift S) (textjoin W "", "" (chain X S))) (query chain)"
     p.Add " (rule (first-code C) (acct C) !) (query first-code)"
     p.Add " (rule (kind C T) (acct C) (if (text-starts-with C ""GL-4"") (= T ""Revenue"") (= T ""Cost""))) (query kind)"
     p.Add " (rule (odd C) (acct C) (not (sub-atom C 0 L A ""GL""))) (query odd)"
-    p.Add " (rule (other C) (acct C) (not (text-starts-with C ""GL-4""))) (query other)"
     p.Add " (rule (revenue C) (acct C) (sub-atom C 0 L A ""GL-4"")) (query revenue)"
-    p.Add " (rule (revenue C) (acct C) (text-starts-with C ""gl-4"")) (query revenue)"
     p.Add " (rule (revenue C) (acct C) (text-starts-with C)) (query revenue)"
     p.Add " (rule (revenue C) (text-starts-with C ""GL-4"") (acct C)) (query revenue)"
-    p.Add " (rule (tens C) (acct C) (text-ends-with C ""10"")) (query tens)"
     p.Add " (rule (vla-ask-can-cover Who) (can-cover Who Night)) (query vla-ask-can-cover)"
     p.Add " (rule (vla-ask-can-drive Who) (can-drive Who Night)) (query vla-ask-can-drive)"
     p.Add " (rule (who-covers S L) (shift S) (findall P (cc P S) L)) (query who-covers)"
-    p.Add " (rule (who-covers S W) (shift S) (textjoin W """" (cc P S))) (query who-covers)"
-    p.Add " (rule (who-covers S W) (shift S) (textjoin W "", "" (cc P S))) (query who-covers)"
-    p.Add " (rule (who-covers S W) (shift S) (textjoin W ""; "" (cc P S))) (query who-covers)"
     p.Add " (rule (who-covers S W) (shift S) (textjoin W (cc P S))) (query who-covers)"
     p.Add " (rule (who-covers S W) (shift S) (textjoin W Sep (cc P S))) (query who-covers)"
     p.Add " (rule (who-covers S) (shift S) (textjoin S "", "" (cc P S))) (query who-covers)"
     p.Add "(fact (deptname eng)) (fact (deptname sales)) (rule (deptcount D N) (deptname D) (count N (staffing (dept D)))) (query deptcount)"
-    p.Add "(fact (edge a a)) (fact (edge a b)) (rule (self_loop X) (edge X X)) (query self_loop)"
-    p.Add "(fact (edge a b 1)) (fact (edge b c 1)) (fact (edge c d 1)) (rule (path X Y D) (edge X Y D)) (rule (path X Z D) (edge X Y D1) (path Y Z D2) (let D (+ D1 D2))) (query path)"
-    p.Add "(fact (item a)) (rule (foo X Z) (item X) (let Z (+ X))) (query foo)"
-    p.Add "(fact (item a)) (rule (foo X Z) (item X) (let Z (+ Y 1))) (query foo)"
-    p.Add "(fact (item a)) (rule (foo X) (item X) (> X)) (query foo)"
-    p.Add "(fact (item a)) (rule (foo X) (item X) (> Y 5)) (query foo)"
-    p.Add "(fact (item a)) (rule (foo X) (item X) (let)) (query foo)"
-    p.Add "(fact (item a)) (rule (foo X) (not (bar X))) (query foo)"
-    p.Add "(fact (item a)) (rule (p X N) (item X) (count N (p X Y))) (query p)"
-    p.Add "(fact (item a)) (rule (p X) (item X) (not (p X))) (query p)"
-    p.Add "(fact (item a)) (rule (p X) (item X) (not (q X))) (rule (q X) (item X) (not (p X))) (query p)"
-    p.Add "(fact (link ""A"" ""B"")) (fact (link ""C"" ""C"")) (query (not (link X X)))"
-    p.Add "(fact (link ""A"" ""B"")) (query (link ""A"" ""B""))"
     p.Add "(fact (link ""A"" ""B"")) (query (link ""A"" Who))"
     p.Add "(fact (link ""A"" ""B"")) (query (link ""A""))"
-    p.Add "(fact (link ""A"" ""B"")) (query (link ""B"" ""A""))"
-    p.Add "(fact (link ""A"" ""B"")) (query (not (link ""A"" X)))"
     p.Add "(fact (link ""A"" ""B"")) (query (not (link ""A"")))"
-    p.Add "(fact (link ""A"" ""B"")) (query (not (link ""B"" X)))"
-    p.Add "(fact (link ""A"" ""B"")) (query (not (link X X)))"
-    p.Add "(fact (link ""A"" ""B"")) (query (not (link X Y)))"
     p.Add "(fact (lvl ""Ann"" 3)) (rule (low P) (lvl P L) (=< L 2)) (query low)"
-    p.Add "(fact (member ""Ann"" ""Ops"")) (rule (in-ops P) (member P ""Ops"")) (query in-ops)"
-    p.Add "(fact (node a)) (fact (node b)) (fact (node c)) (fact (edge a b)) (fact (edge b c)) (rule (reachable X Y) (edge X Y)) (rule (reachable X Z) (edge X Y) (reachable Y Z)) (rule (reachcount X N) (node X) (count N (reachable X Y))) (query reachcount)"
-    p.Add "(fact (node a)) (fact (node b)) (fact (node c)) (fact (edge a b)) (fact (edge b c)) (rule (reachable X Y) (edge X Y)) (rule (reachable X Z) (edge X Y) (reachable Y Z)) (rule (unreachable X Y) (node X) (node Y) (not (reachable X Y))) (query unreachable)"
     p.Add "(fact (p ""a"")) (query p)"
     p.Add "(fact (p ""x"" ""a"")) (fact (p ""x"" ""b"")) (rule (j K W) (p K Z) (textjoin W "", "" (p K V))) (query j)"
-    p.Add "(fact (p a)) (fact (p b)) (query (not (p b)))"
-    p.Add "(fact (p a)) (fact (p b)) (query p)"
     p.Add "(fact (p a)) (fact (q b)) (query (not (p a) (q b)))"
     p.Add "(fact (p a)) (query (""not"" (p a)))"
     p.Add "(fact (p a)) (query (not (not (p a))))"
-    p.Add "(fact (p a)) (query (not (p a)))"
-    p.Add "(fact (p a)) (query (not (p b)))"
     p.Add "(fact (p a)) (query (not (p)))"
     p.Add "(fact (p a)) (query (not (pp X)))"
     p.Add "(fact (p a)) (query (not p))"
@@ -4410,62 +3807,23 @@ Private Function DatalogParityPrograms() As Collection
     p.Add "(fact (p a)) (query (p X))"
     p.Add "(fact (p a)) (query (p))"
     p.Add "(fact (p a)) (query (pp a))"
-    p.Add "(fact (p a)) (query p)"
     p.Add "(fact (p a)) (query pp)"
     p.Add "(fact (p a)) (rule (a1 X) (p X) (zz1 X)) (rule (a2 X) (p X) (zz2 X)) (query a2)"
-    p.Add "(fact (p a)) (rule (q X) (p X) (not (p X))) (query (not (q X)))"
     p.Add "(fact (p a)) (rule (q X) (p X) (typo X)) (query (not (p b)))"
     p.Add "(fact (p a)) (rule (q X) (p X) (typo X)) (query (p a))"
     p.Add "(fact (p a)) (rule (unused X) (sibling X)) (query p)"
     p.Add "(fact (pair ""a"" ""b"")) (rule (text-ends-with X Y) (pair X Y)) (query text-ends-with)"
-    p.Add "(fact (pair ""GL-4010"" ""GL-4"")) (fact (pair ""GL-5010"" ""GL-4"")) (rule (ok C) (pair C P) (text-starts-with C P)) (query ok)"
-    p.Add "(fact (pair 10 3)) (rule (added S) (pair A B) (let S (+ A B))) (query added)"
-    p.Add "(fact (pair 10 3)) (rule (big S) (pair A B) (let S (+ A B)) (> S 5)) (query big)"
-    p.Add "(fact (pair 10 3)) (rule (multiplied S) (pair A B) (let S (* A B))) (query multiplied)"
-    p.Add "(fact (pair 10 3)) (rule (subbed S) (pair A B) (let S (- A B))) (query subbed)"
-    p.Add "(fact (pair 10 4)) (rule (divided S) (pair A B) (let S (/ A B))) (query divided)"
-    p.Add "(fact (pair 3 7)) (rule (mx S) (pair A B) (let S (max A B))) (query mx)"
-    p.Add "(fact (pair 7 2)) (rule (idiv S) (pair A B) (let S (// A B))) (query idiv)"
-    p.Add "(fact (pair -7 3)) (rule (modded S) (pair A B) (let S (mod A B))) (query modded)"
-    p.Add "(fact (pair -7 3)) (rule (remmed S) (pair A B) (let S (rem A B))) (query remmed)"
-    p.Add "(fact (pair a 1 2)) (rule (foo X Z) (pair X A B) (let Z (% A B))) (query foo)"
-    p.Add "(fact (pair a 1 2)) (rule (foo X Z) (pair X A B) (let z (+ A B))) (query foo)"
-    p.Add "(fact (pair a 1)) (rule (foo X N) (pair X N) (let N (+ N 1))) (query foo)"
     p.Add "(fact (pair a 10 0)) (rule (bad X Z) (pair X A B) (let Z (/ A B))) (query pp)"
     p.Add "(fact (pair a 10 0)) (rule (bad X Z) (pair X A B) (let Z (/ A B))) (rule (ok X) (pair X A B) (typo X)) (query ok)"
-    p.Add "(fact (pair a 10 0)) (rule (foo X Z) (pair X A B) (let Z (/ A B))) (query foo)"
-    p.Add "(fact (pair a hello)) (rule (foo X Z) (pair X A) (let Z (+ A 1))) (query foo)"
-    p.Add "(fact (parent tom bob)) (fact (parent bob liz)) (query parent)"
-    p.Add "(fact (parent tom bob)) (fact (parent bob liz)) (rule (grandparent X Z) (parent X Y) (parent Y Z)) (query grandparent)"
-    p.Add "(fact (parent tom bob)) (query (parent tom bob))"
     p.Add "(fact (parent tom bob)) (rule (kid X) (parnet tom X)) (query kid)"
-    p.Add "(fact (person ""Bob"")) (query (person ""bob""))"
-    p.Add "(fact (person alice 25)) (fact (person bob 15)) (fact (banned bob)) (rule (adult_allowed X) (person X Age) (> Age 18) (not (banned X))) (query adult_allowed)"
-    p.Add "(fact (person alice)) (fact (amount alice ""10"")) (rule (bad X S) (person X) (sum S (amount X ""10""))) (query bad)"
-    p.Add "(fact (person alice)) (fact (amount2 alice 1 2)) (rule (bad X S) (person X) (sum S (amount2 X V W))) (query bad)"
-    p.Add "(fact (person alice)) (fact (person bob)) (fact (person carol)) (fact (amount alice 10)) (fact (amount alice 15)) (fact (amount bob 7)) (rule (total X S) (person X) (sum S (amount X V))) (query total)"
-    p.Add "(fact (person alice)) (fact (person bob)) (fact (person carol)) (fact (banned bob)) (rule (allowed X) (person X) (not (banned X))) (query allowed)"
-    p.Add "(fact (person alice)) (fact (person bob)) (fact (person carol)) (fact (sale alice widget)) (fact (sale alice gadget)) (fact (sale bob widget)) (rule (salescount X N) (person X) (count N (sale X Y))) (query salescount)"
-    p.Add "(fact (person alice)) (fact (sale alice widget)) (rule (bad X N) (person X) (count N (sale X Y)) (count N (sale X Z))) (query bad)"
-    p.Add "(fact (person alice)) (fact (sale alice widget)) (rule (bad X) (person X) (count n (sale X Y))) (query bad)"
-    p.Add "(fact (person alice)) (rule (bad X N) (person X) (count N)) (query bad)"
     p.Add "(fact (person tom)) (fact (amount tom 10)) (rule (total X S) (person X) (sum S (amont X V))) (query total)"
     p.Add "(fact (person tom)) (fact (banned tom)) (rule (ok X) (person X) (not (bannd X))) (query ok)"
-    p.Add "(fact (person tom)) (fact (banned tom)) (rule (ok X) (person X) (not (banned X))) (query ok)"
     p.Add "(fact (person tom)) (fact (sale tom widget)) (rule (sales X N) (person X) (count N (sael X Y))) (query sales)"
     p.Add "(fact (person tom)) (rule (ok X) (person X) (not (leave X X))) (query ok)"
-    p.Add "(fact (product ""Banana"")) (fact (product ""Cyan"")) (fact (product ""Apple"")) (rule (has-an N) (product N) (text-contains N ""an"")) (query has-an)"
-    p.Add "(fact (reports_to alice bob)) (fact (reports_to bob carol)) (fact (reports_to carol dave)) (rule (indirect_report X Y) (reports_to X Y)) (rule (indirect_report X Y) (reports_to X Z) (indirect_report Z Y)) (query indirect_report)"
-    p.Add "(fact (score alice 9)) (fact (score bob 10)) (rule (high_scorer X) (score X N) (> N 8)) (query high_scorer)"
-    p.Add "(fact (tag apple)) (fact (tag banana)) (fact (tag cherry)) (rule (not_banana X) (tag X) (<> X banana)) (query not_banana)"
     p.Add "(fact (text-contains ""a"" ""b"")) (query text-contains)"
-    p.Add "(fact (val 2.5)) (rule (rnd S) (val A) (let S (round A))) (query rnd)"
-    p.Add "(fact (val -4)) (rule (absd S) (val A) (let S (abs A))) (query absd)"
     p.Add "(fact (widget a b)) (rule (bad X) (widget (foo X))) (query bad)"
     p.Add "(headless) (fact (p a)) (query (not (p b)))"
     p.Add "(headless) (fact (p a)) (query (p a))"
-    p.Add "(headless) (fact (parent tom bob)) (fact (parent bob liz)) (query parent)"
-    p.Add "(headless) (fact (thing a)) (rule (nothing_here X) (thing X) (thing none)) (query nothing_here)"
     p.Add "(headless) (query p)"
     p.Add "(headless) (query personhosttest1)"
     p.Add "(headless) (query vladatalogaliastest)"
@@ -4510,12 +3868,9 @@ Private Function DatalogParityPrograms() As Collection
     p.Add "(rule (who X) (emptydataloghosttest1 X)) (query who)"
     p.Add "(rule (zeros N) (codes (code C) (name N)) (text-starts-with C ""00"")) (query zeros)"
     p.Add "; only a comment"
-    ' DATALOG.14, 2026-09-20: the bound argument pushed into a recursive
-    ' predicate, and the atom plan. Ten programs - the shape D12Ladder 8
-    ' times, the other direction, and each condition that declines the
-    ' rewrite. Every one of them must answer alike in both engines, which
-    ' is the point: this item may change what the engine COSTS and nothing
-    ' about what it answers.
+    ' DATALOG.14's ten programs, which stood here, are proofs in
+    ' scripts/proofs/datalog.vla since METAPROOF.1 - both parity loops still
+    ' run them, from there.
     ' OPTIMIZE.3 slice 1: TestDatalogGroundRules' two base programs - the
     ' relations its integer-grounder pins ground over. Appended rather than
     ' sorted in, so no earlier parity pin changes its number.
