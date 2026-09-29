@@ -27,6 +27,12 @@
   and then digits: `A1`, `q1`, `fy24`. Sheets, tables and pivots may still be
   called `Q1`. If one of your programs used a name like that, rename it.
 
+- **A refusal shows its first character again.** A message that begins by
+  quoting a word, such as `'seek' is a reserved word …`, appeared in column C
+  as `seek' is a reserved word …`: Excel hides an apostrophe at the start of
+  a cell. Every message now shows exactly as written, and so does the log
+  that **Copy Diagnostic Report** copies.
+
 - **Replace changes values, and never a formula.** `Replace "N/A" with 0 in
   column C.` used to be Excel's own Find and Replace, which also rewrites the
   text inside formulas: replacing "A" with "B" in a column could quietly

@@ -444,6 +444,7 @@ Public Function VlaSelfTest() As Boolean
     TestCliTranscript
     TestCliConsoleResults
     TestLx13CellShapedNames
+    TestU26CellText
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -3677,6 +3678,20 @@ Private Sub TestLx13CellShapedNames()
             "Delete B2 and shift cells up.", "(delete-shift-up (range ""b2""))"
     End If
     EnglishResetGrammar
+End Sub
+
+' U.26: VLA_IDE.VlaIdeCellText, purely - what the marks column is handed
+' so that it shows a refusal whole. That Excel really hides a leading
+' apostrophe, and shows this text whole, is the host half:
+' VLA_Tests_Host.TestU26MarkShowsQuote.
+Private Sub TestU26CellText()
+    CheckV "u.26: a refusal opening with a quote keeps it, behind Excel's own mark", _
+           VLA_IDE.VlaIdeCellText("'a2' is shaped like a cell"), "''a2' is shaped like a cell"
+    CheckV "u.26: text Excel would read as a formula stays text", _
+           VLA_IDE.VlaIdeCellText("=SUM(A1:A2)"), "'=SUM(A1:A2)"
+    CheckV "u.26: an ordinary refusal is written as it is", _
+           VLA_IDE.VlaIdeCellText("I understood 'put 1'"), "I understood 'put 1'"
+    CheckV "u.26: nothing stays nothing", VLA_IDE.VlaIdeCellText(""), ""
 End Sub
 
 ' LX.13: one program refused by id, by the word it names - as written and

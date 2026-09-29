@@ -24053,6 +24053,30 @@ now carries one summary paragraph per engine and points here.*
     The message therefore says what is true on both backends - what was
     put back - and not that nothing after the stop ran.
   *Depends on:* `U.19`, `U.23`. *Pays into:* `U.17`. `~hours`
+- ✅ **U.26 — a refusal that begins with a quoted word lost its opening
+  quote on the sheet.** *Minted 2026-09-29, the owner's call, from
+  `LX.13`'s live pass; **built, owner-verified live and committed
+  2026-09-29** (`VLA_SELF-TESTS` pure 1564/1564 and host 244/244, its seven
+  pins included; `TestDSLs` 2330/0; `VerifyReports` 334/334 on both
+  backends; two hand tests, `Count seek from 1 to 10, log seek.` and `Set
+  A2 to 5.`, each refusal showing its opening quote).* Every refusal in
+  column C read `a2' is shaped like a cell …`. **Cause, read from the code:** `MarkErr` wrote the message as
+  the cell's value, and Excel reads a leading apostrophe in a value as its
+  own mark for "this is text", which it hides. It was never particular to
+  `LX.13`: 32 English refusals begin with a quoted word - reserved words,
+  value words, Define, parameter and action names, relations - and all of
+  them showed without their first character, as did one raw IDE message
+  ("'…' is a Frazaro sheet"). The hint `SOP.6` appends to a red row made
+  it worse, since it read the cell back (the value comes back without the
+  mark) and wrote it again, and the diagnostic log kept the same clipped
+  text. **Fix:** `VLA_IDE.VlaIdeCellText` puts one apostrophe in front of
+  text that begins with `'`, `=`, `+`, `-` or `@`, so Excel takes the mark
+  and the cell shows exactly the text - the last four because a message
+  opening with one would be read as a formula, which none does today. Used
+  for the red mark, the hint appended to it, and both text cells of the
+  log. **Pinned:** four pure checks of the helper, and a host test that
+  first shows Excel hiding a leading apostrophe (a control for the cause),
+  then the helper's text shown whole. *Depends on:* nothing. `~hours`
 
 ---
 
@@ -25458,3 +25482,7 @@ numbers. **Quoting a correction is not applying it.**
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part C
 
 - ✅ **LX.13 — a name is never shaped like a cell.** From the 2026-09-28 fluency assessment, confirmed live that day: `Set A2 to 5.` validated green and wrote no cell. **Built, owner-verified live and committed 2026-09-29** (`VLA_SELF-TESTS` pure 1560/1560 and host 241/241; `TestDSLs` 2330/0; `VerifyReports` 317/317 on both backends; the phrasebook export as predicted; six hand tests). On the owner's four calls, each as recommended: a word shaped like a cell (one to three letters, then digits: `A1`, `q1`, `fy24`) is refused with directions - `cell A1` for the cell, a hyphenated name for a name - wherever a name is made and wherever a value is read, only after a sentence has matched, so later rules keep their turn, in one message, `english-cell-shaped-name`. Sheets, tables and pivots may still be called Q1. No sentence of a shipped `instructions.txt` used such a name, so `SD-4`'s promise holds and `SD-14`'s MAJOR does not fire. The refusal's opening quote, hidden on the sheet by Excel's text marker, is `U.26`. *(more: the full entry, earlier in this file)* `~hours`
+
+## 🪟 PRODUCT · INTERFACE
+
+- ✅ **U.26 — a refusal that begins with a quoted word lost its opening quote on the sheet.** Found in `LX.13`'s live pass, 2026-09-29: column C showed `a2' is shaped like a cell …`, because Excel reads a leading apostrophe in a cell's value as its own "this is text" mark and hides it - 32 English refusals begin with a quoted word. **Built, owner-verified live and committed 2026-09-29** (`VLA_SELF-TESTS` pure 1564/1564 and host 244/244; `VerifyReports` 334/334 on both backends; both hand tests showed the quote). `VLA_IDE.VlaIdeCellText` puts one apostrophe in front of text beginning with `'`, `=`, `+`, `-` or `@`, so the cell shows exactly the text; it writes the red mark, the hint appended to it and the diagnostic log. Pinned by four pure checks and a host test that first shows Excel hiding the apostrophe. *(more: the full entry, earlier in this file)* `~hours`

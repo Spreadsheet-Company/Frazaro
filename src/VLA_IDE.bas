@@ -2663,7 +2663,7 @@ Private Function DoCheck(ws As Worksheet, Optional ByRef vlaOut As String, _
     ' poured had no <Frazaro> tag. It joins the red row's own text only
     ' after MarkErr has logged the failure, so VLA_Log keeps just what
     ' Frazaro could not read.
-    If Len(failHint) > 0 Then ws.Cells(badRow, 3).Value = CStr(ws.Cells(badRow, 3).Value) & " " & failHint
+    If Len(failHint) > 0 Then ws.Cells(badRow, 3).Value = VlaIdeCellText(CStr(ws.Cells(badRow, 3).Value) & " " & failHint)
 End Function
 
 ' S4.3: does any sentence aim the program at a sheet Frazaro owns?
@@ -3036,10 +3036,25 @@ Private Sub MarkOK(ws As Worksheet, ByVal r As Long)
 End Sub
 
 Private Sub MarkErr(ws As Worksheet, ByVal r As Long, ByVal msg As String)
-    ws.Cells(r, 3).Value = msg
+    ws.Cells(r, 3).Value = VlaIdeCellText(msg)
     ws.Cells(r, 3).Interior.Color = RGB(247, 215, 215)
     LogParseFailure ws, r, msg
 End Sub
+
+' U.26: text to put in a cell so the cell shows exactly that text. Excel
+' reads a leading apostrophe as its own mark for "this is text" and hides
+' it, so a refusal that opens by quoting a word - 'a2' is shaped like a
+' cell..., 'seek' is a reserved word... - showed without its first
+' character; and a leading = + - or @ would be read as a formula. One
+' apostrophe in front takes Excel's mark, and the text shows whole.
+Public Function VlaIdeCellText(ByVal s As String) As String
+    Select Case Left$(s, 1)
+        Case "'", "=", "+", "-", "@"
+            VlaIdeCellText = "'" & s
+        Case Else
+            VlaIdeCellText = s
+    End Select
+End Function
 
 ' Every misunderstood sentence is remembered: timestamp, row, the
 ' sentence, the message - on a very-hidden sheet in the user's own
@@ -3068,8 +3083,8 @@ Private Sub LogParseFailure(ws As Worksheet, ByVal r As Long, ByVal msg As Strin
     If nr < 2 Then nr = 2
     lg.Cells(nr, 1).Value = Now
     lg.Cells(nr, 2).Value = r
-    lg.Cells(nr, 3).Value = CStr(ws.Cells(r, 2).Value)
-    lg.Cells(nr, 4).Value = msg
+    lg.Cells(nr, 3).Value = VlaIdeCellText(CStr(ws.Cells(r, 2).Value))
+    lg.Cells(nr, 4).Value = VlaIdeCellText(msg)       ' U.26: the report reads back what was said
     If nr > 2000 Then lg.Rows("2:1001").Delete      ' keep the newest thousand
     On Error GoTo 0
 End Sub

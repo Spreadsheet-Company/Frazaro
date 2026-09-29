@@ -361,6 +361,7 @@ Public Function VlaSelfTestHost() As Boolean
     TestEmbeddedTextFallback
     TestArraySlabHelpers
     TestAutoLoadRegistration
+    TestU26MarkShowsQuote
 
     Debug.Print "===== HOST SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -2948,6 +2949,31 @@ Private Sub TestInterpreterNamedArgs()
                "D1=" & ws.Range("D1").Value & " D2=" & ws.Range("D2").Value & " D3=" & ws.Range("D3").Value
     End If
 
+    Application.DisplayAlerts = False
+    ws.Delete
+    Application.DisplayAlerts = True
+    prior.Activate
+End Sub
+
+' U.26: the marks column shows a refusal whole. The control first: Excel
+' itself hides a leading apostrophe written as a cell's value, which is
+' the reason for the fix. Then the same words through VlaIdeCellText show
+' with it, and words that look like a formula show as text.
+Private Sub TestU26MarkShowsQuote()
+    Dim prior As Worksheet
+    Set prior = ActiveSheet
+    VlaEnsureSheet "VlaU26Sheet"
+    Dim ws As Worksheet
+    Set ws = ActiveWorkbook.Worksheets("VlaU26Sheet")
+    Dim said As String
+    said = "'a2' is shaped like a cell"
+    ws.Range("A1").Value = said
+    Report "u.26 control: Excel hides a leading apostrophe written as a value", _
+           CStr(ws.Range("A1").Text) = Mid$(said, 2), "A1 shows [" & CStr(ws.Range("A1").Text) & "]"
+    ws.Range("A2").Value = VLA_IDE.VlaIdeCellText(said)
+    CheckV "u.26: through VlaIdeCellText the refusal shows whole", CStr(ws.Range("A2").Text), said
+    ws.Range("A3").Value = VLA_IDE.VlaIdeCellText("=1+1")
+    CheckV "u.26: text that looks like a formula shows as text", CStr(ws.Range("A3").Text), "=1+1"
     Application.DisplayAlerts = False
     ws.Delete
     Application.DisplayAlerts = True
