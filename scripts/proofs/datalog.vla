@@ -42,6 +42,10 @@
 ;  tools/check_proofs.ps1 checks this file without Excel: its shape,
 ;  every name unique, every row as wide as its header, every message
 ;  id a real one.
+;  tools/proofs_lp.ps1 writes every answer proof as a clingo program in
+;  tools/clingo, so a solver of another lineage can check the answer
+;  written here (METAPROOF.2); check_proofs.ps1 fails when those files
+;  fall behind this one, so re-run the exporter after editing a proof.
 ;
 ;  WHY A FILE AND NOT VBA. Here a program is written as the program it
 ;  is: no doubled quotes, no & _ joins, no line to stay under, and a

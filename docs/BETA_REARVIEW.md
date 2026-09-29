@@ -11797,6 +11797,96 @@ lost or mistaken for closer than they are:**
   234` and the engine's real answer, `(rows (W) (z9) (e2) (e3) (e4) (e5))`
   - the fact's row FIRST, an order `rows-in-any-order` was right not to
   assume. `~days`
+- ✅ **METAPROOF.2 — clingo, an oracle of another lineage, for the DATALOG
+  proofs.** *Opened 2026-09-28 at the owner's call ("proceed with the next
+  proof slice"): METAPROOF.1's plan, step 4. Owner-verified and committed the
+  same day.*
+
+  **Why.** A proof in `scripts/proofs/datalog.vla` states the answer a
+  program must give, and `TestDatalogProofs` checks that DATALOG gives it.
+  But the answers were written down by the hands that wrote the engine, and
+  `REBUILD.md`'s Whitworth caveat says two readings by one author converge
+  on consistency, not truth. clingo is a reading of another lineage: when
+  it derives the rows a proof expects, the expectation is true of the
+  program under the standard semantics, not only consistent with DATALOG.
+
+  **Built:**
+  - `tools/proofs_lp.ps1`, the exporter, in `optimize0_lp.ps1`'s shape and
+    under its settled rule: it only writes `.lp` files, never runs clingo,
+    and nothing in Frazaro calls it (SD-13 untouched). One file per answer
+    proof, kept and tracked in `tools/clingo/`: the program, the rows the
+    proof expects (`vla_want`), and a judge that shows
+    `vla_verdict(agrees)`, or `vla_verdict(differs)` beside the rows that
+    make the difference (`vla_extra`, `vla_missing`). Three controls, each
+    one proof with its expectation made wrong on purpose (a row left out, a
+    row added, no row at all), must show `vla_verdict(caught)`. Eleven of
+    the sixteen proofs export. The five refusals do not: a refusal is
+    DATALOG's own policy, and no other lineage raises its message ids.
+  - `tools/proofs_lib.ps1`: the reader, moved out of `check_proofs.ps1`
+    byte for byte (asserted as it was cut), and the translation. The file's
+    header argues each construct it translates. Stratified `not` gives the
+    least model in both. `count` counts the matching rows for each binding
+    of the variables bound EARLIER in the rule, and no row is a real 0
+    (`ApplyAggregate`). That is clingo's `#count` whenever every counted
+    variable appears nowhere else in the rule. Values are lowercase words
+    and whole numbers, which both lineages read alike.
+  - Everything else is declined by name, never guessed:
+    - quoted strings (a quoted "4" is the number 4 to DATALOG and a string
+      to clingo), capitals, decimals;
+    - `sum`, `let`, `textjoin`, the text tests, and every comparison but
+      `=`;
+    - keyed atoms, `(answer ...)`, and a query written as a fact;
+    - one variable spelled two ways (DATALOG matches variable names without
+      case, clingo with case);
+    - the `vla_` prefix, which is the judge's.
+
+    No proof uses any of them yet. Each comes in with the first proof that
+    needs it, which is also its witness.
+  - `tools/check_proofs.ps1`, rule 9: the same translation is made again in
+    memory, and every `tools/clingo/proof-*.lp` must match it. None may be
+    missing, changed, or left over. A proof edited without a fresh export
+    fails, so the question clingo was last asked is always the one the
+    corpus asks now. A second baseline floors the export at eleven, so a
+    translation that starts declining proofs fails too.
+  - `datalog.vla`'s header names the new reader.
+
+  **Tested, without clingo:**
+  - *Rule 9, by thirteen broken copies,* every one red with the right
+    words: an expected row edited, a file deleted, a stray added, a file or
+    a control's judge edited by hand, a proof the translation now declines,
+    a new proof, a renamed one, a shape error (which adds no rule-9 noise),
+    the baseline emptied, and the floor raised. The clean copy is green,
+    and green again with every file checked out CRLF.
+  - *The translation:*
+    - twenty-six programs it must decline, each with its reason, and one
+      refusal proof it must pass over;
+    - six it must accept, five of them checked line by line against the
+      text they become: a count's group key bound outside with its empty
+      group a real 0, a negative number, `(headless)`, one local variable
+      in two counts, and folded capitals;
+    - the exporter's own refusals: two proofs making one file name, a proof
+      named like a control, and a corpus with no multi-row proof for the
+      controls to stand on.
+  - *All 30 checks* pass on `HEAD` plus this change alone. The shared tree
+    held a peer's `english.vla` edit mid-item, so the check ran on an
+    archive of a private index.
+
+  **Found while building — read, not run:** DATALOG's `count` groups text
+  without case, while its joins compare exactly. `ComputeAggregateGroups`
+  keys its groups in a `VlaDictNew`, which compares as text; `RelJoin` and
+  `RelTryAdd`'s de-duplication use a plain `Scripting.Dictionary`, which
+  compares exactly. So with `p("Bob", x)`, `p("bob", y)` and `who("Bob")`,
+  `(count N (p W V))` after `(who W)` should count 2, where the join
+  `(who W) (p W V)` finds one row. Unverified. The translation declines
+  quoted strings, so clingo cannot see it yet; the first proof that widens
+  the translation to quoted text would witness it either way.
+
+  **Owner-verified 2026-09-28, every line as predicted.** clingo, run by the
+  owner by hand from PowerShell over all fourteen files, with the one line
+  `tools/proofs_lp.ps1` prints: `agrees` on the eleven proofs, `caught` on
+  the three controls. Each program had been traced by hand first. Every
+  answer proof in the corpus now agrees with a reading of another lineage,
+  not only with the engine. `~hours`
 - ⬜ **VOCAB-MIGRATE** — version a generation spec, diff the rules it
   produces against what's currently loaded (VOCABDIFF), and report the
   delta - schema migrations for a spoken grammar. No known precedent to
@@ -24958,3 +25048,5 @@ numbers. **Quoting a correction is not applying it.**
 ## 🗣🔧 LANGUAGE + MACHINE · THE METAMETAMACRO LINE
 
 - ✅ **METAPROOF.1 — proofs as forms, the first arrow: DATALOG.** Contemplation 9's collapse 4, opened 2026-09-27 as 0.7.1's first item; owner-verified live and committed 2026-09-28 (`VLA_SELF-TESTS` pure 1525/1525, host 202/202; TestDSLs 2319/0, every number as predicted; a live red control, one expected cell edited, failed exactly its proof). `scripts/proofs/datalog.vla` holds DATALOG tests as forms — `(test-datalog "name" (program ...) expectation)`, the expectation `(rows ...)`, `(rows-in-any-order ...)`, `(answer true|false)` or `(refuses message-id)` — run by `TestDatalogProofs` in TestDSLs after seventeen controls that prove the runner says FAIL. Sixteen tests moved there and got stronger: `TestDatalogBoundArgument`'s eleven row counts now name their rows, and `TestDatalog`'s five refusals, which accepted any error (a raw crash included), now name their message ids through `VLA_Messages`' new memory of the last refusal raised. `DATALOG()`'s answer lines moved unchanged into `DatalogAnswer`, so a proof sees what the cell shows. Both parity loops read the corpus, and the table fell 192 → 177. New `tools/check_proofs.ps1` (the thirtieth check, mutation-tested) reads the corpus without Excel; `check_optimize_parity.ps1` holds DATALOG call sites to a falling ceiling (188). Next slices, scoped not built: input tables, the other engines, and clingo as an oracle of another lineage. *(more: the full entry, earlier in this file)* `~days`
+
+- ✅ **METAPROOF.2 — clingo, an oracle of another lineage, for the DATALOG proofs.** METAPROOF.1's plan, step 4, opened 2026-09-28; owner-verified and committed the same day (clingo, run by the owner by hand over all fourteen files: `agrees` on the eleven proofs and `caught` on the three controls, every line as predicted). `tools/proofs_lp.ps1` writes every DATALOG answer proof as a clingo program in `tools/clingo`: the program, the rows the proof expects, and a judge that shows `vla_verdict(agrees)` or names the rows that differ. Three controls, wrong on purpose, must show `caught`. Eleven of the sixteen proofs export; the five refusals cannot, since no other lineage raises DATALOG's message ids. What the translation cannot state faithfully (quoted strings, `sum`, the ordering comparisons, …) is declined by name, never guessed. `check_proofs.ps1`'s new rule 9 fails when the tracked files fall behind the proofs. Every answer proof in the corpus now agrees with a reading of another lineage, not only with the engine. *(more: the full entry, earlier in this file)* `~hours`

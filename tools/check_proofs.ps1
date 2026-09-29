@@ -16,7 +16,8 @@ WHAT IS CHECKED, in every scripts/proofs/*.vla:
   1. It reads: every paren closed, every string closed, by a tokenizer that
      follows VLA.bas's own Tokenize - a ; comment runs to the end of its
      line, "..." takes \" and \\ as escapes, and every other run of
-     characters up to a paren, a space, a ; or a " is one atom.
+     characters up to a paren, a space, a ; or a " is one atom. The reader
+     lives in tools\proofs_lib.ps1, which the exporter below reads with.
   2. Every top-level form is (test-<engine> "name" clause ...), for an
      engine this corpus has a runner for (today: datalog).
   3. Every proof's name is a quoted string, unique in its file (compared
@@ -34,37 +35,60 @@ WHAT IS CHECKED, in every scripts/proofs/*.vla:
      floor of proofs, so a truncated or emptied file fails here and not
      only in a live run; a new proof file is added to the baseline, with
      its floor, in the commit that adds it.
+  9. METAPROOF.2: the clingo export is current. tools\proofs_lp.ps1 writes
+     every answer proof as a clingo program in tools\clingo, with three
+     controls; here the same translation is made again, in memory, and
+     every tools\clingo\proof-*.lp must match it - none missing, none
+     changed, none left over from a proof that is gone. A proof edited
+     without a fresh export fails here, so the question clingo was last
+     asked is always the one the corpus asks now. Each proof file also
+     has a floor of proofs its export must carry (the second baseline
+     below), so a translation that starts declining proofs it used to take
+     fails too.
 
-WHAT IT DOES NOT DO: run a proof. Whether an answer is RIGHT is
-TestDatalogProofs' question - and, one day, an oracle of another lineage's
-(Contemplation 9, collapse 4). This checks that a proof is well-formed
-enough to be asked.
+WHAT IT DOES NOT DO: run a proof, or run clingo. Whether an answer is RIGHT
+is TestDatalogProofs' question, and - for every proof the translation can
+state - clingo's, run by the owner by hand (tools\proofs_lp.ps1 says how).
+This checks that a proof is well-formed enough to be asked, and that
+clingo is being asked the current question.
 
 House shape, per the standing convention for this project's static scans:
 PowerShell 5.1, host-independent, a hardcoded and reviewable baseline,
 never wired into VlaSelfTest.
 
-Usage:  powershell -File tools\check_proofs.ps1 [-ProofsDir <dir>]
+Usage:  powershell -File tools\check_proofs.ps1 [-ProofsDir <dir>] [-ClingoDir <dir>]
 Exit 0 clean, exit 1 with every failure listed.
 #>
 param(
-    # A folder to read instead of scripts\proofs. Its only purpose is to
-    # make THIS script testable: pointed at a scratch folder holding a
-    # broken copy, it must go red.
+    # Folders to read instead of scripts\proofs and tools\clingo. Their only
+    # purpose is to make THIS script testable: pointed at a scratch folder
+    # holding a broken copy, it must go red.
     [string]$ProofsDir = '',
-    [string]$MessagesPath = ''
+    [string]$MessagesPath = '',
+    [string]$ClingoDir = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 if ($ProofsDir -eq '') { $ProofsDir = Join-Path $root 'scripts\proofs' }
 if ($MessagesPath -eq '') { $MessagesPath = Join-Path $root 'src\VLA_Messages.bas' }
+if ($ClingoDir -eq '') { $ClingoDir = Join-Path $PSScriptRoot 'clingo' }
+
+# The reader (rule 1) and the clingo translation (rule 9).
+. (Join-Path $PSScriptRoot 'proofs_lib.ps1')
 
 # --- the baseline: every proof file, and the fewest proofs it may hold ---
 # 2026-09-27, METAPROOF.1: datalog.vla, sixteen proofs - TestDatalogBoundArgument's
 # eleven and five of TestDatalog's refusals, moved out of VBA.
 $floors = [ordered]@{
     'datalog.vla' = 16
+}
+# --- rule 9's baseline: every proof file, and the fewest of its proofs its
+# clingo export may carry (0 for an engine clingo cannot check) ---
+# 2026-09-28, METAPROOF.2: datalog.vla, eleven - every answer proof. Its five
+# refusals are DATALOG's own policy, which no other lineage raises.
+$clingoFloors = [ordered]@{
+    'datalog.vla' = 11
 }
 # The engines a (test-<engine> ...) head may name: one per runner that
 # exists. A proof for any other would be read by nothing.
@@ -81,97 +105,6 @@ foreach ($mt in [regex]::Matches($msgSource, '(?m)^\s*AddMsg m, "([^"]+)"')) {
 }
 if ($knownIds.Count -lt 100) {
     Write-Error "Read only $($knownIds.Count) message ids from $MessagesPath - has AddMsg's shape changed? This check cannot vouch for (refuses ...) ids it cannot read."
-}
-
-# --- rule 1: VLA.bas's Tokenize, followed rule for rule --------------------
-function Get-ProofTokens([string]$src, [string]$label) {
-    $toks = New-Object System.Collections.Generic.List[object]
-    $n = $src.Length
-    $i = 0
-    $lineNo = 1
-    while ($i -lt $n) {
-        $ch = $src[$i]
-        if ($ch -eq "`n") { $lineNo++; $i++; continue }
-        if ($ch -eq ' ' -or $ch -eq "`t" -or $ch -eq "`r") { $i++; continue }
-        if ($ch -eq '(' -or $ch -eq ')') {
-            $toks.Add([pscustomobject]@{ Kind = [string]$ch; Text = [string]$ch; Line = $lineNo })
-            $i++
-            continue
-        }
-        if ($ch -eq ';') {
-            while ($i -lt $n -and $src[$i] -ne "`r" -and $src[$i] -ne "`n") { $i++ }
-            continue
-        }
-        if ($ch -eq '"') {
-            $startLine = $lineNo
-            $i++
-            $sb = New-Object System.Text.StringBuilder
-            $closed = $false
-            while ($i -lt $n) {
-                $c2 = $src[$i]
-                if ($c2 -eq '\') {
-                    $d2 = ''
-                    if ($i + 1 -lt $n) { $d2 = [string]$src[$i + 1] }
-                    if ($d2 -eq '"') { [void]$sb.Append('"'); $i += 2 }
-                    elseif ($d2 -eq '\') { [void]$sb.Append('\'); $i += 2 }
-                    else { [void]$sb.Append($c2); $i++ }
-                } elseif ($c2 -eq '"') {
-                    $i++
-                    $closed = $true
-                    break
-                } else {
-                    if ($c2 -eq "`n") { $lineNo++ }
-                    [void]$sb.Append($c2)
-                    $i++
-                }
-            }
-            if (-not $closed) { throw "${label}: a string opened on line $startLine is never closed" }
-            $toks.Add([pscustomobject]@{ Kind = 'str'; Text = $sb.ToString(); Line = $startLine })
-            continue
-        }
-        $start = $i
-        while ($i -lt $n) {
-            $c3 = $src[$i]
-            if ($c3 -eq '(' -or $c3 -eq ')' -or $c3 -eq ' ' -or $c3 -eq "`t" -or $c3 -eq "`r" -or $c3 -eq "`n" -or $c3 -eq ';' -or $c3 -eq '"') { break }
-            $i++
-        }
-        $toks.Add([pscustomobject]@{ Kind = 'atom'; Text = $src.Substring($start, $i - $start); Line = $lineNo })
-    }
-    return ,$toks
-}
-
-# Tokens into forms: a node is a list (Items), an atom or a string.
-function ConvertTo-ProofForms($toks, [string]$label) {
-    $forms = New-Object System.Collections.Generic.List[object]
-    $script:ptPos = 0
-    while ($script:ptPos -lt $toks.Count) {
-        $forms.Add((Read-ProofForm $toks $label))
-    }
-    return ,$forms
-}
-
-function Read-ProofForm($toks, [string]$label) {
-    $t = $toks[$script:ptPos]
-    if ($t.Kind -eq ')') { throw "${label}: a ')' on line $($t.Line) closes nothing" }
-    if ($t.Kind -eq '(') {
-        $node = [pscustomobject]@{ Kind = 'list'; Text = ''; Line = $t.Line; Items = (New-Object System.Collections.Generic.List[object]) }
-        $script:ptPos++
-        while ($true) {
-            if ($script:ptPos -ge $toks.Count) { throw "${label}: the '(' on line $($t.Line) is never closed" }
-            if ($toks[$script:ptPos].Kind -eq ')') { $script:ptPos++; break }
-            $node.Items.Add((Read-ProofForm $toks $label))
-        }
-        return $node
-    }
-    $script:ptPos++
-    return [pscustomobject]@{ Kind = $t.Kind; Text = $t.Text; Line = $t.Line; Items = $null }
-}
-
-function Get-ProofHeadWord($node) {
-    if ($node.Kind -ne 'list') { return '' }
-    if ($node.Items.Count -lt 1) { return '' }
-    if ($node.Items[0].Kind -ne 'atom') { return '' }
-    return $node.Items[0].Text.ToLowerInvariant()
 }
 
 # Rule 5: every cell a plain atom or string, every row as wide as the first.
@@ -231,6 +164,10 @@ foreach ($pf in $floors.Keys) {
         $failures.Add("scripts/proofs/$pf is in the baseline but missing - the proofs it held are gone, and nothing else would say so")
     }
 }
+
+# The files that passed rules 1-8, for rule 9: the translation takes a
+# proof's shape as given.
+$clingoReady = New-Object System.Collections.Generic.List[object]
 
 foreach ($pf in $present) {
     $label = "scripts/proofs/$pf"
@@ -313,14 +250,74 @@ foreach ($pf in $present) {
     $bad = $failures.Count - $before
     if ($bad -eq 0) {
         Write-Output ("  ok    {0}: {1} proof(s), floor {2}" -f $label, $proofCount, $floors[$pf])
+        $clingoReady.Add([pscustomobject]@{ File = $pf; Label = $label; Forms = $forms })
     } else {
         Write-Output ("  FAIL  {0}: {1} proof(s), {2} problem(s)" -f $label, $proofCount, $bad)
     }
 }
 
+# --- rule 9: the clingo export is current (METAPROOF.2) -------------------
+foreach ($pf in $present) {
+    if (-not $clingoFloors.Contains($pf)) {
+        $failures.Add("scripts/proofs/$pf is not in this script's clingo baseline - add it to `$clingoFloors, with the fewest proofs its export may carry, in the commit that adds it")
+    }
+}
+$wantFiles = [ordered]@{}
+$exportsMade = 0
+foreach ($cr in $clingoReady) {
+    try {
+        $ex = ConvertTo-ClingoExport $cr.Forms ([IO.Path]::GetFileNameWithoutExtension($cr.File)) $cr.Label
+    } catch {
+        $failures.Add("$($cr.Label): its clingo export cannot be made - $($_.Exception.Message)")
+        continue
+    }
+    $exportsMade++
+    foreach ($fl in $ex.Files) { $wantFiles[$fl.Name] = $fl.Text }
+    $clingoFloor = 0
+    if ($clingoFloors.Contains($cr.File)) { $clingoFloor = $clingoFloors[$cr.File] }
+    $mark = 'ok  '
+    if ($ex.Exported -lt $clingoFloor) {
+        $failures.Add("$($cr.Label): its clingo export carries $($ex.Exported) proof(s), below its floor of $clingoFloor - is the translation declining proofs it used to take?")
+        $mark = 'FAIL'
+    }
+    Write-Output ("  {0}  clingo: {1}: {2} proof(s) exported and {3} control(s), floor {4}; {5} refusal(s) not exported" -f $mark, $cr.Label, $ex.Exported, ($ex.Files.Count - $ex.Exported), $clingoFloor, $ex.Refusals)
+    foreach ($s in $ex.Skipped) { Write-Output ("          not exported: ""{0}"" - {1}" -f $s.Proof, $s.Reason) }
+}
+# The files themselves, only once every proof file is translated - a file
+# that failed an earlier rule would make every one of its exports look stale.
+if ($present.Count -gt 0 -and $exportsMade -eq $present.Count) {
+    $onDisk = @()
+    if (Test-Path -LiteralPath $ClingoDir) {
+        $onDisk = @(Get-ChildItem -LiteralPath $ClingoDir -Filter 'proof-*.lp' -File | Where-Object { $_.Extension -eq '.lp' } | ForEach-Object { $_.Name } | Sort-Object)
+    }
+    $before = $failures.Count
+    foreach ($nm in $wantFiles.Keys) {
+        $lpPath = Join-Path $ClingoDir $nm
+        if (-not (Test-Path -LiteralPath $lpPath)) {
+            $failures.Add("tools/clingo/$nm is missing - run tools\proofs_lp.ps1, then clingo on it")
+            continue
+        }
+        $have = [IO.File]::ReadAllText($lpPath) -replace "`r`n", "`n"
+        if ($have -cne $wantFiles[$nm]) {
+            $failures.Add("tools/clingo/$nm no longer matches its proof - run tools\proofs_lp.ps1, then clingo on it")
+        }
+    }
+    foreach ($nm in $onDisk) {
+        if (-not $wantFiles.Contains($nm)) {
+            $failures.Add("tools/clingo/$nm is made by no proof now - run tools\proofs_lp.ps1, which removes it")
+        }
+    }
+    $outOfStep = $failures.Count - $before
+    if ($outOfStep -eq 0) {
+        Write-Output ("  ok    clingo: all {0} file(s) in tools/clingo match the corpus" -f $wantFiles.Count)
+    } else {
+        Write-Output ("  FAIL  clingo: {0} file(s) in tools/clingo out of step with the corpus" -f $outOfStep)
+    }
+}
+
 Write-Output ''
 if ($failures.Count -eq 0) {
-    Write-Output '=== CHECK: clean - every proof reads, is well-formed, and names only real refusals ==='
+    Write-Output '=== CHECK: clean - every proof reads, is well-formed, names only real refusals, and its clingo export is current ==='
     exit 0
 }
 foreach ($f in $failures) { Write-Output "FAIL: $f" }
