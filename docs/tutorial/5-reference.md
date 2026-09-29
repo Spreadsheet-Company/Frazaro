@@ -152,6 +152,14 @@ fine. When in doubt, hyphenate.
 
 Do not begin any name with `vla-`. That prefix is reserved.
 
+**A name is never shaped like a cell** (from `0.7.1`). A word of one to
+three letters and then one to seven digits, such as `a1`, `q1` or `fy24`, is
+refused wherever a name is made or a value is read: `Set A1 to 5.` and
+`Put A1 plus B1 into cell C1.` are both refused before anything runs. To
+mean the cell, write `cell A1`; for a name, hyphenate it (`q1-total`). Four
+letters and digits (`abcd1`) make an ordinary name. A sheet, table or pivot
+may still be called `Q1`.
+
 ### Filler
 
 | Word | Rule |
@@ -1233,6 +1241,9 @@ A model's habits from other languages are the usual cause.
 | `Set date to today.` | `Set run-date to today.` |
 | `Work on sheet Q1 Data.` | `Work on sheet "Q1 Data".` |
 | `Put 5 into B2.` | `Put 5 into cell B2.` |
+| `Set A1 to 5.` | `Put 5 into cell A1.` |
+| `Set total to A1 plus 1.` | `Set total to cell A1 plus 1.` |
+| `Set q1 to 5.` | `Set q1-total to 5.` |
 | `Put 5 into cell $B$2.` | `Put 5 into cell B2.` |
 | `Set x to range A1:A9.` | `Remember range A1:A9 as x.` |
 | `Set x to sum of A1:A9.` | `Set x to sum of range A1:A9.` |
@@ -1504,7 +1515,7 @@ Use these labels exactly when telling a person what to press.
 | **Source of R4, R5, R6, R8** | The engine's source, and the proofs the phrasebook runs every time it loads. |
 | **Source of R12** | The shipped sample procedures. Every sentence is a sample's own. |
 | **The authority** | **What can I say?**, in the copy of Frazaro at hand. It is generated from the grammar loaded at that moment and cannot be out of date. Where this page and that list disagree, the list is right. |
-| **A shipped sentence keeps its meaning.** | A page like this one goes out of date by being incomplete. It does not go out of date by being wrong about a sentence it lists, with the one narrowing recorded under R7, part D. |
+| **A shipped sentence keeps its meaning.** | A page like this one goes out of date by being incomplete. It does not go out of date by being wrong about a sentence it lists, with the one narrowing recorded under R7, part D, and one retirement recorded under R2: from `0.7.1` a name may not be shaped like a cell. |
 | **Licence** | CC-BY-4.0, as for every document in this folder. |
 | **Where to write** | `english@spreadsheet.company` |
 

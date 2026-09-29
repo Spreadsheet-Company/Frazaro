@@ -4116,6 +4116,14 @@
 (test-fail
     "Set label to don't."
     "I don't understand the character")
+; LX.13: a word shaped like a cell is never a name - refused where a name
+; is made and where a value is read; "cell A1" is how a cell is said.
+(test-fail
+    "Set A1 to 5."
+    "'a1' is shaped like a cell")
+(test-fail
+    "Put A1 plus B1 into cell C1."
+    "'a1' is shaped like a cell")
 
 
 ; ---- function words: expression-level vocabulary ----------------------

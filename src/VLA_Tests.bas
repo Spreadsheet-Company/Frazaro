@@ -443,6 +443,7 @@ Public Function VlaSelfTest() As Boolean
     TestCliHistoryFile
     TestCliTranscript
     TestCliConsoleResults
+    TestLx13CellShapedNames
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -1035,10 +1036,11 @@ Private Sub TestEnglishCore()
     AssertEnglish "the problem is captured before Resume", probP, "(set! vla-problem err.description)"
     AssertEnglish "the problem reads in recovery", probP, "(debug-print vla-problem)"
 
-    ' B7: a bare using-call is refused with a pointer.
+    ' B7: a bare using-call is refused with a pointer. (LX.13: the action
+    ' was called tx2 until a name could no longer be shaped like a cell.)
     AssertErrLine "standalone Get is refused with a pointer", _
-        "To tx2 using a of 1:" & vbLf & "  Give back a." & vbLf & vbLf & _
-        "Get tx2 using a of 5.", 4
+        "To taxed using a of 1:" & vbLf & "  Give back a." & vbLf & vbLf & _
+        "Get taxed using a of 5.", 4
 
     ' B7.2: the word percent is the % postfix. (Its refusal pin for
     ' "Increase ... by 10 percent." was superseded by B7.4 - that
@@ -3617,6 +3619,86 @@ Private Sub TestCliConsoleResults()
     On Error GoTo 0
     Report "CLI.5 the sample reads as its three forms - the comments are only comments", _
            sampleForms = 3, "forms: " & sampleForms & IIf(sampleForms = -1, " (the reader refused it)", "")
+End Sub
+
+' ---------------------------------------------------------------------
+'  LX.13: a word shaped like a cell (one to three letters, then one to
+'  seven digits) is never a name. It is refused where a name is made and
+'  where a value is read, and each refusal is read for its id, the word
+'  it names (as written and as a cell) and the line the IDE marks red.
+'  Then the sentences that must keep working: a cell after the word
+'  "cell", quoted text, a longer name - and, with english.vla loaded, a
+'  sheet and a pivot field called Q1 and the one sentence where an
+'  earlier rule reads the word as a value before a later rule matches it
+'  as a range. Loading english.vla runs its two LX.13 test-fail proofs.
+' ---------------------------------------------------------------------
+Private Sub TestLx13CellShapedNames()
+    EnglishResetGrammar
+
+    ' Names, where each is made.
+    CheckCellShapedRefused "Set A1 to 5.", "a1", "A1", 1
+    CheckCellShapedRefused "Add 5 to B2.", "b2", "B2", 1
+    CheckCellShapedRefused "Increase q1 by 5.", "q1", "Q1", 1
+    CheckCellShapedRefused "Create a number called fy24.", "fy24", "FY24", 1
+    CheckCellShapedRefused "Count c1 from 1 to 3, log c1.", "c1", "C1", 1
+    CheckCellShapedRefused "Create a list called items." & vbLf & "For each r2 in items, log r2.", "r2", "R2", 2
+    CheckCellShapedRefused "Log 1." & vbLf & vbLf & "To tx2:" & vbLf & "  Log 2.", "tx2", "TX2", 3
+    CheckCellShapedRefused "To stamp, with q1 of 1:" & vbLf & "  Log 2.", "q1", "Q1", 1
+    CheckCellShapedRefused "Define h2 as 5.", "h2", "H2", 1
+
+    ' Values, where each is read - a block body's sentence names its own
+    ' line. Only the built-in phrases are loaded here, so no Put: that is
+    ' a phrasebook rule, and its two cases wait for english.vla below.
+    CheckCellShapedRefused "Set total to 1." & vbLf & "If A1 is 5, log ""five"".", "a1", "A1", 2
+    CheckCellShapedRefused "Set total to fy24 times 2.", "fy24", "FY24", 1
+    CheckCellShapedRefused "Repeat 2 times:" & vbLf & "  Log 1." & vbLf & "  Set total to b2 plus 1.", "b2", "B2", 3
+
+    ' Still sayable.
+    AssertEnglish "lx.13: a cell after the word cell still reads as a value", "Set total to cell A1 plus 1.", "(set! total (+ (range ""a1"") 1))"
+    AssertEnglish "lx.13: a hyphenated name that begins like a cell is a name", "Set q1-total to 5.", "(set! q1-total 5)"
+    AssertEnglish "lx.13: four letters and digits are not a cell, so they are a name", "Set abcd1 to 5.", "(set! abcd1 5)"
+    AssertEnglish "lx.13: quoted text is text", "Set label to ""A1"".", "(set! label ""A1"")"
+
+    Dim loadErr As String
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabulary FindDevFile("english.vla")
+    If Err.Number <> 0 Then loadErr = Err.Description
+    On Error GoTo 0
+    Report "lx.13: english.vla loads, its two cell-shaped test-fail proofs included", Len(loadErr) = 0, loadErr
+    If Len(loadErr) = 0 Then
+        CheckCellShapedRefused "Put A1 plus B1 into cell C1.", "a1", "A1", 1
+        CheckCellShapedRefused "Remember range A1:A3 as fy24.", "fy24", "FY24", 1
+        AssertEnglish "lx.13: a cell after the word cell is still a cell", "Put 5 into cell A1.", "(set! (range ""a1"") 5)"
+        AssertEnglish "lx.13: a sheet called Q1 is still a sheet", "Work on sheet Q1.", "(vlaensuresheet ""q1"")"
+        AssertEnglish "lx.13: a pivot field called Q1 still reaches the pivot rule", _
+            "Add Q1 to pivot SalesPivot as a sum.", "(pivot-values-sum ""salespivot"" (array ""q1""))"
+        AssertEnglish "lx.13: a rule reading B2 as a value first does not stop a later one reading it as a range", _
+            "Delete B2 and shift cells up.", "(delete-shift-up (range ""b2""))"
+    End If
+    EnglishResetGrammar
+End Sub
+
+' LX.13: one program refused by id, by the word it names - as written and
+' as a cell - and by the line the IDE will mark red.
+Private Sub CheckCellShapedRefused(ByVal program As String, ByVal word As String, _
+                                   ByVal shown As String, ByVal wantLine As Long)
+    Dim en As Long, d As String, gotId As String, gotLine As Long
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    Err.Clear
+    EnglishToVla program
+    en = Err.Number
+    d = Err.Description
+    On Error GoTo 0
+    gotId = VLA_Messages.VlaLastRaisedMsgId()
+    gotLine = EnglishLastErrorLine()
+    Report "lx.13: " & Replace(program, vbLf, " / ") & " is refused, naming '" & word & "'", _
+           en <> 0 And gotId = "english-cell-shaped-name" _
+           And InStr(1, d, "'" & word & "' is shaped like a cell", vbBinaryCompare) > 0 _
+           And InStr(1, d, "cell " & shown, vbBinaryCompare) > 0 _
+           And gotLine = wantLine, _
+           "err " & en & " [" & gotId & "] line " & gotLine & ": " & d
 End Sub
 
 ' F.9: instructions.txt's own paragraphs (its documented structural unit -

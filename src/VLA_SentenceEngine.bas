@@ -897,6 +897,10 @@ Public Function EnglishToVla(ByVal text As String) As String
 
     Do While pos <= UBound(toks)
         mClaim = ""                      ' claim tracking is per top-level sentence
+        ' LX.13: the line a refusal names while a header is read here
+        ' (To, its parameters, Define) - ParseTracked sets it again for
+        ' every sentence, so it is only ever a header's own line.
+        mCurLine = TokLine(pos)
         If TokAt(toks, pos) = PARA_TOK Then
             pos = pos + 1                ' blank lines at top level are decoration
         ElseIf PeekWord(toks, pos) = "define" Then
@@ -1040,6 +1044,7 @@ Public Function EnglishToVla(ByVal text As String) As String
                     If TokAt(toks, pos) = "of" Then
                         pos = pos + 1
                         pDef = ParseExprReq(toks, pos)
+                        RefuseCellShapedRead pDef, mCurLine   ' LX.13: a default is a value
                     End If
                     If Len(pDef) > 0 Then
                         sawDefault = True
@@ -1113,6 +1118,7 @@ Public Function EnglishToVla(ByVal text As String) As String
                     If TokAt(toks, pos) = "of" Then
                         pos = pos + 1
                         pDef = ParseExprReq(toks, pos)
+                        RefuseCellShapedRead pDef, mCurLine   ' LX.13: a default is a value
                     End If
                     If Len(paramSpec) > 0 Then paramSpec = paramSpec & " "
                     ' A default makes the parameter optional even
@@ -1239,6 +1245,10 @@ End Function
 
 Private Function ParseTracked(toks() As String, ByRef pos As Long, ByVal ind As Long) As String
     mCurLine = TokLine(pos)            ' V1: assignment-line bookkeeping
+    ' LX.13: this sentence's own line, kept for the cell-shape check on
+    ' its translation - a block body resets mCurLine sentence by sentence.
+    Dim startLn As Long
+    startLn = mCurLine
     If Not mStepTracking Then
         ' TER-10: the interpreter's Run asks for the line marks alone -
         ' the same (at-line N ...) wrapper as below, without the step
@@ -1246,11 +1256,14 @@ Private Function ParseTracked(toks() As String, ByRef pos As Long, ByVal ind As 
         ' and its row, as a compiled Run's does.
         Dim lmLn As Long
         lmLn = TokLine(pos)
+        Dim lmStmt As String
+        lmStmt = ParseStmt(toks, pos, ind)
+        RefuseCellShapedRead lmStmt, startLn
         If mLineMarks And lmLn > 0 Then
             ParseTracked = String$(ind * 2, " ") & "(at-line " & lmLn & vbCrLf & _
-                           ParseStmt(toks, pos, ind) & ")"
+                           lmStmt & ")"
         Else
-            ParseTracked = ParseStmt(toks, pos, ind)
+            ParseTracked = lmStmt
         End If
         Exit Function
     End If
@@ -1270,6 +1283,7 @@ Private Function ParseTracked(toks() As String, ByRef pos As Long, ByVal ind As 
     End If
     Dim stmt As String
     stmt = ParseStmt(toks, pos, ind)
+    RefuseCellShapedRead stmt, startLn
     ' V4: wrap the sentence's form(s) in (at-line N ...) so every VBA
     ' statement they become carries ' vla:X src:N - the three-layer
     ' round trip, VBA statement -> vla line -> sentence line, readable
@@ -7489,6 +7503,13 @@ Private Sub CheckName(ByVal n As String)
     If IsReservedName(n) Then
         VLA_Messages.RaiseMsg "english-reserved-word-name", "name", n
     End If
+    ' LX.13: a word shaped like a cell - one to three letters, then one
+    ' to seven digits, the test a cell slot makes (IsCellPart) - is a
+    ' cell, never a name, wherever a name is made. For a phrase rule's
+    ' {v:var} slot this runs only after the whole rule has matched
+    ' (TryPhrase's MarkAssigned loop), so it never takes a later rule's
+    ' turn away.
+    If IsCellPart(VLA_Identity.Fold(n)) Then RefuseCellShaped VLA_Identity.Fold(n), mCurLine
     If Not mFnNullary Is Nothing Then
         Dim f As Boolean, v As Variant
         v = CollGet(mFnNullary, n, f)
@@ -7497,6 +7518,84 @@ Private Sub CheckName(ByVal n As String)
         End If
     End If
 End Sub
+
+' LX.13: the one refusal for a word shaped like a cell where a name is
+' made (CheckName) or a value is read (RefuseCellShapedRead). ln is the
+' sentence's own line, 0 when there is none (a phrasebook's proofs).
+Private Sub RefuseCellShaped(ByVal word As String, ByVal ln As Long)
+    Dim loc As String
+    If ln > 0 Then
+        mErrLine = ln
+        loc = LineSuf(ln)
+    End If
+    VLA_Messages.RaiseMsg "english-cell-shaped-name", "name", word, "cell", CellWordShown(word), "loc", loc
+End Sub
+
+' LX.13: values. A sentence that has matched a rule may still read a word
+' shaped like a cell as a value - ParsePrimCore turns any word left over
+' into a name - and no name of that shape can exist, since CheckName
+' refuses each one where it is made. So a bare cell-shaped word in the
+' translation is a cell written without the word "cell". Checked on the
+' finished translation, after every rule has had its turn.
+Private Sub RefuseCellShapedRead(ByVal vla As String, ByVal ln As Long)
+    Dim word As String
+    word = FirstCellShapedWord(vla)
+    If Len(word) > 0 Then RefuseCellShaped word, ln
+End Sub
+
+' LX.13: the first bare word in VLA text that is shaped like a cell, or "".
+' Quoted text is skipped (a reference slot's cell is always quoted); a
+' :keyword, a dotted member and a sheet-qualified word are never shaped
+' like a cell, so IsCellPart itself turns them away.
+Private Function FirstCellShapedWord(ByVal vla As String) As String
+    Dim i As Long, n As Long, ch As String, word As String
+    n = Len(vla)
+    i = 1
+    Do While i <= n
+        ch = Mid$(vla, i, 1)
+        If ch = """" Then
+            i = i + 1
+            Do While i <= n
+                ch = Mid$(vla, i, 1)
+                If ch = "\" Then
+                    i = i + 2
+                ElseIf ch = """" Then
+                    Exit Do
+                Else
+                    i = i + 1
+                End If
+            Loop
+            i = i + 1
+        ElseIf ch = "(" Or ch = ")" Or ch = " " Or ch = vbTab Or ch = vbCr Or ch = vbLf Then
+            i = i + 1
+        Else
+            word = ""
+            Do While i <= n
+                ch = Mid$(vla, i, 1)
+                If ch = "(" Or ch = ")" Or ch = " " Or ch = vbTab Or ch = vbCr Or ch = vbLf Or ch = """" Then Exit Do
+                word = word & ch
+                i = i + 1
+            Loop
+            If IsCellPart(VLA_Identity.Fold(word)) Then
+                FirstCellShapedWord = VLA_Identity.Fold(word)
+                Exit Function
+            End If
+        End If
+    Loop
+End Function
+
+' LX.13: a cell-shaped word as a cell is written, its letters in capitals.
+' ASCII only, VLA_Identity.Fold's mirror, so the words shown never depend
+' on the machine's locale (SD-8).
+Private Function CellWordShown(ByVal word As String) As String
+    Dim buf As String, i As Long, c As Long
+    buf = word
+    For i = 1 To Len(buf)
+        c = AscW(Mid$(buf, i, 1))
+        If c >= 97 And c <= 122 Then Mid$(buf, i, 1) = ChrW$(c - 32)
+    Next i
+    CellWordShown = buf
+End Function
 
 ' B4: one name, one definition. A second 'To' with a used name - sub
 ' or value-returning - would become two VBA procedures and crash the
@@ -9384,7 +9483,9 @@ Private Sub RunVocabTest(ByVal sentence As String, ByVal expected As String, _
     toks = CanonicalizeStructuralWords(EnTokenize(sentence))   ' LX5.1
     pos = 1
     mLastRuleIdx = 0
+    mCurLine = 0                   ' LX.13: a proof has no program line; ProvLoc names its own
     got = ParseStmt(toks, pos, 0)
+    RefuseCellShapedRead got, 0    ' LX.13: the check a program's sentence meets in ParseTracked
     Do While TokAt(toks, pos) = PARA_TOK
         pos = pos + 1
     Loop
@@ -9465,7 +9566,9 @@ Private Sub RunVocabFailTest(ByVal sentence As String, ByVal fragment As String,
     On Error GoTo refused
     toks = CanonicalizeStructuralWords(EnTokenize(sentence))   ' LX5.1
     pos = 1
+    mCurLine = 0                   ' LX.13: a proof has no program line
     got = ParseStmt(toks, pos, 0)
+    RefuseCellShapedRead got, 0    ' LX.13: the check a program's sentence meets in ParseTracked
     Do While TokAt(toks, pos) = PARA_TOK
         pos = pos + 1
     Loop

@@ -18,6 +18,15 @@
     takes its title and default, and a built-in given the wrong number of
     values is refused by name instead of quietly using some of them.
 
+- **A word shaped like a cell is no longer taken as a name.** `Set A1 to 5.`
+  used to keep 5 under a name `a1` and leave cell A1 empty, and `Put A1 plus
+  B1 into cell C1.` read two names that were never set. Both are now refused
+  before anything runs, and the message says what to write: `cell A1` for the
+  cell (`Put 5 into cell A1.`), or a name that is not shaped like a cell
+  (`q1-total`). A word is shaped like a cell when it is one to three letters
+  and then digits: `A1`, `q1`, `fy24`. Sheets, tables and pivots may still be
+  called `Q1`. If one of your programs used a name like that, rename it.
+
 - **Replace changes values, and never a formula.** `Replace "N/A" with 0 in
   column C.` used to be Excel's own Find and Replace, which also rewrites the
   text inside formulas: replacing "A" with "B" in a column could quietly

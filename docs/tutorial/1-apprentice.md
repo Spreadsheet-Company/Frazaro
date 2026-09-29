@@ -245,6 +245,20 @@ Set remote to cell B2 of sheet Data.
 `into` may be written `in`. A name that has been Set can be used in any
 later sentence: `Put total into cell B2.`
 
+**From `0.7.1`, a name can never look like a cell.** A word of one to three
+letters and then digits, such as `A1`, `q1` or `fy24`, is a cell. So
+`Set A1 to 5.` is refused before anything runs, and the refusal says what to
+write instead:
+
+> 'a1' is shaped like a cell, so it cannot be a name. To mean cell A1, write
+> the word cell in front of it: 'Put 5 into cell A1.' or 'Set total to cell
+> A1 plus 1.' To keep a value under a name, choose one that is not shaped
+> like a cell, like 'a1-total'.
+
+To put 5 in the cell, write `Put 5 into cell A1.` To keep a quarter's figure
+under a name, hyphenate it: `Set q1-total to 5.` Sheets, tables and pivots
+may still be called `Q1`.
+
 ### Four more ways to name something
 
 ```text
@@ -353,6 +367,10 @@ Set shout to uppercase of name-part.
 Set v to cell B2 plus 1.
 ```
 
+A cell is always read with the word `cell` in front of it. A bare `B2` is
+refused, as Lesson 5 explains: it could only be a name, and a name can never
+look like a cell.
+
 ### Rounding
 
 Rounding has a sentence of its own:
@@ -392,6 +410,9 @@ Set amount to cell in column D row r.
 | `lookup of … in range … column 3` | Finds the value in the first column of the range and reads across to the third. If the value is not there, the run stops at that sentence. Lesson 17 shows how to catch it. |
 | `row of "Widget" in column A` | Gives 0 when nothing is found, so test for it: `If found-row is 0, …` |
 | `last filled row of column A` | The sentence that lets a program work on data whose length it does not know in advance. |
+
+One cell is read the same way, with its word in front: `Set amount to cell
+D2.` A bare `D2` is refused (Lesson 5).
 
 A range you will use more than once is worth remembering by name. This is
 the opening of sample 02:
@@ -1165,6 +1186,8 @@ again, and the next one, if there is one, will show itself.
 | `Capitalize each word in range A2:A50.` | … then I expected 'after' but found the end of the sentence. | `… after any space.` |
 | `Filter range A1:D50 where column C is "West".` | … then I expected 'to' … | `Filter range A1:D50 to show rows where …` |
 | `Count seek from 1 to 10:` | 'seek' is a reserved word in Excel's programming language … | `seek-row` |
+| `Set A1 to 5.` | 'a1' is shaped like a cell, so it cannot be a name. To mean cell A1, write the word cell in front of it … | `Put 5 into cell A1.` |
+| `Set total to B2 plus 1.` | 'b2' is shaped like a cell, so it cannot be a name … | `Set total to cell B2 plus 1.` |
 | `Give back total.` outside a step | 'Give back' only makes sense inside a value-returning action … | `Show total.`, or move it into a step. |
 | `Stop the loop.` outside a loop | 'Stop the loop.' only makes sense inside a loop … | `Stop.` ends the program. |
 | `Create a button called "Go" at cell D3.` | a button isn't created with 'Create ... called ...' - use 'Make a button "<caption>" at cell <cell>.' instead | `Make a button "Go" at cell D3.` |

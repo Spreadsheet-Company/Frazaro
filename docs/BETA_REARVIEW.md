@@ -5768,6 +5768,64 @@ written against.
   explored and vetoed with reasons — recorded, not reopened. 🔒 *Expiry:* first
   pilot transcript; it is a **surface** decision, so it must land before contact
   or CO.1 inherits it. `~hours`
+- ✅ **LX.13 — a name is never shaped like a cell.** *Minted 2026-09-29, the
+  owner's call, from the 2026-09-28 fluency assessment; the owner confirmed
+  the hazard live that day. **Built, owner-verified live and committed
+  2026-09-29:** `VLA_SELF-TESTS` pure 1560/1560 (23 new; the first run
+  failed three, which I had placed before the phrasebook loads, since `Put`
+  is a phrasebook rule) and host 241/241; `TestDSLs` 2330/0;
+  `VerifyReports` 317/317 on both backends; the phrasebook export as
+  predicted (the two `test-fail` forms, a new source hash, test-fail proofs
+  12 → 14); six hand tests - the refusal for a name, a value, a sentence in
+  a block body and a `To` name, each on its own row, a sheet called Q1
+  beside a name `q1-total`, and `Delete B2 and shift cells up.` The sheet
+  showed each refusal without its opening quote: Excel reads a leading
+  apostrophe as its text marker, which hides it in 32 English refusals, so
+  that fix is its own item, `U.26`.* **Observed:** under Interpret and Run, `Set A2
+  to 5.` validated green and left A2 empty; `Add 5 to B2.` kept 5 under a
+  name; `Put A1 plus B1 into cell C1.` validated, then stopped partway under
+  Interpret ("there is nothing stored at key 'a1'") and met VBA's "Variable
+  not defined" dialog, which no handler catches, under Compile. **Cause:** a
+  phrase rule's `{v:var}` slot takes any single word (`TryPhrase`),
+  `CheckName` refused only reserved words and value words, and in a value
+  `ParsePrimCore` turns any leftover word into a name. **The owner's four
+  calls, 2026-09-29, each as recommended:** refuse with directions rather than
+  read the word as the cell (Set names values and Put places them; a reading
+  would give a shipped spelling a new meaning and would be the bare
+  references this session left out, and a refusal can become a reading later,
+  never the reverse); names *and* values (once no name can be shaped like a
+  cell, such a value can only be an error); refuse after the match, with no
+  slot changed; and one message, `english-cell-shaped-name`, teaching both
+  fixes. **Built 2026-09-29:** `CheckName`, the chokepoint wherever a name is
+  made (the var slots of Set, Add, Increase, Decrease, Grow, Shrink, Append,
+  Remember … as, Store … in and Ask … into; Create; Count; For each; `To`
+  names and their parameters; Define), refuses a word `IsCellPart` calls a
+  cell - the test a cell slot makes, one to three letters and then one to
+  seven digits: `a1`, `q1` and `fy24`, not `abcd1`. For a var slot it runs
+  only after the whole rule has matched, so it never takes a later rule's
+  turn. Values are checked on a matched sentence's finished translation
+  (`RefuseCellShapedRead`, in `ParseTracked`, in both proof runners and for
+  step-parameter defaults): a bare cell-shaped word there is a cell written
+  without "cell". So `Delete B2 and shift cells up.` and `Add Q1 to pivot
+  SalesPivot as a sum.`, where an earlier rule reads the word as a value
+  before a later rule matches it as a reference, keep working, and sheet,
+  table and pivot names never become names at all. The refusal carries the
+  sentence's line, a `To` header's included. A raw VLA row inside an English
+  program meets the same check, since a block's translation holds its rows;
+  a `.vla` file and the CLI's VLA mode do not. **SD-4:** the promise covers
+  sentences in a shipped `instructions.txt`, and none uses a cell-shaped
+  name. A scan of the translated corpus and all fourteen `.vla` files in
+  `scripts` (every phrasebook, the prelude, the generated corpora), with a
+  control that finds planted words, found none, and neither did a read of
+  the samples, docs and test sentences. So no promised sentence changes
+  meaning and `SD-14`'s MAJOR does not fire; what retires is a spelling that
+  validated but was never promised, and it retires through a refusal that
+  names the fix. One test named an action `tx2`; it is `taxed` now.
+  **Pinned:** `TestLx13CellShapedNames`, 23 checks - fourteen refusals, one
+  from each position, each by id, word, cell and line; eight sentences that
+  must keep working; and `english.vla` loading - with two `test-fail` proofs
+  in it, one per branch, which run at every load. *Depends on:* nothing.
+  `~hours`
 
 ---
 
@@ -25396,3 +25454,7 @@ numbers. **Quoting a correction is not applying it.**
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part B
 
 - ✅ **IN.17 — the interpreter's built-ins took the arguments they expected and ignored the rest.** Audit C3, confirmed live by the owner 2026-09-28; **built, owner-verified live and committed 2026-09-29** (`VLA_SELF-TESTS` pure 1537/1537 as predicted and host 241/241; `TestDSLs` 2330/0; `VerifyReports` 317/317 on both backends, six rows new; the goldens as predicted; five hand tests, with `inputbox`'s title and default not run live). Under Interpret, `contains` and `starts with` never held and `does not contain` always did: English writes VBA's four-argument `InStr`, and the interpreter's `instr` read two, so it searched the text "1". Every `TryEvalBuiltin` arm now takes exactly the argument counts VBA's own function takes (`instr` 2–4, `round` 1–2, `msgbox` and `inputbox` 1–3, the rest one count) and refuses any other by name (`interp-builtin-arity`); `msgbox` answers the button pressed, so a raw `(msgbox "hi")` in the CLI shows 1. Pinned at each count, and by six GText corpus rows that fail under Interpret if a condition is read wrongly either way. *(more: the full entry, earlier in this file)* `~hours`
+
+## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part C
+
+- ✅ **LX.13 — a name is never shaped like a cell.** From the 2026-09-28 fluency assessment, confirmed live that day: `Set A2 to 5.` validated green and wrote no cell. **Built, owner-verified live and committed 2026-09-29** (`VLA_SELF-TESTS` pure 1560/1560 and host 241/241; `TestDSLs` 2330/0; `VerifyReports` 317/317 on both backends; the phrasebook export as predicted; six hand tests). On the owner's four calls, each as recommended: a word shaped like a cell (one to three letters, then digits: `A1`, `q1`, `fy24`) is refused with directions - `cell A1` for the cell, a hyphenated name for a name - wherever a name is made and wherever a value is read, only after a sentence has matched, so later rules keep their turn, in one message, `english-cell-shaped-name`. Sheets, tables and pivots may still be called Q1. No sentence of a shipped `instructions.txt` used such a name, so `SD-4`'s promise holds and `SD-14`'s MAJOR does not fire. The refusal's opening quote, hidden on the sheet by Excel's text marker, is `U.26`. *(more: the full entry, earlier in this file)* `~hours`

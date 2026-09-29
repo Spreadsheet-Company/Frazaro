@@ -212,6 +212,10 @@ Compile they worked from `0.5.0`. This ledger has no row type for
 conditions, so this note stands in for one. The fourteen `TryEvalBuiltin`
 arms keep their `0.5.0` rows, since the arms are not new, only the argument
 counts they take.
+Then `LX.13`, which changes no row either: a word shaped like a cell is
+refused wherever a name is made and wherever a value is read, in every form
+that takes one. What narrowed is what may fill those slots, not any form, so
+every row keeps its date.
 
 ### Phrasebook rules
 
