@@ -3897,6 +3897,39 @@ Private Sub VerifyReportChecks(ws As Worksheet)
         CheckV "contains, when it does not, leaves the cell (L21)", wsT.Range("L21").Value, "kept"
         CheckV "starts with, when the text is only inside, leaves the cell (L22)", wsT.Range("L22").Value, "kept"
     End If
+
+    ' G-FORMULA slice 1: a formula into a range and into rows counted as
+    ' the program runs, each adjusted row by row; rows 2 through 1 write
+    ' nothing; and a range's largest, smallest, average and empty or
+    ' filled count. B6 holds ="", which counts as empty and as filled.
+    ' (wsGf, not wsF: GFormat's block above already Dims wsF, and a Dim is
+    ' the whole procedure's.)
+    Dim wsGf As Worksheet
+    On Error Resume Next
+    Set wsGf = ActiveWorkbook.Worksheets("GFormula")
+    On Error GoTo 0
+    Report "GFormula sheet exists", Not (wsGf Is Nothing), "no GFormula sheet - Run the program first"
+    If Not wsGf Is Nothing Then
+        CheckV "a formula into a range: the first cell's own (D2)", wsGf.Range("D2").Formula, "=B2*C2"
+        CheckV "a formula into a range: adjusted for the next row (D3)", wsGf.Range("D3").Formula, "=B3*C3"
+        CheckV "a formula into a range: works out (D4)", wsGf.Range("D4").Value, 120
+        CheckV "a formula into rows counted as the program runs reaches the last row (E4)", wsGf.Range("E4").Formula, "=B4+C4"
+        CheckV "a formula into rows: works out (E4)", wsGf.Range("E4").Value, 34
+        Report "a formula into rows: stops at the last row (E5 empty)", IsEmpty(wsGf.Range("E5").Value), _
+               "E5 holds [" & CStr(wsGf.Range("E5").Formula) & "]"
+        CheckV "rows 2 through 1 write nothing: the header stays (F1)", wsGf.Range("F1").Value, "head"
+        Report "rows 2 through 1 write nothing: F2 stays empty", IsEmpty(wsGf.Range("F2").Value), _
+               "F2 holds [" & CStr(wsGf.Range("F2").Formula) & "]"
+        CheckV "largest of a range (H1)", wsGf.Range("H1").Value, 120
+        CheckV "smallest of a range (H2)", wsGf.Range("H2").Value, 20
+        CheckV "average of a range into a cell (H3)", wsGf.Range("H3").Value, 3
+        Report "average of a range into a cell: a value, not a live formula (H3)", Not wsGf.Range("H3").HasFormula, _
+               "H3 holds " & CStr(wsGf.Range("H3").Formula)
+        CheckV "largest of a range into a cell (H4)", wsGf.Range("H4").Value, 30
+        CheckV "smallest of a range into a cell (H5)", wsGf.Range("H5").Value, 10
+        CheckV "count of empty cells, a formula showing nothing included (H6)", wsGf.Range("H6").Value, 3
+        CheckV "count of filled cells, the same formula included (H7)", wsGf.Range("H7").Value, 4
+    End If
 End Sub
 
 ' ---------------------------------------------------------------------

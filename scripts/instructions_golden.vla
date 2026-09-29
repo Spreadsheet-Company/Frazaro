@@ -68,6 +68,161 @@
   (label vla-fail)
   (vla-report-error))
 
+(sub check-text-conditions ()
+  (on-error goto vla-fail)
+    (set! vla-step 726)
+    (if (vlatraceon) (then (vlatracestep 726 (vla-step-text 726))))
+    (raw "' ---- instructions.txt:1231 To check-text-conditions: ----")
+    (at-line 1238
+    (if (positive? (instr 1 (range "aa1") "NAN" vbtextcompare)) (then (set! (range "l17") "contains"))))
+    (set! vla-step 727)
+    (if (vlatraceon) (then (vlatracestep 727 (vla-step-text 727))))
+    (at-line 1239
+    (if (= (instr 1 (range "aa1") "ban" vbtextcompare) 1) (then (set! (range "l18") "starts"))))
+    (set! vla-step 728)
+    (if (vlatraceon) (then (vlatracestep 728 (vla-step-text 728))))
+    (at-line 1240
+    (set! (range "l19") "kept"))
+    (set! vla-step 729)
+    (if (vlatraceon) (then (vlatracestep 729 (vla-step-text 729))))
+    (at-line 1241
+    (if (zero? (instr 1 (range "aa1") "nan" vbtextcompare)) (then (set! (range "l19") "wrong"))))
+    (set! vla-step 730)
+    (if (vlatraceon) (then (vlatracestep 730 (vla-step-text 730))))
+    (at-line 1242
+    (if (zero? (instr 1 (range "aa1") "kiwi" vbtextcompare)) (then (set! (range "l20") "lacks"))))
+    (set! vla-step 731)
+    (if (vlatraceon) (then (vlatracestep 731 (vla-step-text 731))))
+    (at-line 1243
+    (set! (range "l21") "kept"))
+    (set! vla-step 732)
+    (if (vlatraceon) (then (vlatracestep 732 (vla-step-text 732))))
+    (at-line 1244
+    (if (positive? (instr 1 (range "aa1") "kiwi" vbtextcompare)) (then (set! (range "l21") "wrong"))))
+    (set! vla-step 733)
+    (if (vlatraceon) (then (vlatracestep 733 (vla-step-text 733))))
+    (at-line 1245
+    (set! (range "l22") "kept"))
+    (set! vla-step 734)
+    (if (vlatraceon) (then (vlatracestep 734 (vla-step-text 734))))
+    (at-line 1246
+    (if (= (instr 1 (range "aa1") "nan" vbtextcompare) 1) (then (set! (range "l22") "wrong"))))
+  (exit-sub)
+  (label vla-fail)
+  (vla-report-error))
+
+(sub check-formulas ()
+  (dim gf-last)
+  (dim gf-top)
+  (dim gf-bottom)
+  (dim gf-empty)
+  (dim gf-filled)
+  (on-error goto vla-fail)
+    (set! vla-step 736)
+    (if (vlatraceon) (then (vlatracestep 736 (vla-step-text 736))))
+    (raw "' ---- instructions.txt:1250 To check-formulas: ----")
+    (at-line 1259
+    (begin (vlaensuresheet "gformula") (activate-sheet "gformula")))
+    (set! vla-step 737)
+    (if (vlatraceon) (then (vlatracestep 737 (vla-step-text 737))))
+    (at-line 1260
+    (clear-everything-from (range "a1:h10")))
+    (set! vla-step 738)
+    (if (vlatraceon) (then (vlatracestep 738 (vla-step-text 738))))
+    (at-line 1261
+    (set! (range "b2") 2))
+    (set! vla-step 739)
+    (if (vlatraceon) (then (vlatracestep 739 (vla-step-text 739))))
+    (at-line 1262
+    (set! (range "b3") 3))
+    (set! vla-step 740)
+    (if (vlatraceon) (then (vlatracestep 740 (vla-step-text 740))))
+    (at-line 1263
+    (set! (range "b4") 4))
+    (set! vla-step 741)
+    (if (vlatraceon) (then (vlatracestep 741 (vla-step-text 741))))
+    (at-line 1264
+    (set! (range "c2") 10))
+    (set! vla-step 742)
+    (if (vlatraceon) (then (vlatracestep 742 (vla-step-text 742))))
+    (at-line 1265
+    (set! (range "c3") 20))
+    (set! vla-step 743)
+    (if (vlatraceon) (then (vlatracestep 743 (vla-step-text 743))))
+    (at-line 1266
+    (set! (range "c4") 30))
+    (set! vla-step 744)
+    (if (vlatraceon) (then (vlatracestep 744 (vla-step-text 744))))
+    (at-line 1267
+    (set-formula (range "d2:d4") "=B2*C2"))
+    (set! vla-step 745)
+    (if (vlatraceon) (then (vlatracestep 745 (vla-step-text 745))))
+    (at-line 1268
+    (set! gf-last (last-filled-row "b")))
+    (set! vla-step 746)
+    (if (vlatraceon) (then (vlatracestep 746 (vla-step-text 746))))
+    (at-line 1269
+    (set-formula-rows "e" 2 gf-last "=B2+C2"))
+    (set! vla-step 747)
+    (if (vlatraceon) (then (vlatracestep 747 (vla-step-text 747))))
+    (at-line 1270
+    (set! (range "f1") "head"))
+    (set! vla-step 748)
+    (if (vlatraceon) (then (vlatracestep 748 (vla-step-text 748))))
+    (at-line 1271
+    (set-formula-rows "f" 2 1 "=B2-C2"))
+    (set! vla-step 749)
+    (if (vlatraceon) (then (vlatracestep 749 (vla-step-text 749))))
+    (at-line 1272
+    (set! gf-top (largest-of (range "d2:d4"))))
+    (set! vla-step 750)
+    (if (vlatraceon) (then (vlatracestep 750 (vla-step-text 750))))
+    (at-line 1273
+    (set! (range "h1") gf-top))
+    (set! vla-step 751)
+    (if (vlatraceon) (then (vlatracestep 751 (vla-step-text 751))))
+    (at-line 1274
+    (set! gf-bottom (smallest-of (range "d2:d4"))))
+    (set! vla-step 752)
+    (if (vlatraceon) (then (vlatracestep 752 (vla-step-text 752))))
+    (at-line 1275
+    (set! (range "h2") gf-bottom))
+    (set! vla-step 753)
+    (if (vlatraceon) (then (vlatracestep 753 (vla-step-text 753))))
+    (at-line 1276
+    (set! (range "h3") (average-of (range "b2:b4"))))
+    (set! vla-step 754)
+    (if (vlatraceon) (then (vlatracestep 754 (vla-step-text 754))))
+    (at-line 1277
+    (set! (range "h4") (largest-of (range "c2:c4"))))
+    (set! vla-step 755)
+    (if (vlatraceon) (then (vlatracestep 755 (vla-step-text 755))))
+    (at-line 1278
+    (set! (range "h5") (smallest-of (range "c2:c4"))))
+    (set! vla-step 756)
+    (if (vlatraceon) (then (vlatracestep 756 (vla-step-text 756))))
+    (at-line 1279
+    (set-formula (range "b6") "=\"\""))
+    (set! vla-step 757)
+    (if (vlatraceon) (then (vlatracestep 757 (vla-step-text 757))))
+    (at-line 1280
+    (set! gf-empty (count-empty-cells (range "b2:b7"))))
+    (set! vla-step 758)
+    (if (vlatraceon) (then (vlatracestep 758 (vla-step-text 758))))
+    (at-line 1281
+    (set! (range "h6") gf-empty))
+    (set! vla-step 759)
+    (if (vlatraceon) (then (vlatracestep 759 (vla-step-text 759))))
+    (at-line 1282
+    (set! gf-filled (count-filled-cells (range "b2:b7"))))
+    (set! vla-step 760)
+    (if (vlatraceon) (then (vlatracestep 760 (vla-step-text 760))))
+    (at-line 1283
+    (set! (range "h7") gf-filled))
+  (exit-sub)
+  (label vla-fail)
+  (vla-report-error))
+
 (sub main ()
   (dim counter)
   (dim grand)
@@ -3207,60 +3362,33 @@
   (if (vlatraceon) (then (vlatracestep 725 (vla-step-text 725))))
   (at-line 1224
   (if (zero? (vlafindtext (columns "z") "kiwi" "row")) (then (set! (range "l16") "no kiwi"))))
-  (set! vla-step 726)
-  (if (vlatraceon) (then (vlatracestep 726 (vla-step-text 726))))
-  (raw "' ---- instructions.txt:1226 If cell AA1 contains \"NAN\", put \"contains\" into cell L17. ----")
-  (at-line 1231
-  (if (positive? (instr 1 (range "aa1") "NAN" vbtextcompare)) (then (set! (range "l17") "contains"))))
-  (set! vla-step 727)
-  (if (vlatraceon) (then (vlatracestep 727 (vla-step-text 727))))
-  (at-line 1232
-  (if (= (instr 1 (range "aa1") "ban" vbtextcompare) 1) (then (set! (range "l18") "starts"))))
-  (set! vla-step 728)
-  (if (vlatraceon) (then (vlatracestep 728 (vla-step-text 728))))
-  (at-line 1233
-  (set! (range "l19") "kept"))
-  (set! vla-step 729)
-  (if (vlatraceon) (then (vlatracestep 729 (vla-step-text 729))))
-  (at-line 1234
-  (if (zero? (instr 1 (range "aa1") "nan" vbtextcompare)) (then (set! (range "l19") "wrong"))))
-  (set! vla-step 730)
-  (if (vlatraceon) (then (vlatracestep 730 (vla-step-text 730))))
-  (at-line 1235
-  (if (zero? (instr 1 (range "aa1") "kiwi" vbtextcompare)) (then (set! (range "l20") "lacks"))))
-  (set! vla-step 731)
-  (if (vlatraceon) (then (vlatracestep 731 (vla-step-text 731))))
-  (at-line 1236
-  (set! (range "l21") "kept"))
-  (set! vla-step 732)
-  (if (vlatraceon) (then (vlatracestep 732 (vla-step-text 732))))
-  (at-line 1237
-  (if (positive? (instr 1 (range "aa1") "kiwi" vbtextcompare)) (then (set! (range "l21") "wrong"))))
-  (set! vla-step 733)
-  (if (vlatraceon) (then (vlatracestep 733 (vla-step-text 733))))
-  (at-line 1238
-  (set! (range "l22") "kept"))
-  (set! vla-step 734)
-  (if (vlatraceon) (then (vlatracestep 734 (vla-step-text 734))))
-  (at-line 1239
-  (if (= (instr 1 (range "aa1") "nan" vbtextcompare) 1) (then (set! (range "l22") "wrong"))))
   (set! vla-step 735)
   (if (vlatraceon) (then (vlatracestep 735 (vla-step-text 735))))
-  (raw "' ---- instructions.txt:1241 Go to sheet Output. ----")
-  (at-line 1241
+  (raw "' ---- instructions.txt:1248 Check-text-conditions. ----")
+  (at-line 1248
+  (check-text-conditions))
+  (set! vla-step 761)
+  (if (vlatraceon) (then (vlatracestep 761 (vla-step-text 761))))
+  (raw "' ---- instructions.txt:1285 Check-formulas. ----")
+  (at-line 1285
+  (check-formulas))
+  (set! vla-step 762)
+  (if (vlatraceon) (then (vlatracestep 762 (vla-step-text 762))))
+  (raw "' ---- instructions.txt:1287 Go to sheet Output. ----")
+  (at-line 1287
   (activate-sheet "output"))
-  (set! vla-step 736)
-  (if (vlatraceon) (then (vlatracestep 736 (vla-step-text 736))))
-  (raw "' ---- instructions.txt:1243 Tidy-up. ----")
-  (at-line 1243
+  (set! vla-step 763)
+  (if (vlatraceon) (then (vlatracestep 763 (vla-step-text 763))))
+  (raw "' ---- instructions.txt:1289 Tidy-up. ----")
+  (at-line 1289
   (tidy-up))
-  (set! vla-step 737)
-  (if (vlatraceon) (then (vlatracestep 737 (vla-step-text 737))))
-  (at-line 1244
+  (set! vla-step 764)
+  (if (vlatraceon) (then (vlatracestep 764 (vla-step-text 764))))
+  (at-line 1290
   (set-screen-updating true))
-  (set! vla-step 738)
-  (if (vlatraceon) (then (vlatracestep 738 (vla-step-text 738))))
-  (at-line 1245
+  (set! vla-step 765)
+  (if (vlatraceon) (then (vlatracestep 765 (vla-step-text 765))))
+  (at-line 1291
   (debug-print "report finished"))
   (exit-sub)
   (label vla-fail)
@@ -3996,23 +4124,53 @@
     (case (723) (return "Put gtext-found into cell L14. [line 1222]"))
     (case (724) (return "If range Z1:AA3 contains \"split\", put \"yes\" into cell L15. [line 1223]"))
     (case (725) (return "If column Z does not contain \"kiwi\", put \"no kiwi\" into cell L16. [line 1224]"))
-    (case (726) (return "If cell AA1 contains \"NAN\", put \"contains\" into cell L17. [line 1231]"))
-    (case (727) (return "If cell AA1 starts with \"ban\", put \"starts\" into cell L18. [line 1232]"))
-    (case (728) (return "Put \"kept\" into cell L19. [line 1233]"))
-    (case (729) (return "If cell AA1 does not contain \"nan\", put \"wrong\" into cell L19. [line 1234]"))
-    (case (730) (return "If cell AA1 does not contain \"kiwi\", put \"lacks\" into cell L20. [line 1235]"))
-    (case (731) (return "Put \"kept\" into cell L21. [line 1236]"))
-    (case (732) (return "If cell AA1 contains \"kiwi\", put \"wrong\" into cell L21. [line 1237]"))
-    (case (733) (return "Put \"kept\" into cell L22. [line 1238]"))
-    (case (734) (return "If cell AA1 starts with \"nan\", put \"wrong\" into cell L22. [line 1239]"))
-    (case (735) (return "Go to sheet Output. [line 1241]"))
-    (case (736) (return "Tidy-up. [line 1243]"))
-    (case (737) (return "Turn on screen updating. [line 1244]"))
-    (case (738) (return "Log \"report finished\". [line 1245]"))
+    (case (726) (return "If cell AA1 contains \"NAN\", put \"contains\" into cell L17. [line 1238]"))
+    (case (727) (return "If cell AA1 starts with \"ban\", put \"starts\" into cell L18. [line 1239]"))
+    (case (728) (return "Put \"kept\" into cell L19. [line 1240]"))
+    (case (729) (return "If cell AA1 does not contain \"nan\", put \"wrong\" into cell L19. [line 1241]"))
+    (case (730) (return "If cell AA1 does not contain \"kiwi\", put \"lacks\" into cell L20. [line 1242]"))
+    (case (731) (return "Put \"kept\" into cell L21. [line 1243]"))
+    (case (732) (return "If cell AA1 contains \"kiwi\", put \"wrong\" into cell L21. [line 1244]"))
+    (case (733) (return "Put \"kept\" into cell L22. [line 1245]"))
+    (case (734) (return "If cell AA1 starts with \"nan\", put \"wrong\" into cell L22. [line 1246]"))
+    (case (735) (return "Check-text-conditions. [line 1248]"))
+    (case (736) (return "Work on sheet GFormula. [line 1259]"))
+    (case (737) (return "Clear everything from A1:H10. [line 1260]"))
+    (case (738) (return "Put 2 into cell B2. [line 1261]"))
+    (case (739) (return "Put 3 into cell B3. [line 1262]"))
+    (case (740) (return "Put 4 into cell B4. [line 1263]"))
+    (case (741) (return "Put 10 into cell C2. [line 1264]"))
+    (case (742) (return "Put 20 into cell C3. [line 1265]"))
+    (case (743) (return "Put 30 into cell C4. [line 1266]"))
+    (case (744) (return "Put formula \"=B2*C2\" into range D2:D4. [line 1267]"))
+    (case (745) (return "Set gf-last to last filled row of column B. [line 1268]"))
+    (case (746) (return "Put formula \"=B2+C2\" into rows 2 to gf-last of column E. [line 1269]"))
+    (case (747) (return "Put \"head\" into cell F1. [line 1270]"))
+    (case (748) (return "Put formula \"=B2-C2\" into rows 2 through 1 of column F. [line 1271]"))
+    (case (749) (return "Set gf-top to largest of range D2:D4. [line 1272]"))
+    (case (750) (return "Put gf-top into cell H1. [line 1273]"))
+    (case (751) (return "Set gf-bottom to smallest of range D2:D4. [line 1274]"))
+    (case (752) (return "Put gf-bottom into cell H2. [line 1275]"))
+    (case (753) (return "Put average of range B2:B4 into cell H3. [line 1276]"))
+    (case (754) (return "Put largest of range C2:C4 into cell H4. [line 1277]"))
+    (case (755) (return "Put smallest of range C2:C4 in cell H5. [line 1278]"))
+    (case (756) (return "Put formula \"=\"\"\"\"\" into cell B6. [line 1279]"))
+    (case (757) (return "Set gf-empty to count of empty cells in range B2:B7. [line 1280]"))
+    (case (758) (return "Put gf-empty into cell H6. [line 1281]"))
+    (case (759) (return "Set gf-filled to count of filled cells in range B2:B7. [line 1282]"))
+    (case (760) (return "Put gf-filled into cell H7. [line 1283]"))
+    (case (761) (return "Check-formulas. [line 1285]"))
+    (case (762) (return "Go to sheet Output. [line 1287]"))
+    (case (763) (return "Tidy-up. [line 1289]"))
+    (case (764) (return "Turn on screen updating. [line 1290]"))
+    (case (765) (return "Log \"report finished\". [line 1291]"))
     (case-else (return "an unknown step"))))
 
 ; ---- carried by phrasebooks (L4) ----
 (defmacro (set-formula r f) "write a formula string into a range" (set! (. r formula) f))
+(defmacro (set-formula-rows c a b f) "write a formula into rows a to b of column c, adjusted row by row - nothing when b is above a" (if (>= b a) (then (set-formula (range (& c a ":" c b)) f))))
+(defmacro (count-empty-cells r) "count a range's cells that show nothing - empty, or a formula that shows nothing" (application.worksheetfunction.countif r ""))
+(defmacro (count-filled-cells r) "count a range's cells that hold anything - a formula that shows nothing included" (application.worksheetfunction.countif r "<>"))
 (defmacro (make-table r n) "create an Excel Table from a range and name it" (set! (. (. activesheet.listobjects add :sourcetype xlsrcrange :source r :xllistobjecthasheaders xlyes) name) n))
 (defmacro (table-property-family name property doc pattern call testsentence testcall value & extras) "generate a table-name/value-setting macro, its english-vla rule, and its test-success proof" (begin (defmacro (name n extras) doc (set! (. (activesheet.listobjects n) property) value)) (english-vla pattern call) (test-success testsentence testcall)))
 (defmacro (table-style n s) "set an Excel Table's style" (set! (. (activesheet.listobjects n) tablestyle) s))

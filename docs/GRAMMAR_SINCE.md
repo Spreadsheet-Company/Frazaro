@@ -216,6 +216,14 @@ Then `LX.13`, which changes no row either: a word shaped like a cell is
 refused wherever a name is made and wherever a value is read, in every form
 that takes one. What narrowed is what may fill those slots, not any form, so
 every row keeps its date.
+Then five phrasebook rows marked `0.7.1` - `G-FORMULA`'s first slice
+(`pareto.txt` §11): a formula into a range, and into rows counted as the
+program runs (`to` or `through`); largest and smallest of a range; average,
+largest and smallest of a range into a cell; and a range's empty or filled
+cells counted. No core dispatch arm is new: the slice rides `set-formula`
+and the WorksheetFunction macros already here, plus three phrasebook
+macros (`set-formula-rows`, `count-empty-cells`, `count-filled-cells`).
+`put sum of range …` keeps its `0.5.0` row beside its new siblings.
 
 ### Phrasebook rules
 
@@ -336,8 +344,11 @@ every row keeps its date.
 0.5.0  paste values of range {a:range} into range {b:range}
 0.5.0  print this sheet
 0.5.0  put formula {f:text} into|in cell {r:cell}
+0.7.1  put formula {f:text} into|in range {r:range}
+0.7.1  put formula {f:text} into|in rows {a:expr} to|through {b:expr} of column {c:column}
 0.5.0  put sum of range {r:range} into|in cell {c:cell}
 0.5.0  put today into|in cell {r:cell}
+0.7.1  put {d:average|largest|smallest} of range {r:range} into|in cell {c:cell}
 0.5.0  put {e:expr} in status bar
 0.5.0  put {e:expr} into|in cell {r:cell}
 0.5.0  put {e:expr} into|in cell {r:cell} of sheet {s:sheet}
@@ -388,6 +399,7 @@ every row keeps its date.
 0.7.0  set {v:var} to column {c:column} as one list separated by {s:expr}
 0.5.0  set {v:var} to column {c:text} of table {n:text}
 0.5.0  set {v:var} to count of range {c:range} matching {e:expr}
+0.7.1  set {v:var} to count of {k:empty|filled} cells in range {r:range}
 0.7.0  set {v:var} to first {n:expr} characters of {t:expr}
 0.5.0  set {v:var} to first {n:expr} letters of {t:expr}
 0.7.1  set {v:var} to how many cells in column {c:column} contain {t:expr}
@@ -407,6 +419,7 @@ every row keeps its date.
 0.7.0  set {v:var} to text {d:before|after} last {a:expr} in {t:expr}
 0.7.0  set {v:var} to text {d:before|after} {a:expr} in {t:expr}
 0.5.0  set {v:var} to trimmed {t:expr}
+0.7.1  set {v:var} to {d:largest|smallest} of range {r:range}
 0.5.0  set {v:var} to {e:expr} rounded to {n:expr} decimals
 0.7.0  set {v:var} to {t:expr} padded on {d:left|right} with {c:expr} to {n:expr} characters
 0.7.0  set {v:var} to {t:expr} with each word capitalized after any {k:space|non-letter}

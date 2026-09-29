@@ -599,6 +599,8 @@ put {e:expr} into|in column {c:column} row {n:expr}
 put {e:expr} into|in column number {c:expr} row {n:expr}
 put {e:expr} into|in range {r:range}
 put formula {f:text} into|in cell {r:cell}
+put formula {f:text} into|in range {r:range}   (0.7.1)
+put formula {f:text} into|in rows {a:expr} to|through {b:expr} of column {c:column}   (0.7.1)
 put today into|in cell {r:cell}
 remember range {r:range} as {v:var}
 remember rows {a:expr} to {b:expr} of column {c:column} as {v:var}
@@ -608,15 +610,22 @@ store {e:expr} at|under [key] {k:expr} in {d:var}
 
 `clear cell|range` clears contents and keeps formatting.
 `clear everything from` clears both. A formula is written in quotes, as
-Excel writes it: `Put formula "=B2*2" into cell B3.`
+Excel writes it: `Put formula "=B2*2" into cell B3.` Into a range or into
+rows, it is written for the first cell, and the cells below get it adjusted
+as Fill Down would adjust it: `Put formula "=B2*C2" into range D2:D50.`
+leaves D3 holding `=B3*C3`. When the last row is above the first, as with
+no data rows, `into rows …` writes nothing.
 
 ### B. Reading and computing
 
 ```text
+put {d:average|largest|smallest} of range {r:range} into|in cell {c:cell}   (0.7.1)
 put sum of range {r:range} into|in cell {c:cell}
+set {v:var} to {d:largest|smallest} of range {r:range}   (0.7.1)
 set {v:var} to {e:expr} rounded to {n:expr} decimals
 set {v:var} to average of range {r:range}
 set {v:var} to cell {r:cell} of sheet {s:sheet}
+set {v:var} to count of {k:empty|filled} cells in range {r:range}   (0.7.1)
 set {v:var} to count of range {c:range} matching {e:expr}
 set {v:var} to last filled row of column {c:column}
 set {v:var} to lookup of {e:expr} in range {r:range} column {k:expr}
@@ -627,6 +636,11 @@ set {v:var} to sum of range {r:range} where range {c:range} matches {e:expr}
 
 `row of … in column …` gives 0 when nothing is found. `lookup of …`
 stops the run when nothing is found; guard it with `Try:`.
+`put average|largest|smallest of range … into cell …`, like `put sum`,
+writes the number, not a live formula. `count of empty cells` counts the
+cells that show nothing, and `count of filled cells` the cells that hold
+anything; a formula that shows nothing (`=""`) counts as both, as it does
+in Excel's own COUNTBLANK and COUNTA.
 
 ### C. Text held in a name, found and counted
 
@@ -1247,6 +1261,7 @@ A model's habits from other languages are the usual cause.
 | `Put 5 into cell $B$2.` | `Put 5 into cell B2.` |
 | `Set x to range A1:A9.` | `Remember range A1:A9 as x.` |
 | `Set x to sum of A1:A9.` | `Set x to sum of range A1:A9.` |
+| `Put formula "=B2*C2" into D2:D50.` | `Put formula "=B2*C2" into range D2:D50.` |
 | `Set fill-color of cell C4 to red.` | `Make cell C4 red.` |
 | `Make cell C4 orange.` | `Set fill-color of cell C4 to "#FFA500".` |
 | `Sort range A1:C50 by column B.` | `Sort range A1:C50 by column B with a header row.` |
@@ -1510,7 +1525,7 @@ Use these labels exactly when telling a person what to press.
 | | |
 |---|---|
 | **Release described** | `0.7.0`: 223 sentence shapes, of which 220 are written out in the phrasebook and three are written by a generator. |
-| **Marked `(0.7.1)`** | Eleven shapes, and the two range conditions of R6. With them R7 lists 234, which is the number **Load Phrasebook** reports as *built-in vocabulary* in a copy that has them. |
+| **Marked `(0.7.1)`** | Sixteen shapes, and the two range conditions of R6. With them R7 lists 239, which is the number **Load Phrasebook** reports as *built-in vocabulary* in a copy that has them. |
 | **Source of R7** | The project's own dated ledger of every shape, [GRAMMAR_SINCE.md](../GRAMMAR_SINCE.md), including three shapes that a generator writes and no file spells out. |
 | **Source of R4, R5, R6, R8** | The engine's source, and the proofs the phrasebook runs every time it loads. |
 | **Source of R12** | The shipped sample procedures. Every sentence is a sample's own. |

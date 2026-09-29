@@ -1223,20 +1223,66 @@ Put gtext-found into cell L14.
 If range Z1:AA3 contains "split", put "yes" into cell L15.
 If column Z does not contain "kiwi", put "no kiwi" into cell L16.
 
+# From here on, each section is a step of its own. Compiled, this program
+# is one main procedure, and main had reached VBA's limit on one
+# procedure's size: Compile and Trace refused it as "Procedure too large"
+# at 755 steps (2026-09-29), where 731 had compiled.
+
 # IN.17: contains, does not contain and starts with, on one value, in
 # any case. A wrong answer either way shows: L17 and L18 stay empty if a
 # condition that holds reads as false, and L19, L21 and L22 lose "kept"
 # if one that does not hold reads as true. (Under Interpret, before
 # IN.17, contains and starts with never held; does not contain always did.)
-If cell AA1 contains "NAN", put "contains" into cell L17.
-If cell AA1 starts with "ban", put "starts" into cell L18.
-Put "kept" into cell L19.
-If cell AA1 does not contain "nan", put "wrong" into cell L19.
-If cell AA1 does not contain "kiwi", put "lacks" into cell L20.
-Put "kept" into cell L21.
-If cell AA1 contains "kiwi", put "wrong" into cell L21.
-Put "kept" into cell L22.
-If cell AA1 starts with "nan", put "wrong" into cell L22.
+# The step runs on GText, the sheet active when it is called.
+To check-text-conditions:
+  If cell AA1 contains "NAN", put "contains" into cell L17.
+  If cell AA1 starts with "ban", put "starts" into cell L18.
+  Put "kept" into cell L19.
+  If cell AA1 does not contain "nan", put "wrong" into cell L19.
+  If cell AA1 does not contain "kiwi", put "lacks" into cell L20.
+  Put "kept" into cell L21.
+  If cell AA1 contains "kiwi", put "wrong" into cell L21.
+  Put "kept" into cell L22.
+  If cell AA1 starts with "nan", put "wrong" into cell L22.
+
+Check-text-conditions.
+
+# G-FORMULA slice 1: a formula into a range, and into rows counted as the
+# program runs - each written for its first cell and adjusted row by row.
+# Rows 2 through 1 hold no rows, so F1 keeps "head". Then a range's
+# largest, smallest, average, and empty or filled count, in one sentence.
+# B6's formula shows nothing, so it counts as empty and as filled both.
+# The step clears its cells first: VerifyReports runs this program twice
+# in one workbook, and a second run would otherwise find the first run's
+# B6 and fill column E down to row 6.
+To check-formulas:
+  Work on sheet GFormula.
+  Clear everything from A1:H10.
+  Put 2 into cell B2.
+  Put 3 into cell B3.
+  Put 4 into cell B4.
+  Put 10 into cell C2.
+  Put 20 into cell C3.
+  Put 30 into cell C4.
+  Put formula "=B2*C2" into range D2:D4.
+  Set gf-last to last filled row of column B.
+  Put formula "=B2+C2" into rows 2 to gf-last of column E.
+  Put "head" into cell F1.
+  Put formula "=B2-C2" into rows 2 through 1 of column F.
+  Set gf-top to largest of range D2:D4.
+  Put gf-top into cell H1.
+  Set gf-bottom to smallest of range D2:D4.
+  Put gf-bottom into cell H2.
+  Put average of range B2:B4 into cell H3.
+  Put largest of range C2:C4 into cell H4.
+  Put smallest of range C2:C4 in cell H5.
+  Put formula "=""""" into cell B6.
+  Set gf-empty to count of empty cells in range B2:B7.
+  Put gf-empty into cell H6.
+  Set gf-filled to count of filled cells in range B2:B7.
+  Put gf-filled into cell H7.
+
+Check-formulas.
 
 Go to sheet Output.
 

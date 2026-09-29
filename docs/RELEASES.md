@@ -6,6 +6,24 @@
 
 ### What changed
 
+- **A formula into many cells, and a range's figures in one sentence.**
+  - `Put formula "=B2*C2" into range D2:D50.` writes the formula into every
+    cell of the range. Write it for the first cell; the cells below get it
+    adjusted, the way Fill Down adjusts it, so D3 gets `=B3*C3`.
+  - When the last row is known only as the program runs: `Set last-row to
+    last filled row of column B.` then `Put formula "=B2*C2" into rows 2 to
+    last-row of column D.` (`through` works too). If there are no data rows,
+    nothing is written, so the header row stays as it is.
+  - `Set top to largest of range B2:B50.` (or `smallest`), without
+    remembering the range first.
+  - `Put average of range B2:B50 into cell B51.` (or `largest`, `smallest`),
+    beside the existing `Put sum of range …`. The cell gets the number, not
+    a live formula; for one that recalculates, use `Put formula
+    "=AVERAGE(B2:B50)" into cell B51.`
+  - `Set blanks to count of empty cells in range A2:A50.` and `… count of
+    filled cells …`. A cell whose formula shows nothing counts as both, as
+    Excel's own COUNTBLANK and COUNTA count it.
+
 - **`contains`, `does not contain` and `starts with` now give the right
   answer under Interpret and Run.** Before, when you pressed **Interpret and
   Run**, `If cell A1 contains "x", …` never ran its sentence, `… does not

@@ -259,6 +259,22 @@ To put 5 in the cell, write `Put 5 into cell A1.` To keep a quarter's figure
 under a name, hyphenate it: `Set q1-total to 5.` Sheets, tables and pivots
 may still be called `Q1`.
 
+### A formula into many cells
+
+**From `0.7.1`**, a formula goes into a whole range, or into rows the program
+counts as it runs:
+
+```text
+Put formula "=B2*C2" into range D2:D50.
+Set last-row to last filled row of column B.
+Put formula "=B2*C2" into rows 2 to last-row of column D.
+```
+
+Write the formula for the first cell. The cells below get it adjusted the
+way Fill Down adjusts it, so D3 holds `=B3*C3`. `through` may stand for
+`to`. When there are no data rows, and the last row is above the first,
+nothing is written, so a header row is never touched.
+
 ### Four more ways to name something
 
 ```text
@@ -434,6 +450,23 @@ Set n to how many cells in range A2:A99 contain "late".
 ```
 
 Both ignore capitals, and both give 0 when nothing matches.
+
+**From `0.7.1`**, a range's largest, smallest and average, and a count of
+its empty or filled cells, each in one sentence:
+
+```text
+Set top to largest of range B2:B50.
+Set bottom to smallest of range B2:B50.
+Put average of range B2:B50 into cell B51.
+Set blanks to count of empty cells in range A2:A50.
+Set used to count of filled cells in range A2:A50.
+```
+
+`Put average …` (like `largest`, `smallest` and the older `Put sum …`) puts
+the number in the cell, not a formula, so it will not change when the data
+does. For a cell that follows the data, write the formula:
+`Put formula "=AVERAGE(B2:B50)" into cell B51.` A cell whose formula shows
+nothing counts as empty and as filled both, as it does in Excel.
 
 ## Lesson 8. Making it look right
 

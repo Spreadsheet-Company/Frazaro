@@ -3953,6 +3953,58 @@ specimens: 3 (three blind-fix incidents, one first-user Undo report).*
   message, two moments), so SD-2's catalogue gains nothing new. *Depends on:*
   nothing. *Pays into:* LX.8 (refusals before effects), PI.6 (a Monday run
   that fails at Check instead of halfway). `~days`
+- ⬜ **F.17 — a long program compiles: the emitter splits `main` before
+  VBA's procedure-size limit.** *Minted 2026-09-29, the owner's call, from
+  `G-FORMULA` slice 1's live pass.* **Observed:** Compile and Trace refused
+  `instructions.txt` with VBA's "Procedure too large" once the corpus's
+  main body reached 755 steps - 4,185 lines of generated `Sub main` -
+  where 731 steps (4,054 lines, the tree at `IN.17`) had compiled; the
+  same program ran under Interpret and Trace. **Cause, read from the
+  generated code:** every top-level sentence becomes part of one `Sub
+  main`, and step tracking gives each one `vla_step = N` and a three-line
+  `If VlaTraceOn() Then … End If` around its statement - about five and a
+  half lines a sentence - while VBA caps one procedure's compiled size. So
+  a person's SOP of some 700 sentences cannot be compiled at all, and what
+  they see is the VBE's compile dialog, not a Frazaro refusal. Interpret
+  and Run, the default runtime, has no such limit. **The hand fix, and why
+  it is not the fix:** the corpus was brought back under the limit by
+  making its two newest sections steps of their own (`To
+  check-text-conditions:`, `To check-formulas:`), leaving `main` at 724
+  steps. That is discipline - it asks every author to know the limit -
+  where this section's rule is structure. **Shape to scope:**
+  - *Where to cut:* only between top-level sentences, never inside a block
+    (`If`, loops, `When`, `Try:`), since a block's labels (`vla-tryf-N`,
+    `vla-tryd-N`) and its `On Error` belong to one procedure. Each part is
+    `main_1`, `main_2`, … with its own `vla_fail` handler, and `main` calls
+    them in order.
+  - *Names:* `main`'s names are `Dim`s inside `Sub main` today (53 in the
+    corpus), so a name set in one part and read in the next needs them at
+    module level (`Private`). That is how the interpreter already holds
+    them - `main` runs in the module frame, and a step that reads a name it
+    never set falls back to it (`EvalExpr`) - where a compiled step that
+    reads one of `main`'s names does not compile. The split closes that
+    divergence too; confirm it does not change a working program.
+  - *A stop must stop:* a part's handler reports its failure and returns,
+    so `main` would go on to the next part - `TER-11`'s case, one level
+    up. `main` checks for a recorded stop after each call (`U.25`'s
+    `VlaReportStop` records it), or `TER-11` is fixed first and this rides
+    on it.
+  - *When to cut:* by emitted lines or statements, with a measured margin
+    under the limit - the one live point is 4,054 lines compiling and
+    4,185 not, for this code's shape. Small programs stay one `Sub main`,
+    so their goldens and generated VBA do not change.
+  - *A cheaper first step, not a substitute:* writing each step's trace
+    call as a one-line `If` roughly halves the per-sentence cost and moves
+    the limit to about twice as many sentences - it moves the wall, it
+    does not remove it.
+  - *The next wall, named so it is not assumed away:* a module has limits
+    of its own, so a very long program may one day need its parts spread
+    over more than one module.
+  *Proof:* a synthetic program past the limit that compiles and runs under
+  Compile and Run, with its stop behaviour pinned; the corpus's two hand
+  steps can then return to `main` or stay, the owner's call. *Depends on:*
+  nothing; `TER-11` is related. *Pays into:* SD-5 (a program Interpret runs,
+  Compile runs), IN.4 (the export of a long SOP). `~days`
 
 ---
 
@@ -7481,8 +7533,61 @@ G-TAIL always said this about itself; it is true of the whole tranche.
   rerun self-contained, it passed.) The comma-decimal region run stays
   open as a live test, not a blocker: the 99.5 checks on the `GSortFilter`
   sheet are the ones it would read.
-- ⬜ **G-TABS**, ⬜ **G-FORMULA** — the workhorse middle.
-  `~weeks` each
+- ⬜ **G-TABS** — the workhorse middle. `~weeks`
+- 🟡 **G-FORMULA** — formulas and calculation, `pareto.txt` §11, 16
+  entries, P0; the workhorse middle. **✅ Slice 1, built, owner-verified
+  live and committed 2026-09-29** (`VLA_SELF-TESTS` pure 1564/1564 and host
+  244/244; `TestDSLs` 2330/0; `VerifyReports` 334/334 on both backends; the
+  phrasebook export and coverage as predicted, Rules 234 → 239; the goldens
+  as predicted; four hand tests). Scoped the same day from the 2026-09-28 fluency
+  assessment, on the owner's terms: no runtime helper and no interpreter
+  change. The five calls the scope put to the owner were each settled as
+  recommended. The gap: a formula could not reach a computed row -
+  `put formula` took a literal cell, `fill down` a literal range.
+  **Measured first, by the owner in the CLI (2026-09-29):** `=B2*C2`
+  written through `set-formula` (`Formula2`, on both backends) into D2:D4
+  left D3 `=B3*C3` and D4 `=B4*C4`, so a formula into many cells is
+  Excel's own multi-cell entry, adjusted row by row; `D2:D1` is read as
+  `D1:D2` and puts the formula on the header row; and `COUNTIF` counts a
+  `=""` cell under `""` and under `"<>"` both. **Five rules, nine
+  branches:** `put formula … into|in range …`; `put formula … into|in rows
+  … to|through … of column …`, through a new macro `set-formula-rows`
+  that writes nothing when the last row is above the first; `set … to
+  largest|smallest of range …`; `put average|largest|smallest of range …
+  into|in cell …` beside `put sum` (a value, as `put sum` writes one; the
+  live form is `put formula "=AVERAGE(…)"`); and `set … to count of
+  empty|filled cells in range …`, over `COUNTIF` with `""` and `"<>"` -
+  Excel's own COUNTBLANK and COUNTA reading of a formula that shows
+  nothing, kept and documented. **Rule order:** neither built-in `set`
+  nor `add` can take any of them - a value has no `range` branch, so
+  `largest of range B2:B50` stalls at `b2:b50`, exactly as the shipped
+  `set … to sum of range …` always has - and every sentence they accept
+  was refused before, so no shipped sentence changes meaning. **Cut from
+  slice 1:** average-where. The interpreter has no AVERAGEIF, and SUMIF ÷
+  COUNTIF counts a matching row whose value is blank in the divisor where
+  AVERAGEIF skips it (West rows holding 10 and a blank give 5, where Excel
+  says 10) - a silently different number, whose fix is the interpreter
+  arm this slice excluded. **Proof:** nine `test-success` proofs, and a
+  `GFormula` sheet in `instructions.txt` read by seventeen
+  `VerifyReportChecks` rows on both backends. **Found in the live pass:**
+  compiled, `instructions.txt` is one `main` procedure, and with this
+  slice's section `main` passed VBA's limit on one procedure's size -
+  Compile and Trace refused it as "Procedure too large" at 755 steps
+  (4,185 lines), where 731 (4,054) had compiled. The two newest sections,
+  `IN.17`'s conditions and this slice's `GFormula` sheet, each became a
+  step of their own (`To check-text-conditions:`, `To check-formulas:`),
+  which leaves `main` at 724 steps; both use only their own names and
+  cells, and every check reads the same cells as before. A person's long
+  program can meet the same limit under Compile and Run (Interpret and
+  Run has none); the emitter's fix is filed as `F.17`. The same pass found
+  the new section could not run twice in one workbook: `VerifyReports`
+  runs the corpus compiled and then interpreted, deleting only `Output`
+  between, so the second run found the first run's `=""` in B6 and filled
+  column E to row 6 - the engine right, the fixture wrong. The step now
+  clears its cells first (`Clear everything from A1:H10.`). **Still open in §11:**
+  calculation mode and recalculate (the audit's C62: a run does not
+  restore calculation mode), average-where, median, standard deviation,
+  R1C1 and subtotals. `~weeks`
 - ✅ **G-TEXT** — text handling, `pareto.txt` §12, **16 entries**, P0, and
   §13's find and replace (**6 entries**), which belonged to no item and was
   taken in at scoping (2026-09-25). *Recounted first, G-FORMAT's way:* the

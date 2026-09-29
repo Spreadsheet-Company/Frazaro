@@ -77,6 +77,40 @@
     "Put formula \"=B2*2\" in cell B3."
     (set-formula (range "b3") "=B2*2"))
 
+; G-FORMULA slice 1: a formula into many cells, through the same
+; set-formula (Formula2 on both backends). It is written for the first
+; cell and Excel adjusts it for the rest, as Fill Down would - measured
+; 2026-09-29: "=B2*C2" into D2:D4 left D3 =B3*C3 and D4 =B4*C4.
+(english-vla
+    "put formula {f:text} into|in range {r:range}"
+    (set-formula (range {r}) {f}))
+(test-success
+    "Put formula \"=B2*C2\" into range D2:D50."
+    (set-formula (range "d2:d50") "=B2*C2"))
+(test-success
+    "Put formula \"=B2*C2\" in range D2:D50."
+    (set-formula (range "d2:d50") "=B2*C2"))
+
+; The rows of a column, counted as the program runs - remember rows'
+; own range expression. Rows 2 to 1 (no data rows) write nothing:
+; Excel would read D2:D1 as D1:D2 and put the formula on the header row
+; (measured 2026-09-29), and a program with no rows to fill has nothing
+; to do. "to" is remember rows' word, "through" delete and group rows'.
+(defmacro
+    (set-formula-rows c a b f)
+    "write a formula into rows a to b of column c, adjusted row by row - nothing when b is above a"
+    (if (>= b a) (then (set-formula (range (& c a ":" c b)) f))))
+
+(english-vla
+    "put formula {f:text} into|in rows {a:expr} to|through {b:expr} of column {c:column}"
+    (set-formula-rows {c} {a} {b} {f}))
+(test-success
+    "Put formula \"=B2*C2\" into rows 2 to last-row of column D."
+    (set-formula-rows "d" 2 last-row "=B2*C2"))
+(test-success
+    "Put formula \"=B2*C2\" in rows 2 through 50 of column D."
+    (set-formula-rows "d" 2 50 "=B2*C2"))
+
 (english-vla
     "put today into|in cell {r:cell}"
     (set! (range {r}) (date)))
@@ -451,6 +485,23 @@
     "Put sum of range \"B2:B3\" in cell B5."
     (set! (range "b5") (sum-of (range "B2:B3"))))
 
+; G-FORMULA slice 1: put sum's three siblings, as one rule - the word
+; names the macro (average-of, largest-of, smallest-of), fill-{d}'s way.
+; Like put sum, the cell gets the number, not a live formula; a formula
+; that recalculates is put formula "=AVERAGE(...)".
+(english-vla
+    "put {d:average|largest|smallest} of range {r:range} into|in cell {c:cell}"
+    (set! (range {c}) ({d}-of (range {r}))))
+(test-success
+    "Put average of range B2:B50 into cell B51."
+    (set! (range "b51") (average-of (range "b2:b50"))))
+(test-success
+    "Put largest of range B2:B50 into cell B52."
+    (set! (range "b52") (largest-of (range "b2:b50"))))
+(test-success
+    "Put smallest of range B2:B50 in cell B53."
+    (set! (range "b53") (smallest-of (range "b2:b50"))))
+
 (english-vla
     "set {v:var} to sum of range {r:range}"
     (set! {v} (sum-of (range {r}))))
@@ -464,6 +515,18 @@
 (test-success
     "Set avg to average of range \"A1:A9\"."
     (set! avg (average-of (range "A1:A9"))))
+
+; G-FORMULA slice 1: largest and smallest of a range, without naming
+; the range first ("largest of" alone takes a remembered range or list).
+(english-vla
+    "set {v:var} to {d:largest|smallest} of range {r:range}"
+    (set! {v} ({d}-of (range {r}))))
+(test-success
+    "Set top to largest of range B2:B50."
+    (set! top (largest-of (range "b2:b50"))))
+(test-success
+    "Set bottom to smallest of range B2:B50."
+    (set! bottom (smallest-of (range "b2:b50"))))
 
 ; B5 decision, blessed: "put answer into <name>" keeps its "into" even
 ; though Put normally targets places and Set targets names - the whole
@@ -837,6 +900,30 @@
 (test-success
     "Set west-count to count of range A2:A90 matching \"West\"."
     (set! west-count (count-matching (range "a2:a90") "West")))
+
+; G-FORMULA slice 1: the empty and the filled cells of a range, the
+; sentence naming which it counts. Excel's own rule, measured
+; 2026-09-29: a formula that shows nothing (="") is counted as empty
+; (COUNTBLANK) and as filled (COUNTA) both - COUNTIF with "" and "<>".
+(defmacro
+    (count-empty-cells r)
+    "count a range's cells that show nothing - empty, or a formula that shows nothing"
+    (application.worksheetfunction.countif r ""))
+
+(defmacro
+    (count-filled-cells r)
+    "count a range's cells that hold anything - a formula that shows nothing included"
+    (application.worksheetfunction.countif r "<>"))
+
+(english-vla
+    "set {v:var} to count of {k:empty|filled} cells in range {r:range}"
+    (set! {v} (count-{k}-cells (range {r}))))
+(test-success
+    "Set blanks to count of empty cells in range A2:A50."
+    (set! blanks (count-empty-cells (range "a2:a50"))))
+(test-success
+    "Set used to count of filled cells in range A2:A50."
+    (set! used (count-filled-cells (range "a2:a50"))))
 
 (english-vla
     "set {v:var} to {e:expr} rounded to {n:expr} decimals"
