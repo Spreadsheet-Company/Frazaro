@@ -6,6 +6,18 @@
 
 ### What changed
 
+- **`contains`, `does not contain` and `starts with` now give the right
+  answer under Interpret and Run.** Before, when you pressed **Interpret and
+  Run**, `If cell A1 contains "x", …` never ran its sentence, `… does not
+  contain …` always did, and `… starts with …` almost never matched.
+  **Compile and Run** was always right. The two now agree, and both still
+  ignore capitals. If you ran a program that uses one of these conditions
+  with Interpret and Run, run it again.
+  - In the middle language: under Interpret, `(msgbox …)` now takes its
+    buttons and title and gives back the button pressed, `(inputbox …)`
+    takes its title and default, and a built-in given the wrong number of
+    values is refused by name instead of quietly using some of them.
+
 - **Replace changes values, and never a formula.** `Replace "N/A" with 0 in
   column C.` used to be Excel's own Find and Replace, which also rewrites the
   text inside formulas: replacing "A" with "B" in a column could quietly

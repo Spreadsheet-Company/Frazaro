@@ -3209,21 +3209,58 @@
   (if (zero? (vlafindtext (columns "z") "kiwi" "row")) (then (set! (range "l16") "no kiwi"))))
   (set! vla-step 726)
   (if (vlatraceon) (then (vlatracestep 726 (vla-step-text 726))))
-  (raw "' ---- instructions.txt:1226 Go to sheet Output. ----")
-  (at-line 1226
-  (activate-sheet "output"))
+  (raw "' ---- instructions.txt:1226 If cell AA1 contains \"NAN\", put \"contains\" into cell L17. ----")
+  (at-line 1231
+  (if (positive? (instr 1 (range "aa1") "NAN" vbtextcompare)) (then (set! (range "l17") "contains"))))
   (set! vla-step 727)
   (if (vlatraceon) (then (vlatracestep 727 (vla-step-text 727))))
-  (raw "' ---- instructions.txt:1228 Tidy-up. ----")
-  (at-line 1228
-  (tidy-up))
+  (at-line 1232
+  (if (= (instr 1 (range "aa1") "ban" vbtextcompare) 1) (then (set! (range "l18") "starts"))))
   (set! vla-step 728)
   (if (vlatraceon) (then (vlatracestep 728 (vla-step-text 728))))
-  (at-line 1229
-  (set-screen-updating true))
+  (at-line 1233
+  (set! (range "l19") "kept"))
   (set! vla-step 729)
   (if (vlatraceon) (then (vlatracestep 729 (vla-step-text 729))))
-  (at-line 1230
+  (at-line 1234
+  (if (zero? (instr 1 (range "aa1") "nan" vbtextcompare)) (then (set! (range "l19") "wrong"))))
+  (set! vla-step 730)
+  (if (vlatraceon) (then (vlatracestep 730 (vla-step-text 730))))
+  (at-line 1235
+  (if (zero? (instr 1 (range "aa1") "kiwi" vbtextcompare)) (then (set! (range "l20") "lacks"))))
+  (set! vla-step 731)
+  (if (vlatraceon) (then (vlatracestep 731 (vla-step-text 731))))
+  (at-line 1236
+  (set! (range "l21") "kept"))
+  (set! vla-step 732)
+  (if (vlatraceon) (then (vlatracestep 732 (vla-step-text 732))))
+  (at-line 1237
+  (if (positive? (instr 1 (range "aa1") "kiwi" vbtextcompare)) (then (set! (range "l21") "wrong"))))
+  (set! vla-step 733)
+  (if (vlatraceon) (then (vlatracestep 733 (vla-step-text 733))))
+  (at-line 1238
+  (set! (range "l22") "kept"))
+  (set! vla-step 734)
+  (if (vlatraceon) (then (vlatracestep 734 (vla-step-text 734))))
+  (at-line 1239
+  (if (= (instr 1 (range "aa1") "nan" vbtextcompare) 1) (then (set! (range "l22") "wrong"))))
+  (set! vla-step 735)
+  (if (vlatraceon) (then (vlatracestep 735 (vla-step-text 735))))
+  (raw "' ---- instructions.txt:1241 Go to sheet Output. ----")
+  (at-line 1241
+  (activate-sheet "output"))
+  (set! vla-step 736)
+  (if (vlatraceon) (then (vlatracestep 736 (vla-step-text 736))))
+  (raw "' ---- instructions.txt:1243 Tidy-up. ----")
+  (at-line 1243
+  (tidy-up))
+  (set! vla-step 737)
+  (if (vlatraceon) (then (vlatracestep 737 (vla-step-text 737))))
+  (at-line 1244
+  (set-screen-updating true))
+  (set! vla-step 738)
+  (if (vlatraceon) (then (vlatracestep 738 (vla-step-text 738))))
+  (at-line 1245
   (debug-print "report finished"))
   (exit-sub)
   (label vla-fail)
@@ -3959,10 +3996,19 @@
     (case (723) (return "Put gtext-found into cell L14. [line 1222]"))
     (case (724) (return "If range Z1:AA3 contains \"split\", put \"yes\" into cell L15. [line 1223]"))
     (case (725) (return "If column Z does not contain \"kiwi\", put \"no kiwi\" into cell L16. [line 1224]"))
-    (case (726) (return "Go to sheet Output. [line 1226]"))
-    (case (727) (return "Tidy-up. [line 1228]"))
-    (case (728) (return "Turn on screen updating. [line 1229]"))
-    (case (729) (return "Log \"report finished\". [line 1230]"))
+    (case (726) (return "If cell AA1 contains \"NAN\", put \"contains\" into cell L17. [line 1231]"))
+    (case (727) (return "If cell AA1 starts with \"ban\", put \"starts\" into cell L18. [line 1232]"))
+    (case (728) (return "Put \"kept\" into cell L19. [line 1233]"))
+    (case (729) (return "If cell AA1 does not contain \"nan\", put \"wrong\" into cell L19. [line 1234]"))
+    (case (730) (return "If cell AA1 does not contain \"kiwi\", put \"lacks\" into cell L20. [line 1235]"))
+    (case (731) (return "Put \"kept\" into cell L21. [line 1236]"))
+    (case (732) (return "If cell AA1 contains \"kiwi\", put \"wrong\" into cell L21. [line 1237]"))
+    (case (733) (return "Put \"kept\" into cell L22. [line 1238]"))
+    (case (734) (return "If cell AA1 starts with \"nan\", put \"wrong\" into cell L22. [line 1239]"))
+    (case (735) (return "Go to sheet Output. [line 1241]"))
+    (case (736) (return "Tidy-up. [line 1243]"))
+    (case (737) (return "Turn on screen updating. [line 1244]"))
+    (case (738) (return "Log \"report finished\". [line 1245]"))
     (case-else (return "an unknown step"))))
 
 ; ---- carried by phrasebooks (L4) ----

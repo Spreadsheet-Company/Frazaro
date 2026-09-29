@@ -5993,6 +5993,10 @@ End Sub
 ' purpose. obj-set! to a plain variable is pinned identical to set!,
 ' proving ExecSet's own claim that the two are the SAME operation for
 ' this interpreter's dict-backed frame, not merely similar.
+' IN.17: instr at each of its three argument counts, the three text
+' conditions exactly as English writes them (each held, and each not),
+' and the arity refusal. msgbox and inputbox stay out even for their
+' refusal - a regression that showed the dialog would hang the suite.
 Private Sub TestInterpreterDynamicHead()
     CheckV "in2: len via the bounded builtin tier", _
            VLA_Interpreter.VlaEvalExpression("(len ""hello"")"), 5
@@ -6006,6 +6010,55 @@ Private Sub TestInterpreterDynamicHead()
            VLA_Interpreter.VlaEvalExpression("(round 3.14159 2)"), 3.14
     CheckV "in2: instr via the bounded builtin tier", _
            VLA_Interpreter.VlaEvalExpression("(instr ""hello world"" ""world"")"), 7
+    CheckV "in.17: instr (2 arguments) compares case exactly, as VBA's own default does", _
+           VLA_Interpreter.VlaEvalExpression("(instr ""Hello"" ""h"")"), 0
+    CheckV "in.17: instr (3 arguments) starts looking where it is told", _
+           VLA_Interpreter.VlaEvalExpression("(instr 3 ""abcabc"" ""b"")"), 5
+    CheckV "in.17: instr (4 arguments) with vbtextcompare finds a part in any case", _
+           VLA_Interpreter.VlaEvalExpression("(instr 1 ""xyz"" ""Y"" vbtextcompare)"), 2
+    CheckV "in.17: instr (4 arguments) with a binary compare matches case exactly", _
+           VLA_Interpreter.VlaEvalExpression("(instr 1 ""xyz"" ""Y"" 0)"), 0
+
+    ' The forms ParseCondSimple writes for contains, does not contain and
+    ' starts with. Before IN.17 this program collected "Nn": contains
+    ' never held, does not contain always did, starts with never held.
+    Dim condFrame As Object
+    Set condFrame = VLA_Interpreter.VlaInterpret( _
+        "(begin (dim code String) (set! code ""Banana"") (dim hits String) (set! hits """")" & _
+        " (if (positive? (instr 1 code ""NAN"" vbtextcompare)) (then (set! hits (& hits ""c""))))" & _
+        " (if (zero? (instr 1 code ""nan"" vbtextcompare)) (then (set! hits (& hits ""N""))))" & _
+        " (if (zero? (instr 1 code ""kiwi"" vbtextcompare)) (then (set! hits (& hits ""n""))))" & _
+        " (if (= (instr 1 code ""BAN"" vbtextcompare) 1) (then (set! hits (& hits ""s""))))" & _
+        " (if (= (instr 1 code ""nan"" vbtextcompare) 1) (then (set! hits (& hits ""S"")))))")
+    CheckV "in.17: contains, does not contain and starts with, as English writes them, each held and each not", _
+           VLA_Runtime.VlaDictGet(condFrame, "hits"), "cns"
+
+    ' Any other count is refused by name before the call runs - one pin
+    ' for each kind of arm: several counts (instr, round), one count
+    ' (len), none (now). Five or more never reach an arm: EvalPositionalArgs
+    ' refuses them first. Err is read into locals before On Error GoTo 0
+    ' clears it.
+    Dim arityCases As Variant, arityWant As Variant, ai As Long
+    Dim arityN As Long, arityD As String, aritySrc As String, arityMsg As String
+    arityCases = Array("(instr ""abc"")", "(round 1 2 3)", "(len ""a"" ""b"")", "(now 1)")
+    arityWant = Array("'instr' takes 2, 3 or 4 arguments, but this call gives it 1.", _
+                      "'round' takes 1 or 2 arguments, but this call gives it 3.", _
+                      "'len' takes 1 argument, but this call gives it 2.", _
+                      "'now' takes no arguments, but this call gives it 1.")
+    For ai = LBound(arityCases) To UBound(arityCases)
+        aritySrc = CStr(arityCases(ai))
+        arityMsg = CStr(arityWant(ai))
+        VLA_Messages.VlaClearLastRaisedMsg
+        On Error Resume Next
+        Err.Clear
+        VLA_Interpreter.VlaEvalExpression aritySrc
+        arityN = Err.Number
+        arityD = Err.Description
+        On Error GoTo 0
+        Report "in.17: " & aritySrc & " is refused by name, before it runs", _
+               arityN <> 0 And VLA_Messages.VlaLastRaisedMsgId() = "interp-builtin-arity" And InStr(1, arityD, arityMsg, vbBinaryCompare) > 0, _
+               "err " & arityN & " [" & VLA_Messages.VlaLastRaisedMsgId() & "] " & arityD
+    Next ai
 
     ' VLA_Runtime.VlaColor, reached through Application.Run against the
     ' module by name (tier 4) - not a hand-written branch for this

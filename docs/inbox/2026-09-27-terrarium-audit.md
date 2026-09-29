@@ -166,7 +166,7 @@ Public Sub VlaSlabWrite(ByRef arr As Variant, ByVal destRange As Range)
 - Fix direction: Write back only the columns (or cells) the body assigned: track dirty indices in `ExecForEachRow` and in the emitted twin. At minimum, skip `HasFormula` cells and run string cells through the SEC.4 rule, as `RewriteTextCell` already does (`VLA_Runtime.bas:1927-1946`).
 - Ratchet-able?: Yes, as a class: grep for `\.Value\s*=` in the runtime and require each site to be on a reviewed list that says whether it guards or preserves formulas (SEC.4 claims one sink; there are several, see F6).
 
-### C3 ✔ — The interpreter's `instr` builtin ignores its 3rd and 4th arguments, so every "contains", "does not contain" and "starts with" sentence gives the wrong answer
+### C3 ✔ — The interpreter's `instr` builtin ignores its 3rd and 4th arguments, so every "contains", "does not contain" and "starts with" sentence gives the wrong answer → IN.17
 
 *high · confirmed by reading · Interpreter and runtime, slice finding 1* · *re-read by the assembling session*
 

@@ -5664,6 +5664,50 @@ written against.
   `VerifyReports` row), and reword `interp-dynamic-member-refused` to name
   the sentence's problem. *Pays into:* `AS.8` parity. *Depends on:*
   nothing. `~hours`
+- ✅ **IN.17 — the interpreter's built-ins took the arguments they
+  expected and ignored the rest: `contains`, `does not contain` and
+  `starts with` were wrong under Interpret.** *Minted 2026-09-29, the
+  owner's call, from audit candidate C3
+  (`docs/inbox/2026-09-27-terrarium-audit.md`), which the owner confirmed
+  live on 2026-09-28. **Built, owner-verified live and committed
+  2026-09-29:** `VLA_SELF-TESTS` pure 1537/1537 (nine new, as predicted)
+  and host 241/241; `TestDSLs` 2330/0; `VerifyReports` 317/317 on both
+  backends (six rows new); both goldens as predicted, the `.vba` one
+  moving only its `vla:N` tags past the new lines; and five hand tests -
+  the three conditions each way under Interpret and Run and under Compile
+  and Run, `msgbox` answering 6, 7 and 1 in the CLI, `(len "a" "b")`
+  refused in words, and the two-argument `position of … in …` unchanged.
+  `inputbox`'s title and default were not run live.* **Observed:** under Interpret and Run, with A1
+  holding "xyz", `If cell A1 contains "x", …` and `If cell A1 starts with
+  "xy", …` never ran their sentence and `If cell A1 does not contain "x",
+  …` did. Compile and Run got all three right. **Cause:** English writes
+  the three conditions as VBA's four-argument `InStr`,
+  `(instr 1 text part vbtextcompare)` (`ParseCondSimple`), and
+  `TryEvalBuiltin`'s `instr` arm read two arguments, so it searched the
+  text "1" for the cell's value. The corpus could not see it:
+  `VerifyReportChecks`' "F1 bold (contains-test hit)" passed because the
+  G-ROWLOOP stripe loop bolds F1 too, and the only interpreter pin was the
+  two-argument form. **The class, read arm by arm:** `msgbox` dropped its
+  buttons and title and answered Empty where VBA answers the button
+  pressed; `inputbox` dropped its title and default; and every other arm
+  (`len`, `trim`, `lcase`, `ucase`, `left`, `right`, `round`, `isempty`,
+  `now`, `date`, `time`) took extra arguments silently, where the compiled
+  program would not compile. **Fix:** every arm checks its count first.
+  `instr` takes 2, 3 or 4, `round` 1 or 2, `msgbox` and `inputbox` 1 to 3
+  (not the help-file and window-position arguments nothing writes), and
+  the rest exactly VBA's one count. Any other count is refused by name
+  with `interp-builtin-arity` before anything runs; five or more are
+  refused earlier still, by `EvalPositionalArgs`. `msgbox` now returns
+  the button pressed, so a raw `(msgbox "hi")` typed in the CLI shows 1,
+  as any other expression shows its value. **Pinned:** `instr` at each
+  count (case exact at two, a start at three, text and binary compare at
+  four), the three conditions exactly as English writes them, each held
+  and each not, and the refusal at four arms (`TestInterpreterDynamicHead`);
+  six `VerifyReportChecks` rows on GText (L17–L22), which fail under
+  Interpret if a condition is read wrongly either way. `msgbox` and
+  `inputbox` stay out of the automated suite, refusal included, because a
+  regression that showed the dialog would hang it; the live pass covers
+  them. *Depends on:* nothing. `~hours`
 
 **B3 — a second host, prepared (SD-18's own infrastructure; target-neutrality
   applied one substrate further than IN.\* ever needed to)**
@@ -25227,3 +25271,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **METAPROOF.2 — clingo, an oracle of another lineage, for the DATALOG proofs.** METAPROOF.1's plan, step 4, opened 2026-09-28; owner-verified and committed the same day (clingo, run by the owner by hand over all fourteen files: `agrees` on the eleven proofs and `caught` on the three controls, every line as predicted). `tools/proofs_lp.ps1` writes every DATALOG answer proof as a clingo program in `tools/clingo`: the program, the rows the proof expects, and a judge that shows `vla_verdict(agrees)` or names the rows that differ. Three controls, wrong on purpose, must show `caught`. Eleven of the sixteen proofs export; the five refusals cannot, since no other lineage raises DATALOG's message ids. What the translation cannot state faithfully (quoted strings, `sum`, the ordering comparisons, …) is declined by name, never guessed. `check_proofs.ps1`'s new rule 9 fails when the tracked files fall behind the proofs. Every answer proof in the corpus now agrees with a reading of another lineage, not only with the engine. *(more: the full entry, earlier in this file)* `~hours`
 
 - ✅ **METAPROOF.3 — more of the DATALOG suite moves to the proof file.** METAPROOF.1's plan, step 2, opened 2026-09-28 at the owner's call; owner-verified live and committed the same day (VlaSelfTest pure 1528/1528 and host 241/241, unmoved; TestDSLs 2303/0, as predicted; clingo agrees on all twenty-three exported proofs and caught the three controls). Seventy-eight proofs join `scripts/proofs/datalog.vla` (ninety-four in all) and carry what ninety-four VBA pins did: every answer that needs no table argument, and the whole of `TestDatalogNegation` and `TestDatalogAggregation`, both retired. They got stronger on the way: a row count or a probed tuple became every row, named, and the nineteen refusal pins that accepted any error now name their message id. A pin stays in VBA only for a reason: a table argument (no `(tables ...)` clause yet), a program VBA builds, the text entry point, or a refusal pin that checks WHAT its words name, which `(refuses id)` cannot say yet. The parity table fell 177 → 99 and the call-site ceiling 188 → 109; fifteen programs the tests built from shared strings reach both parity loops whole for the first time; twelve new proofs join the clingo export (twenty-three in all). *(more: the full entry, earlier in this file)* `~hours`
+
+## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part B
+
+- ✅ **IN.17 — the interpreter's built-ins took the arguments they expected and ignored the rest.** Audit C3, confirmed live by the owner 2026-09-28; **built, owner-verified live and committed 2026-09-29** (`VLA_SELF-TESTS` pure 1537/1537 as predicted and host 241/241; `TestDSLs` 2330/0; `VerifyReports` 317/317 on both backends, six rows new; the goldens as predicted; five hand tests, with `inputbox`'s title and default not run live). Under Interpret, `contains` and `starts with` never held and `does not contain` always did: English writes VBA's four-argument `InStr`, and the interpreter's `instr` read two, so it searched the text "1". Every `TryEvalBuiltin` arm now takes exactly the argument counts VBA's own function takes (`instr` 2–4, `round` 1–2, `msgbox` and `inputbox` 1–3, the rest one count) and refuses any other by name (`interp-builtin-arity`); `msgbox` answers the button pressed, so a raw `(msgbox "hi")` in the CLI shows 1. Pinned at each count, and by six GText corpus rows that fail under Interpret if a condition is read wrongly either way. *(more: the full entry, earlier in this file)* `~hours`

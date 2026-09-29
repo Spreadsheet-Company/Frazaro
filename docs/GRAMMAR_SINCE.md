@@ -205,6 +205,13 @@ did. A phrasebook that means formulas says `in formulas of`, dated `0.7.1`.
 `If range … contains …` and `If column … does not contain …` are the core's
 condition grammar, which this ledger has no row type for; they are new in
 `0.7.1` too.
+Then `IN.17`, which changes no row. `TryEvalBuiltin instr` read two
+arguments, so under Interpret the core's `contains`, `does not contain` and
+`starts with` (VBA's four-argument `InStr`) were wrong until `0.7.1`; under
+Compile they worked from `0.5.0`. This ledger has no row type for
+conditions, so this note stands in for one. The fourteen `TryEvalBuiltin`
+arms keep their `0.5.0` rows, since the arms are not new, only the argument
+counts they take.
 
 ### Phrasebook rules
 

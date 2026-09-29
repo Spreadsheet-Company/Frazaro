@@ -1223,6 +1223,21 @@ Put gtext-found into cell L14.
 If range Z1:AA3 contains "split", put "yes" into cell L15.
 If column Z does not contain "kiwi", put "no kiwi" into cell L16.
 
+# IN.17: contains, does not contain and starts with, on one value, in
+# any case. A wrong answer either way shows: L17 and L18 stay empty if a
+# condition that holds reads as false, and L19, L21 and L22 lose "kept"
+# if one that does not hold reads as true. (Under Interpret, before
+# IN.17, contains and starts with never held; does not contain always did.)
+If cell AA1 contains "NAN", put "contains" into cell L17.
+If cell AA1 starts with "ban", put "starts" into cell L18.
+Put "kept" into cell L19.
+If cell AA1 does not contain "nan", put "wrong" into cell L19.
+If cell AA1 does not contain "kiwi", put "lacks" into cell L20.
+Put "kept" into cell L21.
+If cell AA1 contains "kiwi", put "wrong" into cell L21.
+Put "kept" into cell L22.
+If cell AA1 starts with "nan", put "wrong" into cell L22.
+
 Go to sheet Output.
 
 Tidy-up.

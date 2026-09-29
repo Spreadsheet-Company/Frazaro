@@ -1,6 +1,16 @@
 Attribute VB_Name = "VLA_Interpreter"
 Option Explicit
-Public Const VLA_INTERPRETER_VERSION As String = "CLI.5"
+Public Const VLA_INTERPRETER_VERSION As String = "IN.17"
+' IN.17: the bounded built-ins (TryEvalBuiltin) take exactly the argument
+' counts VBA's own functions take, and refuse any other count by name
+' (interp-builtin-arity). Each arm used to read the arguments it expected
+' and ignore the rest. instr read two, so English's contains, does not
+' contain and starts with - which emit VBA's four-argument form,
+' (instr 1 text part vbtextcompare) - searched the text "1" under
+' Interpret while the compiled program searched the text: contains never
+' held, does not contain always did. msgbox dropped its buttons and title
+' and answered Empty where VBA answers the button pressed; inputbox dropped
+' its title and default. Audit candidate C3.
 ' CLI.5: what a run came to, for the CLI's transcript. VlaInterpret
 ' keeps the value of the run's last top-level form when that form is an
 ' expression (VlaInterpreterValue) - a statement, a definition or an
@@ -2384,47 +2394,90 @@ End Function
 ' the same "VBA's OWN modal during Application.Run" hazard this
 ' codebase already guards against elsewhere (VLA.bas's EmitCallStmt
 ' comment, S4's verdict).
+' IN.17: every arm checks its argument count first. Where VBA's function
+' takes several counts (msgbox, inputbox, round, instr) the arm takes
+' each one; any other count is refused by name before anything runs.
+' msgbox and inputbox take the counts English and a hand-written program
+' can reach - prompt, buttons or title, title, default - and not the
+' help-file and window-position arguments, which nothing here writes.
+' msgbox answers the button pressed, as VBA's MsgBox function does.
 Private Function TryEvalBuiltin(ByVal h As String, ByVal argVals As Variant, ByRef handled As Boolean) As Variant
     handled = True
     Select Case h
         Case "msgbox"
-            MsgBox CStr(ArgAt(argVals, 0))
+            Select Case ArgCount(argVals)
+                Case 1: TryEvalBuiltin = MsgBox(CStr(ArgAt(argVals, 0)))
+                Case 2: TryEvalBuiltin = MsgBox(CStr(ArgAt(argVals, 0)), CLng(ArgAt(argVals, 1)))
+                Case 3: TryEvalBuiltin = MsgBox(CStr(ArgAt(argVals, 0)), CLng(ArgAt(argVals, 1)), CStr(ArgAt(argVals, 2)))
+                Case Else: RaiseBuiltinArity h, "1, 2 or 3 arguments", argVals
+            End Select
             LogEffect "msgbox: " & CStr(ArgAt(argVals, 0))
-            TryEvalBuiltin = Empty
         Case "inputbox"
-            TryEvalBuiltin = InputBox(CStr(ArgAt(argVals, 0)))
+            Select Case ArgCount(argVals)
+                Case 1: TryEvalBuiltin = InputBox(CStr(ArgAt(argVals, 0)))
+                Case 2: TryEvalBuiltin = InputBox(CStr(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1)))
+                Case 3: TryEvalBuiltin = InputBox(CStr(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1)), CStr(ArgAt(argVals, 2)))
+                Case Else: RaiseBuiltinArity h, "1, 2 or 3 arguments", argVals
+            End Select
         Case "len"
+            If ArgCount(argVals) <> 1 Then RaiseBuiltinArity h, "1 argument", argVals
             TryEvalBuiltin = Len(CStr(ArgAt(argVals, 0)))
         Case "trim"
+            If ArgCount(argVals) <> 1 Then RaiseBuiltinArity h, "1 argument", argVals
             TryEvalBuiltin = Trim$(CStr(ArgAt(argVals, 0)))
         Case "lcase"
+            If ArgCount(argVals) <> 1 Then RaiseBuiltinArity h, "1 argument", argVals
             TryEvalBuiltin = LCase$(CStr(ArgAt(argVals, 0)))
         Case "ucase"
+            If ArgCount(argVals) <> 1 Then RaiseBuiltinArity h, "1 argument", argVals
             TryEvalBuiltin = UCase$(CStr(ArgAt(argVals, 0)))
         Case "left"
+            If ArgCount(argVals) <> 2 Then RaiseBuiltinArity h, "2 arguments", argVals
             TryEvalBuiltin = Left$(CStr(ArgAt(argVals, 0)), CLng(ArgAt(argVals, 1)))
         Case "right"
+            If ArgCount(argVals) <> 2 Then RaiseBuiltinArity h, "2 arguments", argVals
             TryEvalBuiltin = Right$(CStr(ArgAt(argVals, 0)), CLng(ArgAt(argVals, 1)))
         Case "round"
-            If ArgCount(argVals) >= 2 Then
-                TryEvalBuiltin = Round(CDbl(ArgAt(argVals, 0)), CLng(ArgAt(argVals, 1)))
-            Else
-                TryEvalBuiltin = Round(CDbl(ArgAt(argVals, 0)))
-            End If
+            Select Case ArgCount(argVals)
+                Case 1: TryEvalBuiltin = Round(CDbl(ArgAt(argVals, 0)))
+                Case 2: TryEvalBuiltin = Round(CDbl(ArgAt(argVals, 0)), CLng(ArgAt(argVals, 1)))
+                Case Else: RaiseBuiltinArity h, "1 or 2 arguments", argVals
+            End Select
         Case "instr"
-            TryEvalBuiltin = InStr(CStr(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1)))
+            ' IN.17: VBA's three shapes. English's contains, does not
+            ' contain and starts with write the four-argument one
+            ' (ParseCondSimple); the phrasebook's "position of ... in ..."
+            ' the two-argument one, which compares case exactly, as VBA's
+            ' own default does.
+            Select Case ArgCount(argVals)
+                Case 2: TryEvalBuiltin = InStr(CStr(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1)))
+                Case 3: TryEvalBuiltin = InStr(CLng(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1)), CStr(ArgAt(argVals, 2)))
+                Case 4: TryEvalBuiltin = InStr(CLng(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1)), CStr(ArgAt(argVals, 2)), CLng(ArgAt(argVals, 3)))
+                Case Else: RaiseBuiltinArity h, "2, 3 or 4 arguments", argVals
+            End Select
         Case "isempty"
+            If ArgCount(argVals) <> 1 Then RaiseBuiltinArity h, "1 argument", argVals
             TryEvalBuiltin = IsEmpty(ArgAt(argVals, 0))
         Case "now"
+            If ArgCount(argVals) <> 0 Then RaiseBuiltinArity h, "no arguments", argVals
             TryEvalBuiltin = Now
         Case "date"
+            If ArgCount(argVals) <> 0 Then RaiseBuiltinArity h, "no arguments", argVals
             TryEvalBuiltin = Date
         Case "time"
+            If ArgCount(argVals) <> 0 Then RaiseBuiltinArity h, "no arguments", argVals
             TryEvalBuiltin = Time
         Case Else
             handled = False
     End Select
 End Function
+
+' IN.17: the refusal every TryEvalBuiltin arm gives a call whose argument
+' count its VBA function does not take, raised before the call runs.
+' Before IN.17 an arm read the arguments it expected and ignored the rest.
+Private Sub RaiseBuiltinArity(ByVal h As String, ByVal takes As String, ByVal argVals As Variant)
+    VLA_Messages.RaiseMsg "interp-builtin-arity", "head", h, "takes", takes, "n", ArgCount(argVals)
+End Sub
 
 ' Nearly all VLA_Runtime.bas helpers (VlaColor, VlaDictGet, VlaCount,
 ' ...) through ONE mechanism - Application.Run against the module by

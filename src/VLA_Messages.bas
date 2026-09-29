@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "METAPROOF.1"
+Public Const VLA_MESSAGES_VERSION As String = "IN.17"
+' IN.17: interp-builtin-arity, beside the other interpreter arity entries
+' - a bounded built-in called with an argument count its VBA function
+' does not take. One entry for all fourteen, since the refusal is the
+' same shape for each and only the counts differ.
+'
 ' METAPROOF.1: RaiseMsg remembers the last refusal it raised - its id and
 ' its finished text - and VlaLastRaisedMsgId/VlaLastRaisedMsgText hand them
 ' back. A proof can now pin WHICH refusal fired, by its stable id, where it
@@ -282,6 +287,10 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "interp-countif-arity", 5, "VLA-Interpreter", "IN.3: 'countif' takes 2 arguments, got {n}"
     AddMsg m, "interp-sumif-arity", 5, "VLA-Interpreter", "IN.3: 'sumif' takes 3 arguments, got {n}"
     AddMsg m, "interp-vlookup-arity", 5, "VLA-Interpreter", "IN.3: 'vlookup' takes 4 arguments, got {n}"
+    ' IN.17: one entry for every bounded built-in (TryEvalBuiltin), raised
+    ' before the call runs. {takes} is the counts that function takes,
+    ' written out ("2, 3 or 4 arguments", "no arguments").
+    AddMsg m, "interp-builtin-arity", 5, "VLA-Interpreter", "'{head}' takes {takes}, but this call gives it {n}."
     AddMsg m, "interp-head-unresolved", 5, "VLA-Interpreter", "'{head}' is not a form, place helper, dotted global, built-in, or VLA_Runtime helper this interpreter can reach yet - IN.2's remaining hand-work"
     ' IN.15: the OTHER half of the question interp-head-unresolved used to
     ' answer alone. TryRuntimeHelper now settles "is this a real helper"

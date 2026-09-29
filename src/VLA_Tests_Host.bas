@@ -3022,6 +3022,9 @@ Private Sub VerifyReportChecks(ws As Worksheet)
     CheckV "E2", ws.Range("E2").Value, 20
     CheckV "E3", ws.Range("E3").Value, 30
     CheckV "F1", ws.Range("F1").Value, "ok"
+    ' IN.17: this cannot see the contains test. The step-2 stripe loop
+    ' (G-ROWLOOP) bolds F1 as well, so F1 was bold under Interpret while
+    ' contains never held there. GText's L17 to L22 check the conditions.
     Report "F1 bold (contains-test hit)", ws.Range("F1").Font.Bold = True, "not bold"
     CheckV "F2", ws.Range("F2").Value, "beta"
     Report "F2 not bold (contains-test miss)", ws.Range("F2").Font.Bold = False, "bolded wrongly"
@@ -3857,6 +3860,16 @@ Private Sub VerifyReportChecks(ws As Worksheet)
         CheckV "find: none is 0 (L14)", wsT.Range("L14").Value, 0
         CheckV "if a range contains a text (L15)", wsT.Range("L15").Value, "yes"
         CheckV "if a column does not contain a text (L16)", wsT.Range("L16").Value, "no kiwi"
+
+        ' IN.17: the three text conditions on one value ("Banana" in AA1),
+        ' each held and each not. These fail under Interpret if instr's
+        ' four arguments are read as two, which F1's bold cannot show.
+        CheckV "contains, in any case (L17)", wsT.Range("L17").Value, "contains"
+        CheckV "starts with, in any case (L18)", wsT.Range("L18").Value, "starts"
+        CheckV "does not contain, when it does, leaves the cell (L19)", wsT.Range("L19").Value, "kept"
+        CheckV "does not contain, when it does not (L20)", wsT.Range("L20").Value, "lacks"
+        CheckV "contains, when it does not, leaves the cell (L21)", wsT.Range("L21").Value, "kept"
+        CheckV "starts with, when the text is only inside, leaves the cell (L22)", wsT.Range("L22").Value, "kept"
     End If
 End Sub
 
