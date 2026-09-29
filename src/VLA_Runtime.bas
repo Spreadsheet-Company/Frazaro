@@ -666,6 +666,9 @@ Private Sub RuntimeAddEntries(ByVal m As Collection)
     RuntimeAddMsg m, "rt-text-pad-character", 5, "VLA-Runtime", "'{value}' is not one character - pad with a single character, like ""0"" or "" ""."
     RuntimeAddMsg m, "rt-text-pad-width", 5, "VLA-Runtime", "'{value}' is not a number of characters - use a whole number, like 5."
     RuntimeAddMsg m, "rt-join-cell-error", 5, "VLA-Runtime", "cell {cell} holds an error ({value}) - a list is made of values, so fix or clear that cell first."
+    RuntimeAddMsg m, "rt-split-separator-empty", 5, "VLA-Runtime", "the text to split at is empty - name a character or a word, like "","" or "" - ""."
+    RuntimeAddMsg m, "rt-split-columns-not-empty", 5, "VLA-Runtime", "splitting column {column} needs {need} to its right, {columns}, down to row {row}, and cell {cell} holds something - clear those cells or insert columns first, since a split never writes over anything."
+    RuntimeAddMsg m, "rt-split-too-wide", 5, "VLA-Runtime", "splitting column {column} needs {need} to its right, past the sheet's last column."
 End Sub
 
 Private Sub RuntimeAddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _
@@ -2119,6 +2122,406 @@ Private Sub AddJoinItem(ByVal items As Collection, ByVal given As Variant, _
     End If
     items.Add TextOfValue(given)
 End Sub
+
+' G-TEXT slice 3 (pareto.txt sections 12 and 13): find and replace, and
+' split. Four forks the owner decided (2026-09-28), each named where its
+' helper sits.
+'
+' "Replace "N/A" with 0 in range A1:D50." (and its column and "on this
+' sheet" siblings) changes VALUES: a cell holding a formula is never
+' touched, and "... in the formulas of range ..." is the sentence that
+' changes formulas and nothing else (the owner's call). Until this slice
+' the sentence was Excel's own Range.Replace, which edits formula text
+' too - Replace "A" with "B" in a column turned =A1*2 into =B1*2 - and
+' which enters each cell it changes again as if typed, so a result
+' starting with = became a live formula. That was a way around SEC.4's
+' rule, which every other value Frazaro writes obeys; narrowing a
+' shipped sentence's meaning was the owner's call on security grounds.
+'
+' What a value cell matches against is its own entry - what Excel's
+' Replace itself reads for a constant (.Formula: text as it is, a number
+' or a date as Excel keeps it) - found in any case, anywhere in the cell,
+' Excel's starting settings, the ones slice 1 pinned. A changed entry is
+' written back the way Excel's Replace writes it, as if typed, so "N/A"
+' replaced by 0 is still the number 0, with two exceptions: text that
+' would begin with = + - or @ and is not a plain number is kept as text
+' behind an apostrophe (SEC.4's rule, repeated here because this module
+' must compile alone in a user's workbook), and a cell marked as text
+' with an apostrophe stays text. A whole column or sheet is read only as
+' far as the used range, each area in bulk, and a cell is written only if
+' its entry changed.
+Public Sub VlaReplaceInRange(ByVal rng As Range, ByVal what As Variant, _
+                             ByVal replacement As Variant, ByVal where As String)
+    If where <> "values" And where <> "formulas" Then
+        RaiseRuntimeMsg "rt-text-unknown-kind", "proc", "VlaReplaceInRange", "kind", where, "expected", "values or formulas"
+    End If
+    Dim w As String
+    Dim b As String
+    w = TextOfValue(what)
+    b = TextOfValue(replacement)
+    If Len(w) = 0 Then RaiseRuntimeMsg "rt-text-marker-empty"
+    Dim target As Range
+    Set target = Application.Intersect(rng, rng.Worksheet.UsedRange)
+    If target Is Nothing Then Exit Sub
+    Dim area As Range
+    For Each area In target.Areas
+        If where = "values" Then
+            ReplaceValuesInArea area, w, b
+        Else
+            ReplaceFormulasInArea area, w, b
+        End If
+    Next
+End Sub
+
+' One rectangle, values only. HasFormula answers for the whole area as
+' in slice 1: True leaves it alone, Null means each matching cell is
+' asked before it is changed.
+Private Sub ReplaceValuesInArea(ByVal area As Range, ByVal w As String, ByVal b As String)
+    Dim hf As Variant
+    hf = area.HasFormula
+    If VarType(hf) = vbBoolean Then
+        If hf Then Exit Sub
+    End If
+    Dim checkEach As Boolean
+    checkEach = IsNull(hf)
+    Dim f As Variant
+    f = area.Formula
+    If Not IsArray(f) Then
+        ReplaceInCell area.Cells(1, 1), CStr(f), w, b, checkEach
+        Exit Sub
+    End If
+    Dim r As Long
+    Dim c As Long
+    For r = 1 To UBound(f, 1)
+        For c = 1 To UBound(f, 2)
+            If InStr(1, f(r, c), w, vbTextCompare) > 0 Then
+                ReplaceInCell area.Cells(r, c), CStr(f(r, c)), w, b, checkEach
+            End If
+        Next
+    Next
+End Sub
+
+' One cell whose entry holds what is being replaced. Emptied when nothing
+' is left, as Excel's Replace does.
+Private Sub ReplaceInCell(ByVal cell As Range, ByVal s As String, ByVal w As String, _
+                          ByVal b As String, ByVal checkFormula As Boolean)
+    If InStr(1, s, w, vbTextCompare) = 0 Then Exit Sub
+    If checkFormula Then
+        If cell.HasFormula Then Exit Sub
+    End If
+    Dim t As String
+    t = Replace(s, w, b, 1, -1, vbTextCompare)
+    If t = s Then Exit Sub
+    If Len(t) = 0 Then
+        cell.Value = Empty
+        Exit Sub
+    End If
+    Select Case Left$(t, 1)
+        Case "=", "+", "-", "@"
+            If Not IsPlainNumberText(t) Then
+                cell.Value = "'" & t
+                Exit Sub
+            End If
+    End Select
+    ' Written as Value, never Formula: by here nothing that begins with
+    ' = + - or @ is left but a plain number, so Excel's reading of it as
+    ' typed can only make a number, a date or a logical - the same as its
+    ' own Replace - and this helper is no place a formula can be written
+    ' from (check_no_network's formula-write sites stay two).
+    If cell.PrefixCharacter = "'" Then
+        cell.Value = "'" & t
+    Else
+        cell.Value = t
+    End If
+End Sub
+
+' One rectangle, formulas only: Excel's own Replace, on the formula cells
+' and no others, with the settings pinned so no earlier Find leaks in.
+' (A mixed area has at least two cells, so SpecialCells reads the area
+' itself - on one cell it would read the whole sheet.)
+Private Sub ReplaceFormulasInArea(ByVal area As Range, ByVal w As String, ByVal b As String)
+    Dim hf As Variant
+    hf = area.HasFormula
+    Dim formulaCells As Range
+    If VarType(hf) = vbBoolean Then
+        If Not hf Then Exit Sub
+        Set formulaCells = area
+    Else
+        Set formulaCells = area.SpecialCells(xlCellTypeFormulas)
+    End If
+    formulaCells.Replace What:=w, Replacement:=b, LookAt:=xlPart, MatchCase:=False, _
+                         SearchFormat:=False, ReplaceFormat:=False
+End Sub
+
+' A text that is plainly a number and nothing more: an optional minus,
+' digits, and at most one point with digits after it - no leading zero
+' before another digit, no exponent, no thousands mark, and at most 15
+' digits, so reading it as a number loses nothing a person would miss.
+' "42", "-3.5" and "0.25" are; "0042", "1E5", "1,000", "3/4", "+5" and a
+' 16-digit account number are not.
+Private Function IsPlainNumberText(ByVal s As String) As Boolean
+    Dim body As String
+    body = s
+    If Left$(body, 1) = "-" Then body = Mid$(body, 2)
+    If Len(body) = 0 Then Exit Function
+    Dim intPart As String
+    Dim fracPart As String
+    Dim dot As Long
+    dot = InStr(body, ".")
+    If dot = 0 Then
+        intPart = body
+    Else
+        intPart = Left$(body, dot - 1)
+        fracPart = Mid$(body, dot + 1)
+        If Len(fracPart) = 0 Then Exit Function
+        If fracPart Like "*[!0-9]*" Then Exit Function
+    End If
+    If Len(intPart) = 0 Then Exit Function
+    If intPart Like "*[!0-9]*" Then Exit Function
+    If Len(intPart) > 1 And Left$(intPart, 1) = "0" Then Exit Function
+    If Len(intPart) + Len(fracPart) > 15 Then Exit Function
+    IsPlainNumberText = True
+End Function
+
+' "Split column C by "," as text|reading numbers." The column's own cell
+' keeps the first piece and the rest go into the columns to its right,
+' as Excel's Text to Columns does, with the owner's two calls
+' (2026-09-28). A split never writes over anything: when a cell those
+' pieces need holds something, down to the column's last used row,
+' nothing changes and the refusal names that cell. And the sentence says
+' what the pieces are: "as text" keeps every piece text ("0042" keeps its
+' zeros), "reading numbers" makes a plain number a number (IsPlainNumberText
+' - "42" and "-3.5", never "0042", "3/4" or "1E5"), and neither ever makes
+' a date. Only text is split: numbers, dates, formulas and blank cells stay
+' as they are. The separator is found in any case, as "contains" finds
+' text, and the pieces are kept exactly, spaces included. A piece that
+' would begin with = + - or @ is written as text (SEC.4). The pieces to the
+' right go in with one write, then any Excel read as something other than
+' text are written again behind an apostrophe - slice 1's way, asking
+' Excel after the write rather than predicting its reader.
+Public Sub VlaSplitColumn(ByVal col As Range, ByVal separator As Variant, ByVal how As String)
+    If how <> "text" And how <> "numbers" Then
+        RaiseRuntimeMsg "rt-text-unknown-kind", "proc", "VlaSplitColumn", "kind", how, "expected", "text or numbers"
+    End If
+    Dim sep As String
+    sep = TextOfValue(separator)
+    If Len(sep) = 0 Then RaiseRuntimeMsg "rt-split-separator-empty"
+    Dim target As Range
+    Set target = Application.Intersect(col.Columns(1), col.Worksheet.UsedRange)
+    If target Is Nothing Then Exit Sub
+    Dim hf As Variant
+    hf = target.HasFormula
+    If VarType(hf) = vbBoolean Then
+        If hf Then Exit Sub
+    End If
+    Dim n As Long
+    n = target.Rows.Count
+    Dim vals As Variant
+    vals = target.Value
+    Dim pieces() As Variant
+    ReDim pieces(1 To n)
+    Dim widest As Long
+    Dim r As Long
+    Dim s As Variant
+    Dim parts() As String
+    For r = 1 To n
+        If n = 1 Then s = vals Else s = vals(r, 1)
+        If VarType(s) = vbString Then
+            If InStr(1, s, sep, vbTextCompare) > 0 Then
+                If Not SplitSkipsFormula(target.Cells(r, 1), IsNull(hf)) Then
+                    parts = Split(s, sep, -1, vbTextCompare)
+                    pieces(r) = parts
+                    If UBound(parts) > widest Then widest = UBound(parts)
+                End If
+            End If
+        End If
+    Next
+    If widest = 0 Then Exit Sub
+
+    Dim ws As Worksheet
+    Set ws = target.Worksheet
+    Dim need As String
+    need = widest & " empty column"
+    If widest > 1 Then need = need & "s"
+    If target.Column + widest > ws.Columns.Count Then
+        RaiseRuntimeMsg "rt-split-too-wide", "column", ColumnLetters(ws, target.Column), "need", need
+    End If
+    Dim room As Range
+    Set room = target.Offset(0, 1).Resize(n, widest)
+    Dim held As String
+    held = FirstCellHolding(room)
+    If Len(held) > 0 Then
+        Dim span As String
+        span = ColumnLetters(ws, target.Column + 1)
+        If widest > 1 Then span = span & " to " & ColumnLetters(ws, target.Column + widest)
+        RaiseRuntimeMsg "rt-split-columns-not-empty", "column", ColumnLetters(ws, target.Column), "need", need, _
+                        "columns", span, "row", CStr(target.Row + n - 1), "cell", held
+    End If
+
+    Dim out() As Variant
+    ReDim out(1 To n, 1 To widest)
+    Dim k As Long
+    For r = 1 To n
+        If IsArray(pieces(r)) Then
+            parts = pieces(r)
+            For k = 1 To UBound(parts)
+                out(r, k) = PieceValue(parts(k), how)
+            Next
+        End If
+    Next
+    room.Value = out
+    Dim got As Variant
+    got = room.Value
+    For r = 1 To n
+        If IsArray(pieces(r)) Then
+            parts = pieces(r)
+            For k = 1 To UBound(parts)
+                If n = 1 And widest = 1 Then
+                    KeepPieceText room.Cells(r, k), out(r, k), got, parts(k)
+                Else
+                    KeepPieceText room.Cells(r, k), out(r, k), got(r, k), parts(k)
+                End If
+            Next
+            WritePiece target.Cells(r, 1), parts(0), how
+        End If
+    Next
+End Sub
+
+' A text cell in a column that holds formulas is asked whether it is one.
+Private Function SplitSkipsFormula(ByVal cell As Range, ByVal checkEach As Boolean) As Boolean
+    If checkEach Then SplitSkipsFormula = cell.HasFormula
+End Function
+
+' What one piece is written as: nothing for an empty piece, a number for
+' a plain number when the sentence reads numbers, and otherwise text -
+' marked with an apostrophe already when it begins with = + - or @, or
+' with an apostrophe of its own, which Excel would otherwise take as
+' its mark and drop.
+Private Function PieceValue(ByVal p As String, ByVal how As String) As Variant
+    If Len(p) = 0 Then
+        PieceValue = Empty
+    ElseIf how = "numbers" And IsPlainNumberText(Trim$(p)) Then
+        PieceValue = Val(Trim$(p))
+    Else
+        Select Case Left$(p, 1)
+            Case "=", "+", "-", "@", "'"
+                PieceValue = "'" & p
+            Case Else
+                PieceValue = p
+        End Select
+    End If
+End Function
+
+' A piece meant as text that Excel read as a number, a date or a logical
+' is written again behind an apostrophe, so it reads back as it was. One
+' already marked is text by then.
+Private Sub KeepPieceText(ByVal cell As Range, ByVal written As Variant, ByVal readBack As Variant, _
+                          ByVal p As String)
+    If VarType(written) <> vbString Then Exit Sub
+    If Left$(written, 1) = "'" Then Exit Sub
+    If VarType(readBack) <> vbString Then cell.Value = "'" & p
+End Sub
+
+' The column's own cell, keeping the first piece.
+Private Sub WritePiece(ByVal cell As Range, ByVal p As String, ByVal how As String)
+    Dim v As Variant
+    v = PieceValue(p, how)
+    cell.Value = v
+    If VarType(v) = vbString Then
+        If VarType(cell.Value) <> vbString Then cell.Value = "'" & p
+    End If
+End Sub
+
+' The first cell of a rectangle holding anything - a value or a formula,
+' even one showing nothing - read row by row; "" when every cell is empty.
+Private Function FirstCellHolding(ByVal room As Range) As String
+    Dim f As Variant
+    f = room.Formula
+    If Not IsArray(f) Then
+        If Len(f) > 0 Then FirstCellHolding = room.Cells(1, 1).Address(False, False)
+        Exit Function
+    End If
+    Dim r As Long
+    Dim c As Long
+    For r = 1 To UBound(f, 1)
+        For c = 1 To UBound(f, 2)
+            If Len(f(r, c)) > 0 Then
+                FirstCellHolding = room.Cells(r, c).Address(False, False)
+                Exit Function
+            End If
+        Next
+    Next
+End Function
+
+' A column's letters, "D" or "AB", from its number.
+Private Function ColumnLetters(ByVal ws As Worksheet, ByVal colNum As Long) As String
+    ColumnLetters = Split(ws.Cells(1, colNum).Address(True, False), "$")(0)
+End Function
+
+' "Set r to the row of the first cell in range A1:D50 containing "x"."
+' (and "the column of", and "in column C") - the owner's call: a search
+' hands back numbers the "column number ... row ..." sentences can use,
+' and 0 when nothing matches, as the shipped "row of ... in column" does;
+' pareto's "the first cell" itself could not be kept in a variable, since
+' a variable set to a cell holds its value (IN.11). "If range A1:D50
+' contains "x"" asks the same question first. A cell matches when its
+' value, read as text the way TextOfValue reads one, contains the text in
+' any case - exactly as "If code contains "x"" matches one value, so the
+' two never disagree. The search goes row by row (each area of the range
+' in turn), blank cells and error values skipped: an error holds no text.
+Public Function VlaFindText(ByVal rng As Range, ByVal lookFor As Variant, ByVal what As String) As Long
+    If what <> "row" And what <> "column" Then
+        RaiseRuntimeMsg "rt-text-unknown-kind", "proc", "VlaFindText", "kind", what, "expected", "row or column"
+    End If
+    VlaFindText = SearchText(rng, lookFor, what)
+End Function
+
+' "Set n to how many cells in range A2:A99 contain "x"." The same match,
+' counted: text, not COUNTIF's wildcards, so "*" and "?" are themselves.
+Public Function VlaCountText(ByVal rng As Range, ByVal lookFor As Variant) As Long
+    VlaCountText = SearchText(rng, lookFor, "count")
+End Function
+
+' The one walk both answers share: the first match's row or column, or
+' how many cells match.
+Private Function SearchText(ByVal rng As Range, ByVal lookFor As Variant, ByVal what As String) As Long
+    Dim t As String
+    t = TextOfValue(lookFor)
+    If Len(t) = 0 Then RaiseRuntimeMsg "rt-text-marker-empty"
+    Dim target As Range
+    Set target = Application.Intersect(rng, rng.Worksheet.UsedRange)
+    If target Is Nothing Then Exit Function
+    Dim found As Long
+    Dim area As Range
+    Dim vals As Variant
+    Dim r As Long
+    Dim c As Long
+    Dim v As Variant
+    For Each area In target.Areas
+        vals = area.Value
+        For r = 1 To area.Rows.Count
+            For c = 1 To area.Columns.Count
+                If IsArray(vals) Then v = vals(r, c) Else v = vals
+                If ValueHoldsText(v, t) Then
+                    If what = "row" Then
+                        SearchText = area.Row + r - 1
+                        Exit Function
+                    ElseIf what = "column" Then
+                        SearchText = area.Column + c - 1
+                        Exit Function
+                    End If
+                    found = found + 1
+                End If
+            Next
+        Next
+    Next
+    If what = "count" Then SearchText = found
+End Function
+
+Private Function ValueHoldsText(ByVal v As Variant, ByVal t As String) As Boolean
+    If IsError(v) Or IsEmpty(v) Then Exit Function
+    ValueHoldsText = (InStr(1, TextOfValue(v), t, vbTextCompare) > 0)
+End Function
 
 ' G-PIVOT rule #1 (pareto.txt section 10, "Pivot tables"): the two-step
 ' COM sequence pareto.txt's own target names - PivotCaches.Create then

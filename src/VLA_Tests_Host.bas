@@ -707,10 +707,185 @@ Private Sub TestHelpersHost()
     On Error GoTo 0
     Report "VlaTextOp: several cells where one value belongs refuse by name", _
            InStr(1, txDesc, "this needs one value", vbTextCompare) > 0, "got: " & txDesc
+    TestTextFindReplaceHost
     Application.DisplayAlerts = False
     ws.Delete
     Application.DisplayAlerts = True
     prior.Activate
+End Sub
+
+' G-TEXT slice 3: find and replace, and split, against real cells on a
+' sheet of their own - split and search read the used range, so nothing
+' else may sit on it. The column letters are chosen so each split has
+' empty columns to its right, and the one that must refuse does not.
+Private Sub TestTextFindReplaceHost()
+    Dim ws3 As Worksheet
+    Set ws3 = ActiveWorkbook.Worksheets.Add
+    Dim d As String
+
+    ' Replace, values only.
+    ws3.Range("A1").Value = "Nan"
+    ws3.Range("A2").Formula = "=TAN(0)"
+    VlaReplaceInRange ws3.Range("A1:A2"), "an", "xy", "values"
+    CheckV "VlaReplaceInRange: a value changes, any case", ws3.Range("A1").Value, "Nxy"
+    CheckV "VlaReplaceInRange: a formula beside it keeps its own text", ws3.Range("A2").Formula, "=TAN(0)"
+    ws3.Range("A3").Value = "Q"
+    VlaReplaceInRange ws3.Range("A3"), "q", "=1+1", "values"
+    Report "VlaReplaceInRange: a result starting = stays text, never a formula", _
+           ws3.Range("A3").HasFormula = False And ws3.Range("A3").Value = "=1+1", _
+           "A3 holds " & ws3.Range("A3").Formula
+    ws3.Range("A4").Value = "N/A"
+    VlaReplaceInRange ws3.Range("A4"), "N/A", 0, "values"
+    Report "VlaReplaceInRange: N/A replaced by 0 is the number 0", _
+           VarType(ws3.Range("A4").Value) = vbDouble And ws3.Range("A4").Value = 0, _
+           "A4 holds [" & ws3.Range("A4").Value & "], VarType " & VarType(ws3.Range("A4").Value)
+    ws3.Range("A5").Value = "n5"
+    VlaReplaceInRange ws3.Range("A5"), "n", "-", "values"
+    Report "VlaReplaceInRange: a plain negative number is a number, not marked text", _
+           VarType(ws3.Range("A5").Value) = vbDouble And ws3.Range("A5").Value = -5, _
+           "A5 holds [" & ws3.Range("A5").Value & "], VarType " & VarType(ws3.Range("A5").Value)
+    ws3.Range("A6").Value = "'00123"
+    VlaReplaceInRange ws3.Range("A6"), "1", "9", "values"
+    Report "VlaReplaceInRange: a cell marked as text stays text", _
+           VarType(ws3.Range("A6").Value) = vbString And ws3.Range("A6").Value = "00923", _
+           "A6 holds [" & ws3.Range("A6").Value & "], VarType " & VarType(ws3.Range("A6").Value)
+    ws3.Range("A7").Value = "x"
+    VlaReplaceInRange ws3.Range("A7"), "X", "", "values"
+    Report "VlaReplaceInRange: a cell left with nothing is empty", IsEmpty(ws3.Range("A7").Value), _
+           "A7 holds [" & ws3.Range("A7").Value & "]"
+
+    ' Replace, formulas only - on one cell (SpecialCells would read the
+    ' whole sheet there, so it must not be used) and on a mixed pair.
+    ws3.Range("B1").Formula = "=ABS(-2)"
+    ws3.Range("B2").Value = "ABS"
+    VlaReplaceInRange ws3.Range("B1"), "abs", "SIGN", "formulas"
+    CheckV "VlaReplaceInRange formulas: one formula cell changes", ws3.Range("B1").Formula, "=SIGN(-2)"
+    CheckV "VlaReplaceInRange formulas: and only that cell", ws3.Range("B2").Value, "ABS"
+    ws3.Range("B3").Formula = "=ABS(-3)"
+    ws3.Range("B4").Value = "ABS"
+    VlaReplaceInRange ws3.Range("B3:B4"), "ABS", "SIGN", "formulas"
+    Report "VlaReplaceInRange formulas: in a mixed range, the formula changes and the value stays", _
+           ws3.Range("B3").Formula = "=SIGN(-3)" And ws3.Range("B4").Value = "ABS", _
+           "B3 " & ws3.Range("B3").Formula & ", B4 " & ws3.Range("B4").Value
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    VlaReplaceInRange ws3.Range("A1:A7"), "", "z", "values"
+    d = Err.Description
+    On Error GoTo 0
+    Report "VlaReplaceInRange: empty text to replace refuses by name", _
+           InStr(1, d, "the text to look for is empty", vbTextCompare) > 0, "got: " & d
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    VlaReplaceInRange ws3.Range("A1:A7"), "a", "b", "comments"
+    d = Err.Description
+    On Error GoTo 0
+    Report "VlaReplaceInRange: an unknown kind refuses by name", _
+           InStr(1, d, "unknown kind 'comments'", vbTextCompare) > 0, "got: " & d
+
+    ' Split as text: E1 splits; E2 has no separator; E3 is a formula
+    ' showing text with one (left alone); E4 is a number (left alone).
+    ws3.Range("E1").Value = "a,0042,7"
+    ws3.Range("E2").Value = "b"
+    ws3.Range("E3").Formula = "=""c,d"""
+    ws3.Range("E4").Value = 42
+    VlaSplitColumn ws3.Columns("E"), ",", "text"
+    CheckV "VlaSplitColumn as text: the first piece stays", ws3.Range("E1").Value, "a"
+    Report "VlaSplitColumn as text: 0042 is text with its zeros", _
+           VarType(ws3.Range("F1").Value) = vbString And ws3.Range("F1").Value = "0042", _
+           "F1 holds [" & ws3.Range("F1").Value & "], VarType " & VarType(ws3.Range("F1").Value)
+    Report "VlaSplitColumn as text: 7 is text too", VarType(ws3.Range("G1").Value) = vbString, _
+           "VarType " & VarType(ws3.Range("G1").Value)
+    CheckV "VlaSplitColumn: a cell without the separator stays", ws3.Range("E2").Value, "b"
+    Report "VlaSplitColumn: a formula is left alone", _
+           ws3.Range("E3").HasFormula And IsEmpty(ws3.Range("F3").Value), "E3 " & ws3.Range("E3").Formula
+    CheckV "VlaSplitColumn: a number is left alone", ws3.Range("E4").Value, 42
+
+    ' Split reading numbers: only a plain number becomes a number.
+    ws3.Range("I1").Value = "y|0042|7|-3.5|1E5|12345678901234567|3/4|=1+1"
+    VlaSplitColumn ws3.Columns("I"), "|", "numbers"
+    CheckV "VlaSplitColumn reading numbers: text stays text", ws3.Range("I1").Value, "y"
+    Report "VlaSplitColumn reading numbers: 0042 stays text", VarType(ws3.Range("J1").Value) = vbString, _
+           "VarType " & VarType(ws3.Range("J1").Value)
+    Report "VlaSplitColumn reading numbers: 7 is a number", _
+           VarType(ws3.Range("K1").Value) = vbDouble And ws3.Range("K1").Value = 7, _
+           "K1 holds [" & ws3.Range("K1").Value & "], VarType " & VarType(ws3.Range("K1").Value)
+    CheckV "VlaSplitColumn reading numbers: -3.5 is a number", ws3.Range("L1").Value, -3.5
+    Report "VlaSplitColumn reading numbers: 1E5 stays text", VarType(ws3.Range("M1").Value) = vbString, _
+           "VarType " & VarType(ws3.Range("M1").Value)
+    Report "VlaSplitColumn reading numbers: 17 digits stay text, every digit kept", _
+           VarType(ws3.Range("N1").Value) = vbString And ws3.Range("N1").Value = "12345678901234567", _
+           "N1 holds [" & ws3.Range("N1").Value & "], VarType " & VarType(ws3.Range("N1").Value)
+    Report "VlaSplitColumn: 3/4 never becomes a date", _
+           VarType(ws3.Range("O1").Value) = vbString And ws3.Range("O1").Value = "3/4", _
+           "O1 holds [" & ws3.Range("O1").Value & "], VarType " & VarType(ws3.Range("O1").Value)
+    Report "VlaSplitColumn: a piece starting = stays text, never a formula", _
+           ws3.Range("P1").HasFormula = False And ws3.Range("P1").Value = "=1+1", "P1 holds " & ws3.Range("P1").Formula
+
+    ' A split that would write over a cell refuses, naming it.
+    ws3.Range("R1").Value = "p,q"
+    ws3.Range("S3").Value = "keep"
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    VlaSplitColumn ws3.Columns("R"), ",", "text"
+    d = Err.Description
+    On Error GoTo 0
+    Report "VlaSplitColumn: a cell in the way refuses, naming it", _
+           InStr(1, d, "cell S3 holds something", vbTextCompare) > 0 And _
+           InStr(1, d, "needs 1 empty column to its right, S,", vbTextCompare) > 0, "got: " & d
+    CheckV "VlaSplitColumn: and nothing changed", ws3.Range("R1").Value, "p,q"
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    VlaSplitColumn ws3.Columns("R"), "", "text"
+    d = Err.Description
+    On Error GoTo 0
+    Report "VlaSplitColumn: an empty separator refuses by name", _
+           InStr(1, d, "the text to split at is empty", vbTextCompare) > 0, "got: " & d
+
+    ' Find and count: T1:U3 read row by row; T2 is an error value, T3 a
+    ' number; V1:V2 hold a star, which is itself, not a wildcard.
+    ws3.Range("T1").Value = "apple"
+    ws3.Range("U1").Value = "Banana"
+    ws3.Range("T2").Value = CVErr(xlErrNA)
+    ws3.Range("U2").Value = "banana split"
+    ws3.Range("T3").Value = 7
+    ws3.Range("U3").Value = "BANANA"
+    ws3.Range("V1").Value = "a*b"
+    ws3.Range("V2").Value = "ab"
+    CheckV "VlaFindText: the row of the first match, row by row", VlaFindText(ws3.Range("T1:U3"), "nan", "row"), 1
+    CheckV "VlaFindText: its column number", VlaFindText(ws3.Range("T1:U3"), "nan", "column"), 21
+    CheckV "VlaFindText: in a whole column", VlaFindText(ws3.Columns("U"), "split", "row"), 2
+    CheckV "VlaFindText: a number's value is searched as text", VlaFindText(ws3.Range("T1:U3"), 7, "row"), 3
+    CheckV "VlaFindText: nothing found is 0", VlaFindText(ws3.Range("T1:U3"), "kiwi", "row"), 0
+    CheckV "VlaCountText: in any case", VlaCountText(ws3.Range("T1:U3"), "BANANA"), 3
+    CheckV "VlaCountText: an error value holds no text", VlaCountText(ws3.Range("T1:U3"), "N/A"), 0
+    CheckV "VlaCountText: a star is itself, not a wildcard", VlaCountText(ws3.Range("V1:V2"), "*"), 1
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    d = CStr(VlaCountText(ws3.Range("T1:U3"), ""))
+    d = Err.Description
+    On Error GoTo 0
+    Report "VlaCountText: empty text to look for refuses by name", _
+           InStr(1, d, "the text to look for is empty", vbTextCompare) > 0, "got: " & d
+
+    ' Last, since it widens the used range to the sheet's last column.
+    ws3.Range("XFD1").Value = "a,b"
+    d = ""
+    On Error Resume Next
+    Err.Clear
+    VlaSplitColumn ws3.Columns("XFD"), ",", "text"
+    d = Err.Description
+    On Error GoTo 0
+    Report "VlaSplitColumn: pieces past the sheet's last column refuse by name", _
+           InStr(1, d, "past the sheet's last column", vbTextCompare) > 0, "got: " & d
+
+    Application.DisplayAlerts = False
+    ws3.Delete
+    Application.DisplayAlerts = True
 End Sub
 
 ' DI.2 Pass 3: VLA_IDE.VlaRegisterForAutoLoad/VlaUnregisterAutoLoad -
@@ -3645,6 +3820,43 @@ Private Sub VerifyReportChecks(ws As Worksheet)
         CheckV "a cell's value with its line break removed (I15)", wsT.Range("I15").Value, "pq"
         CheckV "a marker that is not there refused before setting anything (I16 keeps I15's value)", _
                wsT.Range("I16").Value, "pq"
+
+        ' G-TEXT slice 3: find and replace, and split, on columns L to AA.
+        CheckV "replace changes a value, any case (L1)", wsT.Range("L1").Value, "Nxy"
+        CheckV "replace leaves a formula's own text alone (L2)", wsT.Range("L2").Formula, "=TAN(0)"
+        Report "replace: a result starting = stays text, never a formula (L3)", wsT.Range("L3").HasFormula = False, _
+               "L3 now holds " & wsT.Range("L3").Formula
+        CheckV "replace: and is the replaced text (L3)", wsT.Range("L3").Value, "=1+1"
+        Report "replace: N/A replaced by 0 is still the number 0 (L4)", VarType(wsT.Range("L4").Value) = vbDouble, _
+               "VarType " & VarType(wsT.Range("L4").Value)
+        CheckV "replace: and is 0 (L4)", wsT.Range("L4").Value, 0
+        CheckV "replace in the formulas of a range changes the formula (L5)", wsT.Range("L5").Formula, "=SIGN(-2)"
+        CheckV "replace in the formulas of a range leaves a value alone (L6)", wsT.Range("L6").Value, "ABS"
+        CheckV "replace on this sheet (L7)", wsT.Range("L7").Value, "done"
+        CheckV "replace in the formulas on this sheet (L8)", wsT.Range("L8").Value, 4
+        CheckV "split as text: the first piece stays (N1)", wsT.Range("N1").Value, "x"
+        Report "split as text: 0042 is text (O1)", VarType(wsT.Range("O1").Value) = vbString, _
+               "VarType " & VarType(wsT.Range("O1").Value)
+        CheckV "split as text: and keeps its zeros (O1)", wsT.Range("O1").Value, "0042"
+        Report "split as text: 7 is text too (P1)", VarType(wsT.Range("P1").Value) = vbString, _
+               "VarType " & VarType(wsT.Range("P1").Value)
+        CheckV "split reading numbers: text stays text (R1)", wsT.Range("R1").Value, "y"
+        Report "split reading numbers: 0042 is not a plain number, so stays text (S1)", _
+               VarType(wsT.Range("S1").Value) = vbString And wsT.Range("S1").Value = "0042", _
+               "S1 holds [" & wsT.Range("S1").Value & "], VarType " & VarType(wsT.Range("S1").Value)
+        Report "split reading numbers: 7 is a number (T1)", VarType(wsT.Range("T1").Value) = vbDouble, _
+               "VarType " & VarType(wsT.Range("T1").Value)
+        CheckV "split reading numbers: -3.5 is a number (U1)", wsT.Range("U1").Value, -3.5
+        CheckV "a split that would write over a cell is refused, leaving it (W1)", wsT.Range("W1").Value, "p,q"
+        CheckV "and leaving the cell it named (X1)", wsT.Range("X1").Value, "keep"
+        CheckV "find: the row of the first cell containing a text, row by row (L9)", wsT.Range("L9").Value, 1
+        CheckV "find: its column number (L10)", wsT.Range("L10").Value, 27
+        CheckV "find in a column (L11)", wsT.Range("L11").Value, 2
+        CheckV "count the cells containing a text, any case (L12)", wsT.Range("L12").Value, 3
+        CheckV "count: none is 0 (L13)", wsT.Range("L13").Value, 0
+        CheckV "find: none is 0 (L14)", wsT.Range("L14").Value, 0
+        CheckV "if a range contains a text (L15)", wsT.Range("L15").Value, "yes"
+        CheckV "if a column does not contain a text (L16)", wsT.Range("L16").Value, "no kiwi"
     End If
 End Sub
 

@@ -7381,7 +7381,7 @@ G-TAIL always said this about itself; it is true of the whole tranche.
   sheet are the ones it would read.
 - ⬜ **G-TABS**, ⬜ **G-FORMULA** — the workhorse middle.
   `~weeks` each
-- ⬜ **G-TEXT** — text handling, `pareto.txt` §12, **16 entries**, P0, and
+- ✅ **G-TEXT** — text handling, `pareto.txt` §12, **16 entries**, P0, and
   §13's find and replace (**6 entries**), which belonged to no item and was
   taken in at scoping (2026-09-25). *Recounted first, G-FORMAT's way:* the
   text of one value into a variable already ships — `trimmed`, `first|last
@@ -7502,7 +7502,74 @@ G-TAIL always said this about itself; it is true of the whole tranche.
   engine precursor's, in `TestG1`); 8 host pins (a range as a list row by
   row, a date against the machine's own text for one, an error cell named,
   one cell read as a value); 16 `VerifyReportChecks` on the `GText` sheet,
-  including a refused marker leaving the variable as it was. `~weeks`
+  including a refused marker leaving the variable as it was.
+  **✅ Slice 3, built, owner-verified live and committed 2026-09-28**
+  (`VlaSelfTests` pure 1528/1528 with METAPROOF.1's three, host 241/241;
+  `TestDSLs` 2319; `VerifyReports` 311/311 on both backends; `VlaGoldens`
+  read - the three shipped Replace calls now call `VlaReplaceInRange`, the
+  new `GText` block, and `' vla:N` shifts; three hand tests: formulas left
+  alone and `=1+1` kept as text, then changed by `in the formulas of`;
+  `Smith / 0042 / 17.5` split reading numbers; the refusal naming F1, the
+  sheet put back). **G-TEXT is complete as scoped.** Find and replace,
+  and split: the rest of §12 and all of §13. Recounted first: `Replace …
+  in range|column` and `row of … in column` already shipped. Four forks,
+  each settled by the owner as recommended:
+  - **Replace changes values only (security, SD-4 narrowed).** The shipped
+    sentence was Excel's `Range.Replace`, which edits formula text too -
+    `Replace "A" with "B" in column C` turned `=A1*2` into `=B1*2` - and
+    enters each changed cell again as if typed, so a result starting `=`
+    became a live formula: a way around `SEC.4`, which every other value
+    Frazaro writes obeys. Now `VlaReplaceInRange` changes constant cells
+    only, matching each one's own entry in any case, anywhere in the cell.
+    A changed entry is written back as typed, so `"N/A"` replaced by 0 is
+    still the number 0. A result beginning `= + - @` that is not a plain
+    number is kept as text behind an apostrophe, and a cell marked as text
+    stays text. Written as `Value`, never `Formula`, so
+    `check_no_network`'s formula-write sites stay two. Formulas have their
+    own sentence, `Replace … in the formulas of range|column …` (Excel's
+    Replace on the formula cells alone, its settings pinned, and
+    `SpecialCells` only on a mixed area of two or more cells, since on one
+    cell it reads the whole sheet). `… on this sheet` and `… in the
+    formulas on this sheet` cover the used range.
+  - **Split never writes over a cell, and says what its pieces are.**
+    `Split column C by "," as text.` or `… reading numbers.` (a bare one
+    refuses at Check, "then I expected 'as'"). The column's cell keeps the
+    first piece, and the rest go right. If any cell those pieces need
+    holds something, down to the column's last used row, nothing changes
+    and the refusal names that cell. `as text` keeps every piece text;
+    `reading numbers` reads a plain number (`IsPlainNumberText`: a minus,
+    digits, one point, no leading zero, no exponent, at most 15 digits) as
+    a number. Neither ever makes a date. Only text cells split, the
+    separator is found in any case, and pieces keep their spaces. Pieces
+    go right in one write, and any Excel read as something else are
+    written again as text (slice 1's ask-after-writing).
+  - **A search gives numbers, 0 when nothing matches.** pareto's `Set c to
+    the first cell …` could not work: a variable set to a cell holds its
+    value (IN.11), so `c` would hold the text searched for. `the row|column
+    of the first cell in range … containing …` (and `… in column …`) give
+    numbers the `column number … row …` sentences use, 0 when none, as the
+    shipped `row of … in column` does. `how many cells in range|column …
+    contain …` counts. Both read each cell's value as text (`TextOfValue`),
+    row by row, in any case, blanks and errors skipped, with no wildcards:
+    a `*` is itself.
+  - **`contains` over a range**, pareto's own note on contains-text. It
+    is an engine precursor in the core's condition grammar
+    (`TryRangeContains`, ahead of `ParseCondSimple`): `If range A1:D50
+    contains "x"` and `If column C does not contain "x"` become
+    `(positive?|zero? (vlafindtext … "row"))`. Only a range or column
+    reference with the contains words right after it takes this road, so
+    no condition that parsed before parses differently.
+  **Runtime:** `VlaReplaceInRange`, `VlaSplitColumn`, `VlaFindText`,
+  `VlaCountText`, each with a native `TryRuntimeHelper` Case and a
+  raise-dispatch baseline entry; three refusals added
+  (`rt-split-separator-empty`, `rt-split-columns-not-empty`,
+  `rt-split-too-wide`), and `rt-text-marker-empty`/`-unknown-kind` reused.
+  **Proof:** 11 `test-success` and one `test-fail`; 3 pure pins (the
+  condition both ways, and `contains` on one value unchanged); 39 host
+  pins on a sheet of their own (among them the one-cell `SpecialCells`
+  trap, a 17-digit piece kept whole, `3/4` never a date, and the refusal
+  naming its cell); 28 `VerifyReportChecks` on the `GText` sheet, both
+  backends. `~weeks`
 - 🟡 **G-FILES — workbooks and files.** Scoped in `scripts/pareto.txt`
   section 15 (16 surfaces) - this file previously (wrongly) claimed zero
   templates existed for this section; a cross-check found six already
@@ -24925,6 +24992,8 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **G-FORMAT** — formatting and number-format sections: `pareto.txt` §5 + §6, 43 entries (recounted 2026-09-10; the old "~70" was an estimate). Pure Tier-1, no new plumbing, and where a beta looks thin or finished. **Closed 2026-09-10: 35 rules across two slices, all 43 entries covered; §7 continues as G-CONDFORMAT.** **✅ Slice 1, §5 the cosmetic layer — owner-tested and committed:** 17 rules: five range twins of shipped cell-only rules, plus not-bold/italic, underline, strikethrough, one shared remove verb, typeface, vertical alignment, indent, rotation, one-edge, outline and every-cell borders, clear fill-color. The founding case of SD-19: every-cell borders and clear fill-color are the explicit siblings of two vague shipped spellings; border colour was withdrawn when a live read showed `Borders.Color` draws the lines it colours. Live end state on a new `GFormat` sheet in `instructions.txt`. **✅ Slice 2, §6 number formats and border colour — owner-tested on two regions (UK and US, 203/203 both backends) and committed:** 18 rules under EN.3's new policy (currency named in the sentence — dollars, euros, pounds, and accounting in each; separators and date/time order follow the reading machine; ISO named as the one fixed order), decimals riding each format (`with 2 decimals`), `as text for new entries`, general, a custom pattern, and border colour inside the drawing sentence (`Add a border colored red around …` — `colored` next to the border, a `{c:color}` slot, and `VlaColor` taught the eight names). One new runtime helper, `VlaNumberFormatCode`. With it all 43 entries are covered. *(more: the full entry, earlier in this file)* `~weeks`
 
 - ✅ **G-SORTFILTER** — sorting and filtering, `pareto.txt` §8: 11 entries, P0. **Closed 2026-09-10, owner-tested (pure 1109/1109, host 152/152, 242/242 both backends) and committed: 13 rules, all 11 entries covered.** Recounted first against the three that shipped — the cell-key sort with its hidden header, `Keep only rows … where column 3`, `Show all rows` — each kept (SD-4) and now a CO.7 candidate with an explicit sibling. Four forks the owner decided: every sort names its header (`Sort range A1:C50 by column B with|without a header row.`, two keys, `this sheet`); `Clear the filter conditions.` (buttons stay) beside `Remove the filters.` (buttons go), with `Add filters to range …` never toggling; `Filter range … to show rows where column C is|contains|is greater/less than …`, letters not positions; `Copy only the visible cells of …`. Four refusing runtime helpers (`VlaColumnInRange`, `VlaAddFilters`, `VlaFilterField`, `VlaFilterCriterion`); a refused filter sentence leaves the sheet untouched. Live end state on a new `GSortFilter` sheet. *(more: the full entry, earlier in this file)* `~days`
+
+- ✅ **G-TEXT** — text handling, `pareto.txt` §12: 16 entries, P0, with §13's find and replace (6) taken in at scoping (2026-09-25). Three slices: 1, text changed in place; 2, text in a variable (before/after, characters, pad, join, where `joined with` already means concatenation, so join needs a fork); 3, find and replace and split column. **✅ Slice 1, built, owner-verified live and committed 2026-09-25** (pure 1388, host 194, `VerifyReports` 267/267 both backends, three hand tests): ten rules, a range and a column twin each: `Make … upper|lower case` (or `uppercase`/`lowercase`), `Capitalize each word in … after any space|non-letter` (the sentence names its rule, the owner's call; non-letter is Excel's PROPER), `Remove extra spaces from …` (Excel's TRIM, non-breaking spaces counted) and `Remove non-printing characters from …` (CLEAN). Only text changes, and text stays text: `00123` keeps its zeros, `TRUE` stays a word, `=abc` never becomes a formula. One pure `VlaTextOp`, one `VlaTextInRange`. Also fixed: the shipped `Replace … in range|column` inherited the last Find's whole-cell setting, on both backends. **✅ Slice 2, built, owner-verified live and committed 2026-09-26** (pure 1491 on its own, host 202, `VerifyReports` 283/283 both backends, three hand tests): twelve rules — `the text before|after [the last] "-" in …` (any case, like `contains`; a missing marker refuses by name), `the first|last 3 characters of …`, `… padded on the left|right with "0" to 5 characters` (never cut), `range|column … as one list [separated by …]` (G-PROLOG's words: values, row by row, blanks skipped), and slice 1's changes made to a value (`… with extra spaces removed`). Engine precursor: a number word in a pattern now reads as the tokenizer reads it, so `as one list` can match. **✅ Slice 3, built, owner-verified live and committed 2026-09-28** (pure 1528 with METAPROOF.1's pins, host 241, `TestDSLs` 2319, `VerifyReports` 311/311 both backends, three hand tests); **G-TEXT complete as scoped:** eleven rules and a condition, the owner's four calls. `Replace … in range|column` now changes values only - a formula is never touched and a value never becomes one (Excel's Replace turned =A1*2 into =B1*2 and a result starting = into a live formula, a way around SEC.4); `… in the formulas of range|column` and `… on this sheet` are new. `Split column C by "," as text|reading numbers.` never writes over a cell (it refuses naming the one in the way) and never makes a date. `the row|column of the first cell in … containing …` gives a number, 0 when none (a variable cannot hold a cell), `how many cells in … contain …` counts (no wildcards), and `If range|column … contains …` asks first. *(more: BETA_REARVIEW.md)* `~weeks`
 
 - **The query family — English sentence templates targeting each DSL engine's own text, not a fifth S-expression dialect.** — open items remain in BETA_ROADMAP.md.
 

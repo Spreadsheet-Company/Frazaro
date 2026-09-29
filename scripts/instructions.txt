@@ -1166,6 +1166,63 @@ Try:
 
 Put gtext-part into cell I16.
 
+# G-TEXT slice 3: find and replace, and split. Replace changes values
+# only: L2's formula keeps its own text (reaching it would make =TXY(0),
+# an error), L3's result stays text instead of becoming a formula, and
+# L4's "N/A" still becomes the number 0.
+Put "Nan" into cell L1.
+Put formula "=TAN(0)" into cell L2.
+Replace "an" with "xy" in range L1:L2.
+Put "Q" into cell L3.
+Replace "Q" with "=1+1" in range L3:L3.
+Put "N/A" into cell L4.
+Replace "N/A" with 0 in range L4:L4.
+
+# Formulas have their own sentence, which leaves values alone (L6).
+Put formula "=ABS(-2)" into cell L5.
+Put "ABS" into cell L6.
+Replace "ABS" with "SIGN" in the formulas of range L5:L6.
+
+# The whole sheet: its values, then its formulas.
+Put "zqz" into cell L7.
+Replace "zqz" with "done" on this sheet.
+Put formula "=ABS(-3)" into cell L8.
+Replace "-3" with "-4" in the formulas on this sheet.
+
+# Split: the first piece stays, the rest go right - kept as text, or a
+# plain number read as a number - and never over a cell: X1 holds
+# something, so splitting column W is refused and W1 keeps "p,q".
+Put "x,0042,7" into cell N1.
+Split column N by "," as text.
+Put "y,0042,7,-3.5" into cell R1.
+Split column R by "," reading numbers.
+Put "p,q" into cell W1.
+Put "keep" into cell X1.
+Try:
+  Split column W by "," as text.
+
+# Find and count: each cell's value, in any case, row by row.
+Put "apple" into cell Z1.
+Put "Banana" into cell AA1.
+Put "cherry" into cell Z2.
+Put "banana split" into cell AA2.
+Put 7 into cell Z3.
+Put "BANANA" into cell AA3.
+Set gtext-found to the row of the first cell in range Z1:AA3 containing "nan".
+Put gtext-found into cell L9.
+Set gtext-found to the column of the first cell in range Z1:AA3 containing "nan".
+Put gtext-found into cell L10.
+Set gtext-found to the row of the first cell in column Z containing "err".
+Put gtext-found into cell L11.
+Set gtext-found to how many cells in range Z1:AA3 contain "banana".
+Put gtext-found into cell L12.
+Set gtext-found to how many cells in column Z contain "zzz".
+Put gtext-found into cell L13.
+Set gtext-found to the row of the first cell in range Z1:AA3 containing "kiwi".
+Put gtext-found into cell L14.
+If range Z1:AA3 contains "split", put "yes" into cell L15.
+If column Z does not contain "kiwi", put "no kiwi" into cell L16.
+
 Go to sheet Output.
 
 Tidy-up.

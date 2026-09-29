@@ -7245,6 +7245,12 @@ Private Function ParseCondSimple(toks() As String, ByRef pos As Long, ByRef ok A
     Dim op As String
     Dim divisible As Boolean
     Dim kind As String
+    Dim rangeCond As String
+    If TryRangeContains(toks, pos, rangeCond) Then
+        ParseCondSimple = rangeCond
+        ok = True
+        Exit Function
+    End If
     l = ParseExpr(toks, pos, ok)
     If Not ok Then Exit Function
     ok = False
@@ -7329,6 +7335,49 @@ Private Function ParseCondSimple(toks() As String, ByRef pos As Long, ByRef ok A
         ParseCondSimple = "(" & op & " " & l & " " & r & ")"
     End If
     ok = True
+End Function
+
+' G-TEXT slice 3 (pareto.txt section 12, "contains-text ... extend to
+' ranges"): "If range A1:D50 contains "x"" and "If column C does not
+' contain "x"". A range or a column contains a text when one of its
+' cells' values does, matched exactly as "contains" matches one value -
+' in any case - by the same walk "the row of the first cell in ...
+' containing" makes (VlaFindText), so a program can ask before it looks.
+' Only a range or column reference with the contains words right after
+' it takes this road; anything else, a variable that happens to be named
+' "column" included, is left untouched for the ordinary condition below,
+' so no condition that read before reads differently.
+Private Function TryRangeContains(toks() As String, ByRef pos As Long, ByRef cond As String) As Boolean
+    Dim kind As String
+    kind = TokAt(toks, pos)
+    If kind <> "range" And kind <> "column" Then Exit Function
+    Dim p As Long
+    p = pos + 1
+    Dim ref As String
+    If Not MatchRefToken(kind, toks, p, ref) Then Exit Function
+    Dim negated As Boolean
+    If MatchWords(toks, p, "does not contain") Then
+        negated = True
+    ElseIf Not MatchWords(toks, p, "contains") Then
+        Exit Function
+    End If
+    Dim ok As Boolean
+    Dim r As String
+    r = ParseExpr(toks, p, ok)
+    If Not ok Then Exit Function
+    Dim place As String
+    If kind = "range" Then
+        place = "(range " & ref & ")"
+    Else
+        place = "(columns " & ref & ")"
+    End If
+    If negated Then
+        cond = "(zero? (vlafindtext " & place & " " & r & " ""row""))"
+    Else
+        cond = "(positive? (vlafindtext " & place & " " & r & " ""row""))"
+    End If
+    pos = p
+    TryRangeContains = True
 End Function
 
 Private Function ParseCondReq(toks() As String, ByRef pos As Long) As String

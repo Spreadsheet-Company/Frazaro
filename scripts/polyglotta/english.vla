@@ -3470,6 +3470,151 @@
     "Set proper to raw-name with each word capitalized."
     "then I expected 'after'")
 
+; ---- G-TEXT slice 3: find and replace, and split (pareto 12 and 13) ------
+; The rest of both sections: replace on a whole sheet and in formulas,
+; split-column, find-cell, count-occurrences, and "contains" over a range
+; (a condition, so it lives in the core's condition grammar, not here).
+; Already shipped and kept: "Replace ... in range|column" (now values
+; only, see replace-in above) and "row of ... in column". Four forks the
+; owner decided (2026-09-28), each named where its rules sit. Text is
+; found as "If code contains ..." finds it - in any case, and a "*" or a
+; "?" is itself, never Excel's wildcard.
+
+; ---- replace: the whole sheet, and formulas ------------------------------
+; The shipped sentence changes values, so formulas have a sentence of
+; their own that says so (the owner's call): Excel's own Replace, on the
+; formula cells only. "this sheet" means the sheet the program is on.
+(defmacro
+    (replace-in-formulas a b target)
+    "find and replace text inside the formulas of a range or column - a match anywhere in a formula, in any case; values are left alone"
+    (vlareplaceinrange target a b "formulas"))
+
+(english-vla
+    "replace {a:expr} with {b:expr} on this sheet"
+    (replace-in {a} {b} (used-range)))
+(test-success
+    "Replace \"N/A\" with 0 on this sheet."
+    (replace-in "N/A" 0 (used-range)))
+
+(english-vla
+    "replace {a:expr} with {b:expr} in formulas of range {r:range}"
+    (replace-in-formulas {a} {b} (range {r})))
+(test-success
+    "Replace \"Sheet1\" with \"Data\" in the formulas of range B2:B20."
+    (replace-in-formulas "Sheet1" "Data" (range "b2:b20")))
+
+(english-vla
+    "replace {a:expr} with {b:expr} in formulas of column {c:column}"
+    (replace-in-formulas {a} {b} (columns {c})))
+(test-success
+    "Replace \"SUM\" with \"AVERAGE\" in the formulas of column D."
+    (replace-in-formulas "SUM" "AVERAGE" (columns "d")))
+
+(english-vla
+    "replace {a:expr} with {b:expr} in formulas on this sheet"
+    (replace-in-formulas {a} {b} (used-range)))
+(test-success
+    "Replace \"2025\" with \"2026\" in the formulas on this sheet."
+    (replace-in-formulas "2025" "2026" (used-range)))
+
+; ---- split a column --------------------------------------------------------
+; Excel's Text to Columns, with the owner's two calls. It never writes
+; over anything: when a cell the pieces need holds something, nothing
+; changes and the refusal names the cell. And the sentence says what the
+; pieces are - "as text" keeps each piece text ("0042" keeps its zeros),
+; "reading numbers" makes a plain number a number ("42", "-3.5"; never
+; "0042", "3/4" or "1E5") - and a date is never made. A sentence naming
+; neither refuses at Check. Only text is split; the pieces keep their
+; spaces.
+(defmacro
+    (split-column-as-text c d)
+    "split each text cell of a column at a separator, the pieces going into the empty columns to its right, each kept as text - never writing over a cell"
+    (vlasplitcolumn c d "text"))
+
+(defmacro
+    (split-column-reading-numbers c d)
+    "split each text cell of a column at a separator, the pieces going into the empty columns to its right, a plain number read as a number and the rest kept as text - never writing over a cell"
+    (vlasplitcolumn c d "numbers"))
+
+(english-vla
+    "split column {c:column} by {d:expr} as text"
+    (split-column-as-text (columns {c}) {d}))
+(test-success
+    "Split column C by \",\" as text."
+    (split-column-as-text (columns "c") ","))
+
+(english-vla
+    "split column {c:column} by {d:expr} reading numbers"
+    (split-column-reading-numbers (columns {c}) {d}))
+(test-success
+    "Split column A by \" - \" reading numbers."
+    (split-column-reading-numbers (columns "a") " - "))
+(test-fail
+    "Split column C by \",\"."
+    "then I expected 'as'")
+
+; ---- find ------------------------------------------------------------------
+; The owner's call: a search hands back a row or a column number, which
+; the "column number ... row ..." sentences can use, and 0 when nothing
+; matches - as the shipped "row of ... in column" does. pareto's "the
+; first cell" could not be kept in a variable: a variable set to a cell
+; holds the cell's value. The search reads each cell's value as text,
+; row by row, blank cells and errors skipped. "If range A1:D50 contains
+; "x"" asks first.
+(defmacro
+    (row-of-first-containing r t)
+    "the row of the first cell of a range, row by row, whose value contains a text in any case - 0 when none does"
+    (vlafindtext r t "row"))
+
+(defmacro
+    (column-of-first-containing r t)
+    "the column number of the first cell of a range, row by row, whose value contains a text in any case - 0 when none does"
+    (vlafindtext r t "column"))
+
+(english-vla
+    "set {v:var} to row of first cell in range {r:range} containing {t:expr}"
+    (set! {v} (row-of-first-containing (range {r}) {t})))
+(test-success
+    "Set r to the row of the first cell in range A1:D50 containing \"total\"."
+    (set! r (row-of-first-containing (range "a1:d50") "total")))
+
+(english-vla
+    "set {v:var} to column of first cell in range {r:range} containing {t:expr}"
+    (set! {v} (column-of-first-containing (range {r}) {t})))
+(test-success
+    "Set k to the column of the first cell in range A1:D50 containing \"total\"."
+    (set! k (column-of-first-containing (range "a1:d50") "total")))
+
+(english-vla
+    "set {v:var} to row of first cell in column {c:column} containing {t:expr}"
+    (set! {v} (row-of-first-containing (columns {c}) {t})))
+(test-success
+    "Set r to the row of the first cell in column B containing code."
+    (set! r (row-of-first-containing (columns "b") code)))
+
+; ---- count -----------------------------------------------------------------
+; How many cells hold a text somewhere in their value - the same match as
+; find, counted. Not the shipped "count of range ... matching", which
+; counts whole cells equal to a value.
+(defmacro
+    (count-containing r t)
+    "how many cells of a range have a value containing a text, in any case - blank cells and errors not counted"
+    (vlacounttext r t))
+
+(english-vla
+    "set {v:var} to how many cells in range {r:range} contain {t:expr}"
+    (set! {v} (count-containing (range {r}) {t})))
+(test-success
+    "Set n to how many cells in range A2:A99 contain \"late\"."
+    (set! n (count-containing (range "a2:a99") "late")))
+
+(english-vla
+    "set {v:var} to how many cells in column {c:column} contain {t:expr}"
+    (set! {v} (count-containing (columns {c}) {t})))
+(test-success
+    "Set n to how many cells in column C contain \"*\"."
+    (set! n (count-containing (columns "c") "*")))
+
 ; ---- G11: the template face --------------------------------------
 ; Friendly functors hiding the dot (VBA member access) from template
 ; authors. The dot stays first-class in VLA - these are carried
@@ -3752,17 +3897,19 @@
     wraptext
     "turn on a range's text wrapping"
     "turn off a range's text wrapping")
-; G-TEXT (2026-09-25): :lookat and :matchcase are pinned, to Excel's own
-; starting settings - a match anywhere in a cell, in any case. Left out,
-; Excel reuses whatever the last Find or Replace used, the Find and
-; Replace dialog's or a program's own "row of ... in column" (a whole-
-; cell Find), so the same sentence could replace whole cells only after
-; an earlier one. SD-4 keeps the meaning it had for anyone who never
-; changed that dialog; the sentence now means it every time.
+; G-TEXT (2026-09-25): a match anywhere in a cell, in any case - Excel's
+; own starting settings, pinned, so no earlier Find or Replace (the
+; dialog's, or "row of ... in column", a whole-cell Find) changes what
+; the sentence means. G-TEXT slice 3 (2026-09-28, the owner's call):
+; values only. A formula is never touched - Excel's Replace used to turn
+; =A1*2 into =B1*2 - and a changed value that would begin with = is kept
+; as text, never made a formula (SEC.4). "N/A" replaced by 0 is still the
+; number 0. VLA_Runtime's VlaReplaceInRange has the whole account;
+; "... in the formulas of ..." (replace-in-formulas) changes formulas.
 (defmacro
     (replace-in a b target)
-    "find and replace text within a range or column - a match anywhere in a cell, in any case"
-    (. target replace :what a :replacement b :lookat xlpart :matchcase false))
+    "find and replace text in the values of a range or column - a match anywhere in a cell, in any case; formulas are left alone"
+    (vlareplaceinrange target a b "values"))
 
 (defmacro
     (clear-formatting r)

@@ -192,6 +192,19 @@ Then one core dispatch arm marked `0.7.0` — `ExecStmt at-line`, `TER-10`: the
 interpreter runs the line marks its Run now asks for, so a stop names its
 sentence. `EmitStmt at-line` keeps its `0.5.0`; the form is not new, only the
 interpreter's reading of it.
+Then eleven phrasebook rows marked `0.7.1` — `G-TEXT`'s third slice
+(`pareto.txt` §12 and §13: replace on this sheet and in formulas, split a
+column, the row or column of the first cell containing a text, and how many
+cells contain one) — and four core dispatch arms, `TryRuntimeHelper
+vlacounttext`, `vlafindtext`, `vlareplaceinrange` and `vlasplitcolumn`, each
+new that release. The two shipped `replace … with … in range|column` rows keep
+their `0.5.0` although their meaning narrowed in the same slice, to values
+only (a formula is no longer touched, and a value never becomes one): the
+forms are unchanged, and rule 1 dates when a form first worked, which they
+did. A phrasebook that means formulas says `in formulas of`, dated `0.7.1`.
+`If range … contains …` and `If column … does not contain …` are the core's
+condition grammar, which this ledger has no row type for; they are new in
+`0.7.1` too.
 
 ### Phrasebook rules
 
@@ -337,7 +350,11 @@ interpreter's reading of it.
 0.5.0  remove {f:text-list} from pivot {n:text}
 0.5.0  rename pivot {n:text} to {m:text}
 0.5.0  replace {a:expr} with {b:expr} in column {c:column}
+0.7.1  replace {a:expr} with {b:expr} in formulas of column {c:column}
+0.7.1  replace {a:expr} with {b:expr} in formulas of range {r:range}
+0.7.1  replace {a:expr} with {b:expr} in formulas on this sheet
 0.5.0  replace {a:expr} with {b:expr} in range {r:range}
+0.7.1  replace {a:expr} with {b:expr} on this sheet
 0.5.6  rotate text in cell|range {r:range} by {n:expr} degrees
 0.5.0  save a copy as {p:expr}
 0.5.0  save this workbook
@@ -355,12 +372,15 @@ interpreter's reading of it.
 0.5.0  set width of column {c:column} to {w:expr}
 0.5.0  set {v:var} to average of range {r:range}
 0.5.0  set {v:var} to cell {r:cell} of sheet {s:sheet}
+0.7.1  set {v:var} to column of first cell in range {r:range} containing {t:expr}
 0.7.0  set {v:var} to column {c:column} as one list
 0.7.0  set {v:var} to column {c:column} as one list separated by {s:expr}
 0.5.0  set {v:var} to column {c:text} of table {n:text}
 0.5.0  set {v:var} to count of range {c:range} matching {e:expr}
 0.7.0  set {v:var} to first {n:expr} characters of {t:expr}
 0.5.0  set {v:var} to first {n:expr} letters of {t:expr}
+0.7.1  set {v:var} to how many cells in column {c:column} contain {t:expr}
+0.7.1  set {v:var} to how many cells in range {r:range} contain {t:expr}
 0.5.0  set {v:var} to last filled row of column {c:column}
 0.7.0  set {v:var} to last {n:expr} characters of {t:expr}
 0.5.0  set {v:var} to last {n:expr} letters of {t:expr}
@@ -368,6 +388,8 @@ interpreter's reading of it.
 0.5.0  set {v:var} to position of {a:expr} in {t:expr}
 0.7.0  set {v:var} to range {r:range} as one list
 0.7.0  set {v:var} to range {r:range} as one list separated by {s:expr}
+0.7.1  set {v:var} to row of first cell in column {c:column} containing {t:expr}
+0.7.1  set {v:var} to row of first cell in range {r:range} containing {t:expr}
 0.5.0  set {v:var} to row of {e:expr} in column {c:column}
 0.5.0  set {v:var} to sum of range {r:range}
 0.5.0  set {v:var} to sum of range {r:range} where range {c:range} matches {e:expr}
@@ -397,6 +419,8 @@ interpreter's reading of it.
 0.5.0  sort range {r:range} by column {k:cell} descending
 0.5.0  sort {f:text} in pivot {n:text} {d:ascending|descending}
 0.5.0  sort {f:text} in pivot {n:text} {d:ascending|descending} by {v:text}
+0.7.1  split column {c:column} by {d:expr} as text
+0.7.1  split column {c:column} by {d:expr} reading numbers
 0.5.0  stamp {e:expr} into|in cell {r:cell}
 0.5.0  store {e:expr} at|under [key] {k:expr} in {d:var}
 0.5.6  strike through cell|range {r:range}
@@ -560,10 +584,12 @@ tag, not assumed.*
 0.5.0  TryRuntimeHelper   vlachecksheetname
 0.5.0  TryRuntimeHelper   vlacolor
 0.5.6  TryRuntimeHelper   vlacolumninrange
+0.7.1  TryRuntimeHelper   vlacounttext
 0.5.0  TryRuntimeHelper   vladictget
 0.5.0  TryRuntimeHelper   vlafillseries
 0.5.6  TryRuntimeHelper   vlafiltercriterion
 0.5.6  TryRuntimeHelper   vlafilterfield
+0.7.1  TryRuntimeHelper   vlafindtext
 0.5.0  TryRuntimeHelper   vlafreezepanes
 0.7.0  TryRuntimeHelper   vlajoinrange
 0.5.6  TryRuntimeHelper   vlanumberformatcode
@@ -580,7 +606,9 @@ tag, not assumed.*
 0.5.0  TryRuntimeHelper   vlapivotsetshowdetail
 0.5.0  TryRuntimeHelper   vlapivotsetsubtotals
 0.5.0  TryRuntimeHelper   vlapivotsort
+0.7.1  TryRuntimeHelper   vlareplaceinrange
 0.5.0  TryRuntimeHelper   vlasendmail
+0.7.1  TryRuntimeHelper   vlasplitcolumn
 0.6.0  TryRuntimeHelper   vlatablearguments
 0.7.0  TryRuntimeHelper   vlatextbeside
 0.7.0  TryRuntimeHelper   vlatextinrange

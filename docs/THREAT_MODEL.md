@@ -92,6 +92,18 @@ called directly as native VBA, never through reflection:
   Slice 2 added no member either: `VlaTextBeside` and `VlaTextPad` compute
   on values, and `VlaJoinRange` reads the cells of the range the sentence
   names (a column only as far as its used range) and writes nothing.
+  Slice 3 added none, and closed a path around `SEC.4`: the phrasebook's
+  Replace was `Range.Replace`, which enters every changed cell again as if
+  typed, so a value that came to start with `=` became a live formula.
+  Replace is now `VlaReplaceInRange` (tier 1.3). It changes constant cells
+  only and writes them as `Value`, never `Formula`. A result starting
+  `=`/`+`/`-`/`@` that is not a plain number is written behind an
+  apostrophe, carried in the helper itself as slice 1's rule is. Formula
+  text changes only through the sentence that says `in the formulas of`,
+  which is `Range.Replace` on formula cells alone: formulas rewritten as
+  formulas, the reach `put formula … into cell …` already gives a program.
+  `VlaSplitColumn` writes its pieces under the same rule and never over a
+  cell; `VlaFindText` and `VlaCountText` only read.
 - `NeutralizeFormulaInjection` (`SEC.4`, shipped) now guards the one
   member in this tier with a real injection risk (`Value`) against a
   leading `=`/`+`/`-`/`@`.

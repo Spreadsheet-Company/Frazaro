@@ -290,6 +290,21 @@ Public Sub TestG1()
     EnglishAddPhrase "bundle cell {r:text} as one list", "(debug-print {r})"
     AssertEnglish "g-text: a number word in a pattern matches the same word in a sentence", _
                   "Bundle cell B2 as one list.", "(debug-print ""b2"")"
+
+    ' G-TEXT slice 3: "contains" over a range or a column is a core
+    ' condition - a range reference with the contains words right after
+    ' it - answered by VlaFindText; "contains" on one value reads as it
+    ' always did.
+    EnglishResetGrammar
+    AssertEnglish "g-text: a range contains a text", _
+                  "If range A1:D50 contains ""x"", set hit to 1.", _
+                  "(positive? (vlafindtext (range ""a1:d50"") ""x"" ""row""))"
+    AssertEnglish "g-text: a column does not contain a text", _
+                  "If column C does not contain ""x"", set hit to 0.", _
+                  "(zero? (vlafindtext (columns ""c"") ""x"" ""row""))"
+    AssertEnglish "g-text: contains on one value is unchanged", _
+                  "Create a text called code." & vbCrLf & "If code contains ""x"", set hit to 1.", _
+                  "(positive? (instr 1 code ""x"" vbtextcompare))"
     EnglishResetGrammar
 End Sub
 

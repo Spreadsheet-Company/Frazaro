@@ -2,6 +2,51 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.7.1
+
+### What changed
+
+- **Replace changes values, and never a formula.** `Replace "N/A" with 0 in
+  column C.` used to be Excel's own Find and Replace, which also rewrites the
+  text inside formulas: replacing "A" with "B" in a column could quietly
+  turn `=A1*2` into `=B1*2` and point it at a different cell. Now it changes
+  only the values you typed, and formulas are left exactly as they were.
+  `"N/A"` replaced by 0 still becomes the number 0. To change formulas, say
+  so: `Replace "Sheet1" with "Data" in the formulas of range B2:B20.` (or `of
+  column D`). Both work on a whole sheet too: `Replace "2025" with "2026" on
+  this sheet.` or `… in the formulas on this sheet.`
+
+- **Split a column.** `Split column C by "," as text.` keeps the first piece
+  in C and puts the rest in D, E and so on. Every piece stays text, so
+  "0042" keeps its zeros. `Split column C by "," reading numbers.` makes a
+  plain number like 42 or -3.5 a number and keeps everything else as text.
+  Neither ever turns "3/4" into a date, and the sentence must say which one
+  you want. A split never writes over anything. If a cell the pieces need
+  already holds something, nothing changes and the message names that cell,
+  so you can clear it or insert columns first.
+
+- **Find text in a range, and count it.** `Set r to the row of the first
+  cell in range A1:D50 containing "total".` (or `the column of`, or `in
+  column B`) gives a row or column number you can use with `column number …
+  row …`, or 0 when nothing matches. `Set n to how many cells in range
+  A2:A99 contain "late".` counts them. Both find text in any case, just as
+  `If code contains "late"` does, and a `*` or `?` is just that character.
+  To ask first: `If range A1:D50 contains "total", …` or `If column C does
+  not contain "x", …`.
+
+### Known open security items
+
+**Closed this release: Replace could create a formula.** Excel's own Replace
+enters every cell it changes again as if you had typed it. A value that ended
+up starting with `=` became a live formula, which could reach outside the
+workbook, the way a formula in a downloaded file can. Every other value
+Frazaro writes had long been kept as text in that case. Replace now works the
+same way: a changed value that would start with `=`, `+`, `-` or `@`, and is
+not a plain number, is kept as text. Splitting a column follows the same
+rule. Finding and counting only read. Standing advice unchanged. The full
+list of open items is in `docs/BETA_REARVIEW.md`, in plain words in
+`README.md`.
+
 ## 0.7.0
 
 ### What changed

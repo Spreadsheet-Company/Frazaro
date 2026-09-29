@@ -2657,6 +2657,32 @@ Private Function TryRuntimeHelper(ByVal h As String, ByVal argVals As Variant, B
             AssignVar TryRuntimeHelper, VLA_Runtime.VlaJoinRange(ArgAt(argVals, 0), ArgAt(argVals, 1))
             handled = True
             Exit Function
+        ' G-TEXT slice 3: find and replace, and split. Each refuses by name
+        ' (empty text to look for, a split that would write over a cell,
+        ' a list or an error value where one value belongs), so each gets
+        ' its native Case for the same IN.15 reason.
+        Case "vlareplaceinrange"
+            If Not ArityIs(argVals, 4, handled) Then Exit Function
+            VLA_Runtime.VlaReplaceInRange ArgAt(argVals, 0), ArgAt(argVals, 1), ArgAt(argVals, 2), _
+                                          CStr(ArgAt(argVals, 3))
+            handled = True
+            Exit Function
+        Case "vlasplitcolumn"
+            If Not ArityIs(argVals, 3, handled) Then Exit Function
+            VLA_Runtime.VlaSplitColumn ArgAt(argVals, 0), ArgAt(argVals, 1), CStr(ArgAt(argVals, 2))
+            handled = True
+            Exit Function
+        Case "vlafindtext"
+            If Not ArityIs(argVals, 3, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaFindText(ArgAt(argVals, 0), ArgAt(argVals, 1), _
+                                                                CStr(ArgAt(argVals, 2)))
+            handled = True
+            Exit Function
+        Case "vlacounttext"
+            If Not ArityIs(argVals, 2, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaCountText(ArgAt(argVals, 0), ArgAt(argVals, 1))
+            handled = True
+            Exit Function
         Case "vlapivotrefresh"
             If Not ArityIs(argVals, 1, handled) Then Exit Function
             VLA_Runtime.VlaPivotRefresh CStr(ArgAt(argVals, 0))
