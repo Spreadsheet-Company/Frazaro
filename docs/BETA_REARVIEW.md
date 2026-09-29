@@ -11738,6 +11738,29 @@ lost or mistaken for closer than they are:**
   it — LESSONS.md VIII made into a loop. *Pays into:* `AS.1`,
   `EDITION-MESSAGES`, `EDITION-PARITY`, `G-RENDER`'s horizons, and one
   fewer `tools/check_*.ps1`. `~days`
+
+  **Sub-items, filed 2026-09-28** at the owner's call ("file the ten open
+  pieces as METAPROOF.4–13, listed under the parent on the roadmap"). The
+  owner had found the umbrella's progress unreadable, with nothing listed
+  under it: METAPROOF.1–3 had each moved to the closed ledger the day it
+  closed, and the rest of the plan lived only as prose, here and in
+  METAPROOF.1's own plan. Merged, with nothing counted twice:
+  - *Done, in the closed ledger:* METAPROOF.1 (DATALOG's tests as forms),
+    METAPROOF.2 (clingo checks them), METAPROOF.3 (seventy-eight more
+    DATALOG tests move).
+  - *Open, on the roadmap under this item:*
+    - METAPROOF.4, `(tables ...)`;
+    - METAPROOF.5, a refusal's slots;
+    - METAPROOF.6, retire the parity table. This is step 5 above, reached
+      by another road: both parity loops read the proof corpus, so the
+      table shrinks with every test that moves, and no `test-parity`
+      macro is needed.
+    - METAPROOF.7, clingo checks more;
+    - METAPROOF.8, PROLOG proofs;
+    - METAPROOF.9, SQL and OPTIMIZE proofs;
+    - METAPROOF.10 to METAPROOF.13, steps 1 to 4 above, in order.
+
+  The unscheduled ideas above stay unscheduled.
 - ✅ **METAPROOF.1 — proofs as forms, the first arrow: DATALOG.** *Opened
   2026-09-27 as 0.7.1's first item, at the owner's call ("Proceed with
   scoping and implementing collapse 4 of contemplation 9"), after the same
@@ -11771,7 +11794,11 @@ lost or mistaken for closer than they are:**
      SWI-Prolog and SQLite, for the other engines, are not installed here
      and would need translators for their pure subsets.
   5. *METAPROOF's own first step,* `test-refuses-with-id` in phrasebooks, now
-     has its substrate (the recorder); it waits on `EDITION-MESSAGES`.
+     has its substrate (the recorder), and nothing blocks it. `EDITION-MESSAGES`
+     needs it first, since `english.vla`'s `test-fail` proofs pin English text
+     that a Spanish catalogue would break. (Corrected 2026-09-28: this line
+     first said it waited on `EDITION-MESSAGES`, which had the dependency
+     backwards. Filed as METAPROOF.10.)
   6. *The runner moves to a module of its own* the day a second suite runs
      proofs (per-rule goldens in `VlaSelfTest`, say).
 
