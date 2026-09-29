@@ -1,6 +1,17 @@
 Attribute VB_Name = "VLA_Datalog"
 Option Explicit
-Public Const VLA_DATALOG_VERSION As String = "OPTIMIZE.3"
+Public Const VLA_DATALOG_VERSION As String = "METAPROOF.1"
+' METAPROOF.1: DatalogAnswer - the worksheet answer for one run's result,
+' the lines that turn DatalogRun's Collection into what =DATALOG(...) shows
+' (a Boolean for a one-fact query, otherwise the spilled rows with their
+' header, generic, rule-named or none), moved out of DATALOG unchanged.
+' DATALOG keeps the table arguments and the "#DATALOG! " refusal text and
+' now ends in one call. The reason is the proof corpus
+' (scripts/proofs/datalog.vla, run by VLA_Tests_Query's TestDatalogProofs):
+' a proof pins the answer a person sees, and it should reach that answer
+' through the very lines that make it, not through a copy of them in the
+' test module that could drift from these.
+'
 ' OPTIMIZE.3 (slice 1): THE INTEGER GROUNDER - DatalogGroundRules, a second
 ' evaluator of this module's own parsed rules for OPTIMIZE to ground its
 ' choices and constraints with. Nothing a user types reaches it yet. It
@@ -4807,9 +4818,24 @@ Public Function DATALOG(ByVal rulesText As String, ParamArray tables() As Varian
 
     Dim result As Collection
     Set result = DatalogRun(rulesText, relations, headerMap)
+    ' METAPROOF.1: the rest of what this function did is DatalogAnswer
+    ' now, unchanged - a raise inside it still lands at fail: below.
+    DATALOG = DatalogAnswer(result)
+    Exit Function
+fail:
+    DATALOG = "#DATALOG! " & Err.Description
+End Function
+
+' METAPROOF.1: the worksheet answer for one DatalogRun/DatalogRunForms
+' result - the lines DATALOG above used to end with, moved here unchanged
+' so that a proof reaches the answer a person sees through them and not
+' through a copy (this module's METAPROOF.1 note). Raises what those lines
+' raised; DATALOG turns a raise into its "#DATALOG! " text, and a proof
+' reads the raise itself.
+Public Function DatalogAnswer(ByVal result As Collection) As Variant
     ' DATALOG.9: a query written as one fact answers a Boolean, not a spill.
     If Not IsEmpty(result.Item(5)) Then
-        DATALOG = result.Item(5)
+        DatalogAnswer = result.Item(5)
         Exit Function
     End If
     Dim queryName As String
@@ -4828,11 +4854,8 @@ Public Function DATALOG(ByVal rulesText As String, ParamArray tables() As Varian
     Dim isHeadless As Boolean
     isHeadless = result.Item(4)
     If IsEmpty(result.Item(3)) Then
-        DATALOG = VLA_Relation.RelToSpilledArray(queried, , isHeadless)
+        DatalogAnswer = VLA_Relation.RelToSpilledArray(queried, , isHeadless)
     Else
-        DATALOG = VLA_Relation.RelToSpilledArray(queried, result.Item(3), isHeadless)
+        DatalogAnswer = VLA_Relation.RelToSpilledArray(queried, result.Item(3), isHeadless)
     End If
-    Exit Function
-fail:
-    DATALOG = "#DATALOG! " & Err.Description
 End Function

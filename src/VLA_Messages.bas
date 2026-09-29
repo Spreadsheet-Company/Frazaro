@@ -1,6 +1,22 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "OPTIMIZE.3"
+Public Const VLA_MESSAGES_VERSION As String = "METAPROOF.1"
+' METAPROOF.1: RaiseMsg remembers the last refusal it raised - its id and
+' its finished text - and VlaLastRaisedMsgId/VlaLastRaisedMsgText hand them
+' back. A proof can now pin WHICH refusal fired, by its stable id, where it
+' could only pin an English fragment of the words (which a reworded message
+' breaks) or, in five DATALOG pins, merely that SOME error was raised - a
+' raw VBA crash passed those. Nothing about a raise changes: the same
+' number, source and text, in the same order; the text is built first and
+' remembered, then raised. A raise that fails before it has words to say -
+' an unknown id, a slot left unfilled - remembers nothing, so the latch
+' never names a refusal the user did not see. The id and the text are kept
+' TOGETHER on purpose: a caller checks that the error it caught carries the
+' remembered text, so an id left over from an earlier, caught refusal
+' cannot be mistaken for the one that reached the user. Module-level, like
+' VLA_Runtime's own capture flag, and for the same reason: it is read back
+' immediately, by the caller that just watched the raise.
+'
 ' OPTIMIZE.3 (slice 1): datalog-ground-internal, beside DATALOG's other
 ' entries - the integer grounder (VLA_Datalog.DatalogGroundRules) handed a
 ' batch it cannot answer in one pass. Only OPTIMIZE builds those batches,
@@ -111,6 +127,10 @@ Public Const VLA_MESSAGES_VERSION As String = "OPTIMIZE.3"
 '  notice. A refusal is never a hot loop; rebuilding a few hundred
 '  Collection.Add calls costs nothing a human would notice.
 ' =====================================================================
+
+' METAPROOF.1: the last refusal RaiseMsg raised - see the note at the top.
+Private mLastRaisedId As String
+Private mLastRaisedText As String
 
 Private Function Catalogue() As Collection
     Dim m As New Collection
@@ -1358,10 +1378,36 @@ Public Sub RaiseMsg(ByVal id As String, ParamArray kv() As Variant)
     ' entirely rather than tripping it one hop later.
     Dim kvArr As Variant
     kvArr = kv
-    Err.Raise CLng(rec(0)), CStr(rec(1)), SubstituteSlots(CStr(rec(2)), kvArr)
+    ' METAPROOF.1: the words first, then remembered, then raised - so a
+    ' slot left unfilled (SlotValue's own raise) remembers nothing.
+    Dim finished As String
+    finished = SubstituteSlots(CStr(rec(2)), kvArr)
+    mLastRaisedId = id
+    mLastRaisedText = finished
+    Err.Raise CLng(rec(0)), CStr(rec(1)), finished
     Exit Sub
 unknown:
     Err.Raise 5, "VLA-Messages", "RaiseMsg: unknown message id '" & id & "'"
+End Sub
+
+' METAPROOF.1: the id of the last refusal RaiseMsg raised, or "" since
+' VlaClearLastRaisedMsg. Read it right after the raise it describes, and
+' check VlaLastRaisedMsgText against the error actually caught (the text
+' may have gained a suffix on its way out, like " (near vla line 3)").
+Public Function VlaLastRaisedMsgId() As String
+    VlaLastRaisedMsgId = mLastRaisedId
+End Function
+
+' METAPROOF.1: the finished words of that same refusal, slots filled.
+Public Function VlaLastRaisedMsgText() As String
+    VlaLastRaisedMsgText = mLastRaisedText
+End Function
+
+' METAPROOF.1: forget it - a proof clears before the call it watches, so
+' an earlier refusal cannot answer for this one.
+Public Sub VlaClearLastRaisedMsg()
+    mLastRaisedId = ""
+    mLastRaisedText = ""
 End Sub
 
 ' Same embedded-{slot}-scan shape as VLA_English.bas's own

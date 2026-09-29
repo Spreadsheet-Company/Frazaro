@@ -1,6 +1,22 @@
 Attribute VB_Name = "VLA_Tests_Query"
 Option Explicit
-Public Const VLA_TESTS_QUERY_VERSION As String = "OPTIMIZE.3"
+Public Const VLA_TESTS_QUERY_VERSION As String = "METAPROOF.1"
+' METAPROOF.1: PROOFS AS FORMS, the first arrow. TestDatalogProofs (new)
+' runs scripts/proofs/datalog.vla - DATALOG test programs written as the
+' programs they are, each beside the answer it must give - one PASS/FAIL
+' line per proof, after seventeen controls that prove the runner says FAIL
+' when it should. Sixteen tests moved there from this module: all eleven of
+' TestDatalogBoundArgument (retired, with its DatalogFirstCell helper), which
+' pinned a row COUNT and now names the rows; and TestDatalog's five
+' refusals, which accepted ANY error - a raw VBA crash passed them - and now
+' name the refusal by its message id (VLA_Messages.VlaLastRaisedMsgId, new
+' this item). Both parity loops (TestOptimizeParity, TestDatalogGroundRules)
+' read the corpus's programs beside the table, and the table lost every
+' entry whose only call site moved - so the proof file is where the table
+' starts to shrink, not a second copy of it. The runner is here, beside its
+' one consumer, by this module's own "one file per roadmap SECTION" rule;
+' it moves to a module of its own the day a second suite runs proofs.
+'
 ' OPTIMIZE.3 (slice 1): TestDatalogGroundRules (new, pure) - the integer
 ' grounder against the evaluator it mirrors: 47 hand-derived pins, the join
 ' ORDER among them and each checked against EvalRuleBody too, every one
@@ -320,6 +336,11 @@ Public Const VLA_TESTS_QUERY_VERSION As String = "OPTIMIZE.3"
 '             baseRelations dict directly, the same as any other caller of
 '             VLA_Datalog.DatalogRun; VlaEnsureSheet, TestDatalogHostTable's
 '             own scratch-sheet setup, VLA_Tests_Host.bas's own precedent).
+'             METAPROOF.1's proof runner adds VLA (VlaReadForms,
+'             VlaReadFormsWithLines, VlaWriteForm), VLA_Loader
+'             (VlaReadFile), VLA_Messages (the last refusal raised),
+'             VLA_Identity (Fold) and VLA_Tests (FindDevFile, the corpus
+'             family's own resolver).
 '  SHIPS:     nowhere - VLA_DevRig.bas's reload list only, never
 '             VLA_Build.bas's shipped manifest (VLA_Tests_Grammar.bas's
 '             own precedent exactly).
@@ -365,7 +386,7 @@ Public Function TestDSLs() As Boolean
     Debug.Print "===== VLA SELF-TEST (QUERY AND LOGIC / DSLs) ====="
 
     TestDatalog
-    TestDatalogBoundArgument
+    TestDatalogProofs
     TestDatalogNegation
     TestDatalogAggregation
     TestDatalogBuiltins
@@ -555,187 +576,674 @@ Private Sub TestDatalog()
            (ResultRowCount(arr2) = VLA_Relation.RelCount(rel) + 1) And ResultCellIs(arr2, 1, 1, "A") And ResultCellIs(arr2, 1, 2, "B"), _
            "shape mismatch"
 
-    Dim raised As Boolean
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (p (q r))) (query p)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog: a compound term (nested predicate) is refused, not silently accepted", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(rule (foo X Y) (bar X)) (query foo)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog: a head variable absent from the body is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (p a b)) (fact (p a b c)) (query p)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog: the same predicate used with two different arities is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (p a))"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog: a program with no (query ...) is refused, not guessed", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(headless extra) (fact (p a)) (query p)"
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog: (headless extra) is refused, not silently accepted", raised, "no error raised"
+    ' METAPROOF.1: the five refusals that ended this Sub - a compound
+    ' term, an unsafe head variable, one predicate at two arities, no
+    ' query, (headless extra) - are proofs in scripts/proofs/datalog.vla
+    ' now, each naming its refusal's id. Here they checked only that SOME
+    ' error was raised, which a raw VBA crash would have satisfied.
 End Sub
 
-' DATALOG.14: the atom plan, the filter that filters nothing, and the
-' question's own bound argument pushed into a recursive predicate before it
-' materialises. Every pin here is an ANSWER pin, because that is what this
-' item may not move: the whole of it is a cost change, and the only way it
-' can go wrong is by answering differently. The cost itself is measured on
-' D12Ladder 7 and 8, not here - a pure suite cannot time anything.
+' ---------------------------------------------------------------------
+'  METAPROOF.1: PROOFS AS FORMS - scripts/proofs/datalog.vla.
 '
-' The decision procedure and these same shapes were proven first in
-' tools/datalog14_proof.ps1 (fifteen programs, every answer hand-derived,
-' five conditions each with a mutant that moves an answer) before a line of
-' it was imported. What follows is the same corpus asked of the real engine.
+'  A DATALOG test used to be a program inside a VBA string - quotes
+'  doubled, lines joined with & _ - and an assertion about what came back,
+'  in VBA beside it. There it is a form in a file: the program as the
+'  program it is, and beside it the answer it must give (the file's own
+'  header has the notation). TestDatalogProofs reads the file and reports
+'  one line per proof, named by the proof.
 '
-' The chain is E5 -> E4 -> E3 -> E2 -> E1, four links, so the closure holds
-' ten pairs and four employees reach E1.
-Private Sub TestDatalogBoundArgument()
-    Dim result As Collection
-    Dim rel As Collection
+'  HOW A PROOF IS JUDGED. Its program - the forms the reader produced from
+'  the file, never written back out to text - goes to
+'  VLA_Datalog.DatalogRunForms, and the answer is made from the result by
+'  VLA_Datalog.DatalogAnswer, the lines =DATALOG(...) itself ends in, so a
+'  proof pins what a person sees in the cell. A refusal is matched by the
+'  message id VLA_Messages remembers raising (VlaLastRaisedMsgId), and only
+'  when the error caught carries the very words it remembers - so an id
+'  left over from an earlier refusal cannot answer for a later one.
+'  ProofAnswerVerdict, the part that compares, knows nothing of DATALOG:
+'  PROLOG, SQL and OPTIMIZE answer in the same shapes, and their proofs
+'  will reuse it.
+'
+'  THE CONTROLS COME FIRST. A runner never shown to say FAIL is a runner
+'  that says PASS for a living, so seventeen small proofs, written below,
+'  must each be judged the way they are written to be judged - ten to fail
+'  and seven to hold - before the corpus runs. One suite line each.
+'
+'  A MISSING FILE FAILS (SD-6's rule for the corpus family): the corpus
+'  cannot pass by not being found.
+' ---------------------------------------------------------------------
+Private Sub TestDatalogProofs()
+    ' --- the controls: the judge itself, shown both ways ----------------
+    ProofControl "a spill in the engine's own order holds", True, _
+        "(test-datalog ""c"" (program (fact (p a)) (fact (p b)) (query p)) (rows (Col1) (a) (b)))"
+    ProofControl "the same rows in another order fail under rows", False, _
+        "(test-datalog ""c"" (program (fact (p a)) (fact (p b)) (query p)) (rows (Col1) (b) (a)))"
+    ProofControl "...and hold under rows-in-any-order", True, _
+        "(test-datalog ""c"" (program (fact (p a)) (fact (p b)) (query p)) (rows-in-any-order (Col1) (b) (a)))"
+    ProofControl "a row missing fails, in any order", False, _
+        "(test-datalog ""c"" (program (fact (p a)) (fact (p b)) (query p)) (rows-in-any-order (Col1) (a)))"
+    ProofControl "a wrong header fails", False, _
+        "(test-datalog ""c"" (program (fact (p a)) (fact (p b)) (query p)) (rows (X) (a) (b)))"
+    ProofControl "a row wider than its header fails", False, _
+        "(test-datalog ""c"" (program (fact (p a)) (fact (p b)) (query p)) (rows (Col1) (a b) (b)))"
+    ProofControl "a headless spill holds with no header row", True, _
+        "(test-datalog ""c"" (program (headless) (fact (p a)) (fact (p b)) (query p)) (rows-in-any-order headless (a) (b)))"
+    ProofControl "a headless program that matches nothing is the blank cell", True, _
+        "(test-datalog ""c"" (program (headless) (fact (thing a)) (rule (nothing_here X) (thing X) (thing none)) (query nothing_here)) (rows headless))"
+    ProofControl "a one-fact question answers true", True, _
+        "(test-datalog ""c"" (program (fact (p a)) (query (p a))) (answer true))"
+    ProofControl "...and (answer false) of it fails", False, _
+        "(test-datalog ""c"" (program (fact (p a)) (query (p a))) (answer false))"
+    ProofControl "a refusal named by its id holds", True, _
+        "(test-datalog ""c"" (program (fact (p a))) (refuses datalog-query-missing))"
+    ProofControl "the wrong id fails", False, _
+        "(test-datalog ""c"" (program (fact (p a))) (refuses datalog-compound-term))"
+    ProofControl "a refusal expected of a program that answers fails", False, _
+        "(test-datalog ""c"" (program (fact (p a)) (query p)) (refuses datalog-query-missing))"
+    ProofControl "rows expected of a program that refuses fail", False, _
+        "(test-datalog ""c"" (program (fact (p a))) (rows (Col1) (a)))"
+    ProofControl "a number matches the same number the program wrote as text", True, _
+        "(test-datalog ""c"" (program (fact (n a 1)) (query n)) (rows (Col1 Col2) (a 1)))"
+    ProofControl "...and a different number fails", False, _
+        "(test-datalog ""c"" (program (fact (n a 1)) (query n)) (rows (Col1 Col2) (a 2)))"
+    ProofControl "a proof with no expectation fails rather than passing by default", False, _
+        "(test-datalog ""c"" (program (fact (p a)) (query p)))"
 
+    ' --- the corpus -------------------------------------------------------
+    Dim proofFile As String
+    Dim loadErr As String
+    On Error Resume Next
+    proofFile = DatalogProofPath()
+    If Err.Number <> 0 Then loadErr = Err.Description
+    On Error GoTo 0
+    Dim proofs As Collection
+    Dim formLines As Collection
+    If Len(loadErr) = 0 Then
+        On Error Resume Next
+        Set proofs = VLA.VlaReadFormsWithLines(VLA_Loader.VlaReadFile(proofFile), formLines)
+        If Err.Number <> 0 Then loadErr = Err.Description
+        On Error GoTo 0
+    End If
+    If Len(loadErr) > 0 Then
+        Report "datalog proofs: scripts/proofs/datalog.vla is present and reads", False, loadErr
+        Exit Sub
+    End If
 
-    ' The shape D12Ladder 8 times. Specialised at position 2, and the answer
-    ' is the four employees who reach e1.
-    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
-        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
-        " (rule (ask W) (any W e1)) (query ask)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog bound arg: a closure asked about one person answers its four reachers", _
-           VLA_Relation.RelCount(rel) = 4, "got " & VLA_Relation.RelCount(rel)
-
-    ' The same question with the OTHER argument bound. Right-recursive, so
-    ' the binding does not pass through position 1 and the rewrite declines -
-    ' and the answer is the four bosses e5 reaches, unchanged either way.
-    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
-        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
-        " (rule (ask W) (any e5 W)) (query ask)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog bound arg: the other direction still answers its four bosses", _
-           VLA_Relation.RelCount(rel) = 4, "got " & VLA_Relation.RelCount(rel)
-
-    ' A reader that projects BOTH columns pins nothing, so the whole closure
-    ' must still be built: ten pairs over a four-link chain.
-    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
-        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
-        " (rule (ask A B) (any A B)) (query ask)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog bound arg: a reader projecting both columns still gets all ten pairs", _
-           VLA_Relation.RelCount(rel) = 10, "got " & VLA_Relation.RelCount(rel)
-
-    ' The closure IS the query. Its own relation is the answer, so it may
-    ' never be narrowed however the other rule reads it.
-    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
-        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
-        " (rule (side W) (any W e1)) (query any)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog bound arg: the queried closure keeps all ten pairs though a reader pins e1", _
-           VLA_Relation.RelCount(rel) = 10, "got " & VLA_Relation.RelCount(rel)
-
-    ' Two readers over two SEPARATE chains, pinning different constants. No
-    ' single narrowing serves both, so neither may be applied: a2 and a3
-    ' reach a1, b2 and b3 reach b1, and the answer is all four.
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (edge a2 a1)) (fact (edge a3 a2)) (fact (edge b2 b1)) (fact (edge b3 b2))" & _
-        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
-        " (rule (ask W) (any W a1)) (rule (ask W) (any W b1)) (query ask)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog bound arg: two readers pinning two constants keep both answers", _
-           VLA_Relation.RelCount(rel) = 4, "got " & VLA_Relation.RelCount(rel)
-
-    ' A negated reader pins position 2 like any other. Every employee with a
-    ' boss reaches e1, so nothing survives the anti-join.
-    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
-        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
-        " (rule (ask W) (edge W Q) (not (any W e1))) (query ask)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog bound arg: a negated reader over the closure still answers nothing", _
-           VLA_Relation.RelCount(rel) = 0, "got " & VLA_Relation.RelCount(rel)
-
-    ' A count reader. Four reach e1, and ComputeAggregateGroups' plan is
-    ' built once per call rather than once per tuple.
-    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
-        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
-        " (rule (ask N) (count N (any VlaCounted e1))) (query ask)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog bound arg: counting the closure's reachers of e1 answers 4", _
-           VLA_Relation.RelCount(rel) = 1 And DatalogFirstCell(rel) = "4", _
-           "got " & VLA_Relation.RelCount(rel) & " row(s), first cell " & DatalogFirstCell(rel)
-
-    ' The bound variable is also a comparison operand, so the rewrite must
-    ' decline: substituting the constant's text would leave Y unbound in the
-    ' comparison. The recursive step fires only for Y = e1, which is exactly
-    ' what carries e3, e4 and e5 into the answer beside e1's direct report.
-    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
-        " (rule (any X Y) (edge X Y))" & _
-        " (rule (any X Y) (edge X Z) (any Z Y) (= Y e1))" & _
-        " (rule (ask W) (any W e1)) (query ask)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog bound arg: a bound variable read as a value declines, and answers four", _
-           VLA_Relation.RelCount(rel) = 4, "got " & VLA_Relation.RelCount(rel)
-
-    ' A fact already defines the closure predicate: z9 reaches e1 by fiat, so
-    ' the answer is five, not four.
-    Set result = VLA_Datalog.DatalogRun("(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4))" & _
-        " (fact (any z9 e1))" & _
-        " (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y))" & _
-        " (rule (ask W) (any W e1)) (query ask)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog bound arg: a fact in the closure predicate is still answered", _
-           VLA_Relation.RelCount(rel) = 5, "got " & VLA_Relation.RelCount(rel)
-
-    ' The atom plan's first job: a repeated variable must still filter. Of
-    ' the two edges only (a a) has its two columns equal, so exactly one row
-    ' survives - and the plan is what decides that, where a per-tuple
-    ' dictionary used to.
-    Set result = VLA_Datalog.DatalogRun("(fact (edge a a)) (fact (edge a b))" & _
-        " (rule (self_loop X) (edge X X)) (query self_loop)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog bound arg: a repeated variable still filters after the plan is compiled", _
-           VLA_Relation.RelCount(rel) = 1, "got " & VLA_Relation.RelCount(rel)
-
-    ' An atom whose every argument is a distinct free variable constrains
-    ' nothing, so FilterAtomRelation hands its relation straight back. The
-    ' answer must be every row, unchanged and un-deduped in count.
-    Set result = VLA_Datalog.DatalogRun("(fact (edge a b)) (fact (edge b c)) (fact (edge c d))" & _
-        " (rule (copy X Y) (edge X Y)) (query copy)")
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog bound arg: an atom that constrains nothing passes every row through", _
-           VLA_Relation.RelCount(rel) = 3, "got " & VLA_Relation.RelCount(rel)
+    Dim seenNames As Collection
+    Set seenNames = New Collection
+    Dim ix As Long
+    Dim proofName As String
+    Dim verdict As String
+    Dim f As Variant
+    For Each f In proofs
+        ix = ix + 1
+        verdict = DatalogProofVerdict(f, proofName)
+        If Len(verdict) = 0 Then
+            If ProofNameTaken(seenNames, proofName) Then
+                verdict = "a proof above already has this name - two lines no one could tell apart"
+            End If
+        End If
+        Report "datalog proof: " & proofName, Len(verdict) = 0, _
+               "datalog.vla line " & CStr(formLines.Item(ix)) & ": " & verdict
+    Next f
+    ' The floor, so the loop cannot pass by reading nothing: sixteen at
+    ' METAPROOF.1, the tests that moved here. Raise it as proofs arrive.
+    Report "datalog proofs: the corpus holds at least its sixteen proofs", ix >= 16, "read " & ix
 End Sub
 
-' The first cell of a one-column relation's first tuple, as text - the
-' aggregate pins above read a count back this way rather than spilling.
-Private Function DatalogFirstCell(ByVal rel As Collection) As String
-    If VLA_Relation.RelCount(rel) = 0 Then Exit Function
-    Dim t As Variant, arr() As Variant
-    For Each t In VLA_Relation.RelTuples(rel)
-        arr = t
-        DatalogFirstCell = CStr(arr(LBound(arr)))
+' One control: proofText is judged exactly as a corpus proof is, and must
+' hold (shouldHold True) or fail (False). One suite line either way.
+Private Sub ProofControl(ByVal what As String, ByVal shouldHold As Boolean, ByVal proofText As String)
+    Dim verdict As String
+    verdict = ProofTextVerdict(proofText)
+    If shouldHold Then
+        Report "datalog proofs control: " & what, Len(verdict) = 0, verdict
+    Else
+        Report "datalog proofs control: " & what, Len(verdict) > 0, "the judge let it pass"
+    End If
+End Sub
+
+' A proof held in a string (the controls), read and judged. A reader
+' failure is a verdict too, never a raise out of the suite.
+Private Function ProofTextVerdict(ByVal proofText As String) As String
+    Dim forms As Collection
+    Dim readErr As String
+    On Error Resume Next
+    Set forms = VLA.VlaReadForms(proofText)
+    If Err.Number <> 0 Then readErr = Err.Description
+    On Error GoTo 0
+    If Len(readErr) > 0 Then
+        ProofTextVerdict = "the proof did not read: " & readErr
         Exit Function
-    Next t
+    End If
+    If forms.Count <> 1 Then
+        ProofTextVerdict = "expected one proof form, read " & forms.Count
+        Exit Function
+    End If
+    Dim proofName As String
+    ProofTextVerdict = DatalogProofVerdict(forms.Item(1), proofName)
+End Function
+
+' The corpus file, found by the corpus family's own resolver (FindDevFile,
+' VLA_Tests.bas), which raises when it is missing.
+Private Function DatalogProofPath() As String
+    DatalogProofPath = FindDevFile("proofs" & Application.PathSeparator & "datalog.vla")
+End Function
+
+' True when proofName was already seen; records it either way.
+Private Function ProofNameTaken(ByVal seenNames As Collection, ByVal proofName As String) As Boolean
+    On Error Resume Next
+    seenNames.Add proofName, "k" & proofName
+    ProofNameTaken = (Err.Number <> 0)
+    On Error GoTo 0
+End Function
+
+' The verdict on one proof: "" when it holds, otherwise what went wrong,
+' in words - a malformed proof as much as a wrong answer. Returns rather
+' than raises, so one broken proof reports itself and the rest still run.
+' proofName comes back as the proof's own name, or a stand-in when the
+' form is too malformed to carry one.
+Private Function DatalogProofVerdict(ByVal proof As Variant, ByRef proofName As String) As String
+    proofName = "(a proof with no name)"
+    If Not IsObject(proof) Then
+        DatalogProofVerdict = "malformed proof: a bare word where a (test-datalog ...) form belongs"
+        Exit Function
+    End If
+    Dim pl As Collection
+    Set pl = proof
+    If ProofHead(pl) <> "test-datalog" Then
+        DatalogProofVerdict = "malformed proof: this file holds (test-datalog ...) forms only"
+        Exit Function
+    End If
+    If pl.Count < 2 Then
+        DatalogProofVerdict = "malformed proof: (test-datalog ...) needs a ""quoted"" name"
+        Exit Function
+    End If
+    If IsObject(pl.Item(2)) Then
+        DatalogProofVerdict = "malformed proof: (test-datalog ...) needs a ""quoted"" name"
+        Exit Function
+    End If
+    If Left$(CStr(pl.Item(2)), 1) <> Chr$(34) Then
+        DatalogProofVerdict = "malformed proof: (test-datalog ...) needs a ""quoted"" name"
+        Exit Function
+    End If
+    proofName = Mid$(CStr(pl.Item(2)), 2)
+
+    Dim programForms As Collection
+    Dim expect As Collection
+    Dim clause As Collection
+    Dim clauseHead As String
+    Dim ci As Long
+    For ci = 3 To pl.Count
+        If Not IsObject(pl.Item(ci)) Then
+            DatalogProofVerdict = "malformed proof: a bare word where a clause belongs"
+            Exit Function
+        End If
+        Set clause = pl.Item(ci)
+        clauseHead = ProofHead(clause)
+        Select Case clauseHead
+        Case "program"
+            If Not programForms Is Nothing Then
+                DatalogProofVerdict = "malformed proof: two (program ...) clauses"
+                Exit Function
+            End If
+            Set programForms = ProofRest(clause)
+        Case "rows", "rows-in-any-order", "answer", "refuses"
+            If Not expect Is Nothing Then
+                DatalogProofVerdict = "malformed proof: two expectations - a proof states one answer"
+                Exit Function
+            End If
+            Set expect = clause
+        Case Else
+            DatalogProofVerdict = "malformed proof: (" & clauseHead & " ...) is not a clause a proof has"
+            Exit Function
+        End Select
+    Next ci
+    If programForms Is Nothing Then
+        DatalogProofVerdict = "malformed proof: no (program ...) clause"
+        Exit Function
+    End If
+    If expect Is Nothing Then
+        DatalogProofVerdict = "malformed proof: no expectation - (rows ...), (rows-in-any-order ...), (answer ...) or (refuses ...)"
+        Exit Function
+    End If
+
+    ' Run it. Err is read into locals before On Error GoTo 0 clears it.
+    Dim res As Collection
+    Dim answer As Variant
+    Dim errNo As Long
+    Dim errDesc As String
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    Err.Clear
+    Set res = VLA_Datalog.DatalogRunForms(programForms)
+    If Err.Number = 0 Then answer = VLA_Datalog.DatalogAnswer(res)
+    errNo = Err.Number
+    errDesc = Err.Description
+    On Error GoTo 0
+    DatalogProofVerdict = ProofAnswerVerdict(expect, answer, errNo, errDesc)
+End Function
+
+' A form's head word, folded, or "" when it has none.
+Private Function ProofHead(ByVal form As Variant) As String
+    If Not IsObject(form) Then Exit Function
+    Dim lst As Collection
+    Set lst = form
+    If lst.Count < 1 Then Exit Function
+    If IsObject(lst.Item(1)) Then Exit Function
+    ProofHead = VLA_Identity.Fold(CStr(lst.Item(1)))
+End Function
+
+' Every item of lst after its head, as a new Collection.
+Private Function ProofRest(ByVal lst As Collection) As Collection
+    Dim outc As Collection
+    Set outc = New Collection
+    Dim i As Long
+    For i = 2 To lst.Count
+        outc.Add lst.Item(i)
+    Next i
+    Set ProofRest = outc
+End Function
+
+' Judges one answer against one expectation: "" when it holds. answer is
+' what the engine answered (Empty when it refused); errNo and errDesc the
+' refusal, if one was raised. Knows nothing of DATALOG: PROLOG, SQL and
+' OPTIMIZE answer in these same shapes, so their proofs will reuse it.
+Private Function ProofAnswerVerdict(ByVal expect As Collection, ByRef answer As Variant, _
+                                    ByVal errNo As Long, ByVal errDesc As String) As String
+    Dim expectKind As String
+    expectKind = ProofHead(expect)
+    If expectKind = "refuses" Then
+        ProofAnswerVerdict = ProofRefusalVerdict(expect, answer, errNo, errDesc)
+        Exit Function
+    End If
+    If errNo <> 0 Then
+        ProofAnswerVerdict = "expected an answer, but it refused" & ProofRefusalWords(errDesc)
+        Exit Function
+    End If
+    If expectKind = "answer" Then
+        ProofAnswerVerdict = ProofBooleanVerdict(expect, answer)
+    Else
+        ProofAnswerVerdict = ProofRowsVerdict(expect, answer, (expectKind = "rows-in-any-order"))
+    End If
+End Function
+
+' How a refusal reads in a verdict: by its id when VLA_Messages raised it
+' (the words it remembers are the words caught), then by its words.
+Private Function ProofRefusalWords(ByVal errDesc As String) As String
+    Dim gotText As String
+    gotText = VLA_Messages.VlaLastRaisedMsgText()
+    If Len(gotText) > 0 And InStr(1, errDesc, gotText, vbBinaryCompare) > 0 Then
+        ProofRefusalWords = " with " & VLA_Messages.VlaLastRaisedMsgId() & ": " & errDesc
+    Else
+        ProofRefusalWords = ", and not with a catalogued refusal: " & errDesc
+    End If
+End Function
+
+' (refuses message-id): it must refuse, and the refusal caught must be the
+' one VLA_Messages remembers raising under that id.
+Private Function ProofRefusalVerdict(ByVal expect As Collection, ByRef answer As Variant, _
+                                     ByVal errNo As Long, ByVal errDesc As String) As String
+    If expect.Count <> 2 Then
+        ProofRefusalVerdict = "malformed proof: (refuses ...) names exactly one message id"
+        Exit Function
+    End If
+    If IsObject(expect.Item(2)) Then
+        ProofRefusalVerdict = "malformed proof: (refuses ...) names exactly one message id"
+        Exit Function
+    End If
+    Dim wantId As String
+    wantId = CStr(expect.Item(2))
+    If errNo = 0 Then
+        ProofRefusalVerdict = "expected the refusal " & wantId & ", but it answered " & ProofDescribe(answer)
+        Exit Function
+    End If
+    Dim gotText As String
+    gotText = VLA_Messages.VlaLastRaisedMsgText()
+    If Len(gotText) = 0 Or InStr(1, errDesc, gotText, vbBinaryCompare) = 0 Then
+        ProofRefusalVerdict = "expected the refusal " & wantId & ", but what it raised is no catalogued refusal: " & errDesc
+        Exit Function
+    End If
+    If VLA_Identity.Fold(VLA_Messages.VlaLastRaisedMsgId()) <> VLA_Identity.Fold(wantId) Then
+        ProofRefusalVerdict = "expected the refusal " & wantId & ", but it refused" & ProofRefusalWords(errDesc)
+    End If
+End Function
+
+' (answer true) or (answer false): a Boolean, and that one.
+Private Function ProofBooleanVerdict(ByVal expect As Collection, ByRef answer As Variant) As String
+    Dim want As String
+    If expect.Count = 2 Then
+        If Not IsObject(expect.Item(2)) Then want = VLA_Identity.Fold(CStr(expect.Item(2)))
+    End If
+    If want <> "true" And want <> "false" Then
+        ProofBooleanVerdict = "malformed proof: (answer ...) is (answer true) or (answer false)"
+        Exit Function
+    End If
+    If VarType(answer) <> vbBoolean Then
+        ProofBooleanVerdict = "expected (answer " & want & "), but it answered " & ProofDescribe(answer)
+        Exit Function
+    End If
+    If CBool(answer) <> (want = "true") Then
+        ProofBooleanVerdict = "expected (answer " & want & "), but it answered " & ProofDescribe(answer)
+    End If
+End Function
+
+' (rows HEADER ROW...) and (rows-in-any-order HEADER ROW...). HEADER is a
+' list of column names, or the word headless. Every row, and a list
+' header, as wide as the first. With neither a header nor a row, the
+' answer must be the blank cell a headless program shows when nothing
+' matches. anyOrder lets the data rows come in any order; the header row
+' is always first.
+Private Function ProofRowsVerdict(ByVal expect As Collection, ByRef answer As Variant, _
+                                  ByVal anyOrder As Boolean) As String
+    If expect.Count < 2 Then
+        ProofRowsVerdict = "malformed proof: (rows ...) needs a header first - a list of names, or headless"
+        Exit Function
+    End If
+    Dim headless As Boolean
+    Dim want As Collection
+    Set want = New Collection
+    If IsObject(expect.Item(2)) Then
+        want.Add expect.Item(2)
+    ElseIf VLA_Identity.Fold(CStr(expect.Item(2))) = "headless" Then
+        headless = True
+    Else
+        ProofRowsVerdict = "malformed proof: a header is a list of names, or the word headless"
+        Exit Function
+    End If
+    Dim i As Long
+    For i = 3 To expect.Count
+        If Not IsObject(expect.Item(i)) Then
+            ProofRowsVerdict = "malformed proof: every row is a list of cells"
+            Exit Function
+        End If
+        want.Add expect.Item(i)
+    Next i
+
+    Dim wide As Long
+    wide = -1
+    Dim wr As Variant
+    Dim wrl As Collection
+    Dim cellIx As Long
+    For Each wr In want
+        Set wrl = wr
+        If wide < 0 Then wide = wrl.Count
+        If wrl.Count <> wide Then
+            ProofRowsVerdict = "malformed proof: a row " & wrl.Count & " cells wide beside one " & wide & " wide"
+            Exit Function
+        End If
+        For cellIx = 1 To wrl.Count
+            If IsObject(wrl.Item(cellIx)) Then
+                ProofRowsVerdict = "malformed proof: a list where a cell belongs"
+                Exit Function
+            End If
+        Next cellIx
+    Next wr
+
+    ' Neither header nor row: the blank cell.
+    If want.Count = 0 Then
+        If VarType(answer) = vbString Then
+            If Len(answer) = 0 Then Exit Function
+        End If
+        ProofRowsVerdict = "expected the blank cell, (rows headless), but it answered " & ProofDescribe(answer)
+        Exit Function
+    End If
+
+    Dim nRows As Long, nCols As Long
+    If Not ProofGridSize(answer, nRows, nCols) Then
+        ProofRowsVerdict = "expected a spill of " & want.Count & " row(s), but it answered " & ProofDescribe(answer)
+        Exit Function
+    End If
+    If nRows <> want.Count Or nCols <> wide Then
+        ProofRowsVerdict = "expected " & want.Count & " row(s), " & wide & " wide, but it answered " & ProofDescribe(answer)
+        Exit Function
+    End If
+
+    Dim firstData As Long
+    firstData = 1
+    If Not headless Then firstData = 2
+    Dim r As Long
+    If Not headless Then
+        If Not ProofRowMatches(want.Item(1), answer, 1) Then
+            ProofRowsVerdict = "the header row differs: it answered " & ProofDescribe(answer)
+            Exit Function
+        End If
+    End If
+    If Not anyOrder Then
+        For r = firstData To nRows
+            If Not ProofRowMatches(want.Item(r), answer, r) Then
+                ProofRowsVerdict = "row " & r & " differs: it answered " & ProofDescribe(answer)
+                Exit Function
+            End If
+        Next r
+        Exit Function
+    End If
+    ' In any order: each expected row claims one unclaimed row it matches.
+    Dim claimed() As Boolean
+    ReDim claimed(1 To nRows)
+    Dim ar As Long
+    Dim matchedRow As Boolean
+    For r = firstData To nRows
+        matchedRow = False
+        For ar = firstData To nRows
+            If Not claimed(ar) Then
+                If ProofRowMatches(want.Item(r), answer, ar) Then
+                    claimed(ar) = True
+                    matchedRow = True
+                    Exit For
+                End If
+            End If
+        Next ar
+        If Not matchedRow Then
+            ProofRowsVerdict = "no row of the answer matches " & VLA.VlaWriteForm(want.Item(r)) & ": it answered " & ProofDescribe(answer)
+            Exit Function
+        End If
+    Next r
+End Function
+
+' The size of a two-dimensional spill, or False when answer is not one.
+Private Function ProofGridSize(ByRef answer As Variant, ByRef nRows As Long, ByRef nCols As Long) As Boolean
+    nRows = 0
+    nCols = 0
+    If Not IsArray(answer) Then Exit Function
+    On Error GoTo notAGrid
+    nRows = UBound(answer, 1) - LBound(answer, 1) + 1
+    nCols = UBound(answer, 2) - LBound(answer, 2) + 1
+    ProofGridSize = True
+    Exit Function
+notAGrid:
+    nRows = 0
+    nCols = 0
+End Function
+
+' Whether one expected row matches row r (counted from 1) of the spill.
+Private Function ProofRowMatches(ByVal wantRow As Variant, ByRef answer As Variant, ByVal r As Long) As Boolean
+    Dim wl As Collection
+    Set wl = wantRow
+    Dim r0 As Long, c0 As Long
+    r0 = LBound(answer, 1) - 1
+    c0 = LBound(answer, 2) - 1
+    Dim c As Long
+    For c = 1 To wl.Count
+        If Not ProofCellMatches(wl.Item(c), answer(r0 + r, c0 + c)) Then Exit Function
+    Next c
+    ProofRowMatches = True
+End Function
+
+' One expected cell, as written, against one cell of the answer: true and
+' false are TRUE and FALSE; anything else is text, compared by value
+' (ProofTextMatches). A "quoted" cell is its text without the quotes.
+Private Function ProofCellMatches(ByVal want As Variant, ByVal got As Variant) As Boolean
+    If IsObject(want) Then Exit Function
+    If IsObject(got) Then Exit Function
+    If IsArray(got) Then Exit Function
+    If IsError(got) Then Exit Function
+    Dim w As String
+    w = CStr(want)
+    If Left$(w, 1) = Chr$(34) Then
+        ProofCellMatches = ProofTextMatches(Mid$(w, 2), got)
+        Exit Function
+    End If
+    Select Case VLA_Identity.Fold(w)
+    Case "true", "false"
+        If VarType(got) = vbBoolean Then ProofCellMatches = (CBool(got) = (VLA_Identity.Fold(w) = "true"))
+        Exit Function
+    End Select
+    ProofCellMatches = ProofTextMatches(w, got)
+End Function
+
+' Text and numbers compare by value, whichever side is text: equal text
+' matches byte for byte, and a number matches the same number, read
+' locale-invariantly (VLA_Relation's own readers). So 4 and "4" both
+' match a cell showing 4, as every assertion in this module always has.
+Private Function ProofTextMatches(ByVal want As String, ByVal got As Variant) As Boolean
+    If VarType(got) = vbString Then
+        If StrComp(CStr(got), want, vbBinaryCompare) = 0 Then
+            ProofTextMatches = True
+        ElseIf VLA_Relation.IsInvariantNumericString(want) And VLA_Relation.IsInvariantNumericString(CStr(got)) Then
+            ProofTextMatches = (VLA_Relation.InvariantVal(want) = VLA_Relation.InvariantVal(CStr(got)))
+        End If
+        Exit Function
+    End If
+    If VLA_Relation.ValueIsNumericType(got) Then
+        If VLA_Relation.IsInvariantNumericString(want) Then
+            ProofTextMatches = (CDbl(got) = VLA_Relation.InvariantVal(want))
+        End If
+    End If
+End Function
+
+' The answer as a proof would write it, so a failing proof's detail is
+' the expectation to paste once the new answer is known to be right. A
+' headed spill reads (rows (header) (row) ...); for a headless one, write
+' headless before its first row.
+Private Function ProofDescribe(ByRef answer As Variant) As String
+    Dim s As String
+    Dim nRows As Long, nCols As Long
+    If IsArray(answer) Then
+        If ProofGridSize(answer, nRows, nCols) Then
+            Dim r As Long, c As Long
+            Dim r0 As Long, c0 As Long
+            r0 = LBound(answer, 1) - 1
+            c0 = LBound(answer, 2) - 1
+            s = "(rows"
+            For r = 1 To nRows
+                If Len(s) > 400 Then
+                    s = s & " ..."
+                    Exit For
+                End If
+                s = s & " ("
+                For c = 1 To nCols
+                    If c > 1 Then s = s & " "
+                    s = s & ProofCellWords(answer(r0 + r, c0 + c))
+                Next c
+                s = s & ")"
+            Next r
+            s = s & ")"
+        Else
+            s = "an array that is not a spill"
+        End If
+    ElseIf VarType(answer) = vbBoolean Then
+        If CBool(answer) Then s = "(answer true)" Else s = "(answer false)"
+    ElseIf VarType(answer) = vbString Then
+        If Len(answer) = 0 Then
+            s = "the blank cell, (rows headless)"
+        Else
+            s = "the text " & ProofCellWords(answer)
+        End If
+    Else
+        s = ProofCellWords(answer)
+    End If
+    ProofDescribe = s
+End Function
+
+' One cell as a proof writes it: a plain word bare, other text quoted, a
+' number in locale-invariant digits, TRUE and FALSE as true and false.
+Private Function ProofCellWords(ByVal v As Variant) As String
+    If IsObject(v) Then
+        ProofCellWords = "(an object)"
+    ElseIf IsArray(v) Then
+        ProofCellWords = "(an array)"
+    ElseIf IsError(v) Then
+        ProofCellWords = "(an error value)"
+    ElseIf VarType(v) = vbBoolean Then
+        If CBool(v) Then ProofCellWords = "true" Else ProofCellWords = "false"
+    ElseIf VLA_Relation.ValueIsNumericType(v) Then
+        ProofCellWords = VLA_Relation.InvariantNumberText(CDbl(v))
+    ElseIf VarType(v) = vbString Then
+        If ProofIsPlainWord(CStr(v)) Then
+            ProofCellWords = CStr(v)
+        Else
+            ProofCellWords = """" & Replace(Replace(CStr(v), "\", "\\"), """", "\""") & """"
+        End If
+    ElseIf IsEmpty(v) Then
+        ProofCellWords = "(empty)"
+    Else
+        ProofCellWords = "(" & TypeName(v) & ")"
+    End If
+End Function
+
+' Whether s reads back as the same text when written bare in a proof: a
+' word of letters, digits, - _ and . that is not a number, true, false or
+' headless, each of which would read back as something else.
+Private Function ProofIsPlainWord(ByVal s As String) As Boolean
+    If Len(s) = 0 Then Exit Function
+    If VLA_Relation.IsInvariantNumericString(s) Then Exit Function
+    Select Case VLA_Identity.Fold(s)
+    Case "true", "false", "headless"
+        Exit Function
+    End Select
+    Dim i As Long
+    Dim ch As String
+    For i = 1 To Len(s)
+        ch = Mid$(s, i, 1)
+        If Not ((ch >= "a" And ch <= "z") Or (ch >= "A" And ch <= "Z") Or (ch >= "0" And ch <= "9") _
+                Or ch = "-" Or ch = "_" Or ch = ".") Then Exit Function
+    Next i
+    ProofIsPlainWord = True
+End Function
+
+' METAPROOF.1: every program the proof corpus holds, as text, for the two
+' parity loops (TestOptimizeParity, TestDatalogGroundRules) - each
+' (program ...) clause's forms written back by VLA.VlaWriteForm and joined
+' by spaces. Text is right HERE and wrong for the proofs themselves:
+' parity asks two evaluators one question and both read the identical
+' text, where a proof asks what a person would see, so its forms go to the
+' engine as read. Read afresh, so nothing a proof's run did can reach
+' these. A missing or unreadable file gives none, and each loop's floor
+' pin fails on the count while TestDatalogProofs says why.
+Private Function DatalogProofPrograms() As Collection
+    Dim progs As Collection
+    Set progs = New Collection
+    Set DatalogProofPrograms = progs
+    Dim proofs As Collection
+    Dim readErr As String
+    On Error Resume Next
+    Set proofs = VLA.VlaReadForms(VLA_Loader.VlaReadFile(DatalogProofPath()))
+    If Err.Number <> 0 Then readErr = Err.Description
+    On Error GoTo 0
+    If Len(readErr) > 0 Then Exit Function
+    Dim f As Variant
+    Dim pl As Collection
+    Dim cl As Collection
+    Dim ci As Long, fi As Long
+    Dim progText As String
+    For Each f In proofs
+        If IsObject(f) Then
+            Set pl = f
+            For ci = 3 To pl.Count
+                If ProofHead(pl.Item(ci)) = "program" Then
+                    Set cl = pl.Item(ci)
+                    progText = ""
+                    For fi = 2 To cl.Count
+                        If fi > 2 Then progText = progText & " "
+                        progText = progText & VLA.VlaWriteForm(cl.Item(fi))
+                    Next fi
+                    progs.Add progText
+                End If
+            Next ci
+        End If
+    Next f
 End Function
 
 ' DATALOG.1: stratified negation (`not`) - a basic anti-join, the
@@ -2345,6 +2853,11 @@ Private Sub TestDatalogGroundRules()
     ' --- every rule of every parity program, both ways ------------------------------
     Dim programs As Collection
     Set programs = DatalogParityPrograms()
+    ' METAPROOF.1: and every program in scripts/proofs/datalog.vla.
+    Dim pp As Variant
+    For Each pp In DatalogProofPrograms()
+        programs.Add pp
+    Next pp
     Dim p As Variant
     Dim ix As Long
     Dim label As String
@@ -3758,6 +4271,12 @@ End Function
 Private Sub TestOptimizeParity()
     Dim programs As Collection
     Set programs = DatalogParityPrograms()
+    ' METAPROOF.1: and every program in scripts/proofs/datalog.vla - a
+    ' proof's program is a DATALOG test program like any other.
+    Dim pp As Variant
+    For Each pp In DatalogProofPrograms()
+        programs.Add pp
+    Next pp
     Dim p As Variant
     Dim ix As Long
     Dim label As String
@@ -3785,19 +4304,31 @@ Private Sub TestOptimizeParity()
     ' two, its integer-grounder pins' base programs, and TestDatalogGroundRules
     ' walks the same table once more - so each program here is now TWO
     ' assertions, one in each loop.
-    Report "optimize parity: the table carries every DATALOG program (192 at OPTIMIZE.3)", _
-           programs.Count >= 192, "got " & programs.Count
+    '
+    ' METAPROOF.1: the programs are the table's AND the proof corpus's
+    ' now. Sixteen tests moved to scripts/proofs/datalog.vla; fifteen of
+    ' their programs left the table (192 -> 177) and the sixteenth stays,
+    ' since TestDatalog still names it - so this loop runs it twice, and
+    ' 177 + 16 = 193. A program that moves to the corpus moves this count
+    ' by nothing; a new proof moves it by one, in both loops.
+    Report "optimize parity: the table and the proof corpus carry every DATALOG program (193 at METAPROOF.1)", _
+           programs.Count >= 193, "got " & programs.Count
 End Sub
 
 ' Every distinct DATALOG program this module names, from every
 ' DatalogRun and DATALOG call site. Maintained with
 ' tools/check_optimize_parity.ps1, which reads those call sites and
 ' fails when one is missing here; -Emit prints this list to paste.
+' METAPROOF.1: the programs of scripts/proofs/datalog.vla are NOT copied
+' here - both parity loops read them from the file (DatalogProofPrograms)
+' - so a test that moves to the corpus takes its line out of this table.
+' This is where the table shrinks, one migrated test at a time.
 Private Function DatalogParityPrograms() As Collection
     Dim p As Collection
     Set p = New Collection
     ' Generated by tools\check_optimize_parity.ps1 -Emit, then reviewed.
-    ' 190 distinct DATALOG programs, every one this module names.
+    ' 177 distinct DATALOG programs at METAPROOF.1 (192 before it, fifteen
+    ' moved to the proof corpus), every one this module names.
     ' OPTIMIZE.2: a rule whose body binds NOTHING - every argument a
     ' constant. It crashed ProjectAfterJoin with runtime error 9 (an
     ' inverted-bounds ReDim, VLA_Relation.RelUnit's own documented
@@ -3863,9 +4394,6 @@ Private Function DatalogParityPrograms() As Collection
     p.Add "(fact (node a)) (fact (node b)) (fact (node c)) (fact (edge a b)) (fact (edge b c)) (rule (reachable X Y) (edge X Y)) (rule (reachable X Z) (edge X Y) (reachable Y Z)) (rule (unreachable X Y) (node X) (node Y) (not (reachable X Y))) (query unreachable)"
     p.Add "(fact (p ""a"")) (query p)"
     p.Add "(fact (p ""x"" ""a"")) (fact (p ""x"" ""b"")) (rule (j K W) (p K Z) (textjoin W "", "" (p K V))) (query j)"
-    p.Add "(fact (p (q r))) (query p)"
-    p.Add "(fact (p a b)) (fact (p a b c)) (query p)"
-    p.Add "(fact (p a))"
     p.Add "(fact (p a)) (fact (p b)) (query (not (p b)))"
     p.Add "(fact (p a)) (fact (p b)) (query p)"
     p.Add "(fact (p a)) (fact (q b)) (query (not (p a) (q b)))"
@@ -3934,7 +4462,6 @@ Private Function DatalogParityPrograms() As Collection
     p.Add "(fact (val 2.5)) (rule (rnd S) (val A) (let S (round A))) (query rnd)"
     p.Add "(fact (val -4)) (rule (absd S) (val A) (let S (abs A))) (query absd)"
     p.Add "(fact (widget a b)) (rule (bad X) (widget (foo X))) (query bad)"
-    p.Add "(headless extra) (fact (p a)) (query p)"
     p.Add "(headless) (fact (p a)) (query (not (p b)))"
     p.Add "(headless) (fact (p a)) (query (p a))"
     p.Add "(headless) (fact (parent tom bob)) (fact (parent bob liz)) (query parent)"
@@ -3964,7 +4491,6 @@ Private Function DatalogParityPrograms() As Collection
     p.Add "(rule (bad X) (staffing X (salary S))) (query bad)"
     p.Add "(rule (bad X) (widget (foo X))) (fact (widget a b)) (query bad)"
     p.Add "(rule (can-cover Person Shift) (rota (name Person) (shift Shift))) (query (can-cover ""Bob"" ""Night""))"
-    p.Add "(rule (foo X Y) (bar X)) (query foo)"
     p.Add "(rule (forty N) (codes (code C) (name N)) (text-starts-with C 40)) (query forty)"
     p.Add "(rule (half N) (codes (code C) (name N)) (text-starts-with C ""0.5"")) (query half)"
     p.Add "(rule (has-level P L) (staff (name P) (level L))) (query (has-level ""Ann"" 3))"
@@ -3990,16 +4516,6 @@ Private Function DatalogParityPrograms() As Collection
     ' rewrite. Every one of them must answer alike in both engines, which
     ' is the point: this item may change what the engine COSTS and nothing
     ' about what it answers.
-    p.Add "(fact (edge a b)) (fact (edge b c)) (fact (edge c d)) (rule (copy X Y) (edge X Y)) (query copy)"
-    p.Add "(fact (edge a2 a1)) (fact (edge a3 a2)) (fact (edge b2 b1)) (fact (edge b3 b2)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask W) (any W a1)) (rule (ask W) (any W b1)) (query ask)"
-    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (fact (any z9 e1)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask W) (any W e1)) (query ask)"
-    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y) (= Y e1)) (rule (ask W) (any W e1)) (query ask)"
-    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask A B) (any A B)) (query ask)"
-    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask N) (count N (any VlaCounted e1))) (query ask)"
-    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask W) (any W e1)) (query ask)"
-    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask W) (any e5 W)) (query ask)"
-    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (ask W) (edge W Q) (not (any W e1))) (query ask)"
-    p.Add "(fact (edge e2 e1)) (fact (edge e3 e2)) (fact (edge e4 e3)) (fact (edge e5 e4)) (rule (any X Y) (edge X Y)) (rule (any X Y) (edge X Z) (any Z Y)) (rule (side W) (any W e1)) (query any)"
     ' OPTIMIZE.3 slice 1: TestDatalogGroundRules' two base programs - the
     ' relations its integer-grounder pins ground over. Appended rather than
     ' sorted in, so no earlier parity pin changes its number.

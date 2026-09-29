@@ -11671,7 +11671,7 @@ lost or mistaken for closer than they are:**
   it — LESSONS.md VIII made into a loop. *Pays into:* `AS.1`,
   `EDITION-MESSAGES`, `EDITION-PARITY`, `G-RENDER`'s horizons, and one
   fewer `tools/check_*.ps1`. `~days`
-- 🟡 **METAPROOF.1 — proofs as forms, the first arrow: DATALOG.** *Opened
+- ✅ **METAPROOF.1 — proofs as forms, the first arrow: DATALOG.** *Opened
   2026-09-27 as 0.7.1's first item, at the owner's call ("Proceed with
   scoping and implementing collapse 4 of contemplation 9"), after the same
   session scoped Contemplation 9's first collapse (`vla-vba` and
@@ -11683,7 +11683,7 @@ lost or mistaken for closer than they are:**
   on collapse 5 — the four engines already answer in one shape, and the
   suite's own helpers already compare cells by value — while collapse 5's
   value-model half, a language decision with SD-4 weight, needs this corpus
-  as its witness. Built, awaiting owner test and commit.*
+  as its witness. Owner-verified live and committed 2026-09-28.*
 
   **The collapse, scoped whole; only the first slice is built.**
   1. *This slice:* a memory of the last refusal raised, so a proof can name
@@ -11784,7 +11784,19 @@ lost or mistaken for closer than they are:**
 
   **The live test:** TestDSLs 2299 → 2319 (−16 moved, +17 controls, +16
   proofs, +1 floor, +1 in each parity loop); `VlaSelfTest` pure
-  1522 → 1525; host 202/202 and VerifyReports 283/283 unmoved. `~days`
+  1522 → 1525; host 202/202 and VerifyReports 283/283 unmoved.
+
+  **Owner-verified live 2026-09-28, every number as predicted:**
+  `VLA_SELF-TESTS` pure 1525/1525, host 202/202; TestDSLs 2319/0. In the
+  Immediate window, `DATALOG("(fact (p a))")` refused with the
+  query-missing wording, `VlaLastRaisedMsgId()` then read
+  `datalog-query-missing`, and `DATALOG("(fact (p a)) (query (p a))")`
+  answered `True` - both of `DatalogAnswer`'s branches, through
+  `DATALOG()` itself. The live red control: line 246's `(z9)` edited to
+  `(z8)` failed exactly that one proof (2318/1), naming `datalog.vla line
+  234` and the engine's real answer, `(rows (W) (z9) (e2) (e3) (e4) (e5))`
+  - the fact's row FIRST, an order `rows-in-any-order` was right not to
+  assume. `~days`
 - ⬜ **VOCAB-MIGRATE** — version a generation spec, diff the rules it
   produces against what's currently loaded (VOCABDIFF), and report the
   delta - schema migrations for a spoken grammar. No known precedent to
@@ -24942,3 +24954,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **TER-8 — `VLA.bas`'s reader failed on text with no token.** Found by `TER-7`, taken 2026-09-14 by `G-PROLOG` slice 5's session; **built, owner-verified live and committed 2026-09-14** (one pass with `DATALOG.11` and `PROLOG.30`: pure 1141 as predicted plus `U.19`'s 20 uncommitted pins, host 152, `TestDSLs` 1356, `VerifyReports` 242/242 on both backends, both engines' empty-text cells and the Immediate-window reads), its own commit ahead of `DATALOG.11` (the owner's call). `Tokenize` did `ReDim (1 To 0)` for empty, whitespace-only or comments-only text, so `VlaReadForms`, `VlaReadFormsWithLines`, `VlaFormat` and the macro probe raised "Subscript out of range" - and `=DATALOG("")`, `=PROLOG("")` or a formula over a blank cell showed it raw. Zero tokens now give `(0 To 0)`, after every reader and every caller was checked for an empty result; DATALOG and PROLOG refuse text with no form by name (`datalog-rules-empty`, `prolog-clauses-empty`, the owner's call over the missing-query refusal); an empty phrasebook loads no rules. Pinned by `TestTer8EmptyForms` (pure) and `TestTer8EmptyRules` (`TestDSLs`). *(more: the full entry, earlier in this file)* `~hours`
 
 - ✅ **TER-10 — a raw VBA error reaches the user as a bare modal.** Found in LE.6's live pass, 2026-09-18. Sample 07's first draft appended `cell in column A row r` (a live Range object) to a list, and Interpret and Run later stopped with only *"Object doesn't support this property or method"*: no sentence, no row. The interpreter's top-level handler should name the failing sentence and row, as Check does. Also named for CO.7: `Append cell in … to list` stores a reference, not a value, and no sentence appends "the cell's value". **Built with `U.25`, owner-verified live and committed 2026-09-26:** Interpret's translation now carries line marks alone (`EnglishLineMarks`: each sentence in its `(at-line N …)`, no step machinery), the interpreter runs `at-line` (IN.5 had ruled it interpretable; nothing had needed it), and a stop names its line and sentence and marks its row "Stopped here". `VerifyReports` runs the corpus through the same marks. The CO.7 half is not built. *(more: the full entry, earlier in this file)* `~hours`
+
+## 🗣🔧 LANGUAGE + MACHINE · THE METAMETAMACRO LINE
+
+- ✅ **METAPROOF.1 — proofs as forms, the first arrow: DATALOG.** Contemplation 9's collapse 4, opened 2026-09-27 as 0.7.1's first item; owner-verified live and committed 2026-09-28 (`VLA_SELF-TESTS` pure 1525/1525, host 202/202; TestDSLs 2319/0, every number as predicted; a live red control, one expected cell edited, failed exactly its proof). `scripts/proofs/datalog.vla` holds DATALOG tests as forms — `(test-datalog "name" (program ...) expectation)`, the expectation `(rows ...)`, `(rows-in-any-order ...)`, `(answer true|false)` or `(refuses message-id)` — run by `TestDatalogProofs` in TestDSLs after seventeen controls that prove the runner says FAIL. Sixteen tests moved there and got stronger: `TestDatalogBoundArgument`'s eleven row counts now name their rows, and `TestDatalog`'s five refusals, which accepted any error (a raw crash included), now name their message ids through `VLA_Messages`' new memory of the last refusal raised. `DATALOG()`'s answer lines moved unchanged into `DatalogAnswer`, so a proof sees what the cell shows. Both parity loops read the corpus, and the table fell 192 → 177. New `tools/check_proofs.ps1` (the thirtieth check, mutation-tested) reads the corpus without Excel; `check_optimize_parity.ps1` holds DATALOG call sites to a falling ceiling (188). Next slices, scoped not built: input tables, the other engines, and clingo as an oracle of another lineage. *(more: the full entry, earlier in this file)* `~days`

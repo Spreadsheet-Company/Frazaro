@@ -1,6 +1,14 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "AS7.1"
+Public Const VLA_TESTS_VERSION As String = "METAPROOF.1"
+' METAPROOF.1: TestMessageRecorder, dispatched after TestMessageSeam -
+' three pins on VLA_Messages' new memory of the last refusal it raised (its
+' id and its finished words), which the DATALOG proof corpus
+' (scripts/proofs/datalog.vla, run by VLA_Tests_Query's TestDatalogProofs)
+' uses to name a refusal by id: remembered by id, with the very words
+' raised, and forgotten on clearing. Its comment says why the two failing
+' raises are held by construction and not pinned.
+'
 ' AS7.1: VlaSelfTestLastResult - a Public accessor exposing this
 ' module's own Private mPass/mFail/mFailedNames to VlaSelfTests
 ' (VLA_Tests_Host.bas), which cannot read them directly (cross-module
@@ -318,6 +326,7 @@ Public Function VlaSelfTest() As Boolean
     TestGoldens
     TestRuleUsage
     TestMessageSeam
+    TestMessageRecorder
     TestRunStops
     TestSec8Provenance
     TestSec11Digest
@@ -5289,6 +5298,44 @@ Private Sub TestMessageSeam()
            InStr(1, vla2, "Create a number called Total. [line 1]", vbBinaryCompare) > 0, _
            Left$(Norm(vla2), 240)
     VlaMessageCapture False
+End Sub
+
+' ---------------------------------------------------------------------
+'  METAPROOF.1 pins: RaiseMsg remembers the refusal it raised - its id and
+'  its finished words - so a proof can name WHICH refusal fired by its
+'  stable id, not by English words a rewording breaks. Err is read into
+'  locals before On Error GoTo 0, which clears it.
+'
+'  NOT pinned here, and why: that a raise which fails before it has words
+'  - an unknown id, a slot left unfilled - remembers nothing. Writing either
+'  call would need a RaiseMsg that tools/check_message_slots.ps1 refuses
+'  anywhere in src/, tests included, and rightly. The property holds by
+'  construction instead (RaiseMsg builds the words before it remembers
+'  anything), and the proof runner does not lean on it: a remembered id
+'  counts only when the error caught carries the remembered words.
+' ---------------------------------------------------------------------
+Private Sub TestMessageRecorder()
+    Dim d As String
+    Dim n As Long
+
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    Err.Clear
+    VLA_Messages.RaiseMsg "vla-source-not-found", "path", "zz-recorder.vla"
+    n = Err.Number
+    d = Err.Description
+    On Error GoTo 0
+    Report "recorder: a refusal raised by id is remembered by that id", _
+           VLA_Messages.VlaLastRaisedMsgId() = "vla-source-not-found", _
+           "got [" & VLA_Messages.VlaLastRaisedMsgId() & "], err " & n
+    Report "recorder: ...with the very words it raised", _
+           Len(d) > 0 And VLA_Messages.VlaLastRaisedMsgText() = d And InStr(1, d, "zz-recorder.vla", vbBinaryCompare) > 0, _
+           "remembered [" & VLA_Messages.VlaLastRaisedMsgText() & "] against raised [" & d & "]"
+
+    VLA_Messages.VlaClearLastRaisedMsg
+    Report "recorder: clearing forgets the id and the words", _
+           Len(VLA_Messages.VlaLastRaisedMsgId()) = 0 And Len(VLA_Messages.VlaLastRaisedMsgText()) = 0, _
+           "still [" & VLA_Messages.VlaLastRaisedMsgId() & "]"
 End Sub
 
 ' ---------------------------------------------------------------------

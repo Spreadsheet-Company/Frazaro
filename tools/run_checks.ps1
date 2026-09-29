@@ -1,7 +1,7 @@
 <#
 run_checks.ps1 - runs every tools\check_*.ps1 and reports one total.
 
-WHY: there are 28 of them now. Running them one at a time is a page of
+WHY: there are 30 of them now. Running them one at a time is a page of
 scrollback in which a single red line is easy to walk past, and "they all
 seemed to pass" is not a result anybody can quote in a commit message. This
 prints one line per check and one total, and its own exit code is the answer.
@@ -57,7 +57,10 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # check_datalog_per_tuple_alloc.ps1.
 # 2026-09-24, OPTIMIZE.3 slice 2: 28, plus
 # check_optimize_search_discipline.ps1.
-$expectedAtLeast = 28
+# 2026-09-27, METAPROOF.1: 30 - the floor had fallen one behind the 29
+# already here, and check_proofs.ps1 (the proof corpus, read without
+# Excel) makes thirty.
+$expectedAtLeast = 30
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---

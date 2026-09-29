@@ -45,6 +45,22 @@ per-program fixture.
   DatalogParityPrograms when the list grows. It is a convenience for a
   person, not a build step: nothing generates src/.
 
+METAPROOF.1 - THE PROOF CORPUS, AND A CEILING. DATALOG tests can be proofs
+now: forms in scripts/proofs/datalog.vla, each program beside the answer it
+must give, run by TestDatalogProofs. Both parity loops read that file's
+programs directly (DatalogProofPrograms), so a proof needs no table line -
+the table covers the VBA call sites and nothing else, and a test that moves
+to the corpus takes its line out of the table (192 -> 177 at METAPROOF.1).
+The direction is held by one more rule:
+
+  3. The DATALOG call sites in VLA_Tests_Query.bas - every
+     VLA_Datalog.DatalogRun/DATALOG call carrying a literal program - may
+     not number more than the held ceiling below. A new DATALOG test
+     belongs in the corpus. One that truly needs VBA - a live Table, a
+     program built in a loop, an engine internal - raises the ceiling, with
+     its reason, in the same commit. Fewer than the ceiling is reported,
+     not failed, as room to lower it (check_raise_ratchet.ps1's shape).
+
 House shape, per the standing convention for this project's static
 scans: PowerShell, host-independent, hardcoded and reviewable baseline,
 never wired into VlaSelfTest.
@@ -57,6 +73,12 @@ param([switch]$Emit)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $failures = New-Object System.Collections.Generic.List[string]
+
+# --- the held ceiling on DATALOG call sites (rule 3, header) ------------
+# 2026-09-27, METAPROOF.1: 188 - the 204 at 0.7.0 less the sixteen tests
+# that moved to scripts/proofs/datalog.vla (eleven of
+# TestDatalogBoundArgument, five of TestDatalog's refusals).
+$callSiteCeiling = 188
 $testsPath = Join-Path $root 'src\VLA_Tests_Query.bas'
 if (-not (Test-Path -LiteralPath $testsPath)) {
     Write-Error "Missing $testsPath"
@@ -178,6 +200,17 @@ if ($missing.Count -eq 0) {
 if ($extra.Count -gt 0) {
     Write-Output ''
     Write-Output ("  note  {0} table entr(ies) match no current call site - a DATALOG test was changed or removed. Harmless: each is still a parity case." -f $extra.Count)
+}
+
+# --- 3. the ceiling on DATALOG call sites (METAPROOF.1) ------------------
+Write-Output ''
+Write-Output ("  DATALOG call sites in the module    : {0} (ceiling {1})" -f $callPrograms.Count, $callSiteCeiling)
+if ($callPrograms.Count -gt $callSiteCeiling) {
+    $failures.Add("VLA_Tests_Query.bas now holds $($callPrograms.Count) DATALOG call sites, above the held ceiling of $callSiteCeiling. A new DATALOG test belongs in scripts/proofs/datalog.vla; if this one truly needs VBA (a live Table, a program built in a loop, an engine internal), raise the ceiling in this script with the reason.")
+} elseif ($callPrograms.Count -lt $callSiteCeiling) {
+    Write-Output ("  note  {0} below the ceiling - lower it to {1} in this script, so the room cannot be spent on a new VBA test unnoticed." -f ($callSiteCeiling - $callPrograms.Count), $callPrograms.Count)
+} else {
+    Write-Output '  ok    at the ceiling'
 }
 
 Write-Output ''

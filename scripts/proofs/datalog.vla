@@ -1,0 +1,270 @@
+; SPDX-License-Identifier: Apache-2.0
+; =====================================================================
+;  datalog.vla - DATALOG's proofs, written as forms (METAPROOF.1).
+;
+;  A proof is one form:
+;
+;    (test-datalog "what it shows"
+;      (program <the DATALOG program, as its own forms>)
+;      <what the answer must be>)
+;
+;  and what the answer must be is exactly one of:
+;
+;    (rows HEADER ROW ...)             the spill, rows in this order
+;    (rows-in-any-order HEADER ROW ...)
+;                                      the same, but the data rows may
+;                                      come in any order (the header
+;                                      row still comes first)
+;    (answer true)  (answer false)     a question written as one fact
+;    (refuses MESSAGE-ID)              a refusal, named by its id in
+;                                      src/VLA_Messages.bas
+;
+;  HEADER is the header row as a list - (W), (X Y) - or the word
+;  headless, for a (headless) program whose spill has no header row;
+;  (rows headless) with no row at all is the blank cell such a program
+;  shows when nothing matches. A cell is read as it is written: a bare
+;  word or a "quoted string" is text, a number is a number (read the
+;  same in every locale), true and false are TRUE and FALSE. Text and
+;  numbers compare by value, as every assertion in VLA_Tests_Query.bas
+;  always has, so 4 and "4" both match a cell showing 4: a proof pins
+;  what a person reads in the cell, not the VBA type behind it.
+;
+;  WHO RUNS THEM. TestDatalogProofs, in VLA_Tests_Query.bas, inside
+;  TestDSLs - one PASS or FAIL line per proof, a failure naming this
+;  file's line and the answer the engine actually gave, written in this
+;  notation. Each program goes to VLA_Datalog.DatalogRunForms as the
+;  forms read here, never written back out as text first, and its
+;  answer is made by DatalogAnswer, the same lines =DATALOG(...) ends
+;  in. A refusal is matched by the id VLA_Messages remembers raising
+;  and the words it raised with. Every program here also joins both
+;  parity pins (TestOptimizeParity and TestDatalogGroundRules), so it
+;  is a case OPTIMIZE and the integer grounder must agree on too.
+;  tools/check_proofs.ps1 checks this file without Excel: its shape,
+;  every name unique, every row as wide as its header, every message
+;  id a real one.
+;
+;  WHY A FILE AND NOT VBA. Here a program is written as the program it
+;  is: no doubled quotes, no & _ joins, no line to stay under, and a
+;  file is data any tool can read. A test that needs a live Table, or
+;  builds its program in a loop, stays in VBA. New DATALOG tests come
+;  here; tools/check_optimize_parity.ps1 holds the number of DATALOG
+;  calls in VLA_Tests_Query.bas to a ceiling that only comes down.
+; =====================================================================
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.0's refusals. In VBA each of these checked only that SOME
+;  error was raised, so a raw VBA crash would have passed them. Here
+;  each names the refusal that must fire. The head variable is refused
+;  as unsafe even though bar is also undefined: the parser checks a
+;  rule's safety before anything asks what bar is.
+; ---------------------------------------------------------------------
+
+(test-datalog "a compound term (a nested predicate) is refused"
+  (program
+    (fact (p (q r)))
+    (query p))
+  (refuses datalog-compound-term))
+
+(test-datalog "a head variable absent from the body is refused"
+  (program
+    (rule (foo X Y) (bar X))
+    (query foo))
+  (refuses datalog-unsafe-head-variable))
+
+(test-datalog "one predicate used at two arities is refused"
+  (program
+    (fact (p a b))
+    (fact (p a b c))
+    (query p))
+  (refuses datalog-arity-mismatch))
+
+(test-datalog "a program with no (query ...) is refused, not guessed"
+  (program
+    (fact (p a)))
+  (refuses datalog-query-missing))
+
+(test-datalog "(headless extra) is refused, not silently accepted"
+  (program
+    (headless extra)
+    (fact (p a))
+    (query p))
+  (refuses datalog-headless-bad-shape))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.14: the atom plan, the filter that filters nothing, and a
+;  question's bound argument pushed into a recursive predicate before
+;  it materialises. Every one an ANSWER proof, since the item was a
+;  cost change and the only way it can go wrong is by answering
+;  differently. In VBA these checked the number of rows; here each
+;  names the rows. Hand-derived from the chain: e5 -> e4 -> e3 -> e2
+;  -> e1, four links, so the closure holds ten pairs and four employees
+;  reach e1. Cost is measured on D12Ladder 7 and 8, not here.
+; ---------------------------------------------------------------------
+
+; The shape D12Ladder 8 times: specialised at position 2.
+(test-datalog "a closure asked about one person answers its four reachers"
+  (program
+    (fact (edge e2 e1))
+    (fact (edge e3 e2))
+    (fact (edge e4 e3))
+    (fact (edge e5 e4))
+    (rule (any X Y) (edge X Y))
+    (rule (any X Y) (edge X Z) (any Z Y))
+    (rule (ask W) (any W e1))
+    (query ask))
+  (rows-in-any-order (W)
+    (e2) (e3) (e4) (e5)))
+
+; The other argument bound. Right-recursive, so the binding does not
+; pass through position 1 and the rewrite declines - the answer is the
+; four bosses e5 reaches, unchanged either way.
+(test-datalog "the other direction answers its four bosses"
+  (program
+    (fact (edge e2 e1))
+    (fact (edge e3 e2))
+    (fact (edge e4 e3))
+    (fact (edge e5 e4))
+    (rule (any X Y) (edge X Y))
+    (rule (any X Y) (edge X Z) (any Z Y))
+    (rule (ask W) (any e5 W))
+    (query ask))
+  (rows-in-any-order (W)
+    (e1) (e2) (e3) (e4)))
+
+; A reader that projects both columns pins nothing, so the whole
+; closure must still be built.
+(test-datalog "a reader projecting both columns gets all ten pairs"
+  (program
+    (fact (edge e2 e1))
+    (fact (edge e3 e2))
+    (fact (edge e4 e3))
+    (fact (edge e5 e4))
+    (rule (any X Y) (edge X Y))
+    (rule (any X Y) (edge X Z) (any Z Y))
+    (rule (ask A B) (any A B))
+    (query ask))
+  (rows-in-any-order (A B)
+    (e2 e1)
+    (e3 e2) (e3 e1)
+    (e4 e3) (e4 e2) (e4 e1)
+    (e5 e4) (e5 e3) (e5 e2) (e5 e1)))
+
+; The closure IS the query, so it may never be narrowed however another
+; rule reads it. Its header is its first rule's head: X Y.
+(test-datalog "the queried closure keeps all ten pairs though a reader pins e1"
+  (program
+    (fact (edge e2 e1))
+    (fact (edge e3 e2))
+    (fact (edge e4 e3))
+    (fact (edge e5 e4))
+    (rule (any X Y) (edge X Y))
+    (rule (any X Y) (edge X Z) (any Z Y))
+    (rule (side W) (any W e1))
+    (query any))
+  (rows-in-any-order (X Y)
+    (e2 e1)
+    (e3 e2) (e3 e1)
+    (e4 e3) (e4 e2) (e4 e1)
+    (e5 e4) (e5 e3) (e5 e2) (e5 e1)))
+
+; Two readers over two SEPARATE chains, pinning different constants: no
+; single narrowing serves both, so neither may be applied.
+(test-datalog "two readers pinning two constants keep both answers"
+  (program
+    (fact (edge a2 a1))
+    (fact (edge a3 a2))
+    (fact (edge b2 b1))
+    (fact (edge b3 b2))
+    (rule (any X Y) (edge X Y))
+    (rule (any X Y) (edge X Z) (any Z Y))
+    (rule (ask W) (any W a1))
+    (rule (ask W) (any W b1))
+    (query ask))
+  (rows-in-any-order (W)
+    (a2) (a3) (b2) (b3)))
+
+; A negated reader pins position 2 like any other. Every employee with
+; a boss reaches e1, so nothing survives the anti-join: the header row
+; alone.
+(test-datalog "a negated reader over the closure answers nothing"
+  (program
+    (fact (edge e2 e1))
+    (fact (edge e3 e2))
+    (fact (edge e4 e3))
+    (fact (edge e5 e4))
+    (rule (any X Y) (edge X Y))
+    (rule (any X Y) (edge X Z) (any Z Y))
+    (rule (ask W) (edge W Q) (not (any W e1)))
+    (query ask))
+  (rows (W)))
+
+; A count reader: four reach e1.
+(test-datalog "counting the closure's reachers of e1 answers 4"
+  (program
+    (fact (edge e2 e1))
+    (fact (edge e3 e2))
+    (fact (edge e4 e3))
+    (fact (edge e5 e4))
+    (rule (any X Y) (edge X Y))
+    (rule (any X Y) (edge X Z) (any Z Y))
+    (rule (ask N) (count N (any VlaCounted e1)))
+    (query ask))
+  (rows (N)
+    (4)))
+
+; The bound variable is also a comparison operand, so the rewrite must
+; decline. The recursive step fires only for Y = e1, which is what
+; carries e3, e4 and e5 into the answer beside e1's direct report e2.
+(test-datalog "a bound variable read as a value declines, and answers four"
+  (program
+    (fact (edge e2 e1))
+    (fact (edge e3 e2))
+    (fact (edge e4 e3))
+    (fact (edge e5 e4))
+    (rule (any X Y) (edge X Y))
+    (rule (any X Y) (edge X Z) (any Z Y) (= Y e1))
+    (rule (ask W) (any W e1))
+    (query ask))
+  (rows-in-any-order (W)
+    (e2) (e3) (e4) (e5)))
+
+; A fact already defines the closure predicate: z9 reaches e1 by fiat.
+(test-datalog "a fact in the closure predicate is still answered"
+  (program
+    (fact (edge e2 e1))
+    (fact (edge e3 e2))
+    (fact (edge e4 e3))
+    (fact (edge e5 e4))
+    (fact (any z9 e1))
+    (rule (any X Y) (edge X Y))
+    (rule (any X Y) (edge X Z) (any Z Y))
+    (rule (ask W) (any W e1))
+    (query ask))
+  (rows-in-any-order (W)
+    (e2) (e3) (e4) (e5) (z9)))
+
+; The atom plan's first job: a repeated variable must still filter. Of
+; the two edges only (a a) has its two columns equal.
+(test-datalog "a repeated variable still filters after the plan is compiled"
+  (program
+    (fact (edge a a))
+    (fact (edge a b))
+    (rule (self_loop X) (edge X X))
+    (query self_loop))
+  (rows (X)
+    (a)))
+
+; An atom whose every argument is a distinct free variable constrains
+; nothing, so its relation is handed straight back: every row, none
+; lost and none doubled.
+(test-datalog "an atom that constrains nothing passes every row through"
+  (program
+    (fact (edge a b))
+    (fact (edge b c))
+    (fact (edge c d))
+    (rule (copy X Y) (edge X Y))
+    (query copy))
+  (rows-in-any-order (X Y)
+    (a b) (b c) (c d)))
