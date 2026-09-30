@@ -12769,7 +12769,8 @@ lost or mistaken for closer than they are:**
   are safe. No proof matches a fraction that way (the two over 0.5 are a
   text test and a textjoin, which read `InvariantNumberText`), so the
   corpus answers alike in every locale. It is also the reason the clingo
-  translation cannot state a table yet. Not filed; the owner's call.
+  translation cannot state a table yet. Filed the same day as `DATALOG.17`,
+  at the owner's call.
 
   **Checked without Excel:** all 31 checks pass. `check_proofs.ps1` went
   red on the new corpus before it learned the clause (26 problems, each
@@ -21517,6 +21518,72 @@ now carries one summary paragraph per engine and points here.*
     `Bob 1`; the join, `W V` / `Bob x`; `sum`, `Bob 10` / `bob 5`;
     `textjoin`, `Bob tea` / `bob coffee`; and step 7, `SQL.12`'s,
     `Bob 2 11` / `bob 1 5`. `~hours`
+  - ⬜ **DATALOG.17 — a number written in a program meets a number cell by
+    value, the same on every machine.** Minted 2026-09-30, the owner's call
+    ("Mint the CStr locale finding as a Datalog item"), from `METAPROOF.4`'s
+    "Found while building" note. Found by reading, not run: on a machine
+    whose decimal symbol is a point, no pin can show it.
+
+    **The defect.** A Table's number cell reaches DATALOG as a Double, as
+    `Value2` gives it; a number a program writes is text. DATALOG matches
+    the two by comparing spellings, and spells the cell with `CStr`, which
+    follows the machine's locale, as `VLA_Relation.InvariantNumberText`'s
+    own header warns: `CStr(0.5)` is `0,5` on a comma-decimal Windows. So,
+    over `(tables (t headless (a 0.5)))`:
+    - `(rule (q X) (t X 0.5))` finds `a` here, and nothing there;
+    - `(query (t a 0.5))` answers TRUE here, FALSE there;
+    - with `(fact (w 0.5))`, the join `(rule (q X) (t X V) (w V))` finds
+      `a` here, and nothing there;
+    - `(fact (t a 0.5))` beside the table is one row here, two there;
+    - and `(rule (q X) (t X V) (= V 0.5))` finds `a` everywhere, since a
+      comparison reads both sides as numbers (`CompareValues`, through
+      `AsInvariantDouble`).
+
+    One question, two spellings, two answers; and one workbook, two
+    machines, two answers, which is the determinism the engines exist to
+    keep. Whole numbers are safe (`CStr(3)` is `3` everywhere), and a
+    number `CStr` writes in E-notation (1E+15) is `PROLOG.18`'s named
+    limit either way. PROLOG turned its numbers into text with `Str$` at
+    `PROLOG.18`, and DATALOG's text tests and `textjoin` read
+    `InvariantNumberText` since `DATALOG.11`, so neither shows it.
+
+    **Where the spelling is made**, each a `CStr` of a value:
+    - `VLA_Datalog.PlanMatches`: a constant in an atom, a variable repeated
+      within one, and a question written as one fact
+      (`FilterAtomRelation`);
+    - `VLA_Datalog.KeyFromPositions`: the groups of `count`, `sum` and
+      `textjoin`;
+    - `VLA_Relation.TupleKey` (a relation's de-duplication),
+      `PartialKey` (a join's key) and `GroupKeyFromPositions` (SQL's
+      `GROUP BY`), which SQL shares;
+    - `VLA_Relation.VlaSymIntern`: the integer grounder's spelling of a
+      value. It agrees with the evaluator today, so ground parity holds;
+      a fix at one site and not the other breaks it, and
+      `TestDatalogGroundRules` would say so. `OPTIMIZE` runs DATALOG's
+      engine and inherits whatever is decided.
+
+    **The fork, for scoping.** (a) Spell a number cell as
+    `InvariantNumberText` does wherever a value becomes a key or is matched
+    by its spelling: a written `0.5` then matches on every machine, and a
+    written `0.50` still does not, as today. (b) Match two values by value
+    when both read as numbers: `0.50` would then match too, and so would a
+    written `007` a cell holding 7 - a change of meaning for programs that
+    run today, which `SD-4` asks to be decided on purpose. And whether
+    SQL's shared keys move with it, as `SQL.12` moved with `DATALOG.16`.
+
+    **The witness, and the live pass.** Proofs beside `METAPROOF.4`'s, one
+    per shape above, with the comparison as their control. They pass on a
+    point-decimal machine today, so the live pass sets a comma as Windows'
+    decimal symbol (Region, Additional settings) to see them fail, then
+    runs again after the fix to see them pass - `TestDSLs` whole, since any
+    other pin that spells a fraction will show itself the same way.
+
+    **It gates** clingo reading a proof's tables (`METAPROOF.7`): a number
+    cell cannot be stated faithfully while DATALOG's own reading of it
+    depends on the machine. And it comes before the third gear compiles
+    English into DATALOG rules over Tables (`SINGULARITY.md`, Stage 1.5's
+    definitions), where written numbers would meet number cells in every
+    rule. `~days`
   - ⬜ **Avoiding a full re-parse/re-fixpoint on every recalc — profiled first,
     not yet built.** `DATALOG()` re-parses `rulesText` and reruns
     `RunStratifiedFixpoint` from scratch every time Excel calls it. Worth
@@ -26574,7 +26641,7 @@ numbers. **Quoting a correction is not applying it.**
 
 - ✅ **METAPROOF.3 — more of the DATALOG suite moves to the proof file.** METAPROOF.1's plan, step 2, opened 2026-09-28 at the owner's call; owner-verified live and committed the same day (VlaSelfTest pure 1528/1528 and host 241/241, unmoved; TestDSLs 2303/0, as predicted; clingo agrees on all twenty-three exported proofs and caught the three controls). Seventy-eight proofs join `scripts/proofs/datalog.vla` (ninety-four in all) and carry what ninety-four VBA pins did: every answer that needs no table argument, and the whole of `TestDatalogNegation` and `TestDatalogAggregation`, both retired. They got stronger on the way: a row count or a probed tuple became every row, named, and the nineteen refusal pins that accepted any error now name their message id. A pin stays in VBA only for a reason: a table argument (no `(tables ...)` clause yet), a program VBA builds, the text entry point, or a refusal pin that checks WHAT its words name, which `(refuses id)` cannot say yet. The parity table fell 177 → 99 and the call-site ceiling 188 → 109; fifteen programs the tests built from shared strings reach both parity loops whole for the first time; twelve new proofs join the clingo export (twenty-three in all). *(more: the full entry, earlier in this file)* `~hours`
 
-- ✅ **METAPROOF.4 — `(tables ...)`: a proof hands its program table arguments.** First in the order the owner set for the third gear, opened 2026-09-30 at the owner's call; owner-verified live and committed the same day (TestDSLs 2346/0, as predicted; VLA_SELF-TESTS pure 1570/1570 and host 265/265, unmoved by it; a live red control, one table cell's quotes taken off, failed exactly its proof). A proof's one `(tables ...)` clause holds its tables, each written as an answer is: a name, a header list (an Excel Table, whose columns a keyed atom may name) or `headless` (a plain named range), then its rows in the order written, every cell as a live Table's `Value2` gives it (a bare `007` is the number 7, `"007"` the text). The runner reads the clause into what a live Table argument is to every engine, a folded name and a Table-shaped array, and makes DATALOG's table arguments from it afresh for every run; PROLOG's, SQL's and the third gear's proofs will read the same arrays. Twenty-nine pins moved as twenty-six proofs (124 in all), with thirteen controls for the clause: `TestDatalog`, `TestDatalogBuiltins` and `TestDatalogKeyedAtoms` retired whole, and the six keyed refusals that accepted any error name their ids. Both parity loops hand a proof's tables to each engine, so OPTIMIZE and the integer grounder answer those programs; the table fell 99 → 76 and the call-site ceiling 109 → 84. The clingo translation declines a table, so its export stays 23. Found while building, not filed: a number written in a program is matched against a fractional number cell through `CStr`, which follows the machine's locale. *(more: the full entry, earlier in this file)* `~days`
+- ✅ **METAPROOF.4 — `(tables ...)`: a proof hands its program table arguments.** First in the order the owner set for the third gear, opened 2026-09-30 at the owner's call; owner-verified live and committed the same day (TestDSLs 2346/0, as predicted; VLA_SELF-TESTS pure 1570/1570 and host 265/265, unmoved by it; a live red control, one table cell's quotes taken off, failed exactly its proof). A proof's one `(tables ...)` clause holds its tables, each written as an answer is: a name, a header list (an Excel Table, whose columns a keyed atom may name) or `headless` (a plain named range), then its rows in the order written, every cell as a live Table's `Value2` gives it (a bare `007` is the number 7, `"007"` the text). The runner reads the clause into what a live Table argument is to every engine, a folded name and a Table-shaped array, and makes DATALOG's table arguments from it afresh for every run; PROLOG's, SQL's and the third gear's proofs will read the same arrays. Twenty-nine pins moved as twenty-six proofs (124 in all), with thirteen controls for the clause: `TestDatalog`, `TestDatalogBuiltins` and `TestDatalogKeyedAtoms` retired whole, and the six keyed refusals that accepted any error name their ids. Both parity loops hand a proof's tables to each engine, so OPTIMIZE and the integer grounder answer those programs; the table fell 99 → 76 and the call-site ceiling 109 → 84. The clingo translation declines a table, so its export stays 23. Found while building, and filed as `DATALOG.17`: a number written in a program is matched against a fractional number cell through `CStr`, which follows the machine's locale. *(more: the full entry, earlier in this file)* `~days`
 
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part B
 

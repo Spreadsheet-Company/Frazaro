@@ -61,10 +61,10 @@ declined, by name, and never translated by a guess.
   number written in a program against a number cell by spelling, through
   CStr (PlanMatches, PartialKey), which writes a fraction in the machine's
   own locale: 0.5 is 0,5 on a comma-decimal Windows. clingo's integers
-  have no such reading, so a table is not stated until that is argued; a
-  keyed atom would also have to be desugared against the header, as
-  ParseProgram does it. Its rows become facts the day the argument is
-  made, with the first table proof it covers as its witness.
+  have no such reading, so a table is not stated until DATALOG.17 settles
+  it; a keyed atom would also have to be desugared against the header, as
+  ParseProgram does it. Its rows become facts the day that is settled,
+  with the first table proof it covers as its witness.
 
 THE JUDGE, written after every program. vla_want/N holds the rows the proof
 expects; vla_extra/N, the rows clingo derives that the proof does not list;
