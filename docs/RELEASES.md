@@ -87,6 +87,21 @@
   group, as in SQLite. If one of your questions groups text that differs
   only in capitals, its answer changes, so check it.
 
+- **For contributors: DATALOG's tests are proofs now, and a second solver
+  checks them.** None of this ships, and nothing in Frazaro calls it.
+  - `scripts/proofs/datalog.vla`: 94 DATALOG tests, moved out of
+    `VLA_Tests_Query.bas` and written as the programs they are, each beside
+    the answer it must give. Every row is named, and every refusal is named
+    by its message id, where many of the old tests accepted any error at
+    all. `TestDSLs` runs them.
+  - `tools/proofs_lp.ps1`: writes each proof it can translate as a program
+    for clingo, the answer-set solver used by hand as a reference, so an
+    answer is also checked by software written elsewhere. It never runs
+    clingo and makes no network call. clingo agreed with all 23 proofs it
+    can read today.
+  - `tools/check_proofs.ps1` (new): checks the proof file without Excel, and
+    fails when the clingo files fall behind it.
+
 ### Known open security items
 
 **Closed this release: Replace could create a formula.** Excel's own Replace
