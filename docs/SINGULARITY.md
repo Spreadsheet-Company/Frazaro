@@ -247,3 +247,30 @@ By dependency and by value, both:
 - The question slot: `grep -n "{q:question}" scripts/polyglotta/english.vla` (rule at line 4661).
 - The renderer: `grep -n "Public Function EnglishRenderForm" src/VLA_SentenceEngine.bas`.
 - Nothing walks precedents: `grep -rn -i "precedents" src/` returns only the English word in comments.
+
+---
+
+## 12. Filed, 2026-09-30
+
+*Appended under the house rules above: the steps picked up, and where they went. Handles stay handles; a filed step carries an ID.*
+
+The steps below were filed on `BETA_ROADMAP.md` under a new line, 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE SINGULARITY LINE, family `AXM` (Analyst ex Machina), in the order that each makes the next cheap, with every engine behind its microscope; the reasoning and a fan-out table are in `BETA_REARVIEW.md` under the same heading. `METAPROOF.4` (the METAMETAMACRO line: `(tables …)`, a proof handing its program table arguments) is the first step of that order and keeps its ID, so the third gear's corpus has its notation before its first proof.
+
+| Step here | Filed as |
+|---|---|
+| 0.1's measurement item | `AXM.1` |
+| 1.1, with `V.1` re-scoped; 1.2, 1.3 and 1.4 as its later slices | `AXM.2` |
+| answers as sentences, implicit throughout (`EnglishRenderForm`'s first job) | `AXM.3` |
+| 1.6, after `U.18` | `AXM.4` |
+| 1.5 | `AXM.5` |
+| 6.1 and 6.4 | `AXM.6` |
+| 0.2 | `AXM.7` |
+| 0.1 | `AXM.8` |
+| 0.4, 0.5, 2.1 and 2.2 | `AXM.9` |
+| 2.3 | `AXM.10` |
+| 0.3, 3.1 and 3.2 | `AXM.11` |
+| the corpus before 4.1, and 4.2's first fifteen schemas as prose | `AXM.12` |
+
+Not filed, still handles: 2.4, 2.5, 3.3, 3.4, 4.1, 4.3, 4.4, 5.1, 5.2, 5.3 and 6.5. 6.3 is `LE.7` already.
+
+**Two corrections to §3, dated 2026-09-30.** "Memory" omits one thing that stands: `VLA_Log` (`LogParseFailure`, `VLA_IDE.bas`) already keeps every misunderstood sentence with its time, row, text and message on a very-hidden sheet in the user's own workbook, local only, and Copy Feedback exports it. That is Stage 6.1's gap ledger without the clustering, which is why 6.1 is filed inside `AXM.6` at `~days` rather than built from nothing. And "no sentence ends in `?`" understates it: the tokenizer folds `?` and `!` into `.` (`EnTokenize`, `VLA_SentenceEngine.bas`), so a sentence ending in `?` is read today as if it ended in `.`, which is why the act seam (`AXM.2`) comes before any question.

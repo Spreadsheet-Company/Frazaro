@@ -97,7 +97,7 @@ accountable for it — **MACHINE**, **LANGUAGE**, **PRODUCT**, **COMMONS**,
 nothing more. There is no first section. *Spelled out rather than coded, because
 a file already carrying `F.`, `LX.`, `IN.`, `EN.`, `AS.`, `CO.`, `PF.`, `P-`,
 `G-`, `U.`, `LE.`, `IO.`, `DI.`, `AC.`, `DO.`, `GO.`, `PI.`, `L.`, `V.`, `DR`,
-`SEC.`, `SIG.` and `SD-` has no remaining capacity for two-letter prefixes
+`SEC.`, `SIG.`, `AXM.` and `SD-` has no remaining capacity for two-letter prefixes
 that a reader must decode before they can read.* *(`L.` and `V.` added by
 F.12's audit — both were already live, at `L.11` and `V.1`, and missing
 from this sentence since before this file's own history begins; `DR` added
@@ -13668,6 +13668,266 @@ lost or mistaken for closer than they are:**
   the reason Spanish rather than any other language is first. The proof that
   the whole rack was worth building, the same role LX.10's fixture played for
   the grammar seam. *Depends on:* every item above. `~weeks`
+
+---
+
+# 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE SINGULARITY LINE
+
+*The third gear: a spreadsheet that answers a manager as an analyst would,
+  deterministically, with a proof beside each answer. `docs/SINGULARITY.md`
+  is its stage road and keeps its handles (Stage 3, step 3.2; `REFLECT`,
+  `ABDUCE`); this line holds the steps picked up, filed 2026-09-30 at the
+  owner's call, in the order that each makes the next cheap (the
+  METAMETAMACRO line's own creed) with every engine behind its microscope
+  (this file's first ordering rule: build the instrument before the
+  operation). specimens: 0 (the owner's own close repertoire, §4's Monday,
+  until `AXM.6`'s corpus holds it).*
+
+**How the order was chosen, 2026-09-30.** Abductively, in the owner's own
+framing: the Monday of `SINGULARITY.md` §4 is the fact to be made a matter
+of course, and the question is which few present facts would make each row
+of §2's act table one arm of a dispatch that exists, rather than a parser,
+an engine or a sheet type of its own each time. The measure: how many later
+steps become one arm (fan-out), times how much of the step the code already
+holds (substrate, verified by reading the code, never assumed from the
+doc), over its size. Five primitives came out of it, and two engine
+substrates that no primitive can make cheap, only a measurement can:
+
+| Step | Later steps it makes cheap | What stood in the code at filing |
+|---|---|---|
+| `AXM.2`, the act seam | every act: controls, questions, why, hypotheses, topic lines, sign-off | nothing; `EnTokenize` folds `?` and `!` into `.` |
+| `AXM.5`, definitions as rules | every control and question over a defined term; the schemas; the manager's own fix for a refusal | `ParseClause` turns an English clause into a `DATALOG` rule already |
+| `AXM.3`, answers as forms | every answer, every edition, the three sentences of a why-answer | `EnglishRenderForm`, with no caller |
+| `METAPROOF.4`, `(tables …)` | every proof of the third gear, the corpus, clingo beside `ABDUCE` | the proof runner; `DatalogRunForms` takes relations that are not Ranges |
+| `AXM.4`, the record | sign-off, narration, `ran(…)`, the eliminations of a why-answer | the interpreter's effect log; `VLA_Log`'s sheet pattern |
+| `AXM.1`, then `AXM.8` `REFLECT` | the audit list, cause, `VARIANCE`, `ABDUCE`'s grounding | `RelFromRange`, `TableArgResolve`, `baseRelations`; nothing walks precedents |
+| `AXM.7`, the reference reader | `refers`, and with it half of the schemas | nothing |
+
+Two tracks run in parallel and a step names what it waits on: the table
+track (`AXM.2`, `AXM.3`, `AXM.4`, `AXM.5`, `AXM.9`) needs no `REFLECT`; the
+workbook track (`AXM.1`, `AXM.7`, `AXM.8`, `AXM.10`, `AXM.11`) needs no
+controls. Where this order and the doc's §10 differ: §10 puts the Controls
+sheet second and the act seam nowhere; here the seam ships inside the
+Controls sheet's first slice, so that `?` is one arm later and not a second
+front door, and `AXM.12` is added as the microscope §10's "then `ABDUCE`"
+was missing. The steps that live under other departments keep their IDs and
+their places: `METAPROOF.4` (METAMETAMACRO) is first in the order; `V.1`
+(INTERFACE) is `AXM.2`'s first slice; `U.18` (INTERFACE) precedes `AXM.4`;
+`LE.7` (LEARNABILITY) is Stage 6.3. Behind their own microscopes and still
+handles in the doc: `VARIANCE` (3.3), `TEMPORAL` (3.4), why-provenance
+(2.4), `ABDUCE` (4.1, after `AXM.12`), `WHATIF` (5.1), `GOAL` (5.2),
+scenarios (5.3) and the game (6.5, §7). Nothing here moves a standing
+decision: `SD-13`, the `GENSYM` veto and `SD-16` hold at every stage.
+
+- ⬜ **AXM.1 — the `REFLECT` measurement: how big is a real model, read as
+  relations.** The microscope before Stage 0.1, whose own catch is that a
+  million-cell model cannot be a million facts per question. A standalone
+  diagnostic module in `tools/` (the `VLA_DiagO3.bas` precedent), imported
+  into any real workbook and run there: for every sheet, the used range
+  read as one array, cells and formulas counted, the time per sheet and in
+  total; then ten named cells' cones sized, Excel's own `Precedents` within
+  the sheet as the floor and the sheet-qualified references in the formula
+  text as the ceiling, counted by hand, since nothing walks precedents yet.
+  One table out: sheets, cells, formulas, largest used range, read time,
+  ten cone sizes. It decides `REFLECT`'s shape (a cone per question, or a
+  used-range scan per sheet), which the doc leaves open on purpose. No
+  engine, no grammar. *Precedent:* `OPTIMIZE.0` and `DATALOG.12`'s ladder,
+  and `VlaTimeIt` (`VLA_DevRig.bas`) for the timing idiom. *Pays into:*
+  `AXM.7`, `AXM.8`, and `IT_REVIEW.md`'s size claims. `~hours` to write;
+  the owner runs it on a real fifty-sheet model.
+- ⬜ **AXM.2 — the act seam, and the Controls sheet as its first arm (Stage
+  1.1; `V.1` re-scoped).** Today `EnTokenize` folds `?` and `!` into `.`
+  (`VLA_SentenceEngine.bas`, the terminator arm near L3171: `c = "." Or c =
+  "!" Or c = "?"` adds a `.` token), so a row's act is erased before
+  parsing begins, and no `should` or `must` exists anywhere (no such
+  literal in `VLA_SentenceEngine.bas` or `english.vla`, checked at filing).
+  One seam, in one place, before `ParseStmt`: the row's act is read from
+  its terminator and modality; `.` is a directive (today's whole grammar,
+  unchanged), `should` or `must` a control, `?` a question, a trailing `:`
+  a topic line; an act whose stage has not shipped is refused in words that
+  say what the sentence can be instead. Every later act is one arm of this
+  dispatch, never a second front door. First arm, in the same slice: `must`
+  and `should` over the row-level `cond` sub-grammar the first gear already
+  has, on a Controls sheet that keeps the Frazaro tab's convention (the
+  control in column B, its result in column C, green when nothing violates
+  it). Decided 2026-09-29: a failed `must` is a red cell, worded as a
+  refusal is, and the run counts as failed; a failed `should` is a yellow
+  cell with the violations named, the run goes on, and one dialog at the
+  end lists every yellow row. `SD-4`: `?`, `should` and `must` get their
+  `GRAMMAR_SINCE.md` rows from this slice, since the spellings cannot be
+  revisited. Later slices, each `~days`: quantifiers (`no`, `every`,
+  `some`, `at most N`, `at least N`, `exactly one`) over the rows of a
+  range or Table; tolerances and tie-outs (`must equal`, `should be within
+  5% of`, `should be within 100 of`; "roughly" refused, a tolerance is a
+  number); reconciliation (`Every row of Table Bank should match a row of
+  Table Ledger on Amount and Date.`, an anti-join, the unmatched rows on
+  each side). Proof shape: `(test-violations "…" (rows 5 9 14))` over a
+  fixture, on `METAPROOF.4`'s `(tables …)`. `V.1` (INTERFACE) is this
+  item's first slice and keeps its ID: a `verify:` row is a `must`
+  control. *Why the seam is not its own item:* `SD-7`'s doctrine, a
+  mechanism with no sentence behind it is not scheduled; the first control
+  is the sentence, so the seam ships with it. *Pays into:* every act
+  below. `~days` for the seam, `~weeks` for the slices.
+- ⬜ **AXM.3 — answers as rendered forms: `G-RENDER`'s first user-facing
+  job.** An engine returns a form, `(unmatched-rows Bank Ledger (rows 41 42
+  97))`, and the phrasebook turns it into a sentence; no engine builds its
+  own English. `EnglishRenderForm` (`VLA_SentenceEngine.bas`, near L2142)
+  exists with no caller outside its module (a grep over `src/` at filing),
+  and it renders imperatives, because its templates are the sentence
+  rules; an answer is declarative, so it needs one loader directive for
+  answer templates (a kernel head beside the `*-vla` family in
+  `DispatchVocabForm`, its name settled at scoping) and the same matcher
+  run in reverse over that second store. First customer: `AXM.2`'s yellow
+  cell, `3 rows of Table Bank match no row of Table Ledger: rows 41, 42 and
+  97.`; then every answer of Stage 2, the three sentences of a why-answer,
+  and every edition, whose answers then come from its own phrasebook
+  (`EDITION-MESSAGES`' argument, once more). *Value claim, tested before
+  filing:* nothing needs rendering today, since the engines' answers are
+  spills; the first customer is the yellow cell, so this item is filed
+  after `AXM.2`, not before it. `~days` per directive.
+- ⬜ **AXM.4 — the record and the sign-off (Stage 1.6; `U.18` wired for the
+  third gear).** `U.18` (INTERFACE) first, as its own item: the per-run log
+  the interpreter's effect log already feeds (`LogEffect` and
+  `VlaInterpreterEffectLog`, `VLA_Interpreter.bas`). This item adds what a
+  Controls sheet needs the record to hold: a line per control result, red,
+  yellow or green with the violations named, the same list the end-of-run
+  dialog shows; and `Sign off on sheet Summary.` as the declaration that
+  closes it, one arm of `AXM.2`'s seam, writing signed *as* whom
+  (`Application.UserName` is a claim, and the line says so), when, and
+  against which hash of the workbook (`VLA_Digest`'s SHA-256); it refuses
+  while any red stands. Evidence for the auditor, produced by the act
+  itself. `~days` after `U.18`.
+- ⬜ **AXM.5 — definitions as rules: the Definitions sheet (Stage 1.5).** `An
+  invoice is overdue when its Due Date is before today and its Status is
+  "Unpaid".` becomes a `DATALOG` rule over the Table's rows, and `overdue`
+  is a word every later control and question may use. The substrate
+  exists: `ParseClause` (`VLA_SentenceEngine.bas`, near L6211) already
+  turns `a bill is big if Bills lists the bill as Bill and the amount as
+  Amount, and the amount is greater than 10000` into `(rule (big Bill)
+  (bills (bill Bill) (amount Amount)) (> Amount 10000))` (`english.vla`,
+  the `write in cell {r:cell} that {h:clause}` rule and its proofs); today
+  the rule goes into a cell and the word dies with the sentence. This item
+  gives definitions a sheet of their own (the definition in column B, its
+  Check result in column C), a store the control and question grammars
+  read by word, and three refusals at Check: a definition naming a column
+  the Table lacks; one that redefines a built-in word (`SD-4`); one
+  arriving from a file, which is a rule and so passes `SEC.2`'s consent.
+  The third gear's `defmacro`: the company's glossary as executable
+  sentences, and the only way the grammar grows in the field without a
+  release; Stage 6.2's refusal (`stale` is not a word this workbook knows;
+  define it on the Definitions sheet) is its second customer. `Define` at
+  top level today is aliases only (`ParseDefine`: quoted text, a number or
+  an earlier alias), so the definition sentence is a new shape, not a
+  widening. `~weeks`; the first slice, one definition shape over one
+  Table, `~days`.
+- ⬜ **AXM.6 — the gap ledger and the Imitation corpus (Stages 6.1 and
+  6.4).** Two microscopes, both mostly standing. The ledger: `VLA_Log`
+  already keeps every misunderstood sentence (when, row, sentence,
+  message) on a very-hidden local sheet (`LogParseFailure`, `VLA_IDE.bas`,
+  capped at the newest thousand), Copy Feedback exports it
+  (`EnglishIdeCopyFeedback`), and `DidYouMean` (`VLA_SentenceEngine.bas`)
+  already computes the nearest rules at refusal time; the item writes the
+  nearest rule and the token where reading stopped beside each entry, so
+  the export clusters by the rule a sentence nearly matched: the sentences
+  `SD-7` asks for, observed rather than predicted. The corpus: a proof
+  file for the third gear (`scripts/proofs/close.vla`, name settled at
+  scoping), started with the owner's own close repertoire as sentences
+  first, twenty controls and fifty questions in a manager's words, each
+  gaining its proof as its act ships, under a `check_proofs.ps1` floor that
+  never goes down; the third gear's `instructions.txt`. *Precedent:*
+  `OPTIMIZE.0.1`, twenty-one questions answered before the engine existed.
+  *Correction to `SINGULARITY.md` §3, appended there the same day:* its
+  "Memory" list did not know `VLA_Log` stood. `~days`.
+- ⬜ **AXM.7 — the formula-reference reader (Stage 0.2).** Pure string
+  work, host-free, pinned in the pure suite: the references inside a
+  formula (`A1`, `$A$1`, `A1:B2`, `Sheet!A1`, `'Q1 Data'!A1`, names,
+  structured references, external links) read from the formula's text,
+  which is what `refers(from, to)` is built from and what `Read cell B9's
+  formula to me.` needs. References inside `INDIRECT` and `OFFSET` are
+  refused by name as unreadable; implicit intersection and spilled ranges
+  are its catch. A parser for references, not for the formula language.
+  Nothing in `src/` walks precedents today (the doc's own §11 check), and
+  Excel's own `Precedents` stops at the sheet boundary. Proof shape: a
+  table of formulas and their expected references in `VLA_Tests.bas`.
+  Independent of `AXM.1`'s outcome, so the two run in parallel. *Pays
+  into:* `AXM.8`, `AXM.10`, `AXM.11`, `VARIANCE`, and half of `ABDUCE`'s
+  first fifteen schemas (a summed range one row short, a reference shifted
+  by an inserted row, a stale external link, a circular reference).
+  `~weeks`.
+- ⬜ **AXM.8 — `REFLECT`: the workbook as relations (Stage 0.1), shaped by
+  `AXM.1`'s numbers.** Eight relations any engine can take as a table:
+  `cell(sheet, addr, value)`, `formula(sheet, addr, text)`, `refers(from,
+  to)`, `name(name, refersto)`, `sheet(name, hidden)`, `table(name, sheet,
+  range)`, `changed(addr, old, new)` and `ran(program, row, addr, when)`.
+  Lazy and anchored: a question about `B9` materializes `B9`'s cone, never
+  the workbook; a whole-sheet scan reads the used range as one array.
+  Reuses `VLA_Relation`'s tables (`RelFromRange`, `TableArgResolve`) and
+  `DatalogRunForms(forms, baseRelations, headerMap)` (`VLA_Datalog.bas`),
+  whose `baseRelations` already takes relations that are not Ranges.
+  Settled at scoping: how a sentence, or a `=DATALOG()` in a cell, names a
+  `REFLECT` relation as a table argument, since every table argument today
+  is a Range or a Table name resolved by `TableArgResolve`. Proof shape:
+  fixture workbooks in `examples/` with their expected relations written
+  beside them (`Frazaro Sample Data.xlsx` is the one fixture workbook
+  today), which needs a `(workbook …)` clause after `METAPROOF.4`'s
+  `(tables …)`. `~weeks`, after `AXM.1` and `AXM.7`.
+- ⬜ **AXM.9 — the standalone question: scope, placement and topic lines
+  (Stages 0.4, 0.5, 2.1, 2.2).** `?` as an arm of `AXM.2`: a sentence
+  ending in `?` is `G-PROLOG`'s `{q:question}` sub-grammar
+  (`ParseQuestion`, `VLA_SentenceEngine.bas`), which already returns its
+  engine (`DATALOG` or `PROLOG`) and its query text, with the three things
+  `Show in cell E2 who can-cover "Night" by applying the rules in H2:H4 to
+  the data tables Staff, Shifts, and Leave.` says aloud supplied by
+  convention (the rule's form is `(prolog-ask-place {q-engine} {q} {rules}
+  (vlatablearguments {t}) (range {r}))`, so a standalone question fills
+  `{rules}`, `{t}` and `{r}` from scope): where the answer goes (the Q&A
+  sheet, decided 2026-09-29: the question in column B, the answer from
+  column C spilling rightward, a one-cell answer in C alone, never
+  downward), which rules apply (the Definitions sheet, or a `By applying
+  the rules in H2:H4:` topic line) and which tables are in scope (the
+  workbook's Tables, unless a topic line narrows them). `About sheet
+  Invoices:` sets a scope the rows under it read against until the next
+  topic line or a blank row: deixis to a declared topic, not anaphora, so
+  `SD-16` holds. Then the wh-words, comparatives and aggregates over Tables
+  and defined terms: `How many invoices are overdue?`, `Which customers
+  owe more than 10,000?`, `What is the total of column F where Region is
+  "West"?`. `~days` for the question and its conventions, after `AXM.2`
+  and `AXM.5`; `~weeks` for the wh-family.
+- ⬜ **AXM.10 — the audit list: questions over the workbook (Stage 2.3).**
+  `Which formula columns of sheet Model contain a typed-over constant?`
+  first, then inconsistent formulas, unused names, referenced-but-empty
+  cells, totals that do not foot, hidden sheets, formulas that reach
+  another workbook. Each is one `DATALOG` query over `REFLECT`, no new
+  engine; the plug question alone earns the stage, being the checklist
+  internal audit runs by eye and end-user-computing tools charge for.
+  *Pays into:* `IT_REVIEW.md`, which gains a sentence: the workbook can be
+  asked where its risks are. `~weeks`, after `AXM.8` and `AXM.9`.
+- ⬜ **AXM.11 — `DIFF` and cause (Stages 0.3, 3.1, 3.2).** `changed(addr,
+  old, new)` from the Undo snapshot first (`TakeRunSnapshot`, `VLA_IDE.bas`:
+  its `VLAu_<tag>_` sheets already hold a copy of every sheet a run
+  touched), then a saved copy, then another file opened read-only
+  (`G-FILES`): one relation, three sources; a renamed sheet is reported,
+  not matched. `What changed in sheet Summary since "Close 2026-08.xlsx"?`
+  is a spill of `changed`, and three rules over `REFLECT` and `DIFF` give
+  cause: `input(X)` for a cell with no formula, `feeds(X, Y)` the closure
+  of `refers`, `cause(Y, X)` when `feeds`, `changed` and `input` hold;
+  `Which inputs changed that cell B9 depends on?` is `cause(B9, X)?`, and
+  closure is what `DATALOG` proves already ("a closure over a three-link
+  chain answers all six pairs"). `~days` after `AXM.8`.
+- ⬜ **AXM.12 — the why-corpus: twenty explanations written by hand before
+  `ABDUCE` exists (the microscope before Stage 4).** `OPTIMIZE.0.1`'s
+  shape, for the owner's pet: twenty why-questions from real closes (`Why
+  did cell B9 change?`, `Why did the control on row 14 fail?`), each with
+  the fixture that makes the fact surprising, the explanation an analyst
+  gave, and the prediction that tested it, in prose, beside §8.3's first
+  fifteen schemas written as a catalogue in words (an input changed; a
+  summed range stops one row short; a factor of a thousand; a sign
+  flipped; a duplicated row …), each with its signature, prediction and
+  test named in English. No engine, no search: the corpus decides whether
+  the three-part schema is the right shape and what the abducibles are,
+  before `OPTIMIZE`'s search is pointed at them, and it is the first thing
+  clingo is asked (a choice rule over the abducibles, a constraint that
+  the observation be explained, `#minimize`). `~days`.
 
 ---
 

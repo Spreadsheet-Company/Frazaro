@@ -84,6 +84,7 @@ output:
 |---|---|---|
 | AC | AC.4 | AC.5 |
 | AS | AS.9 | AS.10 |
+| AXM | AXM.12 | AXM.13 |
 | CO | CO.5 | CO.6 |
 | DI | DI.5 | DI.6 |
 | DO | DO.6 | DO.7 |
@@ -136,6 +137,17 @@ coverage against real external text), plus two hydrations of already-minted
 items with no new ID (`IO.4`, `G-PATH`) and two `U.*` mints (`U.17`, `U.18`,
 already reflected in the table above, for snapshot-before-run and a
 user-facing per-run log).
+
+**`AXM` is a new family, minted 2026-09-30 at the owner's call: twelve
+items, `AXM.1`–`AXM.12`, under a new line, 🗣🔧🪟 LANGUAGE + MACHINE +
+PRODUCT · THE SINGULARITY LINE**, the steps of `docs/SINGULARITY.md` picked
+up in the order that each makes the next cheap, with every engine behind its
+microscope. Declared in the prefix inventory at the moment of minting, as
+`SEC` and `SIG` were. The doc's own handles (Stage 3, step 3.2; `REFLECT`,
+`ABDUCE`) stay handles: only a filed step carries an ID, and `SINGULARITY.md`
+§12 maps each filed step to its `AXM` number. `METAPROOF.4`, `V.1`, `U.18`
+and `LE.7` are steps of the same road and keep their own families and
+places.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a
