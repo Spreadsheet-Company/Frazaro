@@ -1483,6 +1483,8 @@ Use these labels exactly when telling a person what to press.
 
 - The sheets a program names are copied first. **Undo Last Run** puts
   them back, and reaches the most recent run only.
+- A sheet the run created, the sheet it works on included, is removed
+  again by a stop or by Undo.
 - Undo does not reach a file saved, an email drafted, or another
   workbook.
 - A run that stops puts the sheets back and names the row.

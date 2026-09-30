@@ -24297,6 +24297,53 @@ now carries one summary paragraph per engine and points here.*
   reads in Frazaro's words, pinned by pure tests of the mapping (each
   member, the fallback, other text left alone). *Depends on:* nothing.
   `~hours`
+- ✅ **U.28 — a Run that stops, or is undone, removes the workspace sheet
+  it made.** *Minted 2026-09-30, the owner's call, from `G-FORMULA` slice
+  2's live pass; scoped, built, owner-verified live and committed the same
+  day with `U.29`, in `G-FORMULA` slice 3's pass (three hand tests: a stop
+  removing the workspace sheet it made and Undo Last Run removing it after
+  a finished run, each on both backends, and `Output` alike).* **Observed:** on a workbook with no StatsD, `Work on
+  sheet StatsD.` and then `Set middle to median of range B2:B6.` over
+  empty cells stopped, on both backends, with "Put back as they were
+  before the run: statsd." and left an empty `statsd` sheet, where the
+  handoff, reading `U.25`, had predicted "Removed the sheet the run had
+  created". The name is lower-case by design: a bare sheet name is, and a
+  quoted one keeps its case. **Cause, read from the code:** `RunProgram`
+  and `InterpretProgram` (`VLA_IDE.bas`, ~1134 and ~1331) create the
+  workspace sheet - the first `Work on sheet`, or `Output` - with
+  `GetOrCreateSheet` before `TakeRunSnapshot`, on purpose: "It must exist
+  BEFORE the snapshot, so 'the state before the last run' always includes
+  it - on a fresh workbook the snapshot is a blank sheet, and Undo
+  restores to blank, which is exactly right." `TakeRunSnapshot` copies
+  each target that exists and leaves a removal marker for each that does
+  not, so the workspace sheet is always copied, and `PutBackLastRun`,
+  which Undo Last Run and a stopped Run share since `U.25`, restores it
+  empty. Every other sheet a run creates - a later `Work on sheet`, an
+  `Add sheet called` - is removed. The comment's rule is older than the
+  removal markers; the workspace sheet is the one target they never
+  reach, and the stop's message calls a sheet the run made "as they were
+  before the run". Nothing between the two calls needs the sheet (only
+  comments, in both procedures). **The owner's calls, each as
+  recommended:**
+  - *Removed when the run made it, like every other sheet.* Both Run
+    procedures now take the snapshot first and make the workspace sheet
+    after, so a sheet made there is one the snapshot has marked for
+    removal, and the stop's and Undo's existing words ("Removed the sheet
+    the run had created: statsd.") are true with no new words. A workspace
+    sheet that already existed is copied and put back, as ever. A snapshot
+    that fails (`U.19`) now also leaves no workspace sheet behind.
+  - *`Output` alike:* one rule. The snapshot has always listed `Output`
+    among its targets, so it is marked when it does not exist and removed
+    when the run made it.
+  - *Pins:* live, on both backends. The suites reach the stop's words
+    (`VlaIdeStopMessage`) but never the Run path or the snapshot.
+  **Done when:** on a workbook without the program's workspace sheet, a
+  Run that stops and an Undo Last Run after one that finished each leave
+  the workbook as it was before the Run, on both backends, and the
+  message says what happened to that sheet. *Related:* the audit's `C62`
+  (a Run restores only ScreenUpdating) and `G-FORMULA` slice 3's
+  precursor, which change the same two procedures. *Depends on:* nothing.
+  `~hours`
 
 ---
 
@@ -25706,3 +25753,5 @@ numbers. **Quoting a correction is not applying it.**
 ## 🪟 PRODUCT · INTERFACE
 
 - ✅ **U.26 — a refusal that begins with a quoted word lost its opening quote on the sheet.** Found in `LX.13`'s live pass, 2026-09-29: column C showed `a2' is shaped like a cell …`, because Excel reads a leading apostrophe in a cell's value as its own "this is text" mark and hides it - 32 English refusals begin with a quoted word. **Built, owner-verified live and committed 2026-09-29** (`VLA_SELF-TESTS` pure 1564/1564 and host 244/244; `VerifyReports` 334/334 on both backends; both hand tests showed the quote). `VLA_IDE.VlaIdeCellText` puts one apostrophe in front of text beginning with `'`, `=`, `+`, `-` or `@`, so the cell shows exactly the text; it writes the red mark, the hint appended to it and the diagnostic log. Pinned by four pure checks and a host test that first shows Excel hiding the apostrophe. *(more: the full entry, earlier in this file)* `~hours`
+
+- ✅ **U.28 — a Run that stops, or is undone, removes the workspace sheet it made.** Minted 2026-09-30, the owner's call, from `G-FORMULA` slice 2's live pass: on a workbook with no StatsD, a Run that worked on it and stopped said "Put back as they were before the run: statsd." and left an empty sheet the person never had, because both Run procedures made the workspace sheet (the first `Work on sheet`, or `Output`) before the snapshot. **Built, owner-verified live and committed 2026-09-30** with `U.29` (three hand tests: a stop and an Undo Last Run each removing the sheet the run made, on both backends, and `Output` alike). The snapshot now comes first and the workspace sheet after, so a sheet the run made carries a removal marker like every other, and the stop's and Undo's existing words say "Removed the sheet the run had created". *(more: the full entry, earlier in this file)* `~hours`

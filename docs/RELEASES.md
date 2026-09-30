@@ -29,6 +29,12 @@
     that finds nothing does, and `Try:` catches it: a median of no numbers,
     a sample of fewer than two, no matching row. For now the message is
     Excel's own, and names the function that had no answer.
+- **A stop or an Undo removes the sheet the run worked on, when the run
+  made it.** On a workbook without the sheet a program works on (its first
+  `Work on sheet`, or Output), a run that stopped used to leave that sheet
+  behind, empty, and call it "put back as they were before the run". It is
+  removed now, as every other sheet a run creates is, and the message says
+  so. Undo Last Run does the same.
 
 ### Known open security items
 

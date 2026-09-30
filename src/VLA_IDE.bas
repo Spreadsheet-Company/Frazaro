@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_IDE"
 Option Explicit
-Public Const VLA_IDE_VERSION As String = "SOP.6"
+Public Const VLA_IDE_VERSION As String = "U.28"
+' U.28: the workspace sheet is made after the snapshot, not before, in
+' both Run procedures, so a Run that creates it can have it removed: a
+' stop or Undo Last Run takes it away, as every other sheet a run creates,
+' and says so, where it used to put back an empty sheet the person never
+' had and call it "as they were before the run".
 ' SOP.6: the <Frazaro> tag. Load and Reload read only the part of a
 ' document between <Frazaro> and </Frazaro> when it has one, with values
 ' from the opening tag filled into the section's sentences
@@ -1125,17 +1130,6 @@ Private Sub RunProgram(ByVal wantTrace As Boolean)
     ' deliberate-defect test disproved its mechanism - see the module
     ' note in VLA_English's BuildStepInfra and the Alpha 3 roadmap.)
 
-    ' The workspace sheet: "Output" by default, or whatever the
-    ' program declares with "Work on sheet <name>." It must exist
-    ' BEFORE the snapshot, so "the state before the last run" always
-    ' includes it - on a fresh workbook the snapshot is a blank
-    ' sheet, and Undo restores to blank, which is exactly right.
-    Dim outName As String
-    outName = DeclaredOutputSheet(progText)
-    If Len(outName) = 0 Then outName = OUT_SHEET
-    Dim outWs As Worksheet
-    Set outWs = GetOrCreateSheet(outName)
-
     ' Safety net: snapshot the sheets this run can touch, so "Undo
     ' last run" can put everything back. U.19: a snapshot that cannot be
     ' made now STOPS the Run, in words, before its first sentence - it
@@ -1149,6 +1143,21 @@ Private Sub RunProgram(ByVal wantTrace As Boolean)
     ' Frazaro keeps for its copies), and the refusal says how.
     ' TakeRunSnapshot removes everything it made before it raises.
     TakeRunSnapshot hb, progText, VlaIdeProgramTag(ws.Name), ws.Name
+
+    ' The workspace sheet: "Output" by default, or whatever the
+    ' program declares with "Work on sheet <name>." U.28: made AFTER
+    ' the snapshot, so a sheet this makes is one the snapshot has
+    ' marked for removal, like every other sheet a run creates, and a
+    ' stop or Undo Last Run removes it and says so. It used to be made
+    ' before, so that "Undo restores to blank" - which put back an
+    ' empty sheet the person never had, and called it "as they were
+    ' before the run". A workspace sheet that already existed is
+    ' copied and put back, as ever.
+    Dim outName As String
+    outName = DeclaredOutputSheet(progText)
+    If Len(outName) = 0 Then outName = OUT_SHEET
+    Dim outWs As Worksheet
+    Set outWs = GetOrCreateSheet(outName)
 
     ' Sheet context: unqualified cell references in the vocabulary
     ' mean "the current sheet" (VBA's ActiveSheet), and "Go to sheet
@@ -1327,15 +1336,16 @@ Private Sub InterpretProgram(ByVal wantTrace As Boolean)
     progText = ProgramText(ws, FIRST_ROW, IdeLastRow(ws))
     GuardTagCollision hb, ws
 
+    ' U.19: a snapshot that cannot be made stops this run too, in words,
+    ' before its first sentence - RunProgram's call says why.
+    TakeRunSnapshot hb, progText, VlaIdeProgramTag(ws.Name), ws.Name
+
+    ' U.28: the workspace sheet after the snapshot - RunProgram's says why.
     Dim outName As String
     outName = DeclaredOutputSheet(progText)
     If Len(outName) = 0 Then outName = OUT_SHEET
     Dim outWs As Worksheet
     Set outWs = GetOrCreateSheet(outName)
-
-    ' U.19: a snapshot that cannot be made stops this run too, in words,
-    ' before its first sentence - RunProgram's call says why.
-    TakeRunSnapshot hb, progText, VlaIdeProgramTag(ws.Name), ws.Name
 
     outWs.Activate
     ws.Protect
@@ -3165,6 +3175,9 @@ End Function
 '  skipped with a note in the Immediate window. U.19: a snapshot is all
 '  or nothing - if any copy or marker cannot be made, everything made so
 '  far is removed and the Run stops, in words, before its first sentence.
+'  A sheet that does not exist yet gets a removal marker instead of a
+'  copy, so a sheet the run creates is removed again - its workspace
+'  sheet too, since U.28 made that sheet after the snapshot.
 ' =====================================================================
 
 ' V2: snapshot names carry the program's tag - VLAu_<tag>_<sheet> -

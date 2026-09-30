@@ -1421,7 +1421,7 @@ email.
 |---|---|
 | The Output sheet, and every sheet the program names | A workbook saved or exported to disk |
 | Sheets the run deleted | An email draft it opened |
-| It removes sheets the run created | Another workbook the program opened |
+| It removes sheets the run created, the sheet it worked on included | Another workbook the program opened |
 
 It covers the most recent run of that program, and each program in a
 workbook has its own.
