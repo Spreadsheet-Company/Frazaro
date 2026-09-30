@@ -242,6 +242,17 @@ new: the slice's one interpreter change is `calculate`, a member among
 `DynamicCall`'s reviewed ones, which `check_emitter_coverage` lists no
 more than it lists `save` or `activate`; turning calculation off and on
 rides `DynamicSet`'s `calculation`, there since `IN.3`.
+Then six more phrasebook rows marked `0.8.0` - `G-FORMULA`'s fourth slice
+(`pareto.txt` §11, and slice 2's deferrals): the median and the standard
+deviation of a range remembered by a name, each set and put; a sum and an
+average over the rows that match, put into a cell; and a formula put into
+a cell and filled down to the last filled row of a named column. No core
+dispatch arm is new: the fill-down's one interpreter change is `resize`, a
+member among `DynamicGet`'s reviewed ones, and the named figures ride
+slice 2's arms. The median of a name is two rules, not a function word:
+this ledger dates rules and arms and has no row for a function word, so a
+function word would have been sayable from `0.8.0` with nothing here to
+say so.
 
 ### Phrasebook rules
 
@@ -362,13 +373,17 @@ rides `DynamicSet`'s `calculation`, there since `IN.3`.
 0.5.0  paste values of range {a:range} into range {b:range}
 0.5.0  print this sheet
 0.5.0  put formula {f:text} into|in cell {r:cell}
+0.8.0  put formula {f:text} into|in cell {r:cell} and fill down to last filled row of column {k:column}
 0.7.1  put formula {f:text} into|in range {r:range}
 0.7.1  put formula {f:text} into|in rows {a:expr} to|through {b:expr} of column {c:column}
 0.8.0  put median of range {r:range} into|in cell {c:cell}
+0.8.0  put median of {n:name} into|in cell {c:cell}
 0.8.0  put standard deviation of range {r:range} as {k:sample|population} into|in cell {c:cell}
+0.8.0  put standard deviation of {n:name} as {k:sample|population} into|in cell {c:cell}
 0.5.0  put sum of range {r:range} into|in cell {c:cell}
 0.5.0  put today into|in cell {r:cell}
 0.7.1  put {d:average|largest|smallest} of range {r:range} into|in cell {c:cell}
+0.8.0  put {d:sum|average} of range {r:range} where range {c:range} matches {e:expr} into|in cell {t:cell}
 0.5.0  put {e:expr} in status bar
 0.5.0  put {e:expr} into|in cell {r:cell}
 0.5.0  put {e:expr} into|in cell {r:cell} of sheet {s:sheet}
@@ -432,6 +447,7 @@ rides `DynamicSet`'s `calculation`, there since `IN.3`.
 0.5.0  set {v:var} to last {n:expr} letters of {t:expr}
 0.5.0  set {v:var} to lookup of {e:expr} in range {r:range} column {k:expr}
 0.8.0  set {v:var} to median of range {r:range}
+0.8.0  set {v:var} to median of {n:name}
 0.5.0  set {v:var} to position of {a:expr} in {t:expr}
 0.7.0  set {v:var} to range {r:range} as one list
 0.7.0  set {v:var} to range {r:range} as one list separated by {s:expr}
@@ -439,6 +455,7 @@ rides `DynamicSet`'s `calculation`, there since `IN.3`.
 0.7.1  set {v:var} to row of first cell in range {r:range} containing {t:expr}
 0.5.0  set {v:var} to row of {e:expr} in column {c:column}
 0.8.0  set {v:var} to standard deviation of range {r:range} as {k:sample|population}
+0.8.0  set {v:var} to standard deviation of {n:name} as {k:sample|population}
 0.5.0  set {v:var} to sum of range {r:range}
 0.5.0  set {v:var} to sum of range {r:range} where range {c:range} matches {e:expr}
 0.7.0  set {v:var} to text {d:before|after} last {a:expr} in {t:expr}

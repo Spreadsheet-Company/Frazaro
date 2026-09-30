@@ -600,6 +600,7 @@ put {e:expr} into|in column {c:column} row {n:expr}
 put {e:expr} into|in column number {c:expr} row {n:expr}
 put {e:expr} into|in range {r:range}
 put formula {f:text} into|in cell {r:cell}
+put formula {f:text} into|in cell {r:cell} and fill down to last filled row of column {k:column}   (0.8.0)
 put formula {f:text} into|in range {r:range}   (0.7.1)
 put formula {f:text} into|in rows {a:expr} to|through {b:expr} of column {c:column}   (0.7.1)
 put today into|in cell {r:cell}
@@ -615,13 +616,20 @@ Excel writes it: `Put formula "=B2*2" into cell B3.` Into a range or into
 rows, it is written for the first cell, and the cells below get it adjusted
 as Fill Down would adjust it: `Put formula "=B2*C2" into range D2:D50.`
 leaves D3 holding `=B3*C3`. When the last row is above the first, as with
-no data rows, `into rows …` writes nothing.
+no data rows, `into rows …` writes nothing. `… into cell D2 and fill down
+to the last filled row of column B` is Excel's Fill Down itself: the
+formula goes into D2, then down to the last row with anything in column B,
+adjusted row by row and in D2's format. D2 always gets the formula;
+nothing is filled when that row is not below it.
 
 ### B. Reading and computing
 
 ```text
 put {d:average|largest|smallest} of range {r:range} into|in cell {c:cell}   (0.7.1)
+put {d:sum|average} of range {r:range} where range {c:range} matches {e:expr} into|in cell {t:cell}   (0.8.0)
+put median of {n:name} into|in cell {c:cell}   (0.8.0)
 put median of range {r:range} into|in cell {c:cell}   (0.8.0)
+put standard deviation of {n:name} as {k:sample|population} into|in cell {c:cell}   (0.8.0)
 put standard deviation of range {r:range} as {k:sample|population} into|in cell {c:cell}   (0.8.0)
 put sum of range {r:range} into|in cell {c:cell}
 recalculate all open workbooks   (0.8.0)
@@ -635,8 +643,10 @@ set {v:var} to count of {k:empty|filled} cells in range {r:range}   (0.7.1)
 set {v:var} to count of range {c:range} matching {e:expr}
 set {v:var} to last filled row of column {c:column}
 set {v:var} to lookup of {e:expr} in range {r:range} column {k:expr}
+set {v:var} to median of {n:name}   (0.8.0)
 set {v:var} to median of range {r:range}   (0.8.0)
 set {v:var} to row of {e:expr} in column {c:column}
+set {v:var} to standard deviation of {n:name} as {k:sample|population}   (0.8.0)
 set {v:var} to standard deviation of range {r:range} as {k:sample|population}   (0.8.0)
 set {v:var} to sum of range {r:range}
 set {v:var} to sum of range {r:range} where range {c:range} matches {e:expr}
@@ -662,6 +672,13 @@ empty cells and text are skipped and a zero counts. A range with too few
 numbers stops the run at the sentence, as a lookup that finds nothing
 does: a median of no numbers, a sample of fewer than two, no matching
 row.
+
+`median of` and `standard deviation of` also take a range remembered by a
+name (`Set middle to median of revenues.`), in these four shapes only.
+Unlike `sum of`, they are not words that fit into any value: a median to
+compare is set first, and the name is one word, so `… median of revenues
+plus 5` is refused. `put sum|average of range … where …`, like `put sum`,
+writes the number, not a live formula.
 
 `turn off automatic calculation` and `turn on automatic calculation`
 switch Excel's own Automatic setting; on means Automatic, whatever the
@@ -1304,11 +1321,13 @@ A model's habits from other languages are the usual cause.
 | `Set x to range A1:A9.` | `Remember range A1:A9 as x.` |
 | `Set x to sum of A1:A9.` | `Set x to sum of range A1:A9.` |
 | `Put formula "=B2*C2" into D2:D50.` | `Put formula "=B2*C2" into range D2:D50.` |
+| `Put formula "=B2*C2" into cell D2 and fill down to the last row.` | `… to the last filled row of column B.` |
 | `Set fill-color of cell C4 to red.` | `Make cell C4 red.` |
 | `Make cell C4 orange.` | `Set fill-color of cell C4 to "#FFA500".` |
 | `Sort range A1:C50 by column B.` | `Sort range A1:C50 by column B with a header row.` |
 | `Capitalize each word in range A2:A50.` | `… after any space.` |
 | `Set s to standard deviation of range B2:B50.` | `… as a sample.` or `… as the population.` |
+| `Show median of revenues.` | `Set middle to median of revenues.` then `Show middle.` |
 | `… where range A2:A90 is "West".` | `… where range A2:A90 matches "West".` |
 | `Turn off calculation.` | `Turn off automatic calculation.` |
 | `Recalculate the workbook.` | `Recalculate all open workbooks.` or `Recalculate this sheet.` |
@@ -1580,7 +1599,7 @@ Use these labels exactly when telling a person what to press.
 |---|---|
 | **Release described** | `0.7.0`: 223 sentence shapes, of which 220 are written out in the phrasebook and three are written by a generator. |
 | **Marked `(0.7.1)`** | Sixteen shapes, and the two range conditions of R6. With them R7 lists 239, which is the number **Load Phrasebook** reports as *built-in vocabulary* in a copy that has them. |
-| **Marked `(0.8.0)`** | Nine shapes: a range's median and standard deviation, each set and put into a cell, an average over the rows that match, automatic calculation turned off and on, and recalculating this sheet or all open workbooks. With them R7 lists 248. |
+| **Marked `(0.8.0)`** | Fifteen shapes: a range's median and standard deviation, each set and put into a cell, the range written out or remembered by a name; an average over the rows that match, and a sum or an average over them put into a cell; a formula put into a cell and filled down to the last filled row of a named column; automatic calculation turned off and on; and recalculating this sheet or all open workbooks. With them R7 lists 254. |
 | **Source of R7** | The project's own dated ledger of every shape, [GRAMMAR_SINCE.md](../GRAMMAR_SINCE.md), including three shapes that a generator writes and no file spells out. |
 | **Source of R4, R5, R6, R8** | The engine's source, and the proofs the phrasebook runs every time it loads. |
 | **Source of R12** | The shipped sample procedures. Every sentence is a sample's own. |

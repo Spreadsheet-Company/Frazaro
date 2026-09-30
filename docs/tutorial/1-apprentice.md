@@ -275,6 +275,18 @@ way Fill Down adjusts it, so D3 holds `=B3*C3`. `through` may stand for
 `to`. When there are no data rows, and the last row is above the first,
 nothing is written, so a header row is never touched.
 
+**From `0.8.0`**, the same in one sentence, as Excel's own Fill Down:
+
+```text
+Put formula "=B2*C2" into cell D2 and fill down to the last filled row of column B.
+```
+
+The formula goes into D2, then down to the last row with anything in
+column B, and D2's format goes down with it. The sentence names the column
+that says how far, so `… and fill down to the last row.` is refused. D2
+always gets its formula; when column B has nothing below row 2, nothing is
+filled.
+
 ### Four more ways to name something
 
 ```text
@@ -485,6 +497,18 @@ refused, with both shown. The average leaves out a matching row that has
 no value, as Excel's AVERAGEIF does. When there are too few numbers, a
 median of an empty range for one, the run stops at that sentence, as a
 lookup that finds nothing does.
+
+A range remembered by a name works in the same sentences, and a sum or an
+average over the rows that match can go straight into a cell:
+
+```text
+Set middle to median of revenues.
+Put standard deviation of revenues as the population into cell B55.
+Put sum of range B2:B90 where range A2:A90 matches "West" into cell D1.
+```
+
+Unlike `sum of revenues`, a median is a sentence of its own, not a word
+that fits into any value: to compare one in an `If`, set it first.
 
 **From `0.8.0`**, calculation switched off while a long program works on a
 big workbook, and switched back on at the end:

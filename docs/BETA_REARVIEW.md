@@ -7730,11 +7730,86 @@ G-TAIL always said this about itself; it is true of the whole tranche.
   The step turns calculation back on before it ends, and
   `VerifyReportInterpreter` gives Excel's settings back around its own
   run, as a Run does.
-  **Still open, as slices (planned 2026-09-30, on the roadmap):** 4, the
-  figures rounded out - the median and standard deviation of a remembered
-  range (a function word, or rules over a name), the where family into a
-  cell, perhaps the one-sentence fill-down; 5, subtotals; and R1C1, a
-  decision before any slice. `~weeks`
+  **✅ Slice 4, built, owner-verified live and committed 2026-09-30, for
+  `0.8.0`** (`VLA_SELF-TESTS` pure 1570/1570 and host 269/269;
+  `VerifyReports` 364/364 on both backends; the phrasebook export and
+  coverage as predicted, Rules 248 → 254, 161 with one test, none with
+  none; the goldens as predicted, `main` 727 steps, `check_figures` steps
+  813-841; `TestF4RealCorpusShadow` clean; seven hand tests, five on both
+  backends and two refused at Check word for word: a formula filled down
+  to the data in its cell's dollars, one data row leaving the header
+  uncopied, pareto's `… to the last row.`, a remembered range's median and
+  both deviations, a sum and an average where put into cells, a program's
+  own median kept, and `median of scores plus 5`). Scoped the same night
+  from slice 2's deferrals and §11's `formula-fill`. The owner approved the recommendations in
+  advance, so each fork below was decided as recommended, on the long-term
+  criteria. **Six rules:** `set … to median of {n:name}` and `put median
+  of {n:name} into|in cell …`; `set … to standard deviation of {n:name} as
+  sample|population` and its put; `put {d:sum|average} of range … where
+  range … matches … into|in cell …`; and `put formula … into|in cell … and
+  fill down to last filled row of column …`.
+  - *A remembered range's figures are rules over a name, not function
+    words.* A function word is refused as an action's name in all four
+    `To` forms (`CheckDupAction`, `english-action-name-means-something`)
+    and as a `using` parameter (`english-param-name-taken`), so `median of`
+    as a word would refuse, at Check, a `0.7.1` program that had called an
+    action or a parameter of its own `median` (`SD-4`). `Standard deviation
+    of` could not be one at all: a function word is one word and "of"
+    (`english-function-word-not-one-word`), and the reading its sentence
+    must name has nowhere to go inside a value. And `GRAMMAR_SINCE.md`
+    dates rules and arms, with no row for a function word. The rules break
+    nothing: a program's own `To median of …:` still checks, and its `Set
+    … to median of revenues.` and `Put median of revenues into cell …`
+    still call it, since the built-in `set` and `put {e:expr}` are tried
+    first (pinned pure). The cost is composition: `If median of revenues
+    is more than 100, …` and `Show median of revenues.` stay refused where
+    `sum of revenues` fits into any value, so a median to compare is set
+    first. A name is one word, so `median of revenues plus 5` is refused
+    (a `test-fail`) rather than read as the median of `revenues plus 5`, a
+    grouping a function word would never give: a function word added
+    later, at a major release if ever, would read every sentence the rules
+    accept exactly as they do.
+  - *The name fills a `name` hole, not a `var` hole* - the journeyman
+    manual's own rule. A `var` word is declared as a name the program
+    sets, so a misspelt name would be declared empty and Excel handed
+    nothing; through `name` it fails as a misspelt name in `sum of
+    revenues` does. The category's first use in `english.vla`.
+  - *The where family into a cell* is one rule whose `{d:sum|average}`
+    names the macro, as slice 1's put siblings do: the number, not a live
+    formula. `Count of range … matching …` into a cell has no written
+    sentence yet, and can join as a rule of its own.
+  - *The fill-down is built*, not left waiting to see whether slice 1's
+    two sentences prove too many: pareto writes the sentence, and a written
+    sentence is the source. *The column is named* (`… and fill down to the
+    last filled row of column B.`), the standing rule for two readings:
+    Excel's double-click reads the column beside it and stops at its first
+    blank, where `last filled row` looks up from the bottom and passes
+    blanks, and which column is a second choice. Pareto's `… to the last
+    row.` is refused expecting 'filled' (a `test-fail`). *It is Excel's
+    Fill Down* (pareto's own target, and what `Fill down range …` already
+    does): the cell's formula goes down adjusted and its format with it,
+    where a formula written into many cells leaves the formats below as
+    they were - one meaning for "fill down" (`SD-19`). *The cell always
+    gets its formula*, as the sentence says, and nothing is filled when
+    that row is not below it: Fill Down over one cell copies the cell above
+    into it, a header over the formula, so the guard is `>`, pinned by F2
+    in the corpus. `Into rows 2 to last of column D` writes nothing when
+    there are no data rows; the two differ there, both documented.
+  **Rule order:** nothing could take the six before. The built-in `set`
+  and `put {e:expr}` read `median` or `standard` as a name and stall at
+  `of` or `deviation`; slice 2's rules want `range`; `put sum of range …`
+  and slice 1's put siblings stop at `where`; `put formula … into|in cell
+  …` stops at `and`. Every sentence the six accept was refused before, so
+  no shipped sentence changes meaning. **Engine:** one `DynamicGet`
+  member, `resize`, taking a row count only (a column count is refused by
+  name); the named figures ride slice 2's arms. **Proof:** twelve
+  `test-success` and four `test-fail` proofs; three pure pins
+  (`TestGFormulaNamedFigures`); four host pins (`TestGFormulaFillDown`);
+  and a `GFigures` sheet, `To check-figures:`, read by fifteen
+  `VerifyReportChecks` rows on both backends. `main` goes from 726 steps
+  to 727.
+  **Still open, as slices (planned 2026-09-30, on the roadmap):** 5,
+  subtotals; and R1C1, a decision before any slice. `~weeks`
 - ✅ **G-TEXT** — text handling, `pareto.txt` §12, **16 entries**, P0, and
   §13's find and replace (**6 entries**), which belonged to no item and was
   taken in at scoping (2026-09-25). *Recounted first, G-FORMAT's way:* the

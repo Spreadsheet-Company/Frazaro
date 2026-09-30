@@ -1365,6 +1365,50 @@ To check-calculation:
 
 Check-calculation.
 
+# G-FORMULA slice 4: the figures rounded out. B2:B6 holds 2, 4, 6, 6 and
+# 7, as on GStats, remembered as gfig-values: its median is 6, set (H1)
+# and put (H2), and its standard deviation 2 as a sample (H3) and the
+# square root of 3.2 (1.788854...) as the population (H4). West's rows in
+# D2:E5 hold 10, a blank and 30: put in cells, their sum is 40 (H5) and
+# their average 20 (H6), the blank skipped. C2, in dollars, gets "=B2*10"
+# filled down to the last filled row of column B: C6 holds "=B6*10" in
+# dollars, and C7 stays empty. Column G's last filled row is F2's own, so
+# F2 keeps its formula and nothing is filled: Fill Down over one cell
+# would copy F1's "head" into it. Column I is empty, so J2 alone gets its
+# formula. The step clears its cells first, as check-formulas does.
+To check-figures:
+  Work on sheet GFigures.
+  Clear everything from A1:J10.
+  Put 2 into cell B2.
+  Put 4 into cell B3.
+  Put 6 into cell B4.
+  Put 6 into cell B5.
+  Put 7 into cell B6.
+  Remember range B2:B6 as gfig-values.
+  Set gfig-middle to median of gfig-values.
+  Put gfig-middle into cell H1.
+  Put median of gfig-values into cell H2.
+  Set gfig-spread to standard deviation of gfig-values as a sample.
+  Put gfig-spread into cell H3.
+  Put standard deviation of gfig-values as the population into cell H4.
+  Put "West" into cell D2.
+  Put "East" into cell D3.
+  Put "West" into cell D4.
+  Put "West" into cell D5.
+  Put 10 into cell E2.
+  Put 20 into cell E3.
+  Put 30 into cell E5.
+  Put sum of range E2:E5 where range D2:D5 matches "West" into cell H5.
+  Put average of range E2:E5 where range D2:D5 matches "West" in cell H6.
+  Format cell C2 as dollars.
+  Put formula "=B2*10" into cell C2 and fill down to the last filled row of column B.
+  Put "head" into cell F1.
+  Put 1 into cell G2.
+  Put formula "=B2*10" into cell F2 and fill down to the last filled row of column G.
+  Put formula "=B2*10" in cell J2 and fill down to the last filled row of column I.
+
+Check-figures.
+
 Go to sheet Output.
 
 Tidy-up.

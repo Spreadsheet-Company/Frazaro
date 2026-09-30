@@ -451,6 +451,132 @@
   (label vla-fail)
   (vla-report-error))
 
+(sub check-figures ()
+  (dim gfig-values)
+  (dim gfig-middle)
+  (dim gfig-spread)
+  (on-error goto vla-fail)
+    (set! vla-step 813)
+    (if (vlatraceon) (then (vlatracestep 813 (vla-step-text 813))))
+    (raw "' ---- instructions.txt:1368 To check-figures: ----")
+    (at-line 1380
+    (begin (vlaensuresheet "gfigures") (activate-sheet "gfigures")))
+    (set! vla-step 814)
+    (if (vlatraceon) (then (vlatracestep 814 (vla-step-text 814))))
+    (at-line 1381
+    (clear-everything-from (range "a1:j10")))
+    (set! vla-step 815)
+    (if (vlatraceon) (then (vlatracestep 815 (vla-step-text 815))))
+    (at-line 1382
+    (set! (range "b2") 2))
+    (set! vla-step 816)
+    (if (vlatraceon) (then (vlatracestep 816 (vla-step-text 816))))
+    (at-line 1383
+    (set! (range "b3") 4))
+    (set! vla-step 817)
+    (if (vlatraceon) (then (vlatracestep 817 (vla-step-text 817))))
+    (at-line 1384
+    (set! (range "b4") 6))
+    (set! vla-step 818)
+    (if (vlatraceon) (then (vlatracestep 818 (vla-step-text 818))))
+    (at-line 1385
+    (set! (range "b5") 6))
+    (set! vla-step 819)
+    (if (vlatraceon) (then (vlatracestep 819 (vla-step-text 819))))
+    (at-line 1386
+    (set! (range "b6") 7))
+    (set! vla-step 820)
+    (if (vlatraceon) (then (vlatracestep 820 (vla-step-text 820))))
+    (at-line 1387
+    (obj-set! gfig-values (range "b2:b6")))
+    (set! vla-step 821)
+    (if (vlatraceon) (then (vlatracestep 821 (vla-step-text 821))))
+    (at-line 1388
+    (set! gfig-middle (median-of gfig-values)))
+    (set! vla-step 822)
+    (if (vlatraceon) (then (vlatracestep 822 (vla-step-text 822))))
+    (at-line 1389
+    (set! (range "h1") gfig-middle))
+    (set! vla-step 823)
+    (if (vlatraceon) (then (vlatracestep 823 (vla-step-text 823))))
+    (at-line 1390
+    (set! (range "h2") (median-of gfig-values)))
+    (set! vla-step 824)
+    (if (vlatraceon) (then (vlatracestep 824 (vla-step-text 824))))
+    (at-line 1391
+    (set! gfig-spread (sample-standard-deviation-of gfig-values)))
+    (set! vla-step 825)
+    (if (vlatraceon) (then (vlatracestep 825 (vla-step-text 825))))
+    (at-line 1392
+    (set! (range "h3") gfig-spread))
+    (set! vla-step 826)
+    (if (vlatraceon) (then (vlatracestep 826 (vla-step-text 826))))
+    (at-line 1393
+    (set! (range "h4") (population-standard-deviation-of gfig-values)))
+    (set! vla-step 827)
+    (if (vlatraceon) (then (vlatracestep 827 (vla-step-text 827))))
+    (at-line 1394
+    (set! (range "d2") "West"))
+    (set! vla-step 828)
+    (if (vlatraceon) (then (vlatracestep 828 (vla-step-text 828))))
+    (at-line 1395
+    (set! (range "d3") "East"))
+    (set! vla-step 829)
+    (if (vlatraceon) (then (vlatracestep 829 (vla-step-text 829))))
+    (at-line 1396
+    (set! (range "d4") "West"))
+    (set! vla-step 830)
+    (if (vlatraceon) (then (vlatracestep 830 (vla-step-text 830))))
+    (at-line 1397
+    (set! (range "d5") "West"))
+    (set! vla-step 831)
+    (if (vlatraceon) (then (vlatracestep 831 (vla-step-text 831))))
+    (at-line 1398
+    (set! (range "e2") 10))
+    (set! vla-step 832)
+    (if (vlatraceon) (then (vlatracestep 832 (vla-step-text 832))))
+    (at-line 1399
+    (set! (range "e3") 20))
+    (set! vla-step 833)
+    (if (vlatraceon) (then (vlatracestep 833 (vla-step-text 833))))
+    (at-line 1400
+    (set! (range "e5") 30))
+    (set! vla-step 834)
+    (if (vlatraceon) (then (vlatracestep 834 (vla-step-text 834))))
+    (at-line 1401
+    (set! (range "h5") (sum-of-where (range "e2:e5") (range "d2:d5") "West")))
+    (set! vla-step 835)
+    (if (vlatraceon) (then (vlatracestep 835 (vla-step-text 835))))
+    (at-line 1402
+    (set! (range "h6") (average-of-where (range "e2:e5") (range "d2:d5") "West")))
+    (set! vla-step 836)
+    (if (vlatraceon) (then (vlatracestep 836 (vla-step-text 836))))
+    (at-line 1403
+    (format-as-dollars (range "c2") 2))
+    (set! vla-step 837)
+    (if (vlatraceon) (then (vlatracestep 837 (vla-step-text 837))))
+    (at-line 1404
+    (set-formula-fill-down (range "c2") "b" "=B2*10"))
+    (set! vla-step 838)
+    (if (vlatraceon) (then (vlatracestep 838 (vla-step-text 838))))
+    (at-line 1405
+    (set! (range "f1") "head"))
+    (set! vla-step 839)
+    (if (vlatraceon) (then (vlatracestep 839 (vla-step-text 839))))
+    (at-line 1406
+    (set! (range "g2") 1))
+    (set! vla-step 840)
+    (if (vlatraceon) (then (vlatracestep 840 (vla-step-text 840))))
+    (at-line 1407
+    (set-formula-fill-down (range "f2") "g" "=B2*10"))
+    (set! vla-step 841)
+    (if (vlatraceon) (then (vlatracestep 841 (vla-step-text 841))))
+    (at-line 1408
+    (set-formula-fill-down (range "j2") "i" "=B2*10"))
+  (exit-sub)
+  (label vla-fail)
+  (vla-report-error))
+
 (sub main ()
   (dim counter)
   (dim grand)
@@ -3610,23 +3736,28 @@
   (raw "' ---- instructions.txt:1366 Check-calculation. ----")
   (at-line 1366
   (check-calculation))
-  (set! vla-step 813)
-  (if (vlatraceon) (then (vlatracestep 813 (vla-step-text 813))))
-  (raw "' ---- instructions.txt:1368 Go to sheet Output. ----")
-  (at-line 1368
+  (set! vla-step 842)
+  (if (vlatraceon) (then (vlatracestep 842 (vla-step-text 842))))
+  (raw "' ---- instructions.txt:1410 Check-figures. ----")
+  (at-line 1410
+  (check-figures))
+  (set! vla-step 843)
+  (if (vlatraceon) (then (vlatracestep 843 (vla-step-text 843))))
+  (raw "' ---- instructions.txt:1412 Go to sheet Output. ----")
+  (at-line 1412
   (activate-sheet "output"))
-  (set! vla-step 814)
-  (if (vlatraceon) (then (vlatracestep 814 (vla-step-text 814))))
-  (raw "' ---- instructions.txt:1370 Tidy-up. ----")
-  (at-line 1370
+  (set! vla-step 844)
+  (if (vlatraceon) (then (vlatracestep 844 (vla-step-text 844))))
+  (raw "' ---- instructions.txt:1414 Tidy-up. ----")
+  (at-line 1414
   (tidy-up))
-  (set! vla-step 815)
-  (if (vlatraceon) (then (vlatracestep 815 (vla-step-text 815))))
-  (at-line 1371
+  (set! vla-step 845)
+  (if (vlatraceon) (then (vlatracestep 845 (vla-step-text 845))))
+  (at-line 1415
   (set-screen-updating true))
-  (set! vla-step 816)
-  (if (vlatraceon) (then (vlatracestep 816 (vla-step-text 816))))
-  (at-line 1372
+  (set! vla-step 846)
+  (if (vlatraceon) (then (vlatracestep 846 (vla-step-text 846))))
+  (at-line 1416
   (debug-print "report finished"))
   (exit-sub)
   (label vla-fail)
@@ -4449,15 +4580,46 @@
     (case (810) (return "Set gc-auto to cell B1. [line 1363]"))
     (case (811) (return "Put gc-auto into cell C5. [line 1364]"))
     (case (812) (return "Check-calculation. [line 1366]"))
-    (case (813) (return "Go to sheet Output. [line 1368]"))
-    (case (814) (return "Tidy-up. [line 1370]"))
-    (case (815) (return "Turn on screen updating. [line 1371]"))
-    (case (816) (return "Log \"report finished\". [line 1372]"))
+    (case (813) (return "Work on sheet GFigures. [line 1380]"))
+    (case (814) (return "Clear everything from A1:J10. [line 1381]"))
+    (case (815) (return "Put 2 into cell B2. [line 1382]"))
+    (case (816) (return "Put 4 into cell B3. [line 1383]"))
+    (case (817) (return "Put 6 into cell B4. [line 1384]"))
+    (case (818) (return "Put 6 into cell B5. [line 1385]"))
+    (case (819) (return "Put 7 into cell B6. [line 1386]"))
+    (case (820) (return "Remember range B2:B6 as gfig-values. [line 1387]"))
+    (case (821) (return "Set gfig-middle to median of gfig-values. [line 1388]"))
+    (case (822) (return "Put gfig-middle into cell H1. [line 1389]"))
+    (case (823) (return "Put median of gfig-values into cell H2. [line 1390]"))
+    (case (824) (return "Set gfig-spread to standard deviation of gfig-values as a sample. [line 1391]"))
+    (case (825) (return "Put gfig-spread into cell H3. [line 1392]"))
+    (case (826) (return "Put standard deviation of gfig-values as the population into cell H4. [line 1393]"))
+    (case (827) (return "Put \"West\" into cell D2. [line 1394]"))
+    (case (828) (return "Put \"East\" into cell D3. [line 1395]"))
+    (case (829) (return "Put \"West\" into cell D4. [line 1396]"))
+    (case (830) (return "Put \"West\" into cell D5. [line 1397]"))
+    (case (831) (return "Put 10 into cell E2. [line 1398]"))
+    (case (832) (return "Put 20 into cell E3. [line 1399]"))
+    (case (833) (return "Put 30 into cell E5. [line 1400]"))
+    (case (834) (return "Put sum of range E2:E5 where range D2:D5 matches \"West\" into cell H5. [line 1401]"))
+    (case (835) (return "Put average of range E2:E5 where range D2:D5 matches \"West\" in cell H6. [line 1402]"))
+    (case (836) (return "Format cell C2 as dollars. [line 1403]"))
+    (case (837) (return "Put formula \"=B2*10\" into cell C2 and fill down to the last filled row of column B. [line 1404]"))
+    (case (838) (return "Put \"head\" into cell F1. [line 1405]"))
+    (case (839) (return "Put 1 into cell G2. [line 1406]"))
+    (case (840) (return "Put formula \"=B2*10\" into cell F2 and fill down to the last filled row of column G. [line 1407]"))
+    (case (841) (return "Put formula \"=B2*10\" in cell J2 and fill down to the last filled row of column I. [line 1408]"))
+    (case (842) (return "Check-figures. [line 1410]"))
+    (case (843) (return "Go to sheet Output. [line 1412]"))
+    (case (844) (return "Tidy-up. [line 1414]"))
+    (case (845) (return "Turn on screen updating. [line 1415]"))
+    (case (846) (return "Log \"report finished\". [line 1416]"))
     (case-else (return "an unknown step"))))
 
 ; ---- carried by phrasebooks (L4) ----
 (defmacro (set-formula r f) "write a formula string into a range" (set! (. r formula) f))
 (defmacro (set-formula-rows c a b f) "write a formula into rows a to b of column c, adjusted row by row - nothing when b is above a" (if (>= b a) (then (set-formula (range (& c a ":" c b)) f))))
+(defmacro (set-formula-fill-down r k f) "write a formula into a cell and fill it down to the last filled row of column k - nothing filled when that row is not below the cell" (begin (set-formula r f) (if (> (last-filled-row k) (. r row)) (then (fill-down (. r resize (+ (- (last-filled-row k) (. r row)) 1)))))))
 (defmacro (count-empty-cells r) "count a range's cells that show nothing - empty, or a formula that shows nothing" (application.worksheetfunction.countif r ""))
 (defmacro (count-filled-cells r) "count a range's cells that hold anything - a formula that shows nothing included" (application.worksheetfunction.countif r "<>"))
 (defmacro (make-table r n) "create an Excel Table from a range and name it" (set! (. (. activesheet.listobjects add :sourcetype xlsrcrange :source r :xllistobjecthasheaders xlyes) name) n))

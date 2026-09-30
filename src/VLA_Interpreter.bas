@@ -1,6 +1,14 @@
 Attribute VB_Name = "VLA_Interpreter"
 Option Explicit
-Public Const VLA_INTERPRETER_VERSION As String = "GFORMULA.3"
+Public Const VLA_INTERPRETER_VERSION As String = "GFORMULA.4"
+' GFORMULA.4: G-FORMULA slice 4 - resize, with one argument (a row
+' count), joins DynamicGet's reviewed members, for the phrasebook's
+' set-formula-fill-down: a formula put into a cell and filled down to the
+' last filled row of another column is (. r resize n), then filldown,
+' which DynamicCall already had. Resize given a column count too is
+' refused by name, as any member outside the list is. A remembered range's
+' median and standard deviation, and sum- and average-where into a cell,
+' needed nothing new: slice 2's arms serve them.
 ' GFORMULA.3: G-FORMULA slice 3 - calculate joins DynamicCall's reviewed
 ' zero-argument members, for the phrasebook's recalculate-this-sheet
 ' ((. activesheet calculate)) and recalculate-all-open-workbooks
@@ -3121,6 +3129,17 @@ Private Function DynamicGet(ByVal obj As Object, ByVal member As String, ByVal a
         Case "range"
             If ArgCount(argVals) = 1 Then
                 AssignVar DynamicGet, obj.Range(ArgAt(argVals, 0))
+                Exit Function
+            End If
+        ' G-FORMULA slice 4: Resize with a row count, a range's first cell
+        ' and the rows below it - how a formula filled down from a cell
+        ' reaches the last filled row of another column
+        ' (set-formula-fill-down). Navigation to cells already on the
+        ' sheet, as End, Columns and Range are. A column count is not
+        ' taken: Resize given two arguments is refused below by name.
+        Case "resize"
+            If ArgCount(argVals) = 1 Then
+                AssignVar DynamicGet, obj.Resize(CLng(ArgAt(argVals, 0)))
                 Exit Function
             End If
         Case "entirerow": AssignVar DynamicGet, obj.EntireRow: Exit Function

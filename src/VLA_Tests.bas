@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "U.29"
+Public Const VLA_TESTS_VERSION As String = "GFORMULA.4"
+' GFORMULA.4: VlaSelfTest dispatches VLA_Tests_Grammar's
+' TestGFormulaNamedFigures after TestU29StatusBarBack - three pins holding
+' G-FORMULA slice 4's median of a remembered range to rules over a name, so
+' a program's own "To median of ...:" keeps its meaning.
+'
 ' U.29: TestU29StatusBarBack, dispatched after TestU26CellText - three pins
 ' on VLA_IDE.VlaIdeStatusBarBack, what a Run hands the status bar back as:
 ' the text FALSE (how an idle bar reads back) in either spelling gives the
@@ -451,6 +456,7 @@ Public Function VlaSelfTest() As Boolean
     TestLx13CellShapedNames
     TestU26CellText
     TestU29StatusBarBack
+    TestGFormulaNamedFigures
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then

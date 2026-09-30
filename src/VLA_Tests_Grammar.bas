@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Tests_Grammar"
 Option Explicit
-Public Const VLA_TESTS_GRAMMAR_VERSION As String = "G6.0"
+Public Const VLA_TESTS_GRAMMAR_VERSION As String = "GFORMULA.4"
+' GFORMULA.4: TestGFormulaNamedFigures - three pins on G-FORMULA slice 4's
+' choice of rules over a name for a remembered range's median, not a
+' function word: english.vla loads with its new proofs, and a program that
+' defines its own "To median of xs:" still checks, its Set and its Put
+' calling its own median, since the general set and put are tried first.
 ' G6.0: TestG6 - list-valued slots ({name:cat-list}). Two item
 ' categories pinned (text-shaped field names, column-shaped via
 ' RefShapeOk) to prove the mechanism is generic, not hardcoded to one
@@ -4480,5 +4485,34 @@ Public Sub TestGPath()
            InStr(1, d, "quotes", vbTextCompare) > 0, _
            "got: " & d
 
+    EnglishResetGrammar
+End Sub
+
+' G-FORMULA slice 4: a remembered range's median and standard deviation are
+' rules over a name, not function words, so a program that defines its own
+' median keeps it. "To median of xs:" still checks - a function word would
+' refuse it, as "To length of x:" is refused - and the program's own Set and
+' Put still call it, since the built-in set and english.vla's put {e:expr}
+' are tried before the new rules. The phrasebook's own sentences, and the
+' refusal of "median of revenues plus 5", are english.vla's proofs.
+Public Sub TestGFormulaNamedFigures()
+    Dim loadErr As String
+    On Error Resume Next
+    EnglishResetGrammar
+    Err.Clear
+    EnglishLoadVocabulary FindDevFile("english.vla")
+    If Err.Number <> 0 Then loadErr = Err.Description
+    On Error GoTo 0
+    Report "g-formula 4: english.vla loads, its median and fill-down proofs included", Len(loadErr) = 0, loadErr
+    If Len(loadErr) = 0 Then
+        Dim own As String
+        own = "To median of xs:" & vbLf & "  Give back 1." & vbLf & vbLf & _
+              "Set middle to median of revenues." & vbLf & _
+              "Put median of revenues into cell B2."
+        AssertEnglish "g-formula 4: a program's own median still checks, and its Set calls it", _
+                      own, "(set! middle (median revenues))"
+        AssertEnglish "g-formula 4: a program's own median: its Put calls it too", _
+                      own, "(set! (range ""b2"") (median revenues))"
+    End If
     EnglishResetGrammar
 End Sub

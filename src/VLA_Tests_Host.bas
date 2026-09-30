@@ -1,6 +1,15 @@
 Attribute VB_Name = "VLA_Tests_Host"
 Option Explicit
-Public Const VLA_TESTS_HOST_VERSION As String = "GFORMULA.3"
+Public Const VLA_TESTS_HOST_VERSION As String = "GFORMULA.4"
+' GFORMULA.4: G-FORMULA slice 4. TestGFormulaFillDown, four pins on the
+' interpreter's new resize member: a row count reaching that many rows and
+' no further, then filldown copying the top cell's formula adjusted, and a
+' column count refused by name. VerifyReportChecks gains the GFigures block,
+' fifteen rows beside GCalc's, read on both backends: a remembered range's
+' median and both standard deviations, set and put; a sum and an average
+' where, into cells; and a formula filled down to the last filled row of
+' another column - adjusted, in the cell's format, stopping there - and, where
+' that row is the cell's own or above it, nothing filled.
 ' GFORMULA.3: G-FORMULA slice 3. TestGFormulaCalculation, six pins on the
 ' interpreter's new calculate member and the calculation setting the new
 ' sentences turn off and on: set to manual, a formula keeping its old value
@@ -386,6 +395,7 @@ Public Function VlaSelfTestHost() As Boolean
     TestU26MarkShowsQuote
     TestU29GivesBackExcel
     TestGFormulaCalculation
+    TestGFormulaFillDown
 
     Debug.Print "===== HOST SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -3282,6 +3292,65 @@ Private Sub TestGFormulaCalculation()
     prior.Activate
 End Sub
 
+' G-FORMULA slice 4: the interpreter's resize member, which the phrasebook's
+' set-formula-fill-down reads to reach the last filled row of another
+' column. Given a row count it reaches that many rows from a range's first
+' cell, and no further; followed by filldown it copies the top cell's
+' formula down, adjusted row by row; given a column count as well, it is
+' refused by name, as every member outside the reviewed list is (SEC.1).
+Private Sub TestGFormulaFillDown()
+    Dim prior As Worksheet
+    Set prior = ActiveSheet
+    VlaEnsureSheet "VlaGFillSheet"
+    Dim ws As Worksheet
+    Set ws = ActiveWorkbook.Worksheets("VlaGFillSheet")
+    ws.Activate
+    ws.Cells.Clear
+    Dim d As String
+
+    ' (. r resize 3): the first cell and the two rows below it.
+    On Error Resume Next
+    VLA_Interpreter.VlaInterpret "(begin (set! (. (. (range ""a1"") resize 3) value) 7))"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) > 0 Then
+        Report "g-formula 4: (. r resize 3) under Interpret", False, d
+    Else
+        CheckV "g-formula 4: (. r resize 3) under Interpret reaches the third row (A3)", ws.Range("A3").Value, 7
+        Report "g-formula 4: (. r resize 3) stops at the third row (A4 empty)", IsEmpty(ws.Range("A4").Value), _
+               "A4 holds [" & CStr(ws.Range("A4").Formula) & "]"
+    End If
+
+    ' Resized, then filled down: the top cell's formula, adjusted.
+    ws.Range("B1").Formula = "=A1*2"
+    d = ""
+    On Error Resume Next
+    VLA_Interpreter.VlaInterpret "(begin (. (. (range ""b1"") resize 3) filldown))"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) > 0 Then
+        Report "g-formula 4: (. r resize 3) then filldown", False, d
+    Else
+        CheckV "g-formula 4: resize then filldown copies the top cell's formula, adjusted (B3)", _
+               ws.Range("B3").Formula, "=A3*2"
+    End If
+
+    ' Resize takes a row count only. Given a column count too, it is
+    ' refused by name before Excel is asked.
+    d = ""
+    On Error Resume Next
+    VLA_Interpreter.VlaInterpret "(begin (. (. (range ""a1"") resize 2 2) filldown))"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "g-formula 4: resize given a column count too is refused by name", _
+           InStr(1, d, "resize", vbTextCompare) > 0, "got: " & d
+
+    Application.DisplayAlerts = False
+    ws.Delete
+    Application.DisplayAlerts = True
+    prior.Activate
+End Sub
+
 ' ---------------------------------------------------------------------
 '  VerifyReport: the machine-checked end state of instructions.txt.
 ' ---------------------------------------------------------------------
@@ -4280,6 +4349,45 @@ Private Sub VerifyReportChecks(ws As Worksheet)
         CheckV "recalculate all open workbooks (C3)", wsGc.Range("C3").Value, 40
         CheckV "turning automatic calculation on recalculates at once (C4)", wsGc.Range("C4").Value, 50
         CheckV "automatic again: a change recalculates as it is made (C5)", wsGc.Range("C5").Value, 60
+    End If
+
+    ' G-FORMULA slice 4: a remembered range's median and standard
+    ' deviation, set and put (H1:H4); a sum and an average over the rows
+    ' that match, put in cells (H5:H6), the blank West value skipped by the
+    ' average; and a formula filled down from C2 to the last filled row of
+    ' column B, adjusted row by row and in C2's dollars, stopping at C6.
+    ' Where the named column's last filled row is the cell's own (G) or
+    ' above it (I, empty), the cell keeps its formula and nothing is
+    ' filled: Fill Down over one cell would have copied F1's "head" into
+    ' F2. (wsFig and figPop: no earlier block Dims either name, and a Dim
+    ' is the whole procedure's.)
+    Dim wsFig As Worksheet
+    On Error Resume Next
+    Set wsFig = ActiveWorkbook.Worksheets("GFigures")
+    On Error GoTo 0
+    Report "GFigures sheet exists", Not (wsFig Is Nothing), "no GFigures sheet - Run the program first"
+    If Not wsFig Is Nothing Then
+        CheckV "median of a remembered range (H1)", wsFig.Range("H1").Value, 6
+        CheckV "median of a remembered range into a cell (H2)", wsFig.Range("H2").Value, 6
+        Report "median of a remembered range into a cell: a value, not a live formula (H2)", Not wsFig.Range("H2").HasFormula, _
+               "H2 holds " & CStr(wsFig.Range("H2").Formula)
+        CheckV "standard deviation of a remembered range as a sample (H3)", wsFig.Range("H3").Value, 2
+        Dim figPop As Variant
+        figPop = wsFig.Range("H4").Value
+        If IsNumeric(figPop) Then figPop = Round(figPop, 6)
+        CheckV "standard deviation of a remembered range as the population, into a cell (H4)", figPop, 1.788854
+        CheckV "sum where, into a cell (H5)", wsFig.Range("H5").Value, 40
+        CheckV "average where, into a cell: a blank matching row is skipped (H6)", wsFig.Range("H6").Value, 20
+        CheckV "a formula filled down: the cell's own (C2)", wsFig.Range("C2").Formula, "=B2*10"
+        CheckV "a formula filled down: adjusted, to the last filled row of column B (C6)", wsFig.Range("C6").Formula, "=B6*10"
+        CheckV "a formula filled down: works out (C6)", wsFig.Range("C6").Value, 70
+        Report "a formula filled down: stops at the last filled row of column B (C7 empty)", IsEmpty(wsFig.Range("C7").Value), _
+               "C7 holds [" & CStr(wsFig.Range("C7").Formula) & "]"
+        Report "a formula filled down: the cell's format goes down with it, as Fill Down takes it (C6 in C2's dollars)", _
+               wsFig.Range("C6").NumberFormat = wsFig.Range("C2").NumberFormat And wsFig.Range("C2").NumberFormat <> "General", _
+               "C2 [" & wsFig.Range("C2").NumberFormat & "] C6 [" & wsFig.Range("C6").NumberFormat & "]"
+        CheckV "filled down to the cell's own row: nothing filled, the cell keeps its formula (F2)", wsFig.Range("F2").Formula, "=B2*10"
+        CheckV "filled down to an empty column: the cell alone gets its formula (J2)", wsFig.Range("J2").Formula, "=B2*10"
     End If
 End Sub
 

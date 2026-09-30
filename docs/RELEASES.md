@@ -23,12 +23,30 @@
     left out, as Excel's AVERAGEIF leaves it out, so this is not the sum
     divided by the count: West rows holding 10 and an empty cell average
     10, not 5.
+  - `Put sum of range B2:B90 where range A2:A90 matches "West" into cell
+    D1.` puts the sum over the rows that match straight into a cell, and
+    `Put average of …` the average.
+  - A range remembered by a name works too: after `Remember range G2:G41
+    as revenues.`, write `Set middle to median of revenues.` or `Set spread
+    to standard deviation of revenues as a sample.`, or `Put` either into a
+    cell. Unlike `sum of revenues`, these are whole sentences, not words
+    that fit into any value, so to test a median in an `If`, set it first.
+    A program with an action of its own called `median` goes on using it.
   - Like `Put sum` and `Put average`, these put the number in the cell, not
     a live formula.
   - When Excel has no answer, the run stops at that sentence, as a lookup
     that finds nothing does, and `Try:` catches it: a median of no numbers,
     a sample of fewer than two, no matching row. For now the message is
     Excel's own, and names the function that had no answer.
+- **A formula filled down as far as the data goes, in one sentence.** `Put
+  formula "=B2*C2" into cell D2 and fill down to the last filled row of
+  column B.` puts the formula in D2 and fills it down to the last row with
+  anything in column B, as Excel's Fill Down does: each row gets the
+  formula adjusted, so D3 holds `=B3*C3`, and D2's format goes down with
+  it. The sentence names the column that says how far, so `… and fill down
+  to the last row.` is refused, and the message shows the whole sentence.
+  D2 always gets its formula; when column B has nothing below row 2,
+  nothing is filled.
 - **Automatic calculation turned off and on, and a recalculate, each in one
   sentence.**
   - `Turn off automatic calculation.` and `Turn on automatic calculation.`
@@ -61,9 +79,10 @@
 ### Known open security items
 
 **Closed this release:** nothing. The new sentences read the cells they
-name and write only the cell a `Put` names, and a recalculate runs only the
-formulas already in the open workbooks, as F9 does; none opens a file or
-makes a network call. Standing advice unchanged. The full list of open
+name and write only the cell a `Put` names, or for a fill down that cell
+and the ones below it in its column; a recalculate runs only the formulas
+already in the open workbooks, as F9 does; none opens a file or makes a
+network call. Standing advice unchanged. The full list of open
 items is in `docs/BETA_REARVIEW.md`, in plain words in `README.md`.
 
 ## 0.7.1
