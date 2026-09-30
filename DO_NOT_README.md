@@ -14,16 +14,16 @@
 The title of this file is an imperative sentence, and you have already
 disobeyed it. That is the first thing worth knowing about imperative
 sentences: they are not commands until somebody complies, and nobody
-has to. The grammar books call this *mood*. It is well named. A
-sentence in the imperative mood is in a mood, and the reader may or
+must needs comply. The grammarians call this *mood*. It is well named. A
+sentence in the imperative mood is in a mood, indeed, and the reader may or
 may not indulge it.
 
 This repository is a machine for imperative sentences. `Make cell A1
 bold.` `Put today into cell D1.` `Repeat 5 times.` Each is checked,
 each means exactly one thing, and each is obeyed or refused in words.
 The README next door explains how. This file explains why the whole
-enterprise is impossible, in the hope that you will find that as funny
-as we do, and then go read the README anyway.
+enterprise is impossible, in the hope that you will find that as existentially
+entertaining as do we, and then go read the README anyway.
 
 ## First objection: a sentence has one meaning
 
@@ -37,9 +37,8 @@ divides, and where a telephone lives. A **range** is what cattle roam.
 A **sheet** is for a bed or a ghost. A **table** is for dinner, and a
 **column** held up a temple before it held up a total. **Row** is what
 you do to a boat or what you have with your brother. **Bold** is what
-one is in the face of danger. **Workbook** is the only word in the set
-that means nothing outside a spreadsheet, and it is the only one nobody
-uses.
+one is in the face of danger. A **workbook** is where schoolchildren
+once practiced cursive and arithmetic.
 
 So when a person writes `Make cell A1 bold.`, English has offered, in
 good faith, a sentence that could reasonably be asking a small prison
