@@ -7584,10 +7584,88 @@ G-TAIL always said this about itself; it is true of the whole tranche.
   runs the corpus compiled and then interpreted, deleting only `Output`
   between, so the second run found the first run's `=""` in B6 and filled
   column E to row 6 - the engine right, the fixture wrong. The step now
-  clears its cells first (`Clear everything from A1:H10.`). **Still open in §11:**
-  calculation mode and recalculate (the audit's C62: a run does not
-  restore calculation mode), average-where, median, standard deviation,
-  R1C1 and subtotals. `~weeks`
+  clears its cells first (`Clear everything from A1:H10.`).
+  **✅ Slice 2, built, owner-verified live and committed 2026-09-30, for
+  `0.8.0`** (`VLA_SELF-TESTS` pure 1564/1564 and host 250/250; `TestDSLs`
+  2330/0; `VerifyReports` 343/343 on both backends; the phrasebook export
+  and coverage as predicted, Rules 239 → 244; the goldens as predicted but
+  for step numbers, since a `Try:` line takes a step of its own; five hand
+  tests, four run on both backends and one at Validate). Scoped the same
+  day from §11's remainder; the
+  owner settled five calls, each as recommended. **Five rules:** `set … to median of range …`
+  and `put median of range … into|in cell …`; `set … to standard deviation
+  of range … as sample|population` and `put standard deviation of range …
+  as sample|population into|in cell …`; and `set … to average of range …
+  where range … matches …`, beside the sum.
+  - *The reading is named, last.* `as a sample` is Excel's STDEV.S
+    (dividing by one fewer than the count), `as the population` STDEV.P
+    (dividing by the count). No default is safe: Excel and SQL name both
+    (STDEV.S and STDEV.P, STDDEV_SAMP and STDDEV_POP), and the bare names
+    disagree - STDDEV is the sample in PostgreSQL and the population in
+    MySQL, NumPy's `std` the population and pandas' the sample. At the end,
+    the clause sits where Excel's and SQL's suffixes do, a sentence that
+    leaves it out gets furthest and is refused with `then I expected 'as'`
+    and both choices in its Did-you-mean, and variance (VAR.S, VAR.P) can
+    reuse it. In front (`sample standard deviation of …`), the built-in
+    `set` would read `standard` as a name and lead the refusal with
+    `I understood 'Set spread to standard' - then I expected '.'`, the
+    `LX.8` class. The owner: "when an ambiguous reading exists additional
+    words provide an explicit reading." `matches`, not pareto's `is`, as
+    sum-where says it: it means Excel's criteria (`">100"`, `"W*"`), where
+    `is` means equality everywhere else in the grammar.
+  - *Too few numbers stop the run at the sentence*, as `lookup of` and the
+    shipped `average of` over an empty range do: a median of none (#NUM!),
+    a sample of fewer than two, a population of none, and average-where
+    with no matching row or only blank values (#DIV/0!), each raised by the
+    WorksheetFunction call itself, on both backends. A median of one number
+    is that number, and a population deviation of one is 0. Refusing in
+    words could not happen at Check and would have needed a runtime helper,
+    leaving `average of` and `lookup of` in Excel's words; the words for all
+    eleven members are `U.27`, filed.
+  - *New rules, not new branches* of slice 1's `{d:…}` alternations:
+    `GRAMMAR_SINCE.md` keys a row on its pattern, a released `0.7.1` row may
+    not change, and one widened row could carry only one date for branches
+    sayable from two releases - `first|last {n} characters of`'s precedent.
+  - *`median of` a remembered range* (sample 02 reads `average of
+    revenues`) is a later slice: a new function word makes a program that
+    defines `To median of …:`, or a `using` parameter called `median`, fail
+    at Validate.
+  - *The release is `0.8.0`*, a grammar-heavy minor ahead of the Microsoft
+    Store, `SD-14`'s MINOR for new rules.
+  **Rule order:** the matcher takes the first rule that reaches the period,
+  and a slot never backtracks, so only a rule that could take a whole
+  sentence matters, and none of the 239 can: a value has no `range`
+  branch, so the built-in `set` and `put` and every rule opening with a
+  value stall at `of`, at `deviation` or at the range; slice 1's
+  alternations cannot take `median` or `standard`; `set … to average of
+  range …` stops at `where`. Nothing claimed `median`, `standard`,
+  `deviation`, `sample` or `population`, so every sentence the five accept
+  was refused before, and no shipped sentence changes meaning. **Engine:**
+  four `EvalDynamicHead` arms beside `IN.3`'s seven: `median`, `stdev_s`
+  and `stdev_p` (Excel's current names; the older STDEV and STDEVP are
+  compatibility functions giving the same numbers) and `averageif`, whose
+  (c e r) is AverageIf's own order, as sumif's is. A wrong count is refused
+  through `IN.17`'s `interp-builtin-arity`, so the catalogue is unchanged.
+  Without an arm a member is refused by name at `worksheetfunction`
+  (`DynamicGet`'s closed list since `SEC.1`). `check_backend_parity` reads
+  only `VLA_HeadTable`'s core forms and never sees these arms;
+  `GRAMMAR_SINCE.md` dates each one (four rows), and `check_emitter_coverage`
+  counts all four pinned from the start. **Proof:** ten `test-success`
+  proofs and two `test-fail` (the reading left out, set and put); six host
+  pins (each arm on real cells, a median of empty cells stopping, and a
+  wrong argument count refused by name before Excel is asked); and
+  a `GStats` sheet, `To check-statistics:`, read by nine
+  `VerifyReportChecks` rows on both backends - the medians of an odd and
+  an even count, both deviations, the average where West's blank row is
+  skipped (20, where SUMIF ÷ COUNTIF says 13.33), and a median of empty
+  cells ending its `Try:`, whose recovery records the problem. That is the
+  first `Try:` inside a `To` step: a `Try:` looks past the blank line for
+  its `If that fails:`, and the recovery's closing blank line closes the
+  step too. `main` goes from 724 steps to 725. **Still open in §11:**
+  calculation mode and recalculate - slice 3, with the audit's `C62` as its
+  precursor, since a sentence turning calculation off would leave every
+  open workbook in manual after the run - a put form for the where family,
+  `median of` a remembered range, R1C1 and subtotals. `~weeks`
 - ✅ **G-TEXT** — text handling, `pareto.txt` §12, **16 entries**, P0, and
   §13's find and replace (**6 entries**), which belonged to no item and was
   taken in at scoping (2026-09-25). *Recounted first, G-FORMAT's way:* the
@@ -24182,6 +24260,43 @@ now carries one summary paragraph per engine and points here.*
   log. **Pinned:** four pure checks of the helper, and a host test that
   first shows Excel hiding a leading apostrophe (a control for the cause),
   then the helper's text shown whole. *Depends on:* nothing. `~hours`
+- ⬜ **U.27 — when Excel's function has no answer, the stop says so in
+  Frazaro's words.** *Minted 2026-09-30, the owner's call, from `G-FORMULA`
+  slice 2's scoping.* **What happens now:** the phrasebook's figures call
+  eleven WorksheetFunction members - SUM, AVERAGE, MAX, MIN, COUNTIF, SUMIF
+  and VLOOKUP (`sum-of`, `average-of`, `largest-of`, `smallest-of`,
+  `count-matching` with slice 1's two cell counts, `sum-of-where`,
+  `lookup-of`), and from `0.8.0` MEDIAN, STDEV.S, STDEV.P and AVERAGEIF
+  (`median-of`, the two standard deviations, `average-of-where`). Where a
+  formula would show an error - a lookup that finds nothing (#N/A), an
+  average, a median or a population deviation of no numbers, a sample of
+  fewer than two (#DIV/0!, #NUM!), AVERAGEIF with no matching row, or an
+  error value already in the range - the call raises error 1004 and the
+  run stops at its sentence, names the line and puts the sheets back
+  (`U.25`), the same on both backends. The words it shows are Excel's
+  object model's: `Unable to get the VLookup property of the
+  WorksheetFunction class`. A business reader sees a class name and no
+  reason, and `check_no_vba_advice` cannot see the text, because it is
+  Excel's and not the catalogue's. **The fix, as filed:** one pure function
+  that reads that text and gives Frazaro's words for each of the eleven,
+  naming the function as a formula names it and its likely reason, with
+  one fallback for a member it does not know and any other text left as
+  it is. It is called where a stop's words are built (`VlaIdeStopMessage`'s
+  `what`, which also marks the row "Stopped here: …"), which both backends
+  reach. **To scope:**
+  - whether `the problem` inside `If that fails:` reads the same words. It
+    holds Excel's today, and the corpus's `GStats` step records it; that
+    check looks for "median" in any case, so either answer keeps it;
+  - Excel in another language writes this text in its own words, so a
+    mapping that reads the English shape passes any other through
+    unchanged: say so, or find a shape that does not depend on the
+    language;
+  - the words go in the message catalogue (`SD-2`), so its checks read
+    them.
+  **Done when:** a stop from each of the eleven members, on both backends,
+  reads in Frazaro's words, pinned by pure tests of the mapping (each
+  member, the fallback, other text left alone). *Depends on:* nothing.
+  `~hours`
 
 ---
 

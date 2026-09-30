@@ -1,6 +1,13 @@
 Attribute VB_Name = "VLA_Interpreter"
 Option Explicit
-Public Const VLA_INTERPRETER_VERSION As String = "IN.17"
+Public Const VLA_INTERPRETER_VERSION As String = "GFORMULA.2"
+' GFORMULA.2: G-FORMULA slice 2 - four WorksheetFunction members join the
+' seven native arms in EvalDynamicHead: Median, StDev_S, StDev_P and
+' AverageIf, one for each new phrasebook macro (median-of, sample- and
+' population-standard-deviation-of, average-of-where). A member with no arm
+' is refused by name at 'worksheetfunction' (DynamicGet's closed list since
+' SEC.1), so each macro needs its own. A wrong argument count is refused
+' through IN.17's interp-builtin-arity; the message catalogue is unchanged.
 ' IN.17: the bounded built-ins (TryEvalBuiltin) take exactly the argument
 ' counts VBA's own functions take, and refuse any other count by name
 ' (interp-builtin-arity). Each arm used to read the arguments it expected
@@ -2237,6 +2244,31 @@ Private Function EvalDynamicHead(ByVal h As String, lst As Collection, frame As 
         Case "application.worksheetfunction.vlookup"
             If ArgCount(argVals) <> 4 Then VLA_Messages.RaiseMsg "interp-vlookup-arity", "n", ArgCount(argVals)
             AssignVar EvalDynamicHead, Application.WorksheetFunction.VLookup(ArgAt(argVals, 0), ArgAt(argVals, 1), ArgAt(argVals, 2), ArgAt(argVals, 3))
+            Exit Function
+        ' G-FORMULA slice 2: four more members, named one at a time as the
+        ' seven above were, each for one phrasebook macro - median-of, the
+        ' two standard deviations (Excel's current STDEV.S and STDEV.P) and
+        ' average-of-where, whose (c e r) is AverageIf's own (Range,
+        ' Criteria, AverageRange), sumif's shape. A wrong argument count is
+        ' refused through IN.17's shared entry. When Excel has no answer (a
+        ' median of no numbers, a sample of fewer than two, no row matching)
+        ' the call itself raises, as it does in a compiled program, so both
+        ' backends stop at the same sentence with the same words.
+        Case "application.worksheetfunction.median"
+            If ArgCount(argVals) <> 1 Then RaiseBuiltinArity h, "1 argument", argVals
+            AssignVar EvalDynamicHead, Application.WorksheetFunction.Median(ArgAt(argVals, 0))
+            Exit Function
+        Case "application.worksheetfunction.stdev_s"
+            If ArgCount(argVals) <> 1 Then RaiseBuiltinArity h, "1 argument", argVals
+            AssignVar EvalDynamicHead, Application.WorksheetFunction.StDev_S(ArgAt(argVals, 0))
+            Exit Function
+        Case "application.worksheetfunction.stdev_p"
+            If ArgCount(argVals) <> 1 Then RaiseBuiltinArity h, "1 argument", argVals
+            AssignVar EvalDynamicHead, Application.WorksheetFunction.StDev_P(ArgAt(argVals, 0))
+            Exit Function
+        Case "application.worksheetfunction.averageif"
+            If ArgCount(argVals) <> 3 Then RaiseBuiltinArity h, "3 arguments", argVals
+            AssignVar EvalDynamicHead, Application.WorksheetFunction.AverageIf(ArgAt(argVals, 0), ArgAt(argVals, 1), ArgAt(argVals, 2))
             Exit Function
     End Select
 

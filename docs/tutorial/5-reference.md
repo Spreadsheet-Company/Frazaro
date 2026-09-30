@@ -9,7 +9,7 @@
 | **You will be able to** | Draft sentences that pass validation, and know what to do when they do not. |
 | **Plan on** | It is a reference. Consult it; do not read it through. A model reads it through in a moment, which is the other reason it exists. |
 | **Comes after** | [Level 4](4-wizard.md), or nothing at all. |
-| **Written against** | Frazaro `0.7.0`. Sentence shapes that first work in `0.7.1` are marked `(0.7.1)`. |
+| **Written against** | Frazaro `0.7.0`. Sentence shapes that first work in `0.7.1` are marked `(0.7.1)`, and those that first work in `0.8.0` are marked `(0.8.0)`. |
 
 ---
 
@@ -543,6 +543,7 @@ and no parentheses. `a or b and c` is *(a or b) and c*.
 | `{x:category}` | A hole. | a value of that category |
 | `{n:expr=1}` | A hole that may be left out, and is then 1. | a value, or nothing |
 | `(0.7.1)` | First works in release 0.7.1. | |
+| `(0.8.0)` | First works in release 0.8.0. | |
 
 Every sentence begins with a capital, by custom, and ends with a period,
 by rule.
@@ -620,16 +621,21 @@ no data rows, `into rows …` writes nothing.
 
 ```text
 put {d:average|largest|smallest} of range {r:range} into|in cell {c:cell}   (0.7.1)
+put median of range {r:range} into|in cell {c:cell}   (0.8.0)
+put standard deviation of range {r:range} as {k:sample|population} into|in cell {c:cell}   (0.8.0)
 put sum of range {r:range} into|in cell {c:cell}
 set {v:var} to {d:largest|smallest} of range {r:range}   (0.7.1)
 set {v:var} to {e:expr} rounded to {n:expr} decimals
 set {v:var} to average of range {r:range}
+set {v:var} to average of range {r:range} where range {c:range} matches {e:expr}   (0.8.0)
 set {v:var} to cell {r:cell} of sheet {s:sheet}
 set {v:var} to count of {k:empty|filled} cells in range {r:range}   (0.7.1)
 set {v:var} to count of range {c:range} matching {e:expr}
 set {v:var} to last filled row of column {c:column}
 set {v:var} to lookup of {e:expr} in range {r:range} column {k:expr}
+set {v:var} to median of range {r:range}   (0.8.0)
 set {v:var} to row of {e:expr} in column {c:column}
+set {v:var} to standard deviation of range {r:range} as {k:sample|population}   (0.8.0)
 set {v:var} to sum of range {r:range}
 set {v:var} to sum of range {r:range} where range {c:range} matches {e:expr}
 ```
@@ -641,6 +647,17 @@ writes the number, not a live formula. `count of empty cells` counts the
 cells that show nothing, and `count of filled cells` the cells that hold
 anything; a formula that shows nothing (`=""`) counts as both, as it does
 in Excel's own COUNTBLANK and COUNTA.
+
+`median of …` is the middle value, or the average of the middle two.
+`standard deviation of … as a sample` is Excel's STDEV.S, for rows that
+are some of the cases; `as the population` is STDEV.P, for rows that are
+all of them. A sentence that names neither is refused. `average of …
+where …` leaves out a matching row whose value is empty, as Excel's
+AVERAGEIF does, so it is not the sum divided by the count. In all three,
+empty cells and text are skipped and a zero counts. A range with too few
+numbers stops the run at the sentence, as a lookup that finds nothing
+does: a median of no numbers, a sample of fewer than two, no matching
+row.
 
 ### C. Text held in a name, found and counted
 
@@ -1224,12 +1241,16 @@ R7.
 ### When the run stops
 
 A sentence that validates can still fail while running: a sheet is
-missing, a lookup finds nothing.
+missing, a lookup finds nothing, a median has no numbers to work on.
 
 > The run stopped at line 7: …
 > Put back as they were before the run: …
 > Anything it did anywhere else, like a file saved or an email drafted,
 > stays as it is.
+
+When one of Excel's own functions had no answer, the words after the
+sentence are, for now, Excel's, naming the function: `Unable to get the
+Median property of the WorksheetFunction class`.
 
 Guard such a sentence with `Try:`, or make the program create what it
 needs.
@@ -1266,6 +1287,8 @@ A model's habits from other languages are the usual cause.
 | `Make cell C4 orange.` | `Set fill-color of cell C4 to "#FFA500".` |
 | `Sort range A1:C50 by column B.` | `Sort range A1:C50 by column B with a header row.` |
 | `Capitalize each word in range A2:A50.` | `… after any space.` |
+| `Set s to standard deviation of range B2:B50.` | `… as a sample.` or `… as the population.` |
+| `… where range A2:A90 is "West".` | `… where range A2:A90 matches "West".` |
 | `Create a button called "Go" at cell D3.` | `Make a button "Go" at cell D3.` |
 | `Create a pivot table …` | `Make a pivot table from … at … called …` |
 | `Save this workbook as C:\Out\a.xlsx.` | `Save this workbook as "C:\Out\a.xlsx".` |
@@ -1526,6 +1549,7 @@ Use these labels exactly when telling a person what to press.
 |---|---|
 | **Release described** | `0.7.0`: 223 sentence shapes, of which 220 are written out in the phrasebook and three are written by a generator. |
 | **Marked `(0.7.1)`** | Sixteen shapes, and the two range conditions of R6. With them R7 lists 239, which is the number **Load Phrasebook** reports as *built-in vocabulary* in a copy that has them. |
+| **Marked `(0.8.0)`** | Five shapes: a range's median and standard deviation, each set and put into a cell, and an average over the rows that match. With them R7 lists 244. |
 | **Source of R7** | The project's own dated ledger of every shape, [GRAMMAR_SINCE.md](../GRAMMAR_SINCE.md), including three shapes that a generator writes and no file spells out. |
 | **Source of R4, R5, R6, R8** | The engine's source, and the proofs the phrasebook runs every time it loads. |
 | **Source of R12** | The shipped sample procedures. Every sentence is a sample's own. |

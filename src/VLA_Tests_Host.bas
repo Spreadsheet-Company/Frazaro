@@ -1,6 +1,15 @@
 Attribute VB_Name = "VLA_Tests_Host"
 Option Explicit
-Public Const VLA_TESTS_HOST_VERSION As String = "PF4C.0"
+Public Const VLA_TESTS_HOST_VERSION As String = "GFORMULA.2"
+' GFORMULA.2: G-FORMULA slice 2. TestInterpreterObjectDispatch gains six
+' pins beside IN.3's two: the interpreter's four new WorksheetFunction arms
+' (median, stdev_s, stdev_p, averageif) each on real cells, a median of
+' empty cells that must stop rather than answer, and a wrong argument count
+' refused by name before Excel is asked. VerifyReportChecks
+' gains the GStats block, nine rows beside GFormula's, read on both
+' backends: the median and both standard deviations, set and put, the
+' average where a blank matching row is skipped, and a median of no
+' numbers stopping its sentence inside a Try, the problem recorded.
 ' PF4C.0: TestStmtParity gains two for-each-row cases (PF.4c) - a full
 ' round-trip (doubles a column in place, verified via a plain '.'-dot
 ' read that write-back actually reached the live sheet, not just that
@@ -1842,6 +1851,98 @@ Private Sub TestInterpreterObjectDispatch()
     Else
         CheckV "in.3: application.worksheetfunction.countif (2-argument shape)", gotCount, 1
     End If
+
+    ' G-FORMULA slice 2: the four new members, on the numbers their English
+    ' sentences are run on in the corpus - 2, 4, 6, 6 and 7, whose median
+    ' (6) is not their average (5), and whose standard deviation is 2 as a
+    ' sample and the square root of 3.2 as the population; and West's rows
+    ' holding 10, a blank and 30, which AverageIf averages to 20 where SUMIF
+    ' over COUNTIF says 13.33. Then a median of three empty cells, which
+    ' must stop rather than answer: IN.3's first bug was a member that
+    ' answered a wrong number without a word.
+    ws.Range("H1").Value = 2
+    ws.Range("H2").Value = 4
+    ws.Range("H3").Value = 6
+    ws.Range("H4").Value = 6
+    ws.Range("H5").Value = 7
+    d = ""
+    On Error Resume Next
+    Dim gotMedian As Variant
+    gotMedian = VLA_Interpreter.VlaEvalExpression("(application.worksheetfunction.median (range ""H1:H5""))")
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) > 0 Then
+        Report "g-formula: application.worksheetfunction.median over a real range", False, d
+    Else
+        CheckV "g-formula: application.worksheetfunction.median gives the middle value, not the average", gotMedian, 6
+    End If
+
+    d = ""
+    On Error Resume Next
+    Dim gotStdevS As Variant
+    gotStdevS = VLA_Interpreter.VlaEvalExpression("(application.worksheetfunction.stdev_s (range ""H1:H5""))")
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) > 0 Then
+        Report "g-formula: application.worksheetfunction.stdev_s (as a sample)", False, d
+    Else
+        CheckV "g-formula: application.worksheetfunction.stdev_s (as a sample)", gotStdevS, 2
+    End If
+
+    d = ""
+    On Error Resume Next
+    Dim gotStdevP As Variant
+    gotStdevP = VLA_Interpreter.VlaEvalExpression("(application.worksheetfunction.stdev_p (range ""H1:H5""))")
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) > 0 Then
+        Report "g-formula: application.worksheetfunction.stdev_p (as the population)", False, d
+    Else
+        If IsNumeric(gotStdevP) Then gotStdevP = Round(gotStdevP, 6)
+        CheckV "g-formula: application.worksheetfunction.stdev_p (as the population)", gotStdevP, 1.788854
+    End If
+
+    ws.Range("J1").Value = "West"
+    ws.Range("J2").Value = "East"
+    ws.Range("J3").Value = "West"
+    ws.Range("J4").Value = "West"
+    ws.Range("K1").Value = 10
+    ws.Range("K2").Value = 20
+    ws.Range("K3").ClearContents
+    ws.Range("K4").Value = 30
+    d = ""
+    On Error Resume Next
+    Dim gotAvgIf As Variant
+    gotAvgIf = VLA_Interpreter.VlaEvalExpression( _
+        "(application.worksheetfunction.averageif (range ""J1:J4"") ""West"" (range ""K1:K4""))")
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) > 0 Then
+        Report "g-formula: application.worksheetfunction.averageif (3-argument shape)", False, d
+    Else
+        CheckV "g-formula: application.worksheetfunction.averageif skips a blank matching row", gotAvgIf, 20
+    End If
+
+    ws.Range("L1:L3").ClearContents
+    d = ""
+    On Error Resume Next
+    Dim gotNoMedian As Variant
+    gotNoMedian = VLA_Interpreter.VlaEvalExpression("(application.worksheetfunction.median (range ""L1:L3""))")
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "g-formula: a median of no numbers stops, as Excel's MEDIAN has no answer", Len(d) > 0, _
+           "answered [" & CStr(gotNoMedian) & "] without stopping"
+
+    ' A wrong argument count is refused by name before Excel is asked,
+    ' through IN.17's shared entry (the four arms share one line of it).
+    d = ""
+    On Error Resume Next
+    Dim gotBadArity As Variant
+    gotBadArity = VLA_Interpreter.VlaEvalExpression("(application.worksheetfunction.averageif (range ""J1:J4"") ""West"")")
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "g-formula: averageif given two arguments is refused by name, before Excel is asked", _
+           InStr(1, d, "takes 3 arguments", vbTextCompare) > 0, "got: " & d
 
     ' IN.11: found by VerifyReportInterpreter's own live run past the
     ' on-error boundary, into instructions.txt's own "breadth pass" -
@@ -3929,6 +4030,35 @@ Private Sub VerifyReportChecks(ws As Worksheet)
         CheckV "smallest of a range into a cell (H5)", wsGf.Range("H5").Value, 10
         CheckV "count of empty cells, a formula showing nothing included (H6)", wsGf.Range("H6").Value, 3
         CheckV "count of filled cells, the same formula included (H7)", wsGf.Range("H7").Value, 4
+    End If
+
+    ' G-FORMULA slice 2: a range's median, and its standard deviation as a
+    ' sample and as the population, each set and put; an average over the
+    ' rows that match, where AVERAGEIF skips the blank value SUMIF over
+    ' COUNTIF would count; and a median of empty cells, which has no answer
+    ' and stops its sentence inside a Try, so H6 keeps "kept" and the
+    ' recovery puts the problem in H7. (wsGs and gsPop: no earlier block
+    ' Dims either name, and a Dim is the whole procedure's.)
+    Dim wsGs As Worksheet
+    On Error Resume Next
+    Set wsGs = ActiveWorkbook.Worksheets("GStats")
+    On Error GoTo 0
+    Report "GStats sheet exists", Not (wsGs Is Nothing), "no GStats sheet - Run the program first"
+    If Not wsGs Is Nothing Then
+        CheckV "median of a range: the middle value, not the average (H1)", wsGs.Range("H1").Value, 6
+        CheckV "standard deviation of a range as a sample (H2)", wsGs.Range("H2").Value, 2
+        CheckV "median of a range into a cell: an even count averages the middle two (H3)", wsGs.Range("H3").Value, 5
+        Report "median of a range into a cell: a value, not a live formula (H3)", Not wsGs.Range("H3").HasFormula, _
+               "H3 holds " & CStr(wsGs.Range("H3").Formula)
+        Dim gsPop As Variant
+        gsPop = wsGs.Range("H4").Value
+        If IsNumeric(gsPop) Then gsPop = Round(gsPop, 6)
+        CheckV "standard deviation of a range as the population, into a cell (H4)", gsPop, 1.788854
+        CheckV "average where: a blank matching row is skipped, as AVERAGEIF skips it (H5)", wsGs.Range("H5").Value, 20
+        CheckV "a median of no numbers stops its sentence: the Try ends there (H6)", wsGs.Range("H6").Value, "kept"
+        Report "the problem names the median that had no answer (H7)", _
+               InStr(1, CStr(wsGs.Range("H7").Value), "median", vbTextCompare) > 0, _
+               "H7 holds [" & CStr(wsGs.Range("H7").Value) & "]"
     End If
 End Sub
 

@@ -1,5 +1,5 @@
 === PHRASEBOOK TEST COVERAGE: english.vla ===
-Rules: 239
+Rules: 244
 
 --- Zero tests, 0 rule(s) ---
 
@@ -162,7 +162,7 @@ Rules: 239
   show every {shown:text} in {table:text} with {filtercol:text} over {val:expr} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   show everyone who reports to {person:expr} directly or not in {table:text} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
 
-test-fail proofs (file-level, never attributed to a rule): 14
+test-fail proofs (file-level, never attributed to a rule): 16
 test-success proofs for a structural form, not a phrase rule: 9
 
-=== SUMMARY: 82/239 rules have 2+ tests; 157 have exactly one; 0 have zero ===
+=== SUMMARY: 87/244 rules have 2+ tests; 157 have exactly one; 0 have zero ===

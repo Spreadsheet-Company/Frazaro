@@ -1284,6 +1284,51 @@ To check-formulas:
 
 Check-formulas.
 
+# G-FORMULA slice 2: a range's median, its standard deviation with the
+# reading named (as a sample, or as the population), and an average over
+# the rows that match. B2:B6 holds 2, 4, 6, 6 and 7: the median is 6
+# where the average is 5, and the standard deviation is 2 as a sample
+# and the square root of 3.2 (1.788854...) as the population; the first
+# four rows' median is 5, the middle two averaged. West's rows hold 10, a
+# blank and 30: AVERAGEIF skips the blank and says 20, where West's sum
+# over West's count would say 13.33. Last, a median of empty cells has no
+# answer, so its sentence stops: the Try ends there, H6 keeps "kept", and
+# H7 gets the problem. The recovery ends the step too: a Try looks past
+# the blank line for its "If that fails:", and the next blank line closes
+# every block. The step clears its cells first, as check-formulas does.
+To check-statistics:
+  Work on sheet GStats.
+  Clear everything from A1:H10.
+  Put 2 into cell B2.
+  Put 4 into cell B3.
+  Put 6 into cell B4.
+  Put 6 into cell B5.
+  Put 7 into cell B6.
+  Set gs-middle to median of range B2:B6.
+  Put gs-middle into cell H1.
+  Set gs-spread to standard deviation of range B2:B6 as a sample.
+  Put gs-spread into cell H2.
+  Put median of range B2:B5 into cell H3.
+  Put standard deviation of range B2:B6 as the population into cell H4.
+  Put "West" into cell D2.
+  Put "East" into cell D3.
+  Put "West" into cell D4.
+  Put "West" into cell D5.
+  Put 10 into cell E2.
+  Put 20 into cell E3.
+  Put 30 into cell E5.
+  Set gs-west to average of range E2:E5 where range D2:D5 matches "West".
+  Put gs-west into cell H5.
+  Put "kept" into cell H6.
+  Try:
+    Set gs-none to median of range G1:G3.
+    Put "no stop" into cell H6.
+
+  If that fails:
+    Put the problem into cell H7.
+
+Check-statistics.
+
 Go to sheet Output.
 
 Tidy-up.

@@ -2,6 +2,41 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.8.0
+
+### What changed
+
+- **A range's median and standard deviation, and an average over the rows
+  that match, each in one sentence.**
+  - `Set middle to median of range B2:B50.` gives the middle value, or the
+    average of the middle two when there is an even number of them. `Put
+    median of range B2:B50 into cell B54.` puts it in a cell.
+  - `Set spread to standard deviation of range B2:B50 as a sample.` The
+    sentence says which standard deviation it means. `as a sample` is
+    Excel's STDEV.S, for rows that are some of the cases; `as the
+    population` is STDEV.P, for rows that are all of them. The two give
+    different numbers, so a sentence that names neither is refused before
+    anything runs, and the message shows both. `Put standard deviation of
+    range B2:B50 as the population into cell B55.` puts it in a cell.
+  - `Set west-average to average of range B2:B90 where range A2:A90 matches
+    "West".`, beside the existing sum. A matching row with an empty value is
+    left out, as Excel's AVERAGEIF leaves it out, so this is not the sum
+    divided by the count: West rows holding 10 and an empty cell average
+    10, not 5.
+  - Like `Put sum` and `Put average`, these put the number in the cell, not
+    a live formula.
+  - When Excel has no answer, the run stops at that sentence, as a lookup
+    that finds nothing does, and `Try:` catches it: a median of no numbers,
+    a sample of fewer than two, no matching row. For now the message is
+    Excel's own, and names the function that had no answer.
+
+### Known open security items
+
+**Closed this release:** nothing. The new sentences read the cells they
+name and write only the cell a `Put` names; they open no file and make no
+network call. Standing advice unchanged. The full list of open items is in
+`docs/BETA_REARVIEW.md`, in plain words in `README.md`.
+
 ## 0.7.1
 
 ### What changed

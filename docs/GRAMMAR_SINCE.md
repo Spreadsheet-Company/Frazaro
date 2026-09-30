@@ -224,6 +224,17 @@ cells counted. No core dispatch arm is new: the slice rides `set-formula`
 and the WorksheetFunction macros already here, plus three phrasebook
 macros (`set-formula-rows`, `count-empty-cells`, `count-filled-cells`).
 `put sum of range …` keeps its `0.5.0` row beside its new siblings.
+Then five phrasebook rows marked `0.8.0` - `G-FORMULA`'s second slice
+(`pareto.txt` §11): a range's median, set and put; its standard deviation,
+set and put, the reading named at the end (`as a sample` or `as the
+population`, Excel's STDEV.S and STDEV.P); and an average over the rows
+that match, beside the sum. Four core dispatch arms are new that release
+too, `EvalDynamicHead application.worksheetfunction.median`, `stdev_s`,
+`stdev_p` and `averageif`: the interpreter refuses a WorksheetFunction
+member it has no arm for, so each new macro needed its own. The median is
+two new rules, not a new branch of slice 1's `{d:…}` alternations: this
+ledger dates a rule by its pattern, and one widened pattern could carry
+only one date for branches sayable from two releases.
 
 ### Phrasebook rules
 
@@ -346,6 +357,8 @@ macros (`set-formula-rows`, `count-empty-cells`, `count-filled-cells`).
 0.5.0  put formula {f:text} into|in cell {r:cell}
 0.7.1  put formula {f:text} into|in range {r:range}
 0.7.1  put formula {f:text} into|in rows {a:expr} to|through {b:expr} of column {c:column}
+0.8.0  put median of range {r:range} into|in cell {c:cell}
+0.8.0  put standard deviation of range {r:range} as {k:sample|population} into|in cell {c:cell}
 0.5.0  put sum of range {r:range} into|in cell {c:cell}
 0.5.0  put today into|in cell {r:cell}
 0.7.1  put {d:average|largest|smallest} of range {r:range} into|in cell {c:cell}
@@ -393,6 +406,7 @@ macros (`set-formula-rows`, `count-empty-cells`, `count-filled-cells`).
 0.5.0  set tab-color of sheet {s:sheet} to {e:expr}
 0.5.0  set width of column {c:column} to {w:expr}
 0.5.0  set {v:var} to average of range {r:range}
+0.8.0  set {v:var} to average of range {r:range} where range {c:range} matches {e:expr}
 0.5.0  set {v:var} to cell {r:cell} of sheet {s:sheet}
 0.7.1  set {v:var} to column of first cell in range {r:range} containing {t:expr}
 0.7.0  set {v:var} to column {c:column} as one list
@@ -408,12 +422,14 @@ macros (`set-formula-rows`, `count-empty-cells`, `count-filled-cells`).
 0.7.0  set {v:var} to last {n:expr} characters of {t:expr}
 0.5.0  set {v:var} to last {n:expr} letters of {t:expr}
 0.5.0  set {v:var} to lookup of {e:expr} in range {r:range} column {k:expr}
+0.8.0  set {v:var} to median of range {r:range}
 0.5.0  set {v:var} to position of {a:expr} in {t:expr}
 0.7.0  set {v:var} to range {r:range} as one list
 0.7.0  set {v:var} to range {r:range} as one list separated by {s:expr}
 0.7.1  set {v:var} to row of first cell in column {c:column} containing {t:expr}
 0.7.1  set {v:var} to row of first cell in range {r:range} containing {t:expr}
 0.5.0  set {v:var} to row of {e:expr} in column {c:column}
+0.8.0  set {v:var} to standard deviation of range {r:range} as {k:sample|population}
 0.5.0  set {v:var} to sum of range {r:range}
 0.5.0  set {v:var} to sum of range {r:range} where range {c:range} matches {e:expr}
 0.7.0  set {v:var} to text {d:before|after} last {a:expr} in {t:expr}
@@ -538,9 +554,13 @@ tag, not assumed.*
 0.5.0  EmitTop            sub
 0.5.0  EmitTop            type
 0.5.0  EvalDynamicHead    application.worksheetfunction.average
+0.8.0  EvalDynamicHead    application.worksheetfunction.averageif
 0.5.0  EvalDynamicHead    application.worksheetfunction.countif
 0.5.0  EvalDynamicHead    application.worksheetfunction.max
+0.8.0  EvalDynamicHead    application.worksheetfunction.median
 0.5.0  EvalDynamicHead    application.worksheetfunction.min
+0.8.0  EvalDynamicHead    application.worksheetfunction.stdev_p
+0.8.0  EvalDynamicHead    application.worksheetfunction.stdev_s
 0.5.0  EvalDynamicHead    application.worksheetfunction.sum
 0.5.0  EvalDynamicHead    application.worksheetfunction.sumif
 0.5.0  EvalDynamicHead    application.worksheetfunction.vlookup

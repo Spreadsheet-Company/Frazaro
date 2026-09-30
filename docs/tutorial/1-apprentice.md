@@ -9,7 +9,7 @@
 | **You will be able to** | Load a procedure, check it, run it, take the run back, write one of your own, and read a refusal without alarm. |
 | **Plan on** | An afternoon, with the sample workbook open beside this page. |
 | **Comes after** | [Level 0](0-introduction.md), which is optional. |
-| **Written against** | Frazaro `0.7.0`. Sentences that arrive in `0.7.1` are marked. |
+| **Written against** | Frazaro `0.7.0`. Sentences that arrive in `0.7.1` or `0.8.0` are marked. |
 
 ---
 
@@ -467,6 +467,24 @@ the number in the cell, not a formula, so it will not change when the data
 does. For a cell that follows the data, write the formula:
 `Put formula "=AVERAGE(B2:B50)" into cell B51.` A cell whose formula shows
 nothing counts as empty and as filled both, as it does in Excel.
+
+**From `0.8.0`**, a range's median and standard deviation, and an average
+over the rows that match:
+
+```text
+Set middle to median of range B2:B50.
+Set spread to standard deviation of range B2:B50 as a sample.
+Put standard deviation of range B2:B50 as the population into cell B55.
+Set west-average to average of range B2:B90 where range A2:A90 matches "West".
+```
+
+A standard deviation says which one it means: `as a sample` (Excel's
+STDEV.S) when the rows are some of the cases, `as the population`
+(STDEV.P) when they are all of them. Leave it out and the sentence is
+refused, with both shown. The average leaves out a matching row that has
+no value, as Excel's AVERAGEIF does. When there are too few numbers, a
+median of an empty range for one, the run stops at that sentence, as a
+lookup that finds nothing does.
 
 ## Lesson 8. Making it look right
 

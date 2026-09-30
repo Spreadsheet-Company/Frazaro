@@ -502,6 +502,40 @@
     "Put smallest of range B2:B50 in cell B53."
     (set! (range "b53") (smallest-of (range "b2:b50"))))
 
+; G-FORMULA slice 2: the median, and the standard deviation with its
+; reading named - "as a sample" is Excel's STDEV.S (dividing by one fewer
+; than the count), "as the population" its STDEV.P (dividing by the
+; count). Tools disagree when neither is named (SQL's STDDEV is the
+; sample in PostgreSQL and the population in MySQL), so the sentence
+; says which, last, where a sentence that leaves it out gets furthest
+; before it is refused. New rules, not new branches of slice 1's:
+; GRAMMAR_SINCE.md dates a rule by its pattern, and slice 1's shipped
+; in 0.7.1. A range with too few numbers stops the run at the sentence,
+; as Excel's own function has no answer: a median of none, a sample of
+; fewer than two, a population of none.
+(english-vla
+    "put median of range {r:range} into|in cell {c:cell}"
+    (set! (range {c}) (median-of (range {r}))))
+(test-success
+    "Put median of range B2:B50 into cell B54."
+    (set! (range "b54") (median-of (range "b2:b50"))))
+(test-success
+    "Put median of range B2:B50 in cell B54."
+    (set! (range "b54") (median-of (range "b2:b50"))))
+
+(english-vla
+    "put standard deviation of range {r:range} as {k:sample|population} into|in cell {c:cell}"
+    (set! (range {c}) ({k}-standard-deviation-of (range {r}))))
+(test-success
+    "Put standard deviation of range B2:B50 as a sample in cell B55."
+    (set! (range "b55") (sample-standard-deviation-of (range "b2:b50"))))
+(test-success
+    "Put standard deviation of range B2:B50 as the population into cell B55."
+    (set! (range "b55") (population-standard-deviation-of (range "b2:b50"))))
+(test-fail
+    "Put standard deviation of range B2:B50 into cell B55."
+    "then I expected 'as'")
+
 (english-vla
     "set {v:var} to sum of range {r:range}"
     (set! {v} (sum-of (range {r}))))
@@ -527,6 +561,31 @@
 (test-success
     "Set bottom to smallest of range B2:B50."
     (set! bottom (smallest-of (range "b2:b50"))))
+
+; G-FORMULA slice 2: the median and the standard deviation into a name,
+; put's two new siblings above, the reading named the same way.
+(english-vla
+    "set {v:var} to median of range {r:range}"
+    (set! {v} (median-of (range {r}))))
+(test-success
+    "Set middle to median of range B2:B50."
+    (set! middle (median-of (range "b2:b50"))))
+(test-success
+    "Set middle to median of range \"B2:B50\"."
+    (set! middle (median-of (range "B2:B50"))))
+
+(english-vla
+    "set {v:var} to standard deviation of range {r:range} as {k:sample|population}"
+    (set! {v} ({k}-standard-deviation-of (range {r}))))
+(test-success
+    "Set spread to standard deviation of range B2:B50 as a sample."
+    (set! spread (sample-standard-deviation-of (range "b2:b50"))))
+(test-success
+    "Set spread to standard deviation of range B2:B50 as the population."
+    (set! spread (population-standard-deviation-of (range "b2:b50"))))
+(test-fail
+    "Set spread to standard deviation of range B2:B50."
+    "then I expected 'as'")
 
 ; B5 decision, blessed: "put answer into <name>" keeps its "into" even
 ; though Put normally targets places and Set targets names - the whole
@@ -893,6 +952,22 @@
 (test-success
     "Set west-total to sum of range B2:B90 where range A2:A90 matches \"West\"."
     (set! west-total (sum-of-where (range "b2:b90") (range "a2:a90") "West")))
+
+; G-FORMULA slice 2: sum-where's sibling, over Excel's AVERAGEIF. It is
+; not sum-where divided by count-matching: COUNTIF counts a matching row
+; whose value is blank, and AVERAGEIF skips it - West rows holding 10
+; and a blank average 10, where the division says 5. No row matching,
+; or only blank values, stops the run at the sentence, as AVERAGEIF has
+; no answer.
+(english-vla
+    "set {v:var} to average of range {r:range} where range {c:range} matches {e:expr}"
+    (set! {v} (average-of-where (range {r}) (range {c}) {e})))
+(test-success
+    "Set west-average to average of range B2:B90 where range A2:A90 matches \"West\"."
+    (set! west-average (average-of-where (range "b2:b90") (range "a2:a90") "West")))
+(test-success
+    "Set big-average to average of range B2:B90 where range B2:B90 matches \">100\"."
+    (set! big-average (average-of-where (range "b2:b90") (range "b2:b90") ">100")))
 
 (english-vla
     "set {v:var} to count of range {c:range} matching {e:expr}"
@@ -4125,6 +4200,32 @@
     (count-matching c e)
     "count a range's cells that match a condition"
     (application.worksheetfunction.countif c e))
+
+; G-FORMULA slice 2: four more, each with its own native interpreter arm
+; beside the seven above (VLA_Interpreter's EvalDynamicHead). The two
+; standard deviations call Excel's current STDEV.S and STDEV.P, not the
+; older STDEV and STDEVP, which Excel keeps for compatibility only; the
+; numbers are the same. average-of-where hands AVERAGEIF its own order,
+; as sum-of-where hands SUMIF its.
+(defmacro
+    (median-of r)
+    "the median of a range's numbers - the middle one, or the average of the middle two"
+    (application.worksheetfunction.median r))
+
+(defmacro
+    (sample-standard-deviation-of r)
+    "the standard deviation of a range's numbers taken as a sample (Excel's STDEV.S)"
+    (application.worksheetfunction.stdev_s r))
+
+(defmacro
+    (population-standard-deviation-of r)
+    "the standard deviation of a range's numbers taken as the whole population (Excel's STDEV.P)"
+    (application.worksheetfunction.stdev_p r))
+
+(defmacro
+    (average-of-where r c e)
+    "the average of one range's cells where a matching range meets a condition - a blank value is skipped"
+    (application.worksheetfunction.averageif c e r))
 
 ; ---- L4: a phrasebook-carried macro ----------------------------------
 ; macro: carries a (defmacro ...) form, validated at load (probe-
