@@ -442,7 +442,21 @@ nothing here is "done," and nothing here is ever pruned.*
   `G-PROLOG` slice 2 adds two built-in sub-grammars on exactly these terms,
   `clause` (a rule, set head or fact, whole) and `question`, both regular
   and both one opaque placeholder to the audit; a relation inside either
-  stays one token until `G-RELATIONS`.
+  stays one token until `G-RELATIONS`. *Precision amendment, 2026-09-30
+  (the owner's call while scoping `LX.14`; an amendment, not a
+  re-litigation, by the same test - it forbids nothing new and permits
+  nothing undecidable):* a phrasebook may declare **function phrases**,
+  widening what `english-function` already does for one word and `of`. A
+  function phrase is a fixed run of words, its connector the phrasebook's
+  own, then one value - the engine's own innermost value, or a reference
+  the phrase declares it takes - then at most one closing clause of fixed
+  words and one alternation. It is matched where a value is read, longest
+  first; once its words have matched it completes or is refused, saying
+  what it expected; it never re-enters a phrasebook rule; and the load
+  audits the phrases as the finite list they are (no two alike, no word
+  after the first one the value or condition grammar reads after a value).
+  A phrase with a second value inside it stays a sentence rule, and
+  everything else this entry forbids stays forbidden.
 - **SD-17 — blind spots are hunted on a cadence, not collected in a file:
   every roadmap fork is preceded by one outside-persona review, the persona
   must be one not yet used, and a review that mints or kills no roadmap item
@@ -5878,6 +5892,135 @@ written against.
   must keep working; and `english.vla` loading - with two `test-fail` proofs
   in it, one per branch, which run at every load. *Depends on:* nothing.
   `~hours`
+- ⬜ **LX.14 — function phrases: a value said in several words, bound where
+  a value is read.** *Minted 2026-09-30, the owner's call, from `G-FORMULA`
+  slice 4's scoping, where a remembered range's median and standard
+  deviation became rules over a name because a function word could not
+  carry them. The owner's question: if a sentence's order of operations
+  binds function phrases first, could they not be of any length?*
+  **What happens now:** a function word is one word and the English `of`.
+  `RegisterFunctionWord` accepts `<word> of` (one value after it) or a lone
+  word (none) and refuses anything else
+  (`english-function-word-not-one-word`), and `ParsePrimCore`, the
+  innermost level of a value, looks up one token and then requires `of`.
+  `english.vla` declares five (`keys of`, `largest of`, `smallest of`, `sum
+  of`, `average of`), all five there at `v0.5.0` and none added since; the
+  engine seeds sixteen more (`length of` to `now`). Four consequences:
+  - `standard deviation of` cannot be one, so slice 4 wrote four Set and
+    Put rules over a name, and `If median of revenues is more than 100, …`
+    stays refused where `If sum of revenues is …` works;
+  - a phrasebook in another language cannot declare one at all, since the
+    connector must be the English `of`: `espanol.vla` carries `suma-de`,
+    `promedio-de`, `mayor-de` and `menor-de`, and no Spanish sentence
+    reaches any of them;
+  - a figure over a range written out (`median of range B2:B50`) is
+    sayable only in the Set and Put rules written for it, since `range …`
+    is not a value;
+  - function words have no rows in `GRAMMAR_SINCE.md`, whose inventories
+    are rules and dispatch arms, so a `requires:` gate cannot name one.
+  **The item, as filed:** a function phrase is any fixed run of words, its
+  connector the phrasebook's own, followed by one value, matched where a
+  value is read, longest first, keyed by its first word. That is the
+  owner's order of operations: the innermost level of a value binds
+  tightest, as `sum of revenues plus 5` is (sum of revenues) plus 5 today,
+  and matching several words in place is already how `divided by` and
+  `multiplied by` are read (`ParseProd`'s `MatchWords`). The value a phrase
+  takes is the engine's own innermost value, so phrases compose (`largest
+  of median of …`) and never re-enter a phrasebook rule. *Not a pass over
+  the whole sentence first:* the words of a phrase are also ordinary words
+  in rules (slice 2's `set … to standard deviation of range … as …`;
+  `espanol.vla`'s `barra de estado`), so a rewrite before rule matching
+  cannot tell which reading a sentence wants. `keyword-alias`
+  (`CanonicalizeStructuralWords`) is that shape, and it works because it
+  rewrites only structural words: `espanol.vla` aliases `si`, `es`,
+  `repetir`, `veces` and `mientras`, and could not alias `de`. Ordinals left
+  the tokenizer for the same reason (`G8`: a rewrite of every "first" breaks
+  `first of`). *Audited at load:* no two phrases alike; no word after the
+  first one the value or condition grammar already reads after a value
+  (`plus`, `minus`, `times`, `divided`, `is`, `and`, …), so no value that
+  parses today changes meaning; and every proof re-runs against the fully
+  loaded grammar, as it does now. *`SD-4`:* a phrase of two or more words
+  can never equal a program's action or `using` parameter, which are one
+  word, and since its later words are never ones a value continues with,
+  every sentence a phrase makes sayable was refused before. *The ledger:*
+  function words and phrases get rows of their own, the inventory read from
+  the expanded export and the engine's seeding, the dates from source at
+  each tag, as the two existing inventories are. *A phrase that fails
+  partway* must be refused as well as a rule is: a value that stops partway
+  is reported today from where it began, so a phrase that matched its words
+  and then missed its clause must say what it expected (`SD-16`'s teaching
+  refusal).
+  **Three calls, the owner's, each settled 2026-09-30 as recommended:**
+  1. *Words after the value.* The standing rule puts a reading last
+     (`standard deviation of … as a sample`), and a clause after the value
+     is a pattern with a hole inside a value, which `SD-16` forbids as
+     written (a phrasebook-defined nonterminal). (a) Prefix phrases only:
+     no amendment, but a reading goes in front (`sample standard deviation
+     of`), against slice 2's choice, and a phrase that leaves it out falls
+     back to reading `standard` as a name and stalls, `LX.8`'s class. (b)
+     **One closing clause (recommended):** after the value, at most one run
+     of fixed words and one alternation (`as sample|population`), the hole
+     always the engine's own value. Regular, deterministic and audited at
+     load, so by the test `SD-16`'s 2026-09-11 amendment set itself - it
+     "forbids nothing new and permits nothing undecidable" - a precision
+     amendment, not a re-litigation. (c) Holes anywhere, as Inform 7's `To
+     decide …` phrases allow (`position of … in …`): several holes inside a
+     value need delimiters, and a precedence between the phrase's words and
+     the value grammar's, which makes a second sentence grammar inside
+     `expr` - a re-litigation. Shapes with several holes stay sentence
+     rules.
+  2. *A one-word head such as `median of`.* A function word is refused as
+     an action's name in all four `To` forms (`CheckDupAction`) and as a
+     `using` parameter, a refusal `B4` (Alpha 1) bundled beside its real
+     fix, the duplicate-Sub compile crash. So every one-word phrase added
+     after a release refuses a shipped program that gave an action or a
+     parameter that name (`SD-4`). (a) Keep refusing: each word means the
+     same in every program, and no one-word phrase is added after a
+     release, as none has been since `v0.5.0`. (b) **The program's own
+     definition masks the phrasebook's, inside that program, with a note at
+     Check on the definition's row (recommended):** no shipped program
+     breaks as the vocabulary grows, and `SD-12` grows it every release.
+     Mature languages split on this: Excel refuses a defined name that is a
+     function's, AppleScript an identifier that is a term (escaped with
+     pipes), and Common Lisp locks its own package; R masks with a printed
+     notice, and Python and JavaScript let a module shadow a builtin, with
+     linters warning. Refusal suits a closed vocabulary, masking a growing
+     one. (c) Gate by the program's `requires: version:`: precise, but few
+     programs declare one. The Singularity line's `AXM.5`, filed in the tree
+     the same day, refuses a Definitions-sheet definition that redefines a
+     built-in word; that changes the workbook's vocabulary, where a program's
+     own action is local, so (b) and that refusal can stand together.
+     *Found while scoping, filed as `U.30`:* a program's own action named
+     after the VBA function a built-in word compiles to (`To len of x:`)
+     captures that word inside the program on both backends: compiled VBA
+     writes `len(...)` unqualified, and the interpreter looks up a program's
+     own procedures before its builtins. `CheckDupAction` compares the
+     English word (`length`), never its target (`len`). Found by reading,
+     not run; masking waits on `U.30`.
+  3. *Ranges as values.* `median of range B2:B50` inside an `If` needs
+     `range …` to be a value. (a) A value anywhere: `Set x to range A1:A9.`
+     becomes sayable, which the grammar refuses on purpose (Set holds a
+     value, Remember holds cells), and `range A1:A9 plus 1` a runtime error
+     Check cannot see. (b) **A reference only as a phrase's value, each
+     phrase saying which it takes (recommended):** `median of` a value or a
+     range, `last filled row of` a column; `range …` stays refused
+     everywhere else. (c) None: figures over a range written out stay Set
+     and Put rules.
+  **What it would retire,** with the calls as recommended: slice 4's four
+  rules over a name; the figure rules over `range …` (sum, average,
+  largest, smallest, median and standard deviation, set and put); and `set
+  … to last filled row of column …`. Each would be reached first by the
+  general set or put with the same translation, so `TestF4RealCorpusShadow`
+  flags it, and it goes. Their `GRAMMAR_SINCE.md` rows stay true, since the
+  sentence works from the same release, so the ledger needs a way to say a
+  row is now carried by a phrase. **Done when:** `If median of revenues is
+  more than 100, …` and `Show standard deviation of range B2:B50 as a
+  sample.` run on both backends; a Spanish sentence reads `suma de`; every
+  shipped proof and golden is unchanged but for the rules retired; the
+  load refuses a phrase whose later word is an operator; and function words
+  have ledger rows. *Depends on:* `U.30`, before a one-word head may mask
+  (call 2). Call 1's amendment is in `SD-16`'s entry, dated 2026-09-30.
+  `~days`, and the calls as settled add `~days`.
 
 ---
 
@@ -24568,6 +24711,48 @@ now carries one summary paragraph per engine and points here.*
   The Run procedures themselves are reached only by clicking Run: live
   tests, on both backends. *Related:* `U.28`, built in the same pass.
   *Depends on:* nothing. `~hours`
+- ⬜ **U.30 — a program's own action cannot take a name its generated code
+  calls.** *Minted 2026-09-30, the owner's call, from `LX.14`'s scoping.
+  Found by reading, not run.* **What happens now:** `To <name> …:` passes
+  through `CheckName` (VBA keywords, a word shaped like a cell, a value
+  word) and `CheckDupAction` (a second action of the same name, or a name
+  that is a function word). `CheckDupAction` compares the English word:
+  `To length of x:` is refused, but `To len of x:` is accepted, and `len`
+  is what `length of` compiles to. The action becomes a procedure of that
+  name, and inside its program it answers every call to the name. Compiled
+  VBA writes `len(...)` unqualified, and a module's own procedure answers
+  before VBA's library does; the interpreter's `EvalDynamicHead` looks up
+  the program's own procedures (`LookupProc`) before its builtins
+  (`TryEvalBuiltin`). So `length of name` gives back whatever the
+  program's `len` does, on both backends, and nothing is refused. The
+  conditions change with it: every `is empty` compiles to
+  `len(trim(...))`, so a program's own `len` or `trim` alters each such
+  test. **The class:** every name the generated code calls unqualified.
+  The corpus's golden calls `len`, `trim`, `instr`, `left`, `right`,
+  `round` and `date`; the interpreter's builtins add `lcase`, `ucase`,
+  `isempty`, `msgbox`, `inputbox`, `now` and `time`; the engine's function
+  words compile to `abs`, `month`, `year`, `day`, `hour` and `minute`; and
+  Excel's own `range`, `cells`, `rows`, `columns` and `worksheets` are
+  called the same way, their interpreter arms also after `LookupProc`. An
+  action called `range` would take every cell its program names. Of all
+  these, only `date` and `time` are reserved today, as VBA keywords.
+  **The fix, to scope:** refuse such a name at Check, in words (`SD-2`),
+  for `To`, `To get` and `using` actions alike, the list read from the
+  engine itself - the interpreter's builtins, the engine's function-word
+  targets, the forms whose emission calls a name unqualified - and a
+  static check holding the refusal to those sources, so a builtin added
+  later cannot reopen it. Weighed and not recommended: writing every VBA
+  call qualified (`VBA.Len`) and having the interpreter try builtins
+  first, which rewrites every golden line that calls one and changes the
+  interpreter's lookup order, where the refusal adds one list. *`SD-4`:* a
+  program this refuses had its calls taken already, except one whose own
+  `trim` or `len` never met a `length of`, a `trimmed` or an `is empty`;
+  that one worked, and the release notes must say it is now refused.
+  **Done when:** `To len of x:`, `To range of x:` and `To get trim:` are
+  refused at Check, naming the word, and `To length-of-text of x:` is not;
+  and the static check fails when a builtin is added without its name in
+  the list. *Pays into:* `LX.14`, whose masking of one-word heads (call 2)
+  waits on this. *Depends on:* nothing. `~hours`
 
 ---
 
