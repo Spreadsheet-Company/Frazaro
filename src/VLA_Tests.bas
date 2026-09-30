@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "METAPROOF.1"
+Public Const VLA_TESTS_VERSION As String = "U.29"
+' U.29: TestU29StatusBarBack, dispatched after TestU26CellText - three pins
+' on VLA_IDE.VlaIdeStatusBarBack, what a Run hands the status bar back as:
+' the text FALSE (how an idle bar reads back) in either spelling gives the
+' bar back to Excel, and other words are shown again.
+'
 ' METAPROOF.1: TestMessageRecorder, dispatched after TestMessageSeam -
 ' three pins on VLA_Messages' new memory of the last refusal it raised (its
 ' id and its finished words), which the DATALOG proof corpus
@@ -445,6 +450,7 @@ Public Function VlaSelfTest() As Boolean
     TestCliConsoleResults
     TestLx13CellShapedNames
     TestU26CellText
+    TestU29StatusBarBack
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -3692,6 +3698,23 @@ Private Sub TestU26CellText()
     CheckV "u.26: an ordinary refusal is written as it is", _
            VLA_IDE.VlaIdeCellText("I understood 'put 1'"), "I understood 'put 1'"
     CheckV "u.26: nothing stays nothing", VLA_IDE.VlaIdeCellText(""), ""
+End Sub
+
+' U.29: VLA_IDE.VlaIdeStatusBarBack, purely - what a Run hands the status
+' bar back as. An idle bar reads back as the text FALSE, and handing that
+' text back would show the word, so FALSE in any case gives the bar back to
+' Excel; other words are shown again. That a Run gives the settings back
+' at all is the host half: VLA_Tests_Host.TestU29GivesBackExcel.
+Private Sub TestU29StatusBarBack()
+    Dim back As Variant
+    back = VLA_IDE.VlaIdeStatusBarBack("FALSE")
+    CheckV "u.29: an idle status bar, read back as the text FALSE, goes back to Excel", _
+           TypeName(back) & ":" & CStr(back), "Boolean:False"
+    back = VLA_IDE.VlaIdeStatusBarBack("False")
+    CheckV "u.29: so does VBA's own spelling of it", TypeName(back) & ":" & CStr(back), "Boolean:False"
+    back = VLA_IDE.VlaIdeStatusBarBack("Reading the ledger...")
+    CheckV "u.29: words that were there before the run are shown again", _
+           TypeName(back) & ":" & CStr(back), "String:Reading the ledger..."
 End Sub
 
 ' LX.13: one program refused by id, by the word it names - as written and

@@ -29,6 +29,15 @@
     that finds nothing does, and `Try:` catches it: a median of no numbers,
     a sample of fewer than two, no matching row. For now the message is
     Excel's own, and names the function that had no answer.
+- **A run leaves Excel's settings as it found them.** When a run ends,
+  finished or stopped, Excel's calculation, status bar, screen updating,
+  alerts and events are back to what they were before it. A program that
+  turned calculation off and then stopped used to leave every open workbook
+  in manual calculation for the rest of the day, and words it put in the
+  status bar stayed there. So a program cannot leave Excel in manual
+  calculation: for that, use Excel's Formulas tab, or type the sentence in
+  the CLI, where it lasts. If you protected your program's sheet
+  yourself, a run now leaves that protection alone.
 - **A stop or an Undo removes the sheet the run worked on, when the run
   made it.** On a workbook without the sheet a program works on (its first
   `Work on sheet`, or Output), a run that stopped used to leave that sheet

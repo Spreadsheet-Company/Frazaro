@@ -956,6 +956,10 @@ wait {n:expr} seconds
 `email …` opens a draft for the person to read and send. Nothing is sent
 silently.
 
+Words put in the status bar, and screen updating turned off, last until
+the run ends; the run then puts both back as it found them. A message the
+person must read after the run is a `show`.
+
 **Sentences that reach outside the workbook** are the ones that open,
 save, print, export, email or protect. **Undo Last Run** does not reach
 what they did. In a workbook that Windows has marked as downloaded, they
@@ -1488,6 +1492,11 @@ Use these labels exactly when telling a person what to press.
 - Undo does not reach a file saved, an email drafted, or another
   workbook.
 - A run that stops puts the sheets back and names the row.
+- Excel's own settings a program changes (automatic calculation, the
+  status bar, screen updating) are put back as the run found them when
+  it ends, finished or stopped. They never outlast the run, so Undo has
+  nothing to do with them. A setting meant to last is typed into
+  **Open CLI**, or set in Excel.
 - Nothing is sent anywhere. Frazaro makes no network call.
 
 ---

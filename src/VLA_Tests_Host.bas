@@ -1,6 +1,12 @@
 Attribute VB_Name = "VLA_Tests_Host"
 Option Explicit
-Public Const VLA_TESTS_HOST_VERSION As String = "GFORMULA.2"
+Public Const VLA_TESTS_HOST_VERSION As String = "U.29"
+' U.29: TestU29GivesBackExcel, nine pins on VLA_IDE's record and give-back
+' of Excel's settings: calculation found automatic and found manual, the
+' status bar idle and holding words, events, alerts and screen updating,
+' and a copy the run left cancelled (with its control). The suite's own
+' settings are given back last. VerifyReportInterpreter is bracketed the
+' same way, so its run of the corpus leaves Excel as it found it.
 ' GFORMULA.2: G-FORMULA slice 2. TestInterpreterObjectDispatch gains six
 ' pins beside IN.3's two: the interpreter's four new WorksheetFunction arms
 ' (median, stdev_s, stdev_p, averageif) each on real cells, a median of
@@ -371,6 +377,7 @@ Public Function VlaSelfTestHost() As Boolean
     TestArraySlabHelpers
     TestAutoLoadRegistration
     TestU26MarkShowsQuote
+    TestU29GivesBackExcel
 
     Debug.Print "===== HOST SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -3081,6 +3088,99 @@ Private Sub TestU26MarkShowsQuote()
     prior.Activate
 End Sub
 
+' U.29: VLA_IDE's record and give-back, on Excel itself - each setting a
+' Run borrows, changed after the record and given back as it was found.
+' The Run procedures that call them are reached only by clicking Run, so
+' the handoff's live tests witness those. The suite's own settings are
+' recorded first and given back last, whatever happens between.
+Private Sub TestU29GivesBackExcel()
+    Dim prior As Worksheet
+    Set prior = ActiveSheet
+    Dim suite As VlaExcelSettings
+    VLA_IDE.VlaIdeRecordExcel suite
+    Dim st As VlaExcelSettings
+    Dim d As String
+    On Error GoTo failed
+
+    ' Calculation, found automatic and turned manual: back to automatic.
+    Application.Calculation = xlCalculationAutomatic
+    VLA_IDE.VlaIdeRecordExcel st
+    Application.Calculation = xlCalculationManual
+    VLA_IDE.VlaIdeGiveBackExcel st
+    CheckV "u.29: calculation turned off during a run comes back automatic", _
+           Application.Calculation, xlCalculationAutomatic
+
+    ' Found manual and turned automatic: back to manual - the mode the run
+    ' found, not Excel's default.
+    Application.Calculation = xlCalculationManual
+    VLA_IDE.VlaIdeRecordExcel st
+    Application.Calculation = xlCalculationAutomatic
+    VLA_IDE.VlaIdeGiveBackExcel st
+    CheckV "u.29: a person's own manual calculation comes back manual, not Excel's default", _
+           Application.Calculation, xlCalculationManual
+    Application.Calculation = xlCalculationAutomatic
+
+    ' The status bar, idle when the run began: a program's words go.
+    Application.StatusBar = False
+    VLA_IDE.VlaIdeRecordExcel st
+    Application.StatusBar = "u.29 working"
+    VLA_IDE.VlaIdeGiveBackExcel st
+    CheckV "u.29: words a run put in the status bar go when it ends", _
+           VLA_Identity.Fold(CStr(Application.StatusBar)), "false"
+
+    ' Holding words when the run began (another add-in's): they come back.
+    Application.StatusBar = "u.29 before"
+    VLA_IDE.VlaIdeRecordExcel st
+    Application.StatusBar = "u.29 working"
+    VLA_IDE.VlaIdeGiveBackExcel st
+    CheckV "u.29: words the status bar held before the run come back", _
+           CStr(Application.StatusBar), "u.29 before"
+    Application.StatusBar = False
+
+    ' Events, alerts and screen updating, each on when the run began and
+    ' turned off during it: each comes back on.
+    Application.EnableEvents = True
+    Application.DisplayAlerts = True
+    Application.ScreenUpdating = True
+    VLA_IDE.VlaIdeRecordExcel st
+    Application.EnableEvents = False
+    Application.DisplayAlerts = False
+    Application.ScreenUpdating = False
+    VLA_IDE.VlaIdeGiveBackExcel st
+    CheckV "u.29: events turned off during a run come back on", Application.EnableEvents, True
+    CheckV "u.29: alerts turned off during a run come back on", Application.DisplayAlerts, True
+    CheckV "u.29: screen updating turned off during a run comes back on", Application.ScreenUpdating, True
+
+    ' Cut or copy mode, off when the run began: a copy the run left is
+    ' cancelled, so the next Enter cannot paste it.
+    VlaEnsureSheet "VlaU29Sheet"
+    Dim ws As Worksheet
+    Set ws = ActiveWorkbook.Worksheets("VlaU29Sheet")
+    ws.Range("A1").Value = "copied"
+    Application.CutCopyMode = False
+    VLA_IDE.VlaIdeRecordExcel st
+    ws.Range("A1").Copy
+    Report "u.29 control: a copy leaves cut or copy mode on", Application.CutCopyMode <> 0, _
+           "CutCopyMode is " & CStr(Application.CutCopyMode)
+    VLA_IDE.VlaIdeGiveBackExcel st
+    Report "u.29: a copy a run left is cancelled when it ends", Application.CutCopyMode = 0, _
+           "CutCopyMode is " & CStr(Application.CutCopyMode)
+    Application.DisplayAlerts = False
+    ws.Delete
+    Application.DisplayAlerts = True
+
+    VLA_IDE.VlaIdeGiveBackExcel suite
+    prior.Activate
+    Exit Sub
+failed:
+    d = Err.Description
+    On Error Resume Next
+    VLA_IDE.VlaIdeGiveBackExcel suite
+    prior.Activate
+    On Error GoTo 0
+    Report "u.29: the record and give-back ran without raising", False, d
+End Sub
+
 ' ---------------------------------------------------------------------
 '  VerifyReport: the machine-checked end state of instructions.txt.
 ' ---------------------------------------------------------------------
@@ -4164,6 +4264,11 @@ Public Function VerifyReportInterpreter() As Boolean
         Application.DisplayAlerts = True
     End If
 
+    ' U.29: the corpus changes Excel's settings (its GCalc step turns
+    ' calculation off), and this run is not a Run: bracketed as one is,
+    ' so it leaves Excel as it found it even when the corpus stops part-way.
+    Dim excelBefore As VlaExcelSettings
+    VLA_IDE.VlaIdeRecordExcel excelBefore
     d = ""
     On Error Resume Next
     VLA_Interpreter.VlaInterpret vla
@@ -4181,6 +4286,7 @@ Public Function VerifyReportInterpreter() As Boolean
             EffectLogTail(VLA_Interpreter.VlaInterpreterEffectLog(), 5)
     End If
     On Error GoTo 0
+    VLA_IDE.VlaIdeGiveBackExcel excelBefore
     If Len(d) > 0 Then
         Report "in.3: instructions.txt runs to completion under the interpreter", False, d
         On Error Resume Next

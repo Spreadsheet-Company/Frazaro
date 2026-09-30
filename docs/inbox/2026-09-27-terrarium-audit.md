@@ -1517,7 +1517,7 @@ Set mUserFnWords = New Collection
 - Fix direction: seed `mVocabMacroNames` with the prelude's macro names (tagged "prelude"), so the existing `english-vocab-macro-name-collision` fires.
 - Ratchet-able?: yes. A test that loads each shipped phrasebook and asserts it has no name in common with the prelude.
 
-### C62 — A Run restores only ScreenUpdating; StatusBar, Calculation and the program sheet's protection are left changed
+### C62 — A Run restores only ScreenUpdating; StatusBar, Calculation and the program sheet's protection are left changed → U.29
 
 *low-medium · confirmed by reading · Interpreter and runtime, slice finding 13*
 

@@ -24344,6 +24344,79 @@ now carries one summary paragraph per engine and points here.*
   (a Run restores only ScreenUpdating) and `G-FORMULA` slice 3's
   precursor, which change the same two procedures. *Depends on:* nothing.
   `~hours`
+- ✅ **U.29 — a Run gives back Excel's settings as it found them.**
+  *Minted 2026-09-30 at `G-FORMULA` slice 3's scoping, as its precursor,
+  from the audit's `C62`; the owner's calls, each as recommended; built,
+  owner-verified live and committed the same day (`VLA_SELF-TESTS` pure
+  1567/1567 and host 265/265, its twelve pins included; `VerifyReports`
+  349/349 on both backends; three hand tests on both backends: calculation
+  given back after a finished run, calculation and the status bar after a
+  stopped one - the idle bar read back as the text FALSE, as predicted -
+  and a person's manual calculation kept).* **Before:** a Run put back one
+  setting, screen updating, and always to True, Excel's default. A program
+  that turned calculation off (hand-written VLA, or `with-fast-excel`
+  stopped part-way) or put words in the status bar (`Put "working" in
+  status bar.`), and then stopped, left every open workbook in manual
+  calculation, or the words showing, for the rest of the Excel session;
+  calculation is saved into any workbook saved meanwhile, so a later
+  session could open in manual. Undo Last Run, which puts back sheets,
+  reached neither, and slice 3's `Turn off automatic calculation.` would
+  have made the first case one sentence. **Now:** `VlaIdeRecordExcel`
+  records calculation, the status bar, alerts, events, screen updating and
+  whether cut or copy mode was on, after the snapshot and before the Run's
+  first change, and `VlaIdeGiveBackExcel` puts each back on every exit of
+  `RunProgram` and `InterpretProgram` - the missing-main guard, the return
+  from the program, the failure handler - before a stop's put-back and its
+  message, so both happen in Excel as it was.
+  - *The list:* every Application setting a phrasebook sentence, a prelude
+    macro or the interpreter can change - the interpreter's `DynamicSet`
+    reaches exactly calculation, cutcopymode, displayalerts, screenupdating
+    and statusbar - and EnableEvents, which Frazaro's own sheet-change and
+    button handlers need and a compiled hand-written program can turn off.
+    Not the active sheet (a Run shows its results) or view settings such as
+    freeze panes, which a program sets on purpose.
+  - *As found, not Excel's defaults:* a person who works in manual
+    calculation keeps it, where defaults would switch every open workbook
+    to automatic, and recalculate them all, at the end of every Run. An
+    idle status bar reads back as the text FALSE (OPTIMIZE's live catch),
+    so `VlaIdeStatusBarBack` gives FALSE back to Excel and other text back
+    as words. Cut or copy mode cannot be put back, only cancelled: it is
+    cancelled when it was off before the run, since the marching ants of a
+    failed paste make the next Enter paste. Excel sets alerts back itself
+    when code finishes; they are listed so one rule covers every setting.
+  - *Every exit, finished too:* a Run's lasting effects are its sheets and
+    what it saves or sends, never Excel's settings. Two consequences,
+    accepted: a program whose only line is `Turn off automatic
+    calculation.` leaves nothing lasting (Excel's Formulas tab, or the
+    console, does that), and a finished program's last status-bar words go
+    when it ends (the apprentice lesson's own pattern, put and then clear,
+    is unchanged, and no shipped program relied on them staying).
+  - *Runs only:* the console and a sheet's buttons and change handlers are
+    not bracketed. Nothing there can be undone, and a setting given there
+    is meant to last. The line: what Undo covers gives Excel's settings
+    back.
+  - *The program sheet's protection:* protected only when it had none, and
+    unprotected only when the Run protected it, so a protection the person
+    made is left alone. The audit's case - a person's protection taken away
+    by every Run - could not happen as written: Check's first write to
+    column C (`ClearMarks`) refuses a protected sheet, so no Run got that
+    far. *Found, not filed:* that refusal shows Excel's own words ("The
+    cell or chart you're trying to change is on a protected sheet…"), an
+    `SD-2` gap, filed only if a person meets it.
+  - `VerifyReportInterpreter` records and gives back around its own run of
+    the corpus, so the interpreted half of `VerifyReports` leaves Excel as
+    a Run would, even when the corpus stops part-way.
+  **Pins:** three pure (`TestU29StatusBarBack`); nine host
+  (`TestU29GivesBackExcel`: calculation found automatic and found manual,
+  the status bar idle and holding words, events, alerts, screen updating,
+  and a copy left by the run cancelled, with its control); and
+  `tools/check_run_gives_back.ps1`, the thirty-first check: every `(set!
+  application.<x> ...)` in a phrasebook or the prelude is recorded and
+  given back, and each Run procedure's record and give-backs are pinned by
+  count (one and three, one and two), mutation-tested over twelve cases.
+  The Run procedures themselves are reached only by clicking Run: live
+  tests, on both backends. *Related:* `U.28`, built in the same pass.
+  *Depends on:* nothing. `~hours`
 
 ---
 
@@ -25755,3 +25828,5 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **U.26 — a refusal that begins with a quoted word lost its opening quote on the sheet.** Found in `LX.13`'s live pass, 2026-09-29: column C showed `a2' is shaped like a cell …`, because Excel reads a leading apostrophe in a cell's value as its own "this is text" mark and hides it - 32 English refusals begin with a quoted word. **Built, owner-verified live and committed 2026-09-29** (`VLA_SELF-TESTS` pure 1564/1564 and host 244/244; `VerifyReports` 334/334 on both backends; both hand tests showed the quote). `VLA_IDE.VlaIdeCellText` puts one apostrophe in front of text beginning with `'`, `=`, `+`, `-` or `@`, so the cell shows exactly the text; it writes the red mark, the hint appended to it and the diagnostic log. Pinned by four pure checks and a host test that first shows Excel hiding the apostrophe. *(more: the full entry, earlier in this file)* `~hours`
 
 - ✅ **U.28 — a Run that stops, or is undone, removes the workspace sheet it made.** Minted 2026-09-30, the owner's call, from `G-FORMULA` slice 2's live pass: on a workbook with no StatsD, a Run that worked on it and stopped said "Put back as they were before the run: statsd." and left an empty sheet the person never had, because both Run procedures made the workspace sheet (the first `Work on sheet`, or `Output`) before the snapshot. **Built, owner-verified live and committed 2026-09-30** with `U.29` (three hand tests: a stop and an Undo Last Run each removing the sheet the run made, on both backends, and `Output` alike). The snapshot now comes first and the workspace sheet after, so a sheet the run made carries a removal marker like every other, and the stop's and Undo's existing words say "Removed the sheet the run had created". *(more: the full entry, earlier in this file)* `~hours`
+
+- ✅ **U.29 — a Run gives back Excel's settings as it found them.** Minted 2026-09-30 at `G-FORMULA` slice 3's scoping, as its precursor, from the audit's `C62`: a Run put back only screen updating, so a program that turned calculation off or wrote in the status bar and then stopped left every open workbook in manual calculation, or the words showing, for the rest of the Excel session, where Undo cannot reach. **Built, owner-verified live and committed 2026-09-30** (pure 1567, host 265, `VerifyReports` 349/349 on both backends; three hand tests on both backends). Calculation, the status bar, alerts, events and screen updating are recorded before a Run's first change and given back on every exit of both Run procedures, finished or stopped, each as the run found it, so a person working in manual keeps manual; cut or copy mode left on is cancelled; the program sheet is protected only when it had no protection. The CLI and a sheet's buttons and change handlers keep what they set. `tools/check_run_gives_back.ps1`, the thirty-first check, holds every `application.<x>` a phrasebook or the prelude sets to the list. *(more: the full entry, earlier in this file)* `~hours`

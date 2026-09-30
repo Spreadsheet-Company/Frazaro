@@ -1115,7 +1115,7 @@ Wait 2 seconds.
 | `Show` (or `Say`) | Opens a message box. | Yes, until OK is pressed. |
 | `Log` | Writes a line to the run's Trace log (and VBA's Immediate pane), for whoever maintains the procedure. | No. |
 | `Ask` | Opens a box with a question and keeps the answer under a name. | Yes. |
-| `Put … in status bar` | Writes at the bottom of the Excel window. | No. |
+| `Put … in status bar` | Writes at the bottom of the Excel window, until the run ends. | No. |
 
 To read what a program logged, run it with **Interpret and Trace**. The
 trace is written to a sheet named *Trace*.
@@ -1425,6 +1425,12 @@ email.
 
 It covers the most recent run of that program, and each program in a
 workbook has its own.
+
+Excel's own settings are not Undo's business, because they never outlast
+a run. Whatever a program did to automatic calculation, the status bar or
+screen updating, the run puts back as it found it the moment it ends,
+finished or stopped. To leave Excel in manual calculation, use Excel's
+Formulas tab, or type `Turn off automatic calculation.` into **Open CLI**.
 
 ### Several programs in one workbook
 

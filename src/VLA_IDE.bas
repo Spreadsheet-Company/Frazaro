@@ -1,6 +1,18 @@
 Attribute VB_Name = "VLA_IDE"
 Option Explicit
-Public Const VLA_IDE_VERSION As String = "U.28"
+Public Const VLA_IDE_VERSION As String = "U.29"
+' U.29: a Run gives back Excel's settings as it found them (the audit's
+' C62). Before, a Run put back only screen updating, always to True: a
+' program that turned calculation off, or put words in the status bar, and
+' then stopped left every open workbook in manual, or the words showing,
+' for the rest of the Excel session, and Undo Last Run, which puts back
+' sheets, reached neither. VlaIdeRecordExcel records calculation, the
+' status bar, alerts, events, screen updating and whether cut or copy mode
+' was on, before the Run's first change; VlaIdeGiveBackExcel puts each back
+' on every exit of RunProgram and InterpretProgram, finished or stopped,
+' before any stop's put-back and message. The program sheet is protected
+' only when it had no protection, and unprotected only when the Run made
+' it. Public, with VlaIdeStatusBarBack (pure), for the suites.
 ' U.28: the workspace sheet is made after the snapshot, not before, in
 ' both Run procedures, so a Run that creates it can have it removed: a
 ' stop or Undo Last Run takes it away, as every other sheet a run creates,
@@ -196,6 +208,20 @@ Private Const PHRASEBOOK_LIST_PROP As String = "VLA_LoadedPhrasebooks"
 ' is the ANSWER, and only the answer is trusted. Full design in the
 ' SEC.9 header block further down, beside the gate itself.
 Private Const PHRASEBOOK_CONSENT_SECTION As String = "SEC9PhrasebookPath"
+
+' U.29: Excel's settings as a Run found them - VlaIdeRecordExcel fills
+' one before the Run's first change, VlaIdeGiveBackExcel puts it back.
+' Public so the suites and VerifyReportInterpreter can bracket a run the
+' same way. The status bar is kept as text: an idle one reads back as
+' the text FALSE (VlaIdeStatusBarBack).
+Public Type VlaExcelSettings
+    Calculation As Long
+    StatusBar As String
+    DisplayAlerts As Boolean
+    EnableEvents As Boolean
+    ScreenUpdating As Boolean
+    CopyModeOff As Boolean
+End Type
 
 ' EDITIONMANIFEST.7 (owner-caught, live, the real root cause behind
 ' three straight "Bad file name or number" rounds - the first two
@@ -1067,6 +1093,11 @@ Private Sub RunProgram(ByVal wantTrace As Boolean)
     Dim ws As Worksheet
     Dim hb As Workbook
     Dim running As Boolean
+    ' U.29: Excel's settings as this run found them, whether they have
+    ' been recorded yet, and whether the run protected the program sheet.
+    Dim borrowed As VlaExcelSettings
+    Dim recorded As Boolean
+    Dim runProtected As Boolean
     On Error GoTo failed
     CaptureHost
     ' V5 (Mac spike): the transpiler road runs through VBProject
@@ -1159,17 +1190,31 @@ Private Sub RunProgram(ByVal wantTrace As Boolean)
     Dim outWs As Worksheet
     Set outWs = GetOrCreateSheet(outName)
 
+    ' U.29: Excel's settings as the run found them, recorded before its
+    ' first change and given back on every exit below (VlaIdeRecordExcel
+    ' says which, and why each goes back to what it was).
+    VlaIdeRecordExcel borrowed
+    recorded = True
+
     ' Sheet context: unqualified cell references in the vocabulary
     ' mean "the current sheet" (VBA's ActiveSheet), and "Go to sheet
     ' X." is the context switch. Programs therefore START on the
     ' Output sheet, and the program sheet is protected while they run,
     ' so a program cannot overwrite its own sentences - an attempted
     ' write there fails at its step with a clear "protected" message.
+    ' U.29: protected only when it has no protection already, and
+    ' unprotected only when the run protected it - a protection the
+    ' person made is theirs. (It used to be protected and unprotected
+    ' whatever it was, which would have taken a person's protection
+    ' away; Check's first write to column C refuses a protected sheet
+    ' in Excel's own words, so no Run reached that far until now.)
     outWs.Activate
-    ws.Protect
+    runProtected = Not ws.ProtectContents
+    If runProtected Then ws.Protect
     ' V1: the run bracket - screen updating off for the duration,
-    ' restored to Excel's default (True) on BOTH exits, matching the
-    ' with-fast-excel doctrine. IDE-side and screen-updating ONLY;
+    ' given back on BOTH exits (U.29: as the run found it, which for a
+    ' Run a person starts is on; it was set True, Excel's default).
+    ' IDE-side and screen-updating ONLY;
     ' two roads deliberately not taken, reasons on the Alpha 2
     ' roadmap: wrapping main's body in (with-fast-excel ...) would
     ' displace the step handler (its restore-then-re-raise fires
@@ -1192,8 +1237,7 @@ Private Sub RunProgram(ByVal wantTrace As Boolean)
     ' future path that reaches here with a bodyless module refuses in
     ' Frazaro's voice, having touched nothing.
     If Not ModuleHasMain(hb, outMod) Then
-        Application.ScreenUpdating = True
-        ws.Unprotect
+        GiveBackRun ws, borrowed, runProtected
         If wantTrace Then VlaTrace False
         VlaShowInfo "No instructions to compile - write a program in column B of the '" & ws.Name & "' sheet first."
         Exit Sub
@@ -1216,8 +1260,9 @@ Private Sub RunProgram(ByVal wantTrace As Boolean)
     Application.ScreenUpdating = False
     Application.Run "'" & hb.Name & "'!" & outMod & ".main"
     running = False
-    Application.ScreenUpdating = True
-    ws.Unprotect
+    ' U.29: finished or stopped, Excel's settings go back before a stop's
+    ' put-back and its message, so both happen in Excel as it was.
+    GiveBackRun ws, borrowed, runProtected
     Dim stopRep As String
     stopRep = ReadStopReport(hb)
     ArmStopReport hb, False
@@ -1244,8 +1289,13 @@ failed:
     Dim d As String
     d = Err.Description
     On Error Resume Next
-    Application.ScreenUpdating = True
-    If Not ws Is Nothing Then ws.Unprotect
+    ' U.29: a failure before the record changed nothing of Excel's, and
+    ' left no protection of the run's to take away.
+    If recorded Then
+        GiveBackRun ws, borrowed, runProtected
+    Else
+        Application.ScreenUpdating = True
+    End If
     ' S5.3: a traced run that failed still shows the steps it reached -
     ' the trace up to the failure is often the whole diagnosis.
     ' (S5.6: wantTrace alone decides; the old wasTracing check read
@@ -1299,6 +1349,10 @@ Private Sub InterpretProgram(ByVal wantTrace As Boolean)
     Dim ws As Worksheet
     Dim hb As Workbook
     Dim running As Boolean
+    ' U.29: as RunProgram's.
+    Dim borrowed As VlaExcelSettings
+    Dim recorded As Boolean
+    Dim runProtected As Boolean
     On Error GoTo failed
     CaptureHost
     Set hb = HostBook()
@@ -1347,8 +1401,14 @@ Private Sub InterpretProgram(ByVal wantTrace As Boolean)
     Dim outWs As Worksheet
     Set outWs = GetOrCreateSheet(outName)
 
+    ' U.29: Excel's settings recorded before the run's first change, and
+    ' the program sheet protected only when it has no protection - as in
+    ' RunProgram, which says why.
+    VlaIdeRecordExcel borrowed
+    recorded = True
     outWs.Activate
-    ws.Protect
+    runProtected = Not ws.ProtectContents
+    If runProtected Then ws.Protect
     Application.ScreenUpdating = False
     ' IN.6: pass hb explicitly rather than relying on VlaInterpret's
     ' ActiveWorkbook default - "thisworkbook" (save-workbook-as/
@@ -1382,8 +1442,7 @@ Private Sub InterpretProgram(ByVal wantTrace As Boolean)
     For ci = 1 To clkNames.Count
         VLA_Events.VlaRegisterButtonClickHandler hb, CStr(clkNames.Item(ci)), vla, CStr(clkProcs.Item(ci))
     Next
-    Application.ScreenUpdating = True
-    ws.Unprotect
+    GiveBackRun ws, borrowed, runProtected
     If wantTrace Then ShowInterpreterTraceWindow
     ' VerifyReports stale-read fix - same reasoning as RunProgram's own
     ' stamp, "interpreter" instead of "emitter". Covers the button-
@@ -1397,8 +1456,13 @@ failed:
     Dim d As String
     d = Err.Description
     On Error Resume Next
-    Application.ScreenUpdating = True
-    If Not ws Is Nothing Then ws.Unprotect
+    ' U.29: given back before a stop's put-back and message, as in
+    ' RunProgram; a failure before the record changed nothing of Excel's.
+    If recorded Then
+        GiveBackRun ws, borrowed, runProtected
+    Else
+        Application.ScreenUpdating = True
+    End If
     On Error GoTo 0
     If running Then
         ReportStoppedRun hb, ws, VLA_Interpreter.VlaInterpreterLine(), "", d
@@ -1406,6 +1470,77 @@ failed:
         VlaShowError d
     End If
     If wantTrace Then ShowInterpreterTraceWindow
+End Sub
+
+' U.29 (the audit's C62): a Run borrows Excel's settings and gives them
+' back as it found them. Before, a Run put back only screen updating, and
+' always to True: a program that turned calculation off, or put words in
+' the status bar, and then stopped left every open workbook in manual
+' calculation, or the words showing, for the rest of the Excel session -
+' and calculation is saved into any workbook saved meanwhile - while Undo
+' Last Run, which puts back sheets, reached neither. Recorded before a
+' Run's first change and given back on every exit, finished or stopped,
+' so a Run's lasting effects are its sheets and what it saves or sends,
+' never Excel's settings. The settings: every Application setting a
+' phrasebook sentence, a prelude macro or the interpreter can change (the
+' interpreter's DynamicSet reaches exactly calculation, cutcopymode,
+' displayalerts, screenupdating and statusbar), and EnableEvents, which
+' Frazaro's own sheet-change and button handlers need and a compiled
+' hand-written program can turn off. check_run_gives_back.ps1 holds the
+' list to the phrasebooks and the prelude. Each goes back to what it was,
+' not to Excel's default: a person who works in manual calculation keeps
+' it, where a default would switch every open workbook to automatic, and
+' recalculate them all, at the end of every Run. (Excel sets alerts back
+' itself when code finishes; they are here so one rule covers them all.)
+' Cut or copy mode cannot be put back, only cancelled: it is cancelled
+' when it was off before the run, since the marching ants of a paste that
+' failed make the next Enter paste. Not bracketed, on purpose: the console
+' and a sheet's buttons and change handlers, which nothing can undo, and
+' where a setting a person gives is meant to last.
+Public Sub VlaIdeRecordExcel(ByRef st As VlaExcelSettings)
+    st.Calculation = Application.Calculation
+    st.StatusBar = CStr(Application.StatusBar)
+    st.DisplayAlerts = Application.DisplayAlerts
+    st.EnableEvents = Application.EnableEvents
+    st.ScreenUpdating = Application.ScreenUpdating
+    st.CopyModeOff = (Application.CutCopyMode = 0)
+End Sub
+
+' U.29: put back what VlaIdeRecordExcel recorded. Calculation first, while
+' the screen is still off, since going back to automatic recalculates
+' every open workbook; screen updating last, so the screen is drawn once,
+' as it will stay. Never raises: it runs inside a Run's failure handling.
+Public Sub VlaIdeGiveBackExcel(ByRef st As VlaExcelSettings)
+    On Error Resume Next
+    If Application.Calculation <> st.Calculation Then Application.Calculation = st.Calculation
+    If st.CopyModeOff Then Application.CutCopyMode = False
+    Application.StatusBar = VlaIdeStatusBarBack(st.StatusBar)
+    Application.EnableEvents = st.EnableEvents
+    Application.DisplayAlerts = st.DisplayAlerts
+    Application.ScreenUpdating = st.ScreenUpdating
+    On Error GoTo 0
+End Sub
+
+' U.29: what the status bar is given back as. An idle status bar reads
+' back as the text FALSE (OPTIMIZE's live catch, its PutStatusBarBack),
+' and handing that text back would show the word: FALSE, in any case,
+' gives the bar back to Excel, and other text - another add-in's words -
+' is shown again. Pure, for the self-test.
+Public Function VlaIdeStatusBarBack(ByVal recorded As String) As Variant
+    If VLA_Identity.Fold(recorded) = "false" Then
+        VlaIdeStatusBarBack = False
+    Else
+        VlaIdeStatusBarBack = recorded
+    End If
+End Function
+
+' U.29: one exit of a Run - Excel's settings, then the program sheet's
+' protection when the run made it. Never raises.
+Private Sub GiveBackRun(ws As Worksheet, ByRef borrowed As VlaExcelSettings, ByVal runProtected As Boolean)
+    VlaIdeGiveBackExcel borrowed
+    On Error Resume Next
+    If runProtected Then ws.Unprotect
+    On Error GoTo 0
 End Sub
 
 ' TER-10/U.25: a Run that stopped part-way. Its sheets are put back as
@@ -3156,7 +3291,11 @@ End Function
 '                              the handler via the CAPTURED
 '                              sheet object, so a mid-run
 '                              focus change cannot misdirect
-'                              the unprotect
+'                              the unprotect - U.29: only when
+'                              the run protected it
+'  Excel's settings (U.29)     recorded before a Run's first   sound
+'                              change, given back on every
+'                              exit, before a stop's put-back
 '  Run stop (U.25)             the snapshot is put back before sound
 '                              anything is said, the row it
 '                              stopped on is marked; a put-back
