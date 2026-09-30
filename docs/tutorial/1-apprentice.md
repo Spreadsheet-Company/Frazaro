@@ -86,7 +86,7 @@ so does **Load Instructions** the first time you use it.
 ## Lesson 2. The first run
 
 1. Open **`Frazaro Sample Data.xlsx`** from the `examples` folder.
-2. On the **Frazaro** tab press **Load Instructions** and pick
+2. On the **Frazaro** ribbon tab click **Load Instructions** and pick
    **`00 Weekly Expense Reimbursement.docx`**. If this computer has no Word,
    pick the `.txt` of the same name; they hold the same procedure.
 3. Look at the *Frazaro* sheet. The procedure is there, one line to a row,
@@ -124,7 +124,7 @@ back. It covers the most recent run of that program.
 Put 5 into cell B2.
 ```
 
-A verb, a value, a place, a full stop. Frazaro's sentences are commands, as
+A verb, a value, a place, and a period (full stop). Frazaro's sentences are commands, as
 the steps of a procedure are.
 
 | The rule | In practice |
@@ -169,8 +169,8 @@ them.
 
 ## Lesson 4. A program of your own
 
-1. With the sample workbook open, press **New Frazaro**. If a *Frazaro*
-   sheet already holds sample 00, clear column B first, or use **New Named
+1. With the **`Frazaro Sample Data.xlsx`** sample workbook open, press **New Frazaro**. 
+   If a *Frazaro* sheet already holds sample 00, clear column B first, or use **New Named
    Frazaro** to give this program a sheet of its own.
 2. Type these five sentences into column B, one to a row.
 
@@ -1095,7 +1095,7 @@ Wait 2 seconds.
 | Verb | Does | Stops the run to wait? |
 |---|---|---|
 | `Show` (or `Say`) | Opens a message box. | Yes, until OK is pressed. |
-| `Log` | Writes a line to the run's trace, for whoever maintains the procedure. | No. |
+| `Log` | Writes a line to the run's Trace log (and VBA's Immediate pane), for whoever maintains the procedure. | No. |
 | `Ask` | Opens a box with a question and keeps the answer under a name. | Yes. |
 | `Put … in status bar` | Writes at the bottom of the Excel window. | No. |
 

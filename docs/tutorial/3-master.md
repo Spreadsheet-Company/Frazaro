@@ -7,7 +7,7 @@
 | **For** | Developers: whoever maintains the phrasebook's machinery, reviews what Frazaro generates, or wants the middle language for its own sake. |
 | **You need** | Level 2. Reading knowledge of VBA. Some Lisp helps and is not required; the parentheses are the easy part. |
 | **You will be able to** | Read and write VLA, say what VBA any form becomes, write macros, and write macros that write macros. |
-| **Plan on** | A day, most of it at the console. |
+| **Plan on** | A day, most of it at the console (CLI). |
 | **Comes after** | [Level 2](2-journeyman.md) |
 | **Written against** | Frazaro `0.7.0` |
 
@@ -398,14 +398,20 @@ Names that begin `vla-` are reserved for Frazaro. Do not take them.
 | the rest | The template. Where a parameter's name appears, the argument is put. |
 
 ```lisp
-(when (> total 5) (inc! count) (msgbox "big"))
+(when (> total 5)
+      (inc! count)
+      (msgbox "big"))
 ```
 
 becomes, in order,
 
 ```lisp
-(if (> total 5) (then (inc! count) (msgbox "big")))
-(if (> total 5) (then (set! count (+ count 1)) (msgbox "big")))
+(if (> total 5)
+    (then (inc! count) (msgbox "big")))
+
+(if (> total 5)
+    (then (set! count (+ count 1))
+    (msgbox "big")))
 ```
 
 A macro in VLA is **pure substitution**. A template computes nothing, runs

@@ -18,10 +18,10 @@ An abstract overview ought to begin with an abstract, so here is one.
 
 > Frazaro is an add-in for Microsoft Excel that reads a procedure written as
 > English sentences, checks every sentence against a published grammar,
-> refuses in words the sentences it cannot read, and runs the rest. The
-> grammar is a data file called a *phrasebook*; English is the first
-> phrasebook and not the last. Each accepted sentence is translated
-> mechanically into a small middle language, VLA, which is either
+> refuses in words the sentences it cannot read, and runs only when every sentence 
+> translates successfully to VBA. The grammar is a data file called a *phrasebook*; 
+> English is the first phrasebook and not the last. Each accepted sentence is 
+> translated mechanically into a small middle language, VLA, which is either
 > interpreted directly on the workbook or compiled into readable VBA for
 > audit. No statistical model takes part at any stage: the same sentences
 > produce the same result on every run, on the user's own machine, with no
@@ -259,7 +259,7 @@ removed.
 |---|---|
 | A sentence is misspelled or not in the grammar | Validation marks the row red, in words. Nothing runs. |
 | A sentence is valid but fails while running (a sheet is missing, say) | The run stops, names the sentence and its row, and puts the sheets back as they were. |
-| The result is not what was wanted | **Undo Last Run**. |
+| The result is not what was wanted | Click **Undo Last Run**. |
 | A sentence runs and silently does the wrong thing | That is a bug, not an intended failure. [SUPPORT.md](../SUPPORT.md) says where to send it. |
 
 **What is known to be open.** The project publishes its own threat model and

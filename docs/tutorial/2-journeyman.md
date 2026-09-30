@@ -48,9 +48,11 @@ English phrasebook,
 (english-vla
     "make cell {r:cell} {d:bold|italic}"
     (make-{d} (range {r})))
+
 (test-success
     "Make cell A1 bold."
     (make-bold (range "a1")))
+
 (test-success
     "Make cell A1 italic."
     (make-italic (range "a1")))
@@ -88,6 +90,7 @@ called `team.vla`, anywhere you like, with this in it.
     "flag cell {r:cell}"
     (begin (make-bold (range {r}))
            (set-fill-color (range {r}) vbyellow)))
+
 (test-success
     "Flag cell C4."
     (begin (make-bold (range "c4"))
@@ -125,7 +128,7 @@ runs every proof, and reports:
 > Loaded: team.vla (1 rule added)
 >
 > built-in vocabulary - 223 rules
-> C:\Procedures\team.vla - 1 rule
+> C:\\...\team.vla - 1 rule
 
 The lines under the first are every phrasebook now in force, and how many
 rules each supplies. The count for the built-in vocabulary is the grammar
@@ -133,7 +136,7 @@ that came with your copy: 223 in `0.7.0`.
 
 3. Press **What can I say?**. Your rule is in the list, under *flag*, and
    its worked example is the sentence from your own proof.
-4. On a *Frazaro* sheet, type `Flag cell C4.` and validate. It is green.
+4. On a *Frazaro* sheet, type `Flag cell C4.` and validate. Column C is green.
 
 **The workbook remembers.** The path of the phrasebook is kept in the
 workbook, and every later command in that workbook loads it again. You do
@@ -232,9 +235,11 @@ declares it. Use `var` where your sentence *creates or sets* a name, as in
 (english-vla
     "insert row [at] {n:expr=1}"
     (insert-row-at {n}))
+
 (test-success
     "Insert row at 5."
     (insert-row-at 5))
+
 (test-success
     "Insert a row."
     (insert-row-at 1))
@@ -365,7 +370,8 @@ pair gives the captured word somewhere to land.
 (defmacro
     (mark-paid r)
     "show a range as paid: green fill, bold"
-    (begin (set-fill-color r vbgreen) (make-bold r)))
+    (begin (set-fill-color r vbgreen)
+           (make-bold r)))
 
 (defmacro
     (mark-unpaid r)
@@ -375,12 +381,15 @@ pair gives the captured word somewhere to land.
 (english-vla
     "mark cell|range {r:range} as {d:paid|unpaid}"
     (mark-{d} (range {r})))
+
 (test-success
     "Mark range A2:F2 as paid."
     (mark-paid (range "a2:f2")))
+
 (test-success
     "Mark cell A2 as unpaid."
     (mark-unpaid (range "a2")))
+
 (test-fail
     "Mark range A2:F2 as overdue."
     "one of 'paid'/'unpaid'")
@@ -537,7 +546,7 @@ container.
 If your new sentence gives an existing verb a second job, find another
 verb.
 
-### Where there are two readings, the sentence names one
+### Where there are two readings, the sentence names one specifically
 
 Read your sentence to someone who has not seen the rule, and ask what they
 expect Excel to do. If a neighbouring operation is a plausible answer, the
@@ -626,10 +635,13 @@ To give an existing sentence a different meaning, say so.
 ```lisp
 (english-vla-override
     "fit all columns"
-    (begin (fit-all-columns) (freeze-top-row)))
+    (begin (fit-all-columns)
+           (freeze-top-row)))
+
 (test-success
     "Fit all columns."
-    (begin (fit-all-columns) (freeze-top-row)))
+    (begin (fit-all-columns)
+           (freeze-top-row)))
 ```
 
 An override must be earned. It has to match **exactly one** earlier rule.
@@ -678,6 +690,7 @@ running, Undo, tracing and the tests.
 (espanol-vla
     "pon hoy en la celda {r:cell}"
     (set! (range {r}) (date)))
+
 (test-success
     "Pon hoy en la celda D1."
     (set! (range "d1") (date)))
@@ -862,6 +875,7 @@ team now wants flagged cells to be orange. What do you do?
 (english-vla
     "highlight cell {r:cell}"
     (set-fill-color (range {r}) vbyellow))
+
 (test-success
     "Highlight cell B2."
     (set-fill-color (range "b2") vbyellow))
@@ -873,9 +887,11 @@ team now wants flagged cells to be orange. What do you do?
 (english-vla
     "highlight cell|range {r:range}"
     (set-fill-color (range {r}) vbyellow))
+
 (test-success
     "Highlight cell B2."
     (set-fill-color (range "b2") vbyellow))
+
 (test-success
     "Highlight range A1:C1."
     (set-fill-color (range "a1:c1") vbyellow))
@@ -888,6 +904,7 @@ out.
 (english-vla
     "set up row {r:expr} as title"
     (begin (make-header-row {r}) (freeze-top-row)))
+    
 (test-success
     "Set up row 1 as a title."
     (begin (make-header-row 1) (freeze-top-row)))
