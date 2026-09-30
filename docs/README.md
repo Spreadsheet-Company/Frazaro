@@ -86,6 +86,9 @@ add-in on a managed machine wants [THREAT_MODEL.md](THREAT_MODEL.md) and
 - **[OPTIMIZATION.md](OPTIMIZATION.md)** — Optimizing Spreadsheets: working
   notes toward a white paper on answer-set optimisation inside Excel, with
   predictions written before the measurements that test them.
+- **[SINGULARITY.md](SINGULARITY.md)** — The summit: a spreadsheet that
+  answers a manager as an analyst would, defined as a test it can pass or
+  fail, and the road there from the current release, stage by stage.
 
 ## Also in this folder
 
