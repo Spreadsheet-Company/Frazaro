@@ -351,6 +351,106 @@
   (label vla-fail)
   (vla-report-error))
 
+(sub check-calculation ()
+  (dim gc-stale)
+  (dim gc-sheet)
+  (dim gc-all)
+  (dim gc-on)
+  (dim gc-auto)
+  (on-error goto vla-fail)
+    (set! vla-step 790)
+    (if (vlatraceon) (then (vlatracestep 790 (vla-step-text 790))))
+    (raw "' ---- instructions.txt:1332 To check-calculation: ----")
+    (at-line 1343
+    (begin (vlaensuresheet "gcalc") (activate-sheet "gcalc")))
+    (set! vla-step 791)
+    (if (vlatraceon) (then (vlatracestep 791 (vla-step-text 791))))
+    (at-line 1344
+    (clear-everything-from (range "a1:d10")))
+    (set! vla-step 792)
+    (if (vlatraceon) (then (vlatracestep 792 (vla-step-text 792))))
+    (at-line 1345
+    (set! (range "a1") 2))
+    (set! vla-step 793)
+    (if (vlatraceon) (then (vlatracestep 793 (vla-step-text 793))))
+    (at-line 1346
+    (set-formula (range "b1") "=A1*10"))
+    (set! vla-step 794)
+    (if (vlatraceon) (then (vlatracestep 794 (vla-step-text 794))))
+    (at-line 1347
+    (set-calculation xlcalculationmanual))
+    (set! vla-step 795)
+    (if (vlatraceon) (then (vlatracestep 795 (vla-step-text 795))))
+    (at-line 1348
+    (set! (range "a1") 3))
+    (set! vla-step 796)
+    (if (vlatraceon) (then (vlatracestep 796 (vla-step-text 796))))
+    (at-line 1349
+    (set! gc-stale (range "b1")))
+    (set! vla-step 797)
+    (if (vlatraceon) (then (vlatracestep 797 (vla-step-text 797))))
+    (at-line 1350
+    (set! (range "c1") gc-stale))
+    (set! vla-step 798)
+    (if (vlatraceon) (then (vlatracestep 798 (vla-step-text 798))))
+    (at-line 1351
+    (recalculate-this-sheet))
+    (set! vla-step 799)
+    (if (vlatraceon) (then (vlatracestep 799 (vla-step-text 799))))
+    (at-line 1352
+    (set! gc-sheet (range "b1")))
+    (set! vla-step 800)
+    (if (vlatraceon) (then (vlatracestep 800 (vla-step-text 800))))
+    (at-line 1353
+    (set! (range "c2") gc-sheet))
+    (set! vla-step 801)
+    (if (vlatraceon) (then (vlatracestep 801 (vla-step-text 801))))
+    (at-line 1354
+    (set! (range "a1") 4))
+    (set! vla-step 802)
+    (if (vlatraceon) (then (vlatracestep 802 (vla-step-text 802))))
+    (at-line 1355
+    (recalculate-all-open-workbooks))
+    (set! vla-step 803)
+    (if (vlatraceon) (then (vlatracestep 803 (vla-step-text 803))))
+    (at-line 1356
+    (set! gc-all (range "b1")))
+    (set! vla-step 804)
+    (if (vlatraceon) (then (vlatracestep 804 (vla-step-text 804))))
+    (at-line 1357
+    (set! (range "c3") gc-all))
+    (set! vla-step 805)
+    (if (vlatraceon) (then (vlatracestep 805 (vla-step-text 805))))
+    (at-line 1358
+    (set! (range "a1") 5))
+    (set! vla-step 806)
+    (if (vlatraceon) (then (vlatracestep 806 (vla-step-text 806))))
+    (at-line 1359
+    (set-calculation xlcalculationautomatic))
+    (set! vla-step 807)
+    (if (vlatraceon) (then (vlatracestep 807 (vla-step-text 807))))
+    (at-line 1360
+    (set! gc-on (range "b1")))
+    (set! vla-step 808)
+    (if (vlatraceon) (then (vlatracestep 808 (vla-step-text 808))))
+    (at-line 1361
+    (set! (range "c4") gc-on))
+    (set! vla-step 809)
+    (if (vlatraceon) (then (vlatracestep 809 (vla-step-text 809))))
+    (at-line 1362
+    (set! (range "a1") 6))
+    (set! vla-step 810)
+    (if (vlatraceon) (then (vlatracestep 810 (vla-step-text 810))))
+    (at-line 1363
+    (set! gc-auto (range "b1")))
+    (set! vla-step 811)
+    (if (vlatraceon) (then (vlatracestep 811 (vla-step-text 811))))
+    (at-line 1364
+    (set! (range "c5") gc-auto))
+  (exit-sub)
+  (label vla-fail)
+  (vla-report-error))
+
 (sub main ()
   (dim counter)
   (dim grand)
@@ -3505,23 +3605,28 @@
   (raw "' ---- instructions.txt:1330 Check-statistics. ----")
   (at-line 1330
   (check-statistics))
-  (set! vla-step 790)
-  (if (vlatraceon) (then (vlatracestep 790 (vla-step-text 790))))
-  (raw "' ---- instructions.txt:1332 Go to sheet Output. ----")
-  (at-line 1332
+  (set! vla-step 812)
+  (if (vlatraceon) (then (vlatracestep 812 (vla-step-text 812))))
+  (raw "' ---- instructions.txt:1366 Check-calculation. ----")
+  (at-line 1366
+  (check-calculation))
+  (set! vla-step 813)
+  (if (vlatraceon) (then (vlatracestep 813 (vla-step-text 813))))
+  (raw "' ---- instructions.txt:1368 Go to sheet Output. ----")
+  (at-line 1368
   (activate-sheet "output"))
-  (set! vla-step 791)
-  (if (vlatraceon) (then (vlatracestep 791 (vla-step-text 791))))
-  (raw "' ---- instructions.txt:1334 Tidy-up. ----")
-  (at-line 1334
+  (set! vla-step 814)
+  (if (vlatraceon) (then (vlatracestep 814 (vla-step-text 814))))
+  (raw "' ---- instructions.txt:1370 Tidy-up. ----")
+  (at-line 1370
   (tidy-up))
-  (set! vla-step 792)
-  (if (vlatraceon) (then (vlatracestep 792 (vla-step-text 792))))
-  (at-line 1335
+  (set! vla-step 815)
+  (if (vlatraceon) (then (vlatracestep 815 (vla-step-text 815))))
+  (at-line 1371
   (set-screen-updating true))
-  (set! vla-step 793)
-  (if (vlatraceon) (then (vlatracestep 793 (vla-step-text 793))))
-  (at-line 1336
+  (set! vla-step 816)
+  (if (vlatraceon) (then (vlatracestep 816 (vla-step-text 816))))
+  (at-line 1372
   (debug-print "report finished"))
   (exit-sub)
   (label vla-fail)
@@ -4321,10 +4426,33 @@
     (case (787) (return "Put \"no stop\" into cell H6. [line 1325]"))
     (case (788) (return "Put the problem into cell H7. [line 1328]"))
     (case (789) (return "Check-statistics. [line 1330]"))
-    (case (790) (return "Go to sheet Output. [line 1332]"))
-    (case (791) (return "Tidy-up. [line 1334]"))
-    (case (792) (return "Turn on screen updating. [line 1335]"))
-    (case (793) (return "Log \"report finished\". [line 1336]"))
+    (case (790) (return "Work on sheet GCalc. [line 1343]"))
+    (case (791) (return "Clear everything from A1:D10. [line 1344]"))
+    (case (792) (return "Put 2 into cell A1. [line 1345]"))
+    (case (793) (return "Put formula \"=A1*10\" into cell B1. [line 1346]"))
+    (case (794) (return "Turn off automatic calculation. [line 1347]"))
+    (case (795) (return "Put 3 into cell A1. [line 1348]"))
+    (case (796) (return "Set gc-stale to cell B1. [line 1349]"))
+    (case (797) (return "Put gc-stale into cell C1. [line 1350]"))
+    (case (798) (return "Recalculate this sheet. [line 1351]"))
+    (case (799) (return "Set gc-sheet to cell B1. [line 1352]"))
+    (case (800) (return "Put gc-sheet into cell C2. [line 1353]"))
+    (case (801) (return "Put 4 into cell A1. [line 1354]"))
+    (case (802) (return "Recalculate all open workbooks. [line 1355]"))
+    (case (803) (return "Set gc-all to cell B1. [line 1356]"))
+    (case (804) (return "Put gc-all into cell C3. [line 1357]"))
+    (case (805) (return "Put 5 into cell A1. [line 1358]"))
+    (case (806) (return "Turn on automatic calculation. [line 1359]"))
+    (case (807) (return "Set gc-on to cell B1. [line 1360]"))
+    (case (808) (return "Put gc-on into cell C4. [line 1361]"))
+    (case (809) (return "Put 6 into cell A1. [line 1362]"))
+    (case (810) (return "Set gc-auto to cell B1. [line 1363]"))
+    (case (811) (return "Put gc-auto into cell C5. [line 1364]"))
+    (case (812) (return "Check-calculation. [line 1366]"))
+    (case (813) (return "Go to sheet Output. [line 1368]"))
+    (case (814) (return "Tidy-up. [line 1370]"))
+    (case (815) (return "Turn on screen updating. [line 1371]"))
+    (case (816) (return "Log \"report finished\". [line 1372]"))
     (case-else (return "an unknown step"))))
 
 ; ---- carried by phrasebooks (L4) ----
@@ -4526,6 +4654,9 @@
 (defmacro (save-copy-as p) "save a copy of this workbook without changing the open file" (. activeworkbook savecopyas p))
 (defmacro (save-current-workbook) "save this workbook" (. thisworkbook save))
 (defmacro (set-screen-updating on) "turn Excel's screen redraw on or off" (set! application.screenupdating on))
+(defmacro (set-calculation mode) "turn Excel's automatic calculation off (xlcalculationmanual) or on (xlcalculationautomatic)" (set! application.calculation mode))
+(defmacro (recalculate-this-sheet) "recalculate the formulas on the sheet the program is on, from the values the other sheets show now" (. activesheet calculate))
+(defmacro (recalculate-all-open-workbooks) "recalculate the formulas whose inputs changed, in every open workbook - Excel's F9" (. application calculate))
 (defmacro (set-status-bar text) "show text in the status bar, or false to clear it" (set! application.statusbar text))
 (defmacro (sum-of r) "the sum of a range or list of numbers" (application.worksheetfunction.sum r))
 (defmacro (average-of r) "the average of a range or list of numbers" (application.worksheetfunction.average r))

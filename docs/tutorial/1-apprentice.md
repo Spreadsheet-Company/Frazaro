@@ -486,6 +486,24 @@ no value, as Excel's AVERAGEIF does. When there are too few numbers, a
 median of an empty range for one, the run stops at that sentence, as a
 lookup that finds nothing does.
 
+**From `0.8.0`**, calculation switched off while a long program works on a
+big workbook, and switched back on at the end:
+
+```text
+Turn off automatic calculation.
+Recalculate this sheet.
+Recalculate all open workbooks.
+Turn on automatic calculation.
+```
+
+While it is off, a formula does not follow the cells it reads: change one,
+and the formula keeps its old value, so a sentence that reads it gets the
+old value too. `Recalculate this sheet.` brings the sheet the program is
+on up to date. `Recalculate all open workbooks.` is Excel's F9; there is
+no sentence for one workbook, because Excel cannot recalculate one alone.
+Turning automatic calculation back on recalculates at once. However a
+program leaves it, calculation is back to what it was when the run ends.
+
 ## Lesson 8. Making it look right
 
 ```text

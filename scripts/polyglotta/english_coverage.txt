@@ -1,9 +1,9 @@
 === PHRASEBOOK TEST COVERAGE: english.vla ===
-Rules: 244
+Rules: 248
 
 --- Zero tests, 0 rule(s) ---
 
---- Exactly one test, 157 rule(s) ---
+--- Exactly one test, 161 rule(s) ---
   copy cell {a:cell} to cell {b:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   paste values of range {a:range} into range {b:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   set font-color of cell {r:cell} to {e:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
@@ -23,6 +23,10 @@ Rules: 244
   set {v:var} to sum of range {r:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   set {v:var} to average of range {r:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   ask {q:expr} and put answer into {v:var} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  turn off automatic calculation [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  turn on automatic calculation [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  recalculate all open workbooks [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
+  recalculate this sheet [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   turn off screen updating [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   turn on screen updating [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   clear cell in column {c:column} row {n:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
@@ -162,7 +166,7 @@ Rules: 244
   show every {shown:text} in {table:text} with {filtercol:text} over {val:expr} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   show everyone who reports to {person:expr} directly or not in {table:text} as {alias:text} in cell {r:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
 
-test-fail proofs (file-level, never attributed to a rule): 16
+test-fail proofs (file-level, never attributed to a rule): 18
 test-success proofs for a structural form, not a phrase rule: 9
 
-=== SUMMARY: 87/244 rules have 2+ tests; 157 have exactly one; 0 have zero ===
+=== SUMMARY: 87/248 rules have 2+ tests; 161 have exactly one; 0 have zero ===

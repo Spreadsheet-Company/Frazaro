@@ -7661,11 +7661,80 @@ G-TAIL always said this about itself; it is true of the whole tranche.
   cells ending its `Try:`, whose recovery records the problem. That is the
   first `Try:` inside a `To` step: a `Try:` looks past the blank line for
   its `If that fails:`, and the recovery's closing blank line closes the
-  step too. `main` goes from 724 steps to 725. **Still open in §11:**
-  calculation mode and recalculate - slice 3, with the audit's `C62` as its
-  precursor, since a sentence turning calculation off would leave every
-  open workbook in manual after the run - a put form for the where family,
-  `median of` a remembered range, R1C1 and subtotals. `~weeks`
+  step too. `main` goes from 724 steps to 725. **Found in the live pass,
+  filed as `U.28`:** a Run creates its workspace sheet before the
+  snapshot, so a stop "puts back" an empty sheet the run itself made.
+  **✅ Slice 3, built, owner-verified live and committed 2026-09-30, for
+  `0.8.0`** (`VLA_SELF-TESTS` pure 1567/1567 and host 265/265; `TestDSLs`
+  2330/0; `VerifyReports` 349/349 on both backends; the phrasebook export
+  and coverage as predicted, Rules 244 → 248, 161 with one test, none with
+  none; the goldens as predicted, `main` 726 steps; three hand tests: this
+  sheet against all open workbooks with the stale read, on both backends,
+  the two slips refused word for word, and a setting typed in the CLI
+  lasting). Scoped the same day from §11's calc-manual, calc-auto,
+  recalculate and recalc-sheet, with the audit's `C62` built first as its
+  own item, `U.29` (a Run gives back Excel's settings as it found them);
+  the owner settled the calls, each as recommended. **Four rules:** `turn
+  off automatic calculation`, `turn on automatic calculation`,
+  `recalculate this sheet` and `recalculate all open workbooks`.
+  - *"Automatic calculation"* is Excel's own name for the mode, and
+    LibreOffice's (AutoCalculate). Turning it on means Automatic, not the
+    mode before: for a person who works in manual, "the mode before" would
+    make `Turn on automatic calculation.` set manual, the opposite of its
+    words, and that mode comes back when the run ends anyway (`U.29`).
+    Automatic except for data tables was not among §11's four entries and
+    is not built; a longer rule can join at any time without disturbing
+    these, since this one stops at "except".
+  - *`All open workbooks`, not pareto's `the workbook`.* Excel has no
+    one-workbook recalculation: `Workbook` has no Calculate method, F9
+    (`Application.Calculate`) recalculates every open workbook, and one
+    workbook's sheets calculated in turn give wrong numbers when a sheet
+    reads one calculated after it. LibreOffice and Google Sheets
+    recalculate one document, so "the workbook" has a real second reading,
+    which `SD-4` would freeze. `Recalculate the workbook.` is refused
+    expecting 'all', both shapes in its Did-you-mean. `This sheet` is the
+    program's sheet, as in `Protect this sheet`: Excel's Calculate Sheet.
+    No "from scratch" (CalculateFull): not in pareto, and Frazaro's own
+    worksheet functions take their tables as arguments and none is
+    volatile, so Excel's own tracking already sees every input.
+  - *The stale read, documented, neither refused nor hidden.* While
+    calculation is off, a formula whose input changes keeps its old value
+    until a recalculate, or turning it back on, which recalculates at once:
+    Excel's manual mode, the reason to turn it off. An implied recalculate
+    would defeat it, and compiled VBA would need one before every read; a
+    refusal cannot know at Check whether a cell holds a formula. Tutorial
+    R11 says it.
+  - *A plain pair, not a block.* `U.29` gives calculation back when the run
+    ends, so a forgotten "turn on" cannot leave Excel in manual, and
+    `with-fast-excel`'s restore-label shape displaces the compiled step
+    handler (the Run bracket's own comment), so a block needs emitter work
+    of its own - for both settings, if a program ever asks.
+  - *Rule order.* Nothing could take the four: the built-ins open with
+    neither verb, `turn off|on screen updating` stops at "automatic", `turn
+    {r:range} into a table called …` needs "into" and its range slot
+    refuses "off", nothing opened with "recalculate", and a program's own
+    procedure names are one hyphenated word. Every sentence the four accept
+    was refused before, so no shipped sentence changes meaning. They are
+    registered before the screen-updating pair, so the likelier slip,
+    `Turn off calculation.`, is refused expecting 'automatic'.
+  **Engine:** one `DynamicCall` member, `calculate`, serving both
+  recalculate macros on its object (the active sheet, or Excel itself);
+  `DynamicSet` already set `calculation`, and `ResolveExcelConstant`
+  already knew both constants. **Proof:** four `test-success` proofs and
+  two `test-fail` (the two slips); six host pins (the setting both ways
+  under Interpret, the stale read as a control, the member on a sheet and
+  on Excel, and an argument refused by name); and a `GCalc` sheet, `To
+  check-calculation:`, read by six `VerifyReportChecks` rows on both
+  backends: the stale value, this sheet recalculated, all open workbooks,
+  turning it on, and automatic again. `main` goes from 725 steps to 726.
+  The step turns calculation back on before it ends, and
+  `VerifyReportInterpreter` gives Excel's settings back around its own
+  run, as a Run does.
+  **Still open, as slices (planned 2026-09-30, on the roadmap):** 4, the
+  figures rounded out - the median and standard deviation of a remembered
+  range (a function word, or rules over a name), the where family into a
+  cell, perhaps the one-sentence fill-down; 5, subtotals; and R1C1, a
+  decision before any slice. `~weeks`
 - ✅ **G-TEXT** — text handling, `pareto.txt` §12, **16 entries**, P0, and
   §13's find and replace (**6 entries**), which belonged to no item and was
   taken in at scoping (2026-09-25). *Recounted first, G-FORMAT's way:* the

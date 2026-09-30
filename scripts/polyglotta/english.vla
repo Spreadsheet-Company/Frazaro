@@ -600,6 +600,59 @@
     "Ask \"Your name?\" and put answer into who."
     (set! who (inputbox "Your name?")))
 
+; G-FORMULA slice 3: calculation mode and recalculate, pareto.txt section
+; 11 (the owner's calls, 2026-09-30). "Automatic calculation" is Excel's
+; own name for the mode (Formulas, Calculation Options): turning it on
+; means Automatic, whatever the mode was before, and a longer "... except
+; for data tables" can come later, since this rule stops at "except". A
+; Run gives Excel's settings back as it found them when it ends (U.29), so
+; a program cannot leave Excel in manual; the CLI, where a setting is meant
+; to last, can. While it is off, a formula whose input changes keeps
+; its old value until a recalculate or turning it back on, which
+; recalculates at once: Excel's manual mode, documented, not refused.
+; Registered before the screen-updating pair, so the likelier slip, "Turn
+; off calculation.", is refused expecting 'automatic'.
+(english-vla
+    "turn off automatic calculation"
+    (set-calculation xlcalculationmanual))
+(test-success
+    "Turn off automatic calculation."
+    (set-calculation xlcalculationmanual))
+(test-fail
+    "Turn off calculation."
+    "then I expected 'automatic'")
+
+(english-vla
+    "turn on automatic calculation"
+    (set-calculation xlcalculationautomatic))
+(test-success
+    "Turn on automatic calculation."
+    (set-calculation xlcalculationautomatic))
+
+; Excel has no one-workbook recalculation: F9, Application.Calculate,
+; recalculates every open workbook, and a workbook's sheets calculated one
+; after another give wrong numbers when a sheet reads one calculated after
+; it. So the sentence names what it does, and "Recalculate the workbook."
+; is refused expecting 'all'. "This sheet" is the sheet the program is on,
+; as in "Protect this sheet" - Excel's Calculate Sheet, which recalculates
+; that sheet's formulas from the values the other sheets show now.
+(english-vla
+    "recalculate all open workbooks"
+    (recalculate-all-open-workbooks))
+(test-success
+    "Recalculate all open workbooks."
+    (recalculate-all-open-workbooks))
+(test-fail
+    "Recalculate the workbook."
+    "then I expected 'all'")
+
+(english-vla
+    "recalculate this sheet"
+    (recalculate-this-sheet))
+(test-success
+    "Recalculate this sheet."
+    (recalculate-this-sheet))
+
 (english-vla
     "turn off screen updating"
     (set-screen-updating false))
@@ -4151,6 +4204,25 @@
     (set-screen-updating on)
     "turn Excel's screen redraw on or off"
     (set! application.screenupdating on))
+
+; G-FORMULA slice 3. set-calculation takes Excel's own constant, as
+; with-fast-excel does; the interpreter resolves both. calculate is one
+; member on two objects: the active sheet (Calculate Sheet) and Excel
+; itself (Calculate Now, every open workbook).
+(defmacro
+    (set-calculation mode)
+    "turn Excel's automatic calculation off (xlcalculationmanual) or on (xlcalculationautomatic)"
+    (set! application.calculation mode))
+
+(defmacro
+    (recalculate-this-sheet)
+    "recalculate the formulas on the sheet the program is on, from the values the other sheets show now"
+    (. activesheet calculate))
+
+(defmacro
+    (recalculate-all-open-workbooks)
+    "recalculate the formulas whose inputs changed, in every open workbook - Excel's F9"
+    (. application calculate))
 
 (defmacro
     (set-status-bar text)

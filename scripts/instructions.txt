@@ -1329,6 +1329,42 @@ To check-statistics:
 
 Check-statistics.
 
+# G-FORMULA slice 3: automatic calculation turned off and on, and
+# recalculating. B1 is A1 times 10, written while calculation is
+# automatic, so it shows 20. With calculation off, A1 becomes 3 and B1
+# keeps 20 (C1); recalculating this sheet makes it 30 (C2); A1 becomes 4
+# and recalculating all open workbooks makes it 40 (C3); A1 becomes 5 and
+# turning calculation back on recalculates at once, 50 (C4); and it is
+# automatic again, so A1 becoming 6 shows 60 at once (C5). Calculation is
+# Excel's, for every open workbook, and VerifyReports runs this program
+# twice in one Excel: the step turns calculation back on before it ends,
+# and clears its cells first, as check-formulas does.
+To check-calculation:
+  Work on sheet GCalc.
+  Clear everything from A1:D10.
+  Put 2 into cell A1.
+  Put formula "=A1*10" into cell B1.
+  Turn off automatic calculation.
+  Put 3 into cell A1.
+  Set gc-stale to cell B1.
+  Put gc-stale into cell C1.
+  Recalculate this sheet.
+  Set gc-sheet to cell B1.
+  Put gc-sheet into cell C2.
+  Put 4 into cell A1.
+  Recalculate all open workbooks.
+  Set gc-all to cell B1.
+  Put gc-all into cell C3.
+  Put 5 into cell A1.
+  Turn on automatic calculation.
+  Set gc-on to cell B1.
+  Put gc-on into cell C4.
+  Put 6 into cell A1.
+  Set gc-auto to cell B1.
+  Put gc-auto into cell C5.
+
+Check-calculation.
+
 Go to sheet Output.
 
 Tidy-up.

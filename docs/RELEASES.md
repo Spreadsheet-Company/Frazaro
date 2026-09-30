@@ -29,6 +29,19 @@
     that finds nothing does, and `Try:` catches it: a median of no numbers,
     a sample of fewer than two, no matching row. For now the message is
     Excel's own, and names the function that had no answer.
+- **Automatic calculation turned off and on, and a recalculate, each in one
+  sentence.**
+  - `Turn off automatic calculation.` and `Turn on automatic calculation.`
+    switch Excel's own Automatic setting (Formulas, Calculation Options). A
+    long program on a big workbook can turn it off while it writes, and on
+    again at the end.
+  - While it is off, a formula keeps its old value when a cell it reads
+    changes. `Recalculate this sheet.` recalculates the sheet the program is
+    on. `Recalculate all open workbooks.` is Excel's F9: it reaches every
+    open workbook, because Excel has no way to recalculate just one.
+    Turning automatic calculation back on recalculates at once.
+  - `Recalculate the workbook.` is refused, and the message shows both
+    sentences.
 - **A run leaves Excel's settings as it found them.** When a run ends,
   finished or stopped, Excel's calculation, status bar, screen updating,
   alerts and events are back to what they were before it. A program that
@@ -48,9 +61,10 @@
 ### Known open security items
 
 **Closed this release:** nothing. The new sentences read the cells they
-name and write only the cell a `Put` names; they open no file and make no
-network call. Standing advice unchanged. The full list of open items is in
-`docs/BETA_REARVIEW.md`, in plain words in `README.md`.
+name and write only the cell a `Put` names, and a recalculate runs only the
+formulas already in the open workbooks, as F9 does; none opens a file or
+makes a network call. Standing advice unchanged. The full list of open
+items is in `docs/BETA_REARVIEW.md`, in plain words in `README.md`.
 
 ## 0.7.1
 

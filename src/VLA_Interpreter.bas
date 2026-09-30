@@ -1,6 +1,13 @@
 Attribute VB_Name = "VLA_Interpreter"
 Option Explicit
-Public Const VLA_INTERPRETER_VERSION As String = "GFORMULA.2"
+Public Const VLA_INTERPRETER_VERSION As String = "GFORMULA.3"
+' GFORMULA.3: G-FORMULA slice 3 - calculate joins DynamicCall's reviewed
+' zero-argument members, for the phrasebook's recalculate-this-sheet
+' ((. activesheet calculate)) and recalculate-all-open-workbooks
+' ((. application calculate)). Turning automatic calculation off and on
+' needed nothing new: DynamicSet already sets Application.Calculation, and
+' ResolveExcelConstant already knows xlcalculationmanual and
+' xlcalculationautomatic.
 ' GFORMULA.2: G-FORMULA slice 2 - four WorksheetFunction members join the
 ' seven native arms in EvalDynamicHead: Median, StDev_S, StDev_P and
 ' AverageIf, one for each new phrasebook macro (median-of, sample- and
@@ -3207,6 +3214,14 @@ Private Sub DynamicCall(ByVal obj As Object, ByVal member As String, ByVal argVa
             Case "save": obj.Save: Exit Sub
             Case "group": obj.Group: Exit Sub
             Case "ungroup": obj.Ungroup: Exit Sub
+            ' G-FORMULA slice 3: "Recalculate this sheet." calls it on the
+            ' active sheet and "Recalculate all open workbooks." on Excel
+            ' itself - one member, the object deciding how much is
+            ' recalculated (Excel has no one-workbook recalculation). It
+            ' recomputes formulas Excel would recompute under automatic
+            ' calculation, and reaches nothing outside the open workbooks.
+            ' Zero arguments only: given one, it is refused by name below.
+            Case "calculate": obj.Calculate: Exit Sub
         End Select
     ElseIf ArgCount(argVals) = 1 Then
         ' SEC.1 Tier 2: the one-positional-argument statement-call

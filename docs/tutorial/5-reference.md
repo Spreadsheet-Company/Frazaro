@@ -624,6 +624,8 @@ put {d:average|largest|smallest} of range {r:range} into|in cell {c:cell}   (0.7
 put median of range {r:range} into|in cell {c:cell}   (0.8.0)
 put standard deviation of range {r:range} as {k:sample|population} into|in cell {c:cell}   (0.8.0)
 put sum of range {r:range} into|in cell {c:cell}
+recalculate all open workbooks   (0.8.0)
+recalculate this sheet   (0.8.0)
 set {v:var} to {d:largest|smallest} of range {r:range}   (0.7.1)
 set {v:var} to {e:expr} rounded to {n:expr} decimals
 set {v:var} to average of range {r:range}
@@ -638,6 +640,8 @@ set {v:var} to row of {e:expr} in column {c:column}
 set {v:var} to standard deviation of range {r:range} as {k:sample|population}   (0.8.0)
 set {v:var} to sum of range {r:range}
 set {v:var} to sum of range {r:range} where range {c:range} matches {e:expr}
+turn off automatic calculation   (0.8.0)
+turn on automatic calculation   (0.8.0)
 ```
 
 `row of … in column …` gives 0 when nothing is found. `lookup of …`
@@ -658,6 +662,19 @@ empty cells and text are skipped and a zero counts. A range with too few
 numbers stops the run at the sentence, as a lookup that finds nothing
 does: a median of no numbers, a sample of fewer than two, no matching
 row.
+
+`turn off automatic calculation` and `turn on automatic calculation`
+switch Excel's own Automatic setting; on means Automatic, whatever the
+mode was before. While it is off, a formula whose input changes keeps its
+old value, so a sentence that reads it gets that old value, until the
+program recalculates or turns it back on, which recalculates at once.
+`recalculate this sheet` recalculates the formulas on the sheet the
+program is on, from the values the other sheets show now.
+`recalculate all open workbooks` is Excel's F9 and reaches every open
+workbook: Excel has no way to recalculate one alone, which is why there is
+no `recalculate the workbook`. Whatever a program does to calculation,
+the run puts it back as it found it when it ends (see *What is true of
+every run*, R14).
 
 ### C. Text held in a name, found and counted
 
@@ -1293,6 +1310,8 @@ A model's habits from other languages are the usual cause.
 | `Capitalize each word in range A2:A50.` | `… after any space.` |
 | `Set s to standard deviation of range B2:B50.` | `… as a sample.` or `… as the population.` |
 | `… where range A2:A90 is "West".` | `… where range A2:A90 matches "West".` |
+| `Turn off calculation.` | `Turn off automatic calculation.` |
+| `Recalculate the workbook.` | `Recalculate all open workbooks.` or `Recalculate this sheet.` |
 | `Create a button called "Go" at cell D3.` | `Make a button "Go" at cell D3.` |
 | `Create a pivot table …` | `Make a pivot table from … at … called …` |
 | `Save this workbook as C:\Out\a.xlsx.` | `Save this workbook as "C:\Out\a.xlsx".` |
@@ -1306,12 +1325,13 @@ A model's habits from other languages are the usual cause.
 | A blank line inside a loop | A `#` note |
 | Two sentences on one row | One row each |
 
-And two that are accepted and mean something else:
+And three that are accepted and mean something else:
 
 | You wrote | It means | You may have meant |
 |---|---|---|
 | A sentence directly under a block, with no blank line | It is inside the block. | Put a blank line first. |
 | `cell in column C row r plus 1` | The cell in row r+1. | Name the value, then add. |
+| `Set x to cell B1.` after automatic calculation is turned off and a cell B1's formula reads has changed | B1's old value, from before the change. | `Recalculate this sheet.` first. |
 
 ---
 
@@ -1560,7 +1580,7 @@ Use these labels exactly when telling a person what to press.
 |---|---|
 | **Release described** | `0.7.0`: 223 sentence shapes, of which 220 are written out in the phrasebook and three are written by a generator. |
 | **Marked `(0.7.1)`** | Sixteen shapes, and the two range conditions of R6. With them R7 lists 239, which is the number **Load Phrasebook** reports as *built-in vocabulary* in a copy that has them. |
-| **Marked `(0.8.0)`** | Five shapes: a range's median and standard deviation, each set and put into a cell, and an average over the rows that match. With them R7 lists 244. |
+| **Marked `(0.8.0)`** | Nine shapes: a range's median and standard deviation, each set and put into a cell, an average over the rows that match, automatic calculation turned off and on, and recalculating this sheet or all open workbooks. With them R7 lists 248. |
 | **Source of R7** | The project's own dated ledger of every shape, [GRAMMAR_SINCE.md](../GRAMMAR_SINCE.md), including three shapes that a generator writes and no file spells out. |
 | **Source of R4, R5, R6, R8** | The engine's source, and the proofs the phrasebook runs every time it loads. |
 | **Source of R12** | The shipped sample procedures. Every sentence is a sample's own. |

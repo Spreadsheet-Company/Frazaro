@@ -235,6 +235,13 @@ member it has no arm for, so each new macro needed its own. The median is
 two new rules, not a new branch of slice 1's `{d:…}` alternations: this
 ledger dates a rule by its pattern, and one widened pattern could carry
 only one date for branches sayable from two releases.
+Then four more phrasebook rows marked `0.8.0` - `G-FORMULA`'s third slice
+(`pareto.txt` §11): automatic calculation turned off and on, and
+recalculating this sheet or all open workbooks. No core dispatch arm is
+new: the slice's one interpreter change is `calculate`, a member among
+`DynamicCall`'s reviewed ones, which `check_emitter_coverage` lists no
+more than it lists `save` or `activate`; turning calculation off and on
+rides `DynamicSet`'s `calculation`, there since `IN.3`.
 
 ### Phrasebook rules
 
@@ -368,6 +375,8 @@ only one date for branches sayable from two releases.
 0.5.0  put {e:expr} into|in column number {c:expr} row {n:expr}
 0.5.0  put {e:expr} into|in column {c:column} row {n:expr}
 0.5.0  put {e:expr} into|in range {r:range}
+0.8.0  recalculate all open workbooks
+0.8.0  recalculate this sheet
 0.5.0  refresh every pivot table
 0.5.0  refresh everything
 0.5.0  refresh pivot {n:text}
@@ -464,7 +473,9 @@ only one date for branches sayable from two releases.
 0.5.0  stamp {e:expr} into|in cell {r:cell}
 0.5.0  store {e:expr} at|under [key] {k:expr} in {d:var}
 0.5.6  strike through cell|range {r:range}
+0.8.0  turn off automatic calculation
 0.5.0  turn off screen updating
+0.8.0  turn on automatic calculation
 0.5.0  turn on screen updating
 0.5.0  turn table {n:text} back into a range
 0.5.0  turn {r:range} into a table called {n:text}

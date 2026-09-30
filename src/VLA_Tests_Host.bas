@@ -1,6 +1,13 @@
 Attribute VB_Name = "VLA_Tests_Host"
 Option Explicit
-Public Const VLA_TESTS_HOST_VERSION As String = "U.29"
+Public Const VLA_TESTS_HOST_VERSION As String = "GFORMULA.3"
+' GFORMULA.3: G-FORMULA slice 3. TestGFormulaCalculation, six pins on the
+' interpreter's new calculate member and the calculation setting the new
+' sentences turn off and on: set to manual, a formula keeping its old value
+' (the control), this sheet and every open workbook recalculated, turning
+' automatic calculation on recalculating at once, and calculate given an
+' argument refused by name. VerifyReportChecks gains the GCalc block, six
+' rows beside GStats's, read on both backends.
 ' U.29: TestU29GivesBackExcel, nine pins on VLA_IDE's record and give-back
 ' of Excel's settings: calculation found automatic and found manual, the
 ' status bar idle and holding words, events, alerts and screen updating,
@@ -378,6 +385,7 @@ Public Function VlaSelfTestHost() As Boolean
     TestAutoLoadRegistration
     TestU26MarkShowsQuote
     TestU29GivesBackExcel
+    TestGFormulaCalculation
 
     Debug.Print "===== HOST SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -3181,6 +3189,99 @@ failed:
     Report "u.29: the record and give-back ran without raising", False, d
 End Sub
 
+' G-FORMULA slice 3: the interpreter's one new member, calculate, on a
+' real sheet and on Excel itself, beside the calculation setting the
+' sentences turn off and on - the VLA each sentence's macro expands to. A
+' formula whose input changes while calculation is manual keeps its old
+' value until something recalculates it: this sheet, every open workbook,
+' or turning automatic calculation back on, which recalculates at once.
+' Calculation is Excel's, so the suite's own settings are given back at
+' the end with U.29's helpers.
+Private Sub TestGFormulaCalculation()
+    Dim prior As Worksheet
+    Set prior = ActiveSheet
+    Dim suite As VlaExcelSettings
+    VLA_IDE.VlaIdeRecordExcel suite
+    VlaEnsureSheet "VlaGCalcSheet"
+    Dim ws As Worksheet
+    Set ws = ActiveWorkbook.Worksheets("VlaGCalcSheet")
+    ws.Activate
+    Application.Calculation = xlCalculationAutomatic
+    ws.Range("A1").Value = 2
+    ws.Range("B1").Formula = "=A1*10"
+    Dim d As String
+
+    ' "Turn off automatic calculation."
+    On Error Resume Next
+    VLA_Interpreter.VlaInterpret "(begin (set! application.calculation xlcalculationmanual))"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) > 0 Then
+        Report "g-formula 3: application.calculation set to manual under Interpret", False, d
+    Else
+        CheckV "g-formula 3: application.calculation set to manual under Interpret", _
+               Application.Calculation, xlCalculationManual
+    End If
+    ws.Range("A1").Value = 3
+    CheckV "g-formula 3 control: under manual calculation a formula keeps its old value", _
+           ws.Range("B1").Value, 20
+
+    ' "Recalculate this sheet."
+    d = ""
+    On Error Resume Next
+    VLA_Interpreter.VlaInterpret "(begin (. activesheet calculate))"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) > 0 Then
+        Report "g-formula 3: (. activesheet calculate)", False, d
+    Else
+        CheckV "g-formula 3: (. activesheet calculate) recalculates this sheet", ws.Range("B1").Value, 30
+    End If
+
+    ' "Recalculate all open workbooks."
+    ws.Range("A1").Value = 4
+    d = ""
+    On Error Resume Next
+    VLA_Interpreter.VlaInterpret "(begin (. application calculate))"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) > 0 Then
+        Report "g-formula 3: (. application calculate)", False, d
+    Else
+        CheckV "g-formula 3: (. application calculate) recalculates every open workbook", _
+               ws.Range("B1").Value, 40
+    End If
+
+    ' "Turn on automatic calculation." - Excel recalculates at once.
+    ws.Range("A1").Value = 5
+    d = ""
+    On Error Resume Next
+    VLA_Interpreter.VlaInterpret "(begin (set! application.calculation xlcalculationautomatic))"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) > 0 Then
+        Report "g-formula 3: application.calculation set to automatic under Interpret", False, d
+    Else
+        CheckV "g-formula 3: turning automatic calculation on recalculates at once", ws.Range("B1").Value, 50
+    End If
+
+    ' calculate takes no argument. Given one, it is refused by name, as
+    ' every member outside the reviewed list is (SEC.1).
+    d = ""
+    On Error Resume Next
+    VLA_Interpreter.VlaInterpret "(begin (. application calculate 1))"
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "g-formula 3: calculate given an argument is refused by name", _
+           InStr(1, d, "calculate", vbTextCompare) > 0, "got: " & d
+
+    VLA_IDE.VlaIdeGiveBackExcel suite
+    Application.DisplayAlerts = False
+    ws.Delete
+    Application.DisplayAlerts = True
+    prior.Activate
+End Sub
+
 ' ---------------------------------------------------------------------
 '  VerifyReport: the machine-checked end state of instructions.txt.
 ' ---------------------------------------------------------------------
@@ -4159,6 +4260,26 @@ Private Sub VerifyReportChecks(ws As Worksheet)
         Report "the problem names the median that had no answer (H7)", _
                InStr(1, CStr(wsGs.Range("H7").Value), "median", vbTextCompare) > 0, _
                "H7 holds [" & CStr(wsGs.Range("H7").Value) & "]"
+    End If
+
+    ' G-FORMULA slice 3: automatic calculation turned off and on, and
+    ' recalculation. B1 is =A1*10, written while calculation is automatic.
+    ' With it off, A1 changes and B1 keeps its old value (C1); then this
+    ' sheet is recalculated (C2), then every open workbook (C3); then
+    ' calculation is turned back on, which recalculates at once (C4), and
+    ' is automatic again, so a change recalculates as it is made (C5).
+    ' (wsGc: no earlier block Dims it, and a Dim is the whole procedure's.)
+    Dim wsGc As Worksheet
+    On Error Resume Next
+    Set wsGc = ActiveWorkbook.Worksheets("GCalc")
+    On Error GoTo 0
+    Report "GCalc sheet exists", Not (wsGc Is Nothing), "no GCalc sheet - Run the program first"
+    If Not wsGc Is Nothing Then
+        CheckV "with automatic calculation off, a formula keeps its old value (C1)", wsGc.Range("C1").Value, 20
+        CheckV "recalculate this sheet (C2)", wsGc.Range("C2").Value, 30
+        CheckV "recalculate all open workbooks (C3)", wsGc.Range("C3").Value, 40
+        CheckV "turning automatic calculation on recalculates at once (C4)", wsGc.Range("C4").Value, 50
+        CheckV "automatic again: a change recalculates as it is made (C5)", wsGc.Range("C5").Value, 60
     End If
 End Sub
 
