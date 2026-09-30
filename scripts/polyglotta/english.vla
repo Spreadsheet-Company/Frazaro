@@ -120,13 +120,15 @@
 ; Fill Down, as "Fill down range" is: the cell's formula goes down
 ; adjusted row by row, and its format with it. The cell always gets its
 ; formula; nothing is filled when that row is not below the cell, since
-; Fill Down over one cell copies the cell above into it.
+; Fill Down over one cell copies the cell above into it. The rows are
+; reached with resize's named row count, as insert-n-rows-at reaches
+; them - the form the interpreter has reviewed since IN.2.
 (defmacro
     (set-formula-fill-down r k f)
     "write a formula into a cell and fill it down to the last filled row of column k - nothing filled when that row is not below the cell"
     (begin (set-formula r f)
            (if (> (last-filled-row k) (. r row))
-               (then (fill-down (. r resize (+ (- (last-filled-row k) (. r row)) 1)))))))
+               (then (fill-down (. r resize :rowsize (+ (- (last-filled-row k) (. r row)) 1)))))))
 
 (english-vla
     "put formula {f:text} into|in cell {r:cell} and fill down to last filled row of column {k:column}"

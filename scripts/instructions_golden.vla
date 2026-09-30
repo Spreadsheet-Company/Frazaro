@@ -4619,7 +4619,7 @@
 ; ---- carried by phrasebooks (L4) ----
 (defmacro (set-formula r f) "write a formula string into a range" (set! (. r formula) f))
 (defmacro (set-formula-rows c a b f) "write a formula into rows a to b of column c, adjusted row by row - nothing when b is above a" (if (>= b a) (then (set-formula (range (& c a ":" c b)) f))))
-(defmacro (set-formula-fill-down r k f) "write a formula into a cell and fill it down to the last filled row of column k - nothing filled when that row is not below the cell" (begin (set-formula r f) (if (> (last-filled-row k) (. r row)) (then (fill-down (. r resize (+ (- (last-filled-row k) (. r row)) 1)))))))
+(defmacro (set-formula-fill-down r k f) "write a formula into a cell and fill it down to the last filled row of column k - nothing filled when that row is not below the cell" (begin (set-formula r f) (if (> (last-filled-row k) (. r row)) (then (fill-down (. r resize :rowsize (+ (- (last-filled-row k) (. r row)) 1)))))))
 (defmacro (count-empty-cells r) "count a range's cells that show nothing - empty, or a formula that shows nothing" (application.worksheetfunction.countif r ""))
 (defmacro (count-filled-cells r) "count a range's cells that hold anything - a formula that shows nothing included" (application.worksheetfunction.countif r "<>"))
 (defmacro (make-table r n) "create an Excel Table from a range and name it" (set! (. (. activesheet.listobjects add :sourcetype xlsrcrange :source r :xllistobjecthasheaders xlyes) name) n))

@@ -247,9 +247,9 @@ Then six more phrasebook rows marked `0.8.0` - `G-FORMULA`'s fourth slice
 deviation of a range remembered by a name, each set and put; a sum and an
 average over the rows that match, put into a cell; and a formula put into
 a cell and filled down to the last filled row of a named column. No core
-dispatch arm is new: the fill-down's one interpreter change is `resize`, a
-member among `DynamicGet`'s reviewed ones, and the named figures ride
-slice 2's arms. The median of a name is two rules, not a function word:
+dispatch arm is new, and no interpreter member: the fill-down resizes with
+a named row count, which `DynamicNamedCall` has had since `IN.2`, and the
+named figures ride slice 2's arms. The median of a name is two rules, not a function word:
 this ledger dates rules and arms and has no row for a function word, so a
 function word would have been sayable from `0.8.0` with nothing here to
 say so.

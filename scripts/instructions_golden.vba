@@ -706,7 +706,7 @@ Public Sub check_figures()
     End If
     range("c2").Formula2 = "=B2*10"
     If (cells(rows.count, "b").end(xlup).row > range("c2").row) Then
-        Call range("c2").resize(((cells(rows.count, "b").end(xlup).row - range("c2").row) + 1)).filldown
+        Call range("c2").resize(rowsize:=((cells(rows.count, "b").end(xlup).row - range("c2").row) + 1)).filldown
     End If
     vla_step = 838 ' vla:559
     If vlatraceon() Then ' vla:560
@@ -724,7 +724,7 @@ Public Sub check_figures()
     End If
     range("f2").Formula2 = "=B2*10"
     If (cells(rows.count, "g").end(xlup).row > range("f2").row) Then
-        Call range("f2").resize(((cells(rows.count, "g").end(xlup).row - range("f2").row) + 1)).filldown
+        Call range("f2").resize(rowsize:=((cells(rows.count, "g").end(xlup).row - range("f2").row) + 1)).filldown
     End If
     vla_step = 841 ' vla:571
     If vlatraceon() Then ' vla:572
@@ -732,7 +732,7 @@ Public Sub check_figures()
     End If
     range("j2").Formula2 = "=B2*10"
     If (cells(rows.count, "i").end(xlup).row > range("j2").row) Then
-        Call range("j2").resize(((cells(rows.count, "i").end(xlup).row - range("j2").row) + 1)).filldown
+        Call range("j2").resize(rowsize:=((cells(rows.count, "i").end(xlup).row - range("j2").row) + 1)).filldown
     End If
     Exit Sub ' vla:575
 vla_fail: ' vla:576

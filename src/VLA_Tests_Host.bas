@@ -1,15 +1,15 @@
 Attribute VB_Name = "VLA_Tests_Host"
 Option Explicit
 Public Const VLA_TESTS_HOST_VERSION As String = "GFORMULA.4"
-' GFORMULA.4: G-FORMULA slice 4. TestGFormulaFillDown, four pins on the
-' interpreter's new resize member: a row count reaching that many rows and
-' no further, then filldown copying the top cell's formula adjusted, and a
-' column count refused by name. VerifyReportChecks gains the GFigures block,
+' GFORMULA.4: G-FORMULA slice 4. VerifyReportChecks gains the GFigures block,
 ' fifteen rows beside GCalc's, read on both backends: a remembered range's
 ' median and both standard deviations, set and put; a sum and an average
 ' where, into cells; and a formula filled down to the last filled row of
 ' another column - adjusted, in the cell's format, stopping there - and, where
-' that row is the cell's own or above it, nothing filled.
+' that row is the cell's own or above it, nothing filled. The fill-down
+' resizes with a named row count, which DynamicNamedCall has had since IN.2
+' and VerifyReportChecks already reads through insert-n-rows-at, so it needs
+' no host pin of its own.
 ' GFORMULA.3: G-FORMULA slice 3. TestGFormulaCalculation, six pins on the
 ' interpreter's new calculate member and the calculation setting the new
 ' sentences turn off and on: set to manual, a formula keeping its old value
@@ -395,7 +395,6 @@ Public Function VlaSelfTestHost() As Boolean
     TestU26MarkShowsQuote
     TestU29GivesBackExcel
     TestGFormulaCalculation
-    TestGFormulaFillDown
 
     Debug.Print "===== HOST SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -3286,65 +3285,6 @@ Private Sub TestGFormulaCalculation()
            InStr(1, d, "calculate", vbTextCompare) > 0, "got: " & d
 
     VLA_IDE.VlaIdeGiveBackExcel suite
-    Application.DisplayAlerts = False
-    ws.Delete
-    Application.DisplayAlerts = True
-    prior.Activate
-End Sub
-
-' G-FORMULA slice 4: the interpreter's resize member, which the phrasebook's
-' set-formula-fill-down reads to reach the last filled row of another
-' column. Given a row count it reaches that many rows from a range's first
-' cell, and no further; followed by filldown it copies the top cell's
-' formula down, adjusted row by row; given a column count as well, it is
-' refused by name, as every member outside the reviewed list is (SEC.1).
-Private Sub TestGFormulaFillDown()
-    Dim prior As Worksheet
-    Set prior = ActiveSheet
-    VlaEnsureSheet "VlaGFillSheet"
-    Dim ws As Worksheet
-    Set ws = ActiveWorkbook.Worksheets("VlaGFillSheet")
-    ws.Activate
-    ws.Cells.Clear
-    Dim d As String
-
-    ' (. r resize 3): the first cell and the two rows below it.
-    On Error Resume Next
-    VLA_Interpreter.VlaInterpret "(begin (set! (. (. (range ""a1"") resize 3) value) 7))"
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) > 0 Then
-        Report "g-formula 4: (. r resize 3) under Interpret", False, d
-    Else
-        CheckV "g-formula 4: (. r resize 3) under Interpret reaches the third row (A3)", ws.Range("A3").Value, 7
-        Report "g-formula 4: (. r resize 3) stops at the third row (A4 empty)", IsEmpty(ws.Range("A4").Value), _
-               "A4 holds [" & CStr(ws.Range("A4").Formula) & "]"
-    End If
-
-    ' Resized, then filled down: the top cell's formula, adjusted.
-    ws.Range("B1").Formula = "=A1*2"
-    d = ""
-    On Error Resume Next
-    VLA_Interpreter.VlaInterpret "(begin (. (. (range ""b1"") resize 3) filldown))"
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) > 0 Then
-        Report "g-formula 4: (. r resize 3) then filldown", False, d
-    Else
-        CheckV "g-formula 4: resize then filldown copies the top cell's formula, adjusted (B3)", _
-               ws.Range("B3").Formula, "=A3*2"
-    End If
-
-    ' Resize takes a row count only. Given a column count too, it is
-    ' refused by name before Excel is asked.
-    d = ""
-    On Error Resume Next
-    VLA_Interpreter.VlaInterpret "(begin (. (. (range ""a1"") resize 2 2) filldown))"
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    Report "g-formula 4: resize given a column count too is refused by name", _
-           InStr(1, d, "resize", vbTextCompare) > 0, "got: " & d
-
     Application.DisplayAlerts = False
     ws.Delete
     Application.DisplayAlerts = True

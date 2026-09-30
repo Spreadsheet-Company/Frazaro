@@ -7800,14 +7800,21 @@ G-TAIL always said this about itself; it is true of the whole tranche.
   `of` or `deviation`; slice 2's rules want `range`; `put sum of range …`
   and slice 1's put siblings stop at `where`; `put formula … into|in cell
   …` stops at `and`. Every sentence the six accept was refused before, so
-  no shipped sentence changes meaning. **Engine:** one `DynamicGet`
-  member, `resize`, taking a row count only (a column count is refused by
-  name); the named figures ride slice 2's arms. **Proof:** twelve
+  no shipped sentence changes meaning. **Engine:** nothing new. The
+  fill-down reaches its rows with `resize`'s named row count, which
+  `DynamicNamedCall` has had since `IN.2` (`insert-n-rows-at` reads it the
+  same way), and the named figures ride slice 2's arms. **Proof:** twelve
   `test-success` and four `test-fail` proofs; three pure pins
-  (`TestGFormulaNamedFigures`); four host pins (`TestGFormulaFillDown`);
-  and a `GFigures` sheet, `To check-figures:`, read by fifteen
-  `VerifyReportChecks` rows on both backends. `main` goes from 726 steps
-  to 727.
+  (`TestGFormulaNamedFigures`); and a `GFigures` sheet, `To
+  check-figures:`, read by fifteen `VerifyReportChecks` rows on both
+  backends. `main` goes from 726 steps to 727. **Then, the same day:** as
+  first committed, the fill-down used a positional `resize` added to
+  `DynamicGet` for it, pinned by four host tests. Reading the new goldens
+  found the named form already reviewed and already in use, so the macro
+  moved onto it, the positional member and its pins went, and the owner
+  re-ran the pass (pure 1570/1570 and host 265/265, `VerifyReports`
+  364/364 on both backends, the goldens changed only where the fill-down
+  resizes, and the two fill-down hand tests on both backends).
   **Still open, as slices (planned 2026-09-30, on the roadmap):** 5,
   subtotals; and R1C1, a decision before any slice. `~weeks`
 - ✅ **G-TEXT** — text handling, `pareto.txt` §12, **16 entries**, P0, and
