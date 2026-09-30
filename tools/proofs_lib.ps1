@@ -55,6 +55,16 @@ declined, by name, and never translated by a guess.
   text tests, the comparisons other than =, and keyed atoms. No proof in the
   corpus uses any of them yet, so a translation of them would have no
   witness; each comes in with the first proof that needs it.
+  A proof with a (tables ...) clause (METAPROOF.4) is declined whole. A
+  table's cells are typed as a live Table's are - a number cell is a
+  number, where a (fact ...) argument is text - and DATALOG matches a
+  number written in a program against a number cell by spelling, through
+  CStr (PlanMatches, PartialKey), which writes a fraction in the machine's
+  own locale: 0.5 is 0,5 on a comma-decimal Windows. clingo's integers
+  have no such reading, so a table is not stated until that is argued; a
+  keyed atom would also have to be desugared against the header, as
+  ParseProgram does it. Its rows become facts the day the argument is
+  made, with the first table proof it covers as its witness.
 
 THE JUDGE, written after every program. vla_want/N holds the rows the proof
 expects; vla_extra/N, the rows clingo derives that the proof does not list;
@@ -334,14 +344,17 @@ function ConvertTo-ClingoRule($node) {
 function ConvertTo-ClingoProof($form) {
     $programNode = $null
     $expectNode = $null
+    $tablesNode = $null
     for ($ci = 2; $ci -lt $form.Items.Count; $ci++) {
         $cw = Get-ProofHeadWord $form.Items[$ci]
         if ($cw -ceq 'program') { $programNode = $form.Items[$ci] }
+        elseif ($cw -ceq 'tables') { $tablesNode = $form.Items[$ci] }
         elseif (@('rows', 'rows-in-any-order', 'answer', 'refuses') -ccontains $cw) { $expectNode = $form.Items[$ci] }
     }
     if ($null -eq $programNode -or $null -eq $expectNode) { Stop-ClingoProof 'not a well-formed proof - tools\check_proofs.ps1 says why' }
     $expectWord = Get-ProofHeadWord $expectNode
     if ($expectWord -ceq 'refuses') { return $null }
+    if ($null -ne $tablesNode) { Stop-ClingoProof '(tables ...) - a table argument is not translated yet' }
     if ($expectWord -ceq 'answer') { Stop-ClingoProof '(answer ...) - not translated yet' }
 
     $program = New-Object System.Collections.Generic.List[string]

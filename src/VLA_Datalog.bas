@@ -3276,7 +3276,8 @@ End Sub
 ' (4) whether the program's own (headless) directive was present, and
 ' (5) DATALOG.9: Empty for a query by name, or the Boolean answer to a
 ' query written as one fact - or, since DATALOG.10, to one under (not ...).
-' VLA_Tests_Query.TestDatalog is this function's own first caller.
+' VLA_Tests_Query.TestDatalog was this function's own first caller; since
+' METAPROOF.4 the proof corpus's tables reach it through the parity pins.
 '
 ' Checks "baseRelations Is Nothing", not IsMissing(baseRelations) - a
 ' real, live-caught VBA trap: IsMissing only reliably detects an

@@ -12641,6 +12641,169 @@ lost or mistaken for closer than they are:**
   idiomatic form lists only the counted variables. It is left for the next
   slice that touches the translation, so that the files the owner ran are
   the files committed. `~hours`
+- ✅ **METAPROOF.4 — `(tables ...)`: a proof hands its program table
+  arguments.** *Opened 2026-09-30 at the owner's call ("Scope, then
+  implement, METAPROOF.4"), first in the order the owner set that day for
+  the third gear: its proofs need this notation before the first of them
+  exists, so the clause was built as the primitive it is, and not only as a
+  way to move thirty pins. Owner-verified live and committed the same
+  day.*
+
+  **Decided at scoping, the owner's calls, each as recommended:**
+  - *One clause.* `(tables (NAME HEADER ROW ...) ...)`, each table written
+    as a `(rows ...)` answer is written, so a program that queries a table
+    answers in the table's own notation. The one clause is the proof's
+    fixture: a control's or a question's proof can take it unchanged beside
+    its own sentence and expectation, and a later `(workbook ...)` clause
+    sits beside it. One `(table ...)` clause per table was the other shape;
+    a fixture shared by many proofs would then have needed a second form to
+    name the group as one.
+  - *Parity with the tables.* Both parity loops hand a proof's tables to
+    each engine, a fresh copy apiece. The parity table runs a program whose
+    test passed a table with no tables at all, so both engines only ever
+    refused its undefined predicate, alike. Asked with their tables,
+    OPTIMIZE and the integer grounder answer these programs over number
+    cells and keyed atoms for the first time. Text alone would have kept
+    that thin coverage; excluding them by name would have lost it.
+  - *Every pin that waited only on a table: twenty-nine.* Every answer, and
+    every refusal that accepted ANY error, that needed a table argument.
+    The five table pins that check what a refusal's words name (which
+    predicate, which kind of refusal in words) wait on METAPROOF.5, by
+    METAPROOF.3's rule that a pin moves only when a proof can say as much.
+
+  **Settled by the brief and the code, not asked:**
+  - A HEADER list is an Excel Table: its row names the columns, for a keyed
+    atom to name, and is not a row. `headless` is a plain named range:
+    every row a fact, and no column a keyed atom can name. These are
+    `DATALOG()`'s two kinds of table argument.
+  - A cell reads as a live Table's `Value2` gives it, in the notation the
+    expectations already use: a number is a Double read the same in every
+    locale, so a bare `007` is the number 7, as Excel reads 007 typed into
+    a cell, and `"007"` is the text; bare `true` and `false` are TRUE and
+    FALSE; any other word is text, whatever its first letter. Column names
+    are always text.
+  - Names are compared as DATALOG compares them: a table's without case,
+    since the relations dictionary is a `VlaDict`, where `T` would silently
+    replace `t`; a column's without case, as a keyed atom looks it up. Rows
+    are read in the order written, and text is compared exactly
+    (DATALOG.16).
+  - No engine change. `DatalogRunForms`, `OptimizeRun` and
+    `DatalogGroundRules` already took tables and a header map.
+
+  **Built:**
+  - `VLA_Tests_Query.bas`, the primitive and its first adapter.
+    `ProofTablesRead` reads the clause into what a live Table argument is
+    to every engine, and knows nothing of DATALOG: a name, folded as
+    `TableArgResolve` folds a Table's, and a Table-shaped array, the header
+    row first, every cell as `Value2` gives it (`ProofTableCell`). It is
+    total: a malformed table is a verdict in words, never a raise out of
+    the suite. `ProofDatalogTables` makes DATALOG's table arguments from
+    the arrays as `DATALOG()` makes them from live Tables (`RelFromRange`,
+    and the folded and original column pairs `RangeColumnNames` gives),
+    afresh on every call, since a run writes its derived relations into the
+    dictionary it is handed. PROLOG's and SQL's proofs (METAPROOF.8 and 9),
+    and the third gear's, will read the same arrays through adapters of
+    their own.
+  - `DatalogProofVerdict` takes the clause. `TestDatalogProofs` gains
+    thirteen controls. Eight must hold: rows in the order written under Col
+    headers, a headless table's first row a row, a header-only table a
+    relation with no rows, a keyed column read by its header, a keyed atom
+    over a headless table refused as needing a header, 007 the number and
+    "007" the text, and a TRUE cell. Five must fail: two clauses, two tables
+    or two columns whose names differ only in case, a row wider than its
+    header, a headless table with no row. Each malformed one is written so
+    that it would pass if the runner let it through. The floor rises
+    98 → 124.
+  - `DatalogProofPrograms` carries each program's tables, and `ParityCases`
+    gives both loops one list: the table's programs, then the corpus's.
+    `ParityVerdict` and `GroundParityVerdict` take the tables, and
+    `GroundFormsText` hands their header map to the grounder, so a keyed
+    atom grounds rather than refusing both ways. A case with tables is
+    labelled so in the suite.
+  - `scripts/proofs/datalog.vla`: the header documents the clause, and
+    twenty-six proofs join in five sections by DATALOG item, a hundred and
+    twenty-four in all:
+    - DATALOG.0 and 4: `TestDatalog`'s table argument and its spill-shape
+      check, as one proof whose header row and rows say both, and
+      `TestDatalogBuiltins`' comparison over real numbers;
+    - DATALOG.5: the whole of `TestDatalogKeyedAtoms`, with the three pins
+      on one count as one proof. Its six refusals accepted ANY error; each
+      now names an id derived from `ParseProgram` and
+      `DesugarBodyAtomForm`: `datalog-atom-mixed-keying`,
+      `datalog-unknown-column`, `datalog-keyed-column-repeated`,
+      `datalog-keyed-atom-needs-header`, and `datalog-compound-term` twice,
+      since a keyed pair whose value is a list is left for the nesting
+      check and a rule head is parsed as a plain atom;
+    - DATALOG.8, 9, 10 and 11: the table answers of the unknown-predicate
+      (2), ground (3), negated (4) and text-test (4) Subs.
+  - Twenty-nine pins removed; `TestDatalog`, `TestDatalogBuiltins` and
+    `TestDatalogKeyedAtoms` retired whole. What stays needs a live Table, a
+    program VBA builds, the text entry point, or a refusal whose words are
+    checked for WHAT they name.
+  - The parity table lost the twenty-three lines whose only call site
+    moved (99 → 76). `TestOptimizeParity`'s floor rises 197 → 200, three
+    more: one proof pins what no call site ran (a Table's header row is not
+    a row), and two programs keep a VBA call site each (the widget and
+    leave refusals), so they run twice, bare from the table and from the
+    corpus with their tables.
+  - `tools/check_proofs.ps1`: rule 4 allows at most one `(tables ...)`
+    clause; rule 5 checks each table (a bare-word name, unique without
+    case; column names that are text, none empty and none alike but for
+    case; a headless table with a row; every row as wide as the header; no
+    list where a cell belongs). Floor 98 → 124; the clingo floor stays 23.
+  - `tools/proofs_lib.ps1`: the translation declines a proof with tables,
+    by name. Twenty of the new proofs are declined for it; the other six are
+    refusals, which never export.
+  - `tools/check_optimize_parity.ps1`: the call-site ceiling 109 → 84, and
+    its header says a proof's tables go with it.
+  - Comments only, keeping their constants (SQL.12's precedent):
+    `VLA_Datalog.bas` and `VLA_Relation.bas` named `TestDatalog` as a
+    seam's first caller. `VLA_TESTS_QUERY_VERSION` → `METAPROOF.4`.
+
+  **Found while building, read, not run:** DATALOG matches a number written
+  in a program against a table's number cell by spelling, through `CStr`
+  (`PlanMatches`; a join's key, `PartialKey`, the same), and `CStr` writes a
+  fraction in the machine's own locale, as `InvariantNumberText`'s header
+  warns: 0.5 is 0,5 on a comma-decimal Windows. So a query for 0.5 over a
+  Table holding 0.5 would answer TRUE here and FALSE there; whole numbers
+  are safe. No proof matches a fraction that way (the two over 0.5 are a
+  text test and a textjoin, which read `InvariantNumberText`), so the
+  corpus answers alike in every locale. It is also the reason the clingo
+  translation cannot state a table yet. Not filed; the owner's call.
+
+  **Checked without Excel:** all 31 checks pass. `check_proofs.ps1` went
+  red on the new corpus before it learned the clause (26 problems, each
+  "(tables ...) is not a clause a proof has"), then green. Fourteen broken
+  copies of the corpus each go red naming the right fault (two clauses; two
+  tables, or two columns, alike but for case; a row too wide; a headless
+  table with no row; a quoted name; a header that is neither a list nor
+  headless; an empty header; a clause naming no table; a list in a cell; a
+  bare word for a table; a narrower headless row; a nameless column; a row
+  that is not a list), a dropped proof trips the floor, and the clean copy
+  is green, with LF line ends too. `check_optimize_parity.ps1` counts 76
+  programs on both sides and 84 call sites. The module's Subs and Functions
+  balance (78 and 108), and the 29 `Report` lines out are exactly the pins
+  planned. Every expectation is the moved pin's own answer; where a pin
+  counted rows or probed one tuple, its rows were derived by hand from the
+  table.
+
+  **Predicted, before the live pass:** `TestDSLs` +16 (29 pins out, 26
+  proofs and 13 controls in, 3 more cases in each parity loop), so
+  2,330 → 2,346, 0 failed. `VlaSelfTest`, `VlaSelfTestHost` and
+  `VerifyReports` reach none of it. clingo: the exporter writes nothing
+  new, so no file needs re-running.
+
+  **Owner-verified live 2026-09-30, every number as predicted:**
+  `TestDSLs` 2346/0, every parity case with tables agreeing in both loops;
+  `VLA_SELF-TESTS` pure 1570/1570 and host 265/265, and `VerifyReports`
+  364/364 on both backends, the counts G-FORMULA slice 4 had just
+  committed; all 31 checks. The live red control: line 1399's
+  `("007" Petty)` edited to `(007 Petty)` failed exactly that one proof
+  (2345/1), naming `datalog.vla line 1395` and the engine's answer,
+  `(rows (N))` (a bare 007 read as the number 7, which does not start with
+  00), and passed again once the quotes were back. `proofs_lp.ps1`
+  exported the same 23 proofs and 3 controls, declined the twenty table
+  proofs by name, and wrote nothing. `~days`
 - ⬜ **VOCAB-MIGRATE** — version a generation spec, diff the rules it
   produces against what's currently loaded (VOCABDIFF), and report the
   delta - schema migrations for a spoken grammar. No known precedent to
@@ -26150,6 +26313,8 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **METAPROOF.2 — clingo, an oracle of another lineage, for the DATALOG proofs.** METAPROOF.1's plan, step 4, opened 2026-09-28; owner-verified and committed the same day (clingo, run by the owner by hand over all fourteen files: `agrees` on the eleven proofs and `caught` on the three controls, every line as predicted). `tools/proofs_lp.ps1` writes every DATALOG answer proof as a clingo program in `tools/clingo`: the program, the rows the proof expects, and a judge that shows `vla_verdict(agrees)` or names the rows that differ. Three controls, wrong on purpose, must show `caught`. Eleven of the sixteen proofs export; the five refusals cannot, since no other lineage raises DATALOG's message ids. What the translation cannot state faithfully (quoted strings, `sum`, the ordering comparisons, …) is declined by name, never guessed. `check_proofs.ps1`'s new rule 9 fails when the tracked files fall behind the proofs. Every answer proof in the corpus now agrees with a reading of another lineage, not only with the engine. *(more: the full entry, earlier in this file)* `~hours`
 
 - ✅ **METAPROOF.3 — more of the DATALOG suite moves to the proof file.** METAPROOF.1's plan, step 2, opened 2026-09-28 at the owner's call; owner-verified live and committed the same day (VlaSelfTest pure 1528/1528 and host 241/241, unmoved; TestDSLs 2303/0, as predicted; clingo agrees on all twenty-three exported proofs and caught the three controls). Seventy-eight proofs join `scripts/proofs/datalog.vla` (ninety-four in all) and carry what ninety-four VBA pins did: every answer that needs no table argument, and the whole of `TestDatalogNegation` and `TestDatalogAggregation`, both retired. They got stronger on the way: a row count or a probed tuple became every row, named, and the nineteen refusal pins that accepted any error now name their message id. A pin stays in VBA only for a reason: a table argument (no `(tables ...)` clause yet), a program VBA builds, the text entry point, or a refusal pin that checks WHAT its words name, which `(refuses id)` cannot say yet. The parity table fell 177 → 99 and the call-site ceiling 188 → 109; fifteen programs the tests built from shared strings reach both parity loops whole for the first time; twelve new proofs join the clingo export (twenty-three in all). *(more: the full entry, earlier in this file)* `~hours`
+
+- ✅ **METAPROOF.4 — `(tables ...)`: a proof hands its program table arguments.** First in the order the owner set for the third gear, opened 2026-09-30 at the owner's call; owner-verified live and committed the same day (TestDSLs 2346/0, as predicted; VLA_SELF-TESTS pure 1570/1570 and host 265/265, unmoved by it; a live red control, one table cell's quotes taken off, failed exactly its proof). A proof's one `(tables ...)` clause holds its tables, each written as an answer is: a name, a header list (an Excel Table, whose columns a keyed atom may name) or `headless` (a plain named range), then its rows in the order written, every cell as a live Table's `Value2` gives it (a bare `007` is the number 7, `"007"` the text). The runner reads the clause into what a live Table argument is to every engine, a folded name and a Table-shaped array, and makes DATALOG's table arguments from it afresh for every run; PROLOG's, SQL's and the third gear's proofs will read the same arrays. Twenty-nine pins moved as twenty-six proofs (124 in all), with thirteen controls for the clause: `TestDatalog`, `TestDatalogBuiltins` and `TestDatalogKeyedAtoms` retired whole, and the six keyed refusals that accepted any error name their ids. Both parity loops hand a proof's tables to each engine, so OPTIMIZE and the integer grounder answer those programs; the table fell 99 → 76 and the call-site ceiling 109 → 84. The clingo translation declines a table, so its export stays 23. Found while building, not filed: a number written in a program is matched against a fractional number cell through `CStr`, which follows the machine's locale. *(more: the full entry, earlier in this file)* `~days`
 
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part B
 

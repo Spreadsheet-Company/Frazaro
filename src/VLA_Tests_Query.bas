@@ -1,6 +1,29 @@
 Attribute VB_Name = "VLA_Tests_Query"
 Option Explicit
-Public Const VLA_TESTS_QUERY_VERSION As String = "DATALOG.16"
+Public Const VLA_TESTS_QUERY_VERSION As String = "METAPROOF.4"
+' METAPROOF.4: (tables ...) - A PROOF HANDS ITS PROGRAM TABLE ARGUMENTS. A
+' proof in scripts/proofs/datalog.vla may carry the tables its program
+' reads, each written as an answer is: a name, a header list (an Excel
+' Table) or headless (a plain named range), then its rows. ProofTablesRead
+' reads the clause into what a live Table argument is to every engine - a
+' folded name and a Table-shaped array, every cell as Value2 gives it - and
+' ProofDatalogTables makes DATALOG's table arguments from those arrays,
+' through RelFromRange, afresh for every run. So the twenty-nine pins that
+' waited on a table argument moved, as twenty-six proofs: the whole of
+' TestDatalog, TestDatalogBuiltins and TestDatalogKeyedAtoms (all three
+' retired), and the table answers of TestDatalogUnknownPredicate (2),
+' TestDatalogGroundQuery (3), TestDatalogNegatedQuery (4) and
+' TestDatalogTextTests (4). The six keyed refusals, which accepted ANY
+' error, name their ids now. TestDatalogProofs gains thirteen controls for
+' the clause, and its floor rises 98 -> 124. Both parity loops read their
+' cases through ParityCases and hand a proof's tables to each engine, so
+' OPTIMIZE and the integer grounder answer those programs over real number
+' cells and keyed atoms, where the table only ever showed them refused. The
+' table lost the twenty-three lines whose only call site moved (99 -> 76);
+' TestOptimizeParity's floor rises 197 -> 200. What stays needs a live
+' Table, a program VBA builds, the text entry point, or a refusal whose
+' words are checked for WHAT they name (METAPROOF.5).
+'
 ' DATALOG.16 and SQL.12: A GROUP'S KEY IS COMPARED EXACTLY. Four proofs
 ' join scripts/proofs/datalog.vla - a join, then count, sum and textjoin,
 ' each over "Bob" and "bob" - so TestDatalogProofs' floor rises 94 -> 98,
@@ -328,14 +351,14 @@ Public Const VLA_TESTS_QUERY_VERSION As String = "DATALOG.16"
 '  tests, not after (VLA_Tests_Grammar.bas's own F.8 split happened at
 '  4,945 lines and REBUILD.md's R4 budget; this module exists so that
 '  crossing never has to happen a second time). SQL/PROLOG/OPTIMIZE's own
-'  future test subs belong here too, next to TestDatalog, as each
+'  future test subs belong here too, next to DATALOG's, as each
 '  engine ships - one file per roadmap SECTION, not one per engine
 '  module.
 '
 '  Independent of VlaSelfTest, VLA_Tests_Host.bas's own shape rather
 '  than VLA_Tests_Grammar.bas's: its own Private mPass/mFail/
 '  mFailedNames, its own Private Report (an unqualified Report call
-'  inside TestDatalog resolves HERE, module-locally, never reaching
+'  inside any Sub here resolves HERE, module-locally, never reaching
 '  VLA_Tests.Report - VBA's own name-resolution rule, not a special
 '  case), and its own entry point, TestDSLs. VlaSelfTest never calls
 '  into this module at all - the owner's own instruction: an
@@ -413,11 +436,8 @@ Public Function TestDSLs() As Boolean
     Set mFailedNames = New Collection
     Debug.Print "===== VLA SELF-TEST (QUERY AND LOGIC / DSLs) ====="
 
-    TestDatalog
     TestDatalogProofs
     TestExactMap
-    TestDatalogBuiltins
-    TestDatalogKeyedAtoms
     TestDatalogUnknownPredicate
     TestDatalogGroundQuery
     TestDatalogNegatedQuery
@@ -519,44 +539,14 @@ Private Sub TestTer8EmptyRules()
            ResultTextStartsWith(result, "#PROLOG!") And InStr(1, r, "clauses text is empty", vbTextCompare) > 0, "got: " & r
 End Sub
 
-' DATALOG.0: a table argument built from a plain 2D array (no live Range at
-' all - the seam RelFromRange/DatalogRun exist to make testable), and the
-' spilled array's own shape. Entirely pure - nothing here touches a live
-' workbook. The rest of DATALOG.0's MVP - facts, a join rule, the recursive
-' org-chart closure, a within-atom repeated variable, (headless), and the
-' parse-time refusals - are proofs in scripts/proofs/datalog.vla
-' (METAPROOF.1 and METAPROOF.3).
-Private Sub TestDatalog()
-    Dim result As Collection
-    Dim rel As Collection
-
-    Dim arr(1 To 2, 1 To 2) As Variant
-    arr(1, 1) = "alice": arr(1, 2) = "bob"
-    arr(2, 1) = "bob": arr(2, 2) = "carol"
-    Dim baseRel As Collection
-    Set baseRel = VLA_Relation.RelFromRange(arr)
-    Dim bases As Object
-    Set bases = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet bases, "reports_to", baseRel
-    Set result = VLA_Datalog.DatalogRun( _
-        "(rule (indirect_report X Y) (reports_to X Y))" & _
-        " (rule (indirect_report X Y) (reports_to X Z) (indirect_report Z Y))" & _
-        " (query indirect_report)", bases)
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog: table-sourced facts (no live Range) join and recurse correctly", VLA_Relation.RelCount(rel) = 3, "got " & VLA_Relation.RelCount(rel)
-
-    Dim arr2 As Variant
-    arr2 = VLA_Relation.RelToSpilledArray(rel, Array("A", "B"))
-    Report "datalog: spilled array has a header row plus N data rows", _
-           (ResultRowCount(arr2) = VLA_Relation.RelCount(rel) + 1) And ResultCellIs(arr2, 1, 1, "A") And ResultCellIs(arr2, 1, 2, "B"), _
-           "shape mismatch"
-
-    ' METAPROOF.1: the five refusals that ended this Sub - a compound
-    ' term, an unsafe head variable, one predicate at two arities, no
-    ' query, (headless extra) - are proofs in scripts/proofs/datalog.vla
-    ' now, each naming its refusal's id. Here they checked only that SOME
-    ' error was raised, which a raw VBA crash would have satisfied.
-End Sub
+' DATALOG.0 - facts, a join rule, the recursive org-chart closure, a
+' within-atom repeated variable, (headless), the parse-time refusals, and a
+' table argument built from a plain 2D array, with its spill's shape - was
+' TestDatalog until METAPROOF.4. Every pin it held is a proof in
+' scripts/proofs/datalog.vla now (METAPROOF.1, 3 and 4). The table
+' argument, the last to move, is a (tables ...) clause there, and one
+' proof's header row and rows say what its row count and its spill-shape
+' check said apart.
 
 ' ---------------------------------------------------------------------
 '  METAPROOF.1: PROOFS AS FORMS - scripts/proofs/datalog.vla.
@@ -581,9 +571,14 @@ End Sub
 '  will reuse it.
 '
 '  THE CONTROLS COME FIRST. A runner never shown to say FAIL is a runner
-'  that says PASS for a living, so seventeen small proofs, written below,
-'  must each be judged the way they are written to be judged - ten to fail
-'  and seven to hold - before the corpus runs. One suite line each.
+'  that says PASS for a living, so thirty small proofs, written below,
+'  must each be judged the way they are written to be judged - fifteen to
+'  fail and fifteen to hold - before the corpus runs. One suite line each.
+'  Thirteen are METAPROOF.4's, for the (tables ...) clause: each reading a
+'  table could get wrong - its order, header against headless, a keyed
+'  column, 007 against "007", a TRUE cell - is one the wrong reading fails,
+'  and each malformed clause the runner must refuse is one that would
+'  otherwise pass.
 '
 '  A MISSING FILE FAILS (SD-6's rule for the corpus family): the corpus
 '  cannot pass by not being found.
@@ -625,6 +620,35 @@ Private Sub TestDatalogProofs()
     ProofControl "a proof with no expectation fails rather than passing by default", False, _
         "(test-datalog ""c"" (program (fact (p a)) (query p)))"
 
+    ' --- METAPROOF.4: the (tables ...) clause, each reading shown -----------
+    ProofControl "a table queried by name spills its rows in the order written, under Col headers", True, _
+        "(test-datalog ""c"" (tables (t (A B) (x 1) (y 2))) (program (query t)) (rows (Col1 Col2) (x 1) (y 2)))"
+    ProofControl "a headless table's first row is a row", True, _
+        "(test-datalog ""c"" (tables (t headless (x) (y))) (program (query t)) (rows (Col1) (x) (y)))"
+    ProofControl "a table with a header and no row is a relation with no rows", True, _
+        "(test-datalog ""c"" (tables (t (A B))) (program (query t)) (rows (Col1 Col2)))"
+    ProofControl "a keyed atom reads a column by its header", True, _
+        "(test-datalog ""c"" (tables (t (Name Level) (ann 3))) (program (rule (lv L) (t (level L))) (query lv)) (rows (L) (3)))"
+    ProofControl "a keyed atom over a headless table is refused as needing a header", True, _
+        "(test-datalog ""c"" (tables (t headless (x 1))) (program (rule (q X) (t (a X))) (query q)) (refuses datalog-keyed-atom-needs-header))"
+    ProofControl "a bare 007 in a table is the number 7, which does not start with 00", True, _
+        "(test-datalog ""c"" (tables (t headless (007 a))) (program (rule (z N) (t C N) (text-starts-with C ""00"")) (query z)) (rows (N)))"
+    ProofControl "...and a quoted ""007"" is the text, which does", True, _
+        "(test-datalog ""c"" (tables (t headless (""007"" a))) (program (rule (z N) (t C N) (text-starts-with C ""00"")) (query z)) (rows (N) (a)))"
+    ProofControl "a true cell is TRUE, not the text true", True, _
+        "(test-datalog ""c"" (tables (t headless (x true))) (program (query t)) (rows (Col1 Col2) (x true)))"
+    ' Each malformed clause below would pass if the runner let it through.
+    ProofControl "two (tables ...) clauses fail", False, _
+        "(test-datalog ""c"" (tables (t (A) (x))) (tables (t (A) (x))) (program (query t)) (rows (Col1) (x)))"
+    ProofControl "two tables whose names differ only in case fail", False, _
+        "(test-datalog ""c"" (tables (t (A) (x)) (T (A) (y))) (program (query t)) (rows (Col1) (y)))"
+    ProofControl "two columns whose names differ only in case fail", False, _
+        "(test-datalog ""c"" (tables (t (A a) (x y))) (program (query t)) (rows (Col1 Col2) (x y)))"
+    ProofControl "a row wider than its table's header fails", False, _
+        "(test-datalog ""c"" (tables (t (A) (x y))) (program (query t)) (rows (Col1) (x)))"
+    ProofControl "a headless table with no row fails: nothing gives it a width", False, _
+        "(test-datalog ""c"" (tables (t headless)) (program (query t)) (rows headless))"
+
     ' --- the corpus -------------------------------------------------------
     Dim proofFile As String
     Dim loadErr As String
@@ -664,9 +688,10 @@ Private Sub TestDatalogProofs()
     Next f
     ' The floor, so the loop cannot pass by reading nothing: sixteen at
     ' METAPROOF.1, ninety-four at METAPROOF.3, the tests that moved here,
-    ' and ninety-eight at DATALOG.16, whose four proofs group "Bob" and
-    ' "bob" apart. Raise it as proofs arrive.
-    Report "datalog proofs: the corpus holds at least its ninety-eight proofs", ix >= 98, "read " & ix
+    ' ninety-eight at DATALOG.16, whose four proofs group "Bob" and "bob"
+    ' apart, and a hundred and twenty-four at METAPROOF.4, whose twenty-six
+    ' carry their tables. Raise it as proofs arrive.
+    Report "datalog proofs: the corpus holds at least its hundred and twenty-four proofs", ix >= 124, "read " & ix
 End Sub
 
 ' One control: proofText is judged exactly as a corpus proof is, and must
@@ -749,6 +774,7 @@ Private Function DatalogProofVerdict(ByVal proof As Variant, ByRef proofName As 
 
     Dim programForms As Collection
     Dim expect As Collection
+    Dim tablesClause As Collection
     Dim clause As Collection
     Dim clauseHead As String
     Dim ci As Long
@@ -766,6 +792,12 @@ Private Function DatalogProofVerdict(ByVal proof As Variant, ByRef proofName As 
                 Exit Function
             End If
             Set programForms = ProofRest(clause)
+        Case "tables"
+            If Not tablesClause Is Nothing Then
+                DatalogProofVerdict = "malformed proof: two (tables ...) clauses - one holds every table"
+                Exit Function
+            End If
+            Set tablesClause = clause
         Case "rows", "rows-in-any-order", "answer", "refuses"
             If Not expect Is Nothing Then
                 DatalogProofVerdict = "malformed proof: two expectations - a proof states one answer"
@@ -786,6 +818,23 @@ Private Function DatalogProofVerdict(ByVal proof As Variant, ByRef proofName As 
         Exit Function
     End If
 
+    ' METAPROOF.4: the tables, read before anything runs - a malformed
+    ' table is the proof's verdict, as a malformed expectation is - and
+    ' made into DATALOG's table arguments. Nothing and Nothing when the
+    ' proof has none, which is how it always ran.
+    Dim tables As Collection
+    Dim tablesBad As String
+    If Not tablesClause Is Nothing Then
+        tablesBad = ProofTablesRead(tablesClause, tables)
+        If Len(tablesBad) > 0 Then
+            DatalogProofVerdict = tablesBad
+            Exit Function
+        End If
+    End If
+    Dim bases As Object
+    Dim headerMap As Object
+    ProofDatalogTables tables, bases, headerMap
+
     ' Run it. Err is read into locals before On Error GoTo 0 clears it.
     Dim res As Collection
     Dim answer As Variant
@@ -794,7 +843,7 @@ Private Function DatalogProofVerdict(ByVal proof As Variant, ByRef proofName As 
     VLA_Messages.VlaClearLastRaisedMsg
     On Error Resume Next
     Err.Clear
-    Set res = VLA_Datalog.DatalogRunForms(programForms)
+    Set res = VLA_Datalog.DatalogRunForms(programForms, bases, headerMap)
     If Err.Number = 0 Then answer = VLA_Datalog.DatalogAnswer(res)
     errNo = Err.Number
     errDesc = Err.Description
@@ -822,6 +871,255 @@ Private Function ProofRest(ByVal lst As Collection) As Collection
     Next i
     Set ProofRest = outc
 End Function
+
+' ---------------------------------------------------------------------
+'  METAPROOF.4: (tables ...) - A PROOF HANDS ITS PROGRAM TABLE ARGUMENTS.
+'
+'  (tables (NAME HEADER ROW ...) ...), each table written as a (rows ...)
+'  answer is, since a program that queries a table answers its rows. With
+'  a HEADER list a table is an Excel Table: its header row names its
+'  columns, for a keyed atom to name, and is not a row. Written headless
+'  it is a plain named range: every row a fact, and no column a keyed atom
+'  can name. Rows are read in the order written.
+'
+'  THE PRIMITIVE is what a live Table argument is to every engine, and it
+'  knows nothing of DATALOG: ProofTablesRead turns the clause into a name,
+'  folded as TableArgResolve folds a Table's, and a Table-shaped array -
+'  the header row first, then the rows, every cell as Value2 gives it.
+'  ProofDatalogTables makes DATALOG's table arguments from those arrays as
+'  DATALOG() makes them from live Tables: RelFromRange, and the (folded,
+'  original) column pairs RangeColumnNames gives. PROLOG's and SQL's proofs
+'  (METAPROOF.8 and 9), and the third gear's controls and questions, will
+'  read the same arrays through adapters of their own.
+'
+'  Total, like the rest of the runner: a malformed table is a verdict in
+'  words, never a raise out of the suite. tools/check_proofs.ps1 holds the
+'  corpus to the same rules without Excel.
+' ---------------------------------------------------------------------
+
+' The clause read into tables, one Array(name, grid, headless) per table,
+' in the order written. "" when it reads; otherwise what is malformed.
+Private Function ProofTablesRead(ByVal tablesClause As Collection, ByRef tables As Collection) As String
+    Set tables = New Collection
+    If tablesClause.Count < 2 Then
+        ProofTablesRead = "malformed proof: (tables ...) names no table"
+        Exit Function
+    End If
+    ' The names read so far. A VlaDict compares its keys without case, as
+    ' DATALOG compares a Table's name, so T and t are one name here too.
+    Dim seen As Object
+    Set seen = VLA_Runtime.VlaDictNew()
+    Dim oneTable As Variant
+    Dim verdict As String
+    Dim ti As Long
+    For ti = 2 To tablesClause.Count
+        verdict = ProofTableRead(tablesClause.Item(ti), seen, oneTable)
+        If Len(verdict) > 0 Then
+            ProofTablesRead = verdict
+            Exit Function
+        End If
+        tables.Add oneTable
+    Next ti
+End Function
+
+' One table, (NAME HEADER ROW ...), read into oneTable. seen holds the
+' names of the tables read before it.
+Private Function ProofTableRead(ByVal tableForm As Variant, ByVal seen As Object, ByRef oneTable As Variant) As String
+    Dim tl As Collection
+    Dim tName As String
+    Dim hdr As Collection
+    Dim headless As Boolean
+    Dim wide As Long
+    Dim firstRow As Collection
+    Dim gridRows As Long
+    Dim grid() As Variant
+    Dim r0 As Long
+    Dim r As Long, c As Long
+    Dim rl As Collection
+    Dim colName As String
+    Dim colsSeen As Object
+
+    If Not IsObject(tableForm) Then
+        ProofTableRead = "malformed proof: a table is (name header row ...), not a bare word"
+        Exit Function
+    End If
+    Set tl = tableForm
+    If tl.Count < 2 Then
+        ProofTableRead = "malformed proof: a table is (name header row ...) - a name, then a header"
+        Exit Function
+    End If
+    If IsObject(tl.Item(1)) Then
+        ProofTableRead = "malformed proof: a table's name is a bare word"
+        Exit Function
+    End If
+    tName = CStr(tl.Item(1))
+    If Left$(tName, 1) = Chr$(34) Then
+        ProofTableRead = "malformed proof: a table's name is a bare word, not a ""quoted"" string"
+        Exit Function
+    End If
+    tName = VLA_Identity.Fold(tName)
+    If VLA_Runtime.VlaDictHas(seen, tName) Then
+        ProofTableRead = "malformed proof: a second table named " & tName & " - a Table's name is one name whatever its case"
+        Exit Function
+    End If
+    VLA_Runtime.VlaDictSet seen, tName, True
+
+    ' The header: a list of column names, or the word headless, when the
+    ' first row gives the width.
+    If IsObject(tl.Item(2)) Then
+        Set hdr = tl.Item(2)
+        wide = hdr.Count
+        If wide = 0 Then
+            ProofTableRead = "malformed proof: table " & tName & "'s header names no column"
+            Exit Function
+        End If
+    ElseIf VLA_Identity.Fold(CStr(tl.Item(2))) = "headless" Then
+        headless = True
+        If tl.Count < 3 Then
+            ProofTableRead = "malformed proof: headless table " & tName & " has no row, so nothing gives it a width"
+            Exit Function
+        End If
+        If Not IsObject(tl.Item(3)) Then
+            ProofTableRead = "malformed proof: every row of table " & tName & " is a list of cells"
+            Exit Function
+        End If
+        Set firstRow = tl.Item(3)
+        wide = firstRow.Count
+        If wide = 0 Then
+            ProofTableRead = "malformed proof: a row of table " & tName & " holds no cell"
+            Exit Function
+        End If
+    Else
+        ProofTableRead = "malformed proof: table " & tName & "'s header is a list of column names, or the word headless"
+        Exit Function
+    End If
+
+    ' The Table-shaped array: the header row first, when there is one, then
+    ' the rows as written. At least one row, and one column, by here.
+    gridRows = tl.Count - 2
+    If Not headless Then
+        gridRows = gridRows + 1
+        r0 = 1
+    End If
+    ReDim grid(1 To gridRows, 1 To wide)
+    If Not headless Then
+        Set colsSeen = VLA_Runtime.VlaDictNew()
+        For c = 1 To wide
+            If IsObject(hdr.Item(c)) Then
+                ProofTableRead = "malformed proof: table " & tName & ": a list where a column name belongs"
+                Exit Function
+            End If
+            colName = ProofWordText(hdr.Item(c))
+            If Len(colName) = 0 Then
+                ProofTableRead = "malformed proof: table " & tName & ": a column with no name"
+                Exit Function
+            End If
+            ' Folded, as a keyed atom looks a column up (DesugarBodyAtomForm).
+            If VLA_Runtime.VlaDictHas(colsSeen, VLA_Identity.Fold(colName)) Then
+                ProofTableRead = "malformed proof: table " & tName & ": two columns named " & colName & _
+                                 ", whatever their case - a keyed atom could not tell them apart"
+                Exit Function
+            End If
+            VLA_Runtime.VlaDictSet colsSeen, VLA_Identity.Fold(colName), True
+            grid(1, c) = colName
+        Next c
+    End If
+    For r = 1 To tl.Count - 2
+        If Not IsObject(tl.Item(r + 2)) Then
+            ProofTableRead = "malformed proof: every row of table " & tName & " is a list of cells"
+            Exit Function
+        End If
+        Set rl = tl.Item(r + 2)
+        If rl.Count = 0 Then
+            ProofTableRead = "malformed proof: a row of table " & tName & " holds no cell"
+            Exit Function
+        End If
+        If rl.Count <> wide Then
+            ProofTableRead = "malformed proof: a row " & rl.Count & " cells wide in table " & tName & ", which is " & wide & " wide"
+            Exit Function
+        End If
+        For c = 1 To wide
+            If IsObject(rl.Item(c)) Then
+                ProofTableRead = "malformed proof: a list where a cell of table " & tName & " belongs"
+                Exit Function
+            End If
+            grid(r0 + r, c) = ProofTableCell(CStr(rl.Item(c)))
+        Next c
+    Next r
+    oneTable = Array(tName, grid, headless)
+End Function
+
+' A reader token as the text it spells: a "quoted string" without its quote
+' mark (VLA.bas's reader keeps a leading Chr$(34) to mark one), any other
+' word as written. Never handed a list.
+Private Function ProofWordText(ByVal raw As Variant) As String
+    Dim s As String
+    s = CStr(raw)
+    If Left$(s, 1) = Chr$(34) Then s = Mid$(s, 2)
+    ProofWordText = s
+End Function
+
+' One cell of a table as a live Table's Value2 gives it, in the notation
+' the expectations already read cells in: a "quoted string" is text; true
+' and false, bare, are TRUE and FALSE; a number is a Double, read the same
+' in every locale (IsInvariantNumericString, InvariantVal), so a bare 007
+' is the number 7, as Excel reads 007 typed into a cell; any other word is
+' text, whatever its first letter - a table holds no variables.
+Private Function ProofTableCell(ByVal raw As String) As Variant
+    If Left$(raw, 1) = Chr$(34) Then
+        ProofTableCell = Mid$(raw, 2)
+        Exit Function
+    End If
+    Select Case VLA_Identity.Fold(raw)
+    Case "true"
+        ProofTableCell = True
+    Case "false"
+        ProofTableCell = False
+    Case Else
+        If VLA_Relation.IsInvariantNumericString(raw) Then
+            ProofTableCell = VLA_Relation.InvariantVal(raw)
+        Else
+            ProofTableCell = raw
+        End If
+    End Select
+End Function
+
+' The tables as DATALOG's table arguments, made as DATALOG() makes them
+' from live Tables: a relation through RelFromRange, whose hasHeader skips
+' a Table's header row as SourceToArray strips a live one's, keyed by the
+' table's name; and a Table's column pairs, in RangeColumnNames' (folded,
+' original) shape, in headerMap. Made afresh on every call: a run writes
+' its derived relations into the very dictionary it is handed, so two runs
+' must never share one. No tables gives Nothing and Nothing, which a run
+' reads as it always has.
+Private Sub ProofDatalogTables(ByVal tables As Collection, ByRef bases As Object, ByRef headerMap As Object)
+    Set bases = Nothing
+    Set headerMap = Nothing
+    If tables Is Nothing Then Exit Sub
+    Set bases = VLA_Runtime.VlaDictNew()
+    Set headerMap = VLA_Runtime.VlaDictNew()
+    Dim t As Variant
+    Dim grid As Variant
+    Dim headed As Boolean
+    Dim c As Long
+    Dim pairs As Collection
+    Dim pair As Collection
+    For Each t In tables
+        grid = t(1)
+        headed = Not CBool(t(2))
+        VLA_Runtime.VlaDictSet bases, CStr(t(0)), VLA_Relation.RelFromRange(grid, headed)
+        If headed Then
+            Set pairs = New Collection
+            For c = 1 To UBound(grid, 2)
+                Set pair = New Collection
+                pair.Add VLA_Identity.Fold(CStr(grid(1, c)))
+                pair.Add CStr(grid(1, c))
+                pairs.Add pair
+            Next c
+            VLA_Runtime.VlaDictSet headerMap, CStr(t(0)), pairs
+        End If
+    Next t
+End Sub
 
 ' Judges one answer against one expectation: "" when it holds. answer is
 ' what the engine answered (Empty when it refused); errNo and errDesc the
@@ -1180,15 +1478,19 @@ Private Function ProofIsPlainWord(ByVal s As String) As Boolean
     ProofIsPlainWord = True
 End Function
 
-' METAPROOF.1: every program the proof corpus holds, as text, for the two
-' parity loops (TestOptimizeParity, TestDatalogGroundRules) - each
-' (program ...) clause's forms written back by VLA.VlaWriteForm and joined
-' by spaces. Text is right HERE and wrong for the proofs themselves:
-' parity asks two evaluators one question and both read the identical
-' text, where a proof asks what a person would see, so its forms go to the
-' engine as read. Read afresh, so nothing a proof's run did can reach
-' these. A missing or unreadable file gives none, and each loop's floor
-' pin fails on the count while TestDatalogProofs says why.
+' METAPROOF.1: every program the proof corpus holds, for the two parity
+' loops (TestOptimizeParity, TestDatalogGroundRules) - each (program ...)
+' clause's forms written back by VLA.VlaWriteForm and joined by spaces.
+' Text is right HERE and wrong for the proofs themselves: parity asks two
+' evaluators one question and both read the identical text, where a proof
+' asks what a person would see, so its forms go to the engine as read.
+' METAPROOF.4: each item is Array(program text, tables) - the proof's
+' (tables ...) clause read by ProofTablesRead, or Nothing when it has
+' none - so parity asks its question with the tables the proof gives. A
+' proof whose tables do not read is left out; TestDatalogProofs says why.
+' Read afresh, so nothing a proof's run did can reach these. A missing or
+' unreadable file gives none, and each loop's floor pin fails on the count
+' while TestDatalogProofs says why.
 Private Function DatalogProofPrograms() As Collection
     Dim progs As Collection
     Set progs = New Collection
@@ -1205,22 +1507,60 @@ Private Function DatalogProofPrograms() As Collection
     Dim cl As Collection
     Dim ci As Long, fi As Long
     Dim progText As String
+    Dim tablesClause As Collection
+    Dim tables As Collection
+    Dim tablesRead As Boolean
     For Each f In proofs
         If IsObject(f) Then
             Set pl = f
+            Set tablesClause = Nothing
             For ci = 3 To pl.Count
-                If ProofHead(pl.Item(ci)) = "program" Then
-                    Set cl = pl.Item(ci)
-                    progText = ""
-                    For fi = 2 To cl.Count
-                        If fi > 2 Then progText = progText & " "
-                        progText = progText & VLA.VlaWriteForm(cl.Item(fi))
-                    Next fi
-                    progs.Add progText
-                End If
+                If ProofHead(pl.Item(ci)) = "tables" Then Set tablesClause = pl.Item(ci)
             Next ci
+            Set tables = Nothing
+            tablesRead = True
+            If Not tablesClause Is Nothing Then tablesRead = (Len(ProofTablesRead(tablesClause, tables)) = 0)
+            If tablesRead Then
+                For ci = 3 To pl.Count
+                    If ProofHead(pl.Item(ci)) = "program" Then
+                        Set cl = pl.Item(ci)
+                        progText = ""
+                        For fi = 2 To cl.Count
+                            If fi > 2 Then progText = progText & " "
+                            progText = progText & VLA.VlaWriteForm(cl.Item(fi))
+                        Next fi
+                        progs.Add Array(progText, tables)
+                    End If
+                Next ci
+            End If
         End If
     Next f
+End Function
+
+' METAPROOF.4: every case both parity loops run, in order - the table's
+' programs, each with no tables, then the proof corpus's, each with its
+' own - as Array(program text, tables or Nothing).
+Private Function ParityCases() As Collection
+    Dim cases As Collection
+    Set cases = New Collection
+    Dim p As Variant
+    For Each p In DatalogParityPrograms()
+        cases.Add Array(CStr(p), Nothing)
+    Next p
+    For Each p In DatalogProofPrograms()
+        cases.Add p
+    Next p
+    Set ParityCases = cases
+End Function
+
+' A parity case's name in the suite: its program, cut at 64 characters,
+' after "with tables, " when it carries a proof's tables.
+Private Function ParityLabel(ByVal pc As Variant) As String
+    Dim label As String
+    label = CStr(pc(0))
+    If Len(label) > 64 Then label = Left$(label, 64) & "..."
+    If Not pc(1) Is Nothing Then label = "with tables, " & label
+    ParityLabel = label
 End Function
 
 ' ---------------------------------------------------------------------
@@ -1289,170 +1629,13 @@ End Sub
 ' answer naming its rows, and each of the nine refusals naming its message
 ' id, where the pin here accepted any error.
 
-' DATALOG.4: a comparison over a TABLE argument's real Double column - the
-' one case of this Sub a proof cannot state yet, since the notation has no
-' (tables ...) clause. Its other twenty-five pins - comparisons over fact
-' text, every let operator, the recursive path length, and ten refusals
-' that accepted any error - are proofs in scripts/proofs/datalog.vla
-' (METAPROOF.3). Entirely pure, unlike TestDatalogHostTable below.
-Private Sub TestDatalogBuiltins()
-    Dim result As Collection
-    Dim rel As Collection
-
-    ' A comparison over a TABLE-sourced column - built here via
-    ' RelFromRange fed a hand-built 2D array carrying REAL Double values
-    ' (VBA numeric literals, never strings), the identical seam
-    ' TestDatalog's own "table-sourced facts (no live Range)" case
-    ' already established, so this needs no live workbook either.
-    ' Proves VLA_Relation.ValueIsNumericType's own STRICT policy path
-    ' (a real Excel-typed value) fires correctly through DATALOG's own
-    ' lenient BuiltinOperandIsNumeric.
-    Dim arrNum(1 To 3, 1 To 2) As Variant
-    arrNum(1, 1) = "alice": arrNum(1, 2) = 90000
-    arrNum(2, 1) = "bob": arrNum(2, 2) = 60000
-    arrNum(3, 1) = "carol": arrNum(3, 2) = 95000
-    Dim baseRelNum As Collection
-    Set baseRelNum = VLA_Relation.RelFromRange(arrNum)
-    Dim basesNum As Object
-    Set basesNum = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet basesNum, "staff", baseRelNum
-    Set result = VLA_Datalog.DatalogRun( _
-        "(rule (highearner X) (staff X S) (> S 80000))" & _
-        " (query highearner)", basesNum)
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog builtins: (> S 80000) over a table-sourced (real Double) column keeps alice+carol (2 rows)", _
-           VLA_Relation.RelCount(rel) = 2, "got " & VLA_Relation.RelCount(rel)
-End Sub
-
-' DATALOG.5: named-column atoms - a hand-built (Name, Salary, Dept)
-' "staffing" table, fed through RelFromRange's own new hasHeader:=True
-' flag (this item's own pure-test seam - no live workbook needed at
-' all, unlike DATALOG.3's own column-scoping) plus a hand-built
-' headerMap in the exact (folded, original) pair shape VLA_Relation.
-' RangeColumnNames returns (SqlColPair, already built for SQL's own
-' pure suite below, reused as-is). Proves the motivating example this
-' item was found by name (BETA_ROADMAP.md's own words - "Show every
-' Staffing name whose salary is over 80000"), the one correctness
-' property that would be silently wrong if the anonymous-column naming
-' were keyed on column position ALONE rather than atom occurrence too
-' (two keyed atoms, same table, each omitting salary/dept, must derive
-' the full cross product - not be silently aliased together), a partial
-' keying + count combination, full-arity keying, and every parse-time
-' refusal this item's own roadmap names by id, including the one
-' highest-risk case named explicitly: a keyed pair whose own VALUE
-' position is itself a nested compound term must still be refused, not
-' silently accepted through the new opening.
-Private Sub TestDatalogKeyedAtoms()
-    Dim result As Collection
-    Dim rel As Collection
-
-    Dim arr(1 To 4, 1 To 3) As Variant
-    arr(1, 1) = "Name": arr(1, 2) = "Salary": arr(1, 3) = "Dept"
-    arr(2, 1) = "alice": arr(2, 2) = 90000: arr(2, 3) = "eng"
-    arr(3, 1) = "bob": arr(3, 2) = 70000: arr(3, 3) = "sales"
-    arr(4, 1) = "carol": arr(4, 2) = 95000: arr(4, 3) = "eng"
-
-    Dim baseRel As Collection
-    Set baseRel = VLA_Relation.RelFromRange(arr, True)
-    Report "datalog keyed: RelFromRange's own hasHeader:=True skips the header row (3 data rows, not 4)", _
-           VLA_Relation.RelCount(baseRel) = 3, "got " & VLA_Relation.RelCount(baseRel)
-
-    Dim bases As Object
-    Set bases = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet bases, "staffing", baseRel
-
-    Dim staffingCols As New Collection
-    staffingCols.Add SqlColPair("name", "Name")
-    staffingCols.Add SqlColPair("salary", "Salary")
-    staffingCols.Add SqlColPair("dept", "Dept")
-    Dim headerMap As Object
-    Set headerMap = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet headerMap, "staffing", staffingCols
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(rule (rich X) (staffing (name X) (salary S)) (> S 80000))" & _
-        " (query rich)", bases, headerMap)
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog keyed: the item's own motivating example (salary keyed, > 80000) matches exactly alice and carol", _
-           VLA_Relation.RelCount(rel) = 2, "got " & VLA_Relation.RelCount(rel)
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(rule (pair X Y) (staffing (name X)) (staffing (name Y)))" & _
-        " (query pair)", bases, headerMap)
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog keyed: two keyed atoms each omitting salary/dept derive the full 3x3 cross product (9) - never silently joined on a shared anonymous column name", _
-           VLA_Relation.RelCount(rel) = 9, "got " & VLA_Relation.RelCount(rel)
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(fact (deptname eng)) (fact (deptname sales))" & _
-        " (rule (deptcount D N) (deptname D) (count N (staffing (dept D))))" & _
-        " (query deptcount)", bases, headerMap)
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog keyed: count over a keyed atom naming only the group-by column derives one row per dept", _
-           VLA_Relation.RelCount(rel) = 2, "got " & VLA_Relation.RelCount(rel)
-    Dim probeD(1 To 2) As Variant
-    probeD(1) = "eng": probeD(2) = 2
-    Report "datalog keyed count: eng has 2 staffers (alice, carol)", VLA_Relation.RelContainsTuple(rel, probeD), "(eng, 2) not found"
-    probeD(1) = "sales": probeD(2) = 1
-    Report "datalog keyed count: sales has 1 staffer (bob)", VLA_Relation.RelContainsTuple(rel, probeD), "(sales, 1) not found"
-
-    Set result = VLA_Datalog.DatalogRun( _
-        "(rule (allkeyed N S D) (staffing (name N) (salary S) (dept D)))" & _
-        " (query allkeyed)", bases, headerMap)
-    Set rel = VLA_Runtime.VlaDictGet(result.Item(2), result.Item(1))
-    Report "datalog keyed: keying every column explicitly still reports the table's own arity/rows (3)", _
-           VLA_Relation.RelCount(rel) = 3, "got " & VLA_Relation.RelCount(rel)
-
-    Dim raised As Boolean
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(rule (bad X) (staffing X (salary S))) (query bad)", bases, headerMap
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog keyed: mixing keyed and positional arguments in one atom is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(rule (bad X S) (staffing (name X) (bogus S))) (query bad)", bases, headerMap
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog keyed: an unknown column name is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(rule (bad X Y) (staffing (name X) (name Y))) (query bad)", bases, headerMap
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog keyed: keying the same column twice in one atom is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(fact (widget a b)) (rule (bad X) (widget (foo X))) (query bad)", bases, headerMap
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog keyed: a keyed atom against a predicate with no header of its own (a fact block) is refused", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(rule (bad X Y) (staffing (name X) (salary (foo Y)))) (query bad)", bases, headerMap
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog keyed: a keyed pair whose own value is itself a nested compound term is still refused, not silently accepted", raised, "no error raised"
-
-    raised = False
-    On Error Resume Next
-    Err.Clear
-    VLA_Datalog.DatalogRun "(rule (staffing (name X)) (staffing (name X))) (query staffing)", bases, headerMap
-    If Err.Number <> 0 Then raised = True
-    On Error GoTo 0
-    Report "datalog keyed: keyed syntax in a rule HEAD is refused (heads stay positional by definition)", raised, "no error raised"
-End Sub
+' DATALOG.4 and DATALOG.5 - a comparison over a table's number column, and
+' named-column (keyed) atoms - were TestDatalogBuiltins' last pin and the
+' whole of TestDatalogKeyedAtoms until METAPROOF.4. Every pin they held is a
+' proof in scripts/proofs/datalog.vla now, each over a (tables ...) clause:
+' the comparison reads real numbers, as a Table's number column holds them;
+' the keyed atoms' row counts became their rows; and the six keyed refusals,
+' which accepted any error, name their message ids.
 
 ' DATALOG.8: AN UNDEFINED PREDICATE REFUSES - statically, anywhere in the
 ' program, before any rule runs. Pure: no live workbook (a Table argument
@@ -1560,36 +1743,15 @@ Private Sub TestDatalogUnknownPredicate()
            ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "(query pp) names a predicate", vbTextCompare) > 0 _
            And InStr(1, r, "divide by zero", vbTextCompare) = 0, "got: " & r
 
-    ' ---- A TABLE WITH NO ROWS IS DEFINED. A header and nothing under it is
-    ' the pure seam for a Table whose rows were all deleted; DATALOG()
-    ' registers a relation per table argument, rows or none.
-    Dim hdr(1 To 1, 1 To 2) As Variant
-    hdr(1, 1) = "Name": hdr(1, 2) = "Shift"
-    Dim basesEmpty As Object
-    Set basesEmpty = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet basesEmpty, "leave", VLA_Relation.RelFromRange(hdr, True)
-    Dim leaveCols As New Collection
-    leaveCols.Add SqlColPair("name", "Name")
-    leaveCols.Add SqlColPair("shift", "Shift")
-    Dim headerMapEmpty As Object
-    Set headerMapEmpty = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet headerMapEmpty, "leave", leaveCols
-    Dim res As Collection
-    Dim rel As Collection
-    Set rel = VLA_Relation.RelNew(1)
-    d = ""
-    On Error Resume Next
-    Err.Clear
-    Set res = VLA_Datalog.DatalogRun("(fact (person tom)) (rule (ok X) (person X) (not (leave X X))) (query ok)", basesEmpty, headerMapEmpty)
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) = 0 Then Set rel = VLA_Runtime.VlaDictGet(res.Item(2), res.Item(1))
-    Report "datalog.8: a table argument with no rows is defined - (not ...) over it keeps tom", _
-           Len(d) = 0 And VLA_Relation.RelCount(rel) = 1, "got: '" & d & "', " & VLA_Relation.RelCount(rel) & " row(s)"
-    ' ...and leaving the table out is exactly the misspelling.
+    ' ---- A TABLE WITH NO ROWS IS DEFINED - a header and nothing under it,
+    ' as a Table whose rows were all deleted is; DATALOG() registers a
+    ' relation per table argument, rows or none. The answer, a (not ...)
+    ' over it that keeps tom, is a proof in scripts/proofs/datalog.vla since
+    ' METAPROOF.4. Its twin stays here: leaving the table out is exactly the
+    ' misspelling.
     result = VLA_Datalog.DATALOG("(fact (person tom)) (rule (ok X) (person X) (not (leave X X))) (query ok)")
     r = ResultDescribe(result)
-    Report "datalog.8: ...while the same rule with no leave table passed names leave", _
+    Report "datalog.8: with no leave table passed, the same rule names leave", _
            ResultTextStartsWith(result, "#DATALOG!") And InStr(1, r, "'leave' is used in a rule", vbTextCompare) > 0, "got: " & r
 
     ' ---- A KEYED ATOM over a misspelled Table is a misspelling, not a
@@ -1660,23 +1822,8 @@ Private Sub TestDatalogUnknownPredicate()
     On Error GoTo 0
     Report "datalog.8: G-PROLOG's who-question with a misspelled relation refuses by name, where it spilled an empty Who column", _
            InStr(1, d, "'can-drive' is used in a rule", vbTextCompare) > 0, "got: " & d
-    ' ...and its twin, spelled right, answers Bob.
-    Dim basesRota2 As Object
-    Set basesRota2 = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet basesRota2, "rota", VLA_Relation.RelFromRange(rota, True)
-    Dim probeBob(1 To 1) As Variant
-    probeBob(1) = "Bob"
-    Set rel = VLA_Relation.RelNew(1)
-    d = ""
-    On Error Resume Next
-    Err.Clear
-    Set res = VLA_Datalog.DatalogRun(rulesText & " (rule (vla-ask-can-cover Who) (can-cover Who " & q & "Night" & q & ")) (query vla-ask-can-cover)", basesRota2, headerMapRota)
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) = 0 Then Set rel = VLA_Runtime.VlaDictGet(res.Item(2), res.Item(1))
-    Report "datalog.8: ...and spelled right, the same question answers Bob alone", _
-           Len(d) = 0 And VLA_Relation.RelCount(rel) = 1 And VLA_Relation.RelContainsTuple(rel, probeBob), _
-           "got: '" & d & "', " & VLA_Relation.RelCount(rel) & " row(s)"
+    ' Its twin, spelled right, answers Bob alone: a proof in
+    ' scripts/proofs/datalog.vla since METAPROOF.4.
 End Sub
 
 ' DATALOG.9: A QUERY WRITTEN AS ONE FACT ANSWERS TRUE OR FALSE. Pure.
@@ -1687,24 +1834,20 @@ End Sub
 ' finishes. The answers - a real Boolean, decided by the same match a rule
 ' body makes; the reason, a cycle answering both ways and stopping; a query
 ' by name unchanged - are proofs in scripts/proofs/datalog.vla since
-' METAPROOF.3, all but the three over a keyed Table. Here: those three, and
+' METAPROOF.3, and the three over a keyed Table since METAPROOF.4. Here:
 ' each shape still refused, by name, pointing at the spelling that works.
-' Every combined check reads a value that exists even when the call refused
-' (ResultBoolIs over Empty is False).
 Private Sub TestDatalogGroundQuery()
     Dim result As Variant
     Dim r As String
     Dim d As String
-    Dim ans As Variant
     Dim res As Collection
 
-    ' ---- METAPROOF.3: the answers that needed no table - TRUE and FALSE both
+    ' ---- METAPROOF.3 and METAPROOF.4: the answers - TRUE and FALSE both
     ' ways, a closure over data that loops, bare constants, text matched
-    ' exactly - are proofs in scripts/proofs/datalog.vla now, and so are the
-    ' query by name and the (query (not ...)) that stood below.
-
-    ' ---- A NUMBER CELL, through a rule over a keyed Table: DatalogRun's
-    ' fifth item carries the answer.
+    ' exactly, a bare 3 matching a number cell through a keyed Table, and
+    ' G-PROLOG's whether tail - are proofs in scripts/proofs/datalog.vla,
+    ' and so are the query by name and the (query (not ...)) that stood
+    ' below. The keyed Table stays for the refusal of a keyed query atom.
     Dim staff(1 To 3, 1 To 2) As Variant
     staff(1, 1) = "Name": staff(1, 2) = "Level"
     staff(2, 1) = "Ann": staff(2, 2) = 3
@@ -1715,57 +1858,6 @@ Private Sub TestDatalogGroundQuery()
     Dim headerMapStaff As Object
     Set headerMapStaff = VLA_Runtime.VlaDictNew()
     VLA_Runtime.VlaDictSet headerMapStaff, "staff", staffCols
-    Dim basesAnn As Object
-    Set basesAnn = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet basesAnn, "staff", VLA_Relation.RelFromRange(staff, True)
-    d = ""
-    ans = Empty
-    On Error Resume Next
-    Err.Clear
-    Set res = VLA_Datalog.DatalogRun("(rule (has-level P L) (staff (name P) (level L))) (query (has-level ""Ann"" 3))", basesAnn, headerMapStaff)
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) = 0 Then ans = res.Item(5)
-    Report "datalog.9: a bare 3 matches a number cell through a rule over a keyed Table - Ann is at level 3", _
-           ResultBoolIs(ans, True), "got: '" & d & "', " & ResultDescribe(ans)
-    Dim basesBob As Object
-    Set basesBob = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet basesBob, "staff", VLA_Relation.RelFromRange(staff, True)
-    d = ""
-    ans = Empty
-    On Error Resume Next
-    Err.Clear
-    Set res = VLA_Datalog.DatalogRun("(rule (has-level P L) (staff (name P) (level L))) (query (has-level ""Bob"" 3))", basesBob, headerMapStaff)
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) = 0 Then ans = res.Item(5)
-    Report "datalog.9: ...and Bob, at level 1, is FALSE", _
-           ResultBoolIs(ans, False), "got: '" & d & "', " & ResultDescribe(ans)
-
-    ' ---- G-PROLOG's OWN WHETHER TAIL, the text slice 3 will route here.
-    Dim rota(1 To 3, 1 To 2) As Variant
-    rota(1, 1) = "Name": rota(1, 2) = "Shift"
-    rota(2, 1) = "Bob": rota(2, 2) = "Night"
-    rota(3, 1) = "Di": rota(3, 2) = "Day"
-    Dim rotaCols As New Collection
-    rotaCols.Add SqlColPair("name", "Name")
-    rotaCols.Add SqlColPair("shift", "Shift")
-    Dim headerMapRota As Object
-    Set headerMapRota = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet headerMapRota, "rota", rotaCols
-    Dim basesRota As Object
-    Set basesRota = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet basesRota, "rota", VLA_Relation.RelFromRange(rota, True)
-    d = ""
-    ans = Empty
-    On Error Resume Next
-    Err.Clear
-    Set res = VLA_Datalog.DatalogRun("(rule (can-cover Person Shift) (rota (name Person) (shift Shift))) (query (can-cover ""Bob"" ""Night""))", basesRota, headerMapRota)
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) = 0 Then ans = res.Item(5)
-    Report "datalog.9: G-PROLOG's whether tail answers here - Bob can cover Night", _
-           ResultBoolIs(ans, True), "got: '" & d & "', " & ResultDescribe(ans)
 
     ' ---- EACH SHAPE STILL REFUSED, by name.
     result = VLA_Datalog.DATALOG("(fact (link ""A"" ""B"")) (query (link ""A"" Who))")
@@ -1822,14 +1914,13 @@ Private Sub TestDatalogNegatedQuery()
     Dim result As Variant
     Dim r As String
     Dim d As String
-    Dim ans As Variant
     Dim res As Collection
 
-    ' ---- METAPROOF.3: every answer here that needed no table - values only,
-    ' blanks, data that loops, a relation holding no row - is a proof in
-    ' scripts/proofs/datalog.vla now.
-
-    ' ---- A NUMBER CELL through a keyed Table: DatalogRun's fifth item.
+    ' ---- METAPROOF.3 and METAPROOF.4: every answer here - values only,
+    ' blanks, data that loops, a relation holding no row, and, with a table,
+    ' a bare 3 matching a number cell, a blank beside a number, and a table
+    ' with no rows - is a proof in scripts/proofs/datalog.vla now. The keyed
+    ' Table stays for the refusal of a keyed atom under not.
     Dim staff(1 To 3, 1 To 2) As Variant
     staff(1, 1) = "Name": staff(1, 2) = "Level"
     staff(2, 1) = "Ann": staff(2, 2) = 3
@@ -1840,62 +1931,6 @@ Private Sub TestDatalogNegatedQuery()
     Dim headerMapStaff As Object
     Set headerMapStaff = VLA_Runtime.VlaDictNew()
     VLA_Runtime.VlaDictSet headerMapStaff, "staff", staffCols
-    Dim basesAnn As Object
-    Set basesAnn = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet basesAnn, "staff", VLA_Relation.RelFromRange(staff, True)
-    d = ""
-    ans = Empty
-    On Error Resume Next
-    Err.Clear
-    Set res = VLA_Datalog.DatalogRun("(rule (has-level P L) (staff (name P) (level L))) (query (not (has-level ""Ann"" 3)))", basesAnn, headerMapStaff)
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) = 0 Then ans = res.Item(5)
-    Report "datalog.10: a bare 3 matches a number cell under not - Ann is at level 3, so FALSE", _
-           ResultBoolIs(ans, False), "got: '" & d & "', " & ResultDescribe(ans)
-    Dim basesAt3 As Object
-    Set basesAt3 = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet basesAt3, "staff", VLA_Relation.RelFromRange(staff, True)
-    d = ""
-    ans = Empty
-    On Error Resume Next
-    Err.Clear
-    Set res = VLA_Datalog.DatalogRun("(rule (has-level P L) (staff (name P) (level L))) (query (not (has-level Who 3)))", basesAt3, headerMapStaff)
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) = 0 Then ans = res.Item(5)
-    Report "datalog.10: a blank beside a number - somebody is at level 3, so FALSE", _
-           ResultBoolIs(ans, False), "got: '" & d & "', " & ResultDescribe(ans)
-    Dim basesAt2 As Object
-    Set basesAt2 = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet basesAt2, "staff", VLA_Relation.RelFromRange(staff, True)
-    d = ""
-    ans = Empty
-    On Error Resume Next
-    Err.Clear
-    Set res = VLA_Datalog.DatalogRun("(rule (has-level P L) (staff (name P) (level L))) (query (not (has-level Who 2)))", basesAt2, headerMapStaff)
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) = 0 Then ans = res.Item(5)
-    Report "datalog.10: ...and nobody is at level 2, so TRUE", _
-           ResultBoolIs(ans, True), "got: '" & d & "', " & ResultDescribe(ans)
-
-    ' ---- A TABLE WITH NO ROWS: nothing in it can match.
-    Dim hdr(1 To 1, 1 To 2) As Variant
-    hdr(1, 1) = "Name": hdr(1, 2) = "Shift"
-    Dim basesEmpty As Object
-    Set basesEmpty = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet basesEmpty, "leave", VLA_Relation.RelFromRange(hdr, True)
-    d = ""
-    ans = Empty
-    On Error Resume Next
-    Err.Clear
-    Set res = VLA_Datalog.DatalogRun("(query (not (leave X Y)))", basesEmpty)
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) = 0 Then ans = res.Item(5)
-    Report "datalog.10: a table argument with no rows answers TRUE", _
-           ResultBoolIs(ans, True), "got: '" & d & "', " & ResultDescribe(ans)
 
     ' ---- STILL REFUSED, each in words that name the right thing.
     result = VLA_Datalog.DATALOG("(fact (p a)) (query (p X))")
@@ -1962,8 +1997,7 @@ End Sub
 ' DATALOG.11: TEXT TESTS, TEXTJOIN, AND PROLOG'S GOALS REFUSED BY NAME.
 ' (text-starts-with T P), (text-ends-with T P) and (text-contains T P) are
 ' filters read the way a comparison is; (textjoin R Sep (pred ...)) joins a
-' column's values into one cell, count's and sum's shape. Pure: a number cell
-' is a hand-built array through RelFromRange.
+' column's values into one cell, count's and sum's shape. Pure.
 Private Sub TestDatalogTextTests()
     Dim result As Variant
     Dim r As String
@@ -1974,89 +2008,14 @@ Private Sub TestDatalogTextTests()
     accts = "(fact (acct ""GL-4010"")) (fact (acct ""GL-4020"")) (fact (acct ""GL-5010""))"
     cover = "(fact (cc ""Ann"" ""Day"")) (fact (cc ""Bob"" ""Day"")) (fact (cc ""Ed"" ""Day"")) (fact (cc ""Bob"" ""Night"")) (fact (shift ""Day"")) (fact (shift ""Night"")) (fact (shift ""Weekend""))"
 
-    ' ---- METAPROOF.3: the three tests over fact blocks, the four textjoins
-    ' over fact blocks, and a program that defines member are proofs in
-    ' scripts/proofs/datalog.vla now. What stays here needs a table, builds
-    ' its program in VBA, or checks what its refusal's words name.
+    ' ---- METAPROOF.3 and METAPROOF.4: the three tests over fact blocks, the
+    ' four textjoins over fact blocks, a program that defines member, and,
+    ' over a table, a number cell read as its canonical text by a text test
+    ' and by textjoin, are proofs in scripts/proofs/datalog.vla now. What
+    ' stays here builds its program in VBA or checks what its refusal's
+    ' words name.
 
-    ' ---- A NUMBER CELL is read as its canonical text, the same on every machine.
-    Dim codes(1 To 4, 1 To 2) As Variant
-    codes(1, 1) = "Code": codes(1, 2) = "Name"
-    codes(2, 1) = 4010: codes(2, 2) = "Sales"
-    codes(3, 1) = "007": codes(3, 2) = "Petty"
-    codes(4, 1) = 0.5: codes(4, 2) = "Half"
-    Dim codeCols As New Collection
-    codeCols.Add SqlColPair("code", "Code")
-    codeCols.Add SqlColPair("name", "Name")
-    Dim codeHeaders As Object
-    Set codeHeaders = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet codeHeaders, "codes", codeCols
-    Dim basesForty As Object
-    Set basesForty = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet basesForty, "codes", VLA_Relation.RelFromRange(codes, True)
-    d = ""
-    result = Empty
-    On Error Resume Next
-    Err.Clear
-    Set res = VLA_Datalog.DatalogRun("(rule (forty N) (codes (code C) (name N)) (text-starts-with C 40)) (query forty)", basesForty, codeHeaders)
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) = 0 Then result = VLA_Relation.RelToSpilledArray(VLA_Runtime.VlaDictGet(res.Item(2), "forty"))
-    Report "datalog.11: a number cell holding 4010 starts with 40 - Sales, and the text 007 does not", _
-           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "Sales"), "got: '" & d & "', " & ResultDescribe(result)
-    Dim basesHalf As Object
-    Set basesHalf = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet basesHalf, "codes", VLA_Relation.RelFromRange(codes, True)
-    d = ""
-    result = Empty
-    On Error Resume Next
-    Err.Clear
-    Set res = VLA_Datalog.DatalogRun("(rule (half N) (codes (code C) (name N)) (text-starts-with C ""0.5"")) (query half)", basesHalf, codeHeaders)
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) = 0 Then result = VLA_Relation.RelToSpilledArray(VLA_Runtime.VlaDictGet(res.Item(2), "half"))
-    Report "datalog.11: a number cell holding 0.5 reads 0.5, its leading zero kept", _
-           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "Half"), "got: '" & d & "', " & ResultDescribe(result)
-    Dim basesZeros As Object
-    Set basesZeros = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet basesZeros, "codes", VLA_Relation.RelFromRange(codes, True)
-    d = ""
-    result = Empty
-    On Error Resume Next
-    Err.Clear
-    Set res = VLA_Datalog.DatalogRun("(rule (zeros N) (codes (code C) (name N)) (text-starts-with C ""00"")) (query zeros)", basesZeros, codeHeaders)
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) = 0 Then result = VLA_Relation.RelToSpilledArray(VLA_Runtime.VlaDictGet(res.Item(2), "zeros"))
-    Report "datalog.11: a text cell keeps its own text - 007 starts with 00", _
-           ResultRowCount(result) = 2 And ResultCellIs(result, 2, 1, "Petty"), "got: '" & d & "', " & ResultDescribe(result)
-
-    ' ---- TEXTJOIN: a column's values in one cell per group, the empty group blank.
-    Dim staff(1 To 5, 1 To 2) As Variant
-    staff(1, 1) = "Name": staff(1, 2) = "Level"
-    staff(2, 1) = "Ann": staff(2, 2) = 3
-    staff(3, 1) = "Bob": staff(3, 2) = 3
-    staff(4, 1) = "Bob": staff(4, 2) = 1
-    staff(5, 1) = "Di": staff(5, 2) = 0.5
-    Dim staffCols As New Collection
-    staffCols.Add SqlColPair("name", "Name")
-    staffCols.Add SqlColPair("level", "Level")
-    Dim staffHeaders As Object
-    Set staffHeaders = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet staffHeaders, "staff", staffCols
-    Dim basesLevels As Object
-    Set basesLevels = VLA_Runtime.VlaDictNew()
-    VLA_Runtime.VlaDictSet basesLevels, "staff", VLA_Relation.RelFromRange(staff, True)
-    d = ""
-    result = Empty
-    On Error Resume Next
-    Err.Clear
-    Set res = VLA_Datalog.DatalogRun("(rule (levels N L) (staff (name N)) (textjoin L "", "" (staff (name N) (level V)))) (query levels)", basesLevels, staffHeaders)
-    If Err.Number <> 0 Then d = Err.Description
-    On Error GoTo 0
-    If Len(d) = 0 Then result = VLA_Relation.RelToSpilledArray(VLA_Runtime.VlaDictGet(res.Item(2), "levels"))
-    Report "datalog.11: number cells join as their canonical text - Bob 3, 1 and Di 0.5", _
-           ResultRowCount(result) = 4 And ResultCellIs(result, 3, 2, "3, 1") And ResultCellIs(result, 4, 2, "0.5"), "got: '" & d & "', " & ResultDescribe(result)
+    ' ---- TEXTJOIN'S BOUNDARY, over a program built here.
     result = VLA_Datalog.DATALOG("(fact (p ""x"" """ & String$(16383, "a") & """)) (fact (p ""x"" """ & String$(16382, "b") & """)) (rule (j K W) (p K Z) (textjoin W "", "" (p K V))) (query j)")
     Report "datalog.11: BOUNDARY - a join of exactly 32,767 characters fits a cell", _
            ResultRowCount(result) = 2 And Len(ResultCellText(result, 2, 2)) = 32767, "got: " & ResultDescribe(result)
@@ -2359,25 +2318,24 @@ Private Sub TestDatalogGroundRules()
     Report "ground symbols: a relation interns row by row, column by column", t = "a,1;b,2", "got " & t
 
     ' --- every rule of every parity program, both ways ------------------------------
-    Dim programs As Collection
-    Set programs = DatalogParityPrograms()
     ' METAPROOF.1: and every program in scripts/proofs/datalog.vla.
-    Dim pp As Variant
-    For Each pp In DatalogProofPrograms()
-        programs.Add pp
-    Next pp
-    Dim p As Variant
+    ' METAPROOF.4: a proof's with its tables, whose header map the grounder
+    ' is handed too, so a keyed atom grounds rather than refusing both ways.
+    Dim cases As Collection
+    Set cases = ParityCases()
+    Dim pc As Variant
+    Dim caseTables As Collection
     Dim ix As Long
     Dim label As String
     Dim verdict As String
     Dim rulesSeen As Long, intSeen As Long
-    For Each p In programs
+    For Each pc In cases
         ix = ix + 1
-        label = CStr(p)
-        If Len(label) > 64 Then label = Left$(label, 64) & "..."
-        verdict = GroundParityVerdict(CStr(p), rulesSeen, intSeen)
+        label = ParityLabel(pc)
+        Set caseTables = pc(1)
+        verdict = GroundParityVerdict(CStr(pc(0)), rulesSeen, intSeen, caseTables)
         Report "ground parity " & ix & ": " & label, Len(verdict) = 0, verdict
-    Next p
+    Next pc
     ' Floors, so the loop above cannot pass by grounding nothing. Counted by
     ' hand from the table at OPTIMIZE.3: about 67 rules sit in programs
     ' DATALOG answers, about 50 of them joins and filters alone.
@@ -2463,13 +2421,18 @@ End Function
 ' ground over (the refusal itself is TestOptimizeParity's business). Each
 ' rule's head is renamed first: its body may read its own predicate, which
 ' is data here, and a batch's head may not name a relation that exists.
+' METAPROOF.4: tables, a proof's (tables ...) read by ProofTablesRead, go to
+' the run as its table arguments, and their header map to both groundings.
 Private Function GroundParityVerdict(ByVal program As String, ByRef rulesSeen As Long, _
-                                     ByRef intSeen As Long) As String
+                                     ByRef intSeen As Long, Optional ByVal tables As Collection) As String
+    Dim gBases As Object
+    Dim gHeaders As Object
+    ProofDatalogTables tables, gBases, gHeaders
     Dim dRes As Collection
     Dim dErr As Long
     On Error Resume Next
     Err.Clear
-    Set dRes = VLA_Datalog.DatalogRun(program)
+    Set dRes = VLA_Datalog.DatalogRun(program, gBases, gHeaders)
     dErr = Err.Number
     On Error GoTo 0
     If dErr <> 0 Then Exit Function
@@ -2489,9 +2452,9 @@ Private Function GroundParityVerdict(ByVal program As String, ByRef rulesSeen As
             ruleNo = ruleNo + 1
             Set batch = New Collection
             batch.Add GroundRenamedRule(f)
-            aText = GroundFormsText(batch, base, False, aErr, aDesc)
+            aText = GroundFormsText(batch, base, False, aErr, aDesc, gHeaders)
             aInt = VLA_Datalog.DatalogGroundIntegerRules()
-            bText = GroundFormsText(batch, base, True, bErr, bDesc)
+            bText = GroundFormsText(batch, base, True, bErr, bDesc, gHeaders)
             If aErr <> 0 Or bErr <> 0 Then
                 If aErr <> bErr Or StrComp(aDesc, bDesc, vbBinaryCompare) <> 0 Then
                     GroundParityVerdict = "rule " & ruleNo & ": integer path [" & aErr & " " & aDesc & _
@@ -2510,14 +2473,15 @@ Private Function GroundParityVerdict(ByVal program As String, ByRef rulesSeen As
 End Function
 
 Private Function GroundFormsText(ByVal batch As Collection, ByVal base As Object, ByVal variantOnly As Boolean, _
-                                 ByRef errNo As Long, ByRef errText As String) As String
+                                 ByRef errNo As Long, ByRef errText As String, _
+                                 Optional ByVal headerMap As Object) As String
     Dim syms As VlaSymbols
     VLA_Relation.VlaSymInit syms
     Dim res As Collection
     Dim t As String
     On Error Resume Next
     Err.Clear
-    Set res = VLA_Datalog.DatalogGroundRules(batch, base, Nothing, syms, variantOnly)
+    Set res = VLA_Datalog.DatalogGroundRules(batch, base, headerMap, syms, variantOnly)
     errNo = Err.Number
     errText = Err.Description
     On Error GoTo 0
@@ -2842,7 +2806,7 @@ End Function
 ' Host-required: every real bug this engine's MVP ever found (this
 ' module's own header note has the list) only ever showed up through a
 ' real Excel Table, never through RelFromRange fed a hand-built array -
-' TestDatalog above is pure precisely because
+' the proof corpus's tables (METAPROOF.4) are pure precisely because
 ' RelFromRange makes that possible, but that same seam is exactly why
 ' it could never have caught either bug. This sub builds a real
 ' ListObject on a real sheet and calls the actual =DATALOG(...) worksheet
@@ -3018,9 +2982,9 @@ Private Sub TestDatalogHostTable()
     ' names, now exercised for DATALOG's own keyed-atom syntax.
     ' Necessarily host-required, like DATALOG.3's own column-scoping: a
     ' plain 2D array has no live header row of its own to fold against
-    ' - TestDatalogKeyedAtoms (VLA_Datalog's own pure suite) exercises
-    ' the desugaring mechanism itself instead, off a hand-folded
-    ' headerMap the test builds by hand.
+    ' - DATALOG.5's proofs in scripts/proofs/datalog.vla exercise the
+    ' desugaring mechanism itself instead, off the header pairs
+    ' ProofDatalogTables folds from a proof's (tables ...) clause.
     ws.Range("J1:L1").Value = Array("Name", "Salary", "Dept")
     ws.Range("J2:L2").Value = Array("alice", 90000, "eng")
     ws.Range("J3:L3").Value = Array("bob", 70000, "sales")
@@ -3707,22 +3671,31 @@ End Function
 '
 ' Err.Number and Err.Description are read BEFORE On Error GoTo 0, which
 ' clears them - a VBA trap this project has met before.
-Private Function ParityVerdict(ByVal program As String) As String
+'
+' METAPROOF.4: tables, a proof's (tables ...) read by ProofTablesRead, go
+' to both engines as their table arguments, each engine its own fresh copy
+' - a run writes its derived relations into the dictionary it is handed.
+' Omitted, as for every program of the table, both run as they always did.
+Private Function ParityVerdict(ByVal program As String, Optional ByVal tables As Collection) As String
     Dim dErr As Long, oErr As Long
     Dim dDesc As String, oDesc As String
     Dim dRes As Collection, oRes As Collection
     Dim dRel As Collection, oRel As Collection
+    Dim dBases As Object, dHeaders As Object
+    Dim oBases As Object, oHeaders As Object
+    ProofDatalogTables tables, dBases, dHeaders
+    ProofDatalogTables tables, oBases, oHeaders
 
     On Error Resume Next
     Err.Clear
-    Set dRes = VLA_Datalog.DatalogRun(program)
+    Set dRes = VLA_Datalog.DatalogRun(program, dBases, dHeaders)
     dErr = Err.Number
     dDesc = Err.Description
     On Error GoTo 0
 
     On Error Resume Next
     Err.Clear
-    Set oRes = VLA_Optimize.OptimizeRun(program)
+    Set oRes = VLA_Optimize.OptimizeRun(program, oBases, oHeaders)
     oErr = Err.Number
     oDesc = Err.Description
     On Error GoTo 0
@@ -3777,25 +3750,23 @@ Private Function ParityVerdict(ByVal program As String) As String
 End Function
 
 Private Sub TestOptimizeParity()
-    Dim programs As Collection
-    Set programs = DatalogParityPrograms()
-    ' METAPROOF.1: and every program in scripts/proofs/datalog.vla - a
-    ' proof's program is a DATALOG test program like any other.
-    Dim pp As Variant
-    For Each pp In DatalogProofPrograms()
-        programs.Add pp
-    Next pp
-    Dim p As Variant
+    ' METAPROOF.1: the table's programs, and every program in
+    ' scripts/proofs/datalog.vla - a proof's program is a DATALOG test
+    ' program like any other. METAPROOF.4: a proof's goes with its tables.
+    Dim cases As Collection
+    Set cases = ParityCases()
+    Dim pc As Variant
+    Dim caseTables As Collection
     Dim ix As Long
     Dim label As String
     Dim verdict As String
-    For Each p In programs
+    For Each pc In cases
         ix = ix + 1
-        label = CStr(p)
-        If Len(label) > 64 Then label = Left$(label, 64) & "..."
-        verdict = ParityVerdict(CStr(p))
+        label = ParityLabel(pc)
+        Set caseTables = pc(1)
+        verdict = ParityVerdict(CStr(pc(0)), caseTables)
         Report "optimize parity " & ix & ": " & label, Len(verdict) = 0, verdict
-    Next p
+    Next pc
     ' The count itself is a pin: tools/check_optimize_parity.ps1 found
     ' 177 distinct programs in this module at OPTIMIZE.1, and it fails
     ' if a later DATALOG test adds one the table does not carry.
@@ -3822,8 +3793,14 @@ Private Sub TestOptimizeParity()
     ' METAPROOF.3 bore that out: seventy-eight tests moved, the table fell
     ' 177 -> 99 and the corpus rose 16 -> 94, and the count is 193 again.
     ' DATALOG.16 added four proofs and no table line: 99 + 98 = 197.
-    Report "optimize parity: the table and the proof corpus carry every DATALOG program (197 at DATALOG.16)", _
-           programs.Count >= 197, "got " & programs.Count
+    ' METAPROOF.4 moved twenty-nine pins as twenty-six proofs, and the
+    ' table fell 99 -> 76: 76 + 124 = 200, three more, since one proof
+    ' pins what no call site ran (a Table's header row is not a row) and
+    ' two programs still have a VBA call site each (the widget and leave
+    ' refusals), so they run here twice - bare from the table, and from
+    ' the corpus with their tables.
+    Report "optimize parity: the table and the proof corpus carry every DATALOG program (200 at METAPROOF.4)", _
+           cases.Count >= 200, "got " & cases.Count
 End Sub
 
 ' Every distinct DATALOG program this module names, from every
@@ -3838,9 +3815,10 @@ Private Function DatalogParityPrograms() As Collection
     Dim p As Collection
     Set p = New Collection
     ' Generated by tools\check_optimize_parity.ps1 -Emit, then reviewed.
-    ' 99 distinct DATALOG programs at METAPROOF.3 (177 at METAPROOF.1, 192
-    ' before it - the rest moved to the proof corpus), every one this module
-    ' names.
+    ' 76 distinct DATALOG programs at METAPROOF.4 (99 at METAPROOF.3, 177 at
+    ' METAPROOF.1, 192 before it - the rest moved to the proof corpus), every
+    ' one this module names. Each runs here with no tables: one whose test
+    ' passes a table refuses in both engines alike, its predicate undefined.
     ' OPTIMIZE.2: a rule whose body binds NOTHING - every argument a
     ' constant. It crashed ProjectAfterJoin with runtime error 9 (an
     ' inverted-bounds ReDim, VLA_Relation.RelUnit's own documented
@@ -3858,13 +3836,11 @@ Private Function DatalogParityPrograms() As Collection
     p.Add " (rule (revenue C) (acct C) (sub-atom C 0 L A ""GL-4"")) (query revenue)"
     p.Add " (rule (revenue C) (acct C) (text-starts-with C)) (query revenue)"
     p.Add " (rule (revenue C) (text-starts-with C ""GL-4"") (acct C)) (query revenue)"
-    p.Add " (rule (vla-ask-can-cover Who) (can-cover Who Night)) (query vla-ask-can-cover)"
     p.Add " (rule (vla-ask-can-drive Who) (can-drive Who Night)) (query vla-ask-can-drive)"
     p.Add " (rule (who-covers S L) (shift S) (findall P (cc P S) L)) (query who-covers)"
     p.Add " (rule (who-covers S W) (shift S) (textjoin W (cc P S))) (query who-covers)"
     p.Add " (rule (who-covers S W) (shift S) (textjoin W Sep (cc P S))) (query who-covers)"
     p.Add " (rule (who-covers S) (shift S) (textjoin S "", "" (cc P S))) (query who-covers)"
-    p.Add "(fact (deptname eng)) (fact (deptname sales)) (rule (deptcount D N) (deptname D) (count N (staffing (dept D)))) (query deptcount)"
     p.Add "(fact (link ""A"" ""B"")) (query (link ""A"" Who))"
     p.Add "(fact (link ""A"" ""B"")) (query (link ""A""))"
     p.Add "(fact (link ""A"" ""B"")) (query (not (link ""A"")))"
@@ -3912,37 +3888,16 @@ Private Function DatalogParityPrograms() As Collection
     p.Add "(headless) (rule (indirect X Y) (reportstohosttest1 X Y)) (rule (indirect X Y) (reportstohosttest1 X Z) (indirect Z Y)) (query indirect)"
     p.Add "(headless) (rule (ok X) (personhosttest1 X) (not (emptydataloghosttest1 X))) (query ok)"
     p.Add "(headless) (rule (rich X) (staffinghosttest1 (name X) (salary S)) (> S 80000)) (query rich)"
-    p.Add "(query (not (leave X Y)))"
     p.Add "(query (not (staff (name ""Ann"") (level 3))))"
     p.Add "(query (staff (name ""Ann"") (level 3)))"
     p.Add "(query (sub-atom ""abc"" 0 1 A ""a""))"
     p.Add "(query p)"
     p.Add "(query pp)"
-    p.Add "(rule (allkeyed N S D) (staffing (name N) (salary S) (dept D))) (query allkeyed)"
-    p.Add "(rule (bad X S) (staffing (name X) (bogus S))) (query bad)"
-    p.Add "(rule (bad X Y) (staffing (name X) (name Y))) (query bad)"
-    p.Add "(rule (bad X Y) (staffing (name X) (salary (foo Y)))) (query bad)"
-    p.Add "(rule (bad X) (staffing X (salary S))) (query bad)"
     p.Add "(rule (bad X) (widget (foo X))) (fact (widget a b)) (query bad)"
-    p.Add "(rule (can-cover Person Shift) (rota (name Person) (shift Shift))) (query (can-cover ""Bob"" ""Night""))"
-    p.Add "(rule (forty N) (codes (code C) (name N)) (text-starts-with C 40)) (query forty)"
-    p.Add "(rule (half N) (codes (code C) (name N)) (text-starts-with C ""0.5"")) (query half)"
-    p.Add "(rule (has-level P L) (staff (name P) (level L))) (query (has-level ""Ann"" 3))"
-    p.Add "(rule (has-level P L) (staff (name P) (level L))) (query (has-level ""Bob"" 3))"
-    p.Add "(rule (has-level P L) (staff (name P) (level L))) (query (not (has-level ""Ann"" 3)))"
-    p.Add "(rule (has-level P L) (staff (name P) (level L))) (query (not (has-level Who 2)))"
-    p.Add "(rule (has-level P L) (staff (name P) (level L))) (query (not (has-level Who 3)))"
-    p.Add "(rule (highearner X) (staff X S) (> S 80000)) (query highearner)"
-    p.Add "(rule (indirect_report X Y) (reports_to X Y)) (rule (indirect_report X Y) (reports_to X Z) (indirect_report Z Y)) (query indirect_report)"
-    p.Add "(rule (levels N L) (staff (name N)) (textjoin L "", "" (staff (name N) (level V)))) (query levels)"
-    p.Add "(rule (pair X Y) (staffing (name X)) (staffing (name Y))) (query pair)"
-    p.Add "(rule (rich X) (staffing (name X) (salary S)) (> S 80000)) (query rich)"
     p.Add "(rule (senior X) (staf (name X) (level L)) (> L 2)) (query senior)"
-    p.Add "(rule (staffing (name X)) (staffing (name X))) (query staffing)"
     p.Add "(rule (who P) (vlaspillempty (name P))) (query who)"
     p.Add "(rule (who P) (vlaspillsched (name P))) (query who)"
     p.Add "(rule (who X) (emptydataloghosttest1 X)) (query who)"
-    p.Add "(rule (zeros N) (codes (code C) (name N)) (text-starts-with C ""00"")) (query zeros)"
     p.Add "; only a comment"
     ' DATALOG.14's ten programs, which stood here, are proofs in
     ' scripts/proofs/datalog.vla since METAPROOF.1 - both parity loops still

@@ -5,6 +5,7 @@
 ;  A proof is one form:
 ;
 ;    (test-datalog "what it shows"
+;      (tables <the tables the program reads, when it reads any>)
 ;      (program <the DATALOG program, as its own forms>)
 ;      <what the answer must be>)
 ;
@@ -29,32 +30,62 @@
 ;  always has, so 4 and "4" both match a cell showing 4: a proof pins
 ;  what a person reads in the cell, not the VBA type behind it.
 ;
+;  TABLES (METAPROOF.4). A program may read tables, as =DATALOG(rules,
+;  Staffing) reads a Table on a sheet. The (tables ...) clause holds
+;  them, each written as an answer is written - its name, then HEADER,
+;  then its rows:
+;
+;    (tables
+;      (staffing (Name Salary Dept)      an Excel Table
+;        (alice 90000 eng)
+;        (bob 70000 sales))
+;      (reports_to headless              a plain named range
+;        (alice bob)))
+;
+;  A table with a header is an Excel Table: its header row names its
+;  columns, so a keyed atom - (staffing (name X) (salary S)) - may name
+;  them, and it is not a row. A headless table is a plain named range:
+;  every row a fact, and no column a keyed atom can name. A table's
+;  name is its predicate, compared without case as a Table's name is,
+;  so no two tables share one; a column's name is text, and no two in
+;  one header match without case. Rows are read in the order written,
+;  each as wide as the header (or as the first row, when headless). A
+;  cell reads as a live Table's cell does, in the notation above: a
+;  number is a number, so a bare 007 is the number 7, as Excel reads
+;  007 typed into a cell, and "007" is the text; true and false are
+;  TRUE and FALSE; any other word is text, whatever its first letter.
+;  Text in a cell is compared exactly, as all text is (DATALOG.16).
+;
 ;  WHO RUNS THEM. TestDatalogProofs, in VLA_Tests_Query.bas, inside
 ;  TestDSLs - one PASS or FAIL line per proof, a failure naming this
 ;  file's line and the answer the engine actually gave, written in this
 ;  notation. Each program goes to VLA_Datalog.DatalogRunForms as the
-;  forms read here, never written back out as text first, and its
-;  answer is made by DatalogAnswer, the same lines =DATALOG(...) ends
-;  in. A refusal is matched by the id VLA_Messages remembers raising
-;  and the words it raised with. Every program here also joins both
-;  parity pins (TestOptimizeParity and TestDatalogGroundRules), so it
-;  is a case OPTIMIZE and the integer grounder must agree on too.
+;  forms read here, never written back out as text first, with its
+;  tables made into the table arguments =DATALOG(...) makes from live
+;  ones - a relation per table, and a Table's column names - afresh for
+;  every run; its answer is made by DatalogAnswer, the same lines
+;  =DATALOG(...) ends in. A refusal is matched by the id VLA_Messages
+;  remembers raising and the words it raised with. Every program here
+;  also joins both parity pins (TestOptimizeParity and
+;  TestDatalogGroundRules), with its tables, so it is a case OPTIMIZE
+;  and the integer grounder must agree on too.
 ;  tools/check_proofs.ps1 checks this file without Excel: its shape,
-;  every name unique, every row as wide as its header, every message
-;  id a real one.
-;  tools/proofs_lp.ps1 writes every answer proof as a clingo program in
-;  tools/clingo, so a solver of another lineage can check the answer
-;  written here (METAPROOF.2); check_proofs.ps1 fails when those files
-;  fall behind this one, so re-run the exporter after editing a proof.
+;  every name unique, every row as wide as its header, every table well
+;  formed, every message id a real one.
+;  tools/proofs_lp.ps1 writes every answer proof it can state faithfully
+;  as a clingo program in tools/clingo, so a solver of another lineage
+;  can check the answer written here (METAPROOF.2) - not yet a proof
+;  with tables; check_proofs.ps1 fails when those files fall behind this
+;  one, so re-run the exporter after editing a proof.
 ;
 ;  WHY A FILE AND NOT VBA. Here a program is written as the program it
 ;  is: no doubled quotes, no & _ joins, no line to stay under, and a
 ;  file is data any tool can read. A test stays in VBA when it needs a
-;  table argument, builds its program in VBA, or checks WHAT a refusal's
-;  words name - (refuses id) says only which refusal it is. New DATALOG
-;  tests come
-;  here; tools/check_optimize_parity.ps1 holds the number of DATALOG
-;  calls in VLA_Tests_Query.bas to a ceiling that only comes down.
+;  live Table on a sheet, builds its program in VBA, goes in through the
+;  text entry point, or checks WHAT a refusal's words name - (refuses
+;  id) says only which refusal it is. New DATALOG tests come here;
+;  tools/check_optimize_parity.ps1 holds the number of DATALOG calls in
+;  VLA_Tests_Query.bas to a ceiling that only comes down.
 ; =====================================================================
 
 
@@ -1024,3 +1055,366 @@
   (rows (W D)
     ("Bob" "tea")
     ("bob" "coffee")))
+
+
+; ---------------------------------------------------------------------
+;  METAPROOF.4: the tests that waited on a table argument, moved from
+;  VLA_Tests_Query.bas once a proof could carry its tables (the header
+;  above says how a table reads). Each was a VBA pin over a table built
+;  as a hand-made array; grouped here by the DATALOG item each pinned.
+;
+;  First DATALOG.0 and DATALOG.4: a headless table, a plain named range,
+;  read by position. TestDatalog counted the closure's rows, and checked
+;  the spill's shape apart; the first proof names the rows under their
+;  header, which says both. TestDatalogBuiltins' comparison reads real
+;  numbers, as a Table's number column holds them, not number words.
+; ---------------------------------------------------------------------
+
+(test-datalog "a headless table is a relation of facts: the closure over it answers three pairs"
+  (tables
+    (reports_to headless
+      (alice bob)
+      (bob carol)))
+  (program
+    (rule (indirect_report X Y) (reports_to X Y))
+    (rule (indirect_report X Y) (reports_to X Z) (indirect_report Z Y))
+    (query indirect_report))
+  (rows-in-any-order (X Y)
+    (alice bob) (bob carol) (alice carol)))
+
+(test-datalog "(> S 80000) over a table's number cells keeps alice and carol"
+  (tables
+    (staff headless
+      (alice 90000)
+      (bob 60000)
+      (carol 95000)))
+  (program
+    (rule (highearner X) (staff X S) (> S 80000))
+    (query highearner))
+  (rows-in-any-order (X)
+    (alice) (carol)))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.5: keyed atoms - the whole of TestDatalogKeyedAtoms, moved at
+;  METAPROOF.4. A keyed atom names a Table's columns by their headers, in
+;  any order; a column it leaves out is fresh in each atom, never joined
+;  on. The row counts became the rows, and the three pins on one count
+;  are one proof. The six refusals accepted ANY error; each names its id
+;  now, derived from ParseProgram and DesugarBodyAtomForm. A keyed pair
+;  whose value is itself a list is left for the nesting check, and a rule
+;  head is read as a plain atom, so both are refused as compound terms.
+; ---------------------------------------------------------------------
+
+(test-datalog "a Table's header row names its columns and is not a row: staffing holds three"
+  (tables
+    (staffing (Name Salary Dept)
+      (alice 90000 eng)
+      (bob 70000 sales)
+      (carol 95000 eng)))
+  (program
+    (query staffing))
+  (rows (Col1 Col2 Col3)
+    (alice 90000 eng)
+    (bob 70000 sales)
+    (carol 95000 eng)))
+
+(test-datalog "keyed by salary, the ones over 80000 are alice and carol"
+  (tables
+    (staffing (Name Salary Dept)
+      (alice 90000 eng)
+      (bob 70000 sales)
+      (carol 95000 eng)))
+  (program
+    (rule (rich X) (staffing (name X) (salary S)) (> S 80000))
+    (query rich))
+  (rows-in-any-order (X)
+    (alice) (carol)))
+
+(test-datalog "two keyed atoms leaving out salary and dept derive all nine pairs, never joined on them"
+  (tables
+    (staffing (Name Salary Dept)
+      (alice 90000 eng)
+      (bob 70000 sales)
+      (carol 95000 eng)))
+  (program
+    (rule (pair X Y) (staffing (name X)) (staffing (name Y)))
+    (query pair))
+  (rows-in-any-order (X Y)
+    (alice alice) (alice bob) (alice carol)
+    (bob alice) (bob bob) (bob carol)
+    (carol alice) (carol bob) (carol carol)))
+
+(test-datalog "a count over a keyed atom naming only dept: eng has two, sales one"
+  (tables
+    (staffing (Name Salary Dept)
+      (alice 90000 eng)
+      (bob 70000 sales)
+      (carol 95000 eng)))
+  (program
+    (fact (deptname eng))
+    (fact (deptname sales))
+    (rule (deptcount D N) (deptname D) (count N (staffing (dept D))))
+    (query deptcount))
+  (rows-in-any-order (D N)
+    (eng 2) (sales 1)))
+
+(test-datalog "keying every column answers the table's own three rows"
+  (tables
+    (staffing (Name Salary Dept)
+      (alice 90000 eng)
+      (bob 70000 sales)
+      (carol 95000 eng)))
+  (program
+    (rule (allkeyed N S D) (staffing (name N) (salary S) (dept D)))
+    (query allkeyed))
+  (rows-in-any-order (N S D)
+    (alice 90000 eng)
+    (bob 70000 sales)
+    (carol 95000 eng)))
+
+(test-datalog "keyed and positional arguments in one atom are refused"
+  (tables
+    (staffing (Name Salary Dept)
+      (alice 90000 eng)
+      (bob 70000 sales)
+      (carol 95000 eng)))
+  (program
+    (rule (bad X) (staffing X (salary S)))
+    (query bad))
+  (refuses datalog-atom-mixed-keying))
+
+(test-datalog "a column the header does not name is refused"
+  (tables
+    (staffing (Name Salary Dept)
+      (alice 90000 eng)
+      (bob 70000 sales)
+      (carol 95000 eng)))
+  (program
+    (rule (bad X S) (staffing (name X) (bogus S)))
+    (query bad))
+  (refuses datalog-unknown-column))
+
+(test-datalog "one column keyed twice in one atom is refused"
+  (tables
+    (staffing (Name Salary Dept)
+      (alice 90000 eng)
+      (bob 70000 sales)
+      (carol 95000 eng)))
+  (program
+    (rule (bad X Y) (staffing (name X) (name Y)))
+    (query bad))
+  (refuses datalog-keyed-column-repeated))
+
+; staffing has a header; widget, a fact block, has none of its own.
+(test-datalog "a keyed atom over a fact block, which has no header, is refused"
+  (tables
+    (staffing (Name Salary Dept)
+      (alice 90000 eng)
+      (bob 70000 sales)
+      (carol 95000 eng)))
+  (program
+    (fact (widget a b))
+    (rule (bad X) (widget (foo X)))
+    (query bad))
+  (refuses datalog-keyed-atom-needs-header))
+
+(test-datalog "a keyed pair whose value is itself a list is refused as a compound term"
+  (tables
+    (staffing (Name Salary Dept)
+      (alice 90000 eng)
+      (bob 70000 sales)
+      (carol 95000 eng)))
+  (program
+    (rule (bad X Y) (staffing (name X) (salary (foo Y))))
+    (query bad))
+  (refuses datalog-compound-term))
+
+(test-datalog "a keyed rule head is refused as a compound term: heads stay positional"
+  (tables
+    (staffing (Name Salary Dept)
+      (alice 90000 eng)
+      (bob 70000 sales)
+      (carol 95000 eng)))
+  (program
+    (rule (staffing (name X)) (staffing (name X)))
+    (query staffing))
+  (refuses datalog-compound-term))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.8: the two table answers in TestDatalogUnknownPredicate, moved
+;  at METAPROOF.4. A Table whose rows were all deleted still defines its
+;  name - a header and no row - and G-PROLOG's who-question, spelled
+;  right, answers over a keyed Table. Their refusal twins stay in VBA:
+;  each checks WHICH name its words give.
+; ---------------------------------------------------------------------
+
+(test-datalog "a table with a header and no row is defined: (not ...) over it keeps tom"
+  (tables
+    (leave (Name Shift)))
+  (program
+    (fact (person tom))
+    (rule (ok X) (person X) (not (leave X X)))
+    (query ok))
+  (rows (X)
+    (tom)))
+
+(test-datalog "G-PROLOG's who-question over a keyed Table answers Bob alone"
+  (tables
+    (rota (Name Shift)
+      (Bob Night)
+      (Di Day)))
+  (program
+    (rule (can-cover Person Shift) (rota (name Person) (shift Shift)))
+    (rule (vla-ask-can-cover Who) (can-cover Who "Night"))
+    (query vla-ask-can-cover))
+  (rows (Who)
+    (Bob)))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.9: the three questions in TestDatalogGroundQuery that read a
+;  keyed Table, moved at METAPROOF.4. A bare 3 in a query matches a
+;  number cell holding 3, through a rule, and G-PROLOG's whether tail
+;  answers here. The refusals stay in VBA, each checking what its words
+;  name.
+; ---------------------------------------------------------------------
+
+(test-datalog "a bare 3 matches a number cell through a rule over a keyed Table: Ann is at level 3"
+  (tables
+    (staff (Name Level)
+      (Ann 3)
+      (Bob 1)))
+  (program
+    (rule (has-level P L) (staff (name P) (level L)))
+    (query (has-level "Ann" 3)))
+  (answer true))
+
+(test-datalog "Bob, at level 1, is not at level 3: FALSE"
+  (tables
+    (staff (Name Level)
+      (Ann 3)
+      (Bob 1)))
+  (program
+    (rule (has-level P L) (staff (name P) (level L)))
+    (query (has-level "Bob" 3)))
+  (answer false))
+
+(test-datalog "G-PROLOG's whether tail answers here: Bob can cover Night"
+  (tables
+    (rota (Name Shift)
+      (Bob Night)
+      (Di Day)))
+  (program
+    (rule (can-cover Person Shift) (rota (name Person) (shift Shift)))
+    (query (can-cover "Bob" "Night")))
+  (answer true))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.10: the four questions in TestDatalogNegatedQuery that read a
+;  table, moved at METAPROOF.4. Under not, a bare 3 matches a number cell
+;  as it does outside; a blank beside a number is any row at that level;
+;  and nothing in a table with no row can match. The refusals stay in
+;  VBA, each checking what its words name.
+; ---------------------------------------------------------------------
+
+(test-datalog "under not, a bare 3 matches a number cell: Ann is at level 3, so FALSE"
+  (tables
+    (staff (Name Level)
+      (Ann 3)
+      (Bob 1)))
+  (program
+    (rule (has-level P L) (staff (name P) (level L)))
+    (query (not (has-level "Ann" 3))))
+  (answer false))
+
+(test-datalog "a blank beside a number: somebody is at level 3, so FALSE"
+  (tables
+    (staff (Name Level)
+      (Ann 3)
+      (Bob 1)))
+  (program
+    (rule (has-level P L) (staff (name P) (level L)))
+    (query (not (has-level Who 3))))
+  (answer false))
+
+(test-datalog "a blank beside a number: nobody is at level 2, so TRUE"
+  (tables
+    (staff (Name Level)
+      (Ann 3)
+      (Bob 1)))
+  (program
+    (rule (has-level P L) (staff (name P) (level L)))
+    (query (not (has-level Who 2))))
+  (answer true))
+
+(test-datalog "a table with a header and no row answers TRUE under not: nothing in it can match"
+  (tables
+    (leave (Name Shift)))
+  (program
+    (query (not (leave X Y))))
+  (answer true))
+
+
+; ---------------------------------------------------------------------
+;  DATALOG.11: a number cell read as text, moved from TestDatalogTextTests
+;  at METAPROOF.4. A text test reads a number cell as its canonical text,
+;  the same on every machine (VLA_Relation.InvariantNumberText): 4010
+;  starts with 40, and 0.5 keeps its leading zero. A text cell keeps its
+;  own text, so "007" starts with 00. textjoin joins number cells the
+;  same way, a group's values in the table's own row order. Rows are in
+;  the engine's order, as the VBA pins read them by position.
+; ---------------------------------------------------------------------
+
+(test-datalog "a number cell holding 4010 starts with 40, and the text 007 does not"
+  (tables
+    (codes (Code Name)
+      (4010 Sales)
+      ("007" Petty)
+      (0.5 Half)))
+  (program
+    (rule (forty N) (codes (code C) (name N)) (text-starts-with C 40))
+    (query forty))
+  (rows (N)
+    (Sales)))
+
+(test-datalog "a number cell holding 0.5 reads 0.5, its leading zero kept"
+  (tables
+    (codes (Code Name)
+      (4010 Sales)
+      ("007" Petty)
+      (0.5 Half)))
+  (program
+    (rule (half N) (codes (code C) (name N)) (text-starts-with C "0.5"))
+    (query half))
+  (rows (N)
+    (Half)))
+
+(test-datalog "a text cell keeps its own text: 007 starts with 00"
+  (tables
+    (codes (Code Name)
+      (4010 Sales)
+      ("007" Petty)
+      (0.5 Half)))
+  (program
+    (rule (zeros N) (codes (code C) (name N)) (text-starts-with C "00"))
+    (query zeros))
+  (rows (N)
+    (Petty)))
+
+(test-datalog "textjoin joins number cells as their canonical text: Bob 3, 1 and Di 0.5"
+  (tables
+    (staff (Name Level)
+      (Ann 3)
+      (Bob 3)
+      (Bob 1)
+      (Di 0.5)))
+  (program
+    (rule (levels N L) (staff (name N)) (textjoin L ", " (staff (name N) (level V))))
+    (query levels))
+  (rows (N L)
+    (Ann "3")
+    (Bob "3, 1")
+    (Di "0.5")))

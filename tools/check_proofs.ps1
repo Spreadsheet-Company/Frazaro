@@ -24,10 +24,17 @@ WHAT IS CHECKED, in every scripts/proofs/*.vla:
      without case, as the runner's own name check compares them).
   4. Every proof has exactly one (program ...) clause and exactly one
      expectation - (rows ...), (rows-in-any-order ...), (answer ...) or
-     (refuses ...) - and no other clause.
+     (refuses ...) - at most one (tables ...) clause (METAPROOF.4), and
+     no other clause.
   5. (rows ...) and (rows-in-any-order ...): a header that is a list of
      plain cells or the word headless, then rows that are lists of plain
-     cells, every row (and a list header) as wide as the first.
+     cells, every row (and a list header) as wide as the first. A table
+     in (tables ...) is written the same way, (name header row ...), and
+     held besides to what a live Table argument is: a bare-word name no
+     other table in the proof has, compared without case as DATALOG
+     compares a Table's name; column names that are text, none empty and
+     no two matching without case, as a keyed atom looks them up; and,
+     when headless, at least one row to give it a width.
   6. (answer x): x is true or false.
   7. (refuses id): id is a message id one of src/VLA_Messages.bas's AddMsg
      rows registers.
@@ -82,9 +89,11 @@ if ($ClingoDir -eq '') { $ClingoDir = Join-Path $PSScriptRoot 'clingo' }
 # eleven and five of TestDatalog's refusals, moved out of VBA. 2026-09-28,
 # METAPROOF.3: ninety-four - seventy-eight more moved from VLA_Tests_Query.bas.
 # 2026-09-29, DATALOG.16: ninety-eight - four proofs that keep "Bob" and "bob"
-# apart, in a join and in count, sum and textjoin.
+# apart, in a join and in count, sum and textjoin. 2026-09-30, METAPROOF.4: a
+# hundred and twenty-four - twenty-six proofs that carry their tables, for the
+# twenty-nine pins that waited on a table argument.
 $floors = [ordered]@{
-    'datalog.vla' = 98
+    'datalog.vla' = 124
 }
 # --- rule 9's baseline: every proof file, and the fewest of its proofs its
 # clingo export may carry (0 for an engine clingo cannot check) ---
@@ -92,7 +101,9 @@ $floors = [ordered]@{
 # refusals are DATALOG's own policy, which no other lineage raises. 2026-09-28,
 # METAPROOF.3: twenty-three - twelve of the seventy-eight new proofs export.
 # 2026-09-29, DATALOG.16: still twenty-three - its four proofs need a quoted
-# "Bob", which the translation declines.
+# "Bob", which the translation declines. 2026-09-30, METAPROOF.4: still
+# twenty-three - its twenty-six proofs each read a (tables ...) clause, which
+# the translation declines.
 $clingoFloors = [ordered]@{
     'datalog.vla' = 23
 }
@@ -150,6 +161,87 @@ function Test-ProofRows($expect, [string]$where, $fails) {
         }
     }
     if ($wide -eq 0) { $fails.Add("${where}: a row with no cells - DATALOG has no zero-width answer") }
+}
+
+# Rule 5, for (tables ...) (METAPROOF.4): each table is (name header row ...),
+# written as a (rows ...) answer is, and held to what a live Table argument
+# is. The runner (ProofTablesRead, VLA_Tests_Query.bas) refuses the same
+# shapes, so a malformed table is caught here before a live run is spent.
+function Test-ProofTables($tablesNode, [string]$where, $fails) {
+    if ($tablesNode.Items.Count -lt 2) {
+        $fails.Add("${where}: (tables ...) names no table (line $($tablesNode.Line))")
+        return
+    }
+    $tableNames = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    for ($ti = 1; $ti -lt $tablesNode.Items.Count; $ti++) {
+        $table = $tablesNode.Items[$ti]
+        if ($table.Kind -ne 'list' -or $table.Items.Count -lt 2) {
+            $fails.Add("${where}: a table is (name header row ...) - a name, then a header (line $($table.Line))")
+            continue
+        }
+        $nameNode = $table.Items[0]
+        if ($nameNode.Kind -ne 'atom') {
+            $fails.Add("${where}: a table's name is a bare word (line $($nameNode.Line))")
+            continue
+        }
+        $tname = $nameNode.Text
+        if (-not $tableNames.Add($tname)) {
+            $fails.Add("${where}: a second table named $tname - a Table's name is one name whatever its case (line $($nameNode.Line))")
+        }
+        $hdr = $table.Items[1]
+        $wide = -1
+        if ($hdr.Kind -eq 'list') {
+            if ($hdr.Items.Count -eq 0) {
+                $fails.Add("${where}: table $tname's header names no column (line $($hdr.Line))")
+                continue
+            }
+            # Without case, as a keyed atom looks a column up (VLA_Identity.Fold).
+            $cols = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+            $badHeader = ''
+            foreach ($cn in $hdr.Items) {
+                if ($cn.Kind -eq 'list') { $badHeader = 'a list where a column name belongs'; break }
+                if ($cn.Text -eq '') { $badHeader = 'a column with no name'; break }
+                if (-not $cols.Add($cn.Text)) { $badHeader = "two columns named $($cn.Text), whatever their case - a keyed atom could not tell them apart"; break }
+            }
+            if ($badHeader -ne '') {
+                $fails.Add("${where}: table ${tname}: $badHeader (line $($hdr.Line))")
+                continue
+            }
+            $wide = $hdr.Items.Count
+        } elseif ($hdr.Kind -eq 'atom' -and $hdr.Text.ToLowerInvariant() -eq 'headless') {
+            if ($table.Items.Count -lt 3) {
+                $fails.Add("${where}: headless table $tname has no row, so nothing gives it a width (line $($table.Line))")
+                continue
+            }
+        } else {
+            $fails.Add("${where}: table $tname's header is a list of column names, or the word headless (line $($hdr.Line))")
+            continue
+        }
+        for ($ri = 2; $ri -lt $table.Items.Count; $ri++) {
+            $rowNode = $table.Items[$ri]
+            if ($rowNode.Kind -ne 'list') {
+                $fails.Add("${where}: every row of table $tname is a list of cells (line $($rowNode.Line))")
+                break
+            }
+            if ($wide -lt 0) { $wide = $rowNode.Items.Count }
+            if ($rowNode.Items.Count -eq 0) {
+                $fails.Add("${where}: a row of table $tname holds no cell (line $($rowNode.Line))")
+                break
+            }
+            if ($rowNode.Items.Count -ne $wide) {
+                $fails.Add("${where}: a row $($rowNode.Items.Count) cells wide in table $tname, which is $wide wide (line $($rowNode.Line))")
+                break
+            }
+            $listCell = $false
+            foreach ($cellNode in $rowNode.Items) {
+                if ($cellNode.Kind -eq 'list') { $listCell = $true; break }
+            }
+            if ($listCell) {
+                $fails.Add("${where}: a list where a cell of table $tname belongs (line $($rowNode.Line))")
+                break
+            }
+        }
+    }
 }
 
 Write-Output '=== PROOF CORPUS (scripts/proofs, METAPROOF.1) ==='
@@ -212,11 +304,16 @@ foreach ($pf in $present) {
         $programs = 0
         $expectNode = $null
         $expectCount = 0
+        $tablesNode = $null
+        $tablesCount = 0
         for ($ci = 2; $ci -lt $form.Items.Count; $ci++) {
             $clauseNode = $form.Items[$ci]
             $clauseWord = Get-ProofHeadWord $clauseNode
             if ($clauseWord -eq 'program') {
                 $programs++
+            } elseif ($clauseWord -eq 'tables') {
+                $tablesCount++
+                $tablesNode = $clauseNode
             } elseif ($expectHeads -ccontains $clauseWord) {
                 $expectCount++
                 $expectNode = $clauseNode
@@ -225,6 +322,12 @@ foreach ($pf in $present) {
             }
         }
         if ($programs -ne 1) { $failures.Add("${where}: a proof has exactly one (program ...) clause, this one has $programs") }
+        # rules 4 and 5, for the tables (METAPROOF.4)
+        if ($tablesCount -gt 1) {
+            $failures.Add("${where}: a proof has at most one (tables ...) clause, which holds every table; this one has $tablesCount")
+        } elseif ($null -ne $tablesNode) {
+            Test-ProofTables $tablesNode $where $failures
+        }
         if ($expectCount -ne 1) {
             $failures.Add("${where}: a proof states exactly one expectation, this one states $expectCount")
             continue

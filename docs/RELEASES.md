@@ -75,6 +75,21 @@
   behind, empty, and call it "put back as they were before the run". It is
   removed now, as every other sheet a run creates is, and the message says
   so. Undo Last Run does the same.
+- **For contributors: a DATALOG proof can carry the tables its program
+  reads.** None of this ships, and nothing in Frazaro calls it.
+  - A proof in `scripts/proofs/datalog.vla` may hold a `(tables ...)`
+    clause. Each table is written as an answer is written: a name, its
+    header row (or `headless`, for a plain named range), then its rows,
+    each cell read as a cell of an Excel Table is. So the 29 DATALOG tests
+    that needed a table moved there too, as 26 proofs, and the six that
+    accepted any error now name the refusal they expect. The file holds
+    124 proofs.
+  - The two tests that compare DATALOG with OPTIMIZE and with its own
+    integer grounder hand them each proof's tables, so both now answer
+    those programs, where before they only refused them alike.
+  - `tools/check_proofs.ps1` checks every table without Excel. The clingo
+    export passes over a proof with tables until it can state one
+    faithfully, so clingo still reads the same 23 proofs.
 
 ### Known open security items
 

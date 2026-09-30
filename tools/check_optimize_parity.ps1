@@ -39,7 +39,10 @@ same Boolean answer; or both must refuse, with the same error number and
 the same words. A program whose tables were supplied by its original
 test refuses in both engines, identically, because its predicates are
 undefined - which is still parity, and is why this check needs no
-per-program fixture.
+per-program fixture. (METAPROOF.4: a proof in the corpus that carries its
+tables in a (tables ...) clause is asked of both engines WITH them, since
+the corpus holds the fixture beside the program; only the table's
+programs run bare.)
 
   -Emit prints the table as VBA source, for pasting into
   DatalogParityPrograms when the list grows. It is a convenience for a
@@ -80,7 +83,9 @@ $failures = New-Object System.Collections.Generic.List[string]
 # TestDatalogBoundArgument, five of TestDatalog's refusals).
 # 2026-09-28, METAPROOF.3: 109 - seventy-nine more call sites moved, as
 # seventy-eight proofs (TestDatalog's (edge X X) pin was already one).
-$callSiteCeiling = 109
+# 2026-09-30, METAPROOF.4: 84 - twenty-five call sites that passed a table
+# argument moved, as proofs that carry their tables in a (tables ...) clause.
+$callSiteCeiling = 84
 $testsPath = Join-Path $root 'src\VLA_Tests_Query.bas'
 if (-not (Test-Path -LiteralPath $testsPath)) {
     Write-Error "Missing $testsPath"

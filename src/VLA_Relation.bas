@@ -829,8 +829,9 @@ End Function
 
 ' Builds a Relation from src (a live Range, or a plain 2D array shaped
 ' like one - the seam that makes this fully testable with no live
-' workbook: VLA_Tests.TestDatalog is this function's own first caller,
-' off a hand-built array, never a live Range). Arity is whatever the
+' workbook: since METAPROOF.4 every table of the proof corpus reaches it
+' this way, VLA_Tests_Query.ProofDatalogTables building the array from a
+' proof's (tables ...) clause, never a live Range). Arity is whatever the
 ' source's own column count is; a row where every cell is blank is
 ' skipped (a selection slightly taller than its real data is the
 ' common case, not a phantom all-empty fact).
