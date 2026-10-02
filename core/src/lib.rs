@@ -17,6 +17,7 @@
 //! property from the first commit.
 
 pub mod emit;
+pub mod english;
 pub mod expand;
 pub mod form;
 pub mod headtable;

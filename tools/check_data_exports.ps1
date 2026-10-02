@@ -2,10 +2,13 @@
 check_data_exports.ps1 - the exported data files agree with their VBA sources.
 
 WHY: PORT.5 gave the core two catalogues as data, each exported once from the
-VBA that stays their source:
+VBA that stays their source, and PORT.6 (slice 6a) two more, the English
+engine's word tables and name lists:
 
-    scripts/headtable.vla   from src/VLA_HeadTable.bas   (tools/export_headtable.ps1)
-    scripts/messages.vla    from src/VLA_Messages.bas    (tools/export_messages.ps1)
+    scripts/headtable.vla   from src/VLA_HeadTable.bas       (tools/export_headtable.ps1)
+    scripts/messages.vla    from src/VLA_Messages.bas        (tools/export_messages.ps1)
+    scripts/words.vla       from src/VLA_English.bas         (tools/export_words.ps1)
+    scripts/names.vla       from src/VLA_SentenceEngine.bas  (tools/export_names.ps1)
 
 Two copies of one list, and nothing mechanical to hold them together, is the
 shape check_devrig_mods_parity.ps1 was written for after eight recurrences
@@ -35,10 +38,14 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $floors = @{
     'scripts/headtable.vla' = 65    # one row per core form (VLA_HeadTable.bas, IN5.0: 65)
     'scripts/messages.vla'  = 574   # one entry per refusal id (VLA_Messages.bas, LX.14)
+    'scripts/words.vla'     = 113   # one entry per word-table row (VLA_English.bas, LX.14; PORT.6 2026-10-02)
+    'scripts/names.vla'     = 211   # one entry per name-list row (VLA_SentenceEngine.bas, LE.11; PORT.6 2026-10-02)
 }
 $exports = @(
     @{ Data = 'scripts/headtable.vla'; Script = 'tools/export_headtable.ps1'; Form = '^\(head ' },
-    @{ Data = 'scripts/messages.vla';  Script = 'tools/export_messages.ps1';  Form = '^\(message ' }
+    @{ Data = 'scripts/messages.vla';  Script = 'tools/export_messages.ps1';  Form = '^\(message ' },
+    @{ Data = 'scripts/words.vla';     Script = 'tools/export_words.ps1';     Form = '^\([a-z-]+ ' },
+    @{ Data = 'scripts/names.vla';     Script = 'tools/export_names.ps1';     Form = '^\([a-z-]+ ' }
 )
 
 function Get-NormalizedLines([string]$text) {
