@@ -6,6 +6,7 @@ Public Const VLA_TESTS_VERSION As String = "LX.14"
 ' a phrasebook's one-word head, with a note for Check.
 ' LX.14 (slice 2): and TestLx14Phrases after it - function phrases in the
 ' value grammar and the load's audit of them.
+' LX.14 (slice 3): and TestLx14Spanish - espanol.vla's own phrases.
 '
 ' U.30: TestU30EngineCallNames, dispatched after TestGFormulaNamedFigures -
 ' a name the code Frazaro writes calls by name refused wherever a name is
@@ -471,6 +472,7 @@ Public Function VlaSelfTest() As Boolean
     TestU30EngineCallNames
     TestLx14Masking
     TestLx14Phrases
+    TestLx14Spanish
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then

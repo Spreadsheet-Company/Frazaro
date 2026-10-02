@@ -8,6 +8,8 @@ Public Const VLA_TESTS_GRAMMAR_VERSION As String = "LX.14"
 ' the refusal of one that stops partway (in a condition and a comma body
 ' too), longest first, composition, the listing, masking beside a longer
 ' phrase, and eleven refusals of the load's audit.
+' LX.14 (slice 3): TestLx14Spanish - three pins on espanol.vla's phrases,
+' its connector its own.
 ' GFORMULA.4: TestGFormulaNamedFigures - three pins on G-FORMULA slice 4's
 ' choice of rules over a name for a remembered range's median, not a
 ' function word: english.vla loads with its new proofs, and a program that
@@ -4685,6 +4687,30 @@ Public Sub TestLx14Phrases()
     CheckPhraseLoadRefused "a keyword alias's word, the phrase first", _
         "(english-function ""lorem ipsum of {x:value}"" (lorem {x}))" & vbLf & "(keyword-alias ""ipsum"" ""if"")", _
         "english-function-phrase-alias-word", "'ipsum' is both a keyword alias and a word of the phrase"
+    EnglishResetGrammar
+End Sub
+
+' LX.14 (slice 3): a phrasebook in another language declares its own
+' phrases, its connector its own - espanol.vla's "la suma de" and its
+' siblings, over a value and over a region written out, which no Spanish
+' sentence reached before. Loading it after english.vla runs its proofs
+' (TestLx10NonEnglishFixture's load); these read two sentences directly.
+Public Sub TestLx14Spanish()
+    Dim loadErr As String
+    On Error Resume Next
+    EnglishResetGrammar
+    Err.Clear
+    EnglishLoadVocabulary FindDevFile("english.vla")
+    If Err.Number = 0 Then EnglishLoadVocabulary FindDevFile("espanol.vla")
+    If Err.Number <> 0 Then loadErr = Err.Description
+    On Error GoTo 0
+    Report "lx.14 spanish: english.vla and espanol.vla load, the Spanish phrases' proofs included", Len(loadErr) = 0, loadErr
+    If Len(loadErr) = 0 Then
+        AssertEnglish "lx.14 spanish: la suma de la region, where a value goes", _
+            "Pon la suma de la region B2:B9 en la celda B10.", "(set! (range ""b10"") (suma-de (range ""b2:b9"")))"
+        AssertEnglish "lx.14 spanish: el promedio de a value, in a condition", _
+            "Si el promedio de ventas es 10, pon 1 en la barra de estado.", "(if (= (promedio-de ventas) 10)"
+    End If
     EnglishResetGrammar
 End Sub
 

@@ -777,7 +777,9 @@ template, as a rule's is:
 `Set spread to standard deviation of revenues as a sample.` then reads
 `revenues` into `{x}` and `sample` into `{k}`. Several words with no hole
 take a value after them, so a phrasebook in another language writes its
-own connector: `(espanol-function "suma de" suma-de)`. A phrase is tried
+own connector, and its own articles: `espanol.vla`'s `(espanol-function
+"la suma de" suma-de)` reads `Pon la suma de ventas en la celda B14.` A
+phrase is tried
 before any shorter reading of its first word, and once its words before
 the hole have matched, it completes or is refused, saying what it
 expected. Loading refuses a phrase whose later words already follow a

@@ -5892,7 +5892,7 @@ written against.
   must keep working; and `english.vla` loading - with two `test-fail` proofs
   in it, one per branch, which run at every load. *Depends on:* nothing.
   `~hours`
-- 🟡 **LX.14 — function phrases: a value said in several words, bound where
+- ✅ **LX.14 — function phrases: a value said in several words, bound where
   a value is read.** *Minted 2026-09-30, the owner's call, from `G-FORMULA`
   slice 4's scoping, where a remembered range's median and standard
   deviation became rules over a name because a function word could not
@@ -6178,6 +6178,31 @@ written against.
   the one step left: a simulated export, the committed one less the
   fourteen rules and their proofs plus the new block, restamped, passed
   all thirty-two checks.
+  **✅ Slice 3 - Spanish, built 2026-09-30, owner-verified live and
+  committed 2026-10-01.** `espanol.vla` declares eight phrases with its own connector and
+  its articles - `la suma de`, `el promedio de`, `el mayor de` and `el
+  menor de`, each over a value and over `la region {r:range}` - so the four
+  macros it had carried since it was written are reached at last: `Pon la
+  suma de la region B2:B9 en la celda B10.`, `Si el promedio de ventas es
+  10, …`. The articles are words of each phrase because the tokenizer drops
+  no Spanish word, and `si` and `es` (keyword aliases) are read before the
+  phrase, as any Spanish condition's are. Seven proofs in `espanol.vla` (six
+  test-success, one test-fail), run by `TestLx10NonEnglishFixture`'s load;
+  three pure pins (`TestLx14Spanish`). With it every item of **Done when**
+  is met. Spanish has no ledger of its own, as its rules have none.
+  **Owner-verified live 2026-10-01,** the three slices with `U.30` beside
+  them: `VLA_SELF-TESTS` pure 1651/1651 and host 267/267, as predicted;
+  `VerifyReports` 371/371 on both backends; `TestDSLs` 2346/0; the export as
+  predicted (Rules 240: 158 with one test, 82 with two or more, 22
+  test-fail); the goldens differing only by the new step, its call and its
+  step texts once line and step numbers are set aside (main 728 steps,
+  `check-phrases` 843-857); and nine live tests as written - the masking
+  note and both backends' answers, the engine's `length of` still refused,
+  `median of` in a condition and in arithmetic, `standard deviation of range
+  B2:B50 as a sample` shown, both refusals of a phrase that stops partway,
+  the phrases in **What can I say?**, a program's own `median` beside the
+  phrasebook's longer phrase, and `la suma de`, `el mayor de` and `el
+  promedio de` on both backends.
 
 ---
 
@@ -26899,6 +26924,8 @@ numbers. **Quoting a correction is not applying it.**
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part C
 
 - ✅ **LX.13 — a name is never shaped like a cell.** From the 2026-09-28 fluency assessment, confirmed live that day: `Set A2 to 5.` validated green and wrote no cell. **Built, owner-verified live and committed 2026-09-29** (`VLA_SELF-TESTS` pure 1560/1560 and host 241/241; `TestDSLs` 2330/0; `VerifyReports` 317/317 on both backends; the phrasebook export as predicted; six hand tests). On the owner's four calls, each as recommended: a word shaped like a cell (one to three letters, then digits: `A1`, `q1`, `fy24`) is refused with directions - `cell A1` for the cell, a hyphenated name for a name - wherever a name is made and wherever a value is read, only after a sentence has matched, so later rules keep their turn, in one message, `english-cell-shaped-name`. Sheets, tables and pivots may still be called Q1. No sentence of a shipped `instructions.txt` used such a name, so `SD-4`'s promise holds and `SD-14`'s MAJOR does not fire. The refusal's opening quote, hidden on the sheet by Excel's text marker, is `U.26`. *(more: the full entry, earlier in this file)* `~hours`
+
+- ✅ **LX.14 — function phrases: a value said in several words, bound where a value is read.** Minted 2026-09-30, the owner's call, from `G-FORMULA` slice 4's scoping. **Scoped 2026-09-30** (the directive's spelling, the refusal of a phrase that stops partway, the audit's word list, the ledger's third section with `carried-by:`, masking as a one-translation overlay, the fourteen rules that retire, the first phrases, three slices), each call as recommended under the owner's advance approval. Built in three slices, **owner-verified live and committed 2026-10-01** (`VLA_SELF-TESTS` pure 1651/1651 and host 267/267, `U.30`'s pins beside them; `VerifyReports` 371/371 on both backends; Rules 240; the goldens differing only by the new step). **Slice 1, masking:** a program's own `To sum of amounts:` takes the phrasebook's `sum of` inside that program instead of being refused, with a yellow note on its row at Check; the next program gets the phrasebook's back; the engine's own words still refuse. **Slice 2, the phrases:** the engine reads a phrase of any length where a value is read, longest first, audits each at load, and refuses one that stops partway with its whole shape; `english.vla` gains nine (`median of`, the figures `of range …`, `standard deviation of … as sample|population`, `last filled row of column …`), so `If median of revenues is more than 100, …` and `Show standard deviation of range B2:B50 as a sample.` read; the fourteen rules they carry retired, their sentences unchanged; `GRAMMAR_SINCE.md` gains its third section and `carried-by:`. **Slice 3, Spanish:** `espanol.vla` declares `la suma de`, `el promedio de`, `el mayor de` and `el menor de`, over a value and over `la region …`, reaching the four macros no Spanish sentence could before. A function word today is one word and the English `of` (`sum of`, `largest of`), looked up as one token where a value is read. So `standard deviation of` cannot be one, a phrasebook in another language cannot declare one at all (`espanol.vla` carries `suma-de` and `promedio-de` with no sentence that reaches them), and a figure over a range is sayable only in the Set and Put rules written for it. The item: a phrase is any fixed run of words, its connector the phrasebook's own, matched longest-first at the innermost level of a value, as `divided by` already is, so it binds first and composes anywhere a value goes; audited at load, dated in `GRAMMAR_SINCE.md` (no function word has a row today), listed by **What can I say?**. A phrase of two or more words can never equal a program's own names, which are one word, so adding one breaks nothing (`SD-4`). **The owner's three calls, settled 2026-09-30 as recommended:** words after the value (`… as a sample`) - at most one closing clause, `SD-16`'s precision amendment of that day; a one-word head such as `median of` - the program's own definition masks the phrasebook's inside that program, with a note at Check, once `U.30` refuses an action named like what a word compiles to; and ranges - a reference only as a phrase's value, each phrase declaring which it takes. *Depends on:* `U.30`. *(more: the full entry, earlier in this file)* `~days`
 
 ## 🪟 PRODUCT · INTERFACE
 

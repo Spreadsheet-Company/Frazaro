@@ -115,13 +115,19 @@
   that already had a step of that name. The words Frazaro itself reads with
   `of` (`length of`, `count of`, `first of` and the rest) are still refused
   as a step's name.
+- **In Spanish, a figure is a value too.** `Pon la suma de la region B2:B9
+  en la celda B10.`, and `el promedio de`, `el mayor de` and `el menor de`
+  the same way, over a region written out or over a value (`Si el
+  promedio de ventas es 10, …`). The Spanish phrasebook had carried these
+  four figures since it was written, with no sentence that could reach
+  them.
 - **For phrasebook authors: a function word can be several words.**
   `(english-function "standard deviation of {x:value} as
   {k:sample|population}" ({k}-standard-deviation-of {x}))` declares a
   phrase: fixed words, then one value (`{x:value}`, or a reference -
   `{r:range}`, `{c:column}` or `{c:cell}`), then at most one closing
   clause of fixed words and one choice of words. The connector is the
-  phrasebook's own, so `(espanol-function "suma de" suma-de)` works as
+  phrasebook's own, so `(espanol-function "la suma de" suma-de)` works as
   `"sum of"` always has. Loading refuses a phrase that would change a
   sentence that reads today (a later word that already follows a value,
   like `plus` or `is`), two phrases with the same words, and a phrase

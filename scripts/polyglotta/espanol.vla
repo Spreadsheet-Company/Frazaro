@@ -934,6 +934,59 @@
     "contar las celdas de un rango que coinciden con una condicion"
     (count-matching region criterio))
 
+; LX.14: frases de funcion - un valor dicho en varias palabras, leido
+; donde se lee un valor, asi que cabe en cualquier oracion que tome uno.
+; El conector es el de este libro ("de"), no el "of" del ingles, y los
+; articulos son palabras de la frase, porque el lector no omite ninguno
+; en espanol. Hasta ahora ninguna oracion alcanzaba suma-de, promedio-de,
+; mayor-de ni menor-de; ahora cada una se dice sobre un valor ("la suma
+; de ventas") o sobre una region escrita ("la suma de la region B2:B9").
+(espanol-function
+    "la suma de"
+    suma-de)
+(espanol-function
+    "la suma de la region {r:range}"
+    (suma-de (range {r})))
+(espanol-function
+    "el promedio de"
+    promedio-de)
+(espanol-function
+    "el promedio de la region {r:range}"
+    (promedio-de (range {r})))
+(espanol-function
+    "el mayor de"
+    mayor-de)
+(espanol-function
+    "el mayor de la region {r:range}"
+    (mayor-de (range {r})))
+(espanol-function
+    "el menor de"
+    menor-de)
+(espanol-function
+    "el menor de la region {r:range}"
+    (menor-de (range {r})))
+(test-success
+    "Pon la suma de la region B2:B9 en la celda B10."
+    (set! (range "b10") (suma-de (range "b2:b9"))))
+(test-success
+    "Pon el promedio de la region B2:B9 en la celda B11."
+    (set! (range "b11") (promedio-de (range "b2:b9"))))
+(test-success
+    "Pon el mayor de la region B2:B9 en la celda B12."
+    (set! (range "b12") (mayor-de (range "b2:b9"))))
+(test-success
+    "Pon el menor de la region B2:B9 en la celda B13."
+    (set! (range "b13") (menor-de (range "b2:b9"))))
+(test-success
+    "Pon la suma de ventas en la celda B14."
+    (set! (range "b14") (suma-de ventas)))
+(test-success
+    "Si la suma de ventas es 10, pon 1 en la barra de estado."
+    (if (= (suma-de ventas) 10) (then (set-status-bar 1))))
+(test-fail
+    "Pon la suma de la region en la celda B10."
+    "then I expected a range")
+
 ; ---- identificadores de VBA que pasan directo, no macros de english.vla --
 ; Distincion real, no cosmetica: range/cells/rows/columns/worksheets/now/
 ; timeserial no son macros de english.vla en absoluto - no tienen su
