@@ -68,7 +68,9 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # message catalogue, exported to data, agree with the VBA they came from)
 # and check_compile_prefix.ps1 (the core reproduces the compile golden; the
 # matched prefix never goes down).
-$expectedAtLeast = 36
+# 2026-10-02, PORT.6: 37 - check_prove_floors.ps1 (the core's passing
+# phrasebook proofs per file never go down).
+$expectedAtLeast = 37
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---

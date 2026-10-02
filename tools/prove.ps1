@@ -36,6 +36,15 @@ to the .vba golden. The runner writes the stamp-less program to a file in a
 scratch directory and names it in the result, so what was compiled is a file
 someone can read; the control's fake answers it from the .vba golden and the
 mutant changes one byte, as for the translate kinds.
+
+2026-10-02, PORT.6 (the treaty's amendment of that date): oracle 1's .vla
+golden begins with the same writer's stamp line, which the runner drops
+before comparing, as it does for compile. Oracle 3's count, n, is the number
+of test-success and test-fail forms the loader runs after a phrasebook's own
+generators have expanded: read from the <name>_expanded.vla export beside the
+source when there is one (its source-hash stamp checked against the source,
+so a stale export fails here rather than counting), and from the source's
+own top-level forms otherwise. The control's fake counts the same way.
 #>
 param(
     [string]$Impl = '',
@@ -78,16 +87,66 @@ function Write-CompileInput([string]$golden, [string]$dir) {
     [System.IO.File]::WriteAllBytes($out, $rest)
     return $out
 }
+# Oracle 1's .vla golden less its first line, the same stamp, normalized:
+# what translate-vla must reproduce (the amendment of 2026-10-02).
+function Read-GoldenLessStamp([string]$path) {
+    $bytes = [System.IO.File]::ReadAllBytes($path)
+    $i = [Array]::IndexOf($bytes, [byte]10)
+    if ($i -lt 0) { throw "no line break in $path" }
+    $rest = New-Object byte[] ($bytes.Length - $i - 1)
+    [Array]::Copy($bytes, $i + 1, $rest, 0, $rest.Length)
+    return Get-NormalizedText ([System.Text.Encoding]::UTF8.GetString($rest))
+}
+# SHA-256 over a file's non-whitespace bytes, upper-case hex: the stamp an
+# expanded phrasebook export carries (EnglishSourceHash; check_rule_coverage.ps1
+# reads it the same way).
+function Get-NonWhitespaceSha256([string]$path) {
+    $raw = [System.IO.File]::ReadAllBytes($path)
+    $packed = New-Object byte[] $raw.Length
+    $k = 0
+    foreach ($b in $raw) {
+        if ($b -ne 9 -and $b -ne 10 -and $b -ne 13 -and $b -ne 32) { $packed[$k] = $b; $k++ }
+    }
+    $out = New-Object byte[] $k
+    [Array]::Copy($packed, $out, $k)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { $digest = $sha.ComputeHash($out) } finally { $sha.Dispose() }
+    return @{ Hex = (([BitConverter]::ToString($digest)) -replace '-', ''); Count = [long]$k }
+}
+# Oracle 3's n (the amendment of 2026-10-02): the proof forms the loader runs
+# after the phrasebook's own generators expand. With an export beside the
+# source (<name>_expanded.vla, written by Export Expanded Phrasebook) the
+# forms are counted there, once its source-hash stamp matches the source;
+# otherwise the source's own top-level forms are counted.
+function Get-ProofCount([string]$root, [string]$relFile, [string]$pattern) {
+    $file = Join-Path $root $relFile
+    $dir = Split-Path -Parent $file
+    $base = [System.IO.Path]::GetFileNameWithoutExtension($file)
+    $expanded = Join-Path $dir ($base + '_expanded.vla')
+    if (-not (Test-Path $expanded)) {
+        return @{ Count = (Get-FormCount $file $pattern); From = ''; Stale = '' }
+    }
+    $stamp = (Get-Content -LiteralPath $expanded -TotalCount 2)[1]
+    $m = [regex]::Match($stamp, 'source-hash:\s*sha256:([0-9A-Fa-f]{64}) over (\d+) non-whitespace bytes')
+    $have = Get-NonWhitespaceSha256 $file
+    if (-not $m.Success -or $m.Groups[1].Value.ToUpperInvariant() -ne $have.Hex -or [long]$m.Groups[2].Value -ne $have.Count) {
+        return @{ Count = 0; From = ($base + '_expanded.vla'); Stale = "$($base)_expanded.vla is stale for $relFile - re-export it (Export Expanded Phrasebook) before scoring" }
+    }
+    return @{ Count = (Get-FormCount $expanded $pattern); From = ($base + '_expanded.vla'); Stale = '' }
+}
 
 # ---- the oracles, as the treaty lists them ----
-$phrasebookForm = '^\s*\(test\b'
+# A phrasebook proof is a test-success or test-fail form at the top level of
+# its line (2026-10-02); an engine proof any (test-<engine> ...) form.
+$phrasebookForm = '^\(test-(success|fail)\b'
 $engineForm     = '^\s*\(test-'
 
 function Get-Oracles([string]$root) {
     $list = New-Object System.Collections.Generic.List[object]
     $list.Add(@{ Kind = 'translate-vla'; Label = 'instructions.txt -> instructions_golden.vla'
                  Input = 'scripts/instructions.txt'; Golden = 'scripts/instructions_golden.vla'
-                 Prelude = 'scripts/prelude.vla'; Phrasebook = 'scripts/polyglotta/english.vla' })
+                 Prelude = 'scripts/prelude.vla'; Phrasebook = 'scripts/polyglotta/english.vla'
+                 Stamped = $true })   # the golden's first line is the writer's stamp
     $list.Add(@{ Kind = 'translate-vba'; Label = 'instructions.txt -> instructions_golden.vba'
                  Input = 'scripts/instructions.txt'; Golden = 'scripts/instructions_golden.vba'
                  Prelude = 'scripts/prelude.vla'; Phrasebook = 'scripts/polyglotta/english.vla' })
@@ -132,7 +191,7 @@ function Measure-Oracles([string]$root, [string]$impl, [string]$scratch) {
                              '--phrasebook', (Join-Path $root $o.Phrasebook))
                 $run = Invoke-Impl $impl $cmdArgs
                 if ($run.ExitCode -eq 3) { break }
-                $want = Read-NormalizedFile $golden
+                $want = if ($o.Stamped) { Read-GoldenLessStamp $golden } else { Read-NormalizedFile $golden }
                 $got  = Get-NormalizedText $run.Stdout
                 if ($run.ExitCode -ne 0) { $r.Status = 'FAIL'; $r.Detail = "exit $($run.ExitCode)" }
                 elseif ($got -eq $want) { $r.Status = 'PASS'; $r.Detail = "$($want.Length) chars matched" }
@@ -159,9 +218,11 @@ function Measure-Oracles([string]$root, [string]$impl, [string]$scratch) {
             }
             'prove' {
                 $file = Join-Path $root $o.File
-                $n = Get-FormCount $file $o.Pattern
                 $run = Invoke-Impl $impl @('prove', $file)
                 if ($run.ExitCode -eq 3) { break }
+                $pc = Get-ProofCount $root $o.File $o.Pattern
+                if ($pc.Stale -ne '') { $r.Status = 'FAIL'; $r.Detail = $pc.Stale; break }
+                $n = $pc.Count
                 $last = (Get-NormalizedText $run.Stdout) -split "`n" | Select-Object -Last 1
                 if ($run.ExitCode -eq 0 -and $last -match "^PASS (\d+)/(\d+)$" -and [int]$Matches[1] -eq $n -and [int]$Matches[2] -eq $n) {
                     $r.Status = 'PASS'; $r.Detail = "$n proof(s)"
@@ -197,12 +258,20 @@ param([Parameter(ValueFromRemainingArguments=`$true)][string[]]`$a)
 `$root = '$($root -replace "'", "''")'
 `$mutant = `$$($mutant.ToString().ToLower())
 switch (`$kind) {
-    'translate-vla' { `$g = [System.IO.File]::ReadAllText((Join-Path `$root 'scripts/instructions_golden.vla')) }
+    'translate-vla' {
+        # The golden less its first line, the writer's stamp (2026-10-02).
+        `$b = [System.IO.File]::ReadAllBytes((Join-Path `$root 'scripts/instructions_golden.vla'))
+        `$i = [Array]::IndexOf(`$b, [byte]10)
+        `$g = [System.Text.Encoding]::UTF8.GetString(`$b, `$i + 1, `$b.Length - `$i - 1)
+    }
     'translate-vba' { `$g = [System.IO.File]::ReadAllText((Join-Path `$root 'scripts/instructions_golden.vba')) }
     'compile'       { `$g = [System.IO.File]::ReadAllText((Join-Path `$root 'scripts/instructions_golden.vba')) }
     'prove' {
         `$pattern = if (`$a[1] -like '*polyglotta*') { '$pb' } else { '$en' }
-        `$n = @(Select-String -Path `$a[1] -Pattern `$pattern).Count
+        # n as the treaty counts it: the expanded export beside the source, where there is one.
+        `$exp = Join-Path (Split-Path -Parent `$a[1]) ([System.IO.Path]::GetFileNameWithoutExtension(`$a[1]) + '_expanded.vla')
+        `$counted = if (Test-Path `$exp) { `$exp } else { `$a[1] }
+        `$n = @(Select-String -Path `$counted -Pattern `$pattern).Count
         if (`$mutant) { Write-Output "FAIL 1/`$n"; exit 1 } else { Write-Output "PASS `$n/`$n"; exit 0 }
     }
     default { exit 3 }
@@ -255,8 +324,14 @@ Write-Host 'prove: the oracles (conformance/README.md)'
 foreach ($o in Get-Oracles $root) {
     switch ($o.Kind) {
         'prove' {
-            $p = Join-Path $root $o.File
-            Write-Host ("  {0,-13} {1,-44} {2,6} proof form(s)" -f $o.Kind, $o.Label, (Get-FormCount $p $o.Pattern))
+            $pc = Get-ProofCount $root $o.File $o.Pattern
+            if ($pc.Stale -ne '') {
+                $missing++
+                Write-Host ("  {0,-13} {1,-44} STALE: {2}" -f $o.Kind, $o.Label, $pc.Stale)
+            } else {
+                $note = if ($pc.From -ne '') { " (counted in $($pc.From))" } else { '' }
+                Write-Host ("  {0,-13} {1,-44} {2,6} proof form(s){3}" -f $o.Kind, $o.Label, $pc.Count, $note)
+            }
         }
         default {
             $p = Join-Path $root $o.Golden
@@ -266,6 +341,6 @@ foreach ($o in Get-Oracles $root) {
         }
     }
 }
-if ($missing -gt 0) { Write-Host "FAIL: $missing oracle file(s) missing"; exit 1 }
+if ($missing -gt 0) { Write-Host "FAIL: $missing oracle file(s) missing or stale"; exit 1 }
 Write-Host 'OK: every oracle file is present; score an implementation with -Impl, or prove this runner with -Control'
 exit 0
