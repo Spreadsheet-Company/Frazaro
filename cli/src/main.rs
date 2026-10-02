@@ -15,6 +15,10 @@ frazaro - a compiler from sentences to spreadsheets
 usage:
   frazaro compile <program.vla> --prelude <prelude.vla>
                          the VBA of a VLA program, to stdout (PORT.5)
+  frazaro load <phrasebook.vla> --prelude <prelude.vla> [--allow-raw]
+                         load a phrasebook and report what it holds, the
+                         line EnglishVocabStats prints (PORT.6, slice 6c);
+                         --allow-raw is the consent a (raw ...) form needs
   frazaro version        the version of the core this door is built on
   frazaro help           this text
 
@@ -70,10 +74,77 @@ fn compile(args: &[String]) -> ExitCode {
     }
 }
 
+/// `frazaro load`: a phrasebook through the core's loader, with the two
+/// gates the reference's file loader runs and its text loader leaves to
+/// the door: a required capability (none can be granted yet), and SEC.2's
+/// consent for a `(raw ...)` form, which the person gives with --allow-raw.
+fn load(args: &[String]) -> ExitCode {
+    let (Some(book), Some(prelude)) = (args.first(), option_after(args, "--prelude")) else {
+        eprintln!("usage: frazaro load <phrasebook.vla> --prelude <prelude.vla> [--allow-raw]");
+        return ExitCode::from(2);
+    };
+    let allow_raw = args.iter().any(|a| a == "--allow-raw");
+    let (text, prelude) = match (read_text(book), read_text(prelude)) {
+        (Ok(t), Ok(p)) => (t, p),
+        (Err(e), _) | (_, Err(e)) => {
+            eprintln!("frazaro: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    use frazaro_core::english::vocab::{vocab_requires_check_capability, vocab_text_has_raw_form};
+    if let Err(refusal) = vocab_requires_check_capability(&text, book) {
+        eprintln!("{refusal}");
+        return ExitCode::from(1);
+    }
+    if !allow_raw && vocab_text_has_raw_form(&text) {
+        let refusal = frazaro_core::messages::raise(
+            "english-vocab-raw-consent-declined",
+            &[("source", book)],
+        );
+        eprintln!("{refusal}");
+        return ExitCode::from(1);
+    }
+    let mut grammar = frazaro_core::english::Grammar::new(&prelude);
+    match grammar.load_vocabulary_text(&text, book) {
+        Ok(_rules) => {
+            // The reference's line counts the proofs it ran; the core
+            // collects them until `prove` (slice 6d) runs them, so the same
+            // numbers are shown as collected.
+            let proofs = grammar.pending_proofs();
+            let fails = proofs
+                .iter()
+                .filter(|p| p.kind == frazaro_core::english::grammar::ProofKind::Fail)
+                .count();
+            let tests = proofs.len() - fails;
+            let plural = |n: usize| if n == 1 { "" } else { "s" };
+            let rules = grammar.rule_count() - grammar.prelude_count();
+            let macros = grammar.vocab_macro_count();
+            println!(
+                "loaded: {rules} rule{}, {macros} macro{}, {tests} test{} ({fails} expected fail{}) from {book}",
+                plural(rules),
+                plural(macros),
+                plural(tests),
+                plural(fails)
+            );
+            println!("(proofs collected, not run: frazaro prove is slice 6d)");
+            let warnings = grammar.lint_warnings();
+            if !warnings.is_empty() {
+                print!("{}", grammar.lint_report());
+            }
+            ExitCode::SUCCESS
+        }
+        Err(refusal) => {
+            eprintln!("{refusal}");
+            ExitCode::from(1)
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("compile") => compile(&args[1..]),
+        Some("load") => load(&args[1..]),
         Some("translate-vla") | Some("translate-vba") | Some("prove") => {
             eprintln!(
                 "frazaro: '{}' is not attempted in this version (PORT.6 and later)",

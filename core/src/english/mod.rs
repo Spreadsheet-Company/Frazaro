@@ -11,10 +11,15 @@
 //! phrasebook, and every refusal id on the path (conformance/README.md).
 //!
 //! Slices, each a module as it lands: `words` (6a, the tables), `tokenize`
-//! (6b, `EnTokenize`), then the rule store and phrasebook loading, the DCG
-//! matcher, the statement, expression and condition grammars with
-//! `EnglishToVla`, the refusals, the translate API `VLA_Browser.bas`
-//! exports, and the door.
+//! (6b, `EnTokenize`), `rules`, `grammar` and `vocab` (6c, the rule store
+//! and phrasebook loading), then the DCG matcher, the statement,
+//! expression and condition grammars with `EnglishToVla`, the refusals,
+//! the translate API `VLA_Browser.bas` exports, and the door.
 
+pub mod grammar;
+pub mod rules;
 pub mod tokenize;
+pub mod vocab;
 pub mod words;
+
+pub use grammar::Grammar;

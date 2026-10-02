@@ -25,6 +25,7 @@ pub mod intrinsics;
 pub mod messages;
 pub mod printer;
 pub mod reader;
+pub mod version;
 
 /// The crate's version, which tools/check_version_twin.ps1 holds equal to
 /// VLA_RELEASE_VERSION in src/VLA.bas: one corpus, one version.

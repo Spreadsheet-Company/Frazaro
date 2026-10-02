@@ -6259,6 +6259,67 @@ written against.
   golden unchanged; pure 1661/1661 with `F.9`'s eight out and `U.31`'s eight
   in, host 267/267; `Set scale to 5.` refused on its row and `Set
   scale-factor to 5.` green; `dansk.vla` alone 19; 37 checks.
+  **Built the same day, slice 6c: the rule store and phrasebook loading.**
+  `core/src/english/rules.rs` (`IsSlotTok`, `IsOptTok`, the surface specs,
+  `ValidateRuleItems`, `ExpandedSignatures`), `grammar.rs` (the `Grammar`:
+  `EnsureInit`'s eleven built-in rules, `AddPhraseRule` with its overrides
+  and `LintRule`'s warnings and duplicate check over the signature owners,
+  `EnglishResetGrammar`, `RegisterBuiltinFuncWords` from `names.vla`,
+  `EnglishAddFunctionWord`, `RegisterFunctionWord` with LX.14's audits, the
+  keyword aliases, `EnglishVocabStats`), `vocab.rs`
+  (`EnglishLoadVocabularyText`, `DispatchVocabForm` arm for arm, a
+  generator call expanded through the core's `expand_text` with the prelude
+  as `VlaExpandText` splices it, `RegisterVocabMacro` with the at-row rewrap
+  and `VlaProbeMacroForm`'s check, `RegisterFunctionDirective`, the
+  `requires-` scan and its pure check, `VocabTextHasRawForm`), and
+  `core/src/version.rs` (`VlaVersionParse`, `VlaVersionCompare`,
+  `VlaVersionAtLeast`). The five parallel rule Collections are one
+  `Vec<Rule>`, spoken of 1-based; the keyed Collections are maps. The
+  proofs are collected, not run, until 6d. The two gates the reference's
+  file loader runs and its text loader leaves alone are the door's:
+  `frazaro load <phrasebook.vla> --prelude <prelude.vla> [--allow-raw]`
+  refuses a required capability and, without the flag, a `(raw ...)` form,
+  then prints the line `EnglishVocabStats` prints, with the collected
+  counts. *The pin, met on the first run:* `english.vla` loads 240 rules,
+  220 macros, 460 `test-success` and 22 `test-fail`, 20 function words read
+  with `of` and 8 phrases, no lint warning, as the owner read them in Excel;
+  `dansk`, `deutsche`, `esperanto`, `francais` and `latin` 19 rules and 20
+  proofs each; `espanol` 19 rules, 134 macros, 29 and 1, five aliases and
+  eight phrases (`la suma de` is a phrase of three words, not a one-word
+  head: `la` is no English noise word). Those are the rules each file
+  registers; the reference then runs the file's proofs, and the owner's
+  reading of 2026-10-02 showed `esperanto.vla` refused at line 38 (`Metu
+  hodiau en la chelon D1.` expected `(set! (range "d1") (date))`, got
+  `(set! (range "d1") hodiau)`), where I had predicted 19: the rule-order
+  defect `espanol.vla`'s own header fixed for itself under `LX.10` and
+  predicted for its six siblings, the general `metu {e:expr} en la chelon`
+  registered before the literal `metu hodiau`, so the slot takes the word.
+  *Found in the corpus by the port, and read in the files, as the
+  reference's own refusals:* `pirate.vla` writes `{r:cell},` with the
+  comma glued, on four patterns, which `IsSlotTok` refuses as not closed, so
+  the file has never loaded; `alien.vla` is a library of macros whose one
+  top-level call expands to `(sub x3n0-h41l0 ...)`, no directive, so it is
+  not a phrasebook and the loader refuses it at its line 117;
+  `esperanto.vla` (line 38), `latin.vla` (line 52, `hodie`) and
+  `deutsche.vla` (line 43, `heute`) register their general put rule before
+  their literal today rule, so each fails that proof; and `deutsche.vla`
+  and `francais.vla` carry F.4's noise-word defect too (`an`, `a` before
+  `{who:expr}`), which the lint names and whose mail proof the reference
+  fails (`TestF4NoiseWordBeforeSlot` pins francais's, at line 154). Of the
+  eight files only `dansk.vla` and `espanol.vla` load in Excel: espanol
+  swapped its two rules under `LX.10`, and dansk's today is two words,
+  `dags dato`, which the general rule's expression slot stops short of, so
+  its literal rule still gets its turn. All of it is the treaty's business
+  at 6d, with the owner:
+  a phrasebook the reference refuses cannot be an oracle as it stands, and
+  the core's `prove` will reproduce each refusal word for word. 18
+  Rust tests: TestG3's overrides, TestL4's carried macros, TestF10's
+  requirements, TestMetaVocab's generators, TestAtRow's tags,
+  TestVocabMacroProbe, TestLx14Phrases' registration refusals, each with
+  the VBA's words, and every phrasebook's counts. Not ported:
+  `AuditCrossRuleShadow` and `EnglishAuditText` (the IDE's audit, which
+  needs the matcher), the coverage counters (`mRuleExamples`,
+  `mRuleTestCounts`, `mUsageCounts`), and G-RENDER.
   **Pins:** 11 Rust tests; the token golden; the compile golden whole at
   291,316. **Floors:** `run_checks.ps1` 36 → 37; `check_data_exports.ps1`
   113 and 211 (218 with `U.31`); `check_prove_floors.ps1` nine files at 0;
@@ -6268,9 +6329,10 @@ written against.
   `RELEASES.md` (the figure), this entry, the roadmap's paragraph.
   **Committed 2026-10-02, five commits,** each tree green in isolation
   first: `cdf242a` (the treaty's amendment and the proofs floor), `221bb81`
-  (slice 6a), then slice 6b, the goldens without markers, and `U.31`.
-  **Next:** 6c, the rule store and phrasebook loading; the dialects' counts
-  beyond dansk's 19 are read when 6c pins them.
+  (slice 6a), then slice 6b, the goldens without markers, and `U.31`; 6c
+  follows on the owner's reading of the dialects. **Next:** 6d, the DCG
+  matcher with `frazaro prove`, and the treaty's word on the four
+  phrasebooks the reference itself refuses.
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day
