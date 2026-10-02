@@ -26129,6 +26129,29 @@ specimens: 0.*
   (143/143), ribbon button confirmed functional, and committed** - this
   file's own bar for closing an item, both halves now met.
 
+- ⬜ **GO.7 — a Forget Phrasebooks button.** Found 2026-10-01 in `LX.14`'s
+  live pass, by the owner, taking `espanol.vla` back off the dev workbook
+  after its Spanish test. **Load Phrasebook** (`GO.6`) remembers each
+  phrasebook it loads in the workbook's `VLA_LoadedPhrasebooks` document
+  property, and `ReplayPersistedPhrasebooks` loads every one again on each
+  later command in that workbook. Nothing in Frazaro removes an entry
+  (`SEC.9`'s own record says so), so the only way out is Excel's File > Info
+  > Properties > Advanced Properties > Custom, deleting the property, which
+  forgets every phrasebook at once. **Forget Phrasebook Approvals**
+  (`EnglishIdeForgetPhrasebookApprovals`) clears this device's answers
+  (`SEC.9`), not a workbook's list: a phrasebook declined afterwards stays
+  remembered and is skipped quietly on every command. `GO.6` asked "does a
+  user ever need to see or remove what they've loaded" and closed without
+  an answer. **The button:** beside Forget Phrasebook Approvals, it names
+  the workbook's remembered phrasebooks and forgets them, on a confirmation
+  that names each file. The base corpus is never on that list, so forgetting
+  can never leave a workbook without English, and forgetting only narrows
+  what a workbook reads, so it needs no gate of its own. **To scope:** all at
+  once or one at a time; whether it also forgets the device's answer for
+  each file; and whether a sentence goes with it, as with other commands,
+  when a program that forgets its own phrasebook would change its own
+  grammar mid-run. `~hours`
+
 ---
 
 # 🪴 TERRARIUM · DEFERRED, NON-CRITICAL BUGS
@@ -26665,6 +26688,26 @@ anything above it.*
   program whose action refuses (`the text before "#" in "abc"`), called
   before a `Put` into a cell; Compile and Run it from Excel's Macros list.
   `~hours`
+
+- ⬜ **TER-12 — a program that names its sheet in another language also
+  gets an empty Output sheet.** Found 2026-10-01 in `LX.14`'s live pass, by
+  the owner: a Spanish program that opens `Trabaja en la hoja LxSuma.` ran
+  on *lxsuma*, as written, and the Run made an empty *Output* sheet beside
+  it. **Why (read, not run):** both run buttons pick the sheet a program
+  starts on from its text, before translating it. `DeclaredOutputSheet`
+  (`VLA_IDE`, called by `RunProgram` and `InterpretProgram`) looks for the
+  English words `work on sheet` at the start of a line, and with none makes
+  the default *Output*. Spanish's `trabaja en la hoja` translates to the
+  same `(vlaensuresheet …) (activate-sheet …)` as English's `work on sheet`,
+  so the program then makes its own sheet and works there, and *Output* is
+  left empty. It is made after the Run's snapshot (`U.28`), so a stop or
+  **Undo Last Run** takes it away; the harm is a stray sheet. The same
+  English-only match is in `ForbiddenSheetTarget` (`S4.3`), the Check that
+  refuses a program aimed at one of Frazaro's own sheets: it reads `work on
+  sheet` and `go to sheet` only, so `Trabaja en la hoja Frazaro.` passes it.
+  **Fix direction:** read the sheet from the translation, which every
+  phrasebook's work-on-sheet rule writes the same way, so both hold in any
+  language, and the English text match goes. `~hours`
 
 ---
 

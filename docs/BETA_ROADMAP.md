@@ -581,6 +581,8 @@ download without asking.
 
 - ⬜ **GO.5 — the escalation path** for a disputed surface. `~hours`
 
+- ⬜ **GO.7 — a Forget Phrasebooks button.** Found 2026-10-01 in `LX.14`'s live pass. **Load Phrasebook** (`GO.6`) remembers a phrasebook in the workbook, and every later command there loads it again, but nothing in Frazaro takes one off that list: the only way is Excel's File > Info > Properties > Advanced Properties > Custom. **Forget Phrasebook Approvals** clears this device's answers, not a workbook's list. The button names the workbook's remembered phrasebooks and forgets them, as Forget Phrasebook Approvals forgets the answers. *(more: BETA_REARVIEW.md)* `~hours`
+
 ---
 
 # 🪴 TERRARIUM · DEFERRED, NON-CRITICAL BUGS
@@ -594,6 +596,8 @@ download without asking.
 - ⬜ **TER-9 — the per-row and whole-program checks disagree about a sentence's final period.** Found in LE.6's live pass, 2026-09-18. `Show "… approval."` (the period inside the quotes, so the sentence has none) got a green OK on its row. The whole-program pass then refused it on the blank row *below*, with a message exposing the tokenizer's internal `|` marker. Nothing runs, so this is a teaching failure, not a safety one. Fix: one terminator rule for both passes, the refusal on the sentence's own row, in words. *(more: BETA_REARVIEW.md)* `~hours`
 
 - ⬜ **TER-11 — in a compiled program, a failure inside one of its own actions does not stop the run.** Found 2026-09-26 building `U.25`, by reading the generated code, not yet seen live. Every procedure a program defines (`To stamp, …:`) gets its own step handler, which reports the failure and returns, so the caller goes on to its next sentence. The interpreter stops there (SD-5). The Run button still puts the sheets back, and its message claims nothing about what ran after, but a program run on its own shows the dialog and carries on. *(more: BETA_REARVIEW.md)* `~hours`
+
+- ⬜ **TER-12 — a program that names its sheet in another language also gets an empty Output sheet.** Found 2026-10-01 in `LX.14`'s live pass: a Spanish program opening `Trabaja en la hoja LxSuma.` ran on *lxsuma*, as written, and the Run also made an empty *Output* sheet. Both run buttons choose the sheet a program starts on from its text, looking for the English words `work on sheet`, and with none they make *Output*. `ForbiddenSheetTarget`, the Check that keeps a program off Frazaro's own sheets, matches the same English words only. Fix: read the sheet from the translation, which every phrasebook's work-on-sheet rule writes the same way. *(more: BETA_REARVIEW.md)* `~hours`
 
 ## THE SHORT ANSWER, IF YOU READ NOTHING ELSE
 
