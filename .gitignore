@@ -23,6 +23,12 @@ Frazaro_Beta.xlam
 installer/version.iss
 installer/output/
 
+# PORT.4: the Cargo workspace's build output (core/, cli/), including the
+# wasm core that tools/check_core_imports.ps1 reads. Cargo.lock is NOT
+# ignored: the workspace has a binary, so the lockfile is committed once a
+# toolchain has written it.
+target/
+
 # Excel lock/temp files (appear while a workbook is open)
 ~$*
 *.tmp

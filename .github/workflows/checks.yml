@@ -6,6 +6,14 @@
 # is the mechanical half of review, so a pull request from anyone has run
 # the ratchets before a human reads it. tools/release.ps1 runs the same
 # scripts locally before it will tag a release.
+#
+# Since 2026-10-01 (PORT.4) a second job builds the Cargo workspace: the
+# host-free core and its command-line door (docs/HORIZON.md section 12).
+# The VBA reference cannot run here and never will; it testifies through
+# the goldens it produced, and tools/prove.ps1 is the runner that holds any
+# other implementation to them (conformance/README.md). The wasm build's
+# import section is read on the artifact itself, so SD-13 is checked on
+# the file, not taken on faith.
 name: checks
 on:
   push:
@@ -29,3 +37,30 @@ jobs:
           }
           if ($failed.Count -gt 0) { Write-Host "FAILED: $($failed -join ', ')"; exit 1 }
           Write-Host "all ratchets clean"
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy, rustfmt
+      - name: build, format-check, lint and test the workspace
+        run: |
+          cargo build --workspace
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
+      - name: build the wasm core
+        run: cargo build --release -p frazaro-core --target wasm32-unknown-unknown
+      - name: the core imports nothing (SD-13, read off the artifact)
+        shell: pwsh
+        run: pwsh -NoProfile -File tools/check_core_imports.ps1
+      - name: the conformance runner proves itself
+        shell: pwsh
+        run: pwsh -NoProfile -File tools/prove.ps1 -Control
+      - name: keep the wasm core
+        uses: actions/upload-artifact@v4
+        with:
+          name: frazaro_core.wasm
+          path: target/wasm32-unknown-unknown/release/frazaro_core.wasm

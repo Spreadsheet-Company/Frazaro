@@ -41,8 +41,9 @@ $requiredHeaders = @(
 )
 
 # Source extensions the map must cover. Binaries, build outputs, and the
-# tracked dev workbook are deliberately outside the check.
-$sourceExt = @('.bas', '.cls', '.frm', '.vla', '.ps1', '.md', '.toml', '.txt', '.iss', '.vba', '.lisp', '.pl')
+# tracked dev workbook are deliberately outside the check. .rs joined on
+# 2026-10-01 (PORT.4) with the Cargo workspace.
+$sourceExt = @('.bas', '.cls', '.frm', '.vla', '.ps1', '.md', '.toml', '.txt', '.iss', '.vba', '.lisp', '.pl', '.rs')
 
 $failures = New-Object System.Collections.Generic.List[string]
 

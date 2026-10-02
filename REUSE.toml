@@ -16,9 +16,12 @@ SPDX-PackageSupplier = "Spreadsheet Company <english@spreadsheet.company>"
 SPDX-PackageDownloadLocation = "https://github.com/Spreadsheet-Company/Frazaro"
 
 # The engine, its prelude, the corpus fixtures and goldens, the dev tooling,
-# the installer, and this map itself.
+# the installer, and this map itself. Since 2026-10-01 (PORT.4) the engine
+# has a second implementation: the Cargo workspace (Cargo.toml, core/, cli/),
+# the conformance treaty that holds both to one corpus, and the web door.
+# Same territory, same terms: an implementation of the engine is the engine.
 [[annotations]]
-path = ["src/**", "scripts/**", "tools/**", "installer/**", "web/**", "archive/**", "REUSE.toml", ".gitignore"]
+path = ["src/**", "scripts/**", "tools/**", "installer/**", "web/**", "archive/**", "core/**", "cli/**", "conformance/**", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "REUSE.toml", ".gitignore"]
 SPDX-FileCopyrightText = "2026 Spreadsheet Company"
 SPDX-License-Identifier = "Apache-2.0"
 

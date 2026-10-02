@@ -1,0 +1,35 @@
+# The Cargo workspace: the host-free core and its command-line door.
+#
+# docs/HORIZON.md section 12 is the design; conformance/README.md is the
+# treaty that holds every implementation to the one corpus in scripts/. The
+# VBA in src/ is the reference implementation (SD-18) and is not a member
+# here: it is built by VlaBuildAddin in Excel, as docs/DEPLOY.md describes,
+# and it testifies to this workspace through the goldens it produced.
+#
+# Build the core for the browser and every other wasm embedding with
+#   cargo build --release -p frazaro-core --target wasm32-unknown-unknown
+# and tools/check_core_imports.ps1 then holds the module's import section
+# at zero entries, which is SD-13 as a property of the artifact.
+
+[workspace]
+resolver = "2"
+members = ["core", "cli"]
+
+[workspace.package]
+# One corpus, one version: tools/check_version_twin.ps1 holds this equal to
+# VLA_RELEASE_VERSION in src/VLA.bas. Both are bumped by hand at release
+# (DI.3a) and nowhere else.
+version = "0.7.1"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/Spreadsheet-Company/Frazaro"
+rust-version = "1.75"
+
+[profile.release]
+# Small, deterministic, and without an unwinder: a panic aborts, so the wasm
+# module imports nothing to unwind with and nothing to print with.
+panic = "abort"
+lto = true
+codegen-units = 1
+opt-level = "s"
+strip = true

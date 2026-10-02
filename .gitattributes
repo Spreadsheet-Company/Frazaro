@@ -10,6 +10,13 @@
 # Everything else is ordinary text (LF in the repo, platform default on
 # checkout) or binary.
 * text=auto
+# The Cargo workspace (core/, cli/): Rust and its manifests are LF on every
+# platform, as rustfmt writes them; a built .wasm is bytes.
+*.rs text eol=lf
+Cargo.toml text eol=lf
+Cargo.lock text eol=lf
+rust-toolchain.toml text eol=lf
+*.wasm binary
 *.bas text eol=crlf
 *.cls text eol=crlf
 *.frm text eol=crlf

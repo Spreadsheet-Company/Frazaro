@@ -1,0 +1,15 @@
+[package]
+name = "frazaro-core"
+description = "The Frazaro language, host-free: sentences in, spreadsheets out"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+# rlib for the workspace's own doors; cdylib for the wasm32 build and for a
+# native embedding that loads the core as a shared library.
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]

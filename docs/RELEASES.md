@@ -155,6 +155,21 @@
   - `tools/check_proofs.ps1` checks every table without Excel. The clingo
     export passes over a proof with tables until it can state one
     faithfully, so clingo still reads the same 23 proofs.
+- **The repository is now a workspace for more than one product; nothing
+  about the add-in you download changes.** Frazaro is a language whose first
+  implementation is this Excel add-in, and this release lays the ground for
+  its second: a host-free core (`core/`, in Rust, built natively and to
+  WebAssembly) with a command-line door (`cli/`) and a place for the web page
+  (`web/`). `conformance/README.md` is the treaty that holds every
+  implementation to the one corpus in `scripts/`: the VBA in `src/` stays the
+  reference, and `tools/prove.ps1` scores any other implementation against
+  the goldens, the phrasebook proofs and the engine proofs, after proving
+  itself on a fake implementation and a mutant. Two new checks: the add-in's
+  version and the workspace's must agree (one corpus, one version), and the
+  WebAssembly core's import section must be empty, which makes "no network
+  call, ever" a fact read off the built file rather than a promise. The
+  design is `docs/HORIZON.md`, section 12. Nothing in `core/` or `cli/` does
+  anything yet beyond reporting its version.
 
 ### Known open security items
 

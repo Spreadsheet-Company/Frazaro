@@ -62,7 +62,9 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # Excel) makes thirty.
 # 2026-09-30, U.30: 32 - U.29's check_run_gives_back.ps1 made thirty-one
 # without raising this, and check_engine_call_names.ps1 makes thirty-two.
-$expectedAtLeast = 32
+# 2026-10-01, PORT.4: 34 - check_version_twin.ps1 (one corpus, one version)
+# and check_core_imports.ps1 (the wasm core imports nothing).
+$expectedAtLeast = 34
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---
@@ -75,7 +77,9 @@ $extras = @(
     @{ Script = 'datalog14_model.ps1';     Args = @('-Control');    What = 'DATALOG.14 cost model against the measured ladder' },
     @{ Script = 'optimize3_model.ps1';     Args = @('-Control');    What = 'OPTIMIZE.3 grounding model against the pre-flight ladder' },
     @{ Script = 'check_optimize_search_discipline.ps1'; Args = @('-Control'); What = 'OPTIMIZE.3 search discipline, mutation control' },
-    @{ Script = 'optimize3_search_twin.ps1'; Args = @('-Control'); What = 'OPTIMIZE.3 search pins against their host-independent twin' }
+    @{ Script = 'optimize3_search_twin.ps1'; Args = @('-Control'); What = 'OPTIMIZE.3 search pins against their host-independent twin' },
+    @{ Script = 'prove.ps1';               Args = @('-Control');    What = 'PORT.4 conformance runner: the fake implementation passes, the mutant fails' },
+    @{ Script = 'check_core_imports.ps1';  Args = @('-Control');    What = 'PORT.4 import reader: an empty module counts 0, a module importing a.b counts 1' }
 )
 
 function Invoke-OneScript {

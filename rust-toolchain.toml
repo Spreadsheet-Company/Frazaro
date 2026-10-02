@@ -1,0 +1,16 @@
+# The toolchain rustup picks up inside this repository (PORT.4). Stable, with
+# the wasm target the core builds to and the two components the core CI job
+# runs, so that `cargo build --release -p frazaro-core --target
+# wasm32-unknown-unknown` works on a fresh machine without a second command.
+#
+# The host linker is the one thing this file cannot choose: Rust's default
+# toolchain on Windows is `-msvc` and borrows Microsoft's linker from Visual
+# Studio's C++ build tools. A machine without them can either install those
+# tools or use the self-contained `-gnu` toolchain for this directory:
+#   rustup toolchain install stable-x86_64-pc-windows-gnu
+#   rustup override set stable-x86_64-pc-windows-gnu
+# A directory override set that way takes precedence over this file.
+[toolchain]
+channel = "stable"
+targets = ["wasm32-unknown-unknown"]
+components = ["clippy", "rustfmt"]

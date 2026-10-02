@@ -89,6 +89,11 @@ add-in on a managed machine wants [THREAT_MODEL.md](THREAT_MODEL.md) and
 - **[SINGULARITY.md](SINGULARITY.md)** — The summit: a spreadsheet that
   answers a manager as an analyst would, defined as a test it can pass or
   fail, and the road there from the current release, stage by stage.
+- **[HORIZON.md](HORIZON.md)** — The horizon past the summit: what a spreadsheet
+  is seventy years after the Singularity and what it does that the Analyst
+  ex Machina cannot, every idea marked science or fiction; then the host
+  question (add-in, competitor, or compiler), what Frazaro is becoming, and
+  the build origin: a host-free core, its doors, and the slices that get there.
 
 ## Also in this folder
 
@@ -109,6 +114,9 @@ before they see `docs/`:
   from the roadmap.
 - **[CONTRIBUTING.md](../CONTRIBUTING.md)** — The DCO sign-off, and what to
   expect from a patch.
+- **[conformance/README.md](../conformance/README.md)** — The treaty that holds
+  every implementation of the language to the one corpus in `scripts/`: the
+  oracles, the command-line contract, and how the runner proves itself.
 - **[TRADEMARK.md](../TRADEMARK.md)**, **[OUTPUT-EXCEPTION.md](../OUTPUT-EXCEPTION.md)**,
   **[PHRASEBOOK-TERMS.md](../PHRASEBOOK-TERMS.md)** — The name; why your
   workbook does not inherit the licence of the code Frazaro writes into it;

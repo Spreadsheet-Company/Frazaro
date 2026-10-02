@@ -5807,6 +5807,101 @@ written against.
   for locale-invariant numeric literals, `Collection`'s 1-based positional
   semantics against `Split`'s own 0-based exception, and one confirmed
   non-issue (default string comparison already matches JS's `===`).
+- ✅ **PORT.4 — the conformance harness and the workspace.** *Filed, built,
+  owner-verified and closed 2026-10-01, the day the owner decided that `0.8.0` carries the
+  restructured repository: "proceed with the restructure to prepare Frazaro
+  for the spreadsheet singularity sprint." The design is `HORIZON.md` §12;
+  this item is its slice 0 and its additive repository shape. `PORT.1`–`PORT.3`
+  prepared a port; this is the port's first commit.*
+  **What was built.** `conformance/README.md`, the treaty: the VBA in `src/`
+  is the reference (`SD-18`) and, since it cannot run outside Excel,
+  testifies through the goldens it produced; six oracles (the two translate
+  goldens, the interpreter golden, the `(test ...)` forms of every source
+  phrasebook, the `(test-...)` forms under `scripts/proofs/`, the message
+  catalogue through the proofs that pin refusals, and the `VLA_Tests*.bas`
+  pins once the METAPROOF line turns them into proof files); a command-line
+  contract (`translate-vla`, `translate-vba`, `prove`, with exit 3 for an
+  oracle an implementation does not attempt, reported as *not attempted*,
+  never as passed). `tools/prove.ps1`, the runner: inventory, `-Impl`, and
+  `-Control`, which writes a fake implementation that answers from the
+  goldens and a mutant with one byte changed and one proof failed, and
+  requires the first to pass and the second to fail before anything is
+  trusted. `Cargo.toml` (a workspace: version `0.7.1`, edition 2021,
+  `panic = "abort"`, `lto`, `opt-level = "s"`), `core/` (`frazaro-core`,
+  `rlib` and `cdylib`, exporting `version()` and `frazaro_abi_version()`
+  with C linkage, two tests), `cli/` (`frazaro`: `version`, `help`, every
+  other command refused by name with exit 2), `web/README.md` holding the
+  door open. `tools/check_version_twin.ps1` (`VLA_RELEASE_VERSION` equals
+  `[workspace.package] version`; both bumped by hand at release, DI.3a;
+  `-VbaPath`/`-CargoPath` for testability) and `tools/check_core_imports.ps1`
+  (a WebAssembly binary's section table read in PowerShell, the import
+  section's count pinned at 0 and its entries named on failure; SKIPPED with
+  exit 0 where no toolchain has built the artifact, since CI always has it;
+  `-Control` on two in-memory modules). The `core` job in
+  `.github/workflows/checks.yml`: `dtolnay/rust-toolchain@stable` with the
+  wasm target and clippy; build, `clippy -D warnings`, test; the wasm build;
+  both scripts under `pwsh`; the wasm uploaded as an artifact. The
+  `ratchets` job is unchanged. `.gitattributes` (`*.rs`, `Cargo.*` LF;
+  `*.wasm` binary), `.gitignore` (`target/`; `Cargo.lock` deliberately not
+  ignored), `REUSE.toml` (the engine territory now names `core/**`,
+  `cli/**`, `conformance/**`, `Cargo.toml`, `Cargo.lock`: an implementation
+  of the engine is the engine, under Bucket 2 as decided 2026-09-04),
+  `check_spdx.ps1` (`.rs` joins the covered extensions), `run_checks.ps1`
+  (floor 34; `prove.ps1 -Control` and `check_core_imports.ps1 -Control` in
+  the named verifiers). `RELEASES.md`'s `0.8.0` note; `Delta/CLAUDE.md`'s
+  map; `docs/README.md`'s pointer to the treaty.
+  **Decisions, and why.** `src/` does not move: twenty-two check scripts
+  resolve `..\src`, `release.ps1`'s rebuild rule watches `src/` and
+  `scripts/`, `.gitattributes`, `VLA_Build.bas`, `VLA_DevRig.bas`, the
+  installer and every document link name it; `hosts/` is created the day a
+  second host exists. One repository, not one per product: the treaty needs
+  a grammar change, its golden and both implementations in one commit, and
+  the checks that read two files at once (`check_grammar_since`,
+  `check_devrig_mods_parity`, `check_optimize_parity`) assume one tree; a
+  repository splits when a second party must clone it alone (the Phrasebook
+  Template), and the only future split line is the spec out, never products
+  out. One version for the repository, the corpus's; a product that has not
+  caught up is absent from a release's artifact list. The `core` job omits
+  `cargo fmt --check` until a local toolchain has formatted the files once,
+  so that the first run is not red on a formatting nit; the conformance step
+  lives inside the `core` job until an implementation exists to score, when
+  it becomes its own job. The script paths use forward slashes because the
+  ubuntu job runs them under `pwsh`, where a backslash is a character in a
+  name.
+  **Verified here, 2026-10-01.** `run_checks.ps1 -WithExtras`: 34 checks
+  green, 9 verifiers green. `prove.ps1`: inventory lists 13 oracles (the
+  translate goldens at 240,974 and 309,328 bytes; `english.vla` 481 forms,
+  `espanol.vla` 30, six dialects at 20, `alien.vla` 0, `datalog.vla` 124);
+  `-Control`: the fake passed 12 of 12 attempted, the mutant failed 12 of
+  12 (`differs at char 100 of 236042`, `FAIL 1/481` and so on).
+  `check_core_imports.ps1 -Control`: the empty module counts 0, the mutant
+  counts 1 named `a.b (func)`. `check_version_twin.ps1`: agree on `0.7.1`; a
+  scratch `Cargo.toml` at `0.7.2` fails with both values named. The licence
+  map simulated over every new path with `check_spdx`'s own glob rule: all
+  Apache-2.0, `HORIZON.md` CC-BY-4.0. Every new file LF, no BOM.
+  **Owner-verified live, 2026-10-01.** The first `cargo test` failed at the
+  link step (`linker 'link.exe' not found`: Rust's msvc default borrows
+  Microsoft's linker; `rustc` had already compiled the crate), the owner
+  installed the Visual Studio C++ build tools, and then: `cargo test
+  --workspace` 2 passed, 0 failed (`abi_version_is_one`,
+  `version_is_major_minor_patch`); `cargo build --release -p frazaro-core
+  --target wasm32-unknown-unknown` finished in 4.87 s;
+  `check_core_imports.ps1` read the artifact: **73 bytes, 0 imports**, the
+  pin's first real reading. `cargo fmt --all` reflowed one `assert!` in
+  `lib.rs`. Through rustup's proxy, afterwards: `cargo fmt --all -- --check`
+  exit 0, `cargo clippy --workspace --all-targets -- -D warnings` exit 0, so
+  every step of the `core` CI job has run green here before the first push,
+  and `cargo fmt --check` joined the job. `rust-toolchain.toml` (stable, the
+  wasm target, clippy and rustfmt) was added after the link error so a fresh
+  machine gets the wasm target without a second command; the directory
+  resolves to `stable-x86_64-pc-windows-msvc` through it. `Cargo.lock` was
+  written by the first build and is committed with the item.
+  **Pins:** none in VBA; the harness pins itself (`-Control`) and
+  `run_checks.ps1` pins the check count at 34. **Floors:** `run_checks.ps1`
+  32 → 34. **Docs:** `conformance/README.md` (new), `web/README.md` (new),
+  `RELEASES.md`, `docs/README.md`, `HORIZON.md` §12 cited, `Delta/CLAUDE.md`.
+  **Next:** `PORT.5`, the reader and the emitters; `cargo test` has run
+  green on the owner's machine.
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day
@@ -26850,6 +26945,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **PORT.2 — the translate-path purity ratchet.** `tools/check_translate_purity.ps1`: scans a named set of (module, function) pairs for forbidden host touches — body-only by design, so a callee is verified by reading, not by the exit code. *(more: the full entry, earlier in this file)*
 
 - ✅ **PORT.3 — the intrinsics spec.** `docs/INTRINSICS.md`: the VBA-specific string/array/comparison behaviors a non-VBA port must match, each earned by a real citation. *(more: the full entry, earlier in this file)*
+- ✅ **PORT.4 — the conformance harness and the workspace.** `conformance/README.md`, the treaty that holds every implementation to the one corpus (the VBA reference testifies through its goldens); `tools/prove.ps1`, its runner, proven on a fake implementation and a mutant; the Cargo workspace (`core/`, `cli/`, `web/` held open) beside an unmoved `src/`; `check_version_twin.ps1` and `check_core_imports.ps1` (the wasm core's import section read off the artifact: 73 bytes, 0 imports); the `core` CI job. Closed 2026-10-01. *(more: the full entry, earlier in this file)*
 - *Together:* SD-18's infrastructure — a port with no purity guarantee and no intrinsics reference would re-litigate every behavior. *(more: the full entry, earlier in this file)*
 
 ## 🔧 MACHINE · ENVIRONMENT
