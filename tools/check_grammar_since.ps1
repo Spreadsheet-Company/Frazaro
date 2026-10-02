@@ -80,17 +80,34 @@ if (-not (Test-Path -LiteralPath $LedgerPath)) {
 # the ledger dates a code path, not a spelling.
 $ledgerRules = New-Object System.Collections.Generic.HashSet[string]
 $ledgerArms  = New-Object System.Collections.Generic.HashSet[string]
+# LX.14: the third section, function words and phrases, and the rule rows a
+# phrase now carries ("<pattern>  carried-by: <phrase> | <phrase>").
+$ledgerPhrases = New-Object System.Collections.Generic.HashSet[string]
+$carried = [ordered]@{}
 $section = ''
 $inFence = $false
 foreach ($line in (Get-Content -LiteralPath $LedgerPath)) {
     if ($line -match '^###\s+Phrasebook rules\s*$') { $section = 'rules'; continue }
     if ($line -match '^###\s+Core dispatch arms\s*$') { $section = 'arms'; continue }
+    if ($line -match '^###\s+Function words and phrases\s*$') { $section = 'phrases'; continue }
     if ($line -match '^```') { $inFence = -not $inFence; continue }
     if (-not $inFence -or $section -eq '') { continue }
 
     if ($section -eq 'rules') {
         $m = [regex]::Match($line, '^(\d+\.\d+\.\d+)\s\s+(.+?)\s*$')
-        if ($m.Success) { [void]$ledgerRules.Add($m.Groups[2].Value) }
+        if ($m.Success) {
+            $pattern = $m.Groups[2].Value
+            $cb = $pattern.IndexOf('  carried-by: ')
+            if ($cb -ge 0) {
+                $carriers = @($pattern.Substring($cb + 14) -split '\s\|\s' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+                $pattern = $pattern.Substring(0, $cb).Trim()
+                $carried[$pattern] = $carriers
+            }
+            [void]$ledgerRules.Add($pattern)
+        }
+    } elseif ($section -eq 'phrases') {
+        $m = [regex]::Match($line, '^(\d+\.\d+\.\d+)\s\s+(.+?)\s*$')
+        if ($m.Success) { [void]$ledgerPhrases.Add($m.Groups[2].Value) }
     } else {
         # The function name is a single token; two-or-more spaces separate
         # it from the arm, which may itself contain single spaces and " | ".
@@ -115,22 +132,35 @@ function Invoke-Sibling([string]$scriptName, [string[]]$scriptArgs) {
 
 $liveRules = @(Invoke-Sibling 'check_rule_coverage.ps1' @('-ListRules') | Where-Object { $_.Trim() -ne '' })
 $liveArms  = @(Invoke-Sibling 'check_emitter_coverage.ps1' @('-ListArms') | Where-Object { $_.Trim() -ne '' })
+# LX.14: the function words and phrases - the engine's, and english.vla's.
+$livePhrases = @(@(Invoke-Sibling 'check_engine_call_names.ps1' @('-ListFunctionWords')) + @(Invoke-Sibling 'check_rule_coverage.ps1' @('-ListPhrases')) | Where-Object { $_.Trim() -ne '' })
 
 # --- Compare -------------------------------------------------------------
 $liveRuleSet = New-Object System.Collections.Generic.HashSet[string]
 $liveRules | ForEach-Object { [void]$liveRuleSet.Add($_) }
 $liveArmSet = New-Object System.Collections.Generic.HashSet[string]
 $liveArms | ForEach-Object { [void]$liveArmSet.Add($_) }
+$livePhraseSet = New-Object System.Collections.Generic.HashSet[string]
+$livePhrases | ForEach-Object { [void]$livePhraseSet.Add($_) }
 
-$undatedRules = @($liveRules | Where-Object { -not $ledgerRules.Contains($_) })
-$undatedArms  = @($liveArms  | Where-Object { -not $ledgerArms.Contains($_) })
-$extraRules   = @($ledgerRules | Where-Object { -not $liveRuleSet.Contains($_) })
-$extraArms    = @($ledgerArms  | Where-Object { -not $liveArmSet.Contains($_) })
+$undatedRules   = @($liveRules | Where-Object { -not $ledgerRules.Contains($_) })
+$undatedArms    = @($liveArms  | Where-Object { -not $ledgerArms.Contains($_) })
+$undatedPhrases = @($livePhrases | Where-Object { -not $ledgerPhrases.Contains($_) })
+$extraRules     = @($ledgerRules | Where-Object { -not $liveRuleSet.Contains($_) -and -not $carried.Contains($_) })
+$extraArms      = @($ledgerArms  | Where-Object { -not $liveArmSet.Contains($_) })
+$extraPhrases   = @($ledgerPhrases | Where-Object { -not $livePhraseSet.Contains($_) })
+# A carried row must name phrases that are live (rule 3, LX.14).
+$badCarried = New-Object System.Collections.Generic.List[string]
+foreach ($k in $carried.Keys) {
+    foreach ($c in $carried[$k]) {
+        if (-not $livePhraseSet.Contains($c)) { $badCarried.Add("$k  carried-by: $c") }
+    }
+}
 
 Write-Output '=== GRAMMAR SINCE-LEDGER COVERAGE (every live form must carry a date) ==='
 Write-Output "Ledger:   $LedgerPath"
-Write-Output "Live:     $($liveRules.Count) phrase rules, $($liveArms.Count) core dispatch arms"
-Write-Output "Rows:     $($ledgerRules.Count) rule rows, $($ledgerArms.Count) arm rows"
+Write-Output "Live:     $($liveRules.Count) phrase rules, $($liveArms.Count) core dispatch arms, $($livePhrases.Count) function words and phrases"
+Write-Output "Rows:     $($ledgerRules.Count) rule rows ($($carried.Count) carried by a phrase), $($ledgerArms.Count) arm rows, $($ledgerPhrases.Count) function-word and phrase rows"
 Write-Output ''
 
 if ($undatedRules.Count -gt 0) {
@@ -143,16 +173,35 @@ if ($undatedArms.Count -gt 0) {
     $undatedArms | ForEach-Object { Write-Output ("  " + ($_ -replace "`t", "  ")) }
     Write-Output ''
 }
-
-# Reported, never failed on - see WHAT THIS DOES NOT DO above.
-if ($extraRules.Count -gt 0 -or $extraArms.Count -gt 0) {
-    Write-Output "--- Rows with no live form, $($extraRules.Count) rule(s) + $($extraArms.Count) arm(s) (legal for a RETIRED form, which keeps its row and gains an 'until:' - the ledger's own rule 3; not a failure) ---"
-    $extraRules | ForEach-Object { Write-Output "  rule: $_" }
-    $extraArms  | ForEach-Object { Write-Output ("  arm:  " + ($_ -replace "`t", "  ")) }
+if ($undatedPhrases.Count -gt 0) {
+    Write-Output "--- Function words and phrases with NO row in the ledger, $($undatedPhrases.Count) ---"
+    $undatedPhrases | ForEach-Object { Write-Output "  $_" }
     Write-Output ''
 }
 
-$undated = $undatedRules.Count + $undatedArms.Count
+# Reported, never failed on - see WHAT THIS DOES NOT DO above.
+if ($extraRules.Count -gt 0 -or $extraArms.Count -gt 0 -or $extraPhrases.Count -gt 0) {
+    Write-Output "--- Rows with no live form, $($extraRules.Count) rule(s) + $($extraArms.Count) arm(s) + $($extraPhrases.Count) phrase(s) (legal for a RETIRED form, which keeps its row and gains an 'until:' - the ledger's own rule 3; not a failure) ---"
+    $extraRules   | ForEach-Object { Write-Output "  rule: $_" }
+    $extraArms    | ForEach-Object { Write-Output ("  arm:  " + ($_ -replace "`t", "  ")) }
+    $extraPhrases | ForEach-Object { Write-Output "  phrase: $_" }
+    Write-Output ''
+}
+# LX.14: a rule a phrase now carries - not retired; its phrases must be live.
+if ($carried.Count -gt 0) {
+    Write-Output "--- Rule rows a phrase now carries, $($carried.Count) (their sentences work as before, through a general rule and the phrase - the ledger's rule 3) ---"
+    foreach ($k in $carried.Keys) { Write-Output "  $k  <-  $($carried[$k] -join ' | ')" }
+    Write-Output ''
+}
+if ($badCarried.Count -gt 0) {
+    Write-Output "=== CHECK FAILED: $($badCarried.Count) carried-by: name(s) no live function word or phrase ==="
+    $badCarried | ForEach-Object { Write-Output "  $_" }
+    Write-Output ''
+    Write-Output "A carried-by: says a phrase carries the rule's sentences now. Name a phrase that exists, or, if the sentences stopped working, give the row an until: instead (rule 3)."
+    exit 1
+}
+
+$undated = $undatedRules.Count + $undatedArms.Count + $undatedPhrases.Count
 if ($undated -gt $AllowedUndated) {
     Write-Output "=== CHECK FAILED: $undated form(s) are in the grammar with no row in the since-ledger (ceiling $AllowedUndated) ==="
     Write-Output ''
@@ -160,5 +209,5 @@ if ($undated -gt $AllowedUndated) {
     exit 1
 }
 
-Write-Output "=== CHECK: clean - every live phrase rule and dispatch arm carries a since-date ==="
+Write-Output "=== CHECK: clean - every live phrase rule, dispatch arm, function word and phrase carries a since-date ==="
 exit 0

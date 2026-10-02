@@ -4,6 +4,10 @@ Public Const VLA_TESTS_GRAMMAR_VERSION As String = "LX.14"
 ' LX.14 (call 2): TestLx14Masking - fifteen pins on a program's own "To
 ' <word> of ...:" masking a phrasebook's one-word head inside the program,
 ' with a note for Check, and the next translation giving the word back.
+' LX.14 (slice 2): TestLx14Phrases - twenty-eight pins on function phrases:
+' the refusal of one that stops partway (in a condition and a comma body
+' too), longest first, composition, the listing, masking beside a longer
+' phrase, and eleven refusals of the load's audit.
 ' GFORMULA.4: TestGFormulaNamedFigures - three pins on G-FORMULA slice 4's
 ' choice of rules over a name for a remembered range's median, not a
 ' function word: english.vla loads with its new proofs, and a program that
@@ -4491,13 +4495,12 @@ Public Sub TestGPath()
     EnglishResetGrammar
 End Sub
 
-' G-FORMULA slice 4: a remembered range's median and standard deviation are
-' rules over a name, not function words, so a program that defines its own
-' median keeps it. "To median of xs:" still checks - a function word would
-' refuse it, as "To length of x:" is refused - and the program's own Set and
-' Put still call it, since the built-in set and english.vla's put {e:expr}
-' are tried before the new rules. The phrasebook's own sentences, and the
-' refusal of "median of revenues plus 5", are english.vla's proofs.
+' G-FORMULA slice 4: a program that defines its own median keeps it. Slice 4
+' made a remembered range's median a rule over a name for that reason; LX.14
+' made "median of" a phrasebook word, and a program's own "To median of xs:"
+' masks it inside the program (call 2, with a note at Check), so the program's
+' own Set and Put still call it. The phrasebook's own sentences are
+' english.vla's proofs.
 Public Sub TestGFormulaNamedFigures()
     Dim loadErr As String
     On Error Resume Next
@@ -4597,4 +4600,139 @@ Public Sub TestLx14Masking()
     AssertEnglish "lx.14 masking: a plain step may be called average", own, "(sub average ()"
     AssertEnglish "lx.14 masking: and average of is still the phrasebook's", own, "(set! a (average-of revenues))"
     EnglishResetGrammar
+End Sub
+
+' LX.14: function phrases in the value grammar - what english.vla's proofs
+' cannot pin. A phrase that stops partway is refused on the spot, by id,
+' naming its shape, from where its sentence began and on its own line -
+' inside a condition too, which a value's failure would have reported
+' from where the value began, and a comma body quoting its whole
+' sentence. The words must all match (longest first), and a phrase
+' composes with arithmetic after its closing clause. "What can I say?"
+' lists phrases. A program's own median masks the one-word head, never a
+' longer phrase. Then the load audit, on phrasebooks written here: a word
+' read after a value, two phrases with the same words, a second value, a
+' hole of another kind, a template that loses the word chosen, a value
+' word with a form, a directive short of its target, and a keyword
+' alias's word - declared either side of the phrase.
+Public Sub TestLx14Phrases()
+    Dim loadErr As String
+    On Error Resume Next
+    EnglishResetGrammar
+    Err.Clear
+    EnglishLoadVocabulary FindDevFile("english.vla")
+    If Err.Number <> 0 Then loadErr = Err.Description
+    On Error GoTo 0
+    Report "lx.14 phrases: english.vla loads, its phrase proofs included", Len(loadErr) = 0, loadErr
+    If Len(loadErr) = 0 Then
+        CheckPhraseRefused "Log 1." & vbLf & "Set spread to standard deviation of revenues.", _
+            "I understood 'set spread to standard deviation of revenues' - then I expected 'as' but found the end of the sentence. The phrase is 'standard deviation of ... as sample|population'.", 2
+        CheckPhraseRefused "If standard deviation of revenues is more than 5, log 1.", _
+            "I understood 'if standard deviation of revenues' - then I expected 'as' but found 'is'.", 1
+        CheckPhraseRefused "If total is 1, set y to median of range.", _
+            "then I expected a range (like A1:C50", 1
+        CheckPhraseRefused "Set y to median of range.", _
+            "I understood 'set y to median of range' - then I expected a range", 1
+        AssertEnglish "lx.14 phrases: every word must match - range-total is a name", _
+            "Set y to median of range-total.", "(set! y (median-of range-total))"
+        AssertEnglish "lx.14 phrases: longest first - range is a phrase word", _
+            "Set y to median of range B2:B9.", "(set! y (median-of (range ""b2:b9"")))"
+        AssertEnglish "lx.14 phrases: arithmetic after a closing clause", _
+            "Set y to standard deviation of revenues as a sample plus 1.", _
+            "(set! y (+ (sample-standard-deviation-of revenues) 1))"
+        AssertEnglish "lx.14 phrases: a phrase inside a phrase's value", _
+            "Set y to largest of median of revenues.", "(set! y (largest-of (median-of revenues)))"
+        Dim listing As String
+        listing = EnglishListFunctionWords()
+        Report "lx.14 phrases: What can I say? lists a phrase with its closing clause", _
+               InStr(1, listing, "standard deviation of ... as sample|population", vbBinaryCompare) > 0, Left$(listing, 300)
+        Report "lx.14 phrases: and one over a reference", _
+               InStr(1, listing, "median of range <range>", vbBinaryCompare) > 0, Left$(listing, 300)
+        Dim own As String
+        own = "To median of xs:" & vbLf & "  Give back 1." & vbLf & vbLf & _
+              "Set a to median of revenues." & vbLf & "Set b to median of range B2:B9."
+        AssertEnglish "lx.14 phrases: a program's own median takes the one-word head", own, "(set! a (median revenues))"
+        AssertEnglish "lx.14 phrases: never a longer phrase", own, "(set! b (median-of (range ""b2:b9"")))"
+    End If
+
+    ' The load audit, on phrasebooks written here.
+    CheckPhraseLoad "a phrase over a range, from a phrasebook of its own", _
+        "(english-function ""zeta of range {r:range}"" (zeta-of (range {r})))", "Set z to zeta of range B2:B3.", "(set! z (zeta-of (range ""b2:b3"")))"
+    CheckPhraseLoad "a pattern of two words and no hole takes a value after them", _
+        "(english-function ""zeta de"" zeta-de)", "Set z to zeta de revenues.", "(set! z (zeta-de revenues))"
+    CheckPhraseLoadRefused "a word read after a value (plus)", _
+        "(english-function ""total plus {x:value}"" total-plus)", "english-function-phrase-after-value-word", "uses 'plus' after its first word"
+    CheckPhraseLoadRefused "a comparator in the closing clause (is)", _
+        "(english-function ""zeta of {x:value} is here"" (zeta {x}))", "english-function-phrase-after-value-word", "uses 'is' after its first word"
+    CheckPhraseLoadRefused "two phrases with the same words", _
+        "(english-function ""zeta of range {r:range}"" (zeta (range {r})))" & vbLf & "(english-function ""zeta of range {c:column}"" (zeta {c}))", _
+        "english-function-phrase-duplicate", "has the same words before its value as 'zeta of range <range>'"
+    CheckPhraseLoadRefused "a phrase with the words of a one-word head", _
+        "(english-function ""length of {r:range}"" (len (range {r})))", "english-function-phrase-duplicate", "'length of ...'"
+    CheckPhraseLoadRefused "a second value", _
+        "(english-function ""ratio of {a:value} to {b:value}"" (ratio {a} {b}))", "english-function-phrase-shape", "takes a second value"
+    CheckPhraseLoadRefused "a hole of another kind", _
+        "(english-function ""zeta of {x:text}"" (zeta {x}))", "english-function-phrase-shape", "takes a 'text'"
+    CheckPhraseLoadRefused "a template that loses the word chosen", _
+        "(english-function ""zeta of {x:value} as {k:one|two}"" zeta-of)", "english-function-phrase-template", "never uses {k}"
+    CheckPhraseLoadRefused "a value word with a form", _
+        "(english-function ""zeta"" (zeta 1))", "english-function-phrase-shape", "is a value word"
+    CheckPhraseLoadRefused "a directive short of its target", _
+        "(english-function ""zeta of"")", "english-function-arity", "takes a quoted pattern and one target"
+    CheckPhraseLoadRefused "a keyword alias's word, the alias first", _
+        "(keyword-alias ""zeta"" ""if"")" & vbLf & "(english-function ""zeta of range {r:range}"" (zeta (range {r})))", _
+        "english-function-phrase-alias-word", "'zeta' is both a keyword alias and a word of the phrase"
+    CheckPhraseLoadRefused "a keyword alias's word, the phrase first", _
+        "(english-function ""lorem ipsum of {x:value}"" (lorem {x}))" & vbLf & "(keyword-alias ""ipsum"" ""if"")", _
+        "english-function-phrase-alias-word", "'ipsum' is both a keyword alias and a word of the phrase"
+    EnglishResetGrammar
+End Sub
+
+' LX.14: a sentence refused by a phrase that stopped partway - by id, by the
+' words it says, and by the line the IDE will mark red.
+Private Sub CheckPhraseRefused(ByVal program As String, ByVal wantFrag As String, ByVal wantLine As Long)
+    Dim en As Long, d As String, gotId As String, gotLine As Long
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    Err.Clear
+    EnglishToVla program
+    en = Err.Number
+    d = Err.Description
+    On Error GoTo 0
+    gotId = VLA_Messages.VlaLastRaisedMsgId()
+    gotLine = EnglishLastErrorLine()
+    Report "lx.14 phrases: " & Replace(program, vbLf, " / ") & " is refused by the phrase", _
+           en <> 0 And gotId = "english-phrase-incomplete" And InStr(1, d, wantFrag, vbBinaryCompare) > 0 _
+           And gotLine = wantLine, _
+           "err " & en & " [" & gotId & "] line " & gotLine & ": " & d
+End Sub
+
+' LX.14: a phrasebook written here loads, and a sentence reads its phrase.
+Private Sub CheckPhraseLoad(ByVal label As String, ByVal phrasebook As String, ByVal sentence As String, ByVal frag As String)
+    Dim loadErr As String
+    EnglishResetGrammar
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText phrasebook, "lx14-test.vla"
+    If Err.Number <> 0 Then loadErr = Err.Description
+    On Error GoTo 0
+    Report "lx.14 audit: " & label & " - loads", Len(loadErr) = 0, loadErr
+    If Len(loadErr) = 0 Then AssertEnglish "lx.14 audit: " & label & " - reads", sentence, frag
+End Sub
+
+' LX.14: a phrasebook written here is refused at load, by id and words.
+Private Sub CheckPhraseLoadRefused(ByVal label As String, ByVal phrasebook As String, ByVal wantId As String, ByVal wantFrag As String)
+    Dim en As Long, d As String, gotId As String
+    EnglishResetGrammar
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText phrasebook, "lx14-test.vla"
+    en = Err.Number
+    d = Err.Description
+    On Error GoTo 0
+    gotId = VLA_Messages.VlaLastRaisedMsgId()
+    Report "lx.14 audit: " & label & " is refused", _
+           en <> 0 And gotId = wantId And InStr(1, d, wantFrag, vbBinaryCompare) > 0, _
+           "err " & en & " [" & gotId & "] " & d
 End Sub

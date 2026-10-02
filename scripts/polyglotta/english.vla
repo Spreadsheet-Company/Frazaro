@@ -507,99 +507,12 @@
     "Save this workbook."
     (save-current-workbook))
 
-(english-vla
-    "put sum of range {r:range} into|in cell {c:cell}"
-    (set! (range {c}) (sum-of (range {r}))))
-(test-success
-    "Put sum of range \"B2:B3\" into cell B4."
-    (set! (range "b4") (sum-of (range "B2:B3"))))
-(test-success
-    "Put sum of range \"B2:B3\" in cell B5."
-    (set! (range "b5") (sum-of (range "B2:B3"))))
-
-; G-FORMULA slice 1: put sum's three siblings, as one rule - the word
-; names the macro (average-of, largest-of, smallest-of), fill-{d}'s way.
-; Like put sum, the cell gets the number, not a live formula; a formula
-; that recalculates is put formula "=AVERAGE(...)".
-(english-vla
-    "put {d:average|largest|smallest} of range {r:range} into|in cell {c:cell}"
-    (set! (range {c}) ({d}-of (range {r}))))
-(test-success
-    "Put average of range B2:B50 into cell B51."
-    (set! (range "b51") (average-of (range "b2:b50"))))
-(test-success
-    "Put largest of range B2:B50 into cell B52."
-    (set! (range "b52") (largest-of (range "b2:b50"))))
-(test-success
-    "Put smallest of range B2:B50 in cell B53."
-    (set! (range "b53") (smallest-of (range "b2:b50"))))
-
-; G-FORMULA slice 2: the median, and the standard deviation with its
-; reading named - "as a sample" is Excel's STDEV.S (dividing by one fewer
-; than the count), "as the population" its STDEV.P (dividing by the
-; count). Tools disagree when neither is named (SQL's STDDEV is the
-; sample in PostgreSQL and the population in MySQL), so the sentence
-; says which, last, where a sentence that leaves it out gets furthest
-; before it is refused. New rules, not new branches of slice 1's:
-; GRAMMAR_SINCE.md dates a rule by its pattern, and slice 1's shipped
-; in 0.7.1. A range with too few numbers stops the run at the sentence,
-; as Excel's own function has no answer: a median of none, a sample of
-; fewer than two, a population of none.
-(english-vla
-    "put median of range {r:range} into|in cell {c:cell}"
-    (set! (range {c}) (median-of (range {r}))))
-(test-success
-    "Put median of range B2:B50 into cell B54."
-    (set! (range "b54") (median-of (range "b2:b50"))))
-(test-success
-    "Put median of range B2:B50 in cell B54."
-    (set! (range "b54") (median-of (range "b2:b50"))))
-
-(english-vla
-    "put standard deviation of range {r:range} as {k:sample|population} into|in cell {c:cell}"
-    (set! (range {c}) ({k}-standard-deviation-of (range {r}))))
-(test-success
-    "Put standard deviation of range B2:B50 as a sample in cell B55."
-    (set! (range "b55") (sample-standard-deviation-of (range "b2:b50"))))
-(test-success
-    "Put standard deviation of range B2:B50 as the population into cell B55."
-    (set! (range "b55") (population-standard-deviation-of (range "b2:b50"))))
-(test-fail
-    "Put standard deviation of range B2:B50 into cell B55."
-    "then I expected 'as'")
-
-; G-FORMULA slice 4: the median and the standard deviation of a range
-; remembered by a name, as sample 02 reads "average of revenues". Rules
-; over a name, not function words: a new function word would refuse
-; every program that already calls an action, or a parameter, "median",
-; and "standard deviation of" is two words, which a function word cannot
-; be. The name is read, never set, so its hole is a name's, not a var's:
-; a var hole would declare a misspelt name, and Excel would be handed
-; nothing. A program's own "median of" still wins, since the general put
-; and set are tried first, and a name is one word, so "median of
-; revenues plus 5" is refused rather than grouped.
-(english-vla
-    "put median of {n:name} into|in cell {c:cell}"
-    (set! (range {c}) (median-of {n})))
-(test-success
-    "Put median of revenues into cell B54."
-    (set! (range "b54") (median-of revenues)))
-(test-success
-    "Put median of units-sold in cell B54."
-    (set! (range "b54") (median-of units-sold)))
-
-(english-vla
-    "put standard deviation of {n:name} as {k:sample|population} into|in cell {c:cell}"
-    (set! (range {c}) ({k}-standard-deviation-of {n})))
-(test-success
-    "Put standard deviation of revenues as a sample in cell B55."
-    (set! (range "b55") (sample-standard-deviation-of revenues)))
-(test-success
-    "Put standard deviation of revenues as the population into cell B55."
-    (set! (range "b55") (population-standard-deviation-of revenues)))
-(test-fail
-    "Put standard deviation of revenues into cell B55."
-    "then I expected 'as'")
+; LX.14: the put rules for the sum, average, largest, smallest, median and
+; standard deviation of a range, and of a range remembered by a name,
+; retired. Function phrases (with the function words, below) carry their
+; sentences, translated as before, through the put rule above, and their
+; proofs went with them. The where rules below carry a second value, so
+; they stay sentence rules.
 
 ; G-FORMULA slice 4: sum-where and average-where into a cell. Like put
 ; sum, the cell gets the number, not a live formula.
@@ -613,84 +526,8 @@
     "Put average of range B2:B90 where range A2:A90 matches \"West\" in cell D2."
     (set! (range "d2") (average-of-where (range "b2:b90") (range "a2:a90") "West")))
 
-(english-vla
-    "set {v:var} to sum of range {r:range}"
-    (set! {v} (sum-of (range {r}))))
-(test-success
-    "Set grand to sum of range \"B2:B3\"."
-    (set! grand (sum-of (range "B2:B3"))))
-
-(english-vla
-    "set {v:var} to average of range {r:range}"
-    (set! {v} (average-of (range {r}))))
-(test-success
-    "Set avg to average of range \"A1:A9\"."
-    (set! avg (average-of (range "A1:A9"))))
-
-; G-FORMULA slice 1: largest and smallest of a range, without naming
-; the range first ("largest of" alone takes a remembered range or list).
-(english-vla
-    "set {v:var} to {d:largest|smallest} of range {r:range}"
-    (set! {v} ({d}-of (range {r}))))
-(test-success
-    "Set top to largest of range B2:B50."
-    (set! top (largest-of (range "b2:b50"))))
-(test-success
-    "Set bottom to smallest of range B2:B50."
-    (set! bottom (smallest-of (range "b2:b50"))))
-
-; G-FORMULA slice 2: the median and the standard deviation into a name,
-; put's two new siblings above, the reading named the same way.
-(english-vla
-    "set {v:var} to median of range {r:range}"
-    (set! {v} (median-of (range {r}))))
-(test-success
-    "Set middle to median of range B2:B50."
-    (set! middle (median-of (range "b2:b50"))))
-(test-success
-    "Set middle to median of range \"B2:B50\"."
-    (set! middle (median-of (range "B2:B50"))))
-
-(english-vla
-    "set {v:var} to standard deviation of range {r:range} as {k:sample|population}"
-    (set! {v} ({k}-standard-deviation-of (range {r}))))
-(test-success
-    "Set spread to standard deviation of range B2:B50 as a sample."
-    (set! spread (sample-standard-deviation-of (range "b2:b50"))))
-(test-success
-    "Set spread to standard deviation of range B2:B50 as the population."
-    (set! spread (population-standard-deviation-of (range "b2:b50"))))
-(test-fail
-    "Set spread to standard deviation of range B2:B50."
-    "then I expected 'as'")
-
-; G-FORMULA slice 4: the median and the standard deviation of a
-; remembered range into a name, put's two new siblings above.
-(english-vla
-    "set {v:var} to median of {n:name}"
-    (set! {v} (median-of {n})))
-(test-success
-    "Set middle to median of revenues."
-    (set! middle (median-of revenues)))
-(test-success
-    "Set middle to median of units-sold."
-    (set! middle (median-of units-sold)))
-(test-fail
-    "Set middle to median of revenues plus 5."
-    "then I expected '.'")
-
-(english-vla
-    "set {v:var} to standard deviation of {n:name} as {k:sample|population}"
-    (set! {v} ({k}-standard-deviation-of {n})))
-(test-success
-    "Set spread to standard deviation of revenues as a sample."
-    (set! spread (sample-standard-deviation-of revenues)))
-(test-success
-    "Set spread to standard deviation of revenues as the population."
-    (set! spread (population-standard-deviation-of revenues)))
-(test-fail
-    "Set spread to standard deviation of revenues."
-    "then I expected 'as'")
+; LX.14: the set rules for the same figures retired too, carried by the
+; same phrases through the built-in set, their proofs with them.
 
 ; B5 decision, blessed: "put answer into <name>" keeps its "into" even
 ; though Put normally targets places and Set targets names - the whole
@@ -824,13 +661,9 @@
 
 ; ---- 56-68: the expansion pack ----------------------------------------
 ; Reaching the data: the last-filled-row idiom, computed row ranges.
-(english-vla
-    "set {v:var} to last filled row of column {c:column}"
-    (set! {v} (last-filled-row {c})))
-(test-success
-    "Set last-row to last filled row of column A."
-    (set! last-row (last-filled-row "a")))
-
+; LX.14: "set ... to last filled row of column ..." retired - the phrase
+; "last filled row of column {c:column}" carries it, and fits anywhere a
+; value goes ("last filled row of column B plus 1").
 (english-vla
     "remember rows {a:expr} to {b:expr} of column {c:column} as {v:var}"
     (obj-set! {v} (range (& {c} {a} ":" {c} {b}))))
@@ -4509,6 +4342,156 @@
 (english-function
     "average of"
     average-of)
+
+; LX.14: function phrases - a value said in several words. Each is matched
+; where a value is read, longest first, so it binds before arithmetic and
+; fits anywhere a value goes: "If median of revenues is more than 100, ...",
+; "median of revenues plus 5". The words before the hole are fixed; the hole
+; says what it takes - {x:value}, a value, or a reference, {r:range} or
+; {c:column}; a closing clause may follow, with one choice of words. Once
+; its words match, a phrase completes or is refused, saying what it
+; expected. These carry the sentences of the fourteen figure rules over
+; "range ..." and over a name that retired with them (G-FORMULA slices 1, 2
+; and 4, and "set ... to last filled row of column ..."), each translated
+; exactly as before; their proofs are here now. "median of" is a one-word
+; head, so a program's own "To median of ...:" masks it, with a note at
+; Check; the phrases after it are the phrasebook's in every program.
+(english-function
+    "median of"
+    median-of)
+(english-function
+    "median of range {r:range}"
+    (median-of (range {r})))
+(english-function
+    "standard deviation of {x:value} as {k:sample|population}"
+    ({k}-standard-deviation-of {x}))
+(english-function
+    "standard deviation of range {r:range} as {k:sample|population}"
+    ({k}-standard-deviation-of (range {r})))
+(english-function
+    "sum of range {r:range}"
+    (sum-of (range {r})))
+(english-function
+    "average of range {r:range}"
+    (average-of (range {r})))
+(english-function
+    "largest of range {r:range}"
+    (largest-of (range {r})))
+(english-function
+    "smallest of range {r:range}"
+    (smallest-of (range {r})))
+(english-function
+    "last filled row of column {c:column}"
+    (last-filled-row {c}))
+(test-success
+    "Set middle to median of revenues."
+    (set! middle (median-of revenues)))
+(test-success
+    "Set middle to median of units-sold."
+    (set! middle (median-of units-sold)))
+(test-success
+    "Set middle to median of revenues plus 5."
+    (set! middle (+ (median-of revenues) 5)))
+(test-success
+    "If median of revenues is more than 100, show \"high\"."
+    (if (> (median-of revenues) 100) (then (msgbox "high"))))
+(test-success
+    "Put median of revenues into cell B54."
+    (set! (range "b54") (median-of revenues)))
+(test-success
+    "Put median of units-sold in cell B54."
+    (set! (range "b54") (median-of units-sold)))
+(test-success
+    "Set middle to median of range B2:B50."
+    (set! middle (median-of (range "b2:b50"))))
+(test-success
+    "Set middle to median of range \"B2:B50\"."
+    (set! middle (median-of (range "B2:B50"))))
+(test-success
+    "Put median of range B2:B50 into cell B54."
+    (set! (range "b54") (median-of (range "b2:b50"))))
+(test-success
+    "Put median of range B2:B50 in cell B54."
+    (set! (range "b54") (median-of (range "b2:b50"))))
+(test-fail
+    "Set middle to median of range."
+    "then I expected a range")
+(test-success
+    "Set spread to standard deviation of revenues as a sample."
+    (set! spread (sample-standard-deviation-of revenues)))
+(test-success
+    "Set spread to standard deviation of revenues as the population."
+    (set! spread (population-standard-deviation-of revenues)))
+(test-success
+    "Put standard deviation of revenues as a sample in cell B55."
+    (set! (range "b55") (sample-standard-deviation-of revenues)))
+(test-success
+    "Put standard deviation of revenues as the population into cell B55."
+    (set! (range "b55") (population-standard-deviation-of revenues)))
+(test-fail
+    "Set spread to standard deviation of revenues."
+    "then I expected 'as'")
+(test-fail
+    "Put standard deviation of revenues into cell B55."
+    "then I expected 'as'")
+(test-success
+    "Set spread to standard deviation of range B2:B50 as a sample."
+    (set! spread (sample-standard-deviation-of (range "b2:b50"))))
+(test-success
+    "Set spread to standard deviation of range B2:B50 as the population."
+    (set! spread (population-standard-deviation-of (range "b2:b50"))))
+(test-success
+    "Show standard deviation of range B2:B50 as a sample."
+    (msgbox (sample-standard-deviation-of (range "b2:b50"))))
+(test-success
+    "Put standard deviation of range B2:B50 as a sample in cell B55."
+    (set! (range "b55") (sample-standard-deviation-of (range "b2:b50"))))
+(test-success
+    "Put standard deviation of range B2:B50 as the population into cell B55."
+    (set! (range "b55") (population-standard-deviation-of (range "b2:b50"))))
+(test-fail
+    "Set spread to standard deviation of range B2:B50."
+    "then I expected 'as'")
+(test-fail
+    "Put standard deviation of range B2:B50 into cell B55."
+    "then I expected 'as'")
+(test-success
+    "Set grand to sum of range \"B2:B3\"."
+    (set! grand (sum-of (range "B2:B3"))))
+(test-success
+    "Put sum of range \"B2:B3\" into cell B4."
+    (set! (range "b4") (sum-of (range "B2:B3"))))
+(test-success
+    "Put sum of range \"B2:B3\" in cell B5."
+    (set! (range "b5") (sum-of (range "B2:B3"))))
+(test-success
+    "Set avg to average of range \"A1:A9\"."
+    (set! avg (average-of (range "A1:A9"))))
+(test-success
+    "Put average of range B2:B50 into cell B51."
+    (set! (range "b51") (average-of (range "b2:b50"))))
+(test-success
+    "Set top to largest of range B2:B50."
+    (set! top (largest-of (range "b2:b50"))))
+(test-success
+    "Put largest of range B2:B50 into cell B52."
+    (set! (range "b52") (largest-of (range "b2:b50"))))
+(test-success
+    "Set bottom to smallest of range B2:B50."
+    (set! bottom (smallest-of (range "b2:b50"))))
+(test-success
+    "Put smallest of range B2:B50 in cell B53."
+    (set! (range "b53") (smallest-of (range "b2:b50"))))
+(test-success
+    "Set gap to largest of range B2:B50 minus smallest of range B2:B50."
+    (set! gap (- (largest-of (range "b2:b50")) (smallest-of (range "b2:b50")))))
+(test-success
+    "Set last-row to last filled row of column A."
+    (set! last-row (last-filled-row "a")))
+(test-success
+    "Set next-row to last filled row of column B plus 1."
+    (set! next-row (+ (last-filled-row "b") 1)))
+
 ; count of moved into the core language in B1: it is a built-in word
 ; backed by VlaCount, which answers lists (Collections) as well as
 ; ranges (where it still counts numbers, exactly as before). Do not

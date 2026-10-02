@@ -1,9 +1,9 @@
 === PHRASEBOOK TEST COVERAGE: english.vla ===
-Rules: 254
+Rules: 240
 
 --- Zero tests, 0 rule(s) ---
 
---- Exactly one test, 161 rule(s) ---
+--- Exactly one test, 158 rule(s) ---
   copy cell {a:cell} to cell {b:cell} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   paste values of range {a:range} into range {b:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   set font-color of cell {r:cell} to {e:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
@@ -20,8 +20,6 @@ Rules: 254
   go to sheet {s:sheet} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   delete sheet {s:sheet} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   save this workbook [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
-  set {v:var} to sum of range {r:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
-  set {v:var} to average of range {r:range} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   ask {q:expr} and put answer into {v:var} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   turn off automatic calculation [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   turn on automatic calculation [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
@@ -30,7 +28,6 @@ Rules: 254
   turn off screen updating [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   turn on screen updating [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   clear cell in column {c:column} row {n:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
-  set {v:var} to last filled row of column {c:column} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   remember rows {a:expr} to {b:expr} of column {c:column} as {v:var} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   set {v:var} to {t:expr} with {a:expr} replaced by {b:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
   set {v:var} to trimmed {t:expr} [C:\Users\prest\Documents\Code\VLA\Delta\Frazaro\scripts\polyglotta\english.vla]
@@ -169,4 +166,4 @@ Rules: 254
 test-fail proofs (file-level, never attributed to a rule): 22
 test-success proofs for a structural form, not a phrase rule: 9
 
-=== SUMMARY: 93/254 rules have 2+ tests; 161 have exactly one; 0 have zero ===
+=== SUMMARY: 82/240 rules have 2+ tests; 158 have exactly one; 0 have zero ===

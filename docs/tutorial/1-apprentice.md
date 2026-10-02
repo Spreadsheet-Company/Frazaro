@@ -511,8 +511,13 @@ Put standard deviation of revenues as the population into cell B55.
 Put sum of range B2:B90 where range A2:A90 matches "West" into cell D1.
 ```
 
-Unlike `sum of revenues`, a median is a sentence of its own, not a word
-that fits into any value: to compare one in an `If`, set it first.
+Like `sum of revenues`, a median or a standard deviation fits anywhere a
+value goes, and binds before arithmetic:
+
+```text
+If median of revenues is more than 100, show "high".
+Put median of revenues plus 1 into cell H2.
+```
 
 **From `0.8.0`**, calculation switched off while a long program works on a
 big workbook, and switched back on at the end:

@@ -58,12 +58,19 @@ are recorded in U.30's entry in docs/BETA_REARVIEW.md.
 Host-independent: reads files only. NOT wired into VlaSelfTest - the house
 ratchet shape, a step a human and CI run.
 
-Usage:  powershell -File tools\check_engine_call_names.ps1 [-RepoRoot <dir>]
+LX.14: -ListFunctionWords prints the engine's own function words as
+docs/GRAMMAR_SINCE.md writes them - "length of {x:value}" for a word read
+with "of", "today" for a value word - one per line and nothing else, for
+check_grammar_since.ps1's third inventory. This script owns that parsing
+of RegisterBuiltinFuncWords, so the ledger does not carry a second copy.
+
+Usage:  powershell -File tools\check_engine_call_names.ps1 [-RepoRoot <dir>] [-ListFunctionWords]
 Exit code: 0 if clean; 1 if anything above fails.
 #>
 
 param(
-    [string]$RepoRoot
+    [string]$RepoRoot,
+    [switch]$ListFunctionWords
 )
 
 $ErrorActionPreference = 'Stop'
@@ -166,7 +173,9 @@ function Get-QuotedCaseArms([string[]]$code) {
 
 function New-NameSet { return New-Object System.Collections.Generic.SortedSet[string] }
 
-Write-Output '=== NAMES THE GENERATED CODE CALLS ARE NEVER A PROGRAM''S NAMES (U.30) ==='
+if (-not $ListFunctionWords) {
+    Write-Output '=== NAMES THE GENERATED CODE CALLS ARE NEVER A PROGRAM''S NAMES (U.30) ==='
+}
 
 $interpLines  = [IO.File]::ReadAllText($interpPath) -split "`r?`n"
 $engineLines  = [IO.File]::ReadAllText($enginePath) -split "`r?`n"
@@ -189,15 +198,24 @@ $words = New-Object System.Collections.Generic.List[object]
 if ($null -eq $rbf) { $failed.Add('RegisterBuiltinFuncWords not found in src/VLA_SentenceEngine.bas') }
 else {
     foreach ($c in $rbf) {
-        $m = [regex]::Match($c, 'AddFnEntry\s+mFn(?:Of|Nullary)\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"')
+        $m = [regex]::Match($c, 'AddFnEntry\s+mFn(Of|Nullary)\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"')
         if ($m.Success) {
-            $target = $m.Groups[2].Value.ToLowerInvariant()
+            $target = $m.Groups[3].Value.ToLowerInvariant()
             [void]$s2.Add($target)
-            $words.Add([pscustomobject]@{ Word = $m.Groups[1].Value.ToLowerInvariant(); Target = $target })
+            $words.Add([pscustomobject]@{ Word = $m.Groups[2].Value.ToLowerInvariant(); Target = $target; Of = ($m.Groups[1].Value -eq 'Of') })
         }
     }
 }
 $sources['function-word targets'] = $s2
+
+if ($ListFunctionWords) {
+    # Inventory mode (LX.14): the engine's words as the ledger writes them.
+    if ($failed.Count -gt 0) { $failed | ForEach-Object { Write-Error $_ }; exit 1 }
+    foreach ($w in $words) {
+        if ($w.Of) { Write-Output "$($w.Word) of {x:value}" } else { Write-Output $w.Word }
+    }
+    exit 0
+}
 
 # --- 3. The heads EvalDynamicHead answers natively, and the global roots. ---
 $edh = Get-ProcCode $interpLines 'EvalDynamicHead'

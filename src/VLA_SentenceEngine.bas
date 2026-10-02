@@ -1,6 +1,15 @@
 Attribute VB_Name = "VLA_SentenceEngine"
 Option Explicit
 Public Const VLA_SENTENCEENGINE_VERSION As String = "LX.14"
+' LX.14 (slice 2): function phrases. A -function directive may declare a
+' phrase of several words - fixed words, one hole ({x:value}, or a range,
+' column or cell reference), at most one closing clause of fixed words and
+' one alternation - with a template for its target (RegisterFunctionWord,
+' which audits each as it registers). ParsePrimCore tries a phrase,
+' longest first, before any one-word reading (TryFunctionPhrase); once its
+' words have matched it completes or is refused there, from where its
+' sentence began (ParseStmt records mSentenceStart). A form target was a
+' crash before; english-function-word-not-one-word is retired.
 ' LX.14 (call 2): a program's own "To <word> of <param>:" masks a
 ' vocabulary's one-word head inside that program instead of being refused
 ' (CheckDupAction), and leaves a note for Check (EnglishLastNotes); the next
@@ -719,6 +728,25 @@ Private mVocabOfWords As Collection
 Private mMaskWords As Collection
 Private mMaskTargets As Collection
 Private mMaskNotes As Collection
+
+' LX.14: function phrases - a value said in several words, beside the
+' one-word heads above. A phrase is one index into the parallel
+' collections: its folded words before the hole, the hole's name and kind
+' ("value", "range", "column" or "cell"), its closing clause's items as
+' registered (words, and at most one {name:a|b}), its template's forms,
+' and its shape as "What can I say?" and its refusal show it.
+' mPhraseBuckets maps "k:" & a first word to the indexes that begin with
+' it, longest first. mSentenceStart is where the sentence being read
+' began, so a phrase that stops partway can say what it understood.
+Private mPhraseWords As Collection
+Private mPhraseHole As Collection
+Private mPhraseCat As Collection
+Private mPhraseClause As Collection
+Private mPhraseForms As Collection
+Private mPhraseShapes As Collection
+Private mPhraseBuckets As Collection
+Private mPhraseFirsts As String        ' " w1 w2 ... " - every bucket's word, a cheap test before the lookup
+Private mSentenceStart As Long
 
 ' A1: tokens carry their source line. mTokLines parallels the token
 ' Collection of the most recent EnTokenize; mErrLine is the line of
@@ -3904,6 +3932,13 @@ End Sub
 Private Function ParseStmt(toks() As String, ByRef pos As Long, ByVal ind As Long) As String
     Dim pad As String
     pad = String$(ind * 2, " ")
+    ' LX.14: where this sentence began, for a function phrase that stops
+    ' partway. A comma body ("If x, show ...") keeps its sentence's start,
+    ' so the refusal quotes the whole sentence.
+    Select Case TokAt(toks, pos - 1)
+        Case "", ".", ":", PARA_TOK
+            mSentenceStart = pos
+    End Select
     If TokAt(toks, pos) = PARA_TOK Then
         VLA_Messages.RaiseMsg "english-expected-sentence-blank-line"
     End If
@@ -5224,6 +5259,13 @@ Private Function ParsePrimCore(toks() As String, ByRef pos As Long, ByRef ok As 
     Dim n2 As String
     Dim ok2 As Boolean
     t = TokAt(toks, pos)
+    ' LX.14: a function phrase, longest first, ahead of any one-word
+    ' reading. Once its words match it completes, or it is refused there.
+    If TryFunctionPhrase(toks, pos, n2) Then
+        ParsePrimCore = n2
+        ok = True
+        Exit Function
+    End If
     If IsNumTok(t) Then
         pos = pos + 1
         ParsePrimCore = t
@@ -8319,8 +8361,7 @@ Private Sub DispatchVocabForm(fl As Variant, ByVal startLine As Long, ByVal rowT
         ' argument plays elsewhere, never English prose (the
         ' owner's own catch during this migration's build).
         RecordExpandedForm expTexts, expTags, flc, rowTag   ' GEXPANDER.0
-        RegisterFunctionWord StripQuoteSigil(CStr(flc.Item(2))), CStr(flc.Item(3)), _
-                             ProvLoc(sourceName, startLine, rowTag)
+        RegisterFunctionDirective flc, ProvLoc(sourceName, startLine, rowTag)
     ElseIf head = "keyword-alias" Then
         ' LX5.1: (keyword-alias "si" "if") - a language file's own
         ' control-flow vocabulary, the same directive shape as every
@@ -8328,6 +8369,9 @@ Private Sub DispatchVocabForm(fl As Variant, ByVal startLine As Long, ByVal rowT
         ' a .bas file to gain if/repeat/while/etc. See
         ' CanonicalizeStructuralWords for the consumer.
         RecordExpandedForm expTexts, expTags, flc, rowTag   ' GEXPANDER.0
+        ' LX.14: an alias rewrites its word in every sentence before a
+        ' phrase is read, so a phrase that uses the word could never match.
+        RefusePhraseWordAlias StripQuoteSigil(CStr(flc.Item(2))), ProvLoc(sourceName, startLine, rowTag)
         RegisterKeywordAlias StripQuoteSigil(CStr(flc.Item(2))), StripQuoteSigil(CStr(flc.Item(3)))
     ElseIf Len(head) > 9 And Left$(head, 9) = "requires-" Then
         ' F.10: the tag was already read, checked and (if unmet)
@@ -10929,16 +10973,392 @@ Public Function EnglishLastNotes() As Collection
     Set EnglishLastNotes = mMaskNotes
 End Function
 
-Private Sub RegisterFunctionWord(ByVal lhs As String, ByVal target As String, ByVal context As String)
-    Dim parts() As String
-    parts = Split(Trim$(lhs), " ")
-    If UBound(parts) - LBound(parts) = 1 And VLA_Identity.Fold(parts(UBound(parts))) = "of" Then
-        EnglishAddFunctionWord parts(LBound(parts)), target, False
-    ElseIf UBound(parts) = LBound(parts) Then
-        EnglishAddFunctionWord parts(LBound(parts)), target, True
-    Else
-        VLA_Messages.RaiseMsg "english-function-word-not-one-word", "context", context
+' =====================================================================
+'  LX.14: function phrases. A (<lang>-function "<pattern>" <target>)
+'  directive declares a function word or a phrase:
+'    - one word and no hole: a value word ("today"), the shipped shape;
+'    - a word and "of", then a value, called by name: a one-word head
+'      ("sum of"), read by the machinery the shipped words use, and the
+'      one a program's own definition may mask (call 2);
+'    - anything else: a phrase - fixed words, then one hole, then at most
+'      one closing clause of fixed words and one alternation (SD-16's
+'      precision amendment of 2026-09-30). The hole is {name:value}, the
+'      engine's innermost value, as a function word takes it, or a
+'      reference, one token as a rule's reference slot reads it:
+'      {name:range}, {name:column} or {name:cell}.
+'  A pattern of two or more words with no hole takes a value after them,
+'  so "sum of" reads as it always has and "suma de" is a phrase with its
+'  own connector. The target is a bare atom, called with the value, or a
+'  form: a template in which the hole's name and the alternation's are
+'  spliced as a rule's are. A phrase is matched where a value is read,
+'  longest first and ahead of any one-word reading (TryFunctionPhrase);
+'  once its words before the hole have matched, it completes or is
+'  refused, saying what it expected. Each phrase is audited as it
+'  registers: its shape; no word after its first that the value or
+'  condition grammar reads right after a value, so no value that reads
+'  today reads differently; no two phrases with the same words before the
+'  hole; no word a keyword alias rewrites.
+' =====================================================================
+
+' LX.14: a -function directive, checked and handed on - its pattern, and
+' its target as a name or as a form's text.
+Private Sub RegisterFunctionDirective(flc As Collection, ByVal context As String)
+    If flc.Count <> 3 Then
+        VLA_Messages.RaiseMsg "english-function-arity", "loc", context, "example", "(english-function ""sum of"" sum-of)"
     End If
+    If IsObject(flc.Item(2)) Then
+        VLA_Messages.RaiseMsg "english-function-arity", "loc", context, "example", "(english-function ""sum of"" sum-of)"
+    End If
+    If IsObject(flc.Item(3)) Then
+        RegisterFunctionWord StripQuoteSigil(CStr(flc.Item(2))), VLA.VlaWriteForm(flc.Item(3)), True, context
+    Else
+        RegisterFunctionWord StripQuoteSigil(CStr(flc.Item(2))), CStr(flc.Item(3)), False, context
+    End If
+End Sub
+
+Private Sub RegisterFunctionWord(ByVal lhs As String, ByVal target As String, ByVal targetIsForm As Boolean, _
+                                 ByVal context As String)
+    EnsureInit
+    Dim raw() As String, items As Collection, i As Long, w As String
+    Set items = New Collection
+    raw = Split(Trim$(lhs), " ")
+    For i = LBound(raw) To UBound(raw)
+        w = VLA_Identity.Fold(Trim$(raw(i)))
+        If Len(w) > 0 Then
+            If Not IsNoiseWord(w) Then items.Add NumberWord(w)
+        End If
+    Next
+    If items.Count = 0 Then RefusePhraseShape context, lhs, "has no words"
+
+    ' The hole, and the one alternation after it.
+    Dim holeAt As Long, altAt As Long, sn As String, ct As String, hasDef As Boolean, defV As String
+    For i = 1 To items.Count
+        w = CStr(items.Item(i))
+        If IsSlotTok(w, sn, ct, hasDef, defV) Then
+            If hasDef Then RefusePhraseShape context, lhs, "gives a slot a default, and a phrase's value is always said"
+            If IsAltCat(ct) Then
+                If holeAt = 0 Then RefusePhraseShape context, lhs, "has a choice of words before its value"
+                If altAt > 0 Then RefusePhraseShape context, lhs, "has a second choice of words"
+                altAt = i
+            Else
+                If holeAt > 0 Then RefusePhraseShape context, lhs, "takes a second value, which makes it a sentence rule, not a phrase"
+                Select Case ct
+                    Case "value", "range", "column", "cell"
+                    Case Else
+                        RefusePhraseShape context, lhs, "takes a '" & ct & "', where a phrase takes a value, a range, a column or a cell"
+                End Select
+                holeAt = i
+            End If
+        ElseIf Left$(w, 1) = "[" Or InStr(w, "|") > 0 Or InStr(w, "/") > 0 Then
+            RefusePhraseShape context, lhs, "has an optional word or a choice of words outside {braces}, where a phrase's words are fixed"
+        End If
+    Next
+
+    ' No hole: one word is a value word; two or more take a value after them.
+    If holeAt = 0 Then
+        If items.Count = 1 Then
+            If targetIsForm Then RefusePhraseShape context, lhs, "is a value word, whose target is one name"
+            EnglishAddFunctionWord CStr(items.Item(1)), target, True
+            Exit Sub
+        End If
+        items.Add "{x:value}"
+        holeAt = items.Count
+    End If
+    If holeAt = 1 Then RefusePhraseShape context, lhs, "begins with its value, where a phrase begins with a word"
+    Dim holeName As String, holeCat As String
+    IsSlotTok CStr(items.Item(holeAt)), holeName, holeCat
+
+    ' A word and "of", then a value, called by name: a one-word head.
+    If holeAt = 3 And items.Count = 3 And CStr(items.Item(2)) = "of" And holeCat = "value" And Not targetIsForm Then
+        RefuseSamePhraseWords CStr(items.Item(1)) & " of", context, lhs
+        EnglishAddFunctionWord CStr(items.Item(1)), target, False
+        Exit Sub
+    End If
+
+    ' A phrase: its words before the hole, then its closing clause.
+    Dim words As Collection, clause As Collection, joined As String
+    Set words = New Collection
+    Set clause = New Collection
+    For i = 1 To holeAt - 1
+        w = CStr(items.Item(i))
+        AuditPhraseWord w, (i > 1), context, lhs
+        words.Add w
+        If Len(joined) > 0 Then joined = joined & " "
+        joined = joined & w
+    Next
+    Dim altName As String, altCat As String, br() As String, bi As Long
+    For i = holeAt + 1 To items.Count
+        w = CStr(items.Item(i))
+        If i = altAt Then
+            IsSlotTok w, altName, altCat
+            br = Split(altCat, "|")
+            For bi = LBound(br) To UBound(br)
+                AuditPhraseWord StemOf(VLA_Identity.Fold(br(bi))), True, context, lhs
+            Next
+        Else
+            AuditPhraseWord w, True, context, lhs
+        End If
+        clause.Add w
+    Next
+    RefuseSamePhraseWords joined, context, lhs
+    If words.Count = 2 Then
+        If CStr(words.Item(2)) = "of" And IsFnWord(mFnOf, CStr(words.Item(1))) Then
+            VLA_Messages.RaiseMsg "english-function-phrase-duplicate", "loc", context, "pattern", lhs, "other", CStr(words.Item(1)) & " of ..."
+        End If
+    End If
+
+    ' Its template: one form, using the value and the word chosen.
+    Dim template As String
+    If targetIsForm Then
+        template = target
+    Else
+        template = "(" & target & " {" & holeName & "})"
+    End If
+    If InStr(template, "{" & holeName & "}") = 0 Then
+        RefusePhraseTemplate context, lhs, "never uses {" & holeName & "}, so the value would be lost"
+    End If
+    If altAt > 0 Then
+        If InStr(template, "{" & altName & "}") = 0 Then
+            RefusePhraseTemplate context, lhs, "never uses {" & altName & "}, so the word chosen would be lost"
+        End If
+    End If
+    Dim forms As Collection
+    Set forms = TemplateForms(template)
+    If forms.Count <> 1 Then RefusePhraseTemplate context, lhs, "is " & forms.Count & " forms, where a value is one"
+
+    ' Its shape, as "What can I say?" and its refusal show it.
+    Dim shape As String
+    shape = joined & " " & PhraseHoleShape(holeCat)
+    Dim cv As Variant
+    For Each cv In clause
+        If IsSlotTok(CStr(cv), sn, ct) Then
+            shape = shape & " " & ct
+        Else
+            shape = shape & " " & CStr(cv)
+        End If
+    Next
+
+    mPhraseWords.Add words
+    mPhraseHole.Add holeName
+    mPhraseCat.Add holeCat
+    mPhraseClause.Add clause
+    mPhraseForms.Add forms
+    mPhraseShapes.Add shape
+    AddPhraseToBucket mPhraseWords.Count
+    mFnDisplay.Add shape
+End Sub
+
+' LX.14: a branch's stem - "center/ed" is "center" - for the audit.
+Private Function StemOf(ByVal spec As String) As String
+    Dim sp As Long
+    sp = InStr(spec, "/")
+    If sp > 0 Then StemOf = Left$(spec, sp - 1) Else StemOf = spec
+End Function
+
+' LX.14: what a phrase's hole shows in its shape.
+Private Function PhraseHoleShape(ByVal cat As String) As String
+    If cat = "value" Then PhraseHoleShape = "..." Else PhraseHoleShape = "<" & cat & ">"
+End Function
+
+' LX.14: the words the value and condition grammars read right after a
+' value - ParseExpr, ParseSum and ParseProd's operators, the % postfix
+' ParsePrim reads, ParseCondSimple's comparators and ParseCond's
+' connectives, a lookup's keyed read and a value action's call. A phrase
+' may use none after its first word: "standard plus 5" reads today, and a
+' phrase "standard plus ..." would change what it means (SD-4). "of" is
+' the connector every shipped function word uses, and stays allowed.
+Private Function IsAfterValueWord(ByVal w As String) As Boolean
+    If VLA_English.IsExprOpWord(w) Then
+        IsAfterValueWord = True
+        Exit Function
+    End If
+    Select Case w
+        Case "%", "percent", "is", "does", "contains", "starts", "ends", "equals", "and", "or", "for", "using"
+            IsAfterValueWord = True
+    End Select
+End Function
+
+' LX.14: one word of a phrase, audited as it registers.
+Private Sub AuditPhraseWord(ByVal w As String, ByVal afterFirst As Boolean, ByVal context As String, ByVal lhs As String)
+    If afterFirst And IsAfterValueWord(w) Then
+        VLA_Messages.RaiseMsg "english-function-phrase-after-value-word", "loc", context, "pattern", lhs, "word", w
+    End If
+    If CollHasKey(VLA_English.mKeywordAlias, w) Then
+        VLA_Messages.RaiseMsg "english-function-phrase-alias-word", "loc", context, "pattern", lhs, "word", w
+    End If
+End Sub
+
+' LX.14: no two phrases with the same words before the hole - a value
+' would have two readings.
+Private Sub RefuseSamePhraseWords(ByVal joined As String, ByVal context As String, ByVal lhs As String)
+    Dim idx As Long, other As String, wv As Variant
+    For idx = 1 To mPhraseWords.Count
+        other = ""
+        For Each wv In mPhraseWords.Item(idx)
+            If Len(other) > 0 Then other = other & " "
+            other = other & CStr(wv)
+        Next
+        If other = joined Then
+            VLA_Messages.RaiseMsg "english-function-phrase-duplicate", "loc", context, "pattern", lhs, "other", CStr(mPhraseShapes.Item(idx))
+        End If
+    Next
+End Sub
+
+' LX.14: a keyword alias rewrites its word in every sentence before any
+' phrase is read, so a phrase that uses the word could never be said -
+' refused whichever of the two a phrasebook declares first.
+Private Sub RefusePhraseWordAlias(ByVal surface As String, ByVal context As String)
+    If mPhraseWords Is Nothing Then Exit Sub
+    Dim k As String, idx As Long, wv As Variant, sn As String, ct As String, br() As String, bi As Long
+    k = VLA_Identity.Fold(surface)
+    For idx = 1 To mPhraseWords.Count
+        For Each wv In mPhraseWords.Item(idx)
+            If CStr(wv) = k Then GoTo refuse
+        Next
+        For Each wv In mPhraseClause.Item(idx)
+            If IsSlotTok(CStr(wv), sn, ct) Then
+                br = Split(ct, "|")
+                For bi = LBound(br) To UBound(br)
+                    If StemOf(VLA_Identity.Fold(br(bi))) = k Then GoTo refuse
+                Next
+            ElseIf CStr(wv) = k Then
+                GoTo refuse
+            End If
+        Next
+    Next
+    Exit Sub
+refuse:
+    VLA_Messages.RaiseMsg "english-function-phrase-alias-word", "loc", context, "pattern", CStr(mPhraseShapes.Item(idx)), "word", k
+End Sub
+
+Private Sub RefusePhraseShape(ByVal context As String, ByVal lhs As String, ByVal why As String)
+    VLA_Messages.RaiseMsg "english-function-phrase-shape", "loc", context, "pattern", lhs, "why", why, _
+        "holes", "{x:value}, or {r:range}, {c:column} or {c:cell} for a reference", "choice", "{k:sample|population}"
+End Sub
+
+Private Sub RefusePhraseTemplate(ByVal context As String, ByVal lhs As String, ByVal why As String)
+    VLA_Messages.RaiseMsg "english-function-phrase-template", "loc", context, "pattern", lhs, "why", why
+End Sub
+
+' LX.14: a phrase joins its first word's bucket, longest first - more
+' words before the hole go earlier, so "median of range" is tried before
+' "median of", and a tie keeps registration order.
+Private Sub AddPhraseToBucket(ByVal idx As Long)
+    Dim first As String, bucket As Collection, n As Long, k As Long
+    first = CStr(mPhraseWords.Item(idx).Item(1))
+    Set bucket = PhraseBucketFor(first)
+    If bucket Is Nothing Then
+        Set bucket = New Collection
+        mPhraseBuckets.Add bucket, "k:" & first
+        mPhraseFirsts = mPhraseFirsts & first & " "
+    End If
+    n = mPhraseWords.Item(idx).Count
+    For k = 1 To bucket.Count
+        If mPhraseWords.Item(CLng(bucket.Item(k))).Count < n Then
+            bucket.Add idx, , k
+            Exit Sub
+        End If
+    Next
+    bucket.Add idx
+End Sub
+
+Private Function PhraseBucketFor(ByVal word As String) As Collection
+    If mPhraseBuckets Is Nothing Then Exit Function
+    On Error Resume Next
+    Set PhraseBucketFor = mPhraseBuckets.Item("k:" & word)
+    On Error GoTo 0
+End Function
+
+' LX.14: a function phrase where a value is read - its first word at pos,
+' then each word before its hole, longest phrase first. The first whose
+' words all match owns the value: it completes, or CompleteFunctionPhrase
+' refuses. None matching leaves pos alone and answers False.
+Private Function TryFunctionPhrase(toks() As String, ByRef pos As Long, ByRef outText As String) As Boolean
+    ' The string test first: ParsePrimCore asks for every value read, and a
+    ' keyed lookup that misses raises inside VBA, which costs far more.
+    If InStr(mPhraseFirsts, " " & TokAt(toks, pos) & " ") = 0 Then Exit Function
+    Dim bucket As Collection
+    Set bucket = PhraseBucketFor(TokAt(toks, pos))
+    If bucket Is Nothing Then Exit Function
+    Dim bv As Variant, idx As Long, p As Long, wi As Long, allWords As Boolean
+    For Each bv In bucket
+        idx = CLng(bv)
+        p = pos + 1
+        allWords = True
+        For wi = 2 To mPhraseWords.Item(idx).Count
+            SkipArticles toks, p
+            If TokAt(toks, p) <> CStr(mPhraseWords.Item(idx).Item(wi)) Then
+                allWords = False
+                Exit For
+            End If
+            p = p + 1
+        Next
+        If allWords Then
+            outText = CompleteFunctionPhrase(idx, toks, pos, p)
+            pos = p
+            TryFunctionPhrase = True
+            Exit Function
+        End If
+    Next
+End Function
+
+' LX.14: a phrase whose words have matched, from its hole on - the value
+' or the reference, then the closing clause - substituted into its
+' template. startPos is the phrase's first word, for a refusal.
+Private Function CompleteFunctionPhrase(ByVal idx As Long, toks() As String, ByVal startPos As Long, _
+                                        ByRef p As Long) As String
+    Dim bn As Collection, bv As Collection
+    Set bn = New Collection
+    Set bv = New Collection
+    Dim cat As String, v As String, ok2 As Boolean
+    cat = CStr(mPhraseCat.Item(idx))
+    If cat = "value" Then
+        v = ParsePrim(toks, p, ok2)
+        If Not ok2 Then RefusePhrase idx, toks, startPos, p, VLA_English.SlotDesc("value")
+    Else
+        If Not MatchRefToken(cat, toks, p, v) Then RefusePhrase idx, toks, startPos, p, VLA_English.SlotDesc(cat)
+    End If
+    bn.Add CStr(mPhraseHole.Item(idx))
+    bv.Add v
+    Dim it As Variant, sn As String, ct As String, alts() As String, ai As Long, hit As Boolean, stem As String
+    For Each it In mPhraseClause.Item(idx)
+        SkipArticles toks, p
+        If IsSlotTok(CStr(it), sn, ct) Then
+            alts = Split(ct, "|")
+            hit = False
+            For ai = LBound(alts) To UBound(alts)
+                If SurfaceMatch(VLA_Identity.Fold(alts(ai)), TokAt(toks, p), stem) Then
+                    hit = True
+                    Exit For
+                End If
+            Next
+            If Not hit Then RefusePhrase idx, toks, startPos, p, AltDesc(ct)
+            bn.Add sn
+            bv.Add stem
+        ElseIf TokAt(toks, p) <> CStr(it) Then
+            RefusePhrase idx, toks, startPos, p, "'" & CStr(it) & "'"
+        End If
+        p = p + 1
+    Next
+    CompleteFunctionPhrase = VLA.VlaWriteForm(FormSubstitute(mPhraseForms.Item(idx).Item(1), bn, bv))
+End Function
+
+' LX.14: a phrase that stopped partway, refused in the teaching frame from
+' where its sentence began (or from the phrase, when that is unknown),
+' naming the phrase's shape.
+Private Sub RefusePhrase(ByVal idx As Long, toks() As String, ByVal startPos As Long, ByVal p As Long, _
+                         ByVal expected As String)
+    Dim found As String, st As Long
+    found = TokAt(toks, p)
+    If Len(found) = 0 Or found = "." Or found = PARA_TOK Then
+        found = "the end of the sentence"
+    Else
+        found = "'" & RenderTok(found) & "'"
+    End If
+    st = startPos
+    If mSentenceStart >= 1 And mSentenceStart <= startPos Then st = mSentenceStart
+    VLA_Messages.RaiseMsg "english-phrase-incomplete", "understood", RenderTokens(toks, st, p - 1), _
+        "expected", expected, "found", found, "phrase", CStr(mPhraseShapes.Item(idx)), "loc", LineTag(p)
 End Sub
 
 Private Sub RegisterBuiltinFuncWords()
@@ -10952,6 +11372,15 @@ Private Sub RegisterBuiltinFuncWords()
     Set mMaskWords = New Collection
     Set mMaskTargets = New Collection
     Set mMaskNotes = New Collection
+    ' LX.14: and no phrase - every one is a vocabulary's.
+    Set mPhraseWords = New Collection
+    Set mPhraseHole = New Collection
+    Set mPhraseCat = New Collection
+    Set mPhraseClause = New Collection
+    Set mPhraseForms = New Collection
+    Set mPhraseShapes = New Collection
+    Set mPhraseBuckets = New Collection
+    mPhraseFirsts = " "
     AddFnEntry mFnOf, "length", "len"
     AddFnEntry mFnOf, "uppercase", "ucase"
     AddFnEntry mFnOf, "lowercase", "lcase"

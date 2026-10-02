@@ -1,6 +1,8 @@
 Attribute VB_Name = "VLA_English"
 Option Explicit
-Public Const VLA_ENGLISH_VERSION As String = "LX5.2"
+Public Const VLA_ENGLISH_VERSION As String = "LX.14"
+' LX.14: SlotDesc describes a function phrase's value ("value"), the
+' innermost one, for the refusal of a phrase that stops partway.
 ' LX5.2: BETA_ROADMAP.md's LX.5, phase 2 - the physical split. Every
 ' procedure that touches the shared rule-store state (grammar
 ' registration, the DCG matcher, G-RENDER, statement/condition/
@@ -277,6 +279,9 @@ Public Function SlotDesc(ByVal cat As String) As String
         Case "name", "var": SlotDesc = "a name (one word, like total)"
         Case "text": SlotDesc = "a reference (like B2 or ""Sheet1"")"
         Case "expr": SlotDesc = "a value (like 5, ""text"", or total plus 1)"
+        ' LX.14: a function phrase's value - the innermost one, which binds
+        ' before arithmetic, so its example is a single value.
+        Case "value": SlotDesc = "a value (like 5, revenues, or cell B2)"
         Case "cond": SlotDesc = "a condition (like total is greater than 5)"
         ' G-PROLOG: the conditions sub-grammar. The example teaches the
         ' two shapes a first rule almost always needs - a Table row and

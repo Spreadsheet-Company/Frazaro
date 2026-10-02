@@ -4,6 +4,9 @@ Public Const VLA_TESTS_HOST_VERSION As String = "LX.14"
 ' LX.14 (call 2): TestLx14MarkNote, two pins on VLA_IDE.VlaIdeMarkNote - the
 ' note Check writes when a program's own word masks a phrasebook's shows
 ' whole, in yellow.
+' LX.14 (slice 2): VerifyReportChecks gains the LPhrases block, seven rows
+' read on both backends - function phrases in a condition, in arithmetic,
+' over a range written out, over a column, and with a reading named.
 ' GFORMULA.4: G-FORMULA slice 4. VerifyReportChecks gains the GFigures block,
 ' fifteen rows beside GCalc's, read on both backends: a remembered range's
 ' median and both standard deviations, set and put; a sum and an average
@@ -4353,6 +4356,28 @@ Private Sub VerifyReportChecks(ws As Worksheet)
                "C2 [" & wsFig.Range("C2").NumberFormat & "] C6 [" & wsFig.Range("C6").NumberFormat & "]"
         CheckV "filled down to the cell's own row: nothing filled, the cell keeps its formula (F2)", wsFig.Range("F2").Formula, "=B2*10"
         CheckV "filled down to an empty column: the cell alone gets its formula (J2)", wsFig.Range("J2").Formula, "=B2*10"
+    End If
+
+    ' LX.14: function phrases, read where a value is read, on both backends.
+    ' B2:B6 holds 2, 4, 6, 6 and 7, remembered as lph-values: its median in
+    ' an If's condition (H1) and plus 1 (H2); the range written out, its
+    ' sample standard deviation (H3) and its largest minus its smallest
+    ' (H4); column B's last filled row plus 1 (H5); and the population's
+    ' standard deviation, its reading named, in a condition (H6). (wsLph: no
+    ' earlier block Dims it, and a Dim is the whole procedure's.)
+    Dim wsLph As Worksheet
+    On Error Resume Next
+    Set wsLph = ActiveWorkbook.Worksheets("LPhrases")
+    On Error GoTo 0
+    Report "LPhrases sheet exists", Not (wsLph Is Nothing), "no LPhrases sheet - Run the program first"
+    If Not wsLph Is Nothing Then
+        CheckV "a phrase in a condition: median of a remembered range is more than 5 (H1)", wsLph.Range("H1").Value, "above"
+        CheckV "a phrase in arithmetic: median of a remembered range plus 1 (H2)", wsLph.Range("H2").Value, 7
+        CheckV "a phrase over a range written out: its standard deviation as a sample (H3)", wsLph.Range("H3").Value, 2
+        CheckV "two phrases in one value: largest of a range minus smallest of it (H4)", wsLph.Range("H4").Value, 5
+        CheckV "a phrase over a column: its last filled row plus 1 (H5)", wsLph.Range("H5").Value, 7
+        CheckV "a phrase with its reading named, in a condition: the population's standard deviation is less than 2 (H6)", _
+               wsLph.Range("H6").Value, "narrow"
     End If
 End Sub
 

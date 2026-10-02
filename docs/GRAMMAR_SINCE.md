@@ -37,6 +37,14 @@ This file is what makes the gate tight.*
 
 3. **A retired form keeps its row** and gains an `until:`. Retirement
    itself is `CO.1`'s refusal path; this file only records the dates.
+   **A rule whose sentences a function phrase now carries** (`LX.14`) is
+   not retired: its sentences work as they always did, through a general
+   rule and the phrase. Its row keeps its date and gains `carried-by:`
+   naming the phrase, or several joined by ` | `, and
+   `check_grammar_since.ps1` fails a `carried-by:` that names no live
+   phrase. A carried rule that never reached a release has no row to keep:
+   its row goes, as `G-PROLOG` slice 2's four did, and the phrase's own row
+   dates its sentences.
 
 ## How this was seeded, and how to reproduce it
 
@@ -90,7 +98,10 @@ form has no row here, so a new form cannot reach a release undated.
 It takes both inventories from the scripts that already own that
 parsing rather than re-deriving either: `check_rule_coverage.ps1
 -ListRules` for the 150 phrase rules and `check_emitter_coverage.ps1
--ListArms` for the 128 dispatch arms. `-ListArms` was added for the
+-ListArms` for the 128 dispatch arms. Since `LX.14` it takes a third the
+same way, the function words and phrases: `check_engine_call_names.ps1
+-ListFunctionWords` for the engine's seeding and `check_rule_coverage.ps1
+-ListPhrases` for `english.vla`'s directives. `-ListArms` was added for the
 seed above; `-ListRules` was added for the checker, and both for the
 same stated reason — a second copy of subtle parsing is the divergence
 this project keeps paying for, and the rule-pattern reader had already
@@ -262,6 +273,18 @@ under Interpret, naming its target. Under Compile each word has worked
 since `0.5.0`, where VBA's own function answers it. This ledger has no row
 for a function word, so this note stands in for one, as `IN.17`'s does for
 a condition.
+Then `LX.14`'s second slice: function words and phrases get their own
+section, below, with the twenty-one words that already existed dated
+`0.5.0` and nine phrases `0.8.0` (`median of`, and `median`, `sum`,
+`average`, `largest` and `smallest of range`, `standard deviation of` a
+value and of a range `as sample|population`, and `last filled row of
+column`). Fourteen rules whose sentences the phrases now carry left the
+grammar. The six that reached a release keep their dates and gain
+`carried-by:` (rule 3): `put sum of range …`, `put {d:average|largest|smallest}
+of range …`, and `set … to` a range's sum, average, largest or smallest, and
+its column's last filled row. The eight median and standard-deviation rules
+of `G-FORMULA` slices 2 and 4 never reached a release, so their rows are
+removed; the phrases' own `0.8.0` rows date the same sentences.
 
 ### Phrasebook rules
 
@@ -385,13 +408,9 @@ a condition.
 0.8.0  put formula {f:text} into|in cell {r:cell} and fill down to last filled row of column {k:column}
 0.7.1  put formula {f:text} into|in range {r:range}
 0.7.1  put formula {f:text} into|in rows {a:expr} to|through {b:expr} of column {c:column}
-0.8.0  put median of range {r:range} into|in cell {c:cell}
-0.8.0  put median of {n:name} into|in cell {c:cell}
-0.8.0  put standard deviation of range {r:range} as {k:sample|population} into|in cell {c:cell}
-0.8.0  put standard deviation of {n:name} as {k:sample|population} into|in cell {c:cell}
-0.5.0  put sum of range {r:range} into|in cell {c:cell}
+0.5.0  put sum of range {r:range} into|in cell {c:cell}  carried-by: sum of range {r:range}
 0.5.0  put today into|in cell {r:cell}
-0.7.1  put {d:average|largest|smallest} of range {r:range} into|in cell {c:cell}
+0.7.1  put {d:average|largest|smallest} of range {r:range} into|in cell {c:cell}  carried-by: average of range {r:range} | largest of range {r:range} | smallest of range {r:range}
 0.8.0  put {d:sum|average} of range {r:range} where range {c:range} matches {e:expr} into|in cell {t:cell}
 0.5.0  put {e:expr} in status bar
 0.5.0  put {e:expr} into|in cell {r:cell}
@@ -438,7 +457,7 @@ a condition.
 0.5.0  set style of table {n:text} to {s:text}
 0.5.0  set tab-color of sheet {s:sheet} to {e:expr}
 0.5.0  set width of column {c:column} to {w:expr}
-0.5.0  set {v:var} to average of range {r:range}
+0.5.0  set {v:var} to average of range {r:range}  carried-by: average of range {r:range}
 0.8.0  set {v:var} to average of range {r:range} where range {c:range} matches {e:expr}
 0.5.0  set {v:var} to cell {r:cell} of sheet {s:sheet}
 0.7.1  set {v:var} to column of first cell in range {r:range} containing {t:expr}
@@ -451,26 +470,22 @@ a condition.
 0.5.0  set {v:var} to first {n:expr} letters of {t:expr}
 0.7.1  set {v:var} to how many cells in column {c:column} contain {t:expr}
 0.7.1  set {v:var} to how many cells in range {r:range} contain {t:expr}
-0.5.0  set {v:var} to last filled row of column {c:column}
+0.5.0  set {v:var} to last filled row of column {c:column}  carried-by: last filled row of column {c:column}
 0.7.0  set {v:var} to last {n:expr} characters of {t:expr}
 0.5.0  set {v:var} to last {n:expr} letters of {t:expr}
 0.5.0  set {v:var} to lookup of {e:expr} in range {r:range} column {k:expr}
-0.8.0  set {v:var} to median of range {r:range}
-0.8.0  set {v:var} to median of {n:name}
 0.5.0  set {v:var} to position of {a:expr} in {t:expr}
 0.7.0  set {v:var} to range {r:range} as one list
 0.7.0  set {v:var} to range {r:range} as one list separated by {s:expr}
 0.7.1  set {v:var} to row of first cell in column {c:column} containing {t:expr}
 0.7.1  set {v:var} to row of first cell in range {r:range} containing {t:expr}
 0.5.0  set {v:var} to row of {e:expr} in column {c:column}
-0.8.0  set {v:var} to standard deviation of range {r:range} as {k:sample|population}
-0.8.0  set {v:var} to standard deviation of {n:name} as {k:sample|population}
-0.5.0  set {v:var} to sum of range {r:range}
+0.5.0  set {v:var} to sum of range {r:range}  carried-by: sum of range {r:range}
 0.5.0  set {v:var} to sum of range {r:range} where range {c:range} matches {e:expr}
 0.7.0  set {v:var} to text {d:before|after} last {a:expr} in {t:expr}
 0.7.0  set {v:var} to text {d:before|after} {a:expr} in {t:expr}
 0.5.0  set {v:var} to trimmed {t:expr}
-0.7.1  set {v:var} to {d:largest|smallest} of range {r:range}
+0.7.1  set {v:var} to {d:largest|smallest} of range {r:range}  carried-by: largest of range {r:range} | smallest of range {r:range}
 0.5.0  set {v:var} to {e:expr} rounded to {n:expr} decimals
 0.7.0  set {v:var} to {t:expr} padded on {d:left|right} with {c:expr} to {n:expr} characters
 0.7.0  set {v:var} to {t:expr} with each word capitalized after any {k:space|non-letter}
@@ -701,4 +716,50 @@ tag, not assumed.*
 0.7.0  TryRuntimeHelper   vlatextinrange
 0.7.0  TryRuntimeHelper   vlatextop
 0.7.0  TryRuntimeHelper   vlatextpad
+```
+
+### Function words and phrases
+
+*`LX.14`. A value said in words: the engine's own function words, and a
+phrasebook's function words and phrases, each with its hole written out
+(`length of {x:value}`; a value word has none). The inventory is the
+engine's seeding (`check_engine_call_names.ps1 -ListFunctionWords`) and
+`english.vla`'s `(english-function ...)` directives, read from the export
+(`check_rule_coverage.ps1 -ListPhrases`). All twenty-one words that existed
+before `LX.14` are present at the immutable `v0.5.0` tag, the engine's in
+`RegisterBuiltinFuncWords` and `english.vla`'s five in its source, so each
+is dated `0.5.0`; six of the engine's ran under Interpret only from `0.8.0`
+(`U.30`'s note, above). The phrases are `0.8.0`.*
+
+```
+0.5.0  absolute of {x:value}
+0.5.0  average of {x:value}
+0.8.0  average of range {r:range}
+0.5.0  count of {x:value}
+0.5.0  day of {x:value}
+0.5.0  first of {x:value}
+0.5.0  hour of {x:value}
+0.5.0  key of {x:value}
+0.5.0  keys of {x:value}
+0.5.0  largest of {x:value}
+0.8.0  largest of range {r:range}
+0.5.0  last of {x:value}
+0.8.0  last filled row of column {c:column}
+0.5.0  length of {x:value}
+0.5.0  lowercase of {x:value}
+0.8.0  median of {x:value}
+0.8.0  median of range {r:range}
+0.5.0  minute of {x:value}
+0.5.0  month of {x:value}
+0.5.0  now
+0.5.0  smallest of {x:value}
+0.8.0  smallest of range {r:range}
+0.8.0  standard deviation of range {r:range} as {k:sample|population}
+0.8.0  standard deviation of {x:value} as {k:sample|population}
+0.5.0  sum of {x:value}
+0.8.0  sum of range {r:range}
+0.5.0  today
+0.5.0  uppercase of {x:value}
+0.5.0  value of {x:value}
+0.5.0  year of {x:value}
 ```

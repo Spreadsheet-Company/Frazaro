@@ -577,6 +577,75 @@
   (label vla-fail)
   (vla-report-error))
 
+(sub check-phrases ()
+  (dim lph-values)
+  (dim lph-gap)
+  (on-error goto vla-fail)
+    (set! vla-step 843)
+    (if (vlatraceon) (then (vlatracestep 843 (vla-step-text 843))))
+    (raw "' ---- instructions.txt:1412 To check-phrases: ----")
+    (at-line 1422
+    (begin (vlaensuresheet "lphrases") (activate-sheet "lphrases")))
+    (set! vla-step 844)
+    (if (vlatraceon) (then (vlatracestep 844 (vla-step-text 844))))
+    (at-line 1423
+    (clear-everything-from (range "a1:h10")))
+    (set! vla-step 845)
+    (if (vlatraceon) (then (vlatracestep 845 (vla-step-text 845))))
+    (at-line 1424
+    (set! (range "b2") 2))
+    (set! vla-step 846)
+    (if (vlatraceon) (then (vlatracestep 846 (vla-step-text 846))))
+    (at-line 1425
+    (set! (range "b3") 4))
+    (set! vla-step 847)
+    (if (vlatraceon) (then (vlatracestep 847 (vla-step-text 847))))
+    (at-line 1426
+    (set! (range "b4") 6))
+    (set! vla-step 848)
+    (if (vlatraceon) (then (vlatracestep 848 (vla-step-text 848))))
+    (at-line 1427
+    (set! (range "b5") 6))
+    (set! vla-step 849)
+    (if (vlatraceon) (then (vlatracestep 849 (vla-step-text 849))))
+    (at-line 1428
+    (set! (range "b6") 7))
+    (set! vla-step 850)
+    (if (vlatraceon) (then (vlatracestep 850 (vla-step-text 850))))
+    (at-line 1429
+    (obj-set! lph-values (range "b2:b6")))
+    (set! vla-step 851)
+    (if (vlatraceon) (then (vlatracestep 851 (vla-step-text 851))))
+    (at-line 1430
+    (if (> (median-of lph-values) 5) (then (set! (range "h1") "above"))))
+    (set! vla-step 852)
+    (if (vlatraceon) (then (vlatracestep 852 (vla-step-text 852))))
+    (at-line 1431
+    (set! (range "h2") (+ (median-of lph-values) 1)))
+    (set! vla-step 853)
+    (if (vlatraceon) (then (vlatracestep 853 (vla-step-text 853))))
+    (at-line 1432
+    (set! (range "h3") (sample-standard-deviation-of (range "b2:b6"))))
+    (set! vla-step 854)
+    (if (vlatraceon) (then (vlatracestep 854 (vla-step-text 854))))
+    (at-line 1433
+    (set! lph-gap (- (largest-of (range "b2:b6")) (smallest-of (range "b2:b6")))))
+    (set! vla-step 855)
+    (if (vlatraceon) (then (vlatracestep 855 (vla-step-text 855))))
+    (at-line 1434
+    (set! (range "h4") lph-gap))
+    (set! vla-step 856)
+    (if (vlatraceon) (then (vlatracestep 856 (vla-step-text 856))))
+    (at-line 1435
+    (set! (range "h5") (+ (last-filled-row "b") 1)))
+    (set! vla-step 857)
+    (if (vlatraceon) (then (vlatracestep 857 (vla-step-text 857))))
+    (at-line 1436
+    (if (< (population-standard-deviation-of lph-values) 2) (then (set! (range "h6") "narrow"))))
+  (exit-sub)
+  (label vla-fail)
+  (vla-report-error))
+
 (sub main ()
   (dim counter)
   (dim grand)
@@ -3741,23 +3810,28 @@
   (raw "' ---- instructions.txt:1410 Check-figures. ----")
   (at-line 1410
   (check-figures))
-  (set! vla-step 843)
-  (if (vlatraceon) (then (vlatracestep 843 (vla-step-text 843))))
-  (raw "' ---- instructions.txt:1412 Go to sheet Output. ----")
-  (at-line 1412
+  (set! vla-step 858)
+  (if (vlatraceon) (then (vlatracestep 858 (vla-step-text 858))))
+  (raw "' ---- instructions.txt:1438 Check-phrases. ----")
+  (at-line 1438
+  (check-phrases))
+  (set! vla-step 859)
+  (if (vlatraceon) (then (vlatracestep 859 (vla-step-text 859))))
+  (raw "' ---- instructions.txt:1440 Go to sheet Output. ----")
+  (at-line 1440
   (activate-sheet "output"))
-  (set! vla-step 844)
-  (if (vlatraceon) (then (vlatracestep 844 (vla-step-text 844))))
-  (raw "' ---- instructions.txt:1414 Tidy-up. ----")
-  (at-line 1414
+  (set! vla-step 860)
+  (if (vlatraceon) (then (vlatracestep 860 (vla-step-text 860))))
+  (raw "' ---- instructions.txt:1442 Tidy-up. ----")
+  (at-line 1442
   (tidy-up))
-  (set! vla-step 845)
-  (if (vlatraceon) (then (vlatracestep 845 (vla-step-text 845))))
-  (at-line 1415
+  (set! vla-step 861)
+  (if (vlatraceon) (then (vlatracestep 861 (vla-step-text 861))))
+  (at-line 1443
   (set-screen-updating true))
-  (set! vla-step 846)
-  (if (vlatraceon) (then (vlatracestep 846 (vla-step-text 846))))
-  (at-line 1416
+  (set! vla-step 862)
+  (if (vlatraceon) (then (vlatracestep 862 (vla-step-text 862))))
+  (at-line 1444
   (debug-print "report finished"))
   (exit-sub)
   (label vla-fail)
@@ -4610,10 +4684,26 @@
     (case (840) (return "Put formula \"=B2*10\" into cell F2 and fill down to the last filled row of column G. [line 1407]"))
     (case (841) (return "Put formula \"=B2*10\" in cell J2 and fill down to the last filled row of column I. [line 1408]"))
     (case (842) (return "Check-figures. [line 1410]"))
-    (case (843) (return "Go to sheet Output. [line 1412]"))
-    (case (844) (return "Tidy-up. [line 1414]"))
-    (case (845) (return "Turn on screen updating. [line 1415]"))
-    (case (846) (return "Log \"report finished\". [line 1416]"))
+    (case (843) (return "Work on sheet LPhrases. [line 1422]"))
+    (case (844) (return "Clear everything from A1:H10. [line 1423]"))
+    (case (845) (return "Put 2 into cell B2. [line 1424]"))
+    (case (846) (return "Put 4 into cell B3. [line 1425]"))
+    (case (847) (return "Put 6 into cell B4. [line 1426]"))
+    (case (848) (return "Put 6 into cell B5. [line 1427]"))
+    (case (849) (return "Put 7 into cell B6. [line 1428]"))
+    (case (850) (return "Remember range B2:B6 as lph-values. [line 1429]"))
+    (case (851) (return "If median of lph-values is more than 5, put \"above\" into cell H1. [line 1430]"))
+    (case (852) (return "Put median of lph-values plus 1 into cell H2. [line 1431]"))
+    (case (853) (return "Put standard deviation of range B2:B6 as a sample into cell H3. [line 1432]"))
+    (case (854) (return "Set lph-gap to largest of range B2:B6 minus smallest of range B2:B6. [line 1433]"))
+    (case (855) (return "Put lph-gap into cell H4. [line 1434]"))
+    (case (856) (return "Put last filled row of column B plus 1 into cell H5. [line 1435]"))
+    (case (857) (return "If standard deviation of lph-values as the population is less than 2, put \"narrow\" into cell H6. [line 1436]"))
+    (case (858) (return "Check-phrases. [line 1438]"))
+    (case (859) (return "Go to sheet Output. [line 1440]"))
+    (case (860) (return "Tidy-up. [line 1442]"))
+    (case (861) (return "Turn on screen updating. [line 1443]"))
+    (case (862) (return "Log \"report finished\". [line 1444]"))
     (case-else (return "an unknown step"))))
 
 ; ---- carried by phrasebooks (L4) ----

@@ -1409,6 +1409,34 @@ To check-figures:
 
 Check-figures.
 
+# LX.14: function phrases - a value said in several words, read where a
+# value is read, so each fits anywhere a value goes. B2:B6 holds 2, 4, 6,
+# 6 and 7, as on GFigures, remembered as lph-values. Its median, 6, is more
+# than 5, so the If puts "above" in H1, and its median plus 1 is 7 (H2).
+# The range written out gives its sample standard deviation, 2 (H3), and
+# its largest minus its smallest, 7 minus 2, is 5 (H4). Column B's last
+# filled row is 6, so one more is 7 (H5). The population standard
+# deviation, the square root of 3.2, is less than 2, so the second If puts
+# "narrow" in H6. The step clears its cells first, as check-figures does.
+To check-phrases:
+  Work on sheet LPhrases.
+  Clear everything from A1:H10.
+  Put 2 into cell B2.
+  Put 4 into cell B3.
+  Put 6 into cell B4.
+  Put 6 into cell B5.
+  Put 7 into cell B6.
+  Remember range B2:B6 as lph-values.
+  If median of lph-values is more than 5, put "above" into cell H1.
+  Put median of lph-values plus 1 into cell H2.
+  Put standard deviation of range B2:B6 as a sample into cell H3.
+  Set lph-gap to largest of range B2:B6 minus smallest of range B2:B6.
+  Put lph-gap into cell H4.
+  Put last filled row of column B plus 1 into cell H5.
+  If standard deviation of lph-values as the population is less than 2, put "narrow" into cell H6.
+
+Check-phrases.
+
 Go to sheet Output.
 
 Tidy-up.

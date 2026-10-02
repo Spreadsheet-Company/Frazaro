@@ -69,7 +69,16 @@ param(
     #              silently broke this very script for two weeks), and a
     #              second copy of it in a checker is precisely the
     #              divergence CO.6's own -ListArms note warns about.
-    [switch]$ListRules
+    [switch]$ListRules,
+    # LX.14 addition, off by default like -ListRules and for the same
+    # reason. -ListPhrases prints every function word and phrase the
+    # artifact declares ((english-function ...)), as docs/GRAMMAR_SINCE.md
+    # writes them: the pattern with its hole written out - "sum of" is
+    # "sum of {x:value}", one word stays one word - one per line, for
+    # check_grammar_since.ps1's third inventory. A -function directive owns
+    # no test here (the coverage report counts rules), so nothing below it
+    # changes.
+    [switch]$ListPhrases
 )
 
 $ErrorActionPreference = 'Stop'
@@ -242,6 +251,7 @@ class RuleEntry {
 }
 
 $rules = New-Object System.Collections.Generic.List[RuleEntry]
+$phrases = New-Object System.Collections.Generic.List[string]   # LX.14: -ListPhrases
 $orphanTests = New-Object System.Collections.Generic.List[string]
 $testFailCount = 0
 $unknownForms = New-Object System.Collections.Generic.List[string]
@@ -317,6 +327,28 @@ for ($li = 0; $li -lt $lines.Count; $li++) {
             # its own english-vla rule in the real corpus). keyword-alias
             # (LX5.1) is a language file's own control-flow vocabulary,
             # not a phrase rule - same non-owner treatment as defmacro.
+            if ($head -eq 'english-function') {
+                # LX.14: the pattern, read as english-vla's is (same line,
+                # or the first string on one of the next three lines), then
+                # written as the ledger writes it.
+                $fnM = [regex]::Match($line, '^\(english-function\s+"((?:[^"\\]|\\.)*)"')
+                if (-not $fnM.Success) {
+                    for ($k = $li + 1; $k -lt $lines.Count -and $k -le $li + 3; $k++) {
+                        $lookF = [regex]::Match($lines[$k], '^\s*"((?:[^"\\]|\\.)*)"')
+                        if ($lookF.Success) { $fnM = $lookF; break }
+                    }
+                }
+                if ($fnM.Success) {
+                    $pat = (($fnM.Groups[1].Value -replace '\s+', ' ').Trim()).ToLowerInvariant()
+                    if ($pat.Contains('{') -or -not $pat.Contains(' ')) {
+                        $phrases.Add($pat)
+                    } else {
+                        $phrases.Add("$pat {x:value}")
+                    }
+                } else {
+                    $phrases.Add('(pattern unreadable)')
+                }
+            }
         }
         default {
             $unknownForms.Add("line with head '$head': $line")
@@ -331,6 +363,11 @@ if ($ListRules) {
     # list without parsing around a report. Ordering is the artifact's
     # own, which is registration order (G-EXPANDER's contract).
     foreach ($r in $rules) { Write-Output $r.Pattern }
+    exit 0
+}
+if ($ListPhrases) {
+    # LX.14: the same contract, for the function words and phrases.
+    foreach ($p in $phrases) { Write-Output $p }
     exit 0
 }
 

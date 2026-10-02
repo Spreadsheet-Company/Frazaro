@@ -756,13 +756,35 @@ After that, `largest of results` is a value wherever a value may go.
 |---|---|---|
 | a word followed by `of`, as in `"largest of"` | takes one value | `largest of results` |
 | a word alone | takes nothing | the bare word, in the way the built-in `today` and `now` are used |
-
-A function word is one word, with or without its `of`. Anything longer is
-refused.
+| several words, from `0.8.0`, as in `"median of range {r:range}"` | a *phrase*: takes what its hole says | `median of range B2:B50` |
 
 The target is a bare name, never quoted: it names an action. Point it at a
 macro the phrasebook carries, as the shipped ones do, so that both ways of
 running know it.
+
+From `0.8.0` a function word can be a phrase of several words. Its words
+are fixed; then comes one hole, `{x:value}` for a value, or `{r:range}`,
+`{c:column}` or `{c:cell}` for a reference written out; then, if it needs
+one, a closing clause of fixed words and one choice. The target is then a
+template, as a rule's is:
+
+```lisp
+(english-function
+    "standard deviation of {x:value} as {k:sample|population}"
+    ({k}-standard-deviation-of {x}))
+```
+
+`Set spread to standard deviation of revenues as a sample.` then reads
+`revenues` into `{x}` and `sample` into `{k}`. Several words with no hole
+take a value after them, so a phrasebook in another language writes its
+own connector: `(espanol-function "suma de" suma-de)`. A phrase is tried
+before any shorter reading of its first word, and once its words before
+the hole have matched, it completes or is refused, saying what it
+expected. Loading refuses a phrase whose later words already follow a
+value somewhere (`plus`, `is`, `and` and the like), since a sentence that
+reads today would read differently, and two phrases with the same words.
+A program's own `To largest of amounts:` takes the phrasebook's `largest
+of` inside that program; Check notes it in yellow.
 
 `count of` is built into the engine and answers for lists as well as
 ranges. Do not redefine it.

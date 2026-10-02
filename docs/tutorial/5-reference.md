@@ -487,6 +487,10 @@ Set total to subtotal times quantity.
 | `absolute of <value>` | the number without its sign |
 | `year of` · `month of` · `day of` · `hour of` · `minute of` | a part of a date or time |
 | `sum of` · `average of` · `largest of` · `smallest of` · `count of` | over a remembered range, or a list |
+| `sum of range B2:B50` · `average of range …` · `largest of range …` · `smallest of range …` | the same, over a range written out (from `0.8.0`) |
+| `median of <value>` · `median of range B2:B50` | the middle value, or the average of the middle two (from `0.8.0`) |
+| `standard deviation of <value> as a sample` · `… as the population` · `standard deviation of range B2:B50 as …` | Excel's STDEV.S, or STDEV.P (from `0.8.0`) |
+| `last filled row of column B` | the last row with anything in the column (from `0.8.0`) |
 | `first of <list>` · `last of <list>` · `item 3 of <list>` | one element |
 | `keys of <lookup>` | its keys, to walk |
 | `<lookup> for <key>` | the value stored under the key |
@@ -503,7 +507,9 @@ Remember range G2:G41 as revenues.
 Set total-revenue to sum of revenues.
 ```
 
-or use the sentence that takes a range: `Set grand to sum of range B2:B3.`
+or write the word `range` before it where a figure takes one: `Set grand to
+sum of range B2:B3.` A figure said in several words binds first, as `sum
+of` always has, so `median of revenues plus 5` is the median, plus 5.
 
 **`row` takes everything after it.** `cell in column C row r plus 1` is
 the cell in row r+1. To add to the cell's value, name it first.
@@ -644,34 +650,27 @@ nothing is filled when that row is not below it.
 ### B. Reading and computing
 
 ```text
-put {d:average|largest|smallest} of range {r:range} into|in cell {c:cell}   (0.7.1)
 put {d:sum|average} of range {r:range} where range {c:range} matches {e:expr} into|in cell {t:cell}   (0.8.0)
-put median of {n:name} into|in cell {c:cell}   (0.8.0)
-put median of range {r:range} into|in cell {c:cell}   (0.8.0)
-put standard deviation of {n:name} as {k:sample|population} into|in cell {c:cell}   (0.8.0)
-put standard deviation of range {r:range} as {k:sample|population} into|in cell {c:cell}   (0.8.0)
-put sum of range {r:range} into|in cell {c:cell}
 recalculate all open workbooks   (0.8.0)
 recalculate this sheet   (0.8.0)
-set {v:var} to {d:largest|smallest} of range {r:range}   (0.7.1)
 set {v:var} to {e:expr} rounded to {n:expr} decimals
-set {v:var} to average of range {r:range}
 set {v:var} to average of range {r:range} where range {c:range} matches {e:expr}   (0.8.0)
 set {v:var} to cell {r:cell} of sheet {s:sheet}
 set {v:var} to count of {k:empty|filled} cells in range {r:range}   (0.7.1)
 set {v:var} to count of range {c:range} matching {e:expr}
-set {v:var} to last filled row of column {c:column}
 set {v:var} to lookup of {e:expr} in range {r:range} column {k:expr}
-set {v:var} to median of {n:name}   (0.8.0)
-set {v:var} to median of range {r:range}   (0.8.0)
 set {v:var} to row of {e:expr} in column {c:column}
-set {v:var} to standard deviation of {n:name} as {k:sample|population}   (0.8.0)
-set {v:var} to standard deviation of range {r:range} as {k:sample|population}   (0.8.0)
-set {v:var} to sum of range {r:range}
 set {v:var} to sum of range {r:range} where range {c:range} matches {e:expr}
 turn off automatic calculation   (0.8.0)
 turn on automatic calculation   (0.8.0)
 ```
+
+From `0.8.0` a range's sum, average, largest, smallest, median and
+standard deviation, and a column's last filled row, are values (R5), not
+sentences of their own, so they go into any sentence that takes a value:
+`Put largest of range B2:B50 into cell B52.`, `Set last-row to last filled
+row of column A.` Every such sentence that read before reads the same,
+dated as before in `docs/GRAMMAR_SINCE.md` (`carried-by:`).
 
 `row of … in column …` gives 0 when nothing is found. `lookup of …`
 stops the run when nothing is found; guard it with `Try:`.
@@ -692,12 +691,13 @@ numbers stops the run at the sentence, as a lookup that finds nothing
 does: a median of no numbers, a sample of fewer than two, no matching
 row.
 
-`median of` and `standard deviation of` also take a range remembered by a
-name (`Set middle to median of revenues.`), in these four shapes only.
-Unlike `sum of`, they are not words that fit into any value: a median to
-compare is set first, and the name is one word, so `… median of revenues
-plus 5` is refused. `put sum|average of range … where …`, like `put sum`,
-writes the number, not a live formula.
+`median of` and `standard deviation of` take a range remembered by a name
+(`median of revenues`) or a range written out (`median of range B2:B50`),
+like every figure, and fit anywhere a value goes: `If median of revenues
+is more than 100, …`. A figure said halfway is refused where it stops:
+`Set spread to standard deviation of revenues.` expected `as`, and the
+message shows the whole phrase. `put sum|average of range … where …`, like
+`put sum`, writes the number, not a live formula.
 
 `turn off automatic calculation` and `turn on automatic calculation`
 switch Excel's own Automatic setting; on means Automatic, whatever the
@@ -1619,7 +1619,7 @@ Use these labels exactly when telling a person what to press.
 |---|---|
 | **Release described** | `0.7.0`: 223 sentence shapes, of which 220 are written out in the phrasebook and three are written by a generator. |
 | **Marked `(0.7.1)`** | Sixteen shapes, and the two range conditions of R6. With them R7 lists 239, which is the number **Load Phrasebook** reports as *built-in vocabulary* in a copy that has them. |
-| **Marked `(0.8.0)`** | Fifteen shapes: a range's median and standard deviation, each set and put into a cell, the range written out or remembered by a name; an average over the rows that match, and a sum or an average over them put into a cell; a formula put into a cell and filled down to the last filled row of a named column; automatic calculation turned off and on; and recalculating this sheet or all open workbooks. With them R7 lists 254. |
+| **Marked `(0.8.0)`** | Seven shapes: an average over the rows that match, and a sum or an average over them put into a cell; a formula put into a cell and filled down to the last filled row of a named column; automatic calculation turned off and on; and recalculating this sheet or all open workbooks. And fourteen shapes left R7 for R5, as values that fit into any sentence: a range's sum, average, largest, smallest, median and standard deviation, set and put, and a column's last filled row. Every sentence they read still reads, the same way. With them R7 lists 240. |
 | **Source of R7** | The project's own dated ledger of every shape, [GRAMMAR_SINCE.md](../GRAMMAR_SINCE.md), including three shapes that a generator writes and no file spells out. |
 | **Source of R4, R5, R6, R8** | The engine's source, and the proofs the phrasebook runs every time it loads. |
 | **Source of R12** | The shipped sample procedures. Every sentence is a sample's own. |

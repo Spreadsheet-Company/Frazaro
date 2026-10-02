@@ -6132,6 +6132,52 @@ written against.
   or `average`, each masking nothing) and two host (`TestLx14MarkNote`:
   the note whole, in yellow). Check's own wiring is reached only by
   clicking Check: a live test.
+  **✅ Slice 2 - the phrases, built 2026-09-30, owner-verified live and
+  committed 2026-10-01.** The engine reads calls 1 to 4 as scoped above:
+  `RegisterFunctionWord` takes a pattern with a hole, a closing clause and
+  a template target, sends one word and `of` to the shipped machinery and
+  every other shape to a table of phrases keyed by first word, longest
+  first, and audits each as it registers (`english-function-phrase-*`,
+  `english-function-arity`); `ParsePrimCore` tries a phrase before any
+  one-word reading (`TryFunctionPhrase`), and a phrase whose words matched
+  completes (`CompleteFunctionPhrase`) or is refused there
+  (`english-phrase-incomplete`, from the sentence's start, which
+  `ParseStmt` now records). A directive whose target is a form was a
+  crash (`CStr` of a list); it is a template now, and a directive with no
+  target is refused by name. `english-function-word-not-one-word` is
+  retired. **In `english.vla`:** nine phrases - `median of` (a one-word
+  head), `median of range`, `standard deviation of` a value and of a range
+  `as sample|population`, `sum`, `average`, `largest` and `smallest of
+  range`, and `last filled row of column` - with forty proofs: the
+  twenty-six test-success and five test-fail proofs of the fourteen rules
+  that retired, moved with the sentences they prove (`median of revenues
+  plus 5` now a test-success), and nine new, among them `If median of
+  revenues is more than 100, …` and `Show standard deviation of range
+  B2:B50 as a sample.`, the done-when's two. The fourteen rules left;
+  `TestF4RealCorpusShadow` would have flagged each. **The ledger's third
+  section** holds thirty rows (the engine's sixteen words and
+  `english.vla`'s five at `0.5.0`, nine phrases at `0.8.0`); six carried
+  rule rows gain `carried-by:`, eight unreleased ones are removed; and
+  `check_grammar_since.ps1` reads the new inventory
+  (`check_engine_call_names.ps1 -ListFunctionWords`,
+  `check_rule_coverage.ps1 -ListPhrases`) and fails a `carried-by:` that
+  names no live phrase, mutation-tested over five cases after a clean
+  control. **The corpus:** `To check-phrases:`, on a sheet `LPhrases`,
+  called once from `main` (727 → 728 steps): a median in an `If`'s
+  condition and in arithmetic, a standard deviation over a range written
+  out, two phrases in one value, a column's last filled row plus 1, and a
+  population's standard deviation in a condition. **Pins:** twenty-eight
+  pure (`TestLx14Phrases`: the refusal's words, id and line, in a
+  condition and in a comma body too; every word matching, longest first;
+  arithmetic after a closing clause and a phrase inside a phrase's value;
+  **What can I say?** listing both kinds; masking the one-word head and
+  never a longer phrase; and eleven refusals of the audit on phrasebooks
+  written in the test, the operator word the done-when names among them);
+  seven `VerifyReportChecks` rows (`LPhrases`), on both backends. The
+  owner's export of `english_expanded.vla` and `english_coverage.txt` is
+  the one step left: a simulated export, the committed one less the
+  fourteen rules and their proofs plus the new block, restamped, passed
+  all thirty-two checks.
 
 ---
 

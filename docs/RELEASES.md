@@ -29,9 +29,8 @@
   - A range remembered by a name works too: after `Remember range G2:G41
     as revenues.`, write `Set middle to median of revenues.` or `Set spread
     to standard deviation of revenues as a sample.`, or `Put` either into a
-    cell. Unlike `sum of revenues`, these are whole sentences, not words
-    that fit into any value, so to test a median in an `If`, set it first.
-    A program with an action of its own called `median` goes on using it.
+    cell. A program with a step of its own called `median` goes on using
+    it.
   - Like `Put sum` and `Put average`, these put the number in the cell, not
     a live formula.
   - When Excel has no answer, the run stops at that sentence, as a lookup
@@ -94,6 +93,18 @@
   of` work under Interpret.** They always worked in a program that runs.
   Interpret stopped at each one, naming it. `Set m to month of today.` now
   gives the same month on both.
+- **A figure can go anywhere a value goes, in words.** `median of`,
+  `standard deviation of … as a sample` (or `as the population`), `sum`,
+  `average`, `largest` and `smallest of range …`, and `last filled row of
+  column …` now work inside any sentence that takes a value, the way `sum
+  of` always has: `If median of revenues is more than 100, show "high".`,
+  `Put median of revenues plus 1 into cell H2.`, `Set gap to largest of
+  range B2:B50 minus smallest of range B2:B50.`, `Show standard deviation
+  of range B2:B50 as a sample.` Every sentence that worked before works
+  the same way. A figure said halfway is refused where it stops, naming
+  what it needed: `Set spread to standard deviation of revenues.` says it
+  expected `as`, and shows the whole phrase, `standard deviation of ... as
+  sample|population`. **What can I say?** lists them under values.
 - **A step of your own may be named like a phrasebook word.** `To sum of
   amounts:` was refused, because the phrasebook already gives `sum of` a
   meaning. It is accepted now: inside that program, `sum of …` means the
@@ -104,6 +115,17 @@
   that already had a step of that name. The words Frazaro itself reads with
   `of` (`length of`, `count of`, `first of` and the rest) are still refused
   as a step's name.
+- **For phrasebook authors: a function word can be several words.**
+  `(english-function "standard deviation of {x:value} as
+  {k:sample|population}" ({k}-standard-deviation-of {x}))` declares a
+  phrase: fixed words, then one value (`{x:value}`, or a reference -
+  `{r:range}`, `{c:column}` or `{c:cell}`), then at most one closing
+  clause of fixed words and one choice of words. The connector is the
+  phrasebook's own, so `(espanol-function "suma de" suma-de)` works as
+  `"sum of"` always has. Loading refuses a phrase that would change a
+  sentence that reads today (a later word that already follows a value,
+  like `plus` or `is`), two phrases with the same words, and a phrase
+  whose template drops a word the reader chose.
 - **For contributors: a DATALOG proof can carry the tables its program
   reads.** None of this ships, and nothing in Frazaro calls it.
   - A proof in `scripts/proofs/datalog.vla` may hold a `(tables ...)`

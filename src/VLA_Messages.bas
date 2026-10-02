@@ -1,6 +1,12 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "U.30"
+Public Const VLA_MESSAGES_VERSION As String = "LX.14"
+' LX.14: a function phrase's refusals - the directive's arity, a phrase's
+' shape, a word read after a value, two phrases with the same words, a
+' word a keyword alias rewrites, a template that loses a word - and
+' english-phrase-incomplete, a phrase that stops partway in a sentence.
+' english-function-word-not-one-word is retired.
+'
 ' U.30: english-engine-call-name, beside the other name refusals - a name
 ' the code Frazaro writes calls by name (VBA's functions, Excel's objects,
 ' what a built-in function word compiles to), where any name is made.
@@ -495,7 +501,19 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "english-translate-vla-overwrite", 5, "VLA-English", "Translate to VLA: refusing to overwrite the source file ({path}) - point this at a .txt/.en program, not an already-.vla file."
     AddMsg m, "english-translate-vba-overwrite", 5, "VLA-English", "Translate to VBA: refusing to overwrite the source file ({path}) - point this at a .txt/.en program, not an already-.vba file."
     AddMsg m, "english-define-needs-fixed-value", 5, "VLA-English", "Define needs a fixed value - quoted text (""#FF69B4""), a number, or an earlier alias - near: '{context}'"
-    AddMsg m, "english-function-word-not-one-word", 5, "VLA-English", "{context}: a function word is one word, optionally followed by 'of'"
+    ' LX.14 retired english-function-word-not-one-word: a pattern of several
+    ' words is a phrase now, and a phrase's shape has refusals of its own,
+    ' below. The id is not re-minted (SD-9).
+    ' LX.14: a function directive's shape, and a phrase's, audited as it
+    ' registers (RegisterFunctionWord); then the refusal of a phrase that
+    ' stops partway in a sentence (RefusePhrase), in the teaching frame.
+    AddMsg m, "english-function-arity", 5, "VLA-English", "{loc}: a function directive takes a quoted pattern and one target, like {example}"
+    AddMsg m, "english-function-phrase-shape", 5, "VLA-English", "{loc}: the phrase '{pattern}' {why}. A phrase is fixed words, then one value - {holes} - then at most one closing clause of fixed words and one choice of words, like {choice}."
+    AddMsg m, "english-function-phrase-after-value-word", 5, "VLA-English", "{loc}: the phrase '{pattern}' uses '{word}' after its first word, and a value is already read with '{word}' after it, so a sentence that reads today would read differently. Choose another word."
+    AddMsg m, "english-function-phrase-duplicate", 5, "VLA-English", "{loc}: the phrase '{pattern}' has the same words before its value as '{other}', so a value would have two readings."
+    AddMsg m, "english-function-phrase-alias-word", 5, "VLA-English", "{loc}: '{word}' is both a keyword alias and a word of the phrase '{pattern}' - an alias rewrites its word in every sentence before any phrase is read, so no sentence could say the phrase."
+    AddMsg m, "english-function-phrase-template", 5, "VLA-English", "{loc}: the phrase '{pattern}': its template {why}."
+    AddMsg m, "english-phrase-incomplete", 5, "VLA-English", "I understood '{understood}' - then I expected {expected} but found {found}. The phrase is '{phrase}'.{loc}"
     ' SEC.2: raw behind explicit, per-phrasebook consent.
     AddMsg m, "english-vocab-raw-consent-declined", 5, "VLA-English", "'{source}' was not loaded - it contains a (raw ...) form, which runs unrestricted VBA once a program using it runs, and consent for it was declined"
     ' VLA.bas (134 of 141 - lines ~563/565/568/570 (VlaTranspile's
