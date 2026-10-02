@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
 Public Const VLA_TESTS_VERSION As String = "PORT.6"
+' PORT.6 step 0 (the goldens without markers, 2026-10-02): VlaWriteGoldens
+' writes EnglishToVla's text under the stamp alone, so instructions_golden.vla
+' is the treaty's translate oracle as written and the .vba is what Compile
+' makes; F.9's InsertSectionMarkers, EnglishParagraphs, their helpers and
+' TestSectionMarkers (8 pins) are gone with the markers.
 ' PORT.6 (slice 6b): VlaWriteTokenGolden writes the token golden,
 ' scripts/tokenize_golden.txt, from the programs in scripts/tokenize.txt
 ' through EnglishTokenReport (VLA_SentenceEngine.bas); the core's tokenizer
@@ -463,7 +468,6 @@ Public Function VlaSelfTest() As Boolean
     TestInterpreterNewCollection
     TestInterpreterSec1DynamicMemberRefused
     TestInterpreterOnError
-    TestSectionMarkers
     TestContextPushPop
     TestContextUnderflow
     TestCo4VersionSemver
@@ -2500,21 +2504,6 @@ End Sub
 '  different corpus. Leaves the loaded vocabulary in place, like a
 '  Check would.
 '
-'  F.9: stable section markers. Every ' vla:N tag already names the
-'  ONE line a statement came from; nothing named which instructions.txt
-'  PARAGRAPH a reader is inside without decoding a tag by hand.
-'  InsertSectionMarkers below splices one (raw "' ---- ...") line
-'  into `vla` before the first statement of each blank-line-delimited
-'  paragraph (instructions.txt's own documented structural unit - "blank
-'  line ends a block"), keyed to that paragraph's own starting line
-'  and first sentence - so a git diff's surrounding context, or a
-'  human scrolling either golden, names the section without leaving
-'  the file. Entirely post-processing: EnglishToVla/VlaTranspile run
-'  unmodified (raw is an existing, well-supported core form; markers
-'  carry no at-line tag of their own, the same "not user-authored"
-'  treatment raw/begin/at-line already get - see EmitStmt's own
-'  exclusion list). Confined to this dev-only golden writer; nothing
-'  a real user's program compiles through changes.
 ' =====================================================================
 Public Function VlaWriteGoldens(Optional ByVal programPath As String = "", _
                                 Optional ByVal vocabPath As String = "") As Boolean
@@ -2546,7 +2535,6 @@ Public Function VlaWriteGoldens(Optional ByVal programPath As String = "", _
     program = ReadTextFileUtf8(programPath)
     Dim vla As String
     vla = EnglishToVla(program)
-    vla = InsertSectionMarkers(vla, program)   ' F.9
     Dim vbaText As String
     vbaText = VlaTranspile(vla)
 
@@ -3978,204 +3966,6 @@ Private Sub CheckReservedRefused(ByVal program As String, ByVal word As String)
            en <> 0 And gotId = "english-reserved-word-name" _
            And InStr(1, d, "'" & word & "' is a reserved word", vbBinaryCompare) > 0, _
            "err " & en & " [" & gotId & "]: " & d
-End Sub
-
-' F.9: instructions.txt's own paragraphs (its documented structural unit -
-' "blank line ends a block"), as (startLine, endLine, label) triples,
-' one Collection per paragraph, 1-indexed lines to match the at-line
-' tags InsertSectionMarkers below correlates them against. label is
-' the paragraph's first non-blank, non-#-comment line, truncated for
-' a marker that stays a one-liner.
-Private Function EnglishParagraphs(ByVal englishText As String) As Collection
-    Dim lines() As String
-    lines = Split(Replace(englishText, vbCrLf, vbLf), vbLf)
-    Dim result As New Collection
-    Dim inPara As Boolean, paraStart As Long, paraLabel As String
-    Dim i As Long
-    For i = LBound(lines) To UBound(lines)
-        Dim lineNo As Long
-        lineNo = i + 1
-        Dim trimmed As String
-        trimmed = Trim$(lines(i))
-        If Len(trimmed) = 0 Then
-            If inPara Then
-                result.Add ParagraphRec(paraStart, lineNo - 1, paraLabel)
-                inPara = False
-            End If
-        Else
-            If Not inPara Then
-                inPara = True
-                paraStart = lineNo
-                paraLabel = ""
-            End If
-            If Len(paraLabel) = 0 And Left$(trimmed, 1) <> "#" Then
-                paraLabel = trimmed
-                If Len(paraLabel) > 70 Then paraLabel = Left$(paraLabel, 67) & "..."
-            End If
-        End If
-    Next i
-    If inPara Then result.Add ParagraphRec(paraStart, UBound(lines) + 1, paraLabel)
-    Set EnglishParagraphs = result
-End Function
-
-Private Function ParagraphRec(ByVal startLine As Long, ByVal endLine As Long, _
-                               ByVal label As String) As Collection
-    Dim rec As New Collection
-    rec.Add startLine
-    rec.Add endLine
-    rec.Add label
-    Set ParagraphRec = rec
-End Function
-
-' Which paragraph (1-based index into paragraphs) a source line falls
-' in, or 0 if none does (defensive - should not happen for a real
-' at-line value, since every non-blank source line belongs to exactly
-' one paragraph by construction).
-Private Function ParagraphIndexForLine(paragraphs As Collection, ByVal n As Long) As Long
-    Dim i As Long
-    For i = 1 To paragraphs.Count
-        Dim rec As Collection
-        Set rec = paragraphs.Item(i)
-        If n >= CLng(rec.Item(1)) And n <= CLng(rec.Item(2)) Then
-            ParagraphIndexForLine = i
-            Exit Function
-        End If
-    Next i
-End Function
-
-Private Function ParseLeadingNumber(ByVal s As String) As Long
-    Dim j As Long, numTxt As String
-    j = 1
-    Do While j <= Len(s)
-        Dim c As String
-        c = Mid$(s, j, 1)
-        If c >= "0" And c <= "9" Then
-            numTxt = numTxt & c
-            j = j + 1
-        Else
-            Exit Do
-        End If
-    Loop
-    If Len(numTxt) > 0 Then ParseLeadingNumber = CLng(numTxt)
-End Function
-
-' A VLA string-literal token (leading-quote tag, per VLA.bas's own
-' reader/StrLitContent contract) from raw text - escapes \ and " the
-' way Tokenize's string-literal reader un-escapes \" and \\, so a
-' label containing a quoted phrase (most of instructions.txt's sentences
-' do) round-trips correctly through (raw "..."). R7 duplicate: an
-' identical VlaStringLit already lives Private in VLA_English.bas,
-' unreachable from here for the same reason every other cross-module
-' Private call in this codebase gets its own small copy instead.
-Private Function VlaStringLit(ByVal raw As String) As String
-    Dim esc As String
-    esc = Replace(raw, "\", "\\")
-    esc = Replace(esc, Chr$(34), "\" & Chr$(34))
-    VlaStringLit = Chr$(34) & esc & Chr$(34)
-End Function
-
-' F.9: splice one (raw "' ---- instructions.txt:N label ----") line into
-' vlaText before the first statement of each instructions.txt paragraph -
-' a single forward pass, anchored on "(at-line N" (present exactly
-' once per statement, indentation-independent since the marker copies
-' whatever leading whitespace the at-line line already has). No
-' backward insertion, no splicing an already-built Collection: the
-' marker lands right before the at-line line itself, which reads fine
-' even with the (set! vla-step ...)/(if (vlatraceon) ...) step-
-' tracking preamble sitting just above it - that scaffolding has no
-' user-visible meaning to protect, and anchoring on it too would trade
-' this function's only real complexity for none of the benefit.
-Private Function InsertSectionMarkers(ByVal vlaText As String, ByVal englishText As String) As String
-    Dim paragraphs As Collection
-    Set paragraphs = EnglishParagraphs(englishText)
-
-    Dim lines() As String
-    lines = Split(Replace(vlaText, vbCrLf, vbLf), vbLf)
-
-    ' Plain concatenation, not VLA.bas's SbAdd/SbText buffer (Private
-    ' to that module - R7 territory, but this runs once on a ~300-line
-    ' corpus at golden-generation time, not once per statement of
-    ' every compile, so the O(n^2) a plain & would cost on a HOT path
-    ' is not a cost worth avoiding here.
-    Dim outText As String
-    Dim currentPara As Long
-    currentPara = -1
-    Dim i As Long
-    For i = LBound(lines) To UBound(lines)
-        Dim ln As String
-        ln = lines(i)
-        Dim trimmed As String
-        trimmed = LTrim$(ln)
-        If Left$(trimmed, 9) = "(at-line " Then
-            Dim srcLn As Long
-            srcLn = ParseLeadingNumber(Mid$(trimmed, 10))
-            If srcLn > 0 Then
-                Dim pIdx As Long
-                pIdx = ParagraphIndexForLine(paragraphs, srcLn)
-                If pIdx > 0 And pIdx <> currentPara Then
-                    currentPara = pIdx
-                    Dim rec As Collection
-                    Set rec = paragraphs.Item(pIdx)
-                    Dim pad As String
-                    pad = Left$(ln, Len(ln) - Len(trimmed))
-                    Dim marker As String
-                    marker = "' ---- instructions.txt:" & CLng(rec.Item(1)) & " " & CStr(rec.Item(3)) & " ----"
-                    outText = outText & pad & "(raw " & VlaStringLit(marker) & ")" & vbCrLf
-                End If
-            End If
-        End If
-        outText = outText & ln
-        If i < UBound(lines) Then outText = outText & vbCrLf
-    Next i
-    InsertSectionMarkers = outText
-End Function
-
-' F.9: pins EnglishParagraphs' block-boundary detection and
-' InsertSectionMarkers' placement/escaping directly - a correctness
-' guarantee independent of reading through the (much larger) real
-' corpus goldens by eye. A hand-built three-paragraph sample, not
-' instructions.txt itself, so this test's expectations do not drift every
-' time a corpus sentence is added or reworded.
-Private Sub TestSectionMarkers()
-    Dim eng As String
-    eng = "# a leading comment, skipped for the label" & vbCrLf & _
-          "Set a to 1." & vbCrLf & _
-          vbCrLf & _
-          "Log ""two"" now." & vbCrLf & _
-          vbCrLf & _
-          "Set c to 3."
-    Dim paras As Collection
-    Set paras = EnglishParagraphs(eng)
-    CheckV "f9: three blank-line-delimited paragraphs found", paras.Count, 3
-    If paras.Count = 3 Then
-        Dim p1 As Collection, p2 As Collection, p3 As Collection
-        Set p1 = paras.Item(1)
-        Set p2 = paras.Item(2)
-        Set p3 = paras.Item(3)
-        CheckV "f9: paragraph 1 starts at its leading comment's line", CLng(p1.Item(1)), 1
-        CheckV "f9: paragraph 1's label skips the leading # comment", CStr(p1.Item(3)), "Set a to 1."
-        CheckV "f9: paragraph 2 starts where its own text begins", CLng(p2.Item(1)), 4
-        CheckV "f9: paragraph 2's label keeps its embedded quotes (pre-VlaStringLit)", CStr(p2.Item(3)), "Log ""two"" now."
-        CheckV "f9: paragraph 3 starts at the file's last block", CLng(p3.Item(1)), 6
-    End If
-
-    Dim vla As String
-    vla = "(sub main ()" & vbCrLf & _
-          "    (at-line 2" & vbCrLf & _
-          "    (set! a 1)))" & vbCrLf & _
-          "    (at-line 4" & vbCrLf & _
-          "    (debug-print ""two""))" & vbCrLf & _
-          "    (at-line 6" & vbCrLf & _
-          "    (set! c 3)))"
-    Dim marked As String
-    marked = InsertSectionMarkers(vla, eng)
-    Report "f9: a marker precedes each new paragraph's first at-line, quotes escaped", _
-           InStr(1, marked, "(raw ""' ---- instructions.txt:1 Set a to 1. ----"")") > 0 And _
-           InStr(1, marked, "(raw ""' ---- instructions.txt:4 Log \""two\"" now. ----"")") > 0 And _
-           InStr(1, marked, "(raw ""' ---- instructions.txt:6 Set c to 3. ----"")") > 0, _
-           Left$(marked, 400)
-    Report "f9: exactly three markers - one per paragraph, none repeated mid-paragraph", _
-           CountOcc(marked, "(raw ""' ----") = 3, "got: " & CountOcc(marked, "(raw ""' ----")
 End Sub
 
 ' F.1: the dot count - rules whose template reaches the VBA object

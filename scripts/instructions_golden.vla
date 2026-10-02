@@ -9,7 +9,6 @@
   (on-error goto vla-fail)
     (set! vla-step 52)
     (if (vlatraceon) (then (vlatracestep 52 (vla-step-text 52))))
-    (raw "' ---- instructions.txt:87 To stamp, with row-number of 1 and value of \"ok\": ----")
     (at-line 90
     (set! (cells row-number "f") value))
   (exit-sub)
@@ -20,7 +19,6 @@
   (on-error goto vla-fail)
     (set! vla-step 102)
     (if (vlatraceon) (then (vlatracestep 102 (vla-step-text 102))))
-    (raw "' ---- instructions.txt:184 To tax of amount: ----")
     (at-line 187
     (return (* amount 0.08)))
   (exit-function)
@@ -31,7 +29,6 @@
   (on-error goto vla-fail)
     (set! vla-step 109)
     (if (vlatraceon) (then (vlatracestep 109 (vla-step-text 109))))
-    (raw "' ---- instructions.txt:198 To tidy-up: ----")
     (at-line 199
     (fit-column "a"))
     (set! vla-step 110)
@@ -50,7 +47,6 @@
   (on-error goto vla-fail)
     (set! vla-step 112)
     (if (vlatraceon) (then (vlatracestep 112 (vla-step-text 112))))
-    (raw "' ---- instructions.txt:203 To get commission using sale of 1000 and rate of 5%: ----")
     (at-line 206
     (return (* sale rate)))
   (exit-function)
@@ -61,7 +57,6 @@
   (on-error goto vla-fail)
     (set! vla-step 122)
     (if (vlatraceon) (then (vlatracestep 122 (vla-step-text 122))))
-    (raw "' ---- instructions.txt:227 To get vat-rate: ----")
     (at-line 230
     (return (/ 20 100)))
   (exit-function)
@@ -72,7 +67,6 @@
   (on-error goto vla-fail)
     (set! vla-step 726)
     (if (vlatraceon) (then (vlatracestep 726 (vla-step-text 726))))
-    (raw "' ---- instructions.txt:1231 To check-text-conditions: ----")
     (at-line 1238
     (if (positive? (instr 1 (range "aa1") "NAN" vbtextcompare)) (then (set! (range "l17") "contains"))))
     (set! vla-step 727)
@@ -120,7 +114,6 @@
   (on-error goto vla-fail)
     (set! vla-step 736)
     (if (vlatraceon) (then (vlatracestep 736 (vla-step-text 736))))
-    (raw "' ---- instructions.txt:1250 To check-formulas: ----")
     (at-line 1259
     (begin (vlaensuresheet "gformula") (activate-sheet "gformula")))
     (set! vla-step 737)
@@ -231,7 +224,6 @@
   (on-error goto vla-fail)
     (set! vla-step 762)
     (if (vlatraceon) (then (vlatracestep 762 (vla-step-text 762))))
-    (raw "' ---- instructions.txt:1287 To check-statistics: ----")
     (at-line 1300
     (begin (vlaensuresheet "gstats") (activate-sheet "gstats")))
     (set! vla-step 763)
@@ -342,7 +334,6 @@
     (on-error goto vla-fail)
     (set! vla-step 788)
     (if (vlatraceon) (then (vlatracestep 788 (vla-step-text 788))))
-    (raw "' ---- instructions.txt:1327 If that fails: ----")
     (at-line 1328
     (set! (range "h7") vla-problem))
     (label vla-tryd-12)
@@ -360,7 +351,6 @@
   (on-error goto vla-fail)
     (set! vla-step 790)
     (if (vlatraceon) (then (vlatracestep 790 (vla-step-text 790))))
-    (raw "' ---- instructions.txt:1332 To check-calculation: ----")
     (at-line 1343
     (begin (vlaensuresheet "gcalc") (activate-sheet "gcalc")))
     (set! vla-step 791)
@@ -458,7 +448,6 @@
   (on-error goto vla-fail)
     (set! vla-step 813)
     (if (vlatraceon) (then (vlatracestep 813 (vla-step-text 813))))
-    (raw "' ---- instructions.txt:1368 To check-figures: ----")
     (at-line 1380
     (begin (vlaensuresheet "gfigures") (activate-sheet "gfigures")))
     (set! vla-step 814)
@@ -583,7 +572,6 @@
   (on-error goto vla-fail)
     (set! vla-step 843)
     (if (vlatraceon) (then (vlatracestep 843 (vla-step-text 843))))
-    (raw "' ---- instructions.txt:1412 To check-phrases: ----")
     (at-line 1422
     (begin (vlaensuresheet "lphrases") (activate-sheet "lphrases")))
     (set! vla-step 844)
@@ -684,12 +672,10 @@
   (on-error goto vla-fail)
   (set! vla-step 1)
   (if (vlatraceon) (then (vlatracestep 1 (vla-step-text 1))))
-  (raw "' ---- instructions.txt:10 Work on sheet Output. ----")
   (at-line 18
   (begin (vlaensuresheet "output") (activate-sheet "output")))
   (set! vla-step 2)
   (if (vlatraceon) (then (vlatracestep 2 (vla-step-text 2))))
-  (raw "' ---- instructions.txt:20 Turn off screen updating. ----")
   (at-line 20
   (set-screen-updating false))
   (set! vla-step 3)
@@ -718,7 +704,6 @@
   (set! (range "d1") (date)))
   (set! vla-step 9)
   (if (vlatraceon) (then (vlatracestep 9 (vla-step-text 9))))
-  (raw "' ---- instructions.txt:28 Repeat 5 times: ----")
   (at-line 28
   (dotimes counter 5
     (set! vla-step 10)
@@ -731,7 +716,6 @@
     (if (zero? (mod counter 2)) (then (debug-print (& "even step " counter)))))))
   (set! vla-step 12)
   (if (vlatraceon) (then (vlatracestep 12 (vla-step-text 12))))
-  (raw "' ---- instructions.txt:32 Put total into cell B2. ----")
   (at-line 32
   (set! (range "b2") total))
   (set! vla-step 13)
@@ -752,7 +736,6 @@
   (debug-print (& "grand is " grand)))
   (set! vla-step 17)
   (if (vlatraceon) (then (vlatracestep 17 (vla-step-text 17))))
-  (raw "' ---- instructions.txt:41 If grand is greater than 40: ----")
   (at-line 43
   (if (> grand 40)
     (then
@@ -775,12 +758,10 @@
     (else
     (set! vla-step 22)
     (if (vlatraceon) (then (vlatracestep 22 (vla-step-text 22))))
-    (raw "' ---- instructions.txt:50 Otherwise: ----")
     (at-line 51
     (set! (range "c4") "CHECK")))))
   (set! vla-step 23)
   (if (vlatraceon) (then (vlatracestep 23 (vla-step-text 23))))
-  (raw "' ---- instructions.txt:53 If grand is at least 45, make cell C4 yellow. ----")
   (at-line 53
   (if (>= grand 45) (then (set-fill-color (range "c4") vbyellow))))
   (set! vla-step 24)
@@ -817,7 +798,6 @@
   (debug-print (& (& (& "largest result is " biggest) ", label length ") (len label))))
   (set! vla-step 32)
   (if (vlatraceon) (then (vlatracestep 32 (vla-step-text 32))))
-  (raw "' ---- instructions.txt:63 Repeat 3 times: ----")
   (at-line 64
   (dotimes counter 3
     (set! vla-step 33)
@@ -826,7 +806,6 @@
     (set! (cells counter "e") (* counter 10)))))
   (set! vla-step 34)
   (if (vlatraceon) (then (vlatracestep 34 (vla-step-text 34))))
-  (raw "' ---- instructions.txt:67 Set probe to cell in column E row 2. ----")
   (at-line 67
   (set! probe (cells 2 "e")))
   (set! vla-step 35)
@@ -879,7 +858,6 @@
   (debug-print (& "probe is " probe)))
   (set! vla-step 47)
   (if (vlatraceon) (then (vlatracestep 47 (vla-step-text 47))))
-  (raw "' ---- instructions.txt:81 Create a number called countdown. ----")
   (at-line 81
   (dim countdown Double))
   (set! vla-step 48)
@@ -900,7 +878,6 @@
     (set! countdown (- countdown 1)))))
   (set! vla-step 53)
   (if (vlatraceon) (then (vlatracestep 53 (vla-step-text 53))))
-  (raw "' ---- instructions.txt:92 Stamp. ----")
   (at-line 92
   (stamp))
   (set! vla-step 54)
@@ -929,7 +906,6 @@
     (if (positive? (instr 1 (cells check-row "f") "ok" vbtextcompare)) (then (make-bold (cells check-row "f")))))))
   (set! vla-step 60)
   (if (vlatraceon) (then (vlatracestep 60 (vla-step-text 60))))
-  (raw "' ---- instructions.txt:100 Count stripe-row from 1 to f-last step 2: ----")
   (at-line 103
   (for (stripe-row 1 f-last 2)
     (set! vla-step 61)
@@ -938,7 +914,6 @@
     (make-bold (cells stripe-row "f")))))
   (set! vla-step 62)
   (if (vlatraceon) (then (vlatracestep 62 (vla-step-text 62))))
-  (raw "' ---- instructions.txt:106 Count back-row down from f-last to 1 step 2: ----")
   (at-line 106
   (for (back-row f-last 1 (- 0 2))
     (set! vla-step 63)
@@ -947,7 +922,6 @@
     (debug-print (& "back-row " back-row)))))
   (set! vla-step 64)
   (if (vlatraceon) (then (vlatracestep 64 (vla-step-text 64))))
-  (raw "' ---- instructions.txt:109 Count search-row from 1 to 10: ----")
   (at-line 111
   (for (search-row 1 10)
     (set! vla-step 65)
@@ -956,12 +930,10 @@
     (if (= search-row 3) (then (exit-for))))))
   (set! vla-step 66)
   (if (vlatraceon) (then (vlatracestep 66 (vla-step-text 66))))
-  (raw "' ---- instructions.txt:114 Log \"stopped at \" joined with search-row. ----")
   (at-line 114
   (debug-print (& "stopped at " search-row)))
   (set! vla-step 67)
   (if (vlatraceon) (then (vlatracestep 67 (vla-step-text 67))))
-  (raw "' ---- instructions.txt:116 Create a list called found-items. ----")
   (at-line 119
   (begin (dim found-items Collection) (obj-set! found-items (new Collection))))
   (set! vla-step 68)
@@ -974,7 +946,6 @@
     (if (> counter 2) (then (. found-items add (* counter 100)))))))
   (set! vla-step 70)
   (if (vlatraceon) (then (vlatracestep 70 (vla-step-text 70))))
-  (raw "' ---- instructions.txt:123 For each f in found-items, log \"found \" joined with f. ----")
   (at-line 123
   (for-each (f found-items) (debug-print (& "found " f))))
   (set! vla-step 71)
@@ -987,7 +958,6 @@
   (debug-print (& "list holds " list-count)))
   (set! vla-step 73)
   (if (vlatraceon) (then (vlatracestep 73 (vla-step-text 73))))
-  (raw "' ---- instructions.txt:127 Create a text called verdict. ----")
   (at-line 131
   (dim verdict String))
   (set! vla-step 74)
@@ -1002,18 +972,15 @@
     (elseif (> grand 40)
     (set! vla-step 76)
     (if (vlatraceon) (then (vlatracestep 76 (vla-step-text 76))))
-    (raw "' ---- instructions.txt:135 Otherwise, if grand is greater than 40: ----")
     (at-line 136
     (set! verdict "solid")))
     (else
     (set! vla-step 77)
     (if (vlatraceon) (then (vlatracestep 77 (vla-step-text 77))))
-    (raw "' ---- instructions.txt:138 Otherwise: ----")
     (at-line 139
     (set! verdict "small")))))
   (set! vla-step 78)
   (if (vlatraceon) (then (vlatracestep 78 (vla-step-text 78))))
-  (raw "' ---- instructions.txt:141 Create a text called region-label. ----")
   (at-line 141
   (dim region-label String))
   (set! vla-step 79)
@@ -1032,23 +999,19 @@
     (case ("South" "East")
     (set! vla-step 82)
     (if (vlatraceon) (then (vlatracestep 82 (vla-step-text 82))))
-    (raw "' ---- instructions.txt:146 When it is \"South\" or \"East\": ----")
     (at-line 147
     (set! region-label "warm")))
     (case-else
     (set! vla-step 83)
     (if (vlatraceon) (then (vlatracestep 83 (vla-step-text 83))))
-    (raw "' ---- instructions.txt:149 Otherwise: ----")
     (at-line 150
     (set! region-label "unknown")))))
   (set! vla-step 84)
   (if (vlatraceon) (then (vlatracestep 84 (vla-step-text 84))))
-  (raw "' ---- instructions.txt:152 Log \"verdict \" joined with verdict joined with \", region \" joined w... ----")
   (at-line 152
   (debug-print (& (& (& "verdict " verdict) ", region ") region-label)))
   (set! vla-step 85)
   (if (vlatraceon) (then (vlatracestep 85 (vla-step-text 85))))
-  (raw "' ---- instructions.txt:154 Create a number called until-count. ----")
   (at-line 154
   (dim until-count Double))
   (set! vla-step 86)
@@ -1069,12 +1032,10 @@
     (add! until-count 1))))
   (set! vla-step 90)
   (if (vlatraceon) (then (vlatracestep 90 (vla-step-text 90))))
-  (raw "' ---- instructions.txt:160 Log \"repeat-until ran \" joined with until-count joined with \" times\". ----")
   (at-line 160
   (debug-print (& (& "repeat-until ran " until-count) " times")))
   (set! vla-step 91)
   (if (vlatraceon) (then (vlatracestep 91 (vla-step-text 91))))
-  (raw "' ---- instructions.txt:162 Create a text called rescue. ----")
   (at-line 166
   (dim rescue String))
   (set! vla-step 92)
@@ -1097,7 +1058,6 @@
   (on-error goto vla-fail)
     (set! vla-step 95)
     (if (vlatraceon) (then (vlatracestep 95 (vla-step-text 95))))
-    (raw "' ---- instructions.txt:171 If that fails: ----")
     (at-line 172
     (debug-print (& "the problem was " vla-problem)))
     (set! vla-step 96)
@@ -1108,7 +1068,6 @@
   (on-error goto vla-fail))
   (set! vla-step 97)
   (if (vlatraceon) (then (vlatracestep 97 (vla-step-text 97))))
-  (raw "' ---- instructions.txt:175 Create a number called risk-free. ----")
   (at-line 175
   (dim risk-free Double))
   (set! vla-step 98)
@@ -1127,19 +1086,16 @@
   (on-error goto vla-fail)
     (set! vla-step 100)
     (if (vlatraceon) (then (vlatracestep 100 (vla-step-text 100))))
-    (raw "' ---- instructions.txt:179 If that fails: ----")
     (at-line 180
     (set! risk-free -1))
   (label vla-tryd-2)
   (on-error goto vla-fail))
   (set! vla-step 101)
   (if (vlatraceon) (then (vlatracestep 101 (vla-step-text 101))))
-  (raw "' ---- instructions.txt:182 Log \"rescue \" joined with rescue joined with \", risk-free \" joined ... ----")
   (at-line 182
   (debug-print (& (& (& "rescue " rescue) ", risk-free ") risk-free)))
   (set! vla-step 103)
   (if (vlatraceon) (then (vlatracestep 103 (vla-step-text 103))))
-  (raw "' ---- instructions.txt:189 Set fee to tax of 100. ----")
   (at-line 189
   (set! fee (tax 100)))
   (set! vla-step 104)
@@ -1162,12 +1118,10 @@
     (else
     (set! vla-step 108)
     (if (vlatraceon) (then (vlatracestep 108 (vla-step-text 108))))
-    (raw "' ---- instructions.txt:195 Otherwise: ----")
     (at-line 196
     (set! fee-size "small")))))
   (set! vla-step 113)
   (if (vlatraceon) (then (vlatracestep 113 (vla-step-text 113))))
-  (raw "' ---- instructions.txt:208 Set full-commission to commission using sale of 2000 and rate of 10%. ----")
   (at-line 208
   (set! full-commission (commission :sale 2000 :rate (/ 10 100))))
   (set! vla-step 114)
@@ -1180,7 +1134,6 @@
   (debug-print (& (& (& "commissions " full-commission) " / ") default-commission)))
   (set! vla-step 116)
   (if (vlatraceon) (then (vlatracestep 116 (vla-step-text 116))))
-  (raw "' ---- instructions.txt:212 Try: ----")
   (at-line 219
   (on-error goto vla-tryf-3)
     (set! vla-step 117)
@@ -1197,7 +1150,6 @@
   (on-error goto vla-fail))
   (set! vla-step 118)
   (if (vlatraceon) (then (vlatracestep 118 (vla-step-text 118))))
-  (raw "' ---- instructions.txt:222 Go to sheet Output. ----")
   (at-line 222
   (activate-sheet "output"))
   (set! vla-step 119)
@@ -1214,7 +1166,6 @@
   (set! spaced-check (range "'Q1 Data'!A1")))
   (set! vla-step 123)
   (if (vlatraceon) (then (vlatracestep 123 (vla-step-text 123))))
-  (raw "' ---- instructions.txt:232 Create a number called growth-check. ----")
   (at-line 237
   (dim growth-check Double))
   (set! vla-step 124)
@@ -1255,7 +1206,6 @@
   (set! quote-check "He said \"ok\""))
   (set! vla-step 133)
   (if (vlatraceon) (then (vlatracestep 133 (vla-step-text 133))))
-  (raw "' ---- instructions.txt:248 Create a lookup called prices. ----")
   (at-line 260
   (begin (dim prices Object) (obj-set! prices (vladictnew))))
   (set! vla-step 134)
@@ -1296,7 +1246,6 @@
     (set! key-list (& key-list k)))))
   (set! vla-step 143)
   (if (vlatraceon) (then (vlatracestep 143 (vla-step-text 143))))
-  (raw "' ---- instructions.txt:271 Create a text called price-verdict. ----")
   (at-line 271
   (dim price-verdict String))
   (set! vla-step 144)
@@ -1317,12 +1266,10 @@
     (if (> (vlapairvalue pair) 200) (then (set! pair-trace (& pair-trace (vlapairkey pair))))))))
   (set! vla-step 148)
   (if (vlatraceon) (then (vlatracestep 148 (vla-step-text 148))))
-  (raw "' ---- instructions.txt:277 Log \"lookup: ax \" joined with ax-price joined with \", keys \" joined... ----")
   (at-line 277
   (debug-print (& (& (& (& (& "lookup: ax " ax-price) ", keys ") key-list) ", pairs ") pair-trace)))
   (set! vla-step 149)
   (if (vlatraceon) (then (vlatracestep 149 (vla-step-text 149))))
-  (raw "' ---- instructions.txt:279 Put \"Item\" into cell J1. ----")
   (at-line 284
   (set! (range "j1") "Item"))
   (set! vla-step 150)
@@ -1359,7 +1306,6 @@
   (table-totals-on "salestable"))
   (set! vla-step 158)
   (if (vlatraceon) (then (vlatracestep 158 (vla-step-text 158))))
-  (raw "' ---- instructions.txt:294 Put \"X\" into cell J5. ----")
   (at-line 296
   (set! (range "j5") "X"))
   (set! vla-step 159)
@@ -1380,7 +1326,6 @@
   (table-totals-off "quiettable"))
   (set! vla-step 163)
   (if (vlatraceon) (then (vlatracestep 163 (vla-step-text 163))))
-  (raw "' ---- instructions.txt:302 Put \"A\" into cell J8. ----")
   (at-line 304
   (set! (range "j8") "A"))
   (set! vla-step 164)
@@ -1397,7 +1342,6 @@
   (table-to-range "temptable"))
   (set! vla-step 167)
   (if (vlatraceon) (then (vlatracestep 167 (vla-step-text 167))))
-  (raw "' ---- instructions.txt:309 Put \"Item\" into cell J11. ----")
   (at-line 312
   (set! (range "j11") "Item"))
   (set! vla-step 168)
@@ -1442,7 +1386,6 @@
   (for-each (q qty-values) (debug-print q)))
   (set! vla-step 178)
   (if (vlatraceon) (then (vlatracestep 178 (vla-step-text 178))))
-  (raw "' ---- instructions.txt:324 Put \"Region\" into cell N1. ----")
   (at-line 332
   (set! (range "n1") "Region"))
   (set! vla-step 179)
@@ -1611,7 +1554,6 @@
   (set! (range "s7") 250))
   (set! vla-step 220)
   (if (vlatraceon) (then (vlatracestep 220 (vla-step-text 220))))
-  (raw "' ---- instructions.txt:375 Make a pivot table from N1:S7 at U1 called SalesPivot. ----")
   (at-line 381
   (pivot-create (range "n1:s7") (range "u1") "salespivot"))
   (set! vla-step 221)
@@ -1628,7 +1570,6 @@
   (pivot-filters "salespivot" (array "channel")))
   (set! vla-step 224)
   (if (vlatraceon) (then (vlatracestep 224 (vla-step-text 224))))
-  (raw "' ---- instructions.txt:386 Add Revenue to pivot SalesPivot as a sum. ----")
   (at-line 392
   (pivot-values-sum "salespivot" (array "revenue")))
   (set! vla-step 225)
@@ -1641,12 +1582,10 @@
   (pivot-values-average "salespivot" (array "units")))
   (set! vla-step 227)
   (if (vlatraceon) (then (vlatracestep 227 (vla-step-text 227))))
-  (raw "' ---- instructions.txt:396 Make a pivot table from N1:S7 at N20 called FullPivot with rows of ... ----")
   (at-line 406
   (pivot-full (range "n1:s7") (range "n20") "fullpivot" (array "region" "product" "channel") (array "segment") (array "revenue" "units")))
   (set! vla-step 228)
   (if (vlatraceon) (then (vlatracestep 228 (vla-step-text 228))))
-  (raw "' ---- instructions.txt:408 Refresh pivot SalesPivot. ----")
   (at-line 415
   (pivot-refresh "salespivot"))
   (set! vla-step 229)
@@ -1659,7 +1598,6 @@
   (pivot-collapse "salespivot" (array "region")))
   (set! vla-step 231)
   (if (vlatraceon) (then (vlatracestep 231 (vla-step-text 231))))
-  (raw "' ---- instructions.txt:419 Collapse Product in pivot FullPivot. ----")
   (at-line 427
   (pivot-collapse "fullpivot" (array "product")))
   (set! vla-step 232)
@@ -1668,7 +1606,6 @@
   (pivot-expand "fullpivot" (array "product")))
   (set! vla-step 233)
   (if (vlatraceon) (then (vlatracestep 233 (vla-step-text 233))))
-  (raw "' ---- instructions.txt:430 Show pivot SalesPivot in tabular form. ----")
   (at-line 443
   (pivot-layout-tabular "salespivot"))
   (set! vla-step 234)
@@ -1681,7 +1618,6 @@
   (pivot-layout-outline "fullpivot"))
   (set! vla-step 236)
   (if (vlatraceon) (then (vlatracestep 236 (vla-step-text 236))))
-  (raw "' ---- instructions.txt:447 Hide subtotals for Region in pivot SalesPivot. ----")
   (at-line 453
   (pivot-subtotals-hide "salespivot" (array "region")))
   (set! vla-step 237)
@@ -1694,7 +1630,6 @@
   (pivot-subtotals-show "fullpivot" (array "product")))
   (set! vla-step 239)
   (if (vlatraceon) (then (vlatracestep 239 (vla-step-text 239))))
-  (raw "' ---- instructions.txt:457 Add a blank row after Region in pivot SalesPivot. ----")
   (at-line 457
   (pivot-blank-line-add "salespivot" (array "region")))
   (set! vla-step 240)
@@ -1707,7 +1642,6 @@
   (pivot-blank-line-remove "fullpivot" (array "product")))
   (set! vla-step 242)
   (if (vlatraceon) (then (vlatracestep 242 (vla-step-text 242))))
-  (raw "' ---- instructions.txt:461 Sort Region in pivot SalesPivot descending. ----")
   (at-line 476
   (pivot-sort-descending "salespivot" "region"))
   (set! vla-step 243)
@@ -1724,7 +1658,6 @@
   (pivot-sort-by-value-ascending "fullpivot" "product" "revenue"))
   (set! vla-step 246)
   (if (vlatraceon) (then (vlatracestep 246 (vla-step-text 246))))
-  (raw "' ---- instructions.txt:481 Make a pivot table from N1:S7 at N200 called RenameMePivot. ----")
   (at-line 490
   (pivot-create (range "n1:s7") (range "n200") "renamemepivot"))
   (set! vla-step 247)
@@ -1733,7 +1666,6 @@
   (pivot-rename "renamemepivot" "renamedpivot"))
   (set! vla-step 248)
   (if (vlatraceon) (then (vlatracestep 248 (vla-step-text 248))))
-  (raw "' ---- instructions.txt:493 Make a pivot table from N1:S7 at N220 called ClearMePivot. ----")
   (at-line 493
   (pivot-create (range "n1:s7") (range "n220") "clearmepivot"))
   (set! vla-step 249)
@@ -1750,7 +1682,6 @@
   (pivot-clear "clearmepivot"))
   (set! vla-step 252)
   (if (vlatraceon) (then (vlatracestep 252 (vla-step-text 252))))
-  (raw "' ---- instructions.txt:498 Make a pivot table from N1:S7 at N240 called RemoveFieldMePivot. ----")
   (at-line 498
   (pivot-create (range "n1:s7") (range "n240") "removefieldmepivot"))
   (set! vla-step 253)
@@ -1763,7 +1694,6 @@
   (pivot-remove-field "removefieldmepivot" (array "product")))
   (set! vla-step 255)
   (if (vlatraceon) (then (vlatracestep 255 (vla-step-text 255))))
-  (raw "' ---- instructions.txt:502 Put \"West\" into cell N8. ----")
   (at-line 506
   (set! (range "n8") "West"))
   (set! vla-step 256)
@@ -1788,7 +1718,6 @@
   (set! (range "s8") 700))
   (set! vla-step 261)
   (if (vlatraceon) (then (vlatracestep 261 (vla-step-text 261))))
-  (raw "' ---- instructions.txt:513 Make a pivot table from N1:S7 at N260 called SourceTestPivot. ----")
   (at-line 513
   (pivot-create (range "n1:s7") (range "n260") "sourcetestpivot"))
   (set! vla-step 262)
@@ -1801,7 +1730,6 @@
   (pivot-source "sourcetestpivot" (range "n1:s8")))
   (set! vla-step 264)
   (if (vlatraceon) (then (vlatracestep 264 (vla-step-text 264))))
-  (raw "' ---- instructions.txt:517 Make a pivot table from N1:S7 at N40 called TempPivot. ----")
   (at-line 520
   (pivot-create (range "n1:s7") (range "n40") "temppivot"))
   (set! vla-step 265)
@@ -1810,7 +1738,6 @@
   (pivot-delete "temppivot"))
   (set! vla-step 266)
   (if (vlatraceon) (then (vlatracestep 266 (vla-step-text 266))))
-  (raw "' ---- instructions.txt:523 Put grand into cell H1. ----")
   (at-line 524
   (set! (range "h1") grand))
   (set! vla-step 267)
@@ -1927,7 +1854,6 @@
   (set! (range "h31") pair-trace))
   (set! vla-step 295)
   (if (vlatraceon) (then (vlatracestep 295 (vla-step-text 295))))
-  (raw "' ---- instructions.txt:554 (set! (range \"h25\") \"vla-row\") ----")
   (at-line 559
   (set! (range "h25") "vla-row"))
   (set! vla-step 296)
@@ -1940,12 +1866,10 @@
     (debug-print counter))))
   (set! vla-step 298)
   (if (vlatraceon) (then (vlatracestep 298 (vla-step-text 298))))
-  (raw "' ---- instructions.txt:563 Work on sheet Demo. ----")
   (at-line 576
   (begin (vlaensuresheet "demo") (activate-sheet "demo")))
   (set! vla-step 299)
   (if (vlatraceon) (then (vlatracestep 299 (vla-step-text 299))))
-  (raw "' ---- instructions.txt:578 Make cell A1 italic. ----")
   (at-line 579
   (make-italic (range "a1")))
   (set! vla-step 300)
@@ -2018,7 +1942,6 @@
   (unmerge-range (range "d1:d3")))
   (set! vla-step 317)
   (if (vlatraceon) (then (vlatracestep 317 (vla-step-text 317))))
-  (raw "' ---- instructions.txt:598 Set height of row 1 to 30. ----")
   (at-line 601
   (set-row-height 1 30))
   (set! vla-step 318)
@@ -2083,7 +2006,6 @@
   (fit-all-columns))
   (set! vla-step 333)
   (if (vlatraceon) (then (vlatracestep 333 (vla-step-text 333))))
-  (raw "' ---- instructions.txt:618 Put \"Region\" into cell G1. ----")
   (at-line 620
   (set! (range "g1") "Region"))
   (set! vla-step 334)
@@ -2172,7 +2094,6 @@
   (copy-range-to (range "g1:i4") (range "k1:m4")))
   (set! vla-step 355)
   (if (vlatraceon) (then (vlatracestep 355 (vla-step-text 355))))
-  (raw "' ---- instructions.txt:643 Set tab-color of sheet Demo to hot-pink. ----")
   (at-line 645
   (set-tab-color "demo" (vlacolor hot-pink)))
   (set! vla-step 356)
@@ -2185,7 +2106,6 @@
   (unprotect-sheet activesheet "demo123"))
   (set! vla-step 358)
   (if (vlatraceon) (then (vlatracestep 358 (vla-step-text 358))))
-  (raw "' ---- instructions.txt:649 Try: ----")
   (at-line 675
   (on-error goto vla-tryf-4)
     (set! vla-step 359)
@@ -2202,12 +2122,10 @@
   (on-error goto vla-fail))
   (set! vla-step 360)
   (if (vlatraceon) (then (vlatracestep 360 (vla-step-text 360))))
-  (raw "' ---- instructions.txt:678 Work on sheet GStruct. ----")
   (at-line 678
   (begin (vlaensuresheet "gstruct") (activate-sheet "gstruct")))
   (set! vla-step 361)
   (if (vlatraceon) (then (vlatracestep 361 (vla-step-text 361))))
-  (raw "' ---- instructions.txt:680 Hide row 3. ----")
   (at-line 680
   (hide-row 3))
   (set! vla-step 362)
@@ -2220,7 +2138,6 @@
   (unhide-all-rows-columns))
   (set! vla-step 364)
   (if (vlatraceon) (then (vlatracestep 364 (vla-step-text 364))))
-  (raw "' ---- instructions.txt:684 Set font size of cell A6 to 36. ----")
   (at-line 684
   (set-font-size (range "a6") 36))
   (set! vla-step 365)
@@ -2229,7 +2146,6 @@
   (fit-row 6))
   (set! vla-step 366)
   (if (vlatraceon) (then (vlatracestep 366 (vla-step-text 366))))
-  (raw "' ---- instructions.txt:687 Group rows 10 through 12. ----")
   (at-line 687
   (group-rows 10 12))
   (set! vla-step 367)
@@ -2242,7 +2158,6 @@
   (ungroup-rows 14 16))
   (set! vla-step 369)
   (if (vlatraceon) (then (vlatracestep 369 (vla-step-text 369))))
-  (raw "' ---- instructions.txt:691 Put \"before-insert\" into cell A20. ----")
   (at-line 691
   (set! (range "a20") "before-insert"))
   (set! vla-step 370)
@@ -2251,7 +2166,6 @@
   (insert-n-rows-at 20 3))
   (set! vla-step 371)
   (if (vlatraceon) (then (vlatracestep 371 (vla-step-text 371))))
-  (raw "' ---- instructions.txt:694 Put \"before-delete\" into cell A40. ----")
   (at-line 694
   (set! (range "a40") "before-delete"))
   (set! vla-step 372)
@@ -2260,7 +2174,6 @@
   (delete-rows-range 38 39))
   (set! vla-step 373)
   (if (vlatraceon) (then (vlatracestep 373 (vla-step-text 373))))
-  (raw "' ---- instructions.txt:697 Put \"marker-b\" into cell B50. ----")
   (at-line 697
   (set! (range "b50") "marker-b"))
   (set! vla-step 374)
@@ -2277,12 +2190,10 @@
   (move-column "b" "d"))
   (set! vla-step 377)
   (if (vlatraceon) (then (vlatracestep 377 (vla-step-text 377))))
-  (raw "' ---- instructions.txt:702 Freeze the first 2 rows. ----")
   (at-line 702
   (freeze-first-rows 2))
   (set! vla-step 378)
   (if (vlatraceon) (then (vlatracestep 378 (vla-step-text 378))))
-  (raw "' ---- instructions.txt:704 Make cell A60 bold. ----")
   (at-line 705
   (make-bold (range "a60")))
   (set! vla-step 379)
@@ -2299,7 +2210,6 @@
   (copy-formats-only (range "a60:a60") (range "c62:c62")))
   (set! vla-step 382)
   (if (vlatraceon) (then (vlatracestep 382 (vla-step-text 382))))
-  (raw "' ---- instructions.txt:710 Put formula \"=5*2\" into cell B64. ----")
   (at-line 710
   (set-formula (range "b64") "=5*2"))
   (set! vla-step 383)
@@ -2308,7 +2218,6 @@
   (copy-formulas-only (range "b64") (range "d64")))
   (set! vla-step 384)
   (if (vlatraceon) (then (vlatracestep 384 (vla-step-text 384))))
-  (raw "' ---- instructions.txt:713 Set width of column F to 33. ----")
   (at-line 713
   (set-column-width (columns "f") 33))
   (set! vla-step 385)
@@ -2317,7 +2226,6 @@
   (copy-widths-only (range "f1:f1") (range "h1:h1")))
   (set! vla-step 386)
   (if (vlatraceon) (then (vlatracestep 386 (vla-step-text 386))))
-  (raw "' ---- instructions.txt:716 Put 1 into cell A68. ----")
   (at-line 716
   (set! (range "a68") 1))
   (set! vla-step 387)
@@ -2334,7 +2242,6 @@
   (paste-transposed (range "a68:a70") (range "c68")))
   (set! vla-step 390)
   (if (vlatraceon) (then (vlatracestep 390 (vla-step-text 390))))
-  (raw "' ---- instructions.txt:721 Put \"cutme\" into cell A72. ----")
   (at-line 721
   (set! (range "a72") "cutme"))
   (set! vla-step 391)
@@ -2343,7 +2250,6 @@
   (cut-range (range "a72:a72") (range "c72")))
   (set! vla-step 392)
   (if (vlatraceon) (then (vlatracestep 392 (vla-step-text 392))))
-  (raw "' ---- instructions.txt:724 Put \"rowdata\" into cell A74. ----")
   (at-line 724
   (set! (range "a74") "rowdata"))
   (set! vla-step 393)
@@ -2352,7 +2258,6 @@
   (duplicate-row 74 76))
   (set! vla-step 394)
   (if (vlatraceon) (then (vlatracestep 394 (vla-step-text 394))))
-  (raw "' ---- instructions.txt:727 Put \"clearme\" into cell A80. ----")
   (at-line 728
   (set! (range "a80") "clearme"))
   (set! vla-step 395)
@@ -2369,7 +2274,6 @@
   (clear-everything-from (range "a80:b80")))
   (set! vla-step 398)
   (if (vlatraceon) (then (vlatracestep 398 (vla-step-text 398))))
-  (raw "' ---- instructions.txt:733 Put \"m1\" into cell A84. ----")
   (at-line 733
   (set! (range "a84") "m1"))
   (set! vla-step 399)
@@ -2394,7 +2298,6 @@
   (delete-shift-up (range "a84:a86")))
   (set! vla-step 404)
   (if (vlatraceon) (then (vlatracestep 404 (vla-step-text 404))))
-  (raw "' ---- instructions.txt:740 Put \"x1\" into cell B90. ----")
   (at-line 740
   (set! (range "b90") "x1"))
   (set! vla-step 405)
@@ -2415,7 +2318,6 @@
   (delete-shift-left (range "b90:d90")))
   (set! vla-step 409)
   (if (vlatraceon) (then (vlatracestep 409 (vla-step-text 409))))
-  (raw "' ---- instructions.txt:746 Put 1 into cell A94. ----")
   (at-line 746
   (set! (range "a94") 1))
   (set! vla-step 410)
@@ -2440,7 +2342,6 @@
   (delete-blank-rows (range "a94:b96")))
   (set! vla-step 415)
   (if (vlatraceon) (then (vlatracestep 415 (vla-step-text 415))))
-  (raw "' ---- instructions.txt:753 Put 1 into cell A150. ----")
   (at-line 754
   (set! (range "a150") 1))
   (set! vla-step 416)
@@ -2465,7 +2366,6 @@
   (make-header-row 165))
   (set! vla-step 421)
   (if (vlatraceon) (then (vlatracestep 421 (vla-step-text 421))))
-  (raw "' ---- instructions.txt:761 Fill A170:A179 with a series starting at 1. ----")
   (at-line 762
   (fill-series (range "a170:a179") 1 1 "linear"))
   (set! vla-step 422)
@@ -2482,7 +2382,6 @@
   (fill-series (range "a200:a203") 2 3 "growth"))
   (set! vla-step 425)
   (if (vlatraceon) (then (vlatracestep 425 (vla-step-text 425))))
-  (raw "' ---- instructions.txt:767 Make cell Z500 bold. ----")
   (at-line 777
   (make-bold (range "z500")))
   (set! vla-step 426)
@@ -2495,7 +2394,6 @@
   (trim-this-sheet))
   (set! vla-step 428)
   (if (vlatraceon) (then (vlatracestep 428 (vla-step-text 428))))
-  (raw "' ---- instructions.txt:781 Try: ----")
   (at-line 792
   (on-error goto vla-tryf-5)
     (set! vla-step 429)
@@ -2512,12 +2410,10 @@
   (on-error goto vla-fail))
   (set! vla-step 430)
   (if (vlatraceon) (then (vlatracestep 430 (vla-step-text 430))))
-  (raw "' ---- instructions.txt:795 Work on sheet GFormat. ----")
   (at-line 795
   (begin (vlaensuresheet "gformat") (activate-sheet "gformat")))
   (set! vla-step 431)
   (if (vlatraceon) (then (vlatracestep 431 (vla-step-text 431))))
-  (raw "' ---- instructions.txt:797 Make range A1:C1 bold. ----")
   (at-line 799
   (make-bold (range "a1:c1")))
   (set! vla-step 432)
@@ -2550,7 +2446,6 @@
   (set-font-size (range "a7:c7") 16))
   (set! vla-step 439)
   (if (vlatraceon) (then (vlatracestep 439 (vla-step-text 439))))
-  (raw "' ---- instructions.txt:808 Make range A8:C8 bold. ----")
   (at-line 809
   (make-bold (range "a8:c8")))
   (set! vla-step 440)
@@ -2595,7 +2490,6 @@
   (set-font-name (range "a14:c14") "Courier New"))
   (set! vla-step 450)
   (if (vlatraceon) (then (vlatracestep 450 (vla-step-text 450))))
-  (raw "' ---- instructions.txt:821 Align range A15:C15 to the top. ----")
   (at-line 823
   (align-top (range "a15:c15")))
   (set! vla-step 451)
@@ -2620,7 +2514,6 @@
   (set-text-rotation (range "a19:c19") 45))
   (set! vla-step 456)
   (if (vlatraceon) (then (vlatracestep 456 (vla-step-text 456))))
-  (raw "' ---- instructions.txt:830 Add a border around range B21:D23. ----")
   (at-line 834
   (add-outline-border (range "b21:d23")))
   (set! vla-step 457)
@@ -2641,7 +2534,6 @@
   (remove-borders (range "c31:d33")))
   (set! vla-step 461)
   (if (vlatraceon) (then (vlatracestep 461 (vla-step-text 461))))
-  (raw "' ---- instructions.txt:840 Set width of column F to 40. ----")
   (at-line 846
   (set-column-width (columns "f") 40))
   (set! vla-step 462)
@@ -2794,7 +2686,6 @@
   (format-using (range "f57") "00000"))
   (set! vla-step 499)
   (if (vlatraceon) (then (vlatracestep 499 (vla-step-text 499))))
-  (raw "' ---- instructions.txt:885 Add a border colored \"#FF0000\" around range H40:J42. ----")
   (at-line 889
   (add-outline-border-in (range "h40:j42") (vlacolor "#FF0000")))
   (set! vla-step 500)
@@ -2807,7 +2698,6 @@
   (add-border-in (range "h46:j48") (vlacolor "blue")))
   (set! vla-step 502)
   (if (vlatraceon) (then (vlatracestep 502 (vla-step-text 502))))
-  (raw "' ---- instructions.txt:893 Try: ----")
   (at-line 899
   (on-error goto vla-tryf-6)
     (set! vla-step 503)
@@ -2824,12 +2714,10 @@
   (on-error goto vla-fail))
   (set! vla-step 504)
   (if (vlatraceon) (then (vlatracestep 504 (vla-step-text 504))))
-  (raw "' ---- instructions.txt:902 Work on sheet GSortFilter. ----")
   (at-line 902
   (begin (vlaensuresheet "gsortfilter") (activate-sheet "gsortfilter")))
   (set! vla-step 505)
   (if (vlatraceon) (then (vlatracestep 505 (vla-step-text 505))))
-  (raw "' ---- instructions.txt:904 Put \"Item\" into cell A1. ----")
   (at-line 906
   (set! (range "a1") "Item"))
   (set! vla-step 506)
@@ -2866,7 +2754,6 @@
   (sort-with-header (used-range) "b" xldescending))
   (set! vla-step 514)
   (if (vlatraceon) (then (vlatracestep 514 (vla-step-text 514))))
-  (raw "' ---- instructions.txt:916 Put \"Name\" into cell D1. ----")
   (at-line 918
   (set! (range "d1") "Name"))
   (set! vla-step 515)
@@ -2903,7 +2790,6 @@
   (sort-with-header (range "d1:e4") "e" xlascending))
   (set! vla-step 523)
   (if (vlatraceon) (then (vlatracestep 523 (vla-step-text 523))))
-  (raw "' ---- instructions.txt:928 Put \"x\" into cell G2. ----")
   (at-line 929
   (set! (range "g2") "x"))
   (set! vla-step 524)
@@ -2932,7 +2818,6 @@
   (sort-without-header (range "g2:h4") "h" xldescending))
   (set! vla-step 530)
   (if (vlatraceon) (then (vlatracestep 530 (vla-step-text 530))))
-  (raw "' ---- instructions.txt:937 Put \"Region\" into cell J1. ----")
   (at-line 939
   (set! (range "j1") "Region"))
   (set! vla-step 531)
@@ -2997,7 +2882,6 @@
   (sort-two-with-header (range "j1:l5") "j" xlascending "k" xldescending))
   (set! vla-step 546)
   (if (vlatraceon) (then (vlatracestep 546 (vla-step-text 546))))
-  (raw "' ---- instructions.txt:956 Put 2 into cell N2. ----")
   (at-line 957
   (set! (range "n2") 2))
   (set! vla-step 547)
@@ -3026,7 +2910,6 @@
   (sort-two-without-header (range "n2:o4") "n" xlascending "o" xlascending))
   (set! vla-step 553)
   (if (vlatraceon) (then (vlatracestep 553 (vla-step-text 553))))
-  (raw "' ---- instructions.txt:965 Put \"Region\" into cell A40. ----")
   (at-line 972
   (set! (range "a40") "Region"))
   (set! vla-step 554)
@@ -3071,7 +2954,6 @@
   (remove-filters))
   (set! vla-step 564)
   (if (vlatraceon) (then (vlatracestep 564 (vla-step-text 564))))
-  (raw "' ---- instructions.txt:984 Try: ----")
   (at-line 988
   (on-error goto vla-tryf-7)
     (set! vla-step 565)
@@ -3088,7 +2970,6 @@
   (on-error goto vla-fail))
   (set! vla-step 566)
   (if (vlatraceon) (then (vlatracestep 566 (vla-step-text 566))))
-  (raw "' ---- instructions.txt:991 Put \"Region\" into cell A20. ----")
   (at-line 994
   (set! (range "a20") "Region"))
   (set! vla-step 567)
@@ -3189,7 +3070,6 @@
   (format-as-dollars (range "b21:b27") 2))
   (set! vla-step 591)
   (if (vlatraceon) (then (vlatracestep 591 (vla-step-text 591))))
-  (raw "' ---- instructions.txt:1020 Filter range A20:C27 to show rows where column A is \"West\". ----")
   (at-line 1020
   (filter-to-show-matching (range "a20:c27") "a" "West"))
   (set! vla-step 592)
@@ -3202,7 +3082,6 @@
   (show-all-rows))
   (set! vla-step 594)
   (if (vlatraceon) (then (vlatracestep 594 (vla-step-text 594))))
-  (raw "' ---- instructions.txt:1024 Filter range A20:C27 to show rows where column B is 100. ----")
   (at-line 1024
   (filter-to-show-matching (range "a20:c27") "b" 100))
   (set! vla-step 595)
@@ -3215,7 +3094,6 @@
   (show-all-rows))
   (set! vla-step 597)
   (if (vlatraceon) (then (vlatracestep 597 (vla-step-text 597))))
-  (raw "' ---- instructions.txt:1028 Filter range A20:C27 to show rows where column C contains \"*\". ----")
   (at-line 1028
   (filter-to-show-containing (range "a20:c27") "c" "*"))
   (set! vla-step 598)
@@ -3228,7 +3106,6 @@
   (show-all-rows))
   (set! vla-step 600)
   (if (vlatraceon) (then (vlatracestep 600 (vla-step-text 600))))
-  (raw "' ---- instructions.txt:1032 Filter range A20:C27 to show rows where column B is greater than 150. ----")
   (at-line 1033
   (filter-to-show-greater-than (range "a20:c27") "b" 150))
   (set! vla-step 601)
@@ -3245,7 +3122,6 @@
   (show-all-rows))
   (set! vla-step 604)
   (if (vlatraceon) (then (vlatracestep 604 (vla-step-text 604))))
-  (raw "' ---- instructions.txt:1038 Filter range A20:C27 to show rows where column B is less than 99.5. ----")
   (at-line 1041
   (filter-to-show-less-than (range "a20:c27") "b" 99.5))
   (set! vla-step 605)
@@ -3254,7 +3130,6 @@
   (copy-visible-cells (range "a20:c27") (range "u30")))
   (set! vla-step 606)
   (if (vlatraceon) (then (vlatracestep 606 (vla-step-text 606))))
-  (raw "' ---- instructions.txt:1044 Add filters to range A20:C27. ----")
   (at-line 1049
   (add-filters (range "a20:c27")))
   (set! vla-step 607)
@@ -3279,7 +3154,6 @@
   (on-error goto vla-fail))
   (set! vla-step 610)
   (if (vlatraceon) (then (vlatracestep 610 (vla-step-text 610))))
-  (raw "' ---- instructions.txt:1054 Try: ----")
   (at-line 1060
   (on-error goto vla-tryf-9)
     (set! vla-step 611)
@@ -3296,12 +3170,10 @@
   (on-error goto vla-fail))
   (set! vla-step 612)
   (if (vlatraceon) (then (vlatracestep 612 (vla-step-text 612))))
-  (raw "' ---- instructions.txt:1063 Work on sheet GText. ----")
   (at-line 1063
   (begin (vlaensuresheet "gtext") (activate-sheet "gtext")))
   (set! vla-step 613)
   (if (vlatraceon) (then (vlatracestep 613 (vla-step-text 613))))
-  (raw "' ---- instructions.txt:1065 Put \"widget\" into cell A1. ----")
   (at-line 1067
   (set! (range "a1") "widget"))
   (set! vla-step 614)
@@ -3326,7 +3198,6 @@
   (make-uppercase (range "a1:a5")))
   (set! vla-step 619)
   (if (vlatraceon) (then (vlatracestep 619 (vla-step-text 619))))
-  (raw "' ---- instructions.txt:1074 Put \"HELLO World\" into cell B1. ----")
   (at-line 1075
   (set! (range "b1") "HELLO World"))
   (set! vla-step 620)
@@ -3339,7 +3210,6 @@
   (make-lowercase (columns "b")))
   (set! vla-step 622)
   (if (vlatraceon) (then (vlatracestep 622 (vla-step-text 622))))
-  (raw "' ---- instructions.txt:1079 Put \"don't stop\" into cell C1. ----")
   (at-line 1080
   (set! (range "c1") "don't stop"))
   (set! vla-step 623)
@@ -3372,7 +3242,6 @@
   (capitalize-after-non-letter (columns "d")))
   (set! vla-step 630)
   (if (vlatraceon) (then (vlatracestep 630 (vla-step-text 630))))
-  (raw "' ---- instructions.txt:1089 Put \"  a   b  \" into cell E1. ----")
   (at-line 1092
   (set! (range "e1") "  a   b  "))
   (set! vla-step 631)
@@ -3397,7 +3266,6 @@
   (remove-extra-spaces (range "e1:e4")))
   (set! vla-step 636)
   (if (vlatraceon) (then (vlatracestep 636 (vla-step-text 636))))
-  (raw "' ---- instructions.txt:1099 Put formula \"=CHAR(97)&CHAR(10)&CHAR(98)\" into cell F1. ----")
   (at-line 1100
   (set-formula (range "f1") "=CHAR(97)&CHAR(10)&CHAR(98)"))
   (set! vla-step 637)
@@ -3414,7 +3282,6 @@
   (remove-non-printing-characters (range "f1:f2")))
   (set! vla-step 640)
   (if (vlatraceon) (then (vlatracestep 640 (vla-step-text 640))))
-  (raw "' ---- instructions.txt:1105 Put \"Widget\" into cell G1. ----")
   (at-line 1108
   (set! (range "g1") "Widget"))
   (set! vla-step 641)
@@ -3431,7 +3298,6 @@
   (replace-in "AN" "xy" (range "g2:g2")))
   (set! vla-step 644)
   (if (vlatraceon) (then (vlatracestep 644 (vla-step-text 644))))
-  (raw "' ---- instructions.txt:1113 Format range I1:I20 as text for new entries. ----")
   (at-line 1115
   (format-as-text-for-new-entries (range "i1:i20")))
   (set! vla-step 645)
@@ -3464,7 +3330,6 @@
   (set! (range "i3") gtext-part))
   (set! vla-step 652)
   (if (vlatraceon) (then (vlatracestep 652 (vla-step-text 652))))
-  (raw "' ---- instructions.txt:1124 Set gtext-part to the text before \"c\" in gtext-code. ----")
   (at-line 1125
   (set! gtext-part (text-before gtext-code "c")))
   (set! vla-step 653)
@@ -3489,7 +3354,6 @@
   (set! (range "i6") gtext-part))
   (set! vla-step 658)
   (if (vlatraceon) (then (vlatracestep 658 (vla-step-text 658))))
-  (raw "' ---- instructions.txt:1132 Set gtext-part to 42 padded on the left with \"0\" to 5 characters. ----")
   (at-line 1132
   (set! gtext-part (pad-left 42 "0" 5)))
   (set! vla-step 659)
@@ -3506,7 +3370,6 @@
   (set! (range "i8") gtext-part))
   (set! vla-step 662)
   (if (vlatraceon) (then (vlatracestep 662 (vla-step-text 662))))
-  (raw "' ---- instructions.txt:1137 Put \"x\" into cell J1. ----")
   (at-line 1138
   (set! (range "j1") "x"))
   (set! vla-step 663)
@@ -3543,7 +3406,6 @@
   (set! (range "i11") gtext-list))
   (set! vla-step 671)
   (if (vlatraceon) (then (vlatracestep 671 (vla-step-text 671))))
-  (raw "' ---- instructions.txt:1148 Set gtext-part to \"  a   b \" with extra spaces removed. ----")
   (at-line 1150
   (set! gtext-part (without-extra-spaces "  a   b ")))
   (set! vla-step 672)
@@ -3584,7 +3446,6 @@
   (set! (range "i15") gtext-part))
   (set! vla-step 681)
   (if (vlatraceon) (then (vlatracestep 681 (vla-step-text 681))))
-  (raw "' ---- instructions.txt:1161 Try: ----")
   (at-line 1164
   (on-error goto vla-tryf-10)
     (set! vla-step 682)
@@ -3601,12 +3462,10 @@
   (on-error goto vla-fail))
   (set! vla-step 683)
   (if (vlatraceon) (then (vlatracestep 683 (vla-step-text 683))))
-  (raw "' ---- instructions.txt:1167 Put gtext-part into cell I16. ----")
   (at-line 1167
   (set! (range "i16") gtext-part))
   (set! vla-step 684)
   (if (vlatraceon) (then (vlatracestep 684 (vla-step-text 684))))
-  (raw "' ---- instructions.txt:1169 Put \"Nan\" into cell L1. ----")
   (at-line 1173
   (set! (range "l1") "Nan"))
   (set! vla-step 685)
@@ -3635,7 +3494,6 @@
   (replace-in "N/A" 0 (range "l4:l4")))
   (set! vla-step 691)
   (if (vlatraceon) (then (vlatracestep 691 (vla-step-text 691))))
-  (raw "' ---- instructions.txt:1181 Put formula \"=ABS(-2)\" into cell L5. ----")
   (at-line 1182
   (set-formula (range "l5") "=ABS(-2)"))
   (set! vla-step 692)
@@ -3648,7 +3506,6 @@
   (replace-in-formulas "ABS" "SIGN" (range "l5:l6")))
   (set! vla-step 694)
   (if (vlatraceon) (then (vlatracestep 694 (vla-step-text 694))))
-  (raw "' ---- instructions.txt:1186 Put \"zqz\" into cell L7. ----")
   (at-line 1187
   (set! (range "l7") "zqz"))
   (set! vla-step 695)
@@ -3665,7 +3522,6 @@
   (replace-in-formulas "-3" "-4" (used-range)))
   (set! vla-step 698)
   (if (vlatraceon) (then (vlatracestep 698 (vla-step-text 698))))
-  (raw "' ---- instructions.txt:1192 Put \"x,0042,7\" into cell N1. ----")
   (at-line 1195
   (set! (range "n1") "x,0042,7"))
   (set! vla-step 699)
@@ -3706,7 +3562,6 @@
   (on-error goto vla-fail))
   (set! vla-step 706)
   (if (vlatraceon) (then (vlatracestep 706 (vla-step-text 706))))
-  (raw "' ---- instructions.txt:1204 Put \"apple\" into cell Z1. ----")
   (at-line 1205
   (set! (range "z1") "apple"))
   (set! vla-step 707)
@@ -3787,42 +3642,34 @@
   (if (zero? (vlafindtext (columns "z") "kiwi" "row")) (then (set! (range "l16") "no kiwi"))))
   (set! vla-step 735)
   (if (vlatraceon) (then (vlatracestep 735 (vla-step-text 735))))
-  (raw "' ---- instructions.txt:1248 Check-text-conditions. ----")
   (at-line 1248
   (check-text-conditions))
   (set! vla-step 761)
   (if (vlatraceon) (then (vlatracestep 761 (vla-step-text 761))))
-  (raw "' ---- instructions.txt:1285 Check-formulas. ----")
   (at-line 1285
   (check-formulas))
   (set! vla-step 789)
   (if (vlatraceon) (then (vlatracestep 789 (vla-step-text 789))))
-  (raw "' ---- instructions.txt:1330 Check-statistics. ----")
   (at-line 1330
   (check-statistics))
   (set! vla-step 812)
   (if (vlatraceon) (then (vlatracestep 812 (vla-step-text 812))))
-  (raw "' ---- instructions.txt:1366 Check-calculation. ----")
   (at-line 1366
   (check-calculation))
   (set! vla-step 842)
   (if (vlatraceon) (then (vlatracestep 842 (vla-step-text 842))))
-  (raw "' ---- instructions.txt:1410 Check-figures. ----")
   (at-line 1410
   (check-figures))
   (set! vla-step 858)
   (if (vlatraceon) (then (vlatracestep 858 (vla-step-text 858))))
-  (raw "' ---- instructions.txt:1438 Check-phrases. ----")
   (at-line 1438
   (check-phrases))
   (set! vla-step 859)
   (if (vlatraceon) (then (vlatracestep 859 (vla-step-text 859))))
-  (raw "' ---- instructions.txt:1440 Go to sheet Output. ----")
   (at-line 1440
   (activate-sheet "output"))
   (set! vla-step 860)
   (if (vlatraceon) (then (vlatracestep 860 (vla-step-text 860))))
-  (raw "' ---- instructions.txt:1442 Tidy-up. ----")
   (at-line 1442
   (tidy-up))
   (set! vla-step 861)

@@ -200,3 +200,19 @@ reference's text path loads it for `VLA_Browser.bas`. The runner's phrasebook
 is the shipped `english.vla`, and the runner passes no flag. A door grants the
 flag only by a person's explicit act, never by default: the command line's
 `--allow-raw`, the page's checkbox.
+
+## Amendment of 2026-10-02, later the same day: the section markers leave the goldens (`PORT.6`)
+
+The owner's call, on reading step 0: reading (b). `VlaWriteGoldens` writes
+`EnglishToVla`'s text under the stamp alone, so oracle 1's `.vla` golden is,
+less its first line, exactly what the translate path produces, and its `.vba`
+golden is exactly what the product's Compile makes of it. `F.9`'s markers,
+and the writer's machinery that made them, are gone; the `' vla:N src:N` tag
+every statement carries remains the reader's anchor into the corpus. The
+regenerated goldens carry no writer's mark but the stamp. Oracle 1b's input is
+unchanged in kind, the golden less its first line, now 229,156 characters;
+`tools/check_compile_prefix.ps1`'s floor is lowered once, from 301,861 to
+291,316, the whole of the regenerated `.vba`, with this amendment as its
+reason. Reading (a) is not taken: a mark the product never writes does not
+enter the contract, and the one stamp line the amendment of 2026-10-01
+tolerated is the whole of the exception.

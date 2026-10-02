@@ -46,7 +46,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-10-01, PORT.5: 301861 - the whole of instructions_golden.vba, the day
 # the prefix reached the end. Raise it when a regenerated golden is longer;
 # lower it only with a regenerated golden that is shorter, and say so.
-$floor = 301861
+# 2026-10-02, PORT.6 step 0: 291316 - the goldens regenerated without F.9's
+# section markers (the treaty's amendment of that date, the owner's call):
+# 153 comment lines gone and every vla:N tag after the first marker moved
+# down; the whole of the regenerated .vba.
+$floor = 291316
 
 $goldenVla = Join-Path $repoRoot 'scripts/instructions_golden.vla'
 $goldenVba = Join-Path $repoRoot 'scripts/instructions_golden.vba'

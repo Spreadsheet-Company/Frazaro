@@ -828,19 +828,17 @@ Public Sub stamp(Optional row_number As Variant = 1, Optional value As Variant =
     If vlatraceon() Then ' vla:10
         Call vlatracestep(52, vla_step_text(52)) ' vla:10
     End If
-    ' ---- instructions.txt:87 To stamp, with row-number of 1 and value of "ok": ----
-    cells(row_number, "f") = value ' vla:13 src:90
-    Exit Sub ' vla:14
-vla_fail: ' vla:15
-    Call vla_report_error ' vla:16
+    cells(row_number, "f") = value ' vla:12 src:90
+    Exit Sub ' vla:13
+vla_fail: ' vla:14
+    Call vla_report_error ' vla:15
 End Sub
 ```
 
 | Mark | Means |
 |---|---|
-| `' vla:13` | This line came from line 13 of the VLA. |
-| `src:90` | Which came from line 90 of the instructions. |
-| `' ---- instructions.txt:87 To stamp, … ----` | The sentence itself, quoted. |
+| `' vla:12` | This line came from line 12 of the VLA. |
+| `src:90` | Which came from line 90 of the instructions: the sentence itself, in the program sheet. |
 | `vla_step = 52` | The step counter. When a run stops, this is how the message knows the sentence and the row. |
 | `vlatraceon()` | The trace buttons' switch. |
 | `vla_fail:` | Every procedure ends in a handler, so that a failure is reported in Frazaro's words and never in a VBA dialog with a Debug button. |
