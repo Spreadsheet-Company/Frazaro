@@ -17,6 +17,7 @@
 //! property from the first commit.
 
 pub mod form;
+pub mod headtable;
 pub mod intrinsics;
 pub mod messages;
 pub mod printer;
