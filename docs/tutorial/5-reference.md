@@ -134,13 +134,29 @@ These words cannot be names, since Excel's programming language reserves
 them:
 
 ```text
-and as boolean byref byval byte call case close const currency date declare
-dim do double each else elseif empty end enum eqv erase error event exit false
-for friend function get goto if imp implements in input integer is let like
-lock long loop lset me mod new next not nothing null object on open option
-optional or paramarray preserve print private property public put raiseevent
-redim rem resume rset seek select set single static stop string sub then time
-to true type typeof unlock until variant wend while with withevents write xor
+and as boolean byref byval byte call case cbool cbyte ccur cdate cdbl cdec
+cint clng clnglng clngptr close const csng cstr currency cvar cverr date
+declare dim do doevents double each else elseif empty end enum eqv erase
+error event exit false fix for friend function get goto if imp implements in
+input int integer is lenb let like lock long loop lset me mod new next not
+nothing null object on open option optional or paramarray preserve print
+private property pset public put raiseevent redim rem resume rset seek
+select set sgn single static stop string sub then time to true type typeof
+unlock until variant wend while with withevents write xor
+```
+
+The conversions (`cbool` to `cverr`), `doevents`, `fix`, `int`, `lenb`,
+`pset` and `sgn` joined the list in `0.8.0`.
+
+Nor can a word the code Frazaro writes calls by name (from `0.8.0`),
+since a name of yours spelled the same would take Excel's place:
+
+```text
+abs activesheet activewindow activeworkbook application array cells columns
+date day debug err hour inputbox instr isempty lbound lcase left len
+make-button minute month msgbox now range right round rows thisworkbook time
+trim ubound ucase vlacount vlafirst vlalast vlapairkey vlapairvalue workbooks
+worksheets year
 ```
 
 Nor can a value word (`today`, `now`). A step may not be named with a
@@ -1268,6 +1284,7 @@ R7.
 | I don't understand the character '…' | Replace the symbol with its word, or quote the text. |
 | mixes % into a longer amount | Compute the amount under a name first. |
 | '…' is a reserved word in Excel's programming language | Hyphenate the name. |
+| '…' already means something to Excel, and the code Frazaro writes for your sentences uses it by that name | Hyphenate the name. |
 | '…' was given a fixed value by Define and cannot be changed | Use another name. |
 | the action '…' has no parameter called '…' | Use a detail the step defines. The message lists them. |
 | the action '…' requires '…' | Add `with <detail> of <value>`. |

@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "GFORMULA.4"
+Public Const VLA_TESTS_VERSION As String = "U.30"
+' U.30: TestU30EngineCallNames, dispatched after TestGFormulaNamedFigures -
+' a name the code Frazaro writes calls by name refused wherever a name is
+' made, each by id, word and line; what stays sayable; the reserved list's
+' new members; and the six built-ins the interpreter now answers.
+'
 ' GFORMULA.4: VlaSelfTest dispatches VLA_Tests_Grammar's
 ' TestGFormulaNamedFigures after TestU29StatusBarBack - three pins holding
 ' G-FORMULA slice 4's median of a remembered range to rules over a name, so
@@ -457,6 +462,7 @@ Public Function VlaSelfTest() As Boolean
     TestU26CellText
     TestU29StatusBarBack
     TestGFormulaNamedFigures
+    TestU30EngineCallNames
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -3743,6 +3749,138 @@ Private Sub CheckCellShapedRefused(ByVal program As String, ByVal word As String
            And InStr(1, d, "cell " & shown, vbBinaryCompare) > 0 _
            And gotLine = wantLine, _
            "err " & en & " [" & gotId & "] line " & gotLine & ": " & d
+End Sub
+
+' ---------------------------------------------------------------------
+'  U.30: a name the code Frazaro writes calls by name - VBA's functions,
+'  Excel's objects, what a built-in function word compiles to - is never
+'  one of the program's names. Refused where every name is made, each
+'  read for its id, the word and the line the IDE marks red: an action in
+'  all four To forms, a parameter after with, using and of, a variable
+'  made by Set, Create, Count, For each and Increase, a Define, and, with
+'  english.vla loaded, a name a phrasebook rule makes. One of each source:
+'  the interpreter's builtins (len, trim, left, round, instr, msgbox), the
+'  function words' targets (month, vlafirst), Excel's objects (range,
+'  cells, rows, worksheets, application) and the emitter's own words
+'  (array, debug, err). Then what must keep working: a longer name, a
+'  function word's own English word as a name, and the function words
+'  themselves. Then the reserved list's new members, by the reserved-word
+'  refusal. Then the six built-ins the interpreter answers from U.30, and
+'  a wrong count refused by name, as IN.17's are.
+' ---------------------------------------------------------------------
+Private Sub TestU30EngineCallNames()
+    EnglishResetGrammar
+
+    ' The done-when's three, and the other To forms.
+    CheckEngineCallRefused "Log 1." & vbLf & vbLf & "To len of x:" & vbLf & "  Give back x.", "len", 3
+    CheckEngineCallRefused "To range of x:" & vbLf & "  Give back x.", "range", 1
+    CheckEngineCallRefused "To get trim:" & vbLf & "  Give back 1.", "trim", 1
+    CheckEngineCallRefused "To cells:" & vbLf & "  Log 1.", "cells", 1
+    CheckEngineCallRefused "To month of x:" & vbLf & "  Give back x.", "month", 1
+    CheckEngineCallRefused "To get vlafirst using x:" & vbLf & "  Give back x.", "vlafirst", 1
+
+    ' Parameters, after with, using and of.
+    CheckEngineCallRefused "To stamp, with round of 1:" & vbLf & "  Log round.", "round", 1
+    CheckEngineCallRefused "To tally using left:" & vbLf & "  Give back left.", "left", 1
+    CheckEngineCallRefused "To shift of rows:" & vbLf & "  Give back rows.", "rows", 1
+
+    ' Variables, where each is made, and a Define.
+    CheckEngineCallRefused "Set worksheets to 5.", "worksheets", 1
+    CheckEngineCallRefused "Set Range to 5.", "range", 1
+    CheckEngineCallRefused "Create a list called application.", "application", 1
+    CheckEngineCallRefused "Count err from 1 to 3, log err.", "err", 1
+    CheckEngineCallRefused "Create a list called items." & vbLf & "For each debug in items, log debug.", "debug", 2
+    CheckEngineCallRefused "Increase instr by 5.", "instr", 1
+    CheckEngineCallRefused "Log 1." & vbLf & "Define array as 5.", "array", 2
+
+    ' Still sayable: a longer name, a function word's English word, and the
+    ' function words themselves.
+    AssertEnglish "u.30: a longer name is a name", _
+        "To length-of-text of x:" & vbLf & "  Give back length of x." & vbLf & vbLf & _
+        "Set n to length-of-text of ""abc"".", "(set! n (length-of-text ""abc""))"
+    AssertEnglish "u.30: a hyphenated name that begins like one is a name", "Set trim-width to 5.", "(set! trim-width 5)"
+    AssertEnglish "u.30: a function word's English word is still a name", "Set length to 5.", "(set! length 5)"
+    AssertEnglish "u.30: length of still compiles to len", "Set n to length of ""abc"".", "(set! n (len ""abc""))"
+    AssertEnglish "u.30: month of still compiles to month", "Set m to month of today.", "(set! m (month (date)))"
+
+    ' The reserved list's new members: VBA refuses them as names outright.
+    CheckReservedRefused "Set cstr to 5.", "cstr"
+    CheckReservedRefused "Set int to 5.", "int"
+    CheckReservedRefused "To fix of x:" & vbLf & "  Give back x.", "fix"
+
+    Dim loadErr As String
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabulary FindDevFile("english.vla")
+    If Err.Number <> 0 Then loadErr = Err.Description
+    On Error GoTo 0
+    Report "u.30: english.vla loads, every proof's names allowed", Len(loadErr) = 0, loadErr
+    If Len(loadErr) = 0 Then
+        CheckEngineCallRefused "Remember range A1:A3 as columns.", "columns", 1
+        CheckEngineCallRefused "Ask ""Name?"" and put answer into msgbox.", "msgbox", 1
+    End If
+    EnglishResetGrammar
+
+    ' The six built-ins the interpreter answers from U.30. 45000 is
+    ' 15 March 2023; 45000.75 is six in the evening of that day, and
+    ' .7604166667 a quarter past.
+    CheckV "u.30: abs under Interpret", VLA_Interpreter.VlaEvalExpression("(abs -3)"), 3
+    CheckV "u.30: month under Interpret", VLA_Interpreter.VlaEvalExpression("(month 45000)"), 3
+    CheckV "u.30: year under Interpret", VLA_Interpreter.VlaEvalExpression("(year 45000)"), 2023
+    CheckV "u.30: day under Interpret", VLA_Interpreter.VlaEvalExpression("(day 45000)"), 15
+    CheckV "u.30: hour under Interpret", VLA_Interpreter.VlaEvalExpression("(hour 45000.75)"), 18
+    CheckV "u.30: minute under Interpret", VLA_Interpreter.VlaEvalExpression("(minute 45000.7604166667)"), 15
+    CheckV "u.30: month of today, as English writes it, under Interpret", _
+           VLA_Interpreter.VlaEvalExpression("(month (date))"), Month(Date)
+    Dim arN As Long, arD As String
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    Err.Clear
+    VLA_Interpreter.VlaEvalExpression "(month 1 2)"
+    arN = Err.Number
+    arD = Err.Description
+    On Error GoTo 0
+    Report "u.30: (month 1 2) is refused by name, before it runs", _
+           arN <> 0 And VLA_Messages.VlaLastRaisedMsgId() = "interp-builtin-arity" _
+           And InStr(1, arD, "'month' takes 1 argument, but this call gives it 2.", vbBinaryCompare) > 0, _
+           "err " & arN & " [" & VLA_Messages.VlaLastRaisedMsgId() & "] " & arD
+End Sub
+
+' U.30: one program refused by id, by the word it names and by the line the
+' IDE will mark red.
+Private Sub CheckEngineCallRefused(ByVal program As String, ByVal word As String, ByVal wantLine As Long)
+    Dim en As Long, d As String, gotId As String, gotLine As Long
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    Err.Clear
+    EnglishToVla program
+    en = Err.Number
+    d = Err.Description
+    On Error GoTo 0
+    gotId = VLA_Messages.VlaLastRaisedMsgId()
+    gotLine = EnglishLastErrorLine()
+    Report "u.30: " & Replace(program, vbLf, " / ") & " is refused, naming '" & word & "'", _
+           en <> 0 And gotId = "english-engine-call-name" _
+           And InStr(1, d, "'" & word & "' already means something to Excel", vbBinaryCompare) > 0 _
+           And gotLine = wantLine, _
+           "err " & en & " [" & gotId & "] line " & gotLine & ": " & d
+End Sub
+
+' U.30: one program refused as a reserved word, by id and word.
+Private Sub CheckReservedRefused(ByVal program As String, ByVal word As String)
+    Dim en As Long, d As String, gotId As String
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    Err.Clear
+    EnglishToVla program
+    en = Err.Number
+    d = Err.Description
+    On Error GoTo 0
+    gotId = VLA_Messages.VlaLastRaisedMsgId()
+    Report "u.30: " & Replace(program, vbLf, " / ") & " is refused as a reserved word", _
+           en <> 0 And gotId = "english-reserved-word-name" _
+           And InStr(1, d, "'" & word & "' is a reserved word", vbBinaryCompare) > 0, _
+           "err " & en & " [" & gotId & "]: " & d
 End Sub
 
 ' F.9: instructions.txt's own paragraphs (its documented structural unit -

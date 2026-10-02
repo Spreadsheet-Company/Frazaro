@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "LX.13"
+Public Const VLA_MESSAGES_VERSION As String = "U.30"
+' U.30: english-engine-call-name, beside the other name refusals - a name
+' the code Frazaro writes calls by name (VBA's functions, Excel's objects,
+' what a built-in function word compiles to), where any name is made.
+'
 ' LX.13: english-cell-shaped-name, beside the other name refusals - a
 ' word shaped like a cell where a name is made or a value is read. One
 ' entry for both, since the fix is the same either way.
@@ -451,6 +455,11 @@ Private Sub AddEntries(ByVal m As Collection)
     ' the fix is the same either way. {cell} is the word in capitals, as a
     ' cell is written; {loc} is the sentence's line, or nothing in a proof.
     AddMsg m, "english-cell-shaped-name", 5, "VLA-English", "'{name}' is shaped like a cell, so it cannot be a name. To mean cell {cell}, write the word cell in front of it: 'Put 5 into cell {cell}.' or 'Set total to cell {cell} plus 1.' To keep a value under a name, choose one that is not shaped like a cell, like '{name}-total'.{loc}"
+    ' U.30: a name the code Frazaro writes calls by name - VBA's functions,
+    ' Excel's objects, what the engine's function words compile to
+    ' (IsEngineCallName). Where every name is made, like the reserved-word
+    ' refusal above; {loc} is the sentence's line, or nothing in a proof.
+    AddMsg m, "english-engine-call-name", 5, "VLA-English", "'{name}' already means something to Excel, and the code Frazaro writes for your sentences uses it by that name, so it cannot be one of your names: yours would take Excel's place. A hyphenated name like 'my-{name}' or '{name}-value' always works.{loc}"
     AddMsg m, "english-action-name-taken", 5, "VLA-English", "there is already an action called '{name}' in this program - one name, one definition{loc}"
     AddMsg m, "english-action-name-means-something", 5, "VLA-English", "'{name} of ...' already means something (a built-in or vocabulary word) - pick another name for the action{loc}"
     AddMsg m, "english-vocab-file-not-found", 53, "VLA-English", "Vocabulary file not found: {path}"

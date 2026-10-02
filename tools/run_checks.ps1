@@ -60,7 +60,9 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # 2026-09-27, METAPROOF.1: 30 - the floor had fallen one behind the 29
 # already here, and check_proofs.ps1 (the proof corpus, read without
 # Excel) makes thirty.
-$expectedAtLeast = 30
+# 2026-09-30, U.30: 32 - U.29's check_run_gives_back.ps1 made thirty-one
+# without raising this, and check_engine_call_names.ps1 makes thirty-two.
+$expectedAtLeast = 32
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---

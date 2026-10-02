@@ -25201,48 +25201,140 @@ now carries one summary paragraph per engine and points here.*
   The Run procedures themselves are reached only by clicking Run: live
   tests, on both backends. *Related:* `U.28`, built in the same pass.
   *Depends on:* nothing. `~hours`
-- ⬜ **U.30 — a program's own action cannot take a name its generated code
-  calls.** *Minted 2026-09-30, the owner's call, from `LX.14`'s scoping.
-  Found by reading, not run.* **What happens now:** `To <name> …:` passes
-  through `CheckName` (VBA keywords, a word shaped like a cell, a value
-  word) and `CheckDupAction` (a second action of the same name, or a name
-  that is a function word). `CheckDupAction` compares the English word:
-  `To length of x:` is refused, but `To len of x:` is accepted, and `len`
-  is what `length of` compiles to. The action becomes a procedure of that
-  name, and inside its program it answers every call to the name. Compiled
-  VBA writes `len(...)` unqualified, and a module's own procedure answers
-  before VBA's library does; the interpreter's `EvalDynamicHead` looks up
-  the program's own procedures (`LookupProc`) before its builtins
-  (`TryEvalBuiltin`). So `length of name` gives back whatever the
-  program's `len` does, on both backends, and nothing is refused. The
-  conditions change with it: every `is empty` compiles to
-  `len(trim(...))`, so a program's own `len` or `trim` alters each such
-  test. **The class:** every name the generated code calls unqualified.
-  The corpus's golden calls `len`, `trim`, `instr`, `left`, `right`,
-  `round` and `date`; the interpreter's builtins add `lcase`, `ucase`,
-  `isempty`, `msgbox`, `inputbox`, `now` and `time`; the engine's function
-  words compile to `abs`, `month`, `year`, `day`, `hour` and `minute`; and
-  Excel's own `range`, `cells`, `rows`, `columns` and `worksheets` are
-  called the same way, their interpreter arms also after `LookupProc`. An
-  action called `range` would take every cell its program names. Of all
-  these, only `date` and `time` are reserved today, as VBA keywords.
-  **The fix, to scope:** refuse such a name at Check, in words (`SD-2`),
-  for `To`, `To get` and `using` actions alike, the list read from the
-  engine itself - the interpreter's builtins, the engine's function-word
-  targets, the forms whose emission calls a name unqualified - and a
-  static check holding the refusal to those sources, so a builtin added
-  later cannot reopen it. Weighed and not recommended: writing every VBA
-  call qualified (`VBA.Len`) and having the interpreter try builtins
-  first, which rewrites every golden line that calls one and changes the
-  interpreter's lookup order, where the refusal adds one list. *`SD-4`:* a
-  program this refuses had its calls taken already, except one whose own
-  `trim` or `len` never met a `length of`, a `trimmed` or an `is empty`;
-  that one worked, and the release notes must say it is now refused.
-  **Done when:** `To len of x:`, `To range of x:` and `To get trim:` are
-  refused at Check, naming the word, and `To length-of-text of x:` is not;
-  and the static check fails when a builtin is added without its name in
-  the list. *Pays into:* `LX.14`, whose masking of one-word heads (call 2)
-  waits on this. *Depends on:* nothing. `~hours`
+- ✅ **U.30 — a program's own name cannot be one its generated code
+  calls.** *Minted 2026-09-30, the owner's call, from `LX.14`'s scoping,
+  found by reading; filed for actions, widened to every name at scoping.
+  Scoped and built the same day, each call adjudicated as recommended
+  under the owner's advance approval for the session; owner-verified live
+  and committed 2026-10-01.* **Before:** a name passed `CheckName` (VBA keywords, a word
+  shaped like a cell, a value word), and an action `CheckDupAction` too (a
+  second action of the name, or a function word), which compares the
+  English word: `To length of x:` was refused and `To len of x:` accepted,
+  though `len` is what `length of` compiles to. A procedure of the
+  program's answers its name first on both backends - compiled VBA writes
+  `len(...)` unqualified and a module's own procedure answers before VBA's
+  library, and the interpreter's `EvalDynamicHead` looks up the program's
+  procedures (`LookupProc`) before its builtins - so `length of name` gave
+  back whatever the program's `len` did, and since every `is empty`
+  compiles to `len(trim(...))` (the prelude's `blank?`), a program's own
+  `trim` changed every such test. **Now:** `CheckName` refuses a name in
+  `IsEngineCallName`'s list wherever a name is made
+  (`english-engine-call-name`), naming the word and its line.
+  - *Which names: every name, not actions only.* The item's own fact 3,
+    answered by reading and by VBA's language specification, and live: the
+    VBA editor turns `len`, `abs`, `debug` and the conversions red as names
+    and leaves `trim`, `month` and `range` black (2026-10-01). A variable, a parameter or a Define of such a name
+    diverges between the backends, where an action captures the call on
+    both. `len` and `abs` are among the names the specification reserves
+    beside `date`, `string` and `CVar`, whose `Dim` VLA.bas's own header
+    records as a bare Syntax error, so a variable called `len` stops the
+    compiled module compiling, where Interpret runs it. `trim`, `month`,
+    `range` and the rest are not reserved, so a local of the name shadows
+    VBA's or Excel's inside its procedure, and every call the generated
+    code makes there fails in the compiled program: `is empty` at
+    `trim(...)`, the last-filled-row macro at `rows.count`, every cell at
+    `range(...)`, and, for a variable called `err`, the error handler's own
+    `err.description`. Interpret answers from its builtins throughout,
+    since `EvalDynamicHead` reads a frame's variables only last, and only
+    for an array. So the refusal is in `CheckName`, for every name, where
+    `CheckDupAction` would have caught actions alone.
+  - *The list's sources, all the engine's:* `TryEvalBuiltin`'s arms (VBA's
+    functions, as the interpreter answers them); `RegisterBuiltinFuncWords`'s
+    targets (what English's function words compile to); the heads
+    `EvalDynamicHead` answers natively and the roots
+    `ResolveGlobalReceiver` resolves (Excel's `range`, `cells`, `rows`,
+    `columns`, `worksheets`, `workbooks`, `application`, `activesheet`,
+    `activeworkbook`, `thisworkbook` and `activewindow`, and
+    `make-button`); and the words the emitter writes itself (VLA.bas's
+    `Array(`, `LBound(`, `UBound(`, `Debug.Print`, `ThisWorkbook.` and
+    `Len(`, and the English engine's `err.description`). Forty-two names.
+    `tools/check_engine_call_names.ps1`, the thirty-second check, reads
+    each source, fails when the list and the union differ, naming each
+    name missing or extra, and pins how many names each source gives, so a
+    regex that stopped matching cannot pass by reading nothing.
+  - *The wording:* "'range' already means something to Excel, and the code
+    Frazaro writes for your sentences uses it by that name, so it cannot be
+    one of your names: yours would take Excel's place. A hyphenated name
+    like 'my-range' or 'range-value' always works." No VBA in it: "Excel"
+    covers VBA's functions and Excel's objects alike, as the reserved-word
+    refusal's "Excel's programming language" does. It comes last in
+    `CheckName`, so `date` and `time` keep the reserved-word refusal and
+    `now` the value-word one.
+  - *`SD-4` and `SD-14`:* no shipped `instructions.txt` at any tag
+    (`v0.5.0` through `v0.7.1`, and HEAD), tutorial, example, README,
+    template or test sentence makes a name from the list, so no promised
+    sentence changes meaning and `SD-14`'s MAJOR does not fire, `LX.13`'s
+    precedent. What retires is a spelling that validated but was never
+    promised. Most of it already misbehaved (a captured call, or a
+    compiled program that failed where Interpret ran); the rest, a name
+    that never met the call it shadows, worked and is refused now, which
+    `RELEASES.md` 0.8.0 says, with the fix. English's own function words
+    stay free as a value's name, as before, except the five whose word is
+    its own target (`month`, `year`, `day`, `hour` and `minute`): a value
+    called `month` beside a `month of` broke the compiled program.
+  - *Weighed and not recommended, as at filing:* every VBA call written
+    qualified (`VBA.Len`), and the interpreter trying its builtins first.
+    It would not help `len` or `abs`, which fail as names whatever a call
+    says, and it rewrites every golden line that calls one.
+  **Found while verifying, folded in:**
+  - *Six function words never ran under Interpret.* `absolute of`, `month
+    of`, `year of`, `day of`, `hour of` and `minute of` compile to VBA's
+    `Abs`, `Month`, `Year`, `Day`, `Hour` and `Minute`, and `TryEvalBuiltin`
+    had no arm for any of them, so `Set m to month of today.`, the
+    apprentice lesson's own example, stopped under Interpret naming `month`
+    while a Run worked; no corpus sentence uses one. Six arms, each taking
+    one argument, as VBA's function does, and refusing another count by
+    name (`IN.17`'s `interp-builtin-arity`), with `GRAMMAR_SINCE.md` rows
+    at `0.8.0` and a note that the words worked under Compile from `0.5.0`.
+    The check's rule C holds it: every built-in function word's target is
+    a `TryEvalBuiltin` arm or a runtime helper the manifest reaches.
+  - *The reserved list lacked the rest of the group `len` and `abs` belong
+    to:* VBA's conversions (`cbool` through `cverr`, `cVar` among them) and
+    `doevents`, `fix`, `int`, `lenb`, `pset` and `sgn`, each a Syntax error
+    as a name in a compiled program (the VBA editor agrees, 2026-10-01).
+    They join `IsReservedName`.
+  **Found, not filed:**
+  - *An action named like a macro or a core form is expanded away.* The
+    prelude's `check`, `comment`, `identity`, `reverse`, `append`, `when`
+    and `unless`, a phrasebook's `fill-down` or `sum-of`, or a one-word
+    core form (`begin`, `label`, `quote`, `raw`, `doc`, `lambda`,
+    `include`): the program's calls to its own action become the macro's
+    expansion or the form, on both backends. Actions only, since a variable
+    is never a head. Refusing them at Check needs a view of the prelude's
+    macro names that Check does not have (VLA.bas's macro table rebuilds on
+    every parse; the phrasebook's are in `mVocabMacroNames`, the core forms
+    in `VLA_HeadTable`). `~hours`; recommended for filing as its own item.
+  - *VBA's functions a phrasebook's own rules call directly* (`replace` in
+    `… with … replaced by …`, `timeserial`, `textjoin`) are not in the
+    list: they come with the phrasebook, not the engine, and whether the
+    interpreter answers each is its own audit, beside the item above.
+  - *VBA's other reserved words.* `IsReservedName` holds the specification's
+    reserved names whole now, but not its other reserved identifiers: the
+    VBA editor turns `return`, `gosub`, `global`, `scale`, `circle`,
+    `decimal` and `longlong` red as names (the owner's check, 2026-10-01),
+    and Frazaro takes each as a name, so `Set return to 5.` checks and then
+    stops the compiled module compiling. Older than `U.30`; recommended for
+    filing as its own item, the list checked word by word in the editor.
+  **Pins:** thirty-five pure (`TestU30EngineCallNames`): eighteen refusals,
+  each by id, word and line - an action in each `To` form, a parameter
+  after `with`, `using` and `of`, a variable made by `Set` (a capital
+  included), `Create`, `Count`, `For each` and `Increase`, a `Define`,
+  and, with `english.vla` loaded, a name `Remember` and `Ask` make, drawing
+  on every source; five sentences that keep working (`To length-of-text of
+  x:`, `trim-width`, `length` as a value's name, and `length of` and `month
+  of` compiling as before); three new reserved words refused as reserved;
+  `english.vla` loading; the six new built-ins under Interpret and `month
+  of today` as English writes it; and a wrong count refused by name. And
+  `tools/check_engine_call_names.ps1`, mutation-tested over twelve cases
+  after a clean control, each failing with its own named reason: a builtin
+  arm, a function word, a global receiver, an emitted word and an
+  engine-written dotted root, each added unlisted; a name dropped from the
+  list, and one added with no source; the month arm removed; the list
+  line, a source procedure and the runtime's boundary each moved out of
+  reach; and a reviewed exception left matching nothing.
+  `tools/run_checks.ps1`'s floor 30 → 32 (it had not risen with `U.29`'s
+  check). *Pays into:* `LX.14`, whose masking of one-word heads (call 2)
+  waited on this. *Depends on:* nothing. `~hours`
 
 ---
 
@@ -26658,3 +26750,5 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **U.28 — a Run that stops, or is undone, removes the workspace sheet it made.** Minted 2026-09-30, the owner's call, from `G-FORMULA` slice 2's live pass: on a workbook with no StatsD, a Run that worked on it and stopped said "Put back as they were before the run: statsd." and left an empty sheet the person never had, because both Run procedures made the workspace sheet (the first `Work on sheet`, or `Output`) before the snapshot. **Built, owner-verified live and committed 2026-09-30** with `U.29` (three hand tests: a stop and an Undo Last Run each removing the sheet the run made, on both backends, and `Output` alike). The snapshot now comes first and the workspace sheet after, so a sheet the run made carries a removal marker like every other, and the stop's and Undo's existing words say "Removed the sheet the run had created". *(more: the full entry, earlier in this file)* `~hours`
 
 - ✅ **U.29 — a Run gives back Excel's settings as it found them.** Minted 2026-09-30 at `G-FORMULA` slice 3's scoping, as its precursor, from the audit's `C62`: a Run put back only screen updating, so a program that turned calculation off or wrote in the status bar and then stopped left every open workbook in manual calculation, or the words showing, for the rest of the Excel session, where Undo cannot reach. **Built, owner-verified live and committed 2026-09-30** (pure 1567, host 265, `VerifyReports` 349/349 on both backends; three hand tests on both backends). Calculation, the status bar, alerts, events and screen updating are recorded before a Run's first change and given back on every exit of both Run procedures, finished or stopped, each as the run found it, so a person working in manual keeps manual; cut or copy mode left on is cancelled; the program sheet is protected only when it had no protection. The CLI and a sheet's buttons and change handlers keep what they set. `tools/check_run_gives_back.ps1`, the thirty-first check, holds every `application.<x>` a phrasebook or the prelude sets to the list. *(more: the full entry, earlier in this file)* `~hours`
+
+- ✅ **U.30 — a program's own name cannot be one its generated code calls.** Minted 2026-09-30, the owner's call, from `LX.14`'s scoping; filed for actions, widened to every name at scoping; built 2026-09-30, **owner-verified live and committed 2026-10-01** (`VLA_SELF-TESTS` pure 1651/1651 and host 267/267, `LX.14`'s pins beside it, as predicted; `VerifyReports` 371/371 on both backends; `TestDSLs` 2346/0; `To len of x:`, `Set rows to 5.`, `Set cstr to 5.` and `Set debug to 5.` refused word for word on their rows; the VBA editor agreeing name by name; the six function words giving 3, 2023, 15, 18, 15 and 3 on both backends). `To len of x:` was accepted, and in that program every `length of` called it on both backends (a procedure of the program's answers before VBA's library, and before the interpreter's builtins); a variable of such a name broke the compiled call alone, while Interpret ran on. `CheckName` now refuses the forty-two names the generated code calls by name wherever a name is made, the list read from four sources in the engine and held to them by `tools/check_engine_call_names.ps1`, the thirty-second check. Folded in: six function words (`absolute of` … `minute of`) that never ran under Interpret now do, and VBA's conversions join the reserved words. *Pays into:* `LX.14`, whose masking of one-word heads waited on it. *(more: the full entry, earlier in this file)* `~hours`

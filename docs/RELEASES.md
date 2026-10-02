@@ -75,6 +75,25 @@
   behind, empty, and call it "put back as they were before the run". It is
   removed now, as every other sheet a run creates is, and the message says
   so. Undo Last Run does the same.
+- **A name can no longer be a word the code Frazaro writes already uses.**
+  The code Frazaro writes for your sentences calls some of Excel's words by
+  name: `len`, `trim`, `left`, `right`, `round`, `month`, `year`, `day`,
+  `range`, `rows`, `columns`, `cells` and a few more. A step, a detail or a
+  value given one of those names took Excel's place. A step called `trim`
+  changed every `is empty` in its program, and a step called `range`
+  changed every cell it named, whether run or interpreted. A value called
+  `month` stopped a run where the program also said `month of`, though
+  Interpret carried on. Each is now refused before anything runs, and the
+  message names the word. A hyphenated name always works: `month-number`,
+  `my-range`. A program whose name of this kind never met the word it
+  shadows ran fine and is refused now too; rename it the same way.
+  `length`, `count` and the other words English reads with `of` are
+  unchanged, and `int`, `fix`, `cstr` and the other conversions of Excel's
+  programming language join its reserved words.
+- **`month of`, `year of`, `day of`, `hour of`, `minute of` and `absolute
+  of` work under Interpret.** They always worked in a program that runs.
+  Interpret stopped at each one, naming it. `Set m to month of today.` now
+  gives the same month on both.
 - **For contributors: a DATALOG proof can carry the tables its program
   reads.** None of this ships, and nothing in Frazaro calls it.
   - A proof in `scripts/proofs/datalog.vla` may hold a `(tables ...)`

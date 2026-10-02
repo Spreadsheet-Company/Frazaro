@@ -1,6 +1,13 @@
 Attribute VB_Name = "VLA_SentenceEngine"
 Option Explicit
-Public Const VLA_SENTENCEENGINE_VERSION As String = "PPROF.0"
+Public Const VLA_SENTENCEENGINE_VERSION As String = "U.30"
+' U.30: CheckName refuses a name the code Frazaro writes calls by name
+' (IsEngineCallName: VBA's functions, Excel's objects, and what the
+' engine's own function words compile to), wherever a name is made. A
+' program's own procedure of that name answered those calls first on
+' both backends, and a variable of that name broke them in compiled code
+' alone. IsReservedName gains the rest of VBA's reserved group that len
+' and abs belong to, the conversions among them.
 
 ' SEC.2: EnglishLoadVocabulary's raw-consent gate result codes. Plain
 ' Long + Const, not an Enum - this codebase's own 27 modules use Enum
@@ -7492,12 +7499,51 @@ End Sub
 ' or alias with one of these names would be a compile error - the
 ' class of failure no runtime handler can catch. Refuse in English
 ' instead. Hyphenated names always dodge the problem (seek-row is
-' fine: it becomes seek_row).
+' fine: it becomes seek_row). U.30: the conversions (cbool through
+' cverr) and doevents, fix, int, lenb, pset and sgn joined the list -
+' VBA's language specification reserves them beside len, abs, date and
+' string, and a Dim of one (cVar, VLA.bas's own header) is a bare Syntax
+' error. len and abs are refused by IsEngineCallName, below, since the
+' generated code calls them too.
 Private Function IsReservedName(ByVal n As String) As Boolean
     Dim list As String
-    list = " and as boolean byref byval byte call case close const currency date declare dim do double each else elseif empty end enum eqv erase error event exit false for friend function get goto if imp implements in input integer is let like lock long loop lset me mod new next not nothing null object on open option optional or paramarray preserve print private property public put raiseevent redim rem resume rset seek select set single static stop string sub then time to true type typeof unlock until variant wend while with withevents write xor "
+    list = " and as boolean byref byval byte call case cbool cbyte ccur cdate cdbl cdec cint clng clnglng clngptr close const csng cstr currency cvar cverr date declare dim do doevents double each else elseif empty end enum eqv erase error event exit false fix for friend function get goto if imp implements in input int integer is lenb let like lock long loop lset me mod new next not nothing null object on open option optional or paramarray preserve print private property pset public put raiseevent redim rem resume rset seek select set sgn single static stop string sub then time to true type typeof unlock until variant wend while with withevents write xor "
     IsReservedName = (InStr(list, " " & VLA_Identity.Fold(n) & " ") > 0)
 End Function
+
+' U.30: the names the code Frazaro writes calls by name, bare. A program's
+' own name spelled the same takes the call over. In compiled code a
+' procedure of the program's answers before VBA's library and Excel's, and
+' the interpreter looks the program's procedures up before its builtins
+' (EvalDynamicHead), so an action called trim changed every "is empty",
+' which compiles to len(trim(...)), on both backends. A variable or
+' parameter of the name shadows it inside its procedure, which breaks the
+' compiled call alone, while Interpret still answers from its builtins;
+' len and abs are reserved outright. Four sources, all the engine's own:
+' TryEvalBuiltin's arms (VBA's functions as the interpreter answers them),
+' RegisterBuiltinFuncWords's targets (what the engine's function words
+' compile to), the Excel objects EvalDynamicHead and ResolveGlobalReceiver
+' name, and the words the emitter writes itself (VLA.bas's Array, LBound,
+' UBound, Debug.Print, ThisWorkbook and Len; this module's err.description).
+' tools/check_engine_call_names.ps1 reads each source and fails when this
+' list and theirs differ.
+Private Function IsEngineCallName(ByVal n As String) As Boolean
+    Dim list As String
+    list = " abs activesheet activewindow activeworkbook application array cells columns date day debug err hour inputbox instr isempty lbound lcase left len make-button minute month msgbox now range right round rows thisworkbook time trim ubound ucase vlacount vlafirst vlalast vlapairkey vlapairvalue workbooks worksheets year "
+    IsEngineCallName = (InStr(list, " " & VLA_Identity.Fold(n) & " ") > 0)
+End Function
+
+' U.30: the refusal for a name the generated code calls. ln is the
+' sentence's own line, 0 when there is none (a phrasebook's proofs), as
+' RefuseCellShaped's is.
+Private Sub RefuseEngineCallName(ByVal n As String, ByVal ln As Long)
+    Dim loc As String
+    If ln > 0 Then
+        mErrLine = ln
+        loc = LineSuf(ln)
+    End If
+    VLA_Messages.RaiseMsg "english-engine-call-name", "name", VLA_Identity.Fold(n), "loc", loc
+End Sub
 
 Private Sub CheckName(ByVal n As String)
     If IsReservedName(n) Then
@@ -7517,6 +7563,9 @@ Private Sub CheckName(ByVal n As String)
             VLA_Messages.RaiseMsg "english-value-word-name", "name", n
         End If
     End If
+    ' U.30: last, so date and time keep the reserved-word refusal and now
+    ' the value-word one.
+    If IsEngineCallName(n) Then RefuseEngineCallName n, mCurLine
 End Sub
 
 ' LX.13: the one refusal for a word shaped like a cell where a name is

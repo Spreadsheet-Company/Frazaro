@@ -253,6 +253,15 @@ named figures ride slice 2's arms. The median of a name is two rules, not a func
 this ledger dates rules and arms and has no row for a function word, so a
 function word would have been sayable from `0.8.0` with nothing here to
 say so.
+Then six core dispatch arms marked `0.8.0` - `U.30`: `TryEvalBuiltin abs`,
+`day`, `hour`, `minute`, `month` and `year`, what English's `absolute of`,
+`day of`, `hour of`, `minute of`, `month of` and `year of` compile to. Each
+arm is new that release, and rule 1 dates an arm by when it first worked:
+before it, the interpreter answered none of the six, so each word stopped
+under Interpret, naming its target. Under Compile each word has worked
+since `0.5.0`, where VBA's own function answers it. This ledger has no row
+for a function word, so this note stands in for one, as `IN.17`'s does for
+a condition.
 
 ### Phrasebook rules
 
@@ -636,13 +645,18 @@ tag, not assumed.*
 0.5.0  ExecStmt           select
 0.5.0  ExecStmt           set!
 0.5.0  ExecStmt           while
+0.8.0  TryEvalBuiltin     abs
 0.5.0  TryEvalBuiltin     date
+0.8.0  TryEvalBuiltin     day
+0.8.0  TryEvalBuiltin     hour
 0.5.0  TryEvalBuiltin     inputbox
 0.5.0  TryEvalBuiltin     instr
 0.5.0  TryEvalBuiltin     isempty
 0.5.0  TryEvalBuiltin     lcase
 0.5.0  TryEvalBuiltin     left
 0.5.0  TryEvalBuiltin     len
+0.8.0  TryEvalBuiltin     minute
+0.8.0  TryEvalBuiltin     month
 0.5.0  TryEvalBuiltin     msgbox
 0.5.0  TryEvalBuiltin     now
 0.5.0  TryEvalBuiltin     right
@@ -650,6 +664,7 @@ tag, not assumed.*
 0.5.0  TryEvalBuiltin     time
 0.5.0  TryEvalBuiltin     trim
 0.5.0  TryEvalBuiltin     ucase
+0.8.0  TryEvalBuiltin     year
 0.5.6  TryRuntimeHelper   vlaaddfilters
 0.5.0  TryRuntimeHelper   vlacheckrangename
 0.5.0  TryRuntimeHelper   vlachecksheetabsent

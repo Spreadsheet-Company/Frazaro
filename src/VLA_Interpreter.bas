@@ -1,6 +1,12 @@
 Attribute VB_Name = "VLA_Interpreter"
 Option Explicit
-Public Const VLA_INTERPRETER_VERSION As String = "GFORMULA.3"
+Public Const VLA_INTERPRETER_VERSION As String = "U.30"
+' U.30: six bounded built-ins join TryEvalBuiltin - abs, month, year, day,
+' hour and minute, what English's absolute of, month of, year of, day of,
+' hour of and minute of compile to. The compiled program always called
+' VBA's own; Interpret refused each by name. tools/check_engine_call_names
+' now fails when a built-in function word's target is one the interpreter
+' does not answer.
 ' GFORMULA.3: G-FORMULA slice 3 - calculate joins DynamicCall's reviewed
 ' zero-argument members, for the phrasebook's recalculate-this-sheet
 ' ((. activesheet calculate)) and recalculate-all-open-workbooks
@@ -2506,6 +2512,31 @@ Private Function TryEvalBuiltin(ByVal h As String, ByVal argVals As Variant, ByR
         Case "time"
             If ArgCount(argVals) <> 0 Then RaiseBuiltinArity h, "no arguments", argVals
             TryEvalBuiltin = Time
+        ' U.30: what six of English's own function words compile to -
+        ' absolute of, month of, year of, day of, hour of and minute of
+        ' (RegisterBuiltinFuncWords). The compiled program has called VBA's
+        ' Abs, Month, Year, Day, Hour and Minute since 0.5.0; Interpret had
+        ' no arm for any of them, so "Set m to month of today." stopped
+        ' naming 'month'. The argument goes to VBA as it came, as the
+        ' compiled call hands it, so both backends take the same values.
+        Case "abs"
+            If ArgCount(argVals) <> 1 Then RaiseBuiltinArity h, "1 argument", argVals
+            TryEvalBuiltin = Abs(ArgAt(argVals, 0))
+        Case "month"
+            If ArgCount(argVals) <> 1 Then RaiseBuiltinArity h, "1 argument", argVals
+            TryEvalBuiltin = Month(ArgAt(argVals, 0))
+        Case "year"
+            If ArgCount(argVals) <> 1 Then RaiseBuiltinArity h, "1 argument", argVals
+            TryEvalBuiltin = Year(ArgAt(argVals, 0))
+        Case "day"
+            If ArgCount(argVals) <> 1 Then RaiseBuiltinArity h, "1 argument", argVals
+            TryEvalBuiltin = Day(ArgAt(argVals, 0))
+        Case "hour"
+            If ArgCount(argVals) <> 1 Then RaiseBuiltinArity h, "1 argument", argVals
+            TryEvalBuiltin = Hour(ArgAt(argVals, 0))
+        Case "minute"
+            If ArgCount(argVals) <> 1 Then RaiseBuiltinArity h, "1 argument", argVals
+            TryEvalBuiltin = Minute(ArgAt(argVals, 0))
         Case Else
             handled = False
     End Select

@@ -164,6 +164,10 @@ itself, such as `seek`, `date`, `stop` or `next`. You do not need the list:
 > used as a name - a hyphenated name like 'seek-row' or 'my-seek' always
 > works
 
+Nor may it be a word the code Frazaro writes for your sentences calls by
+name, such as `range`, `rows` or `month`. The refusal names the word in
+the same way.
+
 Hyphenated names never collide, which is one reason the samples are full of
 them.
 
@@ -1279,6 +1283,7 @@ again, and the next one, if there is one, will show itself.
 | `Capitalize each word in range A2:A50.` | … then I expected 'after' but found the end of the sentence. | `… after any space.` |
 | `Filter range A1:D50 where column C is "West".` | … then I expected 'to' … | `Filter range A1:D50 to show rows where …` |
 | `Count seek from 1 to 10:` | 'seek' is a reserved word in Excel's programming language … | `seek-row` |
+| `Set rows to 5.` | 'rows' already means something to Excel, and the code Frazaro writes for your sentences uses it by that name … | `row-count` |
 | `Set A1 to 5.` | 'a1' is shaped like a cell, so it cannot be a name. To mean cell A1, write the word cell in front of it … | `Put 5 into cell A1.` |
 | `Set total to B2 plus 1.` | 'b2' is shaped like a cell, so it cannot be a name … | `Set total to cell B2 plus 1.` |
 | `Give back total.` outside a step | 'Give back' only makes sense inside a value-returning action … | `Show total.`, or move it into a step. |
