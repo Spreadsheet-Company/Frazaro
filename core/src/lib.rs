@@ -16,6 +16,8 @@
 //! so the workspace builds, the tests run, and CI holds the zero-import
 //! property from the first commit.
 
+pub mod intrinsics;
+
 /// The crate's version, which tools/check_version_twin.ps1 holds equal to
 /// VLA_RELEASE_VERSION in src/VLA.bas: one corpus, one version.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
