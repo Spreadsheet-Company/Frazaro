@@ -16,6 +16,7 @@
 //! so the workspace builds, the tests run, and CI holds the zero-import
 //! property from the first commit.
 
+pub mod emit;
 pub mod expand;
 pub mod form;
 pub mod headtable;

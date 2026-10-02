@@ -64,9 +64,11 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # without raising this, and check_engine_call_names.ps1 makes thirty-two.
 # 2026-10-01, PORT.4: 34 - check_version_twin.ps1 (one corpus, one version)
 # and check_core_imports.ps1 (the wasm core imports nothing).
-# 2026-10-01, PORT.5: 35 - check_data_exports.ps1 (the head table and the
-# message catalogue, exported to data, agree with the VBA they came from).
-$expectedAtLeast = 35
+# 2026-10-01, PORT.5: 36 - check_data_exports.ps1 (the head table and the
+# message catalogue, exported to data, agree with the VBA they came from)
+# and check_compile_prefix.ps1 (the core reproduces the compile golden; the
+# matched prefix never goes down).
+$expectedAtLeast = 36
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---

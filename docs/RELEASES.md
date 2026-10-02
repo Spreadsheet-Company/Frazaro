@@ -162,6 +162,16 @@
   are spelled now as Excel reads them: `(-x)`, and a quote mark doubled
   inside the text. No sentence in the phrasebook reaches either case
   today; a phrasebook of your own that compiles a formula may.
+- **The second implementation compiles the whole corpus, byte for byte.**
+  `frazaro compile program.vla --prelude prelude.vla`, the command-line door
+  to the host-free core, reads a VLA program and writes the VBA the add-in
+  would write for it, and on the corpus program it writes exactly what the
+  add-in wrote: the conformance runner scores the compile golden as passed,
+  301,861 characters matched. The core reads the same prelude, the same
+  head table and the same message catalogue as the add-in, the last two
+  exported from it as data (`scripts/headtable.vla`, `scripts/messages.vla`),
+  with a check that fails the day they drift. Nothing about the add-in you
+  download changes; English in the core is the next slice.
 - **The repository is now a workspace for more than one product; nothing
   about the add-in you download changes.** Frazaro is a language whose first
   implementation is this Excel add-in, and this release lays the ground for

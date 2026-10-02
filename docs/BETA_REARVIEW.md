@@ -5921,6 +5921,122 @@ written against.
   `RELEASES.md`, `docs/README.md`, `HORIZON.md` §12 cited, `Delta/CLAUDE.md`.
   **Next:** `PORT.5`, the reader and the emitters; `cargo test` has run
   green on the owner's machine.
+- ✅ **PORT.5 — the reader and the emitters, in the core.** *Built 2026-10-01,
+  the day `PORT.4` closed; owner-verified, committed and closed 2026-10-02.
+  Slice 1 of `HORIZON.md` §12: the VLA reader, the macroexpander, the prelude,
+  `EmitTop`/`EmitStmt`/`EmitExpr`/`EmitFormula`, shipping as `frazaro compile
+  program.vla --prelude prelude.vla`.*
+  **Step 0, the question only Excel answers, predicted from the code.** Does
+  `VlaTranspile(VlaReadFile("scripts\instructions_golden.vla"))` equal the
+  `.vba` golden byte for byte? No, by one line in every tag: `VlaWriteGoldens`
+  (`VLA_Tests.bas`) transpiles the VLA text and only then writes it under the
+  `; GENERATED` stamp, so `' vla:8` in the `.vba` names line 9 of the stamped
+  file (the first form after the stamp is line 2); the text from the second
+  line on is what the `.vba` came from, and `WriteTextFile`'s `Print #` adds
+  one CRLF the function's result does not have. The core's reading of the
+  file: 237 top-level forms in the golden, 46 in the prelude. The owner's
+  Immediate-window reading of all three is in the handoff.
+  **F.7's two latent bugs first, in the VBA.** A reference with a known bug
+  would make the core copy it. `(- x)` emitted `(x)`; a quote mark inside a
+  formula's text was never doubled. Fixed in `EmitFormula`, `FormulaQuote` and
+  the new `FormulaText`, pinned by `TestF7`, the goldens unmoved (no
+  `deflambda` in the corpus); its own commit, first.
+  **The treaty's amendment (append-only, dated): oracle 1b, `compile`.**
+  `instructions_golden.vla` less its first line, with `prelude.vla`, compiles
+  to `instructions_golden.vba`, normalized as oracle 1 is. The runner drops
+  the stamp line and writes the rest to a scratch file it names in the
+  result, so what was compiled is a file someone can read; the stamp is the
+  writer's mark and the language's reader never learns of it. `prove.ps1`:
+  the `compile` kind, its fake answering from the `.vba`, its mutant one byte
+  off; `-Control` 13 of 13 attempted.
+  **The slices, each a module with its oracle.** (5a) `core/src/intrinsics.rs`:
+  `fold` (A-Z only), `val` and `str_` (VBA's `Val` and `Str$`, to the leading
+  zero `Str$` drops from a fraction and the `%.15G` exponent rule),
+  `is_numeric` (what `IsNumeric` says of a token without a locale),
+  `is_numeric_literal_text`; INTRINSICS.md's examples as tests, with a
+  comma-decimal case the VBA cannot pass because it has a locale to bend to
+  and the core has none. (5b) `form.rs` (the datum, structural equality that
+  ignores a list's line), `reader.rs` (`Tokenize`, `ParseAll`, the line tags,
+  the two reader refusals with `SrcLineTag`'s and `OpenedAtTag`'s words),
+  `printer.rs` (`WriteDatum`, `WritePretty` at 90 columns measured in UTF-16
+  units); the golden and the prelude read, printed flat and pretty, read
+  again, structurally equal. `messages.rs`: the catalogue read from
+  `scripts/messages.vla`, the one-time export of `VLA_Messages.bas` by
+  `tools/export_messages.ps1` (574 entries; continuations joined, `&`
+  evaluated, `vbCrLf` a line break inside the string, `VLA.VLA_ERR_*`
+  resolved from `VLA.bas`), `raise` with `SubstituteSlots`' rule and the two
+  internal errors as refusals too; every id the core raises exists there, by
+  a grep before the port. (5c) `headtable.rs` from `scripts/headtable.vla`,
+  exported by `tools/export_headtable.ps1` (65 rows, aliases split as
+  `VlaHeadTableAliasMap` splits them); `tools/check_data_exports.ps1`, in
+  `check_devrig_mods_parity`'s shape, re-runs both exporters in memory and
+  fails on drift, with floors of 65 and 574 so an exporter whose pattern
+  stops matching cannot export fewer entries quietly. (5d) `expand.rs`:
+  `DefineMacro` with the reserved-name table, `ExpandMacros` as the hand-made
+  trampoline (a `begin` a macro made is unwrapped around its last element,
+  the rest set aside and combined back), `ExpandOne`, `Substitute` with the
+  QUASIQUOTE bundle, `FuseSymbol`, the seventeen LISTOPS primitives, `cond`,
+  `ExpandOnePass`, `expand_text`; the VBA pins of `TestListops`,
+  `TestListopsExpand`, `TestCond` and `TestQuasiquote` ported as the interim
+  oracle, three of the port's own first expectations corrected against the
+  VBA's shape (a rest parameter splices in element position; a walker's
+  chain flattens into one `begin`; a one-element `begin` unwraps). (5e)
+  `emit/mod.rs` (`VlaTranspile`, `EmitTop`, `EmitProc`, `EmitParams`, TCO,
+  `emitfail`'s suffix, the button helper), `emit/stmt.rs` (every `EmitStmt`
+  arm, `MapTag`), `emit/expr.rs` (every `EmitExpr` arm, `EmitArgs`,
+  interpolation), `emit/formula.rs` (the dialect, F.7 included),
+  `emit/names.rs` (`SymName`, the transliteration table, `ClickHandlerSlug`,
+  `ToVbaString`); `cli/`: `frazaro compile`, exit 3 for the kinds the
+  version does not attempt. The compile state is `VlaFrame`'s twenty fields
+  on one struct, so `vla_tco_N`, `vlaSlabRangeN` and the rest come out
+  identical.
+  **The result.** `prove.ps1 -Impl target/debug/frazaro.exe`: `PASS
+  instructions_golden.vla -> instructions_golden.vba 301861 chars matched`,
+  on the emitter's first full run, the first reproduction of a golden by
+  anything but the VBA. The raw bytes: the door writes 309,326, the file holds
+  309,328, the writer's trailing CRLF, which the treaty's normalization
+  drops. `tools/check_compile_prefix.ps1` keeps the planned floor as a
+  number, now the whole golden's length, prints the first differing line
+  from both sides on a failure (what a porter needs that `prove.ps1` does
+  not print), SKIPs where no door was built, and proves itself on a fake and
+  a mutant; the `core` CI job runs it and `prove.ps1 -Impl` after the build.
+  **Decisions, and why.** The stamp strip belongs to the runner, not the
+  reader: the alternative, transpiling the stamped text in `VlaWriteGoldens`,
+  would have put the writer's mark into the English-to-VBA contract. An
+  include line is refused by name in the core (`vla-include-cannot-read`): a
+  pure function over text cannot read a file, and the door is where files
+  are read; the corpus has none. Both catalogues exported whole, not the
+  forty ids the slice needs, so the drift check covers the catalogue and
+  `PORT.6` inherits a file. `Str$` reproduced to its quirks (` .5`, `1E-05`)
+  because `+expand` writes `Trim$(Str$(...))` and a golden could carry it.
+  No C-ABI export of `compile` yet: the wasm still holds the version alone
+  (73 bytes, 0 imports), and the export's signature is the web door's design
+  (`PORT.6`/`PORT.11`), not this slice's.
+  **Verified here, 2026-10-01.** `cargo fmt --check`, `clippy -D warnings`,
+  `cargo test --workspace`: 54 tests green in the core (the whole-golden
+  comparison among them), the CLI builds; the wasm build, 0 imports;
+  `run_checks.ps1`: 36 checks green; `prove.ps1 -Control` 13 of 13;
+  `check_compile_prefix.ps1 -Control` (the fake matches whole, the mutant 93
+  characters); `check_data_exports.ps1` clean at 65 and 574; every new file
+  LF, no BOM, the two `.vla` exports CRLF, no BOM, as every `.vla`.
+  **Owner-verified live, 2026-10-02.** Step 0, all four readings as
+  predicted: `VlaTranspile` of the stamped file is not the `.vba`; of the
+  text after the stamp line it is, 309,326 characters against the file's
+  309,328, `r & vbCrLf = g` True; `VlaReadForms` 237, 237 and 46;
+  `VlaLintFormat` of the golden is not the golden. `VlaSelfTests` pure
+  1661/1661 (1657 plus `TestF7`'s four), host 267/267. `VlaGoldens`
+  regenerated all three goldens and none changed. The three `VlaExpandText`
+  exports, one past ninety columns, match `expand_text` to the character.
+  `run_checks.ps1` 36 of 36. Committed 2026-10-02 in seven commits: F.7
+  first, then the treaty, then slices 5a to 5e, each with its oracle.
+  **Pins:** `TestF7` (4, VBA); 54 Rust tests. **Floors:** `run_checks.ps1`
+  34 → 36; `check_data_exports.ps1` 65 rows, 574 messages;
+  `check_compile_prefix.ps1` 301,861. **Docs:** `conformance/README.md`
+  (amended), `RELEASES.md`, `Delta/CLAUDE.md`, this entry, the roadmap's
+  paragraph.
+  **Next:** `PORT.6`, English in the core, whose first file is already
+  `scripts/messages.vla`; the C-ABI export of `compile` for the web door;
+  include splicing in the door; `G-USE`.
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day
@@ -26965,6 +27081,7 @@ numbers. **Quoting a correction is not applying it.**
 
 - ✅ **PORT.3 — the intrinsics spec.** `docs/INTRINSICS.md`: the VBA-specific string/array/comparison behaviors a non-VBA port must match, each earned by a real citation. *(more: the full entry, earlier in this file)*
 - ✅ **PORT.4 — the conformance harness and the workspace.** `conformance/README.md`, the treaty that holds every implementation to the one corpus (the VBA reference testifies through its goldens); `tools/prove.ps1`, its runner, proven on a fake implementation and a mutant; the Cargo workspace (`core/`, `cli/`, `web/` held open) beside an unmoved `src/`; `check_version_twin.ps1` and `check_core_imports.ps1` (the wasm core's import section read off the artifact: 73 bytes, 0 imports); the `core` CI job. Closed 2026-10-01. *(more: the full entry, earlier in this file)*
+- ✅ **PORT.5 — the reader and the emitters, in the core.** `core/src/`: the six intrinsics, the datum, the reader and printer, the message catalogue and the head table read from `scripts/messages.vla` and `scripts/headtable.vla` (exported once from the VBA, held to it by `check_data_exports.ps1`), the macro system, and the emitters, one match arm per `Select Case` arm, as `frazaro compile`; the treaty's oracle 1b (the golden less its stamp line, with the prelude, to the `.vba`) in `prove.ps1`; `F.7`'s two latent bugs fixed in the VBA first. `prove.ps1 -Impl target/debug/frazaro.exe` passes the compile oracle whole, 301,861 characters: the first reproduction of a golden by anything but the VBA. `check_compile_prefix.ps1` holds that length. Closed 2026-10-02. *(more: the full entry, earlier in this file)*
 - *Together:* SD-18's infrastructure — a port with no purity guarantee and no intrinsics reference would re-litigate every behavior. *(more: the full entry, earlier in this file)*
 
 ## 🔧 MACHINE · ENVIRONMENT

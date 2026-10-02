@@ -59,6 +59,11 @@ jobs:
       - name: the conformance runner proves itself
         shell: pwsh
         run: pwsh -NoProfile -File tools/prove.ps1 -Control
+      - name: the core reproduces the compile golden (PORT.5, oracle 1b)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File tools/check_compile_prefix.ps1 -Impl target/debug/frazaro
+          pwsh -NoProfile -File tools/prove.ps1 -Impl target/debug/frazaro -ShowAll
       - name: keep the wasm core
         uses: actions/upload-artifact@v4
         with:
