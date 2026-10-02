@@ -1,0 +1,135 @@
+=== basics
+1	set
+1	total
+1	to
+1	5
+1	.
+2	show
+2	total
+2	.
+3	is
+3	it
+3	done
+3	.
+=== articles-and-number-words
+1	add
+1	a
+1	value
+1	to
+1	list
+1	,
+1	then
+1	add
+1	12
+1	to
+1	20
+1	and
+1	13
+1	.
+=== numbers
+1	set
+1	n
+1	to
+1	1000000
+1	and
+1	m
+1	to
+1	3.14159
+1	and
+1	k
+1	to
+1	1
+1	,
+1	00
+1	and
+1	p
+1	to
+1	15
+1	%
+1	and
+1	q
+1	to
+1	7
+1	.
+2	log
+2	x
+2	.
+2	5
+2	and
+2	12345678901
+2	and
+2	1234.5
+2	and
+2	1-2
+2	.
+=== quotes
+1	say
+1	"He said "hi" to me
+1	.
+2	say
+2	"curly quotes
+2	.
+3	say
+3	"
+3	.
+=== references
+1	copy
+1	data!a1:b10
+1	to
+1	"'Q1 Data'!C1
+1	and
+1	column
+1	c:d
+1	and
+1	cell
+1	b2
+1	.
+2	put
+2	"Sheet 1
+2	.
+2	a1
+2	into
+2	output!h16
+2	.
+=== blocks
+1	repeat
+1	3
+1	times
+1	:
+2	increase
+2	x
+2	by
+2	1
+2	.
+4	|
+5	log
+5	x
+5	.
+7	|
+8	log
+8	x
+8	again
+8	.
+=== raw-forms
+1	(begin ; opening\n  (set! x "a ) b \\" c")\n  (log x))
+4	log
+4	x
+4	.
+5	(log 2)
+6	(log 3)
+=== comment-then-raw
+2	(log 1)
+=== empty
+=== comments-only
+=== refuse-dollar
+REFUSED	1	english-unknown-character	I don't understand the character '$' - write the plain number (or 'Format ... as currency.' for display) (line 1)
+=== refuse-apostrophe
+REFUSED	1	english-unknown-character	I don't understand the character ''' - for a spaced sheet name, attach the reference: 'Q1 Data'!A1 - otherwise use straight double quotes " for text, and names without apostrophes (line 1)
+=== refuse-never-closes
+REFUSED	2	english-form-never-closes	this VLA form never closes - 2 '(' still open by the end of the program (line 2)
+=== refuse-dash
+REFUSED	1	english-unknown-character	I don't understand the character '—' - use a plain hyphen - (Word may have autocorrected it) (line 1)
+=== refuse-later-line
+REFUSED	3	english-unknown-character	I don't understand the character '+' - write 'plus' for addition (line 3)
+=== refuse-paren-mid-row
+REFUSED	1	english-unknown-character	I don't understand the character '(' - a VLA form must begin its row - start the cell with '(' to write VLA, or say it in words (line 1)

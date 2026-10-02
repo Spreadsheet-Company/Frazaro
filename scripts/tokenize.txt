@@ -1,0 +1,61 @@
+The token fixture (PORT.6, slice 6b). Each program sits under a line
+"=== <name>" and runs to the next such line; these lines before the first
+header are ignored. VlaWriteTokenGolden (VLA_Tests.bas) writes EnTokenize's
+reading of every program to tokenize_golden.txt, one token per line as
+"<line><TAB><token>", or one REFUSED line where the tokenizer refuses; the
+core's tokenizer (core/src/english/tokenize.rs) is held to that file by its
+own test. A program's text is exactly its lines: a blank line inside one is
+a paragraph marker on purpose, so keep the sections tight.
+=== basics
+Set the total to 5.
+Show total!
+Is it done?
+=== articles-and-number-words
+Please add a value to the list, then add twelve to twenty and thirteen.
+=== numbers
+Set n to 1,000,000 and m to 3.14159 and k to 1,00 and p to 15% and q to 7.
+Log x.5 and 12,345,678,901 and 1,234.5 and 1-2.
+=== quotes
+Say "He said ""hi"" to me".
+Say “curly quotes”.
+Say "".
+=== references
+Copy Data!A1:B10 to 'Q1 Data'!C1 and column C:D and cell b2.
+Put "Sheet 1"!A1 into Output!H16.
+=== blocks
+Repeat 3 times:
+  Increase x by 1.
+
+# a comment line between paragraphs
+Log x.
+
+
+Log x again.
+=== raw-forms
+(begin ; opening
+  (set! x "a ) b \" c")
+  (log x)) . ; trailing comment
+Log x.
+(log 2).
+   (log 3) ; a comment after
+=== comment-then-raw
+# a comment, then a raw row
+(log 1)
+=== empty
+=== comments-only
+# nothing but a comment
+=== refuse-dollar
+Set price to $5.
+=== refuse-apostrophe
+Don't do that.
+=== refuse-never-closes
+Set x to 1.
+(begin (set! x
+=== refuse-dash
+Set x to 5 — done.
+=== refuse-later-line
+Set x to 1.
+Set y to 2.
+Set z to 3 + 4.
+=== refuse-paren-mid-row
+Set x to (1).

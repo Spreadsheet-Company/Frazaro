@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_SentenceEngine"
 Option Explicit
-Public Const VLA_SENTENCEENGINE_VERSION As String = "LE.11"
+Public Const VLA_SENTENCEENGINE_VERSION As String = "PORT.6"
+' PORT.6 (slice 6b): EnglishTokenReport writes EnTokenize's reading of a
+' text, one token per line with its line number, for the token golden
+' (scripts/tokenize_golden.txt, written by VlaWriteTokenGolden in
+' VLA_Tests.bas) that holds the core's tokenizer to this one.
 ' LE.11: EnglishPhraseRows hands back each row's category in place of
 ' header rows - a sentence's first word, a built-in shape's included
 ' (PhraseShapeCategory), and "value" for each function word and phrase -
@@ -3526,6 +3530,31 @@ Private Function EnTokenize(ByVal text As String) As String()
         mTokLines(k) = v
     Next v
     EnTokenize = toksArr
+End Function
+
+' PORT.6: EnTokenize's reading of a text, one token per line as
+' "<line><TAB><token>", for the token golden (scripts/tokenize_golden.txt,
+' written by VlaWriteTokenGolden in VLA_Tests.bas) that holds the core's
+' tokenizer to this one. A token is written as it stands - a text with its
+' leading quote mark, the paragraph marker as |, a raw VLA row whole - with
+' a backslash, a line feed, a carriage return and a tab escaped as \\, \n,
+' \r and \t, so that a report line is one token. Keyword aliases are a
+' loaded phrasebook's (CanonicalizeStructuralWords), not the tokenizer's,
+' so none is applied. A refusal raises as it does for a program.
+Public Function EnglishTokenReport(ByVal text As String) As String
+    EnsureInit
+    Dim toks() As String
+    toks = EnTokenize(text)
+    Dim r As String, i As Long, t As String
+    For i = 1 To UBound(toks)
+        t = toks(i)
+        t = Replace(t, "\", "\\")
+        t = Replace(t, vbLf, "\n")
+        t = Replace(t, vbCr, "\r")
+        t = Replace(t, vbTab, "\t")
+        r = r & TokLine(i) & vbTab & t & vbCrLf
+    Next i
+    EnglishTokenReport = r
 End Function
 
 Private Function IsWordChar(ByVal c As String) As Boolean

@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "F.7"
+Public Const VLA_TESTS_VERSION As String = "PORT.6"
+' PORT.6 (slice 6b): VlaWriteTokenGolden writes the token golden,
+' scripts/tokenize_golden.txt, from the programs in scripts/tokenize.txt
+' through EnglishTokenReport (VLA_SentenceEngine.bas); the core's tokenizer
+' is held to it by its own test. Dev-only, like VlaWriteGoldens: git diff is
+' the witness. Not in VlaSelfTest's list (no disk I/O there).
 ' F.7 (the two latent bugs): VlaSelfTest dispatches VLA_Tests_Grammar's
 ' TestF7 after TestL14.
 ' LE.11: TestEnglishCore's phrase-row pins read each row's category (the
@@ -2626,6 +2631,79 @@ Public Function VlaGoldens() As Boolean
                 ", " & IIf(interpOk, "interpreter PASS", "interpreter FAILED") & " ====="
     Debug.Print "(grammar was reset twice - Reload vocabulary before the next Run)"
     VlaGoldens = corpusOk And interpOk
+End Function
+
+' PORT.6 (slice 6b): the token golden. scripts/tokenize.txt holds programs,
+' each under a line "=== <name>" (lines before the first header are
+' ignored); this writes EnglishTokenReport's reading of every program to
+' scripts/tokenize_golden.txt under the same header, or one line
+' "REFUSED<TAB><line><TAB><id><TAB><message>" where EnTokenize refuses it.
+' The core's tokenizer (core/src/english/tokenize.rs) is held to the file by
+' its own test, so a tokenizer change here is a golden change there: run
+' this, then git diff, as for VlaWriteGoldens. A program's lines are joined
+' with a line feed, exactly as they stand in the file; the file's own
+' trailing line break gives the last program a trailing one, and the core's
+' reader of the fixture splits it the same way.
+Public Function VlaWriteTokenGolden(Optional ByVal fixturePath As String = "") As Boolean
+    On Error GoTo failed
+    If Len(fixturePath) = 0 Then fixturePath = FindDevFile("tokenize.txt")
+    If Len(Dir$(fixturePath)) = 0 Then Err.Raise 53, "VLA_Tests", "fixture file not found: " & fixturePath
+    Debug.Print "===== WRITE TOKEN GOLDEN ====="
+    Dim lines() As String
+    lines = Split(Replace(ReadTextFileUtf8(fixturePath), vbCrLf, vbLf), vbLf)
+    Dim outText As String, header As String, program As String, ln As String
+    Dim haveSection As Boolean, firstLine As Boolean
+    Dim sections As Long
+    Dim i As Long
+    For i = LBound(lines) To UBound(lines) + 1
+        If i <= UBound(lines) Then ln = lines(i) Else ln = "=== "   ' one past: flushes the last section
+        If Left$(ln, 4) = "=== " Then
+            If haveSection Then
+                outText = outText & header & vbCrLf & TokenReportOrRefusal(program)
+                sections = sections + 1
+            End If
+            header = ln
+            program = ""
+            haveSection = True
+            firstLine = True
+        ElseIf haveSection Then
+            If firstLine Then
+                program = ln
+                firstLine = False
+            Else
+                program = program & vbLf & ln
+            End If
+        End If
+    Next i
+    ' The writer adds one trailing break (WriteTextFile), so the report's own
+    ' last break is dropped first: the file ends with exactly one.
+    If Right$(outText, 2) = vbCrLf Then outText = Left$(outText, Len(outText) - 2)
+    Dim goldenPath As String
+    goldenPath = GoldenPathFor(fixturePath, ".txt")
+    WriteTextFile goldenPath, outText, utf8:=True
+    Debug.Print "  " & sections & " programs -> " & goldenPath
+    Debug.Print "  (git diff is the witness: empty = the core's tokenizer prediction held)"
+    Debug.Print "===== TOKEN GOLDEN WRITTEN ====="
+    VlaWriteTokenGolden = True
+    Exit Function
+failed:
+    Debug.Print "  TOKEN GOLDEN FAILED: " & Err.Description
+End Function
+
+' One program's report, or its refusal as the golden records it. The
+' description is captured before the handler is cleared (On Error GoTo 0
+' resets Err), and the id comes from the message seam's own record.
+Private Function TokenReportOrRefusal(ByVal program As String) As String
+    On Error GoTo refused
+    VLA_Messages.VlaClearLastRaisedMsg
+    TokenReportOrRefusal = VLA_SentenceEngine.EnglishTokenReport(program)
+    Exit Function
+refused:
+    Dim d As String
+    d = Err.Description
+    On Error GoTo 0
+    TokenReportOrRefusal = "REFUSED" & vbTab & VLA_SentenceEngine.EnglishLastErrorLine() & vbTab & _
+                           VLA_Messages.VlaLastRaisedMsgId() & vbTab & d & vbCrLf
 End Function
 
 ' VLALINT.0: unlike VlaWriteGoldens (which REGENERATES a golden and
