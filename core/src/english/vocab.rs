@@ -753,19 +753,21 @@ mod tests {
 
     #[test]
     fn every_dialect_loads_alone_as_the_reference_loads_it() {
-        // Six dialects register their rules; their proofs are 6d's, and in
-        // the reference four of the six fail one: esperanto, latin and
-        // deutsche register their general put rule before their literal
-        // today rule (espanol fixed its own under LX.10), and deutsche and
-        // francais carry F.4's noise-word defect ('an', 'a' before a slot),
-        // which the lint names here (TestF4NoiseWordBeforeSlot pins
-        // francais's). Only dansk and espanol load in Excel.
+        // Seven dialects register their rules; their proofs are 6d's. Until
+        // LX.15 (2026-10-02) the reference refused five of them at load:
+        // esperanto, latin and deutsche registered their general put rule
+        // before their literal today rule (espanol fixed its own under
+        // LX.10), deutsche and francais carried F.4's noise-word defect
+        // ('an', 'a' before a slot), which the lint named here, and pirate
+        // glued a comma to a slot. LX.15 mended the files, so each loads
+        // alone, every proof registered, no warning.
         for (text, name, rules, macros, ok, fail, warnings) in [
             (DANSK, "dansk.vla", 19, 0, 20, 0, 0),
-            (DEUTSCHE, "deutsche.vla", 19, 0, 20, 0, 1),
+            (DEUTSCHE, "deutsche.vla", 19, 0, 20, 0, 0),
             (ESPERANTO, "esperanto.vla", 19, 0, 20, 0, 0),
-            (FRANCAIS, "francais.vla", 19, 0, 20, 0, 1),
+            (FRANCAIS, "francais.vla", 19, 0, 20, 0, 0),
             (LATIN, "latin.vla", 19, 0, 20, 0, 0),
+            (PIRATE, "pirate.vla", 19, 0, 20, 0, 0),
             (ESPANOL, "espanol.vla", 19, 134, 29, 1, 0),
         ] {
             let mut g = fresh();
@@ -780,22 +782,22 @@ mod tests {
                 g.lint_warnings()
             );
         }
+        // F.4's lint still names the shape francais.vla carried until LX.15
+        // (TestF4NoiseWordBeforeSlot keeps the same rule as its fixture).
         let mut g = fresh();
-        load(&mut g, FRANCAIS, "francais.vla").unwrap();
+        load(
+            &mut g,
+            "(francais-vla \"envoie un courriel a {who:expr} avec objet {s:expr} et message {m:expr}\" (vlasendmail {who} {s} {m}))",
+            "f4-fixture.vla",
+        )
+        .unwrap();
         assert!(
             g.lint_warnings()[0].contains("noise word 'a' immediately precedes slot {who:expr}")
         );
-        // Two files the reference refuses as phrasebooks, for its own reasons:
-        // pirate.vla glues a comma to a slot, and alien.vla is a library
-        // whose top-level call expands to a (sub ...), no directive.
-        let e = refused(PIRATE, "pirate.vla");
-        assert_eq!(e.id, "english-slot-not-closed");
-        assert!(
-            e.text
-                .starts_with("'{r:cell},' looks like a slot but isn't closed"),
-            "{}",
-            e.text
-        );
+        // alien.vla is a library of macros a program includes, not a
+        // phrasebook: no rule, no proof (the treaty inventories it and never
+        // scores it, LX.15), and its one top-level call expands to a
+        // (sub ...), which the loader refuses as no directive.
         let e = refused(ALIEN, "alien.vla");
         assert_eq!(e.id, "english-vocab-expansion-not-directive");
         assert!(

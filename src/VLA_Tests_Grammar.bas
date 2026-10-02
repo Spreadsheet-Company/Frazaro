@@ -1,6 +1,9 @@
 Attribute VB_Name = "VLA_Tests_Grammar"
 Option Explicit
-Public Const VLA_TESTS_GRAMMAR_VERSION As String = "F.7"
+Public Const VLA_TESTS_GRAMMAR_VERSION As String = "LX.15"
+' LX.15: TestF4NoiseWordBeforeSlot's live instance (francais.vla:151) is
+' a fixture now that the file is mended, and two pins say francais.vla
+' and deutsche.vla load clean on their own.
 ' F.7 (the two latent bugs): TestF7 - four pins on the formula dialect: a
 ' lone operand under - keeps its sign, alone and inside a chain, and a
 ' quote mark inside a formula's text, or an array constant's, is doubled.
@@ -4373,25 +4376,31 @@ Public Sub TestF4NoiseWordBeforeSlot()
     Report "f4: audit stays clean when a real word (not stripped as noise) precedes the slot", _
            Len(aud) = 0, "unexpected: " & Left$(aud, 200)
 
-    ' Real acceptance target: francais.vla:151's own rule, the second
-    ' live instance BETA_REARVIEW.md's F.4 entry names. Confirmed live
-    ' (owner's VlaSelfTest run): loading raises - the rule's own
-    ' test-success proof fails to translate, because the swallowed "a"
-    ' gets parsed as a one-letter column reference and the match then
-    ' derails looking for the literal "avec" - so EnglishAuditPhrasebook
-    ' never gets to return a warnings string for THIS rule. That raise
-    ' is the expected shape, not a test bug: assert it by name (the
-    ' "avec"/"courriel a" fingerprint), then confirm independently, via
-    ' EnglishLintReport(), that the lint warning fired at registration
-    ' time regardless of how the subsequent test-success line fared.
+    ' Real acceptance target: francais.vla:151's own rule as the file
+    ' carried it until LX.15, the second live instance BETA_REARVIEW.md's
+    ' F.4 entry names. Confirmed live (owner's VlaSelfTest run): loading
+    ' raises - the rule's own test-success proof fails to translate,
+    ' because the swallowed "a" gets parsed as a one-letter column
+    ' reference and the match then derails looking for the literal
+    ' "avec" - so EnglishAuditPhrasebook never gets to return a warnings
+    ' string for THIS rule. That raise is the expected shape, not a test
+    ' bug: assert it by name (the "avec"/"courriel a" fingerprint), then
+    ' confirm independently, via EnglishLintReport(), that the lint
+    ' warning fired at registration time regardless of how the
+    ' subsequent test-success line fared. LX.15 (2026-10-02) mended the
+    ' file ("au destinataire" stands before the slot now), so the
+    ' defective rule lives on here as a fixture, word for word with its
+    ' proof, and the file itself is pinned clean below.
     Dim d As String
     On Error Resume Next
     EnglishResetGrammar
     EnglishLoadVocabulary FindDevFile("english.vla")
-    EnglishLoadVocabulary FindDevFile("francais.vla")
+    EnglishLoadVocabularyText "(francais-vla ""envoie un courriel a {who:expr} avec objet {s:expr} et message {m:expr}"" (vlasendmail {who} {s} {m}))" & vbCrLf & _
+        "(test-success ""Envoie un courriel a \""boss@co.com\"" avec objet \""Report\"" et message \""Attached.\""."" (vlasendmail ""boss@co.com"" ""Report"" ""Attached.""))", _
+        "f4-fixture.vla"
     If Err.Number <> 0 Then d = Err.Description
     On Error GoTo 0
-    Report "f4: francais.vla:151's swallowed 'a' breaks its own test-success proof, as predicted", _
+    Report "f4: francais.vla:151's swallowed 'a' (the rule as it was, a fixture since LX.15) breaks its own test-success proof, as predicted", _
            InStr(1, d, "courriel a", vbTextCompare) > 0 And InStr(1, d, "avec", vbTextCompare) > 0, _
            "error: " & d
     Dim lint As String
@@ -4399,6 +4408,21 @@ Public Sub TestF4NoiseWordBeforeSlot()
     Report "f4: the lint warning fired at registration regardless of the later test failure", _
            InStr(1, lint, "noise word", vbTextCompare) > 0 And InStr(1, lint, "{who:expr}", vbTextCompare) > 0, _
            "report was: " & Left$(lint, 300)
+    ' LX.15: the two mended files load clean on their own - every proof
+    ' passes at load, the mail rule's included, and no lint warning is
+    ' left behind.
+    Dim mended As Variant
+    For Each mended In Array("francais.vla", "deutsche.vla")
+        d = ""
+        On Error Resume Next
+        EnglishResetGrammar
+        EnglishLoadVocabulary FindDevFile(CStr(mended))
+        If Err.Number <> 0 Then d = Err.Description
+        On Error GoTo 0
+        lint = EnglishLintReport()
+        Report "lx.15: " & CStr(mended) & " loads clean, its mail rule's own proof included", _
+               Len(d) = 0 And lint = "No grammar warnings.", "error: " & d & " lint: " & Left$(lint, 300)
+    Next
     EnglishResetGrammar
 End Sub
 

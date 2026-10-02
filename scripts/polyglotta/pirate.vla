@@ -10,43 +10,47 @@
 ; literal English words - they bind straight into the macro name
 ; (make-{d}, vb{d}, {d}-column) - so the piracy lives in the carrier
 ; phrase around them, not in the bound word itself.
-;
-; Unverified against the live engine (blind-write discipline) - Check
-; Sentences / Reload Vocabulary is the real test.
 
+; LX.15 (2026-10-02): a space afore the comma, matey - a pattern be split
+; on spaces, so a comma glued to a slot were no slot at all, and this
+; phrasebook never loaded. The comma stands as its own word now, as the
+; sentence's own comma token does. Three phrases lost their apostrophes
+; the same day: the tokenizer reads ' only as Excel's spaced-sheet quote
+; ('Q1 Data'!A1) and refuses it anywhere else, so 'n, crow's and sayin'
+; be "and", "masthead" and "saying" now.
 (pirate-vla
-    "chart the course {f:text} onto the cell {r:cell}, arr"
+    "chart the course {f:text} onto the cell {r:cell} , arr"
     (set-formula (range {r}) {f}))
 (test-success
     "Chart the course \"=B2*2\" onto the cell B3, arr."
     (set-formula (range "b3") "=B2*2"))
 
 (pirate-vla
-    "stow {e:expr} in the cell {r:cell}, arr"
+    "stow {e:expr} in the cell {r:cell} , arr"
     (set! (range {r}) {e}))
 (test-success
     "Stow 5 in the cell B2, arr."
     (set! (range "b2") 5))
 
 (pirate-vla
-    "mark today upon the cell {r:cell}, savvy"
+    "mark today upon the cell {r:cell} , savvy"
     (set! (range {r}) (date)))
 (test-success
     "Mark today upon the cell D1, savvy."
     (set! (range "d1") (date)))
 
 (pirate-vla
-    "brand cell {r:cell} {d:bold|italic}, arr"
+    "brand cell {r:cell} {d:bold|italic} , arr"
     (make-{d} (range {r})))
 (test-success
     "Brand cell A1 bold, arr."
     (make-bold (range "a1")))
 
 (pirate-vla
-    "paint cell {r:cell} {d:red|yellow} like blood 'n gold"
+    "paint cell {r:cell} {d:red|yellow} like blood and gold"
     (set-fill-color (range {r}) vb{d}))
 (test-success
-    "Paint cell C4 red like blood 'n gold."
+    "Paint cell C4 red like blood and gold."
     (set-fill-color (range "c4") vbred))
 
 (pirate-vla
@@ -88,7 +92,7 @@
     (add-border (range "A1:C10")))
 
 (pirate-vla
-    "sort the booty in range {r:range} by column {k:cell}, biggest treasure first"
+    "sort the booty in range {r:range} by column {k:cell} , biggest treasure first"
     (sort-range-by (range {r}) (range {k}) xldescending))
 (test-success
     "Sort the booty in range \"A1:C50\" by column B1, biggest treasure first."
@@ -116,17 +120,17 @@
     (make-button "Recalculate Totals" (range "d3")))
 
 (pirate-vla
-    "cry {e:expr} from the crow's nest"
+    "cry {e:expr} from the masthead"
     (set-status-bar {e}))
 (test-success
-    "Cry \"land ho\" from the crow's nest."
+    "Cry \"land ho\" from the masthead."
     (set-status-bar "land ho"))
 
 (pirate-vla
-    "silence the crow's nest"
+    "silence the masthead"
     (set-status-bar false))
 (test-success
-    "Silence the crow's nest."
+    "Silence the masthead."
     (set-status-bar false))
 
 (pirate-vla
@@ -144,10 +148,10 @@
     (close-workbook))
 
 (pirate-vla
-    "send a message in a bottle to {who:expr} titled {s:expr} sayin' {m:expr}"
+    "send a message in a bottle to {who:expr} titled {s:expr} saying {m:expr}"
     (vlasendmail {who} {s} {m}))
 (test-success
-    "Send a message in a bottle to \"boss@co.com\" titled \"Report\" sayin' \"Attached.\"."
+    "Send a message in a bottle to \"boss@co.com\" titled \"Report\" saying \"Attached.\"."
     (vlasendmail "boss@co.com" "Report" "Attached."))
 
 

@@ -146,6 +146,23 @@
   sentence that reads today (a later word that already follows a value,
   like `plus` or `is`), two phrases with the same words, and a phrase
   whose template drops a word the reader chose.
+- **The demonstration phrasebooks all load.** Of the eight dialect files
+  beside `english.vla` under `scripts/polyglotta/`, six were refused by the
+  add-in the moment they were loaded, each for a defect in the file, not
+  in the engine. Esperanto, Latin and German put their general rule before
+  the one for today, so `Metu hodiau en la chelon D1.` read `hodiau` as a
+  name. The German and French mail rules put `an` and `a`, which the
+  engine strips as English articles, straight before the address. The
+  pirate file glued a comma to a slot and used three apostrophes, which
+  only Excel's `'Q1 Data'!A1` may carry. Each is mended in its own file,
+  with a dated note beside the rule: the German mail sentence now reads
+  `Sende eine Mail an den Empfaenger "boss@co.com" mit Betreff "Report"
+  und Nachricht "Attached.".`, the French `Envoie un courriel au
+  destinataire …`, and the pirate `Paint cell C4 red like blood and
+  gold.`, `Cry "land ho" from the masthead.`, `Silence the masthead.` and
+  `… titled "Report" saying "Attached.".`. `alien.vla` is a library of
+  macros a program includes, not a phrasebook, and the conformance runner
+  now says so instead of scoring it. English is untouched.
 - **For contributors: a DATALOG proof can carry the tables its program
   reads.** None of this ships, and nothing in Frazaro calls it.
   - A proof in `scripts/proofs/datalog.vla` may hold a `(tables ...)`

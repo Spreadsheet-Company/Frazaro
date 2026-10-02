@@ -16,9 +16,6 @@
 ; bogstavelige engelske ord - de bindes direkte til makronavnet
 ; (make-{d}, vb{d}, {d}-column) ligesom i de andre dialektfiler; kun
 ; baeresaetningen er dansk.
-;
-; Ikke testet mod den koerende motor (disciplinen med at skrive blindt)
-; - Check Sentences / Reload Vocabulary er den rigtige proeve.
 
 (dansk-vla
     "saet formlen {f:text} i cellen {r:cell}"

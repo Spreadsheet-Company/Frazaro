@@ -28,9 +28,6 @@
 ; litteralia - haec directe in nomen macronis alligantur (make-{d},
 ; vb{d}, {d}-column) sicut in pirate.vla; sola phrasis circumiacens
 ; Latina est.
-;
-; Nondum probatum contra machinam vivam (disciplina scribendi sine
-; visu) - Check Sentences / Reload Vocabulary verum experimentum est.
 
 (latin-vla
     "pone formulam {f:text} in cellula {r:cell}"
@@ -39,19 +36,22 @@
     "Pone formulam \"=B2*2\" in cellula B3."
     (set-formula (range "b3") "=B2*2"))
 
-(latin-vla
-    "pone {e:expr} in cellula {r:cell}"
-    (set! (range {r}) {e}))
-(test-success
-    "Pone 5 in cellula B2."
-    (set! (range "b2") 5))
-
+; LX.15 (2026-10-02): regula propria ante generalem ponitur, ne {e:expr}
+; "hodie" pro nomine legat - ordo quem espanol.vla sibi sub LX.10 correxit
+; et fratribus suis praedixit.
 (latin-vla
     "pone hodie in cellula {r:cell}"
     (set! (range {r}) (date)))
 (test-success
     "Pone hodie in cellula D1."
     (set! (range "d1") (date)))
+
+(latin-vla
+    "pone {e:expr} in cellula {r:cell}"
+    (set! (range {r}) {e}))
+(test-success
+    "Pone 5 in cellula B2."
+    (set! (range "b2") 5))
 
 (latin-vla
     "fac cellulam {r:cell} {d:bold|italic}"

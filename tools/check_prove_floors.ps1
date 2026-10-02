@@ -54,9 +54,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # --- the floors: proofs passed per source phrasebook, never lowered --------
 # 2026-10-02, PORT.6 step 0: 0 everywhere. The core attempts no proof yet
 # (frazaro prove exits 3); each floor rises as the matcher (6d) and the
-# grammars (6e) land, to its file's whole count (482, 30, 20 x 6, 0).
+# grammars (6e) land, to its file's whole count (482, 30, 20 x 6).
+# 2026-10-02, LX.15: alien.vla has no floor - a library of macros a program
+# includes, not a phrasebook (no rule, no proof), which prove.ps1 inventories
+# and never scores.
 $floors = [ordered]@{
-    'scripts/polyglotta/alien.vla'     = 0
     'scripts/polyglotta/dansk.vla'     = 0
     'scripts/polyglotta/deutsche.vla'  = 0
     'scripts/polyglotta/english.vla'   = 0

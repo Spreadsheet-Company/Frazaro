@@ -4293,6 +4293,62 @@ least urgent work at the front.
   "a"-before-slot finding above, `francais.vla` at least almost
   certainly carries the identical latent bug - a real, scoped, unbuilt
   option for whoever extends this fixture next, not silently dropped.
+- ✅ **LX.15 — the demonstration phrasebooks that never loaded, load.**
+  *Minted 2026-10-02, the owner's call, from `PORT.6`'s slice 6c, whose
+  port of the loader read every file under `scripts/polyglotta/` and found
+  that the reference itself refuses six of the eight dialects beside
+  `english.vla`; the fixes proposed with the finding, approved, built,
+  owner-verified live and committed the same day (each mended file read in
+  the Immediate window: 19 rules and its stats line, every proof passing
+  at load; `VlaSelfTests` pure 1663/1663, host 267/267).* **Before:**
+  `esperanto.vla`, `latin.vla` and `deutsche.vla` registered their general
+  put rule (`{e:expr}`) before their literal today rule, so the today proof
+  got `(set! (range "d1") hodiau)` for `(date)` and the load stopped at
+  that line (38, 52, 43): the rule-order defect `espanol.vla` fixed for
+  itself under `LX.10` and predicted for its siblings, in the entry above.
+  `deutsche.vla`'s and `francais.vla`'s mail rules put `an` and `a`
+  straight before `{who:expr}`, English noise words stripped at
+  registration, so the slot swallowed the sentence's word and the proof
+  failed (`F.4`'s shape 2; `TestF4NoiseWordBeforeSlot` pinned francais's
+  as its live instance). `pirate.vla` glued a comma to five slots
+  (`{r:cell},`), which the loader refuses as an unclosed slot before any
+  proof runs, and three of its phrases held an apostrophe (`'n`, `crow's`,
+  `sayin'`), which the tokenizer reads only as Excel's spaced-sheet quote
+  (`'Q1 Data'!A1`) and refuses anywhere else. `alien.vla` is a library of
+  macros a program includes, not a phrasebook: no rule, no proof, and its
+  one top-level call expands to a `(sub …)`, which the loader refuses as
+  no directive. Only `dansk.vla` (its today is two words, `dags dato`,
+  which the general rule's `{e:expr}` stops short of) and `espanol.vla`
+  loaded. **Now:** the three rule pairs are swapped, literal rule first,
+  as espanol's are; the two mail rules say `an den Empfaenger` and `au
+  destinataire` before the slot, as espanol took `para`, their test
+  sentences with them (the matcher skips a sentence's `an` before a
+  literal word, so the German keeps its preposition); pirate's five commas
+  stand as their own word (` , arr`), which the sentence's own comma token
+  matches, and its three phrases read `like blood and gold`, `from the
+  masthead` and `saying`. Each file carries a dated note at the mended
+  rule, in its own language, and the six dialect files' header lines
+  saying they were never tested against the live engine are gone, the
+  owner's readings of 2026-10-02 having tested each (`espanol.vla` has
+  said so since `LX.10`). `alien.vla` is unchanged and leaves oracle 3:
+  the treaty's third amendment of the day says a polyglotta file with no
+  `<lingua>-vla` rule and no proof form is a library, which
+  `tools/prove.ps1` inventories under its own kind and never scores, and
+  `check_prove_floors.ps1` keeps no floor for it. No English sentence
+  changes; `SD-4` is not touched, since no shipped `instructions.txt`
+  sentence is a dialect's. The only VBA that moves is the test. **Pins:**
+  `TestF4NoiseWordBeforeSlot` keeps francais's defective rule and its
+  proof as a fixture (`EnglishLoadVocabularyText`, word for word, the
+  same raise and the same lint warning) and gains two pins, that
+  `francais.vla` and `deutsche.vla` load clean on their own (pure 1661 →
+  1663); the core's `every_dialect_loads_alone_as_the_reference_loads_it`
+  holds all seven dialects at 19 rules and 20 proofs with no warning
+  (espanol 29 and 1, 134 macros), the lint on the old pattern as an
+  inline fixture, and alien's refusal by id and line. **Floors:** none
+  moved; `check_prove_floors.ps1` lists eight files. **Docs:**
+  `RELEASES.md` 0.8.0, `conformance/README.md`'s amendment, the roadmap's
+  bullet (in and out the same day), `Delta/CLAUDE.md`'s line on `alien.vla`,
+  this entry and the closed ledger's line. `~hours`
 
 **A2 — the catalogues (defer past beta)**
 
@@ -27381,6 +27437,10 @@ numbers. **Quoting a correction is not applying it.**
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES
 
 ### Part A — language-neutrality
+
+**A1 — the chokepoints (do now)**
+
+- ✅ **LX.15 — the demonstration phrasebooks that never loaded, load.** Found 2026-10-02 by `PORT.6`'s slice 6c, whose port of the loader read every file under `scripts/polyglotta/`: the reference refused six of the eight dialects beside `english.vla`, each for a defect in the file. A general put rule registered before the literal today rule (esperanto, latin, deutsche: `LX.10`'s own defect, fixed for espanol and predicted for its siblings); `an`/`a` before `{who:expr}` in the mail rules (deutsche, francais: `F.4`'s shape 2); five commas glued to slots and three apostrophes the tokenizer refuses (pirate); and `alien.vla`, a macro library with no rule and no proof. **Built, owner-verified live and committed 2026-10-02** (each mended file read in the Immediate window at 19 rules, every proof passing at load; `VlaSelfTests` pure 1663/1663, host 267/267): the rule pairs swapped; the mail rules say `an den Empfaenger` and `au destinataire`, as espanol took `para`; pirate's commas spaced and its three phrases reworded; alien inventoried by `tools/prove.ps1` as a library and never scored, the treaty's third amendment of the day; the six dialect files' "untested against the live engine" header lines gone. `TestF4NoiseWordBeforeSlot` keeps the old francais rule as a fixture and pins both mended files clean; the core's dialect test holds all seven at 19 rules, 20 proofs, no warning. *(more: the full entry, earlier in this file)*
 
 **A2 — the catalogues (defer past beta)**
 

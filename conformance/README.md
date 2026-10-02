@@ -216,3 +216,24 @@ unchanged in kind, the golden less its first line, now 229,156 characters;
 reason. Reading (a) is not taken: a mark the product never writes does not
 enter the contract, and the one stamp line the amendment of 2026-10-01
 tolerated is the whole of the exception.
+
+## Amendment of 2026-10-02, the third that day: a library is inventoried, not scored (`LX.15`)
+
+Oracle 3 scores every `.vla` under `scripts/polyglotta/` that is not an
+export. `alien.vla` is not a phrasebook: it declares no `<lingua>-vla` rule
+and carries no proof form; it is a library of macros a program includes
+(`Use library "alien.vla"`), and its one top-level call expands to a
+`(sub ...)`, which the reference refuses as no directive and the port
+reproduced. So: a file under `scripts/polyglotta/` with no rule and no proof
+form is a library. The runner inventories it under its own kind (`library`),
+attempts nothing on it and counts it in neither column;
+`tools/check_prove_floors.ps1` keeps no floor for it; the control's attempted
+count leaves it out. The rule is lexical, read from the file (a rule is
+`^\([a-z]+-vla(-override)?\b`, a proof the form at column 0), so an
+implementation needs no list of names, and a library that one day declares a
+rule or a proof is a phrasebook from that commit, scored whole. Of the other
+seven dialects beside `english.vla`, five were refused by the reference at
+load for defects in the files, found when the port's loader read them;
+`LX.15` mends the files and leaves the treaty as it was: oracle 3 is every
+proof the reference passes, and after `LX.15` that is every proof in every
+phrasebook.

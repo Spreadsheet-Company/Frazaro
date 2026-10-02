@@ -19,9 +19,6 @@
 ; woertlichen englischen Woerter - sie binden sich direkt an den
 ; Makronamen (make-{d}, vb{d}, {d}-column) genau wie in den anderen
 ; drei Dialektdateien; nur die tragende Phrase ist deutsch.
-;
-; Nicht gegen die laufende Engine getestet (Blindschreib-Disziplin) -
-; Check Sentences / Reload Vocabulary ist die eigentliche Probe.
 
 (deutsche-vla
     "setze die Formel {f:text} in Zelle {r:cell}"
@@ -30,19 +27,23 @@
     "Setze die Formel \"=B2*2\" in Zelle B3."
     (set-formula (range "b3") "=B2*2"))
 
-(deutsche-vla
-    "setze {e:expr} in Zelle {r:cell}"
-    (set! (range {r}) {e}))
-(test-success
-    "Setze 5 in Zelle B2."
-    (set! (range "b2") 5))
-
+; LX.15 (2026-10-02): die woertliche Regel wird vor der allgemeinen
+; registriert, sonst liest {e:expr} "heute" als Namen - die Reihenfolge,
+; die espanol.vla unter LX.10 fuer sich berichtigt und fuer seine
+; Geschwister vorausgesagt hat.
 (deutsche-vla
     "setze heute in Zelle {r:cell}"
     (set! (range {r}) (date)))
 (test-success
     "Setze heute in Zelle D1."
     (set! (range "d1") (date)))
+
+(deutsche-vla
+    "setze {e:expr} in Zelle {r:cell}"
+    (set! (range {r}) {e}))
+(test-success
+    "Setze 5 in Zelle B2."
+    (set! (range "b2") 5))
 
 (deutsche-vla
     "mache Zelle {r:cell} {d:bold|italic}"
@@ -152,11 +153,16 @@
     "Schliesse diese Arbeitsmappe."
     (close-workbook))
 
+; LX.15 (2026-10-02): "an" ist ein englisches Fuellwort (IsNoiseWord) und
+; wird beim Registrieren aus dem Muster gestrichen; stand es direkt vor
+; dem Platzhalter, verschluckte dieser das Wort des Satzes (F.4). "an den
+; Empfaenger" laesst Woerter folgen, vor denen SkipArticles das "an" des
+; Satzes ueberspringt - der Weg, den espanol.vla mit "para" ging.
 (deutsche-vla
-    "sende eine Mail an {who:expr} mit Betreff {s:expr} und Nachricht {m:expr}"
+    "sende eine Mail an den Empfaenger {who:expr} mit Betreff {s:expr} und Nachricht {m:expr}"
     (vlasendmail {who} {s} {m}))
 (test-success
-    "Sende eine Mail an \"boss@co.com\" mit Betreff \"Report\" und Nachricht \"Attached.\"."
+    "Sende eine Mail an den Empfaenger \"boss@co.com\" mit Betreff \"Report\" und Nachricht \"Attached.\"."
     (vlasendmail "boss@co.com" "Report" "Attached."))
 
 

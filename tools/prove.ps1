@@ -45,6 +45,12 @@ generators have expanded: read from the <name>_expanded.vla export beside the
 source when there is one (its source-hash stamp checked against the source,
 so a stale export fails here rather than counting), and from the source's
 own top-level forms otherwise. The control's fake counts the same way.
+
+2026-10-02, LX.15 (the treaty's third amendment of that date): a file under
+scripts/polyglotta/ that holds no <lingua>-vla rule and no proof form is a
+library of macros a program includes (alien.vla), not a phrasebook. It is
+inventoried as a library and never scored; the control's attempted count
+leaves it out.
 #>
 param(
     [string]$Impl = '',
@@ -140,6 +146,9 @@ function Get-ProofCount([string]$root, [string]$relFile, [string]$pattern) {
 # its line (2026-10-02); an engine proof any (test-<engine> ...) form.
 $phrasebookForm = '^\(test-(success|fail)\b'
 $engineForm     = '^\s*\(test-'
+# A phrasebook holds at least one rule or one proof; a file with neither is
+# a library (2026-10-02, LX.15).
+$ruleForm       = '^\([a-z]+-vla(-override)?\b'
 
 function Get-Oracles([string]$root) {
     $list = New-Object System.Collections.Generic.List[object]
@@ -158,8 +167,13 @@ function Get-Oracles([string]$root) {
     $pb = Join-Path $root 'scripts/polyglotta'
     foreach ($f in Get-ChildItem -Path $pb -Filter '*.vla' | Sort-Object Name) {
         if ($f.Name -like '*_expanded*') { continue }   # an export, not a source
-        $list.Add(@{ Kind = 'prove'; Label = ('polyglotta/' + $f.Name); File = ('scripts/polyglotta/' + $f.Name)
-                     Pattern = $phrasebookForm })
+        $rel = 'scripts/polyglotta/' + $f.Name
+        if ((Get-FormCount $f.FullName $ruleForm) -eq 0 -and (Get-FormCount $f.FullName $phrasebookForm) -eq 0) {
+            # LX.15: a library of macros, not a phrasebook; inventoried, never scored.
+            $list.Add(@{ Kind = 'library'; Label = ('polyglotta/' + $f.Name); File = $rel })
+            continue
+        }
+        $list.Add(@{ Kind = 'prove'; Label = ('polyglotta/' + $f.Name); File = $rel; Pattern = $phrasebookForm })
     }
     $pr = Join-Path $root 'scripts/proofs'
     foreach ($f in Get-ChildItem -Path $pr -Filter '*.vla' | Sort-Object Name) {
@@ -230,6 +244,7 @@ function Measure-Oracles([string]$root, [string]$impl, [string]$scratch) {
                     $r.Status = 'FAIL'; $r.Detail = "exit $($run.ExitCode), last line '$last', $n proof(s) expected"
                 }
             }
+            'library' { $r.Status = 'library'; $r.Detail = 'a library of macros, not a phrasebook: no rule, no proof; inventoried, not scored' }
             default { $r.Detail = 'inventoried, not scored' }
         }
         $results.Add($r)
@@ -238,14 +253,16 @@ function Measure-Oracles([string]$root, [string]$impl, [string]$scratch) {
 }
 
 function Write-Results($results, [switch]$all) {
-    $fails = 0; $passes = 0; $skipped = 0
+    $fails = 0; $passes = 0; $skipped = 0; $libraries = 0
     foreach ($r in $results) {
-        switch ($r.Status) { 'PASS' { $passes++ } 'FAIL' { $fails++ } default { $skipped++ } }
+        switch ($r.Status) { 'PASS' { $passes++ } 'FAIL' { $fails++ } 'library' { $libraries++ } default { $skipped++ } }
         if ($all -or $r.Status -eq 'FAIL') {
             Write-Host ("  {0,-13} {1,-60} {2}" -f $r.Status, $r.Label, $r.Detail)
         }
     }
-    Write-Host ("prove: {0} passed, {1} failed, {2} not attempted" -f $passes, $fails, $skipped)
+    $line = "prove: {0} passed, {1} failed, {2} not attempted" -f $passes, $fails, $skipped
+    if ($libraries -gt 0) { $line += ", {0} library" -f $libraries }
+    Write-Host $line
     return $fails
 }
 
@@ -295,7 +312,7 @@ if ($Control) {
         Write-Host 'prove -Control: the mutant (one byte changed, one proof failed) must fail'
         $res2 = Measure-Oracles $root $mut $tmp
         $f2 = Write-Results $res2 -all:$ShowAll
-        $attempted = @($res2 | Where-Object { $_.Status -ne 'not attempted' }).Count
+        $attempted = @($res2 | Where-Object { $_.Status -in 'PASS', 'FAIL' }).Count
         if ($f1 -eq 0 -and $f2 -eq $attempted -and $attempted -gt 0) {
             Write-Host "OK: control passed every attempted oracle; mutant failed all $attempted of them"
             exit 0
@@ -332,6 +349,9 @@ foreach ($o in Get-Oracles $root) {
                 $note = if ($pc.From -ne '') { " (counted in $($pc.From))" } else { '' }
                 Write-Host ("  {0,-13} {1,-44} {2,6} proof form(s){3}" -f $o.Kind, $o.Label, $pc.Count, $note)
             }
+        }
+        'library' {
+            Write-Host ("  {0,-13} {1,-44} a library of macros, not a phrasebook; not scored" -f $o.Kind, $o.Label)
         }
         default {
             $p = Join-Path $root $o.Golden

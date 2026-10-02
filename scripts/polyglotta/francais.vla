@@ -15,9 +15,6 @@
 ; anglais litteraux - ils se lient directement au nom de la macro
 ; (make-{d}, vb{d}, {d}-column) exactement comme dans les autres
 ; fichiers de dialecte; seule la phrase porteuse est en francais.
-;
-; Non verifie contre le moteur reel (discipline d'ecriture a l'aveugle)
-; - Check Sentences / Reload Vocabulary est la vraie epreuve.
 
 (francais-vla
     "mets la formule {f:text} dans la cellule {r:cell}"
@@ -148,11 +145,16 @@
     "Ferme ce classeur."
     (close-workbook))
 
+; LX.15 (2026-10-02) : "a" est un mot vide anglais (IsNoiseWord), retire du
+; motif a l'enregistrement ; place juste devant le creneau, celui-ci
+; avalait le mot de la phrase (F.4, le cas que TestF4NoiseWordBeforeSlot
+; epinglait). "au destinataire" le remplace, comme espanol.vla a pris
+; "para".
 (francais-vla
-    "envoie un courriel a {who:expr} avec objet {s:expr} et message {m:expr}"
+    "envoie un courriel au destinataire {who:expr} avec objet {s:expr} et message {m:expr}"
     (vlasendmail {who} {s} {m}))
 (test-success
-    "Envoie un courriel a \"boss@co.com\" avec objet \"Report\" et message \"Attached.\"."
+    "Envoie un courriel au destinataire \"boss@co.com\" avec objet \"Report\" et message \"Attached.\"."
     (vlasendmail "boss@co.com" "Report" "Attached."))
 
 
