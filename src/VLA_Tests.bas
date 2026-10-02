@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "PORT.6"
+Public Const VLA_TESTS_VERSION As String = "U.31"
+' U.31: TestU31ReservedWords - the seven reserved words IsReservedName
+' lacked (return, gosub, global, scale, circle, decimal, longlong) are
+' refused as names, and a hyphenated name that begins with one still works;
+' CheckReservedRefused takes the item id it reports under.
 ' PORT.6 step 0 (the goldens without markers, 2026-10-02): VlaWriteGoldens
 ' writes EnglishToVla's text under the stamp alone, so instructions_golden.vla
 ' is the treaty's translate oracle as written and the .vba is what Compile
@@ -484,6 +488,7 @@ Public Function VlaSelfTest() As Boolean
     TestU26CellText
     TestU29StatusBarBack
     TestGFormulaNamedFigures
+    TestU31ReservedWords
     TestU30EngineCallNames
     TestLx14Masking
     TestLx14Phrases
@@ -3837,6 +3842,28 @@ Private Sub CheckCellShapedRefused(ByVal program As String, ByVal word As String
 End Sub
 
 ' ---------------------------------------------------------------------
+'  U.31: the seven reserved identifiers VBA's editor refuses that
+'  IsReservedName accepted (found under U.30, 2026-10-01): a value or a step
+'  of such a name checked clean and failed to compile. Each is refused where
+'  the name is made, by the reserved-word refusal; a hyphenated name that
+'  begins with one is a name as before. Dispatched before
+'  TestU30EngineCallNames, whose reload of the phrasebook serves the tests
+'  after it; this one needs only the built-in rules.
+' ---------------------------------------------------------------------
+Private Sub TestU31ReservedWords()
+    EnglishResetGrammar
+    CheckReservedRefused "Set return to 5.", "return", "u.31"
+    CheckReservedRefused "Set gosub to 5.", "gosub", "u.31"
+    CheckReservedRefused "Set global to 5.", "global", "u.31"
+    CheckReservedRefused "Set scale to 5.", "scale", "u.31"
+    CheckReservedRefused "Set circle to 5.", "circle", "u.31"
+    CheckReservedRefused "Set decimal to 5.", "decimal", "u.31"
+    CheckReservedRefused "To longlong of x:" & vbLf & "  Give back x.", "longlong", "u.31"
+    AssertEnglish "u.31: a hyphenated name that begins with a reserved word is a name", _
+        "Set return-code to 5.", "(set! return-code 5)"
+End Sub
+
+' ---------------------------------------------------------------------
 '  U.30: a name the code Frazaro writes calls by name - VBA's functions,
 '  Excel's objects, what a built-in function word compiles to - is never
 '  one of the program's names. Refused where every name is made, each
@@ -3952,7 +3979,7 @@ Private Sub CheckEngineCallRefused(ByVal program As String, ByVal word As String
 End Sub
 
 ' U.30: one program refused as a reserved word, by id and word.
-Private Sub CheckReservedRefused(ByVal program As String, ByVal word As String)
+Private Sub CheckReservedRefused(ByVal program As String, ByVal word As String, Optional ByVal itemId As String = "u.30")
     Dim en As Long, d As String, gotId As String
     VLA_Messages.VlaClearLastRaisedMsg
     On Error Resume Next
@@ -3962,7 +3989,7 @@ Private Sub CheckReservedRefused(ByVal program As String, ByVal word As String)
     d = Err.Description
     On Error GoTo 0
     gotId = VLA_Messages.VlaLastRaisedMsgId()
-    Report "u.30: " & Replace(program, vbLf, " / ") & " is refused as a reserved word", _
+    Report itemId & ": " & Replace(program, vbLf, " / ") & " is refused as a reserved word", _
            en <> 0 And gotId = "english-reserved-word-name" _
            And InStr(1, d, "'" & word & "' is a reserved word", vbBinaryCompare) > 0, _
            "err " & en & " [" & gotId & "]: " & d

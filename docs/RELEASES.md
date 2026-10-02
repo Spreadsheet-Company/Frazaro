@@ -89,6 +89,12 @@
   `length`, `count` and the other words English reads with `of` are
   unchanged, and `int`, `fix`, `cstr` and the other conversions of Excel's
   programming language join its reserved words.
+- **Seven more of those reserved words are refused as names:** `return`,
+  `gosub`, `global`, `scale`, `circle`, `decimal` and `longlong`. A program
+  that named a value or a step one of these checked clean and then stopped
+  at a compile error with no sentence named. It is now refused at Check,
+  naming the word, and a hyphenated name such as `return-code` or
+  `scale-factor` works as before.
 - **`month of`, `year of`, `day of`, `hour of`, `minute of` and `absolute
   of` work under Interpret.** They always worked in a program that runs.
   Interpret stopped at each one, naming it. `Set m to month of today.` now
@@ -167,7 +173,7 @@
   to the host-free core, reads a VLA program and writes the VBA the add-in
   would write for it, and on the corpus program it writes exactly what the
   add-in wrote: the conformance runner scores the compile golden as passed,
-  301,861 characters matched. The core reads the same prelude, the same
+  291,316 characters matched. The core reads the same prelude, the same
   head table and the same message catalogue as the add-in, the last two
   exported from it as data (`scripts/headtable.vla`, `scripts/messages.vla`),
   with a check that fails the day they drift. Nothing about the add-in you

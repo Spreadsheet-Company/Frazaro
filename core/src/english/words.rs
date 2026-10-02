@@ -289,10 +289,11 @@ mod tests {
     #[test]
     fn the_two_files_are_read_whole() {
         // 113 and 211 at the export of 2026-10-02 (VLA_English.bas at LX.14,
-        // VLA_SentenceEngine.bas at LE.11); tools/check_data_exports.ps1
+        // VLA_SentenceEngine.bas at LE.11), 218 names once U.31's seven
+        // reserved words joined the same day; tools/check_data_exports.ps1
         // holds the same floors on the files.
         assert!(words_count() >= 113, "{} word entries read", words_count());
-        assert!(names_count() >= 211, "{} name entries read", names_count());
+        assert!(names_count() >= 218, "{} name entries read", names_count());
         let t = tables();
         assert_eq!(t.expr_ops.len(), 11);
         assert_eq!(t.expr_op_words.len(), 7);
@@ -309,7 +310,13 @@ mod tests {
         assert_eq!(t.conditions_grammar_words.len(), 8);
         assert_eq!(t.set_verbs.len(), 2);
         assert_eq!(t.after_value_words.len(), 12);
-        assert!(t.reserved_names.len() >= 114);
+        assert!(t.reserved_names.len() >= 121);
+        // U.31's seven, confirmed red in the VBA editor 2026-10-01.
+        for w in [
+            "return", "gosub", "global", "scale", "circle", "decimal", "longlong",
+        ] {
+            assert!(is_reserved_name(w), "{w} is not reserved");
+        }
     }
 
     #[test]

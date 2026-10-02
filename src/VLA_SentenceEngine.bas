@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_SentenceEngine"
 Option Explicit
-Public Const VLA_SENTENCEENGINE_VERSION As String = "PORT.6"
+Public Const VLA_SENTENCEENGINE_VERSION As String = "U.31"
+' U.31: IsReservedName gains the seven reserved identifiers it lacked
+' (return, gosub, global, scale, circle, decimal, longlong): a value or a
+' step of such a name checked clean and failed to compile; each is refused
+' where the name is made, as the other reserved words are.
 ' PORT.6 (slice 6b): EnglishTokenReport writes EnTokenize's reading of a
 ' text, one token per line with its line number, for the token golden
 ' (scripts/tokenize_golden.txt, written by VlaWriteTokenGolden in
@@ -7621,7 +7625,7 @@ End Sub
 ' generated code calls them too.
 Private Function IsReservedName(ByVal n As String) As Boolean
     Dim list As String
-    list = " and as boolean byref byval byte call case cbool cbyte ccur cdate cdbl cdec cint clng clnglng clngptr close const csng cstr currency cvar cverr date declare dim do doevents double each else elseif empty end enum eqv erase error event exit false fix for friend function get goto if imp implements in input int integer is lenb let like lock long loop lset me mod new next not nothing null object on open option optional or paramarray preserve print private property pset public put raiseevent redim rem resume rset seek select set sgn single static stop string sub then time to true type typeof unlock until variant wend while with withevents write xor "
+    list = " and as boolean byref byval byte call case cbool cbyte ccur cdate cdbl cdec cint circle clng clnglng clngptr close const csng cstr currency cvar cverr date decimal declare dim do doevents double each else elseif empty end enum eqv erase error event exit false fix for friend function get global gosub goto if imp implements in input int integer is lenb let like lock long longlong loop lset me mod new next not nothing null object on open option optional or paramarray preserve print private property pset public put raiseevent redim rem resume return rset scale seek select set sgn single static stop string sub then time to true type typeof unlock until variant wend while with withevents write xor "
     IsReservedName = (InStr(list, " " & VLA_Identity.Fold(n) & " ") > 0)
 End Function
 

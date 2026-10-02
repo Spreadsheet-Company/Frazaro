@@ -3555,6 +3555,12 @@ specimens: 3 (three blind-fix incidents, one first-user Undo report).*
   the new marker lines throughout, a declared, one-time contract change to
   the goldens' own text (the *behavior* the generated VBA runs is
   unaffected: `raw` forms emit a comment, nothing more). `~hours`
+  *Retired from the goldens 2026-10-02 (`PORT.6` step 0, the owner's call):
+  the markers were the writer's alone, and the treaty's oracle 1 names what
+  `EnglishToVla` writes, so `VlaWriteGoldens` writes the text under the
+  stamp alone again and `InsertSectionMarkers`, `EnglishParagraphs`, their
+  helpers and `TestSectionMarkers` are gone; the `src:N` tag on every
+  statement remains the reader's anchor into the corpus.*
 - ✅ **F.10 — `requires:` in phrasebooks.** A phrasebook declares its
   own preconditions; they are
   parsed and checked before a single rule registers, and refused in
@@ -6037,6 +6043,234 @@ written against.
   **Next:** `PORT.6`, English in the core, whose first file is already
   `scripts/messages.vla`; the C-ABI export of `compile` for the web door;
   include splicing in the door; `G-USE`.
+- 🟡 **PORT.6 — English in the core.** *Scoped 2026-10-02, the day `PORT.5`
+  closed; built across more than one session, the first of them that day.
+  Slice 2 of `HORIZON.md` §12: `VLA_SentenceEngine.bas` (11,859 lines, about
+  six thousand of code) and `VLA_English.bas` in the core, so that `frazaro
+  translate-vla instructions.txt --prelude prelude.vla --phrasebook english.vla`
+  reproduces `instructions_golden.vla` byte for byte, `frazaro prove
+  <phrasebook.vla>` passes every proof form, every refusal id on the path
+  comes out of `scripts/messages.vla` in the same situation, and the web
+  page ships: one HTML file that runs from disk, a sentence in column B, its
+  VLA, VBA and formula in column C, nothing executed. `SD-18` throughout: the
+  VBA is the reference, the core follows the goldens; a known bug on the
+  path is fixed in the VBA first, as its own item, so the port never
+  reproduces one to match a golden.*
+  **Step 0, the questions only Excel answers, predicted from the code.**
+  (a) The `.vla` golden is `VlaWriteGoldens`' text: the stamp line, then
+  `InsertSectionMarkers(EnglishToVla(program), program)` with step tracking
+  on, then the writer's CRLF. The owner's regeneration of 2026-10-02 (no
+  change) already answers the marked half; the unmarked half is predicted:
+  `EnglishToVla(program)` alone is the golden less its stamp and its 153
+  marker lines, 229,156 characters, SHA-256 `859F7A57B09C112A3964DA7D607575AFCAC89C1D3EE083C2E2F73F2697A30432`
+  over its ASCII bytes (the marked text: 240,857 characters,
+  `CAC6D5798BAB0133DCA4FA01FF989EA9F065C37D374593C4F4F6BF24BEDF9118`). Only
+  the goldens writer inserts the markers (`F.9`'s own entry: "confined to
+  the dev-only golden writer"); `EnglishToVba`, Compile and
+  `VLA_Browser.bas` never do. (b) `EnglishLoadVocabulary` reports 240 rules
+  for `english.vla` (237 `english-vla` forms and the three a
+  `table-property-family` call makes), 19 for each of `dansk`, `deutsche`,
+  `esperanto`, `francais`, `latin`, `pirate` and `espanol`, 0 for
+  `alien.vla`, each loaded alone after `EnglishResetGrammar`. (c) Loading
+  runs every proof or refuses the load: `EnglishVocabStats` says `loaded: 240
+  rules, 220 macros, 460 tests (22 expected fails)`, 482 in all, where the
+  runner counted 481 (its pattern took two `(test-success` lines inside
+  generator templates and none of the three proofs the generators make);
+  a `test-fail` form pins the words, not the id: `RunVocabFailTest` requires
+  the fragment in the refusal's text, without case, whitespace collapsed.
+  (d) `VlaSelfTests` pure 1661, host 267, `TestDSLs` 2346, unmoved by this
+  session (its two VBA procedures are dev-only and in no list).
+  **Found, and the treaty amended (append-only, dated 2026-10-02).** The
+  stamp: the runner drops oracle 1's first line before comparing, as it
+  drops 1b's, and the control's fake answers `translate-vla` from the golden
+  less that line (`-Control` 13 of 13; the mutant's `translate-vla` now
+  differs at char 94 of 235,928). The count: oracle 3's n is the forms the
+  loader runs after a phrasebook's own generators expand, read from the
+  `<name>_expanded.vla` export beside the source when there is one (its
+  `source-hash` stamp checked against the source; a stale export fails the
+  oracle and the inventory rather than counting) and from the source's own
+  top-level forms otherwise, so `english.vla` is 482 and the dialects are as
+  they were; `FAIL k/n` says how many passed, so a floor can read it. The
+  proofs floor: `tools/check_prove_floors.ps1`, the thirty-seventh check,
+  holds per source phrasebook the proofs the built door passes, 0 everywhere
+  today, an exit of 3 counted as 0, n held to the corpus's count too, with
+  a `-Control` on a fake answering `PASS n/n` and a mutant one short (the
+  door's stderr read under `Continue`, since a native stderr line is a
+  terminating error under `Stop`; and a function's report lines kept out of
+  its return value, since PowerShell returns everything a function writes).
+  `SEC.2`: a door's question, not the core's; no shipped phrasebook holds a
+  `(raw ...)` form; the core's loader will take a flag, refusing without it
+  with `english-vocab-raw-consent-declined` and loading with it as the
+  reference's text path loads for `VLA_Browser.bas`; the runner passes no
+  flag; a door grants it only by a person's act (`--allow-raw`, a checkbox).
+  The data both read grows by `scripts/words.vla` and `scripts/names.vla`,
+  and by the token golden.
+  **The section markers: the fork, and the owner's call for (b) the same
+  day.** Oracle 1 as
+  written cannot be met: the `.vla` golden carries 153 marker lines the
+  product path never writes, the `.vba` golden 153 comment lines and every
+  `vla:N` tag numbered over the marked text. (a) Keep them: the runner ports
+  `EnglishParagraphs` and `InsertSectionMarkers` (some forty lines of
+  PowerShell), marks the port's `translate-vla` output before comparing, and
+  scores the `.vba` golden as the port's `compile` of the runner's marked
+  text, so `translate-vba` the command is never scored against a golden.
+  (b) Regenerate without them, recommended: one line of `VlaWriteGoldens`
+  goes, `VlaGoldens` rewrites both goldens once (the `.vla` loses its 153
+  lines, every `vla:N` after the first marker moves down), oracle 1 becomes
+  exactly what the product's Compile does, `check_compile_prefix.ps1`'s
+  floor is lowered once from 301,861 to the predicted 291,316 with its
+  reason (the core's compile of the unmarked text, kept in the session's
+  scratch beside the unmarked `.vla`, 229,156 characters: the owner's
+  regenerated pair must match both byte for byte), and `F.9`'s machinery
+  (`InsertSectionMarkers`, `EnglishParagraphs` and three helpers,
+  `TestSectionMarkers`'s 8 pins) either stays unused or goes, pure 1661 to
+  1653. `PORT.5`'s own reason decides it: the writer's mark does not enter
+  the contract, and 153 marks woven through the text are a worse case of
+  the one stamp line; the `src:N` tags remain the diff reader's anchor.
+  *Decided (b) by the owner on reading step 0, and built the same day:* the
+  one line of `VlaWriteGoldens` gone, `F.9`'s six procedures and
+  `TestSectionMarkers` removed (pure 1661 → 1653 by that alone), the treaty
+  amended a second time that day, the floor at 291,316, and the predicted
+  goldens written into `scripts/` ahead of the owner's `VlaGoldens` run: the
+  `.vla` is the stamp over the text the owner's step 0 hashed (229,273
+  bytes), the `.vba` the core's compile of it (298,630 bytes); the owner's
+  regeneration must leave both unchanged, which `Get-FileHash` shows.
+  **The reference's known bugs on this path, for the owner to file.** The
+  seven reserved identifiers `IsReservedName` lacks (`return`, `gosub`,
+  `global`, `scale`, `circle`, `decimal`, `longlong`; `U.30`'s finding,
+  confirmed live 2026-10-01): on the path (`CheckName`, every name a
+  sentence makes), so a VBA fix first, its own item (`U.31` is the family's
+  next), seven pins in `CheckReservedRefused`'s shape, no golden moves, and
+  `scripts/names.vla` re-exported after it so 6e's `CheckName` reads the
+  mended list; recommended before 6e. `TER-12` (`DeclaredOutputSheet`,
+  `ForbiddenSheetTarget`) is `VLA_IDE`'s, called by `RunProgram` and
+  `InterpretProgram`, not by `EnglishToVla` or `EnglishToVba`: not on the
+  port's path, filed on its own merits. `U.30`'s two other findings (an
+  action named like a macro or core form is expanded away; VBA functions a
+  phrasebook calls directly are outside the list) are grammar decisions no
+  golden pins; the port reproduces the reference's acceptance. *Filed as
+  `U.31` the same day, at the owner's word, and built: its entry is below
+  `U.30`'s.*
+  **The catalogue's ownership.** Reversing the exporter (`AddEntries`
+  generated from `scripts/messages.vla`) is a dated amendment to `SD-18` for
+  the owner to write. Its cost, measured: `AddEntries` holds 574 `AddMsg`
+  lines, 604 comment lines (every rewording's reason) and 7 continuations
+  under rule F's 1,023-character line limit; today's exporter drops the
+  comments, so a generator needs the `.vla` to carry them first, then a
+  generator that writes the block back, the drift check reversed, and every
+  message edit becoming edit, generate, `VlaDevReload`. Recommended: not
+  per catalogue and not now; the exporter and `check_data_exports.ps1`
+  already make the two copies one list in the direction the reference
+  points, and the flip belongs to the day the treaty's own clause moves the
+  reference, when every id on the path has been exercised by the core.
+  **The slices, each a commit with its oracle.** 6a the word tables of
+  `VLA_English.bas` and the name lists of `VLA_SentenceEngine.bas` as data
+  (this session). 6b `english/tokenize.rs`, `EnTokenize`, pinned on the
+  token golden (this session). 6c the rule store and phrasebook loading:
+  every directive of `english.vla` (`<lingua>-vla` and `-vla-override`,
+  `test-success`, `test-fail`, `defmacro` registered through the core's
+  `Expander` with `VlaProbeMacroForm`'s check, `<lingua>-function` with
+  `LX.14`'s phrases, `keyword-alias`, the `requires-` scan, `at-row` and
+  `begin`, a generator call expanded through `expand_text` as
+  `ExpandVocabMacroCall` does), the parallel rule Collections as one Vec,
+  `AddPhraseRule` with its signatures, overrides and shadow lint; pin: the
+  loaded rule count, 240 and 19 and 0, and the 482 proofs collected. 6d the
+  DCG matcher (`TryPhrase`, `MatchRefToken`, the dispatch index,
+  `NoteFail` and `BuildParseError`, `TryFormPath`) with `frazaro prove` over
+  a `ParseStmt` that knows phrase rules and raw rows alone; the floors rise
+  per file and never fall. 6e `ParseStmt`'s arms, `ParseExpr` to
+  `ParsePrimCore` with the function words and phrases, `ParseCond`, the
+  blocks, the G-PROLOG sub-grammar, `BuildSub`, `CheckName`, the
+  validators, `ParseDefine`, `ParseUseLibrary` (the `(include ...)` lines
+  written, never read), `EnglishToVla` with `ParseTracked`, `BuildStepInfra`
+  and the carried macros appended; `check_translate_prefix.ps1` beside the
+  compile one, then oracle 1 whole and `PASS n/n` everywhere. 6f every
+  refusal id on the path, 125 `english-` ids, against a refusal golden the
+  reference writes (`scripts/refusals.txt`, sentences, to its golden of
+  id and text, in the token golden's shape), the fifth oracle given teeth.
+  6g `VLA_Browser.bas`'s two functions as the core's translate API (reset,
+  load each phrasebook text as `vocab-N`, translate; `translate-vba` as
+  translate plus `compile` with the prelude), the two CLI commands, oracle 1
+  scored. 6h the door: a C-ABI export (an allocator pair and the two
+  functions over UTF-8 in the module's memory, `#[no_mangle] extern "C"`,
+  no binding layer, `check_core_imports` at 0) and `web/index.html`, one
+  file run from `file://`, the wasm, the prelude and `english.vla` inlined
+  by a `tools/` build script, nothing fetched. Not ported: G-RENDER
+  (`EnglishRenderForm`, the IDE's and Explain's), off the translate path.
+  **Built 2026-10-02 (the first session).** `tools/export_words.ps1` and
+  `tools/export_names.ps1` (each table read by its own shape: keyed `Case`
+  arms with `ChrW$(n)` keys written as the character, `Case` lists,
+  `Or`-chains, a `list = "..."` line, `AddFnEntry` lines and the display
+  `Array`; a table that yields nothing stops the export) writing
+  `scripts/words.vla` (113 entries: 11 operator words, 7 operator-word
+  tests, 4 noise, 2 dropped, 16 stray-character hints and the default, 21
+  number words, 20 ordinals, 8 colours, 23 slot descriptions) and
+  `scripts/names.vla` (211: 114 reserved names, 42 engine-call names, 16
+  function words and 17 display strings, 8 conditions-grammar words, 2 set
+  verbs, 12 after-value words), CRLF, UTF-8 without a BOM;
+  `check_data_exports.ps1` lists both at those floors.
+  `core/src/english/words.rs` reads both at build time, one function per
+  VBA table with the VBA's own answer for a miss. `core/src/english/tokenize.rs`
+  is `EnTokenize` branch for branch, `Tokens` with 1-based `tok_at` and
+  `line_at` as `TokAt` and `TokLine`, the two refusals by id with the words
+  the catalogue and `words.vla` give, `token_report` and `fixture_report`
+  in the golden's shape; `scripts/tokenize.txt` holds sixteen programs
+  (number words and articles, the strict thousands comma, doubled and
+  curly quotes, the range colon and sheet bang and `'Q1 Data'!A1`, blank
+  lines and comments, a raw row across three lines with a string holding
+  `)` and `\"` and a `;` comment, an indented raw row, and six refusals:
+  `$`, an apostrophe, a never-closing form on line 2, an em dash, a `+` on
+  line 3, a `(` mid-row); `scripts/tokenize_golden.txt` is the port's
+  prediction of the reference's report, and `VlaWriteTokenGolden`
+  (`VLA_Tests.bas`) with `EnglishTokenReport` (`VLA_SentenceEngine.bas`,
+  `PORT.6`) writes the reference's; an empty `git diff` after the owner's
+  run is the pin. `tools/prove.ps1` as the amendment says; `tools/check_prove_floors.ps1`;
+  `run_checks.ps1` at 37; the `core` CI job runs the floor check after
+  `prove.ps1 -Impl`.
+  **Verified here, 2026-10-02.** `cargo fmt --check`, `clippy -D warnings`,
+  `cargo test --workspace`: 65 green in the core (11 new: 2 for the tables,
+  9 for the tokenizer, the golden comparison among them; one ignored test
+  prints the fixture's report, the prediction's generator); the wasm build,
+  73 bytes, 0 imports; `run_checks.ps1` 37 of 37; `prove.ps1` inventory
+  (482 for `english.vla`, counted in its export), `-Control` 13 of 13 and
+  the mutant 13 of 13 failed, `-Impl` 1 passed and 13 not attempted;
+  `check_prove_floors.ps1 -Control` (the fake passes nine floors of n, the
+  mutant fails the eight files with proofs) and the plain run (nine not
+  attempted at floor 0); `check_data_exports.ps1` clean at 65, 574, 113 and
+  211; every new file LF without a BOM, the two `.vla` exports CRLF, the two
+  `.bas` modules still CRLF throughout with only their version lines
+  removed.
+  **Owner-verified, 2026-10-02, step 0 and the first session.** (a)
+  `229156 chars, 4776 lines` and the hash
+  `859F7A57…A30432`, as predicted; (b) `240`, and `loaded: 240 rules, 220
+  macros, 460 tests (22 expected fails)` word for word (the dialects' counts
+  still to read: a colon-chained `Debug.Print` is "Invalid in Immediate
+  pane"); (c) the probe: a fragment of words loads, `0`, and the id as a
+  fragment is `english-failtest-message-drifted`, so a `test-fail` pins
+  words; (d) pure 1661/1661, host 267/267; `run_checks.ps1` 37 of 37; both
+  controls green; the eleven token tests green against the predicted golden,
+  the reference's own token golden still to be written. The owner then
+  decided the two forks: (b) for the markers, and `U.31` filed. The treaty
+  amendment and slice 6a were committed the same day. *The second round,
+  the same day:* `VlaWriteTokenGolden` wrote the sixteen programs' report
+  and `cargo test`, recompiling on the changed file, passed the golden test
+  against the reference's own bytes; `VlaGoldens` wrote 229,156 and 298,628
+  characters and both files hashed exactly as predicted, the interpreter
+  golden unchanged; pure 1661/1661 with `F.9`'s eight out and `U.31`'s eight
+  in, host 267/267; `Set scale to 5.` refused on its row and `Set
+  scale-factor to 5.` green; `dansk.vla` alone 19; 37 checks.
+  **Pins:** 11 Rust tests; the token golden; the compile golden whole at
+  291,316. **Floors:** `run_checks.ps1` 36 → 37; `check_data_exports.ps1`
+  113 and 211 (218 with `U.31`); `check_prove_floors.ps1` nine files at 0;
+  `check_compile_prefix.ps1` 301,861 → 291,316. **Docs:**
+  `conformance/README.md` (amended twice), `Delta/CLAUDE.md`,
+  `docs/tutorial/3-master.md` (the excerpt without the marker line),
+  `RELEASES.md` (the figure), this entry, the roadmap's paragraph.
+  **Committed 2026-10-02, five commits,** each tree green in isolation
+  first: `cdf242a` (the treaty's amendment and the proofs floor), `221bb81`
+  (slice 6a), then slice 6b, the goldens without markers, and `U.31`.
+  **Next:** 6c, the rule store and phrasebook loading; the dialects' counts
+  beyond dansk's 19 are read when 6c pins them.
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day
@@ -25432,6 +25666,32 @@ now carries one summary paragraph per engine and points here.*
     The message therefore says what is true on both backends - what was
     put back - and not that nothing after the stop ran.
   *Depends on:* `U.19`, `U.23`. *Pays into:* `U.17`. `~hours`
+- ✅ **U.31 — seven more of VBA's reserved words are refused as names.**
+  *Found 2026-10-01 under `U.30` and recorded there unfiled; filed
+  2026-10-02 at the owner's word, from `PORT.6`'s step 0, which fixes a
+  known bug on the translate path in the VBA before the port reaches it;
+  built, owner-verified live and committed the same day (`Set scale to 5.`
+  refused on its row with the word named, `Set scale-factor to 5.` green;
+  pure 1661/1661 with the eight pins, host 267/267).* **Before:** `IsReservedName`
+  (`VLA_SentenceEngine.bas`) lacked `return`, `gosub`, `global`, `scale`,
+  `circle`, `decimal` and `longlong`, seven identifiers the VBA editor turns
+  red as names, so `Set return to 5.` or `To scale of x:` checked clean and
+  the compiled module failed to compile, VBA's own modal dialog and no
+  sentence named. **Now:** the seven join the list in its alphabetical
+  order, so `CheckName` refuses each wherever a name is made with the
+  reserved-word refusal (`english-reserved-word-name`), naming the word; a
+  hyphenated name that begins with one (`return-code`) is a name as before.
+  `scripts/names.vla` is re-exported (121 reserved names, 218 entries), so
+  the core's `CheckName` (`PORT.6`, slice 6e) reads the mended list from its
+  first day. **SD-4:** no shipped `instructions.txt`, tutorial, example or
+  test sentence names a value or a step with one of the seven, and each
+  only ever met VBA's compile error, so no promised sentence changes
+  meaning. **Pins:** `TestU31ReservedWords` (`VLA_Tests.bas`, 8: the seven
+  refusals, one hyphenated name), dispatched before
+  `TestU30EngineCallNames`, whose reload of the phrasebook serves the tests
+  after it; the core's `is_reserved_name` test names the seven. **Floors:**
+  `check_data_exports.ps1` `names.vla` 211 → 218. **Docs:** `RELEASES.md`
+  0.8.0, this entry, the roadmap's bullet. `~hours`
 - ✅ **U.26 — a refusal that begins with a quoted word lost its opening
   quote on the sheet.** *Minted 2026-09-29, the owner's call, from
   `LX.13`'s live pass; **built, owner-verified live and committed
@@ -27256,3 +27516,4 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **U.29 — a Run gives back Excel's settings as it found them.** Minted 2026-09-30 at `G-FORMULA` slice 3's scoping, as its precursor, from the audit's `C62`: a Run put back only screen updating, so a program that turned calculation off or wrote in the status bar and then stopped left every open workbook in manual calculation, or the words showing, for the rest of the Excel session, where Undo cannot reach. **Built, owner-verified live and committed 2026-09-30** (pure 1567, host 265, `VerifyReports` 349/349 on both backends; three hand tests on both backends). Calculation, the status bar, alerts, events and screen updating are recorded before a Run's first change and given back on every exit of both Run procedures, finished or stopped, each as the run found it, so a person working in manual keeps manual; cut or copy mode left on is cancelled; the program sheet is protected only when it had no protection. The CLI and a sheet's buttons and change handlers keep what they set. `tools/check_run_gives_back.ps1`, the thirty-first check, holds every `application.<x>` a phrasebook or the prelude sets to the list. *(more: the full entry, earlier in this file)* `~hours`
 
 - ✅ **U.30 — a program's own name cannot be one its generated code calls.** Minted 2026-09-30, the owner's call, from `LX.14`'s scoping; filed for actions, widened to every name at scoping; built 2026-09-30, **owner-verified live and committed 2026-10-01** (`VLA_SELF-TESTS` pure 1651/1651 and host 267/267, `LX.14`'s pins beside it, as predicted; `VerifyReports` 371/371 on both backends; `TestDSLs` 2346/0; `To len of x:`, `Set rows to 5.`, `Set cstr to 5.` and `Set debug to 5.` refused word for word on their rows; the VBA editor agreeing name by name; the six function words giving 3, 2023, 15, 18, 15 and 3 on both backends). `To len of x:` was accepted, and in that program every `length of` called it on both backends (a procedure of the program's answers before VBA's library, and before the interpreter's builtins); a variable of such a name broke the compiled call alone, while Interpret ran on. `CheckName` now refuses the forty-two names the generated code calls by name wherever a name is made, the list read from four sources in the engine and held to them by `tools/check_engine_call_names.ps1`, the thirty-second check. Folded in: six function words (`absolute of` … `minute of`) that never ran under Interpret now do, and VBA's conversions join the reserved words. *Pays into:* `LX.14`, whose masking of one-word heads waited on it. *(more: the full entry, earlier in this file)* `~hours`
+- ✅ **U.31 — seven more of VBA's reserved words are refused as names.** `return`, `gosub`, `global`, `scale`, `circle`, `decimal` and `longlong` were missing from `IsReservedName`, so a value or a step of such a name checked clean and then failed to compile with no sentence named; each is now refused at Check by the reserved-word refusal, naming the word, and a hyphenated name that begins with one stays a name. Found under `U.30`; filed, built, owner-verified live and committed 2026-10-02 from `PORT.6`'s step 0, with `scripts/names.vla` re-exported at 218 entries so the core reads the mended list. *(more: the full entry, earlier in this file)* `~hours`
