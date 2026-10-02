@@ -1,6 +1,9 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "LX.14"
+Public Const VLA_TESTS_VERSION As String = "LE.11"
+' LE.11: TestEnglishCore's phrase-row pins read each row's category (the
+' rows have no header rows now), and VlaSelfTest dispatches
+' VLA_Tests_Grammar's TestLe11PhraseCategories after TestLx14Spanish.
 ' LX.14 (call 2): VlaSelfTest dispatches VLA_Tests_Grammar's TestLx14Masking
 ' after TestU30EngineCallNames - a program's own "To <word> of ...:" masking
 ' a phrasebook's one-word head, with a note for Check.
@@ -473,6 +476,7 @@ Public Function VlaSelfTest() As Boolean
     TestLx14Masking
     TestLx14Phrases
     TestLx14Spanish
+    TestLe11PhraseCategories
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -892,41 +896,43 @@ Private Sub TestEnglishCore()
     CheckFrags "listing covers structural forms", EnglishListPhrases(), structFrags
 
     ' LE.1 (thin slice): EnglishPhraseRows is EnglishListPhrases's own
-    ' walk handed back structured (Template/Example/isHeader parallel
-    ' Collections) instead of preformatted text - the "What can I say?"
-    ' button's real two-column table data source (VLA_IDE.bas). Proven
-    ' here: the three Collections stay in lockstep, the built-in
-    ' section header comes back marked as a header with a blank
-    ' example, and - the part that actually matters for the button - a
-    ' freshly loaded rule's own PASSING test: sentence becomes its
-    ' worked example in the Example column, not a synthesized one.
-    Dim rowTemplates As Collection, rowExamples As Collection, rowIsHeader As Collection
-    EnglishPhraseRows rowTemplates, rowExamples, rowIsHeader
-    Report "phrase rows: template/example/isHeader stay the same length", _
-           rowTemplates.Count = rowExamples.Count And rowTemplates.Count = rowIsHeader.Count, _
-           "templates " & rowTemplates.Count & " examples " & rowExamples.Count & " isHeader " & rowIsHeader.Count
-    Report "phrase rows: the built-in section header is a header row with a blank example", _
-           CStr(rowTemplates.Item(1)) = "built into the language (every vocabulary shares these)" And _
-           CBool(rowIsHeader.Item(1)) = True And CStr(rowExamples.Item(1)) = "", _
-           "template '" & CStr(rowTemplates.Item(1)) & "' isHeader " & CBool(rowIsHeader.Item(1)) & _
-           " example '" & CStr(rowExamples.Item(1)) & "'"
+    ' walk handed back structured (Category/Template/Example parallel
+    ' Collections, LE.11) instead of preformatted text - the "What can I
+    ' say?" button's real table data source (VLA_IDE.bas). Proven here:
+    ' the three Collections stay in lockstep, the first row is a built-in
+    ' shape under the word it starts with and has a blank example, and -
+    ' the part that actually matters for the button - a freshly loaded
+    ' rule sits under its own first word, with its own PASSING test:
+    ' sentence as its worked example in the Example column, not a
+    ' synthesized one.
+    Dim rowCategories As Collection, rowTemplates As Collection, rowExamples As Collection
+    EnglishPhraseRows rowCategories, rowTemplates, rowExamples
+    Report "phrase rows: category/template/example stay the same length", _
+           rowTemplates.Count = rowExamples.Count And rowTemplates.Count = rowCategories.Count, _
+           "categories " & rowCategories.Count & " templates " & rowTemplates.Count & " examples " & rowExamples.Count
+    Report "phrase rows: the first row is the built-in Create shape, under create, with a blank example", _
+           CStr(rowTemplates.Item(1)) = "Create a number/text/value/list/lookup called <name>." And _
+           CStr(rowCategories.Item(1)) = "create" And CStr(rowExamples.Item(1)) = "", _
+           "category '" & CStr(rowCategories.Item(1)) & "' template '" & CStr(rowTemplates.Item(1)) & _
+           "' example '" & CStr(rowExamples.Item(1)) & "'"
 
     EnglishResetGrammar
     EnglishLoadVocabularyText _
         "(english-vla ""praise cell {r:cell}"" (debug-print {r}))" & vbCrLf & _
         "(test-success ""Praise cell B2."" (debug-print ""b2""))", "phrase-rows-vocab"
-    EnglishPhraseRows rowTemplates, rowExamples, rowIsHeader
-    Dim prI As Long, foundRow As Boolean, foundExample As String
+    EnglishPhraseRows rowCategories, rowTemplates, rowExamples
+    Dim prI As Long, foundRow As Boolean, foundExample As String, foundCategory As String
     foundRow = False
     For prI = 1 To rowTemplates.Count
         If InStr(1, CStr(rowTemplates.Item(prI)), "praise cell", vbTextCompare) > 0 Then
             foundRow = True
             foundExample = CStr(rowExamples.Item(prI))
+            foundCategory = CStr(rowCategories.Item(prI))
         End If
     Next
-    Report "phrase rows: a loaded rule's own passing test becomes its worked example", _
-           foundRow And InStr(1, foundExample, "Praise cell B2", vbTextCompare) > 0, _
-           "found " & foundRow & " example '" & foundExample & "'"
+    Report "phrase rows: a loaded rule sits under its first word, its own passing test its worked example", _
+           foundRow And foundCategory = "praise" And InStr(1, foundExample, "Praise cell B2", vbTextCompare) > 0, _
+           "found " & foundRow & " category '" & foundCategory & "' example '" & foundExample & "'"
     EnglishResetGrammar
 
     ' B4: value-returning actions. One program covers the definition,

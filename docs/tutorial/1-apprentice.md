@@ -214,11 +214,13 @@ name a Frazaro sheet as its workplace:
 ### Not sure how to say something?
 
 Press **What can I say?**. Frazaro writes every sentence shape it currently
-understands onto a sheet called *Phrasebook*, as an Excel Table with two
-columns: the shape, and a worked example. Filter it by the word you are
-reaching for. The list is generated from the grammar that is loaded at that
-moment, so it cannot be out of date. The running version is on its first
-line.
+understands onto a sheet called *Phrasebook*, as an Excel Table with three
+columns: the category, the shape, and a worked example. A sentence's
+category is the word it starts with, so filter the Category column by the
+word you are reaching for. The words and phrases that fit anywhere a value
+goes, like `sum of` and `median of range`, are under *value*. The list is
+generated from the grammar that is loaded at that moment, so it cannot be
+out of date. The running version is on its first line.
 
 ---
 

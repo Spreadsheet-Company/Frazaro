@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Tests_Grammar"
 Option Explicit
-Public Const VLA_TESTS_GRAMMAR_VERSION As String = "LX.14"
+Public Const VLA_TESTS_GRAMMAR_VERSION As String = "LE.11"
+' LE.11: TestLe11PhraseCategories - six pins on "What can I say?"'s rows
+' with english.vla loaded: no header rows, and each row under its
+' category - a sentence's first word, a choice of words as its template
+' reads it, a built-in shape's first word, and value for a function word
+' or phrase.
 ' LX.14 (call 2): TestLx14Masking - fifteen pins on a program's own "To
 ' <word> of ...:" masking a phrasebook's one-word head inside the program,
 ' with a note for Check, and the next translation giving the word back.
@@ -4713,6 +4718,81 @@ Public Sub TestLx14Spanish()
     End If
     EnglishResetGrammar
 End Sub
+
+' LE.11: "What can I say?"'s rows with english.vla loaded. No header rows:
+' neither old section title is a row, no first word is a row of its own
+' (set, work and put each head many rules), and the one-word rule stop is
+' one row, not a header and a rule. Each row under its category: a
+' sentence's first word, a rule that opens with a choice of words under
+' the choice as its template reads it, a built-in shape under its first
+' word, and every function word and phrase under value.
+Public Sub TestLe11PhraseCategories()
+    Dim loadErr As String
+    On Error Resume Next
+    EnglishResetGrammar
+    Err.Clear
+    EnglishLoadVocabulary FindDevFile("english.vla")
+    If Err.Number <> 0 Then loadErr = Err.Description
+    On Error GoTo 0
+    Report "le.11: english.vla loads", Len(loadErr) = 0, loadErr
+    If Len(loadErr) > 0 Then
+        EnglishResetGrammar
+        Exit Sub
+    End If
+
+    Dim cats As Collection, tmpls As Collection, exs As Collection
+    EnglishPhraseRows cats, tmpls, exs
+
+    Report "le.11: no row is a header - no section title, no first word alone, and stop once", _
+           Le11RowCount(tmpls, "built into the language (every vocabulary shares these)") = 0 _
+           And Le11RowCount(tmpls, "values (usable anywhere a value goes)") = 0 _
+           And Le11RowCount(tmpls, "set") = 0 And Le11RowCount(tmpls, "work") = 0 _
+           And Le11RowCount(tmpls, "put") = 0 And Le11RowCount(tmpls, "stop") = 1, _
+           "set " & Le11RowCount(tmpls, "set") & " work " & Le11RowCount(tmpls, "work") & _
+           " put " & Le11RowCount(tmpls, "put") & " stop " & Le11RowCount(tmpls, "stop")
+    Report "le.11: a sentence is under the word it starts with", _
+           Le11CategoryOf(cats, tmpls, "work on sheet {s:sheet}") = "work", _
+           "got '" & Le11CategoryOf(cats, tmpls, "work on sheet {s:sheet}") & "'"
+    Report "le.11: a rule that opens with a choice of words is under the choice", _
+           Le11CategoryOf(cats, tmpls, "{d:protect|unprotect} sheet {s:sheet} with password {p:expr}") = "protect|unprotect", _
+           "got '" & Le11CategoryOf(cats, tmpls, "{d:protect|unprotect} sheet {s:sheet} with password {p:expr}") & "'"
+    Report "le.11: a built-in shape is under its first word - if, try and stop", _
+           Le11CategoryOf(cats, tmpls, "If <condition>, <sentence>.") = "if" _
+           And Le11CategoryOf(cats, tmpls, "Try: ...  If that fails: ...") = "try" _
+           And Le11CategoryOf(cats, tmpls, "Stop the loop.   Done.") = "stop", _
+           "if '" & Le11CategoryOf(cats, tmpls, "If <condition>, <sentence>.") & _
+           "' try '" & Le11CategoryOf(cats, tmpls, "Try: ...  If that fails: ...") & _
+           "' stop '" & Le11CategoryOf(cats, tmpls, "Stop the loop.   Done.") & "'"
+    Report "le.11: a function word and a phrase are under value", _
+           Le11CategoryOf(cats, tmpls, "length of ...") = "value" _
+           And Le11CategoryOf(cats, tmpls, "median of range <range>") = "value" _
+           And Le11CategoryOf(cats, tmpls, "standard deviation of ... as sample|population") = "value", _
+           "length '" & Le11CategoryOf(cats, tmpls, "length of ...") & _
+           "' median '" & Le11CategoryOf(cats, tmpls, "median of range <range>") & _
+           "' deviation '" & Le11CategoryOf(cats, tmpls, "standard deviation of ... as sample|population") & "'"
+    EnglishResetGrammar
+End Sub
+
+' LE.11: the category of the first row whose template is exactly tmpl, or
+' "(no row)".
+Private Function Le11CategoryOf(cats As Collection, tmpls As Collection, ByVal tmpl As String) As String
+    Dim i As Long
+    Le11CategoryOf = "(no row)"
+    For i = 1 To tmpls.Count
+        If CStr(tmpls.Item(i)) = tmpl Then
+            Le11CategoryOf = CStr(cats.Item(i))
+            Exit Function
+        End If
+    Next
+End Function
+
+' LE.11: how many rows have exactly tmpl as their template.
+Private Function Le11RowCount(tmpls As Collection, ByVal tmpl As String) As Long
+    Dim i As Long
+    For i = 1 To tmpls.Count
+        If CStr(tmpls.Item(i)) = tmpl Then Le11RowCount = Le11RowCount + 1
+    Next
+End Function
 
 ' LX.14: a sentence refused by a phrase that stopped partway - by id, by the
 ' words it says, and by the line the IDE will mark red.

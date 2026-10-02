@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_IDE"
 Option Explicit
-Public Const VLA_IDE_VERSION As String = "LX.14"
+Public Const VLA_IDE_VERSION As String = "LE.11"
+' LE.11: "What can I say?" writes three columns - Category, Template,
+' Example - with no header rows (EnglishPhraseRows's categories), so the
+' Category filter shows one word's sentences, and its cells wrap, so a
+' long template or example grows its row instead of spilling past the
+' table's edge.
 ' LX.14 (call 2): Check writes the translation's notes (EnglishLastNotes)
 ' beside OK, each on its own row, in yellow (VlaIdeMarkNote) - a program's
 ' own "To <word> of ...:" masking a phrasebook's word. Nothing is refused.
@@ -146,6 +151,7 @@ Public Const VLA_IDE_VERSION As String = "LX.14"
 '                            "Phrasebook" (LE.1), to a sheet tab of the
 '                            same name for parity - the language's
 '                            catalog, not this program's instructions.
+'                            Category, Template, Example (LE.11).
 '
 '  The vocabulary comes from IdeVocabPath below - edit it to point at
 '  your .vocab file(s).
@@ -2575,17 +2581,28 @@ End Sub
 ' rather than plain cells so each column gets a real filter/search
 ' dropdown for free (owner request) - "searchable" needs nothing
 ' beyond what Excel's own AutoFilter already does once this is a real
-' table, not a hand-rolled search box. Section/group-header rows
-' (built-ins, each first word, "values") bold in the Template column
-' with the Example column left blank; rule rows carry a REAL, proof-
+' table, not a hand-rolled search box. Rule rows carry a REAL, proof-
 ' verified worked example when the rule has a test: line, blank
 ' otherwise - never a synthesized one.
+' LE.11 (owner request): the first column is each row's category - the
+' word its sentence starts with, or "value" for a function word or
+' phrase - where a bold header row of its own stood before, so the
+' Category filter shows one word's sentences and the table carries no
+' row that is not a template. The table's cells wrap and sit at the top
+' of their rows, so a long template or worked example grows its row
+' instead of spilling past the table's edge; the rows are fitted to
+' their text, down to the old table's last row, so a row a longer
+' table left tall is short again. Row 2 says what a category is.
 Public Sub EnglishIdeShowPhrases()
     On Error GoTo failed
     CaptureHost
     IdeLoadVocab
     Dim ps As Worksheet
     Set ps = GetOrCreateSheet(PHRASEBOOK_SHEET)
+    ' LE.11: the old table's last row, read before the table goes, since
+    ' deleting it can shrink UsedRange - its rows are fitted below.
+    Dim oldLast As Long
+    oldLast = ps.UsedRange.Row + ps.UsedRange.Rows.Count - 1
     ' A ListObject must be torn down explicitly before Cells.Clear -
     ' clearing cells out from under a live table is the same class of
     ' refusal BuildWorkspace's own "delete before hiding" comment
@@ -2598,31 +2615,39 @@ Public Sub EnglishIdeShowPhrases()
     ps.Cells.Clear
     ps.Cells(1, 1).Value = "Frazaro " & VLA_RELEASE_VERSION & " understands:"
     ps.Cells(1, 1).Font.Bold = True
+    ps.Cells(2, 1).Value = "Category is the word a sentence starts with. A value fits anywhere a value goes."
+    ps.Cells(2, 1).Font.Italic = True
 
-    Dim templates As Collection, examples As Collection, isHeader As Collection
-    EnglishPhraseRows templates, examples, isHeader
+    Dim categories As Collection, templates As Collection, examples As Collection
+    EnglishPhraseRows categories, templates, examples
 
     Const headerRow As Long = 3
-    ps.Cells(headerRow, 1).Value = "Template"
-    ps.Cells(headerRow, 2).Value = "Example"
+    ps.Cells(headerRow, 1).Value = "Category"
+    ps.Cells(headerRow, 2).Value = "Template"
+    ps.Cells(headerRow, 3).Value = "Example"
 
     Dim r As Long
     r = headerRow + 1
     Dim i As Long
     For i = 1 To templates.Count
-        ps.Cells(r, 1).Value = CStr(templates.Item(i))
-        ps.Cells(r, 2).Value = CStr(examples.Item(i))
-        If CBool(isHeader.Item(i)) Then ps.Cells(r, 1).Font.Bold = True
+        ps.Cells(r, 1).Value = CStr(categories.Item(i))
+        ps.Cells(r, 2).Value = CStr(templates.Item(i))
+        ps.Cells(r, 3).Value = CStr(examples.Item(i))
         r = r + 1
     Next
 
     Dim tbl As ListObject
-    Set tbl = ps.ListObjects.Add(xlSrcRange, ps.Range(ps.Cells(headerRow, 1), ps.Cells(r - 1, 2)), , xlYes)
+    Set tbl = ps.ListObjects.Add(xlSrcRange, ps.Range(ps.Cells(headerRow, 1), ps.Cells(r - 1, 3)), , xlYes)
     tbl.Name = "Phrasebook"
 
-    ps.Columns(1).ColumnWidth = 70
-    ps.Columns(2).ColumnWidth = 45
+    ps.Columns(1).ColumnWidth = 14
+    ps.Columns(2).ColumnWidth = 60
+    ps.Columns(3).ColumnWidth = 60
     ps.Cells.WrapText = False
+    tbl.Range.WrapText = True
+    tbl.Range.VerticalAlignment = xlTop
+    If oldLast < r - 1 Then oldLast = r - 1
+    ps.Range(ps.Cells(1, 1), ps.Cells(oldLast, 1)).EntireRow.AutoFit
     ps.Activate
     ps.Rows(headerRow + 1).Select
     ActiveWindow.FreezePanes = True

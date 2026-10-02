@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_SentenceEngine"
 Option Explicit
-Public Const VLA_SENTENCEENGINE_VERSION As String = "LX.14"
+Public Const VLA_SENTENCEENGINE_VERSION As String = "LE.11"
+' LE.11: EnglishPhraseRows hands back each row's category in place of
+' header rows - a sentence's first word, a built-in shape's included
+' (PhraseShapeCategory), and "value" for each function word and phrase -
+' so "What can I say?" can show it in a column of its own and filter on it.
 ' LX.14 (slice 2): function phrases. A -function directive may declare a
 ' phrase of several words - fixed words, one hole ({x:value}, or a range,
 ' column or cell reference), at most one closing clause of fixed words and
@@ -10430,7 +10434,7 @@ End Function
 ' The structural shapes: they live in the parser, not the rule list,
 ' so they are written out by hand here - shared by EnglishListPhrases
 ' (the flat cheat-sheet text) and EnglishPhraseRows (the structured
-' Template/Example table, LE.1's thin slice) so the two never drift
+' Category/Template/Example table, LE.1 and LE.11) so the two never drift
 ' apart. Kept honest by a self-test that asserts each one appears in
 ' EnglishListPhrases's own output, so adding a structural form without
 ' updating this list fails a named test rather than silently hiding
@@ -10501,29 +10505,35 @@ Public Function EnglishListPhrases() As String
 End Function
 
 ' LE.1 (thin slice): the same walk EnglishListPhrases performs, over
-' the same live grammar state, handed back as parallel rows - template,
-' worked example (from a rule's own passing test: sentence, "" when
-' none), and whether the row is a section/group header - instead of
-' one preformatted text blob, so a caller can render a real two-column
-' table (VLA_IDE.bas's "What can I say?" button) instead of re-parsing
-' text back apart. Deliberately its own pass rather than a refactor of
+' the same live grammar state, handed back as parallel rows - category,
+' template, and worked example (from a rule's own passing test:
+' sentence, "" when none) - instead of one preformatted text blob, so a
+' caller can render a real table (VLA_IDE.bas's "What can I say?"
+' button) instead of re-parsing text back apart. Deliberately its own pass rather than a refactor of
 ' EnglishListPhrases into a shared row-then-format helper: that walk is
 ' small, stable, and self-test-pinned (VLA_Tests.bas's "listing covers
 ' structural forms" fragment check) - duplicating it here is lower-risk
 ' than restructuring a working, pinned function.
-Public Sub EnglishPhraseRows(ByRef outTemplates As Collection, ByRef outExamples As Collection, _
-                              ByRef outIsHeader As Collection)
+' LE.11: no header rows, as there were (the built-ins, each first word,
+' "values"). Each row carries its category instead, beside its
+' template: the word a sentence starts with - a built-in shape's too
+' (PhraseShapeCategory: if, repeat, to), so filtering on count shows the
+' built-in Count loop beside any phrasebook rule that starts with count -
+' and "value" for every function word and phrase, which fit anywhere a
+' value goes. The rows keep their order: built-in shapes, then each first
+' word's rules as they were registered, then the values.
+Public Sub EnglishPhraseRows(ByRef outCategories As Collection, ByRef outTemplates As Collection, _
+                              ByRef outExamples As Collection)
     EnsureInit
+    Set outCategories = New Collection
     Set outTemplates = New Collection
     Set outExamples = New Collection
-    Set outIsHeader = New Collection
 
-    AddPhraseRow outTemplates, outExamples, outIsHeader, _
-        "built into the language (every vocabulary shares these)", "", True
     Dim shapes As Variant, si As Long
     shapes = PhraseBuiltinShapes()
     For si = LBound(shapes) To UBound(shapes)
-        AddPhraseRow outTemplates, outExamples, outIsHeader, CStr(shapes(si)), "", False
+        AddPhraseRow outCategories, outTemplates, outExamples, _
+                     PhraseShapeCategory(CStr(shapes(si))), CStr(shapes(si)), ""
     Next
 
     Dim firstWords As New Collection
@@ -10541,36 +10551,62 @@ Public Sub EnglishPhraseRows(ByRef outTemplates As Collection, ByRef outExamples
     Dim fw As Variant
     Dim exv As Variant
     Dim exf As Boolean
+    Dim fwCategory As String
     For Each fw In firstWords
-        AddPhraseRow outTemplates, outExamples, outIsHeader, CStr(fw), "", True
+        fwCategory = PhraseRuleCategory(CStr(fw))
         For i = 1 To mPatItems.Count
             Set items = mPatItems.Item(i)
             If items.Item(1) = CStr(fw) Then
                 exf = False
                 exv = CollGet(mRuleExamples, "r" & i, exf)
-                AddPhraseRow outTemplates, outExamples, outIsHeader, _
-                             CStr(mPatTexts.Item(i)), IIf(exf, CStr(exv), ""), False
+                AddPhraseRow outCategories, outTemplates, outExamples, _
+                             fwCategory, CStr(mPatTexts.Item(i)), IIf(exf, CStr(exv), "")
             End If
         Next
     Next
 
-    AddPhraseRow outTemplates, outExamples, outIsHeader, _
-        "values (usable anywhere a value goes)", "", True
     Dim fnLines() As String
     fnLines = Split(EnglishListFunctionWords(), vbCrLf)
     Dim vi As Long
     For vi = LBound(fnLines) To UBound(fnLines)
         If Len(Trim$(fnLines(vi))) > 0 Then _
-            AddPhraseRow outTemplates, outExamples, outIsHeader, Trim$(fnLines(vi)), "", False
+            AddPhraseRow outCategories, outTemplates, outExamples, "value", Trim$(fnLines(vi)), ""
     Next
 End Sub
 
-Private Sub AddPhraseRow(templates As Collection, examples As Collection, isHeader As Collection, _
-                          ByVal tmpl As String, ByVal example As String, ByVal hdr As Boolean)
+Private Sub AddPhraseRow(categories As Collection, templates As Collection, examples As Collection, _
+                          ByVal category As String, ByVal tmpl As String, ByVal example As String)
+    categories.Add category
     templates.Add tmpl
     examples.Add example
-    isHeader.Add hdr
 End Sub
+
+' LE.11: a built-in shape's category - the word it starts with, as a
+' phrasebook sentence's is, without the punctuation after it ("Try: ..."
+' is try, "Stop the loop." is stop), folded as a rule's words are.
+Private Function PhraseShapeCategory(ByVal shape As String) As String
+    Dim w As String, sp As Long
+    w = Trim$(shape)
+    sp = InStr(w, " ")
+    If sp > 0 Then w = Left$(w, sp - 1)
+    Do While Len(w) > 0
+        If InStr(".,:;", Right$(w, 1)) = 0 Then Exit Do
+        w = Left$(w, Len(w) - 1)
+    Loop
+    PhraseShapeCategory = VLA_Identity.Fold(w)
+End Function
+
+' LE.11: a phrasebook rule's category - its first word, or, for a rule
+' that opens with a choice of words ({d:protect|unprotect}), the choice
+' as its template reads it, protect|unprotect.
+Private Function PhraseRuleCategory(ByVal firstItem As String) As String
+    Dim sn As String, ct As String
+    If IsSlotTok(firstItem, sn, ct) Then
+        PhraseRuleCategory = ct
+    Else
+        PhraseRuleCategory = firstItem
+    End If
+End Function
 
 ' =====================================================================
 '  Translation-time call checking. Named-argument mismatches and

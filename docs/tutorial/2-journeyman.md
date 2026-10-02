@@ -134,8 +134,8 @@ The lines under the first are every phrasebook now in force, and how many
 rules each supplies. The count for the built-in vocabulary is the grammar
 that came with your copy: 223 in `0.7.0`.
 
-3. Press **What can I say?**. Your rule is in the list, under *flag*, and
-   its worked example is the sentence from your own proof.
+3. Press **What can I say?**. Your rule is in the list, with *flag* as its
+   category, and its worked example is the sentence from your own proof.
 4. On a *Frazaro* sheet, type `Flag cell C4.` and validate. Column C is green.
 
 **The workbook remembers.** The path of the phrasebook is kept in the

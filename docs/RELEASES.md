@@ -104,7 +104,7 @@
   the same way. A figure said halfway is refused where it stops, naming
   what it needed: `Set spread to standard deviation of revenues.` says it
   expected `as`, and shows the whole phrase, `standard deviation of ... as
-  sample|population`. **What can I say?** lists them under values.
+  sample|population`. **What can I say?** lists them under `value`.
 - **A step of your own may be named like a phrasebook word.** `To sum of
   amounts:` was refused, because the phrasebook already gives `sum of` a
   meaning. It is accepted now: inside that program, `sum of …` means the
@@ -121,6 +121,14 @@
   promedio de ventas es 10, …`). The Spanish phrasebook had carried these
   four figures since it was written, with no sentence that could reach
   them.
+- **What can I say? files each sentence under its first word.** The
+  *Phrasebook* table has three columns now: Category, Template and
+  Example. A sentence's category is the word it starts with, so filtering
+  Category on `set` shows every `set` sentence. The shapes built into the
+  language are filed the same way (`if`, `repeat`, `to`), and the words
+  and phrases that fit anywhere a value goes are under `value`. The rows
+  that only named a group are gone, and a long template or example wraps
+  inside the table instead of running past its edge.
 - **For phrasebook authors: a function word can be several words.**
   `(english-function "standard deviation of {x:value} as
   {k:sample|population}" ({k}-standard-deviation-of {x}))` declares a
