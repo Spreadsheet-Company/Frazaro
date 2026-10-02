@@ -94,6 +94,16 @@
   of` work under Interpret.** They always worked in a program that runs.
   Interpret stopped at each one, naming it. `Set m to month of today.` now
   gives the same month on both.
+- **A step of your own may be named like a phrasebook word.** `To sum of
+  amounts:` was refused, because the phrasebook already gives `sum of` a
+  meaning. It is accepted now: inside that program, `sum of …` means the
+  program's own step, and Check marks the step's row in yellow to say so,
+  "OK. In this program, 'sum of ...' means its own sum, not the
+  phrasebook's". Other programs keep the phrasebook's. This is so that a
+  word the phrasebook gains in a later release can never break a program
+  that already had a step of that name. The words Frazaro itself reads with
+  `of` (`length of`, `count of`, `first of` and the rest) are still refused
+  as a step's name.
 - **For contributors: a DATALOG proof can carry the tables its program
   reads.** None of this ships, and nothing in Frazaro calls it.
   - A proof in `scripts/proofs/datalog.vla` may hold a `(tables ...)`

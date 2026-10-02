@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "U.30"
+Public Const VLA_TESTS_VERSION As String = "LX.14"
+' LX.14 (call 2): VlaSelfTest dispatches VLA_Tests_Grammar's TestLx14Masking
+' after TestU30EngineCallNames - a program's own "To <word> of ...:" masking
+' a phrasebook's one-word head, with a note for Check.
+'
 ' U.30: TestU30EngineCallNames, dispatched after TestGFormulaNamedFigures -
 ' a name the code Frazaro writes calls by name refused wherever a name is
 ' made, each by id, word and line; what stays sayable; the reserved list's
@@ -463,6 +467,7 @@ Public Function VlaSelfTest() As Boolean
     TestU29StatusBarBack
     TestGFormulaNamedFigures
     TestU30EngineCallNames
+    TestLx14Masking
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then

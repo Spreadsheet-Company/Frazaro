@@ -5892,7 +5892,7 @@ written against.
   must keep working; and `english.vla` loading - with two `test-fail` proofs
   in it, one per branch, which run at every load. *Depends on:* nothing.
   `~hours`
-- ⬜ **LX.14 — function phrases: a value said in several words, bound where
+- 🟡 **LX.14 — function phrases: a value said in several words, bound where
   a value is read.** *Minted 2026-09-30, the owner's call, from `G-FORMULA`
   slice 4's scoping, where a remembered range's median and standard
   deviation became rules over a name because a function word could not
@@ -6021,6 +6021,117 @@ written against.
   have ledger rows. *Depends on:* `U.30`, before a one-word head may mask
   (call 2). Call 1's amendment is in `SD-16`'s entry, dated 2026-09-30.
   `~days`, and the calls as settled add `~days`.
+  **Scoped 2026-09-30, what the three calls left open.** Each call below was
+  adjudicated as recommended, under the owner's advance approval for the
+  session.
+  1. *The directive's spelling.* `(<lang>-function "<pattern>" <target>)`,
+     the head any language's own, as today. A pattern is fixed words, then
+     one hole, then at most one closing clause of fixed words and one
+     alternation. The hole names its kind: `{x:value}`, the engine's
+     innermost value, as a function word takes it today; or a reference, one
+     token as a rule's reference slot reads it, `{r:range}`, `{c:column}` or
+     `{c:cell}` (call 3: each phrase declares which). A pattern with no hole
+     keeps its shipped meaning: one word is a value word (`today`), and two
+     or more words take a value after them, so `(english-function "sum of"
+     sum-of)` reads as it always has and a phrasebook in another language
+     writes its own connector (`"suma de"`). The target is a bare atom,
+     called with the value as before, or a form, a template in which the
+     hole's name and the alternation's are spliced as a rule's are
+     (`({k}-standard-deviation-of (range {r}))`). One word and `of`, with a
+     bare-atom target, is a one-word head, read by the machinery the five
+     shipped words use (and masked by call 2); every other phrase goes in a
+     table of its own, keyed by its first word and tried longest first,
+     ahead of any one-word reading.
+  2. *A phrase that stops partway.* Once its words before the hole have
+     matched, a phrase completes or is refused there, in the teaching frame
+     and from where its sentence began: "I understood 'Set spread to
+     standard deviation of revenues' - then I expected 'as' but found the
+     end of the sentence. The phrase is 'standard deviation of ... as
+     sample|population'." It is refused on the spot rather than left to the
+     near-miss report, because a value inside a condition is reported from
+     where the value began (the item's fact 4): `If standard deviation of
+     revenues is more than 5, …` would have said "Expected a condition
+     near: …". A comma body's refusal quotes its whole sentence. The
+     one-word heads keep their shipped fallback: with no value after `of`,
+     the word is a name.
+  3. *The load audit's word list,* read from the value and condition
+     grammars' own code: no word of a phrase after its first may be one they
+     read right after a value - `plus`, `minus`, `times`, `divided`,
+     `multiplied`, `joined`, `followed` and `percent` (the value grammar),
+     `is`, `does`, `contains`, `starts`, `ends` and `equals` (a condition's
+     comparators), `and` and `or` (its connectives), `for` (a lookup's keyed
+     read) and `using` (a value action's call). `of` is the connector the
+     shipped words already use, and stays allowed. And no two phrases with
+     the same words before the hole, a one-word head counting as its word
+     and `of`; no noise word; no word a keyword alias rewrites, since no
+     sentence could then say it. A rule's own literal after a value slot is
+     not in the list: every rule's proofs re-run against the fully loaded
+     grammar, so a phrase that took a rule's sentence fails the load.
+  4. *`GRAMMAR_SINCE.md`.* Function words and phrases get a third section,
+     "Function words and phrases", one row per phrase with its hole written
+     out (`length of {x:value}`, `today`, `median of {x:value}`). The
+     inventory comes from the scripts that own each parser: the engine's
+     seeding from `check_engine_call_names.ps1 -ListFunctionWords`,
+     `english.vla`'s from `check_rule_coverage.ps1 -ListPhrases` over the
+     export. The dates come from source at each tag: all twenty-one words
+     that exist are dated by their presence at `v0.5.0`. A retired rule
+     whose sentence a phrase now carries: a released row keeps its date and
+     gains `carried-by: <phrase>`, since the sentence works from that release
+     as before (rule 1), and the check fails a `carried-by:` naming no live
+     phrase; a row never released (the eight of `0.8.0`) is removed, as
+     `G-PROLOG` slice 2's four were.
+  5. *How masking works.* A program's own `To <word> of <param>:` takes a
+     vocabulary's one-word head inside that program: `CheckDupAction` lets it
+     through, the program's word replaces the vocabulary's in the table for
+     that translation, the vocabulary's target is kept, and the next
+     translation (or a grammar reset) gives it back - an overlay that lasts
+     one translation, surviving a refusal part-way. The note is Check's, on
+     the definition's row in yellow beside OK, never blocking: "OK. In this
+     program, 'sum of ...' means its own sum, not the phrasebook's
+     (english.vla)." The engine's own words, a closed set, still refuse. A
+     `using` parameter, a plain step (`To sum:`) or a value word (`To get
+     sum:`) of the same name masks nothing, since `<word> of` is now read
+     before a value word; the value word keeps the vocabulary's word to give
+     back, since the next translation's clean-up takes a program's word out
+     of both tables. Masking takes only the one-word head: a longer phrase
+     that begins with the word (`median of range {r:range}`) is another
+     phrase, naming a range the program's own action could not take.
+  6. *Which rules retire:* the fourteen the filing named - `put sum of
+     range`, `put average|largest|smallest of range`, and `set … to` sum,
+     average, largest|smallest of range, all released; `set … to last filled
+     row of column`, released; and the eight median and standard-deviation
+     rules of `0.8.0`, over a range and over a name. Each translates exactly
+     as the general set or put does with a phrase, so the goldens do not
+     move, and each is shadowed, so `TestF4RealCorpusShadow` would flag it.
+     The `where` rules stay: they carry a second value.
+  7. *The first phrases:* `median of` (a one-word head); `median of range
+     {r:range}`; `standard deviation of {x:value} as {k:sample|population}`
+     and its range twin; `sum`, `average`, `largest` and `smallest of range
+     {r:range}`; `last filled row of column {c:column}`; and Spanish, with
+     its articles, since the tokenizer drops none of Spanish's: `la suma de`,
+     `el promedio de`, `el mayor de` and `el menor de`, each over a value and
+     over `la region {r:range}`.
+  8. *The slices, each its own commit:* 1, masking (call 2), first, because
+     `median of` as a one-word head would otherwise refuse a `0.7.1`
+     program's own `To median of …:`; 2, the phrase engine, the audit, the
+     ledger's third section and the first English phrases, with the
+     fourteen retirements; 3, Spanish.
+  **✅ Slice 1 - masking (call 2), built 2026-09-30, owner-verified live
+  and committed 2026-10-01.** A program may define its own `sum of`, `average of`,
+  `largest of`, `smallest of` or `keys of`, which `CheckDupAction` refused
+  since `B4`: inside that program its sentences call the program's own, and
+  Check marks the definition's row in yellow with the note above. The next
+  program gets the phrasebook's word back, and so does the next Check,
+  which reloads the phrasebook. A `using` parameter may carry the word too.
+  `ParsePrimCore` reads `<word> of` before a value word; no word was both
+  before masking, so nothing that read before reads differently. **Pins:**
+  fifteen pure (`TestLx14Masking`: the program's own `sum of` called and
+  noted once, on its line; the phrasebook's back for the next program, with
+  no note, even after a refusal part-way; the engine's `length of` still
+  refused, by id; a value word, a parameter and a plain step named `sum`
+  or `average`, each masking nothing) and two host (`TestLx14MarkNote`:
+  the note whole, in yellow). Check's own wiring is reached only by
+  clicking Check: a live test.
 
 ---
 

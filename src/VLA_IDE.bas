@@ -1,6 +1,9 @@
 Attribute VB_Name = "VLA_IDE"
 Option Explicit
-Public Const VLA_IDE_VERSION As String = "U.29"
+Public Const VLA_IDE_VERSION As String = "LX.14"
+' LX.14 (call 2): Check writes the translation's notes (EnglishLastNotes)
+' beside OK, each on its own row, in yellow (VlaIdeMarkNote) - a program's
+' own "To <word> of ...:" masking a phrasebook's word. Nothing is refused.
 ' U.29: a Run gives back Excel's settings as it found them (the audit's
 ' C62). Before, a Run put back only screen updating, always to True: a
 ' program that turned calculation off, or put words in the status bar, and
@@ -2783,6 +2786,18 @@ Private Function DoCheck(ws As Worksheet, Optional ByRef vlaOut As String, _
         For r = FIRST_ROW To lastRow
             If Len(Trim$(CStr(ws.Cells(r, 2).Value))) > 0 Then MarkOK ws, r
         Next
+        ' LX.14 (call 2): the translation's notes, each on its own line's
+        ' row, beside OK - a program's own word masking a phrasebook's.
+        Dim note As Variant, bar As Long, noteRow As Long
+        For Each note In EnglishLastNotes()
+            bar = InStr(CStr(note), "|")
+            If bar > 1 Then
+                noteRow = FIRST_ROW + CLng(Left$(CStr(note), bar - 1)) - 1
+                If noteRow >= FIRST_ROW And noteRow <= lastRow Then
+                    VlaIdeMarkNote ws, noteRow, Mid$(CStr(note), bar + 1)
+                End If
+            End If
+        Next
         DoCheck = True
         Exit Function
     End If
@@ -3184,6 +3199,15 @@ Private Sub MarkErr(ws As Worksheet, ByVal r As Long, ByVal msg As String)
     ws.Cells(r, 3).Value = VlaIdeCellText(msg)
     ws.Cells(r, 3).Interior.Color = RGB(247, 215, 215)
     LogParseFailure ws, r, msg
+End Sub
+
+' LX.14 (call 2): a note on a row that checked, in yellow, in place of its
+' OK - the one the translation leaves when a program's own "To <word> of
+' ...:" masks a phrasebook's word. Nothing is refused and nothing is
+' logged: the row is OK, and the note says what it means.
+Public Sub VlaIdeMarkNote(ws As Worksheet, ByVal r As Long, ByVal note As String)
+    ws.Cells(r, 3).Value = VlaIdeCellText(note)
+    ws.Cells(r, 3).Interior.Color = RGB(255, 242, 204)
 End Sub
 
 ' U.26: text to put in a cell so the cell shows exactly that text. Excel

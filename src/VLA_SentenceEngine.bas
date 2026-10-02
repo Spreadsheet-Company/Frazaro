@@ -1,6 +1,13 @@
 Attribute VB_Name = "VLA_SentenceEngine"
 Option Explicit
-Public Const VLA_SENTENCEENGINE_VERSION As String = "U.30"
+Public Const VLA_SENTENCEENGINE_VERSION As String = "LX.14"
+' LX.14 (call 2): a program's own "To <word> of <param>:" masks a
+' vocabulary's one-word head inside that program instead of being refused
+' (CheckDupAction), and leaves a note for Check (EnglishLastNotes); the next
+' translation gives the vocabulary's word back (RestoreMaskedWords). A
+' parameter, a plain step or a value word of the same name masks nothing,
+' since "<word> of" is now read before a value word. The engine's own
+' words still refuse.
 ' U.30: CheckName refuses a name the code Frazaro writes calls by name
 ' (IsEngineCallName: VBA's functions, Excel's objects, and what the
 ' engine's own function words compile to), wherever a name is made. A
@@ -699,6 +706,20 @@ Private mFnOf As Collection        ' unary: word -> VBA function name
 Private mFnNullary As Collection   ' nullary: word -> VBA function name
 Private mFnDisplay As Collection   ' display strings for the phrase list
 
+' LX.14 (call 2): a program's own definition masks a phrasebook's one-word
+' head inside that program, with a note at Check. mVocabOfWords holds each
+' "<word> of" a vocabulary declared (EnglishAddFunctionWord), keyed by the
+' folded word, its value the vocabulary's name; the engine's own words
+' (RegisterBuiltinFuncWords) are never in it, so they still refuse, a
+' closed set. mMaskWords/mMaskTargets remember each word a translation
+' masked and the vocabulary's target for it, so the next translation puts
+' the vocabulary's back; mMaskNotes holds Check's note for each, as
+' "line|words".
+Private mVocabOfWords As Collection
+Private mMaskWords As Collection
+Private mMaskTargets As Collection
+Private mMaskNotes As Collection
+
 ' A1: tokens carry their source line. mTokLines parallels the token
 ' Collection of the most recent EnTokenize; mErrLine is the line of
 ' the most recent translation error (0 = unknown), exposed via
@@ -874,6 +895,9 @@ Public Function EnglishToVla(ByVal text As String) As String
             On Error GoTo 0
         Next
     End If
+    ' LX.14: and give back each vocabulary word the previous program's own
+    ' definition masked.
+    RestoreMaskedWords
     Set mUserFnWords = New Collection
     Set mFnActNames = New Collection
     Set mFnUsingNames = New Collection
@@ -1018,6 +1042,11 @@ Public Function EnglishToVla(ByVal text As String) As String
                 ExpectTok toks, pos, ":", "':' after 'To get " & subName & "'"
                 Set mDeclared = New Collection
                 Set mAssigned = New Collection
+                ' LX.14: a value word beside a vocabulary's "<word> of"
+                ' masks nothing - "<word> of" still reaches the vocabulary's -
+                ' but the next translation's clean-up takes the word out of
+                ' both tables, so the vocabulary's is kept to give back.
+                MaskVocabOfWord subName, False
                 AddFnEntry mFnNullary, subName, subName
                 mUserFnWords.Add VLA_Identity.Fold(subName)
                 mFnActNames.Add VLA_Identity.Fold(subName)
@@ -1044,8 +1073,13 @@ Public Function EnglishToVla(ByVal text As String) As String
                 sawDefault = False
                 Do
                     pName = ExpectWord(toks, pos, "a parameter name after 'using'")
+                    ' LX.14: a vocabulary's own "<word> of" may name a
+                    ' parameter - "<word> of" still reaches the vocabulary's,
+                    ' and the bare word is the parameter.
                     If IsFnWord(mFnOf, VLA_Identity.Fold(pName)) Or IsFnWord(mFnNullary, VLA_Identity.Fold(pName)) Then
-                        VLA_Messages.RaiseMsg "english-param-name-taken", "name", pName, "loc", LineTag(pos - 1)
+                        If Not IsMaskableFnWord(pName) Then
+                            VLA_Messages.RaiseMsg "english-param-name-taken", "name", pName, "loc", LineTag(pos - 1)
+                        End If
                     End If
                     pDef = ""
                     If TokAt(toks, pos) = "of" Then
@@ -1095,6 +1129,7 @@ Public Function EnglishToVla(ByVal text As String) As String
                 Set mDeclared = New Collection
                 Set mAssigned = New Collection
                 MarkDeclared pName          ' the parameter is never auto-dimmed
+                MaskVocabOfWord subName, True   ' LX.14: a vocabulary's own word, kept to give back
                 AddFnEntry mFnOf, subName, subName
                 mUserFnWords.Add VLA_Identity.Fold(subName)
                 mFnActNames.Add VLA_Identity.Fold(subName)
@@ -5197,13 +5232,13 @@ Private Function ParsePrimCore(toks() As String, ByRef pos As Long, ByRef ok As 
         pos = pos + 1
         ParsePrimCore = VlaStringLit(Mid$(t, 2))
         ok = True
-    ElseIf IsFnWord(mFnNullary, t) Then
-        pos = pos + 1
-        ParsePrimCore = "(" & FnTarget(mFnNullary, t) & ")"
-        ok = True
     ElseIf IsFnWord(mFnOf, t) And TokAt(toks, pos + 1) = "of" Then
         ' "<word> of <value>": binds tightly and composes -
-        ' "length of cell B2", "month of today", "day of now".
+        ' "length of cell B2", "month of today", "day of now". LX.14:
+        ' read before a value word, so a program's own "To get sum:" leaves
+        ' a vocabulary's "sum of" where it was. No word was ever both
+        ' before a vocabulary's word could be masked, so nothing that read
+        ' before reads differently.
         sp = pos
         pos = pos + 2
         n2 = ParsePrim(toks, pos, ok2)
@@ -5215,6 +5250,10 @@ Private Function ParsePrimCore(toks() As String, ByRef pos As Long, ByRef ok As 
             ParsePrimCore = t
             ok = True
         End If
+    ElseIf IsFnWord(mFnNullary, t) Then
+        pos = pos + 1
+        ParsePrimCore = "(" & FnTarget(mFnNullary, t) & ")"
+        ok = True
     ElseIf Len(OrdinalWord(t)) > 0 Then
         ' G8: ordinal words, checked only here in the expr grammar,
         ' never at the tokenizer - and only reached once the "<word> of
@@ -7649,9 +7688,13 @@ End Function
 ' B4: one name, one definition. A second 'To' with a used name - sub
 ' or value-returning - would become two VBA procedures and crash the
 ' user into a compile error no handler can catch; a name that is
-' already a function word ('length', 'count', a vocabulary word, or
-' one this program defined) would silently shadow it. Refuse both
-' with words, before anything is generated.
+' already a function word ('length', 'count', or one this program
+' defined) would silently shadow it. Refuse both with words, before
+' anything is generated. LX.14 (call 2): a vocabulary's own "<word> of"
+' is no longer refused - the program's definition masks it inside the
+' program, and Check notes it (MaskVocabOfWord) - since a phrasebook
+' grows every release and a refusal would break a shipped program the
+' day its word arrived. The engine's words, a closed set, still refuse.
 Private Sub CheckDupAction(ByVal name As String, ByVal namePos As Long)
     Dim n As String
     n = VLA_Identity.Fold(name)
@@ -7667,7 +7710,9 @@ Private Sub CheckDupAction(ByVal name As String, ByVal namePos As Long)
         Next
     End If
     If IsFnWord(mFnOf, n) Or IsFnWord(mFnNullary, n) Then
-        VLA_Messages.RaiseMsg "english-action-name-means-something", "name", name, "loc", LineTag(namePos)
+        If Not IsMaskableFnWord(n) Then
+            VLA_Messages.RaiseMsg "english-action-name-means-something", "name", name, "loc", LineTag(namePos)
+        End If
     End If
     If IsUsingFn(n) Then
         VLA_Messages.RaiseMsg "english-action-name-taken", "name", name, "loc", LineTag(namePos)
@@ -10814,8 +10859,75 @@ Public Sub EnglishAddFunctionWord(ByVal word As String, ByVal target As String, 
     Else
         AddFnEntry mFnOf, word, target
         mFnDisplay.Add VLA_Identity.Fold(word) & " of ..."
+        ' LX.14 (call 2): a vocabulary's own "<word> of", which a program's
+        ' own definition may mask. Its value is the vocabulary's name, for
+        ' Check's note.
+        Dim src As String
+        src = mLoadSource
+        If Len(src) = 0 Then src = "(added directly)"
+        On Error Resume Next
+        mVocabOfWords.Remove VLA_Identity.Fold(word)
+        On Error GoTo 0
+        mVocabOfWords.Add src, VLA_Identity.Fold(word)
     End If
 End Sub
+
+' LX.14 (call 2): whether a program's own definition may take this word -
+' a vocabulary's "<word> of", never one the engine itself seeds.
+Private Function IsMaskableFnWord(ByVal word As String) As Boolean
+    If mVocabOfWords Is Nothing Then Exit Function
+    IsMaskableFnWord = CollHasKey(mVocabOfWords, VLA_Identity.Fold(word))
+End Function
+
+' LX.14 (call 2): a program's own action takes a vocabulary's word. The
+' vocabulary's target is kept, so RestoreMaskedWords can give it back at
+' the next translation, and - when the action is "To <word> of <param>:",
+' the one form that takes "<word> of" over - Check is told, on the
+' definition's own line. A value word ("To get <word>:") masks nothing,
+' since "<word> of" is read before a value word, but the clean-up takes a
+' program's word out of both tables, so its vocabulary word is kept too.
+Private Sub MaskVocabOfWord(ByVal word As String, ByVal withNote As Boolean)
+    If Not IsMaskableFnWord(word) Then Exit Sub
+    If Not IsFnWord(mFnOf, VLA_Identity.Fold(word)) Then Exit Sub
+    Dim f As Boolean, src As Variant, srcName As String, cut As Long
+    src = CollGet(mVocabOfWords, VLA_Identity.Fold(word), f)
+    mMaskWords.Add VLA_Identity.Fold(word)
+    mMaskTargets.Add FnTarget(mFnOf, VLA_Identity.Fold(word))
+    If withNote Then
+        ' The phrasebook by its file's name - a load from disk names it by
+        ' its whole path.
+        srcName = CStr(src)
+        cut = InStrRev(srcName, "\")
+        If InStrRev(srcName, "/") > cut Then cut = InStrRev(srcName, "/")
+        If cut > 0 Then srcName = Mid$(srcName, cut + 1)
+        mMaskNotes.Add CStr(mCurLine) & "|" & "OK. In this program, '" & VLA_Identity.Fold(word) & _
+                       " of ...' means its own " & VLA_Identity.Fold(word) & ", not the phrasebook's (" & srcName & ")."
+    End If
+End Sub
+
+' LX.14 (call 2): give back every vocabulary word the last translation's
+' program masked, after its own words have been taken out - the overlay
+' lasts one translation. A grammar reset clears it instead
+' (RegisterBuiltinFuncWords), since the reload brings every word back.
+Private Sub RestoreMaskedWords()
+    If Not mMaskWords Is Nothing Then
+        Dim i As Long
+        For i = 1 To mMaskWords.Count
+            AddFnEntry mFnOf, CStr(mMaskWords.Item(i)), CStr(mMaskTargets.Item(i))
+        Next
+    End If
+    Set mMaskWords = New Collection
+    Set mMaskTargets = New Collection
+    Set mMaskNotes = New Collection
+End Sub
+
+' LX.14 (call 2): the notes the last translation left for Check, each
+' "line|words" - a vocabulary word the program's own definition masks. The
+' IDE writes each beside OK on its line; nothing is refused.
+Public Function EnglishLastNotes() As Collection
+    If mMaskNotes Is Nothing Then Set mMaskNotes = New Collection
+    Set EnglishLastNotes = mMaskNotes
+End Function
 
 Private Sub RegisterFunctionWord(ByVal lhs As String, ByVal target As String, ByVal context As String)
     Dim parts() As String
@@ -10833,6 +10945,13 @@ Private Sub RegisterBuiltinFuncWords()
     Set mFnOf = New Collection
     Set mFnNullary = New Collection
     Set mFnDisplay = New Collection
+    ' LX.14 (call 2): a fresh table holds no program's words and no mask;
+    ' the vocabularies loaded next declare their own words again.
+    Set mVocabOfWords = New Collection
+    Set mUserFnWords = New Collection
+    Set mMaskWords = New Collection
+    Set mMaskTargets = New Collection
+    Set mMaskNotes = New Collection
     AddFnEntry mFnOf, "length", "len"
     AddFnEntry mFnOf, "uppercase", "ucase"
     AddFnEntry mFnOf, "lowercase", "lcase"

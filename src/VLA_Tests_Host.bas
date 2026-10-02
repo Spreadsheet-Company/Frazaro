@@ -1,6 +1,9 @@
 Attribute VB_Name = "VLA_Tests_Host"
 Option Explicit
-Public Const VLA_TESTS_HOST_VERSION As String = "GFORMULA.4"
+Public Const VLA_TESTS_HOST_VERSION As String = "LX.14"
+' LX.14 (call 2): TestLx14MarkNote, two pins on VLA_IDE.VlaIdeMarkNote - the
+' note Check writes when a program's own word masks a phrasebook's shows
+' whole, in yellow.
 ' GFORMULA.4: G-FORMULA slice 4. VerifyReportChecks gains the GFigures block,
 ' fifteen rows beside GCalc's, read on both backends: a remembered range's
 ' median and both standard deviations, set and put; a sum and an average
@@ -395,6 +398,7 @@ Public Function VlaSelfTestHost() As Boolean
     TestU26MarkShowsQuote
     TestU29GivesBackExcel
     TestGFormulaCalculation
+    TestLx14MarkNote
 
     Debug.Print "===== HOST SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -3099,6 +3103,27 @@ Private Sub TestU26MarkShowsQuote()
     CheckV "u.26: through VlaIdeCellText the refusal shows whole", CStr(ws.Range("A2").Text), said
     ws.Range("A3").Value = VLA_IDE.VlaIdeCellText("=1+1")
     CheckV "u.26: text that looks like a formula shows as text", CStr(ws.Range("A3").Text), "=1+1"
+    Application.DisplayAlerts = False
+    ws.Delete
+    Application.DisplayAlerts = True
+    prior.Activate
+End Sub
+
+' LX.14 (call 2): the note Check writes on a row whose program's own word
+' masks a phrasebook's - its words whole, in yellow where an error is red.
+' Check's own wiring (the note on the definition's row) is reached only by
+' clicking Check: a live test.
+Private Sub TestLx14MarkNote()
+    Dim prior As Worksheet
+    Set prior = ActiveSheet
+    VlaEnsureSheet "VlaLx14Sheet"
+    Dim ws As Worksheet
+    Set ws = ActiveWorkbook.Worksheets("VlaLx14Sheet")
+    Dim said As String
+    said = "OK. In this program, 'sum of ...' means its own sum, not the phrasebook's (english.vla)."
+    VLA_IDE.VlaIdeMarkNote ws, 3, said
+    CheckV "lx.14: a note shows whole in the marks column", CStr(ws.Cells(3, 3).Text), said
+    CheckV "lx.14: in yellow, where an error is red", ws.Cells(3, 3).Interior.Color, RGB(255, 242, 204)
     Application.DisplayAlerts = False
     ws.Delete
     Application.DisplayAlerts = True

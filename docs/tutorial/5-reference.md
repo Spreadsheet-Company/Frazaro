@@ -160,8 +160,11 @@ worksheets year
 ```
 
 Nor can a value word (`today`, `now`). A step may not be named with a
-word that already means something when `of` follows it (`length`,
-`count`, `sum`, `first`, `last`), and no name is clearer for being one.
+word Frazaro itself reads with `of` (`length`, `count`, `first`, `last`),
+and no name is clearer for being one. A step may take a word the phrasebook
+reads with `of` (`sum`, `average`, `largest`, `smallest`, from `0.8.0`):
+`To sum of amounts:` makes `sum of …` mean the program's own step,
+in that program only, and Check marks the step's row in yellow to say so.
 
 **A hyphenated name always works.** `date` is refused; `invoice-date` is
 fine. When in doubt, hyphenate.

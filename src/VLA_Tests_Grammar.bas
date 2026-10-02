@@ -1,6 +1,9 @@
 Attribute VB_Name = "VLA_Tests_Grammar"
 Option Explicit
-Public Const VLA_TESTS_GRAMMAR_VERSION As String = "GFORMULA.4"
+Public Const VLA_TESTS_GRAMMAR_VERSION As String = "LX.14"
+' LX.14 (call 2): TestLx14Masking - fifteen pins on a program's own "To
+' <word> of ...:" masking a phrasebook's one-word head inside the program,
+' with a note for Check, and the next translation giving the word back.
 ' GFORMULA.4: TestGFormulaNamedFigures - three pins on G-FORMULA slice 4's
 ' choice of rules over a name for a remembered range's median, not a
 ' function word: english.vla loads with its new proofs, and a program that
@@ -4514,5 +4517,84 @@ Public Sub TestGFormulaNamedFigures()
         AssertEnglish "g-formula 4: a program's own median: its Put calls it too", _
                       own, "(set! (range ""b2"") (median revenues))"
     End If
+    EnglishResetGrammar
+End Sub
+
+' LX.14 (call 2): a program's own "To <word> of ...:" masks a phrasebook's
+' one-word head inside that program - its sentences call the program's own
+' - and leaves a note for Check on the definition's line; the next
+' translation gives the phrasebook's word back, even after a refusal. The
+' engine's own words still refuse. A value word, a parameter or a plain
+' step of the same name masks nothing: "<word> of" still reaches the
+' phrasebook's.
+Public Sub TestLx14Masking()
+    Dim loadErr As String
+    On Error Resume Next
+    EnglishResetGrammar
+    Err.Clear
+    EnglishLoadVocabulary FindDevFile("english.vla")
+    If Err.Number <> 0 Then loadErr = Err.Description
+    On Error GoTo 0
+    Report "lx.14 masking: english.vla loads", Len(loadErr) = 0, loadErr
+    If Len(loadErr) > 0 Then
+        EnglishResetGrammar
+        Exit Sub
+    End If
+
+    Dim own As String, noteText As String, notes As Collection
+    own = "Log 1." & vbLf & vbLf & "To sum of xs:" & vbLf & "  Give back 1." & vbLf & vbLf & _
+          "Set s to sum of revenues."
+    AssertEnglish "lx.14 masking: a program's own sum of is the one its sentences call", _
+                  own, "(set! s (sum revenues))"
+    Set notes = EnglishLastNotes()
+    noteText = ""
+    If notes.Count = 1 Then noteText = CStr(notes.Item(1))
+    Report "lx.14 masking: Check is told once, on the definition's line", _
+           InStr(1, noteText, "3|OK. In this program, 'sum of ...' means its own sum, not the phrasebook's (", vbBinaryCompare) = 1, _
+           "notes: " & notes.Count & " [" & noteText & "]"
+
+    AssertEnglish "lx.14 masking: the next program gets the phrasebook's sum of back", _
+                  "Set s to sum of revenues.", "(set! s (sum-of revenues))"
+    Report "lx.14 masking: and leaves no note", EnglishLastNotes().Count = 0, "notes: " & EnglishLastNotes().Count
+
+    Dim en As Long
+    On Error Resume Next
+    Err.Clear
+    EnglishToVla "To sum of xs:" & vbLf & "  Give back 1." & vbLf & vbLf & "Set s to."
+    en = Err.Number
+    On Error GoTo 0
+    Report "lx.14 masking: a program that masks and is then refused (control)", en <> 0, "it translated"
+    AssertEnglish "lx.14 masking: the next program still gets the phrasebook's sum of back", _
+                  "Set s to sum of revenues.", "(set! s (sum-of revenues))"
+
+    Dim d As String, gotId As String
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    Err.Clear
+    EnglishToVla "To length of x:" & vbLf & "  Give back x."
+    en = Err.Number
+    d = Err.Description
+    On Error GoTo 0
+    gotId = VLA_Messages.VlaLastRaisedMsgId()
+    Report "lx.14 masking: the engine's own length of still refuses", _
+           en <> 0 And gotId = "english-action-name-means-something", "err " & en & " [" & gotId & "] " & d
+
+    own = "To get sum:" & vbLf & "  Give back 7." & vbLf & vbLf & _
+          "Set a to sum of revenues." & vbLf & "Set b to sum."
+    AssertEnglish "lx.14 masking: beside a value word called sum, sum of is the phrasebook's", _
+                  own, "(set! a (sum-of revenues))"
+    AssertEnglish "lx.14 masking: and the bare word is the program's value", own, "(set! b (sum))"
+    Report "lx.14 masking: a value word leaves no note", EnglishLastNotes().Count = 0, "notes: " & EnglishLastNotes().Count
+    AssertEnglish "lx.14 masking: after it, sum of is still the phrasebook's", _
+                  "Set a to sum of revenues.", "(set! a (sum-of revenues))"
+
+    own = "To get tally using sum of 2:" & vbLf & "  Give back sum times 2." & vbLf & vbLf & _
+          "Set t to tally using sum of 3."
+    AssertEnglish "lx.14 masking: a parameter may be called sum", _
+                  own, "(function tally ((optional sum Variant 2))"
+    own = "To average:" & vbLf & "  Log 1." & vbLf & vbLf & "Average." & vbLf & _
+          "Set a to average of revenues."
+    AssertEnglish "lx.14 masking: a plain step may be called average", own, "(sub average ()"
+    AssertEnglish "lx.14 masking: and average of is still the phrasebook's", own, "(set! a (average-of revenues))"
     EnglishResetGrammar
 End Sub
