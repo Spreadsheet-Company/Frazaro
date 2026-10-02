@@ -29,6 +29,13 @@ Usage:
   powershell -File tools\prove.ps1 -Control
 Exit code: 0 when every attempted oracle passed (or, in inventory mode, when
 every oracle file exists); 1 otherwise.
+
+2026-10-01, PORT.5 (the treaty's amendment of that date): a fourth kind,
+compile - the .vla golden, less its GENERATED stamp line, with prelude.vla,
+to the .vba golden. The runner writes the stamp-less program to a file in a
+scratch directory and names it in the result, so what was compiled is a file
+someone can read; the control's fake answers it from the .vba golden and the
+mutant changes one byte, as for the translate kinds.
 #>
 param(
     [string]$Impl = '',
@@ -55,6 +62,22 @@ function Read-NormalizedFile([string]$path) {
 function Get-FormCount([string]$path, [string]$pattern) {
     return @(Select-String -Path $path -Pattern $pattern).Count
 }
+# The compile oracle's input: the .vla golden without its first line, the
+# GENERATED stamp VlaWriteGoldens adds after transpiling (the treaty's
+# amendment of 2026-10-01 says why). Written in a scratch directory the
+# caller owns, never beside the repository's own files, and returned as a
+# path so the result can name what was compiled. Bytes are copied, not
+# re-encoded: the file is ASCII and its line endings are left as found.
+function Write-CompileInput([string]$golden, [string]$dir) {
+    $bytes = [System.IO.File]::ReadAllBytes($golden)
+    $i = [Array]::IndexOf($bytes, [byte]10)
+    if ($i -lt 0) { throw "no line break in $golden" }
+    $rest = New-Object byte[] ($bytes.Length - $i - 1)
+    [Array]::Copy($bytes, $i + 1, $rest, 0, $rest.Length)
+    $out = Join-Path $dir 'instructions_golden.unstamped.vla'
+    [System.IO.File]::WriteAllBytes($out, $rest)
+    return $out
+}
 
 # ---- the oracles, as the treaty lists them ----
 $phrasebookForm = '^\s*\(test\b'
@@ -68,6 +91,9 @@ function Get-Oracles([string]$root) {
     $list.Add(@{ Kind = 'translate-vba'; Label = 'instructions.txt -> instructions_golden.vba'
                  Input = 'scripts/instructions.txt'; Golden = 'scripts/instructions_golden.vba'
                  Prelude = 'scripts/prelude.vla'; Phrasebook = 'scripts/polyglotta/english.vla' })
+    $list.Add(@{ Kind = 'compile'; Label = 'instructions_golden.vla -> instructions_golden.vba'
+                 Input = 'scripts/instructions_golden.vla'; Golden = 'scripts/instructions_golden.vba'
+                 Prelude = 'scripts/prelude.vla' })
     $list.Add(@{ Kind = 'interpreter'; Label = 'interpreter_golden.txt (needs a workbook model: slice 6)'
                  Golden = 'scripts/interpreter_golden.txt' })
     $pb = Join-Path $root 'scripts/polyglotta'
@@ -94,7 +120,7 @@ function Invoke-Impl([string]$impl, [string[]]$cmdArgs) {
     return @{ Stdout = $text; ExitCode = [int]$code }
 }
 
-function Measure-Oracles([string]$root, [string]$impl) {
+function Measure-Oracles([string]$root, [string]$impl, [string]$scratch) {
     $results = New-Object System.Collections.Generic.List[object]
     foreach ($o in Get-Oracles $root) {
         $r = @{ Label = $o.Label; Kind = $o.Kind; Status = 'not attempted'; Detail = '' }
@@ -114,6 +140,21 @@ function Measure-Oracles([string]$root, [string]$impl) {
                     $n = [Math]::Min($got.Length, $want.Length); $at = $n
                     for ($i = 0; $i -lt $n; $i++) { if ($got[$i] -ne $want[$i]) { $at = $i; break } }
                     $r.Status = 'FAIL'; $r.Detail = "differs at char $at of $($want.Length)"
+                }
+            }
+            'compile' {
+                $golden = Join-Path $root $o.Golden
+                $program = Write-CompileInput (Join-Path $root $o.Input) $scratch
+                $run = Invoke-Impl $impl @('compile', $program, '--prelude', (Join-Path $root $o.Prelude))
+                if ($run.ExitCode -eq 3) { break }
+                $want = Read-NormalizedFile $golden
+                $got  = Get-NormalizedText $run.Stdout
+                if ($run.ExitCode -ne 0) { $r.Status = 'FAIL'; $r.Detail = "exit $($run.ExitCode) on $program" }
+                elseif ($got -eq $want) { $r.Status = 'PASS'; $r.Detail = "$($want.Length) chars matched from $program" }
+                else {
+                    $n = [Math]::Min($got.Length, $want.Length); $at = $n
+                    for ($i = 0; $i -lt $n; $i++) { if ($got[$i] -ne $want[$i]) { $at = $i; break } }
+                    $r.Status = 'FAIL'; $r.Detail = "differs at char $at of $($want.Length), compiled from $program"
                 }
             }
             'prove' {
@@ -158,6 +199,7 @@ param([Parameter(ValueFromRemainingArguments=`$true)][string[]]`$a)
 switch (`$kind) {
     'translate-vla' { `$g = [System.IO.File]::ReadAllText((Join-Path `$root 'scripts/instructions_golden.vla')) }
     'translate-vba' { `$g = [System.IO.File]::ReadAllText((Join-Path `$root 'scripts/instructions_golden.vba')) }
+    'compile'       { `$g = [System.IO.File]::ReadAllText((Join-Path `$root 'scripts/instructions_golden.vba')) }
     'prove' {
         `$pattern = if (`$a[1] -like '*polyglotta*') { '$pb' } else { '$en' }
         `$n = @(Select-String -Path `$a[1] -Pattern `$pattern).Count
@@ -180,9 +222,9 @@ if ($Control) {
         Write-FakeImpl $fake $root $false
         Write-FakeImpl $mut  $root $true
         Write-Host 'prove -Control: the fake implementation (answers from the goldens) must pass'
-        $f1 = Write-Results (Measure-Oracles $root $fake) -all:$ShowAll
+        $f1 = Write-Results (Measure-Oracles $root $fake $tmp) -all:$ShowAll
         Write-Host 'prove -Control: the mutant (one byte changed, one proof failed) must fail'
-        $res2 = Measure-Oracles $root $mut
+        $res2 = Measure-Oracles $root $mut $tmp
         $f2 = Write-Results $res2 -all:$ShowAll
         $attempted = @($res2 | Where-Object { $_.Status -ne 'not attempted' }).Count
         if ($f1 -eq 0 -and $f2 -eq $attempted -and $attempted -gt 0) {
@@ -198,7 +240,11 @@ if ($Control) {
 
 if ($Impl -ne '') {
     if (-not (Test-Path $Impl)) { Write-Host "FAIL: no implementation at $Impl"; exit 1 }
-    $fails = Write-Results (Measure-Oracles $root $Impl) -all:$ShowAll
+    # The compile oracle's stamp-less input is written here and left in
+    # place, so a FAIL line can name a file that still exists afterwards.
+    $scratch = Join-Path ([System.IO.Path]::GetTempPath()) ('frazaro_prove_' + [System.IO.Path]::GetRandomFileName())
+    New-Item -ItemType Directory -Path $scratch | Out-Null
+    $fails = Write-Results (Measure-Oracles $root $Impl $scratch) -all:$ShowAll
     if ($fails -gt 0) { exit 1 }
     exit 0
 }

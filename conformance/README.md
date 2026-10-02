@@ -77,3 +77,41 @@ oracle from the golden itself, and a mutant that answers with one byte
 changed and one proof failed. The control must pass and the mutant must
 fail, or the runner is not trusted to score anything. `tools/run_checks.ps1
 -WithExtras` runs that control.
+
+## Amendment of 2026-10-01: oracle 1b, the compile golden (`PORT.5`)
+
+`PORT.5` ports the reader, the macroexpander and the emitters before it
+ports English, so the first implementation to be scored reads VLA, not
+sentences. The translate goldens already hold the two ends of that road,
+and the step between them is a golden of its own:
+
+- **1b. The compile golden.** `scripts/instructions_golden.vla`, read with
+  `scripts/prelude.vla`, compiles to `scripts/instructions_golden.vba`. The
+  comparison is the one oracle 1 makes: byte for byte after line endings
+  are normalized to LF and trailing blank lines are dropped.
+
+The input is the golden *without its first line*. `VlaWriteGoldens`
+(`src/VLA_Tests.bas`) transpiles the VLA text and only then writes it to
+disk under a `; GENERATED` stamp line, so that Lint VLA refuses the file by
+name; every `' vla:N` tag in the `.vba` therefore numbers the lines of the
+text that was transpiled, which is the file from its second line on. The
+runner drops that one line and hands the implementation the rest as a
+file whose path the result names, so that what was compiled is a file
+someone can read. The stamp is the writer's mark, not part of the program,
+and the language's reader never learns of it.
+
+The contract gains one command:
+
+- `<impl> compile <program.vla> --prelude <prelude.vla>` writes the VBA
+  text to stdout and exits 0. A refusal writes its message to stderr and
+  exits 1; exit 3 says the oracle is not attempted, as above.
+
+Until an implementation reproduces the whole golden, `tools/check_compile_prefix.ps1`
+holds the length of the prefix it matches as a floor that never goes down,
+in the shape every other check keeps: a hardcoded, reviewable number, and a
+`-Control` on a fake and a mutant. The day the prefix reaches the end is
+the first reproduction of a golden by anything but the VBA, and the commit
+that lands it says so.
+
+`-Control` covers the new kind: the fake answers `compile` from the `.vba`
+golden and the mutant changes one byte of it.
