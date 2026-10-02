@@ -1,6 +1,8 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "LE.11"
+Public Const VLA_TESTS_VERSION As String = "F.7"
+' F.7 (the two latent bugs): VlaSelfTest dispatches VLA_Tests_Grammar's
+' TestF7 after TestL14.
 ' LE.11: TestEnglishCore's phrase-row pins read each row's category (the
 ' rows have no header rows now), and VlaSelfTest dispatches
 ' VLA_Tests_Grammar's TestLe11PhraseCategories after TestLx14Spanish.
@@ -424,6 +426,7 @@ Public Function VlaSelfTest() As Boolean
     TestL13
     TestG12
     TestL14
+    TestF7
     TestL18
     TestAlonzoLib
     TestLx10NonEnglishFixture

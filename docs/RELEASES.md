@@ -155,6 +155,13 @@
   - `tools/check_proofs.ps1` checks every table without Excel. The clingo
     export passes over a proof with tables until it can state one
     faithfully, so clingo still reads the same 23 proofs.
+- **A worksheet function defined in a program keeps a minus sign and a
+  quote mark.** Before, a `deflambda` whose body negated a lone value, as
+  in `(- x)`, lost the minus sign on its way into the formula, and one
+  whose text held a quote mark wrote a formula Excel could not read. Both
+  are spelled now as Excel reads them: `(-x)`, and a quote mark doubled
+  inside the text. No sentence in the phrasebook reaches either case
+  today; a phrasebook of your own that compiles a formula may.
 - **The repository is now a workspace for more than one product; nothing
   about the add-in you download changes.** Frazaro is a language whose first
   implementation is this Excel add-in, and this release lays the ground for

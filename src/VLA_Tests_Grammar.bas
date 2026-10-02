@@ -1,6 +1,9 @@
 Attribute VB_Name = "VLA_Tests_Grammar"
 Option Explicit
-Public Const VLA_TESTS_GRAMMAR_VERSION As String = "LE.11"
+Public Const VLA_TESTS_GRAMMAR_VERSION As String = "F.7"
+' F.7 (the two latent bugs): TestF7 - four pins on the formula dialect: a
+' lone operand under - keeps its sign, alone and inside a chain, and a
+' quote mark inside a formula's text, or an array constant's, is doubled.
 ' LE.11: TestLe11PhraseCategories - six pins on "What can I say?"'s rows
 ' with english.vla loaded: no header rows, and each row under its
 ' category - a sentence's first word, a choice of words as its template
@@ -4106,6 +4109,51 @@ Public Sub TestL14()
     On Error GoTo 0
     Report "l14: top-level deflambda refuses with placement words", _
            InStr(1, d, "runs when the program runs", vbTextCompare) > 0, "got: " & d
+End Sub
+
+' ---------------------------------------------------------------------
+'  F.7 pins: the formula dialect's two latent bugs, fixed 2026-10-01
+'  ahead of PORT.5 so the port never reproduces a bug to match a
+'  golden. A lone operand under - keeps its sign: EmitFormula's
+'  operator arm wrote the operator only between operands, so (- x)
+'  became (x). A quote mark inside a formula's text is doubled, Excel's
+'  own spelling: the string arms of EmitFormula and FormulaQuote
+'  wrapped the text as it stood, and Excel could not read the result.
+'  All through TryTranspile, the RefersTo frags built by hand against
+'  the dialect and held byte for byte, L14's own discipline: the
+'  formula's own doubled quote is doubled again by the Add line's
+'  VBA-escape, so a quote mark inside the text shows as four here.
+' ---------------------------------------------------------------------
+Public Sub TestF7()
+    Dim t As String
+
+    t = TryTranspile("f7: a lone operand under - keeps its sign", _
+                     "(sub t () (deflambda neg (x) (- x)))")
+    If Len(t) > 0 Then
+        CheckFrags "f7: a lone operand under - keeps its sign", t, _
+                   Array("RefersTo:=""=LAMBDA(x, (-x))""")
+    End If
+
+    t = TryTranspile("f7: a negated operand keeps its sign inside a chain", _
+                     "(sub t () (deflambda dip (x) (- (- x) 1)))")
+    If Len(t) > 0 Then
+        CheckFrags "f7: a negated operand keeps its sign inside a chain", t, _
+                   Array("RefersTo:=""=LAMBDA(x, ((-x)-1))""")
+    End If
+
+    t = TryTranspile("f7: a quote mark inside a formula's text is doubled", _
+                     "(sub t () (deflambda say (x) (if x ""say \""hi\"""" ""nothing"")))")
+    If Len(t) > 0 Then
+        CheckFrags "f7: a quote mark inside a formula's text is doubled", t, _
+                   Array("RefersTo:=""=LAMBDA(x, IF(x, """"say """"""""hi"""""""""""", """"nothing""""))""")
+    End If
+
+    t = TryTranspile("f7: a quote mark inside an array constant's text is doubled", _
+                     "(sub t () (deflambda picks () (quote (""a \""b\"""" 2))))")
+    If Len(t) > 0 Then
+        CheckFrags "f7: a quote mark inside an array constant's text is doubled", t, _
+                   Array("RefersTo:=""=LAMBDA({""""a """"""""b"""""""""""",2})""")
+    End If
 End Sub
 
 ' ---------------------------------------------------------------------

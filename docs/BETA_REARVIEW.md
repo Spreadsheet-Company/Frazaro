@@ -3481,6 +3481,25 @@ specimens: 3 (three blind-fix incidents, one first-user Undo report).*
   a test that fails when the VBA emitter gains a case the formula dialect
   neither supports nor refuses. *Now generalized by SD-5 to cover every
   backend.* `~days`
+  *The two latent bugs, fixed 2026-10-01 ahead of `PORT.5`, so that the port
+  never reproduces a bug to match a golden (`SD-18` makes the VBA the
+  reference, and a reference with a known bug would make the core copy it).
+  Both found 2026-09-27 while Contemplation 9's collapse 1 was scoped.
+  (1) `(- x)` emitted `(x)`: `EmitFormula`'s operator arm (`VLA.bas`) wrote
+  the operator only between operands, so a lone operand lost its sign; it
+  now writes `(-x)`, the shape `EmitExpr`'s own `-` arm already had. (2) A
+  string's inner `"` was never doubled for Excel: `EmitFormula`'s and
+  `FormulaQuote`'s string arms wrapped the text as it stood, so a
+  `deflambda` whose text held a quote mark wrote a formula Excel could not
+  read; `FormulaText`, new, is the one quoting rule for the dialect's three
+  text arms, doubling each inner quote mark, and `EmitDeflambda`'s
+  VBA-escape at the `Names.Add` line then doubles those again, as it
+  doubles every other quote. Pins: `TestF7` (`VLA_Tests_Grammar.bas`), four:
+  `(- x)` alone and inside a chain, a quote mark inside a formula's text
+  and inside an array constant's. Goldens: the corpus holds no `deflambda`
+  and no formula `LAMBDA`, so `VlaGoldens` diffs empty; the owner's run is
+  the witness. The operator table and the test the item is named for stay
+  open.*
 - ✅ **F.8 — split `VLA_Tests.bas`** by concern before ~5,000 lines. It reached
   4,945 (F.9's own new tests pushed it there). **Built:** a new sibling module,
   `VLA_Tests_Grammar.bas`, now holds every grammar/phrasebook feature pin (the

@@ -20,7 +20,22 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.7.1"
-Public Const VLA_CORE_VERSION As String = "TER-8"
+Public Const VLA_CORE_VERSION As String = "F.7"
+' F.7 (the two latent bugs): A LONE OPERAND KEEPS ITS SIGN IN A FORMULA, AND
+' A QUOTE MARK INSIDE A FORMULA'S TEXT IS DOUBLED. Found 2026-09-27 while
+' Contemplation 9's collapse 1 was scoped; fixed 2026-10-01, ahead of
+' PORT.5, so the port never reproduces a bug to match a golden. EmitFormula's
+' operator arm wrote the operator only between operands, so (- x) became
+' (x) and the sign was lost; a lone operand under - now writes (-x), the
+' shape EmitExpr's own - arm already had. EmitFormula's string arm and
+' FormulaQuote's wrapped a text as it stood, so a text holding a quote mark
+' gave Excel a formula it could not read; FormulaText, new, doubles each
+' quote mark inside the text, Excel's own spelling, and EmitDeflambda's
+' VBA-escape of the whole formula at the Add line then doubles those again,
+' as it doubles every other quote. Pinned by TestF7 (VLA_Tests_Grammar.bas);
+' the corpus holds no deflambda, so the goldens do not move. The rest of
+' F.7 - the operator table and the test that fails when the emitter gains a
+' case the dialect neither supports nor refuses - stays open.
 ' TER-8: TOKENIZE READS TEXT WITH NO TOKEN. Found by TER-7, which fixed the
 ' English tokenizer's twin. Tokenize ended with ReDim toksArr(1 To
 ' outc.Count), and for text holding no token at all - empty, only
@@ -5200,7 +5215,7 @@ Private Function EmitFormula(v As Variant) As String
         Dim s As String
         s = CStr(v)
         If Left$(s, 1) = Chr$(34) Then
-            EmitFormula = Chr$(34) & Mid$(s, 2) & Chr$(34)
+            EmitFormula = FormulaText(Mid$(s, 2))
             Exit Function
         End If
         If IsKeywordArg(s) Then VLA_Messages.RaiseMsg "vla-formula-no-named-args", "tok", s
@@ -5222,6 +5237,14 @@ Private Function EmitFormula(v As Variant) As String
     Dim i As Long
     Select Case h
         Case "+", "-", "*", "/", "&", "=", "<>", "<", ">", "<=", ">="
+            ' F.7: a lone operand under - is a negation and keeps its
+            ' sign, (-x), the shape EmitExpr's own - arm writes; the
+            ' loop below writes the operator only between operands, so
+            ' it used to drop the sign and write (x).
+            If h = "-" And lst.Count = 2 Then
+                EmitFormula = "(-" & EmitFormula(Nth(lst, 2)) & ")"
+                Exit Function
+            End If
             For i = 2 To lst.Count
                 If Len(r) > 0 Then r = r & h
                 r = r & EmitFormula(Nth(lst, i))
@@ -5304,12 +5327,24 @@ Private Function FormulaQuote(v As Variant) As String
     Dim s As String
     s = CStr(v)
     If Left$(s, 1) = Chr$(34) Then
-        FormulaQuote = Chr$(34) & Mid$(s, 2) & Chr$(34)
+        FormulaQuote = FormulaText(Mid$(s, 2))
     ElseIf IsNumeric(s) Then
         FormulaQuote = s
     Else
-        FormulaQuote = Chr$(34) & s & Chr$(34)
+        FormulaQuote = FormulaText(s)
     End If
+End Function
+
+' F.7: a text in a formula, spelled as Excel reads it - wrapped in quote
+' marks, with each quote mark inside the text doubled. The one quoting
+' rule for the dialect's three text arms (EmitFormula's string literal,
+' FormulaQuote's string literal and its bare atom), where each used to
+' wrap the text as it stood and a text holding a quote mark gave Excel a
+' formula it could not read. EmitDeflambda then VBA-escapes the whole
+' formula once at the Add line, which doubles these again, as it doubles
+' every other quote mark in the formula.
+Private Function FormulaText(ByVal content As String) As String
+    FormulaText = Chr$(34) & Replace(content, Chr$(34), Chr$(34) & Chr$(34)) & Chr$(34)
 End Function
 
 ' P.L5 (P-QUOTE): (quote <datum>) -> one VBA literal expression.
