@@ -95,6 +95,15 @@
   at a compile error with no sentence named. It is now refused at Check,
   naming the word, and a hyphenated name such as `return-code` or
   `scale-factor` works as before.
+- **Two refusals that never came out right, do.** A `Get <action> using
+  ...` sentence standing on its own is refused as a value with nowhere to
+  go, with the pointer written for it (`Set fee to get tax using ...`),
+  where a slip in the add-in's own code had let it fall to the general
+  "Don't understand" instead; and a phrasebook rule written without a
+  template is refused in one sentence and leaves the loaded grammar whole,
+  where before it quietly misaligned every rule loaded after it until Excel
+  was restarted. Both were found by the second implementation's refusal
+  golden on its first run against the add-in.
 - **`month of`, `year of`, `day of`, `hour of`, `minute of` and `absolute
   of` work under Interpret.** They always worked in a program that runs.
   Interpret stopped at each one, naming it. `Set m to month of today.` now

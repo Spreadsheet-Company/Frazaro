@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_Tests_Grammar"
 Option Explicit
-Public Const VLA_TESTS_GRAMMAR_VERSION As String = "LX.15"
+Public Const VLA_TESTS_GRAMMAR_VERSION As String = "F.18"
+' F.18 (two latent bugs the refusal golden found): TestF18 - the
+' standalone-Get guard refuses by id, words and line; a rule with no
+' template is refused once, with no detail, and leaves the rule store
+' whole, so the next rule loads with its own template and reads.
 ' LX.15: TestF4NoiseWordBeforeSlot's live instance (francais.vla:151) is
 ' a fixture now that the file is mended, and two pins say francais.vla
 ' and deutsche.vla load clean on their own.
@@ -4896,6 +4900,58 @@ Private Sub CheckPhraseLoad(ByVal label As String, ByVal phrasebook As String, B
     On Error GoTo 0
     Report "lx.14 audit: " & label & " - loads", Len(loadErr) = 0, loadErr
     If Len(loadErr) = 0 Then AssertEnglish "lx.14 audit: " & label & " - reads", sentence, frag
+End Sub
+
+' F.18: two latent bugs the refusal golden (PORT.6, slice 6f) found on
+' the reference's first run. (1) The standalone-Get guard: ParseStmt's
+' Case "get" line stood twice, so the first, empty, arm matched and the
+' guard never ran; "Get taxed using a of 5." fell to the rule walk and the
+' parse error, on the same line, which is all the B7 pin in VLA_Tests.bas
+' asked. (2) A rule whose template did not read was half registered:
+' AddPhraseRule had added its words before TemplateForms raised, so every
+' rule loaded after it, for the rest of the Excel session, carried the next
+' rule's template; and TemplateForms raised its refusal twice, the second
+' time with the first message as its detail.
+Public Sub TestF18()
+    Dim en As Long, d As String, gotId As String
+    ' (1) The guard is live: the id, the words, the line.
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    Err.Clear
+    EnglishToVla "To taxed using a of 1:" & vbLf & "  Give back a." & vbLf & vbLf & "Get taxed using a of 5."
+    en = Err.Number
+    d = Err.Description
+    On Error GoTo 0
+    gotId = VLA_Messages.VlaLastRaisedMsgId()
+    Report "f18: a standalone Get is refused by the guard, not the rule walk", _
+           en <> 0 And gotId = "english-standalone-get" And InStr(1, d, "is a value, not an instruction", vbBinaryCompare) > 0 _
+           And EnglishLastErrorLine() = 4, _
+           "err " & en & " [" & gotId & "] line " & EnglishLastErrorLine() & ": " & d
+    ' (2) A template that does not read is refused once, in one sentence ...
+    EnglishResetGrammar
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText "(english-vla ""wobble"")", "f18-fixture.vla"
+    en = Err.Number
+    d = Err.Description
+    On Error GoTo 0
+    gotId = VLA_Messages.VlaLastRaisedMsgId()
+    Report "f18: a rule with no template is refused once, with no detail", _
+           en <> 0 And gotId = "english-template-not-well-formed" And d = "template does not parse as well-formed VLA: ", _
+           "err " & en & " [" & gotId & "] " & d
+    ' ... and leaves the rule store whole: the next rule loads with its own
+    ' template (its proof would meet the next rule's, or none, otherwise)
+    ' and reads.
+    EnglishResetGrammar
+    Dim loadErr As String
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabularyText "(english-vla ""wobble {x:expr}"" (debug-print {x}))" & vbCrLf & "(test-success ""Wobble 5."" (debug-print 5))", "f18-fixture.vla"
+    If Err.Number <> 0 Then loadErr = Err.Description
+    On Error GoTo 0
+    Report "f18: the rule store is whole after the refusal - the next rule loads with its own template", Len(loadErr) = 0, loadErr
+    AssertEnglish "f18: and the rule reads", "Wobble 7.", "(debug-print 7)"
 End Sub
 
 ' LX.14: a phrasebook written here is refused at load, by id and words.

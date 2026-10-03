@@ -1,6 +1,8 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "U.31"
+Public Const VLA_TESTS_VERSION As String = "F.18"
+' F.18 (two latent bugs the refusal golden found): VlaSelfTest dispatches
+' VLA_Tests_Grammar's TestF18 after TestF4NoiseWordBeforeSlot.
 ' U.31: TestU31ReservedWords - the seven reserved words IsReservedName
 ' lacked (return, gosub, global, scale, circle, decimal, longlong) are
 ' refused as names, and a hyphenated name that begins with one still works;
@@ -445,6 +447,7 @@ Public Function VlaSelfTest() As Boolean
     TestAlonzoLib
     TestLx10NonEnglishFixture
     TestF4NoiseWordBeforeSlot
+    TestF18
     TestF4CrossRuleShadow
     TestGPath
     TestHeadTable

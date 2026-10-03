@@ -4044,6 +4044,51 @@ specimens: 3 (three blind-fix incidents, one first-user Undo report).*
   steps can then return to `main` or stay, the owner's call. *Depends on:*
   nothing; `TER-11` is related. *Pays into:* SD-5 (a program Interpret runs,
   Compile runs), IN.4 (the export of a long SOP). `~days`
+- ✅ **F.18 — two latent bugs the refusal golden found: a dead guard, a
+  half-registered rule.** *Minted 2026-10-02 from `PORT.6`'s slice 6f, whose
+  refusal golden (`scripts/refusals.txt` to `scripts/refusals_golden.txt`)
+  the reference wrote for the first time that day and differed from the
+  port's prediction in two of 115 cases; `SD-18`: a known bug on the path is
+  fixed in the VBA first, as its own item, so the port never reproduces one
+  to match a golden. Built, owner-verified live and committed the same day:
+  pure 1667/1667 with the four pins, host 267/267, and the refusal golden's
+  second run matched the port's prediction in all 115 cases, byte for
+  byte.* **The dead guard.** `ParseStmt`'s `Case "get"` line was written twice in `B7`'s
+  own commit (`62440a4`, 2026-09-04), and VBA runs the first matching arm,
+  the empty one. So the standalone-Get guard never ran: `Get taxed using a
+  of 5.` fell to the rule walk and the parse error ("No loaded sentence
+  starts with 'get'"), and `english-standalone-get` was a catalogue id no
+  sentence could reach. The pin written with it (`AssertErrLine "standalone
+  Get is refused with a pointer"`, `VLA_Tests.bas`) asked only the line, 4,
+  which the parse error reports too, so it passed for twenty-eight days; the
+  port had one arm, fired the guard, and the golden told the two apart.
+  **The half-registered rule.** `AddPhraseRule` added a rule's words to
+  `mPatItems` before `TemplateForms` read its template for `mPatForms`, so a
+  template that does not read (`(english-vla "wobble")`, no template at all)
+  raised between the two and left `mPatItems` one longer than its four
+  parallel collections. `EnglishResetGrammar` pops the same count from each,
+  so the misalignment moved into the built-in zone and stayed for the Excel
+  session: every rule loaded afterwards carried the NEXT rule's template,
+  and `english.vla` itself failed its proof at line 87 (`Put formula
+  "=B2*C2" into range D2:D50.` got `(set-formula-rows {c} {a} {b}
+  "=B2*C2")`), which the golden's run recorded for all 34 cases after the
+  one that broke it. And `TemplateForms` raised its refusal twice: an empty
+  or form-less template reached the `fail:` label by `GoTo` while `On Error
+  GoTo fail` was still armed, so the raise there was caught by its own
+  handler and raised again with the first message as its detail ("template
+  does not parse as well-formed VLA:  (template does not parse as
+  well-formed VLA: )"). **Fixes:** the duplicated `Case "get"` line is gone;
+  `AddPhraseRule` reads the template and joins the signatures before any of
+  its five Adds, so a refusal leaves the store as it was; `TemplateForms`
+  takes the reader's description, disarms its handler and raises once, with
+  that detail or none. The core needs no change: it ported one arm, pushes a
+  rule as one value, and raises once. **SD-4:** no promised sentence changes
+  meaning; a sentence that was refused is refused with the words written
+  for it. **Pins:** `TestF18` (`VLA_Tests_Grammar.bas`, 4): the guard by id,
+  words and line; the template refusal by id and exact text; a rule loading
+  whole after it, its proof passing; the rule reading. Dispatched after
+  `TestF4NoiseWordBeforeSlot`. **Docs:** `RELEASES.md` 0.8.0, this entry,
+  the ledger. `~hours`
 
 ---
 
@@ -27514,6 +27559,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **F.10 — `requires:` in phrasebooks.** `(requires-version "0.5.2")`, `(requires-capability …)`, `(requires-form …)`, checked by a lexical pre-pass before a single rule registers. The specified `requires: ns:value` spelling could not exist after F.13's all-forms migration; the namespace rides in the head, and a bare atom would have named a function. Shared parse, two enforcement sites: `version`/`form`/unknown refuse host-free in `EnglishLoadVocabularyText`; `capability` in `EnglishLoadVocabulary` (SEC.2's trap). Unknown namespace refuses, with version-first ordering. `capability` can only refuse until SEC.7; `form` refuses as not-yet-enforceable. Carried CO.6's ratchet, `check_grammar_since.ps1` (150/150, 128/128). Owner-verified live 2026-09-07 (pure 985/985). *(more: the full entry, earlier in this file)* `~days`
 
 - ✅ **F.15 — the two hardcoded module manifests, cross-checked.** **Closed 2026-09-14 on paper:** already built as `tools/check_devrig_mods_parity.ps1` and committed with SEC.8 (`1291480`). Both directions, the reasoned dev-only set and missing source files are checked; mutation-tested at closing (control exits 0; four mutations, including this item's own `VLA_Messages` incident, each exit 1 naming the module). *(more: the full entry, earlier in this file)* *As filed:* `VLA_Build.bas`'s `mods` array and `VLA_DevRig.bas`'s reload list must agree and are not checked against each other — `REBUILD.md`'s own R3 names this, and `LX.2`'s own session was bitten by it live the same day (`VLA_Messages` missing from `VlaDevReload`'s own list, surfacing only as a "Variable not defined" compile error on a fresh workbook). *Why now:* cheap and mechanical, the exact shape of bug this project's own tooling already catches for other pairs (`F.12`'s ID checker, `AS.8`'s parity checker) — a `tools/*.ps1` script comparing the two lists is an afternoon, not a redesign, and the failure mode it prevents has already fired once live. `~hours`
+- ✅ **F.18 — two latent bugs the refusal golden found: a dead guard, a half-registered rule.** `ParseStmt`'s `Case "get"` line stood twice (`B7`'s own commit), so the standalone-Get guard never ran and `Get taxed using a of 5.` met the parse error, on the line its pin asked; `AddPhraseRule` added a rule's words before reading its template, so a template that did not read left the rule store misaligned for the rest of the Excel session, every later rule carrying the next rule's template, and `TemplateForms` raised its refusal twice. Found 2026-10-02 by `PORT.6`'s refusal golden on the reference's first run, two of 115 cases, the second poisoning the 34 after it; fixed in the VBA first (`SD-18`): one `Case` line, the template read before any Add, one raise. Built, owner-verified live and committed the same day (pure 1667/1667, host 267/267; the golden's second run matched the port's prediction whole). *(more: the full entry, earlier in this file)* `~hours`
 
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES
 

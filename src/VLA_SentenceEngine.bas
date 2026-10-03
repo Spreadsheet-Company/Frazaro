@@ -1,6 +1,14 @@
 Attribute VB_Name = "VLA_SentenceEngine"
 Option Explicit
-Public Const VLA_SENTENCEENGINE_VERSION As String = "U.31"
+Public Const VLA_SENTENCEENGINE_VERSION As String = "F.18"
+' F.18: two latent bugs the refusal golden found (PORT.6, slice 6f).
+' ParseStmt's Case "get" line stood twice, so the first, empty, arm matched
+' and the standalone-Get guard never ran; it is one line now. AddPhraseRule
+' reads the template and joins the signatures before any of its five Adds,
+' so a template that does not read leaves the rule store the length it was
+' (it used to leave mPatItems one longer, and EnglishResetGrammar carried
+' the misalignment into the built-in zone for the rest of the session).
+' TemplateForms raises its refusal once, with the reader's detail or none.
 ' U.31: IsReservedName gains the seven reserved identifiers it lacked
 ' (return, gosub, global, scale, circle, decimal, longlong): a value or a
 ' step of such a name checked clean and failed to compile; each is refused
@@ -1724,10 +1732,20 @@ Private Sub AddPhraseRule(ByVal pattern As String, ByVal template As String, _
 
     Dim appendSigs As Collection
     Set appendSigs = ExpandedSignatures(items)
+    ' F.18: everything that can refuse runs before the first Add, so a
+    ' refusal leaves the five parallel collections the length they were.
+    ' The words used to be added first; a template that did not read then
+    ' left mPatItems one longer than the rest, EnglishResetGrammar popped
+    ' the same count from each, and every rule loaded after it, for the
+    ' rest of the Excel session, carried the next rule's template.
+    Dim tf As Collection
+    Set tf = TemplateForms(template)
+    Dim sigText As String
+    sigText = JoinSigs(appendSigs)
     mPatItems.Add items
-    mPatForms.Add TemplateForms(template)
+    mPatForms.Add tf
     mPatTexts.Add pattern
-    mPatSigs.Add JoinSigs(appendSigs)
+    mPatSigs.Add sigText
     mPatSources.Add src
     mDspValid = False   ' V7: rebuilt lazily at the next dispatch
     Dim asv As Variant
@@ -1762,14 +1780,23 @@ End Sub
 ' FormSubstitute and TryFormPath below splice every one of them, in
 ' order.
 Private Function TemplateForms(ByVal template As String) As Collection
+    Dim d As String
     On Error GoTo fail
     Set TemplateForms = VLA.VlaReadForms(template)
-    If TemplateForms Is Nothing Then GoTo fail
-    If TemplateForms.Count = 0 Then GoTo fail
+    On Error GoTo 0
+    If TemplateForms Is Nothing Then GoTo noforms
+    If TemplateForms.Count = 0 Then GoTo noforms
     Exit Function
 fail:
-    Dim d As String
+    ' F.18: the reader's description is taken before the handler is
+    ' disarmed (any On Error statement clears Err), and the raise below
+    ' runs with no handler of this procedure's own. An empty template used
+    ' to reach fail: by GoTo while "On Error GoTo fail" was still armed, so
+    ' the refusal raised there was caught here and raised again, with the
+    ' first message as its detail.
     d = Err.Description
+    On Error GoTo 0
+noforms:
     VLA_Messages.RaiseMsg "english-template-not-well-formed", "template", template, "detail", IIf(Len(d) > 0, " (" & d & ")", "")
 End Function
 
@@ -4322,8 +4349,9 @@ Private Function ParseStmt(toks() As String, ByRef pos As Long, ByVal ind As Lon
             ' no % in the amount: hand the sentence to the rules
 
         Case "get"
-        Case "get"
-            ' B7: a bare using-call is a value, not an instruction.
+            ' B7: a bare using-call is a value, not an instruction. (F.18:
+            ' this Case line stood twice, and VBA runs the first matching
+            ' arm, the empty one, so the guard below never ran.)
             If IsUsingFn(TokAt(toks, pos + 1)) And TokAt(toks, pos + 2) = "using" Then
                 Claim "the standalone-Get guard"
                 VLA_Messages.RaiseMsg "english-standalone-get", "fn", TokAt(toks, pos + 1), "loc", LineTag(pos)
