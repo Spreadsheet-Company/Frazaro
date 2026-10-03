@@ -49,6 +49,19 @@ fn read_text(path: &str) -> Result<String, String> {
     String::from_utf8(bytes.to_vec()).map_err(|_| format!("{path} is not valid UTF-8"))
 }
 
+/// A file a command needs but cannot find: the catalogue's refusal for that
+/// kind of file (the reference's `english-program-file-not-found` and
+/// `english-vocab-file-not-found`; a VLA source and the prelude take
+/// VLA.bas's two), to stderr with exit 1, as any refusal.
+fn refuse_missing(id: &str, path: &str) -> ExitCode {
+    eprintln!("{}", frazaro_core::messages::raise(id, &[("path", path)]));
+    ExitCode::from(1)
+}
+
+fn is_file(path: &str) -> bool {
+    std::path::Path::new(path).is_file()
+}
+
 fn option_after<'a>(args: &'a [String], name: &str) -> Option<&'a str> {
     args.iter()
         .position(|a| a == name)
@@ -95,6 +108,12 @@ fn compile(args: &[String]) -> ExitCode {
         eprintln!("usage: frazaro compile <program.vla> --prelude <prelude.vla>");
         return ExitCode::from(2);
     };
+    if !is_file(program) {
+        return refuse_missing("vla-source-not-found", program);
+    }
+    if !is_file(prelude) {
+        return refuse_missing("vla-file-not-found", prelude);
+    }
     let (source, prelude) = match (read_text(program), read_text(prelude)) {
         (Ok(s), Ok(p)) => (s, p),
         (Err(e), _) | (_, Err(e)) => {
@@ -132,6 +151,12 @@ fn load(args: &[String]) -> ExitCode {
         return ExitCode::from(2);
     };
     let allow_raw = args.iter().any(|a| a == "--allow-raw");
+    if !is_file(book) {
+        return refuse_missing("english-vocab-file-not-found", book);
+    }
+    if !is_file(prelude) {
+        return refuse_missing("vla-file-not-found", prelude);
+    }
     let (text, prelude) = match (read_text(book), read_text(prelude)) {
         (Ok(t), Ok(p)) => (t, p),
         (Err(e), _) | (_, Err(e)) => {
@@ -183,6 +208,9 @@ fn prove(args: &[String]) -> ExitCode {
         return ExitCode::from(2);
     };
     let allow_raw = args.iter().any(|a| a == "--allow-raw");
+    if !is_file(book) {
+        return refuse_missing("english-vocab-file-not-found", book);
+    }
     let text = match read_text(book) {
         Ok(t) => t,
         Err(e) => {
@@ -214,6 +242,9 @@ fn prove(args: &[String]) -> ExitCode {
             }
         },
     };
+    if !is_file(&prelude_path) {
+        return refuse_missing("vla-file-not-found", &prelude_path);
+    }
     let prelude = match read_text(&prelude_path) {
         Ok(p) => p,
         Err(e) => {
@@ -284,6 +315,12 @@ fn translate(kind: &str, args: &[String]) -> ExitCode {
         return ExitCode::from(2);
     }
     let allow_raw = args.iter().any(|a| a == "--allow-raw");
+    if !is_file(program) {
+        return refuse_missing("english-program-file-not-found", program);
+    }
+    if !is_file(prelude) {
+        return refuse_missing("vla-file-not-found", prelude);
+    }
     let (text, prelude) = match (read_text(program), read_text(prelude)) {
         (Ok(t), Ok(p)) => (t, p),
         (Err(e), _) | (_, Err(e)) => {
@@ -294,6 +331,9 @@ fn translate(kind: &str, args: &[String]) -> ExitCode {
     use frazaro_core::english::vocab::{vocab_requires_check_capability, vocab_text_has_raw_form};
     let mut grammar = frazaro_core::english::Grammar::new(&prelude);
     for book in books {
+        if !is_file(book) {
+            return refuse_missing("english-vocab-file-not-found", book);
+        }
         let vocab = match read_text(book) {
             Ok(v) => v,
             Err(e) => {

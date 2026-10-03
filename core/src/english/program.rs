@@ -27,6 +27,14 @@ pub struct Translation {
     pub step_texts: Vec<String>,
 }
 
+/// A refusal with the line `EnglishLastErrorLine()` reports after it: the
+/// tokenizer's, the sentence's, or a lint's cell line; 0 when none is known.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RefusalAtLine {
+    pub refusal: Refusal,
+    pub line: u32,
+}
+
 /// VBA `ClickHandlerSlug`: a caption as an identifier, every other
 /// character an underscore.
 pub fn click_handler_slug(caption: &str) -> String {
@@ -56,6 +64,17 @@ impl Grammar {
     pub fn translate_program(&self, text: &str) -> Result<Translation, Refusal> {
         let mut parser = Parser::new(self);
         parser.translate_program(text)
+    }
+
+    /// `EnglishToVla` with `EnglishLastErrorLine()` beside a refusal: the
+    /// line the IDE attributes it to.
+    pub fn translate_program_at(&self, text: &str) -> Result<Translation, RefusalAtLine> {
+        let mut parser = Parser::new(self);
+        let out = parser.translate_program(text);
+        out.map_err(|refusal| RefusalAtLine {
+            refusal,
+            line: parser.err_line,
+        })
     }
 
     /// VBA `EnglishToVba`: `VlaTranspile(EnglishToVla(text))`, the carried

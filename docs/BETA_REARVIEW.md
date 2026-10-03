@@ -6511,10 +6511,77 @@ written against.
   twin of `check_compile_prefix.ps1`, its floor the whole golden, with its
   control, in the `core` CI job. **Floors:** `check_prove_floors.ps1` 433
   → 482 and 26 → 30; `run_checks.ps1` 37 → 38. **Docs:** `RELEASES.md`
-  0.8.0, `Delta/CLAUDE.md`, this entry, the roadmap's paragraph. **Next:**
-  6f, every refusal id on the path against a refusal golden the reference
-  writes; then 6g, the translate API, and 6h, the C-ABI door and
-  `web/index.html`.
+  0.8.0, `Delta/CLAUDE.md`, this entry, the roadmap's paragraph. Committed
+  `3c12dc9` on the owner's word.
+  **Built the same day, slice 6f: every refusal id on the path, against a
+  refusal golden the reference writes.** The English modules raise 125 ids,
+  and 6c to 6e ported each `RaiseMsg` arm for arm, so the core named 117 of
+  them; nothing yet proved that each comes out in the same situation with
+  the same text. Now a golden does, in the token golden's shape:
+  `scripts/refusals.txt` holds 115 cases, each under a `=== program <name>`
+  or `=== phrasebook <name>` line and named for the id it means to reach (a
+  program translated after `english.vla` loads, a `---` line dividing a
+  phrasebook the case needs from its program; or a phrasebook loaded after
+  `english.vla` under the case's name); `VlaWriteRefusalGolden`
+  (`VLA_Tests.bas`, dev-only) writes the reference's reading of each to
+  `scripts/refusals_golden.txt`, one `REFUSED<TAB><line><TAB><id><TAB><text>`
+  record (the line `EnglishLastErrorLine()` for a program, `-` for a
+  phrasebook), or `TRANSLATED`/`LOADED` where it does not refuse; and
+  `core/src/english/refusals.rs` reads the same fixture the same way, its
+  test holding the core to the file whole (`Grammar::translate_program_at`
+  carries the line the IDE attributes a refusal to). The golden in the tree
+  is the core's prediction, written ahead of the owner's run as 6b's token
+  golden was: 115 cases, 115 refused, 113 distinct ids. The twelve ids no
+  case reaches, each with its reason: `english-extra-words-after-statement`
+  is raised inside `RunVocabTest` and reaches a caller wrapped as
+  `english-test-failed-to-translate`, whose text carries it (the case
+  stays); `english-program-file-not-found` and `english-vocab-file-not-found`
+  are a door's, and `frazaro` now refuses a missing program, phrasebook,
+  prelude or VLA source with the catalogue's own text and exit 1
+  (`vla-file-not-found` and `vla-source-not-found` for the last two);
+  `english-vocab-raw-consent-declined` and
+  `english-vocab-requires-capability-ungranted` are the door's two gates,
+  which the text loader never asks and the CLI already raises; the two
+  `-overwrite` ids belong to the file-writing commands no door has;
+  G-RENDER's three are the reverse direction, not this path; and
+  `english-slot-value-not-one-form` and
+  `english-unknown-slot-category-runtime` are defensive arms that
+  `ValidateRuleItems` and the slot binders keep unreachable. Crafting the
+  cases against the port recorded mechanics of the reference worth knowing:
+  `is-free` and a bare verb are no clause head (a head is `is <adjective>`
+  or `<relation> <role or value>`); two click captions collide only when
+  their slugs fold to one spelling (`"Go!"` and `"Go?"`, not `"Go!"` and
+  `"Go"`); a raw form's balance hint is reachable only where the tokenizer
+  and `VlaBalanceHint` read a form differently, a string broken by a line
+  break; and an unknown head such as `(frobnicate 1)` transpiles as a call,
+  so `(quote x)` in statement position is the form that does not. **Pins:**
+  102 Rust tests (three new: the fixture splits as the writer splits it, a
+  case records its refusal or its success, the refusal golden whole);
+  `tools/check_refusal_golden.ps1`, the thirty-ninth check (the golden's
+  headers are the fixture's, every case refuses, every id is the catalogue's,
+  the distinct ids at or above 113), with its control. **Floors:**
+  `run_checks.ps1` 38 → 39; `check_refusal_golden.ps1` 113. **Docs:** the
+  treaty's fourth amendment of 2026-10-02 (the refusal golden joins the
+  token golden as a golden an implementation's tests hold, not a runner
+  kind; the ids a door owns), `RELEASES.md` 0.8.0, `Delta/CLAUDE.md`, this
+  entry, the roadmap's paragraph. **The owner's first run, the same day:**
+  the reference wrote 115 cases, 115 refused, and differed from the
+  prediction in two. `Get taxed using a of 5.` reached the parse error, not
+  the standalone-Get guard, whose `Case "get"` line stood twice so that the
+  first, empty, arm matched; and `(english-vla "wobble")` was refused with
+  its detail doubled and left the rule store misaligned, so the 34 cases
+  after it all failed on `english.vla`'s own proof at line 87. Both are the
+  reference's: `F.18`, fixed in the VBA first (`SD-18`), its own entry under
+  FORTIFICATIONS; the core needs no change. The method held and the handoff
+  did not: the predicted golden was untracked, so the owner's `git diff`
+  could show nothing, and the isolated verification before the commit
+  caught it (80 distinct ids, below the floor of 113). The witness is the
+  core's test and the check, run on the file the reference wrote.
+  **Owner-verified the same day, after `F.18`:** the reference's second run
+  wrote the 115 cases byte for byte as the core had predicted, 113 distinct
+  ids, the core's test and `check_refusal_golden.ps1` green on the file it
+  wrote; pure 1667, host 267. **Next:** 6g, the translate API, and 6h, the
+  C-ABI door and `web/index.html`.
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day

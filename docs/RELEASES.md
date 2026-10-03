@@ -212,8 +212,12 @@
   wrote, character for character. `frazaro prove english.vla` runs the
   phrasebook's 482 proofs as loading it in Excel runs them, and passes
   every one, as it does for every other phrasebook in `scripts/polyglotta/`.
-  Nothing about the add-in you download changes; the refusals, the
-  translate API and the web page are the slices still to come.
+  Every refusal the add-in gives a program or a phrasebook written in
+  English is held to a golden the add-in itself writes, so the second
+  implementation refuses as the first does, in the same words, and `frazaro`
+  refuses a missing file in those words too. Nothing about the add-in you
+  download changes; the translate API and the web page are the slices still
+  to come.
 - **The repository is now a workspace for more than one product; nothing
   about the add-in you download changes.** Frazaro is a language whose first
   implementation is this Excel add-in, and this release lays the ground for

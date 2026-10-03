@@ -72,7 +72,10 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # phrasebook proofs per file never go down).
 # 2026-10-02, PORT.6 slice 6e: 38 - check_translate_prefix.ps1 (the core
 # reproduces the translate golden; the matched prefix never goes down).
-$expectedAtLeast = 38
+# 2026-10-02, PORT.6 slice 6f: 39 - check_refusal_golden.ps1 (the refusal
+# golden agrees with its fixture, every case refuses, and the distinct
+# refusal ids it reaches never go down).
+$expectedAtLeast = 39
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---

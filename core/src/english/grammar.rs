@@ -102,6 +102,7 @@ pub struct ProofFailure {
 
 /// VLA_SentenceEngine.bas's grammar state: what `EnsureInit` makes,
 /// `EnglishLoadVocabularyText` fills and `EnglishResetGrammar` empties.
+#[derive(Clone)]
 pub struct Grammar {
     /// `scripts/prelude.vla`'s text, which a generator call's expansion
     /// reads beside the carried macros, as `VlaExpandText` splices it.

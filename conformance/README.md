@@ -237,3 +237,42 @@ load for defects in the files, found when the port's loader read them;
 `LX.15` mends the files and leaves the treaty as it was: oracle 3 is every
 proof the reference passes, and after `LX.15` that is every proof in every
 phrasebook.
+
+## Amendment of 2026-10-02, the fourth that day: the refusal golden (`PORT.6`, slice 6f)
+
+The fifth oracle says an implementation refuses with the same id in the same
+situation, and that the proofs pin it. The proofs pin the refusals the
+phrasebooks happen to provoke, twenty-two `test-fail` forms, by their words;
+the English modules raise 125 ids. So the data both implementations read
+grows by one more golden, in the token golden's shape: `scripts/refusals.txt`,
+cases under `=== program <name>` and `=== phrasebook <name>` lines, each
+named for the id it means to reach (a program translated after `english.vla`
+loads, a `---` line dividing a phrasebook the case needs from its program;
+or a phrasebook loaded after `english.vla` under the case's name), and
+`scripts/refusals_golden.txt`, the reference's reading of each
+(`VlaWriteRefusalGolden`, `VLA_Tests.bas`): one record per case,
+`REFUSED<TAB><line><TAB><id><TAB><text>`, the line `EnglishLastErrorLine()`
+for a program and `-` for a phrasebook, or `TRANSLATED` or `LOADED<TAB><n>
+rules` where the reference does not refuse. It is a golden an
+implementation's own tests hold to (`core/src/english/refusals.rs`), not a
+runner kind; `tools/check_refusal_golden.ps1` holds its shape and its
+coverage: the fixture's cases and the golden's agree, every case refuses,
+every id is the catalogue's, and the distinct ids never go down, 113 of the
+125 at this amendment. A case is named for an intention; the golden records
+what the reference says, and a case the reference does not refuse is mended
+or removed, never kept.
+
+The twelve the golden cannot reach are a door's, elsewhere, or unreachable.
+`english-program-file-not-found` and `english-vocab-file-not-found` are a
+door's: the contract's commands refuse a missing program or phrasebook with
+those ids and exit 1, a missing prelude with `vla-file-not-found` and a
+missing VLA source with `vla-source-not-found`, the catalogue's text in every
+case. `english-vocab-raw-consent-declined` and
+`english-vocab-requires-capability-ungranted` are the door's two gates
+(above), which the reference's text loader never asks. The two `-overwrite`
+ids belong to file-writing commands the contract does not have. G-RENDER's
+three are the reverse direction, VLA to English, not this path.
+`english-extra-words-after-statement` reaches a caller only wrapped in
+`english-test-failed-to-translate`, whose text carries it. And
+`english-slot-value-not-one-form` and `english-unknown-slot-category-runtime`
+are defensive arms that registration keeps unreachable.

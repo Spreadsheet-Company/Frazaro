@@ -1,0 +1,243 @@
+=== program english-unknown-character
+REFUSED	1	english-unknown-character	I don't understand the character '$' - write the plain number (or 'Format ... as currency.' for display) (line 1)
+=== program english-form-never-closes
+REFUSED	1	english-form-never-closes	this VLA form never closes - 1 '(' still open by the end of the program (line 1)
+=== program english-expected-sentence-blank-line
+REFUSED	0	english-expected-sentence-blank-line	Expected a sentence but found a blank line
+=== program english-if-fails-misplaced
+REFUSED	1	english-if-fails-misplaced	'If that fails:' must start its own paragraph right after the Try block it rescues - add a blank line (or 'Done.') before it, and make sure a 'Try:' comes first - near: 'if that fails: log 1.' (line 1)
+=== program english-stop-loop-outside-loop
+REFUSED	0	english-stop-loop-outside-loop	'Stop the loop.' only makes sense inside a loop - near: 'stop loop.'
+=== program english-percent-mixed-amount
+REFUSED	2	english-percent-mixed-amount	'increase total by 10 % plus 2.' mixes % into a longer amount - a plain share works ('Increase total by 10%.' grows it by 10%), and a plain number works, but a blend has two readings and I will not pick one. Compute the amount first ('Set step to ...') and then 'Increase <name> by step.' (line 2)
+=== program english-standalone-get
+REFUSED	4	english-standalone-get	'Get tax using ...' is a value, not an instruction - put the value somewhere: 'Set fee to get tax using ...' (or use it inside a condition) (line 4)
+=== program english-give-back-outside-action
+REFUSED	1	english-give-back-outside-action	'Give back' only makes sense inside a value-returning action ('To tax of amount: ... Give back ...') - to show a value use Show, to stop use Stop - near: 'give back 5.' (line 1)
+=== program english-when-it-is-first
+REFUSED	1	english-when-it-is-first	'When it is ...' continues a choice - the first sentence names the value being examined, like 'When region is "North":' - near: 'when it is 5: log 1.' (line 1)
+=== program english-click-handler-needs-quotes
+REFUSED	1	english-click-handler-needs-quotes	a button click handler's name needs quotes - use 'When "go" is clicked:' instead of 'When go is clicked:' (line 1)
+=== program english-clicked-misspelled
+REFUSED	1	english-clicked-misspelled	'When "Go" is cliked:' looks like a button click handler with 'clicked' misspelled as 'cliked' - use 'When "Go" is clicked:' (line 1)
+=== program english-button-not-created-with-create
+REFUSED	1	english-button-not-created-with-create	a button isn't created with 'Create ... called ...' - use 'Make a button "<caption>" at cell <cell>.' instead (line 1)
+=== program english-pivot-not-created-with-create
+REFUSED	1	english-pivot-not-created-with-create	a pivot table isn't created with 'Create ... called ...' - use 'Make a pivot table from <range> at <cell> called "<name>".' instead (line 1)
+=== program english-create-unknown-kind
+REFUSED	0	english-create-unknown-kind	Create what? Say 'a number', 'a text', 'a value', 'a list', or 'a lookup', not 'widget'
+=== program english-to-not-top-level
+REFUSED	0	english-to-not-top-level	'To ...' definitions must be at the top level, not inside a block
+=== program english-define-not-top-level
+REFUSED	0	english-define-not-top-level	'Define ...' must be at the top level, not inside a block
+=== program english-unexpected-token-block
+REFUSED	0	english-unexpected-token-block	Unexpected 'done' - is there a stray 'Done.' or a missing block?
+=== program english-parse-error
+REFUSED	1	english-parse-error	Don't understand: 'flibber wobble.' No loaded sentence starts with 'flibber' - press What can I say? on the Frazaro tab to see all 251 sentences this program understands. (line 1)
+=== program english-expected-near
+REFUSED	1	english-expected-near	Expected a name after 'called' near: '5.' (line 1)
+=== program english-expected-word-near
+REFUSED	1	english-expected-word-near	Expected 'in' near: 'items, log x.' (line 1)
+=== program english-name-has-colon
+REFUSED	1	english-name-has-colon	A name cannot contain ':' - got 'a:b' near: 'a:b.' (line 1)
+=== program english-top-level-definition-in-row
+REFUSED	1	english-top-level-definition-in-row	'(sub ...)' is a top-level VLA definition - a sheet row is a statement inside your program. Define subs, macros, and types in a module or vocabulary instead (line 1)
+=== program english-form-balance-hint
+REFUSED	1	english-form-balance-hint	this row opens 1 form it never closes (line 1)
+=== program english-form-doesnt-transpile
+REFUSED	1	english-form-doesnt-transpile	this VLA form doesn't transpile - '(quote ...)' is an expression, not a statement - use its value, as in (set! x (quote ...)) (near vla line 1) (line 1)
+=== program english-path-not-quoted
+REFUSED	1	english-path-not-quoted	A file path must be quoted - file names contain periods, and a period ends a sentence. Write: Open workbook "C:\Reports\file.xlsx". (or bind a variable first: Set report-path to "C:\Reports\file.xlsx". then Open workbook report-path.) near: 'c: reports.' (line 1)
+=== program english-expected-value
+REFUSED	0	english-expected-value	Expected a value near: ', log i.'
+=== program english-expected-condition
+REFUSED	0	english-expected-condition	Expected a condition near: ', log 1.'
+=== program english-action-unknown-param
+REFUSED	4	english-action-unknown-param	the action 'tax' has no parameter called 'price'. Its parameters are: amount (line 4)
+=== program english-param-given-twice
+REFUSED	4	english-param-given-twice	the parameter 'amount' was given twice in this call to 'tax' (line 4)
+=== program english-call-missing-required-param
+REFUSED	4	english-call-missing-required-param	the call to 'tax' is missing its required parameter 'rate'. Its parameters are: amount, rate (line 4)
+=== program english-call-unknown-param
+REFUSED	4	english-call-unknown-param	'greet with title of "x".': the action 'greet' has no parameter called 'title'. Its parameters are: name (line 4)
+=== program english-call-missing-param
+REFUSED	4	english-call-missing-param	'greet.': the action 'greet' requires 'name' - add: with name of ... (line 4)
+=== program english-reserved-word-name
+REFUSED	0	english-reserved-word-name	'return' is a reserved word in Excel's programming language and cannot be used as a name - a hyphenated name like 'return-row' or 'my-return' always works
+=== program english-value-word-name
+REFUSED	0	english-value-word-name	'today' is a language word for a value and cannot be used as a name - try 'today-stamp' or similar
+=== program english-cell-shaped-name
+REFUSED	1	english-cell-shaped-name	'a1' is shaped like a cell, so it cannot be a name. To mean cell A1, write the word cell in front of it: 'Put 5 into cell A1.' or 'Set total to cell A1 plus 1.' To keep a value under a name, choose one that is not shaped like a cell, like 'a1-total'. (line 1)
+=== program english-engine-call-name
+REFUSED	1	english-engine-call-name	'worksheets' already means something to Excel, and the code Frazaro writes for your sentences uses it by that name, so it cannot be one of your names: yours would take Excel's place. A hyphenated name like 'my-worksheets' or 'worksheets-value' always works. (line 1)
+=== program english-action-name-taken
+REFUSED	4	english-action-name-taken	there is already an action called 'greet' in this program - one name, one definition (line 4)
+=== program english-action-name-means-something
+REFUSED	1	english-action-name-means-something	'length of ...' already means something (a built-in or vocabulary word) - pick another name for the action (line 1)
+=== program english-sheet-change-dup
+REFUSED	4	english-sheet-change-dup	there is already a 'When the sheet changes:' handler in this program - one program, one handler (line 4)
+=== program english-click-handler-dup
+REFUSED	4	english-click-handler-dup	there is already a 'When "Go" is clicked:' handler in this program - one handler per button (line 4)
+=== program english-click-handler-slug-collision
+REFUSED	4	english-click-handler-slug-collision	'When "Go?" is clicked:' and 'When "Go!" is clicked:' compile to the same internal name once punctuation and spacing fold away - Compile could not tell the two handlers apart; rename one of the two button captions (line 4)
+=== program english-param-name-taken
+REFUSED	1	english-param-name-taken	'length' already means something (a built-in or vocabulary word) - pick another parameter name (line 1)
+=== program english-param-missing-default
+REFUSED	1	english-param-missing-default	parameter 'rate' has no default, but an earlier parameter does - once one parameter has a default ('of ...'), all the ones after it need defaults too (line 1)
+=== program english-param-required-after-optional
+REFUSED	1	english-param-required-after-optional	parameter 'name' is required, but an earlier parameter is optional - once one parameter is optional (or has a default), all the ones after it must be too (line 1)
+=== program english-define-value-immutable
+REFUSED	2	english-define-value-immutable	'rate' was given a fixed value by Define and cannot be changed - use a different name (line 2)
+=== program english-define-needs-fixed-value
+REFUSED	0	english-define-needs-fixed-value	Define needs a fixed value - quoted text ("#FF69B4"), a number, or an earlier alias - near: 'total plus 1.'
+=== program english-library-name-not-quoted
+REFUSED	1	english-library-name-not-quoted	The library name must be quoted - file names contain periods, and a period ends a sentence. Write: Use library "helpers.vla". near: 'helpers.' (line 1)
+=== program english-conditions-unbound-role
+REFUSED	0	english-conditions-unbound-role	nothing in this rule says which level it means: "the level" is only ever compared or ruled out, never listed by a table or named by a relation. Add a condition that finds the level first, like "Staff lists the level as <Column>".
+=== program english-clause-unbound-head-role
+REFUSED	0	english-clause-unbound-head-role	nothing in this rule says which person it means: "a person" is in what the rule concludes, but none of its conditions finds a person, so the rule would hold for every person there could be. Add a condition that finds it, like "Staff lists the person as <Column>".
+=== program english-conditions-reserved-name
+REFUSED	0	english-conditions-reserved-name	'lists' is one of this grammar's own words, so it cannot also name a relation or a set - is, as, lists, not, and, if, contains, and alone are reserved. Pick another name, like "lists-of".
+=== program english-conditions-reserved-prefix
+REFUSED	0	english-conditions-reserved-prefix	'vla-likes' starts with vla-, and Frazaro keeps that prefix for the rules it writes itself - a relation or set named that way could merge with one of them and change an answer. Pick a name without it, like "likes".
+=== program english-conditions-equality-constant
+REFUSED	0	english-conditions-equality-constant	"the level is 5" compares the level to one fixed value, and this grammar writes that value where the level is read instead: put 5 in the level's place in that condition, like "Staff lists the person as Name and 5 as <Column>".
+=== program english-conditions-compare-needs-number
+REFUSED	0	english-conditions-compare-needs-number	"the level" is compared with the text "five", and a comparison needs a number on each side - PROLOG cannot compare text, and DATALOG would compare it by spelling. Write a number without quotes, or read the value from a Table and compare the two roles.
+=== program english-constant-quoted-number
+REFUSED	0	english-constant-quoted-number	"12" is a number written in quotes. Write it as 12, without them: a number cell holds a number, and the quoted text "12" matches it in DATALOG and silently does not in PROLOG.
+=== program english-conditions-closure-needs-relation
+REFUSED	0	english-conditions-closure-needs-relation	"directly or not" can only follow a relation between two things, like "the person reports-to the boss directly or not" - it means one step along that relation, or more. Here it follows a table row, which is not a relation.
+=== program english-conditions-closure-needs-relation-text-test
+REFUSED	0	english-conditions-closure-needs-relation	"directly or not" can only follow a relation between two things, like "the person reports-to the boss directly or not" - it means one step along that relation, or more. Here it follows a text test, which is not a relation.
+=== program english-clause-closure-in-head
+REFUSED	0	english-clause-closure-in-head	"directly or not" belongs in a condition or a question, not in what a rule concludes. Say it after the relation a condition reads, like "a person is-under a boss if the person is-under the boss directly or not".
+=== program english-clause-left-recursion
+REFUSED	0	english-clause-left-recursion	this rule's first condition asks 'is-under' again before any other condition has found a value, so PROLOG would ask it again and again and never finish. Put that condition last, after the conditions that find its values, like "... if the person reports-to the middle, and the middle is-under the boss".
+=== program english-clause-relation-names-table
+REFUSED	0	english-clause-relation-names-table	'staff' names both this rule and the table it reads, and a relation named after a table IS that table - so the rule only reads itself: PROLOG never finishes, and the rule adds nothing to what the table says. Give the relation a name of its own.
+=== program english-clause-fact-needs-values
+REFUSED	0	english-clause-fact-needs-values	'person' is a role, not a value, and this sentence has no "if" - a fact names only values. Quote the name you mean, like "Bob", or add "if" and the conditions that find the person.
+=== program english-clause-otherwise-shape
+REFUSED	0	english-clause-otherwise-shape	"otherwise" gives 'big' a different value for the same thing when the conditions before it do not hold, so it needs a rule about a role and a second value, like: a customer has-tier "Gold" if ..., otherwise "Silver" if .... This rule concludes about a fixed value, or has no second value to give.
+=== program english-clause-otherwise-needs-if
+REFUSED	0	english-clause-otherwise-needs-if	each value after "otherwise" needs its own "if" and the conditions that choose it, like: ..., otherwise "Bronze" if Customers lists the customer as Customer. A value with no conditions would hold for everything 'has-tier' could be about.
+=== program english-clause-otherwise-reads-itself
+REFUSED	0	english-clause-otherwise-reads-itself	a rule that chooses its first match with "otherwise" cannot also ask 'has-tier' in its own conditions, because which value holds would then depend on which value holds. Read what the choice needs from a table or from another relation.
+=== program english-program-first-match-split
+REFUSED	2	english-program-first-match-split	'has-tier' is chosen with "otherwise" in cell H2, and cell H3 writes 'has-tier' again, so a value from H3 would stand beside the one "otherwise" chose. Put every choice for 'has-tier' in the one sentence in H2. (line 2)
+=== program english-program-relation-names-table
+REFUSED	1	english-program-relation-names-table	'takes' is written in cell H2, and the rule in cell H3 reads a table also called 'takes' - a relation named after a table IS that table, so these rules read themselves: PROLOG never finishes, and the relation adds nothing to what the table says. Give the relation a name of its own. (line 1)
+=== program english-question-same-unknown
+REFUSED	0	english-question-same-unknown	this question asks for person twice, and one name is one answer, so both would have to be the same thing. Name the two unknowns differently, like "which employee manages which report".
+=== program english-question-whether-unknown
+REFUSED	0	english-question-whether-unknown	a "whether" question names every value and answers TRUE or FALSE, but this one also asks for shift. Drop "whether" to list the answers, or quote the value you mean.
+=== program english-question-range-splits-relation
+REFUSED	3	english-question-range-splits-relation	'big' is also written in cell H5, which H2:H4 leaves out, so this question would answer from only part of 'big' and say nothing about the rest. Widen the range to include H5, or move that rule inside H2:H4. (line 3)
+=== program english-question-list-shape
+REFUSED	0	english-question-list-shape	"as one list" joins the answers to a who, what or which question with one unknown in one cell, like: who can-cover "Night" as one list - or gives one list for each member of a set, like: who can-cover each shift that is listed as one list. It cannot follow a question with two unknowns.
+=== program english-slot-glued-to-identifier
+REFUSED	0	english-slot-glued-to-identifier	F.2: slot '{x}' is glued onto a larger identifier in its template - only a bare word can bind there, got: "a"
+=== program english-phrase-incomplete
+REFUSED	1	english-phrase-incomplete	I understood 'set x to median of range' - then I expected a range (like A1:C50, B2, or Data!A1:B10 - quotes for a named range) but found the end of the sentence. The phrase is 'median of range <range>'. (line 1)
+=== phrasebook english-old-slot-spelling
+REFUSED	-	english-old-slot-spelling	'?x' uses the old question-mark slot spelling - slots are written in braces now: {x} in the pattern, and {name} (no category) in the template
+=== phrasebook english-slot-not-closed
+REFUSED	-	english-slot-not-closed	'{x' looks like a slot but isn't closed - slots are {name} or {name:category}, no spaces
+=== phrasebook english-malformed-slot
+REFUSED	-	english-malformed-slot	'{:expr}' is a malformed slot - write {name} or {name:category}
+=== phrasebook english-malformed-default
+REFUSED	-	english-malformed-default	'{x:expr=}' is a malformed default - write {name:category=text}, both sides non-empty
+=== phrasebook english-empty-pattern
+REFUSED	-	english-empty-pattern	empty phrase pattern
+=== phrasebook english-override-no-match
+REFUSED	-	english-override-no-match	the override 'wobble the {x:expr}' matches no earlier rule - use the plain (non-override) directive, or check that the rule it replaces still exists (and loads first)
+=== phrasebook english-override-ambiguous
+REFUSED	-	english-override-ambiguous	the override 'wobble {x:expr} [twice]' is ambiguous - it matches 2 earlier rules ('wobble {x:expr}'; 'wobble {x:expr} twice') and an override replaces exactly one
+=== phrasebook english-override-matches-builtin
+REFUSED	-	english-override-matches-builtin	the override 'show {e:expr}' matches the built-in rule 'show {e:expr}' - the built-in core is not overridable; write a differently-worded rule instead
+=== phrasebook english-rule-shadow
+REFUSED	-	english-rule-shadow	pattern 'make cell {r:cell} {d:bold|italic}' duplicates 'make cell {r:cell} {d:bold|italic}' (same shape: make|cell|{cell}|bold) - the earlier rule always wins
+  If this replacement is intentional, use this rule's own <lingua>-vla-override directive instead of <lingua>-vla.
+=== phrasebook english-template-not-well-formed
+REFUSED	-	english-template-not-well-formed	template does not parse as well-formed VLA: 
+=== phrasebook english-alternation-empty-branch
+REFUSED	-	english-alternation-empty-branch	pattern 'wobble {d:bold|}': alternation '{d:bold|}' has an empty branch - write {name:word|word}, every branch a word
+=== phrasebook english-unknown-slot-category
+REFUSED	-	english-unknown-slot-category	pattern 'wobble {x:thing}': unknown slot category ':thing' - categories are name, var, text, expr, cond, conditions, role, relation, range, cell, column, sheet, color, path (or a list of one: text-list, range-list, cell-list, column-list, sheet-list, color-list); or write an alternation {name:word|word}
+=== phrasebook english-optional-empty-branch
+REFUSED	-	english-optional-empty-branch	pattern 'wobble [a|] {x:expr}': optional '[a|]' has an empty branch - write [word] or [word|word]
+=== phrasebook english-bare-alternation-empty-branch
+REFUSED	-	english-bare-alternation-empty-branch	pattern 'wobble a| {x:expr}': alternation 'a|' has an empty branch - write word|word, every branch a word
+=== phrasebook english-optional-not-closed
+REFUSED	-	english-optional-not-closed	'[a' looks like an optional literal but isn't closed - optionals are [word], one word, no spaces
+=== phrasebook english-surface-spec-multi-slash
+REFUSED	-	english-surface-spec-multi-slash	pattern 'wobble/s/es {x:expr}': branch 'wobble/s/es' has more than one '/' - a form is word or stem/suffix; write further spellings as separate branches
+=== phrasebook english-surface-spec-empty-side
+REFUSED	-	english-surface-spec-empty-side	pattern 'wobble/ {x:expr}': branch 'wobble/' has an empty side around '/' - write stem/suffix, both parts non-empty
+=== phrasebook english-function-arity
+REFUSED	-	english-function-arity	english-function-arity line 1: a function directive takes a quoted pattern and one target, like (english-function "sum of" sum-of)
+=== phrasebook english-function-phrase-shape
+REFUSED	-	english-function-phrase-shape	english-function-phrase-shape line 1: the phrase 'total of {x:value} and {y:value}' takes a second value, which makes it a sentence rule, not a phrase. A phrase is fixed words, then one value - {x:value}, or {r:range}, {c:column} or {c:cell} for a reference - then at most one closing clause of fixed words and one choice of words, like {k:sample|population}.
+=== phrasebook english-function-phrase-after-value-word
+REFUSED	-	english-function-phrase-after-value-word	english-function-phrase-after-value-word line 1: the phrase 'total for {x:value}' uses 'for' after its first word, and a value is already read with 'for' after it, so a sentence that reads today would read differently. Choose another word.
+=== phrasebook english-function-phrase-alias-word
+REFUSED	-	english-function-phrase-alias-word	english-function-phrase-alias-word line 2: 'wobble' is both a keyword alias and a word of the phrase 'wobble of {x:value}' - an alias rewrites its word in every sentence before any phrase is read, so no sentence could say the phrase.
+=== phrasebook english-function-phrase-duplicate
+REFUSED	-	english-function-phrase-duplicate	english-function-phrase-duplicate line 2: the phrase 'total of {x:value} squared' has the same words before its value as 'total of ...', so a value would have two readings.
+=== phrasebook english-function-phrase-template
+REFUSED	-	english-function-phrase-template	english-function-phrase-template line 1: the phrase 'total of {x:value}': its template never uses {x}, so the value would be lost.
+=== phrasebook english-extra-words-after-statement
+REFUSED	-	english-test-failed-to-translate	english-extra-words-after-statement line 1: test FAILED to translate
+  sentence: Log 1. Log 2.
+  error:    extra words after the first statement
+=== phrasebook english-test-failed
+REFUSED	-	english-test-failed	english-test-failed line 1: test FAILED
+  sentence: Log 1.
+  expected: (log 2)
+  got:      (debug-print 1)
+=== phrasebook english-test-failed-to-translate
+REFUSED	-	english-test-failed-to-translate	english-test-failed-to-translate line 1: test FAILED to translate
+  sentence: Flibber the wobble.
+  error:    Don't understand: 'flibber wobble.' No loaded sentence starts with 'flibber' - press What can I say? on the Frazaro tab to see all 251 sentences this program understands. (line 1)
+=== phrasebook english-failtest-translated
+REFUSED	-	english-failtest-translated	english-failtest-translated line 1: fail: proof FAILED - the sentence translated instead of refusing
+  sentence: Log 1.
+  became:   (debug-print 1)
+=== phrasebook english-failtest-message-drifted
+REFUSED	-	english-failtest-message-drifted	english-failtest-message-drifted line 1: fail: proof FAILED - the refusal message drifted
+  sentence: Flibber the wobble.
+  wanted:   zzz-not-in-the-message
+  message:  Don't understand: 'flibber wobble.' No loaded sentence starts with 'flibber' - press What can I say? on the Frazaro tab to see all 251 sentences this program understands. (line 1)
+=== phrasebook english-vocab-test-fail-empty-fragment
+REFUSED	-	english-vocab-test-fail-empty-fragment	english-vocab-test-fail-empty-fragment line 1: a test-fail proof protects the MESSAGE, not just the refusal - give a non-empty fragment
+=== phrasebook english-vocab-nesting-too-deep
+REFUSED	-	english-vocab-nesting-too-deep	english-vocab-nesting-too-deep line 1: a generator's own expansion nests (begin ...) more than 20 levels deep - almost certainly a mistake, not a real vocabulary
+=== phrasebook english-vocab-expected-directive
+REFUSED	-	english-vocab-expected-directive	english-vocab-expected-directive line 0: expected a directive (a parenthesized form), got a bare word 'hello'
+=== phrasebook english-vocab-at-row-arity
+REFUSED	-	english-vocab-at-row-arity	english-vocab-at-row-arity line 1: (at-row label form) takes exactly two arguments - a row label and one wrapped form (use (begin ...) to wrap several)
+=== phrasebook english-vocab-expansion-not-directive
+REFUSED	-	english-vocab-expansion-not-directive	english-vocab-expansion-not-directive line 2: a generator's expansion produced 'sub', which is not a vocabulary directive (english-vla/test-success/test-fail/defmacro/english-function, or an override) - check the generator macro's own body
+=== phrasebook english-vocab-unrecognized-directive
+REFUSED	-	english-vocab-unrecognized-directive	english-vocab-unrecognized-directive line 1: unrecognized top-level directive 'frobnicate'
+=== phrasebook english-vocab-requires-version-unmet
+REFUSED	-	english-vocab-requires-version-unmet	english-vocab-requires-version-unmet line 1: this phrasebook needs Frazaro 99.0.0 or newer; this is 0.7.1 - upgrade Frazaro, or use a build of the phrasebook written for 0.7.1
+=== phrasebook english-vocab-requires-version-malformed
+REFUSED	-	english-vocab-requires-version-malformed	english-vocab-requires-version-malformed line 1: 'abc' is not a version - a (requires-version ...) declaration takes a plain MAJOR.MINOR.PATCH number in quotes, like (requires-version "0.5.2")
+=== phrasebook english-vocab-requires-missing-value
+REFUSED	-	english-vocab-requires-missing-value	english-vocab-requires-missing-value line 1: this (requires-version ...) declaration names no value - it takes exactly one, in quotes, like (requires-version "..."); a bare word is not one
+=== phrasebook english-vocab-requires-unknown-namespace
+REFUSED	-	english-vocab-requires-unknown-namespace	english-vocab-requires-unknown-namespace line 1: 'magic' is not a kind of requirement this build understands (it knows version, capability and form), so it cannot confirm the requirement was met and will not load the phrasebook - this phrasebook was most likely written for a newer Frazaro than 0.7.1, and a (requires-version ...) declaration would have said exactly which one
+=== phrasebook english-vocab-requires-form-unsupported
+REFUSED	-	english-vocab-requires-form-unsupported	english-vocab-requires-form-unsupported line 1: (requires-form "if") is understood but not yet enforceable - the record of which release each form first worked in (docs/GRAMMAR_SINCE.md) is not carried inside Frazaro yet, so this build cannot check it and refuses rather than passing it silently. Use (requires-version ...) for now
+=== phrasebook english-vocab-requires-from-expansion
+REFUSED	-	english-vocab-requires-from-expansion	english-vocab-requires-from-expansion line 2: 'requires-version' was produced by a generator's expansion, not written in the file - a requirement is read from the source text before anything loads, so one that only appears after expansion is never actually checked. Write it literally, at the top of the phrasebook
+=== phrasebook english-vocab-macro-expansion-failed
+REFUSED	-	english-vocab-macro-expansion-failed	english-vocab-macro-expansion-failed line 2: this directive names a macro ('two') but its own expansion failed - macro 'two' expects 2 argument(s), got 1
+=== phrasebook english-vocab-macro-form-invalid
+REFUSED	-	english-vocab-macro-form-invalid	english-vocab-macro-form-invalid line 1: this macro form does not stand - defmacro 'wobble-all': rest parameter must be last
+=== phrasebook english-vocab-macro-name-collision
+REFUSED	-	english-vocab-macro-name-collision	english-vocab-macro-name-collision line 1: a macro named 'prolog-clause-place' is already carried by english.vla - rename this one (macro override semantics are not defined)
+=== phrasebook english-vocab-file-already-carried-same
+REFUSED	-	english-vocab-file-already-carried-same	english-vocab-file-already-carried-same line 2: this session already carries this file, and loading it again would define every one of its words twice - press Reload Instructions, which starts from a fresh grammar

@@ -1,0 +1,314 @@
+The refusal fixture (PORT.6, slice 6f). Each case sits under a line
+"=== program <name>" or "=== phrasebook <name>" and runs to the next such
+line; these lines before the first header are ignored. A program case is an
+English program translated by EnglishToVla after english.vla has loaded; a
+line of exactly "---" inside it divides a phrasebook text (above, loaded
+after english.vla under the case's name) from the program (below). A
+phrasebook case is a phrasebook text loaded after english.vla, under the
+case's name. VlaWriteRefusalGolden (VLA_Tests.bas) writes the reference's
+reading of every case to refusals_golden.txt: the header, then one line
+"REFUSED<TAB><line><TAB><id><TAB><text>" (the line is
+EnglishLastErrorLine() for a program and "-" for a phrasebook), or
+"TRANSLATED" or "LOADED<TAB><n> rules" where the reference does not refuse;
+the core (core/src/english/refusals.rs) is held to that file by its own
+test. A case is named for the refusal id it is meant to reach; the golden
+records what the reference actually says.
+=== program english-unknown-character
+Set total to $5.
+=== program english-form-never-closes
+(set! total 1
+=== program english-expected-sentence-blank-line
+Set total to 1.
+If total is 1,
+
+Log 1.
+=== program english-if-fails-misplaced
+If that fails:
+  Log 1.
+=== program english-stop-loop-outside-loop
+Stop the loop.
+=== program english-percent-mixed-amount
+Set total to 100.
+Increase total by 10% plus 2.
+=== program english-standalone-get
+To get tax using amount:
+  Give back amount times 2.
+
+Get tax using amount of 5.
+=== program english-give-back-outside-action
+Give back 5.
+=== program english-when-it-is-first
+When it is 5:
+  Log 1.
+=== program english-click-handler-needs-quotes
+When Go is clicked:
+  Log 1.
+=== program english-clicked-misspelled
+When "Go" is cliked:
+  Log 1.
+=== program english-button-not-created-with-create
+Create a button called go.
+=== program english-pivot-not-created-with-create
+Create a pivot table called sales.
+=== program english-create-unknown-kind
+Create a widget called w.
+=== program english-to-not-top-level
+Repeat 2 times:
+  To greet:
+    Log 1.
+=== program english-define-not-top-level
+Repeat 2 times:
+  Define rate as 5.
+=== program english-unexpected-token-block
+Log 1.
+Done.
+=== program english-parse-error
+Flibber the wobble.
+=== program english-expected-near
+Create a number called 5.
+=== program english-expected-word-near
+For each x items, log x.
+=== program english-name-has-colon
+Create a number called a:b.
+=== program english-top-level-definition-in-row
+(sub greet () (log 1))
+=== program english-form-balance-hint
+(log "a
+)
+=== program english-form-doesnt-transpile
+(quote x)
+=== program english-path-not-quoted
+(english-vla "open the file {p:path}" (vlaopenfile {p}))
+---
+Open the file c: reports.
+=== program english-expected-value
+Count i from 1 to , log i.
+=== program english-expected-condition
+If , log 1.
+=== program english-action-unknown-param
+To get tax using amount:
+  Give back amount times 2.
+
+Set fee to get tax using price of 5.
+=== program english-param-given-twice
+To get tax using amount:
+  Give back amount times 2.
+
+Set fee to get tax using amount of 5 and amount of 6.
+=== program english-call-missing-required-param
+To get tax using amount and rate:
+  Give back amount times rate.
+
+Set fee to get tax using amount of 5.
+=== program english-call-unknown-param
+To greet, with name of "you":
+  Log name.
+
+Greet with title of "x".
+=== program english-call-missing-param
+To greet, with name:
+  Log name.
+
+Greet.
+=== program english-reserved-word-name
+Set return to 5.
+=== program english-value-word-name
+Set today to 5.
+=== program english-cell-shaped-name
+Set A1 to 5.
+=== program english-engine-call-name
+Set worksheets to 5.
+=== program english-action-name-taken
+To greet:
+  Log 1.
+
+To greet:
+  Log 2.
+=== program english-action-name-means-something
+To length of x:
+  Give back x.
+=== program english-sheet-change-dup
+When the sheet changes:
+  Log 1.
+
+When the sheet changes:
+  Log 2.
+=== program english-click-handler-dup
+When "Go" is clicked:
+  Log 1.
+
+When "Go" is clicked:
+  Log 2.
+=== program english-click-handler-slug-collision
+When "Go!" is clicked:
+  Log 1.
+
+When "Go?" is clicked:
+  Log 2.
+=== program english-param-name-taken
+To get tax using length:
+  Give back length.
+=== program english-param-missing-default
+To get tax using amount of 5 and rate:
+  Give back amount times rate.
+=== program english-param-required-after-optional
+To greet, with optional title and name:
+  Log name.
+=== program english-define-value-immutable
+Define rate as 5.
+Set rate to 6.
+=== program english-define-needs-fixed-value
+Set total to 1.
+Define rate as total plus 1.
+=== program english-library-name-not-quoted
+Use library helpers.vla.
+=== program english-conditions-unbound-role
+Write in cell H2 that a person is senior if Staff lists the person as Name, and the level is at least 5.
+=== program english-clause-unbound-head-role
+Write in cell H2 that a person is senior if Staff lists the boss as Name.
+=== program english-conditions-reserved-name
+Write in cell H2 that a person lists a boss if Staff lists the person as Name and the boss as Boss.
+=== program english-conditions-reserved-prefix
+Write in cell H2 that a person vla-likes a boss if Staff lists the person as Name and the boss as Boss.
+=== program english-conditions-equality-constant
+Write in cell H2 that a person is senior if Staff lists the person as Name and the level as Level, and the level is 5.
+=== program english-conditions-compare-needs-number
+Write in cell H2 that a person is senior if Staff lists the person as Name and the level as Level, and the level is at least "five".
+=== program english-constant-quoted-number
+Write in cell H7 that "12" is flagged.
+=== program english-conditions-closure-needs-relation
+Write in cell H2 that a person is senior if Staff lists the person as Name directly or not.
+=== program english-conditions-closure-needs-relation-text-test
+Write in cell H2 that a code is revenue if Accounts lists the code as Code, and the code starts with "GL-4" directly or not.
+=== program english-clause-closure-in-head
+Write in cell H3 that a person is-under a boss directly or not if the person reports-to the boss.
+=== program english-clause-left-recursion
+Write in cell H3 that a person is-under a boss if the person is-under the boss.
+=== program english-clause-relation-names-table
+Write in cell H2 that a person staff a shift if Staff lists the person as Name and the shift as Shift.
+=== program english-clause-fact-needs-values
+Write in cell H7 that a person is flagged.
+=== program english-clause-otherwise-shape
+Write in cell H2 that a customer is big if Customers lists the customer as Customer and the spend as Spend, and the spend is at least 10000, otherwise "Small" if Customers lists the customer as Customer.
+=== program english-clause-otherwise-needs-if
+Write in cell H2 that a customer has-tier "Gold" if Customers lists the customer as Customer and the spend as Spend, and the spend is at least 10000, otherwise "Silver".
+=== program english-clause-otherwise-reads-itself
+Write in cell H2 that a customer has-tier "Gold" if Customers lists the customer as Customer and the customer has-tier "Silver", otherwise "Silver" if Customers lists the customer as Customer.
+=== program english-program-first-match-split
+Write in cell H2 that a customer has-tier "Gold" if Customers lists the customer as Customer and the spend as Spend, and the spend is at least 10000, otherwise "Silver" if Customers lists the customer as Customer.
+Write in cell H3 that a customer has-tier "Bronze" if Customers lists the customer as Customer.
+=== program english-program-relation-names-table
+Write in cell H2 that a person takes a shift if Staff lists the person as Name and the shift as Shift.
+Write in cell H3 that a person is free if Takes lists the person as Name.
+=== program english-question-same-unknown
+Show in cell E6 which person can-cover which person by applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave.
+=== program english-question-whether-unknown
+Show in cell E4 whether "Bob" can-cover which shift by applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave.
+=== program english-question-range-splits-relation
+Write in cell H2 that a bill is big if Bills lists the bill as Bill and the amount as Amount, and the amount is greater than 10000.
+Write in cell H5 that a bill is big if Bills lists the bill as Bill and the amount as Amount, and the amount is less than 0.
+Show in cell E2 which bill is big by applying the rules in H2:H4 to the data tables Bills.
+=== program english-question-list-shape
+Show in cell E2 which person can-cover which shift as one list by applying the rules in H2:H4 to the data tables Staff, Shifts, and Leave.
+=== program english-slot-glued-to-identifier
+(english-vla "wobble {x:expr}" (do-{x} 1))
+---
+Wobble "a".
+=== program english-phrase-incomplete
+Set x to median of range.
+=== phrasebook english-old-slot-spelling
+(english-vla "wobble ?x" (log {x}))
+=== phrasebook english-slot-not-closed
+(english-vla "wobble {x" (log 1))
+=== phrasebook english-malformed-slot
+(english-vla "wobble {:expr}" (log 1))
+=== phrasebook english-malformed-default
+(english-vla "wobble {x:expr=}" (log {x}))
+=== phrasebook english-empty-pattern
+(english-vla "" (log 1))
+=== phrasebook english-override-no-match
+(english-vla-override "wobble the {x:expr}" (log {x}))
+=== phrasebook english-override-ambiguous
+(english-vla "wobble {x:expr}" (log {x}))
+(english-vla "wobble {x:expr} twice" (log {x} {x}))
+(english-vla-override "wobble {x:expr} [twice]" (log {x}))
+=== phrasebook english-override-matches-builtin
+(english-vla-override "show {e:expr}" (log {e}))
+=== phrasebook english-rule-shadow
+(english-vla "make cell {r:cell} {d:bold|italic}" (make-{d} (range {r})))
+=== phrasebook english-template-not-well-formed
+(english-vla "wobble")
+=== phrasebook english-alternation-empty-branch
+(english-vla "wobble {d:bold|}" (log 1))
+=== phrasebook english-unknown-slot-category
+(english-vla "wobble {x:thing}" (log {x}))
+=== phrasebook english-optional-empty-branch
+(english-vla "wobble [a|] {x:expr}" (log {x}))
+=== phrasebook english-bare-alternation-empty-branch
+(english-vla "wobble a| {x:expr}" (log {x}))
+=== phrasebook english-optional-not-closed
+(english-vla "wobble [a {x:expr}" (log {x}))
+=== phrasebook english-surface-spec-multi-slash
+(english-vla "wobble/s/es {x:expr}" (log {x}))
+=== phrasebook english-surface-spec-empty-side
+(english-vla "wobble/ {x:expr}" (log {x}))
+=== phrasebook english-function-arity
+(english-function "largest")
+=== phrasebook english-function-phrase-shape
+(english-function "total of {x:value} and {y:value}" (total-of {x} {y}))
+=== phrasebook english-function-phrase-after-value-word
+(english-function "total for {x:value}" (total-for {x}))
+=== phrasebook english-function-phrase-alias-word
+(keyword-alias "wobble" "set")
+(english-function "wobble of {x:value}" (wobble-of {x}))
+=== phrasebook english-function-phrase-duplicate
+(english-function "total of {x:value}" (total-of {x}))
+(english-function "total of {x:value} squared" (total-sq {x}))
+=== phrasebook english-function-phrase-template
+(english-function "total of {x:value}" (total-of {y}))
+=== phrasebook english-extra-words-after-statement
+(test-success "Log 1. Log 2." (log 1))
+=== phrasebook english-test-failed
+(test-success "Log 1." (log 2))
+=== phrasebook english-test-failed-to-translate
+(test-success "Flibber the wobble." (log 1))
+=== phrasebook english-failtest-translated
+(test-fail "Log 1." "nonsense")
+=== phrasebook english-failtest-message-drifted
+(test-fail "Flibber the wobble." "zzz-not-in-the-message")
+=== phrasebook english-vocab-test-fail-empty-fragment
+(test-fail "Flibber the wobble." "")
+=== phrasebook english-vocab-nesting-too-deep
+(begin (begin (begin (begin (begin (begin (begin (begin (begin (begin (begin (begin (begin (begin (begin (begin (begin (begin (begin (begin (begin (begin (english-vla "wobble" (log 1))))))))))))))))))))))))
+=== phrasebook english-vocab-expected-directive
+hello
+=== phrasebook english-vocab-at-row-arity
+(at-row "L" (log 1) (log 2))
+=== phrasebook english-vocab-expansion-not-directive
+(defmacro (mk-sub) (sub wobble () (log 1)))
+(mk-sub)
+=== phrasebook english-vocab-unrecognized-directive
+(frobnicate 1)
+=== phrasebook english-vocab-requires-version-unmet
+(requires-version "99.0.0")
+=== phrasebook english-vocab-requires-version-malformed
+(requires-version "abc")
+=== phrasebook english-vocab-requires-missing-value
+(requires-version)
+=== phrasebook english-vocab-requires-unknown-namespace
+(requires-magic "x")
+=== phrasebook english-vocab-requires-form-unsupported
+(requires-form "if")
+=== phrasebook english-vocab-requires-from-expansion
+(defmacro (req) (requires-version "0.1.0"))
+(req)
+=== phrasebook english-vocab-macro-expansion-failed
+(defmacro (two a b) (english-vla a b))
+(two "wobble")
+=== phrasebook english-vocab-macro-form-invalid
+(defmacro (wobble-all & a & b) (log a))
+=== phrasebook english-vocab-macro-name-collision
+(defmacro (prolog-clause-place r text) (set! r text))
+=== phrasebook english-vocab-file-already-carried-same
+(defmacro (wobble-twice x) (log x))
+(defmacro (wobble-twice x) (log x))

@@ -1,6 +1,12 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "F.18"
+Public Const VLA_TESTS_VERSION As String = "PORT.6"
+' PORT.6 (slice 6f): VlaWriteRefusalGolden writes the refusal golden,
+' scripts/refusals_golden.txt, from the cases in scripts/refusals.txt: each
+' case's refusal from the reference (its id, line and text), or TRANSLATED or
+' LOADED where the reference does not refuse; the core's refusals.rs is held
+' to it by its own test. Dev-only, like VlaWriteTokenGolden: git diff is the
+' witness. Not in VlaSelfTest's list (no disk I/O there).
 ' F.18 (two latent bugs the refusal golden found): VlaSelfTest dispatches
 ' VLA_Tests_Grammar's TestF18 after TestF4NoiseWordBeforeSlot.
 ' U.31: TestU31ReservedWords - the seven reserved words IsReservedName
@@ -2700,6 +2706,122 @@ refused:
     On Error GoTo 0
     TokenReportOrRefusal = "REFUSED" & vbTab & VLA_SentenceEngine.EnglishLastErrorLine() & vbTab & _
                            VLA_Messages.VlaLastRaisedMsgId() & vbTab & d & vbCrLf
+End Function
+
+' PORT.6 (slice 6f): the refusal golden. scripts/refusals.txt holds cases,
+' each under a line "=== program <name>" or "=== phrasebook <name>"; this
+' writes the reference's reading of every case to refusals_golden.txt
+' beside it: the header, then REFUSED<TAB><line><TAB><id><TAB><text>, or
+' TRANSLATED, or LOADED<TAB><n> rules, where the reference does not refuse.
+' A program case translates through EnglishToVla after english.vla has
+' loaded from its text (a line of exactly "---" inside the case divides a
+' phrasebook text, loaded first under the case's name, from the program);
+' a phrasebook case loads after english.vla under the case's name. The
+' core's refusals.rs reads the same fixture the same way and is held to
+' this file by its own test, so every refusal id on the path is compared
+' in the situation that raises it, text and all. Dev-only, like
+' VlaWriteTokenGolden: run it, then git diff.
+Public Function VlaWriteRefusalGolden(Optional ByVal fixturePath As String = "") As Boolean
+    On Error GoTo failed
+    If Len(fixturePath) = 0 Then fixturePath = FindDevFile("refusals.txt")
+    If Len(Dir$(fixturePath)) = 0 Then Err.Raise 53, "VLA_Tests", "fixture file not found: " & fixturePath
+    Debug.Print "===== WRITE REFUSAL GOLDEN ====="
+    Dim englishText As String
+    englishText = ReadTextFileUtf8(FindDevFile("english.vla"))
+    EnglishStepTracking True
+    Dim lines() As String
+    lines = Split(Replace(ReadTextFileUtf8(fixturePath), vbCrLf, vbLf), vbLf)
+    Dim outText As String, header As String, body As String, ln As String, rec As String
+    Dim haveSection As Boolean, firstLine As Boolean
+    Dim sections As Long, nRefused As Long
+    Dim i As Long
+    For i = LBound(lines) To UBound(lines) + 1
+        If i <= UBound(lines) Then ln = lines(i) Else ln = "=== "   ' one past: flushes the last section
+        If Left$(ln, 4) = "=== " Then
+            If haveSection Then
+                rec = RefusalReportFor(header, body, englishText)
+                If Left$(rec, 7) = "REFUSED" Then nRefused = nRefused + 1
+                outText = outText & header & vbCrLf & rec
+                sections = sections + 1
+            End If
+            header = ln
+            body = ""
+            haveSection = True
+            firstLine = True
+        ElseIf haveSection Then
+            If firstLine Then
+                body = ln
+                firstLine = False
+            Else
+                body = body & vbLf & ln
+            End If
+        End If
+    Next i
+    ' The writer adds one trailing break (WriteTextFile), so the report's own
+    ' last break is dropped first: the file ends with exactly one.
+    If Right$(outText, 2) = vbCrLf Then outText = Left$(outText, Len(outText) - 2)
+    Dim goldenPath As String
+    goldenPath = GoldenPathFor(fixturePath, ".txt")
+    WriteTextFile goldenPath, outText, utf8:=True
+    EnglishResetGrammar
+    Debug.Print "  " & sections & " cases, " & nRefused & " refused -> " & goldenPath
+    Debug.Print "  (git diff is the witness: empty = the core's prediction held)"
+    Debug.Print "===== REFUSAL GOLDEN WRITTEN ====="
+    VlaWriteRefusalGolden = True
+    Exit Function
+failed:
+    Debug.Print "  REFUSAL GOLDEN FAILED: " & Err.Description
+End Function
+
+' One case's record. The header's second word is the kind and the rest the
+' name; english.vla loads first, from its text, under its own name. The
+' description is captured before the handler is cleared (On Error GoTo 0
+' resets Err), the id comes from the message seam's own record, and the
+' line is EnglishLastErrorLine() for a program (EnglishToVla sets it for
+' the translation) and "-" for a phrasebook (a loader's refusal carries its
+' own location, and no translation of the case's own set the line).
+Private Function RefusalReportFor(ByVal header As String, ByVal body As String, _
+                                  ByVal englishText As String) As String
+    Dim caseKind As String, caseName As String
+    caseKind = Mid$(header, 5)
+    If InStr(caseKind, " ") > 0 Then
+        caseName = Mid$(caseKind, InStr(caseKind, " ") + 1)
+        caseKind = Left$(caseKind, InStr(caseKind, " ") - 1)
+    End If
+    Dim book As String, program As String
+    Dim p As Long
+    If caseKind = "program" Then
+        p = InStr(body, vbLf & "---" & vbLf)
+        If p > 0 Then
+            book = Left$(body, p - 1)
+            program = Mid$(body, p + 5)
+        Else
+            program = body
+        End If
+    Else
+        book = body
+    End If
+    Dim n As Long
+    On Error GoTo refused
+    VLA_Messages.VlaClearLastRaisedMsg
+    EnglishResetGrammar
+    EnglishLoadVocabularyText englishText, "english.vla"
+    If caseKind = "program" Then
+        If Len(book) > 0 Then EnglishLoadVocabularyText book, caseName
+        EnglishToVla program
+        RefusalReportFor = "TRANSLATED" & vbCrLf
+    Else
+        n = EnglishLoadVocabularyText(book, caseName)
+        RefusalReportFor = "LOADED" & vbTab & n & " rules" & vbCrLf
+    End If
+    Exit Function
+refused:
+    Dim d As String
+    d = Err.Description
+    On Error GoTo 0
+    Dim lineCol As String
+    If caseKind = "program" Then lineCol = CStr(EnglishLastErrorLine()) Else lineCol = "-"
+    RefusalReportFor = "REFUSED" & vbTab & lineCol & vbTab & VLA_Messages.VlaLastRaisedMsgId() & vbTab & d & vbCrLf
 End Function
 
 ' VLALINT.0: unlike VlaWriteGoldens (which REGENERATES a golden and
