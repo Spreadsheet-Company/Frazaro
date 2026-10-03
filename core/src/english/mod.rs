@@ -12,12 +12,17 @@
 //!
 //! Slices, each a module as it lands: `words` (6a, the tables), `tokenize`
 //! (6b, `EnTokenize`), `rules`, `grammar` and `vocab` (6c, the rule store
-//! and phrasebook loading), then the DCG matcher, the statement,
-//! expression and condition grammars with `EnglishToVla`, the refusals,
-//! the translate API `VLA_Browser.bas` exports, and the door.
+//! and phrasebook loading), `matcher`, `expr` and `stmt` (6d, the DCG
+//! matcher, the expression and condition grammars, the proof runners and
+//! the part of `ParseStmt` a proof reaches), then the statement grammar
+//! with `EnglishToVla`, the refusals, the translate API `VLA_Browser.bas`
+//! exports, and the door.
 
+pub mod expr;
 pub mod grammar;
+pub mod matcher;
 pub mod rules;
+pub mod stmt;
 pub mod tokenize;
 pub mod vocab;
 pub mod words;

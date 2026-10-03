@@ -57,8 +57,8 @@ impl Grammar {
             self.dispatch_vocab_form(f, *line, "", source_name, &mut st, true, 0)?;
         }
         // The file's proofs run against the fully loaded grammar, in file
-        // order (slice 6d); until then they are kept.
-        self.pending_proofs.append(&mut st.proofs);
+        // order, positives and negatives alike (slice 6d).
+        self.run_file_proofs(std::mem::take(&mut st.proofs))?;
         self.load_source.clear();
         self.set_last_load_source(source_name);
         self.expanded_blob = build_expanded_blob(&st.expanded);
@@ -684,8 +684,13 @@ mod tests {
     const LATIN: &str = include_str!("../../../scripts/polyglotta/latin.vla");
     const PIRATE: &str = include_str!("../../../scripts/polyglotta/pirate.vla");
 
+    /// A grammar that keeps a failing proof instead of refusing the load:
+    /// these tests are about loading, and until slice 6e a proof whose
+    /// sentence begins with a built-in statement form cannot pass.
     fn fresh() -> Grammar {
-        Grammar::new(PRELUDE)
+        let mut g = Grammar::new(PRELUDE);
+        g.set_proof_mode(super::super::grammar::ProofMode::Collect);
+        g
     }
 
     fn load(g: &mut Grammar, text: &str, source: &str) -> Result<usize, Refusal> {
@@ -701,12 +706,12 @@ mod tests {
 
     fn proofs(g: &Grammar) -> (usize, usize) {
         let s = g
-            .pending_proofs()
+            .proofs()
             .iter()
             .filter(|p| p.kind == ProofKind::Success)
             .count();
         let f = g
-            .pending_proofs()
+            .proofs()
             .iter()
             .filter(|p| p.kind == ProofKind::Fail)
             .count();
@@ -729,7 +734,7 @@ mod tests {
         assert_eq!(g.keyword_alias_count(), 0);
         assert_eq!(
             g.vocab_stats(),
-            "loaded: 240 rules, 220 macros, 0 tests (0 expected fails) from english.vla"
+            "loaded: 240 rules, 220 macros, 460 tests (22 expected fails) from english.vla"
         );
         assert!(g.lint_warnings().is_empty(), "{:?}", g.lint_warnings());
         // The three generators made their rules and proofs.
@@ -738,7 +743,7 @@ mod tests {
             .iter()
             .any(|r| r.text == "set style of table {n:text} to {s:text}"));
         assert!(g
-            .pending_proofs()
+            .proofs()
             .iter()
             .any(|p| p.sentence == "Hide the total row of table Sales."));
         assert!(g
@@ -753,7 +758,8 @@ mod tests {
 
     #[test]
     fn every_dialect_loads_alone_as_the_reference_loads_it() {
-        // Seven dialects register their rules; their proofs are 6d's. Until
+        // Seven dialects register their rules, and their proofs run at load
+        // and pass whole (stmt.rs's test proves each in Raise mode). Until
         // LX.15 (2026-10-02) the reference refused five of them at load:
         // esperanto, latin and deutsche registered their general put rule
         // before their literal today rule (espanol fixed its own under
@@ -948,7 +954,7 @@ mod tests {
         let mut g = fresh();
         let n = load(&mut g, "(english-vla \"warm cell {r:cell}\" (debug-print {r}))\n(at-row \"row A\" (test-success \"Warm cell B2.\" (debug-print \"b2\")))", "atrow-vocab").unwrap();
         assert_eq!(n, 1);
-        assert_eq!(g.pending_proofs()[0].row_tag, "row A");
+        assert_eq!(g.proofs()[0].row_tag, "row A");
         assert!(g.expanded_blob().contains("; row: row A\r\n(test-success"));
         let e = refused("(defmacro (needs-two a b) (english-vla a b))\n\n(at-row \"row 9\" (needs-two \"only one\"))", "atrow-vocab");
         assert!(

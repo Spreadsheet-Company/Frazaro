@@ -6331,7 +6331,7 @@ written against.
   `core/src/version.rs` (`VlaVersionParse`, `VlaVersionCompare`,
   `VlaVersionAtLeast`). The five parallel rule Collections are one
   `Vec<Rule>`, spoken of 1-based; the keyed Collections are maps. The
-  proofs are collected, not run, until 6d. The two gates the reference's
+  proofs were collected, not run, until 6d. The two gates the reference's
   file loader runs and its text loader leaves alone are the door's:
   `frazaro load <phrasebook.vla> --prelude <prelude.vla> [--allow-raw]`
   refuses a required capability and, without the flag, a `(raw ...)` form,
@@ -6383,12 +6383,52 @@ written against.
   `conformance/README.md` (amended twice), `Delta/CLAUDE.md`,
   `docs/tutorial/3-master.md` (the excerpt without the marker line),
   `RELEASES.md` (the figure), this entry, the roadmap's paragraph.
-  **Committed 2026-10-02, five commits,** each tree green in isolation
+  **Committed 2026-10-02, six commits,** each tree green in isolation
   first: `cdf242a` (the treaty's amendment and the proofs floor), `221bb81`
-  (slice 6a), then slice 6b, the goldens without markers, and `U.31`; 6c
-  follows on the owner's reading of the dialects. **Next:** 6d, the DCG
-  matcher with `frazaro prove`, and the treaty's word on the four
-  phrasebooks the reference itself refuses.
+  (slice 6a), then slice 6b, the goldens without markers, `U.31`, and 6c
+  as `d198202` on the owner's readings of the dialects; the six files the
+  reference refused became `LX.15`, mended and closed the same day.
+  **Built the same day, slice 6d: the DCG matcher, the expression and
+  condition grammars, the proofs run, and `frazaro prove`.**
+  `core/src/english/matcher.rs` (`TryPhrase` arm for arm with its
+  `MatchRefToken`, `MatchPathToken`, G6's lists and G1's alternations, G2's
+  reference shapes, `NoteFail`, `BuildParseError` with `DidYouMean`, V7's
+  first-token dispatch index, F.2's `TryFormPath` and `FormSubstitute`),
+  `expr.rs` (`ParseExpr` to `ParsePrimCore` with LX.14's phrases, the
+  `of`-words, G8's ordinals, `item n of`, the cell readings and V3's keyed
+  read; `ParseCond`, `ParseCondSimple`, `TryRangeContains`; `CheckName`,
+  `RefuseCellShaped`, `RefuseCellShapedRead`), `stmt.rs` (the part of
+  `ParseStmt` a proof reaches: the blank-line and raw-form gates, B7.4's
+  percent form of Increase, Decrease and Add, the Stop form, the rule walk,
+  the action-call fallback and the parse error; `RunVocabTest`,
+  `RunVocabFailTest`, `NormalizeWs`), and `EnglishLoadVocabularyText`'s
+  second loop: a file's proofs run against the grammar as the file left
+  it, each counted before it runs, so `frazaro load` now refuses at a
+  failing proof as `EnglishLoadVocabulary` does and prints
+  `EnglishVocabStats`' true line, and `frazaro prove <phrasebook.vla>`
+  (the prelude beside the file or in its parent folder, `--prelude` for
+  another; an engine proof file exits 3) keeps every failure, prints each
+  as the reference would have refused it, and ends `PASS n/n` or `FAIL
+  k/n`. The built-in statement forms (`if`, `repeat`, `count`, `while`,
+  `for`, `get`, `give`, `try`, `when`, `create`, `to`, `define`), a raw
+  form's probe and G-PROLOG's five slot categories refuse by name until
+  6e, so a proof that reaches one fails for that reason and no other.
+  *Oracle 3, scored for the first time:* the six dialects 20/20 each,
+  `espanol.vla` 26/30, `english.vla` 433/482, and every one of the 53
+  shortfalls is such a sentence (27 beginning with If, Create, Repeat or
+  For each, 22 binding a `clause` or `question` slot, 4 Spanish aliases of
+  If, While and Repeat), none a wrong translation. **Pins:** 13 Rust tests
+  (the shapes, the string literal, the form path; the expression and
+  condition grammars sentence by sentence against the reference's own
+  forms, the percent form and its guard, the parse error's wording, a
+  failing proof refusing a load with the reference's three messages, every
+  dialect proving whole, and the two files that fall short failing only
+  where a shape is pending); the compile golden whole. **Floors:**
+  `check_prove_floors.ps1` 0 → 20 for the six dialects, 26 for espanol,
+  433 for english. **Docs:** `Delta/CLAUDE.md`, this entry, the roadmap's
+  paragraph. **Next:** 6e, the statement grammar and the PROLOG
+  sub-grammars with `EnglishToVla`'s program frame and step tracking,
+  which raises the two short floors to 30 and 482 and opens oracle 1.
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day

@@ -70,7 +70,7 @@ pub enum ProofKind {
 }
 
 /// One proof, collected at load and run after every rule of the file
-/// exists (`RunVocabTest`, `RunVocabFailTest`: slice 6d).
+/// exists (`RunVocabTest`, `RunVocabFailTest`).
 #[derive(Clone, Debug)]
 pub struct Proof {
     pub sentence: String,
@@ -80,6 +80,24 @@ pub struct Proof {
     pub kind: ProofKind,
     pub row_tag: String,
     pub source: String,
+}
+
+/// How a load treats a failing proof: the reference refuses the load at
+/// the first one (`Raise`, `EnglishLoadVocabularyText`'s own behaviour);
+/// `frazaro prove` keeps every failure and loads on (`Collect`), to score
+/// the file whole.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProofMode {
+    Raise,
+    Collect,
+}
+
+/// A proof that failed under [`ProofMode::Collect`], with the refusal the
+/// reference would have raised for it.
+#[derive(Clone, Debug)]
+pub struct ProofFailure {
+    pub proof: Proof,
+    pub refusal: Refusal,
 }
 
 /// VLA_SentenceEngine.bas's grammar state: what `EnsureInit` makes,
@@ -128,8 +146,11 @@ pub struct Grammar {
     last_load_source: String,
     /// GEXPANDER.0: the last load's own expanded-form text.
     pub(super) expanded_blob: String,
-    /// The proofs the last loads collected and nothing has run yet.
-    pub(super) pending_proofs: Vec<Proof>,
+    /// Every proof the loads collected and ran, in order.
+    pub(super) proofs: Vec<Proof>,
+    pub(super) proof_mode: ProofMode,
+    /// The failures a load under [`ProofMode::Collect`] kept.
+    pub(super) proof_failures: Vec<ProofFailure>,
 }
 
 impl Grammar {
@@ -160,7 +181,9 @@ impl Grammar {
             fails_run: 0,
             last_load_source: String::new(),
             expanded_blob: String::new(),
-            pending_proofs: Vec::new(),
+            proofs: Vec::new(),
+            proof_mode: ProofMode::Raise,
+            proof_failures: Vec::new(),
         };
         g.register_builtin_func_words();
         // The prelude vocabulary. Each line is one DCG production.
@@ -203,7 +226,8 @@ impl Grammar {
         self.lint_warnings.clear();
         self.register_builtin_func_words();
         self.rebuild_sig_owner();
-        self.pending_proofs.clear();
+        self.proofs.clear();
+        self.proof_failures.clear();
         self.expanded_blob.clear();
     }
 
@@ -309,8 +333,28 @@ impl Grammar {
         r
     }
 
-    pub fn pending_proofs(&self) -> &[Proof] {
-        &self.pending_proofs
+    pub fn proofs(&self) -> &[Proof] {
+        &self.proofs
+    }
+
+    /// What a failing proof does to a load; `Raise` unless told otherwise.
+    pub fn set_proof_mode(&mut self, mode: ProofMode) {
+        self.proof_mode = mode;
+    }
+
+    pub fn proof_mode(&self) -> ProofMode {
+        self.proof_mode
+    }
+
+    /// The proofs that failed under [`ProofMode::Collect`], in file order.
+    pub fn proof_failures(&self) -> &[ProofFailure] {
+        &self.proof_failures
+    }
+
+    /// `mTestsRun` and `mFailsRun`: the positive and negative proofs run
+    /// since the last reset.
+    pub fn proofs_run(&self) -> (u64, u64) {
+        (self.tests_run, self.fails_run)
     }
 
     /// The last load's expanded-form text (`mLastExpandedBlob`).

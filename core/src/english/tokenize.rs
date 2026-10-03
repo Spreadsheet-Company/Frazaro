@@ -80,6 +80,14 @@ impl Tokens {
         &self.lines
     }
 
+    /// `CanonicalizeStructuralWords`' in-place write: the token at a
+    /// 1-based position becomes `text`.
+    pub fn replace_at(&mut self, p: usize, text: &str) {
+        if p >= 1 && p <= self.texts.len() {
+            self.texts[p - 1] = text.to_string();
+        }
+    }
+
     fn push(&mut self, text: impl Into<String>, line: u32) {
         self.texts.push(text.into());
         self.lines.push(line);

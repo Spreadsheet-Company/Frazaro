@@ -58,15 +58,21 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-10-02, LX.15: alien.vla has no floor - a library of macros a program
 # includes, not a phrasebook (no rule, no proof), which prove.ps1 inventories
 # and never scores.
+# 2026-10-02, PORT.6 slice 6d (the matcher, the expression and condition
+# grammars, frazaro prove): the six dialects whole (20), espanol 26 of 30 and
+# english 433 of 482. What is still short begins with a built-in statement
+# form (If, Create, Repeat, For each, While; the Spanish aliases of them) or
+# binds a G-PROLOG clause or question slot - slice 6e's, which raises these
+# two to 30 and 482.
 $floors = [ordered]@{
-    'scripts/polyglotta/dansk.vla'     = 0
-    'scripts/polyglotta/deutsche.vla'  = 0
-    'scripts/polyglotta/english.vla'   = 0
-    'scripts/polyglotta/espanol.vla'   = 0
-    'scripts/polyglotta/esperanto.vla' = 0
-    'scripts/polyglotta/francais.vla'  = 0
-    'scripts/polyglotta/latin.vla'     = 0
-    'scripts/polyglotta/pirate.vla'    = 0
+    'scripts/polyglotta/dansk.vla'     = 20
+    'scripts/polyglotta/deutsche.vla'  = 20
+    'scripts/polyglotta/english.vla'   = 433
+    'scripts/polyglotta/espanol.vla'   = 26
+    'scripts/polyglotta/esperanto.vla' = 20
+    'scripts/polyglotta/francais.vla'  = 20
+    'scripts/polyglotta/latin.vla'     = 20
+    'scripts/polyglotta/pirate.vla'    = 20
 }
 
 # The treaty's proof form, at the top level of a line (prove.ps1 counts the
