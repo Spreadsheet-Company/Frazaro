@@ -2,10 +2,10 @@
 //! VLA_SentenceEngine.bas arm for arm: `ParseExpr`, `ParseSum`, `ParseProd`,
 //! `ParsePrim` and `ParsePrimCore` (with LX.14's `TryFunctionPhrase` and
 //! `CompleteFunctionPhrase`, the `<word> of <value>` function words, G8's
-//! ordinals, B7's `item n of`, the cell readings and V3's keyed read),
-//! `ReadTextRef`, `ParseExprReq`; `ParseCond`, `ParseCondSimple`,
-//! `TryRangeContains`, `ParseCondReq`; and the name checks a matched
-//! sentence meets, `CheckName`, `RefuseCellShaped` and
+//! ordinals, B6's `using` calls, B7's `item n of`, the cell readings and
+//! V3's keyed read), `ReadTextRef`, `ParseExprReq`; `ParseCond`,
+//! `ParseCondSimple`, `TryRangeContains`, `ParseCondReq`; and the name
+//! checks a matched sentence meets, `CheckName`, `RefuseCellShaped` and
 //! `RefuseCellShapedRead` (LX.13).
 //!
 //! Precedence, loosest to tightest: `joined with` / `followed by` (&), then
@@ -15,8 +15,7 @@
 //! the sentence.
 
 use super::matcher::{
-    alt_desc, is_cell_part, is_num_tok, is_str_tok, port_pending, render_tok, vla_string_lit,
-    Parser,
+    alt_desc, is_cell_part, is_num_tok, is_str_tok, is_word_tok, render_tok, vla_string_lit, Parser,
 };
 use super::rules::{slot_tok, surface_match};
 use super::tokenize::{line_suf, PARA_TOK};
@@ -80,6 +79,17 @@ pub fn cell_word_shown(word: &str) -> String {
             }
         })
         .collect()
+}
+
+/// VBA `InParamList`: the folded word among the (folded) parameter names.
+fn in_param_list(names: &[String], word: &str) -> bool {
+    let w = fold(word);
+    names.iter().any(|n| n == &w)
+}
+
+/// VBA `JoinParamNames`.
+fn join_param_names(names: &[String]) -> String {
+    names.join(", ")
 }
 
 impl<'g> Parser<'g> {
@@ -171,15 +181,9 @@ impl<'g> Parser<'g> {
         Ok(Some(r))
     }
 
-    /// B6: a `To ... using` value action of the program's own (slice 6e: a
-    /// proof's sentence has no program around it, so none is ever declared).
-    fn is_using_fn(&self, _word: &str) -> bool {
-        false
-    }
-
     /// V3: a lookup declared by "Create a lookup called ..." in the current
-    /// translation (slice 6e declares them).
-    fn is_dict_name(&self, w: &str) -> bool {
+    /// translation.
+    pub(super) fn is_dict_name(&self, w: &str) -> bool {
         self.dict_names.iter().any(|d| d == w)
     }
 
@@ -191,7 +195,7 @@ impl<'g> Parser<'g> {
         if let Some(n2) = self.try_function_phrase(pos)? {
             return Ok(Some(n2));
         }
-        let fn_of = self.g.fn_of_target(&t).map(str::to_string);
+        let fn_of = self.fn_of_target(&t);
         if is_num_tok(&t) {
             *pos += 1;
             Ok(Some(t))
@@ -210,8 +214,7 @@ impl<'g> Parser<'g> {
                     Ok(Some(t))
                 }
             }
-        } else if let Some(target) = self.g.fn_nullary_target(&t) {
-            let target = target.to_string();
+        } else if let Some(target) = self.fn_nullary_target(&t) {
             *pos += 1;
             Ok(Some(format!("({target})")))
         } else if !ordinal_word(&t).is_empty() {
@@ -222,7 +225,7 @@ impl<'g> Parser<'g> {
         } else if (self.is_using_fn(&t) && self.tok(*pos + 1) == "using")
             || (t == "get" && self.is_using_fn(self.tok(*pos + 1)) && self.tok(*pos + 2) == "using")
         {
-            Err(port_pending("a value call with 'using'"))
+            self.parse_using_call(pos, &t)
         } else if t == "problem" && self.in_recovery {
             // B7: inside an "If that fails:" paragraph, "the problem" is
             // what went wrong.
@@ -303,6 +306,86 @@ impl<'g> Parser<'g> {
         }
     }
 
+    /// B6: a using-style value action call - named arguments, in any order,
+    /// omitted ones taking their defaults via VBA named arguments; "get" is
+    /// optional sugar. After "and", a known parameter name followed by "of"
+    /// continues the argument list; anything else hands the "and" back to
+    /// the condition. Unknown and missing-required parameters refuse here,
+    /// at Check, with the parameter list named.
+    fn parse_using_call(&mut self, pos: &mut usize, word: &str) -> Result<Option<String>, Refusal> {
+        let mut t = word.to_string();
+        if t == "get" {
+            *pos += 1;
+            t = self.tok(*pos).to_string();
+        }
+        let fn_pos = *pos;
+        self.claim(&format!("a value call: '{t} using ...'"));
+        *pos += 2; // the name and "using"
+        let p_names: Vec<String> = self
+            .fn_using_names
+            .get(&fold(&t))
+            .cloned()
+            .unwrap_or_default();
+        let p_req: Vec<bool> = self
+            .fn_using_req
+            .get(&fold(&t))
+            .cloned()
+            .unwrap_or_default();
+        let mut kw_args = String::new();
+        let mut seen: Vec<String> = Vec::new();
+        loop {
+            let a_name = self.expect_word(pos, "a parameter name after 'using'")?;
+            if !in_param_list(&p_names, &a_name) {
+                let loc = self.line_tag(*pos - 1);
+                return Err(raise(
+                    "english-action-unknown-param",
+                    &[
+                        ("action", &t),
+                        ("param", &a_name),
+                        ("list", &join_param_names(&p_names)),
+                        ("loc", &loc),
+                    ],
+                ));
+            }
+            if seen.contains(&fold(&a_name)) {
+                let loc = self.line_tag(*pos - 1);
+                return Err(raise(
+                    "english-param-given-twice",
+                    &[("param", &a_name), ("action", &t), ("loc", &loc)],
+                ));
+            }
+            seen.push(fold(&a_name));
+            self.expect_word_is(pos, "of")?;
+            let e = self.parse_expr_req(pos)?;
+            kw_args.push_str(&format!(" :{a_name} {e}"));
+            // Parameter lookahead: does this "and" continue the call?
+            if self.tok(*pos) == "and"
+                && in_param_list(&p_names, self.tok(*pos + 1))
+                && self.tok(*pos + 2) == "of"
+            {
+                *pos += 1;
+            } else {
+                break;
+            }
+        }
+        // Every required parameter must have been supplied.
+        for (ri, pn) in p_names.iter().enumerate() {
+            if p_req.get(ri).copied().unwrap_or(false) && !seen.contains(pn) {
+                let loc = self.line_tag(fn_pos);
+                return Err(raise(
+                    "english-call-missing-required-param",
+                    &[
+                        ("action", &t),
+                        ("param", pn),
+                        ("list", &join_param_names(&p_names)),
+                        ("loc", &loc),
+                    ],
+                ));
+            }
+        }
+        Ok(Some(format!("({t}{kw_args})")))
+    }
+
     /// VBA `ReadTextRef`: one reference token (quoted, bare word, or
     /// number) as a VBA string literal.
     fn read_text_ref(&self, pos: &mut usize) -> Option<String> {
@@ -311,7 +394,7 @@ impl<'g> Parser<'g> {
             let r = vla_string_lit(&t[1..]);
             *pos += 1;
             Some(r)
-        } else if is_num_tok(t) || super::matcher::is_word_tok(t) {
+        } else if is_num_tok(t) || is_word_tok(t) {
             let r = vla_string_lit(t);
             *pos += 1;
             Some(r)
@@ -569,7 +652,6 @@ impl<'g> Parser<'g> {
     }
 
     /// VBA `ParseCondReq`.
-    #[allow(dead_code)] // the If, While and Try forms read it (slice 6e)
     pub(super) fn parse_cond_req(&mut self, pos: &mut usize) -> Result<String, Refusal> {
         match self.parse_cond(pos)? {
             Some(c) => Ok(c),
@@ -592,7 +674,7 @@ impl<'g> Parser<'g> {
         if is_cell_part(&folded) {
             return Err(self.refuse_cell_shaped(&folded, self.cur_line));
         }
-        if self.g.fn_nullary_target(n).is_some() {
+        if self.fn_nullary_target(n).is_some() {
             return Err(raise("english-value-word-name", &[("name", n)]));
         }
         // U.30: last, so date and time keep the reserved-word refusal and
@@ -642,12 +724,15 @@ impl<'g> Parser<'g> {
         }
     }
 
-    /// VBA `MarkAssigned`: the name is checked and remembered.
+    /// VBA `MarkAssigned`: the name is checked and remembered, with the
+    /// line it was first assigned on (V1).
     pub(super) fn mark_assigned(&mut self, name: &str) -> Result<(), Refusal> {
         self.check_name(name)?;
-        let folded = fold(name);
-        if !self.assigned.contains(&folded) {
-            self.assigned.push(folded);
+        super::matcher::add_keyed(&mut self.assigned, name);
+        if self.in_program && self.cur_line > 0 {
+            self.assigned_lines
+                .entry(fold(name))
+                .or_insert(self.cur_line);
         }
         Ok(())
     }

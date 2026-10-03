@@ -21,6 +21,8 @@
 pub mod expr;
 pub mod grammar;
 pub mod matcher;
+pub mod program;
+pub mod prolog;
 pub mod rules;
 pub mod stmt;
 pub mod tokenize;

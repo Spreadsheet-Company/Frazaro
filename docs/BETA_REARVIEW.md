@@ -6426,9 +6426,50 @@ written against.
   where a shape is pending); the compile golden whole. **Floors:**
   `check_prove_floors.ps1` 0 → 20 for the six dialects, 26 for espanol,
   433 for english. **Docs:** `Delta/CLAUDE.md`, this entry, the roadmap's
-  paragraph. **Next:** 6e, the statement grammar and the PROLOG
-  sub-grammars with `EnglishToVla`'s program frame and step tracking,
-  which raises the two short floors to 30 and 482 and opens oracle 1.
+  paragraph. Committed `1bbd6e7` on the owner's word.
+  **Built the same day, slice 6e: the statement grammar, the PROLOG
+  sub-grammars and `EnglishToVla`; oracle 1 scored for the first time, and
+  whole.** `core/src/english/stmt.rs` grew every arm of `ParseStmt` (If
+  with its Otherwise chain, Repeat, Count, Stop, While, For each, the
+  standalone-Get guard, Give back, Try with "If that fails:", When ... is,
+  Create, the To and Define guards) with the block parsers,
+  `ParseCaseValues`, `ValidateRawVla` (its probe compiled through the
+  core's `compile` with the prelude and the carried macros) and
+  `ParseTracked`; `prolog.rs` is G-PROLOG's three sub-grammars arm for arm
+  (`ParseConditions`, `ParseClause` with its otherwise branches,
+  `ParseQuestion` with the how-many, none, every, alone and list shapes,
+  the constants, the generated names), and the matcher's five slot
+  categories bind through them, the clause and question lints recorded;
+  `program.rs` is `EnglishToVla`: Define's constants, `Use library`, the
+  sheet-change and click handlers, the To definitions in their four
+  shapes, `BuildSub`, the step table, `ValidateActionCalls` and the three
+  range lints. A program's own function words and LX.14's masks are an
+  overlay the parser consults before the grammar's tables, so the grammar
+  is never written during a translation (the reference removes the last
+  program's words at the next translation; the overlay dies with the
+  parser). The door: `frazaro translate-vla <program.txt> --prelude
+  <prelude.vla> --phrasebook <file.vla> [--phrasebook ...]` writes the VLA
+  `EnglishToVla` writes and `translate-vba` its compile, each phrasebook
+  loaded in order with its proofs run. *Oracle 1, on the first run:*
+  `instructions.txt` to `instructions_golden.vla` less its stamp, 224,380
+  characters after the treaty's normalization (229,156 with its CRLFs),
+  byte for byte, and `translate-vba` the `.vba` golden whole; oracle 3
+  whole everywhere, `english.vla` 482/482 and `espanol.vla` 30/30;
+  `tools/prove.ps1 -Impl` reads 11 passed, 0 failed, 2 not attempted (the
+  interpreter golden and the engine proofs), 1 library. **Pins:** 99 Rust
+  tests: five new (the statement forms sentence by sentence against the
+  reference's own text, the program-level refusals by id, the frame and
+  the four To shapes against the text the reference writes, the translate
+  golden whole, the sub-grammars' numerals and names), 6d's two
+  pending-count pins retired as their files prove whole;
+  `tools/check_translate_prefix.ps1`, the thirty-eighth check, oracle 1's
+  twin of `check_compile_prefix.ps1`, its floor the whole golden, with its
+  control, in the `core` CI job. **Floors:** `check_prove_floors.ps1` 433
+  → 482 and 26 → 30; `run_checks.ps1` 37 → 38. **Docs:** `RELEASES.md`
+  0.8.0, `Delta/CLAUDE.md`, this entry, the roadmap's paragraph. **Next:**
+  6f, every refusal id on the path against a refusal golden the reference
+  writes; then 6g, the translate API, and 6h, the C-ABI door and
+  `web/index.html`.
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day

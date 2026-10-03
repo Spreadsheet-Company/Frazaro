@@ -60,15 +60,16 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # and never scores.
 # 2026-10-02, PORT.6 slice 6d (the matcher, the expression and condition
 # grammars, frazaro prove): the six dialects whole (20), espanol 26 of 30 and
-# english 433 of 482. What is still short begins with a built-in statement
+# english 433 of 482. What was still short began with a built-in statement
 # form (If, Create, Repeat, For each, While; the Spanish aliases of them) or
-# binds a G-PROLOG clause or question slot - slice 6e's, which raises these
-# two to 30 and 482.
+# bound a G-PROLOG clause or question slot.
+# 2026-10-02, PORT.6 slice 6e (the statement grammar, the PROLOG
+# sub-grammars, EnglishToVla): every file whole - espanol 30, english 482.
 $floors = [ordered]@{
     'scripts/polyglotta/dansk.vla'     = 20
     'scripts/polyglotta/deutsche.vla'  = 20
-    'scripts/polyglotta/english.vla'   = 433
-    'scripts/polyglotta/espanol.vla'   = 26
+    'scripts/polyglotta/english.vla'   = 482
+    'scripts/polyglotta/espanol.vla'   = 30
     'scripts/polyglotta/esperanto.vla' = 20
     'scripts/polyglotta/francais.vla'  = 20
     'scripts/polyglotta/latin.vla'     = 20

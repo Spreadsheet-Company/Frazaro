@@ -3,42 +3,36 @@
 //! `MatchPathToken`, G2's reference shapes (`RefShapeOk`, `IsCellPart`,
 //! `IsRangePart`), `NoteFail` and `BuildParseError` with `DidYouMean`, V7's
 //! first-token dispatch index (`BuildDispatchIndex`), and F.2's form path
-//! (`TryFormPath`, `FormSubstitute`, `SpliceEmbeddedSlots`). The slot
-//! categories G-PROLOG added (`role`, `relation`, `conditions`, `clause`,
-//! `question`) are slice 6e's and refuse by name until then.
+//! (`TryFormPath`, `FormSubstitute`, `SpliceEmbeddedSlots`). Slice 6e added
+//! G-PROLOG's slot categories (`role`, `relation`, `conditions`, `clause`,
+//! `question`) and the state a whole program's translation keeps.
 //!
 //! The reference keeps a translation's state in module-level variables
 //! (`mBestProgress`, `mBestExpect`, `mBestTieIdx`, `mLastRuleIdx`,
-//! `mSentenceStart`, `mClaim`, `mAssigned`, `mErrLine`, `mCurLine`); here
-//! they are a [`Parser`] over one grammar, which also holds the token array
-//! `EnTokenize` produced and `CanonicalizeStructuralWords` rewrote.
+//! `mSentenceStart`, `mClaim`, `mAssigned`, `mErrLine`, `mCurLine`, and
+//! `EnglishToVla`'s own: the step texts, the actions and calls, the rule
+//! cells and question ranges, the aliases, the click handlers, the words a
+//! program's own definitions add or mask); here they are a [`Parser`] over
+//! one grammar, which also holds the token array `EnTokenize` produced and
+//! `CanonicalizeStructuralWords` rewrote. The grammar itself is never
+//! written during a translation: a program's own function words and masks
+//! are an overlay the parser consults first, which is what the reference's
+//! "remove the last program's words at the next translation" amounts to.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::grammar::{Grammar, Rule};
+use super::prolog::{refuse_generated_prefix, role_to_var_name, unquote_ref_lit};
 use super::rules::{
     bare_alt_match, bare_surfaces, is_alt_cat, opt_tok, slot_tok, surface_forms, surface_match,
 };
 use super::tokenize::{line_suf, Tokens, PARA_TOK};
-use super::words::{is_color_word, slot_desc};
+use super::words::{is_color_word, is_conditions_grammar_word, slot_desc};
 use crate::form::{Form, List};
 use crate::intrinsics::{fold, is_numeric};
 use crate::messages::{raise, Refusal};
 use crate::printer::write_datum;
 use crate::reader::read_forms;
-
-/// A refusal for a shape the core does not read yet: a statement head or a
-/// slot category that a later slice of PORT.6 ports. Not a catalogue
-/// message, on purpose: it names the slice, never a user's mistake, and it
-/// leaves with the slice that ports the shape.
-pub fn port_pending(what: &str) -> Refusal {
-    Refusal {
-        id: "english-port-pending".to_string(),
-        number: 5,
-        source: "VLA-English".to_string(),
-        text: format!("{what} is not yet in the core (PORT.6, slice 6e)"),
-    }
-}
 
 /// VBA `IsWordTok`: a bare word begins with a letter (every bare word is
 /// folded, so a lowercase one).
@@ -70,6 +64,19 @@ pub fn render_tok(t: &str) -> String {
 pub fn vla_string_lit(content: &str) -> String {
     let c = content.replace('\\', "\\\\").replace('"', "\\\"");
     format!("\"{c}\"")
+}
+
+/// VBA `AddKeyed`: a name kept once, by its fold; the first spelling stays.
+pub fn add_keyed(col: &mut Vec<String>, s: &str) {
+    if !has_keyed(col, s) {
+        col.push(s.to_string());
+    }
+}
+
+/// VBA `CollHasKey` over a keyed name list.
+pub fn has_keyed(col: &[String], key: &str) -> bool {
+    let k = fold(key);
+    col.iter().any(|e| fold(e) == k)
 }
 
 // ---- G2: the reference shapes -------------------------------------------
@@ -359,6 +366,37 @@ fn dsp_add_key(keys: &mut Vec<String>, k: String) {
     }
 }
 
+// ---- the parser's program-level records ---------------------------------------
+
+/// VBA `RecordCall`'s four parallel Collections: one call to an action.
+#[derive(Clone, Debug)]
+pub struct RecordedCall {
+    pub name: String,
+    pub args: Vec<String>,
+    pub text: String,
+    pub line: u32,
+}
+
+/// VBA `RecordRuleCell`'s six parallel Collections: a clause written into
+/// a cell, for the Check-time range lints.
+#[derive(Clone, Debug)]
+pub struct RuleCell {
+    pub rel: String,
+    pub addr: String,
+    pub bodies: Vec<String>,
+    pub tables: Vec<String>,
+    pub line: u32,
+    pub first: bool,
+}
+
+/// VBA `RecordQuestionRange`'s three: a question over a rules range.
+#[derive(Clone, Debug)]
+pub struct AskRange {
+    pub rel: String,
+    pub range: String,
+    pub line: u32,
+}
+
 // ---- the parser ---------------------------------------------------------------
 
 /// One translation's state over one grammar: the token array and the
@@ -380,22 +418,69 @@ pub struct Parser<'g> {
     pub(super) sentence_start: usize,
     /// `mClaim`: the construct that claimed the sentence; first claim wins.
     pub(super) claim: String,
-    /// `mAssigned`: the names `:var` slots and loops bound.
+    /// `mAssigned`: the names `:var` slots and loops bound, in this scope.
     pub(super) assigned: Vec<String>,
+    /// `mDeclared`: the names Create and a parameter list declared.
+    pub(super) declared: Vec<String>,
     /// `mErrLine`: the line of the most recent refusal.
     pub(super) err_line: u32,
     /// `mCurLine`: the sentence's program line, 0 for a proof.
     pub(super) cur_line: u32,
-    /// `mInRecovery`: inside an "If that fails:" paragraph (slice 6e).
+    /// `mInRecovery`: inside an "If that fails:" paragraph.
     pub(super) in_recovery: bool,
-    /// `mDictNames`: the lookups "Create a lookup called ..." declared
-    /// (slice 6e).
+    /// `mDictNames`: the lookups "Create a lookup called ..." declared.
     pub(super) dict_names: Vec<String>,
-    /// `mLoopStack`: the enclosing loop kinds ("for"/"do"), which the
-    /// block parsers push (slice 6e).
+    /// `mLoopStack`: the enclosing loop kinds ("for"/"do").
     pub(super) loop_stack: Vec<String>,
-    /// `mInFuncDef`: inside a value-returning action's body (slice 6e).
+    /// `mInFuncDef`: inside a value-returning action's body.
     pub(super) in_func_def: bool,
+    /// True inside `EnglishToVla`, where the program-level records are
+    /// kept; a proof's sentence keeps none (the reference's `Is Nothing`
+    /// guards).
+    pub(super) in_program: bool,
+    /// `mSrcLines`: the translation's original lines, for the step texts.
+    pub(super) src_lines: Vec<String>,
+    /// `mStepTracking` (on by default) and TER-10's `mLineMarks`.
+    pub(super) step_tracking: bool,
+    pub(super) line_marks: bool,
+    pub(super) step_count: u32,
+    pub(super) step_texts: Vec<String>,
+    /// `mActNames`, `mActParams`, `mActReq`: the subs a program defines.
+    pub(super) act_names: Vec<String>,
+    pub(super) act_params: Vec<Vec<String>>,
+    pub(super) act_req: Vec<Vec<bool>>,
+    pub(super) calls: Vec<RecordedCall>,
+    pub(super) rule_cells: Vec<RuleCell>,
+    pub(super) asks: Vec<AskRange>,
+    /// `mAliasNames` and `mAliasDefs`: Define's constants.
+    pub(super) alias_names: Vec<String>,
+    pub(super) alias_defs: String,
+    pub(super) try_count: u32,
+    pub(super) saw_sheet_change_event: bool,
+    pub(super) click_captions: Vec<String>,
+    /// `mClickSlugs`: a slug's fold to the first caption that claimed it.
+    pub(super) click_slugs: HashMap<String, String>,
+    pub(super) click_names: Vec<String>,
+    pub(super) click_procs: Vec<String>,
+    /// The program's own function words (`mUserFnWords` entered into
+    /// `mFnOf`/`mFnNullary`), consulted before the grammar's.
+    pub(super) user_fn_of: HashMap<String, String>,
+    pub(super) user_fn_nullary: HashMap<String, String>,
+    /// LX.14: the vocabulary `of`-words a program's definition masked.
+    pub(super) masked_of: HashSet<String>,
+    pub(super) mask_notes: Vec<String>,
+    /// `mFnActNames`: the value actions a program defines, folded.
+    pub(super) fn_act_names: Vec<String>,
+    /// B6: `To get <name> using ...`'s parameter names and which are required.
+    pub(super) fn_using_names: HashMap<String, Vec<String>>,
+    pub(super) fn_using_req: HashMap<String, Vec<bool>>,
+    /// V1: where a name was first assigned.
+    pub(super) assigned_lines: HashMap<String, u32>,
+    /// G12: the `(include ...)` lines and the names already spliced.
+    pub(super) include_lines: String,
+    pub(super) include_seen: HashSet<String>,
+    /// The lint warnings a translation adds (an undefined action called).
+    pub(super) lint_warnings: Vec<String>,
 }
 
 impl<'g> Parser<'g> {
@@ -412,12 +497,44 @@ impl<'g> Parser<'g> {
             sentence_start: 0,
             claim: String::new(),
             assigned: Vec::new(),
+            declared: Vec::new(),
             err_line: 0,
             cur_line: 0,
             in_recovery: false,
             dict_names: Vec::new(),
             loop_stack: Vec::new(),
             in_func_def: false,
+            in_program: false,
+            src_lines: Vec::new(),
+            step_tracking: true,
+            line_marks: false,
+            step_count: 0,
+            step_texts: Vec::new(),
+            act_names: Vec::new(),
+            act_params: Vec::new(),
+            act_req: Vec::new(),
+            calls: Vec::new(),
+            rule_cells: Vec::new(),
+            asks: Vec::new(),
+            alias_names: Vec::new(),
+            alias_defs: String::new(),
+            try_count: 0,
+            saw_sheet_change_event: false,
+            click_captions: Vec::new(),
+            click_slugs: HashMap::new(),
+            click_names: Vec::new(),
+            click_procs: Vec::new(),
+            user_fn_of: HashMap::new(),
+            user_fn_nullary: HashMap::new(),
+            masked_of: HashSet::new(),
+            mask_notes: Vec::new(),
+            fn_act_names: Vec::new(),
+            fn_using_names: HashMap::new(),
+            fn_using_req: HashMap::new(),
+            assigned_lines: HashMap::new(),
+            include_lines: String::new(),
+            include_seen: HashSet::new(),
+            lint_warnings: Vec::new(),
         }
     }
 
@@ -449,9 +566,107 @@ impl<'g> Parser<'g> {
         self.sentence_start = 0;
         self.claim.clear();
         self.last_rule_idx = 0;
-        self.assigned.clear();
         self.err_line = 0;
     }
+
+    // ---- the function-word overlay ------------------------------------------
+
+    /// `IsFnWord(mFnOf, w)` / `FnTarget`: the program's own `<word> of`
+    /// first, then the vocabulary's unless the program masked it.
+    pub(super) fn fn_of_target(&self, word: &str) -> Option<String> {
+        let w = fold(word);
+        if let Some(t) = self.user_fn_of.get(&w) {
+            return Some(t.clone());
+        }
+        if self.masked_of.contains(&w) {
+            return None;
+        }
+        self.g.fn_of_target(&w).map(str::to_string)
+    }
+
+    /// `IsFnWord(mFnNullary, w)` / `FnTarget`.
+    pub(super) fn fn_nullary_target(&self, word: &str) -> Option<String> {
+        let w = fold(word);
+        if let Some(t) = self.user_fn_nullary.get(&w) {
+            return Some(t.clone());
+        }
+        self.g.fn_nullary_target(&w).map(str::to_string)
+    }
+
+    /// VBA `IsUsingFn`: a `To get <name> using ...` this program defined.
+    pub(super) fn is_using_fn(&self, word: &str) -> bool {
+        self.fn_using_names.contains_key(&fold(word))
+    }
+
+    /// VBA `MaskVocabOfWord` (LX.14): a program's own definition of a word
+    /// a vocabulary gave `of` masks the vocabulary's, and Check notes it.
+    pub(super) fn mask_vocab_of_word(&mut self, word: &str, with_note: bool) {
+        let w = fold(word);
+        if !self.g.is_maskable_fn_word(&w) || self.g.fn_of_target(&w).is_none() {
+            return;
+        }
+        self.masked_of.insert(w.clone());
+        if with_note {
+            let src = self.g.vocab_of_source(&w).unwrap_or("").to_string();
+            let cut = src.rfind(['\\', '/']).map(|i| i + 1).unwrap_or(0);
+            let src_name = &src[cut..];
+            self.mask_notes.push(format!(
+                "{}|OK. In this program, '{w} of ...' means its own {w}, not the phrasebook's ({src_name}).",
+                self.cur_line
+            ));
+        }
+    }
+
+    // ---- the program-level records -------------------------------------------
+
+    /// VBA `RecordCall`: nothing outside a translation.
+    pub(super) fn record_call(&mut self, name: &str, args: Vec<String>, text: String, line: u32) {
+        if !self.in_program {
+            return;
+        }
+        self.calls.push(RecordedCall {
+            name: fold(name),
+            args,
+            text,
+            line,
+        });
+    }
+
+    /// VBA `RecordRuleCell`.
+    fn record_rule_cell(
+        &mut self,
+        cell_lit: &str,
+        rel: &str,
+        names: Vec<String>,
+        tables: Vec<String>,
+        first: bool,
+    ) {
+        if !self.in_program {
+            return;
+        }
+        self.rule_cells.push(RuleCell {
+            rel: rel.to_string(),
+            addr: unquote_ref_lit(cell_lit),
+            bodies: names,
+            tables,
+            line: self.cur_line,
+            first,
+        });
+    }
+
+    /// VBA `RecordQuestionRange`.
+    fn record_question_range(&mut self, range_lit: &str, rel: &str) {
+        if !self.in_program {
+            return;
+        }
+        self.asks.push(AskRange {
+            rel: rel.to_string(),
+            range: unquote_ref_lit(range_lit),
+            line: self.cur_line,
+        });
+    }
+
+    // ---- tokens -----------------------------------------------------------------
 
     /// VBA `TokAt`: the token at a 1-based position, or nothing.
     pub(super) fn tok(&self, p: usize) -> &str {
@@ -710,11 +925,27 @@ impl<'g> Parser<'g> {
         let mut bn: Vec<String> = Vec::new();
         let mut bv: Vec<String> = Vec::new();
         let mut var_names: Vec<String> = Vec::new();
+        // G-PROLOG slice 2: what a clause or question slot matched, and the
+        // one cell or range slot beside it, for the range lint.
+        let mut clause_rel = String::new();
+        let mut question_engine = String::new();
+        let mut question_rel = String::new();
+        let mut question_rel2 = String::new();
+        let mut clause_names: Vec<String> = Vec::new();
+        let mut clause_tables: Vec<String> = Vec::new();
+        let mut saw_clause = false;
+        let mut saw_question = false;
+        let mut clause_first = false;
+        let mut lint_cell = String::new();
+        let mut lint_range = String::new();
+        let mut lint_cell_count = 0;
+        let mut lint_range_count = 0;
         for t in &rule.items {
             if let Some(slot) = slot_tok(t)? {
                 let cat = slot.cat.as_str();
                 let mut match_ok = true;
                 let mut val = String::new();
+                let mut cond_pre = String::new();
                 match cat {
                     "name" | "var" => {
                         let w = self.word_at(p);
@@ -733,6 +964,13 @@ impl<'g> Parser<'g> {
                         // always a VBA string literal; the typed categories
                         // shape-check the bare token (G2).
                         match_ok = self.match_ref_token(cat, &mut p, &mut val);
+                        if match_ok && cat == "cell" {
+                            lint_cell_count += 1;
+                            lint_cell = val.clone();
+                        } else if match_ok && cat == "range" {
+                            lint_range_count += 1;
+                            lint_range = val.clone();
+                        }
                     }
                     "path" => {
                         match_ok = self.match_path_token(&mut p, &mut val)?;
@@ -770,10 +1008,88 @@ impl<'g> Parser<'g> {
                         Some(v) => val = v,
                         None => match_ok = false,
                     },
-                    "role" | "relation" | "conditions" | "clause" | "question" => {
-                        return Err(port_pending(&format!(
-                            "the '{cat}' slot (G-PROLOG's sub-grammars)"
-                        )));
+                    "role" => {
+                        // G-PROLOG: a role noun IS a variable, through the
+                        // same RoleToVarName the conditions sub-grammar uses.
+                        let w = self.word_at(p);
+                        if w.is_empty() {
+                            match_ok = false;
+                        } else {
+                            val = vla_string_lit(&role_to_var_name(&w));
+                            p += 1;
+                        }
+                    }
+                    "relation" => {
+                        // G-PROLOG: a relation's name, one bare word; a
+                        // grammar word fails the slot, a generated prefix
+                        // refuses by name.
+                        let w = self.word_at(p);
+                        if w.is_empty() || is_conditions_grammar_word(&w) {
+                            match_ok = false;
+                        } else {
+                            refuse_generated_prefix(&w)?;
+                            val = vla_string_lit(&w);
+                            p += 1;
+                        }
+                    }
+                    "conditions" => {
+                        // G-PROLOG: SD-16's third built-in sub-grammar. The
+                        // goals bind under the slot's own name; the
+                        // projection rules bind beside them, under
+                        // "<slot>-rules".
+                        let mut names: Vec<String> = Vec::new();
+                        let mut bound: Vec<String> = Vec::new();
+                        let mut tables: Vec<String> = Vec::new();
+                        let mut first_rel = String::new();
+                        let mut pre_seen: Vec<String> = Vec::new();
+                        match self.parse_conditions(
+                            &mut p,
+                            &mut cond_pre,
+                            &mut names,
+                            &mut bound,
+                            &mut tables,
+                            &mut first_rel,
+                            &mut pre_seen,
+                        )? {
+                            Some(v) => val = vla_string_lit(&v),
+                            None => match_ok = false,
+                        }
+                    }
+                    "clause" => {
+                        // G-PROLOG slice 2: a rule or a fact, whole. Binds
+                        // the cell text.
+                        clause_names = Vec::new();
+                        clause_tables = Vec::new();
+                        match self.parse_clause(
+                            &mut p,
+                            &mut clause_rel,
+                            &mut clause_names,
+                            &mut clause_tables,
+                            &mut clause_first,
+                        )? {
+                            Some(v) => {
+                                val = vla_string_lit(&v);
+                                saw_clause = true;
+                            }
+                            None => match_ok = false,
+                        }
+                    }
+                    "question" => {
+                        // G-PROLOG slice 2: binds the program tail, already
+                        // doubled for Excel's string literal, and - under
+                        // "<slot>-engine" - the engine its shape routes it to.
+                        match self.parse_question(
+                            &mut p,
+                            &mut question_engine,
+                            &mut question_rel,
+                            &mut question_rel2,
+                        )? {
+                            Some(v) => {
+                                val = vla_string_lit(&v);
+                                saw_question = true;
+                            }
+                            None => match_ok = false,
+                        }
                     }
                     _ => {
                         if !is_alt_cat(cat) {
@@ -817,6 +1133,14 @@ impl<'g> Parser<'g> {
                 }
                 bn.push(slot.name.clone());
                 bv.push(val);
+                if cat == "conditions" {
+                    bn.push(format!("{}-rules", slot.name));
+                    bv.push(vla_string_lit(&cond_pre));
+                }
+                if cat == "question" {
+                    bn.push(format!("{}-engine", slot.name));
+                    bv.push(vla_string_lit(&question_engine));
+                }
             } else if let Some(ow) = opt_tok(t)? {
                 // G1: optional literal - consumed when present, free when
                 // absent, never failing the match. G10: it may be a bare
@@ -858,6 +1182,24 @@ impl<'g> Parser<'g> {
             self.mark_assigned(v)?;
         }
         *pos = p;
+        // G-PROLOG slice 2: only a rule that matched is recorded, and only
+        // when it names exactly one cell (a clause) or one range (a question).
+        if saw_clause && lint_cell_count == 1 {
+            self.record_rule_cell(
+                &lint_cell,
+                &clause_rel,
+                clause_names,
+                clause_tables,
+                clause_first,
+            );
+        }
+        if saw_question && lint_range_count == 1 {
+            self.record_question_range(&lint_range, &question_rel);
+            // G-PROLOG slice 4: EACH, NONE and EVERY read a second relation.
+            if !question_rel2.is_empty() {
+                self.record_question_range(&lint_range, &question_rel2);
+            }
+        }
         let out = try_form_path(rule, &bn, &bv)?;
         self.last_rule_idx = idx;
         Ok(Some(out))
@@ -1041,6 +1383,11 @@ mod tests {
         assert!(!is_num_tok("b2"));
         assert!(is_word_tok("abc"));
         assert!(!is_word_tok("1abc"));
+        let mut col = Vec::new();
+        add_keyed(&mut col, "Total");
+        add_keyed(&mut col, "total");
+        assert_eq!(col, vec!["Total".to_string()]);
+        assert!(has_keyed(&col, "TOTAL"));
     }
 
     #[test]

@@ -27,11 +27,17 @@ usage:
                          prelude is prelude.vla beside the file or in its
                          parent folder unless --prelude names one; an
                          engine proof file exits 3 (not attempted, PORT.9)
+  frazaro translate-vla <program.txt> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] [--allow-raw]
+                         the treaty's oracle 1: the program's VLA, the text
+                         EnglishToVla writes, to stdout (PORT.6, slice 6e);
+                         each phrasebook loads in order, its proofs run
+  frazaro translate-vba <program.txt> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] [--allow-raw]
+                         oracle 1a: that VLA compiled, the VBA the add-in
+                         would write (EnglishToVba)
   frazaro version        the version of the core this door is built on
   frazaro help           this text
 
 Not in this version (docs/HORIZON.md, section 12, slice by slice):
-  translate-vla, translate-vba (exit 3: not attempted),
   check, build, run, ask, diff, rebuild
 ";
 
@@ -255,19 +261,88 @@ fn prove(args: &[String]) -> ExitCode {
     }
 }
 
+/// `frazaro translate-vla|translate-vba <program.txt> --prelude <prelude.vla>
+/// --phrasebook <file.vla> [--phrasebook ...] [--allow-raw]`: the treaty's
+/// oracles 1 and 1a. Each phrasebook loads in order, its proofs run as the
+/// add-in runs them (a failing proof refuses, as EnglishLoadVocabulary
+/// does), then EnglishToVla (or EnglishToVba: its text compiled with the
+/// prelude) writes to stdout. A refusal goes to stderr with exit 1.
+fn translate(kind: &str, args: &[String]) -> ExitCode {
+    let books: Vec<&str> = args
+        .windows(2)
+        .filter(|w| w[0] == "--phrasebook")
+        .map(|w| w[1].as_str())
+        .collect();
+    let (Some(program), Some(prelude)) = (args.first(), option_after(args, "--prelude")) else {
+        eprintln!(
+            "usage: frazaro {kind} <program.txt> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] [--allow-raw]"
+        );
+        return ExitCode::from(2);
+    };
+    if books.is_empty() {
+        eprintln!("frazaro: {kind} needs at least one --phrasebook <file.vla>");
+        return ExitCode::from(2);
+    }
+    let allow_raw = args.iter().any(|a| a == "--allow-raw");
+    let (text, prelude) = match (read_text(program), read_text(prelude)) {
+        (Ok(t), Ok(p)) => (t, p),
+        (Err(e), _) | (_, Err(e)) => {
+            eprintln!("frazaro: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    use frazaro_core::english::vocab::{vocab_requires_check_capability, vocab_text_has_raw_form};
+    let mut grammar = frazaro_core::english::Grammar::new(&prelude);
+    for book in books {
+        let vocab = match read_text(book) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("frazaro: {e}");
+                return ExitCode::from(2);
+            }
+        };
+        if let Err(refusal) = vocab_requires_check_capability(&vocab, book) {
+            eprintln!("{refusal}");
+            return ExitCode::from(1);
+        }
+        if !allow_raw && vocab_text_has_raw_form(&vocab) {
+            let refusal = frazaro_core::messages::raise(
+                "english-vocab-raw-consent-declined",
+                &[("source", book)],
+            );
+            eprintln!("{refusal}");
+            return ExitCode::from(1);
+        }
+        if let Err(refusal) = grammar.load_vocabulary_text(&vocab, book) {
+            eprintln!("{refusal}");
+            return ExitCode::from(1);
+        }
+    }
+    let out = if kind == "translate-vla" {
+        grammar.translate_program(&text).map(|t| t.vla)
+    } else {
+        grammar.translate_program_to_vba(&text)
+    };
+    match out {
+        Ok(s) => {
+            print!("{s}");
+            ExitCode::SUCCESS
+        }
+        Err(refusal) => {
+            eprintln!("{refusal}");
+            ExitCode::from(1)
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("compile") => compile(&args[1..]),
         Some("load") => load(&args[1..]),
         Some("prove") => prove(&args[1..]),
-        Some("translate-vla") | Some("translate-vba") => {
-            eprintln!(
-                "frazaro: '{}' is not attempted in this version (PORT.6 and later)",
-                args[0]
-            );
-            ExitCode::from(3)
-        }
+        Some("translate-vla") => translate("translate-vla", &args[1..]),
+        Some("translate-vba") => translate("translate-vba", &args[1..]),
         Some("version") | Some("--version") | Some("-V") => {
             let core = frazaro_core::version();
             let abi = frazaro_core::frazaro_abi_version();

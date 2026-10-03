@@ -63,6 +63,7 @@ jobs:
         shell: pwsh
         run: |
           pwsh -NoProfile -File tools/check_compile_prefix.ps1 -Impl target/debug/frazaro
+          pwsh -NoProfile -File tools/check_translate_prefix.ps1 -Impl target/debug/frazaro
           pwsh -NoProfile -File tools/prove.ps1 -Impl target/debug/frazaro -ShowAll
       - name: the core's passing phrasebook proofs never go down (PORT.6, oracle 3)
         shell: pwsh

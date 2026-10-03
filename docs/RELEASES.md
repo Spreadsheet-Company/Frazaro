@@ -195,6 +195,16 @@
   exported from it as data (`scripts/headtable.vla`, `scripts/messages.vla`),
   with a check that fails the day they drift. Nothing about the add-in you
   download changes; English in the core is the next slice.
+- **The second implementation reads the whole corpus in English, byte for
+  byte.** `frazaro translate-vla program.txt --prelude prelude.vla
+  --phrasebook english.vla` reads a program written in English with the
+  phrasebook and writes the VLA the add-in writes for it, and
+  `translate-vba` the VBA; on the corpus program both match what the add-in
+  wrote, character for character. `frazaro prove english.vla` runs the
+  phrasebook's 482 proofs as loading it in Excel runs them, and passes
+  every one, as it does for every other phrasebook in `scripts/polyglotta/`.
+  Nothing about the add-in you download changes; the refusals, the
+  translate API and the web page are the slices still to come.
 - **The repository is now a workspace for more than one product; nothing
   about the add-in you download changes.** Frazaro is a language whose first
   implementation is this Excel add-in, and this release lays the ground for

@@ -1,18 +1,16 @@
-//! The sentence entry and the proof runners (PORT.6, slice 6d): the part of
-//! VLA_SentenceEngine.bas's `ParseStmt` a phrasebook's proofs reach - the
-//! raw-form and blank-line gates, B7.4's percent form of Increase, Decrease
-//! and Add, the rule walk, the action-call fallback and the parse error -
-//! and `RunVocabTest`, `RunVocabFailTest` and `NormalizeWs`, which run the
-//! proofs a load collected against the grammar as the file left it.
-//!
-//! The built-in statement forms (`if`, `repeat`, `count`, `stop`, `while`,
-//! `for`, `get`, `give`, `try`, `when`, `create`, `to`, `define`), a raw
-//! VLA form's probe and `EnglishToVla`'s program frame are slice 6e's; a
-//! sentence that reaches one refuses by name until then, and a proof that
-//! does fails for that reason and no other.
+//! The statement grammar (PORT.6, slices 6d and 6e): VLA_SentenceEngine.bas's
+//! `ParseStmt` arm for arm - the blank-line and raw-form gates, If with its
+//! Otherwise chain, Repeat, Count, Stop, While, For each, the standalone-Get
+//! guard, Give back, Try with "If that fails:", When ... is, Create, the
+//! To and Define guards, B7.4's percent form of Increase, Decrease and Add,
+//! the rule walk, the action-call fallback and the parse error - with the
+//! block parsers (`ParseBlock`, `ParseBranchBlock`, `ParseTryBody`,
+//! `ContinuationAhead`), `ParseCaseValues`, `ValidateRawVla` and
+//! `ParseTracked`, which numbers each statement for the step table; and the
+//! proof runners `RunVocabTest`, `RunVocabFailTest` and `NormalizeWs`.
 
 use super::grammar::{Grammar, Proof, ProofFailure, ProofKind, ProofMode};
-use super::matcher::{is_num_tok, port_pending, Parser};
+use super::matcher::{add_keyed, is_num_tok, is_str_tok, is_word_tok, render_tok, Parser};
 use super::tokenize::{tokenize, PARA_TOK};
 use super::vocab::prov_loc;
 use crate::intrinsics::fold;
@@ -37,13 +35,69 @@ fn proper_case(w: &str) -> String {
     }
 }
 
+/// VBA `JoinStmts`: statements on their own lines.
+pub fn join_stmts(stmts: &[String]) -> String {
+    stmts.join("\r\n")
+}
+
+/// VBA `VlaBalanceHint` (VLA.bas, L12): the parenthesis count of a row in
+/// words, or "" when it balances; quoted text and comments are skipped.
+pub fn vla_balance_hint(t: &str) -> String {
+    let chars: Vec<char> = t.chars().collect();
+    let mut i = 0;
+    let mut depth: i64 = 0;
+    let mut in_quote = false;
+    while i < chars.len() {
+        let c = chars[i];
+        if in_quote {
+            if c == '\\' {
+                i += 2;
+            } else {
+                if c == '"' {
+                    in_quote = false;
+                }
+                i += 1;
+            }
+        } else if c == '"' {
+            in_quote = true;
+            i += 1;
+        } else if c == ';' {
+            while i < chars.len() && chars[i] != '\r' && chars[i] != '\n' {
+                i += 1;
+            }
+        } else {
+            if c == '(' {
+                depth += 1;
+            }
+            if c == ')' {
+                depth -= 1;
+            }
+            i += 1;
+        }
+    }
+    if depth > 0 {
+        format!(
+            "this row opens {depth} form{} it never closes",
+            if depth == 1 { "" } else { "s" }
+        )
+    } else if depth < 0 {
+        format!(
+            "this row closes {} form{} it never opened",
+            -depth,
+            if depth == -1 { "" } else { "s" }
+        )
+    } else {
+        String::new()
+    }
+}
+
 impl<'g> Parser<'g> {
     /// VBA `ParseStmt`: one statement from pos, as VLA text, indented `ind`
-    /// levels. Slice 6d reads what a phrasebook's proofs reach.
+    /// levels.
     pub fn parse_stmt(&mut self, pos: &mut usize, ind: usize) -> Result<String, Refusal> {
         let pad = " ".repeat(ind * 2);
         // LX.14: where this sentence began, for a function phrase that stops
-        // partway.
+        // partway. A comma body keeps its sentence's start.
         if *pos >= 1 && matches!(self.tok(*pos - 1), "" | "." | ":" | PARA_TOK) {
             self.sentence_start = *pos;
         }
@@ -51,17 +105,145 @@ impl<'g> Parser<'g> {
             return Err(raise("english-expected-sentence-blank-line", &[]));
         }
         // L0: a token beginning with "(" is a raw VLA form the tokenizer
-        // captured whole; its probe-transpile (ValidateRawVla) is 6e's.
+        // captured whole. It is a statement wherever a sentence can stand;
+        // Check validates it by probe-transpiling.
         if self.tok(*pos).starts_with('(') {
             self.claim("a raw VLA form");
-            return Err(port_pending("a raw VLA form in a sentence"));
+            let raw_f = self.tok(*pos).to_string();
+            self.validate_raw_vla(&raw_f, *pos)?;
+            *pos += 1;
+            return Ok(format!("{pad}{raw_f}"));
         }
 
         let w = self.peek_word(*pos);
         match w.as_str() {
-            "if" | "repeat" | "count" | "while" | "for" | "get" | "give" | "try" | "when"
-            | "create" | "to" | "define" => {
-                return Err(port_pending(&format!("the statement form '{w}'")));
+            "if" => {
+                if self.at_fail_intro(*pos) {
+                    self.claim("the Try recovery intro ('If that fails:')");
+                    let context = self.sentence_context(*pos);
+                    let loc = self.line_tag(*pos);
+                    return Err(raise(
+                        "english-if-fails-misplaced",
+                        &[("context", &context), ("loc", &loc)],
+                    ));
+                }
+                self.claim("the If form");
+                *pos += 1;
+                let mut c = self.parse_cond_req(pos)?;
+                if self.tok(*pos) == "," {
+                    *pos += 1;
+                    let inner = self.parse_stmt(pos, 0)?;
+                    return Ok(format!("{pad}(if {c} (then {inner}))"));
+                }
+                self.expect_tok(pos, ":", "',' or ':' after the If condition")?;
+                let (then_c, mut cont_w) = self.parse_branch_block(pos, " otherwise ")?;
+                let mut r = format!("{pad}(if {c}\r\n{pad}  (then\r\n{})", join_stmts(&then_c));
+                while cont_w == "otherwise" {
+                    *pos += 1; // the word itself
+                    if self.tok(*pos) == "," {
+                        *pos += 1;
+                    }
+                    if self.tok(*pos) == "if" {
+                        *pos += 1;
+                        c = self.parse_cond_req(pos)?;
+                        let inner;
+                        if self.tok(*pos) == "," {
+                            *pos += 1;
+                            inner = self.parse_tracked(pos, 2)?;
+                            cont_w = self.continuation_ahead(pos, " otherwise ");
+                        } else {
+                            self.expect_tok(
+                                pos,
+                                ":",
+                                "',' or ':' after the Otherwise-if condition",
+                            )?;
+                            let (tc, cw) = self.parse_branch_block(pos, " otherwise ")?;
+                            inner = join_stmts(&tc);
+                            cont_w = cw;
+                        }
+                        r.push_str(&format!("\r\n{pad}  (elseif {c}\r\n{inner})"));
+                    } else {
+                        self.expect_tok(
+                            pos,
+                            ":",
+                            "':' (or ', if <condition>:') after 'Otherwise'",
+                        )?;
+                        let else_c = self.parse_block(pos)?;
+                        r.push_str(&format!("\r\n{pad}  (else\r\n{})", join_stmts(&else_c)));
+                        cont_w.clear();
+                    }
+                }
+                r.push(')');
+                return Ok(r);
+            }
+            "repeat" => {
+                self.claim("the Repeat loop");
+                *pos += 1;
+                if self.tok(*pos) == "until" {
+                    *pos += 1;
+                    let c = self.parse_cond_req(pos)?;
+                    if self.tok(*pos) == "," {
+                        *pos += 1;
+                        let inner = self.in_loop("do", |s| s.parse_stmt(pos, 0))?;
+                        return Ok(format!("{pad}(do-until {c} {inner})"));
+                    }
+                    self.expect_tok(pos, ":", "',' or ':' after 'Repeat until ...'")?;
+                    let body = self.in_loop("do", |s| s.parse_block(pos))?;
+                    return Ok(format!("{pad}(do-until {c}\r\n{})", join_stmts(&body)));
+                }
+                let e = self.parse_expr_req(pos)?;
+                self.expect_word_is(pos, "times")?;
+                self.mark_assigned("counter")?;
+                if self.tok(*pos) == "," {
+                    *pos += 1;
+                    let inner = self.in_loop("for", |s| s.parse_stmt(pos, 0))?;
+                    return Ok(format!("{pad}(dotimes counter {e} {inner})"));
+                }
+                self.expect_tok(pos, ":", "',' or ':' after 'Repeat ... times'")?;
+                let body = self.in_loop("for", |s| s.parse_block(pos))?;
+                return Ok(format!(
+                    "{pad}(dotimes counter {e}\r\n{})",
+                    join_stmts(&body)
+                ));
+            }
+            "count" => {
+                self.claim("the Count loop");
+                *pos += 1;
+                let v = self.expect_word(pos, "a name after 'Count'")?;
+                self.mark_assigned(&v)?;
+                let mut cnt_down = false;
+                if self.tok(*pos) == "down" {
+                    cnt_down = true;
+                    *pos += 1;
+                }
+                self.expect_word_is(pos, "from")?;
+                let e = self.parse_expr_req(pos)?;
+                self.expect_word_is(pos, "to")?;
+                let c = self.parse_expr_req(pos)?;
+                let kind = if self.tok(*pos) == "step" {
+                    *pos += 1;
+                    let cnt_step = self.parse_expr_req(pos)?;
+                    if cnt_down {
+                        format!(" (- 0 {cnt_step})")
+                    } else {
+                        format!(" {cnt_step}")
+                    }
+                } else if cnt_down {
+                    " -1".to_string()
+                } else {
+                    String::new()
+                };
+                if self.tok(*pos) == "," {
+                    *pos += 1;
+                    let inner = self.in_loop("for", |s| s.parse_stmt(pos, 0))?;
+                    return Ok(format!("{pad}(for ({v} {e} {c}{kind}) {inner})"));
+                }
+                self.expect_tok(pos, ":", "',' or ':' after 'Count ... from ... to ...'")?;
+                let body = self.in_loop("for", |s| s.parse_block(pos))?;
+                return Ok(format!(
+                    "{pad}(for ({v} {e} {c}{kind})\r\n{})",
+                    join_stmts(&body)
+                ));
             }
             "stop" => {
                 if self.tok(*pos + 1) == "loop" {
@@ -95,6 +277,224 @@ impl<'g> Parser<'g> {
                 }
                 // anything else starting with "stop" tries the phrase rules
             }
+            "while" => {
+                self.claim("the While loop");
+                *pos += 1;
+                let c = self.parse_cond_req(pos)?;
+                if self.tok(*pos) == "," {
+                    *pos += 1;
+                    let inner = self.in_loop("do", |s| s.parse_stmt(pos, 0))?;
+                    return Ok(format!("{pad}(while {c} {inner})"));
+                }
+                self.expect_tok(pos, ":", "',' or ':' after the While condition")?;
+                let body = self.in_loop("do", |s| s.parse_block(pos))?;
+                return Ok(format!("{pad}(while {c}\r\n{})", join_stmts(&body)));
+            }
+            "for" => {
+                self.claim("the For each loop");
+                *pos += 1;
+                self.expect_word_is(pos, "each")?;
+                let v = self.expect_word(pos, "a name after 'For each'")?;
+                self.mark_assigned(&v)?;
+                self.expect_word_is(pos, "in")?;
+                let e = if self.is_dict_name(self.tok(*pos))
+                    && (self.tok(*pos + 1) == "," || self.tok(*pos + 1) == ":")
+                {
+                    let d = format!("(vladictpairs {})", self.tok(*pos));
+                    *pos += 1;
+                    d
+                } else {
+                    self.parse_expr_req(pos)?
+                };
+                if self.tok(*pos) == "," {
+                    *pos += 1;
+                    let inner = self.in_loop("for", |s| s.parse_stmt(pos, 0))?;
+                    return Ok(format!("{pad}(for-each ({v} {e}) {inner})"));
+                }
+                self.expect_tok(pos, ":", "',' or ':' after 'For each ... in ...'")?;
+                let body = self.in_loop("for", |s| s.parse_block(pos))?;
+                return Ok(format!(
+                    "{pad}(for-each ({v} {e})\r\n{})",
+                    join_stmts(&body)
+                ));
+            }
+            "get" => {
+                if self.is_using_fn(self.tok(*pos + 1)) && self.tok(*pos + 2) == "using" {
+                    self.claim("the standalone-Get guard");
+                    let f = self.tok(*pos + 1).to_string();
+                    let loc = self.line_tag(*pos);
+                    return Err(raise(
+                        "english-standalone-get",
+                        &[("fn", &f), ("loc", &loc)],
+                    ));
+                }
+            }
+            "give" => {
+                self.claim("the Give back form");
+                *pos += 1;
+                self.expect_word_is(pos, "back")?;
+                if !self.in_func_def {
+                    let context = self.sentence_context(*pos - 2);
+                    let loc = self.line_tag(*pos - 2);
+                    return Err(raise(
+                        "english-give-back-outside-action",
+                        &[("context", &context), ("loc", &loc)],
+                    ));
+                }
+                let e = self.parse_expr_req(pos)?;
+                self.expect_tok(pos, ".", "'.' at the end of the sentence")?;
+                return Ok(format!("{pad}(return {e})"));
+            }
+            "try" => {
+                self.claim("the Try block");
+                *pos += 1;
+                self.expect_tok(pos, ":", "':' after 'Try'")?;
+                self.try_count += 1;
+                let tn = self.try_count;
+                let (body, has_rec) = self.parse_try_body(pos)?;
+                let else_c = if has_rec {
+                    self.in_recovery = true;
+                    let r = self.parse_block(pos);
+                    self.in_recovery = false;
+                    r?
+                } else {
+                    Vec::new()
+                };
+                let mut r = format!("{pad}(on-error goto vla-tryf-{tn})\r\n");
+                if !body.is_empty() {
+                    r.push_str(&join_stmts(&body));
+                    r.push_str("\r\n");
+                }
+                r.push_str(&format!("{pad}(goto vla-tryd-{tn})\r\n"));
+                r.push_str(&format!("{pad}(label vla-tryf-{tn})\r\n"));
+                r.push_str(&format!("{pad}(set! vla-problem err.description)\r\n"));
+                r.push_str(&format!("{pad}(resume vla-tryr-{tn})\r\n"));
+                r.push_str(&format!("{pad}(label vla-tryr-{tn})\r\n"));
+                r.push_str(&format!("{pad}{}\r\n", self.restore_handler_vla()));
+                if !else_c.is_empty() {
+                    r.push_str(&join_stmts(&else_c));
+                    r.push_str("\r\n");
+                }
+                r.push_str(&format!("{pad}(label vla-tryd-{tn})\r\n"));
+                r.push_str(&format!("{pad}{}", self.restore_handler_vla()));
+                return Ok(r);
+            }
+            "when" => {
+                self.claim("the When choices form");
+                *pos += 1;
+                if self.tok(*pos) == "it" {
+                    let context = self.sentence_context(*pos - 1);
+                    let loc = self.line_tag(*pos - 1);
+                    return Err(raise(
+                        "english-when-it-is-first",
+                        &[("context", &context), ("loc", &loc)],
+                    ));
+                }
+                if !is_str_tok(self.tok(*pos))
+                    && self.tok(*pos + 1) == "is"
+                    && self.tok(*pos + 2) == "clicked"
+                    && self.tok(*pos + 3) == ":"
+                {
+                    let t = self.tok(*pos).to_string();
+                    let loc = self.line_tag(*pos);
+                    return Err(raise(
+                        "english-click-handler-needs-quotes",
+                        &[("tok", &t), ("loc", &loc)],
+                    ));
+                }
+                if is_str_tok(self.tok(*pos))
+                    && self.tok(*pos + 1) == "is"
+                    && is_word_tok(self.tok(*pos + 2))
+                    && self.tok(*pos + 2) != "clicked"
+                    && self.tok(*pos + 3) == ":"
+                {
+                    let t = render_tok(self.tok(*pos));
+                    let misspelled = self.tok(*pos + 2).to_string();
+                    let loc = self.line_tag(*pos);
+                    return Err(raise(
+                        "english-clicked-misspelled",
+                        &[("tok", &t), ("misspelled", &misspelled), ("loc", &loc)],
+                    ));
+                }
+                let e = self.parse_expr_req(pos)?;
+                self.expect_word_is(pos, "is")?;
+                let mut c = self.parse_case_values(pos)?;
+                self.expect_tok(pos, ":", "':' after 'When ... is ...'")?;
+                let (body, mut cont_w) = self.parse_branch_block(pos, " when otherwise ")?;
+                let mut r = format!(
+                    "{pad}(select {e}\r\n{pad}  (case {c}\r\n{})",
+                    join_stmts(&body)
+                );
+                while !cont_w.is_empty() {
+                    *pos += 1; // "when" or "otherwise"
+                    if cont_w == "when" {
+                        self.expect_word_is(pos, "it")?;
+                        self.expect_word_is(pos, "is")?;
+                        c = self.parse_case_values(pos)?;
+                        self.expect_tok(pos, ":", "':' after 'When it is ...'")?;
+                        let (b, cw) = self.parse_branch_block(pos, " when otherwise ")?;
+                        cont_w = cw;
+                        r.push_str(&format!("\r\n{pad}  (case {c}\r\n{})", join_stmts(&b)));
+                    } else {
+                        self.expect_tok(pos, ":", "':' after 'Otherwise'")?;
+                        let b = self.parse_block(pos)?;
+                        r.push_str(&format!("\r\n{pad}  (case-else\r\n{})", join_stmts(&b)));
+                        cont_w.clear();
+                    }
+                }
+                r.push(')');
+                return Ok(r);
+            }
+            "create" => {
+                self.claim("the Create declaration");
+                *pos += 1;
+                self.skip_articles(pos);
+                let kind = self.expect_word(
+                    pos,
+                    "'number', 'text', 'value', 'list', or 'lookup' after 'Create'",
+                )?;
+                if kind == "button" {
+                    let loc = self.line_tag(*pos - 1);
+                    return Err(raise(
+                        "english-button-not-created-with-create",
+                        &[("loc", &loc)],
+                    ));
+                }
+                if kind == "pivot" {
+                    let loc = self.line_tag(*pos - 1);
+                    return Err(raise(
+                        "english-pivot-not-created-with-create",
+                        &[("loc", &loc)],
+                    ));
+                }
+                self.expect_word_is(pos, "called")?;
+                let v = self.expect_word(pos, "a name after 'called'")?;
+                self.expect_tok(pos, ".", "'.' at the end of the sentence")?;
+                self.mark_declared(&v)?;
+                return Ok(match kind.as_str() {
+                    "number" => format!("{pad}(dim {v} Double)"),
+                    "text" => format!("{pad}(dim {v} String)"),
+                    "value" => format!("{pad}(dim {v})"),
+                    "list" => {
+                        format!("{pad}(begin (dim {v} Collection) (obj-set! {v} (new Collection)))")
+                    }
+                    "lookup" => {
+                        add_keyed(&mut self.dict_names, &v);
+                        format!("{pad}(begin (dim {v} Object) (obj-set! {v} (vladictnew)))")
+                    }
+                    _ => {
+                        return Err(raise("english-create-unknown-kind", &[("kind", &kind)]));
+                    }
+                });
+            }
+            "to" => {
+                self.claim("the To definition");
+                return Err(raise("english-to-not-top-level", &[]));
+            }
+            "define" => {
+                self.claim("the Define declaration");
+                return Err(raise("english-define-not-top-level", &[]));
+            }
             "increase" | "decrease" | "add" => {
                 if let Some(r) = self.percent_share_form(&w, pos, &pad)? {
                     return Ok(r);
@@ -114,21 +514,29 @@ impl<'g> Parser<'g> {
 
         // Fallback: a name is a call to a defined action - bare ("Greet.")
         // or with named arguments ("Stamp with row of 2 and value of "x".").
-        // The call is recorded against the program's definitions (6e).
+        // Every call is recorded and checked against the definitions once
+        // the whole file has parsed.
         if !w.is_empty() {
             if self.tok(*pos + 1) == "." {
                 self.claim(&format!("a call to the action '{w}'"));
+                let text = self.render_sentence_at(*pos);
+                let line = self.toks.line_at(*pos);
+                self.record_call(&w, Vec::new(), text, line);
                 *pos += 2;
                 return Ok(format!("{pad}({w})"));
             } else if self.tok(*pos + 1) == "with" {
                 self.claim(&format!("a call to the action '{w}' with arguments"));
+                let call_txt = self.render_sentence_at(*pos);
+                let call_line = self.toks.line_at(*pos);
                 *pos += 2;
                 let mut inner = String::new();
+                let mut call_args: Vec<String> = Vec::new();
                 loop {
                     let v = self.expect_word(pos, "a parameter name after 'with'")?;
                     self.expect_word_is(pos, "of")?;
                     let e = self.parse_expr_req(pos)?;
                     inner.push_str(&format!(" :{v} {e}"));
+                    call_args.push(fold(&v));
                     if self.tok(*pos) == "and" {
                         *pos += 1;
                     } else {
@@ -136,12 +544,32 @@ impl<'g> Parser<'g> {
                     }
                 }
                 self.expect_tok(pos, ".", "'.' at the end of the sentence")?;
+                self.record_call(&w, call_args, call_txt, call_line);
                 return Ok(format!("{pad}({w}{inner})"));
             }
         }
 
         let msg = self.build_parse_error(*pos);
         Err(raise("english-parse-error", &[("msg", &msg)]))
+    }
+
+    /// `PushLoop` / `PopLoop` around a loop's body.
+    fn in_loop<T>(
+        &mut self,
+        kind: &str,
+        body: impl FnOnce(&mut Self) -> Result<T, Refusal>,
+    ) -> Result<T, Refusal> {
+        self.loop_stack.push(kind.to_string());
+        let r = body(self);
+        self.loop_stack.pop();
+        r
+    }
+
+    /// VBA `MarkDeclared`: a declared name, checked.
+    pub(super) fn mark_declared(&mut self, name: &str) -> Result<(), Refusal> {
+        self.check_name(name)?;
+        add_keyed(&mut self.declared, name);
+        Ok(())
     }
 
     /// B7.4: "Increase total by 10%." and "Add 10% to total." mean Grow and
@@ -235,6 +663,248 @@ impl<'g> Parser<'g> {
         Ok(None)
     }
 
+    // ---- blocks -------------------------------------------------------------------
+
+    /// VBA `ParseBlock`: statements until the block closes: "Done." (consumed),
+    /// a paragraph marker (left for the outer blocks), or the end.
+    pub(super) fn parse_block(&mut self, pos: &mut usize) -> Result<Vec<String>, Refusal> {
+        let mut out = Vec::new();
+        loop {
+            if *pos > self.toks.count() || self.tok(*pos) == PARA_TOK {
+                break;
+            }
+            if self.tok(*pos) == "done" {
+                *pos += 1;
+                self.expect_tok(pos, ".", "'.' after 'Done'")?;
+                break;
+            }
+            let s = self.parse_tracked(pos, 2)?;
+            out.push(s);
+        }
+        Ok(out)
+    }
+
+    /// VBA `ParseBranchBlock`: a block that a continuation word may also
+    /// close, returned with that word ("" when none).
+    pub(super) fn parse_branch_block(
+        &mut self,
+        pos: &mut usize,
+        cont_words: &str,
+    ) -> Result<(Vec<String>, String), Refusal> {
+        let mut out = Vec::new();
+        let mut cont_word = String::new();
+        loop {
+            if *pos > self.toks.count() {
+                break;
+            }
+            if self.tok(*pos) == PARA_TOK {
+                cont_word = self.continuation_ahead(pos, cont_words);
+                break;
+            }
+            if cont_words.contains(&format!(" {} ", self.tok(*pos))) {
+                cont_word = self.tok(*pos).to_string();
+                break;
+            }
+            if self.tok(*pos) == "done" {
+                *pos += 1;
+                self.expect_tok(pos, ".", "'.' after 'Done'")?;
+                break;
+            }
+            let s = self.parse_tracked(pos, 2)?;
+            out.push(s);
+        }
+        Ok((out, cont_word))
+    }
+
+    /// VBA `ContinuationAhead`: a continuation word past blank lines, pos
+    /// moved to it when found.
+    pub(super) fn continuation_ahead(&self, pos: &mut usize, cont_words: &str) -> String {
+        let mut j = *pos;
+        while self.tok(j) == PARA_TOK {
+            j += 1;
+        }
+        let t = self.tok(j);
+        if !t.is_empty() && cont_words.contains(&format!(" {t} ")) {
+            *pos = j;
+            return t.to_string();
+        }
+        String::new()
+    }
+
+    /// VBA `ParseTryBody`: the body until "If that fails:" (past a blank
+    /// line too), "Done." or the end; the flag says a recovery follows.
+    fn parse_try_body(&mut self, pos: &mut usize) -> Result<(Vec<String>, bool), Refusal> {
+        let mut out = Vec::new();
+        loop {
+            if *pos > self.toks.count() {
+                break;
+            }
+            if self.tok(*pos) == PARA_TOK {
+                let mut j = *pos;
+                while self.tok(j) == PARA_TOK {
+                    j += 1;
+                }
+                if self.at_fail_intro(j) {
+                    *pos = j; // blank line separates body and recovery
+                } else {
+                    break; // leave marker for outer blocks
+                }
+            }
+            if self.at_fail_intro(*pos) {
+                *pos += 3; // "if" "that" "fails"
+                self.expect_tok(pos, ":", "':' after 'If that fails'")?;
+                return Ok((out, true));
+            }
+            if self.tok(*pos) == "done" {
+                *pos += 1;
+                self.expect_tok(pos, ".", "'.' after 'Done'")?;
+                break;
+            }
+            let s = self.parse_tracked(pos, 2)?;
+            out.push(s);
+        }
+        Ok((out, false))
+    }
+
+    pub(super) fn at_fail_intro(&self, p: usize) -> bool {
+        self.tok(p) == "if" && self.tok(p + 1) == "that" && self.tok(p + 2) == "fails"
+    }
+
+    pub(super) fn at_sheet_change_event(&self, p: usize) -> bool {
+        self.tok(p) == "when"
+            && self.tok(p + 1) == "sheet"
+            && self.tok(p + 2) == "changes"
+            && self.tok(p + 3) == ":"
+    }
+
+    pub(super) fn at_button_click_event(&self, p: usize) -> bool {
+        self.tok(p) == "when"
+            && is_str_tok(self.tok(p + 1))
+            && self.tok(p + 2) == "is"
+            && self.tok(p + 3) == "clicked"
+            && self.tok(p + 4) == ":"
+    }
+
+    fn restore_handler_vla(&self) -> &'static str {
+        if self.step_tracking {
+            "(on-error goto vla-fail)"
+        } else {
+            "(on-error goto 0)"
+        }
+    }
+
+    /// VBA `ParseCaseValues`: `(v1 v2 ...)`, "or"-separated.
+    fn parse_case_values(&mut self, pos: &mut usize) -> Result<String, Refusal> {
+        let mut r = format!("({}", self.parse_expr_req(pos)?);
+        while self.tok(*pos) == "or" {
+            *pos += 1;
+            r.push(' ');
+            r.push_str(&self.parse_expr_req(pos)?);
+        }
+        r.push(')');
+        Ok(r)
+    }
+
+    /// VBA `ValidateRawVla` (L0, L12): a raw form's head may not define
+    /// anything at the top level, its parentheses must balance, and it must
+    /// transpile inside a probe sub with the prelude and the carried macros.
+    fn validate_raw_vla(&mut self, form_text: &str, pos: usize) -> Result<(), Refusal> {
+        let head: String = form_text
+            .chars()
+            .skip(1)
+            .take_while(|c| !matches!(c, ' ' | '\t' | '(' | ')'))
+            .collect();
+        if matches!(
+            fold(&head).as_str(),
+            "sub" | "function" | "defmacro" | "type" | "enum" | "public" | "private"
+        ) {
+            let loc = self.line_tag(pos);
+            return Err(raise(
+                "english-top-level-definition-in-row",
+                &[("head", &head), ("loc", &loc)],
+            ));
+        }
+        let bal_hint = vla_balance_hint(form_text);
+        if !bal_hint.is_empty() {
+            let loc = self.line_tag(pos);
+            return Err(raise(
+                "english-form-balance-hint",
+                &[("hint", &bal_hint), ("loc", &loc)],
+            ));
+        }
+        let prelude = format!("{}\n{}", self.g.prelude, self.g.vocab_macros_text());
+        if let Err(e) =
+            crate::emit::compile(&format!("(sub vla-check-probe () {form_text})"), &prelude)
+        {
+            let loc = self.line_tag(pos);
+            return Err(raise(
+                "english-form-doesnt-transpile",
+                &[("detail", &e.text), ("loc", &loc)],
+            ));
+        }
+        Ok(())
+    }
+
+    // ---- the step table -----------------------------------------------------------
+
+    /// VBA `SrcLineText` (S3.2): the original line, trimmed, or the sentence
+    /// rendered from its tokens when the line is empty.
+    fn src_line_text(&self, ln: u32, pos: usize) -> String {
+        if ln >= 1 {
+            if let Some(s) = self.src_lines.get((ln - 1) as usize) {
+                let s = s.trim_matches(' ');
+                if !s.is_empty() {
+                    return s.to_string();
+                }
+            }
+        }
+        self.render_sentence_at(pos)
+    }
+
+    /// VBA `ParseTracked`: one statement with its step number set before it
+    /// and its line marked, when step tracking is on; the line mark alone
+    /// under TER-10's `mLineMarks`.
+    pub(super) fn parse_tracked(&mut self, pos: &mut usize, ind: usize) -> Result<String, Refusal> {
+        self.cur_line = self.toks.line_at(*pos);
+        let start_ln = self.cur_line;
+        if !self.step_tracking {
+            let lm_ln = self.toks.line_at(*pos);
+            let lm_stmt = self.parse_stmt(pos, ind)?;
+            self.refuse_cell_shaped_read(&lm_stmt, start_ln)?;
+            if self.line_marks && lm_ln > 0 {
+                return Ok(format!(
+                    "{}(at-line {lm_ln}\r\n{lm_stmt})",
+                    " ".repeat(ind * 2)
+                ));
+            }
+            return Ok(lm_stmt);
+        }
+        self.step_count += 1;
+        let my_n = self.step_count;
+        let stp_ln = self.toks.line_at(*pos);
+        if stp_ln > 0 {
+            let text = self.src_line_text(stp_ln, *pos);
+            self.step_texts.push(format!("{text} [line {stp_ln}]"));
+        } else {
+            let text = self.render_sentence_at(*pos);
+            self.step_texts.push(text);
+        }
+        let stmt = self.parse_stmt(pos, ind)?;
+        self.refuse_cell_shaped_read(&stmt, start_ln)?;
+        let pad = " ".repeat(ind * 2);
+        if stp_ln > 0 {
+            Ok(format!(
+                "{pad}(set! vla-step {my_n})\r\n{pad}(if (vlatraceon) (then (vlatracestep {my_n} (vla-step-text {my_n}))))\r\n{pad}(at-line {stp_ln}\r\n{stmt})"
+            ))
+        } else {
+            Ok(format!(
+                "{pad}(set! vla-step {my_n})\r\n{pad}(if (vlatraceon) (then (vlatracestep {my_n} (vla-step-text {my_n}))))\r\n{stmt}"
+            ))
+        }
+    }
+
+    // ---- the proof runners --------------------------------------------------------
+
     /// The translation both proof runners make: `EnTokenize`, the alias
     /// rewrite, one `ParseStmt` at position 1, LX.13's read check, and
     /// nothing but paragraph marks allowed after the statement.
@@ -242,6 +912,9 @@ impl<'g> Parser<'g> {
         let toks = tokenize(sentence).map_err(|e| e.refusal)?;
         self.set_tokens(toks);
         self.cur_line = 0; // LX.13: a proof has no program line
+        self.assigned.clear();
+        self.declared.clear();
+        self.loop_stack.clear();
         let mut pos = 1;
         let got = self.parse_stmt(&mut pos, 0)?;
         self.refuse_cell_shaped_read(&got, 0)?;
@@ -390,12 +1063,6 @@ mod tests {
     const LATIN: &str = include_str!("../../../scripts/polyglotta/latin.vla");
     const PIRATE: &str = include_str!("../../../scripts/polyglotta/pirate.vla");
 
-    fn collecting() -> Grammar {
-        let mut g = Grammar::new(PRELUDE);
-        g.set_proof_mode(ProofMode::Collect);
-        g
-    }
-
     fn translate(rules: &str, sentence: &str) -> Result<String, Refusal> {
         let mut g = Grammar::new(PRELUDE);
         g.load_vocabulary_text(rules, "t.vla").unwrap();
@@ -512,6 +1179,88 @@ mod tests {
     }
 
     #[test]
+    fn the_statement_forms_read_as_the_reference_reads_them() {
+        let g = Grammar::new(PRELUDE);
+        let t = |s: &str| g.translate_sentence(s).unwrap();
+        assert_eq!(t("If x is 5, show x."), "(if (= x 5) (then (msgbox x)))");
+        assert_eq!(
+            t("Repeat 3 times, log counter."),
+            "(dotimes counter 3 (debug-print counter))"
+        );
+        assert_eq!(
+            t("Repeat until n is 0, set n to n minus 1."),
+            "(do-until (= n 0) (set! n (- n 1)))"
+        );
+        assert_eq!(
+            t("While n is less than 3, add 1 to n."),
+            "(while (< n 3) (add! n 1))"
+        );
+        assert_eq!(
+            t("Count i from 1 to 10, log i."),
+            "(for (i 1 10) (debug-print i))"
+        );
+        assert_eq!(
+            t("Count i down from 10 to 1 step 2, log i."),
+            "(for (i 10 1 (- 0 2)) (debug-print i))"
+        );
+        assert_eq!(
+            t("Count i down from 3 to 1, log i."),
+            "(for (i 3 1 -1) (debug-print i))"
+        );
+        assert_eq!(
+            t("For each f in found-items, log f."),
+            "(for-each (f found-items) (debug-print f))"
+        );
+        assert_eq!(t("Create a number called total."), "(dim total Double)");
+        assert_eq!(t("Create a text called label."), "(dim label String)");
+        assert_eq!(t("Create a value called thing."), "(dim thing)");
+        assert_eq!(
+            t("Create a list called found-items."),
+            "(begin (dim found-items Collection) (obj-set! found-items (new Collection)))"
+        );
+        assert_eq!(
+            t("Create a lookup called prices."),
+            "(begin (dim prices Object) (obj-set! prices (vladictnew)))"
+        );
+        assert_eq!(t("Stop."), "(exit-sub)");
+        let e = g.translate_sentence("Stop the loop.").unwrap_err();
+        assert_eq!(e.id, "english-stop-loop-outside-loop");
+        let e = g.translate_sentence("Give back 5.").unwrap_err();
+        assert_eq!(e.id, "english-give-back-outside-action");
+        let e = g.translate_sentence("To greet:").unwrap_err();
+        assert_eq!(e.id, "english-to-not-top-level");
+        let e = g.translate_sentence("Define x as 5.").unwrap_err();
+        assert_eq!(e.id, "english-define-not-top-level");
+        let e = g.translate_sentence("If that fails: log 1.").unwrap_err();
+        assert_eq!(e.id, "english-if-fails-misplaced");
+        let e = g.translate_sentence("When it is 5: log 1.").unwrap_err();
+        assert_eq!(e.id, "english-when-it-is-first");
+        let e = g
+            .translate_sentence("Create a button called go.")
+            .unwrap_err();
+        assert_eq!(e.id, "english-button-not-created-with-create");
+        let e = g
+            .translate_sentence("Create a thing called x.")
+            .unwrap_err();
+        assert_eq!(e.id, "english-create-unknown-kind");
+        assert_eq!(
+            t("(set! (range \"h25\") \"vla-row\")"),
+            "(set! (range \"h25\") \"vla-row\")"
+        );
+        let e = g.translate_sentence("(sub x () 1)").unwrap_err();
+        assert_eq!(e.id, "english-top-level-definition-in-row");
+        assert_eq!(
+            vla_balance_hint("(a (b)"),
+            "this row opens 1 form it never closes"
+        );
+        assert_eq!(
+            vla_balance_hint("(a))"),
+            "this row closes 1 form it never opened"
+        );
+        assert_eq!(vla_balance_hint("(a \"(\" ; (\n)"), "");
+    }
+
+    #[test]
     fn the_parse_error_is_the_reference_s() {
         let mut g = Grammar::new(PRELUDE);
         g.load_vocabulary_text(SHOW, "t.vla").unwrap();
@@ -537,8 +1286,6 @@ mod tests {
         );
         let e = g.translate_sentence("Done.").unwrap_err();
         assert_eq!(e.id, "english-unexpected-token-block");
-        let e = g.translate_sentence("If x is 5, show x.").unwrap_err();
-        assert_eq!(e.id, "english-port-pending");
     }
 
     #[test]
@@ -593,68 +1340,55 @@ mod tests {
     }
 
     #[test]
-    fn every_dialect_s_proofs_pass_whole() {
-        for (text, name) in [
-            (DANSK, "dansk.vla"),
-            (DEUTSCHE, "deutsche.vla"),
-            (ESPERANTO, "esperanto.vla"),
-            (FRANCAIS, "francais.vla"),
-            (LATIN, "latin.vla"),
-            (PIRATE, "pirate.vla"),
+    fn every_phrasebook_s_proofs_pass_whole() {
+        // Raise mode: a failing proof would refuse the load, as in Excel.
+        for (text, name, stats) in [
+            (
+                DANSK,
+                "dansk.vla",
+                "19 rules, 0 macros, 20 tests (0 expected fails)",
+            ),
+            (
+                DEUTSCHE,
+                "deutsche.vla",
+                "19 rules, 0 macros, 20 tests (0 expected fails)",
+            ),
+            (
+                ESPERANTO,
+                "esperanto.vla",
+                "19 rules, 0 macros, 20 tests (0 expected fails)",
+            ),
+            (
+                FRANCAIS,
+                "francais.vla",
+                "19 rules, 0 macros, 20 tests (0 expected fails)",
+            ),
+            (
+                LATIN,
+                "latin.vla",
+                "19 rules, 0 macros, 20 tests (0 expected fails)",
+            ),
+            (
+                PIRATE,
+                "pirate.vla",
+                "19 rules, 0 macros, 20 tests (0 expected fails)",
+            ),
+            (
+                ESPANOL,
+                "espanol.vla",
+                "19 rules, 134 macros, 29 tests (1 expected fail)",
+            ),
+            (
+                ENGLISH,
+                "english.vla",
+                "240 rules, 220 macros, 460 tests (22 expected fails)",
+            ),
         ] {
-            // Raise mode: a failing proof would refuse the load, as in Excel.
             let mut g = Grammar::new(PRELUDE);
             g.load_vocabulary_text(text, name)
                 .unwrap_or_else(|e| panic!("{name}: {}", e.text));
-            assert_eq!(
-                g.vocab_stats(),
-                format!("loaded: 19 rules, 0 macros, 20 tests (0 expected fails) from {name}")
-            );
+            assert_eq!(g.vocab_stats(), format!("loaded: {stats} from {name}"));
+            assert!(g.proof_failures().is_empty());
         }
-    }
-
-    /// What a failure under 6d is allowed to be: a shape slice 6e ports.
-    fn is_pending(f: &ProofFailure) -> bool {
-        f.refusal
-            .text
-            .contains("is not yet in the core (PORT.6, slice 6e)")
-    }
-
-    #[test]
-    fn espanol_s_proofs_fail_only_where_a_statement_form_is_pending() {
-        let mut g = collecting();
-        g.load_vocabulary_text(ESPANOL, "espanol.vla").unwrap();
-        assert_eq!(g.proofs().len(), 30);
-        let failures = g.proof_failures();
-        for f in failures {
-            assert!(is_pending(f), "{}", f.refusal.text);
-        }
-        assert_eq!(
-            30 - failures.len(),
-            26,
-            "{:?}",
-            failures.iter().map(|f| f.proof.line).collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
-    fn english_s_proofs_fail_only_where_a_shape_is_pending() {
-        let mut g = collecting();
-        g.load_vocabulary_text(ENGLISH, "english.vla").unwrap();
-        assert_eq!(g.proofs().len(), 482);
-        let failures = g.proof_failures();
-        for f in failures {
-            assert!(is_pending(f), "{}", f.refusal.text);
-        }
-        // The floor check_prove_floors.ps1 holds english.vla to: the 49
-        // pending are 27 sentences that begin with a built-in statement form
-        // (If, Create, Repeat, For each) and 22 that bind a G-PROLOG
-        // `clause` or `question` slot.
-        assert_eq!(
-            482 - failures.len(),
-            433,
-            "{:?}",
-            failures.iter().map(|f| f.proof.line).collect::<Vec<_>>()
-        );
     }
 }

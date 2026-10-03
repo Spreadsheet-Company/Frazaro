@@ -650,6 +650,12 @@ impl Grammar {
         self.vocab_of_words.contains_key(&fold(word))
     }
 
+    /// LX.14: the file that declared a vocabulary's own `<word> of`, for the
+    /// note a program's masking definition leaves.
+    pub fn vocab_of_source(&self, word: &str) -> Option<&str> {
+        self.vocab_of_words.get(&fold(word)).map(String::as_str)
+    }
+
     /// VBA `RegisterKeywordAlias` (LX5.1): last write wins.
     pub(super) fn register_keyword_alias(&mut self, surface: &str, canonical: &str) {
         self.keyword_aliases.insert(fold(surface), fold(canonical));
