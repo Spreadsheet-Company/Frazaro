@@ -10,6 +10,8 @@
 //! room needs (`BuildWorkspace`, VLA_IDE.bas) and what slice 7b's static
 //! subset writes, and the model grows only as a slice needs it.
 
+pub mod inflate;
+pub mod merge;
 pub mod ooxml;
 pub mod refs;
 pub mod xlfn;

@@ -42,6 +42,7 @@ use crate::intrinsics::{fold, is_numeric, val};
 use crate::messages::{raise, Refusal};
 use crate::reader::{count_lf, parse_all, tokenize};
 use crate::sha256::sha256_hex_skipping_whitespace;
+use crate::sheet::merge::{self, HostInfo, Model};
 use crate::sheet::xlfn::{can_return_array, prefix_future_functions};
 use crate::sheet::{
     ooxml, parse_a1_range, xml, zip, A1Range, Cell, Column, Content, NumFmt, Rgb, Sheet, Style,
@@ -205,12 +206,22 @@ enum Flow {
     Exit,
 }
 
+/// Where `(range ...)` writes: a sheet of this build's, or one of the host
+/// workbook's, which a program may go to but never write into.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Target {
+    Ours(usize),
+    Host(String),
+}
+
 struct Walker<'a> {
     lines: Vec<&'a str>,
     wb: Workbook,
+    /// The host workbook's own sheets, when the build adds to one.
+    host_sheets: Vec<String>,
     /// The sheet a `(range ...)` means: `None` until something writes, then
     /// `Output` unless `Work on sheet` chose another.
-    current: Option<usize>,
+    current: Option<Target>,
     /// Constants and variables whose values fold, by folded name.
     bindings: HashMap<String, Value>,
     /// The program's procedures, by folded name.
@@ -221,10 +232,11 @@ struct Walker<'a> {
 }
 
 impl<'a> Walker<'a> {
-    fn new(program_text: &'a str) -> Walker<'a> {
+    fn new(program_text: &'a str, host_sheets: Vec<String>) -> Walker<'a> {
         Walker {
             lines: program_text.lines().collect(),
             wb: Workbook::new(),
+            host_sheets,
             current: None,
             bindings: HashMap::new(),
             steps: HashMap::new(),
@@ -378,6 +390,9 @@ impl<'a> Walker<'a> {
             "if" => self.walk_if(l),
             "vlaensuresheet" => {
                 let name = self.fold_text(l.items.get(1))?;
+                if self.host_sheet(&name).is_some() {
+                    return Ok(Flow::Next); // the host has it; nothing to make
+                }
                 if let Some(reason) = sheet_name_problem(&name) {
                     return Err(raise(
                         "build-sheet-name-invalid",
@@ -420,7 +435,7 @@ impl<'a> Walker<'a> {
                     let v = self
                         .fold_expr(value)
                         .ok_or_else(|| self.refuse_sentence())?;
-                    let sheet = self.current_sheet();
+                    let sheet = self.writable_current()?;
                     self.write_value(sheet, range, &v)?;
                     return Ok(Flow::Next);
                 }
@@ -439,7 +454,7 @@ impl<'a> Walker<'a> {
                         let v = self
                             .fold_expr(value)
                             .ok_or_else(|| self.refuse_sentence())?;
-                        let sheet = self.current_sheet();
+                        let sheet = self.writable_current()?;
                         if member == "value" {
                             self.write_value(sheet, range, &v)?;
                         } else {
@@ -452,7 +467,7 @@ impl<'a> Walker<'a> {
                 if let (Some(wl), true) = (obj.as_list(), obj.head_is("worksheets")) {
                     if pl.count() == 4 && wl.count() == 2 && member == "range" {
                         let name = self.fold_text(wl.items.get(1))?;
-                        let sheet = self.sheet_named(&name)?;
+                        let sheet = self.writable_named(&name)?;
                         let range = self.range_of(&pl.items[3])?;
                         let v = self
                             .fold_expr(value)
@@ -504,8 +519,8 @@ impl<'a> Walker<'a> {
         if let (Some(wl), true) = (obj.as_list(), obj.head_is("worksheets")) {
             if l.count() == 3 && wl.count() == 2 && member == "activate" {
                 let name = self.fold_text(wl.items.get(1))?;
-                let sheet = self.sheet_named(&name)?;
-                self.current = Some(sheet);
+                let target = self.target_named(&name)?;
+                self.current = Some(target);
                 return Ok(Flow::Next);
             }
         }
@@ -542,28 +557,62 @@ impl<'a> Walker<'a> {
         parse_a1_range(&text).ok_or_else(|| self.refuse_sentence())
     }
 
-    /// The sheet `(range ...)` writes to, `Output` made on first use.
-    fn current_sheet(&mut self) -> usize {
-        match self.current {
-            Some(i) => i,
-            None => {
-                let i = self.wb.ensure_sheet(OUTPUT_SHEET);
-                self.current = Some(i);
-                i
-            }
+    /// The host workbook's sheet of that name, as the host spells it.
+    fn host_sheet(&self, name: &str) -> Option<String> {
+        let want = fold(name);
+        self.host_sheets.iter().find(|s| fold(s) == want).cloned()
+    }
+
+    /// Where `(range ...)` writes: `Output` made on first use, unless the
+    /// host workbook has an `Output` of its own.
+    fn current_target(&mut self) -> Target {
+        if let Some(t) = &self.current {
+            return t.clone();
+        }
+        let t = match self.host_sheet(OUTPUT_SHEET) {
+            Some(h) => Target::Host(h),
+            None => Target::Ours(self.wb.ensure_sheet(OUTPUT_SHEET)),
+        };
+        self.current = Some(t.clone());
+        t
+    }
+
+    /// A sheet named by the program: one it made, one of the host's, or
+    /// `Output`, which the add-in has at the start of every run.
+    fn target_named(&mut self, name: &str) -> Result<Target, Refusal> {
+        if let Some(i) = self.wb.find_sheet(name) {
+            return Ok(Target::Ours(i));
+        }
+        if let Some(h) = self.host_sheet(name) {
+            return Ok(Target::Host(h));
+        }
+        if fold(name) == fold(OUTPUT_SHEET) {
+            return Ok(Target::Ours(self.wb.ensure_sheet(OUTPUT_SHEET)));
+        }
+        Err(self.refuse_sheet(name))
+    }
+
+    /// A target a sentence may write to: one of this build's sheets. One
+    /// of the host's is refused by name, since the build leaves the host's
+    /// own sheets as they are.
+    fn writable(&self, t: Target) -> Result<usize, Refusal> {
+        match t {
+            Target::Ours(i) => Ok(i),
+            Target::Host(name) => Err(raise(
+                "build-into-model-sheet",
+                &[("line", &self.line.to_string()), ("name", &name)],
+            )),
         }
     }
 
-    /// A sheet named by the program: one it made, or `Output`, which the
-    /// add-in has at the start of every run.
-    fn sheet_named(&mut self, name: &str) -> Result<usize, Refusal> {
-        if let Some(i) = self.wb.find_sheet(name) {
-            return Ok(i);
-        }
-        if fold(name) == fold(OUTPUT_SHEET) {
-            return Ok(self.wb.ensure_sheet(OUTPUT_SHEET));
-        }
-        Err(self.refuse_sheet(name))
+    fn writable_current(&mut self) -> Result<usize, Refusal> {
+        let t = self.current_target();
+        self.writable(t)
+    }
+
+    fn writable_named(&mut self, name: &str) -> Result<usize, Refusal> {
+        let t = self.target_named(name)?;
+        self.writable(t)
     }
 
     fn write_value(&mut self, sheet: usize, range: A1Range, v: &Value) -> Result<(), Refusal> {
@@ -755,36 +804,60 @@ impl SourceHash {
     }
 }
 
-/// The build stamp: the core's version and the identity of the sentences,
-/// the prelude and each phrasebook in order, as the defined name
-/// `Frazaro.Build` carries it in one string.
+/// What the stamp records of the workbook a build was added to
+/// (`--into`): enough for `rebuild` to render the build's sheets again
+/// exactly, without the model at hand.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IntoStamp {
+    /// The SHA-256 of the model's bytes.
+    pub model_hex: String,
+    /// How many cell formats the model had: where this build's begin.
+    pub style_base: u32,
+    /// The cell-metadata index the build's dynamic-array formulas point
+    /// at; 0 when none was needed.
+    pub cm: u32,
+}
+
+/// The build stamp: the core's version, the workbook added to when there
+/// was one, and the identity of the sentences, the prelude and each
+/// phrasebook in order, as the defined name `Frazaro.Build` carries it in
+/// one string.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Stamp {
     pub version: String,
+    pub into: Option<IntoStamp>,
     pub sentences: SourceHash,
     pub prelude: SourceHash,
     pub phrasebooks: Vec<SourceHash>,
 }
 
 impl Stamp {
-    pub fn of(program_text: &str, prelude: &str, books: &[&str]) -> Stamp {
+    pub fn of(program_text: &str, prelude: &str, books: &[&str], into: Option<IntoStamp>) -> Stamp {
         Stamp {
             version: crate::VERSION.to_string(),
+            into,
             sentences: SourceHash::of(program_text),
             prelude: SourceHash::of(prelude),
             phrasebooks: books.iter().map(|b| SourceHash::of(b)).collect(),
         }
     }
 
-    /// `Frazaro 0.7.1; sentences sha256:... over N non-whitespace bytes;
-    /// prelude ...; phrasebook 1 ...`.
+    /// `Frazaro 0.7.1; [into sha256:... with N cell formats and metadata
+    /// M; ]sentences sha256:... over N non-whitespace bytes; prelude ...;
+    /// phrasebook 1 ...`.
     pub fn text(&self) -> String {
-        let mut s = format!(
-            "Frazaro {}; sentences {}; prelude {}",
-            self.version,
+        let mut s = format!("Frazaro {}", self.version);
+        if let Some(into) = &self.into {
+            s.push_str(&format!(
+                "; into sha256:{} with {} cell formats and metadata {}",
+                into.model_hex, into.style_base, into.cm
+            ));
+        }
+        s.push_str(&format!(
+            "; sentences {}; prelude {}",
             self.sentences.text(),
             self.prelude.text()
-        );
+        ));
         for (i, b) in self.phrasebooks.iter().enumerate() {
             s.push_str(&format!("; phrasebook {} {}", i + 1, b.text()));
         }
@@ -792,8 +865,23 @@ impl Stamp {
     }
 
     pub fn parse(text: &str) -> Option<Stamp> {
-        let mut fields = text.split("; ");
+        let mut fields = text.split("; ").peekable();
         let version = fields.next()?.strip_prefix("Frazaro ")?.to_string();
+        let into = if fields.peek().is_some_and(|f| f.starts_with("into ")) {
+            let f = fields.next()?.strip_prefix("into sha256:")?;
+            let (hex, rest) = f.split_once(" with ")?;
+            let (base, cm) = rest.split_once(" cell formats and metadata ")?;
+            if hex.len() != 64 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+                return None;
+            }
+            Some(IntoStamp {
+                model_hex: hex.to_string(),
+                style_base: base.parse().ok()?,
+                cm: cm.parse().ok()?,
+            })
+        } else {
+            None
+        };
         let sentences = SourceHash::parse(fields.next()?.strip_prefix("sentences ")?)?;
         let prelude = SourceHash::parse(fields.next()?.strip_prefix("prelude ")?)?;
         let mut phrasebooks = Vec::new();
@@ -803,6 +891,7 @@ impl Stamp {
         }
         Some(Stamp {
             version,
+            into,
             sentences,
             prelude,
             phrasebooks,
@@ -857,6 +946,9 @@ pub struct BuildFile {
     pub program_text: String,
     /// The lines with text in them, which Check marks and the stamp counts.
     pub sentences: usize,
+    /// The sheets that are not the build's: the model's, when the build
+    /// was added to one.
+    pub host_sheets: Vec<String>,
 }
 
 /// What `frazaro rebuild` answers.
@@ -867,21 +959,39 @@ pub struct Rebuilt {
     pub matches: bool,
     /// Empty when it matches.
     pub why: String,
+    /// Whether only the build's own sheets were checked, as for a workbook
+    /// the build was added to, whose own parts the rebuild cannot remake.
+    pub partial: bool,
 }
 
 impl Rebuilt {
     /// The one line `frazaro rebuild` prints.
     pub fn line(&self) -> String {
-        let head = format!(
-            "This workbook was built from these {} sentences by Frazaro {}:",
-            self.sentences, self.built_by
-        );
+        let head = if self.partial {
+            format!(
+                "This workbook's Frazaro sheets were built from these {} sentences by Frazaro {}, into a workbook whose own sheets are not checked:",
+                self.sentences, self.built_by
+            )
+        } else {
+            format!(
+                "This workbook was built from these {} sentences by Frazaro {}:",
+                self.sentences, self.built_by
+            )
+        };
         if self.matches {
             format!("{head} yes.")
         } else {
             format!("{head} no. Why: {}.", self.why)
         }
     }
+}
+
+/// A stored part of a build, as text, for `rebuild` to compare with what
+/// it renders again; `None` when the part is missing or not stored.
+pub fn own_part_text(file: &[u8], name: &str) -> Option<String> {
+    let entries = zip::entries(file)?;
+    let e = entries.iter().find(|e| e.name == name)?;
+    String::from_utf8(zip::stored_data(file, e)?.to_vec()).ok()
 }
 
 fn refuse_rebuild(why: &str) -> Refusal {
@@ -961,10 +1071,13 @@ pub fn read_build(file: &[u8]) -> Result<BuildFile, Refusal> {
         .iter()
         .filter(|l| !l.trim_matches(' ').is_empty())
         .count();
+    let rels = stored_part(file, &entries, "xl/_rels/workbook.xml.rels")?;
+    let host_sheets = merge::host_sheets_of(&workbook, &rels);
     Ok(BuildFile {
         stamp,
         program_text: lines.join("\n"),
         sentences,
+        host_sheets,
     })
 }
 
@@ -972,12 +1085,15 @@ pub fn read_build(file: &[u8]) -> Result<BuildFile, Refusal> {
 /// the sheets its static subset writes, and the stamp. `vla` is the
 /// program's VLA as `EnglishToVla` wrote it, read with the prelude and
 /// expanded as the compiler reads it; `books` are the phrasebook texts the
-/// translation used, in order, for the stamp alone.
-pub fn build_workbook(
+/// translation used, in order, for the stamp alone. With a `host`, the
+/// build is being added to that workbook: the host's sheets may be named
+/// but not written to, and the stamp records the host.
+pub fn build_workbook_with(
     program_text: &str,
     vla: &str,
     prelude: &str,
     books: &[&str],
+    host: Option<&HostInfo>,
 ) -> Result<Workbook, Refusal> {
     let line_offset = count_lf(prelude) as u32 + 1;
     let text = format!("{prelude}\r\n{vla}");
@@ -988,7 +1104,18 @@ pub fn build_workbook(
     for f in &body {
         expanded.push(expander.expand(f, 0)?);
     }
-    let mut w = Walker::new(program_text);
+    let mut w = Walker::new(
+        program_text,
+        host.map(|h| h.sheet_names.clone()).unwrap_or_default(),
+    );
+    if let Some(h) = host {
+        if let Some(taken) = w.host_sheet(FRAZARO_SHEET) {
+            return Err(raise(
+                "build-into-sheet-name-taken",
+                &[("path", &h.label), ("name", &taken)],
+            ));
+        }
+    }
     let sheet = frazaro_sheet(program_text, &mut w.wb.styles);
     w.wb.sheets.push(sheet);
     w.wb.active_sheet = 0;
@@ -996,10 +1123,40 @@ pub fn build_workbook(
         w.collect_top(f)?;
     }
     w.walk_main()?;
-    let stamp = Stamp::of(program_text, prelude, books);
+    let into = match host {
+        None => None,
+        Some(h) => {
+            if h.cm.is_none() && w.wb.has_dynamic_formulas() {
+                return Err(raise(
+                    "build-into-unsupported",
+                    &[
+                        ("path", &h.label),
+                        ("part", "xl/metadata.xml"),
+                        ("why", "its cell metadata has no dynamic-array block for this build's formulas to point at"),
+                    ],
+                ));
+            }
+            Some(IntoStamp {
+                model_hex: h.model_hex.clone(),
+                style_base: h.style_base,
+                cm: h.cm.unwrap_or(0),
+            })
+        }
+    };
+    let stamp = Stamp::of(program_text, prelude, books, into);
     w.wb.defined_names
         .push((STAMP_NAME.to_string(), stamp_formula(&stamp)));
     Ok(w.wb)
+}
+
+/// A fresh workbook from a translated program.
+pub fn build_workbook(
+    program_text: &str,
+    vla: &str,
+    prelude: &str,
+    books: &[&str],
+) -> Result<Workbook, Refusal> {
+    build_workbook_with(program_text, vla, prelude, books, None)
 }
 
 /// The workbook's bytes, or the catalogue's refusal when they would not fit
@@ -1012,6 +1169,23 @@ pub fn build_xlsx(
 ) -> Result<Vec<u8>, Refusal> {
     let wb = build_workbook(program_text, vla, prelude, books)?;
     ooxml::workbook_bytes(&wb).ok_or_else(|| raise("build-workbook-too-large", &[]))
+}
+
+/// The model with the program's sheets added, as bytes (`--into`): the
+/// model's parts as they were, this build's appended (`sheet::merge`).
+/// `label` is what a refusal calls the model.
+pub fn build_xlsx_into(
+    program_text: &str,
+    vla: &str,
+    prelude: &str,
+    books: &[&str],
+    model_bytes: Vec<u8>,
+    label: &str,
+) -> Result<Vec<u8>, Refusal> {
+    let model = Model::read(model_bytes, label)?;
+    let host = model.host_info();
+    let wb = build_workbook_with(program_text, vla, prelude, books, Some(&host))?;
+    merge::write(&model, &wb, host.cm.unwrap_or(0))
 }
 
 #[cfg(test)]
@@ -1319,6 +1493,7 @@ mod tests {
             "Put 5 into cell B2.\r\n",
             "(defmacro (a) 1)",
             &["book one", "book\ttwo"],
+            None,
         );
         assert_eq!(stamp.version, crate::VERSION);
         assert_eq!(stamp.phrasebooks.len(), 2);
@@ -1381,7 +1556,8 @@ mod tests {
             " Put 5 into cell B2.\n\n# a & b <c>\n   \nlast"
         );
         assert_eq!(read.sentences, 3);
-        assert_eq!(read.stamp, Stamp::of(program, "pre", &["book"]));
+        assert_eq!(read.stamp, Stamp::of(program, "pre", &["book"], None));
+        assert!(read.host_sheets.is_empty());
         assert_eq!(
             read.stamp
                 .disagreement(&read.program_text, "pre", &["book"]),
@@ -1402,6 +1578,7 @@ mod tests {
             built_by: "0.7.1".to_string(),
             matches: true,
             why: String::new(),
+            partial: false,
         };
         assert_eq!(
             yes.line(),
@@ -1433,6 +1610,120 @@ mod tests {
         let r = crate::api::english_rebuild_xlsx(GOLDEN, "", &[ENGLISH]).unwrap();
         assert!(!r.matches);
         assert_eq!(r.why, "the prelude given is not the one the stamp names");
+    }
+
+    #[test]
+    fn a_build_into_a_model_leaves_the_model_alone() {
+        use crate::sheet::merge::test_model;
+        // Writes to Output (new) and Checks (new) land; the model's Model
+        // and Notes may be gone to but never written into.
+        let vla = "(sub main ()\n  (at-line 1\n  (set! (range \"b1\") 5))\n  (at-line 2\n  (begin (vlaensuresheet \"checks\") (. (worksheets \"checks\") activate)))\n  (at-line 3\n  (set! (. (range \"a1\") formula) \"=IFS(Model!B3>0,\\\"profit\\\",TRUE,\\\"loss\\\")\"))\n  (at-line 4\n  (begin (vlaensuresheet \"notes\") (. (worksheets \"notes\") activate))))";
+        let program = "Put 5 into cell B1.\nWork on sheet Checks.\nPut formula \"=IFS(...)\" into cell A1.\nWork on sheet Notes.\n";
+        let out =
+            build_xlsx_into(program, vla, "", &["book"], test_model(None), "model.xlsx").unwrap();
+        let read = read_build(&out).expect("the output reads back as a build");
+        assert_eq!(read.host_sheets, ["Model", "Notes"]);
+        assert_eq!(read.sentences, 4);
+        let into = read.stamp.into.clone().expect("an into stamp");
+        assert_eq!(into.style_base, 3);
+        assert_eq!(into.cm, 1);
+        assert_eq!(into.model_hex, crate::sha256::sha256_hex(&test_model(None)));
+        let names: Vec<String> = zip::entries(&out)
+            .unwrap()
+            .into_iter()
+            .map(|e| e.name)
+            .collect();
+        assert!(names.contains(&"xl/worksheets/frazaro_1.xml".to_string()));
+        assert!(names.contains(&"xl/worksheets/frazaro_3.xml".to_string()));
+        assert!(names.contains(&"xl/metadata.xml".to_string()));
+        // A write into the model's own sheet is refused with its line.
+        let bad = "(sub main ()\n  (at-line 1\n  (. (worksheets \"model\") activate))\n  (at-line 2\n  (set! (range \"a5\") 7)))";
+        let r = build_xlsx_into(
+            "Go to sheet Model.\nPut 7 into cell A5.\n",
+            bad,
+            "",
+            &[],
+            test_model(None),
+            "model.xlsx",
+        )
+        .expect_err("a write into the model");
+        assert_eq!(r.id, "build-into-model-sheet");
+        assert!(
+            r.text.contains("Line 2 writes into sheet Model"),
+            "{}",
+            r.text
+        );
+        // So is a cross-sheet put into it.
+        let bad2 =
+            "(sub main ()\n  (at-line 1\n  (set! (. (worksheets \"notes\") range \"a1\") 7)))";
+        let r = build_xlsx_into(
+            "Put 7 into cell A1 of sheet Notes.\n",
+            bad2,
+            "",
+            &[],
+            test_model(None),
+            "model.xlsx",
+        )
+        .expect_err("a put into the model");
+        assert_eq!(r.id, "build-into-model-sheet");
+        assert!(r.text.contains("sheet Notes"), "{}", r.text);
+        // A model that already has a Frazaro sheet cannot take another.
+        let taken = String::from_utf8(test_model(None)).unwrap_or_default();
+        let _ = taken;
+        let with_frazaro = {
+            let bytes = test_model(None);
+            let m = Model::read(bytes, "m.xlsx").unwrap();
+            let host = HostInfo {
+                sheet_names: vec!["Model".to_string(), "FRAZARO".to_string()],
+                ..m.host_info()
+            };
+            build_workbook_with(
+                "Put 1 into cell A1.\n",
+                "(sub main ()\n  (at-line 1\n  (set! (range \"a1\") 1)))",
+                "",
+                &[],
+                Some(&host),
+            )
+        };
+        let r = with_frazaro.expect_err("the name is taken");
+        assert_eq!(r.id, "build-into-sheet-name-taken");
+        assert!(
+            r.text.contains("already has a sheet named FRAZARO"),
+            "{}",
+            r.text
+        );
+        // Not a model at all.
+        let r = build_xlsx_into("", "(sub main ())", "", &[], b"nope".to_vec(), "x.xlsx")
+            .expect_err("not a zip");
+        assert_eq!(r.id, "build-into-not-a-workbook");
+    }
+
+    #[test]
+    fn the_into_stamp_round_trips() {
+        let into = IntoStamp {
+            model_hex: "AB".repeat(32),
+            style_base: 7,
+            cm: 2,
+        };
+        let stamp = Stamp::of("x", "p", &["b"], Some(into.clone()));
+        let text = stamp.text();
+        assert!(text.contains(&format!(
+            "; into sha256:{} with 7 cell formats and metadata 2; sentences ",
+            "AB".repeat(32)
+        )));
+        assert_eq!(Stamp::parse(&text), Some(stamp));
+        assert_eq!(Stamp::parse(&text.replace(" with 7 ", " with x ")), None);
+        let partial = Rebuilt {
+            sentences: 6,
+            built_by: "0.7.1".to_string(),
+            matches: true,
+            why: String::new(),
+            partial: true,
+        };
+        assert_eq!(
+            partial.line(),
+            "This workbook's Frazaro sheets were built from these 6 sentences by Frazaro 0.7.1, into a workbook whose own sheets are not checked: yes."
+        );
     }
 
     /// The build golden: the fixture, built with the prelude and english.vla,

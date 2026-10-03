@@ -591,3 +591,7 @@
 (message build-sheet-unknown 9 "VLA-Build" "Line {line} names sheet {name}, but nothing before it has made that sheet. Write Work on sheet {name}. first, which makes the sheet when it is missing. Nothing was written.")
 (message build-sheet-name-invalid 1004 "VLA-Build" "Line {line} names sheet {name}, which Excel would refuse: {reason}. A sheet name is 1 to 31 characters, holds none of : \\ / ? * [ ], and does not begin or end with an apostrophe. Nothing was written.")
 (message rebuild-not-a-build 5 "VLA-Build" "This workbook cannot be verified as a Frazaro build: {why}. frazaro rebuild checks a workbook that frazaro build wrote and nothing has saved since.")
+(message build-into-not-a-workbook 5 "VLA-Build" "{path} is not a workbook frazaro build can add sheets to: {why}. Nothing was written.")
+(message build-into-unsupported 5 "VLA-Build" "{path} has a part this version does not know how to edit: {part}, {why}. Nothing was written.")
+(message build-into-model-sheet 5 "VLA-Build" "Line {line} writes into sheet {name}, which belongs to the workbook the build adds to, and the build leaves that workbook's own sheets as they are. Write to a sheet of the program's own (Work on sheet Results.) and read the model's cells from there. Nothing was written.")
+(message build-into-sheet-name-taken 5 "VLA-Build" "{path} already has a sheet named {name}, and the build needs that name for the sheet that holds the sentences. Rename that sheet, or build into a copy without it. Nothing was written.")

@@ -37,26 +37,26 @@ const REL_CORE_PROPS: &str =
     "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties";
 const REL_APP_PROPS: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties";
-const REL_WORKSHEET: &str =
+pub(super) const REL_WORKSHEET: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet";
-const REL_STYLES: &str =
+pub(super) const REL_STYLES: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles";
 const CT_WORKBOOK: &str =
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml";
-const CT_WORKSHEET: &str =
+pub(super) const CT_WORKSHEET: &str =
     "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
 const CT_STYLES: &str = "application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml";
 const CT_CORE: &str = "application/vnd.openxmlformats-package.core-properties+xml";
 const CT_APP: &str = "application/vnd.openxmlformats-officedocument.extended-properties+xml";
 const CT_RELS: &str = "application/vnd.openxmlformats-package.relationships+xml";
 const CT_XML: &str = "application/xml";
-const CT_METADATA: &str =
+pub(super) const CT_METADATA: &str =
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheetMetadata+xml";
-const REL_METADATA: &str =
+pub(super) const REL_METADATA: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheetMetadata";
 /// The relationship id of the cell-metadata part, present only when a
 /// dynamic-array formula is.
-const METADATA_RID: &str = "rIdFrazaroMetadata";
+pub(super) const METADATA_RID: &str = "rIdFrazaroMetadata";
 
 /// The relationship id of the styles part, named so that it collides with
 /// nothing Excel writes (`rId1`, `rId2`, ...).
@@ -96,7 +96,7 @@ pub fn parts(wb: &Workbook) -> Vec<(String, Vec<u8>)> {
     for (i, sheet) in wb.sheets.iter().enumerate() {
         list.push((
             sheet_part(i + 1),
-            sheet_xml(sheet, i == wb.active_sheet).into_bytes(),
+            sheet_xml(sheet, i == wb.active_sheet, &Render::FRESH).into_bytes(),
         ));
     }
     list
@@ -282,10 +282,54 @@ fn styles_xml(wb: &Workbook) -> String {
     s
 }
 
+/// This build's solid fills as `<fill>` elements, in the style table's
+/// order, for appending to a workbook's `<fills>`.
+pub fn fills_fragment(styles: &super::Styles) -> String {
+    let mut s = String::new();
+    for f in styles.fills() {
+        s.push_str(&format!(
+            "<fill><patternFill patternType=\"solid\"><fgColor rgb=\"{}\"/><bgColor indexed=\"64\"/></patternFill></fill>",
+            f.argb_hex()
+        ));
+    }
+    s
+}
+
+/// This build's cell formats after the default, as `<xf>` elements whose
+/// fills start at `fill_base` (the number of fills the workbook has before
+/// this build's), for appending to a workbook's `<cellXfs>`.
+pub fn cellxfs_fragment(styles: &super::Styles, fill_base: u32) -> String {
+    let fills = styles.fills();
+    let mut s = String::new();
+    for xf in styles.xfs().iter().skip(1) {
+        let fill_id = match xf.fill {
+            Some(f) => fills.iter().position(|g| *g == f).unwrap_or(0) as u32 + fill_base,
+            None => 0,
+        };
+        s.push_str(&format!(
+            "<xf numFmtId=\"{}\" fontId=\"0\" fillId=\"{}\" borderId=\"0\" xfId=\"0\"",
+            xf.num_fmt.id(),
+            fill_id
+        ));
+        if xf.num_fmt.id() != 0 {
+            s.push_str(" applyNumberFormat=\"1\"");
+        }
+        if xf.fill.is_some() {
+            s.push_str(" applyFill=\"1\"");
+        }
+        if xf.wrap {
+            s.push_str(" applyAlignment=\"1\"><alignment wrapText=\"1\"/></xf>");
+        } else {
+            s.push_str("/>");
+        }
+    }
+    s
+}
+
 /// The cell metadata that `cm="1"` on a cell points at, as Excel writes it:
 /// one metadata type, XLDAPR, carrying the dynamic-array properties, so
 /// that the host reads the cell's formula as a dynamic-array formula.
-fn metadata_xml() -> String {
+pub fn metadata_xml() -> String {
     format!(
         "{XML_HEAD}<metadata xmlns=\"{NS_MAIN}\" xmlns:xda=\"http://schemas.microsoft.com/office/spreadsheetml/2017/dynamicarray\">\n\
          <metadataTypes count=\"1\"><metadataType name=\"XLDAPR\" minSupportedVersion=\"120000\" copy=\"1\" pasteAll=\"1\" pasteValues=\"1\" merge=\"1\" splitFirst=\"1\" rowColShift=\"1\" clearFormats=\"1\" clearComments=\"1\" assign=\"1\" coerce=\"1\" cellMeta=\"1\"/></metadataTypes>\n\
@@ -302,7 +346,36 @@ fn number_text(v: f64) -> Option<String> {
     v.is_finite().then(|| format!("{v}"))
 }
 
-fn sheet_xml(sheet: &Sheet, selected: bool) -> String {
+/// How a sheet's cells name the workbook's shared tables: the number of
+/// cell formats the workbook already has before this build's (0 for a
+/// fresh workbook, where this build's table is the whole table), and the
+/// index of the dynamic-array cell metadata (1 in a fresh workbook).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Render {
+    pub style_base: u32,
+    pub cm: u32,
+}
+
+impl Render {
+    pub const FRESH: Render = Render {
+        style_base: 0,
+        cm: 1,
+    };
+
+    /// A cell's `s` attribute: this build's format 0 is the workbook's
+    /// Normal; its others follow the workbook's own.
+    pub fn style(&self, st: u32) -> u32 {
+        if st == 0 || self.style_base == 0 {
+            st
+        } else {
+            self.style_base + st - 1
+        }
+    }
+}
+
+/// One sheet's part. `selected` marks the tab the workbook opens on, never
+/// set when adding to a workbook that has its own selected tab.
+pub fn sheet_xml(sheet: &Sheet, selected: bool, render: &Render) -> String {
     let mut s = String::from(XML_HEAD);
     s.push_str(&format!(
         "<worksheet xmlns=\"{NS_MAIN}\" xmlns:r=\"{NS_REL}\">\n"
@@ -339,7 +412,7 @@ fn sheet_xml(sheet: &Sheet, selected: bool) -> String {
                 ));
             }
             if let Some(st) = c.style {
-                s.push_str(&format!(" style=\"{st}\""));
+                s.push_str(&format!(" style=\"{}\"", render.style(st)));
             }
             s.push_str("/>\n");
         }
@@ -356,7 +429,7 @@ fn sheet_xml(sheet: &Sheet, selected: bool) -> String {
             current_row = Some(row);
         }
         let r = cell_ref(row, col);
-        let st = cell.style;
+        let st = render.style(cell.style);
         match &cell.content {
             Content::Text(t) => s.push_str(&format!(
                 "<c r=\"{r}\" s=\"{st}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">{}</t></is></c>",
@@ -384,7 +457,8 @@ fn sheet_xml(sheet: &Sheet, selected: bool) -> String {
                 "<c r=\"{r}\" s=\"{st}\"><f t=\"shared\" si=\"{si}\"/></c>"
             )),
             Content::DynamicFormula(f) => s.push_str(&format!(
-                "<c r=\"{r}\" s=\"{st}\" cm=\"1\"><f t=\"array\" ref=\"{r}\">{}</f></c>",
+                "<c r=\"{r}\" s=\"{st}\" cm=\"{}\"><f t=\"array\" ref=\"{r}\">{}</f></c>",
+                render.cm,
                 xml::text(f)
             )),
         }
@@ -504,7 +578,7 @@ mod tests {
     #[test]
     fn the_sheet_part_holds_each_kind_of_cell() {
         let wb = a_workbook();
-        let sx = sheet_xml(&wb.sheets[0], true);
+        let sx = sheet_xml(&wb.sheets[0], true, &Render::FRESH);
         assert!(sx.contains("<dimension ref=\"B1:E4\"/>"));
         assert!(sx.contains("<sheetView showGridLines=\"0\" tabSelected=\"1\" workbookViewId=\"0\"><selection activeCell=\"B1\" sqref=\"B1\"/>"));
         assert!(
@@ -518,8 +592,32 @@ mod tests {
         assert!(sx.contains("<row r=\"3\"><c r=\"C3\" s=\"0\"><v>2.5</v></c><c r=\"D3\" s=\"0\"><f>B1*2</f></c><c r=\"E3\" s=\"0\"><f t=\"shared\" si=\"0\"/></c></row>"));
         assert!(sx.contains("<row r=\"4\"><c r=\"B4\" s=\"0\" t=\"b\"><v>1</v></c></row>"));
         assert!(sx.contains("<dimension ref=\"B1:E4\"/>"));
-        let unselected = sheet_xml(&wb.sheets[0], false);
+        let unselected = sheet_xml(&wb.sheets[0], false, &Render::FRESH);
         assert!(!unselected.contains("tabSelected"));
+        // Into a workbook with 7 cell formats and 3 fills, whose dynamic-array
+        // metadata is its second cell-metadata block: this build's format 1
+        // is the workbook's 7, the column styled 1 says 7, and cm is 2.
+        let hosted = Render {
+            style_base: 7,
+            cm: 2,
+        };
+        assert_eq!(hosted.style(0), 0);
+        assert_eq!(hosted.style(1), 7);
+        assert_eq!(hosted.style(2), 8);
+        let hx = sheet_xml(&wb.sheets[0], false, &hosted);
+        assert!(hx.contains(
+            "<col min=\"2\" max=\"2\" width=\"72.7109375\" customWidth=\"1\" style=\"7\"/>"
+        ));
+        assert!(hx.contains("<c r=\"B1\" s=\"7\" t=\"inlineStr\">"));
+        assert!(hx.contains("<c r=\"C3\" s=\"0\"><v>2.5</v></c>"));
+        assert_eq!(
+            fills_fragment(&wb.styles),
+            "<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFF7F4FC\"/><bgColor indexed=\"64\"/></patternFill></fill>"
+        );
+        assert_eq!(
+            cellxfs_fragment(&wb.styles, 3),
+            "<xf numFmtId=\"49\" fontId=\"0\" fillId=\"3\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\" applyFill=\"1\"/>"
+        );
     }
 
     #[test]
@@ -554,10 +652,19 @@ mod tests {
         assert!(w.contains(
             "</sheets>\n<definedNames>\n<definedName name=\"Frazaro.Build\">\"Frazaro 0.7.1; a &amp; b\"</definedName>\n</definedNames>\n<calcPr"
         ));
-        let sx = sheet_xml(&wb.sheets[0], true);
+        let sx = sheet_xml(&wb.sheets[0], true, &Render::FRESH);
         assert!(sx.contains(
             "<c r=\"F2\" s=\"0\" cm=\"1\"><f t=\"array\" ref=\"F2\">_xlfn.IFS(B2&gt;3,\"big\",TRUE,\"small\")</f></c>"
         ));
+        let hosted = sheet_xml(
+            &wb.sheets[0],
+            false,
+            &Render {
+                style_base: 4,
+                cm: 3,
+            },
+        );
+        assert!(hosted.contains("<c r=\"F2\" s=\"0\" cm=\"3\"><f t=\"array\" ref=\"F2\">"));
         let meta = metadata_xml();
         assert!(meta.contains("<metadataType name=\"XLDAPR\""));
         assert!(meta.contains("<xda:dynamicArrayProperties fDynamic=\"1\" fCollapsed=\"0\"/>"));

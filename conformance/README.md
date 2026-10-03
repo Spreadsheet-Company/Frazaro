@@ -364,3 +364,37 @@ Oracle 7 now asks both: the build is the golden byte for byte, and
 `rebuild` of what was built says yes. The runner's control fakes answer
 `rebuild` by comparing the file to the golden, and `check_build_golden.ps1`
 runs `rebuild` on the golden itself.
+
+## Amendment of 2026-10-03, the third that day: a second golden, built into a workbook (`PORT.7`, slice 7d)
+
+`frazaro build` takes `--into <model.xlsx>`: the program's sheets are added
+to a workbook someone else made, whose parts are copied as the compressed
+bytes they already are, byte for byte, and only the parts that must know
+about the new sheets are edited at the one place each needs (the workbook's
+sheet list, names and `calcPr`; its relationships; the content types; the
+styles, whose lists grow at their ends). A sentence that writes into one of
+the model's own sheets is refused (`build-into-model-sheet`), as is a file
+that is not a workbook (`build-into-not-a-workbook`) or one whose part has
+a shape this version does not edit (`build-into-unsupported`).
+
+Oracle 7 gains a row. `scripts/build/into.txt`, built into
+`scripts/build/model.xlsx` with the prelude and `english.vla`, is
+`scripts/build/into_golden.xlsx` byte for byte. The model is a fixture
+written by `tools/build_model_fixture.ps1`: deflated throughout, with a
+string table, a calculation chain, a defined name and two sheets, the
+shape Excel saves, so that the core's own inflate decodes real streams and
+the merge is held against a package with everything a model has. The
+contract's `build` takes `--into <model.xlsx>` for this row.
+
+`rebuild` of a workbook a build was added to checks the stamp and the
+build's own sheets, rendered again from what the stamp recorded of the
+model (its fingerprint, how many cell formats it had, the metadata index),
+and says so: the model's own parts cannot be remade without the model, so
+the answer is `yes` for the sheets the build added, never for the workbook
+whole. The fakes answer `rebuild` for this row as for the first, by
+comparing the file to its golden.
+
+The determinism pin (`check_build_golden.ps1`) reads the second golden
+against the model: every entry is either one of the model's, copied with
+the model's own method, checksum and size, or stored by this writer; every
+stamp is the epoch either way, since the writer rewrites every header.

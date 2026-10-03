@@ -6685,8 +6685,8 @@ written against.
   coverage counters, all off the translate path. What follows is the
   release that attaches the page, and `PORT.7`, the writer.
 - ⬜ **PORT.7 — the writer.** *Scoped 2026-10-02 at the owner's trigger
-  (`SUBSTRATE.md` H.3's rule, pulled by asking); slice 7a built 2026-10-03,
-  awaiting the owner's run.* Slice 3 of `HORIZON.md` §12: the sheet model
+  (`SUBSTRATE.md` H.3's rule, pulled by asking); 7a to 7d built, opened by
+  the owner 2026-10-03; 7e next.* Slice 3 of `HORIZON.md` §12: the sheet model
   and OOXML out with deterministic bytes; the sentences' sheet, then (7b) the
   static subset of a program as cells and formulas, (7c) the build stamp and
   `frazaro rebuild`, (7d) `--into model.xlsx` with the model untouched, (7e)
@@ -6892,7 +6892,87 @@ written against.
   changed, it was refused as saved by a host, since Excel deflates every
   part (prediction 9 corrected: a host's save makes the file not a build,
   rather than a build that says no). 41 checks, 12 oracles. Sheets, Calc
-  and Numbers at the owner's pace. *(roadmap: BETA_ROADMAP.md)*
+  and Numbers at the owner's pace.
+  **Slice 7d, `--into model.xlsx` (built 2026-10-03, awaiting the owner's
+  run).** The model is untouched by construction (`core/src/sheet/merge.rs`):
+  every part is copied as the compressed bytes it already is, byte for
+  byte, its method, checksum and size carried from the model's own
+  directory, and only the four parts that must know about the new sheets
+  are edited by text at the one place each needs: the workbook (`<sheet>`
+  elements appended to its list with fresh ids; our defined name appended
+  to its names, or a `<definedNames>` made after `</sheets>`;
+  `fullCalcOnLoad="1"` set on its `calcPr`, or a `calcPr` made), its
+  relationships, the content types, and the styles, whose fill and format
+  lists grow at their ends so that every index the model's own cells use
+  stays what it was, our cells naming the model's formats through a
+  `Render` (its cellXfs count as the base; our format 0 is its Normal). A
+  model that already carries dynamic-array cell metadata lends its XLDAPR
+  block's index to our `cm`; one with none gets this writer's part; one
+  whose metadata has no such block refuses a dynamic-array formula
+  (`build-into-unsupported`). The model's active tab stays; our sheets
+  select nothing. Reading: the zip reader generalised to real archives
+  (`zip.rs`: the end record found by a backward scan, a comment allowed,
+  data descriptors harmless since the sizes come from the directory, zip64
+  named and refused, `raw_data` for the copy, `write_entries` carrying a
+  method); `inflate.rs`, RFC 1951's decoder from nothing in puff.c's shape
+  (stored, fixed and dynamic blocks, canonical codes read bit by bit, every
+  bound checked: the output capped at 256 MB a part, a back-reference
+  before the start refused, early data an error; vectors made with .NET's
+  DeflateStream for all three block kinds, and random bytes never panic); a
+  part's checksum and size checked against the directory before it is
+  believed. The walker knows the host's sheets (`Target::Host`): a program
+  may go to one (`Work on sheet Model.` makes nothing and activates it) but
+  a write into it is refused with its line (`build-into-model-sheet`), an
+  `Output` the model already has being the model's; a model that already
+  has a sheet named `Frazaro` is refused (`build-into-sheet-name-taken`),
+  found on the first run into the owner's Excel-saved copy of the golden,
+  whose sheets are a build's; a workbook an earlier build added sheets to
+  is a model like any other, its Frazaro parts, name and metadata part
+  stripped before ours go in, so building into one's own output replaces
+  (the earlier build's formats stay, unreferenced, the base moving up). The
+  stamp records the host (`into sha256:<model> with N cell formats and
+  metadata M`), and `rebuild` on such a workbook renders the build's own
+  sheets again from that record and compares them part by part, saying so:
+  yes for the sheets the build added, the workbook's own sheets not
+  checked, since the model is not at hand. Fixtures: `scripts/build/model.xlsx`
+  written deterministically by `tools/build_model_fixture.ps1` (deflated by
+  .NET throughout, a string table, a calculation chain, a defined name
+  `Rate`, sheets `Model` and `Notes`, a `calcPr` without `fullCalcOnLoad`,
+  the first tab selected; 4,517 bytes, eleven parts), and
+  `scripts/build/into.txt` (a text and a formula reading `Model!B3*Rate` on
+  `Output`, an `IFS` on `Checks`); the golden `into_golden.xlsx`, 13,697
+  bytes and fifteen entries, the second row of oracle 7 (the treaty's third
+  amendment of the day), with its floor, `rebuild` run on it, and the
+  determinism pin read against the model (an entry is stored, or the
+  model's as it was; every stamp the epoch). Also run, outside the
+  repository, into the owner's Excel-saved copy of the first golden: Excel's
+  theme, string table, calculation chain and metadata part travelled as
+  they were, its XLDAPR block lent its index, and `rebuild` said yes for
+  the sheets added. 169 Rust tests, 12 of them new (the decoder on all
+  three block kinds and on what is wrong, the reader on a comment and on
+  zip64, a copied entry, the model read far enough and no further, the
+  four parts edited and the rest copied, a build into one's own output,
+  Excel's metadata lending its index, the fixture model's real streams, the
+  host's sheets gone to but not written into, the into stamp's round trip);
+  the catalogue 584, four ids new. Prediction 7 rides on the into golden.
+  **The owner's live check for 7d:** `scripts\build\into_golden.xlsx` in
+  Excel: no repair dialog; sheets `Model`, `Notes`, `Frazaro`, `Output`,
+  `checks` in that order, `Model` the open tab; `Model!B3` still `=B1-B2`
+  showing 400; `Output!A1` `margin after rate` and `Output!B1` `=Model!B3*Rate`
+  showing 80; `checks!A1` showing `profit`, its bar reading
+  `=IFS(Model!B3>0,"profit",TRUE,"loss")` with no `@`; Formulas, Name
+  Manager shows `Rate` and `Frazaro.Build`. Then `rebuild` on it prints the
+  partial yes line. Then, at your pace, `frazaro build` any sentences
+  `--into` a real model of yours, to a new `--out`, and open the result.
+  **The owner's live check for 7d, 2026-10-03:** opened with no repair
+  dialog, the five tabs in the predicted order and `Model` the open one;
+  `Model!B3` `=B1-B2` showing 400, the model's own cell as it was; Name
+  Manager listing `Frazaro.Build` beside `Rate`, the model's name kept and
+  the stamp a workbook name next to it; `rebuild` on the golden printed the
+  partial yes line for its six sentences. 41 checks, 13 oracles (the into
+  row new). The build into a model of the owner's own, and Sheets, Calc
+  and Numbers, at the owner's pace.
+  *(roadmap: BETA_ROADMAP.md)*
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day

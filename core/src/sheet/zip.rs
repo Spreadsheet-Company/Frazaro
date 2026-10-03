@@ -67,42 +67,71 @@ fn put_u32(out: &mut Vec<u8>, v: u32) {
     out.extend_from_slice(&v.to_le_bytes());
 }
 
+/// An entry written as given (slice 7d): `bytes` go into the file under
+/// `method`, and `crc` and `size` describe the uncompressed content. A
+/// stored entry's bytes are its content; an entry copied from another
+/// archive keeps that archive's compressed bytes, method, CRC and size, so
+/// the copy is byte-exact without decoding.
+pub struct RawEntry<'a> {
+    pub name: &'a str,
+    pub method: u16,
+    pub crc: u32,
+    pub size: u32,
+    pub bytes: &'a [u8],
+}
+
 /// The archive holding `parts`, each stored, in the order given; `None`
 /// when a size would not fit the format's fields.
 pub fn write_stored(parts: &[(String, Vec<u8>)]) -> Option<Vec<u8>> {
-    let count = u16::try_from(parts.len()).ok()?;
+    let mut raws = Vec::with_capacity(parts.len());
+    for (name, data) in parts {
+        raws.push(RawEntry {
+            name,
+            method: STORED,
+            crc: crc32(data),
+            size: u32::try_from(data.len()).ok()?,
+            bytes: data,
+        });
+    }
+    write_entries(&raws)
+}
+
+/// The archive holding `entries` as given, in the order given, every one
+/// stamped with the epoch; `None` when a size would not fit the format's
+/// fields.
+pub fn write_entries(entries: &[RawEntry]) -> Option<Vec<u8>> {
+    let count = u16::try_from(entries.len()).ok()?;
     let mut out: Vec<u8> = Vec::new();
     let mut central: Vec<u8> = Vec::new();
-    for (name, data) in parts {
-        let name_len = u16::try_from(name.len()).ok()?;
-        let size = u32::try_from(data.len()).ok()?;
+    for e in entries {
+        let name_len = u16::try_from(e.name.len()).ok()?;
+        let compressed = u32::try_from(e.bytes.len()).ok()?;
         let offset = u32::try_from(out.len()).ok()?;
-        let crc = crc32(data);
-        // The local file header, then the part's bytes as they are.
+        // The local file header, then the entry's bytes as they are.
         put_u32(&mut out, LOCAL_HEADER);
         put_u16(&mut out, VERSION);
         put_u16(&mut out, 0); // general purpose flags
-        put_u16(&mut out, STORED);
+        put_u16(&mut out, e.method);
         put_u16(&mut out, EPOCH_TIME);
         put_u16(&mut out, EPOCH_DATE);
-        put_u32(&mut out, crc);
-        put_u32(&mut out, size); // compressed size: the same, stored
-        put_u32(&mut out, size);
+        put_u32(&mut out, e.crc);
+        put_u32(&mut out, compressed);
+        put_u32(&mut out, e.size);
         put_u16(&mut out, name_len);
         put_u16(&mut out, 0); // extra field length
-        out.extend_from_slice(name.as_bytes());
-        out.extend_from_slice(data);
+        out.extend_from_slice(e.name.as_bytes());
+        out.extend_from_slice(e.bytes);
         // The central directory's record of it.
         put_u32(&mut central, CENTRAL_HEADER);
         put_u16(&mut central, VERSION); // version made by
         put_u16(&mut central, VERSION); // version needed
         put_u16(&mut central, 0);
-        put_u16(&mut central, STORED);
+        put_u16(&mut central, e.method);
         put_u16(&mut central, EPOCH_TIME);
         put_u16(&mut central, EPOCH_DATE);
-        put_u32(&mut central, crc);
-        put_u32(&mut central, size);
-        put_u32(&mut central, size);
+        put_u32(&mut central, e.crc);
+        put_u32(&mut central, compressed);
+        put_u32(&mut central, e.size);
         put_u16(&mut central, name_len);
         put_u16(&mut central, 0); // extra field length
         put_u16(&mut central, 0); // comment length
@@ -110,7 +139,7 @@ pub fn write_stored(parts: &[(String, Vec<u8>)]) -> Option<Vec<u8>> {
         put_u16(&mut central, 0); // internal attributes
         put_u32(&mut central, 0); // external attributes
         put_u32(&mut central, offset);
-        central.extend_from_slice(name.as_bytes());
+        central.extend_from_slice(e.name.as_bytes());
     }
     let cd_offset = u32::try_from(out.len()).ok()?;
     let cd_size = u32::try_from(central.len()).ok()?;
@@ -153,20 +182,57 @@ fn read_u32(b: &[u8], at: usize) -> Option<u32> {
     ]))
 }
 
-/// The central directory of an archive with no comment and no zip64, in
-/// directory order; `None` when the bytes are not such an archive. Each
-/// entry's data offset is read from its own local header, as a reader must.
-pub fn entries(bytes: &[u8]) -> Option<Vec<Entry>> {
+const ZIP64_LOCATOR: u32 = 0x0706_4B50;
+
+/// Where the end-of-central-directory record starts: the last 22 bytes
+/// when the archive has no comment, and up to 65,535 bytes earlier when it
+/// has one (the record's comment length must then reach the end).
+fn find_eocd(bytes: &[u8]) -> Option<usize> {
     if bytes.len() < 22 {
         return None;
     }
-    let eocd = bytes.len() - 22;
-    if read_u32(bytes, eocd)? != END_OF_CENTRAL_DIRECTORY {
-        return None;
+    let last = bytes.len() - 22;
+    let first = last.saturating_sub(65_535);
+    (first..=last).rev().find(|&i| {
+        read_u32(bytes, i) == Some(END_OF_CENTRAL_DIRECTORY)
+            && read_u16(bytes, i + 20).map(usize::from) == Some(bytes.len() - 22 - i)
+    })
+}
+
+/// Why `entries` would answer `None` for these bytes, in a few words, or
+/// `None` when it would not.
+pub fn why_not_an_archive(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(&[0xD0, 0xCF, 0x11, 0xE0]) {
+        return Some("it is an older .xls or an encrypted workbook, not an .xlsx package");
     }
+    let Some(eocd) = find_eocd(bytes) else {
+        return Some("it has no end-of-central-directory record, so it is not a zip archive");
+    };
+    if read_u16(bytes, eocd + 10) == Some(0xFFFF)
+        || read_u32(bytes, eocd + 16) == Some(0xFFFF_FFFF)
+        || (eocd >= 20 && read_u32(bytes, eocd - 20) == Some(ZIP64_LOCATOR))
+    {
+        return Some("it is a zip64 archive, which this version does not read");
+    }
+    if entries(bytes).is_none() {
+        return Some("its central directory does not read whole");
+    }
+    None
+}
+
+/// The central directory of an archive, in directory order; `None` when
+/// the bytes are not an archive this reader knows (zip64 included). A
+/// comment at the end is allowed; a data descriptor after an entry is
+/// harmless, since the sizes come from the directory. Each entry's data
+/// offset is read from its own local header, as a reader must.
+pub fn entries(bytes: &[u8]) -> Option<Vec<Entry>> {
+    let eocd = find_eocd(bytes)?;
     let count = usize::from(read_u16(bytes, eocd + 10)?);
     let cd_size = read_u32(bytes, eocd + 12)? as usize;
     let cd_offset = read_u32(bytes, eocd + 16)? as usize;
+    if count == 0xFFFF || cd_offset == 0xFFFF_FFFF {
+        return None; // zip64
+    }
     if cd_offset.checked_add(cd_size)? > eocd {
         return None;
     }
@@ -221,6 +287,12 @@ pub fn stored_data<'a>(bytes: &'a [u8], e: &Entry) -> Option<&'a [u8]> {
     bytes.get(e.data_offset..e.data_offset + e.size as usize)
 }
 
+/// An entry's bytes as the archive holds them, compressed or not, for a
+/// byte-exact copy into another archive.
+pub fn raw_data<'a>(bytes: &'a [u8], e: &Entry) -> Option<&'a [u8]> {
+    bytes.get(e.data_offset..e.data_offset + e.compressed_size as usize)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,6 +331,65 @@ mod tests {
     #[test]
     fn the_same_parts_give_the_same_bytes() {
         assert_eq!(write_stored(&two_parts()), write_stored(&two_parts()));
+    }
+
+    #[test]
+    fn an_entry_copies_as_it_is_and_a_comment_or_zip64_is_told_apart() {
+        // A "deflated" entry carried as given: the bytes are not decoded,
+        // the method, CRC and size are what the source said.
+        let raw = RawEntry {
+            name: "xl/styles.xml",
+            method: 8,
+            crc: 0x1234_5678,
+            size: 999,
+            bytes: &[0x4b, 0x4c, 0x4a, 0x06, 0x00],
+        };
+        let own = RawEntry {
+            name: "own.xml",
+            method: STORED,
+            crc: crc32(b"<a/>"),
+            size: 4,
+            bytes: b"<a/>",
+        };
+        let bytes = write_entries(&[raw, own]).unwrap();
+        let list = entries(&bytes).unwrap();
+        assert_eq!(list[0].method, 8);
+        assert_eq!(list[0].crc, 0x1234_5678);
+        assert_eq!(list[0].size, 999);
+        assert_eq!(list[0].compressed_size, 5);
+        assert_eq!(
+            raw_data(&bytes, &list[0]).unwrap(),
+            &[0x4b, 0x4c, 0x4a, 0x06, 0x00]
+        );
+        assert_eq!(stored_data(&bytes, &list[0]), None);
+        assert_eq!(stored_data(&bytes, &list[1]).unwrap(), b"<a/>");
+        assert_eq!(why_not_an_archive(&bytes), None);
+        // An archive comment after the record is allowed.
+        let mut commented = bytes.clone();
+        let n = commented.len();
+        commented[n - 2] = 5;
+        commented.extend_from_slice(b"hello");
+        assert_eq!(entries(&commented).unwrap().len(), 2);
+        // What is not an archive is named.
+        assert_eq!(
+            why_not_an_archive(b"not a zip"),
+            Some("it has no end-of-central-directory record, so it is not a zip archive")
+        );
+        assert_eq!(
+            why_not_an_archive(&[0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]),
+            Some("it is an older .xls or an encrypted workbook, not an .xlsx package")
+        );
+        let mut zip64 = bytes.clone();
+        let n = zip64.len();
+        zip64[n - 12] = 0xFF;
+        zip64[n - 11] = 0xFF;
+        zip64[n - 10] = 0xFF;
+        zip64[n - 9] = 0xFF;
+        assert_eq!(
+            why_not_an_archive(&zip64),
+            Some("it is a zip64 archive, which this version does not read")
+        );
+        assert!(entries(&zip64).is_none());
     }
 
     #[test]

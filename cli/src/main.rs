@@ -34,7 +34,7 @@ usage:
   frazaro translate-vba <program.txt> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] [--allow-raw]
                          oracle 1a: that VLA compiled, the VBA the add-in
                          would write (EnglishToVba)
-  frazaro build <program.txt> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] --out <file.xlsx> [--replace] [--allow-raw]
+  frazaro build <program.txt> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] --out <file.xlsx> [--into <model.xlsx>] [--replace] [--allow-raw]
                          the writer (PORT.7): the program translated as
                          translate-vla translates it, then written as a
                          workbook: the Frazaro sheet holds the sentences in
@@ -46,7 +46,10 @@ usage:
                          sentence that needs the add-in's Run is refused by
                          name, and a file already at --out is refused unless
                          --replace is given; the workbook carries its build
-                         stamp, the defined name Frazaro.Build (slice 7c)
+                         stamp, the defined name Frazaro.Build (slice 7c);
+                         with --into, the sheets are added to that workbook,
+                         whose own parts are copied byte for byte and never
+                         written to by a sentence (slice 7d)
   frazaro rebuild <file.xlsx> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] [--allow-raw]
                          the sentences read back out of a built workbook's
                          Frazaro sheet, its stamp checked against them and
@@ -471,7 +474,7 @@ fn build(args: &[String]) -> ExitCode {
         option_after(args, "--out"),
     ) else {
         eprintln!(
-            "usage: frazaro build <program.txt> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] --out <file.xlsx> [--replace] [--allow-raw]"
+            "usage: frazaro build <program.txt> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] --out <file.xlsx> [--into <model.xlsx>] [--replace] [--allow-raw]"
         );
         return ExitCode::from(2);
     };
@@ -481,11 +484,17 @@ fn build(args: &[String]) -> ExitCode {
     }
     let allow_raw = args.iter().any(|a| a == "--allow-raw");
     let replace = args.iter().any(|a| a == "--replace");
+    let into = option_after(args, "--into");
     if !is_file(program) {
         return refuse_missing("english-program-file-not-found", program);
     }
     if !is_file(prelude) {
         return refuse_missing("vla-file-not-found", prelude);
+    }
+    if let Some(model) = into {
+        if !is_file(model) {
+            return refuse_missing("vla-file-not-found", model);
+        }
     }
     if std::path::Path::new(out).exists() && !replace {
         eprintln!(
@@ -513,14 +522,30 @@ fn build(args: &[String]) -> ExitCode {
         }
     };
     let texts: Vec<&str> = texts.iter().map(String::as_str).collect();
-    let bytes =
-        match frazaro_core::build::build_xlsx(&text, &translation.vla, &prelude_text, &texts) {
-            Ok(b) => b,
-            Err(refusal) => {
-                eprintln!("{refusal}");
-                return ExitCode::from(1);
+    let built = match into {
+        None => frazaro_core::build::build_xlsx(&text, &translation.vla, &prelude_text, &texts),
+        Some(model) => match std::fs::read(model) {
+            Ok(bytes) => frazaro_core::build::build_xlsx_into(
+                &text,
+                &translation.vla,
+                &prelude_text,
+                &texts,
+                bytes,
+                model,
+            ),
+            Err(e) => {
+                eprintln!("frazaro: cannot read {model}: {e}");
+                return ExitCode::from(2);
             }
-        };
+        },
+    };
+    let bytes = match built {
+        Ok(b) => b,
+        Err(refusal) => {
+            eprintln!("{refusal}");
+            return ExitCode::from(1);
+        }
+    };
     if let Err(e) = std::fs::write(out, &bytes) {
         eprintln!("frazaro: cannot write {out}: {e}");
         return ExitCode::from(2);

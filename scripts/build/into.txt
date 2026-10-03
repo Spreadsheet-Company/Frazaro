@@ -1,0 +1,8 @@
+# Built into model.xlsx (PORT.7, slice 7d): the model's own sheets stay as they are.
+# Output and Checks are new sheets; their formulas read the model's Model sheet and its name Rate.
+
+Put "margin after rate" into cell A1.
+Put formula "=Model!B3*Rate" into cell B1.
+
+Work on sheet Checks.
+Put formula "=IFS(Model!B3>0,""profit"",TRUE,""loss"")" into cell A1.

@@ -289,3 +289,25 @@ intuition; it fixes nothing on its own.
   real external security review — gated specifically on §1.2 becoming
   default-deny and §1.4 becoming consent-gated, not before, since
   reviewing a surface that is about to change is reviewing the wrong one.
+
+## 5. A workbook the core reads (`PORT.7`, appended 2026-10-03)
+
+The core (`core/`) reads one kind of file someone else made: the model
+`frazaro build --into model.xlsx` adds sheets to. The surface is small and
+bounded, and the bounds are in the code, not in a policy. The core reads
+the zip's central directory and, of its parts, only the four or five it
+must edit (the workbook, its relationships, the content types, the styles,
+the cell metadata when there is one); every other part is copied as the
+compressed bytes it already is, never decoded. A part inflates to at most
+256 MB, a part whose checksum or size disagrees with the directory is
+refused, a zip64 archive and an older or encrypted workbook (an OLE
+compound file) are refused by name, and a stream that ends early is an
+error, never a panic; the decoder is the core's own (`sheet/inflate.rs`),
+so no dependency's parser is on this path. No entry name is ever taken for
+a path: the core has no file system, and the door writes exactly one file,
+the one `--out` names, refusing to replace a file already there without
+`--replace`. A sentence that would write into one of the model's own
+sheets is refused; the model's cells are read by the host, in formulas,
+when the file opens. Nothing here changes §1 or §2: the add-in's surface is
+as it was, and the core's wasm build still imports nothing
+(`tools/check_core_imports.ps1`).

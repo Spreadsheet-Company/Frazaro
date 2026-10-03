@@ -263,7 +263,13 @@
   english.vla` reads the sentences back out of the workbook, builds it
   again and says whether the file is still exactly that build: `This
   workbook was built from these 9 sentences by Frazaro 0.8.0: yes.`, or no
-  with the reason. The add-in you download is unchanged.
+  with the reason. And `frazaro build program.txt --into model.xlsx --out
+  model-with-sheets.xlsx` adds the sentences' sheets to a workbook of your
+  own: the workbook's own sheets, strings, styles and calculation chain
+  are copied byte for byte and are never written to by a sentence (one
+  that tries is refused by name, with the line), the new sheets' formulas
+  read the workbook's cells and names as usual, and the host computes them
+  when the file opens. The add-in you download is unchanged.
 
 ### Known open security items
 

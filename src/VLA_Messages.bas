@@ -1415,6 +1415,16 @@ Private Sub AddEntries(ByVal m As Collection)
     ' verify (not a zip, parts no longer stored as the writer stores them
     ' because a host saved it, or no Frazaro.Build stamp).
     AddMsg m, "rebuild-not-a-build", 5, "VLA-Build", "This workbook cannot be verified as a Frazaro build: {why}. frazaro rebuild checks a workbook that frazaro build wrote and nothing has saved since."
+    ' Slice 7d: frazaro build --into model.xlsx. The model is a file someone
+    ' else made: not a workbook at all; a workbook whose part has a shape
+    ' this version does not edit; a sentence that writes into one of the
+    ' model's own sheets, which the build leaves untouched by promise.
+    AddMsg m, "build-into-not-a-workbook", 5, "VLA-Build", "{path} is not a workbook frazaro build can add sheets to: {why}. Nothing was written."
+    AddMsg m, "build-into-unsupported", 5, "VLA-Build", "{path} has a part this version does not know how to edit: {part}, {why}. Nothing was written."
+    AddMsg m, "build-into-model-sheet", 5, "VLA-Build", "Line {line} writes into sheet {name}, which belongs to the workbook the build adds to, and the build leaves that workbook's own sheets as they are. Write to a sheet of the program's own (Work on sheet Results.) and read the model's cells from there. Nothing was written."
+    ' The sheet the build always makes, Frazaro, must not already be a
+    ' sheet of the model's, or the workbook would hold the name twice.
+    AddMsg m, "build-into-sheet-name-taken", 5, "VLA-Build", "{path} already has a sheet named {name}, and the build needs that name for the sheet that holds the sentences. Rename that sheet, or build into a copy without it. Nothing was written."
 End Sub
 
 Private Sub AddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _

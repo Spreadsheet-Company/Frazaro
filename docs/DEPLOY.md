@@ -103,6 +103,26 @@ rewrites every part on save, so it is no longer the build, by design. The
 checks (`check_build_golden.ps1`, `prove.ps1`) run `rebuild` on the golden
 and on what the door builds.
 
+With `--into model.xlsx`, the sentences' sheets are added to a workbook
+of your own, written to `--out` (the model itself is never written to):
+
+```powershell
+target\debug\frazaro.exe build controls.txt --prelude scripts\prelude.vla --phrasebook scripts\polyglotta\english.vla --into model.xlsx --out model-with-controls.xlsx
+```
+
+Every part of the model is copied as the bytes it already is, and only
+the workbook's sheet list, names and calculation flag, its relationships,
+the content types and the ends of its style lists are edited, so the
+model's own cells, strings, theme and calculation chain are exactly what
+they were. A sentence may go to one of the model's sheets but not write
+into it; `Work on sheet Results.` and the like make new sheets, whose
+formulas read the model's cells and names as any formula would. Building
+into a workbook an earlier build added sheets to replaces those sheets.
+`rebuild` on such a workbook checks the sheets the build added and says so;
+the model's own parts cannot be remade without the model. The fixture
+model the checks build into is `scripts\build\model.xlsx`, written by
+`tools\build_model_fixture.ps1`.
+
 ## Releasing (daily patch, weekly minor)
 
 The working loop is **Scope → Implement → Test → Build → Push**, and since the `0.5.0` public import (2026-09-05) the last step is a release, not just a push. Cadence, an owner decision of 2026-09-07 that fixes SD-14's tempo without changing its numbering: a **`0.5.N` patch release at the end of each working day** and a **`0.N.0` minor release at the end of each week**, with security and safety fixes front-loaded into the patches and larger feature additions landing in the minors. The `.xlam` editions are release assets, never tracked files; `README.md`'s download links resolve to whatever release is newest.

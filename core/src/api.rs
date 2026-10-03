@@ -74,28 +74,28 @@ pub fn english_rebuild_xlsx(
     prelude_text: &str,
     vocab_texts: &[&str],
 ) -> Result<crate::build::Rebuilt, RefusalAtLine> {
+    use crate::build::{build_workbook_with, own_part_text, Rebuilt};
+    use crate::sheet::merge::HostInfo;
+    use crate::sheet::ooxml::{sheet_part, sheet_xml, Render};
+
     let read =
         crate::build::read_build(file).map_err(|refusal| RefusalAtLine { refusal, line: 0 })?;
+    let partial = read.stamp.into.is_some();
+    let answer = |matches: bool, why: String| Rebuilt {
+        sentences: read.sentences,
+        built_by: read.stamp.version.clone(),
+        matches,
+        why,
+        partial,
+    };
     if let Some(why) = read
         .stamp
         .disagreement(&read.program_text, prelude_text, vocab_texts)
     {
-        return Ok(crate::build::Rebuilt {
-            sentences: read.sentences,
-            built_by: read.stamp.version.clone(),
-            matches: false,
-            why,
-        });
+        return Ok(answer(false, why));
     }
-    let again = english_build_xlsx(&read.program_text, prelude_text, vocab_texts)?;
-    let matches = again == file;
-    Ok(crate::build::Rebuilt {
-        sentences: read.sentences,
-        built_by: read.stamp.version.clone(),
-        matches,
-        why: if matches {
-            String::new()
-        } else if read.stamp.version != crate::VERSION {
+    let version_note = || {
+        if read.stamp.version != crate::VERSION {
             format!(
                 "it was built by Frazaro {} and this is Frazaro {}, which writes the file differently",
                 read.stamp.version,
@@ -103,8 +103,88 @@ pub fn english_rebuild_xlsx(
             )
         } else {
             "its parts are not what this core builds from these sentences: a host has saved it since, or it was built differently".to_string()
-        },
-    })
+        }
+    };
+    match &read.stamp.into {
+        None => {
+            let again = english_build_xlsx(&read.program_text, prelude_text, vocab_texts)?;
+            let matches = again == file;
+            Ok(answer(
+                matches,
+                if matches {
+                    String::new()
+                } else {
+                    version_note()
+                },
+            ))
+        }
+        Some(into) => {
+            // The model is not at hand, so the build's own sheets are rendered
+            // again with what the stamp recorded and compared part by part.
+            let host = HostInfo {
+                label: "the workbook".to_string(),
+                sheet_names: read.host_sheets.clone(),
+                model_hex: into.model_hex.clone(),
+                style_base: into.style_base,
+                cm: Some(into.cm),
+            };
+            let g = load_grammar(prelude_text, vocab_texts)?;
+            let t = g.translate_program_at(&read.program_text)?;
+            let wb = build_workbook_with(
+                &read.program_text,
+                &t.vla,
+                prelude_text,
+                vocab_texts,
+                Some(&host),
+            )
+            .map_err(|refusal| RefusalAtLine { refusal, line: 0 })?;
+            let render = Render {
+                style_base: into.style_base,
+                cm: into.cm,
+            };
+            let mut matches = true;
+            for (i, sheet) in wb.sheets.iter().enumerate() {
+                let want = sheet_xml(sheet, false, &render);
+                if own_part_text(file, &sheet_part(i + 1)).as_deref() != Some(want.as_str()) {
+                    matches = false;
+                }
+            }
+            if own_part_text(file, &sheet_part(wb.sheets.len() + 1)).is_some() {
+                matches = false; // a sheet the build did not make
+            }
+            Ok(answer(
+                matches,
+                if matches {
+                    String::new()
+                } else {
+                    version_note()
+                },
+            ))
+        }
+    }
+}
+
+/// The writer's surface for adding to a workbook (`--into`): the program
+/// translated and built into `model_bytes`, the model's own parts as they
+/// were. `label` is what a refusal calls the model.
+pub fn english_build_xlsx_into(
+    program_text: &str,
+    prelude_text: &str,
+    vocab_texts: &[&str],
+    model_bytes: Vec<u8>,
+    label: &str,
+) -> Result<Vec<u8>, RefusalAtLine> {
+    let g = load_grammar(prelude_text, vocab_texts)?;
+    let t = g.translate_program_at(program_text)?;
+    crate::build::build_xlsx_into(
+        program_text,
+        &t.vla,
+        prelude_text,
+        vocab_texts,
+        model_bytes,
+        label,
+    )
+    .map_err(|refusal| RefusalAtLine { refusal, line: 0 })
 }
 
 /// `EnglishResetGrammar` and the loads: a fresh grammar over the prelude, each

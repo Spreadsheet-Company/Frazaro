@@ -192,7 +192,13 @@ function Get-Oracles([string]$root) {
                  Prelude = 'scripts/prelude.vla' })
     $list.Add(@{ Kind = 'build'; Label = 'build/fixture.txt -> build/fixture_golden.xlsx'
                  Input = 'scripts/build/fixture.txt'; Golden = 'scripts/build/fixture_golden.xlsx'
-                 Prelude = 'scripts/prelude.vla'; Phrasebook = 'scripts/polyglotta/english.vla' })
+                 Prelude = 'scripts/prelude.vla'; Phrasebook = 'scripts/polyglotta/english.vla'; Into = '' })
+    # 2026-10-03 (slice 7d): the same kind, built into a workbook the fixture
+    # script made; the golden is the model with the program's sheets added.
+    $list.Add(@{ Kind = 'build'; Label = 'build/into.txt into model.xlsx -> build/into_golden.xlsx'
+                 Input = 'scripts/build/into.txt'; Golden = 'scripts/build/into_golden.xlsx'
+                 Prelude = 'scripts/prelude.vla'; Phrasebook = 'scripts/polyglotta/english.vla'
+                 Into = 'scripts/build/model.xlsx' })
     $list.Add(@{ Kind = 'interpreter'; Label = 'interpreter_golden.txt (needs a workbook model: slice 6)'
                  Golden = 'scripts/interpreter_golden.txt' })
     $pb = Join-Path $root 'scripts/polyglotta'
@@ -266,12 +272,14 @@ function Measure-Oracles([string]$root, [string]$impl, [string]$scratch) {
                 # byte named. The file is written in the scratch directory and
                 # left there, so a FAIL can name what was built.
                 $golden = Join-Path $root $o.Golden
-                $built = Join-Path $scratch 'fixture.built.xlsx'
+                $built = Join-Path $scratch ([System.IO.Path]::GetFileNameWithoutExtension($o.Golden) + '.built.xlsx')
                 if (Test-Path $built) { Remove-Item $built -Force }
-                $run = Invoke-Impl $impl @('build', (Join-Path $root $o.Input),
-                                           '--prelude', (Join-Path $root $o.Prelude),
-                                           '--phrasebook', (Join-Path $root $o.Phrasebook),
-                                           '--out', $built)
+                $buildArgs = @('build', (Join-Path $root $o.Input),
+                               '--prelude', (Join-Path $root $o.Prelude),
+                               '--phrasebook', (Join-Path $root $o.Phrasebook),
+                               '--out', $built)
+                if ($o.Into -ne '') { $buildArgs += @('--into', (Join-Path $root $o.Into)) }
+                $run = Invoke-Impl $impl $buildArgs
                 if ($run.ExitCode -eq 3) { break }
                 if ($run.ExitCode -ne 0) { $r.Status = 'FAIL'; $r.Detail = "exit $($run.ExitCode)"; break }
                 if (-not (Test-Path $built)) { $r.Status = 'FAIL'; $r.Detail = "exit 0 but nothing written at $built"; break }
@@ -351,9 +359,11 @@ switch (`$kind) {
         if (`$mutant) { Write-Output "FAIL 1/`$n"; exit 1 } else { Write-Output "PASS `$n/`$n"; exit 0 }
     }
     'build' {
-        # The golden copied to --out; the mutant with one byte changed (2026-10-03).
+        # The golden copied to --out (the second golden when --into is given,
+        # 2026-10-03 slice 7d); the mutant with one byte changed.
         `$dst = `$a[[Array]::IndexOf(`$a, '--out') + 1]
-        `$fs = New-Object System.IO.FileStream((Join-Path `$root 'scripts/build/fixture_golden.xlsx'), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        `$which = if (`$a -contains '--into') { 'scripts/build/into_golden.xlsx' } else { 'scripts/build/fixture_golden.xlsx' }
+        `$fs = New-Object System.IO.FileStream((Join-Path `$root `$which), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
         `$b = New-Object byte[] `$fs.Length
         [void]`$fs.Read(`$b, 0, `$b.Length)
         `$fs.Dispose()
@@ -362,14 +372,21 @@ switch (`$kind) {
         exit 0
     }
     'rebuild' {
-        # Yes when the file is the golden byte for byte, no otherwise (2026-10-03, slice 7c).
+        # Yes when the file is one of the goldens byte for byte, no otherwise (2026-10-03, slice 7c).
         `$f = [System.IO.File]::ReadAllBytes(`$a[1])
-        `$fs = New-Object System.IO.FileStream((Join-Path `$root 'scripts/build/fixture_golden.xlsx'), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
-        `$g = New-Object byte[] `$fs.Length
-        [void]`$fs.Read(`$g, 0, `$g.Length)
-        `$fs.Dispose()
-        `$same = (`$f.Length -eq `$g.Length)
-        if (`$same) { for (`$i = 0; `$i -lt `$f.Length; `$i++) { if (`$f[`$i] -ne `$g[`$i]) { `$same = `$false; break } } }
+        `$same = `$false
+        foreach (`$which in @('scripts/build/fixture_golden.xlsx', 'scripts/build/into_golden.xlsx')) {
+            `$p = Join-Path `$root `$which
+            if (-not (Test-Path `$p)) { continue }
+            `$fs = New-Object System.IO.FileStream(`$p, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+            `$g = New-Object byte[] `$fs.Length
+            [void]`$fs.Read(`$g, 0, `$g.Length)
+            `$fs.Dispose()
+            if (`$f.Length -ne `$g.Length) { continue }
+            `$eq = `$true
+            for (`$i = 0; `$i -lt `$f.Length; `$i++) { if (`$f[`$i] -ne `$g[`$i]) { `$eq = `$false; break } }
+            if (`$eq) { `$same = `$true; break }
+        }
         if (`$same) { Write-Output 'This workbook was built from these sentences by the fake: yes.'; exit 0 }
         Write-Output 'This workbook was built from these sentences by the fake: no.'; exit 1
     }
