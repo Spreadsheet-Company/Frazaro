@@ -59,7 +59,10 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-10-03, PORT.7 slice 7a: 7544 - the Frazaro sheet alone, the eleven
 # lines of the fixture. Raise it when a regenerated golden is longer; lower it
 # only with a regenerated golden that is shorter, and say why.
-$floor = 7544
+# 2026-10-03, PORT.7 slice 7b: 9798 - the Output and data sheets the fixture's
+# sentences write (values, a formula, a shared formula over three cells, a
+# prefixed IFS) beside the Frazaro sheet; ten entries.
+$floor = 9798
 
 $fixture = Join-Path $repoRoot 'scripts/build/fixture.txt'
 $golden  = Join-Path $repoRoot 'scripts/build/fixture_golden.xlsx'

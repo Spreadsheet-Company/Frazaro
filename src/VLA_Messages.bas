@@ -1401,6 +1401,16 @@ Private Sub AddEntries(ByVal m As Collection)
     ' Error 58 is VBA's "File already exists"; 7 its "Out of memory".
     AddMsg m, "build-output-exists", 58, "VLA-Build", "Refusing to write {path}: a file is already there, and it has not been changed. Add --replace to replace it, or name another file with --out."
     AddMsg m, "build-workbook-too-large", 7, "VLA-Build", "The workbook would not fit its file format: a part, or the whole, is over 4 GB. Nothing was written."
+    ' Slice 7b: the static subset. A sentence the build cannot write as
+    ' cells is refused with the sentence quoted (17, "Can't perform
+    ' requested operation"); a sheet named before anything made it, with
+    ' VBA's 9, the error Worksheets("x") raises for a missing sheet.
+    AddMsg m, "build-not-representable", 17, "VLA-Build", "frazaro build writes only what a sheet can hold with nothing running: a value or a formula into a cell, a range or rows of a column, and which sheet it goes on. Line {line} asks for more: {sentence} Nothing was written; run the program with the add-in, or take the sentence out."
+    AddMsg m, "build-sheet-unknown", 9, "VLA-Build", "Line {line} names sheet {name}, but nothing before it has made that sheet. Write Work on sheet {name}. first, which makes the sheet when it is missing. Nothing was written."
+    ' A sheet name Excel would refuse, as VlaCheckSheetName (VLA_Runtime.bas)
+    ' refuses it at run time with the runtime's own catalogue, which is not
+    ' exported; 1004 is Excel's error for it.
+    AddMsg m, "build-sheet-name-invalid", 1004, "VLA-Build", "Line {line} names sheet {name}, which Excel would refuse: {reason}. A sheet name is 1 to 31 characters, holds none of : \ / ? * [ ], and does not begin or end with an apostrophe. Nothing was written."
 End Sub
 
 Private Sub AddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _

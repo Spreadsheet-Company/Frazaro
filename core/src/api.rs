@@ -59,7 +59,7 @@ pub fn english_build_xlsx(
 ) -> Result<Vec<u8>, RefusalAtLine> {
     let g = load_grammar(prelude_text, vocab_texts)?;
     let t = g.translate_program_at(program_text)?;
-    crate::build::build_xlsx(program_text, &t.vla)
+    crate::build::build_xlsx(program_text, &t.vla, prelude_text)
         .map_err(|refusal| RefusalAtLine { refusal, line: 0 })
 }
 

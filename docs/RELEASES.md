@@ -248,9 +248,13 @@
   written. The file is built to be the same on every machine: the same
   sentences and the same version give the same bytes, which is what lets
   the repository keep one such workbook as a golden and hold the second
-  implementation to it on every push. This first slice writes the
-  sentences' sheet; the sheets the sentences describe, a value or a formula
-  into a cell, follow. The add-in you download is unchanged.
+  implementation to it on every push. The other sheets hold what a sheet
+  can hold with nothing running: a value or a formula put into a cell, a
+  range or rows of a column, on the sheet the program names, and the host
+  computes the formulas when it opens the file. A sentence that needs the
+  add-in to run, a loop, a message, a value read from a cell, is refused by
+  name with the sentence quoted, and nothing is written. The add-in you
+  download is unchanged.
 
 ### Known open security items
 

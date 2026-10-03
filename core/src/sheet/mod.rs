@@ -11,10 +11,13 @@
 //! subset writes, and the model grows only as a slice needs it.
 
 pub mod ooxml;
+pub mod xlfn;
 pub mod xml;
 pub mod zip;
 
 use std::collections::BTreeMap;
+
+use crate::intrinsics::fold;
 
 /// A colour, as `Interior.Color = RGB(r, g, b)` names it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -105,13 +108,25 @@ impl Styles {
 }
 
 /// What a cell holds. A formula is its text without the leading `=`, as the
-/// file stores it; the host computes it.
+/// file stores it; the host computes it. A formula written into a range of
+/// cells is a shared formula, which is what Excel itself writes when a
+/// formula is filled: the top-left cell is the master and holds the text
+/// and the range, the others point at it by its index, and the host
+/// adjusts the references for each cell as `Range.Formula2` would have.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Content {
     Text(String),
     Number(f64),
     Bool(bool),
     Formula(String),
+    SharedMaster {
+        text: String,
+        range: String,
+        si: u32,
+    },
+    SharedChild {
+        si: u32,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -131,6 +146,78 @@ pub struct Column {
     pub style: Option<u32>,
 }
 
+/// A rectangle of cells, rows and columns 1-based and inclusive.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct A1Range {
+    pub top: u32,
+    pub left: u32,
+    pub bottom: u32,
+    pub right: u32,
+}
+
+impl A1Range {
+    pub fn cells(&self) -> u64 {
+        u64::from(self.bottom - self.top + 1) * u64::from(self.right - self.left + 1)
+    }
+
+    /// `B2` for one cell, `B2:C4` for more.
+    pub fn text(&self) -> String {
+        if self.top == self.bottom && self.left == self.right {
+            cell_ref(self.top, self.left)
+        } else {
+            format!(
+                "{}:{}",
+                cell_ref(self.top, self.left),
+                cell_ref(self.bottom, self.right)
+            )
+        }
+    }
+}
+
+/// Excel's last column (XFD) and last row.
+pub const MAX_COLUMN: u32 = 16_384;
+pub const MAX_ROW: u32 = 1_048_576;
+
+fn parse_a1_cell(s: &str) -> Option<(u32, u32)> {
+    let s = s.replace('$', "");
+    let letters: String = s.chars().take_while(|c| c.is_ascii_alphabetic()).collect();
+    let digits = &s[letters.len()..];
+    if letters.is_empty() || letters.len() > 3 || digits.is_empty() {
+        return None;
+    }
+    if !digits.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    let mut col: u32 = 0;
+    for c in letters.chars() {
+        col = col * 26 + (c.to_ascii_uppercase() as u32 - 'A' as u32 + 1);
+    }
+    let row: u32 = digits.parse().ok()?;
+    if col == 0 || col > MAX_COLUMN || row == 0 || row > MAX_ROW {
+        return None;
+    }
+    Some((row, col))
+}
+
+/// An A1 reference as a program writes it (`b2`, `A1:B5`, `$C$2`), in any
+/// case, with the corners in any order; `None` for anything else, a whole
+/// column or row included.
+pub fn parse_a1_range(s: &str) -> Option<A1Range> {
+    let s = s.trim();
+    let (a, b) = match s.split_once(':') {
+        Some((a, b)) => (a, b),
+        None => (s, s),
+    };
+    let (r1, c1) = parse_a1_cell(a)?;
+    let (r2, c2) = parse_a1_cell(b)?;
+    Some(A1Range {
+        top: r1.min(r2),
+        left: c1.min(c2),
+        bottom: r1.max(r2),
+        right: c1.max(c2),
+    })
+}
+
 /// One sheet: its cells by (row, column), both 1-based.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Sheet {
@@ -140,6 +227,8 @@ pub struct Sheet {
     pub gridlines: bool,
     /// The selected cell when the sheet opens, (row, column).
     pub active_cell: (u32, u32),
+    /// How many shared formulas the sheet holds; the next one's index.
+    pub shared_formulas: u32,
 }
 
 impl Sheet {
@@ -150,11 +239,44 @@ impl Sheet {
             columns: Vec::new(),
             gridlines: true,
             active_cell: (1, 1),
+            shared_formulas: 0,
         }
     }
 
     pub fn set(&mut self, row: u32, col: u32, cell: Cell) {
         self.cells.insert((row, col), cell);
+    }
+
+    /// A formula's text (without its `=`) into every cell of a range: one
+    /// plain formula for one cell, a shared formula for more.
+    pub fn set_formula(&mut self, range: A1Range, text: &str, style: u32) {
+        if range.cells() == 1 {
+            self.set(
+                range.top,
+                range.left,
+                Cell {
+                    content: Content::Formula(text.to_string()),
+                    style,
+                },
+            );
+            return;
+        }
+        let si = self.shared_formulas;
+        self.shared_formulas += 1;
+        for row in range.top..=range.bottom {
+            for col in range.left..=range.right {
+                let content = if row == range.top && col == range.left {
+                    Content::SharedMaster {
+                        text: text.to_string(),
+                        range: range.text(),
+                        si,
+                    }
+                } else {
+                    Content::SharedChild { si }
+                };
+                self.set(row, col, Cell { content, style });
+            }
+        }
     }
 
     /// The used range as ((first row, first column), (last row, last
@@ -195,6 +317,23 @@ impl Workbook {
             styles: Styles::new(),
             active_sheet: 0,
         }
+    }
+
+    /// The index of the sheet of that name, compared as Excel compares sheet
+    /// names, without case.
+    pub fn find_sheet(&self, name: &str) -> Option<usize> {
+        let want = fold(name);
+        self.sheets.iter().position(|s| fold(&s.name) == want)
+    }
+
+    /// The sheet of that name, added last with the name as given when there
+    /// is none (`VlaEnsureSheet`'s shape).
+    pub fn ensure_sheet(&mut self, name: &str) -> usize {
+        if let Some(i) = self.find_sheet(name) {
+            return i;
+        }
+        self.sheets.push(Sheet::new(name));
+        self.sheets.len() - 1
     }
 }
 
@@ -266,6 +405,65 @@ mod tests {
         assert_eq!((a, b, a2), (1, 2, 1));
         assert_eq!(s.fills(), vec![Rgb(1, 2, 3), Rgb(4, 5, 6)]);
         assert_eq!(Rgb(247, 244, 252).argb_hex(), "FFF7F4FC");
+    }
+
+    #[test]
+    fn a1_references_as_a_program_writes_them() {
+        let r = parse_a1_range("b2").unwrap();
+        assert_eq!((r.top, r.left, r.bottom, r.right), (2, 2, 2, 2));
+        assert_eq!(r.text(), "B2");
+        let r = parse_a1_range("c4:A1").unwrap();
+        assert_eq!((r.top, r.left, r.bottom, r.right), (1, 1, 4, 3));
+        assert_eq!(r.text(), "A1:C4");
+        assert_eq!(r.cells(), 12);
+        assert_eq!(parse_a1_range("$B$2:$B$4").unwrap().text(), "B2:B4");
+        assert_eq!(parse_a1_range("XFD1048576").unwrap().text(), "XFD1048576");
+        for bad in [
+            "c:c", "1:3", "XFE1", "A0", "A1048577", "AAAA1", "b", "2", "", "b2:",
+        ] {
+            assert!(parse_a1_range(bad).is_none(), "{bad} should not parse");
+        }
+    }
+
+    #[test]
+    fn a_formula_over_a_range_is_shared_from_its_top_left_cell() {
+        let mut sh = Sheet::new("S");
+        sh.set_formula(parse_a1_range("c2:c3").unwrap(), "B2+B3", 0);
+        sh.set_formula(parse_a1_range("d2").unwrap(), "B2*2", 0);
+        sh.set_formula(parse_a1_range("e2:e3").unwrap(), "1", 0);
+        assert_eq!(
+            sh.cells[&(2, 3)].content,
+            Content::SharedMaster {
+                text: "B2+B3".to_string(),
+                range: "C2:C3".to_string(),
+                si: 0
+            }
+        );
+        assert_eq!(sh.cells[&(3, 3)].content, Content::SharedChild { si: 0 });
+        assert_eq!(
+            sh.cells[&(2, 4)].content,
+            Content::Formula("B2*2".to_string())
+        );
+        assert_eq!(
+            sh.cells[&(2, 5)].content,
+            Content::SharedMaster {
+                text: "1".to_string(),
+                range: "E2:E3".to_string(),
+                si: 1
+            }
+        );
+        assert_eq!(sh.shared_formulas, 2);
+    }
+
+    #[test]
+    fn sheets_are_found_without_case_and_made_once() {
+        let mut wb = Workbook::new();
+        assert_eq!(wb.find_sheet("Output"), None);
+        let i = wb.ensure_sheet("Output");
+        assert_eq!(wb.ensure_sheet("output"), i);
+        assert_eq!(wb.find_sheet("OUTPUT"), Some(i));
+        assert_eq!(wb.sheets.len(), 1);
+        assert_eq!(wb.sheets[0].name, "Output");
     }
 
     #[test]

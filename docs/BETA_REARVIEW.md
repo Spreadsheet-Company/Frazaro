@@ -6782,7 +6782,62 @@ written against.
   while the golden was open; both now read it with `FileShare.ReadWrite`
   (`Read-BytesShared`), their control fakes too, since the owner's live
   pass has the file open while the checks run. Sheets, Calc and Numbers at
-  the owner's pace. *(roadmap: BETA_ROADMAP.md)*
+  the owner's pace.
+  **Slice 7b, cells and formulas: the static subset (built 2026-10-03,
+  awaiting the owner's run).** The walk (`core/src/build.rs`): the program's
+  VLA read with the prelude and macro-expanded exactly as `VlaTranspile`
+  reads it, then the `main` sub walked statement by statement with
+  `EnglishToVla`'s scaffold stepped over (`on-error goto vla-fail`, the
+  `vla-step` counter, the trace guards, `exit-sub`, the fail label).
+  Honoured: a value into a cell or a range (`(set! (range R) v)`); a formula
+  string into a cell, a range or rows of a column (`(. (range R) formula)`,
+  after `set-formula` and `set-formula-rows` expand); a cell of a named
+  sheet (`put-into-cell-of-sheet`); `Work on sheet` (`vlaensuresheet`, then
+  `activate`) and `Go to sheet`; a `Define`d constant or a variable set to a
+  value that folds; an `If` whose condition folds; a parameterless step
+  inlined where it is called (its own `Stop` ends the step, not the caller;
+  32 levels deep is a loop); `Stop` ending the walk. Folding: numbers,
+  texts, truths, `+ - * / &` and the comparisons, `not`/`and`/`or`, with
+  `&` spelling a number as `CStr` does, so `set-formula-rows`' guard
+  `(>= 4 2)` and its address `(& "c" 2 ":" "c" 4)` fold. Everything else
+  refuses with the sentence quoted and its line, `build-not-representable`
+  (a message, a loop, a cell read, a colour, a `Try`, a step that takes
+  values, a whole column); a sheet named before anything made it,
+  `build-sheet-unknown`; a name Excel would refuse,
+  `build-sheet-name-invalid`, with `VlaCheckSheetName`'s five rules in its
+  order; a `Use library`, the compiler's own `vla-include-cannot-read`. The
+  sheets: `Output` made on first use, as the add-in has it at the start of
+  a run; a program's sheet made with the name the translator gives it,
+  lowercase (the reference's `{s:sheet}` slot lowercases, so `Work on sheet
+  Data.` makes `data` in the add-in too, a reference wart noted, not mine
+  to fix here). A formula into more than one cell is a shared formula
+  (`<f t="shared" ref="C2:C4" si="0">`), what Excel writes when a formula
+  is filled, so the host adjusts the references per cell as
+  `Range.Formula2` would have; a newer function takes its file prefix from
+  `core/src/sheet/xlfn.rs`, the format's future-functions table
+  (`_xlfn.IFS`, `_xlfn._xlws.FILTER`; `LET`'s and `LAMBDA`'s parameter
+  names, which Excel stores under `_xlpm.`, are written as given, and the
+  owner's live pass says whether Excel accepts them). The golden
+  regenerated: 9,798 bytes, ten entries, the `Output` sheet (B1 7, B2 5, B3
+  `=B2*2`, C2:C4 the shared `=B2+B3`, D2 the prefixed `IFS`) and the `data`
+  sheet (A1 `west`) beside `Frazaro`; the floor raised to 9798. 143 Rust
+  tests, 8 of them new; the catalogue 579. Predictions 2 and 3 ride on this
+  golden.
+  **The owner's live check for 7b, 2026-10-03:** every value as predicted
+  (Output: B1 7, B2 5, B3 10, C2 15, C3 10, C4 0, D2 `big`; data: A1
+  `west`), and two corrections. Prediction 2 was wrong: Excel computed the
+  formulas on open and did not ask to save on closing, so a built workbook
+  opens clean and closes quietly. And D2's formula bar read
+  `=@IFS(B2>3,"big",TRUE,"small")`: the implicit-intersection mark Excel 365
+  puts on a legacy formula whose function can return an array, the
+  file-format half of prediction 4 showing up on a scalar result (trap 21
+  of the VBA traps, seen from the writer's side). The add-in writes through
+  `Formula2`, whose cells carry no `@`, so the writer must store what Excel
+  stores for a `Formula2` entry of such a formula: a dynamic-array formula
+  (`cm="1"`, the XLDAPR metadata part), and per cell when it is filled over
+  a range, which needs the references shifted per cell as Excel shifts
+  them. Slice 7c takes it first. Then Sheets, Calc and Numbers at the
+  owner's pace. *(roadmap: BETA_ROADMAP.md)*
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day

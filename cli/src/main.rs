@@ -37,10 +37,15 @@ usage:
   frazaro build <program.txt> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] --out <file.xlsx> [--replace] [--allow-raw]
                          the writer (PORT.7): the program translated as
                          translate-vla translates it, then written as a
-                         workbook whose Frazaro sheet holds the sentences in
+                         workbook: the Frazaro sheet holds the sentences in
                          column B with OK beside each in column C, as the
-                         add-in's Check marks them (slice 7a); a file already
-                         at --out is refused unless --replace is given
+                         add-in's Check marks them (slice 7a), and the sheets
+                         the sentences describe hold what a sheet can hold
+                         with nothing running - values and formulas into
+                         cells, on the sheet the program names (slice 7b); a
+                         sentence that needs the add-in's Run is refused by
+                         name, and a file already at --out is refused unless
+                         --replace is given
   frazaro version        the version of the core this door is built on
   frazaro help           this text
 
@@ -425,7 +430,7 @@ fn build(args: &[String]) -> ExitCode {
             return ExitCode::from(1);
         }
     };
-    let bytes = match frazaro_core::build::build_xlsx(&text, &translation.vla) {
+    let bytes = match frazaro_core::build::build_xlsx(&text, &translation.vla, &prelude_text) {
         Ok(b) => b,
         Err(refusal) => {
             eprintln!("{refusal}");

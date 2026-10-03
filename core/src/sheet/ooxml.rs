@@ -332,6 +332,13 @@ fn sheet_xml(sheet: &Sheet, selected: bool) -> String {
                 "<c r=\"{r}\" s=\"{st}\"><f>{}</f></c>",
                 xml::text(f)
             )),
+            Content::SharedMaster { text, range, si } => s.push_str(&format!(
+                "<c r=\"{r}\" s=\"{st}\"><f t=\"shared\" ref=\"{range}\" si=\"{si}\">{}</f></c>",
+                xml::text(text)
+            )),
+            Content::SharedChild { si } => s.push_str(&format!(
+                "<c r=\"{r}\" s=\"{st}\"><f t=\"shared\" si=\"{si}\"/></c>"
+            )),
         }
     }
     if current_row.is_some() {
@@ -401,6 +408,7 @@ mod tests {
                 style: 0,
             },
         );
+        sh.set_formula(crate::sheet::parse_a1_range("e2:e3").unwrap(), "D3+1", 0);
         wb.sheets.push(sh);
         wb
     }
@@ -449,7 +457,7 @@ mod tests {
     fn the_sheet_part_holds_each_kind_of_cell() {
         let wb = a_workbook();
         let sx = sheet_xml(&wb.sheets[0], true);
-        assert!(sx.contains("<dimension ref=\"B1:D4\"/>"));
+        assert!(sx.contains("<dimension ref=\"B1:E4\"/>"));
         assert!(sx.contains("<sheetView showGridLines=\"0\" tabSelected=\"1\" workbookViewId=\"0\"><selection activeCell=\"B1\" sqref=\"B1\"/>"));
         assert!(
             sx.contains("<col min=\"1\" max=\"1\" width=\"0\" hidden=\"1\" customWidth=\"1\"/>")
@@ -458,8 +466,10 @@ mod tests {
             "<col min=\"2\" max=\"2\" width=\"72.7109375\" customWidth=\"1\" style=\"1\"/>"
         ));
         assert!(sx.contains("<row r=\"1\"><c r=\"B1\" s=\"1\" t=\"inlineStr\"><is><t xml:space=\"preserve\">Put 5 into cell B2.</t></is></c></row>"));
-        assert!(sx.contains("<row r=\"3\"><c r=\"C3\" s=\"0\"><v>2.5</v></c><c r=\"D3\" s=\"0\"><f>B1*2</f></c></row>"));
+        assert!(sx.contains("<row r=\"2\"><c r=\"E2\" s=\"0\"><f t=\"shared\" ref=\"E2:E3\" si=\"0\">D3+1</f></c></row>"));
+        assert!(sx.contains("<row r=\"3\"><c r=\"C3\" s=\"0\"><v>2.5</v></c><c r=\"D3\" s=\"0\"><f>B1*2</f></c><c r=\"E3\" s=\"0\"><f t=\"shared\" si=\"0\"/></c></row>"));
         assert!(sx.contains("<row r=\"4\"><c r=\"B4\" s=\"0\" t=\"b\"><v>1</v></c></row>"));
+        assert!(sx.contains("<dimension ref=\"B1:E4\"/>"));
         let unselected = sheet_xml(&wb.sheets[0], false);
         assert!(!unselected.contains("tabSelected"));
     }

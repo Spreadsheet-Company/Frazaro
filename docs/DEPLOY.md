@@ -73,8 +73,11 @@ target\debug\frazaro.exe build program.txt --prelude scripts\prelude.vla --phras
 The program is translated as `translate-vla` translates it, so a sentence
 the Frazaro tab would refuse is refused here in the same words, and nothing
 is written. The workbook's `Frazaro` sheet holds the sentences in column B
-with OK beside each in column C, the room's own layout; the sheets the
-sentences describe follow in the next slice. The bytes are deterministic:
+with OK beside each in column C, the room's own layout; the other sheets
+hold what the sentences put into cells, values and formulas, on the sheet
+the program names, and a sentence that needs the add-in's Run (a loop, a
+message, a value read from a cell) is refused by name with the sentence
+quoted. The bytes are deterministic:
 the same sentences and the same core give the same file on every machine
 (stored zip entries stamped 1980-01-01, no author and no date), which is
 what lets `scripts\build\fixture_golden.xlsx` be a golden the core's tests
