@@ -34,6 +34,31 @@ The `.bas`/`.cls` files remain the source of truth in version control; the `.xla
 
 **Dev convenience — a `Frazaro_Beta.xlam` test copy stays current on its own, including being created.** `VlaBuildAddin` creates and refreshes a `Frazaro_Beta.xlam` copy beside the dev workbook on every build, unconditionally — register it once for auto-load (the ribbon button, see above) and forget it exists. First shipped opt-in (only refresh a copy that already existed, so "a fresh checkout never sees it appear on its own"); corrected immediately after it met the Uninstall Frazaro button in practice — Uninstall's own successful self-delete removes this file entirely, and the opt-in gate then meant the convenience died silently and permanently the moment that happened, recoverable only by manually redoing the exact copy/rename step it exists to eliminate. Since this module never ships (it's not in `VlaBuildAddin`'s own module list), the cost of "an extra file might surprise someone" was never as high as "this silently stops working the first time its two features are actually used together." It closes the copy first if this same Excel session has it open, not because the file would otherwise be locked (a bare file copy succeeds over an open `.xlam` regardless — live-tested; Office uses its own advisory `~$` lock-file convention, not an exclusive OS handle) but because overwriting the bytes under an already-loaded session doesn't retroactively update that session's own in-memory code. If that copy happens to be open in a *different* Excel process, this can't reach it at all and says so in the build report.
 
+## Building the web page (the door with no install)
+
+`web/index.html` is one HTML file that runs from disk: a sentence in column B,
+its VLA in column C, the whole VLA and VBA beside it, nothing fetched and
+nothing executed. It is built, not written: `web/index.template.html` is the
+source, and
+
+```powershell
+powershell -File tools\build_web.ps1
+```
+
+builds the core for the browser (`cargo build --release -p frazaro-core
+--target wasm32-unknown-unknown`), checks that the module imports nothing
+(`tools\check_core_imports.ps1`; a page that could phone home is not
+written), and writes the page with the module, `scripts\prelude.vla` and
+`scripts\polyglotta\english.vla` inlined. The file is a build artifact
+(`.gitignore`), like the `.xlam`; the core CI job builds it on every push and
+keeps it as an artifact beside the wasm. Open it by double-clicking: it needs
+no server and no network. The VBA it shows is text to paste into a module, or
+to leave to the add-in; the page runs nothing, and
+`tools\check_web_offline.ps1` holds its template to that doctrine on every
+push. Attaching the page to a release as a fourth asset is a step for
+`release.ps1` to take up when the page ships to users; today CI builds and
+keeps it.
+
 ## Releasing (daily patch, weekly minor)
 
 The working loop is **Scope → Implement → Test → Build → Push**, and since the `0.5.0` public import (2026-09-05) the last step is a release, not just a push. Cadence, an owner decision of 2026-09-07 that fixes SD-14's tempo without changing its numbering: a **`0.5.N` patch release at the end of each working day** and a **`0.N.0` minor release at the end of each week**, with security and safety fixes front-loaded into the patches and larger feature additions landing in the minors. The `.xlam` editions are release assets, never tracked files; `README.md`'s download links resolve to whatever release is newest.

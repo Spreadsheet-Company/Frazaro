@@ -164,16 +164,7 @@ fn load(args: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    use frazaro_core::english::vocab::{vocab_requires_check_capability, vocab_text_has_raw_form};
-    if let Err(refusal) = vocab_requires_check_capability(&text, book) {
-        eprintln!("{refusal}");
-        return ExitCode::from(1);
-    }
-    if !allow_raw && vocab_text_has_raw_form(&text) {
-        let refusal = frazaro_core::messages::raise(
-            "english-vocab-raw-consent-declined",
-            &[("source", book)],
-        );
+    if let Err(refusal) = frazaro_core::api::vocab_gate(&text, book, allow_raw) {
         eprintln!("{refusal}");
         return ExitCode::from(1);
     }
@@ -252,16 +243,7 @@ fn prove(args: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    use frazaro_core::english::vocab::{vocab_requires_check_capability, vocab_text_has_raw_form};
-    if let Err(refusal) = vocab_requires_check_capability(&text, book) {
-        eprintln!("{refusal}");
-        return ExitCode::from(1);
-    }
-    if !allow_raw && vocab_text_has_raw_form(&text) {
-        let refusal = frazaro_core::messages::raise(
-            "english-vocab-raw-consent-declined",
-            &[("source", book)],
-        );
+    if let Err(refusal) = frazaro_core::api::vocab_gate(&text, book, allow_raw) {
         eprintln!("{refusal}");
         return ExitCode::from(1);
     }
@@ -328,7 +310,6 @@ fn translate(kind: &str, args: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    use frazaro_core::english::vocab::{vocab_requires_check_capability, vocab_text_has_raw_form};
     let mut grammar = frazaro_core::english::Grammar::new(&prelude);
     for book in books {
         if !is_file(book) {
@@ -341,15 +322,7 @@ fn translate(kind: &str, args: &[String]) -> ExitCode {
                 return ExitCode::from(2);
             }
         };
-        if let Err(refusal) = vocab_requires_check_capability(&vocab, book) {
-            eprintln!("{refusal}");
-            return ExitCode::from(1);
-        }
-        if !allow_raw && vocab_text_has_raw_form(&vocab) {
-            let refusal = frazaro_core::messages::raise(
-                "english-vocab-raw-consent-declined",
-                &[("source", book)],
-            );
+        if let Err(refusal) = frazaro_core::api::vocab_gate(&vocab, book, allow_raw) {
             eprintln!("{refusal}");
             return ExitCode::from(1);
         }

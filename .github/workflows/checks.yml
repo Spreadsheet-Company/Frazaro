@@ -68,8 +68,18 @@ jobs:
       - name: the core's passing phrasebook proofs never go down (PORT.6, oracle 3)
         shell: pwsh
         run: pwsh -NoProfile -File tools/check_prove_floors.ps1 -Impl target/debug/frazaro
+      - name: build the web page from the wasm core (PORT.6, slice 6h)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File tools/build_web.ps1 -NoBuild
+          pwsh -NoProfile -File tools/check_web_offline.ps1
       - name: keep the wasm core
         uses: actions/upload-artifact@v4
         with:
           name: frazaro_core.wasm
           path: target/wasm32-unknown-unknown/release/frazaro_core.wasm
+      - name: keep the web page
+        uses: actions/upload-artifact@v4
+        with:
+          name: index.html
+          path: web/index.html

@@ -29,6 +29,11 @@ installer/output/
 # toolchain has written it.
 target/
 
+# PORT.6 (slice 6h): the web page tools/build_web.ps1 writes from
+# web/index.template.html, the wasm core, the prelude and english.vla - the
+# same "source in the repo, output is not" split as Frazaro_English.xlam.
+web/index.html
+
 # Excel lock/temp files (appear while a workbook is open)
 ~$*
 *.tmp

@@ -19,7 +19,9 @@
 //! `english::vocab::vocab_requires_check_capability`, as the CLI asks them.
 
 use crate::english::program::RefusalAtLine;
+use crate::english::vocab::{vocab_requires_check_capability, vocab_text_has_raw_form};
 use crate::english::Grammar;
+use crate::messages::{raise, Refusal};
 
 /// VBA `EnglishTranslateTextToVla`: the program's VLA text, or the refusal
 /// with its id and the program line it stands on (0 when a phrasebook was
@@ -56,6 +58,22 @@ fn load_grammar(prelude_text: &str, vocab_texts: &[&str]) -> Result<Grammar, Ref
             .map_err(|refusal| RefusalAtLine { refusal, line: 0 })?;
     }
     Ok(g)
+}
+
+/// The door's two gates before a phrasebook text it did not ship loads, as
+/// the reference's file loader asks them and its text loader does not
+/// (`EnglishLoadVocabulary`): F.10's capability check, then SEC.2's consent
+/// for a `(raw ...)` form, which a person gives (`--allow-raw`, a checkbox).
+/// `source_name` is the name the refusal shows.
+pub fn vocab_gate(text: &str, source_name: &str, allow_raw: bool) -> Result<(), Refusal> {
+    vocab_requires_check_capability(text, source_name)?;
+    if !allow_raw && vocab_text_has_raw_form(text) {
+        return Err(raise(
+            "english-vocab-raw-consent-declined",
+            &[("source", source_name)],
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -122,6 +140,28 @@ mod tests {
         let vba = english_translate_text_to_vba("Log 1.", PRELUDE, &[ENGLISH])
             .unwrap_or_else(|e| panic!("{}", e.refusal.text));
         assert!(vba.contains("Debug.Print 1"), "{vba}");
+    }
+
+    #[test]
+    fn the_gate_asks_capability_first_then_consent() {
+        let raw = "(english-vla \"char cell {r:cell}\" (raw \"Debug.Print 2\"))";
+        let e = vocab_gate(raw, "pasted.vla", false).unwrap_err();
+        assert_eq!(e.id, "english-vocab-raw-consent-declined");
+        assert!(
+            e.text.starts_with("'pasted.vla' was not loaded"),
+            "{}",
+            e.text
+        );
+        assert!(vocab_gate(raw, "pasted.vla", true).is_ok());
+        let both = "(requires-capability \"network\")\n(english-vla \"x\" (raw \"y\"))";
+        let e = vocab_gate(both, "pasted.vla", true).unwrap_err();
+        assert_eq!(e.id, "english-vocab-requires-capability-ungranted");
+        assert!(vocab_gate(
+            "(english-vla \"wobble {x:expr}\" (debug-print {x}))",
+            "p",
+            false
+        )
+        .is_ok());
     }
 
     #[test]

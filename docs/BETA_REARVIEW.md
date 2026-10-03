@@ -6144,8 +6144,10 @@ written against.
   **Next:** `PORT.6`, English in the core, whose first file is already
   `scripts/messages.vla`; the C-ABI export of `compile` for the web door;
   include splicing in the door; `G-USE`.
-- 🟡 **PORT.6 — English in the core.** *Scoped 2026-10-02, the day `PORT.5`
-  closed; built across more than one session, the first of them that day.
+- ✅ **PORT.6 — English in the core.** *Scoped, built, owner-verified and
+  closed 2026-10-02, the day `PORT.5` closed, in two sessions: nine slices
+  (step 0, 6a to 6h), eleven commits of its own, and three defects found in
+  the reference on the way and fixed there first (`U.31`, `LX.15`, `F.18`).
   Slice 2 of `HORIZON.md` §12: `VLA_SentenceEngine.bas` (11,859 lines, about
   six thousand of code) and `VLA_English.bas` in the core, so that `frazaro
   translate-vla instructions.txt --prelude prelude.vla --phrasebook english.vla`
@@ -6609,10 +6611,69 @@ written against.
   functions; `espanol.vla` loaded over `english.vla` and a Spanish sentence
   reading; a raw-bearing text loading with no gate). **Floors:** none moved.
   **Docs:** `RELEASES.md` 0.8.0, `Delta/CLAUDE.md`, this entry, the roadmap's
-  paragraph. **Next:** 6h, the C-ABI door (an allocator pair and the two
-  functions over UTF-8 in the module's memory, `#[no_mangle] extern "C"`,
-  `check_core_imports` at 0) and `web/index.html`, the wasm, the prelude and
-  `english.vla` inlined by a `tools/` build script, nothing fetched.
+  paragraph. Committed `c4653b0` on the owner's word.
+  **Built the same day, slice 6h: the C-ABI door and the web page.**
+  `core/src/abi.rs` exports the pair with C linkage, `#[no_mangle] extern
+  "C"`, no binding layer: `frazaro_alloc`/`frazaro_free` (the host allocates
+  every input in the module's memory and frees every answer with the length
+  it was given), `frazaro_translate_vla`/`frazaro_translate_vba` (a program,
+  the prelude and the phrasebooks, the last as one buffer with the texts
+  NUL-separated, loaded in order as `vocab-N`), `frazaro_vocab_gate` (the
+  door's two questions, F.10's capability then SEC.2's consent, so a page's
+  checkbox and the CLI's `--allow-raw` refuse with the one catalogue text;
+  `api::vocab_gate` serves the CLI's three commands now too) and
+  `frazaro_version_text`; every answer is one record, four little-endian
+  `u32` (status, line, id length, text length) then the id and the text:
+  status 0 the output, 1 a refusal with its id and program line, 2 an input
+  that was not UTF-8. `frazaro_abi_version` stays 1, since nothing exported
+  changed its meaning. `web/index.template.html` is the page's source: a
+  numbered grid, column B the program's lines (Enter splits a row, Backspace
+  at the start joins it to the one above, Tab indents two spaces, a
+  multi-line paste spreads over rows), column C each row's VLA form read off
+  the translation's `(at-line N ...)` wrappers with a block's own rows folded
+  to `...`, and the formula a row writes when it writes one; a refusal in
+  words on its own row, red, the id in its tooltip; the whole VLA and the
+  whole VBA below with a Copy button each; a second phrasebook pasted loads
+  after `english.vla` behind the consent checkbox, through the gate; the
+  footer names the core's version and what the page never does.
+  `tools/build_web.ps1` builds the wasm, runs `check_core_imports.ps1` on it
+  (a page that could phone home is not written), fills the template's three
+  placeholders with the module as base64 and `prelude.vla` and `english.vla`
+  as text, and writes `web/index.html`, a build artifact like the `.xlam`
+  (`.gitignore`); the core CI job builds it after the wasm and keeps both as
+  artifacts. `tools/check_web_offline.ps1`, the fortieth check, holds the
+  template to SD-13 in a browser: no script, link, image, frame, form,
+  anchor, `@import`, `url(`, `http(s)://`, fetch, XMLHttpRequest, WebSocket,
+  EventSource, beacon or dynamic import; a charset; the three placeholders
+  once each; a built page beside it held to the markup list, with its
+  control. **Owner-verified the same evening.** The first build did not
+  link: Windows' Smart App Control, whose policy state read `1` (on) where
+  the same toolchain had linked at noon, refused `rustc.exe` the load of the
+  unsigned `rust-lld.exe` (Code Integrity event 3077, 22:44). The owner let
+  the linker run, `tools/build_web.ps1` wrote the page (1,167,137 characters
+  around a 678,318-byte core, 662 KB in the footer), and the four steps of
+  the handoff behaved in the browser as written: `(set! total 5)` on row 1
+  with `total = 5` in the VBA pane; the formula row's form with `=B2*2`
+  beneath it; `Set x to $1.` red on row 3, its refusal ending `(line 3)` and
+  the status `Refused on row 3.`; the pasted raw phrasebook refused in the
+  consent's own words until the box was ticked. **Pins:** 114 Rust tests
+  (seven new: a translation as a status-0 record; a refusal with its id and
+  line through both functions; NUL-separated phrasebooks named in order, and
+  none at all; an input that is not UTF-8; the gate's three answers; the
+  version text and the allocator's zero and null; `api::vocab_gate`'s order,
+  capability before consent). **Floors:** `run_checks.ps1` 39 → 40.
+  **Docs:** `docs/DEPLOY.md` (building the web page), `web/README.md`,
+  `RELEASES.md` 0.8.0, `Delta/CLAUDE.md`, this entry, the ledger; the
+  roadmap's paragraph leaves with the item. **Closed 2026-10-02**, the day it
+  was scoped. What stands: `core/src/english/` as `VLA_SentenceEngine.bas`'s
+  shape, arm for arm; the door's `compile`, `load`, `prove`, `translate-vla`
+  and `translate-vba`; three goldens the reference writes and the core is
+  held to (the token, the translate and the refusal golden) beside every
+  phrasebook's proofs; `VLA_Browser.bas`'s two functions as the core's API
+  and its C-ABI; and `web/index.html`, the room seen through its second
+  door. What is not ported, by design: G-RENDER, the IDE's audits and the
+  coverage counters, all off the translate path. What follows is the
+  release that attaches the page, and `PORT.7`, the writer.
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day
@@ -27690,6 +27751,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **PORT.3 — the intrinsics spec.** `docs/INTRINSICS.md`: the VBA-specific string/array/comparison behaviors a non-VBA port must match, each earned by a real citation. *(more: the full entry, earlier in this file)*
 - ✅ **PORT.4 — the conformance harness and the workspace.** `conformance/README.md`, the treaty that holds every implementation to the one corpus (the VBA reference testifies through its goldens); `tools/prove.ps1`, its runner, proven on a fake implementation and a mutant; the Cargo workspace (`core/`, `cli/`, `web/` held open) beside an unmoved `src/`; `check_version_twin.ps1` and `check_core_imports.ps1` (the wasm core's import section read off the artifact: 73 bytes, 0 imports); the `core` CI job. Closed 2026-10-01. *(more: the full entry, earlier in this file)*
 - ✅ **PORT.5 — the reader and the emitters, in the core.** `core/src/`: the six intrinsics, the datum, the reader and printer, the message catalogue and the head table read from `scripts/messages.vla` and `scripts/headtable.vla` (exported once from the VBA, held to it by `check_data_exports.ps1`), the macro system, and the emitters, one match arm per `Select Case` arm, as `frazaro compile`; the treaty's oracle 1b (the golden less its stamp line, with the prelude, to the `.vba`) in `prove.ps1`; `F.7`'s two latent bugs fixed in the VBA first. `prove.ps1 -Impl target/debug/frazaro.exe` passes the compile oracle whole, 301,861 characters: the first reproduction of a golden by anything but the VBA. `check_compile_prefix.ps1` holds that length. Closed 2026-10-02. *(more: the full entry, earlier in this file)*
+- ✅ **PORT.6 — English in the core.** `VLA_SentenceEngine.bas` and `VLA_English.bas` in the core, slice by slice (`core/src/english/`: the word tables and name lists as data, the tokenizer, the rule store and the loader, the matcher with the expression and condition grammars, the statement grammar with the PROLOG sub-grammars and `EnglishToVla`), held to the reference by three goldens it writes (the token, the translate and the refusal golden) beside every phrasebook's proofs: `frazaro translate-vla` reproduces `instructions_golden.vla` byte for byte and `translate-vba` the `.vba`; `frazaro prove` passes every proof of every phrasebook; 113 of the 125 English refusal ids come out in the same situation with the same text, the twelve others a door's, elsewhere or unreachable, named in the treaty's fourth amendment; `VLA_Browser.bas`'s two functions are the core's API and its C-ABI; and `web/index.html`, built by `tools/build_web.ps1` from the wasm, the prelude and `english.vla`, is one file that runs from disk with nothing fetched and nothing executed. Scoped, built, owner-verified and closed 2026-10-02, the day `PORT.5` closed, in nine slices and eleven commits of its own; three defects found in the reference on the way and fixed there first (`U.31`, `LX.15`, `F.18`); 114 Rust tests, 40 checks, the treaty amended four times that day. *(more: the full entry, earlier in this file)* `~weeks` to `~quarter` as filed; a day as built.
 - *Together:* SD-18's infrastructure — a port with no purity guarantee and no intrinsics reference would re-litigate every behavior. *(more: the full entry, earlier in this file)*
 
 ## 🔧 MACHINE · ENVIRONMENT

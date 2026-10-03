@@ -75,7 +75,10 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # 2026-10-02, PORT.6 slice 6f: 39 - check_refusal_golden.ps1 (the refusal
 # golden agrees with its fixture, every case refuses, and the distinct
 # refusal ids it reaches never go down).
-$expectedAtLeast = 39
+# 2026-10-02, PORT.6 slice 6h: 40 - check_web_offline.ps1 (the web page
+# loads nothing, links nowhere, and is filled from exactly three
+# placeholders).
+$expectedAtLeast = 40
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---

@@ -12,10 +12,14 @@
 //!
 //! The API a door calls is VLA_Browser.bas's pair, text in and text out:
 //! `api::english_translate_text_to_vla` and `api::english_translate_text_to_vba`
-//! (PORT.6, slice 6g). The version and the ABI number were exported from the
-//! first commit, so that CI held the zero-import property before anything
-//! else existed; the C-ABI export of the pair (6h) joins them.
+//! (PORT.6, slice 6g), and `abi` exports the pair with C linkage for a wasm
+//! host or a native embedding (6h): an allocator pair, the two functions, the
+//! door's gate and the version, every answer one record in the module's
+//! memory. The version and the ABI number were exported from the first
+//! commit, so that CI held the zero-import property before anything else
+//! existed.
 
+pub mod abi;
 pub mod api;
 pub mod emit;
 pub mod english;
