@@ -1,0 +1,11 @@
+# The build golden's fixture (PORT.7): a small workbook, from sentences.
+# Column B of the Frazaro sheet holds these lines exactly as written.
+
+Put 5 into cell B2.
+Put formula "=B2*2" into cell B3.
+Put formula "=B2+B3" into rows 2 to 4 of column C.
+Put formula "=IFS(B2>3,""big"",TRUE,""small"")" into cell D2.
+
+Work on sheet Data.
+Put "west" into cell A1.
+Put 7 into cell B1 of sheet Output.

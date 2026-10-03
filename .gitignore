@@ -39,6 +39,12 @@ web/index.html
 *.tmp
 *.xlsx
 *.xlsm
+# PORT.7 (slice 7a): the build golden, the one workbook the repository
+# keeps. The writer's oracle is its own bytes (conformance/README.md, the
+# amendment of 2026-10-03), opened by the owner in Excel; *.xlsx stays
+# ignored everywhere else, and a later fixture under scripts/build/ joins
+# this one by the same rule.
+!scripts/build/*.xlsx
 # The dev workbook VLA.xlsm is deliberately NOT tracked (untracked at the
 # 0.5.0 public import; it was the tracked "lab bench" before). It is a
 # blank workbook plus the imported modules - rebuilt from nothing in three

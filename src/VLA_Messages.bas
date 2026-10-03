@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "LX.14"
+Public Const VLA_MESSAGES_VERSION As String = "PORT.7"
+' PORT.7 (slice 7a): build-output-exists and build-workbook-too-large, the
+' writer's refusals, raised by the core's frazaro build and by no VBA
+' site: the catalogue is one and the VBA is its source, so they are
+' registered here and exported with the rest (tools/export_messages.ps1).
+'
 ' LX.14: a function phrase's refusals - the directive's arity, a phrase's
 ' shape, a word read after a value, two phrases with the same words, a
 ' word a keyword alias rewrites, a template that loses a word - and
@@ -1386,6 +1391,16 @@ Private Sub AddEntries(ByVal m As Collection)
     ' CLI.5 - raised from VLA_Interpreter's EvalExpr, and only in a run the
     ' CLI started: the names are the console's, bound there and nowhere else.
     AddMsg m, "interp-console-no-result", 5, "VLA-Interpreter", "'{name}' holds one of the CLI's last three results - * the newest, ** the one before it, *** the one before that - and there is no such result yet. Only a command that works something out, like (+ 2 3), leaves one behind."
+
+    ' PORT.7 (slice 7a): the writer's refusals. frazaro build (the core's
+    ' command-line door; the VBA has no such command) raises them from
+    ' scripts/messages.vla, the export of this catalogue, so that every
+    ' refusal of every implementation comes from the one catalogue (SD-2,
+    ' and the treaty's fifth oracle). No VBA site raises them, which
+    ' check_message_slots.ps1 notes as raised from a path it cannot see.
+    ' Error 58 is VBA's "File already exists"; 7 its "Out of memory".
+    AddMsg m, "build-output-exists", 58, "VLA-Build", "Refusing to write {path}: a file is already there, and it has not been changed. Add --replace to replace it, or name another file with --out."
+    AddMsg m, "build-workbook-too-large", 7, "VLA-Build", "The workbook would not fit its file format: a part, or the whole, is over 4 GB. Nothing was written."
 End Sub
 
 Private Sub AddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _

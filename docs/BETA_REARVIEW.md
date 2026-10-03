@@ -6684,6 +6684,105 @@ written against.
   door. What is not ported, by design: G-RENDER, the IDE's audits and the
   coverage counters, all off the translate path. What follows is the
   release that attaches the page, and `PORT.7`, the writer.
+- ⬜ **PORT.7 — the writer.** *Scoped 2026-10-02 at the owner's trigger
+  (`SUBSTRATE.md` H.3's rule, pulled by asking); slice 7a built 2026-10-03,
+  awaiting the owner's run.* Slice 3 of `HORIZON.md` §12: the sheet model
+  and OOXML out with deterministic bytes; the sentences' sheet, then (7b) the
+  static subset of a program as cells and formulas, (7c) the build stamp and
+  `frazaro rebuild`, (7d) `--into model.xlsx` with the model untouched, (7e)
+  the C-ABI and the page's Download button. Ships as `frazaro build
+  program.txt --prelude prelude.vla --phrasebook english.vla --out
+  program.xlsx`.
+  **Step 0, what only Excel answers, each answer predicted before the bytes
+  existed** (the owner's live passes confirm or correct them, slice by
+  slice): (1) a workbook whose entries are stored, with inline strings and
+  no sharedStrings, theme or calcChain, opens with no repair dialog; (2) a
+  formula cell with no cached value shows its computed value under
+  `fullCalcOnLoad`, and Excel asks to save on close; (3) a post-2007
+  function written without the file-format prefix shows `#NAME?` until
+  re-entered, so the writer must write `_xlfn.` and `_xlfn._xlws.` itself,
+  new ground, since the object model adds them; (4) a spilling formula
+  written as a plain `<f>` does not spill (implicit intersection), the
+  array form with the dynamic-array metadata being the Q&A sheet's business
+  under `AXM.9`; (5) the lavender fill renders as the add-in's whisper; (6)
+  a built workbook opened with the add-in loaded is a live workspace, since
+  the `Frazaro` sheet is `IDE_SHEET`, and Check marks every row OK after
+  Setup adds the B1 comment; (7) `--into` a model saved by Excel 365 opens
+  clean after every part's compressed bytes are copied unchanged and only
+  workbook.xml, its rels, the content types and the end of styles.xml are
+  edited; (8) Sheets, Calc and Numbers open a fresh build and show the same
+  values; (9) `rebuild` says yes on the golden and no after any edit saved
+  in Excel, since Excel rewrites every part on save.
+  **The forks, decided at scoping (the owner proceeded on the
+  recommendations):** generic first, the Controls sheet moving from this
+  item to `AXM.2`'s own writer slice, so that the VBA has `must` before the
+  core renders it (`SD-18`) and this item closes on its own; stored entries
+  and no dependency, with a decode-only inflate in 7d for the four parts of
+  an existing workbook that must be edited (the sample workbook's 22 parts
+  deflate 76,105 bytes to 14,767; 7a's golden is 7,544 bytes stored and
+  would be 3,391 deflated, and `--into` copies a model's entries compressed
+  as they are); the writer's
+  refusals in the one catalogue, `VLA_Messages.bas` under source
+  `VLA-Build`, exported, raised by no VBA site; the core never writes a
+  file, and the door writes one path, `--out`, refusing an existing file
+  without `--replace`; the static subset before `PORT.10` is what a sheet
+  holds without computing (a literal or a formula string into a cell, a
+  range, rows of a column or a cell of a named sheet, `Work on sheet`,
+  `const`, parameterless steps inlined, constant folding over literals
+  only), everything else refused by name with its line; `deflambda` waits
+  for a sentence (`SD-7`); zip stamps are the epoch 1980-01-01 00:00:00,
+  entries in a fixed order, no author and no date in docProps, the `Frazaro`
+  sheet the active tab, sheet parts named `frazaro_<n>.xml`.
+  **Slice 7a, the container and the Frazaro sheet (built 2026-10-03).**
+  `core/src/sheet/`: `zip.rs` (CRC-32 and the stored writer, with a reader
+  for its own archives), `xml.rs` (escaping, and Excel's `_xHHHH_` for what
+  XML cannot hold), `mod.rs` (the model: sheets, cells, columns, a deduped
+  style table), `ooxml.rs` (eight parts in a fixed order: content types,
+  package rels, two property parts naming Frazaro with no date and no
+  person, the workbook with `fullCalcOnLoad`, its rels, one styles part, one
+  part per sheet; inline strings throughout); `core/src/build.rs`
+  (`frazaro_sheet`: the program's lines in column B from row 1 exactly as
+  written, blank lines included, OK in column C beside every line that is
+  not blank, as `DoCheck` marks and with `Trim$`'s spaces-only trimming; the
+  room's widths 72 and 60 as Excel writes them, 72.7109375 and 60.7109375;
+  the fills 247,244,252, 242,242,242 and 221,235,221; column A hidden,
+  gridlines off, B1 selected); `api::english_build_xlsx`; `frazaro build` in
+  the CLI, with `load_books` factored out of `translate`. Two catalogue ids,
+  `build-output-exists` (58) and `build-workbook-too-large` (7), exported
+  (576 entries). The treaty's amendment of 2026-10-03: oracle 7, the build
+  golden, `scripts/build/fixture.txt` (eleven lines: two comment lines, a
+  blank, seven sentences chosen from 7b's static subset, every one a
+  sentence the add-in runs) to `scripts/build/fixture_golden.xlsx`, 7,544
+  bytes, eight stored entries stamped 1980-01-01, the one `.xlsx` the
+  repository tracks (a `.gitignore` negation); `prove.ps1` scores the kind,
+  its control copying the golden and its mutant flipping one byte;
+  `tools/check_build_golden.ps1`, the forty-first check, holds the golden's
+  length as a floor (7544), compares the door's build naming the first
+  differing part and offset, reads method and stamp off every entry, with a
+  `-Control` of three fakes; the `core` CI job runs it; `run_checks.ps1`'s
+  floor 41. 135 Rust tests, 20 of them new (the CRC check value CBF43926,
+  the archive walking back through its own directory, identical bytes on
+  two calls, the parts' order, each kind of cell, the room's rows, the
+  golden reproduced). Nothing in the VBA changed but the catalogue.
+  **The owner's live check for 7a, 2026-10-03:** `scripts/build/fixture_golden.xlsx`
+  opened in Excel as predicted: sheet `Frazaro`, B1 the fixture's first
+  line, `OK` on green beside every non-blank line, rows 3 and 8 empty,
+  column B lavender, column A hidden, no gridlines, no repair dialog
+  (prediction 1); and with the shipped add-in loaded, Check on that sheet
+  marked every row OK (prediction 6): the room through two doors, the first
+  time. Two things the pass found. The font: the writer names Calibri 11
+  explicitly, where the owner's Excel 365 defaults to Aptos; the file
+  carries no theme part, and the theme's "minor" font is where Aptos
+  lives, so writing the host's own default would mean carrying a theme
+  (about 7 KB of Office's default theme) or naming no font and taking what
+  the host supplies; left as Calibri, noted, the owner's call. And a lock:
+  the checks read the golden with `ReadAllBytes`, which Excel's hold on an
+  open workbook refuses ("being used by another process"), so
+  `check_build_golden.ps1` and `prove.ps1` failed on the owner's machine
+  while the golden was open; both now read it with `FileShare.ReadWrite`
+  (`Read-BytesShared`), their control fakes too, since the owner's live
+  pass has the file open while the checks run. Sheets, Calc and Numbers at
+  the owner's pace. *(roadmap: BETA_ROADMAP.md)*
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day

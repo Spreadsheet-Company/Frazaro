@@ -18,9 +18,14 @@
 //! memory. The version and the ABI number were exported from the first
 //! commit, so that CI held the zero-import property before anything else
 //! existed.
+//!
+//! The writer (PORT.7) is `build` over `sheet`: a translated program to a
+//! workbook's bytes, deterministic, with no clock and no dependency;
+//! `api::english_build_xlsx` is its surface.
 
 pub mod abi;
 pub mod api;
+pub mod build;
 pub mod emit;
 pub mod english;
 pub mod expand;
@@ -30,6 +35,7 @@ pub mod intrinsics;
 pub mod messages;
 pub mod printer;
 pub mod reader;
+pub mod sheet;
 pub mod version;
 
 /// The crate's version, which tools/check_version_twin.ps1 holds equal to

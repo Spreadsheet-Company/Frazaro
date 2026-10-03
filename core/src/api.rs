@@ -48,6 +48,21 @@ pub fn english_translate_text_to_vba(
     crate::emit::compile(&t.vla, prelude_text).map_err(|refusal| RefusalAtLine { refusal, line: 0 })
 }
 
+/// The writer's surface (PORT.7): the program translated as
+/// [`english_translate_text_to_vla`] translates it, then built into a
+/// workbook's bytes (`build::build_xlsx`); the English stage's refusal with
+/// its line, or the build's with line 0.
+pub fn english_build_xlsx(
+    program_text: &str,
+    prelude_text: &str,
+    vocab_texts: &[&str],
+) -> Result<Vec<u8>, RefusalAtLine> {
+    let g = load_grammar(prelude_text, vocab_texts)?;
+    let t = g.translate_program_at(program_text)?;
+    crate::build::build_xlsx(program_text, &t.vla)
+        .map_err(|refusal| RefusalAtLine { refusal, line: 0 })
+}
+
 /// `EnglishResetGrammar` and the loads: a fresh grammar over the prelude, each
 /// phrasebook text loaded in order as `vocab-N`, its proofs run as the add-in
 /// runs them, the first refusal ending the call.

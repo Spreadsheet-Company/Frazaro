@@ -60,6 +60,29 @@ push. Attaching the page to a release as a fourth asset is a step for
 `release.ps1` to take up when the page ships to users; today CI builds and
 keeps it.
 
+## Building a workbook from sentences (the command-line door)
+
+`frazaro build` (PORT.7) writes a workbook from a text file of sentences,
+with nothing installed but the one binary:
+
+```powershell
+cargo build --workspace
+target\debug\frazaro.exe build program.txt --prelude scripts\prelude.vla --phrasebook scripts\polyglotta\english.vla --out program.xlsx
+```
+
+The program is translated as `translate-vla` translates it, so a sentence
+the Frazaro tab would refuse is refused here in the same words, and nothing
+is written. The workbook's `Frazaro` sheet holds the sentences in column B
+with OK beside each in column C, the room's own layout; the sheets the
+sentences describe follow in the next slice. The bytes are deterministic:
+the same sentences and the same core give the same file on every machine
+(stored zip entries stamped 1980-01-01, no author and no date), which is
+what lets `scripts\build\fixture_golden.xlsx` be a golden the core's tests
+and `tools\check_build_golden.ps1` hold the door to. When the writer
+changes on purpose, regenerate the golden with `--replace`, open it in Excel,
+and raise the check's floor. The door writes the one file `--out` names and
+refuses to replace a file already there unless `--replace` says so.
+
 ## Releasing (daily patch, weekly minor)
 
 The working loop is **Scope → Implement → Test → Build → Push**, and since the `0.5.0` public import (2026-09-05) the last step is a release, not just a push. Cadence, an owner decision of 2026-09-07 that fixes SD-14's tempo without changing its numbering: a **`0.5.N` patch release at the end of each working day** and a **`0.N.0` minor release at the end of each week**, with security and safety fixes front-loaded into the patches and larger feature additions landing in the minors. The `.xlam` editions are release assets, never tracked files; `README.md`'s download links resolve to whatever release is newest.

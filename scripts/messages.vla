@@ -585,3 +585,5 @@
 (message cli-history-empty 5 "VLA-Console" "There is no entry {n} to bring back: nothing has been kept in this console's history yet. Every command run here is kept, even one that is refused, and typing history lists them with their numbers.")
 (message cli-history-no-such-entry 5 "VLA-Console" "There is no entry {n} in this console's history - it holds entries {first} to {last}. Type history to see them with their numbers, then ! and one of those numbers, like !{last}, to bring that command back.")
 (message interp-console-no-result 5 "VLA-Interpreter" "'{name}' holds one of the CLI's last three results - * the newest, ** the one before it, *** the one before that - and there is no such result yet. Only a command that works something out, like (+ 2 3), leaves one behind.")
+(message build-output-exists 58 "VLA-Build" "Refusing to write {path}: a file is already there, and it has not been changed. Add --replace to replace it, or name another file with --out.")
+(message build-workbook-too-large 7 "VLA-Build" "The workbook would not fit its file format: a part, or the whole, is over 4 GB. Nothing was written.")

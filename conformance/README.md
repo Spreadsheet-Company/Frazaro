@@ -276,3 +276,63 @@ three are the reverse direction, VLA to English, not this path.
 `english-test-failed-to-translate`, whose text carries it. And
 `english-slot-value-not-one-form` and `english-unknown-slot-category-runtime`
 are defensive arms that registration keeps unreachable.
+
+## Amendment of 2026-10-03: oracle 7, the build golden (`PORT.7`)
+
+`PORT.7` writes workbooks from the core: `frazaro build` turns a program's
+sentences into an `.xlsx`, and the roadmap's oracle for it is "fixture
+sentences to a golden `.xlsx`, byte for byte; the file opened in Excel,
+Sheets, Calc and Numbers". This golden differs in kind from every other
+golden here, and the treaty says so plainly. The VBA reference writes no
+workbook file; it writes cells through Excel's object model, and Excel
+saves. So there is no reference output to reproduce. The golden is the
+core's own output, blessed by the owner opening it in Excel and looking at
+what the slice promised, each live pass recorded in `docs/BETA_REARVIEW.md`
+under `PORT.7`. What the oracle then holds is that the writer never drifts
+from what was blessed without a regenerated golden committed beside the
+change, and that a second implementation of the writer gives the same
+bytes. `SD-18` is untouched: the language's meaning still flows from the
+VBA through oracles 1 to 6; what the writer adds is a file format, whose
+reference is ISO/IEC 29500 and the hosts that open it.
+
+- **7. The build golden.** `scripts/build/fixture.txt`, a program in
+  English, with `scripts/prelude.vla` and `scripts/polyglotta/english.vla`,
+  builds to `scripts/build/fixture_golden.xlsx`. The comparison is byte for
+  byte with no normalization: a workbook is a zip, and a zip is bytes. The
+  golden is the one `.xlsx` the repository tracks (`.gitignore` names it).
+
+The contract gains one command:
+
+- `<impl> build <program.txt> --prelude <prelude.vla> --phrasebook <file.vla>
+  [--phrasebook ...] --out <file.xlsx>` writes the workbook to the path
+  `--out` names, writes nothing else anywhere, and exits 0. A refusal writes
+  its message to stderr and exits 1; exit 3 says the oracle is not attempted,
+  as above. The runner gives a path in its scratch directory and names it in
+  the result, so that what was built is a file someone can open.
+
+**Deterministic bytes, as a property of the golden.** Every entry of the
+archive is stored, so a part's bytes are the bytes in the file; every entry
+is stamped 1980-01-01 00:00:00, the zip epoch, the one value that reads as
+no clock; the entries go in a fixed order with no extra field and no
+comment; the two property parts name Frazaro and carry no date and no
+person. The same sentences and the same core give the same bytes on every
+machine. `tools/check_build_golden.ps1` holds the golden's length as a floor
+that never goes down, in the house style; compares the door's build to the
+golden, naming the first differing part and offset; and reads the methods
+and the stamps off the golden itself, so that a clock, a compressor or a
+dependency reaching the writer fails on every push even with a regenerated
+golden. Its `-Control` passes a fake that copies the golden, fails a mutant
+with one byte changed inside the worksheet part, and catches a copy with one
+stamp moved. The `core` CI job runs it after the build. The runner's
+`-Control` covers the kind too: the fake copies the golden to `--out`, and
+the mutant changes one byte of it.
+
+**What slice 7a's golden holds.** One sheet, `Frazaro`: the fixture's lines
+in column B from row 1 exactly as written, blank lines included, and `OK`
+in column C beside every line that is not blank, which is what the add-in's
+Check marks (`DoCheck`, `VLA_IDE.bas`); the widths, the fills, the hidden
+column A and the gridlines are `BuildWorkspace`'s. The fixture's sentences
+are chosen from what slice 7b renders into cells (a value into a cell, a
+formula into a cell and into rows of a column, `Work on sheet`, a write into
+a cell of a named sheet), so that the golden grows by sheets, slice by
+slice, and the fixture stays a program the add-in runs as well.

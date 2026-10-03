@@ -51,6 +51,15 @@ scripts/polyglotta/ that holds no <lingua>-vla rule and no proof form is a
 library of macros a program includes (alien.vla), not a phrasebook. It is
 inventoried as a library and never scored; the control's attempted count
 leaves it out.
+
+2026-10-03, PORT.7 (the treaty's amendment of that date): a fifth kind,
+build - scripts/build/fixture.txt, with prelude.vla and english.vla, to
+scripts/build/fixture_golden.xlsx, a workbook, compared byte for byte with
+no normalization, since a zip is bytes. The implementation writes the file
+at --out in the runner's scratch directory, which the result names; the
+control's fake copies the golden there and the mutant changes one byte of
+it. The golden is the core's own, opened by the owner in Excel (the
+amendment says why), not one the VBA reference produced.
 #>
 param(
     [string]$Impl = '',
@@ -73,6 +82,25 @@ function Get-NormalizedText([string]$text) {
 }
 function Read-NormalizedFile([string]$path) {
     return Get-NormalizedText ([System.IO.File]::ReadAllText($path))
+}
+# A file's bytes, read with sharing that tolerates a workbook open in Excel:
+# the owner's live pass has the build golden open while the runner scores,
+# and Excel's lock refuses a plain ReadAllBytes (2026-10-03).
+function Read-BytesShared([string]$path) {
+    $fs = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+    try {
+        $buf = New-Object byte[] $fs.Length
+        $got = 0
+        while ($got -lt $buf.Length) {
+            $n = $fs.Read($buf, $got, $buf.Length - $got)
+            if ($n -le 0) { break }
+            $got += $n
+        }
+        if ($got -ne $buf.Length) { throw "read $got of $($buf.Length) bytes from $path" }
+        return ,$buf
+    } finally {
+        $fs.Dispose()
+    }
 }
 function Get-FormCount([string]$path, [string]$pattern) {
     return @(Select-String -Path $path -Pattern $pattern).Count
@@ -162,6 +190,9 @@ function Get-Oracles([string]$root) {
     $list.Add(@{ Kind = 'compile'; Label = 'instructions_golden.vla -> instructions_golden.vba'
                  Input = 'scripts/instructions_golden.vla'; Golden = 'scripts/instructions_golden.vba'
                  Prelude = 'scripts/prelude.vla' })
+    $list.Add(@{ Kind = 'build'; Label = 'build/fixture.txt -> build/fixture_golden.xlsx'
+                 Input = 'scripts/build/fixture.txt'; Golden = 'scripts/build/fixture_golden.xlsx'
+                 Prelude = 'scripts/prelude.vla'; Phrasebook = 'scripts/polyglotta/english.vla' })
     $list.Add(@{ Kind = 'interpreter'; Label = 'interpreter_golden.txt (needs a workbook model: slice 6)'
                  Golden = 'scripts/interpreter_golden.txt' })
     $pb = Join-Path $root 'scripts/polyglotta'
@@ -230,6 +261,27 @@ function Measure-Oracles([string]$root, [string]$impl, [string]$scratch) {
                     $r.Status = 'FAIL'; $r.Detail = "differs at char $at of $($want.Length), compiled from $program"
                 }
             }
+            'build' {
+                # A workbook is bytes: no normalization, the first differing
+                # byte named. The file is written in the scratch directory and
+                # left there, so a FAIL can name what was built.
+                $golden = Join-Path $root $o.Golden
+                $built = Join-Path $scratch 'fixture.built.xlsx'
+                if (Test-Path $built) { Remove-Item $built -Force }
+                $run = Invoke-Impl $impl @('build', (Join-Path $root $o.Input),
+                                           '--prelude', (Join-Path $root $o.Prelude),
+                                           '--phrasebook', (Join-Path $root $o.Phrasebook),
+                                           '--out', $built)
+                if ($run.ExitCode -eq 3) { break }
+                if ($run.ExitCode -ne 0) { $r.Status = 'FAIL'; $r.Detail = "exit $($run.ExitCode)"; break }
+                if (-not (Test-Path $built)) { $r.Status = 'FAIL'; $r.Detail = "exit 0 but nothing written at $built"; break }
+                $want = Read-BytesShared $golden
+                $got = Read-BytesShared $built
+                $n = [Math]::Min($got.Length, $want.Length); $at = $n
+                for ($i = 0; $i -lt $n; $i++) { if ($got[$i] -ne $want[$i]) { $at = $i; break } }
+                if ($at -eq $n -and $got.Length -eq $want.Length) { $r.Status = 'PASS'; $r.Detail = "$($want.Length) bytes matched" }
+                else { $r.Status = 'FAIL'; $r.Detail = "differs at byte $at of $($want.Length), built at $built" }
+            }
             'prove' {
                 $file = Join-Path $root $o.File
                 $run = Invoke-Impl $impl @('prove', $file)
@@ -290,6 +342,17 @@ switch (`$kind) {
         `$counted = if (Test-Path `$exp) { `$exp } else { `$a[1] }
         `$n = @(Select-String -Path `$counted -Pattern `$pattern).Count
         if (`$mutant) { Write-Output "FAIL 1/`$n"; exit 1 } else { Write-Output "PASS `$n/`$n"; exit 0 }
+    }
+    'build' {
+        # The golden copied to --out; the mutant with one byte changed (2026-10-03).
+        `$dst = `$a[[Array]::IndexOf(`$a, '--out') + 1]
+        `$fs = New-Object System.IO.FileStream((Join-Path `$root 'scripts/build/fixture_golden.xlsx'), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        `$b = New-Object byte[] `$fs.Length
+        [void]`$fs.Read(`$b, 0, `$b.Length)
+        `$fs.Dispose()
+        if (`$mutant) { `$b[100] = `$b[100] -bxor 1 }
+        [System.IO.File]::WriteAllBytes(`$dst, `$b)
+        exit 0
     }
     default { exit 3 }
 }

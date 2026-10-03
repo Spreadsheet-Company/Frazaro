@@ -238,6 +238,19 @@
   call, ever" a fact read off the built file rather than a promise. The
   design is `docs/HORIZON.md`, section 12. Nothing in `core/` or `cli/` does
   anything yet beyond reporting its version.
+- **A workbook from a text file of sentences, with nothing installed.**
+  `frazaro build program.txt --prelude prelude.vla --phrasebook english.vla
+  --out program.xlsx` reads a program written in English and writes a
+  workbook. Its `Frazaro` sheet is the room you know from the add-in: the
+  sentences in column B, exactly as written, and OK beside each in column
+  C, as Check marks them, on the same lavender and gray. A sentence the
+  add-in would refuse is refused here in the same words, and nothing is
+  written. The file is built to be the same on every machine: the same
+  sentences and the same version give the same bytes, which is what lets
+  the repository keep one such workbook as a golden and hold the second
+  implementation to it on every push. This first slice writes the
+  sentences' sheet; the sheets the sentences describe, a value or a formula
+  into a cell, follow. The add-in you download is unchanged.
 
 ### Known open security items
 

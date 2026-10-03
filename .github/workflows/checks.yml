@@ -68,6 +68,9 @@ jobs:
       - name: the core's passing phrasebook proofs never go down (PORT.6, oracle 3)
         shell: pwsh
         run: pwsh -NoProfile -File tools/check_prove_floors.ps1 -Impl target/debug/frazaro
+      - name: the core reproduces the build golden, byte for byte (PORT.7, oracle 7)
+        shell: pwsh
+        run: pwsh -NoProfile -File tools/check_build_golden.ps1 -Impl target/debug/frazaro
       - name: build the web page from the wasm core (PORT.6, slice 6h)
         shell: pwsh
         run: |

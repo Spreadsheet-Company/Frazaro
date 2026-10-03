@@ -78,7 +78,9 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # 2026-10-02, PORT.6 slice 6h: 40 - check_web_offline.ps1 (the web page
 # loads nothing, links nowhere, and is filled from exactly three
 # placeholders).
-$expectedAtLeast = 40
+# 2026-10-03, PORT.7 (slice 7a): 41 - check_build_golden.ps1 (the writer's
+# golden reproduced byte for byte, its length a floor, no clock in the zip).
+$expectedAtLeast = 41
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---
