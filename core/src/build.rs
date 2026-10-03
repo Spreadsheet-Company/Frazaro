@@ -41,11 +41,15 @@ use crate::form::{Form, List};
 use crate::intrinsics::{fold, is_numeric, val};
 use crate::messages::{raise, Refusal};
 use crate::reader::{count_lf, parse_all, tokenize};
-use crate::sheet::xlfn::prefix_future_functions;
+use crate::sha256::sha256_hex_skipping_whitespace;
+use crate::sheet::xlfn::{can_return_array, prefix_future_functions};
 use crate::sheet::{
-    ooxml, parse_a1_range, A1Range, Cell, Column, Content, NumFmt, Rgb, Sheet, Style, Styles,
-    Workbook,
+    ooxml, parse_a1_range, xml, zip, A1Range, Cell, Column, Content, NumFmt, Rgb, Sheet, Style,
+    Styles, Workbook,
 };
+
+/// The defined name that carries the build stamp.
+pub const STAMP_NAME: &str = "Frazaro.Build";
 
 /// The sheet that holds the program, named as the add-in names its
 /// workspace (`IDE_SHEET`).
@@ -597,7 +601,13 @@ impl<'a> Walker<'a> {
         if let Value::Text(t) = v {
             if let Some(body) = t.strip_prefix('=') {
                 let text = prefix_future_functions(body);
-                self.wb.sheets[sheet].set_formula(range, &text, 0);
+                if can_return_array(&text) {
+                    // What Excel stores for a Formula2 entry of such a formula,
+                    // and reads back without its @.
+                    self.wb.sheets[sheet].set_formula_dynamic(range, &text, 0);
+                } else {
+                    self.wb.sheets[sheet].set_formula(range, &text, 0);
+                }
                 return Ok(());
             }
         }
@@ -710,11 +720,265 @@ fn fold_op(head: &str, args: &[Value]) -> Option<Value> {
     }
 }
 
+/// One source's identity in the stamp: `EnglishSourceHash`'s digest of its
+/// non-whitespace bytes, and how many there were.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SourceHash {
+    pub hex: String,
+    pub count: usize,
+}
+
+impl SourceHash {
+    pub fn of(text: &str) -> SourceHash {
+        let (hex, count) = sha256_hex_skipping_whitespace(text.as_bytes());
+        SourceHash { hex, count }
+    }
+
+    fn text(&self) -> String {
+        format!(
+            "sha256:{} over {} non-whitespace bytes",
+            self.hex, self.count
+        )
+    }
+
+    fn parse(s: &str) -> Option<SourceHash> {
+        let rest = s.strip_prefix("sha256:")?;
+        let (hex, tail) = rest.split_once(" over ")?;
+        let count = tail.strip_suffix(" non-whitespace bytes")?.parse().ok()?;
+        if hex.len() != 64 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+            return None;
+        }
+        Some(SourceHash {
+            hex: hex.to_string(),
+            count,
+        })
+    }
+}
+
+/// The build stamp: the core's version and the identity of the sentences,
+/// the prelude and each phrasebook in order, as the defined name
+/// `Frazaro.Build` carries it in one string.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Stamp {
+    pub version: String,
+    pub sentences: SourceHash,
+    pub prelude: SourceHash,
+    pub phrasebooks: Vec<SourceHash>,
+}
+
+impl Stamp {
+    pub fn of(program_text: &str, prelude: &str, books: &[&str]) -> Stamp {
+        Stamp {
+            version: crate::VERSION.to_string(),
+            sentences: SourceHash::of(program_text),
+            prelude: SourceHash::of(prelude),
+            phrasebooks: books.iter().map(|b| SourceHash::of(b)).collect(),
+        }
+    }
+
+    /// `Frazaro 0.7.1; sentences sha256:... over N non-whitespace bytes;
+    /// prelude ...; phrasebook 1 ...`.
+    pub fn text(&self) -> String {
+        let mut s = format!(
+            "Frazaro {}; sentences {}; prelude {}",
+            self.version,
+            self.sentences.text(),
+            self.prelude.text()
+        );
+        for (i, b) in self.phrasebooks.iter().enumerate() {
+            s.push_str(&format!("; phrasebook {} {}", i + 1, b.text()));
+        }
+        s
+    }
+
+    pub fn parse(text: &str) -> Option<Stamp> {
+        let mut fields = text.split("; ");
+        let version = fields.next()?.strip_prefix("Frazaro ")?.to_string();
+        let sentences = SourceHash::parse(fields.next()?.strip_prefix("sentences ")?)?;
+        let prelude = SourceHash::parse(fields.next()?.strip_prefix("prelude ")?)?;
+        let mut phrasebooks = Vec::new();
+        for (i, f) in fields.enumerate() {
+            let rest = f.strip_prefix(&format!("phrasebook {} ", i + 1))?;
+            phrasebooks.push(SourceHash::parse(rest)?);
+        }
+        Some(Stamp {
+            version,
+            sentences,
+            prelude,
+            phrasebooks,
+        })
+    }
+
+    /// Why the stamp does not name these sources, or `None` when it does.
+    pub fn disagreement(
+        &self,
+        program_text: &str,
+        prelude: &str,
+        books: &[&str],
+    ) -> Option<String> {
+        if self.sentences != SourceHash::of(program_text) {
+            return Some(
+                "the sentences in its Frazaro sheet are not the ones the stamp names".to_string(),
+            );
+        }
+        if self.prelude != SourceHash::of(prelude) {
+            return Some("the prelude given is not the one the stamp names".to_string());
+        }
+        if self.phrasebooks.len() != books.len() {
+            return Some(format!(
+                "the stamp names {} phrasebook(s) and {} were given",
+                self.phrasebooks.len(),
+                books.len()
+            ));
+        }
+        for (i, (want, text)) in self.phrasebooks.iter().zip(books.iter()).enumerate() {
+            if *want != SourceHash::of(text) {
+                return Some(format!(
+                    "phrasebook {} given is not the one the stamp names",
+                    i + 1
+                ));
+            }
+        }
+        None
+    }
+}
+
+/// The stamp as a defined name's formula: a string constant.
+fn stamp_formula(stamp: &Stamp) -> String {
+    format!("\"{}\"", stamp.text().replace('"', "\"\""))
+}
+
+/// What `frazaro rebuild` reads out of a built workbook before building it
+/// again.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BuildFile {
+    pub stamp: Stamp,
+    /// The program, line by line, as the `Frazaro` sheet holds it.
+    pub program_text: String,
+    /// The lines with text in them, which Check marks and the stamp counts.
+    pub sentences: usize,
+}
+
+/// What `frazaro rebuild` answers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Rebuilt {
+    pub sentences: usize,
+    pub built_by: String,
+    pub matches: bool,
+    /// Empty when it matches.
+    pub why: String,
+}
+
+impl Rebuilt {
+    /// The one line `frazaro rebuild` prints.
+    pub fn line(&self) -> String {
+        let head = format!(
+            "This workbook was built from these {} sentences by Frazaro {}:",
+            self.sentences, self.built_by
+        );
+        if self.matches {
+            format!("{head} yes.")
+        } else {
+            format!("{head} no. Why: {}.", self.why)
+        }
+    }
+}
+
+fn refuse_rebuild(why: &str) -> Refusal {
+    raise("rebuild-not-a-build", &[("why", why)])
+}
+
+/// The text between `<open ...>` and `</close>` after `from`, with the
+/// element's start tag given up to its name.
+fn element_text<'a>(xml_text: &'a str, start_tag: &str, end_tag: &str) -> Option<&'a str> {
+    let open = xml_text.find(start_tag)?;
+    let after_open = open + xml_text[open..].find('>')? + 1;
+    let close = after_open + xml_text[after_open..].find(end_tag)?;
+    Some(&xml_text[after_open..close])
+}
+
+/// A stored part of our own archive, as text.
+fn stored_part(file: &[u8], entries: &[zip::Entry], name: &str) -> Result<String, Refusal> {
+    let e = entries
+        .iter()
+        .find(|e| e.name == name)
+        .ok_or_else(|| refuse_rebuild(&format!("it has no part {name}")))?;
+    let data = zip::stored_data(file, e).ok_or_else(|| {
+        refuse_rebuild(
+            "its parts are not stored as frazaro build stores them, so a host has saved it since it was built, if it was built at all",
+        )
+    })?;
+    String::from_utf8(data.to_vec())
+        .map_err(|_| refuse_rebuild(&format!("its part {name} is not UTF-8")))
+}
+
+/// A built workbook read back: its stamp and its sentences.
+pub fn read_build(file: &[u8]) -> Result<BuildFile, Refusal> {
+    let entries = zip::entries(file)
+        .ok_or_else(|| refuse_rebuild("it is not a zip archive this reader knows"))?;
+    let workbook = stored_part(file, &entries, "xl/workbook.xml")?;
+    let raw = element_text(
+        &workbook,
+        &format!("<definedName name=\"{STAMP_NAME}\""),
+        "</definedName>",
+    )
+    .ok_or_else(|| refuse_rebuild("it carries no Frazaro.Build stamp"))?;
+    let formula = xml::unescape(raw);
+    let quoted = formula
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .ok_or_else(|| refuse_rebuild("its Frazaro.Build stamp is not a text"))?;
+    let stamp = Stamp::parse(&quoted.replace("\"\"", "\""))
+        .ok_or_else(|| refuse_rebuild("its Frazaro.Build stamp does not read"))?;
+    // The Frazaro sheet is the first sheet part; its column B is the program.
+    let sheet = stored_part(file, &entries, &ooxml::sheet_part(1))?;
+    let mut lines: Vec<String> = Vec::new();
+    let mut rest = sheet.as_str();
+    while let Some(i) = rest.find("<c r=\"B") {
+        let cell = &rest[i + 7..];
+        let Some(q) = cell.find('"') else { break };
+        let row: usize = match cell[..q].parse() {
+            Ok(n) => n,
+            Err(_) => {
+                rest = cell;
+                continue;
+            }
+        };
+        let Some(end) = cell.find("</c>") else { break };
+        let body = &cell[..end];
+        let text = element_text(body, "<t", "</t>")
+            .map(xml::unescape)
+            .unwrap_or_default();
+        if row >= 1 {
+            if lines.len() < row {
+                lines.resize(row, String::new());
+            }
+            lines[row - 1] = text;
+        }
+        rest = &cell[end..];
+    }
+    let sentences = lines
+        .iter()
+        .filter(|l| !l.trim_matches(' ').is_empty())
+        .count();
+    Ok(BuildFile {
+        stamp,
+        program_text: lines.join("\n"),
+        sentences,
+    })
+}
+
 /// The workbook a translated program builds: the `Frazaro` sheet, then
-/// the sheets its static subset writes. `vla` is the program's VLA as
-/// `EnglishToVla` wrote it, read with the prelude and expanded as the
-/// compiler reads it.
-pub fn build_workbook(program_text: &str, vla: &str, prelude: &str) -> Result<Workbook, Refusal> {
+/// the sheets its static subset writes, and the stamp. `vla` is the
+/// program's VLA as `EnglishToVla` wrote it, read with the prelude and
+/// expanded as the compiler reads it; `books` are the phrasebook texts the
+/// translation used, in order, for the stamp alone.
+pub fn build_workbook(
+    program_text: &str,
+    vla: &str,
+    prelude: &str,
+    books: &[&str],
+) -> Result<Workbook, Refusal> {
     let line_offset = count_lf(prelude) as u32 + 1;
     let text = format!("{prelude}\r\n{vla}");
     let forms = parse_all(&tokenize(&text), line_offset)?;
@@ -732,13 +996,21 @@ pub fn build_workbook(program_text: &str, vla: &str, prelude: &str) -> Result<Wo
         w.collect_top(f)?;
     }
     w.walk_main()?;
+    let stamp = Stamp::of(program_text, prelude, books);
+    w.wb.defined_names
+        .push((STAMP_NAME.to_string(), stamp_formula(&stamp)));
     Ok(w.wb)
 }
 
 /// The workbook's bytes, or the catalogue's refusal when they would not fit
 /// the file format.
-pub fn build_xlsx(program_text: &str, vla: &str, prelude: &str) -> Result<Vec<u8>, Refusal> {
-    let wb = build_workbook(program_text, vla, prelude)?;
+pub fn build_xlsx(
+    program_text: &str,
+    vla: &str,
+    prelude: &str,
+    books: &[&str],
+) -> Result<Vec<u8>, Refusal> {
+    let wb = build_workbook(program_text, vla, prelude, books)?;
     ooxml::workbook_bytes(&wb).ok_or_else(|| raise("build-workbook-too-large", &[]))
 }
 
@@ -856,7 +1128,7 @@ mod tests {
 
     #[test]
     fn the_static_subset_lands_in_cells() {
-        let wb = build_workbook("", STATIC_VLA, "").expect("the static subset builds");
+        let wb = build_workbook("", STATIC_VLA, "", &[]).expect("the static subset builds");
         let names: Vec<&str> = wb.sheets.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(names, vec!["Frazaro", "Output", "data"]);
         let out = &wb.sheets[1];
@@ -865,17 +1137,21 @@ mod tests {
             out.cells[&(3, 2)].content,
             Content::Formula("B2*2".to_string())
         );
-        assert_eq!(
-            out.cells[&(2, 3)].content,
-            Content::SharedMaster {
-                text: "_xlfn.IFS(B2>3,\"big\",TRUE,\"small\")".to_string(),
-                range: "C2:C4".to_string(),
-                si: 0
-            }
-        );
-        assert_eq!(out.cells[&(3, 3)].content, Content::SharedChild { si: 0 });
-        assert_eq!(out.cells[&(4, 3)].content, Content::SharedChild { si: 0 });
+        // IFS can return an array, so the fill is a dynamic-array formula per
+        // cell with its references moved (7c), not a shared formula.
+        for (row, moved) in [(2, "B2"), (3, "B3"), (4, "B4")] {
+            assert_eq!(
+                out.cells[&(row, 3)].content,
+                Content::DynamicFormula(format!("_xlfn.IFS({moved}>3,\"big\",TRUE,\"small\")"))
+            );
+        }
         assert_eq!(out.cells[&(1, 2)].content, Content::Number(7.0));
+        assert!(wb.has_dynamic_formulas());
+        assert_eq!(wb.defined_names.len(), 1);
+        assert_eq!(wb.defined_names[0].0, "Frazaro.Build");
+        assert!(wb.defined_names[0]
+            .1
+            .starts_with(&format!("\"Frazaro {}; sentences sha256:", crate::VERSION)));
         let data = &wb.sheets[2];
         assert_eq!(
             data.cells[&(1, 1)].content,
@@ -914,7 +1190,7 @@ mod tests {
             "(on-error goto vla-tryf-1)",
             "(set! x (range \"a1\"))",
         ] {
-            let r = build_workbook(program, &vla_with(stmt), "").expect_err(stmt);
+            let r = build_workbook(program, &vla_with(stmt), "", &[]).expect_err(stmt);
             assert_eq!(r.id, "build-not-representable", "{stmt}");
             assert!(
                 r.text.contains("Line 2 asks for more: Say \"hello\"."),
@@ -926,6 +1202,7 @@ mod tests {
             program,
             &vla_with("(. (worksheets \"nowhere\") activate)"),
             "",
+            &[],
         )
         .expect_err("an unmade sheet");
         assert_eq!(r.id, "build-sheet-unknown");
@@ -938,6 +1215,7 @@ mod tests {
                 vla_with("(taxed 5)")
             ),
             "",
+            &[],
         )
         .expect_err("a step with values");
         assert_eq!(r.id, "build-not-representable");
@@ -948,12 +1226,14 @@ mod tests {
                 vla_with("(again)")
             ),
             "",
+            &[],
         )
         .expect_err("a step calling itself");
         assert_eq!(r.id, "build-not-representable");
         assert!(r.text.contains("Line 5"), "{}", r.text);
         // A library the build cannot read, as the compiler says it.
-        let r = build_workbook(program, "(include \"alien.vla\")\n", "").expect_err("an include");
+        let r =
+            build_workbook(program, "(include \"alien.vla\")\n", "", &[]).expect_err("an include");
         assert_eq!(r.id, "vla-include-cannot-read");
         // A sheet name Excel would refuse.
         for (name, why) in [
@@ -969,6 +1249,7 @@ mod tests {
                 program,
                 &vla_with(&format!("(vlaensuresheet \"{name}\")")),
                 "",
+                &[],
             )
             .expect_err(name);
             assert_eq!(r.id, "build-sheet-name-invalid", "{name}");
@@ -1007,10 +1288,10 @@ mod tests {
     #[test]
     fn the_same_text_gives_the_same_bytes() {
         let vla = "(sub main ()\n  (at-line 1\n  (set! (range \"b2\") 5)))";
-        let a = build_xlsx("Put 5 into cell B2.\n", vla, "").unwrap();
-        let b = build_xlsx("Put 5 into cell B2.\n", vla, "").unwrap();
+        let a = build_xlsx("Put 5 into cell B2.\n", vla, "", &[]).unwrap();
+        let b = build_xlsx("Put 5 into cell B2.\n", vla, "", &[]).unwrap();
         assert_eq!(a, b);
-        assert!(build_xlsx("Log 1.\n", "(sub main", "").is_err());
+        assert!(build_xlsx("Log 1.\n", "(sub main", "", &[]).is_err());
     }
 
     #[test]
@@ -1030,6 +1311,128 @@ mod tests {
         let r = raise("build-sheet-unknown", &[("line", "4"), ("name", "data")]);
         assert_eq!(r.source, "VLA-Build");
         assert!(r.text.contains("Work on sheet data."));
+    }
+
+    #[test]
+    fn the_stamp_round_trips() {
+        let stamp = Stamp::of(
+            "Put 5 into cell B2.\r\n",
+            "(defmacro (a) 1)",
+            &["book one", "book\ttwo"],
+        );
+        assert_eq!(stamp.version, crate::VERSION);
+        assert_eq!(stamp.phrasebooks.len(), 2);
+        let text = stamp.text();
+        assert!(text.starts_with(&format!("Frazaro {}; sentences sha256:", crate::VERSION)));
+        assert!(text.contains("; prelude sha256:"));
+        assert!(text.contains("; phrasebook 1 sha256:"));
+        assert!(text.contains("; phrasebook 2 sha256:"));
+        assert!(text.ends_with(" non-whitespace bytes"));
+        assert_eq!(Stamp::parse(&text), Some(stamp.clone()));
+        assert_eq!(Stamp::parse("Frazaro 0.1.0; sentences nonsense"), None);
+        assert_eq!(Stamp::parse(""), None);
+        // The same sentences in another spelling of their whitespace agree.
+        assert_eq!(
+            stamp.disagreement(
+                "Put 5 into cell B2.",
+                "(defmacro (a) 1)",
+                &["book one", "book two"]
+            ),
+            None
+        );
+        assert_eq!(
+            stamp.disagreement(
+                "Put 6 into cell B2.",
+                "(defmacro (a) 1)",
+                &["book one", "book two"]
+            ),
+            Some("the sentences in its Frazaro sheet are not the ones the stamp names".to_string())
+        );
+        assert_eq!(
+            stamp.disagreement(
+                "Put 5 into cell B2.",
+                "(defmacro (a) 2)",
+                &["book one", "book two"]
+            ),
+            Some("the prelude given is not the one the stamp names".to_string())
+        );
+        assert_eq!(
+            stamp.disagreement("Put 5 into cell B2.", "(defmacro (a) 1)", &["book one"]),
+            Some("the stamp names 2 phrasebook(s) and 1 were given".to_string())
+        );
+        assert_eq!(
+            stamp.disagreement(
+                "Put 5 into cell B2.",
+                "(defmacro (a) 1)",
+                &["book one", "book three"]
+            ),
+            Some("phrasebook 2 given is not the one the stamp names".to_string())
+        );
+    }
+
+    #[test]
+    fn a_built_workbook_reads_back() {
+        let program = " Put 5 into cell B2.\n\n# a & b <c>\n   \nlast";
+        let vla = "(sub main ()\n  (at-line 1\n  (set! (range \"b2\") 5)))";
+        let bytes = build_xlsx(program, vla, "pre", &["book"]).unwrap();
+        let read = read_build(&bytes).expect("a build reads back");
+        assert_eq!(
+            read.program_text,
+            " Put 5 into cell B2.\n\n# a & b <c>\n   \nlast"
+        );
+        assert_eq!(read.sentences, 3);
+        assert_eq!(read.stamp, Stamp::of(program, "pre", &["book"]));
+        assert_eq!(
+            read.stamp
+                .disagreement(&read.program_text, "pre", &["book"]),
+            None
+        );
+        // Not a build: not a zip; a zip with no stamp.
+        let r = read_build(b"not a workbook at all").expect_err("not a zip");
+        assert_eq!(r.id, "rebuild-not-a-build");
+        assert!(r.text.contains("not a zip archive"));
+        let plain =
+            zip::write_stored(&[("xl/workbook.xml".to_string(), b"<workbook/>".to_vec())]).unwrap();
+        let r = read_build(&plain).expect_err("no stamp");
+        assert_eq!(r.id, "rebuild-not-a-build");
+        assert!(r.text.contains("no Frazaro.Build stamp"), "{}", r.text);
+        // The answer's one line.
+        let yes = Rebuilt {
+            sentences: 9,
+            built_by: "0.7.1".to_string(),
+            matches: true,
+            why: String::new(),
+        };
+        assert_eq!(
+            yes.line(),
+            "This workbook was built from these 9 sentences by Frazaro 0.7.1: yes."
+        );
+        let no = Rebuilt {
+            why: "the prelude given is not the one the stamp names".to_string(),
+            matches: false,
+            ..yes
+        };
+        assert_eq!(
+            no.line(),
+            "This workbook was built from these 9 sentences by Frazaro 0.7.1: no. Why: the prelude given is not the one the stamp names."
+        );
+    }
+
+    #[test]
+    fn rebuild_says_yes_to_its_own_build_and_no_to_a_changed_one() {
+        let r = crate::api::english_rebuild_xlsx(GOLDEN, PRELUDE, &[ENGLISH])
+            .unwrap_or_else(|r| panic!("the golden did not read back: {}", r.refusal));
+        assert!(r.matches, "{}", r.why);
+        assert_eq!(r.sentences, 9);
+        assert_eq!(r.built_by, crate::VERSION);
+        let mut changed = GOLDEN.to_vec();
+        changed[100] ^= 1; // inside [Content_Types].xml, the first part
+        let r = crate::api::english_rebuild_xlsx(&changed, PRELUDE, &[ENGLISH]).unwrap();
+        assert!(!r.matches);
+        assert!(r.why.contains("not what this core builds"), "{}", r.why);
+        let r = crate::api::english_rebuild_xlsx(GOLDEN, "", &[ENGLISH]).unwrap();
+        assert!(!r.matches);
+        assert_eq!(r.why, "the prelude given is not the one the stamp names");
     }
 
     /// The build golden: the fixture, built with the prelude and english.vla,

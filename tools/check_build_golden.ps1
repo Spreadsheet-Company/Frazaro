@@ -62,7 +62,10 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-10-03, PORT.7 slice 7b: 9798 - the Output and data sheets the fixture's
 # sentences write (values, a formula, a shared formula over three cells, a
 # prefixed IFS) beside the Frazaro sheet; ten entries.
-$floor = 9798
+# 2026-10-03, PORT.7 slice 7c: 11390 - the stamp (the defined name
+# Frazaro.Build in workbook.xml) and the IFS cell as a dynamic-array formula
+# with its metadata part (xl/metadata.xml); eleven entries.
+$floor = 11390
 
 $fixture = Join-Path $repoRoot 'scripts/build/fixture.txt'
 $golden  = Join-Path $repoRoot 'scripts/build/fixture_golden.xlsx'
@@ -186,7 +189,22 @@ function Measure-Impl([string]$impl, [string]$scratch) {
     if ($code -ne 0) { $problems.Add("build exited $code"); return ,$problems }
     if (-not (Test-Path $built)) { $problems.Add("build exited 0 but wrote nothing at $built"); return ,$problems }
     $cmp = Compare-Workbooks (Read-BytesShared $golden) (Read-BytesShared $built)
-    if (-not $cmp.Equal) { $problems.Add("the build is not the golden: $($cmp.Detail)") }
+    if (-not $cmp.Equal) { $problems.Add("the build is not the golden: $($cmp.Detail)"); return ,$problems }
+    # 2026-10-03 (slice 7c): the golden must verify as its own build.
+    $old = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $global:LASTEXITCODE = 0
+        $lines = & $impl rebuild $golden --prelude $prelude --phrasebook $english 2>$null
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $old
+    }
+    if ($null -eq $code) { $code = 0 }
+    if ([int]$code -ne 0) {
+        $last = if ($null -eq $lines) { '' } else { @($lines)[-1] }
+        $problems.Add("rebuild of the golden exited $code ($last)")
+    }
     return ,$problems
 }
 
@@ -197,9 +215,14 @@ if ($Control) {
         $bytes = Read-BytesShared $golden
         $g = $golden -replace "'", "''"
         # The fakes read the golden with the same sharing, for the same reason.
-        $copy = "param([Parameter(ValueFromRemainingArguments=`$true)][string[]]`$a)`n`$dst = `$a[[Array]::IndexOf(`$a, '--out') + 1]`n" +
+        # Both fakes answer rebuild (slice 7c): yes when the file is the golden.
+        $copy = "param([Parameter(ValueFromRemainingArguments=`$true)][string[]]`$a)`n" +
                 "`$fs = New-Object System.IO.FileStream('$g', [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)`n" +
-                "`$b = New-Object byte[] `$fs.Length`n[void]`$fs.Read(`$b, 0, `$b.Length)`n`$fs.Dispose()`n"
+                "`$b = New-Object byte[] `$fs.Length`n[void]`$fs.Read(`$b, 0, `$b.Length)`n`$fs.Dispose()`n" +
+                "if (`$a[0] -eq 'rebuild') {`n  `$f = [System.IO.File]::ReadAllBytes(`$a[1])`n  `$same = (`$f.Length -eq `$b.Length)`n" +
+                "  if (`$same) { for (`$i = 0; `$i -lt `$f.Length; `$i++) { if (`$f[`$i] -ne `$b[`$i]) { `$same = `$false; break } } }`n" +
+                "  if (`$same) { Write-Output 'yes'; exit 0 } else { Write-Output 'no'; exit 1 }`n}`n" +
+                "`$dst = `$a[[Array]::IndexOf(`$a, '--out') + 1]`n"
         $fake = Join-Path $tmp 'fake.ps1'
         [System.IO.File]::WriteAllText($fake, $copy + "[System.IO.File]::WriteAllBytes(`$dst, `$b)`nexit 0`n")
         # The mutant changes the byte 40 in from the start of the worksheet

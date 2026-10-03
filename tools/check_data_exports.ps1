@@ -37,7 +37,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # --- the floors: raise them when an entry is added, never lower them --------
 $floors = @{
     'scripts/headtable.vla' = 65    # one row per core form (VLA_HeadTable.bas, IN5.0: 65)
-    'scripts/messages.vla'  = 579   # one entry per refusal id (VLA_Messages.bas, LX.14; 579 with PORT.7's five)
+    'scripts/messages.vla'  = 580   # one entry per refusal id (VLA_Messages.bas, LX.14; 580 with PORT.7's six)
     'scripts/words.vla'     = 113   # one entry per word-table row (VLA_English.bas, LX.14; PORT.6 2026-10-02)
     'scripts/names.vla'     = 218   # one entry per name-list row (VLA_SentenceEngine.bas; PORT.6 2026-10-02: 211; U.31, the seven reserved words: 218)
 }

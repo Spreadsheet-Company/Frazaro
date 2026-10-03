@@ -6837,7 +6837,62 @@ written against.
   (`cm="1"`, the XLDAPR metadata part), and per cell when it is filled over
   a range, which needs the references shifted per cell as Excel shifts
   them. Slice 7c takes it first. Then Sheets, Calc and Numbers at the
-  owner's pace. *(roadmap: BETA_ROADMAP.md)*
+  owner's pace.
+  **Slice 7c, the stamp and `rebuild`, with the `@` finding taken first
+  (built 2026-10-03, awaiting the owner's run).** Dynamic-array formulas: a
+  formula whose function can return an array (`core/src/sheet/xlfn.rs`'s
+  second table, Excel's classification as far as the writer knows it:
+  `INDEX`, `OFFSET`, `INDIRECT`, `CHOOSE`, `IFS`, `SWITCH`, `XLOOKUP`,
+  `FILTER`, `SORT`, `UNIQUE`, `SEQUENCE`, `LET`, `LAMBDA`, the stacking and
+  text-splitting functions and their kin; not `IF`, not `IFERROR`, not the
+  lookups that return one value, since old workbooks full of them open
+  without `@`) is written as Excel stores a `Formula2` entry of it,
+  `<c cm="1"><f t="array" ref="D2">`, with the XLDAPR cell-metadata part
+  (`xl/metadata.xml`), its content type and its relationship added to the
+  package only when such a cell exists. Filled over a range, such a formula
+  cannot be shared, so it is written per cell with its references moved by
+  the cell's distance from the first (`core/src/sheet/refs.rs`:
+  `$`-anchored parts stay; cells, ranges, whole columns and rows,
+  sheet-qualified or not, move; string literals, structured references,
+  names and functions spelled like cells do not; a reference moved off the
+  sheet is `#REF!`), the file-format half of `AXM.7`'s reader, built here
+  because the writer needs it first and to be replaced by that reader's
+  port when it lands. A function the table misclassifies as scalar shows
+  `@`; one misclassified as array-capable is a single-cell dynamic array,
+  harmless in Excel 365 and a braced array elsewhere; the live pass is the
+  oracle. The stamp: `core/src/sha256.rs`, SHA-256 from nothing, the third
+  twin of `VlaSha256Hex` and `Get-SourceHash`, `check_hash_twin.ps1`'s
+  fourth step holding its tests to the baseline's strings so that no side
+  can drift alone. The defined name `Frazaro.Build` holds one string,
+  `Frazaro <version>; sentences sha256:<hex> over <n> non-whitespace bytes;
+  prelude …; phrasebook 1 …`, the digest `EnglishSourceHash` gives a
+  phrasebook, so line endings do not move it. `frazaro rebuild <file.xlsx>
+  --prelude … --phrasebook …` reads the sentences back out of the `Frazaro`
+  sheet (the writer's own stored part, no inflate), checks the stamp
+  against them and the files given, builds again and compares whole:
+  `This workbook was built from these 9 sentences by Frazaro 0.7.1: yes.`
+  or `… no. Why: …` (the sentences changed; the prelude or a phrasebook
+  given is not the one named; another core version; the parts not what this
+  core builds, a host having saved it since), exit 0 or 1; a file that is
+  not a build is refused, `rebuild-not-a-build`, with why (not a zip; parts
+  no longer stored, so a host saved it; no stamp). `frazaro build` prints
+  the file's SHA-256 beside its byte count, for the page's digest to be
+  compared with in 7e. The treaty's second amendment of the day: `rebuild`
+  joins oracle 7; the runner's build kind runs it on what was built, the
+  fakes answer it, `check_build_golden.ps1` runs it on the golden. The
+  golden regenerated: 11,390 bytes, eleven entries (`xl/metadata.xml` new),
+  the floor 11390, D2 a dynamic-array `IFS`. 157 Rust tests, 14 new; the
+  catalogue 580. Predictions 4 (the `@` gone from D2's bar) and 9 (a host's
+  save undoes the build) ride on this golden.
+  **The owner's live check for 7c, 2026-10-03:** Output!D2's formula bar
+  read `=IFS(B2>3,"big",TRUE,"small")` with no `@` and showed `big`, so
+  the dynamic-array formula is what a `Formula2` entry stores, prediction
+  4's mechanism seen from the writer's side; `frazaro rebuild` on the
+  golden printed the yes line; on a copy Excel had saved with nothing
+  changed, it was refused as saved by a host, since Excel deflates every
+  part (prediction 9 corrected: a host's save makes the file not a build,
+  rather than a build that says no). 41 checks, 12 oracles. Sheets, Calc
+  and Numbers at the owner's pace. *(roadmap: BETA_ROADMAP.md)*
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day

@@ -190,6 +190,122 @@ const XLFN: &[&str] = &[
 /// Functions stored as `_xlfn._xlws.<NAME>`.
 const XLWS: &[&str] = &["FILTER", "SORT"];
 
+/// Functions that can return a reference or an array, so that Excel 365
+/// marks a legacy formula calling one with the implicit-intersection `@`
+/// (`=@IFS(...)`, seen on the owner's first live pass of slice 7b) and
+/// stores a `Formula2` entry of one as a dynamic-array formula. The writer
+/// stores such a formula the same way (`sheet::ooxml`, the `cm` metadata),
+/// so the formula bar reads as the add-in's would. The table is Excel's own
+/// classification as far as this writer knows it: a function missing here
+/// shows `@` in the bar and, filled over a range, computes one value per
+/// cell; one wrongly here is a single-cell dynamic array, harmless in Excel
+/// and a braced array in an older host. `IF`, `IFERROR` and the lookup
+/// functions that return one value are not here, as old workbooks full of
+/// them open without `@`.
+const ARRAY_CAPABLE: &[&str] = &[
+    "ANCHORARRAY",
+    "BYCOL",
+    "BYROW",
+    "CHOOSE",
+    "CHOOSECOLS",
+    "CHOOSEROWS",
+    "DROP",
+    "EXPAND",
+    "FILTER",
+    "FREQUENCY",
+    "GROUPBY",
+    "GROWTH",
+    "HSTACK",
+    "IFS",
+    "INDEX",
+    "INDIRECT",
+    "LAMBDA",
+    "LET",
+    "LINEST",
+    "LOGEST",
+    "LOOKUP",
+    "MAKEARRAY",
+    "MAP",
+    "MINVERSE",
+    "MMULT",
+    "MODE.MULT",
+    "MUNIT",
+    "OFFSET",
+    "PIVOTBY",
+    "RANDARRAY",
+    "REDUCE",
+    "REGEXEXTRACT",
+    "SCAN",
+    "SEQUENCE",
+    "SORT",
+    "SORTBY",
+    "SWITCH",
+    "TAKE",
+    "TEXTSPLIT",
+    "TOCOL",
+    "TOROW",
+    "TRANSPOSE",
+    "TREND",
+    "TRIMRANGE",
+    "UNIQUE",
+    "VSTACK",
+    "WRAPCOLS",
+    "WRAPROWS",
+    "XLOOKUP",
+];
+
+/// Whether a formula's text (without its `=`, prefixes applied or not)
+/// calls a function that can return a reference or an array, and so must be
+/// stored as a dynamic-array formula to read without `@`.
+pub fn can_return_array(formula: &str) -> bool {
+    let chars: Vec<char> = formula.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        if c == '"' {
+            i += 1;
+            while i < chars.len() {
+                if chars[i] == '"' {
+                    if i + 1 < chars.len() && chars[i + 1] == '"' {
+                        i += 2;
+                        continue;
+                    }
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            continue;
+        }
+        if is_name_start(c) && (i == 0 || !is_name_char(chars[i - 1])) {
+            let start = i;
+            while i < chars.len() && is_name_char(chars[i]) {
+                i += 1;
+            }
+            let mut j = i;
+            while j < chars.len() && chars[j] == ' ' {
+                j += 1;
+            }
+            if j < chars.len() && chars[j] == '(' {
+                let name: String = chars[start..i]
+                    .iter()
+                    .collect::<String>()
+                    .to_ascii_uppercase();
+                let bare = name
+                    .strip_prefix("_XLFN._XLWS.")
+                    .or_else(|| name.strip_prefix("_XLFN."))
+                    .unwrap_or(&name);
+                if ARRAY_CAPABLE.contains(&bare) {
+                    return true;
+                }
+            }
+            continue;
+        }
+        i += 1;
+    }
+    false
+}
+
 /// The prefix a function name takes in the file, or `None` for one Excel
 /// 2007 already had (or one this table does not know).
 pub fn prefix_for(upper_name: &str) -> Option<&'static str> {
@@ -309,5 +425,20 @@ mod tests {
         assert_eq!(prefix_future_functions("Data!IFS1"), "Data!IFS1");
         // A space before the parenthesis still makes a call.
         assert_eq!(prefix_future_functions("IFS (1,2)"), "_xlfn.IFS (1,2)");
+    }
+
+    #[test]
+    fn a_function_that_can_return_an_array_is_known() {
+        assert!(can_return_array("IFS(B2>3,\"big\",TRUE,\"small\")"));
+        assert!(can_return_array("_xlfn.IFS(1,2)"));
+        assert!(can_return_array("_xlfn._xlws.FILTER(A:A,B:B>1)"));
+        assert!(can_return_array("1+INDEX(A1:A3,2)"));
+        assert!(can_return_array("sequence(3)"));
+        assert!(!can_return_array("B2*2"));
+        assert!(!can_return_array("SUM(B2:B9)"));
+        assert!(!can_return_array("IF(B2>3,\"big\",\"small\")"));
+        assert!(!can_return_array("VLOOKUP(A1,B:C,2,FALSE)"));
+        assert!(!can_return_array("\"INDEX(\"&A1"));
+        assert!(!can_return_array("INDEX+1"));
     }
 }

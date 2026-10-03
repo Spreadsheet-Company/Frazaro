@@ -86,6 +86,23 @@ changes on purpose, regenerate the golden with `--replace`, open it in Excel,
 and raise the check's floor. The door writes the one file `--out` names and
 refuses to replace a file already there unless `--replace` says so.
 
+Every built workbook carries its stamp, the defined name `Frazaro.Build`:
+the core's version and, for the sentences, the prelude and each phrasebook,
+the SHA-256 of their non-whitespace bytes (the digest a phrasebook's
+`source-hash` already uses, so line endings do not move it).
+
+```powershell
+target\debug\frazaro.exe rebuild program.xlsx --prelude scripts\prelude.vla --phrasebook scripts\polyglotta\english.vla
+```
+
+reads the sentences back out of the workbook's `Frazaro` sheet, checks the
+stamp against them and against the files given, builds again and compares
+the bytes whole, then prints one line, yes or no with why, exiting 0 or 1.
+A workbook Excel has saved since is refused rather than answered: Excel
+rewrites every part on save, so it is no longer the build, by design. The
+checks (`check_build_golden.ps1`, `prove.ps1`) run `rebuild` on the golden
+and on what the door builds.
+
 ## Releasing (daily patch, weekly minor)
 
 The working loop is **Scope → Implement → Test → Build → Push**, and since the `0.5.0` public import (2026-09-05) the last step is a release, not just a push. Cadence, an owner decision of 2026-09-07 that fixes SD-14's tempo without changing its numbering: a **`0.5.N` patch release at the end of each working day** and a **`0.N.0` minor release at the end of each week**, with security and safety fixes front-loaded into the patches and larger feature additions landing in the minors. The `.xlam` editions are release assets, never tracked files; `README.md`'s download links resolve to whatever release is newest.

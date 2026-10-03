@@ -53,6 +53,12 @@ House shape, per the standing convention for this project's static
 scans: PowerShell, host-independent, hardcoded and reviewable baseline,
 never wired into VlaSelfTest.
 
+PORT.7 (slice 7c, 2026-10-03): a third implementation joined, the core's
+core/src/sha256.rs, for the build stamp (the defined name Frazaro.Build)
+and frazaro rebuild. Step 4 holds its tests to the same digest strings as
+step 2 holds the VBA's pins, so none of the three sides can drift alone;
+the Rust tests run the arithmetic, as VlaSelfTest runs the VBA's.
+
 Usage:  powershell -File tools\check_hash_twin.ps1
 Exit 0 clean, exit 1 with every failure listed.
 #>
@@ -322,10 +328,36 @@ if ($coverageSrc -match '(?m)^\s*function\s+Get-SourceHashLegacy32') {
     Write-Output '  FAIL  check_rule_coverage.ps1 lost Get-SourceHashLegacy32'
 }
 
+# ---- 4. the core's twin pins the same strings (PORT.7, slice 7c) ------
+# core/src/sha256.rs is the third implementation of this digest. Same
+# requirement as step 2: its tests must assert the FIPS vectors and the
+# whitespace pair by the very strings this baseline holds. The memo key's
+# vectors are OPTIMIZE's and the VBA's alone, and are not asked of it.
+Write-Output ''
+Write-Output '--- the core: core/src/sha256.rs asserts the same digests ---'
+$corePath = Join-Path $root 'core\src\sha256.rs'
+if (-not (Test-Path -LiteralPath $corePath)) {
+    $failures.Add("core/src/sha256.rs is missing - the core's twin of VLA_Digest.bas (PORT.7) must exist and pin the baseline.")
+    Write-Output '  FAIL  core/src/sha256.rs missing'
+} else {
+    $coreSrc = [System.IO.File]::ReadAllText($corePath)
+    $coreExpected = @()
+    $coreExpected += $vectors | ForEach-Object { @{ Name = $_.Name; Sha = $_.Sha } }
+    $coreExpected += @{ Name = $whitespacePair.Name; Sha = $whitespacePair.Sha }
+    foreach ($e in $coreExpected) {
+        if ($coreSrc.IndexOf($e.Sha, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            Write-Output ("  ok    {0,-16} pinned in the core" -f $e.Name)
+        } else {
+            $failures.Add("core/src/sha256.rs does not assert the digest for '$($e.Name)' ($($e.Sha)). The core's twin has separated from the baseline.")
+            Write-Output ("  FAIL  {0,-16} NOT pinned in the core" -f $e.Name)
+        }
+    }
+}
+
 # ---- verdict ----------------------------------------------------------
 Write-Output ''
 if ($failures.Count -eq 0) {
-    Write-Output '=== CHECK: clean - both hash implementations are pinned to the same vectors ==='
+    Write-Output '=== CHECK: clean - every hash implementation (VBA, PowerShell, the core) is pinned to the same vectors ==='
     exit 0
 } else {
     foreach ($f in $failures) { Write-Output "FAIL: $f" }

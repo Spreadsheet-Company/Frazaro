@@ -253,8 +253,17 @@
   range or rows of a column, on the sheet the program names, and the host
   computes the formulas when it opens the file. A sentence that needs the
   add-in to run, a loop, a message, a value read from a cell, is refused by
-  name with the sentence quoted, and nothing is written. The add-in you
-  download is unchanged.
+  name with the sentence quoted, and nothing is written. A formula whose
+  function can return several values, `IFS`, `INDEX`, `FILTER` and their
+  kin, is stored the way Excel stores one typed into a cell, so the formula
+  bar shows it without the `@` Excel puts on older files. The workbook
+  carries its build stamp, a defined name `Frazaro.Build` holding the
+  version and the fingerprint of the sentences and every file used, and
+  `frazaro rebuild program.xlsx --prelude prelude.vla --phrasebook
+  english.vla` reads the sentences back out of the workbook, builds it
+  again and says whether the file is still exactly that build: `This
+  workbook was built from these 9 sentences by Frazaro 0.8.0: yes.`, or no
+  with the reason. The add-in you download is unchanged.
 
 ### Known open security items
 

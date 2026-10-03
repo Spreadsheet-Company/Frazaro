@@ -1411,6 +1411,10 @@ Private Sub AddEntries(ByVal m As Collection)
     ' refuses it at run time with the runtime's own catalogue, which is not
     ' exported; 1004 is Excel's error for it.
     AddMsg m, "build-sheet-name-invalid", 1004, "VLA-Build", "Line {line} names sheet {name}, which Excel would refuse: {reason}. A sheet name is 1 to 31 characters, holds none of : \ / ? * [ ], and does not begin or end with an apostrophe. Nothing was written."
+    ' Slice 7c: frazaro rebuild on a file that is not a build it can
+    ' verify (not a zip, parts no longer stored as the writer stores them
+    ' because a host saved it, or no Frazaro.Build stamp).
+    AddMsg m, "rebuild-not-a-build", 5, "VLA-Build", "This workbook cannot be verified as a Frazaro build: {why}. frazaro rebuild checks a workbook that frazaro build wrote and nothing has saved since."
 End Sub
 
 Private Sub AddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _

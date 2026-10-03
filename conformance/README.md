@@ -336,3 +336,31 @@ are chosen from what slice 7b renders into cells (a value into a cell, a
 formula into a cell and into rows of a column, `Work on sheet`, a write into
 a cell of a named sheet), so that the golden grows by sheets, slice by
 slice, and the fixture stays a program the add-in runs as well.
+
+## Amendment of 2026-10-03, later: `rebuild` joins oracle 7 (`PORT.7`, slice 7c)
+
+A built workbook carries a defined name, `Frazaro.Build`, holding one
+string: the core's version and, for the sentences, the prelude and each
+phrasebook in order, `sha256:<hex> over <n> non-whitespace bytes`, the
+digest `EnglishSourceHash` gives a phrasebook (`VlaSha256HexSkippingWhitespace`,
+`VLA_Digest.bas`), so that the stamp reads the same whatever line endings
+the sources had. `core/src/sha256.rs` is that digest's third
+implementation, and `tools/check_hash_twin.ps1` holds it to the same FIPS
+vectors as the VBA and the PowerShell.
+
+The contract gains one command:
+
+- `<impl> rebuild <file.xlsx> --prelude <prelude.vla> --phrasebook <file.vla>
+  [--phrasebook ...]` reads the sentences back out of the workbook's
+  `Frazaro` sheet, checks the stamp against them and against the files
+  given, builds again, compares the bytes whole, and prints one line:
+  `This workbook was built from these N sentences by Frazaro <version>:
+  yes.` or `...: no. <why>`, exiting 0 for yes and 1 for no. A workbook
+  with no stamp, or one a host has saved since (its parts are no longer
+  stored as the writer stores them), is refused with `rebuild-not-a-build`
+  and exit 1; exit 3 says not attempted.
+
+Oracle 7 now asks both: the build is the golden byte for byte, and
+`rebuild` of what was built says yes. The runner's control fakes answer
+`rebuild` by comparing the file to the golden, and `check_build_golden.ps1`
+runs `rebuild` on the golden itself.

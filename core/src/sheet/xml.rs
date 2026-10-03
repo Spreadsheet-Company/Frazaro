@@ -44,6 +44,59 @@ fn escape(s: &str, in_attr: bool) -> String {
     out
 }
 
+/// The inverse of [`text`], for a part this writer wrote: the five entity
+/// references and numeric character references undone, and Excel's
+/// `_xHHHH_` read back as its character (`_x005F_` as the underscore). A
+/// spelling that does not parse is kept as written.
+pub fn unescape(s: &str) -> String {
+    let chars: Vec<char> = s.chars().collect();
+    let mut out = String::with_capacity(s.len());
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        if c == '&' {
+            if let Some(end) = chars[i..].iter().position(|&x| x == ';') {
+                let entity: String = chars[i + 1..i + end].iter().collect();
+                let decoded = match entity.as_str() {
+                    "amp" => Some('&'),
+                    "lt" => Some('<'),
+                    "gt" => Some('>'),
+                    "quot" => Some('"'),
+                    "apos" => Some('\''),
+                    e => e
+                        .strip_prefix('#')
+                        .and_then(|n| {
+                            n.strip_prefix('x')
+                                .map(|h| u32::from_str_radix(h, 16))
+                                .unwrap_or_else(|| n.parse::<u32>())
+                                .ok()
+                        })
+                        .and_then(char::from_u32),
+                };
+                if let Some(d) = decoded {
+                    out.push(d);
+                    i += end + 1;
+                    continue;
+                }
+            }
+            out.push(c);
+            i += 1;
+            continue;
+        }
+        if c == '_' && is_escape_spelling(&chars[i..]) {
+            let hex: String = chars[i + 2..i + 6].iter().collect();
+            if let Some(d) = u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32) {
+                out.push(d);
+                i += 7;
+                continue;
+            }
+        }
+        out.push(c);
+        i += 1;
+    }
+    out
+}
+
 /// `_xHHHH_` at the start of the slice: Excel's escape spelling, which a
 /// text must not be mistaken for.
 fn is_escape_spelling(rest: &[char]) -> bool {
@@ -73,5 +126,21 @@ mod tests {
         assert_eq!(text("_x0041_"), "_x005F_x0041_");
         assert_eq!(text("_xZZZZ_"), "_xZZZZ_");
         assert_eq!(text("_x004"), "_x004");
+    }
+
+    #[test]
+    fn what_was_escaped_reads_back() {
+        for original in [
+            "a & b < c > d \"e\"",
+            "tab\there",
+            "a\u{1}b",
+            "_x0041_",
+            "_xZZZZ_",
+            "plain",
+            "",
+        ] {
+            assert_eq!(unescape(&text(original)), original, "{original:?}");
+        }
+        assert_eq!(unescape("&#65;&#x42;&apos;&unknown;&"), "AB'&unknown;&");
     }
 }

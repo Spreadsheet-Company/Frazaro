@@ -11,6 +11,7 @@
 //! subset writes, and the model grows only as a slice needs it.
 
 pub mod ooxml;
+pub mod refs;
 pub mod xlfn;
 pub mod xml;
 pub mod zip;
@@ -127,6 +128,11 @@ pub enum Content {
     SharedChild {
         si: u32,
     },
+    /// A dynamic-array formula (`cm="1"`, `t="array"` over its own cell):
+    /// what Excel stores for a `Formula2` entry of a formula whose function
+    /// can return an array, and reads back without the `@` it puts on a
+    /// legacy formula of that kind.
+    DynamicFormula(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -249,6 +255,31 @@ impl Sheet {
 
     /// A formula's text (without its `=`) into every cell of a range: one
     /// plain formula for one cell, a shared formula for more.
+    /// A formula whose function can return an array, into every cell of a
+    /// range as Excel stores a `Formula2` entry of it: a dynamic-array
+    /// formula per cell (a dynamic-array formula cannot be shared), its
+    /// references moved by the cell's distance from the top-left one, as
+    /// Excel moves them when a formula is filled.
+    pub fn set_formula_dynamic(&mut self, range: A1Range, text: &str, style: u32) {
+        for row in range.top..=range.bottom {
+            for col in range.left..=range.right {
+                let moved = refs::shift_a1_references(
+                    text,
+                    i64::from(row) - i64::from(range.top),
+                    i64::from(col) - i64::from(range.left),
+                );
+                self.set(
+                    row,
+                    col,
+                    Cell {
+                        content: Content::DynamicFormula(moved),
+                        style,
+                    },
+                );
+            }
+        }
+    }
+
     pub fn set_formula(&mut self, range: A1Range, text: &str, style: u32) {
         if range.cells() == 1 {
             self.set(
@@ -302,6 +333,9 @@ pub struct Workbook {
     pub sheets: Vec<Sheet>,
     pub styles: Styles,
     pub active_sheet: usize,
+    /// The workbook's defined names: each a name and its formula's text
+    /// without the `=` (a string constant is `"text"`, inner quotes doubled).
+    pub defined_names: Vec<(String, String)>,
 }
 
 impl Default for Workbook {
@@ -316,7 +350,18 @@ impl Workbook {
             sheets: Vec::new(),
             styles: Styles::new(),
             active_sheet: 0,
+            defined_names: Vec::new(),
         }
+    }
+
+    /// Whether any cell holds a dynamic-array formula, which the file then
+    /// needs its metadata part for.
+    pub fn has_dynamic_formulas(&self) -> bool {
+        self.sheets.iter().any(|s| {
+            s.cells
+                .values()
+                .any(|c| matches!(c.content, Content::DynamicFormula(_)))
+        })
     }
 
     /// The index of the sheet of that name, compared as Excel compares sheet
@@ -453,6 +498,36 @@ mod tests {
             }
         );
         assert_eq!(sh.shared_formulas, 2);
+    }
+
+    #[test]
+    fn a_dynamic_formula_over_a_range_is_one_per_cell_with_its_references_moved() {
+        let mut sh = Sheet::new("S");
+        sh.set_formula_dynamic(
+            parse_a1_range("c2:d3").unwrap(),
+            "IFS(B2>3,$A$1,TRUE,B$1)",
+            0,
+        );
+        assert_eq!(
+            sh.cells[&(2, 3)].content,
+            Content::DynamicFormula("IFS(B2>3,$A$1,TRUE,B$1)".to_string())
+        );
+        assert_eq!(
+            sh.cells[&(3, 3)].content,
+            Content::DynamicFormula("IFS(B3>3,$A$1,TRUE,B$1)".to_string())
+        );
+        assert_eq!(
+            sh.cells[&(2, 4)].content,
+            Content::DynamicFormula("IFS(C2>3,$A$1,TRUE,C$1)".to_string())
+        );
+        assert_eq!(
+            sh.cells[&(3, 4)].content,
+            Content::DynamicFormula("IFS(C3>3,$A$1,TRUE,C$1)".to_string())
+        );
+        let mut wb = Workbook::new();
+        assert!(!wb.has_dynamic_formulas());
+        wb.sheets.push(sh);
+        assert!(wb.has_dynamic_formulas());
     }
 
     #[test]

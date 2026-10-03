@@ -279,7 +279,14 @@ function Measure-Oracles([string]$root, [string]$impl, [string]$scratch) {
                 $got = Read-BytesShared $built
                 $n = [Math]::Min($got.Length, $want.Length); $at = $n
                 for ($i = 0; $i -lt $n; $i++) { if ($got[$i] -ne $want[$i]) { $at = $i; break } }
-                if ($at -eq $n -and $got.Length -eq $want.Length) { $r.Status = 'PASS'; $r.Detail = "$($want.Length) bytes matched" }
+                if ($at -eq $n -and $got.Length -eq $want.Length) {
+                    # 2026-10-03 (slice 7c): what was built must also verify as its own build.
+                    $rb = Invoke-Impl $impl @('rebuild', $built,
+                                              '--prelude', (Join-Path $root $o.Prelude),
+                                              '--phrasebook', (Join-Path $root $o.Phrasebook))
+                    if ($rb.ExitCode -eq 0) { $r.Status = 'PASS'; $r.Detail = "$($want.Length) bytes matched; rebuild says yes" }
+                    else { $r.Status = 'FAIL'; $r.Detail = "$($want.Length) bytes matched, but rebuild exited $($rb.ExitCode): $(($rb.Stdout -split "`n") | Select-Object -Last 1)" }
+                }
                 else { $r.Status = 'FAIL'; $r.Detail = "differs at byte $at of $($want.Length), built at $built" }
             }
             'prove' {
@@ -353,6 +360,18 @@ switch (`$kind) {
         if (`$mutant) { `$b[100] = `$b[100] -bxor 1 }
         [System.IO.File]::WriteAllBytes(`$dst, `$b)
         exit 0
+    }
+    'rebuild' {
+        # Yes when the file is the golden byte for byte, no otherwise (2026-10-03, slice 7c).
+        `$f = [System.IO.File]::ReadAllBytes(`$a[1])
+        `$fs = New-Object System.IO.FileStream((Join-Path `$root 'scripts/build/fixture_golden.xlsx'), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        `$g = New-Object byte[] `$fs.Length
+        [void]`$fs.Read(`$g, 0, `$g.Length)
+        `$fs.Dispose()
+        `$same = (`$f.Length -eq `$g.Length)
+        if (`$same) { for (`$i = 0; `$i -lt `$f.Length; `$i++) { if (`$f[`$i] -ne `$g[`$i]) { `$same = `$false; break } } }
+        if (`$same) { Write-Output 'This workbook was built from these sentences by the fake: yes.'; exit 0 }
+        Write-Output 'This workbook was built from these sentences by the fake: no.'; exit 1
     }
     default { exit 3 }
 }

@@ -35,6 +35,7 @@ pub mod intrinsics;
 pub mod messages;
 pub mod printer;
 pub mod reader;
+pub mod sha256;
 pub mod sheet;
 pub mod version;
 

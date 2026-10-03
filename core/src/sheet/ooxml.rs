@@ -50,6 +50,13 @@ const CT_CORE: &str = "application/vnd.openxmlformats-package.core-properties+xm
 const CT_APP: &str = "application/vnd.openxmlformats-officedocument.extended-properties+xml";
 const CT_RELS: &str = "application/vnd.openxmlformats-package.relationships+xml";
 const CT_XML: &str = "application/xml";
+const CT_METADATA: &str =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheetMetadata+xml";
+const REL_METADATA: &str =
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheetMetadata";
+/// The relationship id of the cell-metadata part, present only when a
+/// dynamic-array formula is.
+const METADATA_RID: &str = "rIdFrazaroMetadata";
 
 /// The relationship id of the styles part, named so that it collides with
 /// nothing Excel writes (`rId1`, `rId2`, ...).
@@ -83,6 +90,9 @@ pub fn parts(wb: &Workbook) -> Vec<(String, Vec<u8>)> {
         ),
         ("xl/styles.xml".to_string(), styles_xml(wb).into_bytes()),
     ];
+    if wb.has_dynamic_formulas() {
+        list.push(("xl/metadata.xml".to_string(), metadata_xml().into_bytes()));
+    }
     for (i, sheet) in wb.sheets.iter().enumerate() {
         list.push((
             sheet_part(i + 1),
@@ -119,6 +129,11 @@ fn content_types(wb: &Workbook) -> String {
     s.push_str(&format!(
         "<Override PartName=\"/xl/styles.xml\" ContentType=\"{CT_STYLES}\"/>\n"
     ));
+    if wb.has_dynamic_formulas() {
+        s.push_str(&format!(
+            "<Override PartName=\"/xl/metadata.xml\" ContentType=\"{CT_METADATA}\"/>\n"
+        ));
+    }
     s.push_str(&format!(
         "<Override PartName=\"/docProps/core.xml\" ContentType=\"{CT_CORE}\"/>\n"
     ));
@@ -170,6 +185,17 @@ fn workbook_xml(wb: &Workbook) -> String {
         ));
     }
     s.push_str("</sheets>\n");
+    if !wb.defined_names.is_empty() {
+        s.push_str("<definedNames>\n");
+        for (name, formula) in &wb.defined_names {
+            s.push_str(&format!(
+                "<definedName name=\"{}\">{}</definedName>\n",
+                xml::attr(name),
+                xml::text(formula)
+            ));
+        }
+        s.push_str("</definedNames>\n");
+    }
     // The host computes every formula when it opens the file (HORIZON.md
     // section 12: the core has no calc engine, on purpose).
     s.push_str("<calcPr fullCalcOnLoad=\"1\"/>\n");
@@ -190,6 +216,11 @@ fn workbook_rels(wb: &Workbook) -> String {
     s.push_str(&format!(
         "<Relationship Id=\"{STYLES_RID}\" Type=\"{REL_STYLES}\" Target=\"styles.xml\"/>\n"
     ));
+    if wb.has_dynamic_formulas() {
+        s.push_str(&format!(
+            "<Relationship Id=\"{METADATA_RID}\" Type=\"{REL_METADATA}\" Target=\"metadata.xml\"/>\n"
+        ));
+    }
     s.push_str("</Relationships>\n");
     s
 }
@@ -249,6 +280,19 @@ fn styles_xml(wb: &Workbook) -> String {
     );
     s.push_str("</styleSheet>\n");
     s
+}
+
+/// The cell metadata that `cm="1"` on a cell points at, as Excel writes it:
+/// one metadata type, XLDAPR, carrying the dynamic-array properties, so
+/// that the host reads the cell's formula as a dynamic-array formula.
+fn metadata_xml() -> String {
+    format!(
+        "{XML_HEAD}<metadata xmlns=\"{NS_MAIN}\" xmlns:xda=\"http://schemas.microsoft.com/office/spreadsheetml/2017/dynamicarray\">\n\
+         <metadataTypes count=\"1\"><metadataType name=\"XLDAPR\" minSupportedVersion=\"120000\" copy=\"1\" pasteAll=\"1\" pasteValues=\"1\" merge=\"1\" splitFirst=\"1\" rowColShift=\"1\" clearFormats=\"1\" clearComments=\"1\" assign=\"1\" coerce=\"1\" cellMeta=\"1\"/></metadataTypes>\n\
+         <futureMetadata name=\"XLDAPR\" count=\"1\"><bk><extLst><ext uri=\"{{bdbb8cdc-fa1e-496e-a857-3c3f30c029c3}}\"><xda:dynamicArrayProperties fDynamic=\"1\" fCollapsed=\"0\"/></ext></extLst></bk></futureMetadata>\n\
+         <cellMetadata count=\"1\"><bk><rc t=\"1\" v=\"0\"/></bk></cellMetadata>\n\
+         </metadata>\n"
+    )
 }
 
 /// A number as the file holds it. Rust's shortest round-trip spelling,
@@ -338,6 +382,10 @@ fn sheet_xml(sheet: &Sheet, selected: bool) -> String {
             )),
             Content::SharedChild { si } => s.push_str(&format!(
                 "<c r=\"{r}\" s=\"{st}\"><f t=\"shared\" si=\"{si}\"/></c>"
+            )),
+            Content::DynamicFormula(f) => s.push_str(&format!(
+                "<c r=\"{r}\" s=\"{st}\" cm=\"1\"><f t=\"array\" ref=\"{r}\">{}</f></c>",
+                xml::text(f)
             )),
         }
     }
@@ -472,6 +520,49 @@ mod tests {
         assert!(sx.contains("<dimension ref=\"B1:E4\"/>"));
         let unselected = sheet_xml(&wb.sheets[0], false);
         assert!(!unselected.contains("tabSelected"));
+    }
+
+    #[test]
+    fn a_dynamic_formula_brings_the_metadata_part_and_a_name_its_element() {
+        let plain = a_workbook();
+        assert!(!parts(&plain).iter().any(|(n, _)| n == "xl/metadata.xml"));
+        assert!(!content_types(&plain).contains("metadata"));
+        assert!(!workbook_rels(&plain).contains("metadata"));
+        assert!(!workbook_xml(&plain).contains("definedNames"));
+
+        let mut wb = a_workbook();
+        wb.sheets[0].set_formula_dynamic(
+            crate::sheet::parse_a1_range("f2").unwrap(),
+            "_xlfn.IFS(B2>3,\"big\",TRUE,\"small\")",
+            0,
+        );
+        wb.defined_names.push((
+            "Frazaro.Build".to_string(),
+            "\"Frazaro 0.7.1; a & b\"".to_string(),
+        ));
+        let names: Vec<String> = parts(&wb).into_iter().map(|(n, _)| n).collect();
+        assert_eq!(names[6], "xl/styles.xml");
+        assert_eq!(names[7], "xl/metadata.xml");
+        assert_eq!(names[8], "xl/worksheets/frazaro_1.xml");
+        assert!(content_types(&wb).contains(
+            "<Override PartName=\"/xl/metadata.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheetMetadata+xml\"/>"
+        ));
+        assert!(workbook_rels(&wb).contains(
+            "<Relationship Id=\"rIdFrazaroMetadata\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheetMetadata\" Target=\"metadata.xml\"/>"
+        ));
+        let w = workbook_xml(&wb);
+        assert!(w.contains(
+            "</sheets>\n<definedNames>\n<definedName name=\"Frazaro.Build\">\"Frazaro 0.7.1; a &amp; b\"</definedName>\n</definedNames>\n<calcPr"
+        ));
+        let sx = sheet_xml(&wb.sheets[0], true);
+        assert!(sx.contains(
+            "<c r=\"F2\" s=\"0\" cm=\"1\"><f t=\"array\" ref=\"F2\">_xlfn.IFS(B2&gt;3,\"big\",TRUE,\"small\")</f></c>"
+        ));
+        let meta = metadata_xml();
+        assert!(meta.contains("<metadataType name=\"XLDAPR\""));
+        assert!(meta.contains("<xda:dynamicArrayProperties fDynamic=\"1\" fCollapsed=\"0\"/>"));
+        assert!(meta
+            .contains("<cellMetadata count=\"1\"><bk><rc t=\"1\" v=\"0\"/></bk></cellMetadata>"));
     }
 
     #[test]

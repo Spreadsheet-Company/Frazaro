@@ -59,8 +59,52 @@ pub fn english_build_xlsx(
 ) -> Result<Vec<u8>, RefusalAtLine> {
     let g = load_grammar(prelude_text, vocab_texts)?;
     let t = g.translate_program_at(program_text)?;
-    crate::build::build_xlsx(program_text, &t.vla, prelude_text)
+    crate::build::build_xlsx(program_text, &t.vla, prelude_text, vocab_texts)
         .map_err(|refusal| RefusalAtLine { refusal, line: 0 })
+}
+
+/// `frazaro rebuild` (PORT.7, slice 7c): a built workbook's sentences read
+/// back out of its `Frazaro` sheet, its stamp checked against them and
+/// against the prelude and phrasebooks given, the workbook built again from
+/// them and compared whole. The refusal is `rebuild-not-a-build` for a file
+/// that is not a build this core can verify; a build that does not match is
+/// not a refusal but an answer, `Rebuilt::matches` false with its reason.
+pub fn english_rebuild_xlsx(
+    file: &[u8],
+    prelude_text: &str,
+    vocab_texts: &[&str],
+) -> Result<crate::build::Rebuilt, RefusalAtLine> {
+    let read =
+        crate::build::read_build(file).map_err(|refusal| RefusalAtLine { refusal, line: 0 })?;
+    if let Some(why) = read
+        .stamp
+        .disagreement(&read.program_text, prelude_text, vocab_texts)
+    {
+        return Ok(crate::build::Rebuilt {
+            sentences: read.sentences,
+            built_by: read.stamp.version.clone(),
+            matches: false,
+            why,
+        });
+    }
+    let again = english_build_xlsx(&read.program_text, prelude_text, vocab_texts)?;
+    let matches = again == file;
+    Ok(crate::build::Rebuilt {
+        sentences: read.sentences,
+        built_by: read.stamp.version.clone(),
+        matches,
+        why: if matches {
+            String::new()
+        } else if read.stamp.version != crate::VERSION {
+            format!(
+                "it was built by Frazaro {} and this is Frazaro {}, which writes the file differently",
+                read.stamp.version,
+                crate::VERSION
+            )
+        } else {
+            "its parts are not what this core builds from these sentences: a host has saved it since, or it was built differently".to_string()
+        },
+    })
 }
 
 /// `EnglishResetGrammar` and the loads: a fresh grammar over the prelude, each
