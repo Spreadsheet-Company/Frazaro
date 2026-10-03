@@ -215,9 +215,10 @@
   Every refusal the add-in gives a program or a phrasebook written in
   English is held to a golden the add-in itself writes, so the second
   implementation refuses as the first does, in the same words, and `frazaro`
-  refuses a missing file in those words too. Nothing about the add-in you
-  download changes; the translate API and the web page are the slices still
-  to come.
+  refuses a missing file in those words too. The two functions a web page
+  will call, a program and its phrasebooks in and the VLA or the VBA out, are
+  in the core. Nothing about the add-in you download changes; the page itself
+  is the slice still to come.
 - **The repository is now a workspace for more than one product; nothing
   about the add-in you download changes.** Frazaro is a language whose first
   implementation is this Excel add-in, and this release lays the ground for

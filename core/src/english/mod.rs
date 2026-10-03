@@ -31,3 +31,4 @@ pub mod vocab;
 pub mod words;
 
 pub use grammar::Grammar;
+pub use program::{RefusalAtLine, Translation};

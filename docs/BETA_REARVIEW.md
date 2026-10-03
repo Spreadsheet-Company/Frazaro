@@ -6580,8 +6580,39 @@ written against.
   **Owner-verified the same day, after `F.18`:** the reference's second run
   wrote the 115 cases byte for byte as the core had predicted, 113 distinct
   ids, the core's test and `check_refusal_golden.ps1` green on the file it
-  wrote; pure 1667, host 267. **Next:** 6g, the translate API, and 6h, the
-  C-ABI door and `web/index.html`.
+  wrote; pure 1667, host 267. Committed `567c414` on the owner's word, after
+  `F.18` (`2b45de6`).
+  **Built the same day, slice 6g: the translate API, `VLA_Browser.bas`'s two
+  functions as the core's surface.** `core/src/api.rs`:
+  `english_translate_text_to_vla(program, prelude, phrasebooks)` is
+  `EnglishResetGrammar`, `EnglishLoadVocabularyText` for each phrasebook text
+  under the name `vocab-N` in the order given, then `EnglishToVla`: the VLA
+  text back, or the refusal with its id and the program line it stands on
+  (`RefusalAtLine`; 0 for a phrasebook refused at load, whose text names
+  `vocab-N line L` itself); `english_translate_text_to_vba` is the same and
+  then the compile with the prelude, as `VlaSetPreludeOverride` arranges it.
+  One difference the port cannot avoid, written on the module: the
+  reference's VLA stage reads its prelude from the workbook (for the raw
+  probe and a generator's expansion), and a host-free core has no workbook,
+  so both functions take the prelude's text. The text path is ungated, as
+  the reference's is (`TestRawConsentTextPathUngated`): SEC.2's consent and
+  F.10's capability are a door's questions, asked before the call with the
+  two `vocab` helpers the CLI already uses. `english::` re-exports
+  `Translation` and `RefusalAtLine`, and the crate's doc names the pair as
+  the API a door calls. Nothing in the reference's two functions is left
+  out, and the CLI's `translate-vla`/`translate-vba` stay the file-based
+  pair's mirror (paths as source names, the gates asked), as the reference
+  keeps those two pairs apart. **Pins:** 107 Rust tests (five new: oracle 1
+  and oracle 1a through the API; a phrasebook refusal naming `vocab-2`, at
+  the line the reader gives a bare word, 0, as the refusal golden pins it
+  from the reference; a program refusal carrying its line through both
+  functions; `espanol.vla` loaded over `english.vla` and a Spanish sentence
+  reading; a raw-bearing text loading with no gate). **Floors:** none moved.
+  **Docs:** `RELEASES.md` 0.8.0, `Delta/CLAUDE.md`, this entry, the roadmap's
+  paragraph. **Next:** 6h, the C-ABI door (an allocator pair and the two
+  functions over UTF-8 in the module's memory, `#[no_mangle] extern "C"`,
+  `check_core_imports` at 0) and `web/index.html`, the wasm, the prelude and
+  `english.vla` inlined by a `tools/` build script, nothing fetched.
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day

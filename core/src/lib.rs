@@ -10,12 +10,13 @@
 //! leads them. conformance/README.md is the treaty; tools/prove.ps1 scores an
 //! implementation against it.
 //!
-//! The first API this crate will carry is VLA_Browser.bas's pair, text in and
-//! text out: EnglishTranslateTextToVla and EnglishTranslateTextToVba. Until
-//! that slice lands, the crate exports only its version and its ABI number,
-//! so the workspace builds, the tests run, and CI holds the zero-import
-//! property from the first commit.
+//! The API a door calls is VLA_Browser.bas's pair, text in and text out:
+//! `api::english_translate_text_to_vla` and `api::english_translate_text_to_vba`
+//! (PORT.6, slice 6g). The version and the ABI number were exported from the
+//! first commit, so that CI held the zero-import property before anything
+//! else existed; the C-ABI export of the pair (6h) joins them.
 
+pub mod api;
 pub mod emit;
 pub mod english;
 pub mod expand;
