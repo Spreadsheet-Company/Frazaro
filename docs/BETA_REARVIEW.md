@@ -6656,7 +6656,17 @@ written against.
   with `total = 5` in the VBA pane; the formula row's form with `=B2*2`
   beneath it; `Set x to $1.` red on row 3, its refusal ending `(line 3)` and
   the status `Refused on row 3.`; the pasted raw phrasebook refused in the
-  consent's own words until the box was ticked. **Pins:** 114 Rust tests
+  consent's own words until the box was ticked. *The owner's revision, the
+  same night:* the page is input and output, not Excel's columns, so the
+  headers read `Input` and `VLA [Visual Lisp for Applications]`, the lede
+  says the same, a language picker in the Input header loads a dialect over
+  `english.vla` as the add-in loads an edition (the seven dialects inside the
+  page from `{{BOOK:name}}` placeholders the builder fills, each one's first
+  proof the example the empty first row shows), and the focused input cell
+  is Frazaro Lavender, one CSS variable beside the add-in's whisper of it
+  (`VLA_IDE.bas` paints column B RGB 247, 244, 252). **Pins:** 115 Rust tests
+  (the eighth new one: every dialect loads over `english.vla` and reads its
+  example); before the revision, 114 Rust tests
   (seven new: a translation as a status-0 record; a refusal with its id and
   line through both functions; NUL-separated phrasebooks named in order, and
   none at all; an input that is not UTF-8; the gate's three answers; the

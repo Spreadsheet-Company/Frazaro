@@ -48,8 +48,9 @@ powershell -File tools\build_web.ps1
 builds the core for the browser (`cargo build --release -p frazaro-core
 --target wasm32-unknown-unknown`), checks that the module imports nothing
 (`tools\check_core_imports.ps1`; a page that could phone home is not
-written), and writes the page with the module, `scripts\prelude.vla` and
-`scripts\polyglotta\english.vla` inlined. The file is a build artifact
+written), and writes the page with the module, `scripts\prelude.vla`,
+`scripts\polyglotta\english.vla` and the dialects its language picker offers
+inlined. The file is a build artifact
 (`.gitignore`), like the `.xlam`; the core CI job builds it on every push and
 keeps it as an artifact beside the wasm. Open it by double-clicking: it needs
 no server and no network. The VBA it shows is text to paste into a module, or

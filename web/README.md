@@ -10,14 +10,18 @@ three placeholders with the module as base64, `scripts/prelude.vla` and
 file that runs from disk, a build artifact like the add-in's `.xlam`
 (`.gitignore`), kept by the core CI job on every push.
 
-What the page does: the lines typed in column B are the program; the core
-translates them as the add-in's Check does, and column C shows each row's VLA
-form (and the formula it writes, when it writes one), with a refusal in words
-on the row it belongs to; the whole VLA and the whole VBA stand below, with a
-Copy button each. Another phrasebook can be pasted to load after `english.vla`,
-and a phrasebook that holds a `(raw ...)` form loads only once the person ticks
-the consent box, the same gate the add-in asks at its file loader and the CLI
-asks with `--allow-raw`.
+What the page does: the lines typed under Input are the program, in the
+language the picker names (English, or a dialect loaded over `english.vla` as
+the add-in loads an edition; each dialect is inside the page too, from
+`{{BOOK:name}}` placeholders the builder fills); the core translates them as
+the add-in's Check does, and the VLA column shows each row's form (and the
+formula it writes, when it writes one), with a refusal in words on the row it
+belongs to; the whole VLA and the whole VBA stand below, with a Copy button
+each. The focused input cell is Frazaro Lavender, the colour the add-in
+paints its input column a whisper of. Another phrasebook can be pasted to load
+after the language's, and a phrasebook that holds a `(raw ...)` form loads
+only once the person ticks the consent box, the same gate the add-in asks at
+its file loader and the CLI asks with `--allow-raw`.
 
 What the page does not do: it loads nothing from the network, writes nothing
 anywhere, and executes nothing. The VBA is text to paste into a module in Excel,

@@ -15,9 +15,10 @@ WHAT IT HOLDS, on web/index.template.html (the source; web/index.html is a
 build artifact): no external reference of any kind - script, link, img,
 iframe, form, anchor, @import, url(), http(s)://, fetch, XMLHttpRequest,
 WebSocket, EventSource, sendBeacon, dynamic import, importScripts; a
-charset declaration; and each of the three placeholders tools/build_web.ps1
-fills ({{WASM_BASE64}}, {{PRELUDE}}, {{ENGLISH}}) present exactly once, so a
-built page is whole. When web/index.html exists beside the template, its
+charset declaration; each of the three placeholders tools/build_web.ps1
+fills ({{WASM_BASE64}}, {{PRELUDE}}, {{ENGLISH}}) present exactly once, and
+each {{BOOK:name}} of the language picker once with its phrasebook on disk,
+so a built page is whole. When web/index.html exists beside the template, its
 markup is held to the same list of tags (the base64 and the corpus texts
 cannot spell a tag).
 
@@ -59,6 +60,14 @@ function Test-Template([string]$path) {
         if ($first -lt 0) { $problems += ("placeholder missing: {0}" -f $ph); continue }
         if ($text.IndexOf($ph, $first + 1) -ge 0) { $problems += ("placeholder repeated: {0}" -f $ph) }
     }
+    # The language picker's dialects: each {{BOOK:name}} once, each a phrasebook on disk.
+    $seen = @{}
+    foreach ($m in [regex]::Matches($text, '\{\{BOOK:([a-z]+)\}\}')) {
+        $name = $m.Groups[1].Value
+        if ($seen.ContainsKey($name)) { $problems += ("placeholder repeated: {0}" -f $m.Value) }
+        $seen[$name] = $true
+        if (-not (Test-Path (Join-Path $repoRoot ("scripts/polyglotta/" + $name + ".vla")))) { $problems += ("no phrasebook for {0}" -f $m.Value) }
+    }
     return $problems
 }
 
@@ -68,8 +77,8 @@ function Test-Built([string]$path) {
     foreach ($t in $tagTokens) {
         if ($lower.Contains($t.ToLowerInvariant())) { $problems += ("the built page reaches out: '{0}'" -f $t) }
     }
-    foreach ($ph in $placeholders) {
-        # The corpus texts may hold doubled braces of their own; only the three names count.
+    foreach ($ph in ($placeholders + @('{{BOOK:'))) {
+        # The corpus texts may hold doubled braces of their own; only the names count.
         if ($lower.Contains($ph.ToLowerInvariant())) { $problems += ("the built page has {0} left in it" -f $ph) }
     }
     return $problems

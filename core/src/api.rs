@@ -83,6 +83,12 @@ mod tests {
     const PRELUDE: &str = include_str!("../../scripts/prelude.vla");
     const ENGLISH: &str = include_str!("../../scripts/polyglotta/english.vla");
     const ESPANOL: &str = include_str!("../../scripts/polyglotta/espanol.vla");
+    const DANSK: &str = include_str!("../../scripts/polyglotta/dansk.vla");
+    const DEUTSCHE: &str = include_str!("../../scripts/polyglotta/deutsche.vla");
+    const ESPERANTO: &str = include_str!("../../scripts/polyglotta/esperanto.vla");
+    const FRANCAIS: &str = include_str!("../../scripts/polyglotta/francais.vla");
+    const LATIN: &str = include_str!("../../scripts/polyglotta/latin.vla");
+    const PIRATE: &str = include_str!("../../scripts/polyglotta/pirate.vla");
     const PROGRAM: &str = include_str!("../../scripts/instructions.txt");
     const GOLDEN_VLA: &str = include_str!("../../scripts/instructions_golden.vla");
     const GOLDEN_VBA: &str = include_str!("../../scripts/instructions_golden.vba");
@@ -140,6 +146,50 @@ mod tests {
         let vba = english_translate_text_to_vba("Log 1.", PRELUDE, &[ENGLISH])
             .unwrap_or_else(|e| panic!("{}", e.refusal.text));
         assert!(vba.contains("Debug.Print 1"), "{vba}");
+    }
+
+    /// The web page's language picker loads a dialect after english.vla, as
+    /// the add-in loads an edition; each dialect's first proof sentence is
+    /// the picker's example, and must read over the base.
+    #[test]
+    fn every_dialect_loads_over_english_and_reads_its_example() {
+        let cases = [
+            ("dansk", DANSK, "Saet formlen \"=B2*2\" i cellen B3."),
+            (
+                "deutsche",
+                DEUTSCHE,
+                "Setze die Formel \"=B2*2\" in Zelle B3.",
+            ),
+            (
+                "espanol",
+                ESPANOL,
+                "Pon la formula \"=B2*2\" en la celda B3.",
+            ),
+            (
+                "esperanto",
+                ESPERANTO,
+                "Metu la formulon \"=B2*2\" en la chelon B3.",
+            ),
+            (
+                "francais",
+                FRANCAIS,
+                "Mets la formule \"=B2*2\" dans la cellule B3.",
+            ),
+            ("latin", LATIN, "Pone formulam \"=B2*2\" in cellula B3."),
+            (
+                "pirate",
+                PIRATE,
+                "Chart the course \"=B2*2\" onto the cell B3, arr.",
+            ),
+        ];
+        for (name, book, sentence) in cases {
+            let vla = english_translate_text_to_vla(sentence, PRELUDE, &[ENGLISH, book])
+                .unwrap_or_else(|e| panic!("{name}: {}", e.refusal.text));
+            assert!(
+                vla.contains("(range \"b3\")") && vla.contains("\"=B2*2\""),
+                "{name}: {vla}"
+            );
+        }
     }
 
     #[test]
