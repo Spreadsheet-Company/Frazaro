@@ -84,7 +84,7 @@ output:
 |---|---|---|
 | AC | AC.4 | AC.5 |
 | AS | AS.9 | AS.10 |
-| AXM | AXM.12 | AXM.13 |
+| AXM | AXM.13 | AXM.14 |
 | CO | CO.5 | CO.6 |
 | DI | DI.5 | DI.6 |
 | DO | DO.6 | DO.7 |
@@ -148,6 +148,11 @@ microscope. Declared in the prefix inventory at the moment of minting, as
 §12 maps each filed step to its `AXM` number. `METAPROOF.4`, `V.1`, `U.18`
 and `LE.7` are steps of the same road and keep their own families and
 places.
+
+**`AXM.13` minted 2026-10-03 at the owner's call**: `AXM.1`'s run on a real
+fifty-sheet model, taken out of `AXM.1` when it closed as the instrument
+with no real model or manager's questions to hand. It is placed after
+`AXM.7`, and `AXM.8` waits on it.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a

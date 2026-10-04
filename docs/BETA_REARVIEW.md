@@ -15153,7 +15153,7 @@ handles in the doc: `VARIANCE` (3.3), `TEMPORAL` (3.4), why-provenance
 scenarios (5.3) and the game (6.5, §7). Nothing here moves a standing
 decision: `SD-13`, the `GENSYM` veto and `SD-16` hold at every stage.
 
-- ⬜ **AXM.1 — the `REFLECT` measurement: how big is a real model, read as
+- ✅ **AXM.1 — the `REFLECT` measurement: how big is a real model, read as
   relations.** The microscope before Stage 0.1, whose own catch is that a
   million-cell model cannot be a million facts per question. A standalone
   diagnostic module in `tools/` (the `VLA_DiagO3.bas` precedent), imported
@@ -15169,6 +15169,245 @@ decision: `SD-13`, the `GENSYM` veto and `SD-16` hold at every stage.
   and `VlaTimeIt` (`VLA_DevRig.bas`) for the timing idiom. *Pays into:*
   `AXM.7`, `AXM.8`, and `IT_REVIEW.md`'s size claims. `~hours` to write;
   the owner runs it on a real fifty-sheet model.
+
+  *Scoped and built 2026-09-30 at the owner's call ("Scope, then implement,
+  AXM.1"). The decision rule and the predictions below were written here
+  before the first run; the measurements will be appended under them, and
+  they will stay as written.*
+
+  **Decided at scoping, the owner's calls, each as recommended (the most
+  secure option first in every fork):**
+  - *Where it runs: its own blank workbook, never saved.* The owner opens
+    the model read-only and clicks into it; the diagnostic refuses a
+    workbook that is not read-only, and its own. This supersedes the filed
+    text's "imported into any real workbook and run there": nothing enters
+    the model's VBA project. The code never opens a file (an opened
+    workbook's `Workbook_Open` would run), changes no `Application` setting,
+    has no `Declare` and makes no network call (`SD-13`). The other forks
+    were the dev `VLA.xlsm` (Frazaro's modules and events live beside it,
+    and whatever is left in it is saved with it) and a never-saved copy of
+    the model (a second confidential file on disk with code inside it).
+  - *What leaves the machine: counts and times only.* Sheets are numbered
+    by position in the `Sheets` collection, hidden and chart sheets
+    included, and cones by the order measured. No file name, sheet name,
+    address, formula text or value is ever printed; the owner keeps the
+    mapping (`? ActiveWorkbook.Sheets(7).Name`).
+  - *The cones: named by clicking a cell, then `AXM1Cone`, ten times.*
+    Nothing typed names a cell, and the cell is always on the active sheet:
+    Microsoft documents `DirectPrecedents` as working "only on the active
+    sheet"; `Precedents`' page says nothing, so the fixture probes it. The
+    floor is Excel's `Precedents`: all levels, the cell's own sheet only,
+    clipped to the used range, each cell counted once, split into non-blank
+    and formula cells. Excel raises 1004 when there are none, a floor of 0.
+    The ceiling: the filed text's "counted by hand" is read as a
+    deliberately crude count inside the diagnostic. It takes the sheet name
+    in front of each `!` outside a string or a quoted name, follows it
+    through a sheet graph built from every formula, and counts every
+    non-blank cell on the sheets reached. It reads no address, no defined
+    name, no structured reference and nothing inside `INDIRECT` (those are
+    `AXM.7`'s), and the lines say the ceiling is blind to them.
+  - *Extras, all four:* defined names (hidden, `#REF!`, naming another
+    workbook), Tables and links to other workbooks, counted only; distinct
+    R1C1 formulas, a third read per sheet; formulas holding `INDIRECT(` or
+    `OFFSET(`; and per cone, `Precedents`' own time and the floor read one
+    area at a time beside its sheet's whole read.
+  - *Output and record:* tagged Immediate-window lines, with the one line to
+    paste back printed last by `AXM1Report`. Nothing is written to any
+    workbook but the fixture's own: in automatic calculation a write
+    anywhere recalculates the volatile formulas of every open workbook, the
+    model's included. The module is `tools/VLA_DiagAXM1.bas`; the steps are
+    `archive/axm1_live_steps.md` (gitignored, as `optimize3_live_steps.md`
+    is).
+  - *The decision rule, below, as written.* The other forks were a 1 s
+    budget, and the worst cone deciding instead of the median.
+
+  **Settled by the brief and the code, not asked:**
+  - Formula cells are counted from the `Formula` array, never cell by cell.
+    A cell is a formula when its text starts with `=` and is not also its
+    own `Value2`, since a text cell typed `'=x` reads `=x` from both.
+    Excel's own count (`SpecialCells`) prints beside it, taken after the
+    timed reads so that it warms nothing.
+  - Memory: every read is chunked to at most 2^19 cells. A used range past
+    2^25 cells is not read at all; its counts come from `SpecialCells`, and
+    its line says so. A one-cell range's scalar `Value2` is wrapped as a
+    1 x 1 array.
+  - Time: `VlaTimeIt`'s idiom, `Timer` and the midnight wrap. Every chunk's
+    read is timed and summed over three passes; a sum of many short
+    readings is unbiased, but a sheet under about 50 ms is a few ticks, so
+    the totals are the numbers. A cone's timings repeat until a quarter of
+    a second has passed. A first pass over 30 s is not repeated.
+
+  **The decision rule, computed by the diagnostic itself (`AXM1Report`) so
+  that the numbers decide rather than justify.** A question's price is its
+  reads plus its facts at 0.0328 ms a fact. Facts are non-blank cells plus
+  twice the formula cells: a cell fact, a formula fact, and at least one
+  `refers` fact. 0.0328 ms is `DATALOG.14`'s measured scan (10,000 rows in
+  0.328 s), the cheapest thing any engine does with a fact. The budget is
+  2 s a question (`DATALOG.12`'s settled "fine", and `OPTIMIZE`'s formula
+  ceiling). P prices the whole workbook; S prices a cone as a scan (its
+  own sheet and every sheet it reaches, each read whole); C prices a cone
+  as a cone (its floor, read one area at a time). The first clause that
+  holds is the verdict, the simplest shape that fits the budget:
+  1. P ≤ 2 s: **SCAN THE WORKBOOK.** Certain.
+  2. median S ≤ 2 s: **SCAN PER SHEET.** Optimistic, since the reach is
+     blind to names, structured references and `INDIRECT`; `AXM.7`
+     confirms it.
+  3. median C ≤ 2 s: **CONE.** On the floor, so necessary and not
+     sufficient: `AXM.7`'s reader sizes the same ten cones before `AXM.8`
+     commits.
+  4. Otherwise: **RANGES.** Cones are too big as cells, so the engines take
+     areas, and `AXM.8` is re-scoped.
+
+  The median is the typical question; the worst prints beside it and does
+  not decide. Memory decides only chunking. The ten cells are the ten the
+  owner would most expect a manager to ask "why did this change?" about,
+  written down privately before the run.
+
+  **Built:** `tools/VLA_DiagAXM1.bas` (1,597 lines, ASCII, CRLF, no
+  `Declare`; nothing in `src/` calls it). Five entry points: `AXM1Fixture`
+  (control 1: it builds a ten-sheet workbook whose every count was derived
+  by hand, measures it and four cones in it, and prints `AXM1K|` ok or
+  WRONG per field), `AXM1Sample` (control 2), `AXM1Measure`, `AXM1Cone`
+  and `AXM1Report`. The fixture covers a hidden sheet, a very hidden one, a
+  chart sheet, an empty sheet, a one-cell used range away from A1, a used
+  range stretched by formatting alone, overlapping precedents, a cell with
+  no precedents, a cell whose only precedents are off its sheet, a quoted
+  name with a doubled apostrophe, a 3D span, a `!` inside a string, text
+  typed as `'=...`, a defined name, a hidden one and a `#REF!` one, and a
+  Table. Before handoff:
+  - a structural pass (block balance, duplicate `Dim`s, `As New`, `Err`
+    captured before `On Error GoTo 0`), controlled by three planted defects,
+    each caught;
+  - the qualifier scan transliterated line for line into Perl and run on
+    the fixture's ten formulas and fourteen edge cases (names holding `!`,
+    doubled quotes, quoted and unquoted 3D spans, references to other
+    workbooks, escaped quotes in strings): 24 of 24, with a mutant (the
+    quoted-name skip removed) failing two;
+  - the fixture's counts recomputed by script from its cell list.
+
+  **The owner's first compile, 2026-10-01, stopped at "Sub or Function not
+  defined" on `BookLine`'s call to `CountNames`.** VBA names ignore case,
+  so the parameter `nExt` was the keyword `Next`. `CountNames`' declaration
+  never parsed, the procedure was never defined, and only its caller said
+  so. None of the passes above compares an identifier with the keywords. The
+  rename (`nExt` to `nOutside`, and `BookLine`'s `tExt`, which is `Text`)
+  came with two more passes: every identifier against VBA's reserved words,
+  and every bare identifier against what is declared. Each is controlled on
+  `VLA_DiagO3.bas`, which compiles, and each catches a planted mutant.
+
+  **The first fixture run, the same day, failed twice before measuring
+  anything:**
+  - The build stopped at error 1004, "There's a problem with this formula":
+    `Names.Add` refuses `RefersTo:="=#REF!"`, the one line flagged as a risk
+    at writing. The fixture now makes its `#REF!` name the way a model's
+    names become one: `FxBroken` refers to Inputs' empty column D, and the
+    column is deleted. Each name is now its own build step, so a refusal
+    names the one that failed.
+  - `AXM1Report`, typed next in the Immediate window, read "Sub or Function
+    not defined" although the module holds it. The Immediate window looks a
+    command up in the VBE's active project, and the fixture's
+    `Workbooks.Add` had moved that to the new workbook's (inferred from the
+    symptom; opening the model can do the same). Every entry point is now
+    run from Excel's Macros dialog (Alt+F8), which finds a macro whichever
+    workbook is active. That dialog lists only macros without arguments, so
+    the cone is `AXM1Cone`, and measuring cone n again is
+    `AXM1ConeAgain n`, typed.
+
+  **The second fixture run** got through every build step, the `#REF!`
+  name's column deletion included, and failed the build's own check: ten
+  sheets, not in the order built. The check said only that, so the cause is
+  inferred, not seen. The chart sheet is the only sheet not made by
+  `Worksheets.Add(After:=` the last), so `Charts.Add` most likely ignored
+  `After:`. The chart is now moved to the end when it lands elsewhere, and
+  a failed check prints the order it found. Nothing relies on what a
+  sheet's `Index` counts any more. A cone finds its sheet by name in the
+  measure's own numbering, and the off-sheet test compares names.
+
+  **Control 1, measured 2026-10-01 (Excel 16.0, 64-bit): 15 of 16 on the
+  third run.** Every sheet, all four cones, and every count the rule uses
+  matched the hand derivation. The one miss was the names: 4 names, 2 of
+  them hidden, against 3 and 1 predicted.
+  - **The prediction failed.** The fourth name was Excel's own
+    `_xlfn.SINGLE`, hidden, referring to `=#NAME?`. Excel 365 adds the `@`
+    of implicit intersection to a formula written through `Formula` when a
+    function in it can return a range (the fixture's `INDIRECT`), and
+    defines the placeholder so older Excel can read the file. `Formula`
+    reads the text back without the `@`, so the character count still
+    matched. A model edited in Excel 365 can hold many of these, `_xlfn.`
+    placeholders for every newer function, and none is a name anyone
+    defined. They are now counted apart, in their own column, and the
+    check leaves them out, since whether one appears depends on Excel's
+    version.
+  - **The probe held, as weakly predicted.** `Precedents` of a cell whose
+    sheet is not active found the same 24 cells.
+  - **`Precedents` merges what it returns.** Cone 2's two overlapping
+    ranges, B2:B5 and B4:B9, came back as one area of 8 cells, and cone 1's
+    three columns as one area of 24.
+  - Every fixture read was under the timer's step (0.0 ms), as expected at
+    this size.
+
+  **Predictions, written before the first run** (`OPTIMIZE.0`'s rule: the
+  gap is reported afterwards, whichever way it falls):
+  - *Control 1, the fixture: 16 of 16 ok.* That is the build, ten sheets,
+    the workbook (508 cells, 60 non-blank, 26 formulas, 308 formula
+    characters, 12 distinct R1C1 formulas, 12 qualified references, 5
+    sheet links, 3 names), and four cones (floors 24, 8, 0 and 1; ceilings
+    30, 8, 0 and 46). The probe, held weakly: `Precedents` of a cell whose
+    sheet is not active returns the same 24 cells, since the documented
+    restriction is `DirectPrecedents`'. `AXM1Report` on the fixture gives
+    clause 1, SCAN THE WORKBOOK.
+  - *Control 2, `Frazaro Sample Data.xlsx` as `tools/build_examples.ps1`
+    builds it: 10 of 10 ok.* Nine sheets, not eight ("Start Here" is the
+    ninth), 1,060 used-range cells, 981 non-blank, no formula, three
+    Tables, no name, and the largest used range Sales' 287. A script wrote
+    the file (no `<dimension>`, inline strings), so Excel computes each
+    used range from the cells it holds. Four sheets define a column width
+    one column past their cells, and the prediction is that a width alone
+    does not stretch the used range. If it does, the cells read Start Here
+    162, Expenses 156, Invoices 186, Ledger 147, and 1,165 in all.
+  - *The model, a real fifty-sheet one* (ranges, the central value in
+    brackets):
+    - Size: used-range cells 1 to 10 million (3 million), 25-50% of them
+      non-blank; formula cells 100,000 to 600,000 (250,000); distinct R1C1
+      formulas 1-3% of the formula cells; at least 5 sheets whose used range
+      runs past its last non-blank cell by more than a tenth. The array
+      count agrees with Excel's on every sheet without spilled arrays.
+    - Reads: `Value2` 0.05-0.2 µs a cell (0.1), `Formula` 3-10 times
+      `Value2`, R1C1 about `Formula`'s; the whole workbook's `Value2` and
+      `Formula` together 0.5 to 5 s (2 s); pass 1 within 20% of passes 2
+      and 3.
+    - Cones: at least 3 of the 10 with a floor of 0 (totals whose
+      precedents all live on other sheets); the median floor under 1,000
+      non-blank cells; the median reach at least half the sheets, with a
+      ceiling of at least 30% of the workbook's non-blank cells;
+      `Precedents` under 0.1 s for at least 8 of the 10.
+    - The rule: P 30 to 200 s, so clause 1 fails (any model past about
+      61,000 facts fails it); the median S 5 to 50 s, so clause 2 fails; the
+      median C under 0.1 s, so clause 3 holds: **CONE**. The floor will
+      understate the true cone, because the totals' precedents cross
+      sheets. That would make `AXM.7`'s reader, not `REFLECT`'s reads, the
+      critical path to `AXM.8`.
+
+  **Measured, 2026-10-03, and closed as the instrument.** Both controls
+  passed on the owner's run (Excel 16.0, 64-bit), with the module as
+  committed:
+  - *Control 1, the fixture: 16 of 16,* its `_xlfn.SINGLE` counted apart.
+    `AXM1Report` over its four cones gave clause 1, SCAN THE WORKBOOK, at
+    P 0.004 s, so the rule's arithmetic runs end to end.
+  - *Control 2, Frazaro Sample Data: 10 of 10.* Nine sheets, 1,060
+    used-range cells, 981 non-blank, no formula, three Tables. **The
+    column-width prediction held:** a width alone does not stretch the
+    used range (Start Here reads 27 x 5, Ledger 21 x 6).
+  - Every read at these sizes was under the timer's step.
+
+  **The run on a real model was not made.** No real fifty-sheet model and
+  no manager's questions were to hand, so at the owner's call the item
+  closes as the instrument it built, and the run is `AXM.13`. That run
+  waits on a real model, and on a reader that sizes true cones, which
+  Excel's `Precedents` can only floor: `AXM.7`'s in the workbook, or the
+  reader the Rust port is building (`PORT.8`, `REFLECT` over a file),
+  whichever lands first. The predictions above stand unmeasured, for
+  `AXM.13` to test, and `AXM.8` now waits on `AXM.13`.
 - ⬜ **AXM.2 — the act seam, and the Controls sheet as its first arm (Stage
   1.1; `V.1` re-scoped).** Today `EnTokenize` folds `?` and `!` into `.`
   (`VLA_SentenceEngine.bas`, the terminator arm near L3171: `c = "." Or c =
@@ -15288,6 +15527,30 @@ decision: `SD-13`, the `GENSYM` veto and `SD-16` hold at every stage.
   first fifteen schemas (a summed range one row short, a reference shifted
   by an inserted row, a stale external link, a circular reference).
   `~weeks`.
+- ⬜ **AXM.13 — the `REFLECT` measurement, run: a real model's numbers
+  decide `AXM.8`'s shape.** *Minted 2026-10-03 at the owner's call, out of
+  `AXM.1`, which closed as the instrument with no real model or manager's
+  questions to hand.* The instrument stands: `tools/VLA_DiagAXM1.bas`,
+  controlled on a fixture (16 of 16) and on Frazaro Sample Data (10 of 10).
+  Its decision rule and predictions, written in `AXM.1`'s entry before any
+  run, stay as written: the simplest of SCAN THE WORKBOOK, SCAN PER SHEET,
+  CONE and RANGES that fits 2 s a question, with CONE predicted. This item
+  makes the run, on a real fifty-sheet model the owner opens read-only, and
+  appends the numbers under those predictions. It waits on two things:
+  - *A real model.* Where it comes from is settled at scoping: the owner's
+    own, or a public one downloaded and opened read-only with its macros
+    off. A model built here would only measure its builder's assumptions.
+  - *True cones.* Excel's `Precedents` stops at the sheet boundary, so
+    `AXM.1` puts each cone between a floor and a sheet-level ceiling. A
+    reader that follows references across sheets sizes it exactly:
+    `AXM.7`'s in the workbook, or the Rust port's `REFLECT` over a file
+    (`PORT.8`), whichever lands first. The run then settles clause 3's
+    caveat (the cone measured on the floor) in the same session.
+
+  The ten cells are the why-questions of `AXM.6`'s corpus, the owner's
+  close repertoire, if it holds them by then; either way they are chosen
+  before any number exists. *Pays into:* `AXM.8`, and `IT_REVIEW.md`'s
+  size claims. `~hours`: the owner's run, then the record.
 - ⬜ **AXM.8 — `REFLECT`: the workbook as relations (Stage 0.1), shaped by
   `AXM.1`'s numbers.** Eight relations any engine can take as a table:
   `cell(sheet, addr, value)`, `formula(sheet, addr, text)`, `refers(from,
@@ -15305,6 +15568,9 @@ decision: `SD-13`, the `GENSYM` veto and `SD-16` hold at every stage.
   beside them (`Frazaro Sample Data.xlsx` is the one fixture workbook
   today), which needs a `(workbook …)` clause after `METAPROOF.4`'s
   `(tables …)`. `~weeks`, after `AXM.1` and `AXM.7`.
+  *Re-pointed 2026-10-03: `AXM.1` closed as the instrument, and its run on
+  a real model is `AXM.13`, so this item is shaped by `AXM.13`'s numbers
+  and waits on `AXM.7` and `AXM.13`.*
 - ⬜ **AXM.9 — the standalone question: scope, placement and topic lines
   (Stages 0.4, 0.5, 2.1, 2.2).** `?` as an arm of `AXM.2`: a sentence
   ending in `?` is `G-PROLOG`'s `{q:question}` sub-grammar
@@ -28312,3 +28578,7 @@ numbers. **Quoting a correction is not applying it.**
 
 - ✅ **U.30 — a program's own name cannot be one its generated code calls.** Minted 2026-09-30, the owner's call, from `LX.14`'s scoping; filed for actions, widened to every name at scoping; built 2026-09-30, **owner-verified live and committed 2026-10-01** (`VLA_SELF-TESTS` pure 1651/1651 and host 267/267, `LX.14`'s pins beside it, as predicted; `VerifyReports` 371/371 on both backends; `TestDSLs` 2346/0; `To len of x:`, `Set rows to 5.`, `Set cstr to 5.` and `Set debug to 5.` refused word for word on their rows; the VBA editor agreeing name by name; the six function words giving 3, 2023, 15, 18, 15 and 3 on both backends). `To len of x:` was accepted, and in that program every `length of` called it on both backends (a procedure of the program's answers before VBA's library, and before the interpreter's builtins); a variable of such a name broke the compiled call alone, while Interpret ran on. `CheckName` now refuses the forty-two names the generated code calls by name wherever a name is made, the list read from four sources in the engine and held to them by `tools/check_engine_call_names.ps1`, the thirty-second check. Folded in: six function words (`absolute of` … `minute of`) that never ran under Interpret now do, and VBA's conversions join the reserved words. *Pays into:* `LX.14`, whose masking of one-word heads waited on it. *(more: the full entry, earlier in this file)* `~hours`
 - ✅ **U.31 — seven more of VBA's reserved words are refused as names.** `return`, `gosub`, `global`, `scale`, `circle`, `decimal` and `longlong` were missing from `IsReservedName`, so a value or a step of such a name checked clean and then failed to compile with no sentence named; each is now refused at Check by the reserved-word refusal, naming the word, and a hyphenated name that begins with one stays a name. Found under `U.30`; filed, built, owner-verified live and committed 2026-10-02 from `PORT.6`'s step 0, with `scripts/names.vla` re-exported at 218 entries so the core reads the mended list. *(more: the full entry, earlier in this file)* `~hours`
+
+## 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE SINGULARITY LINE
+
+- ✅ **AXM.1 — the `REFLECT` measurement: how big is a real model, read as relations.** The microscope before Stage 0.1, second in the third gear's order after `METAPROOF.4`, opened 2026-09-30 at the owner's call; owner-verified live and committed 2026-10-03 as the instrument. `tools/VLA_DiagAXM1.bas` reads a workbook the owner opened read-only and writes nothing into it, printing counts and times only, never a name, address or value. It reads every sheet's used range as one array (`Value2`, `Formula`, `FormulaR1C1`, three passes) and counts cells, formulas and distinct formulas from the arrays. It turns sheet-qualified references into a sheet graph by a deliberately crude count. It sizes a clicked cell's cone between Excel's `Precedents` (the floor) and that graph (the ceiling). Then a decision rule written before any run picks `REFLECT`'s shape: the simplest of SCAN THE WORKBOOK, SCAN PER SHEET, CONE and RANGES that fits 2 s a question. Both controls passed: a fixture whose every count was derived by hand (16 of 16), and Frazaro Sample Data (10 of 10), whose one real prediction held: a column width alone does not stretch the used range. The first live runs found five Excel and VBE behaviours, each fixed and recorded as a trap. `nExt` is the keyword `Next`. `Names.Add` refuses `=#REF!`. A workbook added from the Immediate window takes the VBE's project with it, so every entry point runs from Alt+F8. `Charts.Add` can misplace the chart. Excel 365's `_xlfn.SINGLE` is now counted apart from a workbook's own names. The run on a real fifty-sheet model was deferred at the owner's call, with no model or manager's questions to hand, to `AXM.13`, which waits on a reader that sizes true cones: `AXM.7`'s, or the Rust port's `PORT.8`. *(more: the full entry, earlier in this file)* `~hours`

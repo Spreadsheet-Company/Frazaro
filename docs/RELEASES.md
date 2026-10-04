@@ -187,6 +187,15 @@
   - `tools/check_proofs.ps1` checks every table without Excel. The clingo
     export passes over a proof with tables until it can state one
     faithfully, so clingo still reads the same 23 proofs.
+- **For contributors: `tools/VLA_DiagAXM1.bas` measures a model as
+  relations (`AXM.1`).** It doesn't ship, and nothing in Frazaro calls it.
+  It reads a workbook you opened read-only and writes nothing into it:
+  every sheet's used range as one array, its cells and formulas, the time
+  each read takes, and the precedents of ten cells you click. It prints
+  counts and times only, never a sheet name, an address or a value. It
+  runs from its own blank workbook through Alt+F8, and two controls check
+  its counting: a workbook it builds, and Frazaro Sample Data. Its run on
+  a real model is `AXM.13`.
 - **A worksheet function defined in a program keeps a minus sign and a
   quote mark.** Before, a `deflambda` whose body negated a lone value, as
   in `(- x)`, lost the minus sign on its way into the formula, and one
