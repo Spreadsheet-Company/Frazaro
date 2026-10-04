@@ -6684,9 +6684,11 @@ written against.
   door. What is not ported, by design: G-RENDER, the IDE's audits and the
   coverage counters, all off the translate path. What follows is the
   release that attaches the page, and `PORT.7`, the writer.
-- ⬜ **PORT.7 — the writer.** *Scoped 2026-10-02 at the owner's trigger
-  (`SUBSTRATE.md` H.3's rule, pulled by asking); 7a to 7d built, opened by
-  the owner 2026-10-03; 7e next.* Slice 3 of `HORIZON.md` §12: the sheet model
+- ✅ **PORT.7 — the writer.** *Scoped 2026-10-02 at the owner's trigger
+  (`SUBSTRATE.md` H.3's rule, pulled by asking); built, owner-verified and
+  closed 2026-10-03, in five slices and five commits of its own, each slice
+  opened by the owner in Excel or the browser before its commit.* Slice 3
+  of `HORIZON.md` §12: the sheet model
   and OOXML out with deterministic bytes; the sentences' sheet, then (7b) the
   static subset of a program as cells and formulas, (7c) the build stamp and
   `frazaro rebuild`, (7d) `--into model.xlsx` with the model untouched, (7e)
@@ -6972,7 +6974,74 @@ written against.
   partial yes line for its six sentences. 41 checks, 13 oracles (the into
   row new). The build into a model of the owner's own, and Sheets, Calc
   and Numbers, at the owner's pace.
-  *(roadmap: BETA_ROADMAP.md)*
+  **Slice 7e, the C-ABI and the page's Download button (built 2026-10-03).**
+  `core/src/abi.rs` gains `frazaro_build_xlsx`: the same three inputs as a
+  translate call and the record the others answer with, its status-0 text
+  field the one that holds bytes rather than text, the workbook, and its id
+  field the bytes' SHA-256 in upper-case hex, the digest `frazaro build`
+  prints beside its byte count, so a page shows the digest of exactly what
+  it hands over; the record's writer takes bytes now and every text caller
+  passes its own; the three inputs' decoding is one helper the translate
+  pair and the build share; `frazaro_abi_version` stays 1, an export added
+  and no signature's meaning changed. `web/index.template.html`: under the
+  two panes a Workbook strip, built on every change as the panes are (the
+  third call per keystroke, after the VLA and before the VBA), reading
+  `program.xlsx: <n> bytes, sha256 <hex>` or, when the writer cannot hold a
+  sentence with nothing running, the build's refusal in red naming its
+  line, the VLA and VBA beside it standing since the translation did;
+  *Download as .xlsx* makes an anchor in script to a `data:` address of the
+  bytes and clicks it, the browser saving the file where the person
+  chooses, since `check_web_offline.ps1` forbids `url(`, which
+  `createObjectURL(` spells, and `<a href` in the markup; the record reader
+  copies a build's body out of the module's memory before freeing the
+  record and leaves it as bytes. The page's comment, lede and footer say
+  what the button does and that the page itself still writes nothing.
+  `web/README.md`, `DEPLOY.md` (the web section and the build section),
+  `RELEASES.md`; the treaty's fourth amendment of the day: the runner
+  scores an executable, not a page, so the web door is held to oracle 7
+  where its bytes are made, the core's test putting `fixture.txt` through
+  the C-ABI record and requiring the first golden byte for byte with the
+  golden's digest as the record's id. 171 Rust tests, 2 of them new (the
+  golden through the record, with and without a final newline, since a
+  page's rows carry none; the build's refusals through it: a sentence the
+  writer cannot hold, its line in the text, a sentence the language
+  refuses, its line in the record, an input that is not UTF-8); the wasm
+  768,325 bytes with 0 imports, the writer now inside the module; the page
+  1,358,970 characters; 41 checks, 13 oracles. Nothing in the VBA changed
+  and no catalogue id: the page's own two lines, the ABI mismatch and the
+  unbuilt page, are the page's as before.
+  **The owner's live check for 7e:** open `web\index.html` by
+  double-clicking (built here already; `powershell -File
+  tools\build_web.ps1` rebuilds it). Type `Put 5 into cell B2.`: the
+  Workbook strip reads `program.xlsx: <n> bytes, sha256 <hex>` and the
+  button is live. Paste the whole of `scripts\build\fixture.txt` into the
+  first row (the paste splits into rows): the digest shown is the first
+  golden's, `(Get-FileHash scripts\build\fixture_golden.xlsx).Hash`, since
+  the rows are the file's lines. Click *Download as .xlsx*: `program.xlsx`
+  lands in Downloads with no prompt beyond the browser's own; opened in
+  Excel it is the first golden's workbook, `Frazaro`, `Output` and `data`;
+  `target\debug\frazaro.exe rebuild %USERPROFILE%\Downloads\program.xlsx
+  --prelude scripts\prelude.vla --phrasebook scripts\polyglotta\english.vla`
+  says yes. Add the row `Say "hello".`: the strip turns red with the build's
+  refusal naming the line, the button waits, and the row's VLA still shows.
+  On "tests pass, commit", the slice commits and `PORT.7` closes.
+  **The owner's live check for 7e, 2026-10-03:** every step as predicted.
+  One sentence gave the strip `program.xlsx: 7,257 bytes` with its digest;
+  the fixture pasted into the first row split into its eleven rows, `11
+  rows translated`, and the strip read `11,390 bytes` with the first
+  golden's digest exactly, `18F69AA3...EDFADBC4`, as `Get-FileHash` gives
+  it; the download opened in Excel as the golden does, `Output` showing
+  7b's values with `=IFS(B2>3,"big",TRUE,"small")` in D2's bar and no `@`;
+  `rebuild` on the downloaded file printed `This workbook was built from
+  these 9 sentences by Frazaro 0.7.1: yes.`; with `Say "hello".` as a
+  twelfth row the strip turned red with the build's refusal naming line 12,
+  the button disabled, the row's VLA `(msgbox "hello")` still shown. The
+  footer reports the core at 750 KB. 41 checks, 13 oracles. Of step 0's
+  nine predictions, 1, 4, 5, 6 and 7 held as written, 2 and 9 were
+  corrected by the live passes, 3 was never put to the test since the
+  writer writes the prefix, and 8, Sheets, Calc and Numbers, stays at the
+  owner's pace. The item closes with this slice.
+  *(closed 2026-10-03: THE CLOSED LEDGER, at the end of this file)*
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day
@@ -28051,6 +28120,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **PORT.4 — the conformance harness and the workspace.** `conformance/README.md`, the treaty that holds every implementation to the one corpus (the VBA reference testifies through its goldens); `tools/prove.ps1`, its runner, proven on a fake implementation and a mutant; the Cargo workspace (`core/`, `cli/`, `web/` held open) beside an unmoved `src/`; `check_version_twin.ps1` and `check_core_imports.ps1` (the wasm core's import section read off the artifact: 73 bytes, 0 imports); the `core` CI job. Closed 2026-10-01. *(more: the full entry, earlier in this file)*
 - ✅ **PORT.5 — the reader and the emitters, in the core.** `core/src/`: the six intrinsics, the datum, the reader and printer, the message catalogue and the head table read from `scripts/messages.vla` and `scripts/headtable.vla` (exported once from the VBA, held to it by `check_data_exports.ps1`), the macro system, and the emitters, one match arm per `Select Case` arm, as `frazaro compile`; the treaty's oracle 1b (the golden less its stamp line, with the prelude, to the `.vba`) in `prove.ps1`; `F.7`'s two latent bugs fixed in the VBA first. `prove.ps1 -Impl target/debug/frazaro.exe` passes the compile oracle whole, 301,861 characters: the first reproduction of a golden by anything but the VBA. `check_compile_prefix.ps1` holds that length. Closed 2026-10-02. *(more: the full entry, earlier in this file)*
 - ✅ **PORT.6 — English in the core.** `VLA_SentenceEngine.bas` and `VLA_English.bas` in the core, slice by slice (`core/src/english/`: the word tables and name lists as data, the tokenizer, the rule store and the loader, the matcher with the expression and condition grammars, the statement grammar with the PROLOG sub-grammars and `EnglishToVla`), held to the reference by three goldens it writes (the token, the translate and the refusal golden) beside every phrasebook's proofs: `frazaro translate-vla` reproduces `instructions_golden.vla` byte for byte and `translate-vba` the `.vba`; `frazaro prove` passes every proof of every phrasebook; 113 of the 125 English refusal ids come out in the same situation with the same text, the twelve others a door's, elsewhere or unreachable, named in the treaty's fourth amendment; `VLA_Browser.bas`'s two functions are the core's API and its C-ABI; and `web/index.html`, built by `tools/build_web.ps1` from the wasm, the prelude and `english.vla`, is one file that runs from disk with nothing fetched and nothing executed. Scoped, built, owner-verified and closed 2026-10-02, the day `PORT.5` closed, in nine slices and eleven commits of its own; three defects found in the reference on the way and fixed there first (`U.31`, `LX.15`, `F.18`); 114 Rust tests, 40 checks, the treaty amended four times that day. *(more: the full entry, earlier in this file)* `~weeks` to `~quarter` as filed; a day as built.
+- ✅ **PORT.7 — the writer.** Slice 3 of `HORIZON.md` §12, new ground with no VBA to port (`core/src/sheet/`, `core/src/build.rs`, `core/src/sha256.rs`): `frazaro build program.txt --prelude prelude.vla --phrasebook english.vla --out program.xlsx` writes a workbook from sentences with nothing installed, deterministic to the byte (stored entries stamped 1980-01-01, a fixed part order, no author and no date): the `Frazaro` sheet in the room's own layout, the other sheets holding what a sheet holds with nothing running (values and formulas, a fill shared as Excel shares it, newer functions under `_xlfn.`, a formula that can return an array stored as `Formula2` stores it), every sentence that needs Run refused by name with its line; the stamp `Frazaro.Build` and `frazaro rebuild` (yes, or no with why; a host's save refused as not a build); `--into model.xlsx` with the model's parts copied as they were and four edited at one place each (RFC 1951's decoder from nothing, the zip reader generalised); the C-ABI's `frazaro_build_xlsx` and the page's *Download as .xlsx* with the digest beside it. Oracle 7: two goldens held byte for byte by `check_build_golden.ps1` and the core's tests, each opened by the owner; the page's download the first golden's bytes and digest, opened in Excel, `rebuild` yes. Scoped 2026-10-02 at the owner's trigger (`SUBSTRATE.md` H.3, pulled by asking; generic first, the Controls sheet to `AXM.2`); built, owner-verified and closed 2026-10-03 in five slices and five commits of its own; 171 Rust tests, 41 checks, ten catalogue ids under `VLA-Build`, the treaty amended four times that day; two predictions of step 0 corrected by the live passes and one defect of a slice found on the owner's Excel-saved copy and refused by name. *(more: the full entry, earlier in this file)* `~weeks` as filed; a day as built.
 - *Together:* SD-18's infrastructure — a port with no purity guarantee and no intrinsics reference would re-litigate every behavior. *(more: the full entry, earlier in this file)*
 
 ## 🔧 MACHINE · ENVIRONMENT

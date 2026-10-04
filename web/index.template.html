@@ -10,7 +10,10 @@
   writes web/index.html, one file that runs from
   disk. The page loads nothing from the network, writes nothing anywhere, and executes
   nothing: the core's import section is empty (tools/check_core_imports.ps1), and
-  tools/check_web_offline.ps1 holds this file to the same doctrine.
+  tools/check_web_offline.ps1 holds this file to the same doctrine. Download as .xlsx
+  (PORT.7, slice 7e) hands the browser the workbook the core built from the rows, the
+  bytes frazaro build writes, as a data: address with their SHA-256 shown beside the
+  button; the browser saves it where the person chooses, and the page itself writes nothing.
 -->
 <html lang="en">
 <head>
@@ -51,8 +54,13 @@
   .pane { border: 1px solid #d9d9d2; background: #fff; min-width: 0; }
   .pane .bar { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #f3f3ee; border-bottom: 1px solid #d9d9d2; font-size: 12px; font-weight: 600; color: #6b6b66; }
   .pane pre { margin: 0; padding: 10px; max-height: 420px; overflow: auto; font: 12.5px/1.4 ui-monospace, Consolas, "Cascadia Mono", monospace; white-space: pre; }
+  .pane.build { margin-top: 14px; }
+  .pane.build p { margin: 0; padding: 8px 10px; min-height: 1.4em; font-size: 13px; color: #4b4b47; word-break: break-all; }
+  .pane.build p.refused { color: #a2262b; }
+  .pane.build code { font: 12.5px/1.4 ui-monospace, Consolas, "Cascadia Mono", monospace; }
   button { font: inherit; font-size: 12px; padding: 3px 10px; border: 1px solid #c8c8c0; background: #fff; border-radius: 3px; cursor: pointer; }
   button:hover { background: #f3f3ee; }
+  button:disabled { color: #9a9a94; background: #fff; cursor: default; }
   details { margin: 18px 0; border: 1px solid #d9d9d2; background: #fff; padding: 8px 12px; }
   summary { cursor: pointer; font-weight: 600; }
   textarea { width: 100%; box-sizing: border-box; font: 12.5px/1.4 ui-monospace, Consolas, "Cascadia Mono", monospace; border: 1px solid #c8c8c0; padding: 8px; margin-top: 8px; }
@@ -64,7 +72,7 @@
 <body>
 <header>
   <h1>Frazaro</h1>
-  <p class="lede">Type a program, one sentence per row, and read what each sentence means: its VLA, and the formula it writes when it writes one. Press Enter for the next row; indent a block with two spaces. Nothing you type leaves this page, and nothing here is executed.</p>
+  <p class="lede">Type a program, one sentence per row, and read what each sentence means: its VLA, and the formula it writes when it writes one. Press Enter for the next row; indent a block with two spaces. Download as .xlsx gives you the workbook the sentences build, to open anywhere with nothing installed. Nothing you type leaves this page, and nothing here is executed.</p>
 </header>
 <main>
   <table class="grid" aria-label="the program">
@@ -88,6 +96,10 @@
   <section class="panes">
     <div class="pane"><div class="bar"><span>VLA &middot; the whole program</span><button type="button" data-copy="vla">Copy</button></div><pre id="vla"></pre></div>
     <div class="pane"><div class="bar"><span>VBA [Visual Basic for Applications] &middot; what Compile writes into a module</span><button type="button" data-copy="vba">Copy</button></div><pre id="vba"></pre></div>
+  </section>
+  <section class="pane build" aria-label="the workbook">
+    <div class="bar"><span>Workbook &middot; the sentences as a file, the bytes <code>frazaro build</code> writes</span><button type="button" id="download" disabled>Download as .xlsx</button></div>
+    <p id="build"></p>
   </section>
   <details>
     <summary>Phrasebooks</summary>
@@ -125,8 +137,11 @@
   var extraEl = document.getElementById('extra');
   var allowEl = document.getElementById('allowraw');
   var langEl = document.getElementById('lang');
+  var buildEl = document.getElementById('build');
+  var downloadEl = document.getElementById('download');
   var rows = [''];
   var timer = 0;
+  var built = null; // the workbook's bytes, while the program builds
 
   // ---- the core: records in the module's memory (core/src/abi.rs) ----
   function bytesOfBase64(s) {
@@ -142,22 +157,24 @@
     return { ptr: p, len: b.length };
   }
   function free(x) { core.frazaro_free(x.ptr, x.len); }
-  function readRecord(ptr, len) {
+  function readRecord(ptr, len, raw) {
     var dv = new DataView(core.memory.buffer, ptr, len);
     var status = dv.getUint32(0, true), line = dv.getUint32(4, true);
     var idLen = dv.getUint32(8, true), textLen = dv.getUint32(12, true);
     var mem = new Uint8Array(core.memory.buffer, ptr, len);
     var id = dec.decode(mem.subarray(16, 16 + idLen));
-    var text = dec.decode(mem.subarray(16 + idLen, 16 + idLen + textLen));
+    var body = mem.slice(16 + idLen, 16 + idLen + textLen); // a copy: the record is freed next
     core.frazaro_free(ptr, len);
-    return { status: status, line: line, id: id, text: text };
+    // A build's status-0 record carries the workbook's bytes where every other carries text.
+    if (raw && status === 0) return { status: status, line: line, id: id, bytes: body };
+    return { status: status, line: line, id: id, text: dec.decode(body) };
   }
-  function call(fn, args) {
+  function call(fn, args, raw) {
     var outp = core.frazaro_alloc(4);
     var ptr = fn.apply(null, args.concat([outp]));
     var len = new DataView(core.memory.buffer).getUint32(outp, true);
     core.frazaro_free(outp, 4);
-    return readRecord(ptr, len);
+    return readRecord(ptr, len, raw);
   }
   function translate(toVba, program, books) {
     var p = put(program), q = put(prelude), b = put(books.join('\0'));
@@ -171,6 +188,18 @@
     var r = call(core.frazaro_vocab_gate, [t.ptr, t.len, n.ptr, n.len, allowRaw ? 1 : 0]);
     free(t); free(n);
     return r;
+  }
+  function build(program, books) {
+    // frazaro build's bytes; the record's id is their SHA-256, the digest the door prints.
+    var p = put(program), q = put(prelude), b = put(books.join('\0'));
+    var r = call(core.frazaro_build_xlsx, [p.ptr, p.len, q.ptr, q.len, b.ptr, b.len], true);
+    free(p); free(q); free(b);
+    return r;
+  }
+  function base64Of(bytes) {
+    var s = '';
+    for (var i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(s);
   }
 
   // ---- the language: english.vla first, then the dialect picked ----
@@ -299,6 +328,16 @@
     statusEl.textContent = text;
     statusEl.className = refused ? 'status refused' : 'status';
   }
+  function setBuild(bytes, text, refused) {
+    built = bytes;
+    buildEl.textContent = text;
+    buildEl.className = refused ? 'refused' : '';
+    downloadEl.disabled = !bytes;
+  }
+  function showBuilt(r) {
+    setBuild(r.bytes, 'program.xlsx: ' + r.bytes.length.toLocaleString('en') + ' bytes, sha256 ', false);
+    var code = document.createElement('code'); code.textContent = r.id; buildEl.appendChild(code);
+  }
   function clearC() {
     for (var i = 0; i < rowsEl.children.length; i++) {
       var c = rowsEl.children[i].lastChild; c.textContent = ''; c.className = 'c'; c.removeAttribute('title');
@@ -310,17 +349,17 @@
     if (!core) return;
     clearC();
     var program = rows.join('\n');
-    if (!program.trim()) { vlaEl.textContent = ''; vbaEl.textContent = ''; setStatus('Type a sentence in the first row.', false); return; }
+    if (!program.trim()) { vlaEl.textContent = ''; vbaEl.textContent = ''; setBuild(null, '', false); setStatus('Type a sentence in the first row.', false); return; }
     var books = currentBooks();
     var extra = extraEl.value;
     if (extra.trim()) {
       var g = gate(extra, 'the pasted phrasebook', allowEl.checked);
-      if (g.status !== 0) { vlaEl.textContent = ''; vbaEl.textContent = ''; setStatus(g.text, true); return; }
+      if (g.status !== 0) { vlaEl.textContent = ''; vbaEl.textContent = ''; setBuild(null, '', false); setStatus(g.text, true); return; }
       books.push(extra);
     }
     var r = translate(false, program, books);
     if (r.status !== 0) {
-      vlaEl.textContent = ''; vbaEl.textContent = '';
+      vlaEl.textContent = ''; vbaEl.textContent = ''; setBuild(null, '', false);
       if (r.status === 1 && r.line > 0 && r.line <= rows.length) {
         var c = rowsEl.children[r.line - 1].lastChild;
         c.textContent = r.text; c.className = 'c refused'; c.title = r.id;
@@ -344,6 +383,8 @@
         if (formula) { var span = document.createElement('span'); span.className = 'formula'; span.textContent = formula; cell.appendChild(span); }
       }
     }
+    var w = build(program, books);
+    if (w.status === 0) showBuilt(w); else setBuild(null, w.text, true);
     var v = translate(true, program, books);
     if (v.status === 0) {
       vbaEl.textContent = v.text;
@@ -368,6 +409,14 @@
     var range = document.createRange(); range.selectNodeContents(el);
     var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
   }
+  downloadEl.addEventListener('click', function () {
+    // The bytes the core built, handed to the browser as a data: address to save where the person chooses.
+    if (!built) return;
+    var a = document.createElement('a');
+    a.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + base64Of(built);
+    a.download = 'program.xlsx';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
   extraEl.addEventListener('input', schedule);
   allowEl.addEventListener('change', schedule);
   langEl.addEventListener('change', function () {
@@ -386,7 +435,7 @@
     if (abi !== ABI) { setStatus('This page expects the core ABI ' + ABI + ' and the core says ' + abi + '.', true); core = null; return; }
     var version = call(core.frazaro_version_text, []).text;
     document.getElementById('foot').textContent = 'Frazaro ' + version + ', the core in WebAssembly (' + Math.round(coreBytes.length / 1024) + ' KB), with its phrasebooks inside this one file. ' +
-      'It reads nothing from the network and writes nothing anywhere. The VBA is text: paste it into a module in Excel, or let the add-in do it.';
+      'It reads nothing from the network and writes nothing anywhere; Download as .xlsx hands your browser one file to save where you choose, with the digest frazaro build prints for the same sentences beside the button. The VBA is text: paste it into a module in Excel, or let the add-in do it.';
     setStatus('Type a sentence in the first row.', false);
     run();
   }, function (err) {

@@ -398,3 +398,17 @@ The determinism pin (`check_build_golden.ps1`) reads the second golden
 against the model: every entry is either one of the model's, copied with
 the model's own method, checksum and size, or stored by this writer; every
 stamp is the epoch either way, since the writer rewrites every header.
+
+## Amendment of 2026-10-03, the fourth that day: the web door's build (`PORT.7`, slice 7e)
+
+The web page builds the workbook too, through the core's C-ABI
+(`frazaro_build_xlsx`): the rows typed are the program, the prelude and
+phrasebooks inside the page are the files, and *Download as .xlsx* hands
+the bytes over with their SHA-256 shown beside the button. The runner
+scores an executable or a script, not a page, so the web door is held to
+oracle 7 where its bytes are made: the core's own test puts
+`scripts/build/fixture.txt` through the C-ABI record and requires the
+first golden byte for byte, with the golden's digest as the record's id.
+A page and the command-line door built from the same core therefore give
+the same file for the same sentences, and the digest the page shows is the
+line `frazaro build` prints, which is the check a person makes by eye.

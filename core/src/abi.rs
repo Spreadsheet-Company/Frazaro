@@ -25,6 +25,14 @@
 //! names them. The gate a door asks before loading a text it did not ship
 //! ([`frazaro_vocab_gate`]) is exported too, so the page's consent checkbox
 //! and the CLI's `--allow-raw` refuse with the one catalogue text.
+//!
+//! **The build** (PORT.7, slice 7e): [`frazaro_build_xlsx`] takes the same
+//! three inputs and answers with the workbook `frazaro build` writes from
+//! them. Its status-0 record is the one place the text field holds bytes
+//! that are not UTF-8: the workbook itself; the id field holds the bytes'
+//! SHA-256 in upper-case hex, the digest the door prints beside its byte
+//! count, so a page shows the digest of exactly what it hands over. The ABI
+//! number stays 1: an export was added and no signature changed its meaning.
 
 use std::alloc::{alloc, dealloc, Layout};
 
@@ -75,8 +83,9 @@ unsafe fn bytes<'a>(ptr: *const u8, len: u32) -> &'a [u8] {
 }
 
 /// A record handed to the host: allocated with [`frazaro_alloc`]'s layout so
-/// that [`frazaro_free`] takes it back.
-fn record(status: u32, line: u32, id: &str, text: &str, out_len: *mut u32) -> *mut u8 {
+/// that [`frazaro_free`] takes it back. `text` is UTF-8 for every answer but
+/// a build's, whose text field is the workbook's bytes.
+fn record(status: u32, line: u32, id: &str, text: &[u8], out_len: *mut u32) -> *mut u8 {
     let total = 16 + id.len() + text.len();
     let mut buf: Vec<u8> = Vec::with_capacity(total);
     buf.extend_from_slice(&status.to_le_bytes());
@@ -84,7 +93,7 @@ fn record(status: u32, line: u32, id: &str, text: &str, out_len: *mut u32) -> *m
     buf.extend_from_slice(&(id.len() as u32).to_le_bytes());
     buf.extend_from_slice(&(text.len() as u32).to_le_bytes());
     buf.extend_from_slice(id.as_bytes());
-    buf.extend_from_slice(text.as_bytes());
+    buf.extend_from_slice(text);
     unsafe {
         let p = frazaro_alloc(total as u32);
         std::ptr::copy_nonoverlapping(buf.as_ptr(), p, total);
@@ -102,10 +111,43 @@ fn text<'a>(b: &'a [u8], what: &str, out_len: *mut u32) -> Result<&'a str, *mut 
             STATUS_NOT_UTF8,
             0,
             "",
-            &format!("{what} is not UTF-8"),
+            format!("{what} is not UTF-8").as_bytes(),
             out_len,
         )
     })
+}
+
+/// The three inputs a translate or a build call takes, as text and the
+/// phrasebooks split at their NUL bytes, or the status-2 record naming the
+/// input that is not UTF-8.
+type Inputs<'a> = (&'a str, &'a str, Vec<&'a str>);
+
+#[allow(clippy::too_many_arguments)]
+unsafe fn inputs<'a>(
+    program: *const u8,
+    program_len: u32,
+    prelude: *const u8,
+    prelude_len: u32,
+    books: *const u8,
+    books_len: u32,
+    out_len: *mut u32,
+) -> Result<Inputs<'a>, *mut u8> {
+    let (program, prelude, books) = unsafe {
+        (
+            bytes(program, program_len),
+            bytes(prelude, prelude_len),
+            bytes(books, books_len),
+        )
+    };
+    let program = text(program, "the program", out_len)?;
+    let prelude = text(prelude, "the prelude", out_len)?;
+    let books = text(books, "a phrasebook", out_len)?;
+    let vocabs: Vec<&str> = if books.is_empty() {
+        Vec::new()
+    } else {
+        books.split('\0').collect()
+    };
+    Ok((program, prelude, vocabs))
 }
 
 /// The two translate functions' shared body.
@@ -120,29 +162,19 @@ unsafe fn translate(
     books_len: u32,
     out_len: *mut u32,
 ) -> *mut u8 {
-    let (program, prelude, books) = unsafe {
-        (
-            bytes(program, program_len),
-            bytes(prelude, prelude_len),
-            bytes(books, books_len),
+    let (program, prelude, vocabs) = match unsafe {
+        inputs(
+            program,
+            program_len,
+            prelude,
+            prelude_len,
+            books,
+            books_len,
+            out_len,
         )
-    };
-    let program = match text(program, "the program", out_len) {
-        Ok(s) => s,
+    } {
+        Ok(t) => t,
         Err(p) => return p,
-    };
-    let prelude = match text(prelude, "the prelude", out_len) {
-        Ok(s) => s,
-        Err(p) => return p,
-    };
-    let books = match text(books, "a phrasebook", out_len) {
-        Ok(s) => s,
-        Err(p) => return p,
-    };
-    let vocabs: Vec<&str> = if books.is_empty() {
-        Vec::new()
-    } else {
-        books.split('\0').collect()
     };
     let out = if to_vba {
         api::english_translate_text_to_vba(program, prelude, &vocabs)
@@ -150,12 +182,12 @@ unsafe fn translate(
         api::english_translate_text_to_vla(program, prelude, &vocabs)
     };
     match out {
-        Ok(t) => record(STATUS_OK, 0, "", &t, out_len),
+        Ok(t) => record(STATUS_OK, 0, "", t.as_bytes(), out_len),
         Err(e) => record(
             STATUS_REFUSED,
             e.line,
             &e.refusal.id,
-            &e.refusal.text,
+            e.refusal.text.as_bytes(),
             out_len,
         ),
     }
@@ -221,6 +253,54 @@ pub unsafe extern "C" fn frazaro_translate_vba(
     }
 }
 
+/// `frazaro build` over C linkage (PORT.7, slice 7e): the program translated
+/// and written as a workbook, from the same three inputs as a translate
+/// call. Status 0: the text field is the workbook's bytes, not UTF-8, and
+/// the id field their SHA-256 in upper-case hex, the digest the door prints.
+/// Status 1: a sentence's refusal with its line, or a build's (`build-*`),
+/// whose text names the line while the line field is 0, as the API gives it.
+///
+/// # Safety
+/// As [`frazaro_translate_vla`].
+#[no_mangle]
+pub unsafe extern "C" fn frazaro_build_xlsx(
+    program: *const u8,
+    program_len: u32,
+    prelude: *const u8,
+    prelude_len: u32,
+    books: *const u8,
+    books_len: u32,
+    out_len: *mut u32,
+) -> *mut u8 {
+    let (program, prelude, vocabs) = match unsafe {
+        inputs(
+            program,
+            program_len,
+            prelude,
+            prelude_len,
+            books,
+            books_len,
+            out_len,
+        )
+    } {
+        Ok(t) => t,
+        Err(p) => return p,
+    };
+    match api::english_build_xlsx(program, prelude, &vocabs) {
+        Ok(bytes) => {
+            let digest = crate::sha256::sha256_hex(&bytes);
+            record(STATUS_OK, 0, &digest, &bytes, out_len)
+        }
+        Err(e) => record(
+            STATUS_REFUSED,
+            e.line,
+            &e.refusal.id,
+            e.refusal.text.as_bytes(),
+            out_len,
+        ),
+    }
+}
+
 /// The door's gate for a phrasebook text it did not ship: F.10's capability
 /// check, then SEC.2's consent for a `(raw ...)` form, given by `allow_raw`
 /// (a checkbox, a flag). A status-0 record says the text may load; a
@@ -247,8 +327,8 @@ pub unsafe extern "C" fn frazaro_vocab_gate(
         Err(p) => return p,
     };
     match api::vocab_gate(t, n, allow_raw != 0) {
-        Ok(()) => record(STATUS_OK, 0, "", "", out_len),
-        Err(e) => record(STATUS_REFUSED, 0, &e.id, &e.text, out_len),
+        Ok(()) => record(STATUS_OK, 0, "", b"", out_len),
+        Err(e) => record(STATUS_REFUSED, 0, &e.id, e.text.as_bytes(), out_len),
     }
 }
 
@@ -258,7 +338,7 @@ pub unsafe extern "C" fn frazaro_vocab_gate(
 /// `out_len` is writable or null.
 #[no_mangle]
 pub unsafe extern "C" fn frazaro_version_text(out_len: *mut u32) -> *mut u8 {
-    record(STATUS_OK, 0, "", crate::VERSION, out_len)
+    record(STATUS_OK, 0, "", crate::VERSION.as_bytes(), out_len)
 }
 
 #[cfg(test)]
@@ -267,6 +347,16 @@ mod tests {
 
     const PRELUDE: &str = include_str!("../../scripts/prelude.vla");
     const ENGLISH: &str = include_str!("../../scripts/polyglotta/english.vla");
+    const FIXTURE: &str = include_str!("../../scripts/build/fixture.txt");
+    const GOLDEN: &[u8] = include_bytes!("../../scripts/build/fixture_golden.xlsx");
+
+    /// A record as the host reads it: the text field still bytes.
+    struct Raw {
+        status: u32,
+        line: u32,
+        id: String,
+        bytes: Vec<u8>,
+    }
 
     struct Rec {
         status: u32,
@@ -285,7 +375,7 @@ mod tests {
         (p, s.len() as u32)
     }
 
-    unsafe fn take(ptr: *mut u8, len: u32) -> Rec {
+    unsafe fn take_raw(ptr: *mut u8, len: u32) -> Raw {
         let b = unsafe { std::slice::from_raw_parts(ptr, len as usize) }.to_vec();
         unsafe { frazaro_free(ptr, len) };
         let (id_len, text_len) = (u32_at(&b, 8) as usize, u32_at(&b, 12) as usize);
@@ -294,11 +384,36 @@ mod tests {
             16 + id_len + text_len,
             "the record's lengths add up"
         );
-        Rec {
+        Raw {
             status: u32_at(&b, 0),
             line: u32_at(&b, 4),
             id: String::from_utf8(b[16..16 + id_len].to_vec()).unwrap(),
-            text: String::from_utf8(b[16 + id_len..].to_vec()).unwrap(),
+            bytes: b[16 + id_len..].to_vec(),
+        }
+    }
+
+    unsafe fn take(ptr: *mut u8, len: u32) -> Rec {
+        let r = unsafe { take_raw(ptr, len) };
+        Rec {
+            status: r.status,
+            line: r.line,
+            id: r.id,
+            text: String::from_utf8(r.bytes).unwrap(),
+        }
+    }
+
+    fn build(program: &[u8], books: &[&str]) -> Raw {
+        unsafe {
+            let (pp, pl) = put(program);
+            let (qp, ql) = put(PRELUDE.as_bytes());
+            let joined = books.join("\0");
+            let (bp, bl) = put(joined.as_bytes());
+            let mut out_len = 0u32;
+            let ptr = frazaro_build_xlsx(pp, pl, qp, ql, bp, bl, &mut out_len);
+            frazaro_free(pp, pl);
+            frazaro_free(qp, ql);
+            frazaro_free(bp, bl);
+            take_raw(ptr, out_len)
         }
     }
 
@@ -409,5 +524,52 @@ mod tests {
             frazaro_free(p, 0);
             frazaro_free(std::ptr::null_mut(), 5);
         }
+    }
+
+    #[test]
+    fn a_build_comes_back_as_the_golden_s_bytes_with_their_digest_as_its_id() {
+        // The page's Download hands over exactly what frazaro build writes:
+        // the fixture through the record is the golden, byte for byte, and
+        // the id is the digest the door prints beside its byte count.
+        let r = build(FIXTURE.as_bytes(), &[ENGLISH]);
+        assert_eq!((r.status, r.line), (0, 0));
+        assert_eq!(r.id, crate::sha256::sha256_hex(GOLDEN));
+        assert_eq!(r.bytes.len(), GOLDEN.len());
+        assert!(r.bytes == GOLDEN, "the record's bytes are the golden");
+        // The rows of a page carry no final newline; the file does. Same bytes.
+        let r = build(FIXTURE.trim_end().as_bytes(), &[ENGLISH]);
+        assert!(
+            r.bytes == GOLDEN,
+            "a program without a final newline builds the same"
+        );
+    }
+
+    #[test]
+    fn a_build_s_refusals_come_back_through_the_record() {
+        // A sentence the writer cannot hold: the build's refusal, its text
+        // naming the line, the line field 0 as the API gives it.
+        let r = build(b"Put 5 into cell B2.\nSay \"hello\".\n", &[ENGLISH]);
+        assert_eq!(
+            (r.status, r.line, r.id.as_str()),
+            (1, 0, "build-not-representable")
+        );
+        let text = String::from_utf8(r.bytes).unwrap();
+        assert!(
+            text.contains("Line 2 asks for more: Say \"hello\"."),
+            "{text}"
+        );
+        // A sentence the language refuses: the translation's refusal, with its line.
+        let r = build(b"Put 5 into cell B2.\nSet total to $5.\n", &[ENGLISH]);
+        assert_eq!(
+            (r.status, r.line, r.id.as_str()),
+            (1, 2, "english-unknown-character")
+        );
+        // An input that is not UTF-8.
+        let r = build(&[0xFF, 0xFE, 0x41], &[ENGLISH]);
+        assert_eq!((r.status, r.line), (2, 0));
+        assert_eq!(
+            String::from_utf8(r.bytes).unwrap(),
+            "the program is not UTF-8"
+        );
     }
 }

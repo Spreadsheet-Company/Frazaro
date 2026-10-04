@@ -215,14 +215,22 @@
   Every refusal the add-in gives a program or a phrasebook written in
   English is held to a golden the add-in itself writes, so the second
   implementation refuses as the first does, in the same words, and `frazaro`
-  refuses a missing file in those words too. The two functions a web page
-  calls, a program and its phrasebooks in and the VLA or the VBA out, are in
-  the core and exported for the browser, and the page is built from them:
-  `tools/build_web.ps1` writes `web/index.html`, one file that runs from
-  disk, a sentence in column B and its VLA, VBA and formula in column C,
-  nothing fetched and nothing executed. It is a build artifact today, kept by
-  CI, not yet a release download. Nothing about the add-in you download
-  changes.
+  refuses a missing file in those words too. `frazaro load phrasebook.vla
+  --prelude prelude.vla` loads a phrasebook as the Frazaro tab loads one,
+  through the same two gates, a `(raw ...)` form needing `--allow-raw` and a
+  capability refused always, and reports its counts. The two functions a web
+  page calls, a program and its phrasebooks in and the VLA or the VBA out,
+  are in the core and exported for the browser, and the page is built from
+  them: `tools/build_web.ps1` writes `web/index.html`, one file that runs
+  from disk. Its rows are the program, in English or in one of the seven
+  dialects of its language picker, every phrasebook inside the page; each
+  row shows its VLA and the formula it writes, a refusal in words on the row
+  it belongs to, and the focused row is Frazaro Lavender, the add-in's own
+  colour; the whole VLA and VBA stand below with a Copy button each; another
+  phrasebook can be pasted to load after the language's, behind the same
+  consent box the add-in asks for a `(raw ...)` form. Nothing fetched,
+  nothing executed. It is a build artifact today, kept by CI, not yet a
+  release download. Nothing about the add-in you download changes.
 - **The repository is now a workspace for more than one product; nothing
   about the add-in you download changes.** Frazaro is a language whose first
   implementation is this Excel add-in, and this release lays the ground for
@@ -269,7 +277,11 @@
   are copied byte for byte and are never written to by a sentence (one
   that tries is refused by name, with the line), the new sheets' formulas
   read the workbook's cells and names as usual, and the host computes them
-  when the file opens. The add-in you download is unchanged.
+  when the file opens. The web page has the same builder behind a button:
+  type the sentences and *Download as .xlsx* hands you the workbook, with
+  its byte count and SHA-256 beside the button, the same bytes `frazaro
+  build` writes for the same sentences, and `frazaro rebuild` says yes to
+  the download as to the file. The add-in you download is unchanged.
 
 ### Known open security items
 

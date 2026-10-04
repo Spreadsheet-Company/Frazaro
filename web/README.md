@@ -23,12 +23,26 @@ after the language's, and a phrasebook that holds a `(raw ...)` form loads
 only once the person ticks the consent box, the same gate the add-in asks at
 its file loader and the CLI asks with `--allow-raw`.
 
+Under the two panes stands the workbook (`PORT.7`, slice 7e): the core builds
+it from the rows on every change, as `frazaro build` builds it from a file,
+and the strip shows its byte count and SHA-256, the digest the command-line
+door prints for the same sentences. *Download as .xlsx* hands the browser
+those bytes as a `data:` address named `program.xlsx`, to save where the
+person chooses; the file opens in Excel, Sheets, Calc or Numbers with nothing
+installed, and `frazaro rebuild` on it says yes. A sentence the writer cannot
+hold with nothing running, a loop, a message, a value read from a cell, is
+named in the strip with its line, and the button waits; the VLA and VBA
+beside it are unaffected, since the translation stands.
+
 What the page does not do: it loads nothing from the network, writes nothing
-anywhere, and executes nothing. The VBA is text to paste into a module in Excel,
-or to leave to the add-in. `tools/check_web_offline.ps1` holds the template to
-that doctrine, as `tools/check_core_imports.ps1` holds the core it carries.
+anywhere, and executes nothing; the download is the browser saving one file
+the person asked for. The VBA is text to paste into a module in Excel, or to
+leave to the add-in. `tools/check_web_offline.ps1` holds the template to that
+doctrine, as `tools/check_core_imports.ps1` holds the core it carries.
 
 The page speaks to the core through `core/src/abi.rs`: an allocator pair, the
-two translate functions, the gate and the version, every answer one record in
-the module's memory (four little-endian `u32`, status, line, id length and text
-length, then the id and the text). No binding layer, no generated glue.
+two translate functions, the build, the gate and the version, every answer one
+record in the module's memory (four little-endian `u32`, status, line, id
+length and text length, then the id and the text; a build's status-0 record
+is the one whose text is bytes, the workbook, with their SHA-256 as its id).
+No binding layer, no generated glue.

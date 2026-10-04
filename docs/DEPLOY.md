@@ -56,9 +56,14 @@ keeps it as an artifact beside the wasm. Open it by double-clicking: it needs
 no server and no network. The VBA it shows is text to paste into a module, or
 to leave to the add-in; the page runs nothing, and
 `tools\check_web_offline.ps1` holds its template to that doctrine on every
-push. Attaching the page to a release as a fourth asset is a step for
-`release.ps1` to take up when the page ships to users; today CI builds and
-keeps it.
+push. Under its two panes the page also builds the workbook the rows make, as
+`frazaro build` does from a file (the section below), and shows its byte
+count and SHA-256; *Download as .xlsx* saves it where you choose, named
+`program.xlsx`, and the digest shown is the one the command-line door prints
+for the same sentences, so the two doors can be checked against each other
+with no more than a glance. Attaching the page to a release as a fourth asset
+is a step for `release.ps1` to take up when the page ships to users; today CI
+builds and keeps it.
 
 ## Building a workbook from sentences (the command-line door)
 
@@ -84,7 +89,10 @@ what lets `scripts\build\fixture_golden.xlsx` be a golden the core's tests
 and `tools\check_build_golden.ps1` hold the door to. When the writer
 changes on purpose, regenerate the golden with `--replace`, open it in Excel,
 and raise the check's floor. The door writes the one file `--out` names and
-refuses to replace a file already there unless `--replace` says so.
+refuses to replace a file already there unless `--replace` says so. The web
+page builds the same bytes from the rows typed into it and shows their
+digest under its panes; *Download as .xlsx* saves them as `program.xlsx`,
+and `rebuild` on that file says yes, as it does on the door's.
 
 Every built workbook carries its stamp, the defined name `Frazaro.Build`:
 the core's version and, for the sentences, the prelude and each phrasebook,
