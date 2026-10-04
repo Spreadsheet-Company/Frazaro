@@ -1,0 +1,273 @@
+=== cell-relative
+cell	B1	Model!B1
+R1C1	=R[-2]C
+=== cell-absolute
+cell	$A$1	Model!A1
+R1C1	=R1C1
+=== cell-row-absolute
+cell	A$1	Model!A1
+R1C1	=R1C[-1]
+=== cell-column-absolute
+cell	$A1	Model!A1
+R1C1	=R[-2]C1
+=== cell-same-row
+cell	A3	Model!A3
+R1C1	=RC[-1]
+=== cell-itself
+cell	B3	Model!B3
+R1C1	=RC
+=== cell-lower-case
+cell	a1	Model!A1
+R1C1	=R[-2]C[-1]*2
+=== two-cells
+cell	B1	Model!B1
+cell	B2	Model!B2
+R1C1	=R[-2]C-R[-1]C
+=== duplicates-kept-in-order
+cell	A1	Model!A1
+cell	A1	Model!A1
+R1C1	=R[-2]C[-1]+R[-2]C[-1]
+=== range
+range	A1:B2	Model!A1:B2
+R1C1	=SUM(R[-2]C[-1]:R[-1]C)
+=== range-mixed-marks
+range	$A$1:B$2	Model!A1:B2
+R1C1	=SUM(R1C1:R2C)
+=== column
+column	A:A	Model!A:A
+R1C1	=SUM(C[-1])
+=== columns
+column	A:C	Model!A:C
+R1C1	=SUM(C[-1]:C[1])
+=== column-absolute
+column	$A:$A	Model!A:A
+R1C1	=SUM(C1)
+=== column-half-absolute
+column	$A:A	Model!A:A
+R1C1	=SUM(C1:C[-1])
+=== row
+row	1:1	Model!1:1
+R1C1	=SUM(R[-2])
+=== rows
+row	1:3	Model!1:3
+R1C1	=SUM(R[-2]:R)
+=== row-absolute
+row	$1:$1	Model!1:1
+R1C1	=SUM(R1)
+=== last-cell
+cell	XFD1048576	Model!XFD1048576
+R1C1	=R[1048573]C[16382]
+=== name-past-the-last-column
+name	XFE1	XFE1
+R1C1	=XFE1
+=== name-past-the-last-row
+name	A1048577	A1048577
+R1C1	=A1048577
+=== name
+name	Rate	Rate
+cell	A1	Model!A1
+R1C1	=Rate*R[-2]C[-1]
+=== name-with-underscore-and-dot
+name	Tax_Rate.2024	Tax_Rate.2024
+R1C1	=Tax_Rate.2024
+=== name-shaped-like-r1c1
+name	R1C1	R1C1
+R1C1	=R1C1
+=== name-with-letters-after-digits
+name	ABC123X	ABC123X
+R1C1	=ABC123X
+=== names-either-side-of-a-colon
+name	Start	Start
+name	Finish	Finish
+R1C1	=SUM(Start:Finish)
+=== sheet-qualified
+cell	Data!A1	Data!A1
+R1C1	=Data!R[-2]C[-1]
+=== sheet-qualified-range
+range	Data!A1:B2	Data!A1:B2
+R1C1	=SUM(Data!R[-2]C[-1]:R[-1]C)
+=== sheet-qualified-column-and-row
+column	Data!A:A	Data!A:A
+row	Data!1:1	Data!1:1
+R1C1	=SUM(Data!C[-1])+SUM(Data!R[-2])
+=== sheet-quoted
+cell	'Q1 Data'!A1	'Q1 Data'!A1
+R1C1	='Q1 Data'!R[-2]C[-1]
+=== sheet-quoted-doubled-apostrophe
+cell	'It''s'!A1	'It''s'!A1
+R1C1	='It''s'!R[-2]C[-1]
+=== sheet-quoted-needlessly
+cell	'Data'!A1	Data!A1
+R1C1	='Data'!R[-2]C[-1]
+=== sheet-named-like-a-cell
+cell	'A1'!B2	'A1'!B2
+R1C1	='A1'!R[-1]C
+=== sheet-starting-with-a-digit
+cell	'2024'!A1	'2024'!A1
+R1C1	='2024'!R[-2]C[-1]
+=== sheet-with-a-dot
+cell	'Q1.Data'!A1	'Q1.Data'!A1
+R1C1	='Q1.Data'!R[-2]C[-1]
+=== sheet-scoped-name
+name	Model!Local	Model!Local
+R1C1	=Model!Local
+=== home-sheet-quoted
+cell	A1	'Q1 Data'!A1
+cell	B2	'Q1 Data'!B2
+R1C1	=R[-4]C[-2]+R[-3]C[-1]
+=== function-spelled-like-a-cell
+cell	A1	Model!A1
+R1C1	=LOG10(R[-2]C[-1])
+=== function-lower-case
+cell	a1	Model!A1
+R1C1	=log10(R[-2]C[-1])+atan2(1,2)
+=== true-and-false
+cell	A1	Model!A1
+R1C1	=IF(TRUE,FALSE,R[-2]C[-1])
+=== true-as-a-function
+NONE
+R1C1	=TRUE()
+=== no-reference
+NONE
+R1C1	="hello"
+=== number-literals
+NONE
+R1C1	=1.5+2E+3+.5
+=== percent
+cell	A1	Model!A1
+R1C1	=R[-2]C[-1]*10%
+=== unary-signs
+cell	A1	Model!A1
+cell	B1	Model!B1
+R1C1	=-R[-2]C[-1]+-R[-2]C
+=== string-spelled-like-a-cell
+cell	A1	Model!A1
+R1C1	="A1"&R[-2]C[-1]
+=== string-with-doubled-quotes
+cell	B1	Model!B1
+R1C1	="say ""A1"""&R[-2]C
+=== string-with-apostrophe-and-bang
+cell	A1	Model!A1
+R1C1	="Don't!"&R[-2]C[-1]
+=== bang-in-a-string
+cell	A1	Model!A1
+R1C1	=R[-2]C[-1]&"!"
+=== xlfn-prefix-as-a-file-holds-it
+range	A1:A3	Model!A1:A3
+R1C1	=_xlfn.STDEV.S(R[-2]C[-1]:RC[-1])
+=== xlfn-single-as-a-file-holds-it
+range	A1:A3	Model!A1:A3
+R1C1	=_xlfn.SINGLE(R[-2]C[-1]:RC[-1])
+=== implicit-intersection
+range	A1:A3	Model!A1:A3
+R1C1	=@R[-2]C[-1]:RC[-1]
+=== let-binders-read-as-names
+name	x	x
+cell	A1	Model!A1
+name	x	x
+R1C1	=LET(x,R[-2]C[-1],x*2)
+=== structured-column
+structured	Sales[Amount]	Sales[Amount]
+R1C1	=SUM(Sales[Amount])
+=== structured-this-row-long-form
+structured	Sales[[#This Row],[Amount]]	Sales[[#This Row],[Amount]]
+R1C1	=Sales[[#This Row],[Amount]]
+=== structured-this-row-short-form
+structured	Sales[@Amount]	Sales[@Amount]
+R1C1	=Sales[@Amount]
+=== structured-bare-this-row
+structured	[@Amount]	[@Amount]
+R1C1	=[@Amount]*2
+=== structured-bare-column
+structured	[Amount]	[Amount]
+R1C1	=SUM([Amount])
+=== structured-headers-and-totals
+structured	Sales[[#Headers],[Amount]]	Sales[[#Headers],[Amount]]
+structured	Sales[[#Totals],[Amount]]	Sales[[#Totals],[Amount]]
+R1C1	=Sales[[#Headers],[Amount]]&Sales[[#Totals],[Amount]]
+=== structured-all
+structured	Sales[#All]	Sales[#All]
+R1C1	=ROWS(Sales[#All])
+=== structured-column-span
+structured	Sales[[Amount]:[Cost]]	Sales[[Amount]:[Cost]]
+R1C1	=SUM(Sales[[Amount]:[Cost]])
+=== structured-with-a-cell-shaped-column
+structured	Sales[[#This Row],[A1]]	Sales[[#This Row],[A1]]
+cell	A1	Model!A1
+R1C1	=Sales[[#This Row],[A1]]+R[-2]C[-1]
+=== external-as-a-file-holds-it
+external	[1]Sheet1!A1	[1]Sheet1!A1
+R1C1	=[1]Sheet1!R[-2]C[-1]
+=== external-as-the-formula-bar-shows-it
+external	[Book.xlsx]Sheet1!A1	[Book.xlsx]Sheet1!A1
+R1C1	=[Book.xlsx]Sheet1!R[-2]C[-1]
+=== external-quoted
+external	'[Book.xlsx]Q1 Data'!A1	'[Book.xlsx]Q1 Data'!A1
+R1C1	='[Book.xlsx]Q1 Data'!R[-2]C[-1]
+=== external-closed-book-with-path
+external	'C:\Models\[Book.xlsx]Sheet1'!$A$1	'C:\Models\[Book.xlsx]Sheet1'!$A$1
+R1C1	='C:\Models\[Book.xlsx]Sheet1'!R1C1
+=== external-name-as-a-file-holds-it
+external	[1]!Rate	[1]!Rate
+R1C1	=[1]!Rate
+=== external-name-as-the-formula-bar-shows-it
+name	Book.xlsx!Rate	Book.xlsx!Rate
+R1C1	=Book.xlsx!Rate
+=== three-d-span
+3d	Jan:Dec!A1	Jan:Dec!A1
+R1C1	=SUM(Jan:Dec!R[-2]C[-1])
+=== three-d-span-quoted
+3d	'Q1 Data:Q4 Data'!A1	'Q1 Data:Q4 Data'!A1
+R1C1	=SUM('Q1 Data:Q4 Data'!R[-2]C[-1])
+=== spill
+spill	A1#	Model!A1#
+R1C1	=R[-2]C[-1]#
+=== spill-qualified
+spill	Data!A1#	Data!A1#
+R1C1	=SUM(Data!R[-2]C[-1]#)
+=== spill-of-a-name
+spill	Rate#	Rate#
+R1C1	=Rate#
+=== indirect
+unreadable	INDIRECT	(unreadable "INDIRECT")
+R1C1	=INDIRECT("B1")
+=== indirect-of-a-cell
+unreadable	INDIRECT	(unreadable "INDIRECT")
+cell	A1	Model!A1
+R1C1	=INDIRECT(R[-2]C[-1])
+=== indirect-lower-case-behind-at
+unreadable	indirect	(unreadable "INDIRECT")
+R1C1	=@indirect("B1")
+=== two-indirects-two-records
+unreadable	INDIRECT	(unreadable "INDIRECT")
+unreadable	INDIRECT	(unreadable "INDIRECT")
+R1C1	=INDIRECT("A1")+INDIRECT("A2")
+=== offset
+unreadable	OFFSET	(unreadable "OFFSET")
+cell	A1	Model!A1
+R1C1	=SUM(OFFSET(R[-2]C[-1],1,0,2,1))
+=== broken-bare
+broken	#REF!	Model!#REF!
+cell	A1	Model!A1
+R1C1	=#REF!+R[-2]C[-1]
+=== broken-qualified
+broken	Data!#REF!	Data!#REF!
+R1C1	=Data!#REF!
+=== broken-deleted-sheet
+broken	#REF!A1	#REF!A1
+R1C1	=#REF!R[-2]C[-1]
+=== other-error-literals
+cell	A1	Model!A1
+R1C1	=IF(R[-2]C[-1]=#N/A,#VALUE!,#DIV/0!)
+=== space-operator
+range	A1:B2	Model!A1:B2
+range	B1:C3	Model!B1:C3
+R1C1	=SUM(R[-2]C[-1]:R[-1]C R[-2]C:RC[1])
+=== comma-union
+cell	A1	Model!A1
+cell	B1	Model!B1
+R1C1	=SUM((R[-2]C[-1],R[-2]C))
+=== range-across-two-qualifiers-is-two-references
+cell	Data!A1	Data!A1
+cell	Data!B2	Data!B2
+R1C1	=Data!R[-2]C[-1]:Data!R[-1]C

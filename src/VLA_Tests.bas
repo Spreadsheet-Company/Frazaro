@@ -1,6 +1,18 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "PORT.6"
+Public Const VLA_TESTS_VERSION As String = "AXM.7"
+' AXM.7: TestFormulaRefs - the formula-reference reader's proof table:
+' every case of scripts/refers.txt with the reading VlaWriteRefersGolden
+' writes for it, so the pure suite holds VLA_Refers without the file; then
+' the sheet quoting rule, the home cell's parse, a record's fields and a
+' name past ASCII. VlaWriteRefersGolden writes the refers golden,
+' scripts/refers_golden.txt, from the cases in scripts/refers.txt (each
+' the cell holding the formula, then the formula): one record per
+' reference - its kind, the token as written, the second field of its
+' refers row - or NONE, then the formula in R1C1 relative to the cell;
+' the core's refers.rs (PORT.8, slice 8b) is held to it by its own test.
+' Dev-only, like VlaWriteTokenGolden: git diff is the witness. Not in
+' VlaSelfTest's list (no disk I/O there).
 ' PORT.6 (slice 6f): VlaWriteRefusalGolden writes the refusal golden,
 ' scripts/refusals_golden.txt, from the cases in scripts/refusals.txt: each
 ' case's refusal from the reference (its id, line and text), or TRANSLATED or
@@ -503,6 +515,7 @@ Public Function VlaSelfTest() As Boolean
     TestLx14Phrases
     TestLx14Spanish
     TestLe11PhraseCategories
+    TestFormulaRefs
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -2824,6 +2837,102 @@ refused:
     RefusalReportFor = "REFUSED" & vbTab & lineCol & vbTab & VLA_Messages.VlaLastRaisedMsgId() & vbTab & d & vbCrLf
 End Function
 
+' AXM.7: the refers golden. scripts/refers.txt holds cases, each under a
+' line "=== <name>": the first line of a case is the cell holding the
+' formula, spelled as a refers row spells its first field (Model!B3,
+' 'Q1 Data'!C5), and the lines after it are the formula with its =. This
+' writes VLA_Refers' reading of every case to refers_golden.txt beside
+' it: the header, then one line per reference in formula order,
+' <kind><TAB><the token as written><TAB><the second field of its refers
+' row>, or NONE where the formula holds none, then R1C1<TAB><the formula
+' rendered relative to the cell>. The core's refers.rs (PORT.8, slice 8b)
+' reads the same fixture and is held to this file by its own test, and
+' tools/check_refers_golden.ps1 holds the pair's shape and the kinds
+' reached. Dev-only, like VlaWriteTokenGolden: run it, then git diff.
+Public Function VlaWriteRefersGolden(Optional ByVal fixturePath As String = "") As Boolean
+    On Error GoTo failed
+    If Len(fixturePath) = 0 Then fixturePath = FindDevFile("refers.txt")
+    If Len(Dir$(fixturePath)) = 0 Then Err.Raise 53, "VLA_Tests", "fixture file not found: " & fixturePath
+    Debug.Print "===== WRITE REFERS GOLDEN ====="
+    Dim lines() As String
+    lines = Split(Replace(ReadTextFileUtf8(fixturePath), vbCrLf, vbLf), vbLf)
+    Dim outText As String, header As String, body As String, ln As String
+    Dim haveSection As Boolean, firstLine As Boolean
+    Dim sections As Long, nRefs As Long
+    Dim i As Long
+    For i = LBound(lines) To UBound(lines) + 1
+        If i <= UBound(lines) Then ln = lines(i) Else ln = "=== "   ' one past: flushes the last section
+        If Left$(ln, 4) = "=== " Then
+            If haveSection Then
+                outText = outText & header & vbCrLf & RefersReportFor(body, nRefs)
+                sections = sections + 1
+            End If
+            header = ln
+            body = ""
+            haveSection = True
+            firstLine = True
+        ElseIf haveSection Then
+            If firstLine Then
+                body = ln
+                firstLine = False
+            Else
+                body = body & vbLf & ln
+            End If
+        End If
+    Next i
+    ' The writer adds one trailing break (WriteTextFile), so the report's own
+    ' last break is dropped first: the file ends with exactly one.
+    If Right$(outText, 2) = vbCrLf Then outText = Left$(outText, Len(outText) - 2)
+    Dim goldenPath As String
+    goldenPath = GoldenPathFor(fixturePath, ".txt")
+    WriteTextFile goldenPath, outText, utf8:=True
+    Debug.Print "  " & sections & " cases, " & nRefs & " references -> " & goldenPath
+    Debug.Print "  (git diff is the witness: empty = the prediction held)"
+    Debug.Print "===== REFERS GOLDEN WRITTEN ====="
+    VlaWriteRefersGolden = True
+    Exit Function
+failed:
+    Debug.Print "  REFERS GOLDEN FAILED: " & Err.Description
+End Function
+
+' One case's record: its first line is the cell, the rest the formula,
+' blank lines at the end dropped (the fixture's own last line is one).
+' BAD HOME names a cell line the reader could not read, which
+' check_refers_golden.ps1 fails.
+Private Function RefersReportFor(ByVal body As String, ByRef nRefs As Long) As String
+    Dim homeText As String, formulaText As String
+    Dim p As Long
+    p = InStr(1, body, vbLf, vbBinaryCompare)
+    If p > 0 Then
+        homeText = Left$(body, p - 1)
+        formulaText = Mid$(body, p + 1)
+    Else
+        homeText = body
+    End If
+    Do While Right$(formulaText, 1) = vbLf
+        formulaText = Left$(formulaText, Len(formulaText) - 1)
+    Loop
+    Dim homeSheet As String, homeRow As Long, homeCol As Long
+    If Not VLA_Refers.RefersParseHome(homeText, homeSheet, homeRow, homeCol) Then
+        RefersReportFor = "BAD HOME" & vbTab & homeText & vbCrLf
+        Exit Function
+    End If
+    Dim refs() As FormulaRef
+    Dim cnt As Long, i As Long
+    Dim outText As String
+    cnt = VLA_Refers.RefersScan(formulaText, refs)
+    If cnt = 0 Then
+        outText = "NONE" & vbCrLf
+    Else
+        For i = 1 To cnt
+            outText = outText & refs(i).Kind & vbTab & refs(i).Written & vbTab & _
+                      VLA_Refers.RefersSpell(refs(i), homeSheet) & vbCrLf
+        Next i
+    End If
+    nRefs = nRefs + cnt
+    RefersReportFor = outText & "R1C1" & vbTab & VLA_Refers.RefersR1C1(formulaText, homeRow, homeCol) & vbCrLf
+End Function
+
 ' VLALINT.0: unlike VlaWriteGoldens (which REGENERATES a golden and
 ' leaves git diff as the check), scripts/english.vla/prelude.vla are
 ' hand-edited directly - nothing in the runtime writes them
@@ -4202,6 +4311,181 @@ Public Function VlaCorpusFamilyOk(ByRef detail As String) As Boolean
     Next i
     detail = missing
     VlaCorpusFamilyOk = (Len(missing) = 0)
+End Function
+
+' =====================================================================
+'  AXM.7: the formula-reference reader (VLA_Refers.bas), purely. The
+'  proof table is every case of scripts/refers.txt with the reading
+'  VlaWriteRefersGolden writes for it, generated from the fixture and
+'  the golden together so that the two cannot disagree: a row's expected
+'  records are "<kind>|<as written>|<spelled>" joined by ";", or NONE,
+'  and the last argument is the formula in R1C1 relative to the cell.
+'  Then the pieces the table reaches only through the whole: the sheet
+'  quoting rule, the home cell's parse, a record's fields, and a name
+'  and a sheet past ASCII. A pin marked "predicted" states Excel's own
+'  rule as this reader has it; the live pass checks each in Excel.
+' =====================================================================
+Private Sub TestFormulaRefs()
+    CheckRefs "cell-relative", "Model!B3", "=B1", "cell|B1|Model!B1", "=R[-2]C"
+    CheckRefs "cell-absolute", "Model!B3", "=$A$1", "cell|$A$1|Model!A1", "=R1C1"
+    CheckRefs "cell-row-absolute", "Model!B3", "=A$1", "cell|A$1|Model!A1", "=R1C[-1]"
+    CheckRefs "cell-column-absolute", "Model!B3", "=$A1", "cell|$A1|Model!A1", "=R[-2]C1"
+    CheckRefs "cell-same-row", "Model!B3", "=A3", "cell|A3|Model!A3", "=RC[-1]"
+    CheckRefs "cell-itself", "Model!B3", "=B3", "cell|B3|Model!B3", "=RC"
+    CheckRefs "cell-lower-case", "Model!B3", "=a1*2", "cell|a1|Model!A1", "=R[-2]C[-1]*2"
+    CheckRefs "two-cells", "Model!B3", "=B1-B2", "cell|B1|Model!B1;cell|B2|Model!B2", "=R[-2]C-R[-1]C"
+    CheckRefs "duplicates-kept-in-order", "Model!B3", "=A1+A1", "cell|A1|Model!A1;cell|A1|Model!A1", "=R[-2]C[-1]+R[-2]C[-1]"
+    CheckRefs "range", "Model!B3", "=SUM(A1:B2)", "range|A1:B2|Model!A1:B2", "=SUM(R[-2]C[-1]:R[-1]C)"
+    CheckRefs "range-mixed-marks", "Model!B3", "=SUM($A$1:B$2)", "range|$A$1:B$2|Model!A1:B2", "=SUM(R1C1:R2C)"
+    CheckRefs "column", "Model!B3", "=SUM(A:A)", "column|A:A|Model!A:A", "=SUM(C[-1])"
+    CheckRefs "columns", "Model!B3", "=SUM(A:C)", "column|A:C|Model!A:C", "=SUM(C[-1]:C[1])"
+    CheckRefs "column-absolute", "Model!B3", "=SUM($A:$A)", "column|$A:$A|Model!A:A", "=SUM(C1)"
+    CheckRefs "column-half-absolute", "Model!B3", "=SUM($A:A)", "column|$A:A|Model!A:A", "=SUM(C1:C[-1])"
+    CheckRefs "row", "Model!B3", "=SUM(1:1)", "row|1:1|Model!1:1", "=SUM(R[-2])"
+    CheckRefs "rows", "Model!B3", "=SUM(1:3)", "row|1:3|Model!1:3", "=SUM(R[-2]:R)"
+    CheckRefs "row-absolute", "Model!B3", "=SUM($1:$1)", "row|$1:$1|Model!1:1", "=SUM(R1)"
+    CheckRefs "last-cell", "Model!B3", "=XFD1048576", "cell|XFD1048576|Model!XFD1048576", "=R[1048573]C[16382]"
+    CheckRefs "name-past-the-last-column", "Model!B3", "=XFE1", "name|XFE1|XFE1", "=XFE1"
+    CheckRefs "name-past-the-last-row", "Model!B3", "=A1048577", "name|A1048577|A1048577", "=A1048577"
+    CheckRefs "name", "Model!B3", "=Rate*A1", "name|Rate|Rate;cell|A1|Model!A1", "=Rate*R[-2]C[-1]"
+    CheckRefs "name-with-underscore-and-dot", "Model!B3", "=Tax_Rate.2024", "name|Tax_Rate.2024|Tax_Rate.2024", "=Tax_Rate.2024"
+    CheckRefs "name-shaped-like-r1c1", "Model!B3", "=R1C1", "name|R1C1|R1C1", "=R1C1"
+    CheckRefs "name-with-letters-after-digits", "Model!B3", "=ABC123X", "name|ABC123X|ABC123X", "=ABC123X"
+    CheckRefs "names-either-side-of-a-colon", "Model!B3", "=SUM(Start:Finish)", "name|Start|Start;name|Finish|Finish", "=SUM(Start:Finish)"
+    CheckRefs "sheet-qualified", "Model!B3", "=Data!A1", "cell|Data!A1|Data!A1", "=Data!R[-2]C[-1]"
+    CheckRefs "sheet-qualified-range", "Model!B3", "=SUM(Data!A1:B2)", "range|Data!A1:B2|Data!A1:B2", "=SUM(Data!R[-2]C[-1]:R[-1]C)"
+    CheckRefs "sheet-qualified-column-and-row", "Model!B3", "=SUM(Data!A:A)+SUM(Data!1:1)", "column|Data!A:A|Data!A:A;row|Data!1:1|Data!1:1", "=SUM(Data!C[-1])+SUM(Data!R[-2])"
+    CheckRefs "sheet-quoted", "Model!B3", "='Q1 Data'!A1", "cell|'Q1 Data'!A1|'Q1 Data'!A1", "='Q1 Data'!R[-2]C[-1]"
+    CheckRefs "sheet-quoted-doubled-apostrophe", "Model!B3", "='It''s'!A1", "cell|'It''s'!A1|'It''s'!A1", "='It''s'!R[-2]C[-1]"
+    CheckRefs "sheet-quoted-needlessly", "Model!B3", "='Data'!A1", "cell|'Data'!A1|Data!A1", "='Data'!R[-2]C[-1]"
+    CheckRefs "sheet-named-like-a-cell", "Model!B3", "='A1'!B2", "cell|'A1'!B2|'A1'!B2", "='A1'!R[-1]C"
+    CheckRefs "sheet-starting-with-a-digit", "Model!B3", "='2024'!A1", "cell|'2024'!A1|'2024'!A1", "='2024'!R[-2]C[-1]"
+    CheckRefs "sheet-with-a-dot", "Model!B3", "='Q1.Data'!A1", "cell|'Q1.Data'!A1|'Q1.Data'!A1", "='Q1.Data'!R[-2]C[-1]"
+    CheckRefs "sheet-scoped-name", "Model!B3", "=Model!Local", "name|Model!Local|Model!Local", "=Model!Local"
+    CheckRefs "home-sheet-quoted", "'Q1 Data'!C5", "=A1+B2", "cell|A1|'Q1 Data'!A1;cell|B2|'Q1 Data'!B2", "=R[-4]C[-2]+R[-3]C[-1]"
+    CheckRefs "function-spelled-like-a-cell", "Model!B3", "=LOG10(A1)", "cell|A1|Model!A1", "=LOG10(R[-2]C[-1])"
+    CheckRefs "function-lower-case", "Model!B3", "=log10(a1)+atan2(1,2)", "cell|a1|Model!A1", "=log10(R[-2]C[-1])+atan2(1,2)"
+    CheckRefs "true-and-false", "Model!B3", "=IF(TRUE,FALSE,A1)", "cell|A1|Model!A1", "=IF(TRUE,FALSE,R[-2]C[-1])"
+    CheckRefs "true-as-a-function", "Model!B3", "=TRUE()", "NONE", "=TRUE()"
+    CheckRefs "no-reference", "Model!B3", "=""hello""", "NONE", "=""hello"""
+    CheckRefs "number-literals", "Model!B3", "=1.5+2E+3+.5", "NONE", "=1.5+2E+3+.5"
+    CheckRefs "percent", "Model!B3", "=A1*10%", "cell|A1|Model!A1", "=R[-2]C[-1]*10%"
+    CheckRefs "unary-signs", "Model!B3", "=-A1+-B1", "cell|A1|Model!A1;cell|B1|Model!B1", "=-R[-2]C[-1]+-R[-2]C"
+    CheckRefs "string-spelled-like-a-cell", "Model!B3", "=""A1""&A1", "cell|A1|Model!A1", "=""A1""&R[-2]C[-1]"
+    CheckRefs "string-with-doubled-quotes", "Model!B3", "=""say """"A1""""""&B1", "cell|B1|Model!B1", "=""say """"A1""""""&R[-2]C"
+    CheckRefs "string-with-apostrophe-and-bang", "Model!B3", "=""Don't!""&A1", "cell|A1|Model!A1", "=""Don't!""&R[-2]C[-1]"
+    CheckRefs "bang-in-a-string", "Model!B3", "=A1&""!""", "cell|A1|Model!A1", "=R[-2]C[-1]&""!"""
+    CheckRefs "xlfn-prefix-as-a-file-holds-it", "Model!B3", "=_xlfn.STDEV.S(A1:A3)", "range|A1:A3|Model!A1:A3", "=_xlfn.STDEV.S(R[-2]C[-1]:RC[-1])"
+    CheckRefs "xlfn-single-as-a-file-holds-it", "Model!B3", "=_xlfn.SINGLE(A1:A3)", "range|A1:A3|Model!A1:A3", "=_xlfn.SINGLE(R[-2]C[-1]:RC[-1])"
+    CheckRefs "implicit-intersection", "Model!B3", "=@A1:A3", "range|A1:A3|Model!A1:A3", "=@R[-2]C[-1]:RC[-1]"
+    CheckRefs "let-binders-read-as-names", "Model!B3", "=LET(x,A1,x*2)", "name|x|x;cell|A1|Model!A1;name|x|x", "=LET(x,R[-2]C[-1],x*2)"
+    CheckRefs "structured-column", "Model!B3", "=SUM(Sales[Amount])", "structured|Sales[Amount]|Sales[Amount]", "=SUM(Sales[Amount])"
+    CheckRefs "structured-this-row-long-form", "Model!B3", "=Sales[[#This Row],[Amount]]", "structured|Sales[[#This Row],[Amount]]|Sales[[#This Row],[Amount]]", "=Sales[[#This Row],[Amount]]"
+    CheckRefs "structured-this-row-short-form", "Model!B3", "=Sales[@Amount]", "structured|Sales[@Amount]|Sales[@Amount]", "=Sales[@Amount]"
+    CheckRefs "structured-bare-this-row", "Model!B3", "=[@Amount]*2", "structured|[@Amount]|[@Amount]", "=[@Amount]*2"
+    CheckRefs "structured-bare-column", "Model!B3", "=SUM([Amount])", "structured|[Amount]|[Amount]", "=SUM([Amount])"
+    CheckRefs "structured-headers-and-totals", "Model!B3", "=Sales[[#Headers],[Amount]]&Sales[[#Totals],[Amount]]", "structured|Sales[[#Headers],[Amount]]|Sales[[#Headers],[Amount]];structured|Sales[[#Totals],[Amount]]|Sales[[#Totals],[Amount]]", "=Sales[[#Headers],[Amount]]&Sales[[#Totals],[Amount]]"
+    CheckRefs "structured-all", "Model!B3", "=ROWS(Sales[#All])", "structured|Sales[#All]|Sales[#All]", "=ROWS(Sales[#All])"
+    CheckRefs "structured-column-span", "Model!B3", "=SUM(Sales[[Amount]:[Cost]])", "structured|Sales[[Amount]:[Cost]]|Sales[[Amount]:[Cost]]", "=SUM(Sales[[Amount]:[Cost]])"
+    CheckRefs "structured-with-a-cell-shaped-column", "Model!B3", "=Sales[[#This Row],[A1]]+A1", "structured|Sales[[#This Row],[A1]]|Sales[[#This Row],[A1]];cell|A1|Model!A1", "=Sales[[#This Row],[A1]]+R[-2]C[-1]"
+    CheckRefs "external-as-a-file-holds-it", "Model!B3", "=[1]Sheet1!A1", "external|[1]Sheet1!A1|[1]Sheet1!A1", "=[1]Sheet1!R[-2]C[-1]"
+    CheckRefs "external-as-the-formula-bar-shows-it", "Model!B3", "=[Book.xlsx]Sheet1!A1", "external|[Book.xlsx]Sheet1!A1|[Book.xlsx]Sheet1!A1", "=[Book.xlsx]Sheet1!R[-2]C[-1]"
+    CheckRefs "external-quoted", "Model!B3", "='[Book.xlsx]Q1 Data'!A1", "external|'[Book.xlsx]Q1 Data'!A1|'[Book.xlsx]Q1 Data'!A1", "='[Book.xlsx]Q1 Data'!R[-2]C[-1]"
+    CheckRefs "external-closed-book-with-path", "Model!B3", "='C:\Models\[Book.xlsx]Sheet1'!$A$1", "external|'C:\Models\[Book.xlsx]Sheet1'!$A$1|'C:\Models\[Book.xlsx]Sheet1'!$A$1", "='C:\Models\[Book.xlsx]Sheet1'!R1C1"
+    CheckRefs "external-name-as-a-file-holds-it", "Model!B3", "=[1]!Rate", "external|[1]!Rate|[1]!Rate", "=[1]!Rate"
+    CheckRefs "external-name-as-the-formula-bar-shows-it", "Model!B3", "=Book.xlsx!Rate", "name|Book.xlsx!Rate|Book.xlsx!Rate", "=Book.xlsx!Rate"
+    CheckRefs "three-d-span", "Model!B3", "=SUM(Jan:Dec!A1)", "3d|Jan:Dec!A1|Jan:Dec!A1", "=SUM(Jan:Dec!R[-2]C[-1])"
+    CheckRefs "three-d-span-quoted", "Model!B3", "=SUM('Q1 Data:Q4 Data'!A1)", "3d|'Q1 Data:Q4 Data'!A1|'Q1 Data:Q4 Data'!A1", "=SUM('Q1 Data:Q4 Data'!R[-2]C[-1])"
+    CheckRefs "spill", "Model!B3", "=A1#", "spill|A1#|Model!A1#", "=R[-2]C[-1]#"
+    CheckRefs "spill-qualified", "Model!B3", "=SUM(Data!A1#)", "spill|Data!A1#|Data!A1#", "=SUM(Data!R[-2]C[-1]#)"
+    CheckRefs "spill-of-a-name", "Model!B3", "=Rate#", "spill|Rate#|Rate#", "=Rate#"
+    CheckRefs "indirect", "Model!B3", "=INDIRECT(""B1"")", "unreadable|INDIRECT|(unreadable ""INDIRECT"")", "=INDIRECT(""B1"")"
+    CheckRefs "indirect-of-a-cell", "Model!B3", "=INDIRECT(A1)", "unreadable|INDIRECT|(unreadable ""INDIRECT"");cell|A1|Model!A1", "=INDIRECT(R[-2]C[-1])"
+    CheckRefs "indirect-lower-case-behind-at", "Model!B3", "=@indirect(""B1"")", "unreadable|indirect|(unreadable ""INDIRECT"")", "=@indirect(""B1"")"
+    CheckRefs "two-indirects-two-records", "Model!B3", "=INDIRECT(""A1"")+INDIRECT(""A2"")", "unreadable|INDIRECT|(unreadable ""INDIRECT"");unreadable|INDIRECT|(unreadable ""INDIRECT"")", "=INDIRECT(""A1"")+INDIRECT(""A2"")"
+    CheckRefs "offset", "Model!B3", "=SUM(OFFSET(A1,1,0,2,1))", "unreadable|OFFSET|(unreadable ""OFFSET"");cell|A1|Model!A1", "=SUM(OFFSET(R[-2]C[-1],1,0,2,1))"
+    CheckRefs "broken-bare", "Model!B3", "=#REF!+A1", "broken|#REF!|Model!#REF!;cell|A1|Model!A1", "=#REF!+R[-2]C[-1]"
+    CheckRefs "broken-qualified", "Model!B3", "=Data!#REF!", "broken|Data!#REF!|Data!#REF!", "=Data!#REF!"
+    CheckRefs "broken-deleted-sheet", "Model!B3", "=#REF!A1", "broken|#REF!A1|#REF!A1", "=#REF!R[-2]C[-1]"
+    CheckRefs "other-error-literals", "Model!B3", "=IF(A1=#N/A,#VALUE!,#DIV/0!)", "cell|A1|Model!A1", "=IF(R[-2]C[-1]=#N/A,#VALUE!,#DIV/0!)"
+    CheckRefs "space-operator", "Model!B3", "=SUM(A1:B2 B1:C3)", "range|A1:B2|Model!A1:B2;range|B1:C3|Model!B1:C3", "=SUM(R[-2]C[-1]:R[-1]C R[-2]C:RC[1])"
+    CheckRefs "comma-union", "Model!B3", "=SUM((A1,B1))", "cell|A1|Model!A1;cell|B1|Model!B1", "=SUM((R[-2]C[-1],R[-2]C))"
+    CheckRefs "range-across-two-qualifiers-is-two-references", "Model!B3", "=Data!A1:Data!B2", "cell|Data!A1|Data!A1;cell|Data!B2|Data!B2", "=Data!R[-2]C[-1]:Data!R[-1]C"
+
+    ' Past ASCII: a letter of another alphabet is a name's, or a sheet's.
+    CheckRefs "name-past-ascii", "Model!B3", "=Umsatz_" & ChrW$(214) & "*2", _
+              "name|Umsatz_" & ChrW$(214) & "|Umsatz_" & ChrW$(214), "=Umsatz_" & ChrW$(214) & "*2"
+    CheckRefs "sheet-past-ascii-unquoted (predicted)", "Model!B3", "=" & ChrW$(220) & "bersicht!A1", _
+              "cell|" & ChrW$(220) & "bersicht!A1|" & ChrW$(220) & "bersicht!A1", "=" & ChrW$(220) & "bersicht!R[-2]C[-1]"
+
+    ' The sheet quoting rule, as a reference spells a sheet.
+    CheckV "axm.7: a plain sheet name is not quoted", VLA_Refers.RefersQuoteSheet("Data"), "Data"
+    CheckV "axm.7: a space quotes a sheet name", VLA_Refers.RefersQuoteSheet("Q1 Data"), "'Q1 Data'"
+    CheckV "axm.7: an apostrophe is doubled inside the quotes", VLA_Refers.RefersQuoteSheet("It's"), "'It''s'"
+    CheckV "axm.7: a cell-shaped sheet name is quoted", VLA_Refers.RefersQuoteSheet("A1"), "'A1'"
+    CheckV "axm.7: a sheet name starting with a digit is quoted", VLA_Refers.RefersQuoteSheet("2024"), "'2024'"
+    CheckV "axm.7: a dot quotes a sheet name (predicted)", VLA_Refers.RefersQuoteSheet("Q1.Data"), "'Q1.Data'"
+    CheckV "axm.7: an R1C1-shaped sheet name is quoted (predicted)", VLA_Refers.RefersQuoteSheet("R1C1"), "'R1C1'"
+    CheckV "axm.7: an underscore does not quote", VLA_Refers.RefersQuoteSheet("Tax_Rate"), "Tax_Rate"
+    CheckV "axm.7: a letter past ASCII does not quote (predicted)", VLA_Refers.RefersQuoteSheet("Umsatz" & ChrW$(214)), "Umsatz" & ChrW$(214)
+
+    ' The home cell, read with the same scan.
+    Dim sh As String, rw As Long, cl As Long
+    Report "axm.7: the home cell Model!B3 parses", VLA_Refers.RefersParseHome("Model!B3", sh, rw, cl), "refused"
+    CheckV "axm.7: Model!B3 is sheet Model, row 3, column 2", sh & "|" & rw & "|" & cl, "Model|3|2"
+    Report "axm.7: a quoted home sheet parses", VLA_Refers.RefersParseHome("'Q1 Data'!C5", sh, rw, cl), "refused"
+    CheckV "axm.7: 'Q1 Data'!C5 is sheet Q1 Data, row 5, column 3", sh & "|" & rw & "|" & cl, "Q1 Data|5|3"
+    Report "axm.7: a home cell without its sheet is refused", Not VLA_Refers.RefersParseHome("B3", sh, rw, cl), "accepted"
+    Report "axm.7: a home that is a column is refused", Not VLA_Refers.RefersParseHome("Model!A:A", sh, rw, cl), "accepted"
+    Report "axm.7: a home followed by more text is refused", Not VLA_Refers.RefersParseHome("Model!B3+1", sh, rw, cl), "accepted"
+
+    ' A record's fields: kind, shape, sheet, book, part, numbers, marks, position.
+    CheckV "axm.7: the record of a quoted, mixed range", RefsDescribe("='Q1 Data'!$A$1:B2"), _
+           "1: [range shape=range sheet=Q1 Data book= part=$A$1:B2 1,1,2,2 abs=TTFF at 2+17 part@12]"
+    CheckV "axm.7: the record of an external cell carries its book and sheet", RefsDescribe("='[Book.xlsx]Q1 Data'!A1"), _
+           "1: [external shape=cell sheet=Q1 Data book=Book.xlsx part=A1 1,1,0,0 abs=FFFF at 2+23 part@23]"
+    CheckV "axm.7: the record of #REF!A1 keeps the cell's numbers", RefsDescribe("=#REF!A1"), _
+           "1: [broken shape=cell sheet= book= part=A1 1,1,0,0 abs=FFFF at 2+7 part@7]"
+    CheckV "axm.7: the record of a spill", RefsDescribe("=A1#"), _
+           "1: [spill shape=cell sheet= book= part=A1# 1,1,0,0 abs=FFFF at 2+3 part@2]"
+    CheckV "axm.7: the records of INDIRECT(A1), in formula order", RefsDescribe("=INDIRECT(A1)"), _
+           "2: [unreadable shape= sheet= book= part=INDIRECT 0,0,0,0 abs=FFFF at 2+8 part@2] [cell shape=cell sheet= book= part=A1 1,1,0,0 abs=FFFF at 11+2 part@11]"
+
+    ' The scan itself.
+    Dim refs() As FormulaRef
+    Report "axm.7: a text without = reads the same two cells", VLA_Refers.RefersScan("A1+B1", refs) = 2, "count differs"
+    Report "axm.7: a formula with no reference counts none", VLA_Refers.RefersScan("=1+1", refs) = 0, "count differs"
+End Sub
+
+' One row of the proof table: the records joined by ";" with "|" between
+' fields (or NONE), and the R1C1 text, against RefersReportFor's whole
+' report for the case, which is exactly the golden's section body.
+Private Sub CheckRefs(ByVal caseName As String, ByVal homeText As String, ByVal formulaText As String, _
+                      ByVal wantRows As String, ByVal wantR1C1 As String)
+    Dim want As String, n As Long
+    want = Replace(Replace(wantRows, "|", vbTab), ";", vbCrLf) & vbCrLf & "R1C1" & vbTab & wantR1C1 & vbCrLf
+    CheckV "axm.7: " & caseName, RefersReportFor(homeText & vbLf & formulaText, n), want
+End Sub
+
+' Every field of every record a scan finds, on one line.
+Private Function RefsDescribe(ByVal formulaText As String) As String
+    Dim refs() As FormulaRef
+    Dim cnt As Long, i As Long
+    Dim s As String
+    cnt = VLA_Refers.RefersScan(formulaText, refs)
+    s = CStr(cnt) & ":"
+    For i = 1 To cnt
+        s = s & " [" & refs(i).Kind & " shape=" & refs(i).PartShape & " sheet=" & refs(i).SheetName & _
+            " book=" & refs(i).Book & " part=" & refs(i).Part & " " & refs(i).Row1 & "," & refs(i).Col1 & "," & _
+            refs(i).Row2 & "," & refs(i).Col2 & " abs=" & RefsMark(refs(i).RowAbs1) & RefsMark(refs(i).ColAbs1) & _
+            RefsMark(refs(i).RowAbs2) & RefsMark(refs(i).ColAbs2) & " at " & refs(i).Pos & "+" & refs(i).Span & _
+            " part@" & refs(i).PartPos & "]"
+    Next i
+    RefsDescribe = s
+End Function
+
+Private Function RefsMark(ByVal b As Boolean) As String
+    If b Then RefsMark = "T" Else RefsMark = "F"
 End Function
 
 ' S1.1: resolve a dev corpus file by probing the known layouts -

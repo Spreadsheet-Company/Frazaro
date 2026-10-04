@@ -1,6 +1,12 @@
 Attribute VB_Name = "VLA_Build"
 Option Explicit
-Public Const VLA_BUILD_VERSION As String = "U20.1"
+Public Const VLA_BUILD_VERSION As String = "AXM.7"
+' AXM.7: mods array gains VLA_Refers - the formula-reference reader, a
+' pure module (a formula's text to records, no Excel object) that REFLECT
+' in the VBA and the core's port (PORT.8, slice 8b) both follow. It sits
+' with the other Layer-0 modules, since nothing it calls is below it.
+' Added to VLA_DevRig.bas's array in the same edit;
+' tools/check_devrig_mods_parity.ps1 holds the two together.
 ' U20.1: WriteTextFile writes UTF-8 through VLA_Loader instead of ANSI
 ' Print # (a U.20 follow-on) - version.iss and the ribbon XML without a
 ' BOM, the ribbon-injection .ps1 with one, because Windows PowerShell
@@ -410,7 +416,7 @@ Private Function VlaBuildOneEdition(ByVal edition As String, ByRef note As Strin
     ' OPTIMIZE.3 (slice 2): VLA_OptimizeSearch, just before VLA_Optimize,
     ' which is its only caller - the search itself, held to Long arrays by
     ' tools/check_optimize_search_discipline.ps1. Both arrays, one edit.
-    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_IDE", "VLA_Lint", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_OptimizeSearch", "VLA_Optimize", "VLA_Browser", "VLA_Console", "frmCLI")
+    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_Refers", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_IDE", "VLA_Lint", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_OptimizeSearch", "VLA_Optimize", "VLA_Browser", "VLA_Console", "frmCLI")
 
     ' Export the current, in-project versions - the build always ships
     ' exactly what the dev workbook contains. (VLA_English and its

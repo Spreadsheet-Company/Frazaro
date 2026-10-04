@@ -1,6 +1,9 @@
 Attribute VB_Name = "VLA_DevRig"
 Option Explicit
-Public Const VLA_DEVRIG_VERSION As String = "PPROF.0"
+Public Const VLA_DEVRIG_VERSION As String = "AXM.7"
+' AXM.7: mods array gains VLA_Refers (the formula-reference reader, pure:
+' a formula's text to records). Added to VLA_Build.bas's own array in the
+' same edit, as check_devrig_mods_parity.ps1 requires.
 ' PPROF.0: VlaProfileAll added - P-PROF's own dial
 ' (BETA_ROADMAP.md, MACHINE + OPTIMIZATION), VlaTimeIt's family shape
 ' applied to a per-phase timing switch (VLA.mProfileOn, VLA.bas/
@@ -178,7 +181,7 @@ Public Sub VlaDevReload(Optional ByVal folder As String = "")
     ' same edit as VLA_Build.bas's array - and the same warning as CLI.3's:
     ' re-import this module by hand before VlaDevReload, or the new module
     ' is never imported.
-    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_IDE", "VLA_Build", "VLA_Lint", "VLA_Tests", "VLA_Tests_Grammar", "VLA_Tests_Host", "VLA_Tests_Query", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_OptimizeSearch", "VLA_Optimize", "VLA_Browser", "VLA_Console", "frmCLI")
+    mods = Array("VLA_Identity", "VLA_Messages", "VLA_Digest", "VLA_Refers", "VLA_HeadTable", "VLA", "VlaFrame", "VlaSlice", "VLA_Loader", "VLA_Provenance", "VLA_English", "VLA_SentenceEngine", "VLA_Runtime", "VLA_IDE", "VLA_Build", "VLA_Lint", "VLA_Tests", "VLA_Tests_Grammar", "VLA_Tests_Host", "VLA_Tests_Query", "VLA_Interpreter", "VLA_Events", "VLA_EventSink", "VLA_Unify", "VLA_Relation", "VLA_Datalog", "VLA_Sql", "VLA_Prolog", "VLA_OptimizeSearch", "VLA_Optimize", "VLA_Browser", "VLA_Console", "frmCLI")
     Dim i As Long
     Dim fp As String
     Dim comp As Object

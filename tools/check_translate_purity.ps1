@@ -79,6 +79,13 @@ $scanTargets = @(
     @{ Module = 'VLA_Browser';     Fn = 'EnglishTranslateTextToVba' }
 )
 
+# --- Whole pure modules: every Function and Sub in each, at ceiling 0 ---
+# AXM.7: VLA_Refers.bas is pure by design - a formula's text to records,
+# no Excel object - and the core ports it module to module (PORT.8, slice
+# 8b). Listing the module rather than its functions means a function added
+# to it is scanned the day it lands; a host token anywhere in it fails here.
+$pureModules = @('VLA_Refers')
+
 # --- Forbidden host-token patterns (regex, case-insensitive) ---
 $forbidden = @(
     'ActiveSheet', 'ActiveWorkbook', 'ThisWorkbook',
@@ -147,6 +154,33 @@ foreach ($t in $scanTargets) {
         Write-Output "$line  ok (room to tighten: -$($ceiling - $count))"
     } else {
         Write-Output "$line  ok"
+    }
+}
+
+foreach ($m in $pureModules) {
+    $path = Join-Path $srcDir "$m.bas"
+    if (-not (Test-Path -LiteralPath $path)) {
+        Write-Error "Pure module '$m' has no .bas file at $path - the pure-module list above is stale."
+    }
+    $names = @()
+    foreach ($src in (Get-Content -LiteralPath $path)) {
+        if ($src -match '^(Public|Private)\s+(Function|Sub)\s+(\w+)\s*\(') { $names += $matches[3] }
+    }
+    if ($names.Count -eq 0) {
+        Write-Error "Pure module '$m' declares no Function or Sub - the scan would hold nothing."
+    }
+    Write-Output "  (pure module $m, $($names.Count) procedures, ceiling 0 each)"
+    foreach ($fn in $names) {
+        $body = Get-FunctionBody -path $path -fnName $fn
+        $count = Get-HitCount -body $body
+        $key = "${m}::$fn"
+        $line = "  {0,-45} hits={1,3}  ceiling={2,3}" -f $key, $count, 0
+        if ($count -gt 0) {
+            Write-Output "$line  FAIL (+$count)"
+            $failed.Add($key)
+        } else {
+            Write-Output "$line  ok"
+        }
     }
 }
 

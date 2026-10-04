@@ -1,0 +1,272 @@
+The reference fixture (AXM.7). Each case sits under a line "=== <name>"
+and runs to the next such line; these lines before the first header are
+ignored. A case's first line is the cell holding the formula, spelled as
+a refers row spells its first field (Model!B3, 'Q1 Data'!C5); the lines
+after it are the formula as the formula bar shows it, with its =, joined
+with a line break where there are more than one (no case holds one: its
+R1C1 record below would then span two lines). VlaWriteRefersGolden
+(VLA_Tests.bas) writes VLA_Refers' reading of every case to
+refers_golden.txt: one line per reference in formula order,
+"<kind><TAB><the token as written><TAB><the second field of its refers
+row>", or NONE where the formula holds none, then one line
+"R1C1<TAB><the formula in R1C1 relative to the cell>"; the core's
+refers.rs (PORT.8, slice 8b) is held to that file by its own test, and
+tools/check_refers_golden.ps1 holds the pair's shape and the kinds
+reached. The kinds: cell, range, column, row, name, structured, external,
+3d, spill, unreadable, broken. A case is named for what it means to
+reach; the golden records what the reference reads.
+=== cell-relative
+Model!B3
+=B1
+=== cell-absolute
+Model!B3
+=$A$1
+=== cell-row-absolute
+Model!B3
+=A$1
+=== cell-column-absolute
+Model!B3
+=$A1
+=== cell-same-row
+Model!B3
+=A3
+=== cell-itself
+Model!B3
+=B3
+=== cell-lower-case
+Model!B3
+=a1*2
+=== two-cells
+Model!B3
+=B1-B2
+=== duplicates-kept-in-order
+Model!B3
+=A1+A1
+=== range
+Model!B3
+=SUM(A1:B2)
+=== range-mixed-marks
+Model!B3
+=SUM($A$1:B$2)
+=== column
+Model!B3
+=SUM(A:A)
+=== columns
+Model!B3
+=SUM(A:C)
+=== column-absolute
+Model!B3
+=SUM($A:$A)
+=== column-half-absolute
+Model!B3
+=SUM($A:A)
+=== row
+Model!B3
+=SUM(1:1)
+=== rows
+Model!B3
+=SUM(1:3)
+=== row-absolute
+Model!B3
+=SUM($1:$1)
+=== last-cell
+Model!B3
+=XFD1048576
+=== name-past-the-last-column
+Model!B3
+=XFE1
+=== name-past-the-last-row
+Model!B3
+=A1048577
+=== name
+Model!B3
+=Rate*A1
+=== name-with-underscore-and-dot
+Model!B3
+=Tax_Rate.2024
+=== name-shaped-like-r1c1
+Model!B3
+=R1C1
+=== name-with-letters-after-digits
+Model!B3
+=ABC123X
+=== names-either-side-of-a-colon
+Model!B3
+=SUM(Start:Finish)
+=== sheet-qualified
+Model!B3
+=Data!A1
+=== sheet-qualified-range
+Model!B3
+=SUM(Data!A1:B2)
+=== sheet-qualified-column-and-row
+Model!B3
+=SUM(Data!A:A)+SUM(Data!1:1)
+=== sheet-quoted
+Model!B3
+='Q1 Data'!A1
+=== sheet-quoted-doubled-apostrophe
+Model!B3
+='It''s'!A1
+=== sheet-quoted-needlessly
+Model!B3
+='Data'!A1
+=== sheet-named-like-a-cell
+Model!B3
+='A1'!B2
+=== sheet-starting-with-a-digit
+Model!B3
+='2024'!A1
+=== sheet-with-a-dot
+Model!B3
+='Q1.Data'!A1
+=== sheet-scoped-name
+Model!B3
+=Model!Local
+=== home-sheet-quoted
+'Q1 Data'!C5
+=A1+B2
+=== function-spelled-like-a-cell
+Model!B3
+=LOG10(A1)
+=== function-lower-case
+Model!B3
+=log10(a1)+atan2(1,2)
+=== true-and-false
+Model!B3
+=IF(TRUE,FALSE,A1)
+=== true-as-a-function
+Model!B3
+=TRUE()
+=== no-reference
+Model!B3
+="hello"
+=== number-literals
+Model!B3
+=1.5+2E+3+.5
+=== percent
+Model!B3
+=A1*10%
+=== unary-signs
+Model!B3
+=-A1+-B1
+=== string-spelled-like-a-cell
+Model!B3
+="A1"&A1
+=== string-with-doubled-quotes
+Model!B3
+="say ""A1"""&B1
+=== string-with-apostrophe-and-bang
+Model!B3
+="Don't!"&A1
+=== bang-in-a-string
+Model!B3
+=A1&"!"
+=== xlfn-prefix-as-a-file-holds-it
+Model!B3
+=_xlfn.STDEV.S(A1:A3)
+=== xlfn-single-as-a-file-holds-it
+Model!B3
+=_xlfn.SINGLE(A1:A3)
+=== implicit-intersection
+Model!B3
+=@A1:A3
+=== let-binders-read-as-names
+Model!B3
+=LET(x,A1,x*2)
+=== structured-column
+Model!B3
+=SUM(Sales[Amount])
+=== structured-this-row-long-form
+Model!B3
+=Sales[[#This Row],[Amount]]
+=== structured-this-row-short-form
+Model!B3
+=Sales[@Amount]
+=== structured-bare-this-row
+Model!B3
+=[@Amount]*2
+=== structured-bare-column
+Model!B3
+=SUM([Amount])
+=== structured-headers-and-totals
+Model!B3
+=Sales[[#Headers],[Amount]]&Sales[[#Totals],[Amount]]
+=== structured-all
+Model!B3
+=ROWS(Sales[#All])
+=== structured-column-span
+Model!B3
+=SUM(Sales[[Amount]:[Cost]])
+=== structured-with-a-cell-shaped-column
+Model!B3
+=Sales[[#This Row],[A1]]+A1
+=== external-as-a-file-holds-it
+Model!B3
+=[1]Sheet1!A1
+=== external-as-the-formula-bar-shows-it
+Model!B3
+=[Book.xlsx]Sheet1!A1
+=== external-quoted
+Model!B3
+='[Book.xlsx]Q1 Data'!A1
+=== external-closed-book-with-path
+Model!B3
+='C:\Models\[Book.xlsx]Sheet1'!$A$1
+=== external-name-as-a-file-holds-it
+Model!B3
+=[1]!Rate
+=== external-name-as-the-formula-bar-shows-it
+Model!B3
+=Book.xlsx!Rate
+=== three-d-span
+Model!B3
+=SUM(Jan:Dec!A1)
+=== three-d-span-quoted
+Model!B3
+=SUM('Q1 Data:Q4 Data'!A1)
+=== spill
+Model!B3
+=A1#
+=== spill-qualified
+Model!B3
+=SUM(Data!A1#)
+=== spill-of-a-name
+Model!B3
+=Rate#
+=== indirect
+Model!B3
+=INDIRECT("B1")
+=== indirect-of-a-cell
+Model!B3
+=INDIRECT(A1)
+=== indirect-lower-case-behind-at
+Model!B3
+=@indirect("B1")
+=== two-indirects-two-records
+Model!B3
+=INDIRECT("A1")+INDIRECT("A2")
+=== offset
+Model!B3
+=SUM(OFFSET(A1,1,0,2,1))
+=== broken-bare
+Model!B3
+=#REF!+A1
+=== broken-qualified
+Model!B3
+=Data!#REF!
+=== broken-deleted-sheet
+Model!B3
+=#REF!A1
+=== other-error-literals
+Model!B3
+=IF(A1=#N/A,#VALUE!,#DIV/0!)
+=== space-operator
+Model!B3
+=SUM(A1:B2 B1:C3)
+=== comma-union
+Model!B3
+=SUM((A1,B1))
+=== range-across-two-qualifiers-is-two-references
+Model!B3
+=Data!A1:Data!B2

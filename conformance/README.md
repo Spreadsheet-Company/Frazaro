@@ -519,3 +519,52 @@ prints that text, since a `name` row holds what the file holds. A later
 slice that reads names' formulas (8b, `refers`) meets it as a call with
 two string arguments and no reference. The row joins the check's floors
 (35) and the runner's kind; the fake answers it from its golden.
+
+## Amendment of 2026-10-04, later: the refers golden (`AXM.7`, for `PORT.8` slice 8b)
+
+The reference reader for a formula's references landed in the VBA first, as
+the amendment of 2026-10-03 said it would: `src/VLA_Refers.bas`, `AXM.7`.
+Its golden joins the data both implementations read, in the token golden's
+shape: `scripts/refers.txt`, cases under `=== <name>` lines, each the cell
+holding the formula spelled as a `refers` row spells its first field
+(`Model!B3`, `'Q1 Data'!C5`) and then the formula with its `=`; and
+`scripts/refers_golden.txt`, the reference's reading of each
+(`VlaWriteRefersGolden`, `VLA_Tests.bas`): one record per reference in
+formula order, `<kind><TAB><the token as written><TAB><the second field of
+its refers row>`, or `NONE` where the formula holds none, then one record
+`R1C1<TAB><the formula in R1C1 relative to the cell>`. The kinds are eleven:
+`cell`, `range`, `column`, `row`, `name`, `structured`, `external`, `3d`,
+`spill`, `unreadable` and `broken`, the last for `#REF!`, which the earlier
+amendment did not name and which a real model holds after every deleted
+row. The third field is the second field of oracle 8's `refers` row exactly:
+a bare reference is qualified by the case's sheet, `$` marks are dropped and
+letters upper-cased (`Model!B1`, `Data!A:A`, `'Q1 Data'!A1:B2`); a name, a
+structured reference, an external reference and a 3D span stand as written;
+a spill is its cell with `#` (`Model!A1#`); `(unreadable "INDIRECT")` and
+`(unreadable "OFFSET")` come once per call, with the read going on inside
+the call, so `OFFSET(A1,1,0)` still yields `A1`; a broken reference is
+`Model!#REF!`, or `#REF!A1` as written after a deleted sheet. A sheet
+qualifier is quoted when the name holds a character outside letters, digits
+and the underscore, starts with a digit, or is itself cell-shaped or
+R1C1-shaped, an apostrophe inside doubled; the same rule spells both ends of
+a row, so the relation joins to itself whatever Excel's rule does in a
+corner. The R1C1 record is Excel's `FormulaR1C1` spelling: `R[-2]C[-1]`,
+`R1C1`, `RC`, a whole column or row written once when its two ends render
+alike (`C[-1]`, never `C[-1]:C[-1]`), every qualifier kept as written. Two
+limits are in the fixture, not hidden: `LET` and `LAMBDA` binders read as
+names, and an external name as the formula bar shows it (`Book.xlsx!Rate`)
+reads as a sheet-qualified name, since without the workbook a book's name
+and a sheet's are one shape; the file's `[1]!Rate` reads as external.
+
+It is a golden an implementation's own tests hold to (`core/src/refers.rs`,
+from slice 8b), not a runner kind. `tools/check_refers_golden.ps1` holds its
+shape and its coverage, host-free, with a `-Control`: the fixture's cases and
+the golden's agree, every case is a cell then a formula, every golden case
+ends in its R1C1 record, every kind is one of the eleven, and the distinct
+kinds never go down, all eleven at this amendment from 85 cases. The golden
+was written by hand ahead of the reference's first run and is committed as
+the prediction, so that the owner's empty `git diff` after
+`? VlaWriteRefersGolden()` witnesses something. When 8b lands, the shared
+formula's children of the earlier amendment are moved by the ported
+scanner's third renderer, the writer's mover, which the build golden holds
+and this golden does not.

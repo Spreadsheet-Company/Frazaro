@@ -15946,7 +15946,7 @@ decision: `SD-13`, the `GENSYM` veto and `SD-16` hold at every stage.
   `OPTIMIZE.0.1`, twenty-one questions answered before the engine existed.
   *Correction to `SINGULARITY.md` §3, appended there the same day:* its
   "Memory" list did not know `VLA_Log` stood. `~days`.
-- ⬜ **AXM.7 — the formula-reference reader (Stage 0.2).** Pure string
+- 🟡 **AXM.7 — the formula-reference reader (Stage 0.2).** Pure string
   work, host-free, pinned in the pure suite: the references inside a
   formula (`A1`, `$A$1`, `A1:B2`, `Sheet!A1`, `'Q1 Data'!A1`, names,
   structured references, external links) read from the formula's text,
@@ -15962,6 +15962,162 @@ decision: `SD-13`, the `GENSYM` veto and `SD-16` hold at every stage.
   first fifteen schemas (a summed range one row short, a reference shifted
   by an inserted row, a stale external link, a circular reference).
   `~weeks`.
+  **Scoped and built 2026-10-04 at the owner's "proceed with AXM.7", the
+  turn `PORT.8`'s fork 1 put before slice 8b (the VBA leads, `SD-18`).
+  Status, 2026-10-04: built, awaiting the owner's run.** Four forks were
+  put to the owner, each argued long term first; every recommendation was
+  approved. *(1) Where it lives:* `src/VLA_Refers.bas`, a pure module with
+  its own `VLA_REFERS_VERSION`, in both `mods` arrays, over functions in
+  `VLA_Relation.bas`. The port is then held module to module, one match
+  arm per `Case` arm, as `PORT.5` and `PORT.6` were; and a module that
+  names no Excel object can be pinned pure mechanically, which
+  `check_translate_purity.ps1` now does for every procedure in it (a
+  pure-modules list beside its function pairs), where inside
+  `VLA_Relation`, which reads Ranges, the purity would be by inspection
+  only. `REFLECT` in the VBA (`AXM.8`) reads Ranges in its own module and
+  calls this one for the rows. *(2) The record and the golden's line:*
+  three TAB fields a reference, `<kind>`, the token as written, and the
+  second field of its `refers` row, under a section whose first body line
+  is the formula's own cell in `from`'s spelling (`Model!B3`,
+  `'Q1 Data'!C5`) and whose next lines are the formula with its `=`; `NONE`
+  for a formula with none. The kind pins the classification, which the
+  spelling alone cannot give back (`Model!Local` and `Model!B1` differ only
+  by the cell-shape test under proof); the text as written pins where the
+  scanner started and stopped; the third field is exactly oracle 8's second
+  field, so the core's 8b test computes the same triples from the same
+  fixture. A bare reference is qualified by the home sheet in the third
+  field and bare in the second, since `feeds` is a closure that joins `to`
+  against `from`, which oracle 8 spells qualified. One function spells a
+  sheet qualifier for both ends of a row (`RefersQuoteSheet`), so the
+  relation is self-consistent even where a corner of Excel's quoting rule
+  surprises, and the live pass checks the rule itself. The record the
+  module returns (`FormulaRef`) carries more than the golden: kind, the
+  part's shape, book, sheet with apostrophes undoubled, the token as
+  written, the part alone, two row and column numbers, four absolute
+  marks, and its position, length and the part's position in the text, so
+  a renderer rewrites in place and `AXM.8` sizes a cone from the numbers.
+  *(3) R1C1:* in this item, as one `R1C1` record closing every section: the
+  same scanner with a second renderer, and Excel's own `FormulaR1C1` and
+  `Formula2R1C1` can judge it only while a host is at hand, which is this
+  turn and never 8b; leaving it out would have meant a second VBA turn and
+  a second owner pass for the same scanner before `--counts` and the
+  inconsistent-formula walk could exist. The writer's mover stays the
+  port's own: in 8b, `shift_a1_references` becomes a third renderer over
+  the ported scanner, still held by the build golden; the VBA gets no
+  shift, having no caller for one. *(4) The sentence* `Read cell B9's
+  formula to me.` is a later item's: it renders English from a formula
+  (G-RENDER's direction, `AXM.3`'s answer templates), needs a parser for
+  the formula's operators and functions, which this item is by its own
+  line not, and a `GRAMMAR_SINCE.md` row would freeze a spelling under
+  `SD-4` before the answer's shape exists. No ID minted; it waits for
+  `AXM.3` and the question act (`AXM.9`). *Three smaller choices, each
+  taken as recommended:* `#REF!` is an eleventh kind, `broken`, spelled
+  `Model!#REF!` when bare and as written otherwise (a real model holds it
+  after every deleted row, the reflect fixture already has a `#REF!` name,
+  and the audit list wants broken references found); a check in the house
+  style with a `-Control`, `check_refers_golden.ps1`, the 43rd, holds the
+  pair's shape and the distinct kinds reached, because agreement proves
+  nothing about coverage and until 8b nothing else reads the pair; and the
+  read goes on inside the two unreadable calls, so `OFFSET(A1,1,0)` yields
+  a `cell` row for `A1` (a true precedent, which Trace Precedents draws)
+  beside its `(unreadable "OFFSET")` row, while `INDIRECT("B1")` yields the
+  unreadable row alone, its string being skipped.
+  **Step 0, what Excel's own formula bar spells, predicted before the code
+  and checked in the live pass** (the formula typed in B3 of a sheet named
+  Model unless said): (1) `='Sheet1'!A1` shows as `=Sheet1!A1`, the needless
+  quotes dropped, and `Formula2R1C1` gives `=Sheet1!R[-2]C[-1]` - *checked
+  by the owner before the code was written, 2026-10-04: held*; (2) a
+  structured reference naming a Table that does not exist
+  (`=Table1[[#This Row],[Amount]]` in a workbook with no Table1) is refused
+  at entry with "There's a problem with this formula", never evaluated, so
+  no file holds one - *checked by the owner before the code: held*; with a
+  Table `Sales` holding a column `Amount`, typed in a row of the Table, it
+  shows as `=Sales[@Amount]` while the file keeps the long form, and the
+  reader takes both whole; (3) `=XFE1` and `=A1048577` show as typed and
+  give `#NAME?`, so they are `name` rows, and `=XFD1048576` is a cell; (4)
+  `=Sheet1:Sheet3!A1` outside an aggregate shows as typed and gives
+  `#VALUE!`, `=SUM(Sheet1:Sheet3!A1)` gives the sum, both are `3d` as
+  written, and `Formula2R1C1` of the second is
+  `=SUM(Sheet1:Sheet3!R[-2]C[-1])`; (5) `=[Book.xlsx]Sheet1!A1` shows that
+  way while Book.xlsx is open and `='C:\...\[Book.xlsx]Sheet1'!A1` once it
+  is closed, both `external` with the book `Book.xlsx`, while a
+  workbook-level name of another book shows as `=Book.xlsx!Rate`, which the
+  pure reader reads as a sheet-qualified `name` (the recorded limit; the
+  file's `[1]!Rate` is `external`); (6) from B3, `=SUM(A:A)` renders
+  `=SUM(C[-1])` and not `C[-1]:C[-1]`, `=SUM(A:C)` renders `=SUM(C[-1]:C[1])`,
+  `=A$1` renders `=R1C[-1]`, `=A3` renders `=RC[-1]`, `=B3` renders `=RC`
+  (a circular reference Excel warns about, the text standing), `=A1#`
+  renders `=R[-2]C[-1]#` when A1 spills, `=@A1:A3` keeps its `@` in
+  `Formula2R1C1` (`=@R[-2]C[-1]:RC[-1]`) and loses it in `FormulaR1C1`, and
+  `=XFD1048576` renders `=R[1048573]C[16382]`; (7) deleting a sheet named by
+  `=Sheet2!A1` leaves `=#REF!A1`, no `!` after the error, with `Formula2R1C1`
+  `=#REF!R[-2]C[-1]`, and deleting the column `=A1` names leaves `=#REF!`;
+  (8) the quoting rule: sheets named `Q1 Data`, `It's`, `A1`, `2024` and
+  `Q1.Data` are quoted in a formula that names them, the apostrophe
+  doubled, `Data`, `Tax_Rate` and a name of letters past ASCII are not, and
+  a sheet named `R1C1` is quoted - the dot and the R1C1 shape are the two
+  uncertain rows; (9) `=LET(x,A1,x*2)` reads `x` twice as a `name`, the
+  recorded limit, pinned so a change is seen; (10) Trace Precedents on
+  `=OFFSET(A1,1,0,2,1)` draws an arrow from A1 and on `=INDIRECT("B1")`
+  draws none, which is the reader's `cell` row for the first and none for
+  the second.
+  **Built 2026-10-04.** `src/VLA_Refers.bas` (780 lines with its comments,
+  CRLF, ASCII; 28 procedures; the trap list and a reserved-word scan run
+  against it): `RefersScan` tokenizes in one forward pass, a qualifier
+  (`'quoted'!`, `[book]sheet!`, `[book]!`, `sheet!`, `first:last!`) read
+  before its part, a part read as `#REF!` with the cell a deleted sheet
+  leaves after it, a cell, range, column or row with its second half after
+  a colon when the halves share a shape, a structured reference with its
+  table taken to the matching bracket at depth, a function name stepped
+  over unless it is `INDIRECT` or `OFFSET`, `TRUE`, `FALSE` and numbers
+  stepped over, a name, and either's spill `#`; a token is consumed whole,
+  so boundaries need no look-behind; string literals are skipped with their
+  doubled quotes. `RefersSpell`, `RefersR1C1`, `RefersQuoteSheet`,
+  `RefersParseHome` and `RefersColumnLetters` are the public surface.
+  `TestFormulaRefs` in `VLA_Tests.bas` under `VlaSelfTest`, 110 pins: the
+  85 fixture cases, each pinned as the whole section body the writer
+  produces (the table's rows were generated from the fixture and the golden
+  together, so the two cannot disagree), two cases past ASCII, nine pins
+  on the quoting rule, seven on the home cell's parse, five on a record's
+  fields and two on the scan's count. `VlaWriteRefersGolden` and
+  `RefersReportFor` beside the token and refusal writers. `scripts/refers.txt`,
+  85 cases, every item of the catch list present by name; `scripts/refers_golden.txt`,
+  273 lines, written by hand as the prediction and committed before the
+  owner's run, so that the empty diff witnesses something.
+  `tools/check_refers_golden.ps1` (floor 11 kinds; `-Control` on four
+  mutants) and `run_checks.ps1`'s floor 43; `check_translate_purity.ps1`'s
+  pure-modules list; both `mods` arrays; the treaty's amendment of
+  2026-10-04, later; `SINGULARITY.md`'s dated note; the map. No refusal, no
+  new ID, no `RELEASES.md` line, since a user sees nothing. *Limits carried,
+  each in the fixture:* `LET` and `LAMBDA` binders read as names; an
+  external name as the formula bar shows it reads as a sheet-qualified
+  name; `Data!A1:Data!B2`, which Excel normalizes at entry, reads as two
+  cells; a range between two names (`Jan:Dec` where both are names) reads
+  as Excel reads it, a whole-column reference; a formula with a line break
+  in it would put the break into its R1C1 record, so none is in the
+  fixture.
+  *The live pass, 2026-10-04 (the owner):* `VlaDevReload`, Debug > Compile
+  clean; `VlaSelfTests` pure 1777 of 1777, the 110 new pins among them,
+  host 267 of 267; `TestDSLs` 2346 passed; `VlaGoldens` corpus and
+  interpreter PASS. The step-0 rows probed in a scratch workbook: (1) and
+  (2) had held before the code was written; (3) `=XFE1` gives `#NAME?`,
+  held; (6) `=SUM(A:A)` gives `=SUM(C[-1])`, `=A1#` gives `=R[-2]C[-1]#`,
+  and `=@A1:A3` keeps its `@` in `Formula2R1C1` and loses it in
+  `FormulaR1C1`, all held; (7) deleting Sheet2 left `=#REF!A1`, with
+  `Formula2R1C1` `=#REF!R[-2]C[-1]`, held; (8) a sheet named `R1C1` is
+  quoted, held, and **a sheet named `Q1.Data` is not: `='Q1.Data'!A1` typed
+  shows as `=Q1.Data!A1`, the quotes dropped, so the dot row fell** - a
+  period is a character a sheet qualifier carries unquoted, as letters,
+  digits and the underscore are; (10) Trace Precedents on
+  `=SUM(OFFSET(A1,1,0,2,1))` drew the arrow from A1, and on `=INDIRECT("B1")`
+  refused with "The Trace Precedents command requires that the active cell
+  contain a formula which includes valid references", stronger than
+  predicted: Excel itself finds no reference there. Nine of the ten rows
+  held. The one that fell changes the quoting rule (`SheetNeedsQuotes`
+  drops its period clause), the `sheet-with-a-dot` case (now `=Q1.Data!A1`
+  as Excel spells it, read as `Q1.Data!A1`), one pin and the treaty's
+  sentence, in the commit after the one that records this pass, since the
+  pass tested the rule as it was.
 - ⬜ **AXM.13 — the `REFLECT` measurement, run: a real model's numbers
   decide `AXM.8`'s shape.** *Minted 2026-10-03 at the owner's call, out of
   `AXM.1`, which closed as the instrument with no real model or manager's
