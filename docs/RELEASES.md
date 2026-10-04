@@ -202,8 +202,10 @@
   291,316 characters matched. The core reads the same prelude, the same
   head table and the same message catalogue as the add-in, the last two
   exported from it as data (`scripts/headtable.vla`, `scripts/messages.vla`),
-  with a check that fails the day they drift. Nothing about the add-in you
-  download changes; English in the core is the next slice.
+  with a check that fails the day they drift. The door's reference is
+  `cli/README.md`: every command with its arguments, output, exit codes and
+  refusals, and a tour on the repository's own files. Nothing about the
+  add-in you download changes; English in the core is the next slice.
 - **The second implementation reads the whole corpus in English, byte for
   byte.** `frazaro translate-vla program.txt --prelude prelude.vla
   --phrasebook english.vla` reads a program written in English with the
@@ -278,10 +280,11 @@
   that tries is refused by name, with the line), the new sheets' formulas
   read the workbook's cells and names as usual, and the host computes them
   when the file opens. The web page has the same builder behind a button:
-  type the sentences and *Download as .xlsx* hands you the workbook, with
-  its byte count and SHA-256 beside the button, the same bytes `frazaro
-  build` writes for the same sentences, and `frazaro rebuild` says yes to
-  the download as to the file. The add-in you download is unchanged.
+  type the sentences and *Download as .xlsx* turns Frazaro Lavender the
+  moment the workbook is ready and hands it to you, with its byte count
+  and SHA-256 beside the button, the same bytes `frazaro build` writes
+  for the same sentences, and `frazaro rebuild` says yes to the download
+  as to the file. The add-in you download is unchanged.
 
 ### Known open security items
 

@@ -117,6 +117,9 @@ before they see `docs/`:
 - **[conformance/README.md](../conformance/README.md)** — The treaty that holds
   every implementation of the language to the one corpus in `scripts/`: the
   oracles, the command-line contract, and how the runner proves itself.
+- **[cli/README.md](../cli/README.md)** — The command-line door, `frazaro`:
+  every command with its arguments, output, exit codes and refusals, what
+  each answers to on the Frazaro tab, and a tour on the repository's own files.
 - **[TRADEMARK.md](../TRADEMARK.md)**, **[OUTPUT-EXCEPTION.md](../OUTPUT-EXCEPTION.md)**,
   **[PHRASEBOOK-TERMS.md](../PHRASEBOOK-TERMS.md)** — The name; why your
   workbook does not inherit the licence of the code Frazaro writes into it;

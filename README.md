@@ -689,8 +689,42 @@ shelf. The shortest path:
   told as the bug that created it.
 - [docs/IMMEDIATE.md](docs/IMMEDIATE.md), if you know VBA: the commands
   that list, explain and reload what Frazaro understands.
+- [cli/README.md](cli/README.md), the command-line door: every `frazaro`
+  command, with a tour on the repository's own files.
 - [CONTRIBUTING.md](CONTRIBUTING.md), the DCO sign-off and what a patch
   needs.
+
+---
+
+## The command-line door and the web page
+
+*For developers, and for anyone who cannot install an add-in. The add-in
+is Frazaro's first implementation of the language; this is its second,
+held to the same corpus by the treaty in
+[conformance/README.md](conformance/README.md), so a sentence means the
+same thing through every door and refuses in the same words.*
+
+`frazaro` is one executable with no dependencies, built from this
+repository with `cargo build --workspace`; the binary lands in
+`target/debug/`. It reads the files it is given and writes text, or one
+workbook, and nothing else: no network, no Excel, no registry.
+
+| Command | What it does | On the Frazaro tab |
+|---|---|---|
+| `frazaro translate-vla program.txt --prelude prelude.vla --phrasebook english.vla` | the program's VLA, one form per sentence, or the refusal with its line | Validate Instructions; Translate File to VLA |
+| `frazaro translate-vba …` (the same arguments) | the VBA the add-in would write into a module | Show me the VBA; Translate File to VBA |
+| `frazaro build program.txt … --out program.xlsx [--into model.xlsx]` | a workbook from the sentences with nothing installed; `--into` adds its sheets to a workbook of yours, untouched | nothing runs here: what a sheet holds without running |
+| `frazaro rebuild program.xlsx …` | reads the sentences back out of a built workbook, builds again, and says whether the bytes still match | the workbook proves its own build |
+| `frazaro load phrasebook.vla --prelude prelude.vla [--allow-raw]` | loads a phrasebook with every proof run and reports what it holds | Load Phrasebook |
+| `frazaro prove phrasebook.vla` | every proof in a phrasebook: `PASS n/n` or `FAIL k/n` | the proofs Load Phrasebook runs |
+| `frazaro compile program.vla --prelude prelude.vla` | the VBA of a program already written in VLA | Compile and Run, for a VLA file |
+
+The reference is [cli/README.md](cli/README.md): every command with its
+arguments, output, exit codes and refusals, and a ten-minute tour on the
+repository's own files. The same core compiled to WebAssembly is the web
+page, [web/README.md](web/README.md): one HTML file that runs from disk,
+a sentence per row with its VLA beside it, and *Download as .xlsx* for
+the workbook the rows build, with the file's digest beside the button.
 
 ---
 
@@ -750,9 +784,16 @@ someone reports is the point.
 
 ## Today
 
-*This section is dated, 2026-09-27 at `0.7.0`, and expects to be
+*This section is dated, 2026-10-03 at `0.7.1`, and expects to be
 rewritten as the project moves. The sections above it should barely
 change; this one should.*
+
+- **The second implementation, owner-verified 2026-10-03:** `frazaro`,
+  one executable that translates, compiles and builds a workbook from
+  sentences with nothing installed, and the web page built from the same
+  core with its *Download as .xlsx* button; both held to the add-in's own
+  corpus byte for byte ([cli/README.md](cli/README.md),
+  [web/README.md](web/README.md)).
 
 - **Works now, owner-verified:** the English → VLA → interpret or
   compile pipeline; the ribbon (Validate, Interpret, Compile, Trace,

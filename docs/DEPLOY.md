@@ -68,7 +68,8 @@ builds and keeps it.
 ## Building a workbook from sentences (the command-line door)
 
 `frazaro build` (PORT.7) writes a workbook from a text file of sentences,
-with nothing installed but the one binary:
+with nothing installed but the one binary (every command of the door, with
+its output, exit codes and refusals, is in [`cli/README.md`](../cli/README.md)):
 
 ```powershell
 cargo build --workspace

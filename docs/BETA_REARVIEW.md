@@ -7041,6 +7041,22 @@ written against.
   corrected by the live passes, 3 was never put to the test since the
   writer writes the prefix, and 8, Sheets, Calc and Numbers, stays at the
   owner's pace. The item closes with this slice.
+  **Postscript, 2026-10-03, after the close:** the owner asked when the
+  command-line door would get its own reference, having typed its
+  commands a handful of times against years of the Immediate pane, and
+  for the page's *Download as .xlsx* to turn Frazaro Lavender with white
+  text the moment a workbook is ready. `cli/README.md` is the reference:
+  how the door is built, the shape every command shares, a ten-minute
+  tour on the repository's own files with the line each step prints,
+  then each command with its arguments, output, exit codes and refusals,
+  what it answers to on the Frazaro tab and in the treaty, and what holds
+  it; the root `README.md` gains a section on the second implementation
+  with the commands in one table, `docs/README.md` indexes the reference,
+  `DEPLOY.md` and the map point to it. The button: a third variable at
+  the top of the template, `--lavender-deep`, a deep shade of the same
+  hue standing in for the logo's own value until that is pasted there,
+  white on it at 5.9:1; the enabled button takes it with a short
+  transition and the disabled one stays gray.
   *(closed 2026-10-03: THE CLOSED LEDGER, at the end of this file)*
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
