@@ -106,8 +106,8 @@ R1C1	='A1'!R[-1]C
 cell	'2024'!A1	'2024'!A1
 R1C1	='2024'!R[-2]C[-1]
 === sheet-with-a-dot
-cell	'Q1.Data'!A1	'Q1.Data'!A1
-R1C1	='Q1.Data'!R[-2]C[-1]
+cell	Q1.Data!A1	Q1.Data!A1
+R1C1	=Q1.Data!R[-2]C[-1]
 === sheet-scoped-name
 name	Model!Local	Model!Local
 R1C1	=Model!Local

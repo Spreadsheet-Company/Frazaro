@@ -119,7 +119,7 @@ Model!B3
 ='2024'!A1
 === sheet-with-a-dot
 Model!B3
-='Q1.Data'!A1
+=Q1.Data!A1
 === sheet-scoped-name
 Model!B3
 =Model!Local

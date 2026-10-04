@@ -5,7 +5,9 @@ Public Const VLA_TESTS_VERSION As String = "AXM.7"
 ' every case of scripts/refers.txt with the reading VlaWriteRefersGolden
 ' writes for it, so the pure suite holds VLA_Refers without the file; then
 ' the sheet quoting rule, the home cell's parse, a record's fields and a
-' name past ASCII. VlaWriteRefersGolden writes the refers golden,
+' name past ASCII. The owner's pass of 2026-10-04 moved one pin: a period
+' does not quote a sheet name (Excel writes Q1.Data!A1), so the dot case
+' and its pin now say so. VlaWriteRefersGolden writes the refers golden,
 ' scripts/refers_golden.txt, from the cases in scripts/refers.txt (each
 ' the cell holding the formula, then the formula): one record per
 ' reference - its kind, the token as written, the second field of its
@@ -4360,7 +4362,7 @@ Private Sub TestFormulaRefs()
     CheckRefs "sheet-quoted-needlessly", "Model!B3", "='Data'!A1", "cell|'Data'!A1|Data!A1", "='Data'!R[-2]C[-1]"
     CheckRefs "sheet-named-like-a-cell", "Model!B3", "='A1'!B2", "cell|'A1'!B2|'A1'!B2", "='A1'!R[-1]C"
     CheckRefs "sheet-starting-with-a-digit", "Model!B3", "='2024'!A1", "cell|'2024'!A1|'2024'!A1", "='2024'!R[-2]C[-1]"
-    CheckRefs "sheet-with-a-dot", "Model!B3", "='Q1.Data'!A1", "cell|'Q1.Data'!A1|'Q1.Data'!A1", "='Q1.Data'!R[-2]C[-1]"
+    CheckRefs "sheet-with-a-dot", "Model!B3", "=Q1.Data!A1", "cell|Q1.Data!A1|Q1.Data!A1", "=Q1.Data!R[-2]C[-1]"
     CheckRefs "sheet-scoped-name", "Model!B3", "=Model!Local", "name|Model!Local|Model!Local", "=Model!Local"
     CheckRefs "home-sheet-quoted", "'Q1 Data'!C5", "=A1+B2", "cell|A1|'Q1 Data'!A1;cell|B2|'Q1 Data'!B2", "=R[-4]C[-2]+R[-3]C[-1]"
     CheckRefs "function-spelled-like-a-cell", "Model!B3", "=LOG10(A1)", "cell|A1|Model!A1", "=LOG10(R[-2]C[-1])"
@@ -4424,8 +4426,8 @@ Private Sub TestFormulaRefs()
     CheckV "axm.7: an apostrophe is doubled inside the quotes", VLA_Refers.RefersQuoteSheet("It's"), "'It''s'"
     CheckV "axm.7: a cell-shaped sheet name is quoted", VLA_Refers.RefersQuoteSheet("A1"), "'A1'"
     CheckV "axm.7: a sheet name starting with a digit is quoted", VLA_Refers.RefersQuoteSheet("2024"), "'2024'"
-    CheckV "axm.7: a dot quotes a sheet name (predicted)", VLA_Refers.RefersQuoteSheet("Q1.Data"), "'Q1.Data'"
-    CheckV "axm.7: an R1C1-shaped sheet name is quoted (predicted)", VLA_Refers.RefersQuoteSheet("R1C1"), "'R1C1'"
+    CheckV "axm.7: a dot does not quote a sheet name (checked live 2026-10-04)", VLA_Refers.RefersQuoteSheet("Q1.Data"), "Q1.Data"
+    CheckV "axm.7: an R1C1-shaped sheet name is quoted (checked live 2026-10-04)", VLA_Refers.RefersQuoteSheet("R1C1"), "'R1C1'"
     CheckV "axm.7: an underscore does not quote", VLA_Refers.RefersQuoteSheet("Tax_Rate"), "Tax_Rate"
     CheckV "axm.7: a letter past ASCII does not quote (predicted)", VLA_Refers.RefersQuoteSheet("Umsatz" & ChrW$(214)), "Umsatz" & ChrW$(214)
 

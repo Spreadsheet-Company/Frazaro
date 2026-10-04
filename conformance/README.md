@@ -544,11 +544,12 @@ a spill is its cell with `#` (`Model!A1#`); `(unreadable "INDIRECT")` and
 `(unreadable "OFFSET")` come once per call, with the read going on inside
 the call, so `OFFSET(A1,1,0)` still yields `A1`; a broken reference is
 `Model!#REF!`, or `#REF!A1` as written after a deleted sheet. A sheet
-qualifier is quoted when the name holds a character outside letters, digits
-and the underscore, starts with a digit, or is itself cell-shaped or
-R1C1-shaped, an apostrophe inside doubled; the same rule spells both ends of
-a row, so the relation joins to itself whatever Excel's rule does in a
-corner. The R1C1 record is Excel's `FormulaR1C1` spelling: `R[-2]C[-1]`,
+qualifier is quoted when the name holds a character outside letters, digits,
+the underscore and the period, starts with a digit, or is itself cell-shaped
+or R1C1-shaped, an apostrophe inside doubled (the period's place and the two
+shapes were settled by the owner's pass of 2026-10-04: `Q1.Data` is written
+unquoted, `R1C1` and `A1` quoted); the same rule spells both ends of a row,
+so the relation joins to itself whatever Excel's rule does in a corner. The R1C1 record is Excel's `FormulaR1C1` spelling: `R[-2]C[-1]`,
 `R1C1`, `RC`, a whole column or row written once when its two ends render
 alike (`C[-1]`, never `C[-1]:C[-1]`), every qualifier kept as written. Two
 limits are in the fixture, not hidden: `LET` and `LAMBDA` binders read as

@@ -47,9 +47,11 @@ Public Const VLA_REFERS_VERSION As String = "AXM.7"
 ' cell as Excel's FormulaR1C1 spells it: R[-2]C[-1], R1C1, RC, a whole
 ' column A:A collapsed to C[-1] when both ends render alike, every
 ' qualifier kept as written. The sheet quoting rule (RefersQuoteSheet):
-' quotes when the name holds a character outside letters, digits and the
-' underscore, starts with a digit, or is itself cell-shaped or
-' R1C1-shaped; an apostrophe inside is doubled.
+' quotes when the name holds a character outside letters, digits, the
+' underscore and the period, starts with a digit, or is itself cell-shaped
+' or R1C1-shaped (the owner's pass of 2026-10-04 placed the period: a sheet
+' named Q1.Data is written unquoted, one named R1C1 quoted); an apostrophe
+' inside is doubled.
 '
 ' Fold (VLA_Identity) for every comparison without case; no LCase$.
 ' Nothing here raises: a text the reader cannot read yields the
@@ -652,9 +654,10 @@ Public Function RefersQuoteSheet(ByVal sheetName As String) As String
     End If
 End Function
 
-' Excel's rule as this reader predicts it (the live pass checks it where
-' Excel has one): a character outside letters, digits and _, a leading
-' digit, or a name that is itself a cell or an R1C1 reference.
+' Excel's rule as the owner's pass of 2026-10-04 confirmed it: a character
+' outside letters, digits, _ and ., a leading digit, or a name that is
+' itself a cell or an R1C1 reference. The period was predicted to quote
+' and does not: 'Q1.Data'!A1 typed shows as Q1.Data!A1.
 Private Function SheetNeedsQuotes(ByVal sheetName As String) As Boolean
     Dim n As Long, i As Long
     Dim ch As String
@@ -670,7 +673,7 @@ Private Function SheetNeedsQuotes(ByVal sheetName As String) As Boolean
     End If
     For i = 1 To n
         ch = Mid$(sheetName, i, 1)
-        If Not IsIdentChar(ch) Or ch = "." Then
+        If Not IsIdentChar(ch) Then
             SheetNeedsQuotes = True
             Exit Function
         End If

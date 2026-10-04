@@ -15946,7 +15946,7 @@ decision: `SD-13`, the `GENSYM` veto and `SD-16` hold at every stage.
   `OPTIMIZE.0.1`, twenty-one questions answered before the engine existed.
   *Correction to `SINGULARITY.md` §3, appended there the same day:* its
   "Memory" list did not know `VLA_Log` stood. `~days`.
-- 🟡 **AXM.7 — the formula-reference reader (Stage 0.2).** Pure string
+- ✅ **AXM.7 — the formula-reference reader (Stage 0.2).** Pure string
   work, host-free, pinned in the pure suite: the references inside a
   formula (`A1`, `$A$1`, `A1:B2`, `Sheet!A1`, `'Q1 Data'!A1`, names,
   structured references, external links) read from the formula's text,
@@ -15964,7 +15964,8 @@ decision: `SD-13`, the `GENSYM` veto and `SD-16` hold at every stage.
   `~weeks`.
   **Scoped and built 2026-10-04 at the owner's "proceed with AXM.7", the
   turn `PORT.8`'s fork 1 put before slice 8b (the VBA leads, `SD-18`).
-  Status, 2026-10-04: built, awaiting the owner's run.** Four forks were
+  Status, 2026-10-04: owner-tested and committed, 7c2b701 and the
+  correction after it; closed.** Four forks were
   put to the owner, each argued long term first; every recommendation was
   approved. *(1) Where it lives:* `src/VLA_Refers.bas`, a pure module with
   its own `VLA_REFERS_VERSION`, in both `mods` arrays, over functions in
@@ -16118,6 +16119,16 @@ decision: `SD-13`, the `GENSYM` veto and `SD-16` hold at every stage.
   as Excel spells it, read as `Q1.Data!A1`), one pin and the treaty's
   sentence, in the commit after the one that records this pass, since the
   pass tested the rule as it was.
+  *Corrected 2026-10-04, in the commit after 7c2b701:* `SheetNeedsQuotes`
+  lets the period through; `sheet-with-a-dot` is `=Q1.Data!A1`, as Excel
+  spells it, read as `cell`, `Q1.Data!A1`; the pin reads "a dot does not
+  quote a sheet name (checked live 2026-10-04)"; the treaty's sentence
+  names the period. For 8b: the core's `sheet_prefix`
+  (`core/src/reflect/mod.rs`) already leaves a period unquoted and quotes a
+  space, another character or a leading digit, and knows nothing of the
+  cell-shaped and R1C1-shaped names the pass confirmed quoted (`'A1'!B2`,
+  `'R1C1'!A1`); the port gives it those two clauses, so one rule spells both
+  implementations' qualifiers.
 - ⬜ **AXM.13 — the `REFLECT` measurement, run: a real model's numbers
   decide `AXM.8`'s shape.** *Minted 2026-10-03 at the owner's call, out of
   `AXM.1`, which closed as the instrument with no real model or manager's
@@ -29173,3 +29184,4 @@ numbers. **Quoting a correction is not applying it.**
 ## 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE SINGULARITY LINE
 
 - ✅ **AXM.1 — the `REFLECT` measurement: how big is a real model, read as relations.** The microscope before Stage 0.1, second in the third gear's order after `METAPROOF.4`, opened 2026-09-30 at the owner's call; owner-verified live and committed 2026-10-03 as the instrument. `tools/VLA_DiagAXM1.bas` reads a workbook the owner opened read-only and writes nothing into it, printing counts and times only, never a name, address or value. It reads every sheet's used range as one array (`Value2`, `Formula`, `FormulaR1C1`, three passes) and counts cells, formulas and distinct formulas from the arrays. It turns sheet-qualified references into a sheet graph by a deliberately crude count. It sizes a clicked cell's cone between Excel's `Precedents` (the floor) and that graph (the ceiling). Then a decision rule written before any run picks `REFLECT`'s shape: the simplest of SCAN THE WORKBOOK, SCAN PER SHEET, CONE and RANGES that fits 2 s a question. Both controls passed: a fixture whose every count was derived by hand (16 of 16), and Frazaro Sample Data (10 of 10), whose one real prediction held: a column width alone does not stretch the used range. The first live runs found five Excel and VBE behaviours, each fixed and recorded as a trap. `nExt` is the keyword `Next`. `Names.Add` refuses `=#REF!`. A workbook added from the Immediate window takes the VBE's project with it, so every entry point runs from Alt+F8. `Charts.Add` can misplace the chart. Excel 365's `_xlfn.SINGLE` is now counted apart from a workbook's own names. The run on a real fifty-sheet model was deferred at the owner's call, with no model or manager's questions to hand, to `AXM.13`, which waits on a reader that sizes true cones: `AXM.7`'s, or the Rust port's `PORT.8`. *(more: the full entry, earlier in this file)* `~hours`
+- ✅ **AXM.7 — the formula-reference reader (Stage 0.2).** Pure string work, host-free, pinned in the pure suite; scoped, built, owner-tested and committed 2026-10-04 at the owner's "proceed with AXM.7", the turn `PORT.8`'s fork 1 put before slice 8b so that the VBA leads (`SD-18`). `src/VLA_Refers.bas` reads the references inside a formula's text in one forward pass, eleven kinds (cell, range, column, row, name, structured, external, 3D, spill, unreadable for `INDIRECT` and `OFFSET` with the read going on inside the call, broken for `#REF!`), as records holding the token as written, the sheet, the book, the numbers, the marks and the position; spells each as `refers`' second field in the treaty's spelling, a bare reference qualified by its sheet, `$` dropped, letters upper-cased, one quoting rule at both ends of a row; and renders the formula in R1C1 relative to its cell as Excel's `FormulaR1C1` does. `TestFormulaRefs`, 110 pins; `scripts/refers.txt` to `scripts/refers_golden.txt` by `VlaWriteRefersGolden`, 85 cases, every item of the catch list by name, the golden written by hand as the prediction and reproduced by the reference in the owner's pass; `check_refers_golden.ps1`, the 43rd check, holds the pair's shape and the eleven kinds; `check_translate_purity.ps1` scans every procedure of the module. Nine of ten step-0 rows held in Excel; the one that fell, a period in a sheet name needing no quotes, was corrected the same day. `Read cell B9's formula to me.` waits for `AXM.3` and the question act; `PORT.8` slice 8b ports the module one match arm per `Case` arm and holds to the golden. *(more: the full entry, earlier in this file)* `~weeks`, taken in a day.
