@@ -187,6 +187,15 @@ pub fn english_build_xlsx_into(
     .map_err(|refusal| RefusalAtLine { refusal, line: 0 })
 }
 
+/// The reader's surface (PORT.8, slice 8a): a workbook's bytes as the
+/// relations of `REFLECT`, one row a line in the fixed order
+/// (`reflect::reflect_text`); `label` is what a refusal calls the file.
+/// Seven of the eight relations, as the module says; `refers` joins in
+/// slice 8b.
+pub fn reflect_relations(bytes: &[u8], label: &str) -> Result<String, Refusal> {
+    crate::reflect::reflect_text(bytes, label)
+}
+
 /// `EnglishResetGrammar` and the loads: a fresh grammar over the prelude, each
 /// phrasebook text loaded in order as `vocab-N`, its proofs run as the add-in
 /// runs them, the first refusal ending the call.

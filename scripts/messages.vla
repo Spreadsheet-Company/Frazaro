@@ -595,3 +595,6 @@
 (message build-into-unsupported 5 "VLA-Build" "{path} has a part this version does not know how to edit: {part}, {why}. Nothing was written.")
 (message build-into-model-sheet 5 "VLA-Build" "Line {line} writes into sheet {name}, which belongs to the workbook the build adds to, and the build leaves that workbook's own sheets as they are. Write to a sheet of the program's own (Work on sheet Results.) and read the model's cells from there. Nothing was written.")
 (message build-into-sheet-name-taken 5 "VLA-Build" "{path} already has a sheet named {name}, and the build needs that name for the sheet that holds the sentences. Rename that sheet, or build into a copy without it. Nothing was written.")
+(message reflect-not-a-workbook 5 "VLA-Reflect" "{path} is not a workbook frazaro reflect can read: {why}.")
+(message reflect-xml-refused 5 "VLA-Reflect" "{path} has a part this version refuses to read: {part}, {why}. Nothing past that point was read.")
+(message reflect-unsupported 5 "VLA-Reflect" "{path} has a shape this version does not read: {part}, {why}.")

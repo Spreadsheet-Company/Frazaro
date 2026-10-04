@@ -203,47 +203,39 @@ fn remove_element(text: &str, start: &str, end: &str) -> String {
     format!("{}{}", &text[..s], &text[e..])
 }
 
-/// A part's text: stored or inflated, its checksum and size checked, its
-/// byte-order mark dropped.
-fn part_text(
+/// A part's text: stored or inflated, its checksum and size checked
+/// against the directory, its byte-order mark dropped; `None` when the
+/// archive has no such part, and the reason in a few words when the part
+/// does not read. The reader (PORT.8, `crate::reflect`) reads every part
+/// through this too, under its own refusal.
+pub(crate) fn part_text_raw(
     bytes: &[u8],
     entries: &[Entry],
     name: &str,
-    label: &str,
-) -> Result<Option<String>, Refusal> {
+) -> Result<Option<String>, String> {
     let Some(e) = entries.iter().find(|e| e.name == name) else {
         return Ok(None);
     };
-    let raw = zip::raw_data(bytes, e).ok_or_else(|| {
-        not_a_workbook(
-            label,
-            &format!("its part {name} reaches past the end of the file"),
-        )
-    })?;
+    let raw = zip::raw_data(bytes, e)
+        .ok_or_else(|| format!("its part {name} reaches past the end of the file"))?;
     let data: Vec<u8> = match e.method {
         zip::STORED => raw.to_vec(),
-        8 => inflate(raw, e.size as usize, MAX_PART).map_err(|why| {
-            not_a_workbook(label, &format!("its part {name} does not inflate ({why})"))
-        })?,
+        8 => inflate(raw, e.size as usize, MAX_PART)
+            .map_err(|why| format!("its part {name} does not inflate ({why})"))?,
         m => {
-            return Err(not_a_workbook(
-                label,
-                &format!(
-                    "its part {name} uses compression method {m}, which this version does not read"
-                ),
+            return Err(format!(
+                "its part {name} uses compression method {m}, which this version does not read"
             ))
         }
     };
     if data.len() != e.size as usize {
-        return Err(not_a_workbook(
-            label,
-            &format!("its part {name} is not the size its directory says"),
+        return Err(format!(
+            "its part {name} is not the size its directory says"
         ));
     }
     if zip::crc32(&data) != e.crc {
-        return Err(not_a_workbook(
-            label,
-            &format!("its part {name} is damaged: its checksum does not match"),
+        return Err(format!(
+            "its part {name} is damaged: its checksum does not match"
         ));
     }
     let data = data
@@ -252,7 +244,17 @@ fn part_text(
         .unwrap_or(data);
     String::from_utf8(data)
         .map(Some)
-        .map_err(|_| not_a_workbook(label, &format!("its part {name} is not UTF-8")))
+        .map_err(|_| format!("its part {name} is not UTF-8"))
+}
+
+/// [`part_text_raw`] under the merge's refusal.
+fn part_text(
+    bytes: &[u8],
+    entries: &[Entry],
+    name: &str,
+    label: &str,
+) -> Result<Option<String>, Refusal> {
+    part_text_raw(bytes, entries, name).map_err(|why| not_a_workbook(label, &why))
 }
 
 impl Model {

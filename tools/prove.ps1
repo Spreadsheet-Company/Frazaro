@@ -60,6 +60,16 @@ at --out in the runner's scratch directory, which the result names; the
 control's fake copies the golden there and the mutant changes one byte of
 it. The golden is the core's own, opened by the owner in Excel (the
 amendment says why), not one the VBA reference produced.
+
+2026-10-03, PORT.8 (the treaty's amendment of that date, slice 8a): a sixth
+kind, reflect - a fixture workbook to its expected relations, one form a
+line in a fixed order, compared as text the way the translate kinds compare
+it. Four rows: the reader's own fixture (scripts/reflect/fixture.xlsx, which
+tools/build_reflect_fixture.ps1 writes), the two build goldens read back,
+and the model the into golden was built into; each golden is the core's own
+output, blessed by the owner reading the fixture in Excel by eye. The
+control's fake answers each from the golden beside its fixture and the
+mutant changes one character.
 #>
 param(
     [string]$Impl = '',
@@ -199,6 +209,21 @@ function Get-Oracles([string]$root) {
                  Input = 'scripts/build/into.txt'; Golden = 'scripts/build/into_golden.xlsx'
                  Prelude = 'scripts/prelude.vla'; Phrasebook = 'scripts/polyglotta/english.vla'
                  Into = 'scripts/build/model.xlsx' })
+    # 2026-10-03 (PORT.8, slice 8a): the reflect kind, a workbook to its
+    # relations as text; the fixture's golden, the two build goldens read
+    # back, and the model the into golden was built into.
+    $list.Add(@{ Kind = 'reflect'; Label = 'reflect/fixture.xlsx -> reflect/fixture_relations.vla'
+                 Input = 'scripts/reflect/fixture.xlsx'; Golden = 'scripts/reflect/fixture_relations.vla' })
+    $list.Add(@{ Kind = 'reflect'; Label = 'build/fixture_golden.xlsx -> reflect/build_fixture_relations.vla'
+                 Input = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/reflect/build_fixture_relations.vla' })
+    $list.Add(@{ Kind = 'reflect'; Label = 'build/into_golden.xlsx -> reflect/build_into_relations.vla'
+                 Input = 'scripts/build/into_golden.xlsx'; Golden = 'scripts/reflect/build_into_relations.vla' })
+    $list.Add(@{ Kind = 'reflect'; Label = 'build/model.xlsx -> reflect/model_relations.vla'
+                 Input = 'scripts/build/model.xlsx'; Golden = 'scripts/reflect/model_relations.vla' })
+    # 2026-10-04 (the owner's live pass for 8a): the first build golden as
+    # Excel 365 saved it, a host's cached values in every formula cell.
+    $list.Add(@{ Kind = 'reflect'; Label = 'reflect/saved.xlsx -> reflect/saved_relations.vla'
+                 Input = 'scripts/reflect/saved.xlsx'; Golden = 'scripts/reflect/saved_relations.vla' })
     $list.Add(@{ Kind = 'interpreter'; Label = 'interpreter_golden.txt (needs a workbook model: slice 6)'
                  Golden = 'scripts/interpreter_golden.txt' })
     $pb = Join-Path $root 'scripts/polyglotta'
@@ -297,6 +322,22 @@ function Measure-Oracles([string]$root, [string]$impl, [string]$scratch) {
                 }
                 else { $r.Status = 'FAIL'; $r.Detail = "differs at byte $at of $($want.Length), built at $built" }
             }
+            'reflect' {
+                # 2026-10-03 (PORT.8, slice 8a): the relations as text, normalized
+                # as the translate kinds are; the golden carries no stamp.
+                $golden = Join-Path $root $o.Golden
+                $run = Invoke-Impl $impl @('reflect', (Join-Path $root $o.Input))
+                if ($run.ExitCode -eq 3) { break }
+                $want = Read-NormalizedFile $golden
+                $got  = Get-NormalizedText $run.Stdout
+                if ($run.ExitCode -ne 0) { $r.Status = 'FAIL'; $r.Detail = "exit $($run.ExitCode)" }
+                elseif ($got -eq $want) { $r.Status = 'PASS'; $r.Detail = "$($want.Length) chars matched" }
+                else {
+                    $n = [Math]::Min($got.Length, $want.Length); $at = $n
+                    for ($i = 0; $i -lt $n; $i++) { if ($got[$i] -ne $want[$i]) { $at = $i; break } }
+                    $r.Status = 'FAIL'; $r.Detail = "differs at char $at of $($want.Length)"
+                }
+            }
             'prove' {
                 $file = Join-Path $root $o.File
                 $run = Invoke-Impl $impl @('prove', $file)
@@ -389,6 +430,19 @@ switch (`$kind) {
         }
         if (`$same) { Write-Output 'This workbook was built from these sentences by the fake: yes.'; exit 0 }
         Write-Output 'This workbook was built from these sentences by the fake: no.'; exit 1
+    }
+    'reflect' {
+        # The golden beside the fixture, by the fixture's name (2026-10-03, PORT.8 slice 8a).
+        `$base = [System.IO.Path]::GetFileNameWithoutExtension(`$a[1])
+        `$which = switch (`$base) {
+            'fixture'        { 'scripts/reflect/fixture_relations.vla' }
+            'fixture_golden' { 'scripts/reflect/build_fixture_relations.vla' }
+            'into_golden'    { 'scripts/reflect/build_into_relations.vla' }
+            'model'          { 'scripts/reflect/model_relations.vla' }
+            'saved'          { 'scripts/reflect/saved_relations.vla' }
+            default          { exit 3 }
+        }
+        `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))
     }
     default { exit 3 }
 }

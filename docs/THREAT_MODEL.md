@@ -311,3 +311,23 @@ sheets is refused; the model's cells are read by the host, in formulas,
 when the file opens. Nothing here changes §1 or §2: the add-in's surface is
 as it was, and the core's wasm build still imports nothing
 (`tools/check_core_imports.ps1`).
+
+*Appended 2026-10-03, `PORT.8` slice 8a: the reader.* `frazaro reflect`
+widens what the core decodes to every part of a workbook that holds cells:
+the workbook part, its relationships, the shared-string table, each sheet
+part, each sheet's relationships and the Table parts they name, and each
+external link's relationships, for the linked file's name. Styles, the
+theme, the calculation chain, comments, drawings and the properties are
+still never decoded. The bounds are the same, and in the code: a part
+inflates to at most 256 MB and is dropped before the next is read; a
+checksum or size that disagrees with the directory is refused; and the XML
+cursor (`core/src/reflect/cursor.rs`) is a forward scan over the subset
+sheet XML needs, which refuses a `DOCTYPE` or `ENTITY` declaration
+outright, so that no entity is ever expanded, refuses markup that never
+closes, and passes over everything it does not know unread. Nothing is
+written: the door prints text. A relationship's target is resolved as a
+path inside the package only (`..` cannot leave it), and an external link's
+target is read for its file name alone and never opened: the core has no
+file system, and the door reads the one file it was given. `--counts`
+prints counts and times and no cell's content, for a measurement over a
+confidential model.

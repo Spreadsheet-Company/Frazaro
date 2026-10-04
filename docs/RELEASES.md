@@ -294,6 +294,20 @@
   and SHA-256 beside the button, the same bytes `frazaro build` writes
   for the same sentences, and `frazaro rebuild` says yes to the download
   as to the file. The add-in you download is unchanged.
+- **A workbook read back as relations, with nothing installed.** `frazaro
+  reflect model.xlsx` prints what the file holds, one line each: every sheet
+  with whether it is hidden, every defined name with what it refers to,
+  every Table with its sheet and range, then, sheet by sheet and cell by
+  cell, every cell's value as the file holds it and every formula's text as
+  the formula bar shows it. It reads the file and never opens Excel, so it
+  runs on a machine with no Office at all, and the order never changes, so
+  two readings of one file compare line for line. `frazaro reflect
+  model.xlsx --counts` prints counts and times alone, one line a sheet and
+  one for the workbook, for measuring a model whose contents must not leave
+  the machine. A file that is not a workbook, or a part this version does
+  not read, is refused by name. This is the first slice of the reader: what
+  a formula refers to, the difference between two workbooks, and the audit
+  questions come in the slices after it.
 
 ### Known open security items
 

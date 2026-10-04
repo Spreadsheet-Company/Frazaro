@@ -1,6 +1,6 @@
 # The command-line door
 
-*Slices 1 to 3 of `docs/HORIZON.md` section 12 through their first door:
+*Slices 1 to 4 of `docs/HORIZON.md` section 12 through their first door:
 `frazaro`, one executable with no dependencies, no network and no Excel. The
 add-in in `src/` is the reference implementation of the language; this door
 is the second implementation's, held to the same corpus by the treaty in
@@ -31,8 +31,8 @@ built; the commands are written from the repository root.
 ## The shape every command shares
 
 - **Files in, text out.** The door reads the files it is named and prints
-  the answer to stdout. The core sees text and gives text back; the one file
-  the door ever writes is `build`'s `--out`.
+  the answer to stdout. The core sees text, or a workbook's bytes, and gives
+  text back; the one file the door ever writes is `build`'s `--out`.
 - **`--prelude <prelude.vla>`**, the standard library, `scripts\prelude.vla`.
   Every command that translates needs it; `prove` finds it beside the
   phrasebook unless told otherwise.
@@ -114,13 +114,31 @@ you built is the one this page describes.
    workbook's Frazaro sheets were built from these 6 sentences by Frazaro
    0.7.1, into a workbook whose own sheets are not checked: yes.`
 
-8. **A sentence the language refuses.** A file holding `Put 5 into cell
+8. **The workbook read back as relations.**
+
+   ```powershell
+   frazaro reflect tour.xlsx
+   ```
+
+   prints what the file holds, one form a line, in an order that never
+   changes: `(sheet "Frazaro" visible)` and its two sister sheets first,
+   then the `Frazaro.Build` name with its fingerprints, then the sentences
+   as `(cell "Frazaro" "B1" "...")` rows with an `"OK"` cell beside each,
+   then `Output`'s two values and five formulas, `(formula "Output" "C3"
+   "=B3+B4")` among them, since a filled formula shows in each cell as
+   Excel shows it, and `(cell "data" "A1" "west")` last: 30 lines, which
+   are `scripts\reflect\build_fixture_relations.vla` exactly. No formula
+   has a `cell` row, because nothing has computed one yet; save the file
+   from Excel and ask again, and each gains one. `frazaro reflect tour.xlsx
+   --counts` prints the sheets' counts and times alone.
+
+9. **A sentence the language refuses.** A file holding `Put 5 into cell
    B2.` and `Set total to $5.` through `translate-vla` prints, on stderr,
    `I don't understand the character '$' - write the plain number (or
    'Format ... as currency.' for display) (line 2)` and exits 1: the
    add-in's words, with the line.
 
-9. **A sentence the writer cannot hold.** A file holding `Put 5 into cell
+10. **A sentence the writer cannot hold.** A file holding `Put 5 into cell
    B2.` and `Say "hello".` through `build` prints `frazaro build writes
    only what a sheet can hold with nothing running: a value or a formula
    into a cell, a range or rows of a column, and which sheet it goes on.
@@ -129,7 +147,7 @@ you built is the one this page describes.
    program through `translate-vla` is fine: the sentence is good English
    that needs the add-in's Run.
 
-10. **A phrasebook, proved and loaded.** `frazaro prove
+11. **A phrasebook, proved and loaded.** `frazaro prove
     scripts\polyglotta\english.vla` prints `PASS 482/482`; `frazaro load
     scripts\polyglotta\english.vla --prelude scripts\prelude.vla` prints
     `loaded: 240 rules, 220 macros, 460 tests (22 expected fails) from
@@ -240,6 +258,68 @@ which Excel does on every save; no stamp. That refusal is the design, not a
 gap: a workbook anyone has saved is no longer the build. The checks run
 `rebuild` on each golden and on what the door builds.
 
+### `frazaro reflect`
+
+```text
+frazaro reflect <file.xlsx> [--counts]
+```
+
+The reader (`PORT.8`), its first slice. The workbook's file is read, never
+Excel: its sheets, names and Tables, then every cell, sheet by sheet in tab
+order and cell by cell in row order, printed as relations in the proof
+corpus's notation, one form a line, in an order that never changes, so that
+the output is a golden and two readings of one file compare line for line:
+
+```text
+(sheet "Model" visible)
+(sheet "Scratch" hidden)
+(name "Rate" "0.2")
+(table "Sales" "Data" "A1:B4")
+(cell "Model" "B1" 1200)
+(cell "Model" "B3" 400)
+(formula "Model" "B3" "=B1-B2")
+```
+
+A `sheet` row's state is `visible`, `hidden` or `very-hidden`. A `name` row
+holds what the name refers to as the file does, a name scoped to one sheet
+spelled `Sheet!Name`; Excel's own `_xlfn.` placeholders are left out. A
+`cell` row holds the value the file holds: a number as the file spells it,
+a text, `true` or `false`, `(error "#DIV/0!")`, or `(date "...")` for an
+ISO date cell; a date entered in Excel is its serial number. A `formula`
+row holds the formula as the formula bar shows it, `=` first and the file's
+`_xlfn.` prefixes dropped; a formula filled down shows in each cell with
+its references moved, as Excel shows it; an array formula shows in its
+first cell, and the cells it spills into are values. A formula cell has a
+`cell` row only when the file holds its last computed value, so a workbook
+`frazaro build` wrote and nothing has opened has `formula` rows alone for
+its formulas, and the same workbook saved from Excel gains a `cell` row for
+each. A formatted cell with nothing in it has no row. What a formula refers
+to (`refers`), the difference between two files (`diff`) and the audit
+questions come in the slices after this one.
+
+With `--counts`, nothing from inside the workbook is printed: one line a
+sheet, by position, with its counts of cells, formulas and array formulas,
+the last row and column holding anything, the part's size and the time it
+took to read, then one line for the workbook with its totals, names,
+Tables, links to other workbooks and strings. This is for measuring a model
+whose contents must not leave the machine; the lines can be pasted
+anywhere.
+
+Refusals, exit 1: a file that is not a workbook, with why
+(`reflect-not-a-workbook`: not a zip, an older `.xls` or an encrypted one,
+zip64, no workbook part, a damaged part, an OpenDocument file, which a later
+slice reads); a part this version refuses to read (`reflect-xml-refused`:
+one declaring a `DOCTYPE` or an entity, which the reader never expands, or
+markup that never closes); a shape this version does not read, named with
+its part and cell (`reflect-unsupported`: a data-table formula, a shared
+formula whose first cell is missing, a string index past the table). The
+reader streams, so the rows printed before a refusal stand on stdout.
+
+On the tab there is nothing yet: `REFLECT` over a live workbook is
+`AXM.8`'s, and will read through Excel what this reads from the file. The
+treaty's oracle 8 holds it: `check_reflect_golden.ps1` and the core's tests
+require each fixture's relations whole.
+
 ### `frazaro load`
 
 ```text
@@ -296,11 +376,13 @@ version; 'frazaro help' lists the commands.`
 
 ## Not in this version
 
-`check`, `run`, `ask` and `diff` wait for their slices of `docs/HORIZON.md`
-section 12: `ask` and `diff` for the reader (`PORT.8`), `run` for the
-interpreter over the sheet model (`PORT.10`), `check` for the GitHub Action
-among the doors (`PORT.11`). The usage text lists them under *Not in this
-version* so a reader who guesses the command learns where it is.
+`check`, `run`, `ask`, `diff` and `audit` wait for their slices of
+`docs/HORIZON.md` section 12: `diff` and `audit` for the reader's later
+slices (`PORT.8`, 8c and 8d), `ask` for the question act and the engines
+(`AXM.9`, `PORT.9`), `run` for the interpreter over the sheet model
+(`PORT.10`), `check` for the GitHub Action among the doors (`PORT.11`). The
+usage text lists them under *Not in this version* so a reader who guesses
+the command learns where it is.
 
 ## The same door on the Frazaro tab
 
@@ -313,6 +395,7 @@ version* so a reader who guesses the command learns where it is.
 | Load Phrasebook, and the consent it asks for a `(raw ...)` form | `frazaro load`, `--allow-raw` |
 | the proofs Load Phrasebook runs | `frazaro prove` |
 | Open CLI, one sentence at a time | the shell; the door takes files, so a one-line file is the sentence |
+| nothing yet: `REFLECT` over the live workbook is `AXM.8`'s | `frazaro reflect`, from the file |
 | `? VlaSelfTests()` in the Immediate pane | `cargo test --workspace`, then `powershell -File tools\prove.ps1 -Impl target\debug\frazaro.exe` |
 
 ## What holds the door
@@ -320,11 +403,13 @@ version* so a reader who guesses the command learns where it is.
 `tools\prove.ps1 -Impl target\debug\frazaro.exe` scores the door against the
 treaty: oracle 1 and 1a on the corpus program, 1b on the compile golden,
 oracle 3 on every phrasebook, oracle 7 on both build goldens with `rebuild`
-run on each; `13 passed, 0 failed, 2 not attempted, 1 library` today, the
-two not attempted being the engine proofs (`PORT.9`). `-Control` first
-proves the runner on a fake door and a mutant. Four checks hold floors on
-it: `check_compile_prefix.ps1`, `check_translate_prefix.ps1`,
-`check_prove_floors.ps1` and `check_build_golden.ps1`, all taking `-Impl`;
+run on each, oracle 8 on the five reflect fixtures; `18 passed, 0 failed, 2
+not attempted, 1 library` today, the two not attempted being the
+interpreter golden (`PORT.10`) and the engine proofs (`PORT.9`). `-Control`
+first proves the runner on a fake door and a mutant. Five checks hold
+floors on it: `check_compile_prefix.ps1`, `check_translate_prefix.ps1`,
+`check_prove_floors.ps1`, `check_build_golden.ps1` and
+`check_reflect_golden.ps1`, all taking `-Impl`;
 the `core` job of `.github/workflows/checks.yml` builds the workspace,
 formats, lints and tests it, builds the wasm, and runs every one of them on
 every push. Before a change to the door is committed: `cargo fmt --all --

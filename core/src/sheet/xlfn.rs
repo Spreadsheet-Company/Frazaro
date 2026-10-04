@@ -385,9 +385,89 @@ pub fn prefix_future_functions(formula: &str) -> String {
     out
 }
 
+/// The inverse of [`prefix_future_functions`], for a formula read back out
+/// of a file (PORT.8, the reader): `_xlfn.`, `_xlfn._xlws.` and `_xlpm.`
+/// dropped from every name outside a string literal, which is the text
+/// `Range.Formula` returns and the formula bar shows. The names themselves
+/// are kept as the file spells them.
+pub fn strip_future_prefixes(formula: &str) -> String {
+    let chars: Vec<char> = formula.chars().collect();
+    let mut out = String::with_capacity(formula.len());
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        if c == '"' {
+            out.push(c);
+            i += 1;
+            while i < chars.len() {
+                out.push(chars[i]);
+                if chars[i] == '"' {
+                    if i + 1 < chars.len() && chars[i + 1] == '"' {
+                        out.push('"');
+                        i += 2;
+                        continue;
+                    }
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            continue;
+        }
+        if is_name_start(c) && (i == 0 || !is_name_char(chars[i - 1])) {
+            let start = i;
+            while i < chars.len() && is_name_char(chars[i]) {
+                i += 1;
+            }
+            let name: String = chars[start..i].iter().collect();
+            let mut bare = name.as_str();
+            loop {
+                let before = bare.len();
+                for prefix in ["_xlfn.", "_xlws.", "_xlpm."] {
+                    if bare.len() > prefix.len()
+                        && bare[..prefix.len()].eq_ignore_ascii_case(prefix)
+                    {
+                        bare = &bare[prefix.len()..];
+                    }
+                }
+                if bare.len() == before {
+                    break;
+                }
+            }
+            out.push_str(bare);
+            continue;
+        }
+        out.push(c);
+        i += 1;
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_prefixes_come_off_a_formula_read_back() {
+        assert_eq!(
+            strip_future_prefixes("_xlfn.IFS(B2>3,\"big\",TRUE,\"small\")"),
+            "IFS(B2>3,\"big\",TRUE,\"small\")"
+        );
+        assert_eq!(
+            strip_future_prefixes("_xlfn._xlws.FILTER(A:A,B:B>1)"),
+            "FILTER(A:A,B:B>1)"
+        );
+        assert_eq!(
+            strip_future_prefixes("_xlfn.LET(_xlpm.x,1,_xlpm.x*2)"),
+            "LET(x,1,x*2)"
+        );
+        assert_eq!(
+            strip_future_prefixes("SUM(A1:A3)&\"_xlfn.\""),
+            "SUM(A1:A3)&\"_xlfn.\""
+        );
+        assert_eq!(strip_future_prefixes("Rate*B1"), "Rate*B1");
+        assert_eq!(strip_future_prefixes("_xlfn."), "_xlfn.");
+    }
 
     #[test]
     fn newer_functions_take_their_prefix_and_older_ones_do_not() {

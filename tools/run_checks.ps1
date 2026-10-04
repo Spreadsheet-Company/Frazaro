@@ -80,7 +80,10 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # placeholders).
 # 2026-10-03, PORT.7 (slice 7a): 41 - check_build_golden.ps1 (the writer's
 # golden reproduced byte for byte, its length a floor, no clock in the zip).
-$expectedAtLeast = 41
+# 2026-10-03, PORT.8 (slice 8a): 42 - check_reflect_golden.ps1 (the reader's
+# relations reproduced whole for every fixture, each golden's line count a
+# floor, the fixed order read off the golden itself).
+$expectedAtLeast = 42
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---

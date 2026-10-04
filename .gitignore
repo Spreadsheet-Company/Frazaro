@@ -45,6 +45,10 @@ web/index.html
 # ignored everywhere else, and a later fixture under scripts/build/ joins
 # this one by the same rule.
 !scripts/build/*.xlsx
+# PORT.8 (slice 8a): the reader's fixtures, by the same rule - the
+# workbooks under scripts/reflect/ whose relations are the goldens of the
+# treaty's oracle 8, each opened by the owner in Excel.
+!scripts/reflect/*.xlsx
 # The dev workbook VLA.xlsm is deliberately NOT tracked (untracked at the
 # 0.5.0 public import; it was the tracked "lab bench" before). It is a
 # blank workbook plus the imported modules - rebuilt from nothing in three

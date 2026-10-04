@@ -56,11 +56,23 @@ usage:
                          the files given, the build done again and compared
                          whole: one line, yes (exit 0) or no with why (exit
                          1); a file that is not a build is refused (slice 7c)
+  frazaro reflect <file.xlsx> [--counts]
+                         the reader (PORT.8, slice 8a): the workbook's
+                         relations to stdout in a fixed order, one form a
+                         line - every sheet with its state, every name,
+                         every Table, then sheet by sheet each cell's value
+                         as the file holds it and each formula's text as the
+                         formula bar shows it; with --counts, counts and
+                         times alone, one line a sheet by position and one
+                         for the workbook, so that nothing confidential
+                         leaves the machine; a file that is not a workbook,
+                         a part with a DOCTYPE, or a shape this version does
+                         not read is refused by name
   frazaro version        the version of the core this door is built on
   frazaro help           this text
 
 Not in this version (docs/HORIZON.md, section 12, slice by slice):
-  check, run, ask, diff
+  check, run, ask, diff, audit
 ";
 
 /// A file as text: UTF-8, a leading byte-order mark dropped, line endings
@@ -560,6 +572,109 @@ fn build(args: &[String]) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// Milliseconds since `since`, for the counts' lines.
+fn ms_since(since: std::time::Instant) -> f64 {
+    since.elapsed().as_secs_f64() * 1000.0
+}
+
+/// `frazaro reflect <file.xlsx> [--counts]` (PORT.8, slice 8a): the
+/// workbook's relations to stdout in the fixed order, streamed sheet by
+/// sheet through the core's reader, which holds no model of the workbook.
+/// With --counts, counts and times alone: one line a sheet by position and
+/// one for the workbook, AXM.1's discipline (no file name, sheet name,
+/// address, formula text or value leaves the machine), which is how the
+/// reader gives that measurement its second number. A refusal goes to
+/// stderr with exit 1; the rows printed before it stand, since the read
+/// streams.
+fn reflect(args: &[String]) -> ExitCode {
+    let Some(file) = args.first() else {
+        eprintln!("usage: frazaro reflect <file.xlsx> [--counts]");
+        return ExitCode::from(2);
+    };
+    let counts = args.iter().any(|a| a == "--counts");
+    if !is_file(file) {
+        return refuse_missing("vla-file-not-found", file);
+    }
+    let bytes = match std::fs::read(file) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("frazaro: cannot read {file}: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    let opened = std::time::Instant::now();
+    let package = match frazaro_core::reflect::ooxml::Package::open(&bytes, file) {
+        Ok(p) => p,
+        Err(refusal) => {
+            eprintln!("{refusal}");
+            return ExitCode::from(1);
+        }
+    };
+    let open_ms = ms_since(opened);
+    if counts {
+        let (mut cells, mut formulas, mut arrays, mut part_bytes) = (0u64, 0u64, 0u64, 0usize);
+        let mut read_ms = 0.0f64;
+        for i in 0..package.sheets().len() {
+            let started = std::time::Instant::now();
+            let s = match package.walk_sheet(i, &mut frazaro_core::reflect::Discard) {
+                Ok(s) => s,
+                Err(refusal) => {
+                    eprintln!("{refusal}");
+                    return ExitCode::from(1);
+                }
+            };
+            let took = ms_since(started);
+            println!(
+                "sheet {}: cells {} formulas {} arrays {} rows {} columns {} bytes {} read {took:.1} ms",
+                i + 1,
+                s.cells,
+                s.formulas,
+                s.array_anchors,
+                s.rows,
+                s.columns,
+                s.part_bytes
+            );
+            cells += s.cells;
+            formulas += s.formulas;
+            arrays += s.array_anchors;
+            part_bytes += s.part_bytes;
+            read_ms += took;
+        }
+        let summary = package.summary();
+        println!(
+            "workbook: sheets {} cells {cells} formulas {formulas} arrays {arrays} names {} placeholders {} tables {} books {} strings {} bytes {part_bytes} string-bytes {} open {open_ms:.1} ms read {read_ms:.1} ms",
+            package.sheets().len(),
+            summary.names,
+            summary.placeholders,
+            summary.tables,
+            summary.external_books,
+            summary.strings,
+            summary.string_bytes
+        );
+        return ExitCode::SUCCESS;
+    }
+    use std::io::Write;
+    struct Lines<W: Write>(W);
+    impl<W: Write> frazaro_core::reflect::Sink for Lines<W> {
+        fn row(&mut self, row: &frazaro_core::reflect::Row<'_>) {
+            let _ = writeln!(self.0, "{}", frazaro_core::reflect::print::line(row));
+        }
+    }
+    let mut out = Lines(std::io::BufWriter::new(std::io::stdout().lock()));
+    package.header_rows(&mut out);
+    for i in 0..package.sheets().len() {
+        if let Err(refusal) = package.walk_sheet(i, &mut out) {
+            let _ = out.0.flush();
+            eprintln!("{refusal}");
+            return ExitCode::from(1);
+        }
+    }
+    if out.0.flush().is_err() {
+        return ExitCode::from(2);
+    }
+    ExitCode::SUCCESS
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -570,6 +685,7 @@ fn main() -> ExitCode {
         Some("translate-vba") => translate("translate-vba", &args[1..]),
         Some("build") => build(&args[1..]),
         Some("rebuild") => rebuild(&args[1..]),
+        Some("reflect") => reflect(&args[1..]),
         Some("version") | Some("--version") | Some("-V") => {
             let core = frazaro_core::version();
             let abi = frazaro_core::frazaro_abi_version();

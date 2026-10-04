@@ -22,6 +22,10 @@
 //! The writer (PORT.7) is `build` over `sheet`: a translated program to a
 //! workbook's bytes, deterministic, with no clock and no dependency;
 //! `api::english_build_xlsx` is its surface.
+//!
+//! The reader (PORT.8) is `reflect`: a workbook's bytes, OOXML first, read
+//! as the relations of `REFLECT` with no host, streamed sheet by sheet;
+//! `api::reflect_relations` is its surface.
 
 pub mod abi;
 pub mod api;
@@ -35,6 +39,7 @@ pub mod intrinsics;
 pub mod messages;
 pub mod printer;
 pub mod reader;
+pub mod reflect;
 pub mod sha256;
 pub mod sheet;
 pub mod version;

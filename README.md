@@ -715,6 +715,7 @@ workbook, and nothing else: no network, no Excel, no registry.
 | `frazaro translate-vba …` (the same arguments) | the VBA the add-in would write into a module | Show me the VBA; Translate File to VBA |
 | `frazaro build program.txt … --out program.xlsx [--into model.xlsx]` | a workbook from the sentences with nothing installed; `--into` adds its sheets to a workbook of yours, untouched | nothing runs here: what a sheet holds without running |
 | `frazaro rebuild program.xlsx …` | reads the sentences back out of a built workbook, builds again, and says whether the bytes still match | the workbook proves its own build |
+| `frazaro reflect model.xlsx [--counts]` | the workbook's sheets, names, Tables, cells and formulas as relations, one per line, read from the file; `--counts` for counts and times alone | nothing yet: `REFLECT` over the live workbook comes to the add-in with `AXM.8` |
 | `frazaro load phrasebook.vla --prelude prelude.vla [--allow-raw]` | loads a phrasebook with every proof run and reports what it holds | Load Phrasebook |
 | `frazaro prove phrasebook.vla` | every proof in a phrasebook: `PASS n/n` or `FAIL k/n` | the proofs Load Phrasebook runs |
 | `frazaro compile program.vla --prelude prelude.vla` | the VBA of a program already written in VLA | Compile and Run, for a VLA file |

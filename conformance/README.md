@@ -412,3 +412,110 @@ first golden byte for byte, with the golden's digest as the record's id.
 A page and the command-line door built from the same core therefore give
 the same file for the same sentences, and the digest the page shows is the
 line `frazaro build` prints, which is the check a person makes by eye.
+
+## Amendment of 2026-10-03, the fifth that day: oracle 8, the reflect golden (`PORT.8`, slice 8a)
+
+`PORT.8` reads workbooks in the core: `frazaro reflect` prints a workbook's
+file as the relations of `REFLECT` (Stage 0.1 of `docs/SINGULARITY.md`;
+the roadmap's `AXM.8`), with no host on the machine. As with oracle 7, the
+VBA reference has no output to reproduce here: it reads a workbook through
+Excel's object model and never opens the file, and `AXM.8`'s `REFLECT` over
+COM is not built. So the relations' shape is fixed here in words before any
+implementation prints them; the expected-relations files are the core's own
+output, blessed by the owner opening each fixture in Excel and reading it by
+eye, the fixture, the cell, the formula and the precedent named in
+`docs/BETA_REARVIEW.md` under `PORT.8`; and the VBA's `REFLECT`, when it
+comes, is held to the same files over COM through the `(workbook …)` clause
+`AXM.8` names. The reference reader for a formula's references (`AXM.7`,
+the `refers` relation) is the language's: it lands in the VBA first, with a
+golden of its own in the token golden's shape, and slice 8b ports it; until
+then a reader prints no `refers` row. `SD-18` is untouched.
+
+**The relations, their order and their spelling.** One form a row, in the
+proof corpus's notation. A reader prints `(sheet "<name>" <state>)` for
+every sheet in tab order, the state `visible`, `hidden` or `very-hidden`;
+then `(name "<name>" "<refers-to>")` for every defined name sorted by its
+name without case, a sheet-scoped name spelled `Sheet!Name` with the sheet
+quoted as a reference quotes it, the refers-to text as the file holds it,
+and Excel's own `_xlfn.` placeholder names, which no one defined, left out;
+then `(table "<name>" "<sheet>" "<range>")` for every Table by its sheet's
+tab order then its name; then sheet by sheet in tab order, cell by cell in
+document order (row-major), each cell's `(cell "<sheet>" "<addr>" <value>)`
+when the file holds a value, then its `(formula "<sheet>" "<addr>"
+"<text>")` when it holds a formula, then, from 8b, its `(refers
+"<sheet>!<addr>" <to>)` rows sorted by their second field. A value is the
+file's own text for a number, never a float round trip; a VLA string as
+`WriteDatum` writes one for a text; `true` or `false`; `(error "#DIV/0!")`;
+`(date "2026-10-03")` for an ISO date cell. A formula's text begins with
+`=` and drops `_xlfn.`, `_xlfn._xlws.` and `_xlpm.`, which is what
+`Range.Formula` returns and the formula bar shows; a shared formula's
+children carry the first cell's text with its references moved by the
+cell's distance, as Excel shows them; an array formula, legacy or dynamic,
+is its anchor's text, and the cells it spills into are values alone; a
+reference to another workbook keeps the file's `[n]` until 8b resolves it.
+A formatted cell with no value has no row. A formula cell has a `cell` row
+only when the file holds its cached value, so a workbook the writer built
+and no host has opened has `formula` rows and no `cell` rows for them.
+`changed` comes from `diff` (8c) alone and `ran` from no file: a reader
+prints seven of the eight.
+
+- **8. The reflect golden.** Four rows, each a fixture workbook to its
+  expected relations: `scripts/reflect/fixture.xlsx` (written by
+  `tools/build_reflect_fixture.ps1`, deflated, in Excel's shape, holding
+  every case the walker has an arm for) to
+  `scripts/reflect/fixture_relations.vla`; the two build goldens read back,
+  `scripts/build/fixture_golden.xlsx` to
+  `scripts/reflect/build_fixture_relations.vla` and
+  `scripts/build/into_golden.xlsx` to
+  `scripts/reflect/build_into_relations.vla`, which ties oracle 7 to oracle
+  8 (what the writer wrote is what the reader reads); and the model the
+  into golden was built into, `scripts/build/model.xlsx` to
+  `scripts/reflect/model_relations.vla`. A fixture a host saved joins as a
+  row the day the owner commits one (the Excel-saved copy of the first
+  build golden, predicted in the rear-view to read as that golden's
+  relations plus five `cell` rows). The comparison is the one oracle 1
+  makes: byte for byte after line endings are normalized to LF and trailing
+  blank lines are dropped; the goldens carry no stamp.
+
+The contract gains one command:
+
+- `<impl> reflect <file.xlsx>` writes the relations to stdout in the order
+  above and exits 0. A refusal writes its message to stderr and exits 1,
+  and the rows written before it stand, since a reader streams; exit 3 says
+  the oracle is not attempted. A file that is not a workbook, a part holding
+  a `DOCTYPE` or an entity (no entity is ever expanded), and a shape a
+  version does not read are refused through the catalogue, under the source
+  `VLA-Reflect`.
+
+`tools/check_reflect_golden.ps1` holds each golden's line count as a floor
+that never goes down, in the house style; compares the door's output to
+each golden whole, naming the first differing line; and reads the fixed
+order off each golden itself (the `sheet` rows first, then `name`, then
+`table`, then the cell rows grouped by sheet in the order the `sheet` rows
+gave), so that a golden regenerated by a printer that drifted fails on
+every push. Its `-Control` passes a fake that prints the golden, fails a
+mutant that changes one value, naming the line, and fails a copy of a
+golden with a row out of order. The `core` CI job runs it after the build.
+The runner's `-Control` covers the kind: the fake prints the golden beside
+its fixture and the mutant changes one character.
+
+`--counts` is a door's mode, not an oracle: counts and times alone, one line
+a sheet by position and one for the workbook, so that a measurement over a
+confidential model leaves nothing but numbers on the screen; it is how the
+reader gives `AXM.1` its second number.
+
+## Amendment of 2026-10-04: oracle 8's fifth row, a host's save (`PORT.8`, slice 8a's live pass)
+
+The owner saved `scripts/build/fixture_golden.xlsx` from Excel 365 with
+nothing changed, as `scripts/reflect/saved.xlsx`; it is kept as Excel wrote
+it, as `model.xlsx` is, and its relations are
+`scripts/reflect/saved_relations.vla`. They read as the amendment above
+predicted: the first build golden's thirty rows, and a `cell` row before
+each formula's `formula` row for the value the host computed, five in all.
+One spelling the prediction did not name: a defined name whose text
+constant is longer than 255 characters is rewritten by Excel on save as
+`_xlfn._LONGTEXT("…","…")`, the literal split in two, and a `name` row
+prints that text, since a `name` row holds what the file holds. A later
+slice that reads names' formulas (8b, `refers`) meets it as a call with
+two string arguments and no reference. The row joins the check's floors
+(35) and the runner's kind; the fake answers it from its golden.

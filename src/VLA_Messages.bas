@@ -1,6 +1,12 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "PORT.7"
+Public Const VLA_MESSAGES_VERSION As String = "PORT.8"
+' PORT.8 (slice 8a): reflect-not-a-workbook, reflect-xml-refused and
+' reflect-unsupported under the source VLA-Reflect, the reader's refusals,
+' raised by the core's frazaro reflect and by no VBA site, as the writer's
+' are (the VBA reads a workbook through Excel's object model and never
+' opens the file).
+'
 ' PORT.7 (slice 7a): build-output-exists and build-workbook-too-large, the
 ' writer's refusals, raised by the core's frazaro build and by no VBA
 ' site: the catalogue is one and the VBA is its source, so they are
@@ -1425,6 +1431,19 @@ Private Sub AddEntries(ByVal m As Collection)
     ' The sheet the build always makes, Frazaro, must not already be a
     ' sheet of the model's, or the workbook would hold the name twice.
     AddMsg m, "build-into-sheet-name-taken", 5, "VLA-Build", "{path} already has a sheet named {name}, and the build needs that name for the sheet that holds the sentences. Rename that sheet, or build into a copy without it. Nothing was written."
+
+    ' PORT.8 (slice 8a): the reader's refusals. frazaro reflect (the core's
+    ' command-line door; the VBA reads a workbook through Excel's object
+    ' model and never opens the file) raises them from the export, as the
+    ' writer's are raised, and no VBA site does. A file that is not a
+    ' workbook, with why (not a zip, an older .xls, zip64, no workbook
+    ' part, a damaged part); a part holding a DOCTYPE or an entity, which
+    ' the reader never expands (THREAT_MODEL.md section 5), or markup that
+    ' never closes; a shape this version does not read, named with its
+    ' part and its cell.
+    AddMsg m, "reflect-not-a-workbook", 5, "VLA-Reflect", "{path} is not a workbook frazaro reflect can read: {why}."
+    AddMsg m, "reflect-xml-refused", 5, "VLA-Reflect", "{path} has a part this version refuses to read: {part}, {why}. Nothing past that point was read."
+    AddMsg m, "reflect-unsupported", 5, "VLA-Reflect", "{path} has a shape this version does not read: {part}, {why}."
 End Sub
 
 Private Sub AddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _

@@ -7058,6 +7058,441 @@ written against.
   white on it at 5.9:1; the enabled button takes it with a short
   transition and the disabled one stays gray.
   *(closed 2026-10-03: THE CLOSED LEDGER, at the end of this file)*
+- ⬜ **PORT.8 — the reader: `REFLECT` over a file.** *Scoped 2026-10-03 at
+  the owner's trigger (`SUBSTRATE.md` H.3's rule, pulled by asking, as
+  `PORT.7`'s was). The three forks below are put to the owner with a
+  recommendation each; the first slice waits for "proceed with 8a". Step 0's
+  predictions are written here before the bytes exist and stay as written;
+  each slice's live pass confirms or corrects them under it.* Slice 4 of
+  `HORIZON.md` §12: OOXML and ODF in (cells, formula text, cached values,
+  names, Tables) into the relations of Stage 0.1 (`AXM.8`'s eight), the
+  formula tokenizer into `refers`, `INDIRECT` refused by name. Ships through
+  the command-line door first, the C-ABI and the page last.
+  **What is already here, and what is new ground, said plainly.** The
+  container is read: `core/src/sheet/zip.rs` walks a real archive's central
+  directory (a comment allowed, data descriptors harmless, zip64 named and
+  refused, an OLE file told apart), `inflate.rs` is RFC 1951 from nothing
+  bounded at 256 MB a part, `xml.rs` undoes the entity references and
+  Excel's `_xHHHH_`, `merge.rs`'s `tags`/`attr` helpers read a model's
+  workbook part (its sheet list, its names, its relationship prefix) far
+  enough to add sheets, `build.rs`'s `read_build` reads the writer's own
+  `Frazaro` sheet by string search, and `refs.rs` scans a formula's A1
+  references in order to move them: the file-format half of `AXM.7`, built
+  for the writer and marked there as the thing `AXM.7`'s port replaces. New
+  ground with no VBA to port (the reference reads a workbook through Excel's
+  object model and never opens the file): a forward cursor over a part's
+  XML, the sheet-data walk with its shared strings, the table and
+  external-link parts, ODF. A port with a VBA to follow: `AXM.7`'s reference
+  reader, under fork 1. The core keeps its shape: host-free, an empty wasm
+  import section (`check_core_imports.ps1`), no Cargo dependency, no file
+  system; the door reads the file and the core sees bytes.
+  **Step 0, what only a host answers, each answer predicted before the
+  bytes exist:** (1) the two build goldens are the reader's first fixtures,
+  and their relations are known by construction: `fixture_golden.xlsx`
+  gives three `sheet` rows, one `name` (`Frazaro.Build`), eighteen `cell`
+  rows on `Frazaro` (nine texts in B and nine `OK`s in C), on `Output` two
+  values (B1 7, B2 5) and five `formula` rows (B3 `=B2*2`; C2 `=B2+B3` and,
+  shifted per cell as Excel shows a shared formula, C3 `=B3+B4` and C4
+  `=B4+B5`; D2 `=IFS(B2>3,"big",TRUE,"small")` with its `_xlfn.` dropped,
+  as the formula bar shows it), no `cell` row for any formula, since the
+  writer stores no cached value, and `data!A1` `"west"`; (2) a copy of that
+  golden saved by Excel (the owner's, committed as `scripts/reflect/saved.xlsx`)
+  reads to exactly the same relations plus five `cell` rows for the
+  formulas' cached values, B3 10, C2 15, C3 10, C4 0, D2 `"big"`, through
+  Excel's shared-string table, its `spans`, `x14ac` and theme, with the
+  shared formula still shared and D2 still a dynamic-array formula; (3)
+  `--counts` on `examples/Frazaro Sample Data.xlsx` prints `AXM.1`'s control-2
+  numbers, nine sheets, 981 non-blank cells, no formula, three Tables, no
+  name (measured today by regex over its parts: 981 cells, none
+  self-closing, 76,105 bytes of parts inflated); (4) on the owner's real
+  model the reader's non-blank and formula counts agree with `AXM.1`'s
+  array counts on every sheet that holds no array formula; on a sheet that
+  does, the file holds the formula in the anchor cell alone where the array
+  read sees it in every cell of the range, so `--counts` prints array
+  anchors apart and the two reconcile by the spill sizes; (5) the time: a
+  release build inflates sheet XML at 40 to 80 MB/s (canonical codes read
+  bit by bit, the bound) and walks it at over 200 MB/s, so `AXM.1`'s central
+  model (three million used-range cells, a quarter of a million formulas)
+  is 50 to 150 MB of sheet XML and reads whole in 1 to 4 s, the second
+  number beside the COM read `AXM.1` predicted at 0.5 to 5 s; a debug build
+  is ten times slower and is not the measurement; (6) a computed number's
+  text in the file can be longer than its display (`0.30000000000000004`
+  under a cell showing 0.3), and the relation holds the file's text, which
+  the owner sees on any cell that sums decimals; (7) a date is its serial,
+  and the by-eye check sets the cell's format to General; (8) a model
+  edited in Excel 365 holds Excel's own `_xlfn.` placeholder names
+  (`AXM.1`'s finding, `_xlfn.SINGLE` referring to `#NAME?`), which print in
+  no `name` row and are counted apart; (9) a formula that reaches another
+  workbook holds `[1]Sheet!A1`, and the reader resolves `[1]` through the
+  external-link part's relationships to the file's name, printing
+  `[Rates.xlsx]Sheet!A1` as the formula bar shows it while Edit Links shows
+  the path; (10) a `veryHidden` sheet prints `very-hidden`, and Excel's
+  Unhide dialog does not list it. The owner's second number, the measurement
+  this item owes `AXM.1`, is `frazaro reflect model.xlsx --counts` on the
+  real model with no Excel on the machine, pasted beside `AXM1Measure`'s
+  lines when that run has happened: the same counts, the file's time.
+  **The memory bound, said in step 0.** The reader streams: it never builds
+  a model of the workbook. Each part is inflated whole (the bound every part
+  already has, `MAX_PART`, 256 MB) and walked once by a cursor that emits
+  relation rows to a sink as it goes; the part is dropped before the next
+  is read. Peak memory is the largest sheet part inflated, plus the
+  shared-string table (held whole, since any cell may name any string; its
+  part's size plus a few words a string), plus the sink's own state, which
+  is nothing for printing, a few counters a sheet for `--counts`, one row of
+  each file for `diff`, and for `audit` the last two non-blank cells of
+  each column (at most 16,384 columns) and, for the two walks that need a
+  set (unused names, references to empty cells), a set capped at four
+  million entries, past which the walk stops and says so. Sheet XML is 30
+  to 70 bytes a cell as Excel writes it (56 to 140 in the fixtures at hand,
+  which carry inline strings and long texts), so a million-cell sheet is 30
+  to 100 MB inflated and a workbook of fifty such sheets still peaks at one
+  of them. `--cone` is the exception that holds something: one pass builds
+  an index of every formula's text by address (a quarter of a million
+  formulas at forty bytes is 10 MB), then walks the cone through it, so a
+  cone over a file costs one scan and never more, whatever `AXM.1`'s rule
+  says of the COM path. A chunked inflate, the decoder feeding the cursor
+  through a 32 KB window so that not even the part is held, is named as
+  the follow-on if the owner's model has a sheet part over 64 MB; nothing
+  in the design depends on it.
+  **The relations as printed: the fixed order and the spelling** (the text
+  of the treaty's amendment, written with 8a once fork 1 is decided). One
+  form a row, in the proof corpus's notation, so that the expected-relations
+  file is a golden the core writes, the owner checks in Excel by eye, and
+  `VlaReadForms` reads for the VBA's `REFLECT` test later without a new
+  parser: `(sheet "Model" visible)`, `(name "Rate" "Model!$B$1")`, `(table
+  "Sales" "Data" "A1:D200")`, `(cell "Model" "B1" 1200)`, `(formula "Model"
+  "B3" "=B1-B2")`, `(refers "Model!B3" "Model!B1")`. The order: every
+  `sheet` row in tab order; every `name` row sorted by its name without
+  case, a sheet-scoped name spelled `Sheet!Name`; every `table` row by its
+  sheet's tab order then its name; then sheet by sheet in tab order, cell
+  by cell in document order (row-major, which the format requires and every
+  host writes), each cell's `cell` row, then its `formula` row, then its
+  `refers` rows sorted by their second field. `changed` comes from `diff`
+  alone and `ran` from no file: a reader prints seven of the eight. The
+  spelling: a number is the file's own text, never a float round trip; a
+  text is a VLA string as `WriteDatum` writes one; a truth value is `true`
+  or `false`; an error is `(error "#DIV/0!")`; an ISO date cell is `(date
+  "2026-10-03")`; a formula's text begins with `=` and drops `_xlfn.`,
+  `_xlfn._xlws.` and `_xlpm.`, which is what `Range.Formula` returns and the
+  formula bar shows, with no `@`, since the file holds none; a shared
+  formula's children are shifted per cell by `refs.rs`'s mover; an array
+  formula, legacy or dynamic, is the anchor's text, and the cells it spills
+  into are values alone; a formatted cell with no value is blank and has no
+  row; a `cell` row for a formula cell exists only when the file holds its
+  cached value, so a workbook the writer built and no host has opened has
+  `formula` rows and no `cell` rows for them, which is the one visible
+  difference between the two kinds of fixture. `sheet`'s second field is
+  `visible`, `hidden` or `very-hidden`. `refers`' second field is a cell
+  or range qualified by its sheet (`Model!B1`, `Model!A:A`, `Model!1:3`), a
+  name as written, a structured reference as written (`Sales[Amount]`), a
+  3D span as written, a spill as written (`Model!A1#`), an external
+  reference with the book's file name, or `(unreadable "INDIRECT")` and
+  `(unreadable "OFFSET")` once per such call, which is how `AXM.7`'s "refused
+  by name" reads inside a relation: the read of the workbook goes on, and
+  the cone that meets one says it is blind there. `--counts` prints
+  counts and times alone, one line a sheet by position and one for the
+  workbook (cells, formulas, array anchors, rows and columns of the extent,
+  the part's inflated bytes, the read time; names and placeholders, Tables,
+  external books, strings; with 8b, distinct R1C1 formulas and the
+  `INDIRECT`/`OFFSET` counts), so that `AXM.1`'s discipline holds: no file
+  name, sheet name, address, formula text or value leaves the machine.
+  **The XML subset, measured, and what is refused.** A cursor over the
+  part's text: start tags, end tags, self-closing tags, text, with
+  comments and processing instructions skipped and entity references
+  undone by `xml.rs`; names matched by their local part, so a writer that
+  prefixes the main namespace reads the same. Elements it knows, 26 in
+  all: `workbook`, `sheets`, `sheet`, `definedNames`, `definedName`,
+  `externalReferences`, `externalReference`; `Relationship`; `sst`, `si`,
+  `t`, `r`, `rPh` (skipped); `worksheet`, `dimension`, `sheetData`, `row`,
+  `c`, `f`, `v`, `is`; `table`, `tableColumn`; `externalLink`,
+  `externalBook`, `sheetName`. Attributes, 18: `name`, `sheetId`, `id`,
+  `state`, `localSheetId`, `hidden`, `Id`, `Target`, `Type`, `r`, `t`, `s`,
+  `cm`, `ref`, `si`, `displayName`, `count`, `uniqueCount`. Anything else
+  is passed over unread. Refused outright, through the catalogue under a
+  source of its own, `VLA-Reflect`: a `<!DOCTYPE` or `<!ENTITY` anywhere
+  in a part (`reflect-xml-refused`; no entity expansion, ever); a part
+  past the bound, not UTF-8, or whose checksum disagrees with the
+  directory (`reflect-not-a-workbook`, with why, as `build-into-not-a-workbook`
+  says it); a shape this version does not read, a shared child whose
+  master is missing, a data-table formula (`reflect-unsupported`, naming
+  the part and the cell). Nothing is taken for a path; nothing is written.
+  `THREAT_MODEL.md` §5 gains the paragraph: every part of a workbook is
+  now decoded by the core, under those bounds.
+  **The forks, each argued long term first, with the recommendation.**
+  *(1) `SD-18` against new ground.* In the mature system the reference
+  reader is one short grammar every spreadsheet tool carries, and two
+  implementations drift on its tail (3D spans, `[1]` books, quoted names
+  with doubled apostrophes, `A1#`, the space and comma operators, `@`,
+  `[#This Row]`, `LOG10` and `TRUE` spelled like cells, `XFD` and row
+  1,048,576, the `_xlfn.` prefixes) unless one golden holds both. That
+  mechanism exists twice already, the token golden and the refusal golden:
+  the VBA writes it, the core reproduces it, a test fails on drift. Reading
+  (a), the core defines `refers` and the VBA is held to a core-written
+  file, reverses the treaty's direction for one function ("the goldens lead
+  the core, never the reverse"), and the day the reference changes hands
+  is a dated amendment to `SD-18` written by the owner, not inferred one
+  function at a time. Reading (b) costs one live pass: `AXM.7` lands first
+  as `src/VLA_Refers.bas`, a pure module (no Excel object, so
+  `check_translate_purity` is untouched; both `mods` arrays; the
+  `VlaBuildAddin` clickthrough), its proof table `TestFormulaRefs` in
+  `VLA_Tests.bas` under `VlaSelfTest`, and `VlaWriteRefersGolden` writing
+  `scripts/refers.txt` (formulas under `=== name` lines) to
+  `scripts/refers_golden.txt` in the token golden's shape; the core's
+  `refers.rs` holds to that file, one match arm per `Case` arm, and `refs.rs`'s
+  hand scanner retires into the port. The eight relations' shape has no
+  VBA either and is language-level: their names, columns and spellings
+  above are fixed by a treaty amendment in words before any
+  implementation prints them (`PORT.6`'s step 0 did the same), and the
+  expected-relations files are the core's goldens blessed by the owner by
+  eye, oracle 7's precedent, since for the file's facts the reference is
+  ISO/IEC 29500 and the hosts; the VBA's `REFLECT` over COM is later held
+  to the same files through the `(workbook …)` clause. **Recommended: (b)
+  for `AXM.7`, the amendment for the schema, the core's goldens for the
+  file's facts.** The order becomes 8a, then an `AXM.7` turn (the VBA, its
+  table and its golden; the owner's one pass), then 8b.
+  *(2) The door without the engines.* In the mature system `ask` is the
+  grammar's question act over the engines, and the audit list is DATALOG
+  rules in a phrasebook anyone extends; walks hard-coded in Rust are the
+  opposite of that, so whatever ships now must leave without a trace when
+  the engines arrive: each walk's output is a relation in the proof
+  notation, held by a fixture golden, and the DATALOG query that replaces
+  it must reproduce that golden, as the writer was oracle 7's first
+  producer. Three readings. `ask "<sentence>"` matching the sentence as a
+  literal is refused by `SD-7`'s letter: the sentence has no form in the
+  grammar (`EnTokenize` folds `?` into `.`; the act seam is `AXM.2`'s and
+  the standalone question `AXM.9`'s, both VBA first), a `GRAMMAR_SINCE.md`
+  row would claim a form that does not work, and a second front door for a
+  sentence is what `AXM.2` forbids. `reflect` and `diff` alone leave the
+  item without its product. `frazaro reflect`, `frazaro diff` from two
+  readers, and `frazaro audit model.xlsx [walk]`, the audit list as named
+  walks (`typed-over-constants`, `inconsistent-formulas`, `unused-names`,
+  `empty-references`, `hidden-sheets`, `external-links`; `--list` prints
+  each with the sentence it will answer), is the honest product: a walk may
+  come only from a sentence of Stage 2.3's list the owner has written down,
+  and "totals that do not foot" waits for the engines, since it sums.
+  `ask` comes with `AXM.9` and `PORT.9`, and its first proof is that
+  `ask "<sentence>"` reproduces `audit`'s golden. **Recommended: reflect,
+  diff and audit; `ask` waits.** The roadmap's line changes its "ships as"
+  accordingly.
+  *(3) ODF.* OpenFormula's `of:=` dialect (`[.A1]`, `[Sheet.A1]`,
+  `[$Sheet.A1]`, `['Q1 Data'.A1]`, `;` between arguments, `~` and `!` for
+  union and intersection) is a second grammar, and ODF's package is a
+  second shape: one `content.xml` for every sheet, so a million-cell
+  workbook is one part, the memory bound's hardest case; `mimetype` first
+  and stored, a manifest, hidden sheets in the automatic styles, names
+  under `table:named-expressions`, Tables under `table:database-ranges`,
+  cached values in `office:value`. Long term ODF is the reader's second
+  dialect and never its first: Calc, a Sheets export and procurement name
+  it, and `diff` and `audit` run over the relations, so ODF rides free
+  through them once its reader exists; the one shared definition is
+  `refers`' spelling, so ODF's reference grammar is a translator into
+  `AXM.7`'s A1 spelling, not a second `refers`. Riding with OOXML would
+  double 8a's surface before the first door is blessed, and the by-eye
+  check needs Calc. Cost, predicted: about 900 lines of Rust (the content
+  walker 350, the reference grammar 250, tests 300) and a 200-line fixture
+  script, one turn, against 8a's 1,400. **Recommended: its own slice, 8e,
+  with its own fixture and its own step-0 number, after `audit` and before
+  the C-ABI.**
+  *`HORIZON.md` 12.6's question, answered:* `_frazaro_refers(from, to)` and
+  `_frazaro_cells(addr, kind)`, the hidden Tables a built workbook is to
+  carry, are one definition with the reader's relations, not two: the first
+  is `refers` restricted to the built sheets, the second a projection of
+  `cell`, `formula` and the typed-over-constant walk (`kind` in input,
+  formula, plug), produced by the same functions at build time over the
+  writer's own model as at read time over any file. The writer does not
+  write them yet (nothing in `core/src/` names them); when it does, the
+  reader reading a built workbook must find them equal to its own
+  relations over those sheets, a free oracle, and the item that adds them
+  says so.
+  **Decided 2026-10-03, the owner's call, each as recommended:** 1b, 2 as
+  recommended, 3 its own slice; the order is 8a, an `AXM.7` turn, 8b.
+  **The slices, one per turn, each with its oracle and its live check;
+  the sizes are predictions to be checked against each slice's diff, as
+  `PORT.7`'s were.** *8a, the reader over OOXML* (about 1,400 lines of
+  Rust, 250 of PowerShell): `core/src/reflect/` (`mod.rs` the relation
+  rows and the sink; `cursor.rs` the XML subset; `ooxml.rs` the workbook,
+  relationships, shared strings, sheets, tables and external links;
+  `print.rs` the fixed order; `counts.rs`), `api::reflect_text`, `frazaro
+  reflect <file> [--counts]` with `refers` rows absent until 8b, the
+  catalogue's three ids under `VLA-Reflect` (`VLA_Messages.bas`, exported,
+  the floor 584 raised), the fixtures under `scripts/reflect/` (the
+  `.gitignore` negation widened): the two build goldens read back, the
+  owner's Excel-saved copy, and `fixture.xlsx` written by
+  `tools/build_reflect_fixture.ps1` in `build_model_fixture.ps1`'s manner,
+  deflated and in Excel's shape, holding every case the walker has an arm
+  for (a hidden and a very hidden sheet, a sheet-scoped name, a hidden
+  name, a Table, an external link, rich-text and plain shared strings, a
+  shared formula, a legacy and a dynamic array formula, a truth value, an
+  error, a date, `INDIRECT` and `OFFSET`, a structured reference, a 3D
+  span, a quoted sheet name with a doubled apostrophe); each fixture's
+  `<name>_relations.vla` beside it, the core's own output, the owner naming
+  by eye the fixture, the cell, the formula and the precedent; the
+  treaty's amendment (oracle 8, the contract's `reflect`); `prove.ps1`'s
+  kind with its fake and mutant; `tools/check_reflect_golden.ps1`, the
+  forty-second check (each golden whole, the first differing line named,
+  each golden's line count a floor, `-Control`; SKIPPED with no door) and
+  the `core` CI step; `cli/README.md` and `USAGE`. Live check: the exotic
+  fixture open in Excel beside its relations file; `--counts` on the real
+  model, the lines pasted. *An `AXM.7` turn*, under fork 1 (b): the VBA
+  module, the proof table, the golden writer; `? VlaSelfTests()`, `?
+  VlaWriteRefersGolden()`, `git diff scripts/refers_golden.txt`; `AXM.7`
+  closes as its own item. *8b, `refers`* (about 500 lines of Rust and the
+  VBA's 450): `core/src/refers.rs` as `VLA_Refers.bas`'s shape, held to the
+  refers golden; the `refers` rows, names and Tables resolved through
+  `name` and `table`, external books through their parts, R1C1 for
+  `--counts`' distinct formulas; `--cone <sheet>!<cell>` printing a cone's
+  size through names and across sheets, blind where `INDIRECT` is and
+  saying so, which is `AXM.1`'s rule's clause 3 made exact ("`AXM.7`'s
+  reader sizes the same ten cones before `AXM.8` commits"). Live check: the
+  ten cones on the real model, pasted beside `AXM.1`'s floors and
+  ceilings. *8c, `diff`* (about 300 lines): two readers in lockstep, sheets
+  matched by name, `(changed "Model!B3" old new)` for a cell whose formula
+  or value differs, old and new each a value, a `(formula "=…")` or
+  `blank`, a sheet in one file alone reported first as `(sheet-only-in
+  "a.xlsx" "Scratch")` and never matched; a `_diff.vla` golden between two
+  fixtures. Live check: the golden against its Excel-saved copy, which
+  differs in exactly the five cached values. *8d, `audit`* (about 500
+  lines): the six walks streaming, each defined in words here before its
+  code: a typed-over constant is a constant whose nearest non-blank cells
+  above and below in its column both hold formulas with one R1C1 text; an
+  inconsistent formula differs in R1C1 from those two neighbours when they
+  agree; an unused name is one no formula and no other name refers to; an
+  empty reference is a single-cell `refers` whose cell has no row (ranges
+  are not expanded); hidden sheets and external links are what `sheet` and
+  `refers` already say. The exotic fixture gains one case of each and an
+  `_audit.vla` golden; `IT_REVIEW.md` gains `AXM.10`'s sentence for the
+  file path. *8e, ODF*, as fork 3. *8f, the C-ABI and the page* (about
+  200 lines of Rust, 120 of the template): `frazaro_reflect` (bytes in, a
+  mode, the record's text out), a file input on the page read by
+  `FileReader` into the module's memory, nothing fetched and nothing
+  written, a Reflect pane printing the relations or the audit;
+  `check_web_offline.ps1` unchanged, since a file input is no reference.
+  **Slice 8a, the reader over OOXML (built 2026-10-03, awaiting the owner's
+  run).** `core/src/reflect/`: `mod.rs` (the relation rows, borrowed from
+  the walk that found them; the `Sink` trait and `Discard`; `sheet_prefix`;
+  `reflect_text`), `cursor.rs` (the XML subset as scoped: start, end and
+  empty tags by local name, text, a CDATA section as text, comments and
+  processing instructions skipped, entities undone with no allocation when
+  there are none, Excel's `_xHHHH_` undone for strings alone; `<!DOCTYPE`
+  and `<!ENTITY` refused at the first `<!`; `element_text` with a skip list
+  for `rPh`; `skip_element`), `ooxml.rs` (`Package::open`: the workbook
+  part, its relationships resolved against their part's folder with `..`
+  kept inside the package, the shared strings held whole, each sheet's
+  relationships and the Table parts they name, each external link's path
+  relationship for the book's file name, Excel's `_xlfn.` placeholder names
+  counted apart; `header_rows` in the fixed order; `walk_sheet`, one part at
+  a time through `merge.rs`'s part reader factored out as `part_text_raw`: a
+  cell's address from `r` or from its position when a writer omits it, a
+  shared formula's children shifted by `refs.rs`'s mover, array anchors
+  counted, `t` of `s`, `str`, `b`, `e`, `d`, `inlineStr` and none, a
+  formatted blank skipped), `print.rs` (the spelling; `Printer`);
+  `xlfn::strip_future_prefixes`, the inverse of the writer's prefixer;
+  `api::reflect_relations`. The door: `frazaro reflect <file.xlsx>
+  [--counts]`, streaming to a buffered stdout, the times from the door's own
+  clock since the core has none. Three catalogue ids under `VLA-Reflect`
+  (`VLA_Messages.bas` at PORT.8; 587 entries exported; the floor 587). The
+  fixtures under `scripts/reflect/`: `fixture.xlsx`, 8,584 bytes and 19
+  parts, written by `tools/build_reflect_fixture.ps1` with every case
+  scoped (six sheets, one hidden and one very hidden, a Table, an external
+  link to `Rates.xlsx`, six names with Excel's placeholder among them, rich
+  text, a shared formula, a legacy and a dynamic array, a truth value, an
+  error, a date serial, `INDIRECT`, `OFFSET`, a structured reference, a 3D
+  span, a quoted sheet name with a doubled apostrophe, a formula with a
+  string result, a formatted blank), and `fixture_relations.vla` (70 lines)
+  beside it; the two build goldens read back (`build_fixture_relations.vla`
+  and `build_into_relations.vla`, 30 lines each) and the model
+  (`model_relations.vla`, 11); each golden the door's output saved CRLF and
+  read line by line against this entry's step 0 before it was kept. The
+  treaty's fifth amendment of the day (oracle 8: the schema in words, the
+  four rows, the contract's `reflect`), `prove.ps1`'s sixth kind with its
+  fake and mutant, `tools/check_reflect_golden.ps1`, the forty-second check
+  (the floors 70, 30, 30 and 11; the fixed order read off each golden;
+  `-Control` on a fake, a mutant that changes one value, naming its line,
+  and a copy with a name row above the sheet rows), the `core` CI step,
+  `.gitignore`'s negation widened. 185 Rust tests, 14 of them new (the
+  cursor's events, attributes, refusals, element text and entities; each
+  kind of cell; the fixed order with a hidden and a very hidden sheet, a
+  sheet-scoped name, a placeholder dropped, two Tables and an external
+  book; the refusals through the catalogue; the paths; the prefixes
+  stripped; the four goldens reproduced); `prove.ps1 -Impl` 17 passed, 0
+  failed, 2 not attempted, 1 library; 42 checks; the wasm 768,417 bytes with
+  0 imports, the reader inside it. **Step 0 so far:** prediction 1 held by
+  construction, the two build goldens' relations reading exactly as
+  predicted, the shared children `=B3+B4` and `=B4+B5` included; prediction
+  3 held, `--counts` on the sample workbook printing nine sheets, 981 cells,
+  no formula, three Tables and no name, 65,257 bytes of sheet parts in
+  5.9 ms of a debug build. One correction already: a reference to another
+  workbook keeps the file's `[1]` in the `formula` row until 8b resolves it,
+  where prediction 9 spoke of the formula bar's `[Rates.xlsx]`; the treaty
+  says so. One finding on the way: the fixture script's first run lost the
+  tails of two parts (PowerShell's `-join` binds looser than `+`), and
+  `--counts` caught it, `books 0` against the link the fixture holds, so
+  the counts line is read against what a fixture is known to hold before
+  its golden is kept. Predictions 2, 4 to 8 and 10 ride on the owner's run.
+  **The owner's live check for 8a:** (1) `cargo build --workspace`, then
+  `target\debug\frazaro.exe reflect scripts\reflect\fixture.xlsx` prints
+  the 70 lines of `scripts\reflect\fixture_relations.vla`. (2) Open
+  `scripts\reflect\fixture.xlsx` in Excel: no repair dialog (a prompt about
+  the link to `Rates.xlsx` is expected; do not update); the tabs `Model`,
+  `Data`, `Q1 Data` and `It's`, `Scratch` listed by Unhide and `Secret` not;
+  on `Model`, B3 showing 400 with `=B1-B2` in the bar, C3 showing 800 with
+  `=B3*2` (the shared child shifted), D4 1205 (`=SUM(Model:Scratch!B1)`),
+  D5 17, E4 1600 under E3's array formula, F1 and F2 spilling 1 and 2 with
+  `=SEQUENCE(2)` and no `@`, G2 800 from the sheet-scoped name, H2
+  `Revenue!`, A5 TRUE, E5 `#DIV/0!`, A6 a date in 2025 (General shows
+  45930); Formulas, Name Manager listing `Broken`, `HiddenName` is hidden so
+  not listed, `Local` scoped to Model, `Range1`, `Rate`; on `Data`, the
+  Table `Sales` over A1:B4 under Table Design. Each is one line of the
+  relations file, by eye. (3) Save As of `scripts\build\fixture_golden.xlsx`
+  from Excel to `scripts\reflect\saved.xlsx` (the format kept, nothing
+  changed), then `frazaro reflect scripts\reflect\saved.xlsx`: prediction 2,
+  the 30 lines of `build_fixture_relations.vla` plus five `cell` rows, B3
+  10, C2 15, C3 10, C4 0 and D2 `"big"`, each before its `formula` row;
+  the file is then a fixture and its golden joins the check next turn.
+  (4) `frazaro reflect <your model> --counts` on a real model, the lines
+  pasted back; only counts and times are in them. (5) `powershell -File
+  tools\run_checks.ps1` prints 42 passed. On "tests pass, commit", the slice
+  commits and the `AXM.7` turn follows.
+  **The owner's live check for 8a, 2026-10-03, the saved copy 2026-10-04:**
+  the 70 lines printed as predicted; the fixture opened in Excel with no
+  repair dialog and the expected warning about its link (automatic update
+  disabled, left so); the tabs `Model`, `Data`, `Q1 Data` and `It's`, and
+  Unhide listing `Scratch` alone (prediction 10 held); on `Model` every cell
+  as the relations file has it, B3 400 with `=B1-B2` in the bar, C3 800, D4
+  1205, D5 17, E4 1600, F1 and F2 1 and 2, G2 800, H2 `Revenue!`, A5 TRUE,
+  E5 `#DIV/0!`, A4's rich text bold where the file says so, A6 `########`
+  under its date format at the column's width, the serial 45930 under
+  General (prediction 7 seen in passing). The Excel-saved copy of the first
+  build golden read as prediction 2 said: the thirty rows plus `(cell
+  "Output" "C2" 15)`, D2 `"big"`, B3 10, C3 10 and C4 0, each before its
+  `formula` row, through Excel's shared strings, theme and calculation
+  chain, the shared formula still shared and D2 still a dynamic array; and
+  one spelling the prediction did not name: Excel rewrote the stamp's text
+  constant, longer than 255 characters, as `_xlfn._LONGTEXT("…","…")`,
+  which the `name` row prints as the file holds it (the treaty's amendment
+  of 2026-10-04). `saved.xlsx`, 11,790 bytes and fourteen parts, is the
+  fifth fixture: the check's floor 35, the runner's row, the core's test.
+  42 checks and 17 oracles on the owner's machine, 18 with the saved row.
+  Step 4, `--counts` on a
+  real model, had no model to run against: the owner has none to hand,
+  which is why `AXM.13` (minted 2026-10-03 by the session that closed
+  `AXM.1`) carries that run, and predictions 4, 5 and 8 wait there with the
+  second number. Of step 0's ten: 1, 2, 3 and 10 held; 9 was corrected (the
+  `[1]` stays until 8b); 7 was seen; 6 was not put to the test; 4, 5 and 8
+  wait for `AXM.13`. Committed 2026-10-04 as one commit of its own; the
+  `AXM.7` turn follows.
+  **Constraints carried, in brief:** every refusal through the catalogue
+  under `VLA-Reflect`; `cargo fmt`, `clippy -D warnings`, `test`, the wasm
+  build and `check_core_imports.ps1` before every commit; the goldens lead
+  the core; a slice's live check is numbered and names the fixture, the
+  cell, the formula and the precedent; `SD-13` untouched (nothing leaves
+  the machine but what the owner pastes). **Docs the item touches:**
+  `conformance/README.md` (oracle 8 and its rows), `cli/README.md` and
+  `USAGE`, the root `README.md`'s command table, `THREAT_MODEL.md` §5,
+  `IT_REVIEW.md`, `RELEASES.md` 0.8.0, `Delta/CLAUDE.md` (the module, the
+  check, the fixtures), this entry with each slice's live pass, the
+  roadmap's line (its "ships as" under fork 2) until it leaves, and the
+  ledger at close.
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day
