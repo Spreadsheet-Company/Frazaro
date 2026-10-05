@@ -16,22 +16,32 @@
 //! What a cell gives: a `cell` row when the file holds a value (a constant,
 //! or a formula's cached value), a `formula` row when it holds a formula
 //! (its text with `=` in front and the file's `_xlfn.` prefixes dropped,
-//! which is what `Range.Formula` returns; a shared formula's children get
-//! the first cell's text with its references moved by the cell's distance,
-//! as Excel shows them; an array formula is its anchor's text, and the cells
-//! it spills into are values alone); nothing for a formatted cell with no
-//! value. Excel's own `_xlfn.` placeholder names, which no one defined, print
-//! in no `name` row and are counted apart.
+//! which is what `Range.Formula` returns, and a link's `[1]` resolved to
+//! the linked file's name, `[Rates.xlsx]`, as the formula bar shows it; a
+//! shared formula's children get the first cell's text with its references
+//! moved by the cell's distance, as Excel shows them; an array formula is
+//! its anchor's text, and the cells it spills into are values alone), then
+//! from 8b its `refers` rows, one per distinct thing the formula refers to
+//! as `crate::refers` reads it, sorted by the target as printed; nothing
+//! for a formatted cell with no value. Excel's own `_xlfn.` placeholder
+//! names, which no one defined, print in no `name` row and are counted
+//! apart.
 
 use std::borrow::Cow;
+use std::collections::HashSet;
 
 use super::cursor::{attr, element_text, skip_element, Cursor, Event};
-use super::{sheet_prefix, Row, SheetStats, Sink, Value, Visibility};
+use super::{print, sheet_prefix, RefersTo, Row, SheetStats, Sink, Value, Visibility};
 use crate::intrinsics::fold;
 use crate::messages::{raise, Refusal};
+use crate::refers;
 use crate::sheet::merge::part_text_raw;
 use crate::sheet::zip::{self, Entry};
-use crate::sheet::{cell_ref, parse_a1_range, refs, xlfn};
+use crate::sheet::{cell_ref, parse_a1_range, xlfn};
+
+/// The most distinct R1C1 formulas a count keeps, per sheet and per
+/// workbook; past it the count stands still (AXM.1's own cap).
+pub const DISTINCT_CAP: usize = 1 << 20;
 
 const WORKBOOK: &str = "xl/workbook.xml";
 const WORKBOOK_RELS: &str = "xl/_rels/workbook.xml.rels";
@@ -545,10 +555,23 @@ impl<'a> Package<'a> {
     }
 
     /// One sheet's cells in document order, to the sink: a `cell` row for a
-    /// value the file holds, a `formula` row for a formula. The sheet's part
-    /// is read here and dropped on return; what the walk counted comes back.
+    /// value the file holds, a `formula` row for a formula, then its
+    /// `refers` rows. The sheet's part is read here and dropped on return;
+    /// what the walk counted comes back.
     pub fn walk_sheet(&self, index: usize, sink: &mut dyn Sink) -> Result<SheetStats, Refusal> {
+        self.walk_sheet_with(index, sink, &mut HashSet::new())
+    }
+
+    /// [`Package::walk_sheet`], with the workbook-wide set of distinct R1C1
+    /// formulas carried across sheets for `--counts`.
+    pub fn walk_sheet_with(
+        &self,
+        index: usize,
+        sink: &mut dyn Sink,
+        book_distinct: &mut HashSet<String>,
+    ) -> Result<SheetStats, Refusal> {
         let info = &self.sheets[index];
+        let mut sheet_distinct: HashSet<String> = HashSet::new();
         let part = info.part.as_str();
         let label = self.label.as_str();
         let text = part_text_raw(self.bytes, &self.entries, part)
@@ -678,7 +701,7 @@ impl<'a> Package<'a> {
                                                 &format!("cell {addr} continues a shared formula whose first cell has not been read"),
                                             )
                                         })?;
-                                        Some(refs::shift_a1_references(
+                                        Some(refers::shift_a1_references(
                                             master,
                                             i64::from(row) - i64::from(*m_row),
                                             i64::from(col) - i64::from(*m_col),
@@ -764,16 +787,41 @@ impl<'a> Package<'a> {
                     if let Some(f_text) = formula {
                         stats.formulas += 1;
                         let text = format!("={}", xlfn::strip_future_prefixes(&f_text));
+                        let text = refers::resolve_books(&text, &self.external_books);
                         sink.row(&Row::Formula {
                             sheet: &info.name,
                             addr: &addr,
                             text: &text,
                         });
+                        let found = refers::scan(&text);
+                        stats.unreadable += found
+                            .iter()
+                            .filter(|r| r.kind == refers::Kind::Unreadable)
+                            .count() as u64;
+                        let mut targets: Vec<RefersTo> =
+                            found.iter().map(|r| RefersTo::of(r, &info.name)).collect();
+                        targets.sort_by_key(print::target);
+                        targets.dedup();
+                        for to in &targets {
+                            sink.row(&Row::Refers {
+                                sheet: &info.name,
+                                addr: &addr,
+                                to,
+                            });
+                        }
+                        let rendered = refers::r1c1(&text, row, col);
+                        if sheet_distinct.len() < DISTINCT_CAP {
+                            sheet_distinct.insert(rendered.clone());
+                        }
+                        if book_distinct.len() < DISTINCT_CAP {
+                            book_distinct.insert(rendered);
+                        }
                     }
                 }
                 _ => {}
             }
         }
+        stats.distinct_r1c1 = sheet_distinct.len() as u64;
         Ok(stats)
     }
 }
@@ -834,12 +882,16 @@ mod tests {
                 "(cell \"Model\" \"D2\" (date \"2026-10-03\"))\n",
                 "(cell \"Model\" \"A3\" \"Revenue!\")\n",
                 "(formula \"Model\" \"A3\" \"=A1&\\\"!\\\"\")\n",
+                "(refers \"Model!A3\" \"Model!A1\")\n",
                 "(cell \"Model\" \"B3\" 2400)\n",
                 "(formula \"Model\" \"B3\" \"=B1*2\")\n",
+                "(refers \"Model!B3\" \"Model!B1\")\n",
                 "(cell \"Model\" \"C3\" 2401)\n",
                 "(formula \"Model\" \"C3\" \"=B3+1\")\n",
+                "(refers \"Model!C3\" \"Model!B3\")\n",
                 "(cell \"Model\" \"C4\" 1)\n",
                 "(formula \"Model\" \"C4\" \"=B4+1\")\n",
+                "(refers \"Model!C4\" \"Model!B4\")\n",
                 "(cell \"Model\" \"D4\" 1)\n",
                 "(formula \"Model\" \"D4\" \"=SEQUENCE(2)\")\n",
                 "(cell \"Model\" \"D5\" 2)\n",
@@ -853,6 +905,8 @@ mod tests {
         assert_eq!(stats.cells, 16);
         assert_eq!(stats.formulas, 6);
         assert_eq!(stats.array_anchors, 1);
+        // =1/0, =RC[-2]&"!", =RC[-1]*2, =RC[-1]+1 (C3 and C4 as one), =SEQUENCE(2).
+        assert_eq!((stats.distinct_r1c1, stats.unreadable), (5, 0));
         assert_eq!((stats.rows, stats.columns), (6, 6));
         assert!(stats.part_bytes > 500);
         let summary = package.summary();

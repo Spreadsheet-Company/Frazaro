@@ -13,7 +13,6 @@
 pub mod inflate;
 pub mod merge;
 pub mod ooxml;
-pub mod refs;
 pub mod xlfn;
 pub mod xml;
 pub mod zip;
@@ -261,11 +260,12 @@ impl Sheet {
     /// range as Excel stores a `Formula2` entry of it: a dynamic-array
     /// formula per cell (a dynamic-array formula cannot be shared), its
     /// references moved by the cell's distance from the top-left one, as
-    /// Excel moves them when a formula is filled.
+    /// Excel moves them when a formula is filled (the mover is
+    /// `crate::refers::shift_a1_references` since PORT.8, slice 8b).
     pub fn set_formula_dynamic(&mut self, range: A1Range, text: &str, style: u32) {
         for row in range.top..=range.bottom {
             for col in range.left..=range.right {
-                let moved = refs::shift_a1_references(
+                let moved = crate::refers::shift_a1_references(
                     text,
                     i64::from(row) - i64::from(range.top),
                     i64::from(col) - i64::from(range.left),

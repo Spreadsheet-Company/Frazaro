@@ -25,7 +25,10 @@
 //!
 //! The reader (PORT.8) is `reflect`: a workbook's bytes, OOXML first, read
 //! as the relations of `REFLECT` with no host, streamed sheet by sheet;
-//! `api::reflect_relations` is its surface.
+//! `api::reflect_relations` is its surface. `refers` (slice 8b) is the
+//! formula-reference reader, `VLA_Refers.bas` ported and held to its
+//! golden: the `refers` rows, the writer's mover and the R1C1 rendering
+//! all come off its one scan.
 
 pub mod abi;
 pub mod api;
@@ -39,6 +42,7 @@ pub mod intrinsics;
 pub mod messages;
 pub mod printer;
 pub mod reader;
+pub mod refers;
 pub mod reflect;
 pub mod sha256;
 pub mod sheet;

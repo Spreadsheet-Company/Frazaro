@@ -8,4 +8,6 @@
 (cell "Model" "A3" "Margin")
 (cell "Model" "B3" 400)
 (formula "Model" "B3" "=B1-B2")
+(refers "Model!B3" "Model!B1")
+(refers "Model!B3" "Model!B2")
 (cell "Notes" "A1" "Q3 close")

@@ -124,13 +124,18 @@ you built is the one this page describes.
    changes: `(sheet "Frazaro" visible)` and its two sister sheets first,
    then the `Frazaro.Build` name with its fingerprints, then the sentences
    as `(cell "Frazaro" "B1" "...")` rows with an `"OK"` cell beside each,
-   then `Output`'s two values and five formulas, `(formula "Output" "C3"
-   "=B3+B4")` among them, since a filled formula shows in each cell as
-   Excel shows it, and `(cell "data" "A1" "west")` last: 30 lines, which
-   are `scripts\reflect\build_fixture_relations.vla` exactly. No formula
-   has a `cell` row, because nothing has computed one yet; save the file
-   from Excel and ask again, and each gains one. `frazaro reflect tour.xlsx
-   --counts` prints the sheets' counts and times alone.
+   then `Output`'s two values, five formulas and what each refers to,
+   `(formula "Output" "C3" "=B3+B4")` followed by `(refers "Output!C3"
+   "Output!B3")` and `(refers "Output!C3" "Output!B4")` among them, since a
+   filled formula shows in each cell as Excel shows it, and `(cell "data"
+   "A1" "west")` last: 38 lines, which are
+   `scripts\reflect\build_fixture_relations.vla` exactly. No formula has a
+   `cell` row, because nothing has computed one yet; save the file from
+   Excel and ask again, and each gains one. `frazaro reflect tour.xlsx
+   --counts` prints the sheets' counts and times alone, and `frazaro
+   reflect tour.xlsx --cone Output!C2` one line of counts for C2's cone:
+   `cells 3 formulas 2 inputs 1`, C2 itself, B3 that it adds and B2 that
+   both read.
 
 9. **A sentence the language refuses.** A file holding `Put 5 into cell
    B2.` and `Set total to $5.` through `translate-vla` prints, on stderr,
@@ -261,10 +266,10 @@ gap: a workbook anyone has saved is no longer the build. The checks run
 ### `frazaro reflect`
 
 ```text
-frazaro reflect <file.xlsx> [--counts]
+frazaro reflect <file.xlsx> [--counts] [--cone <Sheet!A1> ...]
 ```
 
-The reader (`PORT.8`), its first slice. The workbook's file is read, never
+The reader (`PORT.8`), slices 8a and 8b. The workbook's file is read, never
 Excel: its sheets, names and Tables, then every cell, sheet by sheet in tab
 order and cell by cell in row order, printed as relations in the proof
 corpus's notation, one form a line, in an order that never changes, so that
@@ -278,6 +283,8 @@ the output is a golden and two readings of one file compare line for line:
 (cell "Model" "B1" 1200)
 (cell "Model" "B3" 400)
 (formula "Model" "B3" "=B1-B2")
+(refers "Model!B3" "Model!B1")
+(refers "Model!B3" "Model!B2")
 ```
 
 A `sheet` row's state is `visible`, `hidden` or `very-hidden`. A `name` row
@@ -286,24 +293,51 @@ spelled `Sheet!Name`; Excel's own `_xlfn.` placeholders are left out. A
 `cell` row holds the value the file holds: a number as the file spells it,
 a text, `true` or `false`, `(error "#DIV/0!")`, or `(date "...")` for an
 ISO date cell; a date entered in Excel is its serial number. A `formula`
-row holds the formula as the formula bar shows it, `=` first and the file's
-`_xlfn.` prefixes dropped; a formula filled down shows in each cell with
+row holds the formula as the formula bar shows it, `=` first, the file's
+`_xlfn.` prefixes dropped and a link to another workbook named by its file
+(`=[Rates.xlsx]Sheet1!A1`, the spelling Excel shows while that book is
+open; closed, Excel shows the path it resolved, which the file does not
+hold); a formula filled down shows in each cell with
 its references moved, as Excel shows it; an array formula shows in its
-first cell, and the cells it spills into are values. A formula cell has a
-`cell` row only when the file holds its last computed value, so a workbook
-`frazaro build` wrote and nothing has opened has `formula` rows alone for
-its formulas, and the same workbook saved from Excel gains a `cell` row for
-each. A formatted cell with nothing in it has no row. What a formula refers
-to (`refers`), the difference between two files (`diff`) and the audit
-questions come in the slices after this one.
+first cell, and the cells it spills into are values. After a formula come
+its `refers` rows, one per distinct thing it refers to, sorted: a cell or a
+range qualified by its sheet with its `$` marks dropped (`Model!B1`,
+`Data!A:A`), a name, a structured reference, a 3D span or a reference into
+another workbook as written (`Rate`, `Sales[Amount]`, `Model:Scratch!B1`,
+`[Rates.xlsx]Sheet1!A1`), a spill as its cell with `#`, a `#REF!` as
+`Model!#REF!`, and `(unreadable "INDIRECT")` or `(unreadable "OFFSET")`
+for the two calls whose targets no reader can know from the text; the
+reading inside such a call goes on, so `=OFFSET(B1,1,0)` refers to
+`Model!B1` and is unreadable both. This is `AXM.7`'s reader,
+`src/VLA_Refers.bas`, ported arm by arm and held to its golden. A formula
+cell has a `cell` row only when the file holds its last computed value, so
+a workbook `frazaro build` wrote and nothing has opened has `formula` rows
+alone for its formulas, and the same workbook saved from Excel gains a
+`cell` row for each. A formatted cell with nothing in it has no row. The
+difference between two files (`diff`) and the audit questions come in the
+slices after this one.
 
 With `--counts`, nothing from inside the workbook is printed: one line a
-sheet, by position, with its counts of cells, formulas and array formulas,
-the last row and column holding anything, the part's size and the time it
-took to read, then one line for the workbook with its totals, names,
-Tables, links to other workbooks and strings. This is for measuring a model
-whose contents must not leave the machine; the lines can be pasted
+sheet, by position, with its counts of cells, formulas, distinct formulas
+(compared in R1C1 relative to their cells, so that a formula filled down
+counts once), unreadable calls (`INDIRECT` and `OFFSET`) and array
+formulas, the last row and column holding anything, the part's size and
+the time it took to read, then one line for the workbook with its totals,
+names, Tables, links to other workbooks and strings. This is for measuring
+a model whose contents must not leave the machine; the lines can be pasted
 anywhere.
+
+With `--cone Sheet!A1`, once or more, a cell's cone is sized through the
+file, one line a root with counts alone: the cells reached through every
+reference, through names and Tables and across sheets, how many of them
+hold formulas and how many are inputs, the blank cells referred to, the
+sheets touched, the depth of the longest chain, where the cone is blind
+(`INDIRECT` and `OFFSET`), the names and Tables resolved, the references
+into other workbooks (counted, not followed), the `#REF!`s met and what the
+file does not have. Excel's own Trace Precedents stops at the sheet
+boundary; this does not. The root is the one address printed, because you
+typed it. A root that is not a cell as `Sheet!A1` or `'Q1 Data'!A1`, or one
+naming no sheet, exits 2.
 
 Refusals, exit 1: a file that is not a workbook, with why
 (`reflect-not-a-workbook`: not a zip, an older `.xls` or an encrypted one,

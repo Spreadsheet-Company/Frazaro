@@ -23,13 +23,18 @@
 //! `sheet` row in tab order; every `name` row sorted by its name without
 //! case; every `table` row by its sheet's tab order, then its name; then
 //! sheet by sheet in tab order, cell by cell in document order, each cell's
-//! `cell` row, then its `formula` row. `print.rs` has the spelling.
+//! `cell` row, then its `formula` row, then its `refers` rows, one per
+//! distinct target, sorted by the target as printed (slice 8b, through
+//! `crate::refers`, the port of `VLA_Refers.bas`). `print.rs` has the
+//! spelling; `cone.rs` sizes a cell's cone through an index of the walk.
 
+pub mod cone;
 pub mod cursor;
 pub mod ooxml;
 pub mod print;
 
 use crate::messages::Refusal;
+use crate::refers::{FormulaRef, Kind};
 
 /// A cell's value as the file holds it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,6 +69,27 @@ impl Visibility {
     }
 }
 
+/// The second field of a `refers` row: a reference in the treaty's
+/// spelling, or an unreadable call named.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RefersTo {
+    /// `Model!B1`, `Data!A:A`, `Rate`, `Sales[Amount]`, `[Rates.xlsx]Sheet1!A1`.
+    Reference(String),
+    /// `(unreadable "INDIRECT")`, `(unreadable "OFFSET")`.
+    Unreadable(&'static str),
+}
+
+impl RefersTo {
+    /// What one record of a formula's scan refers to, from the sheet that
+    /// holds the formula.
+    pub fn of(r: &FormulaRef, home_sheet: &str) -> RefersTo {
+        match r.kind {
+            Kind::Unreadable => RefersTo::Unreadable(r.unreadable_name()),
+            _ => RefersTo::Reference(crate::refers::spell(r, home_sheet)),
+        }
+    }
+}
+
 /// One row of a relation, borrowed from the walk that found it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Row<'r> {
@@ -90,6 +116,13 @@ pub enum Row<'r> {
         addr: &'r str,
         text: &'r str,
     },
+    /// `(refers "Model!B3" "Model!B1")`: the cell holding the formula, and
+    /// one thing it refers to.
+    Refers {
+        sheet: &'r str,
+        addr: &'r str,
+        to: &'r RefersTo,
+    },
 }
 
 /// Where rows go as the walk emits them.
@@ -106,7 +139,8 @@ impl Sink for Discard {
 
 /// What one sheet's walk counted: cells with a value or a formula, formula
 /// cells, array-formula anchors, the last row and column that hold one,
-/// and the part's inflated size.
+/// the part's inflated size, and from 8b the distinct formulas in R1C1 and
+/// the `INDIRECT` and `OFFSET` calls met.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SheetStats {
     pub cells: u64,
@@ -115,22 +149,18 @@ pub struct SheetStats {
     pub rows: u32,
     pub columns: u32,
     pub part_bytes: usize,
+    /// Distinct formulas on the sheet, compared in R1C1 relative to their
+    /// cells, so that a formula filled down counts once.
+    pub distinct_r1c1: u64,
+    /// `INDIRECT` and `OFFSET` calls on the sheet: where a cone is blind.
+    pub unreadable: u64,
 }
 
-/// A sheet's name as a reference spells it in front of `!`: quoted, with an
-/// apostrophe doubled, when it holds anything but letters, digits,
-/// underscores and periods, or begins with a digit.
+/// A sheet's name as a reference spells it in front of `!`: the one quoting
+/// rule, `refers::quote_sheet` (the port of `RefersQuoteSheet`), so that a
+/// `name` row's sheet, a `refers` row's two ends and the formula text agree.
 pub fn sheet_prefix(name: &str) -> String {
-    let plain = !name.is_empty()
-        && !name.starts_with(|c: char| c.is_ascii_digit())
-        && name
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '_' || c == '.');
-    if plain {
-        name.to_string()
-    } else {
-        format!("'{}'", name.replace('\'', "''"))
-    }
+    crate::refers::quote_sheet(name)
 }
 
 /// The whole of a workbook as text, one relation row a line in the fixed
@@ -158,5 +188,25 @@ mod tests {
         assert_eq!(sheet_prefix("2026"), "'2026'");
         assert_eq!(sheet_prefix("Donn\u{e9}es"), "Donn\u{e9}es");
         assert_eq!(sheet_prefix("a-b"), "'a-b'");
+        // AXM.7's two clauses, confirmed in Excel on 2026-10-04.
+        assert_eq!(sheet_prefix("A1"), "'A1'");
+        assert_eq!(sheet_prefix("R1C1"), "'R1C1'");
+    }
+
+    #[test]
+    fn a_target_is_a_reference_or_an_unreadable_call() {
+        let refs = crate::refers::scan("=OFFSET(B1,1,0)+'Q1 Data'!A1");
+        assert_eq!(
+            RefersTo::of(&refs[0], "Model"),
+            RefersTo::Unreadable("OFFSET")
+        );
+        assert_eq!(
+            RefersTo::of(&refs[1], "Model"),
+            RefersTo::Reference("Model!B1".to_string())
+        );
+        assert_eq!(
+            RefersTo::of(&refs[2], "Model"),
+            RefersTo::Reference("'Q1 Data'!A1".to_string())
+        );
     }
 }

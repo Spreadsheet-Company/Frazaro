@@ -68,11 +68,13 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # each formula's cached value, and the stamp's text constant, longer than
 # 255 characters, rewritten by Excel as _xlfn._LONGTEXT("...","...").
 $goldens = @(
-    @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/reflect/fixture_relations.vla';       Floor = 70 },
-    @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/reflect/build_fixture_relations.vla'; Floor = 30 },
-    @{ Name = 'build_into';    Fixture = 'scripts/build/into_golden.xlsx';    Golden = 'scripts/reflect/build_into_relations.vla';    Floor = 30 },
-    @{ Name = 'model';         Fixture = 'scripts/build/model.xlsx';          Golden = 'scripts/reflect/model_relations.vla';         Floor = 11 },
-    @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Golden = 'scripts/reflect/saved_relations.vla';         Floor = 35 }
+    # 2026-10-04, PORT.8 slice 8b: the refers rows join every formula (20, 8,
+    # 5, 2 and 8 of them), so 70 -> 90, 30 -> 38, 30 -> 35, 11 -> 13, 35 -> 43.
+    @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/reflect/fixture_relations.vla';       Floor = 90 },
+    @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/reflect/build_fixture_relations.vla'; Floor = 38 },
+    @{ Name = 'build_into';    Fixture = 'scripts/build/into_golden.xlsx';    Golden = 'scripts/reflect/build_into_relations.vla';    Floor = 35 },
+    @{ Name = 'model';         Fixture = 'scripts/build/model.xlsx';          Golden = 'scripts/reflect/model_relations.vla';         Floor = 13 },
+    @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Golden = 'scripts/reflect/saved_relations.vla';         Floor = 43 }
 )
 
 # The relation forms a reader prints, and the phase each belongs to in the

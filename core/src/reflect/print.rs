@@ -9,12 +9,21 @@
 //! `(error "#DIV/0!")`; an ISO date cell is `(date "2026-10-03")`; a sheet's
 //! state is `visible`, `hidden` or `very-hidden`.
 
-use super::{Row, Sink, Value};
+use super::{sheet_prefix, RefersTo, Row, Sink, Value};
 use crate::form::Form;
 use crate::printer::write_datum;
 
 fn quoted(s: &str) -> String {
     write_datum(&Form::string(s))
+}
+
+/// A `refers` row's second field as printed: a quoted reference, or the
+/// `(unreadable "...")` form. The rows of one cell sort by this text.
+pub fn target(to: &RefersTo) -> String {
+    match to {
+        RefersTo::Reference(text) => quoted(text),
+        RefersTo::Unreadable(name) => format!("(unreadable {})", quoted(name)),
+    }
 }
 
 /// A value as a datum.
@@ -55,6 +64,13 @@ pub fn line(row: &Row<'_>) -> String {
                 quoted(sheet),
                 quoted(addr),
                 quoted(text)
+            )
+        }
+        Row::Refers { sheet, addr, to } => {
+            format!(
+                "(refers {} {})",
+                quoted(&format!("{}!{}", sheet_prefix(sheet), addr)),
+                target(to)
             )
         }
     }
@@ -135,6 +151,27 @@ mod tests {
                 text: "=B1-B2"
             }),
             "(formula \"Model\" \"B3\" \"=B1-B2\")"
+        );
+        assert_eq!(
+            line(&Row::Refers {
+                sheet: "Q1 Data",
+                addr: "B3",
+                to: &RefersTo::Reference("Model!B1".to_string())
+            }),
+            "(refers \"'Q1 Data'!B3\" \"Model!B1\")"
+        );
+        assert_eq!(
+            line(&Row::Refers {
+                sheet: "Model",
+                addr: "D2",
+                to: &RefersTo::Unreadable("INDIRECT")
+            }),
+            "(refers \"Model!D2\" (unreadable \"INDIRECT\"))"
+        );
+        // A quoted reference sorts before the unreadable form: '"' < '('.
+        assert!(
+            target(&RefersTo::Reference("Model!B1".to_string()))
+                < target(&RefersTo::Unreadable("OFFSET"))
         );
         let mut p = Printer::default();
         p.row(&Row::Sheet {

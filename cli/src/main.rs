@@ -56,18 +56,23 @@ usage:
                          the files given, the build done again and compared
                          whole: one line, yes (exit 0) or no with why (exit
                          1); a file that is not a build is refused (slice 7c)
-  frazaro reflect <file.xlsx> [--counts]
-                         the reader (PORT.8, slice 8a): the workbook's
-                         relations to stdout in a fixed order, one form a
-                         line - every sheet with its state, every name,
-                         every Table, then sheet by sheet each cell's value
-                         as the file holds it and each formula's text as the
-                         formula bar shows it; with --counts, counts and
-                         times alone, one line a sheet by position and one
-                         for the workbook, so that nothing confidential
-                         leaves the machine; a file that is not a workbook,
-                         a part with a DOCTYPE, or a shape this version does
-                         not read is refused by name
+  frazaro reflect <file.xlsx> [--counts] [--cone <Sheet!A1> ...]
+                         the reader (PORT.8, slices 8a and 8b): the
+                         workbook's relations to stdout in a fixed order,
+                         one form a line - every sheet with its state, every
+                         name, every Table, then sheet by sheet each cell's
+                         value as the file holds it, each formula's text as
+                         the formula bar shows it, and what the formula
+                         refers to, one row per distinct reference; with
+                         --counts, counts and times alone, one line a sheet
+                         by position and one for the workbook, the distinct
+                         formulas in R1C1 and the INDIRECT and OFFSET calls
+                         among them, so that nothing confidential leaves the
+                         machine; with --cone, a cell's cone sized through
+                         names and Tables and across sheets, counts alone,
+                         and where it is blind; a file that is not a
+                         workbook, a part with a DOCTYPE, or a shape this
+                         version does not read is refused by name
   frazaro version        the version of the core this door is built on
   frazaro help           this text
 
@@ -577,21 +582,43 @@ fn ms_since(since: std::time::Instant) -> f64 {
     since.elapsed().as_secs_f64() * 1000.0
 }
 
-/// `frazaro reflect <file.xlsx> [--counts]` (PORT.8, slice 8a): the
-/// workbook's relations to stdout in the fixed order, streamed sheet by
-/// sheet through the core's reader, which holds no model of the workbook.
-/// With --counts, counts and times alone: one line a sheet by position and
-/// one for the workbook, AXM.1's discipline (no file name, sheet name,
-/// address, formula text or value leaves the machine), which is how the
-/// reader gives that measurement its second number. A refusal goes to
-/// stderr with exit 1; the rows printed before it stand, since the read
-/// streams.
+/// `frazaro reflect <file.xlsx> [--counts] [--cone <Sheet!A1> ...]`
+/// (PORT.8, slices 8a and 8b): the workbook's relations to stdout in the
+/// fixed order, streamed sheet by sheet through the core's reader, which
+/// holds no model of the workbook. With --counts, counts and times alone:
+/// one line a sheet by position and one for the workbook, AXM.1's
+/// discipline (no file name, sheet name, address, formula text or value
+/// leaves the machine), which is how the reader gives that measurement its
+/// second number; from 8b the distinct formulas in R1C1 and the unreadable
+/// calls are among them. With --cone, the one exception to streaming: an
+/// index of every formula is built in one walk and each root's cone is
+/// sized through it, counts alone, the root being the one address printed
+/// because the caller typed it. A refusal goes to stderr with exit 1; the
+/// rows printed before it stand, since the read streams.
 fn reflect(args: &[String]) -> ExitCode {
+    const USAGE_LINE: &str =
+        "usage: frazaro reflect <file.xlsx> [--counts] [--cone <Sheet!A1> ...]";
     let Some(file) = args.first() else {
-        eprintln!("usage: frazaro reflect <file.xlsx> [--counts]");
+        eprintln!("{USAGE_LINE}");
         return ExitCode::from(2);
     };
     let counts = args.iter().any(|a| a == "--counts");
+    let mut cones: Vec<String> = Vec::new();
+    let mut at = 1;
+    while at < args.len() {
+        if args[at] == "--cone" {
+            match args.get(at + 1) {
+                Some(root) => cones.push(root.clone()),
+                None => {
+                    eprintln!("{USAGE_LINE}");
+                    return ExitCode::from(2);
+                }
+            }
+            at += 2;
+        } else {
+            at += 1;
+        }
+    }
     if !is_file(file) {
         return refuse_missing("vla-file-not-found", file);
     }
@@ -612,11 +639,17 @@ fn reflect(args: &[String]) -> ExitCode {
     };
     let open_ms = ms_since(opened);
     if counts {
-        let (mut cells, mut formulas, mut arrays, mut part_bytes) = (0u64, 0u64, 0u64, 0usize);
+        let (mut cells, mut formulas, mut arrays, mut unreadable, mut part_bytes) =
+            (0u64, 0u64, 0u64, 0u64, 0usize);
+        let mut book_distinct: std::collections::HashSet<String> = std::collections::HashSet::new();
         let mut read_ms = 0.0f64;
         for i in 0..package.sheets().len() {
             let started = std::time::Instant::now();
-            let s = match package.walk_sheet(i, &mut frazaro_core::reflect::Discard) {
+            let s = match package.walk_sheet_with(
+                i,
+                &mut frazaro_core::reflect::Discard,
+                &mut book_distinct,
+            ) {
                 Ok(s) => s,
                 Err(refusal) => {
                     eprintln!("{refusal}");
@@ -625,10 +658,12 @@ fn reflect(args: &[String]) -> ExitCode {
             };
             let took = ms_since(started);
             println!(
-                "sheet {}: cells {} formulas {} arrays {} rows {} columns {} bytes {} read {took:.1} ms",
+                "sheet {}: cells {} formulas {} distinct-r1c1 {} unreadable {} arrays {} rows {} columns {} bytes {} read {took:.1} ms",
                 i + 1,
                 s.cells,
                 s.formulas,
+                s.distinct_r1c1,
+                s.unreadable,
                 s.array_anchors,
                 s.rows,
                 s.columns,
@@ -637,13 +672,15 @@ fn reflect(args: &[String]) -> ExitCode {
             cells += s.cells;
             formulas += s.formulas;
             arrays += s.array_anchors;
+            unreadable += s.unreadable;
             part_bytes += s.part_bytes;
             read_ms += took;
         }
         let summary = package.summary();
         println!(
-            "workbook: sheets {} cells {cells} formulas {formulas} arrays {arrays} names {} placeholders {} tables {} books {} strings {} bytes {part_bytes} string-bytes {} open {open_ms:.1} ms read {read_ms:.1} ms",
+            "workbook: sheets {} cells {cells} formulas {formulas} distinct-r1c1 {} unreadable {unreadable} arrays {arrays} names {} placeholders {} tables {} books {} strings {} bytes {part_bytes} string-bytes {} open {open_ms:.1} ms read {read_ms:.1} ms",
             package.sheets().len(),
+            book_distinct.len(),
             summary.names,
             summary.placeholders,
             summary.tables,
@@ -651,6 +688,40 @@ fn reflect(args: &[String]) -> ExitCode {
             summary.strings,
             summary.string_bytes
         );
+        return ExitCode::SUCCESS;
+    }
+    if !cones.is_empty() {
+        let mut index = frazaro_core::reflect::cone::Index::new(&package);
+        let started = std::time::Instant::now();
+        for i in 0..package.sheets().len() {
+            if let Err(refusal) = package.walk_sheet(i, &mut index) {
+                eprintln!("{refusal}");
+                return ExitCode::from(1);
+            }
+        }
+        let indexed_ms = ms_since(started);
+        for root in &cones {
+            let Some((sheet, row, col)) = frazaro_core::refers::parse_home(root) else {
+                eprintln!("frazaro: --cone wants a cell as Sheet!A1 or 'Q1 Data'!A1, not {root}");
+                return ExitCode::from(2);
+            };
+            let wanted = frazaro_core::intrinsics::fold(&sheet);
+            let Some(s) = package
+                .sheets()
+                .iter()
+                .position(|info| frazaro_core::intrinsics::fold(&info.name) == wanted)
+            else {
+                eprintln!("frazaro: --cone {root}: the workbook has no sheet so named");
+                return ExitCode::from(2);
+            };
+            let started = std::time::Instant::now();
+            let stats = frazaro_core::reflect::cone::cone(&index, &package, s, row, col);
+            println!(
+                "cone {root}: {} indexed {indexed_ms:.1} ms walked {:.1} ms",
+                stats.line(),
+                ms_since(started)
+            );
+        }
         return ExitCode::SUCCESS;
     }
     use std::io::Write;

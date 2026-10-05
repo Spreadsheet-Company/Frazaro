@@ -7481,6 +7481,116 @@ written against.
   `[1]` stays until 8b); 7 was seen; 6 was not put to the test; 4, 5 and 8
   wait for `AXM.13`. Committed 2026-10-04 as one commit of its own; the
   `AXM.7` turn follows.
+  **Slice 8b, `refers` (built 2026-10-04, the day `AXM.7` closed; awaiting
+  the owner's run).** Step 0, predicted from the goldens' formula rows
+  before the code ran: (1) the fixture gains 20 `refers` rows, one per
+  distinct reference, a formula's rows sorted by the printed second field
+  (D3's `"Model!B1"` before `(unreadable "OFFSET")`, D5's `'It''s'!A1`
+  before `'Q1 Data'!B2`, B4's `Model!B3` before `Rate`), 70 to 90 lines;
+  the two build goldens 8 each (30 to 38, the saved copy 35 to 43), the
+  into golden 5 (30 to 35), the model 2 (11 to 13); (2) E2's `formula` row
+  becomes `=[Rates.xlsx]Sheet1!A1` and its `refers` row the same,
+  prediction 9 of the item's step 0 kept after all, and nothing else in the
+  five goldens changes; (3) `--counts` on the fixture's Model sheet says 16
+  distinct R1C1 formulas of 18 (the shared formula's three cells one text)
+  and 2 unreadable calls, and on the first build golden's Output 3 of 5;
+  (4) the cones on the fixture: `Model!B3` 3 cells, 1 formula, depth 1;
+  `Model!B4` 4 cells, 2 formulas, depth 2 and one name, `Rate`, a constant
+  feeding nothing; `Model!D4` 4 cells on 3 sheets through the span;
+  `Model!E1` 9 cells on 2 sheets through the Table; `Model!D2` 1 cell,
+  blind 1; `Model!D3` 2 cells, `OFFSET`'s base B1 a true precedent, blind
+  1; `Model!G2` 2 cells, 1 name; `Model!E2` 1 cell, 1 external; (5) the
+  mover, a renderer over the ported scan, leaves the build golden and every
+  shared child byte for byte; (6) `the_refers_golden_is_reproduced` passes
+  on its first run, the port being the VBA arm by arm. On the core's own
+  run all six held: the goldens came out at exactly 90, 38, 35, 13 and 43
+  lines with the one `formula` row changed and nothing else; the counts and
+  the cones as written; the build golden clean and 196 tests passing;
+  `prove` 18 passed. Observed beyond the predictions: `Model!D1`
+  (`=SUM(B:B)`) is 5 cells and 3 formulas (D1, then B3 and B4 through the
+  column) with 1 name; `Model!G1` (`=HiddenName`, a constant) 1 cell and 1
+  name; `Model!D5` 3 cells on 3 sheets; `Model!C3` 4 cells at depth 2
+  through the shared child.
+  **Built:** `core/src/refers.rs` (about 1,000 lines with its tests:
+  `scan`, `spell`, `r1c1`, `quote_sheet`, `parse_home`, the mover
+  `shift_a1_references`, `resolve_books`, and `report_for` with
+  `fixture_report` in the writer's shape; the mover's four tests moved here
+  from `sheet/refs.rs`, which is gone); `core/src/reflect/cone.rs` (the
+  `Index` sink and the breadth-first walk, about 450 lines with a package
+  that reaches every arm); `Row::Refers` and `RefersTo` (`mod.rs`), the
+  row's spelling and its sort key (`print.rs`), `walk_sheet_with` carrying
+  the workbook's distinct set, the books resolved in the `formula` row, and
+  `SheetStats` with `distinct_r1c1` and `unreadable` (`ooxml.rs`);
+  `sheet_prefix` now the reader's `quote_sheet`, with the two shape clauses
+  `AXM.7`'s pass confirmed; the door's `--cone <Sheet!A1>` (repeatable) and
+  the two counts; the five goldens regenerated and
+  `check_reflect_golden.ps1`'s floors raised; the treaty's amendment of
+  2026-10-04, the third; `cli/README.md`, `USAGE`, the root `README.md`'s
+  row, `RELEASES.md`'s bullet, the map. *Decided in the building:* a
+  formula's `refers` rows are one per distinct target (the relation is a
+  set; the scanner's duplicates serve its renderers), sorted by the printed
+  target; a blank inside a range is not counted in a cone, since nothing
+  feeds from it, where a single-cell reference to a blank is; a structured
+  reference resolves to its Table's whole range (a column's subset is a
+  refinement for `AXM.10` if a walk needs it); `--cone`'s index is the one
+  exception to streaming and holds every formula's text; a name is followed
+  through a name (`Deep` to `Rate` to `Model!$B$2`), the seen set bounding
+  the walk; the ten real-model cones wait for `AXM.13` with the counts.
+  *For 8c:* `diff` reads two files in lockstep through the same sink shape.
+  **The owner's live check for 8b:** (1) `cargo build --workspace`, then
+  `target\debug\frazaro.exe reflect scripts\reflect\fixture.xlsx` prints
+  the 90 lines of `scripts\reflect\fixture_relations.vla`; `git diff
+  scripts\reflect\` against HEAD shows the 44 added `refers` rows and E2's
+  one changed line, nothing else. (2) Open `scripts\reflect\fixture.xlsx`
+  in Excel (do not update the link). On `Model`: select B4 and Formulas >
+  Trace Precedents, one arrow from B3 and none for `Rate`, a constant,
+  against `(refers "Model!B4" "Model!B3")` and `(refers "Model!B4"
+  "Rate")`; select D3 (`=OFFSET(B1,1,0)`), one arrow from B1 and nothing
+  for what OFFSET reaches, against `(refers "Model!D3" "Model!B1")` and
+  `(refers "Model!D3" (unreadable "OFFSET"))`; select D4
+  (`=SUM(Model:Scratch!B1)`), a dashed arrow to a worksheet icon, against
+  `(refers "Model!D4" "Model:Scratch!B1")`; select E1
+  (`=SUM(Sales[Amount])`), a dashed arrow to a worksheet icon, against
+  `(refers "Model!E1" "Sales[Amount]")`; select E2 and read the formula
+  bar: `=[Rates.xlsx]Sheet1!A1`, the book by its file, which is what the
+  `formula` and `refers` rows now say (if the bar shows a path instead,
+  paste it). (3) `frazaro reflect scripts\reflect\fixture.xlsx --counts`:
+  the Model line says `formulas 18 distinct-r1c1 16 unreadable 2`; in
+  Excel C1, C2 and C3 read `=B1*2`, `=B2*2`, `=B3*2`, one formula in R1C1,
+  the 16 of 18. (4) `frazaro reflect scripts\reflect\fixture.xlsx --cone
+  Model!B4 --cone Model!E1 --cone Model!D3 --cone Model!D4`: four lines,
+  `cells 4 formulas 2 inputs 2 ... depth 2 ... names 1`, `cells 9 formulas
+  1 inputs 8 ... sheets 2 ... tables 1`, `cells 2 formulas 1 inputs 1 ...
+  blind 1`, `cells 4 formulas 1 inputs 3 ... sheets 3`; against Excel's
+  arrows: B4's precedents B3, then B3's B1 and B2, four cells; E1's the
+  Table's eight cells and itself; D3's B1 alone; D4's B1 on Model, Data and
+  Scratch. (5) `powershell -File tools\run_checks.ps1` prints 43 passed and
+  `cargo test --workspace` 196 passed. On "tests pass, commit", the slice
+  commits and 8c follows.
+  *The owner's pass, 2026-10-04, steps 1 and 2:* the 90 lines printed as
+  the golden has them, and the diff against HEAD was the 44 `refers` rows
+  and E2's one line. Trace Precedents on `Model` drew B3 to B4 and nothing
+  for `Rate`; B1 to D3 and nothing for what OFFSET reaches; B1 to D4 with
+  a dashed worksheet arrow for the span's other sheets; dashed worksheet
+  arrows to E1 (the Table on `Data`) and to E2 (the other workbook): each
+  as its `refers` rows say. One finding: with the linked book closed and
+  absent, E2's formula bar shows the path Excel resolved for the link,
+  `'C:\...\scripts\reflect\[Rates.xlsx]Sheet1'!A1`, where the row prints
+  `=[Rates.xlsx]Sheet1!A1`, the spelling Excel shows while the book is
+  open. The file holds the name alone (the link's relationship target is
+  `Rates.xlsx`), a row never prints a path, so the output stands and the
+  treaty's amendment says both. *Steps 3 to 5, the same day,* with the
+  door called by its path (the handoff had written `frazaro` where
+  `target\debug\frazaro.exe` was meant, and the shell said so): the
+  counts as predicted, `Model`'s line `formulas 18 distinct-r1c1 16
+  unreadable 2` and the workbook's the same two numbers beside `names 5
+  placeholders 1 tables 1 books 1`; the four cones to the number, B4
+  `cells 4 formulas 2 inputs 2 ... depth 2 ... names 1`, E1 `cells 9
+  formulas 1 inputs 8 ... sheets 2 ... tables 1`, D3 `cells 2 formulas 1
+  inputs 1 ... blind 1`, D4 `cells 4 formulas 1 inputs 3 ... sheets 3`,
+  the index built in 1.2 ms and the widest walk, through the Table, 2.5
+  ms; 43 checks and 196 tests passed. The slice passed and was committed
+  2026-10-04; 8c, `diff`, follows.
   **Constraints carried, in brief:** every refusal through the catalogue
   under `VLA-Reflect`; `cargo fmt`, `clippy -D warnings`, `test`, the wasm
   build and `check_core_imports.ps1` before every commit; the goldens lead

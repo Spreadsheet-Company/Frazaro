@@ -305,9 +305,14 @@
   model.xlsx --counts` prints counts and times alone, one line a sheet and
   one for the workbook, for measuring a model whose contents must not leave
   the machine. A file that is not a workbook, or a part this version does
-  not read, is refused by name. This is the first slice of the reader: what
-  a formula refers to, the difference between two workbooks, and the audit
-  questions come in the slices after it.
+  not read, is refused by name. After each formula come the cells, ranges,
+  names, Tables and other workbooks it refers to, one line each, with
+  `INDIRECT` or `OFFSET` named where no reader can know the target from the
+  text, and a link to another workbook named by its file. `frazaro reflect
+  model.xlsx --cone Model!B9` sizes a cell's cone through names and Tables
+  and across sheets, which Excel's own Trace Precedents cannot, as counts
+  alone. The difference between two workbooks and the audit questions come
+  in the slices after these.
 
 ### Known open security items
 
