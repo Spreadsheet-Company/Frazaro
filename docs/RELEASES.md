@@ -311,8 +311,13 @@
   text, and a link to another workbook named by its file. `frazaro reflect
   model.xlsx --cone Model!B9` sizes a cell's cone through names and Tables
   and across sheets, which Excel's own Trace Precedents cannot, as counts
-  alone. The difference between two workbooks and the audit questions come
-  in the slices after these.
+  alone. `frazaro diff old.xlsx new.xlsx` prints what changed between two
+  workbooks, read from the files: the sheets in one alone, the names and
+  Tables that differ, then cell by cell what changed with the old and the
+  new side by side, a formula shown with the value the file holds for it,
+  so that a formula typed over by a constant, a repointed name or a sheet
+  gone hidden each read as one line; two files that hold the same print
+  nothing. The audit questions come in the slice after these.
 
 ### Known open security items
 

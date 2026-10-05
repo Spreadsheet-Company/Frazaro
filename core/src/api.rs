@@ -196,6 +196,20 @@ pub fn reflect_relations(bytes: &[u8], label: &str) -> Result<String, Refusal> {
     crate::reflect::reflect_text(bytes, label)
 }
 
+/// The difference between two workbooks (PORT.8, slice 8c): both files'
+/// bytes read through the reader and compared, the `changed` relation and
+/// the sheets in one file alone, one row a line in the fixed order
+/// (`reflect::diff::diff_text`); each label is what a refusal calls its
+/// file. Empty when the two hold the same sheets, names, Tables and cells.
+pub fn diff_relations(
+    old_bytes: &[u8],
+    old_label: &str,
+    new_bytes: &[u8],
+    new_label: &str,
+) -> Result<String, Refusal> {
+    crate::reflect::diff::diff_text(old_bytes, old_label, new_bytes, new_label)
+}
+
 /// `EnglishResetGrammar` and the loads: a fresh grammar over the prelude, each
 /// phrasebook text loaded in order as `vocab-N`, its proofs run as the add-in
 /// runs them, the first refusal ending the call.

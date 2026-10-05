@@ -32,6 +32,20 @@ and Excel's own placeholder _xlfn.SINGLE = #NAME? (hidden), which the reader
 counts apart and prints in no row. The cached values are the ones Excel
 would compute, so that a `cell` row exists for every formula.
 
+WITH -Changed the same script writes scripts/reflect/changed.xlsx (PORT.8,
+slice 8c): the fixture above after one round of edits, one for each arm of
+`frazaro diff`, so that the pair's difference, fixture_changed_diff.vla
+(the treaty's oracle 9), pins the comparison, and changed_relations.vla
+(oracle 8's sixth row) says what the copy holds: Secret removed; Audit
+(visible, A1 reviewed) added last; Scratch unhidden; Rate 0.2 to 0.25,
+Broken gone, Deep = Rate new; the Table Sales a row longer (tape, 40); on
+Model, B1 1300, B2 800.0 (one value with 800, so no change), B3 typed over
+by the constant 500, D1 =SUM(B1:B2), H1 1, A6 cleared, A1 Revenues, A5
+FALSE, and every cached value recomputed by hand (C1 2600, C3 1000, D1
+2100, D2 1300, D4 1305, E1 100, E3 2600, B4 125, H2 Revenues!). Its zip and
+document stamps are 2026-10-04. Each edit must find its target once, or
+the script stops.
+
 WHY A SCRIPT: a workbook made by hand could not be rebuilt byte for byte,
 and this one is a fixture of the treaty's oracle 8 (conformance/README.md):
 its relations, read by any implementation, are fixture_relations.vla. The
@@ -44,15 +58,20 @@ NO OFFICE AUTOMATION: raw OOXML, no Excel. House style (tools/*.ps1):
 PowerShell 5.1, host-free, no network.
 
 Usage:  powershell -File tools\build_reflect_fixture.ps1
+        powershell -File tools\build_reflect_fixture.ps1 -Changed
 #>
+param([switch]$Changed)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression
 $root = Split-Path -Parent $PSScriptRoot
 $dir = Join-Path $root 'scripts\reflect'
 if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
-$out = Join-Path $dir 'fixture.xlsx'
+$name = if ($Changed) { 'changed.xlsx' } else { 'fixture.xlsx' }
+$out = Join-Path $dir $name
 $utf8 = New-Object System.Text.UTF8Encoding($false)
-$stamp = New-Object DateTimeOffset(2026, 10, 3, 0, 0, 0, [TimeSpan]::Zero)
+$day = if ($Changed) { 4 } else { 3 }
+$stamp = New-Object DateTimeOffset(2026, 10, $day, 0, 0, 0, [TimeSpan]::Zero)
+$date = '2026-10-0' + $day + 'T00:00:00Z'
 $head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + "`r`n"
 $ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
 $relBase = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
@@ -220,12 +239,67 @@ $parts['xl/metadata.xml'] = $head + '<metadata xmlns="http://schemas.openxmlform
     '</metadata>'
 $parts['docProps/core.xml'] = $head + '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
     '<dc:creator>Frazaro fixture</dc:creator><cp:lastModifiedBy>Frazaro fixture</cp:lastModifiedBy>' +
-    '<dcterms:created xsi:type="dcterms:W3CDTF">2026-10-03T00:00:00Z</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">2026-10-03T00:00:00Z</dcterms:modified>' +
+    '<dcterms:created xsi:type="dcterms:W3CDTF">' + $date + '</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">' + $date + '</dcterms:modified>' +
     '</cp:coreProperties>'
 $parts['docProps/app.xml'] = $head + '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">' +
     '<Application>Microsoft Excel</Application><DocSecurity>0</DocSecurity><ScaleCrop>false</ScaleCrop>' +
     '<Company></Company><LinksUpToDate>false</LinksUpToDate><SharedDoc>false</SharedDoc><HyperlinksChanged>false</HyperlinksChanged><AppVersion>16.0300</AppVersion>' +
     '</Properties>'
+
+if ($Changed) {
+    # The changed copy (PORT.8, slice 8c): the fixture above after the edits
+    # the header lists, each applied once to one part's text. An edit that
+    # finds nothing, or finds its target twice, stops the script, so that a
+    # copy regenerated after the fixture changes cannot miss one silently.
+    function Edit-Part([string]$part, [string]$old, [string]$new) {
+        $text = [string]$script:parts[$part]
+        $at = $text.IndexOf($old, [System.StringComparison]::Ordinal)
+        if ($at -lt 0) { throw "edit not applied: $part does not hold: $old" }
+        if ($text.IndexOf($old, $at + 1, [System.StringComparison]::Ordinal) -ge 0) { throw "edit ambiguous: $part holds twice: $old" }
+        $script:parts[$part] = $text.Substring(0, $at) + $new + $text.Substring($at + $old.Length)
+    }
+    # Sheets: Secret removed, Scratch unhidden, Audit added at the end.
+    Edit-Part 'xl/workbook.xml' '<sheet name="Scratch" sheetId="3" state="hidden" r:id="rId3"/>' '<sheet name="Scratch" sheetId="3" r:id="rId3"/>'
+    Edit-Part 'xl/workbook.xml' '<sheet name="Secret" sheetId="4" state="veryHidden" r:id="rId4"/>' ''
+    Edit-Part 'xl/workbook.xml' '<sheet name="It''s" sheetId="6" r:id="rId6"/>' '<sheet name="It''s" sheetId="6" r:id="rId6"/><sheet name="Audit" sheetId="7" r:id="rId11"/>'
+    Edit-Part '[Content_Types].xml' ('<Override PartName="/xl/worksheets/sheet4.xml" ContentType="' + $ctBase + 'worksheet+xml"/>') ''
+    Edit-Part '[Content_Types].xml' ('<Override PartName="/xl/worksheets/sheet6.xml" ContentType="' + $ctBase + 'worksheet+xml"/>') ('<Override PartName="/xl/worksheets/sheet6.xml" ContentType="' + $ctBase + 'worksheet+xml"/><Override PartName="/xl/worksheets/sheet7.xml" ContentType="' + $ctBase + 'worksheet+xml"/>')
+    Edit-Part 'xl/_rels/workbook.xml.rels' ('<Relationship Id="rId4" Type="' + $relBase + 'worksheet" Target="worksheets/sheet4.xml"/>') ''
+    Edit-Part 'xl/_rels/workbook.xml.rels' ('<Relationship Id="rId10" Type="' + $relBase + 'sheetMetadata" Target="metadata.xml"/>') ('<Relationship Id="rId10" Type="' + $relBase + 'sheetMetadata" Target="metadata.xml"/><Relationship Id="rId11" Type="' + $relBase + 'worksheet" Target="worksheets/sheet7.xml"/>')
+    $parts.Remove('xl/worksheets/sheet4.xml')
+    $parts['xl/worksheets/sheet7.xml'] = $head + '<worksheet ' + $ns + '>' +
+        '<dimension ref="A1"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/>' +
+        '<sheetData><row r="1"><c r="A1" t="s"><v>11</v></c></row></sheetData>' + $margins + '</worksheet>'
+    # Names: Rate 0.2 to 0.25, Broken gone, Deep = Rate new.
+    Edit-Part 'xl/workbook.xml' '<definedName name="Broken">Model!#REF!</definedName>' '<definedName name="Deep">Rate</definedName>'
+    Edit-Part 'xl/workbook.xml' '<definedName name="Rate">0.2</definedName>' '<definedName name="Rate">0.25</definedName>'
+    # The Table a row longer: tape, 40.
+    Edit-Part 'xl/worksheets/sheet2.xml' '<dimension ref="A1:B4"/>' '<dimension ref="A1:B5"/>'
+    Edit-Part 'xl/worksheets/sheet2.xml' '<row r="4"><c r="A4" t="s"><v>8</v></c><c r="B4"><v>30</v></c></row>' '<row r="4"><c r="A4" t="s"><v>8</v></c><c r="B4"><v>30</v></c></row><row r="5"><c r="A5" t="s"><v>10</v></c><c r="B5"><v>40</v></c></row>'
+    Edit-Part 'xl/tables/table1.xml' 'ref="A1:B4" totalsRowShown="0"' 'ref="A1:B5" totalsRowShown="0"'
+    Edit-Part 'xl/tables/table1.xml' '<autoFilter ref="A1:B4"/>' '<autoFilter ref="A1:B5"/>'
+    # Model: the inputs and the cells typed over, every cached value recomputed by hand.
+    Edit-Part 'xl/worksheets/sheet1.xml' '<dimension ref="A1:H6"/>' '<dimension ref="A1:H5"/>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<c r="B1"><v>1200</v></c>' '<c r="B1"><v>1300</v></c>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<c r="C1"><f t="shared" ref="C1:C3" si="0">B1*2</f><v>2400</v></c>' '<c r="C1"><f t="shared" ref="C1:C3" si="0">B1*2</f><v>2600</v></c>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<c r="D1"><f>SUM(B:B)</f><v>2480</v></c>' '<c r="D1"><f>SUM(B1:B2)</f><v>2100</v></c>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<c r="E1"><f>SUM(Sales[Amount])</f><v>60</v></c>' '<c r="E1"><f>SUM(Sales[Amount])</f><v>100</v></c>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<c r="H1" s="1"/>' '<c r="H1" s="1"><v>1</v></c>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<c r="B2"><v>800</v></c>' '<c r="B2"><v>800.0</v></c>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<c r="D2"><f>INDIRECT("B1")</f><v>1200</v></c>' '<c r="D2"><f>INDIRECT("B1")</f><v>1300</v></c>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<v>Revenue!</v>' '<v>Revenues!</v>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<c r="B3"><f>B1-B2</f><v>400</v></c>' '<c r="B3"><v>500</v></c>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<c r="C3"><f t="shared" si="0"/><v>800</v></c>' '<c r="C3"><f t="shared" si="0"/><v>1000</v></c>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<c r="E3"><f t="array" ref="E3:E4">B1:B2*2</f><v>2400</v></c>' '<c r="E3"><f t="array" ref="E3:E4">B1:B2*2</f><v>2600</v></c>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<c r="B4"><f>B3*Rate</f><v>80</v></c>' '<c r="B4"><f>B3*Rate</f><v>125</v></c>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<c r="D4"><f>SUM(Model:Scratch!B1)</f><v>1205</v></c>' '<c r="D4"><f>SUM(Model:Scratch!B1)</f><v>1305</v></c>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<c r="A5" t="b"><v>1</v></c>' '<c r="A5" t="b"><v>0</v></c>'
+    Edit-Part 'xl/worksheets/sheet1.xml' '<row r="6"><c r="A6" s="2"><v>45930</v></c></row>' ''
+    # Strings: Revenue to Revenues (A1, and with it H2's cached text), tape and reviewed new.
+    Edit-Part 'xl/sharedStrings.xml' 'count="10" uniqueCount="10"' 'count="12" uniqueCount="12"'
+    Edit-Part 'xl/sharedStrings.xml' '<si><t>Revenue</t></si>' '<si><t>Revenues</t></si>'
+    Edit-Part 'xl/sharedStrings.xml' '<si><t>do not show</t></si>' '<si><t>do not show</t></si><si><t>tape</t></si><si><t>reviewed</t></si>'
+}
 
 if (Test-Path $out) { Remove-Item $out -Force }
 $fs = [System.IO.File]::Open($out, [System.IO.FileMode]::CreateNew)

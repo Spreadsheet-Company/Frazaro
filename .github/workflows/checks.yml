@@ -74,6 +74,9 @@ jobs:
       - name: the core reproduces the reflect goldens, whole (PORT.8, oracle 8)
         shell: pwsh
         run: pwsh -NoProfile -File tools/check_reflect_golden.ps1 -Impl target/debug/frazaro
+      - name: the core reproduces the diff goldens, whole (PORT.8 slice 8c, oracle 9)
+        shell: pwsh
+        run: pwsh -NoProfile -File tools/check_diff_golden.ps1 -Impl target/debug/frazaro
       - name: build the web page from the wasm core (PORT.6, slice 6h)
         shell: pwsh
         run: |

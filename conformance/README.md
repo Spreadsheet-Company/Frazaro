@@ -643,3 +643,93 @@ a golden could compare:
   clause 3 made exact: the cone Excel's `Precedents` could only put between
   a floor and a ceiling is sized through the file. The ten cones on a real
   model wait for `AXM.13`, as the counts do.
+
+## Amendment of 2026-10-04, the fourth that day: oracle 9, the diff golden (`PORT.8`, slice 8c)
+
+Slice 8c compares two workbooks' files through the reader of oracle 8:
+`frazaro diff <old.xlsx> <new.xlsx>` prints the `changed` relation of
+`REFLECT` (Stage 0.3 of `docs/SINGULARITY.md`; the roadmap's `AXM.11`,
+whose `changed(addr, old, new)` from a saved copy or from another file this
+is, with no host on the machine) and the sheets in one file alone. As with
+oracle 8, the VBA reference has no output to reproduce: `AXM.11`'s `DIFF`
+over COM is not built, so the rows' shape is fixed here in words first, the
+goldens are the core's own output, blessed by the owner reading both files
+of each pair in Excel, and the VBA's `DIFF`, when it comes, is held to the
+same rows from its saved-copy and other-file sources. `SD-18` is untouched.
+
+**The rows, their order and their spelling.** Sheets are matched by name
+without case, as Excel names them. A sheet of the old file with no match is
+`(sheet-removed "<name>" <state>)`, in the old file's tab order; a sheet of
+the new file with none is `(sheet-added "<name>" <state>)`, in the new
+file's tab order; then a matched sheet whose state differs is
+`(sheet-changed "<name>" <old-state> <new-state>)`, in the new file's tab
+order, the name as the new file spells it; the states are the `sheet` row's.
+A sheet in one file alone is never matched and its cells are not listed, so
+a renamed sheet is a removal and an addition, as `AXM.11` says. Every other
+difference is one row of one relation, `(changed "<key>" <old> <new>)`:
+first the names and Tables, which share one namespace in a workbook,
+matched by name without case and sorted by it, the key a name as its `name`
+row spells it (`Rate`, `Model!Local`) or a Table's name, a name's side its
+refers-to text quoted and a Table's its sheet and range as `Data!A1:B5`,
+`blank` where that file has none; then sheet by sheet in the new file's tab
+order, cell by cell in document order, the key the cell as a reference
+spells it (`Model!B3`, `'Q1 Data'!B2`), which is the spelling `refers` uses
+for its second field, so that `AXM.11`'s rules join `changed` to `refers`
+with no parser and a repointed name is a changed precedent of every formula
+that refers to it. A cell's side is `blank` where the file holds nothing at
+the address, its value as a `cell` row prints it, `(formula "<text>")` for
+a formula whose cached value the file does not hold, or `(formula "<text>"
+<value>)` for one it does. A cell is changed when its formula's text or its
+value differs; two numbers are one value when both read as a number and are
+equal (`800` and `800.0`), since a writer other than Excel spells a float
+with its point and a model touched by a script would otherwise show every
+float cell changed; every other value compares by kind and text, so a text
+`"5"` over a number `5` is a change. A formula whose text is unchanged and
+whose cached value moved is a change, which is what `cause` needs.
+
+- **9. The diff golden.** Three rows, each a pair of fixture workbooks to
+  their difference: the first build golden against its Excel-saved copy,
+  `scripts/build/fixture_golden.xlsx` and `scripts/reflect/saved.xlsx` to
+  `scripts/reflect/build_fixture_saved_diff.vla` (the stamp name's
+  `_xlfn._LONGTEXT` rewrite and the five cached values, six rows); the
+  model against the into golden built into it, `scripts/build/model.xlsx`
+  and `scripts/build/into_golden.xlsx` to
+  `scripts/reflect/model_into_diff.vla` (what `--into` added: three sheets
+  and the stamp name, four rows); and the reader's fixture against a
+  changed copy of it, `scripts/reflect/fixture.xlsx` and
+  `scripts/reflect/changed.xlsx` to
+  `scripts/reflect/fixture_changed_diff.vla` (one edit for each arm, listed
+  in `tools/build_reflect_fixture.ps1`, which writes the copy with
+  `-Changed`; twenty-four rows, and no row for a `800` that became
+  `800.0`). The changed copy joins oracle 8 as its sixth row,
+  `scripts/reflect/changed_relations.vla`. The comparison is the one oracle
+  1 makes: byte for byte after line endings are normalized to LF and
+  trailing blank lines are dropped; the goldens carry no stamp.
+
+The contract gains one command:
+
+- `<impl> diff <old.xlsx> <new.xlsx>` writes the rows to stdout in the order
+  above and exits 0, rows or none: the rows are the answer, as `reflect`'s
+  are, and two files that hold the same sheets, names, Tables and cells
+  print nothing. A refusal, which is the reader's (oracle 8's three, raised
+  for whichever file raised it), writes its message to stderr and exits 1,
+  the rows written before it standing; exit 3 says the oracle is not
+  attempted.
+
+`tools/check_diff_golden.ps1` holds each golden's line count as a floor
+that never goes down; compares the door's output to each golden whole,
+naming the first differing line; and reads the fixed order off each golden
+itself (the `sheet-removed`, `sheet-added` and `sheet-changed` rows in that
+order and first, then the `changed` rows whose key is not shaped like a
+cell, then the cell rows grouped by sheet and ascending within one), so that
+a golden a drifted printer regenerated fails on every push. Its `-Control`
+passes a fake that prints the golden, fails a mutant that changes one value,
+naming the line, and fails a copy of a golden with a row out of order. The
+`core` CI job runs it after the build, and `tools/prove.ps1` scores the
+three pairs as the kind `diff`, its `-Control` covering the kind as it does
+for oracle 8.
+
+`--counts` is a door's mode, not an oracle: `sheets-removed N sheets-added N
+sheets-changed N names N tables N cells N compared N` and the times,
+`compared` being the addresses either file holds on the matched sheets,
+nothing from inside either file.

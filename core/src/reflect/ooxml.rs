@@ -512,7 +512,10 @@ impl<'a> Package<'a> {
     }
 
     /// A name as a row prints it: a sheet-scoped name behind its sheet.
-    fn printed_name(&self, name: &NameInfo) -> String {
+    /// A `name` row's first field: the name, a sheet-scoped one behind its
+    /// sheet as a reference quotes it (`Model!Local`). The key `diff` matches
+    /// names by.
+    pub(crate) fn printed_name(&self, name: &NameInfo) -> String {
         match name.sheet.and_then(|i| self.sheets.get(i)) {
             Some(sheet) => format!("{}!{}", sheet_prefix(&sheet.name), name.name),
             None => name.name.clone(),

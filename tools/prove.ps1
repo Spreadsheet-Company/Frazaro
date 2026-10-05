@@ -70,6 +70,16 @@ and the model the into golden was built into; each golden is the core's own
 output, blessed by the owner reading the fixture in Excel by eye. The
 control's fake answers each from the golden beside its fixture and the
 mutant changes one character.
+
+2026-10-04, PORT.8 (the treaty's amendment of that date, slice 8c): a
+seventh kind, diff - two fixture workbooks to their difference, one form a
+line in a fixed order, compared as text the way the reflect kind compares
+it. Three rows: the first build golden against its Excel-saved copy, the
+model against the into golden built into it, and the reader's fixture
+against the changed copy build_reflect_fixture.ps1 -Changed writes; the
+changed copy is also the reflect kind's sixth row. The control's fake
+answers each from the golden of the pair, found by the new file's name,
+and the mutant changes one character.
 #>
 param(
     [string]$Impl = '',
@@ -224,6 +234,16 @@ function Get-Oracles([string]$root) {
     # Excel 365 saved it, a host's cached values in every formula cell.
     $list.Add(@{ Kind = 'reflect'; Label = 'reflect/saved.xlsx -> reflect/saved_relations.vla'
                  Input = 'scripts/reflect/saved.xlsx'; Golden = 'scripts/reflect/saved_relations.vla' })
+    # 2026-10-04 (PORT.8, slice 8c): the fixture's changed copy, and the diff
+    # kind, two workbooks to their difference as text.
+    $list.Add(@{ Kind = 'reflect'; Label = 'reflect/changed.xlsx -> reflect/changed_relations.vla'
+                 Input = 'scripts/reflect/changed.xlsx'; Golden = 'scripts/reflect/changed_relations.vla' })
+    $list.Add(@{ Kind = 'diff'; Label = 'fixture_golden.xlsx vs saved.xlsx -> build_fixture_saved_diff.vla'
+                 Old = 'scripts/build/fixture_golden.xlsx'; New = 'scripts/reflect/saved.xlsx'; Golden = 'scripts/reflect/build_fixture_saved_diff.vla' })
+    $list.Add(@{ Kind = 'diff'; Label = 'model.xlsx vs into_golden.xlsx -> model_into_diff.vla'
+                 Old = 'scripts/build/model.xlsx'; New = 'scripts/build/into_golden.xlsx'; Golden = 'scripts/reflect/model_into_diff.vla' })
+    $list.Add(@{ Kind = 'diff'; Label = 'fixture.xlsx vs changed.xlsx -> fixture_changed_diff.vla'
+                 Old = 'scripts/reflect/fixture.xlsx'; New = 'scripts/reflect/changed.xlsx'; Golden = 'scripts/reflect/fixture_changed_diff.vla' })
     $list.Add(@{ Kind = 'interpreter'; Label = 'interpreter_golden.txt (needs a workbook model: slice 6)'
                  Golden = 'scripts/interpreter_golden.txt' })
     $pb = Join-Path $root 'scripts/polyglotta'
@@ -338,6 +358,23 @@ function Measure-Oracles([string]$root, [string]$impl, [string]$scratch) {
                     $r.Status = 'FAIL'; $r.Detail = "differs at char $at of $($want.Length)"
                 }
             }
+            'diff' {
+                # 2026-10-04 (PORT.8, slice 8c): two workbooks to their difference
+                # as text, normalized as the reflect kind is; the door exits 0
+                # whether or not the files differ, and the golden carries no stamp.
+                $golden = Join-Path $root $o.Golden
+                $run = Invoke-Impl $impl @('diff', (Join-Path $root $o.Old), (Join-Path $root $o.New))
+                if ($run.ExitCode -eq 3) { break }
+                $want = Read-NormalizedFile $golden
+                $got  = Get-NormalizedText $run.Stdout
+                if ($run.ExitCode -ne 0) { $r.Status = 'FAIL'; $r.Detail = "exit $($run.ExitCode)" }
+                elseif ($got -eq $want) { $r.Status = 'PASS'; $r.Detail = "$($want.Length) chars matched" }
+                else {
+                    $n = [Math]::Min($got.Length, $want.Length); $at = $n
+                    for ($i = 0; $i -lt $n; $i++) { if ($got[$i] -ne $want[$i]) { $at = $i; break } }
+                    $r.Status = 'FAIL'; $r.Detail = "differs at char $at of $($want.Length)"
+                }
+            }
             'prove' {
                 $file = Join-Path $root $o.File
                 $run = Invoke-Impl $impl @('prove', $file)
@@ -440,7 +477,19 @@ switch (`$kind) {
             'into_golden'    { 'scripts/reflect/build_into_relations.vla' }
             'model'          { 'scripts/reflect/model_relations.vla' }
             'saved'          { 'scripts/reflect/saved_relations.vla' }
+            'changed'        { 'scripts/reflect/changed_relations.vla' }
             default          { exit 3 }
+        }
+        `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))
+    }
+    'diff' {
+        # The golden of the pair, by the new file's name (2026-10-04, PORT.8 slice 8c).
+        `$base = [System.IO.Path]::GetFileNameWithoutExtension(`$a[2])
+        `$which = switch (`$base) {
+            'saved'       { 'scripts/reflect/build_fixture_saved_diff.vla' }
+            'into_golden' { 'scripts/reflect/model_into_diff.vla' }
+            'changed'     { 'scripts/reflect/fixture_changed_diff.vla' }
+            default       { exit 3 }
         }
         `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))
     }

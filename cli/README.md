@@ -137,13 +137,27 @@ you built is the one this page describes.
    `cells 3 formulas 2 inputs 1`, C2 itself, B3 that it adds and B2 that
    both read.
 
-9. **A sentence the language refuses.** A file holding `Put 5 into cell
+9. **What changed between two workbooks.**
+
+   ```powershell
+   frazaro diff scripts\build\fixture_golden.xlsx scripts\reflect\saved.xlsx
+   ```
+
+   compares the build golden with the copy Excel saved of it: six lines,
+   `(changed "Frazaro.Build" ...)` for the stamp Excel rewrote as
+   `_xlfn._LONGTEXT`, then `Output`'s five formulas, each `(formula
+   "=B2+B3")` on the left and `(formula "=B2+B3" 15)` on the right, the
+   value Excel computed and the file now holds; nothing else differs, which
+   is what saving a file should do. `frazaro diff tour.xlsx
+   scripts\build\fixture_golden.xlsx` prints nothing: the same bytes.
+
+10. **A sentence the language refuses.** A file holding `Put 5 into cell
    B2.` and `Set total to $5.` through `translate-vla` prints, on stderr,
    `I don't understand the character '$' - write the plain number (or
    'Format ... as currency.' for display) (line 2)` and exits 1: the
    add-in's words, with the line.
 
-10. **A sentence the writer cannot hold.** A file holding `Put 5 into cell
+11. **A sentence the writer cannot hold.** A file holding `Put 5 into cell
    B2.` and `Say "hello".` through `build` prints `frazaro build writes
    only what a sheet can hold with nothing running: a value or a formula
    into a cell, a range or rows of a column, and which sheet it goes on.
@@ -152,7 +166,7 @@ you built is the one this page describes.
    program through `translate-vla` is fine: the sentence is good English
    that needs the add-in's Run.
 
-11. **A phrasebook, proved and loaded.** `frazaro prove
+12. **A phrasebook, proved and loaded.** `frazaro prove
     scripts\polyglotta\english.vla` prints `PASS 482/482`; `frazaro load
     scripts\polyglotta\english.vla --prelude scripts\prelude.vla` prints
     `loaded: 240 rules, 220 macros, 460 tests (22 expected fails) from
@@ -354,6 +368,61 @@ On the tab there is nothing yet: `REFLECT` over a live workbook is
 treaty's oracle 8 holds it: `check_reflect_golden.ps1` and the core's tests
 require each fixture's relations whole.
 
+### `frazaro diff`
+
+```text
+frazaro diff <old.xlsx> <new.xlsx> [--counts]
+```
+
+The reader's third slice (`PORT.8`, 8c). Two workbooks' files are read as
+`reflect` reads them and compared, and what differs is printed one form a
+line, in an order that never changes, so that the output is a golden too:
+
+```text
+(sheet-removed "Secret" very-hidden)
+(sheet-added "Audit" visible)
+(sheet-changed "Scratch" hidden visible)
+(changed "Rate" "0.2" "0.25")
+(changed "Sales" "Data!A1:B4" "Data!A1:B5")
+(changed "Model!B1" 1200 1300)
+(changed "Model!B3" (formula "=B1-B2" 400) 500)
+(changed "Model!C1" (formula "=B1*2" 2400) (formula "=B1*2" 2600))
+(changed "Model!H1" blank 1)
+```
+
+Sheets are matched by name, without case. A sheet in one file alone is one
+row, with its state, and its cells are not listed, so a renamed sheet is a
+removal and an addition; a matched sheet whose state changed is a
+`sheet-changed` row. Every other difference is a `changed` row with the
+old and the new side by side: first the names and Tables, by name (a
+name's sides are what it refers to, a Table's its sheet and range, `blank`
+where that file has none), then sheet by sheet in the new file's tab order
+and cell by cell in row order, the cell spelled as a reference spells it,
+each side a value as `reflect` prints one, `(formula "...")` for a formula
+whose cached value the file does not hold, `(formula "..." value)` for one
+it does, or `blank`. So a formula typed over by a constant reads
+`(changed "Model!B3" (formula "=B1-B2" 400) 500)`, and a formula left
+alone whose result moved reads as two values under one text. A cell counts
+as changed when its formula's text or its value differs; numbers are
+compared as numbers, so `800` and `800.0` are one value, and everything
+else by kind and text, so a text `"5"` typed over the number `5` is a
+change. Two files that hold the same sheets, names, Tables and cells print
+nothing. The exit code is 0 whenever the comparison ran, rows or none: the
+rows are the answer.
+
+With `--counts`, one line and nothing from inside either file: `diff:
+sheets-removed 1 sheets-added 1 sheets-changed 1 names 3 tables 1 cells 17
+compared 42 open 0.9 ms compared 1.8 ms`, `compared` being the addresses
+either file holds on the matched sheets.
+
+Refusals, exit 1, are the reader's (under `reflect`, above), raised for
+whichever file raised them; the rows printed before one stand. Two files
+are read and nothing is written. On the tab there is nothing yet: `DIFF`
+over the live workbook, its Undo snapshot and a saved copy is `AXM.11`'s.
+The treaty's oracle 9 holds it: `check_diff_golden.ps1` and the core's
+tests require each pair's difference whole, the build golden against its
+Excel-saved copy among the pairs.
+
 ### `frazaro load`
 
 ```text
@@ -410,9 +479,9 @@ version; 'frazaro help' lists the commands.`
 
 ## Not in this version
 
-`check`, `run`, `ask`, `diff` and `audit` wait for their slices of
-`docs/HORIZON.md` section 12: `diff` and `audit` for the reader's later
-slices (`PORT.8`, 8c and 8d), `ask` for the question act and the engines
+`check`, `run`, `ask` and `audit` wait for their slices of
+`docs/HORIZON.md` section 12: `audit` for the reader's next slice
+(`PORT.8`, 8d), `ask` for the question act and the engines
 (`AXM.9`, `PORT.9`), `run` for the interpreter over the sheet model
 (`PORT.10`), `check` for the GitHub Action among the doors (`PORT.11`). The
 usage text lists them under *Not in this version* so a reader who guesses
@@ -437,7 +506,8 @@ the command learns where it is.
 `tools\prove.ps1 -Impl target\debug\frazaro.exe` scores the door against the
 treaty: oracle 1 and 1a on the corpus program, 1b on the compile golden,
 oracle 3 on every phrasebook, oracle 7 on both build goldens with `rebuild`
-run on each, oracle 8 on the five reflect fixtures; `18 passed, 0 failed, 2
+run on each, oracle 8 on the six reflect fixtures, oracle 9 on the three
+diff pairs; `22 passed, 0 failed, 2
 not attempted, 1 library` today, the two not attempted being the
 interpreter golden (`PORT.10`) and the engine proofs (`PORT.9`). `-Control`
 first proves the runner on a fake door and a mutant. Five checks hold

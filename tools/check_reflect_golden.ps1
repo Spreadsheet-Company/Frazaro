@@ -74,7 +74,14 @@ $goldens = @(
     @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/reflect/build_fixture_relations.vla'; Floor = 38 },
     @{ Name = 'build_into';    Fixture = 'scripts/build/into_golden.xlsx';    Golden = 'scripts/reflect/build_into_relations.vla';    Floor = 35 },
     @{ Name = 'model';         Fixture = 'scripts/build/model.xlsx';          Golden = 'scripts/reflect/model_relations.vla';         Floor = 13 },
-    @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Golden = 'scripts/reflect/saved_relations.vla';         Floor = 43 }
+    @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Golden = 'scripts/reflect/saved_relations.vla';         Floor = 43 },
+    # 2026-10-04, PORT.8 slice 8c: changed 89 - the fixture's changed copy,
+    # written by build_reflect_fixture.ps1 -Changed (one edit per arm of
+    # `frazaro diff`; its difference from the fixture is oracle 9's third
+    # golden, held by check_diff_golden.ps1): 90 less B3's formula and two
+    # refers rows and A6's cell row, plus H1's cell row and Data's two,
+    # Secret's two rows swapped for Audit's.
+    @{ Name = 'changed';       Fixture = 'scripts/reflect/changed.xlsx';      Golden = 'scripts/reflect/changed_relations.vla';       Floor = 89 }
 )
 
 # The relation forms a reader prints, and the phase each belongs to in the

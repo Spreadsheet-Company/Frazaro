@@ -330,4 +330,7 @@ path inside the package only (`..` cannot leave it), and an external link's
 target is read for its file name alone and never opened: the core has no
 file system, and the door reads the one file it was given. `--counts`
 prints counts and times and no cell's content, for a measurement over a
-confidential model.
+confidential model. *Appended 2026-10-04, slice 8c:* `frazaro diff` reads
+two files the same way, one sheet of each at a time, and prints what
+differs between them; the same parts, the same bounds, nothing written,
+and its `--counts` prints counts alone.

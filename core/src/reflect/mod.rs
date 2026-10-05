@@ -9,8 +9,9 @@
 //! the VBA as everything else does. A reader prints seven of the eight:
 //! `sheet(name, state)`, `name(name, refersto)`, `table(name, sheet,
 //! range)`, `cell(sheet, addr, value)`, `formula(sheet, addr, text)` and,
-//! from 8b, `refers(from, to)`; `changed` is `diff`'s (8c) and `ran` comes
-//! from no file.
+//! from 8b, `refers(from, to)`; `changed` is `diff`'s (8c, `diff.rs`: two
+//! files read through this reader and compared) and `ran` comes from no
+//! file.
 //!
 //! The reader streams. It never builds a model of the workbook: each sheet
 //! part is inflated whole (the bound every part already has, 256 MB), walked
@@ -30,6 +31,7 @@
 
 pub mod cone;
 pub mod cursor;
+pub mod diff;
 pub mod ooxml;
 pub mod print;
 

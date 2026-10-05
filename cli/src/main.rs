@@ -73,11 +73,20 @@ usage:
                          and where it is blind; a file that is not a
                          workbook, a part with a DOCTYPE, or a shape this
                          version does not read is refused by name
+  frazaro diff <old.xlsx> <new.xlsx> [--counts]
+                         the difference between two workbooks (PORT.8, slice
+                         8c), read as reflect reads them: the sheets in one
+                         file alone, then the names and Tables that differ,
+                         then cell by cell on the matched sheets what
+                         changed, old and new side by side - a value, a
+                         formula with its cached value, or blank - one form
+                         a line in a fixed order, nothing when the two hold
+                         the same; with --counts, the counts and times alone
   frazaro version        the version of the core this door is built on
   frazaro help           this text
 
 Not in this version (docs/HORIZON.md, section 12, slice by slice):
-  check, run, ask, diff, audit
+  check, run, ask, audit
 ";
 
 /// A file as text: UTF-8, a leading byte-order mark dropped, line endings
@@ -746,6 +755,92 @@ fn reflect(args: &[String]) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// `frazaro diff <old.xlsx> <new.xlsx> [--counts]` (PORT.8, slice 8c): both
+/// files opened as `reflect` opens them, the difference streamed one row a
+/// line in the fixed order, or with `--counts` one line of counts and times.
+/// Exit 0 whenever the comparison ran, rows or none; a refusal exits 1 and
+/// the rows before it stand; a usage error or an unreadable file exits 2.
+fn diff(args: &[String]) -> ExitCode {
+    const USAGE_LINE: &str = "usage: frazaro diff <old.xlsx> <new.xlsx> [--counts]";
+    let mut files: Vec<&str> = Vec::new();
+    let mut counts = false;
+    for a in args {
+        if a == "--counts" {
+            counts = true;
+        } else if a.starts_with("--") || files.len() == 2 {
+            eprintln!("{USAGE_LINE}");
+            return ExitCode::from(2);
+        } else {
+            files.push(a);
+        }
+    }
+    if files.len() != 2 {
+        eprintln!("{USAGE_LINE}");
+        return ExitCode::from(2);
+    }
+    let mut bytes: Vec<Vec<u8>> = Vec::new();
+    for file in &files {
+        if !is_file(file) {
+            return refuse_missing("vla-file-not-found", file);
+        }
+        match std::fs::read(file) {
+            Ok(b) => bytes.push(b),
+            Err(e) => {
+                eprintln!("frazaro: cannot read {file}: {e}");
+                return ExitCode::from(2);
+            }
+        }
+    }
+    let opened = std::time::Instant::now();
+    let mut packages = Vec::new();
+    for (i, file) in files.iter().enumerate() {
+        match frazaro_core::reflect::ooxml::Package::open(&bytes[i], file) {
+            Ok(p) => packages.push(p),
+            Err(refusal) => {
+                eprintln!("{refusal}");
+                return ExitCode::from(1);
+            }
+        }
+    }
+    let open_ms = ms_since(opened);
+    let (old, new) = (&packages[0], &packages[1]);
+    use frazaro_core::reflect::diff::{self as d, ChangeSink};
+    if counts {
+        let started = std::time::Instant::now();
+        return match d::diff(old, new, &mut d::Discard) {
+            Ok(stats) => {
+                println!(
+                    "diff: {} open {open_ms:.1} ms compared {:.1} ms",
+                    stats.line(),
+                    ms_since(started)
+                );
+                ExitCode::SUCCESS
+            }
+            Err(refusal) => {
+                eprintln!("{refusal}");
+                ExitCode::from(1)
+            }
+        };
+    }
+    use std::io::Write;
+    struct Changes<W: Write>(W);
+    impl<W: Write> ChangeSink for Changes<W> {
+        fn change(&mut self, change: &d::Change<'_>) {
+            let _ = writeln!(self.0, "{}", d::line(change));
+        }
+    }
+    let mut out = Changes(std::io::BufWriter::new(std::io::stdout().lock()));
+    if let Err(refusal) = d::diff(old, new, &mut out) {
+        let _ = out.0.flush();
+        eprintln!("{refusal}");
+        return ExitCode::from(1);
+    }
+    if out.0.flush().is_err() {
+        return ExitCode::from(2);
+    }
+    ExitCode::SUCCESS
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -757,6 +852,7 @@ fn main() -> ExitCode {
         Some("build") => build(&args[1..]),
         Some("rebuild") => rebuild(&args[1..]),
         Some("reflect") => reflect(&args[1..]),
+        Some("diff") => diff(&args[1..]),
         Some("version") | Some("--version") | Some("-V") => {
             let core = frazaro_core::version();
             let abi = frazaro_core::frazaro_abi_version();

@@ -7591,13 +7591,130 @@ written against.
   the index built in 1.2 ms and the widest walk, through the Table, 2.5
   ms; 43 checks and 196 tests passed. The slice passed and was committed
   2026-10-04; 8c, `diff`, follows.
+  **Slice 8c, `diff` (scoped and built 2026-10-04, the day 8b passed;
+  awaiting the owner's run).** `frazaro diff <old.xlsx> <new.xlsx>
+  [--counts]`: two files read through the one reader and compared, the
+  `changed` relation of Stage 0.3 from its file source, with no host
+  (`AXM.11`'s saved-copy and other-file sources are this over COM when it
+  comes; its Undo-snapshot source has no file and waits for it). *Decided
+  here, with the reasons:* (1) sheets match by name without case, as
+  Excel names them; a sheet in one file alone is one row,
+  `(sheet-removed "Secret" very-hidden)` or `(sheet-added "Audit"
+  visible)`, its cells never listed, so a renamed sheet is a removal and
+  an addition, as `AXM.11` says, and never a flood of cell rows; a matched
+  sheet whose state differs is `(sheet-changed "Scratch" hidden
+  visible)`, since a sheet gone hidden is a finding an auditor wants. (2)
+  Everything else is one relation, `(changed "<key>" <old> <new>)`, the
+  key in the spelling `refers` uses for its second field (`Model!B3`;
+  `Rate` or `Model!Local` for a name as its `name` row spells it; `Sales`
+  for a Table, names and Tables sharing one namespace in a workbook), so
+  that `cause`'s three rules join `changed` to `refers` with no parser: a
+  repointed name is a changed precedent of every formula that refers to
+  it, which a cell-only relation would miss. (3) A side is `blank` where
+  the file holds nothing, a value as a `cell` row prints it, `(formula
+  "=B1-B2")` for a formula with no cached value or `(formula "=B1-B2"
+  400)` with one, so that a formula typed over by a constant reads
+  `(changed "Model!B3" (formula "=B1-B2" 400) 500)` and the same formula
+  recomputed reads as two values under one text; the plan's "a value, a
+  `(formula "=…")` or `blank`" gains the cached value because the live
+  check's claim, that the saved copy "differs in exactly the five cached
+  values", needs it visible. (4) A cell is changed when its formula's
+  text or its value differs; numbers compare as numbers, `800` and
+  `800.0` one value, since a writer other than Excel spells a float with
+  its point and a model touched by a script would otherwise show every
+  float cell changed; all else by kind and text, so `"5"` typed over `5`
+  is a change, which it is. (5) The order: removed sheets in the old
+  file's tab order, added in the new's, then the state changes in the
+  new's; names and Tables by key without case; then sheet by sheet in the
+  new file's tab order, cell by cell in document order. (6) One pair of
+  sheets is held at a time, both sheets' cells, dropped before the next:
+  two sheets, never two workbooks. (7) Exit 0 whenever the comparison
+  ran, rows or none: the rows are the answer, as `reflect`'s are; a
+  refusal exits 1 as everywhere; `cmp`'s convention (1 for "they differ")
+  was weighed and set aside because it collides with the refusal code the
+  door already gives, and a gate reads `--counts` or the empty output.
+  (8) `--counts`: `sheets-removed N sheets-added N sheets-changed N names
+  N tables N cells N compared N` and the times, nothing from inside
+  either file. *Three golden pairs, the treaty's oracle 9:* the first
+  build golden against its Excel-saved copy; the model against the into
+  golden built into it (what `--into` added); and the reader's fixture
+  against a changed copy of it, `scripts/reflect/changed.xlsx`, which
+  `tools/build_reflect_fixture.ps1 -Changed` writes (`Secret` removed,
+  `Audit` added, `Scratch` unhidden, `Rate` 0.2 to 0.25, `Broken` gone,
+  `Deep` = `Rate` new, the Table a row longer, and on `Model` B1 1300, B2
+  `800.0`, B3 typed over by 500, D1 `=SUM(B1:B2)`, H1 filled, A6 cleared,
+  A1 `Revenues`, A5 FALSE, every cached value recomputed by hand), which
+  also joins oracle 8 as its sixth row. Step 0, predicted before the code
+  ran: (1) the saved pair is 6 rows, the stamp name's `_xlfn._LONGTEXT`
+  rewrite, then `Output`'s C2, D2, B3, C3 and C4, each `(formula "…")` to
+  `(formula "…" <value>)` with 15, `"big"`, 10, 10 and 0, and `--counts`
+  says `names 1 cells 5 compared 26`; (2) the into pair is 4 rows,
+  `Frazaro`, `Output` and `checks` added, then `Frazaro.Build` from
+  `blank`, nothing on `Model` or `Notes`, `sheets-added 3 names 1 cells 0
+  compared 7`; (3) the changed pair is 24 rows: three sheet rows; four
+  for `Broken`, `Deep`, `Rate` and `Sales` in that order; fifteen on
+  `Model` (A1, B1, C1, D1, E1, H1; D2, H2; B3, C3, E3; B4, D4; A5; A6)
+  and two on `Data` (A5, B5), with no row for B2; `--counts` says
+  `sheets-removed 1 sheets-added 1 sheets-changed 1 names 3 tables 1
+  cells 17 compared 42`; (4) the changed copy's own relations golden is
+  89 lines (90 less B3's formula and two refers rows and A6's cell row,
+  plus H1's cell row and `Data`'s two, `Secret`'s two swapped for
+  `Audit`'s), its names sorting `Deep`, `HiddenName`, `Model!Local`,
+  `Range1`, `Rate`; (5) `cargo test` 201 (196 and the module's five), 44
+  checks. On the core's own run all five held: 6, 4 and 24 rows and the
+  counts as predicted, the changed copy's golden at 89 lines with the
+  names in that order, 201 tests and 44 checks; one pin in the module's
+  own test was wrong once, since the test's two packages give the sheet
+  `Shy` a different value in each file, so `Shy!A1` is a change and the
+  code was right. `prove.ps1 -Impl` scores 22 (the changed copy as
+  oracle 8's sixth row, the three pairs as the kind `diff`), its
+  `-Control` 23 of 23. **The owner's live check for 8c:** (1) `cargo
+  build --workspace`, then `target\debug\frazaro.exe diff
+  scripts\build\fixture_golden.xlsx scripts\reflect\saved.xlsx` prints
+  the 6 lines of `scripts\reflect\build_fixture_saved_diff.vla`: the
+  stamp name rewritten as `_xlfn._LONGTEXT`, then `Output`'s C2, D2, B3,
+  C3 and C4, each `(formula "…")` on the left and `(formula "…"
+  <value>)` on the right with 15, `"big"`, 10, 10 and 0, the values
+  Excel computed when you saved that copy. (2) `target\debug\frazaro.exe
+  diff scripts\build\model.xlsx scripts\build\into_golden.xlsx` prints 4
+  lines: `Frazaro`, `Output` and `checks` added, then `Frazaro.Build`
+  from `blank`. (3) Open `scripts\reflect\fixture.xlsx` and
+  `scripts\reflect\changed.xlsx` in Excel (do not update links; View >
+  View Side by Side helps), and run `target\debug\frazaro.exe diff
+  scripts\reflect\fixture.xlsx scripts\reflect\changed.xlsx`, 24 lines,
+  each to be found by eye: the VBE's Project Explorer lists `Secret` for
+  the fixture and not for the copy; the copy's last tab is `Audit` with
+  `reviewed` in A1; `Scratch` is a visible tab in the copy; Name Manager
+  shows `Rate` 0.25, `Deep` = `Rate` and no `Broken`; the Table on
+  `Data` runs to row 5 (`tape`, 40); on `Model`, A1 `Revenues`, B1 1300,
+  B3 500 with no formula in the bar, C1 2600, C3 1000, D1 `=SUM(B1:B2)`
+  2100, D2 1300, E1 100, E3 2600, H1 1, H2 `Revenues!`, B4 125, D4 1305,
+  A5 FALSE, A6 empty; and B2 shows 800 with no row, the file spelling it
+  `800.0`. The cached values were computed by hand: if Excel shows a
+  different number in any of those cells, that is the finding to paste.
+  (4) `target\debug\frazaro.exe diff scripts\reflect\fixture.xlsx
+  scripts\reflect\changed.xlsx --counts` prints `diff: sheets-removed 1
+  sheets-added 1 sheets-changed 1 names 3 tables 1 cells 17 compared 42`
+  and the times. (5) `powershell -File tools\run_checks.ps1` prints 44
+  passed and `cargo test --workspace` 201 passed. If the Inquire add-in
+  is on your Excel (File > Options > Add-ins > COM Add-ins), Inquire >
+  Compare Files on the two fixtures is an independent list to set beside
+  step 3's; not required.
+  *The owner's pass, 2026-10-05:* the 6, 4 and 24 rows printed as the
+  goldens have them, the counts `sheets-removed 1 sheets-added 1
+  sheets-changed 1 names 3 tables 1 cells 17 compared 42`, 44 checks and
+  201 tests, and "tests pass; commit"; the side-by-side reading of the
+  changed copy in Excel (step 3's by-eye half) was not reported, so the
+  hand-computed cached values stand on the goldens alone until a later
+  pass opens the copy. The slice was committed 2026-10-05; 8d, `audit`,
+  follows.
   **Constraints carried, in brief:** every refusal through the catalogue
   under `VLA-Reflect`; `cargo fmt`, `clippy -D warnings`, `test`, the wasm
   build and `check_core_imports.ps1` before every commit; the goldens lead
   the core; a slice's live check is numbered and names the fixture, the
   cell, the formula and the precedent; `SD-13` untouched (nothing leaves
   the machine but what the owner pastes). **Docs the item touches:**
-  `conformance/README.md` (oracle 8 and its rows), `cli/README.md` and
+  `conformance/README.md` (oracles 8 and 9 and their rows), `cli/README.md` and
   `USAGE`, the root `README.md`'s command table, `THREAT_MODEL.md` §5,
   `IT_REVIEW.md`, `RELEASES.md` 0.8.0, `Delta/CLAUDE.md` (the module, the
   check, the fixtures), this entry with each slice's live pass, the
