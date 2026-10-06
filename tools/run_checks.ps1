@@ -86,7 +86,13 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # 2026-10-04, AXM.7: 43 - check_refers_golden.ps1 (the refers golden agrees
 # with its fixture, every case names its cell and ends in its R1C1 record,
 # and the distinct reference kinds it reaches never go down).
-$expectedAtLeast = 45
+# 2026-10-05, the crates prepared for crates.io: 46 - check_crate_package.ps1
+# (what cargo package would refuse, read without cargo: no build-time
+# include leaves its crate, and every manifest names what crates.io shows).
+# 2026-10-05, the door's built-in prelude and english.vla: 47 -
+# check_crate_data.ps1 (the copies under cli/data/ are the corpus files byte
+# for byte, and a built door with no flags translates as it does with them).
+$expectedAtLeast = 47
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---

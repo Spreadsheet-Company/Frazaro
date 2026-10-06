@@ -33,6 +33,17 @@ path = ["scripts/polyglotta/**"]
 SPDX-FileCopyrightText = "2026 Spreadsheet Company"
 SPDX-License-Identifier = "MPL-2.0"
 
+# The command-line door carries a copy of the English phrasebook
+# (cli/data/english.vla, held byte for byte to scripts/polyglotta/english.vla
+# by tools/check_crate_data.ps1), so that an installed door needs no file
+# beside it. MPL-2.0 travels with the file, which is why the frazaro crate's
+# manifest says "Apache-2.0 AND MPL-2.0"; the prelude copy beside it is the
+# engine's Apache-2.0, through the first table.
+[[annotations]]
+path = ["cli/data/english.vla"]
+SPDX-FileCopyrightText = "2026 Spreadsheet Company"
+SPDX-License-Identifier = "MPL-2.0"
+
 # The runtime helper zoo. Its text above the EN_RUNTIME INJECT BOUNDARY is
 # copied verbatim into customers' workbooks as Frazaro_EN_Runtime, so it
 # carries the lightest terms in the repository and its own in-file header

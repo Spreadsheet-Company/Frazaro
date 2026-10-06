@@ -68,6 +68,9 @@ jobs:
       - name: the core's passing phrasebook proofs never go down (PORT.6, oracle 3)
         shell: pwsh
         run: pwsh -NoProfile -File tools/check_prove_floors.ps1 -Impl target/debug/frazaro
+      - name: the door's built-in prelude and english.vla are the corpus files, in the bytes and in the door
+        shell: pwsh
+        run: pwsh -NoProfile -File tools/check_crate_data.ps1 -Impl target/debug/frazaro
       - name: the core reproduces the build golden, byte for byte (PORT.7, oracle 7)
         shell: pwsh
         run: pwsh -NoProfile -File tools/check_build_golden.ps1 -Impl target/debug/frazaro

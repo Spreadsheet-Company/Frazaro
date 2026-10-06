@@ -37,7 +37,12 @@ $requiredHeaders = @(
     @{ Path = 'scripts/polyglotta/esperanto.vla';    Id = 'MPL-2.0';    Comment = ';' },
     @{ Path = 'scripts/polyglotta/francais.vla';     Id = 'MPL-2.0';    Comment = ';' },
     @{ Path = 'scripts/polyglotta/latin.vla';        Id = 'MPL-2.0';    Comment = ';' },
-    @{ Path = 'scripts/polyglotta/pirate.vla';       Id = 'MPL-2.0';    Comment = ';' }
+    @{ Path = 'scripts/polyglotta/pirate.vla';       Id = 'MPL-2.0';    Comment = ';' },
+    # The door's built-in pair (2026-10-05): copies of the prelude and of
+    # english.vla under cli/data/, which travel in the published crate with
+    # their own headers; check_crate_data.ps1 holds them to their sources.
+    @{ Path = 'cli/data/prelude.vla';                Id = 'Apache-2.0'; Comment = ';' },
+    @{ Path = 'cli/data/english.vla';                Id = 'MPL-2.0';    Comment = ';' }
 )
 
 # Source extensions the map must cover. Binaries, build outputs, and the

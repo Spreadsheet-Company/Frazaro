@@ -3,13 +3,23 @@ name = "frazaro"
 description = "The command-line door to frazaro-core"
 version.workspace = true
 edition.workspace = true
-license.workspace = true
+# The door's own code is Apache-2.0 like the workspace; the english.vla it
+# carries in data/ (a copy of scripts/polyglotta/english.vla, held byte for
+# byte by tools/check_crate_data.ps1) is MPL-2.0 per file, and travels under
+# its own terms, so the package as a whole is both.
+license = "Apache-2.0 AND MPL-2.0"
 repository.workspace = true
 rust-version.workspace = true
+# What crates.io shows and indexes; README.md here is the door's reference.
+readme = "README.md"
+keywords = ["spreadsheet", "excel", "english", "compiler", "cli"]
+categories = ["command-line-utilities", "compilers"]
 
 [[bin]]
 name = "frazaro"
 path = "src/main.rs"
 
 [dependencies]
-frazaro-core = { path = "../core" }
+# Pinned to the core of the same version in the root Cargo.toml's
+# [workspace.dependencies]: one corpus, one version.
+frazaro-core.workspace = true

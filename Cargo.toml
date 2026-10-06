@@ -17,13 +17,22 @@ members = ["core", "cli"]
 
 [workspace.package]
 # One corpus, one version: tools/check_version_twin.ps1 holds this equal to
-# VLA_RELEASE_VERSION in src/VLA.bas. Both are bumped by hand at release
-# (DI.3a) and nowhere else.
+# VLA_RELEASE_VERSION in src/VLA.bas and to the door's pin below. All three
+# are bumped by hand at release (DI.3a) and nowhere else.
 version = "0.7.1"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/Spreadsheet-Company/Frazaro"
 rust-version = "1.75"
+
+[workspace.dependencies]
+# The door's one dependency, pinned exactly: `frazaro` at a version is the
+# door to `frazaro-core` at the same version, because the version is the
+# corpus's and not either product's. The path serves the workspace; the
+# requirement is what the published manifest keeps, since crates.io resolves
+# a dependency by version alone. tools/check_version_twin.ps1 holds it equal
+# to the version above.
+frazaro-core = { path = "core", version = "=0.7.1" }
 
 [profile.release]
 # Small, deterministic, and without an unwinder: a panic aborts, so the wasm

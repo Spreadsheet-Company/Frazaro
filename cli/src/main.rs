@@ -13,9 +13,9 @@ const USAGE: &str = "\
 frazaro - a compiler from sentences to spreadsheets
 
 usage:
-  frazaro compile <program.vla> --prelude <prelude.vla>
+  frazaro compile <program.vla> [--prelude <prelude.vla>]
                          the VBA of a VLA program, to stdout (PORT.5)
-  frazaro load <phrasebook.vla> --prelude <prelude.vla> [--allow-raw]
+  frazaro load <phrasebook.vla> [--prelude <prelude.vla>] [--allow-raw]
                          load a phrasebook, its proofs run as the add-in
                          runs them, and report what it holds, the line
                          EnglishVocabStats prints (PORT.6, slice 6c);
@@ -25,16 +25,17 @@ usage:
                          failure printed, then PASS n/n or FAIL k/n (k of
                          n passed), exit 0 or 1 (PORT.6, slice 6d); the
                          prelude is prelude.vla beside the file or in its
-                         parent folder unless --prelude names one; an
-                         engine proof file exits 3 (not attempted, PORT.9)
-  frazaro translate-vla <program.txt> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] [--allow-raw]
+                         parent folder, else the one inside frazaro, unless
+                         --prelude names one; an engine proof file exits 3
+                         (not attempted, PORT.9)
+  frazaro translate-vla <program.txt> [--prelude <prelude.vla>] [--phrasebook <file.vla> ...] [--allow-raw]
                          the treaty's oracle 1: the program's VLA, the text
                          EnglishToVla writes, to stdout (PORT.6, slice 6e);
                          each phrasebook loads in order, its proofs run
-  frazaro translate-vba <program.txt> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] [--allow-raw]
+  frazaro translate-vba <program.txt> [--prelude <prelude.vla>] [--phrasebook <file.vla> ...] [--allow-raw]
                          oracle 1a: that VLA compiled, the VBA the add-in
                          would write (EnglishToVba)
-  frazaro build <program.txt> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] --out <file.xlsx> [--into <model.xlsx>] [--replace] [--allow-raw]
+  frazaro build <program.txt> [--prelude <prelude.vla>] [--phrasebook <file.vla> ...] --out <file.xlsx> [--into <model.xlsx>] [--replace] [--allow-raw]
                          the writer (PORT.7): the program translated as
                          translate-vla translates it, then written as a
                          workbook: the Frazaro sheet holds the sentences in
@@ -50,7 +51,7 @@ usage:
                          with --into, the sheets are added to that workbook,
                          whose own parts are copied byte for byte and never
                          written to by a sentence (slice 7d)
-  frazaro rebuild <file.xlsx> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] [--allow-raw]
+  frazaro rebuild <file.xlsx> [--prelude <prelude.vla>] [--phrasebook <file.vla> ...] [--allow-raw]
                          the sentences read back out of a built workbook's
                          Frazaro sheet, its stamp checked against them and
                          the files given, the build done again and compared
@@ -98,6 +99,13 @@ usage:
   frazaro version        the version of the core this door is built on
   frazaro help           this text
 
+Without --prelude a command uses the prelude inside frazaro, and without
+--phrasebook its english.vla: the repository's scripts/prelude.vla and
+scripts/polyglotta/english.vla, byte for byte, so that an installed frazaro
+needs no file beside it. --phrasebook names the whole list, in order, as
+the add-in loads them, english.vla first; `--phrasebook english.vla` with
+no such file beside you is the one inside frazaro.
+
 Not in this version (docs/HORIZON.md, section 12, slice by slice):
   check, run, ask
 ";
@@ -128,6 +136,34 @@ fn option_after<'a>(args: &'a [String], name: &str) -> Option<&'a str> {
         .position(|a| a == name)
         .and_then(|i| args.get(i + 1))
         .map(String::as_str)
+}
+
+/// The prelude and the English phrasebook inside the door, byte for byte the
+/// repository's scripts/prelude.vla and scripts/polyglotta/english.vla
+/// (tools/check_crate_data.ps1 holds the copies under cli/data/ to them):
+/// what a command uses when --prelude or --phrasebook is not given, so that
+/// an installed frazaro needs no file beside it.
+const BUILT_IN_PRELUDE: &str = include_str!("../data/prelude.vla");
+const BUILT_IN_ENGLISH: &str = include_str!("../data/english.vla");
+/// The name the built-in phrasebook loads under, which a refusal shows.
+const BUILT_IN_ENGLISH_NAME: &str = "english.vla (inside frazaro)";
+
+/// The prelude a command works with: the file --prelude names, read and
+/// checked, or the one inside the door; the exit code to end the command
+/// with comes back as the error.
+fn prelude_of(args: &[String]) -> Result<String, ExitCode> {
+    match option_after(args, "--prelude") {
+        Some(path) => {
+            if !is_file(path) {
+                return Err(refuse_missing("vla-file-not-found", path));
+            }
+            read_text(path).map_err(|e| {
+                eprintln!("frazaro: {e}");
+                ExitCode::from(2)
+            })
+        }
+        None => Ok(BUILT_IN_PRELUDE.to_string()),
+    }
 }
 
 /// A phrasebook holds a `<lingua>-vla` rule or a proof form at the top
@@ -165,19 +201,20 @@ fn prelude_beside(file: &str) -> Option<String> {
 }
 
 fn compile(args: &[String]) -> ExitCode {
-    let (Some(program), Some(prelude)) = (args.first(), option_after(args, "--prelude")) else {
-        eprintln!("usage: frazaro compile <program.vla> --prelude <prelude.vla>");
+    let Some(program) = args.first() else {
+        eprintln!("usage: frazaro compile <program.vla> [--prelude <prelude.vla>]");
         return ExitCode::from(2);
     };
     if !is_file(program) {
         return refuse_missing("vla-source-not-found", program);
     }
-    if !is_file(prelude) {
-        return refuse_missing("vla-file-not-found", prelude);
-    }
-    let (source, prelude) = match (read_text(program), read_text(prelude)) {
-        (Ok(s), Ok(p)) => (s, p),
-        (Err(e), _) | (_, Err(e)) => {
+    let prelude = match prelude_of(args) {
+        Ok(p) => p,
+        Err(code) => return code,
+    };
+    let source = match read_text(program) {
+        Ok(s) => s,
+        Err(e) => {
             eprintln!("frazaro: {e}");
             return ExitCode::from(2);
         }
@@ -207,20 +244,21 @@ fn compile(args: &[String]) -> ExitCode {
 /// the door: a required capability (none can be granted yet), and SEC.2's
 /// consent for a `(raw ...)` form, which the person gives with --allow-raw.
 fn load(args: &[String]) -> ExitCode {
-    let (Some(book), Some(prelude)) = (args.first(), option_after(args, "--prelude")) else {
-        eprintln!("usage: frazaro load <phrasebook.vla> --prelude <prelude.vla> [--allow-raw]");
+    let Some(book) = args.first() else {
+        eprintln!("usage: frazaro load <phrasebook.vla> [--prelude <prelude.vla>] [--allow-raw]");
         return ExitCode::from(2);
     };
     let allow_raw = args.iter().any(|a| a == "--allow-raw");
     if !is_file(book) {
         return refuse_missing("english-vocab-file-not-found", book);
     }
-    if !is_file(prelude) {
-        return refuse_missing("vla-file-not-found", prelude);
-    }
-    let (text, prelude) = match (read_text(book), read_text(prelude)) {
-        (Ok(t), Ok(p)) => (t, p),
-        (Err(e), _) | (_, Err(e)) => {
+    let prelude = match prelude_of(args) {
+        Ok(p) => p,
+        Err(code) => return code,
+    };
+    let text = match read_text(book) {
+        Ok(t) => t,
+        Err(e) => {
             eprintln!("frazaro: {e}");
             return ExitCode::from(2);
         }
@@ -281,28 +319,25 @@ fn prove(args: &[String]) -> ExitCode {
     }
     // The contract is `prove <proofs.vla>` alone, so the prelude is found
     // beside the file or in its parent folder (scripts/polyglotta/x.vla
-    // reads scripts/prelude.vla); --prelude names another.
-    let prelude_path = match option_after(args, "--prelude") {
-        Some(p) => p.to_string(),
-        None => match prelude_beside(book) {
-            Some(p) => p,
-            None => {
-                eprintln!(
-                    "frazaro: no prelude.vla beside {book} or in its parent folder; pass --prelude <prelude.vla>"
-                );
-                return ExitCode::from(2);
+    // reads scripts/prelude.vla), else it is the one inside the door;
+    // --prelude names another.
+    let prelude_path = option_after(args, "--prelude")
+        .map(str::to_string)
+        .or_else(|| prelude_beside(book));
+    let prelude = match prelude_path {
+        Some(path) => {
+            if !is_file(&path) {
+                return refuse_missing("vla-file-not-found", &path);
             }
-        },
-    };
-    if !is_file(&prelude_path) {
-        return refuse_missing("vla-file-not-found", &prelude_path);
-    }
-    let prelude = match read_text(&prelude_path) {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("frazaro: {e}");
-            return ExitCode::from(2);
+            match read_text(&path) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("frazaro: {e}");
+                    return ExitCode::from(2);
+                }
+            }
         }
+        None => BUILT_IN_PRELUDE.to_string(),
     };
     if let Err(refusal) = frazaro_core::api::vocab_gate(&text, book, allow_raw) {
         eprintln!("{refusal}");
@@ -335,43 +370,35 @@ fn prove(args: &[String]) -> ExitCode {
     }
 }
 
-/// `frazaro translate-vla|translate-vba <program.txt> --prelude <prelude.vla>
-/// --phrasebook <file.vla> [--phrasebook ...] [--allow-raw]`: the treaty's
-/// oracles 1 and 1a. Each phrasebook loads in order, its proofs run as the
-/// add-in runs them (a failing proof refuses, as EnglishLoadVocabulary
-/// does), then EnglishToVla (or EnglishToVba: its text compiled with the
-/// prelude) writes to stdout. A refusal goes to stderr with exit 1.
+/// `frazaro translate-vla|translate-vba <program.txt> [--prelude <prelude.vla>]
+/// [--phrasebook <file.vla> ...] [--allow-raw]`: the treaty's oracles 1 and
+/// 1a. Each phrasebook loads in order, its proofs run as the add-in runs
+/// them (a failing proof refuses, as EnglishLoadVocabulary does), then
+/// EnglishToVla (or EnglishToVba: its text compiled with the prelude) writes
+/// to stdout. A refusal goes to stderr with exit 1.
 fn translate(kind: &str, args: &[String]) -> ExitCode {
-    let books: Vec<&str> = args
-        .windows(2)
-        .filter(|w| w[0] == "--phrasebook")
-        .map(|w| w[1].as_str())
-        .collect();
-    let (Some(program), Some(prelude)) = (args.first(), option_after(args, "--prelude")) else {
+    let Some(program) = args.first() else {
         eprintln!(
-            "usage: frazaro {kind} <program.txt> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] [--allow-raw]"
+            "usage: frazaro {kind} <program.txt> [--prelude <prelude.vla>] [--phrasebook <file.vla> ...] [--allow-raw]"
         );
         return ExitCode::from(2);
     };
-    if books.is_empty() {
-        eprintln!("frazaro: {kind} needs at least one --phrasebook <file.vla>");
-        return ExitCode::from(2);
-    }
     let allow_raw = args.iter().any(|a| a == "--allow-raw");
     if !is_file(program) {
         return refuse_missing("english-program-file-not-found", program);
     }
-    if !is_file(prelude) {
-        return refuse_missing("vla-file-not-found", prelude);
-    }
-    let (text, prelude) = match (read_text(program), read_text(prelude)) {
-        (Ok(t), Ok(p)) => (t, p),
-        (Err(e), _) | (_, Err(e)) => {
+    let prelude = match prelude_of(args) {
+        Ok(p) => p,
+        Err(code) => return code,
+    };
+    let text = match read_text(program) {
+        Ok(t) => t,
+        Err(e) => {
             eprintln!("frazaro: {e}");
             return ExitCode::from(2);
         }
     };
-    let grammar = match load_books(&prelude, &books, allow_raw) {
+    let grammar = match load_books(&prelude, args, allow_raw) {
         Ok((g, _)) => g,
         Err(code) => return code,
     };
@@ -392,13 +419,33 @@ fn translate(kind: &str, args: &[String]) -> ExitCode {
     }
 }
 
-/// Each phrasebook file read and passed through the door's two gates
-/// (`api::vocab_gate`): the texts in order, or the exit code to end the
-/// command with.
-fn read_books(books: &[&str], allow_raw: bool) -> Result<Vec<String>, ExitCode> {
-    let mut texts = Vec::with_capacity(books.len());
-    for book in books {
+/// The phrasebooks a command loads, in order, as (name, text): the files
+/// --phrasebook names, each read and passed through the door's two gates
+/// (`api::vocab_gate`); `english.vla` with no such file beside the caller is
+/// the one inside the door, as is the whole list when no --phrasebook is
+/// given. The exit code to end the command with comes back as the error.
+fn read_books(args: &[String], allow_raw: bool) -> Result<Vec<(String, String)>, ExitCode> {
+    let named: Vec<&str> = args
+        .windows(2)
+        .filter(|w| w[0] == "--phrasebook")
+        .map(|w| w[1].as_str())
+        .collect();
+    let built_in = || {
+        (
+            BUILT_IN_ENGLISH_NAME.to_string(),
+            BUILT_IN_ENGLISH.to_string(),
+        )
+    };
+    if named.is_empty() {
+        return Ok(vec![built_in()]);
+    }
+    let mut books = Vec::with_capacity(named.len());
+    for book in named {
         if !is_file(book) {
+            if book == "english.vla" {
+                books.push(built_in());
+                continue;
+            }
             return Err(refuse_missing("english-vocab-file-not-found", book));
         }
         let vocab = read_text(book).map_err(|e| {
@@ -409,29 +456,29 @@ fn read_books(books: &[&str], allow_raw: bool) -> Result<Vec<String>, ExitCode> 
             eprintln!("{refusal}");
             return Err(ExitCode::from(1));
         }
-        texts.push(vocab);
+        books.push((book.to_string(), vocab));
     }
-    Ok(texts)
+    Ok(books)
 }
 
 /// The grammar a command translates with: the prelude, then each phrasebook
-/// text loaded in order under its file's name, its proofs run; the first
-/// refusal ends the command, and the exit code to end it with comes back as
-/// the error. The texts come back too, for the build stamp.
+/// text loaded in order under its name, its proofs run; the first refusal
+/// ends the command, and the exit code to end it with comes back as the
+/// error. The texts come back too, for the build stamp.
 fn load_books(
     prelude: &str,
-    books: &[&str],
+    args: &[String],
     allow_raw: bool,
 ) -> Result<(frazaro_core::english::Grammar, Vec<String>), ExitCode> {
-    let texts = read_books(books, allow_raw)?;
+    let books = read_books(args, allow_raw)?;
     let mut grammar = frazaro_core::english::Grammar::new(prelude);
-    for (book, vocab) in books.iter().zip(texts.iter()) {
-        if let Err(refusal) = grammar.load_vocabulary_text(vocab, book) {
+    for (name, vocab) in &books {
+        if let Err(refusal) = grammar.load_vocabulary_text(vocab, name) {
             eprintln!("{refusal}");
             return Err(ExitCode::from(1));
         }
     }
-    Ok((grammar, texts))
+    Ok((grammar, books.into_iter().map(|(_, text)| text).collect()))
 }
 
 /// `frazaro rebuild` (PORT.7, slice 7c): a built workbook read back, its
@@ -440,28 +487,20 @@ fn load_books(
 /// file that is not a build this core can verify is refused through the
 /// catalogue.
 fn rebuild(args: &[String]) -> ExitCode {
-    let books: Vec<&str> = args
-        .windows(2)
-        .filter(|w| w[0] == "--phrasebook")
-        .map(|w| w[1].as_str())
-        .collect();
-    let (Some(file), Some(prelude)) = (args.first(), option_after(args, "--prelude")) else {
+    let Some(file) = args.first() else {
         eprintln!(
-            "usage: frazaro rebuild <file.xlsx> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] [--allow-raw]"
+            "usage: frazaro rebuild <file.xlsx> [--prelude <prelude.vla>] [--phrasebook <file.vla> ...] [--allow-raw]"
         );
         return ExitCode::from(2);
     };
-    if books.is_empty() {
-        eprintln!("frazaro: rebuild needs at least one --phrasebook <file.vla>");
-        return ExitCode::from(2);
-    }
     let allow_raw = args.iter().any(|a| a == "--allow-raw");
     if !is_file(file) {
         return refuse_missing("vla-file-not-found", file);
     }
-    if !is_file(prelude) {
-        return refuse_missing("vla-file-not-found", prelude);
-    }
+    let prelude_text = match prelude_of(args) {
+        Ok(p) => p,
+        Err(code) => return code,
+    };
     let bytes = match std::fs::read(file) {
         Ok(b) => b,
         Err(e) => {
@@ -469,18 +508,11 @@ fn rebuild(args: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let prelude_text = match read_text(prelude) {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("frazaro: {e}");
-            return ExitCode::from(2);
-        }
-    };
-    let texts = match read_books(&books, allow_raw) {
-        Ok(t) => t,
+    let books = match read_books(args, allow_raw) {
+        Ok(b) => b,
         Err(code) => return code,
     };
-    let texts: Vec<&str> = texts.iter().map(String::as_str).collect();
+    let texts: Vec<&str> = books.iter().map(|(_, text)| text.as_str()).collect();
     match frazaro_core::api::english_rebuild_xlsx(&bytes, &prelude_text, &texts) {
         Ok(r) => {
             println!("{}", r.line());
@@ -502,34 +534,22 @@ fn rebuild(args: &[String]) -> ExitCode {
 /// one file and nothing else; a file already there is refused through the
 /// catalogue unless --replace says to replace it.
 fn build(args: &[String]) -> ExitCode {
-    let books: Vec<&str> = args
-        .windows(2)
-        .filter(|w| w[0] == "--phrasebook")
-        .map(|w| w[1].as_str())
-        .collect();
-    let (Some(program), Some(prelude), Some(out)) = (
-        args.first(),
-        option_after(args, "--prelude"),
-        option_after(args, "--out"),
-    ) else {
+    let (Some(program), Some(out)) = (args.first(), option_after(args, "--out")) else {
         eprintln!(
-            "usage: frazaro build <program.txt> --prelude <prelude.vla> --phrasebook <file.vla> [--phrasebook ...] --out <file.xlsx> [--into <model.xlsx>] [--replace] [--allow-raw]"
+            "usage: frazaro build <program.txt> [--prelude <prelude.vla>] [--phrasebook <file.vla> ...] --out <file.xlsx> [--into <model.xlsx>] [--replace] [--allow-raw]"
         );
         return ExitCode::from(2);
     };
-    if books.is_empty() {
-        eprintln!("frazaro: build needs at least one --phrasebook <file.vla>");
-        return ExitCode::from(2);
-    }
     let allow_raw = args.iter().any(|a| a == "--allow-raw");
     let replace = args.iter().any(|a| a == "--replace");
     let into = option_after(args, "--into");
     if !is_file(program) {
         return refuse_missing("english-program-file-not-found", program);
     }
-    if !is_file(prelude) {
-        return refuse_missing("vla-file-not-found", prelude);
-    }
+    let prelude_text = match prelude_of(args) {
+        Ok(p) => p,
+        Err(code) => return code,
+    };
     if let Some(model) = into {
         if !is_file(model) {
             return refuse_missing("vla-file-not-found", model);
@@ -542,14 +562,14 @@ fn build(args: &[String]) -> ExitCode {
         );
         return ExitCode::from(1);
     }
-    let (text, prelude_text) = match (read_text(program), read_text(prelude)) {
-        (Ok(t), Ok(p)) => (t, p),
-        (Err(e), _) | (_, Err(e)) => {
+    let text = match read_text(program) {
+        Ok(t) => t,
+        Err(e) => {
             eprintln!("frazaro: {e}");
             return ExitCode::from(2);
         }
     };
-    let (grammar, texts) = match load_books(&prelude_text, &books, allow_raw) {
+    let (grammar, texts) = match load_books(&prelude_text, args, allow_raw) {
         Ok(gt) => gt,
         Err(code) => return code,
     };

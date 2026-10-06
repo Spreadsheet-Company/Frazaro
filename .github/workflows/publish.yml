@@ -1,0 +1,54 @@
+# Publishing the crates to crates.io, started by hand, from a release tag.
+#
+# Two crates leave this workspace: frazaro-core (the host-free core) and
+# frazaro (the command-line door), always together and always at the version
+# the tag names (one corpus, one version: tools/check_version_twin.ps1). A
+# published version is permanent - crates.io can yank one, never delete it -
+# so nothing here runs on its own. The owner starts it from the Actions tab
+# (workflow_dispatch), on the tag tools/release.ps1 pushed, and the default
+# is a rehearsal: package and verify both crates, upload nothing.
+#
+# No token is stored anywhere. crates.io's Trusted Publishing hands the job
+# a token that lives for this run only, in exchange for GitHub's proof that
+# this workflow of this repository is running (id-token: write below, and
+# rust-lang/crates-io-auth-action makes the exchange and revokes the token
+# when the job ends). Each crate's settings page on crates.io must name this
+# repository and this file first, which is possible once the crate exists:
+# the first version of each is published from the owner's machine with a
+# scoped token (docs/DEPLOY.md, "Publishing the crates").
+name: publish
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: 'Upload to crates.io (left unticked: package and verify only)'
+        type: boolean
+        default: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: an upload runs on the release tag of this version, and nowhere else
+        if: ${{ inputs.upload }}
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "frazaro-core") | .version')
+          if [ "$GITHUB_REF" != "refs/tags/v$version" ]; then
+            echo "refusing: $GITHUB_REF is not refs/tags/v$version, the tag release.ps1 pushes for this version"
+            exit 1
+          fi
+      - name: package and verify both crates, uploading nothing
+        run: cargo package --workspace --locked
+      - name: a token for this run only, from crates.io's Trusted Publishing
+        if: ${{ inputs.upload }}
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: publish both crates, the core first
+        if: ${{ inputs.upload }}
+        run: cargo publish --workspace --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
