@@ -82,11 +82,21 @@ usage:
                          formula with its cached value, or blank - one form
                          a line in a fixed order, nothing when the two hold
                          the same; with --counts, the counts and times alone
+  frazaro audit <file.xlsx> [--counts]
+                         the audit list (PORT.8, slice 8d): where a
+                         workbook's risks are, read from the file - a
+                         constant typed over a column of formulas, a formula
+                         inconsistent with its neighbours, a name nothing
+                         refers to, a reference to an empty cell, a hidden
+                         sheet, a link to another workbook - one finding a
+                         line in a fixed order, nothing when there is
+                         nothing to report; with --counts, the six counts
+                         and the times alone
   frazaro version        the version of the core this door is built on
   frazaro help           this text
 
 Not in this version (docs/HORIZON.md, section 12, slice by slice):
-  check, run, ask, audit
+  check, run, ask
 ";
 
 /// A file as text: UTF-8, a leading byte-order mark dropped, line endings
@@ -841,6 +851,83 @@ fn diff(args: &[String]) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// `frazaro audit <file.xlsx> [--counts]` (PORT.8, slice 8d): the file read
+/// as `reflect` reads it into the audit's index, then the six walks, one
+/// finding a line in the fixed order, or with `--counts` one line of counts
+/// and times. Exit 0 whenever the walks ran, findings or none; a refusal
+/// exits 1; a usage error or an unreadable file exits 2.
+fn audit(args: &[String]) -> ExitCode {
+    const USAGE_LINE: &str = "usage: frazaro audit <file.xlsx> [--counts]";
+    let mut file: Option<&str> = None;
+    let mut counts = false;
+    for a in args {
+        if a == "--counts" {
+            counts = true;
+        } else if a.starts_with("--") || file.is_some() {
+            eprintln!("{USAGE_LINE}");
+            return ExitCode::from(2);
+        } else {
+            file = Some(a);
+        }
+    }
+    let Some(file) = file else {
+        eprintln!("{USAGE_LINE}");
+        return ExitCode::from(2);
+    };
+    if !is_file(file) {
+        return refuse_missing("vla-file-not-found", file);
+    }
+    let bytes = match std::fs::read(file) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("frazaro: cannot read {file}: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    let opened = std::time::Instant::now();
+    let package = match frazaro_core::reflect::ooxml::Package::open(&bytes, file) {
+        Ok(p) => p,
+        Err(refusal) => {
+            eprintln!("{refusal}");
+            return ExitCode::from(1);
+        }
+    };
+    let open_ms = ms_since(opened);
+    use frazaro_core::reflect::audit::{self as au, FindingSink};
+    let started = std::time::Instant::now();
+    let mut index = au::AuditIndex::new(&package);
+    for i in 0..package.sheets().len() {
+        if let Err(refusal) = package.walk_sheet(i, &mut index) {
+            eprintln!("{refusal}");
+            return ExitCode::from(1);
+        }
+    }
+    let indexed_ms = ms_since(started);
+    if counts {
+        let started = std::time::Instant::now();
+        let stats = au::audit(&index, &package, &mut au::Discard);
+        println!(
+            "audit: {} open {open_ms:.1} ms indexed {indexed_ms:.1} ms walked {:.1} ms",
+            stats.line(),
+            ms_since(started)
+        );
+        return ExitCode::SUCCESS;
+    }
+    use std::io::Write;
+    struct Findings<W: Write>(W);
+    impl<W: Write> FindingSink for Findings<W> {
+        fn finding(&mut self, finding: &au::Finding<'_>) {
+            let _ = writeln!(self.0, "{}", au::line(finding));
+        }
+    }
+    let mut out = Findings(std::io::BufWriter::new(std::io::stdout().lock()));
+    au::audit(&index, &package, &mut out);
+    if out.0.flush().is_err() {
+        return ExitCode::from(2);
+    }
+    ExitCode::SUCCESS
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -853,6 +940,7 @@ fn main() -> ExitCode {
         Some("rebuild") => rebuild(&args[1..]),
         Some("reflect") => reflect(&args[1..]),
         Some("diff") => diff(&args[1..]),
+        Some("audit") => audit(&args[1..]),
         Some("version") | Some("--version") | Some("-V") => {
             let core = frazaro_core::version();
             let abi = frazaro_core::frazaro_abi_version();

@@ -22,3 +22,4 @@
 (changed "Model!A6" 45930 blank)
 (changed "Data!A5" blank "tape")
 (changed "Data!B5" blank 40)
+(changed "Review!D2" (formula "=Model!H1" 0) (formula "=Model!H1" 1))

@@ -80,6 +80,14 @@ against the changed copy build_reflect_fixture.ps1 -Changed writes; the
 changed copy is also the reflect kind's sixth row. The control's fake
 answers each from the golden of the pair, found by the new file's name,
 and the mutant changes one character.
+
+2026-10-05, PORT.8 (the treaty's amendment of that date, slice 8d): an
+eighth kind, audit - a fixture workbook to its findings, one form a line
+in a fixed order, compared as text the way the reflect kind compares it.
+Three rows: the reader's fixture, its changed copy and the first build
+golden. The control's fake answers each from the golden beside its
+fixture; the mutant changes one character, and for a golden shorter than
+the usual cut it appends one, so that a three-line golden still fails it.
 #>
 param(
     [string]$Impl = '',
@@ -244,6 +252,14 @@ function Get-Oracles([string]$root) {
                  Old = 'scripts/build/model.xlsx'; New = 'scripts/build/into_golden.xlsx'; Golden = 'scripts/reflect/model_into_diff.vla' })
     $list.Add(@{ Kind = 'diff'; Label = 'fixture.xlsx vs changed.xlsx -> fixture_changed_diff.vla'
                  Old = 'scripts/reflect/fixture.xlsx'; New = 'scripts/reflect/changed.xlsx'; Golden = 'scripts/reflect/fixture_changed_diff.vla' })
+    # 2026-10-05 (PORT.8, slice 8d): the audit kind, a workbook to its
+    # findings as text.
+    $list.Add(@{ Kind = 'audit'; Label = 'reflect/fixture.xlsx -> reflect/fixture_audit.vla'
+                 Input = 'scripts/reflect/fixture.xlsx'; Golden = 'scripts/reflect/fixture_audit.vla' })
+    $list.Add(@{ Kind = 'audit'; Label = 'reflect/changed.xlsx -> reflect/changed_audit.vla'
+                 Input = 'scripts/reflect/changed.xlsx'; Golden = 'scripts/reflect/changed_audit.vla' })
+    $list.Add(@{ Kind = 'audit'; Label = 'build/fixture_golden.xlsx -> reflect/build_fixture_audit.vla'
+                 Input = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/reflect/build_fixture_audit.vla' })
     $list.Add(@{ Kind = 'interpreter'; Label = 'interpreter_golden.txt (needs a workbook model: slice 6)'
                  Golden = 'scripts/interpreter_golden.txt' })
     $pb = Join-Path $root 'scripts/polyglotta'
@@ -347,6 +363,23 @@ function Measure-Oracles([string]$root, [string]$impl, [string]$scratch) {
                 # as the translate kinds are; the golden carries no stamp.
                 $golden = Join-Path $root $o.Golden
                 $run = Invoke-Impl $impl @('reflect', (Join-Path $root $o.Input))
+                if ($run.ExitCode -eq 3) { break }
+                $want = Read-NormalizedFile $golden
+                $got  = Get-NormalizedText $run.Stdout
+                if ($run.ExitCode -ne 0) { $r.Status = 'FAIL'; $r.Detail = "exit $($run.ExitCode)" }
+                elseif ($got -eq $want) { $r.Status = 'PASS'; $r.Detail = "$($want.Length) chars matched" }
+                else {
+                    $n = [Math]::Min($got.Length, $want.Length); $at = $n
+                    for ($i = 0; $i -lt $n; $i++) { if ($got[$i] -ne $want[$i]) { $at = $i; break } }
+                    $r.Status = 'FAIL'; $r.Detail = "differs at char $at of $($want.Length)"
+                }
+            }
+            'audit' {
+                # 2026-10-05 (PORT.8, slice 8d): a workbook to its findings as
+                # text, normalized as the reflect kind is; the door exits 0
+                # findings or none, and the golden carries no stamp.
+                $golden = Join-Path $root $o.Golden
+                $run = Invoke-Impl $impl @('audit', (Join-Path $root $o.Input))
                 if ($run.ExitCode -eq 3) { break }
                 $want = Read-NormalizedFile $golden
                 $got  = Get-NormalizedText $run.Stdout
@@ -493,9 +526,22 @@ switch (`$kind) {
         }
         `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))
     }
+    'audit' {
+        # The golden beside the fixture, by the fixture's name (2026-10-05, PORT.8 slice 8d).
+        `$base = [System.IO.Path]::GetFileNameWithoutExtension(`$a[1])
+        `$which = switch (`$base) {
+            'fixture'        { 'scripts/reflect/fixture_audit.vla' }
+            'changed'        { 'scripts/reflect/changed_audit.vla' }
+            'fixture_golden' { 'scripts/reflect/build_fixture_audit.vla' }
+            default          { exit 3 }
+        }
+        `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))
+    }
     default { exit 3 }
 }
-if (`$mutant -and `$g.Length -gt 200) { `$g = `$g.Substring(0, 100) + 'X' + `$g.Substring(101) }
+# The mutant: one character changed inside a long golden, one appended to
+# a short one (2026-10-05: the audit kind's three-line golden).
+if (`$mutant) { if (`$g.Length -gt 200) { `$g = `$g.Substring(0, 100) + 'X' + `$g.Substring(101) } else { `$g = `$g + 'X' } }
 Write-Output `$g
 exit 0
 "@

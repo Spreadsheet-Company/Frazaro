@@ -25,6 +25,12 @@ cell by eye) pin the whole walk:
   Secret (very hidden): A1 do not show
   Q1 Data (visible): B2 10
   It's (visible): A1 7
+  Review (visible; PORT.8 slice 8d, one case of each column walk of
+    `frazaro audit` and two empty references): A1:A5 10, 20, 30, 40, 50;
+    B1:B5 =A1*2 filled (20, 40, 80, 100) with B3 typed over by 61; C1:C5
+    =A1+1 filled (11, 21, 41, 51) with C3 =A3+2 (32), inconsistent;
+    D1 =Z9 (0), an empty cell of this sheet; D2 =Model!H1 (0), the
+    formatted blank of Model
 
 and the defined names Rate = 0.2, HiddenName = 3 (hidden), Local =
 Model!$B$2 (scoped to Model), Range1 = Data!$A$2:$B$4, Broken = Model!#REF!,
@@ -42,9 +48,12 @@ Broken gone, Deep = Rate new; the Table Sales a row longer (tape, 40); on
 Model, B1 1300, B2 800.0 (one value with 800, so no change), B3 typed over
 by the constant 500, D1 =SUM(B1:B2), H1 1, A6 cleared, A1 Revenues, A5
 FALSE, and every cached value recomputed by hand (C1 2600, C3 1000, D1
-2100, D2 1300, D4 1305, E1 100, E3 2600, B4 125, H2 Revenues!). Its zip and
-document stamps are 2026-10-04. Each edit must find its target once, or
-the script stops.
+2100, D2 1300, D4 1305, E1 100, E3 2600, B4 125, H2 Revenues!), and on
+Review D2 1, since the copy fills Model!H1. Its zip and document stamps are
+2026-10-04. Each edit must find its target once, or the script stops. The
+audit of each (fixture_audit.vla, changed_audit.vla; the treaty's oracle
+10) lists Review's B3, C3, D1 and, for the fixture alone, D2, with the
+unused names, the hidden sheets and the link each file has.
 
 WHY A SCRIPT: a workbook made by hand could not be rebuilt byte for byte,
 and this one is a fixture of the treaty's oracle 8 (conformance/README.md):
@@ -82,7 +91,7 @@ $parts['[Content_Types].xml'] = $head + '<Types xmlns="http://schemas.openxmlfor
     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
     '<Default Extension="xml" ContentType="application/xml"/>' +
     '<Override PartName="/xl/workbook.xml" ContentType="' + $ctBase + 'sheet.main+xml"/>' +
-    ((1..6 | ForEach-Object { '<Override PartName="/xl/worksheets/sheet' + $_ + '.xml" ContentType="' + $ctBase + 'worksheet+xml"/>' }) -join '') +
+    ((1..7 | ForEach-Object { '<Override PartName="/xl/worksheets/sheet' + $_ + '.xml" ContentType="' + $ctBase + 'worksheet+xml"/>' }) -join '') +
     '<Override PartName="/xl/tables/table1.xml" ContentType="' + $ctBase + 'table+xml"/>' +
     '<Override PartName="/xl/externalLinks/externalLink1.xml" ContentType="' + $ctBase + 'externalLink+xml"/>' +
     '<Override PartName="/xl/metadata.xml" ContentType="' + $ctBase + 'sheetMetadata+xml"/>' +
@@ -106,6 +115,7 @@ $parts['xl/workbook.xml'] = $head + '<workbook ' + $ns + '>' +
     '<sheet name="Secret" sheetId="4" state="veryHidden" r:id="rId4"/>' +
     '<sheet name="Q1 Data" sheetId="5" r:id="rId5"/>' +
     '<sheet name="It''s" sheetId="6" r:id="rId6"/>' +
+    '<sheet name="Review" sheetId="7" r:id="rId11"/>' +
     '</sheets>' +
     '<externalReferences><externalReference r:id="rId9"/></externalReferences>' +
     '<definedNames>' +
@@ -124,6 +134,7 @@ $parts['xl/_rels/workbook.xml.rels'] = $head + '<Relationships xmlns="http://sch
     '<Relationship Id="rId8" Type="' + $relBase + 'sharedStrings" Target="sharedStrings.xml"/>' +
     '<Relationship Id="rId9" Type="' + $relBase + 'externalLink" Target="externalLinks/externalLink1.xml"/>' +
     '<Relationship Id="rId10" Type="' + $relBase + 'sheetMetadata" Target="metadata.xml"/>' +
+    '<Relationship Id="rId11" Type="' + $relBase + 'worksheet" Target="worksheets/sheet7.xml"/>' +
     '</Relationships>'
 $margins = '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>'
 $parts['xl/worksheets/sheet1.xml'] = $head + '<worksheet ' + $ns + '>' +
@@ -200,6 +211,19 @@ $parts['xl/worksheets/sheet5.xml'] = $head + '<worksheet ' + $ns + '>' +
 $parts['xl/worksheets/sheet6.xml'] = $head + '<worksheet ' + $ns + '>' +
     '<dimension ref="A1"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/>' +
     '<sheetData><row r="1"><c r="A1"><v>7</v></c></row></sheetData>' + $margins + '</worksheet>'
+# Review (PORT.8, slice 8d): one case of each column walk of `frazaro audit`
+# and two empty references. A1:A5 the inputs; B1:B5 =A1*2 filled, B3 typed
+# over by 61; C1:C5 =A1+1 filled, C3 =A3+2 inconsistent; D1 =Z9, an empty
+# cell of this sheet; D2 =Model!H1, the formatted blank of Model.
+$parts['xl/worksheets/sheet7.xml'] = $head + '<worksheet ' + $ns + '>' +
+    '<dimension ref="A1:D5"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/>' +
+    '<sheetData>' +
+    '<row r="1"><c r="A1"><v>10</v></c><c r="B1"><f>A1*2</f><v>20</v></c><c r="C1"><f>A1+1</f><v>11</v></c><c r="D1"><f>Z9</f><v>0</v></c></row>' +
+    '<row r="2"><c r="A2"><v>20</v></c><c r="B2"><f>A2*2</f><v>40</v></c><c r="C2"><f>A2+1</f><v>21</v></c><c r="D2"><f>Model!H1</f><v>0</v></c></row>' +
+    '<row r="3"><c r="A3"><v>30</v></c><c r="B3"><v>61</v></c><c r="C3"><f>A3+2</f><v>32</v></c></row>' +
+    '<row r="4"><c r="A4"><v>40</v></c><c r="B4"><f>A4*2</f><v>80</v></c><c r="C4"><f>A4+1</f><v>41</v></c></row>' +
+    '<row r="5"><c r="A5"><v>50</v></c><c r="B5"><f>A5*2</f><v>100</v></c><c r="C5"><f>A5+1</f><v>51</v></c></row>' +
+    '</sheetData>' + $margins + '</worksheet>'
 $parts['xl/tables/table1.xml'] = $head + '<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Sales" displayName="Sales" ref="A1:B4" totalsRowShown="0">' +
     '<autoFilter ref="A1:B4"/>' +
     '<tableColumns count="2"><tableColumn id="1" name="Item"/><tableColumn id="2" name="Amount"/></tableColumns>' +
@@ -261,15 +285,17 @@ if ($Changed) {
     # Sheets: Secret removed, Scratch unhidden, Audit added at the end.
     Edit-Part 'xl/workbook.xml' '<sheet name="Scratch" sheetId="3" state="hidden" r:id="rId3"/>' '<sheet name="Scratch" sheetId="3" r:id="rId3"/>'
     Edit-Part 'xl/workbook.xml' '<sheet name="Secret" sheetId="4" state="veryHidden" r:id="rId4"/>' ''
-    Edit-Part 'xl/workbook.xml' '<sheet name="It''s" sheetId="6" r:id="rId6"/>' '<sheet name="It''s" sheetId="6" r:id="rId6"/><sheet name="Audit" sheetId="7" r:id="rId11"/>'
+    Edit-Part 'xl/workbook.xml' '<sheet name="Review" sheetId="7" r:id="rId11"/>' '<sheet name="Review" sheetId="7" r:id="rId11"/><sheet name="Audit" sheetId="8" r:id="rId12"/>'
     Edit-Part '[Content_Types].xml' ('<Override PartName="/xl/worksheets/sheet4.xml" ContentType="' + $ctBase + 'worksheet+xml"/>') ''
-    Edit-Part '[Content_Types].xml' ('<Override PartName="/xl/worksheets/sheet6.xml" ContentType="' + $ctBase + 'worksheet+xml"/>') ('<Override PartName="/xl/worksheets/sheet6.xml" ContentType="' + $ctBase + 'worksheet+xml"/><Override PartName="/xl/worksheets/sheet7.xml" ContentType="' + $ctBase + 'worksheet+xml"/>')
+    Edit-Part '[Content_Types].xml' ('<Override PartName="/xl/worksheets/sheet7.xml" ContentType="' + $ctBase + 'worksheet+xml"/>') ('<Override PartName="/xl/worksheets/sheet7.xml" ContentType="' + $ctBase + 'worksheet+xml"/><Override PartName="/xl/worksheets/sheet8.xml" ContentType="' + $ctBase + 'worksheet+xml"/>')
     Edit-Part 'xl/_rels/workbook.xml.rels' ('<Relationship Id="rId4" Type="' + $relBase + 'worksheet" Target="worksheets/sheet4.xml"/>') ''
-    Edit-Part 'xl/_rels/workbook.xml.rels' ('<Relationship Id="rId10" Type="' + $relBase + 'sheetMetadata" Target="metadata.xml"/>') ('<Relationship Id="rId10" Type="' + $relBase + 'sheetMetadata" Target="metadata.xml"/><Relationship Id="rId11" Type="' + $relBase + 'worksheet" Target="worksheets/sheet7.xml"/>')
+    Edit-Part 'xl/_rels/workbook.xml.rels' ('<Relationship Id="rId11" Type="' + $relBase + 'worksheet" Target="worksheets/sheet7.xml"/>') ('<Relationship Id="rId11" Type="' + $relBase + 'worksheet" Target="worksheets/sheet7.xml"/><Relationship Id="rId12" Type="' + $relBase + 'worksheet" Target="worksheets/sheet8.xml"/>')
     $parts.Remove('xl/worksheets/sheet4.xml')
-    $parts['xl/worksheets/sheet7.xml'] = $head + '<worksheet ' + $ns + '>' +
+    $parts['xl/worksheets/sheet8.xml'] = $head + '<worksheet ' + $ns + '>' +
         '<dimension ref="A1"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/>' +
         '<sheetData><row r="1"><c r="A1" t="s"><v>11</v></c></row></sheetData>' + $margins + '</worksheet>'
+    # Review's D2 reads Model!H1, which the copy fills with 1.
+    Edit-Part 'xl/worksheets/sheet7.xml' '<c r="D2"><f>Model!H1</f><v>0</v></c>' '<c r="D2"><f>Model!H1</f><v>1</v></c>'
     # Names: Rate 0.2 to 0.25, Broken gone, Deep = Rate new.
     Edit-Part 'xl/workbook.xml' '<definedName name="Broken">Model!#REF!</definedName>' '<definedName name="Deep">Rate</definedName>'
     Edit-Part 'xl/workbook.xml' '<definedName name="Rate">0.2</definedName>' '<definedName name="Rate">0.25</definedName>'

@@ -11,7 +11,8 @@
 //! range)`, `cell(sheet, addr, value)`, `formula(sheet, addr, text)` and,
 //! from 8b, `refers(from, to)`; `changed` is `diff`'s (8c, `diff.rs`: two
 //! files read through this reader and compared) and `ran` comes from no
-//! file.
+//! file. `audit.rs` (8d) asks Stage 2.3's audit list of the relations:
+//! six named walks, one finding a row.
 //!
 //! The reader streams. It never builds a model of the workbook: each sheet
 //! part is inflated whole (the bound every part already has, 256 MB), walked
@@ -29,6 +30,7 @@
 //! `crate::refers`, the port of `VLA_Refers.bas`). `print.rs` has the
 //! spelling; `cone.rs` sizes a cell's cone through an index of the walk.
 
+pub mod audit;
 pub mod cone;
 pub mod cursor;
 pub mod diff;

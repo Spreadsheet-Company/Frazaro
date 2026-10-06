@@ -70,6 +70,17 @@ computer's approval (SEC.9). The built-in phrasebooks contain no
 `raw` rule and are audited at build time. Older text's "zero-trust
 runtime" means *no trust prompt*, not least privilege (THREAT_MODEL §0).
 
+*Added 2026-10-05 (`PORT.8`, slice 8d).* The command-line door reads a
+workbook's file with no Excel on the machine and can be asked where its
+risks are: `frazaro audit model.xlsx` lists constants typed over a column
+of formulas, formulas inconsistent with their neighbours, unused names,
+references to empty cells, hidden sheets and links to other workbooks, one
+finding a line; `frazaro diff old.xlsx new.xlsx` lists what changed between
+two files; `frazaro reflect model.xlsx` prints what the file holds. All
+three read and never write, make no connection, and print counts alone
+with `--counts` for a file whose contents must not leave the machine
+(`cli/README.md`).
+
 ## 4. Security items as of 0.5.6
 
 Findings from reading the code, not exploits anyone has run; no external

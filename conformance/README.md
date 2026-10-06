@@ -733,3 +733,93 @@ for oracle 8.
 sheets-changed N names N tables N cells N compared N` and the times,
 `compared` being the addresses either file holds on the matched sheets,
 nothing from inside either file.
+
+## Amendment of 2026-10-05: oracle 10, the audit golden (`PORT.8`, slice 8d)
+
+Slice 8d asks Stage 2.3's audit list of a workbook's file: `frazaro audit
+<file.xlsx>` prints where the workbook's risks are, six of the seven
+questions of the roadmap's `AXM.10` (the totals that do not foot wait for a
+meaning of "total"), each a named walk over the reader's relations with no
+engine and no host. As with oracles 8 and 9, the VBA reference has no
+output to reproduce: `AXM.10`'s queries over the live workbook are not
+built, so each walk is defined here in words first, the goldens are the
+core's own output blessed by the owner reading the fixture in Excel, and the
+VBA's audit, when it comes as `DATALOG` over `REFLECT`, is held to the same
+findings. `SD-18` is untouched.
+
+**The walks, in words.** A *typed-over constant* is a cell holding a value
+and no formula whose nearest cells above and below in its column that the
+file holds both hold formulas with one text in R1C1 relative to their own
+cells. An *inconsistent formula* is a formula cell whose nearest such
+neighbours agree in R1C1 while it differs. A cell at either end of a
+column, or whose two neighbours do not agree, is never judged; a blank
+between is passed over, since "nearest the file holds" is the rule; an
+array formula's spilled cells are values, so one between two like formulas
+reads as typed over, a limit the fixture avoids and this sentence records.
+An *unused name* is a defined name that no formula's `refers` names and no
+other name's refers-to names, a name matched by its bare text without case
+and without scope; Excel's own `_xlfn.` placeholders and its `_xlnm.` names
+(print areas, filter databases) are never reported, nor are Frazaro's own
+marks, the build stamp `Frazaro.Build` that `rebuild` reads and the add-in's
+`VLAt_` names, which no formula refers to by design (a finding every built
+workbook carried would teach the reader to skip the line). An *empty reference* is
+a single-cell reference in a formula, not a range, a column, a row, a name,
+a spill or a link, to a sheet the file has, whose cell has no row: a
+formatted blank is empty, and a sheet the file lacks is not judged here
+(the cone's `unresolved` counts it). A *hidden sheet* is a `sheet` row whose
+state is not `visible`. An *external link* is a formula's reference into
+another workbook, as `refers` spells it.
+
+**The rows, their order and their spelling.** One finding is one row:
+`(typed-over "<cell>" <value> "<expected>")`, the cell as a reference
+spells it, its value as a `cell` row prints it, and the neighbours' formula
+rendered at the cell, which is the formula a fill would have put there;
+`(inconsistent "<cell>" "<formula>" "<expected>")`, the formula as written
+and the neighbours' rendered at the cell; `(unused-name "<name>"
+"<refers-to>")`, the name as its `name` row spells it; `(empty-reference
+"<cell>" "<target>")`, the formula's cell and the target as its `refers`
+row spells it; `(hidden-sheet "<name>" <state>)`; `(external-link "<cell>"
+"<target>")`. The order: the six relations in that order; inside one, sheet
+by sheet in tab order and cell by cell in document order, a formula's
+targets sorted as its `refers` rows are and listed once each, the names by
+name without case, the hidden sheets in tab order.
+
+- **10. The audit golden.** Three rows, each a fixture to its findings:
+  `scripts/reflect/fixture.xlsx` to `scripts/reflect/fixture_audit.vla`
+  (the fixture gains a sheet, `Review`, holding one case of each column
+  walk and the two empty references; nine findings with the unused names,
+  the hidden sheets and the link it had); the changed copy,
+  `scripts/reflect/changed.xlsx` to `scripts/reflect/changed_audit.vla`
+  (six: no hidden sheet, `Deep` unused, one empty reference, since the
+  copy fills `Model!H1`); and the first build golden,
+  `scripts/build/fixture_golden.xlsx` to
+  `scripts/reflect/build_fixture_audit.vla` (three: `Output!C3` and `C4`
+  refer to `B4` and `B5`, which nothing holds, a finding in a file the
+  writer made from a sentence that filled a formula past its data). The
+  reflect goldens of the fixture and the changed copy grow by the new
+  sheet's forty rows, and the diff golden of the pair by one row,
+  `Review!D2`, recomputed in the copy. The comparison is the one oracle 1
+  makes.
+
+The contract gains one command:
+
+- `<impl> audit <file.xlsx>` writes the findings to stdout in the order
+  above and exits 0, findings or none: a workbook with nothing to report
+  prints nothing. A refusal is the reader's, exits 1, and since the index is
+  built before any walk, no finding is printed before one; exit 3 says the
+  oracle is not attempted.
+
+`tools/check_audit_golden.ps1` holds each golden's line count as a floor
+that never goes down; compares the door's output to each golden whole,
+naming the first differing line; and reads the fixed order off each golden
+itself (the six relations in order, the cell rows of one grouped by sheet
+and never descending, the names never descending), so that a golden a
+drifted printer regenerated fails on every push; its `-Control` passes a
+fake, fails a mutant naming the line, and fails a copy with a row out of
+order. The `core` CI job runs it after the build, and `tools/prove.ps1`
+scores the three rows as the kind `audit`.
+
+`--counts` is a door's mode, not an oracle: `typed-over N inconsistent N
+unused-names N empty-references N hidden-sheets N external-links N` and the
+times, nothing from inside the file: the number internal audit wants of a
+model it may not show.

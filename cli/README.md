@@ -151,13 +151,21 @@ you built is the one this page describes.
    is what saving a file should do. `frazaro diff tour.xlsx
    scripts\build\fixture_golden.xlsx` prints nothing: the same bytes.
 
-10. **A sentence the language refuses.** A file holding `Put 5 into cell
+10. **Where the risks are.** `frazaro audit tour.xlsx` prints three
+    lines: `(empty-reference "Output!C3" "Output!B4")`, then C4's to B4
+    and to B5. The sentence filled `=B2+B3` down rows 2 to 4 of column C,
+    past the two values in column B, so two of the three formulas add
+    cells nothing holds. Nothing else: no constant typed over a formula,
+    no inconsistent formula, no unused name, no hidden sheet, no link.
+    `frazaro audit tour.xlsx --counts` prints the six counts alone.
+
+11. **A sentence the language refuses.** A file holding `Put 5 into cell
    B2.` and `Set total to $5.` through `translate-vla` prints, on stderr,
    `I don't understand the character '$' - write the plain number (or
    'Format ... as currency.' for display) (line 2)` and exits 1: the
    add-in's words, with the line.
 
-11. **A sentence the writer cannot hold.** A file holding `Put 5 into cell
+12. **A sentence the writer cannot hold.** A file holding `Put 5 into cell
    B2.` and `Say "hello".` through `build` prints `frazaro build writes
    only what a sheet can hold with nothing running: a value or a formula
    into a cell, a range or rows of a column, and which sheet it goes on.
@@ -166,7 +174,7 @@ you built is the one this page describes.
    program through `translate-vla` is fine: the sentence is good English
    that needs the add-in's Run.
 
-12. **A phrasebook, proved and loaded.** `frazaro prove
+13. **A phrasebook, proved and loaded.** `frazaro prove
     scripts\polyglotta\english.vla` prints `PASS 482/482`; `frazaro load
     scripts\polyglotta\english.vla --prelude scripts\prelude.vla` prints
     `loaded: 240 rules, 220 macros, 460 tests (22 expected fails) from
@@ -327,9 +335,9 @@ reading inside such a call goes on, so `=OFFSET(B1,1,0)` refers to
 cell has a `cell` row only when the file holds its last computed value, so
 a workbook `frazaro build` wrote and nothing has opened has `formula` rows
 alone for its formulas, and the same workbook saved from Excel gains a
-`cell` row for each. A formatted cell with nothing in it has no row. The
-difference between two files (`diff`) and the audit questions come in the
-slices after this one.
+`cell` row for each. A formatted cell with nothing in it has no row. Two
+files are compared by `diff` and the audit questions asked by `audit`,
+below, both over this reading.
 
 With `--counts`, nothing from inside the workbook is printed: one line a
 sheet, by position, with its counts of cells, formulas, distinct formulas
@@ -423,6 +431,56 @@ The treaty's oracle 9 holds it: `check_diff_golden.ps1` and the core's
 tests require each pair's difference whole, the build golden against its
 Excel-saved copy among the pairs.
 
+### `frazaro audit`
+
+```text
+frazaro audit <file.xlsx> [--counts]
+```
+
+The reader's fourth slice (`PORT.8`, 8d): the audit list, where a
+workbook's risks are, read from the file. Six questions, each a walk over
+what `reflect` reads, one finding a line, in an order that never changes:
+
+```text
+(typed-over "Review!B3" 61 "=A3*2")
+(inconsistent "Review!C3" "=A3+2" "=A3+1")
+(unused-name "Range1" "Data!$A$2:$B$4")
+(empty-reference "Review!D1" "Review!Z9")
+(hidden-sheet "Scratch" hidden)
+(external-link "Model!E2" "[Rates.xlsx]Sheet1!A1")
+```
+
+A **typed-over constant** is a value whose nearest neighbours above and
+below in its column both hold formulas that agree in R1C1; the row shows
+the value and the formula those neighbours would have put there. An
+**inconsistent formula** differs in R1C1 from two such neighbours that
+agree; the row shows the formula as written and the neighbours'. A cell at
+the top or bottom of a column, or between neighbours that disagree, is
+never reported, so a finding is one worth acting on. An **unused name** is
+a defined name no formula and no other name refers to (Excel's own
+`_xlnm.` names, print areas and filter databases, and Frazaro's own marks,
+the build stamp and the add-in's `VLAt_` names, are never reported). An
+**empty reference** is a formula's reference to one cell, on a sheet the
+file has, that holds nothing: a formatted blank counts, a range is never
+expanded. A **hidden sheet** is what its `sheet` row says, and an
+**external link** is a formula that reaches another workbook. The order is
+those six, and inside each sheet by sheet in tab order and cell by cell in
+row order, names by name. A workbook with nothing to report prints
+nothing, and the exit code is 0 either way: the findings are the answer.
+The totals that do not foot wait for a later slice.
+
+With `--counts`, one line and nothing from inside the file: `audit:
+typed-over 1 inconsistent 1 unused-names 2 empty-references 2
+hidden-sheets 2 external-links 1 open 0.9 ms indexed 1.4 ms walked 0.3
+ms`, the number internal audit wants of a model it may not show.
+
+Refusals, exit 1, are the reader's (under `reflect`, above); the whole
+file is read before the first finding, so nothing is printed before one.
+On the tab there is nothing yet: these questions asked of the live
+workbook in English are `AXM.10`'s. The treaty's oracle 10 holds it:
+`check_audit_golden.ps1` and the core's tests require each fixture's
+findings whole, the build golden's three empty references among them.
+
 ### `frazaro load`
 
 ```text
@@ -479,9 +537,8 @@ version; 'frazaro help' lists the commands.`
 
 ## Not in this version
 
-`check`, `run`, `ask` and `audit` wait for their slices of
-`docs/HORIZON.md` section 12: `audit` for the reader's next slice
-(`PORT.8`, 8d), `ask` for the question act and the engines
+`check`, `run` and `ask` wait for their slices of
+`docs/HORIZON.md` section 12: `ask` for the question act and the engines
 (`AXM.9`, `PORT.9`), `run` for the interpreter over the sheet model
 (`PORT.10`), `check` for the GitHub Action among the doors (`PORT.11`). The
 usage text lists them under *Not in this version* so a reader who guesses
@@ -507,7 +564,7 @@ the command learns where it is.
 treaty: oracle 1 and 1a on the corpus program, 1b on the compile golden,
 oracle 3 on every phrasebook, oracle 7 on both build goldens with `rebuild`
 run on each, oracle 8 on the six reflect fixtures, oracle 9 on the three
-diff pairs; `22 passed, 0 failed, 2
+diff pairs, oracle 10 on the three audit rows; `25 passed, 0 failed, 2
 not attempted, 1 library` today, the two not attempted being the
 interpreter golden (`PORT.10`) and the engine proofs (`PORT.9`). `-Control`
 first proves the runner on a fake door and a mutant. Five checks hold

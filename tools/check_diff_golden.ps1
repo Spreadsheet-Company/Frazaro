@@ -70,10 +70,12 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # comparison, and no row for a 800 that became 800.0). Raise a floor when a
 # regenerated golden is longer; lower it only with a regenerated golden that
 # is shorter, and say why.
+# 2026-10-05, PORT.8 slice 8d: the fixture's Review sheet is in both files,
+# and the copy recomputes its D2 (Model!H1 filled there): 24 -> 25.
 $goldens = @(
     @{ Name = 'build_fixture_saved'; Old = 'scripts/build/fixture_golden.xlsx'; New = 'scripts/reflect/saved.xlsx';      Golden = 'scripts/reflect/build_fixture_saved_diff.vla'; Floor = 6 },
     @{ Name = 'model_into';          Old = 'scripts/build/model.xlsx';          New = 'scripts/build/into_golden.xlsx'; Golden = 'scripts/reflect/model_into_diff.vla';          Floor = 4 },
-    @{ Name = 'fixture_changed';     Old = 'scripts/reflect/fixture.xlsx';      New = 'scripts/reflect/changed.xlsx';   Golden = 'scripts/reflect/fixture_changed_diff.vla';     Floor = 24 }
+    @{ Name = 'fixture_changed';     Old = 'scripts/reflect/fixture.xlsx';      New = 'scripts/reflect/changed.xlsx';   Golden = 'scripts/reflect/fixture_changed_diff.vla';     Floor = 25 }
 )
 
 # The forms a diff prints and the phase each belongs to in the fixed order.

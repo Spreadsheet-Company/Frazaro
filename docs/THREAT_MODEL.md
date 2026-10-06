@@ -333,4 +333,8 @@ prints counts and times and no cell's content, for a measurement over a
 confidential model. *Appended 2026-10-04, slice 8c:* `frazaro diff` reads
 two files the same way, one sheet of each at a time, and prints what
 differs between them; the same parts, the same bounds, nothing written,
-and its `--counts` prints counts alone.
+and its `--counts` prints counts alone. *Appended 2026-10-05, slice 8d:*
+`frazaro audit` reads one file the same way into an index of every cell,
+as `--cone` does, and prints the audit list's findings; the same parts,
+the same bounds, nothing written, and its `--counts` prints the six
+counts alone.

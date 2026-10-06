@@ -317,7 +317,14 @@
   new side by side, a formula shown with the value the file holds for it,
   so that a formula typed over by a constant, a repointed name or a sheet
   gone hidden each read as one line; two files that hold the same print
-  nothing. The audit questions come in the slice after these.
+  nothing. `frazaro audit model.xlsx` prints where a workbook's risks are,
+  read from the file: a constant typed over a column of formulas, with the
+  formula its neighbours would have put there; a formula inconsistent with
+  its neighbours; a name nothing refers to; a reference to an empty cell; a
+  hidden sheet; a link to another workbook, one finding a line, and nothing
+  when there is nothing to report. These are the questions internal audit
+  runs by eye, answered with no Excel on the machine; `--counts` gives the
+  six counts alone for a model whose contents must not leave it.
 
 ### Known open security items
 

@@ -86,7 +86,7 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # 2026-10-04, AXM.7: 43 - check_refers_golden.ps1 (the refers golden agrees
 # with its fixture, every case names its cell and ends in its R1C1 record,
 # and the distinct reference kinds it reaches never go down).
-$expectedAtLeast = 44
+$expectedAtLeast = 45
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---

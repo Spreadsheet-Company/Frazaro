@@ -210,6 +210,14 @@ pub fn diff_relations(
     crate::reflect::diff::diff_text(old_bytes, old_label, new_bytes, new_label)
 }
 
+/// The audit list (PORT.8, slice 8d): a workbook's bytes read through the
+/// reader into the audit's index and the six walks run, one finding a line
+/// in the fixed order (`reflect::audit::audit_text`); `label` is what a
+/// refusal calls the file. Empty when there is nothing to report.
+pub fn audit_findings(bytes: &[u8], label: &str) -> Result<String, Refusal> {
+    crate::reflect::audit::audit_text(bytes, label)
+}
+
 /// `EnglishResetGrammar` and the loads: a fresh grammar over the prelude, each
 /// phrasebook text loaded in order as `vocab-N`, its proofs run as the add-in
 /// runs them, the first refusal ending the call.

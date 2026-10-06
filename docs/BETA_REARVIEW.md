@@ -7708,6 +7708,116 @@ written against.
   hand-computed cached values stand on the goldens alone until a later
   pass opens the copy. The slice was committed 2026-10-05; 8d, `audit`,
   follows.
+  **Slice 8d, `audit` (scoped and built 2026-10-05, the day 8c
+  committed; awaiting the owner's run).** `frazaro audit <file.xlsx>
+  [--counts]`: Stage 2.3's audit list over the file, six of `AXM.10`'s
+  seven questions as named walks with no engine (the totals that do not
+  foot wait, needing a meaning for "total"), each defined in words in
+  the slice plan above and held here to the letter. *Decided here, with
+  the reasons:* (1) One finding is one row of one of six relations, in
+  the proof corpus's notation like every row before it, so that the
+  goldens hold and `VlaReadForms` reads them later: `(typed-over
+  "Review!B3" 61 "=A3*2")`, the constant and the formula its neighbours
+  agree on rendered at that cell, which is what the analyst retypes;
+  `(inconsistent "Review!C3" "=A3+2" "=A3+1")`, the formula as written
+  and the neighbours' rendered at the cell; `(unused-name "Range1"
+  "Data!$A$2:$B$4")`; `(empty-reference "Review!D1" "Review!Z9")`, the
+  formula's cell and the target as `refers` spells it; `(hidden-sheet
+  "Scratch" hidden)`; `(external-link "Model!E2"
+  "[Rates.xlsx]Sheet1!A1")`. (2) The neighbours are the nearest cells
+  the file holds above and below in the column, as the plan says, and
+  a cell at either end of a column is never judged: conservative by
+  construction, so that a finding is one an auditor would act on and
+  the list never floods. An array formula's spilled cells are values,
+  so one between two like formulas would read as typed over; the
+  fixture holds none in that position and the limit is written down.
+  (3) A name is used when any formula's `refers` names it, by its bare
+  name without case and without scope, or when another name's
+  refers-to does; Excel's own `_xlnm.` names (print areas, filter
+  databases) are never reported, since no formula ever refers to them
+  by design. (4) An empty reference is a single-cell reference, not a
+  range, a column, a row, a name, a spill or a link, to a sheet the
+  file has, whose cell has no row: a formatted blank counts as empty,
+  a sheet the file lacks is not "empty" and is left to the cone's
+  `unresolved`. (5) The order: the six walks in `AXM.10`'s order, and
+  inside a walk sheet by sheet in tab order, cell by cell in document
+  order, a formula's targets sorted as its `refers` rows are, the names
+  by name without case. (6) The audit holds every cell of the workbook,
+  value and formula, in one index column-major by sheet (the column
+  neighbours are then two lookups), the second exception to streaming
+  after `--cone` and bounded the same way; the real model's cost is
+  `AXM.13`'s to measure. (7) Exit 0 whenever the walks ran, findings or
+  none, as `diff`; `--counts` the six counts and the times. (8) The
+  reader's fixture gains a sheet, `Review`, with one case of each
+  column walk and the two empty references (A1:A5 inputs; B1:B5 `=A1*2`
+  filled with B3 typed over by 61; C1:C5 `=A1+1` filled with C3 `=A3+2`;
+  D1 `=Z9`; D2 `=Model!H1`, the formatted blank), the hidden sheets, the
+  external link and the unused names being there already; the changed
+  copy carries the sheet too, with D2 recomputed to 1 since its H1 is
+  filled. *Three golden rows, oracle 10:* the fixture, the changed copy
+  and the first build golden (whose `Output!C3` and `C4` refer to B4 and
+  B5, which nothing holds: a real finding in a file the writer made).
+  Step 0, predicted before the code ran: (1) the fixture's audit is 9
+  rows, `Review!B3` typed over, `Review!C3` inconsistent, `Broken` and
+  `Range1` unused, `Review!D1` to `Review!Z9` and `Review!D2` to
+  `Model!H1` empty, `Scratch` and `Secret` hidden, `Model!E2` the link;
+  (2) the changed copy's is 6: the same two column findings, `Deep` and
+  `Range1` unused, `Review!D1` alone empty (H1 is filled there), no
+  hidden sheet, the link; (3) the build golden's is 3, `Output!C3` to
+  `Output!B4`, `Output!C4` to `Output!B4` and to `Output!B5`; (4) the
+  reflect goldens grow by the sheet's 40 rows, 90 to 130 and 89 to 129,
+  the two build goldens, the model and the saved copy unchanged; (5)
+  the diff golden of the fixture pair gains one row, `Review!D2`
+  `(formula "=Model!H1" 0)` to `(formula "=Model!H1" 1)`, 24 to 25, and
+  its `--counts` says `cells 18 compared 59`; (6) `--counts` on the
+  fixture says `typed-over 1 inconsistent 1 unused-names 2
+  empty-references 2 hidden-sheets 2 external-links 1`; (7) `cargo test`
+  206, 45 checks, `prove.ps1 -Impl` 25. On the core's own run six of
+  the seven held and (3) fell: the build golden's audit came out at four
+  rows, the stamp name `Frazaro.Build` reported as unused, which by the
+  walk's letter it is, no formula referring to it, and which by its
+  purpose is a mark that `rebuild` reads. *Decided:* Frazaro's own
+  marks, `Frazaro.Build` (`build::STAMP_NAME`) and the add-in's `VLAt_`
+  names, join Excel's `_xlnm.` names as never reported, the treaty
+  saying so and why: a finding every built workbook carried would teach
+  the reader to skip the unused-name line. The row came out at three
+  again. The model fixture, which step 0 did not name, reports `Rate`
+  unused, truly: nothing in the model uses it until a build into it
+  does, and the into golden reports nothing. **The owner's live check
+  for 8d:** (1) `cargo build --workspace`, then `target\debug\frazaro.exe
+  audit scripts\reflect\fixture.xlsx` prints the 9 lines of
+  `scripts\reflect\fixture_audit.vla`. (2) Open
+  `scripts\reflect\fixture.xlsx` in Excel (do not update links; the
+  fixture's bytes changed, the `Review` sheet being the one addition,
+  and Excel should open it without offering a repair). On `Review`: B3
+  shows 61 between B2 `=A2*2` and B4 `=A4*2`, against `(typed-over
+  "Review!B3" 61 "=A3*2")`; C3 `=A3+2` between C2 `=A2+1` and C4
+  `=A4+1`, against the `inconsistent` row; D1 `=Z9` and D2 `=Model!H1`
+  show 0, against the two `empty-reference` rows, and `Model!H1` is an
+  empty formatted cell; Formulas > Name Manager lists `Broken` and
+  `Range1`, which no cell uses, beside `HiddenName`, `Local` and `Rate`,
+  which G1, G2 and B4 use; the hidden sheets and the link are as 8a's
+  pass found them. (3) `target\debug\frazaro.exe audit
+  scripts\build\fixture_golden.xlsx` prints 3 lines, `Output!C3` to `B4`
+  and `Output!C4` to `B4` and `B5`: in the golden you opened for 7a,
+  column C's formulas run to row 4 while column B's values stop at row
+  3. (4) `target\debug\frazaro.exe audit scripts\reflect\fixture.xlsx
+  --counts` prints `audit: typed-over 1 inconsistent 1 unused-names 2
+  empty-references 2 hidden-sheets 2 external-links 1` and the times,
+  and `target\debug\frazaro.exe diff scripts\reflect\fixture.xlsx
+  scripts\reflect\changed.xlsx` now prints 25 lines, the last `(changed
+  "Review!D2" (formula "=Model!H1" 0) (formula "=Model!H1" 1))`. (5)
+  `powershell -File tools\run_checks.ps1` prints 45 passed and `cargo
+  test --workspace` 206 passed.
+  *The owner's pass, 2026-10-05:* the 9 and 3 lines as the goldens have
+  them, the counts, the pair's diff at 25 lines with `Review!D2` last,
+  206 tests, and the checks at 46 passed, the forty-sixth being another
+  session's `check_crate_package.ps1`, uncommitted in the shared tree at
+  the time. Excel opened the regenerated fixture with its links warning
+  and no repair; `Review` read 10, 20, 11, 0 / 20, 40, 21, 0 / 30, 61,
+  32 / 40, 80, 41 / 50, 100, 51, Excel's own green triangle on B3, the
+  constant among formulas, where the audit's first row points. The
+  slice was committed 2026-10-05; 8e, ODF, follows.
   **Constraints carried, in brief:** every refusal through the catalogue
   under `VLA-Reflect`; `cargo fmt`, `clippy -D warnings`, `test`, the wasm
   build and `check_core_imports.ps1` before every commit; the goldens lead
