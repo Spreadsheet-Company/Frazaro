@@ -34,6 +34,17 @@ hold with nothing running, a loop, a message, a value read from a cell, is
 named in the strip with its line, and the button waits; the VLA and VBA
 beside it are unaffected, since the translation stands.
 
+Under the workbook strip stands the reader (`PORT.8`, slice 8f): pick a
+workbook of your own, `.xlsx` or `.ods`, and the Reflect pane prints its
+relations as `frazaro reflect` prints them, or, by the picker beside the
+file, the audit list as `frazaro audit` prints it, or what changed from an
+earlier copy picked in the second input, as `frazaro diff` prints it, with a
+Copy button and a line under the pane giving the count or the refusal. The
+browser reads the picked file into memory and the script copies the bytes
+into the module's memory, where the same reader runs under the same bounds;
+the file goes nowhere, and a file input is no reference, so the offline check
+is unchanged by it.
+
 What the page does not do: it loads nothing from the network, writes nothing
 anywhere, and executes nothing; the download is the browser saving one file
 the person asked for. The VBA is text to paste into a module in Excel, or to
@@ -41,7 +52,9 @@ leave to the add-in. `tools/check_web_offline.ps1` holds the template to that
 doctrine, as `tools/check_core_imports.ps1` holds the core it carries.
 
 The page speaks to the core through `core/src/abi.rs`: an allocator pair, the
-two translate functions, the build, the gate and the version, every answer one
+two translate functions, the build, the reader's three (`frazaro_reflect`,
+`frazaro_audit` and `frazaro_diff`, a file's bytes and its name in, the lines
+the command-line door prints out), the gate and the version, every answer one
 record in the module's memory (four little-endian `u32`, status, line, id
 length and text length, then the id and the text; a build's status-0 record
 is the one whose text is bytes, the workbook, with their SHA-256 as its id).

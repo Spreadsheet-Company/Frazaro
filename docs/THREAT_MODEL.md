@@ -341,4 +341,11 @@ counts alone. *Appended 2026-10-05, slice 8e:* an OpenDocument `.ods`
 file is read the same way, its `mimetype` entry and its `content.xml`
 (held whole, since it holds every sheet) under the same bounds and the
 same cursor; its styles, settings, manifest and metadata are never
-decoded, and a link's file is read for its name alone.
+decoded, and a link's file is read for its name alone. *Appended
+2026-10-05, slice 8f:* the web page reads a workbook too, one the person
+picks: the browser's file reader hands the bytes to the module's memory,
+the same reader runs there under the same bounds, and the lines come back
+as a record; nothing is fetched, nothing is written, and the file never
+leaves the browser. The C linkage gains three functions
+(`frazaro_reflect`, `frazaro_audit`, `frazaro_diff`) and no capability,
+and the module's import section is still empty.

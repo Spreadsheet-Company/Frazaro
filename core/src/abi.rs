@@ -33,10 +33,21 @@
 //! SHA-256 in upper-case hex, the digest the door prints beside its byte
 //! count, so a page shows the digest of exactly what it hands over. The ABI
 //! number stays 1: an export was added and no signature changed its meaning.
+//!
+//! **The reader** (PORT.8, slice 8f): [`frazaro_reflect`], [`frazaro_audit`]
+//! and [`frazaro_diff`] take a workbook's bytes, an `.xlsx` or an `.ods`,
+//! with a name for the file, and answer with the lines `frazaro reflect`,
+//! `audit` and `diff` print for the same file, so that a page prints what
+//! the door prints and is held by the same goldens. The name is what a
+//! refusal calls the file, as the door's path is; given empty it is `the
+//! file`. Status 1 is the reader's refusal with line 0, there being no
+//! program line; status 2 a name that is not UTF-8. The ABI number stays 1
+//! again: three exports added, nothing changed.
 
 use std::alloc::{alloc, dealloc, Layout};
 
 use crate::api;
+use crate::messages::Refusal;
 
 const STATUS_OK: u32 = 0;
 const STATUS_REFUSED: u32 = 1;
@@ -301,6 +312,128 @@ pub unsafe extern "C" fn frazaro_build_xlsx(
     }
 }
 
+/// The name a host gave for a file, or `default` when it gave none: what a
+/// refusal calls the file, as the door's path is. A name that is not UTF-8
+/// is the status-2 record naming `what`.
+unsafe fn name_of<'a>(
+    ptr: *const u8,
+    len: u32,
+    default: &'a str,
+    what: &str,
+    out_len: *mut u32,
+) -> Result<&'a str, *mut u8> {
+    let b = unsafe { bytes(ptr, len) };
+    if b.is_empty() {
+        return Ok(default);
+    }
+    text(b, what, out_len)
+}
+
+/// A reader's answer as a record: status 0 with the lines the door prints,
+/// or status 1 with the refusal, its line 0 since a file has no program line.
+fn answer(result: Result<String, Refusal>, out_len: *mut u32) -> *mut u8 {
+    match result {
+        Ok(lines) => record(STATUS_OK, 0, "", lines.as_bytes(), out_len),
+        Err(e) => record(STATUS_REFUSED, 0, &e.id, e.text.as_bytes(), out_len),
+    }
+}
+
+/// `frazaro reflect` over C linkage (PORT.8, slice 8f): a workbook's bytes,
+/// an `.xlsx` or an `.ods`, answered with its relations in the fixed order,
+/// the lines the door prints for the same file (`api::reflect_relations`).
+/// `name` is what a refusal calls the file; given empty it is `the file`.
+///
+/// # Safety
+/// As [`frazaro_translate_vla`]: each pointer came from [`frazaro_alloc`]
+/// with its length, or is null with length 0; `out_len` is writable or null.
+#[no_mangle]
+pub unsafe extern "C" fn frazaro_reflect(
+    book: *const u8,
+    book_len: u32,
+    name: *const u8,
+    name_len: u32,
+    out_len: *mut u32,
+) -> *mut u8 {
+    let label = match unsafe { name_of(name, name_len, "the file", "the file's name", out_len) } {
+        Ok(s) => s,
+        Err(p) => return p,
+    };
+    let book = unsafe { bytes(book, book_len) };
+    answer(api::reflect_relations(book, label), out_len)
+}
+
+/// `frazaro audit` over C linkage (PORT.8, slice 8f): a workbook's bytes
+/// answered with the audit list's findings, one a line in the fixed order
+/// (`api::audit_findings`), empty when there is nothing to report. `name`
+/// as for [`frazaro_reflect`].
+///
+/// # Safety
+/// As [`frazaro_reflect`].
+#[no_mangle]
+pub unsafe extern "C" fn frazaro_audit(
+    book: *const u8,
+    book_len: u32,
+    name: *const u8,
+    name_len: u32,
+    out_len: *mut u32,
+) -> *mut u8 {
+    let label = match unsafe { name_of(name, name_len, "the file", "the file's name", out_len) } {
+        Ok(s) => s,
+        Err(p) => return p,
+    };
+    let book = unsafe { bytes(book, book_len) };
+    answer(api::audit_findings(book, label), out_len)
+}
+
+/// `frazaro diff` over C linkage (PORT.8, slice 8f): two workbooks' bytes,
+/// the old then the new, answered with what changed between them in the
+/// fixed order (`api::diff_relations`), empty when the two hold the same.
+/// Each name is what a refusal calls its file; given empty they are `the
+/// old file` and `the new file`.
+///
+/// # Safety
+/// As [`frazaro_reflect`].
+#[allow(clippy::too_many_arguments)]
+#[no_mangle]
+pub unsafe extern "C" fn frazaro_diff(
+    old: *const u8,
+    old_len: u32,
+    old_name: *const u8,
+    old_name_len: u32,
+    new: *const u8,
+    new_len: u32,
+    new_name: *const u8,
+    new_name_len: u32,
+    out_len: *mut u32,
+) -> *mut u8 {
+    let old_label = match unsafe {
+        name_of(
+            old_name,
+            old_name_len,
+            "the old file",
+            "the old file's name",
+            out_len,
+        )
+    } {
+        Ok(s) => s,
+        Err(p) => return p,
+    };
+    let new_label = match unsafe {
+        name_of(
+            new_name,
+            new_name_len,
+            "the new file",
+            "the new file's name",
+            out_len,
+        )
+    } {
+        Ok(s) => s,
+        Err(p) => return p,
+    };
+    let (old, new) = unsafe { (bytes(old, old_len), bytes(new, new_len)) };
+    answer(api::diff_relations(old, old_label, new, new_label), out_len)
+}
+
 /// The door's gate for a phrasebook text it did not ship: F.10's capability
 /// check, then SEC.2's consent for a `(raw ...)` form, given by `allow_raw`
 /// (a checkbox, a flag). A status-0 record says the text may load; a
@@ -349,6 +482,9 @@ mod tests {
     const ENGLISH: &str = include_str!("../../scripts/polyglotta/english.vla");
     const FIXTURE: &str = include_str!("../../scripts/build/fixture.txt");
     const GOLDEN: &[u8] = include_bytes!("../../scripts/build/fixture_golden.xlsx");
+    const FIXTURE_XLSX: &[u8] = include_bytes!("../../scripts/reflect/fixture.xlsx");
+    const CHANGED_XLSX: &[u8] = include_bytes!("../../scripts/reflect/changed.xlsx");
+    const FIXTURE_ODS: &[u8] = include_bytes!("../../scripts/reflect/opendocument.ods");
 
     /// A record as the host reads it: the text field still bytes.
     struct Raw {
@@ -571,5 +707,123 @@ mod tests {
             String::from_utf8(r.bytes).unwrap(),
             "the program is not UTF-8"
         );
+    }
+
+    /// `frazaro_reflect` or `frazaro_audit` over a file's bytes under a name.
+    fn read_file(kind: &str, book: &[u8], name: &[u8]) -> Rec {
+        unsafe {
+            let (bp, bl) = put(book);
+            let (np, nl) = put(name);
+            let mut out_len = 0u32;
+            let ptr = if kind == "audit" {
+                frazaro_audit(bp, bl, np, nl, &mut out_len)
+            } else {
+                frazaro_reflect(bp, bl, np, nl, &mut out_len)
+            };
+            frazaro_free(bp, bl);
+            frazaro_free(np, nl);
+            take(ptr, out_len)
+        }
+    }
+
+    /// `frazaro_diff` of two files' bytes, named old.xlsx and new.xlsx.
+    fn diff_files(old: &[u8], new: &[u8]) -> Rec {
+        unsafe {
+            let (op, ol) = put(old);
+            let (onp, onl) = put(b"old.xlsx");
+            let (np, nl) = put(new);
+            let (nnp, nnl) = put(b"new.xlsx");
+            let mut out_len = 0u32;
+            let ptr = frazaro_diff(op, ol, onp, onl, np, nl, nnp, nnl, &mut out_len);
+            frazaro_free(op, ol);
+            frazaro_free(onp, onl);
+            frazaro_free(np, nl);
+            frazaro_free(nnp, nnl);
+            take(ptr, out_len)
+        }
+    }
+
+    /// A golden as the door prints it: the files are CRLF on disk.
+    fn golden(text: &str) -> String {
+        text.replace("\r\n", "\n")
+    }
+
+    #[test]
+    fn the_reader_s_three_answer_with_the_lines_the_door_prints() {
+        // Oracle 8 through the record: the fixture's relations golden whole.
+        let r = read_file("reflect", FIXTURE_XLSX, b"fixture.xlsx");
+        assert_eq!((r.status, r.line, r.id.as_str()), (0, 0, ""));
+        assert_eq!(
+            r.text,
+            golden(include_str!("../../scripts/reflect/fixture_relations.vla"))
+        );
+        // Oracle 10: the audit golden.
+        let r = read_file("audit", FIXTURE_XLSX, b"fixture.xlsx");
+        assert_eq!(r.status, 0);
+        assert_eq!(
+            r.text,
+            golden(include_str!("../../scripts/reflect/fixture_audit.vla"))
+        );
+        // Oracle 9: the fixture against its changed copy.
+        let r = diff_files(FIXTURE_XLSX, CHANGED_XLSX);
+        assert_eq!(r.status, 0);
+        assert_eq!(
+            r.text,
+            golden(include_str!(
+                "../../scripts/reflect/fixture_changed_diff.vla"
+            ))
+        );
+        // The OpenDocument twin reads through the same export.
+        let r = read_file("reflect", FIXTURE_ODS, b"opendocument.ods");
+        assert_eq!(r.status, 0);
+        assert_eq!(
+            r.text,
+            golden(include_str!(
+                "../../scripts/reflect/opendocument_relations.vla"
+            ))
+        );
+    }
+
+    #[test]
+    fn a_file_that_is_no_workbook_is_refused_under_the_name_given() {
+        let r = read_file("reflect", b"(sheet \"Model\" visible)\n", b"relations.vla");
+        assert_eq!(
+            (r.status, r.line, r.id.as_str()),
+            (1, 0, "reflect-not-a-workbook")
+        );
+        assert!(
+            r.text.starts_with("relations.vla is not a workbook"),
+            "{}",
+            r.text
+        );
+        // No name given: the default.
+        let r = read_file("audit", b"not a zip", b"");
+        assert_eq!(r.id, "reflect-not-a-workbook");
+        assert!(
+            r.text.starts_with("the file is not a workbook"),
+            "{}",
+            r.text
+        );
+        // A diff names the side that failed.
+        let r = diff_files(FIXTURE_XLSX, b"not a zip");
+        assert_eq!(r.status, 1);
+        assert!(
+            r.text.starts_with("new.xlsx is not a workbook"),
+            "{}",
+            r.text
+        );
+        // A name that is not UTF-8 is status 2, as any input that is not.
+        let r = read_file("reflect", FIXTURE_XLSX, &[0xFF, 0xFE]);
+        assert_eq!(
+            (r.status, r.text.as_str()),
+            (2, "the file's name is not UTF-8")
+        );
+    }
+
+    #[test]
+    fn nothing_to_say_is_an_empty_status_0() {
+        // Two copies of one file: no changed row, as the door prints nothing.
+        let r = diff_files(FIXTURE_XLSX, FIXTURE_XLSX);
+        assert_eq!((r.status, r.id.as_str(), r.text.as_str()), (0, "", ""));
     }
 }

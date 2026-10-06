@@ -7058,7 +7058,7 @@ written against.
   white on it at 5.9:1; the enabled button takes it with a short
   transition and the disabled one stays gray.
   *(closed 2026-10-03: THE CLOSED LEDGER, at the end of this file)*
-- ⬜ **PORT.8 — the reader: `REFLECT` over a file.** *Scoped 2026-10-03 at
+- ✅ **PORT.8 — the reader: `REFLECT` over a file.** *Scoped 2026-10-03 at
   the owner's trigger (`SUBSTRATE.md` H.3's rule, pulled by asking, as
   `PORT.7`'s was). The three forks below are put to the owner with a
   recommendation each; the first slice waits for "proceed with 8a". Step 0's
@@ -7978,6 +7978,88 @@ written against.
   the suites after the last fix read every check passed and 209 tests.
   The slice was committed 2026-10-05; 8f, the C-ABI and the page's pane,
   follows.
+  **Slice 8f, the C-ABI and the page (scoped and built 2026-10-05, the day
+  8e committed; awaiting the owner's run).** The reader through C linkage
+  and on the web page. `core/src/abi.rs` gains three exports in the shape
+  `frazaro_build_xlsx` set, each answering with the record every other
+  answer uses and the text the command-line door prints for the same
+  bytes: `frazaro_reflect(book, len, name, name_len, out_len)`, oracle 8's
+  lines; `frazaro_audit`, the same arguments, oracle 10's, empty when there
+  is nothing to report; `frazaro_diff(old, old_len, old_name, old_name_len,
+  new, new_len, new_name, new_name_len, out_len)`, oracle 9's, empty when
+  the two hold the same. The name is what a refusal calls the file, as the
+  door's path is; given empty it reads `the file` (for a diff, `the old
+  file` and `the new file`). Status 1 carries the catalogue's refusal with
+  line 0, as a build's does; status 2 a name that is not UTF-8. The ABI
+  number stays 1: exports added, no signature changed. The page gains a
+  Reflect pane under the workbook strip: a file input for a workbook,
+  `.xlsx` or `.ods`; a picker for what to print, the relations, the audit,
+  or what changed from an earlier copy; a second file input for that copy.
+  The browser's `FileReader` reads a picked file into an array the script
+  copies into the module's memory, the record's text goes into the pane,
+  with the Copy button the other panes have, and a line under it gives
+  the count or the refusal in red. Nothing is fetched and nothing written:
+  a file input is no reference, so `check_web_offline.ps1` is unchanged,
+  and `build_web.ps1` fills the same placeholders. *Decisions:* three
+  exports, not one with a mode, since a diff takes two buffers and the
+  door's three commands then map one to one; a name argument on each, so a
+  refusal on the page reads as the door's does, the file's name where the
+  door prints its path; the pane prints the door's text and nothing of its
+  own, no table and no colouring, so that what a person copies from the
+  page is what the door prints, held by the same goldens; `--counts` and
+  `--cone` stay the door's, the counts-alone case not arising on a page
+  that holds the file, the cone being a measurement. *Step 0, predicted
+  before the code ran:* (1) the three exports reproduce the goldens whole
+  through the record: `scripts/reflect/fixture.xlsx` to
+  `fixture_relations.vla` (130 lines) and to `fixture_audit.vla` (9), the
+  fixture against its changed copy to `fixture_changed_diff.vla` (25), the
+  twin `opendocument.ods` to `opendocument_relations.vla` (129); the ABI
+  adds no spelling of its own; (2) a text file's bytes come back status 1,
+  id `reflect-not-a-workbook`, the text beginning with the name given and
+  with `the file` when none is; (3) the fixture against itself is status 0
+  with an empty text; (4) the wasm module still imports nothing and
+  `check_web_offline.ps1` passes unchanged; (5) `cargo test` 209 to 212,
+  the checks 47 on the shared tree as before. *On the core's run,
+  2026-10-05:* all five held, the three new tests passing first time; 212
+  tests, 47 checks, the module 958,023 bytes with 0 imports, the page
+  1,618,529 characters, the offline check and its control OK, `prove` 31.
+  **The owner's live check for 8f:** (1) `powershell -File tools\build_web.ps1`, expected a line
+  beginning `OK: wrote web/index.html`; (2) open `web\index.html` and, in
+  the Reflect pane under the workbook strip, pick
+  `scripts\reflect\fixture.xlsx` as the workbook: the pane prints 130
+  lines, the first `(sheet "Model" visible)`, the last `(refers
+  "Review!C5" "Review!A5")`, and the line under it reads `fixture.xlsx:
+  130 rows, as frazaro reflect prints them.`; (3) Show the audit: 9 lines,
+  the first `(typed-over "Review!B3" 61 "=A3*2")`, the last
+  `(external-link "Model!E2" "[Rates.xlsx]Sheet1!A1")`, the line
+  `fixture.xlsx: 9 findings.`; (4) Show what changed from an earlier copy
+  with no copy picked: the line asks for the earlier copy; pick
+  `scripts\reflect\fixture.xlsx` as the earlier copy and
+  `scripts\reflect\changed.xlsx` as the workbook: 25 lines, the first
+  `(sheet-removed "Secret" very-hidden)`, the last `(changed "Review!D2"
+  (formula "=Model!H1" 0) (formula "=Model!H1" 1))`, the line `25 rows
+  changed from fixture.xlsx to changed.xlsx.`; pick `fixture.xlsx` as the
+  workbook too: no lines and `fixture.xlsx and fixture.xlsx hold the
+  same.`; (5) Show the relations and pick
+  `scripts\reflect\fixture_relations.vla` as the workbook: no lines and,
+  in red, `fixture_relations.vla is not a workbook frazaro reflect can
+  read: it has no end-of-central-directory record, so it is not a zip
+  archive.`; (6) pick `scripts\reflect\opendocument.ods`: 129 lines, the
+  first `(sheet "Model" visible)`; Copy, paste into a blank file and
+  compare with `scripts\reflect\opendocument_relations.vla`: the same
+  text; (7) `powershell -File tools\run_checks.ps1` and `cargo test
+  --workspace`: every check passed and 212 passed. *The owner's run,
+  2026-10-05:* as predicted. The page built at 1,618,529 characters;
+  `fixture.xlsx` on the screen as 130 rows beginning `(sheet "Model"
+  visible)`, its audit as the nine findings, the 25 rows from
+  `fixture.xlsx` to `changed.xlsx`, each with its line under the pane; a
+  `.vla` picked as the workbook (`model_relations.vla`) refused in red
+  under its own name with the zip reason; the twin's 129 rows; 212 tests
+  and 47 checks on the shared tree. The slice was committed 2026-10-05,
+  and the item closed with it at the owner's call: six slices, six
+  commits, the reader's door `ask` deferred to `AXM.9` and `PORT.9` and
+  the real-model counts to `AXM.13`, every other piece of work to later
+  items. The entry moves to the closed ledger.
   **Constraints carried, in brief:** every refusal through the catalogue
   under `VLA-Reflect`; `cargo fmt`, `clippy -D warnings`, `test`, the wasm
   build and `check_core_imports.ps1` before every commit; the goldens lead
@@ -29502,6 +29584,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **PORT.5 — the reader and the emitters, in the core.** `core/src/`: the six intrinsics, the datum, the reader and printer, the message catalogue and the head table read from `scripts/messages.vla` and `scripts/headtable.vla` (exported once from the VBA, held to it by `check_data_exports.ps1`), the macro system, and the emitters, one match arm per `Select Case` arm, as `frazaro compile`; the treaty's oracle 1b (the golden less its stamp line, with the prelude, to the `.vba`) in `prove.ps1`; `F.7`'s two latent bugs fixed in the VBA first. `prove.ps1 -Impl target/debug/frazaro.exe` passes the compile oracle whole, 301,861 characters: the first reproduction of a golden by anything but the VBA. `check_compile_prefix.ps1` holds that length. Closed 2026-10-02. *(more: the full entry, earlier in this file)*
 - ✅ **PORT.6 — English in the core.** `VLA_SentenceEngine.bas` and `VLA_English.bas` in the core, slice by slice (`core/src/english/`: the word tables and name lists as data, the tokenizer, the rule store and the loader, the matcher with the expression and condition grammars, the statement grammar with the PROLOG sub-grammars and `EnglishToVla`), held to the reference by three goldens it writes (the token, the translate and the refusal golden) beside every phrasebook's proofs: `frazaro translate-vla` reproduces `instructions_golden.vla` byte for byte and `translate-vba` the `.vba`; `frazaro prove` passes every proof of every phrasebook; 113 of the 125 English refusal ids come out in the same situation with the same text, the twelve others a door's, elsewhere or unreachable, named in the treaty's fourth amendment; `VLA_Browser.bas`'s two functions are the core's API and its C-ABI; and `web/index.html`, built by `tools/build_web.ps1` from the wasm, the prelude and `english.vla`, is one file that runs from disk with nothing fetched and nothing executed. Scoped, built, owner-verified and closed 2026-10-02, the day `PORT.5` closed, in nine slices and eleven commits of its own; three defects found in the reference on the way and fixed there first (`U.31`, `LX.15`, `F.18`); 114 Rust tests, 40 checks, the treaty amended four times that day. *(more: the full entry, earlier in this file)* `~weeks` to `~quarter` as filed; a day as built.
 - ✅ **PORT.7 — the writer.** Slice 3 of `HORIZON.md` §12, new ground with no VBA to port (`core/src/sheet/`, `core/src/build.rs`, `core/src/sha256.rs`): `frazaro build program.txt --prelude prelude.vla --phrasebook english.vla --out program.xlsx` writes a workbook from sentences with nothing installed, deterministic to the byte (stored entries stamped 1980-01-01, a fixed part order, no author and no date): the `Frazaro` sheet in the room's own layout, the other sheets holding what a sheet holds with nothing running (values and formulas, a fill shared as Excel shares it, newer functions under `_xlfn.`, a formula that can return an array stored as `Formula2` stores it), every sentence that needs Run refused by name with its line; the stamp `Frazaro.Build` and `frazaro rebuild` (yes, or no with why; a host's save refused as not a build); `--into model.xlsx` with the model's parts copied as they were and four edited at one place each (RFC 1951's decoder from nothing, the zip reader generalised); the C-ABI's `frazaro_build_xlsx` and the page's *Download as .xlsx* with the digest beside it. Oracle 7: two goldens held byte for byte by `check_build_golden.ps1` and the core's tests, each opened by the owner; the page's download the first golden's bytes and digest, opened in Excel, `rebuild` yes. Scoped 2026-10-02 at the owner's trigger (`SUBSTRATE.md` H.3, pulled by asking; generic first, the Controls sheet to `AXM.2`); built, owner-verified and closed 2026-10-03 in five slices and five commits of its own; 171 Rust tests, 41 checks, ten catalogue ids under `VLA-Build`, the treaty amended four times that day; two predictions of step 0 corrected by the live passes and one defect of a slice found on the owner's Excel-saved copy and refused by name. *(more: the full entry, earlier in this file)* `~weeks` as filed; a day as built.
+- ✅ **PORT.8 — the reader: `REFLECT` over a file.** Slice 4 of `HORIZON.md` §12, new ground with no VBA to port but `VLA_Refers.bas`, which `AXM.7` wrote first as the golden to port against (`core/src/reflect/`, `core/src/refers.rs`): `frazaro reflect model.xlsx` prints a workbook's sheets, names, Tables, cells, formulas and what each formula refers to as relations in a fixed order, read from the file with nothing installed, an `.xlsx` package or an `.ods` OpenDocument spreadsheet, a formula from either spelled as the formula bar shows it; `--counts` the counts and times alone, `AXM.1`'s second number, and `--cone <Sheet!A1>` a cell's cone sized through names and Tables and across sheets; `frazaro diff old new` what changed between two files, the sheets in one alone, the names and Tables, then the cells old and new side by side; `frazaro audit model.xlsx` Stage 2.3's audit list as six named walks, each defined in words in the treaty before its code; the C-ABI's `frazaro_reflect`, `frazaro_audit` and `frazaro_diff`, and the page's Reflect pane, a workbook picked from disk and read in the browser, sent nowhere. Oracles 8, 9 and 10: eight relations goldens, five diff pairs and five audit goldens held whole by `check_reflect_golden.ps1`, `check_diff_golden.ps1` and `check_audit_golden.ps1` (the 42nd, 44th and 45th checks), by the core's tests and by `prove.ps1`, each fixture opened by the owner in Excel, two of them Excel's own saves kept as written. Scoped 2026-10-03 at the owner's trigger (`SUBSTRATE.md` H.3, pulled by asking; three forks decided as recommended: `AXM.7` in the VBA first with a golden, `reflect`/`diff`/`audit` with `ask` waiting, ODF its own slice); built, owner-verified and closed 2026-10-05 in six slices and six commits of its own (8a to 8f), `AXM.7` closing between 8a and 8b; 212 Rust tests, the treaty amended slice by slice; Excel's reader of `.ods` taught the fixture four things on the way (a stored mimetype, no ODF 1.3 attribute, no sheet-local name, an absolute link). Deferred at the close, the owner's call: the door `ask` to `AXM.9` and `PORT.9`, the real-model counts to `AXM.13`, every other piece of work to later items. *(more: the full entry, earlier in this file)* `~weeks` as filed; three days as built.
 - *Together:* SD-18's infrastructure — a port with no purity guarantee and no intrinsics reference would re-litigate every behavior. *(more: the full entry, earlier in this file)*
 
 ## 🔧 MACHINE · ENVIRONMENT

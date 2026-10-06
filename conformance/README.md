@@ -909,3 +909,21 @@ every `refers` row keeps its spelling.
 `tools/check_reflect_golden.ps1`, `check_diff_golden.ps1` and
 `check_audit_golden.ps1` each gain the rows with their floors, and
 `tools/prove.ps1` the six rows.
+
+## Amendment of 2026-10-05, later still: the web door's reader (`PORT.8`, slice 8f)
+
+The web page reads a workbook too, through the core's C-ABI
+(`frazaro_reflect`, `frazaro_audit`, `frazaro_diff`): a file the person
+picks is read by the browser into the module's memory, and the Reflect
+pane prints the record's text, the lines `frazaro reflect`, `audit` or
+`diff` print for the same file. The runner scores an executable or a
+script, not a page, so the web door is held to oracles 8, 9 and 10 where
+its text is made: the core's own test puts `scripts/reflect/fixture.xlsx`,
+its changed copy and the OpenDocument twin through the C-ABI records and
+requires the goldens whole, `fixture_relations.vla`, `fixture_audit.vla`,
+`fixture_changed_diff.vla` and `opendocument_relations.vla`. A page and
+the command-line door built from the same core therefore print the same
+lines for the same file, and what a person copies from the pane is what
+the door prints. A refusal names the file as the page gave its name, where
+the door prints its path, and is otherwise the catalogue's text; a name
+the page does not give reads `the file`.

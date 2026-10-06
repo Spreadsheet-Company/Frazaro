@@ -328,7 +328,10 @@
   read an OpenDocument spreadsheet (`.ods`) as they read an `.xlsx`, a
   formula from either file printed as the formula bar shows it, so that
   `frazaro diff model.xlsx model.ods` says exactly what one format holds
-  that the other cannot, and nothing else.
+  that the other cannot, and nothing else. The web page reads a workbook
+  too: pick a file, `.xlsx` or `.ods`, in its Reflect pane and its
+  relations, its audit, or what changed from an earlier copy print there,
+  read in your browser and sent nowhere.
 
 ### Known open security items
 

@@ -62,6 +62,15 @@
   .pane.build p { margin: 0; padding: 8px 10px; min-height: 1.4em; font-size: 13px; color: #4b4b47; word-break: break-all; }
   .pane.build p.refused { color: #a2262b; }
   .pane.build code { font: 12.5px/1.4 ui-monospace, Consolas, "Cascadia Mono", monospace; }
+  /* The Reflect pane: a workbook picked from disk, read here as relations, sent nowhere. */
+  .pane.reflect { margin-top: 14px; }
+  .pane.reflect .pick { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; padding: 8px 10px; border-bottom: 1px solid #ecece6; font-size: 13px; color: #4b4b47; }
+  .pane.reflect .pick label { display: inline-flex; align-items: center; gap: 6px; }
+  .pane.reflect .pick input, .pane.reflect .pick select { font: inherit; font-size: 12px; color: #1d1d1b; }
+  .pane.reflect .pick select { padding: 2px 4px; border: 1px solid #c8c8c0; border-radius: 3px; background: #fff; }
+  .pane.reflect pre:empty { display: none; }
+  .pane.reflect p { margin: 0; padding: 8px 10px; min-height: 1.4em; font-size: 13px; color: #4b4b47; word-break: break-word; }
+  .pane.reflect p.refused { color: #a2262b; }
   button { font: inherit; font-size: 12px; padding: 3px 10px; border: 1px solid #c8c8c0; background: #fff; border-radius: 3px; cursor: pointer; }
   button:hover { background: #f3f3ee; }
   button:disabled { color: #9a9a94; background: #fff; cursor: default; }
@@ -109,6 +118,20 @@
     <div class="bar"><span>Workbook &middot; the sentences as a file, the bytes <code>frazaro build</code> writes</span><button type="button" id="download" disabled>Download as .xlsx</button></div>
     <p id="build"></p>
   </section>
+  <section class="pane reflect" aria-label="the reader">
+    <div class="bar"><span>Reflect &middot; a workbook of yours read as relations, the lines <code>frazaro reflect</code>, <code>audit</code> and <code>diff</code> print</span><button type="button" data-copy="reflect">Copy</button></div>
+    <div class="pick">
+      <label>Workbook <input type="file" id="file" accept=".xlsx,.ods"></label>
+      <label>Show <select id="mode" aria-label="what to print of the workbook">
+        <option value="reflect" selected>the relations</option>
+        <option value="audit">the audit</option>
+        <option value="diff">what changed from an earlier copy</option>
+      </select></label>
+      <label>Earlier copy <input type="file" id="earlier" accept=".xlsx,.ods"></label>
+    </div>
+    <pre id="reflect"></pre>
+    <p id="reflected">Pick a workbook, .xlsx or .ods: it is read here, in your browser, and goes nowhere.</p>
+  </section>
   <details>
     <summary>Phrasebooks</summary>
     <p>The phrasebook of the language picked above is inside this page: <code>english.vla</code> loads first, and a dialect loads over it, as the add-in loads an edition. Paste another phrasebook here to load after them, as an organization's own words. It is read, never saved.</p>
@@ -147,9 +170,15 @@
   var langEl = document.getElementById('lang');
   var buildEl = document.getElementById('build');
   var downloadEl = document.getElementById('download');
+  var fileEl = document.getElementById('file');
+  var earlierEl = document.getElementById('earlier');
+  var modeEl = document.getElementById('mode');
+  var reflectEl = document.getElementById('reflect');
+  var reflectedEl = document.getElementById('reflected');
   var rows = [''];
   var timer = 0;
   var built = null; // the workbook's bytes, while the program builds
+  var picked = { file: null, earlier: null }; // the Reflect pane's workbooks, each { name, bytes } once the browser has read it
 
   // ---- the core: records in the module's memory (core/src/abi.rs) ----
   function bytesOfBase64(s) {
@@ -158,12 +187,12 @@
     for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
     return out;
   }
-  function put(s) {
-    var b = enc.encode(s);
+  function putBytes(b) {
     var p = core.frazaro_alloc(b.length);
     new Uint8Array(core.memory.buffer, p, b.length).set(b);
     return { ptr: p, len: b.length };
   }
+  function put(s) { return putBytes(enc.encode(s)); }
   function free(x) { core.frazaro_free(x.ptr, x.len); }
   function readRecord(ptr, len, raw) {
     var dv = new DataView(core.memory.buffer, ptr, len);
@@ -202,6 +231,20 @@
     var p = put(program), q = put(prelude), b = put(books.join('\0'));
     var r = call(core.frazaro_build_xlsx, [p.ptr, p.len, q.ptr, q.len, b.ptr, b.len], true);
     free(p); free(q); free(b);
+    return r;
+  }
+  function reflect(mode, file, earlier) {
+    // frazaro reflect, audit or diff over a picked file's bytes; the record's text is the lines the
+    // door prints, and the file's name is what a refusal calls it, where the door prints its path.
+    var b = putBytes(file.bytes), n = put(file.name), r;
+    if (mode === 'diff') {
+      var ob = putBytes(earlier.bytes), on = put(earlier.name);
+      r = call(core.frazaro_diff, [ob.ptr, ob.len, on.ptr, on.len, b.ptr, b.len, n.ptr, n.len]);
+      free(ob); free(on);
+    } else {
+      r = call(mode === 'audit' ? core.frazaro_audit : core.frazaro_reflect, [b.ptr, b.len, n.ptr, n.len]);
+    }
+    free(b); free(n);
     return r;
   }
   function base64Of(bytes) {
@@ -403,6 +446,40 @@
     }
   }
 
+  // ---- the Reflect pane: a workbook picked from disk, read here, sent nowhere ----
+  function setReflected(text, refused) {
+    reflectedEl.textContent = text;
+    reflectedEl.className = refused ? 'refused' : '';
+  }
+  function readPicked(input, key) {
+    // The browser reads the picked file into memory; the bytes go to the core and nowhere else.
+    var f = input.files && input.files[0];
+    if (!f) { picked[key] = null; showReflect(); return; }
+    var reader = new FileReader();
+    reader.onload = function () { picked[key] = { name: f.name, bytes: new Uint8Array(reader.result) }; showReflect(); };
+    reader.onerror = function () { picked[key] = null; reflectEl.textContent = ''; setReflected('The browser could not read ' + f.name + '.', true); };
+    reader.readAsArrayBuffer(f);
+  }
+  function lineCount(text) {
+    if (!text) return 0;
+    return text.split('\n').length - (text.charAt(text.length - 1) === '\n' ? 1 : 0);
+  }
+  function showReflect() {
+    if (!core) return;
+    var mode = modeEl.value, file = picked.file, earlier = picked.earlier;
+    reflectEl.textContent = '';
+    if (!file) { setReflected('Pick a workbook, .xlsx or .ods: it is read here, in your browser, and goes nowhere.', false); return; }
+    if (mode === 'diff' && !earlier) { setReflected('Pick the earlier copy too: what changed from it to ' + file.name + ' is printed.', false); return; }
+    var r = reflect(mode, file, earlier);
+    if (r.status !== 0) { setReflected(r.text, true); return; }
+    reflectEl.textContent = r.text;
+    var n = lineCount(r.text);
+    var rows = n + (n === 1 ? ' row' : ' rows');
+    if (mode === 'reflect') setReflected(file.name + ': ' + rows + ', as frazaro reflect prints them.', false);
+    else if (mode === 'audit') setReflected(n ? file.name + ': ' + n + (n === 1 ? ' finding.' : ' findings.') : file.name + ': nothing to report.', false);
+    else setReflected(n ? rows + ' changed from ' + earlier.name + ' to ' + file.name + '.' : earlier.name + ' and ' + file.name + ' hold the same.', false);
+  }
+
   document.querySelectorAll('button[data-copy]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var pre = document.getElementById(btn.getAttribute('data-copy'));
@@ -427,6 +504,9 @@
   });
   extraEl.addEventListener('input', schedule);
   allowEl.addEventListener('change', schedule);
+  fileEl.addEventListener('change', function () { readPicked(fileEl, 'file'); });
+  earlierEl.addEventListener('change', function () { readPicked(earlierEl, 'earlier'); });
+  modeEl.addEventListener('change', showReflect);
   langEl.addEventListener('change', function () {
     var first = rowsEl.children[0];
     if (first) first.querySelector('input').placeholder = currentExample();
@@ -446,6 +526,7 @@
       'It reads nothing from the network and writes nothing anywhere; Download as .xlsx hands your browser one file to save where you choose, with the digest frazaro build prints for the same sentences beside the button. The VBA is text: paste it into a module in Excel, or let the add-in do it.';
     setStatus('Type a sentence in the first row.', false);
     run();
+    showReflect();
   }, function (err) {
     setStatus('The core did not load: ' + err, true);
   });
