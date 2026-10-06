@@ -61,9 +61,28 @@ push. Under its two panes the page also builds the workbook the rows make, as
 count and SHA-256; *Download as .xlsx* saves it where you choose, named
 `program.xlsx`, and the digest shown is the one the command-line door prints
 for the same sentences, so the two doors can be checked against each other
-with no more than a glance. Attaching the page to a release as a fourth asset
-is a step for `release.ps1` to take up when the page ships to users; today CI
-builds and keeps it.
+with no more than a glance.
+
+**Hosting it (GitHub Pages, since 2026-10-05).** `.github/workflows/pages.yml`
+builds the page as above on every `v*` tag `release.ps1` pushes, and by hand
+from the Actions tab, holds it to `check_web_offline.ps1`, and deploys the one
+file to GitHub Pages at `https://spreadsheet-company.github.io/Frazaro/`, the
+address `spreadsheet.company/frazaro` points to. Two settings enable it, once:
+the repository's *Settings → Pages → Build and deployment → Source: GitHub
+Actions* (set 2026-10-05), and, because GitHub creates the `github-pages`
+environment allowing deploys from `main` alone, a tag rule under *Settings →
+Environments → github-pages → Deployment branches and tags*: add a **tag**
+rule with the pattern `v*` (set 2026-10-05), or every tag-triggered deploy is
+refused by the environment's protection rule while a run started by hand from
+`main` goes through. Until both are set the deploy step fails and nothing is
+served. GitHub
+serves the file as it is, with no analytics and nothing added, and the page
+itself still fetches nothing: its one link is the bare address at the very
+top, `https://spreadsheet.company`, followed only when the person clicks it,
+the one anchor the check allows, whole and as spelled. A custom address such
+as `frazaro.spreadsheet.company` would be a `CNAME` file in the site and a
+DNS record, when wanted. Attaching the page to a release as a fourth asset
+remains a step for `release.ps1` to take up.
 
 ## Building a workbook from sentences (the command-line door)
 
@@ -149,6 +168,29 @@ Day-end sequence, then: bump `VLA_RELEASE_VERSION`, reload, self-tests and golde
 **The installer joined the sequence on 2026-09-08, after `0.5.0`, `0.5.1` and `0.5.2` all shipped without it.** Nothing was broken: it simply was not named anywhere a release had to pass through, and `release.ps1` did not know it existed, so it could not miss it. Now `release.ps1`'s check 9 refuses to publish unless `installer\output\FrazaroSetup.exe` exists, is newer than the add-in it embeds, matches `-Version` through `installer\version.iss`, and carries the `CN=Frazaro Dev Signing` signature — a real check (an `.exe` signature is readable, unlike the VBA project's), not a `-Locked`/`-Signed`-style attestation — and uploads it as a third release asset.
 
 **Signing joined the standard sequence on 2026-09-08 (owner decision), having previously been a separate, optional section.** The reason is that it is the only step that changes what a *downloader* sees: an unsigned `.xlam` gives them a bare Enable/Disable Macros modal with no trust option, while a signed one offers **"Trust all from publisher"**, after which every future launch is silent. Leaving it outside the sequence meant the friction this project spends real effort removing was being reintroduced at the last step of every release. Like locking, VBA exposes no API for it, so `release.ps1` takes `-Signed` as an attestation exactly the way it already takes `-Locked` — two separate switches, not one combined flag, so attesting to one cannot silently attest to the other.
+
+## Publishing the crates (crates.io)
+
+Two crates leave the Cargo workspace: `frazaro-core`, the host-free core, and `frazaro`, the command-line door. They are published together, at the release's version and never at one of their own (`check_version_twin.ps1` holds `VLA_RELEASE_VERSION`, the workspace version and the door's exact pin on the core to one string), from the tagged commit `release.ps1` pushed. A published version is permanent: crates.io can *yank* one, which stops new dependents from choosing it, and never deletes it, so a mistake is fixed by the next patch number, as a wrong release tag is.
+
+What keeps the crates publishable is in the tree and checked on every push. A package is a crate's directory and nothing beside it, so the four data tables the core embeds at build time live in `core/data/` (the exporters under `tools/` write them there), the prelude and `english.vla` the door embeds live in `cli/data/` as copies that `check_crate_data.ps1` holds byte for byte to `scripts/prelude.vla` and `scripts/polyglotta/english.vla` (the fix for a drift is the copy command it names, never an edit of the copy), and `check_crate_package.ps1` fails on a build-time include that leaves its crate, or a manifest missing what crates.io shows a visitor (description, readme, licence, repository). The `frazaro` crate's licence field is `Apache-2.0 AND MPL-2.0`, since the phrasebook it carries is MPL-2.0 per file. The rehearsal is `cargo package --workspace --locked` from the repository root: it makes both tarballs and builds each from its own contents alone, and uploads nothing.
+
+**The first time, by hand.** Trusted Publishing (below) can only be configured on a crate that exists, so the first version of each crate is published from the owner's machine.
+
+1. On crates.io, sign in with GitHub and verify the email address under *Account Settings*; crates.io refuses to publish without one. Under *API Tokens*, create a token with the scopes `publish-new` and `publish-update`, the crate pattern `frazaro*` and an expiry. A token is a password: it goes into `cargo login`, which reads it from standard input and keeps it in `%USERPROFILE%\.cargo\credentials.toml`, and never into a file in the repository, a commit message, a chat or a ticket. One that has been pasted anywhere is revoked and replaced.
+2. From the tagged commit, clean (`git status` prints nothing), with the two crate pages promising nothing the release lacks (their closing sections name what comes next by roadmap item, with no version attached) and the three lines of `cli/README.md`'s quick start that quote the version (`frazaro version`, and the two `rebuild` lines) saying this release's. Then rehearse, and publish:
+
+   ```powershell
+   cargo clean
+   cargo package --workspace --locked
+   cargo publish --workspace --locked --dry-run
+   cargo publish --workspace --locked
+   ```
+
+   `--workspace` publishes the core first and the door once the core is on the index; `--locked` refuses to resolve anything the committed `Cargo.lock` does not already say. `cargo clean` first, every time: the door is verified against the core *as a registry package*, which Cargo takes to be immutable at a given version, so a core compiled by an earlier rehearsal at the same version is reused as it was, and the verify then fails on a function the core has since gained, or passes on one it has since lost. A fresh `target/` has no such memory (found 2026-10-05; `cargo clean -p frazaro-core` is the narrow form).
+3. Revoke the token once both crates are up, or let it expire. Nothing later needs it.
+
+**Every later release, from the Actions tab.** On each crate's page on crates.io, *Settings → Trusted Publishing* names the GitHub repository (owner `Spreadsheet-Company`, repository `Frazaro`) and the workflow file (`publish.yml`); do it for both crates. From then on `.github/workflows/publish.yml` publishes with no stored secret: GitHub proves to crates.io that this workflow of this repository is running, crates.io hands the job a token that lives for that run alone, and the job revokes it when it ends. The workflow never runs on its own. After `release.ps1` has pushed the tag, open the Actions tab, choose *publish*, pick the tag `v<version>` as the ref and run it: with *Upload* unticked it is a rehearsal (package and verify, upload nothing); ticked, it refuses any ref that is not the tag of the workspace's own version, then publishes both crates. Once a version is up, `cargo install frazaro` builds the door on any machine with a Rust toolchain, and that version's section of `docs/RELEASES.md` says so.
 
 ## Code signing (DI.1)
 

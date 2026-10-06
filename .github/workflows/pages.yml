@@ -1,0 +1,60 @@
+# The web page, hosted on GitHub Pages: built from the wasm core at each
+# release and deployed as the one file it is.
+#
+# web/index.html is a build artifact (tools/build_web.ps1 fills the template
+# with the core, the prelude and the phrasebooks) that runs from disk and
+# fetches nothing; GitHub Pages serves it as it is, with nothing
+# added, at https://spreadsheet-company.github.io/Frazaro/, the address
+# spreadsheet.company/frazaro points to. tools/check_web_offline.ps1 runs
+# before the deploy, so a page that reaches out is never served.
+#
+# Runs on the v* tag tools/release.ps1 pushes (the hosted page is always a
+# released version), and by hand from the Actions tab. One setting enables
+# it, once, in the repository's Settings > Pages: Build and deployment,
+# Source: GitHub Actions. Until then the deploy step fails and nothing is
+# served. A wrong page is replaced by the next deploy, never edited in place.
+name: pages
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: build the page from the wasm core, and hold it to the offline doctrine
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File tools/build_web.ps1
+          pwsh -NoProfile -File tools/check_web_offline.ps1
+      - name: the site is the one file
+        run: |
+          mkdir -p site
+          cp web/index.html site/index.html
+          touch site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # The deploy alone may write Pages and mint the OIDC token it needs.
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

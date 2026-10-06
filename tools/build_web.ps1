@@ -10,9 +10,9 @@ of web/index.template.html - {{WASM_BASE64}} with the module as base64,
 scripts/polyglotta/english.vla, each inlined as text, and every
 {{BOOK:name}} with scripts/polyglotta/<name>.vla, the dialects the page's
 language picker offers - and writes web/index.html: one file that runs from
-file://, fetching nothing. The output
-is a build artifact (.gitignore), as the add-in is: the template is the
-source.
+file://, fetching nothing. The output is a build artifact (.gitignore), as
+the add-in is: the template is the source. .github/workflows/pages.yml runs
+this on each release tag and hosts the file on GitHub Pages.
 
 WHY A SCRIPT: the three texts change with the corpus and the core, and a
 page built by hand would drift from both; this is VlaBuildAddin's role for

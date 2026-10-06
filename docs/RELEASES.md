@@ -210,7 +210,7 @@
   add-in wrote: the conformance runner scores the compile golden as passed,
   291,316 characters matched. The core reads the same prelude, the same
   head table and the same message catalogue as the add-in, the last two
-  exported from it as data (`scripts/headtable.vla`, `scripts/messages.vla`),
+  exported from it as data (`core/data/headtable.vla`, `core/data/messages.vla`),
   with a check that fails the day they drift. The door's reference is
   `cli/README.md`: every command with its arguments, output, exit codes and
   refusals, and a tour on the repository's own files. Nothing about the
@@ -229,7 +229,12 @@
   refuses a missing file in those words too. `frazaro load phrasebook.vla
   --prelude prelude.vla` loads a phrasebook as the Frazaro tab loads one,
   through the same two gates, a `(raw ...)` form needing `--allow-raw` and a
-  capability refused always, and reports its counts. The two functions a web
+  capability refused always, and reports its counts. The door carries the
+  prelude and `english.vla` inside it, byte for byte the repository's and
+  held to them by a check, so `frazaro build hello.txt --out hello.xlsx`
+  needs no file beside the program; `--prelude` and `--phrasebook` name
+  other files, and `--phrasebook english.vla` with no such file beside you
+  is the one inside. The two functions a web
   page calls, a program and its phrasebooks in and the VLA or the VBA out,
   are in the core and exported for the browser, and the page is built from
   them: `tools/build_web.ps1` writes `web/index.html`, one file that runs
@@ -237,11 +242,18 @@
   dialects of its language picker, every phrasebook inside the page; each
   row shows its VLA and the formula it writes, a refusal in words on the row
   it belongs to, and the focused row is Frazaro Lavender, the add-in's own
-  colour; the whole VLA and VBA stand below with a Copy button each; another
-  phrasebook can be pasted to load after the language's, behind the same
-  consent box the add-in asks for a `(raw ...)` form. Nothing fetched,
-  nothing executed. It is a build artifact today, kept by CI, not yet a
-  release download. Nothing about the add-in you download changes.
+  colour; the whole VLA and VBA stand in two panes with a Copy button each;
+  another phrasebook can be pasted to load after the language's, behind the
+  same consent box the add-in asks for a `(raw ...)` form. The rows are last
+  on the page, under the phrasebooks, the panes and the workbook strip, so a
+  long program grows downward and pushes nothing below it; the page's title
+  carries the tagline, and what the page promises (nothing fetched, nothing
+  written, nothing executed) stands under it with the core's version and
+  size. From this release the page is hosted on GitHub Pages at each
+  release, at https://spreadsheet-company.github.io/Frazaro/, the address
+  spreadsheet.company/frazaro opens; its one link, the bare address at the
+  very top, goes back to spreadsheet.company. Nothing about the add-in you
+  download changes.
 - **The repository is now a workspace for more than one product; nothing
   about the add-in you download changes.** Frazaro is a language whose first
   implementation is this Excel add-in, and this release lays the ground for
