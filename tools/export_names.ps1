@@ -6,7 +6,7 @@ and the names the generated code calls (CheckName's two refusals), the
 built-in function words and what they compile to, and three small word lists
 of the conditions grammar and the function phrases. The core (core/) reads
 the same lists as data, never typed in twice: this script writes
-scripts/names.vla, one form per entry, in the order each VBA list gives them:
+core/data/names.vla, one form per entry, in the order each VBA list gives them:
 
     (reserved-name "<word>")                    IsReservedName
     (engine-call-name "<word>")                 IsEngineCallName
@@ -29,12 +29,12 @@ b c "` line, `AddFnEntry mFnOf|mFnNullary, "word", "target"` lines, a
 lists and `t = "a" Or t = "b"` chains. A list whose shape yields no entry
 stops the export.
 
-WHAT IT WRITES: a VLA file, CRLF like every .vla in scripts/, UTF-8 without
+WHAT IT WRITES: a VLA file, CRLF like every .vla in the repository, UTF-8 without
 a BOM, under a GENERATED stamp so Lint VLA refuses it by name.
 
 House style: PowerShell 5.1, host-free, no Excel, no COM, no network.
 
-Usage:  powershell -File tools\export_names.ps1          (writes scripts\names.vla)
+Usage:  powershell -File tools\export_names.ps1          (writes core\data\names.vla)
         powershell -File tools\export_names.ps1 -Print   (writes the text to stdout)
 #>
 param([switch]$Print)
@@ -42,7 +42,7 @@ param([switch]$Print)
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $srcPath  = Join-Path $repoRoot 'src/VLA_SentenceEngine.bas'
-$outPath  = Join-Path $repoRoot 'scripts/names.vla'
+$outPath  = Join-Path $repoRoot 'core/data/names.vla'
 
 $all = [System.IO.File]::ReadAllText($srcPath) -split "`r?`n"
 

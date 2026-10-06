@@ -5,7 +5,7 @@
 //! number, the `Err.Source` tag and an English template whose `{slot}`s the
 //! call fills. The treaty's fifth oracle holds every implementation to the
 //! same id in the same situation, so this core refuses from the same
-//! catalogue, read as data: `scripts/messages.vla`, exported once from
+//! catalogue, read as data: `core/data/messages.vla`, exported once from
 //! `src/VLA_Messages.bas` by `tools/export_messages.ps1` and held to it by
 //! `tools/check_data_exports.ps1`. The VBA is the source until PORT.6 hands
 //! the catalogue to the file.
@@ -55,7 +55,7 @@ struct Entry {
 
 /// The exported catalogue, embedded at build time: no file is read when the
 /// core runs (the wasm import section stays empty).
-const CATALOGUE_TEXT: &str = include_str!("../../scripts/messages.vla");
+const CATALOGUE_TEXT: &str = include_str!("../data/messages.vla");
 
 fn parse_catalogue() -> Vec<Entry> {
     // The file is CRLF on a Windows checkout and LF elsewhere; a template

@@ -182,8 +182,8 @@ refusal's text must contain the fragment, compared without case and with
 whitespace collapsed (`RunVocabFailTest`). The id is not pinned by the form;
 the fifth oracle pins it through the proofs' own refusals.
 
-**The data both implementations read grows.** `scripts/words.vla`
-(`VLA_English.bas`'s nine word tables) and `scripts/names.vla`
+**The data both implementations read grows.** `core/data/words.vla`
+(`VLA_English.bas`'s nine word tables) and `core/data/names.vla`
 (`VLA_SentenceEngine.bas`'s six name lists), exported by
 `tools/export_words.ps1` and `tools/export_names.ps1` and held to the VBA by
 `tools/check_data_exports.ps1`, in the shape of the head table and the

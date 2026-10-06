@@ -5,7 +5,7 @@ WHY: every refusal in the reference implementation is `RaiseMsg "<id>", ...`
 over the catalogue in src/VLA_Messages.bas (SD-2), and the treaty's fifth
 oracle holds every implementation to the same ids in the same situations.
 The core (core/) refuses with the same catalogue, read as data, never typed in
-twice: this script writes scripts/messages.vla, one form per entry,
+twice: this script writes core/data/messages.vla, one form per entry,
 
     (message <id> <error-number> "<Err.Source>" "<template>")
 
@@ -20,7 +20,7 @@ with their doubled quotes undoubled, `&` concatenations evaluated, vbCrLf
 spelled as a line break, and a named error constant (VLA.VLA_ERR_...)
 resolved from its declaration in src/VLA.bas (vbObjectError + n).
 
-WHAT IT WRITES: a VLA file, CRLF like every .vla in scripts/, UTF-8 without
+WHAT IT WRITES: a VLA file, CRLF like every .vla in the repository, UTF-8 without
 a BOM, under a GENERATED stamp so Lint VLA refuses it by name. A template's
 line break is written as a line break inside the string literal; the core
 normalizes line endings when it loads the file, so the five templates that
@@ -28,7 +28,7 @@ hold one read the same on every platform.
 
 House style: PowerShell 5.1, host-free, no Excel, no COM, no network.
 
-Usage:  powershell -File tools\export_messages.ps1          (writes scripts\messages.vla)
+Usage:  powershell -File tools\export_messages.ps1          (writes core\data\messages.vla)
         powershell -File tools\export_messages.ps1 -Print   (writes the text to stdout)
 #>
 param([switch]$Print)
@@ -37,7 +37,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $srcPath  = Join-Path $repoRoot 'src/VLA_Messages.bas'
 $vlaPath  = Join-Path $repoRoot 'src/VLA.bas'
-$outPath  = Join-Path $repoRoot 'scripts/messages.vla'
+$outPath  = Join-Path $repoRoot 'core/data/messages.vla'
 
 # --- named error constants a catalogue line may use as its number ----------
 function Get-NamedConstants([string]$path) {

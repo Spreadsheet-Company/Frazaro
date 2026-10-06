@@ -6,7 +6,7 @@ ordinal words the tokenizer and the expression grammar rewrite, the noise and
 dropped words, the operator words, the colour words, the slot descriptions a
 refusal teaches with, and the stray-character hints. The core (core/) reads
 the same tables as data, never typed in twice: this script writes
-scripts/words.vla, one form per entry, in the order each VBA table lists
+core/data/words.vla, one form per entry, in the order each VBA table lists
 them:
 
     (expr-op "<symbol>" "<words>")          ExprOpWord
@@ -30,13 +30,13 @@ function True, and `w = "a" Or w = "b"` chains. A table whose shape yields
 no entry stops the export, so a reshaped procedure cannot export an empty
 table quietly.
 
-WHAT IT WRITES: a VLA file, CRLF like every .vla in scripts/, UTF-8 without
+WHAT IT WRITES: a VLA file, CRLF like every .vla in the repository, UTF-8 without
 a BOM (two stray-character keys are curly punctuation), under a GENERATED
 stamp so Lint VLA refuses it by name.
 
 House style: PowerShell 5.1, host-free, no Excel, no COM, no network.
 
-Usage:  powershell -File tools\export_words.ps1          (writes scripts\words.vla)
+Usage:  powershell -File tools\export_words.ps1          (writes core\data\words.vla)
         powershell -File tools\export_words.ps1 -Print   (writes the text to stdout)
 #>
 param([switch]$Print)
@@ -44,7 +44,7 @@ param([switch]$Print)
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $srcPath  = Join-Path $repoRoot 'src/VLA_English.bas'
-$outPath  = Join-Path $repoRoot 'scripts/words.vla'
+$outPath  = Join-Path $repoRoot 'core/data/words.vla'
 
 $all = [System.IO.File]::ReadAllText($srcPath) -split "`r?`n"
 

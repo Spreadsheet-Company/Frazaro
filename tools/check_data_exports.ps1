@@ -5,10 +5,10 @@ WHY: PORT.5 gave the core two catalogues as data, each exported once from the
 VBA that stays their source, and PORT.6 (slice 6a) two more, the English
 engine's word tables and name lists:
 
-    scripts/headtable.vla   from src/VLA_HeadTable.bas       (tools/export_headtable.ps1)
-    scripts/messages.vla    from src/VLA_Messages.bas        (tools/export_messages.ps1)
-    scripts/words.vla       from src/VLA_English.bas         (tools/export_words.ps1)
-    scripts/names.vla       from src/VLA_SentenceEngine.bas  (tools/export_names.ps1)
+    core/data/headtable.vla   from src/VLA_HeadTable.bas       (tools/export_headtable.ps1)
+    core/data/messages.vla    from src/VLA_Messages.bas        (tools/export_messages.ps1)
+    core/data/words.vla       from src/VLA_English.bas         (tools/export_words.ps1)
+    core/data/names.vla       from src/VLA_SentenceEngine.bas  (tools/export_names.ps1)
 
 Two copies of one list, and nothing mechanical to hold them together, is the
 shape check_devrig_mods_parity.ps1 was written for after eight recurrences
@@ -36,16 +36,16 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 
 # --- the floors: raise them when an entry is added, never lower them --------
 $floors = @{
-    'scripts/headtable.vla' = 65    # one row per core form (VLA_HeadTable.bas, IN5.0: 65)
-    'scripts/messages.vla'  = 587   # one entry per refusal id (VLA_Messages.bas, LX.14; 584 with PORT.7's ten; 587 with PORT.8's three)
-    'scripts/words.vla'     = 113   # one entry per word-table row (VLA_English.bas, LX.14; PORT.6 2026-10-02)
-    'scripts/names.vla'     = 218   # one entry per name-list row (VLA_SentenceEngine.bas; PORT.6 2026-10-02: 211; U.31, the seven reserved words: 218)
+    'core/data/headtable.vla' = 65    # one row per core form (VLA_HeadTable.bas, IN5.0: 65)
+    'core/data/messages.vla'  = 587   # one entry per refusal id (VLA_Messages.bas, LX.14; 584 with PORT.7's ten; 587 with PORT.8's three)
+    'core/data/words.vla'     = 113   # one entry per word-table row (VLA_English.bas, LX.14; PORT.6 2026-10-02)
+    'core/data/names.vla'     = 218   # one entry per name-list row (VLA_SentenceEngine.bas; PORT.6 2026-10-02: 211; U.31, the seven reserved words: 218)
 }
 $exports = @(
-    @{ Data = 'scripts/headtable.vla'; Script = 'tools/export_headtable.ps1'; Form = '^\(head ' },
-    @{ Data = 'scripts/messages.vla';  Script = 'tools/export_messages.ps1';  Form = '^\(message ' },
-    @{ Data = 'scripts/words.vla';     Script = 'tools/export_words.ps1';     Form = '^\([a-z-]+ ' },
-    @{ Data = 'scripts/names.vla';     Script = 'tools/export_names.ps1';     Form = '^\([a-z-]+ ' }
+    @{ Data = 'core/data/headtable.vla'; Script = 'tools/export_headtable.ps1'; Form = '^\(head ' },
+    @{ Data = 'core/data/messages.vla';  Script = 'tools/export_messages.ps1';  Form = '^\(message ' },
+    @{ Data = 'core/data/words.vla';     Script = 'tools/export_words.ps1';     Form = '^\([a-z-]+ ' },
+    @{ Data = 'core/data/names.vla';     Script = 'tools/export_names.ps1';     Form = '^\([a-z-]+ ' }
 )
 
 function Get-NormalizedLines([string]$text) {

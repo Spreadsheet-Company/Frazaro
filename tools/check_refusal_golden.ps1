@@ -19,7 +19,7 @@ host-free, on every push:
   1. the golden's headers are the fixture's, in order, one record each;
   2. every record is REFUSED - a case that translates or loads reaches no
      refusal, and is mended or removed, never kept;
-  3. every id in the golden is a (message <id> ...) of scripts/messages.vla;
+  3. every id in the golden is a (message <id> ...) of core/data/messages.vla;
   4. the number of distinct ids is at or above the floor below, the house
      style's hardcoded, reviewable number, raised by hand as cases are added.
 
@@ -54,7 +54,7 @@ $floor = 113
 
 $fixturePath  = Join-Path $repoRoot 'scripts/refusals.txt'
 $goldenPath   = Join-Path $repoRoot 'scripts/refusals_golden.txt'
-$messagesPath = Join-Path $repoRoot 'scripts/messages.vla'
+$messagesPath = Join-Path $repoRoot 'core/data/messages.vla'
 
 function Get-Lines([string]$path) {
     $text = [System.IO.File]::ReadAllText($path)
@@ -133,7 +133,7 @@ function Test-Pair([string]$fixture, [string]$golden, [string]$messages, [int]$m
             continue
         }
         if (-not $ids.ContainsKey($c.Id)) {
-            $problems += ("'{0}': the id '{1}' is not in scripts/messages.vla" -f $c.Header, $c.Id)
+            $problems += ("'{0}': the id '{1}' is not in core/data/messages.vla" -f $c.Header, $c.Id)
         }
         $distinct[$c.Id] = $true
     }

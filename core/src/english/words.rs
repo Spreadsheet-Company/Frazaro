@@ -3,8 +3,8 @@
 //!
 //! `VLA_English.bas` holds nine word tables in code and
 //! `VLA_SentenceEngine.bas` six name lists; `tools/export_words.ps1` and
-//! `tools/export_names.ps1` write them to `scripts/words.vla` and
-//! `scripts/names.vla`, one form per entry in the VBA's own order, and
+//! `tools/export_names.ps1` write them to `core/data/words.vla` and
+//! `core/data/names.vla`, one form per entry in the VBA's own order, and
 //! `tools/check_data_exports.ps1` fails when either has drifted from its
 //! VBA. The VBA stays the source (SD-18); this module reads the files at
 //! build time, so nothing is typed twice and the wasm import section stays
@@ -23,8 +23,8 @@ use crate::form::Form;
 use crate::intrinsics::fold;
 use crate::reader::read_forms;
 
-const WORDS_TEXT: &str = include_str!("../../../scripts/words.vla");
-const NAMES_TEXT: &str = include_str!("../../../scripts/names.vla");
+const WORDS_TEXT: &str = include_str!("../../data/words.vla");
+const NAMES_TEXT: &str = include_str!("../../data/names.vla");
 
 /// One built-in function word: `RegisterBuiltinFuncWords`'s `AddFnEntry`.
 /// `takes_of` is the `mFnOf` table (`length of x`); otherwise the word is
@@ -159,12 +159,12 @@ fn tables() -> &'static Tables {
     TABLES.get_or_init(parse)
 }
 
-/// How many entries `scripts/words.vla` gave (the floor the tests hold).
+/// How many entries `core/data/words.vla` gave (the floor the tests hold).
 pub fn words_count() -> usize {
     tables().words_count
 }
 
-/// How many entries `scripts/names.vla` gave.
+/// How many entries `core/data/names.vla` gave.
 pub fn names_count() -> usize {
     tables().names_count
 }

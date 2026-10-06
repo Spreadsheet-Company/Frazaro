@@ -602,7 +602,7 @@ impl Grammar {
     }
 
     /// VBA `RegisterBuiltinFuncWords`: the engine's own function words,
-    /// from `scripts/names.vla`, over fresh tables with no phrase and no mask.
+    /// from `core/data/names.vla`, over fresh tables with no phrase and no mask.
     fn register_builtin_func_words(&mut self) {
         self.fn_of.clear();
         self.fn_nullary.clear();

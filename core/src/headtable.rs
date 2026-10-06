@@ -4,7 +4,7 @@
 //! One row per head symbol: its aliases, arity, interpreter routine, VBA
 //! routine, its standing in the formula dialect, and whether it is
 //! export-only. The VBA is the source; `tools/export_headtable.ps1` writes
-//! `scripts/headtable.vla` from it and `tools/check_data_exports.ps1` fails
+//! `core/data/headtable.vla` from it and `tools/check_data_exports.ps1` fails
 //! when the two drift. As in the VBA, the one live column is the aliases:
 //! [`alias_map`] feeds [`resolve_head_alias`], the lookup `EmitTop`,
 //! `EmitStmt`, `EmitExpr` and `EmitFormula` run before their dispatch, so an
@@ -39,7 +39,7 @@ pub struct HeadRow {
     pub export_only: bool,
 }
 
-const TABLE_TEXT: &str = include_str!("../../scripts/headtable.vla");
+const TABLE_TEXT: &str = include_str!("../data/headtable.vla");
 
 fn parse_rows() -> Vec<HeadRow> {
     let text = TABLE_TEXT.replace("\r\n", "\n");

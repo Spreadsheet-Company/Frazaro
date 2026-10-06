@@ -3,8 +3,8 @@
 //!
 //! The shape is the VBA's: each `Select Case` arm one `match` arm, each
 //! rule table one `Vec`, every word list and name list the VBA holds in
-//! code read here as data exported from it (`scripts/words.vla`,
-//! `scripts/names.vla`), and every refusal the catalogue's, by id, in the
+//! code read here as data exported from it (`core/data/words.vla`,
+//! `core/data/names.vla`), and every refusal the catalogue's, by id, in the
 //! same situation. The treaty's oracles for this slice are
 //! `instructions.txt` to `instructions_golden.vla` byte for byte, every
 //! `(test-success ...)` and `(test-fail ...)` form of every source
