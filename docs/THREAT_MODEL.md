@@ -337,4 +337,8 @@ and its `--counts` prints counts alone. *Appended 2026-10-05, slice 8d:*
 `frazaro audit` reads one file the same way into an index of every cell,
 as `--cone` does, and prints the audit list's findings; the same parts,
 the same bounds, nothing written, and its `--counts` prints the six
-counts alone.
+counts alone. *Appended 2026-10-05, slice 8e:* an OpenDocument `.ods`
+file is read the same way, its `mimetype` entry and its `content.xml`
+(held whole, since it holds every sheet) under the same bounds and the
+same cursor; its styles, settings, manifest and metadata are never
+decoded, and a link's file is read for its name alone.

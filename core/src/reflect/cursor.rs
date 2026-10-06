@@ -59,6 +59,13 @@ impl<'a> Cursor<'a> {
         Cursor { text, pos: 0 }
     }
 
+    /// Where the scan stands: the offset just past the last event, so that
+    /// a reader can remember where an element began (the offset before the
+    /// call that returned its start tag) and where it ended.
+    pub fn position(&self) -> usize {
+        self.pos
+    }
+
     /// The next event, or `None` at the end of the text. An error names
     /// what the markup does that this reader refuses.
     pub fn next_event(&mut self) -> Result<Option<Event<'a>>, &'static str> {
@@ -151,11 +158,25 @@ impl<'a> Cursor<'a> {
 /// The attributes of a start tag, each as its local name and its value as
 /// written, entities not yet undone.
 pub fn attributes(attrs: &str) -> Attributes<'_> {
-    Attributes { rest: attrs }
+    Attributes {
+        rest: attrs,
+        full: false,
+    }
+}
+
+/// The attributes of a start tag with their names as written, prefix and
+/// all, for the one case two namespaces share a local name (OpenDocument's
+/// `office:value-type` beside `calcext:value-type`).
+pub fn attributes_full(attrs: &str) -> Attributes<'_> {
+    Attributes {
+        rest: attrs,
+        full: true,
+    }
 }
 
 pub struct Attributes<'a> {
     rest: &'a str,
+    full: bool,
 }
 
 impl<'a> Iterator for Attributes<'a> {
@@ -174,13 +195,21 @@ impl<'a> Iterator for Attributes<'a> {
         let end = after[1..].find(q as char)?;
         let value = &after[1..1 + end];
         self.rest = &after[1 + end + 1..];
-        Some((local(name), value))
+        Some((if self.full { name } else { local(name) }, value))
     }
 }
 
 /// An attribute's value by its local name, entities undone.
 pub fn attr<'a>(attrs: &'a str, name: &str) -> Option<Cow<'a, str>> {
     attributes(attrs)
+        .find(|(n, _)| *n == name)
+        .map(|(_, v)| unescape_entities(v))
+}
+
+/// An attribute's value by its name as written, prefix and all, entities
+/// undone.
+pub fn attr_full<'a>(attrs: &'a str, name: &str) -> Option<Cow<'a, str>> {
+    attributes_full(attrs)
         .find(|(n, _)| *n == name)
         .map(|(_, v)| unescape_entities(v))
 }

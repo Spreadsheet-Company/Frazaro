@@ -31,7 +31,10 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 
 use super::cursor::{attr, element_text, skip_element, Cursor, Event};
-use super::{print, sheet_prefix, RefersTo, Row, SheetStats, Sink, Value, Visibility};
+use super::{
+    emit_formula, NameInfo, Row, SheetInfo, SheetStats, Sink, Source, Summary, TableInfo, Value,
+    Visibility,
+};
 use crate::intrinsics::fold;
 use crate::messages::{raise, Refusal};
 use crate::refers;
@@ -41,55 +44,9 @@ use crate::sheet::{cell_ref, parse_a1_range, xlfn};
 
 /// The most distinct R1C1 formulas a count keeps, per sheet and per
 /// workbook; past it the count stands still (AXM.1's own cap).
-pub const DISTINCT_CAP: usize = 1 << 20;
-
 const WORKBOOK: &str = "xl/workbook.xml";
 const WORKBOOK_RELS: &str = "xl/_rels/workbook.xml.rels";
 const SHARED_STRINGS: &str = "xl/sharedStrings.xml";
-
-/// One sheet of the workbook, in tab order.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SheetInfo {
-    pub name: String,
-    pub visibility: Visibility,
-    /// The sheet's part, `xl/worksheets/sheet1.xml`.
-    pub part: String,
-}
-
-/// One defined name.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct NameInfo {
-    pub name: String,
-    /// What it refers to, as the file holds it: an A1 formula without `=`.
-    pub refers_to: String,
-    /// The sheet a sheet-scoped name belongs to, by tab index.
-    pub sheet: Option<usize>,
-    pub hidden: bool,
-    /// Excel's own `_xlfn.` placeholder for a newer function, which no one
-    /// defined: counted apart and printed in no row.
-    pub placeholder: bool,
-}
-
-/// One Table (a ListObject), by the name Excel shows.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TableInfo {
-    pub name: String,
-    /// The sheet it sits on, by tab index.
-    pub sheet: usize,
-    pub range: String,
-    pub columns: Vec<String>,
-}
-
-/// What `--counts` reports beyond the sheets.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Summary {
-    pub names: usize,
-    pub placeholders: usize,
-    pub tables: usize,
-    pub external_books: usize,
-    pub strings: usize,
-    pub string_bytes: usize,
-}
 
 struct Rel {
     id: String,
@@ -126,11 +83,11 @@ impl std::fmt::Debug for Package<'_> {
     }
 }
 
-fn not_a_workbook(label: &str, why: &str) -> Refusal {
+pub(crate) fn not_a_workbook(label: &str, why: &str) -> Refusal {
     raise("reflect-not-a-workbook", &[("path", label), ("why", why)])
 }
 
-fn xml_refused(label: &str, part: &str, why: &str) -> Refusal {
+pub(crate) fn xml_refused(label: &str, part: &str, why: &str) -> Refusal {
     raise(
         "reflect-xml-refused",
         &[("path", label), ("part", part), ("why", why)],
@@ -145,7 +102,7 @@ fn unsupported(label: &str, part: &str, why: &str) -> Refusal {
 }
 
 /// The next event of a part, the cursor's refusal given the part's name.
-fn step<'t>(
+pub(crate) fn step<'t>(
     cursor: &mut Cursor<'t>,
     label: &str,
     part: &str,
@@ -317,12 +274,6 @@ impl<'a> Package<'a> {
         })?;
         let has = |name: &str| entries.iter().any(|e| e.name == name);
         if !has(WORKBOOK) {
-            if has("content.xml") && has("mimetype") {
-                return Err(not_a_workbook(
-                    label,
-                    "it is an OpenDocument spreadsheet, which this version does not read yet (PORT.8, slice 8e)",
-                ));
-            }
             return Err(not_a_workbook(
                 label,
                 "it has no xl/workbook.xml part, so it is not a spreadsheet package",
@@ -476,30 +427,35 @@ impl<'a> Package<'a> {
             string_bytes,
         })
     }
+}
+
+impl<'a> Source for Package<'a> {
+    fn label(&self) -> &str {
+        &self.label
+    }
 
     /// The sheets in tab order.
-    pub fn sheets(&self) -> &[SheetInfo] {
+    fn sheets(&self) -> &[SheetInfo] {
         &self.sheets
     }
 
     /// Every defined name, placeholders included, in the file's order.
-    pub fn names(&self) -> &[NameInfo] {
+    fn names(&self) -> &[NameInfo] {
         &self.names
     }
 
     /// Every Table, in the order the sheets' relationships name them.
-    pub fn tables(&self) -> &[TableInfo] {
+    fn tables(&self) -> &[TableInfo] {
         &self.tables
     }
 
     /// The linked workbooks' file names, in the order `[1]`, `[2]`, ... of a
     /// formula's text; an empty name for a link of another kind.
-    pub fn external_books(&self) -> &[String] {
+    fn external_books(&self) -> &[String] {
         &self.external_books
     }
 
-    /// The counts `--counts` prints for the workbook.
-    pub fn summary(&self) -> Summary {
+    fn summary(&self) -> Summary {
         let placeholders = self.names.iter().filter(|n| n.placeholder).count();
         Summary {
             names: self.names.len() - placeholders,
@@ -511,63 +467,12 @@ impl<'a> Package<'a> {
         }
     }
 
-    /// A name as a row prints it: a sheet-scoped name behind its sheet.
-    /// A `name` row's first field: the name, a sheet-scoped one behind its
-    /// sheet as a reference quotes it (`Model!Local`). The key `diff` matches
-    /// names by.
-    pub(crate) fn printed_name(&self, name: &NameInfo) -> String {
-        match name.sheet.and_then(|i| self.sheets.get(i)) {
-            Some(sheet) => format!("{}!{}", sheet_prefix(&sheet.name), name.name),
-            None => name.name.clone(),
-        }
-    }
-
-    /// The rows that come before any cell, in the fixed order: every
-    /// `sheet` row in tab order, every `name` row sorted by its name without
-    /// case, every `table` row by its sheet's tab order then its name.
-    pub fn header_rows(&self, sink: &mut dyn Sink) {
-        for sheet in &self.sheets {
-            sink.row(&Row::Sheet {
-                name: &sheet.name,
-                visibility: sheet.visibility,
-            });
-        }
-        let mut names: Vec<(String, &str)> = self
-            .names
-            .iter()
-            .filter(|n| !n.placeholder)
-            .map(|n| (self.printed_name(n), n.refers_to.as_str()))
-            .collect();
-        names.sort_by(|a, b| fold(&a.0).cmp(&fold(&b.0)).then_with(|| a.0.cmp(&b.0)));
-        for (name, refers_to) in &names {
-            sink.row(&Row::Name { name, refers_to });
-        }
-        let mut tables: Vec<&TableInfo> = self.tables.iter().collect();
-        tables.sort_by(|a, b| {
-            a.sheet
-                .cmp(&b.sheet)
-                .then_with(|| fold(&a.name).cmp(&fold(&b.name)))
-        });
-        for table in tables {
-            sink.row(&Row::Table {
-                name: &table.name,
-                sheet: &self.sheets[table.sheet].name,
-                range: &table.range,
-            });
-        }
-    }
-
     /// One sheet's cells in document order, to the sink: a `cell` row for a
     /// value the file holds, a `formula` row for a formula, then its
     /// `refers` rows. The sheet's part is read here and dropped on return;
-    /// what the walk counted comes back.
-    pub fn walk_sheet(&self, index: usize, sink: &mut dyn Sink) -> Result<SheetStats, Refusal> {
-        self.walk_sheet_with(index, sink, &mut HashSet::new())
-    }
-
-    /// [`Package::walk_sheet`], with the workbook-wide set of distinct R1C1
-    /// formulas carried across sheets for `--counts`.
-    pub fn walk_sheet_with(
+    /// what the walk counted comes back, with the workbook-wide set of
+    /// distinct R1C1 formulas carried across sheets for `--counts`.
+    fn walk_sheet_with(
         &self,
         index: usize,
         sink: &mut dyn Sink,
@@ -788,37 +693,19 @@ impl<'a> Package<'a> {
                         });
                     }
                     if let Some(f_text) = formula {
-                        stats.formulas += 1;
                         let text = format!("={}", xlfn::strip_future_prefixes(&f_text));
                         let text = refers::resolve_books(&text, &self.external_books);
-                        sink.row(&Row::Formula {
-                            sheet: &info.name,
-                            addr: &addr,
-                            text: &text,
-                        });
-                        let found = refers::scan(&text);
-                        stats.unreadable += found
-                            .iter()
-                            .filter(|r| r.kind == refers::Kind::Unreadable)
-                            .count() as u64;
-                        let mut targets: Vec<RefersTo> =
-                            found.iter().map(|r| RefersTo::of(r, &info.name)).collect();
-                        targets.sort_by_key(print::target);
-                        targets.dedup();
-                        for to in &targets {
-                            sink.row(&Row::Refers {
-                                sheet: &info.name,
-                                addr: &addr,
-                                to,
-                            });
-                        }
-                        let rendered = refers::r1c1(&text, row, col);
-                        if sheet_distinct.len() < DISTINCT_CAP {
-                            sheet_distinct.insert(rendered.clone());
-                        }
-                        if book_distinct.len() < DISTINCT_CAP {
-                            book_distinct.insert(rendered);
-                        }
+                        emit_formula(
+                            sink,
+                            &info.name,
+                            &addr,
+                            &text,
+                            row,
+                            col,
+                            &mut stats,
+                            &mut sheet_distinct,
+                            book_distinct,
+                        );
                     }
                 }
                 _ => {}
@@ -982,6 +869,8 @@ mod tests {
             .unwrap_err()
             .text
             .contains("no xl/workbook.xml"));
+        // An OpenDocument file opens through its own reader (8e); given to
+        // this one directly, it is a package with no workbook part.
         let ods = zip::write_stored(&[
             (
                 "mimetype".to_string(),
@@ -996,7 +885,8 @@ mod tests {
         assert!(Package::open(&ods, "x.ods")
             .unwrap_err()
             .text
-            .contains("OpenDocument spreadsheet"));
+            .contains("no xl/workbook.xml"));
+        assert!(crate::reflect::odf::is_opendocument(&ods));
         // A declaration in a part is refused before anything else is read.
         let doctype = one_sheet(
             "<!DOCTYPE x><row r=\"1\"><c r=\"A1\"><v>1</v></c></row>",
@@ -1055,7 +945,26 @@ mod tests {
     /// change regenerates them with the door and raises the check's floors.
     #[test]
     fn the_reflect_goldens_are_reproduced() {
-        let rows: [(&str, &[u8], &str); 5] = [
+        let rows: [(&str, &[u8], &str); 8] = [
+            // The twin as Excel 365 saved it (the owner's pass, 2026-10-05):
+            // Excel's own ODF dialect, the filler rows repeated a million
+            // times, a sheet renamed, the link dropped, `@` as SINGLE.
+            (
+                "scripts/reflect/opendocument_saved.ods",
+                include_bytes!("../../../scripts/reflect/opendocument_saved.ods"),
+                include_str!("../../../scripts/reflect/opendocument_saved_relations.vla"),
+            ),
+            // The fixture's changed copy (8c) and its OpenDocument twin (8e).
+            (
+                "scripts/reflect/changed.xlsx",
+                include_bytes!("../../../scripts/reflect/changed.xlsx"),
+                include_str!("../../../scripts/reflect/changed_relations.vla"),
+            ),
+            (
+                "scripts/reflect/opendocument.ods",
+                include_bytes!("../../../scripts/reflect/opendocument.ods"),
+                include_str!("../../../scripts/reflect/opendocument_relations.vla"),
+            ),
             // The first build golden as Excel 365 saved it (the owner's
             // live pass, 2026-10-04): a cell row for every formula's cached
             // value, and the stamp's long text as _xlfn._LONGTEXT.

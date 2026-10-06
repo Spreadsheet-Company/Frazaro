@@ -1,0 +1,8 @@
+(typed-over "Review!B3" 61 "=A3*2")
+(inconsistent "Review!C3" "=A3+2" "=A3+1")
+(unused-name "Range1" "Data!$A$2:$B$4")
+(empty-reference "Review!D1" "Review!Z9")
+(empty-reference "Review!D2" "Model!H1")
+(hidden-sheet "Scratch" hidden)
+(hidden-sheet "Secret" hidden)
+(external-link "Model!E2" "[Rates.xlsx]Sheet1!A1")

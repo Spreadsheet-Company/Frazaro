@@ -75,7 +75,19 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $goldens = @(
     @{ Name = 'build_fixture_saved'; Old = 'scripts/build/fixture_golden.xlsx'; New = 'scripts/reflect/saved.xlsx';      Golden = 'scripts/reflect/build_fixture_saved_diff.vla'; Floor = 6 },
     @{ Name = 'model_into';          Old = 'scripts/build/model.xlsx';          New = 'scripts/build/into_golden.xlsx'; Golden = 'scripts/reflect/model_into_diff.vla';          Floor = 4 },
-    @{ Name = 'fixture_changed';     Old = 'scripts/reflect/fixture.xlsx';      New = 'scripts/reflect/changed.xlsx';   Golden = 'scripts/reflect/fixture_changed_diff.vla';     Floor = 25 }
+    @{ Name = 'fixture_changed';     Old = 'scripts/reflect/fixture.xlsx';      New = 'scripts/reflect/changed.xlsx';   Golden = 'scripts/reflect/fixture_changed_diff.vla';     Floor = 25 },
+    # 2026-10-05, PORT.8 slice 8e: fixture_opendocument 6 - the fixture
+    # against its OpenDocument twin: the format gap itself (Secret hidden,
+    # not very hidden; Broken absent; E1 a plain range for the Table's
+    # column; A6 a date value for the serial) and the scope of Local, which
+    # the twin holds workbook-level because Excel's reader of .ods keeps no
+    # sheet-local name (two rows), and nothing else.
+    @{ Name = 'fixture_opendocument'; Old = 'scripts/reflect/fixture.xlsx';     New = 'scripts/reflect/opendocument.ods'; Golden = 'scripts/reflect/fixture_opendocument_diff.vla'; Floor = 6 },
+    # 2026-10-05, PORT.8 slice 8e, the owner's pass: opendocument_saved 9 - the
+    # twin against Excel's save of it: what Excel's ODF writing changes (a
+    # sheet renamed, @ on four formulas, the link's formula dropped, one
+    # sheet reference respelled, the date given a time) and nothing else.
+    @{ Name = 'opendocument_saved'; Old = 'scripts/reflect/opendocument.ods'; New = 'scripts/reflect/opendocument_saved.ods'; Golden = 'scripts/reflect/opendocument_opendocument_saved_diff.vla'; Floor = 9 }
 )
 
 # The forms a diff prints and the phase each belongs to in the fixed order.

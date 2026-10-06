@@ -1,0 +1,6 @@
+(sheet-changed "Secret" very-hidden hidden)
+(changed "Broken" "Model!#REF!" blank)
+(changed "Local" blank "Model!$B$2")
+(changed "Model!Local" "Model!$B$2" blank)
+(changed "Model!E1" (formula "=SUM(Sales[Amount])" 60) (formula "=SUM(Data!B2:B4)" 60))
+(changed "Model!A6" 45930 (date "2025-09-30"))

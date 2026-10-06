@@ -823,3 +823,89 @@ scores the three rows as the kind `audit`.
 unused-names N empty-references N hidden-sheets N external-links N` and the
 times, nothing from inside the file: the number internal audit wants of a
 model it may not show.
+
+## Amendment of 2026-10-05, later: OpenDocument, the reader's second format (`PORT.8`, slice 8e)
+
+Slice 8e reads an OpenDocument spreadsheet, `.ods`, into the same relations:
+`frazaro reflect`, `diff` and `audit` take either file, and oracles 8, 9 and
+10 hold both formats to one spelling. The VBA reference opens an `.ods`
+through Excel, which converts it on the way in, so as with every row of
+these oracles the goldens are the core's own output, blessed by the owner
+opening the fixture in Excel, which opens `.ods`, and reading it by eye.
+
+**What is read.** The `mimetype` entry must say spreadsheet; another
+OpenDocument kind is refused by name. Everything else is read from
+`content.xml`: the automatic styles, for a table style whose `display` is
+`false` (a hidden sheet; the format has no very-hidden); each `table:table`
+as a sheet in document order; the named expressions, a sheet-local one
+behind its sheet as `Model!Local` (the fixture carries none sheet-local,
+since Excel's reader of `.ods` removed one as unreadable content on
+2026-10-05 and a fixture Excel is to open keeps its names workbook-level;
+the reader's own test holds the sheet-local case), a named range's address
+and a named expression's text both spelled as a `name` row's refers-to; the database
+ranges as `table` rows (Calc's named rectangle with a header row, the
+nearest kin of a Table; the anonymous ones autofilters leave are not); and
+the other files the formulas reach. Styles, settings, the manifest and the
+metadata are never decoded, and a `DOCTYPE` is refused as in a package.
+
+**A cell's value** is what the file holds: `office:value` as written for a
+float, a percentage or a currency, never a float round trip; a boolean; a
+date, or a time as its ISO duration, under `date`; a string from its
+paragraphs, each `text:p` a line, a `text:s` its spaces, with annotations
+and drawings passed over; an error where Calc's `calcext:value-type` says
+`error` or, lacking that marker, where a formula cell's string is one of
+Excel's seven error literals, the gap the format leaves, or where Excel's
+own writing says `office:value-type="error"`, a value type the format does
+not define. A repeated row or cell is read once per repetition, which is
+what the file says, and an empty one, however often repeated, costs
+nothing (Excel writes the empty rows below the data as one row repeated a
+million times holding one cell repeated sixteen thousand); a matrix
+formula is its anchor's, an array anchor, and the cells it spills into are
+values; a formatted cell with nothing in it has no row, as in a package.
+
+**A formula's text** is OpenFormula (`of:=SUM([.B1:.B2];[Data.A1])`) and is
+printed as the formula bar shows it in Excel and in Calc alike
+(`=SUM(B1:B2,Data!A1)`): the namespace prefix dropped; each bracketed
+reference spelled in A1, the sheet quoted by the one rule and a sheet
+marked absolute with `$` unmarked, two sheets as a 3D span
+(`Model:Scratch!B1`, `'Q1 Data:Q4 Data'!A1`), a source as the file's name
+in brackets (`['file:///…/Rates.xlsx'#$Sheet1.A1]` as
+`[Rates.xlsx]Sheet1!A1`); `;` between arguments as `,`; the reference
+operators `~` and `!` as `,` and a space; `COM.MICROSOFT.` dropped from a
+function's name, so that `COM.MICROSOFT.SEQUENCE(2)` reads `SEQUENCE(2)`.
+Excel's own writing is read too: a name written `$$Name` reads `Name`, and
+`COM.MICROSOFT.SINGLE(x)`, Excel's spelling of implicit intersection, reads
+`@x`, which is what Excel's bar shows for it. A link whose address is
+relative, which the format allows, Excel's reader drops as unreadable
+content (the owner's openings of 2026-10-05), so the fixture's is absolute
+(`'file:///C:/Rates.xlsx'#$Sheet1.A1`), and a reader prints the file's
+name alone either way. So the one reference reader reads both formats and
+every `refers` row keeps its spelling.
+
+- **The rows oracles 8, 9 and 10 gain.** The fixture written again in
+  ODF's terms, `scripts/reflect/opendocument.ods`
+  (`tools/build_reflect_ods_fixture.ps1`, its stored `mimetype` first as
+  the format requires), to `scripts/reflect/opendocument_relations.vla`
+  (oracle 8's seventh row: the package fixture's 130 lines less `Broken`'s,
+  with `Secret` hidden, E1 a plain range and A6 a date value); the package
+  fixture against it, `scripts/reflect/fixture.xlsx` and
+  `scripts/reflect/opendocument.ods` to
+  `scripts/reflect/fixture_opendocument_diff.vla` (oracle 9's fourth pair:
+  six rows, four of them things one format cannot say and two the scope of
+  the name `Local`, sheet-local in the package and workbook-level in the
+  twin for Excel's sake, and nothing else); and
+  its findings, `scripts/reflect/opendocument_audit.vla` (oracle 10's
+  fourth row: eight). And the twin as Excel 365 saved it on 2026-10-05,
+  `scripts/reflect/opendocument_saved.ods`, kept as Excel wrote it: oracle
+  8's eighth row, `scripts/reflect/opendocument_saved_relations.vla` (127
+  lines: Excel's own dialect, `Q1 Data` renamed `Q1_Data`, the link's
+  formula gone); oracle 9's fifth pair, the twin against it,
+  `scripts/reflect/opendocument_opendocument_saved_diff.vla` (nine rows,
+  what Excel's ODF writing changes and nothing else); oracle 10's fifth
+  row, `scripts/reflect/opendocument_saved_audit.vla` (seven, the link's
+  finding gone with its formula). The comparison is the one oracle 1
+  makes.
+
+`tools/check_reflect_golden.ps1`, `check_diff_golden.ps1` and
+`check_audit_golden.ps1` each gain the rows with their floors, and
+`tools/prove.ps1` the six rows.

@@ -56,9 +56,12 @@ usage:
                          the files given, the build done again and compared
                          whole: one line, yes (exit 0) or no with why (exit
                          1); a file that is not a build is refused (slice 7c)
-  frazaro reflect <file.xlsx> [--counts] [--cone <Sheet!A1> ...]
-                         the reader (PORT.8, slices 8a and 8b): the
-                         workbook's relations to stdout in a fixed order,
+  frazaro reflect <file.xlsx|.ods> [--counts] [--cone <Sheet!A1> ...]
+                         the reader (PORT.8, slices 8a and 8b; an
+                         OpenDocument .ods file reads the same from slice
+                         8e, its formulas spelled as the formula bar shows
+                         them): the workbook's relations to stdout in a
+                         fixed order,
                          one form a line - every sheet with its state, every
                          name, every Table, then sheet by sheet each cell's
                          value as the file holds it, each formula's text as
@@ -73,7 +76,7 @@ usage:
                          and where it is blind; a file that is not a
                          workbook, a part with a DOCTYPE, or a shape this
                          version does not read is refused by name
-  frazaro diff <old.xlsx> <new.xlsx> [--counts]
+  frazaro diff <old.xlsx|.ods> <new.xlsx|.ods> [--counts]
                          the difference between two workbooks (PORT.8, slice
                          8c), read as reflect reads them: the sheets in one
                          file alone, then the names and Tables that differ,
@@ -82,7 +85,7 @@ usage:
                          formula with its cached value, or blank - one form
                          a line in a fixed order, nothing when the two hold
                          the same; with --counts, the counts and times alone
-  frazaro audit <file.xlsx> [--counts]
+  frazaro audit <file.xlsx|.ods> [--counts]
                          the audit list (PORT.8, slice 8d): where a
                          workbook's risks are, read from the file - a
                          constant typed over a column of formulas, a formula
@@ -616,7 +619,7 @@ fn ms_since(since: std::time::Instant) -> f64 {
 /// rows printed before it stand, since the read streams.
 fn reflect(args: &[String]) -> ExitCode {
     const USAGE_LINE: &str =
-        "usage: frazaro reflect <file.xlsx> [--counts] [--cone <Sheet!A1> ...]";
+        "usage: frazaro reflect <file.xlsx|.ods> [--counts] [--cone <Sheet!A1> ...]";
     let Some(file) = args.first() else {
         eprintln!("{USAGE_LINE}");
         return ExitCode::from(2);
@@ -649,7 +652,7 @@ fn reflect(args: &[String]) -> ExitCode {
         }
     };
     let opened = std::time::Instant::now();
-    let package = match frazaro_core::reflect::ooxml::Package::open(&bytes, file) {
+    let package = match frazaro_core::reflect::open(&bytes, file) {
         Ok(p) => p,
         Err(refusal) => {
             eprintln!("{refusal}");
@@ -710,7 +713,7 @@ fn reflect(args: &[String]) -> ExitCode {
         return ExitCode::SUCCESS;
     }
     if !cones.is_empty() {
-        let mut index = frazaro_core::reflect::cone::Index::new(&package);
+        let mut index = frazaro_core::reflect::cone::Index::new(package.as_ref());
         let started = std::time::Instant::now();
         for i in 0..package.sheets().len() {
             if let Err(refusal) = package.walk_sheet(i, &mut index) {
@@ -734,7 +737,7 @@ fn reflect(args: &[String]) -> ExitCode {
                 return ExitCode::from(2);
             };
             let started = std::time::Instant::now();
-            let stats = frazaro_core::reflect::cone::cone(&index, &package, s, row, col);
+            let stats = frazaro_core::reflect::cone::cone(&index, package.as_ref(), s, row, col);
             println!(
                 "cone {root}: {} indexed {indexed_ms:.1} ms walked {:.1} ms",
                 stats.line(),
@@ -771,7 +774,7 @@ fn reflect(args: &[String]) -> ExitCode {
 /// Exit 0 whenever the comparison ran, rows or none; a refusal exits 1 and
 /// the rows before it stand; a usage error or an unreadable file exits 2.
 fn diff(args: &[String]) -> ExitCode {
-    const USAGE_LINE: &str = "usage: frazaro diff <old.xlsx> <new.xlsx> [--counts]";
+    const USAGE_LINE: &str = "usage: frazaro diff <old.xlsx|.ods> <new.xlsx|.ods> [--counts]";
     let mut files: Vec<&str> = Vec::new();
     let mut counts = false;
     for a in args {
@@ -804,7 +807,7 @@ fn diff(args: &[String]) -> ExitCode {
     let opened = std::time::Instant::now();
     let mut packages = Vec::new();
     for (i, file) in files.iter().enumerate() {
-        match frazaro_core::reflect::ooxml::Package::open(&bytes[i], file) {
+        match frazaro_core::reflect::open(&bytes[i], file) {
             Ok(p) => packages.push(p),
             Err(refusal) => {
                 eprintln!("{refusal}");
@@ -813,7 +816,7 @@ fn diff(args: &[String]) -> ExitCode {
         }
     }
     let open_ms = ms_since(opened);
-    let (old, new) = (&packages[0], &packages[1]);
+    let (old, new) = (packages[0].as_ref(), packages[1].as_ref());
     use frazaro_core::reflect::diff::{self as d, ChangeSink};
     if counts {
         let started = std::time::Instant::now();
@@ -857,7 +860,7 @@ fn diff(args: &[String]) -> ExitCode {
 /// and times. Exit 0 whenever the walks ran, findings or none; a refusal
 /// exits 1; a usage error or an unreadable file exits 2.
 fn audit(args: &[String]) -> ExitCode {
-    const USAGE_LINE: &str = "usage: frazaro audit <file.xlsx> [--counts]";
+    const USAGE_LINE: &str = "usage: frazaro audit <file.xlsx|.ods> [--counts]";
     let mut file: Option<&str> = None;
     let mut counts = false;
     for a in args {
@@ -885,7 +888,7 @@ fn audit(args: &[String]) -> ExitCode {
         }
     };
     let opened = std::time::Instant::now();
-    let package = match frazaro_core::reflect::ooxml::Package::open(&bytes, file) {
+    let package = match frazaro_core::reflect::open(&bytes, file) {
         Ok(p) => p,
         Err(refusal) => {
             eprintln!("{refusal}");
@@ -895,7 +898,7 @@ fn audit(args: &[String]) -> ExitCode {
     let open_ms = ms_since(opened);
     use frazaro_core::reflect::audit::{self as au, FindingSink};
     let started = std::time::Instant::now();
-    let mut index = au::AuditIndex::new(&package);
+    let mut index = au::AuditIndex::new(package.as_ref());
     for i in 0..package.sheets().len() {
         if let Err(refusal) = package.walk_sheet(i, &mut index) {
             eprintln!("{refusal}");
@@ -905,7 +908,7 @@ fn audit(args: &[String]) -> ExitCode {
     let indexed_ms = ms_since(started);
     if counts {
         let started = std::time::Instant::now();
-        let stats = au::audit(&index, &package, &mut au::Discard);
+        let stats = au::audit(&index, package.as_ref(), &mut au::Discard);
         println!(
             "audit: {} open {open_ms:.1} ms indexed {indexed_ms:.1} ms walked {:.1} ms",
             stats.line(),
@@ -921,7 +924,7 @@ fn audit(args: &[String]) -> ExitCode {
         }
     }
     let mut out = Findings(std::io::BufWriter::new(std::io::stdout().lock()));
-    au::audit(&index, &package, &mut out);
+    au::audit(&index, package.as_ref(), &mut out);
     if out.0.flush().is_err() {
         return ExitCode::from(2);
     }

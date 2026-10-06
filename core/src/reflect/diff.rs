@@ -33,9 +33,8 @@
 
 use std::collections::BTreeMap;
 
-use super::ooxml::Package;
 use super::print::datum;
-use super::{sheet_prefix, Row, Sink, Value, Visibility};
+use super::{sheet_prefix, Row, Sink, Source, Value, Visibility};
 use crate::form::Form;
 use crate::intrinsics::fold;
 use crate::messages::Refusal;
@@ -251,12 +250,12 @@ struct Sides {
     table: bool,
 }
 
-/// The difference between two opened packages, to the sink in the fixed
-/// order; what was counted comes back. A refusal from either file's walk
-/// ends the comparison, the rows before it standing.
+/// The difference between two opened workbooks, in either format, to the
+/// sink in the fixed order; what was counted comes back. A refusal from
+/// either file's walk ends the comparison, the rows before it standing.
 pub fn diff(
-    old: &Package<'_>,
-    new: &Package<'_>,
+    old: &dyn Source,
+    new: &dyn Source,
     sink: &mut dyn ChangeSink,
 ) -> Result<DiffStats, Refusal> {
     let mut stats = DiffStats::default();
@@ -390,16 +389,17 @@ pub fn diff_text(
     new_bytes: &[u8],
     new_label: &str,
 ) -> Result<String, Refusal> {
-    let old = Package::open(old_bytes, old_label)?;
-    let new = Package::open(new_bytes, new_label)?;
+    let old = super::open(old_bytes, old_label)?;
+    let new = super::open(new_bytes, new_label)?;
     let mut lines = Lines::default();
-    diff(&old, &new, &mut lines)?;
+    diff(old.as_ref(), new.as_ref(), &mut lines)?;
     Ok(lines.out)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::reflect::ooxml::Package;
     use crate::sheet::zip;
 
     const NS: &str = "xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"";
@@ -612,7 +612,25 @@ mod tests {
             &'static [u8],
             &'static str,
         );
-        let rows: [Pair; 3] = [
+        let rows: [Pair; 5] = [
+            // The twin against Excel's save of it (8e): what Excel's own
+            // ODF writing changes, and nothing else.
+            (
+                "scripts/reflect/opendocument.ods",
+                include_bytes!("../../../scripts/reflect/opendocument.ods"),
+                "scripts/reflect/opendocument_saved.ods",
+                include_bytes!("../../../scripts/reflect/opendocument_saved.ods"),
+                include_str!("../../../scripts/reflect/opendocument_opendocument_saved_diff.vla"),
+            ),
+            // The reader's fixture against its OpenDocument twin (8e): the
+            // format gap itself, and nothing else.
+            (
+                "scripts/reflect/fixture.xlsx",
+                include_bytes!("../../../scripts/reflect/fixture.xlsx"),
+                "scripts/reflect/opendocument.ods",
+                include_bytes!("../../../scripts/reflect/opendocument.ods"),
+                include_str!("../../../scripts/reflect/fixture_opendocument_diff.vla"),
+            ),
             // The first build golden against its Excel-saved copy: the five
             // cached values and the stamp's _xlfn._LONGTEXT rewrite.
             (

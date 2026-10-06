@@ -69,7 +69,14 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $goldens = @(
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/reflect/fixture_audit.vla';       Floor = 9 },
     @{ Name = 'changed';       Fixture = 'scripts/reflect/changed.xlsx';      Golden = 'scripts/reflect/changed_audit.vla';       Floor = 6 },
-    @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/reflect/build_fixture_audit.vla'; Floor = 3 }
+    @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/reflect/build_fixture_audit.vla'; Floor = 3 },
+    # 2026-10-05, PORT.8 slice 8e: opendocument 8 - the fixture's OpenDocument
+    # twin: the same column cases and empty references, one unused name
+    # (no Broken), two hidden sheets (no very-hidden in ODF), the link.
+    @{ Name = 'opendocument';  Fixture = 'scripts/reflect/opendocument.ods';  Golden = 'scripts/reflect/opendocument_audit.vla';  Floor = 8 },
+    # 2026-10-05, PORT.8 slice 8e, the owner's pass: opendocument_saved 7 - the
+    # twin as Excel saved it, the link's formula gone with its finding.
+    @{ Name = 'opendocument_saved'; Fixture = 'scripts/reflect/opendocument_saved.ods'; Golden = 'scripts/reflect/opendocument_saved_audit.vla'; Floor = 7 }
 )
 
 # The forms an audit prints, in the fixed order.

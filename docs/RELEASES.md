@@ -324,7 +324,11 @@
   hidden sheet; a link to another workbook, one finding a line, and nothing
   when there is nothing to report. These are the questions internal audit
   runs by eye, answered with no Excel on the machine; `--counts` gives the
-  six counts alone for a model whose contents must not leave it.
+  six counts alone for a model whose contents must not leave it. All three
+  read an OpenDocument spreadsheet (`.ods`) as they read an `.xlsx`, a
+  formula from either file printed as the formula bar shows it, so that
+  `frazaro diff model.xlsx model.ods` says exactly what one format holds
+  that the other cannot, and nothing else.
 
 ### Known open security items
 

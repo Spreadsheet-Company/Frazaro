@@ -7818,6 +7818,166 @@ written against.
   32 / 40, 80, 41 / 50, 100, 51, Excel's own green triangle on B3, the
   constant among formulas, where the audit's first row points. The
   slice was committed 2026-10-05; 8e, ODF, follows.
+  **Slice 8e, OpenDocument (scoped and built 2026-10-05, the day 8d
+  committed; awaiting the owner's run).** The reader's second format, as
+  fork 3 decided: an `.ods` file opens into the same relations, so
+  `frazaro reflect`, `diff`, `audit` and `--cone` read either file and
+  print the same rows in the same spelling. *Decided here, with the
+  reasons:* (1) One trait, two readers: `Source` (`reflect/mod.rs`) is
+  what the door, `diff`, `audit` and the cone are written against, the
+  OOXML package and the OpenDocument document each implementing it; the
+  alternative, a second set of walks, would have doubled every oracle.
+  (2) A formula is printed as the formula bar shows it, in Excel and in
+  Calc alike: OpenFormula's bracketed references spelled in A1 (`[.B1]`
+  as `B1`, `[Data.B2:.B4]` as `Data!B2:B4`, `[Model.B1:Scratch.B1]` as
+  the span `Model:Scratch!B1`, `['Rates.xlsx'#$Sheet1.A1]` as
+  `[Rates.xlsx]Sheet1!A1`), the sheet quoted by the one rule and its
+  `$` unmarked, `;` as `,`, the reference operators `~` and `!` as `,`
+  and a space, `COM.MICROSOFT.` dropped from a function's name; so the
+  one reference reader reads both formats and the goldens keep one
+  spelling, where keeping OpenFormula's text would have needed a second
+  scanner and broken every `refers` row. (3) A database range, Calc's
+  named rectangle with a header row, is a `table` row, the nearest kin
+  of a Table in a format that has none; the anonymous ones autofilters
+  leave are not. (4) A value is what the file holds: `office:value` as
+  written for a float, a percentage or a currency; a boolean; a date or
+  a time under `date`, a time as its ISO duration, which is the file's
+  own text; a string from its paragraphs, each a line; an error where
+  Calc's `calcext:value-type` says so or, lacking that marker, where a
+  formula cell's string is one of Excel's seven error literals, the gap
+  the format leaves and the live check will measure against Excel's own
+  `.ods` writing. (5) A repeated row or cell is read once per
+  repetition, since that is what the file says; a matrix formula is an
+  array anchor and the cells it spills into are values; a hidden sheet
+  is a table style whose `display` is `false`, and there is no
+  very-hidden. (6) The one part that holds every sheet is held whole,
+  each sheet walked from its own slice of it, so the reader's bound is
+  the part's as before. (7) The fixture is the reader's own fixture
+  written again in ODF's terms by `tools/build_reflect_ods_fixture.ps1`,
+  `scripts/reflect/opendocument.ods`, so that `diff fixture.xlsx
+  opendocument.ods` is the format gap itself: `Secret` hidden where ODF
+  has no very-hidden, `Broken` absent, E1 summing the Table's column as
+  a plain range, A6 a date value where the package holds a serial; it
+  joins oracle 8 as a seventh row, oracle 9 as a fourth pair and oracle
+  10 as a fourth row. Step 0, predicted before the code ran: (1) the
+  fixture's relations are 129 lines, the package's 130 less `Broken`'s
+  row, with `(sheet "Secret" hidden)`, E1 `=SUM(Data!B2:B4)` referring
+  to `Data!B2:B4`, and A6 `(date "2025-09-30")`, every other line the
+  same; (2) the pair's diff is 4 rows, `Secret` from very-hidden to
+  hidden, `Broken` to `blank`, E1's two formulas with 60 on both sides,
+  A6 `45930` to the date; (3) the audit is 8 rows, the package's 9 less
+  `Broken`, `Secret` as `hidden`; (4) `--counts` says `cells 28 formulas
+  18 distinct-r1c1 16 unreadable 2 arrays 2 rows 6 columns 8` for
+  `Model` and `sheets 7 ... names 4 placeholders 0 tables 1 books 1
+  strings 0` for the workbook; (5) `cargo test` 209 (206 and the
+  module's three), 45 checks, `prove.ps1 -Impl` 28; (6) Excel opens the
+  file with its links warning and no repair, and shows the fixture's
+  cells. On the core's own run (1) to (5) held to the line: the 129
+  lines differ from the package's in exactly the four places named, the
+  diff is the four rows, the audit the eight, the counts as predicted,
+  and the fixture script writes the same bytes twice; (6) is the owner's.
+  **The owner's live check for 8e:** (1) `cargo build --workspace`, then
+  `target\debug\frazaro.exe reflect scripts\reflect\opendocument.ods`
+  prints the 129 lines of `scripts\reflect\opendocument_relations.vla`,
+  and `target\debug\frazaro.exe diff scripts\reflect\fixture.xlsx
+  scripts\reflect\opendocument.ods` prints 4 lines: `Secret` from
+  very-hidden to hidden, `Broken` to `blank`, E1's two spellings of one
+  sum, A6's serial against the date. (2) Open
+  `scripts\reflect\opendocument.ods` in Excel (do not update links). It
+  should open without a repair, with `Model`, `Data`, `Q1 Data`, `It's`
+  and `Review` as tabs and `Scratch` and `Secret` under Home > Format >
+  Hide & Unhide; on `Model` the cells read as the fixture's (B3 400,
+  C1:C3 2400, 1600, 800, D1 2480, E1 60, E2 99, F1:F2 1 and 2, G1 3, G2
+  800, H2 `Revenue!`, A5 TRUE, D5 17, E5 `#DIV/0!`, A6 2025-09-30), the
+  formula bar on C1 reads `=B1*2`, on E1 `=SUM(Data!B2:B4)` and on D4
+  `=SUM(Model:Scratch!B1)`, Name Manager lists `HiddenName`, `Local`,
+  `Range1` and `Rate`, and `Data` carries the filter buttons of the
+  database range. Whatever Excel shows otherwise is the finding to
+  paste. (3) `target\debug\frazaro.exe audit
+  scripts\reflect\opendocument.ods` prints the 8 lines of
+  `scripts\reflect\opendocument_audit.vla`. (4) `powershell -File
+  tools\run_checks.ps1` passes every check and `cargo test --workspace`
+  prints 209 passed. (5) Optional, and the next fixture: with the file
+  open, File > Save As, OpenDocument Spreadsheet, to
+  `scripts\reflect\saved.ods`, then `target\debug\frazaro.exe diff
+  scripts\reflect\opendocument.ods scripts\reflect\saved.ods`; what
+  Excel's own ODF writing changed becomes oracle 8's eighth row the day
+  it is committed, as the Excel-saved package did.
+  *The owner's pass, 2026-10-05, first round:* steps 1, 3 and 4 held to
+  the line, the 129 lines, the 4 rows, the 8 rows, 209 tests and every
+  check; step 2 fell: Excel offered a repair ("We found a problem with
+  some content in 'opendocument.ods'"). The bytes said why before Excel
+  did: the fixture script wrote its zip with .NET's `ZipArchive`, which
+  deflates even at `CompressionLevel.NoCompression` (method 8, stored
+  deflate blocks), so the `mimetype` entry was not stored as the format
+  requires and a five-byte block header sat where a reader looks for the
+  text at byte 38; the reader here never noticed, since it inflates what
+  it cannot read stored. *Fixed:* the container is written by hand, every
+  entry stored, with CRC-32 computed in the script (`od` shows method 0
+  and the mimetype at byte 38); the `table:calculation-settings` element
+  went too, its `table:use-wildcards` being an ODF 1.3 attribute in a 1.2
+  file. The goldens did not change by a byte, since the content did not.
+  Step 2 again: open the regenerated file; if Excel still offers a
+  repair, click Yes and paste its report, which names what it removed.
+  *Second round:* Excel offered the repair again and opened the file:
+  every cell as the fixture's, the bold run in A4, the hidden tabs, and
+  G2, `=Local`, as `#NAME?` where G1, `=HiddenName`, read 3. So the
+  unreadable content was the sheet-local named expression inside the
+  sheet's own element, valid ODF 1.2 and not kept by Excel's reader.
+  *Decided:* the fixture stays inside what Excel reads of ODF, `Local`
+  workbook-level in the twin, and the pair's diff carries the scope it
+  lost, `(changed "Local" blank "Model!$B$2")` and `(changed
+  "Model!Local" "Model!$B$2" blank)`: six rows where step 0 said four,
+  the check's floor 6, the relations golden one line changed; the reader
+  itself reads a sheet-local name, held by its own test. Step 2 a third
+  time: open the regenerated file, expecting no repair, and read the
+  formula bar on E2 and on F1, which should show the link's formula and
+  the matrix formula; a dropped formula would leave the cached 99 and 1
+  in place, so the cells alone cannot say.
+  *Third round:* Excel repaired a third time, every cell right and G2
+  now 800. Asked for a way to stop the guessing, the owner saved Excel's
+  reading back as an `.ods`, and the slice's own `diff` was the
+  instrument, once a defect of mine was out of its way: the first run
+  hung. Excel writes the empty rows below the data as one row element
+  repeated 1,048,575 times holding one empty cell repeated 16,384 times,
+  and the walk visited every repetition of an empty cell before skipping
+  it, seventeen billion steps; it now skips an empty cell, and an empty
+  row, whole, and the owner's file reads in a millisecond. The diff then
+  said what Excel kept and what it did not, nine rows: `Q1 Data` renamed
+  `Q1_Data` (Excel's ODF writer puts an underscore for a space); `@` in
+  front of four formulas, Excel writing implicit intersection as
+  `COM.MICROSOFT.SINGLE(...)` and a name as `$$Name`; the date given a
+  time; D5's reference respelled for the renamed sheet; and E2's link
+  formula gone with its cached 99 left, the one construct Excel's reader
+  had refused each time: a link with a relative address, which the
+  format allows and Excel's reader does not. *Decided and done:* the
+  twin's link is absolute, `'file:///C:/Rates.xlsx'#$Sheet1.A1`, which
+  the reader prints as `[Rates.xlsx]Sheet1!A1` as before, so no golden
+  moved; the reader learned Excel's dialect, `office:value-type="error"`,
+  `$$Name` as `Name` and `SINGLE(x)` as `@x`, each held by a test; and
+  Excel's save joined the oracles as
+  `scripts/reflect/opendocument_saved.ods`, kept as Excel wrote it,
+  oracle 8's eighth row (127 lines), oracle 9's fifth pair (the nine
+  rows) and oracle 10's fifth row (seven findings, the link's gone),
+  which pins the filler-row fix for good. Step 2 a fourth time: open the
+  regenerated `scripts\reflect\opendocument.ods`; the four things
+  Excel's reader refused are out of it, and no repair is expected.
+  *Fourth round, 2026-10-05:* no repair prompt. The sheet as the
+  fixture's, G2 800, the bold run, the hidden tabs; E2's formula bar
+  reads `='C:\[Rates.xlsx]Sheet1'!A1`, Excel's own spelling of the
+  absolute link, and the cell `#REF!`, since no such book exists and
+  links are not updated: Excel re-evaluates a link on reading an `.ods`
+  and keeps no cached value for it, where the package's 99 survived.
+  A notice bar says formulas using regular expressions may differ,
+  Excel's standard notice for an `.ods` without the calculation
+  setting, which the fixture dropped with its 1.3 attribute; left as it
+  is, the file being stable and the bar harmless. The four things
+  Excel's reader of `.ods` will not take, for the next hand-made file: a
+  mimetype entry that is not stored, an ODF 1.3 attribute, a sheet-local
+  named expression, a link with a relative address. The owner's run of
+  the suites after the last fix read every check passed and 209 tests.
+  The slice was committed 2026-10-05; 8f, the C-ABI and the page's pane,
+  follows.
   **Constraints carried, in brief:** every refusal through the catalogue
   under `VLA-Reflect`; `cargo fmt`, `clippy -D warnings`, `test`, the wasm
   build and `check_core_imports.ps1` before every commit; the goldens lead

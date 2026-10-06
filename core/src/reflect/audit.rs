@@ -28,9 +28,8 @@
 
 use std::collections::{BTreeMap, HashSet};
 
-use super::ooxml::Package;
 use super::print::datum;
-use super::{sheet_prefix, Row, Sink, Value, Visibility};
+use super::{sheet_prefix, Row, Sink, Source, Value, Visibility};
 use crate::form::Form;
 use crate::intrinsics::fold;
 use crate::messages::Refusal;
@@ -188,9 +187,9 @@ pub struct AuditIndex {
 }
 
 impl AuditIndex {
-    /// An index for the sheets of a package, in tab order, filled by
+    /// An index for the sheets of a workbook, in tab order, filled by
     /// walking each sheet into it.
-    pub fn new(package: &Package<'_>) -> AuditIndex {
+    pub fn new(package: &dyn Source) -> AuditIndex {
         let n = package.sheets().len();
         AuditIndex {
             sheets: package.sheets().iter().map(|s| fold(&s.name)).collect(),
@@ -274,9 +273,9 @@ fn note_names(used: &mut HashSet<String>, text: &str) {
     }
 }
 
-/// The six walks over an index the package's sheets were walked into, to
+/// The six walks over an index the workbook's sheets were walked into, to
 /// the sink in the fixed order; what was counted comes back.
-pub fn audit(index: &AuditIndex, package: &Package<'_>, sink: &mut dyn FindingSink) -> AuditStats {
+pub fn audit(index: &AuditIndex, package: &dyn Source, sink: &mut dyn FindingSink) -> AuditStats {
     let mut stats = AuditStats::default();
     let sheets = package.sheets();
     // The column walks: typed-over constants and inconsistent formulas, one
@@ -422,19 +421,20 @@ pub fn audit(index: &AuditIndex, package: &Package<'_>, sink: &mut dyn FindingSi
 /// API's surface, the tests' and a door's that holds the text. `label` is
 /// what a refusal calls the file.
 pub fn audit_text(bytes: &[u8], label: &str) -> Result<String, Refusal> {
-    let package = Package::open(bytes, label)?;
-    let mut index = AuditIndex::new(&package);
+    let package = super::open(bytes, label)?;
+    let mut index = AuditIndex::new(package.as_ref());
     for i in 0..package.sheets().len() {
         package.walk_sheet(i, &mut index)?;
     }
     let mut lines = Lines::default();
-    audit(&index, &package, &mut lines);
+    audit(&index, package.as_ref(), &mut lines);
     Ok(lines.out)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::reflect::ooxml::Package;
     use crate::sheet::zip;
 
     const NS: &str = "xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"";
@@ -641,7 +641,21 @@ mod tests {
     /// check's floors.
     #[test]
     fn the_audit_goldens_are_reproduced() {
-        let rows: [(&str, &[u8], &str); 3] = [
+        let rows: [(&str, &[u8], &str); 5] = [
+            // The twin as Excel saved it (8e): the link's formula gone, so
+            // seven findings.
+            (
+                "scripts/reflect/opendocument_saved.ods",
+                include_bytes!("../../../scripts/reflect/opendocument_saved.ods"),
+                include_str!("../../../scripts/reflect/opendocument_saved_audit.vla"),
+            ),
+            // The fixture's OpenDocument twin (8e): the same column cases,
+            // one unused name, two hidden sheets, the link.
+            (
+                "scripts/reflect/opendocument.ods",
+                include_bytes!("../../../scripts/reflect/opendocument.ods"),
+                include_str!("../../../scripts/reflect/opendocument_audit.vla"),
+            ),
             (
                 "scripts/reflect/fixture.xlsx",
                 include_bytes!("../../../scripts/reflect/fixture.xlsx"),

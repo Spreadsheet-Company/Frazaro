@@ -22,8 +22,7 @@
 
 use std::collections::{BTreeMap, HashSet, VecDeque};
 
-use super::ooxml::Package;
-use super::{Row, Sink};
+use super::{Row, Sink, Source};
 use crate::intrinsics::fold;
 use crate::refers::{self, Kind, Shape};
 use crate::sheet::{parse_a1_range, MAX_COLUMN, MAX_ROW};
@@ -44,8 +43,8 @@ pub struct Index {
 }
 
 impl Index {
-    /// An index for the sheets of a package, in tab order.
-    pub fn new(package: &Package<'_>) -> Index {
+    /// An index for the sheets of a workbook, in tab order.
+    pub fn new(package: &dyn Source) -> Index {
         let n = package.sheets().len();
         Index {
             sheets: package.sheets().iter().map(|s| fold(&s.name)).collect(),
@@ -172,7 +171,7 @@ type Pending = (usize, u32, u32, u64);
 
 /// The cone of the cell at (`row`, `col`) of the sheet at `sheet`, sized
 /// through the index and the package's names and Tables.
-pub fn cone(index: &Index, package: &Package<'_>, sheet: usize, row: u32, col: u32) -> ConeStats {
+pub fn cone(index: &Index, package: &dyn Source, sheet: usize, row: u32, col: u32) -> ConeStats {
     let mut stats = ConeStats::default();
     let mut seen: HashSet<(usize, u32, u32)> = HashSet::new();
     let mut sheets_seen: HashSet<usize> = HashSet::new();
@@ -201,7 +200,7 @@ pub fn cone(index: &Index, package: &Package<'_>, sheet: usize, row: u32, col: u
 
 struct Walk<'w> {
     index: &'w Index,
-    package: &'w Package<'w>,
+    package: &'w dyn Source,
     stats: &'w mut ConeStats,
     seen: &'w mut HashSet<(usize, u32, u32)>,
     sheets_seen: &'w mut HashSet<usize>,
@@ -413,6 +412,7 @@ impl Walk<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::reflect::ooxml::Package;
     use crate::sheet::zip;
 
     const NS: &str = "xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"";

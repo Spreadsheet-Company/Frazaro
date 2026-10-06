@@ -26,5 +26,6 @@ rust-toolchain.toml text eol=lf
 *.xlam binary
 *.docx binary
 *.xlsx binary
+*.ods binary
 *.pdf binary
 *.exe binary

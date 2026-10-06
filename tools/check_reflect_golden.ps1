@@ -84,7 +84,17 @@ $goldens = @(
     # golden, held by check_diff_golden.ps1): 90 less B3's formula and two
     # refers rows and A6's cell row, plus H1's cell row and Data's two,
     # Secret's two rows swapped for Audit's.
-    @{ Name = 'changed';       Fixture = 'scripts/reflect/changed.xlsx';      Golden = 'scripts/reflect/changed_relations.vla';       Floor = 129 }
+    @{ Name = 'changed';       Fixture = 'scripts/reflect/changed.xlsx';      Golden = 'scripts/reflect/changed_relations.vla';       Floor = 129 },
+    # 2026-10-05, PORT.8 slice 8e: opendocument 129 - the fixture written
+    # again as an OpenDocument spreadsheet (build_reflect_ods_fixture.ps1):
+    # the fixture's 130 less Broken's name row, which ODF has no spelling
+    # for; its diff against the fixture is oracle 9's fourth golden.
+    @{ Name = 'opendocument';  Fixture = 'scripts/reflect/opendocument.ods';  Golden = 'scripts/reflect/opendocument_relations.vla';  Floor = 129 },
+    # 2026-10-05, PORT.8 slice 8e, the owner's pass: opendocument_saved 127 -
+    # the twin as Excel 365 saved it (kept as Excel wrote it): Excel's own
+    # ODF dialect, the empty rows below the data repeated a million times,
+    # Q1 Data renamed Q1_Data, the link's formula dropped (two rows fewer).
+    @{ Name = 'opendocument_saved'; Fixture = 'scripts/reflect/opendocument_saved.ods'; Golden = 'scripts/reflect/opendocument_saved_relations.vla'; Floor = 127 }
 )
 
 # The relation forms a reader prints, and the phase each belongs to in the

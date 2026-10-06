@@ -88,6 +88,12 @@ Three rows: the reader's fixture, its changed copy and the first build
 golden. The control's fake answers each from the golden beside its
 fixture; the mutant changes one character, and for a golden shorter than
 the usual cut it appends one, so that a three-line golden still fails it.
+
+2026-10-05, PORT.8 (slice 8e): the reader's OpenDocument twin of its
+fixture, scripts/reflect/opendocument.ods (build_reflect_ods_fixture.ps1),
+joins the reflect kind as a seventh row, the diff kind as a fourth pair
+(against the .xlsx fixture: the format gap itself) and the audit kind as
+a fourth row; the fakes find each golden by the fixture's name as before.
 #>
 param(
     [string]$Impl = '',
@@ -260,6 +266,22 @@ function Get-Oracles([string]$root) {
                  Input = 'scripts/reflect/changed.xlsx'; Golden = 'scripts/reflect/changed_audit.vla' })
     $list.Add(@{ Kind = 'audit'; Label = 'build/fixture_golden.xlsx -> reflect/build_fixture_audit.vla'
                  Input = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/reflect/build_fixture_audit.vla' })
+    # 2026-10-05 (PORT.8, slice 8e): the OpenDocument twin of the fixture, in
+    # all three kinds.
+    $list.Add(@{ Kind = 'reflect'; Label = 'reflect/opendocument.ods -> reflect/opendocument_relations.vla'
+                 Input = 'scripts/reflect/opendocument.ods'; Golden = 'scripts/reflect/opendocument_relations.vla' })
+    $list.Add(@{ Kind = 'diff'; Label = 'fixture.xlsx vs opendocument.ods -> fixture_opendocument_diff.vla'
+                 Old = 'scripts/reflect/fixture.xlsx'; New = 'scripts/reflect/opendocument.ods'; Golden = 'scripts/reflect/fixture_opendocument_diff.vla' })
+    $list.Add(@{ Kind = 'audit'; Label = 'reflect/opendocument.ods -> reflect/opendocument_audit.vla'
+                 Input = 'scripts/reflect/opendocument.ods'; Golden = 'scripts/reflect/opendocument_audit.vla' })
+    # 2026-10-05 (the owner's pass for 8e): the twin as Excel 365 saved it,
+    # Excel's own ODF dialect, in all three kinds.
+    $list.Add(@{ Kind = 'reflect'; Label = 'reflect/opendocument_saved.ods -> reflect/opendocument_saved_relations.vla'
+                 Input = 'scripts/reflect/opendocument_saved.ods'; Golden = 'scripts/reflect/opendocument_saved_relations.vla' })
+    $list.Add(@{ Kind = 'diff'; Label = 'opendocument.ods vs opendocument_saved.ods -> opendocument_opendocument_saved_diff.vla'
+                 Old = 'scripts/reflect/opendocument.ods'; New = 'scripts/reflect/opendocument_saved.ods'; Golden = 'scripts/reflect/opendocument_opendocument_saved_diff.vla' })
+    $list.Add(@{ Kind = 'audit'; Label = 'reflect/opendocument_saved.ods -> reflect/opendocument_saved_audit.vla'
+                 Input = 'scripts/reflect/opendocument_saved.ods'; Golden = 'scripts/reflect/opendocument_saved_audit.vla' })
     $list.Add(@{ Kind = 'interpreter'; Label = 'interpreter_golden.txt (needs a workbook model: slice 6)'
                  Golden = 'scripts/interpreter_golden.txt' })
     $pb = Join-Path $root 'scripts/polyglotta'
@@ -511,6 +533,8 @@ switch (`$kind) {
             'model'          { 'scripts/reflect/model_relations.vla' }
             'saved'          { 'scripts/reflect/saved_relations.vla' }
             'changed'        { 'scripts/reflect/changed_relations.vla' }
+            'opendocument'   { 'scripts/reflect/opendocument_relations.vla' }
+            'opendocument_saved' { 'scripts/reflect/opendocument_saved_relations.vla' }
             default          { exit 3 }
         }
         `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))
@@ -519,10 +543,12 @@ switch (`$kind) {
         # The golden of the pair, by the new file's name (2026-10-04, PORT.8 slice 8c).
         `$base = [System.IO.Path]::GetFileNameWithoutExtension(`$a[2])
         `$which = switch (`$base) {
-            'saved'       { 'scripts/reflect/build_fixture_saved_diff.vla' }
-            'into_golden' { 'scripts/reflect/model_into_diff.vla' }
-            'changed'     { 'scripts/reflect/fixture_changed_diff.vla' }
-            default       { exit 3 }
+            'saved'        { 'scripts/reflect/build_fixture_saved_diff.vla' }
+            'into_golden'  { 'scripts/reflect/model_into_diff.vla' }
+            'changed'      { 'scripts/reflect/fixture_changed_diff.vla' }
+            'opendocument' { 'scripts/reflect/fixture_opendocument_diff.vla' }
+            'opendocument_saved' { 'scripts/reflect/opendocument_opendocument_saved_diff.vla' }
+            default        { exit 3 }
         }
         `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))
     }
@@ -533,6 +559,8 @@ switch (`$kind) {
             'fixture'        { 'scripts/reflect/fixture_audit.vla' }
             'changed'        { 'scripts/reflect/changed_audit.vla' }
             'fixture_golden' { 'scripts/reflect/build_fixture_audit.vla' }
+            'opendocument'   { 'scripts/reflect/opendocument_audit.vla' }
+            'opendocument_saved' { 'scripts/reflect/opendocument_saved_audit.vla' }
             default          { exit 3 }
         }
         `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))

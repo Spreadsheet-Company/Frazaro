@@ -187,11 +187,11 @@ pub fn english_build_xlsx_into(
     .map_err(|refusal| RefusalAtLine { refusal, line: 0 })
 }
 
-/// The reader's surface (PORT.8, slice 8a): a workbook's bytes as the
-/// relations of `REFLECT`, one row a line in the fixed order
-/// (`reflect::reflect_text`); `label` is what a refusal calls the file.
-/// Seven of the eight relations, as the module says; `refers` joins in
-/// slice 8b.
+/// The reader's surface (PORT.8, slice 8a): a workbook's bytes, an OOXML
+/// package or an OpenDocument spreadsheet (8e), as the relations of
+/// `REFLECT`, one row a line in the fixed order (`reflect::reflect_text`);
+/// `label` is what a refusal calls the file. Seven of the eight relations,
+/// as the module says; `refers` joins in slice 8b.
 pub fn reflect_relations(bytes: &[u8], label: &str) -> Result<String, Refusal> {
     crate::reflect::reflect_text(bytes, label)
 }
