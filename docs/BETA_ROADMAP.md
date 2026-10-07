@@ -1,5 +1,9 @@
 # FRAZARO — THE ROADMAP
 
+> Country roads, take me home \
+> To the place I belong...
+> - John Denver, "Take Me Home, Country Roads"
+
 *Open work only. Every item here is ⬜ open, 🟡 in progress, 🔒 gated,
 ⛔ parked or 🛡️ accepted, cut to one short summary paragraph and filed
 under the department accountable for it. The day an item becomes ✅

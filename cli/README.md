@@ -65,7 +65,7 @@ Put 7 into cell B1 of sheet Output.
 Each step says what it prints, so the walk doubles as a check that the
 program you installed is the one this page describes.
 
-1. **The version.** `frazaro version` prints `frazaro 0.7.1 (core abi 1)`:
+1. **The version.** `frazaro version` prints `frazaro 0.8.0 (core abi 1)`:
    the release's version, which is the add-in's, and the number an embedding
    checks before calling the core.
 
@@ -103,7 +103,7 @@ program you installed is the one this page describes.
    frazaro rebuild hello.xlsx
    ```
 
-   prints `This workbook was built from these 7 sentences by Frazaro 0.7.1:
+   prints `This workbook was built from these 7 sentences by Frazaro 0.8.0:
    yes.` and exits 0. Save the file from Excel and ask again: it is refused
    as a host's save, because Excel rewrites every part on save, by design.
 
@@ -195,7 +195,7 @@ byte:
     sentences' `Frazaro`, `Output` and `checks` added, `Output!B1` reading
     `=Model!B3*Rate`. `frazaro rebuild tour-into.xlsx` prints `This
     workbook's Frazaro sheets were built from these 6 sentences by Frazaro
-    0.7.1, into a workbook whose own sheets are not checked: yes.`
+    0.8.0, into a workbook whose own sheets are not checked: yes.`
 
 12. **What changed between two workbooks.**
 

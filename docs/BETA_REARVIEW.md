@@ -1,5 +1,12 @@
 # FRAZARO — THE REAR-VIEW MIRROR
 
+> Staring at the world through my rear-view \
+> Just looking back at the world \
+> From another level \
+> You know what I mean? \
+> Staring...
+> - Tupac Shakur, "Starin' Through My Rear View"
+
 *Formerly the master roadmap, renamed 2026-09-27. The record, not the plan: the mission
 argument, the ordering doctrine, every standing decision's full reasoning, every item's
 scoping and build record, and THE CLOSED LEDGER at the end. The plan is [`BETA_ROADMAP.md`](BETA_ROADMAP.md).*

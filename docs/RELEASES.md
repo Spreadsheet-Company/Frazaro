@@ -196,6 +196,18 @@
   runs from its own blank workbook through Alt+F8, and two controls check
   its counting: a workbook it builds, and Frazaro Sample Data. Its run on
   a real model is `AXM.13`.
+- **For contributors: the references inside a formula, read from its text
+  alone (`AXM.7`).** `VLA_Refers.bas` reads a formula's text and names what
+  it refers to, eleven kinds: a cell, a range, a whole column or row, a
+  defined name, a Table column, another workbook, a span of sheets, a
+  spilled range, a reference `INDIRECT` or `OFFSET` hides so that no reader
+  can know it from the text, and a broken `#REF!`; it spells each as the
+  reader's `refers` line does and renders the formula in R1C1 relative to
+  its cell, which is how two formulas filled down a column read as one. It
+  touches no Excel object, so it runs anywhere the language runs, and it is
+  held to a golden of 85 cases the second implementation reproduces. No
+  sentence uses it yet; the reader's `refers` lines, below, are its first
+  use.
 - **A worksheet function defined in a program keeps a minus sign and a
   quote mark.** Before, a `deflambda` whose body negated a lone value, as
   in `(- x)`, lost the minus sign on its way into the formula, and one
@@ -267,8 +279,9 @@
   version and the workspace's must agree (one corpus, one version), and the
   WebAssembly core's import section must be empty, which makes "no network
   call, ever" a fact read off the built file rather than a promise. The
-  design is `docs/HORIZON.md`, section 12. Nothing in `core/` or `cli/` does
-  anything yet beyond reporting its version.
+  design is `docs/HORIZON.md`, section 12. When this release began, nothing
+  in `core/` or `cli/` did anything beyond reporting its version; the notes
+  that follow are what they do now.
 - **A workbook from a text file of sentences, with nothing installed.**
   `frazaro build program.txt --prelude prelude.vla --phrasebook english.vla
   --out program.xlsx` reads a program written in English and writes a
@@ -344,6 +357,21 @@
   too: pick a file, `.xlsx` or `.ods`, in its Reflect pane and its
   relations, its audit, or what changed from an earlier copy print there,
   read in your browser and sent nowhere.
+- **The core and the command-line door are Rust crates, published to
+  crates.io with this release.** `frazaro-core` is the host-free language,
+  built natively and to WebAssembly, and `frazaro` is the door, each at this
+  release's version and never at one of its own: a check holds the add-in's
+  version, the workspace's and the door's exact pin on the core to one
+  string. Once the crates are up, `cargo install frazaro` builds the door on
+  any machine with a Rust toolchain, with no file beside it: the door
+  carries its own copies of the prelude and `english.vla`, held byte for
+  byte to the corpus by a check, so `frazaro translate-vla program.txt`
+  with no flags reads the program as the add-in does. The core's four data
+  tables live inside its crate for the same reason. Each crate's page on
+  crates.io is its README, written for a first-time visitor, and the
+  licence of the door is `Apache-2.0 AND MPL-2.0`, since the phrasebook it
+  carries is MPL-2.0 per file. Nothing about the add-in you download
+  changes.
 - **A formula that would reach outside the workbook is refused before it
   is written.** `Put formula "=WEBSERVICE(""https://…"")" into cell B3.`
   now stops at that sentence, on both Run buttons, in `frazaro build` and
@@ -367,6 +395,19 @@
   the core to the rule: it bakes in exactly its four data tables, and no
   English sentence or sentence rule enters it outside a test beyond the
   pinned exceptions the check names. Nothing a user types or sees changes.
+- **For readers: where this is going, written down.** Three documents
+  joined `docs/` and `web/` this release, none of them a promise.
+  `docs/SINGULARITY.md` is the summit, a spreadsheet that answers a manager
+  as an analyst would, deterministically, with a proof beside each answer,
+  and the road there in seven stages; the roadmap's Singularity line is the
+  steps picked up. `docs/HORIZON.md` is the horizon past it, marked idea by
+  idea as mathematics that exists, engineering, or fiction, with the design
+  of the host-free core in its twelfth section. `web/CALLOSUM.md`, beside
+  the web page, is the sitting that scoped the page's growth into a
+  two-pane spreadsheet whose grid is only a view of the sentences, and the
+  roadmap's KERNEL line is its steps; the eighteen standing decisions
+  `SD-20` to `SD-37` that bind that interface are in the roadmap's register
+  with their reasons in the rear-view.
 
 ### Known open security items
 
