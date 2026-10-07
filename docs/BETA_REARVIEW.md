@@ -593,6 +593,211 @@ nothing here is "done," and nothing here is ever pruned.*
   answer, the distinguishing word is missing. *Pays into:* `CO.7` (the
   audit of the shipped corpus under this rule), LX.9 (a candidate lint
   check), and every grammar slice from G-FORMAT on.
+- **SD-20 — the grid is the pointing device for the grammar: a selection
+  fills the next sentence's noun.** *Provenance of SD-20 to SD-29:* the ten
+  recommendations of the sitting recorded in `web/CALLOSUM.md`, given as the
+  conditions under which its two-pane model wins, blessed by the owner on
+  2026-10-06 in these words: "I hereby bless your 10 syntheses as the
+  inaugural 10 Frazaro Commandments, and should be blessed as the first
+  standing decisions which guide Frazaro-as-spreadsheet into the unknowable
+  future of spreadsheetery." Each one's text and lineage are CALLOSUM §13;
+  these entries carry the reasons. They bind every door that shows a grid
+  and leave the language, the engines and SD-1 to SD-19 untouched. *The
+  rule:* selecting a range, a column, a sheet or a Table in the grid
+  supplies the noun of the sentence being written in the pane, with the
+  slot filled as the grammar spells it, so the grid supplies the nouns and
+  the pane the verbs. *Reason:* typing an address is slower than pointing
+  at it, and that gap was the two-pane model's largest cost against direct
+  manipulation; pointing closes it without a word of the grammar changing.
+  *Lineage:* Bolt's "Put-That-There" (1980), pointing plus speech, and the
+  language's first verb is Put. *Relation to SD-16:* spatial deixis to a
+  visible selection is not anaphora; the sentence is complete as written
+  once the slot is filled. *Pays into:* CALLOSUM §8 slice 1 (the viewport)
+  and slice 3 (the hand edit as a sentence).
+- **SD-21 — direct manipulation stays first-class, and every manipulation
+  is transcribed into a sentence of the published grammar.** A value typed
+  into a cell, a formula edited in the bar, a column moved, a range
+  formatted: each is accepted as the spreadsheet has always accepted it,
+  and each becomes a sentence appended to the program, so the program stays
+  the single source without the grid becoming read-only. *Reason:* Nardi
+  and Miller's ethnographies (1990, 1991) found spreadsheets won because
+  program and output are one object and users tinker locally with immediate
+  feedback; a pane that is primary with a grid that only displays would
+  trade that away, and it is the model's one real danger. *Lineage:*
+  Sketch-n-Sketch (Chugh, 2016), programmatic and direct manipulation over
+  one source; Excel's own macro recorder (1993), which recorded VBA where
+  this records sentences, and SD-4 makes the recording a program rather than
+  a log. *Pays into:* CALLOSUM §5 item 4 and §8 slice 3.
+- **SD-22 — the source is kept apart from the changes, and the changes
+  condense into the shortest program that builds the same workbook.** The
+  program has two layers: the declarative source and the log of transcribed
+  edits SD-21 appends. A condense act rewrites the log into the shortest
+  program of the published grammar whose build has the same relations,
+  overrides collapsed, shown as a diff before it is accepted. *Reason:*
+  without it a month of hand edits turns the source into a history, and
+  "the program is the source" becomes "the program is the changes file";
+  Smalltalk had the image and the changes file and needed condense-changes
+  to stay readable. *Lineage:* Smalltalk-80's condense changes; git's
+  squash; the decompiler of CALLOSUM §4 item 4, pointed at one's own
+  history. *Also:* it teaches, since the author sees what their clicks
+  meant. *Pays into:* CALLOSUM §8 slice 3 and §4 item 4.
+- **SD-23 — one model, many projections: the sentence pane is one view
+  among several, never the only one.** The grid, the sentences, the
+  dependency cone as a diagram, the model rendered as a book (`AXM.3`), the
+  controls dashboard and the diff are projections of one model, each a pure
+  function of it, none the truth. *Reason:* Calculation View (Sarkar,
+  Gordon, Peyton Jones and Toronto, VL/HCC 2018) found that multiple
+  representations significantly improved authoring and debugging; the
+  lesson is plural. And Elm's one view is right for the engine and wrong
+  for the interface, which needs a family of views and some state the
+  program never sees (selection, scroll, a half-typed edit). *Lineage:*
+  Simonyi's intentional programming, one intention tree with many
+  projections, from the author of Multiplan. *Pays into:* CALLOSUM §7
+  decisions 1, 2 and 9.
+- **SD-24 — the formula bar shows a cell's value, its formula and the
+  sentence that wrote it; an edit flows back only where one sentence shape
+  makes it safe.** Three lines for the selected cell, the third naming the
+  row of the program; clicking it jumps to the sentence. Editing the formula
+  rewrites the `Put formula` sentence that wrote the cell, and that one
+  shape is the whole of the backward arrow. *Reason:* this is the owner's
+  "formula bar demoted to hand modification of macro output" made concrete,
+  and the bridge between the panes in miniature; a general lens from grid
+  to sentence is a separate decision `BETA_REARVIEW.md` already declines to
+  buy (the recognizers-not-generators note under `SQL.1`). *Lineage:*
+  lenses (Foster, Pierce and others, 2007), restricted to one shape.
+  *Pays into:* CALLOSUM §8 slices 1 and 3.
+- **SD-25 — a refusal lands in both panes: on the row, and on the cells it
+  would have written.** The row turns red with the refusal in words, as SD-2
+  requires, and the cells its sentence names carry a marker that leads back
+  to the row. Evaluating the program's prefix, the time scrubber of
+  `SPITBALLS.md`'s first entry, is the debugger: the view of the workbook
+  cut at sentence N. *Reason:* in Green and Petre's cognitive dimensions
+  (1996) the spreadsheet's worst scores are hidden dependencies and poor
+  role-expressiveness; a refusal visible only in the pane would hide its
+  consequence from the person looking at the grid. *Pays into:* CALLOSUM §8
+  slice 1.
+- **SD-26 — auditing and review are modes of the pane: findings linked to
+  cells, and two versions read as a diff of sentences.** In audit mode the
+  pane holds the audit list's findings and the controls, each linked to the
+  cells it concerns; in review mode it holds the sentence diff of two
+  versions, with the grid's cells coloured by the relation diff. *Reason:*
+  the auditor reads ten changed sentences instead of four thousand changed
+  cells, which Excel cannot offer because a workbook has no source; this is
+  the single largest win of the model for the auditing workflow and the
+  reason the model exists. *Lineage:* code review as practised on source
+  control. *Pays into:* `AXM.10`, `AXM.11`, CALLOSUM §5 item 1 and §8
+  slice 4.
+- **SD-27 — naming may follow building: a sheet or range is named late,
+  and condensation rewrites the program to use the name.** `Name this sheet
+  Model.` and `Call this range Sales.` are sentences that may come after the
+  sentences that built the thing named, and SD-22's condense act rewrites
+  the earlier sentences to use the name. *Reason:* spreadsheet authors
+  discover structure by building; a grammar that demands the name before
+  the layout exists is premature commitment in Green and Petre's sense, and
+  the two-pane model would otherwise pay it on every sheet. *Pays into:*
+  CALLOSUM §8 slices 3 and 7.
+- **SD-28 — the grid comes first for readers; the pane opens on demand from
+  a cell's explanation.** The pane is closed by default for a reader, and an
+  "explain this cell" act opens it at the sentence that wrote the cell. The
+  split view is for authors and auditors. *Reason:* readers outnumber
+  writers (two in five of the Enron corpus's spreadsheets hold no formula at
+  all), and for a consumer of a workbook a split by default is a cost with
+  no benefit; progressive disclosure keeps the spreadsheet a spreadsheet
+  for the people who only read it. *Pays into:* CALLOSUM §7 (closing the
+  pane leaves the grid full-screen) and §8 slice 1.
+- **SD-29 — measure before building: a change to the interface is preceded
+  by a study of construction and audit tasks, timed and scored.** Before
+  the viewport or any later interface change is built, a small study in the
+  Imitation Game's spirit runs construction and audit tasks on the existing
+  page beside Excel against Excel alone, with time, errors and comprehension
+  questions in Hendry and Green's shape (1994): choose a cell, explain its
+  formula, find its inputs. *Reason:* the house rule for engines is to
+  measure first (`AXM.1`, `OPTIMIZE.0.1`), and an interface deserves the
+  same discipline; the viewport is weeks and the study is days, so the
+  cheap thing comes first. *Pays into:* CALLOSUM §8 slice 1, and every
+  interface slice after it.
+- **SD-30 — nothing fails silently, and nothing succeeds invisibly: every
+  act shows its effect or refuses in words, and a clean result is a
+  sentence.** *Provenance of SD-30 to SD-37:* the eight further commandments
+  the sitting proposed in `web/CALLOSUM.md` §13.3, blessed by the owner
+  later the same day, 2026-10-06 ("Sure, why not: I bless the additional
+  8."), in the order proposed; the same scope as SD-20 to SD-29, every door
+  that shows a grid. *The rule:* an act's effect is visible on the grid or
+  the act is refused on its row, and a result with nothing to report is a
+  sentence saying so, never an empty cell. *Reason:* SD-2 governs the form
+  of a refusal; this governs the presence of an answer. `LX.15` already made
+  a clean lint report a sentence ("No grammar warnings.") rather than
+  silence, and a live grid needs the same for every act, since an empty
+  cell cannot be told from a cell nothing wrote. *Pays into:* CALLOSUM §8
+  slices 1 and 5.
+- **SD-31 — speak in the user's names: a transcribed sentence prefers a
+  Table, a defined name or a header to an address whenever one exists.**
+  The recorder (SD-21) and the condense act (SD-22) write `Sales[Amount]`
+  where the selection is a Table column, the defined name where one covers
+  the range, and the header where a column has one, falling back to an
+  address only when no name exists. *Reason:* addresses are the machine's
+  names and headers are the company's; a program in the company's names
+  reads as its author would have written it and survives a moved column,
+  where an address silently points elsewhere. *Lineage:* Codd's relations
+  named by attribute rather than position; Excel's structured references.
+  *Relation to SD-19:* a sentence still names the one operation it
+  performs; this decides which noun it uses. *Pays into:* CALLOSUM §8
+  slice 3.
+- **SD-32 — appearance is declared, not painted: formatting sentences live
+  apart from logic sentences, and a palette is a library.** The program
+  keeps the sentences that decide a workbook's look (fills, fonts, widths,
+  number formats) in their own paragraph or file, apart from the sentences
+  that decide its numbers, and a palette is a `Use` library of `Define`
+  sentences. *Reason:* `HORIZON.md` §11.3 already reads definitions and
+  controls as the CSS of the workbook; keeping the look in its own
+  paragraph keeps the logic legible to an auditor and the look reusable
+  across workbooks. *Lineage:* `SPITBALLS.md`'s Spitballs 5 and 6, palettes
+  as header files; the web's separation of structure from style. *Pays
+  into:* `G-USE`, CALLOSUM §8 slice 7.
+- **SD-33 — no blank page: the first screen shows a sentence already doing
+  something in a cell.** A newcomer's first view of the spreadsheet is a
+  sentence in the pane and its effect in the grid, never an empty workbook
+  and an empty program. *Reason:* people learn a language from an example
+  that works; the web page opens on an example today and the spreadsheet
+  keeps that. *Lineage:* Papert's Logo, where the first thing a child sees
+  is the turtle moving; the onboarding samples of `LE.6`. *Pays into:*
+  CALLOSUM §8 slice 1; the LEARNABILITY department.
+- **SD-34 — the grid never freezes: every engine is interruptible and says
+  how far it got.** A computation that outlives a keystroke's budget yields
+  to the interface, can be stopped, and reports its progress or its
+  stopping point in a sentence on its row. *Reason:* `SINGULARITY.md` §9
+  already makes every engine anchored, budgeted and interruptible, and
+  `check_prolog_budgets.ps1` holds PROLOG to depth and work budgets; a live
+  grid turns that engine property into a promise the person can see.
+  *Pays into:* CALLOSUM §8 slices 2 and 5; the PERFORMANCE department.
+- **SD-35 — the program is the accessible workbook: whatever the grid
+  shows, the sentences say, so a keyboard and a screen reader reach
+  everything the mouse does.** Every act has a sentence (SD-21), so every
+  act has a keyboard path; the pane is plain text a screen reader reads;
+  and a cell's explanation (SD-24, SD-28) is a sentence, so a blind analyst
+  reads the model as prose. *Reason:* a grid is hostile to a screen reader
+  and a program of sentences is not; the two-pane model makes accessibility
+  a consequence of the architecture rather than a feature added later.
+  *Pays into:* the ACCESSIBILITY department; CALLOSUM §8 slices 1 and 7.
+- **SD-36 — no lock-in by construction: nothing the spreadsheet makes needs
+  the spreadsheet to open.** The built workbook runs in any host with no
+  add-in and no macro, as the writer's output does today; view-source, the
+  `Frazaro` sheet, is for those who have Frazaro and costs nothing to those
+  who do not. *Reason:* `HORIZON.md` §12.6 claims this for the generator,
+  and a live tool is always tempted toward a private format; the
+  commandment keeps the claim as the spreadsheet grows. *Lineage:* the
+  web's own bargain, where the reader needs only a browser (`HORIZON.md`
+  §11.3). *Pays into:* CALLOSUM §7 decision 8, `PORT.11`.
+- **SD-37 — a refusal is a lesson: it names what was meant, what was wrong,
+  and the nearest sentence that works.** Beyond SD-2's form and SD-25's
+  placement, every refusal of the spreadsheet carries the nearest accepted
+  sentence, computed as `DidYouMean` computes the nearest rules today, and
+  says which word or slot stopped the reading. *Reason:* `SINGULARITY.md`
+  §2 counts teaching among the analyst's eight duties ("a refusal with
+  directions is teaching"), and the gap ledger (`AXM.6`) is fed by exactly
+  these refusals; making the lesson owed rather than optional turns every
+  refusal into a step up the grammar for the person and a row for the
+  ledger. *Pays into:* `AXM.6`; CALLOSUM §8 slice 7.
 
 ---
 

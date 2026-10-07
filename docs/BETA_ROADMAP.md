@@ -99,6 +99,30 @@ download without asking.
 - **SD-18 — VBA remains the reference; a second-host engine (web, desktop shell, or otherwise) follows the goldens, never leads them.**
 - **SD-19 — where Excel has neighbouring operations, each sentence names the one it performs.**
 
+*SD-20 to SD-29 are the ten commandments of the Frazaro spreadsheet, the two-pane application scoped in `web/CALLOSUM.md`, blessed by the owner on 2026-10-06 as the first standing decisions that guide Frazaro-as-spreadsheet; each one's text and lineage are `web/CALLOSUM.md` §13, and the reasons are in `BETA_REARVIEW.md`. They bind the interface of every door that shows a grid; they do not touch the language or the engines.*
+
+- **SD-20 — the grid is the pointing device for the grammar: a selection fills the next sentence's noun.**
+- **SD-21 — direct manipulation stays first-class, and every manipulation is transcribed into a sentence of the published grammar.**
+- **SD-22 — the source is kept apart from the changes, and the changes condense into the shortest program that builds the same workbook.**
+- **SD-23 — one model, many projections: the sentence pane is one view among several, never the only one.**
+- **SD-24 — the formula bar shows a cell's value, its formula and the sentence that wrote it; an edit flows back only where one sentence shape makes it safe.**
+- **SD-25 — a refusal lands in both panes: on the row, and on the cells it would have written.**
+- **SD-26 — auditing and review are modes of the pane: findings linked to cells, and two versions read as a diff of sentences.**
+- **SD-27 — naming may follow building: a sheet or range is named late, and condensation rewrites the program to use the name.**
+- **SD-28 — the grid comes first for readers; the pane opens on demand from a cell's explanation.**
+- **SD-29 — measure before building: a change to the interface is preceded by a study of construction and audit tasks, timed and scored.**
+
+*SD-30 to SD-37 are the eight further commandments proposed in `web/CALLOSUM.md` §13.3 and blessed by the owner later the same day, 2026-10-06; the same scope, the same register, reasons in `BETA_REARVIEW.md`.*
+
+- **SD-30 — nothing fails silently, and nothing succeeds invisibly: every act shows its effect or refuses in words, and a clean result is a sentence.**
+- **SD-31 — speak in the user's names: a transcribed sentence prefers a Table, a defined name or a header to an address whenever one exists.**
+- **SD-32 — appearance is declared, not painted: formatting sentences live apart from logic sentences, and a palette is a library.**
+- **SD-33 — no blank page: the first screen shows a sentence already doing something in a cell.**
+- **SD-34 — the grid never freezes: every engine is interruptible and says how far it got.**
+- **SD-35 — the program is the accessible workbook: whatever the grid shows, the sentences say, so a keyboard and a screen reader reach everything the mouse does.**
+- **SD-36 — no lock-in by construction: nothing the spreadsheet makes needs the spreadsheet to open.**
+- **SD-37 — a refusal is a lesson: it names what was meant, what was wrong, and the nearest sentence that works.**
+
 ---
 
 # 🛡 ADVERSARY · SECURITY
