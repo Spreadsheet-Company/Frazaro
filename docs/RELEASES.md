@@ -344,6 +344,15 @@
   too: pick a file, `.xlsx` or `.ods`, in its Reflect pane and its
   relations, its audit, or what changed from an earlier copy print there,
   read in your browser and sent nowhere.
+- **The engine's core is declared a kernel with five seams, for
+  contributors.** `CONTRIBUTING.md` names what the core holds and never
+  holds, the five ways a feature enters (a phrasebook, a library of
+  sentences, an engine, a format or host, a projection) and the oracle each
+  must pass; `MAINTAINERS.md`, new at the root, maps the paths to them and
+  names the contract files. A new check, `check_kernel_boundary.ps1`, holds
+  the core to the rule: it bakes in exactly its four data tables, and no
+  English sentence or sentence rule enters it outside a test beyond the
+  pinned exceptions the check names. Nothing a user types or sees changes.
 
 ### Known open security items
 

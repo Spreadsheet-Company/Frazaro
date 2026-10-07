@@ -112,8 +112,11 @@ before they see `docs/`:
 - **[README.md](../README.md)** — What Frazaro is, what works today, and the
   open security items a downloader should hear from that page rather than
   from the roadmap.
-- **[CONTRIBUTING.md](../CONTRIBUTING.md)** — The DCO sign-off, and what to
-  expect from a patch.
+- **[CONTRIBUTING.md](../CONTRIBUTING.md)** — The DCO sign-off, what to
+  expect from a patch, and the kernel's five seams with the oracle each one
+  answers to.
+- **[MAINTAINERS.md](../MAINTAINERS.md)** — Who answers for which paths, by
+  seam, and the contract files a change to which needs both sides present.
 - **[conformance/README.md](../conformance/README.md)** — The treaty that holds
   every implementation of the language to the one corpus in `scripts/`: the
   oracles, the command-line contract, and how the runner proves itself.

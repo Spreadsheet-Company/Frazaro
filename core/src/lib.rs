@@ -39,6 +39,7 @@ pub mod expand;
 pub mod form;
 pub mod headtable;
 pub mod intrinsics;
+pub mod kernel;
 pub mod messages;
 pub mod printer;
 pub mod reader;

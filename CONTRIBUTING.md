@@ -45,6 +45,30 @@ and that the `OUTPUT-EXCEPTION.md` additional permission applies to it.
 - **A roadmap ID** is never reused (`SD-9`); `tools/check_id_registry.ps1`
   checks.
 
+## The kernel and its seams
+
+The core (`core/`, the crate `frazaro-core`) is a kernel. It holds forms and
+their expansion, the emitters, the sheet model, the relation set and the
+ABI, and nothing a person reads or says: English, message text, defaults,
+chrome, formats beyond a trait and doors live outside it, as data the kernel
+reads or as implementations of a seam. The rule for a change is that the
+kernel grows a seam, never a feature. Five seams are the only entrances,
+each with the oracle a change through it must pass. `core/src/kernel.rs`
+lists them as data, and `tools/check_kernel_boundary.ps1` holds the rule
+over the sources.
+
+| Seam | A contribution is | It must pass |
+|---|---|---|
+| sentences | a phrasebook `.vla` with its `test:` proofs | `frazaro prove`; the translate and refusal goldens |
+| paragraphs | a library of sentences with named slots (`G-USE`) | the build golden; the stamp hashing every file used |
+| engines | an implementation of `kernel::Engine` under a head-table symbol (`PORT.9`) | a proof file of its kind, clingo beside it where it applies |
+| formats and hosts | a `reflect::Source` to read, a writer beside it, a `kernel::HostProfile` per door | the reflect, diff and audit goldens; the build golden |
+| projections | an implementation of `kernel::Projection` (`KERNEL.4`) | a view golden |
+
+A feature that fits no seam is a seam to design first, on the roadmap, not
+a feature to merge. `MAINTAINERS.md` maps the paths to the seams and names
+the contract files a change to which needs both sides present.
+
 ## Security
 
 Do not open a public issue for a vulnerability. See `docs/SECURITY.md`.

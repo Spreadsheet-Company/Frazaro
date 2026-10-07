@@ -17078,7 +17078,7 @@ over.
 
 **The expanded scoping, item by item.**
 
-- **`KERNEL.1` — the boundary and the seams.** *Substrate, verified:* the
+- ✅ **`KERNEL.1` — the boundary and the seams.** *Substrate, verified:* the
   core already reads its English words, names, head table and messages from
   `core/data/` and tests that every build refusal comes from the catalogue
   (`the_refusals_come_from_the_catalogue`); the `Source` trait in
@@ -17091,6 +17091,47 @@ over.
   `-Control` on a mutant that plants one. *The catch:* a check that reads
   Rust for English must not fire on identifiers or test fixtures; the test
   module region is excluded as `check_crate_package` excludes it. `~days`
+  *Built 2026-10-06, awaiting owner test.* What landed: `core/src/kernel.rs`,
+  registered in `lib.rs`: the five seams as a `SEAMS` table (name, entrance,
+  oracle, implementations today, the item that lands the first where there
+  is none: `G-USE`, `PORT.9`, `KERNEL.4`); the `Engine` trait with an
+  associated `Table` type, so the relation type stays `PORT.9`'s to define;
+  the `Projection` trait over a `Window` (one sheet, one `A1Range`) writing
+  lines to a sink; the `Format` registry (xlsx read and written, ods read);
+  and `FILE_DOOR`, the writer's host profile read off `build.rs`'s arms (ten
+  core forms held, two scaffold calls stepped over, `build-not-representable`
+  for the rest). Five tests: the seams' shape, the two empty seams named to
+  their items, the formats registry against `reflect::open` on both
+  fixtures, every held form a head-table row and every scaffold call not
+  one, a window's cell count. `tools/check_kernel_boundary.ps1`: the four
+  data tables are the kernel's only build-time includes outside a test
+  module; slot-bearing literals (a `{slot:type}` with words beside it, a
+  rule's shape) only in `grammar.rs`, pinned at eleven, ten the built-in
+  rules that mirror `AddPhraseRule` and one the slot-kinds description a
+  refusal names, both the reference's own at `VLA_SentenceEngine.bas` 1523
+  and 11333; English sentences (five words, a sentence mark) only in
+  `build.rs` (two, the line `rebuild` prints) and `matcher.rs` (one, the
+  parse error's words, held by the refusal golden); comment lines skipped;
+  `-Control` on scratch copies: the clean copy passes, a prelude include, a
+  rule and a sentence planted outside a test module each fail, the sentence
+  planted inside one passes, a built-in rule removed moves the pin. The
+  scan refined once on the baseline: a bare `{name:category}` with no words
+  beside it is the slot syntax's own example in two refusals and is not a
+  rule. `CONTRIBUTING.md` gained "The kernel and its seams" (the boundary,
+  the rule, the five seams with their oracles); `MAINTAINERS.md` is new at
+  the root (paths by seam with their oracles, the contract files);
+  `docs/README.md` indexes both; `run_checks.ps1`'s floor is 49. *Verified:*
+  `cargo fmt --check` clean, `clippy -D warnings` clean, `cargo test -p
+  frazaro-core` 221 passed and 4 ignored, the boundary check and its control
+  OK, `check_core_imports` 0 imports at 960,338 bytes, `run_checks.ps1` 49 of
+  49. *Not done, on purpose:* no engine and no projection implement the
+  traits (`PORT.9`, `KERNEL.4`); the three pinned exceptions keep their
+  retirement paths as notes, the built-ins and the slot-kinds description to
+  a data export from the VBA as the four tables were, the `rebuild` line and
+  the parse error's words to the EDITION line, nothing minted. *Owner's
+  test:* read `CONTRIBUTING.md`'s new section and `MAINTAINERS.md`, run
+  `powershell -File tools\run_checks.ps1` and `cargo test -p frazaro-core`;
+  no live Excel pass applies. *Closed 2026-10-06, owner-tested and committed.*
 - **`KERNEL.2` — the distro folder.** *Substrate, verified:*
   `tools/build_web.ps1` already bakes the prelude, `english.vla` and seven
   dialects through `{{BOOK:name}}` placeholders, the CLI carries
@@ -30213,3 +30254,7 @@ numbers. **Quoting a correction is not applying it.**
 
 - ✅ **AXM.1 — the `REFLECT` measurement: how big is a real model, read as relations.** The microscope before Stage 0.1, second in the third gear's order after `METAPROOF.4`, opened 2026-09-30 at the owner's call; owner-verified live and committed 2026-10-03 as the instrument. `tools/VLA_DiagAXM1.bas` reads a workbook the owner opened read-only and writes nothing into it, printing counts and times only, never a name, address or value. It reads every sheet's used range as one array (`Value2`, `Formula`, `FormulaR1C1`, three passes) and counts cells, formulas and distinct formulas from the arrays. It turns sheet-qualified references into a sheet graph by a deliberately crude count. It sizes a clicked cell's cone between Excel's `Precedents` (the floor) and that graph (the ceiling). Then a decision rule written before any run picks `REFLECT`'s shape: the simplest of SCAN THE WORKBOOK, SCAN PER SHEET, CONE and RANGES that fits 2 s a question. Both controls passed: a fixture whose every count was derived by hand (16 of 16), and Frazaro Sample Data (10 of 10), whose one real prediction held: a column width alone does not stretch the used range. The first live runs found five Excel and VBE behaviours, each fixed and recorded as a trap. `nExt` is the keyword `Next`. `Names.Add` refuses `=#REF!`. A workbook added from the Immediate window takes the VBE's project with it, so every entry point runs from Alt+F8. `Charts.Add` can misplace the chart. Excel 365's `_xlfn.SINGLE` is now counted apart from a workbook's own names. The run on a real fifty-sheet model was deferred at the owner's call, with no model or manager's questions to hand, to `AXM.13`, which waits on a reader that sizes true cones: `AXM.7`'s, or the Rust port's `PORT.8`. *(more: the full entry, earlier in this file)* `~hours`
 - ✅ **AXM.7 — the formula-reference reader (Stage 0.2).** Pure string work, host-free, pinned in the pure suite; scoped, built, owner-tested and committed 2026-10-04 at the owner's "proceed with AXM.7", the turn `PORT.8`'s fork 1 put before slice 8b so that the VBA leads (`SD-18`). `src/VLA_Refers.bas` reads the references inside a formula's text in one forward pass, eleven kinds (cell, range, column, row, name, structured, external, 3D, spill, unreadable for `INDIRECT` and `OFFSET` with the read going on inside the call, broken for `#REF!`), as records holding the token as written, the sheet, the book, the numbers, the marks and the position; spells each as `refers`' second field in the treaty's spelling, a bare reference qualified by its sheet, `$` dropped, letters upper-cased, one quoting rule at both ends of a row; and renders the formula in R1C1 relative to its cell as Excel's `FormulaR1C1` does. `TestFormulaRefs`, 110 pins; `scripts/refers.txt` to `scripts/refers_golden.txt` by `VlaWriteRefersGolden`, 85 cases, every item of the catch list by name, the golden written by hand as the prediction and reproduced by the reference in the owner's pass; `check_refers_golden.ps1`, the 43rd check, holds the pair's shape and the eleven kinds; `check_translate_purity.ps1` scans every procedure of the module. Nine of ten step-0 rows held in Excel; the one that fell, a period in a sheet name needing no quotes, was corrected the same day. `Read cell B9's formula to me.` waits for `AXM.3` and the question act; `PORT.8` slice 8b ports the module one match arm per `Case` arm and holds to the golden. *(more: the full entry, earlier in this file)* `~weeks`, taken in a day.
+
+## 🔧🪟🌍 MACHINE + PRODUCT + COMMONS · THE KERNEL LINE
+
+- ✅ **KERNEL.1 — the boundary and the seams: what the kernel is, and the five ways in.** Written down and pinned: the kernel holds forms and their expansion, the emitters, the sheet model, recalculation over a declared subset, the relation set and the ABI, and never holds English, message text, a default, chrome, a format beyond a trait or a door. Five seams are the only entrances: sentences (a phrasebook with proofs), paragraphs (a library, `G-USE`), engines (tables in, a table out, a head-table row, a proof-file kind), formats and hosts (the `Source` trait, a `Sink` beside it, a host profile per door), projections (a pure function from model and window to a record). The rule: the kernel grows a seam, never a feature. A section per seam in `CONTRIBUTING.md` names the oracle a change must pass, and `check_kernel_boundary.ps1` pins the data-only rule (no sentence rule, no message text, no default in `core/src/`; the counts are floors). *Serves:* every item below. `~days` Built, owner-tested and committed 2026-10-06; the entry above carries the record: `core/src/kernel.rs`, `tools/check_kernel_boundary.ps1` with its control, `CONTRIBUTING.md`'s seams section, `MAINTAINERS.md`, the runner's floor at 48.
