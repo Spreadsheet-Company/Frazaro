@@ -120,6 +120,12 @@ before they see `docs/`:
 - **[cli/README.md](../cli/README.md)** — The command-line door, `frazaro`:
   every command with its arguments, output, exit codes and refusals, what
   each answers to on the Frazaro tab, and a tour on the repository's own files.
+- **[web/CALLOSUM.md](../web/CALLOSUM.md)** — Beside the web page it scopes:
+  the sitting of 2026-10-05 on the Frazaro spreadsheet, a two-pane application
+  in Elm's shape whose grid is only a view of the sentences; with the forecast
+  at a year and ten, the reflect feature read as a Lisp, and seven tectonic
+  moves beyond the roadmap and `HORIZON.md`. Written in `HORIZON.md`'s
+  register and marks; nothing in it is an item.
 - **[TRADEMARK.md](../TRADEMARK.md)**, **[OUTPUT-EXCEPTION.md](../OUTPUT-EXCEPTION.md)**,
   **[PHRASEBOOK-TERMS.md](../PHRASEBOOK-TERMS.md)** — The name; why your
   workbook does not inherit the licence of the code Frazaro writes into it;

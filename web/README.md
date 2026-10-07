@@ -120,3 +120,8 @@ detail.
 - **The command line is the same engine behind a different door**, held to
   the same goldens: `cli/README.md` is its reference, and `frazaro build`,
   `rebuild`, `reflect`, `audit` and `diff` print what the page shows.
+- **Where the page is going** is `CALLOSUM.md`, beside this file: the sitting
+  of 2026-10-05 that scoped its growth into a two-pane spreadsheet in Elm's
+  shape, a grid that is only a view of the sentences, with the forecast, the
+  reflect feature read as a Lisp, and seven moves beyond the roadmap. Nothing
+  in it is an item; it is written in `docs/HORIZON.md`'s register and marks.

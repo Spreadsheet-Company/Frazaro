@@ -67,3 +67,13 @@ SPDX-License-Identifier = "CC-BY-4.0"
 path = ["examples/**"]
 SPDX-FileCopyrightText = "2026 Spreadsheet Company"
 SPDX-License-Identifier = "0BSD"
+
+# A document beside the web door, not the door. web/CALLOSUM.md is the sitting
+# of 2026-10-05 that scoped the page's growth into a two-pane spreadsheet,
+# written in docs/HORIZON.md's register, so it takes the documentation terms.
+# The page's README stays with the door it describes, as core/README.md and
+# cli/README.md stay with their crates. Decided 2026-10-06.
+[[annotations]]
+path = ["web/CALLOSUM.md"]
+SPDX-FileCopyrightText = "2026 Spreadsheet Company"
+SPDX-License-Identifier = "CC-BY-4.0"
