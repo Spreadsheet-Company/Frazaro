@@ -17017,6 +17017,249 @@ decision: `SD-13`, the `GENSYM` veto and `SD-16` hold at every stage.
 
 ---
 
+# 🔧🪟🌍 MACHINE + PRODUCT + COMMONS · THE KERNEL LINE
+
+*The Frazaro spreadsheet, working title CALLOSUM: the two-pane WebAssembly
+  application scoped in `web/CALLOSUM.md`, a grid that is only a view of the
+  sentences, built as a kernel with five seams so that every later feature
+  is an addition through a seam and never an edit of the kernel. Filed
+  2026-10-06 at the owner's call ("Add a comprehensive KERNEL.* series of
+  steps to the roadmap to guide the development of CALLOSUM from idea to
+  reality"), twenty-one items, `KERNEL.1`–`KERNEL.21`, in the order that
+  each makes the next cheap, the instrument before the operation. The
+  eighteen commandments `SD-20`–`SD-37` bind every item that shows a grid.
+  specimens: 0 (the page's own users, once the viewport exists; `KERNEL.3`
+  is the first instrument that counts them).*
+
+**How the order was chosen, 2026-10-06.** As the Singularity line's was:
+the quarter-end of CALLOSUM §12.5 is the fact to be made a matter of
+course, and the question is which few present facts make each later item
+one arm of a seam that exists rather than a feature of its own each time.
+The measure is the same: how many later items become one arm (fan-out),
+times how much of the item the code already holds (substrate, verified by
+reading `core/src/` and `web/index.template.html`, never assumed from the
+doc), over its size. Six primitives came out, and one substrate that no
+primitive makes cheap, only a measurement can:
+
+| Step | Later steps it makes cheap | What stood in the code at filing |
+|---|---|---|
+| `KERNEL.1`, the boundary and the seams | every later item enters through a seam | the four data tables under `core/data/`; the `Source` trait over OOXML and ODF; every ABI answer one record |
+| `KERNEL.2`, the distro | editions, one page per language, the template repository, `describe` | `{{BOOK:name}}` placeholders in `tools/build_web.ps1`; `--phrasebook` lists; `VlaBuildAddin`'s `mods` |
+| `KERNEL.4`, the view record | the viewport, every projection, the recorder's round trip | `abi.rs`'s record shape; `build.rs`'s walker, which quotes the sentence that wrote a cell in its refusals |
+| `KERNEL.6`, then `KERNEL.7`, recalculation | live values, the engines' inputs, speed, the for-all-inputs line of `HORIZON.md` §9.1 | `refers.rs`'s scanner and R1C1; `xlfn.rs`'s two function tables; `saved.xlsx`'s cached values; nothing evaluates a formula |
+| `KERNEL.9`, the hand edit | condensation, late naming, the editor's muscle memory, the accessible path | the page keeps only its rows and rebuilds everything from them; `VLA_EventSink.cls` receives changes in the add-in |
+| `KERNEL.11`, reflection over the model | audit and review modes, precedents lit, the §12.6 Tables, `describe` | `reflect/`, `cone.rs`, `audit.rs`, `diff.rs` over files, one `Source` implementation away from memory |
+| `KERNEL.3`, the study | the viewport's first shape, and every interface item after it | nothing; `SD-29` is why it comes first |
+
+Two tracks run in parallel and an item names what it waits on: the view
+track (`KERNEL.3`, `KERNEL.4`, `KERNEL.5`, `KERNEL.9`, `KERNEL.10`,
+`KERNEL.12`, `KERNEL.13`, `KERNEL.14`) needs no recalculation, since the
+view shows literals and folded formulas until values arrive; the value track
+(`KERNEL.6`, `KERNEL.7`, `KERNEL.8`, `KERNEL.20`) needs no viewport, since
+`frazaro calc` is its door. They meet twice: at `KERNEL.5`, when values
+appear in the grid, and at `KERNEL.15`, when the engines answer in the pane.
+The items that live under other lines keep their IDs and their places:
+`PORT.9`, `PORT.10` and `PORT.11` (the two neutralities, Part B) are the
+substrate of `KERNEL.15`, `KERNEL.16` and `KERNEL.19`; `G-USE` (GRAMMAR) is
+`KERNEL.14`'s; `AXM.2`, `AXM.3` and `AXM.9` (the Singularity line) are
+`KERNEL.12`'s, `KERNEL.13`'s and `KERNEL.15`'s. Where this order and
+CALLOSUM §8 differ: §8's slice 2 (recalculation) is split into the
+instrument (`KERNEL.6`) and two slices (`KERNEL.7`, `KERNEL.8`), since the
+subset must be chosen by measurement before a line of the engine is
+written; §8's slice 1 (the view record and the viewport) is split into
+`KERNEL.4` and `KERNEL.5` with the study (`KERNEL.3`) between them, as
+`SD-29` requires; and `KERNEL.1`, `KERNEL.2`, `KERNEL.12`, `KERNEL.17`,
+`KERNEL.18` and `KERNEL.21` have no slice in §8, because they are the
+sitting of 2026-10-06's answer to "extensibility as the core primitive",
+CALLOSUM §14. What stays a handle: `HORIZON.md` §9.1's for-all-inputs line
+(the SMT engine), interval arithmetic, and the Excel-scale memory question,
+each a measurement item of its own when `KERNEL.8` has values to measure
+over.
+
+**The expanded scoping, item by item.**
+
+- **`KERNEL.1` — the boundary and the seams.** *Substrate, verified:* the
+  core already reads its English words, names, head table and messages from
+  `core/data/` and tests that every build refusal comes from the catalogue
+  (`the_refusals_come_from_the_catalogue`); the `Source` trait in
+  `reflect/mod.rs` is the formats seam with two implementations; every ABI
+  answer is one record. *The work:* the boundary written in
+  `CONTRIBUTING.md`, one section per seam with its oracle; the engines seam
+  and the projections seam named as traits with their first implementations
+  deferred to `PORT.9` and `KERNEL.4`; `check_kernel_boundary.ps1` scanning
+  `core/src/` for a sentence rule, a message text or a default, with its
+  `-Control` on a mutant that plants one. *The catch:* a check that reads
+  Rust for English must not fire on identifiers or test fixtures; the test
+  module region is excluded as `check_crate_package` excludes it. `~days`
+- **`KERNEL.2` — the distro folder.** *Substrate, verified:*
+  `tools/build_web.ps1` already bakes the prelude, `english.vla` and seven
+  dialects through `{{BOOK:name}}` placeholders, the CLI carries
+  `cli/data/prelude.vla` and `cli/data/english.vla` held by
+  `check_crate_data.ps1`, and `VlaBuildAddin`'s `mods` array is the shipped
+  list. *The work:* the folder layout; `-Distro` on the three build tools;
+  `frazaro prove <folder>` walking it; the `english` distro assembled from
+  the files where they are today, by reference, so nothing moves and
+  `check_crate_data` keeps holding the copies. *The catch:* a distro's
+  phrasebooks carry MPL-2.0 per file and its libraries carry whatever their
+  author chose; the folder's README states the terms per subfolder, and
+  `check_spdx.ps1` keeps resolving each file. *Oracle:* the built page is
+  byte for byte the page built today. `~days`
+- **`KERNEL.3` — the study before the viewport.** *The work:* a fixture
+  workbook with planted defects (the explanation schemas' fifteen are the
+  list), a task sheet in two halves (build this; find that), the protocol
+  and its measures, and the decision rule written before the first run so
+  that the numbers decide rather than confirm. *The catch:* the runner is a
+  person, and the house never runs live passes itself; the instrument ships
+  with its blank result table and the owner fills it. *Pays into:*
+  `KERNEL.5` and every interface item after it; the LEARNABILITY
+  department, since the same tasks measure learning. `~days`
+- **`KERNEL.4` — the view record.** *Substrate, verified:* the walker in
+  `build.rs` knows which sentence wrote which cell, since its refusals quote
+  the sentence; the sheet model holds value, formula, shared formula,
+  dynamic formula and style. *The work:* the record's layout (cells of a
+  window, each with value, formula text, style index, and the row that
+  wrote it), `frazaro view` and `frazaro_view`, the view goldens, and the
+  projection trait with this as its first implementation. *The catch:*
+  values are literals and folded formulas until `KERNEL.7`; the record says
+  which kind each value is, so the viewport never shows a stale number as a
+  computed one. `~days`
+- **`KERNEL.5` — the viewport.** *The work:* a canvas renderer of the
+  window (a few hundred lines of script in the template, no library;
+  CALLOSUM §7 decision 5), selection and scrolling as ephemeral state the
+  program never sees, the formula bar's three lines, the two-way link
+  between a cell and its sentence, the selection filling the next
+  sentence's noun through the grammar's own spelling of a range, column,
+  sheet or Table, refusal markers on cells, and the pane's open and closed
+  states. *The catch:* every interaction the viewport offers must be one
+  `SD-20`–`SD-37` permits, and the fill handle is the first temptation
+  refused. *Oracle:* the view golden drives a rendering test; the offline
+  check and the import check unchanged. `~weeks`
+- **`KERNEL.6` — the recalculation measurement.** *Substrate, verified:*
+  `reflect --counts` already prints the distinct R1C1 formulas and the
+  unreadable calls; a function histogram is one more sink. *The work:* the
+  histogram, run over the Enron corpus and the house's own fixtures, its
+  numbers kept in CALLOSUM as a dated measurement; the fixture set under
+  `scripts/recalc/`, saved by Excel 365, one per function family, with the
+  cached values as the oracle. *The catch:* a fixture saved by a host
+  carries that host's cached values and nothing else is trusted; a
+  disagreement between hosts is itself a finding and goes in the fixture's
+  notes. `~days`
+- **`KERNEL.7` — recalculation, slice 1.** *Substrate, verified:*
+  `refers.rs` tokenizes references and renders R1C1; `xlfn.rs` names the
+  format's future functions and the array-returning functions; nothing
+  parses an operator or evaluates a call. *The work:* the formula parser
+  over the scanner's tokens, the dependency graph from `refers`, evaluation
+  in topological order, cycles and unreadable references refused by name,
+  Excel's error values as a value kind, the fifteen functions, `frazaro
+  calc`, the treaty's amendment for the new oracle, `check_recalc_golden.ps1`
+  with floors. *The catch:* coercion (text that looks like a number, an
+  empty cell in arithmetic, a boolean in a sum) is where Excel's semantics
+  hide; each rule enters with a fixture that shows it. `~weeks`
+- **`KERNEL.8` — recalculation, slice 2.** *The work:* date serials and the
+  date functions, the text functions, the lookup family, dynamic arrays and
+  spill ranges (a spilled value is a value kind the view record names),
+  `LET` and `LAMBDA` refused by name. *The catch:* implicit intersection and
+  the `@` operator, where a legacy formula and a dynamic one differ in
+  meaning; the reader already distinguishes the two forms, and the
+  evaluator must too. `~quarter`
+- **`KERNEL.9` — the hand edit as a sentence.** *Substrate, verified:* the
+  page keeps only its rows and re-derives everything from them, so an
+  appended sentence is already the only way the page changes. *The work:*
+  the bar and the grid as message sources, the `Put` sentence spelled with
+  the grammar's own range, column, Table-column or name forms (`SD-31`),
+  the override view. *Oracle:* round trip and unchanged goldens. `~days`
+- **`KERNEL.10` — condense and late naming.** *The work:* the two-layer
+  program (a marker line separates the source from the log, or the log is a
+  second file beside it; the owner decides the spelling), the condense
+  search (enumeration of the grammar's build sentences smallest-first, exact
+  match on the relation set, the shape of CALLOSUM §4 item 4), the diff
+  shown before acceptance, the naming sentences and their rewrite. *The
+  catch:* a condense that changes meaning is the one bug this item must
+  never have; the oracle is equality of relation sets, and idempotence
+  proves the fixed point. `~weeks`
+- **`KERNEL.11` — reflection over the model.** *Substrate, verified:* the
+  rear-view's `PORT.8` scoping already decided that `_frazaro_refers` and
+  `_frazaro_cells` are the reader's relations produced at build time over
+  the writer's own model, and that the reader of a built workbook must find
+  them equal to its own; `reflect/` reads files through `Source`. *The
+  work:* a `Source` implementation over the in-memory `Workbook`, the Tables
+  written by the build, precedents lit from `cone.rs`. *Oracle:* the
+  equalities above, free. `~days`
+- **`KERNEL.12` — projections as a seam.** *The work:* the trait, the pane
+  as the second projection (the sentence list with per-row status is a
+  projection of the model too), the cone diagram as the third written in
+  the contributor's shape (its own file, its own golden, no edit of the
+  kernel). *Pays into:* `AXM.3` (the book) and `AXM.2` (the dashboard),
+  which land as projections when they land. `~weeks`
+- **`KERNEL.13` — audit mode and review mode.** *Substrate, verified:*
+  `audit.rs` finds, `diff.rs` compares, `cone.rs` walks; all three print
+  lines today. *The work:* the findings and controls as a projection linked
+  to cells; two versions side by side, the sentence diff in the pane and
+  the relation diff colouring the grid. *The catch:* review of two programs
+  needs the sentence diff, which is text diff over rows, and review of two
+  workbooks needs the relation diff, which exists; both are shown and the
+  mode says which. `~weeks`
+- **`KERNEL.14` — the project folder and the editor.** *Substrate:* the
+  Reflect pane already reads a file picked from disk through `FileReader`;
+  `DidYouMean` computes the nearest rules in the reference. *The work:* the
+  folder access per browser, `Use` resolution beside the program, data
+  files as Tables through the reader, the editor as one document with
+  virtualized rows, the expansion beneath a `Use` line, the ledger inline,
+  completion from the pattern table, the refusal's nearest sentence
+  (`SD-37`), the opening example (`SD-33`). *The catch:* the File System
+  Access API is Chromium's; the item ships the fallback first and the
+  richer path where it exists, and the Tauri door (`KERNEL.19`) has real
+  files regardless. `~weeks` and `~weeks`
+- **`KERNEL.15` — the engines live in the pane.** *The work:* after
+  `PORT.9`, `AXM.2` and `AXM.9` exist, the wiring: a `?` row's answer as a
+  spill from column C of the pane, controls colouring cells through the
+  view record's style, an engine's progress sentence on its row while it
+  runs and the interface still answering (`SD-34`: the computation yields
+  at its budget and resumes). *The catch:* the page is single-threaded
+  unless a worker runs the module; the budgeted yield is the design, a
+  worker the optimization, measured. `~weeks` after those
+- **`KERNEL.16` — the interpreter live.** *The work:* after `PORT.10`, the
+  interpreter's effects applied to the page's model, and the writer's
+  static-subset refusals retired form by form (the `build-not-representable`
+  catalogue entry names the sentence; each form it stops refusing is a row
+  in this item's record). *The catch:* an effect with no representation in
+  the sheet model (a chart, a pivot) stays refused by name under the host
+  profile until the model grows it. `~weeks` after `PORT.10`
+- **`KERNEL.17` — accessibility.** *The work:* the keyboard path for every
+  act, the screen-reader pass, labels, roles and focus order in the
+  template, `check_web_a11y.ps1` in house style with a `-Control`. *Pays
+  into:* the ACCESSIBILITY department, which gains its first mechanical
+  check. `~weeks`
+- **`KERNEL.18` — describe.** *Substrate, verified:* `vocab_stats` already
+  counts rules, macros, aliases, function words and phrases; the stamp
+  already hashes every file a build used. *The work:* `frazaro describe`
+  over a distro folder, every registry as relations, the page's About
+  printing the same. *Oracle:* a describe golden for `english`. `~days`
+- **`KERNEL.19` — the pane in the other doors.** *The work:* after
+  `PORT.11`, the shared pane script in the Office.js task pane with Excel as
+  the grid (writes through `setValues` and `formulas`), and in the Tauri
+  shell with the viewport; the host profile per door. *The catch:* the
+  Excel door has live recalculation and the page has `KERNEL.7`'s subset,
+  so the same program can show a value in one and `not computed here` in
+  the other; the profile says so in words. `~days` each
+- **`KERNEL.20` — speed, measured.** *The work:* vectorized evaluation of a
+  shared formula over its range, incremental maintenance of the dependency
+  fixpoint (the DBSP shape: a change propagates to its cone and nowhere
+  else), content-addressed evaluation (identical R1C1 shapes over identical
+  inputs computed once), build-time folding kept, window-and-cone evaluation
+  for the view; each measured on the fixtures against Excel's own timing of
+  the same recalculation, the floors in `check_recalc_floors.ps1`. *The
+  catch:* a measurement against Excel runs through the owner's hands; the
+  core's own timings are the floors CI holds. `~quarter`
+- **`KERNEL.21` — merge by relation.** *The work:* a three-way merge of two
+  relation sets against a base, conflicts refused by name with both sides
+  shown, the merge of two programs by rows with the same discipline, and a
+  scenario as a branch of the record. *Lineage:* Darcs' patch theory;
+  `diff.rs` is the substrate. *Oracle:* merge goldens including a conflict.
+  `~weeks`
+
+---
+
 # 🔧 MACHINE · OPTIMIZATION
 *Compiler speed. Under the hood; the user never sees it directly. specimens: 0.*
 

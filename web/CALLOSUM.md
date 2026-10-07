@@ -340,3 +340,41 @@ The assessment that produced them, in two sentences. The two-pane model is viabl
 ### 13.4 Blessed, later the same day
 
 *Appended 2026-10-06. The owner blessed the eight proposals of 13.3 ("Sure, why not: I bless the additional 8."). They are `SD-30` to `SD-37` in the register, in 13.3's order: `SD-30` nothing fails silently, and nothing succeeds invisibly; `SD-31` speak in the user's names; `SD-32` appearance is declared, not painted; `SD-33` no blank page; `SD-34` the grid never freezes; `SD-35` the program is the accessible workbook; `SD-36` no lock-in by construction; `SD-37` a refusal is a lesson. Their reasons are in `BETA_REARVIEW.md`'s register. 13.3 stands as written, under the house rules; the Frazaro spreadsheet now has eighteen commandments, and the next proposal takes `SD-38`.*
+
+---
+
+*Appended 2026-10-06, under the house rules above. The owner asked for "a comprehensive KERNEL.* series of steps to the roadmap to guide the development of CALLOSUM (working title of the WASM Frazaro spreadsheet) from idea to reality", after the sitting's answer to how a minimum viable two-pane spreadsheet should be constructed so that extensibility is the core primitive: a kernel holding mechanism only, five seams as the only entrances, and a distro as a folder the build tools bake into one artifact per door. The steps were filed on `BETA_ROADMAP.md` under a new line, 🔧🪟🌍 MACHINE + PRODUCT + COMMONS · THE KERNEL LINE, family `KERNEL`, twenty-one items; the reasoning, the fan-out table and the two tracks are in `BETA_REARVIEW.md` under the same heading, and the family is declared in `ID_REGISTRY.md`. Handles here stay handles; a filed step carries its ID.*
+
+## 14. Filed, 2026-10-06: the KERNEL line
+
+### 14.1 The kernel and its seams, in the house's terms
+
+The kernel holds mechanism only: forms and their expansion, the emitters, the sheet model, recalculation over a declared subset, the relation set and the ABI. It holds no English, no message text, no default, no chrome, no format beyond a trait and no door; all of those are data or implementations of a seam. Five seams are the only entrances, each a trait or a data file with one implementation and an oracle today: sentences (a phrasebook with proofs; `frazaro prove`), paragraphs (a library, `G-USE`; the build golden and the stamp), engines (tables in, a table out, a head-table row, a proof-file kind; proof files with clingo beside them), formats and hosts (the `Source` trait, a `Sink` beside it, a host profile per door; reflect and build goldens), and projections (a pure function from model and window to a record; a view golden). The rule that follows: the kernel grows a seam, never a feature. A distro is a folder of phrasebooks, libraries, examples, a palette, an edition's chrome, a README and default `Use` lines, baked by the existing build tools into one page, one add-in, one command-line door, one desktop shell; the registry is a repository the user clones, as CTAN is for TeX, since nothing is fetched (`SD-13`), and the stamp's hashes are the lockfile. In Linux's terms: the head table is the syscall table, `SD-4` is "we don't break userspace", the treaty is POSIX, `OUTPUT-EXCEPTION.md` is the syscall note, a library is a userland package, a phrasebook with raw forms or an engine is a signed module, and the consent gate, `SD-15` and provenance are the signing. What is not built, and why: a runtime plugin loader (`SD-15`), a network registry (`SD-13`), a scripting language inside the language (§12.9's brevity, never power), and a second host before a second host exists (`SD-11`).
+
+### 14.2 The map from this file to the items
+
+| Here | Filed as |
+|---|---|
+| the kernel's boundary and the five seams (14.1) | `KERNEL.1` |
+| the distro folder (14.1; §7 decision 8's folder, generalized) | `KERNEL.2` |
+| `SD-29`, the study before the viewport | `KERNEL.3` |
+| §8 slice 1, the view record (§7 decisions 1 and 2) | `KERNEL.4` |
+| §8 slice 1, the viewport (§7 decision 5; `SD-20`, `SD-24`, `SD-25`, `SD-28`) | `KERNEL.5` |
+| §8 slice 2, recalculation: the subset chosen by measurement (§7 decision 3's Enron figure) | `KERNEL.6` |
+| §8 slice 2, recalculation's floor (§7 decisions 3, 6 and 7; the treaty's next oracle) | `KERNEL.7` |
+| §8 slice 2, dates, text, lookups and spills | `KERNEL.8` |
+| §8 slice 3, the hand edit as a sentence (`SD-21`, `SD-31`) | `KERNEL.9` |
+| `SD-22` and `SD-27`, condense and late naming; §4 item 4's search over one's own history | `KERNEL.10` |
+| §8 slice 4, reflection over the model and §12.6's hidden Tables | `KERNEL.11` |
+| `SD-23`, projections as a seam | `KERNEL.12` |
+| `SD-26`, audit and review modes; §5 item 1's review half | `KERNEL.13` |
+| §8 slice 7, the project folder and the editor (`SD-33`, `SD-37`) | `KERNEL.14` |
+| §8 slice 5, the engines live (`SD-34`), after `PORT.9`, `AXM.2`, `AXM.9` | `KERNEL.15` |
+| §8 slice 6, the interpreter live, after `PORT.10` | `KERNEL.16` |
+| `SD-35`, accessibility | `KERNEL.17` |
+| describe, the kernel's `lsmod` (14.1) | `KERNEL.18` |
+| §8 slice 8 and §7 decision 9, the pane in the other doors, after `PORT.11` | `KERNEL.19` |
+| §12.6, speed said plainly, measured | `KERNEL.20` |
+| §5 item 1, merge by relation | `KERNEL.21` |
+
+Not filed, still handles: §4's missing arrow (a build from a relation file), §4 item 3's content addressing beyond what `KERNEL.20` needs, §4 item 4's decompilation of a workbook nobody built, §5 items 2 to 7 (constraints, falsification, the sentence recorder's general lens, standards as files, the open semantics beyond the declared subset, the bill of materials), and `HORIZON.md` §9.1's for-all-inputs line. Each waits for the measurement `KERNEL.8` makes possible, or for a sentence that needs it (`SD-7`). The eighteen commandments are standing decisions, not items, and bind the line from above.

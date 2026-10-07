@@ -95,11 +95,13 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
+| KERNEL | KERNEL.21 | KERNEL.22 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
 | PF | PF.6 | PF.7 |
 | PI | PI.7 | PI.8 |
+| PORT | PORT.11 | PORT.12 |
 | S | S6 (bare) | S7 |
 | SEC | SEC.6 | SEC.7 |
 | SIG | SIG.8 | SIG.9 (SIG.6, SIG.7 reserved — see below) |
@@ -153,6 +155,21 @@ places.
 fifty-sheet model, taken out of `AXM.1` when it closed as the instrument
 with no real model or manager's questions to hand. It is placed after
 `AXM.7`, and `AXM.8` waits on it.
+
+**`KERNEL` is a new family, minted 2026-10-06 at the owner's call:
+twenty-one items, `KERNEL.1`–`KERNEL.21`, under a new line, 🔧🪟🌍 MACHINE +
+PRODUCT + COMMONS · THE KERNEL LINE**, the Frazaro spreadsheet (working
+title CALLOSUM) built from `web/CALLOSUM.md`'s scope as a kernel with five
+seams, in the order that each item makes the next cheap, the instrument
+before the operation. Declared in the prefix inventory at the moment of
+minting, as `AXM` was. CALLOSUM's own handles (slice 2, decision 3, the
+Commandments' numbers) stay handles; CALLOSUM §14 maps each to its `KERNEL`
+number. `PORT.9`–`PORT.11`, `G-USE`, `AXM.2`, `AXM.3` and `AXM.9` are steps
+of the same road and keep their own families and places. `SD-20`–`SD-37`,
+the eighteen commandments blessed the same day, are standing decisions in
+the register, not items, and take no row here. The `PORT` family (minted
+2026-10-01, `PORT.1`–`PORT.11`) had no row in the inventory above until this
+pass; it has one now, with `PORT.12` next free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a
