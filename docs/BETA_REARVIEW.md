@@ -2030,7 +2030,7 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   is ever shown to leave exploitable state behind rather than just losing
   work.
 
-- ⬜ **SEC.15 — formula writes are an ungoverned egress channel.**
+- ✅ **SEC.15 — formula writes are an ungoverned egress channel.**
   **CONFIRMED:** `SEC.4`'s `NeutralizeFormulaInjection` guards only the
   `Value` sink (`VLA_Interpreter.bas:2682`); a `set-formula` /
   `(. r formula) =` write puts program-controlled text straight into
@@ -2075,6 +2075,216 @@ re-scoped, per this register's own no-duplicate-ID discipline (SD-9).
   `NeutralizeFormulaInjection` at `VLA_Interpreter.bas:2682` — not the
   general capability work `SEC.7` would need. Closer to `~hours`. Ranked
   after `SEC.9` and `SEC.11` but ahead of everything accepted above.
+  **Scoped and built 2026-10-05, for 0.8.0, at the owner's "scope it, then
+  build it"; status 2026-10-06: ✅ owner-tested and committed.** The pass of
+  2026-10-06 held every prediction: pure 1840/1840, host 273/273,
+  `TestDSLs` 2346, `VerifyReports` 371/371 on both backends (the corpus had
+  grown past the 311 predicted), the egress golden reproduced to the byte
+  (55 cases, 37 refused), the `.vba` golden's eighteen lines and nothing
+  else, the live tests as written on both backends (`HYPERLINK` named with
+  `egress1!B4` and the cell empty, `DDE`, `WEBSERVICE` in upper case from
+  `_xlfn.webservice`, the text `WEBSERVICE(` written and the run going on),
+  the page's strip naming line 1 and `HYPERLINK` with Download waiting and
+  the benign build at 7,274 bytes; and step 10 showed the finding recorded
+  below, text behind an apostrophe under Interpret and a live link under
+  Compile.
+  The item was read against the code before anything was designed: the
+  `.Formula` sink is two sinks and a writer. Compile and Run emitted
+  `<obj>.Formula2 = <expr>` for exactly `(set! (. obj formula) v)`
+  (`EmitStmt`'s `set!` arm, `VLA.bas`, ported byte for byte in
+  `core/src/emit/stmt.rs`); Interpret and Run wrote it in `DynamicSet`'s
+  `Case "formula"` (`VLA_Interpreter.bas`); and `frazaro build` writes a
+  text beginning `=` as a formula in `core/src/build.rs`'s `write_formula`,
+  which the web page's Workbook strip calls on every change.
+  `english.vla`'s `set-formula` and `set-formula-rows` (and
+  `set-formula-fill-down` through them) are the sentences that reach the
+  form; any phrasebook can write the form directly, and the text can be
+  built at run time from pieces, so a check of literals is not the fix. The
+  "formula-write classification" three earlier entries expected this item
+  to read is `SEC.18`'s effect ledger, open and unbuilt, so nothing is read
+  from it; this item is the sink guard the roadmap's fix names, and
+  `SEC.18`'s `formula-write` row, when it exists, will point at this guard.
+  Six decisions, each argued long term first and taken as recommended, with
+  the owner's standing preference for the wider gate:
+  *(1) The layer: the sink, and only the sink.* One runtime helper,
+  `VlaSetFormula` (`VLA_Runtime.bas`, above the inject boundary), is now
+  the one place a formula is written on both backends: the emitter writes
+  `Call VlaSetFormula(<obj>, <expr>)` where it wrote `.Formula2 =`, and the
+  interpreter's `Case "formula"` calls the same helper, so Compile and Run
+  and Interpret and Run refuse the same text with the same words at the
+  same sentence (`SD-5`). The core's `write_formula` scans the same way
+  before it writes. No translation-time or compile-time check of a literal,
+  and the reason is recorded against the prompt's own "add it if the same
+  scanner serves it cheaply": Check does not transpile, so a compile-time
+  check would not have reached Check; it would have given the Compile
+  backend a second id for a subset of the cases the sink already sees, and
+  said something different from Interpret for the same sentence; and the
+  scanner would be called from three places per implementation where one
+  serves. A literal planted under a sentence is refused at that sentence
+  when the program runs, before anything is written, which is the property
+  the item asks for. The capability route (`SEC.7`) stays the later door,
+  for a program that needs one of the refused functions.
+  *(2) Where the scanner lives: the runtime, not `VLA_Refers.bas`.* The
+  compiled program runs in a workbook holding the injected runtime and no
+  other module, the reason `SEC.4`'s rule is repeated in the runtime
+  rather than called (`VlaTextInRange`'s own note), so a scanner the
+  compiled program must call cannot live in the reader. `VlaFormulaEgress`
+  is pure (text in, a name out, no Excel object), so the pure suite and the
+  golden writer call it with no workbook, and the interpreter and the
+  emitted code reach it through the one helper. The core's twin,
+  `core/src/egress.rs`, walks the text with `refers.rs`'s own string,
+  quoted-name and bracket helpers (opened to the crate), so the core has
+  one string-skipping rule and no third tokenizer; the reference has two
+  walkers of its own, the reader's and this one, which the inject boundary
+  forces and the golden holds equal.
+  *(3) The list, as data in one place per implementation, held equal by
+  `check_egress_golden.ps1`:* 23 names and one shape. `WEBSERVICE`, an
+  HTTP request from a cell, no VBA, no Trust Center (the roadmap's floor);
+  `FILTERXML`, the host's XML engine over text, whose handling of an
+  external entity is not verified here, and which has no use without text
+  `WEBSERVICE` fetched (the floor); `HYPERLINK`, a click opens a URL or a
+  path, and a UNC path makes Windows offer the user's credentials (the
+  floor); `RTD`, a registered COM server started by ProgID from the cell;
+  `IMAGE`, Excel 365's and Sheets' picture fetched from a URL on
+  calculation; `STOCKHISTORY`, Excel's data service, the ticker sent out;
+  `CALL`, `REGISTER` and `REGISTER.ID`, XLM's DLL function by name (the
+  floor's `CALL`, the entry's `REGISTER`); `EXEC`, XLM starts a program;
+  `INITIATE`, `EXECUTE`, `POKE` and `REQUEST`, XLM's DDE conversation;
+  `SEND.MAIL`, XLM mail; `DDE`, Calc's function of that name; `IMPORTXML`,
+  `IMPORTDATA`, `IMPORTHTML`, `IMPORTRANGE` and `IMPORTFEED`, Sheets
+  fetches a URL or another spreadsheet when the file is opened there;
+  `GOOGLEFINANCE` and `GOOGLETRANSLATE`, Sheets sends the arguments to
+  Google, the second the cell's own text. And the worksheet DDE shape,
+  `application|topic!item`, a `|` outside a string, a quoted name or a
+  bracket group, reported as `DDE`. The XLM names run only on a macro
+  sheet, which a program never makes but a workbook may hold; refusing
+  them on a worksheet costs nothing, since a worksheet cannot evaluate
+  them. The Sheets names are `#NAME?` in Excel, so no Excel program loses
+  anything by them, and the `.xlsx` the core writes is the file Sheets
+  imports. Five names have a legitimate use a program now cannot write:
+  `HYPERLINK` (a link table), `IMAGE`, `STOCKHISTORY`, `GOOGLEFINANCE` and
+  `IMPORTRANGE`; the owner's standing rule (the wider gate, a one-time cost
+  in a malicious world) keeps them, and `SEC.7`'s capability is the door a
+  program that needs one will knock on; taking a name off is a one-word
+  edit in two places and a regenerated golden. Not on the list, with the
+  reason: `CUBE*` needs a workbook connection that already exists
+  ("Refresh everything"'s territory, unfiled); an external reference
+  `[Book.xlsx]Sheet1!A1` is a reference, not a function, Excel's own links
+  prompt governs its fetch, and `frazaro audit`'s external-links walk
+  reports it; `INDIRECT` and `OFFSET` reach cells, not outside.
+  *(4) The matching rule, the same in both implementations.* Any text
+  written through the formula member is scanned, whatever it begins with
+  (strict first: a later narrowing to texts beginning `=` would loosen,
+  where the reverse would break programs under `SD-4`); a number, a date
+  or a Boolean is written as before; a cell handed as the text is read
+  first, since `Formula2` would have taken its value, so a planted text
+  behind an apostrophe cannot be laundered into a formula through a second
+  cell. Inside the text: a string literal (`"…"`, a doubled quote inside),
+  a quoted name (`'…'`) and a bracket group (`[…]`, nested) are stepped
+  over, so `="WEBSERVICE("`, `='WEBSERVICE'!A1` and
+  `=Sales[[#This Row],[a|b]]` are written; a run of identifier characters
+  (letters, digits, `_`, `.`, anything past ASCII) followed by spaces, tabs
+  or line breaks and then `(` is a call; the file prefixes `_xlfn.` and
+  `_xlws.` are stripped from its front, as many as stand there; the rest is
+  compared without case to the list, whole, so `WEBSERVICE2(`,
+  `MYWEBSERVICE(` and `WEBSERVICE.X(` are other functions and
+  `REGISTER.ID(` is its own name; a name not followed by `(` is a defined
+  name or a sheet, not a call; `@` before a name is stepped over. The first
+  hit in text order is named, in the list's upper-case spelling.
+  *(5) Refuse, never neutralize.* `SEC.4` marks a value with an apostrophe
+  because a value beginning with `=` is ordinary data; a formula that
+  calls `WEBSERVICE` is never data, and an apostrophe would turn the
+  planting into text under a green row. So the step stops:
+  `rt-formula-egress` from the runtime's own catalogue on both backends,
+  naming the formula (cut at 80 characters), the function and the cell
+  (`Sheet1!B3`), reported through the scaffold's `vla-report-error` with
+  the sentence and its line as every run-time refusal is; and
+  `build-formula-egress` from the one catalogue (`VLA_Messages.bas`,
+  exported, 588 entries) in the core, naming the line, the function and
+  the sentence, which `frazaro build` prints to stderr with exit 1 and
+  nothing written, and the page's Workbook strip prints with the button
+  disabled, the VLA and VBA panes standing. Two ids because the runtime
+  compiles alone and the build is a different door, the precedent
+  `build-sheet-name-invalid` beside `rt-sheet-name-*` set. Neither names
+  a button or VBA; both say what the function can reach.
+  *(6) The proof, in the house's twin discipline.* `scripts/egress.txt`,
+  55 cases under `=== <name>` lines, each a text as `set-formula` would
+  receive it, every listed name, both DDE shapes, the three skipped groups,
+  the prefixes, the spacings, a line break before the parenthesis, a name
+  past ASCII, and the texts that must still be written;
+  `scripts/egress_golden.txt`, the reference's reading of each, one record
+  `REFUSED<TAB><the name>` (37) or `WRITTEN` (18), written by
+  `VlaWriteEgressGolden` (`VLA_Tests.bas`) and written here by hand ahead
+  of the reference's first run, so the owner's empty `git diff` witnesses
+  something (AXM.7's method); the core's `the_egress_golden_is_reproduced`
+  holds `egress.rs` to it; `check_egress_golden.ps1`, the 48th check, with
+  a `-Control` on four mutants, holds the pair's headers in order, every
+  record's shape, the two lists equal (read from the `listed = "…"` line of
+  `VlaFormulaEgress` and the `EGRESS_NAMES` array of `egress.rs`, never
+  retyped), every listed name reached by a `REFUSED` record and `DDE` by
+  the shape, and the list's length a floor, 23. `TestFormulaEgress` (pure,
+  `VlaSelfTest`, 63 pins) is the proof table generated from the pair plus
+  the empty text, the spelling, a DDE link, and the emitted call with a
+  read of the member and another member untouched;
+  `TestSetFormulaRefusesEgress` (`VlaSelfTestHost`, 6 pins) runs the sink
+  itself in a scratch workbook under Interpret: a `HYPERLINK` refused with
+  the cell named and untouched, a cell holding the planted text behind an
+  apostrophe refused when handed as the text, `=SUM(1,2)` still written
+  and computed, and the helper called by name through `TryRuntimeHelper`'s
+  native `Case` refusing in words (IN.15) and writing (`HYPERLINK`, not
+  `WEBSERVICE`, so a failing guard fetches nothing); TestG10's pin reads
+  the emitted call; `VerifyReports` keeps the corpus's 18 formula writes
+  writing on both backends. The arm has its `0.8.0` row in
+  `GRAMMAR_SINCE.md`, as every `TryRuntimeHelper` arm has.
+  **Predictions for the owner's pass:** `scripts/instructions_golden.vba`
+  changes in exactly its 18 `.Formula2 =` lines, each now `Call
+  VlaSetFormula(<obj>, <text>)`, and in nothing else (the core compiled it
+  so, the diff is those 36 lines, and `check_compile_prefix.ps1`'s floor
+  rose from 291,316 to 291,496, ten characters a line); the `.vla` and the
+  interpreter goldens do not move; `? VlaWriteEgressGolden()` reproduces
+  the hand-written golden, 55 cases, 37 refused, with an empty diff;
+  `VlaWriteRefusalGolden` is not run, since no refusal of the English path
+  changed; pure 1777 + 63, host 267 + 6, `VerifyReports` 311/311 both
+  backends. Under both backends `Put formula "=HYPERLINK(""https://example.com/"",""go"")" into cell B3.`
+  stops at its line naming `HYPERLINK` and `B3` with the cell empty,
+  `=cmd|'/c calc'!A0` names `DDE`, and `=SUM(A1:A2)` is written as before;
+  the page's Workbook strip names line 1 and `HYPERLINK` with the button
+  waiting while the VLA and VBA panes stand.
+  **Found on the way, not built, for the owner to mint:** under Compile
+  and Run, `Put "=HYPERLINK(…)" into cell B2.` emits
+  `range("b2") = "=HYPERLINK(…)"`, and Excel reads a text assigned to a
+  Range as if typed, so `SEC.4`'s neutralizing holds on Interpret only
+  (`ExecSet` routes a Range place to `DynamicSet`'s `Value` arm; the
+  emitter writes the assignment bare); `VlaSetFormula`'s shape is the fix,
+  a value helper the emitter calls for a value written into a range,
+  carrying `SEC.4`'s rule as `VlaTextInRange` does. The Compile path's
+  other spellings of a formula write (`(. r formula2)`, `(. r formular1c1)`)
+  stay the plain member writes they were, under `SEC.12`'s standing that a
+  template on the Compile path is trusted code; Interpret's allowlist
+  admits `formula` and `value` as the only cell-content members, so there
+  the gate is whole, and the writer's walk treats `formula` and `formula2`
+  alike, so the build's is whole too.
+  **Files:** `src/VLA_Runtime.bas` (`VlaFormulaEgress`, `VlaSetFormula`,
+  three private walkers, `rt-formula-egress`), `src/VLA.bas` (the `set!`
+  arm), `src/VLA_Interpreter.bas` (`Case "formula"`, `TryRuntimeHelper`'s
+  `vlasetformula`), `src/VLA_Messages.bas` (`build-formula-egress`),
+  `src/VLA_Tests.bas` (`TestFormulaEgress`, `VlaWriteEgressGolden`),
+  `src/VLA_Tests_Grammar.bas` (G10's fragment), `src/VLA_Tests_Host.bas`
+  (`TestSetFormulaRefusesEgress`), every one at `SEC.15`;
+  `core/src/egress.rs` (new), `core/src/lib.rs`, `core/src/refers.rs`
+  (three helpers `pub(crate)`), `core/src/emit/stmt.rs`,
+  `core/src/emit/mod.rs` and `core/src/build.rs` (the sink and four
+  tests); `core/data/messages.vla` (re-exported, 588); `scripts/egress.txt`,
+  `scripts/egress_golden.txt`, `scripts/instructions_golden.vba`;
+  `tools/check_egress_golden.ps1` (new), `tools/run_checks.ps1` (48),
+  `tools/check_data_exports.ps1` (588), `tools/check_compile_prefix.ps1`
+  (291,496), `tools/check_no_network.ps1` (the formula-write reach is one
+  site, the helper, so `IT_REVIEW.md`'s table names one),
+  `tools/check_runtime_raise_dispatch.ps1` (`VlaSetFormula` joins the
+  raising set); `docs/THREAT_MODEL.md`, `docs/IT_REVIEW.md`, `README.md`,
+  `docs/RELEASES.md` (0.8.0), `cli/README.md`, `web/README.md`,
+  `conformance/README.md` (the egress golden joins the data both
+  implementations read), this file and `BETA_ROADMAP.md`.
 
 - 🛡️ **SEC.16 — trusted code loads from user-writable locations with no
   integrity check.** **CONFIRMED, `VLA.bas:1798`–`1809` (`PreludeVlaPath`)
@@ -30258,3 +30468,7 @@ numbers. **Quoting a correction is not applying it.**
 ## 🔧🪟🌍 MACHINE + PRODUCT + COMMONS · THE KERNEL LINE
 
 - ✅ **KERNEL.1 — the boundary and the seams: what the kernel is, and the five ways in.** Written down and pinned: the kernel holds forms and their expansion, the emitters, the sheet model, recalculation over a declared subset, the relation set and the ABI, and never holds English, message text, a default, chrome, a format beyond a trait or a door. Five seams are the only entrances: sentences (a phrasebook with proofs), paragraphs (a library, `G-USE`), engines (tables in, a table out, a head-table row, a proof-file kind), formats and hosts (the `Source` trait, a `Sink` beside it, a host profile per door), projections (a pure function from model and window to a record). The rule: the kernel grows a seam, never a feature. A section per seam in `CONTRIBUTING.md` names the oracle a change must pass, and `check_kernel_boundary.ps1` pins the data-only rule (no sentence rule, no message text, no default in `core/src/`; the counts are floors). *Serves:* every item below. `~days` Built, owner-tested and committed 2026-10-06; the entry above carries the record: `core/src/kernel.rs`, `tools/check_kernel_boundary.ps1` with its control, `CONTRIBUTING.md`'s seams section, `MAINTAINERS.md`, the runner's floor at 48.
+
+## 🛡 ADVERSARY · SECURITY
+
+- ✅ **SEC.15 — formula writes are an ungoverned egress channel.** SEC.4 guards only the `Value` sink; `set-formula` → `.Formula` accepts `WEBSERVICE`/`FILTERXML` (network via Excel), `HYPERLINK`, DDE, XLM `CALL`. A rule can plant one under an innocent sentence. *Fix:* refuse those function names in written formula text by name, and/or make formula writes a SEC.7 capability. **Scoped and built 2026-10-05, owner-tested and committed 2026-10-06** (pure 1840/1840, host 273/273, `TestDSLs` 2346, `VerifyReports` 371/371 both backends, the live tests as predicted on both backends, the page's strip naming the line and the function): one formula sink on both backends, `VlaSetFormula` in the runtime above the inject boundary (the emitter writes a call to it for exactly `(set! (. obj formula) v)`, the interpreter's `Case "formula"` calls it, `TryRuntimeHelper` has its native arm), and the same scan in `frazaro build`'s writer and so in the web page's download. The pure `VlaFormulaEgress` and the core's `egress.rs` refuse by name, before anything is written, a formula that calls `WEBSERVICE`, `FILTERXML`, `HYPERLINK`, `RTD`, `IMAGE`, `STOCKHISTORY`, `CALL`, `REGISTER`, `REGISTER.ID`, `EXEC`, `INITIATE`, `EXECUTE`, `POKE`, `REQUEST`, `SEND.MAIL`, `DDE`, Sheets' five `IMPORT*` and two `GOOGLE*`, or holds a DDE link (a `|` outside a string, a quoted name or a bracket group); any text written through the formula member is scanned, a cell handed as the text is read first, and the refusal (`rt-formula-egress` in the runtime's own catalogue, `build-formula-egress` in the one catalogue) names the function and the cell or the line and the sentence: refused, never neutralized, since an apostrophe would hide the planting under a green row. The list is data in one place per implementation, held equal and fully reached by `scripts/egress.txt` to `scripts/egress_golden.txt` (`VlaWriteEgressGolden`, 55 cases, 37 refused, written by hand as the prediction and reproduced to the byte), the core's `the_egress_golden_is_reproduced`, and `check_egress_golden.ps1`, the 48th check; `TestFormulaEgress` (63 pins) and `TestSetFormulaRefusesEgress` (6, under Interpret with `HYPERLINK` so a failing guard fetches nothing); the compile golden's eighteen formula writes are calls to the helper. No translation-time check, by decision: Check does not transpile, and a second id would part the backends; `SEC.7`'s capability stays the door for a program that needs one of the refused functions. Found on the way, for the owner to mint: under Compile and Run a value beginning `=` written into a range becomes a live formula, `SEC.4`'s apostrophe holding on Interpret only. *(more: the full entry, earlier in this file)* `~days`, taken in a day.

@@ -29,10 +29,16 @@
 //! formula-reference reader, `VLA_Refers.bas` ported and held to its
 //! golden: the `refers` rows, the writer's mover and the R1C1 rendering
 //! all come off its one scan.
+//!
+//! `egress` (SEC.15) is the formula sink's scan, `VlaFormulaEgress` of
+//! `VLA_Runtime.bas` held to the egress golden: the writer asks it before
+//! it writes a formula, as the add-in's two backends do, and refuses one
+//! that reaches outside the workbook on its own.
 
 pub mod abi;
 pub mod api;
 pub mod build;
+pub mod egress;
 pub mod emit;
 pub mod english;
 pub mod expand;

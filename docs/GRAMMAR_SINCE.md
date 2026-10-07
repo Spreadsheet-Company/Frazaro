@@ -273,6 +273,13 @@ under Interpret, naming its target. Under Compile each word has worked
 since `0.5.0`, where VBA's own function answers it. This ledger has no row
 for a function word, so this note stands in for one, as `IN.17`'s does for
 a condition.
+Then one core dispatch arm marked `0.8.0` - `SEC.15`: `TryRuntimeHelper
+vlasetformula`, the runtime's formula sink called by name. No sentence
+changed: `put formula … into …` still expands to `(set! (. r formula) f)`,
+which both backends now route through the helper; the arm is there so a
+phrasebook that calls the helper by name, as the emitted code does, gets
+its refusal in words under Interpret (IN.15). What the sink refuses is a
+narrowing the release notes say in the user's words, dated by this row.
 Then `LX.14`'s second slice: function words and phrases get their own
 section, below, with the twenty-one words that already existed dated
 `0.5.0` and nine phrases `0.8.0` (`median of`, and `median`, `sum`,
@@ -710,6 +717,7 @@ tag, not assumed.*
 0.5.0  TryRuntimeHelper   vlapivotsort
 0.7.1  TryRuntimeHelper   vlareplaceinrange
 0.5.0  TryRuntimeHelper   vlasendmail
+0.8.0  TryRuntimeHelper   vlasetformula
 0.7.1  TryRuntimeHelper   vlasplitcolumn
 0.6.0  TryRuntimeHelper   vlatablearguments
 0.7.0  TryRuntimeHelper   vlatextbeside

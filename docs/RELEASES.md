@@ -344,6 +344,20 @@
   too: pick a file, `.xlsx` or `.ods`, in its Reflect pane and its
   relations, its audit, or what changed from an earlier copy print there,
   read in your browser and sent nowhere.
+- **A formula that would reach outside the workbook is refused before it
+  is written.** `Put formula "=WEBSERVICE(""https://…"")" into cell B3.`
+  now stops at that sentence, on both Run buttons, in `frazaro build` and
+  on the web page, naming the function and the cell, with nothing
+  written. The same for `FILTERXML`, `HYPERLINK`, `RTD`, `IMAGE`,
+  `STOCKHISTORY`, the Excel 4.0 macro functions that start a program or
+  call a DLL (`CALL`, `REGISTER`, `EXEC`, …), a DDE link
+  (`=cmd|'/c …'!A0`), and the functions Google Sheets and LibreOffice Calc
+  would use to fetch from the web if the workbook were opened there.
+  Every other formula is written exactly as before. A formula that holds
+  one of those words inside quotes, or as a sheet name, is written, since
+  it calls nothing. A program that needs one of these functions has no
+  way to write it in this version; that door is the permission work
+  (SEC.7), still to come.
 - **The engine's core is declared a kernel with five seams, for
   contributors.** `CONTRIBUTING.md` names what the core holds and never
   holds, the five ways a feature enters (a phrasebook, a library of
@@ -356,7 +370,9 @@
 
 ### Known open security items
 
-**Closed this release:** nothing. The new sentences read the cells they
+**Closed this release:** SEC.15, above - formulas a program writes are
+screened, and one that reaches the network, another program or a link to
+one is refused by name. The other new sentences read the cells they
 name and write only the cell a `Put` names, or for a fill down that cell
 and the ones below it in its column; a recalculate runs only the formulas
 already in the open workbooks, as F9 does; none opens a file or makes a

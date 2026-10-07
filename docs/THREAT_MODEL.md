@@ -107,6 +107,26 @@ called directly as native VBA, never through reflection:
 - `NeutralizeFormulaInjection` (`SEC.4`, shipped) now guards the one
   member in this tier with a real injection risk (`Value`) against a
   leading `=`/`+`/`-`/`@`.
+- `VlaSetFormula` (`SEC.15`, tier 1.3) is the one formula sink on both
+  backends: the emitter writes a call to it for `put formula … into …`
+  where it wrote `.Formula2 =` itself, and the interpreter's `Formula`
+  member calls it. Before writing, it scans the text, whatever it begins
+  with, and refuses by name a formula that reaches outside the workbook on
+  its own: `WEBSERVICE`, `FILTERXML`, `HYPERLINK`, `RTD`, `IMAGE`,
+  `STOCKHISTORY`, the XLM functions that start a program or a DLL (`CALL`,
+  `REGISTER`, `REGISTER.ID`, `EXEC`) or hold a DDE conversation
+  (`INITIATE`, `EXECUTE`, `POKE`, `REQUEST`), `SEND.MAIL`, Sheets' `IMPORT*`
+  and `GOOGLE*` fetches, Calc's `DDE`, and the worksheet DDE link
+  `application|topic!item`. A refusal, never an apostrophe: a value
+  beginning with `=` is data (`SEC.4`), a formula calling `WEBSERVICE` is
+  never data, and marking it as text would hide the planting under a
+  green row. Text inside a string literal, a quoted sheet name or a bracket
+  group is not a call; a name without `(` after it is not a call. The same
+  list, held equal by `tools/check_egress_golden.ps1`, guards `frazaro
+  build`'s writer and the web page's download (`build-formula-egress`).
+  The list is deliberately wide (the owner's standing rule for the SEC
+  tranche); a program that needs one of these functions will have `SEC.7`'s
+  capability as its door.
 
 This tier is safe *by construction*: every reachable member is a line of
 VBA someone wrote and can audit. It is also, honestly, the smallest tier.
@@ -195,7 +215,8 @@ It overwrites nothing, and it never writes a formula: every text value
 goes behind an apostrophe, `SEC.4`'s rule, carried by the command itself.
 A refusal, or Esc, writes nothing. It adds no reach a program did not
 already have: the sentence `put formula … into cell …` already lets a
-program write any formula, which Excel then evaluates.
+program write any formula that passes `SEC.15`'s screen, which Excel then
+evaluates.
 
 ### 1.4 `raw` — the ungoverned ceiling
 

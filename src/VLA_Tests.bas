@@ -1,6 +1,15 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "AXM.7"
+Public Const VLA_TESTS_VERSION As String = "SEC.15"
+' SEC.15: TestFormulaEgress - the formula sink's scan (VlaFormulaEgress,
+' VLA_Runtime.bas) as a proof table: every case of scripts/egress.txt with
+' the record VlaWriteEgressGolden writes for it, generated from the fixture
+' and the golden together; then the empty text, the name's spelling, a DDE
+' link, and the call the emitter now writes for (set! (. obj formula) v).
+' VlaWriteEgressGolden writes the egress golden, scripts/egress_golden.txt,
+' which the core's egress.rs is held to by its own test and
+' tools/check_egress_golden.ps1 holds in shape. Dev-only, like
+' VlaWriteTokenGolden: git diff is the witness.
 ' AXM.7: TestFormulaRefs - the formula-reference reader's proof table:
 ' every case of scripts/refers.txt with the reading VlaWriteRefersGolden
 ' writes for it, so the pure suite holds VLA_Refers without the file; then
@@ -518,6 +527,7 @@ Public Function VlaSelfTest() As Boolean
     TestLx14Spanish
     TestLe11PhraseCategories
     TestFormulaRefs
+    TestFormulaEgress
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -2935,6 +2945,80 @@ Private Function RefersReportFor(ByVal body As String, ByRef nRefs As Long) As S
     RefersReportFor = outText & "R1C1" & vbTab & VLA_Refers.RefersR1C1(formulaText, homeRow, homeCol) & vbCrLf
 End Function
 
+' SEC.15: the egress golden. scripts/egress.txt holds cases, each under a
+' line "=== <name>": the lines of a case are one text as the formula sink
+' receives it (what "Put formula ... into cell ..." hands to
+' VlaSetFormula). This writes VlaFormulaEgress' reading of every case to
+' egress_golden.txt beside it: the header, then one line, REFUSED<TAB><the
+' function named, or DDE for a DDE link> or WRITTEN. The core's egress.rs
+' reads the same fixture and is held to this file by its own test, and
+' tools/check_egress_golden.ps1 holds the pair's shape, the two lists
+' equal and every listed name reached. Dev-only, like VlaWriteTokenGolden:
+' run it, then git diff.
+Public Function VlaWriteEgressGolden(Optional ByVal fixturePath As String = "") As Boolean
+    On Error GoTo failed
+    If Len(fixturePath) = 0 Then fixturePath = FindDevFile("egress.txt")
+    If Len(Dir$(fixturePath)) = 0 Then Err.Raise 53, "VLA_Tests", "fixture file not found: " & fixturePath
+    Debug.Print "===== WRITE EGRESS GOLDEN ====="
+    Dim lines() As String
+    lines = Split(Replace(ReadTextFileUtf8(fixturePath), vbCrLf, vbLf), vbLf)
+    Dim outText As String, header As String, body As String, ln As String, rec As String
+    Dim haveSection As Boolean, firstLine As Boolean
+    Dim sections As Long, refused As Long
+    Dim i As Long
+    For i = LBound(lines) To UBound(lines) + 1
+        If i <= UBound(lines) Then ln = lines(i) Else ln = "=== "   ' one past: flushes the last section
+        If Left$(ln, 4) = "=== " Then
+            If haveSection Then
+                rec = EgressReportFor(body)
+                If Left$(rec, 7) = "REFUSED" Then refused = refused + 1
+                outText = outText & header & vbCrLf & rec
+                sections = sections + 1
+            End If
+            header = ln
+            body = ""
+            haveSection = True
+            firstLine = True
+        ElseIf haveSection Then
+            If firstLine Then
+                body = ln
+                firstLine = False
+            Else
+                body = body & vbLf & ln
+            End If
+        End If
+    Next i
+    ' The writer adds one trailing break (WriteTextFile), so the report's own
+    ' last break is dropped first: the file ends with exactly one.
+    If Right$(outText, 2) = vbCrLf Then outText = Left$(outText, Len(outText) - 2)
+    Dim goldenPath As String
+    goldenPath = GoldenPathFor(fixturePath, ".txt")
+    WriteTextFile goldenPath, outText, utf8:=True
+    Debug.Print "  " & sections & " cases, " & refused & " refused -> " & goldenPath
+    Debug.Print "  (git diff is the witness: empty = the prediction held)"
+    Debug.Print "===== EGRESS GOLDEN WRITTEN ====="
+    VlaWriteEgressGolden = True
+    Exit Function
+failed:
+    Debug.Print "  EGRESS GOLDEN FAILED: " & Err.Description
+End Function
+
+' One case's record: the text (blank lines at its end dropped, the
+' fixture's own last line being one) read by the scan, REFUSED and the
+' name it gives, or WRITTEN, one line.
+Private Function EgressReportFor(ByVal body As String) As String
+    Do While Right$(body, 1) = vbLf
+        body = Left$(body, Len(body) - 1)
+    Loop
+    Dim found As String
+    found = VLA_Runtime.VlaFormulaEgress(body)
+    If Len(found) > 0 Then
+        EgressReportFor = "REFUSED" & vbTab & found & vbCrLf
+    Else
+        EgressReportFor = "WRITTEN" & vbCrLf
+    End If
+End Function
+
 ' VLALINT.0: unlike VlaWriteGoldens (which REGENERATES a golden and
 ' leaves git diff as the check), scripts/english.vla/prelude.vla are
 ' hand-edited directly - nothing in the runtime writes them
@@ -4314,6 +4398,112 @@ Public Function VlaCorpusFamilyOk(ByRef detail As String) As Boolean
     detail = missing
     VlaCorpusFamilyOk = (Len(missing) = 0)
 End Function
+
+' =====================================================================
+'  SEC.15: the formula sink's scan (VlaFormulaEgress, VLA_Runtime.bas),
+'  purely. The proof table is every case of scripts/egress.txt with the
+'  record VlaWriteEgressGolden writes for it, generated from the fixture
+'  and the golden together so that the two cannot disagree: a row's
+'  expected record is "REFUSED|<name>" or "WRITTEN". Then the pieces the
+'  table reaches only through the whole: the empty text, the name's
+'  spelling, a DDE link, and the call the emitter now writes for exactly
+'  (set! (. obj formula) v), with a read of the member untouched. The
+'  sink itself (VlaSetFormula) needs a cell, so it is pinned in
+'  VLA_Tests_Host.bas (TestSetFormulaRefusesEgress).
+' =====================================================================
+Private Sub TestFormulaEgress()
+    CheckEgress "webservice", "=WEBSERVICE(""https://example.com/"")", "REFUSED|WEBSERVICE"
+    CheckEgress "filterxml", "=FILTERXML(A1,""//x"")", "REFUSED|FILTERXML"
+    CheckEgress "hyperlink", "=HYPERLINK(""https://example.com/"",""go"")", "REFUSED|HYPERLINK"
+    CheckEgress "rtd", "=RTD(""server.progid"",,""topic"")", "REFUSED|RTD"
+    CheckEgress "image", "=IMAGE(""https://example.com/a.png"")", "REFUSED|IMAGE"
+    CheckEgress "stockhistory", "=STOCKHISTORY(""MSFT"",""2026-01-01"")", "REFUSED|STOCKHISTORY"
+    CheckEgress "call", "=CALL(""Kernel32"",""Beep"",""JJJ"",750,300)", "REFUSED|CALL"
+    CheckEgress "register", "=REGISTER(""Kernel32"",""Beep"",""JJJ"")", "REFUSED|REGISTER"
+    CheckEgress "register-id", "=REGISTER.ID(""Kernel32"",""Beep"",""JJJ"")", "REFUSED|REGISTER.ID"
+    CheckEgress "exec", "=EXEC(""calc.exe"")", "REFUSED|EXEC"
+    CheckEgress "initiate", "=INITIATE(""app"",""topic"")", "REFUSED|INITIATE"
+    CheckEgress "execute", "=EXECUTE(1,""[open(""""c:\x"""")]"")", "REFUSED|EXECUTE"
+    CheckEgress "poke", "=POKE(1,""item"",A1)", "REFUSED|POKE"
+    CheckEgress "request", "=REQUEST(1,""item"")", "REFUSED|REQUEST"
+    CheckEgress "send-mail", "=SEND.MAIL(""a@example.com"",""subject"")", "REFUSED|SEND.MAIL"
+    CheckEgress "dde-function", "=DDE(""soffice"";""c:\file.ods"";""Sheet1.A1"")", "REFUSED|DDE"
+    CheckEgress "dde-link", "=cmd|'/c calc'!A0", "REFUSED|DDE"
+    CheckEgress "importxml", "=IMPORTXML(""https://example.com/"",""//a"")", "REFUSED|IMPORTXML"
+    CheckEgress "importdata", "=IMPORTDATA(""https://example.com/a.csv"")", "REFUSED|IMPORTDATA"
+    CheckEgress "importhtml", "=IMPORTHTML(""https://example.com/"",""table"",1)", "REFUSED|IMPORTHTML"
+    CheckEgress "importrange", "=IMPORTRANGE(""https://docs.google.com/x"",""Sheet1!A1:B2"")", "REFUSED|IMPORTRANGE"
+    CheckEgress "importfeed", "=IMPORTFEED(""https://example.com/feed"")", "REFUSED|IMPORTFEED"
+    CheckEgress "googlefinance", "=GOOGLEFINANCE(""MSFT"")", "REFUSED|GOOGLEFINANCE"
+    CheckEgress "googletranslate", "=GOOGLETRANSLATE(A1,""en"",""fr"")", "REFUSED|GOOGLETRANSLATE"
+    CheckEgress "lower-case", "=webservice(""https://example.com/"")", "REFUSED|WEBSERVICE"
+    CheckEgress "mixed-case", "=WebService(""https://example.com/"")", "REFUSED|WEBSERVICE"
+    CheckEgress "file-prefix", "=_xlfn.WEBSERVICE(""https://example.com/"")", "REFUSED|WEBSERVICE"
+    CheckEgress "file-prefix-xlws", "=_xlfn._xlws.WEBSERVICE(""https://example.com/"")", "REFUSED|WEBSERVICE"
+    CheckEgress "space-before-the-parenthesis", "=HYPERLINK (""https://example.com/"")", "REFUSED|HYPERLINK"
+    CheckEgress "nested-in-a-call", "=IF(A1>0,WEBSERVICE(""https://example.com/""),0)", "REFUSED|WEBSERVICE"
+    CheckEgress "joined-to-text", "=""x""&WEBSERVICE(""https://example.com/"")", "REFUSED|WEBSERVICE"
+    CheckEgress "after-implicit-intersection", "=@WEBSERVICE(""https://example.com/"")", "REFUSED|WEBSERVICE"
+    CheckEgress "two-calls-the-first-named", "=HYPERLINK(""https://example.com/"")&WEBSERVICE(""https://example.com/"")", "REFUSED|HYPERLINK"
+    CheckEgress "after-a-line-break", "=SUM(A1," & vbLf & "WEBSERVICE(""https://example.com/""))", "REFUSED|WEBSERVICE"
+    CheckEgress "not-a-formula-but-scanned", "WEBSERVICE(""https://example.com/"")", "REFUSED|WEBSERVICE"
+    CheckEgress "dde-link-after-a-quoted-name", "='Q1 Data'!A1&cmd|topic!item", "REFUSED|DDE"
+    CheckEgress "name-inside-a-string", "=""WEBSERVICE(""", "WRITTEN"
+    CheckEgress "name-inside-a-string-with-doubled-quotes", "=""say """"WEBSERVICE("""" now""", "WRITTEN"
+    CheckEgress "unclosed-string", "=""WEBSERVICE(", "WRITTEN"
+    CheckEgress "name-as-a-sheet", "='WEBSERVICE'!A1", "WRITTEN"
+    CheckEgress "name-as-a-defined-name", "=WEBSERVICE+1", "WRITTEN"
+    CheckEgress "name-as-a-structured-column", "=Sales[[#This Row],[WEBSERVICE(]]", "WRITTEN"
+    CheckEgress "bar-inside-a-string", "=""a|b""", "WRITTEN"
+    CheckEgress "bar-inside-brackets", "=Sales[[#This Row],[a|b]]", "WRITTEN"
+    CheckEgress "longer-name-is-another-function", "=MYWEBSERVICE(""https://example.com/"")", "WRITTEN"
+    CheckEgress "name-with-a-suffix-is-another-function", "=WEBSERVICE2(""https://example.com/"")", "WRITTEN"
+    CheckEgress "name-with-a-period-is-another-function", "=WEBSERVICE.X(""https://example.com/"")", "WRITTEN"
+    CheckEgress "filter-is-not-on-the-list", "=_xlfn._xlws.FILTER(A1:A2,B1:B2)", "WRITTEN"
+    CheckEgress "indirect-reaches-cells-not-outside", "=INDIRECT(""A1"")", "WRITTEN"
+    CheckEgress "a-newer-function-written-plain", "=IFS(A1>3,""big"",TRUE,""small"")", "WRITTEN"
+    CheckEgress "plain-formula", "=SUM(A1:A2)", "WRITTEN"
+    CheckEgress "plain-text", "hello", "WRITTEN"
+    CheckEgress "a-name-past-ascii", "=" & ChrW$(220) & "BER(1)", "WRITTEN"
+    CheckEgress "a-token-that-is-not-a-name", "=A1(1)", "WRITTEN"
+    CheckEgress "line-break-before-the-parenthesis", "=HYPERLINK" & vbLf & "(""https://example.com/"")", "REFUSED|HYPERLINK"
+
+    ' The pieces the table reaches only through the whole.
+    CheckV "sec.15: an empty text is written", VLA_Runtime.VlaFormulaEgress(""), ""
+    CheckV "sec.15: the name comes back in the list's upper-case spelling", _
+           VLA_Runtime.VlaFormulaEgress("=register.id(1)"), "REGISTER.ID"
+    CheckV "sec.15: a DDE link is named DDE", VLA_Runtime.VlaFormulaEgress("=a|b!c"), "DDE"
+    CheckV "sec.15: a formula with no call and no link is written", VLA_Runtime.VlaFormulaEgress("=A1+B1"), ""
+
+    ' The emitter writes the sink's call for exactly (set! (. obj formula) v),
+    ' and nothing else for a read of the member or for any other member.
+    Dim vbaOut As String
+    vbaOut = TryTranspile("sec.15: the emitter writes VlaSetFormula for the formula member", _
+                          "(sub t () (set! (. (range ""b3"") formula) ""=A1""))")
+    If Len(vbaOut) > 0 Then
+        CheckFrags "sec.15: the emitter writes VlaSetFormula for the formula member", vbaOut, _
+                   Array("Call VlaSetFormula(range(""b3""), ""=A1"")")
+        Report "sec.15: the emitter no longer writes Formula2 itself", _
+               InStr(1, vbaOut, "Formula2", vbTextCompare) = 0, "got: " & Left$(vbaOut, 200)
+    End If
+    vbaOut = TryTranspile("sec.15: a read of the formula member is untouched", _
+                          "(sub t () (set! x (. (range ""b3"") formula)))")
+    If Len(vbaOut) > 0 Then
+        CheckFrags "sec.15: a read of the formula member is untouched", vbaOut, Array("x = range(""b3"").formula")
+    End If
+    vbaOut = TryTranspile("sec.15: another member is written as it was", _
+                          "(sub t () (set! (. (range ""b3"") value) ""=A1""))")
+    If Len(vbaOut) > 0 Then
+        CheckFrags "sec.15: another member is written as it was", vbaOut, Array("range(""b3"").value = ""=A1""")
+    End If
+End Sub
+
+' One row of the proof table: the record ("REFUSED|<name>" or "WRITTEN")
+' against EgressReportFor's report for the case, which is exactly the
+' golden's section body.
+Private Sub CheckEgress(ByVal caseName As String, ByVal formulaText As String, ByVal wantRecord As String)
+    CheckV "sec.15: " & caseName, EgressReportFor(formulaText), Replace(wantRecord, "|", vbTab) & vbCrLf
+End Sub
 
 ' =====================================================================
 '  AXM.7: the formula-reference reader (VLA_Refers.bas), purely. The

@@ -56,7 +56,7 @@ SEC.12 (both below), programs reach outside the workbook only this way:
 | Files | Open, save-as, save-copy at a path the program names; print; PDF export; sheet passwords | Interpret: refused if internet-marked (SEC.8), else unprompted (SEC.7). Compile: not gated |
 | Mail | An Outlook draft, optionally with a local file attached, shown for the user to send; never sent | As Files |
 | "Refresh everything." | Refreshes the workbook's *existing* external data ranges and PivotTables [5], wherever they point; Frazaro adds no connection | **None.** Not SEC.8-gated; not yet a filed item |
-| Formulas | Any formula, including `WEBSERVICE` ("returns data from a web service on the Internet or Intranet" [6]) or DDE | None (SEC.15, open) |
+| Formulas | A formula the program writes into a cell (`Put formula … into …`), which Excel then evaluates | **Refused by name before anything is written (SEC.15):** a formula that calls `WEBSERVICE` ("returns data from a web service on the Internet or Intranet" [6]), `FILTERXML`, `HYPERLINK`, `RTD`, `IMAGE`, `STOCKHISTORY`, an Excel 4.0 macro function that starts a program or a DLL or holds a DDE conversation, `SEND.MAIL`, Google Sheets' `IMPORT*` and `GOOGLE*` fetches or LibreOffice's `DDE`, or that holds a DDE link (`=cmd\|…!…`). One sink on both backends (`VlaSetFormula`) and in `frazaro build`; the list is data, held equal in both implementations by a check on every push |
 | Other programs | Word (macros force-disabled) to import a `.doc`/`.docx` (SEC.13) — in a hidden instance Frazaro starts and quits for that one read, never a Word you have open, whose settings and documents it does not touch (SOP.1); a `.pdf` is refused rather than converted. Uninstall runs the uninstaller, or for a standalone copy a hidden `powershell -ExecutionPolicy Bypass` script deleting the `.xlam` (endpoint security may flag it) | User-initiated only |
 
 **Inside Excel**, Interpret reaches only a fixed, named list of object-model
@@ -90,7 +90,10 @@ only from people you would accept a macro-enabled workbook from.
 - **Open:** SEC.3 (generated code does not record which phrasebook
   introduced it), SEC.7 (no permission prompt on external-effect verbs),
   SEC.10 (workbook-scope consent lives in the workbook, so a sent one can
-  arrive pre-consented), SEC.15 (formulas are not screened).
+  arrive pre-consented).
+- **Closed in 0.8.0:** SEC.15 (a formula a program writes is screened; one
+  that reaches outside the workbook on its own is refused by name, as the
+  Formulas row above says).
 - **Accepted, reasons on record:** SEC.12, SEC.17 (Compile only, behind
   the §1 setting); SEC.14 (a program can hang Excel, which Ctrl+Break
   stops, or nest deep enough to crash it); SEC.16 (replacing the grammar

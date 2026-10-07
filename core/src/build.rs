@@ -642,12 +642,25 @@ impl<'a> Walker<'a> {
 
     /// `Range.Formula2 = text`: a text beginning with `=` is a formula, with
     /// newer functions under their file prefix; anything else is the value
-    /// itself, as Excel stores it.
+    /// itself, as Excel stores it. SEC.15: the text is scanned first, as the
+    /// add-in's `VlaSetFormula` scans it, and a formula that reaches outside
+    /// the workbook on its own is refused by name with the sentence quoted
+    /// (`build-formula-egress`), nothing written.
     fn write_formula(&mut self, sheet: usize, range: A1Range, v: &Value) -> Result<(), Refusal> {
         if range.cells() > MAX_CELLS_PER_WRITE {
             return Err(self.refuse_sentence());
         }
         if let Value::Text(t) = v {
+            if let Some(name) = crate::egress::egress_call(t) {
+                return Err(raise(
+                    "build-formula-egress",
+                    &[
+                        ("line", &self.line.to_string()),
+                        ("name", &name),
+                        ("sentence", &self.sentence()),
+                    ],
+                ));
+            }
             if let Some(body) = t.strip_prefix('=') {
                 let text = prefix_future_functions(body);
                 if can_return_array(&text) {
@@ -1349,6 +1362,71 @@ mod tests {
         format!(
             "(sub main ()\n  (on-error goto vla-fail)\n  (at-line 1\n  (set! (range \"b2\") 5))\n  (at-line 2\n  {stmt})\n  (exit-sub)\n  (label vla-fail)\n  (vla-report-error))\n"
         )
+    }
+
+    #[test]
+    fn a_formula_that_reaches_outside_is_refused_by_name() {
+        // SEC.15: the writer asks the egress scan before it writes a formula,
+        // through either spelling of the member and whatever the text begins
+        // with; the refusal names the line, the function and the sentence.
+        let program = "Put 5 into cell B2.\nPut formula \"=HYPERLINK(\"\"https://example.com/\"\",\"\"go\"\")\" into cell B3.\n";
+        for (stmt, name) in [
+            (
+                "(set! (. (range \"b3\") formula) \"=HYPERLINK(\\\"https://example.com/\\\",\\\"go\\\")\")",
+                "HYPERLINK",
+            ),
+            (
+                "(set! (. (range \"b3\") formula) \"=cmd|'/c calc'!A0\")",
+                "DDE",
+            ),
+            (
+                "(set! (. (range \"b3\") formula2) \"=_xlfn.WEBSERVICE(\\\"https://example.com/\\\")\")",
+                "WEBSERVICE",
+            ),
+            (
+                "(set! (. (range \"b3:b5\") formula) \"WEBSERVICE(1)\")",
+                "WEBSERVICE",
+            ),
+        ] {
+            let r = build_workbook(program, &vla_with(stmt), "", &[]).expect_err(stmt);
+            assert_eq!(r.id, "build-formula-egress", "{stmt}");
+            assert!(
+                r.text
+                    .contains(&format!("Line 2 would write a formula that uses {name}")),
+                "{}",
+                r.text
+            );
+            assert!(r.text.contains("Put formula \"=HYPERLINK"), "{}", r.text);
+            assert!(r.text.ends_with("Nothing was written."), "{}", r.text);
+        }
+        // The same text through the value member is a text in the cell, as
+        // Excel stores a value, so nothing is refused and nothing runs.
+        let wb = build_workbook(
+            program,
+            &vla_with(
+                "(set! (. (range \"b3\") value) \"=HYPERLINK(\\\"https://example.com/\\\",\\\"go\\\")\")",
+            ),
+            "",
+            &[],
+        )
+        .expect("a value");
+        assert_eq!(
+            wb.sheets[1].cells[&(3, 2)].content,
+            Content::Text("=HYPERLINK(\"https://example.com/\",\"go\")".to_string())
+        );
+        // A listed name inside a string literal is text, and the formula is
+        // written as before.
+        let wb = build_workbook(
+            program,
+            &vla_with("(set! (. (range \"b3\") formula) \"=\\\"WEBSERVICE(\\\"\")"),
+            "",
+            &[],
+        )
+        .expect("a name inside a string");
+        assert_eq!(
+            wb.sheets[1].cells[&(3, 2)].content,
+            Content::Formula("\"WEBSERVICE(\"".to_string())
+        );
     }
 
     #[test]

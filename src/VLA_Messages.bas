@@ -1,6 +1,12 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "PORT.8"
+Public Const VLA_MESSAGES_VERSION As String = "SEC.15"
+' SEC.15: build-formula-egress under VLA-Build, the writer's refusal of a
+' formula that reaches outside the workbook on its own, raised by the
+' core's frazaro build (and the web page through it) and by no VBA site;
+' the add-in's two backends refuse the same text with the runtime's own
+' rt-formula-egress (VLA_Runtime.bas), which is not exported.
+'
 ' PORT.8 (slice 8a): reflect-not-a-workbook, reflect-xml-refused and
 ' reflect-unsupported under the source VLA-Reflect, the reader's refusals,
 ' raised by the core's frazaro reflect and by no VBA site, as the writer's
@@ -1431,6 +1437,13 @@ Private Sub AddEntries(ByVal m As Collection)
     ' The sheet the build always makes, Frazaro, must not already be a
     ' sheet of the model's, or the workbook would hold the name twice.
     AddMsg m, "build-into-sheet-name-taken", 5, "VLA-Build", "{path} already has a sheet named {name}, and the build needs that name for the sheet that holds the sentences. Rename that sheet, or build into a copy without it. Nothing was written."
+    ' SEC.15: the writer's formula sink. frazaro build (and the web page's
+    ' Workbook strip through it) refuses a formula that reaches outside the
+    ' workbook on its own, naming the function and quoting the sentence,
+    ' as the add-in's two backends refuse it at run time with the runtime's
+    ' own catalogue (rt-formula-egress, VLA_Runtime.bas, which is not
+    ' exported). No VBA site raises this one.
+    AddMsg m, "build-formula-egress", 5, "VLA-Build", "Line {line} would write a formula that uses {name}, which can reach outside the workbook on its own (the network, another program, or a link to one), and Frazaro never writes one: {sentence} Nothing was written."
 
     ' PORT.8 (slice 8a): the reader's refusals. frazaro reflect (the core's
     ' command-line door; the VBA reads a workbook through Excel's object

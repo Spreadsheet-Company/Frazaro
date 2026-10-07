@@ -320,7 +320,11 @@ an earlier build added sheets to replaces those sheets.
 
 Refusals, all exit 1 with nothing written: a file already at `--out`
 without `--replace` (`build-output-exists`); a sentence that needs the
-add-in's Run, quoted with its line (`build-not-representable`); a sheet a
+add-in's Run, quoted with its line (`build-not-representable`); a formula
+that would reach outside the workbook on its own, `WEBSERVICE`, `HYPERLINK`,
+a DDE link and their kin, named with its line and its sentence
+(`build-formula-egress`, the same screen the add-in's two Run buttons
+apply); a sheet a
 sentence names that the program never made (`build-sheet-unknown`), or a
 sheet name Excel would not take (`build-sheet-name-invalid`); a workbook too
 large for the container (`build-workbook-too-large`); with `--into`, a file

@@ -1,6 +1,12 @@
 Attribute VB_Name = "VLA_Interpreter"
 Option Explicit
-Public Const VLA_INTERPRETER_VERSION As String = "U.30"
+Public Const VLA_INTERPRETER_VERSION As String = "SEC.15"
+' SEC.15: DynamicSet's Case "formula" writes through the runtime's
+' VlaSetFormula, the one formula sink of both backends (VLA.bas's emitter
+' writes a call to the same helper): a formula that reaches outside the
+' workbook on its own (WEBSERVICE, a DDE link, ...) is refused by name
+' before writing, and the write is Formula2 as it was. TryRuntimeHelper
+' gains the native Case the helper's raise needs (IN.15).
 ' U.30: six bounded built-ins join TryEvalBuiltin - abs, month, year, day,
 ' hour and minute, what English's absolute of, month of, year of, day of,
 ' hour of and minute of compile to. The compiled program always called
@@ -2795,6 +2801,15 @@ Private Function TryRuntimeHelper(ByVal h As String, ByVal argVals As Variant, B
             VLA_Runtime.VlaSplitColumn ArgAt(argVals, 0), ArgAt(argVals, 1), CStr(ArgAt(argVals, 2))
             handled = True
             Exit Function
+        ' SEC.15: the formula sink refuses an egress call by name, so it
+        ' gets its native Case for the same IN.15 reason; DynamicSet's
+        ' Case "formula" calls it directly, and a phrasebook may call it
+        ' by name as the emitted code does.
+        Case "vlasetformula"
+            If Not ArityIs(argVals, 2, handled) Then Exit Function
+            VLA_Runtime.VlaSetFormula ArgAt(argVals, 0), ArgAt(argVals, 1)
+            handled = True
+            Exit Function
         Case "vlafindtext"
             If Not ArityIs(argVals, 3, handled) Then Exit Function
             AssignVar TryRuntimeHelper, VLA_Runtime.VlaFindText(ArgAt(argVals, 0), ArgAt(argVals, 1), _
@@ -3434,17 +3449,18 @@ Private Sub DynamicSet(ByVal obj As Object, ByVal member As String, ByVal v As V
             Exit Sub
         Case "size": obj.Size = v: Exit Sub
         Case "color": obj.Color = v: Exit Sub
-        ' Formula2, not Formula: Range.Formula auto-inserts "@" (implicit
-        ' intersection) on anything that could spill, silently breaking
-        ' every query engine's own "returns a spilled array" promise
-        ' (SQL.1's own SD-4 freeze) the moment Frazaro itself writes the
-        ' formula - not just a person's stray Ctrl+Shift+Enter. Formula2
-        ' (Excel 2019+/365, already required by deflambda's own LAMBDA)
-        ' behaves identically to Formula for an ordinary scalar formula,
-        ' so this is a strict improvement. VLA.bas's own emitter carries
-        ' the matching fix, scoped identically narrow (its "set!" case,
-        ' exactly (. obj formula) as the target) - AS.8 parity.
-        Case "formula": obj.Formula2 = v: Exit Sub
+        ' SEC.15: the formula sink is the runtime's VlaSetFormula, one
+        ' helper for both backends (VLA.bas's "set!" arm emits a call to
+        ' it for exactly (. obj formula)): it refuses a formula that
+        ' reaches outside the workbook by name before writing, and writes
+        ' through Formula2, as this arm did directly until SEC.15 -
+        ' Range.Formula auto-inserts "@" (implicit intersection) on
+        ' anything that could spill, which would silently break every
+        ' query engine's own "returns a spilled array" promise (SQL.1's
+        ' own SD-4 freeze) the moment Frazaro itself wrote the formula.
+        ' A refusal raised in the helper lands on the ordinary VBA call
+        ' stack here, where the program's own handler catches it (IN.15).
+        Case "formula": VLA_Runtime.VlaSetFormula obj, v: Exit Sub
         Case "bold": obj.Bold = v: Exit Sub
         Case "italic": obj.Italic = v: Exit Sub
         Case "horizontalalignment": obj.HorizontalAlignment = v: Exit Sub

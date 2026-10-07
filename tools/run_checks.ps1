@@ -92,10 +92,13 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # 2026-10-05, the door's built-in prelude and english.vla: 47 -
 # check_crate_data.ps1 (the copies under cli/data/ are the corpus files byte
 # for byte, and a built door with no flags translates as it does with them).
-# 2026-10-06, KERNEL.1: 48 - check_kernel_boundary.ps1 (the kernel bakes in
+# 2026-10-05, SEC.15: 48 - check_egress_golden.ps1 (the egress golden agrees
+# with its fixture, every record is REFUSED with a listed name or WRITTEN,
+# the VBA's list and the core's are one, and every listed name is reached).
+# 2026-10-06, KERNEL.1: 49 - check_kernel_boundary.ps1 (the kernel bakes in
 # exactly its four data tables, and no sentence rule or English sentence
 # enters core/src/ outside a test module beyond the pinned exceptions).
-$expectedAtLeast = 48
+$expectedAtLeast = 49
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---

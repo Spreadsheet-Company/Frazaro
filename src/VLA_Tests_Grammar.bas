@@ -1,6 +1,9 @@
 Attribute VB_Name = "VLA_Tests_Grammar"
 Option Explicit
-Public Const VLA_TESTS_GRAMMAR_VERSION As String = "F.18"
+Public Const VLA_TESTS_GRAMMAR_VERSION As String = "SEC.15"
+' SEC.15: TestG10's set-formula pin reads the emitted call to the runtime's
+' VlaSetFormula, the formula sink of both backends, where it read the
+' .Formula2 line the emitter wrote directly until SEC.15.
 ' F.18 (two latent bugs the refusal golden found): TestF18 - the
 ' standalone-Get guard refuses by id, words and line; a rule with no
 ' template is refused once, with no detail, and leaves the rule store
@@ -2058,11 +2061,13 @@ Public Sub TestG10()
            InStr(1, aud, "duplicates", vbTextCompare) > 0, "report was: " & Left$(aud, 160)
 
     ' The set-formula template face: the friendly call expands to the
-    ' first-class dot, and the emitted VBA is a .Formula2 line (not
+    ' first-class dot, and the emitted VBA is a call to the runtime's
+    ' VlaSetFormula (SEC.15: the one formula sink of both backends, which
+    ' refuses an egress call by name and writes through Formula2, not
     ' .Formula - Range.Formula auto-inserts "@" implicit intersection on
     ' anything that could spill, silently breaking every query engine's
     ' own "returns a spilled array" promise; VLA.bas's own "set!" case
-    ' special-cases exactly this (. obj formula) shape to Formula2).
+    ' special-cases exactly this (. obj formula) shape).
     EnglishResetGrammar
     Dim q As String
     q = Chr$(34)
@@ -2076,7 +2081,7 @@ Public Sub TestG10()
                           EnglishToVla("Write formula ""=A1"" in cell B3."))
     If Len(vbaOut) > 0 Then
         CheckFrags "g10: set-formula expands to the first-class dot", vbaOut, _
-                   Array(".formula2 =")
+                   Array("Call VlaSetFormula(range(""b3""), ""=A1"")")
     End If
     EnglishResetGrammar
 End Sub

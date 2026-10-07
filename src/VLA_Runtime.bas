@@ -9,7 +9,18 @@ Option Explicit
 ' SIG.0: this notice sits INSIDE the injectable region on purpose, so
 ' it travels with the code it licenses; tools/check_spdx.ps1 fails if
 ' it ever drifts below the boundary.
-Public Const VLA_RUNTIME_VERSION As String = "DATALOG13.0"
+Public Const VLA_RUNTIME_VERSION As String = "SEC.15"
+' SEC.15: VlaSetFormula, the one formula sink on both backends (VLA.bas's
+' emitter writes Call VlaSetFormula(obj, text) where it wrote .Formula2 =,
+' and VLA_Interpreter's Case "formula" calls it), and VlaFormulaEgress,
+' the pure scan it asks first: a formula that calls WEBSERVICE, FILTERXML,
+' HYPERLINK, RTD, IMAGE, STOCKHISTORY, an XLM function that reaches a
+' program or a DLL, Sheets' IMPORT* and GOOGLE* fetches or Calc's DDE, or
+' that holds a DDE link (a | outside a string), is refused by name before
+' anything is written (rt-formula-egress). Held to scripts/egress.txt and
+' scripts/egress_golden.txt (VlaWriteEgressGolden, VLA_Tests.bas), which
+' the core's egress.rs reproduces; the list is the one place in the VBA,
+' and tools/check_egress_golden.ps1 holds it equal to the core's.
 ' DATALOG13.0: the VlaDict family (and VLA_Relation's join index) test
 ' for the fallback with VlaDictIsFallback (Is Nothing, then TypeOf) instead
 ' of asking TypeName(d) = "Dictionary" - TypeName on the late-bound
@@ -669,6 +680,10 @@ Private Sub RuntimeAddEntries(ByVal m As Collection)
     RuntimeAddMsg m, "rt-split-separator-empty", 5, "VLA-Runtime", "the text to split at is empty - name a character or a word, like "","" or "" - ""."
     RuntimeAddMsg m, "rt-split-columns-not-empty", 5, "VLA-Runtime", "splitting column {column} needs {need} to its right, {columns}, down to row {row}, and cell {cell} holds something - clear those cells or insert columns first, since a split never writes over anything."
     RuntimeAddMsg m, "rt-split-too-wide", 5, "VLA-Runtime", "splitting column {column} needs {need} to its right, past the sheet's last column."
+    ' SEC.15: the formula sink's refusal, raised by VlaSetFormula on both
+    ' backends. The formula is shown whole to 80 characters, then cut; the
+    ' cell is the target's sheet and address.
+    RuntimeAddMsg m, "rt-formula-egress", 5, "VLA-Runtime", "the formula {formula} uses {name}, which can reach outside the workbook on its own (the network, another program, or a link to one), so Frazaro refuses to write it. Nothing was written to {cell}."
 End Sub
 
 Private Sub RuntimeAddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _
@@ -2890,6 +2905,225 @@ Public Sub VlaPivotSort(ByVal tableName As String, ByVal fieldName As String, By
         pf.AutoSort ord, matchCaption
     End If
 End Sub
+
+' =====================================================================
+'  SEC.15: THE FORMULA SINK. Every formula a program writes goes
+'  through VlaSetFormula, on both backends: VLA.bas's emitter writes
+'  Call VlaSetFormula(obj, text) for exactly (set! (. obj formula) v),
+'  where it wrote obj.Formula2 = text, and VLA_Interpreter's DynamicSet
+'  calls it from its Case "formula". It writes through Formula2, as both
+'  did (Range.Formula auto-inserts @ on anything that could spill), and
+'  asks VlaFormulaEgress first: a text that calls a function which
+'  reaches outside the workbook on its own, or holds a DDE link, is
+'  refused by name (rt-formula-egress) and nothing is written. SEC.4
+'  neutralizes a VALUE beginning with = because a value is data; a
+'  formula that calls WEBSERVICE is never data, and an apostrophe would
+'  turn the planting into text under a green row, so this refuses.
+'
+'  The scan lives here and not in VLA_Refers.bas, the reader, for the
+'  reason SEC.4's rule is repeated in VlaTextInRange rather than called:
+'  the compiled program runs in a workbook holding this module alone.
+'  It is pure (text in, a name out, no Excel object), so the pure suite
+'  and VlaWriteEgressGolden (VLA_Tests.bas) call it with no workbook,
+'  and the core's egress.rs is held to its golden, scripts/egress.txt to
+'  scripts/egress_golden.txt. The list below is the one place in the
+'  VBA; tools/check_egress_golden.ps1 holds it equal to the core's and
+'  every name reached by a case.
+'
+'  WHAT IS SCANNED: any text written through the formula member,
+'  whatever it begins with (strict first: narrowing later to texts
+'  beginning with = would loosen, where the reverse would break
+'  programs under SD-4). A number, a date or a Boolean is written as
+'  before. A cell handed as the text is read first, since Formula2
+'  would have taken its value, so a planted text behind an apostrophe
+'  cannot be laundered into a formula through a second cell.
+'
+'  THE RULE: a string literal ("...", a doubled quote inside), a quoted
+'  name ('...') and a bracket group ([...], nested) are stepped over, so
+'  ="WEBSERVICE(", ='WEBSERVICE'!A1 and =Sales[[#This Row],[a|b]] are
+'  written; a run of identifier characters (letters, digits, _ and .,
+'  anything past ASCII) followed by spaces, tabs or line breaks and then
+'  ( is a call; the file prefixes _xlfn. and _xlws. are stripped from
+'  its front, as many as stand there; the rest is compared without case
+'  to the list, whole, so WEBSERVICE2(, MYWEBSERVICE( and WEBSERVICE.X(
+'  are other functions and REGISTER.ID( is its own name; a name with no
+'  ( after it is a defined name or a sheet, not a call. A | outside the
+'  three is a DDE link (=cmd|'/c calc'!A0), reported as DDE. The first
+'  hit in text order is named, in the list's upper-case spelling.
+'
+'  THE LIST, each with its reason (the full entry is SEC.15's in
+'  docs/BETA_REARVIEW.md): WEBSERVICE, an HTTP request from a cell;
+'  FILTERXML, the host's XML engine over text, whose handling of an
+'  external entity is not verified here, and no use without WEBSERVICE;
+'  HYPERLINK, a click opens a URL or a path, and a UNC path offers the
+'  user's credentials; RTD, a registered COM server started by ProgID;
+'  IMAGE, a picture fetched from a URL on calculation (Excel 365 and
+'  Sheets); STOCKHISTORY, Excel's data service, the ticker sent out;
+'  CALL, REGISTER and REGISTER.ID, XLM's DLL function by name; EXEC,
+'  XLM starts a program; INITIATE, EXECUTE, POKE and REQUEST, XLM's DDE
+'  conversation; SEND.MAIL, XLM mail; DDE, Calc's function of that
+'  name; IMPORTXML, IMPORTDATA, IMPORTHTML, IMPORTRANGE and IMPORTFEED,
+'  Sheets fetches a URL or another spreadsheet when the file opens
+'  there; GOOGLEFINANCE and GOOGLETRANSLATE, Sheets sends the arguments
+'  to Google. The XLM names run only on a macro sheet, which a program
+'  never makes but a workbook may hold; the Sheets names are #NAME? in
+'  Excel, and the .xlsx the core writes is the file Sheets imports.
+' =====================================================================
+
+' The function a formula text calls that reaches outside the workbook,
+' in upper case, or DDE for a DDE link; "" when it holds none.
+Public Function VlaFormulaEgress(ByVal formulaText As String) As String
+    Dim listed As String
+    listed = " webservice filterxml hyperlink rtd image stockhistory call register register.id exec initiate execute poke request send.mail dde importxml importdata importhtml importrange importfeed googlefinance googletranslate "
+    Dim n As Long, i As Long, k As Long
+    Dim ch As String, tok As String
+    n = Len(formulaText)
+    i = 1
+    Do While i <= n
+        ch = Mid$(formulaText, i, 1)
+        If ch = """" Then
+            i = EgressSkipDelimited(formulaText, i, """")
+        ElseIf ch = "'" Then
+            i = EgressSkipDelimited(formulaText, i, "'")
+        ElseIf ch = "[" Then
+            i = EgressSkipBrackets(formulaText, i)
+        ElseIf ch = "|" Then
+            VlaFormulaEgress = "DDE"
+            Exit Function
+        ElseIf EgressIsIdentChar(ch) Then
+            k = i
+            Do While k <= n
+                If Not EgressIsIdentChar(Mid$(formulaText, k, 1)) Then Exit Do
+                k = k + 1
+            Loop
+            tok = Fold(Mid$(formulaText, i, k - i))
+            i = k
+            Do While i <= n
+                ch = Mid$(formulaText, i, 1)
+                If ch <> " " And ch <> vbTab And ch <> vbCr And ch <> vbLf Then Exit Do
+                i = i + 1
+            Loop
+            If Mid$(formulaText, i, 1) = "(" Then
+                Do While Left$(tok, 6) = "_xlfn." Or Left$(tok, 6) = "_xlws."
+                    tok = Mid$(tok, 7)
+                Loop
+                If InStr(1, listed, " " & tok & " ", vbBinaryCompare) > 0 Then
+                    VlaFormulaEgress = UCase$(tok)
+                    Exit Function
+                End If
+            End If
+        Else
+            i = i + 1
+        End If
+    Loop
+End Function
+
+' The position after the closing delimiter of the delimited text at j (a
+' string literal's ", a quoted name's '), a doubled delimiter staying
+' inside; the end of the text when it never closes.
+Private Function EgressSkipDelimited(ByRef s As String, ByVal j As Long, ByVal d As String) As Long
+    Dim k As Long, n As Long
+    n = Len(s)
+    k = j + 1
+    Do While k <= n
+        If Mid$(s, k, 1) <> d Then
+            k = k + 1
+        ElseIf Mid$(s, k + 1, 1) = d Then
+            k = k + 2
+        Else
+            EgressSkipDelimited = k + 1
+            Exit Function
+        End If
+    Loop
+    EgressSkipDelimited = n + 1
+End Function
+
+' The position after the ] that closes the [ at i, nested brackets
+' counted and a ' inside taken as the escape it is there; the end of the
+' text when it never closes.
+Private Function EgressSkipBrackets(ByRef s As String, ByVal i As Long) As Long
+    Dim k As Long, n As Long, depth As Long
+    Dim ch As String
+    n = Len(s)
+    k = i
+    Do While k <= n
+        ch = Mid$(s, k, 1)
+        If ch = "'" Then
+            k = k + 2
+        Else
+            If ch = "[" Then depth = depth + 1
+            If ch = "]" Then depth = depth - 1
+            k = k + 1
+            If depth = 0 Then
+                EgressSkipBrackets = k
+                Exit Function
+            End If
+        End If
+    Loop
+    EgressSkipBrackets = n + 1
+End Function
+
+' A letter, a digit, _ or ., or any character past ASCII (a letter in
+' another alphabet, as a name or a sheet may hold).
+Private Function EgressIsIdentChar(ByVal ch As String) As Boolean
+    Dim a As Long
+    If Len(ch) <> 1 Then Exit Function
+    a = AscW(ch)
+    If (a >= 65 And a <= 90) Or (a >= 97 And a <= 122) Or (a >= 48 And a <= 57) Then
+        EgressIsIdentChar = True
+    ElseIf ch = "_" Or ch = "." Then
+        EgressIsIdentChar = True
+    Else
+        EgressIsIdentChar = (a < 0 Or a > 127)
+    End If
+End Function
+
+' Range.Formula2 = text, the formula sink of both backends, after the
+' scan. A refusal raised here lands on the ordinary VBA call stack of the
+' program's own handler (the scaffold's vla-fail on both backends, and
+' TryRuntimeHelper's native Case for a phrasebook that calls it, IN.15).
+Public Sub VlaSetFormula(ByVal target As Object, ByVal v As Variant)
+    Dim toWrite As Variant
+    If IsObject(v) Then
+        ' A cell handed as the text: Formula2 would take its value, so take
+        ' it here and scan that. Anything else is written as it came.
+        On Error Resume Next
+        toWrite = v.Value
+        If Err.Number <> 0 Then
+            Err.Clear
+            Set toWrite = v
+        End If
+        On Error GoTo 0
+    Else
+        toWrite = v
+    End If
+    If VarType(toWrite) = vbString Then
+        Dim found As String
+        found = VlaFormulaEgress(CStr(toWrite))
+        If Len(found) > 0 Then
+            RaiseRuntimeMsg "rt-formula-egress", "formula", EgressShown(CStr(toWrite)), "name", found, "cell", EgressCellLabel(target)
+        End If
+    End If
+    target.Formula2 = toWrite
+End Sub
+
+' The formula as the refusal shows it: whole to 80 characters, then cut.
+Private Function EgressShown(ByVal s As String) As String
+    If Len(s) > 80 Then
+        EgressShown = Left$(s, 80) & "..."
+    Else
+        EgressShown = s
+    End If
+End Function
+
+' The target as the refusal names it, Sheet1!B3, or "the cell" when the
+' target is not a range.
+Private Function EgressCellLabel(ByVal target As Object) As String
+    On Error Resume Next
+    EgressCellLabel = target.Worksheet.Name & "!" & target.Address(False, False)
+    On Error GoTo 0
+    If Len(EgressCellLabel) = 0 Then EgressCellLabel = "the cell"
+End Function
 
 ' === EN_RUNTIME INJECT BOUNDARY ======================================
 '  Everything ABOVE this line is the injectable runtime: the exact

@@ -20,7 +20,16 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.7.1"
-Public Const VLA_CORE_VERSION As String = "F.7"
+Public Const VLA_CORE_VERSION As String = "SEC.15"
+' SEC.15: THE FORMULA SINK IS THE RUNTIME'S. EmitStmt's "set!" arm writes
+' Call VlaSetFormula(obj, text) for exactly (set! (. obj formula) v), where
+' it wrote obj.Formula2 = text: the helper (VLA_Runtime.bas) refuses a
+' formula that reaches outside the workbook on its own (WEBSERVICE, a DDE
+' link, ...) by name before writing, and writes through Formula2 as this
+' arm did. The interpreter's Case "formula" calls the same helper, so both
+' backends refuse the same text with the same words. The compile golden's
+' eighteen formula lines change and nothing else; the core's emit/stmt.rs
+' mirrors the arm.
 ' F.7 (the two latent bugs): A LONE OPERAND KEEPS ITS SIGN IN A FORMULA, AND
 ' A QUOTE MARK INSIDE A FORMULA'S TEXT IS DOUBLED. Found 2026-09-27 while
 ' Contemplation 9's collapse 1 was scoped; fixed 2026-10-01, ahead of
@@ -4353,27 +4362,30 @@ Private Function EmitStmt(s As Variant, ByVal ind As Long) As String
         Case "const"
             r = pad & EmitConstCore(lst) & vbCrLf
         Case "set!"
-            ' Formula2, not Formula, for exactly (set! (. obj formula) v):
-            ' Range.Formula auto-inserts "@" (implicit intersection) on
-            ' anything that could spill, silently breaking every query
-            ' engine's own "returns a spilled array" promise (SQL.1's own
-            ' SD-4 freeze) the moment FRAZARO ITSELF writes the formula -
-            ' not just a person's stray Ctrl+Shift+Enter. Formula2 (Excel
-            ' 2019+/365, already required by deflambda's own LAMBDA)
-            ' behaves identically to Formula for an ordinary scalar
-            ' formula, so this is a strict improvement - and scoped to
-            ' exactly the "formula" member on a bare (. obj formula), not
-            ' a generic Formula->Formula2 rename: a read of the same form,
-            ' or any other member, is untouched, matching the interpreter's
-            ' own equally narrow fix (VLA_Interpreter.bas's Case "formula"
-            ' in its member-SET dispatcher only).
+            ' SEC.15: exactly (set! (. obj formula) v) writes through the
+            ' runtime's VlaSetFormula, the one formula sink of both
+            ' backends (VLA_Interpreter's Case "formula" calls the same
+            ' helper): it refuses a formula that reaches outside the
+            ' workbook by name before writing, and writes through Formula2
+            ' as this arm did directly until SEC.15 - Range.Formula
+            ' auto-inserts "@" (implicit intersection) on anything that
+            ' could spill, which would silently break every query engine's
+            ' own "returns a spilled array" promise (SQL.1's own SD-4
+            ' freeze) the moment Frazaro itself wrote the formula, not
+            ' just a person's stray Ctrl+Shift+Enter. Scoped to exactly
+            ' the "formula" member on a bare (. obj formula), not a generic
+            ' rename: a read of the same form, or any other member, is
+            ' untouched, matching the interpreter's own equally narrow arm
+            ' (AS.8 parity). The helper's name is one the generated code
+            ' calls, which check_engine_call_names.ps1 reads here and sets
+            ' aside with the runtime's other Vla helpers.
             Dim wroteFormula2 As Boolean
             If ListHeadIs(Nth(lst, 2), ".") Then
                 Dim setDotForm As Collection
                 Set setDotForm = NthList(lst, 2)
                 If setDotForm.Count = 3 Then
                     If VLA_Identity.Fold(SymText(Nth(setDotForm, 3))) = "formula" Then
-                        r = pad & EmitExpr(Nth(setDotForm, 2)) & ".Formula2 = " & EmitExpr(Nth(lst, 3)) & vbCrLf
+                        r = pad & "Call VlaSetFormula(" & EmitExpr(Nth(setDotForm, 2)) & ", " & EmitExpr(Nth(lst, 3)) & ")" & vbCrLf
                         wroteFormula2 = True
                     End If
                 End If

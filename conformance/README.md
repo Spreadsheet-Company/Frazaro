@@ -927,3 +927,49 @@ lines for the same file, and what a person copies from the pane is what
 the door prints. A refusal names the file as the page gave its name, where
 the door prints its path, and is otherwise the catalogue's text; a name
 the page does not give reads `the file`.
+
+## Amendment of 2026-10-05, the egress golden (`SEC.15`, the formula sink)
+
+Every formula a program writes now passes one sink per implementation,
+and the sink refuses by name a formula that reaches outside the workbook on
+its own: in the reference, `VlaSetFormula` (`src/VLA_Runtime.bas`, above
+the inject boundary, so the compiled program carries it), which Compile's
+emitted code calls where it wrote `.Formula2 =` and Interpret's `Formula`
+member calls too; in the core, `build`'s `write_formula`, so that
+`frazaro build` and the web page's download refuse the same text
+(`build-formula-egress`, the line, the function and the sentence; the
+reference's two backends say it with the runtime's own `rt-formula-egress`,
+the function and the cell, through the program's step report). The scan
+is the reference's `VlaFormulaEgress`, ported as `core/src/egress.rs`: any
+text written through the formula member, whatever it begins with; a string
+literal, a quoted name and a bracket group stepped over; a run of
+identifier characters followed by spaces, tabs or line breaks and then `(`
+a call, the file prefixes `_xlfn.` and `_xlws.` stripped from its front,
+the rest compared without case to the list whole; a `|` outside the three
+groups a DDE link; the first hit in text order named in upper case, a DDE
+link as `DDE`. The list is 23 names, each with its reason in SEC.15's
+entry: `WEBSERVICE`, `FILTERXML`, `HYPERLINK`, `RTD`, `IMAGE`,
+`STOCKHISTORY`, `CALL`, `REGISTER`, `REGISTER.ID`, `EXEC`, `INITIATE`,
+`EXECUTE`, `POKE`, `REQUEST`, `SEND.MAIL`, `DDE`, `IMPORTXML`,
+`IMPORTDATA`, `IMPORTHTML`, `IMPORTRANGE`, `IMPORTFEED`, `GOOGLEFINANCE`
+and `GOOGLETRANSLATE`.
+
+The golden joins the data both implementations read, in the token golden's
+shape: `scripts/egress.txt`, cases under `=== <name>` lines, each one text
+as the sink receives it (joined with a line break where there are more
+than one); and `scripts/egress_golden.txt`, the reference's reading of each
+(`VlaWriteEgressGolden`, `VLA_Tests.bas`): one record, `REFUSED<TAB><the
+name>` or `WRITTEN`. It is a golden an implementation's own tests hold to
+(`core/src/egress.rs`, `the_egress_golden_is_reproduced`), not a runner
+kind. `tools/check_egress_golden.ps1` holds its shape and its coverage,
+host-free, with a `-Control`: the fixture's cases and the golden's agree in
+order, every record is `WRITTEN` or `REFUSED` with a listed name or `DDE`,
+the reference's list (the `listed = "…"` line of `VlaFormulaEgress`) and
+the core's (`EGRESS_NAMES`) hold the same names, every listed name is
+reached by a `REFUSED` record and `DDE` by the link shape, and the list
+never shrinks below its floor, 23 at this amendment from 55 cases, 37
+refused. The golden was written by hand ahead of the reference's first run
+and is committed as the prediction, so that the owner's empty `git diff`
+after `? VlaWriteEgressGolden()` witnesses something. Oracle 1b's golden
+changes with the emitter, its eighteen formula writes now calls to
+`VlaSetFormula`; the comparison is unchanged in kind.

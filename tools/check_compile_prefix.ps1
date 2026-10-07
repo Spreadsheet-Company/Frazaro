@@ -50,7 +50,10 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # section markers (the treaty's amendment of that date, the owner's call):
 # 153 comment lines gone and every vla:N tag after the first marker moved
 # down; the whole of the regenerated .vba.
-$floor = 291316
+# 2026-10-05, SEC.15: 291496 - the golden's eighteen formula writes are
+# calls to the runtime's VlaSetFormula (ten characters longer each), the
+# whole of the regenerated .vba.
+$floor = 291496
 
 $goldenVla = Join-Path $repoRoot 'scripts/instructions_golden.vla'
 $goldenVba = Join-Path $repoRoot 'scripts/instructions_golden.vba'

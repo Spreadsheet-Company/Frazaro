@@ -1,0 +1,110 @@
+=== webservice
+REFUSED	WEBSERVICE
+=== filterxml
+REFUSED	FILTERXML
+=== hyperlink
+REFUSED	HYPERLINK
+=== rtd
+REFUSED	RTD
+=== image
+REFUSED	IMAGE
+=== stockhistory
+REFUSED	STOCKHISTORY
+=== call
+REFUSED	CALL
+=== register
+REFUSED	REGISTER
+=== register-id
+REFUSED	REGISTER.ID
+=== exec
+REFUSED	EXEC
+=== initiate
+REFUSED	INITIATE
+=== execute
+REFUSED	EXECUTE
+=== poke
+REFUSED	POKE
+=== request
+REFUSED	REQUEST
+=== send-mail
+REFUSED	SEND.MAIL
+=== dde-function
+REFUSED	DDE
+=== dde-link
+REFUSED	DDE
+=== importxml
+REFUSED	IMPORTXML
+=== importdata
+REFUSED	IMPORTDATA
+=== importhtml
+REFUSED	IMPORTHTML
+=== importrange
+REFUSED	IMPORTRANGE
+=== importfeed
+REFUSED	IMPORTFEED
+=== googlefinance
+REFUSED	GOOGLEFINANCE
+=== googletranslate
+REFUSED	GOOGLETRANSLATE
+=== lower-case
+REFUSED	WEBSERVICE
+=== mixed-case
+REFUSED	WEBSERVICE
+=== file-prefix
+REFUSED	WEBSERVICE
+=== file-prefix-xlws
+REFUSED	WEBSERVICE
+=== space-before-the-parenthesis
+REFUSED	HYPERLINK
+=== nested-in-a-call
+REFUSED	WEBSERVICE
+=== joined-to-text
+REFUSED	WEBSERVICE
+=== after-implicit-intersection
+REFUSED	WEBSERVICE
+=== two-calls-the-first-named
+REFUSED	HYPERLINK
+=== after-a-line-break
+REFUSED	WEBSERVICE
+=== not-a-formula-but-scanned
+REFUSED	WEBSERVICE
+=== dde-link-after-a-quoted-name
+REFUSED	DDE
+=== name-inside-a-string
+WRITTEN
+=== name-inside-a-string-with-doubled-quotes
+WRITTEN
+=== unclosed-string
+WRITTEN
+=== name-as-a-sheet
+WRITTEN
+=== name-as-a-defined-name
+WRITTEN
+=== name-as-a-structured-column
+WRITTEN
+=== bar-inside-a-string
+WRITTEN
+=== bar-inside-brackets
+WRITTEN
+=== longer-name-is-another-function
+WRITTEN
+=== name-with-a-suffix-is-another-function
+WRITTEN
+=== name-with-a-period-is-another-function
+WRITTEN
+=== filter-is-not-on-the-list
+WRITTEN
+=== indirect-reaches-cells-not-outside
+WRITTEN
+=== a-newer-function-written-plain
+WRITTEN
+=== plain-formula
+WRITTEN
+=== plain-text
+WRITTEN
+=== a-name-past-ascii
+WRITTEN
+=== a-token-that-is-not-a-name
+WRITTEN
+=== line-break-before-the-parenthesis
+REFUSED	HYPERLINK

@@ -527,6 +527,29 @@ mod tests {
     }
 
     #[test]
+    fn a_formula_write_calls_the_runtime_sink() {
+        // SEC.15: exactly (set! (. obj formula) v) is a call to the runtime's
+        // VlaSetFormula; a read of the member, and any other member, are
+        // written as they were.
+        let f = vba("(sub t () (set! (. (range \"b3\") formula) \"=A1\"))");
+        assert!(
+            f.contains("    Call VlaSetFormula(range(\"b3\"), \"=A1\") ' vla:1\r\n"),
+            "{f}"
+        );
+        assert!(!f.contains("Formula2"), "{f}");
+        let g = vba("(sub t () (set! x (. (range \"b3\") formula)))");
+        assert!(
+            g.contains("    x = range(\"b3\").formula ' vla:1\r\n"),
+            "{g}"
+        );
+        let h = vba("(sub t () (set! (. (range \"b3\") value) \"=A1\"))");
+        assert!(
+            h.contains("    range(\"b3\").value = \"=A1\" ' vla:1\r\n"),
+            "{h}"
+        );
+    }
+
+    #[test]
     fn the_refusal_names_the_nearest_mapped_line() {
         let r = refusal("(sub t ()\n  (set! x 1)\n  (if))");
         assert!(r.text.ends_with(" (near vla line 3)"), "{}", r.text);

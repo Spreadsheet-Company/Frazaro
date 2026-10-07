@@ -131,15 +131,16 @@ $urls = @{
 
 # --- 4. Outward reach through the user's own tools ---
 # "<Module>::<Procedure>::<label>". Each is named in docs/IT_REVIEW.md
-# (SIG.1) section 3. 2026-09-10: seven sites.
+# (SIG.1) section 3. 2026-09-10: seven sites. 2026-10-05, SEC.15: six - the
+# two formula sinks (Compile's emitter, Interpret's DynamicSet) became one,
+# the runtime's VlaSetFormula, which refuses an egress call by name.
 $reach = @(
     'VLA_Runtime::VlaSendMail::Outlook'                 # a draft, displayed, never sent (SEC.8-gated)
     'VLA_IDE::ReadWordFile::Word'                       # Import Program File, macros force-disabled (SEC.13)
     'VLA_IDE::VlaIdeUninstall::process'                 # starts the installer's own unins000.exe
     'VLA_IDE::ScheduleSelfDelete::process'              # hidden PowerShell that deletes the standalone .xlam
     'VLA_Interpreter::DynamicCall::RefreshAll'          # "Refresh everything." - the workbook's existing connections
-    'VLA_Interpreter::DynamicSet::formula-write'        # Interpret's formula sink (SEC.15, open)
-    'VLA::EmitStmt::formula-write'                      # Compile's formula sink (SEC.15, open)
+    'VLA_Runtime::VlaSetFormula::formula-write'         # the one formula sink, both backends; an egress call refused by name (SEC.15)
 )
 
 $reachPatterns = [ordered]@{

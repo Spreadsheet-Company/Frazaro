@@ -48,7 +48,10 @@ same file once built (see *Building it*); open it from disk.
   Numbers with nothing installed, and `frazaro rebuild` on it says yes. A
   sentence the writer cannot hold with nothing running, a loop, a message, a
   value read from a cell, is named in the strip with its line, and the button
-  waits; the VLA and VBA stand, since the translation does.
+  waits; the VLA and VBA stand, since the translation does. So is a formula
+  that would reach outside the workbook on its own (`WEBSERVICE`,
+  `HYPERLINK`, a DDE link and their kin), refused by name as the add-in
+  refuses it.
 - **Read a workbook of your own.** Under *Reflect*, pick a workbook, `.xlsx`
   or `.ods`, and the pane prints its relations as `frazaro reflect` prints
   them. The *Show* picker beside it prints the audit list instead, as `frazaro

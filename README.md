@@ -900,23 +900,25 @@ workbook arriving from outside cannot carry its own permission slip.
   for you, never sent silently) — with no consent prompt.
 
 **Open from the project's own code review of 2026-09-08.** The review found
-ten items, SEC.8 through SEC.17. **Four are fixed**, all in `0.5.3` —
+ten items, SEC.8 through SEC.17. **Five are fixed**: four in `0.5.3` —
 above: SEC.8, SEC.13, **SEC.11** (the fingerprint your consent is keyed to
 was weak enough to forge, and is now SHA-256) and **SEC.9** (a grammar file
 beside a workbook, or a path a workbook remembers, now needs this computer's
-approval before it can override the built-in grammar). Four were assessed
+approval before it can override the built-in grammar) — and **SEC.15** in
+`0.8.0` (a formula a program writes is screened before it is written: one
+that reaches outside the workbook on its own, `WEBSERVICE`, `HYPERLINK`,
+a DDE link and their kin, is refused by name, on both backends and in
+`frazaro build`). Four were assessed
 and **accepted** rather than fixed,
 with the mitigating control written down and a stated condition that reopens
-each — see *Assessed and accepted* below. Two remain open and are listed
-here, most-severe first. Both are audit findings read from the code rather
-than exploits anyone has run. Each one's file, line, and fix is in
+each — see *Assessed and accepted* below. One remains open and is listed
+here. It is an audit finding read from the code rather
+than an exploit anyone has run. Its file, line, and fix is in
 [docs/BETA_REARVIEW.md](docs/BETA_REARVIEW.md). In plain words:
 
 - **SEC.10** — the "remember my consent for this workbook" record is
   stored inside the workbook, so a workbook someone sends you can arrive
   with consent already granted.
-- **SEC.15** — formulas a program writes are not screened for functions
-  that reach the network or the shell (`WEBSERVICE`, DDE).
 
 **Assessed and accepted — deliberately not fixed, and why.** Each of these
 needs a precondition an ordinary install does not meet. The full reasoning,

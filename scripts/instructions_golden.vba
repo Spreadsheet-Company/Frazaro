@@ -195,7 +195,7 @@ Public Sub check_formulas()
     If vlatraceon() Then ' vla:147
         Call vlatracestep(744, vla_step_text(744)) ' vla:147
     End If
-    range("d2:d4").Formula2 = "=B2*C2"
+    Call VlaSetFormula(range("d2:d4"), "=B2*C2")
     vla_step = 745 ' vla:150
     If vlatraceon() Then ' vla:151
         Call vlatracestep(745, vla_step_text(745)) ' vla:151
@@ -206,7 +206,7 @@ Public Sub check_formulas()
         Call vlatracestep(746, vla_step_text(746)) ' vla:155
     End If
     If (gf_last >= 2) Then
-        range(("e" & 2 & ":" & "e" & gf_last)).Formula2 = "=B2+C2"
+        Call VlaSetFormula(range(("e" & 2 & ":" & "e" & gf_last)), "=B2+C2")
     End If
     vla_step = 747 ' vla:158
     If vlatraceon() Then ' vla:159
@@ -218,7 +218,7 @@ Public Sub check_formulas()
         Call vlatracestep(748, vla_step_text(748)) ' vla:163
     End If
     If (1 >= 2) Then
-        range(("f" & 2 & ":" & "f" & 1)).Formula2 = "=B2-C2"
+        Call VlaSetFormula(range(("f" & 2 & ":" & "f" & 1)), "=B2-C2")
     End If
     vla_step = 749 ' vla:166
     If vlatraceon() Then ' vla:167
@@ -259,7 +259,7 @@ Public Sub check_formulas()
     If vlatraceon() Then ' vla:195
         Call vlatracestep(756, vla_step_text(756)) ' vla:195
     End If
-    range("b6").Formula2 = "="""""
+    Call VlaSetFormula(range("b6"), "=""""")
     vla_step = 757 ' vla:198
     If vlatraceon() Then ' vla:199
         Call vlatracestep(757, vla_step_text(757)) ' vla:199
@@ -467,7 +467,7 @@ Public Sub check_calculation()
     If vlatraceon() Then ' vla:364
         Call vlatracestep(793, vla_step_text(793)) ' vla:364
     End If
-    range("b1").Formula2 = "=A1*10"
+    Call VlaSetFormula(range("b1"), "=A1*10")
     vla_step = 794 ' vla:367
     If vlatraceon() Then ' vla:368
         Call vlatracestep(794, vla_step_text(794)) ' vla:368
@@ -693,7 +693,7 @@ Public Sub check_figures()
     If vlatraceon() Then ' vla:545
         Call vlatracestep(837, vla_step_text(837)) ' vla:545
     End If
-    range("c2").Formula2 = "=B2*10"
+    Call VlaSetFormula(range("c2"), "=B2*10")
     If (cells(rows.count, "b").end(xlup).row > range("c2").row) Then
         Call range("c2").resize(rowsize:=((cells(rows.count, "b").end(xlup).row - range("c2").row) + 1)).filldown
     End If
@@ -711,7 +711,7 @@ Public Sub check_figures()
     If vlatraceon() Then ' vla:557
         Call vlatracestep(840, vla_step_text(840)) ' vla:557
     End If
-    range("f2").Formula2 = "=B2*10"
+    Call VlaSetFormula(range("f2"), "=B2*10")
     If (cells(rows.count, "g").end(xlup).row > range("f2").row) Then
         Call range("f2").resize(rowsize:=((cells(rows.count, "g").end(xlup).row - range("f2").row) + 1)).filldown
     End If
@@ -719,7 +719,7 @@ Public Sub check_figures()
     If vlatraceon() Then ' vla:561
         Call vlatracestep(841, vla_step_text(841)) ' vla:561
     End If
-    range("j2").Formula2 = "=B2*10"
+    Call VlaSetFormula(range("j2"), "=B2*10")
     If (cells(rows.count, "i").end(xlup).row > range("j2").row) Then
         Call range("j2").resize(rowsize:=((cells(rows.count, "i").end(xlup).row - range("j2").row) + 1)).filldown
     End If
@@ -921,7 +921,7 @@ Public Sub main()
     If vlatraceon() Then ' vla:721
         Call vlatracestep(13, vla_step_text(13)) ' vla:721
     End If
-    range("b3").Formula2 = "=B2*2"
+    Call VlaSetFormula(range("b3"), "=B2*2")
     vla_step = 14 ' vla:724
     If vlatraceon() Then ' vla:725
         Call vlatracestep(14, vla_step_text(14)) ' vla:725
@@ -2835,7 +2835,7 @@ vla_tryd_4: ' vla:2120 src:675
     If vlatraceon() Then ' vla:2211
         Call vlatracestep(382, vla_step_text(382)) ' vla:2211
     End If
-    range("b64").Formula2 = "=5*2"
+    Call VlaSetFormula(range("b64"), "=5*2")
     vla_step = 383 ' vla:2214
     If vlatraceon() Then ' vla:2215
         Call vlatracestep(383, vla_step_text(383)) ' vla:2215
@@ -4078,7 +4078,7 @@ vla_tryd_9: ' vla:3168 src:1060
     If vlatraceon() Then ' vla:3183
         Call vlatracestep(615, vla_step_text(615)) ' vla:3183
     End If
-    range("a3").Formula2 = "=CHAR(97)&CHAR(98)"
+    Call VlaSetFormula(range("a3"), "=CHAR(97)&CHAR(98)")
     vla_step = 616 ' vla:3186
     If vlatraceon() Then ' vla:3187
         Call vlatracestep(616, vla_step_text(616)) ' vla:3187
@@ -4168,7 +4168,7 @@ vla_tryd_9: ' vla:3168 src:1060
     If vlatraceon() Then ' vla:3255
         Call vlatracestep(633, vla_step_text(633)) ' vla:3255
     End If
-    range("e4").Formula2 = "=UNICHAR(160)&CHAR(120)&UNICHAR(160)&UNICHAR(160)&CHAR(121)"
+    Call VlaSetFormula(range("e4"), "=UNICHAR(160)&CHAR(120)&UNICHAR(160)&UNICHAR(160)&CHAR(121)")
     vla_step = 634 ' vla:3258
     If vlatraceon() Then ' vla:3259
         Call vlatracestep(634, vla_step_text(634)) ' vla:3259
@@ -4185,12 +4185,12 @@ vla_tryd_9: ' vla:3168 src:1060
     If vlatraceon() Then ' vla:3267
         Call vlatracestep(636, vla_step_text(636)) ' vla:3267
     End If
-    range("f1").Formula2 = "=CHAR(97)&CHAR(10)&CHAR(98)"
+    Call VlaSetFormula(range("f1"), "=CHAR(97)&CHAR(10)&CHAR(98)")
     vla_step = 637 ' vla:3270
     If vlatraceon() Then ' vla:3271
         Call vlatracestep(637, vla_step_text(637)) ' vla:3271
     End If
-    range("f2").Formula2 = "=CHAR(99)&CHAR(9)&CHAR(100)"
+    Call VlaSetFormula(range("f2"), "=CHAR(99)&CHAR(9)&CHAR(100)")
     vla_step = 638 ' vla:3274
     If vlatraceon() Then ' vla:3275
         Call vlatracestep(638, vla_step_text(638)) ' vla:3275
@@ -4392,7 +4392,7 @@ vla_tryd_9: ' vla:3168 src:1060
     If vlatraceon() Then ' vla:3431
         Call vlatracestep(677, vla_step_text(677)) ' vla:3431
     End If
-    range("k1").Formula2 = "=CHAR(112)&CHAR(10)&CHAR(113)"
+    Call VlaSetFormula(range("k1"), "=CHAR(112)&CHAR(10)&CHAR(113)")
     vla_step = 678 ' vla:3434
     If vlatraceon() Then ' vla:3435
         Call vlatracestep(678, vla_step_text(678)) ' vla:3435
@@ -4442,7 +4442,7 @@ vla_tryd_10: ' vla:3460 src:1164
     If vlatraceon() Then ' vla:3471
         Call vlatracestep(685, vla_step_text(685)) ' vla:3471
     End If
-    range("l2").Formula2 = "=TAN(0)"
+    Call VlaSetFormula(range("l2"), "=TAN(0)")
     vla_step = 686 ' vla:3474
     If vlatraceon() Then ' vla:3475
         Call vlatracestep(686, vla_step_text(686)) ' vla:3475
@@ -4472,7 +4472,7 @@ vla_tryd_10: ' vla:3460 src:1164
     If vlatraceon() Then ' vla:3495
         Call vlatracestep(691, vla_step_text(691)) ' vla:3495
     End If
-    range("l5").Formula2 = "=ABS(-2)"
+    Call VlaSetFormula(range("l5"), "=ABS(-2)")
     vla_step = 692 ' vla:3498
     If vlatraceon() Then ' vla:3499
         Call vlatracestep(692, vla_step_text(692)) ' vla:3499
@@ -4497,7 +4497,7 @@ vla_tryd_10: ' vla:3460 src:1164
     If vlatraceon() Then ' vla:3515
         Call vlatracestep(696, vla_step_text(696)) ' vla:3515
     End If
-    range("l8").Formula2 = "=ABS(-3)"
+    Call VlaSetFormula(range("l8"), "=ABS(-3)")
     vla_step = 697 ' vla:3518
     If vlatraceon() Then ' vla:3519
         Call vlatracestep(697, vla_step_text(697)) ' vla:3519

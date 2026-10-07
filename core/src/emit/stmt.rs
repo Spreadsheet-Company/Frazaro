@@ -38,13 +38,16 @@ impl Compiler {
             "dim" => r = format!("{pad}{}\r\n", self.emit_dim_core(lst)?),
             "const" => r = format!("{pad}{}\r\n", self.emit_const_core(lst)?),
             "set!" => {
-                // Formula2, not Formula, for exactly (set! (. obj formula) v).
+                // SEC.15: exactly (set! (. obj formula) v) is a call to the
+                // runtime's VlaSetFormula, the one formula sink of both
+                // backends (it refuses an egress call by name, then writes
+                // through Formula2, as this arm wrote directly until SEC.15).
                 let mut wrote_formula2 = false;
                 if lst.nth(2)?.head_is(".") {
                     let set_dot = lst.nth_list(2)?;
                     if set_dot.count() == 3 && fold(&sym_text(set_dot.nth(3)?)?) == "formula" {
                         r = format!(
-                            "{pad}{}.Formula2 = {}\r\n",
+                            "{pad}Call VlaSetFormula({}, {})\r\n",
                             self.emit_expr(set_dot.nth(2)?)?,
                             self.emit_expr(lst.nth(3)?)?
                         );
@@ -682,9 +685,10 @@ mod tests {
     #[test]
     fn assignments_and_simple_statements() {
         assert_eq!(body("(set! x 1)"), "    x = 1 ' vla:1\r\n");
+        // SEC.15: the formula member is a call to the runtime's sink.
         assert_eq!(
             body("(set! (. (range \"A1\") formula) \"=1\")"),
-            "    range(\"A1\").Formula2 = \"=1\" ' vla:1\r\n"
+            "    Call VlaSetFormula(range(\"A1\"), \"=1\") ' vla:1\r\n"
         );
         assert_eq!(
             body("(set! (. (range \"A1\") value) 2)"),

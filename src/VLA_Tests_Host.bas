@@ -1,6 +1,13 @@
 Attribute VB_Name = "VLA_Tests_Host"
 Option Explicit
-Public Const VLA_TESTS_HOST_VERSION As String = "LX.14"
+Public Const VLA_TESTS_HOST_VERSION As String = "SEC.15"
+' SEC.15: TestSetFormulaRefusesEgress - the formula sink (VlaSetFormula,
+' the runtime's, reached through the interpreter's real DynamicSet) refuses
+' a planted HYPERLINK by name with the cell untouched, refuses a cell
+' holding the planted text when handed as the text, still writes a plain
+' formula, and does both again when called by name through its native
+' TryRuntimeHelper Case (IN.15). HYPERLINK and not WEBSERVICE, so a failing
+' guard plants a link that does nothing until clicked, never a fetch.
 ' LX.14 (call 2): TestLx14MarkNote, two pins on VLA_IDE.VlaIdeMarkNote - the
 ' note Check writes when a program's own word masks a phrasebook's shows
 ' whole, in yellow.
@@ -388,6 +395,7 @@ Public Function VlaSelfTestHost() As Boolean
     TestInterpreterObjectDispatch
     TestInterpreterHostWorkbook
     TestSetFormulaSpillsWithoutImplicitIntersection
+    TestSetFormulaRefusesEgress
     TestInterpreterSheetChangeEvent
     TestInterpreterButtonClickEvent
     TestCompiledButtonClickParity
@@ -2252,6 +2260,88 @@ Private Sub TestSetFormulaSpillsWithoutImplicitIntersection()
            Len(d) = 0 And Not IsEmpty(ws.Range("B2").Value) And _
            Not IsEmpty(ws.Range("B3").Value) And Not IsEmpty(ws.Range("B4").Value), _
            "b2=" & CStr(ws.Range("B2").Value) & " b3=" & CStr(ws.Range("B3").Value) & " b4=" & CStr(ws.Range("B4").Value)
+
+    Application.DisplayAlerts = False
+    scratchWb.Close SaveChanges:=False
+    Application.DisplayAlerts = True
+    priorWb.Activate
+End Sub
+
+' SEC.15: the formula sink refuses an egress call by name, on the
+' interpreter's path through the real DynamicSet (VlaSetFormula, the
+' runtime's; the emitted code calls the same helper, which VerifyReports'
+' corpus and the live hand tests cover). HYPERLINK and not WEBSERVICE, so
+' a failing guard would plant a link that does nothing until clicked,
+' never a fetch. Six pins: the refusal names the function and the cell;
+' the cell stays empty; a cell holding the planted text behind an
+' apostrophe (SEC.4's mark) is refused when handed as the text, so a value
+' cannot be laundered into a formula through a second cell; a plain
+' formula still writes and computes; and the helper called by name, through
+' TryRuntimeHelper's native Case, refuses in words (IN.15) and writes.
+Private Sub TestSetFormulaRefusesEgress()
+    Dim priorWb As Workbook
+    Set priorWb = ActiveWorkbook
+    Dim scratchWb As Workbook
+    Set scratchWb = Workbooks.Add
+    Dim ws As Worksheet
+    Set ws = scratchWb.Worksheets(1)
+    ws.Activate
+
+    Dim d As String
+    Dim frame As Object
+    On Error Resume Next
+    Set frame = VLA_Interpreter.VlaInterpret( _
+        "(set! (. (range ""b2"") formula) ""=HYPERLINK(\""https://example.com/\"",\""go\"")"")", scratchWb)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "sec.15: a planted HYPERLINK is refused by name, with the cell", _
+           InStr(1, d, "uses HYPERLINK", vbBinaryCompare) > 0 And InStr(1, d, "!B2", vbBinaryCompare) > 0, _
+           "got: " & d
+    Report "sec.15: nothing was written to the cell", IsEmpty(ws.Range("B2").Value), _
+           "b2 holds: " & CStr(ws.Range("B2").Formula)
+
+    ' The planted text behind an apostrophe, handed as the text.
+    ws.Range("B5").Value = "'=HYPERLINK(""https://example.com/"",""go"")"
+    d = ""
+    On Error Resume Next
+    Set frame = VLA_Interpreter.VlaInterpret( _
+        "(set! (. (range ""b6"") formula) (range ""b5""))", scratchWb)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "sec.15: a cell holding the planted text is refused when handed as the text", _
+           InStr(1, d, "uses HYPERLINK", vbBinaryCompare) > 0 And IsEmpty(ws.Range("B6").Value), _
+           "got: " & d & "; b6 holds: " & CStr(ws.Range("B6").Formula)
+
+    d = ""
+    On Error Resume Next
+    Set frame = VLA_Interpreter.VlaInterpret( _
+        "(set! (. (range ""b3"") formula) ""=SUM(1,2)"")", scratchWb)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "sec.15: a plain formula still writes and computes", _
+           Len(d) = 0 And CStr(ws.Range("B3").Value) = "3", _
+           "error: '" & d & "'; b3=" & CStr(ws.Range("B3").Value)
+
+    ' The helper called by name, through TryRuntimeHelper's native Case:
+    ' the refusal arrives as words (IN.15), and a plain formula writes.
+    d = ""
+    On Error Resume Next
+    Set frame = VLA_Interpreter.VlaInterpret( _
+        "(vlasetformula (range ""b8"") ""=HYPERLINK(\""https://example.com/\"",\""go\"")"")", scratchWb)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "sec.15: the helper called by name refuses in words, through its native Case", _
+           InStr(1, d, "uses HYPERLINK", vbBinaryCompare) > 0 And IsEmpty(ws.Range("B8").Value), _
+           "got: " & d & "; b8 holds: " & CStr(ws.Range("B8").Formula)
+    d = ""
+    On Error Resume Next
+    Set frame = VLA_Interpreter.VlaInterpret( _
+        "(vlasetformula (range ""b7"") ""=SUM(2,3)"")", scratchWb)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    Report "sec.15: the helper called by name writes a plain formula", _
+           Len(d) = 0 And CStr(ws.Range("B7").Value) = "5", _
+           "error: '" & d & "'; b7=" & CStr(ws.Range("B7").Value)
 
     Application.DisplayAlerts = False
     scratchWb.Close SaveChanges:=False

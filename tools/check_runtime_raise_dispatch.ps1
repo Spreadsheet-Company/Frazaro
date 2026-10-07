@@ -119,6 +119,7 @@ $baseline = @(
     'VlaPivotSort',
     'VlaReplaceInRange',     # G-TEXT slice 3, 2026-09-28: refuses empty text to replace, a list or an error value
     'VlaSendMail',
+    'VlaSetFormula',         # SEC.15, 2026-10-05: the formula sink refuses an egress call (WEBSERVICE, a DDE link, ...) by name
     'VlaSplitColumn',        # G-TEXT slice 3, 2026-09-28: refuses a split that would write over a cell, naming it
     'VlaTextBeside',         # G-TEXT slice 2, 2026-09-26: refuses a marker that is not there
     'VlaTextInRange',        # G-TEXT slice 1, 2026-09-25: VlaTextOp's refusal, asked before a cell is touched
