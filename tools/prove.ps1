@@ -94,6 +94,16 @@ fixture, scripts/reflect/opendocument.ods (build_reflect_ods_fixture.ps1),
 joins the reflect kind as a seventh row, the diff kind as a fourth pair
 (against the .xlsx fixture: the format gap itself) and the audit kind as
 a fourth row; the fakes find each golden by the fixture's name as before.
+
+2026-10-07, KERNEL.4 (the treaty's amendment of that date): a ninth kind,
+view - a fixture program, a sheet and a window to the view record, one
+form a line in a fixed order, compared as text the way the reflect kind
+compares it; the corpus prelude and english.vla are named, as the build
+kind names them, since the record is drawn from the program's build in
+memory. Six rows over the two build fixtures (scripts/view/). The
+control's fake answers each from the golden of the window, found by the
+program's name, the sheet and the window, and the mutant changes one
+character.
 #>
 param(
     [string]$Impl = '',
@@ -282,6 +292,21 @@ function Get-Oracles([string]$root) {
                  Old = 'scripts/reflect/opendocument.ods'; New = 'scripts/reflect/opendocument_saved.ods'; Golden = 'scripts/reflect/opendocument_opendocument_saved_diff.vla' })
     $list.Add(@{ Kind = 'audit'; Label = 'reflect/opendocument_saved.ods -> reflect/opendocument_saved_audit.vla'
                  Input = 'scripts/reflect/opendocument_saved.ods'; Golden = 'scripts/reflect/opendocument_saved_audit.vla' })
+    # 2026-10-07 (KERNEL.4): the view kind, a program's window to the view
+    # record as text; six windows over the two build fixtures.
+    foreach ($v in @(
+        @('fixture.txt', 'Frazaro', '',       'fixture_frazaro'),
+        @('fixture.txt', 'Output',  'A1:F20', 'fixture_output'),
+        @('fixture.txt', 'Output',  'B2:C3',  'fixture_output_b2_c3'),
+        @('fixture.txt', 'Data',    '',       'fixture_data'),
+        @('into.txt',    'Output',  '',       'into_output'),
+        @('into.txt',    'Checks',  '',       'into_checks'))) {
+        $win = if ($v[2] -ne '') { ' ' + $v[2] } else { '' }
+        $list.Add(@{ Kind = 'view'; Label = ('build/' + $v[0] + ' ' + $v[1] + $win + ' -> view/' + $v[3] + '.vla')
+                     Input = ('scripts/build/' + $v[0]); Sheet = $v[1]; Window = $v[2]
+                     Golden = ('scripts/view/' + $v[3] + '.vla')
+                     Prelude = 'scripts/prelude.vla'; Phrasebook = 'scripts/polyglotta/english.vla' })
+    }
     $list.Add(@{ Kind = 'interpreter'; Label = 'interpreter_golden.txt (needs a workbook model: slice 6)'
                  Golden = 'scripts/interpreter_golden.txt' })
     $pb = Join-Path $root 'scripts/polyglotta'
@@ -402,6 +427,27 @@ function Measure-Oracles([string]$root, [string]$impl, [string]$scratch) {
                 # findings or none, and the golden carries no stamp.
                 $golden = Join-Path $root $o.Golden
                 $run = Invoke-Impl $impl @('audit', (Join-Path $root $o.Input))
+                if ($run.ExitCode -eq 3) { break }
+                $want = Read-NormalizedFile $golden
+                $got  = Get-NormalizedText $run.Stdout
+                if ($run.ExitCode -ne 0) { $r.Status = 'FAIL'; $r.Detail = "exit $($run.ExitCode)" }
+                elseif ($got -eq $want) { $r.Status = 'PASS'; $r.Detail = "$($want.Length) chars matched" }
+                else {
+                    $n = [Math]::Min($got.Length, $want.Length); $at = $n
+                    for ($i = 0; $i -lt $n; $i++) { if ($got[$i] -ne $want[$i]) { $at = $i; break } }
+                    $r.Status = 'FAIL'; $r.Detail = "differs at char $at of $($want.Length)"
+                }
+            }
+            'view' {
+                # 2026-10-07 (KERNEL.4): a program's window to the view record as
+                # text, normalized as the reflect kind is; the corpus prelude and
+                # phrasebook named, as the build kind names them, since the record
+                # is drawn from the program's build in memory; no stamp.
+                $golden = Join-Path $root $o.Golden
+                $viewArgs = @('view', (Join-Path $root $o.Input), '--sheet', $o.Sheet)
+                if ($o.Window -ne '') { $viewArgs += @('--window', $o.Window) }
+                $viewArgs += @('--prelude', (Join-Path $root $o.Prelude), '--phrasebook', (Join-Path $root $o.Phrasebook))
+                $run = Invoke-Impl $impl $viewArgs
                 if ($run.ExitCode -eq 3) { break }
                 $want = Read-NormalizedFile $golden
                 $got  = Get-NormalizedText $run.Stdout
@@ -562,6 +608,22 @@ switch (`$kind) {
             'opendocument'   { 'scripts/reflect/opendocument_audit.vla' }
             'opendocument_saved' { 'scripts/reflect/opendocument_saved_audit.vla' }
             default          { exit 3 }
+        }
+        `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))
+    }
+    'view' {
+        # The golden of the window, by the program's name, the sheet and the window (2026-10-07, KERNEL.4).
+        `$base = [System.IO.Path]::GetFileNameWithoutExtension(`$a[1])
+        `$sheet = ''; `$window = ''
+        for (`$i = 2; `$i -lt `$a.Count - 1; `$i++) { if (`$a[`$i] -eq '--sheet') { `$sheet = `$a[`$i + 1] }; if (`$a[`$i] -eq '--window') { `$window = `$a[`$i + 1] } }
+        `$which = switch ("`$base|`$sheet|`$window") {
+            'fixture|Frazaro|'      { 'scripts/view/fixture_frazaro.vla' }
+            'fixture|Output|A1:F20' { 'scripts/view/fixture_output.vla' }
+            'fixture|Output|B2:C3'  { 'scripts/view/fixture_output_b2_c3.vla' }
+            'fixture|Data|'         { 'scripts/view/fixture_data.vla' }
+            'into|Output|'          { 'scripts/view/into_output.vla' }
+            'into|Checks|'          { 'scripts/view/into_checks.vla' }
+            default                 { exit 3 }
         }
         `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))
     }

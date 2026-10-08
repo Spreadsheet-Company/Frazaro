@@ -187,6 +187,30 @@ pub fn english_build_xlsx_into(
     .map_err(|refusal| RefusalAtLine { refusal, line: 0 })
 }
 
+/// The view record (KERNEL.4): the program translated and built into the
+/// sheet model as [`english_build_xlsx`] builds it, nothing written, and one
+/// window of one sheet projected as the lines a viewport draws from
+/// (`view::Grid`, the first projection through the kernel's projections
+/// seam). `sheet` is the sheet's name, compared as Excel compares names;
+/// `window` an A1 rectangle, or `None` for the sheet's whole extent. The
+/// English stage's refusal with its line, or the build's or the view's
+/// (`view-sheet-unknown`, `view-window-not-a-range`) with line 0.
+pub fn english_view(
+    program_text: &str,
+    prelude_text: &str,
+    vocab_texts: &[&str],
+    sheet: &str,
+    window: Option<&str>,
+) -> Result<String, RefusalAtLine> {
+    let g = load_grammar(prelude_text, vocab_texts)?;
+    let t = g.translate_program_at(program_text)?;
+    let at_line_0 = |refusal| RefusalAtLine { refusal, line: 0 };
+    let model = crate::build::build_workbook(program_text, &t.vla, prelude_text, vocab_texts)
+        .map_err(at_line_0)?;
+    let window = crate::view::window_of(&model, sheet, window).map_err(at_line_0)?;
+    Ok(crate::view::view_text(&model, &window))
+}
+
 /// The reader's surface (PORT.8, slice 8a): a workbook's bytes, an OOXML
 /// package or an OpenDocument spreadsheet (8e), as the relations of
 /// `REFLECT`, one row a line in the fixed order (`reflect::reflect_text`);

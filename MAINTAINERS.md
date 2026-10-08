@@ -31,6 +31,7 @@ than one path reads it:
 
 - `core/src/abi.rs`: the record every door reads; the ABI number stays 1.
 - `core/src/kernel.rs`: the seams as data, the `Engine` and `Projection` traits, the host profiles.
+- `core/src/view.rs`: the view record's shape, which every viewport parses; a row added or respelled regenerates the goldens under `scripts/view/` and amends the treaty's oracle 11.
 - `core/data/headtable.vla`, exported from `src/VLA_HeadTable.bas`: the forms, which is to say the syscall table.
 - `core/data/messages.vla`, exported from `src/VLA_Messages.bas`: the refusals; a team adds inside its own id family's block.
 - `scripts/polyglotta/english.vla`: the base corpus; a sentence another seam needs is a request to the sentences seam (`SD-7`).

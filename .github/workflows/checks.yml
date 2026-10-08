@@ -83,6 +83,9 @@ jobs:
       - name: the core reproduces the audit goldens, whole (PORT.8 slice 8d, oracle 10)
         shell: pwsh
         run: pwsh -NoProfile -File tools/check_audit_golden.ps1 -Impl target/debug/frazaro
+      - name: the core reproduces the view goldens, whole (KERNEL.4, oracle 11)
+        shell: pwsh
+        run: pwsh -NoProfile -File tools/check_view_golden.ps1 -Impl target/debug/frazaro
       - name: build the web page from the wasm core (PORT.6, slice 6h)
         shell: pwsh
         run: |

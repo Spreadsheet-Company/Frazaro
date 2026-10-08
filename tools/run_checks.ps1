@@ -98,7 +98,10 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # 2026-10-06, KERNEL.1: 49 - check_kernel_boundary.ps1 (the kernel bakes in
 # exactly its four data tables, and no sentence rule or English sentence
 # enters core/src/ outside a test module beyond the pinned exceptions).
-$expectedAtLeast = 49
+# 2026-10-07, KERNEL.4: 50 - check_view_golden.ps1 (the view record of each
+# fixture window reproduced whole, each golden's line count a floor, the
+# fixed order read off the golden itself).
+$expectedAtLeast = 50
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---

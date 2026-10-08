@@ -63,7 +63,7 @@ over the sources.
 | paragraphs | a library of sentences with named slots (`G-USE`) | the build golden; the stamp hashing every file used |
 | engines | an implementation of `kernel::Engine` under a head-table symbol (`PORT.9`) | a proof file of its kind, clingo beside it where it applies |
 | formats and hosts | a `reflect::Source` to read, a writer beside it, a `kernel::HostProfile` per door | the reflect, diff and audit goldens; the build golden |
-| projections | an implementation of `kernel::Projection` (`KERNEL.4`) | a view golden |
+| projections | an implementation of `kernel::Projection`; the grid, `view::Grid`, is the first (`KERNEL.4`) | a view golden under `scripts/view/` (`check_view_golden.ps1`); the free one: the view of a built model's sheet, whole, is `reflect` of its file |
 
 A feature that fits no seam is a seam to design first, on the roadmap, not
 a feature to merge. `MAINTAINERS.md` maps the paths to the seams and names

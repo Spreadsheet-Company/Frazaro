@@ -13,7 +13,7 @@ use super::{sheet_prefix, RefersTo, Row, Sink, Value};
 use crate::form::Form;
 use crate::printer::write_datum;
 
-fn quoted(s: &str) -> String {
+pub(crate) fn quoted(s: &str) -> String {
     write_datum(&Form::string(s))
 }
 

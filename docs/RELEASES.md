@@ -6,6 +6,21 @@
 
 ### What changed
 
+- **For the command line and for embeddings: `frazaro view`, the view
+  record.** A program is translated and built into the sheet model in
+  memory, nothing is written, and one window of one sheet is printed as
+  the lines a viewport draws from: every sheet, the window and the sheet's
+  extent, its gridlines, columns and formats, then each cell's value or
+  formula exactly as `reflect` spells it, its format, and the row of the
+  sentence that wrote it, so a cell can be traced to its sentence and a
+  sentence to its cells. Without `--window` the whole sheet is shown; a
+  sheet the program does not make is refused naming the ones it does, and
+  a window that is not a rectangle of cells is refused as written. The
+  same record comes out of the engine's C surface as `frazaro_view`, for
+  a viewport to draw from. Six goldens under `scripts/view/` hold the
+  record, and the view of a built workbook's sheets is checked against
+  `reflect` of the written file (KERNEL.4, the first projection through
+  the kernel's projections seam).
 - **For phrasebook authors: the sheet helpers, so that sentences about
   sheets can be written.** The runtime gains eight helpers a macro can
   call, each refusing in words before Excel's own error could appear: add

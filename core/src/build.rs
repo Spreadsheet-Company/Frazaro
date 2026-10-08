@@ -128,6 +128,8 @@ pub fn frazaro_sheet(program_text: &str, styles: &mut Styles) -> Sheet {
                 style: sentence,
             },
         );
+        // The sentence's own row wrote its cell, and the mark beside it.
+        sheet.sentences.insert((row, 2), row);
         if !line.trim_matches(' ').is_empty() {
             sheet.set(
                 row,
@@ -137,6 +139,7 @@ pub fn frazaro_sheet(program_text: &str, styles: &mut Styles) -> Sheet {
                     style: ok,
                 },
             );
+            sheet.sentences.insert((row, 3), row);
         }
     }
     sheet
@@ -637,6 +640,7 @@ impl<'a> Walker<'a> {
                 );
             }
         }
+        sh.wrote(range, self.line);
         Ok(())
     }
 
@@ -670,6 +674,7 @@ impl<'a> Walker<'a> {
                 } else {
                     self.wb.sheets[sheet].set_formula(range, &text, 0);
                 }
+                self.wb.sheets[sheet].wrote(range, self.line);
                 return Ok(());
             }
         }

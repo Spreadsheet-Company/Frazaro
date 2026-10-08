@@ -342,7 +342,7 @@ pub fn metadata_xml() -> String {
 /// A number as the file holds it. Rust's shortest round-trip spelling,
 /// which never uses an exponent, is one Excel reads; a value Excel cannot
 /// hold (not finite) is written as its `#NUM!` error.
-fn number_text(v: f64) -> Option<String> {
+pub(crate) fn number_text(v: f64) -> Option<String> {
     v.is_finite().then(|| format!("{v}"))
 }
 

@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "SEC.15"
+Public Const VLA_MESSAGES_VERSION As String = "KERNEL.4"
+' KERNEL.4: view-sheet-unknown and view-window-not-a-range under the source
+' VLA-View, the view record's refusals, raised by the core's frazaro view
+' (and a page through frazaro_view) and by no VBA site, as the writer's
+' and the reader's are: the add-in shows the sheet itself.
+'
 ' SEC.15: build-formula-egress under VLA-Build, the writer's refusal of a
 ' formula that reaches outside the workbook on its own, raised by the
 ' core's frazaro build (and the web page through it) and by no VBA site;
@@ -1457,6 +1462,17 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "reflect-not-a-workbook", 5, "VLA-Reflect", "{path} is not a workbook frazaro reflect can read: {why}."
     AddMsg m, "reflect-xml-refused", 5, "VLA-Reflect", "{path} has a part this version refuses to read: {part}, {why}. Nothing past that point was read."
     AddMsg m, "reflect-unsupported", 5, "VLA-Reflect", "{path} has a shape this version does not read: {part}, {why}."
+
+    ' KERNEL.4: the view record's refusals. frazaro view (the core's
+    ' command-line door, and a page through frazaro_view) builds a program
+    ' into the sheet model in memory, writes nothing, and prints one window
+    ' of one sheet as the lines a viewport draws from. A sheet the program
+    ' does not make is refused naming the ones it does; a window that is
+    ' not a rectangle of cells is refused as written. Raised from the
+    ' export by the core alone, as the writer's and the reader's are; the
+    ' add-in shows the sheet itself, so no VBA site raises them.
+    AddMsg m, "view-sheet-unknown", 9, "VLA-View", "The program makes no sheet named {name}; it makes {sheets}. Name one of those with --sheet."
+    AddMsg m, "view-window-not-a-range", 5, "VLA-View", "{text} is not a window frazaro view can show. Write two corners of a rectangle, A1:F20, or one cell, B2; a whole column or row is not a window."
 End Sub
 
 Private Sub AddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _

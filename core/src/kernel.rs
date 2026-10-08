@@ -12,8 +12,8 @@
 //! `tools/check_kernel_boundary.ps1` pins the rule over `core/src/`. This
 //! module writes the seams down as data, so that a test can hold their
 //! counts and `frazaro describe` (`KERNEL.18`) can print them, and names the
-//! two traits whose first implementations later items land: [`Engine`]
-//! (`PORT.9`) and [`Projection`] (`KERNEL.4`).
+//! two traits: [`Engine`], whose first implementations `PORT.9` lands, and
+//! [`Projection`], whose first is the grid of `crate::view` (`KERNEL.4`).
 
 use crate::messages::Refusal;
 use crate::sheet::{A1Range, Workbook};
@@ -69,8 +69,8 @@ pub const SEAMS: [Seam; 5] = [
         name: "projections",
         entrance: "an implementation of kernel::Projection",
         oracle: "a view golden per projection",
-        implementations: &[],
-        deferred_to: "KERNEL.4",
+        implementations: &["grid, the view record of one window (view::Grid)"],
+        deferred_to: "",
     },
 ];
 
@@ -129,9 +129,10 @@ pub struct Window {
 }
 
 /// A projection: a pure function from the model and a window to lines, the
-/// shape every door prints (`SD-23`). The grid is the first (`KERNEL.4`),
-/// the sentence pane the second, the dependency cone drawn as a diagram the
-/// third (`KERNEL.12`). A projection never edits the model.
+/// shape every door prints (`SD-23`). The grid is the first
+/// (`crate::view::Grid`, `KERNEL.4`), the sentence pane the second, the
+/// dependency cone drawn as a diagram the third (`KERNEL.12`). A projection
+/// never edits the model.
 pub trait Projection {
     /// The projection's name, as `frazaro view` selects it.
     fn name(&self) -> &str;
@@ -215,13 +216,15 @@ mod tests {
     }
 
     #[test]
-    fn the_engines_and_projections_seams_are_named_and_empty_today() {
+    fn the_engines_seam_is_empty_today_and_the_projections_seam_has_its_grid() {
         let engines = seams().iter().find(|s| s.name == "engines").unwrap();
         assert!(engines.implementations.is_empty());
         assert_eq!(engines.deferred_to, "PORT.9");
         let projections = seams().iter().find(|s| s.name == "projections").unwrap();
-        assert!(projections.implementations.is_empty());
-        assert_eq!(projections.deferred_to, "KERNEL.4");
+        assert_eq!(projections.implementations.len(), 1);
+        assert_eq!(projections.deferred_to, "");
+        assert_eq!(crate::view::Grid.name(), "grid");
+        assert!(projections.implementations[0].starts_with("grid"));
         let paragraphs = seams().iter().find(|s| s.name == "paragraphs").unwrap();
         assert_eq!(paragraphs.deferred_to, "G-USE");
     }

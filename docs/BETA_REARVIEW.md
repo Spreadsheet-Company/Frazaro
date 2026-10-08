@@ -17479,7 +17479,7 @@ over.
   with its blank result table and the owner fills it. *Pays into:*
   `KERNEL.5` and every interface item after it; the LEARNABILITY
   department, since the same tasks measure learning. `~days`
-- **`KERNEL.4` — the view record.** *Substrate, verified:* the walker in
+- ✅ **`KERNEL.4` — the view record.** *Substrate, verified:* the walker in
   `build.rs` knows which sentence wrote which cell, since its refusals quote
   the sentence; the sheet model holds value, formula, shared formula,
   dynamic formula and style. *The work:* the record's layout (cells of a
@@ -17489,6 +17489,73 @@ over.
   values are literals and folded formulas until `KERNEL.7`; the record says
   which kind each value is, so the viewport never shows a stale number as a
   computed one. `~days`
+  *Built 2026-10-07, awaiting owner test.* What landed: `core/src/view.rs`,
+  registered in `lib.rs`: `Grid`, the first implementation of
+  `kernel::Projection` (its name `grid`); `window_of`, the sheet found as
+  Excel compares names and the range parsed as written or the whole extent
+  (`A1` alone for an empty sheet), refusing `view-sheet-unknown` with the
+  model's sheets named and `view-window-not-a-range` with the text as
+  written; `view_text`, the record as lines. The record's shape, fixed in
+  the treaty's oracle 11: every `sheet` row of the model; one `window`, one
+  `extent` (or `none`), one `gridlines`; the window's `column` rows (width
+  or `none`, `shown` or `hidden`, format or `none`); `format` rows for 0 and
+  every format the window uses (the fill as six hex digits or `none`,
+  `general` or `text`, `wrap` or `nowrap`); then the cells in row-major
+  order, each `cell` or `formula` row spelled by `reflect::print` (a shared
+  child's text moved then stripped, as the reader does it; a number no
+  cell holds as the reader reads the writer's `#NUM!`), followed by `style`
+  when the format is not 0 and `sentence`, the row that wrote it. The model
+  carries the provenance: `Sheet.sentences`, a map from cell to program
+  row, filled by the walker's two write paths and by the `Frazaro` sheet
+  for its own rows (`Sheet::wrote`), so the view is drawn from the model
+  and nothing else (CALLOSUM §7, decisions 1 and 2). `api::english_view` is
+  the surface; `abi::frazaro_view` the export (the build's three inputs, a
+  sheet and a window, empty for the extent; the ABI number stays 1);
+  `frazaro view <program> --sheet <name> [--window <A1:F20>]` the door, a
+  missing `--sheet` a usage error. Six goldens under `scripts/view/`, the
+  door's own output saved CRLF: the `Frazaro` sheet whole (66 lines),
+  `Output` at `A1:F20` (21) and clipped to `B2:C3` (15), `Data` (9), and
+  the second fixture's `Output` (11) and `Checks` (9) viewed without their
+  model. `check_view_golden.ps1`, the 50th check: each golden whole against
+  the door with the corpus files named, each line count a floor, the fixed
+  order read off the golden (one `window`, `extent` and `gridlines` each;
+  format 0 first and ascending; cells in row-major order with their `style`
+  and `sentence` rows right after; every body row on the window's sheet);
+  `-Control` on a fake, a mutant that flips the first cell or formula row,
+  and a copy with a format row moved below a cell row. `prove.ps1` gains
+  the ninth kind, six rows, its fake answering by program, sheet and
+  window. The two refusals are in `VLA_Messages.bas` under `VLA-View` and
+  exported (`messages.vla` 590 entries, the floor raised);
+  `VLA_MESSAGES_VERSION` is `KERNEL.4`. The `SEAMS` table names the grid
+  as the projections seam's implementation. *Verified:* `cargo fmt --check`
+  clean, `clippy -D warnings` clean, `cargo test --workspace` 227 passed
+  and 4 ignored (six new: the record's spelling and order on a hand-made
+  model, the clip, the empty window and the empty sheet, `window_of`'s
+  answers, the six goldens, the free oracle over both fixtures,
+  `frazaro_view` through the record); `check_view_golden.ps1` and its
+  control OK; `prove.ps1 -Impl` passes the six view rows;
+  `check_kernel_boundary`, `check_crate_package`, `check_data_exports`,
+  `check_message_slots`, `check_no_vba_advice`, `check_spdx`,
+  `check_crate_data` OK; the wasm module's import section still empty. *The
+  free oracle, held:* for both build fixtures the `sheet`, `cell` and
+  `formula` rows of each sheet viewed whole are `reflect`'s rows for the
+  written file, row for row. *Not done, on purpose:* no `--into` (a host
+  workbook's own sheets are not in the model; reading them in is
+  `KERNEL.11`'s missing arrow); no choice of a projection by name (one
+  exists; `KERNEL.12` adds the flag with the second); the page draws
+  nothing yet (`KERNEL.5`, after `KERNEL.3`'s numbers). *Owner's test:*
+  `cargo test --workspace`, `powershell -File tools\run_checks.ps1`, then
+  read `scripts\view\fixture_output.vla` beside
+  `scripts\build\fixture_golden.xlsx` open in Excel: B1 is 7, B2 is 5, and
+  B3, C2 to C4 and D2 hold the formulas the record names, each `sentence`
+  row naming the line of `scripts\build\fixture.txt` that put it there; no
+  live Excel pass applies. *Closed 2026-10-07, owner-tested and committed:*
+  `cargo test --workspace` 227 passed, the check and its control OK,
+  `run_checks.ps1` 50 of 50 (the other session's phrasebook export done),
+  the door's record and its two refusals reproduced by hand, the fixture
+  read in Excel against the record (Output's seven cells and their
+  sentences, the room's columns and marks), and the add-in's full pass:
+  pure 1876, host 315, DSL 2346, goldens and verify reports clean.
 - **`KERNEL.5` — the viewport.** *The work:* a canvas renderer of the
   window (a few hundred lines of script in the template, no library;
   CALLOSUM §7 decision 5), selection and scrolling as ephemeral state the
@@ -30602,6 +30669,7 @@ numbers. **Quoting a correction is not applying it.**
 ## 🔧🪟🌍 MACHINE + PRODUCT + COMMONS · THE KERNEL LINE
 
 - ✅ **KERNEL.1 — the boundary and the seams: what the kernel is, and the five ways in.** Written down and pinned: the kernel holds forms and their expansion, the emitters, the sheet model, recalculation over a declared subset, the relation set and the ABI, and never holds English, message text, a default, chrome, a format beyond a trait or a door. Five seams are the only entrances: sentences (a phrasebook with proofs), paragraphs (a library, `G-USE`), engines (tables in, a table out, a head-table row, a proof-file kind), formats and hosts (the `Source` trait, a `Sink` beside it, a host profile per door), projections (a pure function from model and window to a record). The rule: the kernel grows a seam, never a feature. A section per seam in `CONTRIBUTING.md` names the oracle a change must pass, and `check_kernel_boundary.ps1` pins the data-only rule (no sentence rule, no message text, no default in `core/src/`; the counts are floors). *Serves:* every item below. `~days` Built, owner-tested and committed 2026-10-06; the entry above carries the record: `core/src/kernel.rs`, `tools/check_kernel_boundary.ps1` with its control, `CONTRIBUTING.md`'s seams section, `MAINTAINERS.md`, the runner's floor at 48.
+- ✅ **KERNEL.4 — the view record: the first projection.** `frazaro view <program.txt> --sheet <name> [--window <A1:F20>]` and `frazaro_view` in the ABI: the program built into the sheet model in memory, nothing written, and one window of one sheet printed as the lines a viewport draws from: every sheet, the window, the extent, gridlines, the window's columns and formats, then each cell in row order as `reflect`'s own `cell` or `formula` row with its `style` row and its `sentence` row, the row of the sentence that wrote it. `view::Grid` is `kernel::Projection`'s first implementation; the walker records the row that wrote each cell in the model (`Sheet.sentences`), so the view is drawn from the model alone (CALLOSUM §7, decisions 1 and 2). Six goldens under `scripts/view/`, oracle 11 in the treaty, `check_view_golden.ps1` (the 50th check, with its control), `prove.ps1`'s ninth kind, two catalogue refusals under `VLA-View`; the free oracle holds for both build fixtures, the view of each sheet whole being `reflect` of the written file row for row. Built, owner-tested and committed 2026-10-07; the entry above carries the record. Deferred by name: `--into` to `KERNEL.11`, a projection chosen by name to `KERNEL.12`, the page's viewport to `KERNEL.5` after `KERNEL.3`. `~days`, taken in a day.
 
 ## 🛡 ADVERSARY · SECURITY
 

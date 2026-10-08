@@ -599,3 +599,5 @@
 (message reflect-not-a-workbook 5 "VLA-Reflect" "{path} is not a workbook frazaro reflect can read: {why}.")
 (message reflect-xml-refused 5 "VLA-Reflect" "{path} has a part this version refuses to read: {part}, {why}. Nothing past that point was read.")
 (message reflect-unsupported 5 "VLA-Reflect" "{path} has a shape this version does not read: {part}, {why}.")
+(message view-sheet-unknown 9 "VLA-View" "The program makes no sheet named {name}; it makes {sheets}. Name one of those with --sheet.")
+(message view-window-not-a-range 5 "VLA-View" "{text} is not a window frazaro view can show. Write two corners of a rectangle, A1:F20, or one cell, B2; a whole column or row is not a window.")

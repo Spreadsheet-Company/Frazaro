@@ -96,6 +96,19 @@ usage:
                          line in a fixed order, nothing when there is
                          nothing to report; with --counts, the six counts
                          and the times alone
+  frazaro view <program.txt> --sheet <name> [--window <A1:F20>] [--prelude <prelude.vla>] [--phrasebook <file.vla> ...] [--allow-raw]
+                         the view record (KERNEL.4): the program translated
+                         and built as build builds it, into the sheet model
+                         alone with nothing written, and one window of one
+                         sheet printed as the lines a viewport draws from -
+                         every sheet, the window, the sheet's extent and
+                         gridlines, the window's columns and formats, then
+                         cell by cell in row order the value or the formula
+                         as reflect spells it, the cell's format and the row
+                         of the sentence that wrote it; without --window,
+                         the sheet's whole extent; a sheet the program does
+                         not make, or a window that is not a rectangle of
+                         cells, is refused by name
   frazaro version        the version of the core this door is built on
   frazaro help           this text
 
@@ -619,6 +632,67 @@ fn build(args: &[String]) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// `frazaro view <program.txt> --sheet <name> [--window <A1:F20>] ...`
+/// (KERNEL.4): the program translated as translate-vla translates it and
+/// built into the sheet model as build builds it, nothing written, and one
+/// window of one sheet printed as the view record, one form a line in the
+/// fixed order; without --window, the sheet's whole extent. A refusal, the
+/// translation's, the build's or the view's, goes to stderr with exit 1; a
+/// missing --sheet is a usage error.
+fn view(args: &[String]) -> ExitCode {
+    let (Some(program), Some(sheet)) = (args.first(), option_after(args, "--sheet")) else {
+        eprintln!(
+            "usage: frazaro view <program.txt> --sheet <name> [--window <A1:F20>] [--prelude <prelude.vla>] [--phrasebook <file.vla> ...] [--allow-raw]"
+        );
+        return ExitCode::from(2);
+    };
+    let allow_raw = args.iter().any(|a| a == "--allow-raw");
+    let window = option_after(args, "--window");
+    if !is_file(program) {
+        return refuse_missing("english-program-file-not-found", program);
+    }
+    let prelude_text = match prelude_of(args) {
+        Ok(p) => p,
+        Err(code) => return code,
+    };
+    let text = match read_text(program) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("frazaro: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    let (grammar, texts) = match load_books(&prelude_text, args, allow_raw) {
+        Ok(gt) => gt,
+        Err(code) => return code,
+    };
+    let translation = match grammar.translate_program(&text) {
+        Ok(t) => t,
+        Err(refusal) => {
+            eprintln!("{refusal}");
+            return ExitCode::from(1);
+        }
+    };
+    let texts: Vec<&str> = texts.iter().map(String::as_str).collect();
+    let model =
+        match frazaro_core::build::build_workbook(&text, &translation.vla, &prelude_text, &texts) {
+            Ok(wb) => wb,
+            Err(refusal) => {
+                eprintln!("{refusal}");
+                return ExitCode::from(1);
+            }
+        };
+    let window = match frazaro_core::view::window_of(&model, sheet, window) {
+        Ok(w) => w,
+        Err(refusal) => {
+            eprintln!("{refusal}");
+            return ExitCode::from(1);
+        }
+    };
+    print!("{}", frazaro_core::view::view_text(&model, &window));
+    ExitCode::SUCCESS
+}
+
 /// Milliseconds since `since`, for the counts' lines.
 fn ms_since(since: std::time::Instant) -> f64 {
     since.elapsed().as_secs_f64() * 1000.0
@@ -964,6 +1038,7 @@ fn main() -> ExitCode {
         Some("reflect") => reflect(&args[1..]),
         Some("diff") => diff(&args[1..]),
         Some("audit") => audit(&args[1..]),
+        Some("view") => view(&args[1..]),
         Some("version") | Some("--version") | Some("-V") => {
             let core = frazaro_core::version();
             let abi = frazaro_core::frazaro_abi_version();

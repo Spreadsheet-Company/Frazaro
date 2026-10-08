@@ -236,6 +236,11 @@ pub struct Sheet {
     pub active_cell: (u32, u32),
     /// How many shared formulas the sheet holds; the next one's index.
     pub shared_formulas: u32,
+    /// The row of the sentence that wrote each cell, by (row, column): the
+    /// program line, which is the row of the `Frazaro` sheet that holds the
+    /// sentence (KERNEL.4, the view record). Filled by the build's walker;
+    /// empty for a sheet nothing wrote by sentence.
+    pub sentences: BTreeMap<(u32, u32), u32>,
 }
 
 impl Sheet {
@@ -247,6 +252,20 @@ impl Sheet {
             gridlines: true,
             active_cell: (1, 1),
             shared_formulas: 0,
+            sentences: BTreeMap::new(),
+        }
+    }
+
+    /// Record that the sentence on program row `row_of_sentence` wrote every
+    /// cell of `range`, after the cells are set.
+    pub fn wrote(&mut self, range: A1Range, row_of_sentence: u32) {
+        if row_of_sentence == 0 {
+            return;
+        }
+        for row in range.top..=range.bottom {
+            for col in range.left..=range.right {
+                self.sentences.insert((row, col), row_of_sentence);
+            }
         }
     }
 

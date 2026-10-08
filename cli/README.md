@@ -222,6 +222,7 @@ byte:
 | `frazaro reflect <file.xlsx|.ods> [--counts] [--cone <Sheet!A1> ...]` | the workbook as relations, or counts alone |
 | `frazaro diff <old.xlsx|.ods> <new.xlsx|.ods> [--counts]` | what differs between two workbooks |
 | `frazaro audit <file.xlsx|.ods> [--counts]` | where the risks are, one finding a line |
+| `frazaro view <program.txt> --sheet <name> [--window <A1:F20>] [--prelude ...] [--phrasebook ...]` | one window of the program's build as the view record, the lines a viewport draws from |
 | `frazaro load <phrasebook.vla> [--prelude <prelude.vla>] [--allow-raw]` | what the phrasebook holds, its proofs run |
 | `frazaro prove <phrasebook.vla> [--prelude <prelude.vla>] [--allow-raw]` | every failing proof, then `PASS n/n` or `FAIL k/n` |
 | `frazaro compile <program.vla> [--prelude <prelude.vla>]` | a program already in VLA, compiled to VBA |
@@ -564,6 +565,86 @@ internal audit wants of a model it may not show.
 
 Refusals, exit 1, are the reader's (under `reflect`, above); the whole file
 is read before the first finding, so nothing is printed before one.
+
+### `frazaro view`
+
+```text
+frazaro view <program.txt> --sheet <name> [--window <A1:F20>] [--prelude <prelude.vla>] [--phrasebook <file.vla> ...] [--allow-raw]
+```
+
+The program is translated and built exactly as `build` builds it, into the
+sheet model in memory, and nothing is written; one window of one sheet of
+that model is printed as the view record, the lines a viewport draws from,
+one form a line in the notation of the language's proof corpus, in an
+order that never changes, so that the output is a golden. For the seven
+sentences of `hello.txt` above:
+
+```text
+frazaro view hello.txt --sheet Output --window A1:F20
+```
+
+prints
+
+```text
+(sheet "Frazaro" visible)
+(sheet "Output" visible)
+(sheet "data" visible)
+(window "Output" "A1:F20")
+(extent "Output" "B1:D4")
+(gridlines "Output" on)
+(format 0 none general nowrap)
+(cell "Output" "B1" 7)
+(sentence "Output" "B1" 8)
+(cell "Output" "B2" 5)
+(sentence "Output" "B2" 1)
+(formula "Output" "C2" "=B2+B3")
+(sentence "Output" "C2" 3)
+(formula "Output" "D2" "=IFS(B2>3,\"big\",TRUE,\"small\")")
+(sentence "Output" "D2" 4)
+(formula "Output" "B3" "=B2*2")
+(sentence "Output" "B3" 2)
+(formula "Output" "C3" "=B3+B4")
+(sentence "Output" "C3" 3)
+(formula "Output" "C4" "=B4+B5")
+(sentence "Output" "C4" 3)
+```
+
+First every sheet of the model, in tab order; then the window as asked, its
+sheet spelled as the model spells it; the sheet's `extent`, the rectangle
+that holds its cells, or `none` for a sheet with nothing in it, so that a
+viewport knows how far there is to scroll; whether the sheet shows
+gridlines; a `column` row for each column of the window that has settings
+(its width in characters or `none`, `shown` or `hidden`, its format or
+`none`), which is how a window over the `Frazaro` sheet learns that its
+column A is hidden and its columns B and C are wide and coloured; a
+`format` row for format 0 and every format the window uses (the fill as
+six hex digits or `none`, `general` or `text`, `wrap` or `nowrap`); then
+the cells in row order, each as `reflect` prints the same cell of the
+written file, a `cell` row for a value or a `formula` row for a formula's
+text, followed by its `style` row when its format is not 0 and its
+`sentence` row, the row of the sentence that wrote it, which is the
+program's line and the row of the `Frazaro` sheet that holds the sentence.
+So `B1` holds 7 because of line 8, `Put 7 into cell B1 of sheet Output.`,
+and `C2`, `C3` and `C4` hold the one filled formula of line 3, each with
+its references moved as Excel shows them. A `cell` row is a value the
+sentences put there; a `formula` row is text the host computes when the
+file opens, since the core computes nothing, and the record never shows
+one as the other.
+
+Without `--window` the sheet's whole extent is shown: `frazaro view
+hello.txt --sheet Frazaro` prints the room, both columns with their widths
+and formats and every sentence with its OK mark, each by its own row. A
+sheet's name is matched as Excel matches one, without case, and printed as
+the model spells it. The record is drawn from the model, never from a
+file, so `view` runs wherever `build` would and needs no `--out`; the same
+record comes out of the engine's C surface as `frazaro_view`, for a
+viewport to draw from.
+
+Refusals, exit 1: a sheet the program does not make, naming the ones it
+does (`view-sheet-unknown`); a window that is not a rectangle of cells, a
+whole column or row included (`view-window-not-a-range`); and before
+those, the translation's and the build's refusals, as in `build`. A
+missing `--sheet` is a usage error, exit 2.
 
 ### `frazaro load`
 

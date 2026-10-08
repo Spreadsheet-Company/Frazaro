@@ -111,6 +111,9 @@ detail.
   `frazaro_translate_vla` and `frazaro_translate_vba`; `frazaro_build_xlsx`;
   the reader's three, `frazaro_reflect`, `frazaro_audit` and `frazaro_diff`,
   a file's bytes and its name in and the lines the command line prints out;
+  `frazaro_view`, the build's inputs with a sheet and a window in and the
+  view record out, the lines a viewport draws from (the page's own viewport
+  is `KERNEL.5` on the roadmap; nothing on the page calls it yet);
   `frazaro_vocab_gate`; and the version. Every answer is one record in the
   module's memory: four little-endian `u32` (status, line, id length, text
   length), then the id and the text. A build's status-0 record is the one

@@ -43,6 +43,14 @@
 //! file`. Status 1 is the reader's refusal with line 0, there being no
 //! program line; status 2 a name that is not UTF-8. The ABI number stays 1
 //! again: three exports added, nothing changed.
+//!
+//! **The view** (KERNEL.4): [`frazaro_view`] takes the build's three inputs,
+//! a sheet's name and a window (`A1:F20`; empty for the sheet's whole
+//! extent), and answers with the view record `frazaro view` prints for the
+//! same program: the lines a viewport draws from, the model built in memory
+//! and never written. Status 1 is a sentence's refusal with its line, or the
+//! build's or the view's with line 0. The ABI number stays 1: one export
+//! added, nothing changed.
 
 use std::alloc::{alloc, dealloc, Layout};
 
@@ -302,6 +310,70 @@ pub unsafe extern "C" fn frazaro_build_xlsx(
             let digest = crate::sha256::sha256_hex(&bytes);
             record(STATUS_OK, 0, &digest, &bytes, out_len)
         }
+        Err(e) => record(
+            STATUS_REFUSED,
+            e.line,
+            &e.refusal.id,
+            e.refusal.text.as_bytes(),
+            out_len,
+        ),
+    }
+}
+
+/// `frazaro view` over C linkage (KERNEL.4): the program, the prelude and
+/// the phrasebooks as [`frazaro_build_xlsx`] takes them, then the sheet's
+/// name and the window's text (`A1:F20`; empty, or null with length 0, for
+/// the sheet's whole extent), answered with the view record, the lines the
+/// door prints for the same program (`api::english_view`). Status 1 is a
+/// sentence's refusal with its line, or the build's or the view's with
+/// line 0; status 2 an input that is not UTF-8, named.
+///
+/// # Safety
+/// As [`frazaro_translate_vla`]: each pointer came from [`frazaro_alloc`]
+/// with its length, or is null with length 0; `out_len` is writable or null.
+#[no_mangle]
+pub unsafe extern "C" fn frazaro_view(
+    program: *const u8,
+    program_len: u32,
+    prelude: *const u8,
+    prelude_len: u32,
+    books: *const u8,
+    books_len: u32,
+    sheet: *const u8,
+    sheet_len: u32,
+    window: *const u8,
+    window_len: u32,
+    out_len: *mut u32,
+) -> *mut u8 {
+    let (program, prelude, vocabs) = match unsafe {
+        inputs(
+            program,
+            program_len,
+            prelude,
+            prelude_len,
+            books,
+            books_len,
+            out_len,
+        )
+    } {
+        Ok(t) => t,
+        Err(p) => return p,
+    };
+    let sheet = match text(unsafe { bytes(sheet, sheet_len) }, "the sheet", out_len) {
+        Ok(s) => s,
+        Err(p) => return p,
+    };
+    let window = match text(unsafe { bytes(window, window_len) }, "the window", out_len) {
+        Ok(w) => w,
+        Err(p) => return p,
+    };
+    let window = if window.is_empty() {
+        None
+    } else {
+        Some(window)
+    };
+    match api::english_view(program, prelude, &vocabs, sheet, window) {
+        Ok(lines) => record(STATUS_OK, 0, "", lines.as_bytes(), out_len),
         Err(e) => record(
             STATUS_REFUSED,
             e.line,
@@ -707,6 +779,76 @@ mod tests {
             String::from_utf8(r.bytes).unwrap(),
             "the program is not UTF-8"
         );
+    }
+
+    /// `frazaro_view` over a program with the prelude and the books given,
+    /// a sheet's name and a window's text (empty for the whole extent).
+    fn view(program: &[u8], books: &[&str], sheet: &[u8], window: &[u8]) -> Rec {
+        unsafe {
+            let (pp, pl) = put(program);
+            let (qp, ql) = put(PRELUDE.as_bytes());
+            let joined = books.join("\0");
+            let (bp, bl) = put(joined.as_bytes());
+            let (sp, sl) = put(sheet);
+            let (wp, wl) = put(window);
+            let mut out_len = 0u32;
+            let ptr = frazaro_view(pp, pl, qp, ql, bp, bl, sp, sl, wp, wl, &mut out_len);
+            frazaro_free(pp, pl);
+            frazaro_free(qp, ql);
+            frazaro_free(bp, bl);
+            frazaro_free(sp, sl);
+            frazaro_free(wp, wl);
+            take(ptr, out_len)
+        }
+    }
+
+    #[test]
+    fn a_view_comes_back_as_the_lines_the_door_prints() {
+        // The view goldens through the record: the first window of each
+        // fixture, whole and clipped, and the whole extent for an empty window.
+        let r = view(FIXTURE.as_bytes(), &[ENGLISH], b"Output", b"A1:F20");
+        assert_eq!((r.status, r.line, r.id.as_str()), (0, 0, ""));
+        assert_eq!(
+            r.text,
+            golden(include_str!("../../scripts/view/fixture_output.vla"))
+        );
+        let r = view(FIXTURE.as_bytes(), &[ENGLISH], b"output", b"B2:C3");
+        assert_eq!(
+            r.text,
+            golden(include_str!("../../scripts/view/fixture_output_b2_c3.vla"))
+        );
+        let r = view(FIXTURE.as_bytes(), &[ENGLISH], b"Frazaro", b"");
+        assert_eq!(
+            r.text,
+            golden(include_str!("../../scripts/view/fixture_frazaro.vla"))
+        );
+        // The view's refusals, line 0; a sentence's, with its line.
+        let r = view(FIXTURE.as_bytes(), &[ENGLISH], b"Summary", b"");
+        assert_eq!(
+            (r.status, r.line, r.id.as_str()),
+            (1, 0, "view-sheet-unknown")
+        );
+        assert!(r.text.contains("Frazaro, Output, data"), "{}", r.text);
+        let r = view(FIXTURE.as_bytes(), &[ENGLISH], b"Output", b"A:A");
+        assert_eq!(
+            (r.status, r.line, r.id.as_str()),
+            (1, 0, "view-window-not-a-range")
+        );
+        let r = view(
+            b"Put 5 into cell B2.\nSet total to $5.\n",
+            &[ENGLISH],
+            b"Output",
+            b"",
+        );
+        assert_eq!(
+            (r.status, r.line, r.id.as_str()),
+            (1, 2, "english-unknown-character")
+        );
+        // The sheet or the window not UTF-8: named.
+        let r = view(FIXTURE.as_bytes(), &[ENGLISH], &[0xFF], b"");
+        assert_eq!((r.status, r.text.as_str()), (2, "the sheet is not UTF-8"));
+        let r = view(FIXTURE.as_bytes(), &[ENGLISH], b"Output", &[0xFF]);
+        assert_eq!((r.status, r.text.as_str()), (2, "the window is not UTF-8"));
     }
 
     /// `frazaro_reflect` or `frazaro_audit` over a file's bytes under a name.

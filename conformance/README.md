@@ -973,3 +973,98 @@ and is committed as the prediction, so that the owner's empty `git diff`
 after `? VlaWriteEgressGolden()` witnesses something. Oracle 1b's golden
 changes with the emitter, its eighteen formula writes now calls to
 `VlaSetFormula`; the comparison is unchanged in kind.
+
+## Amendment of 2026-10-07: oracle 11, the view golden (`KERNEL.4`, the view record)
+
+`KERNEL.4` draws one window of the sheet model as the view record, the
+first implementation of the kernel's projections seam (`CONTRIBUTING.md`,
+"The kernel and its seams"; `web/CALLOSUM.md` §7, decisions 1 and 2):
+`frazaro view` translates a program and builds it as `frazaro build`
+builds it, into the model in memory, writes nothing, and prints one window
+of one sheet as the lines a viewport draws from. As with oracles 7 to 10,
+the VBA reference has no output to reproduce here: it draws nothing, since
+Excel is its view. So the record's shape is fixed here in words before a
+viewport reads it; the goldens are the core's own output, blessed by the
+owner reading each against the fixture workbook open in Excel; and
+`SD-18` is untouched, the record being a projection of the model the
+writer builds and the reader reads, never a new meaning.
+
+**The record, its order and its spelling.** One form a row, in the proof
+corpus's notation. First `(sheet "<name>" visible)` for every sheet of
+the model in tab order (a model nothing has hidden); then one `(window
+"<sheet>" "<range>")`, the window as asked, its sheet spelled as the
+model spells it and its range as a reference spells one (`B2` for one
+cell, `A1:F20` for more); then one `(extent "<sheet>" "<range>")`, the
+sheet's used rectangle, or `(extent "<sheet>" none)` for a sheet with no
+cell; then one `(gridlines "<sheet>" on|off)`; then `(column "<sheet>"
+"<letters>" <width|none> shown|hidden <format|none>)` for every column of
+the window's span that has settings, in column order, the width in
+characters as `ColumnWidth` counts them; then `(format <index> <fill|none>
+general|text wrap|nowrap)` for format 0 and every format the window's
+columns and cells use, ascending, the fill six hex digits; then the cells
+of the window in row-major order, each as the reader spells it, `(cell
+"<sheet>" "<addr>" <value>)` for a value or `(formula "<sheet>" "<addr>"
+"<text>")` for a formula, followed by `(style "<sheet>" "<addr>" <index>)`
+when the cell's format is not 0 and `(sentence "<sheet>" "<addr>" <row>)`
+when a sentence wrote it, the row being the program line, which is the row
+of the `Frazaro` sheet holding that sentence. A value is a literal or a
+folded formula; a formula is text the host would compute, and the record
+never shows one as the other, since the core computes nothing until
+recalculation lands (`KERNEL.7`). A shared formula's children show the
+master's text with its references moved, as the reader shows them; a
+dynamic-array formula shows its text in each cell it was written to.
+
+**Without a window** the door shows the sheet's whole extent, or `A1`
+alone for a sheet with no cell. A sheet the program does not make is
+refused naming the ones it does (`view-sheet-unknown`); a text that is not
+a rectangle of cells, a whole column or row included, is refused as
+written (`view-window-not-a-range`); both under the source `VLA-View`, and
+both the core's alone, as the writer's and the reader's refusals are.
+
+- **11. The view golden.** Six rows, each a fixture program, a sheet and a
+  window to its expected record under `scripts/view/`:
+  `scripts/build/fixture.txt`, sheet `Frazaro`, no window, to
+  `fixture_frazaro.vla`; sheet `Output`, window `A1:F20`, to
+  `fixture_output.vla`; sheet `Output`, window `B2:C3`, to
+  `fixture_output_b2_c3.vla`; sheet `Data`, no window, to
+  `fixture_data.vla`; `scripts/build/into.txt`, sheet `Output`, no window,
+  to `into_output.vla`, and sheet `Checks`, no window, to
+  `into_checks.vla` (the second fixture viewed without its model: its
+  formulas read the model as text, which a view can show). The comparison
+  is the one oracle 8 makes: byte for byte after line endings are
+  normalized to LF and trailing blank lines are dropped; the goldens carry
+  no stamp.
+
+**The free oracle.** The window is drawn from the model; the file the
+writer writes is written from the model; the reader reads the file. So the
+`sheet`, `cell` and `formula` rows of a built model's sheet viewed whole
+are `reflect`'s rows for that sheet of the written file, row for row, and
+the core's own test (`core/src/view.rs`,
+`the_view_of_a_built_model_is_the_reflect_of_its_file`) holds it for both
+build fixtures. Oracles 7, 8 and 11 are one model seen three ways.
+
+The contract gains one command:
+
+- `<impl> view <program.txt> --sheet <name> [--window <A1:F20>] --prelude
+  <prelude.vla> --phrasebook <file.vla>` writes the record to stdout in
+  the order above and exits 0. A refusal, the translation's, the build's
+  or the view's, writes its message to stderr and exits 1; exit 3 says the
+  oracle is not attempted.
+
+`tools/check_view_golden.ps1` holds each golden's line count as a floor
+that never goes down, in the house style; compares the door's output to
+each golden whole, the corpus prelude and `english.vla` named, naming the
+first differing line; and reads the fixed order off each golden itself
+(the `sheet` rows, one `window`, one `extent`, one `gridlines`, the
+`column` rows, the `format` rows with 0 first and ascending, then the
+cells in row-major order with each cell's `style` and `sentence` rows
+right after it, every body row on the window's sheet), so that a golden
+regenerated by a printer that drifted fails on every push. Its `-Control`
+passes a fake that prints the golden, fails a mutant that changes one
+value, naming the line, and fails a copy of a golden with a format row
+moved below a cell row. The `core` CI job runs it after the build. The
+runner gains the kind: `tools/prove.ps1` inventories the six rows and
+scores them as it scores the reflect kind, the corpus prelude and
+`english.vla` named as the build kind names them; its `-Control` fake
+answers each from the golden of the window, found by the program's name,
+the sheet and the window, and its mutant changes one character.

@@ -33,9 +33,16 @@ it, and a web page runs it as WebAssembly.
   spelled as the formula bar shows it; `api::diff_relations` prints what
   differs between two workbooks; `api::audit_findings` prints the findings
   of six audit walks, one a line.
+- **A window of the model as the view record.** `api::english_view`
+  translates and builds a program into the sheet model, writes nothing, and
+  prints one window of one sheet as the lines a viewport draws from: every
+  sheet, the window and the sheet's extent, its columns and formats, then
+  each cell's value or formula as the reader spells it, its format and the
+  row of the sentence that wrote it. The first projection through the
+  kernel's projections seam (`kernel::Projection`, `view::Grid`).
 - **The same surface with C linkage.** `abi` exports the translation, the
-  build, the reader (the relations, the audit, the difference), the
-  phrasebook gate and the version as `extern "C"` functions, for a wasm
+  build, the reader (the relations, the audit, the difference), the view,
+  the phrasebook gate and the version as `extern "C"` functions, for a wasm
   host or a native embedding. Built for `wasm32-unknown-unknown`, the
   module's import section is empty.
 
@@ -87,8 +94,9 @@ the person's consent.
 
 The crate's rustdoc, on docs.rs once published, documents every module;
 `api` is the surface an embedding needs, and the modules under it
-(`english`, `emit`, `build`, `sheet`, `reflect`, `refers`) are the engine
-with its parts named as the add-in names them.
+(`english`, `emit`, `build`, `sheet`, `reflect`, `refers`, `view`) are the
+engine with its parts named as the add-in names them; `kernel` writes down
+the boundary and the five seams every one of them enters by.
 
 ## The contract
 
@@ -118,7 +126,8 @@ cargo build --release -p frazaro-core --target wasm32-unknown-unknown
 `frazaro_free`, an allocator pair; `frazaro_translate_vla`,
 `frazaro_translate_vba` and `frazaro_build_xlsx`; `frazaro_reflect`,
 `frazaro_audit` and `frazaro_diff`, a workbook's bytes with a name for its
-refusal in, the lines the command-line door prints out; `frazaro_vocab_gate`;
+refusal in, the lines the command-line door prints out; `frazaro_view`, the
+build's inputs with a sheet and a window in, the view record out; `frazaro_vocab_gate`;
 and `frazaro_version_text` and `frazaro_abi_version`. Every answer is one record
 in the module's memory: four little-endian `u32` (status, line, id length,
 text length), then the id and the text, the one record whose text is not

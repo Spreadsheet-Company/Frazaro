@@ -34,6 +34,13 @@
 //! `VLA_Runtime.bas` held to the egress golden: the writer asks it before
 //! it writes a formula, as the add-in's two backends do, and refuses one
 //! that reaches outside the workbook on its own.
+//!
+//! `kernel` (KERNEL.1) writes the kernel's boundary and its five seams down
+//! as data and names the two traits later items implement. `view`
+//! (KERNEL.4) is the first implementation of the projections seam: one
+//! window of the sheet model as the view record, a pure function of the
+//! program and the books, the lines a viewport draws from;
+//! `api::english_view` is its surface.
 
 pub mod abi;
 pub mod api;
@@ -54,6 +61,7 @@ pub mod reflect;
 pub mod sha256;
 pub mod sheet;
 pub mod version;
+pub mod view;
 
 /// The crate's version, which tools/check_version_twin.ps1 holds equal to
 /// VLA_RELEASE_VERSION in src/VLA.bas: one corpus, one version.
