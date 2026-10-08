@@ -1,6 +1,20 @@
 Attribute VB_Name = "VLA_Build"
 Option Explicit
-Public Const VLA_BUILD_VERSION As String = "AXM.7"
+Public Const VLA_BUILD_VERSION As String = "KERNEL.2"
+' KERNEL.2: an edition is a distro folder. distros\<edition>\distro.vla
+' names the prelude, the base phrasebook, the overlay the edition loads
+' after it, the dialects, the libraries and the add-in's file name, by
+' reference (the shape is distros\english\README.md's; core/src/distro.rs
+' reads the same file for frazaro prove <folder>, tools/build_web.ps1 for
+' the page). The three Select Case tables that named each edition by hand
+' are gone: VlaEditionVocabPaths, VlaEditionOutputName and
+' VlaEditionVocabOverrideName all come off the manifest, read one directive
+' a line (tools/check_distro.ps1 holds every manifest to that shape, so no
+' form parser is needed here); a manifest that is missing or malformed
+' refuses through the catalogue (distro-manifest-missing,
+' distro-manifest-invalid). VlaEditionNames stays the list of editions a
+' bare VlaBuildAddin builds. The pure readers are Public so TestDistroManifest
+' (VLA_Tests.bas) can hold them without a file.
 ' AXM.7: mods array gains VLA_Refers - the formula-reference reader, a
 ' pure module (a formula's text to records, no Excel object) that REFLECT
 ' in the VBA and the core's port (PORT.8, slice 8b) both follow. It sits
@@ -174,49 +188,168 @@ Public Const VLA_BUILD_VERSION As String = "AXM.7"
 '  Requires "Trust access to the VBA project object model".
 ' =====================================================================
 
-' EDITION-MANIFEST: the edition table. Each edition names only the two
-' things BETA_ROADMAP.md's own EDITION LINE text says vary - which
-' phrasebook file(s) get audited/embedded, in load order, and the
-' output filename - never the module list (VlaBuildAddin's own `mods`,
-' below, stays a single array for every edition). Add a new edition by
-' adding one Case to each of these three functions; nothing else in
-' this file names an edition by hand.
-' EDITIONMANIFEST.3: english.vla moved to scripts\polyglotta\ (owner,
-' this session - "to keep language files together" with its seven
-' dialect siblings, which already lived there). Every OTHER path in
-' this codebase that reads english.vla by name already tolerated this
-' via a three-candidate FindDevFile helper (VLA_Tests.bas/
-' VLA_Interpreter.bas); this one hardcoded a single flat location and
-' broke the moment the file moved - found by checking, not assumed
-' fine because nothing raised yet (Gate 1's own soft-tolerance for a
-' missing base file would have silently shipped an edition with no
-' embedded phrasebook at all, the exact failure mode this file's own
-' Gate 1 exists to prevent for other cases).
+' KERNEL.2: the edition table is a folder. EDITION-MANIFEST (2026-09)
+' kept the two things that vary per edition - the phrasebook chain, in
+' load order, and the output filename - in three Select Case functions
+' here, one Case per edition. They now come off distros\<edition>\
+' distro.vla, the manifest the page builder and the command-line door
+' read too, so an edition is added by adding a folder, and nothing in
+' this file names an edition by hand but VlaEditionNames, the list a
+' bare VlaBuildAddin builds. The manifest is read one directive a line:
+' the opener (distro "name", then (head "..." "...") lines, the quoted
+' strings of a line being its arguments; paths are relative to the
+' folder with forward slashes, and VlaDistroPath turns one into a plain
+' Windows path with its .. segments collapsed, so Dir$ and the loader
+' see nothing unusual. EDITIONMANIFEST.3's lesson stands: a path is
+' checked by reading the file, never assumed (Gate 1 below).
+Private Function VlaEditionFolder(ByVal edition As String) As String
+    VlaEditionFolder = ThisWorkbook.Path & "\distros\" & LCase$(edition)
+End Function
+
+' The manifest's text, or the catalogue's refusal naming the edition and
+' the path it looked at.
+Private Function VlaEditionManifestText(ByVal edition As String) As String
+    Dim p As String
+    p = VlaEditionFolder(edition) & "\distro.vla"
+    If Len(Dir$(p)) = 0 Then
+        VLA_Messages.RaiseMsg "distro-manifest-missing", "edition", edition, "path", p
+    End If
+    VlaEditionManifestText = VLA_Loader.VlaReadFile(p)
+End Function
+
 Private Function VlaEditionVocabPaths(ByVal edition As String) As Variant
-    Select Case LCase$(edition)
-        Case "english"
-            VlaEditionVocabPaths = Array(ThisWorkbook.Path & "\scripts\polyglotta\english.vla")
-        Case "espanol"
-            ' espanol.vla is an OVERLAY (calls macros english.vla
-            ' defines - confirmed by reading the file itself, not
-            ' guessed), so english.vla always loads first.
-            VlaEditionVocabPaths = Array( _
-                ThisWorkbook.Path & "\scripts\polyglotta\english.vla", _
-                ThisWorkbook.Path & "\scripts\polyglotta\espanol.vla")
-        Case Else
-            Err.Raise 5, "VLA-Build", "Build refused - unknown edition """ & edition & """."
-    End Select
+    VlaEditionVocabPaths = VlaDistroChain(VlaEditionManifestText(edition), VlaEditionFolder(edition))
 End Function
 
 Private Function VlaEditionOutputName(ByVal edition As String) As String
-    Select Case LCase$(edition)
-        Case "english"
-            VlaEditionOutputName = "Frazaro_English.xlam"
-        Case "espanol"
-            VlaEditionOutputName = "Frazaro_Espanol.xlam"
-        Case Else
-            Err.Raise 5, "VLA-Build", "Build refused - unknown edition """ & edition & """."
-    End Select
+    VlaEditionOutputName = VlaDistroAddin(VlaEditionManifestText(edition), VlaEditionFolder(edition))
+End Function
+
+' The quoted strings of one manifest line, in order, with \" and \\ read
+' as the language's reader reads them; the words outside the quotes are
+' the directive's head and are not returned.
+Public Function VlaDistroStrings(ByVal lineText As String) As Collection
+    Dim out As Collection
+    Set out = New Collection
+    Dim i As Long
+    Dim quoting As Boolean
+    Dim cur As String
+    Dim ch As String
+    For i = 1 To Len(lineText)
+        ch = Mid$(lineText, i, 1)
+        If quoting Then
+            If ch = "\" And i < Len(lineText) Then
+                i = i + 1
+                cur = cur & Mid$(lineText, i, 1)
+            ElseIf ch = """" Then
+                out.Add cur
+                cur = ""
+                quoting = False
+            Else
+                cur = cur & ch
+            End If
+        ElseIf ch = """" Then
+            quoting = True
+        End If
+    Next
+    Set VlaDistroStrings = out
+End Function
+
+' A manifest's path, relative to its folder with forward slashes, as a
+' Windows path with its . and .. segments collapsed; the drive is never
+' popped.
+Public Function VlaDistroPath(ByVal folder As String, ByVal rel As String) As String
+    Dim parts() As String
+    parts = Split(Replace(folder & "\" & rel, "/", "\"), "\")
+    Dim kept As Collection
+    Set kept = New Collection
+    Dim i As Long
+    For i = LBound(parts) To UBound(parts)
+        If parts(i) = ".." Then
+            If kept.Count > 1 Then kept.Remove kept.Count
+        ElseIf parts(i) = "." Then
+            ' the folder itself: nothing to keep
+        ElseIf Len(parts(i)) > 0 Or i = LBound(parts) Then
+            kept.Add parts(i)
+        End If
+    Next
+    Dim r As String
+    For i = 1 To kept.Count
+        If i > 1 Then r = r & "\"
+        r = r & kept(i)
+    Next
+    VlaDistroPath = r
+End Function
+
+Private Sub VlaDistroRefuse(ByVal folder As String, ByVal why As String)
+    VLA_Messages.RaiseMsg "distro-manifest-invalid", "path", folder & "\distro.vla", "why", why
+End Sub
+
+' The phrasebook chain a manifest names, in load order - the base, then
+' the overlay when there is one - as full paths under the folder. Pure:
+' the text and the folder in, so a test holds it without a file. One
+' (distro ...) form and one (phrasebook ...) line are required, a second
+' (overlay ...) refused, each by name.
+Public Function VlaDistroChain(ByVal manifestText As String, ByVal folder As String) As Variant
+    Dim lines() As String
+    lines = Split(Replace(manifestText, vbCrLf, vbLf), vbLf)
+    Dim i As Long
+    Dim t As String
+    Dim s As Collection
+    Dim base As String
+    Dim overlay As String
+    Dim distros As Long
+    Dim bases As Long
+    Dim overlays As Long
+    For i = LBound(lines) To UBound(lines)
+        t = Trim$(lines(i))
+        If Len(t) = 0 Or Left$(t, 1) = ";" Then
+            ' a blank line or a comment
+        ElseIf Left$(t, 8) = "(distro " Then
+            distros = distros + 1
+        ElseIf Left$(t, 12) = "(phrasebook " Then
+            Set s = VlaDistroStrings(t)
+            If s.Count <> 2 Then VlaDistroRefuse folder, "(phrasebook ...) wants a name and a path"
+            base = s(2)
+            bases = bases + 1
+        ElseIf Left$(t, 9) = "(overlay " Then
+            Set s = VlaDistroStrings(t)
+            If s.Count <> 2 Then VlaDistroRefuse folder, "(overlay ...) wants a name and a path"
+            overlay = s(2)
+            overlays = overlays + 1
+        End If
+    Next
+    If distros <> 1 Then VlaDistroRefuse folder, "it must hold one (distro ""name"" ...) form"
+    If bases <> 1 Then VlaDistroRefuse folder, "it must name one (phrasebook ...), the base"
+    If overlays > 1 Then VlaDistroRefuse folder, "(overlay ...) is given twice"
+    If overlays = 1 Then
+        VlaDistroChain = Array(VlaDistroPath(folder, base), VlaDistroPath(folder, overlay))
+    Else
+        VlaDistroChain = Array(VlaDistroPath(folder, base))
+    End If
+End Function
+
+' The add-in's file name a manifest gives, (addin "Frazaro_English.xlam"),
+' a bare name; a manifest without one refuses by name.
+Public Function VlaDistroAddin(ByVal manifestText As String, ByVal folder As String) As String
+    Dim lines() As String
+    lines = Split(Replace(manifestText, vbCrLf, vbLf), vbLf)
+    Dim i As Long
+    Dim t As String
+    Dim s As Collection
+    Dim found As Long
+    For i = LBound(lines) To UBound(lines)
+        t = Trim$(lines(i))
+        If Left$(t, 7) = "(addin " Then
+            Set s = VlaDistroStrings(t)
+            If s.Count <> 1 Or InStr(1, s(1), "\") > 0 Or InStr(1, s(1), "/") > 0 Or Len(s(1)) = 0 Then
+                VlaDistroRefuse folder, "(addin ...) wants one bare file name"
+            End If
+            VlaDistroAddin = s(1)
+            found = found + 1
+        End If
+    Next
+    If found <> 1 Then VlaDistroRefuse folder, "it must name one (addin ...), the add-in's file name"
 End Function
 
 ' EDITIONMANIFEST.2: every edition VlaBuildAddin knows how to build,
@@ -234,16 +367,16 @@ End Function
 ' the edition's own overlay file so a customization convention that
 ' already works for English ("your own english.vla always wins") reads
 ' the same way in a second language, rather than every edition still
-' watching for a file literally named "english.vla".
+' watching for a file literally named "english.vla". KERNEL.2: the last
+' file of the manifest's chain - the overlay's where there is one, the
+' base's where there is none - which is what the table said by hand
+' (english.vla for English, espanol.vla for Espanol).
 Private Function VlaEditionVocabOverrideName(ByVal edition As String) As String
-    Select Case LCase$(edition)
-        Case "english"
-            VlaEditionVocabOverrideName = "english.vla"
-        Case "espanol"
-            VlaEditionVocabOverrideName = "espanol.vla"
-        Case Else
-            Err.Raise 5, "VLA-Build", "Build refused - unknown edition """ & edition & """."
-    End Select
+    Dim chain As Variant
+    chain = VlaEditionVocabPaths(edition)
+    Dim last As String
+    last = CStr(chain(UBound(chain)))
+    VlaEditionVocabOverrideName = Mid$(last, InStrRev(last, "\") + 1)
 End Function
 
 ' EDITIONMANIFEST.2: builds every known edition by default - the same

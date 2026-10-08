@@ -101,7 +101,10 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # 2026-10-07, KERNEL.4: 50 - check_view_golden.ps1 (the view record of each
 # fixture window reproduced whole, each golden's line count a floor, the
 # fixed order read off the golden itself).
-$expectedAtLeast = 50
+# 2026-10-07, KERNEL.2: 51 - check_distro.ps1 (every distro under distros/
+# well formed and naming files that exist, the english distro the doors'
+# own, and the three readers of a manifest held to one shape).
+$expectedAtLeast = 51
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---

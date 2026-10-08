@@ -1068,3 +1068,40 @@ scores them as it scores the reflect kind, the corpus prelude and
 `english.vla` named as the build kind names them; its `-Control` fake
 answers each from the golden of the window, found by the program's name,
 the sheet and the window, and its mutant changes one character.
+
+## Amendment of 2026-10-07, later: `prove` over a distro folder (`KERNEL.2`)
+
+A distro is a folder, the unit the build tools take (`web/CALLOSUM.md`
+§14.1; `distros/english/README.md` has the shape): its `distro.vla` names
+the prelude, the base phrasebook, an overlay an edition loads after it, the
+dialects a language picker offers, the libraries and the examples, by
+reference, each path relative to the folder. Three readers take the one
+file, the page builder, the add-in builder and the core, and
+`tools/check_distro.ps1` holds every manifest to the shape all three rely
+on. The treaty gains no new golden: a distro is proved by the proofs its
+phrasebooks already carry, oracle 3 applied to the folder.
+
+The contract gains the folder form of one command:
+
+- `<impl> prove <folder>`, the folder holding `distro.vla`, proves the
+  distro whole and writes one line a book: the base phrasebook alone, as
+  oracle 3 proves a file (`english: PASS 482/482`), then the overlay and
+  each dialect loaded over the base, as the page and the add-in load them
+  (`pirate over english: PASS 20/20`), a library listed and not scored, and
+  as its last line the total, `PASS n/n` or `FAIL k/n`, where n is the sum
+  over the books the manifest names; exit 0 only when every book passes.
+  Each failing proof is printed before its book's line, as the file form
+  prints it. The manifest's prelude is the prelude unless `--prelude` names
+  another; a folder with no `distro.vla` is refused
+  (`distro-manifest-missing`), a manifest the implementation cannot read
+  is refused naming what is wrong (`distro-manifest-invalid`), and a file
+  the manifest names that is not there is refused as a named file is.
+
+The runner gains the kind: `tools/prove.ps1` inventories `distros/english`
+and `distros/espanol` and scores each as it scores a phrasebook, n summed
+over the manifest's books with each book counted as the file form counts
+it (a book the manifest names twice, as the espanol distro names its
+overlay among the dialects, counts twice, since the door proves it twice);
+its `-Control` fake reads the manifest and answers `PASS` per book and in
+total, and its mutant answers `FAIL`. At this amendment: english, 632
+proofs over eight books; espanol, 662 over nine.

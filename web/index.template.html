@@ -4,11 +4,12 @@
   SPDX-License-Identifier: Apache-2.0
 
   web/index.template.html - the web door's source (PORT.6, slice 6h; docs/HORIZON.md
-  section 11.4: one room, three doors). tools/build_web.ps1 fills the placeholders at the
-  bottom - the wasm core as base64, scripts/prelude.vla, scripts/polyglotta/english.vla and
-  each dialect of the language picker as text (a BOOK placeholder per phrasebook file) - and
-  writes web/index.html, one file that runs from
-  disk. The page loads nothing from the network, writes nothing anywhere, and executes
+  section 11.4: one room, three doors). tools/build_web.ps1 fills the placeholders from a
+  distro's manifest (distros/english/distro.vla unless -Distro names another; KERNEL.2) -
+  the wasm core as base64, the distro's prelude and base phrasebook and each dialect of the
+  language picker as text (a BOOK placeholder per dialect, the two sets held equal), its
+  title, tagline and opening sentence, and the three shades of its palette - and writes
+  web/index.html, one file that runs from disk. The page loads nothing from the network, writes nothing anywhere, and executes
   nothing: the core's import section is empty (tools/check_core_imports.ps1), and
   tools/check_web_offline.ps1 holds this file to the same doctrine. Download as .xlsx
   (PORT.7, slice 7e) hands the browser the workbook the core built from the rows, the
@@ -23,7 +24,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Frazaro</title>
+<title>{{TITLE}}</title>
 <style>
   :root {
     color-scheme: light;
@@ -33,10 +34,12 @@
        here takes a light shade, and the Download button a deep one, white on
        it (5.9:1), the moment a workbook is ready. The logo's own value is too
        light to carry white text (3.2:1), so the deep shade stays a darker
-       shade of it. Change the three here, nowhere else. */
-    --lavender: #e2d8f6;
-    --lavender-whisper: #f7f4fc;
-    --lavender-deep: #6b4fc8;
+       shade of it. The three come from the distro's palette
+       (distros/english/distro.vla, KERNEL.2), which tools/build_web.ps1
+       fills in here: change them there, nowhere else. */
+    --lavender: {{PALETTE:lavender}};
+    --lavender-whisper: {{PALETTE:whisper}};
+    --lavender-deep: {{PALETTE:deep}};
   }
   html, body { margin: 0; padding: 0; background: #fafaf7; color: #1d1d1b; font: 15px/1.45 system-ui, "Segoe UI", sans-serif; }
   header, main { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
@@ -101,7 +104,7 @@
 <body>
 <header>
   <p class="home"><a href="https://spreadsheet.company/">https://spreadsheet.company</a></p>
-  <h1>Frazaro: "<em>a phrasebook for your workbook</em>"</h1>
+  <h1>{{TITLE}}: "<em>{{TAGLINE}}</em>"</h1>
   <p class="lede">Welcome. Write what you want done, one sentence per row, and watch each sentence turn into what it means: its VLA, and the formula it writes when it writes one. Press Enter for a new row, and indent a block with two spaces. When you are ready, Download as .xlsx gives you the workbook your sentences build, which opens anywhere with nothing installed; the VBA is plain text, to paste into a module in Excel or to leave to the add-in. Nothing you type leaves this page: it reads nothing from the network, writes nothing anywhere, and executes nothing.</p>
   <p id="about" class="about"></p>
 </header>
@@ -140,7 +143,7 @@
     <thead><tr>
       <th class="n"></th>
       <th class="in"><div class="hd"><span>Input</span><select id="lang" aria-label="the language of the input">
-        <option value="" data-example="Set total to 5." selected>English</option>
+        <option value="" data-example="{{OPENS_WITH}}" selected>English</option>
         <option value="book-dansk" data-example="Saet formlen &quot;=B2*2&quot; i cellen B3.">Dansk</option>
         <option value="book-deutsche" data-example="Setze die Formel &quot;=B2*2&quot; in Zelle B3.">Deutsch</option>
         <option value="book-espanol" data-example="Pon la formula &quot;=B2*2&quot; en la celda B3.">Espa&ntilde;ol</option>

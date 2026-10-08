@@ -40,11 +40,15 @@
 //! (KERNEL.4) is the first implementation of the projections seam: one
 //! window of the sheet model as the view record, a pure function of the
 //! program and the books, the lines a viewport draws from;
-//! `api::english_view` is its surface.
+//! `api::english_view` is its surface. `distro` (KERNEL.2) reads a distro's
+//! manifest, the folder the build tools take: the prelude, the phrasebooks
+//! in their load order, the dialects, the libraries and an edition's chrome,
+//! by reference; the command-line door proves a distro whole with it.
 
 pub mod abi;
 pub mod api;
 pub mod build;
+pub mod distro;
 pub mod egress;
 pub mod emit;
 pub mod english;

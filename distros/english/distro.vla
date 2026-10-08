@@ -1,0 +1,26 @@
+; distros/english/distro.vla - the english distro: the edition the three doors
+; ship today, named by reference (KERNEL.2, 2026-10-07). One directive a line;
+; a path is relative to this folder, written with forward slashes, so nothing
+; moves: the corpus files stay where the treaty reads them. The shape is
+; README.md's, beside this file. core/src/distro.rs reads it for the
+; command-line door (frazaro prove distros/english), tools/build_web.ps1 for
+; the page (-Distro), and src/VLA_Build.bas for the add-in (VlaBuildAddin
+; "English").
+(distro "english"
+  (title "Frazaro")
+  (tagline "a phrasebook for your workbook")
+  (opens-with "Set total to 5.")
+  (palette (lavender "#e2d8f6") (whisper "#f7f4fc") (deep "#6b4fc8"))
+  (prelude "../../scripts/prelude.vla")
+  (phrasebook "english" "../../scripts/polyglotta/english.vla")
+  (dialect "dansk" "../../scripts/polyglotta/dansk.vla")
+  (dialect "deutsche" "../../scripts/polyglotta/deutsche.vla")
+  (dialect "espanol" "../../scripts/polyglotta/espanol.vla")
+  (dialect "esperanto" "../../scripts/polyglotta/esperanto.vla")
+  (dialect "francais" "../../scripts/polyglotta/francais.vla")
+  (dialect "latin" "../../scripts/polyglotta/latin.vla")
+  (dialect "pirate" "../../scripts/polyglotta/pirate.vla")
+  (library "alien" "../../scripts/polyglotta/alien.vla")
+  (examples "../../examples")
+  (addin "Frazaro_English.xlam")
+  (readme "README.md"))

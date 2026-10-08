@@ -1,6 +1,12 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "KERNEL.4"
+Public Const VLA_MESSAGES_VERSION As String = "KERNEL.2"
+' KERNEL.2: distro-manifest-missing and distro-manifest-invalid under the
+' source VLA-Distro, the distro folder's refusals, raised by the add-in
+' builder (VLA_Build.bas reads distros\<edition>\distro.vla for the
+' edition's phrasebook chain) and by the core's frazaro prove <folder>;
+' the same ids in the same situations, the fifth oracle's rule.
+'
 ' KERNEL.4: view-sheet-unknown and view-window-not-a-range under the source
 ' VLA-View, the view record's refusals, raised by the core's frazaro view
 ' (and a page through frazaro_view) and by no VBA site, as the writer's
@@ -1473,6 +1479,15 @@ Private Sub AddEntries(ByVal m As Collection)
     ' add-in shows the sheet itself, so no VBA site raises them.
     AddMsg m, "view-sheet-unknown", 9, "VLA-View", "The program makes no sheet named {name}; it makes {sheets}. Name one of those with --sheet."
     AddMsg m, "view-window-not-a-range", 5, "VLA-View", "{text} is not a window frazaro view can show. Write two corners of a rectangle, A1:F20, or one cell, B2; a whole column or row is not a window."
+
+    ' KERNEL.2: the distro folder's refusals. An edition is a folder,
+    ' distros\<name>\, whose distro.vla names the prelude, the phrasebooks
+    ' in load order, the dialects and the add-in's file, by reference.
+    ' VlaBuildAddin (VLA_Build.bas) reads it for the edition it builds and
+    ' frazaro prove <folder> reads it to prove the distro whole; both raise
+    ' these, the VBA from this catalogue and the core from its export.
+    AddMsg m, "distro-manifest-missing", 53, "VLA-Distro", "There is no distro named {edition}: {path} is not there. A distro is a folder holding a distro.vla that names its prelude and its phrasebooks; distros\english\README.md shows the shape."
+    AddMsg m, "distro-manifest-invalid", 5, "VLA-Distro", "{path} is not a distro manifest this version can read: {why}. The shape is distros\english\README.md's: one (distro ""name"" ...) form, one directive a line, every path relative to the folder with forward slashes."
 End Sub
 
 Private Sub AddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _

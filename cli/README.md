@@ -224,7 +224,7 @@ byte:
 | `frazaro audit <file.xlsx|.ods> [--counts]` | where the risks are, one finding a line |
 | `frazaro view <program.txt> --sheet <name> [--window <A1:F20>] [--prelude ...] [--phrasebook ...]` | one window of the program's build as the view record, the lines a viewport draws from |
 | `frazaro load <phrasebook.vla> [--prelude <prelude.vla>] [--allow-raw]` | what the phrasebook holds, its proofs run |
-| `frazaro prove <phrasebook.vla> [--prelude <prelude.vla>] [--allow-raw]` | every failing proof, then `PASS n/n` or `FAIL k/n` |
+| `frazaro prove <phrasebook.vla|folder> [--prelude <prelude.vla>] [--allow-raw]` | every failing proof, then `PASS n/n` or `FAIL k/n`; a distro folder proved whole, one line a book |
 | `frazaro compile <program.vla> [--prelude <prelude.vla>]` | a program already in VLA, compiled to VBA |
 | `frazaro version`, `frazaro help` | the version; the usage text |
 
@@ -663,7 +663,7 @@ grammar's lint warnings when there are any. Exit 0, or 1 on a refusal.
 ### `frazaro prove`
 
 ```text
-frazaro prove <phrasebook.vla> [--prelude <prelude.vla>] [--allow-raw]
+frazaro prove <phrasebook.vla|folder> [--prelude <prelude.vla>] [--allow-raw]
 ```
 
 Every proof in the phrasebook is run as loading it in Excel runs it, every
@@ -680,6 +680,40 @@ version: `frazaro: 'prove' attempts a phrasebook's proofs; engine proofs are
 not attempted in this version (PORT.9)`, exit 3, which the repository's
 conformance runner reads as *not attempted*, never as passed. Today
 `english.vla` is `PASS 482/482` and each dialect passes its own.
+
+A folder holding `distro.vla` is a distro, the unit the build tools take
+(`distros/english/README.md` says what one is and how to make your own),
+and `frazaro prove <folder>` proves it whole: the base phrasebook alone,
+then the overlay and each dialect loaded over the base, as the web page and
+the add-in load them, one line a book, a library listed and not scored, and
+the total last. In the repository:
+
+```text
+frazaro prove distros\english
+```
+
+prints
+
+```text
+english: PASS 482/482
+dansk over english: PASS 20/20
+deutsche over english: PASS 20/20
+espanol over english: PASS 30/30
+esperanto over english: PASS 20/20
+francais over english: PASS 20/20
+latin over english: PASS 20/20
+pirate over english: PASS 20/20
+alien: a library of macros, not scored
+PASS 632/632
+```
+
+and exits 0; a book that fails prints its failures before its line and
+turns the last line into `FAIL k/n`, exit 1. The manifest's prelude is the
+prelude unless `--prelude` names another. A folder with no `distro.vla` is
+refused naming the folder (`distro-manifest-missing`); a manifest this
+version cannot read is refused naming what is wrong
+(`distro-manifest-invalid`); a file the manifest names that is not there is
+refused as a named file is.
 
 ### `frazaro compile`
 

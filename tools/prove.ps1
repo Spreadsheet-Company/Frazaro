@@ -104,6 +104,17 @@ memory. Six rows over the two build fixtures (scripts/view/). The
 control's fake answers each from the golden of the window, found by the
 program's name, the sheet and the window, and the mutant changes one
 character.
+
+2026-10-07, KERNEL.2 (the treaty's amendment of that date): a tenth kind,
+distro - a distro folder (distros/<name>/, its distro.vla naming the
+prelude, the base phrasebook, an overlay and the dialects by reference)
+proved whole by `prove <folder>`: the base alone, then the overlay and
+each dialect over the base, as the doors load them; n is the sum of the
+proof forms over the books the manifest names, each counted as the prove
+kind counts a file (so a book named twice counts twice, as the door proves
+it twice), and the last line must be PASS n/n. Two rows, english and
+espanol. The control's fake reads the manifest and answers PASS per book
+and in total; the mutant answers FAIL.
 #>
 param(
     [string]$Impl = '',
@@ -222,6 +233,24 @@ $engineForm     = '^\s*\(test-'
 # a library (2026-10-02, LX.15).
 $ruleForm       = '^\([a-z]+-vla(-override)?\b'
 
+# A distro's n (KERNEL.2): the proof forms over the books its manifest names
+# (the base, the overlay, the dialects), each counted as Get-ProofCount
+# counts a file, with the first stale export named.
+function Get-DistroProofCount([string]$root, [string]$relFolder) {
+    $folder = Join-Path $root $relFolder
+    $n = 0; $books = 0
+    foreach ($ml in [System.IO.File]::ReadAllLines((Join-Path $folder 'distro.vla'))) {
+        $mm = [regex]::Match($ml, '^\s*\((phrasebook|overlay|dialect) "([^"]+)" "([^"]+)"\)')
+        if (-not $mm.Success) { continue }
+        $full = [System.IO.Path]::GetFullPath((Join-Path $folder ($mm.Groups[3].Value -replace '/', '\')))
+        $rel = $full.Substring($root.TrimEnd('\', '/').Length).TrimStart('\', '/') -replace '\\', '/'
+        $pc = Get-ProofCount $root $rel $phrasebookForm
+        if ($pc.Stale -ne '') { return @{ Count = 0; Books = $books; Stale = $pc.Stale } }
+        $n += $pc.Count; $books++
+    }
+    return @{ Count = $n; Books = $books; Stale = '' }
+}
+
 function Get-Oracles([string]$root) {
     $list = New-Object System.Collections.Generic.List[object]
     $list.Add(@{ Kind = 'translate-vla'; Label = 'instructions.txt -> instructions_golden.vla'
@@ -306,6 +335,10 @@ function Get-Oracles([string]$root) {
                      Input = ('scripts/build/' + $v[0]); Sheet = $v[1]; Window = $v[2]
                      Golden = ('scripts/view/' + $v[3] + '.vla')
                      Prelude = 'scripts/prelude.vla'; Phrasebook = 'scripts/polyglotta/english.vla' })
+    }
+    # 2026-10-07 (KERNEL.2): the distro kind, a folder proved whole.
+    foreach ($dn in @('english', 'espanol')) {
+        $list.Add(@{ Kind = 'distro'; Label = ('distros/' + $dn + ' (prove over the folder)'); Folder = ('distros/' + $dn) })
     }
     $list.Add(@{ Kind = 'interpreter'; Label = 'interpreter_golden.txt (needs a workbook model: slice 6)'
                  Golden = 'scripts/interpreter_golden.txt' })
@@ -490,6 +523,23 @@ function Measure-Oracles([string]$root, [string]$impl, [string]$scratch) {
                     $r.Status = 'FAIL'; $r.Detail = "exit $($run.ExitCode), last line '$last', $n proof(s) expected"
                 }
             }
+            'distro' {
+                # 2026-10-07 (KERNEL.2): a distro folder proved whole; n is the sum
+                # over the books its manifest names (the base, the overlay, the
+                # dialects), each counted as the prove kind counts a file.
+                $folder = Join-Path $root $o.Folder
+                $run = Invoke-Impl $impl @('prove', $folder)
+                if ($run.ExitCode -eq 3) { break }
+                $counted = Get-DistroProofCount $root $o.Folder
+                if ($counted.Stale -ne '') { $r.Status = 'FAIL'; $r.Detail = $counted.Stale; break }
+                $n = $counted.Count
+                $last = (Get-NormalizedText $run.Stdout) -split "`n" | Select-Object -Last 1
+                if ($run.ExitCode -eq 0 -and $last -match "^PASS (\d+)/(\d+)$" -and [int]$Matches[1] -eq $n -and [int]$Matches[2] -eq $n) {
+                    $r.Status = 'PASS'; $r.Detail = "$n proof(s) over $($counted.Books) book(s)"
+                } else {
+                    $r.Status = 'FAIL'; $r.Detail = "exit $($run.ExitCode), last line '$last', $n proof(s) expected"
+                }
+            }
             'library' { $r.Status = 'library'; $r.Detail = 'a library of macros, not a phrasebook: no rule, no proof; inventoried, not scored' }
             default { $r.Detail = 'inventoried, not scored' }
         }
@@ -530,6 +580,22 @@ switch (`$kind) {
     'translate-vba' { `$g = [System.IO.File]::ReadAllText((Join-Path `$root 'scripts/instructions_golden.vba')) }
     'compile'       { `$g = [System.IO.File]::ReadAllText((Join-Path `$root 'scripts/instructions_golden.vba')) }
     'prove' {
+        if (Test-Path -LiteralPath `$a[1] -PathType Container) {
+            # A distro folder (2026-10-07, KERNEL.2): each book the manifest names,
+            # n counted as a file's is below, one PASS line a book and the total.
+            `$total = 0
+            foreach (`$ml in [System.IO.File]::ReadAllLines((Join-Path `$a[1] 'distro.vla'))) {
+                `$mm = [regex]::Match(`$ml, '^\s*\((phrasebook|overlay|dialect) "([^"]+)" "([^"]+)"\)')
+                if (-not `$mm.Success) { continue }
+                `$bp = [System.IO.Path]::GetFullPath((Join-Path `$a[1] (`$mm.Groups[3].Value -replace '/', '\')))
+                `$bexp = Join-Path (Split-Path -Parent `$bp) ([System.IO.Path]::GetFileNameWithoutExtension(`$bp) + '_expanded.vla')
+                `$bc = if (Test-Path `$bexp) { `$bexp } else { `$bp }
+                `$bn = @(Select-String -Path `$bc -Pattern '$pb').Count
+                Write-Output ("{0}: PASS {1}/{1}" -f `$mm.Groups[2].Value, `$bn)
+                `$total += `$bn
+            }
+            if (`$mutant) { Write-Output "FAIL 1/`$total"; exit 1 } else { Write-Output "PASS `$total/`$total"; exit 0 }
+        }
         `$pattern = if (`$a[1] -like '*polyglotta*') { '$pb' } else { '$en' }
         # n as the treaty counts it: the expanded export beside the source, where there is one.
         `$exp = Join-Path (Split-Path -Parent `$a[1]) ([System.IO.Path]::GetFileNameWithoutExtension(`$a[1]) + '_expanded.vla')
@@ -690,6 +756,15 @@ foreach ($o in Get-Oracles $root) {
         }
         'library' {
             Write-Host ("  {0,-13} {1,-44} a library of macros, not a phrasebook; not scored" -f $o.Kind, $o.Label)
+        }
+        'distro' {
+            $dc = Get-DistroProofCount $root $o.Folder
+            if ($dc.Stale -ne '') {
+                $missing++
+                Write-Host ("  {0,-13} {1,-44} STALE: {2}" -f $o.Kind, $o.Label, $dc.Stale)
+            } else {
+                Write-Host ("  {0,-13} {1,-44} {2,6} proof form(s) over {3} book(s)" -f $o.Kind, $o.Label, $dc.Count, $dc.Books)
+            }
         }
         default {
             $p = Join-Path $root $o.Golden

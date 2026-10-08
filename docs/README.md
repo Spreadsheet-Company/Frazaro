@@ -117,6 +117,10 @@ before they see `docs/`:
   answers to.
 - **[MAINTAINERS.md](../MAINTAINERS.md)** — Who answers for which paths, by
   seam, and the contract files a change to which needs both sides present.
+- **[distros/english/README.md](../distros/english/README.md)** — What a
+  distro is (the folder the build tools take: the manifest's directives,
+  the three doors that read it, the terms per kind of file) and how to make
+  your own (`KERNEL.2`).
 - **[conformance/README.md](../conformance/README.md)** — The treaty that holds
   every implementation of the language to the one corpus in `scripts/`: the
   oracles, the command-line contract, and how the runner proves itself.

@@ -17457,7 +17457,7 @@ over.
   test:* read `CONTRIBUTING.md`'s new section and `MAINTAINERS.md`, run
   `powershell -File tools\run_checks.ps1` and `cargo test -p frazaro-core`;
   no live Excel pass applies. *Closed 2026-10-06, owner-tested and committed.*
-- **`KERNEL.2` — the distro folder.** *Substrate, verified:*
+- ✅ **`KERNEL.2` — the distro folder.** *Substrate, verified:*
   `tools/build_web.ps1` already bakes the prelude, `english.vla` and seven
   dialects through `{{BOOK:name}}` placeholders, the CLI carries
   `cli/data/prelude.vla` and `cli/data/english.vla` held by
@@ -17470,6 +17470,91 @@ over.
   author chose; the folder's README states the terms per subfolder, and
   `check_spdx.ps1` keeps resolving each file. *Oracle:* the built page is
   byte for byte the page built today. `~days`
+  *Built 2026-10-07, awaiting owner test.* What landed: `distros/english/`
+  and `distros/espanol/`, each `distro.vla` and `README.md`. The manifest is
+  one `(distro "name" ...)` form, one directive a line, every path relative
+  to the folder with forward slashes, by reference, so the corpus files
+  stay where the treaty reads them: `title`, `tagline`, `opens-with`,
+  `palette` (lavender, whisper, deep), `prelude`, `phrasebook` (the base),
+  `overlay` (at most one; espanol's is `espanol.vla`), `dialect` (seven),
+  `library` (`alien`), `examples`, `addin` (`Frazaro_English.xlam`,
+  `Frazaro_Espanol.xlam`), `readme`. Three readers take the one file:
+  `core/src/distro.rs` (`parse`, every defect refused as
+  `distro-manifest-invalid` naming what is wrong; `Distro::chain`), read by
+  the door's `frazaro prove <folder>`, which proves the base alone as
+  oracle 3 proves a file, then the overlay and each dialect over the base
+  as the page and the add-in load them, one line a book, a library listed
+  and not scored, the total last (english `PASS 632/632` over eight books,
+  espanol `PASS 662/662` over nine, its overlay counted among the dialects
+  too, as the door proves it twice); `tools/build_web.ps1`, which reads
+  `distros/english` unless `-Distro` names another and fills nine
+  placeholders, `{{WASM_BASE64}}`, `{{PRELUDE}}`, `{{ENGLISH}}`,
+  `{{TITLE}}` twice, `{{TAGLINE}}`, `{{OPENS_WITH}}` and the three
+  `{{PALETTE:…}}`, HTML-escaping the chrome, and holds the template's
+  `{{BOOK:name}}` places and the distro's dialects equal both ways
+  (`-Template <file>` builds from another template, for a proof); and
+  `src/VLA_Build.bas`, where `VlaEditionVocabPaths`, `VlaEditionOutputName`
+  and `VlaEditionVocabOverrideName` now come off
+  `distros\<edition>\distro.vla` through `VlaDistroChain` and
+  `VlaDistroAddin` (public and pure, the text and the folder in; a line's
+  quoted strings its arguments; `..` collapsed by `VlaDistroPath`), the
+  three `Select Case` tables gone, `VlaEditionNames` kept as the list a bare
+  `VlaBuildAddin` builds. Two catalogue entries under `VLA-Distro`,
+  `distro-manifest-missing` (53) and `distro-manifest-invalid` (5), raised
+  by the VBA and the core alike; `messages.vla` exported, the floor 592.
+  `tools/check_distro.ps1`, the 51st check: the folders pinned (english,
+  espanol), each manifest's shape as the two line-based readers rely on it,
+  every path existing, the english distro's prelude and base the files
+  `check_crate_data` holds the door's copies to, its seven dialects exactly
+  the template's places, every `VlaEditionNames` edition with a folder;
+  `-Control` on a scratch copy with five mutants. `check_web_offline.ps1`
+  repinned: nine placeholders each as many times as the template has
+  places, the picker's places the english distro's dialects both ways, a
+  sixth mutant. `prove.ps1` gained the tenth kind, `distro`, two rows, n
+  summed over the manifest's books, its fake reading the manifest. The
+  treaty's amendment of 2026-10-07 (later) gives `prove <folder>` its
+  contract. `REUSE.toml` covers `distros/**` under the tools' terms; the
+  README states the terms per kind. Docs: `cli/README.md` (`prove`, with the
+  real output), `web/README.md`, `DEPLOY.md`, `CONTRIBUTING.md` (the distro
+  paragraph), `MAINTAINERS.md` (the manifest as a contract file),
+  `docs/README.md`, the template's two comments, and the map.
+  *The oracle, held:* the page built by the old builder from the old
+  template (SHA-256 `6E3C4BAB826460CA45E10B4DA15615F57273B9CE4BD674111C875C51FA4DAC1F`,
+  1,659,865 bytes) equals, byte for byte, the page the new builder makes
+  from the english distro through the old template with only its six value
+  lines turned into placeholders; the shipped template also rewords its two
+  comments to say where the values now come from, and the shipped page
+  equals the old one everywhere outside those comments (both digests
+  `1DECF5CE…` with HTML and CSS comments stripped). The espanol distro
+  builds the same page, since its chrome and dialects are english's today.
+  *Verified:* `cargo fmt --check` and `clippy -D warnings` clean, `cargo
+  test --workspace` 230 passed (three new: both manifests read as the doors
+  ship them, and twenty-five defects each refused naming its fault);
+  `check_distro` and its control OK; `check_web_offline` and its control OK;
+  `prove.ps1` inventory, `-Control` (40 attempted, the mutant failing all)
+  and `-Impl` 39 passed; `check_message_slots`, `check_spdx`,
+  `check_data_exports`, `check_raise_ratchet`, `check_devrig_mods_parity`
+  OK. *Not done, on purpose:* the picker's `<option>` labels and examples
+  stay in the template (chrome; `EDITION-CHROME`), so a dialect is added in
+  the manifest and the template together, which the two checks hold; a
+  distro's `opens-with` is one sentence until `G-USE` brings `Use` lines;
+  `espanol`'s chrome is English, as the Spanish edition's is today; the Org
+  Phrasebook Template repository gains its manifest when it is next
+  touched; `frazaro describe <distro>` is `KERNEL.18`. *Owner's test:*
+  `cargo test --workspace`; `powershell -File tools\run_checks.ps1`;
+  `target\debug\frazaro.exe prove distros\english` and `distros\espanol`;
+  VlaDevReload, Debug > Compile, `? VlaSelfTests()` (nine new pure pins,
+  `TestDistroManifest`); then the `VlaBuildAddin` clickthrough, whose report
+  must say `Phrasebook audited clean (English):` with
+  `scripts\polyglotta\english.vla` and `(Espanol):` with `english.vla` then
+  `espanol.vla`, and write `Frazaro_English.xlam` and `Frazaro_Espanol.xlam`
+  as before. *Closed 2026-10-08, owner-tested and committed:* `cargo test`
+  230, `run_checks` 51 of 51, `prove` over both distros as predicted, pure
+  1942 and host 331 with the other session's pins in, and the `VlaBuildAddin`
+  clickthrough: two editions built and none failed, English audited clean on
+  `scripts\polyglotta\english.vla` and embedding `prelude.vla, english.vla`,
+  Espanol audited clean on english then espanol and embedding all three,
+  both `.xlam` files and `installer\version.iss` written.
 - **`KERNEL.3` — the study before the viewport.** *The work:* a fixture
   workbook with planted defects (the explanation schemas' fifteen are the
   list), a task sheet in two halves (build this; find that), the protocol
@@ -30670,6 +30755,7 @@ numbers. **Quoting a correction is not applying it.**
 
 - ✅ **KERNEL.1 — the boundary and the seams: what the kernel is, and the five ways in.** Written down and pinned: the kernel holds forms and their expansion, the emitters, the sheet model, recalculation over a declared subset, the relation set and the ABI, and never holds English, message text, a default, chrome, a format beyond a trait or a door. Five seams are the only entrances: sentences (a phrasebook with proofs), paragraphs (a library, `G-USE`), engines (tables in, a table out, a head-table row, a proof-file kind), formats and hosts (the `Source` trait, a `Sink` beside it, a host profile per door), projections (a pure function from model and window to a record). The rule: the kernel grows a seam, never a feature. A section per seam in `CONTRIBUTING.md` names the oracle a change must pass, and `check_kernel_boundary.ps1` pins the data-only rule (no sentence rule, no message text, no default in `core/src/`; the counts are floors). *Serves:* every item below. `~days` Built, owner-tested and committed 2026-10-06; the entry above carries the record: `core/src/kernel.rs`, `tools/check_kernel_boundary.ps1` with its control, `CONTRIBUTING.md`'s seams section, `MAINTAINERS.md`, the runner's floor at 48.
 - ✅ **KERNEL.4 — the view record: the first projection.** `frazaro view <program.txt> --sheet <name> [--window <A1:F20>]` and `frazaro_view` in the ABI: the program built into the sheet model in memory, nothing written, and one window of one sheet printed as the lines a viewport draws from: every sheet, the window, the extent, gridlines, the window's columns and formats, then each cell in row order as `reflect`'s own `cell` or `formula` row with its `style` row and its `sentence` row, the row of the sentence that wrote it. `view::Grid` is `kernel::Projection`'s first implementation; the walker records the row that wrote each cell in the model (`Sheet.sentences`), so the view is drawn from the model alone (CALLOSUM §7, decisions 1 and 2). Six goldens under `scripts/view/`, oracle 11 in the treaty, `check_view_golden.ps1` (the 50th check, with its control), `prove.ps1`'s ninth kind, two catalogue refusals under `VLA-View`; the free oracle holds for both build fixtures, the view of each sheet whole being `reflect` of the written file row for row. Built, owner-tested and committed 2026-10-07; the entry above carries the record. Deferred by name: `--into` to `KERNEL.11`, a projection chosen by name to `KERNEL.12`, the page's viewport to `KERNEL.5` after `KERNEL.3`. `~days`, taken in a day.
+- ✅ **KERNEL.2 — the distro folder: the unit the build tools take.** An edition of Frazaro beyond the engine is one folder with one manifest, `distros/<name>/distro.vla`, naming by reference the prelude, the base phrasebook, an overlay, the dialects, the libraries, the examples, the add-in's file name and the page's title, tagline, opening sentence and palette; `distros/english` is the edition the doors ship and `distros/espanol` the add-in's Spanish edition as it shipped. Three readers take the one file: `tools/build_web.ps1` bakes it into the page (`-Distro`, `-Template`), `frazaro prove <folder>` proves it whole through `core/src/distro.rs` (english `PASS 632/632`, espanol `PASS 662/662`), and `VlaBuildAddin` reads each edition's chain, file name and override name from its folder, the hand-written tables gone. `check_distro.ps1`, the 51st check, holds every manifest to one shape and the readers to one another; `check_web_offline.ps1` holds the picker's places to the distro's dialects; `prove.ps1` gained the kind; two catalogue refusals under `VLA-Distro`. The oracle held: the page built from the distro is byte for byte the page built before. Built 2026-10-07, owner-tested and committed 2026-10-08; the entry above carries the record. Deferred by name: the picker's labels and the add-in's chrome to `EDITION-CHROME`, `Use` lines to `G-USE`, `describe` to `KERNEL.18`. `~days`, taken in a day.
 
 ## 🛡 ADVERSARY · SECURITY
 

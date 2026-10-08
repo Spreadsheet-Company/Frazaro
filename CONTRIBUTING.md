@@ -69,6 +69,14 @@ A feature that fits no seam is a seam to design first, on the roadmap, not
 a feature to merge. `MAINTAINERS.md` maps the paths to the seams and names
 the contract files a change to which needs both sides present.
 
+**The distro** is the unit the build tools take (`KERNEL.2`): a folder
+under `distros/` whose `distro.vla` names, by reference, the prelude, the
+base phrasebook, an overlay, the dialects, the libraries, the examples and
+the edition's chrome and palette. The page builder bakes it into one page,
+`frazaro prove <folder>` proves it whole, and the add-in builder reads the
+edition's chain from it; `distros/english/README.md` has the shape and how
+to make your own. An edition is a folder added, never a table edited.
+
 ## Security
 
 Do not open a public issue for a vulnerability. See `docs/SECURITY.md`.

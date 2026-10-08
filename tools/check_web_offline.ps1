@@ -1,6 +1,7 @@
 <#
 check_web_offline.ps1 - the web page loads nothing, links to one place by the
-person's click, and is filled from exactly three placeholders.
+person's click, and is filled from the english distro through nine
+placeholders, each in its place.
 
 WHY: the web door (PORT.6, slice 6h; docs/HORIZON.md section 11.4) is one
 HTML file that runs from disk, and its whole promise is the add-in's SD-13
@@ -23,16 +24,23 @@ build artifact): no external reference of any kind beyond the one allowed
 anchor - script, link, img, iframe, form, anchor, @import, url(), http(s)://,
 fetch, XMLHttpRequest, WebSocket, EventSource, sendBeacon, dynamic import,
 importScripts; the allowed anchor present once; a charset declaration; each
-of the three placeholders tools/build_web.ps1 fills ({{WASM_BASE64}},
-{{PRELUDE}}, {{ENGLISH}}) present exactly once, and each {{BOOK:name}} of
-the language picker once with its phrasebook on disk, so a built page is
-whole. When web/index.html exists beside the template, its markup is held to
-the same list of tags (the base64 and the corpus texts cannot spell a tag).
+of the nine placeholders tools/build_web.ps1 fills from the distro
+(KERNEL.2, 2026-10-07) present exactly as many times as the template has a
+place for it - {{WASM_BASE64}}, {{PRELUDE}}, {{ENGLISH}}, {{TAGLINE}},
+{{OPENS_WITH}}, {{PALETTE:lavender}}, {{PALETTE:whisper}} and
+{{PALETTE:deep}} once each, {{TITLE}} twice, the page's title and its
+heading; and each {{BOOK:name}} of the language picker once, a dialect of
+the english distro (distros/english/distro.vla), with no dialect of that
+distro left without its place, so a built page is whole and the picker and
+the distro cannot drift apart. When web/index.html exists beside the
+template, its markup is held to the same list of tags (the base64 and the
+corpus texts cannot spell a tag) and no placeholder is left in it.
 
 -Control proves the check on scratch copies of the template: the real file
 passes; one with a script tag's src appended, one with a fetch call, one
-with a placeholder removed, one with a second anchor appended and one with
-an image must each fail.
+with a placeholder removed, one with a second anchor appended, one with an
+image and one with a BOOK place for a dialect the distro does not have must
+each fail.
 
 House style (tools/check_*.ps1): PowerShell 5.1, host-free, no Excel, no COM,
 no network; exit 0 clean, exit 1 with every problem named.
@@ -53,7 +61,21 @@ $tagTokens = @('<script src', '<script type="module" src', '<link ', '<img ', '<
 # Code and style that reach out: held on the template (the built page carries
 # the corpus texts, which may mention a URL in a comment).
 $codeTokens = @('fetch(', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'sendBeacon', 'import(', 'importScripts', '@import', 'url(', 'http://', 'https://')
-$placeholders = @('{{WASM_BASE64}}', '{{PRELUDE}}', '{{ENGLISH}}')
+# Each placeholder and how many places the template has for it (KERNEL.2):
+# the title twice, the page's <title> and its heading; the rest once.
+$placeholders = [ordered]@{ '{{WASM_BASE64}}' = 1; '{{PRELUDE}}' = 1; '{{ENGLISH}}' = 1; '{{TITLE}}' = 2; '{{TAGLINE}}' = 1; '{{OPENS_WITH}}' = 1; '{{PALETTE:lavender}}' = 1; '{{PALETTE:whisper}}' = 1; '{{PALETTE:deep}}' = 1 }
+# The distro the builder reads by default; its dialects are the picker's.
+$manifestPath = Join-Path $repoRoot 'distros/english/distro.vla'
+function Get-Dialects() {
+    $names = @()
+    if (Test-Path $manifestPath) {
+        foreach ($l in [System.IO.File]::ReadAllLines($manifestPath)) {
+            $m = [regex]::Match($l, '^\s*\(dialect "([a-z0-9-]+)"')
+            if ($m.Success) { $names += $m.Groups[1].Value }
+        }
+    }
+    return ,$names
+}
 # The one thing the page may hold that would otherwise read as reaching out:
 # the bare link to the owner's site, whole. It must appear exactly as spelled
 # here, exactly once; the scan then runs on the text with it removed, so any
@@ -81,18 +103,24 @@ function Test-Template([string]$path) {
         if ($lower.Contains($t.ToLowerInvariant())) { $problems += ("the page reaches out: '{0}'" -f $t) }
     }
     if (-not $lower.Contains('<meta charset="utf-8">')) { $problems += 'no <meta charset="utf-8">' }
-    foreach ($ph in $placeholders) {
-        $first = $text.IndexOf($ph)
-        if ($first -lt 0) { $problems += ("placeholder missing: {0}" -f $ph); continue }
-        if ($text.IndexOf($ph, $first + 1) -ge 0) { $problems += ("placeholder repeated: {0}" -f $ph) }
+    foreach ($ph in $placeholders.Keys) {
+        $n = ([regex]::Matches($text, [regex]::Escape($ph))).Count
+        if ($n -eq 0) { $problems += ("placeholder missing: {0}" -f $ph); continue }
+        if ($n -ne $placeholders[$ph]) { $problems += ("placeholder {0} appears {1} time(s), and the template has {2} place(s) for it" -f $ph, $n, $placeholders[$ph]) }
     }
-    # The language picker's dialects: each {{BOOK:name}} once, each a phrasebook on disk.
+    # The language picker's dialects: each {{BOOK:name}} once, each a dialect
+    # of the english distro, and each dialect of the distro with its place.
+    $dialects = Get-Dialects
+    if ($dialects.Count -eq 0) { $problems += ("no dialects read from {0}" -f $manifestPath) }
     $seen = @{}
-    foreach ($m in [regex]::Matches($text, '\{\{BOOK:([a-z]+)\}\}')) {
+    foreach ($m in [regex]::Matches($text, '\{\{BOOK:([a-z0-9-]+)\}\}')) {
         $name = $m.Groups[1].Value
         if ($seen.ContainsKey($name)) { $problems += ("placeholder repeated: {0}" -f $m.Value) }
         $seen[$name] = $true
-        if (-not (Test-Path (Join-Path $repoRoot ("scripts/polyglotta/" + $name + ".vla")))) { $problems += ("no phrasebook for {0}" -f $m.Value) }
+        if ($dialects -notcontains $name) { $problems += ("{0} has no dialect in the english distro" -f $m.Value) }
+    }
+    foreach ($name in $dialects) {
+        if (-not $seen.ContainsKey($name)) { $problems += ("the english distro's dialect {0} has no {{{{BOOK:{0}}}}} place in the template" -f $name) }
     }
     return $problems
 }
@@ -105,7 +133,7 @@ function Test-Built([string]$path) {
     foreach ($t in $tagTokens) {
         if ($lower.Contains($t.ToLowerInvariant())) { $problems += ("the built page reaches out: '{0}'" -f $t) }
     }
-    foreach ($ph in ($placeholders + @('{{BOOK:'))) {
+    foreach ($ph in (@($placeholders.Keys) + @('{{BOOK:', '{{PALETTE:'))) {
         # The corpus texts may hold doubled braces of their own; only the names count.
         if ($lower.Contains($ph.ToLowerInvariant())) { $problems += ("the built page has {0} left in it" -f $ph) }
     }
@@ -124,9 +152,10 @@ if ($Control) {
         $c = Join-Path $tmp 'c.html'; [System.IO.File]::WriteAllText($c, $text.Replace('{{PRELUDE}}', ''), $utf8)
         $d = Join-Path $tmp 'd.html'; [System.IO.File]::WriteAllText($d, ($text + "`n<a href=""https://example.com/"">x</a>`n"), $utf8)
         $e = Join-Path $tmp 'e.html'; [System.IO.File]::WriteAllText($e, ($text + "`n<img src=""data:image/png;base64,AAAA"">`n"), $utf8)
-        $ra = @(Test-Template $a); $rb = @(Test-Template $b); $rc = @(Test-Template $c); $rd = @(Test-Template $d); $re = @(Test-Template $e)
-        Write-Output ("control: the real template has {0} problem(s); the script src {1}, the fetch {2}, the missing placeholder {3}, the second anchor {4}, the image {5}" -f $real.Count, $ra.Count, $rb.Count, $rc.Count, $rd.Count, $re.Count)
-        if ($real.Count -eq 0 -and $ra.Count -ge 1 -and $rb.Count -ge 1 -and $rc.Count -ge 1 -and $rd.Count -ge 1 -and $re.Count -ge 1) {
+        $f = Join-Path $tmp 'f.html'; [System.IO.File]::WriteAllText($f, $text.Replace('{{BOOK:pirate}}', '{{BOOK:klingon}}'), $utf8)
+        $ra = @(Test-Template $a); $rb = @(Test-Template $b); $rc = @(Test-Template $c); $rd = @(Test-Template $d); $re = @(Test-Template $e); $rf = @(Test-Template $f)
+        Write-Output ("control: the real template has {0} problem(s); the script src {1}, the fetch {2}, the missing placeholder {3}, the second anchor {4}, the image {5}, the stray dialect place {6}" -f $real.Count, $ra.Count, $rb.Count, $rc.Count, $rd.Count, $re.Count, $rf.Count)
+        if ($real.Count -eq 0 -and $ra.Count -ge 1 -and $rb.Count -ge 1 -and $rc.Count -ge 1 -and $rd.Count -ge 1 -and $re.Count -ge 1 -and $rf.Count -ge 1) {
             Write-Output 'OK: the check passes the template and fails each mutant'
             exit 0
         }
@@ -146,7 +175,7 @@ if (Test-Path $builtPath) {
     $builtNote = ("the built page ({0:N0} characters) holds too" -f (Get-Item $builtPath).Length)
 }
 if ($problems.Count -eq 0) {
-    Write-Output ("OK: web/index.template.html loads nothing and links to spreadsheet.company alone, by one bare link, with its three placeholders; {0}" -f $builtNote)
+    Write-Output ("OK: web/index.template.html loads nothing and links to spreadsheet.company alone, by one bare link, with its nine placeholders each in its place and the picker's dialects the english distro's; {0}" -f $builtNote)
     exit 0
 }
 Write-Output ("FAIL: the web page has {0} problem(s):" -f $problems.Count)

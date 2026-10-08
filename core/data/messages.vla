@@ -601,3 +601,5 @@
 (message reflect-unsupported 5 "VLA-Reflect" "{path} has a shape this version does not read: {part}, {why}.")
 (message view-sheet-unknown 9 "VLA-View" "The program makes no sheet named {name}; it makes {sheets}. Name one of those with --sheet.")
 (message view-window-not-a-range 5 "VLA-View" "{text} is not a window frazaro view can show. Write two corners of a rectangle, A1:F20, or one cell, B2; a whole column or row is not a window.")
+(message distro-manifest-missing 53 "VLA-Distro" "There is no distro named {edition}: {path} is not there. A distro is a folder holding a distro.vla that names its prelude and its phrasebooks; distros\\english\\README.md shows the shape.")
+(message distro-manifest-invalid 5 "VLA-Distro" "{path} is not a distro manifest this version can read: {why}. The shape is distros\\english\\README.md's: one (distro \"name\" ...) form, one directive a line, every path relative to the folder with forward slashes.")

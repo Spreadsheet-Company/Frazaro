@@ -20,8 +20,12 @@ SPDX-PackageDownloadLocation = "https://github.com/Spreadsheet-Company/Frazaro"
 # has a second implementation: the Cargo workspace (Cargo.toml, core/, cli/),
 # the conformance treaty that holds both to one corpus, and the web door.
 # Same territory, same terms: an implementation of the engine is the engine.
+# A distro folder (distros/, KERNEL.2, 2026-10-07) holds a manifest and a
+# README that name the files an edition ships, by reference; the manifest is
+# build data and takes the tools' terms, while every phrasebook it points at
+# keeps its own file's MPL-2.0 where it sits.
 [[annotations]]
-path = ["src/**", "scripts/**", "tools/**", "installer/**", "web/**", "archive/**", "core/**", "cli/**", "conformance/**", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "REUSE.toml", ".gitignore"]
+path = ["src/**", "scripts/**", "tools/**", "installer/**", "web/**", "archive/**", "core/**", "cli/**", "conformance/**", "distros/**", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "REUSE.toml", ".gitignore"]
 SPDX-FileCopyrightText = "2026 Spreadsheet Company"
 SPDX-License-Identifier = "Apache-2.0"
 

@@ -1,0 +1,26 @@
+; distros/espanol/distro.vla - the espanol distro: the add-in's Spanish edition
+; as it ships today (KERNEL.2, 2026-10-07): english.vla first, then the
+; espanol overlay, which rides english.vla's macros, so the chain is the one
+; VLA_Build.bas named by hand before this file. Its chrome is English, as the
+; Spanish edition's is today (EDITION-CHROME); EDITION-ESPANOL fills the rest
+; in. One directive a line; a path is relative to this folder, with forward
+; slashes. The shape is distros/english/README.md's.
+(distro "espanol"
+  (title "Frazaro")
+  (tagline "a phrasebook for your workbook")
+  (opens-with "Set total to 5.")
+  (palette (lavender "#e2d8f6") (whisper "#f7f4fc") (deep "#6b4fc8"))
+  (prelude "../../scripts/prelude.vla")
+  (phrasebook "english" "../../scripts/polyglotta/english.vla")
+  (overlay "espanol" "../../scripts/polyglotta/espanol.vla")
+  (dialect "dansk" "../../scripts/polyglotta/dansk.vla")
+  (dialect "deutsche" "../../scripts/polyglotta/deutsche.vla")
+  (dialect "espanol" "../../scripts/polyglotta/espanol.vla")
+  (dialect "esperanto" "../../scripts/polyglotta/esperanto.vla")
+  (dialect "francais" "../../scripts/polyglotta/francais.vla")
+  (dialect "latin" "../../scripts/polyglotta/latin.vla")
+  (dialect "pirate" "../../scripts/polyglotta/pirate.vla")
+  (library "alien" "../../scripts/polyglotta/alien.vla")
+  (examples "../../examples")
+  (addin "Frazaro_Espanol.xlam")
+  (readme "README.md"))

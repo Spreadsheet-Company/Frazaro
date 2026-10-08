@@ -21,6 +21,20 @@
   record, and the view of a built workbook's sheets is checked against
   `reflect` of the written file (KERNEL.4, the first projection through
   the kernel's projections seam).
+- **For everyone who ships an edition: the distro folder.** What an
+  edition of Frazaro consists of beyond the engine, the prelude, the
+  phrasebooks in their load order, the dialects, the libraries, the
+  examples, the add-in's file name, the page's title, tagline, opening
+  sentence and palette, is now one folder with one manifest,
+  `distros/english/distro.vla`, naming the files by reference where they
+  already are. The web page is built from it, `frazaro prove distros\english`
+  proves it whole (one line a book, the total last), and `VlaBuildAddin`
+  reads each edition's phrasebook chain from its folder instead of a table
+  in the code, so an edition is added by adding a folder;
+  `distros/espanol` is the Spanish edition as it ships today. A check holds
+  every manifest to one shape and the three readers to one another. The
+  page built from the distro is byte for byte the page built before
+  (KERNEL.2). `distros/english/README.md` says how to make your own.
 - **For phrasebook authors: the sheet helpers, so that sentences about
   sheets can be written.** The runtime gains eight helpers a macro can
   call, each refusing in words before Excel's own error could appear: add

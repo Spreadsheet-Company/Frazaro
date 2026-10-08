@@ -88,10 +88,14 @@ powershell -File tools\build_web.ps1
 
 builds the engine for the browser (`cargo build --release -p frazaro-core
 --target wasm32-unknown-unknown`), checks that the module imports nothing (a
-page that could phone home is not written), and fills the three placeholders
-of `index.template.html`: the module as base64, `scripts/prelude.vla` and
-`scripts/polyglotta/english.vla` as text, and each `{{BOOK:name}}` of the
-language picker with `scripts/polyglotta/<name>.vla`. The result,
+page that could phone home is not written), reads the english distro
+(`distros/english/distro.vla`, or the folder `-Distro` names; what a distro
+is, and how to make your own, is `distros/english/README.md`), and fills
+the placeholders of `index.template.html` from it: the module as base64,
+the distro's prelude and base phrasebook as text, each `{{BOOK:name}}` of
+the language picker with the distro's dialect of that name (the two sets
+must agree exactly), its title, tagline and opening sentence, and the three
+shades of its palette. The result,
 `index.html`, is a build artifact like the add-in's `.xlam` (gitignored): the
 template is the source. `-NoBuild` takes the module already built, as CI
 does. The core CI job builds the page on every push and keeps it as an
@@ -102,10 +106,11 @@ detail.
 ## For contributors
 
 - **The template is the source**, `index.template.html`: the markup, the
-  styles and the script in one file, plus the placeholders the builder fills.
-  The three Frazaro Lavender shades are CSS variables at its top, the one
-  place to change them; the focused input cell takes the light shade, the
-  ready Download button the deep one.
+  styles and the script in one file, plus the placeholders the builder fills
+  from the distro. The three Frazaro Lavender shades are CSS variables at
+  its top, filled from the distro's palette (`distros/english/distro.vla`),
+  the one place to change them; the focused input cell takes the light
+  shade, the ready Download button the deep one.
 - **The page speaks to the engine through `core/src/abi.rs`**, with no
   binding layer and no generated glue: an allocator pair;
   `frazaro_translate_vla` and `frazaro_translate_vba`; `frazaro_build_xlsx`;

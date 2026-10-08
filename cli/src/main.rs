@@ -20,14 +20,20 @@ usage:
                          runs them, and report what it holds, the line
                          EnglishVocabStats prints (PORT.6, slice 6c);
                          --allow-raw is the consent a (raw ...) form needs
-  frazaro prove <phrasebook.vla> [--prelude <prelude.vla>] [--allow-raw]
+  frazaro prove <phrasebook.vla|folder> [--prelude <prelude.vla>] [--allow-raw]
                          the treaty's oracle 3: every proof run, each
                          failure printed, then PASS n/n or FAIL k/n (k of
                          n passed), exit 0 or 1 (PORT.6, slice 6d); the
                          prelude is prelude.vla beside the file or in its
                          parent folder, else the one inside frazaro, unless
                          --prelude names one; an engine proof file exits 3
-                         (not attempted, PORT.9)
+                         (not attempted, PORT.9); a folder holding
+                         distro.vla is a distro (KERNEL.2), proved whole:
+                         its base phrasebook alone, then its overlay and
+                         each dialect over the base, as the doors load
+                         them, one line a book, a library listed and not
+                         scored, the manifest's prelude unless --prelude
+                         names one, and the total last
   frazaro translate-vla <program.txt> [--prelude <prelude.vla>] [--phrasebook <file.vla> ...] [--allow-raw]
                          the treaty's oracle 1: the program's VLA, the text
                          EnglishToVla writes, to stdout (PORT.6, slice 6e);
@@ -299,6 +305,168 @@ fn load(args: &[String]) -> ExitCode {
     }
 }
 
+/// One book's proofs over the books before it: the earlier texts load first
+/// as the doors load them (a failing proof there refuses, as a load would),
+/// then the book under Collect, its own failures printed and counted. The
+/// book's `(n, k)`, n proofs and k passed, or the refusal that stopped a load.
+fn prove_over(
+    prelude: &str,
+    earlier: &[(&str, &str)],
+    book: (&str, &str),
+) -> Result<(u64, u64), frazaro_core::messages::Refusal> {
+    let mut grammar = frazaro_core::english::Grammar::new(prelude);
+    for (name, text) in earlier {
+        grammar.load_vocabulary_text(text, name)?;
+    }
+    grammar.set_proof_mode(frazaro_core::english::grammar::ProofMode::Collect);
+    let (t0, f0) = grammar.proofs_run();
+    let before = grammar.proof_failures().len();
+    grammar.load_vocabulary_text(book.1, book.0)?;
+    let (t1, f1) = grammar.proofs_run();
+    let n = (t1 + f1) - (t0 + f0);
+    let failures = &grammar.proof_failures()[before..];
+    for f in failures {
+        println!("{}", f.refusal.text);
+        println!();
+    }
+    Ok((n, n - failures.len() as u64))
+}
+
+/// `frazaro prove <folder>` (KERNEL.2): the folder's `distro.vla` read, the
+/// base phrasebook proved alone as oracle 3 proves a file, then the overlay
+/// and each dialect proved over the base as the doors load them, one line a
+/// book (`<name>: PASS n/n`, `<name> over <base>: FAIL k/n`), a library
+/// listed and not scored, and the last line the total, `PASS n/n` or
+/// `FAIL k/n`, exit 0 or 1. The manifest's prelude is the prelude unless
+/// `--prelude` names another. A folder with no `distro.vla`, or a manifest
+/// this version cannot read, is refused through the catalogue; a file the
+/// manifest names that is not there is refused as a named file is.
+fn prove_distro(folder: &str, args: &[String], allow_raw: bool) -> ExitCode {
+    use frazaro_core::distro::Book;
+    let dir = std::path::Path::new(folder);
+    let manifest = dir.join("distro.vla");
+    let label = manifest.to_string_lossy().into_owned();
+    if !manifest.is_file() {
+        let edition = dir
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| folder.to_string());
+        eprintln!(
+            "{}",
+            frazaro_core::messages::raise(
+                "distro-manifest-missing",
+                &[("edition", &edition), ("path", &label)]
+            )
+        );
+        return ExitCode::from(1);
+    }
+    let text = match read_text(&label) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("frazaro: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    let distro = match frazaro_core::distro::parse(&text, &label) {
+        Ok(d) => d,
+        Err(refusal) => {
+            eprintln!("{refusal}");
+            return ExitCode::from(1);
+        }
+    };
+    let prelude_path = match option_after(args, "--prelude") {
+        Some(p) => p.to_string(),
+        None => dir.join(&distro.prelude).to_string_lossy().into_owned(),
+    };
+    if !is_file(&prelude_path) {
+        return refuse_missing("vla-file-not-found", &prelude_path);
+    }
+    let prelude = match read_text(&prelude_path) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("frazaro: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    // A book's text, read from where the manifest points and gated as any
+    // phrasebook a door did not ship is gated.
+    let read_book = |b: &Book| -> Result<String, ExitCode> {
+        let path = dir.join(&b.path).to_string_lossy().into_owned();
+        if !is_file(&path) {
+            return Err(refuse_missing("english-vocab-file-not-found", &path));
+        }
+        let t = read_text(&path).map_err(|e| {
+            eprintln!("frazaro: {e}");
+            ExitCode::from(2)
+        })?;
+        if let Err(refusal) = frazaro_core::api::vocab_gate(&t, &path, allow_raw) {
+            eprintln!("{refusal}");
+            return Err(ExitCode::from(1));
+        }
+        Ok(t)
+    };
+    let base_text = match read_book(&distro.base) {
+        Ok(t) => t,
+        Err(code) => return code,
+    };
+    let base_name = distro.base.name.as_str();
+    let (mut total, mut passed) = (0u64, 0u64);
+    let mut line =
+        |what: String, result: Result<(u64, u64), frazaro_core::messages::Refusal>| match result {
+            Ok((n, k)) => {
+                total += n;
+                passed += k;
+                if n == k {
+                    println!("{what}: PASS {n}/{n}");
+                } else {
+                    println!("{what}: FAIL {k}/{n}");
+                }
+                true
+            }
+            Err(refusal) => {
+                eprintln!("{refusal}");
+                false
+            }
+        };
+    if !line(
+        base_name.to_string(),
+        prove_over(&prelude, &[], (base_name, &base_text)),
+    ) {
+        return ExitCode::from(1);
+    }
+    let over: Vec<&Book> = distro
+        .overlay
+        .iter()
+        .chain(distro.dialects.iter())
+        .collect();
+    for book in over {
+        let text = match read_book(book) {
+            Ok(t) => t,
+            Err(code) => return code,
+        };
+        if !line(
+            format!("{} over {base_name}", book.name),
+            prove_over(
+                &prelude,
+                &[(base_name, &base_text)],
+                (book.name.as_str(), &text),
+            ),
+        ) {
+            return ExitCode::from(1);
+        }
+    }
+    for lib in &distro.libraries {
+        println!("{}: a library of macros, not scored", lib.name);
+    }
+    if passed == total {
+        println!("PASS {total}/{total}");
+        ExitCode::SUCCESS
+    } else {
+        println!("FAIL {passed}/{total}");
+        ExitCode::from(1)
+    }
+}
+
 /// `frazaro prove <phrasebook.vla> --prelude <prelude.vla> [--allow-raw]`:
 /// the treaty's oracle 3. The phrasebook loads with every proof run and
 /// every failure kept, each failure is printed as the reference would have
@@ -307,10 +475,15 @@ fn load(args: &[String]) -> ExitCode {
 /// malformed rule) prints the refusal and exits 1 with no verdict line.
 fn prove(args: &[String]) -> ExitCode {
     let Some(book) = args.first() else {
-        eprintln!("usage: frazaro prove <phrasebook.vla> [--prelude <prelude.vla>] [--allow-raw]");
+        eprintln!(
+            "usage: frazaro prove <phrasebook.vla|folder> [--prelude <prelude.vla>] [--allow-raw]"
+        );
         return ExitCode::from(2);
     };
     let allow_raw = args.iter().any(|a| a == "--allow-raw");
+    if std::path::Path::new(book).is_dir() {
+        return prove_distro(book, args, allow_raw);
+    }
     if !is_file(book) {
         return refuse_missing("english-vocab-file-not-found", book);
     }

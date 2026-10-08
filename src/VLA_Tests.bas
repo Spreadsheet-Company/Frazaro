@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "L-SHEET-HELPERS"
+Public Const VLA_TESTS_VERSION As String = "KERNEL.2"
+' KERNEL.2: TestDistroManifest - the distro manifest as the add-in builder
+' reads it (VLA_Build.bas, one directive a line): the chain in load order
+' with its paths collapsed, the add-in's file name, a line's quoted strings
+' with their escapes, and the refusals by id through the recorder; nine
+' pins, dispatched after TestSheetMacros.
 ' L-SHEET-HELPERS: TestSheetHelperNames pins VlaIsFrazaroSheetName, the
 ' runtime's pure copy of the IDE's own-sheet rule; TestSheetMacros expands
 ' each sheet macro of english.vla through the emitter from a raw row and
@@ -534,6 +539,7 @@ Public Function VlaSelfTest() As Boolean
     TestFormulaEgress
     TestSheetHelperNames
     TestSheetMacros
+    TestDistroManifest
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -6122,6 +6128,76 @@ Private Sub TestMessageRecorder()
            Len(VLA_Messages.VlaLastRaisedMsgId()) = 0 And Len(VLA_Messages.VlaLastRaisedMsgText()) = 0, _
            "still [" & VLA_Messages.VlaLastRaisedMsgId() & "]"
 End Sub
+
+' ---------------------------------------------------------------------
+'  KERNEL.2 pins: the distro manifest as the add-in builder reads it
+'  (VLA_Build.bas, one directive a line): the phrasebook chain in load
+'  order with its paths collapsed under the folder, the add-in's file
+'  name, a line's quoted strings with their escapes, and the refusals a
+'  manifest earns by name, pinned through the message recorder.
+' ---------------------------------------------------------------------
+Private Sub TestDistroManifest()
+    Dim m As String
+    m = "; a note" & vbCrLf & _
+        "(distro ""mine""" & vbCrLf & _
+        "  (title ""T"")" & vbCrLf & _
+        "  (prelude ""../../scripts/prelude.vla"")" & vbCrLf & _
+        "  (phrasebook ""english"" ""../../scripts/polyglotta/english.vla"")" & vbCrLf & _
+        "  (dialect ""pirate"" ""../../scripts/polyglotta/pirate.vla"")" & vbCrLf & _
+        "  (addin ""Frazaro_Mine.xlam""))" & vbCrLf
+    Dim chain As Variant
+    chain = VLA_Build.VlaDistroChain(m, "C:\repo\distros\mine")
+    Report "distro: a manifest with no overlay gives a chain of one", _
+           UBound(chain) = LBound(chain), "got " & (UBound(chain) - LBound(chain) + 1) & " file(s)"
+    Report "distro: the base's path is resolved under the folder with its .. collapsed", _
+           chain(LBound(chain)) = "C:\repo\scripts\polyglotta\english.vla", "got " & chain(LBound(chain))
+    Dim m2 As String
+    m2 = Replace(m, "  (dialect", "  (overlay ""espanol"" ""../../scripts/polyglotta/espanol.vla"")" & vbCrLf & "  (dialect")
+    chain = VLA_Build.VlaDistroChain(m2, "C:\repo\distros\espanol")
+    ' Two files, then the last one: asked in two steps, since VBA's And
+    ' would index the array whatever the count was.
+    Dim overlayOk As Boolean
+    overlayOk = (UBound(chain) - LBound(chain) = 1)
+    If overlayOk Then overlayOk = (chain(UBound(chain)) = "C:\repo\scripts\polyglotta\espanol.vla")
+    Report "distro: an overlay follows the base in the chain", overlayOk, "got " & Join(chain, " | ")
+    Report "distro: the add-in's file name comes off (addin ...)", _
+           VLA_Build.VlaDistroAddin(m, "C:\repo\distros\mine") = "Frazaro_Mine.xlam", _
+           "got " & VLA_Build.VlaDistroAddin(m, "C:\repo\distros\mine")
+    Dim s As Collection
+    Set s = VLA_Build.VlaDistroStrings("  (title ""say \""hi\"" and \\ back"")")
+    Dim escapesOk As Boolean
+    escapesOk = (s.Count = 1)
+    If escapesOk Then escapesOk = (s(1) = "say ""hi"" and \ back")
+    Report "distro: a line's quoted strings read \"" and \\ as the reader does", escapesOk, _
+           "got " & s.Count & " string(s)"
+    Report "distro: a manifest naming no phrasebook is refused by name", _
+           DistroRefusalId(Replace(m, "(phrasebook ", "(phrasebok "), "C:\repo\distros\mine", False) = "distro-manifest-invalid", _
+           "got [" & VLA_Messages.VlaLastRaisedMsgId() & "]"
+    Report "distro: two (distro ...) forms are refused by name", _
+           DistroRefusalId(m & "(distro ""two"")", "C:\repo\distros\mine", False) = "distro-manifest-invalid", _
+           "got [" & VLA_Messages.VlaLastRaisedMsgId() & "]"
+    Report "distro: a second overlay is refused by name", _
+           DistroRefusalId(Replace(m2, "  (overlay", "  (overlay ""x"" ""x.vla"")" & vbCrLf & "  (overlay"), "C:\repo\distros\espanol", False) = "distro-manifest-invalid", _
+           "got [" & VLA_Messages.VlaLastRaisedMsgId() & "]"
+    Report "distro: a manifest naming no add-in file is refused by name", _
+           DistroRefusalId(Replace(m, "  (addin ""Frazaro_Mine.xlam""))", "  (readme ""README.md""))"), "C:\repo\distros\mine", True) = "distro-manifest-invalid", _
+           "got [" & VLA_Messages.VlaLastRaisedMsgId() & "]"
+End Sub
+
+' The id of the refusal a manifest earns from the chain reader, or from
+' the add-in-name reader when forAddin is True; empty when nothing refused.
+Private Function DistroRefusalId(ByVal manifestText As String, ByVal folder As String, ByVal forAddin As Boolean) As String
+    Dim v As Variant
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    If forAddin Then
+        v = VLA_Build.VlaDistroAddin(manifestText, folder)
+    Else
+        v = VLA_Build.VlaDistroChain(manifestText, folder)
+    End If
+    On Error GoTo 0
+    DistroRefusalId = VLA_Messages.VlaLastRaisedMsgId()
+End Function
 
 ' ---------------------------------------------------------------------
 '  TER-10 and U.25 pins: a Run that stops names its sentence and row,
