@@ -7,8 +7,10 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 # What crates.io shows and indexes. A package is this directory and nothing
-# beside it: the four data tables the core embeds at build time live in
-# data/, inside the crate, so `cargo package` ships them, and
+# beside it: the three data tables the core embeds at build time (its half
+# of the message catalogue, the word tables and the name lists; the head
+# table and the language's half are vla-lang's) live in data/, inside the
+# crate, so `cargo package` ships them, and
 # tools/check_crate_package.ps1 holds every build-time include to that.
 readme = "README.md"
 keywords = ["spreadsheet", "excel", "english", "compiler", "xlsx"]
@@ -20,3 +22,6 @@ categories = ["compilers", "parser-implementations", "wasm"]
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
+# The language, pinned to the same version in the root Cargo.toml's
+# [workspace.dependencies]: one corpus, one version (PORT.12).
+vla-lang.workspace = true

@@ -1,4 +1,7 @@
-# The Cargo workspace: the host-free core and its command-line door.
+# The Cargo workspace: the language (vla-lang/), the host-free core (core/)
+# and its command-line door (cli/), in that dependency order (PORT.12,
+# 2026-10-08; Alonzo/CHARTER.md section 4, rule 1: an engine consumes the
+# language and never the core).
 #
 # docs/HORIZON.md section 12 is the design; conformance/README.md is the
 # treaty that holds every implementation to the one corpus in scripts/. The
@@ -13,7 +16,7 @@
 
 [workspace]
 resolver = "2"
-members = ["core", "cli"]
+members = ["vla-lang", "core", "cli"]
 
 [workspace.package]
 # One corpus, one version: tools/check_version_twin.ps1 holds this equal to
@@ -33,6 +36,10 @@ rust-version = "1.75"
 # a dependency by version alone. tools/check_version_twin.ps1 holds it equal
 # to the version above.
 frazaro-core = { path = "core", version = "=0.8.0" }
+# The language, pinned the same way by the core: `frazaro-core` at a version
+# is the bridges over `vla-lang` at the same version (PORT.12), and
+# tools/check_version_twin.ps1 holds this pin equal too.
+vla-lang = { path = "vla-lang", version = "=0.8.0" }
 
 [profile.release]
 # Small, deterministic, and without an unwinder: a panic aborts, so the wasm

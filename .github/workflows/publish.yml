@@ -1,7 +1,8 @@
 # Publishing the crates to crates.io, started by hand, from a release tag.
 #
-# Two crates leave this workspace: frazaro-core (the host-free core) and
-# frazaro (the command-line door), always together and always at the version
+# Three crates leave this workspace: vla-lang (the language), frazaro-core
+# (the host-free core over it) and frazaro (the command-line door), always
+# together and always at the version
 # the tag names (one corpus, one version: tools/check_version_twin.ps1). A
 # published version is permanent - crates.io can yank one, never delete it -
 # so nothing here runs on its own. The owner starts it from the Actions tab
@@ -41,13 +42,13 @@ jobs:
             echo "refusing: $GITHUB_REF is not refs/tags/v$version, the tag release.ps1 pushes for this version"
             exit 1
           fi
-      - name: package and verify both crates, uploading nothing
+      - name: package and verify the three crates, uploading nothing
         run: cargo package --workspace --locked
       - name: a token for this run only, from crates.io's Trusted Publishing
         if: ${{ inputs.upload }}
         id: auth
         uses: rust-lang/crates-io-auth-action@v1
-      - name: publish both crates, the core first
+      - name: publish the three crates, the language first, then the core, then the door
         if: ${{ inputs.upload }}
         run: cargo publish --workspace --locked
         env:

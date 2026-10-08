@@ -5,7 +5,7 @@ WHY: src/VLA_HeadTable.bas is the catalogue of the core forms, one row per
 head symbol: its aliases, arity, interpreter and VBA routines, its standing
 in the formula dialect, and whether it is export-only. The core (core/)
 reads the same catalogue as data, never typed in twice: this script writes
-core/data/headtable.vla, one form per row,
+vla-lang/data/headtable.vla (the language's crate since PORT.12), one form per row,
 
     (head <symbol> (<alias> ...) "<arity>" "<interpreter routine>"
           "<VBA routine>" <yes|refused|undeclared> <true|false>)
@@ -21,7 +21,7 @@ column is split on commas and trimmed, as VlaHeadTableAliasMap splits it.
 
 House style: PowerShell 5.1, host-free, no Excel, no COM, no network.
 
-Usage:  powershell -File tools\export_headtable.ps1          (writes core\data\headtable.vla)
+Usage:  powershell -File tools\export_headtable.ps1          (writes vla-lang\data\headtable.vla)
         powershell -File tools\export_headtable.ps1 -Print   (writes the text to stdout)
 #>
 param([switch]$Print)
@@ -29,7 +29,7 @@ param([switch]$Print)
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $srcPath  = Join-Path $repoRoot 'src/VLA_HeadTable.bas'
-$outPath  = Join-Path $repoRoot 'core/data/headtable.vla'
+$outPath  = Join-Path $repoRoot 'vla-lang/data/headtable.vla'
 
 $all = Get-Content -LiteralPath $srcPath
 $start = -1; $end = -1

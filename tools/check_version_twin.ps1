@@ -16,6 +16,11 @@ one. All three are bumped by hand at release (DI.3a) and nowhere else;
 release.ps1 runs every check_*.ps1 before it will tag, so a release with the
 twins apart cannot be cut.
 
+Since 2026-10-08 (PORT.12) a fourth string joins them: the core's pin on the
+language, `vla-lang = { path = "vla-lang", version = "=X" }` under the same
+table, held the same way, so that `frazaro-core` at a version resolves to
+`vla-lang` at the same one. All four are bumped together.
+
 check_hash_twin.ps1's shape: the sources of one fact, read without Excel,
 compared, and the comparison is the whole check.
 
@@ -48,15 +53,18 @@ if (-not $vbaVersion) { $failures.Add("${vba}: no 'Public Const VLA_RELEASE_VERS
 # ---- and the door's pin on the core under [workspace.dependencies] ----
 $cargoVersion = $null
 $pinVersion = $null
+$langPin = $null
 $table = ''
 foreach ($line in Get-Content $cargo) {
     $t = $line.Trim()
     if ($t -match '^\[(.+)\]$') { $table = $Matches[1]; continue }
     if ($table -eq 'workspace.package' -and $t -match '^version\s*=\s*"([^"]+)"') { $cargoVersion = $Matches[1] }
     if ($table -eq 'workspace.dependencies' -and $t -match '^frazaro-core\s*=\s*\{.*\bversion\s*=\s*"([^"]+)"') { $pinVersion = $Matches[1] }
+    if ($table -eq 'workspace.dependencies' -and $t -match '^vla-lang\s*=\s*\{.*\bversion\s*=\s*"([^"]+)"') { $langPin = $Matches[1] }
 }
 if (-not $cargoVersion) { $failures.Add("${cargo}: no 'version = `"...`"' under [workspace.package]") }
 if (-not $pinVersion) { $failures.Add("${cargo}: no 'frazaro-core = { path = ..., version = `"=...`" }' under [workspace.dependencies]") }
+if (-not $langPin) { $failures.Add("${cargo}: no 'vla-lang = { path = ..., version = `"=...`" }' under [workspace.dependencies] (PORT.12: the core's pin on the language)") }
 
 # ---- the comparison, which is the whole check ----
 if ($vbaVersion -and $cargoVersion -and $vbaVersion -ne $cargoVersion) {
@@ -69,6 +77,13 @@ if ($pinVersion) {
         $failures.Add("the door's pin on frazaro-core is '$pinVersion' but Cargo.toml's workspace version is $cargoVersion; bump all three by hand at release (DI.3a)")
     }
 }
+if ($langPin) {
+    if ($langPin -notmatch '^=') {
+        $failures.Add("the core's pin on vla-lang is '$langPin', not an exact '=<version>' requirement: a published frazaro-core could then resolve to another language crate")
+    } elseif ($cargoVersion -and $langPin -ne "=$cargoVersion") {
+        $failures.Add("the core's pin on vla-lang is '$langPin' but Cargo.toml's workspace version is $cargoVersion; bump all four by hand at release (DI.3a)")
+    }
+}
 foreach ($v in @($vbaVersion, $cargoVersion)) {
     if ($v -and $v -notmatch '^\d+\.\d+\.\d+$') { $failures.Add("'$v' is not MAJOR.MINOR.PATCH (SD-14)") }
 }
@@ -78,5 +93,5 @@ if ($failures.Count -gt 0) {
     $failures | ForEach-Object { Write-Host "  - $_" }
     exit 1
 }
-Write-Host "OK: VLA_RELEASE_VERSION, Cargo.toml's workspace version and the door's pin on the core agree on $vbaVersion"
+Write-Host "OK: VLA_RELEASE_VERSION, Cargo.toml's workspace version, the door's pin on the core and the core's pin on the language agree on $vbaVersion"
 exit 0

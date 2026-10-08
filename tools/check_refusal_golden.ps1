@@ -19,7 +19,8 @@ host-free, on every push:
   1. the golden's headers are the fixture's, in order, one record each;
   2. every record is REFUSED - a case that translates or loads reaches no
      refusal, and is mended or removed, never kept;
-  3. every id in the golden is a (message <id> ...) of core/data/messages.vla;
+  3. every id in the golden is a (message <id> ...) of core/data/messages.vla
+     or vla-lang/data/messages.vla, the catalogue's two halves since PORT.12;
   4. the number of distinct ids is at or above the floor below, the house
      style's hardcoded, reviewable number, raised by hand as cases are added.
 
@@ -54,7 +55,8 @@ $floor = 113
 
 $fixturePath  = Join-Path $repoRoot 'scripts/refusals.txt'
 $goldenPath   = Join-Path $repoRoot 'scripts/refusals_golden.txt'
-$messagesPath = Join-Path $repoRoot 'core/data/messages.vla'
+# The catalogue's two halves since PORT.12: the core's and the language's, one VBA source.
+$messagesPaths = @((Join-Path $repoRoot 'core/data/messages.vla'), (Join-Path $repoRoot 'vla-lang/data/messages.vla'))
 
 function Get-Lines([string]$path) {
     $text = [System.IO.File]::ReadAllText($path)
@@ -99,16 +101,18 @@ function Read-GoldenCases([string]$path) {
     return $cases
 }
 
-function Read-MessageIds([string]$path) {
+function Read-MessageIds([string[]]$paths) {
     $ids = @{}
-    foreach ($ln in (Get-Lines $path)) {
-        if ($ln -match '^\(message ([a-z0-9-]+) ') { $ids[$matches[1]] = $true }
+    foreach ($path in $paths) {
+        foreach ($ln in (Get-Lines $path)) {
+            if ($ln -match '^\(message ([a-z0-9-]+) ') { $ids[$matches[1]] = $true }
+        }
     }
     return $ids
 }
 
 # Every problem in a fixture/golden pair, with the distinct ids it reaches.
-function Test-Pair([string]$fixture, [string]$golden, [string]$messages, [int]$minIds) {
+function Test-Pair([string]$fixture, [string]$golden, [string[]]$messages, [int]$minIds) {
     $problems = @()
     $headers = @(Read-FixtureHeaders $fixture)
     $cases = @(Read-GoldenCases $golden)
@@ -133,7 +137,7 @@ function Test-Pair([string]$fixture, [string]$golden, [string]$messages, [int]$m
             continue
         }
         if (-not $ids.ContainsKey($c.Id)) {
-            $problems += ("'{0}': the id '{1}' is not in core/data/messages.vla" -f $c.Header, $c.Id)
+            $problems += ("'{0}': the id '{1}' is not in core/data/messages.vla or vla-lang/data/messages.vla" -f $c.Header, $c.Id)
         }
         $distinct[$c.Id] = $true
     }
@@ -148,7 +152,7 @@ if ($Control) {
     New-Item -ItemType Directory -Path $tmp | Out-Null
     try {
         $utf8 = New-Object System.Text.UTF8Encoding($false)
-        $real = Test-Pair $fixturePath $goldenPath $messagesPath $floor
+        $real = Test-Pair $fixturePath $goldenPath $messagesPaths $floor
         $lines = Get-Lines $goldenPath
         $firstRecord = -1
         $lastHeader = -1
@@ -172,9 +176,9 @@ if ($Control) {
         $c = @($lines[0..($lastHeader - 1)])
         $pc = Join-Path $tmp 'c.txt'
         [System.IO.File]::WriteAllText($pc, ($c -join "`n"), $utf8)
-        $ra = Test-Pair $fixturePath $pa $messagesPath $real.Distinct
-        $rb = Test-Pair $fixturePath $pb $messagesPath $real.Distinct
-        $rc = Test-Pair $fixturePath $pc $messagesPath $real.Distinct
+        $ra = Test-Pair $fixturePath $pa $messagesPaths $real.Distinct
+        $rb = Test-Pair $fixturePath $pb $messagesPaths $real.Distinct
+        $rc = Test-Pair $fixturePath $pc $messagesPaths $real.Distinct
         Write-Output ("control: the real pair has {0} problem(s) at {1} ids; the misspelt id {2}, the translated case {3}, the dropped case {4}" -f $real.Problems.Count, $real.Distinct, $ra.Problems.Count, $rb.Problems.Count, $rc.Problems.Count)
         if ($real.Problems.Count -eq 0 -and $ra.Problems.Count -ge 1 -and $rb.Problems.Count -ge 1 -and $rc.Problems.Count -ge 1) {
             Write-Output 'OK: the check passes the golden and fails each mutant'
@@ -188,7 +192,7 @@ if ($Control) {
     }
 }
 
-$r = Test-Pair $fixturePath $goldenPath $messagesPath $floor
+$r = Test-Pair $fixturePath $goldenPath $messagesPaths $floor
 if ($r.Problems.Count -eq 0) {
     if ($r.Distinct -gt $floor) {
         Write-Output ("OK: {0} cases, every one refused, {1} distinct refusal ids, above the floor of {2} - raise the floor in this file" -f $r.Cases, $r.Distinct, $floor)

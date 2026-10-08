@@ -22,7 +22,7 @@
 
 use super::xml;
 use super::zip;
-use super::{cell_ref, column_width_attr, Content, Sheet, Workbook};
+use super::{cell_ref, column_width_attr, number_text, Content, Sheet, Workbook};
 
 const XML_HEAD: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
 const NS_MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -337,13 +337,6 @@ pub fn metadata_xml() -> String {
          <cellMetadata count=\"1\"><bk><rc t=\"1\" v=\"0\"/></bk></cellMetadata>\n\
          </metadata>\n"
     )
-}
-
-/// A number as the file holds it. Rust's shortest round-trip spelling,
-/// which never uses an exponent, is one Excel reads; a value Excel cannot
-/// hold (not finite) is written as its `#NUM!` error.
-pub(crate) fn number_text(v: f64) -> Option<String> {
-    v.is_finite().then(|| format!("{v}"))
 }
 
 /// How a sheet's cells name the workbook's shared tables: the number of
@@ -670,15 +663,6 @@ mod tests {
         assert!(meta.contains("<xda:dynamicArrayProperties fDynamic=\"1\" fCollapsed=\"0\"/>"));
         assert!(meta
             .contains("<cellMetadata count=\"1\"><bk><rc t=\"1\" v=\"0\"/></bk></cellMetadata>"));
-    }
-
-    #[test]
-    fn numbers_as_the_file_holds_them() {
-        assert_eq!(number_text(5.0).as_deref(), Some("5"));
-        assert_eq!(number_text(0.1).as_deref(), Some("0.1"));
-        assert_eq!(number_text(-2.5).as_deref(), Some("-2.5"));
-        assert_eq!(number_text(f64::NAN), None);
-        assert_eq!(number_text(f64::INFINITY), None);
     }
 
     #[test]

@@ -2,14 +2,16 @@
 
 **The Frazaro language with no host: sentences in, spreadsheets out.**
 
-Frazaro is a language for spreadsheet work. You write the steps of a
-procedure as English sentences; Frazaro checks every sentence, refuses the
-ones it cannot read, in words, and carries out the rest. This crate is the
-language itself with nothing around it: the English engine, the compiler, a
-workbook writer and a workbook reader, as one library of plain Rust with no
-dependencies. The Excel add-in is the reference implementation; this crate
-is the second, held to the same corpus of tests, so a sentence means the
-same thing here as there and is refused in the same words. The
+Frazaro is a language for spreadsheet work. You write the steps of a procedure
+as English sentences; Frazaro checks every sentence, refuses the ones it
+cannot read, in words, and carries out the rest. This crate is the language
+itself with nothing around it: the English engine, the compiler, a workbook
+writer and a workbook reader, as one library of plain Rust whose one
+dependency is [`vla-lang`](https://crates.io/crates/vla-lang), the language
+itself as a crate of its own, and nothing from outside the repository. The
+Excel add-in is the reference implementation; this crate is the second, held
+to the same corpus of tests, so a sentence means the same thing here as there
+and is refused in the same words. The
 [`frazaro`](https://crates.io/crates/frazaro) crate is the command line over
 it, and a web page runs it as WebAssembly.
 
@@ -92,24 +94,28 @@ the two questions the add-in asks before loading a file: a phrasebook that
 requires a capability is refused, and one holding a `(raw ...)` form needs
 the person's consent.
 
-The crate's rustdoc, on docs.rs once published, documents every module;
-`api` is the surface an embedding needs, and the modules under it
-(`english`, `emit`, `build`, `sheet`, `reflect`, `refers`, `view`) are the
-engine with its parts named as the add-in names them; `kernel` writes down
-the boundary and the five seams every one of them enters by.
+The crate's rustdoc, on docs.rs once published, documents every module; `api`
+is the surface an embedding needs, and the modules under it (`english`,
+`emit`, `build`, `sheet`, `reflect`, `refers`, `view`) are the engine with its
+parts named as the add-in names them; `kernel` writes down the boundary and
+the five seams every one of them enters by. The language's own modules
+(`form`, `reader`, `printer`, `expand`, `headtable`, `intrinsics`, `refers`,
+`view`, the grid under `sheet`) are `vla-lang`'s, re-exported here whole, so a
+path that worked before the cut works after it.
 
 ## The contract
 
-Bytes in, bytes out, nothing else. The crate has no dependencies, and
-nothing in it reads a file, a clock, a socket or a random number at run
-time. The prelude and the phrasebooks are text the caller passes in; the
-four tables the engine needs (the head table, the message catalogue, the
-word tables and the name lists) are embedded at build time from `data/`,
-inside the crate, exported from the add-in's own code and held to it by the
-repository's checks. A workbook's bytes are deterministic: a fixed part
-order, stored entries stamped 1980-01-01, no author and no date, so the
-same sentences give the same file on every machine and a file can be a test
-golden. The release profile aborts on panic, so the wasm module imports
+Bytes in, bytes out, nothing else. The crate's one dependency is `vla-lang`,
+the repository's own crate of the language, and nothing in either reads a
+file, a clock, a socket or a random number at run time. The prelude and the
+phrasebooks are text the caller passes in; the tables the engine needs are
+embedded at build time inside the crates, the head table and the language's
+refusals in `vla-lang`'s `data/`, the core's refusals, the word tables and the
+name lists in this crate's `data/`, exported from the add-in's own code and
+held to it by the repository's checks. A workbook's bytes are deterministic: a
+fixed part order, stored entries stamped 1980-01-01, no author and no date, so
+the same sentences give the same file on every machine and a file can be a
+test golden. The release profile aborts on panic, so the wasm module imports
 nothing to unwind with and nothing to print with.
 
 `frazaro_core::VERSION` is the crate's version, which is the release's and

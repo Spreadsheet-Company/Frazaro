@@ -47,15 +47,20 @@ and that the `OUTPUT-EXCEPTION.md` additional permission applies to it.
 
 ## The kernel and its seams
 
-The core (`core/`, the crate `frazaro-core`) is a kernel. It holds forms and
-their expansion, the emitters, the sheet model, the relation set and the
-ABI, and nothing a person reads or says: English, message text, defaults,
-chrome, formats beyond a trait and doors live outside it, as data the kernel
-reads or as implementations of a seam. The rule for a change is that the
-kernel grows a seam, never a feature. Five seams are the only entrances,
-each with the oracle a change through it must pass. `core/src/kernel.rs`
-lists them as data, and `tools/check_kernel_boundary.ps1` holds the rule
-over the sources.
+The kernel is two crates in one dependency order: `vla-lang` (`vla-lang/`),
+the language, which holds forms and their expansion, the grid with the
+references a formula's text holds, the catalogue's mechanism and the view
+record; and `frazaro-core` (`core/`), which consumes it and holds the
+emitters, the English engine, the workbook writer and readers, the relation
+set and the ABI. An engine stands on the language and never on the core.
+Neither crate holds anything a person reads or says: English, message text,
+defaults, chrome, formats beyond a trait and doors live outside it, as data
+the kernel reads or as implementations of a seam. The rule for a change is
+that the kernel grows a seam, never a feature. Five seams are the only
+entrances, each with the oracle a change through it must pass.
+`core/src/kernel.rs` lists them as data (the projections seam's trait is
+`vla-lang/src/projection.rs`), and `tools/check_kernel_boundary.ps1` holds the
+rule over both source trees.
 
 | Seam | A contribution is | It must pass |
 |---|---|---|

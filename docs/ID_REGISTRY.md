@@ -101,7 +101,7 @@ output:
 | LX | LX.12 | LX.13 |
 | PF | PF.6 | PF.7 |
 | PI | PI.7 | PI.8 |
-| PORT | PORT.11 | PORT.12 |
+| PORT | PORT.12 | PORT.13 |
 | S | S6 (bare) | S7 |
 | SEC | SEC.6 | SEC.7 |
 | SIG | SIG.8 | SIG.9 (SIG.6, SIG.7 reserved — see below) |
@@ -169,7 +169,10 @@ of the same road and keep their own families and places. `SD-20`–`SD-37`,
 the eighteen commandments blessed the same day, are standing decisions in
 the register, not items, and take no row here. The `PORT` family (minted
 2026-10-01, `PORT.1`–`PORT.11`) had no row in the inventory above until this
-pass; it has one now, with `PORT.12` next free.
+pass; it has one now. `PORT.12` was minted 2026-10-08: the cut of `vla-lang`,
+the language as a crate of its own before `KERNEL.7`, the boundary decided the
+same day in Alonzo's sessions and scoped in `BETA_REARVIEW.md`, Part B;
+`PORT.13` is next free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a

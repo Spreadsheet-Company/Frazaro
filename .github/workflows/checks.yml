@@ -53,7 +53,9 @@ jobs:
           cargo test --workspace
       - name: build the wasm core
         run: cargo build --release -p frazaro-core --target wasm32-unknown-unknown
-      - name: the core imports nothing (SD-13, read off the artifact)
+      - name: build the wasm language crate (PORT.12)
+        run: cargo build --release -p vla-lang --target wasm32-unknown-unknown
+      - name: the core and the language import nothing (SD-13, read off both artifacts; PORT.12)
         shell: pwsh
         run: pwsh -NoProfile -File tools/check_core_imports.ps1
       - name: the conformance runner proves itself

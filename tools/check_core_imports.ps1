@@ -1,5 +1,5 @@
 <#
-check_core_imports.ps1 - the wasm core imports nothing. Pinned at 0.
+check_core_imports.ps1 - the wasm core and the wasm language crate import nothing. Pinned at 0.
 
 WHY: SD-13 says no outbound network call, ever. For the VBA add-in that is a
 promise kept by check_no_network.ps1's scan of the source. For the core built
@@ -18,7 +18,9 @@ is a module name, a field name, a kind byte and that kind's description.
 The names are printed when the count is not zero, so a failure says what was
 imported, not just that something was.
 
-WHERE THE ARTIFACT COMES FROM: target/wasm32-unknown-unknown/release/
+WHERE THE ARTIFACTS COME FROM (two since PORT.12, 2026-10-08: the core's, and
+the language crate's vla_lang.wasm beside it, built with -p vla-lang and held
+to the same zero): target/wasm32-unknown-unknown/release/
 frazaro_core.wasm, which `cargo build --release -p frazaro-core --target
 wasm32-unknown-unknown` writes and CI builds on every push. A tree with no
 Rust toolchain has no artifact; the check then says SKIPPED and exits 0,
@@ -117,18 +119,27 @@ if ($Control) {
 }
 
 # Forward slashes: this runs under pwsh on the ubuntu job too, where '\' is a character in a name.
-$wasm = if ($Path -ne '') { $Path } else { Join-Path $root 'target/wasm32-unknown-unknown/release/frazaro_core.wasm' }
-if (-not (Test-Path $wasm)) {
-    Write-Host "SKIPPED: no wasm artifact at $wasm (cargo build --release -p frazaro-core --target wasm32-unknown-unknown writes it; CI checks it on every push)"
-    exit 0
+# Two artifacts since PORT.12 (2026-10-08): the core's module and the language's, each held at zero;
+# -Path names one module instead. An artifact that was not built is SKIPPED, since CI builds both.
+$artifacts = if ($Path -ne '') { @($Path) } else {
+    @((Join-Path $root 'target/wasm32-unknown-unknown/release/frazaro_core.wasm'),
+      (Join-Path $root 'target/wasm32-unknown-unknown/release/vla_lang.wasm'))
 }
-
-$bytes = [System.IO.File]::ReadAllBytes($wasm)
-$imports = Get-Imports $bytes
-if ($imports.Count -ne $expectedImports) {
-    Write-Host "FAIL: $wasm imports $($imports.Count) thing(s); the core must import nothing (pinned at $expectedImports)"
-    $imports | ForEach-Object { Write-Host "  - $_" }
-    exit 1
+$failed = $false
+foreach ($wasm in $artifacts) {
+    if (-not (Test-Path $wasm)) {
+        Write-Host "SKIPPED: no wasm artifact at $wasm (cargo build --release -p frazaro-core --target wasm32-unknown-unknown writes the core's, the same with -p vla-lang the language's; CI checks both on every push)"
+        continue
+    }
+    $bytes = [System.IO.File]::ReadAllBytes($wasm)
+    $imports = Get-Imports $bytes
+    if ($imports.Count -ne $expectedImports) {
+        Write-Host "FAIL: $wasm imports $($imports.Count) thing(s); the module must import nothing (pinned at $expectedImports)"
+        $imports | ForEach-Object { Write-Host "  - $_" }
+        $failed = $true
+        continue
+    }
+    Write-Host "OK: $wasm has an empty import section ($($bytes.Length) bytes, $expectedImports imports)"
 }
-Write-Host "OK: $wasm has an empty import section ($($bytes.Length) bytes, $expectedImports imports)"
+if ($failed) { exit 1 }
 exit 0

@@ -5,10 +5,16 @@ WHY: PORT.5 gave the core two catalogues as data, each exported once from the
 VBA that stays their source, and PORT.6 (slice 6a) two more, the English
 engine's word tables and name lists:
 
-    core/data/headtable.vla   from src/VLA_HeadTable.bas       (tools/export_headtable.ps1)
-    core/data/messages.vla    from src/VLA_Messages.bas        (tools/export_messages.ps1)
+    vla-lang/data/headtable.vla   from src/VLA_HeadTable.bas       (tools/export_headtable.ps1)
+    vla-lang/data/messages.vla    from src/VLA_Messages.bas        (tools/export_messages.ps1 -Half language)
+    core/data/messages.vla        from src/VLA_Messages.bas        (tools/export_messages.ps1 -Half core)
     core/data/words.vla       from src/VLA_English.bas         (tools/export_words.ps1)
     core/data/names.vla       from src/VLA_SentenceEngine.bas  (tools/export_names.ps1)
+
+Since 2026-10-08 (PORT.12) the head table and the language's families of the
+catalogue (vla, interp, lint, view) are the language crate's, under
+vla-lang/data/, and the catalogue is two files written by the one exporter
+from the one VBA source, each half held here with its own floor.
 
 Two copies of one list, and nothing mechanical to hold them together, is the
 shape check_devrig_mods_parity.ps1 was written for after eight recurrences
@@ -36,16 +42,18 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 
 # --- the floors: raise them when an entry is added, never lower them --------
 $floors = @{
-    'core/data/headtable.vla' = 65    # one row per core form (VLA_HeadTable.bas, IN5.0: 65)
-    'core/data/messages.vla'  = 592   # one entry per refusal id (VLA_Messages.bas, LX.14; 584 with PORT.7's ten; 587 with PORT.8's three; 588 with SEC.15's build-formula-egress; 590 with KERNEL.4's two view refusals; 592 with KERNEL.2's two distro refusals)
-    'core/data/words.vla'     = 113   # one entry per word-table row (VLA_English.bas, LX.14; PORT.6 2026-10-02)
-    'core/data/names.vla'     = 218   # one entry per name-list row (VLA_SentenceEngine.bas; PORT.6 2026-10-02: 211; U.31, the seven reserved words: 218)
+    'vla-lang/data/headtable.vla' = 65    # one row per core form (VLA_HeadTable.bas, IN5.0: 65; the language's crate since PORT.12)
+    'vla-lang/data/messages.vla'  = 176   # the language's half of the catalogue (PORT.12, 2026-10-08: the vla, interp, lint and view families)
+    'core/data/messages.vla'      = 416   # the core's half: one entry per refusal id outside the language's families (VLA_Messages.bas, LX.14; 584 with PORT.7's ten; 587 with PORT.8's three; 588 with SEC.15's build-formula-egress; 590 with KERNEL.4's two view refusals; 592 with KERNEL.2's two distro refusals; 416 of them once PORT.12 moved the language's 176 to vla-lang/data/)
+    'core/data/words.vla'         = 113   # one entry per word-table row (VLA_English.bas, LX.14; PORT.6 2026-10-02)
+    'core/data/names.vla'         = 218   # one entry per name-list row (VLA_SentenceEngine.bas; PORT.6 2026-10-02: 211; U.31, the seven reserved words: 218)
 }
 $exports = @(
-    @{ Data = 'core/data/headtable.vla'; Script = 'tools/export_headtable.ps1'; Form = '^\(head ' },
-    @{ Data = 'core/data/messages.vla';  Script = 'tools/export_messages.ps1';  Form = '^\(message ' },
-    @{ Data = 'core/data/words.vla';     Script = 'tools/export_words.ps1';     Form = '^\([a-z-]+ ' },
-    @{ Data = 'core/data/names.vla';     Script = 'tools/export_names.ps1';     Form = '^\([a-z-]+ ' }
+    @{ Data = 'vla-lang/data/headtable.vla'; Script = 'tools/export_headtable.ps1'; Args = @{};                      Form = '^\(head ' },
+    @{ Data = 'vla-lang/data/messages.vla';  Script = 'tools/export_messages.ps1';  Args = @{ Half = 'language' }; Form = '^\(message ' },
+    @{ Data = 'core/data/messages.vla';      Script = 'tools/export_messages.ps1';  Args = @{ Half = 'core' };     Form = '^\(message ' },
+    @{ Data = 'core/data/words.vla';         Script = 'tools/export_words.ps1';     Args = @{};                      Form = '^\([a-z-]+ ' },
+    @{ Data = 'core/data/names.vla';         Script = 'tools/export_names.ps1';     Args = @{};                      Form = '^\([a-z-]+ ' }
 )
 
 function Get-NormalizedLines([string]$text) {
@@ -63,7 +71,8 @@ foreach ($e in $exports) {
         $failed.Add("$($e.Data) is missing - run powershell -File $($e.Script)")
         continue
     }
-    $want = Get-NormalizedLines (& $scriptPath -Print | Out-String)
+    $extra = $e.Args
+    $want = Get-NormalizedLines (& $scriptPath -Print @extra | Out-String)
     $have = Get-NormalizedLines ([System.IO.File]::ReadAllText($dataPath))
     $entries = @($have | Where-Object { $_ -match $e.Form }).Count
     $n = [Math]::Max($want.Count, $have.Count)

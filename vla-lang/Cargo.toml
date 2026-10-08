@@ -1,0 +1,23 @@
+[package]
+name = "vla-lang"
+description = "The VLA language with nothing around it: forms, their expansion, the grid, and the view record"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+# What crates.io shows and indexes. A package is this directory and nothing
+# beside it: the two data tables the language embeds at build time, the
+# head table and its half of the message catalogue, live in data/, inside
+# the crate, so `cargo package` ships them, and tools/check_crate_package.ps1
+# holds every build-time include to that.
+readme = "README.md"
+keywords = ["spreadsheet", "lisp", "language", "excel", "wasm"]
+categories = ["compilers", "parser-implementations", "wasm"]
+
+[lib]
+# rlib for frazaro-core and for an engine; cdylib for the wasm32 build, whose
+# import section tools/check_core_imports.ps1 holds at zero as the core's.
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]

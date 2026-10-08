@@ -41,8 +41,8 @@ $root = $root.TrimEnd('\', '/')
 $sep = [System.IO.Path]::DirectorySeparatorChar
 
 # ---- the baseline: raise when a member or a build-time include is added ----
-$expectedMembers = 2   # core, cli (PORT.4)
-$includeFloor    = 6   # core/src: messages.vla, headtable.vla, words.vla, names.vla (PORT.5, PORT.6); cli/src: prelude.vla, english.vla (2026-10-05, the door's built-in pair)
+$expectedMembers = 3   # vla-lang, core, cli (PORT.4; PORT.12 added the language, 2026-10-08)
+$includeFloor    = 7   # vla-lang/src: headtable.vla, messages.vla (PORT.12); core/src: messages.vla, words.vla, names.vla (PORT.5, PORT.6); cli/src: prelude.vla, english.vla (2026-10-05, the door's built-in pair)
 $requiredKeys    = @('description', 'readme', 'license', 'repository')
 
 $failures = New-Object System.Collections.Generic.List[string]

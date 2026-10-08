@@ -12,3 +12,10 @@ dependencies = [
 [[package]]
 name = "frazaro-core"
 version = "0.8.0"
+dependencies = [
+ "vla-lang",
+]
+
+[[package]]
+name = "vla-lang"
+version = "0.8.0"

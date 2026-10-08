@@ -421,4 +421,128 @@ mod tests {
             .unwrap_or_else(|e| panic!("{}", e.refusal.text));
         assert!(vla.contains("(raw \"Debug.Print 2\")"), "{vla}");
     }
+
+    const FIXTURE: &str = include_str!("../../scripts/build/fixture.txt");
+    const INTO: &str = include_str!("../../scripts/build/into.txt");
+
+    /// A golden as the door prints it: the files are CRLF on disk.
+    fn golden(text: &str) -> String {
+        text.replace("\r\n", "\n")
+    }
+
+    /// Oracle 11 through the API (KERNEL.4). The test is here, and not with
+    /// the view in `vla-lang`, since it builds through English (PORT.12).
+    #[test]
+    fn the_view_goldens_are_reproduced() {
+        for (program, sheet, window, golden_text, path) in [
+            (
+                FIXTURE,
+                "Frazaro",
+                None,
+                include_str!("../../scripts/view/fixture_frazaro.vla"),
+                "scripts/view/fixture_frazaro.vla",
+            ),
+            (
+                FIXTURE,
+                "Output",
+                Some("A1:F20"),
+                include_str!("../../scripts/view/fixture_output.vla"),
+                "scripts/view/fixture_output.vla",
+            ),
+            (
+                FIXTURE,
+                "Output",
+                Some("B2:C3"),
+                include_str!("../../scripts/view/fixture_output_b2_c3.vla"),
+                "scripts/view/fixture_output_b2_c3.vla",
+            ),
+            (
+                FIXTURE,
+                "Data",
+                None,
+                include_str!("../../scripts/view/fixture_data.vla"),
+                "scripts/view/fixture_data.vla",
+            ),
+            (
+                INTO,
+                "Output",
+                None,
+                include_str!("../../scripts/view/into_output.vla"),
+                "scripts/view/into_output.vla",
+            ),
+            (
+                INTO,
+                "Checks",
+                None,
+                include_str!("../../scripts/view/into_checks.vla"),
+                "scripts/view/into_checks.vla",
+            ),
+        ] {
+            let got = english_view(program, PRELUDE, &[ENGLISH], sheet, window)
+                .unwrap_or_else(|r| panic!("{path}: {}", r.refusal));
+            let want = golden(golden_text);
+            if got != want {
+                let at = got
+                    .lines()
+                    .zip(want.lines())
+                    .position(|(a, b)| a != b)
+                    .map(|i| i + 1)
+                    .unwrap_or(got.lines().count().min(want.lines().count()) + 1);
+                panic!(
+                    "{path} differs at line {at}: got {:?}, want {:?}",
+                    got.lines().nth(at - 1),
+                    want.lines().nth(at - 1)
+                );
+            }
+        }
+    }
+
+    /// The free oracle (web/CALLOSUM.md section 8, slice 1): the window is
+    /// drawn from the model, the file is written from the model, and the
+    /// reader reads the file; the cell and formula rows agree row for row,
+    /// and the sheet rows too.
+    #[test]
+    fn the_view_of_a_built_model_is_the_reflect_of_its_file() {
+        use crate::kernel::Window;
+        use crate::reflect::print::quoted;
+        use crate::view::{view_text, whole};
+        for (program, label) in [(FIXTURE, "fixture.txt"), (INTO, "into.txt")] {
+            let vla = english_translate_text_to_vla(program, PRELUDE, &[ENGLISH])
+                .unwrap_or_else(|r| panic!("{label}: {}", r.refusal));
+            let model = crate::build::build_workbook(program, &vla, PRELUDE, &[ENGLISH])
+                .unwrap_or_else(|r| panic!("{label}: {r}"));
+            let bytes = crate::sheet::ooxml::workbook_bytes(&model).unwrap();
+            let reflected = crate::reflect::reflect_text(&bytes, label).unwrap();
+            let file_sheets: Vec<&str> = reflected
+                .lines()
+                .filter(|l| l.starts_with("(sheet "))
+                .collect();
+            let mut seen = 0;
+            for sheet in &model.sheets {
+                let view = view_text(
+                    &model,
+                    &Window {
+                        sheet: sheet.name.clone(),
+                        range: whole(sheet),
+                    },
+                );
+                let view_sheets: Vec<&str> =
+                    view.lines().filter(|l| l.starts_with("(sheet ")).collect();
+                assert_eq!(view_sheets, file_sheets, "{label}: the sheet rows");
+                let body: Vec<&str> = view
+                    .lines()
+                    .filter(|l| l.starts_with("(cell ") || l.starts_with("(formula "))
+                    .collect();
+                let prefix_cell = format!("(cell {} ", quoted(&sheet.name));
+                let prefix_formula = format!("(formula {} ", quoted(&sheet.name));
+                let read: Vec<&str> = reflected
+                    .lines()
+                    .filter(|l| l.starts_with(&prefix_cell) || l.starts_with(&prefix_formula))
+                    .collect();
+                assert_eq!(body, read, "{label}: sheet {}", sheet.name);
+                seen += body.len();
+            }
+            assert!(seen > 10, "{label}: the comparison covered {seen} rows");
+        }
+    }
 }

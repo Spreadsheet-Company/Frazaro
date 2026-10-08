@@ -6,6 +6,16 @@
 
 ### What changed
 
+- **For embeddings: the language is a crate of its own, `vla-lang`.** The
+  reader, the macro expander, the forms and the head table, the grid with
+  the references read out of a formula's text, and the view record now live
+  in `vla-lang`, a crate with no dependency, no English, no file format and
+  an empty import section when built to WebAssembly; `frazaro-core` depends
+  on it and re-exports every path, so nothing an embedding calls moves, and
+  the command line and the web page are unchanged. `cargo install frazaro`
+  pulls the repository's own two crates and nothing from anyone else. The
+  cut comes before recalculation so that an engine built on the language
+  never depends on the core (PORT.12).
 - **For the command line and for embeddings: `frazaro view`, the view
   record.** A program is translated and built into the sheet model in
   memory, nothing is written, and one window of one sheet is printed as

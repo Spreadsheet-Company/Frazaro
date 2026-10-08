@@ -593,14 +593,14 @@ fn delimited_end(s: &[char], j: usize, d: char) -> Option<usize> {
 /// [`delimited_end`], or the end of the text when the delimiter never closes.
 /// Shared with the formula sink's scan (`egress`), which steps over the same
 /// three groups, so the crate has one string-skipping rule.
-pub(crate) fn skip_delimited(s: &[char], j: usize, d: char) -> usize {
+pub fn skip_delimited(s: &[char], j: usize, d: char) -> usize {
     delimited_end(s, j, d).unwrap_or(s.len())
 }
 
 /// The position after the `]` that closes the `[` at `i`, nested brackets
 /// counted and a `'` inside taken as the escape it is there; the end of the
 /// text when it never closes.
-pub(crate) fn bracket_group_end(s: &[char], i: usize) -> usize {
+pub fn bracket_group_end(s: &[char], i: usize) -> usize {
     let n = s.len();
     let mut k = i;
     let mut depth: i32 = 0;
@@ -626,7 +626,7 @@ pub(crate) fn bracket_group_end(s: &[char], i: usize) -> usize {
 
 /// A letter, a digit, `_` or `.`, or any character past ASCII (a letter in
 /// another alphabet, as a name or a sheet may hold).
-pub(crate) fn is_ident_char(ch: char) -> bool {
+pub fn is_ident_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_' || ch == '.' || (ch as u32) > 127
 }
 

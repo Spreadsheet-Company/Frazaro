@@ -18,8 +18,9 @@ add-in. Here it is one executable, `frazaro`, which
 - loads and proves a phrasebook, the file that teaches the language its
   sentences.
 
-It has no dependencies, opens no network connection, executes nothing, and
-writes no file but the one you name. It is the same engine as the add-in,
+It depends on nothing outside the repository (its two crates, `frazaro-core`
+and `vla-lang`, are its own), opens no network connection, executes nothing,
+and writes no file but the one you name. It is the same engine as the add-in,
 held to the same corpus of tests, so a sentence means the same thing at the
 prompt as on the Frazaro tab, and is refused in the same words.
 
@@ -29,13 +30,14 @@ prompt as on the Frazaro tab, and is refused in the same words.
 cargo install frazaro
 ```
 
-needs a Rust toolchain of 1.75 or newer and downloads nothing else, since
-the crate has no dependencies. From a clone of
-[the repository](https://github.com/Spreadsheet-Company/Frazaro),
-`cargo build --release --workspace` puts the same program at
-`target/release/frazaro`. The repository's test suite builds and runs it on
-Linux on every push; it is developed on Windows. The commands on this page
-are the same in PowerShell and in a Unix shell.
+needs a Rust toolchain of 1.75 or newer and downloads only the repository's
+own two crates, `frazaro-core` and `vla-lang`, and nothing from anyone else.
+From a clone of [the
+repository](https://github.com/Spreadsheet-Company/Frazaro), `cargo build
+--release --workspace` puts the same program at `target/release/frazaro`. The
+repository's test suite builds and runs it on Linux on every push; it is
+developed on Windows. The commands on this page are the same in PowerShell and
+in a Unix shell.
 
 Nothing else is needed. The two files the language is made of, the
 **prelude** (its standard library) and the **phrasebook** `english.vla` (its

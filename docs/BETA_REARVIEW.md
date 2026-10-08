@@ -8494,6 +8494,424 @@ written against.
   check, the fixtures), this entry with each slice's live pass, the
   roadmap's line (its "ships as" under fork 2) until it leaves, and the
   ledger at close.
+- ✅ **PORT.12 — the cut: `vla-lang`, the language as a crate of its own.**
+  *Scoped 2026-10-08, the day the boundary was decided in Alonzo's sessions
+  (`Alonzo/CHARTER.md` §4 rule 1, `AD-1`; the sitting as seen from here is
+  under the KERNEL line, "The boundary, 2026-10-08"); minted out of number
+  order because it precedes `PORT.9` and `PORT.10` on this road and `KERNEL.6`
+  and `KERNEL.7` on the KERNEL line. The decisions below are put to the owner
+  with a recommendation each; nothing moves before the word.* The item is a
+  pure move: the language's files leave `core/src/` for a crate of their own,
+  `frazaro-core` consumes that crate and re-exports every path a door uses
+  today, no behaviour changes, no refusal is added, no golden is regenerated.
+  Its reason is Alonzo's condition, stated by the owner on the day: Alonzo
+  must be a self-contained substrate for the games after Frazaro, and Frazaro
+  must own nothing such a game needs; an evaluator written into `frazaro-core`
+  with Excel's functions tangled in would make every later game depend on
+  `frazaro-core`, so the seam is cut before the evaluator exists, the
+  instrument before the operation.
+  **Substrate, verified: the census re-run 2026-10-08.** Everything below was
+  read on the day, by file and never by assumption: `core/src/` is 30,559
+  lines in 50 files (`wc -l`; *measurement*, the same total as the Alonzo
+  sitting's census). Each file's crate-internal `use` lines were read to
+  assign it, and the assignment is the one the sitting made, with three seams
+  the sitting did not name, found today and resolved under the catch. What
+  moves, and what each file reaches inside the crate:
+  | File | Lines | Reaches |
+  |---|---|---|
+  | `intrinsics.rs` | 356 | nothing |
+  | `form.rs` | 243 | `intrinsics`, `messages` |
+  | `messages.rs` | 239 | `form`, `reader`; the catalogue, `data/messages.vla` |
+  | `reader.rs` | 312 | `form`, `messages` |
+  | `printer.rs` | 118 | `form` |
+  | `expand.rs` | 1,201 | `form`, `intrinsics`, `messages`, `printer`, `reader` |
+  | `headtable.rs` | 200 | `form`, `intrinsics`, `reader`; the table, `data/headtable.vla` |
+  | `version.rs` | 72 | `messages` |
+  | `sheet/mod.rs` | 587 | `intrinsics`; **`refers::shift_a1_references`**, the brief's catch |
+  | `refers.rs` | 1,212 | `intrinsics`, `sheet` (decision 1) |
+  | `reflect/print.rs`, with the row types of `reflect/mod.rs` | 187, and about 100 | `form`, `printer`; **`reflect::sheet_prefix`, which is `refers::quote_sheet`** |
+  | `kernel.rs`, its `Window` and `Projection` alone | about 40 of 290 | `sheet`; the rest of the file stays |
+  | `view.rs` | 691 | `kernel`, `messages`, `reflect::print`, the row types, `sheet`, `refers`; **`sheet::ooxml::number_text`** (three lines) and **`sheet::xlfn::strip_future_prefixes`** (fifty-two lines and two name helpers, no table read) |
+  About 5,500 lines with the reference reader, about 4,300 without it, the
+  sitting's figure. Everything else stays and reaches down into these and
+  never the reverse: `emit/` (the VBA emitter, 2,285 lines, raising `vla-*`
+  ids at sixty sites), `english/` (10,074), `build.rs` (1,842), `reflect/`
+  less the rows (about 5,000), the format files
+  `sheet/{zip,xml,ooxml,xlfn,inflate,merge}.rs` (3,118), `egress.rs` (212,
+  over three helpers of `refers`), `distro.rs`, `sha256.rs`, `api.rs`,
+  `abi.rs`, `kernel.rs`'s `SEAMS`, `FORMATS`, `Engine` and `HostProfile`, and
+  `lib.rs`'s C export. The command-line door reaches `frazaro_core::` at about
+  forty sites over twenty-six paths, every one a module `frazaro-core` keeps
+  or re-exports, so `cli/` moves nothing. The includes outside a test module
+  are the four tables (`check_kernel_boundary`'s list; `check_crate_package`
+  pins six with the door's pair); every other include is in a test region and
+  reaches `scripts/` or `distros/` by `../../`, the same depth from
+  `vla-lang/src/` as from `core/src/`. The catalogue, 593 ids in the working
+  tree (592 at HEAD; the one more is `U.32`'s, the peer's), by family: `vla`
+  111, `interp` 61, `lint` 2, `view` 2, the language's 176; `english` 125,
+  `ide` 46, `build` 10, `reflect` 3, `distro` 2, `cli` 2, `sec8`, `runtime`,
+  `rebuild` and `unify` one each, and the engines' 225 (`prolog` 71, `datalog`
+  57, `sql` 50, `optimize` 39, `relation` 8), 417 in all. Who raises what:
+  `expand.rs`, `form.rs`, `reader.rs` and `version.rs` raise `vla-*`;
+  `view.rs` raises `view-*`; `emit/` raises `vla-*` too, from the crate that
+  stays; `build.rs` and `sheet/merge.rs` raise `build-*`; `reflect/ooxml.rs`
+  `reflect-*`; `english/` `english-*`; no Rust raises an `interp-*`, `lint-*`,
+  `ide-*` or an engine id today. The baselines, measured in the shared tree
+  with the peers' uncommitted work in it: `cargo test --workspace` 230 passed
+  and 4 ignored (234 `#[test]` functions, the four ignored being the report
+  printers); `run_checks.ps1` 52 of 52; `check_crate_package` members 2 and
+  includes 6; `check_version_twin` one pin, `=0.8.0`; `check_data_exports`
+  floors 65, 593, 113 and 218; `check_refusal_golden` reads
+  `core/data/messages.vla` to hold the golden's ids; `check_egress_golden`
+  reads `core/src/egress.rs` and `check_hash_twin` reads `core/src/sha256.rs`,
+  both of which stay. The names: `vla-lang` is free on crates.io (a 404 from
+  the registry's API, *measurement*, 2026-10-08) and `vla` exists with every
+  version yanked (0.0.0 to 0.1.1, 2023), so the crate is `vla-lang` as the
+  sitting named it. The prelude holds 46 macros, all sugar (`when`, `unless`,
+  `dotimes`, `let-one`, the `with-*` forms, the list operations); every core
+  form is a head-table row, so the language without the prelude is the whole
+  language and the prelude is a library, which decision 4 leans on.
+  **The work.** One new member and the seams around it, each file named.
+  | File | What it is | Copied, adapted, or decided |
+  |---|---|---|
+  | `vla-lang/Cargo.toml`, `vla-lang/README.md` | the crate: `vla-lang`, `rlib` and `cdylib`, no dependency, version and licence from the workspace, description, readme, repository; the page for crates.io in `core/README.md`'s shape, written for a first-time visitor, ending with *What comes next* by item and never by version | decisions 2, 3 and 9 |
+  | `vla-lang/data/headtable.vla`, `vla-lang/data/messages.vla` | the head table, moved; the language's 176 ids, written by `tools/export_messages.ps1` from the one VBA source | decision 5 |
+  | `vla-lang/src/lib.rs`, `intrinsics.rs`, `form.rs`, `reader.rs`, `printer.rs`, `messages.rs`, `headtable.rs`, `expand.rs`, `version.rs`, `refers.rs`, `sheet.rs`, `rows.rs`, `projection.rs`, `view.rs` | the files moved, each with its own tests; `sheet.rs` is `sheet/mod.rs` plus `number_text` and `strip_future_prefixes` with its two name helpers; `rows.rs` is `reflect/print.rs` plus `Row`, `Value`, `Visibility`, `RefersTo`, `Sink` and `sheet_prefix` from `reflect/mod.rs`; `projection.rs` is `kernel.rs`'s `Window` and `Projection` with the window test; `view.rs` keeps its three hand-model tests; `messages.rs` gains a `Catalogue` type so a second crate can hold a catalogue of its own and ask the language's after it; `lib.rs` has `VERSION` and no C export | the move; decisions 1, 5 and 7 |
+  | `core/Cargo.toml`, `core/src/lib.rs` | `vla-lang.workspace = true`; `pub use vla_lang::{form, reader, printer, expand, headtable, intrinsics, version, refers, view}`, so every `crate::` and `frazaro_core::` path resolves as before; the doc comment reworded | the move |
+  | `core/src/messages.rs`, `kernel.rs`, `sheet/mod.rs`, `sheet/ooxml.rs`, `sheet/xlfn.rs`, `reflect/mod.rs`, `reflect/print.rs`, `api.rs` | thin: `messages.rs` embeds the core's 417 and raises from them, then from the language's, `Refusal` re-exported; `kernel.rs` keeps `SEAMS`, `FORMATS`, `Engine` and `HostProfile` and re-exports `Window` and `Projection`; `sheet/mod.rs` re-exports the model and keeps the format files; `ooxml.rs` and `xlfn.rs` re-export the two helpers; `reflect/mod.rs` and `print.rs` re-export the rows; `view.rs`'s two golden tests, which build through English, move into `api.rs`'s test region | the move; the catch |
+  | `Cargo.toml`, `Cargo.lock` | `members = ["vla-lang", "core", "cli"]`; `vla-lang = { path = "vla-lang", version = "=0.8.0" }` under `[workspace.dependencies]` | decision 3 |
+  | `REUSE.toml` | `vla-lang/**` in the first table, Apache-2.0, so `check_spdx` resolves the new files and the crate's page stays with the crate | decision 4 |
+  | `tools/check_crate_package.ps1` | members 3; the include floor 7 (two in `vla-lang/src`, three in `core/src`, two in `cli/src`) | adapted |
+  | `tools/check_kernel_boundary.ps1` | both `src` folders scanned, the includes pinned per crate (`vla-lang`: the head table and its catalogue; `core`: its catalogue, the words and the names); the three pinned exceptions stay in `core/src`; `-Control` copies both folders | adapted |
+  | `tools/check_version_twin.ps1` | a second pin read under `[workspace.dependencies]`, `vla-lang`, held to `=<version>` as the first is | adapted |
+  | `tools/check_data_exports.ps1`, `tools/export_headtable.ps1`, `tools/export_messages.ps1` | the head table's path; the messages row becomes two, floors 176 and 417, the exporter writing each half from the one VBA source with the language's family list in the script (`vla`, `interp`, `lint`, `view`), the VBA's order kept within each | decision 5 |
+  | `tools/check_refusal_golden.ps1` | reads both halves of the catalogue where it read one | adapted |
+  | `tools/check_core_imports.ps1`, `.github/workflows/checks.yml` | a second artifact, `vla_lang.wasm`, held at zero imports as the first is, SKIPPED per artifact absent; CI builds both to wasm | adapted |
+  | `.github/workflows/publish.yml`, `docs/DEPLOY.md` | three crates, the commands unchanged (`cargo package --workspace --locked`, `cargo publish --workspace --locked`, which orders `vla-lang` first); the first version of `vla-lang` by hand on the route, with the token's crate pattern widened from `frazaro*` to cover it, then Trusted Publishing on the third crate | decision 9 |
+  | `core/README.md`, `cli/README.md`, `CONTRIBUTING.md`, `MAINTAINERS.md`, `docs/HORIZON.md`'s tail, `docs/RELEASES.md` | the "no dependencies" sentences become "nothing from outside the workspace"; the seams section names the two crates; the kernel row and the contract files gain the new paths; a dated pointer that §12.2's one crate is two and §12.5's tree has `vla-lang/`; the note for users under the version being prepared | docs |
+  | `docs/BETA_ROADMAP.md`, `docs/ID_REGISTRY.md`, `Delta/CLAUDE.md`, the memory | the entry and the three notes, the row, the map, the note | done 2026-10-08 |
+  **The decisions, the owner's.** Each with the recommendation the work above
+  assumes and the alternative it declines.
+  1. **The reference reader moves now.** `refers.rs` (1,212 lines, pure, held
+  to the refers golden the reference writes) goes with the grid, since three
+  things reach it from the language's side: `Sheet::set_formula_dynamic`'s
+  mover, the brief's catch; `view.rs`'s rendering of a shared child, the same
+  mover; and the `refers` row's spelling, whose `sheet_prefix` is
+  `quote_sheet`, the one sheet-quoting rule. A fourth is written on the
+  roadmap: `KERNEL.7` builds "the dependency graph from `refers`", and the
+  graph lands in `vla-lang`, so the reader must be beneath it by then; and
+  `Alonzo/SPEC.md` §4.3's range fill moves a formula as Excel does, which is
+  the mover again. The line it draws: Excel's reference grammar is the grid's
+  coordinate system and belongs with the grid; Excel's functions are the
+  bridge and stay. Its golden test reads `scripts/refers.txt` from its test
+  region, as today. *Alternative:* inversion, the mover passed into
+  `set_formula_dynamic` by its caller and the quoting rule copied into the
+  rows' spelling, about fifty lines duplicated against a golden that holds one
+  copy, undone by `KERNEL.7` within weeks; or deferral, the whole of it moved
+  with `KERNEL.7`. Recommended: now, and the census grows from about 4,300 to
+  about 5,500 lines.
+  2. **The folder is `vla-lang/`, beside `core/` and `cli/`.** The crate's
+  name, as every document on both sides spells it; the same depth, so every
+  test include's `../../scripts/` path stays valid without an edit; and
+  `Alonzo/ROADMAP.md`'s `REPO.3` counts forks "on `vla-lang`'s" repository, so
+  the day the crate becomes a repository of its own the folder lifts out under
+  its name. *Alternative:* `lang/`, role-named as `core/` and `cli/` are.
+  Recommended: `vla-lang/`.
+  3. **One corpus, one version.** `vla-lang` at the workspace version,
+  `frazaro-core` pinning it with `=` through `[workspace.dependencies]` as the
+  door pins the core, `check_version_twin` holding the second pin, all bumped
+  together at release. *Alternative:* the language on a cadence of its own, a
+  semver of VLA; declined, since the treaty holds every implementation to one
+  corpus and Alonzo pins the version it consumes either way. Recommended: one
+  version.
+  4. **No prelude copy under `vla-lang/data/`.** The kernel-boundary rule says
+  the kernel bakes in no prelude, and this crate is the kernel's innermost
+  part; the prelude is a library of sugar (46 macros, every core form a
+  head-table row), which a door supplies, the command-line door carrying its
+  copy already; a cartridge is rows and never macros (`Alonzo/SPEC.md` §7.4:
+  Frazaro is the compiler), so no game needs it; and the language's expansion
+  test reads `scripts/prelude.vla` from its test region, as `expand.rs` does
+  today. The crate's page says where the prelude is. *Alternative:* a third
+  pair for `check_crate_data`, `vla-lang/data/prelude.vla` held byte for byte
+  to `scripts/prelude.vla`, Apache-2.0 through the first table, exposed as a
+  constant, at the price of a third copy and a kernel-boundary exception.
+  Recommended: no copy; nothing in the move forecloses the alternative.
+  5. **The catalogue splits by family.** `vla-lang/data/messages.vla` holds
+  `vla`, `interp`, `lint` and `view`, 176 ids; `core/data/messages.vla` keeps
+  the other 417, the engines' 225 among them until `PORT.9` decides where the
+  engines live; both written by the one exporter from `src/VLA_Messages.bas`,
+  the VBA's order kept within each, the family list in the script. The
+  mechanism is the language's: `Refusal` one type, a `Catalogue` parsed once,
+  `raise` in `frazaro-core` asking its own catalogue and then the language's,
+  so `emit/`'s sixty `vla-*` raises resolve as before; `ids()`, `count()` and
+  `template()` in the core answer for the union. The treaty's fifth oracle,
+  the same id in the same situation, is untouched. *Alternative:* a split by
+  raiser, declined because `vla-*` straddles the two crates; or one file
+  embedded by both, which `cargo package` forbids outside the crate, and a
+  copy would be a third holding. Recommended: by family.
+  6. **The expansion golden, as the language's first oracle of its own, lands
+  as a second commit after the pure move.**
+  `scripts/instructions_expanded.vla`: the corpus program's translation
+  expanded under the prelude and printed, written by the reference
+  (`VlaExpandText` through `WritePretty`, `VLA.bas` line 1513; a
+  `VlaWriteExpandGolden` of about thirty lines beside `VlaWriteTokenGolden` in
+  `VLA_Tests.bas`, the owner's run), reproduced by `vla-lang`'s test from its
+  test region and by `frazaro expand <program.vla> [--prelude <file>]`, a door
+  command of a dozen lines; oracle 12 by a dated treaty amendment,
+  `tools/check_expand_golden.ps1` the 53rd check with the golden's length as
+  its floor, `run_checks.ps1`'s floor 53. Today `expand.rs`'s
+  `every_golden_form_expands_under_the_prelude` proves the expansion refuses
+  nothing and the compile golden holds its result transitively; this names the
+  text. *Alternative:* none now, the language proved through the core's
+  goldens until `KERNEL.7` brings its own; declined, since a crate on
+  crates.io with no oracle of its own is the thing `SD-18` was written
+  against. Recommended: yes, after the move, so the move's oracle stays
+  "nothing regenerated".
+  7. **The handle and the four calls are an item of their own, after this
+  one.** `Alonzo/SPEC.md` §4 asks the cut for `vla_load`, `vla_write`,
+  `vla_step` and `vla_view` with a handle, and §13 lists what they need: the
+  row loader (the inverse of the rows' printer, with range fills), the `.last`
+  twins, a step budgeted in cells with a snapshot at its end, the plane as the
+  second projection, a `value` row, a cycle refused at load and at a write,
+  the volatile functions refused, a `grid-*` family of refusals. None of it is
+  a move, `step` waits on `KERNEL.7`'s evaluator, and each is a test to write
+  from the page. So the cut exposes nothing new, and the item that lands them
+  amends CALLOSUM §7 decision 1 for the engine's door alone, dated, Frazaro's
+  doors keeping the pure function; it sits after `PORT.12`, lands `load`,
+  `write` and `view` before `KERNEL.7` and `step` with it, and is a candidate
+  here, not minted: the owner's call whether it takes `PORT.13` or a KERNEL
+  number. *Alternative:* the cut lands `vla_load`, `vla_write` and `vla_view`
+  now with `step` refusing by name until the evaluator exists; declined, since
+  it doubles the cut and gives it a second oracle. Recommended: its own item.
+  8. **A standing decision, `SD-38`.** The title for the register, the reasons
+  here: **`SD-38` — VLA is its own crate: `vla-lang` holds the language and
+  nothing else, no English, no Excel and no clock; `frazaro-core` consumes it
+  and holds the bridges; an engine consumes it and never `frazaro-core`.** It
+  binds `KERNEL.6` to `KERNEL.8`, `KERNEL.20`, `PORT.9` and `PORT.10`, each of
+  which lands its mechanism in `vla-lang` and its Excel or English half in
+  `frazaro-core` through a seam; it is the Frazaro side of Alonzo's `AD-1` and
+  `AD-4`; and the check on each side is the import section, zero in both
+  crates here and an allowlist there, so the decision is a property of three
+  artifacts. *Alternative:* leave it as this entry and Alonzo's rules;
+  declined, since a Frazaro item written against another repository's charter
+  has no Frazaro register to cite, and the register is where a contributor
+  looks. Recommended: yes, at the owner's blessing; the title goes into the
+  register append-only as `SD-20` to `SD-37` did, and the roadmap's register
+  line is written then, not now.
+  9. **The crate's page and its first publish.** `vla-lang/README.md` in
+  `core/README.md`'s shape, written for a first-time visitor: what the crate
+  is (the reader, the expander, the forms, the grid, the view record), what it
+  is not (no English, no file format, no evaluator yet), the one example
+  (`expand_text` of a program under a prelude the caller passes), the oracle
+  it is held to, *What comes next* naming `KERNEL.7` and the handle item by
+  item and never by version, the licence. The first version is published by
+  hand on `DEPLOY.md`'s route at the release that carries the cut, the token's
+  crate pattern widened (`frazaro*` does not match `vla-lang`), Trusted
+  Publishing then configured on the third crate as on the first two.
+  *Alternative:* publish `vla-lang` later than the core that depends on it;
+  impossible, since crates.io resolves a dependency by version alone, so the
+  core at a version cannot be published before the language at that version.
+  Recommended: as stated.
+  **The catch.** Each found on the day, by file.
+  - `sheet/mod.rs` calls `crate::refers::shift_a1_references` (line 287), and
+    `view.rs` calls it again for a shared child (line 251): decision 1.
+  - `view.rs` calls `sheet::ooxml::number_text`, three lines, a number's
+    shortest finite spelling, and `sheet::xlfn::strip_future_prefixes`,
+    fifty-two lines that drop `_xlfn.`, `_xlws.` and `_xlpm.` from every name
+    outside a string with no table read: both move into the model as its
+    spelling of a number and of a formula's text, re-exported from the
+    writer's files so their callers and tests compile unchanged.
+  - `reflect/print.rs` spells a `refers` row through `sheet_prefix`, which is
+    `refers::quote_sheet`: moved with the rows, resolved by decision 1.
+  - The catalogue's mechanism assumes one text; two crates need two, and an id
+    raised in the core from the language's half (`emit/`'s `vla-*`) must still
+    be found: decision 5's `Catalogue`.
+  - `view.rs`'s golden test and its free oracle build through English
+    (`api::english_translate_text_to_vla`, `build::build_workbook`,
+    `reflect::reflect_text`): they stay in `frazaro-core`, in `api.rs`'s test
+    region, where `check_crate_package`'s region rule holds as it does today.
+  - `check_kernel_boundary`'s three pinned exceptions (`grammar.rs` eleven,
+    `build.rs` two, `matcher.rs` one) all stay in `core/src`; the check's
+    guard of a hundred literals is met in both folders.
+  - Every include outside a test region stays inside its crate for `cargo
+    package`: two in `vla-lang/src` (`../data/headtable.vla`,
+    `../data/messages.vla`), three in `core/src`; the floor rises to 7.
+  - `refers.rs`'s three helpers that `egress.rs` uses (`skip_delimited`,
+    `bracket_group_end`, `is_ident_char`) are `pub(crate)` today and become
+    `pub`.
+  - `messages.rs`'s test pins (`count() >= 574`, `ids()[0]`, the
+    `english-test-failed` template) split with the halves: the language's test
+    holds its 176 and its first id, the core's holds the English template; a
+    pin that counted the whole catalogue counts its half, and that is the one
+    edit to a test the move makes.
+  - A publish of `frazaro-core` at a version needs `vla-lang` at that version
+    on the index first (decision 9), and `cargo clean` before the rehearsal,
+    the trap `DEPLOY.md` records.
+  - `Cargo.lock` gains the package; the wasm module's bytes may differ after
+    the move (a different crate graph under LTO), so the page's oracle is the
+    offline check and the import count, never byte equality with today's
+    module.
+  - The shared tree: this entry, the sitting above, the roadmap's four lines
+    and the registry's row are the session's hunks; the peers' are
+    `KERNEL.3`'s and `U.32`'s, and `KERNEL.3`'s sentence and this item's note
+    share `KERNEL.5`'s roadmap line; each is staged as HEAD plus its own and
+    committed with `-F` and no pathspec, and whichever commits second rebuilds
+    that line from the HEAD it then finds.
+  **Oracle.** A pure move, so every existing test and golden is green with
+  none regenerated, and nothing under `scripts/` is touched (`git diff --stat
+  scripts/` empty):
+  - `cargo build --workspace`, `cargo fmt --all -- --check`, `cargo clippy
+    --workspace --all-targets -- -D warnings`, `cargo test --workspace`: the
+    same 234 tests across two crates, about 60 in `vla-lang` and about 175 in
+    `frazaro-core` (*prediction*), 4 ignored as today.
+  - `powershell -File tools\run_checks.ps1`: 52 of 52, `check_crate_package`
+    at members 3 and includes 7, `check_kernel_boundary` over both folders
+    with its control, `check_version_twin` on two pins, `check_data_exports`
+    with five rows, `check_spdx` resolving `vla-lang/**`,
+    `check_refusal_golden` over both halves.
+  - `prove.ps1 -Impl target/debug/frazaro`: the same lines as today, every
+    oracle; `check_compile_prefix`, `check_translate_prefix`,
+    `check_prove_floors`, `check_build_golden`, `check_reflect_golden`,
+    `check_diff_golden`, `check_audit_golden`, `check_view_golden`,
+    `check_crate_data -Impl` and `check_study_fixture`: unchanged.
+  - `cargo build --release -p frazaro-core --target wasm32-unknown-unknown`
+    and `check_core_imports.ps1`: 0 imports; `cargo build --release -p
+    vla-lang --target wasm32-unknown-unknown` and the check with `-Path` on
+    `vla_lang.wasm`: 0 imports, the section absent, as Alonzo's empty crate
+    showed.
+  - `cargo tree -p frazaro-core`: `vla-lang` beneath it and nothing else;
+    `cargo tree -p vla-lang`: nothing beneath; `cargo tree -p frazaro`: the
+    core, then the language.
+  - `cargo package --workspace --locked`: three tarballs, each verified from
+    its own contents, `vla-lang` first.
+  - `tools/build_web.ps1 -NoBuild` and `check_web_offline.ps1`: the page
+    builds and holds.
+  - `check_id_registry.ps1`: clean, `PORT.12` defined once.
+  - The owner's checks are the above and no live Excel pass; no
+    `VlaDevReload`, since no VBA changes.
+  **Size.** `~days` (*prediction*): the moves and the re-exports a day, the
+  checks with their controls a half day, the documents a half day; about forty
+  files, against the house's ten or eleven for a recent item, since a crate
+  boundary touches every register that names a path. The second commit of
+  decision 6 is `~hours` and the owner's one run.
+  **What the cut does not do, by name.** No evaluator, no function, no handle,
+  no `.last` twin, no plane, no `value` row, no new refusal, no C export in
+  `vla-lang`, no change to the page or the add-in, no change to any golden;
+  `src/` does not move, the workspace stays additive (`HORIZON.md` §12.8),
+  and `SD-18` is untouched, the reference being the VBA for the language in
+  both crates.
+  **Built 2026-10-08, awaiting the owner's test.** The nine recommendations
+  were approved by the owner the same day, each as recommended, and the move
+  was made as scoped. What landed: `vla-lang/` beside `core/` and `cli/`, the
+  third workspace member, `rlib` and `cdylib`, no dependency: `Cargo.toml` and
+  `README.md` (the page for crates.io, in `core/README.md`'s shape),
+  `data/headtable.vla` (moved) and `data/messages.vla` (the language's 176
+  ids), and under `src/` the files moved whole with their tests,
+  `intrinsics.rs`, `form.rs`, `reader.rs`, `printer.rs`, `headtable.rs`,
+  `expand.rs`, `version.rs`, `refers.rs` (the three helpers `egress.rs` uses
+  now `pub`), `sheet.rs` (`sheet/mod.rs` without the six format submodules,
+  plus `number_text`, `is_name_start`, `is_name_char` and
+  `strip_future_prefixes` with their tests), `view.rs` (its three hand-model
+  tests), `rows.rs` (`reflect/print.rs` with `Value`, `Visibility`,
+  `RefersTo`, `Row`, `Sink` and `sheet_prefix` from `reflect/mod.rs`, and
+  their three tests), `projection.rs` (`Window` and `Projection` with the
+  window test), `messages.rs` (the mechanism as a `Catalogue` type over any
+  exported text, `catalogue()`, `raise` and `unknown`; four tests, one
+  asserting that every id in the half belongs to a language family) and
+  `lib.rs` (`VERSION` and `version()`, no C export). In the core: `lib.rs`
+  re-exports `expand`, `form`, `headtable`, `intrinsics`, `printer`, `reader`,
+  `refers` and `view` whole, and `version` as a module block, since a bare
+  `pub use vla_lang::version` imports the language's `version()` function over
+  the core's own, the one surprise of the move; `messages.rs` embeds the
+  core's half and raises from it, then from the language's, `Refusal` and
+  `Catalogue` re-exported, three tests, one asserting that the halves share no
+  id and that no language family sits in the core's; `kernel.rs` keeps
+  `SEAMS`, `FORMATS`, `Engine` and `HostProfile`, re-exports `Window` and
+  `Projection`, and gains a test that a window made through the core's path is
+  the language's type; `sheet/mod.rs` re-exports the model whole beside the
+  six format files; `ooxml.rs` and `xlfn.rs` take `number_text`,
+  `strip_future_prefixes` and the two name helpers from the model;
+  `reflect/mod.rs` and `print.rs` re-export the rows; `api.rs` holds the
+  view's two golden tests, which build through English. Manifests: three
+  members, `vla-lang = { path = "vla-lang", version = "=0.8.0" }` under
+  `[workspace.dependencies]` and `vla-lang.workspace = true` in the core's;
+  `Cargo.lock` gains the package; `REUSE.toml`'s first table gains
+  `vla-lang/**`. The exporters: `export_headtable.ps1` writes under
+  `vla-lang/data/`; `export_messages.ps1` writes both halves from the one VBA
+  source with the language's family list in the script, `-Print -Half
+  language|core` for the check. The checks: `check_crate_package` members 3
+  and includes 7; `check_kernel_boundary` over both source trees with the
+  includes pinned per crate and a sixth mutant in its control, a table reached
+  across the crate line; `check_version_twin` four strings;
+  `check_data_exports` five rows, the floors 65, 176, 417 (416 at HEAD, before
+  `U.32`'s id), 113 and 218, the exporter's half named per row;
+  `check_refusal_golden` reading both halves; `check_core_imports` two
+  artifacts, each SKIPPED alone when unbuilt. CI: `checks.yml` builds the
+  language to wasm too; `publish.yml` names three crates, the commands
+  unchanged. Docs: `DEPLOY.md`'s publishing section (three crates, the token's
+  second pattern, the publish order), `core/README.md` and `cli/README.md`
+  (one dependency, the repository's own), `CONTRIBUTING.md`'s seams paragraph,
+  `MAINTAINERS.md`'s kernel row and contract files, `HORIZON.md`'s dated
+  pointer, `RELEASES.md`'s note under the version being prepared, the map and
+  the memory.
+  *Verified, 2026-10-08, in the shared tree:* `cargo build --workspace`,
+  `cargo fmt --all -- --check` and `cargo clippy --workspace --all-targets --
+  -D warnings` clean; `cargo test --workspace` 236 passed and 4 ignored across
+  the two crates (`frazaro-core` 171 and 3, `vla-lang` 65 and 1: 240 against
+  234 before, the six being the catalogue's three tests where there were four,
+  the window test's twin in the core, and the two crates' version tests), no
+  golden regenerated, nothing under `scripts/` touched; `run_checks.ps1
+  -WithExtras` 52 of 52 and 9 verifiers, `check_kernel_boundary -Control` and
+  `check_refusal_golden -Control` green; the door-dependent checks unchanged
+  (`check_compile_prefix` 291,184 characters, `check_translate_prefix`
+  225,531, `check_prove_floors`, `check_crate_data`, the build, reflect, diff,
+  audit and view goldens whole); `prove.ps1 -Impl` 39 passed, 0 failed, 2 not
+  attempted, 1 library; `frazaro_core.wasm` 1,007,209 bytes and
+  `vla_lang.wasm` 32 bytes, both at 0 imports (the language's module has no
+  import section at all, as Alonzo's empty crate had); `cargo tree -p
+  frazaro-core` shows `vla-lang` alone beneath it, `-p vla-lang` nothing, `-p
+  frazaro` the core and then the language; `build_web.ps1 -NoBuild` and
+  `check_web_offline.ps1` green, the page 1,686,401 characters. *The catch met
+  on the day:* the check's splat of the exporter's `-Half` argument, an array
+  in the first draft, which PowerShell binds positionally, so the exporter
+  refused and the check failed once; a hashtable splat binds the name. And
+  `cargo package` refuses a dirty working tree by design, so the rehearsal
+  runs on the isolated tree. *Not done, on purpose:* the expansion golden
+  (decision 6, its own commit), the handle and the four calls (decision 7, its
+  own item), `SD-38`'s register line (the owner's blessing), and the root
+  `README.md`'s crate line, which the peer's uncommitted rewrite holds and
+  which `vla-lang` joins when that commits. *Owner's test:* `cargo test
+  --workspace`, `powershell -File tools\run_checks.ps1 -WithExtras`, the two
+  wasm builds and `check_core_imports.ps1`, `cargo tree -p frazaro-core`; no
+  live Excel pass applies, since no VBA changes.
+  *Verified, 2026-10-08, in the isolated tree, HEAD plus this session's hunks
+  and nothing of the peers' (the temporary index differs from the working tree
+  by the `KERNEL.3` and `U.32` hunks, their one catalogue line and the core
+  half's floor, 416 against 417, alone):* `cargo test --workspace` 236 passed
+  and 4 ignored; `cargo clippy` clean; both modules built and at 0 imports;
+  `run_checks.ps1` 51 of 51 (HEAD's floor, the 52nd check being the `KERNEL.3`
+  session's uncommitted file); the compile and translate prefixes, the proof
+  floors, the door's built-in pair and the build, reflect, diff, audit and
+  view goldens all whole; `prove.ps1 -Impl` 39 passed, 0 failed, 2 not
+  attempted, 1 library; and `cargo package --workspace --locked`, which a
+  dirty working tree refuses by design, packaged and verified the three crates
+  from their own contents, `vla-lang` first (20 files, 230.6 KiB; the core 48
+  files, 1.0 MiB; the door 7 files, 333.9 KiB). The commit's tree is built by
+  the staging route of 2026-10-08 (the memory note): the whole-owned files
+  hashed through their path's attributes, the four shared files and the two
+  catalogue halves rebuilt from HEAD by the same scripts that edited the
+  working copies, the ten files the move emptied out of `core/` removed,
+  committed with `-F` and no pathspec.
+  *Closed 2026-10-08, owner-tested and committed:* on the owner's machine
+  `cargo test --workspace` 236 passed and 4 ignored across the two crates,
+  `run_checks.ps1 -WithExtras` 52 of 52 and 9 verifiers, both modules built
+  and at 0 imports (`frazaro_core.wasm` 1,007,209 bytes, `vla_lang.wasm` 32),
+  `cargo tree -p frazaro-core` showing `vla-lang` alone; committed by the
+  HEAD-plus-mine route beside the `KERNEL.3` and `U.32` sessions' uncommitted
+  work, the roadmap's line moved to the ledger; not pushed. What follows, each
+  its own: the expansion golden (decision 6), the handle and the four calls
+  (decision 7), `SD-38`'s register line at the owner's blessing, and the first
+  publish of `vla-lang` by hand at the release that carries the cut.
 - *Together, and why now rather than later:* SD-18 (register, above) needed
   infrastructure to be more than a sentence — a port with no purity guarantee
   and no intrinsics reference would re-litigate both from scratch the day
@@ -17400,6 +17818,54 @@ CALLOSUM §14. What stays a handle: `HORIZON.md` §9.1's for-all-inputs line
 (the SMT engine), interval arithmetic, and the Excel-scale memory question,
 each a measurement item of its own when `KERNEL.8` has values to measure
 over.
+
+**The boundary, 2026-10-08, seen from Frazaro.** Decided that day in Alonzo's
+sessions and recorded there (`Alonzo/CHARTER.md` §4, the six rules and the
+frame; `Alonzo/REARVIEW.md`, "the boundary, in four sittings"), under the
+owner's condition that Alonzo be a self-contained substrate for the games
+after Frazaro and that Frazaro own nothing such a game needs. The rule that
+sorted this line: what can be a golden is VLA's or Frazaro's, what can only be
+measured is Alonzo's (`AD-4`; pure and Frazaro's: `KERNEL.1`, `2`, `4`, `6`,
+`7`, `8`, `10`, `11`, `12`, `18`, `20`, `21`, the transcription half of `9`
+and the diff half of `13`; clocked and Alonzo's: `KERNEL.5`, the bar of `9`,
+the modes of `13`, `14`, the wiring of `15` and `16`, `17`, `19`). The
+condition then exposed a hole: Alonzo would have depended on `frazaro-core`
+for the language, the grid, the evaluator and the view record, none of which
+is an interlingual contract, and the repair was the owner's own instinct, a
+crate of the language alone. Three names, in one dependency order (`AD-1`):
+`vla-lang`, the language and nothing else (free on crates.io, *measurement*,
+2026-10-08; `vla` is a yanked crate of 2023); `frazaro-core`, the bridges,
+which consumes it; `alonzo`, the devices and the clock, which consumes
+`vla-lang` and never `frazaro-core`, checked by `cargo tree` in every game's
+CI. What Frazaro keeps: every item's ID and its registers (`AD-2`: the item
+boundary and the code boundary are two boundaries, and the roadmap entry of an
+item laid in Alonzo says so in one dated line, which `KERNEL.5`, `KERNEL.7`
+and `KERNEL.20` now carry); the reference (`SD-18`), the treaty and every
+golden; English and its proofs; Excel's functions, which register into the
+language's evaluator through a seam (`KERNEL.7`); the writer, the readers, the
+stamp, the ABI and the doors; the page, which is the first game's chrome and
+consumes the viewport the day it exists; `KERNEL.6`'s measurement and the rest
+of the line as filed. What Frazaro gives up, and why: the language as a module
+of `frazaro-core`, cut out as `PORT.12` before `KERNEL.7` (Part B, the
+scoping), so that recalculation's mechanism lands beneath both the bridges and
+the engine and never in the bridges, since an evaluator written into
+`frazaro-core` with Excel's functions tangled in would make every later game
+depend on `frazaro-core`, which the condition forbids; the viewport's code,
+which lands in Alonzo's repository as the Screen device over the view record
+with Frazaro's page consuming it, because a renderer's output can only be
+measured; the clock, which Frazaro never had (`SD-34`'s step function reports
+work and never time); and the volatile functions, `NOW`, `TODAY`, `RAND` and
+`RANDBETWEEN`, which an engine refuses at load and serves as a Clock sheet and
+a seeded cell (`Alonzo/SPEC.md` §3.5, decision 7), so that determinism holds
+without a rule. The check on each side is the import section: zero in
+`vla-lang` and `frazaro-core`, an allowlist in `alonzo`, so the boundary is a
+property of three artifacts rather than a sentence. CALLOSUM §7 decision 1,
+the pure function with no handle, stands for Frazaro's doors; `Alonzo/SPEC.md`
+§4.1 amends it for the engine's door alone, on the measurement the decision
+asked for (a frame of 64,000 cells thirty times a second cannot rebuild its
+grid from text), and the Frazaro item that lands the handle dates that
+amendment here, not the cut. The same day's other measurement, `KERNEL.3`'s
+renderer benchmark, is recorded under its own entry below.
 
 **The expanded scoping, item by item.**
 
@@ -30570,6 +31036,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **PORT.6 — English in the core.** `VLA_SentenceEngine.bas` and `VLA_English.bas` in the core, slice by slice (`core/src/english/`: the word tables and name lists as data, the tokenizer, the rule store and the loader, the matcher with the expression and condition grammars, the statement grammar with the PROLOG sub-grammars and `EnglishToVla`), held to the reference by three goldens it writes (the token, the translate and the refusal golden) beside every phrasebook's proofs: `frazaro translate-vla` reproduces `instructions_golden.vla` byte for byte and `translate-vba` the `.vba`; `frazaro prove` passes every proof of every phrasebook; 113 of the 125 English refusal ids come out in the same situation with the same text, the twelve others a door's, elsewhere or unreachable, named in the treaty's fourth amendment; `VLA_Browser.bas`'s two functions are the core's API and its C-ABI; and `web/index.html`, built by `tools/build_web.ps1` from the wasm, the prelude and `english.vla`, is one file that runs from disk with nothing fetched and nothing executed. Scoped, built, owner-verified and closed 2026-10-02, the day `PORT.5` closed, in nine slices and eleven commits of its own; three defects found in the reference on the way and fixed there first (`U.31`, `LX.15`, `F.18`); 114 Rust tests, 40 checks, the treaty amended four times that day. *(more: the full entry, earlier in this file)* `~weeks` to `~quarter` as filed; a day as built.
 - ✅ **PORT.7 — the writer.** Slice 3 of `HORIZON.md` §12, new ground with no VBA to port (`core/src/sheet/`, `core/src/build.rs`, `core/src/sha256.rs`): `frazaro build program.txt --prelude prelude.vla --phrasebook english.vla --out program.xlsx` writes a workbook from sentences with nothing installed, deterministic to the byte (stored entries stamped 1980-01-01, a fixed part order, no author and no date): the `Frazaro` sheet in the room's own layout, the other sheets holding what a sheet holds with nothing running (values and formulas, a fill shared as Excel shares it, newer functions under `_xlfn.`, a formula that can return an array stored as `Formula2` stores it), every sentence that needs Run refused by name with its line; the stamp `Frazaro.Build` and `frazaro rebuild` (yes, or no with why; a host's save refused as not a build); `--into model.xlsx` with the model's parts copied as they were and four edited at one place each (RFC 1951's decoder from nothing, the zip reader generalised); the C-ABI's `frazaro_build_xlsx` and the page's *Download as .xlsx* with the digest beside it. Oracle 7: two goldens held byte for byte by `check_build_golden.ps1` and the core's tests, each opened by the owner; the page's download the first golden's bytes and digest, opened in Excel, `rebuild` yes. Scoped 2026-10-02 at the owner's trigger (`SUBSTRATE.md` H.3, pulled by asking; generic first, the Controls sheet to `AXM.2`); built, owner-verified and closed 2026-10-03 in five slices and five commits of its own; 171 Rust tests, 41 checks, ten catalogue ids under `VLA-Build`, the treaty amended four times that day; two predictions of step 0 corrected by the live passes and one defect of a slice found on the owner's Excel-saved copy and refused by name. *(more: the full entry, earlier in this file)* `~weeks` as filed; a day as built.
 - ✅ **PORT.8 — the reader: `REFLECT` over a file.** Slice 4 of `HORIZON.md` §12, new ground with no VBA to port but `VLA_Refers.bas`, which `AXM.7` wrote first as the golden to port against (`core/src/reflect/`, `core/src/refers.rs`): `frazaro reflect model.xlsx` prints a workbook's sheets, names, Tables, cells, formulas and what each formula refers to as relations in a fixed order, read from the file with nothing installed, an `.xlsx` package or an `.ods` OpenDocument spreadsheet, a formula from either spelled as the formula bar shows it; `--counts` the counts and times alone, `AXM.1`'s second number, and `--cone <Sheet!A1>` a cell's cone sized through names and Tables and across sheets; `frazaro diff old new` what changed between two files, the sheets in one alone, the names and Tables, then the cells old and new side by side; `frazaro audit model.xlsx` Stage 2.3's audit list as six named walks, each defined in words in the treaty before its code; the C-ABI's `frazaro_reflect`, `frazaro_audit` and `frazaro_diff`, and the page's Reflect pane, a workbook picked from disk and read in the browser, sent nowhere. Oracles 8, 9 and 10: eight relations goldens, five diff pairs and five audit goldens held whole by `check_reflect_golden.ps1`, `check_diff_golden.ps1` and `check_audit_golden.ps1` (the 42nd, 44th and 45th checks), by the core's tests and by `prove.ps1`, each fixture opened by the owner in Excel, two of them Excel's own saves kept as written. Scoped 2026-10-03 at the owner's trigger (`SUBSTRATE.md` H.3, pulled by asking; three forks decided as recommended: `AXM.7` in the VBA first with a golden, `reflect`/`diff`/`audit` with `ask` waiting, ODF its own slice); built, owner-verified and closed 2026-10-05 in six slices and six commits of its own (8a to 8f), `AXM.7` closing between 8a and 8b; 212 Rust tests, the treaty amended slice by slice; Excel's reader of `.ods` taught the fixture four things on the way (a stored mimetype, no ODF 1.3 attribute, no sheet-local name, an absolute link). Deferred at the close, the owner's call: the door `ask` to `AXM.9` and `PORT.9`, the real-model counts to `AXM.13`, every other piece of work to later items. *(more: the full entry, earlier in this file)* `~weeks` as filed; three days as built.
+- ✅ **PORT.12 — the cut: `vla-lang`, the language as a crate of its own.** *Minted 2026-10-08, out of number order because it precedes `PORT.9` and `PORT.10` on this road and `KERNEL.6` and `KERNEL.7` on the KERNEL line; the boundary was decided the same day in Alonzo's sessions (`Alonzo/CHARTER.md` §4 rule 1, `AD-1`; the sitting as seen from here is in `BETA_REARVIEW.md` under the KERNEL line, and the scoping under this part).* Three crates in one dependency order. `vla-lang` is the language and nothing else: the reader, the expander, the forms and the head table, the catalogue's mechanism with the language's own refusals, the grid with its A1 coordinates and the references read out of a formula's text, the view record as the grid's projection; no English, no Excel, no clock, an empty import section. `frazaro-core` consumes it and keeps the bridges: the phrasebooks and the matcher with their proofs, the VBA and formula emitters, the OOXML and OpenDocument writer and readers, the stamp, the ABI and the treaty's oracles. Alonzo's engine consumes `vla-lang` and never `frazaro-core`. A pure move, about 5,500 of the core's 30,559 lines by the day's census with the reference reader (4,300 without it), moved and re-exported so that every path a door uses resolves as before: no behaviour changes, no refusal is added, no golden is regenerated. *Oracle:* every existing test and golden green with none regenerated; `cargo test --workspace`; `run_checks.ps1` at 52 of 52 with `check_crate_package`'s member pin at 3; `prove.ps1 -Impl` unchanged; `frazaro_core.wasm` still at zero imports and `vla_lang.wasm` at zero; `cargo tree -p frazaro-core` showing `vla-lang`. *Pays into:* `KERNEL.7` and `KERNEL.20` (the evaluator lands in `vla-lang`), `PORT.9` and `PORT.10` (Excel's functions and the engines register through its seam), the item that lands the handle and the four calls of `Alonzo/SPEC.md` §4 (a candidate, not minted), and `KERNEL.5` laid in Alonzo. *Scoped:* 2026-10-08, `BETA_REARVIEW.md` (the census re-run, the move list, nine decisions with a recommendation each, the catch, the oracle); nothing moves before the owner approves the decisions. `~days` **Built 2026-10-08, awaiting the owner's test:** `vla-lang/` is the third member, the language's files moved whole with their tests and the core re-exporting every path, so nothing a door calls moves; the catalogue in two halves from the one VBA source; 236 tests passed and 4 ignored across the two crates, 52 of 52 checks with the member pin at 3 and the include floor at 7, `prove.ps1 -Impl` unchanged, both modules at zero imports, `cargo tree -p frazaro-core` showing `vla-lang` alone; nothing under `scripts/` touched. The record is in `BETA_REARVIEW.md` under this part. *(more: the full entry, earlier in this file)* `~days` as filed; one day as built.
 - *Together:* SD-18's infrastructure — a port with no purity guarantee and no intrinsics reference would re-litigate every behavior. *(more: the full entry, earlier in this file)*
 
 ## 🔧 MACHINE · ENVIRONMENT

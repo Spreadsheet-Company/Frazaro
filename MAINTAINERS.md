@@ -5,7 +5,7 @@ it: a path, a seam, an oracle. One maintainer today. The map is written for
 the day there are more, so that work in different seams never meets in the
 same file, and so that a change to a contract file is a meeting rather than
 a commit. The seams themselves are `CONTRIBUTING.md`'s "The kernel and its
-seams" and `core/src/kernel.rs`.*
+seams", `core/src/kernel.rs` and `vla-lang/src/projection.rs`.*
 
 **Maintainer:** Spreadsheet Company (the owner), who merges to `main`. Every
 live Excel pass runs through the owner's hands (`docs/TESTING.md`); every
@@ -16,7 +16,7 @@ it is green on all of its own.
 
 | Paths | Seam, or line of the roadmap | Oracle |
 |---|---|---|
-| `core/src/` except `english/`; `cli/`; `scripts/build/`; `scripts/reflect/`; `conformance/` | the kernel: forms, emitters, sheet model, reader, writer, ABI (the KERNEL line) | the compile, build, reflect, diff and audit goldens; `cargo test` |
+| `vla-lang/`; `core/src/` except `english/`; `cli/`; `scripts/build/`; `scripts/reflect/`; `conformance/` | the kernel, two crates since `PORT.12`: the language (forms, the grid, references, the view record) and the bridges over it (emitters, reader, writer, ABI; the KERNEL line) | the compile, build, reflect, diff and audit goldens; `cargo test` |
 | `web/`; `tools/build_web.ps1`; `tools/check_web_offline.ps1` | the page and the doors (the KERNEL line's view track; `PORT.11`) | `check_web_offline.ps1`; the view goldens when they exist |
 | `scripts/polyglotta/`; `scripts/prelude.vla`; `src/VLA_SentenceEngine.bas`; `src/VLA_English.bas`; `core/src/english/`; `docs/GRAMMAR_SINCE.md` | the sentences seam, both sides: the reference leads (`SD-18`) and the port follows | the translate golden; `frazaro prove`; the token and refusal goldens |
 | `src/VLA_Datalog.bas`, `src/VLA_Prolog.bas`, `src/VLA_Sql.bas`, `src/VLA_Optimize*.bas`, `src/VLA_Relation.bas`; `scripts/proofs/`; `tools/*_lp.ps1` | the engines seam (`PORT.9`; the Singularity line's engines) | `scripts/proofs/datalog.vla` with clingo beside it; `TestDSLs` |
@@ -30,11 +30,12 @@ A change to one of these needs both sides of its seam present, since more
 than one path reads it:
 
 - `core/src/abi.rs`: the record every door reads; the ABI number stays 1.
-- `core/src/kernel.rs`: the seams as data, the `Engine` and `Projection` traits, the host profiles.
-- `core/src/view.rs`: the view record's shape, which every viewport parses; a row added or respelled regenerates the goldens under `scripts/view/` and amends the treaty's oracle 11.
+- `core/src/kernel.rs`: the seams as data, the `Engine` trait, the host profiles.
+- `vla-lang/src/projection.rs`: the `Projection` trait over a `Window`, the language's, which every projection implements.
+- `vla-lang/src/view.rs`: the view record's shape, which every viewport parses; a row added or respelled regenerates the goldens under `scripts/view/` and amends the treaty's oracle 11.
 - `distros/<name>/distro.vla`: an edition's manifest, read by three tools (`tools/build_web.ps1`, `src/VLA_Build.bas`, `core/src/distro.rs`), one directive a line; a directive added is added to the readers that need it and to `tools/check_distro.ps1`, and the shape is `distros/english/README.md`'s.
-- `core/data/headtable.vla`, exported from `src/VLA_HeadTable.bas`: the forms, which is to say the syscall table.
-- `core/data/messages.vla`, exported from `src/VLA_Messages.bas`: the refusals; a team adds inside its own id family's block.
+- `vla-lang/data/headtable.vla`, exported from `src/VLA_HeadTable.bas`: the forms, which is to say the syscall table.
+- `vla-lang/data/messages.vla` and `core/data/messages.vla`, the language's families and the rest, both exported from `src/VLA_Messages.bas`: the refusals; a team adds inside its own id family's block, and the exporter sorts the halves.
 - `scripts/polyglotta/english.vla`: the base corpus; a sentence another seam needs is a request to the sentences seam (`SD-7`).
 - `conformance/README.md`: the treaty; an oracle joins by a dated amendment.
 - The goldens under `scripts/`: written by the reference or blessed by the owner, never edited by hand.

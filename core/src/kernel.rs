@@ -5,18 +5,24 @@
 //! the sheet model, recalculation over a declared subset once it lands, the
 //! relation set, and the ABI. It never holds English, message text, a
 //! default, chrome, a format beyond a trait, or a door. Each of those is
-//! data the kernel reads (the four tables under `core/data/`, a phrasebook, a
-//! library) or an implementation of one of the seams below. The rule that
-//! follows: the kernel grows a seam, never a feature.
+//! data the kernel reads (the tables under `vla-lang/data/` and
+//! `core/data/`, a phrasebook, a library) or an implementation of one of the
+//! seams below. The rule that follows: the kernel grows a seam, never a
+//! feature.
 //!
-//! `tools/check_kernel_boundary.ps1` pins the rule over `core/src/`. This
-//! module writes the seams down as data, so that a test can hold their
+//! Since `PORT.12` the kernel is two crates in one dependency order: the
+//! language, `vla-lang`, and this crate, the bridges, which consumes it.
+//! `tools/check_kernel_boundary.ps1` pins the rule over both source trees.
+//! This module writes the seams down as data, so that a test can hold their
 //! counts and `frazaro describe` (`KERNEL.18`) can print them, and names the
 //! two traits: [`Engine`], whose first implementations `PORT.9` lands, and
-//! [`Projection`], whose first is the grid of `crate::view` (`KERNEL.4`).
+//! [`Projection`], the language's (`vla_lang::projection`, re-exported here
+//! with its [`Window`]), whose first implementation is the grid of
+//! `crate::view` (`KERNEL.4`).
 
 use crate::messages::Refusal;
-use crate::sheet::{A1Range, Workbook};
+
+pub use vla_lang::projection::{Projection, Window};
 
 /// One of the five entrances into the kernel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -24,7 +30,7 @@ pub struct Seam {
     /// The seam's name, as `CONTRIBUTING.md` heads its row.
     pub name: &'static str,
     /// What a contribution through it is: a data file, or an implementation
-    /// of a trait in this crate.
+    /// of a trait in this crate or the language's.
     pub entrance: &'static str,
     /// The oracle a change through it must pass before it lands.
     pub oracle: &'static str,
@@ -67,7 +73,7 @@ pub const SEAMS: [Seam; 5] = [
     },
     Seam {
         name: "projections",
-        entrance: "an implementation of kernel::Projection",
+        entrance: "an implementation of vla_lang::projection::Projection",
         oracle: "a view golden per projection",
         implementations: &["grid, the view record of one window (view::Grid)"],
         deferred_to: "",
@@ -119,25 +125,6 @@ pub trait Engine {
     fn proof_kind(&self) -> &str;
     /// The tables in, the table out, or a refusal from the catalogue.
     fn run(&self, tables: &[Self::Table]) -> Result<Self::Table, Refusal>;
-}
-
-/// A window onto the model: one sheet by name, one rectangle of it.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Window {
-    pub sheet: String,
-    pub range: A1Range,
-}
-
-/// A projection: a pure function from the model and a window to lines, the
-/// shape every door prints (`SD-23`). The grid is the first
-/// (`crate::view::Grid`, `KERNEL.4`), the sentence pane the second, the
-/// dependency cone drawn as a diagram the third (`KERNEL.12`). A projection
-/// never edits the model.
-pub trait Projection {
-    /// The projection's name, as `frazaro view` selects it.
-    fn name(&self) -> &str;
-    /// The window's lines, in a fixed order, to the sink.
-    fn project(&self, model: &Workbook, window: &Window, out: &mut dyn FnMut(&str));
 }
 
 /// A door's host profile: the statement heads it carries out with nothing
@@ -274,17 +261,12 @@ mod tests {
     }
 
     #[test]
-    fn a_window_is_one_sheet_and_one_rectangle() {
-        let w = Window {
+    fn the_projection_trait_is_the_language_s() {
+        // A window made through the core's path is the language's type.
+        let w: vla_lang::projection::Window = Window {
             sheet: "Model".to_string(),
-            range: A1Range {
-                top: 1,
-                left: 1,
-                bottom: 20,
-                right: 6,
-            },
+            range: crate::sheet::parse_a1_range("A1:F20").unwrap(),
         };
         assert_eq!(w.range.cells(), 120);
-        assert_eq!(w.sheet, "Model");
     }
 }

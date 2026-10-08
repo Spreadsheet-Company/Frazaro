@@ -50,106 +50,13 @@ use std::collections::HashSet;
 
 use crate::intrinsics::fold;
 use crate::messages::Refusal;
-use crate::refers::{self, FormulaRef, Kind};
+use crate::refers::{self, Kind};
+
+pub use vla_lang::rows::{sheet_prefix, RefersTo, Row, Sink, Value, Visibility};
 
 /// The cap on the sets of distinct R1C1 formulas `--counts` keeps, a
 /// sheet's and the workbook's.
 pub const DISTINCT_CAP: usize = 1 << 20;
-
-/// A cell's value as the file holds it.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Value {
-    /// The file's own text of a number, never a float round trip.
-    Number(String),
-    Text(String),
-    Bool(bool),
-    /// An error value's text, `#DIV/0!`.
-    Error(String),
-    /// An ISO 8601 date cell (`t="d"`; an OpenDocument date or time value),
-    /// as written.
-    Date(String),
-}
-
-/// A sheet's state, as the workbook part has it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Visibility {
-    Visible,
-    Hidden,
-    /// `veryHidden`: not listed by Excel's Unhide dialog.
-    VeryHidden,
-}
-
-impl Visibility {
-    /// The word a `sheet` row prints.
-    pub fn word(self) -> &'static str {
-        match self {
-            Visibility::Visible => "visible",
-            Visibility::Hidden => "hidden",
-            Visibility::VeryHidden => "very-hidden",
-        }
-    }
-}
-
-/// The second field of a `refers` row: a reference in the treaty's
-/// spelling, or an unreadable call named.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum RefersTo {
-    /// `Model!B1`, `Data!A:A`, `Rate`, `Sales[Amount]`, `[Rates.xlsx]Sheet1!A1`.
-    Reference(String),
-    /// `(unreadable "INDIRECT")`, `(unreadable "OFFSET")`.
-    Unreadable(&'static str),
-}
-
-impl RefersTo {
-    /// What one record of a formula's scan refers to, from the sheet that
-    /// holds the formula.
-    pub fn of(r: &FormulaRef, home_sheet: &str) -> RefersTo {
-        match r.kind {
-            Kind::Unreadable => RefersTo::Unreadable(r.unreadable_name()),
-            _ => RefersTo::Reference(refers::spell(r, home_sheet)),
-        }
-    }
-}
-
-/// One row of a relation, borrowed from the walk that found it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Row<'r> {
-    Sheet {
-        name: &'r str,
-        visibility: Visibility,
-    },
-    Name {
-        name: &'r str,
-        refers_to: &'r str,
-    },
-    Table {
-        name: &'r str,
-        sheet: &'r str,
-        range: &'r str,
-    },
-    Cell {
-        sheet: &'r str,
-        addr: &'r str,
-        value: &'r Value,
-    },
-    Formula {
-        sheet: &'r str,
-        addr: &'r str,
-        text: &'r str,
-    },
-    /// `(refers "Model!B3" "Model!B1")`: the cell holding the formula, and
-    /// one thing it refers to.
-    Refers {
-        sheet: &'r str,
-        addr: &'r str,
-        to: &'r RefersTo,
-    },
-}
-
-/// Where rows go as the walk emits them.
-pub trait Sink {
-    fn row(&mut self, row: &Row<'_>);
-}
 
 /// A sink that keeps nothing, for `--counts`.
 pub struct Discard;
@@ -304,13 +211,6 @@ pub trait Source: std::fmt::Debug {
     }
 }
 
-/// A sheet's name as a reference spells it in front of `!`: the one quoting
-/// rule, `refers::quote_sheet` (the port of `RefersQuoteSheet`), so that a
-/// `name` row's sheet, a `refers` row's two ends and the formula text agree.
-pub fn sheet_prefix(name: &str) -> String {
-    refers::quote_sheet(name)
-}
-
 /// The file opened by its format: an OpenDocument spreadsheet by its
 /// `mimetype` entry (or a `content.xml` with no workbook part), an OOXML
 /// package otherwise. `label` is what a refusal calls the file.
@@ -367,40 +267,4 @@ pub fn reflect_text(bytes: &[u8], label: &str) -> Result<String, Refusal> {
         source.walk_sheet(i, &mut printer)?;
     }
     Ok(printer.out)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_sheet_name_is_quoted_as_a_reference_quotes_it() {
-        assert_eq!(sheet_prefix("Model"), "Model");
-        assert_eq!(sheet_prefix("Sheet.1"), "Sheet.1");
-        assert_eq!(sheet_prefix("Q1 Data"), "'Q1 Data'");
-        assert_eq!(sheet_prefix("It's"), "'It''s'");
-        assert_eq!(sheet_prefix("2026"), "'2026'");
-        assert_eq!(sheet_prefix("Donn\u{e9}es"), "Donn\u{e9}es");
-        assert_eq!(sheet_prefix("a-b"), "'a-b'");
-        // AXM.7's two clauses, confirmed in Excel on 2026-10-04.
-        assert_eq!(sheet_prefix("A1"), "'A1'");
-        assert_eq!(sheet_prefix("R1C1"), "'R1C1'");
-    }
-
-    #[test]
-    fn a_target_is_a_reference_or_an_unreadable_call() {
-        let refs = refers::scan("=OFFSET(B1,1,0)+'Q1 Data'!A1");
-        assert_eq!(
-            RefersTo::of(&refs[0], "Model"),
-            RefersTo::Unreadable("OFFSET")
-        );
-        assert_eq!(
-            RefersTo::of(&refs[1], "Model"),
-            RefersTo::Reference("Model!B1".to_string())
-        );
-        assert_eq!(
-            RefersTo::of(&refs[2], "Model"),
-            RefersTo::Reference("'Q1 Data'!A1".to_string())
-        );
-    }
 }
