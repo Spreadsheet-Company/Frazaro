@@ -2704,9 +2704,7 @@ vla_tryd_3: ' vla:1148 src:219
     If vlatraceon() Then ' vla:2111 src:675
         Call vlatracestep(359, vla_step_text(359)) ' vla:2111 src:675
     End If
-    application.displayalerts = False
-    Call worksheets("gstruct").delete
-    application.displayalerts = True
+    Call vladeletesheet("gstruct")
     GoTo vla_tryd_4 ' vla:2114 src:675
 vla_tryf_4: ' vla:2115 src:675
     vla_problem = err.description ' vla:2116 src:675
@@ -3077,9 +3075,7 @@ vla_tryd_4: ' vla:2120 src:675
     If vlatraceon() Then ' vla:2399 src:792
         Call vlatracestep(429, vla_step_text(429)) ' vla:2399 src:792
     End If
-    application.displayalerts = False
-    Call worksheets("gformat").delete
-    application.displayalerts = True
+    Call vladeletesheet("gformat")
     GoTo vla_tryd_5 ' vla:2402 src:792
 vla_tryf_5: ' vla:2403 src:792
     vla_problem = err.description ' vla:2404 src:792
@@ -3470,9 +3466,7 @@ vla_tryd_5: ' vla:2408 src:792
     If vlatraceon() Then ' vla:2703 src:899
         Call vlatracestep(503, vla_step_text(503)) ' vla:2703 src:899
     End If
-    application.displayalerts = False
-    Call worksheets("gsortfilter").delete
-    application.displayalerts = True
+    Call vladeletesheet("gsortfilter")
     GoTo vla_tryd_6 ' vla:2706 src:899
 vla_tryf_6: ' vla:2707 src:899
     vla_problem = err.description ' vla:2708 src:899
@@ -4047,9 +4041,7 @@ vla_tryd_8: ' vla:3152 src:1051
     If vlatraceon() Then ' vla:3159 src:1060
         Call vlatracestep(611, vla_step_text(611)) ' vla:3159 src:1060
     End If
-    application.displayalerts = False
-    Call worksheets("gtext").delete
-    application.displayalerts = True
+    Call vladeletesheet("gtext")
     GoTo vla_tryd_9 ' vla:3162 src:1060
 vla_tryf_9: ' vla:3163 src:1060
     vla_problem = err.description ' vla:3164 src:1060

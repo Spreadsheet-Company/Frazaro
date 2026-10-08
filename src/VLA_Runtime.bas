@@ -9,7 +9,20 @@ Option Explicit
 ' SIG.0: this notice sits INSIDE the injectable region on purpose, so
 ' it travels with the code it licenses; tools/check_spdx.ps1 fails if
 ' it ever drifts below the boundary.
-Public Const VLA_RUNTIME_VERSION As String = "SEC.15"
+Public Const VLA_RUNTIME_VERSION As String = "L-SHEET-HELPERS"
+' L-SHEET-HELPERS: the sheet helpers G-TABS's sentences will call, each a
+' refusal in Frazaro's words before Excel's own 1004 (LX.8): VlaAddSheetAt,
+' VlaCopySheet (a Function: the copy's name comes back), VlaMoveSheet,
+' VlaRenameSheet, VlaHideSheet, VlaShowSheet, VlaClearSheet, VlaDeleteSheet
+' (delete-sheet's macro calls it now) and VlaSheetExists, a read. A sheet
+' goes after or before a named sheet, or last; Copy and Move always pass
+' Before or After, since either alone makes a NEW WORKBOOK; the copy is
+' found by what is new among the names, never by index (U.21's lesson);
+' the sheet that was active is active afterwards; Frazaro's own sheets
+' (VlaIsFrazaroSheetName, pure, the IDE's rule copied so the injected copy
+' needs no VLA_IDE) and very-hidden sheets are refused by name. The
+' refusals are the rt-sheet-* rows; VLA_Interpreter's TryRuntimeHelper has
+' a native Case for each helper that can raise (IN.15).
 ' SEC.15: VlaSetFormula, the one formula sink on both backends (VLA.bas's
 ' emitter writes Call VlaSetFormula(obj, text) where it wrote .Formula2 =,
 ' and VLA_Interpreter's Case "formula" calls it), and VlaFormulaEgress,
@@ -684,6 +697,23 @@ Private Sub RuntimeAddEntries(ByVal m As Collection)
     ' backends. The formula is shown whole to 80 characters, then cut; the
     ' cell is the target's sheet and address.
     RuntimeAddMsg m, "rt-formula-egress", 5, "VLA-Runtime", "the formula {formula} uses {name}, which can reach outside the workbook on its own (the network, another program, or a link to one), so Frazaro refuses to write it. Nothing was written to {cell}."
+    ' L-SHEET-HELPERS: the sheet helpers' refusals. {act} is the verb the
+    ' sentence asked for (copy, move, rename, hide, show, clear, delete),
+    ' {where} the position word, {new} the name a copy or a rename asked for.
+    RuntimeAddMsg m, "rt-sheet-not-found", 5, "VLA-Runtime", "there is no sheet called ""{name}"" in this workbook."
+    RuntimeAddMsg m, "rt-sheet-is-frazaros", 5, "VLA-Runtime", "the sheet ""{name}"" is Frazaro's own - a program tab, its log, or an Undo copy - so a program can't {act} it."
+    RuntimeAddMsg m, "rt-sheet-very-hidden", 5, "VLA-Runtime", "the sheet ""{name}"" is hidden in a way Frazaro never changes, so a program can't {act} it."
+    RuntimeAddMsg m, "rt-sheet-name-is-frazaros", 5, "VLA-Runtime", "the name ""{name}"" is one Frazaro keeps for its own sheets - pick another name."
+    RuntimeAddMsg m, "rt-sheet-position-unknown", 5, "VLA-Runtime", "a sheet's position is after, before, or last - not '{where}'."
+    RuntimeAddMsg m, "rt-sheet-anchor-empty", 5, "VLA-Runtime", "'{where}' needs a sheet name beside it - say which sheet to go {where}."
+    RuntimeAddMsg m, "rt-sheet-copy-name-exists", 5, "VLA-Runtime", "a sheet called ""{new}"" already exists, so the copy of ""{name}"" can't be called that - pick another name, or delete sheet ""{new}"" first."
+    RuntimeAddMsg m, "rt-sheet-copy-not-one", 5, "VLA-Runtime", "copying sheet ""{name}"" did not make exactly one new sheet ({count} appeared), so what appeared was removed and nothing was kept."
+    RuntimeAddMsg m, "rt-sheet-rename-exists", 5, "VLA-Runtime", "can't rename sheet ""{name}"" to ""{new}"" - a sheet called ""{new}"" already exists."
+    RuntimeAddMsg m, "rt-sheet-move-onto-itself", 5, "VLA-Runtime", "sheet ""{name}"" can't be moved after or before itself."
+    RuntimeAddMsg m, "rt-sheet-hide-active", 5, "VLA-Runtime", "sheet ""{name}"" is the sheet the program is working on - say ""Work on sheet ..."" for another sheet first, then hide it."
+    RuntimeAddMsg m, "rt-sheet-last-visible", 5, "VLA-Runtime", "sheet ""{name}"" is the only worksheet showing, and a workbook has to keep one showing, so it can't be {act}."
+    RuntimeAddMsg m, "rt-workbook-structure-protected", 5, "VLA-Runtime", "this workbook's structure is protected, so its sheets can't be added, copied, moved, renamed, hidden or deleted - unprotect it first (Review tab, Protect Workbook)."
+    RuntimeAddMsg m, "rt-sheet-excel-refused", 5, "VLA-Runtime", "Excel would not {act} sheet ""{name}"": {reason}"
 End Sub
 
 Private Sub RuntimeAddMsg(ByVal m As Collection, ByVal id As String, ByVal errNum As Long, _
@@ -1114,6 +1144,371 @@ Public Sub VlaCheckSheetAbsent(ByVal nm As String)
     If Not ws Is Nothing Then
         RaiseRuntimeMsg "rt-sheet-already-exists", "name", nm
     End If
+End Sub
+
+' ---------------------------------------------------------------------
+'  L-SHEET-HELPERS (2026-10-07): the sheet helpers. G-TABS's sentences
+'  will call these; until then a raw row on the Frazaro tab can, through
+'  the macros beside add-sheet-called in english.vla ((copy-sheet "Data"
+'  "after" "Data") and the rest). Every one refuses in Frazaro's words
+'  before Excel's own 1004 could reach a user (LX.8), through the
+'  rt-sheet-* rows above, and every one that can raise has a native Case
+'  in VLA_Interpreter's TryRuntimeHelper (IN.15), pinned by
+'  tools/check_runtime_raise_dispatch.ps1.
+'
+'  The rules they share, each the owner's call of 2026-10-07:
+'  - A sheet's position is always explicit: "after" or "before" a named
+'    sheet, or "last". Worksheet.Copy and Worksheet.Move with neither
+'    Before nor After make a NEW WORKBOOK, so both always pass one; a
+'    bare sentence's default is G-TABS's to decide, not a helper's.
+'  - Worksheets, never Sheets, and a sheet is found by name, never by
+'    index: a chart sheet shifts Index but not Worksheets (U.21). The
+'    copy Excel makes is the one name that is new (NewSheetNames), as
+'    VLA_IDE's TakeRunSnapshot finds its own copies; a Copy After a
+'    very-hidden last sheet lands BEFORE it (the VBA traps, 12), which a
+'    name diff does not care about and Worksheets(Count) would.
+'  - The sheet that was active is active afterwards: Add, Copy and Move
+'    activate the sheet they touch, and "Work on sheet" means
+'    ActiveSheet, so a copy would otherwise redirect every later Put.
+'    The shipped add-sheet-called keeps activating its new sheet (SD-4;
+'    instructions.txt relies on it).
+'  - Frazaro's own sheets are refused by name (VlaIsFrazaroSheetName,
+'    below: the IDE's IsFrazaroSheetName copied, since this text runs in
+'    a user's workbook with no VLA_IDE beside it), and so is any
+'    very-hidden sheet: Frazaro's storage is very hidden, and Hide here
+'    means xlSheetHidden only (SD-19; very hidden is never offered).
+'  - A name a copy, a rename or an add asks for passes VlaCheckSheetName
+'    and the absent check BEFORE anything is made (IN.12: a rerun leaves
+'    nothing behind), and may not be one Frazaro keeps for itself.
+'  - Hide and Show set a state, so hiding a hidden sheet or showing one
+'    already showing does nothing and refuses nothing (a rerun is safe);
+'    hiding the sheet the program is working on, or the only sheet
+'    showing, is refused; so is deleting the only worksheet showing.
+'  - A structure-protected workbook is refused first, in words, for
+'    every act Excel would refuse with 1004.
+'  Undo (VLA_IDE's snapshot) records neither tab order nor visibility,
+'  and sees only sheets named after the word "sheet" in a sentence:
+'  measured by tools/VLA_DiagSheetHelpers.bas and filed as U.32.
+' ---------------------------------------------------------------------
+
+' Frazaro's own sheet names, as VLA_IDE's IsFrazaroSheetName reads them:
+' an Undo copy or tombstone (VLAu_, VLAd_), a Run's staging (VLAn_), the
+' log, the build's source sheet, the Phrasebook, Generated VBA and Trace
+' display sheets, Copy Feedback's sheet, and a program tab, "Frazaro" or
+' "Frazaro (<name>)" (VlaIdeIsWorkspaceName's shape, length and all).
+' Pure and case-blind, so TestSheetHelperNames pins it without a workbook.
+Public Function VlaIsFrazaroSheetName(ByVal nm As String) As Boolean
+    Dim k As String
+    k = Fold(nm)
+    If Len(k) = 0 Then Exit Function
+    If Left$(k, 5) = "vlau_" Or Left$(k, 5) = "vlad_" Or Left$(k, 5) = "vlan_" Then
+        VlaIsFrazaroSheetName = True
+        Exit Function
+    End If
+    Select Case k
+        Case "vla_log", "vlar_source", "phrasebook", "generated vba", "trace", "feedback", "frazaro"
+            VlaIsFrazaroSheetName = True
+            Exit Function
+    End Select
+    If Len(k) > 10 Then
+        If Left$(k, 9) = "frazaro (" And Right$(k, 1) = ")" Then VlaIsFrazaroSheetName = True
+    End If
+End Function
+
+' Whether a sheet of that name is in the active workbook. A read that
+' never raises, so the interpreter reaches it through its generic tier.
+Public Function VlaSheetExists(ByVal nm As String) As Boolean
+    VlaSheetExists = Not SheetByName(nm) Is Nothing
+End Function
+
+' Add a sheet with a given name after or before a named sheet, or last.
+' The name is checked and must be absent before anything is made.
+Public Sub VlaAddSheetAt(ByVal nm As String, ByVal whereTo As String, ByVal anchorName As String)
+    VlaCheckSheetName nm
+    If VlaIsFrazaroSheetName(nm) Then RaiseRuntimeMsg "rt-sheet-name-is-frazaros", "name", nm
+    VlaCheckSheetAbsent nm
+    Dim isAfter As Boolean
+    Dim anchor As Worksheet
+    Set anchor = SheetAnchor(whereTo, anchorName, isAfter)
+    RequireStructureUnprotected
+    Dim prior As Object
+    Set prior = ActiveWorkbook.ActiveSheet
+    Dim ws As Worksheet
+    If isAfter Then
+        Set ws = ActiveWorkbook.Worksheets.Add(After:=anchor)
+    Else
+        Set ws = ActiveWorkbook.Worksheets.Add(Before:=anchor)
+    End If
+    NameNewSheet ws, nm, prior
+    GiveBackActiveSheet prior
+End Sub
+
+' Copy a sheet to after or before a named sheet, or last. newName ""
+' leaves the copy with Excel's own name ("Data (2)"); a name is checked
+' and must be absent BEFORE the copy is made. The copy's name comes back,
+' so the run can say which sheet it made (SD-30).
+Public Function VlaCopySheet(ByVal nm As String, ByVal whereTo As String, ByVal anchorName As String, _
+                             ByVal newName As String) As String
+    Dim src As Worksheet
+    Set src = RequireUserSheet(nm, "copy")
+    If Len(newName) > 0 Then
+        VlaCheckSheetName newName
+        If VlaIsFrazaroSheetName(newName) Then RaiseRuntimeMsg "rt-sheet-name-is-frazaros", "name", newName
+        If Not SheetByName(newName) Is Nothing Then
+            RaiseRuntimeMsg "rt-sheet-copy-name-exists", "name", nm, "new", newName
+        End If
+    End If
+    Dim isAfter As Boolean
+    Dim anchor As Worksheet
+    Set anchor = SheetAnchor(whereTo, anchorName, isAfter)
+    RequireStructureUnprotected
+    Dim prior As Object
+    Set prior = ActiveWorkbook.ActiveSheet
+    Dim namesBefore As Collection
+    Set namesBefore = SheetNameList()
+    If isAfter Then
+        src.Copy After:=anchor
+    Else
+        src.Copy Before:=anchor
+    End If
+    Dim added As Collection
+    Set added = NewSheetNames(namesBefore)
+    If added.Count <> 1 Then
+        RemoveSheetsNamed added
+        GiveBackActiveSheet prior
+        RaiseRuntimeMsg "rt-sheet-copy-not-one", "name", nm, "count", added.Count
+    End If
+    Dim cpy As Worksheet
+    Set cpy = ActiveWorkbook.Worksheets(CStr(added.Item(1)))
+    If Len(newName) > 0 Then NameNewSheet cpy, newName, prior
+    GiveBackActiveSheet prior
+    VlaCopySheet = cpy.Name
+End Function
+
+' Move a sheet to after or before a named sheet, or last. A sheet already
+' last stays, and the sentence succeeds (a rerun is safe); a sheet moved
+' after or before itself is refused.
+Public Sub VlaMoveSheet(ByVal nm As String, ByVal whereTo As String, ByVal anchorName As String)
+    Dim src As Worksheet
+    Set src = RequireUserSheet(nm, "move")
+    Dim isAfter As Boolean
+    Dim anchor As Worksheet
+    Set anchor = SheetAnchor(whereTo, anchorName, isAfter)
+    If Fold(anchor.Name) = Fold(src.Name) Then
+        If Fold(whereTo) = "last" Then Exit Sub
+        RaiseRuntimeMsg "rt-sheet-move-onto-itself", "name", nm
+    End If
+    RequireStructureUnprotected
+    Dim prior As Object
+    Set prior = ActiveWorkbook.ActiveSheet
+    If isAfter Then
+        src.Move After:=anchor
+    Else
+        src.Move Before:=anchor
+    End If
+    GiveBackActiveSheet prior
+End Sub
+
+' Give a sheet a new name. The new name is checked, may not be one
+' Frazaro keeps, and may not be another sheet's; a change of case alone
+' (Data to DATA) is the same sheet and allowed.
+Public Sub VlaRenameSheet(ByVal nm As String, ByVal newName As String)
+    Dim ws As Worksheet
+    Set ws = RequireUserSheet(nm, "rename")
+    VlaCheckSheetName newName
+    If VlaIsFrazaroSheetName(newName) Then RaiseRuntimeMsg "rt-sheet-name-is-frazaros", "name", newName
+    Dim other As Worksheet
+    Set other = SheetByName(newName)
+    If Not other Is Nothing Then
+        If Fold(other.Name) <> Fold(ws.Name) Then
+            RaiseRuntimeMsg "rt-sheet-rename-exists", "name", nm, "new", newName
+        End If
+    End If
+    RequireStructureUnprotected
+    ws.Name = newName
+End Sub
+
+' Hide a sheet (xlSheetHidden, so Unhide shows it again). A hidden sheet
+' stays hidden and the sentence succeeds. The sheet the program is
+' working on, and the only worksheet showing, are refused.
+Public Sub VlaHideSheet(ByVal nm As String)
+    Dim ws As Worksheet
+    Set ws = RequireUserSheet(nm, "hide")
+    If ws.Visible = xlSheetHidden Then Exit Sub
+    Dim current As Object
+    Set current = ActiveWorkbook.ActiveSheet
+    If Not current Is Nothing Then
+        If Fold(current.Name) = Fold(ws.Name) Then RaiseRuntimeMsg "rt-sheet-hide-active", "name", nm
+    End If
+    If VisibleWorksheetCount() <= 1 Then RaiseRuntimeMsg "rt-sheet-last-visible", "name", nm, "act", "hidden"
+    RequireStructureUnprotected
+    ws.Visible = xlSheetHidden
+End Sub
+
+' Show a hidden sheet. A sheet already showing stays, and the sentence
+' succeeds; a very-hidden sheet is refused (RequireUserSheet).
+Public Sub VlaShowSheet(ByVal nm As String)
+    Dim ws As Worksheet
+    Set ws = RequireUserSheet(nm, "show")
+    If ws.Visible = xlSheetVisible Then Exit Sub
+    RequireStructureUnprotected
+    Dim prior As Object
+    Set prior = ActiveWorkbook.ActiveSheet
+    ws.Visible = xlSheetVisible
+    GiveBackActiveSheet prior
+End Sub
+
+' Clear every cell of a sheet: values, formulas and formatting.
+Public Sub VlaClearSheet(ByVal nm As String)
+    Dim ws As Worksheet
+    Set ws = RequireUserSheet(nm, "clear")
+    ws.Cells.Clear
+End Sub
+
+' Delete a sheet without Excel's confirmation (delete-sheet's macro calls
+' this). The only worksheet showing is refused; Excel's own refusal, if any,
+' arrives in words, with DisplayAlerts put back as it was.
+Public Sub VlaDeleteSheet(ByVal nm As String)
+    Dim ws As Worksheet
+    Set ws = RequireUserSheet(nm, "delete")
+    If ws.Visible = xlSheetVisible Then
+        If VisibleWorksheetCount() <= 1 Then RaiseRuntimeMsg "rt-sheet-last-visible", "name", nm, "act", "deleted"
+    End If
+    RequireStructureUnprotected
+    Dim why As String
+    why = RemoveQuietly(ws)
+    If Len(why) > 0 Then RaiseRuntimeMsg "rt-sheet-excel-refused", "act", "delete", "name", nm, "reason", why
+End Sub
+
+' A worksheet of the active workbook by name, or Nothing.
+Private Function SheetByName(ByVal nm As String) As Worksheet
+    On Error Resume Next
+    Set SheetByName = ActiveWorkbook.Worksheets(nm)
+    On Error GoTo 0
+End Function
+
+' The sheet an act may change: it exists, it is not Frazaro's, and it
+' is not very hidden. act is the verb the refusal names.
+Private Function RequireUserSheet(ByVal nm As String, ByVal act As String) As Worksheet
+    Dim ws As Worksheet
+    Set ws = SheetByName(nm)
+    If ws Is Nothing Then RaiseRuntimeMsg "rt-sheet-not-found", "name", nm
+    If VlaIsFrazaroSheetName(ws.Name) Then RaiseRuntimeMsg "rt-sheet-is-frazaros", "name", nm, "act", act
+    If ws.Visible = xlSheetVeryHidden Then RaiseRuntimeMsg "rt-sheet-very-hidden", "name", nm, "act", act
+    Set RequireUserSheet = ws
+End Function
+
+' Where a sheet goes: after or before a named sheet, or last (after the
+' last worksheet). isAfter says which side of the returned anchor.
+Private Function SheetAnchor(ByVal whereTo As String, ByVal anchorName As String, ByRef isAfter As Boolean) As Worksheet
+    Select Case Fold(whereTo)
+        Case "after"
+            isAfter = True
+        Case "before"
+            isAfter = False
+        Case "last"
+            isAfter = True
+            Set SheetAnchor = ActiveWorkbook.Worksheets(ActiveWorkbook.Worksheets.Count)
+            Exit Function
+        Case Else
+            RaiseRuntimeMsg "rt-sheet-position-unknown", "where", whereTo
+    End Select
+    If Len(anchorName) = 0 Then RaiseRuntimeMsg "rt-sheet-anchor-empty", "where", whereTo
+    Set SheetAnchor = SheetByName(anchorName)
+    If SheetAnchor Is Nothing Then RaiseRuntimeMsg "rt-sheet-not-found", "name", anchorName
+End Function
+
+Private Sub RequireStructureUnprotected()
+    If ActiveWorkbook.ProtectStructure Then RaiseRuntimeMsg "rt-workbook-structure-protected"
+End Sub
+
+' Name a sheet this module just made. Should Excel refuse the name after
+' the checks passed, the sheet is removed first, so a rerun finds nothing
+' left behind (IN.12), and the refusal carries Excel's reason.
+Private Sub NameNewSheet(ByVal ws As Worksheet, ByVal nm As String, ByVal prior As Object)
+    Dim n As Long, d As String
+    On Error Resume Next
+    ws.Name = nm
+    n = Err.Number
+    d = Err.Description
+    On Error GoTo 0
+    If n = 0 Then Exit Sub
+    RemoveQuietly ws
+    GiveBackActiveSheet prior
+    RaiseRuntimeMsg "rt-sheet-excel-refused", "act", "name", "name", nm, "reason", d
+End Sub
+
+' The sheet that was active, made active again; nothing when it is gone
+' or cannot be activated.
+Private Sub GiveBackActiveSheet(ByVal prior As Object)
+    If prior Is Nothing Then Exit Sub
+    On Error Resume Next
+    prior.Activate
+    On Error GoTo 0
+End Sub
+
+' Delete a sheet without Excel's confirmation, DisplayAlerts put back as
+' it was whatever happens. Excel's refusal, if any, comes back as text for
+' the caller's own refusal; never a raw raise.
+Private Function RemoveQuietly(ByVal ws As Worksheet) As String
+    Dim da As Boolean
+    da = Application.DisplayAlerts
+    Application.DisplayAlerts = False
+    On Error Resume Next
+    ws.Delete
+    If Err.Number <> 0 Then RemoveQuietly = Err.Description
+    On Error GoTo 0
+    Application.DisplayAlerts = da
+End Function
+
+Private Function VisibleWorksheetCount() As Long
+    Dim ws As Worksheet
+    Dim n As Long
+    For Each ws In ActiveWorkbook.Worksheets
+        If ws.Visible = xlSheetVisible Then n = n + 1
+    Next
+    VisibleWorksheetCount = n
+End Function
+
+' The active workbook's worksheet names, keyed case-blind.
+Private Function SheetNameList() As Collection
+    Dim r As Collection
+    Set r = New Collection
+    Dim ws As Worksheet
+    For Each ws In ActiveWorkbook.Worksheets
+        r.Add ws.Name, Fold(ws.Name)
+    Next
+    Set SheetNameList = r
+End Function
+
+' The worksheet names not in an earlier list: how a copy Excel just made
+' is found (VLA_IDE's VlaIdeAddedSheetNames, the same rule).
+Private Function NewSheetNames(ByVal earlier As Collection) As Collection
+    Dim r As Collection
+    Set r = New Collection
+    Dim ws As Worksheet
+    For Each ws In ActiveWorkbook.Worksheets
+        If Not SheetListHas(earlier, Fold(ws.Name)) Then r.Add ws.Name
+    Next
+    Set NewSheetNames = r
+End Function
+
+Private Function SheetListHas(ByVal col As Collection, ByVal k As String) As Boolean
+    Dim v As Variant
+    On Error Resume Next
+    v = col.Item(k)
+    SheetListHas = (Err.Number = 0)
+    On Error GoTo 0
+End Function
+
+' Every sheet named in the list removed, each in its own error scope.
+Private Sub RemoveSheetsNamed(ByVal sheetNames As Collection)
+    Dim v As Variant
+    Dim ws As Worksheet
+    For Each v In sheetNames
+        Set ws = SheetByName(CStr(v))
+        If Not ws Is Nothing Then RemoveQuietly ws
+    Next
 End Sub
 
 ' Workbook (defined) names: start with a letter, underscore, or

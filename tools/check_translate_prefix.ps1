@@ -44,7 +44,10 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # run, 224,380 characters (the golden less its stamp, after the treaty's
 # normalization: LF line endings, trailing blank lines dropped; with its
 # CRLFs the same text is 229,156).
-$floor = 224380
+# 2026-10-07, L-SHEET-HELPERS: 225,531 - the eleven sheet macros joined the
+# phrasebook and delete-sheet's body became one call, all carried into the
+# golden's tail; the whole of the regenerated .vla.
+$floor = 225531
 
 $program   = Join-Path $repoRoot 'scripts/instructions.txt'
 $goldenVla = Join-Path $repoRoot 'scripts/instructions_golden.vla'

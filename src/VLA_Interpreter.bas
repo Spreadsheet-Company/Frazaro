@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Interpreter"
 Option Explicit
-Public Const VLA_INTERPRETER_VERSION As String = "SEC.15"
+Public Const VLA_INTERPRETER_VERSION As String = "L-SHEET-HELPERS"
+' L-SHEET-HELPERS: TryRuntimeHelper gains eight native Cases, one for each
+' sheet helper that can raise (VlaAddSheetAt, VlaCopySheet, VlaMoveSheet,
+' VlaRenameSheet, VlaHideSheet, VlaShowSheet, VlaClearSheet,
+' VlaDeleteSheet), for the IN.15 reason; VlaSheetExists only reads and
+' stays on the generic tier. delete-sheet's macro calls VlaDeleteSheet now.
 ' SEC.15: DynamicSet's Case "formula" writes through the runtime's
 ' VlaSetFormula, the one formula sink of both backends (VLA.bas's emitter
 ' writes a call to the same helper): a formula that reaches outside the
@@ -2879,6 +2884,53 @@ Private Function TryRuntimeHelper(ByVal h As String, ByVal argVals As Variant, B
         Case "vlapivotsort"
             If Not ArityIs(argVals, 4, handled) Then Exit Function
             VLA_Runtime.VlaPivotSort CStr(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1)), CStr(ArgAt(argVals, 2)), CStr(ArgAt(argVals, 3))
+            handled = True
+            Exit Function
+        ' L-SHEET-HELPERS: the eight sheet helpers, each refusing by name
+        ' (a sheet that is not there, Frazaro's own, the only sheet
+        ' showing, a taken name, a protected structure, ...), so each
+        ' gets its native Case for the same IN.15 reason. VlaCopySheet is
+        ' a Function: the copy's name comes back. VlaSheetExists only
+        ' reads and never raises, so the generic tier below reaches it.
+        Case "vlaaddsheetat"
+            If Not ArityIs(argVals, 3, handled) Then Exit Function
+            VLA_Runtime.VlaAddSheetAt CStr(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1)), CStr(ArgAt(argVals, 2))
+            handled = True
+            Exit Function
+        Case "vlacopysheet"
+            If Not ArityIs(argVals, 4, handled) Then Exit Function
+            AssignVar TryRuntimeHelper, VLA_Runtime.VlaCopySheet(CStr(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1)), _
+                                                                 CStr(ArgAt(argVals, 2)), CStr(ArgAt(argVals, 3)))
+            handled = True
+            Exit Function
+        Case "vlamovesheet"
+            If Not ArityIs(argVals, 3, handled) Then Exit Function
+            VLA_Runtime.VlaMoveSheet CStr(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1)), CStr(ArgAt(argVals, 2))
+            handled = True
+            Exit Function
+        Case "vlarenamesheet"
+            If Not ArityIs(argVals, 2, handled) Then Exit Function
+            VLA_Runtime.VlaRenameSheet CStr(ArgAt(argVals, 0)), CStr(ArgAt(argVals, 1))
+            handled = True
+            Exit Function
+        Case "vlahidesheet"
+            If Not ArityIs(argVals, 1, handled) Then Exit Function
+            VLA_Runtime.VlaHideSheet CStr(ArgAt(argVals, 0))
+            handled = True
+            Exit Function
+        Case "vlashowsheet"
+            If Not ArityIs(argVals, 1, handled) Then Exit Function
+            VLA_Runtime.VlaShowSheet CStr(ArgAt(argVals, 0))
+            handled = True
+            Exit Function
+        Case "vlaclearsheet"
+            If Not ArityIs(argVals, 1, handled) Then Exit Function
+            VLA_Runtime.VlaClearSheet CStr(ArgAt(argVals, 0))
+            handled = True
+            Exit Function
+        Case "vladeletesheet"
+            If Not ArityIs(argVals, 1, handled) Then Exit Function
+            VLA_Runtime.VlaDeleteSheet CStr(ArgAt(argVals, 0))
             handled = True
             Exit Function
     End Select

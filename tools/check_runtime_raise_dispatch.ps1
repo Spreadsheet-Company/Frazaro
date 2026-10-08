@@ -124,7 +124,15 @@ $baseline = @(
     'VlaTextBeside',         # G-TEXT slice 2, 2026-09-26: refuses a marker that is not there
     'VlaTextInRange',        # G-TEXT slice 1, 2026-09-25: VlaTextOp's refusal, asked before a cell is touched
     'VlaTextOp',             # G-TEXT slice 1, 2026-09-25: refuses a change it does not know by name
-    'VlaTextPad'             # G-TEXT slice 2, 2026-09-26: refuses a pad that is not one character
+    'VlaTextPad',            # G-TEXT slice 2, 2026-09-26: refuses a pad that is not one character
+    'VlaAddSheetAt',         # L-SHEET-HELPERS, 2026-10-07: the sheet helpers refuse a sheet that is not there,
+    'VlaCopySheet',          #   Frazaro's own, a taken or a kept name, the only sheet showing, a protected
+    'VlaMoveSheet',          #   structure; VlaSheetExists only reads and is not in this set
+    'VlaRenameSheet',
+    'VlaHideSheet',
+    'VlaShowSheet',
+    'VlaClearSheet',
+    'VlaDeleteSheet'
 )
 
 $raiseRe = 'RaiseRuntimeMsg|RaiseMsg|Err\.Raise'

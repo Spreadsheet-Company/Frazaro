@@ -2,6 +2,50 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.9.0
+
+### What changed
+
+- **For phrasebook authors: the sheet helpers, so that sentences about
+  sheets can be written.** The runtime gains eight helpers a macro can
+  call, each refusing in words before Excel's own error could appear: add
+  a sheet after or before a named sheet or last (`VlaAddSheetAt`), copy
+  one (`VlaCopySheet`, which hands back the copy's name; Excel's own
+  "Data (2)" unless the sentence names it, and a name it asks for is
+  checked and must be free before the copy is made), move one
+  (`VlaMoveSheet`), rename one (`VlaRenameSheet`; a change of case alone
+  is allowed), hide and show one (`VlaHideSheet`, `VlaShowSheet`; hidden,
+  never very hidden, and hiding the sheet the program is working on or
+  the only worksheet showing is refused), clear one (`VlaClearSheet`), delete
+  one (`VlaDeleteSheet`), and ask whether one exists (`VlaSheetExists`).
+  The phrasebook carries a macro for each (`add-sheet-at`, `copy-sheet`,
+  `copy-sheet-named`, `move-sheet`, `rename-sheet`, `hide-sheet`,
+  `show-sheet`, `clear-sheet`, `sheet-exists`, `sheet-count`,
+  `sheet-name`), so a raw row on the Frazaro tab can use them today and
+  the sentences come with G-TABS. A position is always said in full:
+  `"after"` or `"before"` and a sheet's name, or `"last"`. The sheet the
+  program was working on is still the one it works on afterwards. A
+  program can never copy, move, rename, hide, clear or delete one of
+  Frazaro's own sheets (a program tab, the log, an Undo copy) or a
+  very-hidden sheet; it is refused by name.
+- **`Delete sheet X.` refuses in words where it used to stop with Excel's
+  error.** A sheet that is not there, one of Frazaro's own, or the only
+  worksheet showing is named in the refusal; the sentence's meaning for any
+  other sheet is unchanged, and Excel's confirmation is still not shown.
+- **Undo Last Run after these helpers is documented, not yet widened.**
+  Undo puts back the sheets a sentence names after the word "sheet"; it
+  does not put back tab order or visibility, and it leaves a renamed
+  sheet's new name and a bare copy standing. That is `U.32` on the
+  roadmap.
+
+### Known open security items
+
+**Closed this release:** none yet. The sheet helpers act only inside the
+open workbook: a copy or a move always names the sheet it goes beside, so
+neither can make a new workbook, and no helper opens a file or makes a
+network call. Standing advice unchanged. The full list of open items is in
+`docs/BETA_REARVIEW.md`, in plain words in `README.md`.
+
 ## 0.8.0
 
 ### What changed

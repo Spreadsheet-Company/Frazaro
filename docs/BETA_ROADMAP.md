@@ -363,8 +363,6 @@ download without asking.
 
 - ⬜ **L.11** — runtime `@doc:` annotations surfacing through apropos. `~days`
 
-- ⬜ **L-SHEET-HELPERS** — tab create/copy/move/rename. Smallest surface, unblocks G-TABS. `~days`
-
 - ⬜ **L-FILE-HELPERS** — CSV/text import. **Adjudicate the mechanism on the ledger first** (Workbooks.Open vs QueryTables vs line I/O). `~days`
 
 - ⬜ **L-PIVOT-HELPERS** — pivot plumbing behind honest one-call verbs. Wants G6 first or the sentences are unwritable. `~weeks`
@@ -543,6 +541,8 @@ download without asking.
 - ⬜ **U.12 — apropos in the panel** (three tiers plus worksheet functions).
 
 - ⬜ **U.14 — `VlaTryTranspile`.** Retires the modal class from expected-error smokes. `~days`
+
+- ⬜ **U.32 — Undo puts a workbook's sheets back as they were: names, tab order and visibility.** Minted 2026-10-07 by `L-SHEET-HELPERS`' scoping, the owner's call (measure, document, file). Today `TakeRunSnapshot` copies only the sheets named after the word "sheet" in a sentence or before a `!` (`ScanSheetNames`; a macro row such as `(rename-sheet "Data" "Archive")` names none), a restored copy lands at the end of the tab order (`snap.Copy After:=snap`), only a tombstoned name is deleted, and a restored sheet is made visible with no record of what it was. So after a rename Undo leaves both names standing, after a bare copy the copy stands, after a move the order stays as the run left it, and after a hide only a snapshotted sheet is shown again. The fix is a roster: at `TakeRunSnapshot` every worksheet's name, position and visibility, kept on the run's own marker sheet (a defined name shows in the Name Manager); at `PutBackLastRun`, once the copies and tombstones are done, every sheet not on the roster removed, and every roster sheet put at its position with its visibility. To scope: the order of those steps against `U.19`'s all-or-nothing rule and `U.23`'s staging, chart sheets (`Worksheets` only, by name), and a sheet the person added by hand after the Run. Measured by `tools/VLA_DiagSheetHelpers.bas` (`LSHRecord`, then `LSHCompare` after the Run and again after Undo). `~days`
 
 - ⬜ **U.16 — the backend switch, in words.** Where the user sees which backend is running, why, and how to change it. *Depends on:* IN.4, IN.6, EN.1. `~days`
 

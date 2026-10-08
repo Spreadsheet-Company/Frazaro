@@ -287,7 +287,7 @@ mod tests {
         // The counts are what VlaReadForms(...).Count gives in Excel (the
         // owner's step 0 reading confirms them).
         let golden = read_forms(GOLDEN).unwrap();
-        assert_eq!(golden.len(), 237);
+        assert_eq!(golden.len(), 248);
         let prelude = read_forms(PRELUDE).unwrap();
         assert_eq!(prelude.len(), 46);
         for forms in [&golden, &prelude] {

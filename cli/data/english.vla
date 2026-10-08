@@ -4005,10 +4005,72 @@
 
 (defmacro
     (delete-sheet s)
-    "delete a sheet without the confirmation prompt"
-    (begin (set! application.displayalerts false)
-           (. (worksheets s) delete)
-           (set! application.displayalerts true)))
+    "delete a sheet without the confirmation prompt - a sheet that is not there, Frazaro's own, or the only one showing is refused in words"
+    (vladeletesheet s))
+
+; L-SHEET-HELPERS (2026-10-07): the sheet helpers G-TABS's sentences will
+; call, one macro each over VLA_Runtime's own (VlaAddSheetAt and the rest,
+; its L-SHEET-HELPERS block). A position is always explicit: "after" or
+; "before" a named sheet, or "last" with "" for the name; a bare sentence's
+; default is G-TABS's to decide. Copy and Move always pass Before or After,
+; since either alone makes a new workbook. The sheet that was active stays
+; active (add-sheet-called above keeps activating its new sheet, as
+; shipped). Frazaro's own sheets and very-hidden sheets are refused by
+; name; hide is xlSheetHidden only, and very hidden is never offered.
+(defmacro
+    (add-sheet-at n w a)
+    "add a new sheet with a given name after or before a named sheet, or last"
+    (vlaaddsheetat n w a))
+
+(defmacro
+    (copy-sheet s w a)
+    "copy a sheet to after or before a named sheet, or last - Excel names the copy, and the name comes back"
+    (vlacopysheet s w a ""))
+
+(defmacro
+    (copy-sheet-named s n w a)
+    "copy a sheet and call the copy by a name, to after or before a named sheet, or last"
+    (vlacopysheet s w a n))
+
+(defmacro
+    (move-sheet s w a)
+    "move a sheet to after or before a named sheet, or last"
+    (vlamovesheet s w a))
+
+(defmacro
+    (rename-sheet s n)
+    "give a sheet a new name"
+    (vlarenamesheet s n))
+
+(defmacro
+    (hide-sheet s)
+    "hide a sheet (show-sheet brings it back)"
+    (vlahidesheet s))
+
+(defmacro
+    (show-sheet s)
+    "show a hidden sheet"
+    (vlashowsheet s))
+
+(defmacro
+    (clear-sheet s)
+    "clear every cell of a sheet - values, formulas and formatting"
+    (vlaclearsheet s))
+
+(defmacro
+    (sheet-exists s)
+    "whether a sheet of that name is in this workbook"
+    (vlasheetexists s))
+
+(defmacro
+    (sheet-count)
+    "how many sheets this workbook has"
+    (. worksheets count))
+
+(defmacro
+    (sheet-name)
+    "the name of the sheet the program is working on"
+    (. activesheet name))
 
 (defmacro
     (open-workbook p)

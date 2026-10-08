@@ -1381,7 +1381,7 @@ mod tests {
             (
                 ENGLISH,
                 "english.vla",
-                "240 rules, 220 macros, 460 tests (22 expected fails)",
+                "240 rules, 231 macros, 460 tests (22 expected fails)",
             ),
         ] {
             let mut g = Grammar::new(PRELUDE);

@@ -720,21 +720,22 @@ mod tests {
 
     #[test]
     fn english_vla_loads_as_the_reference_counts_it() {
-        // The owner's reading of 2026-10-02: 240 rules, 220 macros, 460
+        // The owner's reading of 2026-10-02: 240 rules, 220 macros, 460; L-SHEET-HELPERS
+        // (2026-10-07) added eleven sheet macros, so 231 macros. 460
         // test-success and 22 test-fail proofs (EnglishVocabStats, read
         // after EnglishLoadVocabulary).
         let mut g = fresh();
         let n = load(&mut g, ENGLISH, "english.vla").unwrap_or_else(|e| panic!("{}", e.text));
         assert_eq!(n, 240);
         assert_eq!(g.rule_count(), 251);
-        assert_eq!(g.vocab_macro_count(), 220);
+        assert_eq!(g.vocab_macro_count(), 231);
         assert_eq!(proofs(&g), (460, 22));
         assert_eq!(g.fn_of_count(), 20);
         assert_eq!(g.phrases().len(), 8);
         assert_eq!(g.keyword_alias_count(), 0);
         assert_eq!(
             g.vocab_stats(),
-            "loaded: 240 rules, 220 macros, 460 tests (22 expected fails) from english.vla"
+            "loaded: 240 rules, 231 macros, 460 tests (22 expected fails) from english.vla"
         );
         assert!(g.lint_warnings().is_empty(), "{:?}", g.lint_warnings());
         // The three generators made their rules and proofs.
@@ -753,7 +754,7 @@ mod tests {
         assert!(shapes.contains(&"standard deviation of ... as sample|population"));
         assert!(shapes.contains(&"last filled row of column <column>"));
         // The expanded record is one line per real directive.
-        assert_eq!(g.expanded_blob().lines().count(), 240 + 220 + 460 + 22 + 14);
+        assert_eq!(g.expanded_blob().lines().count(), 240 + 231 + 460 + 22 + 14);
     }
 
     #[test]

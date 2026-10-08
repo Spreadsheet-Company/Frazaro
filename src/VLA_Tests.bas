@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "SEC.15"
+Public Const VLA_TESTS_VERSION As String = "L-SHEET-HELPERS"
+' L-SHEET-HELPERS: TestSheetHelperNames pins VlaIsFrazaroSheetName, the
+' runtime's pure copy of the IDE's own-sheet rule; TestSheetMacros expands
+' each sheet macro of english.vla through the emitter from a raw row and
+' pins the helper call it compiles to (delete-sheet's is VlaDeleteSheet now).
 ' SEC.15: TestFormulaEgress - the formula sink's scan (VlaFormulaEgress,
 ' VLA_Runtime.bas) as a proof table: every case of scripts/egress.txt with
 ' the record VlaWriteEgressGolden writes for it, generated from the fixture
@@ -528,6 +532,8 @@ Public Function VlaSelfTest() As Boolean
     TestLe11PhraseCategories
     TestFormulaRefs
     TestFormulaEgress
+    TestSheetHelperNames
+    TestSheetMacros
 
     Debug.Print "===== SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -8586,3 +8592,74 @@ Public Function Norm(ByVal s As String) As String
     Loop
     Norm = Trim$(s)
 End Function
+
+' L-SHEET-HELPERS: VlaIsFrazaroSheetName, pure - the names the sheet
+' helpers refuse to copy, move, rename, hide, show, clear or delete, the
+' IDE's IsFrazaroSheetName copied into the runtime so the injected copy
+' needs no VLA_IDE. Each shape of the IDE's rule, and names a user may
+' use, pinned here without a workbook.
+Private Sub TestSheetHelperNames()
+    Dim own As Variant
+    For Each own In Array("VLAu_Main_Data", "vlad_main_q1", "VLAn_Main_Output", "VLA_Log", "vlar_source", _
+                          "Phrasebook", "Generated VBA", "Trace", "feedback", "Frazaro", "FRAZARO", _
+                          "Frazaro (Sales)", "frazaro (x)")
+        Report "sheet helpers: '" & own & "' is Frazaro's own", VLA_Runtime.VlaIsFrazaroSheetName(CStr(own)), "said it is a user's"
+    Next own
+    Dim theirs As Variant
+    For Each theirs In Array("Data", "Output", "English", "Frazaro Data", "Frazaro ()", "My Frazaro (x)", _
+                             "VLA", "vlaux", "Log", "")
+        Report "sheet helpers: '" & theirs & "' is a user's sheet name", Not VLA_Runtime.VlaIsFrazaroSheetName(CStr(theirs)), "said Frazaro's"
+    Next theirs
+End Sub
+
+' L-SHEET-HELPERS: the sheet macros of english.vla, expanded through the
+' emitter from a raw row, so the VBA each sentence will compile to is
+' pinned before G-TABS writes the sentences: the helper each calls, its
+' arguments in order, "" where a bare copy has no name. delete-sheet's
+' body is the guarded VlaDeleteSheet now; sheet-count and sheet-name are
+' dot-forms with no helper.
+Private Sub TestSheetMacros()
+    EnglishResetGrammar
+    Dim loadErr As String
+    On Error Resume Next
+    Err.Clear
+    EnglishLoadVocabulary FindDevFile("english.vla")
+    If Err.Number <> 0 Then loadErr = Err.Description
+    On Error GoTo 0
+    Report "sheet macros: english.vla loads", Len(loadErr) = 0, loadErr
+    If Len(loadErr) = 0 Then
+        CheckSheetMacro "add-sheet-at", "(add-sheet-at ""Report"" ""after"" ""Data"")", "Call vlaaddsheetat(""Report"", ""after"", ""Data"")"
+        CheckSheetMacro "copy-sheet, bare: Excel names the copy", "(copy-sheet ""Data"" ""last"" """")", "Call vlacopysheet(""Data"", ""last"", """", """")"
+        CheckSheetMacro "copy-sheet-named", "(copy-sheet-named ""Data"" ""Archive"" ""before"" ""Data"")", "Call vlacopysheet(""Data"", ""before"", ""Data"", ""Archive"")"
+        CheckSheetMacro "move-sheet", "(move-sheet ""Data"" ""after"" ""Report"")", "Call vlamovesheet(""Data"", ""after"", ""Report"")"
+        CheckSheetMacro "rename-sheet", "(rename-sheet ""Data"" ""Archive"")", "Call vlarenamesheet(""Data"", ""Archive"")"
+        CheckSheetMacro "hide-sheet", "(hide-sheet ""Scratch"")", "Call vlahidesheet(""Scratch"")"
+        CheckSheetMacro "show-sheet", "(show-sheet ""Scratch"")", "Call vlashowsheet(""Scratch"")"
+        CheckSheetMacro "clear-sheet", "(clear-sheet ""Scratch"")", "Call vlaclearsheet(""Scratch"")"
+        CheckSheetMacro "delete-sheet, guarded now", "(delete-sheet ""Old"")", "Call vladeletesheet(""Old"")"
+        CheckSheetMacro "sheet-exists", "(debug-print (sheet-exists ""Data""))", "Debug.Print vlasheetexists(""Data"")"
+        CheckSheetMacro "sheet-count", "(debug-print (sheet-count))", "Debug.Print worksheets.count"
+        CheckSheetMacro "sheet-name", "(debug-print (sheet-name))", "Debug.Print activesheet.name"
+    End If
+    EnglishResetGrammar
+End Sub
+
+' One raw row, translated as a program row is (EnglishToVla, the carried
+' macros appended) and compiled (VlaTranspile); the fragment is looked for
+' in the VBA whole.
+Private Sub CheckSheetMacro(ByVal name As String, ByVal rawRow As String, ByVal fragment As String)
+    Dim vla As String
+    vla = TryEnglish("sheet macros: " & name, rawRow)
+    If Len(vla) = 0 Then Exit Sub
+    Dim vba As String, d As String
+    On Error Resume Next
+    vba = VlaTranspile(vla)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+    If Len(d) > 0 Then
+        Report "sheet macros: " & name, False, "transpile error: " & d
+        Exit Sub
+    End If
+    Report "sheet macros: " & name & " compiles to " & fragment, InStr(1, vba, fragment, vbBinaryCompare) > 0, _
+           "no such line in the VBA; it begins: " & Left$(vba, 300)
+End Sub

@@ -53,7 +53,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-10-05, SEC.15: 291496 - the golden's eighteen formula writes are
 # calls to the runtime's VlaSetFormula (ten characters longer each), the
 # whole of the regenerated .vba.
-$floor = 291496
+# 2026-10-07, L-SHEET-HELPERS: 291184 - LOWERED, with the regenerated golden:
+# the corpus's four "Delete sheet" sentences compile to one call of the
+# runtime's VlaDeleteSheet each where they were three lines (DisplayAlerts
+# off, the delete, DisplayAlerts on); the whole of the regenerated .vba.
+$floor = 291184
 
 $goldenVla = Join-Path $repoRoot 'scripts/instructions_golden.vla'
 $goldenVba = Join-Path $repoRoot 'scripts/instructions_golden.vba'

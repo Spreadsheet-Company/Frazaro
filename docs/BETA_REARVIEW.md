@@ -13569,8 +13569,116 @@ unchanged and its address moved.*
 The model tranche: demand-driven by construction. specimens: n/a.*
 
 - ⬜ **L.11** — runtime `@doc:` annotations surfacing through apropos. `~days`
-- ⬜ **L-SHEET-HELPERS** — tab create/copy/move/rename. Smallest surface,
-  unblocks G-TABS. `~days`
+- ✅ **L-SHEET-HELPERS** — tab create/copy/move/rename. Smallest surface,
+  unblocks G-TABS. **Built, owner-verified live and committed 2026-10-07.** *Scoping, every
+  claim read against the code first.* Shipped before it: `work on sheet`,
+  `go to sheet`, `add [new] sheet called`, `delete sheet`, `set tab-color of
+  sheet`, `protect|unprotect sheet`, `copy range … to sheet`, `put … into
+  cell … of sheet`, `export this sheet as pdf`; the runtime's
+  `VlaEnsureSheet`, `VlaCheckSheetName` (the five name rules) and
+  `VlaCheckSheetAbsent` (`IN.12`'s rerun lesson); `add-sheet-called`'s shape
+  (check, absent, `(worksheets.add)`, `(set! activesheet.name s)`, which
+  leaves the new sheet active). `pareto.txt` §14's eighteen entries wanted a
+  helper for rename, copy, copy-named, move-after, move-before, add-after
+  and add-before, property shapes for hide, unhide, clear, count and name,
+  a boolean read for exists; `each-sheet` stays G-TABS's. A raw `(` row is
+  spliced into the program by `ParseStmt` after `ValidateRawVla`'s probe
+  transpile with no consent gate (`SEC.2`'s is the phrasebook loader's), so
+  every helper is live-testable from the Frazaro tab before a sentence
+  exists. A program tab is known by its name alone (`Frazaro`,
+  `Frazaro (<name>)`: `VlaIdeIsWorkspaceName`), so the runtime, copied into
+  a user's workbook with no `VLA_IDE` beside it, can carry the IDE's
+  own-sheet rule as a pure function. Undo, read from `ScanSheetNames` and
+  `PutBackLastRun`: a snapshot copies only the sheets named after the
+  standalone word "sheet" or before a `!` (a hyphen is a name character, so
+  a macro row names none), a restored copy lands at the end of the tab
+  order, only a tombstoned name is deleted, and visibility is never
+  recorded. *The seven forks, the owner's answers (2026-10-07):* (1) seven
+  helpers plus a read, with `sheet-count` and `sheet-name` plain macros;
+  (2) a position is always explicit, `after`, `before` or `last`, and a bare
+  sentence's default is G-TABS's; (3) a bare copy takes Excel's own name
+  and "call it" a checked, absent name, the checks before the copy, the
+  copy found by what is new among the names (exactly one, else removed and
+  refused), a failed rename removing the copy, and the helper a Function
+  returning the name (`SD-30`); (4) the new helpers give the active sheet
+  back, `add-sheet-called` unchanged (`SD-4`; `instructions.txt` relies on
+  it), the owner accepting that `add-sheet-at` and the bare add differ
+  there; (5) hide is `xlSheetHidden` only, very hidden never offered
+  (`SD-19`), the only worksheet showing refused, and hiding the sheet the
+  program is working on refused in words, "Work on sheet" another first;
+  (6) Frazaro's own sheets refused by a host-free name rule (`VLAu_`,
+  `VLAd_`, `VLAn_`, `VLA_Log`, `VLAr_Source`, Phrasebook, Generated VBA,
+  Trace, feedback, the program tabs) and any very-hidden sheet, with
+  `delete-sheet` routed through a guarded `VlaDeleteSheet` too; (7) Undo
+  measured and documented, `U.32` filed, the snapshot untouched. *Built:*
+  `VLA_Runtime.bas` above the inject boundary (`VLA_RUNTIME_VERSION`
+  "L-SHEET-HELPERS"): `VlaIsFrazaroSheetName` (pure), `VlaSheetExists` (a
+  read, the generic tier), `VlaAddSheetAt nm, where, anchor`, `VlaCopySheet
+  nm, where, anchor, newName` (a Function), `VlaMoveSheet` (a sheet already
+  last stays; after or before itself is refused), `VlaRenameSheet` (a change
+  of case alone allowed), `VlaHideSheet` and `VlaShowSheet` (state-setting,
+  so a rerun is safe), `VlaClearSheet`, `VlaDeleteSheet` (DisplayAlerts put
+  back whatever happens, Excel's own refusal carried in words); the private
+  `RequireUserSheet`, `SheetAnchor`, `RequireStructureUnprotected` (every act
+  refused first, in words, on a structure-protected workbook),
+  `GiveBackActiveSheet`, `NameNewSheet`, `RemoveQuietly`, `NewSheetNames`;
+  fourteen rows, `rt-sheet-*` and `rt-workbook-structure-protected`, each
+  held by `check_message_slots`; eight native `Case`s in `TryRuntimeHelper`
+  (`VLA_Interpreter.bas`); eleven macros beside `add-sheet-called` in
+  `english.vla` and `delete-sheet`'s body `(vladeletesheet s)`;
+  `cli/data/english.vla` copied. Traps carried, not rediscovered: Copy and
+  Move with neither Before nor After make a new workbook; Worksheets never
+  Sheets, by name never by index (`U.21`); a Copy After a very-hidden last
+  sheet lands before it (the traps' 12), which a name diff does not mind.
+  *Measured, the owner's `LSHProbe` run of 2026-10-07
+  (`tools/VLA_DiagSheetHelpers.bas`, Excel 16.0):* Copy and Move with neither
+  Before nor After each made a new workbook, the moved sheet leaving the
+  scratch one; Add, Copy and Move activate the sheet they touch, and copying
+  a hidden sheet (its copy hidden too) moved the active sheet to the next
+  visible one, while a rename, a hide of another sheet, a show and a clear
+  left it alone; a Copy and a Move After a very-hidden last sheet both
+  landed before it; a rename to a taken name is 1004 "That name is already
+  taken", a change of case alone is allowed, a move after itself is Excel's
+  silent no-op (the helper refuses it: nothing succeeds invisibly, `SD-30`),
+  and every act on a protected structure is a 1004 of its own, the rename's
+  an "Application-defined or object-defined error"; hiding or deleting the
+  only worksheet is 1004 until a chart sheet shows, when Excel allows both
+  and a workbook can end with no worksheet at all, which `VlaEnsureSheet`
+  (`Worksheets(Worksheets.Count)`) could never add to, so the helpers count
+  worksheets alone and refuse one step earlier than Excel, by design, in
+  words that say "worksheet". `LSHRecord` and `LSHCompare` measure what a
+  Run and then Undo did to the roster, in the live pass. *The goldens:*
+  every macro of the phrasebook is
+  carried into `instructions_golden.vla`'s tail, so the translate golden
+  grew (225,531) and the compile golden shrank (291,184: the corpus's four
+  `Delete sheet` sentences compile to one call each); both regenerated with
+  the door after a control run reproduced the committed pair byte for byte
+  from HEAD's phrasebook. The build stamp names the phrasebook's hash, so
+  both build goldens regenerated (`--replace`, the same byte sizes) and with
+  them `build_fixture_relations`, `build_into_relations`,
+  `build_fixture_saved_diff` and `model_into_diff` (one stamp line each),
+  a cascade any phrasebook change pays; the owner's `VlaGoldens` run
+  confirms the translate and compile pair with an empty diff.
+  `english_expanded.vla` is stale until the owner re-exports it.
+  **Pins:** pure 36 (`TestSheetHelperNames` 23, `TestSheetMacros` 13, the
+  twelve expansions each confirmed against the door's emitter first); host
+  42, the 43rd `Report` being the test's own failure handler (the owner's
+  pass of 2026-10-07: pure 1876/1876, host 315/315, VlaGoldens PASS,
+  VerifyReports 371/371; `TestSheetHelpersHost`: every act under the interpreter on a scratch
+  workbook with the order, visibility, active sheet and a cell read back
+  natively, every refusal in its words, a rerun of a named copy leaving
+  nothing behind, then the same acts compiled and run as one scratch
+  program on a second workbook and interpreted on a third, the three end
+  states held equal). **Floors:** `check_translate_prefix` 224,380 →
+  225,531; `check_compile_prefix` 291,496 → 291,184, lowered with the
+  regenerated golden and dated; `check_runtime_raise_dispatch`'s baseline
+  35 → 43 names; the build, reflect, diff and audit floors unchanged.
+  **Docs:** this entry; the roadmap line to 🟡; `RELEASES.md` `## 0.9.0`
+  for phrasebook authors; `U.32` filed under INTERFACE; eight arm rows in
+  `GRAMMAR_SINCE.md` for the native Cases, dated 0.9.0 (the ledger governs
+  dispatch arms as well as sentences, which the brief's "no row" missed and
+  the owner's export found: `check_grammar_since` reads the arms only once
+  the expanded phrasebook is fresh). No sentence changed. `~days`
 - ⬜ **L-FILE-HELPERS** — CSV/text import. **Adjudicate the mechanism on the
   ledger first** (Workbooks.Open vs QueryTables vs line I/O). `~days`
 - ⬜ **L-PIVOT-HELPERS** — pivot plumbing behind honest one-call verbs. Wants G6
@@ -28038,6 +28146,25 @@ now carries one summary paragraph per engine and points here.*
 - ⬜ **U.12 — apropos in the panel** (three tiers plus worksheet functions).
 - ⬜ **U.14 — `VlaTryTranspile`.** Retires the modal class from expected-error
   smokes. `~days`
+- ⬜ **U.32 — Undo puts a workbook's sheets back as they were: names, tab
+  order and visibility.** Minted 2026-10-07 by `L-SHEET-HELPERS`' scoping, the
+  owner's call (measure, document, file). Today `TakeRunSnapshot` copies only
+  the sheets named after the word "sheet" in a sentence or before a `!`
+  (`ScanSheetNames`; a macro row such as `(rename-sheet "Data" "Archive")`
+  names none), a restored copy lands at the end of the tab order
+  (`snap.Copy After:=snap`), only a tombstoned name is deleted, and a restored
+  sheet is made visible with no record of what it was. So after a rename Undo
+  leaves both names standing, after a bare copy the copy stands, after a move
+  the order stays as the run left it, and after a hide only a snapshotted
+  sheet is shown again. The fix is a roster: at `TakeRunSnapshot` every
+  worksheet's name, position and visibility, kept on the run's own marker
+  sheet (a defined name shows in the Name Manager); at `PutBackLastRun`, once
+  the copies and tombstones are done, every sheet not on the roster removed,
+  and every roster sheet put at its position with its visibility. To scope:
+  the order of those steps against `U.19`'s all-or-nothing rule and `U.23`'s
+  staging, chart sheets (`Worksheets` only, by name), and a sheet the person
+  added by hand after the Run. Measured by `tools/VLA_DiagSheetHelpers.bas`
+  (`LSHRecord`, then `LSHCompare` after the Run and again after Undo). `~days`
 - ✅ **CLI.3 — the console remembers: session history.** *Minted 2026-09-24,
   with CLI.4 and CLI.5, from a conversation scoping the one catch two
   spitballs shared (SPITBALLS 25, define-by-demonstration, and 101, `*`/`**`/
@@ -30479,3 +30606,7 @@ numbers. **Quoting a correction is not applying it.**
 ## 🛡 ADVERSARY · SECURITY
 
 - ✅ **SEC.15 — formula writes are an ungoverned egress channel.** SEC.4 guards only the `Value` sink; `set-formula` → `.Formula` accepts `WEBSERVICE`/`FILTERXML` (network via Excel), `HYPERLINK`, DDE, XLM `CALL`. A rule can plant one under an innocent sentence. *Fix:* refuse those function names in written formula text by name, and/or make formula writes a SEC.7 capability. **Scoped and built 2026-10-05, owner-tested and committed 2026-10-06** (pure 1840/1840, host 273/273, `TestDSLs` 2346, `VerifyReports` 371/371 both backends, the live tests as predicted on both backends, the page's strip naming the line and the function): one formula sink on both backends, `VlaSetFormula` in the runtime above the inject boundary (the emitter writes a call to it for exactly `(set! (. obj formula) v)`, the interpreter's `Case "formula"` calls it, `TryRuntimeHelper` has its native arm), and the same scan in `frazaro build`'s writer and so in the web page's download. The pure `VlaFormulaEgress` and the core's `egress.rs` refuse by name, before anything is written, a formula that calls `WEBSERVICE`, `FILTERXML`, `HYPERLINK`, `RTD`, `IMAGE`, `STOCKHISTORY`, `CALL`, `REGISTER`, `REGISTER.ID`, `EXEC`, `INITIATE`, `EXECUTE`, `POKE`, `REQUEST`, `SEND.MAIL`, `DDE`, Sheets' five `IMPORT*` and two `GOOGLE*`, or holds a DDE link (a `|` outside a string, a quoted name or a bracket group); any text written through the formula member is scanned, a cell handed as the text is read first, and the refusal (`rt-formula-egress` in the runtime's own catalogue, `build-formula-egress` in the one catalogue) names the function and the cell or the line and the sentence: refused, never neutralized, since an apostrophe would hide the planting under a green row. The list is data in one place per implementation, held equal and fully reached by `scripts/egress.txt` to `scripts/egress_golden.txt` (`VlaWriteEgressGolden`, 55 cases, 37 refused, written by hand as the prediction and reproduced to the byte), the core's `the_egress_golden_is_reproduced`, and `check_egress_golden.ps1`, the 48th check; `TestFormulaEgress` (63 pins) and `TestSetFormulaRefusesEgress` (6, under Interpret with `HYPERLINK` so a failing guard fetches nothing); the compile golden's eighteen formula writes are calls to the helper. No translation-time check, by decision: Check does not transpile, and a second id would part the backends; `SEC.7`'s capability stays the door for a program that needs one of the refused functions. Found on the way, for the owner to mint: under Compile and Run a value beginning `=` written into a range becomes a live formula, `SEC.4`'s apostrophe holding on Interpret only. *(more: the full entry, earlier in this file)* `~days`, taken in a day.
+
+## 🔧 MACHINE · THE MIDDLE LAYER
+
+- ✅ **L-SHEET-HELPERS — the sheet helpers G-TABS needs, each refusing in words before Excel's error.** Built, owner-verified live and committed 2026-10-07. Eight runtime helpers above the inject boundary (`VlaAddSheetAt`, `VlaCopySheet`, `VlaMoveSheet`, `VlaRenameSheet`, `VlaHideSheet`, `VlaShowSheet`, `VlaClearSheet`, `VlaDeleteSheet`), `VlaSheetExists` (a read) and `VlaIsFrazaroSheetName` (the IDE's own-sheet rule, pure, so the injected copy needs no `VLA_IDE`); a position always explicit (`after`, `before`, `last`); a copy's name checked and absent before the copy, and the copy found by what is new among the names; the sheet that was active given back; Frazaro's own and very-hidden sheets refused by name, `delete-sheet` included; fourteen `rt-sheet-*` refusals; eleven macros beside `add-sheet-called`; eight native `Case`s (`IN.15`) with their since-ledger arm rows. The probe `tools/VLA_DiagSheetHelpers.bas` ran first: Copy and Move with neither Before nor After make a new workbook, Add, Copy and Move activate their sheet, a copy or a move after a very-hidden last sheet lands before it, a move after itself is Excel's silent no-op (the helper refuses it), and Excel lets a chart sheet stand in for the last worksheet, which the helpers do not. Undo measured on both backends and `U.32` filed: a renamed sheet's new name and a bare copy stand after Undo. The owner's pass: pure 1876/1876, host 315/315, VlaGoldens PASS, VerifyReports 371/371, the live programs under both backends. *(more: the full entry, earlier in this file)* `~days`

@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Tests_Host"
 Option Explicit
-Public Const VLA_TESTS_HOST_VERSION As String = "SEC.15"
+Public Const VLA_TESTS_HOST_VERSION As String = "L-SHEET-HELPERS"
+' L-SHEET-HELPERS: TestSheetHelpersHost runs the eight sheet helpers on a
+' scratch workbook through the interpreter (each act, each refusal in its
+' words, the active sheet unchanged, a rerun leaving nothing behind), then
+' the same acts compiled and run as one scratch program on a second scratch
+' workbook, and holds both end states equal, sheet for sheet.
 ' SEC.15: TestSetFormulaRefusesEgress - the formula sink (VlaSetFormula,
 ' the runtime's, reached through the interpreter's real DynamicSet) refuses
 ' a planted HYPERLINK by name with the cell untouched, refuses a cell
@@ -410,6 +415,7 @@ Public Function VlaSelfTestHost() As Boolean
     TestU29GivesBackExcel
     TestGFormulaCalculation
     TestLx14MarkNote
+    TestSheetHelpersHost
 
     Debug.Print "===== HOST SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -4827,4 +4833,308 @@ Private Sub Report(ByVal name As String, ByVal ok As Boolean, ByVal detail As St
         Debug.Print "  FAIL  " & name & " - " & detail
         If Not mFailedNames Is Nothing Then mFailedNames.Add name & " - " & detail
     End If
+End Sub
+
+' ---------------------------------------------------------------------
+'  L-SHEET-HELPERS: the sheet helpers on a scratch workbook, under both
+'  backends. The interpreter half runs each helper through VlaInterpret
+'  (TryRuntimeHelper's native Cases) and reads the workbook back
+'  natively: the names in tab order with their visibility, the active
+'  sheet, a cell. Every refusal is read as the words it arrives in. The
+'  emitter half compiles the same acts as one scratch program
+'  (VlaTryBuild, VlaCompileToModule, Application.Run - CheckStmtParity's
+'  route) on a second scratch workbook, runs the same program through the
+'  interpreter on a third, and holds the three end states equal, so the
+'  backends agree sheet for sheet. A refusal under the emitter is the
+'  helper's own raise, reached by a direct call from VBA exactly as
+'  compiled code reaches it; Application.Run cannot carry one back
+'  (IN.15), so refusals are pinned through the interpreter and by direct
+'  calls, never through Application.Run. AS.6-guarded: a raise anywhere
+'  reports FAIL under this test's name and still closes every scratch
+'  workbook. Every read goes through a helper that answers "" or False
+'  for a sheet that is not there, so a failed step never stops the rest.
+' ---------------------------------------------------------------------
+Private Sub TestSheetHelpersHost()
+    Dim priorWb As Workbook
+    Set priorWb = ActiveWorkbook
+    Dim wb As Workbook, wb2 As Workbook, wb3 As Workbook
+    Dim d As String
+    Dim frame As Object
+    Dim made As String
+    Dim nBefore As Long
+    On Error GoTo failed
+
+    ' --- the interpreter half, act by act --------------------------------
+    Set wb = SheetScratchWorkbook()
+    SheetAct wb, "(vlacopysheet ""Beta"" ""after"" ""Gamma"" ""Beta2"")", d
+    Report "sheet helpers: copy after a named sheet, with a name", _
+           Len(d) = 0 And SheetOrder(wb) = "Alpha,Beta,Gamma,Beta2", d & " order: " & SheetOrder(wb)
+    Report "sheet helpers: the copy holds the source's cells", SheetCellText(wb, "Beta2", "A1") = "beta", _
+           "got '" & SheetCellText(wb, "Beta2", "A1") & "'"
+    Report "sheet helpers: copy leaves the active sheet as it was", SheetActiveName(wb) = "Alpha", "active: " & SheetActiveName(wb)
+
+    Set frame = SheetAct(wb, "(begin (dim made) (set! made (vlacopysheet ""Beta"" ""before"" ""Alpha"" """")))", d)
+    made = ""
+    If Len(d) = 0 Then made = CStr(VLA_Runtime.VlaDictGet(frame, "made"))
+    Report "sheet helpers: a bare copy before a named sheet takes Excel's own name, which comes back", _
+           Len(d) = 0 And made = "Beta (2)" And SheetOrder(wb) = "Beta (2),Alpha,Beta,Gamma,Beta2", _
+           d & " made '" & made & "' order: " & SheetOrder(wb)
+    Report "sheet helpers: a bare copy leaves the active sheet as it was", SheetActiveName(wb) = "Alpha", "active: " & SheetActiveName(wb)
+
+    SheetAct wb, "(vlamovesheet ""Beta (2)"" ""last"" """")", d
+    Report "sheet helpers: move last", Len(d) = 0 And SheetOrder(wb) = "Alpha,Beta,Gamma,Beta2,Beta (2)", d & " order: " & SheetOrder(wb)
+    SheetAct wb, "(vlamovesheet ""Beta (2)"" ""last"" """")", d
+    Report "sheet helpers: a sheet already last stays, and the sentence succeeds (a rerun is safe)", _
+           Len(d) = 0 And SheetOrder(wb) = "Alpha,Beta,Gamma,Beta2,Beta (2)", d & " order: " & SheetOrder(wb)
+    SheetAct wb, "(vlamovesheet ""Beta2"" ""before"" ""Alpha"")", d
+    Report "sheet helpers: move before a named sheet", Len(d) = 0 And SheetOrder(wb) = "Beta2,Alpha,Beta,Gamma,Beta (2)", d & " order: " & SheetOrder(wb)
+    Report "sheet helpers: move leaves the active sheet as it was", SheetActiveName(wb) = "Alpha", "active: " & SheetActiveName(wb)
+
+    SheetAct wb, "(vlarenamesheet ""Beta (2)"" ""Delta"")", d
+    Report "sheet helpers: rename", Len(d) = 0 And SheetOrder(wb) = "Beta2,Alpha,Beta,Gamma,Delta", d & " order: " & SheetOrder(wb)
+    SheetAct wb, "(vlarenamesheet ""Delta"" ""DELTA"")", d
+    Report "sheet helpers: a rename that changes only case is allowed", Len(d) = 0 And SheetOrder(wb) = "Beta2,Alpha,Beta,Gamma,DELTA", d & " order: " & SheetOrder(wb)
+
+    SheetAct wb, "(vlahidesheet ""DELTA"")", d
+    Report "sheet helpers: hide", Len(d) = 0 And SheetOrder(wb) = "Beta2,Alpha,Beta,Gamma,DELTA(hidden)", d & " order: " & SheetOrder(wb)
+    SheetAct wb, "(vlahidesheet ""DELTA"")", d
+    Report "sheet helpers: hiding a hidden sheet does nothing and refuses nothing", _
+           Len(d) = 0 And SheetOrder(wb) = "Beta2,Alpha,Beta,Gamma,DELTA(hidden)", d & " order: " & SheetOrder(wb)
+    SheetAct wb, "(vlashowsheet ""DELTA"")", d
+    Report "sheet helpers: show", Len(d) = 0 And SheetOrder(wb) = "Beta2,Alpha,Beta,Gamma,DELTA", d & " order: " & SheetOrder(wb)
+    SheetAct wb, "(vlashowsheet ""DELTA"")", d
+    Report "sheet helpers: showing a sheet already showing does nothing and refuses nothing", _
+           Len(d) = 0 And SheetOrder(wb) = "Beta2,Alpha,Beta,Gamma,DELTA", d & " order: " & SheetOrder(wb)
+    Report "sheet helpers: hide and show leave the active sheet as it was", SheetActiveName(wb) = "Alpha", "active: " & SheetActiveName(wb)
+
+    SheetAct wb, "(vlaaddsheetat ""Eps"" ""before"" ""Beta"")", d
+    Report "sheet helpers: add before a named sheet", Len(d) = 0 And SheetOrder(wb) = "Beta2,Alpha,Eps,Beta,Gamma,DELTA", d & " order: " & SheetOrder(wb)
+    Report "sheet helpers: add leaves the active sheet as it was", SheetActiveName(wb) = "Alpha", "active: " & SheetActiveName(wb)
+    SheetAct wb, "(vlaaddsheetat ""Zeta"" ""last"" """")", d
+    Report "sheet helpers: add last", Len(d) = 0 And SheetOrder(wb) = "Beta2,Alpha,Eps,Beta,Gamma,DELTA,Zeta", d & " order: " & SheetOrder(wb)
+
+    SheetAct wb, "(vlaclearsheet ""Gamma"")", d
+    Report "sheet helpers: clear empties the sheet's cells", Len(d) = 0 And SheetCellText(wb, "Gamma", "A1") = "", _
+           d & " A1: '" & SheetCellText(wb, "Gamma", "A1") & "'"
+
+    Report "sheet helpers: sheet-exists answers True for a sheet that is there", SheetExistsSays("DELTA") = "True", "got " & SheetExistsSays("DELTA")
+    Report "sheet helpers: sheet-exists answers False for one that is not", SheetExistsSays("Nope") = "False", "got " & SheetExistsSays("Nope")
+
+    SheetAct wb, "(vladeletesheet ""Zeta"")", d
+    Report "sheet helpers: delete", Len(d) = 0 And SheetOrder(wb) = "Beta2,Alpha,Eps,Beta,Gamma,DELTA", d & " order: " & SheetOrder(wb)
+
+    ' --- the refusals, each in its words ----------------------------------
+    SheetAct wb, "(vlacopysheet ""Nope"" ""after"" ""Alpha"" """")", d
+    Report "sheet helpers: a sheet that is not there is refused by name", InStr(1, d, "no sheet called ""Nope""", vbTextCompare) > 0, "got: " & d
+    SheetAct wb, "(vlacopysheet ""Beta"" ""after"" ""Nope"" """")", d
+    Report "sheet helpers: an anchor that is not there is refused by name", InStr(1, d, "no sheet called ""Nope""", vbTextCompare) > 0, "got: " & d
+    SheetAct wb, "(vlacopysheet ""Beta"" ""after"" ""Alpha"" ""Gamma"")", d
+    Report "sheet helpers: a copy named for a sheet that exists is refused before the copy", _
+           InStr(1, d, "already exists, so the copy", vbTextCompare) > 0 And SheetOrder(wb) = "Beta2,Alpha,Eps,Beta,Gamma,DELTA", _
+           "got: " & d & " order: " & SheetOrder(wb)
+    SheetAct wb, "(vlacopysheet ""Beta"" ""sideways"" ""Alpha"" """")", d
+    Report "sheet helpers: a position word not after, before or last is refused", InStr(1, d, "after, before, or last", vbTextCompare) > 0, "got: " & d
+    SheetAct wb, "(vlacopysheet ""Beta"" ""after"" """" """")", d
+    Report "sheet helpers: after with no sheet name is refused", InStr(1, d, "needs a sheet name", vbTextCompare) > 0, "got: " & d
+    SheetAct wb, "(vlamovesheet ""Beta"" ""after"" ""Beta"")", d
+    Report "sheet helpers: a move after itself is refused", InStr(1, d, "after or before itself", vbTextCompare) > 0, "got: " & d
+    SheetAct wb, "(vlarenamesheet ""Beta"" ""Gamma"")", d
+    Report "sheet helpers: a rename to another sheet's name is refused", InStr(1, d, "already exists", vbTextCompare) > 0 And SheetExistsSays("Beta") = "True", "got: " & d
+    SheetAct wb, "(vlarenamesheet ""Beta"" ""VLAu_Main_Beta"")", d
+    Report "sheet helpers: a rename to a name Frazaro keeps is refused", InStr(1, d, "Frazaro keeps", vbTextCompare) > 0, "got: " & d
+    SheetAct wb, "(vlaaddsheetat ""Frazaro (x)"" ""last"" """")", d
+    Report "sheet helpers: adding a sheet with a program tab's name is refused", InStr(1, d, "Frazaro keeps", vbTextCompare) > 0, "got: " & d
+    SheetAct wb, "(vlahidesheet ""Alpha"")", d
+    Report "sheet helpers: hiding the sheet the program is working on is refused", _
+           InStr(1, d, "working on", vbTextCompare) > 0 And SheetOrder(wb) = "Beta2,Alpha,Eps,Beta,Gamma,DELTA", "got: " & d & " order: " & SheetOrder(wb)
+
+    SheetSetVisible wb, "DELTA", xlSheetVeryHidden
+    SheetAct wb, "(vlashowsheet ""DELTA"")", d
+    Report "sheet helpers: a very-hidden sheet is never shown", InStr(1, d, "hidden in a way Frazaro never changes", vbTextCompare) > 0, "got: " & d
+    SheetAct wb, "(vlacopysheet ""DELTA"" ""last"" """" """")", d
+    Report "sheet helpers: a very-hidden sheet is never copied", InStr(1, d, "hidden in a way Frazaro never changes", vbTextCompare) > 0, "got: " & d
+    SheetSetVisible wb, "DELTA", xlSheetVisible
+
+    ' VLA_Log and not a "Frazaro" tab, so the IDE's sheet-event sink never
+    ' sees a workspace-shaped sheet in a scratch workbook; the program-tab
+    ' shapes are pinned purely in TestSheetHelperNames.
+    SheetAddNamed wb, "VLA_Log"
+    SheetAct wb, "(vlacopysheet ""VLA_Log"" ""last"" """" """")", d
+    Report "sheet helpers: one of Frazaro's own sheets is never copied", InStr(1, d, "Frazaro's own", vbTextCompare) > 0, "got: " & d
+    SheetAct wb, "(vladeletesheet ""VLA_Log"")", d
+    Report "sheet helpers: one of Frazaro's own sheets is never deleted", InStr(1, d, "Frazaro's own", vbTextCompare) > 0 And SheetExistsSays("VLA_Log") = "True", "got: " & d
+    SheetRemove wb, "VLA_Log"
+
+    wb.Protect Structure:=True
+    SheetAct wb, "(vlacopysheet ""Beta"" ""last"" """" """")", d
+    Report "sheet helpers: a structure-protected workbook is refused in words", InStr(1, d, "structure is protected", vbTextCompare) > 0, "got: " & d
+    wb.Unprotect
+
+    SheetSetVisible wb, "Beta2", xlSheetHidden
+    SheetSetVisible wb, "Eps", xlSheetHidden
+    SheetSetVisible wb, "Beta", xlSheetHidden
+    SheetSetVisible wb, "Gamma", xlSheetHidden
+    SheetSetVisible wb, "DELTA", xlSheetHidden
+    SheetAct wb, "(vladeletesheet ""Alpha"")", d
+    Report "sheet helpers: deleting the only worksheet showing is refused", _
+           InStr(1, d, "only worksheet showing", vbTextCompare) > 0 And SheetExistsSays("Alpha") = "True", "got: " & d
+    SheetSetVisible wb, "Beta2", xlSheetVisible
+    SheetSetVisible wb, "Eps", xlSheetVisible
+    SheetSetVisible wb, "Beta", xlSheetVisible
+    SheetSetVisible wb, "Gamma", xlSheetVisible
+    SheetSetVisible wb, "DELTA", xlSheetVisible
+
+    nBefore = wb.Worksheets.Count
+    SheetAct wb, "(vlacopysheet ""Beta"" ""after"" ""Gamma"" ""Beta2"")", d
+    Report "sheet helpers: a rerun of a named copy refuses and leaves nothing behind", _
+           InStr(1, d, "already exists", vbTextCompare) > 0 And wb.Worksheets.Count = nBefore, "got: " & d & " sheets: " & wb.Worksheets.Count
+
+    ' --- the emitter half: the same acts compiled, and the interpreter on a
+    '     third workbook, three end states held equal ----------------------
+    Dim programVla As String
+    programVla = "(vlacopysheet ""Beta"" ""after"" ""Gamma"" ""Beta2"")" & vbCrLf & _
+                 "(vlamovesheet ""Beta2"" ""before"" ""Alpha"")" & vbCrLf & _
+                 "(vlamovesheet ""Beta2"" ""last"" """")" & vbCrLf & _
+                 "(vlarenamesheet ""Beta2"" ""Delta"")" & vbCrLf & _
+                 "(vlahidesheet ""Delta"")" & vbCrLf & _
+                 "(vlashowsheet ""Delta"")" & vbCrLf & _
+                 "(vlaaddsheetat ""Eps"" ""before"" ""Beta"")" & vbCrLf & _
+                 "(vlaclearsheet ""Gamma"")" & vbCrLf & _
+                 "(vladeletesheet ""Eps"")"
+    Set wb2 = SheetScratchWorkbook()
+    DropParityScratch "VLA_Scratch_Sheets"
+    Dim scratch As String
+    scratch = VLA_DevRig.VlaTryBuild(programVla)
+    VLA.VlaCompileToModule scratch, "VLA_Scratch_Sheets", ThisWorkbook
+    wb2.Activate
+    Application.Run "'" & ThisWorkbook.Name & "'!VLA_Scratch_Sheets.vla_scratch"
+    DropParityScratch "VLA_Scratch_Sheets"
+    Report "sheet helpers: the compiled program reaches the expected end state", _
+           SheetOrder(wb2) = "Alpha,Beta,Gamma,Delta" And SheetCellText(wb2, "Gamma", "A1") = "" And SheetActiveName(wb2) = "Alpha", _
+           "order: " & SheetOrder(wb2) & " Gamma!A1: '" & SheetCellText(wb2, "Gamma", "A1") & "' active: " & SheetActiveName(wb2)
+
+    Set wb3 = SheetScratchWorkbook()
+    SheetAct wb3, "(begin " & Replace(programVla, vbCrLf, " ") & ")", d
+    Report "sheet helpers: the interpreter reaches the same end state as the compiled program", _
+           Len(d) = 0 And SheetOrder(wb3) = SheetOrder(wb2) And SheetCellText(wb3, "Gamma", "A1") = "" And SheetActiveName(wb3) = SheetActiveName(wb2), _
+           d & " interpreter: " & SheetOrder(wb3) & " emitter: " & SheetOrder(wb2)
+
+    SheetCloseAll wb, wb2, wb3, priorWb
+    Exit Sub
+failed:
+    d = Err.Description
+    Report "sheet helpers: unexpected error", False, d
+    On Error Resume Next
+    DropParityScratch "VLA_Scratch_Sheets"
+    SheetCloseAll wb, wb2, wb3, priorWb
+    On Error GoTo 0
+End Sub
+
+' A fresh scratch workbook: Alpha, Beta (A1 "beta"), Gamma (A1 "gamma"),
+' in that order, Alpha active, whatever Excel's new-workbook sheet count is.
+Private Function SheetScratchWorkbook() As Workbook
+    Dim wb As Workbook
+    Set wb = Workbooks.Add
+    Application.DisplayAlerts = False
+    Do While wb.Worksheets.Count > 1
+        wb.Worksheets(wb.Worksheets.Count).Delete
+    Loop
+    Application.DisplayAlerts = True
+    wb.Worksheets(1).Name = "Alpha"
+    Dim ws As Worksheet
+    Set ws = wb.Worksheets.Add(After:=wb.Worksheets("Alpha"))
+    ws.Name = "Beta"
+    ws.Range("A1").Value = "beta"
+    Set ws = wb.Worksheets.Add(After:=wb.Worksheets("Beta"))
+    ws.Name = "Gamma"
+    ws.Range("A1").Value = "gamma"
+    wb.Worksheets("Alpha").Activate
+    Set SheetScratchWorkbook = wb
+End Function
+
+' One form through the interpreter on a scratch workbook, which it makes
+' active first; the refusal's words, or "", come back in d, and the frame
+' comes back for a value to be read.
+Private Function SheetAct(ByVal wb As Workbook, ByVal vla As String, ByRef d As String) As Object
+    d = ""
+    wb.Activate
+    On Error Resume Next
+    Set SheetAct = VLA_Interpreter.VlaInterpret(vla, wb)
+    If Err.Number <> 0 Then d = Err.Description
+    On Error GoTo 0
+End Function
+
+' The worksheet names in tab order, comma-joined, a hidden one marked.
+Private Function SheetOrder(ByVal wb As Workbook) As String
+    Dim i As Long
+    Dim r As String
+    For i = 1 To wb.Worksheets.Count
+        If i > 1 Then r = r & ","
+        r = r & wb.Worksheets(i).Name
+        If wb.Worksheets(i).Visible = xlSheetHidden Then r = r & "(hidden)"
+        If wb.Worksheets(i).Visible = xlSheetVeryHidden Then r = r & "(very hidden)"
+    Next
+    SheetOrder = r
+End Function
+
+Private Function SheetActiveName(ByVal wb As Workbook) As String
+    On Error Resume Next
+    SheetActiveName = wb.ActiveSheet.Name
+    On Error GoTo 0
+End Function
+
+' A cell's text, "" when the sheet is not there.
+Private Function SheetCellText(ByVal wb As Workbook, ByVal sheetName As String, ByVal addr As String) As String
+    On Error Resume Next
+    SheetCellText = CStr(wb.Worksheets(sheetName).Range(addr).Value)
+    On Error GoTo 0
+End Function
+
+' (vlasheetexists "name") through the interpreter's generic tier, as text:
+' "True", "False", or the error's words.
+Private Function SheetExistsSays(ByVal sheetName As String) As String
+    Dim v As Variant
+    On Error Resume Next
+    v = VLA_Interpreter.VlaEvalExpression("(vlasheetexists """ & sheetName & """)")
+    If Err.Number <> 0 Then
+        SheetExistsSays = "error: " & Err.Description
+    Else
+        SheetExistsSays = CStr(v)
+    End If
+    On Error GoTo 0
+End Function
+
+Private Sub SheetSetVisible(ByVal wb As Workbook, ByVal sheetName As String, ByVal state As Long)
+    On Error Resume Next
+    wb.Worksheets(sheetName).Visible = state
+    On Error GoTo 0
+End Sub
+
+Private Sub SheetAddNamed(ByVal wb As Workbook, ByVal sheetName As String)
+    Dim prior As Object
+    Set prior = wb.ActiveSheet
+    Dim ws As Worksheet
+    Set ws = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count))
+    ws.Name = sheetName
+    prior.Activate
+End Sub
+
+Private Sub SheetRemove(ByVal wb As Workbook, ByVal sheetName As String)
+    Application.DisplayAlerts = False
+    On Error Resume Next
+    wb.Worksheets(sheetName).Delete
+    On Error GoTo 0
+    Application.DisplayAlerts = True
+End Sub
+
+' Every scratch workbook closed without saving, the prior one active again.
+Private Sub SheetCloseAll(ByVal wb As Workbook, ByVal wb2 As Workbook, ByVal wb3 As Workbook, ByVal priorWb As Workbook)
+    Application.DisplayAlerts = False
+    On Error Resume Next
+    If Not wb Is Nothing Then wb.Close SaveChanges:=False
+    If Not wb2 Is Nothing Then wb2.Close SaveChanges:=False
+    If Not wb3 Is Nothing Then wb3.Close SaveChanges:=False
+    priorWb.Activate
+    On Error GoTo 0
+    Application.DisplayAlerts = True
 End Sub
