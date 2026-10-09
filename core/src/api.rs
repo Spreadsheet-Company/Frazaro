@@ -194,7 +194,10 @@ pub fn english_build_xlsx_into(
 /// seam). `sheet` is the sheet's name, compared as Excel compares names;
 /// `window` an A1 rectangle, or `None` for the sheet's whole extent. The
 /// English stage's refusal with its line, or the build's or the view's
-/// (`view-sheet-unknown`, `view-window-not-a-range`) with line 0.
+/// (`view-sheet-unknown`, `view-window-not-a-range`) with line 0. Since
+/// KERNEL.7 the model is recalculated under Excel's library
+/// (`crate::excel::library`) and each formula row is followed by its
+/// `value` row, the formula's computed value or `(not-computed "<name>")`.
 pub fn english_view(
     program_text: &str,
     prelude_text: &str,
@@ -208,7 +211,26 @@ pub fn english_view(
     let model = crate::build::build_workbook(program_text, &t.vla, prelude_text, vocab_texts)
         .map_err(at_line_0)?;
     let window = crate::view::window_of(&model, sheet, window).map_err(at_line_0)?;
-    Ok(crate::view::view_text(&model, &window))
+    let library = crate::excel::library();
+    let calc = vla_lang::calc::Calc::run(&model, &library);
+    Ok(crate::view::view_text_valued(&model, &window, &calc))
+}
+
+/// Recalculation over a workbook's file (KERNEL.7): the file read through
+/// the reader into the grid, every formula computed by the language's
+/// evaluator under Excel's library, and one `calc` row per formula cell
+/// with the host's cached value and the verdict beside it
+/// (`reflect::calc::calc_text`); `label` is what a refusal calls the file.
+/// Empty for a workbook with no formula.
+pub fn calc_rows(bytes: &[u8], label: &str) -> Result<String, Refusal> {
+    crate::reflect::calc::calc_text(bytes, label, &crate::excel::library())
+}
+
+/// The functions a workbook's formulas call, counted by the formula cells
+/// calling each (`reflect::histogram`), one `function` row a line, most
+/// called first: KERNEL.6's instrument, counts alone.
+pub fn function_histogram(bytes: &[u8], label: &str) -> Result<String, Refusal> {
+    crate::reflect::histogram::histogram_text(bytes, label)
 }
 
 /// The reader's surface (PORT.8, slice 8a): a workbook's bytes, an OOXML

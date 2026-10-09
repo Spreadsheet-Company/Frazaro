@@ -9,7 +9,11 @@
 //! coordinates and a style table), the references read out of a formula's
 //! text (`refers`), the relation rows and their spelling (`rows`), the
 //! projections seam (`projection`) and its first implementation, the view
-//! record of one window (`view`).
+//! record of one window (`view`); and, since KERNEL.7 (2026-10-08),
+//! recalculation's mechanism (`calc`): the formula parser over the
+//! reference scanner, the dependency graph, evaluation in order with a
+//! budget, a cycle refused by name, the error values, and the registry seam
+//! for functions with the language's own day-one functions registered.
 //!
 //! The contract (docs/HORIZON.md section 12; Alonzo/CHARTER.md section 4,
 //! rule 1): bytes in, bytes out, nothing else. No English, no file format,
@@ -24,6 +28,7 @@
 //! implementation, and this crate follows the goldens in scripts/ and never
 //! leads them; its tests read them from their test modules.
 
+pub mod calc;
 pub mod expand;
 pub mod form;
 pub mod headtable;

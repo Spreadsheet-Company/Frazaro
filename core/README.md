@@ -98,9 +98,12 @@ The crate's rustdoc, on docs.rs once published, documents every module; `api`
 is the surface an embedding needs, and the modules under it (`english`,
 `emit`, `build`, `sheet`, `reflect`, `refers`, `view`) are the engine with its
 parts named as the add-in names them; `kernel` writes down the boundary and
-the five seams every one of them enters by. The language's own modules
+the six seams every one of them enters by; `excel` is Excel's function library,
+the declared subset recalculation computes, registered through the sixth,
+and `reflect::calc` the comparison `frazaro calc` prints. The language's own modules
 (`form`, `reader`, `printer`, `expand`, `headtable`, `intrinsics`, `refers`,
-`view`, the grid under `sheet`) are `vla-lang`'s, re-exported here whole, so a
+`view`, the grid under `sheet`, and `calc`, recalculation's mechanism) are
+`vla-lang`'s, re-exported here whole, so a
 path that worked before the cut works after it.
 
 ## The contract

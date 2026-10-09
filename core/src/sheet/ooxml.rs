@@ -438,6 +438,10 @@ pub fn sheet_xml(sheet: &Sheet, selected: bool, render: &Render) -> String {
                 "<c r=\"{r}\" s=\"{st}\" t=\"b\"><v>{}</v></c>",
                 u8::from(*b)
             )),
+            Content::Error(e) => s.push_str(&format!(
+                "<c r=\"{r}\" s=\"{st}\" t=\"e\"><v>{}</v></c>",
+                xml::text(e)
+            )),
             Content::Formula(f) => s.push_str(&format!(
                 "<c r=\"{r}\" s=\"{st}\"><f>{}</f></c>",
                 xml::text(f)

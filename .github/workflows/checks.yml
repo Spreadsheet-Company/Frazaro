@@ -88,6 +88,9 @@ jobs:
       - name: the core reproduces the view goldens, whole (KERNEL.4, oracle 11)
         shell: pwsh
         run: pwsh -NoProfile -File tools/check_view_golden.ps1 -Impl target/debug/frazaro
+      - name: the core reproduces the recalc goldens, whole, every saved value agreeing (KERNEL.7, oracle 12)
+        shell: pwsh
+        run: pwsh -NoProfile -File tools/check_recalc_golden.ps1 -Impl target/debug/frazaro
       - name: build the web page from the wasm core (PORT.6, slice 6h)
         shell: pwsh
         run: |

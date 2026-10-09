@@ -21,35 +21,56 @@
 //!                                    fill or none, general or text, wrap or nowrap
 //! (cell "Output" "B2" 5)             a value, spelled as reflect spells it
 //! (formula "Output" "B3" "=B2*2")    a formula's text as the bar shows it
+//! (value "Output" "B3" 10)           its computed value, once values exist
 //! (style "Output" "B2" 1)            the cell's format, when it is not 0
 //! (sentence "Output" "B2" 4)         the row of the sentence that wrote the cell
 //! ```
 //!
 //! The cells come in row-major order, each `cell` or `formula` row followed
-//! by its `style` and `sentence` rows. The `cell` and `formula` rows are the
-//! reader's own, spelled by `reflect::print`, which is the free oracle: the
-//! view of a built model's sheet, whole, is `reflect`'s reading of the file
-//! the writer writes from that model, row for row. Values are literals and
-//! folded formulas until recalculation lands (KERNEL.7): a `cell` row is a
-//! value the sentences put there, a `formula` row is text the host would
-//! compute, and the record never shows one as the other.
+//! by its `value` row (a formula's, once values exist), its `style` row and
+//! its `sentence` row. The `cell` and `formula` rows are the reader's own,
+//! spelled by `reflect::print`, which is the free oracle: the view of a
+//! built model's sheet, whole, is `reflect`'s reading of the file the
+//! writer writes from that model, row for row. A `cell` row is a value the
+//! sentences put there, a `formula` row is text the host would compute, and
+//! the record never shows one as the other. Since recalculation landed
+//! (KERNEL.7, 2026-10-08; `Alonzo/SPEC.md` section 4.5 and decision 14) a
+//! `(value "<sheet>" "<addr>" <v>)` row follows each formula row when the
+//! caller computed the model ([`view_text_valued`], a [`Grid`] holding a
+//! [`Calc`]): the value spelled as a `cell` row's is, or
+//! `(not-computed "<name>")` for a formula this version does not compute,
+//! naming the function or the construct, `(not-computed cycle)` for one in
+//! a cycle. The bare [`view_text`] prints no value row, which is what a
+//! grid shows before its first step.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 
+use crate::calc::Calc;
 use crate::messages::{raise, Refusal};
 use crate::projection::{Projection, Window};
 use crate::rows::{line as relation, quoted};
 use crate::rows::{Row, Value, Visibility};
 use crate::sheet::{
-    cell_ref, column_letters, number_text, parse_a1_range, strip_future_prefixes, A1Range, Cell,
-    Column, Content, NumFmt, Sheet, Style, Workbook,
+    cell_ref, column_letters, formula_text, number_text, parse_a1_range, shared_masters, A1Range,
+    Cell, Column, Content, NumFmt, Sheet, Style, Workbook,
 };
 
-/// The grid: the view record of one window, the first projection.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Grid;
+/// The grid: the view record of one window, the first projection. With a
+/// [`Calc`] over the same model, each formula row is followed by its
+/// `value` row; without one, the record shows formulas as text alone.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Grid<'v> {
+    pub values: Option<&'v Calc<'v>>,
+}
 
-impl Projection for Grid {
+impl<'v> Grid<'v> {
+    /// The grid over a computed model.
+    pub fn valued(calc: &'v Calc<'v>) -> Grid<'v> {
+        Grid { values: Some(calc) }
+    }
+}
+
+impl Projection for Grid<'_> {
     fn name(&self) -> &str {
         "grid"
     }
@@ -164,13 +185,33 @@ impl Projection for Grid {
                     }));
                     true
                 }
+                Content::Error(e) => {
+                    let value = Value::Error(e.clone());
+                    out(&relation(&Row::Cell {
+                        sheet: name,
+                        addr: &addr,
+                        value: &value,
+                    }));
+                    true
+                }
                 other => match formula_text(other, *row, *col, &masters) {
                     Some(text) => {
+                        let text = format!("={text}");
                         out(&relation(&Row::Formula {
                             sheet: name,
                             addr: &addr,
                             text: &text,
                         }));
+                        if let Some(computed) =
+                            self.values.and_then(|calc| calc.computed((i, *row, *col)))
+                        {
+                            out(&format!(
+                                "(value {} {} {})",
+                                quoted(name),
+                                quoted(&addr),
+                                computed.spell()
+                            ));
+                        }
                         true
                     }
                     None => false,
@@ -217,45 +258,6 @@ fn format_row(index: u32, style: Option<&Style>) -> String {
         "(format {index} {fill} {num} {})",
         if s.wrap { "wrap" } else { "nowrap" }
     )
-}
-
-/// The shared formulas' masters, by index: the text and the cell that holds
-/// it, so that a child's text is the master's with its references moved.
-fn shared_masters(sheet: &Sheet) -> HashMap<u32, (&str, u32, u32)> {
-    let mut masters = HashMap::new();
-    for ((row, col), cell) in &sheet.cells {
-        if let Content::SharedMaster { text, si, .. } = &cell.content {
-            masters.insert(*si, (text.as_str(), *row, *col));
-        }
-    }
-    masters
-}
-
-/// A formula's text as the formula bar shows it, `=` first and the file's
-/// prefixes dropped, as the reader spells the same cell of the written file:
-/// a shared child is its master's text moved by the cell's distance, moved
-/// first and stripped after, as the reader does it. `None` for a value, or
-/// for a child whose master the sheet has lost.
-fn formula_text(
-    content: &Content,
-    row: u32,
-    col: u32,
-    masters: &HashMap<u32, (&str, u32, u32)>,
-) -> Option<String> {
-    let raw = match content {
-        Content::Formula(t) | Content::DynamicFormula(t) => t.clone(),
-        Content::SharedMaster { text, .. } => text.clone(),
-        Content::SharedChild { si } => {
-            let (text, m_row, m_col) = masters.get(si)?;
-            crate::refers::shift_a1_references(
-                text,
-                i64::from(row) - i64::from(*m_row),
-                i64::from(col) - i64::from(*m_col),
-            )
-        }
-        Content::Text(_) | Content::Number(_) | Content::Bool(_) => return None,
-    };
-    Some(format!("={}", strip_future_prefixes(&raw)))
 }
 
 /// The sheet's used rectangle, or `None` for a sheet with no cell.
@@ -317,7 +319,20 @@ pub fn window_of(model: &Workbook, sheet: &str, range: Option<&str>) -> Result<W
 /// the API's surface, the tests' and a door's that holds the text.
 pub fn view_text(model: &Workbook, window: &Window) -> String {
     let mut out = String::new();
-    Grid.project(model, window, &mut |line| {
+    Grid::default().project(model, window, &mut |line| {
+        out.push_str(line);
+        out.push('\n');
+    });
+    out
+}
+
+/// The view record with each formula's computed value after it: the record
+/// a door prints once it has recalculated the model (`frazaro view` through
+/// the core's Excel library; an engine after a step). `calc` must be over
+/// `model`.
+pub fn view_text_valued(model: &Workbook, window: &Window, calc: &Calc<'_>) -> String {
+    let mut out = String::new();
+    Grid::valued(calc).project(model, window, &mut |line| {
         out.push_str(line);
         out.push('\n');
     });
@@ -562,6 +577,6 @@ mod tests {
             assert_eq!(r.id, "view-window-not-a-range", "{text}");
             assert!(r.text.contains(text), "{}", r.text);
         }
-        assert_eq!(Grid.name(), "grid");
+        assert_eq!(Grid::default().name(), "grid");
     }
 }

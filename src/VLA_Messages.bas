@@ -1,6 +1,15 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "KERNEL.2"
+Public Const VLA_MESSAGES_VERSION As String = "KERNEL.7"
+' KERNEL.7: calc-cycle and calc-function-not-computed under the source
+' VLA-Calc, recalculation's refusals: the language's evaluator (vla-lang,
+' calc) computes a grid's formulas in dependency order, and an engine's
+' load of a cartridge refuses a cycle naming the cells that close it, and
+' a function this version does not compute naming it and its cell. Raised
+' by no VBA site: Excel computes the add-in's formulas itself, and the
+' core's frazaro calc over a saved workbook never refuses, each cell
+' saying what it can (not computed here, the function named).
+'
 ' KERNEL.2: distro-manifest-missing and distro-manifest-invalid under the
 ' source VLA-Distro, the distro folder's refusals, raised by the add-in
 ' builder (VLA_Build.bas reads distros\<edition>\distro.vla for the
@@ -1468,6 +1477,19 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "reflect-not-a-workbook", 5, "VLA-Reflect", "{path} is not a workbook frazaro reflect can read: {why}."
     AddMsg m, "reflect-xml-refused", 5, "VLA-Reflect", "{path} has a part this version refuses to read: {part}, {why}. Nothing past that point was read."
     AddMsg m, "reflect-unsupported", 5, "VLA-Reflect", "{path} has a shape this version does not read: {part}, {why}."
+
+    ' KERNEL.7: recalculation's refusals. The language's evaluator (vla-lang,
+    ' calc) computes a grid's formulas in dependency order, reading its
+    ' references through the same scanner VLA_Refers.bas is the reference
+    ' for. Two things stop a whole grid from being stepped, and an engine's
+    ' load refuses each by name before the first step: a cycle, the cells
+    ' that read one another in a circle, and a function this version does
+    ' not compute. Raised from the export by an engine alone: Excel computes
+    ' the add-in's formulas itself, and frazaro calc over a saved workbook
+    ' never refuses, since each cell says what it can (not computed here,
+    ' the function named).
+    AddMsg m, "calc-cycle", 5, "VLA-Calc", "The formulas in {cells} read one another in a circle, so none of them can be computed first. Break the circle: one of them must read a value, not a formula that reads it back."
+    AddMsg m, "calc-function-not-computed", 5, "VLA-Calc", "The formula in {cell} calls {function}, which this version does not compute. The cell keeps its formula and shows not computed here."
 
     ' KERNEL.4: the view record's refusals. frazaro view (the core's
     ' command-line door, and a page through frazaro_view) builds a program

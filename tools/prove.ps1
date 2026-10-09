@@ -115,6 +115,18 @@ kind counts a file (so a book named twice counts twice, as the door proves
 it twice), and the last line must be PASS n/n. Two rows, english and
 espanol. The control's fake reads the manifest and answers PASS per book
 and in total; the mutant answers FAIL.
+
+2026-10-08, KERNEL.7 (the treaty's amendment of that date): an eleventh
+kind, calc - a fixture workbook to its recalculation, one calc row per
+formula cell with the computed value, the host's cached value and the
+verdict, every cycle named first, compared as text the way the reflect
+kind compares it. Seven rows: the Excel-saved fixture (scripts/reflect/
+saved.xlsx, every row agree), the reader's fixture and its OpenDocument
+twin, the core's own build golden, the subset's fixture
+(scripts/recalc/subset.xlsx), the owner's Excel save of it
+(subset_saved.xlsx, every computed row agreeing) and the edges fixture
+(edges.xlsx). The control's fake answers each from the golden beside the
+fixture by the fixture's name; the mutant changes one character.
 #>
 param(
     [string]$Impl = '',
@@ -336,6 +348,19 @@ function Get-Oracles([string]$root) {
                      Golden = ('scripts/view/' + $v[3] + '.vla')
                      Prelude = 'scripts/prelude.vla'; Phrasebook = 'scripts/polyglotta/english.vla' })
     }
+    # 2026-10-08 (KERNEL.7): the calc kind, a workbook to its recalculation
+    # as text; seven fixtures, the Excel-saved one first.
+    foreach ($c in @(
+        @('scripts/reflect/saved.xlsx',        'saved_calc'),
+        @('scripts/reflect/fixture.xlsx',      'fixture_calc'),
+        @('scripts/build/fixture_golden.xlsx', 'build_fixture_calc'),
+        @('scripts/reflect/opendocument.ods',  'opendocument_calc'),
+        @('scripts/recalc/subset.xlsx',        'subset_calc'),
+        @('scripts/recalc/subset_saved.xlsx',  'subset_saved_calc'),
+        @('scripts/recalc/edges.xlsx',         'edges_calc'))) {
+        $list.Add(@{ Kind = 'calc'; Label = (($c[0] -replace '^scripts/', '') + ' -> recalc/' + $c[1] + '.vla')
+                     Input = $c[0]; Golden = ('scripts/recalc/' + $c[1] + '.vla') })
+    }
     # 2026-10-07 (KERNEL.2): the distro kind, a folder proved whole.
     foreach ($dn in @('english', 'espanol')) {
         $list.Add(@{ Kind = 'distro'; Label = ('distros/' + $dn + ' (prove over the folder)'); Folder = ('distros/' + $dn) })
@@ -481,6 +506,23 @@ function Measure-Oracles([string]$root, [string]$impl, [string]$scratch) {
                 if ($o.Window -ne '') { $viewArgs += @('--window', $o.Window) }
                 $viewArgs += @('--prelude', (Join-Path $root $o.Prelude), '--phrasebook', (Join-Path $root $o.Phrasebook))
                 $run = Invoke-Impl $impl $viewArgs
+                if ($run.ExitCode -eq 3) { break }
+                $want = Read-NormalizedFile $golden
+                $got  = Get-NormalizedText $run.Stdout
+                if ($run.ExitCode -ne 0) { $r.Status = 'FAIL'; $r.Detail = "exit $($run.ExitCode)" }
+                elseif ($got -eq $want) { $r.Status = 'PASS'; $r.Detail = "$($want.Length) chars matched" }
+                else {
+                    $n = [Math]::Min($got.Length, $want.Length); $at = $n
+                    for ($i = 0; $i -lt $n; $i++) { if ($got[$i] -ne $want[$i]) { $at = $i; break } }
+                    $r.Status = 'FAIL'; $r.Detail = "differs at char $at of $($want.Length)"
+                }
+            }
+            'calc' {
+                # 2026-10-08 (KERNEL.7): a workbook to its recalculation as text,
+                # normalized as the reflect kind is; the door exits 0 agree or
+                # differ, and the golden carries no stamp.
+                $golden = Join-Path $root $o.Golden
+                $run = Invoke-Impl $impl @('calc', (Join-Path $root $o.Input))
                 if ($run.ExitCode -eq 3) { break }
                 $want = Read-NormalizedFile $golden
                 $got  = Get-NormalizedText $run.Stdout
@@ -673,6 +715,21 @@ switch (`$kind) {
             'fixture_golden' { 'scripts/reflect/build_fixture_audit.vla' }
             'opendocument'   { 'scripts/reflect/opendocument_audit.vla' }
             'opendocument_saved' { 'scripts/reflect/opendocument_saved_audit.vla' }
+            default          { exit 3 }
+        }
+        `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))
+    }
+    'calc' {
+        # The golden beside the fixture, by the fixture's name (2026-10-08, KERNEL.7).
+        `$base = [System.IO.Path]::GetFileNameWithoutExtension(`$a[1])
+        `$which = switch (`$base) {
+            'saved'          { 'scripts/recalc/saved_calc.vla' }
+            'fixture'        { 'scripts/recalc/fixture_calc.vla' }
+            'fixture_golden' { 'scripts/recalc/build_fixture_calc.vla' }
+            'opendocument'   { 'scripts/recalc/opendocument_calc.vla' }
+            'subset'         { 'scripts/recalc/subset_calc.vla' }
+            'subset_saved'   { 'scripts/recalc/subset_saved_calc.vla' }
+            'edges'          { 'scripts/recalc/edges_calc.vla' }
             default          { exit 3 }
         }
         `$g = [System.IO.File]::ReadAllText((Join-Path `$root `$which))

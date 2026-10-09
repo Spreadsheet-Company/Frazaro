@@ -1,0 +1,5 @@
+(calc "Output" "C2" "=B2+B3" 15 15 agree)
+(calc "Output" "D2" "=IFS(B2>3,\"big\",TRUE,\"small\")" "big" "big" agree)
+(calc "Output" "B3" "=B2*2" 10 10 agree)
+(calc "Output" "C3" "=B3+B4" 10 10 agree)
+(calc "Output" "C4" "=B4+B5" 0 0 agree)

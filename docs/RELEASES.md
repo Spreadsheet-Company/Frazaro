@@ -6,6 +6,23 @@
 
 ### What changed
 
+- **For the command line, the web page and embeddings: recalculation, the
+  first slice.** `frazaro calc <file.xlsx|.ods>` computes every formula of
+  a workbook in dependency order and prints each cell's computed value
+  against the value the file holds, with a verdict: agree, differ, or
+  unchecked when there is nothing to compare. The subset computed is chosen
+  by measurement, the functions the two public spreadsheet corpora use most
+  and the ones a game's rule needs, each with its evidence in the source;
+  a function outside it shows `not computed here` with its name, and a cell
+  that reads it inherits the label, so nothing is ever claimed that was not
+  computed. Excel's own saved values are the oracle, under one stated
+  tolerance, fifteen significant digits. `frazaro view` now prints each
+  formula's computed value after its formula row, so a viewport can show
+  values; `frazaro reflect --functions` counts the functions a workbook's
+  formulas call, counts alone, the instrument the subset grows by. The
+  mechanism lives in `vla-lang`, so an engine built on the language has it
+  without the core; Excel's library registers through its functions seam,
+  the kernel's sixth (KERNEL.7; the histogram is KERNEL.6's instrument).
 - **For embeddings: the language is a crate of its own, `vla-lang`.** The
   reader, the macro expander, the forms and the head table, the grid with
   the references read out of a formula's text, and the view record now live

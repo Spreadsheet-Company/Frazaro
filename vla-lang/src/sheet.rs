@@ -4,18 +4,21 @@
 //! (`crate::refers`) are what an engine stands on; the file formats that
 //! write and read it stay in `frazaro-core`'s `sheet` module, which
 //! re-exports this one.
-//! Sheets of cells, each cell a text, a number, a truth value or a formula's
-//! text; column widths, a hidden column, a style per cell or per column from
-//! a small style table; and nothing that computes. docs/HORIZON.md section
-//! 12: the core has no calc engine, so a formula is text the host evaluates
-//! when it opens the file, which `fullCalcOnLoad` (ooxml.rs) makes it do.
+//! Sheets of cells, each cell a text, a number, a truth value, an error
+//! value or a formula's text; column widths, a hidden column, a style per
+//! cell or per column from a small style table; and nothing here that
+//! computes: a formula is text the host evaluates when it opens the file,
+//! which `fullCalcOnLoad` (ooxml.rs) makes it do, and since KERNEL.7
+//! (2026-10-08) text `crate::calc` evaluates over this model in memory,
+//! behind a declared subset that refuses by name, as `web/CALLOSUM.md`
+//! section 7 decision 3 amended docs/HORIZON.md section 12.
 //!
 //! New ground, said plainly: the reference has no model of a sheet; it
 //! writes through Excel's object model. What is modelled is the little the
 //! room needs (`BuildWorkspace`, VLA_IDE.bas) and what slice 7b's static
 //! subset writes, and the model grows only as a slice needs it.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::intrinsics::fold;
 
@@ -118,6 +121,11 @@ pub enum Content {
     Text(String),
     Number(f64),
     Bool(bool),
+    /// An error value typed into a cell with no formula behind it (`t="e"`
+    /// in the file), by its text, `#N/A`; what a reader meets in a model
+    /// (KERNEL.7). The writer writes it as the file holds it; no sentence
+    /// puts one there.
+    Error(String),
     Formula(String),
     SharedMaster {
         text: String,
@@ -343,6 +351,49 @@ impl Sheet {
         }
         Some(((top, left), (bottom, right)))
     }
+}
+
+/// The shared formulas' masters of a sheet, by index: the text and the cell
+/// that holds it, so that a child's text is the master's with its
+/// references moved. The view record and the evaluator both read a child
+/// through this (KERNEL.4; KERNEL.7).
+pub fn shared_masters(sheet: &Sheet) -> HashMap<u32, (&str, u32, u32)> {
+    let mut masters = HashMap::new();
+    for ((row, col), cell) in &sheet.cells {
+        if let Content::SharedMaster { text, si, .. } = &cell.content {
+            masters.insert(*si, (text.as_str(), *row, *col));
+        }
+    }
+    masters
+}
+
+/// A formula's text as the formula bar shows it, without its `=`, the
+/// file's prefixes dropped, as the reader spells the same cell of the
+/// written file: a shared child is its master's text moved by the cell's
+/// distance, moved first and stripped after, as the reader does it. `None`
+/// for a value, or for a child whose master the sheet has lost.
+pub fn formula_text(
+    content: &Content,
+    row: u32,
+    col: u32,
+    masters: &HashMap<u32, (&str, u32, u32)>,
+) -> Option<String> {
+    let raw = match content {
+        Content::Formula(t) | Content::DynamicFormula(t) => t.clone(),
+        Content::SharedMaster { text, .. } => text.clone(),
+        Content::SharedChild { si } => {
+            let (text, m_row, m_col) = masters.get(si)?;
+            crate::refers::shift_a1_references(
+                text,
+                i64::from(row) - i64::from(*m_row),
+                i64::from(col) - i64::from(*m_col),
+            )
+        }
+        Content::Text(_) | Content::Number(_) | Content::Bool(_) | Content::Error(_) => {
+            return None
+        }
+    };
+    Some(strip_future_prefixes(&raw))
 }
 
 /// The workbook: its sheets in tab order, their formats, and which tab is

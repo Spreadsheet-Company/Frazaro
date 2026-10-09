@@ -9,8 +9,8 @@
 //! both exported from `src/VLA_Messages.bas` by `tools/export_messages.ps1`
 //! and held to it by `tools/check_data_exports.ps1`: this crate embeds the
 //! language's own families (`data/messages.vla`: `vla`, `interp`, `lint`,
-//! `view`), and `frazaro-core` embeds the rest and asks this catalogue after
-//! its own. The VBA is the source of both.
+//! `view` and, since KERNEL.7, `calc`), and `frazaro-core` embeds the rest
+//! and asks this catalogue after its own. The VBA is the source of both.
 //!
 //! A refusal here is a value, not a raise: [`Refusal`], carried in a
 //! `Result`. [`raise`] builds one exactly as `RaiseMsg` builds its text,
@@ -251,7 +251,7 @@ mod tests {
         for id in ids() {
             let family = id.split('-').next().unwrap();
             assert!(
-                ["vla", "interp", "lint", "view"].contains(&family),
+                ["vla", "interp", "lint", "view", "calc"].contains(&family),
                 "{id} is not the language's"
             );
         }

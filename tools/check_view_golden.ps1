@@ -70,23 +70,26 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # four of those cells, the extent still whole); fixture_data 9 (the one cell
 # of a sheet the program named in another case); into_output 11 and
 # into_checks 9 (the second fixture viewed without its model: the formulas
-# that read the model as text). Raise a floor when a regenerated golden is
-# longer; lower it only with a regenerated golden that is shorter, and say why.
+# that read the model as text). 2026-10-08, KERNEL.7: a value row follows
+# each formula row (SPEC decision 14): fixture_output 26, fixture_output_b2_c3
+# 18, into_output 12, into_checks 10; the two sheets with no formula keep
+# their counts. Raise a floor when a regenerated golden is longer; lower it
+# only with a regenerated golden that is shorter, and say why.
 $prelude = 'scripts/prelude.vla'
 $phrasebook = 'scripts/polyglotta/english.vla'
 $goldens = @(
     @{ Name = 'fixture_frazaro';      Program = 'scripts/build/fixture.txt'; Sheet = 'Frazaro'; Window = '';       Golden = 'scripts/view/fixture_frazaro.vla';      Floor = 66 },
-    @{ Name = 'fixture_output';       Program = 'scripts/build/fixture.txt'; Sheet = 'Output';  Window = 'A1:F20'; Golden = 'scripts/view/fixture_output.vla';       Floor = 21 },
-    @{ Name = 'fixture_output_b2_c3'; Program = 'scripts/build/fixture.txt'; Sheet = 'Output';  Window = 'B2:C3';  Golden = 'scripts/view/fixture_output_b2_c3.vla'; Floor = 15 },
+    @{ Name = 'fixture_output';       Program = 'scripts/build/fixture.txt'; Sheet = 'Output';  Window = 'A1:F20'; Golden = 'scripts/view/fixture_output.vla';       Floor = 26 },
+    @{ Name = 'fixture_output_b2_c3'; Program = 'scripts/build/fixture.txt'; Sheet = 'Output';  Window = 'B2:C3';  Golden = 'scripts/view/fixture_output_b2_c3.vla'; Floor = 18 },
     @{ Name = 'fixture_data';         Program = 'scripts/build/fixture.txt'; Sheet = 'Data';    Window = '';       Golden = 'scripts/view/fixture_data.vla';         Floor = 9 },
-    @{ Name = 'into_output';          Program = 'scripts/build/into.txt';    Sheet = 'Output';  Window = '';       Golden = 'scripts/view/into_output.vla';          Floor = 11 },
-    @{ Name = 'into_checks';          Program = 'scripts/build/into.txt';    Sheet = 'Checks';  Window = '';       Golden = 'scripts/view/into_checks.vla';          Floor = 9 }
+    @{ Name = 'into_output';          Program = 'scripts/build/into.txt';    Sheet = 'Output';  Window = '';       Golden = 'scripts/view/into_output.vla';          Floor = 12 },
+    @{ Name = 'into_checks';          Program = 'scripts/build/into.txt';    Sheet = 'Checks';  Window = '';       Golden = 'scripts/view/into_checks.vla';          Floor = 10 }
 )
 
 # The forms a view record holds, and the phase each belongs to in the fixed
 # order: the sheets, the window, its extent, its gridlines, the columns, the
 # formats, then the body cell by cell.
-$phases = @{ 'sheet' = 0; 'window' = 1; 'extent' = 2; 'gridlines' = 3; 'column' = 4; 'format' = 5; 'cell' = 6; 'formula' = 6; 'style' = 6; 'sentence' = 6 }
+$phases = @{ 'sheet' = 0; 'window' = 1; 'extent' = 2; 'gridlines' = 3; 'column' = 4; 'format' = 5; 'cell' = 6; 'formula' = 6; 'value' = 6; 'style' = 6; 'sentence' = 6 }
 
 # A text as its lines: line endings normalized, trailing blank lines dropped.
 function Get-Lines([string]$text) {
@@ -129,8 +132,9 @@ function Test-Order($lines) {
     $seen = @{ 'window' = 0; 'extent' = 0; 'gridlines' = 0 }
     $lastFormat = -1
     $lastCell = $null      # (row, col) of the last cell or formula row
-    $open = ''             # the address whose style and sentence rows may follow
-    $hadStyle = $false; $hadSentence = $false
+    $open = ''             # the address whose value, style and sentence rows may follow
+    $isFormula = $false    # whether a value row may follow (KERNEL.7)
+    $hadValue = $false; $hadStyle = $false; $hadSentence = $false
     $n = 0
     foreach ($line in $lines) {
         $n++
@@ -158,10 +162,14 @@ function Test-Order($lines) {
                 $rc = Get-RowCol $strings[1]
                 if ($null -eq $rc) { $problems.Add("line ${n}: not an address: $line") }
                 elseif ($null -ne $lastCell -and ($rc[0] -lt $lastCell[0] -or ($rc[0] -eq $lastCell[0] -and $rc[1] -le $lastCell[1]))) { $problems.Add("line ${n}: a cell out of row-major order: $line") }
-                $lastCell = $rc; $open = $strings[1]; $hadStyle = $false; $hadSentence = $false
+                $lastCell = $rc; $open = $strings[1]; $isFormula = ($rel -eq 'formula'); $hadValue = $false; $hadStyle = $false; $hadSentence = $false
+            }
+            'value' {
+                if ($strings[0] -ne $windowSheet -or $strings[1] -ne $open -or -not $isFormula -or $hadValue -or $hadStyle -or $hadSentence) { $problems.Add("line ${n}: a value row not right after its formula: $line") }
+                $hadValue = $true
             }
             'style' {
-                if ($strings[0] -ne $windowSheet -or $strings[1] -ne $open -or $hadStyle -or $hadSentence) { $problems.Add("line ${n}: a style row not right after its cell: $line") }
+                if ($strings[0] -ne $windowSheet -or $strings[1] -ne $open -or $hadStyle -or $hadSentence) { $problems.Add("line ${n}: a style row not right after its cell (and its value row): $line") }
                 $hadStyle = $true
             }
             'sentence' {
@@ -243,7 +251,7 @@ function Test-Goldens() {
         }
         $order = Test-Order $rows
         foreach ($p in $order) { $problems.Add("$($g.Name): $p"); $lines.Add("  $($g.Name): $p  FAIL") }
-        if ($order.Count -eq 0) { $lines.Add("  $($g.Name): the fixed order holds (sheets, window, extent, gridlines, columns, formats, then the cells in row order)") }
+        if ($order.Count -eq 0) { $lines.Add("  $($g.Name): the fixed order holds (sheets, window, extent, gridlines, columns, formats, then the cells in row order, each formula with its value)") }
     }
     return @{ Problems = $problems; Lines = $lines }
 }

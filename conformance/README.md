@@ -1105,3 +1105,143 @@ overlay among the dialects, counts twice, since the door proves it twice);
 its `-Control` fake reads the manifest and answers `PASS` per book and in
 total, and its mutant answers `FAIL`. At this amendment: english, 632
 proofs over eight books; espanol, 662 over nine.
+
+## Amendment of 2026-10-08: oracle 12, the calc golden, and oracle 11's `value` row (`KERNEL.7`, recalculation)
+
+`KERNEL.7` lands recalculation's first slice: a parser for operators and
+calls over the reference scanner `refers.rs` already has, the dependency
+graph from `refers`, evaluation in topological order, a cycle refused by
+name, Excel's error values as a value kind, and a registry seam for
+functions, in the language crate (`vla-lang/src/calc/`), with Excel's
+library registered through the seam from `frazaro-core` (`core/src/excel.rs`)
+as the declared subset. The VBA reference has no recalculation of its own:
+Excel is its evaluator, so the reference for this oracle is Excel's own
+saved values, as `web/CALLOSUM.md` §7 decision 3 recorded when it amended
+`HORIZON.md` §12.2 and as this treaty's decision 7 there foresaw. `SD-18`
+is untouched: the language's forms, the grid and the references are still
+held to the goldens the add-in writes, and what this amendment adds is a
+second reference for one thing the add-in never did.
+
+**The subset, by measurement.** A function enters the subset with its
+fixture and its measured frequency, never by taste (`KERNEL.6`'s rule).
+At this amendment the subset is the fourteen functions the engine's first
+cartridges need (`Alonzo/SPEC.md` §13: `IF`, `AND`, `OR`, `NOT`, `SUM`,
+`MIN`, `MAX`, `ABS`, `INT`, `MOD`, `ROW`, `COLUMN`, `CHOOSE`, `SIN`, the
+comparisons and the arithmetic), which are the language's own; six more by
+the two corpora of Jansen and Hermans (2015, Table IV: `AVERAGE`, `ROUND`,
+`SUMIF`, `COUNTIF`, `ISNUMBER`, `ISBLANK`); and `IFS`, on its fixture
+`scripts/reflect/saved.xlsx`. Every function's evidence is a row of
+`excel::SUBSET`, and the one line that admits a function is a row there with
+its fixture. A formula outside the subset is not an error: its cell shows
+`not computed here` with the function named, and a cell that reads it
+inherits the label.
+
+**The tolerance, stated before the oracle.** The language's own functions
+carry none: their tests hold exact values. The agreement of a computed
+value with a host's cached one carries one stated tolerance: two numbers
+agree when they round to the same fifteen significant digits, the
+precision Excel documents for its arithmetic; two texts when equal byte for
+byte; two truth values or two errors when the same. A number the file
+spells that no double holds, a date cell, and an error outside the seven a
+cell can hold (`#NULL!`, `#DIV/0!`, `#VALUE!`, `#REF!`, `#NAME?`, `#NUM!`,
+`#N/A`) are not compared. The negative zero a double can hold is spelled
+`0`, since no cell holds one.
+
+**The record, its order and its spelling.** `frazaro calc <file>` reads
+the workbook through the reader of oracle 8 into the grid, computes every
+formula, and prints one form a row, in the proof corpus's notation. First
+`(cycle "<Sheet!A1>" "<Sheet!B2>" ...)` for every cycle, its cells sorted,
+the cycles by their first cell; then one `(calc "<sheet>" "<addr>"
+"<formula>" <computed> <cached> <verdict>)` per formula cell, sheets in tab
+order and cells in row-major order within a sheet, the formula as the bar
+shows it with its `=`, the computed value spelled as a `cell` row's value
+is (`15`, `"big"`, `true`, `(error "#DIV/0!")`) or `(not-computed
+"<name>")` naming the function or the construct this version does not
+read, or `(not-computed cycle)` for a cell in a cycle or reading one; the
+cached value the file holds, spelled as the reader spells it, or `none`;
+and the verdict, `agree`, `differ` or `unchecked`, the last whenever there
+is nothing to compare. The constructs not read in this slice, each named
+as written: an array constant, implicit intersection by `@` or by a space,
+a union in parentheses, a spill range, a structured reference, a link into
+another workbook, and a range where one value is wanted, which a legacy
+formula intersects and a dynamic one spills, and which the text alone does
+not tell apart (`KERNEL.8` takes them with the `@` operator). A cycle, an
+unreadable reference and a function outside the subset refuse nothing
+here, since a workbook is read as it is; the engine's `load` refuses the
+first two by name (`calc-cycle`, `calc-function-not-computed`, under the
+source `VLA-Calc`, the language's own), as `Alonzo/SPEC.md` §2 asks.
+
+- **12. The calc golden.** Seven rows, each a fixture workbook to its
+  recalculation under `scripts/recalc/`: `scripts/reflect/saved.xlsx`, the
+  first build golden as Excel 365 saved it, to `saved_calc.vla`, every row
+  `agree`; `scripts/reflect/fixture.xlsx`, the reader's fixture with every
+  reference kind, to `fixture_calc.vla`, no row `differ`; its OpenDocument
+  twin `scripts/reflect/opendocument.ods` to `opendocument_calc.vla`, no
+  row `differ`; `scripts/build/fixture_golden.xlsx`, the core's own build
+  with no cached value, to `build_fixture_calc.vla`, every row `unchecked`;
+  `scripts/recalc/subset.xlsx`, the subset's fixture, built by the door
+  from `scripts/recalc/subset.txt` with one formula per function and per
+  coercion this slice claims, to `subset_calc.vla`, every row `unchecked`;
+  `scripts/recalc/subset_saved.xlsx`, the owner's save of that fixture from
+  Excel 365, to `subset_saved_calc.vla`, no row `differ` and 102 `agree`,
+  the four this slice does not compute named; and `scripts/recalc/edges.xlsx`,
+  built from `edges.txt`, to `edges_calc.vla`, every row `unchecked` until an
+  Excel save of it beside, `edges_saved.xlsx`, joins this list at no row
+  `differ`. That is how every rule of coercion enters the oracle with the
+  fixture that shows it: Excel's save of the subset corrected two of this
+  slice's first rules the evening it was made, a number's General spelling
+  (fixed while the decimal exponent is between -14 and 14, scientific
+  outside, the boundaries LibreOffice's automatic number format draws and
+  the edges fixture holds) and a text read through a reference in a logical
+  test (`IF` coerces the text `TRUE` found in a cell as it coerces a typed
+  one). The comparison is the one oracle 8 makes: byte for byte after line
+  endings are normalized to LF and trailing blank lines are dropped; the
+  goldens carry no stamp.
+
+**Oracle 11 gains a row.** After each `(formula ...)` row of the view record
+comes `(value "<sheet>" "<addr>" <v>)`, the formula's computed value under
+the same library, spelled as a `cell` row's value is, or `(not-computed
+...)` as above: the row `Alonzo/SPEC.md` §4.5 and decision 14 named for
+this item, so that the record stays the oracle of the engine's plane. A
+view of a program built without its model shows the values its own sheets
+give, so a reference to a sheet or a name the model lacks is `#REF!` or
+`#NAME?`, as Excel would show them in a workbook lacking them
+(`into_checks.vla`). The six view goldens were regenerated with the row,
+`check_view_golden.ps1`'s floors rose with them (26, 18, 12 and 10; the two
+windows with no formula unchanged), and its order rule places the `value`
+row right after its formula row, before the `style` and `sentence` rows. A
+grid before its first step shows no `value` row, which is `view_text`'s
+record and the engine's at load.
+
+**The free oracle.** The study's workbooks (`scripts/study/`, `KERNEL.3`)
+carry cached values a PowerShell evaluator computed, so they are no
+fixture of this oracle; but `check_recalc_golden.ps1` holds their
+agreement, 80, 80, 8 and 8 formulas with none differing, two lineages of
+evaluation agreeing on every value, with no golden stored.
+
+The contract gains one command and one mode:
+
+- `<impl> calc <file.xlsx|.ods>` writes the rows to stdout in the order
+  above and exits 0 whenever the calculation ran, `agree` or `differ`;
+  with `--counts`, one line of counts and times alone (`formulas`,
+  `computed`, `not-computed`, `cycles`, `agree`, `differ`, `unchecked`).
+  A refusal, the reader's, writes its message to stderr and exits 1; exit 3
+  says the oracle is not attempted.
+- `<impl> reflect <file> --functions` is a door's mode, not an oracle:
+  one `(function "<NAME>" <n>)` row per function the formulas call, `n`
+  the formula cells calling it, most called first, counts alone, so that
+  `KERNEL.6`'s histogram can be taken over anyone's models.
+
+`tools/check_recalc_golden.ps1` holds each golden's line count and its
+`agree` count as floors that never go down, in the house style; the fixed
+order and the row shapes read off the golden itself; each fixture's pin
+(every row `agree`, no row `differ`, or every row `none unchecked`); the
+door's rows against each golden whole, naming the first differing line;
+and the study's agreement. Its `-Control` passes a fake that prints the
+golden and the agreement, fails a mutant that changes one value and reports
+one `differ`, fails a copy of the saved golden with one `agree` turned to
+`differ`, and fails a copy with a cycle row after the calc rows. The `core`
+CI job runs it after the view check. The runner gains the kind:
+`tools/prove.ps1` inventories the seven rows and scores them as it scores
+the reflect kind; its `-Control` fake answers each from the golden by the
+fixture's name, and its mutant changes one character.

@@ -1,4 +1,4 @@
-//! The kernel's boundary, and the five seams through which everything else
+//! The kernel's boundary, and the six seams through which everything else
 //! enters (`KERNEL.1`, 2026-10-06; the design is `web/CALLOSUM.md` §14).
 //!
 //! The kernel holds mechanism only: forms and their expansion, the emitters,
@@ -41,8 +41,8 @@ pub struct Seam {
     pub deferred_to: &'static str,
 }
 
-/// The five seams, in the order `CONTRIBUTING.md` lists them.
-pub const SEAMS: [Seam; 5] = [
+/// The six seams, in the order `CONTRIBUTING.md` lists them.
+pub const SEAMS: [Seam; 6] = [
     Seam {
         name: "sentences",
         entrance: "a phrasebook file (.vla) with its test: proofs, loaded through api::vocab_gate",
@@ -76,6 +76,16 @@ pub const SEAMS: [Seam; 5] = [
         entrance: "an implementation of vla_lang::projection::Projection",
         oracle: "a view golden per projection",
         implementations: &["grid, the view record of one window (view::Grid)"],
+        deferred_to: "",
+    },
+    Seam {
+        name: "functions",
+        entrance: "a function registered into vla_lang::calc::Library, with the fixture a host saved that shows it (excel::library)",
+        oracle: "the recalc golden: the fixture's cached values agree (check_recalc_golden.ps1)",
+        implementations: &[
+            "the language's fourteen day-one functions (vla_lang::calc::library)",
+            "Excel's library, the declared subset by measurement (excel::SUBSET)",
+        ],
         deferred_to: "",
     },
 ];
@@ -178,8 +188,8 @@ mod tests {
     const FIXTURE_ODS: &[u8] = include_bytes!("../../scripts/reflect/opendocument.ods");
 
     #[test]
-    fn five_seams_each_with_an_entrance_and_an_oracle() {
-        assert_eq!(seams().len(), 5);
+    fn six_seams_each_with_an_entrance_and_an_oracle() {
+        assert_eq!(seams().len(), 6);
         let names: Vec<&str> = seams().iter().map(|s| s.name).collect();
         assert_eq!(
             names,
@@ -188,7 +198,8 @@ mod tests {
                 "paragraphs",
                 "engines",
                 "formats and hosts",
-                "projections"
+                "projections",
+                "functions"
             ]
         );
         for s in seams() {
@@ -210,7 +221,7 @@ mod tests {
         let projections = seams().iter().find(|s| s.name == "projections").unwrap();
         assert_eq!(projections.implementations.len(), 1);
         assert_eq!(projections.deferred_to, "");
-        assert_eq!(crate::view::Grid.name(), "grid");
+        assert_eq!(crate::view::Grid::default().name(), "grid");
         assert!(projections.implementations[0].starts_with("grid"));
         let paragraphs = seams().iter().find(|s| s.name == "paragraphs").unwrap();
         assert_eq!(paragraphs.deferred_to, "G-USE");

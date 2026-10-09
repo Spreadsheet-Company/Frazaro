@@ -104,7 +104,10 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # 2026-10-07, KERNEL.2: 51 - check_distro.ps1 (every distro under distros/
 # well formed and naming files that exist, the english distro the doors'
 # own, and the three readers of a manifest held to one shape).
-$expectedAtLeast = 51
+# 2026-10-08, KERNEL.7: 52 - check_recalc_golden.ps1 (the recalc goldens
+# reproduced whole, every Excel-saved value agreeing, the study's workbooks
+# agreeing with their builder).
+$expectedAtLeast = 52
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---

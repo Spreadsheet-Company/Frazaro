@@ -8,4 +8,5 @@
 (cell "Output" "A1" "margin after rate")
 (sentence "Output" "A1" 4)
 (formula "Output" "B1" "=Model!B3*Rate")
+(value "Output" "B1" (error "#REF!"))
 (sentence "Output" "B1" 5)

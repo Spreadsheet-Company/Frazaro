@@ -1,0 +1,132 @@
+# The recalculation subset's fixture (KERNEL.7): one formula per function the declared subset computes and per
+# coercion it claims, with the inputs each needs, so that a Save in Excel 365 gives every row its cached value.
+# Built by frazaro into subset.xlsx (no cached values); the owner's save of it is subset_saved.xlsx, the oracle.
+
+Put 5 into cell A1.
+Put "7" into cell A2.
+Put formula "=TRUE" into cell A3.
+Put "abc" into cell A5.
+Put 0.1 into cell A6.
+Put 0.2 into cell A7.
+Put -2 into cell A8.
+Put formula "=A1+A2" into cell C1.
+Put formula "=A1+A3" into cell C2.
+Put formula "=A1+A4" into cell C3.
+Put formula "=A1+A5" into cell C4.
+Put formula "=A1&A2" into cell C5.
+Put formula "=A6+A7&""""" into cell C6.
+Put formula "=A3&""""" into cell C7.
+Put formula "=A1=A2" into cell C8.
+Put formula "=A1<A5" into cell C9.
+Put formula "=A3>A5" into cell C10.
+Put formula "=""ABC""=""abc""" into cell C11.
+Put formula "=A4=0" into cell C12.
+Put formula "=A4=""""" into cell C13.
+Put formula "=-A8^2" into cell C14.
+Put formula "=2^3^2" into cell C15.
+Put formula "=A1/A4" into cell C16.
+Put formula "=0^0" into cell C17.
+Put formula "=50%" into cell C18.
+Put formula "=A2*2" into cell C19.
+Put formula "=1/3&""""" into cell C20.
+Put formula "=0.0000001&""""" into cell C21.
+Put formula "=10^21&""""" into cell C22.
+Put formula "=10^20&""""" into cell C23.
+Put formula "=-""5""" into cell C24.
+Put formula "=+""5""" into cell C25.
+Put formula "=1E307*100" into cell C26.
+Put formula "=(1=1)+1" into cell C27.
+Put formula "=A8^0.5" into cell C28.
+Put formula "=0^-1" into cell C29.
+Put formula "=A2=7" into cell C30.
+Put formula "=A1<>A4" into cell C31.
+
+Work on sheet Logic.
+Put 10 into cell A1.
+Put 20 into cell A2.
+Put "x" into cell A3.
+Put formula "=TRUE" into cell A4.
+Put 0 into cell A5.
+Put "TRUE" into cell A6.
+Put formula "=IF(A1>5,""big"",""small"")" into cell C1.
+Put formula "=IF(A5,1,2)" into cell C2.
+Put formula "=IF(A3,1,2)" into cell C3.
+Put formula "=IF(FALSE,1)" into cell C4.
+Put formula "=IF(TRUE,,1)" into cell C5.
+Put formula "=IF(A6,1,2)" into cell C6.
+Put formula "=AND(A1>5,A2>5)" into cell C7.
+Put formula "=AND(A1:A5)" into cell C8.
+Put formula "=OR(A5,A3)" into cell C9.
+Put formula "=OR(A5:A6,FALSE)" into cell C10.
+Put formula "=NOT(A5)" into cell C11.
+Put formula "=AND(A3)" into cell C12.
+Put formula "=AND(A6)" into cell C13.
+Put formula "=IFS(A1>15,""big"",A1>5,""mid"",TRUE,""small"")" into cell C14.
+Put formula "=IFS(A1>15,""big"")" into cell C15.
+Put formula "=CHOOSE(2,""a"",""b"",""c"")" into cell C16.
+Put formula "=CHOOSE(2.9,""a"",""b"",""c"")" into cell C17.
+Put formula "=CHOOSE(0,""a"")" into cell C18.
+Put formula "=ISNUMBER(A1)" into cell C19.
+Put formula "=ISNUMBER(A3)" into cell C20.
+Put formula "=ISNUMBER(1/0)" into cell C21.
+Put formula "=ISBLANK(A9)" into cell C22.
+Put formula "=ISBLANK(A1)" into cell C23.
+Put formula "=ISNUMBER(A6)" into cell C24.
+Put formula "=IF(1/0,1,2)" into cell C25.
+Put formula "=AND(TRUE,1/0)" into cell C26.
+Put formula "=IF(A1>5,A1:A2,0)" into cell C27.
+
+Work on sheet Math.
+Put 10 into cell A1.
+Put 20 into cell A2.
+Put "x" into cell A3.
+Put 30 into cell A4.
+Put formula "=TRUE" into cell A6.
+Put 1 into cell B1.
+Put 2 into cell B2.
+Put 4 into cell B4.
+Put formula "=SUM(A1:A6)" into cell C1.
+Put formula "=SUM(A1,""5"",TRUE)" into cell C2.
+Put formula "=SUM(A3)" into cell C3.
+Put formula "=SUM(""x"")" into cell C4.
+Put formula "=MIN(A1:A6)" into cell C5.
+Put formula "=MAX(A1:A6)" into cell C6.
+Put formula "=MIN(A3)" into cell C7.
+Put formula "=AVERAGE(A1:A6)" into cell C8.
+Put formula "=AVERAGE(A3)" into cell C9.
+Put formula "=ABS(-3.5)" into cell C10.
+Put formula "=INT(-1.5)" into cell C11.
+Put formula "=INT(1.5)" into cell C12.
+Put formula "=MOD(-7,3)" into cell C13.
+Put formula "=MOD(7,-3)" into cell C14.
+Put formula "=MOD(7,0)" into cell C15.
+Put formula "=MOD(5.5,2)" into cell C16.
+Put formula "=ROUND(2.675,2)" into cell C17.
+Put formula "=ROUND(-2.5,0)" into cell C18.
+Put formula "=ROUND(1234.5678,-2)" into cell C19.
+Put formula "=ROUND(1.234,1.9)" into cell C20.
+Put formula "=ROUND(0.5,0)" into cell C21.
+Put formula "=ROUND(1.005,2)" into cell C22.
+Put formula "=ROW()" into cell C23.
+Put formula "=COLUMN()" into cell C24.
+Put formula "=ROW(A4)" into cell C25.
+Put formula "=COLUMN(B1:C2)" into cell C26.
+Put formula "=SIN(0)" into cell C27.
+Put formula "=SIN(1)" into cell C28.
+Put formula "=SUMIF(A1:A6,"">15"")" into cell C29.
+Put formula "=SUMIF(A1:A6,"">15"",B1:B6)" into cell C30.
+Put formula "=COUNTIF(A1:A6,"">15"")" into cell C31.
+Put formula "=COUNTIF(A1:A6,""x"")" into cell C32.
+Put formula "=COUNTIF(A1:A8,"""")" into cell C33.
+Put formula "=COUNTIF(A1:A6,""<>10"")" into cell C34.
+Put formula "=COUNTIF(A1:A6,""*"")" into cell C35.
+Put formula "=COUNTIF(A1:A6,10)" into cell C36.
+Put formula "=COUNTIF(A1:A6,TRUE)" into cell C37.
+Put formula "=SUMIF(A1:A6,""x"",B1:B6)" into cell C38.
+Put formula "=COUNTIF(B1:B4,""<>"")" into cell C39.
+Put formula "=SUM(Output!A1,logic!A1)" into cell C40.
+Put formula "=SUM(Output:logic!A1)" into cell C41.
+Put formula "=VLOOKUP(10,A1:B2,2)" into cell C42.
+Put formula "=CONCATENATE(""a"",""b"")" into cell C43.
+Put formula "=C42+1" into cell C44.
+Put formula "=SUM(C1:C3)" into cell C45.

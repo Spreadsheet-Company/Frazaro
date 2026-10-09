@@ -51,7 +51,7 @@
 //! it writes a formula, as the add-in's two backends do, and refuses one
 //! that reaches outside the workbook on its own.
 //!
-//! `kernel` (KERNEL.1) writes the kernel's boundary and its five seams down
+//! `kernel` (KERNEL.1) writes the kernel's boundary and its six seams down
 //! as data and names the engines trait; the projections seam's trait is the
 //! language's (`vla_lang::projection`) and is re-exported there. `view`
 //! (KERNEL.4, the language's) is the first implementation of that seam: one
@@ -69,6 +69,7 @@ pub mod distro;
 pub mod egress;
 pub mod emit;
 pub mod english;
+pub mod excel;
 pub mod kernel;
 pub mod messages;
 pub mod reflect;
@@ -78,7 +79,7 @@ pub mod sheet;
 // The language, re-exported whole (PORT.12): `frazaro_core::form`,
 // `crate::view::Grid` and every other path a door or a test used before
 // the cut resolve as they did. The modules are vla-lang's, documented there.
-pub use vla_lang::{expand, form, headtable, intrinsics, printer, reader, refers, view};
+pub use vla_lang::{calc, expand, form, headtable, intrinsics, printer, reader, refers, view};
 
 /// The version predicates (`parse`, `compare`, `at_least`), the language's,
 /// re-exported as the module they were; the function `version` below is

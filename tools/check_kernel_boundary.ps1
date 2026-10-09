@@ -5,8 +5,8 @@ test modules (KERNEL.1, 2026-10-06; the design is web/CALLOSUM.md section
 14; the kernel two crates since PORT.12, 2026-10-08).
 
 WHY: the kernel is two crates in one dependency order, the language
-(vla-lang) and the bridges over it (frazaro-core), with five seams -
-sentences, paragraphs, engines, formats and hosts, projections - and
+(vla-lang) and the bridges over it (frazaro-core), with six seams -
+sentences, paragraphs, engines, formats and hosts, projections, functions - and
 everything a person reads or says is data the kernel reads (the tables under
 vla-lang/data/ and core/data/, a phrasebook, a library) or an implementation
 of a seam. The rule "the kernel grows a seam, never a feature" is cheap to

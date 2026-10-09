@@ -113,7 +113,7 @@ before they see `docs/`:
   open security items a downloader should hear from that page rather than
   from the roadmap.
 - **[CONTRIBUTING.md](../CONTRIBUTING.md)** — The DCO sign-off, what to
-  expect from a patch, and the kernel's five seams with the oracle each one
+  expect from a patch, and the kernel's six seams with the oracle each one
   answers to.
 - **[MAINTAINERS.md](../MAINTAINERS.md)** — Who answers for which paths, by
   seam, and the contract files a change to which needs both sides present.

@@ -56,7 +56,7 @@ set and the ABI. An engine stands on the language and never on the core.
 Neither crate holds anything a person reads or says: English, message text,
 defaults, chrome, formats beyond a trait and doors live outside it, as data
 the kernel reads or as implementations of a seam. The rule for a change is
-that the kernel grows a seam, never a feature. Five seams are the only
+that the kernel grows a seam, never a feature. Six seams are the only
 entrances, each with the oracle a change through it must pass.
 `core/src/kernel.rs` lists them as data (the projections seam's trait is
 `vla-lang/src/projection.rs`), and `tools/check_kernel_boundary.ps1` holds the
@@ -69,6 +69,7 @@ rule over both source trees.
 | engines | an implementation of `kernel::Engine` under a head-table symbol (`PORT.9`) | a proof file of its kind, clingo beside it where it applies |
 | formats and hosts | a `reflect::Source` to read, a writer beside it, a `kernel::HostProfile` per door | the reflect, diff and audit goldens; the build golden |
 | projections | an implementation of `kernel::Projection`; the grid, `view::Grid`, is the first (`KERNEL.4`) | a view golden under `scripts/view/` (`check_view_golden.ps1`); the free one: the view of a built model's sheet, whole, is `reflect` of its file |
+| functions | a function registered into `vla_lang::calc::Library` with the fixture a host saved that shows it; the language's fourteen day-one functions and Excel's library, `excel::SUBSET`, each function with its evidence (`KERNEL.7`) | the recalc golden under `scripts/recalc/` (`check_recalc_golden.ps1`): the fixture's cached values agree, and a function enters with its fixture and its measured frequency, never by taste (`KERNEL.6`) |
 
 A feature that fits no seam is a seam to design first, on the roadmap, not
 a feature to merge. `MAINTAINERS.md` maps the paths to the seams and names

@@ -6,4 +6,5 @@
 (gridlines "checks" on)
 (format 0 none general nowrap)
 (formula "checks" "A1" "=IFS(Model!B3>0,\"profit\",TRUE,\"loss\")")
+(value "checks" "A1" (error "#REF!"))
 (sentence "checks" "A1" 8)

@@ -39,9 +39,11 @@
 //! spelling; `cone.rs` sizes a cell's cone through an index of the walk.
 
 pub mod audit;
+pub mod calc;
 pub mod cone;
 pub mod cursor;
 pub mod diff;
+pub mod histogram;
 pub mod odf;
 pub mod ooxml;
 pub mod print;

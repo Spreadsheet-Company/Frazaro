@@ -1,0 +1,23 @@
+# The edges of the rules Excel's save of the subset fixture corrected (KERNEL.7, 2026-10-08): a number's General
+# spelling at the exponents where fixed turns scientific, and a text read through a reference in a logical test.
+# Built by frazaro into edges.xlsx (no cached values); an Excel 365 save of it beside, edges_saved.xlsx, witnesses them.
+
+Put "TRUE" into cell A1.
+Put "false" into cell A2.
+Put "1" into cell A3.
+Put formula "=10^14&""""" into cell C1.
+Put formula "=10^15&""""" into cell C2.
+Put formula "=10^15-1&""""" into cell C3.
+Put formula "=2^57&""""" into cell C4.
+Put formula "=10^-14&""""" into cell C5.
+Put formula "=10^-15&""""" into cell C6.
+Put formula "=1/3*10^-5&""""" into cell C7.
+Put formula "=1/3*10^-10&""""" into cell C8.
+Put formula "=-0.0000001&""""" into cell C9.
+Put formula "=1/7*10^6&""""" into cell C10.
+Put formula "=2^0.5&""""" into cell C11.
+Put formula "=NOT(A1)" into cell C12.
+Put formula "=IFS(A1,1,TRUE,2)" into cell C13.
+Put formula "=IF(A2,1,2)" into cell C14.
+Put formula "=IF(A3,1,2)" into cell C15.
+Put formula "=OR(A1)" into cell C16.

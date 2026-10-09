@@ -18242,6 +18242,221 @@ renderer benchmark, is recorded under its own entry below.
   `diff.rs` is the substrate. *Oracle:* merge goldens including a conflict.
   `~weeks`
 
+**`KERNEL.7`, recalculation, slice 1: the scoping and the build, 2026-10-08.**
+Taken up at the owner's word, on the Alonzo session's reading that the step
+that matters most for the engine is in Frazaro's tree: `KERNEL.7` in the
+language crate with `Alonzo/SPEC.md` §13's list as its brief, then the
+handle and the four calls, then the crate's first publish. `KERNEL.6`, the
+instrument the house orders before it, needs two things this evening could
+not give: real workbooks under the owner's hands and fixtures saved by Excel
+365; so the slice built what needs neither (the mechanism, the language's
+functions, the door, the oracle over the fixtures the repository already
+holds, and `KERNEL.6`'s histogram as a door's mode) and left what needs
+Excel as a ten-minute step for the owner, written below. The brief, as
+read: the roadmap entry; the dated note of 2026-10-08 that the mechanism
+lands in `vla-lang` and Excel's functions register from `frazaro-core`;
+`Alonzo/SPEC.md` §2 (the acyclic rule, the step), §4.4, §4.5 and decision
+14 (the `value` row), §13 (the day-one functions); `Alonzo/docs/ALGEBRA.md`
+§3 and §7 (the "SPEC.2 amendments": the floating-point policy to be written
+before the oracle, and which crate holds what); CALLOSUM §7 decision 3 and
+§8 slice 2.
+
+**The decisions, each with the recommendation the build took and the
+alternative it declined.** The owner was away; each is reversible by one
+sentence and is written here so that the choice is visible.
+
+1. **Where the functions live: the language's day-one list in `vla-lang`,
+Excel's library in `frazaro-core`, through one seam.** The roadmap's note
+says the mechanism lands in the language and "Excel's fifteen functions
+register through that seam from `frazaro-core`"; `SPEC.md` §13 says the
+engine needs `IF`, `AND`, `OR`, `NOT`, `SUM`, `MIN`, `MAX`, `ABS`, `INT`,
+`MOD`, `ROW`, `COLUMN`, `CHOOSE` and `SIN` on day one, and `AD-1` says the
+engine never depends on `frazaro-core`. Both hold at once only if the
+language registers those fourteen itself: `vla_lang::calc::library::language()`,
+held by exact tests, no tolerance (`ALGEBRA.md` §7 crack 1), and the core's
+`excel::library()` adds Excel's by measurement over the same `Library`. A
+function the engine comes to need moves down with its tests, one line.
+*Alternative:* everything in the core, which leaves a cartridge no `SUM`;
+or everything in the language, which tangles dates, text and lookups into
+the engine's crate. Recommended and built: the split by the owner's own
+list.
+2. **The subset tonight: measured where a measurement exists, and the
+rule kept.** `KERNEL.6`'s rule is a fixture and a measured frequency, never
+taste. The measurement the roadmap cites was fetched and read (Jansen and
+Hermans, "Enron versus EUSES", 2015, Table IV: the Enron fifteen, SUM, IF,
+AVERAGE, VLOOKUP, ROUND, SUBTOTAL, OFFSET, CONCATENATE, NOW, DAVERAGE,
+SUMIF, INDEX, MATCH, LOOKUP, MONTH, covering 69% of that corpus's
+spreadsheets; the EUSES fifteen, SUM, IF, ROUND, HYPERLINK, CONCATENATE,
+AND, COUNTIF, AVERAGE, OR, INDIRECT, MIN, ISNUMBER, MAX, VLOOKUP, ISBLANK,
+70%). Of those, the arithmetic and logic over values enter now (`AVERAGE`,
+`ROUND`, `SUMIF`, `COUNTIF`, `ISNUMBER`, `ISBLANK`, with `IF`, `SUM`, `AND`,
+`OR`, `MIN`, `MAX` already the language's); the lookups, the database
+functions, the dates and the text functions are `KERNEL.8`'s and show the
+label; `IFS` enters on the one Excel-saved fixture the repository holds.
+Each function's evidence is a row of `excel::SUBSET`, pinned equal to the
+library by a test. *The fixture half:* `scripts/recalc/subset.txt`, one
+formula per function and per coercion claimed (106 formulas over three
+sheets), built by the door into `subset.xlsx`; its cached values became
+Excel's the same evening, when the owner saved it beside as
+`subset_saved.xlsx`, and the three rows Excel read differently were
+corrected with the fixture in hand (below, the oracle). *Alternative:* compute nothing
+until each fixture is saved, which leaves `frazaro calc` printing `not
+computed here` for `SUM` on every real model until then; declined, since
+the rule's purpose is which functions are built, the owner's list and the
+corpora decide that, and the oracle's purpose is to catch a wrong rule,
+which the saved fixture will. Note on the citation: CALLOSUM §7 decision 3
+quotes "76%" from Hermans and Murphy-Hill; the paper at the arXiv number
+CALLOSUM cites is Jansen and Hermans and says 69% and 70%; the owner may
+want to reconcile the two.
+3. **A sixth seam, `functions`.** The roadmap's note calls the registry "a
+seam"; the kernel's seams are data (`kernel::SEAMS`) with an entrance and an
+oracle each, and a function registered with its host-saved fixture is
+exactly that: so `SEAMS` has six, `CONTRIBUTING.md`'s table a sixth row,
+`MAINTAINERS.md` the paths. *Alternative:* a feature of the engines seam;
+declined, since engines are tables in and a table out under a head-table
+symbol, and a function is a value in and a value out under a formula's name.
+4. **The `value` row joins the view record now, for `frazaro view` too.**
+`SPEC.md` decision 14, approved by the owner, names this item as oracle 11's
+amender. `frazaro view` recalculates the built model under Excel's library
+and prints `(value ...)` after each formula row; a program built without
+its model shows `#REF!` and `#NAME?` where its sheets and names are missing,
+which is the truth of the model as viewed (`into_checks.vla`). The bare
+`view_text` prints none, which is a grid before its first step. The six
+goldens regenerated, the floors rose. *Alternative:* leave the row to the
+handle item; declined, since the owner approved the decision naming this
+item, and the viewport in Alonzo can show values the day the page consumes
+it.
+5. **A cycle, an unreadable reference and a function outside the subset
+are a cell's outcome in `frazaro calc`, and a refusal only in the engine's
+`load`.** The roadmap says "refused by name"; on a real workbook with one
+`INDIRECT` among four thousand formulas a whole-file refusal would make
+the door useless and contradict the honest label the same entry asks for.
+So the door prints the label in the cell's row (`(not-computed
+"INDIRECT")`, `(not-computed cycle)`, the cycle's cells in a `cycle` row
+first) and exits 0, and the language exposes `Calc::first_refusal`, which
+the engine's `load` asks once: `calc-cycle` naming the cells, else
+`calc-function-not-computed` naming the function and its cell. Both ids
+minted under `VLA-Calc` in the language's half of the catalogue, a fifth
+family, `calc`.
+6. **The tolerance, written before the oracle.** Fifteen significant
+digits for a number, Excel's documented precision; exact for texts, truth
+values and errors; a date, a non-finite number text and an error outside
+the seven are `unchecked`; negative zero spelled `0`. The language's own
+tests carry none. *Alternative:* bit equality, which `ALGEBRA.md` §7 crack 1
+shows Excel's own arithmetic breaks in the last place.
+7. **Oracle 12 is the calc golden.** PORT.12's scoping forecast "oracle 12"
+for the expansion golden, not yet written; numbers go by order of
+amendment, so the expansion golden takes 13 when it lands, and the
+forecast's number is the only thing that moves.
+8. **A range where one value is wanted is not computed, named as written.**
+`=B1:B2*2` is implicit intersection in a legacy formula and a spill in a
+dynamic one, and the reader's rows do not tell the two apart; a wrong
+`#VALUE!` would be a claim, the label is not. `KERNEL.8` takes it with `@`.
+9. **A text read through a reference, in a logical test, is coerced as a
+typed one is.** Built first the other way, from memory: `IF(A1,1,2)`
+refusing the text `TRUE` found in a cell while coercing a typed one, with
+the case in the subset's fixture for Excel to settle. Excel settled it the
+same evening: `IF(A6,1,2)` over the text `TRUE` is 1 (`logic!C6`), over the
+text `x` `#VALUE!` (`logic!C3`), so `Ctx::truth` now coerces both, and
+`AND` and `OR` still read a reference as a range that skips its texts, which
+Excel agrees with (`logic!C13`). `NOT` and `IFS` follow `IF`'s rule, held
+by the edges fixture until Excel witnesses them.
+
+**What landed.** `vla-lang/src/calc/` (value.rs: the five kinds, the seven
+errors, Excel's coercions and General spelling, the agreement; formula.rs:
+the tokenizer splicing `refers::scan`'s records by position, Excel's
+precedence, the constructs not read each named as written, `calls` for the
+histogram; graph.rs: areas, names with their scope, the edges from
+`refers`, an iterative Tarjan over a chain two hundred thousand deep, the
+plan; eval.rs: `Env`, `Ctx`, `Arg`, the `Library` seam with strict
+functions and forms, the operators, Excel's order of kinds in a
+comparison; library.rs: the fourteen; mod.rs: `Calc` with `new`, `step`
+with a budget in cells, `run`, `restart`, `computed`, `cycles`,
+`missing_functions`, `first_refusal`, `spell_cell`); `sheet.rs` gains
+`Content::Error` and the shared-formula helpers the view and the evaluator
+share; `view.rs`'s `Grid` takes an optional `Calc` and `view_text_valued`
+prints the `value` row. The core: `excel.rs` (the library and `SUBSET`,
+the criteria of `SUMIF` and `COUNTIF` with Excel's wildcards, `ROUND`
+pre-rounded to fifteen digits so `ROUND(2.675, 2)` is 2.68 as Excel has
+it), `reflect/calc.rs` (the sink that reads a file's rows into the grid
+with the cached values beside, the `calc` rows, the counts), `reflect/
+histogram.rs` (`--functions`), `api::calc_rows`, `api::function_histogram`,
+`english_view` valued, `kernel::SEAMS` at six; the door's `calc` and
+`reflect --functions`; the catalogue's two ids in `VLA_Messages.bas`
+(version `KERNEL.7`), exported, the language's half at 178; the fixtures
+and goldens under `scripts/recalc/` (seven: the four the repository held,
+the subset's fixture, the owner's Excel save of it and the edges fixture;
+296 rows) and the six view goldens regenerated; `tools/check_recalc_golden.ps1`, the 52nd check at HEAD (the 53rd in a tree that
+holds `KERNEL.3`'s uncommitted one), with
+its control; the view check's `value` rule and floors; `prove.ps1`'s
+eleventh kind; the CI step; the ignore rule; this record, the treaty's
+amendment, the roadmap, the release note, the crate pages, the seams
+pages, the map, the memory.
+
+**The oracle, measured 2026-10-08.** `cargo test --workspace` 268 passed,
+4 ignored (core 178, language 90), clippy and fmt clean; `run_checks.ps1`
+53 of 53 in the shared tree and 52 of 52 in the commit's own; the recalc check's control OK; `prove.ps1 -Impl` 46 passed, 0
+failed, 2 not attempted, 1 library, and its control passing the fake and
+failing the mutant on every attempted row; the Excel-saved fixture 5 of 5
+`agree`; the reader's fixture 23 computed and agreeing, 6 named; its ODF
+twin 24 and 5; the four study workbooks 176 of 176 agreeing with the
+PowerShell evaluator that wrote their cached values, none differing. The
+engine's half: a step chunked by any budget computes the same frame as one
+with none (a test); a cell reading itself through a `.last` twin is no
+cycle (a test).
+
+**Excel's verdict on the subset, the owner's save, the same evening.**
+`scripts/recalc/subset_saved.xlsx`, the subset's fixture as Excel 365
+saved it: 99 `agree`, 3 `differ` and 4 not computed at first. The three
+were two rules the build had wrong. A number's General spelling: Excel
+spells `0.0000001&""` fixed and `10^20&""` as `1E+20`, where the build had
+taken JavaScript's thresholds (fixed from 1E-6 to below 1E21); the rule now
+writes fixed while the decimal exponent is between -14 and 14 and
+scientific outside, the boundaries of LibreOffice's automatic number format
+(`nExp <= -15 || nExp >= 15`, `sal/rtl/strtmpl.hxx`, read 2026-10-08),
+which both measured points agree with and Excel has not yet witnessed at
+the edges. And decision 9's logical test, reversed above. Corrected the
+same hour: 102 `agree`, none differing; the four not computed are `VLOOKUP`,
+`CONCATENATE`, the cell reading `VLOOKUP`, and `IF(A1>5,A1:A2,0)`, the range
+where one value is wanted, which Excel answered `#VALUE!` by implicit
+intersection, `KERNEL.8`'s. The saved file is oracle 12's sixth row, pinned
+at no `differ` with 102 `agree` as a floor. `scripts/recalc/edges.txt`, 16
+formulas built into `edges.xlsx`, holds the boundaries the correction chose
+(1E14, 1E15, 1E15 less one, 2^57, 1E-14, 1E-15, a third of 1E-5 and of
+1E-10 with fifteen digits, a negative 1E-7, 1/7 of a million, the square
+root of two) and the logical test's neighbours (`NOT` and `IFS` over the
+text `TRUE`, `IF` over the text `false` and the text `1`, `OR` over the
+text `TRUE`), every row `unchecked` until an Excel save of it,
+`edges_saved.xlsx`, joins the check at no `differ`.
+
+**The catch, found.** Rust's empty `f64` sum is negative zero, which
+spelled `-0` in a cell until `finite` and the spelling normalized it; a
+`VLOOKUP` over a range that includes its own cell is a cycle before it is
+a missing function, which a test had to learn; the scanner reads `ROW ()`
+with a space as a name, as the reference does, so the parser follows it; a
+PowerShell `-replace` is case-insensitive, which rewrote the control fake's
+own variable; and `cargo test --workspace` without `--no-fail-fast` stops
+at the first crate that fails, so the language's green was invisible until
+asked for. And Excel's loader repairs away a formula holding a numeric
+literal above 9.99999999999999E307, its typed-constant limit, though a
+formula may compute up to 1.797E308: the subset's first build drew the
+repair dialog, eleven probe workbooks the owner opened in one go named
+`1E308` alone (a bare `TRUE` formula, an empty argument, `0^-1`, `+"5"`,
+`50%`, dynamic `CHOOSE`, the 3D reference and a 140-row Frazaro sheet all
+opened clean), and the overflow case now reads `=1E307*100`; a writer's
+refusal of such a literal, as Excel refuses it at entry, is a one-line
+candidate for the formula sink.
+
+**Deferred by name.** The edges fixture's Excel save (`edges.xlsx` saved
+beside as `edges_saved.xlsx`, one row in the check and the runner, pinned at
+no `differ`); `KERNEL.6`'s other half (a real model through `reflect
+--functions`, the numbers into CALLOSUM as a dated measurement); `KERNEL.8` (dates, text, lookups, spills,
+`@`, `LET`, `LAMBDA`, and the Enron names this slice labels); the handle
+and the four calls with the `.last` snapshot and the plane (the item after
+`PORT.12`, which `Calc::step` now serves); `frazaro_calc` on the C surface
+(not asked for; the ABI number stays 1); `KERNEL.20`'s speed; `SD-38`'s
+register line, at the owner's blessing; the expansion golden as oracle 13.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -31223,6 +31438,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.1 — the boundary and the seams: what the kernel is, and the five ways in.** Written down and pinned: the kernel holds forms and their expansion, the emitters, the sheet model, recalculation over a declared subset, the relation set and the ABI, and never holds English, message text, a default, chrome, a format beyond a trait or a door. Five seams are the only entrances: sentences (a phrasebook with proofs), paragraphs (a library, `G-USE`), engines (tables in, a table out, a head-table row, a proof-file kind), formats and hosts (the `Source` trait, a `Sink` beside it, a host profile per door), projections (a pure function from model and window to a record). The rule: the kernel grows a seam, never a feature. A section per seam in `CONTRIBUTING.md` names the oracle a change must pass, and `check_kernel_boundary.ps1` pins the data-only rule (no sentence rule, no message text, no default in `core/src/`; the counts are floors). *Serves:* every item below. `~days` Built, owner-tested and committed 2026-10-06; the entry above carries the record: `core/src/kernel.rs`, `tools/check_kernel_boundary.ps1` with its control, `CONTRIBUTING.md`'s seams section, `MAINTAINERS.md`, the runner's floor at 48.
 - ✅ **KERNEL.4 — the view record: the first projection.** `frazaro view <program.txt> --sheet <name> [--window <A1:F20>]` and `frazaro_view` in the ABI: the program built into the sheet model in memory, nothing written, and one window of one sheet printed as the lines a viewport draws from: every sheet, the window, the extent, gridlines, the window's columns and formats, then each cell in row order as `reflect`'s own `cell` or `formula` row with its `style` row and its `sentence` row, the row of the sentence that wrote it. `view::Grid` is `kernel::Projection`'s first implementation; the walker records the row that wrote each cell in the model (`Sheet.sentences`), so the view is drawn from the model alone (CALLOSUM §7, decisions 1 and 2). Six goldens under `scripts/view/`, oracle 11 in the treaty, `check_view_golden.ps1` (the 50th check, with its control), `prove.ps1`'s ninth kind, two catalogue refusals under `VLA-View`; the free oracle holds for both build fixtures, the view of each sheet whole being `reflect` of the written file row for row. Built, owner-tested and committed 2026-10-07; the entry above carries the record. Deferred by name: `--into` to `KERNEL.11`, a projection chosen by name to `KERNEL.12`, the page's viewport to `KERNEL.5` after `KERNEL.3`. `~days`, taken in a day.
 - ✅ **KERNEL.2 — the distro folder: the unit the build tools take.** An edition of Frazaro beyond the engine is one folder with one manifest, `distros/<name>/distro.vla`, naming by reference the prelude, the base phrasebook, an overlay, the dialects, the libraries, the examples, the add-in's file name and the page's title, tagline, opening sentence and palette; `distros/english` is the edition the doors ship and `distros/espanol` the add-in's Spanish edition as it shipped. Three readers take the one file: `tools/build_web.ps1` bakes it into the page (`-Distro`, `-Template`), `frazaro prove <folder>` proves it whole through `core/src/distro.rs` (english `PASS 632/632`, espanol `PASS 662/662`), and `VlaBuildAddin` reads each edition's chain, file name and override name from its folder, the hand-written tables gone. `check_distro.ps1`, the 51st check, holds every manifest to one shape and the readers to one another; `check_web_offline.ps1` holds the picker's places to the distro's dialects; `prove.ps1` gained the kind; two catalogue refusals under `VLA-Distro`. The oracle held: the page built from the distro is byte for byte the page built before. Built 2026-10-07, owner-tested and committed 2026-10-08; the entry above carries the record. Deferred by name: the picker's labels and the add-in's chrome to `EDITION-CHROME`, `Use` lines to `G-USE`, `describe` to `KERNEL.18`. `~days`, taken in a day.
+- ✅ **KERNEL.7 — recalculation, slice 1: the declared subset's floor.** A workbook's formulas computed in dependency order and held to the values Excel saved. The mechanism is the language's (`vla-lang/src/calc/`, by the three-crate order of `PORT.12`): a parser for operators and calls over the reference scanner, the dependency graph from `refers`, an iterative Tarjan for the order and the cycles, evaluation with a budget in cells that yields and resumes, Excel's seven error values as a value kind, and a `Library` seam with the fourteen functions `Alonzo/SPEC.md` §13 names for a cartridge's first rules. Excel's library registers through the seam from `frazaro-core` as the declared subset, twenty-one functions each with its evidence (the Enron and EUSES tables of Jansen and Hermans, 2015; `IFS` on `saved.xlsx`); a function outside it shows `not computed here` with its name, and a cell that reads it inherits the label. `frazaro calc <file> [--counts]` prints each formula cell's computed value beside the value the host saved, with agree, differ or unchecked; `frazaro reflect --functions` is `KERNEL.6`'s histogram; the view record carries a `value` row after each formula row (`SPEC.md` decision 14); the kernel's sixth seam is `functions`; two refusals for an engine's load under `VLA-Calc`. Oracle 12 in the treaty over seven fixtures, `check_recalc_golden.ps1` (the 52nd check at this commit, with its control), `prove.ps1`'s eleventh kind. The owner's Excel 365 save of the subset fixture agreed on all 102 formulas the subset computes, after correcting two of the build's rules the same evening, a number's General spelling and a text `TRUE` read through a reference in `IF`. Built 2026-10-08, owner-tested and committed 2026-10-09; the entry above carries the record. Deferred by name: the lookups, `SUBTOTAL`, `DAVERAGE`, `CONCATENATE`, `MONTH` and implicit intersection to `KERNEL.8`; the handle and the four calls to the item after `PORT.12`; speed to `KERNEL.20`; the edges fixture's Excel save. `~weeks`, taken in a day.
 
 ## 🛡 ADVERSARY · SECURITY
 

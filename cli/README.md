@@ -449,6 +449,14 @@ took to read, then one line for the workbook with its totals, names, Tables,
 links to other workbooks and strings. This is for measuring a model whose
 contents must not leave the machine; the lines can be pasted anywhere.
 
+With `--functions`, one row per function the formulas call, most called
+first, `(function "SUM" 1365)`, the number being the formula cells calling
+it (a cell calling `SUM` twice counts once); counts alone, nothing of the
+workbook's contents, so it can be run over anyone's models. This is the
+instrument the recalculation subset grows by (KERNEL.6): a function enters
+the subset `calc` computes with its measured frequency and a fixture, never
+by taste.
+
 With `--cone Sheet!A1`, once or more, a cell's cone is sized through the
 file, one line a root with counts alone: the cells reached through every
 reference, through names and Tables and across sheets, how many of them hold
@@ -600,14 +608,19 @@ prints
 (cell "Output" "B2" 5)
 (sentence "Output" "B2" 1)
 (formula "Output" "C2" "=B2+B3")
+(value "Output" "C2" 15)
 (sentence "Output" "C2" 3)
 (formula "Output" "D2" "=IFS(B2>3,\"big\",TRUE,\"small\")")
+(value "Output" "D2" "big")
 (sentence "Output" "D2" 4)
 (formula "Output" "B3" "=B2*2")
+(value "Output" "B3" 10)
 (sentence "Output" "B3" 2)
 (formula "Output" "C3" "=B3+B4")
+(value "Output" "C3" 10)
 (sentence "Output" "C3" 3)
 (formula "Output" "C4" "=B4+B5")
+(value "Output" "C4" 0)
 (sentence "Output" "C4" 3)
 ```
 
@@ -623,15 +636,22 @@ column A is hidden and its columns B and C are wide and coloured; a
 six hex digits or `none`, `general` or `text`, `wrap` or `nowrap`); then
 the cells in row order, each as `reflect` prints the same cell of the
 written file, a `cell` row for a value or a `formula` row for a formula's
-text, followed by its `style` row when its format is not 0 and its
-`sentence` row, the row of the sentence that wrote it, which is the
+text, followed by its `value` row for a formula (KERNEL.7), its `style`
+row when its format is not 0 and its `sentence` row, the row of the
+sentence that wrote it, which is the
 program's line and the row of the `Frazaro` sheet that holds the sentence.
 So `B1` holds 7 because of line 8, `Put 7 into cell B1 of sheet Output.`,
 and `C2`, `C3` and `C4` hold the one filled formula of line 3, each with
 its references moved as Excel shows them. A `cell` row is a value the
 sentences put there; a `formula` row is text the host computes when the
-file opens, since the core computes nothing, and the record never shows
-one as the other.
+file opens, and the record never shows one as the other. Since
+recalculation landed (KERNEL.7) each formula row is followed by its
+`value` row, the formula's value as the declared subset computes it,
+spelled as a `cell` row's value is, or `(not-computed "<name>")` for a
+formula that calls a function outside the subset, naming it, so a viewport
+can show the value or the honest label; a program viewed without the model
+its formulas read shows `#REF!` and `#NAME?` where the sheets and names are
+missing, as Excel would.
 
 Without `--window` the sheet's whole extent is shown: `frazaro view
 hello.txt --sheet Frazaro` prints the room, both columns with their widths
@@ -647,6 +667,58 @@ does (`view-sheet-unknown`); a window that is not a rectangle of cells, a
 whole column or row included (`view-window-not-a-range`); and before
 those, the translation's and the build's refusals, as in `build`. A
 missing `--sheet` is a usage error, exit 2.
+
+### `frazaro calc`
+
+```text
+frazaro calc <file.xlsx|.ods> [--counts]
+```
+
+Recalculation (KERNEL.7): the workbook is read as `reflect` reads it into
+the grid, every formula is computed in dependency order, and one row per
+formula cell is printed, the sheet, the cell, the formula, the value
+computed, the value the file holds, and a verdict, sheet by sheet in row
+order, every cycle named first by its cells:
+
+```text
+frazaro calc scripts\reflect\saved.xlsx
+```
+
+prints
+
+```text
+(calc "Output" "C2" "=B2+B3" 15 15 agree)
+(calc "Output" "D2" "=IFS(B2>3,\"big\",TRUE,\"small\")" "big" "big" agree)
+(calc "Output" "B3" "=B2*2" 10 10 agree)
+(calc "Output" "C3" "=B3+B4" 10 10 agree)
+(calc "Output" "C4" "=B4+B5" 0 0 agree)
+```
+
+The verdict is `agree` when the computed value and the saved one are the
+same, two numbers to fifteen significant digits, the precision Excel
+documents for its arithmetic, and texts, truth values and errors exactly;
+`differ` when both exist and are not; `unchecked` when there is nothing to
+compare: a file with no saved values (one `build` wrote, which prints
+`none`), or a formula that was not computed. The subset computed is chosen
+by measurement, never by taste: the functions the two public spreadsheet
+corpora use most that are arithmetic and logic over values (`IF`, `SUM`,
+`AVERAGE`, `ROUND`, `SUMIF`, `COUNTIF`, `AND`, `OR`, `MIN`, `MAX`,
+`ISNUMBER`, `ISBLANK`), the ones a game's rule needs on day one (`NOT`,
+`ABS`, `INT`, `MOD`, `ROW`, `COLUMN`, `CHOOSE`, `SIN`), `IFS` on its
+fixture, the comparisons, the arithmetic, `&` and `%`, with Excel's
+coercions and its seven error values. A formula that calls anything else
+shows `(not-computed "VLOOKUP")` with the function named, a cell that
+reads it inherits the label, and a reference this version does not read
+(a link into another workbook, a structured reference, a spill, an array
+constant, a range where one value is wanted) is named as written; a cell
+in a cycle shows `(not-computed cycle)` and the cycle's cells come first as
+`(cycle "Sheet!A1" "Sheet!B1")`. Nothing is ever claimed that was not
+computed. Exit 0 whenever the calculation ran, agree or differ.
+
+With `--counts`, one line of counts and times alone: formulas, computed,
+not computed, cycles, agree, differ, unchecked, so that a model whose
+contents must not leave the machine can still say how far the subset
+reaches into it. Refusals, exit 1: the reader's, as in `reflect`.
 
 ### `frazaro load`
 

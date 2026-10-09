@@ -11,10 +11,11 @@ anything is emitted or built. This crate is that language alone: the reader
 and the printer of its forms, the macro expander, the head table that names
 the core forms, the refusal catalogue's mechanism with the language's own
 refusals, the sheet model with its A1 coordinates and the references read
-out of a formula's text, and the view record, one window of a sheet as the
-lines a viewport draws from. No English, no file format, no evaluator yet,
-no clock, and no dependency. Built for WebAssembly, the module's import
-section is empty.
+out of a formula's text, the view record, one window of a sheet as the
+lines a viewport draws from, and recalculation's mechanism, the formulas
+of a grid computed in dependency order with a budget in cells. No English,
+no file format, no clock, and no dependency. Built for WebAssembly, the
+module's import section is empty.
 
 [`frazaro-core`](https://crates.io/crates/frazaro-core) stands on this crate
 and adds the bridges: the English engine with a proof per sentence, the VBA
@@ -57,7 +58,24 @@ refused in the same words.
   sheet, the window and the sheet's extent, its columns and formats, then
   each cell's value or formula, its format and the row of the sentence that
   wrote it. It is the first implementation of `projection::Projection`, the
-  seam a second projection enters by.
+  seam a second projection enters by. `view::view_text_valued` prints the
+  same record with each formula's computed value after it.
+- **Computes the grid.** `calc::Calc::new` reads every formula off a
+  `Workbook`, builds the dependency graph from the references and finds the
+  order, naming every cycle; `Calc::step` evaluates the next cells of that
+  order up to a budget in cells and says how far it got, so an engine can
+  run a grid at a frame rate and yield; `Calc::run` evaluates everything.
+  The parser reads Excel's operators and calls over the reference scanner,
+  with Excel's precedence and coercions and its seven error values as a
+  value kind. Functions enter through `calc::Library`, the seam: the
+  language registers the fourteen a game's rule needs on day one (`IF`,
+  `AND`, `OR`, `NOT`, `SUM`, `MIN`, `MAX`, `ABS`, `INT`, `MOD`, `ROW`,
+  `COLUMN`, `CHOOSE`, `SIN`), and a crate above registers more, as
+  `frazaro-core` registers Excel's library by measurement. A formula that
+  calls anything else is not computed, and says so naming the function; a
+  cell that reads it inherits the label. `Calc::first_refusal` is what an
+  engine's load asks: a cycle, or a function outside the library, each
+  refused by name from the catalogue.
 - **Refuses in words.** Every refusal is a `messages::Refusal`, a value
   carrying the catalogue's id, number, source and text, never a panic.
 
@@ -111,11 +129,10 @@ language.
 Each is an item of the repository's roadmap (`docs/BETA_ROADMAP.md`), and
 this page gains its section when the item closes:
 
-- **Recalculation's mechanism.** The dependency graph over a grid, the
-  topological order, a cycle refused by name, Excel's error values, and a
-  registry seam through which `frazaro-core` registers Excel's functions
-  (KERNEL.7); the vectorized evaluation of a shared formula after it
-  (KERNEL.20).
+- **Recalculation's next slices.** Dates, the text functions, the lookups,
+  dynamic arrays and spills, implicit intersection and `@` (KERNEL.8); the
+  vectorized evaluation of a shared formula, incremental recomputation and
+  content-addressed evaluation (KERNEL.20). The first slice is here.
 - **The engine's door.** A loaded grid kept between calls under a handle,
   with four calls, load, write, step and view, the previous frame as a
   read-only twin of every sheet, and a second projection, the plane, so a

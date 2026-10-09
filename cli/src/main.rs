@@ -63,7 +63,7 @@ usage:
                          the files given, the build done again and compared
                          whole: one line, yes (exit 0) or no with why (exit
                          1); a file that is not a build is refused (slice 7c)
-  frazaro reflect <file.xlsx|.ods> [--counts] [--cone <Sheet!A1> ...]
+  frazaro reflect <file.xlsx|.ods> [--counts] [--functions] [--cone <Sheet!A1> ...]
                          the reader (PORT.8, slices 8a and 8b; an
                          OpenDocument .ods file reads the same from slice
                          8e, its formulas spelled as the formula bar shows
@@ -80,7 +80,10 @@ usage:
                          among them, so that nothing confidential leaves the
                          machine; with --cone, a cell's cone sized through
                          names and Tables and across sheets, counts alone,
-                         and where it is blind; a file that is not a
+                         and where it is blind; with --functions, one row
+                         per function the formulas call with the number of
+                         cells calling it, most called first, counts alone
+                         (KERNEL.6's instrument); a file that is not a
                          workbook, a part with a DOCTYPE, or a shape this
                          version does not read is refused by name
   frazaro diff <old.xlsx|.ods> <new.xlsx|.ods> [--counts]
@@ -102,7 +105,19 @@ usage:
                          line in a fixed order, nothing when there is
                          nothing to report; with --counts, the six counts
                          and the times alone
-  frazaro view <program.txt> --sheet <name> [--window <A1:F20>] [--prelude <prelude.vla>] [--phrasebook <file.vla> ...] [--allow-raw]
+  frazaro calc <file.xlsx|.ods> [--counts]
+                         recalculation (KERNEL.7): the workbook read as
+                         reflect reads it into the grid, every formula
+                         computed in dependency order under the declared
+                         subset, and one row per formula cell - the sheet,
+                         the cell, the formula, the computed value, the
+                         value the host saved, and agree, differ or
+                         unchecked - sheet by sheet in row order, every
+                         cycle named first by its cells; a function this
+                         version does not compute shows not computed here
+                         with its name, and a cell that reads it inherits
+                         the label; with --counts, the counts and times
+                         alone; exit 0 whenever the calculation ran
                          the view record (KERNEL.4): the program translated
                          and built as build builds it, into the sheet model
                          alone with nothing written, and one window of one
@@ -110,7 +125,9 @@ usage:
                          every sheet, the window, the sheet's extent and
                          gridlines, the window's columns and formats, then
                          cell by cell in row order the value or the formula
-                         as reflect spells it, the cell's format and the row
+                         as reflect spells it, each formula followed by its
+                         computed value (KERNEL.7) or not computed here with
+                         the function named, the cell's format and the row
                          of the sentence that wrote it; without --window,
                          the sheet's whole extent; a sheet the program does
                          not make, or a window that is not a rectangle of
@@ -862,7 +879,14 @@ fn view(args: &[String]) -> ExitCode {
             return ExitCode::from(1);
         }
     };
-    print!("{}", frazaro_core::view::view_text(&model, &window));
+    // KERNEL.7: the model recalculated under Excel's library, so each
+    // formula row carries its value row.
+    let library = frazaro_core::excel::library();
+    let calc = frazaro_core::calc::Calc::run(&model, &library);
+    print!(
+        "{}",
+        frazaro_core::view::view_text_valued(&model, &window, &calc)
+    );
     ExitCode::SUCCESS
 }
 
@@ -886,12 +910,13 @@ fn ms_since(since: std::time::Instant) -> f64 {
 /// rows printed before it stand, since the read streams.
 fn reflect(args: &[String]) -> ExitCode {
     const USAGE_LINE: &str =
-        "usage: frazaro reflect <file.xlsx|.ods> [--counts] [--cone <Sheet!A1> ...]";
+        "usage: frazaro reflect <file.xlsx|.ods> [--counts] [--functions] [--cone <Sheet!A1> ...]";
     let Some(file) = args.first() else {
         eprintln!("{USAGE_LINE}");
         return ExitCode::from(2);
     };
     let counts = args.iter().any(|a| a == "--counts");
+    let functions = args.iter().any(|a| a == "--functions");
     let mut cones: Vec<String> = Vec::new();
     let mut at = 1;
     while at < args.len() {
@@ -927,6 +952,19 @@ fn reflect(args: &[String]) -> ExitCode {
         }
     };
     let open_ms = ms_since(opened);
+    if functions {
+        // KERNEL.6's instrument (built with KERNEL.7): the functions the
+        // formulas call, each the number of cells calling it, counts alone.
+        let mut histogram = frazaro_core::reflect::histogram::Histogram::default();
+        for i in 0..package.sheets().len() {
+            if let Err(refusal) = package.walk_sheet(i, &mut histogram) {
+                eprintln!("{refusal}");
+                return ExitCode::from(1);
+            }
+        }
+        print!("{}", histogram.text());
+        return ExitCode::SUCCESS;
+    }
     if counts {
         let (mut cells, mut formulas, mut arrays, mut unreadable, mut part_bytes) =
             (0u64, 0u64, 0u64, 0u64, 0usize);
@@ -1198,6 +1236,66 @@ fn audit(args: &[String]) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// `frazaro calc <file.xlsx|.ods> [--counts]` (KERNEL.7): the file read as
+/// `reflect` reads it into the grid, every formula computed by the
+/// language's evaluator under Excel's library (`frazaro_core::excel`), and
+/// one `calc` row per formula cell in the fixed order, the computed value
+/// against the host's cached one with the verdict, every cycle named first;
+/// with `--counts`, one line of counts and times. Exit 0 whenever the
+/// calculation ran, agree or differ; a refusal exits 1; a usage error or an
+/// unreadable file exits 2.
+fn calc(args: &[String]) -> ExitCode {
+    const USAGE_LINE: &str = "usage: frazaro calc <file.xlsx|.ods> [--counts]";
+    let mut file: Option<&str> = None;
+    let mut counts = false;
+    for a in args {
+        if a == "--counts" {
+            counts = true;
+        } else if a.starts_with("--") || file.is_some() {
+            eprintln!("{USAGE_LINE}");
+            return ExitCode::from(2);
+        } else {
+            file = Some(a);
+        }
+    }
+    let Some(file) = file else {
+        eprintln!("{USAGE_LINE}");
+        return ExitCode::from(2);
+    };
+    if !is_file(file) {
+        return refuse_missing("vla-file-not-found", file);
+    }
+    let bytes = match std::fs::read(file) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("frazaro: cannot read {file}: {e}");
+            return ExitCode::from(2);
+        }
+    };
+    let opened = std::time::Instant::now();
+    let collected = match frazaro_core::reflect::calc::collect(&bytes, file) {
+        Ok(c) => c,
+        Err(refusal) => {
+            eprintln!("{refusal}");
+            return ExitCode::from(1);
+        }
+    };
+    let read_ms = ms_since(opened);
+    let library = frazaro_core::excel::library();
+    let started = std::time::Instant::now();
+    let (rows, tally) = frazaro_core::reflect::calc::rows_of(&collected, &library);
+    if counts {
+        println!(
+            "calc: {} read {read_ms:.1} ms calc {:.1} ms",
+            tally.line(),
+            ms_since(started)
+        );
+        return ExitCode::SUCCESS;
+    }
+    print!("{rows}");
+    ExitCode::SUCCESS
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -1212,6 +1310,7 @@ fn main() -> ExitCode {
         Some("diff") => diff(&args[1..]),
         Some("audit") => audit(&args[1..]),
         Some("view") => view(&args[1..]),
+        Some("calc") => calc(&args[1..]),
         Some("version") | Some("--version") | Some("-V") => {
             let core = frazaro_core::version();
             let abi = frazaro_core::frazaro_abi_version();
