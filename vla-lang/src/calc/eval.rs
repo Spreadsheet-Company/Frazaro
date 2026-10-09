@@ -27,7 +27,7 @@ use crate::rows::quoted;
 use crate::sheet::Workbook;
 
 use super::formula::{self, BinOp, Expr, RefExpr};
-use super::graph::{areas_of, cells_in, Area, CellId, Extent};
+use super::graph::{areas_at, cells_in, Area, CellId, Extent};
 use super::value::{ErrorKind, Value};
 
 /// Why a cell was not computed: the honest static label, named.
@@ -78,6 +78,10 @@ pub enum Arg {
         areas: Vec<Area>,
         /// The reference as written, for a label.
         written: String,
+        /// The offset the reference was evaluated at (KERNEL.22, a shape at
+        /// a cell other than its first), by which the label's text is moved
+        /// before it is shown; (0, 0) everywhere else.
+        moved: (i64, i64),
     },
 }
 
@@ -179,14 +183,28 @@ pub struct Ctx<'a> {
     pub env: &'a dyn Env,
     pub lib: &'a Library,
     depth: Counter<u32>,
+    /// The offset of the cell being computed from the cell its formula was
+    /// read at: (0, 0) but in an engine's machine, which parses a shape once
+    /// and evaluates it at each of its cells (KERNEL.22).
+    offset: Counter<(i64, i64)>,
 }
 
 impl<'a> Ctx<'a> {
     pub fn new(env: &'a dyn Env, lib: &'a Library) -> Ctx<'a> {
+        Ctx::at(env, lib, 0, 0)
+    }
+
+    /// An evaluation of a formula read at another cell, `d_row` rows up and
+    /// `d_col` columns left of the cell being computed: every reference the
+    /// formula writes is moved by that much, as a filled formula's are, and
+    /// the references inside a defined name's text are not, since a name
+    /// does not move with the cell that reads it (KERNEL.22).
+    pub fn at(env: &'a dyn Env, lib: &'a Library, d_row: i64, d_col: i64) -> Ctx<'a> {
         Ctx {
             env,
             lib,
             depth: Counter::new(0),
+            offset: Counter::new((d_row, d_col)),
         }
     }
 
@@ -236,9 +254,17 @@ impl<'a> Ctx<'a> {
     pub fn one(&self, arg: &Arg) -> Result<Value, Reason> {
         match arg {
             Arg::Scalar(v) => Ok(v.clone()),
-            Arg::Area { areas, written } => match areas.as_slice() {
+            Arg::Area {
+                areas,
+                written,
+                moved,
+            } => match areas.as_slice() {
                 [a] if a.is_cell() => self.env.read((a.sheet, a.top, a.left)),
-                _ => Err(Reason::Construct(written.clone())),
+                _ if *moved == (0, 0) => Err(Reason::Construct(written.clone())),
+                // The label a moved text would show: the cell's own reference.
+                _ => Err(Reason::Construct(crate::refers::shift_a1_references(
+                    written, moved.0, moved.1,
+                ))),
             },
         }
     }
@@ -283,10 +309,12 @@ impl<'a> Ctx<'a> {
 
     fn reference(&self, r: &RefExpr) -> Result<Arg, Reason> {
         let home = self.env.here().0;
-        match areas_of(self.env.model(), home, r) {
+        let (d_row, d_col) = self.offset.get();
+        match areas_at(self.env.model(), home, r, d_row, d_col) {
             Ok(areas) => Ok(Arg::Area {
                 areas,
                 written: r.written.clone(),
+                moved: (d_row, d_col),
             }),
             Err(k) => Ok(Arg::Scalar(Value::Error(k))),
         }
@@ -309,9 +337,12 @@ impl<'a> Ctx<'a> {
             return Ok(Arg::Scalar(Value::Error(ErrorKind::Name)));
         }
         let parsed = formula::parse(text).map_err(Reason::Construct)?;
+        // A name's references are where the name says, whatever cell reads it.
+        let offset = self.offset.replace((0, 0));
         self.depth.set(self.depth.get() + 1);
         let result = self.eval(&parsed);
         self.depth.set(self.depth.get() - 1);
+        self.offset.set(offset);
         result
     }
 

@@ -50,14 +50,20 @@ jobs:
           cargo build --workspace
           cargo fmt --all -- --check
           cargo clippy --workspace --all-targets -- -D warnings
+          cargo clippy -p vla-lang --all-targets --features c-abi -- -D warnings
           cargo test --workspace
       - name: build the wasm core
         run: cargo build --release -p frazaro-core --target wasm32-unknown-unknown
-      - name: build the wasm language crate (PORT.12)
-        run: cargo build --release -p vla-lang --target wasm32-unknown-unknown
+      - name: build the wasm language crate, with the machine's C surface (PORT.12; KERNEL.22)
+        run: cargo build --release -p vla-lang --features c-abi --target wasm32-unknown-unknown
       - name: the core and the language import nothing (SD-13, read off both artifacts; PORT.12)
         shell: pwsh
         run: pwsh -NoProfile -File tools/check_core_imports.ps1
+      - name: the core and the language export exactly their lists (KERNEL.22)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File tools/check_wasm_exports.ps1
+          pwsh -NoProfile -File tools/check_wasm_exports.ps1 -Control
       - name: the conformance runner proves itself
         shell: pwsh
         run: pwsh -NoProfile -File tools/prove.ps1 -Control

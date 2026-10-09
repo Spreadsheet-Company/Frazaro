@@ -42,6 +42,28 @@ pub struct RefExpr {
     pub right: u32,
     /// The reference as written, for a label.
     pub written: String,
+    /// The reference's part as the scanner read it (a cell, a range, a
+    /// whole column or row) and its corners as written with their `$`
+    /// marks, which a move at an offset reads (KERNEL.22): the rectangle
+    /// above is these corners sorted.
+    pub shape: Shape,
+    pub corners: Corners,
+}
+
+/// A reference's corners as written, each number with its `$` mark, as
+/// `refers::FormulaRef` holds them (a cell's second corner 0): what
+/// [`RefExpr::moved`] moves, corner by corner, as
+/// `refers::shift_a1_references` moves the text.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Corners {
+    pub row1: u32,
+    pub col1: u32,
+    pub row2: u32,
+    pub col2: u32,
+    pub row_abs1: bool,
+    pub col_abs1: bool,
+    pub row_abs2: bool,
+    pub col_abs2: bool,
 }
 
 impl RefExpr {
@@ -49,6 +71,58 @@ impl RefExpr {
     pub fn is_cell(&self) -> bool {
         self.top == self.bottom && self.left == self.right && self.last_sheet.is_none()
     }
+
+    /// The rectangle this reference names in a cell `d_row` rows down and
+    /// `d_col` columns right of the cell whose formula it was read from: each
+    /// relative number moved and each `$` one kept, corner by corner as
+    /// written, then sorted, which is what parsing the text that
+    /// `refers::shift_a1_references` moves gives (KERNEL.22, a shape
+    /// evaluated at an offset); `None` when a corner leaves the sheet,
+    /// where the mover writes `#REF!`. At no offset it is the rectangle as
+    /// read.
+    pub fn moved(&self, d_row: i64, d_col: i64) -> Option<(u32, u32, u32, u32)> {
+        if d_row == 0 && d_col == 0 {
+            return Some((self.top, self.left, self.bottom, self.right));
+        }
+        let c = &self.corners;
+        let row = |n: u32, abs: bool| shifted(n, abs, d_row, MAX_ROW);
+        let col = |n: u32, abs: bool| shifted(n, abs, d_col, MAX_COLUMN);
+        match self.shape {
+            Shape::Cell => {
+                let k = col(c.col1, c.col_abs1)?;
+                let r = row(c.row1, c.row_abs1)?;
+                Some((r, k, r, k))
+            }
+            Shape::Range => {
+                let k1 = col(c.col1, c.col_abs1)?;
+                let r1 = row(c.row1, c.row_abs1)?;
+                let k2 = col(c.col2, c.col_abs2)?;
+                let r2 = row(c.row2, c.row_abs2)?;
+                Some((r1.min(r2), k1.min(k2), r1.max(r2), k1.max(k2)))
+            }
+            Shape::Column => {
+                let k1 = col(c.col1, c.col_abs1)?;
+                let k2 = col(c.col2, c.col_abs2)?;
+                Some((1, k1.min(k2), MAX_ROW, k1.max(k2)))
+            }
+            Shape::Row => {
+                let r1 = row(c.row1, c.row_abs1)?;
+                let r2 = row(c.row2, c.row_abs2)?;
+                Some((r1.min(r2), 1, r1.max(r2), MAX_COLUMN))
+            }
+            Shape::None => None,
+        }
+    }
+}
+
+/// A number moved by a distance unless its `$` holds it, `None` off the
+/// sheet: `refers.rs`'s rule for the text, kept the same here.
+fn shifted(n: u32, is_abs: bool, d: i64, max: u32) -> Option<u32> {
+    if is_abs {
+        return Some(n);
+    }
+    let m = i64::from(n) + d;
+    (m >= 1 && m <= i64::from(max)).then_some(m as u32)
 }
 
 /// The binary operators.
@@ -89,6 +163,62 @@ pub enum Expr {
     Pos(Box<Expr>),
     Percent(Box<Expr>),
     Binary(BinOp, Box<Expr>, Box<Expr>),
+}
+
+/// What an expression reads besides its literals: a reference, or a defined
+/// name with the sheet written in front of it when there is one.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Read<'e> {
+    Ref(&'e RefExpr),
+    Name {
+        name: &'e str,
+        sheet: Option<&'e str>,
+    },
+}
+
+impl Expr {
+    /// Every reference and every defined name the expression reads, in the
+    /// order they are written (KERNEL.22: a shape's edges are read off its
+    /// parse, as `graph::dependencies` reads them off the text).
+    pub fn each_read<'e>(&'e self, f: &mut dyn FnMut(Read<'e>)) {
+        match self {
+            Expr::Ref(r) => f(Read::Ref(r)),
+            Expr::Name { name, sheet } => f(Read::Name {
+                name,
+                sheet: sheet.as_deref(),
+            }),
+            Expr::Call(_, args) => args.iter().for_each(|a| a.each_read(f)),
+            Expr::Neg(x) | Expr::Pos(x) | Expr::Percent(x) => x.each_read(f),
+            Expr::Binary(_, a, b) => {
+                a.each_read(f);
+                b.each_read(f);
+            }
+            Expr::Number(_) | Expr::Text(_) | Expr::Bool(_) | Expr::Error(_) | Expr::Empty => {}
+        }
+    }
+
+    /// The functions the expression calls, upper-cased, in the order they
+    /// are written, repeats kept: [`calls`] over a parse.
+    pub fn each_call<'e>(&'e self, f: &mut dyn FnMut(&'e str)) {
+        match self {
+            Expr::Call(name, args) => {
+                f(name);
+                args.iter().for_each(|a| a.each_call(f));
+            }
+            Expr::Neg(x) | Expr::Pos(x) | Expr::Percent(x) => x.each_call(f),
+            Expr::Binary(_, a, b) => {
+                a.each_call(f);
+                b.each_call(f);
+            }
+            Expr::Ref(_)
+            | Expr::Name { .. }
+            | Expr::Number(_)
+            | Expr::Text(_)
+            | Expr::Bool(_)
+            | Expr::Error(_)
+            | Expr::Empty => {}
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -152,6 +282,17 @@ pub fn ref_expr(r: &FormulaRef) -> Option<RefExpr> {
         bottom,
         right,
         written: r.written.clone(),
+        shape: r.shape,
+        corners: Corners {
+            row1: r.row1,
+            col1: r.col1,
+            row2: r.row2,
+            col2: r.col2,
+            row_abs1: r.row_abs1,
+            col_abs1: r.col_abs1,
+            row_abs2: r.row_abs2,
+            col_abs2: r.col_abs2,
+        },
     })
 }
 
@@ -567,6 +708,17 @@ mod tests {
             bottom: row,
             right: col,
             written: written.to_string(),
+            shape: Shape::Cell,
+            corners: Corners {
+                row1: row,
+                col1: col,
+                row2: 0,
+                col2: 0,
+                row_abs1: false,
+                col_abs1: false,
+                row_abs2: false,
+                col_abs2: false,
+            },
         })
     }
 

@@ -43,7 +43,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # --- the floors: raise them when an entry is added, never lower them --------
 $floors = @{
     'vla-lang/data/headtable.vla' = 65    # one row per core form (VLA_HeadTable.bas, IN5.0: 65; the language's crate since PORT.12)
-    'vla-lang/data/messages.vla'  = 178   # the language's half of the catalogue (PORT.12, 2026-10-08: the vla, interp, lint and view families, 176; 178 with KERNEL.7's two calc refusals)
+    'vla-lang/data/messages.vla'  = 192   # the language's half of the catalogue (PORT.12, 2026-10-08: the vla, interp, lint and view families, 176; 178 with KERNEL.7's two calc refusals; 192 with KERNEL.22's grid family of eleven, two view refusals and a third calc)
     'core/data/messages.vla'      = 416   # the core's half: one entry per refusal id outside the language's families (VLA_Messages.bas, LX.14; 584 with PORT.7's ten; 587 with PORT.8's three; 588 with SEC.15's build-formula-egress; 590 with KERNEL.4's two view refusals; 592 with KERNEL.2's two distro refusals; 416 of them once PORT.12 moved the language's 176 to vla-lang/data/)
     'core/data/words.vla'         = 113   # one entry per word-table row (VLA_English.bas, LX.14; PORT.6 2026-10-02)
     'core/data/names.vla'         = 218   # one entry per name-list row (VLA_SentenceEngine.bas; PORT.6 2026-10-02: 211; U.31, the seven reserved words: 218)

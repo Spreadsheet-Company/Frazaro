@@ -16,7 +16,7 @@ it is green on all of its own.
 
 | Paths | Seam, or line of the roadmap | Oracle |
 |---|---|---|
-| `vla-lang/`; `core/src/` except `english/`; `cli/`; `scripts/build/`; `scripts/reflect/`; `scripts/recalc/`; `conformance/` | the kernel, two crates since `PORT.12`: the language (forms, the grid, references, the view record, recalculation's mechanism) and the bridges over it (emitters, reader, writer, ABI, Excel's function library; the KERNEL line) | the compile, build, reflect, diff, audit, view and recalc goldens; `cargo test` |
+| `vla-lang/`; `core/src/` except `english/`; `cli/`; `scripts/build/`; `scripts/reflect/`; `scripts/recalc/`; `conformance/` | the kernel, two crates since `PORT.12`: the language (forms, the grid, references, the view record, recalculation's mechanism, the machine an engine steps) and the bridges over it (emitters, reader, writer, ABI, Excel's function library; the KERNEL line) | the compile, build, reflect, diff, audit, view and recalc goldens; `cargo test` |
 | `web/`; `tools/build_web.ps1`; `tools/check_web_offline.ps1` | the page and the doors (the KERNEL line's view track; `PORT.11`) | `check_web_offline.ps1`; the view goldens when they exist |
 | `scripts/polyglotta/`; `scripts/prelude.vla`; `src/VLA_SentenceEngine.bas`; `src/VLA_English.bas`; `core/src/english/`; `docs/GRAMMAR_SINCE.md` | the sentences seam, both sides: the reference leads (`SD-18`) and the port follows | the translate golden; `frazaro prove`; the token and refusal goldens |
 | `src/VLA_Datalog.bas`, `src/VLA_Prolog.bas`, `src/VLA_Sql.bas`, `src/VLA_Optimize*.bas`, `src/VLA_Relation.bas`; `scripts/proofs/`; `tools/*_lp.ps1` | the engines seam (`PORT.9`; the Singularity line's engines) | `scripts/proofs/datalog.vla` with clingo beside it; `TestDSLs` |
@@ -33,6 +33,8 @@ than one path reads it:
 - `core/src/kernel.rs`: the seams as data, the `Engine` trait, the host profiles.
 - `vla-lang/src/projection.rs`: the `Projection` trait over a `Window`, the language's, which every projection implements.
 - `vla-lang/src/view.rs`: the view record's shape, which every viewport parses; a row added or respelled regenerates the goldens under `scripts/view/` and amends the treaty's oracle 11.
+- `vla-lang/src/machine/`: the four calls an engine makes of a grid (`KERNEL.22`), whose rows, `(loaded ...)`, `(written ...)`, `(step ...)`, `(unloaded ...)`, and refusals an engine's host reads, Alonzo's among them; `machine/load.rs` is the record's inverse, so a row the view gains is a row the loader takes.
+- `vla-lang/src/abi.rs`: the language's C surface, exported only under the `c-abi` feature; its nine names are `tools/check_wasm_exports.ps1`'s baseline, and its ABI number stays 1 while an export is added and no signature changes its meaning.
 - `core/src/excel.rs`: the declared subset recalculation computes, `SUBSET`, each function with its evidence; a function enters with a fixture under `scripts/recalc/` saved by a host and its measured frequency, never by taste (`KERNEL.6`'s rule), and `vla-lang/src/calc/library.rs` holds the language's own fourteen, which an engine has without the core.
 - `distros/<name>/distro.vla`: an edition's manifest, read by three tools (`tools/build_web.ps1`, `src/VLA_Build.bas`, `core/src/distro.rs`), one directive a line; a directive added is added to the readers that need it and to `tools/check_distro.ps1`, and the shape is `distros/english/README.md`'s.
 - `vla-lang/data/headtable.vla`, exported from `src/VLA_HeadTable.bas`: the forms, which is to say the syscall table.

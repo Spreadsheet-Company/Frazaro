@@ -18457,6 +18457,554 @@ and the four calls with the `.last` snapshot and the plane (the item after
 (not asked for; the ABI number stays 1); `KERNEL.20`'s speed; `SD-38`'s
 register line, at the owner's blessing; the expansion golden as oracle 13.
 
+**`KERNEL.22`, the handle and the four calls: the scoping, 2026-10-09.**
+Taken up at the owner's word, from a brief the Alonzo session wrote: the
+language's half of what Alonzo's `ENGINE.1` waits on, which `PORT.12`'s
+seventh decision made an item of its own ("the handle and the four calls
+are an item of their own, after this one") and `KERNEL.7`'s record named
+as the item `Calc::step` now serves. The contract is `Alonzo/SPEC.md`,
+version 2 (Alonzo `a8f5577`; its working copy read): §2 (the twins
+`X.last`, the acyclic rule, the step, the theorem), §3.1 (the plane's
+bytes), §3.9 (the Write sheet and its derived rows), §4.1 to §4.7 (the
+handle, the four calls, the record, the refusals), §7.3 (the rows the
+loader takes, range fills, value rows, one write per cell), §10 (the
+limits), §11's decisions 2, 3, 7, 14, 18, 19, 22 and 23, and §13 (what the
+page hands "the `vla-lang` cut", and its free oracles); and
+`Alonzo/web/fake.js`, the double of the engine's eleven exports that the
+Alonzo session's host is held to, which the real module must answer as the
+double does, record for record. Nothing under `Delta/Alonzo` is edited
+here: a session is mid-`ENGINE.1` there, and what this scoping finds in the
+page goes to it as a note (the last paragraph below).
+
+**Substrate, verified 2026-10-09, by file.**
+
+- *The evaluator.* `vla-lang/src/calc/mod.rs`: `Calc<'m>` borrows the
+  `Workbook` and the `Library` (lines 60 to 70), so it cannot live across
+  a write; it reads every formula's text once, at `new`, a shared child's
+  moved from its master (lines 80 to 88), and parses the text again at
+  every evaluation (`evaluate`, lines 196 to 210); `step(budget)` answers
+  `Progress { evaluated, of, done }`, the shape §4.4 spells;
+  `first_refusal` refuses a cycle (`calc-cycle`), then a function the
+  library does not hold (`calc-function-not-computed`), and nothing else,
+  so a formula that does not parse (an array constant, `@`, a structured
+  reference, a link into another workbook) loads and evaluates to a cell's
+  label (`Reason::Construct`), although `KERNEL.7`'s fifth decision named
+  "an unreadable reference" among the engine's load refusals. The test at
+  lines 452 to 463 already reads `Screen.last!B2` as an ordinary sheet and
+  finds no cycle: a twin's cells are values, and the graph's edges run only
+  to formula cells (`graph.rs`, lines 229 to 241). `formula.rs`: `RefExpr`
+  keeps a rectangle with its corners sorted and drops the four `$` marks
+  (lines 120 to 156), which `refers::FormulaRef` holds (`refers.rs`, lines
+  80 to 107) and the text mover moves by, corner by corner as written, a
+  corner moved off the sheet becoming `#REF!` (`refers.rs`, lines 816 to
+  829). `eval.rs`: `Ctx::reference` finds a sheet by its name at every
+  evaluation, folding the names (`graph::areas_of`), and a defined name's
+  text is parsed each time it is read (line 311).
+- *The model.* `vla-lang/src/sheet.rs`: a `Sheet` has no visibility (lines
+  235 to 250), no row settings and no look map; a formula over a range is a
+  shared formula, its first cell the master holding the text and the others
+  pointing at it by index (lines 310 to 338), and a child whose master is
+  gone has no text at all (`formula_text`, line 385); `Styles::id`
+  deduplicates and appends, so no style can be put at an index a record
+  names.
+- *The record.* `vla-lang/src/view.rs`: the `Grid` projection prints every
+  sheet `visible` (lines 79 to 84) and takes its values from an optional
+  `Calc` (lines 61 to 71 and 205 to 214); `window_of` raises
+  `view-sheet-unknown` and `view-window-not-a-range` (lines 293 to 316),
+  whose templates are the command-line door's words, "The program makes no
+  sheet named {name}; it makes {sheets}. Name one of those with --sheet."
+  and "{text} is not a window frazaro view can show." (`src/VLA_Messages.bas`,
+  lines 1509 and 1510). `rows.rs` holds the printers the loader inverts and
+  the reader's three visibility words. `projection.rs`: the `Projection`
+  trait emits lines (lines 23 to 28), and its own comment already names "an
+  engine's plane the second".
+- *The C surface.* `core/src/abi.rs`: the record (lines 107 to 124), the
+  memory pair (lines 76 to 93), `frazaro_view`'s signature, every text a
+  pointer and a `u32` length and `out_len` last (lines 335 to 347);
+  `frazaro_abi_version` is `core/src/lib.rs` line 108. `vla-lang` has no C
+  export (`lib.rs`) and is `rlib` and `cdylib` with no dependency.
+- *The artifacts* (*measurement*, the import and export sections read with
+  a scratch script): `frazaro_core.wasm` 1,007,209 bytes, 0 imports, 13
+  exports (`memory` and twelve `frazaro_*`); `vla_lang.wasm` 32 bytes, 0
+  imports, 1 export, `memory`. Nothing in the language is reachable from an
+  export, so its module is empty, and `check_core_imports`' zero on it
+  proves nothing yet.
+- *The double.* `Alonzo/web/fake.js`, 595 lines: `alonzo_load(ptr, len,
+  namePtr, nameLen, outLen)`, `alonzo_write(handle, ptr, len, outLen)`,
+  `alonzo_step(handle, budget, outLen)`, `alonzo_view(handle, projPtr,
+  projLen, sheetPtr, sheetLen, winPtr, winLen, outLen)`,
+  `alonzo_unload(handle, outLen)`, each answer a record whose total length
+  goes to `*outLen`; `(written <n>)` counting the cells whose content
+  changed; `(step <frame> <evaluated> <of> done|yielded)`, `<frame>` the
+  frame being computed; `(unloaded <handle>)`; a write's rows one a line,
+  every row checked before any applies, so a refused write changes nothing;
+  a write while a frame is in progress refused before its rows are read;
+  the plane 0 for an empty cell and for a formula before the first frame,
+  255 for anything not a whole number from 0 to 254; the record's `sheet`
+  rows the cartridge's sheets `visible`, then every twin `hidden`; the ids
+  `cart-handle-unknown`, `cart-write-during-step`, `grid-row-malformed`,
+  `grid-row-unknown`, `view-sheet-unknown` (for a write as for a view),
+  `cart-write-last`, `cart-device-cell-outside`, `cart-device-cell-formula`,
+  `cart-write-derived` (every refused derived row: an unknown sheet, a twin,
+  a layout, a host-written cell, a range past 100,000 cells, a formula
+  cell), `cart-projection-unknown` and `view-window-not-a-range`, each with
+  words of its own and not the catalogue's. `Alonzo/REARVIEW.md`, `ENGINE.1`:
+  the host reads every record through the viewport's reader, issues each
+  person's edit and each derived row as its own write, and its loop oracle
+  holds the id `view-sheet-unknown` on an edit of an unknown sheet.
+- *The decision this item amends.* `web/CALLOSUM.md` §7 decision 1, "No
+  model handle in the module's memory", with its escape hatch "taken only
+  when a measurement at real sizes says so"; `Alonzo/SPEC.md` §4.1 takes it
+  for the engine's door on the measurement it asked for, and the boundary
+  paragraph above says the Frazaro item that lands the handle dates the
+  amendment.
+
+**Measured for the scoping** (scratch crates outside the repository, each
+with its own target folder; rustc 1.99.0; Frazaro's release profile for
+wasm, `opt-level` 3 natively; the machine busy enough that each time is a
+range).
+
+- *A C export leaks downstream.* A crate with one `#[no_mangle] extern
+  "C"` function, built `rlib` and `cdylib`, and two crates that depend on
+  it, each a `cdylib` with an export of its own: both downstream modules
+  export the upstream function as well. Behind a cargo feature it appears
+  only in a module whose build turns the feature on, and a `--workspace`
+  build unifies features: with one member asking for it, all five modules
+  exported it.
+- *Life on `KERNEL.7`'s evaluator.* Life's rows
+  (`Alonzo/cartridges/life/life.vla`: the sixteen Palette rows and the one
+  formula row over `B2:LG199`) read through `reader::read_forms` and set
+  into a `Workbook` by hand, a Clock written and `Screen.last` filled by
+  hand between frames: `Calc::new` 1.8 to 3.0 s and `Calc::step(0)` 1.9 to
+  2.9 s a frame, and exact, 23,683 cells alive at generation 0 and 14,482
+  at generation 10, the numbers the Alonzo session's reference Life gave
+  outside any engine (`Alonzo/REARVIEW.md`, `ENGINE.1`'s corrections). The
+  parse is most of a frame: moving the 62,964 children's texts takes 0.9 to
+  1.5 s and parsing them 1.7 to 2.5 s, 469 characters a formula.
+- *Parsed once.* The same frames with every formula parsed once and an
+  `Env` of the scratch crate's own: 0.43 to 0.53 s a frame's evaluation,
+  the twin's snapshot made in place in 5 to 7 ms, Life still exact through
+  generation 11. The parsed forms' memory, summed node by node: 88 bytes a
+  node, 8,904 bytes for one Life formula, 561.7 MB for the 62,964 before
+  the allocator's own overhead. Parsing every cell once is not a design a
+  browser can hold; one parsed form per shape is.
+
+**The work.** A machine in the language, its loader and its plane, a plan
+of shapes under it, the C surface, a check, the catalogue's new family, and
+the record.
+
+| File | What it is | Decision |
+|---|---|---|
+| `vla-lang/src/machine/mod.rs` | `Machine`: the grid owned with its library, its plan of shapes, its values in two buffers and its frame count; `load`, `write`, `step`, `view` and the rows they answer; the twins made and filled; `Handles<T>` | 2, 4, 5, 10 |
+| `vla-lang/src/machine/load.rs` | the loader: forms to a grid, the inverse of the printers in `rows.rs` and `view.rs`; range fills, value rows, declarations, one write per cell, the sheet-name rule, the cap | 6 |
+| `vla-lang/src/machine/plane.rs` | the plane: a window as a byte a cell | 9 |
+| `vla-lang/src/calc/shape.rs` | the plan of shapes: one parsed formula per shape, each formula cell a shape and an offset, the edges at each offset, the order | 2 |
+| `vla-lang/src/calc/formula.rs`, `eval.rs`, `graph.rs`, `mod.rs` | `RefExpr` keeps the written corners and their four `$` marks; `Ctx` evaluates a reference at an offset, 0 being today's; areas at an offset; `first_refusal`'s third clause | 2, 7 |
+| `vla-lang/src/sheet.rs`, `view.rs` | `Sheet::visibility`, row settings and the look map; a style put at an index; the `sheet` rows' words from the model, the `row` and `look` rows; the `Grid`'s values from any holder of them, `Calc` or `Machine` | 5, 8 |
+| `vla-lang/src/abi.rs`, `lib.rs`, `Cargo.toml` | the C surface, nine functions, each exported only under the `c-abi` feature; the record; the handle table in a `thread_local` | 3, 4, 10, 11 |
+| `src/VLA_Messages.bas`, `vla-lang/data/messages.vla`, `core/data/messages.vla`, `tools/export_messages.ps1`, `tools/check_data_exports.ps1` | the fourteen ids and the two rewordings, the VBA the source as always; the `grid` family in the language's list; the language's floor from 178 to 192 | 7 |
+| `tools/check_wasm_exports.ps1`, `tools/run_checks.ps1`, `.github/workflows/checks.yml` | the export check with `-Control`; the runner's floor; CI building the language with the feature | 3, 12 |
+| `core/src/api.rs`, `cli/src/main.rs` | the valued view's new argument, nothing else | 5 |
+| `conformance/README.md`, `web/CALLOSUM.md` | oracle 11 amended, dated (the loader its inverse; the `row` and `look` rows); §7 decision 1 amended for the engine's door alone, dated | 8, 12 |
+| `vla-lang/README.md`, `CONTRIBUTING.md`, `MAINTAINERS.md`, `docs/RELEASES.md` | the crate's page (the machine, the feature), the seams paragraph, the contract files, the note for users | docs |
+| `docs/BETA_ROADMAP.md`, `docs/ID_REGISTRY.md`, `Delta/CLAUDE.md`, the memory | the line, the row, the map, the note | 1 |
+
+**The decisions, the owner's.** Each with the recommendation the work
+above assumes and the alternative it declines.
+
+1. **The ID: `KERNEL.22`.** The item amends the KERNEL line's own design
+decision (CALLOSUM §7 decision 1, for the engine's door), stands on
+`KERNEL.7`'s evaluator, lays the shapes `KERNEL.20` will vectorize, and
+serves the Screen device `KERNEL.5` laid in Alonzo; the PORT line ports the
+reference's slices and the crates' structure, and this has no VBA to port.
+Minted for the scoping and placed after `KERNEL.6` in the line's order.
+*Alternative:* `PORT.13`, beside `PORT.12`, whose seventh decision it is,
+and a C surface as `PORT.6`'s was; if the owner picks it, the row, the line
+and this heading move before anything commits, and `KERNEL.22` stays free.
+Recommended: `KERNEL.22`.
+2. **An owned machine, with one parsed form per shape.**
+`vla_lang::machine::Machine` owns its `Workbook`, its `Library` and a plan
+of shapes. A shape is one formula parsed once: a shared formula's master,
+or every plain formula cell whose R1C1 text is the same
+(`refers::r1c1`, the reference's normal form), so that a save of Life,
+62,964 plain formula rows, loads back to one shape. Each formula cell is a
+shape and its offset from the shape's first cell and is evaluated at that
+offset; the edges are read from each shape's references at each offset, the
+order is Tarjan's as today, a cycle is refused before it is held, and the
+plan is read again when a write changes a formula. The values are kept in
+two buffers, the last complete frame's and the frame in progress, swapped
+when a frame completes, so that a view during a yielded step shows the last
+complete frame, as the double does. What the evaluator gains for it:
+`RefExpr` keeps the written corners and their four `$` marks beside the
+sorted rectangle, and `Ctx` evaluates a reference at an offset, a corner
+moved off the sheet being `#REF!` as the text mover writes it; the offset
+is 0 everywhere but in the machine, and inside a defined name's text,
+which never moves. `Calc` keeps its plan of texts and its parse at
+evaluation: it evaluates each formula once, so a parsed form held would
+buy it nothing and cost it memory on every distinct formula of a large
+workbook, and `KERNEL.7`'s tests and oracle 12 hold by construction, with
+no line regenerated. Predicted for Life (*prediction*, 2026-10-09): a load
+of one parse and 62,964 offsets, a few hundred milliseconds natively; a
+frame about 0.45 s natively, as measured above, two frames a second; one
+parsed form of 8.9 KB held. *Alternatives:* every formula cell parsed once
+and held, declined on the measured 562 MB; the machine parsing at every
+evaluation as `Calc` does, declined on the measured two seconds a frame;
+`Calc` as a thin wrapper over the machine's plan, the brief's lean,
+declined for the reasons above; a fast frame now (the sheet found once
+rather than by name at each reference, values in arrays, the vectorized
+shape), declined as `KERNEL.20`'s and `ENGINE.6`'s, whose ground the plan
+of shapes is. Recommended: the machine of shapes, `Calc` unchanged but for
+the offset it never sets.
+3. **The C exports in `vla-lang`, behind a feature.** `vla-lang/src/abi.rs`
+holds `vla_abi_version`, `vla_version_text`, `vla_alloc`, `vla_free`,
+`vla_load`, `vla_write`, `vla_step`, `vla_view` and `vla_unload`, always
+compiled and always tested, each `#[cfg_attr(feature = "c-abi",
+no_mangle)]`, so that only a build asking for the feature exports them:
+`cargo build --release -p vla-lang --features c-abi --target
+wasm32-unknown-unknown` writes a `vla_lang.wasm` exporting exactly those
+nine and `memory`, and `frazaro-core` and `alonzo`, which depend on the
+language without the feature, export none of them, Alonzo's module keeping
+§8.1's eleven. The engine calls the safe Rust API, whose answers carry the
+rows the records hold, so the two surfaces print one text. *Alternatives:*
+the exports unconditional, declined on the measurement, since every
+downstream module would export a second door to the grid, past the engine's
+device checks; a fourth crate for the C layer, which confines the exports
+as surely at the price of a member, a manifest, a publish and the
+bookkeeping of five checks; no C layer until a door asks for one, declined
+because §4.6 asks that the four exist, and because the language's module
+would stay a 32-byte file whose zero imports prove nothing. Recommended:
+the feature, with decision 12's check reading what each build exports.
+4. **The handle table, written once.** `machine::Handles<T>`: handles from
+1, a counter that never goes back, so a handle is never reused within an
+instance; at most 16 live (§10), a seventeenth load refused
+`grid-handle-limit`; a call naming a handle that is not live refused
+`grid-handle-unknown` with the number; a `BTreeMap`, no clock and no
+randomness, the same answers in any order of calls. The C layer keeps one
+`Handles<Machine>` in a `thread_local`, which on `wasm32-unknown-unknown`
+is a plain static and imports nothing (the import check reads it); `alonzo`
+keeps its cartridges in a `Handles` of its own type, so §4.1 is one
+implementation with one id. *Alternatives:* a `static mut`, a reference to
+which the 2024 edition refuses; each door writing its own table, two
+implementations of §4.1 and two ids for one situation. Recommended: as
+stated.
+5. **The twins are sheets of the `Workbook`.** At load the machine appends
+`X.last` for every sheet `X`, in the same order after all of them, each
+with `Sheet::visibility` (a new field holding the reader's three words,
+visible unless a row says otherwise) hidden, and fills each with its
+sheet's values, the value cells as they stand and each formula's value
+row; at the end of every completed frame it copies every sheet's values
+in, in place when the cells are the same ones. A twin holds values only. A
+formula the step could not compute (a range where one value is wanted, the
+one construct a load cannot see) leaves its twin cell empty with its reason
+recorded, so a formula reading that cell of the previous frame inherits
+the reason, and the label propagates rather than reading as 0. The record
+lists the twins after the cartridge's sheets as `hidden`, as the double
+does, and every reader, the graph, the evaluator, the view and the plane,
+sees a twin as a sheet, with nothing to learn. *Alternative:* the twins as
+a buffer of values outside the `Workbook`, which every one of those
+readers would have to special-case. Recommended: sheets.
+6. **The loader takes every row a view or a reflect prints.**
+`machine::load` reads the forms with `reader::read_forms`, so comments and
+lines come free, and takes: `sheet` rows (the tab order; a cell row makes
+its sheet too; `X.last` taken only as the twin's own declaration, `hidden`,
+of a sheet the rows hold, since each record a save concatenates lists the
+twins); `cell` and `formula` rows over a cell or a range (a value fills
+the range; a formula fills it as a shared formula, moved as Excel moves a
+filled formula); a `value` row after its formula row (the formula's last
+value, never a second write); `name`, `gridlines`, `column`, `row`,
+`format` (put at the index it names), `look`, `style` (an index some
+format row declared) and `sentence` rows. It skips by name the rows that
+are the view's or the reader's own derivation, `window`, `extent` and
+`refers`, and `table`, which no model holds before `KERNEL.8`. A
+declaration given twice, as a save repeats a sheet row or format 0 in every
+record, is taken when it says the same thing and refused when it does not;
+a cell the rows write twice, by two rows or by a range and a row inside it,
+is refused naming both lines (§11, decision 23); a date cell, which the
+model does not hold, is a malformed row. A grid holds at most 1,048,576
+cells beside its twins, so that one range row cannot ask for the
+seventeen billion of Excel's sheet (`grid-too-many-cells`; a limit §10
+does not state yet). A refused load leaves nothing. A write applies its
+rows in order, and a refusal undoes the rows before it, so a refused write
+changes nothing; a write over a shared formula's first cell first gives the
+formula's other cells their own text, since the model reads a child
+through its master. *Alternative:* the derived rows checked against the
+cells, an `extent` row that disagrees refused; declined, since it would
+refuse a hand-edited save for a line nothing reads. Recommended: as stated.
+7. **The refusals: the machine's in the language's families, the engine
+keeping `cart-*` for its own.** The machine is the language's, so what it
+refuses is the language's: a new family `grid`, under the source
+`VLA-Grid`, eleven ids: `grid-handle-unknown`, `grid-handle-limit`,
+`grid-row-unknown`, `grid-row-malformed`, `grid-cell-written-twice`,
+`grid-sheet-name-invalid` (a name ending in `.last`, longer than 26
+characters, or outside Excel's rules), `grid-sheet-unknown` (a write naming
+a sheet the grid does not hold, since a write makes no sheet),
+`grid-write-last`, `grid-write-during-step`, `grid-write-derived` (a
+derived row into a formula cell, the one situation of its own) and
+`grid-too-many-cells`; two in `view`, `view-projection-unknown` and
+`view-window-too-large` (a plane window past the same million cells); and
+one in `calc`, `calc-construct-not-read`, `first_refusal`'s third clause
+after the cycle and the function, the "unreadable reference" `KERNEL.7`'s
+fifth decision named for the engine's load. `calc-cycle` and
+`calc-function-not-computed` stand for §4.7's `grid-cycle` and
+recalculation's own; `view-sheet-unknown` and `view-window-not-a-range` are
+reworded to be true at every door ("The grid holds no sheet named {name};
+it holds {sheets}."), since the machine's view raises them through the
+same `window_of`. Every template's slots are data, a sheet's name, an
+address, a number, a row as written, and never words from code, so the
+kernel's boundary holds. The engine keeps `cart-*` for what only the
+engine knows: the manifest, the spec version, a device's name, the Screen's
+size, the Palette, a device's layout, a host-written cell, a volatile
+function (checked by `alonzo` before it asks the language, so that `NOW` is
+refused naming the Clock and not as a function the language lacks).
+Fourteen ids; the language's half of the catalogue from 178 to 192.
+*Alternatives:* §4.7's `cart-*` ids for the machine's refusals too, which
+the language cannot raise, its catalogue holding no engine's family; one
+`grid-write-derived` with a reason slot filled with words from code,
+declined by the kernel's boundary. Recommended: as stated, with the Alonzo
+session told every id its double changes.
+8. **The `look` and `row` rows in this item.** The model gains a look map
+per sheet (a value, spelled as a `cell` row spells it, and a style index)
+and row settings per sheet (a height or none, shown or hidden); the loader
+takes both rows; the record prints `row` rows after the `column` rows and
+`look` rows after the `format` rows, the looks' indices among the formats
+it prints; oracle 11 is amended in the treaty, dated; and no golden
+regenerates, since no built model holds either. *Alternative:* deferred by
+name, the loader refusing both rows, so that any grid-mode cartridge using
+§11's decision 19 fails the inverse. Recommended: in this item.
+9. **The plane beside the projections seam.** `machine::plane` reads a
+window as a byte a cell, in row-major order: a whole number from 0 to 254
+as itself; an empty cell, and a formula before its first value, 0;
+anything else 255. The view call selects it by name beside `grid`. The
+`Projection` trait stays a function to lines, its contract file unchanged;
+whether a projection of bytes becomes a second trait waits for `KERNEL.12`
+and a second raster, of which §12's composite is the likely one.
+*Alternative:* the trait widened to bytes now, a contract changed for one
+implementation, which would cost the grid's lines their line-ness.
+Recommended: beside.
+10. **`vla_load` answers for the grid, not the cartridge.** `(loaded
+<handle> <sheets> <cells> <formulas>)`: the handle, the sheets the rows
+made (twins not counted), every cell they wrote, and the formula cells,
+the number `describe`'s budget row multiplies by the rate. `vla_load` takes
+the rows alone, since no refusal of the language names a file. `write`,
+`step`, `view` and `unload` answer as the double does. *Alternative:* a
+`(cartridge ...)` row with blanks for the manifest's fields, which would
+lie. Recommended: as stated.
+11. **The language's library alone at the C door.** `vla_load` loads under
+`calc::library::language()`, the fourteen (`AD-1`); the Rust API takes a
+`Library`, so a door may pass Excel's. Recommended, with no alternative
+worth the weighing.
+12. **The oracle.** `vla-lang`'s tests written from §4 and §13 alone: every
+call's record and every refusal by its id; the free oracles: load the
+inverse of view (each view golden of a whole sheet, and a model by hand
+holding every row kind, viewed, loaded and viewed again, row for row), a
+save resumes (a save loaded and stepped once equals the original stepped
+once more, cell for cell), a step writes no formula (`AD-7`: every
+fixture's formula cells equal before and after), one write per cell, a
+derived write lands or is refused, a budget never changes a frame; Life on
+a board of 64 by 40 against a Life written in the test, cell for cell
+through twelve generations, and the full board's 23,683 and 14,482 as a
+measurement in this record; the offset evaluator held to the parse of each
+moved text over every shared formula the fixtures and Life hold; the C
+layer through its functions in-process (the record's bytes, the three
+statuses, the handles). `tools/check_wasm_exports.ps1`, the import check's
+twin: `vla_lang.wasm`, built with the feature, exports exactly the nine and
+`memory`, and `frazaro_core.wasm` exactly its twelve and `memory`, no
+`vla_*` among them, with a `-Control` over modules made in memory; CI
+builds the language with the feature. The treaty: oracle 11 amended (the
+loader its inverse; `row` and `look`), with no new number, 13 staying the
+expansion golden's. *Alternative:* a treaty oracle of its own for the four
+calls, declined while no second implementation of them exists to hold to
+it. Recommended: as stated.
+
+**The catch.** Each found on the day, by file or by measurement.
+- Every Life formula parsed and held is 562 MB (decision 2).
+- A `#[no_mangle]` export of the language leaks into every module built on
+  it (decision 3).
+- `vla_lang.wasm` is 32 bytes and exports nothing but its memory, so the
+  language's zero imports have so far been the zero of an empty module.
+- The two view refusals speak the command-line door's words (decision 7).
+- A shared formula's children read their text through the master's cell,
+  so a write over the master would leave them without any (decision 6).
+- `first_refusal` lacks the clause for a construct its own record listed
+  among the engine's load refusals (decision 7).
+- `Ctx::reference` finds sheets by name, folding each name, at every
+  reference of every evaluation: part of the 0.45 s, and `KERNEL.20`'s.
+- `HashMap` iterates in a different order in each native process, so
+  every output the machine prints is sorted before it is printed.
+- A save of Life is about 33 MB, twice §10's 16 MiB, since the record
+  prints each of a shared formula's 62,964 cells with its moved text of
+  469 characters; and no view record prints `name` rows, so a save drops a
+  cartridge's defined names. Both go to the page; neither is this item's
+  to change, since either changes oracle 11's shape.
+- The double's refusal texts are its own words, and the Alonzo session's
+  loop oracle holds ids, not texts.
+
+**The oracle, to be measured at the build.** `cargo fmt --check`, `cargo
+clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace
+--no-fail-fast`; the wasm builds of `frazaro-core` and of `vla-lang` with
+the feature, `check_core_imports` at zero on both (the language's now a
+module with code in it) and `check_wasm_exports` exact on both;
+`run_checks.ps1` at 54 in the shared tree and 53 at HEAD with this item's
+files; `prove.ps1 -Impl` and its `-Control`; every golden whole, none
+regenerated; the HEAD-plus-mine tree through the same; Life's load and
+frame timed natively, and the module's size. The owner's one Excel step:
+Debug > Compile, for the catalogue's fourteen `AddMsg` lines and the two
+rewordings.
+
+**Size.** `~days`: the machine and its loader about 1,500 lines with their
+tests, the shapes about 400, the C surface about 300, the check about 250,
+then the docs; one Excel step of the owner's. (*prediction*)
+
+**What the page is told** (in the reply to the Alonzo session; nothing
+edited there). The ids of decision 7, which change the double:
+`cart-handle-unknown` is `grid-handle-unknown`, `cart-write-during-step` is
+`grid-write-during-step`, `cart-write-last` is `grid-write-last`,
+`cart-projection-unknown` is `view-projection-unknown`, a write naming an
+unknown sheet is `grid-sheet-unknown` (the loop oracle's pin moves), §4.7's
+`cart-cell-written-twice` is `grid-cell-written-twice` and its `grid-cycle`
+is `calc-cycle`; `cart-write-derived` splits, a formula cell
+`grid-write-derived`, a twin `grid-write-last`, an unknown sheet
+`grid-sheet-unknown`, a range past the cap `grid-too-many-cells`, and the
+engine's own two, a host-written cell and a layout, its own. §4.2 and
+§4.6: `vla_load` takes the rows alone and answers `(loaded ...)`. §4.5 and
+§13: the plane is a projection by name, not an implementation of the
+`Projection` trait. §3.1: a formula before its first value reads 0, as the
+double has it. §7.5 and §10: a save of Life is about 33 MB, and drops the
+cartridge's names. §10: two limits stated by the language, a million cells
+a grid beside its twins and a million a plane window. §2's theorem: a range
+where one value is wanted is labelled, 255 on the plane, and inherited by
+whatever reads its twin. The frame count: the machine counts from 0 at
+load, and `alonzo_load` of a save sets it from the Clock's frame cell
+through the Rust API, since only the engine knows the Clock; the engine
+reads the forms once and hands the language every form after the manifest,
+so the rows' lines stay the file's. A write's rows apply in order, a
+refusal undoing the earlier ones; the double checks every row against the
+state before the write, and with one row a write, the host's practice, the
+two agree. A write row may carry `(error "#N/A")`, which the double
+refuses. And the speed: after this item Life runs about two frames a second
+natively, about fourteen times short of `CART.1`'s first bar of two million
+evaluations a second; the gap is `KERNEL.20`'s and `ENGINE.6`'s, and the
+plan of shapes is their ground.
+
+*Built 2026-10-09, the same day, at the owner's approval of all twelve
+recommendations ("Recommendations approved; proceed").* The Alonzo session
+sent a note while the build began, through the owner: `ENGINE.1`'s first
+slice is committed there (`984722a`, not pushed), the host held against the
+double, and the host relies on the `derived` row, on a write being all or
+none, on the records `(cartridge ...)`, `(written <n>)`, `(step ...)`,
+`(unloaded <handle>)`, `describe`'s rows, a grid record whose `value` rows
+it reads the Write sheet's and the Camera's values from, the plane's bytes,
+and "refusal ids as section 4.7 names them". Everything but the last is
+what this build answers; the last is decision 7, approved, and its reading
+was checked in the host itself (`Alonzo/web/host.js`, read only): the host
+prints any refusal as the module's words and its id and never branches on
+an id, the frame going on whatever a derived row's id is, so the language's
+ids change the double's ids and its loop oracle's one pin and nothing in
+the host's logic. The host also names a refused derived row's target only
+when the module's words do not (`where`, `sheet!addr` as the Write sheet
+holds it), so every row-bearing template carries the target as written.
+
+**What landed.**
+- `vla-lang/src/machine/mod.rs` (the machine and its tests): `Machine`
+  (`load`, `new`, `write`, `step`, `view`, `loaded`, `resume_at`,
+  `workbook`, `frame`, `in_progress`, `formulas`), the twins appended hidden
+  and filled at load and at the end of each frame (in place when the cells
+  are the same ones), the values double-buffered, a write applied in order
+  with an undo log and a refused row undoing the rows before it, a write
+  over a shared formula's first cell giving its other cells their own text
+  first, the plan read again only when a formula changed; `Handles<T>`; the
+  rows `Loaded::row`, `Step::row`, `written_row`, `unloaded_row`, so an
+  engine prints the language's text; `CELLS` (1,048,576) and `HANDLES`
+  (16). `machine/load.rs`: the loader, every row the record and the reader
+  print, the twins' own declarations taken, one write per cell, a setting
+  repeated alike taken and otherwise refused, the sheet-name rule
+  (`sheet_name_ok`, `twin_base`), the value spellings (`datum`, a strict
+  number), the shapes `grid-row-malformed` names. `machine/plane.rs`: the
+  plane. `vla-lang/src/calc/shape.rs`: the plan of shapes, a shape per
+  shared formula and per R1C1 text, places at offsets, the edges read off
+  the parse, Tarjan's order, the refusals in `Calc`'s order. The evaluator:
+  `RefExpr` keeps its corners and marks and `moved` mirrors the text mover
+  corner by corner; `graph::areas_at`; `Ctx::at` with the offset, 0 in
+  `Ctx::new`, set to 0 inside a defined name; `Arg::Area` carries the
+  offset so a label shows the cell's own reference; `Expr::each_read` and
+  `each_call`; `calc::Values`, which `Calc` and `Machine` both answer;
+  `first_refusal`'s third clause. `sheet.rs`: `Sheet::visibility`, `rows`
+  (`RowSettings`), `looks`; `Styles::put` and `get`. `view.rs`: each
+  sheet's own state, the `row` and `look` rows, the values from any holder.
+  `vla-lang/src/abi.rs`: the nine C functions, `#[cfg_attr(feature =
+  "c-abi", no_mangle)]`, the handle table in a `thread_local`, the record
+  as `core/src/abi.rs` builds it, status 2 naming its input; `Cargo.toml`'s
+  `c-abi` feature; `lib.rs`. The catalogue: the fourteen ids and the two
+  rewordings in `src/VLA_Messages.bas` (version `KERNEL.22`, the header's
+  note, a block before `KERNEL.7`'s), exported, the language's half at 192;
+  `tools/export_messages.ps1`'s family list with `grid`;
+  `tools/check_data_exports.ps1`'s floor 192; the two catalogue tests' family
+  lists. `tools/check_wasm_exports.ps1` with its `-Control`, the 53rd check
+  at HEAD and the 54th in this shared tree, in `run_checks.ps1` and its
+  extras; `check_core_imports.ps1`'s build hint; `checks.yml` building the
+  language with the feature, linting it in that state, and running the
+  export check and its control. The treaty's amendment of oracle 11;
+  CALLOSUM §7 decision 1's dated amendment; the crate's page, the seams
+  paragraph, the contract files, the trait's comment, the release note, the
+  roadmap's line, this record, the map, the memory. `core/src/api.rs` and
+  `cli/src/main.rs` needed nothing: a `&Calc` is a `&dyn Values`.
+
+**The oracle, measured 2026-10-09.** `cargo test --workspace --no-fail-fast`
+290 passed and 4 ignored (core 178, language 112: 22 new, among them the
+page's free oracles, Life on a board of 64 by 41 against a Life written in
+the test through twelve frames, and the C surface through its functions);
+`cargo fmt --check`; `cargo clippy --workspace --all-targets -D warnings`
+and the same over `vla-lang` with `--features c-abi`. The modules:
+`frazaro_core.wasm` 1,120,488 bytes, 0 imports, its 13 exports and no
+`vla_*` among them; `vla_lang.wasm` with the feature 425,446 bytes, 0
+imports, exactly the nine and `memory`; the export check green on both,
+its control green, and red on a language module built without the feature,
+naming the nine missing and the command. `run_checks.ps1 -WithExtras` 54 of
+54 and 10 verifiers; `prove.ps1 -Impl` 46 passed, 0 failed, 2 not attempted,
+1 library, `KERNEL.7`'s numbers, and its control; every golden whole, none
+regenerated; the kernel boundary's control. Life's cartridge on the machine,
+natively in release, read as an engine would (the manifest set aside, the
+Clock written into the draft): 137 ms to load (the rows read in 10, the
+machine made in 127), one shape for 62,964 formulas; a frame's step a
+median 0.258 s; exact, 23,683 alive at generation 0 and 14,482 at 10; the
+plane of 64,000 cells viewed in 1.8 ms; a write of the Clock's cell 11 µs; a
+save 34,158,753 bytes in 126,012 rows, made in 1.5 s and loaded back in
+1.9 s as one shape, resuming exactly (13,982 alive at generation 11 in both).
+
+**The catch, found in the build.** The offset oracle, the refers fixture
+moved to every edge of the sheet and each moved text parsed, found two
+places where a moved text is a construct the parse does not read though
+the shape is read: a 3D span moved off the sheet (`=SUM(Jan:Dec!#REF!)`)
+and a broken reference with a cell after it (`=#REF!A1` moved up a row,
+`=#REF!#REF!`). A shape whose text holds either is risky, and each of its
+cells parses its own moved text once, at placement: a cell whose moved text
+is not read is that construct, not computed and refused at a load, exactly
+as its text would be, and an ordinary shape (Life's) pays nothing. The
+evaluator would have read the first as `#REF!`, which is Excel's answer and
+not the text's; the machine follows the text, as the language does
+everywhere. And the plain parse of 62,964 cells is 562 MB, which the
+scoping measured and the shapes avoid: the machine holds one parse of 8.9
+KB for Life whether it was loaded from the cartridge or from a save.
+
+**Deferred by name.** `calc-function-not-computed`'s second sentence ("The
+cell keeps its formula and shows not computed here") is `frazaro calc`'s
+and false at an engine's load, which the template shares: a rewording for
+the owner's word. The speed, `KERNEL.20` and `ENGINE.6`. A save that keeps
+a cartridge's `name` rows, and one the size of the cartridge rather than of
+its every cell, the page's to decide (§7.5). The look map and the row
+settings drawn: the viewport's, `KERNEL.5`'s in Alonzo. `frazaro_calc` and
+the machine on the core's C surface: not asked for. The owner's one Excel
+step: Debug > Compile, for the catalogue's fourteen `AddMsg` lines and the
+two rewordings.
+
+*Owner-tested and committed 2026-10-09.* The owner reloaded the modules,
+compiled them and ran the self-tests over the catalogue's new lines, pure
+1942 of 1942 and host 331 of 331, and said to proceed; the commit was made
+the same day by the route `KERNEL.7`'s took, HEAD and this item's
+thirty-four files, the peers' uncommitted work beside it untouched, the
+isolated tree verified first. The item closed with the commit; its line is
+in the closed ledger.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -31439,6 +31987,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.4 — the view record: the first projection.** `frazaro view <program.txt> --sheet <name> [--window <A1:F20>]` and `frazaro_view` in the ABI: the program built into the sheet model in memory, nothing written, and one window of one sheet printed as the lines a viewport draws from: every sheet, the window, the extent, gridlines, the window's columns and formats, then each cell in row order as `reflect`'s own `cell` or `formula` row with its `style` row and its `sentence` row, the row of the sentence that wrote it. `view::Grid` is `kernel::Projection`'s first implementation; the walker records the row that wrote each cell in the model (`Sheet.sentences`), so the view is drawn from the model alone (CALLOSUM §7, decisions 1 and 2). Six goldens under `scripts/view/`, oracle 11 in the treaty, `check_view_golden.ps1` (the 50th check, with its control), `prove.ps1`'s ninth kind, two catalogue refusals under `VLA-View`; the free oracle holds for both build fixtures, the view of each sheet whole being `reflect` of the written file row for row. Built, owner-tested and committed 2026-10-07; the entry above carries the record. Deferred by name: `--into` to `KERNEL.11`, a projection chosen by name to `KERNEL.12`, the page's viewport to `KERNEL.5` after `KERNEL.3`. `~days`, taken in a day.
 - ✅ **KERNEL.2 — the distro folder: the unit the build tools take.** An edition of Frazaro beyond the engine is one folder with one manifest, `distros/<name>/distro.vla`, naming by reference the prelude, the base phrasebook, an overlay, the dialects, the libraries, the examples, the add-in's file name and the page's title, tagline, opening sentence and palette; `distros/english` is the edition the doors ship and `distros/espanol` the add-in's Spanish edition as it shipped. Three readers take the one file: `tools/build_web.ps1` bakes it into the page (`-Distro`, `-Template`), `frazaro prove <folder>` proves it whole through `core/src/distro.rs` (english `PASS 632/632`, espanol `PASS 662/662`), and `VlaBuildAddin` reads each edition's chain, file name and override name from its folder, the hand-written tables gone. `check_distro.ps1`, the 51st check, holds every manifest to one shape and the readers to one another; `check_web_offline.ps1` holds the picker's places to the distro's dialects; `prove.ps1` gained the kind; two catalogue refusals under `VLA-Distro`. The oracle held: the page built from the distro is byte for byte the page built before. Built 2026-10-07, owner-tested and committed 2026-10-08; the entry above carries the record. Deferred by name: the picker's labels and the add-in's chrome to `EDITION-CHROME`, `Use` lines to `G-USE`, `describe` to `KERNEL.18`. `~days`, taken in a day.
 - ✅ **KERNEL.7 — recalculation, slice 1: the declared subset's floor.** A workbook's formulas computed in dependency order and held to the values Excel saved. The mechanism is the language's (`vla-lang/src/calc/`, by the three-crate order of `PORT.12`): a parser for operators and calls over the reference scanner, the dependency graph from `refers`, an iterative Tarjan for the order and the cycles, evaluation with a budget in cells that yields and resumes, Excel's seven error values as a value kind, and a `Library` seam with the fourteen functions `Alonzo/SPEC.md` §13 names for a cartridge's first rules. Excel's library registers through the seam from `frazaro-core` as the declared subset, twenty-one functions each with its evidence (the Enron and EUSES tables of Jansen and Hermans, 2015; `IFS` on `saved.xlsx`); a function outside it shows `not computed here` with its name, and a cell that reads it inherits the label. `frazaro calc <file> [--counts]` prints each formula cell's computed value beside the value the host saved, with agree, differ or unchecked; `frazaro reflect --functions` is `KERNEL.6`'s histogram; the view record carries a `value` row after each formula row (`SPEC.md` decision 14); the kernel's sixth seam is `functions`; two refusals for an engine's load under `VLA-Calc`. Oracle 12 in the treaty over seven fixtures, `check_recalc_golden.ps1` (the 52nd check at this commit, with its control), `prove.ps1`'s eleventh kind. The owner's Excel 365 save of the subset fixture agreed on all 102 formulas the subset computes, after correcting two of the build's rules the same evening, a number's General spelling and a text `TRUE` read through a reference in `IF`. Built 2026-10-08, owner-tested and committed 2026-10-09; the entry above carries the record. Deferred by name: the lookups, `SUBTOTAL`, `DAVERAGE`, `CONCATENATE`, `MONTH` and implicit intersection to `KERNEL.8`; the handle and the four calls to the item after `PORT.12`; speed to `KERNEL.20`; the edges fixture's Excel save. `~weeks`, taken in a day.
+- ✅ **KERNEL.22 — the handle and the four calls: the grid as a machine an engine steps.** The language's half of Alonzo's `ENGINE.1`: a grid kept in the language's memory under a handle (`vla_lang::machine`), which an engine loads from the rows a view or a reflect prints (the record's inverse, one write per cell, a cap of 1,048,576 cells), writes with `cell`, `formula` and `derived` rows all or none, steps with a budget in cells that yields and resumes, the previous frame a hidden twin sheet `X.last` filled at the end of each frame, and views as the record with its `value` rows or as the plane, a byte a cell; handles from 1, never reused, sixteen at once; every formula parsed once per shape (a shared formula, or cells of one R1C1 text) and evaluated at each cell's offset, since a parse of every cell held would be 562 MB for Life; the view record's `row` and `look` rows and each sheet's own state (oracle 11 amended); fourteen refusals in the language's families, the `grid` family's eleven, two in `view` and one in `calc`, and the two view refusals reworded true at every door; the C surface, nine `vla_*` functions, exported only under the `c-abi` feature and held by `check_wasm_exports.ps1` (the 53rd check at this commit, with its control); CALLOSUM §7 decision 1 amended for the engine's door alone. Measured natively: Life's cartridge loads in 137 ms as one shape and steps in 0.258 s a frame, exact at generations 0 and 10 against a reference Life, and a save of 34 MB reloads as one shape and resumes. Scoped, built, owner-tested and committed 2026-10-09; the entry above carries the record. Deferred by name: speed to `KERNEL.20`; a save's names and size to Alonzo's page; `calc-function-not-computed`'s words at a load to the owner's word. `~days`, taken in a day.
 
 ## 🛡 ADVERSARY · SECURITY
 

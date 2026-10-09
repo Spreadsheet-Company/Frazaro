@@ -135,6 +135,20 @@ fn split_scope<'a>(model: &Workbook, printed: &'a str) -> (Option<usize>, &'a st
 /// span, the formula's own sheet when none is written. A sheet the model
 /// does not hold is `#REF!`.
 pub fn areas_of(model: &Workbook, home: usize, r: &RefExpr) -> Result<Vec<Area>, ErrorKind> {
+    areas_at(model, home, r, 0, 0)
+}
+
+/// The areas a reference names from a cell `d_row` rows down and `d_col`
+/// columns right of the one its formula was read at (KERNEL.22, a shape
+/// evaluated at an offset): [`RefExpr::moved`]'s rectangle on each sheet,
+/// `#REF!` when a corner leaves the sheet, as the moved text would read.
+pub fn areas_at(
+    model: &Workbook,
+    home: usize,
+    r: &RefExpr,
+    d_row: i64,
+    d_col: i64,
+) -> Result<Vec<Area>, ErrorKind> {
     let first = match &r.sheet {
         None => home,
         Some(name) => model.find_sheet(name).ok_or(ErrorKind::Ref)?,
@@ -143,14 +157,15 @@ pub fn areas_of(model: &Workbook, home: usize, r: &RefExpr) -> Result<Vec<Area>,
         None => first,
         Some(name) => model.find_sheet(name).ok_or(ErrorKind::Ref)?,
     };
+    let (top, left, bottom, right) = r.moved(d_row, d_col).ok_or(ErrorKind::Ref)?;
     let (a, b) = (first.min(last), first.max(last));
     Ok((a..=b)
         .map(|sheet| Area {
             sheet,
-            top: r.top,
-            left: r.left,
-            bottom: r.bottom,
-            right: r.right,
+            top,
+            left,
+            bottom,
+            right,
         })
         .collect())
 }
@@ -324,8 +339,9 @@ pub fn plan(
 /// Tarjan's strongly connected components, iteratively, in the order the
 /// algorithm emits them: a component after every component it has an edge
 /// into, which is the evaluation order when an edge runs from a reader to
-/// what it reads.
-fn tarjan(adj: &[Vec<usize>]) -> Vec<Vec<usize>> {
+/// what it reads. The machine's plan of shapes orders its cells with it too
+/// (KERNEL.22).
+pub(crate) fn tarjan(adj: &[Vec<usize>]) -> Vec<Vec<usize>> {
     let n = adj.len();
     let mut index: Vec<Option<usize>> = vec![None; n];
     let mut low: Vec<usize> = vec![0; n];

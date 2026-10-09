@@ -6,6 +6,20 @@
 
 ### What changed
 
+- **For engines and embeddings: a grid an engine steps, `vla_lang::machine`.**
+  A game engine keeps a grid in the language's memory under a handle and
+  makes four calls of it: load, the rows `frazaro view` and `frazaro
+  reflect` print read back into a grid; write, cells and formulas, all or
+  none; step, every formula in dependency order with a budget in cells
+  that yields and resumes, the previous frame read from a hidden twin of
+  each sheet, `Screen.last`; and view, the record with each formula's value,
+  or the plane, a byte a cell. Every refusal is named from the catalogue,
+  and the language's C surface over the four calls is exported only when
+  a build asks for it. The view record gains `row` and `look` rows and
+  prints each sheet's own state, which changes nothing a built workbook
+  shows, and `frazaro view`'s two refusals now read the same at every door
+  (`The grid holds no sheet named Summary; it holds ...`). Frazaro's own
+  doors keep the pure function (KERNEL.22).
 - **For the command line, the web page and embeddings: recalculation, the
   first slice.** `frazaro calc <file.xlsx|.ods>` computes every formula of
   a workbook in dependency order and prints each cell's computed value

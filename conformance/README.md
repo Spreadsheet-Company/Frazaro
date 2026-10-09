@@ -1245,3 +1245,35 @@ CI job runs it after the view check. The runner gains the kind:
 `tools/prove.ps1` inventories the seven rows and scores them as it scores
 the reflect kind; its `-Control` fake answers each from the golden by the
 fixture's name, and its mutant changes one character.
+
+## Amendment of 2026-10-09: oracle 11's `row` and `look` rows, a sheet's own state, and the loader its inverse (`KERNEL.22`, the handle and the four calls)
+
+An engine keeps a grid in the language's memory and views it through the
+same record (`vla_lang::machine`; `Alonzo/SPEC.md` §4), which asks three
+things of oracle 11 and moves no golden, since no model a program builds
+holds any of them:
+
+- **A `(sheet ...)` row prints the sheet's own state**, `visible`, `hidden`
+  or `very-hidden`, the reader's three words, where every row said
+  `visible` before. An engine's twin of a sheet `X`, `X.last`, the previous
+  frame, is `hidden` and listed after the sheets it twins, in their order.
+- **`(row "<sheet>" <n> <height|none> shown|hidden)`**, one row per row of
+  the window that has settings, ascending, after the `column` rows: the
+  `column` row's twin (`Alonzo/SPEC.md` decision 19).
+- **`(look "<sheet>" <value> <format>)`**, one row per entry of the sheet's
+  look map, in the order declared, after the `format` rows, each look's
+  format among the formats printed: every cell of the sheet holding the
+  value draws with that format in place of its own (the same decision).
+
+**The record's inverse.** The language's loader (`vla_lang::machine::load`)
+takes every row the record and the reader print, `sheet`, `cell` and
+`formula` over a cell or a range, `value` after its formula, `name`,
+`gridlines`, `column`, `row`, `format`, `look`, `style` and `sentence`, and
+skips by name `window`, `extent`, `refers` and `table`; a record of a whole
+sheet loaded and viewed again is the same record, row for row. That is
+held by the language's test over the five view goldens whose window holds
+the sheet's extent (the sixth, `fixture_output_b2_c3`, clips its window
+inside the sheet, so its `extent` row is not the loaded cells') and over a
+model holding every row kind, stepped and saved, as an engine's save is
+made. No new oracle number: the four calls are one implementation's
+surface, with no second to hold to them; 13 stays the expansion golden's.

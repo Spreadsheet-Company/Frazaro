@@ -17,9 +17,12 @@ pub struct Window {
 
 /// A projection: a pure function from the model and a window to lines, the
 /// shape every door prints (`SD-23`). The grid is the first
-/// (`crate::view::Grid`, `KERNEL.4`), an engine's plane the second, the
-/// sentence pane and the dependency cone drawn as a diagram the core's
-/// (`KERNEL.12`). A projection never edits the model.
+/// (`crate::view::Grid`, `KERNEL.4`), the sentence pane and the dependency
+/// cone drawn as a diagram the core's (`KERNEL.12`). An engine's plane, a
+/// byte a cell, is a projection by name beside this trait
+/// (`crate::machine::plane`, `KERNEL.22`), since its output is a raster
+/// and not lines; whether rasters get a trait of their own waits for a
+/// second one. A projection never edits the model.
 pub trait Projection {
     /// The projection's name, as `frazaro view` selects it.
     fn name(&self) -> &str;

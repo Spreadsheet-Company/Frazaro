@@ -20,7 +20,10 @@ imported, not just that something was.
 
 WHERE THE ARTIFACTS COME FROM (two since PORT.12, 2026-10-08: the core's, and
 the language crate's vla_lang.wasm beside it, built with -p vla-lang and held
-to the same zero): target/wasm32-unknown-unknown/release/
+to the same zero; since KERNEL.22, 2026-10-09, built with --features c-abi,
+the language's C surface, without which nothing in the crate is reachable
+from an export and the module is an empty 32 bytes whose zero proves
+nothing): target/wasm32-unknown-unknown/release/
 frazaro_core.wasm, which `cargo build --release -p frazaro-core --target
 wasm32-unknown-unknown` writes and CI builds on every push. A tree with no
 Rust toolchain has no artifact; the check then says SKIPPED and exits 0,
@@ -128,7 +131,7 @@ $artifacts = if ($Path -ne '') { @($Path) } else {
 $failed = $false
 foreach ($wasm in $artifacts) {
     if (-not (Test-Path $wasm)) {
-        Write-Host "SKIPPED: no wasm artifact at $wasm (cargo build --release -p frazaro-core --target wasm32-unknown-unknown writes the core's, the same with -p vla-lang the language's; CI checks both on every push)"
+        Write-Host "SKIPPED: no wasm artifact at $wasm (cargo build --release -p frazaro-core --target wasm32-unknown-unknown writes the core's, the same with -p vla-lang --features c-abi the language's; CI checks both on every push)"
         continue
     }
     $bytes = [System.IO.File]::ReadAllBytes($wasm)

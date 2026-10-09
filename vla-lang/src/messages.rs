@@ -9,7 +9,8 @@
 //! both exported from `src/VLA_Messages.bas` by `tools/export_messages.ps1`
 //! and held to it by `tools/check_data_exports.ps1`: this crate embeds the
 //! language's own families (`data/messages.vla`: `vla`, `interp`, `lint`,
-//! `view` and, since KERNEL.7, `calc`), and `frazaro-core` embeds the rest
+//! `view`, since KERNEL.7 `calc`, and since KERNEL.22 `grid`, the
+//! machine's), and `frazaro-core` embeds the rest
 //! and asks this catalogue after its own. The VBA is the source of both.
 //!
 //! A refusal here is a value, not a raise: [`Refusal`], carried in a
@@ -251,9 +252,22 @@ mod tests {
         for id in ids() {
             let family = id.split('-').next().unwrap();
             assert!(
-                ["vla", "interp", "lint", "view", "calc"].contains(&family),
+                ["vla", "interp", "lint", "view", "calc", "grid"].contains(&family),
                 "{id} is not the language's"
             );
+        }
+        // The machine's family (KERNEL.22): eleven grid ids, and the view's
+        // and recalculation's own the machine adds.
+        assert_eq!(
+            ids().iter().filter(|id| id.starts_with("grid-")).count(),
+            11
+        );
+        for id in [
+            "view-projection-unknown",
+            "view-window-too-large",
+            "calc-construct-not-read",
+        ] {
+            assert!(template(id).is_some(), "{id}");
         }
     }
 

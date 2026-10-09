@@ -1,6 +1,18 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "KERNEL.7"
+Public Const VLA_MESSAGES_VERSION As String = "KERNEL.22"
+' KERNEL.22: the machine's refusals. A new family, grid, under the source
+' VLA-Grid: grid-handle-unknown, grid-handle-limit, grid-row-unknown,
+' grid-row-malformed, grid-cell-written-twice, grid-sheet-name-invalid,
+' grid-sheet-unknown, grid-write-last, grid-write-during-step,
+' grid-write-derived and grid-too-many-cells; view-projection-unknown and
+' view-window-too-large under VLA-View; calc-construct-not-read under
+' VLA-Calc; and view-sheet-unknown and view-window-not-a-range reworded so
+' that they are true at every door, an engine's view as well as frazaro
+' view. The language's machine (vla-lang, machine) keeps a grid under a
+' handle for an engine, and loads, writes, steps and views it. Raised by
+' no VBA site: the add-in's grid is Excel's.
+'
 ' KERNEL.7: calc-cycle and calc-function-not-computed under the source
 ' VLA-Calc, recalculation's refusals: the language's evaluator (vla-lang,
 ' calc) computes a grid's formulas in dependency order, and an engine's
@@ -1478,6 +1490,29 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "reflect-xml-refused", 5, "VLA-Reflect", "{path} has a part this version refuses to read: {part}, {why}. Nothing past that point was read."
     AddMsg m, "reflect-unsupported", 5, "VLA-Reflect", "{path} has a shape this version does not read: {part}, {why}."
 
+    ' KERNEL.22: the machine's refusals. The language's machine (vla-lang,
+    ' machine) keeps a grid in memory under a handle for an engine, and an
+    ' engine's four calls load it from rows, write rows into it, step it a
+    ' frame at a time with a budget in cells, and view a window of it. What
+    ' the machine refuses is a handle it does not hold or one too many, a
+    ' row it does not take or whose shape is wrong, a cell or a setting the
+    ' rows write twice, a sheet's name it cannot hold, a write to a sheet it
+    ' does not hold or to a twin (the previous frame, read-only), a write
+    ' while a frame is in progress, a derived write over a formula, and a
+    ' grid past its million cells. Raised from the export by an engine
+    ' alone; the add-in's grid is Excel's, so no VBA site raises them.
+    AddMsg m, "grid-handle-unknown", 9, "VLA-Grid", "No grid is loaded under the handle {handle}; a handle is the number a load answered, and it ends with the unload."
+    AddMsg m, "grid-handle-limit", 5, "VLA-Grid", "{limit} grids are loaded already, the most one module holds at once; unload one before loading another."
+    AddMsg m, "grid-row-unknown", 5, "VLA-Grid", "Line {line} is a ({head} ...) row, which is not one taken here; the rows taken here are {kinds}."
+    AddMsg m, "grid-row-malformed", 5, "VLA-Grid", "Line {line} holds {row}, which is not in its shape, {shape}. In a shape, <value> is a number, a text in quotes, true, false or an error such as (error ""#N/A"")."
+    AddMsg m, "grid-cell-written-twice", 5, "VLA-Grid", "Line {line} writes {what}, which line {first} already wrote; a grid's rows say one thing about each cell and each setting, so write it once."
+    AddMsg m, "grid-sheet-name-invalid", 5, "VLA-Grid", "Line {line} names a sheet {name}, which a grid cannot hold. A sheet's name is 1 to 26 characters, so that the name of its twin, the previous frame, fits Excel's 31; it holds none of \ / ? * [ ] : and no apostrophe at either end; and a name ending in .last is a twin's own."
+    AddMsg m, "grid-sheet-unknown", 9, "VLA-Grid", "Line {line} writes {target}, but the grid holds no sheet named {name}; it holds {sheets}. A write changes the cells of the sheets a grid holds and makes no sheet."
+    AddMsg m, "grid-write-last", 5, "VLA-Grid", "Line {line} writes {target}, a cell of {sheet}, the previous frame, which is read-only: write {source}, and the end of the next step copies it there."
+    AddMsg m, "grid-write-during-step", 5, "VLA-Grid", "Frame {frame} is being computed, {evaluated} of {of} cells; a write waits until the step that finishes it."
+    AddMsg m, "grid-write-derived", 5, "VLA-Grid", "Line {line} is a derived write into {target}, and {cell} holds a formula; a derived write lands only in a value cell, since the grid's own writes carry values and never replace a formula."
+    AddMsg m, "grid-too-many-cells", 5, "VLA-Grid", "Line {line} writes {target}, which would bring the grid to {cells} cells, past the {limit} one grid holds beside its twins."
+
     ' KERNEL.7: recalculation's refusals. The language's evaluator (vla-lang,
     ' calc) computes a grid's formulas in dependency order, reading its
     ' references through the same scanner VLA_Refers.bas is the reference
@@ -1490,6 +1525,8 @@ Private Sub AddEntries(ByVal m As Collection)
     ' the function named).
     AddMsg m, "calc-cycle", 5, "VLA-Calc", "The formulas in {cells} read one another in a circle, so none of them can be computed first. Break the circle: one of them must read a value, not a formula that reads it back."
     AddMsg m, "calc-function-not-computed", 5, "VLA-Calc", "The formula in {cell} calls {function}, which this version does not compute. The cell keeps its formula and shows not computed here."
+    ' KERNEL.22 - a formula whose text this version does not read stops an engine's load too.
+    AddMsg m, "calc-construct-not-read", 5, "VLA-Calc", "The formula in {cell} reaches {construct}, which this version does not read, so the formula cannot be computed."
 
     ' KERNEL.4: the view record's refusals. frazaro view (the core's
     ' command-line door, and a page through frazaro_view) builds a program
@@ -1499,8 +1536,11 @@ Private Sub AddEntries(ByVal m As Collection)
     ' not a rectangle of cells is refused as written. Raised from the
     ' export by the core alone, as the writer's and the reader's are; the
     ' add-in shows the sheet itself, so no VBA site raises them.
-    AddMsg m, "view-sheet-unknown", 9, "VLA-View", "The program makes no sheet named {name}; it makes {sheets}. Name one of those with --sheet."
-    AddMsg m, "view-window-not-a-range", 5, "VLA-View", "{text} is not a window frazaro view can show. Write two corners of a rectangle, A1:F20, or one cell, B2; a whole column or row is not a window."
+    AddMsg m, "view-sheet-unknown", 9, "VLA-View", "The grid holds no sheet named {name}; it holds {sheets}."
+    AddMsg m, "view-window-not-a-range", 5, "VLA-View", "{text} is not a window of a sheet. Write two corners of a rectangle, A1:F20, or one cell, B2; a whole column or row is not a window."
+    ' KERNEL.22 - an engine's view: a projection this version does not have, and a plane too large to hold.
+    AddMsg m, "view-projection-unknown", 5, "VLA-View", "{name} is not a projection of the grid; the projections are grid, the rows of a window, and plane, a byte a cell."
+    AddMsg m, "view-window-too-large", 5, "VLA-View", "The window {window} holds {cells} cells, past the {limit} one plane holds; view it in parts."
 
     ' KERNEL.2: the distro folder's refusals. An edition is a folder,
     ' distros\<name>\, whose distro.vla names the prelude, the phrasebooks

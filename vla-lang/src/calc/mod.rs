@@ -12,26 +12,31 @@
 //! ([`library::language`]); Excel's wider library registers through
 //! [`Library`] from `frazaro-core`, by measurement and with a fixture per
 //! function, and `frazaro calc` compares what it computes against the
-//! values a host saved. An engine runs a grid at a frame rate on the same
-//! [`Calc`]: a step with a budget in cells that yields and resumes
+//! values a host saved.
+//!
+//! An engine's grid is stepped by `crate::machine` (KERNEL.22,
+//! 2026-10-09), over the same evaluator and the plan of shapes in
+//! [`shape`]: every formula parsed once per shape and evaluated at each
+//! cell's offset, a step with a budget in cells that yields and resumes
 //! (`Alonzo/SPEC.md` section 4.4), the previous frame's `.last` twins being
-//! ordinary sheets to it.
+//! ordinary sheets to it. [`Calc`] keeps its plan of texts and its parse at
+//! evaluation, since it evaluates each formula once and an engine every
+//! formula every frame.
 //!
 //! What is not here, by name, each a slice of its own: dates, text
 //! functions, lookups, dynamic arrays and spills, implicit intersection
 //! and `@`, `LET` and `LAMBDA` (`KERNEL.8`); speed, the vectorized shared
 //! formula, incremental recomputation and content-addressed evaluation
-//! (`KERNEL.20`); the handle and the four calls, the `.last` twins'
-//! snapshot and the plane (the item after `PORT.12`). A formula that
-//! reaches any of them is not computed, and says so naming the function or
-//! the construct ([`Reason`]), which is the honest static label of
-//! `HORIZON.md` section 12.6; a cell that reads such a cell inherits the
-//! reason.
+//! (`KERNEL.20`). A formula that reaches any of them is not computed, and
+//! says so naming the function or the construct ([`Reason`]), which is the
+//! honest static label of `HORIZON.md` section 12.6; a cell that reads such
+//! a cell inherits the reason.
 
 pub mod eval;
 pub mod formula;
 pub mod graph;
 pub mod library;
+pub mod shape;
 pub mod value;
 
 use std::cell::Cell as Slot;
@@ -44,6 +49,7 @@ use crate::sheet::{cell_ref, formula_text, shared_masters, Content, Workbook};
 pub use eval::{Arg, Computed, Ctx, Env, Form, Library, Reason, Strict};
 pub use formula::{calls, parse, Expr};
 pub use graph::{Area, CellId, Extent, Names, Plan};
+pub use shape::{Place, Shape, Shapes};
 pub use value::{agrees, ErrorKind, Value};
 
 /// How far a step got: the cells evaluated so far in this frame, the
@@ -240,20 +246,48 @@ impl<'m> Calc<'m> {
     /// The first thing that stops the whole grid from being stepped, as a
     /// refusal from the catalogue: a cycle, naming the cells that close it
     /// (`calc-cycle`), else the first function the library does not hold,
-    /// naming the cell that calls it (`calc-function-not-computed`); `None`
-    /// when every formula can be computed. An engine's `load` asks this
-    /// once; `frazaro calc` never does, since a workbook is read as it is
-    /// and each cell says what it can.
+    /// naming the cell that calls it (`calc-function-not-computed`), else
+    /// the first formula whose text this version does not read, naming the
+    /// construct (`calc-construct-not-read`, KERNEL.22: the "unreadable
+    /// reference" KERNEL.7's fifth decision named for an engine's load);
+    /// `None` when every formula can be computed. An engine's `load` asks
+    /// this once; `frazaro calc` never does, since a workbook is read as it
+    /// is and each cell says what it can.
     pub fn first_refusal(&self) -> Option<Refusal> {
         if let Some(cycle) = self.plan.cycles.first() {
             let cells: Vec<String> = cycle.iter().map(|id| self.spell_cell(*id)).collect();
             return Some(raise("calc-cycle", &[("cells", &cells.join(", "))]));
         }
-        let (id, name) = self.missing_functions().into_iter().next()?;
+        if let Some((id, name)) = self.missing_functions().into_iter().next() {
+            return Some(raise(
+                "calc-function-not-computed",
+                &[("cell", &self.spell_cell(id)), ("function", &name)],
+            ));
+        }
+        let (id, construct) = self.formula_cells().into_iter().find_map(|id| {
+            formula::parse(&self.texts[&id])
+                .err()
+                .map(|construct| (id, construct))
+        })?;
         Some(raise(
-            "calc-function-not-computed",
-            &[("cell", &self.spell_cell(id)), ("function", &name)],
+            "calc-construct-not-read",
+            &[("cell", &self.spell_cell(id)), ("construct", &construct)],
         ))
+    }
+}
+
+/// What a projection asks of a recalculation (KERNEL.22): a formula cell's
+/// computed value, or `None` for a value cell or a formula with no value
+/// yet. [`Calc`] answers it, and so does an engine's machine, whose values
+/// outlive any one recalculation; the view record prints its `value` rows
+/// from either.
+pub trait Values: std::fmt::Debug {
+    fn computed(&self, id: CellId) -> Option<&Computed>;
+}
+
+impl Values for Calc<'_> {
+    fn computed(&self, id: CellId) -> Option<&Computed> {
+        Calc::computed(self, id)
     }
 }
 
@@ -697,6 +731,35 @@ mod tests {
         );
         assert_eq!(at(&calc, "S", "A1").spell(), "\"yes\"");
         assert_eq!(at(&calc, "S", "B1").spell(), "(not-computed \"VLOOKUP\")");
+    }
+
+    #[test]
+    fn a_construct_not_read_is_the_third_thing_a_load_refuses() {
+        // KERNEL.22: after the cycle and the function, a formula whose text
+        // this version does not read, naming the construct.
+        let wb = model(&[
+            ("S", "A1", "=1+1"),
+            ("S", "B2", "={1,2}"),
+            ("S", "C3", "=@A1"),
+        ]);
+        let lib = library::language();
+        let calc = Calc::new(&wb, &lib);
+        let r = calc.first_refusal().unwrap();
+        assert_eq!(r.id, "calc-construct-not-read");
+        assert!(
+            r.text.contains("S!B2") && r.text.contains("reaches {"),
+            "{}",
+            r.text
+        );
+        // A function the library does not hold comes first.
+        let wb = model(&[("S", "B2", "={1,2}"), ("S", "C3", "=NOW()")]);
+        let calc = Calc::new(&wb, &lib);
+        assert_eq!(
+            calc.first_refusal().unwrap().id,
+            "calc-function-not-computed"
+        );
+        let wb = model(&[("S", "A1", "=1+1")]);
+        assert!(Calc::new(&wb, &lib).first_refusal().is_none());
     }
 
     #[test]

@@ -21,6 +21,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::intrinsics::fold;
+use crate::rows::Visibility;
 
 /// A colour, as `Interior.Color = RGB(r, g, b)` names it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -89,6 +90,22 @@ impl Styles {
         }
         self.xfs.push(style);
         (self.xfs.len() - 1) as u32
+    }
+
+    /// A format put at the index a record names (KERNEL.22, the loader:
+    /// a `format` row says its own index), the table grown with default
+    /// formats up to it.
+    pub fn put(&mut self, index: u32, style: Style) {
+        let i = index as usize;
+        if self.xfs.len() <= i {
+            self.xfs.resize(i + 1, Style::default());
+        }
+        self.xfs[i] = style;
+    }
+
+    /// The format at an index, or `None` past the table.
+    pub fn get(&self, index: u32) -> Option<&Style> {
+        self.xfs.get(index as usize)
     }
 
     /// Every format, in index order.
@@ -231,12 +248,33 @@ pub fn parse_a1_range(s: &str) -> Option<A1Range> {
     })
 }
 
+/// A row's settings, the twin of a [`Column`]'s (KERNEL.22; `Alonzo/SPEC.md`
+/// decision 19): its height in points, or `None` for the default, and
+/// whether it is hidden.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RowSettings {
+    pub height: Option<f64>,
+    pub hidden: bool,
+}
+
 /// One sheet: its cells by (row, column), both 1-based.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Sheet {
     pub name: String,
     pub cells: BTreeMap<(u32, u32), Cell>,
     pub columns: Vec<Column>,
+    /// The rows with settings of their own, by number (KERNEL.22), printed
+    /// as the view record's `row` rows; empty for a sheet the writer built.
+    pub rows: BTreeMap<u32, RowSettings>,
+    /// The look map (KERNEL.22; `Alonzo/SPEC.md` decision 19): a value as a
+    /// `cell` row spells it, and the format a cell holding that value draws
+    /// with in place of its own, in the order declared; printed as the view
+    /// record's `look` rows.
+    pub looks: Vec<(String, u32)>,
+    /// Whether the sheet has a tab (KERNEL.22): the reader's three words.
+    /// Every sheet the writer builds is visible; an engine's twins are
+    /// hidden.
+    pub visibility: Visibility,
     pub gridlines: bool,
     /// The selected cell when the sheet opens, (row, column).
     pub active_cell: (u32, u32),
@@ -255,6 +293,9 @@ impl Sheet {
             name: name.to_string(),
             cells: BTreeMap::new(),
             columns: Vec::new(),
+            rows: BTreeMap::new(),
+            looks: Vec::new(),
+            visibility: Visibility::Visible,
             gridlines: true,
             active_cell: (1, 1),
             shared_formulas: 0,
@@ -599,6 +640,17 @@ mod tests {
         assert_eq!((a, b, a2), (1, 2, 1));
         assert_eq!(s.fills(), vec![Rgb(1, 2, 3), Rgb(4, 5, 6)]);
         assert_eq!(Rgb(247, 244, 252).argb_hex(), "FFF7F4FC");
+        // A format put at the index a record names, the table grown with
+        // defaults (KERNEL.22, the loader).
+        let wrap = Style {
+            wrap: true,
+            ..Style::default()
+        };
+        s.put(5, wrap.clone());
+        assert_eq!(s.xfs().len(), 6);
+        assert_eq!(s.get(5), Some(&wrap));
+        assert_eq!(s.get(4), Some(&Style::default()));
+        assert_eq!(s.get(6), None);
     }
 
     #[test]

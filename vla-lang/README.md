@@ -1,7 +1,7 @@
 # vla-lang
 
 **The VLA language with nothing around it: forms, their expansion, the
-grid, and the view record.**
+grid, the view record, and the machine that steps a grid.**
 
 Frazaro is a language for spreadsheet work: you write the steps of a
 procedure as English sentences, and Frazaro checks every sentence, refuses
@@ -74,8 +74,25 @@ refused in the same words.
   `frazaro-core` registers Excel's library by measurement. A formula that
   calls anything else is not computed, and says so naming the function; a
   cell that reads it inherits the label. `Calc::first_refusal` is what an
-  engine's load asks: a cycle, or a function outside the library, each
-  refused by name from the catalogue.
+  engine's load asks: a cycle, a function outside the library, or a
+  construct the parser does not read, each refused by name from the
+  catalogue.
+- **Runs a grid as a machine.** `machine::Machine` is a grid kept between
+  calls, for a game engine that steps it at a frame rate: `Machine::load`
+  reads the rows a view or a reflect prints back into a grid, the record's
+  inverse; `write` takes `cell`, `formula` and `derived` rows, all or none;
+  `step` computes every formula in dependency order with a budget in cells,
+  yields and resumes, and at the end of each frame copies every sheet's
+  values into its twin, `X.last`, a hidden sheet the next frame's formulas
+  read the previous frame from (`=Screen.last!B2+1`); `view` answers the
+  record with each formula's value, or the plane, a byte a cell. Each
+  formula is parsed once per shape (a filled formula, or cells whose R1C1
+  text is the same) and evaluated at each cell's offset. `machine::Handles`
+  keeps grids under handles from 1, never reused, sixteen at once. The C
+  surface over the four calls, `vla_load`, `vla_write`, `vla_step`,
+  `vla_view` and their companions, is compiled always and exported only
+  under the `c-abi` feature, so that no module built on this crate exports
+  a second door to its grid.
 - **Refuses in words.** Every refusal is a `messages::Refusal`, a value
   carrying the catalogue's id, number, source and text, never a panic.
 
@@ -116,13 +133,15 @@ checks. `vla_lang::VERSION` is the crate's version, which is the release's,
 the add-in's and `frazaro-core`'s, one number for the language.
 
 ```text
-cargo build --release -p vla-lang --target wasm32-unknown-unknown
+cargo build --release -p vla-lang --features c-abi --target wasm32-unknown-unknown
 ```
 
-builds the crate as a WebAssembly module whose import section the
-repository's `tools/check_core_imports.ps1` holds at zero entries, so that
-no engine built on it can reach a socket, a clock or a file through the
-language.
+builds the crate as a WebAssembly module with the machine's C surface,
+whose import section the repository's `tools/check_core_imports.ps1` holds
+at zero entries, so that no engine built on it can reach a socket, a clock
+or a file through the language, and whose exports
+`tools/check_wasm_exports.ps1` holds to exactly its nine functions and its
+memory.
 
 ## What comes next
 
@@ -132,11 +151,9 @@ this page gains its section when the item closes:
 - **Recalculation's next slices.** Dates, the text functions, the lookups,
   dynamic arrays and spills, implicit intersection and `@` (KERNEL.8); the
   vectorized evaluation of a shared formula, incremental recomputation and
-  content-addressed evaluation (KERNEL.20). The first slice is here.
-- **The engine's door.** A loaded grid kept between calls under a handle,
-  with four calls, load, write, step and view, the previous frame as a
-  read-only twin of every sheet, and a second projection, the plane, so a
-  game engine can run a grid at a frame rate (the item after PORT.12).
+  content-addressed evaluation (KERNEL.20), which is what makes a frame of
+  a 320 by 200 grid fast: today the machine steps one in about a quarter of
+  a second natively. The first slice is here.
 - **An expansion golden of its own.** The corpus program expanded under
   the prelude, written by the reference and reproduced here.
 

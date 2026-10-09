@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.21 | KERNEL.22 |
+| KERNEL | KERNEL.22 | KERNEL.23 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -172,7 +172,11 @@ the register, not items, and take no row here. The `PORT` family (minted
 pass; it has one now. `PORT.12` was minted 2026-10-08: the cut of `vla-lang`,
 the language as a crate of its own before `KERNEL.7`, the boundary decided the
 same day in Alonzo's sessions and scoped in `BETA_REARVIEW.md`, Part B;
-`PORT.13` is next free.
+`PORT.13` is next free. `KERNEL.22` was minted 2026-10-09 for the scoping
+of the handle and the four calls, the language's half of Alonzo's
+`ENGINE.1` (`BETA_REARVIEW.md`, under the KERNEL line, after `KERNEL.7`'s
+record), the owner choosing it over `PORT.13` the same day as that
+scoping's first decision. `KERNEL.23` is next free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a

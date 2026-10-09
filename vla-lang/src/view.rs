@@ -11,14 +11,19 @@
 //! corpus's notation, as `reflect` prints a file:
 //!
 //! ```text
-//! (sheet "Frazaro" visible)          every sheet of the model, in tab order
+//! (sheet "Frazaro" visible)          every sheet of the model, in tab order, with
+//!                                    its own state: visible, hidden, very-hidden
 //! (window "Output" "A1:F20")         the window, its sheet as the model spells it
 //! (extent "Output" "B1:D4")          the sheet's used rectangle, or none
 //! (gridlines "Output" on)
 //! (column "Frazaro" "B" 72 shown 1)  a column of the window with settings:
 //!                                    width or none, shown or hidden, format or none
+//! (row "Board" 3 30 shown)           a row of the window with settings (KERNEL.22):
+//!                                    height or none, shown or hidden
 //! (format 1 "F7F4FC" text nowrap)    format 0 and every format the window uses:
 //!                                    fill or none, general or text, wrap or nowrap
+//! (look "Board" 1 2)                 the sheet's look map (KERNEL.22): a cell
+//!                                    holding the value draws with the format
 //! (cell "Output" "B2" 5)             a value, spelled as reflect spells it
 //! (formula "Output" "B3" "=B2*2")    a formula's text as the bar shows it
 //! (value "Output" "B3" 10)           its computed value, once values exist
@@ -45,28 +50,31 @@
 
 use std::collections::BTreeSet;
 
-use crate::calc::Calc;
+use crate::calc::Values;
 use crate::messages::{raise, Refusal};
 use crate::projection::{Projection, Window};
 use crate::rows::{line as relation, quoted};
-use crate::rows::{Row, Value, Visibility};
+use crate::rows::{Row, Value};
 use crate::sheet::{
     cell_ref, column_letters, formula_text, number_text, parse_a1_range, shared_masters, A1Range,
     Cell, Column, Content, NumFmt, Sheet, Style, Workbook,
 };
 
-/// The grid: the view record of one window, the first projection. With a
-/// [`Calc`] over the same model, each formula row is followed by its
-/// `value` row; without one, the record shows formulas as text alone.
+/// The grid: the view record of one window, the first projection. With the
+/// values of a recalculation over the same model (a [`crate::calc::Calc`],
+/// or an engine's machine since KERNEL.22), each formula row is followed by
+/// its `value` row; without them, the record shows formulas as text alone.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Grid<'v> {
-    pub values: Option<&'v Calc<'v>>,
+    pub values: Option<&'v dyn Values>,
 }
 
 impl<'v> Grid<'v> {
     /// The grid over a computed model.
-    pub fn valued(calc: &'v Calc<'v>) -> Grid<'v> {
-        Grid { values: Some(calc) }
+    pub fn valued(values: &'v dyn Values) -> Grid<'v> {
+        Grid {
+            values: Some(values),
+        }
     }
 }
 
@@ -79,7 +87,7 @@ impl Projection for Grid<'_> {
         for s in &model.sheets {
             out(&relation(&Row::Sheet {
                 name: &s.name,
-                visibility: Visibility::Visible,
+                visibility: s.visibility,
             }));
         }
         let Some(i) = model.find_sheet(&window.sheet) else {
@@ -138,6 +146,21 @@ impl Projection for Grid<'_> {
                 style
             ));
         }
+        // The rows of the window with settings, the column rows' twins
+        // (KERNEL.22; Alonzo/SPEC.md decision 19).
+        for (n, r) in sheet.rows.range(range.top..=range.bottom) {
+            let height = r
+                .height
+                .and_then(number_text)
+                .unwrap_or_else(|| "none".to_string());
+            out(&format!(
+                "(row {} {} {} {})",
+                quoted(name),
+                n,
+                height,
+                if r.hidden { "hidden" } else { "shown" }
+            ));
+        }
         let cells: Vec<(&(u32, u32), &Cell)> = sheet
             .cells
             .range((range.top, 0)..=(range.bottom, u32::MAX))
@@ -146,8 +169,16 @@ impl Projection for Grid<'_> {
         for (_, cell) in &cells {
             used.insert(cell.style);
         }
+        for (_, index) in &sheet.looks {
+            used.insert(*index);
+        }
         for index in used {
             out(&format_row(index, model.styles.xfs().get(index as usize)));
+        }
+        // The sheet's look map, a value to the format a cell holding it draws
+        // with (KERNEL.22; Alonzo/SPEC.md decision 19).
+        for (value, index) in &sheet.looks {
+            out(&format!("(look {} {} {})", quoted(name), value, index));
         }
         let masters = shared_masters(sheet);
         for ((row, col), cell) in cells {
@@ -328,11 +359,11 @@ pub fn view_text(model: &Workbook, window: &Window) -> String {
 
 /// The view record with each formula's computed value after it: the record
 /// a door prints once it has recalculated the model (`frazaro view` through
-/// the core's Excel library; an engine after a step). `calc` must be over
+/// the core's Excel library; an engine after a step). `values` must be over
 /// `model`.
-pub fn view_text_valued(model: &Workbook, window: &Window, calc: &Calc<'_>) -> String {
+pub fn view_text_valued(model: &Workbook, window: &Window, values: &dyn Values) -> String {
     let mut out = String::new();
-    Grid::valued(calc).project(model, window, &mut |line| {
+    Grid::valued(values).project(model, window, &mut |line| {
         out.push_str(line);
         out.push('\n');
     });
@@ -553,6 +584,58 @@ mod tests {
         );
         assert_eq!(lines(&text).len(), 3);
         assert_eq!(lines(&text)[2], "(window \"Nowhere\" \"A1\")");
+    }
+
+    #[test]
+    fn row_settings_looks_and_hidden_sheets_print_in_their_places() {
+        // KERNEL.22: the `row` rows after the `column` rows, the `look` rows
+        // after the `format` rows with their formats among them, and each
+        // sheet's own visibility.
+        let mut wb = a_model();
+        wb.sheets[1].visibility = crate::rows::Visibility::Hidden;
+        let model = &mut wb.sheets[0];
+        model.rows.insert(
+            3,
+            crate::sheet::RowSettings {
+                height: Some(30.0),
+                hidden: false,
+            },
+        );
+        model.rows.insert(
+            9,
+            crate::sheet::RowSettings {
+                height: None,
+                hidden: true,
+            },
+        );
+        model.looks.push(("1".to_string(), 2));
+        let text = view_text(
+            &wb,
+            &Window {
+                sheet: "Model".to_string(),
+                range: range("B2:B4"),
+            },
+        );
+        assert_eq!(
+            lines(&text)[..10],
+            [
+                "(sheet \"Model\" visible)",
+                "(sheet \"Empty\" hidden)",
+                "(window \"Model\" \"B2:B4\")",
+                "(extent \"Model\" \"B1:D4\")",
+                "(gridlines \"Model\" off)",
+                "(column \"Model\" \"B\" 72 shown 1)",
+                "(row \"Model\" 3 30 shown)",
+                "(format 0 none general nowrap)",
+                "(format 1 \"F7F4FC\" text nowrap)",
+                "(format 2 \"F2F2F2\" general wrap)",
+            ]
+        );
+        assert_eq!(lines(&text)[10], "(look \"Model\" 1 2)");
+        assert!(
+            !text.contains("(row \"Model\" 9"),
+            "row 9 is outside the window"
+        );
     }
 
     #[test]

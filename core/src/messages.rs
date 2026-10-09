@@ -93,7 +93,7 @@ mod tests {
             assert!(!language.contains(&id), "{id} is in both halves");
             let family = id.split('-').next().unwrap();
             assert!(
-                !["vla", "interp", "lint", "view"].contains(&family),
+                !["vla", "interp", "lint", "view", "calc", "grid"].contains(&family),
                 "{id} belongs to the language's half"
             );
         }

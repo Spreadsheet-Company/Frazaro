@@ -49,8 +49,9 @@ and that the `OUTPUT-EXCEPTION.md` additional permission applies to it.
 
 The kernel is two crates in one dependency order: `vla-lang` (`vla-lang/`),
 the language, which holds forms and their expansion, the grid with the
-references a formula's text holds, the catalogue's mechanism and the view
-record; and `frazaro-core` (`core/`), which consumes it and holds the
+references a formula's text holds, the catalogue's mechanism, the view
+record, recalculation and the machine an engine steps a grid with; and
+`frazaro-core` (`core/`), which consumes it and holds the
 emitters, the English engine, the workbook writer and readers, the relation
 set and the ABI. An engine stands on the language and never on the core.
 Neither crate holds anything a person reads or says: English, message text,

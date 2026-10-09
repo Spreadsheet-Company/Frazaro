@@ -1,6 +1,6 @@
 [package]
 name = "vla-lang"
-description = "The VLA language with nothing around it: forms, their expansion, the grid, and the view record"
+description = "The VLA language with nothing around it: forms, their expansion, the grid, the view record, and the machine that steps a grid"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -19,5 +19,15 @@ categories = ["compilers", "parser-implementations", "wasm"]
 # rlib for frazaro-core and for an engine; cdylib for the wasm32 build, whose
 # import section tools/check_core_imports.ps1 holds at zero as the core's.
 crate-type = ["rlib", "cdylib"]
+
+[features]
+# The machine's C surface, src/abi.rs (KERNEL.22): compiled and tested
+# always, exported only under this feature, since a C export of a library
+# crate is exported again by every module built on it, and neither the
+# core's module nor an engine's should hold a second door to the grid.
+# `cargo build --release -p vla-lang --features c-abi --target
+# wasm32-unknown-unknown` writes the module tools/check_wasm_exports.ps1
+# holds to its nine exports and its memory.
+c-abi = []
 
 [dependencies]

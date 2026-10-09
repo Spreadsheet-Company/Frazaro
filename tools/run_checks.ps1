@@ -107,7 +107,10 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # 2026-10-08, KERNEL.7: 52 - check_recalc_golden.ps1 (the recalc goldens
 # reproduced whole, every Excel-saved value agreeing, the study's workbooks
 # agreeing with their builder).
-$expectedAtLeast = 52
+# 2026-10-09, KERNEL.22: 53 - check_wasm_exports.ps1 (the core's module and the
+# language's export exactly their lists, the language's C surface only under
+# its feature).
+$expectedAtLeast = 53
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---
@@ -122,7 +125,8 @@ $extras = @(
     @{ Script = 'check_optimize_search_discipline.ps1'; Args = @('-Control'); What = 'OPTIMIZE.3 search discipline, mutation control' },
     @{ Script = 'optimize3_search_twin.ps1'; Args = @('-Control'); What = 'OPTIMIZE.3 search pins against their host-independent twin' },
     @{ Script = 'prove.ps1';               Args = @('-Control');    What = 'PORT.4 conformance runner: the fake implementation passes, the mutant fails' },
-    @{ Script = 'check_core_imports.ps1';  Args = @('-Control');    What = 'PORT.4 import reader: an empty module counts 0, a module importing a.b counts 1' }
+    @{ Script = 'check_core_imports.ps1';  Args = @('-Control');    What = 'PORT.4 import reader: an empty module counts 0, a module importing a.b counts 1' },
+    @{ Script = 'check_wasm_exports.ps1';  Args = @('-Control');    What = 'KERNEL.22 export reader: a module reads as its names, a list one short or one long is reported' }
 )
 
 function Invoke-OneScript {
