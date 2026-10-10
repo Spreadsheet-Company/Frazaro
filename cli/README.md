@@ -90,14 +90,15 @@ program you installed is the one this page describes.
    frazaro build hello.txt --out hello.xlsx
    ```
 
-   prints `wrote hello.xlsx: 10918 bytes, sha256
-   03DCEC8E04577A84AA817F41EB6EEEAA141A3AEA0E29232385EE90A0A04F8918` and
+   prints `wrote hello.xlsx: 10971 bytes, sha256
+   546A597ED17CFCFE246EEBA1B41E36CD709F99C68D447B0E7550EECF81658451` and
    nothing else. The digest is the file's: whoever builds these seven
    sentences with this version gets these bytes, on any machine, whether the
    file was saved with Windows or Unix line endings. Open it: a `Frazaro`
    sheet holds the sentences in column B with OK beside each, `Output` holds
-   the values and formulas, `data` its one cell, and nothing asks to be
-   enabled.
+   the values and formulas, each formula holding the value it computes, so
+   that a viewer that calculates nothing still shows 15 in `C2`, `data` its
+   one cell, and nothing asks to be enabled.
 
 4. **The workbook proves its build.**
 
@@ -122,9 +123,11 @@ program you installed is the one this page describes.
    it refers to, `(formula "Output" "C3" "=B3+B4")` then `(refers "Output!C3"
    "Output!B3")` and `(refers "Output!C3" "Output!B4")`, since a filled
    formula shows in each cell as Excel shows it, and `(cell "data" "A1"
-   "west")` last: 34 lines. No formula has a `cell` row, because nothing has
-   computed one yet; save the file from Excel and ask again, and each gains
-   one. `frazaro reflect hello.xlsx --counts` prints counts and times alone,
+   "west")` last: 39 lines. Each formula has a `cell` row before it for the
+   value the file holds, `(cell "Output" "C2" 15)` then `(formula "Output"
+   "C2" "=B2+B3")`, the value the build computed; save the file from Excel
+   and ask again, and the values are the ones Excel computed, which are the
+   same. `frazaro reflect hello.xlsx --counts` prints counts and times alone,
    nothing from inside the file, and `frazaro reflect hello.xlsx --cone
    Output!C2` one line of counts for C2's cone: `cells 3 formulas 2 inputs
    1`, C2 itself, B3 that it adds and B2 that both read.
@@ -192,7 +195,7 @@ byte:
     ```
 
     prints `wrote tour-into.xlsx: 13697 bytes, sha256
-    4281250F7AF88DDE3AA6495E3EAC47A11A3554CD7881797A2D5EDC00710DF798`: the
+    C25C6F1DC4F1480016E6895266858F832A96F4266127974CAF0939B0B59C7BCC`: the
     model's own sheets `Model` and `Notes` copied byte for byte, the
     sentences' `Frazaro`, `Output` and `checks` added, `Output!B1` reading
     `=Model!B3*Rate`. `frazaro rebuild tour-into.xlsx` prints `This
@@ -205,13 +208,12 @@ byte:
     frazaro diff scripts/build/fixture_golden.xlsx scripts/reflect/saved.xlsx
     ```
 
-    compares the build golden with the copy Excel saved of it: six lines,
+    compares the build golden with the copy Excel saved of it: one line,
     `(changed "Frazaro.Build" ...)` for the stamp Excel rewrote as
-    `_xlfn._LONGTEXT`, then `Output`'s five formulas, each `(formula
-    "=B2+B3")` on the left and `(formula "=B2+B3" 15)` on the right, the
-    value Excel computed and the file now holds; nothing else differs, which
-    is what saving a file should do. Two files that hold the same sheets,
-    names, Tables and cells print nothing.
+    `_xlfn._LONGTEXT`. The build's five formulas already hold the values
+    Excel computed, spelled as Excel spells them, so nothing else differs,
+    which is what saving a file should do. Two files that hold the same
+    sheets, names, Tables and cells print nothing.
 
 ## The commands
 
@@ -299,10 +301,14 @@ formula into a cell, a range, or rows of a column, on the sheet the program
 names (`Work on sheet Data.`, `... of sheet Output`); a filled formula is
 stored shared, a newer function under its file prefix (`_xlfn.`), a formula
 whose function can return an array (`IFS`, `FILTER`, `INDEX` and their kin)
-as Excel stores one typed into a cell, so no `@` appears; the host computes
-every formula when it opens the file. The workbook carries its stamp, the
-defined name `Frazaro.Build`: the core's version and, for the sentences, the
-prelude and each phrasebook, the SHA-256 of their non-whitespace bytes.
+as Excel stores one typed into a cell, so no `@` appears. Each formula the
+declared subset computes holds its value, as a file a host saved holds the
+values the host computed, so that a viewer or a script that calculates
+nothing reads them; a formula outside the subset holds none, and the host
+computes every formula when it opens the file. The workbook carries its
+stamp, the defined name `Frazaro.Build`: the core's version and, for the
+sentences, the prelude and each phrasebook, the SHA-256 of their
+non-whitespace bytes.
 
 The bytes are deterministic: the same sentences and the same core give the
 same file on every machine (stored entries stamped 1980-01-01, a fixed part
@@ -318,8 +324,10 @@ list, names and calculation flag, its relationships, the content types and
 the ends of its style lists are edited, so the model's own cells, strings,
 theme and calculation chain are exactly what they were. A sentence may go to
 one of the model's sheets but not write into it; new sheets' formulas read
-the model's cells and names as any formula would. Building into a workbook
-an earlier build added sheets to replaces those sheets.
+the model's cells and names as any formula would, and hold no value, since
+the build never reads the model's cells; the host computes them when it
+opens the file. Building into a workbook an earlier build added sheets to
+replaces those sheets.
 
 Refusals, all exit 1 with nothing written: a file already at `--out`
 without `--replace` (`build-output-exists`); a sentence that needs the

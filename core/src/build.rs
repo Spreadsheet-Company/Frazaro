@@ -1178,7 +1178,12 @@ pub fn build_workbook(
 }
 
 /// The workbook's bytes, or the catalogue's refusal when they would not fit
-/// the file format.
+/// the file format. Every formula the declared subset computes holds its
+/// value (KERNEL.20, the values folded at build time): the workbook is
+/// recalculated once under Excel's library, as the view record's `value`
+/// rows are, so that a reader that does not calculate shows what the host
+/// would. A formula outside the subset holds none, and the host still
+/// computes every formula when it opens the file.
 pub fn build_xlsx(
     program_text: &str,
     vla: &str,
@@ -1186,12 +1191,16 @@ pub fn build_xlsx(
     books: &[&str],
 ) -> Result<Vec<u8>, Refusal> {
     let wb = build_workbook(program_text, vla, prelude, books)?;
-    ooxml::workbook_bytes(&wb).ok_or_else(|| raise("build-workbook-too-large", &[]))
+    let library = crate::excel::library();
+    let values = crate::calc::Calc::run(&wb, &library);
+    ooxml::workbook_bytes_valued(&wb, &values).ok_or_else(|| raise("build-workbook-too-large", &[]))
 }
 
 /// The model with the program's sheets added, as bytes (`--into`): the
 /// model's parts as they were, this build's appended (`sheet::merge`).
-/// `label` is what a refusal calls the model.
+/// `label` is what a refusal calls the model. No formula holds a value: the
+/// build's formulas may read the model's own cells and names, which the
+/// build does not read, so a value computed without them could be wrong.
 pub fn build_xlsx_into(
     program_text: &str,
     vla: &str,
@@ -1807,6 +1816,67 @@ mod tests {
             partial.line(),
             "This workbook's Frazaro sheets were built from these 6 sentences by Frazaro 0.7.1, into a workbook whose own sheets are not checked: yes."
         );
+    }
+
+    /// KERNEL.20, the values folded at build time: a fresh build's file holds,
+    /// for every formula the view computes, the value the view prints, read
+    /// back by the reader, and nothing for a formula the view does not
+    /// compute; `calc` over the file finds every computed value agreeing
+    /// with the one it holds; `rebuild` still says yes.
+    #[test]
+    fn a_fresh_build_holds_each_value_its_view_computes() {
+        let program = "Put 5 into cell B2.\n\
+            Put formula \"=B2*2\" into cell B3.\n\
+            Put formula \"=B2>3\" into cell C1.\n\
+            Put formula \"=1/0\" into cell C2.\n\
+            Put formula \"=\"\"a & <b> \"\"&B2\" into cell C3.\n\
+            Put formula \"=VLOOKUP(1,B2:B3,1)\" into cell C4.\n\
+            Put formula \"=C4+1\" into cell C5.\n\
+            Put formula \"=0.1+0.2\" into cell C6.\n\
+            Put formula \"=B9\" into cell C7.\n\
+            Put formula \"=IFS(B2>3,\"\"big\"\",TRUE,\"\"small\"\")\" into cell D2.\n";
+        let bytes = crate::api::english_build_xlsx(program, PRELUDE, &[ENGLISH])
+            .unwrap_or_else(|r| panic!("the program did not build: {}", r.refusal));
+        let relations = crate::api::reflect_relations(&bytes, "built").unwrap();
+        let view = crate::api::english_view(program, PRELUDE, &[ENGLISH], "Output", None)
+            .unwrap_or_else(|r| panic!("the program did not view: {}", r.refusal));
+        let mut computed = 0;
+        let mut not = 0;
+        for line in view.lines().filter(|l| l.starts_with("(value ")) {
+            // `"Output" "C3"`, then the datum.
+            let rest = &line["(value ".len()..line.len() - 1];
+            let address_end = rest.match_indices('"').nth(3).unwrap().0;
+            let (cell, value) = (&rest[..=address_end], rest[address_end + 1..].trim_start());
+            if value.starts_with("(not-computed") {
+                not += 1;
+                assert!(
+                    !relations.contains(&format!("(cell {cell} ")),
+                    "{cell} is not computed, yet the file holds a value for it:\n{relations}"
+                );
+            } else {
+                computed += 1;
+                let row = format!("(cell {cell} {value})");
+                assert!(
+                    relations.lines().any(|l| l == row),
+                    "the file does not hold {row}:\n{relations}"
+                );
+            }
+        }
+        assert_eq!((computed, not), (7, 2));
+        assert!(relations.contains("(cell \"Output\" \"C1\" true)"));
+        assert!(relations.contains("(cell \"Output\" \"C2\" (error \"#DIV/0!\"))"));
+        assert!(relations.contains("(cell \"Output\" \"C3\" \"a & <b> 5\")"));
+        assert!(relations.contains("(cell \"Output\" \"C6\" 0.30000000000000004)"));
+        assert!(relations.contains("(cell \"Output\" \"D2\" \"big\")"));
+        for row in crate::api::calc_rows(&bytes, "built").unwrap().lines() {
+            if row.contains("(not-computed ") {
+                assert!(row.ends_with(" none unchecked)"), "{row}");
+            } else {
+                assert!(row.ends_with(" agree)"), "{row}");
+            }
+        }
+        let again = crate::api::english_rebuild_xlsx(&bytes, PRELUDE, &[ENGLISH]).unwrap();
+        assert!(again.matches, "{}", again.line());
     }
 
     /// The build golden: the fixture, built with the prelude and english.vla,

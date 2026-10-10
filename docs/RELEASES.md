@@ -26,6 +26,20 @@
   about 0.05 ms. A frame makes about eighty allocations where it made a
   quarter of a million. Every value is computed exactly as before
   (KERNEL.20, its first four slices).
+- **For everyone who builds a workbook: it arrives with its values.** A
+  workbook `frazaro build` writes, and the web page's *Download as .xlsx*,
+  now holds in each formula's cell the value the formula computes, as a
+  file Excel saved holds the values Excel computed, so that a viewer or a
+  script that calculates nothing shows `15` where it showed an empty cell.
+  The values are the declared subset's, the ones `frazaro view` prints; a
+  formula outside the subset holds none. Excel and every other host still
+  compute every formula when they open the file. Built again from the
+  subset's fixture, every value the file holds is the one Excel 365 saved
+  for the same formula, spelled as Excel spells it. A build into a workbook
+  of your own (`--into`) holds none, since its formulas read your
+  workbook's cells, which the build does not read. A build takes about 3
+  to 5% longer and its file is about 2% larger (KERNEL.20, its fifth
+  slice).
 - **For everyone: text a stranger wrote is refused by name, never a crash.**
   A program, a phrasebook or a cartridge holding lists nested more than 64
   deep is refused by name (`vla-form-too-deep`). Before, the reader

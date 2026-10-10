@@ -7,13 +7,20 @@
 //! Excel, Sheets, Calc and Numbers open: the content types, the package
 //! relationships, two property parts that name Frazaro and carry no date and
 //! no person, the workbook with its `calcPr` (`fullCalcOnLoad`: the host
-//! computes every formula when it opens the file, since the core computes
-//! nothing), the workbook's relationships, one styles part, and one part per
-//! sheet. Cells hold inline strings, so there is no shared-string table, and
-//! (slice 7d) adding a sheet to an existing workbook edits no part the
-//! model's own cells depend on. tools/build_examples.ps1 writes the same
-//! minimal shape in PowerShell for the onboarding samples, and Excel opens
-//! those.
+//! computes every formula when it opens the file), the workbook's
+//! relationships, one styles part, and one part per sheet. Cells hold inline
+//! strings, so there is no shared-string table, and (slice 7d) adding a sheet
+//! to an existing workbook edits no part the model's own cells depend on.
+//! tools/build_examples.ps1 writes the same minimal shape in PowerShell for
+//! the onboarding samples, and Excel opens those.
+//!
+//! Since `KERNEL.20`'s fifth slice (2026-10-10) a fresh build's formula cells
+//! hold the values the build computed (`parts_valued`), as a host's save
+//! holds the values it computed: a number, a text (`t="str"`), a truth value
+//! (`t="b"`) or an error (`t="e"`), each spelled as Excel spells it, so that
+//! a reader that does not calculate shows them. A formula the build did not
+//! compute holds none. The host still computes every formula when it opens
+//! the file.
 //!
 //! Every name here is fixed and every order is fixed, so that the same model
 //! gives the same bytes: the parts in the order [`parts`] lists them, a
@@ -23,6 +30,7 @@
 use super::xml;
 use super::zip;
 use super::{cell_ref, column_width_attr, number_text, Content, Sheet, Workbook};
+use crate::calc::{Computed, Value, Values};
 
 const XML_HEAD: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n";
 const NS_MAIN: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -75,6 +83,16 @@ fn sheet_rid(n: usize) -> String {
 /// Every part of the workbook, name and bytes, in the order they go into the
 /// archive.
 pub fn parts(wb: &Workbook) -> Vec<(String, Vec<u8>)> {
+    parts_with(wb, None)
+}
+
+/// Every part, each formula cell holding the value `values` computed for it
+/// (KERNEL.20): what a fresh build writes.
+pub fn parts_valued(wb: &Workbook, values: &dyn Values) -> Vec<(String, Vec<u8>)> {
+    parts_with(wb, Some(values))
+}
+
+fn parts_with(wb: &Workbook, values: Option<&dyn Values>) -> Vec<(String, Vec<u8>)> {
     let mut list: Vec<(String, Vec<u8>)> = vec![
         (
             "[Content_Types].xml".to_string(),
@@ -94,9 +112,10 @@ pub fn parts(wb: &Workbook) -> Vec<(String, Vec<u8>)> {
         list.push(("xl/metadata.xml".to_string(), metadata_xml().into_bytes()));
     }
     for (i, sheet) in wb.sheets.iter().enumerate() {
+        let selected = i == wb.active_sheet;
         list.push((
             sheet_part(i + 1),
-            sheet_xml(sheet, i == wb.active_sheet, &Render::FRESH).into_bytes(),
+            sheet_text(sheet, selected, &Render::FRESH, values.map(|v| (v, i))).into_bytes(),
         ));
     }
     list
@@ -106,6 +125,12 @@ pub fn parts(wb: &Workbook) -> Vec<(String, Vec<u8>)> {
 /// format's sizes.
 pub fn workbook_bytes(wb: &Workbook) -> Option<Vec<u8>> {
     zip::write_stored(&parts(wb))
+}
+
+/// The workbook as a file's bytes, each formula cell holding the value
+/// `values` computed for it ([`parts_valued`]).
+pub fn workbook_bytes_valued(wb: &Workbook, values: &dyn Values) -> Option<Vec<u8>> {
+    zip::write_stored(&parts_valued(wb, values))
 }
 
 fn content_types(wb: &Workbook) -> String {
@@ -196,8 +221,8 @@ fn workbook_xml(wb: &Workbook) -> String {
         }
         s.push_str("</definedNames>\n");
     }
-    // The host computes every formula when it opens the file (HORIZON.md
-    // section 12: the core has no calc engine, on purpose).
+    // The host computes every formula when it opens the file, whatever
+    // value a build folded into it (KERNEL.20).
     s.push_str("<calcPr fullCalcOnLoad=\"1\"/>\n");
     s.push_str("</workbook>\n");
     s
@@ -367,8 +392,51 @@ impl Render {
 }
 
 /// One sheet's part. `selected` marks the tab the workbook opens on, never
-/// set when adding to a workbook that has its own selected tab.
+/// set when adding to a workbook that has its own selected tab. Its formula
+/// cells hold no value, as a build added to a workbook writes them: their
+/// formulas may read the workbook's own cells, which the build never read.
 pub fn sheet_xml(sheet: &Sheet, selected: bool, render: &Render) -> String {
+    sheet_text(sheet, selected, render, None)
+}
+
+/// One sheet's part, the `index`-th of the workbook `values` computed, each
+/// formula cell holding the value computed for it (KERNEL.20).
+pub fn sheet_xml_valued(
+    sheet: &Sheet,
+    index: usize,
+    selected: bool,
+    render: &Render,
+    values: &dyn Values,
+) -> String {
+    sheet_text(sheet, selected, render, Some((values, index)))
+}
+
+/// A formula cell's value as a host's save holds one: the `t` attribute its
+/// kind takes and its `<v>` element, a number in the writer's spelling (zero
+/// as `0`, since no cell holds a negative zero) and one no cell can hold as
+/// `#NUM!`, as a value cell spells it; nothing at all for a formula with no
+/// value, which the host computes when it opens the file.
+fn cached(value: Option<&Value>) -> (&'static str, String) {
+    match value {
+        None => ("", String::new()),
+        Some(Value::Number(n)) if *n == 0.0 => ("", "<v>0</v>".to_string()),
+        Some(Value::Number(n)) => match number_text(*n) {
+            Some(t) => ("", format!("<v>{t}</v>")),
+            None => (" t=\"e\"", "<v>#NUM!</v>".to_string()),
+        },
+        Some(Value::Text(t)) => (" t=\"str\"", format!("<v>{}</v>", xml::text(t))),
+        Some(Value::Bool(b)) => (" t=\"b\"", format!("<v>{}</v>", u8::from(*b))),
+        Some(Value::Error(e)) => (" t=\"e\"", format!("<v>{}</v>", e.text())),
+        Some(Value::Empty) => ("", "<v>0</v>".to_string()),
+    }
+}
+
+fn sheet_text(
+    sheet: &Sheet,
+    selected: bool,
+    render: &Render,
+    values: Option<(&dyn Values, usize)>,
+) -> String {
     let mut s = String::from(XML_HEAD);
     s.push_str(&format!(
         "<worksheet xmlns=\"{NS_MAIN}\" xmlns:r=\"{NS_REL}\">\n"
@@ -423,6 +491,11 @@ pub fn sheet_xml(sheet: &Sheet, selected: bool, render: &Render) -> String {
         }
         let r = cell_ref(row, col);
         let st = render.style(cell.style);
+        let value = values.and_then(|(v, i)| match v.computed((i, row, col)) {
+            Some(Computed::Value(x)) => Some(x),
+            _ => None,
+        });
+        let (kind, held) = cached(value);
         match &cell.content {
             Content::Text(t) => s.push_str(&format!(
                 "<c r=\"{r}\" s=\"{st}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">{}</t></is></c>",
@@ -443,18 +516,18 @@ pub fn sheet_xml(sheet: &Sheet, selected: bool, render: &Render) -> String {
                 xml::text(e)
             )),
             Content::Formula(f) => s.push_str(&format!(
-                "<c r=\"{r}\" s=\"{st}\"><f>{}</f></c>",
+                "<c r=\"{r}\" s=\"{st}\"{kind}><f>{}</f>{held}</c>",
                 xml::text(f)
             )),
             Content::SharedMaster { text, range, si } => s.push_str(&format!(
-                "<c r=\"{r}\" s=\"{st}\"><f t=\"shared\" ref=\"{range}\" si=\"{si}\">{}</f></c>",
+                "<c r=\"{r}\" s=\"{st}\"{kind}><f t=\"shared\" ref=\"{range}\" si=\"{si}\">{}</f>{held}</c>",
                 xml::text(text)
             )),
             Content::SharedChild { si } => s.push_str(&format!(
-                "<c r=\"{r}\" s=\"{st}\"><f t=\"shared\" si=\"{si}\"/></c>"
+                "<c r=\"{r}\" s=\"{st}\"{kind}><f t=\"shared\" si=\"{si}\"/>{held}</c>"
             )),
             Content::DynamicFormula(f) => s.push_str(&format!(
-                "<c r=\"{r}\" s=\"{st}\" cm=\"{}\"><f t=\"array\" ref=\"{r}\">{}</f></c>",
+                "<c r=\"{r}\" s=\"{st}\"{kind} cm=\"{}\"><f t=\"array\" ref=\"{r}\">{}</f>{held}</c>",
                 render.cm,
                 xml::text(f)
             )),
@@ -667,6 +740,93 @@ mod tests {
         assert!(meta.contains("<xda:dynamicArrayProperties fDynamic=\"1\" fCollapsed=\"0\"/>"));
         assert!(meta
             .contains("<cellMetadata count=\"1\"><bk><rc t=\"1\" v=\"0\"/></bk></cellMetadata>"));
+    }
+
+    /// Values held as a recalculation would hold them, by cell.
+    #[derive(Debug)]
+    struct Held(std::collections::HashMap<crate::calc::CellId, Computed>);
+
+    impl Values for Held {
+        fn computed(&self, id: crate::calc::CellId) -> Option<&Computed> {
+            self.0.get(&id)
+        }
+    }
+
+    #[test]
+    fn a_formula_cell_holds_the_value_the_build_computed_as_a_host_saves_one() {
+        use crate::calc::{ErrorKind, Reason};
+        let mut wb = a_workbook();
+        let sh = &mut wb.sheets[0];
+        sh.set_formula_dynamic(crate::sheet::parse_a1_range("f2").unwrap(), "1/0", 0);
+        let column_g = [
+            "VLOOKUP(1,A1:B2,2)",
+            "G1+1",
+            "0.1+0.2",
+            "-0",
+            "1E308*10",
+            "B2",
+        ];
+        for (row, f) in (1..).zip(column_g) {
+            sh.set(
+                row,
+                7,
+                Cell {
+                    content: Content::Formula(f.to_string()),
+                    style: 0,
+                },
+            );
+        }
+        let held = Held(
+            [
+                ((0, 3, 4), Computed::Value(Value::Number(5.0))),
+                (
+                    (0, 2, 5),
+                    Computed::Value(Value::Text("a & <b> _x0041_".into())),
+                ),
+                ((0, 3, 5), Computed::Value(Value::Bool(true))),
+                ((0, 2, 6), Computed::Value(Value::Error(ErrorKind::Div0))),
+                (
+                    (0, 1, 7),
+                    Computed::NotComputed(Reason::Function("VLOOKUP".into())),
+                ),
+                ((0, 3, 7), Computed::Value(Value::Number(0.1 + 0.2))),
+                ((0, 4, 7), Computed::Value(Value::Number(-0.0))),
+                ((0, 5, 7), Computed::Value(Value::Number(f64::INFINITY))),
+                ((0, 6, 7), Computed::Value(Value::Empty)),
+                // A value cell is never asked for its value.
+                ((0, 3, 3), Computed::Value(Value::Number(99.0))),
+            ]
+            .into_iter()
+            .collect(),
+        );
+        let sx = sheet_xml_valued(&wb.sheets[0], 0, true, &Render::FRESH, &held);
+        assert!(sx.contains("<c r=\"D3\" s=\"0\"><f>B1*2</f><v>5</v></c>"));
+        assert!(sx.contains("<c r=\"E2\" s=\"0\" t=\"str\"><f t=\"shared\" ref=\"E2:E3\" si=\"0\">D3+1</f><v>a &amp; &lt;b&gt; _x005F_x0041_</v></c>"));
+        assert!(sx.contains("<c r=\"E3\" s=\"0\" t=\"b\"><f t=\"shared\" si=\"0\"/><v>1</v></c>"));
+        assert!(sx.contains(
+            "<c r=\"F2\" s=\"0\" t=\"e\" cm=\"1\"><f t=\"array\" ref=\"F2\">1/0</f><v>#DIV/0!</v></c>"
+        ));
+        // Not computed, and not asked of the values at all: no value.
+        assert!(sx.contains("<c r=\"G1\" s=\"0\"><f>VLOOKUP(1,A1:B2,2)</f></c>"));
+        assert!(sx.contains("<c r=\"G2\" s=\"0\"><f>G1+1</f></c>"));
+        assert!(sx.contains("<c r=\"G3\" s=\"0\"><f>0.1+0.2</f><v>0.30000000000000004</v></c>"));
+        assert!(sx.contains("<c r=\"G4\" s=\"0\"><f>-0</f><v>0</v></c>"));
+        assert!(sx.contains("<c r=\"G5\" s=\"0\" t=\"e\"><f>1E308*10</f><v>#NUM!</v></c>"));
+        assert!(sx.contains("<c r=\"G6\" s=\"0\"><f>B2</f><v>0</v></c>"));
+        assert!(sx.contains("<c r=\"C3\" s=\"0\"><v>2.5</v></c>"));
+        // The same sheet unvalued, as a build added to a workbook writes it,
+        // and valued from nothing, is the part as it always was.
+        let bare = sheet_xml(&wb.sheets[0], true, &Render::FRESH);
+        assert!(!bare.contains("</f><v>"));
+        let nothing = Held(std::collections::HashMap::new());
+        assert_eq!(
+            sheet_xml_valued(&wb.sheets[0], 0, true, &Render::FRESH, &nothing),
+            bare
+        );
+        assert_eq!(parts_valued(&wb, &nothing), parts(&wb));
+        // Another sheet's values are its own.
+        let other = sheet_xml_valued(&wb.sheets[0], 1, true, &Render::FRESH, &held);
+        assert_eq!(other, bare);
     }
 
     #[test]

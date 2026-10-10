@@ -27,7 +27,9 @@ order within it, each row sheet, address, the formula, the computed value
 value (a datum or none) and the verdict; and the pin each fixture earns:
 the Excel-saved fixture every row agree, a fixture whose cached values a
 script computed (two lineages of evaluation) no row differ, and the door's
-own build, which carries no cached values, every row none unchecked.
+own build, which holds the value of every formula it computes (KERNEL.20's
+fifth slice, the values folded at build time), every computed row agreeing
+and every row not computed holding none.
 
 THE STUDY'S WORKBOOKS (scripts/study/, KERNEL.3) are instruments held by
 their own check and not treaty fixtures, so no golden is stored for them;
@@ -51,8 +53,10 @@ prints the golden of each fixture and the study's agreement counts (must
 pass every row); one that changes one value in the first calc row it prints
 and reports one differ (must fail every golden row naming line 1 and every
 study row); a copy of the saved golden with one agree turned to differ (the
-pin must fail it); and a copy with a cycle row appended after the calc rows
-(the order pin must fail it, and pass the golden as it is).
+pin must fail it); a copy with a cycle row appended after the calc rows
+(the order pin must fail it, and pass the golden as it is); and a copy of
+the build golden with one computed value its file does not hold (the built
+pin alone must fail it, the golden as it is passing).
 
 House style (tools/check_*.ps1): PowerShell 5.1, host-free, no Excel, no
 COM, no network; exit 0 clean, exit 1 with every problem named. ASCII only,
@@ -91,20 +95,26 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # until an Excel save of it, edges_saved.xlsx, joins this table at
 # no-differ). Raise a floor when a regenerated golden is longer; lower it
 # only with a regenerated golden that is shorter, and say why.
+# 2026-10-10, KERNEL.20's fifth slice: a fresh build holds the value of
+# every formula it computes, so the door's three builds, build_fixture,
+# subset and edges, were built again and their rows agree with the values
+# the build folded: 5, 102 and 16 agree, the subset's four not computed
+# holding none; their pin is 'built' and their agree floors rose from 0.
 #
 # Pin: 'agree' - every verdict agree (a host saved the file and the subset
 # computes all of it); 'no-differ' - no verdict differ (a host's save that
 # holds formulas outside the subset, or a script's cached values, two
-# lineages agreeing); 'unsaved' - every row none unchecked (the door's own
-# build).
+# lineages agreeing); 'built' - no verdict differ and no computed value
+# missing from the file (the door's own build, which folds every value it
+# computes and no other).
 $goldens = @(
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Golden = 'scripts/recalc/saved_calc.vla';         Floor = 5;   Pin = 'agree';     AgreeFloor = 5 },
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/recalc/fixture_calc.vla';       Floor = 29;  Pin = 'no-differ'; AgreeFloor = 23 },
-    @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/recalc/build_fixture_calc.vla'; Floor = 5;   Pin = 'unsaved';   AgreeFloor = 0 },
+    @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/recalc/build_fixture_calc.vla'; Floor = 5;   Pin = 'built';     AgreeFloor = 5 },
     @{ Name = 'opendocument';  Fixture = 'scripts/reflect/opendocument.ods';  Golden = 'scripts/recalc/opendocument_calc.vla';  Floor = 29;  Pin = 'no-differ'; AgreeFloor = 24 },
-    @{ Name = 'subset';        Fixture = 'scripts/recalc/subset.xlsx';        Golden = 'scripts/recalc/subset_calc.vla';        Floor = 106; Pin = 'unsaved';   AgreeFloor = 0 },
+    @{ Name = 'subset';        Fixture = 'scripts/recalc/subset.xlsx';        Golden = 'scripts/recalc/subset_calc.vla';        Floor = 106; Pin = 'built';     AgreeFloor = 102 },
     @{ Name = 'subset_saved';  Fixture = 'scripts/recalc/subset_saved.xlsx';  Golden = 'scripts/recalc/subset_saved_calc.vla';  Floor = 106; Pin = 'no-differ'; AgreeFloor = 102 },
-    @{ Name = 'edges';         Fixture = 'scripts/recalc/edges.xlsx';         Golden = 'scripts/recalc/edges_calc.vla';         Floor = 16;  Pin = 'unsaved';   AgreeFloor = 0 }
+    @{ Name = 'edges';         Fixture = 'scripts/recalc/edges.xlsx';         Golden = 'scripts/recalc/edges_calc.vla';         Floor = 16;  Pin = 'built';     AgreeFloor = 16 }
 )
 
 # --- the study's workbooks: agreement alone, no golden stored -----------------
@@ -172,7 +182,7 @@ function Get-CalcFields([string]$line) {
 # counts of each verdict: problems (empty when they hold) and the counts.
 function Test-Order($lines) {
     $problems = New-Object System.Collections.Generic.List[string]
-    $counts = @{ agree = 0; differ = 0; unchecked = 0; cycles = 0; rows = 0 }
+    $counts = @{ agree = 0; differ = 0; unchecked = 0; cycles = 0; rows = 0; bare = 0 }
     $inCalc = $false
     $sheet = $null
     $seenSheets = @{}
@@ -197,6 +207,8 @@ function Test-Order($lines) {
         if ($null -eq $f) { $problems.Add("line ${n}: not shaped as a calc row (computed, cached, verdict): $line"); continue }
         $counts[$f.Verdict]++
         $notComputed = $f.Computed.StartsWith('(not-computed ')
+        # A computed value the file holds nothing for.
+        if (-not $notComputed -and $f.Cached -eq 'none') { $counts.bare++ }
         if ($f.Verdict -ne 'unchecked' -and ($notComputed -or $f.Cached -eq 'none')) { $problems.Add("line ${n}: a verdict of $($f.Verdict) with nothing to compare: $line") }
         if ($f.Verdict -eq 'unchecked' -and -not $notComputed -and $f.Cached -ne 'none' -and -not $f.Cached.StartsWith('(date ')) { $problems.Add("line ${n}: unchecked though both values are there: $line") }
         if ($strings[0] -ne $sheet) {
@@ -218,7 +230,7 @@ function Test-Pin($g, $counts) {
     switch ($g.Pin) {
         'agree'     { if ($counts.rows -ne $counts.agree) { $problems.Add("$($g.Name): a host saved this fixture, so every row must agree; $($counts.agree) of $($counts.rows) do") } }
         'no-differ' { if ($counts.differ -ne 0) { $problems.Add("$($g.Name): $($counts.differ) row(s) differ from the cached values") } }
-        'unsaved'   { if ($counts.rows -ne $counts.unchecked -or $counts.agree -ne 0 -or $counts.differ -ne 0) { $problems.Add("$($g.Name): the door's own build has no cached values, so every row must be unchecked") } }
+        'built'     { if ($counts.differ -ne 0 -or $counts.bare -ne 0) { $problems.Add("$($g.Name): the door's own build holds the value of every formula it computes, so no row may differ and none may hold nothing; $($counts.differ) differ and $($counts.bare) hold nothing") } }
     }
     if ($counts.agree -lt $g.AgreeFloor) { $problems.Add("$($g.Name): $($counts.agree) agree rows, below the floor of $($g.AgreeFloor)") }
     return ,$problems
@@ -365,8 +377,26 @@ if ($Control) {
         $late.Add('(cycle "Output!B3" "Output!C2")')
         $o2 = Test-Order $late
         Write-Output ("control: the saved golden's order {0} and pin {1} problem(s); one agree turned to differ: order {2}, pin {3}: {4}; a cycle row after the calc rows: order {5}: {6}" -f $o0.Problems.Count, $p0.Count, $o1.Problems.Count, $p1.Count, ($p1 -join '; '), $o2.Problems.Count, ($o2.Problems -join '; '))
-        if ($fakeProblems -eq 0 -and $named -and $mutantProblems -eq $goldens.Count -and $fakeAgree -eq 0 -and $mutantAgree -eq $agreements.Count -and $o0.Problems.Count -eq 0 -and $p0.Count -eq 0 -and $o1.Problems.Count -eq 0 -and $p1.Count -ge 1 -and $o2.Problems.Count -ge 1) {
-            Write-Output 'OK: the check passes every golden and every agreement, fails the mutant on each naming its line, fails a differ where every row must agree, and catches a cycle row out of order'
+        # The built pin: the build golden as it is; a copy whose first agreeing
+        # row's value the file does not hold, judged by the pin alone (its agree
+        # floor set aside, which would catch it too).
+        $bg = $goldens | Where-Object { $_.Name -eq 'build_fixture' }
+        $brows = Get-Lines ([System.IO.File]::ReadAllText((Join-Path $repoRoot $bg.Golden)))
+        $o3 = Test-Order $brows
+        $p3 = Test-Pin $bg $o3.Counts
+        $missed = New-Object System.Collections.Generic.List[string]
+        $done = $false
+        foreach ($l in $brows) {
+            $f = Get-CalcFields $l
+            if (-not $done -and $null -ne $f -and $f.Verdict -eq 'agree') {
+                $missed.Add($l.Substring(0, $l.Length - (' ' + $f.Cached + ' agree)').Length) + ' none unchecked)'); $done = $true
+            } else { $missed.Add($l) }
+        }
+        $o4 = Test-Order $missed
+        $p4 = Test-Pin @{ Name = $bg.Name; Pin = $bg.Pin; AgreeFloor = 0 } $o4.Counts
+        Write-Output ("control: the build golden's order {0} and pin {1} problem(s); one computed value the file does not hold: order {2}, pin {3}: {4}" -f $o3.Problems.Count, $p3.Count, $o4.Problems.Count, $p4.Count, ($p4 -join '; '))
+        if ($fakeProblems -eq 0 -and $named -and $mutantProblems -eq $goldens.Count -and $fakeAgree -eq 0 -and $mutantAgree -eq $agreements.Count -and $o0.Problems.Count -eq 0 -and $p0.Count -eq 0 -and $o1.Problems.Count -eq 0 -and $p1.Count -ge 1 -and $o2.Problems.Count -ge 1 -and $done -and $o3.Problems.Count -eq 0 -and $p3.Count -eq 0 -and $o4.Problems.Count -eq 0 -and $p4.Count -ge 1) {
+            Write-Output 'OK: the check passes every golden and every agreement, fails the mutant on each naming its line, fails a differ where every row must agree, catches a cycle row out of order, and fails a build that does not hold a value it computed'
             exit 0
         }
         Write-Output 'FAIL: the control did not behave as the header says'

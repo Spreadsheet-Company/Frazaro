@@ -1277,3 +1277,51 @@ inside the sheet, so its `extent` row is not the loaded cells') and over a
 model holding every row kind, stepped and saved, as an engine's save is
 made. No new oracle number: the four calls are one implementation's
 surface, with no second to hold to them; 13 stays the expansion golden's.
+
+## Amendment of 2026-10-10: a fresh build holds the values it computes (`KERNEL.20`, its fifth slice)
+
+A workbook the core builds is computed once under the declared subset, as
+the view record's `value` rows are, and each formula cell the subset
+computes holds its value, as a file a host saved holds the values the host
+computed: a number in the writer's spelling, zero as `0`; a text with
+`t="str"`; a truth value with `t="b"`; an error with `t="e"`; a number no
+cell can hold as `#NUM!`, as a value cell spells it. A formula the subset
+does not compute (a function outside it, a construct not read, a cycle, a
+cell reading one) holds none. The workbook's `calcPr` still asks the host
+to compute every formula when it opens the file, so a host shows its own
+values and a reader that does not calculate reads the build's. A build
+added to a model (`--into`) holds no value, since its formulas may read the
+model's own cells and names, which the build does not read.
+
+What it moves:
+
+- **Oracle 7.** The first build golden is regenerated, each of its five
+  formulas holding its value (11,443 bytes, the floor raised); the into
+  golden is the same bytes. `rebuild` builds again and compares whole, as
+  before, and says yes to both.
+- **Oracle 8.** The slice-8a sentence that a workbook the writer built and
+  no host has opened has no `cell` rows for its formulas now holds only for
+  a build added to a model: `build_fixture_relations.vla` gains a `cell` row
+  before each of its five formula rows, the five `saved_relations.vla`
+  shows Excel computing, and is 43 rows.
+- **Oracle 9.** `build_fixture_saved_diff.vla`, the build golden against
+  Excel's save of it, loses its five `changed` rows: the values the build
+  holds are the ones Excel computed and saved, spelled as Excel spelled
+  them. The stamp's rewrite is the one row left, and the floor is lowered
+  from 6 to 1 for that reason.
+- **Oracle 12.** The three fixtures the door builds, `fixture_golden.xlsx`,
+  `subset.xlsx` and `edges.xlsx`, are built again and hold the build's own
+  values, so their rows read `agree` where the subset computes (5, 102 and
+  16) and `none unchecked` where it does not (the subset's four). Their
+  `agree` is agreement with the build's own evaluation, not with a host;
+  the rows that hold the evaluator to a host stay `saved_calc.vla` and
+  `subset_saved_calc.vla`. `check_recalc_golden.ps1` pins the three
+  `built`: no row differs, and no value the evaluator computes is missing
+  from the file.
+
+The measurement the amendment rests on: the subset's fixture built again
+and compared with the owner's Excel 365 save of it (`subset_saved.xlsx`)
+differs in six rows, where the build without values differed in 107: the
+stamp, a formula Excel respelled (`1E307` as `1E+307`, both `#NUM!`), and
+the four formulas this version does not compute. Every one of the 102
+values the build holds is the value Excel saved, spelled as Excel saved it.

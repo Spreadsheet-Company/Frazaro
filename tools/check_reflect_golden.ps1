@@ -73,8 +73,11 @@ $goldens = @(
     # 2026-10-05, PORT.8 slice 8d: the fixture gains the Review sheet, one
     # case of each column walk of `frazaro audit` and two empty references,
     # 40 rows: 90 -> 130, and the changed copy 89 -> 129.
+    # 2026-10-10, KERNEL.20's fifth slice: the build golden holds each
+    # formula's value as the build computed it, a cell row before each of
+    # its five formula rows, the five Excel's save holds: 38 -> 43.
     @{ Name = 'fixture';       Fixture = 'scripts/reflect/fixture.xlsx';      Golden = 'scripts/reflect/fixture_relations.vla';       Floor = 130 },
-    @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/reflect/build_fixture_relations.vla'; Floor = 38 },
+    @{ Name = 'build_fixture'; Fixture = 'scripts/build/fixture_golden.xlsx'; Golden = 'scripts/reflect/build_fixture_relations.vla'; Floor = 43 },
     @{ Name = 'build_into';    Fixture = 'scripts/build/into_golden.xlsx';    Golden = 'scripts/reflect/build_into_relations.vla';    Floor = 35 },
     @{ Name = 'model';         Fixture = 'scripts/build/model.xlsx';          Golden = 'scripts/reflect/model_relations.vla';         Floor = 13 },
     @{ Name = 'saved';         Fixture = 'scripts/reflect/saved.xlsx';        Golden = 'scripts/reflect/saved_relations.vla';         Floor = 43 },

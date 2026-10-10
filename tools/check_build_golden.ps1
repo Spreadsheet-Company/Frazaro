@@ -74,8 +74,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # 2026-10-03, slice 7d: into 13697 - the fixture model's eleven parts as they
 # were (the four edited ones stored) with this writer's metadata part and
 # three sheets; fifteen entries.
+# 2026-10-10, KERNEL.20's fifth slice: fixture 11443 - each of the Output
+# sheet's five formulas holds the value the build computed, as Excel's save
+# of the golden holds its own; the into golden folds nothing and is as it was.
 $goldens = @(
-    @{ Name = 'fixture'; Fixture = 'scripts/build/fixture.txt'; Golden = 'scripts/build/fixture_golden.xlsx'; Into = '';                        Floor = 11390 },
+    @{ Name = 'fixture'; Fixture = 'scripts/build/fixture.txt'; Golden = 'scripts/build/fixture_golden.xlsx'; Into = '';                        Floor = 11443 },
     @{ Name = 'into';    Fixture = 'scripts/build/into.txt';    Golden = 'scripts/build/into_golden.xlsx';    Into = 'scripts/build/model.xlsx'; Floor = 13697 }
 )
 $prelude = Join-Path $repoRoot 'scripts/prelude.vla'

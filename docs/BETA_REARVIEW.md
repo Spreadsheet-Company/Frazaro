@@ -21235,6 +21235,201 @@ tree was checked first in the worktree, 55 of 55. `KERNEL.20` stays open,
 address, the view evaluating its window and its cone, and values folded at
 build time with the measurement against Excel and its floors.
 
+**`KERNEL.20`, speed: the fifth slice, the values folded at build time: the
+scoping, 2026-10-10.** Begun at the owner's word, "Commit slice 4, then
+proceed with scoping and implementing slice 5". Built and measured in a
+worktree at `e128d3c`, the fourth slice's commit.
+
+*Read in the code before anything was proposed*, at `e128d3c`:
+- A fresh build (`build::build_xlsx`) writes every formula cell as its
+  formula alone, an `<f>` with no `<v>`, and the workbook's `calcPr` asks
+  the host to compute every formula when it opens the file
+  (`fullCalcOnLoad`). The writer's header gave the reason, "since the core
+  computes nothing", which stopped being true at `KERNEL.7`: the view
+  record (`api::english_view`) computes the same model under Excel's
+  library (`calc::Calc::run`) and prints each formula's value.
+- So a built workbook arrives with no value in any formula. A viewer or a
+  script that does not calculate shows an empty cell, and the build
+  golden's difference from Excel's save of it (`build_fixture_saved_diff.vla`)
+  is five rows of values Excel filled in.
+- A build added to a model (`--into`) writes its sheets through the same
+  renderer (`merge::write`), and its formulas may read the model's cells,
+  which the build does not read: the view of `into.txt` prints `#REF!` for
+  `checks!A1` (`into_checks.vla`).
+- `rebuild` of a fresh build builds again and compares the bytes whole; of
+  an `--into` build, it renders the build's sheets again and compares them
+  part by part.
+
+*Measured before anything was proposed*:
+- The view's cost, for the line's other remaining step: the release door
+  views a 20-row window of `tools/bench_view.ps1`'s 10,000-line program in
+  about 270 ms, of which the recalculation of its 5,000 formulas is 15 ms
+  (`frazaro calc --counts`). Evaluating only the window and its cone would
+  save at most about 5%.
+- How Excel spells a cached value. Its save of the subset's fixture writes
+  `SIN(1)` as `0.8414709848078965`, the writer's own spelling (Rust's
+  shortest round trip). Its save of the build golden writes each formula's
+  value right after the formula, `t="str"` before `cm` for a text a dynamic
+  formula gives, the format index left out where it is the default; and it
+  writes its own `calcId` where `fullCalcOnLoad` was.
+
+*The decisions*, built at the owner's word of the day, each with its
+alternative and its measurement, open to the owner's veto before the
+commit.
+
+1. **A slice of `KERNEL.20`: the values folded at build time**, which the
+   line names and `web/CALLOSUM.md` section 12.6 says plainly, "so a
+   workbook arrives already computed". *Alternatives:* identical shapes
+   computed once by content address, which needs a property of each
+   function asserted (that its answer is its arguments' alone; Life's own
+   rule reads `ROW()` and `COLUMN()`), the owner's call, and whose ground,
+   the language's evaluation, a peer session works in meanwhile; the view
+   evaluating its window and its cone, measured above at about 5% of a
+   view; the measurement against Excel, which needs the owner's Excel and
+   now has values for a file to open with.
+2. **What is folded: every value the declared subset computes, in its
+   formula's cell, as a host's save holds one.** A number in the writer's
+   spelling, zero as `0` since no cell holds a negative zero; a text with
+   `t="str"`; a truth value with `t="b"`; an error with `t="e"`; a number
+   no cell can hold as `#NUM!`, as a value cell spells it. A formula the
+   subset does not compute (a function outside it, a construct not read, a
+   cycle, a cell reading one) holds none, as every formula did.
+   *Alternative:* numbers alone, where Excel's save holds every kind.
+3. **The values are the view's**: the built model computed once by `Calc`
+   under Excel's library, so that a file's cached value and the view
+   record's `value` row are one computation. *Alternative:* a second
+   evaluation for the writer, a second place for the two to drift apart.
+4. **The host still computes when it opens the file: `fullCalcOnLoad`
+   stays.** Excel and every other host compute every formula as before and
+   show their own values; a reader that does not calculate reads the
+   build's. *Alternative:* the flag dropped when every formula is folded,
+   so that Excel opens the file without computing it. Excel's own save
+   writes its `calcId` in the flag's place, naming the engine that last
+   calculated the file; whether Excel trusts a file's values without one,
+   and whether a build may name an engine it is not, are the owner's
+   question and the closing slice's measurement.
+5. **A build added to a model folds nothing.** Its formulas may read the
+   model's own cells and names, which the build does not read, so a value
+   computed without them could be wrong, as `into_checks.vla`'s `#REF!`
+   shows. *Alternative:* the formulas whose cone stays within the build's
+   own sheets folded, a walk per formula, for a door the page does not
+   have; left for a need.
+6. **`rebuild` unchanged.** A fresh build is rebuilt by building again,
+   which folds again, so the bytes still compare whole; an `--into` build's
+   sheets are rendered again without values, as they were written.
+7. **The oracle.** Excel's own saves: the build golden's difference from
+   `saved.xlsx`, which loses its five value rows, and the subset's fixture
+   built again and compared with `subset_saved.xlsx` value by value. A test
+   of the writer over every kind of value, its escaping, a formula with no
+   value, a value cell never given one, and another sheet's values its own.
+   A test holding a program of every kind to its own view: each computed
+   value read back by the reader as the view prints it, none for a formula
+   not computed, `calc` over the file agreeing, `rebuild` yes. A new pin of
+   `check_recalc_golden.ps1`, `built`, for the door's own builds. The
+   goldens regenerated and their floors moved. Mutants. The owner opens the
+   regenerated build golden in Excel, as every change of the writer is
+   blessed.
+8. **What remains of the line**, as this slice finds it: identical shapes
+   computed once by content address, the owner's call; the view evaluating
+   its window and its cone, worth about 5% of a view today; and the
+   measurement against Excel with its floors (`check_recalc_floors.ps1`),
+   which closes the item and answers decision 4's question.
+
+*Size*: no prediction was written before the build. Measured after it:
+`core/src/sheet/ooxml.rs` 175 lines added and 15 removed, 88 of them its
+test; `core/src/build.rs` 73 and 3, 61 of them its test;
+`core/src/reflect/calc.rs` 5 and 3; `tools/check_recalc_golden.ps1` 42 and
+12, the three other checks' floors 14 and 3. Nothing in the language.
+
+*Built 2026-10-10*, in a worktree at `e128d3c`.
+- `core/src/sheet/ooxml.rs`: `parts_valued`, `workbook_bytes_valued` and
+  `sheet_xml_valued` beside the renderers that fold nothing; `cached`, a
+  value's kind and its `<v>`; the header and the `calcPr` comment; a test.
+- `core/src/build.rs`: `build_xlsx` computing the model and folding its
+  values, and `build_xlsx_into`'s comment; a test.
+- `core/src/reflect/calc.rs`: the test of the core's own build turned
+  round.
+- `tools/check_recalc_golden.ps1`: the `built` pin, its count and its
+  control case; `check_build_golden.ps1`, `check_reflect_golden.ps1` and
+  `check_diff_golden.ps1`: the floors.
+- The goldens: `fixture_golden.xlsx`, `build_fixture_relations.vla`,
+  `build_fixture_saved_diff.vla` and `build_fixture_calc.vla`; `subset.xlsx`
+  and `subset_calc.vla`; `edges.xlsx` and `edges_calc.vla`.
+- `conformance/README.md`: the amendment. `cli/README.md`: the build's
+  description, the `--into` paragraph and four steps of the walk, one of
+  them only for a stale digest (below).
+
+*Found while it was built*:
+- `cli/README.md`'s walk quoted two digests the door no longer printed,
+  `hello.xlsx`'s and `tour-into.xlsx`'s: the right sizes (10,918 and 13,697
+  bytes), other bytes, the stamp's prelude or phrasebook hash having moved
+  since they were written. Both are corrected; the into build's is the
+  same before and after the slice.
+- `reflect::calc`'s test of the core's own build held that it had no
+  cached values, which the slice turns round.
+
+*Measured*, the release door over `e128d3c`, three rounds alternated, each
+figure the median of the round medians:
+- the build of the 10,000-line program (5,000 formulas) from 296.3 to
+  305.2 ms (+3.0%), its file from 2,593,186 to 2,650,409 bytes (+2.2%);
+- the build of the 600 by 52 program (15,600 formulas) from 883.0 to
+  925.1 ms (+4.8%), its file from 7,461,681 to 7,640,402 bytes (+2.4%);
+- `frazaro_core.wasm` from 1,154,292 to 1,155,804 bytes (+0.13%), the
+  language's module unchanged.
+
+Against Excel's own saves:
+- The build golden against `saved.xlsx`, Excel 365's save of it: six rows
+  of difference before, one after, the stamp's rewrite. Its five formulas
+  hold, cell for cell, what Excel's save holds, but for the format index
+  `s="0"` Excel leaves out as the default.
+- The subset's fixture built again, against `subset_saved.xlsx`, the
+  owner's Excel 365 save of it: 107 rows of difference before, six after.
+  They are the stamp, a formula Excel respelled (`1E307` as `1E+307`, both
+  `#NUM!`), and the four formulas this version does not compute. Every one
+  of the 102 values the build holds is the value Excel saved, spelled as
+  Excel spelled it.
+
+*Oracle, met* in the worktree, `e128d3c` and this slice alone. `cargo test
+--workspace`: 350 passed and 5 ignored, the two new tests over 348 and
+`reflect::calc`'s turned round. fmt clean; clippy clean, with `c-abi` too.
+The five golden checks the slice touches, the build, reflect, diff, recalc
+and audit goldens, each reproduced whole by the door, and each control
+passing, the recalc check's failing a build golden that does not hold one
+value it computed, by the `built` pin alone. `run_checks.ps1` 55 of 55,
+with the door, both modules and the page built there; `prove.ps1` 46
+passed, 0 failed, 2 not attempted, 1 library. The slice changes nothing in
+the language, so Alonzo's engine, which consumes the language alone, is as
+it was.
+
+Mutants, each failing in the tests that name its decision:
+- a fresh build folding nothing;
+- a text held without its kind, or unescaped;
+- a negative zero spelled as it stands;
+- a number no cell holds written as nothing;
+- a truth value spelled as a word;
+- an error held as a text;
+- an empty result held as nothing;
+- every sheet asked for the first sheet's values;
+- the kind written after the metadata index;
+- a value cell given a value computed for its place;
+- a formula not computed held as an error.
+
+All twelve were caught, and the clean run after them passed. The owner's
+step: the regenerated build golden opened in Excel, as every change of the
+writer has been blessed; the slice touches no VBA.
+
+*Committed 2026-10-10 at the owner's word*, "No repair prompt. Commit, then
+proceed with the next slice": the owner opened the regenerated build golden
+in Excel 365, which opened it without a repair, and its Output sheet showed
+`B3` 10, `C2` 15, `C3` 10, `C4` 0 and `D2` `big`, the values the file holds
+(Excel computes them anew on opening, since `fullCalcOnLoad` stays). The
+owner took the oracle above as the slice's test. The commit holds `e128d3c`
+and this slice's twenty files alone, copied whole from the worktree; its
+tree was checked first in the worktree, 55 of 55. `KERNEL.20` stays open,
+🟡, for the rest of its line: identical shapes computed once by content
+address, the view evaluating its window and its cone, and the measurement
+against Excel with its floors.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION

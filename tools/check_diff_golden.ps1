@@ -72,8 +72,13 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 # is shorter, and say why.
 # 2026-10-05, PORT.8 slice 8d: the fixture's Review sheet is in both files,
 # and the copy recomputes its D2 (Model!H1 filled there): 24 -> 25.
+# 2026-10-10, KERNEL.20's fifth slice, a floor lowered: the build golden now
+# holds the five formulas' values as the build computed them, which are the
+# values Excel computed and saved, spelled as Excel spelled them, so their
+# five rows are gone and the stamp's rewrite is the one difference left:
+# build_fixture_saved 6 -> 1.
 $goldens = @(
-    @{ Name = 'build_fixture_saved'; Old = 'scripts/build/fixture_golden.xlsx'; New = 'scripts/reflect/saved.xlsx';      Golden = 'scripts/reflect/build_fixture_saved_diff.vla'; Floor = 6 },
+    @{ Name = 'build_fixture_saved'; Old = 'scripts/build/fixture_golden.xlsx'; New = 'scripts/reflect/saved.xlsx';      Golden = 'scripts/reflect/build_fixture_saved_diff.vla'; Floor = 1 },
     @{ Name = 'model_into';          Old = 'scripts/build/model.xlsx';          New = 'scripts/build/into_golden.xlsx'; Golden = 'scripts/reflect/model_into_diff.vla';          Floor = 4 },
     @{ Name = 'fixture_changed';     Old = 'scripts/reflect/fixture.xlsx';      New = 'scripts/reflect/changed.xlsx';   Golden = 'scripts/reflect/fixture_changed_diff.vla';     Floor = 25 },
     # 2026-10-05, PORT.8 slice 8e: fixture_opendocument 6 - the fixture

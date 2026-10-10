@@ -255,15 +255,17 @@ mod tests {
         );
     }
 
+    /// KERNEL.20's fifth slice: the core's own build holds the value of each
+    /// formula it computes, so every row agrees with the value it folded.
     #[test]
-    fn the_core_s_own_build_has_no_cached_values_and_is_unchecked() {
+    fn the_core_s_own_build_holds_the_values_it_computes_and_agrees() {
         let lib = excel::library();
         let text = calc_text(BUILT, "fixture_golden.xlsx", &lib).unwrap();
         for row in text.lines() {
-            assert!(row.ends_with(" none unchecked)"), "{row}");
+            assert!(row.ends_with(" agree)"), "{row}");
         }
         assert!(
-            text.contains("(calc \"Output\" \"B3\" \"=B2*2\" 10 none unchecked)"),
+            text.contains("(calc \"Output\" \"B3\" \"=B2*2\" 10 10 agree)"),
             "{text}"
         );
     }
