@@ -569,7 +569,6 @@ impl Machine {
                 refusal: raise(
                     "grid-sheet-unknown",
                     &[
-                        ("line", &line.to_string()),
                         ("target", &format!("{sheet}!{addr}")),
                         ("name", sheet),
                         ("sheets", &sheets.join(", ")),
@@ -609,7 +608,6 @@ impl Machine {
                     refusal: raise(
                         "grid-write-derived",
                         &[
-                            ("line", &line.to_string()),
                             ("target", &format!("{sheet}!{addr}")),
                             ("cell", &spell_cell(&self.book, id)),
                         ],
@@ -1151,10 +1149,12 @@ mod tests {
             (e.line, e.refusal.id.as_str()),
             (3, "grid-cell-written-twice")
         );
+        // The row's own line is the answer's field; the words name the
+        // first line, which the answer does not carry (KERNEL.23).
         assert!(
             e.refusal
                 .text
-                .starts_with("Line 3 writes S!A1, which line 1 already wrote"),
+                .starts_with("S!A1 was already written by line 1;"),
             "{}",
             e.refusal.text
         );
@@ -1201,6 +1201,18 @@ mod tests {
                 "grid-row-malformed",
             ),
             ("\n\n(cell \"Board.last\" \"A1\" 1)\n", 3, "grid-write-last"),
+            // A setting naming a twin is the name's refusal, as a sheet row
+            // naming one alone is: a twin copies values, never settings.
+            (
+                "(sheet \"Board\" visible)\n(gridlines \"Board.last\" off)\n",
+                2,
+                "grid-sheet-name-invalid",
+            ),
+            (
+                "(column \"Board.last\" \"A\" 10 shown none)\n",
+                1,
+                "grid-sheet-name-invalid",
+            ),
             (
                 "(cell \"Twenty-seven characters, ab\" \"A1\" 1)\n",
                 1,
@@ -1243,6 +1255,8 @@ mod tests {
         for (text, line, id) in cases {
             let e = refused(text);
             assert_eq!((e.line, e.refusal.id.as_str()), (*line, *id), "{text}");
+            // The line is the answer's field and never the words' opening.
+            assert!(!e.refusal.text.starts_with("Line "), "{}", e.refusal.text);
         }
         let e = refused("(cell \"S\" \"A1\" 1)\n(formula \"S\" \"B2\" \"=NOW()\")\n");
         assert!(
@@ -1293,8 +1307,12 @@ mod tests {
         assert_eq!(save(&m), before, "a refused write changes nothing");
         let e = m.write("(cell \"Board.last\" \"A1\" 1)").unwrap_err();
         assert_eq!((e.line, e.refusal.id.as_str()), (1, "grid-write-last"));
+        // The cell to write instead, not only its sheet (KERNEL.23).
         assert!(
-            e.refusal.text.contains("write Board,"),
+            e.refusal
+                .text
+                .starts_with("Board.last!A1 is a cell of Board.last,")
+                && e.refusal.text.contains("write Board!A1,"),
             "{}",
             e.refusal.text
         );

@@ -194,17 +194,17 @@ pub(crate) fn shape_of(kind: &str) -> &'static str {
     }
 }
 
+// The refusals below carry the row's line in the answer's own field and
+// never in their words (KERNEL.23), so a write of one row, whose line is
+// always 1, does not say it.
+
 /// `grid-row-malformed` for a form.
 pub(crate) fn malformed(line: u32, form: &Form, kind: &str) -> LineRefusal {
     LineRefusal {
         line,
         refusal: raise(
             "grid-row-malformed",
-            &[
-                ("line", &line.to_string()),
-                ("row", &write_datum(form)),
-                ("shape", shape_of(kind)),
-            ],
+            &[("row", &write_datum(form)), ("shape", shape_of(kind))],
         ),
     }
 }
@@ -213,14 +213,7 @@ pub(crate) fn malformed(line: u32, form: &Form, kind: &str) -> LineRefusal {
 pub(crate) fn unknown(line: u32, head: &str, kinds: &str) -> LineRefusal {
     LineRefusal {
         line,
-        refusal: raise(
-            "grid-row-unknown",
-            &[
-                ("line", &line.to_string()),
-                ("head", head),
-                ("kinds", kinds),
-            ],
-        ),
+        refusal: raise("grid-row-unknown", &[("head", head), ("kinds", kinds)]),
     }
 }
 
@@ -230,11 +223,7 @@ pub(crate) fn twice(line: u32, what: &str, first: u32) -> LineRefusal {
         line,
         refusal: raise(
             "grid-cell-written-twice",
-            &[
-                ("line", &line.to_string()),
-                ("what", what),
-                ("first", &first.to_string()),
-            ],
+            &[("what", what), ("first", &first.to_string())],
         ),
     }
 }
@@ -243,14 +232,12 @@ pub(crate) fn twice(line: u32, what: &str, first: u32) -> LineRefusal {
 pub(crate) fn bad_name(line: u32, name: &str) -> LineRefusal {
     LineRefusal {
         line,
-        refusal: raise(
-            "grid-sheet-name-invalid",
-            &[("line", &line.to_string()), ("name", name)],
-        ),
+        refusal: raise("grid-sheet-name-invalid", &[("name", name)]),
     }
 }
 
-/// `grid-write-last`: a row writing into a twin.
+/// `grid-write-last`: a row writing cells of a twin, told to write the same
+/// cells of the sheet the twin copies.
 pub(crate) fn into_twin(line: u32, sheet: &str, addr: &str) -> LineRefusal {
     let source = twin_base(sheet).unwrap_or(sheet);
     LineRefusal {
@@ -258,10 +245,9 @@ pub(crate) fn into_twin(line: u32, sheet: &str, addr: &str) -> LineRefusal {
         refusal: raise(
             "grid-write-last",
             &[
-                ("line", &line.to_string()),
                 ("target", &format!("{sheet}!{addr}")),
                 ("sheet", sheet),
-                ("source", source),
+                ("source", &format!("{source}!{addr}")),
             ],
         ),
     }
@@ -274,7 +260,6 @@ pub(crate) fn too_many(line: u32, sheet: &str, addr: &str, count: u64) -> LineRe
         refusal: raise(
             "grid-too-many-cells",
             &[
-                ("line", &line.to_string()),
                 ("target", &format!("{sheet}!{addr}")),
                 ("cells", &thousands(count)),
                 ("limit", &thousands(CELLS as u64)),
@@ -383,13 +368,24 @@ impl Reader {
     }
 
     /// A sheet of the grid by name, made when it is new; a twin's name and a
-    /// name no sheet may hold refused.
-    fn sheet_index(&mut self, name: &str, line: u32, addr: &str) -> Result<usize, LineRefusal> {
+    /// name no sheet may hold refused. A row writing cells (`addr` given)
+    /// into a twin is `grid-write-last`; a setting naming a twin is
+    /// `grid-sheet-name-invalid`, as a `sheet` row naming one alone is,
+    /// since a twin copies its sheet's values and never its settings.
+    fn sheet_index(
+        &mut self,
+        name: &str,
+        line: u32,
+        addr: Option<&str>,
+    ) -> Result<usize, LineRefusal> {
         if let Some(i) = self.draft.workbook.find_sheet(name) {
             return Ok(i);
         }
         if twin_base(name).is_some() {
-            return Err(into_twin(line, name, addr));
+            return Err(match addr {
+                Some(addr) => into_twin(line, name, addr),
+                None => bad_name(line, name),
+            });
         }
         if !sheet_name_ok(name) {
             return Err(bad_name(line, name));
@@ -415,7 +411,7 @@ impl Reader {
             self.twin_rows.push((name.clone(), line));
             return Ok(());
         }
-        let i = self.sheet_index(name, line, "A1")?;
+        let i = self.sheet_index(name, line, None)?;
         if let Some((v, first)) = self.sheet_rows.get(&i) {
             if *v != visibility {
                 return Err(twice(line, &format!("(sheet {})", quoted(name)), *first));
@@ -437,7 +433,7 @@ impl Reader {
         line: u32,
     ) -> Result<(usize, A1Range), LineRefusal> {
         let range = parse_a1_range(addr).ok_or_else(|| malformed(line, form, kind))?;
-        let i = self.sheet_index(sheet, line, addr)?;
+        let i = self.sheet_index(sheet, line, Some(addr))?;
         Ok((i, range))
     }
 
@@ -567,7 +563,7 @@ impl Reader {
             "off" => false,
             _ => return Err(malformed(line, form, "gridlines")),
         };
-        let si = self.sheet_index(sheet, line, "A1")?;
+        let si = self.sheet_index(sheet, line, None)?;
         if let Some((said, first)) = self.gridlines.get(&si) {
             if *said != on {
                 return Err(twice(
@@ -611,7 +607,7 @@ impl Reader {
             },
             _ => return Err(malformed(line, form, "column")),
         };
-        let si = self.sheet_index(sheet, line, "A1")?;
+        let si = self.sheet_index(sheet, line, None)?;
         let column = Column {
             index,
             width,
@@ -655,7 +651,7 @@ impl Reader {
             "hidden" => true,
             _ => return Err(malformed(line, form, "row")),
         };
-        let si = self.sheet_index(sheet, line, "A1")?;
+        let si = self.sheet_index(sheet, line, None)?;
         let settings = RowSettings { height, hidden };
         if let Some(first) = self.row_settings.get(&(si, n)) {
             if self.draft.workbook.sheets[si].rows.get(&n) != Some(&settings) {
@@ -719,7 +715,7 @@ impl Reader {
             Ok(i) if i < FORMATS => i,
             _ => return Err(malformed(line, form, "look")),
         };
-        let si = self.sheet_index(sheet, line, "A1")?;
+        let si = self.sheet_index(sheet, line, None)?;
         let spelled = value.spell();
         let key = (si, spelled.clone());
         if let Some((said, first)) = self.looks.get(&key) {

@@ -19005,6 +19005,72 @@ thirty-four files, the peers' uncommitted work beside it untouched, the
 isolated tree verified first. The item closed with the commit; its line is
 in the closed ledger.
 
+**`KERNEL.23`, the machine's refusals name what they refuse: the scoping
+and the build, 2026-10-09.** Found by Alonzo's `ENGINE.1` in its second
+slice and sent here before 0.9.0 is cut; each claim was read in the code
+before anything was proposed. (1) Eight of the `grid` family's eleven
+texts opened with `Line {line}` (`grid-row-unknown`, `grid-row-malformed`,
+`grid-cell-written-twice`, `grid-sheet-name-invalid`, `grid-sheet-unknown`,
+`grid-write-last`, `grid-write-derived`, `grid-too-many-cells`), while the
+answer already carries the row's line as its own second word
+(`vla-lang/src/abi.rs`). Alonzo's host makes every edit and every derived
+row a write of one row, so each of those refusals read `Line 1 ...` in the
+page, the clause the owner had trimmed from the host's own sentences at
+`ENGINE.1`'s first hand test. (2) `grid-write-last` filled `{source}` with
+the sheet's name alone, `write Screen`, which reads as if `Screen!B1` was
+meant. (3) `calc-function-not-computed`'s second sentence, "The cell keeps
+its formula and shows not computed here", is `frazaro calc`'s and false
+wherever the refusal is raised: `Shapes::first_refusal` alone raises it,
+at a machine's load and at its write, and `frazaro calc` never does. It
+was deferred by name at `KERNEL.22`'s close for the owner's word.
+
+*The decisions, approved by the owner the same day.* 1. The ID,
+`KERNEL.23`. 2. The eight texts name what they refuse and leave the line
+to the answer's field, as the `view` and `calc` families already do;
+`grid-cell-written-twice` keeps `{first}`, the one line the answer does not
+carry. 3. `grid-write-last`'s `{source}` is the same cell or range on the
+sheet the twin copies. 4. Found in the scoping: a `gridlines`, `column`,
+`row` or `look` row naming a twin reached `grid-write-last` with a stand-in
+address, `A1`, whose "the end of the next step copies it there" was already
+false, since a twin copies its sheet's values and never its settings, and
+which under decision 3 would have advised writing `A1`. Such a row is now
+`grid-sheet-name-invalid`, as a `sheet` row naming a twin alone already
+was. 5. `calc-function-not-computed` drops its second sentence and puts
+nothing in its place. No release note: 0.9.0's users never saw the old
+texts, and its `KERNEL.22` bullet quotes none of them. In Alonzo's page an
+edit of `Screen.last!B1` now reads "Screen.last!B1 is a cell of
+Screen.last, the previous frame, which is read-only: write Screen!B1, and
+the end of the next step copies it there."
+
+*Built 2026-10-09.* `src/VLA_Messages.bas`: version `KERNEL.23`, the
+header's note, nine `AddMsg` lines and two dated comment lines.
+`vla-lang/data/messages.vla`, exported: 192 entries, nine changed; the
+core's half untouched by this item. `vla-lang/src/machine/load.rs`: the
+raise sites without the `line` slot, `{source}` with the address, and
+`sheet_index` taking the address as an option, a setting passing none.
+`vla-lang/src/machine/mod.rs`: its two raise sites; two pins re-pointed
+(`S!A1 was already written by line 1;`, and `Board.last!A1 is a cell of
+Board.last,` with `write Board!A1,`); two load cases for decision 4; every
+refusal of the load test held never to open with `Line `.
+`vla-lang/src/messages.rs`: no `grid` template names `{line}`. Rust's
+`raise` ignores a slot its template does not name, and
+`check_message_slots.ps1` reads the VBA's sites alone, so the Rust sites
+were held to their templates by reading them. *Oracle, met:* `cargo test
+--workspace`, 290 passed and 4 ignored; fmt clean; clippy clean, with the
+`c-abi` feature too; the language's module 424,171 bytes (425,446 before),
+0 imports and 10 exports, the core's 0 and 13; `run_checks.ps1` 54 of 54 in
+the shared tree. On Alonzo's side no code changes: its pin moves to this
+commit, and its host already prints a refused load's line after the words,
+`(line N)`, and an edit's never. The owner's Excel step: `VlaDevReload`,
+Debug > Compile, `? VlaSelfTests()`.
+
+*Owner-tested and committed 2026-10-09.* The owner reloaded the modules,
+compiled them and ran the self-tests, pure 1942 of 1942 and host 331 of
+331, and said to commit; the commit holds HEAD and this item's files
+alone, the peers' uncommitted work beside it untouched, the isolated tree
+verified first. The item closed with the commit; its line is in the
+closed ledger.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -31988,6 +32054,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.2 — the distro folder: the unit the build tools take.** An edition of Frazaro beyond the engine is one folder with one manifest, `distros/<name>/distro.vla`, naming by reference the prelude, the base phrasebook, an overlay, the dialects, the libraries, the examples, the add-in's file name and the page's title, tagline, opening sentence and palette; `distros/english` is the edition the doors ship and `distros/espanol` the add-in's Spanish edition as it shipped. Three readers take the one file: `tools/build_web.ps1` bakes it into the page (`-Distro`, `-Template`), `frazaro prove <folder>` proves it whole through `core/src/distro.rs` (english `PASS 632/632`, espanol `PASS 662/662`), and `VlaBuildAddin` reads each edition's chain, file name and override name from its folder, the hand-written tables gone. `check_distro.ps1`, the 51st check, holds every manifest to one shape and the readers to one another; `check_web_offline.ps1` holds the picker's places to the distro's dialects; `prove.ps1` gained the kind; two catalogue refusals under `VLA-Distro`. The oracle held: the page built from the distro is byte for byte the page built before. Built 2026-10-07, owner-tested and committed 2026-10-08; the entry above carries the record. Deferred by name: the picker's labels and the add-in's chrome to `EDITION-CHROME`, `Use` lines to `G-USE`, `describe` to `KERNEL.18`. `~days`, taken in a day.
 - ✅ **KERNEL.7 — recalculation, slice 1: the declared subset's floor.** A workbook's formulas computed in dependency order and held to the values Excel saved. The mechanism is the language's (`vla-lang/src/calc/`, by the three-crate order of `PORT.12`): a parser for operators and calls over the reference scanner, the dependency graph from `refers`, an iterative Tarjan for the order and the cycles, evaluation with a budget in cells that yields and resumes, Excel's seven error values as a value kind, and a `Library` seam with the fourteen functions `Alonzo/SPEC.md` §13 names for a cartridge's first rules. Excel's library registers through the seam from `frazaro-core` as the declared subset, twenty-one functions each with its evidence (the Enron and EUSES tables of Jansen and Hermans, 2015; `IFS` on `saved.xlsx`); a function outside it shows `not computed here` with its name, and a cell that reads it inherits the label. `frazaro calc <file> [--counts]` prints each formula cell's computed value beside the value the host saved, with agree, differ or unchecked; `frazaro reflect --functions` is `KERNEL.6`'s histogram; the view record carries a `value` row after each formula row (`SPEC.md` decision 14); the kernel's sixth seam is `functions`; two refusals for an engine's load under `VLA-Calc`. Oracle 12 in the treaty over seven fixtures, `check_recalc_golden.ps1` (the 52nd check at this commit, with its control), `prove.ps1`'s eleventh kind. The owner's Excel 365 save of the subset fixture agreed on all 102 formulas the subset computes, after correcting two of the build's rules the same evening, a number's General spelling and a text `TRUE` read through a reference in `IF`. Built 2026-10-08, owner-tested and committed 2026-10-09; the entry above carries the record. Deferred by name: the lookups, `SUBTOTAL`, `DAVERAGE`, `CONCATENATE`, `MONTH` and implicit intersection to `KERNEL.8`; the handle and the four calls to the item after `PORT.12`; speed to `KERNEL.20`; the edges fixture's Excel save. `~weeks`, taken in a day.
 - ✅ **KERNEL.22 — the handle and the four calls: the grid as a machine an engine steps.** The language's half of Alonzo's `ENGINE.1`: a grid kept in the language's memory under a handle (`vla_lang::machine`), which an engine loads from the rows a view or a reflect prints (the record's inverse, one write per cell, a cap of 1,048,576 cells), writes with `cell`, `formula` and `derived` rows all or none, steps with a budget in cells that yields and resumes, the previous frame a hidden twin sheet `X.last` filled at the end of each frame, and views as the record with its `value` rows or as the plane, a byte a cell; handles from 1, never reused, sixteen at once; every formula parsed once per shape (a shared formula, or cells of one R1C1 text) and evaluated at each cell's offset, since a parse of every cell held would be 562 MB for Life; the view record's `row` and `look` rows and each sheet's own state (oracle 11 amended); fourteen refusals in the language's families, the `grid` family's eleven, two in `view` and one in `calc`, and the two view refusals reworded true at every door; the C surface, nine `vla_*` functions, exported only under the `c-abi` feature and held by `check_wasm_exports.ps1` (the 53rd check at this commit, with its control); CALLOSUM §7 decision 1 amended for the engine's door alone. Measured natively: Life's cartridge loads in 137 ms as one shape and steps in 0.258 s a frame, exact at generations 0 and 10 against a reference Life, and a save of 34 MB reloads as one shape and resumes. Scoped, built, owner-tested and committed 2026-10-09; the entry above carries the record. Deferred by name: speed to `KERNEL.20`; a save's names and size to Alonzo's page; `calc-function-not-computed`'s words at a load to the owner's word. `~days`, taken in a day.
+- ✅ **KERNEL.23 — the machine's refusals name what they refuse, the line left to the answer.** Found by Alonzo's `ENGINE.1` before 0.9.0 is cut: the eight `grid` texts that opened `Line {line}` name their target instead, the row's line staying in the answer's own field, so an engine's write of one row never reads `Line 1`; `grid-write-last` names the cell to write, not only its sheet; a `gridlines`, `column`, `row` or `look` row naming a twin is `grid-sheet-name-invalid`, as a `sheet` row naming one already was, since a twin copies values and never settings; `calc-function-not-computed` drops the sentence true only of `frazaro calc`, which never raises it, `KERNEL.22`'s deferral settled. The language's tests hold that no `grid` template names `{line}` and that no refusal of the load test opens with `Line `; the language's half of the catalogue stays 192 entries. Built, owner-tested and committed 2026-10-09; the entry above carries the record. `~hours`, taken in an hour.
 
 ## 🛡 ADVERSARY · SECURITY
 

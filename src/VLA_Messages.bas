@@ -1,6 +1,16 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "KERNEL.22"
+Public Const VLA_MESSAGES_VERSION As String = "KERNEL.23"
+' KERNEL.23: the machine's refusals name what they refuse and leave the
+' line to the answer's own field, where an engine's host reads it:
+' grid-row-unknown, grid-row-malformed, grid-cell-written-twice,
+' grid-sheet-name-invalid, grid-sheet-unknown, grid-write-last,
+' grid-write-derived and grid-too-many-cells no longer open with the
+' line, so a write of one row never reads Line 1; grid-write-last names
+' the cell to write, not only its sheet; and calc-function-not-computed
+' drops a sentence true only of frazaro calc, which never raises it.
+' Raised by no VBA site, as before.
+'
 ' KERNEL.22: the machine's refusals. A new family, grid, under the source
 ' VLA-Grid: grid-handle-unknown, grid-handle-limit, grid-row-unknown,
 ' grid-row-malformed, grid-cell-written-twice, grid-sheet-name-invalid,
@@ -1503,15 +1513,16 @@ Private Sub AddEntries(ByVal m As Collection)
     ' alone; the add-in's grid is Excel's, so no VBA site raises them.
     AddMsg m, "grid-handle-unknown", 9, "VLA-Grid", "No grid is loaded under the handle {handle}; a handle is the number a load answered, and it ends with the unload."
     AddMsg m, "grid-handle-limit", 5, "VLA-Grid", "{limit} grids are loaded already, the most one module holds at once; unload one before loading another."
-    AddMsg m, "grid-row-unknown", 5, "VLA-Grid", "Line {line} is a ({head} ...) row, which is not one taken here; the rows taken here are {kinds}."
-    AddMsg m, "grid-row-malformed", 5, "VLA-Grid", "Line {line} holds {row}, which is not in its shape, {shape}. In a shape, <value> is a number, a text in quotes, true, false or an error such as (error ""#N/A"")."
-    AddMsg m, "grid-cell-written-twice", 5, "VLA-Grid", "Line {line} writes {what}, which line {first} already wrote; a grid's rows say one thing about each cell and each setting, so write it once."
-    AddMsg m, "grid-sheet-name-invalid", 5, "VLA-Grid", "Line {line} names a sheet {name}, which a grid cannot hold. A sheet's name is 1 to 26 characters, so that the name of its twin, the previous frame, fits Excel's 31; it holds none of \ / ? * [ ] : and no apostrophe at either end; and a name ending in .last is a twin's own."
-    AddMsg m, "grid-sheet-unknown", 9, "VLA-Grid", "Line {line} writes {target}, but the grid holds no sheet named {name}; it holds {sheets}. A write changes the cells of the sheets a grid holds and makes no sheet."
-    AddMsg m, "grid-write-last", 5, "VLA-Grid", "Line {line} writes {target}, a cell of {sheet}, the previous frame, which is read-only: write {source}, and the end of the next step copies it there."
+    ' KERNEL.23 - the line a row stands on is the answer's own field, so no text says it.
+    AddMsg m, "grid-row-unknown", 5, "VLA-Grid", "A ({head} ...) row is not one taken here; the rows taken here are {kinds}."
+    AddMsg m, "grid-row-malformed", 5, "VLA-Grid", "The row {row} is not in its shape, {shape}. In a shape, <value> is a number, a text in quotes, true, false or an error such as (error ""#N/A"")."
+    AddMsg m, "grid-cell-written-twice", 5, "VLA-Grid", "{what} was already written by line {first}; a grid's rows say one thing about each cell and each setting, so write it once."
+    AddMsg m, "grid-sheet-name-invalid", 5, "VLA-Grid", "A grid cannot hold a sheet named {name}. A sheet's name is 1 to 26 characters, so that the name of its twin, the previous frame, fits Excel's 31; it holds none of \ / ? * [ ] : and no apostrophe at either end; and a name ending in .last is a twin's own."
+    AddMsg m, "grid-sheet-unknown", 9, "VLA-Grid", "A write cannot go into {target}: the grid holds no sheet named {name}; it holds {sheets}. A write changes the cells of the sheets a grid holds and makes no sheet."
+    AddMsg m, "grid-write-last", 5, "VLA-Grid", "{target} is a cell of {sheet}, the previous frame, which is read-only: write {source}, and the end of the next step copies it there."
     AddMsg m, "grid-write-during-step", 5, "VLA-Grid", "Frame {frame} is being computed, {evaluated} of {of} cells; a write waits until the step that finishes it."
-    AddMsg m, "grid-write-derived", 5, "VLA-Grid", "Line {line} is a derived write into {target}, and {cell} holds a formula; a derived write lands only in a value cell, since the grid's own writes carry values and never replace a formula."
-    AddMsg m, "grid-too-many-cells", 5, "VLA-Grid", "Line {line} writes {target}, which would bring the grid to {cells} cells, past the {limit} one grid holds beside its twins."
+    AddMsg m, "grid-write-derived", 5, "VLA-Grid", "A derived write cannot go into {target}: {cell} holds a formula, and a derived write lands only in a value cell, since the grid's own writes carry values and never replace a formula."
+    AddMsg m, "grid-too-many-cells", 5, "VLA-Grid", "Writing {target} would bring the grid to {cells} cells, past the {limit} one grid holds beside its twins."
 
     ' KERNEL.7: recalculation's refusals. The language's evaluator (vla-lang,
     ' calc) computes a grid's formulas in dependency order, reading its
@@ -1524,7 +1535,8 @@ Private Sub AddEntries(ByVal m As Collection)
     ' never refuses, since each cell says what it can (not computed here,
     ' the function named).
     AddMsg m, "calc-cycle", 5, "VLA-Calc", "The formulas in {cells} read one another in a circle, so none of them can be computed first. Break the circle: one of them must read a value, not a formula that reads it back."
-    AddMsg m, "calc-function-not-computed", 5, "VLA-Calc", "The formula in {cell} calls {function}, which this version does not compute. The cell keeps its formula and shows not computed here."
+    ' KERNEL.23 - raised only where a load or a write is refused, so it says no more than that.
+    AddMsg m, "calc-function-not-computed", 5, "VLA-Calc", "The formula in {cell} calls {function}, which this version does not compute."
     ' KERNEL.22 - a formula whose text this version does not read stops an engine's load too.
     AddMsg m, "calc-construct-not-read", 5, "VLA-Calc", "The formula in {cell} reaches {construct}, which this version does not read, so the formula cannot be computed."
 

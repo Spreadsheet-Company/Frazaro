@@ -262,6 +262,12 @@ mod tests {
             ids().iter().filter(|id| id.starts_with("grid-")).count(),
             11
         );
+        // A row's line is the answer's own field (KERNEL.23): no grid text
+        // says it, so a write of one row never reads "Line 1".
+        for id in ids().iter().filter(|id| id.starts_with("grid-")) {
+            let text = template(id).unwrap();
+            assert!(!text.contains("{line}"), "{id}: {text}");
+        }
         for id in [
             "view-projection-unknown",
             "view-window-too-large",
