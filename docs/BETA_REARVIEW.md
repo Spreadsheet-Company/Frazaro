@@ -20512,6 +20512,107 @@ all this version.
   this stays exploratory and P-NTH's own flat-view scope was the right call,
   not a nerve-loss compromise. `~hours`
 
+- ⬜ **VLA.2 — the port's expander shares what the reference shares, so a
+  macro that walks a list costs its length, not its length squared.**
+  *Minted 2026-10-10 at the owner's word, the day `VLA.1` closed, from that
+  item's A/B (its build record, under MACHINE · ASSURANCE): the port's
+  `P-NTH`. Nothing is scoped or built; every figure below was measured
+  that day.*
+
+  **The defect.** `vla-lang`'s expander copies where `VLA.bas` shares.
+  `Form` is an owned tree (`List { items: Vec<Form>, line }`, a symbol a
+  `String`), so a copy allocates at least once a form, and three sites in
+  `vla-lang/src/expand.rs` copy whole subtrees: `substitute` answers a
+  parameter with `v.clone()` at every use of it in the template, after
+  the binding cloned the argument once; `resolve_listops_arg`, under every
+  list primitive, unwraps a quoted argument by cloning its content again;
+  and `list_tail`, under `cdr` and `cddr`, copies the tail
+  (`c.items[n..].to_vec()`). A template macro loops by recursing over a
+  list in tail position, so each step writes the list's remainder once
+  per use of its parameter, and a walk of N rows copies about N²/2 rows
+  times the uses. The pins' `TABLESPEC` generator names its spec nine
+  times (`null?`, the seven fields of `(car spec)`, `cdr`), at twelve
+  forms a row. The reference stopped copying on 2026-09-03: `P-NTH` made
+  `cdr` a `VlaSlice`, an O(1) view over the backing Collection, and
+  `Substitute` returns a binding by reference (`Set Substitute = v`).
+  `PORT.5` ported `VLA.bas` arm by arm into an owned representation and
+  brought the shape back without the sharing.
+
+  **Measured** (the throwaway probe crate of `VLA.1`'s scoping, over
+  `b66be81`, release, natively: `expand_text` of the pins' two walks over
+  N rows, `TestTablespecDepthSafety`'s generator and
+  `TestListopsDepthSafety`'s `walk-rows`):
+
+  | Rows | The generator | `walk-rows` |
+  |---:|---:|---:|
+  | 20 | 2.0 ms | |
+  | 250 | 146 ms | 6.3 ms |
+  | 500 | 545 ms | |
+  | 900 | 1.75 s | 83 ms |
+  | 2,000 | 9.26 s | 393 ms |
+
+  Doubling the rows multiplies the time by about four: quadratic. At
+  5,500 rows the generator ran 51.6 s before the trampoline's cap of
+  5,000 links refused it. `VLA.1`'s own changes cost nothing here: 2,000
+  rows took 8.6 and 8.9 s at its parent and 8.6 and 8.7 s with it.
+
+  **Who pays, and when.** No corpus program calls the generator:
+  `english.vla` defines `tablespec` and its comment says no caller exists
+  yet, and the shipped phrasebook proves in 0.1 s. So nothing a user runs
+  is slow today. But `TABLESPEC-SCALE` (LANGUAGE + MACHINE, above) called
+  "a 250-row pricing sheet entirely ordinary", and a phrasebook carrying
+  one would be expanded at every load, by the command line and by the
+  page in wasm. And Alonzo's `SPEC.3` (the page's version 3, committed
+  2026-10-10) makes a cartridge's source VLA with template macros,
+  expanded by this expander in its pass (§7.8), at the command line and
+  in the page; its `scale-from` (Appendix C.3) loops by this very shape,
+  "so a scale takes as many notes as its caller gives". Alonzo pins
+  `vla-lang` at exactly 0.8.1 from crates.io.
+
+  **The shape of a fix, the scoping's to choose.** Two roads, each with
+  its price.
+
+  *Sharing inside the expander alone.* A private representation whose
+  subtrees are shared for the life of one expansion (reference-counted
+  nodes, or a view like `VlaSlice`), written out to the public `Form`
+  once at the end. The API stands, so a minor release carries it, and
+  Alonzo's pin moves by a version.
+
+  *`Form` itself sharing* (`items: Rc<[Form]>` or the like). Every walker
+  shares, the reader's, the emitter's and the machine's load among them,
+  at the price of a breaking change to a published crate and its
+  construction sites across three crates. This is `P-CONS.1`'s question
+  (above) asked on another substrate: VBA's objects are COM-refcounted
+  with no arena, which is why `P-CONS.1` measures before it builds; a
+  Rust reference count is a plain increment and a `Vec` makes an arena,
+  so the answer may differ, and the scoping measures it instead of
+  assuming it either way.
+
+  Either road keeps `VLA.1`'s weighing honest. `Expander::weigh` walks
+  each application's result as a tree; once the copies go, its walk of
+  the shared remainder at every step is the quadratic term left (today
+  too small to see beside the copies, by the A/B). The limit stays a
+  bound on the tree an application writes, since the output is printed
+  as a tree; what changes is the counting, and a size kept on each shared
+  node when it is made, read in O(1) and never walked again, is one way.
+  The reference's weighing, withdrawn at `VLA.1`'s first VBA pass for
+  counting shared structure as copies, is the precedent. The `dup` macro
+  stays refused: sharing makes its doubling cheap to hold, and the
+  printer would still have to write it out.
+
+  **Oracle, proposed.** The time per row flat: the generator at 2,000
+  rows within twice its time per row at 250 (eight times today). A pin
+  that counts instead of timing, so it cannot flake: the allocations of
+  the generator's expansion at 250 and 2,000 rows, held to a ceiling
+  linear in the rows, as Alonzo's `CART.1` holds a frame's allocations
+  to a ceiling. Every expansion golden, `VLA.1`'s laws, strangers and
+  limits unchanged, the `dup` and `deeper` macros refused by the same
+  ids, and the reference untouched (`SD-18`; it already shares). *Pays
+  into:* `TABLESPEC`'s tables at the sizes its scale entry called
+  ordinary, in the port as in the reference; Alonzo's cartridge pass
+  (`SPEC.3`); any list-walking macro a phrasebook or a cartridge writes.
+  `~days`
+
 - ✅ **P-TOK** — single-scan tokenizer buffer. Named for the TRANSLATE
   side originally (`TokAt`, `VLA_SentenceEngine.bas` - positional
   `Collection` indexing, confirmed still present, unfixed). **A second,
