@@ -40,6 +40,20 @@
   meaning. The `vla-lang` crate's published package now runs its own tests:
   six laws over generated programs, the limits held on a small stack, and a
   harness that knocks at every door with mutated text (VLA.1).
+- **For macro authors: a macro reaches a column, an address and a text's
+  characters as it reaches a row.** Ten primitives join the seventeen that
+  compute while a macro expands. `-expand` and `*expand` subtract and
+  multiply. `quotient-expand` and `mod-expand` divide whole numbers as
+  Excel's `QUOTIENT` and `MOD` do. `&expand` joins pieces into one text,
+  so that writing an address or a formula's text no longer needs the
+  leading-quote trick of `symbol`. `characters-expand` splits a text into
+  its characters, so a picture written as a string can become cells.
+  `address-expand` writes `"B3"` for row 3, column 2, and `row-expand`,
+  `column-expand` and `column-letters-expand` read an address or a column
+  back. Each refuses by name what it cannot compute: a fraction to divide,
+  a zero divisor, a row or a column past Excel's limits, a text that is not
+  an address. The add-in and the crates compute every one alike, held to
+  one golden of 135 cases (VLA.3).
 
 ### Known open security items
 

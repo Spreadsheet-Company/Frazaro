@@ -1,6 +1,15 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "VLA.1"
+Public Const VLA_MESSAGES_VERSION As String = "VLA.3"
+' VLA.3: the expand-time object model, eight refusals under VLA.
+' vla-arith-expand-not-whole and vla-arith-expand-divide-by-zero - the
+' integer quotient and remainder take whole numbers and no zero divisor;
+' vla-expand-arity and vla-expand-arg-is-list - the new primitives' shape,
+' each naming the primitive; vla-concat-expand-arity - &expand with
+' nothing to join; vla-address-expand-row and vla-address-expand-column -
+' a row or a column outside Excel's bounds; vla-address-expand-not-address
+' - a text that is not an address such as B3.
+'
 ' VLA.1: text a stranger wrote is refused by name, never a crash.
 ' vla-form-too-deep under VLA - lists nested more than 64 deep, refused by
 ' the reader (VLA.bas's ParseForm and vla-lang's) and by the expander's
@@ -607,8 +616,8 @@ Private Sub AddEntries(ByVal m As Collection)
     ' migrated, with its own id - so this is propagation/annotation, not
     ' origination of new English text, the same category as every other
     ' file's own re-raise exception). "vla-defmacro-reserved-name" alone
-    ' covers 22 call sites - every reserved primitive name defmacro
-    ' refuses - sharing one id with two named slots rather than 22
+    ' covers 32 call sites - every reserved primitive name defmacro
+    ' refuses - sharing one id with two named slots rather than 32
     ' near-identical entries; "vla-keyword-misuse" covers 4 sites that
     ' each just relay KwMisuseMsg's own return value verbatim.
     ' "vla-interpreter-only-handler" preserves VLA_ERR_INTERPRETER_ONLY
@@ -674,6 +683,17 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-arith-expand-arity", 5, "VLA", "{op} expects exactly 2 arguments, got {n}"
     AddMsg m, "vla-arith-expand-not-number-list", 5, "VLA", "{op}: expected a number, got a list"
     AddMsg m, "vla-arith-expand-not-number-value", 5, "VLA", "{op}: expected a number, got '{value}'"
+    ' VLA.3 - the expand-time object model: four arithmetic primitives,
+    ' a row and a column read from an address and back, a text joined and
+    ' a text split, each refusing by name.
+    AddMsg m, "vla-arith-expand-not-whole", 5, "VLA", "{op}: expected a whole number, got '{value}'"
+    AddMsg m, "vla-arith-expand-divide-by-zero", 5, "VLA", "{op}: cannot divide by zero"
+    AddMsg m, "vla-expand-arity", 5, "VLA", "{op} expects exactly {want} argument(s), got {n}"
+    AddMsg m, "vla-expand-arg-is-list", 5, "VLA", "{op}: argument {n} is a list, expected an atom or string literal"
+    AddMsg m, "vla-concat-expand-arity", 5, "VLA", "&expand expects at least 1 argument, got 0"
+    AddMsg m, "vla-address-expand-row", 5, "VLA", "{op}: a row is a whole number from 1 to 1048576, got '{value}'"
+    AddMsg m, "vla-address-expand-column", 5, "VLA", "{op}: a column is a whole number from 1 to 16384, got '{value}'"
+    AddMsg m, "vla-address-expand-not-address", 5, "VLA", "{op}: expected an address such as B3, got '{value}'"
     AddMsg m, "vla-cond-clause-shape", 5, "VLA", "cond: each clause must be (test form) or (else form), got {n} element(s)"
     AddMsg m, "vla-cond-else-not-last", 5, "VLA", "cond: 'else' must be the last clause"
     AddMsg m, "vla-module-level-decl-after-proc", 5, "VLA", "a module-level ({what} ...) must come before the first (sub ...) or (function ...) - VBA ignores declarations placed after a procedure, and every use of the name then fails Option Explicit. Move the declaration above the procedures. (A library include splices whole procedures and belongs at the BOTTOM of the program; libraries should carry procedures, not module-level declarations.)"

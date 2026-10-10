@@ -257,6 +257,8 @@ const PROGRAMS: &[&str] = &[
     "(defmacro (deep10) (a (a (a (a (a (a (a (a (a (a 1))))))))))) (((((deep10)))))",
     "(defmacro (walk lst) (quote-if (null? lst) (begin) (begin (debug-print (car lst)) (walk (cdr lst))))) (walk (quote (1 2 3)))",
     "(sub main () (dim x Long) (set! x (+ 1 2)) (debug-print x))",
+    // VLA.3: the expand-time object model, a picture and an address's arithmetic.
+    "(defmacro (pic r t) (pic-from r 1 (characters-expand t))) (defmacro (pic-from r c m) (quote-if (null? m) (begin) (begin (quote-if (eq? (car m) \"#\") (cell \"S\" (address-expand r c) 1) (begin)) (pic-from r (+expand c 1) (cdr m))))) (pic 2 \".#\") (&expand (row-expand \"B3\") (column-letters-expand (mod-expand 30 26)) (quotient-expand 9 (-expand 4 (*expand 1 2))) (column-expand \"$C$4\"))",
 ];
 
 /// The rows a write is made of before they are mutated.

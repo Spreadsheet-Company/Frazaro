@@ -1,0 +1,292 @@
+The expand fixture (VLA.3). Each case sits under a line "=== <name>" and
+runs to the next such line; these lines before the first header are
+ignored. A case's lines are one VLA text, joined with a line break where
+there are more than one, expanded to its fixpoint under the prelude as
+VlaExpandText (VLA.bas) expands it. VlaWriteExpandGolden (VLA_Tests.bas)
+writes every case's record to expand_golden.txt: "EXPANDED<TAB><the macro
+applications that fired>" and the text VlaExpandText prints, or
+"REFUSED<TAB><the catalogue's id><TAB><the refusal's text>". vla-lang is
+held to that file by tests/expand_golden.rs, and
+tools/check_expand_golden.ps1 holds the pair's shape and every one of the
+twenty-seven expand-time primitives reached. A case is named for what it
+means to reach; the golden records what the reference does. No case
+raises a refusal that names a line, so an edit of the prelude moves
+nothing here.
+=== car
+(car (quote (a b c)))
+=== car-of-a-text-refused
+(car "abc")
+=== car-of-the-empty-list-refused
+(car (quote ()))
+=== cdr
+(cdr (quote (a b c)))
+=== cddr
+(cddr (quote (a b c)))
+=== cddr-of-a-short-list-refused
+(cddr (quote (a)))
+=== cons
+(cons (quote x) (quote (a b)))
+=== cons-onto-an-atom-refused
+(cons (quote x) (quote y))
+=== list
+(list 1 (quote (a)) "s")
+=== null-of-the-empty-list
+(null? (quote ()))
+=== null-of-a-list
+(null? (quote (a)))
+=== eq-folds-a-symbol-s-case
+(eq? (quote Abc) (quote aBC))
+=== eq-of-a-symbol-and-a-text
+(eq? (quote a) "a")
+=== eq-of-a-list-refused
+(eq? (quote (a)) (quote a))
+=== equal-of-two-structures
+(equal? (quote (a (b "c"))) (quote (a (b "c"))))
+=== quote-if-takes-a-branch
+(quote-if (null? (quote ())) (debug-print "yes") (debug-print "no"))
+=== quote-if-of-an-undecided-test-refused
+(quote-if maybe 1 2)
+=== cond-folds-to-a-clause
+(cond ((eq? (quote a) (quote b)) 1) ((null? (quote ())) 2) (else 3))
+=== cond-defers-to-the-running-program
+(cond ((> x 0) (debug-print "pos")) (else (debug-print "non")))
+=== cond-with-else-before-a-clause-refused
+(cond (else 1) ((null? (quote ())) 2))
+=== plus-expand
+(+expand 2 3)
+=== plus-expand-of-fractions
+(+expand 0.1 0.2)
+=== plus-expand-past-fifteen-digits
+(+expand 999999999999999 1)
+=== plus-expand-of-a-text-refused
+(+expand "5" 1)
+=== plus-expand-of-a-thousands-separator-refused
+(+expand (quote 1,000) 1)
+=== plus-expand-of-one-operand-refused
+(+expand 2)
+=== equal-expand
+(=expand 5 5)
+=== not-equal-expand
+(<>expand 5 6)
+=== greater-expand
+(>expand 5 3)
+=== less-expand
+(<expand 5 3)
+=== greater-or-equal-expand
+(>=expand 5 5)
+=== less-or-equal-expand
+(<=expand 6 5)
+=== a-comparison-of-a-list-refused
+(>expand (quote (1)) 2)
+=== minus-expand
+(-expand 5 2)
+=== minus-expand-below-zero
+(-expand 2 5)
+=== minus-expand-of-a-fraction
+(-expand 2.5 1)
+=== minus-expand-of-a-list-refused
+(-expand (quote (1)) 1)
+=== minus-expand-of-one-operand-refused
+(-expand 1)
+=== times-expand
+(*expand 6 7)
+=== times-expand-of-a-fraction
+(*expand 1.5 2)
+=== times-expand-of-a-negative
+(*expand -3 4)
+=== times-expand-of-a-text-refused
+(*expand 2 "3")
+=== times-expand-of-three-operands-refused
+(*expand 1 2 3)
+=== quotient-expand
+(quotient-expand 7 2)
+=== quotient-expand-truncates-toward-zero
+(quotient-expand -7 2)
+=== quotient-expand-of-a-negative-divisor
+(quotient-expand 7 -2)
+=== quotient-expand-of-a-quoted-number
+(quotient-expand (quote 9) 4)
+=== quotient-expand-of-a-fraction-refused
+(quotient-expand 7.5 2)
+=== quotient-expand-of-a-fractional-divisor-refused
+(quotient-expand 7 0.5)
+=== quotient-expand-of-one-operand-refused
+(quotient-expand 1)
+=== mod-expand
+(mod-expand 7 3)
+=== mod-expand-takes-the-divisor-s-sign
+(mod-expand -7 2)
+=== mod-expand-of-a-negative-divisor
+(mod-expand 7 -2)
+=== mod-expand-of-two-negatives
+(mod-expand -7 -2)
+=== mod-expand-with-nothing-left
+(mod-expand -4 2)
+=== mod-expand-by-zero-refused
+(mod-expand 7 0)
+=== mod-expand-of-no-operands-refused
+(mod-expand)
+=== concat-expand
+(&expand "A" 1)
+=== concat-expand-of-a-symbol
+(&expand x)
+=== concat-expand-of-numbers
+(&expand 1 2 3)
+=== concat-expand-of-a-quoted-symbol
+(&expand (quote ab) "c")
+=== concat-expand-keeps-a-quote-mark
+(&expand "say \"hi\"")
+=== concat-expand-writes-a-formula
+(&expand "=SUM(" (address-expand 1 2) ":" (address-expand 9 2) ")")
+=== concat-expand-of-nothing-refused
+(&expand)
+=== concat-expand-of-a-list-refused
+(&expand "a" (quote (b)))
+=== characters-expand
+(characters-expand "ab#")
+=== characters-expand-of-the-empty-text
+(characters-expand "")
+=== characters-expand-of-a-symbol
+(characters-expand abc)
+=== characters-expand-of-a-number
+(characters-expand 120)
+=== characters-expand-of-a-quote-mark
+(characters-expand "a\"b")
+=== characters-expand-keeps-an-emoji-whole
+(characters-expand "a😀b")
+=== characters-expand-of-a-combining-accent
+(characters-expand "é")
+=== characters-expand-items-are-a-list-s-items
+(car (cdr (characters-expand "xyz")))
+=== characters-expand-of-a-list-refused
+(characters-expand (quote (a)))
+=== characters-expand-of-two-texts-refused
+(characters-expand "a" "b")
+=== address-expand
+(address-expand 3 2)
+=== address-expand-reaches-xfd
+(address-expand 1 16384)
+=== address-expand-reaches-the-last-row
+(address-expand 1048576 27)
+=== address-expand-of-a-quoted-number
+(address-expand (quote 2) 3)
+=== address-expand-of-row-zero-refused
+(address-expand 0 1)
+=== address-expand-past-xfd-refused
+(address-expand 1 16385)
+=== address-expand-of-a-fractional-row-refused
+(address-expand 1.5 1)
+=== address-expand-of-a-text-refused
+(address-expand "3" 2)
+=== address-expand-of-a-list-refused
+(address-expand (quote (3)) 2)
+=== address-expand-of-one-operand-refused
+(address-expand 3)
+=== address-expand-of-three-operands-refused
+(address-expand 1 2 3)
+=== row-expand
+(row-expand "B3")
+=== row-expand-of-a-symbol
+(row-expand B3)
+=== row-expand-of-the-last-row
+(row-expand "XFD1048576")
+=== row-expand-of-a-mixed-reference
+(row-expand "C$5")
+=== row-expand-of-letters-alone-refused
+(row-expand "AA")
+=== row-expand-past-the-last-row-refused
+(row-expand "A1048577")
+=== row-expand-of-eight-digits-refused
+(row-expand "A00000001")
+=== row-expand-of-row-zero-refused
+(row-expand "B0")
+=== row-expand-of-a-sheet-s-name-refused
+(row-expand "Sheet1!B3")
+=== row-expand-of-a-space-refused
+(row-expand " B3")
+=== row-expand-of-a-list-refused
+(row-expand (quote (B3)))
+=== row-expand-of-nothing-refused
+(row-expand)
+=== column-expand
+(column-expand "B3")
+=== column-expand-past-the-dollar-marks
+(column-expand "$AA$10")
+=== column-expand-of-either-case
+(column-expand "xfd1")
+=== column-expand-of-letters-alone
+(column-expand "AA")
+=== column-expand-of-a-dollar-column
+(column-expand "$C")
+=== column-expand-of-a-trailing-dollar-refused
+(column-expand "C$")
+=== column-expand-past-xfd-refused
+(column-expand "XFE1")
+=== column-expand-of-four-letters-refused
+(column-expand "AAAA1")
+=== column-expand-of-a-range-refused
+(column-expand "B3:C4")
+=== column-expand-of-two-addresses-refused
+(column-expand "A1" "B2")
+=== column-letters-expand
+(column-letters-expand 28)
+=== column-letters-expand-of-the-last-column
+(column-letters-expand 16384)
+=== column-letters-expand-of-column-zero-refused
+(column-letters-expand 0)
+=== column-letters-expand-of-a-fraction-refused
+(column-letters-expand 2.5)
+=== column-letters-expand-of-a-text-refused
+(column-letters-expand "2")
+=== column-letters-expand-of-nothing-refused
+(column-letters-expand)
+=== a-column-s-letters-and-back
+(column-expand (column-letters-expand 703))
+=== an-address-and-back
+(address-expand (row-expand "BC12") (column-expand "BC12"))
+=== a-palette-row-without-the-quote-trick
+(defmacro (entry index colour) (cell "Palette" (&expand "B" (+expand index 1)) colour))
+(entry 4 "#AA0000")
+=== a-linear-index-to-an-address
+(defmacro (at i width) (address-expand (+expand (quotient-expand i width) 1) (+expand (mod-expand i width) 1)))
+(at 17 8)
+=== the-cell-below-an-address
+(defmacro (below a) (address-expand (+expand (row-expand a) 1) (column-expand a)))
+(below "C7")
+=== a-picture-written-as-a-text
+(defmacro (picture r txt) (picture-from r 1 (characters-expand txt)))
+(defmacro (picture-from r c m) (quote-if (null? m) (begin) (begin (quote-if (eq? (car m) "#") (cell "S" (address-expand r c) 1) (begin)) (picture-from r (+expand c 1) (cdr m)))))
+(picture 2 ".#.#")
+=== a-walk-across-the-columns
+(defmacro (row-of r c n) (quote-if (=expand n 0) (begin) (begin (cell "S" (address-expand r c) n) (row-of r (+expand c 1) (-expand n 1)))))
+(row-of 1 26 3)
+=== a-shielded-primitive-folds-once-unshielded
+(defmacro (shield) (quasiquote (address-expand 1 1)))
+(shield)
+=== unquote-reaches-a-primitive
+(defmacro (put r) (quasiquote (cell "S" (unquote (address-expand r 1)) 0)))
+(put 4)
+=== reserved-car
+(defmacro (car x) x)
+=== reserved-plus-expand
+(defmacro (+expand x) x)
+=== reserved-minus-expand
+(defmacro (-expand x) x)
+=== reserved-times-expand
+(defmacro (*expand x) x)
+=== reserved-quotient-expand
+(defmacro (quotient-expand x) x)
+=== reserved-mod-expand
+(defmacro (mod-expand x) x)
+=== reserved-concat-expand
+(defmacro (&expand x) x)
+=== reserved-characters-expand
+(defmacro (characters-expand x) x)
+=== reserved-address-expand
+(defmacro (address-expand x) x)
+=== reserved-row-expand
+(defmacro (row-expand x) x)
+=== reserved-column-expand
+(defmacro (column-expand x) x)
+=== reserved-column-letters-expand
+(defmacro (column-letters-expand x) x)

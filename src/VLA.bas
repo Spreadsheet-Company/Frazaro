@@ -20,7 +20,23 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.8.1"
-Public Const VLA_CORE_VERSION As String = "VLA.1"
+Public Const VLA_CORE_VERSION As String = "VLA.3"
+' VLA.3: THE EXPAND-TIME OBJECT MODEL. Ten primitives join the seventeen,
+' each named where those are (DefineMacro's reserved names, ExpandMacros'
+' standalone Select, Substitute's inline Select, EvalListopsPrim), each a
+' name ending in expand: -expand, *expand, quotient-expand and mod-expand
+' in EvalArithExpand, the last two Excel's QUOTIENT and MOD over whole
+' numbers, a zero divisor refused; &expand (EvalConcatExpand), atoms
+' joined into a string literal, so that a macro writes an address or a
+' formula with no leading-quote trick; characters-expand
+' (EvalCharactersExpand), a text split into one-character strings, a
+' surrogate pair kept whole; address-expand, row-expand, column-expand and
+' column-letters-expand (EvalAddressExpand, EvalAddressPartExpand,
+' EvalColumnLettersExpand), a row and a column written as an address and
+' read back by one written grammar (ParseAddressText), the column by
+' VLA_Refers' rule. vla-lang's expand.rs mirrors each, and
+' scripts/expand_golden.txt (VlaWriteExpandGolden) holds the two to one
+' text. Alonzo's cartridge sources asked for them (its SPEC.md section 12).
 ' VLA.1: TEXT A STRANGER WROTE IS REFUSED BY NAME, NEVER A CRASH. ParseForm
 ' recursed once a list with no limit, so a text of thousands of nested
 ' lists ran VBA out of stack where a refusal was owed, and the expander's
@@ -2546,9 +2562,9 @@ Private Sub DefineMacro(f As Collection)
         Case "symbol"
             VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "symbol", "desc", "identifier-fusion primitive"
         ' LISTOPS: same reasoning again - Substitute/ExpandMacros
-        ' recognize all seventeen (the original nine, LISTOPS-EXPAND's
-        ' own seven, and cond) as special forms, so a macro defined under
-        ' any of these names could never fire.
+        ' recognize all twenty-seven (the original nine, LISTOPS-EXPAND's
+        ' own seven, cond, and VLA.3's ten) as special forms, so a macro
+        ' defined under any of these names could never fire.
         Case "car"
             VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "car", "desc", "list-head primitive"
         Case "cdr"
@@ -2586,6 +2602,28 @@ Private Sub DefineMacro(f As Collection)
             VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", ">=expand", "desc", "expand-time comparison primitive"
         Case "<=expand"
             VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "<=expand", "desc", "expand-time comparison primitive"
+        ' VLA.3: the expand-time object model's ten, the same reasoning -
+        ' recognized as special forms by Substitute/ExpandMacros.
+        Case "-expand"
+            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "-expand", "desc", "expand-time subtraction primitive"
+        Case "*expand"
+            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "*expand", "desc", "expand-time multiplication primitive"
+        Case "quotient-expand"
+            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "quotient-expand", "desc", "expand-time integer quotient primitive"
+        Case "mod-expand"
+            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "mod-expand", "desc", "expand-time remainder primitive"
+        Case "&expand"
+            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "&expand", "desc", "expand-time text-joining primitive"
+        Case "characters-expand"
+            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "characters-expand", "desc", "expand-time text-splitting primitive"
+        Case "address-expand"
+            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "address-expand", "desc", "expand-time address primitive"
+        Case "row-expand"
+            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "row-expand", "desc", "expand-time row-number primitive"
+        Case "column-expand"
+            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "column-expand", "desc", "expand-time column-number primitive"
+        Case "column-letters-expand"
+            VLA_Messages.RaiseMsg "vla-defmacro-reserved-name", "word", "column-letters-expand", "desc", "expand-time column-letters primitive"
     End Select
 
     Dim params As New Collection
@@ -3198,16 +3236,18 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal 
             Case "quasiquote", "unquote", "unquote-splicing"
                 VLA_Messages.RaiseMsg "vla-quasiquote-outside-template", "head", headFold
         End Select
-        ' LISTOPS: the seventeen list/arithmetic/conditional primitives
-        ' (the original nine, LISTOPS-EXPAND's own seven, and cond) are
-        ' recognized standalone too, same treatment symbol already gets -
+        ' LISTOPS: the twenty-seven list/arithmetic/conditional primitives
+        ' (the original nine, LISTOPS-EXPAND's own seven, cond, and VLA.3's
+        ' ten) are recognized standalone too, same treatment symbol gets -
         ' none need Substitute's ambient bindings table intrinsically, since a
         ' bound-name reference inside an argument can't exist outside
         ' an enclosing macro in the first place (same reasoning
         ' FuseSymbol's own comment gives for symbol).
         Select Case headFold
             Case "car", "cdr", "cddr", "cons", "list", "null?", "eq?", "equal?", "quote-if", "cond", _
-                 "+expand", "=expand", "<>expand", ">expand", "<expand", ">=expand", "<=expand"
+                 "+expand", "=expand", "<>expand", ">expand", "<expand", ">=expand", "<=expand", _
+                 "-expand", "*expand", "quotient-expand", "mod-expand", "&expand", "characters-expand", _
+                 "address-expand", "row-expand", "column-expand", "column-letters-expand"
                 AssignVar lprimTop, EvalListopsPrim(headFold, lst, New Collection, "", New Collection)
                 If IsObject(lprimTop) Then Set ExpandMacros = lprimTop Else ExpandMacros = lprimTop
                 Exit Function
@@ -3423,7 +3463,9 @@ Private Function Substitute(t As Variant, bindings As Collection, ByVal restName
                     If Not inQuasi Then VLA_Messages.RaiseMsg "vla-unquote-splicing-outside-quasiquote"
                     VLA_Messages.RaiseMsg "vla-unquote-splicing-not-element"
                 Case "car", "cdr", "cddr", "cons", "list", "null?", "eq?", "equal?", "quote-if", "cond", _
-                     "+expand", "=expand", "<>expand", ">expand", "<expand", ">=expand", "<=expand"
+                     "+expand", "=expand", "<>expand", ">expand", "<expand", ">=expand", "<=expand", _
+                     "-expand", "*expand", "quotient-expand", "mod-expand", "&expand", "characters-expand", _
+                     "address-expand", "row-expand", "column-expand", "column-letters-expand"
                     ' LISTOPS: unlike symbol, NOT recognized while
                     ' inQuasi is True - a shielded (car x) stays ordinary
                     ' shielded list data, same as everything else under
@@ -3536,12 +3578,12 @@ Private Function FuseSymbol(lst As Object, bindings As Collection, ByVal restNam
     FuseSymbol = fused
 End Function
 
-' LISTOPS.0: shared dispatcher for the seventeen expand-time list/
+' LISTOPS.0: shared dispatcher for the twenty-seven expand-time list/
 ' arithmetic/conditional primitives (the original nine, LISTOPS-EXPAND's
-' own seven, and cond), called from both recognition sites (Substitute's per-template
+' own seven, cond, and VLA.3's ten), called from both recognition sites (Substitute's per-template
 ' walk and ExpandMacros's standalone walk) exactly the way FuseSymbol
 ' already serves `symbol` from both. Caller has already confirmed
-' headFold is one of the seventeen names.
+' headFold is one of the twenty-seven names.
 ' PNTH.0: lst widened Collection -> Object, same reason as FuseSymbol
 ' just above - passed straight through to whichever Eval* this
 ' dispatches to, all of which accept Object on this same parameter now.
@@ -3568,8 +3610,20 @@ Private Function EvalListopsPrim(ByVal headFold As String, lst As Object, bindin
             AssignVar result, EvalQuoteIf(lst, bindings, restName, restItems)
         Case "cond"
             AssignVar result, EvalCond(lst, bindings, restName, restItems)
-        Case "+expand", "=expand", "<>expand", ">expand", "<expand", ">=expand", "<=expand"
+        Case "+expand", "=expand", "<>expand", ">expand", "<expand", ">=expand", "<=expand", _
+             "-expand", "*expand", "quotient-expand", "mod-expand"
             result = EvalArithExpand(headFold, lst, bindings, restName, restItems)
+        ' VLA.3: the expand-time object model's text and address primitives.
+        Case "&expand"
+            result = EvalConcatExpand(lst, bindings, restName, restItems)
+        Case "characters-expand"
+            Set result = EvalCharactersExpand(lst, bindings, restName, restItems)
+        Case "address-expand"
+            result = EvalAddressExpand(lst, bindings, restName, restItems)
+        Case "row-expand", "column-expand"
+            result = EvalAddressPartExpand(headFold, lst, bindings, restName, restItems)
+        Case "column-letters-expand"
+            result = EvalColumnLettersExpand(lst, bindings, restName, restItems)
     End Select
     If IsObject(result) Then Set EvalListopsPrim = result Else EvalListopsPrim = result
 End Function
@@ -3895,6 +3949,14 @@ End Function
 ' PNTH.0: lst widened Collection -> Object - dispatched from
 ' EvalListopsPrim with the same Object-typed lst every other Eval*
 ' below accepts now.
+' VLA.3: (-expand a b), (*expand a b), (quotient-expand a b) and
+' (mod-expand a b) join the seven under the same gate. The last two are
+' Excel's QUOTIENT (truncated toward zero, Fix) and MOD (the divisor's
+' sign, a - b * Int(a / b)), over whole numbers only - a fraction refused
+' by vla-arith-expand-not-whole, since QUOTIENT(0.3, 0.1) is 2 in binary
+' floating point - and a zero divisor refused by
+' vla-arith-expand-divide-by-zero. Never VBA's \ or Mod, which round their
+' operands to a Long first.
 Private Function EvalArithExpand(ByVal op As String, lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection) As String
     If lst.Count <> 3 Then VLA_Messages.RaiseMsg "vla-arith-expand-arity", "op", op, "n", (lst.Count - 1)
     Dim a As Variant, b As Variant
@@ -3922,7 +3984,191 @@ Private Function EvalArithExpand(ByVal op As String, lst As Object, bindings As 
             EvalArithExpand = BoolSym(na >= nb)
         Case "<=expand"
             EvalArithExpand = BoolSym(na <= nb)
+        Case "-expand"
+            EvalArithExpand = Trim$(Str$(na - nb))
+        Case "*expand"
+            EvalArithExpand = Trim$(Str$(na * nb))
+        Case "quotient-expand", "mod-expand"
+            If na <> Int(na) Then VLA_Messages.RaiseMsg "vla-arith-expand-not-whole", "op", op, "value", CStr(a)
+            If nb <> Int(nb) Then VLA_Messages.RaiseMsg "vla-arith-expand-not-whole", "op", op, "value", CStr(b)
+            If nb = 0 Then VLA_Messages.RaiseMsg "vla-arith-expand-divide-by-zero", "op", op
+            If op = "quotient-expand" Then
+                EvalArithExpand = Trim$(Str$(Fix(na / nb)))
+            Else
+                EvalArithExpand = Trim$(Str$(na - nb * Int(na / nb)))
+            End If
     End Select
+End Function
+
+' VLA.3: an atom's text as the object model's primitives read it - a
+' string literal's content, or a symbol's (a number's) own text.
+Private Function AtomTextExpand(v As Variant) As String
+    Dim s As String
+    s = CStr(v)
+    If Left$(s, 1) = Chr$(34) Then
+        AtomTextExpand = Mid$(s, 2)
+    Else
+        AtomTextExpand = s
+    End If
+End Function
+
+' VLA.3: (&expand a b ...) - each argument resolved as every LISTOPS
+' argument is (ResolveListopsArg) and its text joined: a string literal's
+' content, a symbol's or a number's text. The result is always a string
+' literal, never a symbol, so a macro writes an address or a formula's
+' text with no leading-quote trick; symbol (FuseSymbol) keeps that trick
+' for identifiers. At least one argument, as symbol takes.
+Private Function EvalConcatExpand(lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection) As String
+    If lst.Count < 2 Then VLA_Messages.RaiseMsg "vla-concat-expand-arity"
+    Dim joined As String
+    Dim k As Long
+    Dim piece As Variant
+    For k = 2 To lst.Count
+        AssignVar piece, ResolveListopsArg(Nth(lst, k), bindings, restName, restItems)
+        If IsObject(piece) Then VLA_Messages.RaiseMsg "vla-expand-arg-is-list", "op", "&expand", "n", (k - 1)
+        joined = joined & AtomTextExpand(piece)
+    Next
+    EvalConcatExpand = Chr$(34) & joined
+End Function
+
+' VLA.3: (characters-expand text) - the text split into one-character
+' string literals in order, a NEW Collection tagged 0 (EvalList's reason).
+' A character is a Unicode scalar value: a UTF-16 surrogate pair, a high
+' half (D800-DBFF) then a low (DC00-DFFF), is one character, as vla-lang's
+' chars() counts it, so an emoji is one item in both implementations and
+' half a pair is never written to a UTF-8 file. The empty text gives the
+' empty list.
+Private Function EvalCharactersExpand(lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection) As Collection
+    If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-expand-arity", "op", "characters-expand", "want", 1, "n", (lst.Count - 1)
+    Dim v As Variant
+    AssignVar v, ResolveListopsArg(Nth(lst, 2), bindings, restName, restItems)
+    If IsObject(v) Then VLA_Messages.RaiseMsg "vla-expand-arg-is-list", "op", "characters-expand", "n", 1
+    Dim s As String
+    s = AtomTextExpand(v)
+    Dim outc As New Collection
+    Dim i As Long, w As Long, w2 As Long
+    Dim unit As String
+    i = 1
+    Do While i <= Len(s)
+        unit = Mid$(s, i, 1)
+        w = AscW(unit) And &HFFFF&
+        If w >= &HD800& And w <= &HDBFF& And i < Len(s) Then
+            w2 = AscW(Mid$(s, i + 1, 1)) And &HFFFF&
+            If w2 >= &HDC00& And w2 <= &HDFFF& Then unit = Mid$(s, i, 2)
+        End If
+        outc.Add Chr$(34) & unit
+        i = i + Len(unit)
+    Loop
+    TagLine outc, 0
+    Set EvalCharactersExpand = outc
+End Function
+
+' VLA.3: (address-expand row column) - a cell's address, relative, as
+' Excel's ADDRESS(row, column, 4) writes it: B3. Each argument a number
+' literal, read as EvalArithExpand reads one (both resolved, then both
+' checked as lists, then both as numbers), then a whole number within
+' Excel's bounds: a row 1 to 1048576, a column 1 to 16384. The result a
+' string literal, the column's letters VLA_Refers'.
+Private Function EvalAddressExpand(lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection) As String
+    If lst.Count <> 3 Then VLA_Messages.RaiseMsg "vla-expand-arity", "op", "address-expand", "want", 2, "n", (lst.Count - 1)
+    Dim a As Variant, b As Variant
+    AssignVar a, ResolveListopsArg(Nth(lst, 2), bindings, restName, restItems)
+    AssignVar b, ResolveListopsArg(Nth(lst, 3), bindings, restName, restItems)
+    If IsObject(a) Then VLA_Messages.RaiseMsg "vla-arith-expand-not-number-list", "op", "address-expand"
+    If IsObject(b) Then VLA_Messages.RaiseMsg "vla-arith-expand-not-number-list", "op", "address-expand"
+    If Not IsNumericLiteralText(CStr(a)) Then VLA_Messages.RaiseMsg "vla-arith-expand-not-number-value", "op", "address-expand", "value", CStr(a)
+    If Not IsNumericLiteralText(CStr(b)) Then VLA_Messages.RaiseMsg "vla-arith-expand-not-number-value", "op", "address-expand", "value", CStr(b)
+    Dim r As Double, c As Double
+    r = Val(CStr(a))
+    c = Val(CStr(b))
+    If r <> Int(r) Or r < 1 Or r > 1048576 Then VLA_Messages.RaiseMsg "vla-address-expand-row", "op", "address-expand", "value", CStr(a)
+    If c <> Int(c) Or c < 1 Or c > 16384 Then VLA_Messages.RaiseMsg "vla-address-expand-column", "op", "address-expand", "value", CStr(b)
+    EvalAddressExpand = Chr$(34) & VLA_Refers.RefersColumnLetters(CLng(c)) & Trim$(Str$(r))
+End Function
+
+' VLA.3: (row-expand address) and (column-expand address) - an address's
+' row and column numbers, as Excel's ROW and COLUMN of the reference; and
+' (column-expand letters), a column's letters alone, the reverse of
+' column-letters-expand. The text is read by ParseAddressText's grammar.
+Private Function EvalAddressPartExpand(ByVal op As String, lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection) As String
+    If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-expand-arity", "op", op, "want", 1, "n", (lst.Count - 1)
+    Dim v As Variant
+    AssignVar v, ResolveListopsArg(Nth(lst, 2), bindings, restName, restItems)
+    If IsObject(v) Then VLA_Messages.RaiseMsg "vla-expand-arg-is-list", "op", op, "n", 1
+    Dim s As String
+    s = AtomTextExpand(v)
+    Dim rowNum As Long, colNum As Long
+    If Not ParseAddressText(s, (op = "column-expand"), rowNum, colNum) Then
+        VLA_Messages.RaiseMsg "vla-address-expand-not-address", "op", op, "value", s
+    End If
+    If op = "row-expand" Then
+        EvalAddressPartExpand = Trim$(Str$(rowNum))
+    Else
+        EvalAddressPartExpand = Trim$(Str$(colNum))
+    End If
+End Function
+
+' VLA.3: one grammar for an address, vla-lang's parse_address rule for
+' rule: an optional $, one to three ASCII letters in either case, an
+' optional $, then one to seven ASCII digits; the column at most XFD
+' (VLA_Refers.RefersColumnNumber), the row 1 to 1048576. With
+' lettersAlone, the letters with their optional $ and nothing after them
+' are a column too, rowNum 0. Anything else - a sheet's name before it, a
+' range, a space, a $ anywhere else - is not an address.
+Private Function ParseAddressText(ByVal s As String, ByVal lettersAlone As Boolean, ByRef rowNum As Long, ByRef colNum As Long) As Boolean
+    Dim n As Long, i As Long, j As Long, k As Long
+    Dim c As String
+    n = Len(s)
+    i = 1
+    If n >= 1 Then
+        If Mid$(s, 1, 1) = "$" Then i = 2
+    End If
+    j = i
+    Do While j <= n
+        c = Mid$(s, j, 1)
+        If (c >= "A" And c <= "Z") Or (c >= "a" And c <= "z") Then
+            j = j + 1
+        Else
+            Exit Do
+        End If
+    Loop
+    If j = i Or j - i > 3 Then Exit Function
+    colNum = VLA_Refers.RefersColumnNumber(Mid$(s, i, j - i))
+    If colNum = 0 Then Exit Function
+    rowNum = 0
+    If j > n Then
+        ParseAddressText = lettersAlone
+        Exit Function
+    End If
+    If Mid$(s, j, 1) = "$" Then j = j + 1
+    k = j
+    Do While k <= n
+        c = Mid$(s, k, 1)
+        If c >= "0" And c <= "9" Then
+            k = k + 1
+        Else
+            Exit Do
+        End If
+    Loop
+    If k <= n Or k = j Or k - j > 7 Then Exit Function
+    rowNum = CLng(Mid$(s, j, k - j))
+    If rowNum < 1 Or rowNum > 1048576 Then Exit Function
+    ParseAddressText = True
+End Function
+
+' VLA.3: (column-letters-expand column) - a column's letters as a string
+' literal, 1 = A ... 16384 = XFD, VLA_Refers' rule; the reverse of
+' column-expand. The column a number literal and a whole number in bounds.
+Private Function EvalColumnLettersExpand(lst As Object, bindings As Collection, ByVal restName As String, restItems As Collection) As String
+    If lst.Count <> 2 Then VLA_Messages.RaiseMsg "vla-expand-arity", "op", "column-letters-expand", "want", 1, "n", (lst.Count - 1)
+    Dim v As Variant
+    AssignVar v, ResolveListopsArg(Nth(lst, 2), bindings, restName, restItems)
+    If IsObject(v) Then VLA_Messages.RaiseMsg "vla-arith-expand-not-number-list", "op", "column-letters-expand"
+    If Not IsNumericLiteralText(CStr(v)) Then VLA_Messages.RaiseMsg "vla-arith-expand-not-number-value", "op", "column-letters-expand", "value", CStr(v)
+    Dim c As Double
+    c = Val(CStr(v))
+    If c <> Int(c) Or c < 1 Or c > 16384 Then VLA_Messages.RaiseMsg "vla-address-expand-column", "op", "column-letters-expand", "value", CStr(v)
+    EvalColumnLettersExpand = Chr$(34) & VLA_Refers.RefersColumnLetters(CLng(c))
 End Function
 
 ' (cond (test1 form1) (test2 form2) ... (else formN)) - the tenth

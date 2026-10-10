@@ -531,8 +531,10 @@ fn parse_row_part(tok: &str) -> Option<(u32, bool)> {
     Some((row, abs))
 }
 
-/// A = 1 ... XFD = 16384; `None` past the last column.
-fn letters_to_col(letters: &str) -> Option<u32> {
+/// A = 1 ... XFD = 16384; `None` past the last column. The expander's
+/// `row-expand` and `column-expand` read a column by it too (VLA.3), as
+/// `VLA.bas` reads one by `VLA_Refers`' `RefersColumnNumber`.
+pub(crate) fn letters_to_col(letters: &str) -> Option<u32> {
     let mut v: u32 = 0;
     for ch in fold(letters).chars() {
         let c = ch as u32;

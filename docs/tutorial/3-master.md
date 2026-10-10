@@ -559,7 +559,8 @@ parameters.
 ## 14. Data at expansion time
 
 A macro receives forms. Sometimes it helps to treat a form as a list and
-walk it. VLA has seventeen primitives for that. They work on **quoted data
+walk it. VLA has twenty-seven primitives for that, counting the arithmetic,
+the text and the addresses a walk tends to need. They work on **quoted data
 in the source text**, while the program is being expanded. They never see
 a cell, a range, or anything else that exists only when the program runs.
 
@@ -574,6 +575,32 @@ a cell, a range, or anything else that exists only when the program runs.
 | `(cond (test form) … (else form))` | The first clause whose test holds. |
 | `(+expand a b)` | The sum, as a number in the source. |
 | `(=expand a b)` `(<>expand a b)` `(<expand a b)` `(>expand a b)` `(<=expand a b)` `(>=expand a b)` | The comparison, as `true` or `false`. |
+| `(-expand a b)` `(*expand a b)` | The difference; the product. |
+| `(quotient-expand a b)` `(mod-expand a b)` | Whole numbers only: the quotient rounded toward zero and the remainder with the divisor's sign, as Excel's `QUOTIENT` and `MOD` give them. |
+| `(&expand a b ...)` | The pieces joined into one text. |
+| `(characters-expand text)` | The text as a list of one-character texts. |
+| `(address-expand row column)` | The address: `"B3"` for row 3, column 2. |
+| `(row-expand address)` `(column-expand address)` | The row and the column of an address. `column-expand` also reads a column's letters alone. |
+| `(column-letters-expand column)` | A column's letters: `"AB"` for 28. |
+
+**A name that ends in `expand` is computed while the macro expands.** The
+plain names, `MOD`, `ADDRESS`, `ROW`, are left to the formulas the program
+writes, which compute when the workbook does. So a macro can work out an
+address now and write a formula that works out the rest later:
+
+```lisp
+(defmacro
+    (total-below col first last)
+    "put a SUM of rows first to last of a column in the row under them"
+    (set! (. (range (address-expand (+expand last 1) col)) formula)
+          (&expand "=SUM(" (address-expand first col) ":" (address-expand last col) ")")))
+```
+
+`(total-below 2 1 9)` expands to `(set! (. (range "B10") formula)
+"=SUM(B1:B9)")`. A row runs from 1 to 1,048,576 and a column from 1 to
+16,384, Excel's own limits, and a number past either is refused by name:
+
+> address-expand: a column is a whole number from 1 to 16384, got '16385'
 
 **`cond` folds when it can and waits when it cannot.** A test that comes
 to `true` or `false` during expansion chooses its clause on the spot. A

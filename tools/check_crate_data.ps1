@@ -58,9 +58,12 @@ $pairs = @(
     @{ Copy = 'vla-lang/testdata/view/fixture_output.vla'; Source = 'scripts/view/fixture_output.vla' },
     @{ Copy = 'vla-lang/testdata/view/fixture_data.vla'; Source = 'scripts/view/fixture_data.vla' },
     @{ Copy = 'vla-lang/testdata/view/into_output.vla'; Source = 'scripts/view/into_output.vla' },
-    @{ Copy = 'vla-lang/testdata/view/into_checks.vla'; Source = 'scripts/view/into_checks.vla' }
+    @{ Copy = 'vla-lang/testdata/view/into_checks.vla'; Source = 'scripts/view/into_checks.vla' },
+    # VLA.3: the expand fixture and the reference's golden of it
+    @{ Copy = 'vla-lang/testdata/expand.txt'; Source = 'scripts/expand.txt' },
+    @{ Copy = 'vla-lang/testdata/expand_golden.txt'; Source = 'scripts/expand_golden.txt' }
 )
-$expectedPairs = 11   # 2 for the door (2026-10-05), 9 for the language's tests (VLA.1, 2026-10-10)
+$expectedPairs = 13   # 2 for the door (2026-10-05), 9 for the language's tests (VLA.1, 2026-10-10), 2 for the expand golden (VLA.3)
 
 $failures = New-Object System.Collections.Generic.List[string]
 if ($pairs.Count -ne $expectedPairs) { $failures.Add("the table holds $($pairs.Count) pair(s), not the $expectedPairs pinned here") }

@@ -17018,6 +17018,252 @@ lost or mistaken for closer than they are:**
   of raising - both `eval` and the interpreter's own `quote` fix
   confirmed working together, not just compiling.
 
+- ✅ **VLA.3 — the expand-time object model: a template macro reaches a
+  column, an address and a text's characters as it reaches a row.**
+  *Scoped and built 2026-10-10 at the owner's word, from Alonzo's request
+  after `SPEC.3`. Alonzo's page made a cartridge's source VLA with
+  template macros, expanded into rows by `vla_lang::expand::Expander`
+  (`Alonzo/SPEC.md` §7.8), and named this item as the pass's first next
+  step (§12). The owner's principle, given at `SPEC.3`'s approval: an
+  author writes macros at the row, the column and the sheet, so that
+  expansion does the rote work between thought and rows. The owner asked
+  for the scoping and then the build in one word, so the twelve decisions
+  below were built as recommended, each open until the owner's VBA pass
+  and the commit. It takes the part of `LISPIMPORT` that a real caller's
+  friction asks for, as that item said it should be taken, and the
+  `-expand` and `*expand` that `LISTOPS-EXPAND` named and deferred "until
+  a real caller needs one".*
+
+  **What needs it.** A cartridge's macros (`Alonzo/cartridges/console.vla`)
+  reach a row by `+expand` and fuse an address after a quote mark,
+  `(symbol "\"A" (+expand index 1))`. Alonzo measured on 0.8.1 what they
+  cannot say (its `REARVIEW.md`, `SPEC.3`): no primitive turns a column's
+  number into its letters, so a column is reached only by names a caller
+  spells; `car` of a text is refused (`vla-car-expected-list`), so a
+  picture written as a string is no macro's; and there is no arithmetic
+  but addition. Measured again here at `e7e6c17`: each candidate head is
+  an ordinary call today and passes through expansion unchanged, so
+  `(-expand 5 2)` is printed as written for the load to refuse later as a
+  row; `+expand` refuses a string operand (`"5"`); and its results follow
+  `Str$`, `(+expand 999999999999999 1)` writing `1E+15`. None of the ten
+  names below appears in any corpus: Frazaro's scripts, distros, examples
+  and VBA, Alonzo's cartridges and the organization template, searched
+  for a `defmacro` of each and a call of each.
+
+  **The decisions**, each with the recommendation built:
+
+  1. *The set: ten primitives.* Arithmetic: `-expand`, `*expand`,
+  `quotient-expand`, `mod-expand`. Text: `&expand`, which joins atoms
+  into a string, and `characters-expand`, which splits a text into
+  one-character strings. Addresses: `address-expand` (a row and a column
+  to `B3`), `row-expand` and `column-expand` (an address back to its
+  numbers, and a column's letters to its number), and
+  `column-letters-expand` (a column's number to its letters). Declined:
+  `/expand` (real division, with no caller); boolean combinators
+  (`LISTOPS-EXPAND`'s third guardrail); a reference qualified by its
+  sheet under the quoting rule, which `&expand` spells for every sheet a
+  cartridge names today and which the formula dialect owns; and a cheaper
+  walk and the chain's cap, which are `VLA.2`'s.
+
+  2. *The names end in `expand`, as the seven do.* An operator is glued
+  (`-expand`, `*expand`, `&expand`), a word hyphenated
+  (`quotient-expand`). A reserved name is global, refused as any macro's
+  name, and the formula dialect of `SPEC.3` §12 will want Excel's plain
+  names (`QUOTIENT`, `MOD`, `ADDRESS`, `ROW`, `COLUMN`) for what a cell
+  computes; a plain expand-time name would take each from the dialect and
+  from every author. The rule a reader learns: a name ending in `expand`
+  is computed while the macro expands. Declined: plain names (`address`,
+  `row`, `chars`); a prefix (`expand-address`), since the seven are
+  suffixed.
+
+  3. *Excel's meaning where Excel has the function.* `quotient-expand` is
+  `QUOTIENT`, truncating toward zero; `mod-expand` is `MOD`, taking the
+  divisor's sign (n − d·INT(n/d)); `address-expand` is `ADDRESS` with
+  `abs_num` 4, relative; `row-expand` and `column-expand` are `ROW` and
+  `COLUMN` of a reference written as text. A value a macro folds is then
+  the value a cell computes when the dialect writes the same function.
+  Declined: a floor pair that keeps n = d·q + r for negatives, since
+  `QUOTIENT` and `MOD` part the same way in Excel.
+
+  4. *Whole numbers where the meaning needs them.* `quotient-expand` and
+  `mod-expand` take whole numbers, refusing others by name
+  (`vla-arith-expand-not-whole`: `QUOTIENT(0.3,0.1)` is 2 in binary
+  floating point, a surprise no address needs), and refuse a zero divisor
+  (`vla-arith-expand-divide-by-zero`, Excel's `#DIV/0!`). A row is a
+  whole number from 1 to 1,048,576 and a column from 1 to 16,384, Excel's
+  bounds (`vla-address-expand-row`, `vla-address-expand-column`).
+  `-expand` and `*expand` take any numeric literal, as `+expand` does.
+
+  5. *What goes in and what comes out.* A number goes in as `+expand`
+  takes one: a number literal, never a string. A text goes in as `symbol`
+  takes one: a string's content or a symbol's text. A list where an atom
+  belongs is refused by name, the argument counted
+  (`vla-expand-arg-is-list`). A number comes out as `+expand` writes one,
+  by `Str$` trimmed; a text comes out as a string literal
+  (`address-expand`, `column-letters-expand`, `&expand`, and each of
+  `characters-expand`'s items), so `(cell sheet (address-expand r c) 1)`
+  writes the row a cartridge loads and `(eq? (car cs) "#")` compares a
+  character.
+
+  6. *An address has one grammar, written down.* `row-expand` and
+  `column-expand` read one to three letters in either case and then
+  digits, each part with an optional `$` before it; the row from 1 to
+  1,048,576 in at most seven digits, the column at most XFD.
+  `column-expand` also reads a column's letters alone (`AA` is 27), the
+  reverse of `column-letters-expand`. Anything else is refused
+  (`vla-address-expand-not-address`): a sheet's name before the address,
+  a range, a space, a `$` anywhere else. The grammar is the reference's
+  (`VLA_Refers`' parts and `LettersToCol`) and written again, rule for
+  rule, in the port, since `sheet.rs`'s `parse_a1_cell`, which the loader
+  uses, strips a `$` wherever it stands, and the two implementations must
+  answer one text the same way. The column arithmetic is the one each
+  implementation already has: `RefersColumnLetters` and `LettersToCol`,
+  `sheet::column_letters` and `refers.rs`'s `letters_to_col`.
+
+  7. *A character is a Unicode scalar value.* `characters-expand` splits
+  a text into one-character strings. The reference joins a UTF-16
+  surrogate pair into one character, so an emoji is one item in both
+  implementations, and a combining accent is an item of its own. The
+  empty text gives the empty list. Declined: UTF-16 units (the
+  reference's `Mid$`), since half a pair cannot be written to a UTF-8
+  file.
+
+  8. *`&expand` joins into a string.* At least one argument, as `symbol`
+  takes (`vla-concat-expand-arity`); each atom's text joined; the result
+  always a string, so a macro never needs the leading-quote trick again.
+  `symbol` stays as it is, for identifiers and for every source written
+  with the trick.
+
+  9. *The shared golden.* `scripts/expand.txt` holds cases under
+  `=== name`, each a VLA text, and `scripts/expand_golden.txt` the
+  reference's expansion of each under the prelude: `EXPANDED` with the
+  applications counted and then the text `VlaExpandText` prints, or
+  `REFUSED` with the id and the text. `? VlaWriteExpandGolden()` writes
+  it, the port's `the_expand_golden_is_reproduced` holds `vla-lang` to
+  it, and `tools/check_expand_golden.ps1` holds the pair's shape: the
+  same cases in order, every record well formed, every one of the
+  twenty-seven primitives reached, floors on the cases and the distinct
+  ids, and a `-Control` of mutants. It covers the seventeen as well as
+  the ten, so `VLA.2`'s rewrite has an oracle. The copies under
+  `vla-lang/testdata/` are held by `check_crate_data`, `VLA.1`'s rule.
+  The first golden is written by the port and confirmed by the reference
+  with an empty diff, as the refusal golden's version lines were
+  (`SD-18`: the reference decides). Declined: mirrored pins alone, as
+  `LISTOPS-EXPAND` shipped, since two hand-kept lists drift and this
+  item's bar is held equal by tests.
+
+  10. *Pins in the pure suite too.* `TestListopsObjectModel` in
+  `VLA_Tests.bas`, wired after `TestListopsExpand`: each primitive alone
+  and inside a macro (both recognition sites, as `TestListopsExpand`
+  proved for the seven), each refusal, each reserved name. The port's
+  unit tests mirror them. The golden stays dev-only, out of
+  `VlaSelfTest`, as the refers golden's writer is.
+
+  11. *Eight ids in the catalogue's language half.* `vla-expand-arity`,
+  `vla-expand-arg-is-list`, `vla-concat-expand-arity`,
+  `vla-arith-expand-not-whole`, `vla-arith-expand-divide-by-zero`,
+  `vla-address-expand-row`, `vla-address-expand-column` and
+  `vla-address-expand-not-address`, each naming its primitive in a slot.
+  A number refused where one belongs reuses the seven's
+  `vla-arith-expand-not-number-*`, and the four arithmetic primitives
+  reuse `vla-arith-expand-arity`. The language half goes from 196 to 204.
+
+  12. *On `VLA.1`, beside `VLA.2`.* Built on `VLA.1`: each result passes
+  the walk's depth limit and, inside a macro's result, the port's
+  weighing. A walk's cost and the chain's cap of 5,000 are `VLA.2`'s and
+  unchanged; a picture written as one text a row walks each row in a
+  chain of its own. Alonzo takes the primitives through a release or a
+  git pin. No line of the evaluator moves here, but 0.8.2 also carries
+  `KERNEL.20`, which does, so Alonzo's frame floors want a re-measure at
+  that pin either way.
+
+  **The oracle.** The golden reproduced by the port and confirmed by the
+  reference; `TestListopsObjectModel` in the owner's pure pass;
+  `check_expand_golden` and its control in `run_checks`; every existing
+  golden unchanged; `VLA.1`'s laws, strangers and limits green, with a
+  seed program over the new primitives among the strangers' programs;
+  the tutorial's chapter on expand-time data showing the ten, its
+  examples run.
+
+  **What it touches.** `VLA.bas` (the ten names in `DefineMacro`'s
+  reserved list, in `ExpandMacros`' and `Substitute`'s recognition and in
+  `EvalListopsPrim`; `EvalArithExpand` widened; the new evaluators),
+  `VLA_Refers.bas` (`LettersToCol` made public), `VLA_Messages.bas`,
+  `VLA_Tests.bas`; `vla-lang/src/expand.rs`, `refers.rs`, the catalogue's
+  export; the fixture, its golden and their copies; the check; the docs.
+  `~days`
+
+  **Built 2026-10-10, awaiting the owner's VBA pass.** What landed:
+  - *The reference.* `VLA.bas`: the ten names in `DefineMacro`'s reserved
+    list, in `ExpandMacros`' and `Substitute`'s recognition Selects and in
+    `EvalListopsPrim`; `EvalArithExpand` widened by the four arithmetic
+    primitives; `AtomTextExpand`, `EvalConcatExpand`,
+    `EvalCharactersExpand`, `EvalAddressExpand`, `EvalAddressPartExpand`,
+    `ParseAddressText` and `EvalColumnLettersExpand`, new, none of them
+    recursive and none adding a local to a recursive frame (trap 8).
+    `VLA_Refers.bas`: `RefersColumnNumber`, `LettersToCol` made public.
+    `VLA_Messages.bas`: the eight ids. `VLA_Tests.bas`:
+    `TestListopsObjectModel`, 48 pins, wired after `TestListopsExpand`, with
+    `ExpandTrimmed`, which reports an unexpected refusal as a failure
+    instead of stopping the suite; and `VlaWriteExpandGolden` with
+    `ExpandReportFor`, in `VlaWriteEgressGolden`'s shape. Each module's
+    version is `VLA.3`. The trap list was run against the new code: no
+    `As New` in a loop, `IsObject` before every `CStr`, one spelling per
+    identifier in each module, no line near 1,000 characters.
+  - *The port.* `expand.rs` mirrors each function rule for rule, the
+    reference's order of checks kept (both operands as lists, then both as
+    numbers; a fraction, then a zero divisor); `refers::letters_to_col` is
+    the crate's column rule; two unit tests, the 48 pins and a test that
+    every recognized name is reserved and every reserved name recognized,
+    the quote bundle aside; `tests/expand_golden.rs`; and a seed program
+    over the new primitives among the strangers' programs.
+  - *The golden.* 135 cases, 75 expanded and 60 refused, 19 distinct ids,
+    none naming a line. Written by the port through a throwaway probe that
+    copies `VlaWriteExpandGolden`'s loop and its CRLF, for the reference to
+    confirm with an empty diff. The copies under `vla-lang/testdata/` travel
+    with the package.
+  - *The checks.* `check_expand_golden.ps1`, the 55th, its control in the
+    extras (five mutants: a misspelt tag, a dropped case, an unknown id, a
+    reference Select missing `row-expand`, a fixture with every
+    `characters-expand` renamed); `check_crate_data` at 13 pairs;
+    `check_crate_package`'s test includes at 25; `check_data_exports`'
+    language half at 204; `run_checks` at a floor of 55.
+  - *The docs.* The tutorial's chapter on expand-time data (the table, the
+    naming rule, `total-below` with its expansion and its refusal, each run
+    through the port); `RELEASES.md` under 0.8.2; the crate's page; the
+    roadmap's line; the registry.
+
+  **Verified** on `ee4210b` (`KERNEL.20`'s second slice, committed by its
+  own session from this tree while this item was built, none of this
+  item's hunks in it) plus this item: fmt and clippy with `-D warnings`
+  clean; `cargo test --workspace`, 335 passed and 5 ignored; the strangers'
+  long run, 300,000 cases in 9.8 s in release; `run_checks -WithExtras`,
+  55 of 55 and 12 of 12; the packaged crate, its `testdata/expand*` within
+  it, running every suite unpacked.
+
+  **Found while building, left as found.** `sheet.rs`'s `parse_a1_cell`,
+  which the loader uses, reads `B3$` and `$$B3` as `B3`, a `$` stripped
+  wherever it stands; the object model's grammar refuses both. Whether the
+  loader should be as strict is a question for the grid's own item, not
+  this one.
+
+  **For the owner's pass:** `VlaDevReload`, Debug > Compile;
+  `? VlaSelfTests()`, pure 1997/1997 and host 333/333 predicted (the 48 new
+  pins); `? VlaWriteExpandGolden()`, then `git diff
+  scripts\expand_golden.txt`, empty predicted, the reference agreeing with
+  the port on all 135 cases, the applications counted among them; and
+  `? VlaGoldens()`, corpus and interpreter PASS predicted, no emitted code
+  having changed.
+
+  **The owner's pass, 2026-10-10, every prediction held:** pure 1997/1997
+  and host 333/333; `VlaWriteExpandGolden` wrote 135 cases, 60 refused,
+  byte for byte the port's golden (12,066 bytes, compared with `cmp`
+  against the copy under `vla-lang/testdata/`, since a new file shows
+  nothing to `git diff`), the applications counted included; `VlaGoldens`
+  corpus and interpreter PASS; `VerifyReports` 371/371 on both backends.
+  The twelve decisions stand as built. **Closed ✅ and committed
+  2026-10-10 at the owner's word.**
+
 ---
 
 # 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE EDITION LINE
@@ -33594,6 +33840,8 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **METAPROOF.3 — more of the DATALOG suite moves to the proof file.** METAPROOF.1's plan, step 2, opened 2026-09-28 at the owner's call; owner-verified live and committed the same day (VlaSelfTest pure 1528/1528 and host 241/241, unmoved; TestDSLs 2303/0, as predicted; clingo agrees on all twenty-three exported proofs and caught the three controls). Seventy-eight proofs join `scripts/proofs/datalog.vla` (ninety-four in all) and carry what ninety-four VBA pins did: every answer that needs no table argument, and the whole of `TestDatalogNegation` and `TestDatalogAggregation`, both retired. They got stronger on the way: a row count or a probed tuple became every row, named, and the nineteen refusal pins that accepted any error now name their message id. A pin stays in VBA only for a reason: a table argument (no `(tables ...)` clause yet), a program VBA builds, the text entry point, or a refusal pin that checks WHAT its words name, which `(refuses id)` cannot say yet. The parity table fell 177 → 99 and the call-site ceiling 188 → 109; fifteen programs the tests built from shared strings reach both parity loops whole for the first time; twelve new proofs join the clingo export (twenty-three in all). *(more: the full entry, earlier in this file)* `~hours`
 
 - ✅ **METAPROOF.4 — `(tables ...)`: a proof hands its program table arguments.** First in the order the owner set for the third gear, opened 2026-09-30 at the owner's call; owner-verified live and committed the same day (TestDSLs 2346/0, as predicted; VLA_SELF-TESTS pure 1570/1570 and host 265/265, unmoved by it; a live red control, one table cell's quotes taken off, failed exactly its proof). A proof's one `(tables ...)` clause holds its tables, each written as an answer is: a name, a header list (an Excel Table, whose columns a keyed atom may name) or `headless` (a plain named range), then its rows in the order written, every cell as a live Table's `Value2` gives it (a bare `007` is the number 7, `"007"` the text). The runner reads the clause into what a live Table argument is to every engine, a folded name and a Table-shaped array, and makes DATALOG's table arguments from it afresh for every run; PROLOG's, SQL's and the third gear's proofs will read the same arrays. Twenty-nine pins moved as twenty-six proofs (124 in all), with thirteen controls for the clause: `TestDatalog`, `TestDatalogBuiltins` and `TestDatalogKeyedAtoms` retired whole, and the six keyed refusals that accepted any error name their ids. Both parity loops hand a proof's tables to each engine, so OPTIMIZE and the integer grounder answer those programs; the table fell 99 → 76 and the call-site ceiling 109 → 84. The clingo translation declines a table, so its export stays 23. Found while building, and filed as `DATALOG.17`: a number written in a program is matched against a fractional number cell through `CStr`, which follows the machine's locale. *(more: the full entry, earlier in this file)* `~days`
+
+- ✅ **VLA.3 — the expand-time object model: a template macro reaches a column, an address and a text's characters as it reaches a row.** Scoped, built, owner-tested and committed 2026-10-10, at the owner's word on Alonzo's request after `SPEC.3`, whose §12 named it as the cartridge pass's next step. Ten primitives join the seventeen, each a name ending in `expand`, so that Excel's plain names stay free for the formula dialect. `-expand` and `*expand` subtract and multiply. `quotient-expand` and `mod-expand` are Excel's `QUOTIENT` and `MOD` over whole numbers, a zero divisor refused. `&expand` joins atoms into a string, so a macro needs no leading-quote trick. `characters-expand` splits a text into its characters, a surrogate pair kept whole. `address-expand`, `row-expand`, `column-expand` and `column-letters-expand` write an address from a row and a column and read it back, by one written grammar within Excel's bounds. Eight refusals by name, in the catalogue's language half, now 204. The reference came first (`VLA.bas`, `TestListopsObjectModel`'s 48 pins); the port mirrors it rule for rule (`expand.rs`). The two are held to one golden of 135 cases over all twenty-seven primitives: `VlaWriteExpandGolden` writes it, `tests/expand_golden.rs` reproduces it, and `check_expand_golden`, the 55th check, holds its shape and the reference's lists of the primitives to the port's. The owner's pass: pure 1997/1997, host 333/333, the reference's golden byte for byte the port's, goldens PASS, VerifyReports 371/371. *(more: the full entry, earlier in this file)* `~days`
 
 ## 🗣🔧 LANGUAGE + MACHINE · THE TWO NEUTRALITIES · Part B
 

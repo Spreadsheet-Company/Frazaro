@@ -1,6 +1,7 @@
 //! The macro system: VLA.bas's `DefineMacro`, `ExpandMacros`, `ExpandOne`,
-//! `Substitute` with the QUASIQUOTE bundle, the seventeen LISTOPS
-//! primitives, `ExpandOnePass`, and `VlaExpandText` (PORT.5, slice 5d).
+//! `Substitute` with the QUASIQUOTE bundle, the twenty-seven LISTOPS
+//! primitives, `ExpandOnePass`, and `VlaExpandText` (PORT.5, slice 5d; the
+//! expand-time object model's ten, VLA.3).
 //!
 //! Template-substitution macros: `(defmacro (name p1 p2 & rest) template
 //! ...)`. A parameter is replaced by the form passed at the call site; the
@@ -26,6 +27,8 @@ use crate::intrinsics::{fold, is_numeric_literal_text, str_, val};
 use crate::messages::{raise, Refusal};
 use crate::printer::write_pretty;
 use crate::reader::{count_lf, parse_all, src_line_tag, tokenize, FORM_DEPTH_LIMIT};
+use crate::refers::letters_to_col;
+use crate::sheet::{column_letters, MAX_COLUMN, MAX_ROW};
 
 /// One macro, as `DefineMacro` records it.
 #[derive(Clone, Debug)]
@@ -69,13 +72,50 @@ const RESERVED: &[(&str, &str)] = &[
     ("<expand", "expand-time comparison primitive"),
     (">=expand", "expand-time comparison primitive"),
     ("<=expand", "expand-time comparison primitive"),
+    // VLA.3: the expand-time object model's ten.
+    ("-expand", "expand-time subtraction primitive"),
+    ("*expand", "expand-time multiplication primitive"),
+    ("quotient-expand", "expand-time integer quotient primitive"),
+    ("mod-expand", "expand-time remainder primitive"),
+    ("&expand", "expand-time text-joining primitive"),
+    ("characters-expand", "expand-time text-splitting primitive"),
+    ("address-expand", "expand-time address primitive"),
+    ("row-expand", "expand-time row-number primitive"),
+    ("column-expand", "expand-time column-number primitive"),
+    ("column-letters-expand", "expand-time column-letters primitive"),
 ];
 
-/// The seventeen LISTOPS primitives `Substitute` and `ExpandMacros` both
-/// recognise at a form's head.
+/// The twenty-seven LISTOPS primitives `Substitute` and `ExpandMacros` both
+/// recognise at a form's head: the original nine, LISTOPS-EXPAND's seven,
+/// `cond`, and the expand-time object model's ten (VLA.3).
 const LISTOPS: &[&str] = &[
-    "car", "cdr", "cddr", "cons", "list", "null?", "eq?", "equal?", "quote-if", "cond", "+expand",
-    "=expand", "<>expand", ">expand", "<expand", ">=expand", "<=expand",
+    "car",
+    "cdr",
+    "cddr",
+    "cons",
+    "list",
+    "null?",
+    "eq?",
+    "equal?",
+    "quote-if",
+    "cond",
+    "+expand",
+    "=expand",
+    "<>expand",
+    ">expand",
+    "<expand",
+    ">=expand",
+    "<=expand",
+    "-expand",
+    "*expand",
+    "quotient-expand",
+    "mod-expand",
+    "&expand",
+    "characters-expand",
+    "address-expand",
+    "row-expand",
+    "column-expand",
+    "column-letters-expand",
 ];
 
 fn is_listops(head_fold: &str) -> bool {
@@ -254,7 +294,7 @@ impl Expander {
                     &[("head", &head_fold)],
                 ));
             }
-            // LISTOPS: the seventeen primitives, standalone.
+            // LISTOPS: the twenty-seven primitives, standalone.
             if is_listops(&head_fold) {
                 return eval_listops_prim(&head_fold, lst, &Env::default());
             }
@@ -605,6 +645,11 @@ fn eval_listops_prim(head_fold: &str, lst: &List, env: &Env) -> Result<Form, Ref
         "equal?" => eval_equal(lst, env),
         "quote-if" => eval_quote_if(lst, env),
         "cond" => eval_cond_from(lst, 2, env),
+        "&expand" => eval_concat_expand(lst, env),
+        "characters-expand" => eval_characters_expand(lst, env),
+        "address-expand" => eval_address_expand(lst, env),
+        "row-expand" | "column-expand" => eval_address_part_expand(head_fold, lst, env),
+        "column-letters-expand" => eval_column_letters_expand(lst, env),
         _ => eval_arith_expand(head_fold, lst, env),
     }
 }
@@ -799,7 +844,11 @@ fn eval_quote_if(lst: &List, env: &Env) -> Result<Form, Refusal> {
 }
 
 /// LISTOPS-EXPAND: `(+expand a b)` and the six comparisons, over literal
-/// numeric operands only, through `Val` and `Str$`.
+/// numeric operands only, through `Val` and `Str$`. VLA.3 adds `-expand`
+/// and `*expand`, and `quotient-expand` and `mod-expand`: Excel's
+/// `QUOTIENT` (truncated toward zero) and `MOD` (the divisor's sign,
+/// `a - b * floor(a / b)`), over whole numbers only, a zero divisor
+/// refused.
 fn eval_arith_expand(op: &str, lst: &List, env: &Env) -> Result<Form, Refusal> {
     if lst.count() != 3 {
         return Err(raise(
@@ -809,12 +858,50 @@ fn eval_arith_expand(op: &str, lst: &List, env: &Env) -> Result<Form, Refusal> {
     }
     let a = resolve_listops_arg(lst.nth(2)?, env)?;
     let b = resolve_listops_arg(lst.nth(3)?, env)?;
-    let mut texts = Vec::with_capacity(2);
-    for v in [&a, &b] {
+    let [ta, tb] = number_texts(op, [&a, &b])?;
+    let na = val(&ta);
+    let nb = val(&tb);
+    let number = |x: f64| Form::Sym(str_(x).trim().to_string());
+    Ok(match op {
+        "+expand" => number(na + nb),
+        "=expand" => bool_sym(na == nb),
+        "<>expand" => bool_sym(na != nb),
+        ">expand" => bool_sym(na > nb),
+        "<expand" => bool_sym(na < nb),
+        ">=expand" => bool_sym(na >= nb),
+        "<=expand" => bool_sym(na <= nb),
+        "-expand" => number(na - nb),
+        "*expand" => number(na * nb),
+        _ => {
+            for (n, text) in [(na, &ta), (nb, &tb)] {
+                if n.fract() != 0.0 {
+                    return Err(raise(
+                        "vla-arith-expand-not-whole",
+                        &[("op", op), ("value", text)],
+                    ));
+                }
+            }
+            if nb == 0.0 {
+                return Err(raise("vla-arith-expand-divide-by-zero", &[("op", op)]));
+            }
+            if op == "quotient-expand" {
+                number((na / nb).trunc())
+            } else {
+                number(na - nb * (na / nb).floor())
+            }
+        }
+    })
+}
+
+/// The seven's gate over two operands, in the reference's order: both
+/// checked as lists, then both as numeric literals. Their texts.
+fn number_texts(op: &str, operands: [&Form; 2]) -> Result<[String; 2], Refusal> {
+    let mut texts = [String::new(), String::new()];
+    for (k, v) in operands.iter().enumerate() {
         let Some(text) = v.atom_text() else {
             return Err(raise("vla-arith-expand-not-number-list", &[("op", op)]));
         };
-        texts.push(text);
+        texts[k] = text;
     }
     for text in &texts {
         if !is_numeric_literal_text(text) {
@@ -824,17 +911,202 @@ fn eval_arith_expand(op: &str, lst: &List, env: &Env) -> Result<Form, Refusal> {
             ));
         }
     }
-    let na = val(&texts[0]);
-    let nb = val(&texts[1]);
-    Ok(match op {
-        "+expand" => Form::Sym(str_(na + nb).trim().to_string()),
-        "=expand" => bool_sym(na == nb),
-        "<>expand" => bool_sym(na != nb),
-        ">expand" => bool_sym(na > nb),
-        "<expand" => bool_sym(na < nb),
-        ">=expand" => bool_sym(na >= nb),
-        _ => bool_sym(na <= nb),
-    })
+    Ok(texts)
+}
+
+/// The same gate over one operand.
+fn number_text(op: &str, v: &Form) -> Result<String, Refusal> {
+    let Some(text) = v.atom_text() else {
+        return Err(raise("vla-arith-expand-not-number-list", &[("op", op)]));
+    };
+    if !is_numeric_literal_text(&text) {
+        return Err(raise(
+            "vla-arith-expand-not-number-value",
+            &[("op", op), ("value", &text)],
+        ));
+    }
+    Ok(text)
+}
+
+/// VLA.3's arity refusal for a primitive taking `want` arguments.
+fn expand_arity(op: &str, want: usize, lst: &List) -> Refusal {
+    raise(
+        "vla-expand-arity",
+        &[
+            ("op", op),
+            ("want", &want.to_string()),
+            ("n", &arity_n(lst)),
+        ],
+    )
+}
+
+/// VLA.3: an atom's text as the object model's primitives read it, a
+/// string literal's content or a symbol's (a number's) own text.
+fn atom_text_expand(v: &Form) -> String {
+    match v {
+        Form::Str(s) | Form::Sym(s) => s.clone(),
+        Form::List(_) => String::new(),
+    }
+}
+
+/// VLA.3: `(&expand a b ...)`, each argument resolved as every LISTOPS
+/// argument is and its text joined. Always a string literal, never a
+/// symbol, so a macro writes an address or a formula's text with no
+/// leading-quote trick; `symbol` keeps that trick for identifiers. At
+/// least one argument, as `symbol` takes.
+fn eval_concat_expand(lst: &List, env: &Env) -> Result<Form, Refusal> {
+    if lst.count() < 2 {
+        return Err(raise("vla-concat-expand-arity", &[]));
+    }
+    let mut joined = String::new();
+    for k in 2..=lst.count() {
+        let piece = resolve_listops_arg(lst.nth(k)?, env)?;
+        if piece.is_list() {
+            return Err(raise(
+                "vla-expand-arg-is-list",
+                &[("op", "&expand"), ("n", &(k - 1).to_string())],
+            ));
+        }
+        joined.push_str(&atom_text_expand(&piece));
+    }
+    Ok(Form::Str(joined))
+}
+
+/// VLA.3: `(characters-expand text)`, the text split into one-character
+/// string literals in order. A character is a Unicode scalar value, as
+/// the reference counts one by joining a UTF-16 surrogate pair. The empty
+/// text gives the empty list.
+fn eval_characters_expand(lst: &List, env: &Env) -> Result<Form, Refusal> {
+    if lst.count() != 2 {
+        return Err(expand_arity("characters-expand", 1, lst));
+    }
+    let v = resolve_listops_arg(lst.nth(2)?, env)?;
+    if v.is_list() {
+        return Err(raise(
+            "vla-expand-arg-is-list",
+            &[("op", "characters-expand"), ("n", "1")],
+        ));
+    }
+    let items = atom_text_expand(&v)
+        .chars()
+        .map(|c| Form::Str(c.to_string()))
+        .collect();
+    Ok(Form::list(items))
+}
+
+/// VLA.3: `(address-expand row column)`, a cell's address, relative, as
+/// Excel's `ADDRESS(row, column, 4)` writes it: `B3`. Each argument a
+/// number literal under the seven's gate, then a whole number within
+/// Excel's bounds. A string literal.
+fn eval_address_expand(lst: &List, env: &Env) -> Result<Form, Refusal> {
+    const OP: &str = "address-expand";
+    if lst.count() != 3 {
+        return Err(expand_arity(OP, 2, lst));
+    }
+    let a = resolve_listops_arg(lst.nth(2)?, env)?;
+    let b = resolve_listops_arg(lst.nth(3)?, env)?;
+    let [ta, tb] = number_texts(OP, [&a, &b])?;
+    let (row, col) = (val(&ta), val(&tb));
+    if row.fract() != 0.0 || !(1.0..=f64::from(MAX_ROW)).contains(&row) {
+        return Err(raise(
+            "vla-address-expand-row",
+            &[("op", OP), ("value", &ta)],
+        ));
+    }
+    if col.fract() != 0.0 || !(1.0..=f64::from(MAX_COLUMN)).contains(&col) {
+        return Err(raise(
+            "vla-address-expand-column",
+            &[("op", OP), ("value", &tb)],
+        ));
+    }
+    Ok(Form::Str(format!(
+        "{}{}",
+        column_letters(col as u32),
+        str_(row).trim()
+    )))
+}
+
+/// VLA.3: `(row-expand address)` and `(column-expand address)`, an
+/// address's row and column numbers, as Excel's `ROW` and `COLUMN` of the
+/// reference; and `(column-expand letters)`, a column's letters alone, the
+/// reverse of `column-letters-expand`.
+fn eval_address_part_expand(op: &str, lst: &List, env: &Env) -> Result<Form, Refusal> {
+    if lst.count() != 2 {
+        return Err(expand_arity(op, 1, lst));
+    }
+    let v = resolve_listops_arg(lst.nth(2)?, env)?;
+    if v.is_list() {
+        return Err(raise("vla-expand-arg-is-list", &[("op", op), ("n", "1")]));
+    }
+    let text = atom_text_expand(&v);
+    let Some((row, col)) = parse_address_text(&text, op == "column-expand") else {
+        return Err(raise(
+            "vla-address-expand-not-address",
+            &[("op", op), ("value", &text)],
+        ));
+    };
+    let n = if op == "row-expand" { row } else { col };
+    Ok(Form::Sym(str_(f64::from(n)).trim().to_string()))
+}
+
+/// VLA.3: one grammar for an address, the reference's `ParseAddressText`
+/// rule for rule: an optional `$`, one to three ASCII letters in either
+/// case, an optional `$`, then one to seven ASCII digits; the column at
+/// most XFD, the row 1 to 1,048,576. With `letters_alone`, the letters with
+/// their optional `$` and nothing after them are a column, the row 0.
+/// Anything else, a sheet's name before it, a range, a space or a `$`
+/// anywhere else, is not an address. (`sheet.rs`'s `parse_a1_cell` strips
+/// a `$` wherever it stands, so it cannot be the rule both implementations
+/// keep.)
+fn parse_address_text(s: &str, letters_alone: bool) -> Option<(u32, u32)> {
+    let b = s.as_bytes();
+    let n = b.len();
+    let i = usize::from(n >= 1 && b[0] == b'$');
+    let mut j = i;
+    while j < n && b[j].is_ascii_alphabetic() {
+        j += 1;
+    }
+    if j == i || j - i > 3 {
+        return None;
+    }
+    let col = letters_to_col(&s[i..j])?;
+    if j == n {
+        return letters_alone.then_some((0, col));
+    }
+    if b[j] == b'$' {
+        j += 1;
+    }
+    let mut k = j;
+    while k < n && b[k].is_ascii_digit() {
+        k += 1;
+    }
+    if k < n || k == j || k - j > 7 {
+        return None;
+    }
+    let row: u32 = s[j..k].parse().ok()?;
+    if row == 0 || row > MAX_ROW {
+        return None;
+    }
+    Some((row, col))
+}
+
+/// VLA.3: `(column-letters-expand column)`, a column's letters as a string
+/// literal, 1 = A ... 16384 = XFD; the reverse of `column-expand`.
+fn eval_column_letters_expand(lst: &List, env: &Env) -> Result<Form, Refusal> {
+    const OP: &str = "column-letters-expand";
+    if lst.count() != 2 {
+        return Err(expand_arity(OP, 1, lst));
+    }
+    let v = resolve_listops_arg(lst.nth(2)?, env)?;
+    let text = number_text(OP, &v)?;
+    let col = val(&text);
+    if col.fract() != 0.0 || !(1.0..=f64::from(MAX_COLUMN)).contains(&col) {
+        return Err(raise(
+            "vla-address-expand-column",
+            &[("op", OP), ("value", &text)],
+        ));
+    }
+    Ok(Form::Str(column_letters(col as u32)))
 }
 
 /// VBA `EvalCondFrom`: `(cond (test form) ... (else form))`, one clause at
@@ -1114,6 +1386,180 @@ mod tests {
             one("(defmacro (bigger x) (quote-if (>expand x 10) (quote yes) (quote no))) (bigger 20)"),
             "(quote yes)"
         );
+    }
+
+    // TestListopsObjectModel (VLA.3), pin for pin.
+    #[test]
+    fn the_expand_time_object_model_folds_and_refuses() {
+        let refused = |src: &str, id: &str, text: &str| {
+            let e = expand_err(src);
+            assert_eq!((e.id.as_str(), e.text.as_str()), (id, text), "{src}");
+        };
+        // Arithmetic: -expand and *expand as +expand; quotient-expand and
+        // mod-expand Excel's QUOTIENT and MOD over whole numbers.
+        assert_eq!(one("(-expand 5 2)"), "3");
+        assert_eq!(one("(-expand 2 5)"), "-3");
+        assert_eq!(one("(-expand 2.5 1)"), "1.5");
+        assert_eq!(one("(*expand 6 7)"), "42");
+        assert_eq!(one("(*expand 1.5 2)"), "3");
+        assert_eq!(one("(quotient-expand 7 2)"), "3");
+        assert_eq!(one("(quotient-expand -7 2)"), "-3");
+        assert_eq!(one("(mod-expand 7 3)"), "1");
+        assert_eq!(one("(mod-expand -7 2)"), "1");
+        assert_eq!(one("(mod-expand 7 -2)"), "-1");
+        refused(
+            "(quotient-expand 7.5 2)",
+            "vla-arith-expand-not-whole",
+            "quotient-expand: expected a whole number, got '7.5'",
+        );
+        refused(
+            "(mod-expand 7 0)",
+            "vla-arith-expand-divide-by-zero",
+            "mod-expand: cannot divide by zero",
+        );
+        refused(
+            "(-expand 1)",
+            "vla-arith-expand-arity",
+            "-expand expects exactly 2 arguments, got 1",
+        );
+        refused(
+            "(*expand 2 \"3\")",
+            "vla-arith-expand-not-number-value",
+            "*expand: expected a number, got '\"3'",
+        );
+        // Text: &expand joins atoms into a string; characters-expand splits.
+        assert_eq!(one("(&expand \"A\" 1)"), "\"A1\"");
+        assert_eq!(one("(&expand x)"), "\"x\"");
+        assert_eq!(
+            one("(&expand \"=SUM(\" (address-expand 1 2) \":\" (address-expand 9 2) \")\")"),
+            "\"=SUM(B1:B9)\""
+        );
+        refused(
+            "(&expand)",
+            "vla-concat-expand-arity",
+            "&expand expects at least 1 argument, got 0",
+        );
+        refused(
+            "(&expand \"a\" (quote (b)))",
+            "vla-expand-arg-is-list",
+            "&expand: argument 2 is a list, expected an atom or string literal",
+        );
+        assert_eq!(one("(characters-expand \"ab#\")"), "(\"a\" \"b\" \"#\")");
+        assert_eq!(one("(characters-expand \"\")"), "()");
+        assert_eq!(one("(car (cdr (characters-expand \"xyz\")))"), "\"y\"");
+        assert_eq!(
+            one("(car (cdr (characters-expand \"a\u{1F600}b\")))"),
+            "\"\u{1F600}\""
+        );
+        assert_eq!(
+            one("(null? (cdr (cdr (cdr (characters-expand \"a\u{1F600}b\")))))"),
+            "true"
+        );
+        refused(
+            "(characters-expand (quote (a)))",
+            "vla-expand-arg-is-list",
+            "characters-expand: argument 1 is a list, expected an atom or string literal",
+        );
+        refused(
+            "(characters-expand \"a\" \"b\")",
+            "vla-expand-arity",
+            "characters-expand expects exactly 1 argument(s), got 2",
+        );
+        // Addresses, by one grammar, within Excel's bounds.
+        assert_eq!(one("(address-expand 3 2)"), "\"B3\"");
+        assert_eq!(one("(address-expand 1 16384)"), "\"XFD1\"");
+        assert_eq!(one("(address-expand 1048576 27)"), "\"AA1048576\"");
+        refused(
+            "(address-expand 0 1)",
+            "vla-address-expand-row",
+            "address-expand: a row is a whole number from 1 to 1048576, got '0'",
+        );
+        refused(
+            "(address-expand 1 16385)",
+            "vla-address-expand-column",
+            "address-expand: a column is a whole number from 1 to 16384, got '16385'",
+        );
+        refused(
+            "(address-expand 1.5 1)",
+            "vla-address-expand-row",
+            "address-expand: a row is a whole number from 1 to 1048576, got '1.5'",
+        );
+        assert_eq!(one("(row-expand \"B3\")"), "3");
+        assert_eq!(one("(column-expand \"$AA$10\")"), "27");
+        assert_eq!(one("(column-expand \"xfd1\")"), "16384");
+        assert_eq!(one("(column-expand \"AA\")"), "27");
+        for (src, value) in [
+            ("(row-expand \"AA\")", "AA"),
+            ("(row-expand \"Sheet1!B3\")", "Sheet1!B3"),
+            ("(column-expand \"B3:C4\")", "B3:C4"),
+            ("(row-expand \"B0\")", "B0"),
+        ] {
+            let op = &src[1..src.find(' ').unwrap()];
+            refused(
+                src,
+                "vla-address-expand-not-address",
+                &format!("{op}: expected an address such as B3, got '{value}'"),
+            );
+        }
+        assert_eq!(one("(column-letters-expand 28)"), "\"AB\"");
+        refused(
+            "(column-letters-expand 0)",
+            "vla-address-expand-column",
+            "column-letters-expand: a column is a whole number from 1 to 16384, got '0'",
+        );
+        // Inside a macro's template, the other recognition site.
+        assert_eq!(
+            one("(defmacro (below a) (address-expand (+expand (row-expand a) 1) (column-expand a))) (below \"C7\")"),
+            "\"C8\""
+        );
+        assert_eq!(
+            one(concat!(
+                "(defmacro (picture r txt) (picture-from r 1 (characters-expand txt))) ",
+                "(defmacro (picture-from r c m) (quote-if (null? m) (begin) (begin ",
+                "(quote-if (eq? (car m) \"#\") (cell \"S\" (address-expand r c) 1) (begin)) ",
+                "(picture-from r (+expand c 1) (cdr m))))) (picture 2 \".#.#\")"
+            )),
+            "(begin (begin) (cell \"S\" \"B2\" 1) (begin) (cell \"S\" \"D2\" 1) (begin))"
+        );
+        // Reserved: none of the ten can be a macro's name.
+        for (word, desc) in [
+            ("-expand", "subtraction"),
+            ("address-expand", "address"),
+            ("characters-expand", "text-splitting"),
+        ] {
+            refused(
+                &format!("(defmacro ({word} x) x)"),
+                "vla-defmacro-reserved-name",
+                &format!("defmacro '{word}': '{word}' is the expand-time {desc} primitive and cannot be a macro name"),
+            );
+        }
+    }
+
+    /// Every name the reference reserves is a primitive both recognition
+    /// sites know, and the other way round, the quote bundle aside.
+    #[test]
+    fn every_listops_name_is_reserved() {
+        let reserved: Vec<&str> = RESERVED.iter().map(|(w, _)| *w).collect();
+        let quote_bundle = [
+            "quote",
+            "quasiquote",
+            "unquote",
+            "unquote-splicing",
+            "symbol",
+        ];
+        for name in LISTOPS {
+            assert!(
+                reserved.contains(name),
+                "{name} is recognised but not reserved"
+            );
+        }
+        for name in reserved {
+            assert!(
+                LISTOPS.contains(&name) || quote_bundle.contains(&name),
+                "{name} is reserved but not recognised"
+            );
+        }
+        assert_eq!(LISTOPS.len(), 27);
     }
 
     // TestCond.

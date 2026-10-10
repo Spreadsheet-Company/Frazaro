@@ -39,6 +39,15 @@ refused in the same words.
   The prelude is a library the caller passes: the repository's
   [scripts/prelude.vla](https://raw.githubusercontent.com/Spreadsheet-Company/Frazaro/main/scripts/prelude.vla)
   is the standard one, and a program may carry its own definitions.
+  Twenty-seven primitives compute while a macro expands, over the data
+  written in the source: the list operations (`car`, `cdr`, `cons`,
+  `quote-if`, `cond` and their kin), arithmetic and comparison (`+expand`,
+  `-expand`, `*expand`, `quotient-expand`, `mod-expand`, `=expand` and the
+  rest), text joined or split into its characters (`&expand`,
+  `characters-expand`), and a cell's address written from a row and a
+  column or read back (`address-expand`, `row-expand`, `column-expand`,
+  `column-letters-expand`). A name that ends in `expand` is computed while
+  the macro expands; each refuses by name what it cannot compute.
 - **Names the core forms.** `headtable::row` and `headtable::resolve_head_alias`
   answer for every form the language has, its aliases and its arity, from
   the table the add-in's own code exports.
@@ -168,8 +177,13 @@ this page gains its section when the item closes:
   content-addressed evaluation (KERNEL.20), which is what makes a frame of
   a 320 by 200 grid fast: today the machine steps one in about a tenth of a
   second natively. The first slice is here.
-- **An expansion golden of its own.** The corpus program expanded under
-  the prelude, written by the reference and reproduced here.
+- **The corpus's expansion golden.** The corpus program expanded under the
+  prelude, written by the reference and reproduced here, beside the golden
+  of the expand-time primitives the crate is already held to.
+- **An expander that shares what it walks.** A macro that walks a list
+  copies the rest of the list at each step today, so its cost grows with
+  the square of the list: a table generator's walk of 2,000 rows takes
+  about nine seconds natively (VLA.2).
 
 ## Where it comes from
 
@@ -185,7 +199,9 @@ can stand on the language without the bridges.
 
 The goldens and fixtures the tests read travel with the package, under
 `testdata/`, so `cargo test` runs from the published crate. The repository
-holds the copies to their sources byte for byte. Beside the goldens, the
+holds the copies to their sources byte for byte. The expander is held to
+the add-in's expansion of 135 cases, every expand-time primitive and its
+refusals among them (`tests/expand_golden.rs`). Beside the goldens, the
 tests hold the language's laws over generated programs (`tests/laws.rs`)
 and knock at every door with mutated text (`tests/strangers.rs`, and a
 longer run with `--ignored`).

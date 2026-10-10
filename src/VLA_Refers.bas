@@ -1,6 +1,10 @@
 Attribute VB_Name = "VLA_Refers"
 Option Explicit
-Public Const VLA_REFERS_VERSION As String = "AXM.7"
+Public Const VLA_REFERS_VERSION As String = "VLA.3"
+' VLA.3: RefersColumnNumber, LettersToCol made reachable, so that the
+' expander's row-expand and column-expand (VLA.bas) read a column's letters
+' by this module's one rule, as RefersColumnLetters already writes them.
+'
 ' AXM.7: THE FORMULA-REFERENCE READER (Stage 0.2 of docs/SINGULARITY.md).
 ' Pure string work: the references inside a formula, read from the
 ' formula's text alone, which is what refers(from, to) is built from. No
@@ -457,6 +461,11 @@ Private Function LettersToCol(ByVal letters As String) As Long
     Next i
     If v > MAX_COL Then Exit Function
     LettersToCol = v
+End Function
+
+' VLA.3: A = 1 ... XFD = 16384, in either case; 0 for anything else.
+Public Function RefersColumnNumber(ByVal letters As String) As Long
+    RefersColumnNumber = LettersToCol(letters)
 End Function
 
 ' 1 = A ... 16384 = XFD.

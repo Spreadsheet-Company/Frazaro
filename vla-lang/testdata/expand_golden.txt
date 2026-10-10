@@ -1,0 +1,345 @@
+=== car
+EXPANDED	0
+a
+=== car-of-a-text-refused
+REFUSED	vla-car-expected-list	car: expected a list, got '"abc'
+=== car-of-the-empty-list-refused
+REFUSED	vla-car-empty-list	car: expected a non-empty list
+=== cdr
+EXPANDED	0
+(b c)
+=== cddr
+EXPANDED	0
+(c)
+=== cddr-of-a-short-list-refused
+REFUSED	vla-list-too-short	cddr: expected a list of at least 2 element(s), got 1
+=== cons
+EXPANDED	0
+(x a b)
+=== cons-onto-an-atom-refused
+REFUSED	vla-cons-second-not-list	cons: second argument must be a list, got 'y'
+=== list
+EXPANDED	0
+(1 (a) "s")
+=== null-of-the-empty-list
+EXPANDED	0
+true
+=== null-of-a-list
+EXPANDED	0
+false
+=== eq-folds-a-symbol-s-case
+EXPANDED	0
+true
+=== eq-of-a-symbol-and-a-text
+EXPANDED	0
+false
+=== eq-of-a-list-refused
+REFUSED	vla-eq-expected-atom	eq?: expected an atom, got a list (use equal? for structural comparison)
+=== equal-of-two-structures
+EXPANDED	0
+true
+=== quote-if-takes-a-branch
+EXPANDED	0
+(debug-print "yes")
+=== quote-if-of-an-undecided-test-refused
+REFUSED	vla-quote-if-test-invalid	quote-if: test must resolve to true or false, got 'maybe'
+=== cond-folds-to-a-clause
+EXPANDED	0
+2
+=== cond-defers-to-the-running-program
+EXPANDED	0
+(if (> x 0) (then (debug-print "pos")) (else (debug-print "non")))
+=== cond-with-else-before-a-clause-refused
+REFUSED	vla-cond-else-not-last	cond: 'else' must be the last clause
+=== plus-expand
+EXPANDED	0
+5
+=== plus-expand-of-fractions
+EXPANDED	0
+.3
+=== plus-expand-past-fifteen-digits
+EXPANDED	0
+1E+15
+=== plus-expand-of-a-text-refused
+REFUSED	vla-arith-expand-not-number-value	+expand: expected a number, got '"5'
+=== plus-expand-of-a-thousands-separator-refused
+REFUSED	vla-arith-expand-not-number-value	+expand: expected a number, got '1,000'
+=== plus-expand-of-one-operand-refused
+REFUSED	vla-arith-expand-arity	+expand expects exactly 2 arguments, got 1
+=== equal-expand
+EXPANDED	0
+true
+=== not-equal-expand
+EXPANDED	0
+true
+=== greater-expand
+EXPANDED	0
+true
+=== less-expand
+EXPANDED	0
+false
+=== greater-or-equal-expand
+EXPANDED	0
+true
+=== less-or-equal-expand
+EXPANDED	0
+false
+=== a-comparison-of-a-list-refused
+REFUSED	vla-arith-expand-not-number-list	>expand: expected a number, got a list
+=== minus-expand
+EXPANDED	0
+3
+=== minus-expand-below-zero
+EXPANDED	0
+-3
+=== minus-expand-of-a-fraction
+EXPANDED	0
+1.5
+=== minus-expand-of-a-list-refused
+REFUSED	vla-arith-expand-not-number-list	-expand: expected a number, got a list
+=== minus-expand-of-one-operand-refused
+REFUSED	vla-arith-expand-arity	-expand expects exactly 2 arguments, got 1
+=== times-expand
+EXPANDED	0
+42
+=== times-expand-of-a-fraction
+EXPANDED	0
+3
+=== times-expand-of-a-negative
+EXPANDED	0
+-12
+=== times-expand-of-a-text-refused
+REFUSED	vla-arith-expand-not-number-value	*expand: expected a number, got '"3'
+=== times-expand-of-three-operands-refused
+REFUSED	vla-arith-expand-arity	*expand expects exactly 2 arguments, got 3
+=== quotient-expand
+EXPANDED	0
+3
+=== quotient-expand-truncates-toward-zero
+EXPANDED	0
+-3
+=== quotient-expand-of-a-negative-divisor
+EXPANDED	0
+-3
+=== quotient-expand-of-a-quoted-number
+EXPANDED	0
+2
+=== quotient-expand-of-a-fraction-refused
+REFUSED	vla-arith-expand-not-whole	quotient-expand: expected a whole number, got '7.5'
+=== quotient-expand-of-a-fractional-divisor-refused
+REFUSED	vla-arith-expand-not-whole	quotient-expand: expected a whole number, got '0.5'
+=== quotient-expand-of-one-operand-refused
+REFUSED	vla-arith-expand-arity	quotient-expand expects exactly 2 arguments, got 1
+=== mod-expand
+EXPANDED	0
+1
+=== mod-expand-takes-the-divisor-s-sign
+EXPANDED	0
+1
+=== mod-expand-of-a-negative-divisor
+EXPANDED	0
+-1
+=== mod-expand-of-two-negatives
+EXPANDED	0
+-1
+=== mod-expand-with-nothing-left
+EXPANDED	0
+0
+=== mod-expand-by-zero-refused
+REFUSED	vla-arith-expand-divide-by-zero	mod-expand: cannot divide by zero
+=== mod-expand-of-no-operands-refused
+REFUSED	vla-arith-expand-arity	mod-expand expects exactly 2 arguments, got 0
+=== concat-expand
+EXPANDED	0
+"A1"
+=== concat-expand-of-a-symbol
+EXPANDED	0
+"x"
+=== concat-expand-of-numbers
+EXPANDED	0
+"123"
+=== concat-expand-of-a-quoted-symbol
+EXPANDED	0
+"abc"
+=== concat-expand-keeps-a-quote-mark
+EXPANDED	0
+"say \"hi\""
+=== concat-expand-writes-a-formula
+EXPANDED	0
+"=SUM(B1:B9)"
+=== concat-expand-of-nothing-refused
+REFUSED	vla-concat-expand-arity	&expand expects at least 1 argument, got 0
+=== concat-expand-of-a-list-refused
+REFUSED	vla-expand-arg-is-list	&expand: argument 2 is a list, expected an atom or string literal
+=== characters-expand
+EXPANDED	0
+("a" "b" "#")
+=== characters-expand-of-the-empty-text
+EXPANDED	0
+()
+=== characters-expand-of-a-symbol
+EXPANDED	0
+("a" "b" "c")
+=== characters-expand-of-a-number
+EXPANDED	0
+("1" "2" "0")
+=== characters-expand-of-a-quote-mark
+EXPANDED	0
+("a" "\"" "b")
+=== characters-expand-keeps-an-emoji-whole
+EXPANDED	0
+("a" "😀" "b")
+=== characters-expand-of-a-combining-accent
+EXPANDED	0
+("e" "́")
+=== characters-expand-items-are-a-list-s-items
+EXPANDED	0
+"y"
+=== characters-expand-of-a-list-refused
+REFUSED	vla-expand-arg-is-list	characters-expand: argument 1 is a list, expected an atom or string literal
+=== characters-expand-of-two-texts-refused
+REFUSED	vla-expand-arity	characters-expand expects exactly 1 argument(s), got 2
+=== address-expand
+EXPANDED	0
+"B3"
+=== address-expand-reaches-xfd
+EXPANDED	0
+"XFD1"
+=== address-expand-reaches-the-last-row
+EXPANDED	0
+"AA1048576"
+=== address-expand-of-a-quoted-number
+EXPANDED	0
+"C2"
+=== address-expand-of-row-zero-refused
+REFUSED	vla-address-expand-row	address-expand: a row is a whole number from 1 to 1048576, got '0'
+=== address-expand-past-xfd-refused
+REFUSED	vla-address-expand-column	address-expand: a column is a whole number from 1 to 16384, got '16385'
+=== address-expand-of-a-fractional-row-refused
+REFUSED	vla-address-expand-row	address-expand: a row is a whole number from 1 to 1048576, got '1.5'
+=== address-expand-of-a-text-refused
+REFUSED	vla-arith-expand-not-number-value	address-expand: expected a number, got '"3'
+=== address-expand-of-a-list-refused
+REFUSED	vla-arith-expand-not-number-list	address-expand: expected a number, got a list
+=== address-expand-of-one-operand-refused
+REFUSED	vla-expand-arity	address-expand expects exactly 2 argument(s), got 1
+=== address-expand-of-three-operands-refused
+REFUSED	vla-expand-arity	address-expand expects exactly 2 argument(s), got 3
+=== row-expand
+EXPANDED	0
+3
+=== row-expand-of-a-symbol
+EXPANDED	0
+3
+=== row-expand-of-the-last-row
+EXPANDED	0
+1048576
+=== row-expand-of-a-mixed-reference
+EXPANDED	0
+5
+=== row-expand-of-letters-alone-refused
+REFUSED	vla-address-expand-not-address	row-expand: expected an address such as B3, got 'AA'
+=== row-expand-past-the-last-row-refused
+REFUSED	vla-address-expand-not-address	row-expand: expected an address such as B3, got 'A1048577'
+=== row-expand-of-eight-digits-refused
+REFUSED	vla-address-expand-not-address	row-expand: expected an address such as B3, got 'A00000001'
+=== row-expand-of-row-zero-refused
+REFUSED	vla-address-expand-not-address	row-expand: expected an address such as B3, got 'B0'
+=== row-expand-of-a-sheet-s-name-refused
+REFUSED	vla-address-expand-not-address	row-expand: expected an address such as B3, got 'Sheet1!B3'
+=== row-expand-of-a-space-refused
+REFUSED	vla-address-expand-not-address	row-expand: expected an address such as B3, got ' B3'
+=== row-expand-of-a-list-refused
+REFUSED	vla-expand-arg-is-list	row-expand: argument 1 is a list, expected an atom or string literal
+=== row-expand-of-nothing-refused
+REFUSED	vla-expand-arity	row-expand expects exactly 1 argument(s), got 0
+=== column-expand
+EXPANDED	0
+2
+=== column-expand-past-the-dollar-marks
+EXPANDED	0
+27
+=== column-expand-of-either-case
+EXPANDED	0
+16384
+=== column-expand-of-letters-alone
+EXPANDED	0
+27
+=== column-expand-of-a-dollar-column
+EXPANDED	0
+3
+=== column-expand-of-a-trailing-dollar-refused
+REFUSED	vla-address-expand-not-address	column-expand: expected an address such as B3, got 'C$'
+=== column-expand-past-xfd-refused
+REFUSED	vla-address-expand-not-address	column-expand: expected an address such as B3, got 'XFE1'
+=== column-expand-of-four-letters-refused
+REFUSED	vla-address-expand-not-address	column-expand: expected an address such as B3, got 'AAAA1'
+=== column-expand-of-a-range-refused
+REFUSED	vla-address-expand-not-address	column-expand: expected an address such as B3, got 'B3:C4'
+=== column-expand-of-two-addresses-refused
+REFUSED	vla-expand-arity	column-expand expects exactly 1 argument(s), got 2
+=== column-letters-expand
+EXPANDED	0
+"AB"
+=== column-letters-expand-of-the-last-column
+EXPANDED	0
+"XFD"
+=== column-letters-expand-of-column-zero-refused
+REFUSED	vla-address-expand-column	column-letters-expand: a column is a whole number from 1 to 16384, got '0'
+=== column-letters-expand-of-a-fraction-refused
+REFUSED	vla-address-expand-column	column-letters-expand: a column is a whole number from 1 to 16384, got '2.5'
+=== column-letters-expand-of-a-text-refused
+REFUSED	vla-arith-expand-not-number-value	column-letters-expand: expected a number, got '"2'
+=== column-letters-expand-of-nothing-refused
+REFUSED	vla-expand-arity	column-letters-expand expects exactly 1 argument(s), got 0
+=== a-column-s-letters-and-back
+EXPANDED	0
+703
+=== an-address-and-back
+EXPANDED	0
+"BC12"
+=== a-palette-row-without-the-quote-trick
+EXPANDED	1
+(cell "Palette" "B5" "#AA0000")
+=== a-linear-index-to-an-address
+EXPANDED	1
+"B3"
+=== the-cell-below-an-address
+EXPANDED	1
+"C8"
+=== a-picture-written-as-a-text
+EXPANDED	6
+(begin (begin) (cell "S" "B2" 1) (begin) (cell "S" "D2" 1) (begin))
+=== a-walk-across-the-columns
+EXPANDED	4
+(begin (cell "S" "Z1" 3) (cell "S" "AA1" 2) (cell "S" "AB1" 1) (begin))
+=== a-shielded-primitive-folds-once-unshielded
+EXPANDED	1
+"A1"
+=== unquote-reaches-a-primitive
+EXPANDED	1
+(cell "S" "A4" 0)
+=== reserved-car
+REFUSED	vla-defmacro-reserved-name	defmacro 'car': 'car' is the list-head primitive and cannot be a macro name
+=== reserved-plus-expand
+REFUSED	vla-defmacro-reserved-name	defmacro '+expand': '+expand' is the expand-time addition primitive and cannot be a macro name
+=== reserved-minus-expand
+REFUSED	vla-defmacro-reserved-name	defmacro '-expand': '-expand' is the expand-time subtraction primitive and cannot be a macro name
+=== reserved-times-expand
+REFUSED	vla-defmacro-reserved-name	defmacro '*expand': '*expand' is the expand-time multiplication primitive and cannot be a macro name
+=== reserved-quotient-expand
+REFUSED	vla-defmacro-reserved-name	defmacro 'quotient-expand': 'quotient-expand' is the expand-time integer quotient primitive and cannot be a macro name
+=== reserved-mod-expand
+REFUSED	vla-defmacro-reserved-name	defmacro 'mod-expand': 'mod-expand' is the expand-time remainder primitive and cannot be a macro name
+=== reserved-concat-expand
+REFUSED	vla-defmacro-reserved-name	defmacro '&expand': '&expand' is the expand-time text-joining primitive and cannot be a macro name
+=== reserved-characters-expand
+REFUSED	vla-defmacro-reserved-name	defmacro 'characters-expand': 'characters-expand' is the expand-time text-splitting primitive and cannot be a macro name
+=== reserved-address-expand
+REFUSED	vla-defmacro-reserved-name	defmacro 'address-expand': 'address-expand' is the expand-time address primitive and cannot be a macro name
+=== reserved-row-expand
+REFUSED	vla-defmacro-reserved-name	defmacro 'row-expand': 'row-expand' is the expand-time row-number primitive and cannot be a macro name
+=== reserved-column-expand
+REFUSED	vla-defmacro-reserved-name	defmacro 'column-expand': 'column-expand' is the expand-time column-number primitive and cannot be a macro name
+=== reserved-column-letters-expand
+REFUSED	vla-defmacro-reserved-name	defmacro 'column-letters-expand': 'column-letters-expand' is the expand-time column-letters primitive and cannot be a macro name

@@ -1,6 +1,12 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "VLA.1"
+Public Const VLA_TESTS_VERSION As String = "VLA.3"
+' VLA.3: TestListopsObjectModel - the expand-time object model's ten
+' primitives, each alone and inside a macro (both recognition sites), each
+' refusal and each reserved name, wired after TestListopsExpand; and
+' VlaWriteExpandGolden, dev-only, which writes scripts/expand_golden.txt
+' from scripts/expand.txt, the golden vla-lang's expander is held to.
+'
 ' VLA.1: TestFormTooDeep - four pins: 64 nested lists read and a 65th is
 ' refused by name (vla-form-too-deep, naming line 1); a macro nesting a call
 ' to exactly 64 expands, and one nesting it to 65 is refused by the
@@ -457,6 +463,7 @@ Public Function VlaSelfTest() As Boolean
     TestQuasiquote
     TestListops
     TestListopsExpand
+    TestListopsObjectModel
     TestCond
     TestListopsDepthSafety
     TestFormTooDeep
@@ -3189,6 +3196,85 @@ Private Function EgressReportFor(ByVal body As String) As String
     End If
 End Function
 
+' VLA.3: the expand golden. scripts/expand.txt holds cases, each under a
+' line "=== <name>": the lines of a case are one VLA text, expanded to its
+' fixpoint under the prelude as VlaExpandText expands it. This writes
+' every case's record to expand_golden.txt beside it: the header, then
+' EXPANDED<TAB><the applications that fired> and the text VlaExpandText
+' prints, or REFUSED<TAB><the catalogue's id><TAB><the text>. vla-lang
+' reads the same fixture and is held to this file by its own test
+' (tests/expand_golden.rs), and tools/check_expand_golden.ps1 holds the
+' pair's shape and every primitive reached. Dev-only, like
+' VlaWriteRefersGolden: run it, then git diff.
+Public Function VlaWriteExpandGolden(Optional ByVal fixturePath As String = "") As Boolean
+    On Error GoTo failed
+    If Len(fixturePath) = 0 Then fixturePath = FindDevFile("expand.txt")
+    If Len(Dir$(fixturePath)) = 0 Then Err.Raise 53, "VLA_Tests", "fixture file not found: " & fixturePath
+    Debug.Print "===== WRITE EXPAND GOLDEN ====="
+    Dim lines() As String
+    lines = Split(Replace(ReadTextFileUtf8(fixturePath), vbCrLf, vbLf), vbLf)
+    Dim outText As String, header As String, body As String, ln As String, rec As String
+    Dim haveSection As Boolean, firstLine As Boolean
+    Dim sections As Long, refused As Long
+    Dim i As Long
+    For i = LBound(lines) To UBound(lines) + 1
+        If i <= UBound(lines) Then ln = lines(i) Else ln = "=== "   ' one past: flushes the last section
+        If Left$(ln, 4) = "=== " Then
+            If haveSection Then
+                rec = ExpandReportFor(body)
+                If Left$(rec, 7) = "REFUSED" Then refused = refused + 1
+                outText = outText & header & vbCrLf & rec
+                sections = sections + 1
+            End If
+            header = ln
+            body = ""
+            haveSection = True
+            firstLine = True
+        ElseIf haveSection Then
+            If firstLine Then
+                body = ln
+                firstLine = False
+            Else
+                body = body & vbLf & ln
+            End If
+        End If
+    Next i
+    ' The writer adds one trailing break (WriteTextFile), so the report's own
+    ' last break is dropped first: the file ends with exactly one.
+    If Right$(outText, 2) = vbCrLf Then outText = Left$(outText, Len(outText) - 2)
+    Dim goldenPath As String
+    goldenPath = GoldenPathFor(fixturePath, ".txt")
+    WriteTextFile goldenPath, outText, utf8:=True
+    Debug.Print "  " & sections & " cases, " & refused & " refused -> " & goldenPath
+    Debug.Print "  (git diff is the witness: empty = the prediction held)"
+    Debug.Print "===== EXPAND GOLDEN WRITTEN ====="
+    VlaWriteExpandGolden = True
+    Exit Function
+failed:
+    Debug.Print "  EXPAND GOLDEN FAILED: " & Err.Description
+End Function
+
+' One case's record: the text, blank lines at its end dropped, expanded to
+' its fixpoint - EXPANDED, the applications fired and the printed text,
+' its last break dropped - or REFUSED, the id and the text of the refusal.
+Private Function ExpandReportFor(ByVal body As String) As String
+    Do While Right$(body, 1) = vbLf
+        body = Left$(body, Len(body) - 1)
+    Loop
+    Dim t As String, d As String
+    Dim fired As Long
+    On Error GoTo refused
+    VLA_Messages.VlaClearLastRaisedMsg
+    t = VlaExpandText(body, True, fired)
+    If Right$(t, 2) = vbCrLf Then t = Left$(t, Len(t) - 2)
+    ExpandReportFor = "EXPANDED" & vbTab & fired & vbCrLf & t & vbCrLf
+    Exit Function
+refused:
+    d = Err.Description
+    On Error GoTo 0
+    ExpandReportFor = "REFUSED" & vbTab & VLA_Messages.VlaLastRaisedMsgId() & vbTab & d & vbCrLf
+End Function
+
 ' VLALINT.0: unlike VlaWriteGoldens (which REGENERATES a golden and
 ' leaves git diff as the check), scripts/english.vla/prelude.vla are
 ' hand-edited directly - nothing in the runtime writes them
@@ -5697,6 +5783,126 @@ Private Sub TestListopsExpand()
     t = VlaExpandText("(defmacro (bigger x) (quote-if (>expand x 10) (quote yes) (quote no))) (bigger 20)", True, fired)
     CheckFrags "listops-expand: >expand resolves a bound template parameter, nested inside a macro", t, Array("yes")
 End Sub
+
+' ---------------------------------------------------------------------
+'  VLA.3: the expand-time object model - ten primitives in the LISTOPS
+'  family, each a pure fold over literals in the source (LISTOPS-PURITY's
+'  wall), each recognized alone and inside a macro's template, each
+'  refusing by name, each reserved as a macro name. scripts/expand.txt
+'  holds these cases and the seventeen's, and vla-lang is held to its
+'  golden; these pins keep the reference's own suite honest with no file.
+' ---------------------------------------------------------------------
+Private Sub TestListopsObjectModel()
+    ' --- arithmetic: -expand and *expand as +expand; quotient-expand and
+    '     mod-expand Excel's QUOTIENT and MOD over whole numbers.
+    CheckV "object-model: -expand subtracts", ExpandTrimmed("(-expand 5 2)"), "3"
+    CheckV "object-model: -expand goes below zero", ExpandTrimmed("(-expand 2 5)"), "-3"
+    CheckV "object-model: -expand keeps a fraction", ExpandTrimmed("(-expand 2.5 1)"), "1.5"
+    CheckV "object-model: *expand multiplies", ExpandTrimmed("(*expand 6 7)"), "42"
+    CheckV "object-model: *expand of a fraction", ExpandTrimmed("(*expand 1.5 2)"), "3"
+    CheckV "object-model: quotient-expand truncates", ExpandTrimmed("(quotient-expand 7 2)"), "3"
+    CheckV "object-model: quotient-expand truncates toward zero, as QUOTIENT", ExpandTrimmed("(quotient-expand -7 2)"), "-3"
+    CheckV "object-model: mod-expand is the remainder", ExpandTrimmed("(mod-expand 7 3)"), "1"
+    CheckV "object-model: mod-expand takes the divisor's sign, as MOD", ExpandTrimmed("(mod-expand -7 2)"), "1"
+    CheckV "object-model: mod-expand of a negative divisor", ExpandTrimmed("(mod-expand 7 -2)"), "-1"
+    CheckExpandErr "object-model: quotient-expand refuses a fraction", _
+        "(quotient-expand 7.5 2)", "quotient-expand: expected a whole number, got '7.5'"
+    CheckExpandErr "object-model: mod-expand refuses a zero divisor", _
+        "(mod-expand 7 0)", "mod-expand: cannot divide by zero"
+    CheckExpandErr "object-model: -expand takes two arguments", _
+        "(-expand 1)", "-expand expects exactly 2 arguments, got 1"
+    CheckExpandErr "object-model: *expand refuses a string", _
+        "(*expand 2 ""3"")", "*expand: expected a number, got '""3'"
+
+    ' --- text: &expand joins atoms into a string; characters-expand
+    '     splits a text into one-character strings.
+    CheckV "object-model: &expand joins into a string", ExpandTrimmed("(&expand ""A"" 1)"), """A1"""
+    CheckV "object-model: &expand of a symbol is a string", ExpandTrimmed("(&expand x)"), """x"""
+    CheckV "object-model: &expand writes a formula's text", _
+        ExpandTrimmed("(&expand ""=SUM("" (address-expand 1 2) "":"" (address-expand 9 2) "")"")"), """=SUM(B1:B9)"""
+    CheckExpandErr "object-model: &expand needs something to join", _
+        "(&expand)", "&expand expects at least 1 argument, got 0"
+    CheckExpandErr "object-model: &expand refuses a list, counting it", _
+        "(&expand ""a"" (quote (b)))", "&expand: argument 2 is a list"
+    CheckV "object-model: characters-expand splits a text", ExpandTrimmed("(characters-expand ""ab#"")"), "(""a"" ""b"" ""#"")"
+    CheckV "object-model: characters-expand of the empty text", ExpandTrimmed("(characters-expand """")"), "()"
+    CheckV "object-model: characters-expand's items are a list's items", _
+        ExpandTrimmed("(car (cdr (characters-expand ""xyz"")))"), """y"""
+    Dim pair As String
+    pair = ChrW$(&HD83D) & ChrW$(&HDE00)
+    CheckV "object-model: characters-expand keeps a surrogate pair whole", _
+        ExpandTrimmed("(car (cdr (characters-expand ""a" & pair & "b"")))"), """" & pair & """"
+    CheckV "object-model: characters-expand counts a surrogate pair once", _
+        ExpandTrimmed("(null? (cdr (cdr (cdr (characters-expand ""a" & pair & "b"")))))"), "true"
+    CheckExpandErr "object-model: characters-expand refuses a list", _
+        "(characters-expand (quote (a)))", "characters-expand: argument 1 is a list"
+    CheckExpandErr "object-model: characters-expand takes one argument", _
+        "(characters-expand ""a"" ""b"")", "characters-expand expects exactly 1 argument(s), got 2"
+
+    ' --- addresses: a row and a column written as an address and read
+    '     back by one grammar, within Excel's bounds.
+    CheckV "object-model: address-expand writes B3", ExpandTrimmed("(address-expand 3 2)"), """B3"""
+    CheckV "object-model: address-expand reaches XFD", ExpandTrimmed("(address-expand 1 16384)"), """XFD1"""
+    CheckV "object-model: address-expand reaches the last row", ExpandTrimmed("(address-expand 1048576 27)"), """AA1048576"""
+    CheckExpandErr "object-model: address-expand refuses row 0", _
+        "(address-expand 0 1)", "address-expand: a row is a whole number from 1 to 1048576, got '0'"
+    CheckExpandErr "object-model: address-expand refuses a column past XFD", _
+        "(address-expand 1 16385)", "address-expand: a column is a whole number from 1 to 16384, got '16385'"
+    CheckExpandErr "object-model: address-expand refuses a fractional row", _
+        "(address-expand 1.5 1)", "a row is a whole number from 1 to 1048576, got '1.5'"
+    CheckV "object-model: row-expand reads a row", ExpandTrimmed("(row-expand ""B3"")"), "3"
+    CheckV "object-model: column-expand reads past the $ marks", ExpandTrimmed("(column-expand ""$AA$10"")"), "27"
+    CheckV "object-model: column-expand reads either case", ExpandTrimmed("(column-expand ""xfd1"")"), "16384"
+    CheckV "object-model: column-expand reads a column's letters alone", ExpandTrimmed("(column-expand ""AA"")"), "27"
+    CheckExpandErr "object-model: row-expand refuses letters alone", _
+        "(row-expand ""AA"")", "row-expand: expected an address such as B3, got 'AA'"
+    CheckExpandErr "object-model: row-expand refuses a sheet's name", _
+        "(row-expand ""Sheet1!B3"")", "got 'Sheet1!B3'"
+    CheckExpandErr "object-model: column-expand refuses a range", _
+        "(column-expand ""B3:C4"")", "got 'B3:C4'"
+    CheckExpandErr "object-model: row-expand refuses row 0", _
+        "(row-expand ""B0"")", "got 'B0'"
+    CheckV "object-model: column-letters-expand writes AB", ExpandTrimmed("(column-letters-expand 28)"), """AB"""
+    CheckExpandErr "object-model: column-letters-expand refuses column 0", _
+        "(column-letters-expand 0)", "column-letters-expand: a column is a whole number from 1 to 16384, got '0'"
+
+    ' --- inside a macro's template, the other recognition site.
+    CheckV "object-model: a macro offsets an address it was given", _
+        ExpandTrimmed("(defmacro (below a) (address-expand (+expand (row-expand a) 1) (column-expand a))) (below ""C7"")"), """C8"""
+    Dim t As String
+    t = ExpandTrimmed("(defmacro (picture r txt) (picture-from r 1 (characters-expand txt))) " & _
+        "(defmacro (picture-from r c m) (quote-if (null? m) (begin) (begin " & _
+        "(quote-if (eq? (car m) ""#"") (cell ""S"" (address-expand r c) 1) (begin)) " & _
+        "(picture-from r (+expand c 1) (cdr m))))) (picture 2 "".#.#"")")
+    CheckFrags "object-model: a picture macro writes a cell for each mark", t, Array("""B2""", """D2""")
+    Report "object-model: a picture macro writes no cell for a dot", _
+        InStr(1, t, """A2""", vbBinaryCompare) = 0 And InStr(1, t, """C2""", vbBinaryCompare) = 0, t
+
+    ' --- reserved: none of the ten can be a macro's name.
+    CheckExpandErr "object-model: '-expand' refused as a macro name", _
+        "(defmacro (-expand x) x)", "'-expand' is the expand-time subtraction primitive and cannot be a macro name"
+    CheckExpandErr "object-model: 'address-expand' refused as a macro name", _
+        "(defmacro (address-expand x) x)", "'address-expand' is the expand-time address primitive and cannot be a macro name"
+    CheckExpandErr "object-model: 'characters-expand' refused as a macro name", _
+        "(defmacro (characters-expand x) x)", "'characters-expand' is the expand-time text-splitting primitive and cannot be a macro name"
+End Sub
+
+' VLA.3: one form's expansion under the prelude, its last break dropped,
+' or "refused: " and the refusal's text, so a pin that meets an
+' unexpected refusal fails instead of stopping the suite.
+Private Function ExpandTrimmed(ByVal source As String) As String
+    Dim fired As Long
+    Dim t As String, d As String
+    On Error GoTo refused
+    t = VlaExpandText(source, True, fired)
+    If Right$(t, 2) = vbCrLf Then t = Left$(t, Len(t) - 2)
+    ExpandTrimmed = t
+    Exit Function
+refused:
+    d = Err.Description
+    On Error GoTo 0
+    ExpandTrimmed = "refused: " & d
+End Function
 
 ' ---------------------------------------------------------------------
 '  COND.0: the tenth engine primitive, unifying the expand-time and
