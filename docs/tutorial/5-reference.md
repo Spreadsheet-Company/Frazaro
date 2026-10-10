@@ -1544,8 +1544,10 @@ Use these labels exactly when telling a person what to press.
 
 ### What is true of every run
 
-- The sheets a program names are copied first. **Undo Last Run** puts
-  them back, and reaches the most recent run only.
+- The sheets a program names are copied first, and every tab's name,
+  order and visibility noted. **Undo Last Run** puts them back as they
+  were, the sheet you were on in front, and reaches the most recent run
+  only.
 - A sheet the run created, the sheet it works on included, is removed
   again by a stop or by Undo.
 - Undo does not reach a file saved, an email drafted, or another

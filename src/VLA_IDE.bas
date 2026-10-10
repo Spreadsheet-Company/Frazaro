@@ -1,6 +1,31 @@
 Attribute VB_Name = "VLA_IDE"
 Option Explicit
-Public Const VLA_IDE_VERSION As String = "LE.11"
+Public Const VLA_IDE_VERSION As String = "U.32"
+' U.32: Undo puts a workbook's sheets back as they were - names, tab
+' order, visibility and the active sheet. Before a Run, TakeRunSnapshot
+' records every worksheet's name and visibility in tab order and the
+' active sheet on the Run's own marker sheet, VLAs_<tag>_Sheets (the
+' roster, a fourth snapshot kind beside the copies, the tombstones and the
+' staging; staged, swapped and swept like the others). At Undo, and when a
+' Run stops, PutBackLastRun restores the copies IN PLACE (the copy goes
+' Before the sheet set aside, so a restored sheet no longer lands at the
+' end of the tab order) and, once the copies and tombstones are done,
+' applies the roster: a sheet the run hid is shown again, the roster's
+' sheets go back into their relative order, a sheet the run showed is
+' hidden again, and the sheet that was active is active again - each act
+' decided purely (VlaIdeRosterPlan) and named in the dialog
+' (VlaIdeRosterWords), and nothing when nothing differs. The snapshot's
+' scan also reads the helper rows a raw program can hold (ScanHelperRows:
+' rename-sheet, clear-sheet, delete-sheet, add-sheet-at, copy-sheet-named
+' and the runtime calls under them), so a renamed sheet's old name is
+' copied and its new name tombstoned, as for the sentence. The owner's
+' calls, 2026-10-07: only a tombstoned name is removed (a bare copy
+' stands); the roster stays with the copies, so a second Undo puts the
+' same state back; the active sheet is the one before the Run. A copy
+' comes back under its sheet's own spelling, the roster's
+' (VlaIdeRosterSpelling): a sheet a sentence names by a bare name is
+' scanned, and so copied, in lower case, and Undo used to rename "Sales"
+' to "sales" (found 2026-10-09, preparing the close).
 ' LE.11: "What can I say?" writes three columns - Category, Template,
 ' Example - with no header rows (EnglishPhraseRows's categories), so the
 ' Category filter shows one word's sentences, and its cells wrap, so a
@@ -178,6 +203,16 @@ Private Const STAGE_PREFIX As String = "VLAn_"     ' U.23: a Run's new copies an
                                                    ' markers while they are made;
                                                    ' renamed VLAu_/VLAd_ only once
                                                    ' every one of them exists
+Private Const ROSTER_PREFIX As String = "VLAs_"    ' U.32: the Run's roster - every
+                                                   ' sheet's name, visibility and
+                                                   ' the active sheet, as they were
+                                                   ' before the Run; one per Run,
+                                                   ' VLAs_<tag>_Sheets. The four
+                                                   ' prefixes are one length by
+                                                   ' design (the swap in
+                                                   ' TakeRunSnapshot relies on it)
+Private Const ROSTER_WORD As String = "Sheets"     ' the roster's target part
+Private Const ROSTER_HEAD As String = "Frazaro.Undo:1"   ' its first line, versioned
 Private Const LOG_SHEET As String = "VLA_Log"      ' deliberately not VLAu_/VLAd_:
                                                    ' the snapshot sweeper owns
                                                    ' those prefixes
@@ -230,6 +265,24 @@ Public Type VlaExcelSettings
     EnableEvents As Boolean
     ScreenUpdating As Boolean
     CopyModeOff As Boolean
+End Type
+
+' U.32: what one put-back did, for the dialog - PutBackLastRun fills one.
+' Each list is comma-separated sheet names, "" when nothing of the kind
+' happened. restoring names the sheet a failed put-back was on ("" when it
+' stopped before changing anything, or finished). hadRoster says whether
+' the last Run left a roster at all (a Run before U.32 did not).
+Public Type VlaUndoReport
+    restored As String       ' sheets put back from their copies
+    removed As String        ' tombstoned sheets the run had created, gone again
+    restoring As String
+    shown As String          ' roster: hidden by the run, shown again
+    hidden As String         ' roster: shown by the run, hidden again
+    moved As String          ' roster: put back in their place
+    activated As String      ' roster: the sheet active before the Run, active again
+    missing As String        ' roster: gone, and no copy brought them back
+    rosterProblem As String  ' the roster could not be read: the words, else ""
+    hadRoster As Boolean
 End Type
 
 ' EDITIONMANIFEST.7 (owner-caught, live, the real root cause behind
@@ -1563,9 +1616,10 @@ End Sub
 ' raise would reach the user as VBA's own dialog.
 Private Sub ReportStoppedRun(hb As Workbook, ws As Worksheet, ByVal lineNo As Long, _
                              ByVal sentence As String, ByVal what As String)
-    Dim restored As String, removed As String, restoring As String, why As String
+    Dim rep As VlaUndoReport
+    Dim why As String
     On Error Resume Next
-    why = PutBackLastRun(hb, VlaIdeProgramTag(ws.Name), restored, removed, restoring)
+    why = PutBackLastRun(hb, VlaIdeProgramTag(ws.Name), rep)
     Dim r As Long
     r = FIRST_ROW + lineNo - 1
     If lineNo > 0 And r <= IdeLastRow(ws) Then
@@ -1575,7 +1629,10 @@ Private Sub ReportStoppedRun(hb As Workbook, ws As Worksheet, ByVal lineNo As Lo
         Application.Goto ws.Cells(r, 2)
     End If
     On Error GoTo 0
-    VlaShowError VlaIdeStopMessage(lineNo, sentence, what, why, restoring, restored, removed)
+    ' U.32: the roster's lines ride along, without the active sheet's -
+    ' the stop goes to the row, and that decides what is in view.
+    VlaShowError VlaIdeStopMessage(lineNo, sentence, what, why, rep.restoring, rep.restored, rep.removed, _
+                                   VlaIdeRosterWords(rep.shown, rep.hidden, rep.moved, "", rep.missing, rep.rosterProblem))
 End Sub
 
 ' TER-10/U.25: the words a stopped Run ends with. Pure, for the
@@ -1583,9 +1640,12 @@ End Sub
 ' sheets went back, and otherwise PutBackLastRun's reason, restoring
 ' naming the sheet it was on. It says what was put back and never
 ' claims more: a file saved or an email drafted is not in any sheet.
+' U.32: rosterWords, the roster's own lines (VlaIdeRosterWords), follow
+' the two lists when there are any.
 Public Function VlaIdeStopMessage(ByVal lineNo As Long, ByVal sentence As String, ByVal what As String, _
                                   ByVal why As String, ByVal restoring As String, _
-                                  ByVal restored As String, ByVal removed As String) As String
+                                  ByVal restored As String, ByVal removed As String, _
+                                  Optional ByVal rosterWords As String = "") As String
     Dim m As String
     If lineNo > 0 Then
         m = "The run stopped at line " & lineNo & ":" & vbCrLf & sentence
@@ -1597,13 +1657,14 @@ Public Function VlaIdeStopMessage(ByVal lineNo As Long, ByVal sentence As String
     If Len(removed) > 0 Then
         m = m & "Removed the sheet" & IIf(InStr(removed, ",") > 0, "s", "") & " the run had created: " & removed & "." & vbCrLf
     End If
+    If Len(rosterWords) > 0 Then m = m & rosterWords & vbCrLf
     If Len(why) > 0 Then
         If Len(restoring) > 0 Then
             m = m & "The sheet '" & restoring & "' could not be put back (" & why & ") - Undo Last Run can try again." & vbCrLf
         Else
             m = m & "The sheets could not be put back (" & why & ") - Undo Last Run can try again." & vbCrLf
         End If
-    ElseIf Len(restored) = 0 And Len(removed) = 0 Then
+    ElseIf Len(restored) = 0 And Len(removed) = 0 And Len(rosterWords) = 0 Then
         m = m & "There was nothing to put back." & vbCrLf
     End If
     VlaIdeStopMessage = m & "Anything it did anywhere else, like a file saved or an email drafted, stays as it is."
@@ -2896,6 +2957,10 @@ Private Function IsFrazaroSheetName(hb As Workbook, ByVal nm As String) As Boole
     k = VLA_Identity.Fold(nm)
     If Left$(k, Len(UNDO_PREFIX)) = VLA_Identity.Fold(UNDO_PREFIX) Then IsFrazaroSheetName = True: Exit Function
     If Left$(k, Len(DEL_PREFIX)) = VLA_Identity.Fold(DEL_PREFIX) Then IsFrazaroSheetName = True: Exit Function
+    ' U.32: the staging and the roster are Frazaro's too (the runtime's
+    ' twin, VlaIsFrazaroSheetName, has had the staging since L-SHEET-HELPERS).
+    If Left$(k, Len(STAGE_PREFIX)) = VLA_Identity.Fold(STAGE_PREFIX) Then IsFrazaroSheetName = True: Exit Function
+    If Left$(k, Len(ROSTER_PREFIX)) = VLA_Identity.Fold(ROSTER_PREFIX) Then IsFrazaroSheetName = True: Exit Function
     ' IN.4: VBA_SHEET added alongside the other Frazaro-owned display
     ' sheets. "Trace" (ShowTraceWindow) has this same exposure and
     ' always has - a pre-existing gap, not introduced here and not
@@ -3407,16 +3472,36 @@ Private Sub TakeRunSnapshot(hb As Workbook, ByVal programText As String, ByVal t
     ' are replaced below, once every new one exists, so a Run refused on
     ' the way leaves Undo Last Run exactly as it was.
     DeleteSnapshots hb, tag, False, made
-    Dim uPre As String, dPre As String, sPre As String
+    Dim uPre As String, dPre As String, sPre As String, rPre As String
     uPre = UNDO_PREFIX & tag & "_"
     dPre = DEL_PREFIX & tag & "_"
     sPre = STAGE_PREFIX & tag & "_"
+    rPre = ROSTER_PREFIX & tag & "_"
+
+    ' U.32: the roster, read before anything is made (Worksheets.Add and
+    ' Copy activate what they make) and written to the Run's own marker
+    ' sheet, staged and swapped like every other snapshot sheet, so a Run
+    ' refused on the way keeps the previous roster with the previous
+    ' copies. Made first, so a workbook that refuses a new sheet refuses
+    ' here, before a copy exists.
+    Dim rosterRows As Collection
+    Dim rosterActive As String
+    Set rosterRows = ReadRosterRows(hb, rosterActive)
+    Dim snap As Worksheet
+    curTarget = rPre & ROSTER_WORD
+    Set snap = hb.Worksheets.Add(After:=hb.Worksheets(hb.Worksheets.Count))
+    made.Add snap
+    snap.Name = sPre & ROSTER_WORD
+    WriteRosterRows snap, rosterRows, rosterActive
+    snap.Visible = xlSheetVeryHidden
+    staged.Add snap
+    finals.Add rPre & ROSTER_WORD
+
     Dim targets As New Collection
     AddTarget targets, OUT_SHEET
     ScanSheetNames programText, targets
 
     Dim n As Variant
-    Dim snap As Worksheet
     Dim priorNames As Collection
     Dim added As Collection
     Dim addedV As Variant
@@ -3613,20 +3698,37 @@ Public Sub EnglishIdeUndo()
 
     ' U.25: the restore itself is PutBackLastRun, shared with a Run that
     ' stops; its failure comes back as words and the sheet it was on.
-    Dim restored As String, removed As String, restoring As String
-    d = PutBackLastRun(hb, tag, restored, removed, restoring)
+    Dim rep As VlaUndoReport
+    d = PutBackLastRun(hb, tag, rep)
     If Len(d) > 0 Then GoTo reportFailure
 
     Application.ScreenUpdating = scr
     Application.DisplayAlerts = da
-    If Len(restored) = 0 And Len(removed) = 0 Then
-        VlaShowInfo "Nothing to undo yet for '" & ws.Name & "' - Undo covers that program's most recent Run."
+    ' U.32: the roster's lines, one per kind of act it had to do, after
+    ' today's two; nothing when it had nothing to do.
+    Dim rosterWords As String
+    rosterWords = VlaIdeRosterWords(rep.shown, rep.hidden, rep.moved, rep.activated, rep.missing, rep.rosterProblem)
+    If Len(rep.restored) = 0 And Len(rep.removed) = 0 And Len(rosterWords) = 0 Then
+        ' U.32: a Run that left a roster has been undone already, or changed
+        ' no sheet; "yet" would say no Run happened (the owner's second Undo
+        ' of a Run with no copies, 2026-10-08).
+        If rep.hadRoster Then
+            VlaShowInfo "The sheets are as they were before the last Run of '" & ws.Name & "' - there is nothing to undo."
+        Else
+            VlaShowInfo "Nothing to undo yet for '" & ws.Name & "' - Undo covers that program's most recent Run."
+        End If
     Else
-        If SheetExists(hb, OUT_SHEET) Then hb.Worksheets(OUT_SHEET).Activate
+        ' U.32: with a roster, the sheet active before the Run is active
+        ' again (the owner's call, 2026-10-07); a Run from before the
+        ' roster keeps the older way, the Output sheet brought into view.
+        If Not rep.hadRoster Then
+            If SheetExists(hb, OUT_SHEET) Then hb.Worksheets(OUT_SHEET).Activate
+        End If
         Dim m As String
         m = "Put back the way it was before the last Run of '" & ws.Name & "'"
-        If Len(restored) > 0 Then m = m & ": " & restored
-        If Len(removed) > 0 Then m = m & vbCrLf & "Removed the sheet" & IIf(InStr(removed, ",") > 0, "s", "") & " the run had created: " & removed
+        If Len(rep.restored) > 0 Then m = m & ": " & rep.restored
+        If Len(rep.removed) > 0 Then m = m & vbCrLf & "Removed the sheet" & IIf(InStr(rep.removed, ",") > 0, "s", "") & " the run had created: " & rep.removed
+        If Len(rosterWords) > 0 Then m = m & vbCrLf & rosterWords
         VlaShowInfo m
     End If
     Exit Sub
@@ -3637,8 +3739,8 @@ reportFailure:
     Application.ScreenUpdating = scr
     Application.DisplayAlerts = da
     On Error GoTo 0
-    If Len(restoring) > 0 Then
-        VlaShowError "Undo couldn't put back (or remove) the sheet '" & restoring & "'." & vbCrLf & vbCrLf & _
+    If Len(rep.restoring) > 0 Then
+        VlaShowError "Undo couldn't put back (or remove) the sheet '" & rep.restoring & "'." & vbCrLf & vbCrLf & _
                "Excel says: " & d
     Else
         ' S4.3: Excel's bare description ("Automation error") taught
@@ -3651,21 +3753,33 @@ End Sub
 
 ' U.25: put back what the last Run of the program tagged `tag` changed -
 ' Undo Last Run's restore, moved here unchanged so a Run that stops can
-' make the same one. Returns "" when it is done, restored and removed
-' naming the sheets put back and the sheets the run had created that
-' are gone again. Otherwise returns why it stopped, with restoring
-' naming the sheet it was on ("" when it stopped before changing
-' anything); that sheet is left as the run left it (U.21), and the
-' sheets already put back stay put back.
-Private Function PutBackLastRun(hb As Workbook, ByVal tag As String, ByRef restored As String, _
-                                ByRef removed As String, ByRef restoring As String) As String
+' make the same one. Returns "" when it is done, rep.restored and
+' rep.removed naming the sheets put back and the sheets the run had
+' created that are gone again. Otherwise returns why it stopped, with
+' rep.restoring naming the sheet it was on ("" when it stopped before
+' changing anything); that sheet is left as the run left it (U.21), and
+' the sheets already put back stay put back.
+' U.32: a copy is restored IN PLACE - Before the sheet set aside, where a
+' restored sheet used to land at the end of the tab order - under its
+' sheet's own spelling (the roster's, else the set-aside sheet's, since a
+' bare name is scanned in lower case), and takes the visibility the run
+' left its sheet; then, once the copies and tombstones
+' are done, the Run's roster (VLAs_<tag>_Sheets) is applied: the sheet
+' that was active is given back first (a Copy activates what it makes),
+' and ApplyRoster shows, moves, hides and activates what the roster says,
+' filling rep's lists for the dialog. A Run from before the roster has
+' none, and rep.hadRoster says so.
+Private Function PutBackLastRun(hb As Workbook, ByVal tag As String, ByRef rep As VlaUndoReport) As String
     Dim scr As Boolean, da As Boolean
     scr = Application.ScreenUpdating
     da = Application.DisplayAlerts
+    Dim restored As String, removed As String, restoring As String
     On Error GoTo failed
     Dim uPre As String, dPre As String
     uPre = UNDO_PREFIX & tag & "_"
     dPre = DEL_PREFIX & tag & "_"
+    Dim activeAtStart As String
+    activeAtStart = ActiveSheetNameOf(hb)
 
     Application.ScreenUpdating = False
     Application.DisplayAlerts = False
@@ -3681,6 +3795,7 @@ Private Function PutBackLastRun(hb As Workbook, ByVal tag As String, ByRef resto
     ' program whose tab was re-cased still finds its copies.
     Dim snaps As New Collection
     Dim tombs As New Collection
+    Dim rost As Worksheet
     Dim i As Long
     Dim nmI As String
     For i = 1 To hb.Worksheets.Count
@@ -3690,18 +3805,34 @@ Private Function PutBackLastRun(hb As Workbook, ByVal tag As String, ByRef resto
                 snaps.Add hb.Worksheets(i)
             ElseIf VlaIdeSnapshotKind(nmI) = "d" Then
                 tombs.Add hb.Worksheets(i)
+            ElseIf VlaIdeSnapshotKind(nmI) = "s" Then
+                Set rost = hb.Worksheets(i)
             End If
         End If
     Next
 
+    ' U.32: the sheets' own spellings, off the roster. A sheet a sentence
+    ' names by a bare name is scanned in lower case, so its copy is
+    ' "VLAu_<tag>_sales" for a sheet called "Sales"; the copy takes the
+    ' recorded name back. A roster that cannot be read gives none, and
+    ' ApplyRoster says why below.
+    Dim spellRows As Collection
+    Dim spellActive As String
+    Set spellRows = New Collection
+    If Not rost Is Nothing Then
+        If Len(VlaIdeRosterParse(ReadRosterText(rost), spellRows, spellActive)) > 0 Then Set spellRows = New Collection
+    End If
+
     Dim snapV As Variant
-    Dim snap As Worksheet, cpy As Worksheet
+    Dim snap As Worksheet, cpy As Worksheet, oldWs As Worksheet
     Dim orig As String
+    Dim restName As String, asideName As String
     ' U.21: what one sheet's restore has made so far, and whether the
     ' current sheet is set aside - so a failure part-way can be undone
     ' (RollBackRestore, from the handler below).
     Dim made As Collection
     Dim setAside As Boolean
+    Dim oldVis As Long
     Dim inRestore As Boolean
     Dim priorNames As Collection
     Dim added As Collection
@@ -3709,9 +3840,17 @@ Private Function PutBackLastRun(hb As Workbook, ByVal tag As String, ByRef resto
     For Each snapV In snaps
         Set snap = snapV
         orig = Mid$(snap.Name, Len(uPre) + 1)
-        restoring = orig
+        ' U.32: the name the copy comes back under - the roster's spelling,
+        ' else the sheet's own as it stands, else the scanned name.
+        asideName = ""
+        If SheetExists(hb, orig) Then asideName = hb.Worksheets(orig).Name
+        restName = VlaIdeRosterSpelling(spellRows, orig)
+        If Len(restName) = 0 Then restName = asideName
+        If Len(restName) = 0 Then restName = orig
+        restoring = restName
         Set made = New Collection
         setAside = False
+        oldVis = xlSheetVisible
         inRestore = True
         ' Excel cannot Copy a very-hidden sheet, so unhide the
         ' snapshot for the duration (screen updating is off).
@@ -3719,16 +3858,27 @@ Private Function PutBackLastRun(hb As Workbook, ByVal tag As String, ByRef resto
         ' Transactional order: set the current sheet ASIDE (rename),
         ' copy the snapshot in, and only then delete the old one -
         ' if the copy fails, nothing has been destroyed.
-        If SheetExists(hb, orig) Then
-            hb.Worksheets(orig).Name = UNDO_PREFIX & "old"
+        If Len(asideName) > 0 Then
+            Set oldWs = hb.Worksheets(asideName)
+            oldWs.Name = UNDO_PREFIX & "old"
             setAside = True
+            ' U.32: the copy goes where the sheet is, Before the one set
+            ' aside, which is made visible for the moment: Excel places a
+            ' sheet beside a hidden one unreliably, it is deleted a moment
+            ' later, and a roll-back gives its visibility back.
+            oldVis = oldWs.Visible
+            oldWs.Visible = xlSheetVisible
         End If
         ' U.21: the copy is the one NEW sheet name, never
         ' Worksheets(snap.Index + 1) - Index counts chart sheets and
         ' Worksheets does not, so one chart sheet before the snapshot
         ' made that read rename the wrong sheet.
         Set priorNames = SheetNamesOf(hb)
-        snap.Copy After:=snap
+        If setAside Then
+            snap.Copy Before:=hb.Worksheets(UNDO_PREFIX & "old")
+        Else
+            snap.Copy After:=snap
+        End If
         Set added = VlaIdeAddedSheetNames(priorNames, SheetNamesOf(hb))
         For Each addedV In added
             made.Add hb.Worksheets(CStr(addedV))
@@ -3737,8 +3887,15 @@ Private Function PutBackLastRun(hb As Workbook, ByVal tag As String, ByRef resto
             VLA_Messages.RaiseMsg "ide-undo-snapshot-copy-not-found", "count", CStr(added.Count)
         End If
         Set cpy = hb.Worksheets(CStr(added.Item(1)))
-        cpy.Name = orig
-        cpy.Visible = xlSheetVisible
+        cpy.Name = restName
+        ' U.32: the copy takes the visibility the run left the sheet,
+        ' hidden or visible, so the roster can put it back and say so;
+        ' very hidden is never written (Frazaro's own storage).
+        If setAside And oldVis = xlSheetHidden Then
+            cpy.Visible = xlSheetHidden
+        Else
+            cpy.Visible = xlSheetVisible
+        End If
         ' The copy IS the sheet now: a later failure must not remove it.
         Set made = New Collection
         If SheetExists(hb, UNDO_PREFIX & "old") Then
@@ -3749,7 +3906,7 @@ Private Function PutBackLastRun(hb As Workbook, ByVal tag As String, ByRef resto
         inRestore = False
         restoring = ""
         If Len(restored) > 0 Then restored = restored & ", "
-        restored = restored & orig
+        restored = restored & restName
     Next
 
     ' D1.2: tombstones - sheets the last run CREATED. Remove each
@@ -3779,6 +3936,19 @@ Private Function PutBackLastRun(hb As Workbook, ByVal tag As String, ByRef resto
         End If
     Next
 
+    ' U.32: the sheet that was active when this began, back (a Copy
+    ' activates what it makes), so the roster's own decision about the
+    ' active sheet is made against the truth; then the roster, now that
+    ' every sheet it orders exists.
+    ActivateQuietly hb, activeAtStart
+    rep.restored = restored
+    rep.removed = removed
+    If Not rost Is Nothing Then
+        rep.hadRoster = True
+        ApplyRoster hb, rost, rep, restoring
+    End If
+    rep.restoring = restoring
+
     Application.ScreenUpdating = scr
     Application.DisplayAlerts = da
     Exit Function
@@ -3788,7 +3958,10 @@ failed:
     ' U.21: a sheet whose restore failed part-way goes back to how the
     ' Run left it - its stray copy removed, its own name returned - so
     ' the caller's words are true and nothing is left named VLAu_old.
-    If inRestore Then RollBackRestore hb, made, setAside, restoring, snap
+    If inRestore Then RollBackRestore hb, made, setAside, asideName, snap, oldVis
+    rep.restored = restored
+    rep.removed = removed
+    rep.restoring = restoring
     On Error Resume Next
     Application.ScreenUpdating = scr
     Application.DisplayAlerts = da
@@ -3841,9 +4014,9 @@ Private Sub DeleteSnapshots(hb As Workbook, ByVal tag As String, ByVal includeOw
 End Sub
 
 ' U.22/U.23: what kind of Frazaro snapshot sheet a name is - "u" an Undo
-' copy, "d" a tombstone marker, "n" a copy or marker still being staged -
-' or "" for any other sheet. Excel compares sheet names without case, so
-' this does too. Pure, for the self-test.
+' copy, "d" a tombstone marker, "n" a copy or marker still being staged,
+' "s" a Run's roster (U.32) - or "" for any other sheet. Excel compares
+' sheet names without case, so this does too. Pure, for the self-test.
 Public Function VlaIdeSnapshotKind(ByVal sheetName As String) As String
     Dim pre As String
     pre = VLA_Identity.Fold(Left$(sheetName, Len(UNDO_PREFIX)))
@@ -3853,6 +4026,8 @@ Public Function VlaIdeSnapshotKind(ByVal sheetName As String) As String
         VlaIdeSnapshotKind = "d"
     ElseIf pre = VLA_Identity.Fold(STAGE_PREFIX) Then
         VlaIdeSnapshotKind = "n"
+    ElseIf pre = VLA_Identity.Fold(ROSTER_PREFIX) Then
+        VlaIdeSnapshotKind = "s"
     End If
 End Function
 
@@ -3914,15 +4089,443 @@ End Function
 ' back, hide the snapshot again - so that sheet stays as the Run left
 ' it. Called from EnglishIdeUndo's handler, so it keeps its own error
 ' scope: each step is tried whatever the one before it did.
-Private Sub RollBackRestore(hb As Workbook, made As Collection, ByVal wasSetAside As Boolean, ByVal orig As String, snap As Worksheet)
+Private Sub RollBackRestore(hb As Workbook, made As Collection, ByVal wasSetAside As Boolean, ByVal orig As String, snap As Worksheet, ByVal oldVis As Long)
     RemoveSnapshotSheets made
     On Error Resume Next
     If wasSetAside Then
+        ' U.32: the set-aside sheet was shown for the copy; its
+        ' visibility goes back with its name.
+        If SheetExists(hb, UNDO_PREFIX & "old") Then hb.Worksheets(UNDO_PREFIX & "old").Visible = oldVis
         If Not SheetExists(hb, orig) Then hb.Worksheets(UNDO_PREFIX & "old").Name = orig
     End If
     If Not snap Is Nothing Then snap.Visible = xlSheetVeryHidden
     On Error GoTo 0
 End Sub
+
+' =====================================================================
+'  U.32: the roster - a workbook's sheets as they were before a Run, and
+'  the acts that put them back. The record is text, one row a line: the
+'  first line ROSTER_HEAD (versioned), then "active:<name>", then one
+'  "<visibility>:<name>" row per worksheet in tab order, the visibility
+'  being visible, hidden or very hidden. A colon cannot be in a sheet
+'  name (VlaIdeCanBeSheetName), so the first colon ends the kind. The
+'  parse, the plan and the dialog's words are pure, for the self-test;
+'  the reads and writes of a live workbook sit below them.
+' =====================================================================
+
+' U.32: the roster text read into rows ("<visibility>:<name>", in tab
+' order) and the active sheet. Returns "" when the text is a roster, or
+' why it is not - a first line that is not Frazaro's, a row of a shape it
+' does not know - so a sheet carrying the roster's name but not its
+' record is reported, never misread. Pure.
+Public Function VlaIdeRosterParse(ByVal text As String, ByRef rosterRows As Collection, ByRef activeName As String) As String
+    Set rosterRows = New Collection
+    activeName = ""
+    If Len(text) = 0 Then
+        VlaIdeRosterParse = "it is empty"
+        Exit Function
+    End If
+    Dim lines() As String
+    lines = Split(Replace(Replace(text, vbCrLf, vbLf), vbCr, vbLf), vbLf)
+    If lines(0) <> ROSTER_HEAD Then
+        VlaIdeRosterParse = "its first line is '" & lines(0) & "', not " & ROSTER_HEAD
+        Exit Function
+    End If
+    If UBound(lines) < 1 Then
+        VlaIdeRosterParse = "it has no second line"
+        Exit Function
+    End If
+    If Left$(lines(1), 7) <> "active:" Then
+        VlaIdeRosterParse = "its second line is '" & lines(1) & "', not the active sheet"
+        Exit Function
+    End If
+    activeName = Mid$(lines(1), 8)
+    Dim i As Long
+    Dim visWord As String
+    For i = 2 To UBound(lines)
+        If Len(lines(i)) > 0 Then
+            visWord = RosterKind(lines(i))
+            If visWord <> "visible" And visWord <> "hidden" And visWord <> "very hidden" Then
+                VlaIdeRosterParse = "line " & (i + 1) & " is '" & lines(i) & "'"
+                Exit Function
+            End If
+            If Len(RosterName(lines(i))) = 0 Then
+                VlaIdeRosterParse = "line " & (i + 1) & " names no sheet"
+                Exit Function
+            End If
+            rosterRows.Add lines(i)
+        End If
+    Next
+End Function
+
+' U.32: a sheet's own spelling on the roster - its name as it was before
+' the Run - for a name compared without case; "" when the roster has no
+' such sheet. A sheet a sentence names by a bare name is scanned, and so
+' copied, in lower case; its copy takes this name back. Pure.
+Public Function VlaIdeRosterSpelling(recRows As Collection, ByVal nm As String) As String
+    Dim k As String
+    k = VLA_Identity.Fold(nm)
+    Dim v As Variant
+    For Each v In recRows
+        If VLA_Identity.Fold(RosterName(CStr(v))) = k Then
+            VlaIdeRosterSpelling = RosterName(CStr(v))
+            Exit Function
+        End If
+    Next
+End Function
+
+' A roster row's two halves: the visibility before the first colon, the
+' sheet's name after it.
+Private Function RosterKind(ByVal rec As String) As String
+    Dim p As Long
+    p = InStr(rec, ":")
+    If p > 0 Then RosterKind = Left$(rec, p - 1)
+End Function
+
+Private Function RosterName(ByVal rec As String) As String
+    Dim p As Long
+    p = InStr(rec, ":")
+    If p > 0 Then RosterName = Mid$(rec, p + 1)
+End Function
+
+' The rows' visibilities keyed by folded name.
+Private Function RosterKinds(rosterRows As Collection) As Collection
+    Dim r As Collection
+    Set r = New Collection
+    Dim v As Variant
+    On Error Resume Next
+    For Each v In rosterRows
+        r.Add RosterKind(CStr(v)), VLA_Identity.Fold(RosterName(CStr(v)))
+    Next
+    On Error GoTo 0
+    Set RosterKinds = r
+End Function
+
+' Where a name sits in a list of names, without case; 0 when absent.
+Private Function PosInList(col As Collection, ByVal nm As String) As Long
+    Dim i As Long
+    Dim k As String
+    k = VLA_Identity.Fold(nm)
+    For i = 1 To col.Count
+        If VLA_Identity.Fold(CStr(col.Item(i))) = k Then
+            PosInList = i
+            Exit Function
+        End If
+    Next
+End Function
+
+' A name moved to right after position afterIdx (0: first) in a list of
+' names keyed by folded name - the plan's own picture of the tab order
+' as each move leaves it.
+Private Sub ListMoveAfter(col As Collection, ByVal nm As String, ByVal afterIdx As Long)
+    Dim k As String
+    k = VLA_Identity.Fold(nm)
+    Dim j As Long
+    j = PosInList(col, nm)
+    col.Remove j
+    If afterIdx >= j Then afterIdx = afterIdx - 1
+    If col.Count = 0 Then
+        col.Add nm, k
+    ElseIf afterIdx = 0 Then
+        col.Add nm, k, Before:=1
+    Else
+        col.Add nm, k, After:=afterIdx
+    End If
+End Sub
+
+' A roster sheet hidden now, while there are moves to make: lifted for
+' the moves and dropped after them, unless a show act shows it anyway.
+Private Sub LiftIfHidden(lifts As Collection, curKind As Collection, shows As Collection, ByVal nm As String)
+    Dim k As String
+    k = VLA_Identity.Fold(nm)
+    If Not CollHasKeyIde(curKind, k) Then Exit Sub
+    If curKind.Item(k) <> "hidden" Then Exit Sub
+    If CollHasKeyIde(shows, k) Or CollHasKeyIde(lifts, k) Then Exit Sub
+    lifts.Add nm, k
+End Sub
+
+' U.32: the acts that put the roster's sheets back, decided from the
+' roster (its rows in tab order and its active sheet) and the workbook
+' now (the same, read the same way), as "<act>:<sheet>[:...]" rows in
+' the order they are applied:
+'   missing:X            on the roster, gone, and no copy brought it
+'                        back - reported, since Undo cannot make it;
+'   show:X               recorded visible, hidden now;
+'   lift:X               hidden now, with a move to apply: shown for the
+'                        moves and hidden again after them (drop:X),
+'                        unreported. Excel places a moved sheet by the
+'                        visible tabs - before the first visible sheet
+'                        after the anchor, or after the last visible one
+'                        when none follows - so a hidden roster sheet
+'                        beside a move would be stepped over; shown, each
+'                        move lands exactly where the plan has it;
+'   move:X:after:P       X is not right after P, the roster's sheet
+'   move:X:before:F      before it, among the roster's own sheets; or X
+'                        should be first and F is first now;
+'   drop:X               see lift;
+'   hide:X               recorded hidden, visible now;
+'   activate:X           the sheet active before the Run, when any act
+'                        above was decided or another sheet is active
+'                        now (a move or a show can change the active
+'                        sheet); only a roster sheet recorded visible.
+' Over the roster's sheets that exist now and are not very hidden, now or
+' then: Undo never moves or writes a very-hidden sheet, Frazaro's own
+' storage, and leaves one the run showed or hid where it is. Sheets not
+' on the roster are left alone (the owner's call, 2026-10-07: only a
+' tombstoned name is removed). Each move is decided against the order as
+' the moves before it leave it, so a rerun with nothing changed decides
+' nothing. Names compare without case, as Excel's do. Pure.
+Public Function VlaIdeRosterPlan(recRows As Collection, ByVal recActive As String, _
+                                 curRows As Collection, ByVal curActive As String) As Collection
+    Dim plan As Collection
+    Set plan = New Collection
+    Dim recKind As Collection, curKind As Collection
+    Set recKind = RosterKinds(recRows)
+    Set curKind = RosterKinds(curRows)
+    Dim v As Variant
+    Dim nm As String, k As String
+    Dim shows As Collection, hides As Collection
+    Set shows = New Collection
+    Set hides = New Collection
+    For Each v In recRows
+        nm = RosterName(CStr(v))
+        k = VLA_Identity.Fold(nm)
+        If Not CollHasKeyIde(curKind, k) Then
+            plan.Add "missing:" & nm
+        ElseIf RosterKind(CStr(v)) = "visible" And curKind.Item(k) = "hidden" Then
+            shows.Add nm, k
+        ElseIf RosterKind(CStr(v)) = "hidden" And curKind.Item(k) = "visible" Then
+            hides.Add nm, k
+        End If
+    Next
+    For Each v In shows
+        plan.Add "show:" & CStr(v)
+    Next
+
+    ' The order, over the roster's sheets that exist and are not very hidden.
+    Dim wanted As Collection
+    Set wanted = New Collection
+    For Each v In recRows
+        nm = RosterName(CStr(v))
+        k = VLA_Identity.Fold(nm)
+        If CollHasKeyIde(curKind, k) Then
+            If RosterKind(CStr(v)) <> "very hidden" And curKind.Item(k) <> "very hidden" Then wanted.Add nm, k
+        End If
+    Next
+    Dim have As Collection
+    Set have = New Collection
+    For Each v In curRows
+        nm = RosterName(CStr(v))
+        k = VLA_Identity.Fold(nm)
+        If CollHasKeyIde(wanted, k) Then have.Add nm, k
+    Next
+    Dim moves As Collection, lifts As Collection
+    Set moves = New Collection
+    Set lifts = New Collection
+    Dim i As Long, j As Long
+    Dim prev As String
+    For i = 1 To wanted.Count
+        nm = CStr(wanted.Item(i))
+        j = PosInList(have, nm)
+        If i = 1 Then
+            If j <> 1 Then
+                moves.Add "move:" & nm & ":before:" & CStr(have.Item(1))
+                ListMoveAfter have, nm, 0
+            End If
+        Else
+            prev = CStr(wanted.Item(i - 1))
+            If j <> PosInList(have, prev) + 1 Then
+                moves.Add "move:" & nm & ":after:" & prev
+                ListMoveAfter have, nm, PosInList(have, prev)
+            End If
+        End If
+    Next
+    ' Every hidden roster sheet is shown for the moves (the owner's host
+    ' run, 2026-10-08: a copy made After a visible sheet landed past the
+    ' hidden sheet beside it, Excel placing by the visible tabs); a sheet a
+    ' show act shows needs no lift.
+    If moves.Count > 0 Then
+        For Each v In wanted
+            LiftIfHidden lifts, curKind, shows, CStr(v)
+        Next
+    End If
+    For Each v In lifts
+        plan.Add "lift:" & CStr(v)
+    Next
+    For Each v In moves
+        plan.Add CStr(v)
+    Next
+    For Each v In lifts
+        plan.Add "drop:" & CStr(v)
+    Next
+    For Each v In hides
+        plan.Add "hide:" & CStr(v)
+    Next
+
+    ' The active sheet.
+    k = VLA_Identity.Fold(recActive)
+    If Len(recActive) > 0 Then
+        If CollHasKeyIde(recKind, k) And CollHasKeyIde(curKind, k) Then
+            If recKind.Item(k) = "visible" Then
+                If plan.Count > 0 Or VLA_Identity.Fold(curActive) <> k Then plan.Add "activate:" & recActive
+            End If
+        End If
+    End If
+    Set VlaIdeRosterPlan = plan
+End Function
+
+' U.32: the dialog's lines for what the roster did, one per kind of act,
+' the sheets named, and the words when its record could not be read; ""
+' when it did nothing. Pure.
+Public Function VlaIdeRosterWords(ByVal shownList As String, ByVal hiddenList As String, ByVal movedList As String, _
+                                  ByVal activeBack As String, ByVal missingList As String, ByVal problem As String) As String
+    Dim m As String
+    If Len(shownList) > 0 Then m = m & "Shown again: " & shownList & vbCrLf
+    If Len(hiddenList) > 0 Then m = m & "Hidden again: " & hiddenList & vbCrLf
+    If Len(movedList) > 0 Then m = m & "Put back in their place: " & movedList & vbCrLf
+    If Len(activeBack) > 0 Then m = m & "Back on sheet: " & activeBack & vbCrLf
+    If Len(missingList) > 0 Then m = m & "Not put back, the run removed them and Undo had no copy: " & missingList & vbCrLf
+    If Len(problem) > 0 Then m = m & problem & vbCrLf
+    If Len(m) > 0 Then m = Left$(m, Len(m) - 2)
+    VlaIdeRosterWords = m
+End Function
+
+' U.32: a worksheet's visibility as the roster writes it.
+Private Function VisWordOf(ws As Worksheet) As String
+    Select Case ws.Visible
+        Case xlSheetHidden: VisWordOf = "hidden"
+        Case xlSheetVeryHidden: VisWordOf = "very hidden"
+        Case Else: VisWordOf = "visible"
+    End Select
+End Function
+
+' U.32: the roster's rows read off the workbook - every worksheet that is
+' no snapshot sheet, in tab order - and the active sheet's name ("" when
+' Excel has none to give).
+Private Function ReadRosterRows(hb As Workbook, ByRef activeName As String) As Collection
+    Dim r As Collection
+    Set r = New Collection
+    Dim i As Long
+    For i = 1 To hb.Worksheets.Count
+        If Len(VlaIdeSnapshotKind(hb.Worksheets(i).Name)) = 0 Then
+            r.Add VisWordOf(hb.Worksheets(i)) & ":" & hb.Worksheets(i).Name
+        End If
+    Next
+    activeName = ActiveSheetNameOf(hb)
+    Set ReadRosterRows = r
+End Function
+
+Private Function ActiveSheetNameOf(hb As Workbook) As String
+    On Error Resume Next
+    ActiveSheetNameOf = hb.ActiveSheet.Name
+    On Error GoTo 0
+End Function
+
+' U.32: the roster written to its sheet, one line a row from A1, each
+' behind an apostrophe so a name shaped like a number or a formula stays
+' text.
+Private Sub WriteRosterRows(ws As Worksheet, rosterRows As Collection, ByVal activeName As String)
+    ws.Cells(1, 1).Value = "'" & ROSTER_HEAD
+    ws.Cells(2, 1).Value = "'active:" & activeName
+    Dim i As Long
+    For i = 1 To rosterRows.Count
+        ws.Cells(2 + i, 1).Value = "'" & CStr(rosterRows.Item(i))
+    Next
+End Sub
+
+' U.32: the roster's text read back, the rows from A1 down to the first
+' empty cell, one line each.
+Private Function ReadRosterText(ws As Worksheet) As String
+    Dim r As Long
+    Dim t As String
+    r = 1
+    Do While Len(CStr(ws.Cells(r, 1).Value)) > 0
+        If r > 1 Then t = t & vbLf
+        t = t & CStr(ws.Cells(r, 1).Value)
+        r = r + 1
+    Loop
+    ReadRosterText = t
+End Function
+
+' U.32: a sheet made active again, quietly - it may be gone or hidden,
+' and the roster decides what to do about that.
+Private Sub ActivateQuietly(hb As Workbook, ByVal nm As String)
+    If Len(nm) = 0 Then Exit Sub
+    On Error Resume Next
+    hb.Sheets(nm).Activate
+    On Error GoTo 0
+End Sub
+
+Private Sub AppendName(ByRef list As String, ByVal nm As String)
+    If Len(list) > 0 Then list = list & ", "
+    list = list & nm
+End Sub
+
+' U.32: the roster applied. Its record is parsed first - a sheet carrying
+' the roster's name but not its record is said in the dialog, not
+' misread, and the sheets already put back stay put back - the workbook
+' is read the same way, and the plan's acts are applied in order, each
+' naming its sheet in restoring while it runs, so a failure says which.
+' rep's lists name what was shown, hidden, moved, made active and found
+' missing; a sheet lifted for a move and dropped after it is no act of
+' the roster's and goes unreported.
+Private Sub ApplyRoster(hb As Workbook, rost As Worksheet, ByRef rep As VlaUndoReport, ByRef restoring As String)
+    Dim recRows As Collection
+    Dim recActive As String
+    Dim why As String
+    why = VlaIdeRosterParse(ReadRosterText(rost), recRows, recActive)
+    If Len(why) > 0 Then
+        On Error Resume Next
+        VLA_Messages.RaiseMsg "ide-undo-roster-unreadable", "sheet", rost.Name, "why", why
+        rep.rosterProblem = Err.Description
+        Err.Clear
+        On Error GoTo 0
+        Exit Sub
+    End If
+    Dim curRows As Collection
+    Dim curActive As String
+    Set curRows = ReadRosterRows(hb, curActive)
+    Dim plan As Collection
+    Set plan = VlaIdeRosterPlan(recRows, recActive, curRows, curActive)
+    Dim act As Variant
+    Dim parts() As String
+    For Each act In plan
+        parts = Split(CStr(act), ":")
+        restoring = parts(1)
+        Select Case parts(0)
+            Case "missing"
+                AppendName rep.missing, parts(1)
+            Case "show", "lift"
+                hb.Worksheets(parts(1)).Visible = xlSheetVisible
+                If parts(0) = "show" Then AppendName rep.shown, parts(1)
+            Case "move"
+                If parts(2) = "after" Then
+                    hb.Worksheets(parts(1)).Move After:=hb.Worksheets(parts(3))
+                Else
+                    hb.Worksheets(parts(1)).Move Before:=hb.Worksheets(parts(3))
+                End If
+                AppendName rep.moved, parts(1)
+            Case "drop", "hide"
+                hb.Worksheets(parts(1)).Visible = xlSheetHidden
+                If parts(0) = "hide" Then AppendName rep.hidden, parts(1)
+            Case "activate"
+                hb.Worksheets(parts(1)).Activate
+                If VLA_Identity.Fold(curActive) <> VLA_Identity.Fold(parts(1)) Then rep.activated = parts(1)
+        End Select
+        restoring = ""
+    Next
+End Sub
+
+' U.32: the snapshot and the put-back with a public door each, so the
+' host suite can take a Run's snapshot on a scratch workbook and put it
+' back without a Run, a button or a dialog.
+Public Sub VlaIdeTakeRunSnapshot(hb As Workbook, ByVal programText As String, ByVal tag As String, ByVal programName As String)
+    TakeRunSnapshot hb, programText, tag, programName
+End Sub
+
+Public Function VlaIdePutBackLastRun(hb As Workbook, ByVal tag As String, ByRef rep As VlaUndoReport) As String
+    VlaIdePutBackLastRun = PutBackLastRun(hb, tag, rep)
+End Function
 
 ' Module-local keyed probe (modules are self-contained by rule 12).
 Private Function CollHasKeyIde(col As Collection, ByVal key As String) As Boolean
@@ -4023,6 +4626,108 @@ Private Sub ScanSheetNames(ByVal text As String, targets As Collection)
         End If
         If Len(nm) > 0 Then AddTarget targets, nm
         p = p + 1
+        End If
+    Loop
+
+    ' U.32: the helper rows a raw program can hold name the sheets they
+    ' change, as a sentence's "sheet" would.
+    ScanHelperRows text, targets
+End Sub
+
+' U.32: the sheet names a raw helper row changes, added to the targets as
+' a sentence's would be: the sheet a row clears, deletes or renames, so it
+' is copied, and the name a row gives, so it is tombstoned. Per head, the
+' argument positions that name such a sheet. A copy's source, a moved
+' sheet and the sheets hide and show touch are the roster's, since their
+' content does not change, and a bare copy's name is Excel's own. Only a
+' quoted name counts: a name held in a variable is not known before the
+' run. Heads compare without case, as symbols do; the runtime calls under
+' the macros are read too, since a raw row can call them. The rows are
+' read in the order the program has them, as the sentence scan reads its
+' sentences, so the targets follow the program.
+Private Sub ScanHelperRows(ByVal text As String, targets As Collection)
+    Dim heads As Variant
+    heads = Array("add-sheet-called", "1", "add-sheet-at", "1", "copy-sheet-named", "2", _
+                  "rename-sheet", "1,2", "clear-sheet", "1", "delete-sheet", "1", _
+                  "vlaaddsheetat", "1", "vlacopysheet", "4", "vlarenamesheet", "1,2", _
+                  "vlaclearsheet", "1", "vladeletesheet", "1")
+    Dim lc As String
+    lc = VLA_Identity.Fold(text)
+    Dim h As Long, p As Long, q As Long
+    Dim hd As String
+    p = 1
+    Do
+        p = InStr(p, lc, "(")
+        If p = 0 Then Exit Do
+        For h = LBound(heads) To UBound(heads) Step 2
+            hd = CStr(heads(h))
+            If Mid$(lc, p + 1, Len(hd)) = hd Then
+                q = p + 1 + Len(hd)
+                ' the whole head: "(copy-sheet" inside "(copy-sheet-named" is not it
+                If q <= Len(lc) Then
+                    If InStr(" " & vbTab & vbCr & vbLf & ")", Mid$(lc, q, 1)) > 0 Then
+                        ReadHelperArgs text, q, CStr(heads(h + 1)), targets
+                        Exit For
+                    End If
+                End If
+            End If
+        Next
+        p = p + 1
+    Loop
+End Sub
+
+' U.32: the arguments after a helper row's head, from position q, counted
+' from 1; each quoted one at a wanted position (a comma-separated list of
+' positions) becomes a target. A string reads as the reader reads it, \"
+' and \\ being escapes. An argument that is no string - a name, a number,
+' a nested form - is stepped over and counted.
+Private Sub ReadHelperArgs(ByVal text As String, ByVal q As Long, ByVal wanted As String, targets As Collection)
+    Dim argNo As Long
+    Dim c As String
+    Dim depth As Long
+    Dim s As String
+    Do While q <= Len(text)
+        c = Mid$(text, q, 1)
+        If c = ")" Then Exit Do
+        If c = " " Or c = vbTab Or c = vbCr Or c = vbLf Then
+            q = q + 1
+        ElseIf c = """" Then
+            argNo = argNo + 1
+            s = ""
+            q = q + 1
+            Do While q <= Len(text)
+                c = Mid$(text, q, 1)
+                If c = "\" Then
+                    If q < Len(text) Then s = s & Mid$(text, q + 1, 1)
+                    q = q + 2
+                ElseIf c = """" Then
+                    q = q + 1
+                    Exit Do
+                Else
+                    s = s & c
+                    q = q + 1
+                End If
+            Loop
+            If InStr("," & wanted & ",", "," & CStr(argNo) & ",") > 0 Then
+                If Len(s) > 0 Then AddTarget targets, s
+            End If
+        ElseIf c = "(" Then
+            argNo = argNo + 1
+            depth = 0
+            Do While q <= Len(text)
+                c = Mid$(text, q, 1)
+                If c = "(" Then depth = depth + 1
+                If c = ")" Then depth = depth - 1
+                q = q + 1
+                If depth = 0 Then Exit Do
+            Loop
+        Else
+            argNo = argNo + 1
+            Do While q <= Len(text)
+                c = Mid$(text, q, 1)
+                If c = " " Or c = vbTab Or c = vbCr Or c = vbLf Or c = ")" Or c = "(" Then Exit Do
+                q = q + 1
+            Loop
         End If
     Loop
 End Sub

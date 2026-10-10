@@ -154,12 +154,13 @@ mechanism and where you can check it.
 | **One sentence, one meaning.** | Shapes are tried in a fixed order and the first match wins. Because the shapes are finite, the loader can decide whether two of them overlap, and it refuses a phrasebook where they do. A sentence that has shipped keeps its meaning. | [GRAMMAR_SINCE.md](../GRAMMAR_SINCE.md) dates every sentence shape. |
 | **Refusals teach.** | A refused sentence is told how far the reading got, what was expected next, and what was found instead. | Level 1, Lesson 18. |
 | **Nothing leaves the machine.** | Frazaro has no update check, no telemetry and no network call of any kind, by standing decision. A script scans the code for one before every release. | `tools/check_no_network.ps1`; [IT_REVIEW.md](../IT_REVIEW.md) §3. |
-| **A run can be taken back.** | **Undo Last Run** restores the sheets the program named, including sheets the run created or deleted. | Run any sample, then press **Undo Last Run**. |
+| **A run can be taken back.** | **Undo Last Run** restores the sheets the program named, including sheets the run created or deleted, and puts the tabs back in their order and visibility, with the sheet you were on in front. | Run any sample, then press **Undo Last Run**. |
 
 The fifth promise has an edge worth knowing before you rely on it. Undo puts
-back *sheets*. A file the program saved to disk, or an email draft it
-opened, is outside any sheet and stays as it is. When a run stops partway,
-the message says exactly this.
+back *sheets*: their contents, their names, their order and whether they
+show. A file the program saved to disk, or an email draft it opened, is
+outside any sheet and stays as it is. When a run stops partway, the message
+says exactly this.
 
 A real refusal, from the engine that answers questions about tables:
 

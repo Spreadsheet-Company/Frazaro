@@ -29781,25 +29781,152 @@ now carries one summary paragraph per engine and points here.*
 - ⬜ **U.12 — apropos in the panel** (three tiers plus worksheet functions).
 - ⬜ **U.14 — `VlaTryTranspile`.** Retires the modal class from expected-error
   smokes. `~days`
-- ⬜ **U.32 — Undo puts a workbook's sheets back as they were: names, tab
+- ✅ **U.32 — Undo puts a workbook's sheets back as they were: names, tab
   order and visibility.** Minted 2026-10-07 by `L-SHEET-HELPERS`' scoping, the
-  owner's call (measure, document, file). Today `TakeRunSnapshot` copies only
-  the sheets named after the word "sheet" in a sentence or before a `!`
-  (`ScanSheetNames`; a macro row such as `(rename-sheet "Data" "Archive")`
-  names none), a restored copy lands at the end of the tab order
-  (`snap.Copy After:=snap`), only a tombstoned name is deleted, and a restored
-  sheet is made visible with no record of what it was. So after a rename Undo
-  leaves both names standing, after a bare copy the copy stands, after a move
-  the order stays as the run left it, and after a hide only a snapshotted
-  sheet is shown again. The fix is a roster: at `TakeRunSnapshot` every
-  worksheet's name, position and visibility, kept on the run's own marker
-  sheet (a defined name shows in the Name Manager); at `PutBackLastRun`, once
-  the copies and tombstones are done, every sheet not on the roster removed,
-  and every roster sheet put at its position with its visibility. To scope:
-  the order of those steps against `U.19`'s all-or-nothing rule and `U.23`'s
-  staging, chart sheets (`Worksheets` only, by name), and a sheet the person
-  added by hand after the Run. Measured by `tools/VLA_DiagSheetHelpers.bas`
-  (`LSHRecord`, then `LSHCompare` after the Run and again after Undo). `~days`
+  owner's call (measure, document, file). **Built 2026-10-07, owner-verified
+  live and committed 2026-10-09.** *The gap, measured:* `TakeRunSnapshot` copied only the sheets named
+  after the word "sheet" in a sentence or before a `!` (`ScanSheetNames`; a
+  macro row such as `(rename-sheet "Data" "Archive")` named none), a restored
+  copy landed at the end of the tab order (`snap.Copy After:=snap`), only a
+  tombstoned name was deleted, and a restored sheet was made visible with no
+  record of what it was: after the fixture (copy, move, rename, hide, show,
+  add, clear, delete, on both backends, 2026-10-07) Undo removed the working
+  sheet by its tombstone and left "Lsh1 Twin" standing. *The forks, the
+  owner's answers (2026-10-07):* only a tombstoned name is removed, so a bare
+  copy (`Data (2)`) stands and a sheet made by hand between Run and Undo is
+  never touched; the snapshot's scan learns the helper rows in this item
+  (with removal by roster and no such scan it would have been data loss:
+  `Archive` removed while `Data` had no copy); the sheet active before the
+  Run is active again after Undo (the code activated "Output" by that
+  literal name, even for a program working on another sheet); the roster
+  stays with the copies, so a second Undo puts the same state back (the
+  copies were never consumed, only the tombstones are); the dialog says one
+  line per kind of act, the sheets named. Settled by the filing or by
+  correctness, not asked: the roster lives on the Run's own marker sheet;
+  order is relative and walked by name, since absolute indices are wrong
+  whenever a tombstone sweep shifts the tabs; visibility goes back to the
+  recorded state and very hidden is never written (`SD-19`); the stopped-run
+  path takes the roster too, `PutBackLastRun` being one function. *Built:*
+  `ROSTER_PREFIX` `VLAs_`, a fourth snapshot kind (`VlaIdeSnapshotKind` "s";
+  `VlaIdeSweepsSnapshot` unchanged, the kind being own-finished like a copy),
+  one sheet per Run, `VLAs_<tag>_Sheets`, staged as `VLAn_` and swapped and
+  swept with the rest (`U.19`'s all-or-nothing, `U.23`'s staging); its text
+  one line a cell from A1, `Frazaro.Undo:1`, `active:<name>`, then
+  `<visible|hidden|very hidden>:<name>` per worksheet in tab order (every
+  worksheet that is no snapshot sheet), each behind an apostrophe; read
+  before anything is made, since Add and Copy activate what they make.
+  `IsFrazaroSheetName` learns `VLAn_` and `VLAs_` (the IDE's rule had missed
+  the staging that L-SHEET-HELPERS gave the runtime's twin);
+  `VlaIsFrazaroSheetName` learns `VLAs_`. `ScanSheetNames` calls
+  `ScanHelperRows`: per head, the argument positions that name a sheet the
+  row changes (`rename-sheet` 1 and 2, `copy-sheet-named` 2, `clear-sheet`,
+  `delete-sheet`, `add-sheet-at` and `add-sheet-called` 1, and
+  `vlaaddsheetat`, `vlacopysheet` 4, `vlarenamesheet`, `vlaclearsheet`,
+  `vladeletesheet`), quoted names only, a string read as the reader reads it
+  (`\"`, `\\`), a nested form stepped over; `copy-sheet`, `move-sheet`,
+  `hide-sheet` and `show-sheet` name none, their sheets being the roster's.
+  `PutBackLastRun` takes a `VlaUndoReport` (restored, removed, restoring,
+  shown, hidden, moved, activated, missing, rosterProblem, hadRoster): the
+  active sheet is noted first; a copy whose sheet exists is set aside, shown,
+  and the copy made `Before` it, so it lands in place (`RollBackRestore`
+  gives the visibility back with the name), and the copy takes the
+  visibility the run left (hidden stays hidden, so the roster can show it and
+  say so; very hidden becomes visible) and its sheet's own spelling, the
+  roster's (`VlaIdeRosterSpelling`), else the set-aside sheet's (found
+  2026-10-09, preparing the close: a sheet a sentence names by a bare name is
+  scanned, and so copied, in lower case, and Undo had renamed "Sales" to
+  "sales" since copies began; the dialog names the restored sheet so too);
+  tombstones as before; then the active
+  sheet is given back quietly and `ApplyRoster` runs: the record parsed
+  (`VlaIdeRosterParse`; a sheet with the roster's name but not its record is
+  said through `ide-undo-roster-unreadable` in the dialog, the copies still
+  put back), the workbook read the same way, the plan decided purely
+  (`VlaIdeRosterPlan`: `missing:X`, `show:X`, `lift:X`, `move:X:after:P` or
+  `move:X:before:F`, `drop:X`, `hide:X`, `activate:X`, in that order; over
+  the roster's sheets that exist and are not very hidden now or then; each
+  move decided against the order the moves before it leave; every hidden
+  roster sheet lifted for the moves and dropped after, unreported, since
+  Excel places a moved or copied sheet by the visible tabs, before the first
+  visible sheet after the anchor or after the last visible one when none
+  follows, and Before a hidden sheet lands after it (the probe's facts 23-26
+  and 32-33, and the owner's host run of 2026-10-08, where a bare copy After
+  a visible sheet landed past the hidden sheet beside it; the Undo copies,
+  each made After the very-hidden last sheet, so stand in the reverse of
+  their making and the dialog lists them in that order, as it did before
+  this item, while the tombstones, added rather than copied, land right
+  before that sheet and keep their order, as the live run's Removed list
+  showed); the active sheet when any act was decided or another sheet is
+  active, and only a roster sheet recorded visible), and each act applied by name,
+  `restoring` naming its sheet so a failure says which. `EnglishIdeUndo` adds
+  the roster's lines (`VlaIdeRosterWords`: `Shown again:`, `Hidden again:`,
+  `Put back in their place:`, `Back on sheet:`, `Not put back, the run
+  removed them and Undo had no copy:`) after its two, activates "Output"
+  only when the Run left no roster, and, when all three lists are empty, says
+  the sheets are as they were before the last Run if a roster was found, else
+  "Nothing to undo yet" as before (the owner's second Undo of a Run with no
+  copies, 2026-10-08, where "yet" read as if no Run had happened);
+  `ReportStoppedRun` hands `VlaIdeStopMessage` the same
+  lines without the active sheet's, since the stop goes to the row and that
+  decides the view. Public doors `VlaIdeTakeRunSnapshot` and
+  `VlaIdePutBackLastRun` for the host suite. `tools/VLA_DiagSheetHelpers.bas`
+  v3 adds `LSHProbeMoves`, facts 21-33 (a hidden and a very-hidden sheet
+  moved; a Move After and Before a hidden, then a very-hidden, sheet in the
+  middle; activating a hidden sheet; hiding and deleting the active sheet; a
+  very-hidden sheet deleted ahead of others; a Move beside a chart sheet; a
+  Move After and Before a visible sheet whose neighbour is hidden), run by
+  the owner on 2026-10-08 (Excel 16.0): a hidden sheet moves, and a moved
+  or activated hidden sheet is the active sheet while hidden; a very-hidden
+  sheet refuses to move (1004), which the walk never asks; a Move lands
+  before the first visible sheet after its anchor, past a hidden neighbour,
+  and Before a hidden sheet lands after it; hiding or deleting the active
+  sheet activates the next sheet to its right; a chart sheet is a visible
+  neighbour like any other. v4 (2026-10-09) makes `LSHRecord` and
+  `LSHCompare` the live test's witness: Frazaro's snapshot sheets left out,
+  a sheet's place counted among the worksheets that are neither those nor
+  very hidden (a sweep of old snapshot sheets had shifted every absolute
+  index), names compared exactly, each differing line marked and one verdict
+  line at the end. v5 (2026-10-09, the owner's live pass) keeps the record
+  in a text file in the temp folder, since v4 kept it on its own workbook's
+  first sheet and refused when that workbook was the active one, which is
+  the case when the module sits in the workbook under test; a workbook with
+  no Frazaro tab is refused by name instead. The owner's first self-test run
+  (2026-10-08, pure 1938/1941, host 325/331) found three pins wrong and the
+  code right: a known-tags list without the other program, the helper-row
+  scan reading heads in table order where the pins and the sentence scan go
+  by the program's order (now text order), and a fixture whose bare copy
+  Excel placed past a hidden neighbour, which taught the placing rule above;
+  the expected lists were corrected and one plan case added. **Pins:** pure
+  60 (`TestUndoRoster` 59: the kind, tag and sweep; the parse and each way
+  it refuses; the plan's eighteen cases; the spelling's three; the words and
+  the stopped Run's message; the refusal; sixteen helper-row scans;
+  `TestSheetHelperNames` +1); host 18 (`TestUndoRosterHost`: the snapshot
+  through its door on a scratch workbook with two helper rows, the roster
+  sheet, copies and tombstones read back, a rename, a clear, a bare copy, a
+  move, a hide, a show, an add and another sheet made active done natively,
+  the put-back's order, visibility, cells, active sheet and report held, a
+  second put-back moving nothing, an unreadable record said with the copies
+  still put back, a Run from before the roster, and a sheet named by a bare
+  name copied in lower case and put back under its own spelling).
+  **Floors:** `check_data_exports`, the core's half of the catalogue, 416 →
+  417 (590 → 591 before `PORT.12` split the catalogue in two).
+  **The owner's pass, 2026-10-09,** in a new workbook with a Frazaro tab of
+  its own: pure 1945/1945, host 333/333; the helper fixture under both
+  backends, Undo removing `lsh2` and `Lsh2 Twin` and a second Undo saying the
+  sheets are as they were; the roster test, Undo putting `Lsh3` back under
+  its own spelling, showing `Lsh3a` again, hiding `Lsh3c` again, putting
+  `Lsh3a` back in its place and, pressed from another tab, bringing the
+  Frazaro tab back to the front, `LSHCompare` (v5) reading every sheet as
+  recorded; a Run stopped at its third row removing the sheet it made and
+  putting the order back; `VerifyReports` 371/371 on both backends.
+  **Docs:** this entry; the roadmap line to 🟡; `RELEASES.md` `## 0.9.0`'s
+  Undo bullet rewritten for users; `tutorial/0-introduction.md`,
+  `1-apprentice.md` and `5-reference.md` where Undo's promise is stated;
+  `Delta/CLAUDE.md`'s `VLA_IDE.bas` line. No sentence, no arm: no
+  `GRAMMAR_SINCE.md` row; no phrasebook change, so no golden moves. Known,
+  not handled: a sheet recorded very hidden that a raw row showed, or
+  recorded visible that a raw row made very hidden, is left as the run left
+  it; a chart sheet that was active is not made active again; a sheet named
+  through a variable in a helper row is not known before the run. `~days`
 - ✅ **CLI.3 — the console remembers: session history.** *Minted 2026-09-24,
   with CLI.4 and CLI.5, from a conversation scoping the one catch two
   spitballs shared (SPITBALLS 25, define-by-demonstration, and 101, `*`/`**`/
@@ -32229,6 +32356,7 @@ numbers. **Quoting a correction is not applying it.**
 
 - ✅ **U.30 — a program's own name cannot be one its generated code calls.** Minted 2026-09-30, the owner's call, from `LX.14`'s scoping; filed for actions, widened to every name at scoping; built 2026-09-30, **owner-verified live and committed 2026-10-01** (`VLA_SELF-TESTS` pure 1651/1651 and host 267/267, `LX.14`'s pins beside it, as predicted; `VerifyReports` 371/371 on both backends; `TestDSLs` 2346/0; `To len of x:`, `Set rows to 5.`, `Set cstr to 5.` and `Set debug to 5.` refused word for word on their rows; the VBA editor agreeing name by name; the six function words giving 3, 2023, 15, 18, 15 and 3 on both backends). `To len of x:` was accepted, and in that program every `length of` called it on both backends (a procedure of the program's answers before VBA's library, and before the interpreter's builtins); a variable of such a name broke the compiled call alone, while Interpret ran on. `CheckName` now refuses the forty-two names the generated code calls by name wherever a name is made, the list read from four sources in the engine and held to them by `tools/check_engine_call_names.ps1`, the thirty-second check. Folded in: six function words (`absolute of` … `minute of`) that never ran under Interpret now do, and VBA's conversions join the reserved words. *Pays into:* `LX.14`, whose masking of one-word heads waited on it. *(more: the full entry, earlier in this file)* `~hours`
 - ✅ **U.31 — seven more of VBA's reserved words are refused as names.** `return`, `gosub`, `global`, `scale`, `circle`, `decimal` and `longlong` were missing from `IsReservedName`, so a value or a step of such a name checked clean and then failed to compile with no sentence named; each is now refused at Check by the reserved-word refusal, naming the word, and a hyphenated name that begins with one stays a name. Found under `U.30`; filed, built, owner-verified live and committed 2026-10-02 from `PORT.6`'s step 0, with `scripts/names.vla` re-exported at 218 entries so the core reads the mended list. *(more: the full entry, earlier in this file)* `~hours`
+- ✅ **U.32 — Undo puts a workbook's sheets back as they were: names, tab order and visibility.** Minted 2026-10-07 by `L-SHEET-HELPERS`' scoping, the owner's call. **Built 2026-10-07, owner-verified live and committed 2026-10-09.** Before a Run, `TakeRunSnapshot` records every worksheet's name and visibility in tab order and the active sheet on the Run's own marker sheet, `VLAs_<tag>_Sheets`, a fourth snapshot kind staged, swapped and swept like the copies and tombstones (`U.19`, `U.23`); the snapshot's scan reads the helper rows a raw program holds, so a renamed sheet's old name is copied and its new name tombstoned. At Undo Last Run and when a Run stops, each copy comes back in its place under its sheet's own spelling with the visibility the run left, then the roster shows again a sheet the run hid, puts the order back by name, hides again a sheet the run showed and makes the sheet you were on active, each act decided purely (`VlaIdeRosterPlan`) and named in the dialog; an unreadable roster is said in words with the copies still put back. The owner's five calls: only a tombstoned name is removed, so a bare copy stands and a sheet made by hand is never touched; the scan learns the helper rows; the active sheet comes back; the roster stays with the copies, so a second Undo puts the same state back; one dialog line per kind of act. Found preparing the close: a sheet a sentence names by a bare name was copied in lower case and came back renamed, "Sales" as "sales", since copies began; it now comes back under its own spelling. Excel places a moved or copied sheet by the visible tabs, so the order walk shows every hidden roster sheet for its moves. The owner's pass: pure 1945/1945, host 333/333, the helper fixture under both backends with two Undos, the roster test with `LSHCompare` reading every sheet as recorded, Undo pressed from another tab, a stopped Run, `VerifyReports` 371/371 on both backends. *(more: the full entry, earlier in this file)* `~days`
 
 ## 🗣🔧🪟 LANGUAGE + MACHINE + PRODUCT · THE SINGULARITY LINE
 

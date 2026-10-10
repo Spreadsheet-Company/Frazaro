@@ -115,8 +115,9 @@ is about those two tags.
 would have run.
 
 **The run could be taken back.** Before a program's first sentence, Frazaro
-copies the sheets the program names. **Undo Last Run** puts those copies
-back. It covers the most recent run of that program.
+copies the sheets the program names and notes every tab's name, order and
+visibility. **Undo Last Run** puts those copies back where they were, and
+the tabs as they were. It covers the most recent run of that program.
 
 ## Lesson 3. Anatomy of a sentence
 
@@ -1476,6 +1477,7 @@ email.
 | The Output sheet, and every sheet the program names | A workbook saved or exported to disk |
 | Sheets the run deleted | An email draft it opened |
 | It removes sheets the run created, the sheet it worked on included | Another workbook the program opened |
+| The tabs' order, which of them show, and the sheet you were on | A copy the run made under Excel's own name, like *Data (2)* |
 
 It covers the most recent run of that program, and each program in a
 workbook has its own.

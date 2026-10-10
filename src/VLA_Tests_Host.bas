@@ -1,6 +1,16 @@
 Attribute VB_Name = "VLA_Tests_Host"
 Option Explicit
-Public Const VLA_TESTS_HOST_VERSION As String = "L-SHEET-HELPERS"
+Public Const VLA_TESTS_HOST_VERSION As String = "U.32"
+' U.32: TestUndoRosterHost takes a Run's snapshot on a scratch workbook
+' through its public door (VlaIdeTakeRunSnapshot) with a program of two
+' helper rows, reads the roster sheet, the copies and the tombstones back,
+' does a run's acts natively - a rename, a clear, a bare copy, a move, a
+' hide, a show, an add, another sheet made active - and puts the Run back
+' through its door (VlaIdePutBackLastRun), reading the order, visibility,
+' names, cells, active sheet and the report back; then a second put-back
+' that moves nothing, a record that cannot be read, a Run from before the
+' roster, and a sheet a sentence names by a bare name coming back under
+' its own spelling, not the scan's lower case.
 ' L-SHEET-HELPERS: TestSheetHelpersHost runs the eight sheet helpers on a
 ' scratch workbook through the interpreter (each act, each refusal in its
 ' words, the active sheet unchanged, a rerun leaving nothing behind), then
@@ -416,6 +426,7 @@ Public Function VlaSelfTestHost() As Boolean
     TestGFormulaCalculation
     TestLx14MarkNote
     TestSheetHelpersHost
+    TestUndoRosterHost
 
     Debug.Print "===== HOST SELF-TEST: " & mPass & " passed, " & mFail & " failed ====="
     If mFail > 0 Then
@@ -5138,3 +5149,186 @@ Private Sub SheetCloseAll(ByVal wb As Workbook, ByVal wb2 As Workbook, ByVal wb3
     On Error GoTo 0
     Application.DisplayAlerts = True
 End Sub
+
+' U.32: Undo's roster on a scratch workbook, without a Run, a button or a
+' dialog. The snapshot is taken through its public door with a program of
+' two helper rows; the roster sheet, the copies and the tombstones are read
+' back; the run's acts are done natively - a rename, a clear, a bare copy,
+' a move, a hide, a show, an add, another sheet made active - and the
+' put-back goes through its door, with the order, visibility, names, cells
+' and active sheet read back natively and the report held list by list.
+' Then a second put-back moves nothing, a record that cannot be read is
+' said in words with the copies still put back, and a Run from before the
+' roster puts its copies back as ever. VLA_Log and not a "Frazaro" tab, as
+' TestSheetHelpersHost does, so no workspace-shaped sheet is in a scratch
+' workbook.
+Private Sub TestUndoRosterHost()
+    Dim priorWb As Workbook
+    Set priorWb = ActiveWorkbook
+    Dim wb As Workbook, wb2 As Workbook
+    Dim d As String
+    Dim rep As VlaUndoReport
+    On Error GoTo failed
+
+    Set wb = SheetScratchWorkbook()
+    SheetAddNamed wb, "Delta"
+    SheetSetVisible wb, "Delta", xlSheetHidden
+    SheetAddNamed wb, "VLA_Log"
+    wb.Worksheets("Alpha").Activate
+
+    ' The snapshot.
+    VLA_IDE.VlaIdeTakeRunSnapshot wb, "(rename-sheet ""Beta"" ""Twin"")" & vbCrLf & "(clear-sheet ""Gamma"")", "U32", "Frazaro (U32)"
+    Report "undo roster: the snapshot leaves the roster sheet, very hidden", UndoSheetVis(wb, "VLAs_U32_Sheets") = xlSheetVeryHidden, "order: " & SheetOrder(wb)
+    Report "undo roster: the helper rows' sheets are copied and the names they give tombstoned", _
+           UndoSheetVis(wb, "VLAu_U32_Beta") = xlSheetVeryHidden And UndoSheetVis(wb, "VLAu_U32_Gamma") = xlSheetVeryHidden _
+           And UndoSheetVis(wb, "VLAd_U32_Twin") = xlSheetVeryHidden And UndoSheetVis(wb, "VLAd_U32_Output") = xlSheetVeryHidden, _
+           "order: " & SheetOrder(wb)
+    CheckV "undo roster: the record names every sheet but the snapshots, in order, with its visibility and the active sheet", _
+           UndoRosterText(wb), "Frazaro.Undo:1|active:Alpha|visible:Alpha|visible:Beta|visible:Gamma|hidden:Delta|visible:VLA_Log"
+    CheckV "undo roster: the snapshot leaves the sheets a person sees as they were", UndoUserOrder(wb), "Alpha,Beta,Gamma,Delta(hidden),VLA_Log"
+
+    ' The run's acts, natively. The bare copy goes Before the first sheet,
+    ' where Excel's placing is exact: made After Gamma it landed past the
+    ' hidden Delta beside it (the owner's run, 2026-10-08), since Excel
+    ' places a copied or moved sheet by the visible tabs - before the first
+    ' visible sheet after the anchor, or after the last visible one when
+    ' none follows.
+    wb.Worksheets("Beta").Name = "Twin"
+    wb.Worksheets("Gamma").Cells.Clear
+    wb.Worksheets("Alpha").Copy Before:=wb.Worksheets("Alpha")
+    wb.Worksheets("Twin").Move Before:=wb.Worksheets("Alpha")
+    wb.Worksheets("Gamma").Visible = xlSheetHidden
+    wb.Worksheets("Delta").Visible = xlSheetVisible
+    SheetAddNamed wb, "Extra"
+    wb.Worksheets("Delta").Activate
+    CheckV "undo roster: the run's acts, as the fixture has them", UndoUserOrder(wb) & "; active " & SheetActiveName(wb), _
+           "Alpha (2),Twin,Alpha,Gamma(hidden),Delta,VLA_Log,Extra; active Delta"
+
+    ' The put-back. The copies come back in their snapshots' tab order,
+    ' which is the reverse of the targets' (Gamma, then Beta): each copy is
+    ' made After the very-hidden last sheet and so lands right after the last
+    ' visible sheet, ahead of the ones made before it. A tombstone, added
+    ' rather than copied, lands right before that sheet instead and keeps its
+    ' making order (the owner's live run, 2026-10-08: "lsh2, Lsh2 Twin").
+    d = VLA_IDE.VlaIdePutBackLastRun(wb, "U32", rep)
+    CheckV "undo roster: the put-back finishes", d, ""
+    CheckV "undo roster: the old name back in its place from its copy, the new name gone, the cleared sheet back and shown again, the shown sheet hidden again, the order as recorded, and a bare copy and a sheet no row named left standing", _
+           UndoUserOrder(wb), "Alpha (2),Alpha,Beta,Gamma,Delta(hidden),VLA_Log,Extra"
+    CheckV "undo roster: the cells came back with the copies", SheetCellText(wb, "Beta", "A1") & "," & SheetCellText(wb, "Gamma", "A1"), "beta,gamma"
+    CheckV "undo roster: the sheet active before the Run is active again", SheetActiveName(wb), "Alpha"
+    CheckV "undo roster: the report, list by list", UndoReportText(rep), _
+           "restored=Gamma, Beta;removed=Twin;shown=Gamma;hidden=Delta;moved=Beta;activated=Alpha;missing=;problem=;roster=True"
+
+    ' A second put-back: the copies again, in place, the roster with nothing to do.
+    Dim rep2 As VlaUndoReport
+    d = VLA_IDE.VlaIdePutBackLastRun(wb, "U32", rep2)
+    CheckV "undo roster: a second put-back finishes", d, ""
+    CheckV "undo roster: and shows, moves, hides and activates nothing", UndoReportText(rep2), _
+           "restored=Gamma, Beta;removed=;shown=;hidden=;moved=;activated=;missing=;problem=;roster=True"
+    CheckV "undo roster: the sheets stay as recorded", UndoUserOrder(wb) & "; active " & SheetActiveName(wb), _
+           "Alpha (2),Alpha,Beta,Gamma,Delta(hidden),VLA_Log,Extra; active Alpha"
+
+    ' A record that cannot be read: said in the report, the copies still put back.
+    Dim rost As Worksheet
+    Set rost = wb.Worksheets("VLAs_U32_Sheets")
+    rost.Cells(1, 1).Value = "'not a roster"
+    wb.Worksheets("Gamma").Range("A1").Value = "changed"
+    Dim rep3 As VlaUndoReport
+    d = VLA_IDE.VlaIdePutBackLastRun(wb, "U32", rep3)
+    Report "undo roster: an unreadable record is said in words, naming its sheet, with the copies still put back", _
+           Len(d) = 0 And InStr(rep3.rosterProblem, "on its sheet 'VLAs_U32_Sheets'") > 0 And InStr(rep3.rosterProblem, "(its first line is 'not a roster'") > 0 _
+           And SheetCellText(wb, "Gamma", "A1") = "gamma", _
+           d & " | " & rep3.rosterProblem & " | Gamma!A1 '" & SheetCellText(wb, "Gamma", "A1") & "'"
+    Report "undo roster: and the record stays for the next Run to replace", rep3.hadRoster And UndoSheetVis(wb, "VLAs_U32_Sheets") = xlSheetVeryHidden, _
+           "roster " & rep3.hadRoster & ", visibility " & UndoSheetVis(wb, "VLAs_U32_Sheets")
+
+    ' A Run from before the roster: the copies as ever, no roster lines.
+    rost.Visible = xlSheetVisible
+    Application.DisplayAlerts = False
+    rost.Delete
+    Application.DisplayAlerts = True
+    Dim rep4 As VlaUndoReport
+    d = VLA_IDE.VlaIdePutBackLastRun(wb, "U32", rep4)
+    CheckV "undo roster: a Run from before the roster puts its copies back and says nothing of a roster", _
+           d & "|" & UndoReportText(rep4), "|restored=Gamma, Beta;removed=;shown=;hidden=;moved=;activated=;missing=;problem=;roster=False"
+
+    ' A sheet a sentence names by a bare name is scanned, and so copied, in
+    ' lower case; its copy comes back under the sheet's own spelling, the
+    ' roster's, where it used to come back renamed "beta".
+    Set wb2 = SheetScratchWorkbook()
+    VLA_IDE.VlaIdeTakeRunSnapshot wb2, "Go to sheet Beta.", "U32S", "Frazaro (U32S)"
+    Report "undo roster: a bare name is scanned, and so copied, in lower case", _
+           UndoSheetVis(wb2, "VLAu_U32S_beta") = xlSheetVeryHidden And UndoExactName(wb2, "VLAu_U32S_beta") = "VLAu_U32S_beta", _
+           "order: " & SheetOrder(wb2)
+    wb2.Worksheets("Beta").Range("A1").Value = "changed"
+    Dim rep5 As VlaUndoReport
+    d = VLA_IDE.VlaIdePutBackLastRun(wb2, "U32S", rep5)
+    CheckV "undo roster: the copy comes back under the sheet's own spelling, its cells with it, and the dialog says that name", _
+           d & "|" & UndoExactName(wb2, "beta") & "|" & SheetCellText(wb2, "Beta", "A1") & "|" & rep5.restored, "|Beta|beta|Beta"
+
+    SheetCloseAll wb, wb2, Nothing, priorWb
+    Exit Sub
+failed:
+    d = Err.Description
+    Report "undo roster: unexpected error", False, d
+    On Error Resume Next
+    SheetCloseAll wb, wb2, Nothing, priorWb
+    On Error GoTo 0
+End Sub
+
+' U.32: a sheet's name exactly as Excel spells it, found without case; ""
+' when there is none.
+Private Function UndoExactName(ByVal wb As Workbook, ByVal sheetName As String) As String
+    On Error Resume Next
+    UndoExactName = wb.Worksheets(sheetName).Name
+    On Error GoTo 0
+End Function
+
+' U.32: a sheet's visibility, -2 when it is not there.
+Private Function UndoSheetVis(ByVal wb As Workbook, ByVal sheetName As String) As Long
+    UndoSheetVis = -2
+    On Error Resume Next
+    UndoSheetVis = wb.Worksheets(sheetName).Visible
+    On Error GoTo 0
+End Function
+
+' U.32: the roster sheet's lines, joined with |; "" when there is none.
+Private Function UndoRosterText(ByVal wb As Workbook) As String
+    Dim ws As Worksheet
+    On Error Resume Next
+    Set ws = wb.Worksheets("VLAs_U32_Sheets")
+    On Error GoTo 0
+    If ws Is Nothing Then Exit Function
+    Dim r As Long
+    Dim t As String
+    r = 1
+    Do While Len(CStr(ws.Cells(r, 1).Value)) > 0
+        If r > 1 Then t = t & "|"
+        t = t & CStr(ws.Cells(r, 1).Value)
+        r = r + 1
+    Loop
+    UndoRosterText = t
+End Function
+
+' U.32: the worksheets that are no snapshot sheet of Frazaro's, in tab
+' order, a hidden one marked - the tabs as a person sees them.
+Private Function UndoUserOrder(ByVal wb As Workbook) As String
+    Dim i As Long
+    Dim r As String
+    For i = 1 To wb.Worksheets.Count
+        If Len(VLA_IDE.VlaIdeSnapshotKind(wb.Worksheets(i).Name)) = 0 Then
+            If Len(r) > 0 Then r = r & ","
+            r = r & wb.Worksheets(i).Name
+            If wb.Worksheets(i).Visible = xlSheetHidden Then r = r & "(hidden)"
+            If wb.Worksheets(i).Visible = xlSheetVeryHidden Then r = r & "(very hidden)"
+        End If
+    Next
+    UndoUserOrder = r
+End Function
+
+' U.32: a put-back's report as one line.
+Private Function UndoReportText(ByRef rep As VlaUndoReport) As String
+    UndoReportText = "restored=" & rep.restored & ";removed=" & rep.removed & ";shown=" & rep.shown & ";hidden=" & rep.hidden & _
+                     ";moved=" & rep.moved & ";activated=" & rep.activated & ";missing=" & rep.missing & ";problem=" & rep.rosterProblem & _
+                     ";roster=" & rep.hadRoster
+End Function

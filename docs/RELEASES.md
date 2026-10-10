@@ -104,11 +104,20 @@
   error.** A sheet that is not there, one of Frazaro's own, or the only
   worksheet showing is named in the refusal; the sentence's meaning for any
   other sheet is unchanged, and Excel's confirmation is still not shown.
-- **Undo Last Run after these helpers is documented, not yet widened.**
-  Undo puts back the sheets a sentence names after the word "sheet"; it
-  does not put back tab order or visibility, and it leaves a renamed
-  sheet's new name and a bare copy standing. That is `U.32` on the
-  roadmap.
+- **Undo Last Run puts a workbook's sheets back as they were: names, tab
+  order, visibility, and the sheet you were on.** Before a Run, Frazaro now
+  records every sheet's name and visibility in tab order, and which sheet
+  was active, on a hidden sheet of its own beside the Undo copies. Undo Last
+  Run, and a Run that stops, put each copy back in its place instead of at
+  the end of the tab order, show again a sheet the run hid, hide again one
+  it showed, put the tabs back in their order, and go back to the sheet you
+  were on; the message names each act: `Shown again:`, `Hidden again:`,
+  `Put back in their place:`, `Back on sheet:`. A raw row that renames,
+  clears, deletes or adds a sheet is read by the snapshot too, so a renamed
+  sheet comes back under its old name with the new name gone. Still outside
+  Undo's reach, by choice: a copy Excel named itself, like `Data (2)`,
+  stands, and a sheet you made by hand after the Run is never touched. A
+  second Undo puts the same state back again. (`U.32`)
 
 ### Known open security items
 

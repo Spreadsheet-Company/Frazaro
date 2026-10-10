@@ -1,6 +1,15 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "KERNEL.2"
+Public Const VLA_TESTS_VERSION As String = "U.32"
+' U.32: TestUndoRoster - the roster's snapshot kind, tag and sweep, the
+' record's parse (VlaIdeRosterParse) and each way it refuses, the plan
+' (VlaIdeRosterPlan: shown, lifted, moved, dropped, hidden, activated,
+' missing, and nothing when nothing differs), the spelling a restored
+' copy takes (VlaIdeRosterSpelling), the dialog's words
+' (VlaIdeRosterWords, and the stopped Run's message carrying them), the
+' refusal of an unreadable record, and the helper rows the snapshot's scan
+' now reads (VlaIdeScanTargets). TestSheetHelperNames pins the roster's
+' prefix as Frazaro's own.
 ' KERNEL.2: TestDistroManifest - the distro manifest as the add-in builder
 ' reads it (VLA_Build.bas, one directive a line): the chain in load order
 ' with its paths collapsed, the add-in's file name, a line's quoted strings
@@ -404,6 +413,7 @@ Public Function VlaSelfTest() As Boolean
     TestUndoScan
     TestUndoSnapshotSafety
     TestUndoSnapshotNames
+    TestUndoRoster
     TestGoldens
     TestRuleUsage
     TestMessageSeam
@@ -2461,6 +2471,148 @@ Private Sub TestUndoSnapshotNames()
     CheckV "sweep: a legacy name is an orphan", VlaIdeSweepsSnapshot("VLAu_Output", "U22A", knownTags, False), True
     CheckV "sweep: the log is not a snapshot", VlaIdeSweepsSnapshot("VLA_Log", "U22A", knownTags, True), False
 End Sub
+
+' ---------------------------------------------------------------------
+'  U.32: Undo's roster. Before a Run, TakeRunSnapshot records every
+'  worksheet's name and visibility in tab order and the active sheet on
+'  the Run's own marker sheet (VLAs_<tag>_Sheets, a fourth snapshot kind
+'  beside the copies, the tombstones and the staging); at Undo, once the
+'  copies and tombstones are done, PutBackLastRun shows, moves, hides
+'  and activates what the roster says. The record's parse, the plan -
+'  which acts, in which order, and none when nothing differs - and the
+'  dialog's words are pure, pinned here. The snapshot's scan also reads
+'  the helper rows a raw program can hold, so a renamed sheet's old name
+'  is copied and its new name tombstoned, as for the sentence.
+' ---------------------------------------------------------------------
+Private Sub TestUndoRoster()
+    ' The kind, the tag and the sweep.
+    CheckV "roster: a roster sheet is the fourth snapshot kind", VlaIdeSnapshotKind("VLAs_Main_Sheets"), "s"
+    CheckV "roster: in any case", VlaIdeSnapshotKind("vlas_gp1_sheets"), "s"
+    CheckV "roster: its tag is the program's", VlaIdeSnapshotTag("VLAs_Main_Sheets"), "Main"
+    Dim knownTags As Collection
+    Set knownTags = New Collection
+    knownTags.Add "1", "U32"
+    knownTags.Add "1", "Other"
+    CheckV "roster: the previous Run's roster stays until the new copies exist", VlaIdeSweepsSnapshot("VLAs_u32_Sheets", "U32", knownTags, False), False
+    CheckV "roster: and goes once they do", VlaIdeSweepsSnapshot("VLAs_u32_Sheets", "U32", knownTags, True), True
+    CheckV "roster: a roster whose program is gone is an orphan", VlaIdeSweepsSnapshot("VLAs_Gone_Sheets", "U32", knownTags, False), True
+    CheckV "roster: another live program's roster is never touched", VlaIdeSweepsSnapshot("VLAs_Other_Sheets", "U32", knownTags, True), False
+
+    ' The record's parse.
+    Dim recRows As Collection
+    Dim activeName As String
+    Dim why As String
+    why = VlaIdeRosterParse("Frazaro.Undo:1" & vbLf & "active:Frazaro" & vbLf & "visible:Frazaro" & vbLf & "hidden:Q1 Data" & vbLf & "very hidden:VLAr_Source" & vbLf, recRows, activeName)
+    CheckV "roster parse: a roster reads", why, ""
+    CheckV "roster parse: the active sheet", activeName, "Frazaro"
+    CheckV "roster parse: the rows in order, a trailing line break ignored", U32Join(recRows), "visible:Frazaro|hidden:Q1 Data|very hidden:VLAr_Source"
+    why = VlaIdeRosterParse("Frazaro.Undo:1" & vbCrLf & "active:A" & vbCrLf & "visible:A", recRows, activeName)
+    CheckV "roster parse: CRLF reads the same", why & "|" & U32Join(recRows), "|visible:A"
+    CheckV "roster parse: empty text is said", VlaIdeRosterParse("", recRows, activeName), "it is empty"
+    why = VlaIdeRosterParse("hello" & vbLf & "active:A", recRows, activeName)
+    Report "roster parse: a first line that is not Frazaro's is said", InStr(why, "first line is 'hello'") > 0, why
+    why = VlaIdeRosterParse("Frazaro.Undo:1" & vbLf & "visible:A", recRows, activeName)
+    Report "roster parse: a missing active line is said", InStr(why, "second line") > 0, why
+    why = VlaIdeRosterParse("Frazaro.Undo:1" & vbLf & "active:A" & vbLf & "visible:A" & vbLf & "gone:B", recRows, activeName)
+    Report "roster parse: a row of an unknown shape is said with its line", InStr(why, "line 4 is 'gone:B'") > 0, why
+    why = VlaIdeRosterParse("Frazaro.Undo:1" & vbLf & "active:A" & vbLf & "visible:", recRows, activeName)
+    Report "roster parse: a row naming no sheet is said", InStr(why, "names no sheet") > 0, why
+
+    ' The plan.
+    Dim recd As Collection
+    Set recd = U19NameList("visible:A", "visible:B", "visible:C")
+    CheckV "roster plan: nothing differs, nothing is decided", U32Plan(recd, "A", U19NameList("visible:A", "visible:B", "visible:C"), "A"), ""
+    CheckV "roster plan: a sheet the run hid is shown, then the active sheet made sure of", U32Plan(recd, "A", U19NameList("visible:A", "hidden:B", "visible:C"), "A"), "show:B|activate:A"
+    Set recd = U19NameList("visible:A", "hidden:B", "visible:C")
+    CheckV "roster plan: a sheet the run showed is hidden again", U32Plan(recd, "A", U19NameList("visible:A", "visible:B", "visible:C"), "A"), "hide:B|activate:A"
+    Set recd = U19NameList("visible:A", "visible:B", "visible:C")
+    CheckV "roster plan: the order, the first sheet first and each next one after the one before", U32Plan(recd, "A", U19NameList("visible:C", "visible:A", "visible:B"), "A"), "move:A:before:C|move:B:after:A|activate:A"
+    CheckV "roster plan: a restored copy at the end goes back after the sheet before it", U32Plan(recd, "A", U19NameList("visible:A", "visible:C", "visible:B"), "A"), "move:B:after:A|activate:A"
+    CheckV "roster plan: a sheet not on the roster between two of its sheets changes nothing", U32Plan(recd, "A", U19NameList("visible:A", "visible:X", "visible:B", "visible:C"), "A"), ""
+    Set recd = U19NameList("visible:A", "very hidden:V", "visible:B")
+    CheckV "roster plan: a very-hidden sheet is left where it is", U32Plan(recd, "A", U19NameList("visible:A", "visible:B", "very hidden:V"), "A"), ""
+    CheckV "roster plan: and one the run showed is still left alone", U32Plan(recd, "A", U19NameList("visible:A", "visible:V", "visible:B"), "A"), ""
+    Set recd = U19NameList("visible:A", "visible:B")
+    CheckV "roster plan: a sheet gone with no copy is reported, never made", U32Plan(recd, "A", U19NameList("visible:A"), "A"), "missing:B|activate:A"
+    CheckV "roster plan: the active sheet alone", U32Plan(recd, "A", U19NameList("visible:A", "visible:B"), "B"), "activate:A"
+    CheckV "roster plan: the active sheet is shown before it is made active", U32Plan(recd, "A", U19NameList("hidden:A", "visible:B"), "B"), "show:A|activate:A"
+    CheckV "roster plan: an active sheet that is gone is only reported", U32Plan(recd, "B", U19NameList("visible:A"), "A"), "missing:B"
+    CheckV "roster plan: an active sheet recorded hidden is never activated", U32Plan(U19NameList("visible:A", "hidden:B"), "B", U19NameList("visible:A", "hidden:B"), "A"), ""
+    CheckV "roster plan: names compare without case", U32Plan(U19NameList("visible:data"), "data", U19NameList("visible:DATA"), "DATA"), ""
+    Set recd = U19NameList("visible:A", "hidden:B", "visible:C")
+    CheckV "roster plan: a hidden sheet a move needs is lifted for the move and dropped after it", U32Plan(recd, "A", U19NameList("visible:A", "visible:C", "hidden:B"), "A"), "lift:B|move:B:after:A|drop:B|activate:A"
+    Set recd = U19NameList("visible:A", "hidden:B", "visible:C", "visible:D")
+    CheckV "roster plan: so is a hidden sheet a move lands beside", U32Plan(recd, "A", U19NameList("visible:A", "hidden:B", "visible:D", "visible:C"), "A"), "lift:B|move:C:after:B|drop:B|activate:A"
+    Set recd = U19NameList("visible:A", "visible:B", "visible:C", "hidden:D")
+    CheckV "roster plan: and every other hidden roster sheet, since Excel places a moved sheet by the visible tabs", _
+           U32Plan(recd, "A", U19NameList("visible:B", "visible:A", "visible:C", "hidden:D"), "A"), "lift:D|move:A:before:B|drop:D|activate:A"
+    Set recd = U19NameList("visible:A", "visible:B", "visible:C")
+    CheckV "roster plan: a sheet a show act shows is not lifted again", U32Plan(recd, "A", U19NameList("hidden:B", "visible:A", "visible:C"), "A"), "show:B|move:A:before:B|activate:A"
+
+    ' The name a restored copy comes back under: a sheet a sentence names
+    ' by a bare name is scanned in lower case, and its copy takes the
+    ' recorded spelling back.
+    Set recd = U19NameList("visible:Sales", "hidden:Q1 Data")
+    CheckV "roster spelling: a name scanned in lower case gets the sheet's own spelling back", VlaIdeRosterSpelling(recd, "sales"), "Sales"
+    CheckV "roster spelling: a name spelled as recorded is itself", VlaIdeRosterSpelling(recd, "Q1 Data"), "Q1 Data"
+    CheckV "roster spelling: a sheet not on the roster has none", VlaIdeRosterSpelling(recd, "Notes"), ""
+
+    ' The words.
+    CheckV "roster words: nothing to say is no line", VlaIdeRosterWords("", "", "", "", "", ""), ""
+    CheckV "roster words: one line per kind of act, in order", VlaIdeRosterWords("Gamma", "Delta", "Beta", "Frazaro", "Notes", ""), _
+           "Shown again: Gamma" & vbCrLf & "Hidden again: Delta" & vbCrLf & "Put back in their place: Beta" & vbCrLf & "Back on sheet: Frazaro" & vbCrLf & "Not put back, the run removed them and Undo had no copy: Notes"
+    CheckV "roster words: a record that could not be read is its own line", VlaIdeRosterWords("", "", "", "", "", "the words"), "the words"
+    Dim m As String
+    m = VlaIdeStopMessage(3, "Go to sheet Q.", "boom", "", "", "Output", "", "Shown again: Data")
+    CheckFrags "roster words: the stopped Run's message carries the roster's lines after its two", m, _
+               Array("Put back as they were before the run: Output." & vbCrLf & "Shown again: Data" & vbCrLf, "stays as it is.")
+    m = VlaIdeStopMessage(3, "Go to sheet Q.", "boom", "", "", "", "", "Hidden again: Data")
+    Report "roster words: a stop with only the roster's lines does not say there was nothing to put back", _
+           InStr(m, "nothing to put back") = 0 And InStr(m, "Hidden again: Data") > 0, m
+
+    ' The refusal.
+    Dim d As String
+    On Error Resume Next
+    VLA_Messages.RaiseMsg "ide-undo-roster-unreadable", "sheet", "VLAs_Main_Sheets", "why", "its first line is 'x', not Frazaro.Undo:1"
+    d = Err.Description
+    Err.Clear
+    On Error GoTo 0
+    Report "roster: an unreadable record is said with its sheet and why, and what was still put back", _
+           InStr(d, "on its sheet 'VLAs_Main_Sheets'") > 0 And InStr(d, "(its first line is 'x', not Frazaro.Undo:1)") > 0 And InStr(d, "{") = 0, d
+
+    ' The helper rows the scan reads.
+    CheckV "scan: a rename row names the old name and the new", VlaIdeScanTargets("(rename-sheet ""Data"" ""Archive"")"), "Data,Archive"
+    CheckV "scan: a named copy names the copy", VlaIdeScanTargets("(copy-sheet-named ""Data"" ""Archive"" ""after"" ""Data"")"), "Archive"
+    CheckV "scan: a bare copy names nothing, the copy's name being Excel's", VlaIdeScanTargets("(copy-sheet ""Data"" ""last"" """")"), ""
+    CheckV "scan: a move names nothing, the order being the roster's", VlaIdeScanTargets("(move-sheet ""Data"" ""before"" ""Report"")"), ""
+    CheckV "scan: hide and show name nothing, the visibility being the roster's", VlaIdeScanTargets("(hide-sheet ""Data"")" & vbLf & "(show-sheet ""Data"")"), ""
+    CheckV "scan: a clear names its sheet", VlaIdeScanTargets("(clear-sheet ""Scratch"")"), "Scratch"
+    CheckV "scan: a raw delete names its sheet", VlaIdeScanTargets("(delete-sheet ""Old"")"), "Old"
+    CheckV "scan: an add names the new sheet", VlaIdeScanTargets("(add-sheet-at ""Report"" ""after"" ""Data"")" & vbLf & "(add-sheet-called ""Scratch"")"), "Report,Scratch"
+    CheckV "scan: the runtime call under a macro is read too", VlaIdeScanTargets("(vlarenamesheet ""A"" ""B"")" & vbLf & "(vlacopysheet ""A"" ""last"" """" ""C"")"), "A,B,C"
+    CheckV "scan: a name in a variable is not known before the run", VlaIdeScanTargets("(rename-sheet nm ""Archive"")"), "Archive"
+    CheckV "scan: a nested form as an argument is stepped over", VlaIdeScanTargets("(rename-sheet (sheet-name 1) ""Archive"")"), "Archive"
+    CheckV "scan: a commented-out helper row is inactive", VlaIdeScanTargets("# (rename-sheet ""Data"" ""Archive"")"), ""
+    CheckV "scan: the head is matched whole", VlaIdeScanTargets("(copy-sheet-named ""Data"" ""Archive"" ""last"" """")"), "Archive"
+    CheckV "scan: the head is matched without case", VlaIdeScanTargets("(Rename-Sheet ""Data"" ""Archive"")"), "Data,Archive"
+    CheckV "scan: an escaped quote in a name is read as the reader reads it", VlaIdeScanTargets("(clear-sheet ""Q\""1"")"), "Q""1"
+    CheckV "scan: a sentence and a helper row together, one name once", VlaIdeScanTargets("Go to sheet Data." & vbLf & "(rename-sheet ""Data"" ""Archive"")"), "data,Archive"
+End Sub
+
+' U.32: the plan's rows joined with |, and a collection's.
+Private Function U32Plan(recRows As Collection, ByVal recActive As String, curRows As Collection, ByVal curActive As String) As String
+    U32Plan = U32Join(VlaIdeRosterPlan(recRows, recActive, curRows, curActive))
+End Function
+
+Private Function U32Join(col As Collection) As String
+    Dim v As Variant
+    Dim r As String
+    For Each v In col
+        If Len(r) > 0 Then r = r & "|"
+        r = r & CStr(v)
+    Next
+    U32Join = r
+End Function
 
 Private Function U19NameList(ParamArray nameList() As Variant) As Collection
     Dim r As Collection
@@ -8676,7 +8828,7 @@ End Function
 ' use, pinned here without a workbook.
 Private Sub TestSheetHelperNames()
     Dim own As Variant
-    For Each own In Array("VLAu_Main_Data", "vlad_main_q1", "VLAn_Main_Output", "VLA_Log", "vlar_source", _
+    For Each own In Array("VLAu_Main_Data", "vlad_main_q1", "VLAn_Main_Output", "VLAs_Main_Sheets", "VLA_Log", "vlar_source", _
                           "Phrasebook", "Generated VBA", "Trace", "feedback", "Frazaro", "FRAZARO", _
                           "Frazaro (Sales)", "frazaro (x)")
         Report "sheet helpers: '" & own & "' is Frazaro's own", VLA_Runtime.VlaIsFrazaroSheetName(CStr(own)), "said it is a user's"

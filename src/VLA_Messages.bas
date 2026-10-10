@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "KERNEL.23"
+Public Const VLA_MESSAGES_VERSION As String = "U.32"
+' U.32: ide-undo-roster-unreadable under VLA-IDE - the Run's roster (the
+' record of every sheet's name, visibility and the active sheet that Undo
+' Last Run puts back) could not be read; said as a line of the Undo dialog
+' and of a stopped Run's message, the copies still put back.
+'
 ' KERNEL.23: the machine's refusals name what they refuse and leave the
 ' line to the answer's own field, where an engine's host reads it:
 ' grid-row-unknown, grid-row-malformed, grid-cell-written-twice,
@@ -302,6 +307,8 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "ide-undo-snapshot-failed", 5, "VLA-IDE", "'{program}' has not run. Before a Run changes anything, Frazaro saves each sheet the Run can change, so Undo Last Run can put it back - and it could not save the sheet '{sheet}' ({reason}). None of the program's sentences ran, and nothing Frazaro made for Undo was left behind. If the workbook is protected (Review > Protect Workbook), unprotect it; then run the program again."
     AddMsg m, "ide-undo-snapshot-failed-copies-left", 5, "VLA-IDE", "'{program}' has not run. Before a Run changes anything, Frazaro saves each sheet the Run can change, so Undo Last Run can put it back - and it could not save the sheet '{sheet}' ({reason}). None of the program's sentences ran, but Frazaro could not remove these sheets it had made for Undo: {left}. Delete them (right-click each tab, then Delete), then run the program again."
     AddMsg m, "ide-undo-snapshot-copy-not-found", 5, "VLA-IDE", "Excel's copy could not be told apart from the other sheets: {count} new sheets appeared where one was expected"
+    ' U.32 - the Run's roster could not be read; a line of the Undo dialog, the copies still put back.
+    AddMsg m, "ide-undo-roster-unreadable", 5, "VLA-IDE", "The sheets' order, visibility and active sheet were not put back: the record Frazaro kept of them before the last Run, on its sheet '{sheet}', could not be read ({why}). The sheets named above were still put back. The next Run makes a new record."
     ' SEC.9 deliberately adds NO id here. Every refusal it can produce is
     ' a decision the person just made in a dialog, not a fault to report
     ' back to them - the gate skips and records rather than raising, so

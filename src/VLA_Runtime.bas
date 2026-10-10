@@ -9,7 +9,12 @@ Option Explicit
 ' SIG.0: this notice sits INSIDE the injectable region on purpose, so
 ' it travels with the code it licenses; tools/check_spdx.ps1 fails if
 ' it ever drifts below the boundary.
-Public Const VLA_RUNTIME_VERSION As String = "L-SHEET-HELPERS"
+Public Const VLA_RUNTIME_VERSION As String = "U.32"
+' U.32: VlaIsFrazaroSheetName learns the roster's prefix, VLAs_ - the Run's
+' record of every sheet's name and visibility and of the active sheet,
+' which Undo Last Run now puts back - so a program can never copy, move,
+' rename, hide, clear or delete a roster sheet, as it never could an Undo
+' copy.
 ' L-SHEET-HELPERS: the sheet helpers G-TABS's sentences will call, each a
 ' refusal in Frazaro's words before Excel's own 1004 (LX.8): VlaAddSheetAt,
 ' VlaCopySheet (a Function: the copy's name comes back), VlaMoveSheet,
@@ -1186,22 +1191,24 @@ End Sub
 '    showing, is refused; so is deleting the only worksheet showing.
 '  - A structure-protected workbook is refused first, in words, for
 '    every act Excel would refuse with 1004.
-'  Undo (VLA_IDE's snapshot) records neither tab order nor visibility,
-'  and sees only sheets named after the word "sheet" in a sentence:
-'  measured by tools/VLA_DiagSheetHelpers.bas and filed as U.32.
+'  Undo (VLA_IDE's snapshot) puts back tab order, visibility and the
+'  active sheet from the Run's roster since U.32, and its scan reads the
+'  helper rows a raw program holds; a bare copy stands after Undo, the
+'  owner's call (measured by tools/VLA_DiagSheetHelpers.bas).
 ' ---------------------------------------------------------------------
 
 ' Frazaro's own sheet names, as VLA_IDE's IsFrazaroSheetName reads them:
-' an Undo copy or tombstone (VLAu_, VLAd_), a Run's staging (VLAn_), the
-' log, the build's source sheet, the Phrasebook, Generated VBA and Trace
-' display sheets, Copy Feedback's sheet, and a program tab, "Frazaro" or
-' "Frazaro (<name>)" (VlaIdeIsWorkspaceName's shape, length and all).
-' Pure and case-blind, so TestSheetHelperNames pins it without a workbook.
+' an Undo copy or tombstone (VLAu_, VLAd_), a Run's staging (VLAn_) and
+' its roster (VLAs_, U.32), the log, the build's source sheet, the
+' Phrasebook, Generated VBA and Trace display sheets, Copy Feedback's
+' sheet, and a program tab, "Frazaro" or "Frazaro (<name>)"
+' (VlaIdeIsWorkspaceName's shape, length and all). Pure and case-blind,
+' so TestSheetHelperNames pins it without a workbook.
 Public Function VlaIsFrazaroSheetName(ByVal nm As String) As Boolean
     Dim k As String
     k = Fold(nm)
     If Len(k) = 0 Then Exit Function
-    If Left$(k, 5) = "vlau_" Or Left$(k, 5) = "vlad_" Or Left$(k, 5) = "vlan_" Then
+    If Left$(k, 5) = "vlau_" Or Left$(k, 5) = "vlad_" Or Left$(k, 5) = "vlan_" Or Left$(k, 5) = "vlas_" Then
         VlaIsFrazaroSheetName = True
         Exit Function
     End If
