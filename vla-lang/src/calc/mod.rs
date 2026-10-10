@@ -19,19 +19,21 @@
 //! [`shape`]: every formula parsed once per shape and evaluated at each
 //! cell's offset, a step with a budget in cells that yields and resumes
 //! (`Alonzo/SPEC.md` section 4.4), the previous frame's `.last` twins being
-//! ordinary sheets to it. [`Calc`] keeps its plan of texts and its parse at
-//! evaluation, since it evaluates each formula once and an engine every
-//! formula every frame.
+//! ordinary sheets to it, each kept beside as an array over its extent that
+//! a read indexes and a range walks ([`dense`], KERNEL.20). [`Calc`] keeps
+//! its plan of texts and its parse at evaluation, since it evaluates each
+//! formula once and an engine every formula every frame.
 //!
 //! What is not here, by name, each a slice of its own: dates, text
 //! functions, lookups, dynamic arrays and spills, implicit intersection
-//! and `@`, `LET` and `LAMBDA` (`KERNEL.8`); speed, the vectorized shared
-//! formula, incremental recomputation and content-addressed evaluation
-//! (`KERNEL.20`). A formula that reaches any of them is not computed, and
-//! says so naming the function or the construct ([`Reason`]), which is the
-//! honest static label of `HORIZON.md` section 12.6; a cell that reads such
-//! a cell inherits the reason.
+//! and `@`, `LET` and `LAMBDA` (`KERNEL.8`); the rest of speed, the
+//! vectorized shared formula, incremental recomputation and
+//! content-addressed evaluation (`KERNEL.20`). A formula that reaches any
+//! of them is not computed, and says so naming the function or the
+//! construct ([`Reason`]), which is the honest static label of `HORIZON.md`
+//! section 12.6; a cell that reads such a cell inherits the reason.
 
+pub mod dense;
 pub mod eval;
 pub mod formula;
 pub mod graph;
@@ -46,6 +48,7 @@ use crate::messages::{raise, Refusal};
 use crate::refers::quote_sheet;
 use crate::sheet::{cell_ref, formula_text, shared_masters, Content, Workbook};
 
+pub use dense::Dense;
 pub use eval::{Arg, Computed, Ctx, Env, Form, Library, Reason, Strict};
 pub use formula::{calls, parse, Expr};
 pub use graph::{Area, Areas, CellId, Extent, Names, Plan};

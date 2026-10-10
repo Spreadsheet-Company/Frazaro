@@ -27,6 +27,7 @@ use crate::intrinsics::fold;
 use crate::rows::quoted;
 use crate::sheet::Workbook;
 
+use super::dense::Dense;
 use super::formula::{self, BinOp, Expr, RefExpr};
 use super::graph::{areas_at, cells_in, Area, Areas, CellId, Extent};
 use super::value::{ErrorKind, Value};
@@ -124,6 +125,16 @@ pub trait Env {
     /// The text of a defined name, resolved as `graph::Names::resolve`
     /// resolves it.
     fn name(&self, name: &str, scope: Option<usize>, home: usize) -> Option<&str>;
+    /// A sheet's values kept as an array over its extent, when the
+    /// environment keeps one (KERNEL.20: an engine's machine, for each
+    /// `.last` twin): each slot the value a read of its cell answers, or
+    /// `Value::Empty` for a cell holding none, which a walk skips as a walk
+    /// of the cells skips it; so a range of the sheet is walked by index and
+    /// never cell by cell. `None`, a sheet walked through its cells, unless
+    /// an environment says otherwise.
+    fn dense(&self, _sheet: usize) -> Option<&Dense> {
+        None
+    }
 }
 
 /// A strict function: its arguments evaluated, a value or a reason out.
@@ -325,13 +336,19 @@ impl<'a> Ctx<'a> {
     /// Every cell the areas hold, in area order then row-major, to `f`;
     /// a cell nothing holds is skipped, as Excel skips it in a range. `f` is
     /// a type of its own and not a pointer, so that an aggregate's fold is
-    /// compiled into the walk (KERNEL.25).
+    /// compiled into the walk (KERNEL.25). A sheet the environment keeps as
+    /// an array is walked by index, the same values in the same order
+    /// (KERNEL.20).
     pub fn each<F>(&self, areas: &[Area], mut f: F) -> Result<(), Reason>
     where
         F: FnMut(Value) -> Result<(), Reason>,
     {
         let model = self.env.model();
         for a in areas {
+            if let Some(kept) = self.env.dense(a.sheet) {
+                kept.each(a, &mut f)?;
+                continue;
+            }
             let Some(sheet) = model.sheets.get(a.sheet) else {
                 continue;
             };

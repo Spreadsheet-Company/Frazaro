@@ -2,6 +2,24 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
+## 0.8.2
+
+### What changed
+
+- **For engines: a frame of a grid steps about twice as fast.** The
+  previous frame's values, which a rule reads through each sheet's hidden
+  twin (`Screen.last`), are now kept as an array beside the twin's cells,
+  so that reading one is an index and a range of them a walk of the array.
+  A frame of Life on a 320 by 200 Screen, 62,964 formulas, steps in about
+  47 ms natively and 58 ms in WebAssembly in the browser, where 0.8.1 took
+  about 100 and 138. Every value is computed exactly as before, and a frame
+  makes no more allocations than it did (KERNEL.20, its first slice).
+
+### Known open security items
+
+**Closed this release:** none yet. Standing advice unchanged. The full list
+of open items is in `docs/BETA_REARVIEW.md`, in plain words in `README.md`.
+
 ## 0.8.1
 
 ### What changed

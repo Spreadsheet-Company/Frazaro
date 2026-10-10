@@ -19590,6 +19590,254 @@ the isolated tree verified first: 303 tests passed and 4 ignored, 54 of
 54 checks. The item closed with the commit; its line is in the closed
 ledger.
 
+**`KERNEL.20`, speed: the first slice, the previous frame's values kept as
+an array and a range walked over it: the scoping, 2026-10-10.** Asked by
+Alonzo's `CART.1` (its `REARVIEW.md`, decision 9's named ask) and
+recommended by its session as Frazaro's next item, on the profile
+`KERNEL.25`'s entry records: a scratch prototype over the seven fixes kept
+each `.last` twin's values as an array over its extent, rebuilt at every
+frame's end, so that a read of the twin was an index (67.4 ms natively
+against the seven's 93.8), and walked a range over that array through an
+`Env` method taking `&mut dyn FnMut` (46.4 natively and 59.8 in wasm, 5.9
+and 4.5 times the base). `KERNEL.20`'s line names it the ground the
+vectorized shape needs too. Scoped and built the same day at the owner's
+word, "proceed with scoping and implementing KERNEL.20", while a peer
+session built `VLA.1` in the same tree: the two items meet in
+`calc/eval.rs`, `calc/mod.rs` and `machine/mod.rs` by hunks that do not
+touch, so this slice was built and verified in a worktree of its own at
+HEAD `3235bf9` and moved into the shared tree after.
+
+*Read in the code before anything was proposed*, at HEAD `3235bf9`, whose
+`vla-lang` is `f5dc344`'s byte for byte (0.8.1's source):
+- A twin `X.last` is a sheet of the machine's workbook, its cells a B-tree,
+  filled by `snapshot` at every frame's end from the rows' sheets' values,
+  in the walk that keeps a plane (`KERNEL.24`). Every other reader reads it
+  as a sheet: the record (`view grid`), the plane's walk, a save, and an
+  engine through `Machine::workbook()` (Alonzo's `cartridge.rs`, five
+  places).
+- `Env::read` of a twin's cell reads that B-tree, then `twin_reasons`
+  (`KERNEL.25`'s decision 8). `Ctx::each` walks a range through `cells_in`
+  over the sheet's B-tree and reads each cell through `Env::read`, a call
+  through `dyn Env` a cell. Life's steady rule reads about 21 cells of
+  `Screen.last` for each cell it computes, two ranges of nine and three
+  reads of `B2`, and one of `Clock!$B$1`.
+- Nothing writes a twin but `snapshot`: a write into one is refused
+  (`grid-write-last`), and between two frames' ends a rows' sheet only
+  gains cells and changes them (`put_values`, `put_formula` and
+  `release_masters` set cells and never remove one, and a refused write is
+  undone whole: the machine's own "a write never empties a cell").
+- A twin holds no cell for a formula not computed; its reason stands beside
+  in `twin_reasons`. A read of the cell answers the reason, and `cells_in`
+  never visits it, so a range over the twin skips it, where a range over the
+  rows' sheet answers the reason (decision 7).
+- `Value` is 24 bytes; a cell of a twin's B-tree costs about 137 (a counting
+  allocator: 8,763,432 bytes for 320 by 200 cells inserted row by row).
+  Life's grid holds 62,964 Screen cells and 59 text cells, the Palette's
+  32, the Input's 20, the File's 4 and the Clock's 3, two of the Input's
+  empty.
+- `Calc`, the door's recalculation, implements `Env` too, and nothing of it
+  changes.
+
+*Measured here before anything was proposed*, two ways. `CART.1`'s runner
+(Alonzo's `engine/examples/frames.rs` at its HEAD `357cee8`) in a scratch
+workspace over a worktree of this tree's HEAD, under Alonzo's release
+profile, opted out of power throttling, at high priority and pinned to one
+performance core: a steady frame of the soup 98.2 to 100.7 ms, of the gun
+98.2 to 99.7, every frame equal to the hand-written Life; the check mode's
+251,957 allocations and 5 reallocations a frame for the soup, 251,958 and 5
+for the gun, Alonzo's ceilings exactly. And Alonzo's own instrument,
+`tools/bench_frames.ps1`, over a whole copy of Alonzo's HEAD whose pin was
+a path to the same worktree: natively 101.6 to 102.6 ms a frame of the
+soup, in headless Chrome 154 136.6 to 138.8 (the gun 135.7 to 137.2), 7.2
+to 7.3 frames a second; the engine's module 462,665 bytes.
+
+*The decisions*, built at the owner's word of the day, each with its
+alternative, open to the owner's veto before the commit.
+
+1. **A slice of `KERNEL.20`, not an item of its own.** The line's dated note
+   placed this ground here, and the item stays open for the rest of its
+   line: the vectorized shape, incremental maintenance, content-addressed
+   evaluation, folding at build time, the view's cone, and the measurement
+   against Excel with `check_recalc_floors.ps1`. The line is 🟡 while the
+   slice waits for the owner and keeps its place after it, with a dated
+   note. *Alternative:* `KERNEL.26`, an item for the slice closing on its
+   own, as `KERNEL.25` did for the seven.
+2. **The array beside the twin's cells, never in their place.** The twin
+   stays a sheet every reader reads; the array is the evaluator's alone,
+   filled in the walk that fills the twin and keeps the plane, so no reader
+   but the evaluator changes. *Alternative:* the twin as the array alone,
+   its B-tree made only when a reader asks, every reader of a twin's cells
+   changed for it: measured below at 1.4 ms of a 47 ms frame, and named for
+   the next slice.
+3. **A slot is a `Value`**, 24 bytes, the value a read of its cell answers,
+   `Value::Empty` for a cell that holds none, which a walk skips as the walk
+   of the cells skips a cell that is not there. A slot is spelled from the
+   twin cell's content by the function the twin's read now uses too, and a
+   test holds both to a spelling of its own. *Alternatives:* `Option<Value>`,
+   the prototype's, 24 bytes as well and one more state to keep; a lane of
+   numbers with a byte of kind beside it, nine bytes a cell and the
+   vectorized shape's natural input, a second spelling of the value kinds,
+   for the vectorized slice to choose when it measures what it needs.
+4. **Every twin dense enough keeps one, at every frame's end, with no flag:
+   at most four slots a cell of its sheet, and never more than `CELLS`.**
+   Four slots cost 96 bytes against the 137 a cell of the B-tree costs, so
+   an array is never larger than the cells it shadows: Life's Screen keeps
+   1.5 MB beside its twin's 8.6 MB, the other twins next to nothing, and
+   two cells far apart keep none and are read through their cells.
+   *Alternatives:* kept only once read, as a plane is kept once viewed
+   (`KERNEL.24`'s `wanted`), which would read the first frame after a load
+   the old way; the twins a formula's references name, which the plan knows
+   and a defined name hides; the prototype's rule, every twin up to
+   `CELLS`, 24 MB for a sheet of two cells.
+5. **The seam is `Env::dense`, a provided method answering `None`.**
+   `Ctx::each` asks it once an area and walks the array by index, row by
+   row, the area clamped to the extent as `cells_in` clamps it, through
+   `Dense::each`, generic over the fold as `KERNEL.25` measured it; a sheet
+   with no array is walked through its cells as before. The machine's read
+   of a twin's cell indexes the same array. `Calc` answers `None`, and no
+   implementor of `Env` changes. *Alternative:* the prototype's
+   `Env::each_in` taking `&mut dyn FnMut`, a call the compiler cannot inline
+   for every value, which `KERNEL.25` measured at 6% of a frame.
+6. **The array kept in place when its extent is the same.** The first build
+   cleared and refilled every slot each frame, and its frames were right,
+   but it made 57 allocations a frame more, one for each of the grid's 57
+   texts that are not empty, which would fail Alonzo's ceilings at its
+   pin's move. So `Dense::over` hands back the last frame's store when the
+   extent is the same, and every cell of the sheet overwrites its own slot,
+   a text equal to the one held kept as it is and a changed one copied into
+   the slot's own string. Nothing is left stale: between two frames' ends a
+   sheet only gains cells, a cell gained was an empty slot, and a cell with
+   no value empties its slot. Any other extent clears the store in the same
+   memory. The count is back to 251,957 and 251,958. *Alternative:* the
+   clear and refill, simpler, and Alonzo's ceilings raised by 57 with a
+   reason written beside them.
+7. **Bit for bit, and a finding kept so.** Each slot is what the twin's
+   read answers, and the walk yields the twin's present cells in the order
+   `cells_in` does, so every value, every fold and every frame is what it
+   was. Found on the way: a range over a twin skips a cell whose formula was
+   not computed, where a read of that cell and a range over its rows' sheet
+   answer its reason, as the library's header promises a range does. The
+   array answers as the cells did, both ways, and a test pins it as found.
+   *Alternatives:* the walk made to answer the reason here, a change of
+   meaning inside a speed item, the array then differing from the cells it
+   shadows and a sparse twin still skipping; or the finding filed alone.
+   Recommended: left for `KERNEL.8`, whose implicit intersection removes the
+   commonest cell not computed at a step, a range where one value is
+   wanted, and decided there with the rest of what a range reads. The
+   owner's word, 2026-10-10: noted on `KERNEL.8`'s line, as recommended.
+8. **The oracle.** A test holds every twin's array to its cells: each cell
+   of a window wider than the extent read both ways, nine areas (the extent,
+   the whole sheet, a row, a column, across a corner, past the extent, one
+   cell, a whole column and a whole row) walked both ways, value for value
+   in order, then whether each sheet keeps an array, asked through the seam;
+   over `PLANES`'s texts, truth values, errors, a cell not computed, a
+   shared formula and a second sheet, after the load, three steps, seven
+   writes (one a value cell turned to a formula not computed, one a text
+   changed in place, two growing the extent), a refused write, a yield, a
+   frame count set and a save loaded again; and over Life, four frames. A
+   sheet too sparse is read through its cells, and one grows past the rule
+   and loses its array. The finding of decision 7 is pinned. `Dense`'s own
+   tests: the extent row by row, the clamping, a fold stopping at its first
+   error, its memory kept and a text not copied, the limit. Mutants, each
+   applied once and restored by writing the saved text: a row walked right
+   to left, a cell with no value leaving its old slot, a store kept over
+   another extent, the array's read forgetting a reason, the seam answering
+   no array, eight slots a cell, a formula's slot filled from its text; each
+   must fail. *Measured:* Alonzo's runner and Alonzo's instrument as above,
+   alternated with the base; the check mode's allocations; the modules'
+   sizes.
+9. **What the cheaper frame spends, measured, and the order it gives.**
+   Ablations over a copy of this slice and two lookups timed alone, on one
+   performance core (below), name the next slice: the frame's-end snapshot,
+   6.9 ms of a 47 ms frame timed alone, the twin's B-tree 1.4 ms of the
+   frame by ablation; the library's lookups by name at every call, 5.3 ms;
+   a reference's sheet found by name at every evaluation, 3.1; a strict
+   call's argument list, 2.5. Together about 12 ms, each to take bit for
+   bit and none of them the vectorized shape: each call's function and each
+   reference's sheet found once at the shape, the arguments held inline,
+   the twin's B-tree made only when read. The rest, about 29 ms, is the
+   evaluator walking its parse cell by cell, the vectorized shape's to take.
+   *Alternative:* the vectorized shape next, over the overheads left, which
+   `CART.1`'s order, every accelerator measured from the cheaper base, puts
+   after them.
+10. **The bookkeeping and the hand-off.** `KERNEL.20`'s line 🟡 with a dated
+    note; this entry; a bullet under a new `## 0.8.2` in `RELEASES.md`, the
+    version the owner's to name at the release; the map's line; the memory.
+    No catalogue id, no VBA, no golden: nothing a door prints changes. The
+    commit at the owner's word, by `-F`, staged blob by blob from HEAD with
+    this slice's hunks, the peer's `VLA.1` hunks in the same three files
+    left in the tree. Then Alonzo's session: its pin moves to the commit by
+    a git rev, as its `Cargo.toml` foresees for `KERNEL.20`, or to the next
+    release; its runner's frames and allocation ceilings hold unchanged, and
+    its floors rise by the instrument's next run.
+
+*Size* (*prediction*): about 150 lines of change and 250 of tests; a day.
+
+*Built 2026-10-10*, in a worktree at HEAD, in the order of the decisions.
+`vla-lang/src/calc/dense.rs`, new: `Dense`, a sheet's values over its
+extent row by row, with `over` (the old store handed back over the same
+extent, its memory reused over another), `slot`, `get` and `each`, generic
+over the fold and its error, and two tests. `vla-lang/src/calc/eval.rs`:
+`Env::dense`, provided, `None`; `Ctx::each` walking an array when the
+environment keeps one. `vla-lang/src/calc/mod.rs`: the module and `Dense`
+exported, the header's two paragraphs. `vla-lang/src/machine/mod.rs`:
+`SLOTS_A_CELL`; the field `dense`, by rows' sheet; `snapshot` keeping each
+twin's array in its walk, a cell with no value emptying its slot, the array
+dropped on a flag of its own as the plane is on its own; `Env::read` of a
+twin indexing the array before the B-tree; `Env::dense`; `content_value`,
+the one spelling of a cell's value the read and the slots share; `refresh`,
+a slot overwritten in place; three tests and their helpers.
+
+*Measured.* Alonzo's runner over the worktree against the base, three
+rounds alternated, one performance core, every frame of every run equal to
+the hand-written Life: the soup 100.0 to 46.5 ms a steady frame, the gun
+99.5 to 46.2, 2.15 times; about 1,354,000 cells a second and 21.5 frames.
+The check mode: 251,957 and 5, 251,958 and 5, unchanged (decision 6).
+Alonzo's instrument over the two whole copies, three runs each, each the
+median of its three: natively 102.2 to 47.3 ms a frame of the soup (2.16
+times) and 101.3 to 47.2 of the gun; in headless Chrome 138.2 to 58.1 (2.38
+times) and 136.3 to 57.6 (2.37), 1,081,856 to 1,104,632 cells a second and
+17.2 to 17.5 frames, against 453,631 to 460,937 and 7.2 to 7.3. The first
+run's page clock read 0.330 ms a generation in the base's copy and 0.255
+in this slice's; the repeats read 0.255 to 0.260 in both, and the frames
+held. The prototypes' 46.4 and 59.8 are met, natively the same and in wasm
+3% under, the store no longer allocated each frame. The modules: the
+engine's 462,665 to 471,225 bytes, the language's with `c-abi` 430,783 to
+439,215, the core's 1,124,086 to 1,129,385, each with 0 imports.
+
+*The profile of the cheaper frame* (decision 9), on the same core with the
+same runner, three rounds alternated, each ablation a feature of a scratch
+copy and never in this tree: a strict call's arguments in an array of four
+on the stack, 47.5 to 45.0 ms; the twin's B-tree left unfilled, 46.8 to
+45.4, the snapshot timed alone 6.9 ms to 4.4; and, timed alone over Life's
+grid of ten sheets, a frame's ten library lookups a cell 5.25 ms and its
+six sheets found by name a cell 3.07. A cache of four in front of
+`find_sheet`, kept in thread-local storage, measured 57.2 ms against 47.5:
+copying it in and out at each call cost more than the search it saves, so
+a resolution at the shape, not a cache, is the form the next slice takes.
+
+*Oracle, met* in the worktree, HEAD and this slice alone: `cargo test
+--workspace`, 308 passed and 4 ignored, the five new tests over
+`KERNEL.25`'s 303; fmt clean; clippy clean, with `c-abi` too; the seven
+mutants failed, each in the tests that name its decision (a row right to
+left, two; a cell's old slot left, one; a store over another extent, two,
+and the kept plane's test too until the array had a flag of its own, run
+again since; the reason forgotten, three; no array, three; eight slots,
+one; a slot from its text, ten, Life's among them), and the clean run
+after them passed; `run_checks.ps1` 54 of 54 with the door, both modules and the page
+built there; `prove.ps1` 46 passed, 0 failed, 2 not attempted, 1 library.
+No Excel step: the slice touches no VBA.
+
+*Committed 2026-10-10 at the owner's word*, "note the pre-existing bug in
+KERNEL.8, commit the first slice of KERNEL.20, then proceed with the next
+slice": the owner took the oracle above as the slice's test, and decision
+7's finding went onto `KERNEL.8`'s line in the same commit. The commit
+holds HEAD and this slice's hunks alone, staged blob by blob from the
+worktree, the peer's `VLA.1` hunks in the same files left in the tree;
+its tree was built through a temporary index and checked first, 54 of 54.
+`KERNEL.20` stays open, 🟡, for the rest of its line, its next slice begun
+the same day.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION

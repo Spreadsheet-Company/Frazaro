@@ -24,9 +24,11 @@
 //! a view during a yield shows the last complete frame; then every sheet's
 //! values are copied into its twin, and in the same walk the plane of each
 //! sheet an engine views as one is kept, so that a view of it is a copy
-//! ([`plane::Raster`], KERNEL.24). The step computes values and never
-//! formulas (`AD-7`): the formula cells after a step are the formula cells
-//! before it.
+//! ([`plane::Raster`], KERNEL.24), and each twin's values are kept as an
+//! array over its sheet's extent, so that the next frame's read of a twin is
+//! an index and its range a walk of the array ([`Dense`], KERNEL.20). The
+//! step computes values and never formulas (`AD-7`): the formula cells after
+//! a step are the formula cells before it.
 //!
 //! **The writes.** `cell`, `formula` and `derived` rows, applied in order;
 //! a refused row undoes the rows before it, so a refused write changes
@@ -46,7 +48,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::calc::graph::{is_formula, Extent, Names};
 use crate::calc::shape::{spell_cell, Shapes};
-use crate::calc::{CellId, Computed, Env, ErrorKind, Library, Reason, Value, Values};
+use crate::calc::{CellId, Computed, Dense, Env, ErrorKind, Library, Reason, Value, Values};
 use crate::form::Form;
 use crate::fx::FxHashMap;
 use crate::messages::{raise, Refusal};
@@ -70,6 +72,13 @@ pub const HANDLES: usize = 16;
 
 /// The rows a write takes, as `grid-row-unknown` lists them.
 pub const WRITE_ROWS: &str = "cell, formula and derived";
+
+/// The most slots a twin's array holds for each cell of its sheet
+/// (KERNEL.20): a slot is 24 bytes and a cell of the twin's B-tree about 137
+/// (measured 2026-10-10), so an array within this is smaller than the cells
+/// it shadows, and a sheet sparser than that, two cells far apart, is read
+/// through its cells.
+const SLOTS_A_CELL: u64 = 4;
 
 /// A refusal and the line of the row it stands on, 0 when none.
 #[derive(Clone, Debug, PartialEq)]
@@ -255,6 +264,11 @@ pub struct Machine {
     /// in `wanted`; a write drops the planes of the sheets it changed, and
     /// the next frame's end keeps them again.
     planes: Vec<Option<plane::Raster>>,
+    /// By rows' sheet, its twin's values as an array over the sheet's
+    /// extent (KERNEL.20), kept with the twin at every frame's end and
+    /// changed by nothing else, a twin being refused to every write; `None`
+    /// for a sheet too sparse for one, whose twin is read through its cells.
+    dense: Vec<Option<Dense>>,
 }
 
 impl std::fmt::Debug for Machine {
@@ -347,6 +361,7 @@ impl Machine {
             here: Slot::new((0, 1, 1)),
             wanted: (0..sheets).map(|_| Slot::new(false)).collect(),
             planes: vec![None; sheets],
+            dense: vec![None; sheets],
         };
         m.snapshot();
         Ok(m)
@@ -457,7 +472,9 @@ impl Machine {
     /// stands, a formula cell's value of the last complete frame; a formula
     /// with no value leaves its twin cell empty, and one not computed leaves
     /// its reason beside it. A sheet an engine views as a plane has its
-    /// plane kept from the same values in the same walk (KERNEL.24).
+    /// plane kept from the same values in the same walk (KERNEL.24), and
+    /// every twin dense enough its array, each slot what a read of the
+    /// twin's cell answers (KERNEL.20).
     fn snapshot(&mut self) {
         self.twin_reasons.clear();
         let sheets = self.sheets;
@@ -469,7 +486,14 @@ impl Machine {
             } else {
                 None
             };
+            let slots = (sheet.cells.len() as u64).saturating_mul(SLOTS_A_CELL);
+            let mut kept = Dense::over(
+                self.extents[s],
+                slots.min(CELLS as u64),
+                self.dense[s].take(),
+            );
             let mut fits = true;
+            let mut whole = true;
             let mut fresh: Vec<((u32, u32), Content)> = Vec::with_capacity(sheet.cells.len());
             for (&(row, col), cell) in &sheet.cells {
                 // A formula's value, looked up once for the twin and the plane.
@@ -478,19 +502,33 @@ impl Machine {
                     fits &= r.set(row, col, plane::kept_byte(&cell.content, value.flatten()));
                 }
                 let content = match value {
-                    None => cell.content.clone(),
-                    Some(Some(Computed::Value(v))) => value_content(v),
+                    None => Some(cell.content.clone()),
+                    Some(Some(Computed::Value(v))) => Some(value_content(v)),
                     Some(Some(Computed::NotComputed(r))) => {
                         self.twin_reasons.insert((t, row, col), r.clone());
-                        continue;
+                        None
                     }
-                    Some(None) => continue,
+                    Some(None) => None,
                 };
-                fresh.push(((row, col), content));
+                // Every cell of the sheet writes its slot, so a store kept
+                // over the same extent as the last frame's holds nothing
+                // stale: a write only adds cells and changes them, and a cell
+                // added since was an empty slot.
+                if let Some(k) = kept.as_mut() {
+                    match k.slot(row, col) {
+                        Some(slot) => refresh(slot, content.as_ref()),
+                        None => whole = false,
+                    }
+                }
+                if let Some(content) = content {
+                    fresh.push(((row, col), content));
+                }
             }
             // A cell outside the extent would mean a stale extent: the walk
             // answers rather than a plane that might be wrong.
             self.planes[s] = raster.filter(|_| fits);
+            // And the twin's cells rather than an array that might be.
+            self.dense[s] = kept.filter(|_| whole);
             let same_cells = twin.cells.len() == fresh.len()
                 && twin.cells.keys().zip(&fresh).all(|(k, (f, _))| k == f);
             if same_cells {
@@ -934,6 +972,17 @@ impl Env for Machine {
                 // a cycle, which the plan refuses before it is held.
                 return Err(Reason::Cycle);
             }
+        } else if let Some(kept) = self.dense(id.0) {
+            // A twin kept as an array is read by its index (KERNEL.20): the
+            // value its cell holds, or nothing, beside which its reason may
+            // stand, as below.
+            if let Some(v) = kept.get(id.1, id.2).filter(|v| !matches!(v, Value::Empty)) {
+                return Ok(v.clone());
+            }
+            return match self.twin_reasons.get(&id) {
+                Some(r) => Err(r.clone()),
+                None => Ok(Value::Empty),
+            };
         }
         let Some(cell) = self
             .book
@@ -946,13 +995,7 @@ impl Env for Machine {
                 None => Ok(Value::Empty),
             };
         };
-        Ok(match &cell.content {
-            Content::Text(t) => Value::Text(t.clone()),
-            Content::Number(n) => Value::Number(*n),
-            Content::Bool(b) => Value::Bool(*b),
-            Content::Error(e) => Value::Error(ErrorKind::parse(e).unwrap_or(ErrorKind::Value)),
-            _ => Value::Empty,
-        })
+        Ok(content_value(&cell.content))
     }
 
     fn extent(&self, sheet: usize) -> Extent {
@@ -961,6 +1004,40 @@ impl Env for Machine {
 
     fn name(&self, name: &str, scope: Option<usize>, home: usize) -> Option<&str> {
         self.names.resolve(name, scope, home)
+    }
+
+    fn dense(&self, sheet: usize) -> Option<&Dense> {
+        let s = sheet.checked_sub(self.sheets)?;
+        self.dense.get(s)?.as_ref()
+    }
+}
+
+/// A cell's content as a read of it answers: a value as it stands, an error
+/// text as its kind (an error this version does not hold as `#VALUE!`), and
+/// nothing for a formula, which a read finds in the frame's values first. The
+/// twin's read and its array's slots are spelled here once (KERNEL.20).
+fn content_value(content: &Content) -> Value {
+    match content {
+        Content::Text(t) => Value::Text(t.clone()),
+        Content::Number(n) => Value::Number(*n),
+        Content::Bool(b) => Value::Bool(*b),
+        Content::Error(e) => Value::Error(ErrorKind::parse(e).unwrap_or(ErrorKind::Value)),
+        _ => Value::Empty,
+    }
+}
+
+/// A twin's slot overwritten with what a read of the cell's new content
+/// answers, nothing for a cell that keeps no value; a text the slot holds
+/// already is kept and never copied again, so that a frame allocates no more
+/// than it did before the array (KERNEL.20).
+fn refresh(slot: &mut Value, content: Option<&Content>) {
+    match (slot, content) {
+        (Value::Text(held), Some(Content::Text(t))) => {
+            if *held != *t {
+                held.clone_from(t);
+            }
+        }
+        (slot, content) => *slot = content.map_or(Value::Empty, content_value),
     }
 }
 
@@ -1508,6 +1585,220 @@ mod tests {
         );
         assert_eq!(m.read((twin, 1, 4)), Ok(Value::Number(7.0)));
         assert_eq!(m.read((twin, 9, 9)), Ok(Value::Empty));
+    }
+
+    /// A twin's cell as its cells and its reasons answer: the reference a
+    /// twin's array is held to (KERNEL.20), the rule spelled here for itself.
+    fn twin_cell(m: &Machine, t: usize, row: u32, col: u32) -> Result<Value, Reason> {
+        let Some(cell) = m.book.sheets[t].cells.get(&(row, col)) else {
+            return match m.twin_reasons.get(&(t, row, col)) {
+                Some(r) => Err(r.clone()),
+                None => Ok(Value::Empty),
+            };
+        };
+        Ok(match &cell.content {
+            Content::Number(n) => Value::Number(*n),
+            Content::Text(s) => Value::Text(s.clone()),
+            Content::Bool(b) => Value::Bool(*b),
+            Content::Error(e) => Value::Error(ErrorKind::parse(e).unwrap_or(ErrorKind::Value)),
+            other => panic!("a twin holds {other:?}"),
+        })
+    }
+
+    /// Whether a sheet's twin is kept as an array (KERNEL.20), asked as the
+    /// evaluator asks it, of the twin.
+    fn dense_kept(m: &Machine, sheet: &str) -> bool {
+        let twin = m.workbook().find_sheet(&format!("{sheet}.last")).unwrap();
+        m.dense(twin).is_some()
+    }
+
+    /// Every twin read and walked by the evaluator held to its cells: each
+    /// cell of a window a cell wider than its sheet's extent read both ways
+    /// (a twin's own cells and its extent's corners, for an extent too wide
+    /// to read whole), and areas inside, across and past the extent walked
+    /// both ways, value for value in order; then each sheet named kept as an
+    /// array, or not, as said, so that equal answers never hide a twin read
+    /// the old way.
+    fn dense_is_the_twin(m: &Machine, kept_now: &[(&str, bool)], when: &str) {
+        use crate::calc::graph::cells_in;
+        use crate::calc::{Area, Ctx};
+        use crate::sheet::{MAX_COLUMN, MAX_ROW};
+        let ctx = Ctx::new(m, &m.library);
+        for s in 0..m.sheets {
+            let t = m.sheets + s;
+            let name = m.book.sheets[t].name.clone();
+            let Some(((top, left), (bottom, right))) = m.extents[s] else {
+                continue;
+            };
+            let (top, left) = (top.saturating_sub(1).max(1), left.saturating_sub(1).max(1));
+            let (bottom, right) = ((bottom + 1).min(MAX_ROW), (right + 1).min(MAX_COLUMN));
+            let mut cells: Vec<(u32, u32)> = Vec::new();
+            if u64::from(bottom - top + 1) * u64::from(right - left + 1) <= 20_000 {
+                for row in top..=bottom {
+                    cells.extend((left..=right).map(|col| (row, col)));
+                }
+            } else {
+                cells.extend(m.book.sheets[t].cells.keys().copied());
+                cells.extend([(top, left), (top, right), (bottom, left), (bottom, right)]);
+            }
+            for (row, col) in cells {
+                assert_eq!(
+                    m.read((t, row, col)),
+                    twin_cell(m, t, row, col),
+                    "{when}: {name} ({row}, {col})"
+                );
+            }
+            let areas = [
+                (top, left, bottom, right),
+                (1, 1, MAX_ROW, MAX_COLUMN),
+                (top + 1, left + 1, top + 1, right),
+                (top, right - 1, bottom, right - 1),
+                (top + 2, left + 2, bottom + 5, right + 5),
+                (bottom, left, bottom.saturating_add(9), left + 9),
+                (top + 1, left + 1, top + 1, left + 1),
+                (1, left + 1, MAX_ROW, left + 1),
+                (top + 1, 1, top + 1, MAX_COLUMN),
+            ];
+            for (a_top, a_left, a_bottom, a_right) in areas {
+                let area = Area {
+                    sheet: t,
+                    top: a_top.min(MAX_ROW),
+                    left: a_left.min(MAX_COLUMN),
+                    bottom: a_bottom.min(MAX_ROW),
+                    right: a_right.min(MAX_COLUMN),
+                };
+                let mut walked = Vec::new();
+                ctx.each(&[area], |v| {
+                    walked.push(v);
+                    Ok(())
+                })
+                .unwrap();
+                let want: Vec<Value> = cells_in(&m.book.sheets[t], m.extents[t], &area)
+                    .map(|((row, col), _)| twin_cell(m, t, row, col).unwrap())
+                    .filter(|v| *v != Value::Empty)
+                    .collect();
+                assert_eq!(walked, want, "{when}: {name} {area:?}");
+            }
+        }
+        for (sheet, kept) in kept_now {
+            assert_eq!(dense_kept(m, sheet), *kept, "{when}: {sheet} kept");
+        }
+    }
+
+    #[test]
+    fn a_twins_array_is_its_cells_after_every_step_and_every_write() {
+        // KERNEL.20: each twin's array, read for read and walked for walked,
+        // the twin's cells and reasons, over texts, truth values, errors, a
+        // cell not computed, a shared formula and a second sheet; after a
+        // load, steps, writes of every kind, a refused write, a yield and a
+        // frame count set; then over a save loaded again.
+        let both = [("Board", true), ("Other", true)];
+        let mut m = load(PLANES);
+        dense_is_the_twin(&m, &both, "the load");
+        for frame in 1..=3 {
+            m.step(0);
+            dense_is_the_twin(&m, &both, &format!("frame {frame}"));
+        }
+        for row in [
+            "(cell \"Board\" \"B2\" 9)",
+            "(formula \"Board\" \"C2\" \"=B2+1\")",
+            "(derived \"Board\" \"G2\" 3)",
+            // A value cell become a formula not computed: its slot emptied
+            // in place, the extent unchanged, its reason beside it.
+            "(formula \"Board\" \"E2\" \"=B2:C2\")",
+            // A text changed in place, then the extent grown twice.
+            "(cell \"Board\" \"D2\" \"a longer text than x\")",
+            "(cell \"Board\" \"C5:D6\" 2)",
+            "(cell \"Board\" \"I1\" \"far\")",
+        ] {
+            assert!(m.write(row).is_ok(), "{row}");
+            // Until the next frame's end the twin is the last frame's, and
+            // so is its array.
+            dense_is_the_twin(&m, &both, row);
+            m.step(0);
+            dense_is_the_twin(&m, &both, row);
+        }
+        assert!(m
+            .write("(cell \"Board\" \"B2\" 1)\n(cell \"Nowhere\" \"A1\" 1)")
+            .is_err());
+        dense_is_the_twin(&m, &both, "a refused write");
+        assert!(!m.step(2).done);
+        dense_is_the_twin(&m, &both, "a yield");
+        while !m.step(2).done {}
+        dense_is_the_twin(&m, &both, "the yielded frame done");
+        m.resume_at(50).unwrap();
+        m.step(0);
+        dense_is_the_twin(&m, &both, "a frame count set");
+        let again = load(&save(&m));
+        dense_is_the_twin(&again, &both, "a save loaded");
+        // Life, whose rule reads its twin in two ranges and three cells.
+        let mut life = load(LIFE);
+        let kept = [("Screen", true), ("Clock", true)];
+        dense_is_the_twin(&life, &kept, "Life's load");
+        for frame in 1..=4u64 {
+            life_step(&mut life);
+            dense_is_the_twin(&life, &kept, &format!("Life's frame {frame}"));
+        }
+        assert_eq!(plane(&life, "Screen", "A1:BL41"), life_here(4));
+    }
+
+    #[test]
+    fn a_sheet_too_sparse_for_an_array_is_read_through_its_cells() {
+        // KERNEL.20: an array holds at most four slots a cell of its sheet,
+        // so two cells far apart keep none, and their twin answers as its
+        // cells do; a sheet as dense as that keeps one.
+        let mut m = load(concat!(
+            "(cell \"Big\" \"A1\" 1)\n",
+            "(cell \"Big\" \"XFD1048576\" 2)\n",
+            "(formula \"Big\" \"B1\" \"=SUM(Big.last!A:B)+Big.last!XFD1048576\")\n",
+            "(cell \"Edge\" \"A1:B1\" 1)\n",
+            "(cell \"Edge\" \"D2\" 1)\n",
+        ));
+        let kept = [("Big", false), ("Edge", true)];
+        dense_is_the_twin(&m, &kept, "the load");
+        m.step(0);
+        assert_eq!(number(&m, "Big", "B1"), 3.0);
+        m.step(0);
+        assert_eq!(
+            number(&m, "Big", "B1"),
+            6.0,
+            "the twin's B1 read in the range"
+        );
+        dense_is_the_twin(&m, &kept, "two steps");
+        // Edge's extent is A1:D2, eight slots for three cells; a fourth
+        // cell far right makes it twenty slots for four, past four a cell.
+        assert_eq!(m.write("(cell \"Edge\" \"J2\" 1)"), Ok(1));
+        m.step(0);
+        dense_is_the_twin(&m, &[("Big", false), ("Edge", false)], "Edge grown");
+    }
+
+    #[test]
+    fn a_range_over_a_twin_skips_a_cell_not_computed_as_it_did() {
+        // Found 2026-10-10 (KERNEL.20), kept bit for bit and named for
+        // KERNEL.8: a twin holds no cell for a formula not computed, its
+        // reason standing beside, so a read of that cell answers the reason
+        // while a range over the twin skips the cell, where a range over the
+        // sheet itself answers the reason. The array answers as the cells
+        // did, both ways.
+        let mut m = load(concat!(
+            "(cell \"S\" \"A1:A3\" 1)\n",
+            "(cell \"S\" \"B1\" 5)\n",
+            "(formula \"S\" \"B2\" \"=A1:A2\")\n",
+            "(cell \"S\" \"B3\" 7)\n",
+            "(formula \"S\" \"C1\" \"=SUM(S.last!B1:B3)\")\n",
+            "(formula \"S\" \"C2\" \"=S.last!B2\")\n",
+            "(formula \"S\" \"C3\" \"=SUM(B1:B3)\")\n",
+        ));
+        m.step(0);
+        m.step(0);
+        assert!(dense_kept(&m, "S"));
+        let reason = Some(Computed::NotComputed(Reason::Construct(
+            "A1:A2".to_string(),
+        )));
+        assert_eq!(at(&m, "S", "B2"), reason);
+        assert_eq!(number(&m, "S", "C1"), 12.0, "the twin's range skips B2");
+        assert_eq!(at(&m, "S", "C2"), reason, "a read of B2's twin answers");
+        assert_eq!(at(&m, "S", "C3"), reason, "a range over the sheet answers");
     }
 
     #[test]
