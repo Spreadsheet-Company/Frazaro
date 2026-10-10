@@ -19179,6 +19179,86 @@ alone, the peers' uncommitted work beside it untouched, the isolated tree
 verified first. The item closed with the commit; its line is in the
 closed ledger.
 
+**`KERNEL.24`, the plane kept at the frame's end: the scoping and the
+build, 2026-10-09.** Asked by Alonzo's `ENGINE.2`, with a measurement and
+a prototype that never entered this tree: the engine's module over
+`vla-lang` at `6cca2e1`, in wasm under headless Chrome 154, drew Life's
+plane of `A1:LH200` in 0.33 ms inside the module at frame 0 and in 2.5 to
+5.5 ms at frames 1 and 11, nine tenths of it `plane::bytes` looking up
+each of the 62,964 formula cells' values in `Machine.current`, while the
+end of every frame already walks every cell and looks up the same values
+to fill the twins. Read in the code before anything was proposed: the
+walk reads a value cell's own content and looks up a formula's value;
+`snapshot` makes the same lookups for the twins, at the load and at each
+frame's end; `settle` forgets a changed cell's value after a write; and a
+yielded frame leaves `current` the last complete frame's.
+
+*The decisions, approved by the owner the same day.* 1. The ID,
+`KERNEL.24`; the Alonzo session's note had named it `KERNEL.23`, which
+the refusals had taken an hour before. 2. A plane is kept only for a
+sheet an engine has viewed as one: the view marks the sheet as it
+answers, a flag, as the machine's `here` is set by an evaluation, so that
+`view` stays a read and neither Alonzo's engine nor the C surface changes;
+from the next frame's end its plane is kept. A sheet never drawn, a sand
+cartridge's 64,000-cell Board, pays nothing, and a cartridge cannot make
+an engine hold memory by adding sheets. *Alternative:* every rows'
+sheet, the prototype's; declined, since it needs a cap on the total, the
+cartridge choosing how many sheets there are. 3. A successful write drops
+the planes of the sheets it changed, and the walk answers until the next
+frame's end keeps them again; a refused write changed nothing and drops
+nothing. *Alternative:* an update in place; declined, its only gain a
+view between a write and the next step, which the engine's loop never
+makes, and a write that grows a sheet needing a rebuild anyway. 4. The
+limit: a plane is kept when its sheet's extent holds at most 1,048,576
+cells, the most one plane window holds; past it, the walk. 5. The type
+lives in `machine/plane.rs` beside the walk, which is untouched and keeps
+its own spelling of the rule for a cell, so that the oracle compares two
+readings and never one twice. 6. A dated note on `KERNEL.20`'s line with
+Alonzo's measurement of an in-crate Fx hash, and no code. 7. A clause in
+0.9.0's note for the machine.
+
+*Built 2026-10-09.* `vla-lang/src/machine/plane.rs`: `Raster`, a plane
+over an extent (made in an old raster's memory, refused past the limit;
+`set`, a cell outside the extent answering false; `window`, the kept
+bytes where the window meets the extent and 0 elsewhere), and
+`kept_byte`, the rule for a cell written a second time and naming every
+kind of content, so that a kind added later must be decided there too.
+`vla-lang/src/machine/mod.rs`: `wanted` and `planes`, by rows' sheet;
+`snapshot` fills a wanted sheet's plane from the lookup that fills its
+twin, and keeps none should a cell lie outside the extent it was made
+over, the walk answering then; `view` marks a rows' sheet and answers
+from its plane when one stands, and a twin always from the walk; `settle`
+drops the planes of the sheets a write changed. The oracle is four
+tests: the kept bytes equal the walk's over eight windows inside, across
+and past the extent, after the load, after each step, after a value, a
+formula, a derived row, a range and a cell that grow the extent down and
+up, a refused write and a write to another sheet, during a yielded frame
+(the last complete frame's bytes), after `resume_at`, a twin never kept,
+and a not-computed cell and a number past 254 reading 255; a save's value
+rows kept as walked; Life through six frames of the Clock's writes; a
+sheet past the limit walked. Three mutants, each run once and reverted to
+the byte: a plane never dropped failed on the bytes (`Board!B2:G5`, the
+stale 7 where the walk read 9), a plane never kept failed on the flag in
+all three tests, and a window copied one column short failed on the bytes
+in all three. *Measured natively* on Alonzo's Life cartridge, its
+manifest set aside and the Clock's cells added as the engine adds them,
+from a scratch crate outside the tree, two rounds of eight frames: a view
+of `A1:LH200` 0.003 ms kept against 1.63 to 1.64 ms walked, all 80 equal;
+a step 262 ms with the Screen's plane kept against 264 to 268 ms with
+none, the fill lost in the noise. *Oracle, met:* `cargo test --workspace`,
+294 passed and 4 ignored; fmt and clippy clean, with the `c-abi` feature
+too; the language's module 427,732 bytes, 0 imports and 10 exports;
+`run_checks.ps1` 54 of 54 in the shared tree. On Alonzo's side no code
+changes, `view` keeping its signature: its pin moves to this commit, and
+its equality test, the plane against the record, runs over it there.
+
+*Committed 2026-10-09 at the owner's word.* No Excel step, the item
+touching no VBA: the owner took the oracle above as its test. `KERNEL.3`
+committed beside it first (`fe76c70`), with none of this item's lines;
+the commit holds that HEAD and this item's files alone, U.32's
+uncommitted work untouched, the isolated tree verified first. The item
+closed with the commit; its line is in the closed ledger.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -32163,6 +32243,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.7 — recalculation, slice 1: the declared subset's floor.** A workbook's formulas computed in dependency order and held to the values Excel saved. The mechanism is the language's (`vla-lang/src/calc/`, by the three-crate order of `PORT.12`): a parser for operators and calls over the reference scanner, the dependency graph from `refers`, an iterative Tarjan for the order and the cycles, evaluation with a budget in cells that yields and resumes, Excel's seven error values as a value kind, and a `Library` seam with the fourteen functions `Alonzo/SPEC.md` §13 names for a cartridge's first rules. Excel's library registers through the seam from `frazaro-core` as the declared subset, twenty-one functions each with its evidence (the Enron and EUSES tables of Jansen and Hermans, 2015; `IFS` on `saved.xlsx`); a function outside it shows `not computed here` with its name, and a cell that reads it inherits the label. `frazaro calc <file> [--counts]` prints each formula cell's computed value beside the value the host saved, with agree, differ or unchecked; `frazaro reflect --functions` is `KERNEL.6`'s histogram; the view record carries a `value` row after each formula row (`SPEC.md` decision 14); the kernel's sixth seam is `functions`; two refusals for an engine's load under `VLA-Calc`. Oracle 12 in the treaty over seven fixtures, `check_recalc_golden.ps1` (the 52nd check at this commit, with its control), `prove.ps1`'s eleventh kind. The owner's Excel 365 save of the subset fixture agreed on all 102 formulas the subset computes, after correcting two of the build's rules the same evening, a number's General spelling and a text `TRUE` read through a reference in `IF`. Built 2026-10-08, owner-tested and committed 2026-10-09; the entry above carries the record. Deferred by name: the lookups, `SUBTOTAL`, `DAVERAGE`, `CONCATENATE`, `MONTH` and implicit intersection to `KERNEL.8`; the handle and the four calls to the item after `PORT.12`; speed to `KERNEL.20`; the edges fixture's Excel save. `~weeks`, taken in a day.
 - ✅ **KERNEL.22 — the handle and the four calls: the grid as a machine an engine steps.** The language's half of Alonzo's `ENGINE.1`: a grid kept in the language's memory under a handle (`vla_lang::machine`), which an engine loads from the rows a view or a reflect prints (the record's inverse, one write per cell, a cap of 1,048,576 cells), writes with `cell`, `formula` and `derived` rows all or none, steps with a budget in cells that yields and resumes, the previous frame a hidden twin sheet `X.last` filled at the end of each frame, and views as the record with its `value` rows or as the plane, a byte a cell; handles from 1, never reused, sixteen at once; every formula parsed once per shape (a shared formula, or cells of one R1C1 text) and evaluated at each cell's offset, since a parse of every cell held would be 562 MB for Life; the view record's `row` and `look` rows and each sheet's own state (oracle 11 amended); fourteen refusals in the language's families, the `grid` family's eleven, two in `view` and one in `calc`, and the two view refusals reworded true at every door; the C surface, nine `vla_*` functions, exported only under the `c-abi` feature and held by `check_wasm_exports.ps1` (the 53rd check at this commit, with its control); CALLOSUM §7 decision 1 amended for the engine's door alone. Measured natively: Life's cartridge loads in 137 ms as one shape and steps in 0.258 s a frame, exact at generations 0 and 10 against a reference Life, and a save of 34 MB reloads as one shape and resumes. Scoped, built, owner-tested and committed 2026-10-09; the entry above carries the record. Deferred by name: speed to `KERNEL.20`; a save's names and size to Alonzo's page; `calc-function-not-computed`'s words at a load to the owner's word. `~days`, taken in a day.
 - ✅ **KERNEL.23 — the machine's refusals name what they refuse, the line left to the answer.** Found by Alonzo's `ENGINE.1` before 0.9.0 is cut: the eight `grid` texts that opened `Line {line}` name their target instead, the row's line staying in the answer's own field, so an engine's write of one row never reads `Line 1`; `grid-write-last` names the cell to write, not only its sheet; a `gridlines`, `column`, `row` or `look` row naming a twin is `grid-sheet-name-invalid`, as a `sheet` row naming one already was, since a twin copies values and never settings; `calc-function-not-computed` drops the sentence true only of `frazaro calc`, which never raises it, `KERNEL.22`'s deferral settled. The language's tests hold that no `grid` template names `{line}` and that no refusal of the load test opens with `Line `; the language's half of the catalogue stays 192 entries. Built, owner-tested and committed 2026-10-09; the entry above carries the record. `~hours`, taken in an hour.
+- ✅ **KERNEL.24 — the plane kept at the frame's end.** The language's half of Alonzo's `ENGINE.2`: a sheet an engine views as a plane has its bytes kept over its extent at the end of every frame, filled from the same value lookups that fill the twins, so that a view of it is a copy; only a sheet viewed as a plane keeps one, the view marking it, so that `view` keeps its signature and a sheet never drawn pays nothing; a write drops the planes of the sheets it changed, and the walk, `plane::bytes`, untouched and the reference, answers until the next frame's end; a twin and a sheet past a plane's limit are always walked. Four tests hold the kept bytes to the walk's at every turn, and three mutants were caught. Measured natively on Alonzo's Life, 320 by 200: a view 0.003 ms kept against 1.64 ms walked, and a step no slower. Built and committed 2026-10-09 at the owner's word; the entry above carries the record. `~hours`, taken in hours.
 
 ## 🛡 ADVERSARY · SECURITY
 

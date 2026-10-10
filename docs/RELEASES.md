@@ -13,7 +13,9 @@
   none; step, every formula in dependency order with a budget in cells
   that yields and resumes, the previous frame read from a hidden twin of
   each sheet, `Screen.last`; and view, the record with each formula's value,
-  or the plane, a byte a cell. Every refusal is named from the catalogue,
+  or the plane, a byte a cell, kept at the end of each frame for a sheet
+  an engine draws that way, so that drawing it is a copy (KERNEL.24).
+  Every refusal is named from the catalogue,
   and the language's C surface over the four calls is exported only when
   a build asks for it. The view record gains `row` and `look` rows and
   prints each sheet's own state, which changes nothing a built workbook

@@ -22,7 +22,9 @@
 //! of the inputs it began with. Values are kept twice, the last complete
 //! frame's and the frame in progress's, swapped when a frame completes, so
 //! a view during a yield shows the last complete frame; then every sheet's
-//! values are copied into its twin. The step computes values and never
+//! values are copied into its twin, and in the same walk the plane of each
+//! sheet an engine views as one is kept, so that a view of it is a copy
+//! ([`plane::Raster`], KERNEL.24). The step computes values and never
 //! formulas (`AD-7`): the formula cells after a step are the formula cells
 //! before it.
 //!
@@ -242,6 +244,14 @@ pub struct Machine {
     /// The cells of the rows' sheets.
     cells: usize,
     here: Slot<CellId>,
+    /// By rows' sheet, whether an engine has viewed it as a plane
+    /// (KERNEL.24): set by the view, a read, as `here` is set by an
+    /// evaluation, so that only a sheet an engine draws keeps a plane.
+    wanted: Vec<Slot<bool>>,
+    /// By rows' sheet, its plane as the last frame ended, kept for a sheet
+    /// in `wanted`; a write drops the planes of the sheets it changed, and
+    /// the next frame's end keeps them again.
+    planes: Vec<Option<plane::Raster>>,
 }
 
 impl std::fmt::Debug for Machine {
@@ -332,6 +342,8 @@ impl Machine {
             progress: None,
             cells,
             here: Slot::new((0, 1, 1)),
+            wanted: (0..sheets).map(|_| Slot::new(false)).collect(),
+            planes: vec![None; sheets],
         };
         m.snapshot();
         Ok(m)
@@ -441,29 +453,41 @@ impl Machine {
     /// Every sheet's values copied into its twin: a value cell as it
     /// stands, a formula cell's value of the last complete frame; a formula
     /// with no value leaves its twin cell empty, and one not computed leaves
-    /// its reason beside it.
+    /// its reason beside it. A sheet an engine views as a plane has its
+    /// plane kept from the same values in the same walk (KERNEL.24).
     fn snapshot(&mut self) {
         self.twin_reasons.clear();
         let sheets = self.sheets;
         let (rows, twins) = self.book.sheets.split_at_mut(sheets);
         for (s, (sheet, twin)) in rows.iter().zip(twins.iter_mut()).enumerate() {
             let t = sheets + s;
+            let mut raster = if self.wanted[s].get() {
+                plane::Raster::over(self.extents[s], CELLS as u64, self.planes[s].take())
+            } else {
+                None
+            };
+            let mut fits = true;
             let mut fresh: Vec<((u32, u32), Content)> = Vec::with_capacity(sheet.cells.len());
             for (&(row, col), cell) in &sheet.cells {
-                let content = if is_formula(&cell.content) {
-                    match self.current.get(&(s, row, col)) {
-                        Some(Computed::Value(v)) => value_content(v),
-                        Some(Computed::NotComputed(r)) => {
-                            self.twin_reasons.insert((t, row, col), r.clone());
-                            continue;
-                        }
-                        None => continue,
+                // A formula's value, looked up once for the twin and the plane.
+                let value = is_formula(&cell.content).then(|| self.current.get(&(s, row, col)));
+                if let Some(r) = raster.as_mut() {
+                    fits &= r.set(row, col, plane::kept_byte(&cell.content, value.flatten()));
+                }
+                let content = match value {
+                    None => cell.content.clone(),
+                    Some(Some(Computed::Value(v))) => value_content(v),
+                    Some(Some(Computed::NotComputed(r))) => {
+                        self.twin_reasons.insert((t, row, col), r.clone());
+                        continue;
                     }
-                } else {
-                    cell.content.clone()
+                    Some(None) => continue,
                 };
                 fresh.push(((row, col), content));
             }
+            // A cell outside the extent would mean a stale extent: the walk
+            // answers rather than a plane that might be wrong.
+            self.planes[s] = raster.filter(|_| fits);
             let same_cells = twin.cells.len() == fresh.len()
                 && twin.cells.keys().zip(&fresh).all(|(k, (f, _))| k == f);
             if same_cells {
@@ -508,6 +532,16 @@ impl Machine {
                             ("limit", &thousands(CELLS as u64)),
                         ],
                     ));
+                }
+                // A rows' sheet viewed as a plane keeps its plane from the
+                // next frame's end, and a kept plane answers with a copy
+                // (KERNEL.24); a twin's plane is always the walk's.
+                let rows_sheet = self.book.find_sheet(&w.sheet).filter(|&s| s < self.sheets);
+                if let Some(s) = rows_sheet {
+                    self.wanted[s].set(true);
+                    if let Some(kept) = &self.planes[s] {
+                        return Ok(Viewed::Bytes(kept.window(&w.range)));
+                    }
                 }
                 Ok(Viewed::Bytes(plane::bytes(&self.book, self, &w)))
             }
@@ -852,6 +886,14 @@ impl Machine {
         for id in log.changed.keys() {
             self.current.remove(id);
             self.next.remove(id);
+        }
+        // A plane kept for a sheet the write changed is stale: the walk
+        // answers until the next frame's end keeps it again (KERNEL.24). A
+        // refused write never reaches here, having changed nothing.
+        for &s in &log.sheets {
+            if let Some(kept) = self.planes.get_mut(s) {
+                *kept = None;
+            }
         }
         Ok(log.written)
     }
@@ -1441,6 +1483,160 @@ mod tests {
             record.contains("(value \"S\" \"B2\" (error \"#DIV/0!\"))"),
             "{record}"
         );
+    }
+
+    /// A sheet of every kind of byte (KERNEL.24): whole numbers in and out
+    /// of range, a text, a truth value, an error, a fraction; a counter, a
+    /// product that passes 254, a range where one value is wanted (not
+    /// computed), a formula turning to a text, an error, a shared formula,
+    /// a formula reading an empty cell and one reading a twin's empty cell;
+    /// and a second sheet.
+    const PLANES: &str = "\
+(cell \"Board\" \"B2\" 7)
+(cell \"Board\" \"C2\" 254)
+(cell \"Board\" \"D2\" \"x\")
+(cell \"Board\" \"E2\" true)
+(cell \"Board\" \"F2\" (error \"#N/A\"))
+(cell \"Board\" \"G2\" 1.5)
+(formula \"Board\" \"B3\" \"=Board.last!B3+1\")
+(formula \"Board\" \"C3\" \"=B3*100\")
+(formula \"Board\" \"D3\" \"=B2:C2\")
+(formula \"Board\" \"E3\" \"=IF(B3>1,D2,B3)\")
+(formula \"Board\" \"F3\" \"=1/0\")
+(formula \"Board\" \"B4:D4\" \"=B3+B2\")
+(formula \"Board\" \"F5\" \"=Z99\")
+(formula \"Board\" \"G5\" \"=Board.last!D3\")
+(cell \"Other\" \"A1\" 3)
+(formula \"Other\" \"B1\" \"=A1*2\")
+";
+
+    /// Windows inside, across and past `PLANES`'s Board, whose extent is
+    /// B2:G5 until a write grows it.
+    const BOARD_WINDOWS: &[&str] = &[
+        "B2:G5", "C3:E4", "A1:D3", "F4:J7", "L9:M10", "D3", "A1:Z20", "G1:G9",
+    ];
+
+    /// Whether a sheet's plane is kept (KERNEL.24).
+    fn kept(m: &Machine, sheet: &str) -> bool {
+        let s = m.workbook().find_sheet(sheet).unwrap();
+        m.planes.get(s).is_some_and(Option::is_some)
+    }
+
+    /// The plane a view answers held to the walk, the reference, over each
+    /// window; then the sheet's plane kept, or not, as said, so that stale
+    /// bytes fail on the bytes and a plane never kept fails on the flag.
+    fn walked(m: &Machine, sheet: &str, windows: &[&str], kept_now: bool) {
+        let was_kept = kept(m, sheet);
+        for w in windows {
+            let window = window_of(m.workbook(), sheet, Some(w)).unwrap();
+            let walk = plane::bytes(m.workbook(), m, &window);
+            assert_eq!(plane(m, sheet, w), walk, "{sheet}!{w}, frame {}", m.frame());
+        }
+        assert_eq!(was_kept, kept_now, "{sheet} kept, frame {}", m.frame());
+    }
+
+    #[test]
+    fn a_kept_plane_is_the_walk_after_every_step_and_every_write() {
+        let mut m = load(PLANES);
+        // A load keeps no plane, no sheet having been viewed as one; the
+        // view marks Board, and the next frame's end keeps its plane.
+        walked(&m, "Board", BOARD_WINDOWS, false);
+        m.step(0);
+        walked(&m, "Board", BOARD_WINDOWS, true);
+        assert!(!kept(&m, "Other"), "a sheet never viewed keeps no plane");
+        // Not computed reads 255, and a number past 254 does too.
+        m.step(0);
+        assert!(
+            matches!(at(&m, "Board", "D3"), Some(Computed::NotComputed(_))),
+            "{:?}",
+            at(&m, "Board", "D3")
+        );
+        assert_eq!(plane(&m, "Board", "B3:D3"), [2, 200, 255]);
+        m.step(0);
+        assert_eq!(plane(&m, "Board", "B3:D3"), [3, 255, 255]);
+        walked(&m, "Board", BOARD_WINDOWS, true);
+        // Each kind of write drops the plane of the sheet it changes; the
+        // walk answers until the next frame's end keeps it again.
+        for row in [
+            "(cell \"Board\" \"B2\" 9)",
+            "(formula \"Board\" \"C2\" \"=B2+1\")",
+            "(derived \"Board\" \"G2\" 3)",
+            "(cell \"Board\" \"C5:D6\" 2)",
+            "(cell \"Board\" \"I1\" 1)",
+        ] {
+            assert!(m.write(row).is_ok(), "{row}");
+            walked(&m, "Board", BOARD_WINDOWS, false);
+            m.step(0);
+            walked(&m, "Board", BOARD_WINDOWS, true);
+        }
+        // A refused write changes nothing, so the plane stands; so does a
+        // write to another sheet.
+        assert!(m
+            .write("(cell \"Board\" \"B2\" 1)\n(cell \"Nowhere\" \"A1\" 1)")
+            .is_err());
+        walked(&m, "Board", BOARD_WINDOWS, true);
+        assert_eq!(m.write("(cell \"Other\" \"A1\" 4)"), Ok(1));
+        walked(&m, "Board", BOARD_WINDOWS, true);
+        // During a yielded frame the plane is the last complete frame's.
+        let last = plane(&m, "Board", "A1:Z20");
+        assert!(!m.step(2).done);
+        walked(&m, "Board", BOARD_WINDOWS, true);
+        assert_eq!(plane(&m, "Board", "A1:Z20"), last);
+        while !m.step(2).done {}
+        walked(&m, "Board", BOARD_WINDOWS, true);
+        assert_ne!(plane(&m, "Board", "A1:Z20"), last, "the counter moved");
+        // A frame count set for a save changes no byte.
+        m.resume_at(100).unwrap();
+        walked(&m, "Board", BOARD_WINDOWS, true);
+        // A twin's plane is the walk's and is never kept.
+        walked(&m, "Board.last", BOARD_WINDOWS, false);
+        m.step(0);
+        walked(&m, "Board.last", BOARD_WINDOWS, false);
+    }
+
+    #[test]
+    fn a_kept_plane_from_a_saves_values_is_the_walk() {
+        let mut m = load(PLANES);
+        for _ in 0..3 {
+            m.step(0);
+        }
+        let mut again = load(&save(&m));
+        // The load filled the twins from the save's value rows with no
+        // sheet marked; marked now, the same fill keeps the plane from
+        // those values, as the end of a frame would.
+        walked(&again, "Board", BOARD_WINDOWS, false);
+        again.snapshot();
+        walked(&again, "Board", BOARD_WINDOWS, true);
+    }
+
+    #[test]
+    fn lifes_plane_is_kept_through_the_clocks_writes() {
+        let windows = [
+            "B2:BK40",
+            "A1:BL41",
+            "A1:C3",
+            "BJ39:BM42",
+            "CA50:CB51",
+            "C3:D5",
+        ];
+        let mut m = load(LIFE);
+        walked(&m, "Screen", &windows, false);
+        for frame in 1..=6u64 {
+            // The Clock's write leaves the Screen's plane standing.
+            assert_eq!(m.write(&format!("(cell \"Clock\" \"B1\" {frame})")), Ok(1));
+            walked(&m, "Screen", &windows, frame > 1);
+            assert!(m.step(0).done);
+            walked(&m, "Screen", &windows, true);
+        }
+    }
+
+    #[test]
+    fn a_sheet_past_a_planes_limit_is_walked() {
+        let mut m = load("(cell \"Big\" \"A1\" 1)\n(cell \"Big\" \"XFD1048576\" 2)\n");
+        assert_eq!(plane(&m, "Big", "A1:B2"), [1, 0, 0, 0]);
+        m.step(0);
+        assert!(!kept(&m, "Big"), "its extent passes the limit");
+        assert_eq!(plane(&m, "Big", "XFC1048575:XFD1048576"), [0, 0, 0, 2]);
     }
 
     #[test]
