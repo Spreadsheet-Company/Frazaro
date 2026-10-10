@@ -103,7 +103,7 @@ Fifteen minutes for each half; two minutes for each comprehension question. A ha
 
 ### 5.5 Scoring
 
-- *Build.* `frazaro diff scripts\study\build_a.xlsx build_a_A.xlsx` (the variant's key, then the participant's Excel-saved file, run from the runner's folder). Every `changed` row on sheet `Plan` is one error, with two readings the runner makes by eye: the diff compares a formula by its text, so a correct formula in another spelling (`=C2*B2` for `=B2*C2`, six additions for a `SUM`) is not an error when its value matches, and is noted; and a file with no sheet named `Plan` prints a `sheet-removed` row and no cells, which is one error for the name, after which the sheet is renamed and the diff run again. The rows the page's own build adds, a `Frazaro` sheet in one file alone and its `Frazaro.Build` name, are not errors. Time is the seconds from the hand-over to "done".
+- *Build.* `frazaro diff scripts\study\build_a.xlsx build_a_A.xlsx` (the variant's key, then the participant's Excel-saved file, run from the runner's folder). Every `changed` row on sheet `Plan` is one error, with two readings the runner makes by eye: the diff compares a formula by its text, so a correct formula in another spelling (`=C2*B2` for `=B2*C2`, six additions for a `SUM`) is not an error when its value matches, and is noted; and a file with no sheet named `Plan` prints a `sheet-removed` row and no cells, which is one error for the name, after which the sheet is renamed and the diff run again. The rows the page's own build adds, a `Frazaro` sheet in one file alone and its `Frazaro.Build` name, are not errors. Time is the seconds from the hand-over to "done". *Clarified 2026-10-09, before the first run:* an error is counted where it was typed, so a `changed` row whose formula text is the same on both sides and whose value alone differs is the consequence of an error elsewhere (one wrong unit moves its row's revenue and both totals) and is not counted. The diff matches sheet names without case, so the page's `plan` is the key's `Plan`. A formula with no cached value cannot be scored, which is why the file is opened in Excel, its editing enabled, and saved before the diff; a perfect answer from the page then prints only the page's own two rows, and one from Excel prints nothing.
 - *Find.* Each of the five plants named by its cell, or by a cell its symptom shows in with the cause given (naming `Summary!B3` as "the cost total is missing" finds the omission), is one found, with the clock at the call. Anything else called is one false call. A symptom named without its cause (`Summary!B6` "looks too high") is neither. Found of five, false calls, the time to each found, and the half's own time to "done" or to the stop are recorded.
 - *Comprehension.* Each question right or wrong by section 4.3's key, with its seconds.
 
@@ -176,6 +176,8 @@ To run: `powershell -File tools\bench_view.ps1` (the debug door, or `-Impl` for 
 | 1 (pilot) | 1 | A | a | | | | | | | | | | pilot |
 | 1 (pilot) | 2 | B | b | | | | | | | | | | pilot |
 
+*Entry 2026-10-09: not run; the item closed without these rows, by section 10's entry of the same date.*
+
 ### 9.2 The benchmark
 
 *The header amended 2026-10-08 with section 7's amendment; the earlier header was never filled.*
@@ -235,6 +237,8 @@ Verdict: neither holds the frame at 7,436 cells with text; the DOM held 1,846 an
 ## 10. What "run" means
 
 `KERNEL.3` stays open until the owner has: run both halves in both conditions and filled the two pilot rows of 9.1; run the benchmark in a real browser in fullscreen and pasted its table into 9.2; applied section 8 and filled 9.3 in a dated entry; copied 9.1 to 9.3 to `web/CALLOSUM.md`'s slot; and written `KERNEL.5`'s first shape, the renderer chosen, into its roadmap entry. The item closes on that entry, not on this file.
+
+*Entry 2026-10-09, at the owner's word: `KERNEL.3` closes on what it delivered, the instrument and the one decision a measurement could take now.* The renderer question is answered, canvas, by the entry of 9.2, and `KERNEL.5` is built on it in Alonzo. The study's human half cannot change either of the other two decisions while its only participant is the person who built the tool: section 5.6 says so, and sections 8.2 and 8.3 keep their provisional answers whatever such a pilot measures, so a run now would test the instructions and decide nothing. The human half therefore runs the day the formula bar or the pane is next scoped, with a participant who is not the author, before either is built; `SD-29` requires a study then, and this instrument is that study, so no item is minted for it. Until then the formula bar shows the formula first and the pane opens by default for an author, provisionally, and the result tables of 9.1 stay blank.
 
 ## 11. Sources
 

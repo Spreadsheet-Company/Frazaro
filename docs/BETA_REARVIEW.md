@@ -18021,7 +18021,7 @@ renderer benchmark, is recorded under its own entry below.
   `scripts\polyglotta\english.vla` and embedding `prelude.vla, english.vla`,
   Espanol audited clean on english then espanol and embedding all three,
   both `.xlam` files and `installer\version.iss` written.
-- **`KERNEL.3` — the study before the viewport.** *The work:* a fixture
+- ✅ **`KERNEL.3` — the study before the viewport.** *The work:* a fixture
   workbook with planted defects (the explanation schemas' fifteen are the
   list), a task sheet in two halves (build this; find that), the protocol
   and its measures, and the decision rule written before the first run so
@@ -18137,7 +18137,16 @@ renderer benchmark, is recorded under its own entry below.
   `build_b.xlsx` against §4.1; `powershell -File tools\bench_view.ps1`,
   then open `tools\bench_view.html` (it runs once on opening), press
   Fullscreen (it runs again), Copy; then the run itself, at the owner's
-  pace.
+  pace. *Closed 2026-10-09, at the owner's word,* on what the item
+  delivered: the instrument, and the one decision a measurement could take
+  now, canvas, on which `KERNEL.5` is built in Alonzo. The study's human
+  half was not run. With the tool's author as its only participant it
+  could test the instructions and decide nothing (`PROTOCOL.md` §5.6, §8.2
+  and §8.3), so it runs the day the formula bar or the pane is next scoped,
+  with a participant who is not the author, as `SD-29` requires then; no
+  item is minted for it, and the two provisional answers stand meanwhile
+  (§10's entry). The instrument was committed as `fe76c70` and the close
+  in the commit after it.
 - ✅ **`KERNEL.4` — the view record.** *Substrate, verified:* the walker in
   `build.rs` knows which sentence wrote which cell, since its refusals quote
   the sentence; the sheet model holds value, formula, shared formula,
@@ -32372,6 +32381,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.22 — the handle and the four calls: the grid as a machine an engine steps.** The language's half of Alonzo's `ENGINE.1`: a grid kept in the language's memory under a handle (`vla_lang::machine`), which an engine loads from the rows a view or a reflect prints (the record's inverse, one write per cell, a cap of 1,048,576 cells), writes with `cell`, `formula` and `derived` rows all or none, steps with a budget in cells that yields and resumes, the previous frame a hidden twin sheet `X.last` filled at the end of each frame, and views as the record with its `value` rows or as the plane, a byte a cell; handles from 1, never reused, sixteen at once; every formula parsed once per shape (a shared formula, or cells of one R1C1 text) and evaluated at each cell's offset, since a parse of every cell held would be 562 MB for Life; the view record's `row` and `look` rows and each sheet's own state (oracle 11 amended); fourteen refusals in the language's families, the `grid` family's eleven, two in `view` and one in `calc`, and the two view refusals reworded true at every door; the C surface, nine `vla_*` functions, exported only under the `c-abi` feature and held by `check_wasm_exports.ps1` (the 53rd check at this commit, with its control); CALLOSUM §7 decision 1 amended for the engine's door alone. Measured natively: Life's cartridge loads in 137 ms as one shape and steps in 0.258 s a frame, exact at generations 0 and 10 against a reference Life, and a save of 34 MB reloads as one shape and resumes. Scoped, built, owner-tested and committed 2026-10-09; the entry above carries the record. Deferred by name: speed to `KERNEL.20`; a save's names and size to Alonzo's page; `calc-function-not-computed`'s words at a load to the owner's word. `~days`, taken in a day.
 - ✅ **KERNEL.23 — the machine's refusals name what they refuse, the line left to the answer.** Found by Alonzo's `ENGINE.1` before 0.9.0 is cut: the eight `grid` texts that opened `Line {line}` name their target instead, the row's line staying in the answer's own field, so an engine's write of one row never reads `Line 1`; `grid-write-last` names the cell to write, not only its sheet; a `gridlines`, `column`, `row` or `look` row naming a twin is `grid-sheet-name-invalid`, as a `sheet` row naming one already was, since a twin copies values and never settings; `calc-function-not-computed` drops the sentence true only of `frazaro calc`, which never raises it, `KERNEL.22`'s deferral settled. The language's tests hold that no `grid` template names `{line}` and that no refusal of the load test opens with `Line `; the language's half of the catalogue stays 192 entries. Built, owner-tested and committed 2026-10-09; the entry above carries the record. `~hours`, taken in an hour.
 - ✅ **KERNEL.24 — the plane kept at the frame's end.** The language's half of Alonzo's `ENGINE.2`: a sheet an engine views as a plane has its bytes kept over its extent at the end of every frame, filled from the same value lookups that fill the twins, so that a view of it is a copy; only a sheet viewed as a plane keeps one, the view marking it, so that `view` keeps its signature and a sheet never drawn pays nothing; a write drops the planes of the sheets it changed, and the walk, `plane::bytes`, untouched and the reference, answers until the next frame's end; a twin and a sheet past a plane's limit are always walked. Four tests hold the kept bytes to the walk's at every turn, and three mutants were caught. Measured natively on Alonzo's Life, 320 by 200: a view 0.003 ms kept against 1.64 ms walked, and a step no slower. Built and committed 2026-10-09 at the owner's word; the entry above carries the record. `~hours`, taken in hours.
+- ✅ **KERNEL.3 — the study before the viewport (`SD-29`).** The instrument as one document, `docs/PROTOCOL.md`: the tasks and comprehension questions backed into from the literature, a fixture with one planted defect of each of five classes in two variants (`scripts/study/`, written by `tools/build_study_fixture.ps1` and held by `tools/check_study_fixture.ps1`), the task sheet, the protocol, the measures, a renderer benchmark (`tools/bench_view.ps1`) and the decision rule written before the first run. The benchmark, run by the owner in fullscreen on 2026-10-08, decided canvas: a virtualized DOM held a 60 Hz frame only at the default cell size, canvas through the densest legible one, and `KERNEL.5` is built on it in Alonzo. The fixtures were blessed in Excel on 2026-10-09, and `KERNEL.7`'s recalculation reproduces every cached value in them. The study's human half was not run: with the tool's author as its only participant it could decide nothing, so it runs when the formula bar or the pane is next scoped, with another participant, as `SD-29` requires then. Built 2026-10-08, committed and closed 2026-10-09 at the owner's word; the entry above carries the record. `~days`, taken in two.
 
 ## 🛡 ADVERSARY · SECURITY
 
