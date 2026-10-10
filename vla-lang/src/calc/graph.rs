@@ -201,6 +201,8 @@ pub fn areas_of(model: &Workbook, home: usize, r: &RefExpr) -> Result<Areas, Err
 /// columns right of the one its formula was read at (KERNEL.22, a shape
 /// evaluated at an offset): [`RefExpr::moved`]'s rectangle on each sheet,
 /// `#REF!` when a corner leaves the sheet, as the moved text would read.
+/// A reference whose sheets its placement found reads them as found
+/// (KERNEL.20); any other finds them by name.
 pub fn areas_at(
     model: &Workbook,
     home: usize,
@@ -208,13 +210,19 @@ pub fn areas_at(
     d_row: i64,
     d_col: i64,
 ) -> Result<Areas, ErrorKind> {
-    let first = match &r.sheet {
-        None => home,
-        Some(name) => model.find_sheet(name).ok_or(ErrorKind::Ref)?,
-    };
-    let last = match &r.last_sheet {
-        None => first,
-        Some(name) => model.find_sheet(name).ok_or(ErrorKind::Ref)?,
+    let (first, last) = match r.found {
+        Some((first, last)) => (usize::from(first), usize::from(last)),
+        None => {
+            let first = match &r.sheet {
+                None => home,
+                Some(name) => model.find_sheet(name).ok_or(ErrorKind::Ref)?,
+            };
+            let last = match &r.last_sheet {
+                None => first,
+                Some(name) => model.find_sheet(name).ok_or(ErrorKind::Ref)?,
+            };
+            (first, last)
+        }
     };
     let (top, left, bottom, right) = r.moved(d_row, d_col).ok_or(ErrorKind::Ref)?;
     let area = |sheet| Area {

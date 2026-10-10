@@ -443,13 +443,37 @@ impl<'a> Ctx<'a> {
             return form(self, args);
         }
         if let Some(f) = self.lib.strict(name) {
-            let mut values = Vec::with_capacity(args.len());
-            for a in args {
-                values.push(self.eval(a)?);
+            // One argument or two, the counts a call mostly has, held on the
+            // stack in a frame of their own (KERNEL.20), so that this frame,
+            // which evaluation stacks once a level of nesting, holds no array
+            // (`VLA.1`'s limits are pinned on a small stack); any other count
+            // in a vector. Left to right, stopping at the first not computed.
+            return match args {
+                [a] => self.strict_one(f, a),
+                [a, b] => self.strict_two(f, a, b),
+                _ => {
+                    let mut values = Vec::with_capacity(args.len());
+                    for a in args {
+                        values.push(self.eval(a)?);
+                    }
+                    f(self, &values)
+                }
             }
-            return f(self, &values).map(Arg::Scalar);
+            .map(Arg::Scalar);
         }
         Err(Reason::Function(name.to_string()))
+    }
+
+    /// A strict call of one argument, the argument on the stack (KERNEL.20).
+    fn strict_one(&self, f: Strict, a: &Expr) -> Result<Value, Reason> {
+        let x = self.eval(a)?;
+        f(self, std::slice::from_ref(&x))
+    }
+
+    /// A strict call of two arguments, evaluated left to right, on the stack.
+    fn strict_two(&self, f: Strict, a: &Expr, b: &Expr) -> Result<Value, Reason> {
+        let pair = [self.eval(a)?, self.eval(b)?];
+        f(self, &pair)
     }
 }
 

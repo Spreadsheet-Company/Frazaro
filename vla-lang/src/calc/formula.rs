@@ -49,6 +49,18 @@ pub struct RefExpr {
     /// above is these corners sorted.
     pub shape: Shape,
     pub corners: Corners,
+    /// The sheets named in front of `!`, the first and the last, found once
+    /// against the grid an engine's machine placed the formula in
+    /// (KERNEL.20), whose sheets are fixed for its life. `None` for a
+    /// reference to the formula's own sheet, for a sheet the grid does not
+    /// hold, for one past the 256th, and for any parse not placed, each of
+    /// which finds its sheets by name at every evaluation, as before. A byte
+    /// each, so that the field fits the padding the struct already had: a
+    /// parse's size is what `VLA.1`'s limits are pinned on, a stack of 1 MiB,
+    /// and the reference is the largest kind of expression (measured: two
+    /// words would have made every expression 24 bytes larger and the
+    /// deepest formula's load 192 KiB deeper).
+    pub found: Option<(u8, u8)>,
 }
 
 /// A reference's corners as written, each number with its `$` mark, as
@@ -303,6 +315,7 @@ pub fn ref_expr(r: &FormulaRef) -> Option<RefExpr> {
             row_abs2: r.row_abs2,
             col_abs2: r.col_abs2,
         },
+        found: None,
     })
 }
 
@@ -799,6 +812,7 @@ mod tests {
                 row_abs2: false,
                 col_abs2: false,
             },
+            found: None,
         })
     }
 

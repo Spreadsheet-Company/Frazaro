@@ -19,7 +19,11 @@
 //!
 //! [`super::Calc`] keeps its plan of texts: it evaluates each formula once,
 //! so a parse held would buy it nothing. The plan here is an engine's, kept
-//! for the life of a grid and read again when a write changes a formula.
+//! for the life of a grid and read again when a write changes a formula; a
+//! shape's references find the sheets they name once, as it is placed,
+//! among the grid's and its twins, which are fixed for the grid's life
+//! (KERNEL.20), where a reference found its sheet by name at every
+//! evaluation.
 
 use std::collections::HashMap;
 
@@ -29,7 +33,7 @@ use crate::refers::{self, quote_sheet};
 use crate::sheet::{cell_ref, shared_masters, strip_future_prefixes, Content, Workbook};
 
 use super::eval::{Computed, Ctx, Env, Library, Reason};
-use super::formula::{self, Expr, Read};
+use super::formula::{self, Expr, Read, RefExpr};
 use super::graph::{self, areas_at, cells_in, dependencies, is_formula, CellId, Extent, Names};
 
 /// One formula, parsed once, and the cell it was read at.
@@ -115,7 +119,7 @@ impl Shapes {
         for (si, sheet) in model.sheets.iter().enumerate().take(sheets) {
             let masters = shared_masters(sheet);
             for (&(row, col), cell) in &sheet.cells {
-                s.place_with((si, row, col), &cell.content, &masters, library);
+                s.place_with(model, (si, row, col), &cell.content, &masters, library);
             }
         }
         s.plan(model, names, extents);
@@ -137,11 +141,12 @@ impl Shapes {
             return;
         }
         let masters = shared_masters(sheet);
-        self.place_with(id, &cell.content, &masters, library);
+        self.place_with(model, id, &cell.content, &masters, library);
     }
 
     fn place_with(
         &mut self,
+        model: &Workbook,
         id: CellId,
         content: &Content,
         masters: &HashMap<u32, (&str, u32, u32)>,
@@ -161,7 +166,7 @@ impl Shapes {
                 let shape = match self.by_shared.get(&key) {
                     Some(&s) => s,
                     None => {
-                        let s = self.add(strip_future_prefixes(text), anchor, library);
+                        let s = self.add(model, strip_future_prefixes(text), anchor, library);
                         self.by_shared.insert(key, s);
                         s
                     }
@@ -174,7 +179,7 @@ impl Shapes {
                 match self.by_r1c1.get(&key) {
                     Some(&s) => (s, self.shapes[s].anchor),
                     None => {
-                        let s = self.add(text, id, library);
+                        let s = self.add(model, text, id, library);
                         self.by_r1c1.insert(key, s);
                         (s, id)
                     }
@@ -200,8 +205,11 @@ impl Shapes {
         };
     }
 
-    fn add(&mut self, text: String, anchor: CellId, library: &Library) -> usize {
-        let expr = formula::parse(&text);
+    fn add(&mut self, model: &Workbook, text: String, anchor: CellId, library: &Library) -> usize {
+        let mut expr = formula::parse(&text);
+        if let Ok(e) = expr.as_mut() {
+            find_sheets(e, model);
+        }
         // The calls as the text's tokens hold them, parsed or not, as
         // `Calc::missing_functions` reads them.
         let mut missing: Vec<String> = formula::calls(&text)
@@ -433,6 +441,47 @@ impl Shapes {
         }
         None
     }
+}
+
+/// Every reference of a parse that names its sheets, those sheets found once
+/// against the grid it is placed in (KERNEL.20): a machine's sheets, its
+/// twins among them, are fixed for its life, so the index a name finds at
+/// placement is the one it would find at every evaluation. A reference to
+/// the formula's own sheet, and one naming a sheet the grid does not hold,
+/// stay unfound and are found by name at each evaluation, as before. The
+/// walk keeps its own stack, so that a chain of operators costs it no depth.
+fn find_sheets(expr: &mut Expr, model: &Workbook) {
+    let mut stack = vec![expr];
+    while let Some(e) = stack.pop() {
+        match e {
+            Expr::Ref(r) => r.found = sheets_of(model, r),
+            Expr::Call(_, args) => stack.extend(args.iter_mut()),
+            Expr::Neg(x) | Expr::Pos(x) | Expr::Percent(x) => stack.push(x),
+            Expr::Binary(_, a, b) => {
+                stack.push(a);
+                stack.push(b);
+            }
+            Expr::Name { .. }
+            | Expr::Number(_)
+            | Expr::Text(_)
+            | Expr::Bool(_)
+            | Expr::Error(_)
+            | Expr::Empty => {}
+        }
+    }
+}
+
+/// A reference's named sheets as `graph::areas_at` finds them by name: the
+/// first, and the last of a span or the first again; `None` when it names
+/// none, one the grid does not hold, or one past the 256th, which a byte
+/// cannot hold and the name finds as before.
+fn sheets_of(model: &Workbook, r: &RefExpr) -> Option<(u8, u8)> {
+    let first = model.find_sheet(r.sheet.as_deref()?)?;
+    let last = match &r.last_sheet {
+        None => first,
+        Some(name) => model.find_sheet(name)?,
+    };
+    Some((u8::try_from(first).ok()?, u8::try_from(last).ok()?))
 }
 
 /// `Sheet!A1` for a cell, the sheet quoted as a reference quotes it.

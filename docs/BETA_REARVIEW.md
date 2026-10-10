@@ -20185,6 +20185,238 @@ its tree was built through a temporary index and checked first, 54 of 54.
 `KERNEL.20` stays open, 🟡, for the rest of its line, its next slice begun
 the same day.
 
+**`KERNEL.20`, speed: the second slice, the cheaper frame's overheads: the
+scoping, 2026-10-10.** Begun at the owner's word with the first slice's
+commit, "then proceed with the next slice of KERNEL.20", on the profile
+that slice's decision 9 measured over its frame of about 47 ms natively:
+the frame's-end snapshot 6.9 ms, the twin's cells 1.4 of the frame by
+ablation; the library's lookups by name at every call, 5.3 ms timed alone;
+a reference's sheet found by name at every evaluation, 3.1 timed alone; a
+strict call's argument list, 2.5 by ablation. Built and measured in a
+worktree at `00a9ee1`, the first slice's commit, while the peer's `VLA.1`
+stood uncommitted in the same files. `VLA.1` was committed meanwhile, as
+`b66be81`; the slice was carried onto it by git's merge, every file merged
+but the release notes' one conflict (the two items' bullets, set side by
+side), and there `VLA.1`'s limits, pinned on a stack of 1 MiB, found what
+the slice's own oracle could not: the first form of decision 2 made every
+parse larger and the deepest formula's load overflow (below). Corrected,
+measured again over `b66be81`, and moved into the shared tree after.
+
+*Read in the code before anything was proposed*, at `00a9ee1`:
+- `Library` keeps two B-trees by upper-case name, the strict functions and
+  the forms, and `Ctx::call` asks `form` and then `strict`, so a strict
+  call costs two lookups: ten a cell of Life, whose rule makes six calls,
+  four of them strict.
+- `areas_at` finds a named reference's sheet with `find_sheet` at every
+  evaluation, a pass over the grid's sheets comparing names (Life's ten,
+  `Screen.last` the sixth), six a cell.
+- `Ctx::call` collects a strict call's arguments into a vector, a frame's
+  last allocations by the cell: four a cell, 251,856 of a frame's 251,957.
+- `snapshot` builds each twin's new contents into a vector, 64 bytes a
+  cell and about 4 MB for Life's Screen, holds its keys to the twin's,
+  then walks the twin again to assign them.
+- A machine's sheets never change after its load: a write naming a sheet
+  the grid does not hold is refused (`grid-sheet-unknown`), and the twins
+  are made at the load and refused to every write. So an index found at
+  placement is the index found at every evaluation. `Machine::new` placed
+  the shapes before it made the twins, so a twin's name found nothing at
+  placement.
+- `VLA.1`, uncommitted in the same tree while this was scoped, rewrote
+  `Expr`'s walks (`each_read`, `each_call`, a `push_children` beside them)
+  and threaded a depth guard through the parser, so a change to
+  `Expr::Call`'s shape would have landed on its lines. A call's function
+  found once at the shape is left for a slice of its own, or for the
+  vectorized shape, which compiles a shape anyway.
+
+*The decisions*, built at the owner's word of the day, each with its
+alternative and its measurement, open to the owner's veto before the
+commit.
+
+1. **A slice of `KERNEL.20`: the overheads the profile named, before any
+   accelerator**, as `CART.1`'s order puts them, each measured from the
+   cheaper base. *Alternative:* the vectorized shape next, over them.
+2. **A reference's named sheets found once, at placement:
+   `RefExpr::found`, a byte each.** A field of the parse, `None` for any
+   parse not placed, whose references find their sheets by name as before.
+   `Shapes::add` finds them after parsing (`find_sheets`, a walk that keeps
+   its own stack, as `VLA.1`'s walks do), and `areas_at` reads them when
+   found. `Machine::new` makes the twins before it places the shapes, so
+   that `Screen.last` is found; the defined names are still read before the
+   twins, so a name scoped by its text to a twin reads as before. Exact
+   while a grid's sheets are fixed, which they are for its life. The field
+   is `Option<(u8, u8)>`, three bytes in the padding `RefExpr` already had,
+   so a reference and every expression stay 112 bytes; a sheet past the
+   256th is left unfound and found by name, as before. The first form, two
+   words, made both 136 bytes, and the recursive parser holds many of them
+   in a frame: VLA.1's deepest formulas then needed 1,028 and 1,156 KiB to
+   load where 898 and 962 had held, past the 1 MiB its limits are pinned
+   on. Measured 1.7 ms of a frame natively and 2.6 in the browser.
+   *Alternatives:* a cache in front of `find_sheet`, which the first
+   slice's profile measured in thread-local storage at 10 ms slower; a
+   cache keyed by the parse's address, wrong after the plan's clone is
+   restored on a refused write; the sheets in a side table of the shape,
+   which the evaluator cannot index without a counter that `IF`'s branches
+   would break; a reference boxed in `Expr`, a smaller parse than ever and
+   an allocation for every reference a door parses, a change of `VLA.1`'s
+   ground for another day.
+3. **A strict call's arguments on the stack for one and two.** Two small
+   helpers, `strict_one` and `strict_two`, each a frame holding only its
+   own arguments, evaluated left to right and stopping at the first not
+   computed, as the vector's loop stops; any other count in the vector as
+   before. Every strict call of Life's rule takes one argument or two.
+   Measured 5.0 ms natively and 1.7 in the browser (in the first form, all
+   counts to four), and a frame's allocations from 251,957 to 101, the
+   frame's own. The first form matched every count to four in `call`
+   itself, whose frame evaluation stacks once a level of nesting, and a
+   debug build gives each arm's array and its temporaries a slot of their
+   own: the deepest step, 64 calls deep, needed 452 KiB where it had needed
+   196. With the helpers it needs 196, as before. *Alternatives:* every
+   count to four in `call`, the load's 962 KiB still the larger need, so
+   the pin would not have seen it; an array of four filled with
+   placeholders, the first slice's ablation, 2.5 ms; a small vector by
+   `unsafe`, which nothing else in the crate uses.
+4. **The twin's cells overwritten in place.** The snapshot's walk writes
+   each twin cell where it stands while the twin's cells stand where the
+   sheet's valued cells stand, as frame after frame they do; at the first
+   that does not, or a twin cell left over at the end, it stops writing and
+   the twin is made again from the sheet's values, its extent with it. A
+   write that changes which cells hold a value is the only way there.
+   Measured 0.8 to 2.4 ms natively, nothing in the browser; a frame's own
+   allocations from 101 to 96, and no vector of 4 MB at a frame's end.
+   *Alternatives:* the twin made only when read, `Machine::workbook()` and
+   every reader of a twin's cells changed for it, 1.4 ms in all; or left as
+   it was, since the browser does not see it.
+5. **The library left as it stands, by measurement.** One map of either
+   kind, a call one lookup, was built and measured over the other fixes:
+   hashed with the crate's Fx, 2.8 ms slower; a B-tree, level with the two
+   B-trees within the noise (37.7 and 36.5 ms against 36.8 and 37.0). For
+   fourteen short names a B-tree's comparisons end at the first byte, and a
+   hash and its probe cost more. The form that removes the lookup is a
+   call's function found once at the shape, `Expr::Call` changed, after
+   `VLA.1`. *Alternative:* the merged B-tree, a change for no measured gain.
+6. **A value cell read before the maps: weighed and declined.** A rows'
+   sheet's value cell (Life's Clock, read once a cell) passes two lookups
+   that miss before its B-tree; reading the B-tree first answers it at once,
+   and costs every formula cell read within a frame one lookup more, which
+   a cartridge whose formulas read formulas would pay everywhere. Named for
+   the rows' values kept as arrays, where both reads are an index.
+7. **The oracle.** Four tests, a decision's each. A placed reference's
+   sheets are those its names find, every reference to a sheet the grid
+   holds found, none to one it does not, and a frame computed through them
+   equal cell for cell to `Calc` over the same workbook, which finds every
+   sheet by name: a span, a sheet's own cells, a twin, a sheet the grid does
+   not hold, one formula text on two sheets. A grid of 130 sheets, whose
+   twins pass the 256th, finding the first 256 at placement and the rest by
+   name, the same values either way. A strict call evaluated at
+   every count of arguments from none to five, in order (`MOD(7,3)`), each
+   answering the reason of its first argument not computed. Every twin's
+   cells and extent equal to a twin made from its sheet's values, spelled
+   in the test, after a load, steps, writes that keep the twin in place and
+   writes that make it again (a value turned to a formula not computed, the
+   last valued cell losing its value, cells added, one cell losing its value
+   as another gains one), a refused write and a yield, and over Life.
+   Mutants, each applied once and restored by writing the saved text: a
+   found span read as its first sheet; placement finding a span's first
+   sheet twice; placement finding nothing, correct and slower; a sheet past
+   the 256th wrapped into a byte; two arguments evaluated right to left; a
+   second argument dropped; the twin never made again; a stale last twin
+   cell left standing; a twin cell overwritten whatever cell stands there.
+   `VLA.1`'s limits and strangers, on a stack of 1 MiB, over the slice; and
+   the stack each of VLA.1's deepest formulas needs, loaded and stepped,
+   probed against HEAD's. *Measured:* a ladder of the fixes, natively and in
+   the browser, with Alonzo's runner and its instrument.
+8. **What remains, named.** In the browser a frame is now 53.8 ms, 18.6
+   frames a second against the README's 30, and most of it the evaluator
+   walking its parse cell by cell, which the allocation and memory fixes
+   barely touch there: the vectorized shape's to take. Beside it, the rows'
+   values kept as arrays (the frame's values a map today, inserted once a
+   cell and read through two maps), and a call's function found at the
+   shape, `Expr::Call` changed now that `VLA.1` has landed.
+9. **The bookkeeping and the hand-off.** `RELEASES.md`'s 0.8.2 bullet
+   with the slice's numbers; `KERNEL.20`'s dated note; this entry; the
+   map; the memory. The commit at the owner's word, HEAD and this slice's
+   hunks alone. Then Alonzo's session: its pin moves to the commit, its
+   frames hold, and its allocation ceilings fall from 251,957 and 251,958
+   to 96.
+
+*Size* (*prediction*): about 120 lines of change and 200 of tests.
+
+*Built 2026-10-10*, in a worktree at `00a9ee1`, each fix measured as it
+landed, then carried onto `b66be81`. `vla-lang/src/calc/formula.rs`:
+`RefExpr::found`, a byte each, `None` from `ref_expr` and the tests'
+helper. `vla-lang/src/calc/graph.rs`: `areas_at` reading the found sheets.
+`vla-lang/src/calc/shape.rs`: the model handed to `place_with` and `add`;
+`find_sheets` and `sheets_of`; the module's header.
+`vla-lang/src/calc/eval.rs`: `strict_one` and `strict_two`, and `call`
+handing them one argument or two. `vla-lang/src/machine/mod.rs`:
+`Machine::new` making the twins before the shapes; `snapshot` overwriting
+the twin in place and making it again on a mismatch; `twin_content`, the
+twin's content spelled once for both; four tests and their helpers.
+
+*Carried onto `VLA.1`, and what its limits found.* Over `b66be81` two of
+its targets, `limits` and `strangers`, ended in a stack overflow in the
+debug build. A probe found where: the stack each of VLA.1's deepest
+formulas needs, a thread's size searched to 4 KiB, loaded there, and stepped
+there after a load on a larger one. At HEAD the deepest loads need 898 KiB
+(64 parentheses) and 962 (64 calls), and the deepest step 196; with the
+field two words, `RefExpr` and every `Expr` 136 bytes where they were 112,
+the loads needed 1,028 and 1,156, more than any step needs, so the overflow
+was the parse's size and not evaluation: the recursive parser holds many
+expressions in a debug frame. With the field a byte each, both sizes 112
+again, the loads need 898 and 962. The four-arm `call` was then measured
+apart, the step 452 KiB where the helpers need 196. A change to a parse
+type's size, or to a frame evaluation stacks, is measured by that probe
+before it lands; VLA.1's pins are what saw it, and the slice's own oracle,
+run before VLA.1 was committed, could not.
+
+*Measured*, every frame of every run equal to the hand-written Life. First
+over `00a9ee1`, in the forms first built: `CART.1`'s runner on one
+performance core, three rounds alternated, each the median of its round
+medians, the soup from 46.6 ms a steady frame to 44.9 with the sheets found
+once, 39.9 with the arguments on the stack and 37.5 with the twin in place,
+1.24 times, the gun from 45.6 to 44.3, 38.3 and 37.5, 1.22 times; the check
+mode 251,957 allocations a frame, then 101 and 96 for the soup, 251,958,
+102 and 96 for the gun, 5 reallocations throughout; by rung in the browser,
+Alonzo's instrument, two runs, the soup 58.9 and 58.1 ms, then 55.7 and 56.1
+with the sheets, 54.0 and 54.5 with the arguments, 55.3 and 54.6 with the
+twin; the library's three forms over the other fixes, three rounds, two
+B-trees 36.8 and 37.0 ms, one B-tree 37.7 and 36.5, one Fx map 40.4 and
+39.8. Then over `b66be81`, in the forms kept: the runner from 45.1 to 37.6
+ms for the soup and from 46.2 to 37.6 for the gun, 1.20 and 1.23 times, the
+allocations 251,957 and 251,958 to 96 each; Alonzo's instrument over whole
+copies, three runs each, the soup natively from 48.2 to 40.2 ms (1.20
+times) and in headless Chrome from 57.4 to 53.8 (1.07 times), 17.4 to 18.6
+frames a second, the gun from 48.2 to 40.0 and from 56.6 to 53.0. An
+instrument run made while a probe was being built beside it, whose copy may
+have compiled the probe's variant, was set aside and made again. From
+0.8.1's frame: natively 102 to 40 ms, in the browser 138 to 54, about 2.5
+times each. The modules over `b66be81`: the engine's 475,026 to 476,665
+bytes, the language's with `c-abi` 442,857 to 444,536, the core's 1,133,057
+to 1,133,956.
+
+*Oracle, met* in the worktree, `b66be81` and this slice alone: `cargo test
+--workspace`, 332 passed and 5 ignored, the four new tests over `VLA.1`'s
+328, its limits and strangers among them on their stack of 1 MiB; fmt
+clean; clippy clean, with `c-abi` too; the nine mutants failed, each in the
+tests that name its decision (a span read as its first sheet, one; a span's
+first sheet found twice, one; nothing found, one; a sheet past the 256th
+wrapped, one; two arguments reversed, six, Life's among them; a second
+dropped, six; the twin never made again, five; a stale last cell, five; a
+cell overwritten whatever stands there, one, the write that moves a valued
+cell, added for it), and the clean run after them passed; the stack each of
+VLA.1's deepest formulas needs, as at HEAD; `run_checks.ps1` 54 of 54 with
+the door, both modules and the page built there; `prove.ps1` 46 passed, 0
+failed, 2 not attempted, 1 library. No Excel step: the slice touches no
+VBA.
+
+*Committed 2026-10-10 at the owner's word*, "Commit": the owner took the
+oracle above as the slice's test, the slice touching no VBA. The commit
+holds HEAD and this slice's eight files alone, staged blob by blob from the
+worktree; the peer's uncommitted `VLA.3`, in this file and in its own, is
+left in the tree. Its tree was checked first in the worktree, 54 of 54.
+`KERNEL.20` stays open, 🟡, for the rest of its line: the vectorized shape,
+the rows' values kept as arrays, and a call's function found at the shape.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
