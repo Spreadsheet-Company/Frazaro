@@ -17,7 +17,9 @@
 //! since KERNEL.22 (2026-10-09), the machine (`machine`): a grid kept under
 //! a handle and stepped, the four calls an engine makes of it (load, write,
 //! step, view), the previous frame's twin sheets, the plane, with a C
-//! surface over them (`abi`) exported only under the `c-abi` feature.
+//! surface over them (`abi`) exported only under the `c-abi` feature; and
+//! since KERNEL.25 (2026-10-09), the hash the machine's maps use (`fx`, the
+//! crate's own).
 //!
 //! The contract (docs/HORIZON.md section 12; Alonzo/CHARTER.md section 4,
 //! rule 1): bytes in, bytes out, nothing else. No English, no file format,
@@ -36,6 +38,7 @@ pub mod abi;
 pub mod calc;
 pub mod expand;
 pub mod form;
+mod fx;
 pub mod headtable;
 pub mod intrinsics;
 pub mod machine;

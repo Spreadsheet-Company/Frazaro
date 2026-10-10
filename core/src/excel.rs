@@ -174,7 +174,7 @@ pub fn library() -> Library {
 /// `IFS(c1, v1, c2, v2, ...)`: the value beside the first condition that
 /// holds; a condition's error is the answer; none holding is `#N/A`. Only
 /// the value chosen is computed.
-fn ifs(ctx: &Ctx<'_>, args: &[Expr]) -> Result<Arg, Reason> {
+fn ifs<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
     if args.len() < 2 || args.len() % 2 == 1 {
         return Ok(Arg::Scalar(Value::Error(ErrorKind::NA)));
     }

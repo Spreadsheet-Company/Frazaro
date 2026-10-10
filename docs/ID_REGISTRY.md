@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.24 | KERNEL.25 |
+| KERNEL | KERNEL.25 | KERNEL.26 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -182,7 +182,10 @@ row's line, at the owner's approval of that scoping the same day.
 `KERNEL.24` was minted 2026-10-09 for the plane kept at the frame's end,
 the language's half of Alonzo's `ENGINE.2`, at the owner's approval of its
 scoping the same day; the Alonzo session's note had named it `KERNEL.23`,
-which the refusals had taken an hour before. `KERNEL.25` is next free.
+which the refusals had taken an hour before. `KERNEL.25` was minted
+2026-10-09 at its scoping, for the evaluator's hot path made cheaper bit
+for bit, the seven fixes Alonzo's `CART.1` measured (its decision 9).
+`KERNEL.26` is next free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a

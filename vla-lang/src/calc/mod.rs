@@ -48,7 +48,7 @@ use crate::sheet::{cell_ref, formula_text, shared_masters, Content, Workbook};
 
 pub use eval::{Arg, Computed, Ctx, Env, Form, Library, Reason, Strict};
 pub use formula::{calls, parse, Expr};
-pub use graph::{Area, CellId, Extent, Names, Plan};
+pub use graph::{Area, Areas, CellId, Extent, Names, Plan};
 pub use shape::{Place, Shape, Shapes};
 pub use value::{agrees, ErrorKind, Value};
 
@@ -565,6 +565,65 @@ mod tests {
             4800.0,
             "a sheet reads another's formula after it is computed"
         );
+    }
+
+    #[test]
+    fn an_aggregate_folds_in_the_walk_s_order_and_keeps_the_first_answer() {
+        // KERNEL.25: SUM, MIN, MAX, AND and OR fold as they walk instead of
+        // collecting. The order is a range's walk, row by row: these four
+        // cells sum to 0 by rows and to 1 by columns, as doubles.
+        let wb = model(&[
+            ("S", "A1", "1E16"),
+            ("S", "B1", "1"),
+            ("S", "A2", "-1E16"),
+            ("S", "B2", "0"),
+            ("S", "C1", "#N/A"),
+            ("S", "C2", "=VLOOKUP(1,A1:A2,2)"),
+            ("S", "D1", "=SUM(A1:B2)"),
+            ("S", "D2", "=SUM(C1:C2)"),
+            ("S", "D3", "=SUM(C1+0,C2:C2)"),
+            ("S", "D4", "=AND(FALSE,C1)"),
+            ("S", "D5", "=OR(TRUE,C1)"),
+            ("S", "D6", "=MIN(Z1:Z3)"),
+            ("S", "D7", "=MAX(Z1:Z3)"),
+            ("S", "D8", "=MIN(A1:B2)"),
+            ("S", "D9", "=MAX(A1:B2,-5)"),
+            ("S", "D10", "=OR(A2:B2)"),
+            ("S", "D11", "=AND(A1:B1,TRUE)"),
+        ]);
+        let lib = library::language();
+        let calc = Calc::run(&wb, &lib);
+        let err = |k| Computed::Value(Value::Error(k));
+        let by_rows = [1e16, 1.0, -1e16, 0.0].iter().fold(-0.0, |a, b| a + b);
+        let by_columns = [1e16, -1e16, 1.0, 0.0].iter().fold(-0.0, |a, b| a + b);
+        assert_ne!(
+            by_rows, by_columns,
+            "the fixture tells the two orders apart"
+        );
+        assert_eq!(number(&calc, "S", "D1"), by_rows);
+        assert_eq!(number(&calc, "S", "D1"), 0.0);
+        assert_eq!(
+            at(&calc, "S", "D2"),
+            Computed::NotComputed(Reason::Function("VLOOKUP".to_string())),
+            "a range is walked to its end: the cell not computed answers after the error"
+        );
+        assert_eq!(
+            at(&calc, "S", "D3"),
+            err(ErrorKind::NA),
+            "an error given directly answers before a later range is walked"
+        );
+        assert_eq!(at(&calc, "S", "D4"), err(ErrorKind::NA), "AND is strict");
+        assert_eq!(at(&calc, "S", "D5"), err(ErrorKind::NA), "OR is strict");
+        assert_eq!(number(&calc, "S", "D6"), 0.0, "MIN of no number");
+        assert_eq!(number(&calc, "S", "D7"), 0.0, "MAX of no number");
+        assert_eq!(number(&calc, "S", "D8"), -1e16);
+        assert_eq!(number(&calc, "S", "D9"), 1e16);
+        assert_eq!(
+            at(&calc, "S", "D10"),
+            Computed::Value(Value::Bool(true)),
+            "-1E16 is true, 0 false"
+        );
+        assert_eq!(at(&calc, "S", "D11"), Computed::Value(Value::Bool(true)));
     }
 
     #[test]

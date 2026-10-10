@@ -18,6 +18,7 @@
 //! parser's page says. An error value is a value and propagates as Excel
 //! propagates it, the left operand's first; it never refuses anything.
 
+use std::borrow::Cow;
 use std::cell::Cell as Counter;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
@@ -27,7 +28,7 @@ use crate::rows::quoted;
 use crate::sheet::Workbook;
 
 use super::formula::{self, BinOp, Expr, RefExpr};
-use super::graph::{areas_at, cells_in, Area, CellId, Extent};
+use super::graph::{areas_at, cells_in, Area, Areas, CellId, Extent};
 use super::value::{ErrorKind, Value};
 
 /// Why a cell was not computed: the honest static label, named.
@@ -70,19 +71,42 @@ impl Computed {
     }
 }
 
-/// An evaluated operand: one value, or the cells a reference names.
+/// An evaluated operand: one value, or the cells a reference names. `'e` is
+/// the life of the expression it was evaluated from, whose text labels an
+/// area (KERNEL.25).
 #[derive(Clone, Debug, PartialEq)]
-pub enum Arg {
+pub enum Arg<'e> {
     Scalar(Value),
     Area {
-        areas: Vec<Area>,
-        /// The reference as written, for a label.
-        written: String,
+        areas: Areas,
+        /// The reference as written, for a label: borrowed from the parse,
+        /// so that a reference evaluated costs no copy of its text, or owned
+        /// when the parse was the evaluation's own, a defined name's text.
+        written: Cow<'e, str>,
         /// The offset the reference was evaluated at (KERNEL.22, a shape at
         /// a cell other than its first), by which the label's text is moved
         /// before it is shown; (0, 0) everywhere else.
         moved: (i64, i64),
     },
+}
+
+impl Arg<'_> {
+    /// The operand with its label owned, to outlive the parse it was
+    /// evaluated from.
+    pub fn into_owned(self) -> Arg<'static> {
+        match self {
+            Arg::Scalar(v) => Arg::Scalar(v),
+            Arg::Area {
+                areas,
+                written,
+                moved,
+            } => Arg::Area {
+                areas,
+                written: Cow::Owned(written.into_owned()),
+                moved,
+            },
+        }
+    }
 }
 
 /// The grid as the cell being computed sees it.
@@ -103,10 +127,11 @@ pub trait Env {
 }
 
 /// A strict function: its arguments evaluated, a value or a reason out.
-pub type Strict = fn(&Ctx<'_>, &[Arg]) -> Result<Value, Reason>;
+pub type Strict = fn(&Ctx<'_>, &[Arg<'_>]) -> Result<Value, Reason>;
 
-/// A form: its arguments as written, an operand or a reason out.
-pub type Form = fn(&Ctx<'_>, &[Expr]) -> Result<Arg, Reason>;
+/// A form: its arguments as written, an operand or a reason out, the operand
+/// living as long as the arguments it was evaluated from.
+pub type Form = for<'e> fn(&Ctx<'_>, &'e [Expr]) -> Result<Arg<'e>, Reason>;
 
 /// The functions a formula may call, by upper-case name: the seam.
 #[derive(Default)]
@@ -138,18 +163,18 @@ impl Library {
 
     /// The strict function of that name, without case.
     pub fn strict(&self, name: &str) -> Option<Strict> {
-        self.strict.get(&name.to_ascii_uppercase()).copied()
+        self.strict.get(&*key(name)).copied()
     }
 
     /// The form of that name, without case.
     pub fn form(&self, name: &str) -> Option<Form> {
-        self.forms.get(&name.to_ascii_uppercase()).copied()
+        self.forms.get(&*key(name)).copied()
     }
 
     /// Whether the library holds a function of that name.
     pub fn has(&self, name: &str) -> bool {
-        let key = name.to_ascii_uppercase();
-        self.strict.contains_key(&key) || self.forms.contains_key(&key)
+        let wanted = key(name);
+        self.strict.contains_key(&*wanted) || self.forms.contains_key(&*wanted)
     }
 
     /// Every name the library holds, sorted.
@@ -172,6 +197,18 @@ impl Library {
     /// Whether the library holds none.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+/// A name as the library keys it, in ASCII upper case: the name as it
+/// stands when it holds no ASCII small letter, as a parsed call's name
+/// never does (`formula.rs` upper-cases it), so that a lookup at every
+/// evaluation makes no string (KERNEL.25).
+fn key(name: &str) -> Cow<'_, str> {
+    if name.bytes().any(|b| b.is_ascii_lowercase()) {
+        Cow::Owned(name.to_ascii_uppercase())
+    } else {
+        Cow::Borrowed(name)
     }
 }
 
@@ -209,7 +246,7 @@ impl<'a> Ctx<'a> {
     }
 
     /// An expression as an operand.
-    pub fn eval(&self, e: &Expr) -> Result<Arg, Reason> {
+    pub fn eval<'e>(&self, e: &'e Expr) -> Result<Arg<'e>, Reason> {
         match e {
             Expr::Number(v) => Ok(Arg::Scalar(Value::Number(*v))),
             Expr::Text(t) => Ok(Arg::Scalar(Value::Text(t.clone()))),
@@ -251,16 +288,16 @@ impl<'a> Ctx<'a> {
     }
 
     /// An operand as one value, by the same rule.
-    pub fn one(&self, arg: &Arg) -> Result<Value, Reason> {
+    pub fn one(&self, arg: &Arg<'_>) -> Result<Value, Reason> {
         match arg {
             Arg::Scalar(v) => Ok(v.clone()),
             Arg::Area {
                 areas,
                 written,
                 moved,
-            } => match areas.as_slice() {
+            } => match &areas[..] {
                 [a] if a.is_cell() => self.env.read((a.sheet, a.top, a.left)),
-                _ if *moved == (0, 0) => Err(Reason::Construct(written.clone())),
+                _ if *moved == (0, 0) => Err(Reason::Construct(written.to_string())),
                 // The label a moved text would show: the cell's own reference.
                 _ => Err(Reason::Construct(crate::refers::shift_a1_references(
                     written, moved.0, moved.1,
@@ -281,17 +318,18 @@ impl<'a> Ctx<'a> {
     }
 
     /// [`Ctx::truth`] over an evaluated operand.
-    pub fn truth_arg(&self, arg: &Arg) -> Result<Result<bool, ErrorKind>, Reason> {
+    pub fn truth_arg(&self, arg: &Arg<'_>) -> Result<Result<bool, ErrorKind>, Reason> {
         Ok(self.one(arg)?.truth())
     }
 
     /// Every cell the areas hold, in area order then row-major, to `f`;
-    /// a cell nothing holds is skipped, as Excel skips it in a range.
-    pub fn each(
-        &self,
-        areas: &[Area],
-        f: &mut dyn FnMut(Value) -> Result<(), Reason>,
-    ) -> Result<(), Reason> {
+    /// a cell nothing holds is skipped, as Excel skips it in a range. `f` is
+    /// a type of its own and not a pointer, so that an aggregate's fold is
+    /// compiled into the walk (KERNEL.25).
+    pub fn each<F>(&self, areas: &[Area], mut f: F) -> Result<(), Reason>
+    where
+        F: FnMut(Value) -> Result<(), Reason>,
+    {
         let model = self.env.model();
         for a in areas {
             let Some(sheet) = model.sheets.get(a.sheet) else {
@@ -307,20 +345,23 @@ impl<'a> Ctx<'a> {
         Ok(())
     }
 
-    fn reference(&self, r: &RefExpr) -> Result<Arg, Reason> {
+    fn reference<'e>(&self, r: &'e RefExpr) -> Result<Arg<'e>, Reason> {
         let home = self.env.here().0;
         let (d_row, d_col) = self.offset.get();
         match areas_at(self.env.model(), home, r, d_row, d_col) {
             Ok(areas) => Ok(Arg::Area {
                 areas,
-                written: r.written.clone(),
+                written: Cow::Borrowed(&r.written),
                 moved: (d_row, d_col),
             }),
             Err(k) => Ok(Arg::Scalar(Value::Error(k))),
         }
     }
 
-    fn named(&self, name: &str, sheet: Option<&str>) -> Result<Arg, Reason> {
+    /// A defined name's value: its text parsed here and evaluated, so that
+    /// an area it names carries its label owned, the parse being this
+    /// call's own.
+    fn named(&self, name: &str, sheet: Option<&str>) -> Result<Arg<'static>, Reason> {
         let model = self.env.model();
         let home = self.env.here().0;
         let scope = match sheet {
@@ -340,13 +381,13 @@ impl<'a> Ctx<'a> {
         // A name's references are where the name says, whatever cell reads it.
         let offset = self.offset.replace((0, 0));
         self.depth.set(self.depth.get() + 1);
-        let result = self.eval(&parsed);
+        let result = self.eval(&parsed).map(Arg::into_owned);
         self.depth.set(self.depth.get() - 1);
         self.offset.set(offset);
         result
     }
 
-    fn call(&self, name: &str, args: &[Expr]) -> Result<Arg, Reason> {
+    fn call<'e>(&self, name: &str, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
         if let Some(form) = self.lib.form(name) {
             return form(self, args);
         }
@@ -552,7 +593,7 @@ mod tests {
         fn one(_: &Ctx<'_>, _: &[Arg]) -> Result<Value, Reason> {
             Ok(Value::Number(1.0))
         }
-        fn two(_: &Ctx<'_>, _: &[Expr]) -> Result<Arg, Reason> {
+        fn two<'e>(_: &Ctx<'_>, _: &'e [Expr]) -> Result<Arg<'e>, Reason> {
             Ok(Arg::Scalar(Value::Number(2.0)))
         }
         lib.register("one", one);
@@ -563,5 +604,36 @@ mod tests {
         lib.register_form("one", two);
         assert!(lib.strict("one").is_none() && lib.form("one").is_some());
         assert_eq!(lib.len(), 2);
+    }
+
+    #[test]
+    fn a_name_is_upper_cased_only_when_that_would_change_it() {
+        // KERNEL.25: a parsed call's name, already in upper case, is looked
+        // up as it stands; any other has its ASCII letters upper-cased first,
+        // so a letter outside ASCII keeps its case, as it always has.
+        fn one(_: &Ctx<'_>, _: &[Arg]) -> Result<Value, Reason> {
+            Ok(Value::Number(1.0))
+        }
+        assert!(matches!(key("SUM"), Cow::Borrowed("SUM")));
+        assert!(matches!(key("ÄRGER"), Cow::Borrowed("ÄRGER")));
+        assert_eq!(key("Sum"), "SUM");
+        assert_eq!(key("ärger"), "äRGER");
+        let mut lib = Library::empty();
+        lib.register("Ärger", one);
+        lib.register("sum", one);
+        assert_eq!(lib.names(), vec!["SUM", "ÄRGER"]);
+        for (name, found) in [
+            ("SUM", true),
+            ("Sum", true),
+            ("sum", true),
+            ("ÄRGER", true),
+            ("Ärger", true),
+            ("ärger", false),
+            ("äRGER", false),
+        ] {
+            assert_eq!(lib.strict(name).is_some(), found, "{name}");
+            assert_eq!(lib.has(name), found, "{name}");
+            assert!(lib.form(name).is_none(), "{name}");
+        }
     }
 }

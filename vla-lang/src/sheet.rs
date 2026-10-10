@@ -20,7 +20,6 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use crate::intrinsics::fold;
 use crate::rows::Visibility;
 
 /// A colour, as `Interior.Color = RGB(r, g, b)` names it.
@@ -476,10 +475,14 @@ impl Workbook {
     }
 
     /// The index of the sheet of that name, compared as Excel compares sheet
-    /// names, without case.
+    /// names, without case: `fold`'s test, which lowers the ASCII capitals
+    /// alone, made byte by byte in place (KERNEL.25). Every reference of
+    /// every evaluation asks it, and folding each name into a new string
+    /// was a third of a frame of Life.
     pub fn find_sheet(&self, name: &str) -> Option<usize> {
-        let want = fold(name);
-        self.sheets.iter().position(|s| fold(&s.name) == want)
+        self.sheets
+            .iter()
+            .position(|s| s.name.eq_ignore_ascii_case(name))
     }
 
     /// The sheet of that name, added last with the name as given when there
@@ -612,6 +615,35 @@ mod tests {
         assert_eq!(column_letters(703), "AAA");
         assert_eq!(cell_ref(1, 2), "B1");
         assert_eq!(cell_ref(12, 3), "C12");
+    }
+
+    #[test]
+    fn a_sheet_is_found_as_the_fold_finds_it() {
+        // KERNEL.25: find_sheet compares in place what it once compared
+        // through `fold`, which stays here as the rule it must keep. Names
+        // whose folds differ only outside ASCII are different sheets.
+        use crate::intrinsics::fold;
+        let mut book = Workbook::new();
+        for name in ["É", "é", "İSTANBUL", "Straße", "Data", "Screen.last"] {
+            book.sheets.push(Sheet::new(name));
+        }
+        let by_fold = |name: &str| book.sheets.iter().position(|s| fold(&s.name) == fold(name));
+        let asked = [
+            ("É", Some(0)),
+            ("é", Some(1)),
+            ("İstanbul", Some(2)),
+            ("istanbul", None),
+            ("straße", Some(3)),
+            ("STRASSE", None),
+            ("DATA", Some(4)),
+            ("SCREEN.LAST", Some(5)),
+            ("Screen", None),
+            ("", None),
+        ];
+        for (name, want) in asked {
+            assert_eq!(book.find_sheet(name), want, "{name}");
+            assert_eq!(book.find_sheet(name), by_fold(name), "{name}");
+        }
     }
 
     #[test]

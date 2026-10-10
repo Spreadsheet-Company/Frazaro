@@ -23,6 +23,7 @@
 
 use std::collections::HashMap;
 
+use crate::fx::FxHashMap;
 use crate::messages::{raise, Refusal};
 use crate::refers::{self, quote_sheet};
 use crate::sheet::{cell_ref, shared_masters, strip_future_prefixes, Content, Workbook};
@@ -85,10 +86,12 @@ pub struct Shapes {
     by_r1c1: HashMap<String, usize>,
     /// A shared formula's shape, by its sheet and its index.
     by_shared: HashMap<(usize, u32), usize>,
-    places: HashMap<CellId, Place>,
+    /// Every formula cell's place, looked up at each of its evaluations,
+    /// under the crate's own hash (KERNEL.25).
+    places: FxHashMap<CellId, Place>,
     /// A cell of a risky shape whose own text the parse does not read: the
     /// construct it names, found once when the cell is placed.
-    unread: HashMap<CellId, String>,
+    unread: FxHashMap<CellId, String>,
     order: Vec<CellId>,
     cycles: Vec<Vec<CellId>>,
 }
@@ -247,13 +250,13 @@ impl Shapes {
                         let Ok(areas) = areas_at(model, id.0, re, p.d_row, p.d_col) else {
                             return;
                         };
-                        for a in areas {
+                        for a in &areas {
                             if !holds.get(a.sheet).copied().unwrap_or(false) {
                                 continue;
                             }
                             let sheet = &model.sheets[a.sheet];
                             let extent = extents.get(a.sheet).copied().flatten();
-                            for ((row, col), cell) in cells_in(sheet, extent, &a) {
+                            for ((row, col), cell) in cells_in(sheet, extent, a) {
                                 if is_formula(&cell.content) {
                                     deps.push((a.sheet, row, col));
                                 }

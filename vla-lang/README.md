@@ -152,8 +152,8 @@ this page gains its section when the item closes:
   dynamic arrays and spills, implicit intersection and `@` (KERNEL.8); the
   vectorized evaluation of a shared formula, incremental recomputation and
   content-addressed evaluation (KERNEL.20), which is what makes a frame of
-  a 320 by 200 grid fast: today the machine steps one in about a quarter of
-  a second natively. The first slice is here.
+  a 320 by 200 grid fast: today the machine steps one in about a tenth of a
+  second natively. The first slice is here.
 - **An expansion golden of its own.** The corpus program expanded under
   the prelude, written by the reference and reproduced here.
 

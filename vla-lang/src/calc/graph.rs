@@ -17,6 +17,7 @@
 //! The walk is iterative: a running total down ten thousand rows is a
 //! chain ten thousand deep, which a recursive walk would not survive.
 
+use std::collections::btree_map::Range;
 use std::collections::HashMap;
 
 use crate::intrinsics::fold;
@@ -50,6 +51,64 @@ impl Area {
         self.top == self.bottom && self.left == self.right
     }
 }
+
+/// The areas a reference names, read as a slice: one area held in place, or
+/// a 3D span's, one a sheet, in a vector (KERNEL.25: a reference to one
+/// sheet, which every evaluation of nearly every formula makes, allocates
+/// nothing).
+#[derive(Clone, Debug)]
+pub struct Areas(Held);
+
+#[derive(Clone, Debug)]
+enum Held {
+    One(Area),
+    Span(Vec<Area>),
+}
+
+impl Areas {
+    /// One area.
+    pub fn one(area: Area) -> Areas {
+        Areas(Held::One(area))
+    }
+}
+
+impl From<Vec<Area>> for Areas {
+    fn from(areas: Vec<Area>) -> Areas {
+        match areas.as_slice() {
+            [area] => Areas::one(*area),
+            _ => Areas(Held::Span(areas)),
+        }
+    }
+}
+
+impl std::ops::Deref for Areas {
+    type Target = [Area];
+
+    fn deref(&self) -> &[Area] {
+        match &self.0 {
+            Held::One(area) => std::slice::from_ref(area),
+            Held::Span(areas) => areas,
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a Areas {
+    type Item = &'a Area;
+    type IntoIter = std::slice::Iter<'a, Area>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+/// Two lists of areas are equal when they read the same, however held.
+impl PartialEq for Areas {
+    fn eq(&self, other: &Areas) -> bool {
+        **self == **other
+    }
+}
+
+impl Eq for Areas {}
 
 /// The defined names of a workbook, each with the sheet that scopes it and
 /// its text, as the reader prints a `name` row (`Model!Local` for a
@@ -134,7 +193,7 @@ fn split_scope<'a>(model: &Workbook, printed: &'a str) -> (Option<usize>, &'a st
 /// The areas a reference names against the model: one per sheet of a
 /// span, the formula's own sheet when none is written. A sheet the model
 /// does not hold is `#REF!`.
-pub fn areas_of(model: &Workbook, home: usize, r: &RefExpr) -> Result<Vec<Area>, ErrorKind> {
+pub fn areas_of(model: &Workbook, home: usize, r: &RefExpr) -> Result<Areas, ErrorKind> {
     areas_at(model, home, r, 0, 0)
 }
 
@@ -148,7 +207,7 @@ pub fn areas_at(
     r: &RefExpr,
     d_row: i64,
     d_col: i64,
-) -> Result<Vec<Area>, ErrorKind> {
+) -> Result<Areas, ErrorKind> {
     let first = match &r.sheet {
         None => home,
         Some(name) => model.find_sheet(name).ok_or(ErrorKind::Ref)?,
@@ -158,49 +217,110 @@ pub fn areas_at(
         Some(name) => model.find_sheet(name).ok_or(ErrorKind::Ref)?,
     };
     let (top, left, bottom, right) = r.moved(d_row, d_col).ok_or(ErrorKind::Ref)?;
+    let area = |sheet| Area {
+        sheet,
+        top,
+        left,
+        bottom,
+        right,
+    };
+    if first == last {
+        return Ok(Areas::one(area(first)));
+    }
     let (a, b) = (first.min(last), first.max(last));
-    Ok((a..=b)
-        .map(|sheet| Area {
-            sheet,
-            top,
-            left,
-            bottom,
-            right,
-        })
-        .collect())
+    Ok(Areas::from((a..=b).map(area).collect::<Vec<Area>>()))
 }
 
 /// The cells a sheet holds inside an area, in row-major order, the area
 /// clamped to the sheet's extent first so that a whole column costs its
-/// rows and not Excel's million.
-pub fn cells_in<'a>(sheet: &'a Sheet, extent: Extent, area: &Area) -> Vec<((u32, u32), &'a Cell)> {
+/// rows and not Excel's million. Walked as it is read and never collected
+/// (KERNEL.25): a range read by every evaluation of a formula cost a vector
+/// each time.
+pub fn cells_in<'a>(
+    sheet: &'a Sheet,
+    extent: Extent,
+    area: &Area,
+) -> impl Iterator<Item = ((u32, u32), &'a Cell)> + 'a {
     let Some(((e_top, e_left), (e_bottom, e_right))) = extent else {
-        return Vec::new();
+        return Walk::Done;
     };
     let top = area.top.max(e_top);
     let bottom = area.bottom.min(e_bottom);
     let left = area.left.max(e_left);
     let right = area.right.min(e_right);
     if top > bottom || left > right {
-        return Vec::new();
+        return Walk::Done;
     }
     let rows = usize::try_from(bottom - top + 1).unwrap_or(usize::MAX);
     if rows > sheet.cells.len() {
         // Fewer cells than rows: walk the cells and keep those inside.
-        return sheet
-            .cells
-            .range((top, 0)..=(bottom, u32::MAX))
-            .filter(|((_, col), _)| *col >= left && *col <= right)
-            .map(|(k, c)| (*k, c))
-            .collect();
+        return Walk::Sparse {
+            cells: sheet.cells.range((top, 0)..=(bottom, u32::MAX)),
+            left,
+            right,
+        };
     }
-    let mut out = Vec::new();
-    for row in top..=bottom {
-        for (k, c) in sheet.cells.range((row, left)..=(row, right)) {
-            out.push((*k, c));
+    Walk::Rows {
+        sheet,
+        row: top,
+        bottom,
+        left,
+        right,
+        cells: sheet.cells.range((top, left)..=(top, right)),
+    }
+}
+
+/// [`cells_in`]'s two walks: the sheet's cells between the area's first and
+/// last rows, those in its columns kept; or the area row by row, a range of
+/// the sheet's cells a row.
+enum Walk<'a> {
+    Done,
+    Sparse {
+        cells: Range<'a, (u32, u32), Cell>,
+        left: u32,
+        right: u32,
+    },
+    Rows {
+        sheet: &'a Sheet,
+        row: u32,
+        bottom: u32,
+        left: u32,
+        right: u32,
+        cells: Range<'a, (u32, u32), Cell>,
+    },
+}
+
+impl<'a> Iterator for Walk<'a> {
+    type Item = ((u32, u32), &'a Cell);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Walk::Done => None,
+            Walk::Sparse { cells, left, right } => {
+                let (left, right) = (*left, *right);
+                cells
+                    .find(|((_, col), _)| *col >= left && *col <= right)
+                    .map(|(k, c)| (*k, c))
+            }
+            Walk::Rows {
+                sheet,
+                row,
+                bottom,
+                left,
+                right,
+                cells,
+            } => loop {
+                if let Some((k, c)) = cells.next() {
+                    return Some((*k, c));
+                }
+                if *row >= *bottom {
+                    return None;
+                }
+                *row += 1;
+                *cells = sheet.cells.range((*row, *left)..=(*row, *right));
+            },
         }
     }
-    out
 }
 
 /// Whether a cell's content is a formula of any kind.
@@ -246,9 +366,9 @@ fn collect(
                 let Ok(areas) = areas_of(model, home, &re) else {
                     continue;
                 };
-                for a in areas {
+                for a in &areas {
                     let sheet = &model.sheets[a.sheet];
-                    for ((row, col), cell) in cells_in(sheet, extents[a.sheet], &a) {
+                    for ((row, col), cell) in cells_in(sheet, extents[a.sheet], a) {
                         if is_formula(&cell.content) {
                             out.push((a.sheet, row, col));
                         }
@@ -412,6 +532,116 @@ mod tests {
         assert!(comps.contains(&vec![3, 4]));
         assert!(comps.contains(&vec![5]));
         assert_eq!(comps.len(), 5);
+    }
+
+    #[test]
+    fn a_reference_s_areas_are_one_held_in_place_or_a_span_s_in_order() {
+        // KERNEL.25: one area is held in place and read as a slice of one;
+        // a span's are one a sheet, in the sheets' order.
+        use super::super::formula::{parse, Expr};
+        let mut wb = Workbook::new();
+        for name in ["Jan", "Feb", "Mar"] {
+            wb.sheets.push(Sheet::new(name));
+        }
+        let areas = |text: &str| {
+            let Ok(Expr::Ref(r)) = parse(text) else {
+                panic!("{text}")
+            };
+            areas_of(&wb, 0, &r)
+        };
+        let rect = |sheet, top, left, bottom, right| Area {
+            sheet,
+            top,
+            left,
+            bottom,
+            right,
+        };
+        let one = areas("=Feb!B2:C3").unwrap();
+        assert_eq!(&one[..], &[rect(1, 2, 2, 3, 3)]);
+        assert_eq!(one, Areas::one(rect(1, 2, 2, 3, 3)));
+        assert_eq!(one, Areas::from(vec![rect(1, 2, 2, 3, 3)]));
+        assert_eq!(
+            &areas("=B2").unwrap()[..],
+            &[rect(0, 2, 2, 2, 2)],
+            "the formula's own sheet"
+        );
+        let span = areas("=Jan:Mar!B2").unwrap();
+        let sheets: Vec<usize> = span.iter().map(|a| a.sheet).collect();
+        assert_eq!(sheets, vec![0, 1, 2]);
+        assert_eq!(areas("=Mar:Jan!B2").unwrap(), span);
+        assert_ne!(span, one);
+        assert_eq!(areas("=Apr!B2"), Err(ErrorKind::Ref));
+    }
+
+    #[test]
+    fn a_range_s_cells_are_walked_row_by_row_as_they_were_collected() {
+        // KERNEL.25: the walk is read as it goes. Its cells and their order
+        // are the sheet's own cells inside the area clamped to the extent,
+        // row by row, in both its walks: row by row through each row's
+        // cells, and through every cell between the first and last rows for
+        // a sheet with fewer cells than the area has rows.
+        use crate::sheet::{MAX_COLUMN, MAX_ROW};
+        let number = |n: u32| Cell {
+            content: Content::Number(f64::from(n)),
+            style: 0,
+        };
+        let mut dense = Sheet::new("Dense");
+        for row in 1..=5u32 {
+            for col in 1..=4u32 {
+                if (row + col) % 5 != 0 {
+                    dense.set(row, col, number(row * 10 + col));
+                }
+            }
+        }
+        let mut sparse = Sheet::new("Sparse");
+        for (row, col) in [(1, 2), (40, 1), (40, 3), (700, 2), (1000, 4)] {
+            sparse.set(row, col, number(row));
+        }
+        let empty = Sheet::new("Empty");
+        let rect = |top, left, bottom, right| Area {
+            sheet: 0,
+            top,
+            left,
+            bottom,
+            right,
+        };
+        let areas = [
+            rect(2, 2, 4, 3),
+            rect(1, 1, MAX_ROW, 1),
+            rect(3, 1, 3, MAX_COLUMN),
+            rect(1, 1, MAX_ROW, MAX_COLUMN),
+            rect(40, 2, 700, 3),
+            rect(6, 1, 9, 9),
+            rect(2, 5, 4, 9),
+            rect(1, 2, 1, 2),
+        ];
+        let mut walked_any = 0;
+        for sheet in [&dense, &sparse, &empty] {
+            let extent = sheet.extent();
+            for a in &areas {
+                let walked: Vec<(u32, u32)> = cells_in(sheet, extent, a).map(|(k, _)| k).collect();
+                let want: Vec<(u32, u32)> = match extent {
+                    None => Vec::new(),
+                    Some(((t, l), (b, r))) => sheet
+                        .cells
+                        .keys()
+                        .copied()
+                        .filter(|&(row, col)| {
+                            row >= a.top.max(t)
+                                && row <= a.bottom.min(b)
+                                && col >= a.left.max(l)
+                                && col <= a.right.min(r)
+                        })
+                        .collect(),
+                };
+                assert_eq!(walked, want, "{} {a:?}", sheet.name);
+                walked_any += walked.len();
+            }
+        }
+        assert_eq!(
+            walked_any, 37,
+            "28 cells of the dense sheet's, 9 of the sparse one's"
+        );
     }
 
     #[test]

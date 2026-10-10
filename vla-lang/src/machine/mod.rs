@@ -48,6 +48,7 @@ use crate::calc::graph::{is_formula, Extent, Names};
 use crate::calc::shape::{spell_cell, Shapes};
 use crate::calc::{CellId, Computed, Env, ErrorKind, Library, Reason, Value, Values};
 use crate::form::Form;
+use crate::fx::FxHashMap;
 use crate::messages::{raise, Refusal};
 use crate::reader::read_forms;
 use crate::refers::shift_a1_references;
@@ -230,14 +231,16 @@ pub struct Machine {
     names: Names,
     extents: Vec<Extent>,
     shapes: Shapes,
-    /// The last complete frame's values, by formula cell.
-    current: HashMap<CellId, Computed>,
+    /// The last complete frame's values, by formula cell. This map and the
+    /// next two are under the crate's own hash (KERNEL.25); nothing walks
+    /// them, so their order is never read.
+    current: FxHashMap<CellId, Computed>,
     /// The frame in progress's values; after a frame completes, the stale
     /// values every cell overwrites before anything reads it.
-    next: HashMap<CellId, Computed>,
+    next: FxHashMap<CellId, Computed>,
     /// A twin cell left empty because its cell was not computed: the
     /// reason, which a formula reading the twin cell inherits.
-    twin_reasons: HashMap<CellId, Reason>,
+    twin_reasons: FxHashMap<CellId, Reason>,
     frame: u64,
     /// While a frame is in progress, how far into the order it is.
     progress: Option<usize>,
@@ -324,7 +327,7 @@ impl Machine {
             workbook.sheets.push(twin);
             extents.push(None);
         }
-        let current: HashMap<CellId, Computed> = values
+        let current: FxHashMap<CellId, Computed> = values
             .into_iter()
             .filter(|(id, _)| shapes.holds(*id))
             .collect();
@@ -336,8 +339,8 @@ impl Machine {
             extents,
             shapes,
             current,
-            next: HashMap::new(),
-            twin_reasons: HashMap::new(),
+            next: FxHashMap::default(),
+            twin_reasons: FxHashMap::default(),
             frame: 0,
             progress: None,
             cells,
@@ -915,16 +918,22 @@ impl Env for Machine {
     }
 
     fn read(&self, id: CellId) -> Result<Value, Reason> {
-        if let Some(c) = self.next.get(&id) {
-            return match c {
-                Computed::Value(v) => Ok(v.clone()),
-                Computed::NotComputed(r) => Err(r.clone()),
-            };
-        }
-        if self.shapes.holds(id) {
-            // A formula with no value in this frame can only be read from a
-            // cycle, which the plan refuses before it is held.
-            return Err(Reason::Cycle);
+        // A twin's cell is a value or nothing: no twin cell is ever placed or
+        // valued, a twin being filled at a frame's end and refused to every
+        // write, so its read goes straight to the twin (KERNEL.25), past two
+        // lookups that could only miss. Most of a frame's reads are of a twin.
+        if id.0 < self.sheets {
+            if let Some(c) = self.next.get(&id) {
+                return match c {
+                    Computed::Value(v) => Ok(v.clone()),
+                    Computed::NotComputed(r) => Err(r.clone()),
+                };
+            }
+            if self.shapes.holds(id) {
+                // A formula with no value in this frame can only be read from
+                // a cycle, which the plan refuses before it is held.
+                return Err(Reason::Cycle);
+            }
         }
         let Some(cell) = self
             .book
@@ -1439,6 +1448,90 @@ mod tests {
         assert_eq!(number(&m, "Board", "F2"), 0.0, "D2 is empty");
         // The same formulas again change nothing.
         assert_eq!(m.write("(formula \"Board\" \"F1:F3\" \"=D1*2\")"), Ok(0));
+    }
+
+    /// The fact a twin's read rests on (KERNEL.25): no twin cell is placed
+    /// or valued, so a read of one need look nowhere but the twin.
+    fn no_twin_cell_is_placed_or_valued(m: &Machine, when: &str) {
+        assert_eq!(m.shapes.order().len(), m.shapes.formulas(), "{when}");
+        for id in m.shapes.order() {
+            assert!(id.0 < m.sheets, "{when}: {id:?} placed on a twin");
+        }
+        for id in m.current.keys().chain(m.next.keys()) {
+            assert!(id.0 < m.sheets, "{when}: {id:?} valued on a twin");
+        }
+        for (s, sheet) in m.book.sheets.iter().enumerate().skip(m.sheets) {
+            for &(row, col) in sheet.cells.keys() {
+                assert!(!m.shapes.holds((s, row, col)), "{when}: {s} {row} {col}");
+            }
+        }
+        for id in m.twin_reasons.keys() {
+            assert!(id.0 >= m.sheets, "{when}: a reason beside {id:?}");
+        }
+    }
+
+    #[test]
+    fn a_twin_cell_is_never_placed_or_valued() {
+        let mut m = load(COUNTER);
+        no_twin_cell_is_placed_or_valued(&m, "the load");
+        m.step(0);
+        no_twin_cell_is_placed_or_valued(&m, "a step");
+        for (text, written) in [
+            ("(cell \"Board\" \"D1\" 6)", true),
+            ("(cell \"Board\" \"F1:G2\" \"x\")", true),
+            ("(formula \"Board\" \"H1:H3\" \"=Board.last!A1*2\")", true),
+            ("(derived \"Board\" \"D1\" 7)", true),
+            ("(cell \"Board\" \"B1\" 100)", true),
+            ("(cell \"Board.last\" \"A1\" 1)", false),
+            ("(formula \"Board.last\" \"A1\" \"=1\")", false),
+            ("(formula \"Board\" \"D1\" \"=E1\")", false),
+        ] {
+            assert_eq!(m.write(text).is_ok(), written, "{text}");
+            no_twin_cell_is_placed_or_valued(&m, text);
+            m.step(0);
+            no_twin_cell_is_placed_or_valued(&m, text);
+        }
+        // A frame in progress, half its values in `next`.
+        assert!(!m.step(2).done);
+        no_twin_cell_is_placed_or_valued(&m, "a yield");
+        m.step(0);
+        // A cell not computed leaves its reason beside its twin's cell.
+        assert_eq!(m.write("(formula \"Board\" \"J1\" \"=F1:G1*2\")"), Ok(1));
+        m.step(0);
+        assert!(!m.twin_reasons.is_empty());
+        no_twin_cell_is_placed_or_valued(&m, "a reason kept");
+        let twin = m.book.find_sheet("Board.last").unwrap();
+        assert_eq!(
+            m.read((twin, 1, 10)),
+            Err(Reason::Construct("F1:G1".to_string())),
+            "a formula reading the twin's cell inherits the reason"
+        );
+        assert_eq!(m.read((twin, 1, 4)), Ok(Value::Number(7.0)));
+        assert_eq!(m.read((twin, 9, 9)), Ok(Value::Empty));
+    }
+
+    #[test]
+    fn a_range_where_one_value_is_wanted_is_labelled_as_written() {
+        // KERNEL.25: the label is borrowed from the parse, moved with a cell
+        // at an offset from its shape's first, and owned when read through
+        // a name, whose reference does not move.
+        let mut m = load(concat!(
+            "(cell \"S\" \"A1:B3\" 1)\n",
+            "(name \"Wide\" \"S!$A$1:$B$1\")\n",
+            "(formula \"S\" \"D1:D2\" \"=A1:B1*2\")\n",
+            "(formula \"S\" \"E1:E2\" \"=Wide*2\")\n",
+        ));
+        assert_eq!(m.formulas(), (4, 2));
+        m.step(0);
+        let label = |s: &str| Some(Computed::NotComputed(Reason::Construct(s.to_string())));
+        assert_eq!(at(&m, "S", "D1"), label("A1:B1"));
+        assert_eq!(at(&m, "S", "D2"), label("A2:B2"), "moved with its cell");
+        assert_eq!(at(&m, "S", "E1"), label("S!$A$1:$B$1"));
+        assert_eq!(
+            at(&m, "S", "E2"),
+            label("S!$A$1:$B$1"),
+            "a name does not move"
+        );
     }
 
     #[test]

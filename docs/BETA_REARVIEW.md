@@ -19268,6 +19268,328 @@ the commit holds that HEAD and this item's files alone, U.32's
 uncommitted work untouched, the isolated tree verified first. The item
 closed with the commit; its line is in the closed ledger.
 
+**`KERNEL.25`, the evaluator's hot path made cheaper, bit for bit: the
+scoping, 2026-10-09.** Asked by Alonzo's `CART.1` (its `REARVIEW.md`, the
+item's scoping: the profile, the ablations, decision 9), with a
+measurement and seven prototypes that never entered this tree: scratch
+copies of `vla-lang` at `c0686a9` under Alonzo's release profile, every
+frame of Life equal to a hand-written Life. A steady step of Life's soup
+is 273 ms natively and 270 in wasm, 98% of it evaluation. Each formula
+cell makes 6 calls, 10 lookups of a library name, 6 references and 21.9
+reads, each read a lookup in the frame's values, one in the plan's
+places and one in a sheet's B-tree, and 71 allocations and 18
+reallocations, 4,470,532 and 1,129,229 a frame, exact. Each prototype
+alone, natively, from that base: `find_sheet` comparing names by
+`eq_ignore_ascii_case`, 187.5 ms; a library name already in upper case
+looked up as it stands, 261.0; a reference's written label shared and
+not cloned, 267.5; a single sheet's area held inline, 267.2; `SUM`, `AND`
+and `OR` folding as they walk and `Ctx::each` walking without
+collecting, 243.2; the machine's value maps and the plan's places under
+an in-crate Fx hash, 243.6; a twin's read going straight to its cell,
+242.3. The first five together 123.5; all seven 93.8 natively, 2.9
+times, and 134.8 in wasm, 2.0 times, about 300 lines. Named there for
+later: the twin's values kept as an array over its extent and a range
+walked over it, 46.4 natively and 59.8 in wasm with the seven,
+`KERNEL.20`'s ground.
+
+*Read in the code before anything was proposed*, at HEAD `4156b3c`,
+whose `vla-lang` is `c0686a9`'s byte for byte (`git diff` names one
+catalogue line of `U.32`'s in the core and nothing else):
+- `Workbook::find_sheet` folds the wanted name, then every sheet's name
+  in turn into a new string until one matches (`sheet.rs:480`), and
+  `areas_at` calls it for every reference of every evaluation, twice for
+  a span. Life's grid holds ten sheets with the twins, `Clock` the third
+  and `Screen.last` the sixth, so a cell's six references fold 39 names,
+  the six wanted and 33 of the grid's. `fold` lowers the ASCII capitals
+  alone, character by character (`intrinsics.rs:36`), and a UTF-8 byte
+  from `0x41` to `0x5A` is only ever such a capital, so
+  `str::eq_ignore_ascii_case` is the same test byte for byte.
+- `Library::form` and `strict` upper-case the name into a new string at
+  every lookup (`eval.rs:140-147`), and `Ctx::call` asks `form` and then
+  `strict`, so a strict function costs two. The parser has upper-cased
+  the name already (`formula.rs:368`, `to_ascii_uppercase`), and
+  upper-casing a name with no ASCII small letter gives the name.
+- `Ctx::reference` clones the reference's written text into every
+  `Arg::Area` (`eval.rs:316`), which only `Ctx::one` reads, to label a
+  range standing where one value is wanted.
+- `areas_at` answers a new `Vec<Area>` (`graph.rs:162`), one area unless
+  the reference is a 3D span.
+- `cells_in` collects its walk into a vector (`graph.rs:176`) that
+  `Ctx::each` then reads cell by cell, and `numbers` and `truths`
+  (`library.rs:57`, `:89`) collect what `SUM` adds and what `AND` and `OR`
+  test. A strict call collects its evaluated arguments too
+  (`eval.rs:354`), which stays: a strict function sees all of them.
+- Those make the 71 a cell exactly: 39 folds, 10 upper-cased names, 6
+  labels, 6 area lists, 4 argument lists, and 2 each for the walks, the
+  numbers and the truth values.
+- `Machine.current`, `next` and `twin_reasons` and `Shapes.places` and
+  `unread` are the standard library's maps, SipHash keyed at random.
+  Nothing walks the first three, and both walks of `places` sort its keys
+  first (`shape.rs:229`, `:392`), so no output depends on a map's order.
+- The machine's `Env::read` looks a cell up in `next`, then in `places`,
+  then in its sheet's B-tree (`machine/mod.rs:917`). A twin's cell is
+  never placed, since `Shapes::of` places the rows' sheets alone and a
+  write into a twin is refused (`grid-write-last`), so `next` never holds
+  one either: for 20.9 of a cell's 21.9 reads the first two lookups
+  always miss.
+- Alonzo's engine reads none of the types the decisions below change: it
+  calls `library::language`, `calc::calls` and `graph::is_formula`, and
+  the machine's four calls keep their signatures. `vla-lang` is not on
+  crates.io yet and `calc` came after the core's 0.8.0, so nothing
+  published changes either.
+
+*Measured here before anything was proposed.* `CART.1`'s own runner
+(`engine/examples/frames.rs`, a read-only snapshot of Alonzo's working
+tree) built in a scratch workspace over this tree's `vla-lang` at HEAD,
+under Alonzo's release profile, its process opted out of Windows' power
+throttling and run at high priority: a steady frame of the soup 281.7 ms
+(276.5 to 285.3), of the gun 301.5 (294.1 to 305.9), every frame equal
+to the hand-written Life and the gun held to its facts for 24 periods;
+the check mode's count 4,470,549 allocations and 1,129,229 reallocations
+a frame for the soup, 71.0 a cell (the profile counted 17 fewer), and
+4,848,335 for the gun. The base is the profile's, and the runner is the
+instrument the build will be measured with.
+
+*The decisions, approved by the owner the same day.*
+
+1. **The ID, `KERNEL.25`**, minted in the registry at this scoping: one
+   item for the seven, as Alonzo's decision 9 asks. *Alternative:* one
+   item a fix, seven commits for Alonzo's pin to follow.
+2. **`find_sheet` by `eq_ignore_ascii_case`**, one line, the fold's test
+   byte for byte; every caller keeps its answer. *Alternative:* the sheet
+   found once a shape and kept in the parse, which a renamed or added
+   sheet would have to invalidate: the resolution at the shape that
+   `KERNEL.20` may want, and that nothing measured asks for now.
+3. **A library name with no ASCII small letter looked up as it stands.**
+   `form`, `strict` and `has` keep their contract, a name without case;
+   a name is upper-cased only when that would change it, which a parsed
+   name never needs. *Alternatives:* one map for both kinds, a name
+   holding one kind already, which would spare a strict call its second
+   lookup, unmeasured; or each call's function found at the shape's
+   parse, `KERNEL.20`'s.
+4. **The label borrowed from the parse.** An operand takes the lifetime
+   of the expression it was evaluated from, `Arg<'e>`, and its label is a
+   `Cow<'e, str>`: borrowed from the reference as the formula writes it,
+   and owned for a reference read through a defined name, whose text the
+   evaluation parses itself and which costs its one allocation as today.
+   The `Form` type names the lifetime, so `IF` and `CHOOSE` here and
+   `IFS` in the core are re-signed; a strict function reads as before. A
+   reference then costs no allocation and no count. *Alternatives:*
+   `Arc<str>` in the parse, the least change, at an atomic increment and
+   decrement a reference natively; `Rc<str>`, the prototype's, which
+   leaves the machine no longer `Send`, so that a host could not hand a
+   grid to another thread.
+5. **One area held inline.** `areas_at` answers `Areas`, one area held in
+   place or a span's areas in a vector, read as a slice, so that `len`,
+   indexing, `first` and iteration read as before and the core's `SUMIF`
+   and `COUNTIF` are untouched. *Alternatives:* a span as its first and
+   last sheet over one rectangle, never allocating, which a union of
+   references, `KERNEL.8`'s ground, could not be; or a small-vector
+   crate, a first dependency for a crate that has none, and a third
+   package in Alonzo's lock, which `check_engine_deps.ps1` pins at two.
+6. **The walks uncollected.** `cells_in` answers an iterator over its two
+   walks unchanged, row by row, and every caller loops over it as
+   before, the core's included; `Ctx::each` reads as it walks. The
+   aggregate rule of `library.rs`'s header is walked in one place, two
+   walkers, `each_number` and `each_truth`, which keep its order and its
+   first error, and over them `SUM`, `MIN`, `MAX`, `AND` and `OR` fold as
+   they walk. `SUM` starts at -0.0, `Iterator::sum`'s own start, and adds
+   in the walk's order, so its bits are the collected sum's; `finite`
+   maps either zero to 0, so the start is kept for the sum's sake and is
+   invisible in a cell. `AND` and `OR` stay strict. `numbers` and
+   `truths` stay, collected from the walkers, for the core's `AVERAGE`.
+   *Alternative:* `SUM`, `AND` and `OR` alone, the prototype's, `MIN` and
+   `MAX` collecting as before.
+7. **The five maps under an Fx hash written in the crate**, about forty
+   lines, `vla-lang/src/fx.rs`: a word at a time added and multiplied by
+   an odd constant, and a rotation at the end so that the low bits a
+   table indexes by are mixed, as `rustc-hash` 2 does. It serves
+   `Machine.current`, `next` and `twin_reasons`, `Shapes.places` and
+   `unread`. No output depends on a map's order (above). The hash is not
+   keyed, and its weakness is keys chosen to collide; these keys are a
+   grid's own cells under the `CELLS` cap and never a network's
+   (`SD-13`), so the worst a crafted cartridge can do is slow its own
+   step. The plan's load-time maps, `Calc`'s and the core's stay as they
+   are. *Alternatives:* the values in arrays indexed by a placed cell's
+   number, no hashing at all, the dense store `KERNEL.20` designs; or the
+   `rustc-hash` crate, the dependency of decision 5's alternative.
+8. **A twin's read straight to its cell.** `Env::read` of a twin's cell
+   reads the twin's B-tree and then `twin_reasons`, past `next` and
+   `places`. The shortcut is exact while no twin cell is placed or
+   valued, so a test holds that after a load, steps, writes of every kind
+   and a refused write. *Alternative:* none smaller; the dense twin of
+   decision 9 replaces it.
+9. **Named for later, not this item.** The twin's values kept as an array
+   over its extent (the twin of `KERNEL.24`'s `Raster`) and a range
+   walked over it: a change of the language's store of values, with its
+   memory and its kept state to design, `KERNEL.20`'s ground, whose line
+   gains a dated note with the profile and the order it gives, the
+   overheads first and every accelerator measured from the cheaper base.
+   The same fold into new strings where Life does not walk:
+   `Names::resolve` (`graph.rs:89`), a comparison of two texts
+   (`eval.rs:461`), the criteria of `COUNTIF` and `SUMIF`. A strict
+   call's argument list held inline, the one allocation a call this item
+   leaves. The release profile's `opt-level`, Alonzo's (its decision 10).
+10. **The oracle.** Unchanged: the goldens (`run_checks.ps1`, the recalc
+    and view goldens among them), the language's and the core's suites
+    (the machine's Life against its own reference cell for cell, the
+    offset oracle over the refers fixture), fmt, clippy with and without
+    `c-abi`, and the two wasm modules' imports and exports. Added, a test
+    or more a decision: names whose folds differ only outside ASCII
+    (`É` and `é` two sheets, `İ`, `ß`) found as the fold finds them; a
+    library name in each case; a range where one value is wanted labelled
+    as written, moved at an offset, and read through a name; a span's
+    areas and one area; `cells_in`'s walk equal to the collected walk
+    over a dense area, a sheet sparser than its rows, a whole column, an
+    area past the extent and an empty sheet; `SUM` over cells whose
+    row-major and column-major sums differ as doubles (`1E16`, `1`,
+    `-1E16`), the row-major answer pinned; an error and a cell not
+    computed in one range, the reason answering as today; `AND` and `OR`
+    with an error after `FALSE`; `MIN` and `MAX` of an empty range; the
+    hash deterministic and Life's 64,000 cells hashed apart; the twin
+    invariant. Mutants, each run once and restored by writing the text,
+    since `Copy-Item` keeps an older time and Cargo then keeps the
+    mutant's build: `find_sheet` with case, the walk by columns, a span
+    read as its first sheet, a twin's read sent to its rows' sheet; each
+    must fail. *Measured* with the runner above against the base: the
+    fixes as a ladder, each added to the ones before, the medians of
+    opted-out runs alternated with the base's; the check mode's
+    allocations; the language's wasm module's size. *Prediction:* all
+    seven near 97 ms a steady frame of the soup on this machine today
+    (Alonzo's 93.8 against its 273.2, at this base of 281.7), every frame
+    equal; about 4 allocations a cell left, the four strict calls'
+    argument lists, some 252,000 a frame, and next to no reallocation.
+11. **The bookkeeping and the hand-off.** The roadmap's 🟡 line after
+    `KERNEL.21`'s, moved to the closed ledger at the close; `KERNEL.20`'s
+    dated note (decision 9); a clause in 0.9.0's note for the machine,
+    with the measured number; the map's line for the machine, and the
+    memory. The commit at the owner's word, HEAD and this item's files
+    alone, the peers' uncommitted work untouched; no Excel step, the item
+    touching no VBA. Then the hash to Alonzo's session: its pin moves in
+    one commit with `Cargo.lock` and `check_engine_deps.ps1`'s two
+    baseline lines, and its `CART.1` re-measures, the wasm half included,
+    raises its floors and lowers its allocation ceilings.
+
+*Size* (*prediction*): about 300 lines of change, as the prototypes
+measured, and about 250 of tests; a day.
+
+*Built 2026-10-09*, in the order of the decisions, each fix measured as it
+landed. `vla-lang/src/sheet.rs`: `find_sheet` by `eq_ignore_ascii_case`,
+and the module no longer imports `fold`. `vla-lang/src/calc/eval.rs`:
+`key`, a name as the library keys it, as it stands or upper-cased;
+`Arg<'e>`, its label a `Cow<'e, str>`, with `into_owned`; `Strict` and
+`Form` naming the lifetime; `Ctx::eval`, `reference` and `call` carrying
+it and `named` answering an owned operand; `Ctx::each` taking its
+function as a type parameter. `vla-lang/src/calc/graph.rs`: `Areas`, one
+area held in place or a span's in a vector, read as a slice, two lists
+equal when they read the same; `areas_at` making no vector for a
+reference to one sheet; `cells_in` answering its two walks as an
+iterator, `Walk`, the same cells in the same order.
+`vla-lang/src/calc/library.rs`: `each_number` and `each_truth`, the
+aggregate rule walked in one place; `numbers` and `truths` collected from
+them; `SUM` from -0.0, `MIN`, `MAX`, `AND` and `OR` folding; `IF` and
+`CHOOSE` re-signed. `vla-lang/src/fx.rs`, new and private: `FxHasher`,
+`rustc-hash` 2's integer path (a word added, the sum multiplied by an
+odd constant for the pointer's width, a rotation at the end), and
+`FxHashMap`. `vla-lang/src/calc/shape.rs`: `places` and `unread` under
+it, and the plan reading `Areas`. `vla-lang/src/machine/mod.rs`:
+`current`, `next` and `twin_reasons` under it, and `Env::read` of a
+twin's cell going to the twin alone. `vla-lang/src/calc/mod.rs`: `Areas`
+exported. `core/src/excel.rs`: `IFS` re-signed and nothing else.
+
+*One shape the scoping left open, decided by measurement.* Decision 6
+said where the walk goes and not how a function is handed to it. The
+first build kept `Ctx::each`'s `&mut dyn FnMut` and gave the walkers the
+same, so every cell of a range went through two calls the compiler
+cannot inline, about 1.1 million a frame of Life: all seven measured
+104.0 to 104.3 ms a frame. With the function a type parameter, `each` and
+the walkers are compiled into each aggregate: 97.4 to 98.2 ms, the walk,
+its order and its first error unchanged. That is the shape built, and
+the ladder below measures it. *Also measured*, and not adopted: the
+classic Fx (rotate, exclusive or, multiply) in place of `rustc-hash` 2's
+form, 95.9 to 99.7 ms against 97.0 to 100.1, level within the noise, so
+decision 7's form stands, which mixes the low bits a table indexes by
+better.
+
+*The tests*, nine, each a decision's: a sheet found as the fold finds it,
+names whose folds differ only outside ASCII among them (`sheet.rs`); a
+name upper-cased only when that would change it (`eval.rs`); a range
+where one value is wanted labelled as written, moved at an offset, and
+read through a name that does not move (the machine's); a reference's
+areas one held in place or a span's in the sheets' order, and a range's
+cells walked row by row as they were collected over a dense sheet, a
+sparse one and an empty one, eight areas each, 37 cells in all
+(`graph.rs`); an aggregate folding in the walk's order, `SUM` over four
+cells that sum to 0 by rows and to 1 by columns, a range walked to its
+end so that a cell not computed answers after an error, an error given
+directly answering before a later range is walked, `AND` and `OR`
+strict, `MIN` and `MAX` of no number (`calc/mod.rs`); no twin cell
+placed or valued after a load, steps, five writes of every kind, three
+refused writes, a yield and a reason kept, with a twin's three reads
+(`machine`); the hash the same every time and the 128,000 cells of a
+Screen and its twin hashed apart, and a map under it (`fx.rs`). *The
+mutants*, four, each run once over the language's tests and the file
+restored by writing its saved text, held to its hash: `find_sheet` with
+case failed four tests; the walk by columns, the two walk tests; a span
+read as its first sheet, the areas test and the spans test; a twin's read
+sent to its rows' sheet, ten tests, Life's among them. The clean run
+after them recompiled and passed.
+
+*Measured* natively with `CART.1`'s runner over this tree, under
+Alonzo's release profile, the process opted out of power throttling, at
+high priority and pinned to one performance core, three rounds with the
+eight builds alternated, each the median of its round medians, every
+frame of every run equal to the hand-written Life: the base 282.3 ms a
+steady frame of the soup; `find_sheet` 191.5; the library's lookups
+177.5; the label 164.0; one area held inline 159.2; the walks 129.6; Fx
+102.3; the twin's read 101.0, 2.80 times the base. Each rung removed
+exactly its allocations, 39.0, 10.0, 6.0, 6.0 and 6.0 a cell, and the
+last two none. Both fixtures with all seven: the soup 98.9 to 100.5 ms a
+frame against 280.0 to 283.0, about 630,000 cells a second and ten
+frames; the gun 97.3 to 100.1 against 293.9 to 296.2, now the soup's own
+cost, a reference no longer paying for each sheet the grid holds; the
+load 52 to 54 ms against 166 to 169, the first frame 109 to 111 against
+224 to 228. The check mode's count: 251,957 allocations a frame of the
+soup, 4.0 a cell, the four strict calls' argument lists and 101 the
+frame's own, and 5 reallocations, against 4,470,549 and 1,129,229; the
+gun 251,958 against 4,848,335. Against the prediction: near 97 ms
+predicted, 98 to 101 measured; the profile's prototypes made 2.91 times
+their base and this build 2.80 times its own. The two map fixes overlap,
+each removing cost from the same lookups, as `CART.1`'s own pair
+measured (240.5 together, 243.6 and 242.3 alone): the twin's read adds
+1.3 ms after Fx where it measured 30.9 alone.
+
+*Found on the way, for Alonzo.* This machine's twenty cores are of two
+kinds: logical processors 0, 1, 6 to 9, 18 and 19 are performance cores
+(efficiency class 1), the other twelve efficiency cores. Pinned to an
+efficiency core the base steps in 371 to 382 ms and the seven in 128.4 to
+128.6, 2.9 times; unpinned, the scheduler runs a background process on
+either, which moved the base by 3 to 4% between sessions here. The
+runner's probe reads 0.175 ms a generation on a performance core and
+0.216 on an efficiency one, where the profile read 0.101 to 0.105, while
+the base frames match the profile's: the probe changed between the
+profile and the snapshot, not the machine. Both are points for
+`bench_frames.ps1`, which opts out of the throttling and could pin, or
+name, the kind of core.
+
+*Oracle, met:* `cargo test --workspace`, 303 passed and 4 ignored, the
+nine new tests over `KERNEL.24`'s 294; fmt clean; clippy clean, with the
+`c-abi` feature too; `run_checks.ps1` 54 of 54 in the shared tree, the
+recalc, view, reflect and refers goldens computed through the new
+evaluator by the door and unchanged; `prove.ps1` 46 passed, 0 failed, 2
+not attempted, 1 library; the language's module 430,783 bytes (427,732
+before), 0 imports and 10 exports, the core's 1,124,086. Alonzo's engine
+compiled unchanged over it in the scratch workspace. The wasm half is
+Alonzo's instrument's, after its pin moves. No Excel step: the item
+touches no VBA.
+
+*Committed 2026-10-10 at the owner's word.* The owner took the oracle
+above as its test, the item touching no VBA. The commit holds HEAD and
+this item's files alone, the peers' uncommitted work beside it untouched,
+the isolated tree verified first: 303 tests passed and 4 ignored, 54 of
+54 checks. The item closed with the commit; its line is in the closed
+ledger.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -32382,6 +32704,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.23 — the machine's refusals name what they refuse, the line left to the answer.** Found by Alonzo's `ENGINE.1` before 0.9.0 is cut: the eight `grid` texts that opened `Line {line}` name their target instead, the row's line staying in the answer's own field, so an engine's write of one row never reads `Line 1`; `grid-write-last` names the cell to write, not only its sheet; a `gridlines`, `column`, `row` or `look` row naming a twin is `grid-sheet-name-invalid`, as a `sheet` row naming one already was, since a twin copies values and never settings; `calc-function-not-computed` drops the sentence true only of `frazaro calc`, which never raises it, `KERNEL.22`'s deferral settled. The language's tests hold that no `grid` template names `{line}` and that no refusal of the load test opens with `Line `; the language's half of the catalogue stays 192 entries. Built, owner-tested and committed 2026-10-09; the entry above carries the record. `~hours`, taken in an hour.
 - ✅ **KERNEL.24 — the plane kept at the frame's end.** The language's half of Alonzo's `ENGINE.2`: a sheet an engine views as a plane has its bytes kept over its extent at the end of every frame, filled from the same value lookups that fill the twins, so that a view of it is a copy; only a sheet viewed as a plane keeps one, the view marking it, so that `view` keeps its signature and a sheet never drawn pays nothing; a write drops the planes of the sheets it changed, and the walk, `plane::bytes`, untouched and the reference, answers until the next frame's end; a twin and a sheet past a plane's limit are always walked. Four tests hold the kept bytes to the walk's at every turn, and three mutants were caught. Measured natively on Alonzo's Life, 320 by 200: a view 0.003 ms kept against 1.64 ms walked, and a step no slower. Built and committed 2026-10-09 at the owner's word; the entry above carries the record. `~hours`, taken in hours.
 - ✅ **KERNEL.3 — the study before the viewport (`SD-29`).** The instrument as one document, `docs/PROTOCOL.md`: the tasks and comprehension questions backed into from the literature, a fixture with one planted defect of each of five classes in two variants (`scripts/study/`, written by `tools/build_study_fixture.ps1` and held by `tools/check_study_fixture.ps1`), the task sheet, the protocol, the measures, a renderer benchmark (`tools/bench_view.ps1`) and the decision rule written before the first run. The benchmark, run by the owner in fullscreen on 2026-10-08, decided canvas: a virtualized DOM held a 60 Hz frame only at the default cell size, canvas through the densest legible one, and `KERNEL.5` is built on it in Alonzo. The fixtures were blessed in Excel on 2026-10-09, and `KERNEL.7`'s recalculation reproduces every cached value in them. The study's human half was not run: with the tool's author as its only participant it could decide nothing, so it runs when the formula bar or the pane is next scoped, with another participant, as `SD-29` requires then. Built 2026-10-08, committed and closed 2026-10-09 at the owner's word; the entry above carries the record. `~days`, taken in two.
+- ✅ **KERNEL.25 — the evaluator's hot path made cheaper, bit for bit.** Asked by Alonzo's `CART.1` with its profile and seven prototypes, all seven in `vla-lang`: a sheet found by `eq_ignore_ascii_case` instead of every sheet's name folded into a new string at every reference; a library name already in upper case looked up as it stands; a reference's label borrowed from the parse, `Arg<'e>`; one area held in place, `Areas`; a range walked as it is read, and `SUM`, `MIN`, `MAX`, `AND` and `OR` folding as they walk, the fold compiled into the walk; the machine's maps of values and the plan's places under an Fx hash written in the crate, no dependency; a twin's read straight to its cell. Every frame equal to the hand-written Life and the goldens unchanged; nine tests, and four mutants caught. Measured natively on Alonzo's Life, 320 by 200, on a performance core: a steady step from 282.3 to 101.0 ms, 2.80 times, the gun at the soup's cost, the load from 167 to 53 ms, the allocations of a frame from 4,470,549 to 251,957. Built 2026-10-09 and committed 2026-10-10 at the owner's word; the entry above carries the record. `~a day`, taken in hours.
 
 ## 🛡 ADVERSARY · SECURITY
 

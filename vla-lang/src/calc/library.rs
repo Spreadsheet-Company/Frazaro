@@ -53,20 +53,28 @@ pub const NAMES: [&str; 14] = [
 /// What a numeric aggregate collects: the numbers, or the first error.
 pub type Numbers = Result<Vec<f64>, ErrorKind>;
 
-/// The numbers of the arguments by the aggregate rule above.
-pub fn numbers(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Numbers, Reason> {
-    let mut out = Vec::new();
+/// Each number of the arguments by the aggregate rule above, to `f` in
+/// the arguments' order and a range's walk: a value given directly that is
+/// an error, or does not read as a number, answers at once; a range is
+/// walked to its end and answers with its first error, so that a cell in it
+/// not computed still answers with its reason. An aggregate folds over this
+/// as it walks, and nothing is collected (KERNEL.25).
+pub fn each_number<F: FnMut(f64)>(
+    ctx: &Ctx<'_>,
+    args: &[Arg],
+    mut f: F,
+) -> Result<Result<(), ErrorKind>, Reason> {
     for a in args {
         match a {
             Arg::Scalar(v) => match v.number() {
-                Ok(n) => out.push(n),
+                Ok(n) => f(n),
                 Err(k) => return Ok(Err(k)),
             },
             Arg::Area { areas, .. } => {
                 let mut err: Option<ErrorKind> = None;
-                ctx.each(areas, &mut |v| {
+                ctx.each(areas, |v| {
                     match v {
-                        Value::Number(n) => out.push(n),
+                        Value::Number(n) => f(n),
                         Value::Error(k) => {
                             err.get_or_insert(k);
                         }
@@ -80,26 +88,30 @@ pub fn numbers(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Numbers, Reason> {
             }
         }
     }
-    Ok(Ok(out))
+    Ok(Ok(()))
 }
 
-/// The truth values of the arguments by the same rule: a value given
-/// directly must read as one (`#VALUE!` otherwise); in a range a truth
-/// value counts, a number counts as `0` or not, a text is skipped.
-pub fn truths(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Result<Vec<bool>, ErrorKind>, Reason> {
-    let mut out = Vec::new();
+/// Each truth value of the arguments by the same rule, to `f`, as
+/// [`each_number`] walks: a value given directly must read as one
+/// (`#VALUE!` otherwise); in a range a truth value counts, a number counts
+/// as `0` or not, a text is skipped.
+pub fn each_truth<F: FnMut(bool)>(
+    ctx: &Ctx<'_>,
+    args: &[Arg],
+    mut f: F,
+) -> Result<Result<(), ErrorKind>, Reason> {
     for a in args {
         match a {
             Arg::Scalar(v) => match v.truth() {
-                Ok(b) => out.push(b),
+                Ok(b) => f(b),
                 Err(k) => return Ok(Err(k)),
             },
             Arg::Area { areas, .. } => {
                 let mut err: Option<ErrorKind> = None;
-                ctx.each(areas, &mut |v| {
+                ctx.each(areas, |v| {
                     match v {
-                        Value::Bool(b) => out.push(b),
-                        Value::Number(n) => out.push(n != 0.0),
+                        Value::Bool(b) => f(b),
+                        Value::Number(n) => f(n != 0.0),
                         Value::Error(k) => {
                             err.get_or_insert(k);
                         }
@@ -113,7 +125,21 @@ pub fn truths(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Result<Vec<bool>, ErrorKind
             }
         }
     }
-    Ok(Ok(out))
+    Ok(Ok(()))
+}
+
+/// The numbers of the arguments by the aggregate rule above, collected.
+pub fn numbers(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Numbers, Reason> {
+    let mut out = Vec::new();
+    let walked = each_number(ctx, args, |n| out.push(n))?;
+    Ok(walked.map(|()| out))
+}
+
+/// The truth values of the arguments by the same rule, collected.
+pub fn truths(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Result<Vec<bool>, ErrorKind>, Reason> {
+    let mut out = Vec::new();
+    let walked = each_truth(ctx, args, |b| out.push(b))?;
+    Ok(walked.map(|()| out))
 }
 
 /// One numeric argument, coerced as an operand is.
@@ -128,7 +154,7 @@ pub fn number_arg(
     Ok(ctx.one(arg)?.number())
 }
 
-fn if_(ctx: &Ctx<'_>, args: &[Expr]) -> Result<Arg, Reason> {
+fn if_<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
     if args.len() < 2 || args.len() > 3 {
         return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
     }
@@ -149,18 +175,28 @@ fn if_(ctx: &Ctx<'_>, args: &[Expr]) -> Result<Arg, Reason> {
 }
 
 fn and(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    Ok(match truths(ctx, args)? {
+    let (mut all, mut any) = (true, false);
+    let walked = each_truth(ctx, args, |b| {
+        all &= b;
+        any = true;
+    })?;
+    Ok(match walked {
         Err(k) => Value::Error(k),
-        Ok(bs) if bs.is_empty() => Value::Error(ErrorKind::Value),
-        Ok(bs) => Value::Bool(bs.iter().all(|b| *b)),
+        Ok(()) if !any => Value::Error(ErrorKind::Value),
+        Ok(()) => Value::Bool(all),
     })
 }
 
 fn or(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    Ok(match truths(ctx, args)? {
+    let (mut some, mut any) = (false, false);
+    let walked = each_truth(ctx, args, |b| {
+        some |= b;
+        any = true;
+    })?;
+    Ok(match walked {
         Err(k) => Value::Error(k),
-        Ok(bs) if bs.is_empty() => Value::Error(ErrorKind::Value),
-        Ok(bs) => Value::Bool(bs.iter().any(|b| *b)),
+        Ok(()) if !any => Value::Error(ErrorKind::Value),
+        Ok(()) => Value::Bool(some),
     })
 }
 
@@ -174,35 +210,39 @@ fn not(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     })
 }
 
+/// `SUM` adds in the walk's order from -0.0, `Iterator::sum`'s own start,
+/// so that its bits are those of the numbers collected and summed.
 fn sum(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    Ok(match numbers(ctx, args)? {
+    let mut total = -0.0;
+    let walked = each_number(ctx, args, |n| total += n)?;
+    Ok(match walked {
         Err(k) => Value::Error(k),
-        Ok(ns) => finite(ns.iter().sum()),
+        Ok(()) => finite(total),
     })
 }
 
+/// `MIN` and `MAX` of no number are 0.
 fn min(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    Ok(match numbers(ctx, args)? {
+    let (mut least, mut any) = (f64::INFINITY, false);
+    let walked = each_number(ctx, args, |n| {
+        least = least.min(n);
+        any = true;
+    })?;
+    Ok(match walked {
         Err(k) => Value::Error(k),
-        Ok(ns) => Value::Number(
-            ns.iter()
-                .copied()
-                .fold(f64::INFINITY, f64::min)
-                .min(if ns.is_empty() { 0.0 } else { f64::INFINITY }),
-        ),
+        Ok(()) => Value::Number(least.min(if any { f64::INFINITY } else { 0.0 })),
     })
 }
 
 fn max(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    Ok(match numbers(ctx, args)? {
+    let (mut most, mut any) = (f64::NEG_INFINITY, false);
+    let walked = each_number(ctx, args, |n| {
+        most = most.max(n);
+        any = true;
+    })?;
+    Ok(match walked {
         Err(k) => Value::Error(k),
-        Ok(ns) => Value::Number(ns.iter().copied().fold(f64::NEG_INFINITY, f64::max).max(
-            if ns.is_empty() {
-                0.0
-            } else {
-                f64::NEG_INFINITY
-            },
-        )),
+        Ok(()) => Value::Number(most.max(if any { f64::NEG_INFINITY } else { 0.0 })),
     })
 }
 
@@ -282,7 +322,7 @@ fn position(
 /// `CHOOSE(k, v1, v2, ...)`: the k-th value, k read down to a whole
 /// number; outside 1 to the count, `#VALUE!`. Only the value chosen is
 /// computed, and a reference chosen stays a reference.
-fn choose(ctx: &Ctx<'_>, args: &[Expr]) -> Result<Arg, Reason> {
+fn choose<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
     if args.len() < 2 {
         return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));
     }
