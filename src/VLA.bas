@@ -20,7 +20,26 @@ Option Explicit
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
 Public Const VLA_RELEASE_VERSION As String = "0.8.1"
-Public Const VLA_CORE_VERSION As String = "SEC.15"
+Public Const VLA_CORE_VERSION As String = "VLA.1"
+' VLA.1: TEXT A STRANGER WROTE IS REFUSED BY NAME, NEVER A CRASH. ParseForm
+' recursed once a list with no limit, so a text of thousands of nested
+' lists ran VBA out of stack where a refusal was owed, and the expander's
+' walk did the same for a list a macro nested deeply; vla-lang's reader and
+' expander, ports of these, overflowed the same way (a cartridge or a
+' program of 20 KB). All of them now stop at VLA_FORM_DEPTH_LIMIT, 64, with
+' vla-form-too-deep naming the line: ParseForm takes listDepth, the depth of
+' the list it would open, and ExpandMacros and ExpandOnePass an Optional
+' walkDepth, their refusal RefuseFormTooDeep's, so each recursive frame
+' gains one Long and no local (trap 8). The same lists, the same id, in
+' both implementations (SD-18). The corpus nests 10 deep at most. A macro
+' that grows its argument at every application, (defmacro (deeper x)
+' (deeper (x))) or (defmacro (dup x) (dup (x x))), meets the 5000 chain
+' limit here, since Substitute shares an argument by reference and builds
+' no copies; vla-lang copies them, so it weighs each application's result
+' and refuses the two sooner (vla-form-too-deep, and
+' vla-macro-expansion-too-large past 1,000,000 forms in one application).
+' A weighing here, tried and withdrawn the same day, counted the shared
+' structure as copies and made a long walk quadratic.
 ' SEC.15: THE FORMULA SINK IS THE RUNTIME'S. EmitStmt's "set!" arm writes
 ' Call VlaSetFormula(obj, text) for exactly (set! (. obj formula) v), where
 ' it wrote obj.Formula2 = text: the helper (VLA_Runtime.bas) refuses a
@@ -853,6 +872,13 @@ Public mProfCalls As Long
 Private Const FRAZARO_MODULE_MARKER As String = _
     "' Frazaro-managed module - rewritten on every Check/Run/compile; edits here do not persist."
 
+' VLA.1: the deepest a list may nest, the top-level list being 1. ParseForm
+' refuses a list opened deeper, and so do the expander's walks, so that no
+' stage after them recurses past it: VBA's stack gives out between 150 and
+' 250 frames of ExpandMacros (LISTOPS-BUDGET's measurement). vla-lang's
+' reader::FORM_DEPTH_LIMIT is the same number.
+Private Const VLA_FORM_DEPTH_LIMIT As Long = 64
+
 ' =====================================================================
 '  Public API
 ' =====================================================================
@@ -1565,11 +1591,12 @@ End Function
 ' is shown verbatim, nested macro calls inside it still spelled as
 ' calls. Lists with non-macro heads recurse into their elements, so
 ' sibling macro calls each get their one application.
-Private Function ExpandOnePass(d As Variant) As Variant
+Private Function ExpandOnePass(d As Variant, Optional ByVal walkDepth As Long = 1) As Variant
     If Not IsList(d) Then
         ExpandOnePass = d
         Exit Function
     End If
+    If walkDepth > VLA_FORM_DEPTH_LIMIT Then RefuseFormTooDeep d   ' VLA.1
     ' PNTH.0: Object, not Collection - d (and so lst) may be a VlaSlice,
     ' same reasoning as ExpandMacros' own twin widening just above.
     Dim lst As Object
@@ -1600,12 +1627,26 @@ budgetSpent1:
     Dim outc As New Collection
     Dim epi As Long
     For epi = 1 To lst.Count
-        outc.Add ExpandOnePass(lst.Item(epi))
+        outc.Add ExpandOnePass(lst.Item(epi), walkDepth + 1)
     Next
     TagLine outc, FormLine(lst)   ' S3.1: same explicit-tag hygiene as
                                   ' the fixpoint rebuild above
     Set ExpandOnePass = outc
 End Function
+
+' VLA.1: the expanders' refusal of a list nested past VLA_FORM_DEPTH_LIMIT,
+' whether a text or a macro nested it so, at the list's own line, or at
+' none for a list a macro made or the prelude holds. An atom past the limit
+' is only a deep list's element, so it passes. A Sub of its own, so that
+' the recursive walks gain no local (trap 8).
+Private Sub RefuseFormTooDeep(d As Variant)
+    If Not IsList(d) Then Exit Sub
+    Dim loc As String
+    Dim ln As Long
+    ln = FormLine(d)
+    If ln > 0 Then loc = SrcLineTag(ln + mLineOffset)
+    VLA_Messages.RaiseMsg "vla-form-too-deep", "limit", CStr(VLA_FORM_DEPTH_LIMIT), "loc", loc
+End Sub
 
 ' Flat datum writer: symbols and numbers print raw; string literals
 ' (leading-quote-marked, escapes already processed at tokenize) are
@@ -2308,18 +2349,20 @@ Private Function ParseAll(toks() As String) As Collection
     pos = 1
     Dim outc As New Collection
     Do While pos <= UBound(toks)
-        outc.Add ParseForm(toks, pos)
+        outc.Add ParseForm(toks, pos, 1)
     Loop
     Set ParseAll = outc
 End Function
 
-Private Function ParseForm(toks() As String, ByRef pos As Long) As Variant
+' listDepth: the depth of the list a "(" here would open (VLA.1).
+Private Function ParseForm(toks() As String, ByRef pos As Long, ByVal listDepth As Long) As Variant
     Dim t As String
     Dim lnRaw As Long
     lnRaw = TokRawLine(pos)              ' C2: this token's raw line
     t = toks(pos)
     pos = pos + 1
     If t = "(" Then
+        If listDepth > VLA_FORM_DEPTH_LIMIT Then VLA_Messages.RaiseMsg "vla-form-too-deep", "limit", CStr(VLA_FORM_DEPTH_LIMIT), "loc", SrcLineTag(lnRaw)
         Dim lst As New Collection
         TagLine lst, lnRaw - mLineOffset ' C2: a list is born on the
                                          ' line of its opening paren
@@ -2329,7 +2372,7 @@ Private Function ParseForm(toks() As String, ByRef pos As Long) As Variant
                 Set ParseForm = lst
                 Exit Function
             End If
-            lst.Add ParseForm(toks, pos)
+            lst.Add ParseForm(toks, pos, listDepth + 1)
         Loop
         VLA_Messages.RaiseMsg "vla-unbalanced-parens", "loc", OpenedAtTag(lnRaw)
     ElseIf t = ")" Then
@@ -3013,7 +3056,7 @@ Private Function GetMacro(ByVal name As String) As Collection
     If mMacros.Exists(key) Then Set GetMacro = mMacros.Item(key)
 End Function
 
-Private Function ExpandMacros(d As Variant, ByVal depth As Long) As Variant
+Private Function ExpandMacros(d As Variant, ByVal depth As Long, Optional ByVal walkDepth As Long = 1) As Variant
     ' LISTOPS-BUDGET / LISTOPS.0: LIVE FINDING, this pass's own "raised
     ' 200 -> 1000, a measured 5x, not reckless" claim was WRONG -
     ' disproven by a real host run, not a hypothetical. A raise to 1000
@@ -3093,6 +3136,7 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long) As Variant
     ' this path. Gated on `FormLine(cur) = 0` below, so a hand-written
     ' begin falls straight through to the unchanged rebuild step, real
     ' line intact.
+    If walkDepth > VLA_FORM_DEPTH_LIMIT Then RefuseFormTooDeep d   ' VLA.1
     If depth > 200 Then VLA_Messages.RaiseMsg "vla-macro-expansion-too-deep"
     Dim cur As Variant
     AssignVar cur, d
@@ -3227,7 +3271,7 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long) As Variant
     Dim outc As New Collection
     Dim ei As Long
     For ei = 1 To curObj.Count
-        outc.Add ExpandMacros(curObj.Item(ei), depth)
+        outc.Add ExpandMacros(curObj.Item(ei), depth, walkDepth + 1)
     Next
     TagLine outc, FormLine(cur)
     ' TABLESPEC-SCALE / TABLESPECSCALE.0: pendingHead is empty for every
@@ -3257,7 +3301,7 @@ Private Function ExpandMacros(d As Variant, ByVal depth As Long) As Variant
     ' index instead.
     Dim e As Variant
     For Each e In pendingHead
-        finalOut.Add ExpandMacros(e, depth)
+        finalOut.Add ExpandMacros(e, depth, walkDepth + 1)
     Next
     finalOut.Add outc
     TagLine finalOut, 0

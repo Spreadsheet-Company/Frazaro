@@ -128,7 +128,8 @@ $extras = @(
     @{ Script = 'optimize3_search_twin.ps1'; Args = @('-Control'); What = 'OPTIMIZE.3 search pins against their host-independent twin' },
     @{ Script = 'prove.ps1';               Args = @('-Control');    What = 'PORT.4 conformance runner: the fake implementation passes, the mutant fails' },
     @{ Script = 'check_core_imports.ps1';  Args = @('-Control');    What = 'PORT.4 import reader: an empty module counts 0, a module importing a.b counts 1' },
-    @{ Script = 'check_wasm_exports.ps1';  Args = @('-Control');    What = 'KERNEL.22 export reader: a module reads as its names, a list one short or one long is reported' }
+    @{ Script = 'check_wasm_exports.ps1';  Args = @('-Control');    What = 'KERNEL.22 export reader: a module reads as its names, a list one short or one long is reported' },
+    @{ Script = 'check_crate_package.ps1'; Args = @('-Control');    What = 'VLA.1 package reader: the clean crates pass; a test include leaving vla-lang, an integration test reaching out, a core include leaving its crate and a respelled include each fail' }
 )
 
 function Invoke-OneScript {

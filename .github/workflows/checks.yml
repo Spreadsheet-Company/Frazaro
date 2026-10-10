@@ -52,6 +52,13 @@ jobs:
           cargo clippy --workspace --all-targets -- -D warnings
           cargo clippy -p vla-lang --all-targets --features c-abi -- -D warnings
           cargo test --workspace
+      - name: the language's published package runs its own tests, outside this repository (VLA.1)
+        run: |
+          cargo package -p vla-lang --locked
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "vla-lang") | .version')
+          mkdir -p "$RUNNER_TEMP/vla-lang-package"
+          tar -xzf "target/package/vla-lang-$version.crate" -C "$RUNNER_TEMP/vla-lang-package"
+          cargo test --locked --manifest-path "$RUNNER_TEMP/vla-lang-package/vla-lang-$version/Cargo.toml"
       - name: build the wasm core
         run: cargo build --release -p frazaro-core --target wasm32-unknown-unknown
       - name: build the wasm language crate, with the machine's C surface (PORT.12; KERNEL.22)

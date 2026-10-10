@@ -1,6 +1,11 @@
 Attribute VB_Name = "VLA_Tests"
 Option Explicit
-Public Const VLA_TESTS_VERSION As String = "U.32"
+Public Const VLA_TESTS_VERSION As String = "VLA.1"
+' VLA.1: TestFormTooDeep - four pins: 64 nested lists read and a 65th is
+' refused by name (vla-form-too-deep, naming line 1); a macro nesting a call
+' to exactly 64 expands, and one nesting it to 65 is refused by the
+' expander's walk though its text is 56 deep.
+'
 ' U.32: TestUndoRoster - the roster's snapshot kind, tag and sweep, the
 ' record's parse (VlaIdeRosterParse) and each way it refuses, the plan
 ' (VlaIdeRosterPlan: shown, lifted, moved, dropped, hidden, activated,
@@ -454,6 +459,7 @@ Public Function VlaSelfTest() As Boolean
     TestListopsExpand
     TestCond
     TestListopsDepthSafety
+    TestFormTooDeep
     TestAntonymSweep
     TestListopsStdlib
     TestTablespecDepthSafety
@@ -5911,6 +5917,64 @@ Private Sub TestListopsDepthSafety()
                n5500w <> 0 And Len(vba5500w) = 0 And InStr(1, d5500w, "5000", vbTextCompare) > 0, _
                "err: " & d5500w & " / vba: " & Left$(vba5500w, 200)
     End If
+End Sub
+
+' ---------------------------------------------------------------------
+'  VLA.1: a list nested past VLA_FORM_DEPTH_LIMIT (64) is refused by name,
+'  vla-form-too-deep, by the reader and by the expander's walk, where both
+'  used to recurse until VBA ran out of stack; a list at the limit reads
+'  and expands as before. The expander's pair: a ten-deep macro called
+'  inside 54 lists expands to exactly 64, and inside 55 to 65, which the
+'  walk refuses although the text itself is only 56 deep. vla-lang pins
+'  the same four cases (reader.rs, expand.rs). The walk-rows chains above
+'  stay three deep, so they meet the 5000 cap and never this limit.
+' ---------------------------------------------------------------------
+Private Sub TestFormTooDeep()
+    Dim c As Collection
+    Dim dRead As String
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    Set c = VlaReadForms(String(64, "(") & String(64, ")"))
+    dRead = Err.Description
+    On Error GoTo 0
+    Report "vla.1: 64 nested lists read", _
+           VLA_Messages.VlaLastRaisedMsgId() = "" And Len(dRead) = 0, _
+           "raised: " & VLA_Messages.VlaLastRaisedMsgId() & " / " & dRead
+
+    Dim dRead65 As String
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    Set c = VlaReadForms(String(65, "(") & String(65, ")"))
+    dRead65 = Err.Description
+    On Error GoTo 0
+    Report "vla.1: a 65th nested list is refused by name, at its line", _
+           VLA_Messages.VlaLastRaisedMsgId() = "vla-form-too-deep" And _
+           InStr(1, dRead65, "more than 64 deep", vbBinaryCompare) > 0 And _
+           InStr(1, dRead65, "line 1", vbBinaryCompare) > 0, _
+           "raised: " & VLA_Messages.VlaLastRaisedMsgId() & " / " & dRead65
+
+    Dim deep10 As String
+    deep10 = "(defmacro (deep10) (a (a (a (a (a (a (a (a (a (a 1)))))))))))" & vbCrLf
+    Dim out64 As String, dExp As String, fired64 As Long
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    out64 = VlaExpandText(deep10 & String(54, "(") & "(deep10)" & String(54, ")"), True, fired64)
+    dExp = Err.Description
+    On Error GoTo 0
+    Report "vla.1: a macro that nests a call to exactly 64 expands", _
+           VLA_Messages.VlaLastRaisedMsgId() = "" And Len(dExp) = 0 And fired64 = 1, _
+           "raised: " & VLA_Messages.VlaLastRaisedMsgId() & " / " & dExp & " / fired " & fired64
+
+    Dim out65 As String, dExp65 As String, fired65 As Long
+    VLA_Messages.VlaClearLastRaisedMsg
+    On Error Resume Next
+    out65 = VlaExpandText(deep10 & String(55, "(") & "(deep10)" & String(55, ")"), True, fired65)
+    dExp65 = Err.Description
+    On Error GoTo 0
+    Report "vla.1: a macro that nests a call past 64 is refused by the expander's walk", _
+           VLA_Messages.VlaLastRaisedMsgId() = "vla-form-too-deep" And _
+           InStr(1, dExp65, "more than 64 deep", vbBinaryCompare) > 0 And Len(out65) = 0, _
+           "raised: " & VLA_Messages.VlaLastRaisedMsgId() & " / " & dExp65 & " / out " & Left$(out65, 80)
 End Sub
 
 ' ---------------------------------------------------------------------

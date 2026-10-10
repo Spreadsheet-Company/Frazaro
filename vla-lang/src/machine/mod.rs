@@ -2101,27 +2101,27 @@ mod tests {
         // cells alone, so its extent row is not the loaded cells'.
         let goldens: &[(&str, &str, &str)] = &[
             (
-                include_str!("../../../scripts/view/fixture_frazaro.vla"),
+                include_str!("../../testdata/view/fixture_frazaro.vla"),
                 "Frazaro",
                 "B1:C11",
             ),
             (
-                include_str!("../../../scripts/view/fixture_output.vla"),
+                include_str!("../../testdata/view/fixture_output.vla"),
                 "Output",
                 "A1:F20",
             ),
             (
-                include_str!("../../../scripts/view/fixture_data.vla"),
+                include_str!("../../testdata/view/fixture_data.vla"),
                 "data",
                 "A1",
             ),
             (
-                include_str!("../../../scripts/view/into_output.vla"),
+                include_str!("../../testdata/view/into_output.vla"),
                 "Output",
                 "A1:B1",
             ),
             (
-                include_str!("../../../scripts/view/into_checks.vla"),
+                include_str!("../../testdata/view/into_checks.vla"),
                 "checks",
                 "A1",
             ),
@@ -2256,7 +2256,7 @@ mod tests {
                 _ => a == b,
             }
         }
-        let fixture = include_str!("../../../scripts/refers.txt").replace("\r\n", "\n");
+        let fixture = include_str!("../../testdata/refers.txt").replace("\r\n", "\n");
         let mut formulas: Vec<String> = Vec::new();
         let lines: Vec<&str> = fixture.lines().collect();
         for (i, line) in lines.iter().enumerate() {

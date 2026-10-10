@@ -283,12 +283,46 @@ impl<'a> Ctx<'a> {
                     Err(k) => Value::Error(k),
                 }))
             }
-            Expr::Binary(op, l, r) => {
+            // One operator, as it always was; a chain of them goes round a
+            // loop instead (VLA.1).
+            Expr::Binary(op, l, r) if !matches!(**l, Expr::Binary(..)) => {
                 let a = self.scalar(l)?;
                 let b = self.scalar(r)?;
                 Ok(Arg::Scalar(binary(*op, &a, &b)))
             }
+            Expr::Binary(..) => self.chain(e),
         }
+    }
+
+    /// A chain of binary operators (`1+2+3`, which Excel reads left to
+    /// right) is a left spine; it is evaluated as the recursion would, the
+    /// leftmost operand first and each link in turn, but with its right
+    /// operands on a stack, so that a formula as long as Excel holds, 4,096
+    /// links, needs no deeper stack than a short one (VLA.1). The first
+    /// sixteen are held in place, so that a chain such as a neighbour count
+    /// allocates nothing (KERNEL.25).
+    fn chain<'e>(&self, e: &'e Expr) -> Result<Arg<'e>, Reason> {
+        const NEAR: usize = 16;
+        let mut near: [(BinOp, &Expr); NEAR] = [(BinOp::Add, e); NEAR];
+        let mut far: Vec<(BinOp, &Expr)> = Vec::new();
+        let mut links = 0;
+        let mut left = e;
+        while let Expr::Binary(op, l, r) = left {
+            if links < NEAR {
+                near[links] = (*op, r);
+            } else {
+                far.push((*op, r));
+            }
+            links += 1;
+            left = l;
+        }
+        let mut acc = self.scalar(left)?;
+        for i in (0..links).rev() {
+            let (op, r) = if i < NEAR { near[i] } else { far[i - NEAR] };
+            let b = self.scalar(r)?;
+            acc = binary(op, &acc, &b);
+        }
+        Ok(Arg::Scalar(acc))
     }
 
     /// An expression as one value: a scalar, or a reference to one cell;

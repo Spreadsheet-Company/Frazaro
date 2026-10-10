@@ -272,10 +272,7 @@ impl<'m> Calc<'m> {
                 .err()
                 .map(|construct| (id, construct))
         })?;
-        Some(raise(
-            "calc-construct-not-read",
-            &[("cell", &self.spell_cell(id)), ("construct", &construct)],
-        ))
+        Some(formula::unread_refusal(&self.spell_cell(id), &construct))
     }
 }
 
@@ -822,6 +819,68 @@ mod tests {
         );
         let wb = model(&[("S", "A1", "=1+1")]);
         assert!(Calc::new(&wb, &lib).first_refusal().is_none());
+    }
+
+    #[test]
+    fn a_chain_of_operators_evaluates_left_to_right_however_long() {
+        // VLA.1: a chain goes round a loop instead of recursing once a
+        // link, read as Excel reads it, left to right: the values the
+        // recursion gave, at every length Excel holds.
+        let long = format!("={}1", "1+".repeat(4095));
+        let wb = model(&[
+            ("S", "A1", "=10-1-1-1"),
+            ("S", "A2", "=2^3^2"),
+            ("S", "A3", "=1+2*3-4/2+5"),
+            ("S", "A4", "=\"a\"&\"b\"&\"c\""),
+            ("S", "A5", long.as_str()),
+            ("S", "A6", "=1/0+1+1"),
+            ("S", "A7", "=1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1"),
+        ]);
+        let lib = library::language();
+        let calc = Calc::run(&wb, &lib);
+        assert_eq!(number(&calc, "S", "A1"), 7.0);
+        assert_eq!(number(&calc, "S", "A2"), 64.0);
+        assert_eq!(number(&calc, "S", "A3"), 10.0);
+        assert_eq!(
+            at(&calc, "S", "A4"),
+            Computed::Value(Value::Text("abc".to_string()))
+        );
+        assert_eq!(number(&calc, "S", "A5"), 4096.0);
+        assert_eq!(
+            at(&calc, "S", "A6"),
+            Computed::Value(Value::Error(ErrorKind::Div0))
+        );
+        // Past the sixteen links held in place, the rest on the heap.
+        assert_eq!(number(&calc, "S", "A7"), 20.0);
+    }
+
+    #[test]
+    fn excel_s_two_limits_are_refused_by_their_own_ids() {
+        // VLA.1: past Excel's nesting or length limit an engine's load is
+        // refused by the limit's own id, and frazaro calc, which never
+        // refuses, shows the label in the cell.
+        let deep = format!("={}1{}", "(".repeat(65), ")".repeat(65));
+        let long = format!("={}1", "1+".repeat(4096));
+        let lib = library::language();
+        let wb = model(&[("S", "A1", deep.as_str())]);
+        let r = Calc::new(&wb, &lib).first_refusal().unwrap();
+        assert_eq!(r.id, "calc-formula-too-deep");
+        assert_eq!(
+            r.text,
+            "The formula in S!A1 nests more than 64 levels deep, more than Excel itself allows, so the formula cannot be computed."
+        );
+        let wb = model(&[("S", "A1", long.as_str())]);
+        let r = Calc::new(&wb, &lib).first_refusal().unwrap();
+        assert_eq!(r.id, "calc-formula-too-long");
+        assert_eq!(
+            r.text,
+            "The formula in S!A1 is longer than 8,192 characters, more than Excel itself allows, so the formula cannot be computed."
+        );
+        let calc = Calc::run(&wb, &lib);
+        assert_eq!(
+            at(&calc, "S", "A1"),
+            Computed::NotComputed(Reason::Construct(formula::TOO_LONG.to_string()))
+        );
     }
 
     #[test]

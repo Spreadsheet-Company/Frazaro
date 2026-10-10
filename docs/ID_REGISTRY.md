@@ -107,6 +107,7 @@ output:
 | SIG | SIG.8 | SIG.9 (SIG.6, SIG.7 reserved — see below) |
 | U | U.24 | U.25 |
 | V | V8 (bare) | V9 |
+| VLA | VLA.1 | VLA.2 |
 
 Word-suffix families in use (next member follows the same pattern, not a
 number): `G-` (FILES/FORMAT/FORMULA/PATH/PIVOT/RENDER/ROWLOOP/SORTFILTER/

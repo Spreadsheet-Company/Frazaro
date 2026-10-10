@@ -23,6 +23,7 @@
 //! spills; the reader cannot tell the two apart from the text alone, so
 //! neither is claimed (`KERNEL.8` takes them with the `@` operator).
 
+use crate::messages::{raise, Refusal};
 use crate::refers::{self, is_ident_char, FormulaRef, Kind, Shape};
 use crate::sheet::{MAX_COLUMN, MAX_ROW};
 
@@ -181,34 +182,43 @@ impl Expr {
     /// order they are written (KERNEL.22: a shape's edges are read off its
     /// parse, as `graph::dependencies` reads them off the text).
     pub fn each_read<'e>(&'e self, f: &mut dyn FnMut(Read<'e>)) {
-        match self {
-            Expr::Ref(r) => f(Read::Ref(r)),
-            Expr::Name { name, sheet } => f(Read::Name {
-                name,
-                sheet: sheet.as_deref(),
-            }),
-            Expr::Call(_, args) => args.iter().for_each(|a| a.each_read(f)),
-            Expr::Neg(x) | Expr::Pos(x) | Expr::Percent(x) => x.each_read(f),
-            Expr::Binary(_, a, b) => {
-                a.each_read(f);
-                b.each_read(f);
+        let mut stack = vec![self];
+        while let Some(e) = stack.pop() {
+            match e {
+                Expr::Ref(r) => f(Read::Ref(r)),
+                Expr::Name { name, sheet } => f(Read::Name {
+                    name,
+                    sheet: sheet.as_deref(),
+                }),
+                other => other.push_children(&mut stack),
             }
-            Expr::Number(_) | Expr::Text(_) | Expr::Bool(_) | Expr::Error(_) | Expr::Empty => {}
         }
     }
 
     /// The functions the expression calls, upper-cased, in the order they
     /// are written, repeats kept: [`calls`] over a parse.
     pub fn each_call<'e>(&'e self, f: &mut dyn FnMut(&'e str)) {
-        match self {
-            Expr::Call(name, args) => {
+        let mut stack = vec![self];
+        while let Some(e) = stack.pop() {
+            if let Expr::Call(name, _) = e {
                 f(name);
-                args.iter().for_each(|a| a.each_call(f));
             }
-            Expr::Neg(x) | Expr::Pos(x) | Expr::Percent(x) => x.each_call(f),
+            e.push_children(&mut stack);
+        }
+    }
+
+    /// The walks' step (VLA.1): an expression's operands onto a stack, last
+    /// first, so that popping visits them in the order they are written.
+    /// The walks keep their own stack rather than the call stack, since a
+    /// chain as long as Excel holds is a tree 4,095 deep down its left side,
+    /// and a machine's plan reads every shape's references at its load.
+    fn push_children<'e>(&'e self, stack: &mut Vec<&'e Expr>) {
+        match self {
+            Expr::Call(_, args) => stack.extend(args.iter().rev()),
+            Expr::Neg(x) | Expr::Pos(x) | Expr::Percent(x) => stack.push(x),
             Expr::Binary(_, a, b) => {
-                a.each_call(f);
-                b.each_call(f);
+                stack.push(b);
+                stack.push(a);
             }
             Expr::Ref(_)
             | Expr::Name { .. }
@@ -459,12 +469,65 @@ fn read_number(s: &[char], i: usize) -> (Tok, usize) {
     }
 }
 
+/// The deepest a formula may nest, Excel's own limit (VLA.1): each pair of
+/// parentheses, each call's arguments, each sign before an operand and each
+/// `%` after one counts a level, so that evaluation, which recurses once a
+/// level, never goes deeper. The deepest real formula nests 6 (Life's
+/// rule). A chain of binary operators is not nesting: it is read in a loop
+/// and evaluated in one ([`LENGTH_LIMIT`] bounds it).
+pub const NESTING_LIMIT: u32 = 64;
+
+/// The longest a formula's text may be, its leading `=` aside: Excel's own
+/// limit of 8,192 characters (VLA.1). It bounds a chain like `1+1+...+1` at
+/// 4,096 links, whose tree is freed recursively.
+pub const LENGTH_LIMIT: usize = 8192;
+
+/// The label [`parse`] answers for a formula nested past [`NESTING_LIMIT`].
+pub const TOO_DEEP: &str = "nesting deeper than 64";
+
+/// The label [`parse`] answers for a formula longer than [`LENGTH_LIMIT`].
+pub const TOO_LONG: &str = "longer than 8,192 characters";
+
+/// The refusal for a formula cell whose text does not parse (VLA.1): one of
+/// Excel's two limits by its own id, any other label as the construct this
+/// version does not read. An engine's load raises it; `frazaro calc` shows
+/// the label in the cell instead.
+pub fn unread_refusal(cell: &str, construct: &str) -> Refusal {
+    match construct {
+        TOO_DEEP => raise(
+            "calc-formula-too-deep",
+            &[("cell", cell), ("limit", &NESTING_LIMIT.to_string())],
+        ),
+        TOO_LONG => raise(
+            "calc-formula-too-long",
+            &[("cell", cell), ("limit", "8,192")],
+        ),
+        _ => raise(
+            "calc-construct-not-read",
+            &[("cell", cell), ("construct", construct)],
+        ),
+    }
+}
+
 struct Parser {
     toks: Vec<Tok>,
     at: usize,
+    /// The nesting levels open where the parser stands (VLA.1).
+    depth: u32,
 }
 
 impl Parser {
+    /// `f` one nesting level deeper, refused past [`NESTING_LIMIT`].
+    fn nested<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T, String>) -> Result<T, String> {
+        if self.depth >= NESTING_LIMIT {
+            return Err(TOO_DEEP.to_string());
+        }
+        self.depth += 1;
+        let r = f(self);
+        self.depth -= 1;
+        r
+    }
+
     fn peek(&self) -> Option<&Tok> {
         self.toks.get(self.at)
     }
@@ -591,11 +654,11 @@ impl Parser {
         match self.peek_op() {
             Some(BinOp::Sub) => {
                 self.at += 1;
-                Ok(Expr::Neg(Box::new(self.unary()?)))
+                Ok(Expr::Neg(Box::new(self.nested(Self::unary)?)))
             }
             Some(BinOp::Add) => {
                 self.at += 1;
-                Ok(Expr::Pos(Box::new(self.unary()?)))
+                Ok(Expr::Pos(Box::new(self.nested(Self::unary)?)))
             }
             _ => self.postfix(),
         }
@@ -603,7 +666,14 @@ impl Parser {
 
     fn postfix(&mut self) -> Result<Expr, String> {
         let mut e = self.primary()?;
+        let mut percents = 0;
         while self.peek() == Some(&Tok::Percent) {
+            // Each `%` wraps what came before, a level its evaluation
+            // recurses through (VLA.1).
+            if self.depth + percents >= NESTING_LIMIT {
+                return Err(TOO_DEEP.to_string());
+            }
+            percents += 1;
             self.at += 1;
             e = Expr::Percent(Box::new(e));
         }
@@ -632,27 +702,10 @@ impl Parser {
                 if self.take() != Some(Tok::LParen) {
                     return Err(name);
                 }
-                let mut args = Vec::new();
-                if self.peek() == Some(&Tok::RParen) {
-                    self.at += 1;
-                    return Ok(Expr::Call(name, args));
-                }
-                loop {
-                    match self.peek() {
-                        Some(Tok::Comma) | Some(Tok::RParen) => args.push(Expr::Empty),
-                        _ => args.push(self.comparison()?),
-                    }
-                    match self.take() {
-                        Some(Tok::Comma) => continue,
-                        Some(Tok::RParen) => break,
-                        Some(other) => return Err(Self::label(&other)),
-                        None => return Err("end of formula".to_string()),
-                    }
-                }
-                Ok(Expr::Call(name, args))
+                self.nested(|p| p.call(name))
             }
             Tok::LParen => {
-                let e = self.comparison()?;
+                let e = self.nested(Self::comparison)?;
                 match self.take() {
                     Some(Tok::RParen) => Ok(e),
                     Some(Tok::Comma) => Err("union".to_string()),
@@ -663,14 +716,41 @@ impl Parser {
             other => Err(Self::label(&other)),
         }
     }
+
+    /// A call's arguments after its `(`, through its `)`, a level deeper.
+    fn call(&mut self, name: String) -> Result<Expr, String> {
+        let mut args = Vec::new();
+        if self.peek() == Some(&Tok::RParen) {
+            self.at += 1;
+            return Ok(Expr::Call(name, args));
+        }
+        loop {
+            match self.peek() {
+                Some(Tok::Comma) | Some(Tok::RParen) => args.push(Expr::Empty),
+                _ => args.push(self.comparison()?),
+            }
+            match self.take() {
+                Some(Tok::Comma) => continue,
+                Some(Tok::RParen) => break,
+                Some(other) => return Err(Self::label(&other)),
+                None => return Err("end of formula".to_string()),
+            }
+        }
+        Ok(Expr::Call(name, args))
+    }
 }
 
 /// A formula's text, with or without its leading `=`, as an expression; or
-/// the construct this slice does not read, as written, for the label.
+/// the construct this slice does not read, as written, for the label: one
+/// of [`TOO_LONG`] and [`TOO_DEEP`] past Excel's two limits (VLA.1).
 pub fn parse(text: &str) -> Result<Expr, String> {
+    if text.strip_prefix('=').unwrap_or(text).chars().count() > LENGTH_LIMIT {
+        return Err(TOO_LONG.to_string());
+    }
     let mut p = Parser {
         toks: tokenize(text),
         at: 0,
+        depth: 0,
     };
     if p.toks.is_empty() {
         return Err("end of formula".to_string());
@@ -877,5 +957,30 @@ mod tests {
         assert_eq!(parse("="), Err("end of formula".to_string()));
         assert_eq!(parse("=1+"), Err("end of formula".to_string()));
         assert_eq!(parse("=)"), Err(")".to_string()));
+    }
+
+    #[test]
+    fn excel_s_two_limits_are_labels_of_their_own() {
+        // VLA.1: 64 levels of nesting parse and a 65th is TOO_DEEP, whether
+        // the levels are parentheses, a call's arguments, signs or percents.
+        let wrap =
+            |n: usize, open: &str, close: &str| format!("={}1{}", open.repeat(n), close.repeat(n));
+        for (open, close) in [("(", ")"), ("ABS(", ")"), ("-", ""), ("+", ""), ("", "%")] {
+            assert!(
+                parse(&wrap(64, open, close)).is_ok(),
+                "{open}...{close} at 64"
+            );
+            assert_eq!(
+                parse(&wrap(65, open, close)),
+                Err(TOO_DEEP.to_string()),
+                "{open}...{close} at 65"
+            );
+        }
+        // 8,192 characters after the `=` parse, a chain of 4,095 links; one
+        // more character is TOO_LONG.
+        let chain = format!("={}11", "1+".repeat(4095));
+        assert_eq!(chain.len() - 1, LENGTH_LIMIT);
+        assert!(parse(&chain).is_ok());
+        assert_eq!(parse(&format!("{chain}1")), Err(TOO_LONG.to_string()));
     }
 }

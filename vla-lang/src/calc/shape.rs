@@ -427,10 +427,7 @@ impl Shapes {
             if let Some(label) = label {
                 return Some((
                     *id,
-                    raise(
-                        "calc-construct-not-read",
-                        &[("cell", &spell_cell(model, *id)), ("construct", &label)],
-                    ),
+                    formula::unread_refusal(&spell_cell(model, *id), &label),
                 ));
             }
         }

@@ -154,17 +154,39 @@ pub fn parse_all(toks: &[Token], line_offset: u32) -> Result<Vec<Form>, Refusal>
     let mut pos = 0;
     let mut out = Vec::new();
     while pos < toks.len() {
-        out.push(parse_form(toks, &mut pos, line_offset)?);
+        out.push(parse_form(toks, &mut pos, line_offset, 1)?);
     }
     Ok(out)
 }
 
-/// VBA `ParseForm`.
-fn parse_form(toks: &[Token], pos: &mut usize, line_offset: u32) -> Result<Form, Refusal> {
+/// The deepest a list may nest, the top-level list being 1 (VLA.1): the
+/// reader refuses a list opened deeper, and so does the expander's walk,
+/// so that no stage after them recurses past it. Six times the deepest
+/// real program (the corpus golden nests 10 deep, `english.vla` 9, the
+/// prelude 6); every stage of the language holds well past it, and the
+/// core's emitter, the shallowest, holds 80 in a debug build.
+pub const FORM_DEPTH_LIMIT: u32 = 64;
+
+/// VBA `ParseForm`, `depth` the depth of the list a `(` here would open.
+fn parse_form(
+    toks: &[Token],
+    pos: &mut usize,
+    line_offset: u32,
+    depth: u32,
+) -> Result<Form, Refusal> {
     let tok = &toks[*pos];
     let raw_line = tok.line;
     *pos += 1;
     if tok.text == "(" {
+        if depth > FORM_DEPTH_LIMIT {
+            return Err(raise(
+                "vla-form-too-deep",
+                &[
+                    ("limit", &FORM_DEPTH_LIMIT.to_string()),
+                    ("loc", &src_line_tag(raw_line, line_offset)),
+                ],
+            ));
+        }
         // A list is born on the line of its opening paren; below the
         // offset that is the prelude, stored as 0.
         let line = user_line(raw_line, line_offset).unwrap_or(0);
@@ -174,7 +196,7 @@ fn parse_form(toks: &[Token], pos: &mut usize, line_offset: u32) -> Result<Form,
                 *pos += 1;
                 return Ok(Form::List(List::new(items, line)));
             }
-            items.push(parse_form(toks, pos, line_offset)?);
+            items.push(parse_form(toks, pos, line_offset, depth + 1)?);
         }
         Err(raise(
             "vla-unbalanced-parens",
@@ -279,8 +301,27 @@ mod tests {
         assert_eq!(r.text, "unbalanced parentheses: missing ')'");
     }
 
-    const GOLDEN: &str = include_str!("../../scripts/instructions_golden.vla");
-    const PRELUDE: &str = include_str!("../../scripts/prelude.vla");
+    #[test]
+    fn a_list_past_the_depth_limit_is_refused_by_name() {
+        // VLA.1, TestFormTooDeep's first pair: 64 nested lists read, and the
+        // 65th is refused at its line, where the reader used to recurse
+        // until the stack gave out; far past it is the same refusal.
+        let nest = |n: usize| format!("{}{}", "(".repeat(n), ")".repeat(n));
+        assert_eq!(read_forms(&nest(64)).unwrap().len(), 1);
+        let r = read_forms(&nest(65)).unwrap_err();
+        assert_eq!(r.id, "vla-form-too-deep");
+        assert_eq!(
+            r.text,
+            "lists nested more than 64 deep (vla line 1) - no program needs that many"
+        );
+        assert_eq!(
+            read_forms(&nest(100_000)).unwrap_err().id,
+            "vla-form-too-deep"
+        );
+    }
+
+    const GOLDEN: &str = include_str!("../testdata/instructions_golden.vla");
+    const PRELUDE: &str = include_str!("../testdata/prelude.vla");
 
     #[test]
     fn the_golden_and_the_prelude_read_print_and_read_again() {

@@ -132,6 +132,20 @@ exported from the add-in's own code and held to it by the repository's
 checks. `vla_lang::VERSION` is the crate's version, which is the release's,
 the add-in's and `frazaro-core`'s, one number for the language.
 
+Every text the crate reads is answered or refused by name, never with a
+panic, a stack overflow or a hang, so an engine can hand it a cartridge
+from anyone. The limits are public constants, each refused by its own id:
+- lists nested deeper than 64, in what the reader reads and in what the
+  expander writes (`reader::FORM_DEPTH_LIMIT`);
+- a formula nested deeper than Excel's 64 levels, or longer than its
+  8,192 characters (`calc::formula::NESTING_LIMIT`, `LENGTH_LIMIT`);
+- more than a million forms in what one macro application writes
+  (`expand::EXPANSION_SIZE_LIMIT`), since the crate copies a macro's
+  arguments into its template.
+
+Real programs nest 10 deep at most and real formulas 6. Each stage is
+tested at its limit on a 1 MiB stack, the tightest an engine is given.
+
 ```text
 cargo build --release -p vla-lang --features c-abi --target wasm32-unknown-unknown
 ```
@@ -168,6 +182,13 @@ core, and the reference goldens the add-in writes reproduced by this
 crate's own tests. The crate follows the goldens and never leads them. It
 was cut out of `frazaro-core` on 2026-10-08 (PORT.12) so that an engine
 can stand on the language without the bridges.
+
+The goldens and fixtures the tests read travel with the package, under
+`testdata/`, so `cargo test` runs from the published crate. The repository
+holds the copies to their sources byte for byte. Beside the goldens, the
+tests hold the language's laws over generated programs (`tests/laws.rs`)
+and knock at every door with mutated text (`tests/strangers.rs`, and a
+longer run with `--ignored`).
 
 ## Licence
 

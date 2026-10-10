@@ -9880,8 +9880,24 @@ re-derive the connection.
     the property test and the product feature share one prover, and a
     rendering bug cannot hide from the test that is supposed to catch it.
     `~weeks`
-- ⬜ **AS.5 — reader fuzzing.** Refuse in words, never crash, never hang.
-  `~weeks`
+  *Narrowed 2026-10-10, at `VLA.1`'s close.* Expansion idempotence and "no
+  program crashes the reader" are `VLA.1`'s now, and closed with it. Its
+  laws hold expansion's fixpoint over generated programs and the corpus;
+  the reader and every other door are knocked with mutated text, and every
+  limit is refused by name in both implementations. What remains here is
+  the round trip as a unifier identity (`G-RENDER` over `VLA_Unify`), the
+  English side's.
+- ✅ **AS.5 — reader fuzzing.** Refuse in words, never crash, never hang.
+  `~weeks` *Folded into `VLA.1` and closed with it, 2026-10-10.* The
+  reader, the formula parser, the reference scanner, a machine's load and
+  write, and the expander are knocked with generated and mutated text in
+  `vla-lang/tests/strangers.rs`. That is 1,900 cases in the suite and
+  300,000 on request, each answered or refused by name on a 1 MiB stack.
+  The probe that preceded it found the reader, the parser, the evaluator
+  and the expander overflowing their stacks, and the reference's reader
+  recursing the same way. Each is now a refusal; the reader's is the
+  reference's too (`ParseForm`'s `listDepth`). The reference itself is held
+  by that pair change and the treaty, not fuzzed through Excel.
 - ✅ **AS.6 — corpus-family contract in CI.** *Already SD-6.* **Built:** SD-6
   claimed absence of `instructions.txt`/`english.vla`/`alonzo.vla` "already"
   failed the suite; auditing every corpus-file touch in `VlaSelfTest`'s
@@ -9953,6 +9969,337 @@ re-derive the connection.
   described as "a curated dialect plus a corpus of tested phrasings"; at
   122 rules that claim is currently unmeasured, and this is the instrument
   that would measure it, the same family as `AS.1`/`AS.2`/`AS.8`. `~days`
+
+- ✅ **VLA.1 — the language tests itself: its fixtures travel with the
+  crate, its laws hold on generated programs, and text a stranger wrote is
+  refused by name, never a crash.** *Scoped 2026-10-10 at the owner's word,
+  the day `vla-lang` 0.8.1 went to crates.io, as the first item of the `VLA`
+  family: the language's own items, in both its implementations (`vla-lang`
+  and the VBA reference) and the treaty between them. Every claim below was
+  measured that day, on the packaged crate, the debug door, and a throwaway
+  probe (a crate in the session's scratchpad depending on `vla-lang` by
+  path, each case run in a process of its own so that an overflow shows as
+  an exit code); nothing is built. It takes the ground of `AS.4` and `AS.5`
+  (decision 2).*
+
+  **What needs it.** Three readers, each real today. A contributor or a
+  packager who runs `cargo test` on the published crate: none of its 126
+  tests runs, since the suite does not compile outside this repository.
+  Alonzo, whose cartridges are text anyone can write: `engine/src/cartridge.rs`
+  hands a cartridge's text to `read_forms` and its rows to `Machine::new`,
+  and both end in a stack overflow on a few kilobytes of nesting. And
+  `CHARTER.md` §6's quarter, which counts pull requests on the language from
+  people who are not the owner: such a pull request needs a suite it can
+  run. The first part is also the repository split's second exit criterion.
+
+  **Substrate, verified 2026-10-10.**
+  - *The fixtures.* Twelve test-time `include_str!`s in `expand.rs`,
+    `reader.rs`, `refers.rs` and `machine/mod.rs` read nine files under
+    `scripts/`: `prelude.vla`, `instructions_golden.vla`, `refers.txt`,
+    `refers_golden.txt` and five view goldens, 281,172 bytes in all, 230,435
+    of them the corpus golden. They are the treaty's own tests (the
+    expansion pins under the real prelude, every corpus form expanding, read
+    and print on the corpus, the refers golden, load as the inverse of view
+    on oracle 11's goldens), so they stay, and their files travel. All nine
+    are Apache-2.0 (`REUSE.toml` gives `scripts/**` that licence and only
+    `scripts/polyglotta/**` MPL-2.0), as `vla-lang/**` is. In the unpacked
+    package, `cargo test` stops at twelve `couldn't read` errors, and since
+    the 126 tests share one binary, none of them runs.
+  - *The depths.* Each failure below is `thread 'main' has overflowed its
+    stack`: a process abort natively, a trap in WebAssembly, never a
+    refusal. On Windows' 1 MiB main thread, the last depth that held and the
+    first that failed:
+    - the reader, nested lists: release 1,000 and 10,000; debug 768 and
+      1,000;
+    - the formula parser, nested parentheses: release 100 and 1,000; debug
+      64 and 80, a formula of about 160 characters;
+    - a chain of prefix minus signs: release 1,000 and 10,000;
+    - `Machine::load` and one step, one formula cell: release 100 and
+      1,000; debug 64 and 72;
+    - the expander, nested calls: debug 256 and 512;
+    - the door's `compile`, nested calls: debug 80 and 96, the core's
+      emitter failing first, since the expander holds four times as deep.
+    The deepest real VLA is 10 levels (the corpus golden; `english.vla` 9,
+    the prelude 6) and the deepest real formula 6 (Life's rule; the gun 5,
+    the test card 4). The expander already refuses by name a macro chain
+    deeper than 200 (`vla-macro-expansion-too-deep`) and a runaway macro
+    (`vla-macro-self-expansion-limit`, confirmed by the probe), but its walk
+    over a form's structure has no limit, and neither has the reference:
+    `VLA.bas`'s `ParseForm` recurses once a list, as its port does.
+  - *The laws, today.* Print, read and print again gives the same text on
+    60,000 of 60,000 generated forms over three seeds, strings holding
+    quotes, backslashes, CR, LF, tabs and letters outside ASCII; the corpus
+    golden expands to its fixpoint in one pass, a second pass identical with
+    no macro fired. The machine pins three laws on fixed inputs: load as the
+    inverse of view on five goldens,
+    `a_budget_yields_resumes_and_never_changes_a_frame` and `a_save_resumes`.
+    `Form`'s equality ignores the line a list was read on (the scoping said
+    it had none; corrected at the build), so a law compares forms and their
+    printed text; a save is `workbook()`, `sheets()` and `view()`, all
+    public, as the machine's own test helper builds it.
+  - *The old ground.* `AS.4` (expansion idempotence and "no program crashes
+    the reader", beside an English upgrade through `VLA_Unify`) and `AS.5`
+    (reader fuzzing: "Refuse in words, never crash, never hang") have stood
+    open in this department since before the port. The reader's existing
+    refusals have no case in the refusal golden, which covers the English
+    path. Only the stable toolchain is installed.
+
+  **The work.** Three parts, in this order.
+  1. *The fixtures travel with the crate.* `vla-lang/testdata/` mirrors
+     `scripts/`'s layout for the nine files, and the twelve includes point
+     there. `check_crate_data.ps1` holds each copy byte for byte to its
+     original, eleven copies where it holds two today, the fix for a drift
+     the `Copy-Item` it names. `check_crate_package.ps1` refuses an include
+     in `vla-lang` that leaves the crate, test regions included, with a
+     mutant in its `-Control`. The crate job in `checks.yml` packages
+     `vla-lang` and runs `cargo test` inside the unpacked package, the one
+     witness that the published crate's suite runs. The package grows from
+     535 KiB to about 816 KiB.
+  2. *The laws, over generated programs.* `vla-lang/tests/laws.rs`, an
+     integration test over the public API, with a splitmix64 generator of a
+     dozen lines and fixed seeds: print, read and print again is the same
+     text; expansion reaches its fixpoint in one pass, over programs calling
+     the prelude's macros; load is the inverse of view on generated grids;
+     a frame stepped in slices of any budget is the frame stepped whole; a
+     save resumed and stepped once is the original stepped once more; two
+     machines given the same rows show the same plane, byte for byte, which
+     a hash order leaking into a frame would break. A failing case prints
+     its seed and its input.
+  3. *Text a stranger wrote.* The limits first: the reader refuses a list
+     opened deeper than 64, and the expander a walk deeper than 64, with one
+     id, `vla-form-too-deep`; the formula parser refuses nesting deeper than
+     64, parentheses and prefix operators counted, with `calc-formula-too-deep`,
+     so evaluation never recurses deeper. `VLA.bas`'s `ParseForm` and
+     `ExpandMacros` take the same counter and id, with pure tests. Then the
+     pins: every stage with a limit (the reader, the expander, the formula
+     parser, evaluation, `Machine::load`, the core's `compile`) is tested at
+     exactly its limit on a 1 MiB thread in the debug profile, the tightest
+     stack measured, and one level past it is refused by name. Then the
+     harness: `vla-lang/tests/strangers.rs` generates and mutates text for
+     each door that reads it (`read_forms`, `formula::parse`,
+     `refers::scan`, `Machine::load`, `Machine::write`, `expand_text`),
+     seeded from `testdata/`. Every case ends in an answer or a named
+     refusal inside a time bound. Fixed seeds run in the suite, an
+     `#[ignore]`d long run takes millions of cases, and each failure is
+     shrunk and kept under `testdata/strangers/` as a case of its own.
+
+  **The decisions, the owner's.** Each with the recommendation the
+  measurements support.
+  1. **The family.** `VLA`: the language's own items, in both its
+     implementations and the treaty between them, filed in this department
+     beside the `AS` items; the registry's row reads `VLA.1`, next `VLA.2`.
+  2. **`AS.5` folds into `VLA.1`, and `AS.4` keeps only its English half.**
+     `AS.5`'s line leaves the roadmap at this item's close, its entry gaining
+     a dated line pointing here. `AS.4` narrows to the round trip as a
+     unifier identity (`G-RENDER` over `VLA_Unify`), which is the English
+     side's. The VBA reader is held by the pair change and the treaty, never
+     fuzzed through Excel.
+  3. **Held copies, not snapshots, the corpus golden among them.** A copy
+     follows its original, so a regenerated golden the language reads
+     arrives as a check failure with a one-line fix, not as a silent change
+     of the crate's test inputs. Leaving the 230 KB corpus golden out would
+     move its two tests to the core, where the language's largest real
+     program no longer tests the language.
+  4. **The ratchet and the witness.** The include rule holds `vla-lang`
+     alone (the core's and the door's tests may still read `scripts/`), and
+     the package's own `cargo test` runs in CI.
+  5. **The laws over the public API, with no dependency.** An integration
+     test, so each law is stated in what an outside user can call; the
+     generator written here, as SHA-256 and inflate were. The laws and the
+     harness together stay under three seconds in a debug build.
+  6. **One structural limit, 64, at the reader and in the expander's walk,
+     in both implementations.** Six times the deepest real program, with
+     every stage of the language holding well past it in a debug build (the
+     reader 768, the expander 256); the core's emitter, which fails at 96,
+     never sees more. It changes what the language accepts, so it is a pair
+     change under `SD-18`: one id, the same counter in `VLA.bas`, the text
+     written in `VLA_Messages.bas` and exported (`SD-2`), the language
+     half's floor 192 to 193. The alternative, 32, leaves a debug door more
+     room but is narrow for a Lisp written by hand.
+  7. **The formula limit is Excel's own, 64.** Excel's documented nesting
+     limit, so no formula Excel holds is refused; the deepest real one is 6.
+     A debug build holds it with little room (load and step at 64, failure
+     at 72), so the pins judge: if they show no room, the parser's
+     precedence levels fold into one loop, one frame a level of nesting
+     instead of eight. `calc-formula-too-deep`'s text is written in
+     `VLA_Messages.bas` like every `calc` id; the floor 193 to 194.
+  8. **The pins, on the tightest stack.** A 1 MiB thread in the debug
+     profile, at each limit and one past it, so the margin is measured in
+     the suite rather than assumed. The core's `compile` is among them. The
+     door's thread does not change unless a pin fails; then the door runs
+     its work on an 8 MiB thread, as `rustc` does.
+  9. **The harness hand-rolled, on stable.** No `cargo-fuzz`, which needs a
+     nightly toolchain and a dependency in a crate of its own; revisit if
+     this harness stops finding things.
+  10. **What the harness finds.** In the language, or its VBA twin, fixed
+      in this item; anywhere else (the English matcher, the core's readers
+      of workbooks, the emitters), handed to the owner to mint.
+
+  **Oracle.** The workspace's `cargo test` with the two new files; the
+  unpacked package's `cargo test` in CI; `run_checks.ps1` with the two
+  checks' new rules and mutants and the catalogue's floors; each of the
+  probe's overflows answered by a refusal; and the owner's Excel pass for
+  the VBA half: `VlaDevReload`, Debug > Compile, `? VlaSelfTests()` at the
+  predicted count, `? VlaGoldens()` with an empty `git diff`.
+
+  **Size.** `~days` (*prediction*): the fixtures, the ratchet and the CI
+  step a few hours; the laws a day; the limits, their VBA pair and the pins
+  a day; the harness a day, more if it finds more.
+
+  **What `VLA.1` does not do, by name.** No coverage-guided fuzzing. No
+  expansion golden (`PORT.12`'s sixth decision, an item of its own). No
+  move of the catalogue: the language's messages are still written in VBA.
+  No repository split. No change to what any program within the limits
+  means. No release: the limits ship with the next one, the add-in rebuilt
+  as always.
+
+  **Built 2026-10-10, awaiting the owner's test.** The ten decisions as
+  approved. Decision 10's rule brought in two more refusals than the scoping
+  counted, both found while the harness was being written. What landed:
+  1. *The fixtures travel.* The nine files are under `vla-lang/testdata/`
+     and the twelve includes point there. `check_crate_data.ps1` holds 11
+     copies (the door's 2, the language's 9). `check_crate_package.ps1`'s
+     rule 4 holds vla-lang's 22 test includes inside the crate (12 under
+     `src/`, 10 under `tests/`), with a `-Control` of four mutants, in
+     `run_checks.ps1 -WithExtras`. The CI crate job packages vla-lang and
+     runs `cargo test` inside the unpacked package. The package is 55
+     files, 944.9 KiB, 216.2 KiB compressed, and runs every test the
+     workspace runs for the crate, where it compiled none before.
+  2. *The laws.* `vla-lang/tests/laws.rs`, six laws, 0.4 s in a debug
+     build, all holding:
+     - 3,000 generated forms read, printed and read again;
+     - 120 generated programs over the prelude's 46 macros, 100 of which
+       expand (239 applications) and reach their fixpoint in one pass, as
+       the corpus does;
+     - 50 generated grids (625 formulas, 644 reads of the last frame, every
+       formula valued after a frame) through load as the inverse of view,
+       frames in slices, a save resumed, and two machines frame by frame.
+  3. *Strangers' text.* Four ids, each refused by name:
+     - `vla-form-too-deep`: the reader's list past 64 and the expander's
+       walk past 64, in both implementations (`ParseForm`'s `listDepth`,
+       `ExpandMacros`' and `ExpandOnePass`' `walkDepth`,
+       `RefuseFormTooDeep`; `reader::FORM_DEPTH_LIMIT`).
+     - `calc-formula-too-deep` and `calc-formula-too-long`: Excel's 64 and
+       8,192, through `formula::unread_refusal`. An engine's load names the
+       limit; `frazaro calc` shows the label in the cell.
+     - `vla-macro-expansion-too-large`, the third find below, in the port
+       alone: every macro application's result is weighed
+       (`Expander::weigh`), refused as too deep past 64 and as too large
+       past 1,000,000 forms in that one result (`EXPANSION_SIZE_LIMIT`).
+       The reference's expander shares a macro's arguments by reference and
+       builds no copies, so it needs no weighing (see the owner's first
+       pass, below).
+
+     The pins: `vla-lang/tests/limits.rs`, and one in the core's `emit`
+     tests, run each stage at its limit on a 1 MiB thread in the debug
+     profile and refuse it one past.
+
+     The harness, `vla-lang/tests/strangers.rs`: six doors. The suite runs
+     1,900 generated and mutated cases and 28 named ones in 0.5 s. The
+     `--ignored` run takes 300,000 cases in 5.7 s in release, none failing.
+     Nine kept cases sit under `testdata/strangers/`, each a shape that
+     crashed or hung.
+
+  **Found on the way, each fixed here (decision 10).**
+  - *A chain of operators.* `=1+1+...+1` is a tree as deep as it is long,
+    and evaluating it recursed once a link: 4,096 terms, within Excel's
+    length, overflowed even a release build. A chain of two or more links
+    is now evaluated round a loop, its right operands on a stack (the first
+    sixteen in place, so a neighbour count allocates nothing), giving the
+    same values in the same order; one operator keeps its arm. The length
+    limit holds a chain to 4,095 links, which frees within the stack.
+  - *The plan's walk, found by the pins.* `Expr::each_read`, which a
+    machine's plan runs over every shape at load, recursed once a link, so
+    the longest legal chain overflowed a debug build's 1 MiB before any
+    frame. It and `each_call` now keep a stack of their own.
+  - *Two macros, in the port.* `(defmacro (deeper x) (deeper (x)))` copied
+    and freed an ever-deeper argument recursively and overflowed even a
+    release build. `(defmacro (dup x) (dup (x x)))` doubled its argument
+    each time and ran until the memory gave out. The 5,000-application chain
+    limit stopped neither in time. The weighing refuses the first at depth
+    65 and the second within twenty applications. The reference shares the
+    argument instead of copying it, so the same two programs build no
+    copies there and meet the chain limit. The two implementations refuse
+    these two programs under different ids: the one difference between
+    them, owing to how each holds a form, and on programs no golden holds.
+  - Excel's 64 leaves a debug build room: a formula 64 deep loads and steps
+    on a 1 MiB thread. So the parser needed no rework, and the door no
+    larger thread (decisions 7 and 8).
+
+  **Measured.** Every overflow the probe found is answered by a refusal:
+  - the reader at 65 and at 100,000;
+  - formulas at 65 and at 20,000 characters, and a run of signs;
+  - nested rows, and a machine's one cell 5,000 deep;
+  - the longest chain, the expander at 512, and the two macros.
+
+  Both modules still import nothing and export their 13 and 10 names.
+
+  **Oracle.** A peer session built KERNEL.20's dense twin in the same tree
+  and committed it during this build (`00a9ee1`, over `3235bf9`). Its
+  commit carried none of VLA.1's hunks (each checked against HEAD), so the
+  tree is then HEAD and VLA.1 alone. Before that commit, a worktree of
+  `3235bf9` and VLA.1 alone passed the same checks as below. After the
+  owner's first pass and its fix, on `00a9ee1` and VLA.1:
+  - `cargo fmt --check` and `clippy -D warnings` are clean;
+  - `cargo test --workspace`: 328 passed, 5 ignored (core 179; language
+    137 run and 1 ignored, VLA.1's seven among them; laws 6; pins 4;
+    strangers 2);
+  - `run_checks -WithExtras`: 54 of 54 checks and 11 of 11 verifiers;
+  - the package, 55 files and 217.1 KiB compressed, runs every suite.
+
+  **The owner's first pass, 2026-10-10, and what it found.** Pure FAIL
+  1948/1951, host PASS 333/333. The three failures were the reference's
+  own scale pins: `listops-depth`'s 5,500-row walk, and `tablespec-depth`'s
+  2,000- and 5,500-row walks. All three were refused by the weighing as
+  then built, a budget over the sum of every application's result in a
+  program. A walk over a long list writes the rest of the list into each
+  application's result, so that sum grows as the square of the list's
+  length: a legitimate 2,000-row walk passed a million. The two 5,500-row
+  pins expected the chain limit's message and met the budget first. The
+  fix:
+  - The size limit is one application's result, not the program's sum. A
+    walk keeps that to its list's length; the table generator at the chain
+    limit's 5,000 rows writes about 540,000 forms in its first application
+    (9 references to its spec, 12 forms a row).
+  - The reference's weighing (`WeighExpansion`, `mExpandProduced`) is
+    withdrawn. The reference shares arguments by reference and its `cdr`
+    is an O(1) `VlaSlice`, so the weighing counted shared structure as
+    copies and made a linear walk quadratic. The reference needed none.
+  - `TestFormTooDeep` keeps its four pins for the reader and the walk. Its
+    two macro pins are withdrawn. In the reference those programs meet the
+    chain limit after building a structure 5,000 deep, and VBA frees nested
+    collections recursively (a ceiling near 8,000 by an earlier
+    measurement). That release is unchanged by this item and unmeasured
+    here; a diagnostic in `tools/` would measure it.
+  - Pinned in the port: `a_long_walk_writes_millions_of_forms_but_none_too_many_at_once`
+    (2,000 rows, 2,001 applications, 0.6 s in a debug build). Measured in
+    release: a 5,500-row walk meets the chain limit
+    (`vla-macro-self-expansion-limit`), as the reference's pins expect;
+    the 2,000-row table generator expands whole.
+  - An A/B over HEAD's vla-lang, release, two runs each: the table
+    generator at 2,000 rows took 8.9 and 8.6 s at HEAD, 8.6 and 8.7 with
+    VLA.1; the 5,500-row walk took 1.94 and 1.92, against 1.98 and 2.02.
+    The weighing costs nothing measurable beside the copying that built
+    the result.
+  - Corrected: the scoping's and this record's "the corpus's applications
+    write 30,304 forms" is the expanded program's size, not the
+    applications' sum.
+
+  *Found, not fixed (another item's, for the owner to mint):* the port's
+  expander copies a macro's arguments and its LISTOPS `cdr` copies the tail,
+  so a table generator over N rows is O(N²) in the port where the reference
+  is linear. 2,000 rows take 9 s in a release build. It predates VLA.1.
+
+  The owner's half is the VBA: `TestFormTooDeep`'s four pins, and the three
+  scale pins passing again. Predicted: pure 1949/1949, host 333/333.
+
+  *Owner-tested and committed 2026-10-10 at the owner's word.* The owner's
+  second pass, as predicted: pure PASS 1949/1949, host PASS 333/333,
+  `VlaGoldens` corpus and interpreter PASS, `VerifyReports` 371/371 on both
+  backends. The commit holds HEAD (`00a9ee1`) and this item's files alone,
+  verified as above. The item closed with the commit, and its line is in
+  the closed ledger. Per decision 2, `AS.5` folds in here and leaves the
+  roadmap, and `AS.4` keeps its English half.
 
 ---
 
@@ -32961,3 +33308,8 @@ numbers. **Quoting a correction is not applying it.**
 ## 🔧 MACHINE · THE MIDDLE LAYER
 
 - ✅ **L-SHEET-HELPERS — the sheet helpers G-TABS needs, each refusing in words before Excel's error.** Built, owner-verified live and committed 2026-10-07. Eight runtime helpers above the inject boundary (`VlaAddSheetAt`, `VlaCopySheet`, `VlaMoveSheet`, `VlaRenameSheet`, `VlaHideSheet`, `VlaShowSheet`, `VlaClearSheet`, `VlaDeleteSheet`), `VlaSheetExists` (a read) and `VlaIsFrazaroSheetName` (the IDE's own-sheet rule, pure, so the injected copy needs no `VLA_IDE`); a position always explicit (`after`, `before`, `last`); a copy's name checked and absent before the copy, and the copy found by what is new among the names; the sheet that was active given back; Frazaro's own and very-hidden sheets refused by name, `delete-sheet` included; fourteen `rt-sheet-*` refusals; eleven macros beside `add-sheet-called`; eight native `Case`s (`IN.15`) with their since-ledger arm rows. The probe `tools/VLA_DiagSheetHelpers.bas` ran first: Copy and Move with neither Before nor After make a new workbook, Add, Copy and Move activate their sheet, a copy or a move after a very-hidden last sheet lands before it, a move after itself is Excel's silent no-op (the helper refuses it), and Excel lets a chart sheet stand in for the last worksheet, which the helpers do not. Undo measured on both backends and `U.32` filed: a renamed sheet's new name and a bare copy stand after Undo. The owner's pass: pure 1876/1876, host 315/315, VlaGoldens PASS, VerifyReports 371/371, the live programs under both backends. *(more: the full entry, earlier in this file)* `~days`
+
+## 🔧 MACHINE · ASSURANCE
+
+- ✅ **VLA.1 — the language tests itself: its fixtures travel with the crate, its laws hold on generated programs, and text a stranger wrote is refused by name, never a crash.** Scoped, built, owner-tested and committed 2026-10-10, the `VLA` family's first item. The nine fixtures vla-lang's tests read travel under `vla-lang/testdata/`, held byte for byte to `scripts/` by `check_crate_data`; `check_crate_package` holds vla-lang's test includes inside the crate. CI tests the unpacked package, which compiled none of its tests before. Six laws hold over generated programs and grids (`tests/laws.rs`). A harness of six doors runs 1,900 cases in the suite and 300,000 on request, none failing (`tests/strangers.rs`, nine kept cases). Four refusals replace the crashes and the hang the probe found. Lists nested past 64 are refused in both implementations (`vla-form-too-deep`). So is a formula past Excel's 64 levels or 8,192 characters (`calc-formula-too-deep`, `calc-formula-too-long`). In the port, which copies a macro's arguments, so is one application writing more than a million forms (`vla-macro-expansion-too-large`). Each limit is pinned on a 1 MiB debug stack. A chain of operators now evaluates in a loop, and the plan's walk keeps its own stack. The owner's first pass caught a size budget summed over a program, which refused the reference's own scale walks: the limit became one application's result, and the reference's weighing was withdrawn. The second pass: pure 1949/1949, host 333/333, goldens PASS, VerifyReports 371/371. `AS.5` folded in; `AS.4` keeps its English half. *(more: the full entry, earlier in this file)* `~days`
+- ✅ **AS.5 — reader fuzzing.** Refuse in words, never crash, never hang. Folded into `VLA.1` and closed with it, 2026-10-10: every door of the language is knocked with mutated text and answers or refuses by name, and the reference's reader refuses past the same depth. *(more: the full entry, earlier in this file)*

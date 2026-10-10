@@ -1020,8 +1020,8 @@ pub fn fixture_report(fixture: &str) -> String {
 mod tests {
     use super::*;
 
-    const FIXTURE: &str = include_str!("../../scripts/refers.txt");
-    const GOLDEN: &str = include_str!("../../scripts/refers_golden.txt");
+    const FIXTURE: &str = include_str!("../testdata/refers.txt");
+    const GOLDEN: &str = include_str!("../testdata/refers_golden.txt");
 
     #[test]
     fn the_refers_golden_is_reproduced() {

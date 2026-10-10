@@ -1,0 +1,2 @@
+door: expand
+(defmacro (dup x) (dup (x x))) (dup 1)

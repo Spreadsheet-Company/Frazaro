@@ -1,6 +1,20 @@
 Attribute VB_Name = "VLA_Messages"
 Option Explicit
-Public Const VLA_MESSAGES_VERSION As String = "U.32"
+Public Const VLA_MESSAGES_VERSION As String = "VLA.1"
+' VLA.1: text a stranger wrote is refused by name, never a crash.
+' vla-form-too-deep under VLA - lists nested more than 64 deep, refused by
+' the reader (VLA.bas's ParseForm and vla-lang's) and by the expander's
+' walk (ExpandMacros), where both implementations used to recurse until
+' the stack gave out. vla-macro-expansion-too-large under VLA - one macro
+' application wrote more than 1,000,000 forms; raised by vla-lang alone,
+' which copies a macro's arguments into its template, so that a macro that
+' doubles its argument ran its memory out. This module's Substitute shares
+' an argument by reference, builds no copies, and meets the 5000 chain
+' limit instead. calc-formula-too-deep and calc-formula-too-long
+' under VLA-Calc - a formula nested more than 64 levels deep, or longer
+' than 8,192 characters, Excel's own two limits; raised by no VBA site,
+' since Excel computes the add-in's formulas itself.
+'
 ' U.32: ide-undo-roster-unreadable under VLA-IDE - the Run's roster (the
 ' record of every sheet's name, visibility and the active sheet that Undo
 ' Last Run puts back) could not be read; said as a line of the Undo dialog
@@ -608,6 +622,8 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-include-cannot-read", 5, "VLA", "include: cannot read '{name}' (looked at '{path}')"
     AddMsg m, "vla-unbalanced-parens", 5, "VLA", "unbalanced parentheses: missing ')'{loc}"
     AddMsg m, "vla-unexpected-close-paren", 5, "VLA", "unexpected ')'{loc}"
+    ' VLA.1 - the reader and the expander's walk stop at one depth, so no stage after them recurses deeper.
+    AddMsg m, "vla-form-too-deep", 5, "VLA", "lists nested more than {limit} deep{loc} - no program needs that many"
     AddMsg m, "vla-form-missing-element", 5, "VLA", "form is missing required element {n}"
     AddMsg m, "vla-expected-list-at-position", 5, "VLA", "expected a list at position {n}, got '{value}'"
     AddMsg m, "vla-expected-symbol-got-list", 5, "VLA", "expected a symbol, got a list"
@@ -623,6 +639,8 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "vla-macro-expansion-too-deep", 5, "VLA", "macro expansion too deep (recursive macro?)"
     AddMsg m, "vla-quasiquote-outside-template", 5, "VLA", "'{head}' only has meaning inside a defmacro's own template - there is no substitution environment outside one"
     AddMsg m, "vla-macro-self-expansion-limit", 5, "VLA", "macro self-expansion exceeded 5000 applications in one chain (infinite macro?)"
+    ' VLA.1 - raised by vla-lang alone, which copies a macro's arguments: this module's expander shares them and meets the 5000 chain limit instead.
+    AddMsg m, "vla-macro-expansion-too-large", 5, "VLA", "one macro application wrote more than {limit} forms (a macro that doubles its argument?)"
     AddMsg m, "vla-macro-arity", 5, "VLA", "macro '{name}' expects {n} argument(s), got {given}"
     AddMsg m, "vla-macro-arity-min", 5, "VLA", "macro '{name}' expects at least {n} argument(s), got {given}"
     AddMsg m, "vla-quasiquote-nested", 5, "VLA", "quasiquote: nested quasiquote is not supported"
@@ -1546,6 +1564,9 @@ Private Sub AddEntries(ByVal m As Collection)
     AddMsg m, "calc-function-not-computed", 5, "VLA-Calc", "The formula in {cell} calls {function}, which this version does not compute."
     ' KERNEL.22 - a formula whose text this version does not read stops an engine's load too.
     AddMsg m, "calc-construct-not-read", 5, "VLA-Calc", "The formula in {cell} reaches {construct}, which this version does not read, so the formula cannot be computed."
+    ' VLA.1 - Excel's own two limits on a formula, so no formula Excel holds is refused.
+    AddMsg m, "calc-formula-too-deep", 5, "VLA-Calc", "The formula in {cell} nests more than {limit} levels deep, more than Excel itself allows, so the formula cannot be computed."
+    AddMsg m, "calc-formula-too-long", 5, "VLA-Calc", "The formula in {cell} is longer than {limit} characters, more than Excel itself allows, so the formula cannot be computed."
 
     ' KERNEL.4: the view record's refusals. frazaro view (the core's
     ' command-line door, and a page through frazaro_view) builds a program

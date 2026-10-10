@@ -13,6 +13,15 @@ lands in scripts/, every test passes, and the published door translates with
 yesterday's prelude. This check compares each pair byte for byte and names
 the one copy command that mends a drift. The copies are never edited by hand.
 
+THE SECOND CRATE (VLA.1, 2026-10-10): vla-lang's own tests travel with its
+package, so the nine files they read - the prelude, the corpus golden, the
+refers fixture and golden, and five view goldens - are copies under
+vla-lang/testdata/, mirroring scripts/. Until then the published crate's
+suite did not compile outside this repository. A golden regenerated in
+scripts/ (by the reference, or by the door for the view goldens) now arrives
+here as a failure with a one-line fix, instead of changing the language's
+test inputs silently.
+
 ALSO HELD, on a built door (-Impl, or target/debug/frazaro beside the tree,
 as the other -Impl checks find it): the door with no flags translates the
 corpus program exactly as it does with the corpus files named, so that the
@@ -39,9 +48,19 @@ $root = $root.TrimEnd('\', '/')
 # ---- the baseline: the pairs, copy then source; raise the count with a pair ----
 $pairs = @(
     @{ Copy = 'cli/data/prelude.vla'; Source = 'scripts/prelude.vla' },
-    @{ Copy = 'cli/data/english.vla'; Source = 'scripts/polyglotta/english.vla' }
+    @{ Copy = 'cli/data/english.vla'; Source = 'scripts/polyglotta/english.vla' },
+    # VLA.1: the language's test inputs, travelling with its package
+    @{ Copy = 'vla-lang/testdata/prelude.vla'; Source = 'scripts/prelude.vla' },
+    @{ Copy = 'vla-lang/testdata/instructions_golden.vla'; Source = 'scripts/instructions_golden.vla' },
+    @{ Copy = 'vla-lang/testdata/refers.txt'; Source = 'scripts/refers.txt' },
+    @{ Copy = 'vla-lang/testdata/refers_golden.txt'; Source = 'scripts/refers_golden.txt' },
+    @{ Copy = 'vla-lang/testdata/view/fixture_frazaro.vla'; Source = 'scripts/view/fixture_frazaro.vla' },
+    @{ Copy = 'vla-lang/testdata/view/fixture_output.vla'; Source = 'scripts/view/fixture_output.vla' },
+    @{ Copy = 'vla-lang/testdata/view/fixture_data.vla'; Source = 'scripts/view/fixture_data.vla' },
+    @{ Copy = 'vla-lang/testdata/view/into_output.vla'; Source = 'scripts/view/into_output.vla' },
+    @{ Copy = 'vla-lang/testdata/view/into_checks.vla'; Source = 'scripts/view/into_checks.vla' }
 )
-$expectedPairs = 2
+$expectedPairs = 11   # 2 for the door (2026-10-05), 9 for the language's tests (VLA.1, 2026-10-10)
 
 $failures = New-Object System.Collections.Generic.List[string]
 if ($pairs.Count -ne $expectedPairs) { $failures.Add("the table holds $($pairs.Count) pair(s), not the $expectedPairs pinned here") }
@@ -111,5 +130,5 @@ if ($failures.Count -gt 0) {
     $failures | ForEach-Object { Write-Host "  - $_" }
     exit 1
 }
-Write-Host "OK: $($pairs.Count) copies under cli/data/ are their sources byte for byte; $doorNote"
+Write-Host "OK: $($pairs.Count) copies under cli/data/ and vla-lang/testdata/ are their sources byte for byte; $doorNote"
 exit 0

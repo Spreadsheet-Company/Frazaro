@@ -637,4 +637,32 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn a_program_at_the_language_s_depth_limit_compiles_on_a_small_stack() {
+        // VLA.1: the emitter recurses once a level of a form and is the
+        // shallowest stage (a debug door compiled 80 levels and overflowed
+        // at 96), so a program nested to the language's limit is compiled
+        // on a 1 MiB thread, and one level deeper is refused by name before
+        // the emitter sees it.
+        let program = |n: usize| {
+            format!(
+                "(sub main () (debug-print {}1{}))",
+                "(+ 1 ".repeat(n),
+                ")".repeat(n)
+            )
+        };
+        let limit = crate::reader::FORM_DEPTH_LIMIT as usize;
+        std::thread::Builder::new()
+            .stack_size(1 << 20)
+            .spawn(move || {
+                let vba = compile(&program(limit - 2), "").unwrap_or_else(|e| panic!("{e}"));
+                assert!(vba.contains("Debug.Print (1 + (1 + "));
+                let past = compile(&program(limit - 1), "").unwrap_err();
+                assert_eq!(past.id, "vla-form-too-deep");
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
 }

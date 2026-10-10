@@ -14,6 +14,29 @@
   47 ms natively and 58 ms in WebAssembly in the browser, where 0.8.1 took
   about 100 and 138. Every value is computed exactly as before, and a frame
   makes no more allocations than it did (KERNEL.20, its first slice).
+- **For everyone: text a stranger wrote is refused by name, never a crash.**
+  A program, a phrasebook or a cartridge holding lists nested more than 64
+  deep is refused by name (`vla-form-too-deep`). Before, the reader
+  recursed until the stack gave out, and a few kilobytes of nesting crashed
+  the command line, the web page or an engine; the add-in's reader recursed
+  the same way. Three more limits refuse by name what used to crash or
+  hang:
+  - a formula past Excel's own limits of 64 levels or 8,192 characters
+    (`calc-formula-too-deep`, `calc-formula-too-long`), which an engine's
+    load refuses and `frazaro calc` labels in the cell;
+  - in the command line, the web page and an engine, which copy a macro's
+    arguments, a macro that deepens its argument at every application
+    (`vla-form-too-deep`) or doubles it (`vla-macro-expansion-too-large`,
+    past a million forms in one application). The add-in shares a macro's
+    arguments, so such a macro meets its 5,000-application limit there, as
+    before.
+
+  A chain of operators as long as Excel holds, `=1+1+...` to 8,192
+  characters, now computes where it crashed an engine. Real programs nest
+  at most 10 deep and real formulas 6, so nothing within the limits changes
+  meaning. The `vla-lang` crate's published package now runs its own tests:
+  six laws over generated programs, the limits held on a small stack, and a
+  harness that knocks at every door with mutated text (VLA.1).
 
 ### Known open security items
 

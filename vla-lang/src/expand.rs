@@ -25,7 +25,7 @@ use crate::form::{sym_text, Form, List};
 use crate::intrinsics::{fold, is_numeric_literal_text, str_, val};
 use crate::messages::{raise, Refusal};
 use crate::printer::write_pretty;
-use crate::reader::{count_lf, parse_all, tokenize};
+use crate::reader::{count_lf, parse_all, src_line_tag, tokenize, FORM_DEPTH_LIMIT};
 
 /// One macro, as `DefineMacro` records it.
 #[derive(Clone, Debug)]
@@ -103,6 +103,18 @@ pub struct Expander {
     /// L1: macro applications since the last reset.
     pub expand_fired: u64,
 }
+
+/// The most forms one macro application's result may hold (VLA.1). The
+/// port copies a macro's arguments into its template, so a macro that
+/// doubles its argument on every application would run the memory out long
+/// before the chain's 5,000 applications. The reference shares them by
+/// reference, builds no copies, and meets the chain limit instead. One
+/// application's result, not the program's sum: a walk over a long list
+/// writes the rest of the list into every result, so a sum grows as the
+/// square of the list. The largest real expanded form is 20,144 forms; the
+/// table generator at the chain limit's 5,000 rows writes about 540,000 in
+/// its first application.
+pub const EXPANSION_SIZE_LIMIT: usize = 1_000_000;
 
 impl Expander {
     pub fn new() -> Expander {
@@ -196,6 +208,18 @@ impl Expander {
 
     /// VBA `ExpandMacros`: a form to its fixpoint.
     pub fn expand(&mut self, d: &Form, depth: u32) -> Result<Form, Refusal> {
+        self.expand_at(d, depth, 1)
+    }
+
+    /// [`Expander::expand`] at `walk`, the depth of the list `d` would be
+    /// within its top-level form (VLA.1): a list deeper than the reader's
+    /// limit is refused, whether a text or a macro nested it so.
+    fn expand_at(&mut self, d: &Form, depth: u32, walk: u32) -> Result<Form, Refusal> {
+        if let Form::List(lst) = d {
+            if walk > FORM_DEPTH_LIMIT {
+                return Err(too_deep(lst));
+            }
+        }
         if depth > 200 {
             return Err(raise("vla-macro-expansion-too-deep", &[]));
         }
@@ -259,6 +283,7 @@ impl Expander {
                     return Err(raise("vla-macro-self-expansion-limit", &[]));
                 }
                 let r = expand_one(lst, &rec)?;
+                self.weigh(&r)?;
                 self.expand_fired += 1; // L1: one per application
                 cur = r;
             }
@@ -270,7 +295,7 @@ impl Expander {
         };
         let mut out = Vec::with_capacity(cur_list.count());
         for e in &cur_list.items {
-            out.push(self.expand(e, depth)?);
+            out.push(self.expand_at(e, depth, walk + 1)?);
         }
         let out = Form::List(List::new(out, cur_list.line));
         if pending_head.is_empty() {
@@ -278,7 +303,7 @@ impl Expander {
         }
         let mut final_out = vec![Form::sym("begin")];
         for e in &pending_head {
-            final_out.push(self.expand(e, depth)?);
+            final_out.push(self.expand_at(e, depth, walk + 1)?);
         }
         final_out.push(out);
         Ok(Form::list(final_out))
@@ -287,9 +312,18 @@ impl Expander {
     /// VBA `ExpandOnePass`: top-down; a list whose head is a macro is
     /// replaced by its substitution and not walked further.
     pub fn expand_one_pass(&mut self, d: &Form) -> Result<Form, Refusal> {
+        self.expand_one_pass_at(d, 1)
+    }
+
+    /// [`Expander::expand_one_pass`] at `walk`, held to the reader's limit
+    /// as [`Expander::expand`]'s walk is (VLA.1).
+    fn expand_one_pass_at(&mut self, d: &Form, walk: u32) -> Result<Form, Refusal> {
         let Form::List(lst) = d else {
             return Ok(d.clone());
         };
+        if walk > FORM_DEPTH_LIMIT {
+            return Err(too_deep(lst));
+        }
         if let Some(Form::Sym(head)) = lst.items.first() {
             if fold(head) == "quote" {
                 return Ok(d.clone());
@@ -297,6 +331,7 @@ impl Expander {
             if let Some(rec) = self.get_macro(head).cloned() {
                 if !(self.budget_on && self.expand_fired >= self.expand_budget) {
                     let r = expand_one(lst, &rec)?;
+                    self.weigh(&r)?;
                     self.expand_fired += 1;
                     return Ok(r);
                 }
@@ -304,9 +339,38 @@ impl Expander {
         }
         let mut out = Vec::with_capacity(lst.count());
         for e in &lst.items {
-            out.push(self.expand_one_pass(e)?);
+            out.push(self.expand_one_pass_at(e, walk + 1)?);
         }
         Ok(Form::List(List::new(out, lst.line)))
+    }
+
+    /// VLA.1: one application's result, weighed before it is used: no list
+    /// in it nested past the reader's limit, and no more than
+    /// [`EXPANSION_SIZE_LIMIT`] forms in it. So a macro that deepens its
+    /// argument on every application is refused at the depth the walk would
+    /// refuse it, before copying a form thousands deep runs the stack out,
+    /// and one that doubles it is refused within twenty applications. The
+    /// walk costs what the copy that built the result cost. A stack of its
+    /// own, since the form is what may be deep.
+    fn weigh(&self, r: &Form) -> Result<(), Refusal> {
+        let mut forms = 0usize;
+        let mut stack = vec![(r, 1u32)];
+        while let Some((f, depth)) = stack.pop() {
+            forms += 1;
+            if forms > EXPANSION_SIZE_LIMIT {
+                return Err(raise(
+                    "vla-macro-expansion-too-large",
+                    &[("limit", "1,000,000")],
+                ));
+            }
+            if let Form::List(l) = f {
+                if depth > FORM_DEPTH_LIMIT {
+                    return Err(too_deep(l));
+                }
+                stack.extend(l.items.iter().map(|item| (item, depth + 1)));
+            }
+        }
+        Ok(())
     }
 
     /// `VlaTranspile`'s and `VlaExpandText`'s pass 1 over the prelude and
@@ -351,6 +415,18 @@ pub fn expand_text(
         out.push_str("\r\n");
     }
     Ok((out, ex.expand_fired))
+}
+
+/// The walk's refusal of a list past the reader's limit, at the list's own
+/// line, or at none for a list a macro made (VLA.1).
+fn too_deep(lst: &List) -> Refusal {
+    raise(
+        "vla-form-too-deep",
+        &[
+            ("limit", &FORM_DEPTH_LIMIT.to_string()),
+            ("loc", &src_line_tag(lst.line, 0)),
+        ],
+    )
 }
 
 /// VBA `ExpandOne`: one application of a macro to a call form.
@@ -809,7 +885,7 @@ mod tests {
     use super::*;
     use crate::reader::read_forms;
 
-    const PRELUDE: &str = include_str!("../../scripts/prelude.vla");
+    const PRELUDE: &str = include_str!("../testdata/prelude.vla");
 
     /// `VlaExpandText(src, True, fired)` under the real prelude, normalised
     /// to LF for the pins; the VBA pins compare fragments of this text.
@@ -1193,9 +1269,84 @@ mod tests {
         // The corpus golden carries its own defmacros at the end; every
         // other form expands without a refusal (the compile oracle holds
         // the result to the byte in slice 5e).
-        const GOLDEN: &str = include_str!("../../scripts/instructions_golden.vla");
+        const GOLDEN: &str = include_str!("../testdata/instructions_golden.vla");
         let (text, fired) = expand_text(GOLDEN, PRELUDE, true).unwrap();
         assert!(fired > 100, "{fired} applications");
         assert!(text.starts_with("(const hot-pink \"#FF69B4\")"));
+    }
+
+    #[test]
+    fn a_macro_nesting_a_call_past_the_depth_limit_is_refused_by_the_walk() {
+        // VLA.1, TestFormTooDeep's second pair: a ten-deep macro called
+        // inside 54 lists expands to exactly 64; inside 55 it would reach
+        // 65, which the walk refuses though the text is 56 deep. The list
+        // past the limit is the macro's, so the refusal names no line.
+        let deep10 = "(defmacro (deep10) (a (a (a (a (a (a (a (a (a (a 1)))))))))))\r\n";
+        let around = |n: usize| format!("{deep10}{}(deep10){}", "(".repeat(n), ")".repeat(n));
+        let (_, fired) = expand_text(&around(54), "", true).unwrap();
+        assert_eq!(fired, 1);
+        let r = expand_text(&around(55), "", true).unwrap_err();
+        assert_eq!(r.id, "vla-form-too-deep");
+        assert_eq!(
+            r.text,
+            "lists nested more than 64 deep - no program needs that many"
+        );
+        // The one-pass walk holds the same limit over the lists it walks.
+        let mut ex = Expander::new();
+        let deep = read_forms(&format!("{}{}", "(".repeat(64), ")".repeat(64))).unwrap();
+        let wrapped = Form::list(vec![deep[0].clone()]);
+        assert_eq!(
+            ex.expand_one_pass(&wrapped).unwrap_err().id,
+            "vla-form-too-deep"
+        );
+        assert_eq!(ex.expand(&wrapped, 0).unwrap_err().id, "vla-form-too-deep");
+    }
+
+    #[test]
+    fn a_macro_that_deepens_or_doubles_its_argument_is_refused_by_name() {
+        // VLA.1: each application's result is weighed, so a macro that
+        // deepens its argument every time is refused once it nests past 64,
+        // and one that doubles it once one application writes a million
+        // forms. In the port, which copies arguments, the first ran the
+        // stack out and the second the memory, before the 5000 chain limit
+        // could stop either; the reference shares arguments, builds no
+        // copies, and meets the chain limit (TestFormTooDeep's last pair).
+        let deeper = expand_text("(defmacro (deeper x) (deeper (x))) (deeper 1)", "", true);
+        assert_eq!(deeper.unwrap_err().id, "vla-form-too-deep");
+        let dup = expand_text("(defmacro (dup x) (dup (x x))) (dup 1)", "", true).unwrap_err();
+        assert_eq!(dup.id, "vla-macro-expansion-too-large");
+        assert_eq!(
+            dup.text,
+            "one macro application wrote more than 1,000,000 forms (a macro that doubles its argument?)"
+        );
+        // One pass weighs the result of each application it makes too.
+        let mut ex = Expander::new();
+        let forms = read_forms("(defmacro (wrap x) (w (w (w x))))").unwrap();
+        ex.collect(forms).unwrap();
+        let deep = read_forms(&format!("(wrap {}1{})", "(".repeat(62), ")".repeat(62))).unwrap();
+        assert_eq!(
+            ex.expand_one_pass(&deep[0]).unwrap_err().id,
+            "vla-form-too-deep"
+        );
+    }
+
+    #[test]
+    fn a_long_walk_writes_millions_of_forms_but_none_too_many_at_once() {
+        // VLA.1, found by the owner's run of the reference's scale pins
+        // (2026-10-10): a walk over a long list writes the rest of the list
+        // into every application's result, so the results summed grow as
+        // the square of the list. A budget over the program's sum refused
+        // the 2,000-row walk TABLESPEC-SCALE expands; the limit is one
+        // application's result, which a walk keeps to the list's length.
+        let walker = "(defmacro (walk-rows lst) (quote-if (null? lst) (begin) \
+                      (begin (debug-print (car lst)) (walk-rows (cdr lst)))))\r\n";
+        let rows: Vec<String> = (1..=2000).map(|i| i.to_string()).collect();
+        let program = format!(
+            "{walker}(sub t () (walk-rows (quote ({}))))",
+            rows.join(" ")
+        );
+        let (text, fired) = expand_text(&program, "", true).unwrap();
+        assert_eq!(fired, 2001, "one application a row, and the empty end");
+        assert!(text.contains("(debug-print 2000)"));
     }
 }

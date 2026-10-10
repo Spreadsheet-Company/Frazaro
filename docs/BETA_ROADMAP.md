@@ -285,9 +285,7 @@ download without asking.
 
 - ⬜ **AS.3 — mutation testing.** Break the emitter in N known ways; assert the suite notices each. The only way to learn whether pins are load-bearing. `~weeks`
 
-- ⬜ **AS.4 — property tests.** Expansion idempotence and "no program crashes the reader." The round-trip half shipped as G-RENDER's `EnglishRenderSelfCheck` (116/116 rendered, 115 round-tripped, the one failure a pre-existing corpus bug), so it is no longer a seed here. *(more: BETA_REARVIEW.md)*
-
-- ⬜ **AS.5 — reader fuzzing.** Refuse in words, never crash, never hang. `~weeks`
+- ⬜ **AS.4 — property tests.** What remains: the round trip as a unifier identity, `G-RENDER` over `VLA_Unify`, the English side's. Expansion idempotence and "no program crashes the reader" moved to `VLA.1` and closed with it (2026-10-10). The round-trip half shipped as G-RENDER's `EnglishRenderSelfCheck` (116/116 rendered, 115 round-tripped, the one failure a pre-existing corpus bug). *(more: BETA_REARVIEW.md)*
 
 - ⬜ **AS.9 — grammar coverage against real external text.** `AS.1` measures test density per rule; nothing measures what fraction of a *real* procedure Frazaro's corpus can express. A fixed sample of external SOP text (public procedure manuals, help-forum questions, a recorded-macro corpus) run through Check, with the refusal rate published alongside the existing test counts. *Why now:* the moat is described as "a curated dialect plus a corpus of tested phrasings"; at 122 rules that claim is currently unmeasured, and this is the instrument that would measure it, the same family as `AS.1`/`AS.2`/`AS.8`. `~days`
 
