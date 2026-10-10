@@ -6,8 +6,13 @@
 
 ### What changed
 
-- **For engines: a frame of a grid steps more than five times as fast.**
-  A formula filled over many cells is now computed at all of them at once,
+- **For engines: a frame of a grid steps more than eight times as fast,
+  and a frame where little changes costs little.** A frame now computes
+  only the cells whose reads changed: a change is followed from the cell
+  that changed to the cells that read it, and a cell computed to the value
+  it held changes nothing further, so a frame in which a glider crosses an
+  empty board computes the few hundred cells around it. A formula filled
+  over many cells is computed at all of them at once,
   one step of the formula at a time, where each cell used to walk the whole
   formula alone; a constant, and a reference every `$` holds, is read once
   for all of them. The previous frame's values, which a rule reads through
@@ -16,10 +21,11 @@
   of the array; a reference finds the sheet it names once, when its formula
   is placed; and a function's arguments no longer cost an allocation. A
   frame of Life on a 320 by 200 Screen, 62,964 formulas, steps in about
-  19 ms natively and 25 ms in WebAssembly in the browser, 40 frames a
-  second, where 0.8.1 took about 100 and 138, and makes about a hundred
-  allocations where it made a quarter of a million. Every value is computed
-  exactly as before (KERNEL.20, its first three slices).
+  11 ms natively and 16 ms in WebAssembly in the browser, over 60 frames a
+  second, where 0.8.1 took about 100 and 138; Gosper's glider gun steps in
+  about 0.05 ms. A frame makes about eighty allocations where it made a
+  quarter of a million. Every value is computed exactly as before
+  (KERNEL.20, its first four slices).
 - **For everyone: text a stranger wrote is refused by name, never a crash.**
   A program, a phrasebook or a cartridge holding lists nested more than 64
   deep is refused by name (`vla-form-too-deep`). Before, the reader

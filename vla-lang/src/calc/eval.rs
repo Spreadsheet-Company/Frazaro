@@ -162,7 +162,12 @@ pub(crate) enum Known {
     If,
 }
 
-/// The functions a formula may call, by upper-case name: the seam.
+/// The functions a formula may call, by upper-case name: the seam. Every
+/// function registered is a function of its arguments and of the cell it is
+/// computed at, and of nothing else: no clock, no chance, no state of its
+/// own. An engine's machine computes a cell again only when a cell it reads
+/// has changed (KERNEL.20, `super::reach`), so a function that answered
+/// differently over the same arguments would be computed once and kept.
 #[derive(Default)]
 pub struct Library {
     strict: BTreeMap<String, Strict>,

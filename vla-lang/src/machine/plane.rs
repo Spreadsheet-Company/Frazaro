@@ -80,17 +80,25 @@ pub struct Raster {
     bytes: Vec<u8>,
 }
 
+/// Whether a raster can be kept over an extent: one with a cell, holding
+/// no more than `limit` cells.
+pub(crate) fn fits(extent: Extent, limit: u64) -> bool {
+    extent.is_some_and(|((top, left), (bottom, right))| {
+        u64::from(right - left + 1) * u64::from(bottom - top + 1) <= limit
+    })
+}
+
 impl Raster {
     /// A raster over an extent, every byte 0, in an old raster's memory when
     /// one is given; `None` for a sheet with no cell, or for one whose
     /// extent holds more than `limit` cells.
     pub(crate) fn over(extent: Extent, limit: u64, old: Option<Raster>) -> Option<Raster> {
+        if !fits(extent, limit) {
+            return None;
+        }
         let ((top, left), (bottom, right)) = extent?;
         let width = (right - left + 1) as usize;
         let height = (bottom - top + 1) as usize;
-        if width as u64 * height as u64 > limit {
-            return None;
-        }
         let mut bytes = old.map(|r| r.bytes).unwrap_or_default();
         bytes.clear();
         bytes.resize(width * height, 0);
@@ -151,10 +159,15 @@ pub(crate) fn kept_byte(content: &Content, value: Option<&Computed>) -> u8 {
         Content::Formula(_)
         | Content::SharedMaster { .. }
         | Content::SharedChild { .. }
-        | Content::DynamicFormula(_) => match value {
-            Some(Computed::Value(Value::Number(n))) => byte(*n),
-            Some(_) => 255,
-            None => 0,
-        },
+        | Content::DynamicFormula(_) => formula_byte(value),
+    }
+}
+
+/// A formula cell's byte, from its value alone.
+pub(crate) fn formula_byte(value: Option<&Computed>) -> u8 {
+    match value {
+        Some(Computed::Value(Value::Number(n))) => byte(*n),
+        Some(_) => 255,
+        None => 0,
     }
 }

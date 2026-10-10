@@ -29,7 +29,10 @@
 //! by shape and cell, which computes the frame any order after what each cell
 //! reads computes; its runs are the cells of a shape that stand together in
 //! it, on one sheet, reading none of one another, and an engine evaluates
-//! each run at once, node by node (`super::vector`, KERNEL.20).
+//! each run at once, node by node (`super::vector`, KERNEL.20). What each
+//! shape reads is found with the order, so that an engine follows a changed
+//! cell to the cells of the order that read it and computes those alone
+//! (`super::reach`, KERNEL.20).
 
 use std::collections::HashMap;
 
@@ -41,6 +44,7 @@ use crate::sheet::{cell_ref, shared_masters, strip_future_prefixes, Content, Wor
 use super::eval::{Computed, Ctx, Env, Library, Reason};
 use super::formula::{self, Expr, Read, RefExpr};
 use super::graph::{self, areas_at, cells_in, dependencies, is_formula, CellId, Extent, Names};
+use super::reach::Reach;
 use super::vector::{self, Lanes};
 
 /// One formula, parsed once, and the cell it was read at.
@@ -63,7 +67,7 @@ pub struct Shape {
     /// a construct when it moves off the sheet (`Jan:Dec!#REF!`,
     /// `#REF!#REF!`). Found 2026-10-09 by holding the offset to the moved
     /// text's parse over the refers fixture.
-    risky: bool,
+    pub(crate) risky: bool,
     /// The most buffers an evaluation of the parse at many cells holds at
     /// once, found once (KERNEL.20, `vector::holds`).
     holds: (usize, usize),
@@ -113,6 +117,8 @@ pub struct Shapes {
     /// shape that is not risky, on one sheet, consecutive in the order, none
     /// reading another.
     runs: Vec<Run>,
+    /// What each shape reads, found with the order (KERNEL.20).
+    reach: Reach,
 }
 
 /// A run of the order: its cells are `order[start..end]`, of one shape.
@@ -334,12 +340,15 @@ impl Shapes {
             edges.dedup();
         }
         let components = graph::tarjan(&adj);
-        self.order_and_runs(&ids, &adj, &shape_of, &components);
+        let shape_at = self.order_and_runs(&ids, &adj, &shape_of, &components);
+        let places = &self.places;
+        let formula = |id: CellId| places.contains_key(&id);
+        self.reach = Reach::of(model, &self.shapes, &self.order, shape_at, &formula);
     }
 
     /// The order, the cycles and the runs, from the cells, each one's edges
     /// and shape, and the components, which come each after everything it
-    /// reads.
+    /// reads; the shape of each cell of the order answered.
     ///
     /// Each cell's level is 0 when it reads no formula of the plan, else one
     /// past the deepest it reads, its component's. The order is by level,
@@ -353,7 +362,7 @@ impl Shapes {
         adj: &[Vec<usize>],
         shape_of: &[usize],
         components: &[Vec<usize>],
-    ) {
+    ) -> Vec<u32> {
         self.order.clear();
         self.cycles.clear();
         self.runs.clear();
@@ -399,6 +408,7 @@ impl Shapes {
             end: 0,
             shape: usize::MAX,
         };
+        let mut shape_at = Vec::with_capacity(order.len());
         for v in order {
             let (id, shape) = (ids[v], shape_of[v]);
             let pos = self.order.len();
@@ -416,8 +426,10 @@ impl Shapes {
             joined[v] = run.start;
             run.end = pos + 1;
             self.order.push(id);
+            shape_at.push(shape as u32);
         }
         self.keep(run);
+        shape_at
     }
 
     /// A run of the order kept to be evaluated at once when it is long
@@ -476,6 +488,12 @@ impl Shapes {
     /// it reads; the cells of a cycle are not in it.
     pub fn order(&self) -> &[CellId] {
         &self.order
+    }
+
+    /// What each shape reads, and where the cells of the order stand
+    /// (KERNEL.20).
+    pub(crate) fn reach(&self) -> &Reach {
+        &self.reach
     }
 
     /// Every cycle, each its cells sorted, the cycles by their first cell.

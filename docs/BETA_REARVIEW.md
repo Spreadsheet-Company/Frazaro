@@ -20973,6 +20973,268 @@ its floors.
   Life; `CART.1`'s runner and Alonzo's instrument for the numbers; a frame's
   allocations no more than 96. `~days` each
 
+  *2026-10-10, from `KERNEL.20`'s fourth slice (the entry below), built after
+  this filing: a frame now computes only the cells whose reads changed, its
+  values are kept in one map overwritten where they change, and its end
+  copies the changed cells into the twins. The figures above were measured
+  before it. The map and the snapshot the second decision bears on now cost
+  in proportion to the cells that change, and Life's soup steps in about
+  11 ms natively and 16 in headless Chrome, its gun in about 0.05 ms. Both
+  decisions stand as filed, for the owner; a prototype of either would be
+  measured from the fourth slice's frame.*
+
+**`KERNEL.20`, speed: the fourth slice, incremental maintenance: the
+scoping, 2026-10-10.** Begun at the owner's word, "proceed with scoping and
+implementing the next slice of KERNEL.20". The two steps the third slice
+named are `KERNEL.26`'s, for the owner to adjudicate, and so not this
+slice's; the line's next structural advantage is the second of
+`web/CALLOSUM.md` section 12.6's three, nothing that did not change
+recomputed. Built and measured in a worktree at `3021aee`, `KERNEL.26`'s
+filing over the third slice.
+
+*Read in the code before anything was proposed*, at `3021aee`:
+- A step evaluates every cell of the order every frame, into the frame in
+  progress's map of values, which a frame's end swaps with the last complete
+  frame's; the snapshot then walks every sheet, copying each value into its
+  twin, its array's slot and its plane's byte.
+- Life's rule and the gun's read `Clock!$B$1`, the frame, at every cell
+  (`IF(Clock!$B$1=1,<seed>,<rule>)`), and the engine writes the frame there
+  before every step (Alonzo's `Cartridge::step`), so every cell reads a cell
+  that changes every frame; the rest of the rule reads nine cells of
+  `Screen.last` around it.
+- A shape's references are read once, each corner with its `$`, and moved to
+  each cell's offset by `RefExpr::moved`; the plan's edges join formula
+  cells, a twin's cells adding none.
+- Neither the language's library nor Excel's holds a function of a clock or
+  of chance (`NOW` is refused by an engine): each is a function of its
+  arguments and its cell.
+
+*Measured before anything was proposed*: a probe stepping Life and the gun
+over the machine, counting each frame's changed cells and the cells the next
+frame's rule would read one of them from. The gun: 0.1% of its 63,600 cells
+change a frame, and 0.2 to 0.6% would be computed, through frame 400. The
+soup: 37.6% change in its first frame and 98.4% would be computed in its
+second; 63.5% in its sixteenth and 47.1% in its thirty-first (the
+benchmark's window, frames 2 to 31); 27.6% at frame 100, 12.0% at 600 and
+7.7% at 1,000.
+
+*The decisions*, built at the owner's word of the day, each with its
+alternative and its measurement, open to the owner's veto before the
+commit.
+
+1. **A slice of `KERNEL.20`: incremental maintenance**, the second of the
+   item's three structural advantages. *Alternatives:* identical shapes
+   computed once by content address, which needs a property of each function
+   asserted (that its answer is its arguments' alone), a principle the
+   owner's as `KERNEL.26`'s first decision is; the view evaluating its window
+   and its cone, which no frame of an engine can use, every cell feeding the
+   next frame; the measurement against Excel, which needs the owner's Excel.
+2. **A change is a value's bits.** A cell computed to the bits it held
+   changes nothing downstream, and its readers are not computed for it
+   (early cutoff); a twin's cell changes when its content or its reason
+   does, read to the bit, a negative zero included. *Alternative:* every
+   computed cell reaching its readers, which would compute every neighbour
+   of every dead cell computed dead again.
+3. **Who reads a cell: each shape's references as patterns, turned round.**
+   No index of readers is kept for each cell (Life's would hold 636,000
+   entries). Each shape's references are kept once, found with the plan
+   (`vla_lang::calc::reach`): a reference's sheet, and its rows and columns
+   as written, each with its `$`. The cells of a shape that read a changed
+   cell are the offsets at which the moved reference holds it,
+   `RefExpr::moved`'s rule turned round and held to it by a test over every
+   kind of reference and mark near the sheet's edges, within the offsets the
+   shape's cells stand at; each is found by its position in the order, an
+   array over a sheet's formulas or a map where they stand far apart. A
+   reference another of the shape's holds at every offset is dropped: Life's
+   `Screen.last!B2`, inside its `Screen.last!A1:C3`. *Alternative:* a reverse
+   index built at the load, its memory every cell's references.
+4. **The parts the same at every cell, compared once at the frame's
+   start.** A constant, a one-cell reference every `$` holds, and the
+   operators over them, the parts a run computes once (the third slice's). A
+   change to a cell such a part reads computes the part once for its shape,
+   and the shape is computed whole only when the part gives other bits than
+   it did: Life's `Clock!$B$1=1` is false from its second frame on, so the
+   frame's change reaches no cell through it. A call is never such a part, a
+   function being free to read its cell (`ROW()`). A part is computed at the
+   frame's start only when every cell it reads is final there, a value cell
+   or a twin's; a part over a formula cell, and a held reference standing
+   alone, reach the whole shape. A shape's parts are computed whenever a
+   cell they read changes, whatever else marked the shape that frame, so that
+   what is kept is what its cells were computed with. *Alternatives:* a held
+   reference reaching the whole shape, which leaves Life and the gun
+   computing every cell every frame; the cartridges' frame test moved into a
+   cell of its own, a change to the benchmark's rows.
+5. **What is never followed.** A shape whose formula reads a defined name,
+   whose text may read its cell, or a span of sheets: its cells are computed
+   every frame, as every cell was. *Alternative:* a name's references read as
+   held ones, a name being free to be `=ROW()`.
+6. **What makes a frame whole.** The first frame; a frame after a write that
+   changed a formula or added a cell; a frame after a twin gained or lost a
+   cell (a formula computing a value where it had a reason, or the reverse);
+   a frame after more changes than the machine keeps room for, half its
+   cells. *Alternative:* the plan read again cell by cell after a formula's
+   write.
+7. **The frame's values kept once, overwritten in place where they
+   change.** The map of the frame in progress goes. A cell computed to other
+   bits than it held is overwritten where it stands, and a step that yields
+   keeps each value it overwrote beside, so that a view before the frame
+   completes reads the last complete frame, as before. *Alternative:* two
+   maps, every cell not computed copied into the second each frame, the cost
+   this slice removes. This changes the machine's kept state that
+   `KERNEL.26`'s second decision is about (its map of 1.8 ms); a dated note
+   there says so.
+8. **A frame's end copies the cells that changed**, into their twins, their
+   arrays' slots, their planes' bytes and their reasons, when no more than
+   half the cells changed and every plane an engine views is kept. Otherwise
+   every sheet is walked, as before, and the walk now notes the twin cells it
+   changes. *Alternative:* the walk every frame, 4.1 ms of the third slice's
+   19.
+9. **The budget counts the order's cells passed, computed or not.** The
+   step's row is unchanged, `(step f e of ...)`, and a host that measures
+   its budget by the cells a step passes, as Alonzo's does, raises it by
+   itself. *Alternative:* counting the cells computed, which would change
+   what the row's numbers mean.
+10. **No property asserted of any function.** What a cell reads is its
+    references, as the plan's order already assumes; the library's comment
+    now states the contract, a function of its arguments and its cell and of
+    nothing else. *Alternative:* a registration for a function of a clock or
+    of chance, computed every frame, when one is proposed.
+11. **The oracle.** Generated grids, the third slice's generator (every kind
+    of node and reference, twins, names, spans), each stepped computing what
+    changed, in budgets that yield, against itself computing every cell and
+    walking every sheet. Eight frames each, with writes between them that
+    change value cells, toggle pairs of them, add cells and change formulas;
+    every value, twin cell, extent, reason, array and plane equal to the bit,
+    and a view during a yield the last complete frame. Each kind of read
+    counted by a function every evaluation calls once. Life's rule under a
+    frame counter over a blinker, 21 cells a frame from the third. A part
+    computed whenever its cells change; a part over a formula cell; a twin's
+    reason changing alone, walked and copied. The inverse held to `moved`,
+    and containment. Alonzo's engine tests over the slice by path. Mutants.
+    `CART.1`'s check mode.
+12. **What remains of the line**, as this slice finds it: identical shapes
+    computed once by content address, which needs a property of each
+    function asserted, the owner's call; the view evaluating its window and
+    its cone, for Frazaro's page, which steps no machine yet; and values
+    folded at build time with the measurement against Excel and its floors,
+    which closes the item.
+
+*Size*: no prediction was written before the build. Measured after it:
+`vla-lang/src/calc/reach.rs`, 829 lines, 143 of them comments and 72 its
+tests; the machine about 600 lines and its tests about 290; `shape.rs` 28,
+`plane.rs` 29, `eval.rs` 7, `calc/mod.rs` 11.
+
+*Built 2026-10-10*, in a worktree at `3021aee`. `vla-lang/src/calc/reach.rs`
+(new): `Reach`, found with the plan: each shape's references as patterns
+(`Dim`, and `Kind`: moving, held, parts), its parts kept to compute, where
+its cells stand (`Stand`), each formula cell's position in the order
+(`Positions`), and `each`, the cells, shapes and parts a changed cell
+reaches. `vla-lang/src/calc/shape.rs`: `Reach` made with the order, the shape
+at each position answered by `order_and_runs`. `vla-lang/src/machine/mod.rs`:
+the frame's start (`begin`, the parts computed again by `parts_moved`); the
+step over the cells marked, a run's marked cells gathered a chunk at a time;
+a value kept when its bits differ, and its readers in the frame marked
+(`keep`); the frame's end copying the changed cells (`copy`, `Twins::put`)
+or walking (`walk`, which now notes what it changes); the writes' value
+cells followed; the values kept once, with a yield's overwritten ones beside
+(`before`, read by `Values::computed`); the machine made in a frame of its
+own (`made`); the module's header; eight tests. `vla-lang/src/machine/plane.rs`:
+`fits`, `formula_byte`. `vla-lang/src/calc/eval.rs`: the library's contract.
+`vla-lang/src/calc/mod.rs`: the module and the header.
+
+*Found by the oracle while it was built*:
+- Alonzo's engine tests, run over the slice by path, found what the slice's
+  own did not: its input card's cursor kept the colour of a press let go. A
+  shape computed whole for one change (the pointer moved), in the frame a
+  part of it changed too (the press, `Input!$B$13=1`), kept its part from
+  before. Two frames later the press let go alone changed the part back,
+  which compared equal to what was kept and passed unseen. A shape's parts
+  are now computed whenever a cell they read changes; a test pins it, and
+  the generated grids' writes now toggle pairs of cells.
+- Two mutants survived the first round, each a gap in the tests: a part over
+  a formula cell computed at the frame's start, and the walk not noting a
+  reason that changed alone. A test now catches each.
+- Every load was first measured 1.6 KiB deeper: the machine, larger by this
+  slice's state, was made in the frame that parses every formula beneath it.
+  Made in a frame of its own, every load is 0.1 KiB deeper than at
+  `3021aee`.
+
+*The stack*, by painting, against `3021aee`: every load 0.1 KiB deeper (the
+deepest, 64 nested `SUM`s of a reference, 955.4 KiB where it used 955.3); a
+step of one cell no deeper, and of a run of eight at most 0.7 KiB deeper (64
+nested `MOD`s 128.4 KiB where 127.7). A third frame, the first after the
+twins gained their cells, computes nothing and uses almost no stack, where
+at `3021aee` it computed every cell again.
+
+*Measured*, every frame of every run equal to the hand-written Life, over
+`3021aee`. `CART.1`'s runner on one performance core, three rounds
+alternated, each figure the median of the round medians:
+- the soup's steady frame from 17.7 ms to 10.9 (1.62 times; 1.67 by the
+  runner's clock, the hand-written Life timed beside every frame);
+- the gun's from 17.8 ms to 41 µs, about 435 times;
+- each first frame and each load as before;
+- the check mode 80 allocations and 5 reallocations a frame where there
+  were 96 and 5, the second map having grown in the second frame.
+
+Alonzo's instrument over whole copies, three runs each:
+- the soup natively from 18.6 to 11.9 ms, and in headless Chrome from 24.0
+  to 15.9, 41.7 to 62.9 frames a second;
+- the gun natively from 19.0 ms to about 48 µs, and in headless Chrome from
+  24.4 ms to the page's timer resolution, 0.1 ms.
+
+From 0.8.1's frame: natively 102 to 12 ms, in the browser 138 to 16, about
+8.5 times. The modules over Alonzo's `e1e4935`: the engine's 574,474 to
+606,490 bytes (+5.6%), the language's with `c-abi` 477,634 to 509,111, the
+core's 1,154,232 to 1,154,292. Two refinements were measured as rungs of
+their own and kept. The frame's end reading a formula cell's value alone,
+with no lookup of the cell, took the soup from 69 to 62 clocks. A pattern
+inside another dropped falls within the noise and is kept as less work.
+
+*Oracle, met* in the worktree, `3021aee` and this slice alone. `cargo test
+--workspace`: 348 passed and 5 ignored, the nine new tests over 339, with
+`VLA.1`'s limits and strangers among them on their stack of 1 MiB. fmt
+clean; clippy clean, with `c-abi` too. Alonzo's engine tests over the slice
+by path, 27 of 27. `CART.1`'s check mode, every frame equal and the gun's
+facts held.
+
+Mutants, each failing in the tests that name its decision:
+- a moving pattern missing its first row;
+- a half-held span missing its far edge;
+- a held rectangle missing its top row;
+- a part never computed again;
+- a part over a formula cell computed at the frame's start, on a sheet
+  named and on its own;
+- a mixed reference held;
+- a pattern taken for inside another by one dimension alone, or where the
+  other leaves the sheet;
+- no change followed within the frame;
+- a written cell not followed;
+- a twin cell's change not noted, by the frame's end or by the walk;
+- a reason's change not kept;
+- a part kept from before a whole frame;
+- a view during a yield reading the frame in progress;
+- two values the same whatever they hold;
+- a dropped plane taken for kept;
+- the walk noting no reason that changed;
+- a twin made again and the next frame not whole.
+
+One mutant survives and is equivalent: a cell added and the next frame not
+made whole. The added cell's readers are followed in the frame after the
+write, and its twin, lacking the cell, is made again at that frame's end,
+which makes the frame after whole; the guard stays. The clean run after them
+passed. `run_checks.ps1` 55 of 55, with the door, both modules and the page
+built there; `prove.ps1` 46 passed, 0 failed, 2 not attempted, 1 library. No
+Excel step: the slice touches no VBA.
+
+*Committed 2026-10-10 at the owner's word*, "Commit slice 4, then proceed
+with scoping and implementing slice 5": the owner took the oracle above as
+the slice's test, the slice touching no VBA. The commit holds `3021aee` and
+this slice's nine files alone, staged blob by blob from the worktree; its
+tree was checked first in the worktree, 55 of 55. `KERNEL.20` stays open,
+🟡, for the rest of its line: identical shapes computed once by content
+address, the view evaluating its window and its cone, and values folded at
+build time with the measurement against Excel and its floors.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
