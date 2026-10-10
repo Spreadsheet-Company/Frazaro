@@ -34,6 +34,11 @@ target/
 # same "source in the repo, output is not" split as Frazaro_English.xlam.
 web/index.html
 
+# KERNEL.3: the benchmark page tools/bench_view.ps1 writes from
+# tools/bench_view.template.html and a view record of a synthetic program -
+# the same split: the template is source, the filled page is output.
+tools/bench_view.html
+
 # Excel lock/temp files (appear while a workbook is open)
 ~$*
 *.tmp
@@ -49,6 +54,11 @@ web/index.html
 # workbooks under scripts/reflect/ whose relations are the goldens of the
 # treaty's oracle 8, each opened by the owner in Excel.
 !scripts/reflect/*.xlsx
+# KERNEL.3 (the study before the viewport): the study's fixtures, by the
+# same rule - the workbooks under scripts/study/ that
+# tools/build_study_fixture.ps1 writes, their planted defects the answer
+# key of docs/PROTOCOL.md, each opened by the owner in Excel.
+!scripts/study/*.xlsx
 # KERNEL.7 (recalculation): the subset's fixture, by the same rule - the
 # workbook under scripts/recalc/ that frazaro build writes from subset.txt,
 # one formula per function the declared subset computes, and the owner's

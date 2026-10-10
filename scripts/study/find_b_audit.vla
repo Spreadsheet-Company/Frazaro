@@ -1,0 +1,4 @@
+(typed-over "Sales!F10" 4000 "=B10*E10")
+(inconsistent "Sales!D4" "=B3*C4" "=B4*C4")
+(empty-reference "Sales!H14" "Sales!G14")
+(empty-reference "Summary!B4" "Sales!G14")

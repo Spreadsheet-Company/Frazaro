@@ -49,6 +49,11 @@ document is right.*
   exists, told as the bug that created it.
 - **[TRENCHES.md](TRENCHES.md)** — The same history one layer below the
   language: the ground-up debugging campaigns the runtime cost.
+- **[PROTOCOL.md](PROTOCOL.md)** — The study before the viewport
+  (`KERNEL.3`, `SD-29`): the fixture with its planted defects, the task
+  sheet in two halves, the protocol that runs them on the page beside Excel
+  against Excel alone, the renderer benchmark, the decision rule written
+  before the first run, and the result table, blank until the owner runs it.
 
 ## If you are evaluating Frazaro
 

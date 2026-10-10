@@ -1,0 +1,847 @@
+<!doctype html>
+<!--
+  SPDX-FileCopyrightText: 2026 Spreadsheet Company
+  SPDX-License-Identifier: Apache-2.0
+
+  tools/bench_view.template.html - the renderer benchmark of KERNEL.3, the study
+  before the viewport (SD-29): a canvas renderer against a virtualized DOM
+  renderer over two real view records, so that KERNEL.5 picks the viewport's
+  renderer by a number and not by taste, and so that the number says how each
+  one scales. tools/bench_view.ps1 fills the three placeholders, each present
+  once below: VIEW_RECORD with the lines `frazaro view <program> --sheet Output`
+  prints for the sparse synthetic program of n lines (the generator of
+  web/CALLOSUM.md section 10, one cell a row), VIEW_RECORD_DENSE with the same
+  for a dense program (R rows by C columns, every cell filled), DOOR_LINE with
+  the door's version and times; and writes tools/bench_view.html, a build
+  artifact (.gitignore) that runs from disk, as web/index.html does. The page
+  loads nothing from the network, writes nothing anywhere and uses no library:
+  the reader of the record, the two renderers and the harness are the plain
+  script below. The numbers are an engineering measurement of the browser's
+  drawing, not a measurement of a person.
+
+  Amended 2026-10-08 after the owner's first fullscreen run: a step's time was
+  the next animation frame's timestamp, which quantizes every case that keeps
+  up to one frame interval and cannot tell a margin from a miss; a step's cost
+  is now read on the main thread from a task queued after the frame's
+  rendering, the loads climb a ladder of cell sizes over a dense record, and
+  the DOM renderer recycles its rows as a real viewport would.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viewport Renderer Benchmark</title>
+<style>
+  :root {
+    color-scheme: light;
+    /* Frazaro Lavender: the three shades of the english distro's palette
+       (distros/english/distro.vla), copied here by hand. The one highlighted
+       element, the Run button, takes the deep shade with white text, as the
+       house page's Download button does; nothing else on the page has a hue. */
+    --lavender: #e2d8f6;
+    --lavender-whisper: #f7f4fc;
+    --lavender-deep: #6b4fc8;
+  }
+  html, body { margin: 0; padding: 0; background: #fafaf7; color: #1d1d1b; font: 15px/1.45 system-ui, "Segoe UI", sans-serif; }
+  header, main { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+  header { padding-top: 24px; }
+  main { padding-bottom: 30px; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: 0.01em; }
+  .lede { margin: 0 0 6px; color: #4b4b47; }
+  .about { margin: 0 0 6px; color: #6b6b66; font-size: 13px; min-height: 1.4em; }
+  .controls { margin: 14px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .status { color: #4b4b47; font-size: 14px; }
+  button { font: inherit; font-size: 13px; padding: 4px 12px; border: 1px solid #c8c8c0; background: #fff; border-radius: 3px; cursor: pointer; }
+  button:hover { background: #f3f3ee; }
+  button:disabled { color: #9a9a94; background: #fff; cursor: default; }
+  /* The Run button: Frazaro Lavender with white text while it can be pressed, gray while a run is on. */
+  #run:enabled { background: var(--lavender-deep); color: #fff; border-color: var(--lavender-deep); font-weight: 600; }
+  #run:enabled:hover { filter: brightness(1.1); }
+  .panel { border: 1px solid #d9d9d2; background: #fff; margin: 14px 0; }
+  .panel .bar { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #f3f3ee; border-bottom: 1px solid #d9d9d2; font-size: 12px; font-weight: 600; color: #6b6b66; }
+  .panel .inner { padding: 10px; font-size: 13px; color: #4b4b47; }
+  .hd { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .hd .cell-dom { width: 160px; height: 20px; box-sizing: border-box; border-right: 1px solid #d9d9d2; border-bottom: 1px solid #d9d9d2; padding: 0 4px; font: 13px/20px system-ui, "Segoe UI", sans-serif; color: #1d1d1b; white-space: nowrap; overflow: hidden; background: #fff; }
+  .hd canvas { display: block; }
+  .hd span { font-size: 12px; color: #6b6b66; }
+  textarea { display: block; width: 100%; box-sizing: border-box; font: 12.5px/1.4 ui-monospace, Consolas, "Cascadia Mono", monospace; border: 0; padding: 8px; margin: 0; white-space: pre; overflow: auto; color: #2a2a28; background: #fff; }
+  details { margin: 14px 0; border: 1px solid #d9d9d2; background: #fff; padding: 8px 12px; font-size: 14px; color: #4b4b47; }
+  summary { cursor: pointer; font-weight: 600; color: #1d1d1b; }
+  details li { margin: 4px 0; }
+  code { font: 12.5px/1.4 ui-monospace, Consolas, "Cascadia Mono", monospace; }
+  /* The stage: each case's container sits at the top left of the browser's viewport while it runs, so that
+     as much of it as the window allows is on screen, and is removed before the next case. */
+  #stage { position: fixed; left: 0; top: 0; z-index: 10; }
+  #stage:empty { display: none; }
+  #smoke { display: none; }
+  /* The grid both renderers draw, at the case's cell size: the CSS variables set on each scroller
+     (--rh the row height, --cw the column width, --rw the row-header width, --fs the font size),
+     gridlines, system text clipped to its cell. */
+  .scroller { overflow-y: auto; overflow-x: hidden; position: relative; background: #fff; box-shadow: 0 0 0 1px #d9d9d2; --rh: 20px; --cw: 96px; --rw: 48px; --fs: 13px; }
+  .scroller .head { position: sticky; top: 0; z-index: 1; display: flex; height: var(--rh); background: #f3f3ee; }
+  .scroller .corner, .scroller .ch, .scroller .rh, .scroller .cell { flex: none; height: var(--rh); box-sizing: border-box; border-right: 1px solid #d9d9d2; border-bottom: 1px solid #d9d9d2; font: var(--fs)/var(--rh) system-ui, "Segoe UI", sans-serif; white-space: nowrap; overflow: hidden; }
+  .scroller .corner, .scroller .rh { width: var(--rw); }
+  .scroller .ch, .scroller .cell { width: var(--cw); }
+  .scroller .ch { text-align: center; color: #6b6b66; }
+  .scroller .rh { text-align: right; padding-right: 4px; color: #6b6b66; background: #f3f3ee; }
+  .scroller .cell { padding: 0 4px; color: #1d1d1b; }
+  /* overflow hidden: the DOM body's rows past the extent must not grow the scroller's scrollHeight. */
+  .scroller .spacer { position: relative; overflow: hidden; }
+  /* The DOM body moves by a transform, never by top, so a scroll step lays out only the rows it recycled. */
+  .scroller .body { position: absolute; left: 0; top: 0; will-change: transform; }
+  .scroller .row { display: flex; height: var(--rh); }
+  .scroller .stick { position: sticky; top: 0; height: 0; z-index: 1; }
+  .scroller canvas { display: block; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Viewport Renderer Benchmark</h1>
+  <p class="lede">This page measures two ways of drawing a spreadsheet viewport, a canvas renderer and a virtualized DOM renderer, over the same records in the same windows, and how each one scales with the text it draws: the main-thread cost of a first draw, of 120 scroll steps of three rows, and of 20 steps of a whole window, at the protocol's two windows over a sparse record and then at full screen over a dense record down a ladder of four cell sizes. It is an engineering measurement of the browser's drawing, not a measurement of a person. The records it draws from are real <code>frazaro view</code> records of two synthetic programs, the lines the door printed, embedded in this file. The full-screen rows are honest only when the run happens in fullscreen: a browser culls the painting of what lies outside its viewport, so a full-screen case in a smaller window measures less than it draws. The page runs once on opening; press Fullscreen to enter it and run again, Run to run again; Copy takes the table.</p>
+  <p id="doorline" class="about"></p>
+  <p id="about" class="about"></p>
+</header>
+<main>
+  <p class="controls"><button type="button" id="run">Run</button> <button type="button" id="fullscreen">Fullscreen</button> <span id="status" class="status"></span></p>
+  <section class="panel" aria-label="HiDPI crispness">
+    <div class="bar"><span>HiDPI &middot; the same text in a DOM cell and in a canvas cell, 13 px</span></div>
+    <div class="inner">
+      <div class="hd"><span>DOM</span><div class="cell-dom" id="hd-dom"></div><span>canvas</span><canvas id="hd-canvas" width="160" height="20"></canvas></div>
+      <div id="hd-line"></div>
+    </div>
+  </section>
+  <section class="panel" aria-label="the results">
+    <div class="bar"><span>Results &middot; a Markdown table to paste</span><button type="button" id="copy">Copy</button></div>
+    <textarea id="out" readonly rows="18" spellcheck="false"></textarea>
+  </section>
+  <details>
+    <summary>How each number is measured</summary>
+    <ul>
+      <li><b>the records</b>: the sparse record is the protocol's program, one cell a row (A with values on the odd rows, B with formulas on the even rows); the dense record fills every cell of R rows by C columns, values and formulas in alternate columns, so that a full-screen window is full of text.</li>
+      <li><b>cells with text</b>: the non-empty cells of the record inside the window at the top of the sheet, rows 1 to R and columns 1 to C: the load drawn. The DOM renderer keeps R x C cell elements and writes the text of a row only when that row is recycled; the canvas renderer draws the cells with text again on every draw.</li>
+      <li><b>a draw's cost on the main thread</b>: every draw starts at the top of an animation frame's callback phase (the harness awaits a frame before taking the clock), and its cost is the time from before the call to a task queued after the frame's rendering (a 0 ms timer, which runs once the frame's style, layout and paint recording are done), so the DOM's layout and paint recording count as the canvas's fill calls do, and a draw that keeps up reads its true cost and not the frame interval. Rasterization and compositing happen off the main thread and are not in the number; a frame they delay shows as dropped.</li>
+      <li><b>first draw ms</b>: the first draw's cost so measured: the elements made or the canvas drawn, laid out and recorded.</li>
+      <li><b>step p50, p95 ms</b>: 120 steps of 3 rows each from the top (12 in smoke mode); each step sets <code>scrollTop</code>, calls <code>onScroll()</code> synchronously, and is measured as above; nearest-rank percentiles over the steps. For the DOM renderer a 3-row step recycles three rows; for the canvas it is a full draw.</li>
+      <li><b>page p95 ms</b>: 20 steps of a whole window of rows (2 in smoke mode), alternating between the top and the middle of the sheet, so that every page step is a full rewrite for both renderers, the DOM's worst path and the path a dragged scrollbar or a held Page Down takes.</li>
+      <li><b>max ms</b>: the largest cost over the steps and the page steps.</li>
+      <li><b>sync p50 ms</b>: the synchronous part of a step alone, the script's own work before the browser lays out or paints; the gap to the main-thread cost is what the browser does for the DOM renderer after the script returns.</li>
+      <li><b>dropped of N</b>: how many of the N steps and page steps were followed by an animation frame later than one and a half times the display's own frame interval, which the page measures before the first measured case over thirty idle animation frames (the median delta between consecutive timestamps) and prints in the environment line.</li>
+      <li><b>holds the frame</b>: yes when no step was dropped and both the step p95 and the page p95 are under one frame interval, the protocol's amended bar (docs/PROTOCOL.md section 8.1, amended 2026-10-08).</li>
+      <li><b>the ladder</b>: the cell sizes 20 x 96, 16 x 80, 12 x 64 and 10 x 48 px (row height by column width, with 13, 11, 9 and 7 px text), each at full screen: as many whole rows as fit under the column headers and as many whole columns as fit beside the row headers and the scrollbar, in a container sized to the screen in CSS px. The normal window is 40 rows by 15 columns at 20 x 96. The slope and the capacity below the table are least-squares fits of the step p50 and the page p95 against the cells with text over the dense full-screen cases; the capacity is the load at which the fitted cost reaches one frame interval.</li>
+      <li><b>the order</b>: one discarded warm-up case of each renderer first, at a small window with five scroll steps, so that the first measured case does not pay the page's one-time costs; then the frame interval; then the twelve measured cases in the table's order, the renderers alternating.</li>
+      <li><b>the door line</b>: the time the door took to print each record, as tools/bench_view.ps1 measured it around the call.</li>
+    </ul>
+  </details>
+  <div id="stage"></div>
+  <pre id="smoke"></pre>
+</main>
+<script type="text/plain" id="door">{{DOOR_LINE}}</script>
+<script type="text/plain" id="record">{{VIEW_RECORD}}</script>
+<script type="text/plain" id="record-dense">{{VIEW_RECORD_DENSE}}</script>
+<script>
+(function () {
+  'use strict';
+  var SMOKE = /[?&]smoke=1(&|$)/.test(location.search);
+  var STEPS = SMOKE ? 8 : 120;
+  var PAGE_STEPS = SMOKE ? 2 : 20;
+  var WARM_STEPS = 5;
+  var STEP_ROWS = 3;
+  // The ladder of cell sizes: row height, column width, row-header width and font size, in CSS px.
+  var SIZES = [
+    { name: '20 x 96', rowH: 20, colW: 96, rhW: 48, font: 13 },
+    { name: '16 x 80', rowH: 16, colW: 80, rhW: 40, font: 11 },
+    { name: '12 x 64', rowH: 12, colW: 64, rhW: 36, font: 9 },
+    { name: '10 x 48', rowH: 10, colW: 48, rhW: 32, font: 7 }
+  ];
+  var statusEl = document.getElementById('status');
+  var outEl = document.getElementById('out');
+  var smokeEl = document.getElementById('smoke');
+  var stageEl = document.getElementById('stage');
+  var runBtn = document.getElementById('run');
+  var fsBtn = document.getElementById('fullscreen');
+  var copyBtn = document.getElementById('copy');
+  var doorLine = document.getElementById('door').textContent.trim();
+  document.getElementById('doorline').textContent = doorLine;
+
+  function setStatus(text) { statusEl.textContent = text; }
+  function fmt1(x) { return (Math.round(x * 10) / 10).toFixed(1); }
+  function fmt2(x) { return (Math.round(x * 100) / 100).toFixed(2); }
+  function thousands(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+
+  // ---- (1) the reader: the record's forms, one a line, into a sparse model ----
+  // A datum is a list (an array), a string (a JS string, \" and \\ read), a number
+  // ({ num, text }, the text as printed) or a symbol ({ sym }).
+  function Reader(text) { this.s = text; this.i = 0; this.n = text.length; }
+  Reader.prototype.skipSpace = function () {
+    var s = this.s;
+    while (this.i < this.n) {
+      var c = s.charCodeAt(this.i);
+      if (c === 32 || c === 9 || c === 10 || c === 13) { this.i++; }
+      else if (c === 59) { while (this.i < this.n && s.charCodeAt(this.i) !== 10) this.i++; }
+      else break;
+    }
+  };
+  Reader.prototype.readForm = function () {
+    this.skipSpace();
+    if (this.i >= this.n) return null;
+    var s = this.s, c = s.charAt(this.i);
+    if (c === '(') {
+      this.i++;
+      var list = [];
+      for (;;) {
+        this.skipSpace();
+        if (this.i >= this.n) return list;
+        if (s.charAt(this.i) === ')') { this.i++; return list; }
+        list.push(this.readForm());
+      }
+    }
+    if (c === ')') { this.i++; return this.readForm(); }
+    if (c === '"') {
+      this.i++;
+      var out = '', start = this.i;
+      while (this.i < this.n) {
+        var ch = s.charAt(this.i);
+        if (ch === '\\') {
+          out += s.slice(start, this.i);
+          this.i++;
+          if (this.i < this.n) { out += s.charAt(this.i); this.i++; }
+          start = this.i;
+          continue;
+        }
+        if (ch === '"') { out += s.slice(start, this.i); this.i++; return out; }
+        this.i++;
+      }
+      return out + s.slice(start);
+    }
+    var j = this.i;
+    while (j < this.n) {
+      var cc = s.charCodeAt(j);
+      if (cc === 32 || cc === 9 || cc === 10 || cc === 13 || cc === 40 || cc === 41 || cc === 34) break;
+      j++;
+    }
+    var tok = s.slice(this.i, j);
+    this.i = j;
+    if (/^-?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(tok)) return { num: Number(tok), text: tok };
+    return { sym: tok };
+  };
+  function displayOf(v) {
+    // What a cell shows: a string itself, a number as printed, a symbol's name
+    // (true and false as TRUE and FALSE, as Excel shows them), and
+    // (error "#NUM!") or (date "2026-10-03") as the text inside.
+    if (typeof v === 'string') return v;
+    if (v === null || v === undefined) return '';
+    if (Array.isArray(v)) {
+      if (v.length === 2 && v[0] && v[0].sym !== undefined && typeof v[1] === 'string') return v[1];
+      return v.map(displayOf).join(' ');
+    }
+    if (v.text !== undefined) return v.text;
+    if (v.sym !== undefined) {
+      if (v.sym === 'true') return 'TRUE';
+      if (v.sym === 'false') return 'FALSE';
+      return v.sym;
+    }
+    return String(v);
+  }
+  function parseA1(addr) {
+    var m = /^\$?([A-Za-z]+)\$?(\d+)$/.exec(addr);
+    if (!m) return null;
+    var col = 0, letters = m[1].toUpperCase();
+    for (var k = 0; k < letters.length; k++) col = col * 26 + (letters.charCodeAt(k) - 64);
+    return { row: parseInt(m[2], 10), col: col };
+  }
+  function parseRange(text) {
+    var parts = text.split(':');
+    var a = parseA1(parts[0]), b = parseA1(parts.length > 1 ? parts[1] : parts[0]);
+    if (!a || !b) return null;
+    return { r1: Math.min(a.row, b.row), c1: Math.min(a.col, b.col), r2: Math.max(a.row, b.row), c2: Math.max(a.col, b.col) };
+  }
+  function colName(c) {
+    var s = '';
+    while (c > 0) { var r = (c - 1) % 26; s = String.fromCharCode(65 + r) + s; c = (c - 1 - r) / 26; }
+    return s;
+  }
+  function countLines(text) {
+    if (!text) return 0;
+    var n = 0;
+    for (var i = text.indexOf('\n'); i >= 0; i = text.indexOf('\n', i + 1)) n++;
+    return n + (text.charAt(text.length - 1) === '\n' ? 0 : 1);
+  }
+  function readRecord(text, name) {
+    var t0 = performance.now();
+    var rd = new Reader(text);
+    var m = { name: name, sheets: [], sheet: '', window: '', extent: '', extentRows: 0, extentCols: 0, gridlines: true, columns: [], formats: {},
+              cells: new Map(), counts: { forms: 0, cells: 0, formulas: 0, styles: 0, sentences: 0, unknown: 0 }, lines: 0, readMs: 0 };
+    var f;
+    while ((f = rd.readForm()) !== null) {
+      m.counts.forms++;
+      if (!Array.isArray(f) || f.length === 0 || !f[0] || f[0].sym === undefined) { m.counts.unknown++; continue; }
+      var head = f[0].sym;
+      if (head === 'sheet') { m.sheets.push({ name: displayOf(f[1]), state: displayOf(f[2]) }); }
+      else if (head === 'window') { m.sheet = displayOf(f[1]); m.window = displayOf(f[2]); }
+      else if (head === 'extent') {
+        m.extent = displayOf(f[2]);
+        var r = typeof f[2] === 'string' ? parseRange(f[2]) : null;
+        if (r) { m.extentRows = r.r2; m.extentCols = r.c2; }
+      }
+      else if (head === 'gridlines') { m.gridlines = !(f[2] && f[2].sym === 'off'); }
+      else if (head === 'column') { m.columns.push(f.slice(1).map(displayOf)); }
+      else if (head === 'format') { m.formats[displayOf(f[1])] = f.slice(2).map(displayOf); }
+      else if (head === 'cell' || head === 'formula') {
+        var a = typeof f[2] === 'string' ? parseA1(f[2]) : null;
+        if (!a) { m.counts.unknown++; continue; }
+        m.cells.set(a.row + ',' + a.col, { text: displayOf(f[3]), kind: head, style: 0, sentence: 0 });
+        if (head === 'cell') m.counts.cells++; else m.counts.formulas++;
+      }
+      else if (head === 'style' || head === 'sentence') {
+        var b = typeof f[2] === 'string' ? parseA1(f[2]) : null;
+        var e = b ? m.cells.get(b.row + ',' + b.col) : null;
+        if (e) e[head] = (f[3] && f[3].num !== undefined) ? f[3].num : 0;
+        if (head === 'style') m.counts.styles++; else m.counts.sentences++;
+      }
+      else { m.counts.unknown++; }
+    }
+    m.lines = countLines(text);
+    m.readMs = performance.now() - t0;
+    return m;
+  }
+
+  // ---- (2) the renderers: one contract, render(container, model, g, rows, cols, W, H) and onScroll() ----
+  // g is the cell geometry of the case: rowH, colW, rhW, headH (the column headers' height, one row) and font.
+  function geometryOf(size) {
+    return { rowH: size.rowH, colW: size.colW, rhW: size.rhW, headH: size.rowH, fontPx: size.font, font: size.font + 'px system-ui, "Segoe UI", sans-serif' };
+  }
+  function makeScroller(container, g, W, H) {
+    var sc = document.createElement('div');
+    sc.className = 'scroller';
+    sc.style.width = W + 'px';
+    sc.style.height = H + 'px';
+    sc.style.setProperty('--rh', g.rowH + 'px');
+    sc.style.setProperty('--cw', g.colW + 'px');
+    sc.style.setProperty('--rw', g.rhW + 'px');
+    sc.style.setProperty('--fs', g.fontPx + 'px');
+    container.appendChild(sc);
+    return sc;
+  }
+
+  // The DOM renderer, virtualized as a real viewport is: the visible rows exist as elements in a
+  // ring, the body moves by a transform, and a scroll of k rows recycles k row elements from the
+  // end that left to the end that came into view, writing only their texts; a move of a whole
+  // window or more rewrites every row.
+  function DomRenderer() { this.name = 'DOM (virtualized)'; }
+  DomRenderer.prototype.render = function (container, model, g, rows, cols, W, H) {
+    this.model = model; this.g = g; this.rows = rows; this.cols = cols;
+    var sc = this.scroller = makeScroller(container, g, W, H);
+    var inner = g.rhW + cols * g.colW;
+    var head = document.createElement('div');
+    head.className = 'head';
+    head.style.width = inner + 'px';
+    var corner = document.createElement('div');
+    corner.className = 'corner';
+    head.appendChild(corner);
+    for (var c = 1; c <= cols; c++) {
+      var ch = document.createElement('div');
+      ch.className = 'ch';
+      ch.textContent = colName(c);
+      head.appendChild(ch);
+    }
+    sc.appendChild(head);
+    var spacer = document.createElement('div');
+    spacer.className = 'spacer';
+    spacer.style.height = (model.extentRows * g.rowH) + 'px';
+    spacer.style.width = inner + 'px';
+    var body = this.body = document.createElement('div');
+    body.className = 'body';
+    this.ring = [];
+    for (var i = 0; i < rows; i++) {
+      var row = document.createElement('div');
+      row.className = 'row';
+      var rh = document.createElement('div');
+      rh.className = 'rh';
+      row.appendChild(rh);
+      var cellsOfRow = [];
+      for (c = 1; c <= cols; c++) {
+        var cell = document.createElement('div');
+        cell.className = 'cell';
+        row.appendChild(cell);
+        cellsOfRow.push(cell);
+      }
+      body.appendChild(row);
+      this.ring.push({ el: row, rh: rh, cells: cellsOfRow, row: 0 });
+    }
+    spacer.appendChild(body);
+    sc.appendChild(spacer);
+    this.first = 0;
+    this.draw(0);
+  };
+  // One row element takes row r: its number and its texts; a row past the extent goes blank.
+  DomRenderer.prototype.fill = function (entry, r) {
+    var inExtent = r <= this.model.extentRows, cells = this.model.cells, cols = this.cols;
+    entry.row = r;
+    entry.rh.textContent = inExtent ? String(r) : '';
+    for (var c = 1; c <= cols; c++) {
+      var e = inExtent ? cells.get(r + ',' + c) : null;
+      entry.cells[c - 1].textContent = e ? e.text : '';
+    }
+  };
+  DomRenderer.prototype.draw = function (top) {
+    var g = this.g, rows = this.rows, ring = this.ring, body = this.body;
+    var first = Math.floor(top / g.rowH) + 1;
+    var delta = first - this.first;
+    var k, e;
+    if (this.first === 0 || Math.abs(delta) >= rows) {
+      for (k = 0; k < rows; k++) this.fill(ring[k], first + k);
+    } else if (delta > 0) {
+      // the top delta rows move to the bottom and take the rows that came into view there
+      for (k = 0; k < delta; k++) { e = ring.shift(); body.appendChild(e.el); this.fill(e, first + rows - delta + k); ring.push(e); }
+    } else if (delta < 0) {
+      // the bottom rows move to the top, the last of them first, and take the rows that came into view there
+      for (k = 0; k < -delta; k++) { e = ring.pop(); body.insertBefore(e.el, body.firstChild); this.fill(e, this.first - 1 - k); ring.unshift(e); }
+    }
+    this.first = first;
+    body.style.transform = 'translateY(' + ((first - 1) * g.rowH) + 'px)';
+  };
+  DomRenderer.prototype.onScroll = function () { this.draw(this.scroller.scrollTop); };
+
+  // The canvas renderer: one canvas of the viewport's size, sticky at the top of the
+  // same kind of scroll container, its backing store the CSS size times the device
+  // pixel ratio; each draw clears and draws gridlines, headers and text again. A text is
+  // measured only when its length says it might overflow its cell.
+  function CanvasRenderer() { this.name = 'canvas'; }
+  CanvasRenderer.prototype.render = function (container, model, g, rows, cols, W, H) {
+    this.model = model; this.g = g; this.rows = rows; this.cols = cols; this.W = W; this.H = H;
+    var sc = this.scroller = makeScroller(container, g, W, H);
+    var stick = document.createElement('div');
+    stick.className = 'stick';
+    var cv = this.canvas = document.createElement('canvas');
+    var dpr = this.dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    cv.style.width = W + 'px';
+    cv.style.height = H + 'px';
+    stick.appendChild(cv);
+    sc.appendChild(stick);
+    var spacer = document.createElement('div');
+    spacer.className = 'spacer';
+    spacer.style.height = (g.headH + model.extentRows * g.rowH) + 'px';
+    sc.appendChild(spacer);
+    this.ctx = cv.getContext('2d');
+    this.draw(0);
+  };
+  CanvasRenderer.prototype.draw = function (top) {
+    var ctx = this.ctx, g = this.g, W = this.W, H = this.H, cols = this.cols, cells = this.model.cells;
+    var rowH = g.rowH, colW = g.colW, rhW = g.rhW, headH = g.headH;
+    var firstRow = Math.floor(top / rowH) + 1;
+    var off = top - (firstRow - 1) * rowH;
+    // the rows drawn: the window's, less any past the extent, which are skipped (no gridline, number or text)
+    var rows = Math.max(0, Math.min(this.rows, this.model.extentRows - firstRow + 1));
+    var i, c, r;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = g.font;
+    ctx.textBaseline = 'middle';
+    // the body: gridlines and text, clipped to the area under the headers
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(rhW, headH, W - rhW, H - headH);
+    ctx.clip();
+    ctx.strokeStyle = '#d9d9d2';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (c = 1; c <= cols; c++) { var x = rhW + c * colW - 0.5; ctx.moveTo(x, headH); ctx.lineTo(x, H); }
+    for (i = 0; i < rows; i++) { var y = headH + (i + 1) * rowH - off - 0.5; ctx.moveTo(rhW, y); ctx.lineTo(W, y); }
+    ctx.stroke();
+    ctx.fillStyle = '#1d1d1b';
+    ctx.textAlign = 'left';
+    var maxW = colW - 8, perChar = g.fontPx * 0.62;
+    for (i = 0; i < rows; i++) {
+      r = firstRow + i;
+      var cy = headH + i * rowH - off + rowH / 2;
+      for (c = 1; c <= cols; c++) {
+        var e = cells.get(r + ',' + c);
+        if (!e || !e.text) continue;
+        var x0 = rhW + (c - 1) * colW + 4;
+        if (e.text.length * perChar > maxW && ctx.measureText(e.text).width > maxW) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(x0 - 4, cy - rowH / 2, colW - 1, rowH - 1);
+          ctx.clip();
+          ctx.fillText(e.text, x0, cy);
+          ctx.restore();
+        } else {
+          ctx.fillText(e.text, x0, cy);
+        }
+      }
+    }
+    ctx.restore();
+    // the row headers
+    ctx.fillStyle = '#f3f3ee';
+    ctx.fillRect(0, 0, rhW, H);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, headH, rhW, H - headH);
+    ctx.clip();
+    ctx.fillStyle = '#6b6b66';
+    ctx.textAlign = 'right';
+    for (i = 0; i < rows; i++) ctx.fillText(String(firstRow + i), rhW - 4, headH + i * rowH - off + rowH / 2);
+    ctx.strokeStyle = '#d9d9d2';
+    ctx.beginPath();
+    for (i = 0; i < rows; i++) { var yy = headH + (i + 1) * rowH - off - 0.5; ctx.moveTo(0, yy); ctx.lineTo(rhW, yy); }
+    ctx.stroke();
+    ctx.restore();
+    // the column headers
+    ctx.fillStyle = '#f3f3ee';
+    ctx.fillRect(0, 0, W, headH);
+    ctx.fillStyle = '#6b6b66';
+    ctx.textAlign = 'center';
+    for (c = 1; c <= cols; c++) ctx.fillText(colName(c), rhW + (c - 1) * colW + colW / 2, headH / 2);
+    ctx.strokeStyle = '#d9d9d2';
+    ctx.beginPath();
+    ctx.moveTo(0, headH - 0.5); ctx.lineTo(W, headH - 0.5);
+    ctx.moveTo(rhW - 0.5, 0); ctx.lineTo(rhW - 0.5, H);
+    for (c = 1; c <= cols; c++) { var xx = rhW + c * colW - 0.5; ctx.moveTo(xx, 0); ctx.lineTo(xx, headH); }
+    ctx.stroke();
+  };
+  CanvasRenderer.prototype.onScroll = function () { this.draw(this.scroller.scrollTop); };
+
+  // ---- (3) the harness ----
+  function nextFrame() { return new Promise(function (res) { requestAnimationFrame(function (ts) { res(ts); }); }); }
+  // A task queued after the current frame's rendering: resolves with the clock once the frame's
+  // style, layout and paint recording are done on the main thread.
+  function afterRendering() { return new Promise(function (res) { setTimeout(function () { res(performance.now()); }, 0); }); }
+  function percentile(sorted, q) {
+    if (!sorted.length) return 0;
+    var k = Math.min(sorted.length - 1, Math.max(0, Math.ceil(q * sorted.length) - 1));
+    return sorted[k];
+  }
+  function sortedCopy(a) { return a.slice().sort(function (x, y) { return x - y; }); }
+  // One draw, measured: fn runs at the top of a frame's callback phase (the caller awaited a frame);
+  // main is the time to the task after the frame's rendering, sync the script's own part, and
+  // dropped whether the next animation frame came later than one and a half intervals.
+  async function measuredDraw(fn, interval) {
+    var t0 = performance.now();
+    fn();
+    var sync = performance.now() - t0;
+    var afterP = afterRendering();
+    var ts = await nextFrame();
+    var after = await afterP;
+    return { main: after - t0, sync: sync, frame: ts - t0, dropped: (ts - t0) > 1.5 * interval };
+  }
+  // The scrollbar's width, measured once from a throwaway scrolling div.
+  var sbw = -1;
+  function scrollbarWidth() {
+    if (sbw >= 0) return sbw;
+    var d = document.createElement('div');
+    d.style.cssText = 'position:absolute;top:-200px;left:0;width:100px;height:100px;overflow:scroll;visibility:hidden';
+    document.body.appendChild(d);
+    sbw = d.offsetWidth - d.clientWidth;
+    document.body.removeChild(d);
+    return sbw;
+  }
+  // The windows at a cell size: a sized one of exactly its rows and columns plus the headers and
+  // the scrollbar, and the full-screen one, a container of the screen's CSS size holding as many
+  // whole rows as fit under the column headers and as many whole columns as fit beside the row
+  // headers and the scrollbar.
+  function sizedWindow(name, size, rows, cols) {
+    var sb = scrollbarWidth();
+    return { name: name, rows: rows, cols: cols, W: size.rhW + cols * size.colW + sb, H: size.rowH + rows * size.rowH };
+  }
+  function fullWindow(size) {
+    var sb = scrollbarWidth();
+    return { name: 'full-screen', rows: Math.floor((screen.height - size.rowH) / size.rowH), cols: Math.floor((screen.width - size.rhW - sb) / size.colW), W: screen.width, H: screen.height };
+  }
+  // The non-empty cells of the model inside the window at the top of the sheet: the load drawn.
+  function cellsWithText(model, rows, cols) {
+    var n = 0;
+    for (var r = 1; r <= rows; r++) for (var c = 1; c <= cols; c++) { var e = model.cells.get(r + ',' + c); if (e && e.text) n++; }
+    return n;
+  }
+  // The display's frame interval: the median delta between consecutive timestamps of idle animation frames.
+  async function frameInterval(frames) {
+    var deltas = [], prev = await nextFrame();
+    for (var i = 0; i < frames; i++) { var ts = await nextFrame(); deltas.push(ts - prev); prev = ts; }
+    return percentile(sortedCopy(deltas), 0.5);
+  }
+  async function runCase(Renderer, model, size, win, steps, pageSteps, interval) {
+    var renderer = new Renderer();
+    var g = geometryOf(size);
+    var container = document.createElement('div');
+    container.className = 'case';
+    stageEl.appendChild(container);
+    try {
+      // The first draw, at the top of a frame's callback phase, so that every case is on one footing.
+      await nextFrame();
+      var firstDraw = await measuredDraw(function () { renderer.render(container, model, g, win.rows, win.cols, win.W, win.H); }, interval);
+      var sc = renderer.scroller;
+      var mains = [], syncs = [], pages = [], dropped = 0;
+      var stepPx = STEP_ROWS * g.rowH;
+      var i, m;
+      for (i = 1; i <= steps; i++) {
+        m = await measuredDraw(stepTo(sc, renderer, i * stepPx), interval);
+        mains.push(m.main); syncs.push(m.sync); if (m.dropped) dropped++;
+      }
+      // The page steps: a whole window of rows at a time, between the top and the middle of the
+      // sheet, so that every one is a full rewrite for both renderers.
+      var midPx = Math.floor(model.extentRows / 2) * g.rowH;
+      for (i = 1; i <= pageSteps; i++) {
+        m = await measuredDraw(stepTo(sc, renderer, (i % 2) ? midPx : 0), interval);
+        pages.push(m.main); if (m.dropped) dropped++;
+      }
+      var sm = sortedCopy(mains), sp = sortedCopy(pages), ss = sortedCopy(syncs);
+      var p95 = percentile(sm, 0.95), page95 = percentile(sp, 0.95);
+      var max = Math.max(sm.length ? sm[sm.length - 1] : 0, sp.length ? sp[sp.length - 1] : 0);
+      return {
+        renderer: renderer.name, record: model.name, size: size, win: win, cellsWithText: cellsWithText(model, win.rows, win.cols),
+        firstDraw: firstDraw.main, p50: percentile(sm, 0.5), p95: p95, page95: page95, max: max, sync50: percentile(ss, 0.5),
+        dropped: dropped, n: steps + pageSteps, holds: dropped === 0 && p95 < interval && page95 < interval
+      };
+    } finally {
+      // A throwing case must not leave its fixed container over the controls.
+      if (container.parentNode) container.parentNode.removeChild(container);
+    }
+  }
+  function stepTo(sc, renderer, top) { return function () { sc.scrollTop = top; renderer.onScroll(); }; }
+  // The browser's full version from the user-agent client hints where the browser has them
+  // (the GREASE brand dropped, Chromium named last), else the user agent string.
+  async function browserLine() {
+    var uad = navigator.userAgentData;
+    if (!uad || !uad.getHighEntropyValues) return navigator.userAgent;
+    try {
+      var hv = await uad.getHighEntropyValues(['fullVersionList']);
+      var list = (hv && hv.fullVersionList) || uad.brands || [];
+      var named = [], chromium = [];
+      for (var i = 0; i < list.length; i++) {
+        var b = list[i];
+        if (!b || !b.brand || /^not.a.brand$/i.test(b.brand)) continue;
+        (b.brand === 'Chromium' ? chromium : named).push(b.brand + ' ' + b.version);
+      }
+      var parts = named.concat(chromium);
+      if (!parts.length) return navigator.userAgent;
+      return parts.join(', ') + (uad.platform ? ' on ' + uad.platform : '');
+    } catch (e) {
+      return navigator.userAgent;
+    }
+  }
+  function recordLine(model) {
+    return model.name + ' record ' + model.lines + ' lines, extent ' + model.extent + ', ' + (model.counts.cells + model.counts.formulas) +
+      ' cells (' + model.counts.cells + ' values, ' + model.counts.formulas + ' formulas), read in ' + fmt1(model.readMs) + ' ms';
+  }
+  function envLine(sparse, dense, fullscreen, browser, interval) {
+    var hz = interval > 0 ? Math.round(1000 / interval) : 0;
+    return 'Environment: ' + browser + ' | DPR ' + (window.devicePixelRatio || 1) + ' | screen ' + screen.width + 'x' + screen.height +
+      ' | fullscreen ' + (fullscreen ? 'yes' : 'no') + ' | frame interval ' + fmt1(interval) + ' ms (about ' + hz + ' Hz)' +
+      ' | ' + doorLine + ' | ' + recordLine(sparse) + ' | ' + recordLine(dense);
+  }
+  // The table: its header line is the one docs/PROTOCOL.md section 9.2 carries, so the owner pastes the rows in.
+  function tableOf(results) {
+    var lines = ['| renderer | record | cell px | window (rows x cols) | cells with text | first draw ms | step p50 ms | step p95 ms | page p95 ms | max ms | sync p50 ms | dropped of N | holds the frame |',
+                 '|---|---|---|---|---|---|---|---|---|---|---|---|---|'];
+    for (var i = 0; i < results.length; i++) {
+      var x = results[i];
+      lines.push('| ' + x.renderer + ' | ' + x.record + ' | ' + x.size.name + ' | ' + x.win.name + ' (' + x.win.rows + ' x ' + x.win.cols + ') | ' + x.cellsWithText +
+                 ' | ' + fmt1(x.firstDraw) + ' | ' + fmt1(x.p50) + ' | ' + fmt1(x.p95) + ' | ' + fmt1(x.page95) + ' | ' + fmt1(x.max) + ' | ' + fmt1(x.sync50) +
+                 ' | ' + x.dropped + ' of ' + x.n + ' | ' + (x.holds ? 'yes' : 'no') + ' |');
+    }
+    return lines.join('\n');
+  }
+  // A least-squares line through (cells, ms) points: ms = a + b * cells.
+  function fitLine(points) {
+    var n = points.length;
+    if (n < 2) return null;
+    var sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (var i = 0; i < n; i++) { sx += points[i][0]; sy += points[i][1]; sxx += points[i][0] * points[i][0]; sxy += points[i][0] * points[i][1]; }
+    var d = n * sxx - sx * sx;
+    if (d === 0) return null;
+    var b = (n * sxy - sx * sy) / d, a = (sy - b * sx) / n;
+    return { a: a, b: b };
+  }
+  // The summary under the table: for each renderer, over the dense full-screen cases, the slope
+  // of the step cost and of the page cost in ms per thousand cells with text, the largest load
+  // that held the frame, and the capacity, the load at which the fitted page cost reaches one
+  // frame interval; then the verdict the amended rule reads off the table.
+  function summaryOf(results, interval) {
+    var names = ['DOM (virtualized)', 'canvas'], lines = [], caps = {}, held = {}, densest = 0, holdsDensest = {};
+    for (var k = 0; k < names.length; k++) {
+      var name = names[k], stepPts = [], pagePts = [], largest = 0;
+      for (var i = 0; i < results.length; i++) {
+        var x = results[i];
+        if (x.renderer !== name || x.record !== 'dense') continue;
+        stepPts.push([x.cellsWithText, x.p50]);
+        pagePts.push([x.cellsWithText, x.page95]);
+        if (x.cellsWithText > densest) densest = x.cellsWithText;
+        if (x.holds && x.cellsWithText > largest) largest = x.cellsWithText;
+      }
+      held[name] = largest;
+      var fs = fitLine(stepPts), fp = fitLine(pagePts);
+      var cap = (fp && fp.b > 0) ? Math.round((interval - fp.a) / fp.b) : -1;
+      caps[name] = cap;
+      lines.push(name + ': step cost ' + (fs ? fmt2(fs.b * 1000) + ' ms per 1,000 cells (' + fmt1(fs.a) + ' ms fixed)' : 'not fitted') +
+        '; page cost ' + (fp ? fmt2(fp.b * 1000) + ' ms per 1,000 cells (' + fmt1(fp.a) + ' ms fixed)' : 'not fitted') +
+        '; largest dense load that held the frame: ' + (largest ? thousands(largest) + ' cells' : 'none') +
+        '; capacity at one frame interval, by the page cost: ' + (cap > 0 ? 'about ' + thousands(cap) + ' cells' : 'not reached in the fit') + '.');
+    }
+    for (var j = 0; j < names.length; j++) {
+      var any = false;
+      for (var i2 = 0; i2 < results.length; i2++) { var y = results[i2]; if (y.renderer === names[j] && y.record === 'dense' && y.cellsWithText === densest && y.holds) any = true; }
+      holdsDensest[names[j]] = any;
+    }
+    var d = names[0], c = names[1];
+    var verdict;
+    if (holdsDensest[d] && holdsDensest[c]) verdict = 'Verdict: both hold the frame at the densest screen load, ' + thousands(densest) + ' cells with text; the choice falls to the criteria the commandments leave (PROTOCOL.md section 8.1, amended step 3), crispness permitting.';
+    else if (holdsDensest[c] && !holdsDensest[d]) verdict = 'Verdict: canvas holds the frame at ' + thousands(densest) + ' cells with text and the DOM does not (it held ' + (held[d] ? thousands(held[d]) : 'no dense load') + '); canvas, by step 4.';
+    else if (holdsDensest[d] && !holdsDensest[c]) verdict = 'Verdict: the DOM holds the frame at ' + thousands(densest) + ' cells with text and canvas does not (it held ' + (held[c] ? thousands(held[c]) : 'no dense load') + '); the DOM, by step 4.';
+    else verdict = 'Verdict: neither holds the frame at ' + thousands(densest) + ' cells with text; the DOM held ' + (held[d] ? thousands(held[d]) : 'no dense load') + ' and canvas ' + (held[c] ? thousands(held[c]) : 'no dense load') + '; the larger capacity decides (step 4), and the viewport caps its density there.';
+    lines.push(verdict);
+    return lines.join('\n');
+  }
+
+  // ---- (4) HiDPI crispness ----
+  function hidpiPanel() {
+    var dpr = window.devicePixelRatio || 1;
+    var text = 'Revenue 12,345.67';
+    document.getElementById('hd-dom').textContent = text;
+    var cv = document.getElementById('hd-canvas');
+    cv.width = Math.round(160 * dpr);
+    cv.height = Math.round(20 * dpr);
+    cv.style.width = '160px';
+    cv.style.height = '20px';
+    var ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, 160, 20);
+    ctx.strokeStyle = '#d9d9d2';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(159.5, 0); ctx.lineTo(159.5, 20);
+    ctx.moveTo(0, 19.5); ctx.lineTo(160, 19.5);
+    ctx.stroke();
+    ctx.font = '13px system-ui, "Segoe UI", sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#1d1d1b';
+    ctx.fillText(text, 4, 10);
+    var ok = cv.width === Math.round(cv.clientWidth * dpr) && cv.height === Math.round(cv.clientHeight * dpr);
+    document.getElementById('hd-line').textContent = 'devicePixelRatio ' + dpr + '. canvas backing store = CSS size x DPR: ' + (ok ? 'yes' : 'no') +
+      ' (width attribute ' + cv.width + ', clientWidth ' + cv.clientWidth + ' x ' + dpr + ').';
+  }
+
+  // ---- (5) the output, and (6) the smoke mode ----
+  var sparse = null, dense = null;
+  var running = false;
+  var progress = '';
+  function fail(text) {
+    setStatus(text);
+    if (SMOKE) smokeEl.textContent = 'smoke failed: ' + text + (progress ? ' (at ' + progress + ')' : '');
+  }
+  window.addEventListener('error', function (ev) { fail('Script error: ' + (ev.message || ev.error)); });
+  window.addEventListener('unhandledrejection', function (ev) { fail('Script error: ' + (ev.reason && ev.reason.message ? ev.reason.message : ev.reason)); });
+  // Smoke mode only: a headless browser under a virtual-time budget lets its clock leap
+  // ahead whenever the page is idle and then starves animation frames, so the run keeps a
+  // 0 ms timer chain alive, which holds the virtual clock to real time while frames come;
+  // and a watchdog reports a run that stalls, so the dump says where. Neither runs in the
+  // owner's browser, where the numbers count.
+  var pacing = false;
+  function pace() { if (pacing) setTimeout(pace, 0); }
+  async function run() {
+    if (running || !sparse || !dense) return;
+    running = true;
+    runBtn.disabled = true;
+    fsBtn.disabled = true;
+    var fullscreen = !!document.fullscreenElement;
+    if (SMOKE) {
+      pacing = true;
+      setTimeout(pace, 0);
+      setTimeout(function () { if (running) fail('the run had not finished after 300 s of the page\'s clock'); }, 300000);
+    }
+    try {
+      hidpiPanel();
+      var browser = await browserLine();
+      var size0 = SIZES[0];
+      var warmWin = sizedWindow('warm-up', size0, 10, 5);
+      // One discarded warm-up case of each renderer at the small window, so that the first
+      // measured case does not pay the page's one-time costs.
+      var warm = [DomRenderer, CanvasRenderer];
+      for (var w = 0; w < warm.length; w++) {
+        progress = 'warm-up, ' + (w ? 'canvas' : 'DOM');
+        setStatus('Warming up ' + (w ? 'canvas' : 'the DOM') + '...');
+        await runCase(warm[w], sparse, size0, warmWin, WARM_STEPS, 1, 16.7);
+        await nextFrame();
+      }
+      // The display's frame interval, over thirty idle frames before the first measured case.
+      progress = 'the frame interval';
+      setStatus('Measuring the frame interval...');
+      var interval = await frameInterval(30);
+      // The measured cases: the protocol's two windows over the sparse record at the default cell
+      // size, then the dense record at full screen down the ladder, the renderers alternating.
+      var plan = [
+        [DomRenderer, sparse, size0, sizedWindow('normal', size0, 40, 15)], [CanvasRenderer, sparse, size0, sizedWindow('normal', size0, 40, 15)],
+        [DomRenderer, sparse, size0, fullWindow(size0)], [CanvasRenderer, sparse, size0, fullWindow(size0)]
+      ];
+      for (var s = 0; s < SIZES.length; s++) {
+        plan.push([DomRenderer, dense, SIZES[s], fullWindow(SIZES[s])]);
+        plan.push([CanvasRenderer, dense, SIZES[s], fullWindow(SIZES[s])]);
+      }
+      var results = [];
+      for (var i = 0; i < plan.length; i++) {
+        var p = plan[i];
+        progress = (p[0] === DomRenderer ? 'DOM' : 'canvas') + ', ' + p[1].name + ' record, ' + p[2].name + ' px, ' + p[3].name + ' (' + p[3].rows + ' x ' + p[3].cols + ')';
+        setStatus('Running case ' + (i + 1) + ' of ' + plan.length + ': ' + progress + '...');
+        results.push(await runCase(p[0], p[1], p[2], p[3], STEPS, PAGE_STEPS, interval));
+        await nextFrame();
+      }
+      var md = envLine(sparse, dense, fullscreen, browser, interval) + '\n\n' + tableOf(results) + '\n\n' + summaryOf(results, interval);
+      outEl.value = md;
+      if (SMOKE) smokeEl.textContent = 'smoke ok\n' + md;
+      setStatus('Done: ' + plan.length + ' cases, ' + STEPS + ' scroll steps and ' + PAGE_STEPS + ' page steps each' + (fullscreen ? ', in fullscreen.' : ', not in fullscreen.'));
+    } catch (e) {
+      fail('Script error: ' + (e && e.message ? e.message : e));
+    }
+    pacing = false;
+    progress = '';
+    running = false;
+    runBtn.disabled = false;
+    fsBtn.disabled = false;
+  }
+  runBtn.addEventListener('click', function () { run(); });
+  fsBtn.addEventListener('click', function () {
+    var el = document.documentElement;
+    if (!el.requestFullscreen) { setStatus('This browser offers no fullscreen.'); return; }
+    el.requestFullscreen().then(function () {
+      setStatus('In fullscreen: the run starts in a moment.');
+      setTimeout(run, 600);
+    }, function (e) { setStatus('Fullscreen refused: ' + (e && e.message ? e.message : e)); });
+  });
+  copyBtn.addEventListener('click', function () {
+    var text = outEl.value;
+    var done = function () { copyBtn.textContent = 'Copied'; setTimeout(function () { copyBtn.textContent = 'Copy'; }, 1200); };
+    // The fallback: select the text, try the old copy command, and failing that ask for Ctrl+C.
+    var select = function () {
+      outEl.focus();
+      outEl.select();
+      var copied = false;
+      try { copied = document.execCommand('copy'); } catch (e) { copied = false; }
+      if (copied) done(); else setStatus('Selected: press Ctrl+C');
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, select);
+    else select();
+  });
+
+  var sparseText = document.getElementById('record').textContent;
+  var denseText = document.getElementById('record-dense').textContent;
+  if (sparseText.indexOf('{{VIEW_RECORD') >= 0 || !sparseText.trim() || denseText.indexOf('{{VIEW_RECORD') >= 0 || !denseText.trim()) {
+    fail('This page was not built: run tools/bench_view.ps1 to fill it.');
+    return;
+  }
+  sparse = readRecord(sparseText, 'sparse');
+  dense = readRecord(denseText, 'dense');
+  document.getElementById('about').textContent = 'Sparse record: ' + thousands(sparse.lines) + ' lines, extent ' + sparse.extent + ', ' +
+    thousands(sparse.counts.cells + sparse.counts.formulas) + ' cells, read in ' + fmt1(sparse.readMs) + ' ms. Dense record: ' + thousands(dense.lines) +
+    ' lines, extent ' + dense.extent + ', ' + thousands(dense.counts.cells + dense.counts.formulas) + ' cells, read in ' + fmt1(dense.readMs) + ' ms' +
+    ((sparse.counts.unknown + dense.counts.unknown) ? ', ' + (sparse.counts.unknown + dense.counts.unknown) + ' forms ignored' : '') + '.';
+  hidpiPanel();
+  window.addEventListener('load', function () { run(); });
+})();
+</script>
+</body>
+</html>

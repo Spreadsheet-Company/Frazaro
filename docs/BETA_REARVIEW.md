@@ -18030,6 +18030,114 @@ renderer benchmark, is recorded under its own entry below.
   with its blank result table and the owner fills it. *Pays into:*
   `KERNEL.5` and every interface item after it; the LEARNABILITY
   department, since the same tasks measure learning. `~days`
+  *Built 2026-10-08, awaiting the owner's run.* What landed:
+  `docs/PROTOCOL.md`, the instrument as one document in the house's
+  register, indexed in `docs/README.md`: §2 backs the tasks and the
+  questions into the literature, since the house has no panel of analysts
+  to ask (Hendry and Green 1994 for the three comprehension questions,
+  choose a cell, explain its formula, find its inputs; Panko and Powell,
+  Baker and Lawson for the defect classes; Sarkar, Gordon, Peyton Jones and
+  Toronto 2018 as the nearest prior instrument; Nardi and Miller for the
+  risk; Miller, Card and Nielsen for the thresholds), the way
+  `scripts/pareto.txt` backed its corpus; §3 the fixture; §4 the task sheet
+  in two halves, build this and find that, with the three questions and
+  their keys; §5 the protocol, the two conditions, the order and
+  assignment, the stop rules, the scoring by `frazaro diff` and by the key,
+  the pilot-of-one statement (5.6: it validates the instrument and yields
+  the engineering numbers, and does not yield honest human numbers from the
+  tool's author) and the predictions written before the first run (5.8);
+  §6 the measures; §7 the benchmark; §8 the decision rule (canvas or DOM by
+  the 16 ms frame at the full-screen window and by crispness at the
+  machine's pixel ratio, with the commandments' criteria deciding when both
+  clear; the bar's first line and the pane's default for an author answered
+  provisionally, the formula and open, with the measurement named that
+  would overturn each); §9 the result tables, blank; §10 what "run" means;
+  §11 the sources. The fixture: `tools/build_study_fixture.ps1`, in
+  `build_reflect_fixture.ps1`'s shape (raw OOXML, deflated, stamped
+  2026-10-08, no Office), writes four workbooks into `scripts/study/`:
+  `find_a.xlsx` and `find_b.xlsx`, a monthly model in three sheets
+  (`Inputs` with three names, `Sales` months down and measures across,
+  `Summary`) with one defect of each of Powell, Baker and Lawson's five
+  classes, hard-coded constant, copy-and-paste fault, wrong reference,
+  logic error and omission, at different cells with different symptoms in
+  each variant, every cached value computed by the script's own evaluator
+  over the formula text so each plant's consequence is in the file (the
+  answer key's numbers, `PROTOCOL.md` §3.2); and `build_a.xlsx` and
+  `build_b.xlsx`, the keys of the build half. The goldens, the door's own
+  output saved CRLF: the four relations files (345, 345, 54 and 54 lines)
+  and the two find audits (3 and 4 lines: `typed-over`, `inconsistent`,
+  `empty-reference`, the omission reported twice in `find_b` because its
+  `H14` reads the absent `G14`, the treaty's rule as written). The 52nd
+  check, `tools/check_study_fixture.ps1`: the goldens' floors, the seven
+  audit lines verbatim, the planted rows whole and the omitted cells absent,
+  the build keys' numbers, and with a door every golden reproduced whole
+  (SKIPPED without one); `-Control` on fakes and mutants; `run_checks.ps1`'s
+  floor 52. The benchmark: `tools/bench_view.ps1` writes the synthetic
+  program of CALLOSUM §10, 10,000 lines, runs `frazaro view` over its
+  `Output` sheet (20,006 record lines, A1:B10000, about 850 ms from the
+  debug door) and fills `tools/bench_view.template.html` into
+  `tools/bench_view.html`, gitignored, about 694 KB: one offline page with
+  no library, a reader for the record's forms, two renderers of one contract
+  (a virtualized DOM table that reuses its elements; a canvas at the device
+  pixel ratio), the harness (the cells with text, render, first paint as
+  the first animation frame after a draw begun at the top of a frame, a
+  120-step scroll run with p50, p95, max, the frames over 16.7 ms and over
+  one and a half times the measured frame interval, two jumps) at 40 by 15
+  and at the screen's size less its headers and scrollbar, a
+  Fullscreen button, the HiDPI panel with its backing-store line, and the
+  Markdown table in a textarea with Copy; `?smoke=1` for a headless run.
+  `.gitignore` negates `scripts/study/*.xlsx` and ignores the filled page;
+  `web/CALLOSUM.md` carries the dated slot the numbers go into. *Verified:*
+  the builder deterministic (two runs, equal hashes); `frazaro reflect` and
+  `audit` on every fixture equal to the goldens; the build keys' audits
+  clean and `diff` of a key against itself empty; `run_checks.ps1` 52 of 52
+  with the check and its control; the page run end to end in headless Edge
+  (virtual-clock numbers, not the owner's: the four cases run, the table
+  prints, the backing-store line says yes). *Not done, on purpose:* no
+  human has run it, and no number in §9 is filled; no treaty oracle, since
+  the study's fixtures are instruments held by their own check, not oracles
+  of the language; no Excel pass beyond the owner opening the four
+  workbooks. *What "run" means:* `PROTOCOL.md` §10: the two pilot rows of
+  §9.1, the benchmark table of §9.2 from a real browser in fullscreen, the
+  decisions of §9.3 by §8 in a dated entry, the copy into CALLOSUM's slot,
+  and `KERNEL.5`'s roadmap entry amended with the renderer chosen; the item
+  closes on that entry, not on this record. *Amended the same day, after
+  the owner's first fullscreen run:* the four cases kept every frame and the
+  strict 16.7 ms bar tripped on vsync jitter at the interval, so
+  `PROTOCOL.md` §8.1 now reads each draw's main-thread cost and the display's
+  interval, and the benchmark gained a dense record (600 by 52, every cell
+  filled), a ladder of four cell sizes at full screen, page-sized steps
+  beside the three-row steps, a row-recycling DOM renderer, and a slope and
+  capacity per renderer under the table (§7's amended entry). *Run,
+  2026-10-08, the benchmark half (the owner, Chrome 154, a 2560 by 1440 CSS
+  screen at a ratio of 1.5, 60 Hz, in fullscreen):* canvas. Over the dense
+  record the DOM holds the frame at the default cell size (1,846 cells with
+  text, page p95 14.3 ms of 16.7) and fails one size down (2,759 cells,
+  24.9 ms); the canvas holds through 12 by 64 px, the densest legible size
+  (4,641 cells, 13.1 ms), and fails only at 7 px text (7,436 cells, 22.5
+  ms, no frame dropped); a full rewrite costs 8.2 ms per thousand cells for
+  the DOM and 3.1 for the canvas, a three-row step 3.9 and 1.8, the DOM's
+  being the browser's paint walk over every element on screen (its script's
+  own part is 0.3 ms at every size). `PROTOCOL.md` §9.2 and §9.3 carry the
+  dated entries, CALLOSUM's slot the measurement, and `KERNEL.5`'s roadmap
+  entry the renderer; the study's human half, §9.1's pilot rows and the two
+  provisional answers, is still the owner's to run, and the item stays open
+  for it. *Blessed 2026-10-09:* the owner opened the four workbooks in Excel;
+  every plant shows its symptom as `PROTOCOL.md` §3.2 names it and the keys
+  total as §4.1 builds them (§3.4's entry); Excel's own error checking marks
+  the copy-and-paste plant of each variant with its green triangle, which the
+  runner notes in condition B's row; `KERNEL.7`'s recalculation reproduces
+  every cached value of the four, 176 of 176. The crispness clause is closed
+  by the owner's eye at a ratio of 1.5 in `KERNEL.5`'s hand test in Alonzo,
+  2026-10-08 (§9.2's entry). *Owner's
+  test:* `powershell
+  -File tools\run_checks.ps1` (52 of 52); open `scripts\study\find_a.xlsx`
+  and `find_b.xlsx` in Excel and read `Sales` against `PROTOCOL.md` §3.2
+  (the planted cells as named, nothing else amiss) and `build_a.xlsx`,
+  `build_b.xlsx` against §4.1; `powershell -File tools\bench_view.ps1`,
+  then open `tools\bench_view.html` (it runs once on opening), press
+  Fullscreen (it runs again), Copy; then the run itself, at the owner's
+  pace.
 - ✅ **`KERNEL.4` — the view record.** *Substrate, verified:* the walker in
   `build.rs` knows which sentence wrote which cell, since its refusals quote
   the sentence; the sheet model holds value, formula, shared formula,

@@ -110,7 +110,9 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # 2026-10-09, KERNEL.22: 53 - check_wasm_exports.ps1 (the core's module and the
 # language's export exactly their lists, the language's C surface only under
 # its feature).
-$expectedAtLeast = 53
+# 2026-10-09, KERNEL.3: 54 - check_study_fixture.ps1 (the study's answer key,
+# written 2026-10-08 and committed after KERNEL.22).
+$expectedAtLeast = 54
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---
