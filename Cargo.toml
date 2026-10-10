@@ -22,7 +22,7 @@ members = ["vla-lang", "core", "cli"]
 # One corpus, one version: tools/check_version_twin.ps1 holds this equal to
 # VLA_RELEASE_VERSION in src/VLA.bas and to the door's pin below. All three
 # are bumped by hand at release (DI.3a) and nowhere else.
-version = "0.8.0"
+version = "0.8.1"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/Spreadsheet-Company/Frazaro"
@@ -35,11 +35,11 @@ rust-version = "1.75"
 # requirement is what the published manifest keeps, since crates.io resolves
 # a dependency by version alone. tools/check_version_twin.ps1 holds it equal
 # to the version above.
-frazaro-core = { path = "core", version = "=0.8.0" }
+frazaro-core = { path = "core", version = "=0.8.1" }
 # The language, pinned the same way by the core: `frazaro-core` at a version
 # is the bridges over `vla-lang` at the same version (PORT.12), and
 # tools/check_version_twin.ps1 holds this pin equal too.
-vla-lang = { path = "vla-lang", version = "=0.8.0" }
+vla-lang = { path = "vla-lang", version = "=0.8.1" }
 
 [profile.release]
 # Small, deterministic, and without an unwinder: a panic aborts, so the wasm

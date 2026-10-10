@@ -4,18 +4,18 @@ version = 3
 
 [[package]]
 name = "frazaro"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "frazaro-core",
 ]
 
 [[package]]
 name = "frazaro-core"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "vla-lang",
 ]
 
 [[package]]
 name = "vla-lang"
-version = "0.8.0"
+version = "0.8.1"

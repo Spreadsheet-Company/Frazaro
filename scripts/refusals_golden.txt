@@ -222,13 +222,13 @@ REFUSED	-	english-vocab-expansion-not-directive	english-vocab-expansion-not-dire
 === phrasebook english-vocab-unrecognized-directive
 REFUSED	-	english-vocab-unrecognized-directive	english-vocab-unrecognized-directive line 1: unrecognized top-level directive 'frobnicate'
 === phrasebook english-vocab-requires-version-unmet
-REFUSED	-	english-vocab-requires-version-unmet	english-vocab-requires-version-unmet line 1: this phrasebook needs Frazaro 99.0.0 or newer; this is 0.8.0 - upgrade Frazaro, or use a build of the phrasebook written for 0.8.0
+REFUSED	-	english-vocab-requires-version-unmet	english-vocab-requires-version-unmet line 1: this phrasebook needs Frazaro 99.0.0 or newer; this is 0.8.1 - upgrade Frazaro, or use a build of the phrasebook written for 0.8.1
 === phrasebook english-vocab-requires-version-malformed
 REFUSED	-	english-vocab-requires-version-malformed	english-vocab-requires-version-malformed line 1: 'abc' is not a version - a (requires-version ...) declaration takes a plain MAJOR.MINOR.PATCH number in quotes, like (requires-version "0.5.2")
 === phrasebook english-vocab-requires-missing-value
 REFUSED	-	english-vocab-requires-missing-value	english-vocab-requires-missing-value line 1: this (requires-version ...) declaration names no value - it takes exactly one, in quotes, like (requires-version "..."); a bare word is not one
 === phrasebook english-vocab-requires-unknown-namespace
-REFUSED	-	english-vocab-requires-unknown-namespace	english-vocab-requires-unknown-namespace line 1: 'magic' is not a kind of requirement this build understands (it knows version, capability and form), so it cannot confirm the requirement was met and will not load the phrasebook - this phrasebook was most likely written for a newer Frazaro than 0.8.0, and a (requires-version ...) declaration would have said exactly which one
+REFUSED	-	english-vocab-requires-unknown-namespace	english-vocab-requires-unknown-namespace line 1: 'magic' is not a kind of requirement this build understands (it knows version, capability and form), so it cannot confirm the requirement was met and will not load the phrasebook - this phrasebook was most likely written for a newer Frazaro than 0.8.1, and a (requires-version ...) declaration would have said exactly which one
 === phrasebook english-vocab-requires-form-unsupported
 REFUSED	-	english-vocab-requires-form-unsupported	english-vocab-requires-form-unsupported line 1: (requires-form "if") is understood but not yet enforceable - the record of which release each form first worked in (docs/GRAMMAR_SINCE.md) is not carried inside Frazaro yet, so this build cannot check it and refuses rather than passing it silently. Use (requires-version ...) for now
 === phrasebook english-vocab-requires-from-expansion

@@ -19,7 +19,7 @@ Option Explicit
 ' signal (see SD-14 for what each of the three numbers means from here)
 ' and a deliberate homage to John McCarthy's LISP 1.5 Programmer's Manual,
 ' this project's own most direct ancestor in spirit.
-Public Const VLA_RELEASE_VERSION As String = "0.8.0"
+Public Const VLA_RELEASE_VERSION As String = "0.8.1"
 Public Const VLA_CORE_VERSION As String = "SEC.15"
 ' SEC.15: THE FORMULA SINK IS THE RUNTIME'S. EmitStmt's "set!" arm writes
 ' Call VlaSetFormula(obj, text) for exactly (set! (. obj formula) v), where

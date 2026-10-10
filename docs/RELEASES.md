@@ -2,7 +2,7 @@
 
 *Newest first. `tools/release.ps1 -Version X.Y.Z` publishes the section headed `## X.Y.Z` as that release's notes and refuses to run without one, so the notes are written before the release, never after. Cadence: a `0.5.N` patch at the end of each working day, a `0.N.0` minor at the end of each week; security and safety fixes ride the patches, larger features the minors. Each section carries a short *Known open security items* block: the standing advice, what closed in that release, and a pointer to the authoritative list. It does NOT re-enumerate every open item — that list lives in `docs/BETA_REARVIEW.md` (full, with dispositions) and `README.md` (plain words), which are edited once rather than copied into every release forever. Sections written before `0.5.3` keep their longer blocks as published; they are history, not a template.*
 
-## 0.9.0
+## 0.8.1
 
 ### What changed
 
@@ -41,8 +41,10 @@
   mechanism lives in `vla-lang`, so an engine built on the language has it
   without the core; Excel's library registers through its functions seam,
   the kernel's sixth (KERNEL.7; the histogram is KERNEL.6's instrument).
-- **For embeddings: the language is a crate of its own, `vla-lang`.** The
-  reader, the macro expander, the forms and the head table, the grid with
+- **For embeddings: the language is a crate of its own, `vla-lang`,
+  published to crates.io with this release beside `frazaro-core` and
+  `frazaro`, all three at this release's version.** The reader, the macro
+  expander, the forms and the head table, the grid with
   the references read out of a formula's text, and the view record now live
   in `vla-lang`, a crate with no dependency, no English, no file format and
   an empty import section when built to WebAssembly; `frazaro-core` depends
