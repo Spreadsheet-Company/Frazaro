@@ -135,6 +135,13 @@ pub trait Env {
     fn dense(&self, _sheet: usize) -> Option<&Dense> {
         None
     }
+
+    /// The cell being computed from now on, told by an evaluation of many
+    /// cells at once before it computes at each (KERNEL.20, `super::vector`),
+    /// so that [`Env::here`] answers it: an engine's machine keeps it as it
+    /// keeps the cell it evaluates alone. Nothing, unless an environment
+    /// says otherwise.
+    fn enter(&self, _id: CellId) {}
 }
 
 /// A strict function: its arguments evaluated, a value or a reason out.
@@ -144,11 +151,24 @@ pub type Strict = fn(&Ctx<'_>, &[Arg<'_>]) -> Result<Value, Reason>;
 /// living as long as the arguments it was evaluated from.
 pub type Form = for<'e> fn(&Ctx<'_>, &'e [Expr]) -> Result<Arg<'e>, Reason>;
 
+/// A form an evaluation of many cells at once computes by itself
+/// (KERNEL.20, `super::vector`), known by the name the language's library
+/// registers it under. Any other registration of the name replaces it, so
+/// that a crate above that registers a meaning of its own has that meaning
+/// computed, cell by cell.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Known {
+    /// `library::if_`.
+    If,
+}
+
 /// The functions a formula may call, by upper-case name: the seam.
 #[derive(Default)]
 pub struct Library {
     strict: BTreeMap<String, Strict>,
-    forms: BTreeMap<String, Form>,
+    /// Each form, and whether it is one an evaluation of many cells at once
+    /// knows (KERNEL.20).
+    forms: BTreeMap<String, (Form, Option<Known>)>,
 }
 
 impl Library {
@@ -169,7 +189,20 @@ impl Library {
     pub fn register_form(&mut self, name: &str, f: Form) {
         let key = name.to_ascii_uppercase();
         self.strict.remove(&key);
-        self.forms.insert(key, f);
+        self.forms.insert(key, (f, None));
+    }
+
+    /// Register one of the language's own forms as one an evaluation of
+    /// many cells at once computes by itself (KERNEL.20).
+    pub(crate) fn register_known(&mut self, name: &str, f: Form, known: Known) {
+        let key = name.to_ascii_uppercase();
+        self.strict.remove(&key);
+        self.forms.insert(key, (f, Some(known)));
+    }
+
+    /// The known form registered under that name, without case.
+    pub(crate) fn known(&self, name: &str) -> Option<Known> {
+        self.forms.get(&*key(name)).and_then(|&(_, known)| known)
     }
 
     /// The strict function of that name, without case.
@@ -179,7 +212,7 @@ impl Library {
 
     /// The form of that name, without case.
     pub fn form(&self, name: &str) -> Option<Form> {
-        self.forms.get(&*key(name)).copied()
+        self.forms.get(&*key(name)).map(|&(f, _)| f)
     }
 
     /// Whether the library holds a function of that name.
@@ -396,7 +429,7 @@ impl<'a> Ctx<'a> {
         Ok(())
     }
 
-    fn reference<'e>(&self, r: &'e RefExpr) -> Result<Arg<'e>, Reason> {
+    pub(super) fn reference<'e>(&self, r: &'e RefExpr) -> Result<Arg<'e>, Reason> {
         let home = self.env.here().0;
         let (d_row, d_col) = self.offset.get();
         match areas_at(self.env.model(), home, r, d_row, d_col) {

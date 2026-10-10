@@ -6,17 +6,20 @@
 
 ### What changed
 
-- **For engines: a frame of a grid steps about two and a half times as
-  fast.** The previous frame's values, which a rule reads through each
-  sheet's hidden twin (`Screen.last`), are now kept as an array beside the
+- **For engines: a frame of a grid steps more than five times as fast.**
+  A formula filled over many cells is now computed at all of them at once,
+  one step of the formula at a time, where each cell used to walk the whole
+  formula alone; a constant, and a reference every `$` holds, is read once
+  for all of them. The previous frame's values, which a rule reads through
+  each sheet's hidden twin (`Screen.last`), are kept as an array beside the
   twin's cells, so that reading one is an index and a range of them a walk
   of the array; a reference finds the sheet it names once, when its formula
-  is placed, and a function's arguments no longer cost an allocation. A
+  is placed; and a function's arguments no longer cost an allocation. A
   frame of Life on a 320 by 200 Screen, 62,964 formulas, steps in about
-  40 ms natively and 54 ms in WebAssembly in the browser, where 0.8.1 took
-  about 100 and 138, and makes about a hundred allocations where it made a
-  quarter of a million. Every value is computed exactly as before
-  (KERNEL.20, its first two slices).
+  19 ms natively and 25 ms in WebAssembly in the browser, 40 frames a
+  second, where 0.8.1 took about 100 and 138, and makes about a hundred
+  allocations where it made a quarter of a million. Every value is computed
+  exactly as before (KERNEL.20, its first three slices).
 - **For everyone: text a stranger wrote is refused by name, never a crash.**
   A program, a phrasebook or a cartridge holding lists nested more than 64
   deep is refused by name (`vla-form-too-deep`). Before, the reader

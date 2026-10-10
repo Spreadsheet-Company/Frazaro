@@ -20663,6 +20663,254 @@ left in the tree. Its tree was checked first in the worktree, 54 of 54.
 `KERNEL.20` stays open, 🟡, for the rest of its line: the vectorized shape,
 the rows' values kept as arrays, and a call's function found at the shape.
 
+**`KERNEL.20`, speed: the third slice, the vectorized shape: the scoping,
+2026-10-10.** Begun at the owner's word, "proceed with slice 3 of
+KERNEL.20", on what the second slice named: in the browser a frame of Life
+was 53.8 ms, most of it the evaluator walking its parse cell by cell, which
+the vectorized shape takes. Built and measured in a worktree at `ee4210b`,
+the second slice's commit. The peer's `VLA.3` was committed meanwhile as
+`494100a`, touching none of the slice's code, and the slice was carried onto
+it unchanged and checked there.
+
+*Read in the code before anything was proposed*, at `ee4210b`:
+- A formula cell's evaluation (`Shapes::evaluate`) makes a `Ctx` at the
+  cell's offset and walks the shape's parse: each node matched, each call's
+  function looked up by name, each operand made as an `Arg` and dropped,
+  each reference's rectangle moved by the offset. Life's rule is one shape
+  over 62,964 cells, its steady branch
+  `IF(OR(SUM(Screen.last!A1:C3)-Screen.last!B2=3,AND(...)),1,0)` behind
+  `IF(Clock!$B$1=1,...)`: at every cell two `SUM`s over a 3 by 3 range of
+  the twin, four reads of `B2`, five operators, four calls of the library
+  and two `IF`s, the outer condition the same at every cell.
+- The machine's step evaluates the order one cell at a time, each answer
+  kept as the frame's before the next, so that a cell later in the order
+  reads it. The order is Tarjan's over the cells sorted by sheet, row and
+  column, which for cells that read no formula of the plan is that sorted
+  order itself, row by row.
+- The library holds forms (`IF`, `CHOOSE`), handed their arguments
+  unevaluated so that only a branch taken is computed, and strict
+  functions, handed evaluated operands; a reference operand is an area the
+  function walks (`each_number`, `each_truth`).
+- `ROW()`, `COLUMN()` and a reference to the formula's own sheet read the
+  cell being computed from the environment (`Env::here`), which the machine
+  sets before each cell.
+- `VLA.1` pins the deepest formulas, loaded and stepped, on a stack of
+  1 MiB in a debug build, each in one cell.
+
+*The decisions*, built at the owner's word of the day, each with its
+alternative and its measurement, open to the owner's veto before the
+commit.
+
+1. **A slice of `KERNEL.20`: the vectorized shape**, the first of the
+   item's three structural advantages, over the cheaper frame the first two
+   slices made. *Alternatives:* the rows' values kept as arrays first, a
+   smaller change for less (1.8 ms of a native frame and the snapshot's
+   4.1, measured below); a shape compiled to instructions evaluated cell by
+   cell, which keeps a walk at every cell.
+2. **The run, the unit evaluated at once**: cells of one shape on one
+   sheet, consecutive in the order of evaluation, none reading another, so
+   that all of them may be computed before any. At least four cells
+   (`shape::RUN`); fewer are evaluated alone, as before. Found when the plan
+   is made: a cell joins the run before it unless one of its edges reaches a
+   cell of the run. Evaluated up to 256 cells at a time (`vector::CHUNK`), a
+   lane of their answers a few kilobytes, so that the lanes a formula holds
+   at once stay in the cache; a step's budget cuts a run where it falls, and
+   each part's answers are the frame's before anything after it is
+   evaluated. *Alternatives:* a whole shape at once, wrong when its cells
+   read one another (a running total down a column); a whole run at once,
+   lanes of 62,964 answers, 2 MB each, past the cache.
+3. **The meaning, the cell by cell evaluation's: node by node, every value
+   made by the same functions.** Each node is evaluated at every cell of
+   the run, into a lane of answers (`Result<Value, Reason>`), before its
+   parent: an operator by `binary`, a sign or a percent as `Ctx` makes it,
+   a strict call by its own function called at each cell with the operands
+   it is called with there, a reference operand made at each cell as
+   `Ctx::eval` makes one. A reason propagates as it does alone, each cell's
+   answer the first its own evaluation meets left to right; an operand
+   evaluated at a cell whose answer an earlier one has decided is computed
+   for nothing and changes nothing, an evaluation having no effect but its
+   answer. `IF` evaluates its condition at every cell, then each branch at
+   the cells that take it and at no other. A constant, and a one-cell
+   reference every `$` holds, is computed once for the run, a lane the same
+   at every cell; a one-cell reference to a sheet kept as an array is read
+   by index, an empty slot through the environment, where a reason may
+   stand. *Alternatives:* the language's own `SUM`, `AND` and `OR` computed
+   over an array by the run itself, functions the library holds written a
+   second time, the next slice's ground by measurement (decision 10); lanes
+   of numbers typed apart, the same.
+4. **What a run leaves to each cell**, computed there by `Ctx` itself: a
+   defined name, a form other than the language's `IF` (`CHOOSE`), a range
+   where one value is wanted, and a strict call with an operand that may be
+   an area other than a reference written as one (a name, or a form that
+   may answer a reference).
+5. **The language's `IF` known by its registration.** `library::language()`
+   registers it as a form a run computes by itself (`Known::If`, beside the
+   form in the library's one map of forms), and any other registration of
+   the name replaces it, so that a crate above that registers its own `IF`
+   has its own computed, cell by cell. *Alternative:* comparing function
+   pointers, which Rust does not promise to keep distinct, and which clippy
+   refuses.
+6. **The plan's order by level, then shape, then cell.** A cell's level is
+   0 when it reads no formula of the plan, else one past the deepest it
+   reads. Any order that puts a cell after what it reads computes the same
+   frame, and no cell reads a cell of its own level, so a shape's cells of
+   one level stand together and make a run, whether the shape fills rows
+   or a column beside others. Found by this slice's own test of reasons
+   (below), whose nine shapes, each a column, made no run at all in the
+   order as it was, where row by row they interleave. Two counting sorts,
+   by shape and then by level, linear in the cells. Life's order is the
+   order it was, its one shape on one level. *Alternatives:* the order as
+   it was, Life one run and a grid of column shapes none; a stable sort of
+   the three keys, measured at 4.8 KB of the module.
+7. **The run's buffers, the machine's, made in its first frame.** The
+   lanes are buffers the machine keeps from one run and one frame to the
+   next (`Lanes`), so that a frame makes none. A run makes, before it
+   begins, as many as its parse can hold at once whatever branch its cells
+   take (`vector::holds`, an upper bound found once a shape), so that a
+   frame whose cells take a branch none took before makes none either. A
+   value the same at every cell is copied as often as alone, the last cell
+   taking it. Found by the gun, whose first frame takes its seed's branch:
+   its rule's lanes were made in its second frame, the one `CART.1`'s check
+   counts, 103 allocations where 96 had been.
+8. **The cell being computed, told to the environment**: `Env::enter`, a
+   provided method that does nothing, which the machine answers by setting
+   the cell its `here` returns, called before each cell's evaluation by
+   `Ctx`, each strict call and each reference made at a cell, so that
+   `ROW()`, `COLUMN()` and a reference's own sheet answer for the cell.
+9. **The oracle.** Four tests. Generated grids of two sheets, value cells
+   of every kind and formulas in bands, each band one shape, over every
+   kind of node a run computes and every kind it leaves to each cell
+   (operators, chains, signs, percents, `IF` with a branch left out, `AND`,
+   `OR`, `NOT`, `SUM`, `MIN`, `MAX`, `ABS`, `INT`, `SIN`, `MOD`, `ROW`,
+   `COLUMN`, `CHOOSE`, names, ranges where one value is wanted, references
+   with every kind of `$`, to twins, to the sheet before, to formulas
+   above, to the cell to the left so that a run reads itself, off the
+   sheet, a span of both sheets), every reference pointing before its cell
+   so that no grid holds a cycle. Each grid stepped by runs in slices of
+   any budget and alone, every formula's value equal to the bit, frame
+   after frame, with writes between frames that change values and break a
+   band's shape, and its first frame equal to `Calc`'s over the same
+   workbook, which plans its own order and parses every cell's own text:
+   eighty grids, 93% of their cells in runs. Every operand a reason, in
+   every place a run computes, each cell answering the first reason met.
+   A run of 600 cells stepped in budgets ending inside a part, at its end
+   and past it, each step evaluating exactly the cells its budget allows,
+   counted by a function each evaluation calls once. A shape whose first
+   frame takes a branch with no call and whose later frames take one of
+   many, the buffers its later frames hold all made in the first. Mutants,
+   each applied once and restored. The stack each of `VLA.1`'s deepest
+   formulas uses, in one cell and over a run of eight, loaded and stepped,
+   against HEAD's. *Measured:* `CART.1`'s runner and Alonzo's instrument,
+   natively and in the browser, and a profile of the new frame.
+10. **What remains, named.** Measured over the new frame natively, with
+    timers in a copy: a strict call at each cell is 8 ms of a frame of 19
+    (Life's two `SUM`s over a range 4.9, its `AND` and `OR` 3.0), the
+    one-cell reads 2.1, the operators 2.0, the frame's values kept in a map
+    1.8 and the snapshot 4.1. The first two are the language's own
+    aggregates and truth functions computed over an array, and lanes of
+    numbers typed apart: functions written a second time for the run beside
+    the library's, the owner's call, this slice having made every value
+    with the library's own. The last two are the rows' values kept as
+    arrays.
+11. **The bookkeeping and the hand-off.** `RELEASES.md`'s 0.8.2 bullet,
+    three slices now; `KERNEL.20`'s dated note; this entry; the map; the
+    memory. The commit at the owner's word, HEAD and this slice's files
+    alone. Then Alonzo's session: its pin moves to the commit, its frames
+    hold, and its allocation ceilings stand at 96.
+
+*Size*: no prediction was written before the build. Measured after it: the
+run's evaluation, `vla-lang/src/calc/vector.rs`, 686 lines, a third of them
+comments; the plan's order, its runs and each shape's bound, 177 lines of
+`shape.rs`; `eval.rs` 37, `library.rs` 8, `calc/mod.rs` 9; the machine about
+50 lines and its tests about 440, the grids' generator most of them.
+
+*Built 2026-10-10*, in a worktree at `ee4210b`. `vla-lang/src/calc/vector.rs`
+(new): `Lanes`, `holds`, `evaluate`, the run's evaluation node by node, `IF`'s
+partition and its branches, a strict call's loops over the cells in frames of
+their own. `vla-lang/src/calc/shape.rs`: the runs (`Run`, `RUN`, `run_at`,
+`evaluate_run`), the order by level, shape and cell (`order_and_runs`, a
+counting sort `by_key`), each shape's bound (`Shape::holds`), the module's
+header. `vla-lang/src/calc/eval.rs`: `Known`, beside each form in the library's
+map, `register_known` and `known`; `Env::enter`; `Ctx::reference` open to the
+module beside it. `vla-lang/src/calc/library.rs`: `IF` registered as known.
+`vla-lang/src/calc/mod.rs`: the module and the header.
+`vla-lang/src/machine/mod.rs`: the step by runs (`evaluate_run`), the buffers
+and the answers kept, `Env::enter`, a switch for the tests that hold runs to
+the cells alone, the module's header, four tests and their generator.
+
+*The stack*, found by painting: a thread of 8 MiB fills its stack below it
+with a pattern, loads and steps the formula, and the lowest byte changed is
+the high-water mark, to the byte, where a search of a thread's size sees
+only Windows' steps of 64 KiB. Every load uses 0.5 KiB more than at HEAD
+(the deepest, 64 nested `SUM`s of a reference, 955.4 KiB where it used
+954.9), and a step of one cell 0.1 KiB more. A step of a run of eight uses
+less than the same formula alone, a level of the run's evaluation being a
+smaller frame than a level of `Ctx`'s in a debug build: 64 nested `MOD`s
+127.7 KiB where alone they use 229.0, `ABS` 127.1 where 203.0, signs 74.1
+where 152.0, `IF`s 211.1 where 221.8, `SUM`s of a reference 128.3 where
+204.5, 63 additions nested on the right 100.1 where 149.7. A search of a
+thread's size first reported a chain of 4,095 additions loading in 40 KiB
+where 8 had held, and overflowing in some runs and not in others: the load
+uses 19.3 KiB, 0.5 more than at HEAD, and a thread asked for less than
+64 KiB is given 64, less the 20 KiB Rust's standard library keeps for
+reporting an overflow, an edge the chain's load stands near, where the
+0.5 KiB tips it in some runs. Two parts of the slice taken out in turn (the
+bound, the order) moved nothing, before the painting showed where the half
+kilobyte is: in every load alike.
+
+*Measured*, every frame of every run equal to the hand-written Life, over
+`ee4210b`. `CART.1`'s runner on one performance core, three rounds
+alternated, each the median of its round medians: a steady frame of the
+soup from 39.8 ms to 19.3 (2.06 times), the gun from 39.0 to 19.2 (2.03
+times); the soup's first frame from 112 to 51; the load 2.5 ms longer, 67.0
+to 69.5, for the levels and the runs; the check mode 96 allocations and 5
+reallocations a frame for each, as at HEAD. Alonzo's instrument over whole
+copies, three runs each: the soup natively from 40.3 to 19.0 ms (2.12
+times) and in headless Chrome from 52.3 to 24.8 (2.11 times), 19.1 to 40.3
+frames a second; the gun from 39.6 to 19.2 and from 53.0 to 24.4 (2.17
+times). From 0.8.1's frame: natively 102 to 19 ms, in the browser 138 to
+25, about 5.4 and 5.6 times. The modules over `ee4210b`: the engine's
+530,668 to 563,280 bytes, the language's with `c-abi` 444,536 to 476,858,
+the core's 1,133,956 to 1,144,589. Decision 10's profile was taken in a copy
+with timers, never in the worktree.
+
+*Oracle, met* in the worktree, `494100a` and this slice alone: `cargo test
+--workspace`, 339 passed and 5 ignored, the four new tests over `VLA.3`'s
+335, `VLA.1`'s limits and strangers among them on their stack of 1 MiB; fmt
+clean; clippy clean, with `c-abi` too; mutants, each failing in the tests
+that name its decision: the right operand's reason before the left's; a
+condition the same at every cell taking the other branch; a branch computed
+at every cell and its answers placed by count; a half-held reference read
+once for the run; an empty slot read as a value, past its reason; the
+environment never told the cell; a run that reads itself left whole; a
+percent multiplied; two operands taken right to left, and three; an empty
+answer left unsettled; every `IF` taken for a value; a reference operand
+read as one value; a run past the budget; the left operand's reason dropped
+when it is the same at every cell; a chain's links right to left; a sign
+not applied to a value the same at every cell; a condition that is not a
+truth value left as it is; a missing else as 0; a found sheet read as the
+home sheet; the order blind to levels; a reader on its source's level; no
+buffers made before a run; `IF`'s positions counted short. One mutant
+survives and is equivalent: a risky shape admitted to a run. A grid whose
+risky shape has a cell its moved text does not read is refused at the load,
+and a risky shape whose every cell reads computes alike either way; the
+guard stays. The clean run after them passed. `run_checks.ps1` 55 of 55
+with the door, both modules and the page built there; `prove.ps1` 46
+passed, 0 failed, 2 not attempted, 1 library. No Excel step: the slice
+touches no VBA.
+
+*Committed 2026-10-10 at the owner's word*, "Mint the two outstanding 19ms
+native frame decisions as a single roadmap item to be adjudicated later,
+then commit": the owner took the oracle above as the slice's test, the
+slice touching no VBA. The commit holds `494100a` and this slice's nine
+files alone, staged blob by blob from the worktree; its tree was checked
+first in the worktree, 55 of 55. The two decisions decision 10 names are
+filed as one item in a commit of their own after it. `KERNEL.20` stays
+open, 🟡, for the rest of its line: incremental maintenance, the
+evaluation of identical shapes once, values folded at build time, the view
+evaluating its window and its cone, and the measurement against Excel with
+its floors.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION

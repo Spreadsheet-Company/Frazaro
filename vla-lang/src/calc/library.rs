@@ -20,14 +20,16 @@
 //! the kind the function wants (`SUM` skips a text and a truth value in a
 //! range), an empty cell is skipped, and an error anywhere is the answer.
 
-use super::eval::{finite, Arg, Ctx, Library, Reason};
+use super::eval::{finite, Arg, Ctx, Known, Library, Reason};
 use super::formula::Expr;
 use super::value::{ErrorKind, Value};
 
-/// The language's library, every function above registered.
+/// The language's library, every function above registered; `IF` as the
+/// form an evaluation of many cells at once computes by itself, as `if_`
+/// computes it at one (KERNEL.20).
 pub fn language() -> Library {
     let mut lib = Library::empty();
-    lib.register_form("IF", if_);
+    lib.register_known("IF", if_, Known::If);
     lib.register("AND", and);
     lib.register("OR", or);
     lib.register("NOT", not);
@@ -154,6 +156,9 @@ pub fn number_arg(
     Ok(ctx.one(arg)?.number())
 }
 
+/// `IF`, which an evaluation of many cells at once computes by itself
+/// (`super::vector`, its `if_`): a change here is a change there, and the
+/// machine's tests hold the two to each other (KERNEL.20).
 fn if_<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
     if args.len() < 2 || args.len() > 3 {
         return Ok(Arg::Scalar(Value::Error(ErrorKind::Value)));

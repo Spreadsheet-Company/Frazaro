@@ -24,6 +24,12 @@
 //! among the grid's and its twins, which are fixed for the grid's life
 //! (KERNEL.20), where a reference found its sheet by name at every
 //! evaluation.
+//!
+//! The order is by level, a cell's being one past the deepest it reads, then
+//! by shape and cell, which computes the frame any order after what each cell
+//! reads computes; its runs are the cells of a shape that stand together in
+//! it, on one sheet, reading none of one another, and an engine evaluates
+//! each run at once, node by node (`super::vector`, KERNEL.20).
 
 use std::collections::HashMap;
 
@@ -35,6 +41,7 @@ use crate::sheet::{cell_ref, shared_masters, strip_future_prefixes, Content, Wor
 use super::eval::{Computed, Ctx, Env, Library, Reason};
 use super::formula::{self, Expr, Read, RefExpr};
 use super::graph::{self, areas_at, cells_in, dependencies, is_formula, CellId, Extent, Names};
+use super::vector::{self, Lanes};
 
 /// One formula, parsed once, and the cell it was read at.
 #[derive(Clone, Debug)]
@@ -57,6 +64,9 @@ pub struct Shape {
     /// `#REF!#REF!`). Found 2026-10-09 by holding the offset to the moved
     /// text's parse over the refers fixture.
     risky: bool,
+    /// The most buffers an evaluation of the parse at many cells holds at
+    /// once, found once (KERNEL.20, `vector::holds`).
+    holds: (usize, usize),
 }
 
 impl Shape {
@@ -98,7 +108,24 @@ pub struct Shapes {
     unread: FxHashMap<CellId, String>,
     order: Vec<CellId>,
     cycles: Vec<Vec<CellId>>,
+    /// The runs of the order an engine evaluates at once (KERNEL.20), by
+    /// their first position: each of at least [`RUN`] cells of one parsed
+    /// shape that is not risky, on one sheet, consecutive in the order, none
+    /// reading another.
+    runs: Vec<Run>,
 }
+
+/// A run of the order: its cells are `order[start..end]`, of one shape.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Run {
+    start: usize,
+    end: usize,
+    shape: usize,
+}
+
+/// The fewest cells a run is evaluated at once for; fewer are evaluated one
+/// by one, as every cell was before (KERNEL.20).
+pub(crate) const RUN: usize = 4;
 
 impl Shapes {
     /// A plan with nothing in it.
@@ -222,12 +249,14 @@ impl Shapes {
         });
         missing.sort_unstable();
         missing.dedup();
+        let holds = expr.as_ref().map_or((0, 0), |e| vector::holds(library, e));
         self.shapes.push(Shape {
             text,
             expr,
             anchor,
             missing,
             risky,
+            holds,
         });
         self.shapes.len() - 1
     }
@@ -246,10 +275,12 @@ impl Shapes {
             holds[id.0] = true;
         }
         let mut adj: Vec<Vec<usize>> = vec![Vec::new(); ids.len()];
+        let mut shape_of: Vec<usize> = Vec::with_capacity(ids.len());
         let mut deps: Vec<CellId> = Vec::new();
         for (vi, id) in ids.iter().enumerate() {
             deps.clear();
             let p = self.places[id];
+            shape_of.push(p.shape);
             let shape = &self.shapes[p.shape];
             let read = !self.unread.contains_key(id);
             match &shape.expr {
@@ -303,11 +334,48 @@ impl Shapes {
             edges.dedup();
         }
         let components = graph::tarjan(&adj);
+        self.order_and_runs(&ids, &adj, &shape_of, &components);
+    }
+
+    /// The order, the cycles and the runs, from the cells, each one's edges
+    /// and shape, and the components, which come each after everything it
+    /// reads.
+    ///
+    /// Each cell's level is 0 when it reads no formula of the plan, else one
+    /// past the deepest it reads, its component's. The order is by level,
+    /// then shape, then cell, sheet first: any order that puts a cell after
+    /// what it reads computes the same frame, and in this one the cells of a
+    /// shape that read none of one another stand together, whether the shape
+    /// fills rows or a column beside others (KERNEL.20).
+    fn order_and_runs(
+        &mut self,
+        ids: &[CellId],
+        adj: &[Vec<usize>],
+        shape_of: &[usize],
+        components: &[Vec<usize>],
+    ) {
         self.order.clear();
         self.cycles.clear();
-        for comp in components {
+        self.runs.clear();
+        let mut component = vec![0; ids.len()];
+        let mut level = vec![0; ids.len()];
+        let mut alone = vec![false; ids.len()];
+        for (c, comp) in components.iter().enumerate() {
+            for &v in comp {
+                component[v] = c;
+            }
+            let deepest = comp
+                .iter()
+                .flat_map(|&v| &adj[v])
+                .filter(|&&u| component[u] != c)
+                .map(|&u| level[u] + 1)
+                .max()
+                .unwrap_or(0);
+            for &v in comp {
+                level[v] = deepest;
+            }
             if comp.len() == 1 && !adj[comp[0]].contains(&comp[0]) {
-                self.order.push(ids[comp[0]]);
+                alone[comp[0]] = true;
             } else {
                 let mut cells: Vec<CellId> = comp.iter().map(|&i| ids[i]).collect();
                 cells.sort_unstable();
@@ -315,6 +383,93 @@ impl Shapes {
             }
         }
         self.cycles.sort();
+        // By shape and then by level, each pass keeping the order before it,
+        // so by level, shape and cell, a cell's sheet first among its own.
+        let cells: Vec<usize> = (0..ids.len()).filter(|&v| alone[v]).collect();
+        let cells = by_key(&cells, self.shapes.len(), |v| shape_of[v]);
+        let levels = level.iter().max().map_or(0, |deepest| deepest + 1);
+        let order = by_key(&cells, levels, |v| level[v]);
+        // The run each cell of the order joined, by the run's first position:
+        // a cell joins the run before it when it is of the run's shape and
+        // sheet and reads no cell of the run, so that the run's cells may be
+        // computed in any order, all at once among them (KERNEL.20).
+        let mut joined = vec![usize::MAX; ids.len()];
+        let mut run = Run {
+            start: 0,
+            end: 0,
+            shape: usize::MAX,
+        };
+        for v in order {
+            let (id, shape) = (ids[v], shape_of[v]);
+            let pos = self.order.len();
+            let joins = shape == run.shape
+                && id.0 == self.order[run.start].0
+                && adj[v].iter().all(|&u| joined[u] != run.start);
+            if !joins {
+                self.keep(run);
+                run = Run {
+                    start: pos,
+                    end: pos,
+                    shape,
+                };
+            }
+            joined[v] = run.start;
+            run.end = pos + 1;
+            self.order.push(id);
+        }
+        self.keep(run);
+    }
+
+    /// A run of the order kept to be evaluated at once when it is long
+    /// enough and its shape parsed and not risky, so that every cell of it
+    /// reads as the shape does (KERNEL.20). (A risky shape's cells all read
+    /// as it does in a grid that loaded, every other being refused; the
+    /// shape is evaluated cell by cell all the same.)
+    fn keep(&mut self, run: Run) {
+        let Some(shape) = self.shapes.get(run.shape) else {
+            return;
+        };
+        if run.end - run.start >= RUN && !shape.risky && shape.expr.is_ok() {
+            self.runs.push(run);
+        }
+    }
+
+    /// How many cells of the order are in runs.
+    #[cfg(test)]
+    pub(crate) fn cells_in_runs(&self) -> usize {
+        self.runs.iter().map(|r| r.end - r.start).sum()
+    }
+
+    /// The run a position of the order is in, as its shape and the position
+    /// after its last cell; `None` for a cell evaluated alone.
+    pub(crate) fn run_at(&self, pos: usize) -> Option<(usize, usize)> {
+        let after = self.runs.partition_point(|r| r.start <= pos);
+        let run = self.runs.get(after.checked_sub(1)?)?;
+        (pos < run.end).then_some((run.shape, run.end))
+    }
+
+    /// Cells of one run, a part of it or the whole, evaluated at once
+    /// against the grid as `env` shows it (KERNEL.20, `super::vector`), each
+    /// cell's answer pushed to `out` in order: what [`Shapes::evaluate`]
+    /// answers for each, the environment told each cell as it is computed.
+    pub(crate) fn evaluate_run(
+        &self,
+        env: &dyn Env,
+        library: &Library,
+        shape: usize,
+        cells: &[CellId],
+        lanes: &mut Lanes,
+        out: &mut Vec<Computed>,
+    ) {
+        let s = &self.shapes[shape];
+        match &s.expr {
+            Ok(e) => vector::evaluate(env, library, e, s.holds, s.anchor, cells, lanes, out),
+            // A run holds a parsed shape; were it not, each cell alone.
+            Err(_) => out.extend(cells.iter().map(|&id| {
+                env.enter(id);
+                self.evaluate(env, library, id)
+            })),
+        }
     }
 
     /// The formula cells in the order of evaluation, each after everything
@@ -441,6 +596,26 @@ impl Shapes {
         }
         None
     }
+}
+
+/// Cells ordered by a key below `keys`, cells of one key in the order they
+/// came in: a counting sort, a pass over the cells and one over the keys,
+/// for the order of a plan (KERNEL.20).
+fn by_key(cells: &[usize], keys: usize, key: impl Fn(usize) -> usize) -> Vec<usize> {
+    let mut start = vec![0; keys + 1];
+    for &v in cells {
+        start[key(v) + 1] += 1;
+    }
+    for k in 0..keys {
+        start[k + 1] += start[k];
+    }
+    let mut out = vec![0; cells.len()];
+    for &v in cells {
+        let k = key(v);
+        out[start[k]] = v;
+        start[k] += 1;
+    }
+    out
 }
 
 /// Every reference of a parse that names its sheets, those sheets found once
