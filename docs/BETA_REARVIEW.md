@@ -20911,6 +20911,68 @@ evaluation of identical shapes once, values folded at build time, the view
 evaluating its window and its cone, and the measurement against Excel with
 its floors.
 
+- ⬜ **`KERNEL.26` — the 19 ms frame: two decisions, adjudicated together
+  before either is built.**
+  *Minted 2026-10-10 at the owner's word, "Mint the two outstanding 19ms
+  native frame decisions as a single roadmap item to be adjudicated later",
+  from `KERNEL.20`'s third slice (its decision 10, the entry above). Nothing
+  is scoped or built; every figure below was measured that day, over
+  `ee4210b` with the third slice, natively on one performance core.*
+
+  **The frame.** A steady frame of Life steps in 19.3 ms natively and 24.8
+  in headless Chrome, 40 frames a second. Timers in a copy of the third
+  slice, around each part of the step and each kind of node in a run, never
+  in the tree, divide the native frame of the gun, whose rule is Life's and
+  whose first frame is cheap, so that the steady frames dominate the mean:
+  a strict call at each cell 8.0 ms, the rule's two `SUM`s over a range 4.9
+  and its `AND` and `OR` 3.0; the one-cell reads 2.1; the operators 2.0;
+  `IF`'s partition under 0.1; the rest of the runs' evaluation about 0.6;
+  the frame's values kept in a map, a cell's answer inserted once a cell,
+  1.8; the snapshot that fills the twins, their arrays and the plane, 4.1.
+
+  **The first decision: whether a run may compute the language's own
+  functions itself.** A run calls the library's strict function at each
+  cell with the operands it gets there: for `SUM(Screen.last!A1:C3)` a
+  context made at the cell, an area made, and the function's walk of the
+  sheet's array through the environment, about 39 ns a call. A kernel would
+  compute the language's `SUM`, `MIN` and `MAX` over a range of a sheet kept
+  as an array, slot by slot in the walk's order by the aggregate's rule, and
+  `AND`, `OR` and `NOT` over values, each known by its registration as the
+  run's `IF` is, so that a crate that registers its own meaning has its own
+  computed; and lanes of numbers typed apart would carry the reads and the
+  operators over numbers alone, falling back to lanes of values at the
+  first value of another kind. They bear on the 12 ms of calls, reads and
+  operators; how much of it they take, a prototype would measure. The price
+  is the principle the third slice kept: every value a run makes is made by
+  the library's own functions, its `IF` the one form it knows, and a kernel
+  is a second writing of a meaning the library holds once, held to it by
+  tests alone, the slice's generated grids and the library's own.
+  *Alternatives:* the frame as it stands; the kernels without typed lanes;
+  typed lanes without the kernels, which keep the library's functions and
+  still state the operators' rules a second time for numbers.
+
+  **The second decision: the rows' values kept as arrays.** The frame's
+  values are two maps by cell (`current`, `next`), a cell's answer inserted
+  once a cell and read again by the snapshot at the frame's end. Each rows'
+  sheet's values kept as an array over its extent, as each twin's already is
+  (`calc::dense`), would make both an index, a sheet too sparse for an array
+  keeping its map as a twin does; the views, a save, a write that grows a
+  sheet and a cell read before its frame computes it would read the arrays.
+  It bears on the 6 ms of the map and the snapshot: a change of the
+  machine's kept state, with no new principle. *Alternative:* the maps as
+  they stand.
+
+  **Why one item.** Both are what the 19 ms frame has left of overhead over
+  the work itself, measured in one profile; the first is a principle and the
+  owner's to rule on, and ruled on together the second need not wait on a
+  scoping of its own.
+
+  *Oracle, whichever is built:* the third slice's own, generated grids
+  stepped by runs and cell by cell, every value equal to the bit, and their
+  first frame equal to `Calc`'s; Life's frames held to the hand-written
+  Life; `CART.1`'s runner and Alonzo's instrument for the numbers; a frame's
+  allocations no more than 96. `~days` each
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
