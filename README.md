@@ -4,32 +4,12 @@
 English sentences. Frazaro checks every sentence, refuses the ones it
 cannot read, in words, and runs the rest inside Excel.*
 
-## What is a beta?
-
-*With apologies to Kierkegaard, whose clown had the same trouble.*
-
-> It happened one evening that a sentence broke in the beta-stage of an add-in.\
-> Frazaro appeared & announced, in words: the gap, the row, and what to write instead.\
-> The users took this for a feature and applauded.\
-> Frazaro repeated itself, verbatim & verified, on the same row.\
-> They applauded louder and asked, "When 1.0?"\
-> I think that is precisely how the internet will come to an end:\
-> amid general applause from users who believe they are shareholders.
-
-Less lyrically: this is a known-unfinished program, released unfinished
-on purpose, because the only way to learn which sentences real people
-reach for is to let real people reach for them. The gaps are counted, in
-order, in [docs/BETA_ROADMAP.md](docs/BETA_ROADMAP.md). Before
-reporting a missing feature, check whether it is already there. If it
-is, the complaint is heard and queued. If it is not, that is a genuinely
-useful report and exactly why the beta exists.
-
 ---
 
 ## What is Frazaro?
 
-Everyone who lives in spreadsheets has procedures: month-end checklists,
-report formatting, data cleanup, the Friday reimbursement run. They can
+Everyone who lives in spreadsheets owns recurring procedures: month-end 
+checklists, report formatting, data cleanup, the reimbursement run. They can
 describe each one in a breath and cannot automate it without learning
 VBA. Frazaro is the missing middle: a small, checked English that Excel
 translates into VBA macros.
@@ -48,6 +28,7 @@ PROCEDURE
 3. Send the total to payroll before 3pm.
 
 <Frazaro week="Week 39" (steps 1 and 2, automated by Accounts Payable)>
+
 Work on sheet "Expenses".
 Set receipted-total to sum of range D2:D26 where range E2:E26 matches "Yes".
 Put "Reimbursement total, {week}" into cell H10.
@@ -55,6 +36,7 @@ Put receipted-total into cell I10.
 Format cell I10 as dollars.
 Make range H10:I10 bold.
 Show "{week} reimbursement total: " joined with receipted-total.
+
 </Frazaro>
 ```
 
@@ -70,23 +52,29 @@ anything runs, and a sentence that matches means exactly one thing.
 
 ## Try it in two minutes
 
-1. Download
-   [Frazaro_English.xlam](https://github.com/Spreadsheet-Company/Frazaro/releases/latest/download/Frazaro_English.xlam)
-   and open it. Excel asks once whether to trust the publisher; then a
-   **Frazaro** tab appears on the ribbon. (Press **Register for
-   Auto-Load** if you want it there every time; the [Install](#install)
-   section has the longer story.)
-2. Open [`examples/Frazaro Sample Data.xlsx`](examples/).
-3. Press **Load Instructions** and pick
-   `00 Weekly Expense Reimbursement.docx` (or the `.txt`, if this
-   computer has no Word). The procedure appears on a new *Frazaro*
-   sheet, one line per row.
-4. Press **Validate Instructions**. Every line gets a green OK, or a
-   note in plain words saying what to change. Nothing has run yet.
-5. Press **Interpret and Run**, then look at the *Expenses* sheet.
-6. Changed your mind? **Undo Last Run** puts the workbook back.
+Browser (spreadsheet generator): [`Frazaro`](https://spreadsheet-company.github.io/Frazaro/)
 
-Eight more follow, easiest first: a sales cleanup in five sentences,
+CLI (Rust crates): [`frazaro`](https://crates.io/crates/frazaro), [`frazaro-core`](https://crates.io/crates/frazaro-core)
+
+Microsoft Excel:
+
+1. Download
+   [Frazaro_English.xlam](https://github.com/Spreadsheet-Company/Frazaro/releases/latest/download/Frazaro_English.xlam), right-click > Properties > Unblock > OK.
+2. Open [`examples/Frazaro Sample Data.xlsx`](examples/).
+3. Double-click the downloaded add-in. Excel asks once whether to trust the publisher; 
+   then a **Frazaro** tab appears on the ribbon. (Click **Register for
+   Auto-Load** if you want it there every time Excel opens; 
+   the [Install](#install) section has the longer story.)
+3. Click Frazaro > **Load Instructions** and pick
+   `00 Weekly Expense Reimbursement.docx` (or the `.txt` version, if your
+   computer does not have Microsoft Word). The procedure appears on a new *Frazaro*
+   sheet, one line per row of text.
+4. Click Frazaro > **Validate Instructions**. Every line gets a green OK, or a
+   note in plain words saying what to change. Nothing has run yet.
+5. Click Frazaro > **Interpret and Run**, then look at the *Expenses* sheet.
+6. Changed your mind? Click **Undo Last Run** to restore the workbook.
+
+Eight more example files follow, easiest first: a sales cleanup in five sentences,
 a weekly summary, an expense audit with a loop, receivables aging, pivot
 tables, a month-end close, a purchase order, and a staffing policy you
 can question. All of them run on the one sample workbook.
