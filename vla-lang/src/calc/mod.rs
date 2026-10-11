@@ -289,6 +289,21 @@ impl<'m> Calc<'m> {
 /// from either.
 pub trait Values: std::fmt::Debug {
     fn computed(&self, id: CellId) -> Option<&Computed>;
+
+    /// Whether some of a sheet's cells hold content newer than the model's
+    /// (KERNEL.27): an engine's machine makes a twin's cells from its array
+    /// only when a reader of the twin as a sheet asks, and the record and the
+    /// plane read such a sheet's cells through [`Values::content`]. No sheet,
+    /// for any other.
+    fn lags(&self, _sheet: usize) -> bool {
+        false
+    }
+
+    /// A cell's content where it is newer than the model's, on a sheet that
+    /// [`Values::lags`]; `None` for the model's own.
+    fn content(&self, _id: CellId) -> Option<Content> {
+        None
+    }
 }
 
 impl Values for Calc<'_> {

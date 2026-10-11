@@ -76,10 +76,27 @@ impl Dense {
         self.index(row, col).map(|i| &self.values[i])
     }
 
-    fn index(&self, row: u32, col: u32) -> Option<usize> {
+    /// A cell's slot's index, row by row; `None` outside the extent.
+    pub(crate) fn index(&self, row: u32, col: u32) -> Option<usize> {
         let r = row.checked_sub(self.top)? as usize;
         let c = col.checked_sub(self.left)? as usize;
         (r < self.height && c < self.width).then(|| r * self.width + c)
+    }
+
+    /// How many slots the store holds, one a cell of its extent.
+    pub(crate) fn slots(&self) -> usize {
+        self.values.len()
+    }
+
+    /// The slot at an index, to overwrite (KERNEL.27).
+    pub(crate) fn slot_at(&mut self, i: usize) -> &mut Value {
+        &mut self.values[i]
+    }
+
+    /// The value at an index, and its cell (KERNEL.27).
+    pub(crate) fn at(&self, i: usize) -> (&Value, (u32, u32)) {
+        let (r, c) = (i / self.width, i % self.width);
+        (&self.values[i], (self.top + r as u32, self.left + c as u32))
     }
 
     /// Every value an area holds, row by row, to `f`, the area clamped to the

@@ -45,7 +45,7 @@ use super::eval::{Computed, Ctx, Env, Library, Reason};
 use super::formula::{self, Expr, Read, RefExpr};
 use super::graph::{self, areas_at, cells_in, dependencies, is_formula, CellId, Extent, Names};
 use super::reach::Reach;
-use super::vector::{self, Lanes};
+use super::vector::{self, Lanes, Repeats};
 
 /// One formula, parsed once, and the cell it was read at.
 #[derive(Clone, Debug)]
@@ -69,11 +69,21 @@ pub struct Shape {
     /// text's parse over the refers fixture.
     pub(crate) risky: bool,
     /// The most buffers an evaluation of the parse at many cells holds at
-    /// once, found once (KERNEL.20, `vector::holds`).
+    /// once, found once (KERNEL.20, `vector::holds`), a lane for each of its
+    /// repeated parts with them (KERNEL.27).
     holds: (usize, usize),
+    /// The parts the parse writes more than once that a run computes once
+    /// (KERNEL.27, `vector::Repeats`).
+    repeats: Repeats,
 }
 
 impl Shape {
+    /// The most buffers of each kind a run of the shape holds at once.
+    #[cfg(test)]
+    pub(crate) fn holds(&self) -> (usize, usize) {
+        self.holds
+    }
+
     /// The construct a cell at this offset stands for that the shape's
     /// first cell does not, as the moved text's parse names it; `None` when
     /// the moved text reads as the shape does, which for a shape that is not
@@ -255,7 +265,32 @@ impl Shapes {
         });
         missing.sort_unstable();
         missing.dedup();
-        let holds = expr.as_ref().map_or((0, 0), |e| vector::holds(library, e));
+        self.push(text, expr, anchor, missing, risky, library)
+    }
+
+    /// A shape kept, with what an evaluation of it at many cells holds found
+    /// once (KERNEL.20, `vector::holds`) and the parts it writes more than
+    /// once (KERNEL.27, `vector::Repeats`), in a frame of its own: `add`'s
+    /// frame stands beneath the parse, the deepest a load reaches, which
+    /// `VLA.1`'s limits pin on a stack of 1 MiB.
+    #[inline(never)]
+    fn push(
+        &mut self,
+        text: String,
+        expr: Result<Expr, String>,
+        anchor: CellId,
+        missing: Vec<String>,
+        risky: bool,
+        library: &Library,
+    ) -> usize {
+        let (holds, repeats) = match &expr {
+            Ok(e) => {
+                let repeats = Repeats::of(library, e);
+                let (values, positions) = vector::holds(library, e);
+                ((values + repeats.parts(), positions), repeats)
+            }
+            Err(_) => ((0, 0), Repeats::default()),
+        };
         self.shapes.push(Shape {
             text,
             expr,
@@ -263,6 +298,7 @@ impl Shapes {
             missing,
             risky,
             holds,
+            repeats,
         });
         self.shapes.len() - 1
     }
@@ -475,7 +511,12 @@ impl Shapes {
     ) {
         let s = &self.shapes[shape];
         match &s.expr {
-            Ok(e) => vector::evaluate(env, library, e, s.holds, s.anchor, cells, lanes, out),
+            Ok(e) => {
+                let held = s.holds;
+                vector::evaluate(
+                    env, library, e, held, &s.repeats, s.anchor, cells, lanes, out,
+                );
+            }
             // A run holds a parsed shape; were it not, each cell alone.
             Err(_) => out.extend(cells.iter().map(|&id| {
                 env.enter(id);

@@ -277,9 +277,9 @@ fn load(rows: &str, what: &str) -> Machine {
 
 /// A machine's save: the grid view of every sheet a program sees.
 fn save(m: &Machine) -> String {
-    m.workbook().sheets[..m.sheets()]
-        .iter()
-        .map(|s| match m.view("grid", &s.name, None) {
+    (0..m.sheets())
+        .filter_map(|i| m.sheet_name(i))
+        .map(|name| match m.view("grid", name, None) {
             Ok(Viewed::Text(t)) => t,
             other => panic!("{other:?}"),
         })

@@ -42,9 +42,15 @@
 //! walk the plane of each sheet an engine views as one, so that a view of it
 //! is a copy ([`plane::Raster`], KERNEL.24), and each twin's values as an
 //! array over its sheet's extent, so that the next frame's read of a twin is
-//! an index and its range a walk of the array ([`Dense`], KERNEL.20). The
-//! step computes values and never formulas (`AD-7`): the formula cells after
-//! a step are the formula cells before it.
+//! an index and its range a walk of the array ([`Dense`], KERNEL.20). A
+//! frame's end that copies writes a changed formula cell of a twin kept as
+//! an array into the array alone, and leaves its twin cell behind its slot,
+//! made from it only when a reader of the twin as a sheet asks (KERNEL.27):
+//! a view reads such a cell through its slot ([`Values::content`]), and the
+//! walk and [`Machine::workbook`] make it where it stands first, so that a
+//! twin is still an ordinary sheet to every reader. The step computes values
+//! and never formulas (`AD-7`): the formula cells after a step are the
+//! formula cells before it.
 //!
 //! **The writes.** `cell`, `formula` and `derived` rows, applied in order;
 //! a refused row undoes the rows before it, so a refused write changes
@@ -301,6 +307,16 @@ pub struct Machine {
     /// changed by nothing else, a twin being refused to every write; `None`
     /// for a sheet too sparse for one, whose twin is read through its cells.
     dense: Vec<Option<Dense>>,
+    /// By rows' sheet kept as an array, a bit a slot for each of its twin's
+    /// cells whose content the slot holds newer (KERNEL.27): a frame's end
+    /// writes a changed formula cell's slot, byte and reason, and the twin
+    /// cell is made from its slot only when a reader of the twin as a sheet
+    /// asks, a view reading through the slot ([`Values::content`]), the walk
+    /// and [`Machine::workbook`] making it. Every bit is clear when no array
+    /// is kept.
+    behind: Vec<Vec<u64>>,
+    /// By rows' sheet, whether any of its twin's cells is behind.
+    lagging: Vec<bool>,
     /// The buffers a run evaluated at once holds, and its cells' answers,
     /// kept from one run to the next so that a frame makes them once
     /// (KERNEL.20).
@@ -341,6 +357,10 @@ pub struct Machine {
     /// Whether a frame computes only what changed: always, but in the tests
     /// that hold it to every cell computed and every sheet walked.
     incremental: bool,
+    /// Whether a frame's end leaves a twin's cells behind their slots, made
+    /// when read (KERNEL.27): always, but in the tests that hold it to the
+    /// cells copied at every frame's end.
+    lazy: bool,
     /// The cells the frame in progress computed, for the tests to count.
     #[cfg(test)]
     computed: usize,
@@ -461,6 +481,8 @@ impl Machine {
             wanted: (0..sheets).map(|_| Slot::new(false)).collect(),
             planes: vec![None; sheets],
             dense: vec![None; sheets],
+            behind: vec![Vec::new(); sheets],
+            lagging: vec![false; sheets],
             lanes: Lanes::default(),
             answers: Vec::new(),
             gathered: Vec::with_capacity(vector::CHUNK),
@@ -477,6 +499,7 @@ impl Machine {
             twin_changed: Vec::new(),
             by_runs: true,
             incremental: true,
+            lazy: true,
             #[cfg(test)]
             computed: 0,
         };
@@ -516,9 +539,25 @@ impl Machine {
         }
     }
 
-    /// The grid, its twins included.
-    pub fn workbook(&self) -> &Workbook {
+    /// The grid, its twins included, each twin's cells made from its array
+    /// first where a frame's end left them behind it (KERNEL.27), which is
+    /// why the grid is lent only to a caller that may change the machine.
+    /// A sheet's name and place are [`Machine::find_sheet`]'s and
+    /// [`Machine::sheet_name`]'s, which never need the twins made.
+    pub fn workbook(&mut self) -> &Workbook {
+        self.make_twins();
         &self.book
+    }
+
+    /// A sheet's index by name, compared as Excel compares names, a twin's
+    /// included, as [`Workbook::find_sheet`] finds it.
+    pub fn find_sheet(&self, name: &str) -> Option<usize> {
+        self.book.find_sheet(name)
+    }
+
+    /// A sheet's name by index, a twin's included.
+    pub fn sheet_name(&self, index: usize) -> Option<&str> {
+        self.book.sheets.get(index).map(|s| s.name.as_str())
     }
 
     /// How many of the grid's sheets are the rows'; the rest are twins.
@@ -848,7 +887,11 @@ impl Machine {
     /// The cells the frame changed and the cells written since the last
     /// frame's end, each copied into its twin cell, its array's slot, its
     /// plane's byte and its reason; `false` when a twin's cell would gain or
-    /// lose a value, which leaves the twin to the walk.
+    /// lose a value, which leaves the twin to the walk. A changed formula
+    /// cell of a sheet kept as an array leaves its twin cell behind its slot,
+    /// made when read (KERNEL.27): the twin's cells are a B-tree of every
+    /// cell, and its lookup and its write of each changed cell were most of
+    /// the frame's end.
     fn copy(&mut self) -> bool {
         let Machine {
             book,
@@ -859,6 +902,9 @@ impl Machine {
             wanted,
             planes,
             dense,
+            behind,
+            lagging,
+            lazy,
             changed,
             written,
             twin_changed,
@@ -873,6 +919,8 @@ impl Machine {
             wanted,
             planes,
             dense,
+            behind,
+            lagging,
             twin_changed,
             every_next,
         };
@@ -880,7 +928,12 @@ impl Machine {
         // cell, its byte and its slot.
         for &p in changed.iter() {
             let (id, value) = (shapes.order()[p as usize], values[p as usize].as_ref());
-            if !to.put(id, formula_twin(value), value, plane::formula_byte(value)) {
+            let (content, byte) = (formula_twin(value), plane::formula_byte(value));
+            let put = match *lazy {
+                true => to.put_behind(id, content, value, byte),
+                false => to.put(id, content, value, byte),
+            };
+            if !put {
                 return false;
             }
         }
@@ -907,8 +960,11 @@ impl Machine {
     /// twin dense enough its array, each slot what a read of the twin's cell
     /// answers (KERNEL.20). The twin cells whose content or reason the walk
     /// changes are kept for the next frame; a twin made again, or more
-    /// changes than they hold, and the next frame computes every cell.
+    /// changes than they hold, and the next frame computes every cell. A
+    /// twin's cells left behind their slots are made first (KERNEL.27), so
+    /// that what the walk finds changed is what a read of the twin changed.
     fn walk(&mut self) {
+        self.make_twins();
         std::mem::swap(&mut self.twin_reasons, &mut self.reasons_before);
         self.twin_reasons.clear();
         self.twin_changed.clear();
@@ -981,6 +1037,10 @@ impl Machine {
             self.planes[s] = raster.filter(|_| fits);
             // And the twin's cells rather than an array that might be.
             self.dense[s] = kept.filter(|_| whole);
+            // A bit for each slot, every one clear, the twin's cells made.
+            let words = self.dense[s].as_ref().map_or(0, |k| k.slots().div_ceil(64));
+            self.behind[s].clear();
+            self.behind[s].resize(words, 0);
             if !in_place {
                 // A write changed which cells hold a value: the twin made
                 // again from the sheet's, its extent with it, and the next
@@ -997,6 +1057,43 @@ impl Machine {
                     })
                     .collect();
                 self.extents[t] = twin.extent();
+            }
+        }
+    }
+
+    /// Every twin cell a frame's end left behind its slot made from it
+    /// (KERNEL.27): the twin's cells as a copy at every frame's end would
+    /// have left them. A formula's twin cell is its value as a value cell
+    /// holds it, which its slot holds exactly; a value cell's twin cell is
+    /// copied where it stands at every frame's end and is never behind.
+    fn make_twins(&mut self) {
+        let Machine {
+            book,
+            sheets,
+            dense,
+            behind,
+            lagging,
+            ..
+        } = self;
+        for s in 0..*sheets {
+            if !std::mem::take(&mut lagging[s]) {
+                continue;
+            }
+            let Some(k) = dense[s].as_ref() else {
+                behind[s].fill(0);
+                continue;
+            };
+            let twin = &mut book.sheets[*sheets + s];
+            for (w, word) in behind[s].iter_mut().enumerate() {
+                let mut bits = std::mem::take(word);
+                while bits != 0 {
+                    let (slot, at) = k.at(w * 64 + bits.trailing_zeros() as usize);
+                    bits &= bits - 1;
+                    match twin.cells.get_mut(&at) {
+                        Some(cell) => cell.content = value_content(slot),
+                        None => debug_assert!(false, "a twin cell behind its slot is a cell"),
+                    }
+                }
             }
         }
     }
@@ -1428,6 +1525,25 @@ impl Values for Machine {
         }
         self.values[p].as_ref()
     }
+
+    /// A twin whose cells a frame's end left behind its slots (KERNEL.27).
+    fn lags(&self, sheet: usize) -> bool {
+        sheet
+            .checked_sub(self.sheets)
+            .and_then(|s| self.lagging.get(s))
+            .is_some_and(|&l| l)
+    }
+
+    /// A twin cell left behind its slot, made from the slot as
+    /// [`Machine::make_twins`] makes it, so that a view of the twin reads
+    /// what its cells would hold.
+    fn content(&self, id: CellId) -> Option<Content> {
+        let s = id.0.checked_sub(self.sheets)?;
+        let k = self.dense.get(s)?.as_ref()?;
+        let i = k.index(id.1, id.2)?;
+        let bit = self.behind.get(s)?.get(i / 64)? >> (i % 64) & 1;
+        (bit == 1).then(|| value_content(k.at(i).0))
+    }
 }
 
 impl Env for Machine {
@@ -1560,8 +1676,8 @@ fn refresh(slot: &mut Value, content: Option<&Content>) {
 }
 
 /// What a frame's end that copies its changed cells writes (KERNEL.20): the
-/// twins, their reasons, the kept planes and arrays, and the twin cells that
-/// changed.
+/// twins, their reasons, the kept planes and arrays, the twin cells left
+/// behind their slots (KERNEL.27), and the twin cells that changed.
 struct Twins<'a> {
     sheets: usize,
     twins: &'a mut [Sheet],
@@ -1569,6 +1685,8 @@ struct Twins<'a> {
     wanted: &'a [Slot<bool>],
     planes: &'a mut [Option<plane::Raster>],
     dense: &'a mut [Option<Dense>],
+    behind: &'a mut [Vec<u64>],
+    lagging: &'a mut [bool],
     twin_changed: &'a mut Vec<CellId>,
     every_next: &'a mut bool,
 }
@@ -1576,7 +1694,9 @@ struct Twins<'a> {
 impl Twins<'_> {
     /// One rows' cell copied into its twin: its twin cell's content, its
     /// slot, its byte in a kept plane, its reason (from its formula's
-    /// value); `false` when the twin cell would gain or lose a value.
+    /// value); `false` when the twin cell would gain or lose a value. The
+    /// twin cell is made where it stands, so it is no longer behind its
+    /// slot.
     fn put(
         &mut self,
         id: CellId,
@@ -1586,13 +1706,9 @@ impl Twins<'_> {
     ) -> bool {
         let (s, row, col) = id;
         if let Some(Some(k)) = self.dense.get_mut(s) {
-            if let Some(slot) = k.slot(row, col) {
-                refresh(slot, content.as_ref());
-            }
-        }
-        if self.wanted[s].get() {
-            if let Some(r) = self.planes[s].as_mut() {
-                r.set(row, col, byte);
+            if let Some(i) = k.index(row, col) {
+                refresh(k.slot_at(i), content.as_ref());
+                self.behind[s][i / 64] &= !(1 << (i % 64));
             }
         }
         let mut moved = match (self.twins[s].cells.get_mut(&(row, col)), content) {
@@ -1606,22 +1722,98 @@ impl Twins<'_> {
             (None, None) => false,
             _ => return false,
         };
+        moved |= self.byte_and_reason(id, value, byte);
+        if moved {
+            note(
+                self.twin_changed,
+                self.every_next,
+                (self.sheets + s, row, col),
+            );
+        }
+        true
+    }
+
+    /// A formula cell the frame changed, on a sheet kept as an array: its
+    /// slot, its byte and its reason, its twin cell left behind its slot to
+    /// be made from it when read (KERNEL.27), which a formula's twin cell can
+    /// be, the slot holding its value exactly and holding one exactly where
+    /// the twin cell does; `false` when the twin cell would gain or lose a
+    /// value. A sheet too sparse for an array, or a cell outside its array,
+    /// is copied as [`Twins::put`] copies it.
+    fn put_behind(
+        &mut self,
+        id: CellId,
+        content: Option<Content>,
+        value: Option<&Computed>,
+        byte: u8,
+    ) -> bool {
+        let (s, row, col) = id;
+        let Some(Some(k)) = self.dense.get_mut(s) else {
+            return self.put(id, content, value, byte);
+        };
+        let Some(i) = k.index(row, col) else {
+            return self.put(id, content, value, byte);
+        };
+        let slot = k.slot_at(i);
+        if matches!(slot, Value::Empty) == content.is_some() {
+            return false;
+        }
+        let mut moved = !same_slot(slot, content.as_ref());
+        if moved {
+            refresh(slot, content.as_ref());
+            self.behind[s][i / 64] |= 1 << (i % 64);
+            self.lagging[s] = true;
+        }
+        moved |= self.byte_and_reason(id, value, byte);
+        if moved {
+            note(
+                self.twin_changed,
+                self.every_next,
+                (self.sheets + s, row, col),
+            );
+        }
+        true
+    }
+
+    /// A rows' cell's byte written in its sheet's kept plane, and its reason
+    /// beside its twin cell (from its formula's value); whether the reason
+    /// changed.
+    fn byte_and_reason(&mut self, id: CellId, value: Option<&Computed>, byte: u8) -> bool {
+        let (s, row, col) = id;
+        if self.wanted[s].get() {
+            if let Some(r) = self.planes[s].as_mut() {
+                r.set(row, col, byte);
+            }
+        }
         let t = (self.sheets + s, row, col);
         let reason = match value {
             Some(Computed::NotComputed(r)) => Some(r),
             _ => None,
         };
-        if self.twin_reasons.get(&t) != reason {
-            match reason {
-                Some(r) => self.twin_reasons.insert(t, r.clone()),
-                None => self.twin_reasons.remove(&t),
-            };
-            moved = true;
+        if self.twin_reasons.get(&t) == reason {
+            return false;
         }
-        if moved {
-            note(self.twin_changed, self.every_next, t);
-        }
+        match reason {
+            Some(r) => self.twin_reasons.insert(t, r.clone()),
+            None => self.twin_reasons.remove(&t),
+        };
         true
+    }
+}
+
+/// Whether a slot holds what a read of a twin cell's new content answers,
+/// to the bit: [`refresh`]'s rule, asked before it writes, so that a slot
+/// whose cell's value is unchanged is neither written nor its cell behind.
+fn same_slot(slot: &Value, content: Option<&Content>) -> bool {
+    match (slot, content) {
+        (Value::Empty, None) => true,
+        (Value::Number(x), Some(Content::Number(y))) => x.to_bits() == y.to_bits(),
+        (Value::Text(x), Some(Content::Text(y))) => x == y,
+        (Value::Bool(x), Some(Content::Bool(y))) => x == y,
+        (Value::Error(k), Some(Content::Error(e))) => {
+            *k == ErrorKind::parse(e).unwrap_or(ErrorKind::Value)
+        }
+        _ => false,
     }
 }
 
@@ -1711,7 +1903,7 @@ mod tests {
     use crate::calc::shape::Shapes;
     use crate::projection::Window;
     use crate::reader::read_forms;
-    use crate::view::view_text_valued;
+    use crate::view::{view_text_valued, whole};
 
     fn load(text: &str) -> Machine {
         Machine::load(text, library::language())
@@ -1741,7 +1933,7 @@ mod tests {
 
     /// A formula cell's computed value, by its sheet and address.
     fn at(m: &Machine, sheet: &str, addr: &str) -> Option<Computed> {
-        let i = m.workbook().find_sheet(sheet).unwrap();
+        let i = m.find_sheet(sheet).unwrap();
         let r = parse_a1_range(addr).unwrap();
         m.computed((i, r.top, r.left)).cloned()
     }
@@ -1753,20 +1945,19 @@ mod tests {
         }
     }
 
-    /// A value cell's content, a twin's included.
+    /// A value cell's content, a twin's included, a twin cell left behind
+    /// its slot read as a view reads it (KERNEL.27).
     fn content(m: &Machine, sheet: &str, addr: &str) -> Option<Content> {
-        let i = m.workbook().find_sheet(sheet).unwrap();
+        let i = m.find_sheet(sheet).unwrap();
         let r = parse_a1_range(addr).unwrap();
-        m.workbook().sheets[i]
-            .cells
-            .get(&(r.top, r.left))
-            .map(|c| c.content.clone())
+        let held = m.book.sheets[i].cells.get(&(r.top, r.left))?;
+        Some(Values::content(m, (i, r.top, r.left)).unwrap_or_else(|| held.content.clone()))
     }
 
     /// The formula rows of every sheet's record, the twins' included.
     fn formula_rows(m: &Machine) -> Vec<String> {
         let mut out = Vec::new();
-        for s in &m.workbook().sheets {
+        for s in &m.book.sheets {
             for line in grid(m, &s.name, None).lines() {
                 if line.starts_with("(formula ") {
                     out.push(line.to_string());
@@ -1780,7 +1971,7 @@ mod tests {
     /// is not a twin, viewed whole, one record after another.
     fn save(m: &Machine) -> String {
         let mut out = String::new();
-        for s in &m.workbook().sheets[..m.sheets()] {
+        for s in &m.book.sheets[..m.sheets()] {
             out.push_str(&grid(m, &s.name, None));
         }
         out
@@ -2050,7 +2241,7 @@ mod tests {
             "(sheet \"Board\" visible)\n(sheet \"Board.last\" hidden)\n(cell \"Board\" \"A1\" 1)\n",
         );
         assert_eq!(m.sheets(), 1);
-        assert_eq!(m.workbook().sheets.len(), 2);
+        assert_eq!(m.book.sheets.len(), 2);
     }
 
     #[test]
@@ -2239,13 +2430,15 @@ mod tests {
     /// A twin's cell as its cells and its reasons answer: the reference a
     /// twin's array is held to (KERNEL.20), the rule spelled here for itself.
     fn twin_cell(m: &Machine, t: usize, row: u32, col: u32) -> Result<Value, Reason> {
-        let Some(cell) = m.book.sheets[t].cells.get(&(row, col)) else {
+        let held = m.book.sheets[t].cells.get(&(row, col));
+        let newer = held.and_then(|_| Values::content(m, (t, row, col)));
+        let Some(cell) = newer.or_else(|| held.map(|c| c.content.clone())) else {
             return match m.twin_reasons.get(&(t, row, col)) {
                 Some(r) => Err(r.clone()),
                 None => Ok(Value::Empty),
             };
         };
-        Ok(match &cell.content {
+        Ok(match &cell {
             Content::Number(n) => Value::Number(*n),
             Content::Text(s) => Value::Text(s.clone()),
             Content::Bool(b) => Value::Bool(*b),
@@ -2257,7 +2450,7 @@ mod tests {
     /// Whether a sheet's twin is kept as an array (KERNEL.20), asked as the
     /// evaluator asks it, of the twin.
     fn dense_kept(m: &Machine, sheet: &str) -> bool {
-        let twin = m.workbook().find_sheet(&format!("{sheet}.last")).unwrap();
+        let twin = m.find_sheet(&format!("{sheet}.last")).unwrap();
         m.dense(twin).is_some()
     }
 
@@ -2626,18 +2819,27 @@ mod tests {
             .collect()
     }
 
+    /// A twin's cells as a reader of the twin as a sheet reads them, a cell
+    /// a frame's end left behind its slot through its slot (KERNEL.27), as a
+    /// view reads it; nothing is made.
+    fn twin_cells(m: &Machine, t: usize) -> BTreeMap<(u32, u32), Content> {
+        m.book.sheets[t]
+            .cells
+            .iter()
+            .map(|(&k, c)| {
+                let content = Values::content(m, (t, k.0, k.1));
+                (k, content.unwrap_or_else(|| c.content.clone()))
+            })
+            .collect()
+    }
+
     /// Every twin's cells, and its extent, as its sheet's values make them:
     /// held at a frame's end or a load, before any write.
     fn twins_are_their_sheets(m: &Machine, when: &str) {
         for s in 0..m.sheets {
             let t = m.sheets + s;
             let twin = &m.book.sheets[t];
-            let cells: BTreeMap<(u32, u32), Content> = twin
-                .cells
-                .iter()
-                .map(|(&k, c)| (k, c.content.clone()))
-                .collect();
-            assert_eq!(cells, twin_from(m, s), "{when}: {}", twin.name);
+            assert_eq!(twin_cells(m, t), twin_from(m, s), "{when}: {}", twin.name);
             assert_eq!(
                 m.extents[t],
                 twin.extent(),
@@ -2821,7 +3023,8 @@ mod tests {
     /// A formula of the language's functions over every kind of node the
     /// evaluation of a run computes, and of those it leaves to each cell: a
     /// name, `CHOOSE`, a range where one value is wanted, a call whose
-    /// operand may be an area.
+    /// operand may be an area; and a part written more than once, which a run
+    /// computes once where its places stand in one branch (KERNEL.27).
     fn expr(d: &mut Dice, at: &Band, depth: u32) -> String {
         if depth >= 3 || d.below(4) == 0 {
             return leaf(d, at);
@@ -2839,7 +3042,7 @@ mod tests {
                 .collect();
             parts.join(",")
         };
-        match d.below(18) {
+        match d.below(20) {
             0 => format!("-({})", e(d)),
             1 => format!("({})%", e(d)),
             2 => format!("+{}", reference(d, at)),
@@ -2881,6 +3084,24 @@ mod tests {
             16 => {
                 let op = d.pick(&["+", "&", "<"]);
                 format!("{}{op}({})", held(d, at), e(d))
+            }
+            // A part written more than once: beside itself in a chain, as a
+            // call's operands, in a condition and its branches, in both
+            // branches of an `IF`, and inside a part itself written twice.
+            18 => {
+                let p = e(d);
+                match d.below(5) {
+                    0 => format!("({p})+({p})*({p})"),
+                    1 => format!("{}(({p}),({p}))", d.pick(&["SUM", "MAX", "AND", "MOD"])),
+                    2 => format!("IF({p},{p},({p})-1)"),
+                    3 => format!("IF({},({p})*2,({p})&\"x\")", e(d)),
+                    _ => format!("NOT({p})+({p})"),
+                }
+            }
+            19 => {
+                let q = e(d);
+                let p = format!("({q})-({q})*2");
+                format!("({p})+({p})")
             }
             _ => format!("{}*{}", reference(d, at), reference(d, at)),
         }
@@ -3072,13 +3293,17 @@ mod tests {
         // KERNEL.20, slice 3: a shape whose first frame takes a branch with
         // nothing in it and whose later frames take one of many calls, as
         // Life's and the gun's do: the buffers its later frames hold are all
-        // made in the first, and none holds more than a chunk of cells.
+        // made in the first, and none holds more than a chunk of cells; with
+        // them, the lanes a later frame keeps for the parts Life's rule writes
+        // twice (KERNEL.27).
         let mut m = load(concat!(
             "(cell \"S\" \"A1\" 1)\n",
             "(formula \"S\" \"B1:B300\" \"=IF(S.last!$A$1=1,0,IF(OR(SUM(S.last!B1:B3)=3,",
             "AND(S.last!B2=1,MOD(SUM(S.last!A1:C3),4)=2)),1,0))\")\n",
+            "(formula \"S\" \"C1:C300\" \"=IF(S.last!$A$1=1,0,IF(OR(SUM(S.last!B1:D3)-S.last!C2=3,",
+            "AND(S.last!C2=1,SUM(S.last!B1:D3)-S.last!C2=2)),1,0))\")\n",
         ));
-        assert_eq!(m.shapes.cells_in_runs(), 300);
+        assert_eq!(m.shapes.cells_in_runs(), 600);
         m.step(0);
         let made = m.lanes.made();
         assert_eq!(m.write("(cell \"S\" \"A1\" 2)"), Ok(1));
@@ -3092,6 +3317,25 @@ mod tests {
             made.1 == made.0 && made.2 == made.0,
             "each kind of lane: {made:?}"
         );
+    }
+
+    #[test]
+    fn a_run_holds_its_parts_kept_lanes_within_its_shape_s_bound() {
+        // KERNEL.27: a part's lane kept beside the lanes the rest of its
+        // formula holds, which `holds` alone does not count: `C1` read and a
+        // copy kept, `D1*2` beside them, and the copy taken for the last `C1`.
+        // The run makes the buffers its shape's bound says, no more.
+        let mut m = load(concat!(
+            "(cell \"S\" \"C1:D300\" 2)\n",
+            "(formula \"S\" \"B1:B300\" \"=S.last!C1+(S.last!D1*2)+S.last!C1\")\n",
+        ));
+        assert_eq!(m.shapes.cells_in_runs(), 300);
+        m.step(0);
+        let (held, _) = m.shapes.shape(0).expect("the shape").holds();
+        assert_eq!(held, 3, "two lanes, and one kept for the part");
+        let made = m.lanes.made();
+        assert_eq!((made.0, made.1, made.2), (held, held, held), "{made:?}");
+        assert_eq!(number(&m, "S", "B7"), 8.0);
     }
 
     thread_local! {
@@ -3386,20 +3630,312 @@ mod tests {
         assert_eq!(number(&m, "S", "B4"), 34.0, "(16 + 1) * 2");
     }
 
+    #[test]
+    fn a_part_written_more_than_once_is_computed_once_a_run() {
+        // KERNEL.27: a part a formula writes more than once in one branch,
+        // counted by `TICK` where it is computed: by a run once a cell, beside
+        // itself in a chain, as a call's operand and inside a larger part
+        // written twice; at each cell alone, once a place; in a condition and
+        // the branches of an `IF`, which take other cells, once a place by
+        // either. The values the same.
+        let rows = concat!(
+            "(cell \"S\" \"A1:A12\" 3)\n",
+            "(formula \"S\" \"B1:B12\" \"=(TICK()+A1)*2+(TICK()+A1)-MAX(TICK()+A1,0)\")\n",
+            "(formula \"S\" \"C1:C12\" \"=IF(TICK()>0,TICK()+1,TICK()+2)\")\n",
+            "(formula \"S\" \"D1:D12\" ",
+            "\"=((TICK()+A1)*(TICK()+A1))-(TICK()+A1)*(TICK()+A1)+B1\")\n",
+        );
+        let frame = |by_runs: bool| {
+            let mut lib = library::language();
+            lib.register("TICK", tick);
+            let mut m = Machine::load(rows, lib).unwrap_or_else(|e| panic!("{}", e.refusal.text));
+            assert_eq!(m.shapes.cells_in_runs(), 36, "every cell in a run");
+            m.by_runs = by_runs;
+            let before = TICKS.with(Slot::get);
+            assert!(m.step(0).done);
+            (TICKS.with(Slot::get) - before, values(&m))
+        };
+        let ((runs, by_run), (alone, by_cell)) = (frame(true), frame(false));
+        assert_eq!(by_run, by_cell, "the values");
+        assert_eq!(number_in(&by_run, (0, 2, 4)), "Value(Number(8.0))");
+        assert_eq!(
+            (runs, alone),
+            (12 + 24 + 12, 36 + 24 + 48),
+            "TICK's calls in a frame, by runs and alone"
+        );
+    }
+
+    /// A formula cell's value as [`values`] spells it.
+    fn number_in(values: &BTreeMap<CellId, String>, id: CellId) -> &str {
+        values.get(&id).map_or("none", String::as_str)
+    }
+
+    #[test]
+    fn the_parts_a_run_computes_once_are_those_written_in_one_branch() {
+        // KERNEL.27: the places a run takes a part's lane at, found once a
+        // shape, counted as parts and places: a part not a literal, which the
+        // run reaches (not a reference a strict call takes as one, nor inside
+        // a call computed at each cell), in the same branch of every `IF`
+        // around it; a place inside a later place of a larger part left out.
+        let lib = library::language();
+        let life = "IF(Clock!$B$1=1,IF(MOD(MOD(MOD(Clock!$B$3*1103515+ROW()*1597334+\
+                    COLUMN()*1830421+12345,67108859)*MOD(Clock!$B$3*2012345+ROW()*1209487+\
+                    COLUMN()*1949213+54321,67108859),67108859)*MOD(MOD(Clock!$B$3*1103515+\
+                    ROW()*1597334+COLUMN()*1830421+12345,67108859)*MOD(Clock!$B$3*2012345+\
+                    ROW()*1209487+COLUMN()*1949213+54321,67108859),67108859),67108859)\
+                    <25165822,1,0),IF(OR(SUM(Screen.last!A1:C3)-Screen.last!B2=3,\
+                    AND(Screen.last!B2=1,SUM(Screen.last!A1:C3)-Screen.last!B2=2)),1,0))";
+        for (text, wants) in [
+            ("A1+A1", (1, 2)),
+            ("A1*2+A1-A1", (1, 3)),
+            ("1+1", (0, 0)),
+            ("\"x\"&\"x\"", (0, 0)),
+            ("SUM(A1:B2)+SUM(A1:B2)", (1, 2)),
+            ("SUM(A1,A1)", (0, 0)),
+            ("ABS(A1)+ABS(A1)", (1, 2)),
+            ("Rate+Rate", (1, 2)),
+            ("IF(A1>0,A1,A1)", (0, 0)),
+            ("IF(B1,A1+A1,0)", (1, 2)),
+            ("IF(B1,A1,0)+IF(B1,A1,0)", (1, 2)),
+            ("CHOOSE(1,A1+A1,A1)", (0, 0)),
+            ("CHOOSE(1,A1,B1)*CHOOSE(1,A1,B1)", (1, 2)),
+            ("(A1+B1)*(A1+B1)+A1", (2, 4)),
+            ("(A1+B1)*(A1-B1)", (2, 4)),
+            (
+                "IF(OR(SUM(S.last!A1:C3)-S.last!B2=3,AND(S.last!B2=1,\
+                 SUM(S.last!A1:C3)-S.last!B2=2)),1,0)",
+                (2, 4),
+            ),
+            (life, (6, 12)),
+        ] {
+            let e = crate::calc::formula::parse(text).unwrap_or_else(|c| panic!("{text}: {c}"));
+            let r = vector::Repeats::of(&lib, &e);
+            assert_eq!((r.parts(), r.places()), wants, "{text}");
+        }
+    }
+
+    /// Every twin's record and plane, whole, as a view reads them.
+    fn twin_views(m: &Machine) -> Vec<(String, Vec<u8>)> {
+        (m.sheets..m.book.sheets.len())
+            .map(|t| {
+                let name = m.sheet_name(t).expect("a twin");
+                (
+                    grid(m, name, None),
+                    plane(m, name, &whole(&m.book.sheets[t]).text()),
+                )
+            })
+            .collect()
+    }
+
+    /// A write a generated grid takes between two frames, or none: value
+    /// cells changed, two at once to one of two values, a cell of the other
+    /// sheet, a value over a formula, a cell added beside (KERNEL.20, slice
+    /// 4).
+    fn write_between(d: &mut Dice, frame: u32) -> Option<String> {
+        Some(match d.below(9) {
+            0..=2 => format!(
+                "(cell \"A\" \"{}{}\" {})",
+                d.pick(&["A", "B"]),
+                1 + d.below(20),
+                d.pick(&["0", "1", "2", "7", "\"x\"", "true"])
+            ),
+            // Two of a few cells at once, each to one of two values, so that
+            // a part the same at every cell changes and changes back, alone
+            // and beside another change.
+            6 | 7 => format!(
+                "(cell \"A\" \"A{}\" {})\n(cell \"A\" \"B{}\" {})",
+                1 + d.below(4),
+                d.pick(&["0", "7"]),
+                1 + d.below(4),
+                d.pick(&["0", "7"])
+            ),
+            3 => format!(
+                "(cell \"B\" \"A{}\" {})",
+                1 + d.below(20),
+                d.pick(&["1", "3", "\"y\""])
+            ),
+            // A value over a formula, which plans the grid again.
+            4 if frame % 3 == 0 => format!(
+                "(cell \"A\" \"{}{}\" 2)",
+                d.pick(&LETTERS[2..8]),
+                1 + d.below(4)
+            ),
+            // A cell added beside, where references may point.
+            5 if frame % 4 == 0 => format!("(cell \"A\" \"J{}\" 4)", 1 + d.below(20)),
+            _ => return None,
+        })
+    }
+
+    #[test]
+    fn a_twin_s_cells_made_when_read_are_the_cells_a_frame_s_end_copies() {
+        // KERNEL.27: grids whose frames' ends leave the twins' cells behind
+        // their slots, against the same grids copying them at every frame's
+        // end, frame for frame: every twin's record and plane as a view reads
+        // them, while a step yields and after; every value, twin cell,
+        // reason, array and plane; the twins' cells made where they stand at
+        // times, by the grid lent whole and by a frame's end that walks every
+        // sheet, and the frames after; writes between frames. Over grids of
+        // generated formulas, most of whose cells change every frame, and over
+        // Life from soups of other seeds, whose frames' ends copy some cells
+        // and not others, the Clock written before every step. Frames that
+        // left a twin cell behind, twins lent whole made, and walks after such
+        // a frame.
+        let mut seen = (0, 0, 0);
+        for seed in 1..=40u64 {
+            let mut d = Dice(seed ^ 0x7A1C);
+            let rows = generated_grid(&mut d);
+            lazy_against_eager(&rows, &mut d, 8, &mut seen, write_between);
+        }
+        for seed in 1..=12u64 {
+            let mut d = Dice(seed ^ 0x11FE);
+            let soup = format!("ROW()*{}+COLUMN()*{}", 3 + d.below(20), 5 + d.below(20));
+            let rows = LIFE.replace("ROW()*7+COLUMN()*13", &soup);
+            lazy_against_eager(&rows, &mut d, 16, &mut seen, |_, frame| {
+                Some(format!("(cell \"Clock\" \"B1\" {frame})"))
+            });
+        }
+        let (behind, lent, walked) = seen;
+        assert!(
+            behind > 100 && lent > 20 && walked > 20,
+            "{behind} frames left a twin cell behind, {lent} twins lent whole made and \
+             {walked} walked: too few for the law to hold over"
+        );
+    }
+
+    /// One grid stepped with its twins' cells left behind their slots and
+    /// copied at every frame's end, `write` before each frame, held to each
+    /// other as `a_twin_s_cells_made_when_read_are_the_cells_a_frame_s_end_copies`
+    /// says; `seen` counts its frames that left a twin cell behind, its twins
+    /// lent whole made, and its walks after such a frame.
+    fn lazy_against_eager(
+        rows: &str,
+        d: &mut Dice,
+        frames: u32,
+        seen: &mut (usize, usize, usize),
+        mut write: impl FnMut(&mut Dice, u32) -> Option<String>,
+    ) {
+        let mut lazy = load(rows);
+        let mut eager = load(rows);
+        eager.lazy = false;
+        let first = lazy.sheet_name(0).expect("a sheet").to_string();
+        for m in [&lazy, &eager] {
+            m.view("plane", &first, None)
+                .expect("a plane of the first sheet");
+        }
+        for frame in 1..=frames {
+            let when = format!("frame {frame}\n{rows}");
+            if let Some(w) = write(d, frame) {
+                let (a, b) = (lazy.write(&w), eager.write(&w));
+                assert_eq!(a.is_ok(), b.is_ok(), "{when}: {w}: {a:?} {b:?}");
+            }
+            let budget = 1 + d.below(200);
+            if !lazy.step(budget).done {
+                let views = twin_views(&lazy);
+                assert_eq!(views, twin_views(&eager), "{when}: a view during a yield");
+                while !lazy.step(budget).done {}
+            }
+            assert!(eager.step(0).done);
+            let lagging = lazy.lagging.iter().any(|&l| l);
+            seen.0 += usize::from(lagging);
+            assert_eq!(
+                twin_views(&lazy),
+                twin_views(&eager),
+                "{when}: the twins' views"
+            );
+            same_state(&lazy, &eager, &when);
+            // A frame's end that walks every sheet, the twins' cells made
+            // first; or the twins made by the grid lent whole.
+            let walk = d.below(4) == 0;
+            for m in [&mut lazy, &mut eager] {
+                m.incremental = !walk;
+            }
+            seen.2 += usize::from(walk && lagging);
+            if d.below(4) == 0 {
+                seen.1 += usize::from(lagging);
+                let rows_sheets = lazy.sheets;
+                let made: Vec<String> = lazy.workbook().sheets[rows_sheets..]
+                    .iter()
+                    .map(|s| format!("{:?}", s.cells))
+                    .collect();
+                assert!(lazy.lagging.iter().all(|&l| !l), "{when}: every twin made");
+                assert!(lazy.behind.iter().flatten().all(|&w| w == 0), "{when}");
+                let copied: Vec<String> = eager.book.sheets[eager.sheets..]
+                    .iter()
+                    .map(|s| format!("{:?}", s.cells))
+                    .collect();
+                assert_eq!(made, copied, "{when}: the twins made");
+            }
+        }
+    }
+    #[test]
+    fn a_value_cell_s_twin_is_copied_as_written_beside_formulas_made_from_their_slots() {
+        // KERNEL.27: only a formula's twin cell is left behind its slot, which
+        // holds its value exactly; a value cell written between frames is
+        // copied into its twin where it stands, an error the language does
+        // not name spelled as written, which its slot reads as `#VALUE!`. A
+        // sheet's place and name asked of the machine, which never makes the
+        // twins.
+        let mut m = load(concat!(
+            "(cell \"S\" \"A1:A8\" 1)\n",
+            "(cell \"S\" \"C1:C20\" 0)\n",
+            "(formula \"S\" \"B1:B8\" \"=S.last!B1+A1\")\n",
+        ));
+        for _ in 0..3 {
+            m.step(0);
+        }
+        assert_eq!(m.write("(cell \"S\" \"A3\" (error \"#FOO!\"))"), Ok(1));
+        m.step(0);
+        assert!(m.lagging[0], "B's twin cells behind their slots");
+        assert_eq!((m.find_sheet("s.LAST"), m.find_sheet("T")), (Some(1), None));
+        assert_eq!((m.sheet_name(1), m.sheet_name(2)), (Some("S.last"), None));
+        let wants = [
+            ("A3", Content::Error("#FOO!".to_string())),
+            ("B2", Content::Number(4.0)),
+            ("B3", Content::Error("#VALUE!".to_string())),
+        ];
+        let record = grid(&m, "S.last", None);
+        assert!(
+            record.contains("(cell \"S.last\" \"A3\" (error \"#FOO!\"))"),
+            "{record}"
+        );
+        for (at, wanted) in &wants {
+            assert_eq!(content(&m, "S.last", at).as_ref(), Some(wanted), "{at}");
+        }
+        let book = m.workbook();
+        for (at, wanted) in wants {
+            let r = parse_a1_range(at).unwrap();
+            assert_eq!(
+                book.sheets[1].cells[&(r.top, r.left)].content,
+                wanted,
+                "{at}, made"
+            );
+        }
+        assert!(!m.lagging[0]);
+        assert_eq!(grid(&m, "S.last", None), record, "the record, made");
+        // A formula whose twin cell is behind its slot, written over with a
+        // value: copied into its twin as written at the next frame's end, and
+        // no longer behind, while the cells beside it are.
+        m.step(0);
+        assert!(m.lagging[0], "B's twin cells behind again");
+        assert_eq!(m.write("(cell \"S\" \"B5\" (error \"#BAR!\"))"), Ok(1));
+        m.step(0);
+        assert!(m.lagging[0], "B's other twin cells behind");
+        let bar = Content::Error("#BAR!".to_string());
+        assert_eq!(content(&m, "S.last", "B5").as_ref(), Some(&bar), "B5");
+        assert_eq!(
+            m.workbook().sheets[1].cells[&(5, 2)].content,
+            bar,
+            "B5, made"
+        );
+    }
+
     /// Two grids' kept state the same to the bit: every formula's value of
     /// the last complete frame, every twin's cells, extent and reasons, every
     /// twin's array, and every kept plane (KERNEL.20, slice 4).
     fn same_state(a: &Machine, b: &Machine, when: &str) {
         assert_eq!(values(a), values(b), "{when}: the values");
         for t in a.sheets..a.book.sheets.len() {
-            let cells = |m: &Machine| {
-                let held: Vec<((u32, u32), &Content)> = m.book.sheets[t]
-                    .cells
-                    .iter()
-                    .map(|(k, c)| (*k, &c.content))
-                    .collect();
-                format!("{held:?}")
-            };
+            let cells = |m: &Machine| format!("{:?}", twin_cells(m, t));
             let name = &a.book.sheets[t].name;
             assert_eq!(cells(a), cells(b), "{when}: {name}");
             assert_eq!(a.extents[t], b.extents[t], "{when}: {name}'s extent");
@@ -3458,37 +3994,8 @@ mod tests {
                     computed += inc.computed;
                     passed += of;
                 }
-                let write = match d.below(9) {
-                    0..=2 => format!(
-                        "(cell \"A\" \"{}{}\" {})",
-                        d.pick(&["A", "B"]),
-                        1 + d.below(20),
-                        d.pick(&["0", "1", "2", "7", "\"x\"", "true"])
-                    ),
-                    // Two of a few cells at once, each to one of two values,
-                    // so that a part the same at every cell changes and changes
-                    // back, alone and beside another change.
-                    6 | 7 => format!(
-                        "(cell \"A\" \"A{}\" {})\n(cell \"A\" \"B{}\" {})",
-                        1 + d.below(4),
-                        d.pick(&["0", "7"]),
-                        1 + d.below(4),
-                        d.pick(&["0", "7"])
-                    ),
-                    3 => format!(
-                        "(cell \"B\" \"A{}\" {})",
-                        1 + d.below(20),
-                        d.pick(&["1", "3", "\"y\""])
-                    ),
-                    // A value over a formula, which plans the grid again.
-                    4 if frame % 3 == 0 => format!(
-                        "(cell \"A\" \"{}{}\" 2)",
-                        d.pick(&LETTERS[2..8]),
-                        1 + d.below(4)
-                    ),
-                    // A cell added beside, where references may point.
-                    5 if frame % 4 == 0 => format!("(cell \"A\" \"J{}\" 4)", 1 + d.below(20)),
-                    _ => continue,
+                let Some(write) = write_between(&mut d, frame) else {
+                    continue;
                 };
                 let (a, b) = (inc.write(&write), whole.write(&write));
                 assert_eq!(a.is_ok(), b.is_ok(), "{when}: {write}: {a:?} {b:?}");
@@ -3805,7 +4312,7 @@ mod tests {
 
     /// Whether a sheet's plane is kept (KERNEL.24).
     fn kept(m: &Machine, sheet: &str) -> bool {
-        let s = m.workbook().find_sheet(sheet).unwrap();
+        let s = m.find_sheet(sheet).unwrap();
         m.planes.get(s).is_some_and(Option::is_some)
     }
 
@@ -3815,8 +4322,8 @@ mod tests {
     fn walked(m: &Machine, sheet: &str, windows: &[&str], kept_now: bool) {
         let was_kept = kept(m, sheet);
         for w in windows {
-            let window = window_of(m.workbook(), sheet, Some(w)).unwrap();
-            let walk = plane::bytes(m.workbook(), m, &window);
+            let window = window_of(&m.book, sheet, Some(w)).unwrap();
+            let walk = plane::bytes(&m.book, m, &window);
             assert_eq!(plane(m, sheet, w), walk, "{sheet}!{w}, frame {}", m.frame());
         }
         assert_eq!(was_kept, kept_now, "{sheet} kept, frame {}", m.frame());
@@ -4235,7 +4742,7 @@ mod tests {
     fn plain_formulas_of_one_r1c1_text_are_one_shape() {
         let m = load("(formula \"S\" \"A2\" \"=A1+1\")\n(formula \"S\" \"A3\" \"=A2+1\")\n(formula \"S\" \"B3\" \"=B2+1\")\n(formula \"S\" \"C3\" \"=$A$1+1\")\n");
         assert_eq!(m.formulas(), (4, 2));
-        let book = m.workbook();
+        let book = &m.book;
         let names = Names::of(book);
         let extents: Vec<Extent> = book.sheets.iter().map(Sheet::extent).collect();
         let s = Shapes::of(book, 1, &library::language(), &names, &extents);

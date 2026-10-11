@@ -181,9 +181,13 @@ impl Projection for Grid<'_> {
             out(&format!("(look {} {} {})", quoted(name), value, index));
         }
         let masters = shared_masters(sheet);
+        // A sheet whose cells are newer where its values say (KERNEL.27): an
+        // engine's twin, read through its values' own content.
+        let lags = self.values.filter(|v| v.lags(i));
         for ((row, col), cell) in cells {
             let addr = cell_ref(*row, *col);
-            let printed = match &cell.content {
+            let newer = lags.and_then(|v| v.content((i, *row, *col)));
+            let printed = match newer.as_ref().unwrap_or(&cell.content) {
                 Content::Text(t) => {
                     let value = Value::Text(t.clone());
                     out(&relation(&Row::Cell {

@@ -6,7 +6,7 @@
 
 ### What changed
 
-- **For engines: a frame of a grid steps about twenty times as fast, and a
+- **For engines: a frame of a grid steps about thirty times as fast, and a
   frame where little changes costs little.** A frame now computes
   only the cells whose reads changed: a change is followed from the cell
   that changed to the cells that read it, and a cell computed to the value
@@ -20,17 +20,29 @@
   previous frame walked where it stands; and numbers and truth values pass
   from one step of a formula to the next as numbers and truth values, with
   no kind to check. The previous frame's values, which a rule reads through
-  each sheet's hidden twin (`Screen.last`), are kept as an array beside the
-  twin's cells, so that reading one is an index and a range of them a walk
-  of the array, and this frame's are kept at each formula's place in the
+  each sheet's hidden twin (`Screen.last`), are kept as an array, the
+  twin's cells made from it only when something reads the twin as a sheet,
+  so that reading one is an index and a range of them a walk of the array, and this frame's are kept at each formula's place in the
   order of evaluation, where a map held them; a reference finds the sheet
-  it names once, when its formula is placed; and a function's arguments no
-  longer cost an allocation. A frame of Life on a 320 by 200 Screen, 62,964
-  formulas, steps in about 5 ms natively and 6.6 ms in WebAssembly in the
-  browser, over 150 frames a second, where 0.8.1 took about 100 and 138;
-  Gosper's glider gun steps in about 0.02 ms. A frame makes about eighty
-  allocations where it made a quarter of a million. Every value is computed
-  exactly as before (KERNEL.20, its first four slices, and KERNEL.26).
+  it names once, when its formula is placed; a function's arguments no
+  longer cost an allocation; and a part a formula writes more than once, as
+  Life's rule writes `SUM(Screen.last!A1:C3)-Screen.last!B2` twice, is
+  computed once for all of its cells. A frame of Life on a 320 by 200
+  Screen, 62,964 formulas, steps in about 3 ms natively and 4.3 ms in
+  WebAssembly in the browser, over 230 frames a second, where 0.8.1 took
+  about 100 and 138; Gosper's glider gun steps in about 0.015 ms. A frame
+  makes about eighty allocations where it made a quarter of a million.
+  Every value is computed exactly as before (KERNEL.20, its first four
+  slices, KERNEL.26 and KERNEL.27).
+- **For embeddings: `Machine::workbook` borrows the machine mutably.** The
+  grid it lends holds each sheet's hidden twin (`Screen.last`), whose cells
+  an engine's frame now makes from the previous frame's array only when
+  something reads them, so `workbook` makes them first and takes
+  `&mut self`. A caller that asks it for a sheet's place or name asks the
+  machine instead, `Machine::find_sheet` and `Machine::sheet_name`, which
+  take `&self`. `Machine::view` is unchanged, a view of a twin reading its
+  cells through the machine, and the `Values` trait gains two methods with
+  defaults, which an implementation keeps without a change (KERNEL.27).
 - **For everyone who builds a workbook: it arrives with its values.** A
   workbook `frazaro build` writes, and the web page's *Download as .xlsx*,
   now holds in each formula's cell the value the formula computes, as a

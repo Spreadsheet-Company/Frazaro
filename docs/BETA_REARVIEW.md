@@ -21704,7 +21704,7 @@ was checked first in the worktree, 354 tests passed and 5 ignored, 55 of
 ledger. The two gains decision 6 names are filed as one item in a commit of
 their own after it.
 
-- ⬜ **`KERNEL.27` — the 4.8 ms frame: the twins' cells made only when
+- ✅ **`KERNEL.27` — the 4.8 ms frame: the twins' cells made only when
   read, and a part repeated in one formula computed once.**
   *Minted 2026-10-10 at the owner's word, "Mint the two further gains as an
   additional item, then commit", from `KERNEL.26`'s profile of its own
@@ -21763,6 +21763,289 @@ their own after it.
   frames held to the hand-written Life; `CART.1`'s runner and Alonzo's
   instrument for the numbers; a frame's allocations no more than 80; the
   stack painted against `VLA.1`'s limits. `~days` each
+
+  *Scoped, built and committed 2026-10-10 at the owner's word, the entry
+  below; closed with the commit.*
+
+**`KERNEL.27`, the 4.8 ms frame's two further gains: the scoping, 2026-10-10.**
+Begun at the owner's word, "Proceed with scoping and implementing
+KERNEL.26", taken for `KERNEL.27`: `KERNEL.26` had closed with its commit,
+and `KERNEL.27` was the item filed after it with nothing scoped, its
+correction the owner's to make. As for `KERNEL.26`, the owner's word to
+scope and implement is the adjudication's start, and each decision below is
+built as recommended, with its alternatives and their measurements, open to
+the owner's veto before the commit. Built and measured in a worktree at
+`754354f`, beside a peer's uncommitted sixth slice of `KERNEL.20`, which
+touches no file of the language but for its own mutants.
+
+*Read in the code before anything was proposed*, at `754354f`:
+- The frame's end that copies (`Machine::copy`, `Twins::put`) writes each
+  changed formula cell into its twin four times: the array's slot, the kept
+  plane's byte, the twin's cell in its B-tree, looked up, compared and
+  overwritten, and the reason beside it. The array is what an evaluation
+  reads of a twin kept as one (`Env::read`, `Ctx::each`, a run's reads and
+  folds); the B-tree is what every other reader reads: the record and the
+  plane of a twin (`Machine::view`), `Machine::workbook`, the walk, which
+  compares each twin cell where it stands to note what changed, and an
+  evaluation of a twin too sparse for an array. Alonzo's engine asks
+  `workbook` for sheets' names and places alone (`describe`, `check_row`),
+  and three of its tests for names and formula cells.
+- A run walks its shape's parse once a chunk of 256 cells (`vector.rs`),
+  each node at every cell; a chain of operators is walked round its left
+  spine, its inner links never asked for as nodes; `IF` partitions its
+  cells. Life's rule computes `SUM(Screen.last!A1:C3)-Screen.last!B2` twice
+  and reads `Screen.last!B2` three times at every cell; its soup, the first
+  frame's, computes `MOD(MOD(h1,P)*MOD(h2,P),P)` twice.
+
+*Measured before anything was proposed*: timers in copies of the tree,
+never the tree, around each part of the step, `CART.1`'s runner on one
+performance core, Life's soup over the benchmark's window, frames 2 to 31,
+42,373 cells computed and 12,395 changed a frame; rounds alternated each
+time, since one of the owner's browser tabs held a core busy for an hour of
+the session and the medians of separate batches moved by up to a fifth. At
+`754354f` the evaluation took 2.95 to 2.97 ms a frame, the frame's end 1.12
+to 1.25, its copy 1.06 to 1.17. A ceiling, the copy built never to touch a
+twin's B-tree (its frames still equal to the hand-written Life, its twins'
+cells left stale and read by nothing in the window), took 0.36 to 0.42 ms
+in a batch where the copy took 1.29 to 1.39: the B-tree was about 0.95 ms
+of the frame, more than two thirds of the copy.
+
+*The decisions*:
+
+1. **The twins' cells made only when read: yes, for a formula cell of a
+   twin kept as an array.** The frame's end that copies writes a changed
+   formula cell's slot, its byte and its reason, and marks its twin cell
+   behind its slot, a bit a slot (`Machine::behind`, and `lagging`, a flag
+   a twin). A formula's twin cell is its value as a value cell holds it,
+   which its slot holds exactly, and it holds one exactly where its slot
+   does, so a cell that would gain or lose a value leaves the twin to the
+   walk as before, and what the frame's end notes changed for the next
+   frame is the slot's change, to the bit (`same_slot`), which is what a
+   read of the twin changed. A twin cell behind its slot is made from it
+   when a reader of the twin as a sheet asks: the walk makes every one
+   first (`make_twins`), so that what it finds changed is what a read of
+   the twin changed; `Machine::workbook` makes them; and a view reads them
+   through their slots, the record and the plane asking the machine for a
+   lagging sheet's cells (`Values::lags`, `Values::content`), so that a view
+   makes nothing. A value cell written between frames is copied into its
+   twin where it stands, as before: its slot reads an error the language
+   does not name as `#VALUE!`, and its twin cell holds the text as written.
+   *Alternatives,* each measured: the copy as it stands; the B-tree walked
+   once along the changed cells, in order, the filing's smaller one, built
+   (a cursor stepping to the next cell within 32 of the last and looking up
+   any other), which stepped 54,198 times and looked up 149 times a frame
+   for 11,645 cells and took 1.03, 0.87 and 1.11 ms against the copy's 0.98
+   and 0.91, since each changed cell's twin cell is still read and written
+   in a B-tree of 4 MB, a miss of the processor's cache, whether the cursor
+   steps to it or a lookup finds it; and the array alone as the twin, its
+   cells dropped, which keeps every borrow but changes what a reader reads,
+   `workbook` showing a twin without cells and a twin's record spelling a
+   value cell's `(error "#FOO!")` as `#VALUE!`. *Measured:* the frame's end
+   from 1.12 to 1.25 ms a frame to 0.30 to 0.37, its copy from 1.06 to 1.17
+   to 0.23 to 0.29.
+2. **What a reader of the twins borrows: `workbook` the machine mutably,
+   `view` as it was.** `Machine::workbook` takes `&mut self` and makes every
+   twin's cells first, the one change of the crate's interface a caller
+   meets: the grid is lent whole only to a caller that may change the
+   machine. A sheet's place and name, which never need the twins made, are
+   asked of the machine (`Machine::find_sheet`, `Machine::sheet_name`, new);
+   `Values` gains two provided methods, which every implementation keeps
+   without a change. `Machine::view` keeps `&self`. Alonzo's engine, when
+   its pin moves, asks the machine for names in `describe` and `check_row`
+   and lends its tests the grid through its machine mutably: the scratch
+   copy measured here did so in eleven lines. *Alternatives:* `view` and
+   `workbook` both `&mut self`, which would have the C door's view and
+   Alonzo's `Cartridge::view` borrow mutably for a read; `workbook` keeping
+   `&self` and lending the twins' cells as the last walk left them, a stale
+   read through a public call. *The version:* by Cargo's rules a change of
+   a published crate's interface that breaks a caller takes the next minor
+   version, so the release that carries this is 0.9.0 and not 0.8.2: the
+   owner's call, taken 2026-10-10 ("API break approved").
+3. **A part repeated in one formula computed once a run: yes, where its
+   places stand in one branch.** Found once a shape (`vector::Repeats`,
+   kept beside `holds`): each node of the parse a run reaches, but a
+   literal, which a run makes as cheaply as it would copy it; a reference a
+   strict call takes as one and anything inside a call computed at each
+   cell are never reached. Two places are one part when their parses are
+   the same to the bit (a number's bits, hashed then compared) and they
+   stand in the same branch of every `IF` around them, so that the run
+   reaches both over the same cells; a place inside a later place of a
+   larger part is never reached, the larger part taken whole, and is left
+   out. The run computes a part where it is first written and keeps a copy
+   of its lane, every later place takes a copy and the last the lane
+   itself, so that the copies are as many as alone (`Many::again`, in a
+   frame of its own); a link of a chain that is a place is the leftmost
+   operand of the rest, the same values in the same order. Each place is
+   held by its path from the parse's root, a child's index a step, and
+   found on the parse each chunk evaluates, so that no address outlives the
+   chunk: the plan is cloned when a write plans the order again. Life's
+   rule shares `SUM(...)-Screen.last!B2` and `Screen.last!B2`; its soup four
+   parts. *Alternatives:* the shape's parse made a graph, a kind of node
+   every reader of the parse would meet, the cell's evaluation, the plan,
+   the reach and the tests among them; sharing across branches, an `IF`'s
+   condition and its branch reaching other cells, so that the lane would be
+   gathered to the branch's cells first (not built); the cartridges' rules
+   written without the repeat, a change to the benchmark's rows that leaves
+   every repeating formula an author writes as it was, `LET` being Excel's
+   own remedy. *Measured:* the evaluation from 2.95 to 2.97 ms a frame to
+   2.02 to 2.04, and the soup's first frame from 34 to 36 ms to 21 to 22; a
+   test's counting function called 48 times a frame where 108.
+4. **The premise, no property of any function asserted.** A part is shared
+   on the premise a run already stands on: an evaluation has no effect but
+   its answer (a run computes an operand at a cell whose answer an earlier
+   operand decided, `KERNEL.20`'s third slice), and its answer is a
+   function of what it reads at its cell (a frame computes a cell again
+   only when what it reads changed, the fourth). A crate registering a
+   function with an effect, as the tests' `TICK` counts its calls, sees it
+   computed once a run where its call repeats.
+5. **Nothing stands deeper on the stack than `KERNEL.26` allowed.** A run's
+   recursion asks a node whether it is a place with a `bool` alone and
+   hands its selection by reference to `again`, where the part's lane is
+   kept; the shape's plan is made in a frame of its own after the parse
+   (`Shapes::push`). *Alternative:* the node's evaluation written once and
+   compiled into both callers, 75 bytes a level in the debug build `VLA.1`'s
+   limits run in, 4.8 KiB for 64 levels of a run, measured.
+6. **What remains**, over the built frame, 2.9 to 3.2 ms with the timers in:
+   the evaluation 2.0 ms, the rule's one `SUM` over a range, its `AND` and
+   `OR`, its reads and comparisons; the frame's start 0.35; the values kept
+   0.29; the frame's end 0.30 to 0.37, the copy of the changed cells' slots,
+   bytes and reasons 0.23 to 0.29 of it.
+
+*Size*: no prediction was written before the build. Measured after it:
+`vla-lang/src/machine/mod.rs` +601 and -94 lines (its tests 382 of them),
+`calc/vector.rs` +480 and -8, `calc/shape.rs` +45 and -4, `calc/dense.rs`
+18, `calc/mod.rs` 15, `machine/plane.rs` 9, `view.rs` 5, `tests/laws.rs` 3.
+
+*Built 2026-10-10* in a worktree at `754354f`.
+`vla-lang/src/calc/vector.rs`: `Repeats` (`of`, `parts`, `found`), `Key`,
+`Reaches`, `reaches`, `arity`, `literal`, `node_hash`, `same_part`; `Lanes`'
+places and kept lanes; `evaluate` taking a shape's repeats; `Many`'s
+places, kept lanes and `computing`; `repeated`, `part_at`, `again`,
+`copied`; `chain` stopping at a link that is a place; the module's header.
+`vla-lang/src/calc/shape.rs`: `Shape::repeats`, `holds` with a lane for
+each part, `Shapes::push`. `vla-lang/src/calc/mod.rs`: `Values::lags` and
+`Values::content`. `vla-lang/src/calc/dense.rs`: `index`, `slots`,
+`slot_at`, `at`. `vla-lang/src/view.rs` and `vla-lang/src/machine/plane.rs`:
+a lagging sheet's cells read through its values. `vla-lang/src/machine/
+mod.rs`: `behind`, `lagging`, `lazy`; `copy` through `Twins::put_behind`,
+`put` clearing a cell's bit, `byte_and_reason`, `same_slot`; `make_twins`,
+before the walk and in `workbook`; `find_sheet`, `sheet_name`; `Values`'
+`lags` and `content`; the module's header; five tests, two arms of the
+generator, five helpers, and the tests that read a twin's cells reading
+them through its slots. `vla-lang/tests/laws.rs`: a save's sheets named by
+the machine.
+
+*Found by the oracle while it was built*:
+- The ordered walk, the filing's smaller alternative, built and measured
+  before the design, and discarded (decision 1).
+- The stack: the node's evaluation inlined into `scalars` cost 75 bytes a
+  level (4.8 KiB at 64 levels of a run), its own slots in every frame in
+  the debug build; the selection handed to `again` by value, 24 bytes a
+  level; the shape's plan made in `add`'s frame, beneath the parse, every
+  load 0.3 KiB deeper. Each moved (decision 5).
+- Three of the machine's tests read a twin's cells from its B-tree
+  (`same_state`, `twins_are_their_sheets`, `twin_cell`); they read them
+  through their slots as a view does, making nothing, so that the lazy
+  path stays under test, and the making has tests of its own.
+- The law of lazy twins over the generated grids alone left a twin cell
+  behind in 17 frames of 320: their formulas change most of their cells
+  every frame, and the frame's end walks. Life from twelve soups joined it,
+  whose frames' ends copy: 120 frames left a cell behind, 34 twins were made
+  lent whole and 28 walks followed such a frame.
+- The mutants found three gaps, each closed by a test: parts differing by
+  their operator alone, which the plan's own test now holds; the lane a part
+  keeps in a shape's bound; a formula left behind and written over with an
+  error the language does not name. One survived its first run, no lane
+  held for a part, every grid's bound having room to spare; a shape whose
+  bound is tight now fails it.
+- The language's module grew by 47 KB at first, each of the plan's three
+  sorts and the places' sort compiled for its own kind of key, two of them
+  stable; one key the shape of a cell's id, which the plan of shapes
+  already sorts, took it to 16 KB.
+- Alonzo's HEAD moved during the build, to `880cf9c` and `0dfe551`, the
+  latter its instrument's answer to the gun's frames being quicker than the
+  page's clock (`KERNEL.26`'s finding); the instrument's copies were taken
+  again from `0dfe551`.
+
+*The stack*, by painting, against `754354f`: every load 0.1 to 0.2 KiB
+shallower (the deepest, 64 nested `SUM`s of a reference, 955.1 KiB where
+it used 955.3); a cell's step alone the same; a run's step 0.8 KiB deeper
+at 64 levels (64 nested `IF`s 196.5 KiB where 195.7, 64 signs 56.4 where
+55.6, 63 nested additions 103.2 where 102.4), within `KERNEL.26`'s "at most
+1.2 KiB deeper"; and of a part written twice, each nested 63 deep, 2.1 KiB,
+the one frame of `again` at its top.
+
+*Measured*, every frame of every run equal to the hand-written Life, over
+`754354f`. `CART.1`'s runner on one performance core, five rounds
+alternated, each figure the median of the round medians:
+- the soup's steady frame from 4.86 ms to 2.89 (1.68 times), from 26.7
+  generations of the hand-written Life to 16.1;
+- the gun's from 20.4 µs to 14.7;
+- the soup's first frame from 34 to 36 ms to 21 to 22, the gun's 9 as
+  before; each load as before, about 70 ms;
+- the check mode 80 allocations and 5 reallocations a frame, as before.
+
+Alonzo's instrument over whole copies at `0dfe551`, three runs each:
+- the soup in headless Chrome from 6.5 to 6.8 ms to 4.3, 148 to 153 frames
+  a second to 233 to 235; natively from 4.7 to 5.3 to 3.1 to 3.3;
+- the gun in headless Chrome from 0.095 to 0.098 ms to 0.061, timed in
+  runs of 64 and 128 steps.
+
+From 0.8.1's frame: natively 102 to 2.9 ms, in the browser 138 to 4.3,
+about 35 and 32 times. The modules: Alonzo's engine 620,541 bytes to
+636,959 (+2.6%), the language's with `c-abi` 522,998 to 539,214 (+3.1%),
+the core's 1,145,020 to 1,145,415.
+
+*Oracle, met* in the worktree, `754354f` and this item. `cargo test
+--workspace`: 359 passed and 5 ignored, the five new tests over 354, with
+`VLA.1`'s limits and strangers among them on their stack of 1 MiB: a part
+written more than once is computed once a run (`TICK`'s calls counted by
+runs and alone, a chain, a call's operands, a part inside a part, an `IF`'s
+condition and branches); the parts a run computes once are those written in
+one branch (seventeen formulas, Life's whole rule among them); a twin's
+cells made when read are the cells a frame's end copies (lazy against eager
+over 40 generated grids and Life from 12 soups, views during a yield and
+after, the twins lent whole and walked); a value cell's twin is copied as
+written beside formulas made from their slots; a run holds its parts' kept
+lanes within its shape's bound. The generated grids of `KERNEL.20`'s third
+and fourth slices, their generator writing a part more than once in two new
+arms, hold the run to the cells alone and to the frame computed whole. fmt
+clean; clippy clean, with `c-abi` too. Alonzo's engine tests over this by
+path, 27 of 27, at `4244819` and at `0dfe551`, in a scratch copy whose
+eleven lines ask the machine for names and lend the tests its grid
+mutably. `CART.1`'s check mode, every frame equal and the gun's facts held.
+
+Mutants, 26, each failing in the tests that name its decision or crashing
+one:
+- an `IF`'s branches the branch of its condition; a strict call's reference
+  operand reached; a place inside a later place kept; a literal a part;
+  parts differing by their operator alone the same;
+- the first place taken for the last; the first place keeping no copy; the
+  places' addresses out of order; a path's left operand taken for its
+  right; no lane held for a part; a copy of numbers a cell short; a link
+  that is a place flattened into its chain; the place being computed asked
+  again (the stack overflows);
+- a twin cell behind its slot not marked; a twin behind its slots not said
+  to lag; the walk comparing a twin's cells unmade; the grid lent whole
+  unmade; a cell copied where it stands left marked behind; a changed slot
+  taken for unchanged; a cell gaining or losing a value left behind; a
+  twin's record, or its plane, read past its slots; a cell not behind read
+  through its slot; a twin cell made as zero; the walk's bits half its
+  slots; an error slot's kind taken for its change.
+
+The clean run after them passed. `run_checks.ps1` 55 of 55, with the door,
+both modules and the page built there; `prove.ps1` 46 passed, 0 failed, 2
+not attempted, 1 library. No Excel step: the item touches no VBA.
+
+*Committed 2026-10-10 at the owner's word*, "API break approved": the owner
+took the oracle above as the item's test, the item touching no VBA, and
+the version the break asks for, 0.9.0 (decision 2), whose release commit
+follows this one. The commit holds `754354f` and this item's eleven files
+alone, staged from the worktree; its tree was checked first there, 359
+tests passed and 5 ignored, 55 of 55 checks. The item closed with the
+commit; its line is in the closed ledger. The owner's word with it: an API
+break this early in the machine's optimization suggests more will follow
+than the owner would prefer.
 
 ---
 
@@ -34983,6 +35266,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.3 — the study before the viewport (`SD-29`).** The instrument as one document, `docs/PROTOCOL.md`: the tasks and comprehension questions backed into from the literature, a fixture with one planted defect of each of five classes in two variants (`scripts/study/`, written by `tools/build_study_fixture.ps1` and held by `tools/check_study_fixture.ps1`), the task sheet, the protocol, the measures, a renderer benchmark (`tools/bench_view.ps1`) and the decision rule written before the first run. The benchmark, run by the owner in fullscreen on 2026-10-08, decided canvas: a virtualized DOM held a 60 Hz frame only at the default cell size, canvas through the densest legible one, and `KERNEL.5` is built on it in Alonzo. The fixtures were blessed in Excel on 2026-10-09, and `KERNEL.7`'s recalculation reproduces every cached value in them. The study's human half was not run: with the tool's author as its only participant it could decide nothing, so it runs when the formula bar or the pane is next scoped, with another participant, as `SD-29` requires then. Built 2026-10-08, committed and closed 2026-10-09 at the owner's word; the entry above carries the record. `~days`, taken in two.
 - ✅ **KERNEL.25 — the evaluator's hot path made cheaper, bit for bit.** Asked by Alonzo's `CART.1` with its profile and seven prototypes, all seven in `vla-lang`: a sheet found by `eq_ignore_ascii_case` instead of every sheet's name folded into a new string at every reference; a library name already in upper case looked up as it stands; a reference's label borrowed from the parse, `Arg<'e>`; one area held in place, `Areas`; a range walked as it is read, and `SUM`, `MIN`, `MAX`, `AND` and `OR` folding as they walk, the fold compiled into the walk; the machine's maps of values and the plan's places under an Fx hash written in the crate, no dependency; a twin's read straight to its cell. Every frame equal to the hand-written Life and the goldens unchanged; nine tests, and four mutants caught. Measured natively on Alonzo's Life, 320 by 200, on a performance core: a steady step from 282.3 to 101.0 ms, 2.80 times, the gun at the soup's cost, the load from 167 to 53 ms, the allocations of a frame from 4,470,549 to 251,957. Built 2026-10-09 and committed 2026-10-10 at the owner's word; the entry above carries the record. `~a day`, taken in hours.
 - ✅ **KERNEL.26 — the frame's two decisions: the language's own functions computed by a run, by their meaning written once, and the frame's values kept at each cell's place in the order.** Filed from `KERNEL.20`'s third slice for the owner to adjudicate together, and both built over its fourth: each aggregate's meaning written once in the library, a rule for each kind of item it counts and a fold for each of `SUM`, `MIN`, `MAX`, `AND` and `OR`, with `NOT`'s answer, which a cell's evaluation and a run both drive, a range of a twin walked where it stands; lanes of numbers and of truth values carrying a formula's steps by `binary`'s own rules over numbers, named so that `binary` calls them too; and the frame's values kept at each formula cell's position in the order, which the plan already held, where a map held them. Every frame equal to the hand-written Life and every golden unchanged; four tests, and 27 mutants caught, the three in a rule both drive by the library's own tests; no level of the evaluation deeper on the stack. Measured on Alonzo's Life, 320 by 200, on a performance core: a steady frame of the soup from 12.0 to 4.8 ms natively and from 16.3 to 6.6 in headless Chrome, 153 frames a second, about twenty times 0.8.1's; the gun's from 42 to 20 µs; 80 allocations a frame, as before. Scoped, built and committed 2026-10-10 at the owner's word; the entry above carries the record. The two further gains its profile named are `KERNEL.27`. `~days` each, taken in hours.
+- ✅ **KERNEL.27 — the 4.8 ms frame's two further gains: the twins' cells made only when read, and a part repeated in one formula computed once.** Filed from `KERNEL.26`'s profile of its own frame, and both built over it: a changed formula cell of a twin kept as an array written into the array alone, its twin cell made from the array when a reader of the twin as a sheet asks, the walk and `Machine::workbook` making them and a view reading through the array, `workbook` borrowing the machine mutably for it, the change of the crate's interface that makes the release 0.9.0; and a part a formula writes more than once in one branch of every `IF` around it computed once a run, its places found once a shape by their paths from the parse's root. Every frame equal to the hand-written Life and every golden unchanged; five tests, the generator writing parts twice, 26 mutants caught; a run's step at most 0.8 KiB deeper on the stack at 64 levels, every load shallower. Measured on Alonzo's Life, 320 by 200, on a performance core: a steady frame of the soup from 4.86 to 2.89 ms natively and from 6.7 to 4.3 in headless Chrome, 235 frames a second, about 35 times 0.8.1's; the gun's from 20 to 15 µs; 80 allocations a frame, as before. Scoped, built and committed 2026-10-10 at the owner's word; the entry above carries the record. `~days` each, taken in hours.
 
 ## 🛡 ADVERSARY · SECURITY
 

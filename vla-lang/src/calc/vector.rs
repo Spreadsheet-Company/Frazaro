@@ -34,19 +34,29 @@
 //! make and read with no value's kind to match, a lane of values from the
 //! first answer of another kind.
 //!
+//! A part a formula writes more than once is computed once where its places
+//! stand in one branch of every `IF` around them (KERNEL.27), as Life's rule
+//! writes `SUM(Screen.last!A1:C3)-Screen.last!B2` twice: computed where it is
+//! first written, its lane kept, every later place taking a copy and the
+//! last the lane itself. The parts are found once a shape ([`Repeats`]), each
+//! place by its path from the parse's root, and every value is the one each
+//! place would compute, an evaluation having no effect but its answer.
+//!
 //! Its buffers are its caller's, kept from one frame to the next ([`Lanes`])
 //! and made in the first frame a run is evaluated in, as many as its parse
-//! can hold at once whatever branch its cells take ([`holds`]), so that a
-//! later frame makes none; a value the same at every cell is copied as often
-//! as alone. It recurses once a level of nesting as [`Ctx`] does, a level's
+//! can hold at once whatever branch its cells take ([`holds`]), with a lane
+//! for each repeated part, so that a later frame makes none; a value the
+//! same at every cell is copied as often as alone, and so is a repeated
+//! part's. It recurses once a level of nesting as [`Ctx`] does, a level's
 //! frame holding no array, since `VLA.1`'s limits are pinned on a stack of
 //! 1 MiB. Bit for bit with the cell by cell evaluation, which the machine's
 //! tests hold it to over generated grids of every kind of node, and with
 //! `Calc`, which plans and parses on its own.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::cmp::Ordering;
 use std::convert::Infallible;
+use std::hash::Hasher;
 
 use crate::refers::Shape as Part;
 
@@ -68,6 +78,7 @@ pub(crate) const CHUNK: usize = 256;
 type Got = Result<Value, Reason>;
 
 /// What an expression answers at each cell of a selection.
+#[derive(Debug)]
 enum Lane {
     /// The same at every cell, computed once: a constant, or a reference
     /// every `$` holds.
@@ -133,13 +144,16 @@ fn is_arithmetic(op: BinOp) -> bool {
 /// The buffers an evaluation of many cells holds, kept by its caller from
 /// one run to the next so that they are made once (KERNEL.20): of values,
 /// of numbers and of truth values (KERNEL.26), each as many as the parse
-/// holds lanes at once, and of positions.
+/// holds lanes at once, and of positions; and the places of the parse's
+/// repeated parts and the lanes kept for them (KERNEL.27).
 #[derive(Debug, Default)]
 pub(crate) struct Lanes {
     values: Vec<Vec<Got>>,
     numbers: Vec<Vec<f64>>,
     truths: Vec<Vec<bool>>,
     positions: Vec<Vec<u32>>,
+    found: Vec<Key>,
+    kept: Vec<Option<Lane>>,
 }
 
 impl Lanes {
@@ -276,6 +290,348 @@ fn yields_value(lib: &Library, e: &Expr) -> bool {
     }
 }
 
+/// The parts written more than once in a shape's parse that a run computes
+/// once (KERNEL.27). A part is a node of the parse the run evaluates over its
+/// cells, not a literal, nor a reference a strict call takes as one, nor
+/// anything inside a call [`Ctx`] computes at each cell; two places are the
+/// same part when their parses are the same to the bit and they stand in the
+/// same branch of every `IF` around them, so that the run reaches both over
+/// the same cells. The run computes a part where it is first written and
+/// keeps its lane, every later place taking a copy and the last the lane
+/// itself, so that the copies are as many as alone; a place inside a later
+/// place of a larger part is never reached and is left out, the larger part
+/// taken first. Each place is held by its path from the parse's root, a
+/// child's index a step, so that a copy of the parse is found the same way.
+/// Found once a shape, as [`holds`] is; most parses have none, and hold
+/// nothing.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct Repeats {
+    /// Each place in the parse's preorder: its part, whether it is the
+    /// part's last place, and where its path ends in `steps`.
+    places: Vec<(u16, bool, u32)>,
+    /// The places' paths, one after another.
+    steps: Vec<u16>,
+    parts: usize,
+}
+
+impl Repeats {
+    /// The repeated parts of a parse.
+    pub(crate) fn of(lib: &Library, e: &Expr) -> Repeats {
+        // The parse in preorder, each node with its parent, the branch it
+        // stands in (0 for none, else an `IF`'s place and which branch), and
+        // whether a run reaches it, round a stack, since a chain of operators
+        // nests as deep as it is long.
+        struct Node<'e> {
+            e: &'e Expr,
+            parent: u32,
+            branch: u32,
+            reached: bool,
+            size: u32,
+            hash: u64,
+        }
+        let mut nodes: Vec<Node> = Vec::new();
+        let mut stack: Vec<(&Expr, u32, u32, bool)> = vec![(e, u32::MAX, 0, true)];
+        let mut candidates = 0;
+        while let Some((x, parent, branch, reached)) = stack.pop() {
+            let at = nodes.len() as u32;
+            candidates += usize::from(reached && !literal(x));
+            nodes.push(Node {
+                e: x,
+                parent,
+                branch,
+                reached,
+                size: 1,
+                hash: 0,
+            });
+            match x {
+                Expr::Neg(y) | Expr::Pos(y) | Expr::Percent(y) => {
+                    stack.push((y, at, branch, reached));
+                }
+                // The left operand a link of a chain, which the run reaches
+                // as one when it is a part.
+                Expr::Binary(_, l, r) => {
+                    stack.push((r, at, branch, reached));
+                    stack.push((l, at, branch, reached));
+                }
+                Expr::Call(name, args) => {
+                    let how = reaches(lib, name, args);
+                    for (j, a) in args.iter().enumerate().rev() {
+                        let (b, r) = match how {
+                            Reaches::If if j > 0 => (at * 4 + j as u32, reached),
+                            Reaches::If => (branch, reached),
+                            Reaches::Operands => (branch, reached && ref_operand(lib, a).is_none()),
+                            Reaches::None => (branch, false),
+                        };
+                        stack.push((a, at, b, r));
+                    }
+                }
+                _ => {}
+            }
+        }
+        if candidates < 2 {
+            return Repeats::default();
+        }
+        // Each node's size and its parse's hash, children before parents.
+        for i in (1..nodes.len()).rev() {
+            let p = nodes[i].parent as usize;
+            nodes[p].size += nodes[i].size;
+        }
+        for i in (0..nodes.len()).rev() {
+            let mut h = crate::fx::FxHasher::default();
+            node_hash(nodes[i].e, &mut h);
+            let mut c = i + 1;
+            for _ in 0..arity(nodes[i].e) {
+                h.write_u64(nodes[c].hash);
+                c += nodes[c].size as usize;
+            }
+            nodes[i].hash = h.finish();
+        }
+        // The places a run reaches, by hash, branch and place, each place
+        // once, so that the order is the parse's whatever a sort keeps.
+        let mut reached: Vec<Key> = (1..nodes.len() as u32)
+            .filter(|&i| nodes[i as usize].reached && !literal(nodes[i as usize].e))
+            .map(|i| (nodes[i as usize].hash as usize, nodes[i as usize].branch, i))
+            .collect();
+        reached.sort_unstable();
+        // Among the places of one hash and branch, those the same to the
+        // bit, each part's places one after another in `members`, each part
+        // by its size, the largest first, and where its places begin.
+        let mut members: Vec<u32> = Vec::new();
+        let mut groups: Vec<Key> = Vec::new();
+        let mut taken = vec![false; reached.len()];
+        for a in 0..reached.len() {
+            if taken[a] {
+                continue;
+            }
+            let (hash, branch, first) = reached[a];
+            let start = members.len();
+            for (b, &(h, br, i)) in reached.iter().enumerate().skip(a) {
+                if (h, br) != (hash, branch) {
+                    break;
+                }
+                if !taken[b] && same_part(nodes[first as usize].e, nodes[i as usize].e) {
+                    taken[b] = true;
+                    members.push(i);
+                }
+            }
+            match members.len() - start {
+                0 | 1 => members.truncate(start),
+                n => {
+                    let size = nodes[first as usize].size as usize;
+                    groups.push((usize::MAX - size, start as u32, n as u32));
+                }
+            }
+        }
+        groups.sort_unstable();
+        // Each part kept while two of its places are still reached, the
+        // places inside a later place of a part kept before it never being.
+        let mut hidden = vec![false; nodes.len()];
+        let mut kept: Vec<Key> = Vec::new();
+        let mut parts = 0;
+        for &(_, start, n) in &groups {
+            let at = start as usize;
+            let places: Vec<u32> = members[at..at + n as usize]
+                .iter()
+                .copied()
+                .filter(|&i| !hidden[i as usize])
+                .collect();
+            if places.len() < 2 || parts == usize::from(u16::MAX) {
+                continue;
+            }
+            for (k, &i) in places.iter().enumerate() {
+                kept.push((i as usize, parts as u32, u32::from(k + 1 == places.len())));
+                if k > 0 {
+                    let end = i + nodes[i as usize].size;
+                    for h in &mut hidden[i as usize + 1..end as usize] {
+                        *h = true;
+                    }
+                }
+            }
+            parts += 1;
+        }
+        if parts == 0 {
+            return Repeats::default();
+        }
+        kept.sort_unstable();
+        // Each place's path: the child's index at each step from the root.
+        let mut out = Repeats {
+            parts,
+            ..Repeats::default()
+        };
+        let mut path: Vec<u16> = Vec::new();
+        for (i, part, last) in kept {
+            let (i, part, last) = (i as u32, part as u16, last == 1);
+            path.clear();
+            let mut c = i as usize;
+            while nodes[c].parent != u32::MAX {
+                let p = nodes[c].parent as usize;
+                // Which child of its parent: the children before it in
+                // preorder, each a whole subtree.
+                let (mut child, mut s) = (0u16, p + 1);
+                while s != c {
+                    s += nodes[s].size as usize;
+                    child += 1;
+                }
+                path.push(child);
+                c = p;
+            }
+            out.steps.extend(path.iter().rev());
+            out.places.push((part, last, out.steps.len() as u32));
+        }
+        out
+    }
+
+    /// How many lanes a run keeps for them at once: one a part.
+    pub(crate) fn parts(&self) -> usize {
+        self.parts
+    }
+
+    /// How many places the parts are written at that a run reaches.
+    #[cfg(test)]
+    pub(crate) fn places(&self) -> usize {
+        self.places.len()
+    }
+
+    /// Each place's node in a parse of the same shape, by its address, with
+    /// its part and whether it is the part's last place (`part << 1 | last`),
+    /// sorted by address.
+    fn found(&self, root: &Expr, out: &mut Vec<Key>) {
+        out.clear();
+        let mut from = 0;
+        for &(part, last, to) in &self.places {
+            let path = &self.steps[from..to as usize];
+            from = to as usize;
+            let mut e = Some(root);
+            for &k in path {
+                e = match (e, usize::from(k)) {
+                    (Some(Expr::Neg(x) | Expr::Pos(x) | Expr::Percent(x)), 0) => Some(&**x),
+                    (Some(Expr::Binary(_, l, _)), 0) => Some(&**l),
+                    (Some(Expr::Binary(_, _, r)), 1) => Some(&**r),
+                    (Some(Expr::Call(_, args)), j) => args.get(j),
+                    _ => None,
+                };
+            }
+            // A path is its own parse's, found on a parse of the same shape;
+            // were one not, its place would be computed where it stands.
+            debug_assert!(e.is_some(), "a place's path leaves its parse");
+            if let Some(e) = e {
+                let at = e as *const Expr as usize;
+                out.push((at, u32::from(part) << 1 | u32::from(last), 0));
+            }
+        }
+        out.sort_unstable();
+    }
+}
+
+/// What [`Repeats`] sorts, the places by hash, branch and place, the parts by
+/// size, and the places' addresses, each a key the shape of a [`CellId`], so
+/// that the build's one sort of cells sorts them all (KERNEL.27): each sort's
+/// own kind of key cost the language's module some kilobytes. On a 32-bit
+/// target a hash keeps its low half, which only puts more places side by
+/// side for [`same_part`] to tell apart.
+type Key = (usize, u32, u32);
+
+/// How a run reaches a call's arguments: each branch of the language's `IF`
+/// in a branch of its own, a strict call's operands where the call stands,
+/// or none, the call computed at each cell or answering without them.
+enum Reaches {
+    If,
+    Operands,
+    None,
+}
+
+/// [`Reaches`] for a call, as [`Many::call`] dispatches it.
+fn reaches(lib: &Library, name: &str, args: &[Expr]) -> Reaches {
+    if lib.form(name).is_some() {
+        if lib.known(name) == Some(Known::If) && (2..=3).contains(&args.len()) {
+            Reaches::If
+        } else {
+            Reaches::None
+        }
+    } else if lib.strict(name).is_none() || !args.iter().all(|a| is_operand(lib, a)) {
+        Reaches::None
+    } else {
+        Reaches::Operands
+    }
+}
+
+/// Whether a node is a literal, which a run makes the same at every cell as
+/// cheaply as it would copy it, and is never a repeated part (KERNEL.27).
+fn literal(e: &Expr) -> bool {
+    matches!(
+        e,
+        Expr::Number(_) | Expr::Text(_) | Expr::Bool(_) | Expr::Error(_) | Expr::Empty
+    )
+}
+
+/// How many children a node has, in the order [`Repeats::of`] walks them.
+fn arity(e: &Expr) -> usize {
+    match e {
+        Expr::Neg(_) | Expr::Pos(_) | Expr::Percent(_) => 1,
+        Expr::Binary(..) => 2,
+        Expr::Call(_, args) => args.len(),
+        _ => 0,
+    }
+}
+
+/// A node's own part of its parse's hash: its kind and what it holds but its
+/// children.
+fn node_hash(e: &Expr, h: &mut crate::fx::FxHasher) {
+    use std::hash::Hash;
+    std::mem::discriminant(e).hash(h);
+    match e {
+        Expr::Number(v) => h.write_u64(v.to_bits()),
+        Expr::Text(t) => t.hash(h),
+        Expr::Bool(b) => b.hash(h),
+        Expr::Error(k) => k.hash(h),
+        Expr::Ref(r) => {
+            r.written.hash(h);
+            r.sheet.hash(h);
+            (r.top, r.left, r.bottom, r.right).hash(h);
+        }
+        Expr::Name { name, sheet } => {
+            name.hash(h);
+            sheet.hash(h);
+        }
+        Expr::Call(name, args) => {
+            name.hash(h);
+            args.len().hash(h);
+        }
+        Expr::Binary(op, ..) => std::mem::discriminant(op).hash(h),
+        Expr::Empty | Expr::Neg(_) | Expr::Pos(_) | Expr::Percent(_) => {}
+    }
+}
+
+/// Whether two parses are the same to the bit, a number's sign of zero
+/// included: round a stack, as [`Repeats::of`] walks.
+fn same_part(a: &Expr, b: &Expr) -> bool {
+    let mut stack = vec![(a, b)];
+    while let Some(pair) = stack.pop() {
+        match pair {
+            (Expr::Number(x), Expr::Number(y)) if x.to_bits() == y.to_bits() => {}
+            (Expr::Text(x), Expr::Text(y)) if x == y => {}
+            (Expr::Bool(x), Expr::Bool(y)) if x == y => {}
+            (Expr::Error(x), Expr::Error(y)) if x == y => {}
+            (Expr::Empty, Expr::Empty) => {}
+            (Expr::Ref(x), Expr::Ref(y)) if x == y => {}
+            (Expr::Name { name, sheet }, Expr::Name { name: n, sheet: s })
+                if name == n && sheet == s => {}
+            (Expr::Call(f, xs), Expr::Call(g, ys)) if f == g && xs.len() == ys.len() => {
+                stack.extend(xs.iter().zip(ys));
+            }
+            (Expr::Neg(x), Expr::Neg(y))
+            | (Expr::Pos(x), Expr::Pos(y))
+            | (Expr::Percent(x), Expr::Percent(y)) => stack.push((x, y)),
+            (Expr::Binary(o, l, r), Expr::Binary(p, m, s)) if o == p => {
+                stack.push((r, s));
+                stack.push((l, m));
+            }
+            _ => return false,
+        }
+    }
+    true
+}
+
 /// The cells of the run a lane is for: every one, or some, by position.
 #[derive(Clone, Copy)]
 enum Sel<'s> {
@@ -331,30 +687,52 @@ struct Many<'a> {
     /// The cell the shape was read at, from which each cell's offset is.
     anchor: CellId,
     lanes: RefCell<&'a mut Lanes>,
+    /// The places of the parse's repeated parts (KERNEL.27), each by its
+    /// node's address in this parse, its part and whether it is the last;
+    /// sorted by address.
+    found: Vec<Key>,
+    /// By part, the lane its first place computed, while a later place has
+    /// yet to take it.
+    kept: RefCell<Vec<Option<Lane>>>,
+    /// The address of the place [`Many::again`] has just asked
+    /// [`Many::scalars`] to compute, 0 for none, so that the node's own
+    /// frame computes it, the question of whether it is a place asked of
+    /// this marker alone.
+    computing: Cell<usize>,
 }
 
 /// A shape's parse evaluated at each of a run's cells, the cells read at
 /// `anchor`'s offset from each, each cell's answer pushed to `out` in the
 /// run's order as the shape's evaluation at the cell alone answers it
-/// (`Shapes::evaluate`); `held` is what [`holds`] says of the parse.
+/// (`Shapes::evaluate`); `held` is what [`holds`] says of the parse, with a
+/// lane for each of its repeated parts, `repeats` (KERNEL.27).
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn evaluate(
     env: &dyn Env,
     lib: &Library,
     expr: &Expr,
     held: (usize, usize),
+    repeats: &Repeats,
     anchor: CellId,
     cells: &[CellId],
     lanes: &mut Lanes,
     out: &mut Vec<Computed>,
 ) {
     lanes.reserve(held);
+    let mut found = std::mem::take(&mut lanes.found);
+    repeats.found(expr, &mut found);
+    let mut kept = std::mem::take(&mut lanes.kept);
+    kept.clear();
+    kept.resize_with(repeats.parts(), || None);
     let many = Many {
         env,
         lib,
         cells,
         anchor,
         lanes: RefCell::new(lanes),
+        found,
+        kept: RefCell::new(kept),
+        computing: Cell::new(0),
     };
     match many.scalars(expr, Sel::All(cells.len())) {
         Lane::Same(got) => {
@@ -380,6 +758,20 @@ pub(crate) fn evaluate(
             many.give_truths(truths);
         }
     }
+    // A lane kept for a part whose last place was not reached given back,
+    // and the buffers of the places to the caller (KERNEL.27).
+    for k in 0..repeats.parts() {
+        let lane = many.kept.borrow_mut()[k].take();
+        if let Some(lane) = lane {
+            many.give_lane(lane);
+        }
+    }
+    let Many {
+        lanes, found, kept, ..
+    } = many;
+    let lanes = lanes.into_inner();
+    lanes.found = found;
+    lanes.kept = kept.into_inner();
 }
 
 /// A cell's answer as its formula holds it.
@@ -534,8 +926,12 @@ impl<'a> Many<'a> {
         self.lanes.borrow_mut().positions.push(at);
     }
 
-    /// [`Ctx::scalar`] at every cell of the selection.
+    /// [`Ctx::scalar`] at every cell of the selection; a place of a repeated
+    /// part from its part's lane (KERNEL.27).
     fn scalars(&self, e: &Expr, sel: Sel) -> Lane {
+        if self.repeated(e) {
+            return self.again(e, &sel);
+        }
         match e {
             Expr::Number(v) => Lane::Same(Ok(Value::Number(*v))),
             Expr::Text(t) => Lane::Same(Ok(Value::Text(t.clone()))),
@@ -553,6 +949,78 @@ impl<'a> Many<'a> {
             Expr::Call(name, args) => self.call(e, name, args, sel),
             // A range where one value is wanted, a defined name: each cell's.
             Expr::Ref(_) | Expr::Name { .. } => self.each_cell(e, sel),
+        }
+    }
+
+    /// Whether an expression is a place of a repeated part (KERNEL.27), by
+    /// its node's address; never the place [`Many::again`] is computing,
+    /// which it asks [`Many::scalars`] for once. A question of a `bool`, so
+    /// that the frame a level of nesting stacks holds nothing more for it.
+    fn repeated(&self, e: &Expr) -> bool {
+        let at = e as *const Expr as usize;
+        !self.found.is_empty() && self.computing.replace(0) != at && self.part_at(at).is_some()
+    }
+
+    /// A place's part, and whether it is the part's last place, by its
+    /// node's address.
+    fn part_at(&self, at: usize) -> Option<(u16, bool)> {
+        let i = self.found.binary_search_by_key(&at, |&(a, _, _)| a).ok()?;
+        let (_, place, _) = self.found[i];
+        Some(((place >> 1) as u16, place & 1 == 1))
+    }
+
+    /// A place of a repeated part, in a frame of its own (KERNEL.27): the
+    /// lane its part's first place computed and kept, copied, or taken at
+    /// the last place; at the first, the part computed by [`Many::scalars`]
+    /// and a copy kept.
+    #[inline(never)]
+    fn again(&self, e: &Expr, sel: &Sel) -> Lane {
+        let at = e as *const Expr as usize;
+        let Some((part, last)) = self.part_at(at) else {
+            // Never: the node was found a place. Computed where it stands.
+            self.computing.set(at);
+            return self.scalars(e, *sel);
+        };
+        let k = usize::from(part);
+        let held = self.kept.borrow_mut()[k].take();
+        match held {
+            Some(lane) if last => lane,
+            Some(lane) => {
+                let copy = self.copied(&lane);
+                self.kept.borrow_mut()[k] = Some(lane);
+                copy
+            }
+            None => {
+                self.computing.set(at);
+                let lane = self.scalars(e, *sel);
+                if !last {
+                    let copy = self.copied(&lane);
+                    self.kept.borrow_mut()[k] = Some(copy);
+                }
+                lane
+            }
+        }
+    }
+
+    /// A lane copied into a buffer of its own kind (KERNEL.27).
+    fn copied(&self, lane: &Lane) -> Lane {
+        match lane {
+            Lane::Same(got) => Lane::Same(got.clone()),
+            Lane::Each(each) => {
+                let mut copy = self.take();
+                copy.extend(each.iter().cloned());
+                Lane::Each(copy)
+            }
+            Lane::Numbers(numbers) => {
+                let mut copy = self.take_numbers();
+                copy.extend_from_slice(numbers);
+                Lane::Numbers(copy)
+            }
+            Lane::Truths(truths) => {
+                let mut copy = self.take_truths();
+                copy.extend_from_slice(truths);
+                Lane::Truths(copy)
+            }
         }
     }
 
@@ -674,7 +1142,9 @@ impl<'a> Many<'a> {
 
     /// A binary operator, or a chain of them, at every cell: the leftmost
     /// operand, then each link in turn, as `Ctx::chain` goes round its left
-    /// spine, the right operands on a stack.
+    /// spine, the right operands on a stack; a link below the first that is
+    /// a place of a repeated part the leftmost operand (KERNEL.27), which
+    /// computes the same values in the same order.
     fn chain(&self, e: &Expr, sel: Sel) -> Lane {
         const NEAR: usize = 16;
         let mut near: [(BinOp, &Expr); NEAR] = [(BinOp::Add, e); NEAR];
@@ -682,6 +1152,9 @@ impl<'a> Many<'a> {
         let mut links = 0;
         let mut left = e;
         while let Expr::Binary(op, l, r) = left {
+            if links > 0 && self.repeated(left) {
+                break;
+            }
             if links < NEAR {
                 near[links] = (*op, r);
             } else {

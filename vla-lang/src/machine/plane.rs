@@ -38,6 +38,9 @@ pub fn bytes(model: &Workbook, values: &dyn Values, window: &Window) -> Vec<u8> 
     let Some(si) = model.find_sheet(&window.sheet) else {
         return out;
     };
+    // A sheet whose cells are newer where its values say, an engine's twin,
+    // read through its values' own content (KERNEL.27).
+    let lags = values.lags(si);
     for (&(row, col), cell) in model.sheets[si]
         .cells
         .range((r.top, 0)..=(r.bottom, u32::MAX))
@@ -46,7 +49,12 @@ pub fn bytes(model: &Workbook, values: &dyn Values, window: &Window) -> Vec<u8> 
             continue;
         }
         let at = (row - r.top) as usize * width + (col - r.left) as usize;
-        out[at] = match &cell.content {
+        let newer = if lags {
+            values.content((si, row, col))
+        } else {
+            None
+        };
+        out[at] = match newer.as_ref().unwrap_or(&cell.content) {
             Content::Number(n) => byte(*n),
             Content::Text(_) | Content::Bool(_) | Content::Error(_) => 255,
             _ => match values.computed((si, row, col)) {
