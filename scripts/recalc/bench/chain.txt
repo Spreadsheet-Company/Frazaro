@@ -1,0 +1,10 @@
+# The recalculation floors' chain fixture (KERNEL.20, its sixth slice): a running balance 20,000
+# rows deep, each balance reading the one above it, so that no two of them can be computed at
+# once. The edit is A1, the first entry, which every balance reads through the ones above it.
+# bench: edit Output!A1 1 2
+# bench: sum Output!A1:B20000
+
+Put 1 into cell A1.
+Put formula "=MOD(ROW()*7,13)" into range A2:A20000.
+Put formula "=A1" into cell B1.
+Put formula "=B1+A2" into range B2:B20000.

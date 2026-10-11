@@ -115,7 +115,10 @@ $selfName = Split-Path -Leaf $PSCommandPath
 # 2026-10-10, VLA.3: 55 - check_expand_golden.ps1 (the expand golden agrees
 # with its fixture, the reference's lists of the expand-time primitives are
 # the port's, and every primitive is reached).
-$expectedAtLeast = 55
+# 2026-10-10, KERNEL.20's sixth slice: 56 - check_recalc_floors.ps1 (the
+# machine's recalculation of four fixtures measured beside Excel's of the
+# same files, the floors a history that never goes down, the values held).
+$expectedAtLeast = 56
 if ($Floor -gt 0) { $expectedAtLeast = $Floor }
 
 # --- The other verifiers, each with the arguments it needs. ---
@@ -133,7 +136,8 @@ $extras = @(
     @{ Script = 'check_core_imports.ps1';  Args = @('-Control');    What = 'PORT.4 import reader: an empty module counts 0, a module importing a.b counts 1' },
     @{ Script = 'check_wasm_exports.ps1';  Args = @('-Control');    What = 'KERNEL.22 export reader: a module reads as its names, a list one short or one long is reported' },
     @{ Script = 'check_crate_package.ps1'; Args = @('-Control');    What = 'VLA.1 package reader: the clean crates pass; a test include leaving vla-lang, an integration test reaching out, a core include leaving its crate and a respelled include each fail' },
-    @{ Script = 'check_expand_golden.ps1'; Args = @('-Control');    What = 'VLA.3 expand golden: the real set passes; a misspelt tag, a dropped case, an unknown id, a broken reference Select and a renamed primitive each fail' }
+    @{ Script = 'check_expand_golden.ps1'; Args = @('-Control');    What = 'VLA.3 expand golden: the real set passes; a misspelt tag, a dropped case, an unknown id, a broken reference Select and a renamed primitive each fail' },
+    @{ Script = 'check_recalc_floors.ps1'; Args = @('-Control');    What = 'KERNEL.20 recalculation floors: a clean baseline passes; fifteen mutants, two pasted histories and three fake runners each fail' }
 )
 
 function Invoke-OneScript {

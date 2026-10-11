@@ -1,0 +1,15 @@
+# The recalculation floors' life fixture (KERNEL.20, its sixth slice): Conway's Life on a 320 by
+# 200 plane, the rule of Alonzo's cartridges/life/life.vla word for word over B2:LG199, 62,964
+# formulas of the previous frame. Excel holds the previous frame as the sheet Screen.last, which a
+# frame fills with Screen's values; the machine holds it as its own twin. Clock!B1 is the frame,
+# whose first is a soup from the seed in Clock!B3.
+# bench: frames Clock!B1 31 twin Screen.last seed Clock!B3
+# bench: sum Screen!B2:LG199
+
+Work on sheet Clock.
+Put 1 into cell B1.
+Put 1 into cell B3.
+Work on sheet "Screen.last".
+Put 0 into cell A1.
+Work on sheet Screen.
+Put formula "=IF(Clock!$B$1=1,IF(MOD(MOD(MOD(Clock!$B$3*1103515+ROW()*1597334+COLUMN()*1830421+12345,67108859)*MOD(Clock!$B$3*2012345+ROW()*1209487+COLUMN()*1949213+54321,67108859),67108859)*MOD(MOD(Clock!$B$3*1103515+ROW()*1597334+COLUMN()*1830421+12345,67108859)*MOD(Clock!$B$3*2012345+ROW()*1209487+COLUMN()*1949213+54321,67108859),67108859),67108859)<25165822,1,0),IF(OR(SUM(Screen.last!A1:C3)-Screen.last!B2=3,AND(Screen.last!B2=1,SUM(Screen.last!A1:C3)-Screen.last!B2=2)),1,0))" into range B2:LG199.

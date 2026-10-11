@@ -1,0 +1,11 @@
+# The recalculation floors' sums fixture (KERNEL.20, its sixth slice): twelve months of 2,000
+# rows over one assumption, P1, each row totalled and averaged and each column totalled: SUM over
+# a range, the function a real model calls most. The edit is P1, which every month reads.
+# bench: edit Output!P1 100 101
+# bench: sum Output!B2:O2002
+
+Put 100 into cell P1.
+Put formula "=MOD(ROW()*31+COLUMN()*17,97)+$P$1" into range B2:M2001.
+Put formula "=SUM(B2:M2)" into range N2:N2001.
+Put formula "=ROUND(N2/12,0)" into range O2:O2001.
+Put formula "=SUM(B2:B2001)" into range B2002:O2002.

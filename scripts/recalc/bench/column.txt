@@ -1,0 +1,11 @@
+# The recalculation floors' column fixture (KERNEL.20, its sixth slice): three columns of 20,000
+# formulas, each row's three reading their own row and one assumption, E1. The shape a column of
+# forty formulas has, made long: each column one shape, every cell reading none of its column's.
+# The edit is E1, which 40,000 formulas read.
+# bench: edit Output!E1 3 4
+# bench: sum Output!A1:C20000
+
+Put 3 into cell E1.
+Put formula "=ROW()" into range A1:A20000.
+Put formula "=A1*$E$1+1" into range B1:B20000.
+Put formula "=IF(B1>30000,B1-30000,B1)" into range C1:C20000.

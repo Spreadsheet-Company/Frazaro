@@ -15,6 +15,10 @@ rust-version.workspace = true
 readme = "README.md"
 keywords = ["spreadsheet", "excel", "english", "compiler", "xlsx"]
 categories = ["compilers", "parser-implementations", "wasm"]
+# The recalculation floors' runner (examples/recalc.rs, KERNEL.20) reads the
+# repository's fixture programs and writes into its target/, so it stays out
+# of the package a visitor downloads.
+exclude = ["examples/"]
 
 [lib]
 # rlib for the workspace's own doors; cdylib for the wasm32 build and for a

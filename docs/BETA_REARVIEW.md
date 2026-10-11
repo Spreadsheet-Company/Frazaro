@@ -22148,6 +22148,392 @@ commit; its line is in the closed ledger. The owner's word with it: an API
 break this early in the machine's optimization suggests more will follow
 than the owner would prefer.
 
+**`KERNEL.20`, speed: the sixth slice, the measurement against Excel and
+its floors: the scoping, 2026-10-10.** Begun at the owner's word, "No
+repair prompt. Commit, then proceed with the next slice". Built in a
+worktree at `590304a`, the fifth slice's commit, and carried onto
+`754354f` when a peer session committed `KERNEL.26` and `KERNEL.27`'s
+filing meanwhile, then onto `4791290` after `KERNEL.27`, the release and
+`PORT.13` (below); the numbers below are over `754354f`, the baseline's
+to come over `4791290`.
+
+*Read in the code before anything was proposed*, at `590304a`:
+- The item's oracle, `check_recalc_floors.ps1`, did not exist, and nothing
+  timed a recalculation against Excel. The roadmap's line calls "the
+  fastest spreadsheet on the planet" a prediction until this item replaces
+  it with a number, and `web/CALLOSUM.md` section 12.6 says the same.
+- The engine the line's slices made faster is the machine
+  (`vla_lang::machine`). The doors (`view`, `build`'s fold, `calc`) compute
+  with `Calc`, the reference evaluator, which parses a formula's text
+  every time it evaluates it (`calc/mod.rs`, `evaluate`).
+- The machine loads rows, the record's inverse. The reader prints a cached
+  value as a `cell` row just before the cell's `formula` row, and the load
+  reads that as a second write of the cell (`grid-cell-written-twice`), so
+  a file Excel saved, and since the fifth slice a fresh build, cannot be
+  loaded as its record stands; the view record carries the value as a
+  `value` row after the formula instead. A sheet named `X.last` is a
+  twin's own (`grid-sheet-name-invalid`), so Excel's sheet for Life's
+  previous frame cannot be loaded either.
+- Alonzo's `CART.1` is the house's measured way to time a frame on this
+  machine: a runner holding every frame to a reference before it prints a
+  number, a fixed computation timed beside every frame as the clock, the
+  process opted out of power throttling and on the performance cores, and
+  a floors check holding the owner's pasted run in a history that never
+  goes down (`engine/examples/frames.rs`, `tools/bench_frames.ps1`,
+  `tools/check_frame_floors.ps1`).
+
+*Measured before anything was proposed*, a prototype of the runner over
+the four fixtures at `590304a`, on a performance core, at high priority
+and opted out of power throttling, each figure a median:
+
+| fixture | formulas | whole frame | the edit's frame | `Calc` |
+|---|---|---|---|---|
+| `column` | 60,000 | 2.8 ms | 4.7 ms | 205 ms |
+| `chain` | 39,999 | 3.4 ms | 4.2 ms | 106 ms |
+| `sums` | 28,014 | 4.5 ms | 5.8 ms | 129 ms |
+| `life` | 62,964 | 26.7 ms | 9.9 ms | 2,552 ms |
+
+- `Calc`, what the doors compute with, is 29 to 96 times slower than the
+  machine's whole frame on these files; of a 3.3 s build of Life, 2.5 s is
+  the fifth slice's fold.
+- The prototype's first whole frames were forced by a formula written into
+  `XFA1`, which widened each sheet's extent to 16,381 columns. Life's twin
+  then held more than four slots a cell, its array was dropped (the first
+  slice's `SLOTS_A_CELL`), and its frame went from 9.9 to 49 ms: a grid that
+  writes one cell far from the rest loses the array silently. The runner
+  writes into `Frazaro!E1`, which no formula reads.
+- An edit that reaches most of a grid costs more than a whole frame:
+  `column`'s edit, read by 40,000 of its 60,000 formulas, 4.7 ms against
+  2.8. A frame that changes more than half the cells overflows the list of
+  changes, so the next frame is computed whole, and its values change, so
+  its end walks the twins, which a forced whole frame whose values stay the
+  same does not.
+- One process's medians of the cell-by-cell path moved 15 to 30% from one
+  process to the next while the clock stood still (`chain`'s whole frame 3.4
+  to 5.1 ms, `column`'s edit 4.7 to 6.1). Three rounds in one process,
+  each a fresh machine, the median of their medians, held every row within
+  5% between two processes at `590304a`; over `754354f`, `chain`'s whole
+  frame moved 11% across three (below), which sets the floors' margin.
+
+*The decisions*, built at the owner's word of the day, each with its
+alternative and its measurement, open to the owner's veto before the
+commit.
+
+1. **A slice of `KERNEL.20`: the measurement against Excel and its
+   floors**, the item's oracle, built before the line's last two steps so
+   that each is held to it, in the house's measure-first form.
+   *Alternatives:* identical shapes computed once by content address,
+   which waits on the owner's ruling (a property of each function, that
+   its answer is its arguments' alone); the view evaluating its window and
+   its cone, measured in the fifth slice at about 5% of a view.
+2. **What is timed: the machine computing the file Excel computes.** Each
+   fixture built through the core's own surface as `frazaro build` builds
+   it, read back through the reader into rows and loaded under Excel's
+   library; a whole frame, every formula computed, against Excel's
+   `CalculateFull`; the frame after the fixture's edit against Excel's
+   `Calculate` after the cell is written; for Life, the frame against
+   Excel's `Calculate` after the previous frame is copied into a sheet of
+   its own. Printed beside them and not floored: the load, the first frame,
+   `CalculateFullRebuild`, and `Calc`. *Alternative:* `Calc`, what the
+   doors compute with, which is the reference and not the engine.
+3. **The fixtures: four programs of a few sentences each**
+   (`scripts/recalc/bench/`), each a filled range or two, so that a
+   program is short and the workbook large: `column`, three columns of
+   20,000 formulas over one assumption, the shape the vectorized path
+   takes; `chain`, a running balance 20,000 deep, no two of whose
+   balances can be computed at once; `sums`, twelve months of 2,000 rows
+   totalled by `SUM` over ranges, the function real models call most; and
+   `life`, Alonzo's rule word for word over 62,964 cells, the frame. Each
+   program says in `# bench:` comments what its edit is and what range is
+   summed, and both halves read them there. Every value they compute is a
+   whole number, so the two halves' sums compare exactly. *Alternative:* a
+   real model, which the repository does not hold, and whose lookups the
+   subset does not compute.
+4. **Excel's half, a script the owner runs**
+   (`tools/bench_recalc_excel.ps1`): Excel through COM, invisible, its
+   process opted out of power throttling; each file opened and timed, then
+   with multi-threaded calculation as Excel ships and with one thread on
+   the performance cores, the change, `CalculateFull` and
+   `CalculateFullRebuild` each timed, a `Calculate` with nothing to compute
+   timed as the floor of what COM adds, and the sums read; Excel's setting
+   put back. `-Fake` drives it against a stand-in, which proved its flow
+   here, where no Excel may be started. *Alternative:* a VBA module in a
+   workbook, more steps for the owner.
+5. **The native half, Alonzo's shape** (`core/examples/recalc.rs`, the
+   first example of any Frazaro crate, kept out of the package;
+   `tools/bench_recalc.ps1`): the files written to `target/bench/` for
+   Excel's half, the machine's values held before any number (the first
+   frame to the build's own folded values, each edit's state to `Calc`
+   when checking and the last when timing, every frame of Life to a Life
+   written by hand), the clock beside every
+   timed step, three rounds each a fresh machine, the runner on the
+   performance cores at high priority and opted out of power throttling;
+   `--check` times nothing. *Alternative:* a door's command, whose timings
+   would make a door's output vary.
+6. **The floors: `tools/check_recalc_floors.ps1`, the 56th check**, Alonzo's
+   `check_frame_floors.ps1` adapted: the owner's two pasted blocks, both
+   halves on the same bytes with the same sums, the machine's numbers
+   floored 15% under the measured (a fixture's medians moved up to 11%
+   between processes, more than Alonzo's 10% would hold) in a dated history
+   that never goes down without a reason and is held against the last
+   commit's copy, Excel's numbers printed beside as the bar and not gated,
+   the programs' digests pinned; with a built runner its check mode, every value held and the
+   sums the measured ones; `-Control`, 24 cases; CI's core job builds the
+   runner and runs it. *Alternative:* floors on the ratio to Excel, whose
+   numbers move with its version.
+7. **The fifth slice's fourth decision measured, not decided**: the
+   runner writes the build golden's fixture with `fullCalcOnLoad`, with
+   Excel 365's `calcId="191029"` in its place, and with neither, each with
+   `Output!C2`'s folded 15 planted as 999, and Excel's half reads the cell
+   before any calculation of its own and whether Excel calls the file
+   changed. 999 is a value Excel kept; 15 one it computed on opening. The
+   flag stays until the owner rules on what Excel does.
+8. **What remains of the line**: identical shapes computed once by content
+   address, the owner's ruling; the view's window and its cone, which this
+   slice finds the smaller part of a larger step (the view computes with
+   `Calc`, 29 to 500 times slower than the machine's whole frame on
+   these fixtures, so the doors computing through the machine would gain
+   more than any window); and the item's close, the owner's, with these
+   floors as its oracle.
+
+*Size*: no prediction was written before the build. Measured after it:
+`core/examples/recalc.rs` 970 lines; `tools/check_recalc_floors.ps1` 445,
+`tools/bench_recalc_excel.ps1` 366, `tools/bench_recalc.ps1` 234; the four
+programs 47 lines between them; `run_checks.ps1`, `checks.yml` and the
+core's manifest 16 added and 2 removed. Nothing in the language or the
+core's library.
+
+*Built 2026-10-10*, in a worktree at `590304a`, carried onto `754354f`.
+- `scripts/recalc/bench/`: `column.txt`, `chain.txt`, `sums.txt` and
+  `life.txt`, each a few sentences and its `# bench:` comments; Life's twin
+  is a sheet built from `Work on sheet "Screen.last".`, the name quoted
+  since an unquoted one ends at its period.
+- `core/examples/recalc.rs`, the runner, and the core's manifest's
+  `exclude = ["examples/"]`, so that the package a visitor downloads is as
+  it was.
+- `tools/bench_recalc.ps1` and `tools/bench_recalc_excel.ps1`, the two
+  instruments.
+- `tools/check_recalc_floors.ps1`, the 56th check, with its baseline empty
+  for the owner's run to fill; `run_checks.ps1`'s floor 56 and the check's
+  control among the extras; `checks.yml`'s core job building the runner and
+  running the check over it and its control.
+
+*Found while it was built*:
+- The runner's check mode held the edited state to `Calc` after the last
+  of three alternating edits only, and a machine that stopped following
+  edits after the first passed: the first edit's frame ran whole, the next
+  two computed nothing, and the third came back to the value the whole
+  frame had computed. The first mutant run caught 5 of 6 for it. The check
+  mode now holds every edit, and the mutant is caught.
+- `KERNEL.26`, committed by a peer while this slice was built, added a
+  typed path for `IF`'s conditions over numbers and truth values, and every
+  condition of the four fixtures takes it: a mutant of the generic path is
+  computed by none of them. The language's own generated grids catch it
+  (three of `vla-lang`'s tests fail), so the runner's fixtures need not
+  reach every path, only hold what they compute.
+- The doors' evaluator: `Calc` over these files is 29 times (`chain`) to
+  500 times (`life`) slower than the machine's whole frame over
+  `754354f`, `Calc` parsing every formula's text each time it evaluates it.
+  This is the fifth slice's fold and every view's recalculation.
+- In one process `Calc`'s median on `sums` came out nine times its usual
+  (1,282 ms against 146) while every frame's clock stood still, the clock
+  being read beside the frames alone; it is read beside `Calc` too now.
+
+*Measured* over `754354f`, the native half three times through
+`tools/bench_recalc.ps1`, each run three rounds a fixture, each figure the
+median of the rounds' medians, every clock's spread within 0.9%:
+
+| fixture | whole frame | formulas a second | the edit's frame | `Calc` |
+|---|---|---|---|---|
+| `column` | 1.04, 1.04, 1.04 ms | 57.6 to 57.9 million | 3.45, 3.35, 3.31 ms | 226 to 228 ms |
+| `chain` | 4.06, 4.31, 3.87 ms | 9.3 to 10.3 million | 4.73, 5.11, 4.43 ms | 123 to 127 ms |
+| `sums` | 4.71, 4.68, 4.68 ms | 5.9 to 6.0 million | 5.14, 5.05, 5.14 ms | 146 to 147 ms |
+| `life` | 5.84, 5.84, 5.79 ms | 10.8 to 10.9 million | 4.90, 5.03, 4.73 ms | 2.89 to 2.90 s |
+
+`Calc`'s figures are the first and third runs', the second's being the
+disturbed one above. The loads: 247 to 251 ms, 143 to 148, 118 to 120 and
+1.40 to 1.42 s; the first frames 8.1 to 8.6 ms, 8.5 to 9.6, 6.9 to 7.4 and
+33 to 36. Over `590304a`, before `KERNEL.26`, `column`'s whole frame was
+3.2 ms and Life's frame 11.9 to 12.3: `KERNEL.26`'s typed lanes made them
+3.1 and 2.5 times faster (its own measurement, Life's frame 4.8 ms
+natively). Excel's half is the owner's run; until it is pasted, the check
+fails on its empty baseline, by design.
+
+*Oracle, met* in the worktree over `754354f`. `cargo test --workspace`:
+354 passed and 5 ignored, `KERNEL.26`'s four new tests among them and none
+of this slice's, its oracle being the runner's own holds; fmt clean; clippy
+clean over every target, the example among them, with `c-abi` too. The
+runner's check mode: every fixture's first frame equal to its folded
+values, every edit equal to `Calc`, every one of Life's 31 frames and its
+whole frames equal to the hand-written Life, the flag's three files
+written. `check_recalc_floors.ps1 -Control`: 24 cases, the clean ones
+passing and every mutant failing. `bench_recalc_excel.ps1 -Fake`: the whole
+flow over the stand-in, eleven rows printed. Mutants of the runner and of
+the machine, each required to fail the check mode:
+- edits not followed to their readers (caught after the fix above);
+- the typed `IF`'s branches swapped;
+- a cached value row kept beside its formula;
+- the sheet Excel keeps the last frame in kept;
+- a file's cell matched to the machine's by index;
+- Life's reference not advanced a frame.
+
+All six were caught, and the clean run after them passed; a seventh, the
+generic `IF`'s branches swapped, lands where no fixture computes, and
+`vla-lang`'s tests catch it. `run_checks.ps1`: 56 checks, 55 passing and
+the 56th, this slice's, failing on its empty baseline alone, as it must
+until the owner's run is pasted, with the door, both modules and the page
+built there; `prove.ps1` 46 passed, 0 failed, 2 not attempted, 1 library,
+as before. The slice changes nothing in the language, so Alonzo's engine
+is as it was.
+
+*The owner's step, 2026-10-10*: the two instruments run on the owner's
+machine, the native half first, since it writes the files Excel's half
+opens: `powershell -File tools\bench_recalc.ps1`, then `powershell -File
+tools\bench_recalc_excel.ps1`, which starts Excel through COM, invisible,
+and puts its multi-threaded setting back before it quits; and both blocks
+pasted. They become the check's baseline and its first floors, and the
+flag's three readings the fifth slice's fourth decision's evidence.
+
+*The owner's runs*, 2026-10-10 and 2026-10-11, two of the native half and
+four of Excel's, on the owner's machine (Intel Core Ultra 7 265KF, Windows
+11, Excel 16.0 build 20430 with 20 threads):
+- The first, over `754354f`: the native half as measured above, its clock
+  within 0.7%; Excel's half refused to open `life.xlsx` ("Unable to get
+  the Open property of the Workbooks class") and stopped, printing no row.
+  The writer's fault and not the slice's: Life's rule reads another sheet,
+  the writer held the fill as one shared formula, and Excel refuses a
+  shared formula that reads another sheet. `PORT.13` was minted at the
+  owner's word ("Fix the writer first"), built, opened by the owner in
+  Excel and committed as `4791290` (its entry in Part B). Excel's half now
+  catches a fixture's failure, prints its two rows as `Failed` with the
+  step it failed at, and measures the others; the check fails a `Failed`
+  row by name, and `-FakeRefuse` makes the stand-in refuse a fixture as
+  Excel did.
+- The second, both halves over `754354f` with `PORT.13`'s writer laid in
+  the worktree, `life.xlsx` 33,140,886 bytes where it had been 3,315,190:
+  Excel opened Life, then refused the previous frame's values handed to
+  `Screen.last` from PowerShell ("Specified cast is not valid."). The
+  third and fourth, Excel's half alone, met it again in each of four ways:
+  the range itself, Excel's own copy and paste of values, and the array of
+  values as it came and from 0. The paste went through each time, and only
+  the line after it failed, `CutCopyMode` set to False, which the interop
+  types as `XlCutCopyMode`, to which PowerShell converts no False.
+
+Excel's three other fixtures in its last three runs, beside the native
+half's two runs over `754354f`, each a range over the runs:
+
+| fixture | Excel's whole frame, 20 threads; one | Excel's edit, 20 threads; one | the machine's whole frame; edit |
+|---|---|---|---|
+| `column` | 2.51 to 2.65 ms; 2.83 | 2.01 to 2.31 ms; 2.25 to 2.34 | 1.05 to 1.07 ms; 2.76 to 3.04 |
+| `chain` | 3.23 to 3.55; 2.52 to 2.65 | 2.35 to 2.43; 0.82 to 0.87 | 3.30 to 3.68; 3.60 to 3.93 |
+| `sums` | 1.34 to 1.38; 3.57 to 3.71 | 1.43 to 1.58; 3.81 to 3.89 | 4.41 to 4.53; 4.88 to 5.07 |
+
+Each of Excel's figures holds one COM call, a `Calculate` with nothing to
+compute measured at 0.21 to 0.26 ms. Every sum Excel read equal to the
+machine's, as built and as edited, in both modes. Over `754354f`, then,
+the machine computes `column` whole 2.3 to 2.5 times as fast as Excel's
+20 threads and 2.6 to 2.7 times as fast as its one; `chain` whole about
+as fast as Excel's 20 threads and 1.2 to 1.5 times slower than its one, a
+chain being one thread's work; `sums` whole 3.2 to 3.4 times slower than
+Excel's 20 threads and 1.2 to 1.3 times slower than its one; and every
+edit slower, `chain`'s 4.1 to 4.8 times slower than Excel's one thread,
+where the machine's frame after an edit that reaches most cells costs
+more than its whole frame (found while the slice was built, above).
+
+The flag, the same in all three runs: each file opened with `Output!C2`
+holding 15, the value Excel computes, not the 999 planted in its place,
+and the workbook not marked changed. Excel computes a Frazaro build on
+opening whether its `calcPr` holds `fullCalcOnLoad`, Excel 365's `calcId`
+or neither (the build writes no `calcChain` part; whether one would change
+it is not measured). Dropping `fullCalcOnLoad` gains nothing in Excel, and
+keeping it keeps a host that honours it from trusting a folded value it
+would not compute: the recommendation is to keep it, for the owner's
+ruling.
+
+*Carried onto `4791290`*, 2026-10-11, once the release commit `2eb54b7`
+and `PORT.13` had landed: the worktree's work committed there as a scratch
+commit and rebased, its one conflict this file's (`KERNEL.27`'s record and
+this entry both ending the department; both kept, in that order), and the
+worktree put back on `4791290` with the slice uncommitted. `KERNEL.27`
+lends the machine's grid only to a caller that may change the machine
+(`Machine::workbook(&mut self)`), since lending it makes a twin's cells
+from its array, and the runner read the grid and the machine's values
+together. It reads the grid first now: `cells_within` takes an area's
+places and the numbers its value cells hold, `held_to_calc` takes `Calc`'s
+values, which borrow the grid, before it asks the machine's, and Life's
+plane is read over its sheet's places taken once a round, which its frames
+never write. No reading between two timed frames of Life makes the twin's
+cells, then, as the engine's own frames never do; and one would move no
+timed frame's work either way, since a frame's end marks a twin cell
+behind its slot in a bitset whatever the bitset held, and the step reads a
+twin kept as an array from the array alone. `CutCopyMode` is set through
+IDispatch, as VBA sets it, and a failure there is let pass, a range left
+marked costing nothing a calculation reads; the stand-in's `CutCopyMode`
+refuses a plain set as the interop did, so that `-Fake` meets the paste.
+The fixtures' files are new bytes, their stamp 0.9.0 and Life's fill a
+formula a cell, and their sums as before.
+
+*Oracle, met* in the worktree over `4791290`: the runner's check mode,
+every fixture's values held and its sums the owner's runs';
+`bench_recalc_excel.ps1 -Fake`, every row printed and Life's frames copied
+by pasting values, the range itself refused as on the owner's machine; the
+same over a mutant setting `CutCopyMode` as before, Life failing as the
+owner's fourth run did, word for word. The runner's mutants, the needle of
+the sheet found by name moved to `m.find_sheet` and one added for the
+adaptation, Life's plane read from the grid's value cells alone: seven of
+eight caught, the eighth the generic `IF`'s branches swapped, which no
+fixture computes, as before; the clean run after them passed. `cargo test
+--workspace` 361 passed and 5 ignored, as at `4791290`, the slice adding
+no test; fmt clean; clippy clean over every target, the example among
+them, with `c-abi` too; `check_recalc_floors.ps1 -Control`, every clean
+case passing and every mutant failing; `run_checks.ps1` 56 checks, 55
+passing and this slice's failing on its empty baseline alone, as it must
+until the owner's runs are pasted; `prove.ps1` 47 passed, 0 failed, 2
+not attempted, 1 library.
+
+*The owner's step, 2026-10-11*: both halves again, over `4791290`, since
+`KERNEL.27` made the machine faster and the release changed the files'
+bytes, the check holding both halves to the same bytes: `powershell -File
+tools\bench_recalc.ps1`, then `powershell -File
+tools\bench_recalc_excel.ps1`, and both blocks pasted, which become the
+check's baseline and its first floors; and the flag's ruling.
+
+*The baseline, met* 2026-10-11, the owner's run of both halves over
+`4791290`, read from the files the instruments wrote, since the terminal's
+wrap had dropped two spaces from the pasted block; the native half's clock
+within 6.4% across a fixture's steps and 5.2% from the run's start:
+
+| fixture | the machine's whole frame; edit | Excel's whole frame, 20 threads; one | Excel's edit, 20 threads; one |
+|---|---|---|---|
+| `column` | 1.068 ms; 2.405 | 2.805 ms; 2.834 | 2.211 ms; 2.275 |
+| `chain` | 3.202; 2.670 | 2.907; 2.540 | 2.518; 0.833 |
+| `sums` | 4.281; 4.814 | 1.458; 3.669 | 1.492; 3.841 |
+| `life` | 3.454; 2.706 | 4.606; 23.551 | 3.837; 24.607 |
+
+The machine computes `column` whole 2.6 and 2.7 times as fast as Excel's
+20 threads and its one, Life's whole frame 1.3 and 6.8 times as fast, and
+Life's frame 1.4 and 9.1 times; `chain` whole 1.1 and 1.3 times slower,
+`sums` whole 2.9 and 1.2 times slower; `column`'s edit 1.1 times slower,
+`chain`'s 1.1 and 3.2 times slower, `sums`' 3.2 and 1.3 times slower.
+Excel opened Life in 2.4 s against the machine's load of 1.35 s, rebuilt
+it in 1.13 s, and copied a frame into `Screen.last` by its own paste of
+values in 60 ms, timed apart from the frame. Over `754354f` the machine's
+Life frame was 4.4 ms and its whole frame 5.7: `KERNEL.27` made them 2.7
+and 3.5, and the edits of `column` and `chain` 2.8 to 3.0 and 3.6 to 3.9 ms
+where they are 2.4 and 2.7 now. The floors stand 15% under the run: 47.7
+and 10.6 million formulas a second for `column` and `chain` whole, 5.56
+million for `sums`, 15.4 million for Life, and 353, 318, 176 and 314 edits
+a second. The flag read as in the three runs before, every file computed
+on opening. The owner's ruling, 2026-10-11: "Keep fullCalcOnLoad in built
+files." `check_recalc_floors.ps1` over the runner: the four fixtures
+measured against Excel, the floors held, every value held and the sums the
+measured ones, the history SKIPPED until the check is in a commit;
+
+*Committed 2026-10-11 at the owner's word*, "Commit", over
+`4791290`, the slice's thirteen files, the tree checked first in the
+worktree, 56 of 56 checks. The item stays open, 🟡, for content addressing
+(the owner's ruling) and the view's window and its cone.
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
