@@ -90,6 +90,16 @@ impl Dense {
     where
         F: FnMut(Value) -> Result<(), E>,
     {
+        self.each_ref(area, |v| f(v.clone()))
+    }
+
+    /// [`Dense::each`]'s walk, each value lent where it stands: what an
+    /// evaluation of many cells at once folds an aggregate over, copying
+    /// nothing (KERNEL.26).
+    pub(crate) fn each_ref<E, F>(&self, area: &Area, mut f: F) -> Result<(), E>
+    where
+        F: FnMut(&Value) -> Result<(), E>,
+    {
         let bottom = self.top + (self.height as u32 - 1);
         let right = self.left + (self.width as u32 - 1);
         let (top, left) = (area.top.max(self.top), area.left.max(self.left));
@@ -102,7 +112,7 @@ impl Dense {
             let from = (row - self.top) as usize * self.width + (left - self.left) as usize;
             for v in &self.values[from..from + n] {
                 if !matches!(v, Value::Empty) {
-                    f(v.clone())?;
+                    f(v)?;
                 }
             }
         }

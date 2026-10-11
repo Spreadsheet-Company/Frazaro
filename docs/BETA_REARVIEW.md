@@ -20911,7 +20911,7 @@ evaluation of identical shapes once, values folded at build time, the view
 evaluating its window and its cone, and the measurement against Excel with
 its floors.
 
-- ⬜ **`KERNEL.26` — the 19 ms frame: two decisions, adjudicated together
+- ✅ **`KERNEL.26` — the 19 ms frame: two decisions, adjudicated together
   before either is built.**
   *Minted 2026-10-10 at the owner's word, "Mint the two outstanding 19ms
   native frame decisions as a single roadmap item to be adjudicated later",
@@ -20982,6 +20982,17 @@ its floors.
   11 ms natively and 16 in headless Chrome, its gun in about 0.05 ms. Both
   decisions stand as filed, for the owner; a prototype of either would be
   measured from the fourth slice's frame.*
+
+  *2026-10-10, scoped and built at the owner's word, "Scope and implement
+  KERNEL.26" (the entry after the fifth slice's): both decisions built as
+  recommended over the fourth slice, open to the owner's veto. The first in
+  a form that keeps the principle the third slice kept: each aggregate's
+  meaning written once in the library, a rule and a fold that a cell's
+  evaluation and a run both drive, and lanes of numbers and of truth values
+  computed by `binary`'s own rules over numbers. The second as the frame's
+  values kept at each formula cell's position in the order, which the plan
+  already holds as an array. Life's soup from 12.0 to 4.8 ms natively and
+  from 16.3 to 6.6 in headless Chrome, bit for bit.*
 
 **`KERNEL.20`, speed: the fourth slice, incremental maintenance: the
 scoping, 2026-10-10.** Begun at the owner's word, "proceed with scoping and
@@ -21429,6 +21440,269 @@ tree was checked first in the worktree, 55 of 55. `KERNEL.20` stays open,
 🟡, for the rest of its line: identical shapes computed once by content
 address, the view evaluating its window and its cone, and the measurement
 against Excel with its floors.
+
+**`KERNEL.26`, the 19 ms frame's two decisions: the scoping, 2026-10-10.**
+Begun at the owner's word, "Scope and implement KERNEL.26". The filing
+asked for both decisions to be adjudicated together before either was
+built; the owner's word to scope and implement is the adjudication's start,
+and each decision below is built as recommended, with its alternative and
+its measurement, open to the owner's veto before the commit. Built and
+measured in a worktree over `KERNEL.20`'s fourth slice (two entries
+above), since the filing's dated note says a prototype of either is
+measured from that slice's frame: begun over the slice as its worktree held
+it, carried onto its commit, `e128d3c`, whose code is the same, and then
+onto the fifth slice's (the entry above), `590304a`, which changed no file
+of the language.
+
+*Read in the code before anything was proposed*, over the fourth slice:
+- A run calls a strict function at each cell (`vector::apply_one` and its
+  kin): a context made, each operand taken, the function called through its
+  pointer, and for `SUM(Screen.last!A1:C3)` the area made, `Ctx::each`, the
+  environment asked for the sheet's array, and each slot cloned into the
+  fold's closure.
+- Each aggregate of the library wrote its own fold over `each_number` or
+  `each_truth`, and the two walks wrote the aggregate rule twice, once for
+  numbers and once for truth values; `NOT` read its one value by its own
+  lines.
+- A lane holds each cell's answer as a `Result<Value, Reason>`, 32 bytes,
+  whatever it is: a read of numbers, the arithmetic over them and a
+  comparison match each value's kind at every cell, `binary` called at
+  each.
+- The frame's values are one map by cell (the fourth slice): a computed
+  cell is looked up to be kept, a changed cell to be copied at the frame's
+  end, a rows' formula cell to be read; and the plan already keeps each
+  formula cell's position in the order as an array (`Reach`'s positions,
+  found for following changes), an array over a sheet's formulas where they
+  stand close together and a map where they do not.
+
+*Measured before anything was proposed*: timers in a copy of the fourth
+slice, never the tree, around each part of the step and each kind of node
+in a run, `CART.1`'s runner on one performance core, Life's soup over the
+benchmark's window, frames 2 to 31, 12.6 ms a frame with the timers in. The
+runs' evaluation 9.05 ms: the rule's two `SUM`s over a range 3.55, its `AND`
+and `OR` 2.12, the one-cell reads 1.46, the operators 1.36, `IF`'s partition
+0.15. The frame's values kept 1.31 ms, 42,373 cells computed a frame; the
+frame's end 1.74 ms, its copy of the changed cells 1.58, 12,395 a frame; the
+frame's start 0.35. The filing's figures were over the third slice, which
+computed every cell; the fourth computes two thirds of the soup's cells in
+that window, so each part a cell costs is two thirds of the filing's, and
+the second decision's ground had become a quarter of the frame.
+
+*The decisions*:
+
+1. **The first decision: a run computes the language's own functions
+   itself, by the library's meaning written once.** The filing's price was
+   the principle the third slice kept: a kernel is a second writing of a
+   meaning the library holds once, held to it by tests alone. Here nothing
+   of the meaning is written twice. Each aggregate is a fold the library
+   states once (`library::Fold`: `SUM`'s `Sum`, from -0.0, each number added
+   in the walk's order, `finite` at the end; `MIN`'s `Least`, `MAX`'s
+   `Most`, `AND`'s `All`, `OR`'s `Some_`), over the aggregate rule stated
+   once for each kind of item (`library::Rule`, `OverNumbers` and
+   `OverTruths`: how a value given directly is coerced, what a value read
+   out of a range is); `NOT`'s answer is `library::negated`. A cell's
+   evaluation drives the fold over its arguments as before (`each_item`,
+   whose two instances are `each_number` and `each_truth`, their signatures
+   unchanged); a run drives the same fold over its operands
+   (`vector::fold_at`): each operand taken left to right as `take_arg`
+   takes it, so that a reason is the answer as alone; a value given directly
+   coerced by the rule; a range of a sheet kept as an array moved to the
+   cell and walked by index (`Dense::each_ref`, the walk `Dense::each` now
+   calls). What is written twice is the driver, the arguments in their
+   order, as the cells' walk and the array's were already two walks of one
+   range. The run knows a function by its registration
+   (`Library::register_known_strict`; `Known::Sum`, `Min`, `Max`, `And`, `Or`
+   and `Not` beside `If`), so that a crate registering a meaning of its own
+   under the name has that meaning computed, at each cell. An operand naming
+   a span, a range of a sheet walked through its cells, `NOT` of a
+   reference and more than eight operands are left to the library's function
+   at each cell, the operands already computed. *Alternatives:* the frame as
+   it stands; kernels as filed, each a second writing held to the first by
+   tests.
+   *Measured* (`CART.1`'s runner, three rounds alternated): the soup's frame
+   from 12.0 to 8.1 ms, the calls' share of it from 5.67 to 1.53.
+2. **Lanes of numbers and of truth values, the first decision's second
+   half: yes, by `binary`'s own rules over numbers.** A lane holds a cell's
+   answer as a value, or, while every answer is one, as a number
+   (`Lane::Numbers`) or a truth value (`Lane::Truths`). A read of numbers,
+   the arithmetic and the comparisons over them, the aggregates and `IF`
+   make and read them with no kind to match; a lane of values is made from
+   the first answer of another kind, at every place one can appear. The
+   rules are `binary`'s, which now names them: its arithmetic over two
+   numbers `eval::arithmetic`, its comparison `eval::compares` over
+   `eval::compare_numbers`, each called by `binary` itself and by the lanes,
+   so that no operator's rule is written twice; the sign and the percent
+   are `finite` over the same closures. *Alternative:* the kernels over
+   lanes of values. *Measured:* 8.4 to 6.4 ms.
+3. **The second decision: the rows' values kept as an array, at each
+   formula cell's position in the order.** The filing named an array over
+   each sheet's extent, as each twin's is. The order holds every formula
+   cell once and the plan already keeps each one's position, so the frame's
+   values are one array by position (`Machine::values`): a cell computed is
+   kept at the position the step knows; the frame's end copies a changed
+   cell's value by its position; a read of a rows' formula cell finds its
+   position in the plan's array (`Reach::position`); a step that yields
+   keeps the values it overwrites by position. A formula's write that plans
+   the order again moves each value to its cell's new position, and the
+   cells it wrote have none until the next frame, as before. *Alternatives:*
+   an array over each sheet's extent, which holds a slot for each value cell
+   too and a map for a sheet too sparse; the map as it stands. *Measured:*
+   6.6 to 4.6 ms; the values kept from 1.39 ms a frame to 0.31, the frame's
+   end's copy from 1.79 to 1.08, the map's lookups having been misses of
+   the processor's cache.
+4. **Nothing stands deeper on the stack.** Each recursive level's frame is
+   kept as it was: the sign's, `IF`'s partition and the placing of a
+   branch's answers each in a frame of its own (`Many::signed`, `parted`,
+   `place`), a call's operands as two places as before, the run asked
+   whether it computes the call in the frame that follows them
+   (`apply_one`, `apply_two`, `apply_many`), and the values placed by
+   position in the frame the machine is made in. *Alternative:* the lanes'
+   handling inline, 12 KiB deeper for 64 nested calls in a run and 39 KiB
+   for 64 nested `IF`s, measured.
+5. **No property of any function asserted**, as the fourth slice's tenth
+   decision has it: a known function is the language's own by its
+   registration, and its meaning stays the library's.
+6. **What remains**, measured over the built frame (4.9 ms with timers):
+   the two `SUM`s 1.18 ms (13.9 ns a call) and `AND` and `OR` 0.70 (8.3 ns);
+   the copy into the twins' cells 1.08, most of it a lookup in each twin's
+   B-tree, which the twin's cells made only when read would remove (the
+   first slice's profile named it); the reads 0.57; the frame's start 0.35.
+   And a finding, not built: Life's rule computes `SUM(...)-Screen.last!B2`
+   twice and reads `Screen.last!B2` three times at every cell, so a part
+   repeated in one formula computed once a run (a common subexpression,
+   which keeps every value the library's) would take about 0.9 ms of the
+   frame by the profile; a formula of Excel's repeats a part often, `LET`
+   being its only remedy. Measured and not kept: `Value::truth` and
+   `number` inlined and a lane's conversion moved off its path, 4.7 and 4.7
+   ms, the build's link-time optimizer having inlined them already.
+
+*Size*: no prediction was written before the build. Measured after it:
+`vla-lang/src/calc/vector.rs` +813 and -136 lines, `machine/mod.rs` +441
+and -101 (its tests about 260 of them), `library.rs` +371 and -78, `eval.rs`
++112 and -24, `dense.rs` 12, `reach.rs` 6.
+
+*Built 2026-10-10*, in a worktree at `KERNEL.20`'s fourth slice, then at
+`e128d3c` and `590304a`.
+`vla-lang/src/calc/library.rs`: `Ranged`, `Rule`, `OverNumbers` and
+`OverTruths`; `each_item`, `each_number` and `each_truth` over it; `Fold`
+and the five folds; `folded`; `negated`; the registrations known.
+`vla-lang/src/calc/eval.rs`: `Known`'s six variants, the strict map with
+them, `register_known_strict`, `known` over both maps; `arithmetic`,
+`compares` and `compare_numbers`, which `binary` and `compare` call.
+`vla-lang/src/calc/dense.rs`: `each_ref`. `vla-lang/src/calc/vector.rs`:
+`Lane::Numbers` and `Truths`, `with` and `take_at`; `Values`; the buffers of
+each kind (`Lanes`, `holds` keeping two lanes beside `IF`); `values`,
+`valued`, `push`, `arithmetic_in_place`, `compared`, `numbers_mapped`;
+the reads of numbers; `combine`'s lanes of numbers; `known`, `known_call`,
+`aggregate`, `fold_at`, `negated`; `parted`, `place`, `signed`; the module's
+header. `vla-lang/src/calc/reach.rs`: `position`.
+`vla-lang/src/machine/mod.rs`: the values by position, `before` and
+`changed` by position, `gathered_at`, `value_at`, the values moved when a
+write plans the order again; four tests and two helpers.
+
+*Found by the oracle while it was built*:
+- The mutants left one survivor, twice: no test compared two lanes of
+  numbers with an operator that is not symmetric, so its operands swapped
+  passed. Comparisons whose both sides read only numbers now catch it; the
+  first rewrite, reading the cell below, read an empty cell at the band's
+  last row, which made that side a lane of values and compared nothing the
+  mutant changes.
+- The stack: built with the lanes' handling inline, a run's step of 64
+  nested `IF`s used 39 KiB more and of 64 nested calls 12 KiB more in the
+  debug build `VLA.1`'s limits run in, every temporary a slot of its own on
+  the recursion's path, and every load 0.3 KiB more, the values placed by
+  position in the frame that parses every formula beneath it. Each moved to
+  a frame of its own (decision 4).
+
+*The stack*, by painting, against the fourth slice: every load 0.1 KiB
+shallower (the deepest, 64 nested `SUM`s of a reference, 955.3 KiB where it
+used 955.4); a cell's step alone the same; a run's step of 64 nested signs
+55.6 KiB where it used 74.8, of 64 nested `IF`s 195.7 where 211.8, and of
+64 nested calls (`ABS`, `SUM`, `MOD`, `AND`, `NOT`, `MAX` of a range and a
+value) at most 1.2 KiB deeper, 64 nested additions 1.7 KiB.
+
+*Measured*, every frame of every run equal to the hand-written Life, over
+the fourth slice. `CART.1`'s runner on one performance core, three rounds
+alternated, each figure the median of the round medians:
+- the soup's steady frame from 12.0 ms to 4.8 (2.5 times);
+- the gun's from 41.7 µs to 20.2, by its cells a second;
+- the soup's first frame from about 50 ms to 35, the gun's from 15 to 9,
+  every cell computed there by the same paths; each load as before;
+- the check mode 80 allocations and 5 reallocations a frame, as before.
+
+Alonzo's instrument over whole copies, three runs each:
+- the soup natively from 12.3 ms to 5.0, and in headless Chrome from 16.3
+  to 6.6, 61 to 153 frames a second;
+- the gun natively and in headless Chrome under the clocks' resolution,
+  0.1 ms. Found: the instrument's proposed floors fail on a frame of 0 ms,
+  its cells a second infinite (`Get-RoundedDown`), so the gun's row in the
+  browser cannot be pasted as it stands; the scratch copies here were
+  guarded to read the rest, and the instrument is Alonzo's to amend.
+
+From 0.8.1's frame: natively 102 to 5.0 ms, in the browser 138 to 6.6, about
+20 times. The modules: Alonzo's engine 606,716 bytes to 620,469 (+2.3%), the
+language's with `c-abi` 509,249 to 522,998 (+2.7%), the core's 1,154,292 to
+1,143,508 (-0.9%), the folds compiling smaller than the five aggregates did.
+
+*Oracle, met* in the worktree, `590304a` and this item. `cargo test
+--workspace`: 354 passed and 5 ignored, the four new tests over 350, with
+`VLA.1`'s limits and strangers among them on their stack of 1 MiB: the
+aggregates a run computes are the library's at every cell (every count of
+operands to ten, every kind of value given and ranged, a twin kept as an
+array, one too sparse, the rows' own sheet, a sheet the grid does not hold,
+a range moved off the sheet; `Calc` at the first frame); a lane of numbers
+is values from the first answer of another kind (each place one can
+appear); a meaning registered over the language's own is the one a run
+computes; a value follows its cell when a formula's write plans the order
+again. The generated grids of the third and fourth slices, over every kind
+of node, hold the run to the cells alone and to the frame computed whole.
+fmt clean; clippy clean, with `c-abi` too. Alonzo's engine tests over this
+by path, 27 of 27. `CART.1`'s check mode, every frame equal and the gun's
+facts held.
+
+Mutants, each failing in the tests that name its decision:
+- a reason among an aggregate's values not its answer;
+- a value given directly that errs counted as nothing;
+- a range's error not the answer, or its last error and not its first;
+- a reference that names no cell counted as nothing;
+- more operands than the run computes computed by it;
+- `NOT` over numbers or truth values not negated;
+- a number read where it stands read as its negative;
+- a read after its first value of another kind skipping a cell;
+- arithmetic over two lanes of numbers with its operands swapped, or a
+  number the same at every cell taken for the right operand, or the rest of
+  a lane after its first answer of another kind read one cell back;
+- a comparison of two lanes of numbers with its operands swapped;
+- `IF` over numbers or truth values taking the other branch, or a branch's
+  numbers placed at the wrong cells;
+- a lane of truth values answering numbers, or made values as numbers;
+- a sign or a percent over numbers not applied;
+- a value kept beside a yield at the next position;
+- the values not moved when the order is planned again;
+- a written formula's value not forgotten;
+- the frame's end copying the next position's value;
+- a view during a yield reading the frame in progress;
+- a cell's value read at the next position.
+
+Three mutants in a rule the run and the cell share, less than read as
+greater than, a number in a range counted true when 0 and a range walked
+from its last row, pass the run held to the cells alone, as they must, the
+two computing one meaning; each fails the language's own tests of that rule
+with exact values (Excel's order of kinds, an aggregate's fold, a store's
+walk), and the first and the third Life held to the hand-written Life too,
+which is the oracle a rule written once has. The clean run after them
+passed. `run_checks.ps1` 55 of 55, with the door, both modules and the page
+built there; `prove.ps1` 46 passed, 0 failed, 2 not attempted, 1 library.
+No Excel step: the item touches no VBA.
+
+*Committed 2026-10-10 at the owner's word*, "Mint the two further gains as
+an additional item, then commit": the owner took the oracle above as the
+item's test, the item touching no VBA. The commit holds `590304a` and this
+item's nine files alone, staged blob by blob from the worktree; its tree
+was checked first in the worktree, 354 tests passed and 5 ignored, 55 of
+55 checks. The item closed with the commit; its line is in the closed
+ledger. The two gains decision 6 names are filed as one item in a commit of
+their own after it.
 
 ---
 
@@ -34648,6 +34922,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.24 — the plane kept at the frame's end.** The language's half of Alonzo's `ENGINE.2`: a sheet an engine views as a plane has its bytes kept over its extent at the end of every frame, filled from the same value lookups that fill the twins, so that a view of it is a copy; only a sheet viewed as a plane keeps one, the view marking it, so that `view` keeps its signature and a sheet never drawn pays nothing; a write drops the planes of the sheets it changed, and the walk, `plane::bytes`, untouched and the reference, answers until the next frame's end; a twin and a sheet past a plane's limit are always walked. Four tests hold the kept bytes to the walk's at every turn, and three mutants were caught. Measured natively on Alonzo's Life, 320 by 200: a view 0.003 ms kept against 1.64 ms walked, and a step no slower. Built and committed 2026-10-09 at the owner's word; the entry above carries the record. `~hours`, taken in hours.
 - ✅ **KERNEL.3 — the study before the viewport (`SD-29`).** The instrument as one document, `docs/PROTOCOL.md`: the tasks and comprehension questions backed into from the literature, a fixture with one planted defect of each of five classes in two variants (`scripts/study/`, written by `tools/build_study_fixture.ps1` and held by `tools/check_study_fixture.ps1`), the task sheet, the protocol, the measures, a renderer benchmark (`tools/bench_view.ps1`) and the decision rule written before the first run. The benchmark, run by the owner in fullscreen on 2026-10-08, decided canvas: a virtualized DOM held a 60 Hz frame only at the default cell size, canvas through the densest legible one, and `KERNEL.5` is built on it in Alonzo. The fixtures were blessed in Excel on 2026-10-09, and `KERNEL.7`'s recalculation reproduces every cached value in them. The study's human half was not run: with the tool's author as its only participant it could decide nothing, so it runs when the formula bar or the pane is next scoped, with another participant, as `SD-29` requires then. Built 2026-10-08, committed and closed 2026-10-09 at the owner's word; the entry above carries the record. `~days`, taken in two.
 - ✅ **KERNEL.25 — the evaluator's hot path made cheaper, bit for bit.** Asked by Alonzo's `CART.1` with its profile and seven prototypes, all seven in `vla-lang`: a sheet found by `eq_ignore_ascii_case` instead of every sheet's name folded into a new string at every reference; a library name already in upper case looked up as it stands; a reference's label borrowed from the parse, `Arg<'e>`; one area held in place, `Areas`; a range walked as it is read, and `SUM`, `MIN`, `MAX`, `AND` and `OR` folding as they walk, the fold compiled into the walk; the machine's maps of values and the plan's places under an Fx hash written in the crate, no dependency; a twin's read straight to its cell. Every frame equal to the hand-written Life and the goldens unchanged; nine tests, and four mutants caught. Measured natively on Alonzo's Life, 320 by 200, on a performance core: a steady step from 282.3 to 101.0 ms, 2.80 times, the gun at the soup's cost, the load from 167 to 53 ms, the allocations of a frame from 4,470,549 to 251,957. Built 2026-10-09 and committed 2026-10-10 at the owner's word; the entry above carries the record. `~a day`, taken in hours.
+- ✅ **KERNEL.26 — the frame's two decisions: the language's own functions computed by a run, by their meaning written once, and the frame's values kept at each cell's place in the order.** Filed from `KERNEL.20`'s third slice for the owner to adjudicate together, and both built over its fourth: each aggregate's meaning written once in the library, a rule for each kind of item it counts and a fold for each of `SUM`, `MIN`, `MAX`, `AND` and `OR`, with `NOT`'s answer, which a cell's evaluation and a run both drive, a range of a twin walked where it stands; lanes of numbers and of truth values carrying a formula's steps by `binary`'s own rules over numbers, named so that `binary` calls them too; and the frame's values kept at each formula cell's position in the order, which the plan already held, where a map held them. Every frame equal to the hand-written Life and every golden unchanged; four tests, and 27 mutants caught, the three in a rule both drive by the library's own tests; no level of the evaluation deeper on the stack. Measured on Alonzo's Life, 320 by 200, on a performance core: a steady frame of the soup from 12.0 to 4.8 ms natively and from 16.3 to 6.6 in headless Chrome, 153 frames a second, about twenty times 0.8.1's; the gun's from 42 to 20 µs; 80 allocations a frame, as before. Scoped, built and committed 2026-10-10 at the owner's word; the entry above carries the record. The two further gains its profile named are an item of their own. `~days` each, taken in hours.
 
 ## 🛡 ADVERSARY · SECURITY
 

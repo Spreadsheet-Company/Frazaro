@@ -482,6 +482,12 @@ impl Reach {
         }
     }
 
+    /// A formula cell's position in the order, where an engine's machine
+    /// keeps its value (KERNEL.26); `None` for a cell holding no formula.
+    pub(crate) fn position(&self, id: CellId) -> Option<usize> {
+        self.positions.get(id.0, id.1, id.2)
+    }
+
     /// The shape of the cell at a position of the order.
     pub(crate) fn shape_at(&self, pos: usize) -> usize {
         self.shape_at[pos] as usize

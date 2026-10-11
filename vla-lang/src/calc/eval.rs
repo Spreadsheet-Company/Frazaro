@@ -151,15 +151,26 @@ pub type Strict = fn(&Ctx<'_>, &[Arg<'_>]) -> Result<Value, Reason>;
 /// living as long as the arguments it was evaluated from.
 pub type Form = for<'e> fn(&Ctx<'_>, &'e [Expr]) -> Result<Arg<'e>, Reason>;
 
-/// A form an evaluation of many cells at once computes by itself
-/// (KERNEL.20, `super::vector`), known by the name the language's library
-/// registers it under. Any other registration of the name replaces it, so
-/// that a crate above that registers a meaning of its own has that meaning
-/// computed, cell by cell.
+/// One of the language's own functions that an evaluation of many cells at
+/// once computes by itself (`super::vector`), known by the name the
+/// language's library registers it under: `IF` (KERNEL.20), and the
+/// aggregates and `NOT`, which it computes by the library's own rule and
+/// fold (KERNEL.26, `super::library::Fold`). Any other registration of the
+/// name replaces it, so that a crate above that registers a meaning of its
+/// own has that meaning computed, cell by cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Known {
     /// `library::if_`.
     If,
+    /// `SUM`, `MIN` and `MAX`: `library::Sum`, `Least` and `Most`.
+    Sum,
+    Min,
+    Max,
+    /// `AND` and `OR`: `library::All` and `Some_`.
+    And,
+    Or,
+    /// `NOT`: `library::negated`.
+    Not,
 }
 
 /// The functions a formula may call, by upper-case name: the seam. Every
@@ -170,7 +181,9 @@ pub(crate) enum Known {
 /// differently over the same arguments would be computed once and kept.
 #[derive(Default)]
 pub struct Library {
-    strict: BTreeMap<String, Strict>,
+    /// Each strict function, and whether it is one an evaluation of many
+    /// cells at once knows (KERNEL.26).
+    strict: BTreeMap<String, (Strict, Option<Known>)>,
     /// Each form, and whether it is one an evaluation of many cells at once
     /// knows (KERNEL.20).
     forms: BTreeMap<String, (Form, Option<Known>)>,
@@ -187,7 +200,7 @@ impl Library {
     pub fn register(&mut self, name: &str, f: Strict) {
         let key = name.to_ascii_uppercase();
         self.forms.remove(&key);
-        self.strict.insert(key, f);
+        self.strict.insert(key, (f, None));
     }
 
     /// Register a form.
@@ -205,14 +218,28 @@ impl Library {
         self.forms.insert(key, (f, Some(known)));
     }
 
-    /// The known form registered under that name, without case.
+    /// Register one of the language's own strict functions as one an
+    /// evaluation of many cells at once computes by itself, by the same rule
+    /// and fold (KERNEL.26).
+    pub(crate) fn register_known_strict(&mut self, name: &str, f: Strict, known: Known) {
+        let key = name.to_ascii_uppercase();
+        self.forms.remove(&key);
+        self.strict.insert(key, (f, Some(known)));
+    }
+
+    /// The known function registered under that name, without case: a form
+    /// or a strict function.
     pub(crate) fn known(&self, name: &str) -> Option<Known> {
-        self.forms.get(&*key(name)).and_then(|&(_, known)| known)
+        let key = key(name);
+        match self.forms.get(&*key) {
+            Some(&(_, known)) => known,
+            None => self.strict.get(&*key).and_then(|&(_, known)| known),
+        }
     }
 
     /// The strict function of that name, without case.
     pub fn strict(&self, name: &str) -> Option<Strict> {
-        self.strict.get(&*key(name)).copied()
+        self.strict.get(&*key(name)).map(|&(f, _)| f)
     }
 
     /// The form of that name, without case.
@@ -529,7 +556,10 @@ pub fn finite(v: f64) -> Value {
 
 /// A binary operator over two values: the left operand's error first,
 /// then the right's; arithmetic over the numbers each coerces to, `&` over
-/// their texts, a comparison in Excel's order of kinds.
+/// their texts, a comparison in Excel's order of kinds. Its arithmetic and
+/// its comparison of two numbers are [`arithmetic`] and [`compares`] over
+/// [`compare_numbers`], which an evaluation of many cells at once calls over
+/// its lanes of numbers (KERNEL.26), so that each rule is written once.
 pub fn binary(op: BinOp, a: &Value, b: &Value) -> Value {
     if let Value::Error(k) = a {
         return Value::Error(*k);
@@ -547,31 +577,51 @@ pub fn binary(op: BinOp, a: &Value, b: &Value) -> Value {
                 Ok(n) => n,
                 Err(k) => return Value::Error(k),
             };
-            match op {
-                BinOp::Add => finite(x + y),
-                BinOp::Sub => finite(x - y),
-                BinOp::Mul => finite(x * y),
-                BinOp::Div => {
-                    if y == 0.0 {
-                        Value::Error(ErrorKind::Div0)
-                    } else {
-                        finite(x / y)
-                    }
-                }
-                _ => power(x, y),
-            }
+            arithmetic(op, x, y)
         }
         BinOp::Concat => match (a.text(), b.text()) {
             (Ok(s), Ok(t)) => Value::Text(s + &t),
             (Err(k), _) | (_, Err(k)) => Value::Error(k),
         },
-        BinOp::Eq => Value::Bool(compare(a, b) == Ordering::Equal),
-        BinOp::Ne => Value::Bool(compare(a, b) != Ordering::Equal),
-        BinOp::Lt => Value::Bool(compare(a, b) == Ordering::Less),
-        BinOp::Gt => Value::Bool(compare(a, b) == Ordering::Greater),
-        BinOp::Le => Value::Bool(compare(a, b) != Ordering::Greater),
-        BinOp::Ge => Value::Bool(compare(a, b) != Ordering::Less),
+        _ => Value::Bool(compares(op, compare(a, b))),
     }
+}
+
+/// An arithmetic operator over two numbers (`+`, `-`, `*`, `/`, `^`).
+#[inline]
+pub(crate) fn arithmetic(op: BinOp, x: f64, y: f64) -> Value {
+    match op {
+        BinOp::Add => finite(x + y),
+        BinOp::Sub => finite(x - y),
+        BinOp::Mul => finite(x * y),
+        BinOp::Div => {
+            if y == 0.0 {
+                Value::Error(ErrorKind::Div0)
+            } else {
+                finite(x / y)
+            }
+        }
+        _ => power(x, y),
+    }
+}
+
+/// Whether a comparison operator holds of how its operands compare.
+#[inline]
+pub(crate) fn compares(op: BinOp, ordering: Ordering) -> bool {
+    match op {
+        BinOp::Eq => ordering == Ordering::Equal,
+        BinOp::Ne => ordering != Ordering::Equal,
+        BinOp::Lt => ordering == Ordering::Less,
+        BinOp::Gt => ordering == Ordering::Greater,
+        BinOp::Le => ordering != Ordering::Greater,
+        _ => ordering != Ordering::Less,
+    }
+}
+
+/// How two numbers compare.
+#[inline]
+pub(crate) fn compare_numbers(x: f64, y: f64) -> Ordering {
+    x.partial_cmp(&y).unwrap_or(Ordering::Equal)
 }
 
 /// `^` as Excel has it: `0^0` is `#NUM!`, `0` to a negative power is
@@ -611,7 +661,7 @@ pub fn compare(a: &Value, b: &Value) -> Ordering {
         }
         (Empty, Bool(y)) => false.cmp(y),
         (Bool(x), Empty) => x.cmp(&false),
-        (Number(x), Number(y)) => x.partial_cmp(y).unwrap_or(Ordering::Equal),
+        (Number(x), Number(y)) => compare_numbers(*x, *y),
         (Text(x), Text(y)) => fold(x).cmp(&fold(y)),
         (Bool(x), Bool(y)) => x.cmp(y),
         _ => rank(a).cmp(&rank(b)),

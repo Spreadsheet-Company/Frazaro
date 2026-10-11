@@ -19,6 +19,14 @@
 //! text `#VALUE!`), a value read out of a range counts only when it is of
 //! the kind the function wants (`SUM` skips a text and a truth value in a
 //! range), an empty cell is skipped, and an error anywhere is the answer.
+//!
+//! The rule is written once, for numbers and for truth values ([`Rule`]),
+//! and so is each aggregate's fold ([`Fold`]: where `SUM`, `MIN`, `MAX`,
+//! `AND` and `OR` start, what each value they count does, what they answer),
+//! and `NOT`'s answer ([`negated`]); a cell's evaluation drives them over its
+//! arguments here, and an evaluation of many cells at once drives the same
+//! rule and the same fold over its own (`super::vector`, KERNEL.26), so that
+//! no meaning of the library is written twice.
 
 use super::eval::{finite, Arg, Ctx, Known, Library, Reason};
 use super::formula::Expr;
@@ -26,16 +34,17 @@ use super::value::{ErrorKind, Value};
 
 /// The language's library, every function above registered; `IF` as the
 /// form an evaluation of many cells at once computes by itself, as `if_`
-/// computes it at one (KERNEL.20).
+/// computes it at one (KERNEL.20), and the aggregates and `NOT` as the
+/// functions it computes by the same rule and fold (KERNEL.26).
 pub fn language() -> Library {
     let mut lib = Library::empty();
     lib.register_known("IF", if_, Known::If);
-    lib.register("AND", and);
-    lib.register("OR", or);
-    lib.register("NOT", not);
-    lib.register("SUM", sum);
-    lib.register("MIN", min);
-    lib.register("MAX", max);
+    lib.register_known_strict("AND", and, Known::And);
+    lib.register_known_strict("OR", or, Known::Or);
+    lib.register_known_strict("NOT", not, Known::Not);
+    lib.register_known_strict("SUM", sum, Known::Sum);
+    lib.register_known_strict("MIN", min, Known::Min);
+    lib.register_known_strict("MAX", max, Known::Max);
     lib.register("ABS", abs);
     lib.register("INT", int);
     lib.register("MOD", modulo);
@@ -55,32 +64,94 @@ pub const NAMES: [&str; 14] = [
 /// What a numeric aggregate collects: the numbers, or the first error.
 pub type Numbers = Result<Vec<f64>, ErrorKind>;
 
-/// Each number of the arguments by the aggregate rule above, to `f` in
-/// the arguments' order and a range's walk: a value given directly that is
-/// an error, or does not read as a number, answers at once; a range is
-/// walked to its end and answers with its first error, so that a cell in it
-/// not computed still answers with its reason. An aggregate folds over this
-/// as it walks, and nothing is collected (KERNEL.25).
-pub fn each_number<F: FnMut(f64)>(
+/// What an aggregate makes of a value read out of a range (KERNEL.26): an
+/// item it counts, an error it keeps to answer with once the range is
+/// walked, or nothing.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum Ranged<T> {
+    Counts(T),
+    Error(ErrorKind),
+    Skipped,
+}
+
+/// The aggregate rule above for one kind of item (KERNEL.26): how a value
+/// given directly is coerced, and what a value read out of a range is.
+pub(crate) trait Rule {
+    type Item: Copy;
+    /// A value given directly: its item, or the error that is the answer.
+    fn given(v: &Value) -> Result<Self::Item, ErrorKind>;
+    /// A value read out of a range.
+    fn ranged(v: &Value) -> Ranged<Self::Item>;
+}
+
+/// The rule for numbers: a value given directly reads as a number or is
+/// `#VALUE!`; in a range only a number counts.
+pub(crate) struct OverNumbers;
+
+impl Rule for OverNumbers {
+    type Item = f64;
+
+    fn given(v: &Value) -> Result<f64, ErrorKind> {
+        v.number()
+    }
+
+    fn ranged(v: &Value) -> Ranged<f64> {
+        match v {
+            Value::Number(n) => Ranged::Counts(*n),
+            Value::Error(k) => Ranged::Error(*k),
+            _ => Ranged::Skipped,
+        }
+    }
+}
+
+/// The rule for truth values: a value given directly must read as one
+/// (`#VALUE!` otherwise); in a range a truth value counts, a number counts
+/// as `0` or not, a text is skipped.
+pub(crate) struct OverTruths;
+
+impl Rule for OverTruths {
+    type Item = bool;
+
+    fn given(v: &Value) -> Result<bool, ErrorKind> {
+        v.truth()
+    }
+
+    fn ranged(v: &Value) -> Ranged<bool> {
+        match v {
+            Value::Bool(b) => Ranged::Counts(*b),
+            Value::Number(n) => Ranged::Counts(*n != 0.0),
+            Value::Error(k) => Ranged::Error(*k),
+            _ => Ranged::Skipped,
+        }
+    }
+}
+
+/// Each item of the arguments by a rule, to `f` in the arguments' order and
+/// a range's walk: a value given directly that is an error, or does not read
+/// as an item, answers at once; a range is walked to its end and answers
+/// with its first error, so that a cell in it not computed still answers
+/// with its reason. An aggregate folds over this as it walks, and nothing is
+/// collected (KERNEL.25).
+fn each_item<R: Rule, F: FnMut(R::Item)>(
     ctx: &Ctx<'_>,
     args: &[Arg],
     mut f: F,
 ) -> Result<Result<(), ErrorKind>, Reason> {
     for a in args {
         match a {
-            Arg::Scalar(v) => match v.number() {
-                Ok(n) => f(n),
+            Arg::Scalar(v) => match R::given(v) {
+                Ok(x) => f(x),
                 Err(k) => return Ok(Err(k)),
             },
             Arg::Area { areas, .. } => {
                 let mut err: Option<ErrorKind> = None;
                 ctx.each(areas, |v| {
-                    match v {
-                        Value::Number(n) => f(n),
-                        Value::Error(k) => {
+                    match R::ranged(&v) {
+                        Ranged::Counts(x) => f(x),
+                        Ranged::Error(k) => {
                             err.get_or_insert(k);
                         }
-                        _ => {}
+                        Ranged::Skipped => {}
                     }
                     Ok(())
                 })?;
@@ -93,41 +164,188 @@ pub fn each_number<F: FnMut(f64)>(
     Ok(Ok(()))
 }
 
+/// Each number of the arguments by the aggregate rule above, to `f`, as
+/// [`each_item`] walks them ([`OverNumbers`]).
+pub fn each_number<F: FnMut(f64)>(
+    ctx: &Ctx<'_>,
+    args: &[Arg],
+    f: F,
+) -> Result<Result<(), ErrorKind>, Reason> {
+    each_item::<OverNumbers, F>(ctx, args, f)
+}
+
 /// Each truth value of the arguments by the same rule, to `f`, as
-/// [`each_number`] walks: a value given directly must read as one
-/// (`#VALUE!` otherwise); in a range a truth value counts, a number counts
-/// as `0` or not, a text is skipped.
+/// [`each_number`] walks ([`OverTruths`]).
 pub fn each_truth<F: FnMut(bool)>(
     ctx: &Ctx<'_>,
     args: &[Arg],
-    mut f: F,
+    f: F,
 ) -> Result<Result<(), ErrorKind>, Reason> {
-    for a in args {
-        match a {
-            Arg::Scalar(v) => match v.truth() {
-                Ok(b) => f(b),
-                Err(k) => return Ok(Err(k)),
-            },
-            Arg::Area { areas, .. } => {
-                let mut err: Option<ErrorKind> = None;
-                ctx.each(areas, |v| {
-                    match v {
-                        Value::Bool(b) => f(b),
-                        Value::Number(n) => f(n != 0.0),
-                        Value::Error(k) => {
-                            err.get_or_insert(k);
-                        }
-                        _ => {}
-                    }
-                    Ok(())
-                })?;
-                if let Some(k) = err {
-                    return Ok(Err(k));
-                }
-            }
+    each_item::<OverTruths, F>(ctx, args, f)
+}
+
+/// An aggregate's meaning (KERNEL.26): its rule, where it starts, what each
+/// item it counts does, and its answer once its arguments are walked. A
+/// cell's evaluation drives it through [`folded`]; an evaluation of many
+/// cells at once drives it through its own walk (`super::vector`).
+pub(crate) trait Fold: Default {
+    type Rule: Rule;
+    fn add(&mut self, x: <Self::Rule as Rule>::Item);
+    fn answer(self) -> Value;
+}
+
+/// `SUM` adds in the walk's order from -0.0, `Iterator::sum`'s own start,
+/// so that its bits are those of the numbers collected and summed.
+pub(crate) struct Sum(f64);
+
+impl Default for Sum {
+    fn default() -> Sum {
+        Sum(-0.0)
+    }
+}
+
+impl Fold for Sum {
+    type Rule = OverNumbers;
+
+    fn add(&mut self, n: f64) {
+        self.0 += n;
+    }
+
+    fn answer(self) -> Value {
+        finite(self.0)
+    }
+}
+
+/// `MIN` of no number is 0.
+pub(crate) struct Least {
+    least: f64,
+    any: bool,
+}
+
+impl Default for Least {
+    fn default() -> Least {
+        Least {
+            least: f64::INFINITY,
+            any: false,
         }
     }
-    Ok(Ok(()))
+}
+
+impl Fold for Least {
+    type Rule = OverNumbers;
+
+    fn add(&mut self, n: f64) {
+        self.least = self.least.min(n);
+        self.any = true;
+    }
+
+    fn answer(self) -> Value {
+        Value::Number(self.least.min(if self.any { f64::INFINITY } else { 0.0 }))
+    }
+}
+
+/// `MAX` of no number is 0.
+pub(crate) struct Most {
+    most: f64,
+    any: bool,
+}
+
+impl Default for Most {
+    fn default() -> Most {
+        Most {
+            most: f64::NEG_INFINITY,
+            any: false,
+        }
+    }
+}
+
+impl Fold for Most {
+    type Rule = OverNumbers;
+
+    fn add(&mut self, n: f64) {
+        self.most = self.most.max(n);
+        self.any = true;
+    }
+
+    fn answer(self) -> Value {
+        Value::Number(
+            self.most
+                .max(if self.any { f64::NEG_INFINITY } else { 0.0 }),
+        )
+    }
+}
+
+/// `AND` of no truth value is `#VALUE!`.
+pub(crate) struct All {
+    all: bool,
+    any: bool,
+}
+
+impl Default for All {
+    fn default() -> All {
+        All {
+            all: true,
+            any: false,
+        }
+    }
+}
+
+impl Fold for All {
+    type Rule = OverTruths;
+
+    fn add(&mut self, b: bool) {
+        self.all &= b;
+        self.any = true;
+    }
+
+    fn answer(self) -> Value {
+        if self.any {
+            Value::Bool(self.all)
+        } else {
+            Value::Error(ErrorKind::Value)
+        }
+    }
+}
+
+/// `OR` of no truth value is `#VALUE!`.
+#[derive(Default)]
+pub(crate) struct Some_ {
+    some: bool,
+    any: bool,
+}
+
+impl Fold for Some_ {
+    type Rule = OverTruths;
+
+    fn add(&mut self, b: bool) {
+        self.some |= b;
+        self.any = true;
+    }
+
+    fn answer(self) -> Value {
+        if self.any {
+            Value::Bool(self.some)
+        } else {
+            Value::Error(ErrorKind::Value)
+        }
+    }
+}
+
+/// An aggregate over a cell's arguments: its fold driven by its rule's walk.
+fn folded<F: Fold>(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
+    let mut fold = F::default();
+    Ok(match each_item::<F::Rule, _>(ctx, args, |x| fold.add(x))? {
+        Err(k) => Value::Error(k),
+        Ok(()) => fold.answer(),
+    })
+}
+
+/// `NOT`'s answer over the one value it reads (KERNEL.26).
+pub(crate) fn negated(v: &Value) -> Value {
+    match v.truth() {
+        Ok(b) => Value::Bool(!b),
+        Err(k) => Value::Error(k),
+    }
 }
 
 /// The numbers of the arguments by the aggregate rule above, collected.
@@ -180,75 +398,30 @@ fn if_<'e>(ctx: &Ctx<'_>, args: &'e [Expr]) -> Result<Arg<'e>, Reason> {
 }
 
 fn and(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    let (mut all, mut any) = (true, false);
-    let walked = each_truth(ctx, args, |b| {
-        all &= b;
-        any = true;
-    })?;
-    Ok(match walked {
-        Err(k) => Value::Error(k),
-        Ok(()) if !any => Value::Error(ErrorKind::Value),
-        Ok(()) => Value::Bool(all),
-    })
+    folded::<All>(ctx, args)
 }
 
 fn or(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    let (mut some, mut any) = (false, false);
-    let walked = each_truth(ctx, args, |b| {
-        some |= b;
-        any = true;
-    })?;
-    Ok(match walked {
-        Err(k) => Value::Error(k),
-        Ok(()) if !any => Value::Error(ErrorKind::Value),
-        Ok(()) => Value::Bool(some),
-    })
+    folded::<Some_>(ctx, args)
 }
 
 fn not(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
     if args.len() != 1 {
         return Ok(Value::Error(ErrorKind::Value));
     }
-    Ok(match ctx.truth_arg(&args[0])? {
-        Ok(b) => Value::Bool(!b),
-        Err(k) => Value::Error(k),
-    })
+    Ok(negated(&ctx.one(&args[0])?))
 }
 
-/// `SUM` adds in the walk's order from -0.0, `Iterator::sum`'s own start,
-/// so that its bits are those of the numbers collected and summed.
 fn sum(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    let mut total = -0.0;
-    let walked = each_number(ctx, args, |n| total += n)?;
-    Ok(match walked {
-        Err(k) => Value::Error(k),
-        Ok(()) => finite(total),
-    })
+    folded::<Sum>(ctx, args)
 }
 
-/// `MIN` and `MAX` of no number are 0.
 fn min(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    let (mut least, mut any) = (f64::INFINITY, false);
-    let walked = each_number(ctx, args, |n| {
-        least = least.min(n);
-        any = true;
-    })?;
-    Ok(match walked {
-        Err(k) => Value::Error(k),
-        Ok(()) => Value::Number(least.min(if any { f64::INFINITY } else { 0.0 })),
-    })
+    folded::<Least>(ctx, args)
 }
 
 fn max(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {
-    let (mut most, mut any) = (f64::NEG_INFINITY, false);
-    let walked = each_number(ctx, args, |n| {
-        most = most.max(n);
-        any = true;
-    })?;
-    Ok(match walked {
-        Err(k) => Value::Error(k),
-        Ok(()) => Value::Number(most.max(if any { f64::NEG_INFINITY } else { 0.0 })),
-    })
+    folded::<Most>(ctx, args)
 }
 
 fn abs(ctx: &Ctx<'_>, args: &[Arg]) -> Result<Value, Reason> {

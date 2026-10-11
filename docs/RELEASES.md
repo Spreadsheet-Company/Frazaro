@@ -6,8 +6,8 @@
 
 ### What changed
 
-- **For engines: a frame of a grid steps more than eight times as fast,
-  and a frame where little changes costs little.** A frame now computes
+- **For engines: a frame of a grid steps about twenty times as fast, and a
+  frame where little changes costs little.** A frame now computes
   only the cells whose reads changed: a change is followed from the cell
   that changed to the cells that read it, and a cell computed to the value
   it held changes nothing further, so a frame in which a glider crosses an
@@ -15,17 +15,22 @@
   over many cells is computed at all of them at once,
   one step of the formula at a time, where each cell used to walk the whole
   formula alone; a constant, and a reference every `$` holds, is read once
-  for all of them. The previous frame's values, which a rule reads through
+  for all of them; the language's `SUM`, `MIN`, `MAX`, `AND`, `OR` and
+  `NOT` are computed there by the library's own rules, a range of the
+  previous frame walked where it stands; and numbers and truth values pass
+  from one step of a formula to the next as numbers and truth values, with
+  no kind to check. The previous frame's values, which a rule reads through
   each sheet's hidden twin (`Screen.last`), are kept as an array beside the
   twin's cells, so that reading one is an index and a range of them a walk
-  of the array; a reference finds the sheet it names once, when its formula
-  is placed; and a function's arguments no longer cost an allocation. A
-  frame of Life on a 320 by 200 Screen, 62,964 formulas, steps in about
-  11 ms natively and 16 ms in WebAssembly in the browser, over 60 frames a
-  second, where 0.8.1 took about 100 and 138; Gosper's glider gun steps in
-  about 0.05 ms. A frame makes about eighty allocations where it made a
-  quarter of a million. Every value is computed exactly as before
-  (KERNEL.20, its first four slices).
+  of the array, and this frame's are kept at each formula's place in the
+  order of evaluation, where a map held them; a reference finds the sheet
+  it names once, when its formula is placed; and a function's arguments no
+  longer cost an allocation. A frame of Life on a 320 by 200 Screen, 62,964
+  formulas, steps in about 5 ms natively and 6.6 ms in WebAssembly in the
+  browser, over 150 frames a second, where 0.8.1 took about 100 and 138;
+  Gosper's glider gun steps in about 0.02 ms. A frame makes about eighty
+  allocations where it made a quarter of a million. Every value is computed
+  exactly as before (KERNEL.20, its first four slices, and KERNEL.26).
 - **For everyone who builds a workbook: it arrives with its values.** A
   workbook `frazaro build` writes, and the web page's *Download as .xlsx*,
   now holds in each formula's cell the value the formula computes, as a

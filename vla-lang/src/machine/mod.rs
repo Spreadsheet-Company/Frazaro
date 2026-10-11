@@ -263,16 +263,19 @@ pub struct Machine {
     names: Names,
     extents: Vec<Extent>,
     shapes: Shapes,
-    /// The frame's values, by formula cell: the last complete frame's, each
-    /// overwritten while a frame is in progress as its cell computes a value
-    /// that differs (KERNEL.20). This map and the next three are under the
-    /// crate's own hash (KERNEL.25); nothing walks them, so their order is
-    /// never read.
-    current: FxHashMap<CellId, Computed>,
-    /// Each value a frame in progress overwrote while a step yielded, as
-    /// the last complete frame left it (`None`, no value), so that a view
-    /// before the frame completes reads the last complete frame.
-    before: FxHashMap<CellId, Option<Computed>>,
+    /// The frame's values, each formula cell's at its position in the order
+    /// (KERNEL.26), `None` for one with no value yet: the last complete
+    /// frame's, each overwritten while a frame is in progress as its cell
+    /// computes a value that differs (KERNEL.20), so that a cell's answer is
+    /// kept and read again by index, and a cell read by its place found in
+    /// the plan's own array of positions (`Reach::position`).
+    values: Vec<Option<Computed>>,
+    /// Each value a frame in progress overwrote while a step yielded, by
+    /// position, as the last complete frame left it (`None`, no value), so
+    /// that a view before the frame completes reads the last complete frame.
+    /// This map and the next two are under the crate's own hash (KERNEL.25);
+    /// nothing walks them, so their order is never read.
+    before: FxHashMap<u32, Option<Computed>>,
     /// A twin cell left empty because its cell was not computed: the
     /// reason, which a formula reading the twin cell inherits.
     twin_reasons: FxHashMap<CellId, Reason>,
@@ -303,8 +306,10 @@ pub struct Machine {
     /// (KERNEL.20).
     lanes: Lanes,
     answers: Vec<Computed>,
-    /// The cells of a run a frame computes, gathered a chunk at a time.
+    /// The cells of a run a frame computes, gathered a chunk at a time, and
+    /// their positions in the order.
     gathered: Vec<CellId>,
+    gathered_at: Vec<u32>,
     /// Whether the next frame computes every cell (KERNEL.20): after a load,
     /// a write that changed a formula or added a cell, a twin that gained or
     /// lost a cell, or more changes than were kept.
@@ -321,9 +326,9 @@ pub struct Machine {
     recheck: Vec<bool>,
     /// Each such part's value as a frame's start last computed it.
     parts: Vec<Option<Result<Value, Reason>>>,
-    /// The formula cells whose values the frame in progress changed, and
-    /// whether more changed than this holds.
-    changed: Vec<CellId>,
+    /// The formula cells whose values the frame in progress changed, by
+    /// position in the order, and whether more changed than this holds.
+    changed: Vec<u32>,
     changed_over: bool,
     /// The value cells written since the last frame completed.
     written: Vec<CellId>,
@@ -412,15 +417,11 @@ impl Machine {
             };
             return Err(LineRefusal { line, refusal });
         }
-        let current: FxHashMap<CellId, Computed> = values
-            .into_iter()
-            .filter(|(id, _)| shapes.holds(*id))
-            .collect();
         Ok(Machine::made(
             (workbook, sheets, cells),
             (library, names, extents),
             shapes,
-            current,
+            values,
         ))
     }
 
@@ -433,8 +434,15 @@ impl Machine {
         (book, sheets, cells): (Workbook, usize, usize),
         (library, names, extents): (Library, Names, Vec<Extent>),
         shapes: Shapes,
-        current: FxHashMap<CellId, Computed>,
+        loaded: HashMap<CellId, Computed>,
     ) -> Machine {
+        // Each formula's value from its `value` row, at its position.
+        let mut values: Vec<Option<Computed>> = vec![None; shapes.order().len()];
+        for (id, value) in loaded {
+            if let Some(p) = shapes.reach().position(id) {
+                values[p] = Some(value);
+            }
+        }
         let mut m = Machine {
             book,
             sheets,
@@ -442,7 +450,7 @@ impl Machine {
             names,
             extents,
             shapes,
-            current,
+            values,
             before: FxHashMap::default(),
             twin_reasons: FxHashMap::default(),
             reasons_before: FxHashMap::default(),
@@ -456,6 +464,7 @@ impl Machine {
             lanes: Lanes::default(),
             answers: Vec::new(),
             gathered: Vec::with_capacity(vector::CHUNK),
+            gathered_at: Vec::with_capacity(vector::CHUNK),
             every_next: true,
             every: true,
             marked: Vec::new(),
@@ -491,7 +500,9 @@ impl Machine {
         self.recheck.resize(shapes, false);
         self.parts.clear();
         self.parts.resize(self.shapes.reach().part_count(), None);
-        let room = |v: &mut Vec<CellId>, n: usize| v.reserve(n.saturating_sub(v.len()));
+        fn room<T>(v: &mut Vec<T>, n: usize) {
+            v.reserve(n.saturating_sub(v.len()));
+        }
         room(&mut self.changed, of / 2 + 64);
         room(&mut self.twin_changed, self.cells / 2 + 64);
     }
@@ -587,7 +598,7 @@ impl Machine {
                     if self.wants(i) {
                         let id = self.shapes.order()[i];
                         let computed = self.evaluate(id);
-                        self.keep(id, computed, keep);
+                        self.keep(i, computed, keep);
                     }
                     i += 1;
                 }
@@ -701,6 +712,7 @@ impl Machine {
         let mut lanes = std::mem::take(&mut self.lanes);
         let mut answers = std::mem::take(&mut self.answers);
         let mut gathered = std::mem::take(&mut self.gathered);
+        let mut gathered_at = std::mem::take(&mut self.gathered_at);
         let every = self.every || self.whole[shape];
         let mut i = from;
         while i < to {
@@ -717,17 +729,18 @@ impl Machine {
                     &mut answers,
                 );
                 for (k, computed) in answers.drain(..).enumerate() {
-                    let id = self.shapes.order()[i + k];
-                    self.keep(id, computed, keep);
+                    self.keep(i + k, computed, keep);
                 }
                 i = j;
                 continue;
             }
             gathered.clear();
+            gathered_at.clear();
             while gathered.len() < vector::CHUNK {
                 match next_marked(&self.marked, i, to) {
                     Some(p) => {
                         gathered.push(self.shapes.order()[p]);
+                        gathered_at.push(p as u32);
                         i = p + 1;
                     }
                     None => {
@@ -737,9 +750,9 @@ impl Machine {
                 }
             }
             if gathered.len() < RUN {
-                for &id in &gathered {
+                for (&id, &p) in gathered.iter().zip(&gathered_at) {
                     let computed = self.evaluate(id);
-                    self.keep(id, computed, keep);
+                    self.keep(p as usize, computed, keep);
                 }
                 continue;
             }
@@ -751,41 +764,38 @@ impl Machine {
                 &mut lanes,
                 &mut answers,
             );
-            for (id, computed) in gathered.iter().zip(answers.drain(..)) {
-                self.keep(*id, computed, keep);
+            for (&p, computed) in gathered_at.iter().zip(answers.drain(..)) {
+                self.keep(p as usize, computed, keep);
             }
         }
         self.lanes = lanes;
         self.answers = answers;
         self.gathered = gathered;
+        self.gathered_at = gathered_at;
     }
 
-    /// A cell's value the frame computed, kept when its bits differ from
-    /// the one it holds (KERNEL.20): the old one beside while a step yields,
-    /// the cell counted as changed, and, but in a frame that computes every
-    /// cell, the cells of the frame that read it marked.
-    fn keep(&mut self, id: CellId, computed: Computed, keep: bool) {
+    /// The value the frame computed for the cell at a position of the order,
+    /// kept when its bits differ from the one it holds (KERNEL.20): the old
+    /// one beside while a step yields, the cell counted as changed, and, but
+    /// in a frame that computes every cell, the cells of the frame that read
+    /// it marked.
+    fn keep(&mut self, p: usize, computed: Computed, keep: bool) {
         #[cfg(test)]
         {
             self.computed += 1;
         }
-        match self.current.get_mut(&id) {
-            Some(held) if same_computed(held, &computed) => return,
-            Some(held) => {
-                let was = std::mem::replace(held, computed);
-                if keep {
-                    self.before.entry(id).or_insert(Some(was));
-                }
-            }
-            None => {
-                self.current.insert(id, computed);
-                if keep {
-                    self.before.entry(id).or_insert(None);
-                }
+        let held = &mut self.values[p];
+        if let Some(h) = held {
+            if same_computed(h, &computed) {
+                return;
             }
         }
+        let was = held.replace(computed);
+        if keep {
+            self.before.entry(p as u32).or_insert(was);
+        }
         if self.changed.len() < self.changed.capacity() {
-            self.changed.push(id);
+            self.changed.push(p as u32);
         } else {
             self.changed_over = true;
         }
@@ -796,6 +806,7 @@ impl Machine {
                 whole,
                 ..
             } = self;
+            let id = shapes.order()[p];
             shapes.reach().each(id, &mut |r| match r {
                 Reached::Cell(p) => marked[p / 64] |= 1 << (p % 64),
                 Reached::Shape(s) | Reached::Parts(s) => whole[s] = true,
@@ -842,7 +853,8 @@ impl Machine {
         let Machine {
             book,
             sheets,
-            current,
+            shapes,
+            values,
             twin_reasons,
             wanted,
             planes,
@@ -866,8 +878,8 @@ impl Machine {
         };
         // A formula cell the frame changed: its value alone makes its twin
         // cell, its byte and its slot.
-        for &id in changed.iter() {
-            let value = current.get(&id);
+        for &p in changed.iter() {
+            let (id, value) = (shapes.order()[p as usize], values[p as usize].as_ref());
             if !to.put(id, formula_twin(value), value, plane::formula_byte(value)) {
                 return false;
             }
@@ -876,7 +888,7 @@ impl Machine {
             let Some(cell) = rows[id.0].cells.get(&(id.1, id.2)) else {
                 return false;
             };
-            let value = is_formula(&cell.content).then(|| current.get(&id));
+            let value = is_formula(&cell.content).then(|| value_at(shapes, values, id));
             let byte = plane::kept_byte(&cell.content, value.flatten());
             if !to.put(id, twin_content(cell, value), value.flatten(), byte) {
                 return false;
@@ -925,7 +937,8 @@ impl Machine {
             let mut in_place = true;
             for (&(row, col), cell) in &sheet.cells {
                 // A formula's value, looked up once for the twin and the plane.
-                let value = is_formula(&cell.content).then(|| self.current.get(&(s, row, col)));
+                let value = is_formula(&cell.content)
+                    .then(|| value_at(&self.shapes, &self.values, (s, row, col)));
                 if let Some(r) = raster.as_mut() {
                     fits &= r.set(row, col, plane::kept_byte(&cell.content, value.flatten()));
                 }
@@ -977,8 +990,8 @@ impl Machine {
                     .cells
                     .iter()
                     .filter_map(|(&(row, col), cell)| {
-                        let value =
-                            is_formula(&cell.content).then(|| self.current.get(&(s, row, col)));
+                        let value = is_formula(&cell.content)
+                            .then(|| value_at(&self.shapes, &self.values, (s, row, col)));
                         let content = twin_content(cell, value)?;
                         Some(((row, col), Cell { content, style: 0 }))
                     })
@@ -1364,6 +1377,15 @@ impl Machine {
                 self.undo(&log);
                 return Err(LineRefusal { line, refusal });
             }
+            // Each value moved to its cell's new position in the order
+            // (KERNEL.26).
+            let mut moved: Vec<Option<Computed>> = vec![None; self.shapes.order().len()];
+            for (&id, value) in saved.order().iter().zip(std::mem::take(&mut self.values)) {
+                if let (Some(q), Some(v)) = (self.shapes.reach().position(id), value) {
+                    moved[q] = Some(v);
+                }
+            }
+            self.values = moved;
         }
         // A write never empties a cell: it only adds cells or changes them.
         // A formula changed or a cell added, and the next frame computes
@@ -1375,7 +1397,9 @@ impl Machine {
             self.fit();
         }
         for id in log.changed.keys() {
-            self.current.remove(id);
+            if let Some(p) = self.shapes.reach().position(*id) {
+                self.values[p] = None;
+            }
             if !self.shapes.holds(*id) {
                 self.written.push(*id);
             }
@@ -1396,12 +1420,13 @@ impl Values for Machine {
     /// The last complete frame's value: while a step yields, a value the
     /// frame in progress overwrote is read from beside it (KERNEL.20).
     fn computed(&self, id: CellId) -> Option<&Computed> {
+        let p = self.shapes.reach().position(id)?;
         if !self.before.is_empty() {
-            if let Some(was) = self.before.get(&id) {
+            if let Some(was) = self.before.get(&(p as u32)) {
                 return was.as_ref();
             }
         }
-        self.current.get(&id)
+        self.values[p].as_ref()
     }
 }
 
@@ -1422,17 +1447,15 @@ impl Env for Machine {
         if id.0 < self.sheets {
             // The frame's value: computed in this frame by now, the order
             // putting each cell after what it reads, or kept from the last,
-            // its reads unchanged (KERNEL.20).
-            if let Some(c) = self.current.get(&id) {
-                return match c {
-                    Computed::Value(v) => Ok(v.clone()),
-                    Computed::NotComputed(r) => Err(r.clone()),
+            // its reads unchanged (KERNEL.20); found by the cell's position.
+            if let Some(p) = self.shapes.reach().position(id) {
+                return match &self.values[p] {
+                    Some(Computed::Value(v)) => Ok(v.clone()),
+                    Some(Computed::NotComputed(r)) => Err(r.clone()),
+                    // A formula with no value in this frame can only be read
+                    // from a cycle, which the plan refuses before it is held.
+                    None => Err(Reason::Cycle),
                 };
-            }
-            if self.shapes.holds(id) {
-                // A formula with no value in this frame can only be read from
-                // a cycle, which the plan refuses before it is held.
-                return Err(Reason::Cycle);
             }
         } else if let Some(kept) = self.dense(id.0) {
             // A twin kept as an array is read by its index (KERNEL.20): the
@@ -1476,6 +1499,17 @@ impl Env for Machine {
     fn enter(&self, id: CellId) {
         self.here.set(id);
     }
+}
+
+/// A formula cell's value in the frame's values, kept at its position in the
+/// order (KERNEL.26); `None` for a cell holding no formula, or a formula with
+/// no value yet.
+fn value_at<'v>(
+    shapes: &Shapes,
+    values: &'v [Option<Computed>],
+    id: CellId,
+) -> Option<&'v Computed> {
+    values.get(shapes.reach().position(id)?)?.as_ref()
 }
 
 /// A cell's content as a read of it answers: a value as it stands, an error
@@ -2146,8 +2180,11 @@ mod tests {
         for id in m.shapes.order() {
             assert!(id.0 < m.sheets, "{when}: {id:?} placed on a twin");
         }
-        for id in m.current.keys().chain(m.before.keys()) {
-            assert!(id.0 < m.sheets, "{when}: {id:?} valued on a twin");
+        // Every value kept is a formula's of the order, by its position
+        // (KERNEL.26), and the order holds no twin's cell.
+        assert_eq!(m.values.len(), m.shapes.order().len(), "{when}: the values");
+        for &p in m.before.keys() {
+            assert!((p as usize) < m.values.len(), "{when}: {p} kept beside");
         }
         for (s, sheet) in m.book.sheets.iter().enumerate().skip(m.sheets) {
             for &(row, col) in sheet.cells.keys() {
@@ -2915,9 +2952,11 @@ mod tests {
     /// Every formula cell's value of the last complete frame, spelled to the
     /// bit (a negative zero, too).
     fn values(m: &Machine) -> BTreeMap<CellId, String> {
-        m.current
+        m.shapes
+            .order()
             .iter()
-            .map(|(id, c)| (*id, format!("{c:?}")))
+            .zip(&m.values)
+            .filter_map(|(id, c)| Some((*id, format!("{:?}", c.as_ref()?))))
             .collect()
     }
 
@@ -3048,7 +3087,11 @@ mod tests {
             assert_eq!(m.lanes.made(), made, "frame {frame}");
         }
         assert_eq!(number(&m, "S", "B2"), 0.0);
-        assert!(made.0 > 3 && made.2 == vector::CHUNK, "{made:?}");
+        assert!(made.0 > 3 && made.4 == vector::CHUNK, "{made:?}");
+        assert!(
+            made.1 == made.0 && made.2 == made.0,
+            "each kind of lane: {made:?}"
+        );
     }
 
     thread_local! {
@@ -3087,6 +3130,260 @@ mod tests {
             }
         }
         assert_eq!(number(&m, "S", "F100"), 7.0, "seven frames");
+    }
+
+    /// A grid's formulas, one a column of `rows` rows from column D, each
+    /// column one shape, after its value rows (KERNEL.26).
+    fn columns(values: &str, rows: u32, formulas: &[String]) -> String {
+        let mut out = values.to_string();
+        for (k, f) in formulas.iter().enumerate() {
+            let col = 4 + k as u32;
+            let range = format!(
+                "{}:{}",
+                crate::sheet::cell_ref(1, col),
+                crate::sheet::cell_ref(rows, col)
+            );
+            let text = crate::rows::quoted(&format!("={f}"));
+            out.push_str(&format!("(formula \"S\" \"{range}\" {text})\n"));
+        }
+        out
+    }
+
+    /// The same grid stepped by runs and with every cell evaluated alone,
+    /// frame for frame and bit for bit, its first frame `Calc`'s, a write
+    /// after each frame and two frames after the last, so that the last's
+    /// value reaches a twin and is read; the grid stepped by runs, after its
+    /// last frame.
+    fn by_runs_and_alone(rows: &str, writes: &[&str]) -> Machine {
+        let mut runs = load(rows);
+        let mut alone = load(rows);
+        alone.by_runs = false;
+        assert_eq!(
+            runs.shapes.cells_in_runs(),
+            runs.shapes.order().len(),
+            "every cell in a run"
+        );
+        let calc: BTreeMap<CellId, String> = {
+            let calc = crate::calc::Calc::run(&runs.book, &runs.library);
+            let spell = |id: &CellId| format!("{:?}", calc.computed(*id).expect("computed"));
+            runs.shapes
+                .order()
+                .iter()
+                .map(|id| (*id, spell(id)))
+                .collect()
+        };
+        for frame in 1..=writes.len() + 2 {
+            assert!(runs.step(0).done && alone.step(0).done);
+            assert_eq!(values(&runs), values(&alone), "frame {frame}");
+            if frame == 1 {
+                assert_eq!(values(&runs), calc, "Calc");
+            }
+            if let Some(w) = writes.get(frame - 1) {
+                assert!(runs.write(w).is_ok() && alone.write(w).is_ok(), "{w}");
+            }
+        }
+        runs
+    }
+
+    #[test]
+    fn the_aggregates_a_run_computes_are_the_library_s_at_every_cell() {
+        // KERNEL.26: SUM, MIN, MAX, AND, OR and NOT computed by the run with
+        // the library's own rule and fold, at every count of operands and over
+        // every kind of value, given directly and read out of a range, against
+        // the same grid with every cell evaluated alone: a range of a twin
+        // kept as an array, of a twin too sparse for one and of the rows' own
+        // sheet, both walked through their cells; operands of numbers and of
+        // truth values; a sheet the grid does not hold; a range moved off the
+        // sheet; more operands than the run computes itself.
+        let values_rows = concat!(
+            "(cell \"S\" \"A1\" 1)\n",
+            "(cell \"S\" \"A2\" -2.5)\n",
+            "(cell \"S\" \"A3\" \"5\")\n",
+            "(cell \"S\" \"A4\" \"x\")\n",
+            "(cell \"S\" \"A5\" true)\n",
+            "(cell \"S\" \"A6\" (error \"#N/A\"))\n",
+            "(cell \"S\" \"B1\" 0)\n",
+            "(cell \"S\" \"B2\" false)\n",
+            "(cell \"S\" \"B3\" 3)\n",
+            "(cell \"S\" \"B5\" \"TRUE\")\n",
+            "(cell \"Far\" \"A1\" 2)\n",
+            "(cell \"Far\" \"Z900\" 3)\n",
+        );
+        let operands = [
+            "S.last!A1:B3",
+            "S.last!A4:B6",
+            "$A$1:$B$3",
+            "Far.last!A1:B3",
+            "S.last!A1,\"5\",TRUE,S.last!B2",
+            "Nope!A1:B2",
+            "S.last!A1048575:A1048576",
+            "",
+            "1,2,0,4,5,6,7,8",
+            "1,2,0,4,5,6,7,8,S.last!A1",
+            "S.last!A1>0,S.last!B1<1",
+            "S.last!A1+1,S.last!B3*2",
+            "-S.last!A2,S.last!A1:A3,S.last!B1=0",
+        ];
+        let mut formulas = Vec::new();
+        for f in ["SUM", "MIN", "MAX", "AND", "OR"] {
+            for o in operands {
+                formulas.push(format!("{f}({o})"));
+            }
+        }
+        for o in [
+            "S.last!A1>0",
+            "S.last!A1",
+            "S.last!A1+0",
+            "\"TRUE\"",
+            "S.last!A3&\"\"",
+            "S.last!A1:A2",
+            "",
+            "1,2",
+        ] {
+            formulas.push(format!("NOT({o})"));
+        }
+        let grid = columns(values_rows, 8, &formulas);
+        let m = by_runs_and_alone(
+            &grid,
+            &[
+                "(cell \"S\" \"A1\" 4)",
+                "(cell \"S\" \"B3\" \"y\")",
+                "(cell \"Far\" \"A1\" (error \"#DIV/0!\"))",
+            ],
+        );
+        // The first, SUM over the twin's A1:B3 moved to each row: at D1, after
+        // the writes of A1 and B3, 4 + 0 - 2.5.
+        assert_eq!(number(&m, "S", "D1"), 1.5);
+    }
+
+    /// A meaning of its own for a name the language's library holds.
+    fn forty_two(_: &crate::calc::Ctx<'_>, _: &[crate::calc::Arg<'_>]) -> Result<Value, Reason> {
+        Ok(Value::Number(42.0))
+    }
+
+    #[test]
+    fn a_meaning_registered_over_the_language_s_own_is_the_one_a_run_computes() {
+        // KERNEL.26: a run computes the language's aggregates and `NOT` by
+        // their rule and fold only while the library holds the language's
+        // own; a crate that registers a meaning of its own under the name has
+        // its meaning computed, at every cell of the run.
+        for name in ["SUM", "MIN", "MAX", "AND", "OR", "NOT"] {
+            let mut lib = library::language();
+            lib.register(name, forty_two);
+            let rows = format!(
+                "(cell \"S\" \"A1:A8\" 1)\n(formula \"S\" \"B1:B8\" \"={name}(S.last!A1>0)\")\n"
+            );
+            let mut m = Machine::load(&rows, lib).unwrap_or_else(|e| panic!("{}", e.refusal.text));
+            assert_eq!(m.shapes.cells_in_runs(), 8, "{name}");
+            m.step(0);
+            for row in 1..=8 {
+                assert_eq!(number(&m, "S", &format!("B{row}")), 42.0, "{name}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_lane_of_numbers_is_values_from_the_first_answer_of_another_kind() {
+        // KERNEL.26: lanes of numbers and of truth values, each made a lane
+        // of values where an answer of another kind first appears, against the
+        // same grid with every cell evaluated alone: a read meeting a text, an
+        // empty cell and an error; arithmetic meeting `#DIV/0!` and `#NUM!`; a
+        // comparison of numbers read as numbers; `IF` over numbers and truth
+        // values with a branch of texts; `NOT` over numbers and over truth
+        // values; a function's answers meeting an error; signs, percents and
+        // `&` over numbers.
+        let values_rows = concat!(
+            "(cell \"S\" \"A1\" 1)\n",
+            "(cell \"S\" \"A2\" 2)\n",
+            "(cell \"S\" \"A3\" 0)\n",
+            "(cell \"S\" \"A4\" \"t\")\n",
+            "(cell \"S\" \"A6\" (error \"#N/A\"))\n",
+            "(cell \"S\" \"A7\" 4)\n",
+            "(cell \"S\" \"A8\" 1E+300)\n",
+            "(cell \"S\" \"B1:B2\" 1)\n",
+            "(cell \"S\" \"B3\" 0)\n",
+            "(cell \"S\" \"B4:B8\" 1)\n",
+        );
+        let formulas: Vec<String> = [
+            "S.last!A1",
+            "S.last!A1*2",
+            "1/S.last!B1",
+            "S.last!A1*1E+300",
+            "(S.last!A1>1)+0",
+            "IF(S.last!A1>1,\"big\",S.last!A1)",
+            "IF(S.last!B1,S.last!A1*2,-1)",
+            "IF(S.last!B1>0,S.last!B1,\"no\")",
+            "NOT(S.last!B1+0)",
+            "NOT(S.last!B1>0)",
+            "MOD(S.last!A1,S.last!B1)",
+            "-S.last!B1",
+            "S.last!B1%",
+            "S.last!B1&\"x\"",
+            "S.last!A1=S.last!B1",
+            "S.last!B1=S.last!B2",
+            // Two lanes of numbers compared, every cell either side read
+            // holding a number until a write makes one a text.
+            "S.last!B1<S.last!B1*2",
+            "S.last!B1*3>=S.last!B1+1",
+            "S.last!B1+1>S.last!B1",
+            "2^S.last!B1",
+            "S.last!B1-S.last!B2*3",
+            "SUM(S.last!A1:A2)/S.last!B1",
+            "ABS(S.last!B1-2)",
+        ]
+        .iter()
+        .map(|f| f.to_string())
+        .collect();
+        let grid = columns(values_rows, 8, &formulas);
+        let m = by_runs_and_alone(
+            &grid,
+            &[
+                "(cell \"S\" \"B5\" \"x\")",
+                "(cell \"S\" \"A4\" 3)",
+                "(cell \"S\" \"B3\" 2)",
+            ],
+        );
+        // `1/S.last!B1` over B, 2 at B3 by the last write.
+        assert_eq!(number(&m, "S", "F3"), 0.5);
+    }
+
+    #[test]
+    fn a_value_follows_its_cell_when_a_formula_s_write_plans_the_order_again() {
+        // KERNEL.26: each formula's value kept at its cell's position in the
+        // order, moved with its cell when a formula's write plans the order
+        // again: every cell the write leaves keeps its value until the next
+        // frame computes it, the cell written has none, and the next frame is
+        // the frame of the same grid loaded and stepped.
+        let rows = concat!(
+            "(cell \"S\" \"A1\" 2)\n",
+            "(formula \"S\" \"B1:B8\" \"=S.last!$A$1*ROW()\")\n",
+            "(formula \"S\" \"D1\" \"=B8+1\")\n",
+        );
+        let mut m = load(rows);
+        m.step(0);
+        let kept = values(&m);
+        let at_b5 = m.shapes.reach().position((0, 5, 2));
+        assert_eq!(m.write("(formula \"S\" \"B4\" \"=D1*2\")"), Ok(1));
+        assert_ne!(m.shapes.reach().position((0, 5, 2)), at_b5, "B5 moved");
+        for (id, v) in &kept {
+            let now = m.computed(*id).map(|c| format!("{c:?}"));
+            if *id == (0, 4, 2) {
+                assert_eq!(now, None, "B4, written");
+            } else {
+                assert_eq!(now.as_ref(), Some(v), "{id:?}");
+            }
+        }
+        m.step(0);
+        let mut fresh = load(concat!(
+            "(cell \"S\" \"A1\" 2)\n",
+            "(formula \"S\" \"B1:B3\" \"=S.last!$A$1*ROW()\")\n",
+            "(formula \"S\" \"B4\" \"=D1*2\")\n",
+            "(formula \"S\" \"B5:B8\" \"=S.last!$A$1*ROW()\")\n",
+            "(formula \"S\" \"D1\" \"=B8+1\")\n",
+        ));
+        fresh.step(0);
+        assert_eq!(values(&m), values(&fresh), "the frame after");
+        assert_eq!(number(&m, "S", "B4"), 34.0, "(16 + 1) * 2");
     }
 
     /// Two grids' kept state the same to the bit: every formula's value of
