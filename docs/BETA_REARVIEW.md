@@ -21704,6 +21704,66 @@ was checked first in the worktree, 354 tests passed and 5 ignored, 55 of
 ledger. The two gains decision 6 names are filed as one item in a commit of
 their own after it.
 
+- ⬜ **`KERNEL.27` — the 4.8 ms frame: the twins' cells made only when
+  read, and a part repeated in one formula computed once.**
+  *Minted 2026-10-10 at the owner's word, "Mint the two further gains as an
+  additional item, then commit", from `KERNEL.26`'s profile of its own
+  frame (its decision 6, the entry above). Nothing is scoped or built;
+  every figure below was measured that day, over `KERNEL.20`'s fourth slice
+  with `KERNEL.26`, natively on one performance core.*
+
+  **The frame.** A steady frame of Life's soup steps in 4.8 ms natively and
+  6.6 in headless Chrome, 153 frames a second. Timers in a copy, around each
+  part of the step and each kind of node in a run, never in the tree,
+  divide the native frame over the benchmark's window, 4.9 ms with the
+  timers in: the rule's two `SUM`s over a range 1.18 ms, 13.9 ns a call; its
+  `AND` and `OR` 0.70; the one-cell reads 0.57; the operators 0.22; `IF`'s
+  partition 0.22; the frame's values kept 0.31; the frame's end 1.18, its
+  copy of the changed cells 1.08, 12,395 cells a frame; the frame's start
+  0.35.
+
+  **The first gain: the twins' cells made only when read.** The frame's end
+  copies each changed cell into its twin's cells, its array's slot, its
+  plane's byte and its reason. The array is what an evaluation reads of a
+  twin kept as one; the twin's cells, a B-tree of 63,600 cells for Life's
+  Screen, are what a reader of the twin as a sheet reads: the record and the
+  plane of a twin, a save, `Machine::workbook`, and a twin too sparse for an
+  array. Most of the copy's 1.08 ms is the B-tree's lookup of each changed
+  cell. A twin's cells made from its array when a reader asks for them would
+  leave the frame's end the array, the plane and the reasons; it changes
+  what `view` and `workbook` borrow, a reader needing the cells made first,
+  and that is the design to scope (the first slice's profile named the same
+  step, at 1.4 ms of its frame). *Alternatives:* the copy as it stands; the
+  changed cells put in order and the B-tree walked once along them, which
+  costs less than a lookup each when many changed and changes no reader.
+
+  **The second gain: a part repeated in one formula computed once.** Life's
+  rule computes `SUM(Screen.last!A1:C3)-Screen.last!B2` twice and reads
+  `Screen.last!B2` three times at every cell. The profile's parts put such a
+  part computed once a run at about 1 ms of the frame, one `SUM`, two reads
+  and one subtraction, before what keeping it costs. Every value stays the
+  library's, so no principle is crossed; what is to scope is where the
+  sharing lives, the shape's parse made a graph or the run's lanes kept by
+  the part they answer, and its reach, `IF` computing each branch only at
+  the cells that take it. A formula of Excel's often repeats a part, `LET`
+  being Excel's own remedy, and Excel computes each repeat, so the gain is
+  every repeating formula's and not Life's alone. *Alternative:* the
+  cartridges' rules written without the repeat, a change to the benchmark's
+  rows.
+
+  **Why one item.** Both are what the 4.8 ms frame has left of overhead over
+  the work itself, measured in one profile, and neither crosses a principle;
+  the first changes what a reader of a twin borrows, the second the
+  evaluation's plan of a formula.
+
+  *Oracle, whichever is built:* the generated grids of `KERNEL.20`'s third
+  and fourth slices and of `KERNEL.26`, stepped by runs and cell by cell,
+  computing what changed and computing every cell, every value, twin cell,
+  array and plane equal to the bit, and their first frame `Calc`'s; Life's
+  frames held to the hand-written Life; `CART.1`'s runner and Alonzo's
+  instrument for the numbers; a frame's allocations no more than 80; the
+  stack painted against `VLA.1`'s limits. `~days` each
+
 ---
 
 # 🔧 MACHINE · OPTIMIZATION
@@ -34922,7 +34982,7 @@ numbers. **Quoting a correction is not applying it.**
 - ✅ **KERNEL.24 — the plane kept at the frame's end.** The language's half of Alonzo's `ENGINE.2`: a sheet an engine views as a plane has its bytes kept over its extent at the end of every frame, filled from the same value lookups that fill the twins, so that a view of it is a copy; only a sheet viewed as a plane keeps one, the view marking it, so that `view` keeps its signature and a sheet never drawn pays nothing; a write drops the planes of the sheets it changed, and the walk, `plane::bytes`, untouched and the reference, answers until the next frame's end; a twin and a sheet past a plane's limit are always walked. Four tests hold the kept bytes to the walk's at every turn, and three mutants were caught. Measured natively on Alonzo's Life, 320 by 200: a view 0.003 ms kept against 1.64 ms walked, and a step no slower. Built and committed 2026-10-09 at the owner's word; the entry above carries the record. `~hours`, taken in hours.
 - ✅ **KERNEL.3 — the study before the viewport (`SD-29`).** The instrument as one document, `docs/PROTOCOL.md`: the tasks and comprehension questions backed into from the literature, a fixture with one planted defect of each of five classes in two variants (`scripts/study/`, written by `tools/build_study_fixture.ps1` and held by `tools/check_study_fixture.ps1`), the task sheet, the protocol, the measures, a renderer benchmark (`tools/bench_view.ps1`) and the decision rule written before the first run. The benchmark, run by the owner in fullscreen on 2026-10-08, decided canvas: a virtualized DOM held a 60 Hz frame only at the default cell size, canvas through the densest legible one, and `KERNEL.5` is built on it in Alonzo. The fixtures were blessed in Excel on 2026-10-09, and `KERNEL.7`'s recalculation reproduces every cached value in them. The study's human half was not run: with the tool's author as its only participant it could decide nothing, so it runs when the formula bar or the pane is next scoped, with another participant, as `SD-29` requires then. Built 2026-10-08, committed and closed 2026-10-09 at the owner's word; the entry above carries the record. `~days`, taken in two.
 - ✅ **KERNEL.25 — the evaluator's hot path made cheaper, bit for bit.** Asked by Alonzo's `CART.1` with its profile and seven prototypes, all seven in `vla-lang`: a sheet found by `eq_ignore_ascii_case` instead of every sheet's name folded into a new string at every reference; a library name already in upper case looked up as it stands; a reference's label borrowed from the parse, `Arg<'e>`; one area held in place, `Areas`; a range walked as it is read, and `SUM`, `MIN`, `MAX`, `AND` and `OR` folding as they walk, the fold compiled into the walk; the machine's maps of values and the plan's places under an Fx hash written in the crate, no dependency; a twin's read straight to its cell. Every frame equal to the hand-written Life and the goldens unchanged; nine tests, and four mutants caught. Measured natively on Alonzo's Life, 320 by 200, on a performance core: a steady step from 282.3 to 101.0 ms, 2.80 times, the gun at the soup's cost, the load from 167 to 53 ms, the allocations of a frame from 4,470,549 to 251,957. Built 2026-10-09 and committed 2026-10-10 at the owner's word; the entry above carries the record. `~a day`, taken in hours.
-- ✅ **KERNEL.26 — the frame's two decisions: the language's own functions computed by a run, by their meaning written once, and the frame's values kept at each cell's place in the order.** Filed from `KERNEL.20`'s third slice for the owner to adjudicate together, and both built over its fourth: each aggregate's meaning written once in the library, a rule for each kind of item it counts and a fold for each of `SUM`, `MIN`, `MAX`, `AND` and `OR`, with `NOT`'s answer, which a cell's evaluation and a run both drive, a range of a twin walked where it stands; lanes of numbers and of truth values carrying a formula's steps by `binary`'s own rules over numbers, named so that `binary` calls them too; and the frame's values kept at each formula cell's position in the order, which the plan already held, where a map held them. Every frame equal to the hand-written Life and every golden unchanged; four tests, and 27 mutants caught, the three in a rule both drive by the library's own tests; no level of the evaluation deeper on the stack. Measured on Alonzo's Life, 320 by 200, on a performance core: a steady frame of the soup from 12.0 to 4.8 ms natively and from 16.3 to 6.6 in headless Chrome, 153 frames a second, about twenty times 0.8.1's; the gun's from 42 to 20 µs; 80 allocations a frame, as before. Scoped, built and committed 2026-10-10 at the owner's word; the entry above carries the record. The two further gains its profile named are an item of their own. `~days` each, taken in hours.
+- ✅ **KERNEL.26 — the frame's two decisions: the language's own functions computed by a run, by their meaning written once, and the frame's values kept at each cell's place in the order.** Filed from `KERNEL.20`'s third slice for the owner to adjudicate together, and both built over its fourth: each aggregate's meaning written once in the library, a rule for each kind of item it counts and a fold for each of `SUM`, `MIN`, `MAX`, `AND` and `OR`, with `NOT`'s answer, which a cell's evaluation and a run both drive, a range of a twin walked where it stands; lanes of numbers and of truth values carrying a formula's steps by `binary`'s own rules over numbers, named so that `binary` calls them too; and the frame's values kept at each formula cell's position in the order, which the plan already held, where a map held them. Every frame equal to the hand-written Life and every golden unchanged; four tests, and 27 mutants caught, the three in a rule both drive by the library's own tests; no level of the evaluation deeper on the stack. Measured on Alonzo's Life, 320 by 200, on a performance core: a steady frame of the soup from 12.0 to 4.8 ms natively and from 16.3 to 6.6 in headless Chrome, 153 frames a second, about twenty times 0.8.1's; the gun's from 42 to 20 µs; 80 allocations a frame, as before. Scoped, built and committed 2026-10-10 at the owner's word; the entry above carries the record. The two further gains its profile named are `KERNEL.27`. `~days` each, taken in hours.
 
 ## 🛡 ADVERSARY · SECURITY
 

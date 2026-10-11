@@ -95,7 +95,7 @@ output:
 | GO | GO.5 | GO.6 |
 | IN | IN.16 | IN.17 |
 | IO | IO.6 | IO.7 |
-| KERNEL | KERNEL.26 | KERNEL.27 |
+| KERNEL | KERNEL.27 | KERNEL.28 |
 | L | L17 (bare) | L18 |
 | LE | LE.10 | LE.11 |
 | LX | LX.12 | LX.13 |
@@ -190,7 +190,10 @@ for bit, the seven fixes Alonzo's `CART.1` measured (its decision 9).
 decisions `KERNEL.20`'s third slice left to the owner over its frame of
 19 ms, the language's own functions computed by a run and the rows' values
 kept as arrays, filed as one item to be adjudicated together. `KERNEL.27`
-is next free.
+was minted 2026-10-10 at the owner's word, for the two further gains
+`KERNEL.26`'s profile of its own frame named, the twins' cells made only
+when read and a part repeated in one formula computed once, filed as one
+item. `KERNEL.28` is next free.
 
 **`SIG.8` minted 2026-09-12 (owner), and `SIG.6`/`SIG.7` deliberately
 skipped rather than spent.** The new item is the signing certificate as a
